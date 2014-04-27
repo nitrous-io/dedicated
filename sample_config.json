@@ -1,0 +1,9 @@
+{
+  "address": ":6666",
+  "providers": {
+    "amazon": {
+      "access_key": "",
+      "secret_key": ""
+    }
+  }
+}
