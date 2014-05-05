@@ -48,11 +48,30 @@ func (s *Server) postHost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return err
+	}
+	provider := r.Form.Get("provider")
+	providerConfig := s.Config.Providers[provider]
+	configJson := r.Form.Get("config")
+
+	host, err := InitHost(provider, providerConfig, configJson)
+	if err != nil {
+		return err
+	}
+	if err := host.Destroy(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Server) CreateRouter() {
 	r := mux.NewRouter()
 	m := map[string]map[string]HttpHandler{
 		"POST": {
-			"/host": s.postHost,
+			"/host":        s.postHost,
+			"/host/delete": s.deleteHost,
 		},
 	}
 	for method, routes := range m {

@@ -4,6 +4,10 @@
     "amazon": {
       "access_key": "",
       "secret_key": ""
+    },
+    "digitalocean": {
+      "client_id": "",
+      "api_key": ""
     }
   }
 }

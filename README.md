@@ -11,6 +11,10 @@ Provision a box host
       secret_key: ...,
       access_key: ...,
     }
+  , "digitalocean": {
+      client_id: ...,
+      api_key: ...
+    }
   }
 }
 ```
@@ -36,6 +40,20 @@ For amazon, the config is:
   },
   availability_zone: "us-west-2a",
   instance_type: "t1.micro",
+  public_keys: [
+    File.read("#{ENV['HOME']}/.ssh/id_rsa.pub")
+  ]
+}
+```
+
+For digitalocean, the config is:
+
+```ruby
+{
+  name: "user-box-1",
+  image_id: "3240036", # Ubuntu 14.04 x64
+  region_id: "6", # Singapore 1
+  size_id: "66", # 512MB
   public_keys: [
     File.read("#{ENV['HOME']}/.ssh/id_rsa.pub")
   ]
