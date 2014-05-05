@@ -47,6 +47,7 @@ ssh_authorized_keys:
 var compiledUserData *template.Template
 
 type HostConfig struct {
+	Id               string            `json:"id"`
 	SourceAmi        string            `json:"source_ami"`
 	AvailabilityZone string            `json:"availability_zone"`
 	InstanceType     string            `json:"instance_type"`
@@ -118,6 +119,29 @@ func (h *Host) Create() error {
 		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
 	}
 	updatedInstance, err := WaitForState(state)
+	if err != nil {
+		return err
+	}
+	h.instance = updatedInstance.(*ec2.Instance)
+	return nil
+}
+
+func (h *Host) Destroy() error {
+	var instancesResp *ec2.InstancesResp
+	var err error
+	if instancesResp, err = h.provider.Instances([]string{h.Config.Id}, nil); err != nil {
+		return err
+	}
+	if _, err := h.provider.TerminateInstances([]string{h.Config.Id}); err != nil {
+		return err
+	}
+	instance := instancesResp.Reservations[0].Instances[0]
+	state := StateChangeConf{
+		Pending: []string{"pending", "running", "shutting-down", "stopped", "stopping"},
+		Refresh: InstanceStateRefreshFunc(h.provider, &instance),
+		Target:  "terminated",
+	}
+	updatedInstance, err := WaitForState(&state)
 	if err != nil {
 		return err
 	}

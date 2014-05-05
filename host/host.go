@@ -3,7 +3,8 @@ package host
 import "fmt"
 
 type Host interface {
-	Create() error // create a new host
+	Create() error  // create a new host
+	Destroy() error // destroy the current host
 }
 
 type NewHost func(defaultConfig map[string]string, config string) (Host, error)
