@@ -21,6 +21,22 @@ import (
 const DIGITALOCEAN_API_URL = "https://api.digitalocean.com"
 
 type (
+	SSHKey struct {
+		Id     uint   `json:"id"`
+		Name   string `json:"name"`
+		PubKey string `json:"ssh_pub_key"`
+	}
+
+	SSHKeyResp struct {
+		Status string  `json:"status"`
+		Key    *SSHKey `json:"ssh_key"`
+	}
+
+	SSHKeysResp struct {
+		Status string    `json:"status"`
+		Keys   []*SSHKey `json:"ssh_keys"`
+	}
+
 	Image struct {
 		Id           uint   `json:"id"`
 		Name         string `json:"name"`
@@ -115,6 +131,30 @@ func NewDigitalOceanClient(client string, key string) *DigitalOceanClient {
 	return c
 }
 
+// Creates an SSH Key and returns it's id
+func (d DigitalOceanClient) CreateKey(name string, pub string) (*SSHKey, error) {
+	params := url.Values{}
+	params.Set("name", name)
+	params.Set("ssh_pub_key", pub)
+
+	body, err := NewRequest(d, "ssh_keys/new", params)
+	if err != nil {
+		return nil, err
+	}
+	sshKeyResp := &SSHKeyResp{}
+	if err := json.Unmarshal(body, sshKeyResp); err != nil {
+		return nil, err
+	}
+	return sshKeyResp.Key, nil
+}
+
+// Destroys an SSH key
+func (d DigitalOceanClient) DestroyKey(id uint) error {
+	path := fmt.Sprintf("ssh_keys/%v/destroy", id)
+	_, err := NewRequest(d, path, url.Values{})
+	return err
+}
+
 // Creates a droplet and returns it's id
 func (d DigitalOceanClient) CreateDroplet(name string, size string, image string, region string, keyId uint, privateNetworking bool) (*Droplet, error) {
 	params := url.Values{}
@@ -190,8 +230,8 @@ func (d DigitalOceanClient) Images() ([]*Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	var result ImagesResp
-	if err := json.Unmarshal(resp, &result); err != nil {
+	result := &ImagesResp{}
+	if err := json.Unmarshal(resp, result); err != nil {
 		return nil, err
 	}
 	return result.Images, nil
@@ -210,8 +250,8 @@ func (d DigitalOceanClient) DropletStatus(id uint) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	var dropletResp DropletResp
-	if err := json.Unmarshal(body, &dropletResp); err != nil {
+	dropletResp := &DropletResp{}
+	if err := json.Unmarshal(body, dropletResp); err != nil {
 		return "", "", err
 	}
 	return dropletResp.IpAddress, dropletResp.Status, nil
@@ -248,8 +288,8 @@ func NewRequest(d DigitalOceanClient, path string, params url.Values) ([]byte, e
 
 		log.Printf("response from digitalocean: %s", body)
 
-		var genericResp GenericResp
-		if err = json.Unmarshal(body, &genericResp); err != nil {
+		genericResp := &GenericResp{}
+		if err = json.Unmarshal(body, genericResp); err != nil {
 			err = fmt.Errorf("Failed to decode JSON response (HTTP %v) from DigitalOcean: %s",
 				resp.StatusCode, body)
 			return body, err
@@ -317,12 +357,10 @@ func (d DigitalOceanClient) Regions() ([]*Region, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	var result RegionsResp
-	if err := json.Unmarshal(resp, &result); err != nil {
+	result := &RegionsResp{}
+	if err := json.Unmarshal(resp, result); err != nil {
 		return nil, err
 	}
-
 	return result.Regions, nil
 }
 
@@ -362,12 +400,10 @@ func (d DigitalOceanClient) Sizes() ([]Size, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	var result SizesResp
-	if err := json.Unmarshal(resp, &result); err != nil {
+	result := &SizesResp{}
+	if err := json.Unmarshal(resp, result); err != nil {
 		return nil, err
 	}
-
 	return result.Sizes, nil
 }
 
