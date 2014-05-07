@@ -2,10 +2,13 @@ package hostbuilder
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/hostbuilder/host"
 )
 
 type HttpHandler func(w http.ResponseWriter, r *http.Request) error
@@ -25,9 +28,24 @@ type config struct {
 	Providers map[string]providerConfig `json:"providers"`
 }
 
+type WebhookData struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+
+	Provider  string `json:"provider"`
+	Id        string `json:"id"`
+	IpAddress string `json:"ip_address"`
+}
+
 type Server struct {
 	Config *config
 	Router *mux.Router
+}
+
+func doWebHook(endpoint string, data string) {
+	params := url.Values{}
+	params.Set("payload", data)
+	http.PostForm(endpoint, params)
 }
 
 func (s *Server) postHost(w http.ResponseWriter, r *http.Request) error {
@@ -35,17 +53,35 @@ func (s *Server) postHost(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	provider := r.Form.Get("provider")
+	webhook := r.Form.Get("webhook")
 	providerConfig := s.Config.Providers[provider]
 	configJson := r.Form.Get("config")
 
-	host, err := InitHost(provider, providerConfig, configJson)
+	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return err
 	}
-	if err := host.Create(); err != nil {
-		return err
-	}
-	return nil
+	err = h.Create()
+	go func() {
+		log.Println("performing webhook for create")
+		d := &WebhookData{}
+		var info *host.Info
+		if err == nil {
+			info, err = h.Info()
+		}
+		if err != nil {
+			d.Success = false
+			d.Message = fmt.Sprintf("Error: %v", err)
+		} else {
+			d.Success = true
+			d.Provider = info.Provider
+			d.Id = info.Id
+			d.IpAddress = info.IpAddress
+		}
+		b, _ := json.Marshal(d)
+		doWebHook(webhook, string(b))
+	}()
+	return err
 }
 
 func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
@@ -53,17 +89,28 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	provider := r.Form.Get("provider")
+	webhook := r.Form.Get("webhook")
 	providerConfig := s.Config.Providers[provider]
 	configJson := r.Form.Get("config")
 
-	host, err := InitHost(provider, providerConfig, configJson)
+	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return err
 	}
-	if err := host.Destroy(); err != nil {
-		return err
-	}
-	return nil
+	err = h.Destroy()
+	go func() {
+		log.Println("performing webhook for destroy")
+		d := &WebhookData{}
+		if err != nil {
+			d.Success = false
+			d.Message = fmt.Sprintf("Error: %v", err)
+		} else {
+			d.Success = true
+		}
+		b, _ := json.Marshal(d)
+		doWebHook(webhook, string(b))
+	}()
+	return err
 }
 
 func (s *Server) CreateRouter() {

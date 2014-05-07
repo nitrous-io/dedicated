@@ -25,6 +25,7 @@ Provision a box host
 
 ```
 provider: amazon
+webhook: "https://hostbuild.er/webhook",
 config: json encoded value for the provider
 ```
 
