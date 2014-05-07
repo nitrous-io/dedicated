@@ -17,6 +17,10 @@ func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := handlerFunc(w, r); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"status":"ok"}`))
 		}
 	}
 }
@@ -29,12 +33,12 @@ type config struct {
 }
 
 type WebhookData struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
+	Success bool   `json:"success,omitempty"`
+	Message string `json:"message,omitempty"`
 
-	Provider  string `json:"provider"`
-	Id        string `json:"id"`
-	IpAddress string `json:"ip_address"`
+	Provider  string `json:"provider,omitempty"`
+	Id        string `json:"id,omitempty"`
+	IpAddress string `json:"ip_address,omitempty"`
 }
 
 type Server struct {
@@ -42,9 +46,10 @@ type Server struct {
 	Router *mux.Router
 }
 
-func doWebHook(endpoint string, data string) {
+func doWebHook(endpoint string, data *WebhookData) {
+	payload, _ := json.Marshal(data)
 	params := url.Values{}
-	params.Set("payload", data)
+	params.Set("payload", string(payload))
 	http.PostForm(endpoint, params)
 }
 
@@ -61,27 +66,26 @@ func (s *Server) postHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	err = h.Create()
 	go func() {
-		log.Println("performing webhook for create")
-		d := &WebhookData{}
 		var info *host.Info
+		log.Println("creating the host")
+		err = h.Create()
 		if err == nil {
 			info, err = h.Info()
 		}
+		d := &WebhookData{Success: true}
 		if err != nil {
 			d.Success = false
 			d.Message = fmt.Sprintf("Error: %v", err)
 		} else {
-			d.Success = true
 			d.Provider = info.Provider
 			d.Id = info.Id
 			d.IpAddress = info.IpAddress
 		}
-		b, _ := json.Marshal(d)
-		doWebHook(webhook, string(b))
+		log.Println("performing webhook for create")
+		doWebHook(webhook, d)
 	}()
-	return err
+	return nil
 }
 
 func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
@@ -97,20 +101,18 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	err = h.Destroy()
 	go func() {
-		log.Println("performing webhook for destroy")
-		d := &WebhookData{}
+		log.Println("destroying the host")
+		d := &WebhookData{Success: true}
+		err = h.Destroy()
 		if err != nil {
 			d.Success = false
 			d.Message = fmt.Sprintf("Error: %v", err)
-		} else {
-			d.Success = true
 		}
-		b, _ := json.Marshal(d)
-		doWebHook(webhook, string(b))
+		log.Println("performing webhook for destroy")
+		doWebHook(webhook, d)
 	}()
-	return err
+	return nil
 }
 
 func (s *Server) CreateRouter() {
