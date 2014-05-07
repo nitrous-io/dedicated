@@ -1,11 +1,35 @@
 package ssh
 
-import "code.google.com/p/go.crypto/ssh"
+import (
+	"bufio"
+	"errors"
+	"io"
+	"path/filepath"
+
+	"code.google.com/p/go.crypto/ssh"
+)
 
 type Conn struct {
 	Client  *ssh.Client
 	Config  *ssh.ClientConfig
 	Address string
+}
+
+func (c *Conn) Upload(path string, input io.Reader) error {
+	// The target directory and file for talking the SCP protocol
+	targetDir := filepath.Dir(path)
+	targetFile := filepath.Base(path)
+	scpFunc := func(w io.Writer, stdoutR *bufio.Reader) error {
+		return scpUploadFile(targetFile, input, w, stdoutR)
+	}
+	return c.scpSession("scp -vt "+targetDir, scpFunc)
+}
+
+func (c *Conn) newSession() (*ssh.Session, error) {
+	if c.Client == nil {
+		return nil, errors.New("client not available")
+	}
+	return c.Client.NewSession()
 }
 
 // connect to the ssh server.
