@@ -8,7 +8,8 @@ import (
 	"time"
 
 	host "github.com/nitrous-io/hostbuilder/host"
-	"github.com/nitrous-io/hostbuilder/ssh"
+	do "github.com/nitrous-io/hostbuilder/pkg/digitalocean"
+	"github.com/nitrous-io/hostbuilder/pkg/ssh"
 )
 
 type HostConfig struct {
@@ -21,10 +22,10 @@ type HostConfig struct {
 }
 
 type Host struct {
-	Client *DigitalOceanClient
+	Client *do.Client
 	Config *HostConfig
 
-	instance *Droplet
+	instance *do.Droplet
 }
 
 func (h *Host) Create() error {
@@ -47,36 +48,39 @@ func (h *Host) Create() error {
 
 	// create the droplet
 	droplet, err := h.Client.CreateDroplet(config.Name, config.SizeId,
-		config.ImageId, config.RegionId, 0, false)
+		config.ImageId, config.RegionId, sshKey.Id, false)
+	if err != nil {
+		return err
+	}
+
+	// wait for the droplet to be active
+	droplet, err = do.WaitForState("active", droplet.Id, h.Client,
+		do.StateWaitTime, 5*time.Minute)
 	if err != nil {
 		return err
 	}
 	h.instance = droplet
 
-	// wait for the droplet to be active
-	if err := waitForState("active", uint(h.instance.Id), h.Client, 5*time.Minute); err != nil {
-		return err
-	}
-
 	// check that we can ssh into the server
 	address := fmt.Sprintf("%s:%s", h.instance.IpAddress, "22")
-	if _, err := ssh.WaitForSSH(address, "root", privateKey, make(chan struct{})); err != nil {
+	if _, err := ssh.WaitForSSH(address, "root", privateKey,
+		ssh.TimeWait, make(chan struct{})); err != nil {
 		return err
 	}
+	log.Println("SSH READY for droplet %v", h.instance.Id)
 	return nil
 }
 
 func (h *Host) Destroy() error {
-	id, err := strconv.ParseUint(h.Config.Id, 10, 64)
+	id, err := strconv.ParseInt(h.Config.Id, 10, 64)
 	if err != nil {
 		return err
 	}
-	return h.Client.DestroyDroplet(uint(id))
+	return h.Client.DestroyDroplet(int(id))
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
-	client := NewDigitalOceanClient(defaultConfig["client_id"],
-		defaultConfig["api_key"])
+	client := do.NewClient(defaultConfig["client_id"], defaultConfig["api_key"])
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
 		log.Printf("digitalocean: invalid config %s", config)

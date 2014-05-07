@@ -6,6 +6,7 @@ require "json"
 require "securerandom"
 
 client = HTTPClient.new
+client.receive_timeout = 10000
 
 random_id = SecureRandom.hex(32)
 
