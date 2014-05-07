@@ -1,13 +1,7 @@
-// Some code was taken from packer
-// All of the methods used to communicate with the digital_ocean API
-// are here. Their API is on a path to V2, so just plain JSON is used
-// in place of a proper client library for now.
-
 package digitalocean
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -22,7 +16,7 @@ const DIGITALOCEAN_API_URL = "https://api.digitalocean.com"
 
 type (
 	SSHKey struct {
-		Id     uint   `json:"id"`
+		Id     int    `json:"id"`
 		Name   string `json:"name"`
 		PubKey string `json:"ssh_pub_key"`
 	}
@@ -38,7 +32,7 @@ type (
 	}
 
 	Image struct {
-		Id           uint   `json:"id"`
+		Id           int    `json:"id"`
 		Name         string `json:"name"`
 		Slug         string `json:"slug"`
 		Distribution string `json:"distribution"`
@@ -46,7 +40,7 @@ type (
 
 	ImageResp struct {
 		Status string `json:"status"`
-		Images *Image `json:"image"`
+		Image  *Image `json:"image"`
 	}
 
 	ImagesResp struct {
@@ -55,9 +49,14 @@ type (
 	}
 
 	Region struct {
-		Id   uint   `json:"id"`
+		Id   int    `json:"id"`
 		Name string `json:"name"`
 		Slug string `json:"slug"`
+	}
+
+	RegionResp struct {
+		Status string  `json:"status"`
+		Region *Region `json:"region"`
 	}
 
 	RegionsResp struct {
@@ -66,19 +65,19 @@ type (
 	}
 
 	Size struct {
-		Id   uint   `json:"id"`
+		Id   int    `json:"id"`
 		Name string `json:"name"`
 		Slug string `json:"slug"`
 	}
 
 	SizesResp struct {
-		Status string `json:"status"`
-		Sizes  []Size `json:"sizes"`
+		Status string  `json:"status"`
+		Sizes  []*Size `json:"sizes"`
 	}
 
 	GenericResp struct {
-		Status       string `json:"status"`
-		ErrorMessage string `json:"error_message"`
+		Status  string `json:"status"`
+		Message string `json:"message"`
 	}
 
 	DropletResp struct {
@@ -103,22 +102,19 @@ type (
 		CreatedAt time.Time `json:"created_at"`
 	}
 
-	DigitalOceanClient struct {
-		// The http client for communicating
-		client *http.Client
-
-		// The base URL of the API
-		BaseURL string
-
-		// Credentials
+	Client struct {
+		client   *http.Client // The http client for communicating
+		BaseURL  string       // The base URL of the API
 		ClientID string
 		APIKey   string
 	}
 )
 
 // Creates a new client for communicating with DO
-func NewDigitalOceanClient(client string, key string) *DigitalOceanClient {
-	c := &DigitalOceanClient{
+// To fake the server, replace BaseURL with the desired URL after the client is
+// created
+func NewClient(client string, key string) *Client {
+	c := &Client{
 		client: &http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
@@ -132,7 +128,7 @@ func NewDigitalOceanClient(client string, key string) *DigitalOceanClient {
 }
 
 // Creates an SSH Key and returns it's id
-func (d DigitalOceanClient) CreateKey(name string, pub string) (*SSHKey, error) {
+func (d Client) CreateKey(name string, pub string) (*SSHKey, error) {
 	params := url.Values{}
 	params.Set("name", name)
 	params.Set("ssh_pub_key", pub)
@@ -141,132 +137,135 @@ func (d DigitalOceanClient) CreateKey(name string, pub string) (*SSHKey, error) 
 	if err != nil {
 		return nil, err
 	}
-	sshKeyResp := &SSHKeyResp{}
-	if err := json.Unmarshal(body, sshKeyResp); err != nil {
+	var resp SSHKeyResp
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, err
 	}
-	return sshKeyResp.Key, nil
+	return resp.Key, nil
 }
 
 // Destroys an SSH key
-func (d DigitalOceanClient) DestroyKey(id uint) error {
+func (d Client) DestroyKey(id int) error {
 	path := fmt.Sprintf("ssh_keys/%v/destroy", id)
 	_, err := NewRequest(d, path, url.Values{})
 	return err
 }
 
 // Creates a droplet and returns it's id
-func (d DigitalOceanClient) CreateDroplet(name string, size string, image string, region string, keyId uint, privateNetworking bool) (*Droplet, error) {
+func (d Client) CreateDroplet(
+	name string,
+	rawSize string,
+	rawImage string,
+	rawRegion string,
+	keyId int,
+	privateNetworking bool) (*Droplet, error) {
 	params := url.Values{}
 	params.Set("name", name)
 
-	found_size, err := d.Size(size)
+	size, err := d.Size(rawSize)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid size or lookup failure: '%s': %s", size, err)
 	}
 
-	found_image, err := d.Image(image)
+	image, err := d.Image(rawImage)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid image or lookup failure: '%s': %s", image, err)
 	}
 
-	found_region, err := d.Region(region)
+	region, err := d.Region(rawRegion)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid region or lookup failure: '%s': %s", region, err)
 	}
 
-	params.Set("size_slug", found_size.Slug)
-	params.Set("image_slug", found_image.Slug)
-	params.Set("region_slug", found_region.Slug)
+	params.Set("size_slug", size.Slug)
+	params.Set("image_slug", image.Slug)
+	params.Set("region_slug", region.Slug)
+	params.Set("ssh_key_ids", fmt.Sprintf("%v", keyId))
 	params.Set("private_networking", fmt.Sprintf("%v", privateNetworking))
 
 	body, err := NewRequest(d, "droplets/new", params)
 	if err != nil {
 		return nil, err
 	}
-	dropletResp := &DropletResp{}
-	if err := json.Unmarshal(body, dropletResp); err != nil {
+	var resp DropletResp
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, err
 	}
-	return dropletResp.Droplet, nil
+	return resp.Droplet, nil
 }
 
 // Destroys a droplet
-func (d DigitalOceanClient) DestroyDroplet(id uint) error {
+func (d Client) DestroyDroplet(id int) error {
 	path := fmt.Sprintf("droplets/%v/destroy", id)
 	_, err := NewRequest(d, path, url.Values{})
 	return err
 }
 
 // Powers off a droplet
-func (d DigitalOceanClient) PowerOffDroplet(id uint) error {
+func (d Client) PowerOffDroplet(id int) error {
 	path := fmt.Sprintf("droplets/%v/power_off", id)
 	_, err := NewRequest(d, path, url.Values{})
 	return err
 }
 
 // Shutsdown a droplet. This is a "soft" shutdown.
-func (d DigitalOceanClient) ShutdownDroplet(id uint) error {
+func (d Client) ShutdownDroplet(id int) error {
 	path := fmt.Sprintf("droplets/%v/shutdown", id)
 	_, err := NewRequest(d, path, url.Values{})
 	return err
 }
 
 // Creates a snaphot of a droplet by it's ID
-func (d DigitalOceanClient) CreateSnapshot(id uint, name string) error {
+func (d Client) CreateSnapshot(id int, name string) error {
 	path := fmt.Sprintf("droplets/%v/snapshot", id)
-
 	params := url.Values{}
 	params.Set("name", name)
-
 	_, err := NewRequest(d, path, params)
-
 	return err
 }
 
 // Returns all available images.
-func (d DigitalOceanClient) Images() ([]*Image, error) {
-	resp, err := NewRequest(d, "images", url.Values{})
+func (d Client) Images() ([]*Image, error) {
+	body, err := NewRequest(d, "images", url.Values{})
 	if err != nil {
 		return nil, err
 	}
-	result := &ImagesResp{}
-	if err := json.Unmarshal(resp, result); err != nil {
+	var resp ImagesResp
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, err
 	}
-	return result.Images, nil
+	return resp.Images, nil
 }
 
 // Destroys an image by its ID.
-func (d DigitalOceanClient) DestroyImage(id uint) error {
+func (d Client) DestroyImage(id int) error {
 	path := fmt.Sprintf("images/%d/destroy", id)
 	_, err := NewRequest(d, path, url.Values{})
 	return err
 }
 
 // Returns DO's string representation of status "off" "new" "active" etc.
-func (d DigitalOceanClient) DropletStatus(id uint) (string, string, error) {
+func (d Client) DropletInfo(id int) (*Droplet, error) {
 	body, err := NewRequest(d, fmt.Sprintf("droplets/%v", id), url.Values{})
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
-	dropletResp := &DropletResp{}
-	if err := json.Unmarshal(body, dropletResp); err != nil {
-		return "", "", err
+	var resp DropletResp
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, err
 	}
-	return dropletResp.IpAddress, dropletResp.Status, nil
+	return resp.Droplet, nil
 }
 
-// Sends an api request and returns a generic map[string]interface of
-// the response.
-func NewRequest(d DigitalOceanClient, path string, params url.Values) ([]byte, error) {
+// Sends an api request and returns []byte for the response if possible
+func NewRequest(d Client, path string, params url.Values) ([]byte, error) {
 	client := d.client
 
 	// Add the authentication parameters
 	params.Set("client_id", d.ClientID)
 	params.Set("api_key", d.APIKey)
 
-	url := fmt.Sprintf("%s/%s?%s", DIGITALOCEAN_API_URL, path, params.Encode())
+	url := fmt.Sprintf("%s/%s?%s", d.BaseURL, path, params.Encode())
 
 	// Do some basic scrubbing so sensitive information doesn't appear in logs
 	scrubbedUrl := strings.Replace(url, d.ClientID, "CLIENT_ID", -1)
@@ -290,7 +289,7 @@ func NewRequest(d DigitalOceanClient, path string, params url.Values) ([]byte, e
 
 		genericResp := &GenericResp{}
 		if err = json.Unmarshal(body, genericResp); err != nil {
-			err = fmt.Errorf("Failed to decode JSON response (HTTP %v) from DigitalOcean: %s",
+			err = fmt.Errorf("Failed to decode response (%v): %s",
 				resp.StatusCode, body)
 			return body, err
 		}
@@ -301,7 +300,7 @@ func NewRequest(d DigitalOceanClient, path string, params url.Values) ([]byte, e
 			return body, nil
 		case "ERROR":
 			err := fmt.Errorf("Error: %s. Full response body: %s",
-				genericResp.ErrorMessage, body)
+				genericResp.Message, body)
 			return body, err
 		}
 
@@ -321,38 +320,20 @@ func NewRequest(d DigitalOceanClient, path string, params url.Values) ([]byte, e
 	return nil, lastErr
 }
 
-func (d DigitalOceanClient) Image(slug_or_name_or_id string) (*Image, error) {
-	images, err := d.Images()
+func (d Client) Image(slugOrId string) (*Image, error) {
+	body, err := NewRequest(d, fmt.Sprintf("images/%v", slugOrId), url.Values{})
 	if err != nil {
 		return nil, err
 	}
-
-	for _, image := range images {
-		if strings.EqualFold(image.Slug, slug_or_name_or_id) {
-			return image, nil
-		}
+	var resp ImageResp
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, err
 	}
-
-	for _, image := range images {
-		if strings.EqualFold(image.Name, slug_or_name_or_id) {
-			return image, nil
-		}
-	}
-
-	for _, image := range images {
-		id, err := strconv.Atoi(slug_or_name_or_id)
-		if err == nil {
-			if image.Id == uint(id) {
-				return image, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("Unknown image '%v'", slug_or_name_or_id)
+	return resp.Image, nil
 }
 
 // Returns all available regions.
-func (d DigitalOceanClient) Regions() ([]*Region, error) {
+func (d Client) Regions() ([]*Region, error) {
 	resp, err := NewRequest(d, "regions", url.Values{})
 	if err != nil {
 		return nil, err
@@ -364,38 +345,20 @@ func (d DigitalOceanClient) Regions() ([]*Region, error) {
 	return result.Regions, nil
 }
 
-func (d DigitalOceanClient) Region(slug_or_name_or_id string) (*Region, error) {
-	regions, err := d.Regions()
+func (d Client) Region(slugOrId string) (*Region, error) {
+	body, err := NewRequest(d, fmt.Sprintf("regions/%v", slugOrId), url.Values{})
 	if err != nil {
 		return nil, err
 	}
-
-	for _, region := range regions {
-		if strings.EqualFold(region.Slug, slug_or_name_or_id) {
-			return region, nil
-		}
+	var resp RegionResp
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, err
 	}
-
-	for _, region := range regions {
-		if strings.EqualFold(region.Name, slug_or_name_or_id) {
-			return region, nil
-		}
-	}
-
-	for _, region := range regions {
-		id, err := strconv.Atoi(slug_or_name_or_id)
-		if err == nil {
-			if region.Id == uint(id) {
-				return region, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("Unknown region '%v'", slug_or_name_or_id)
+	return resp.Region, nil
 }
 
 // Returns all available sizes.
-func (d DigitalOceanClient) Sizes() ([]Size, error) {
+func (d Client) Sizes() ([]*Size, error) {
 	resp, err := NewRequest(d, "sizes", url.Values{})
 	if err != nil {
 		return nil, err
@@ -407,34 +370,21 @@ func (d DigitalOceanClient) Sizes() ([]Size, error) {
 	return result.Sizes, nil
 }
 
-func (d DigitalOceanClient) Size(slug_or_name_or_id string) (Size, error) {
+func (d Client) Size(slugOrId string) (*Size, error) {
 	sizes, err := d.Sizes()
 	if err != nil {
-		return Size{}, err
+		return nil, err
 	}
-
 	for _, size := range sizes {
-		if strings.EqualFold(size.Slug, slug_or_name_or_id) {
+		if strings.EqualFold(size.Slug, slugOrId) {
 			return size, nil
 		}
-	}
-
-	for _, size := range sizes {
-		if strings.EqualFold(size.Name, slug_or_name_or_id) {
-			return size, nil
-		}
-	}
-
-	for _, size := range sizes {
-		id, err := strconv.Atoi(slug_or_name_or_id)
+		id, err := strconv.Atoi(slugOrId)
 		if err == nil {
-			if size.Id == uint(id) {
+			if size.Id == id {
 				return size, nil
 			}
 		}
 	}
-
-	err = errors.New(fmt.Sprintf("Unknown size '%v'", slug_or_name_or_id))
-
-	return Size{}, err
+	return nil, fmt.Errorf("Unknown size %v", slugOrId)
 }
