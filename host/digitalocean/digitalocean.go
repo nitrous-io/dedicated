@@ -1,6 +1,7 @@
 package digitalocean
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -63,11 +64,22 @@ func (h *Host) Create() error {
 
 	// check that we can ssh into the server
 	address := fmt.Sprintf("%s:%s", h.instance.IpAddress, "22")
-	if _, err := ssh.WaitForSSH(address, "root", privateKey,
-		ssh.TimeWait, make(chan struct{})); err != nil {
+	sshConn, err := ssh.WaitForSSH(address, "root", privateKey,
+		ssh.TimeWait, make(chan struct{}))
+	if err != nil {
 		return err
 	}
 	log.Println("SSH READY for droplet %v", h.instance.Id)
+
+	// write the public keys into server
+	// This needs /root/.ssn/authorized_keys to be accessible
+	pubKeyR := bytes.NewBufferString("")
+	for _, k := range h.Config.PublicKeys {
+		fmt.Fprintln(pubKeyR, k)
+	}
+	if err := sshConn.Upload("/root/.ssh/authorized_keys", pubKeyR); err != nil {
+		return err
+	}
 	return nil
 }
 
