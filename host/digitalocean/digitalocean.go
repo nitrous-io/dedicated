@@ -3,6 +3,7 @@ package digitalocean
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -89,6 +90,18 @@ func (h *Host) Destroy() error {
 		return err
 	}
 	return h.Client.DestroyDroplet(int(id))
+}
+
+func (h *Host) Info() (*host.Info, error) {
+	if h.instance == nil {
+		return nil, errors.New("Invalid ec2 instance")
+	}
+	info := &host.Info{
+		Provider:  "digitalocean",
+		Id:        strconv.Itoa(h.instance.Id),
+		IpAddress: h.instance.IpAddress,
+	}
+	return info, nil
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {

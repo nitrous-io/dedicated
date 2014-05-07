@@ -3,6 +3,7 @@ package amazon
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"text/template"
@@ -147,6 +148,18 @@ func (h *Host) Destroy() error {
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 	return nil
+}
+
+func (h *Host) Info() (*host.Info, error) {
+	if h.instance == nil {
+		return nil, errors.New("Invalid ec2 instance")
+	}
+	info := &host.Info{
+		Provider:  "amazon",
+		Id:        h.instance.InstanceId,
+		IpAddress: h.instance.PublicIpAddress,
+	}
+	return info, nil
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
