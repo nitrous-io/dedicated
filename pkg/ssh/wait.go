@@ -3,6 +3,7 @@ package ssh
 import (
 	"crypto/rsa"
 	"errors"
+	"log"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ func WaitForSSH(
 	address string,
 	username string,
 	privateKey *rsa.PrivateKey,
+	wait time.Duration,
 	cancel <-chan struct{}) (conn *Conn, err error) {
 	// generate the signer from private key
 	signer, err := ssh.ParsePrivateKey(GetPem(privateKey))
@@ -40,14 +42,16 @@ func WaitForSSH(
 		select {
 		case <-cancel:
 			return nil, CancelError
-		case <-time.After(TimeWait):
+		case <-time.After(wait):
 		}
 		conn, err = NewSSHConn(address, sshConfig)
 		if err != nil {
+			log.Printf("Waiting for ssh conn to be ready, got %v", err)
 			// Only count this as an attempt if we were able to attempt
 			// to authenticate. Note this is very brittle since it depends
 			// on the string of the error... but I don't see any other way.
 			if strings.Contains(err.Error(), "authenticate") {
+				log.Printf("Failed to authenticate with remote ssh: %v", err)
 				attempts += 1
 			}
 			if attempts < MaxAttempts {
@@ -55,6 +59,7 @@ func WaitForSSH(
 			}
 			return nil, err
 		}
+		break
 	}
 	return conn, nil
 }
