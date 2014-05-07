@@ -22,6 +22,7 @@ params = {
 
 resp = client.post "http://localhost:6666/host", {
   provider: "digitalocean",
+  webhook: "http://127.0.0.1:4567/webhook",
   config: JSON.generate(params)
 }
 p resp
