@@ -2,9 +2,16 @@ package host
 
 import "fmt"
 
+type Info struct {
+	Provider  string `json:"provider"`
+	Id        string `json:"id"`
+	IpAddress string `json:"ip_address"`
+}
+
 type Host interface {
-	Create() error  // create a new host
-	Destroy() error // destroy the current host
+	Create() error        // create a new host
+	Destroy() error       // destroy the current host
+	Info() (*Info, error) // get current info of the host
 }
 
 type NewHost func(defaultConfig map[string]string, config string) (Host, error)
