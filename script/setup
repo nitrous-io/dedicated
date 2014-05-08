@@ -1,0 +1,56 @@
+#!/usr/bin/env ruby
+
+require "rubygems"
+require "fileutils"
+
+VENDOR_SRC = "vendor/src"
+
+def run(cmd)
+  unless system(cmd)
+    p "Cmd: #{cmd} failed"
+    exit 1
+  end
+end
+
+def clone(dep)
+  path = VENDOR_SRC + "/" + dep[:path] 
+  FileUtils.rm_rf path
+  FileUtils.mkdir_p path
+  case dep[:vcs]
+  when "git"
+    run "git clone --quiet --no-checkout #{dep[:repo]} #{path}"
+    run "cd #{path} && git reset --quiet --hard #{dep[:rev]}"
+  when "hg"
+    run "hg clone --quiet --updaterev #{dep[:rev]} #{dep[:repo]} #{path}"
+  end
+end
+
+FileUtils.mkdir_p VENDOR_SRC
+
+[
+  {
+    vcs: "git",
+    repo: "https://github.com/gorilla/mux",
+    rev: "136d54f81f00414c45c3c68dd47e98cc97519c5e",
+    path: "github.com/gorilla/mux"
+  },
+  {
+    vcs: "git",
+    repo: "https://github.com/nitrous-io/goamz",
+    rev: "87d3f9ee12e143e7fb718e1ab0a2dddeb4bd0e26",
+    path: "github.com/mitchellh/goamz"
+  },
+  {
+    vcs: "hg",
+    repo: "https://code.google.com/p/go.crypto",
+    rev: "fe6c00a82e55",
+    path: "code.google.com/p/go.crypto"
+  }
+].each do |dep|
+  clone dep
+end
+
+puts <<-EOF
+Dependencies are setup in ./vendor
+Add `export GOPATH=#{FileUtils.pwd}/vendor:$GOPATH`` to your shell profile
+EOF
