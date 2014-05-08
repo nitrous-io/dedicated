@@ -2,6 +2,15 @@
 
 Provision a box host
 
+## Development
+
+This vendor dependencies into `vendor` folder so we can easily change the
+dependencies without changing import path. To fetch dependencies, use `make
+setup` command.
+
+Then you probably will need to change how GOPATH is defined in the shell
+profile.
+
 ## Config
 
 ```
