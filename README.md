@@ -25,7 +25,8 @@ profile.
       api_key: ...,
       aws_secret_key: ...,
       aws_access_key: ...,
-      zoneId: ...
+      zone_id: ...,
+      base_domain: ...
     }
   }
 }

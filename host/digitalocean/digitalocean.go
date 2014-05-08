@@ -9,9 +9,21 @@ import (
 	"strconv"
 	"time"
 
-	host "github.com/nitrous-io/hostbuilder/host"
+	"github.com/mitchellh/goamz/route53"
+	"github.com/nitrous-io/hostbuilder/host"
+	"github.com/nitrous-io/hostbuilder/host/amazon"
 	do "github.com/nitrous-io/hostbuilder/pkg/digitalocean"
 	"github.com/nitrous-io/hostbuilder/pkg/ssh"
+)
+
+const (
+	DNSCreate = "CREATE"
+	DNSDelete = "DELETE"
+)
+
+var (
+	MissingZoneIdError     = errors.New("missing zone id")
+	MissingBaseDomainError = errors.New("missing base domain")
 )
 
 type HostConfig struct {
@@ -24,10 +36,35 @@ type HostConfig struct {
 }
 
 type Host struct {
-	Client *do.Client
-	Config *HostConfig
+	Client     *do.Client
+	Config     *HostConfig
+	BaseDomain string
+	ZoneId     string
 
 	instance *do.Droplet
+	router   *route53.Route53
+}
+
+func (h *Host) dnsRecord(dnsType string) *route53.ChangeResourceRecordSetsRequest {
+	domain := h.Config.Name + "." + h.BaseDomain
+	return &route53.ChangeResourceRecordSetsRequest{
+		Action: dnsType,
+		Name:   domain,
+		Type:   "A",
+		Value:  h.instance.IpAddress,
+	}
+}
+
+func (h *Host) createDNSRecord() error {
+	record := h.dnsRecord(DNSCreate)
+	_, err := h.router.ChangeResourceRecordSet(record, h.ZoneId)
+	return err
+}
+
+func (h *Host) deleteDNSRecord() error {
+	record := h.dnsRecord(DNSDelete)
+	_, err := h.router.ChangeResourceRecordSet(record, h.ZoneId)
+	return err
 }
 
 func (h *Host) Create() error {
@@ -81,15 +118,32 @@ func (h *Host) Create() error {
 	if err := sshConn.Upload("/root/.ssh/authorized_keys", pubKeyR); err != nil {
 		return err
 	}
+
+	// setup route53 domain
+	if err := h.createDNSRecord(); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (h *Host) Destroy() error {
-	id, err := strconv.ParseInt(h.Config.Id, 10, 64)
+	id64, err := strconv.ParseInt(h.Config.Id, 10, 64)
 	if err != nil {
 		return err
 	}
-	return h.Client.DestroyDroplet(int(id))
+	id := int(id64)
+	droplet, err := h.Client.DropletInfo(id)
+	if err != nil {
+		return err
+	}
+	h.instance = droplet
+	if err := h.deleteDNSRecord(); err != nil {
+		return err
+	}
+	if err := h.Client.DestroyDroplet(id); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *Host) Info() (*host.Info, error) {
@@ -111,9 +165,27 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		log.Printf("digitalocean: invalid config %s", config)
 		return nil, err
 	}
+	accessConfig := &amazon.AccessConfig{
+		AccessKey: defaultConfig["aws_access_key"],
+		SecretKey: defaultConfig["aws_secret_key"],
+	}
+	auth, err := accessConfig.Auth()
+	if err != nil {
+		log.Printf("amazon: auth failed: %v", err)
+		return nil, err
+	}
+	if len(defaultConfig["zone_id"]) == 0 {
+		return nil, MissingZoneIdError
+	}
+	if len(defaultConfig["base_domain"]) == 0 {
+		return nil, MissingBaseDomainError
+	}
 	host := &Host{
-		Config: hostConfig,
-		Client: client,
+		Config:     hostConfig,
+		Client:     client,
+		ZoneId:     defaultConfig["zone_id"],
+		BaseDomain: defaultConfig["base_domain"],
+		router:     route53.NewRoute53(auth),
 	}
 	return host, nil
 }
