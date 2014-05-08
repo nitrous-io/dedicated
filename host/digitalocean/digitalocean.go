@@ -118,11 +118,13 @@ func (h *Host) Create() error {
 	if err := sshConn.Upload("/root/.ssh/authorized_keys", pubKeyR); err != nil {
 		return err
 	}
+	log.Printf("SSH ready at %v", h.instance.IpAddress)
 
 	// setup route53 domain
 	if err := h.createDNSRecord(); err != nil {
 		return err
 	}
+	log.Printf("DNS record created for %v", h.instance.IpAddress)
 	return nil
 }
 

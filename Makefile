@@ -9,7 +9,7 @@ dev:
 .PHONY: run
 
 run:
-	@go get ./...
+	@./script/install
 	@hostbuilder -config config.json
 
 .PHONY: run
