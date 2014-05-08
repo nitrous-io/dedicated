@@ -36,8 +36,8 @@ FileUtils.mkdir_p VENDOR_SRC
   },
   {
     vcs: "git",
-    repo: "https://github.com/nitrous-io/goamz",
-    rev: "87d3f9ee12e143e7fb718e1ab0a2dddeb4bd0e26",
+    repo: "git@github.com:nitrous-io/goamz.git",
+    rev: "7e07f125ffda1a3f0e10a1f1335ef9a1a27d3e61",
     path: "github.com/mitchellh/goamz"
   },
   {
