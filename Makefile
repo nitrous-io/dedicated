@@ -20,4 +20,8 @@ test:
 	@go list -f '{{range .TestImports}}{{.}} {{end}}' ./... | xargs -n1 go get -d
 	go test -test.v ./...
 
-.PHONY: all format test
+run: all
+	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
+	@bin/freighterd
+
+.PHONY: all format test run
