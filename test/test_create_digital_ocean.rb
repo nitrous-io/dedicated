@@ -8,7 +8,7 @@ require "securerandom"
 client = HTTPClient.new
 client.receive_timeout = 10000
 
-random_id = SecureRandom.hex(32)
+random_id = SecureRandom.hex(8)
 
 params = {
   name: "test-box-#{random_id}",

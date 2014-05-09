@@ -22,11 +22,19 @@ profile.
     }
   , "digitalocean": {
       client_id: ...,
-      api_key: ...
+      api_key: ...,
+      aws_secret_key: ...,
+      aws_access_key: ...,
+      zone_id: ...,
+      base_domain: ...
     }
   }
 }
 ```
+
+For digitalocean, we also requires aws access key and secret key because we use
+Route53 as our DNS server, and we want to create a A record route to our
+digitalocean instance i.e daniel-box-1234.nitrousbox.com
 
 ### Endpoints
 
