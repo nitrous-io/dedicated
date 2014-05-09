@@ -1,0 +1,21 @@
+[
+  {
+    "vcs": "git",
+    "repo": "https://github.com/gorilla/mux",
+    "rev": "136d54f81f00414c45c3c68dd47e98cc97519c5e",
+    "path": "github.com/gorilla/mux"
+  },
+  {
+    "vcs": "git",
+    "repo": "git@github.com:nitrous-io/goamz.git",
+    "rev": "7e07f125ffda1a3f0e10a1f1335ef9a1a27d3e61",
+    "path": "github.com/mitchellh/goamz"
+  },
+  {
+    "vcs": "hg",
+    "repo": "https://code.google.com/p/go.crypto",
+    "rev": "fe6c00a82e55",
+    "path": "code.google.com/p/go.crypto"
+  }
+]
+
