@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/server"
 
 	. "github.com/onsi/ginkgo"
@@ -17,16 +18,16 @@ import (
 
 var _ = Describe("Server", func() {
 	var (
-		handler  *mux.Router
-		res      *httptest.ResponseRecorder
-		req      *http.Request
-		err      error
-		provider *MockProvider
+		handler *mux.Router
+		res     *httptest.ResponseRecorder
+		req     *http.Request
+		err     error
+		prov    *MockProvider
 	)
 
 	BeforeEach(func() {
-		provider = &MockProvider{}
-		handler = server.NewRouter(provider)
+		prov = &MockProvider{}
+		handler = server.NewRouter(prov)
 		res = httptest.NewRecorder()
 	})
 
@@ -90,14 +91,14 @@ var _ = Describe("Server", func() {
 				Expect(j["status"]).To(Equal("accepted"))
 			})
 
-			It("calls provider.Create() asynchronously", func() {
-				Expect(provider.CreateCalled).To(Equal(false))
+			It("calls prov.Create() asynchronously", func() {
+				Expect(prov.CreateCalled).To(Equal(false))
 				runtime.Gosched()
-				Expect(provider.CreateCalled).To(Equal(true))
-				Expect(provider.Name).To(Equal(name))
-				Expect(provider.PublicKeys).To(HaveLen(2))
-				Expect(provider.PublicKeys).To(ContainElement(publicKey))
-				Expect(provider.PublicKeys).To(ContainElement(publicKey2))
+				Expect(prov.CreateCalled).To(Equal(true))
+				Expect(prov.Name).To(Equal(name))
+				Expect(prov.PublicKeys).To(HaveLen(2))
+				Expect(prov.PublicKeys).To(ContainElement(publicKey))
+				Expect(prov.PublicKeys).To(ContainElement(publicKey2))
 			})
 		})
 
@@ -118,12 +119,60 @@ var _ = Describe("Server", func() {
 					Expect(j["error"]).To(Equal("invalid params"))
 				})
 
-				It("does not call provider.Create()", func() {
-					Expect(provider.CreateCalled).To(Equal(false))
+				It("does not call prov.Create()", func() {
+					Expect(prov.CreateCalled).To(Equal(false))
 					runtime.Gosched()
-					Expect(provider.CreateCalled).To(Equal(false))
+					Expect(prov.CreateCalled).To(Equal(false))
 				})
 			})
 		}
+	})
+
+	Describe("GET /containers/:container_name", func() {
+		BeforeEach(func() {
+			prov.Containers = map[string]*provider.ContainerInfo{
+				"foo": &provider.ContainerInfo{Host: "1.2.3.4", Port: 10000},
+			}
+		})
+
+		doRequest := func(name string) {
+			req, err = NewRequest("GET", fmt.Sprintf("/containers/%v", name), nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		Context("when container by the given name exists", func() {
+			BeforeEach(func() {
+				doRequest("foo")
+			})
+
+			It("returns 200 ok with container information", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j map[string]*provider.ContainerInfo
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				Expect(j["container"]).NotTo(BeNil())
+				Expect(j["container"].Host).To(Equal("1.2.3.4"))
+				Expect(j["container"].Port).To(Equal(uint16(10000)))
+			})
+		})
+
+		Context("when container by the given name does not exist", func() {
+			BeforeEach(func() {
+				doRequest("bar")
+			})
+
+			It("returns 404 not found", func() {
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+
+				var j map[string]string
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				Expect(j["error"]).To(Equal("not found"))
+			})
+		})
 	})
 })

@@ -2,10 +2,11 @@ package server
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/nitrous-io/freighter/provider"
 	"log"
 	"net/http"
+
+	"github.com/gorilla/mux"
+	"github.com/nitrous-io/freighter/provider"
 )
 
 type Server struct{}
@@ -20,9 +21,10 @@ func NewRouter(provider provider.Provider) *mux.Router {
 	a := RestAPI{Provider: provider}
 	r := mux.NewRouter()
 
-	r.HandleFunc("/", a.GetHome).Methods("GET")
+	r.HandleFunc("/", a.Home).Methods("GET")
 
-	r.HandleFunc("/containers", a.PostContainers).Methods("POST")
+	r.HandleFunc("/containers", a.CreateContainer).Methods("POST")
+	r.HandleFunc("/containers/{name}", a.GetContainerInfo).Methods("GET")
 
 	return r
 }
