@@ -17,7 +17,7 @@ def clone(dep)
   path = VENDOR_SRC + "/" + dep["path"]
   FileUtils.rm_rf path
   FileUtils.mkdir_p path
-  case dep[:vcs]
+  case dep["vcs"]
   when "git"
     run "git clone --quiet --no-checkout #{dep["repo"]} #{path}"
     run "cd #{path} && git reset --quiet --hard #{dep["rev"]}"
