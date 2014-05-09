@@ -53,4 +53,5 @@ end
 puts <<-EOF
 Dependencies are setup in ./vendor
 Add `export GOPATH=#{FileUtils.pwd}/vendor:$GOPATH`` to your shell profile
+Or use https://github.com/kennethreitz/autoenv
 EOF
