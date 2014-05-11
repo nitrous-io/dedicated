@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -e
+
+docker run \
+  --volume $(pwd):/opt/src/github.com/nitrous-io/hostbuilder \
+  -i -t registry.nitrous.io/hostbuilder /bin/bash
