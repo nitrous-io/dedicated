@@ -1,0 +1,128 @@
+package digitalocean
+
+var (
+	// /droplets
+	allDroplets = `
+	{
+		"status": "OK",
+		"droplets": [
+			{
+				"id": 100823,
+				"name": "test222",
+				"image_id": 420,
+				"size_id":33,
+				"region_id": 1,
+				"backups_active": false,
+				"ip_address": "127.0.0.1",
+				"private_ip_address": null,
+				"locked": false,
+				"status": "active",
+				"created_at": "2013-01-01T09:30:00Z"
+			}
+		]
+	}
+	`
+
+	// /droplets/new
+	newDroplet = `
+	{
+		"status": "OK",
+		"droplet": {
+			"id": 100823,
+			"name": "test222",
+			"image_id": 420,
+			"size_id":33,
+			"region_id": 1
+		}
+	}
+	`
+
+	// /droplets/id
+	newDropletState = `
+	{
+		"status": "OK",
+		"droplet": {
+			"id": 100823,
+			"image_id": 420,
+			"name": "test222",
+			"region_id": 1,
+			"size_id": 33,
+			"ip_address": "127.0.0.1",
+			"locked": false,
+			"status": "new"
+		}
+	}
+	`
+
+	activeDropletState = `
+	{
+		"status": "OK",
+		"droplet": {
+			"id": 100823,
+			"image_id": 420,
+			"name": "test222",
+			"region_id": 1,
+			"size_id": 33,
+			"ip_address": "127.0.0.1",
+			"locked": false,
+			"status": "active"
+		}
+	}
+	`
+
+	// /regions
+	allRegions = `
+	{
+		"status": "OK",
+		"regions": [
+			{ "id": 1, "name": "New York 1", "slug": "nyc1" },
+			{ "id": 2, "name": "Amsterdam 1", "slug": "ams1" },
+			{ "id": 3, "name": "San Francisco 1", "slug": "sfo1" }
+		]
+	}
+	`
+
+	// /sizes
+	allSizes = `
+	{
+		"status": "OK",
+		"sizes": [
+			{ "id": 33, "name": "512MB", "slug": "512mb" },
+			{ "id": 34, "name": "1GB", "slug": "1gb" },
+			{ "id": 35, "name": "2GB", "slug": "2gb" },
+			{ "id": 36, "name": "4GB", "slug": "4gb" },
+			{ "id": 37, "name": "8GB", "slug": "8gb" },
+			{ "id": 38, "name": "16GB", "slug": "16gb" }
+		]
+	}
+	`
+
+	// /images
+	allImages = `
+	{
+		"status": "OK",
+		"images": [
+			{ "id": 1, "name": "Snapshot", "distribution": "Ubuntu", "slug": "ubuntu-12.04-x64", "public": true },
+			{ "id": 2, "name": "Automated Backup", "distribution": "Ubuntu" }
+		]
+	}
+	`
+
+	// /image/id
+	oneImage = `
+	{
+		"status": "OK",
+		"image": {
+			"id": 1,
+			"name": "Automated Backup",
+			"distribution":"Ubuntu"
+		}
+	}
+	`
+)
+
+func testClient(url string) *Client {
+	client := NewClient("client_id", "api_key")
+	client.BaseURL = url
+	return client
+}

@@ -289,6 +289,7 @@ func NewRequest(d Client, path string, params url.Values) ([]byte, error) {
 
 		genericResp := &GenericResp{}
 		if err = json.Unmarshal(body, genericResp); err != nil {
+			log.Println(err)
 			err = fmt.Errorf("Failed to decode response (%v): %s",
 				resp.StatusCode, body)
 			return body, err
@@ -346,15 +347,27 @@ func (d Client) Regions() ([]*Region, error) {
 }
 
 func (d Client) Region(slugOrId string) (*Region, error) {
-	body, err := NewRequest(d, fmt.Sprintf("regions/%v", slugOrId), url.Values{})
+	regions, err := d.Regions()
+	log.Println("regions err", err)
 	if err != nil {
 		return nil, err
 	}
-	var resp RegionResp
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, err
+	log.Println("regions", regions, err)
+	for _, region := range regions {
+		if strings.EqualFold(region.Slug, slugOrId) {
+			return region, nil
+		}
 	}
-	return resp.Region, nil
+	for _, region := range regions {
+		log.Println("region", region)
+		id, err := strconv.Atoi(slugOrId)
+		if err == nil {
+			if region.Id == id {
+				return region, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("Unknown region '%v'", slugOrId)
 }
 
 // Returns all available sizes.
