@@ -7,6 +7,12 @@
   },
   {
     "vcs": "git",
+    "repo": "https://github.com/gorilla/context",
+    "rev": "1be7a086a5fd6440ef16fe96baeda0c78282b980",
+    "path": "github.com/gorilla/context"
+  },
+  {
+    "vcs": "git",
     "repo": "git@github.com:nitrous-io/goamz.git",
     "rev": "7e07f125ffda1a3f0e10a1f1335ef9a1a27d3e61",
     "path": "github.com/mitchellh/goamz"
