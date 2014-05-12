@@ -7,21 +7,21 @@ import (
 )
 
 type MockProvider struct {
-	CreateCalled bool
+	CreateCalled        bool
+	CreateContainerInfo *provider.ContainerInfo
+	CreateError         error
 
 	Name       string
 	PublicKeys []string
-	WebHookUrl string
 
 	Containers map[string]*provider.ContainerInfo
 }
 
-func (p *MockProvider) Create(name string, publicKeys []string, webhookUrl string) (*provider.ContainerInfo, error) {
+func (p *MockProvider) Create(name string, publicKeys []string) (*provider.ContainerInfo, error) {
 	p.CreateCalled = true
 	p.Name = name
 	p.PublicKeys = publicKeys
-	p.WebHookUrl = webhookUrl
-	return nil, nil
+	return p.CreateContainerInfo, p.CreateError
 }
 
 func (p *MockProvider) GetInfo(name string) (info *provider.ContainerInfo, err error) {

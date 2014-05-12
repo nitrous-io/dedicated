@@ -1,7 +1,7 @@
 package provider
 
 type Provider interface {
-	Create(name string, publicKeys []string, webhookUrl string) (info *ContainerInfo, err error)
+	Create(name string, publicKeys []string) (info *ContainerInfo, err error)
 	GetInfo(name string) (info *ContainerInfo, err error)
 	//Terminate()
 	//Start()
@@ -12,6 +12,6 @@ type Provider interface {
 }
 
 type ContainerInfo struct {
-	Host string `json:host`
-	Port uint16 `json:port`
+	Host string `json:"host"`
+	Port uint16 `json:"port"`
 }

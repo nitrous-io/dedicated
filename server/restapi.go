@@ -12,6 +12,7 @@ import (
 
 type RestAPI struct {
 	Provider provider.Provider
+	Callback Callback
 }
 
 func (a *RestAPI) Home(w http.ResponseWriter, r *http.Request) {
@@ -20,17 +21,28 @@ func (a *RestAPI) Home(w http.ResponseWriter, r *http.Request) {
 
 func (a *RestAPI) CreateContainer(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
-	webhookUrl := r.FormValue("webhook_url")
+	callbackUrl := r.FormValue("callback_url")
 	publicKeys := r.PostForm["public_key[]"]
 
-	if name == "" || webhookUrl == "" || publicKeys == nil {
+	if name == "" || callbackUrl == "" || publicKeys == nil {
 		w.WriteHeader(422)
 		w.Write([]byte(`{"error":"invalid params"}`))
 		return
 	}
 
 	go func() {
-		a.Provider.Create(name, publicKeys, webhookUrl)
+		info, err := a.Provider.Create(name, publicKeys)
+		if err != nil {
+			payload, err := json.Marshal(map[string]string{"error": err.Error()})
+			if err == nil {
+				a.Callback.Invoke(callbackUrl, string(payload))
+			}
+			return
+		}
+		payload, err := json.Marshal(map[string]interface{}{"status": "created", "container": info})
+		if err == nil {
+			a.Callback.Invoke(callbackUrl, string(payload))
+		}
 	}()
 
 	w.WriteHeader(http.StatusAccepted)

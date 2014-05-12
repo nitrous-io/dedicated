@@ -1,7 +1,7 @@
 package freightertest
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -23,11 +23,13 @@ var _ = Describe("Server", func() {
 		req     *http.Request
 		err     error
 		prov    *MockProvider
+		cb      *MockCallback
 	)
 
 	BeforeEach(func() {
 		prov = &MockProvider{}
-		handler = server.NewRouter(prov)
+		cb = &MockCallback{}
+		handler = server.NewRouter(prov, cb)
 		res = httptest.NewRecorder()
 	})
 
@@ -51,11 +53,11 @@ var _ = Describe("Server", func() {
 
 	Describe("POST /containers", func() {
 		var (
-			params     url.Values
-			name       string
-			publicKey  string
-			publicKey2 string
-			webHookUrl string
+			params      url.Values
+			name        string
+			publicKey   string
+			publicKey2  string
+			callbackUrl string
 		)
 
 		BeforeEach(func() {
@@ -63,9 +65,9 @@ var _ = Describe("Server", func() {
 			name = "fragrant-wind-69"
 			publicKey = "ssh-rsa Foo"
 			publicKey2 = "ssh-rsa Bar"
-			webHookUrl = "http://www.example.com/created"
+			callbackUrl = "http://www.example.com/created"
 			params.Set("name", name)
-			params.Set("webhook_url", webHookUrl)
+			params.Set("callback_url", callbackUrl)
 			params.Set("public_key[]", publicKey)
 			params.Add("public_key[]", publicKey2)
 		})
@@ -83,26 +85,53 @@ var _ = Describe("Server", func() {
 
 			It("returns 202 accepted immediately", func() {
 				Expect(res.Code).To(Equal(http.StatusAccepted))
-
-				var j map[string]interface{}
-				err = json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-
-				Expect(j["status"]).To(Equal("accepted"))
+				Expect(res.Body.String()).To(MatchJSON(`{"status":"accepted"}`))
 			})
 
-			It("calls prov.Create() asynchronously", func() {
-				Expect(prov.CreateCalled).To(Equal(false))
+			It("calls provider.Create() asynchronously", func() {
+				Expect(prov.CreateCalled).To(BeFalse())
 				runtime.Gosched()
-				Expect(prov.CreateCalled).To(Equal(true))
+				Expect(prov.CreateCalled).To(BeTrue())
 				Expect(prov.Name).To(Equal(name))
 				Expect(prov.PublicKeys).To(HaveLen(2))
 				Expect(prov.PublicKeys).To(ContainElement(publicKey))
 				Expect(prov.PublicKeys).To(ContainElement(publicKey2))
 			})
+
+			Context("when provider.Create()", func() {
+				Context("returns an error", func() {
+					BeforeEach(func() {
+						prov.CreateError = errors.New("pc load letter")
+						doRequest()
+					})
+
+					It("calls callback with error", func() {
+						Expect(cb.InvokeCalled).To(BeFalse())
+						runtime.Gosched()
+						Expect(cb.InvokeCalled).To(BeTrue())
+						Expect(cb.To).To(Equal(callbackUrl))
+						Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter"}`))
+					})
+				})
+
+				Context("returns a container info with no error", func() {
+					BeforeEach(func() {
+						prov.CreateContainerInfo = &provider.ContainerInfo{Host: "1.2.3.4", Port: 10000}
+						doRequest()
+					})
+
+					It("calls callback with container info", func() {
+						Expect(cb.InvokeCalled).To(BeFalse())
+						runtime.Gosched()
+						Expect(cb.InvokeCalled).To(BeTrue())
+						Expect(cb.To).To(Equal(callbackUrl))
+						Expect(cb.Payload).To(MatchJSON(`{"status":"created", "container":{"host":"1.2.3.4", "port":10000}}`))
+					})
+				})
+			})
 		})
 
-		for _, param := range []string{"name", "webhook_url", "public_key[]"} {
+		for _, param := range []string{"name", "callback_url", "public_key[]"} {
 			Context(fmt.Sprintf("when param '%v' is missing", param), func() {
 				BeforeEach(func() {
 					params.Del(param)
@@ -111,18 +140,13 @@ var _ = Describe("Server", func() {
 
 				It("returns 422 unprocessable entity", func() {
 					Expect(res.Code).To(Equal(422))
-
-					var j map[string]interface{}
-					err = json.Unmarshal(res.Body.Bytes(), &j)
-					Expect(err).To(BeNil())
-
-					Expect(j["error"]).To(Equal("invalid params"))
+					Expect(res.Body.String()).To(MatchJSON(`{"error":"invalid params"}`))
 				})
 
-				It("does not call prov.Create()", func() {
-					Expect(prov.CreateCalled).To(Equal(false))
+				It("does not call provider.Create()", func() {
+					Expect(prov.CreateCalled).To(BeFalse())
 					runtime.Gosched()
-					Expect(prov.CreateCalled).To(Equal(false))
+					Expect(prov.CreateCalled).To(BeFalse())
 				})
 			})
 		}
