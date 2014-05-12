@@ -107,12 +107,72 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return err
+	}
+	provider := r.Form.Get("provider")
+	webhook := r.Form.Get("webhook")
+	providerConfig := s.Config.Providers[provider]
+	configJson := r.Form.Get("config")
+
+	h, err := InitHost(provider, providerConfig, configJson)
+	if err != nil {
+		return err
+	}
+	go doWebhook(webhook, func() (string, error) {
+		return "", h.Stop()
+	})
+	return nil
+}
+
+func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return err
+	}
+	provider := r.Form.Get("provider")
+	webhook := r.Form.Get("webhook")
+	providerConfig := s.Config.Providers[provider]
+	configJson := r.Form.Get("config")
+
+	h, err := InitHost(provider, providerConfig, configJson)
+	if err != nil {
+		return err
+	}
+	go doWebhook(webhook, func() (string, error) {
+		return "", h.Start()
+	})
+	return nil
+}
+
+func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return err
+	}
+	provider := r.Form.Get("provider")
+	webhook := r.Form.Get("webhook")
+	providerConfig := s.Config.Providers[provider]
+	configJson := r.Form.Get("config")
+
+	h, err := InitHost(provider, providerConfig, configJson)
+	if err != nil {
+		return err
+	}
+	go doWebhook(webhook, func() (string, error) {
+		return "", h.Restart()
+	})
+	return nil
+}
+
 func (s *Server) CreateRouter() {
 	r := mux.NewRouter()
 	m := map[string]map[string]HttpHandler{
 		"POST": {
-			"/host":        s.postHost,
-			"/host/delete": s.deleteHost,
+			"/host":         s.postHost,
+			"/host/delete":  s.deleteHost,
+			"/host/stop":    s.stopHost,
+			"/host/start":   s.startHost,
+			"/host/restart": s.restartHost,
 		},
 	}
 	for method, routes := range m {

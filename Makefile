@@ -13,3 +13,6 @@ run:
 	@./script/install
 	@hostbuilder -config config.json
 .PHONY: run
+
+test: image
+	@./script/test
