@@ -67,20 +67,20 @@ func (h *Host) deleteDNSRecord() error {
 	return err
 }
 
-func (h *Host) Create() error {
+func (h *Host) Create() (*host.Info, error) {
 	config := h.Config
 	// create a tmp keypair
 	privateKey, err := ssh.GenerateSSHKey()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	pubKey, err := ssh.GetPubKey(privateKey)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	sshKey, err := h.Client.CreateKey(h.Config.Name, string(pubKey))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// remove the tmp keypair when we dont use it anymore
 	defer h.Client.DestroyKey(sshKey.Id)
@@ -89,14 +89,14 @@ func (h *Host) Create() error {
 	droplet, err := h.Client.CreateDroplet(config.Name, config.SizeId,
 		config.ImageId, config.RegionId, sshKey.Id, false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// wait for the droplet to be active
 	droplet, err = do.WaitForState("active", droplet.Id, h.Client,
 		do.StateWaitTime, 5*time.Minute)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	h.instance = droplet
 
@@ -105,7 +105,7 @@ func (h *Host) Create() error {
 	sshConn, err := ssh.WaitForSSH(address, "root", privateKey,
 		ssh.TimeWait, make(chan struct{}))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	log.Println("SSH READY for droplet %v", h.instance.Id)
 
@@ -116,16 +116,16 @@ func (h *Host) Create() error {
 		fmt.Fprintln(pubKeyR, k)
 	}
 	if err := sshConn.Upload("/root/.ssh/authorized_keys", pubKeyR); err != nil {
-		return err
+		return nil, err
 	}
 	log.Printf("SSH ready at %v", h.instance.IpAddress)
 
 	// setup route53 domain
 	if err := h.createDNSRecord(); err != nil {
-		return err
+		return nil, err
 	}
 	log.Printf("DNS record created for %v", h.instance.IpAddress)
-	return nil
+	return h.Info()
 }
 
 func (h *Host) Destroy() error {

@@ -9,9 +9,9 @@ type Info struct {
 }
 
 type Host interface {
-	Create() error        // create a new host
-	Destroy() error       // destroy the current host
-	Info() (*Info, error) // get current info of the host
+	Create() (*Info, error) // create a new host
+	Destroy() error         // destroy the current host
+	Info() (*Info, error)   // get current info of the host
 }
 
 type NewHost func(defaultConfig map[string]string, config string) (Host, error)

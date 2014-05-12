@@ -56,16 +56,18 @@ type Host struct {
 	instance *ec2.Instance
 }
 
-func (h *Host) Create() error {
+func (h *Host) Create() (*host.Info, error) {
 	// generate key pair
 	k, err := generateTempKeypair(h.provider)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	defer k.Delete()
+
 	// generate user data
 	userData, err := h.Config.generateUserData()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	runOpts := &ec2.RunInstances{
 		KeyName:        k.name,
@@ -83,7 +85,7 @@ func (h *Host) Create() error {
 	resp, err := h.provider.RunInstances(runOpts)
 	if err != nil {
 		log.Printf("amazon: failed to create new instance %v", err)
-		return err
+		return nil, err
 	}
 	h.instance = &resp.Instances[0]
 
@@ -95,10 +97,10 @@ func (h *Host) Create() error {
 	}
 	updatedInstance, err := WaitForState(state)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
-	return nil
+	return h.Info()
 }
 
 func (h *Host) Destroy() error {

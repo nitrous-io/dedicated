@@ -35,10 +35,6 @@ type config struct {
 type WebhookData struct {
 	Success bool   `json:"success,omitempty"`
 	Message string `json:"message,omitempty"`
-
-	Provider  string `json:"provider,omitempty"`
-	Id        string `json:"id,omitempty"`
-	IpAddress string `json:"ip_address,omitempty"`
 }
 
 type Server struct {
@@ -46,11 +42,26 @@ type Server struct {
 	Router *mux.Router
 }
 
-func doWebHook(endpoint string, data *WebhookData) {
-	payload, _ := json.Marshal(data)
+func doWebhook(endpoint string, f func() (string, error)) {
+	d := &WebhookData{Success: true}
+	msg, err := f()
+	if err != nil {
+		d.Success = false
+		d.Message = fmt.Sprintf("Error: %v", err)
+	} else {
+		d.Message = msg
+	}
+	payload, _ := json.Marshal(d)
 	params := url.Values{}
 	params.Set("payload", string(payload))
 	http.PostForm(endpoint, params)
+}
+
+func toString(b []byte, err error) (string, error) {
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 func (s *Server) postHost(w http.ResponseWriter, r *http.Request) error {
@@ -66,25 +77,14 @@ func (s *Server) postHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	go func() {
+	go doWebhook(webhook, func() (string, error) {
 		var info *host.Info
-		log.Println("creating the host")
-		err = h.Create()
-		if err == nil {
-			info, err = h.Info()
-		}
-		d := &WebhookData{Success: true}
+		info, err = h.Create()
 		if err != nil {
-			d.Success = false
-			d.Message = fmt.Sprintf("Error: %v", err)
-		} else {
-			d.Provider = info.Provider
-			d.Id = info.Id
-			d.IpAddress = info.IpAddress
+			return "", err
 		}
-		log.Println("performing webhook for create")
-		doWebHook(webhook, d)
-	}()
+		return toString(json.Marshal(info))
+	})
 	return nil
 }
 
@@ -101,17 +101,9 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	go func() {
-		log.Println("destroying the host")
-		d := &WebhookData{Success: true}
-		err = h.Destroy()
-		if err != nil {
-			d.Success = false
-			d.Message = fmt.Sprintf("Error: %v", err)
-		}
-		log.Println("performing webhook for destroy")
-		doWebHook(webhook, d)
-	}()
+	go doWebhook(webhook, func() (string, error) {
+		return "", h.Destroy()
+	})
 	return nil
 }
 
