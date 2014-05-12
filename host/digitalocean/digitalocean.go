@@ -129,11 +129,10 @@ func (h *Host) Create() (*host.Info, error) {
 }
 
 func (h *Host) Destroy() error {
-	id64, err := strconv.ParseInt(h.Config.Id, 10, 64)
+	id, err := h.id()
 	if err != nil {
 		return err
 	}
-	id := int(id64)
 	droplet, err := h.Client.DropletInfo(id)
 	if err != nil {
 		return err
@@ -161,11 +160,10 @@ func (h *Host) Info() (*host.Info, error) {
 }
 
 func (h *Host) Stop() error {
-	id64, err := strconv.ParseInt(h.Config.Id, 10, 64)
+	id, err := h.id()
 	if err != nil {
 		return err
 	}
-	id := int(id64)
 	if err := h.Client.PowerOffDroplet(id); err != nil {
 		return err
 	}
@@ -173,11 +171,10 @@ func (h *Host) Stop() error {
 }
 
 func (h *Host) Start() error {
-	id64, err := strconv.ParseInt(h.Config.Id, 10, 64)
+	id, err := h.id()
 	if err != nil {
 		return err
 	}
-	id := int(id64)
 	if err := h.Client.PowerOnDroplet(id); err != nil {
 		return err
 	}
@@ -185,15 +182,22 @@ func (h *Host) Start() error {
 }
 
 func (h *Host) Restart() error {
-	id64, err := strconv.ParseInt(h.Config.Id, 10, 64)
+	id, err := h.id()
 	if err != nil {
 		return err
 	}
-	id := int(id64)
 	if err := h.Client.RebootDroplet(id); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (h *Host) id() (int, error) {
+	id64, err := strconv.ParseInt(h.Config.Id, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return int(id64), nil
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
