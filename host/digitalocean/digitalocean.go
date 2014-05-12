@@ -185,7 +185,15 @@ func (h *Host) Start() error {
 }
 
 func (h *Host) Restart() error {
-	panic("do provider does not support restart yet")
+	id64, err := strconv.ParseInt(h.Config.Id, 10, 64)
+	if err != nil {
+		return err
+	}
+	id := int(id64)
+	if err := h.Client.RebootDroplet(id); err != nil {
+		return err
+	}
+	return nil
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
