@@ -208,6 +208,28 @@ func (d Client) PowerOffDroplet(id int) error {
 	return err
 }
 
+// Powers on a droplet
+func (d Client) PowerOnDroplet(id int) error {
+	path := fmt.Sprintf("droplets/%v/power_on", id)
+	_, err := NewRequest(d, path, url.Values{})
+	return err
+}
+
+// Stop a droplet and turn it back on
+func (d Client) PowerCycleDroplet(id int) error {
+	path := fmt.Sprintf("droplets/%v/power_cycle", id)
+	_, err := NewRequest(d, path, url.Values{})
+	return err
+}
+
+// Reboot a droplet. This is the preferred method to use if a server is not
+// responding.
+func (d Client) RebootDroplet(id int) error {
+	path := fmt.Sprintf("droplets/%v/reboot", id)
+	_, err := NewRequest(d, path, url.Values{})
+	return err
+}
+
 // Shutsdown a droplet. This is a "soft" shutdown.
 func (d Client) ShutdownDroplet(id int) error {
 	path := fmt.Sprintf("droplets/%v/shutdown", id)
@@ -220,6 +242,15 @@ func (d Client) CreateSnapshot(id int, name string) error {
 	path := fmt.Sprintf("droplets/%v/snapshot", id)
 	params := url.Values{}
 	params.Set("name", name)
+	_, err := NewRequest(d, path, params)
+	return err
+}
+
+// Restores a snapshot of a droplet by it's ID
+func (d Client) RestoreSnapshot(id int, imageId int) error {
+	path := fmt.Sprintf("droplets/%v/restore", id)
+	params := url.Values{}
+	params.Set("image_id", strconv.Itoa(imageId))
 	_, err := NewRequest(d, path, params)
 	return err
 }
@@ -348,18 +379,15 @@ func (d Client) Regions() ([]*Region, error) {
 
 func (d Client) Region(slugOrId string) (*Region, error) {
 	regions, err := d.Regions()
-	log.Println("regions err", err)
 	if err != nil {
 		return nil, err
 	}
-	log.Println("regions", regions, err)
 	for _, region := range regions {
 		if strings.EqualFold(region.Slug, slugOrId) {
 			return region, nil
 		}
 	}
 	for _, region := range regions {
-		log.Println("region", region)
 		id, err := strconv.Atoi(slugOrId)
 		if err == nil {
 			if region.Id == id {

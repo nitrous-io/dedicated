@@ -9,15 +9,23 @@ import (
 var (
 	DeniedResponse   = &response{501, `{"status":"ERROR","message":"Access Denied"}`}
 	NotfoundResponse = &response{404, `{"status":"ERROR","message":"Not Found"}`}
+	OkResponse       = &response{200, `{"status":"OK"}`}
 
 	urlMapping = map[string]string{
-		"/droplets":      "droplets",
-		"/droplets/new":  "droplets/new",
-		"/droplets/{id}": "droplets/id",
-		"/sizes":         "sizes",
-		"/regions":       "regions",
-		"/images":        "images",
-		"/images/{id}":   "images/id",
+		"/droplets":                         "droplets",
+		"/droplets/new":                     "droplets/new",
+		"/droplets/{id:[0-9]+}":             "droplets/id",
+		"/droplets/{id:[0-9]+}/destroy":     "droplets/id/destroy",
+		"/droplets/{id:[0-9]+}/power_off":   "droplets/id/power_off",
+		"/droplets/{id:[0-9]+}/power_on":    "droplets/id/power_on",
+		"/droplets/{id:[0-9]+}/power_cycle": "droplets/id/power_cycle",
+		"/droplets/{id:[0-9]+}/reboot":      "droplets/id/reboot",
+		"/droplets/{id:[0-9]+}/snapshot":    "droplets/id/snapshot",
+		"/droplets/{id:[0-9]+}/restore":     "droplets/id/restore",
+		"/sizes":                            "sizes",
+		"/regions":                          "regions",
+		"/images":                           "images",
+		"/images/{id}":                      "images/id",
 	}
 )
 
@@ -29,33 +37,18 @@ type response struct {
 	data string
 }
 
-type responses struct {
-	list []*response
-	c    counter
-}
-
-func (r *responses) next() *response {
-	if len(r.list) <= int(r.c) {
-		return nil
-	}
-	res := r.list[r.c]
-	r.c.next()
-	return res
-}
-
 type Server struct {
 	Router    *mux.Router
-	Responses map[string]*responses
+	Responses map[string][]*response
 	Requests  map[string][]*http.Request
+	rCounter  map[string]int
 }
 
-func makeResponse(s *Server, endpoint string) func(w http.ResponseWriter, r *http.Request) {
+func (s *Server) makeResponse(endpoint string) func(w http.ResponseWriter, r *http.Request) {
+	cachedEndpoint := endpoint
 	return func(w http.ResponseWriter, r *http.Request) {
-		s.addRequests(endpoint, r)
-		jsonData := s.Responses[endpoint].next()
-		if jsonData == nil {
-			jsonData = NotfoundResponse
-		}
+		s.addRequests(cachedEndpoint, r)
+		jsonData := s.nextResponse(cachedEndpoint)
 		if jsonData.code == 0 {
 			jsonData.code = 200
 		}
@@ -65,29 +58,54 @@ func makeResponse(s *Server, endpoint string) func(w http.ResponseWriter, r *htt
 	}
 }
 
-func (s *Server) addRequests(endpoint string, r *http.Request) {
-	if _, ok := s.Requests[endpoint]; !ok {
-		s.Requests[endpoint] = []*http.Request{}
+func (s *Server) nextResponse(endpoint string) *response {
+	responses, ok := s.Responses[endpoint]
+	if !ok {
+		return NotfoundResponse
 	}
-	s.Requests[endpoint] = append(s.Requests[endpoint], r)
+	c, ok := s.rCounter[endpoint]
+	if !ok {
+		s.rCounter[endpoint] = 0
+	}
+	if len(responses) <= int(c) {
+		return NotfoundResponse
+	}
+	r := responses[c]
+	s.rCounter[endpoint] += 1
+	return r
+}
+
+func (s *Server) addRequests(endpoint string, r *http.Request) {
+	_, ok := s.Requests[endpoint]
+	if ok {
+		s.Requests[endpoint] = append(s.Requests[endpoint], r)
+	} else {
+		s.Requests[endpoint] = []*http.Request{r}
+	}
 }
 
 func (s *Server) AddResponse(endpoint string, r *response) {
-	if _, ok := s.Responses[endpoint]; !ok {
-		s.Responses[endpoint] = &responses{list: []*response{}, c: 0}
+	_, ok := s.Responses[endpoint]
+	if ok {
+		s.Responses[endpoint] = append(s.Responses[endpoint], r)
+	} else {
+		s.Responses[endpoint] = []*response{r}
 	}
-	ep := s.Responses[endpoint]
-	ep.list = append(ep.list, r)
+	_, ok = s.rCounter[endpoint]
+	if !ok {
+		s.rCounter[endpoint] = 0
+	}
 }
 
 func NewServer() *Server {
 	s := &Server{
-		Responses: map[string]*responses{},
+		Responses: map[string][]*response{},
 		Requests:  map[string][]*http.Request{},
+		rCounter:  map[string]int{},
 	}
 	r := mux.NewRouter()
 	for route, name := range urlMapping {
-		r.HandleFunc(route, makeResponse(s, name))
+		r.HandleFunc(route, s.makeResponse(name))
 	}
 	s.Router = r
 	return s
