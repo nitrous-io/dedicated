@@ -161,7 +161,15 @@ func (h *Host) Info() (*host.Info, error) {
 }
 
 func (h *Host) Stop() error {
-	panic("do provider does not support stop yet")
+	id64, err := strconv.ParseInt(h.Config.Id, 10, 64)
+	if err != nil {
+		return err
+	}
+	id := int(id64)
+	if err := h.Client.PowerOffDroplet(id); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *Host) Start() error {
