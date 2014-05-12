@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"runtime"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/provider"
@@ -43,6 +42,40 @@ var _ = Describe("Server", func() {
 		It("returns 200 ok", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 			Expect(res.Body.String()).To(MatchJSON(`{"status":"ok"}`))
+		})
+	})
+
+	Describe("GET /containers", func() {
+		doRequest := func() {
+			req, err = NewRequest("GET", "/containers", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		Context("when there isn't any container", func() {
+			BeforeEach(func() {
+				doRequest()
+			})
+
+			It("returns 200 ok with empty container info array", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(res.Body.String()).To(MatchJSON(`{"containers":[]}`))
+			})
+		})
+
+		Context("when there exists containers", func() {
+			BeforeEach(func() {
+				prov.Containers = []provider.ContainerInfo{
+					provider.ContainerInfo{Name: "foo", Host: "1.2.3.4", Port: 10000},
+					provider.ContainerInfo{Name: "bar", Host: "1.2.3.5", Port: 10001},
+				}
+				doRequest()
+			})
+
+			It("returns 200 ok with container info array", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(res.Body.String()).To(MatchJSON(`{"containers":[{"name":"foo","host":"1.2.3.4","port":10000}, {"name":"bar","host":"1.2.3.5","port":10001}]}`))
+			})
 		})
 	})
 
@@ -85,7 +118,7 @@ var _ = Describe("Server", func() {
 
 			It("calls provider.Create() asynchronously", func() {
 				Expect(prov.CreateCalled).To(BeFalse())
-				runtime.Gosched()
+				Wait()
 				Expect(prov.CreateCalled).To(BeTrue())
 				Expect(prov.Name).To(Equal(name))
 				Expect(prov.PublicKeys).To(HaveLen(2))
@@ -102,7 +135,7 @@ var _ = Describe("Server", func() {
 
 					It("calls callback with error", func() {
 						Expect(cb.InvokeCalled).To(BeFalse())
-						runtime.Gosched()
+						Wait()
 						Expect(cb.InvokeCalled).To(BeTrue())
 						Expect(cb.To).To(Equal(callbackUrl))
 						Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter"}`))
@@ -111,16 +144,16 @@ var _ = Describe("Server", func() {
 
 				Context("returns a container info with no error", func() {
 					BeforeEach(func() {
-						prov.CreateContainerInfo = &provider.ContainerInfo{Host: "1.2.3.4", Port: 10000}
+						prov.CreateContainerInfo = provider.ContainerInfo{Name: name, Host: "1.2.3.4", Port: 10000}
 						doRequest()
 					})
 
 					It("calls callback with container info", func() {
 						Expect(cb.InvokeCalled).To(BeFalse())
-						runtime.Gosched()
+						Wait()
 						Expect(cb.InvokeCalled).To(BeTrue())
 						Expect(cb.To).To(Equal(callbackUrl))
-						Expect(cb.Payload).To(MatchJSON(`{"status":"created", "container":{"host":"1.2.3.4", "port":10000}}`))
+						Expect(cb.Payload).To(MatchJSON(`{"status":"created", "container":{"name":"fragrant-wind-69", "host":"1.2.3.4", "port":10000}}`))
 					})
 				})
 			})
@@ -140,7 +173,7 @@ var _ = Describe("Server", func() {
 
 				It("does not call provider.Create()", func() {
 					Expect(prov.CreateCalled).To(BeFalse())
-					runtime.Gosched()
+					Wait()
 					Expect(prov.CreateCalled).To(BeFalse())
 				})
 			})
@@ -149,8 +182,8 @@ var _ = Describe("Server", func() {
 
 	Describe("GET /containers/:container_name", func() {
 		BeforeEach(func() {
-			prov.Containers = map[string]*provider.ContainerInfo{
-				"foo": &provider.ContainerInfo{Host: "1.2.3.4", Port: 10000},
+			prov.Containers = []provider.ContainerInfo{
+				provider.ContainerInfo{Name: "foo", Host: "1.2.3.4", Port: 10000},
 			}
 		})
 
@@ -167,7 +200,7 @@ var _ = Describe("Server", func() {
 
 			It("returns 200 ok with container information", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(res.Body.String()).To(MatchJSON(`{"container":{"host": "1.2.3.4","port":10000}}`))
+				Expect(res.Body.String()).To(MatchJSON(`{"container":{"name":"foo","host":"1.2.3.4","port":10000}}`))
 			})
 		})
 

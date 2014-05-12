@@ -19,6 +19,22 @@ func (a *RestAPI) Home(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, []byte(`{"status":"ok"}`))
 }
 
+func (a *RestAPI) ListContainers(w http.ResponseWriter, r *http.Request) {
+	infoList, err := a.Provider.List()
+	if err != nil {
+		respondWith500(w, "failed to fetch container list")
+		return
+	}
+
+	j, err := json.Marshal(map[string][]provider.ContainerInfo{"containers": infoList})
+	if err != nil {
+		respondWith500(w, "json marshaling failed")
+		return
+	}
+
+	respond(w, http.StatusOK, j)
+}
+
 func (a *RestAPI) CreateContainer(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	callbackUrl := r.FormValue("callback_url")
@@ -59,7 +75,7 @@ func (a *RestAPI) GetContainerInfo(w http.ResponseWriter, r *http.Request) {
 
 	j, err := json.Marshal(map[string]*provider.ContainerInfo{"container": info})
 	if err != nil {
-		respondWithError(w, "json marshaling failed")
+		respondWith500(w, "json marshaling failed")
 		return
 	}
 
@@ -72,7 +88,7 @@ func respond(w http.ResponseWriter, status int, data []byte) {
 	w.Write(data)
 }
 
-func respondWithError(w http.ResponseWriter, errMsg string) {
+func respondWith500(w http.ResponseWriter, errMsg string) {
 	errJson := fmt.Sprintf(`{"error":"%v"}`, strings.Replace(errMsg, `"`, `\"`, -1))
 	respond(w, http.StatusInternalServerError, []byte(errJson))
 }

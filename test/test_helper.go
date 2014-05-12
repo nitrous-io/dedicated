@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/motain/gocheck"
 )
@@ -52,4 +54,9 @@ func (checker *containsChecker) Check(params []interface{}, names []string) (res
 		}
 	}
 	return exists, ""
+}
+
+func Wait() {
+	runtime.Gosched()
+	time.Sleep(50 * time.Millisecond)
 }
