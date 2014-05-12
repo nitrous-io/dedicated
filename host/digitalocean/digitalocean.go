@@ -173,7 +173,15 @@ func (h *Host) Stop() error {
 }
 
 func (h *Host) Start() error {
-	panic("do provider does not support start yet")
+	id64, err := strconv.ParseInt(h.Config.Id, 10, 64)
+	if err != nil {
+		return err
+	}
+	id := int(id64)
+	if err := h.Client.PowerOnDroplet(id); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *Host) Restart() error {
