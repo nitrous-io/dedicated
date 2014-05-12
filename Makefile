@@ -18,7 +18,7 @@ format:
 test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
 	@go list -f '{{range .TestImports}}{{.}} {{end}}' ./... | xargs -n1 go get -d
-	go test -test.v ./...
+	@ginkgo -r --trace
 
 run: all
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
