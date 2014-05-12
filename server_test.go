@@ -82,3 +82,79 @@ func TestDestroyHost(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestStopHost(t *testing.T) {
+	var wg sync.WaitGroup
+	wh := webhookTestServer(wg, t, func(t *testing.T, data WebhookData) {
+		if data.Success != true {
+			t.Fatal("Failed to stop a dummy host", data)
+		}
+	})
+	defer wh.Close()
+
+	s, _ := New([]byte(`{"dummy":{}}`))
+	ts := httptest.NewServer(s.Router)
+	defer ts.Close()
+
+	config, _ := json.Marshal(dummy.Host{StopSuccess: true})
+	form := url.Values{}
+	form.Set("provider", "dummy")
+	form.Set("webhook", string(wh.URL))
+	form.Set("config", string(config))
+	resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/stop"), form)
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatal("Failed to stop host", resp)
+	}
+	wg.Wait()
+}
+
+func TestStartHost(t *testing.T) {
+	var wg sync.WaitGroup
+	wh := webhookTestServer(wg, t, func(t *testing.T, data WebhookData) {
+		if data.Success != true {
+			t.Fatal("Failed to start a dummy host", data)
+		}
+	})
+	defer wh.Close()
+
+	s, _ := New([]byte(`{"dummy":{}}`))
+	ts := httptest.NewServer(s.Router)
+	defer ts.Close()
+
+	config, _ := json.Marshal(dummy.Host{StartSuccess: true})
+	form := url.Values{}
+	form.Set("provider", "dummy")
+	form.Set("webhook", string(wh.URL))
+	form.Set("config", string(config))
+	resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/start"), form)
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatal("Failed to start host", resp)
+	}
+	wg.Wait()
+}
+
+func TestRestartHost(t *testing.T) {
+	var wg sync.WaitGroup
+	wh := webhookTestServer(wg, t, func(t *testing.T, data WebhookData) {
+		if data.Success != true {
+			t.Fatal("Failed to restart a dummy host", data)
+		}
+	})
+	defer wh.Close()
+
+	s, _ := New([]byte(`{"dummy":{}}`))
+	ts := httptest.NewServer(s.Router)
+	defer ts.Close()
+
+	config, _ := json.Marshal(dummy.Host{RestartSuccess: true})
+	form := url.Values{}
+	form.Set("provider", "dummy")
+	form.Set("webhook", string(wh.URL))
+	form.Set("config", string(config))
+	resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/restart"), form)
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatal("Failed to restart host", resp)
+	}
+	wg.Wait()
+
+}

@@ -10,8 +10,11 @@ import (
 type Host struct {
 	Id             string `json:"id"`
 	IpAddress      string `json:"ip_address"`
-	DestroySuccess bool   `json:"destroy_success"`
-	CreateSuccess  bool   `json:"create_success"`
+	DestroySuccess bool   `json:"destroy"`
+	CreateSuccess  bool   `json:"create"`
+	StopSuccess    bool   `json:"stop"`
+	StartSuccess   bool   `json:"start"`
+	RestartSuccess bool   `json:"start"`
 }
 
 func (h *Host) Create() (*host.Info, error) {
@@ -38,15 +41,24 @@ func (h *Host) Info() (*host.Info, error) {
 }
 
 func (h *Host) Stop() error {
-	panic("dummy provider does not support stop yet")
+	if h.StopSuccess {
+		return nil
+	}
+	return errors.New("Failed to stop host")
 }
 
 func (h *Host) Start() error {
-	panic("dummy provider does not support start yet")
+	if h.StartSuccess {
+		return nil
+	}
+	return errors.New("Failed to start host")
 }
 
 func (h *Host) Restart() error {
-	panic("dummy provider does not support restart yet")
+	if h.RestartSuccess {
+		return nil
+	}
+	return errors.New("Failed to restart host")
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
