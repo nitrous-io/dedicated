@@ -160,6 +160,18 @@ func (h *Host) Info() (*host.Info, error) {
 	return info, nil
 }
 
+func (h *Host) Stop() error {
+	panic("do provider does not support stop yet")
+}
+
+func (h *Host) Start() error {
+	panic("do provider does not support start yet")
+}
+
+func (h *Host) Restart() error {
+	panic("do provider does not support restart yet")
+}
+
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
 	client := do.NewClient(defaultConfig["client_id"], defaultConfig["api_key"])
 	hostConfig := &HostConfig{}

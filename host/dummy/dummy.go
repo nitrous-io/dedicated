@@ -37,6 +37,18 @@ func (h *Host) Info() (*host.Info, error) {
 	return info, nil
 }
 
+func (h *Host) Stop() error {
+	panic("dummy provider does not support stop yet")
+}
+
+func (h *Host) Start() error {
+	panic("dummy provider does not support start yet")
+}
+
+func (h *Host) Restart() error {
+	panic("dummy provider does not support restart yet")
+}
+
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
 	var host Host
 	json.Unmarshal([]byte(config), &host)
