@@ -13,6 +13,6 @@ RUN curl -s https://storage.googleapis.com/golang/go1.2.2.linux-amd64.tar.gz \
 RUN mkdir -p /opt/src/github.com/nitrous-io/hostbuilder
 
 ENV PATH /usr/local/go/bin:$PATH
-ENV GOPATH /opt/src/github.com/nitrous-io/hostbuilder/vendor:/opt
+ENV GOPATH /opt/src/github.com/nitrous-io/hostbuilder/_vendor:/opt
 
 WORKDIR /opt/src/github.com/nitrous-io/hostbuilder

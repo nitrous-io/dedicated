@@ -1,4 +1,4 @@
 .bundle
 config.json
 tags
-vendor
+_vendor

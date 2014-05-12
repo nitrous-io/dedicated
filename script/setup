@@ -4,7 +4,7 @@ require "rubygems"
 require "fileutils"
 require "json"
 
-VENDOR_SRC = "vendor/src"
+VENDOR_SRC = "_vendor/src"
 
 def run(cmd)
   unless system(cmd)
@@ -35,6 +35,6 @@ end
 
 puts <<-EOF
 Dependencies are setup in ./vendor
-Add `export GOPATH=#{FileUtils.pwd}/vendor:$GOPATH`` to your shell profile
+Add `export GOPATH=#{FileUtils.pwd}/_vendor:$GOPATH`` to your shell profile
 Or use https://github.com/kennethreitz/autoenv
 EOF

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
 export GOPATH=$(pwd):/vendor:$GOPATH
-rm -rf vendor
+rm -rf _vendor
 ./script/setup
 go install -v github.com/nitrous-io/hostbuilder/hostbuilder
