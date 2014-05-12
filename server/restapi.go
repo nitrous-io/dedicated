@@ -16,7 +16,7 @@ type RestAPI struct {
 }
 
 func (a *RestAPI) Home(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(`{"status":"ok"}`))
+	respond(w, http.StatusOK, []byte(`{"status":"ok"}`))
 }
 
 func (a *RestAPI) CreateContainer(w http.ResponseWriter, r *http.Request) {
@@ -25,8 +25,7 @@ func (a *RestAPI) CreateContainer(w http.ResponseWriter, r *http.Request) {
 	publicKeys := r.PostForm["public_key[]"]
 
 	if name == "" || callbackUrl == "" || publicKeys == nil {
-		w.WriteHeader(422)
-		w.Write([]byte(`{"error":"invalid params"}`))
+		respond(w, 422, []byte(`{"error":"invalid params"}`))
 		return
 	}
 
@@ -45,8 +44,7 @@ func (a *RestAPI) CreateContainer(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	w.WriteHeader(http.StatusAccepted)
-	w.Write([]byte(`{"status":"accepted"}`))
+	respond(w, http.StatusAccepted, []byte(`{"status":"accepted"}`))
 }
 
 func (a *RestAPI) GetContainerInfo(w http.ResponseWriter, r *http.Request) {
@@ -55,23 +53,26 @@ func (a *RestAPI) GetContainerInfo(w http.ResponseWriter, r *http.Request) {
 	info, err := a.Provider.GetInfo(name)
 
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error":"not found"}`))
+		respond(w, http.StatusNotFound, []byte(`{"error":"not found"}`))
 		return
 	}
 
 	j, err := json.Marshal(map[string]*provider.ContainerInfo{"container": info})
 	if err != nil {
-		respondWith500(w, "json marshaling failed")
+		respondWithError(w, "json marshaling failed")
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(j)
+	respond(w, http.StatusOK, j)
 }
 
-func respondWith500(w http.ResponseWriter, errMsg string) {
-	w.WriteHeader(http.StatusInternalServerError)
+func respond(w http.ResponseWriter, status int, data []byte) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	w.Write(data)
+}
+
+func respondWithError(w http.ResponseWriter, errMsg string) {
 	errJson := fmt.Sprintf(`{"error":"%v"}`, strings.Replace(errMsg, `"`, `\"`, -1))
-	w.Write([]byte(errJson))
+	respond(w, http.StatusInternalServerError, []byte(errJson))
 }

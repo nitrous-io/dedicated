@@ -42,12 +42,7 @@ var _ = Describe("Server", func() {
 
 		It("returns 200 ok", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
-
-			var j map[string]interface{}
-			err = json.Unmarshal(res.Body.Bytes(), &j)
-			Expect(err).To(BeNil())
-
-			Expect(j["status"]).To(Equal("ok"))
+			Expect(res.Body.String()).To(MatchJSON(`{"status":"ok"}`))
 		})
 	})
 
@@ -172,14 +167,7 @@ var _ = Describe("Server", func() {
 
 			It("returns 200 ok with container information", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
-
-				var j map[string]*provider.ContainerInfo
-				err = json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-
-				Expect(j["container"]).NotTo(BeNil())
-				Expect(j["container"].Host).To(Equal("1.2.3.4"))
-				Expect(j["container"].Port).To(Equal(uint16(10000)))
+				Expect(res.Body.String()).To(MatchJSON(`{"container":{"host": "1.2.3.4","port":10000}}`))
 			})
 		})
 
@@ -190,12 +178,7 @@ var _ = Describe("Server", func() {
 
 			It("returns 404 not found", func() {
 				Expect(res.Code).To(Equal(http.StatusNotFound))
-
-				var j map[string]string
-				err = json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-
-				Expect(j["error"]).To(Equal("not found"))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"not found"}`))
 			})
 		})
 	})
