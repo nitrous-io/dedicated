@@ -25,7 +25,7 @@ func NewRouter(provider provider.Provider, callback Callback) *mux.Router {
 
 	r.HandleFunc("/containers", a.ListContainers).Methods("GET")
 	r.HandleFunc("/containers", a.CreateContainer).Methods("POST")
-	r.HandleFunc("/containers/{name}", a.GetContainerInfo).Methods("GET")
+	r.HandleFunc("/containers/{id}", a.GetContainerInfo).Methods("GET")
 
 	return r
 }

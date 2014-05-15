@@ -180,7 +180,7 @@ var _ = Describe("Server", func() {
 		}
 	})
 
-	Describe("GET /containers/:container_name", func() {
+	Describe("GET /containers/:container_id", func() {
 		BeforeEach(func() {
 			prov.Containers = []*provider.ContainerInfo{
 				{Id: "aaa", Name: "foo", Host: "1.2.3.4", Port: 10000},
@@ -193,9 +193,9 @@ var _ = Describe("Server", func() {
 			handler.ServeHTTP(res, req)
 		}
 
-		Context("when container by the given name exists", func() {
+		Context("when container by the given id exists", func() {
 			BeforeEach(func() {
-				doRequest("foo")
+				doRequest("aaa")
 			})
 
 			It("returns 200 ok with container information", func() {
@@ -204,9 +204,9 @@ var _ = Describe("Server", func() {
 			})
 		})
 
-		Context("when container by the given name does not exist", func() {
+		Context("when container by the given id does not exist", func() {
 			BeforeEach(func() {
-				doRequest("bar")
+				doRequest("bbb")
 			})
 
 			It("returns 404 not found", func() {

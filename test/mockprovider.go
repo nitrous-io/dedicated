@@ -31,9 +31,9 @@ func (p *MockProvider) Create(name string, publicKeys []string) (*provider.Conta
 	return p.CreateContainerInfo, p.CreateError
 }
 
-func (p *MockProvider) GetInfo(name string) (*provider.ContainerInfo, error) {
+func (p *MockProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	for _, info := range p.Containers {
-		if info.Name == name {
+		if info.Id == id {
 			return info, nil
 		}
 	}

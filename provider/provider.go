@@ -3,7 +3,7 @@ package provider
 type Provider interface {
 	List() (infoList []*ContainerInfo, err error)
 	Create(name string, publicKeys []string) (info *ContainerInfo, err error)
-	GetInfo(name string) (info *ContainerInfo, err error)
+	GetInfo(id string) (info *ContainerInfo, err error)
 	//Terminate()
 	//Start()
 	//Stop()

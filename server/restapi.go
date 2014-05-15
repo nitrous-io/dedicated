@@ -64,9 +64,9 @@ func (a *RestAPI) CreateContainer(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *RestAPI) GetContainerInfo(w http.ResponseWriter, r *http.Request) {
-	name := mux.Vars(r)["name"]
+	id := mux.Vars(r)["id"]
 
-	info, err := a.Provider.GetInfo(name)
+	info, err := a.Provider.GetInfo(id)
 
 	if err != nil {
 		respond(w, http.StatusNotFound, []byte(`{"error":"not found"}`))
