@@ -14,6 +14,9 @@ type MockProvider struct {
 	TerminateCalled bool
 	TerminateError  error
 
+	StartCalled bool
+	StartError  error
+
 	Id         string
 	Name       string
 	Image      string
@@ -50,4 +53,10 @@ func (p *MockProvider) Terminate(id string) error {
 	p.TerminateCalled = true
 	p.Id = id
 	return p.TerminateError
+}
+
+func (p *MockProvider) Start(id string) error {
+	p.StartCalled = true
+	p.Id = id
+	return p.StartError
 }

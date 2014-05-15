@@ -17,3 +17,7 @@ func (p *DockerProvider) GetInfo(name string) (*ContainerInfo, error) {
 func (p *DockerProvider) Terminate(id string) error {
 	return nil
 }
+
+func (p *DockerProvider) Start(id string) error {
+	return nil
+}

@@ -218,86 +218,121 @@ var _ = Describe("Server", func() {
 		})
 	})
 
-	Describe("DELETE /containers/:container_id", func() {
+	Describe("Container Control", func() {
 		var (
-			params      *url.Values
-			id          string
-			callbackUrl string
+			provFuncCalled *bool
+			provFuncError  *error
+			successStatus  string
+			doRequest      func(string)
+			params         *url.Values
 		)
 
-		BeforeEach(func() {
-			id = "aaa"
-			callbackUrl = "http://www.example.com/cb"
-			params = &url.Values{}
-			params.Set("callback_url", callbackUrl)
+		itWorks := func() {
+			var (
+				id          string
+				callbackUrl string
+			)
 
-			prov.Containers = []*provider.ContainerInfo{
-				{Id: id, Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000},
-			}
-		})
+			BeforeEach(func() {
+				id = "aaa"
+				callbackUrl = "http://www.example.com/cb"
+				params = &url.Values{}
+				params.Set("callback_url", callbackUrl)
 
-		doRequest := func(id string) {
-			req, err = NewRequest("DELETE", fmt.Sprintf("/containers/%v", id), params)
-			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
+				prov.Containers = []*provider.ContainerInfo{
+					{Id: id, Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000},
+				}
+			})
+
+			Context("when container by the given id exists", func() {
+				It("returns 202 accepted immediately", func() {
+					doRequest(id)
+					Expect(res.Code).To(Equal(http.StatusAccepted))
+					Expect(res.Body.String()).To(MatchJSON(`{"status":"accepted"}`))
+				})
+
+				It("calls provider.Start() asynchronously", func() {
+					doRequest(id)
+					Expect(*provFuncCalled).To(BeFalse())
+					Wait()
+					Expect(*provFuncCalled).To(BeTrue())
+					Expect(prov.Id).To(Equal(id))
+				})
+
+				Context("when provider.Start()", func() {
+					Context("returns an error", func() {
+						BeforeEach(func() {
+							*provFuncError = errors.New("pc load letter")
+							doRequest(id)
+						})
+
+						It("calls callback with error", func() {
+							Expect(cb.InvokeCalled).To(BeFalse())
+							Wait()
+							Expect(cb.InvokeCalled).To(BeTrue())
+							Expect(cb.To).To(Equal(callbackUrl))
+							Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter"}`))
+						})
+					})
+
+					Context("returns a container info with no error", func() {
+						BeforeEach(func() {
+							doRequest(id)
+						})
+
+						It("calls callback with no error", func() {
+							Expect(cb.InvokeCalled).To(BeFalse())
+							Wait()
+							Expect(cb.InvokeCalled).To(BeTrue())
+							Expect(cb.To).To(Equal(callbackUrl))
+							Expect(cb.Payload).To(MatchJSON(fmt.Sprintf(`{"status":"%v", "container_id":"aaa"}`, successStatus)))
+						})
+					})
+				})
+			})
+
+			Context("when container by the given id does not exist", func() {
+				BeforeEach(func() {
+					doRequest("bbb")
+				})
+
+				It("returns 404 not found", func() {
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+					Expect(res.Body.String()).To(MatchJSON(`{"error":"not found"}`))
+				})
+			})
 		}
 
-		Context("when container by the given id exists", func() {
-			It("returns 202 accepted immediately", func() {
-				doRequest(id)
-				Expect(res.Code).To(Equal(http.StatusAccepted))
-				Expect(res.Body.String()).To(MatchJSON(`{"status":"accepted"}`))
+		Describe("DELETE /containers/:container_id", func() {
+			BeforeEach(func() {
+				provFuncCalled = &prov.TerminateCalled
+				provFuncError = &prov.TerminateError
+				successStatus = "terminated"
+
+				doRequest = func(id string) {
+					req, err = NewRequest("DELETE", fmt.Sprintf("/containers/%v", id), params)
+					Expect(err).To(BeNil())
+					handler.ServeHTTP(res, req)
+				}
 			})
 
-			It("calls provider.Terminate() asynchronously", func() {
-				doRequest(id)
-				Expect(prov.TerminateCalled).To(BeFalse())
-				Wait()
-				Expect(prov.TerminateCalled).To(BeTrue())
-				Expect(prov.Id).To(Equal(id))
-			})
-
-			Context("when provider.Terminate()", func() {
-				Context("returns an error", func() {
-					BeforeEach(func() {
-						prov.TerminateError = errors.New("pc load letter")
-						doRequest(id)
-					})
-
-					It("calls callback with error", func() {
-						Expect(cb.InvokeCalled).To(BeFalse())
-						Wait()
-						Expect(cb.InvokeCalled).To(BeTrue())
-						Expect(cb.To).To(Equal(callbackUrl))
-						Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter"}`))
-					})
-				})
-
-				Context("returns a container info with no error", func() {
-					BeforeEach(func() {
-						doRequest(id)
-					})
-
-					It("calls callback", func() {
-						Expect(cb.InvokeCalled).To(BeFalse())
-						Wait()
-						Expect(cb.InvokeCalled).To(BeTrue())
-						Expect(cb.To).To(Equal(callbackUrl))
-						Expect(cb.Payload).To(MatchJSON(`{"status":"terminated", "container_id":"aaa"}`))
-					})
-				})
-			})
+			itWorks()
 		})
 
-		Context("when container by the given id does not exist", func() {
+		Describe("POST /containers/:container_id/start", func() {
 			BeforeEach(func() {
-				doRequest("bbb")
+				provFuncCalled = &prov.StartCalled
+				provFuncError = &prov.StartError
+				successStatus = "started"
+
+				doRequest = func(id string) {
+					req, err = NewFormRequest("POST", fmt.Sprintf("/containers/%v/start", id), params)
+					Expect(err).To(BeNil())
+					handler.ServeHTTP(res, req)
+				}
 			})
 
-			It("returns 404 not found", func() {
-				Expect(res.Code).To(Equal(http.StatusNotFound))
-				Expect(res.Body.String()).To(MatchJSON(`{"error":"not found"}`))
-			})
+			itWorks()
 		})
 	})
 })

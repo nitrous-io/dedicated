@@ -78,6 +78,14 @@ func (a *RestAPI) GetContainerInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *RestAPI) TerminateContainer(w http.ResponseWriter, r *http.Request) {
+	a.performContainerControl(w, r, a.Provider.Terminate, "terminated")
+}
+
+func (a *RestAPI) StartContainer(w http.ResponseWriter, r *http.Request) {
+	a.performContainerControl(w, r, a.Provider.Start, "started")
+}
+
+func (a *RestAPI) performContainerControl(w http.ResponseWriter, r *http.Request, controlFunc func(string) error, successStatus string) {
 	id := mux.Vars(r)["id"]
 	callbackUrl := r.FormValue("callback_url")
 
@@ -89,7 +97,7 @@ func (a *RestAPI) TerminateContainer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
-		err := a.Provider.Terminate(id)
+		err := controlFunc(id)
 		if err != nil {
 			j, err := json.Marshal(map[string]string{"error": err.Error()})
 			if err == nil {
@@ -97,7 +105,7 @@ func (a *RestAPI) TerminateContainer(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
-		j, err := json.Marshal(map[string]string{"status": "terminated", "container_id": id})
+		j, err := json.Marshal(map[string]string{"status": successStatus, "container_id": id})
 		if err == nil {
 			a.Callback.Invoke(callbackUrl, string(j))
 		}
