@@ -12,6 +12,7 @@ type MockProvider struct {
 	CreateError         error
 
 	Name       string
+	Image      string
 	PublicKeys []string
 
 	Containers []*provider.ContainerInfo
@@ -24,9 +25,10 @@ func (p *MockProvider) List() ([]*provider.ContainerInfo, error) {
 	return p.Containers, nil
 }
 
-func (p *MockProvider) Create(name string, publicKeys []string) (*provider.ContainerInfo, error) {
+func (p *MockProvider) Create(name string, image string, publicKeys []string) (*provider.ContainerInfo, error) {
 	p.CreateCalled = true
 	p.Name = name
+	p.Image = image
 	p.PublicKeys = publicKeys
 	return p.CreateContainerInfo, p.CreateError
 }

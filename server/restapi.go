@@ -37,6 +37,7 @@ func (a *RestAPI) ListContainers(w http.ResponseWriter, r *http.Request) {
 
 func (a *RestAPI) CreateContainer(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
+	image := r.FormValue("image")
 	callbackUrl := r.FormValue("callback_url")
 	publicKeys := r.PostForm["public_key[]"]
 
@@ -46,7 +47,7 @@ func (a *RestAPI) CreateContainer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
-		info, err := a.Provider.Create(name, publicKeys)
+		info, err := a.Provider.Create(name, image, publicKeys)
 		if err != nil {
 			payload, err := json.Marshal(map[string]string{"error": err.Error()})
 			if err == nil {

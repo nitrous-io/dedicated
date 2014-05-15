@@ -6,7 +6,7 @@ func (p *DockerProvider) List() ([]*ContainerInfo, error) {
 	return nil, nil
 }
 
-func (p *DockerProvider) Create(name string, publicKeys []string) (*ContainerInfo, error) {
+func (p *DockerProvider) Create(name string, image string, publicKeys []string) (*ContainerInfo, error) {
 	return nil, nil
 }
 

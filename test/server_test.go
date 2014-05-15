@@ -66,15 +66,15 @@ var _ = Describe("Server", func() {
 		Context("when there exists containers", func() {
 			BeforeEach(func() {
 				prov.Containers = []*provider.ContainerInfo{
-					{Id: "aaa", Name: "foo", Host: "1.2.3.4", Port: 10000},
-					{Id: "bbb", Name: "bar", Host: "1.2.3.5", Port: 10001},
+					{Id: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000},
+					{Id: "bbb", Name: "bar", Image: "centos", Host: "1.2.3.5", Port: 10001},
 				}
 				doRequest()
 			})
 
 			It("returns 200 ok with container info array", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(res.Body.String()).To(MatchJSON(`{"containers":[{"id":"aaa","name":"foo","host":"1.2.3.4","port":10000}, {"id":"bbb","name":"bar","host":"1.2.3.5","port":10001}]}`))
+				Expect(res.Body.String()).To(MatchJSON(`{"containers":[{"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","port":10000}, {"id":"bbb","name":"bar","image":"centos","host":"1.2.3.5","port":10001}]}`))
 			})
 		})
 	})
@@ -83,6 +83,7 @@ var _ = Describe("Server", func() {
 		var (
 			params      url.Values
 			name        string
+			image       string
 			publicKey   string
 			publicKey2  string
 			callbackUrl string
@@ -91,10 +92,12 @@ var _ = Describe("Server", func() {
 		BeforeEach(func() {
 			params = url.Values{}
 			name = "fragrant-wind-69"
+			image = "ubuntu"
 			publicKey = "ssh-rsa Foo"
 			publicKey2 = "ssh-rsa Bar"
 			callbackUrl = "http://www.example.com/created"
 			params.Set("name", name)
+			params.Set("image", image)
 			params.Set("callback_url", callbackUrl)
 			params.Set("public_key[]", publicKey)
 			params.Add("public_key[]", publicKey2)
@@ -121,6 +124,7 @@ var _ = Describe("Server", func() {
 				Wait()
 				Expect(prov.CreateCalled).To(BeTrue())
 				Expect(prov.Name).To(Equal(name))
+				Expect(prov.Image).To(Equal(image))
 				Expect(prov.PublicKeys).To(HaveLen(2))
 				Expect(prov.PublicKeys).To(ContainElement(publicKey))
 				Expect(prov.PublicKeys).To(ContainElement(publicKey2))
@@ -144,7 +148,7 @@ var _ = Describe("Server", func() {
 
 				Context("returns a container info with no error", func() {
 					BeforeEach(func() {
-						prov.CreateContainerInfo = &provider.ContainerInfo{Id: "aaa", Name: name, Host: "1.2.3.4", Port: 10000}
+						prov.CreateContainerInfo = &provider.ContainerInfo{Id: "aaa", Name: name, Image: "ubuntu", Host: "1.2.3.4", Port: 10000}
 						doRequest()
 					})
 
@@ -153,7 +157,7 @@ var _ = Describe("Server", func() {
 						Wait()
 						Expect(cb.InvokeCalled).To(BeTrue())
 						Expect(cb.To).To(Equal(callbackUrl))
-						Expect(cb.Payload).To(MatchJSON(`{"status":"created", "container":{"id":"aaa","name":"fragrant-wind-69", "host":"1.2.3.4", "port":10000}}`))
+						Expect(cb.Payload).To(MatchJSON(`{"status":"created", "container":{"id":"aaa","name":"fragrant-wind-69", "image":"ubuntu", "host":"1.2.3.4", "port":10000}}`))
 					})
 				})
 			})
@@ -183,7 +187,7 @@ var _ = Describe("Server", func() {
 	Describe("GET /containers/:container_id", func() {
 		BeforeEach(func() {
 			prov.Containers = []*provider.ContainerInfo{
-				{Id: "aaa", Name: "foo", Host: "1.2.3.4", Port: 10000},
+				{Id: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000},
 			}
 		})
 
@@ -200,7 +204,7 @@ var _ = Describe("Server", func() {
 
 			It("returns 200 ok with container information", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(res.Body.String()).To(MatchJSON(`{"container":{"id":"aaa","name":"foo","host":"1.2.3.4","port":10000}}`))
+				Expect(res.Body.String()).To(MatchJSON(`{"container":{"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","port":10000}}`))
 			})
 		})
 
