@@ -2,7 +2,7 @@ package provider
 
 type DockerProvider struct{}
 
-func (p *DockerProvider) List() ([]ContainerInfo, error) {
+func (p *DockerProvider) List() ([]*ContainerInfo, error) {
 	return nil, nil
 }
 

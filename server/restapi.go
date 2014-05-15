@@ -26,7 +26,7 @@ func (a *RestAPI) ListContainers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j, err := json.Marshal(map[string][]provider.ContainerInfo{"containers": infoList})
+	j, err := json.Marshal(map[string][]*provider.ContainerInfo{"containers": infoList})
 	if err != nil {
 		respondWith500(w, "json marshaling failed")
 		return

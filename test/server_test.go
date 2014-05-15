@@ -65,16 +65,16 @@ var _ = Describe("Server", func() {
 
 		Context("when there exists containers", func() {
 			BeforeEach(func() {
-				prov.Containers = []provider.ContainerInfo{
-					provider.ContainerInfo{Name: "foo", Host: "1.2.3.4", Port: 10000},
-					provider.ContainerInfo{Name: "bar", Host: "1.2.3.5", Port: 10001},
+				prov.Containers = []*provider.ContainerInfo{
+					{Id: "aaa", Name: "foo", Host: "1.2.3.4", Port: 10000},
+					{Id: "bbb", Name: "bar", Host: "1.2.3.5", Port: 10001},
 				}
 				doRequest()
 			})
 
 			It("returns 200 ok with container info array", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(res.Body.String()).To(MatchJSON(`{"containers":[{"name":"foo","host":"1.2.3.4","port":10000}, {"name":"bar","host":"1.2.3.5","port":10001}]}`))
+				Expect(res.Body.String()).To(MatchJSON(`{"containers":[{"id":"aaa","name":"foo","host":"1.2.3.4","port":10000}, {"id":"bbb","name":"bar","host":"1.2.3.5","port":10001}]}`))
 			})
 		})
 	})
@@ -144,7 +144,7 @@ var _ = Describe("Server", func() {
 
 				Context("returns a container info with no error", func() {
 					BeforeEach(func() {
-						prov.CreateContainerInfo = provider.ContainerInfo{Name: name, Host: "1.2.3.4", Port: 10000}
+						prov.CreateContainerInfo = &provider.ContainerInfo{Id: "aaa", Name: name, Host: "1.2.3.4", Port: 10000}
 						doRequest()
 					})
 
@@ -153,7 +153,7 @@ var _ = Describe("Server", func() {
 						Wait()
 						Expect(cb.InvokeCalled).To(BeTrue())
 						Expect(cb.To).To(Equal(callbackUrl))
-						Expect(cb.Payload).To(MatchJSON(`{"status":"created", "container":{"name":"fragrant-wind-69", "host":"1.2.3.4", "port":10000}}`))
+						Expect(cb.Payload).To(MatchJSON(`{"status":"created", "container":{"id":"aaa","name":"fragrant-wind-69", "host":"1.2.3.4", "port":10000}}`))
 					})
 				})
 			})
@@ -182,8 +182,8 @@ var _ = Describe("Server", func() {
 
 	Describe("GET /containers/:container_name", func() {
 		BeforeEach(func() {
-			prov.Containers = []provider.ContainerInfo{
-				provider.ContainerInfo{Name: "foo", Host: "1.2.3.4", Port: 10000},
+			prov.Containers = []*provider.ContainerInfo{
+				{Id: "aaa", Name: "foo", Host: "1.2.3.4", Port: 10000},
 			}
 		})
 
@@ -200,7 +200,7 @@ var _ = Describe("Server", func() {
 
 			It("returns 200 ok with container information", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(res.Body.String()).To(MatchJSON(`{"container":{"name":"foo","host":"1.2.3.4","port":10000}}`))
+				Expect(res.Body.String()).To(MatchJSON(`{"container":{"id":"aaa","name":"foo","host":"1.2.3.4","port":10000}}`))
 			})
 		})
 

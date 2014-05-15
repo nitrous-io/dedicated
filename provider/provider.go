@@ -1,7 +1,7 @@
 package provider
 
 type Provider interface {
-	List() (infoList []ContainerInfo, err error)
+	List() (infoList []*ContainerInfo, err error)
 	Create(name string, publicKeys []string) (info *ContainerInfo, err error)
 	GetInfo(name string) (info *ContainerInfo, err error)
 	//Terminate()
@@ -13,6 +13,7 @@ type Provider interface {
 }
 
 type ContainerInfo struct {
+	Id   string `json:"id"`
 	Name string `json:"name"`
 	Host string `json:"host"`
 	Port uint16 `json:"port"`
