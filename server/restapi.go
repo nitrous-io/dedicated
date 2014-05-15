@@ -85,6 +85,14 @@ func (a *RestAPI) StartContainer(w http.ResponseWriter, r *http.Request) {
 	a.performContainerControl(w, r, a.Provider.Start, "started")
 }
 
+func (a *RestAPI) StopContainer(w http.ResponseWriter, r *http.Request) {
+	a.performContainerControl(w, r, a.Provider.Stop, "stopped")
+}
+
+func (a *RestAPI) RestartContainer(w http.ResponseWriter, r *http.Request) {
+	a.performContainerControl(w, r, a.Provider.Restart, "restarted")
+}
+
 func (a *RestAPI) performContainerControl(w http.ResponseWriter, r *http.Request, controlFunc func(string) error, successStatus string) {
 	id := mux.Vars(r)["id"]
 	callbackUrl := r.FormValue("callback_url")

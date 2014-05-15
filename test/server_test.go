@@ -334,5 +334,37 @@ var _ = Describe("Server", func() {
 
 			itWorks()
 		})
+
+		Describe("POST /containers/:container_id/stop", func() {
+			BeforeEach(func() {
+				provFuncCalled = &prov.StopCalled
+				provFuncError = &prov.StopError
+				successStatus = "stopped"
+
+				doRequest = func(id string) {
+					req, err = NewFormRequest("POST", fmt.Sprintf("/containers/%v/stop", id), params)
+					Expect(err).To(BeNil())
+					handler.ServeHTTP(res, req)
+				}
+			})
+
+			itWorks()
+		})
+
+		Describe("POST /containers/:container_id/restart", func() {
+			BeforeEach(func() {
+				provFuncCalled = &prov.RestartCalled
+				provFuncError = &prov.RestartError
+				successStatus = "restarted"
+
+				doRequest = func(id string) {
+					req, err = NewFormRequest("POST", fmt.Sprintf("/containers/%v/restart", id), params)
+					Expect(err).To(BeNil())
+					handler.ServeHTTP(res, req)
+				}
+			})
+
+			itWorks()
+		})
 	})
 })

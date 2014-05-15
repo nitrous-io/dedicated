@@ -17,6 +17,12 @@ type MockProvider struct {
 	StartCalled bool
 	StartError  error
 
+	StopCalled bool
+	StopError  error
+
+	RestartCalled bool
+	RestartError  error
+
 	Id         string
 	Name       string
 	Image      string
@@ -59,4 +65,16 @@ func (p *MockProvider) Start(id string) error {
 	p.StartCalled = true
 	p.Id = id
 	return p.StartError
+}
+
+func (p *MockProvider) Stop(id string) error {
+	p.StopCalled = true
+	p.Id = id
+	return p.StopError
+}
+
+func (p *MockProvider) Restart(id string) error {
+	p.RestartCalled = true
+	p.Id = id
+	return p.RestartError
 }

@@ -21,3 +21,11 @@ func (p *DockerProvider) Terminate(id string) error {
 func (p *DockerProvider) Start(id string) error {
 	return nil
 }
+
+func (p *DockerProvider) Stop(id string) error {
+	return nil
+}
+
+func (p *DockerProvider) Restart(id string) error {
+	return nil
+}
