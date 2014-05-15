@@ -12,7 +12,7 @@ import (
 	"github.com/motain/gocheck"
 )
 
-func NewRequest(method string, urlStr string, params url.Values) (*http.Request, error) {
+func NewRequest(method string, urlStr string, params *url.Values) (*http.Request, error) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
@@ -23,7 +23,7 @@ func NewRequest(method string, urlStr string, params url.Values) (*http.Request,
 	return http.NewRequest(method, u.String(), nil)
 }
 
-func NewFormRequest(method string, urlStr string, params url.Values) (*http.Request, error) {
+func NewFormRequest(method string, urlStr string, params *url.Values) (*http.Request, error) {
 	req, err := http.NewRequest(method, urlStr, strings.NewReader(params.Encode()))
 	if err == nil {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")

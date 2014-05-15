@@ -10,13 +10,19 @@ import (
 	"github.com/nitrous-io/freighter/provider"
 )
 
+var (
+	jsonStatusOK       = []byte(`{"status":"ok"}`)
+	jsonStatusAccepted = []byte(`{"status":"accepted"}`)
+	jsonErrorNotFound  = []byte(`{"error":"not found"}`)
+)
+
 type RestAPI struct {
 	Provider provider.Provider
 	Callback Callback
 }
 
 func (a *RestAPI) Home(w http.ResponseWriter, r *http.Request) {
-	respond(w, http.StatusOK, []byte(`{"status":"ok"}`))
+	respond(w, http.StatusOK, jsonStatusOK)
 }
 
 func (a *RestAPI) ListContainers(w http.ResponseWriter, r *http.Request) {
@@ -26,13 +32,7 @@ func (a *RestAPI) ListContainers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j, err := json.Marshal(map[string][]*provider.ContainerInfo{"containers": infoList})
-	if err != nil {
-		respondWith500(w, "json marshaling failed")
-		return
-	}
-
-	respond(w, http.StatusOK, j)
+	respondEncodeJson(w, http.StatusOK, map[string]interface{}{"containers": infoList})
 }
 
 func (a *RestAPI) CreateContainer(w http.ResponseWriter, r *http.Request) {
@@ -49,19 +49,19 @@ func (a *RestAPI) CreateContainer(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		info, err := a.Provider.Create(name, image, publicKeys)
 		if err != nil {
-			payload, err := json.Marshal(map[string]string{"error": err.Error()})
+			j, err := json.Marshal(map[string]string{"error": err.Error()})
 			if err == nil {
-				a.Callback.Invoke(callbackUrl, string(payload))
+				a.Callback.Invoke(callbackUrl, string(j))
 			}
 			return
 		}
-		payload, err := json.Marshal(map[string]interface{}{"status": "created", "container": info})
+		j, err := json.Marshal(map[string]interface{}{"status": "created", "container": info})
 		if err == nil {
-			a.Callback.Invoke(callbackUrl, string(payload))
+			a.Callback.Invoke(callbackUrl, string(j))
 		}
 	}()
 
-	respond(w, http.StatusAccepted, []byte(`{"status":"accepted"}`))
+	respond(w, http.StatusAccepted, jsonStatusAccepted)
 }
 
 func (a *RestAPI) GetContainerInfo(w http.ResponseWriter, r *http.Request) {
@@ -70,23 +70,55 @@ func (a *RestAPI) GetContainerInfo(w http.ResponseWriter, r *http.Request) {
 	info, err := a.Provider.GetInfo(id)
 
 	if err != nil {
-		respond(w, http.StatusNotFound, []byte(`{"error":"not found"}`))
+		respond(w, http.StatusNotFound, jsonErrorNotFound)
 		return
 	}
 
-	j, err := json.Marshal(map[string]*provider.ContainerInfo{"container": info})
+	respondEncodeJson(w, http.StatusOK, map[string]interface{}{"container": info})
+}
+
+func (a *RestAPI) TerminateContainer(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	callbackUrl := r.FormValue("callback_url")
+
+	_, err := a.Provider.GetInfo(id)
+
 	if err != nil {
-		respondWith500(w, "json marshaling failed")
+		respond(w, http.StatusNotFound, jsonErrorNotFound)
 		return
 	}
 
-	respond(w, http.StatusOK, j)
+	go func() {
+		err := a.Provider.Terminate(id)
+		if err != nil {
+			j, err := json.Marshal(map[string]string{"error": err.Error()})
+			if err == nil {
+				a.Callback.Invoke(callbackUrl, string(j))
+			}
+			return
+		}
+		j, err := json.Marshal(map[string]string{"status": "terminated", "container_id": id})
+		if err == nil {
+			a.Callback.Invoke(callbackUrl, string(j))
+		}
+	}()
+
+	respond(w, http.StatusAccepted, jsonStatusAccepted)
 }
 
 func respond(w http.ResponseWriter, status int, data []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	w.Write(data)
+}
+
+func respondEncodeJson(w http.ResponseWriter, status int, data map[string]interface{}) {
+	j, err := json.Marshal(data)
+	if err != nil {
+		respondWith500(w, "json marshaling failed")
+		return
+	}
+	respond(w, status, j)
 }
 
 func respondWith500(w http.ResponseWriter, errMsg string) {

@@ -81,7 +81,7 @@ var _ = Describe("Server", func() {
 
 	Describe("POST /containers", func() {
 		var (
-			params      url.Values
+			params      *url.Values
 			name        string
 			image       string
 			publicKey   string
@@ -90,12 +90,12 @@ var _ = Describe("Server", func() {
 		)
 
 		BeforeEach(func() {
-			params = url.Values{}
 			name = "fragrant-wind-69"
 			image = "ubuntu"
 			publicKey = "ssh-rsa Foo"
 			publicKey2 = "ssh-rsa Bar"
 			callbackUrl = "http://www.example.com/created"
+			params = &url.Values{}
 			params.Set("name", name)
 			params.Set("image", image)
 			params.Set("callback_url", callbackUrl)
@@ -110,16 +110,14 @@ var _ = Describe("Server", func() {
 		}
 
 		Context("when params are valid", func() {
-			BeforeEach(func() {
-				doRequest()
-			})
-
 			It("returns 202 accepted immediately", func() {
+				doRequest()
 				Expect(res.Code).To(Equal(http.StatusAccepted))
 				Expect(res.Body.String()).To(MatchJSON(`{"status":"accepted"}`))
 			})
 
 			It("calls provider.Create() asynchronously", func() {
+				doRequest()
 				Expect(prov.CreateCalled).To(BeFalse())
 				Wait()
 				Expect(prov.CreateCalled).To(BeTrue())
@@ -191,8 +189,8 @@ var _ = Describe("Server", func() {
 			}
 		})
 
-		doRequest := func(name string) {
-			req, err = NewRequest("GET", fmt.Sprintf("/containers/%v", name), nil)
+		doRequest := func(id string) {
+			req, err = NewRequest("GET", fmt.Sprintf("/containers/%v", id), nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -205,6 +203,89 @@ var _ = Describe("Server", func() {
 			It("returns 200 ok with container information", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(MatchJSON(`{"container":{"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","port":10000}}`))
+			})
+		})
+
+		Context("when container by the given id does not exist", func() {
+			BeforeEach(func() {
+				doRequest("bbb")
+			})
+
+			It("returns 404 not found", func() {
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"not found"}`))
+			})
+		})
+	})
+
+	Describe("DELETE /containers/:container_id", func() {
+		var (
+			params      *url.Values
+			id          string
+			callbackUrl string
+		)
+
+		BeforeEach(func() {
+			id = "aaa"
+			callbackUrl = "http://www.example.com/cb"
+			params = &url.Values{}
+			params.Set("callback_url", callbackUrl)
+
+			prov.Containers = []*provider.ContainerInfo{
+				{Id: id, Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000},
+			}
+		})
+
+		doRequest := func(id string) {
+			req, err = NewRequest("DELETE", fmt.Sprintf("/containers/%v", id), params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		Context("when container by the given id exists", func() {
+			It("returns 202 accepted immediately", func() {
+				doRequest(id)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+				Expect(res.Body.String()).To(MatchJSON(`{"status":"accepted"}`))
+			})
+
+			It("calls provider.Terminate() asynchronously", func() {
+				doRequest(id)
+				Expect(prov.TerminateCalled).To(BeFalse())
+				Wait()
+				Expect(prov.TerminateCalled).To(BeTrue())
+				Expect(prov.Id).To(Equal(id))
+			})
+
+			Context("when provider.Terminate()", func() {
+				Context("returns an error", func() {
+					BeforeEach(func() {
+						prov.TerminateError = errors.New("pc load letter")
+						doRequest(id)
+					})
+
+					It("calls callback with error", func() {
+						Expect(cb.InvokeCalled).To(BeFalse())
+						Wait()
+						Expect(cb.InvokeCalled).To(BeTrue())
+						Expect(cb.To).To(Equal(callbackUrl))
+						Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter"}`))
+					})
+				})
+
+				Context("returns a container info with no error", func() {
+					BeforeEach(func() {
+						doRequest(id)
+					})
+
+					It("calls callback", func() {
+						Expect(cb.InvokeCalled).To(BeFalse())
+						Wait()
+						Expect(cb.InvokeCalled).To(BeTrue())
+						Expect(cb.To).To(Equal(callbackUrl))
+						Expect(cb.Payload).To(MatchJSON(`{"status":"terminated", "container_id":"aaa"}`))
+					})
+				})
 			})
 		})
 

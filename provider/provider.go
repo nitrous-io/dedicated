@@ -4,7 +4,7 @@ type Provider interface {
 	List() (infoList []*ContainerInfo, err error)
 	Create(name string, image string, publicKeys []string) (info *ContainerInfo, err error)
 	GetInfo(id string) (info *ContainerInfo, err error)
-	//Terminate(id string) (err error)
+	Terminate(id string) (err error)
 	//Start(id string) (err error)
 	//Stop(id string) (err error)
 	//Restart(id string) (err error)

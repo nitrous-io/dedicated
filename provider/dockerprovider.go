@@ -13,3 +13,7 @@ func (p *DockerProvider) Create(name string, image string, publicKeys []string) 
 func (p *DockerProvider) GetInfo(name string) (*ContainerInfo, error) {
 	return nil, nil
 }
+
+func (p *DockerProvider) Terminate(id string) error {
+	return nil
+}

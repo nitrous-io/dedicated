@@ -11,6 +11,10 @@ type MockProvider struct {
 	CreateContainerInfo *provider.ContainerInfo
 	CreateError         error
 
+	TerminateCalled bool
+	TerminateError  error
+
+	Id         string
 	Name       string
 	Image      string
 	PublicKeys []string
@@ -40,4 +44,10 @@ func (p *MockProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 		}
 	}
 	return nil, errors.New("container not found")
+}
+
+func (p *MockProvider) Terminate(id string) error {
+	p.TerminateCalled = true
+	p.Id = id
+	return p.TerminateError
 }
