@@ -2,19 +2,26 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/provider"
+	"github.com/nitrous-io/freighter/util"
 )
 
-type Server struct{}
+type Server struct {
+	Logger *util.Logger
+}
 
 func (s *Server) Start(host string, port uint16) {
 	http.Handle("/", NewRouter(&provider.DockerProvider{}, &HTTPCallback{}))
 	server := &http.Server{Addr: fmt.Sprintf("%s:%d", host, port)}
-	log.Fatal(server.ListenAndServe())
+	err := server.ListenAndServe()
+	if s.Logger != nil {
+		s.Logger.Fatal(err)
+	}
+	os.Exit(1)
 }
 
 func NewRouter(provider provider.Provider, callback Callback) *mux.Router {

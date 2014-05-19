@@ -1,21 +1,25 @@
 package main
 
 import (
-	"fmt"
+	"os"
+
 	"github.com/nitrous-io/freighter/server"
-	"log"
+	"github.com/nitrous-io/freighter/util"
 )
 
 func main() {
+	logger := &util.Logger{Level: util.LogLevelDebug}
+
 	defer func() {
 		if r := recover(); r != nil {
-			log.Fatalf("freighterd: Fatal Error - %v", r)
+			logger.Fatal(r)
+			os.Exit(1)
 		}
 	}()
 
-	s := &server.Server{}
+	s := &server.Server{Logger: logger}
 	host := "0.0.0.0"
 	port := uint16(3342)
-	fmt.Printf("freighterd listening on %s:%d\n", host, port)
+	logger.Infof("freighterd listening on %s:%d", host, port)
 	s.Start(host, port)
 }
