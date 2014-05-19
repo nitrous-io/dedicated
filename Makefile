@@ -1,11 +1,13 @@
 image:
 	@docker build -t registry.nitrous.io/hostbuilder .
-.PHONY: hostbuilder
+.PHONY: image
 
 shell: image
 	@./script/shell
+.PHONY: shell
 
 setup:
+	@rm -rf _vendor
 	@./script/setup
 .PHONY: setup
 
@@ -16,3 +18,4 @@ run:
 
 test: image
 	@./script/test
+.PHONY: test
