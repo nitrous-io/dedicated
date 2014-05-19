@@ -19,7 +19,7 @@ var _ = Describe("HTTPCallback", func() {
 		cb = &server.HTTPCallback{}
 	})
 
-	Describe("Invoke", func() {
+	Describe("Invoke()", func() {
 		var (
 			serv    *httptest.Server
 			req     *http.Request

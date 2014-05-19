@@ -1,6 +1,8 @@
 package docker
 
-import "github.com/nitrous-io/freighter/provider"
+import (
+	"github.com/nitrous-io/freighter/provider"
+)
 
 type DockerProvider struct{}
 

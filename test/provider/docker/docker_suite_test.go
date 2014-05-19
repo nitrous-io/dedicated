@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestServer(t *testing.T) {
+func TestDocker(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "docker")
 }
