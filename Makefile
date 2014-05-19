@@ -19,3 +19,11 @@ run:
 test: image
 	@./script/test
 .PHONY: test
+
+build: image test
+	@./script/build
+.PHONY: build
+
+release: image test build
+	@./script/release
+.PHONY: release

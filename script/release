@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+cd $(pwd)/build
+VERSION=$(git rev-parse --short HEAD)
+BUCKET=bombay-apse.action.io
+
+if [[ -f "hostbuilder_${VERSION}.tgz" || -f "hostbuilder_latest.tgz" ]]; then
+  echo "Uploading binary packages to s3 ...."
+  s3cmd put hostbuilder_${VERSION}.tgz s3://${BUCKET}/hostbuilder_${VERSION}.tgz
+  s3cmd put hostbuilder_latest.tgz s3://${BUCKET}/hostbuilder_latest.tgz
+else
+  echo "Failed to find package: $VERSION in ./build directory."
+  exit 1
+fi

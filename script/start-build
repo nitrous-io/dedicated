@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -e
+
+VERSION=$1
+PACKAGE=github.com/nitrous-io/hostbuilder
+BUILD=$(pwd)/build
+
+
+# create build directory
+mkdir -p build
+
+# remove cached compiled dependencies
+rm -rf _vendor/pkg
+
+echo "Building revision ${VERSION} ...."
+export GOBIN=$BUILD
+go install -ldflags "-X main.version ${VERSION}" -v $PACKAGE/...
+
+cd $BUILD
+tar -f hostbuilder_${VERSION}.tgz -zv -c hostbuilder
+tar -f hostbuilder_latest.tgz -zv -c hostbuilder

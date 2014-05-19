@@ -2,3 +2,5 @@
 config.json
 tags
 _vendor
+
+build/
