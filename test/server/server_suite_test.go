@@ -1,4 +1,4 @@
-package freightertest
+package servertest
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -9,5 +9,5 @@ import (
 
 func TestServer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Freighter")
+	RunSpecs(t, "server")
 }

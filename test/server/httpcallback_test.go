@@ -1,4 +1,4 @@
-package freightertest
+package servertest
 
 import (
 	"io/ioutil"

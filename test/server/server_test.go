@@ -1,4 +1,4 @@
-package freightertest
+package servertest
 
 import (
 	"errors"
@@ -11,6 +11,7 @@ import (
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/server"
 
+	. "github.com/nitrous-io/freighter/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

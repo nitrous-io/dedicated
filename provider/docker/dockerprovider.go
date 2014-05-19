@@ -1,16 +1,18 @@
-package provider
+package docker
+
+import "github.com/nitrous-io/freighter/provider"
 
 type DockerProvider struct{}
 
-func (p *DockerProvider) List() ([]*ContainerInfo, error) {
+func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 	return nil, nil
 }
 
-func (p *DockerProvider) Create(name string, image string, publicKeys []string) (*ContainerInfo, error) {
+func (p *DockerProvider) Create(name string, image string, publicKeys []string) (*provider.ContainerInfo, error) {
 	return nil, nil
 }
 
-func (p *DockerProvider) GetInfo(name string) (*ContainerInfo, error) {
+func (p *DockerProvider) GetInfo(name string) (*provider.ContainerInfo, error) {
 	return nil, nil
 }
 

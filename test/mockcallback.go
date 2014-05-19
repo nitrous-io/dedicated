@@ -1,4 +1,4 @@
-package freightertest
+package test
 
 type MockCallback struct {
 	InvokeCalled bool
