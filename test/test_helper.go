@@ -1,8 +1,11 @@
 package test
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"path"
 	"runtime"
 	"strings"
 	"time"
@@ -30,4 +33,8 @@ func NewFormRequest(method string, urlStr string, params *url.Values) (*http.Req
 func Wait() {
 	runtime.Gosched()
 	time.Sleep(50 * time.Millisecond)
+}
+
+func TempFile(extension string) string {
+	return path.Join(os.TempDir(), fmt.Sprintf("freightertest-%v.%v", time.Now().UnixNano(), extension))
 }
