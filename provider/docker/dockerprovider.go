@@ -63,8 +63,8 @@ func (p *DockerProvider) Create(name string, image string, publicKeys []string) 
 	return p.GetInfo(container.ID)
 }
 
-func (p *DockerProvider) GetInfo(name string) (*provider.ContainerInfo, error) {
-	container, err := p.client.InspectContainer(name)
+func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
+	container, err := p.client.InspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
@@ -80,20 +80,37 @@ func (p *DockerProvider) GetInfo(name string) (*provider.ContainerInfo, error) {
 	}, nil
 }
 
-func (p *DockerProvider) Terminate(id string) error {
-	return nil
-}
-
 func (p *DockerProvider) Start(id string) error {
-	return nil
+	container, err := p.client.InspectContainer(id)
+	if err != nil {
+		return err
+	}
+
+	if container.State.Running {
+		return nil
+	}
+
+	return p.client.StartContainer(id, container.HostConfig)
 }
 
 func (p *DockerProvider) Stop(id string) error {
-	return nil
+	return p.client.StopContainer(id, 15)
 }
 
 func (p *DockerProvider) Restart(id string) error {
-	return nil
+	return p.client.RestartContainer(id, 15)
+}
+
+func (p *DockerProvider) Terminate(id string) error {
+	err := p.client.StopContainer(id, 15)
+	if err != nil {
+		return err
+	}
+	return p.client.RemoveContainer(dockerclient.RemoveContainerOptions{
+		ID:            id,
+		RemoveVolumes: false,
+		Force:         false,
+	})
 }
 
 func (p *DockerProvider) buildImage(name string, image string, publicKeys []string) (string, error) {

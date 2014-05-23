@@ -55,12 +55,6 @@ func (p *MockProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	return nil, errors.New("container not found")
 }
 
-func (p *MockProvider) Terminate(id string) error {
-	p.TerminateCalled = true
-	p.Id = id
-	return p.TerminateError
-}
-
 func (p *MockProvider) Start(id string) error {
 	p.StartCalled = true
 	p.Id = id
@@ -77,4 +71,10 @@ func (p *MockProvider) Restart(id string) error {
 	p.RestartCalled = true
 	p.Id = id
 	return p.RestartError
+}
+
+func (p *MockProvider) Terminate(id string) error {
+	p.TerminateCalled = true
+	p.Id = id
+	return p.TerminateError
 }

@@ -66,6 +66,13 @@ var _ = Describe("DockerProvider", func() {
 			exec.Command("docker", "rm", name).Run()
 		})
 
+		expectSSHToWork := func() {
+			time.Sleep(1 * time.Second)
+			out, err := exec.Command("ssh", "action@localhost", "-p", "65001", "-o", "StrictHostKeyChecking=no", "echo success").CombinedOutput()
+			Expect(out).To(ContainSubstring("success"))
+			Expect(err).To(BeNil())
+		}
+
 		It("creates a container successfully", func() {
 			id, err := exec.Command("docker", "inspect", "-f", "{{.ID}}", name).CombinedOutput()
 			Expect(err).To(BeNil())
@@ -73,21 +80,149 @@ var _ = Describe("DockerProvider", func() {
 			Expect(info.Name).To(Equal(name))
 			Expect(info.Port).To(Equal(uint16(65001)))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
-			time.Sleep(1 * time.Second)
-			err = exec.Command("ssh", "action@localhost", "-p", "65001", "-o", "StrictHostKeyChecking=no", "echo 1").Run()
-			Expect(err).To(BeNil())
+			expectSSHToWork()
 		})
 
-		Describe(".GetInfo()", func() {
-			It("returns container info", func() {
-				info, err := prov.GetInfo(name)
-				Expect(err).To(BeNil())
-				id, err := exec.Command("docker", "inspect", "-f", "{{.ID}}", name).CombinedOutput()
-				Expect(err).To(BeNil())
-				Expect(info.Id).To(Equal(strings.TrimSpace(string(id))))
-				Expect(info.Name).To(Equal(name))
-				Expect(info.Port).To(Equal(uint16(65001)))
-				Expect(info.State).To(Equal(provider.ContainerStateRunning))
+		Context("after container is created", func() {
+			Describe(".GetInfo()", func() {
+				It("returns container info", func() {
+					info, err := prov.GetInfo(name)
+					Expect(err).To(BeNil())
+					id, err := exec.Command("docker", "inspect", "-f", "{{.ID}}", name).CombinedOutput()
+					Expect(err).To(BeNil())
+					Expect(info.Id).To(Equal(strings.TrimSpace(string(id))))
+					Expect(info.Name).To(Equal(name))
+					Expect(info.Port).To(Equal(uint16(65001)))
+					Expect(info.State).To(Equal(provider.ContainerStateRunning))
+				})
+			})
+
+			Describe(".Start()", func() {
+				expectContainerToBeRunning := func() {
+					out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", name).CombinedOutput()
+					Expect(err).To(BeNil())
+					Expect(out).To(ContainSubstring("true"))
+					expectSSHToWork()
+				}
+
+				JustBeforeEach(func() {
+					err := prov.Start(name)
+					Expect(err).To(BeNil())
+				})
+
+				Context("when the container is running", func() {
+					It("does nothing", func() {
+						expectContainerToBeRunning()
+					})
+				})
+
+				Context("when the container is stopped", func() {
+					BeforeEach(func() {
+						err := exec.Command("docker", "stop", name).Run()
+						Expect(err).To(BeNil())
+					})
+
+					It("starts the container", func() {
+						expectContainerToBeRunning()
+					})
+				})
+			})
+
+			Describe(".Stop()", func() {
+				expectContainerToBeStopped := func() {
+					out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", name).CombinedOutput()
+					Expect(err).To(BeNil())
+					Expect(out).To(ContainSubstring("false"))
+				}
+
+				JustBeforeEach(func() {
+					err := prov.Stop(name)
+					Expect(err).To(BeNil())
+				})
+
+				Context("when the container is running", func() {
+					It("stops the container", func() {
+						expectContainerToBeStopped()
+					})
+				})
+
+				Context("when the container is stopped", func() {
+					BeforeEach(func() {
+						err := exec.Command("docker", "stop", name).Run()
+						Expect(err).To(BeNil())
+					})
+
+					It("does nothing", func() {
+						expectContainerToBeStopped()
+					})
+				})
+			})
+
+			Describe(".Restart()", func() {
+				Context("when the container is running", func() {
+					It("restarts the container", func() {
+						out, err := exec.Command("docker", "inspect", "-f", "{{.State.StartedAt}}", name).CombinedOutput()
+						Expect(err).To(BeNil())
+						prevStartTime, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(string(out)))
+						Expect(err).To(BeNil())
+						err = prov.Restart(name)
+						Expect(err).To(BeNil())
+						out, err = exec.Command("docker", "inspect", "-f", "{{.State.Running}}", name).CombinedOutput()
+						Expect(err).To(BeNil())
+						Expect(out).To(ContainSubstring("true"))
+						out, err = exec.Command("docker", "inspect", "-f", "{{.State.StartedAt}}", name).CombinedOutput()
+						Expect(err).To(BeNil())
+						newStartTime, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(string(out)))
+						Expect(prevStartTime.Before(newStartTime)).To(BeTrue())
+						expectSSHToWork()
+					})
+				})
+
+				Context("when the container is stopped", func() {
+					BeforeEach(func() {
+						err := exec.Command("docker", "stop", name).Run()
+						Expect(err).To(BeNil())
+					})
+
+					It("starts the container", func() {
+						err := prov.Restart(name)
+						Expect(err).To(BeNil())
+						out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", name).CombinedOutput()
+						Expect(err).To(BeNil())
+						Expect(out).To(ContainSubstring("true"))
+						expectSSHToWork()
+					})
+				})
+			})
+
+			Describe(".Terminate()", func() {
+				expectContainerToBeTerminated := func() {
+					out, err := exec.Command("docker", "inspect", name).CombinedOutput()
+					Expect(err).NotTo(BeNil())
+					Expect(out).To(ContainSubstring("No such image or container"))
+				}
+
+				JustBeforeEach(func() {
+					err := prov.Terminate(name)
+					Expect(err).To(BeNil())
+				})
+
+				Context("when the container is running", func() {
+					It("terminates the container", func() {
+						expectContainerToBeTerminated()
+					})
+				})
+
+				Context("when the container is stopped", func() {
+					BeforeEach(func() {
+						err := exec.Command("docker", "stop", name).Run()
+						Expect(err).To(BeNil())
+					})
+
+					It("terminates the container", func() {
+						expectContainerToBeTerminated()
+					})
+				})
 			})
 		})
 	})
