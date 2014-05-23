@@ -69,13 +69,11 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 		return nil, err
 	}
 
-	port, _ := strconv.Atoi(container.HostConfig.PortBindings["22/tcp"][0].HostPort)
-
 	return &provider.ContainerInfo{
 		Id:    container.ID,
 		Name:  container.Name[1:],
 		Image: container.Config.Image,
-		Port:  uint16(port),
+		Port:  portFromContainer(container),
 		State: stateFromContainer(container),
 	}, nil
 }
@@ -102,15 +100,28 @@ func (p *DockerProvider) Restart(id string) error {
 }
 
 func (p *DockerProvider) Terminate(id string) error {
-	err := p.client.StopContainer(id, 15)
+	container, err := p.client.InspectContainer(id)
 	if err != nil {
 		return err
 	}
-	return p.client.RemoveContainer(dockerclient.RemoveContainerOptions{
+
+	if container.State.Running {
+		err = p.client.StopContainer(id, 15)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = p.client.RemoveContainer(dockerclient.RemoveContainerOptions{
 		ID:            id,
 		RemoveVolumes: false,
 		Force:         false,
 	})
+	if err != nil {
+		return err
+	}
+
+	return p.portPool.Release(portFromContainer(container))
 }
 
 func (p *DockerProvider) buildImage(name string, image string, publicKeys []string) (string, error) {
@@ -168,4 +179,9 @@ func stateFromContainer(container *dockerclient.Container) string {
 		return provider.ContainerStateRunning
 	}
 	return provider.ContainerStateStopped
+}
+
+func portFromContainer(container *dockerclient.Container) uint16 {
+	port, _ := strconv.Atoi(container.HostConfig.PortBindings["22/tcp"][0].HostPort)
+	return uint16(port)
 }

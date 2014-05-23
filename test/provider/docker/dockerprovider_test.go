@@ -80,6 +80,9 @@ var _ = Describe("DockerProvider", func() {
 			Expect(info.Name).To(Equal(name))
 			Expect(info.Port).To(Equal(uint16(65001)))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
+			portUsed, err := store.Get("port:65001")
+			Expect(err).To(BeNil())
+			Expect(portUsed).To(Equal("1"))
 			expectSSHToWork()
 		})
 
@@ -196,10 +199,13 @@ var _ = Describe("DockerProvider", func() {
 			})
 
 			Describe(".Terminate()", func() {
-				expectContainerToBeTerminated := func() {
+				expectContainerToBeTerminatedAndPortReleased := func() {
 					out, err := exec.Command("docker", "inspect", name).CombinedOutput()
 					Expect(err).NotTo(BeNil())
 					Expect(out).To(ContainSubstring("No such image or container"))
+					portUsed, err := store.Get("port:65001")
+					Expect(err).To(BeNil())
+					Expect(portUsed).To(Equal("0"))
 				}
 
 				JustBeforeEach(func() {
@@ -209,7 +215,7 @@ var _ = Describe("DockerProvider", func() {
 
 				Context("when the container is running", func() {
 					It("terminates the container", func() {
-						expectContainerToBeTerminated()
+						expectContainerToBeTerminatedAndPortReleased()
 					})
 				})
 
@@ -220,7 +226,7 @@ var _ = Describe("DockerProvider", func() {
 					})
 
 					It("terminates the container", func() {
-						expectContainerToBeTerminated()
+						expectContainerToBeTerminatedAndPortReleased()
 					})
 				})
 			})
