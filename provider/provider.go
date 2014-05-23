@@ -19,7 +19,13 @@ type ContainerInfo struct {
 	Image string `json:"image"`
 	Host  string `json:"host"`
 	Port  uint16 `json:"port"`
+	State string `json:"state"`
 }
+
+const (
+	ContainerStateStopped = "stopped"
+	ContainerStateRunning = "running"
+)
 
 //type SnapshotInfo struct {
 //	Id          string `json:"id"`

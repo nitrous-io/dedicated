@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"log"
+	"os"
 )
 
 type Logger struct {
@@ -77,4 +78,14 @@ func (l *Logger) Unknown(v ...interface{}) {
 
 func (l *Logger) Unknownf(format string, v ...interface{}) {
 	l.outputf(LogLevelUnknown, "[UNKNOWN]", format, v...)
+}
+
+func (l *Logger) FatalExit(v ...interface{}) {
+	l.Fatal(v...)
+	os.Exit(1)
+}
+
+func (l *Logger) FatalfExit(format string, v ...interface{}) {
+	l.Fatalf(format, v...)
+	os.Exit(1)
 }

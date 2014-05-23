@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/provider"
@@ -11,20 +10,32 @@ import (
 )
 
 type Server struct {
-	Logger *util.Logger
+	logger   *util.Logger
+	provider provider.Provider
+	callback Callback
+	router   *mux.Router
+}
+
+func NewServer(logger *util.Logger, provider provider.Provider, callback Callback) *Server {
+	svr := &Server{logger: logger, provider: provider, callback: callback}
+	svr.router = newRouter(provider, callback)
+	return svr
 }
 
 func (s *Server) Start(host string, port uint16) {
-	http.Handle("/", NewRouter(&provider.DockerProvider{}, &HTTPCallback{}))
-	server := &http.Server{Addr: fmt.Sprintf("%s:%d", host, port)}
-	err := server.ListenAndServe()
-	if s.Logger != nil {
-		s.Logger.Fatal(err)
+	http.Handle("/", s.router)
+	svr := &http.Server{Addr: fmt.Sprintf("%s:%d", host, port)}
+	err := svr.ListenAndServe()
+	if s.logger != nil {
+		s.logger.FatalExit(err)
 	}
-	os.Exit(1)
 }
 
-func NewRouter(provider provider.Provider, callback Callback) *mux.Router {
+func (s *Server) Router() *mux.Router {
+	return s.router
+}
+
+func newRouter(provider provider.Provider, callback Callback) *mux.Router {
 	a := RestAPI{Provider: provider, Callback: callback}
 	r := mux.NewRouter()
 

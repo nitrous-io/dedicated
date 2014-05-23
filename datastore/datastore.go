@@ -17,8 +17,8 @@ type KeyVal struct {
 	Val string
 }
 
-func NewSqliteDatastore(connfile string) (*Datastore, error) {
-	conn, err := sql.Open("sqlite3", connfile)
+func NewSqliteDatastore(dbfile string) (*Datastore, error) {
+	conn, err := sql.Open("sqlite3", dbfile)
 	if err != nil {
 		return nil, err
 	}

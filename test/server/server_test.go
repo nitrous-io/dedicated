@@ -22,6 +22,7 @@ var _ = Describe("Server", func() {
 		res     *httptest.ResponseRecorder
 		req     *http.Request
 		err     error
+		svr     *server.Server
 		prov    *MockProvider
 		cb      *MockCallback
 	)
@@ -29,7 +30,8 @@ var _ = Describe("Server", func() {
 	BeforeEach(func() {
 		prov = &MockProvider{}
 		cb = &MockCallback{}
-		handler = server.NewRouter(prov, cb)
+		svr = server.NewServer(nil, prov, cb)
+		handler = svr.Router()
 		res = httptest.NewRecorder()
 	})
 
@@ -67,15 +69,18 @@ var _ = Describe("Server", func() {
 		Context("when there exists containers", func() {
 			BeforeEach(func() {
 				prov.Containers = []*provider.ContainerInfo{
-					{Id: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000},
-					{Id: "bbb", Name: "bar", Image: "centos", Host: "1.2.3.5", Port: 10001},
+					{Id: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000, State: provider.ContainerStateRunning},
+					{Id: "bbb", Name: "bar", Image: "centos", Host: "1.2.3.5", Port: 10001, State: provider.ContainerStateStopped},
 				}
 				doRequest()
 			})
 
 			It("returns 200 ok with container info array", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(res.Body.String()).To(MatchJSON(`{"containers":[{"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","port":10000}, {"id":"bbb","name":"bar","image":"centos","host":"1.2.3.5","port":10001}]}`))
+				Expect(res.Body.String()).To(MatchJSON(`{"containers":[
+				  {"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","port":10000,"state":"running"},
+					{"id":"bbb","name":"bar","image":"centos","host":"1.2.3.5","port":10001,"state":"stopped"}
+				]}`))
 			})
 		})
 	})
@@ -147,7 +152,7 @@ var _ = Describe("Server", func() {
 
 				Context("returns a container info with no error", func() {
 					BeforeEach(func() {
-						prov.CreateContainerInfo = &provider.ContainerInfo{Id: "aaa", Name: name, Image: "ubuntu", Host: "1.2.3.4", Port: 10000}
+						prov.CreateContainerInfo = &provider.ContainerInfo{Id: "aaa", Name: name, Image: "ubuntu", Host: "1.2.3.4", Port: 10000, State: provider.ContainerStateRunning}
 						doRequest()
 					})
 
@@ -156,7 +161,9 @@ var _ = Describe("Server", func() {
 						Wait()
 						Expect(cb.InvokeCalled).To(BeTrue())
 						Expect(cb.To).To(Equal(callbackUrl))
-						Expect(cb.Payload).To(MatchJSON(`{"status":"created", "container":{"id":"aaa","name":"fragrant-wind-69", "image":"ubuntu", "host":"1.2.3.4", "port":10000}}`))
+						Expect(cb.Payload).To(MatchJSON(`{"status":"created", "container":{
+							"id":"aaa","name":"fragrant-wind-69","image":"ubuntu","host":"1.2.3.4","port":10000,"state":"running"
+						}}`))
 					})
 				})
 			})
@@ -186,7 +193,7 @@ var _ = Describe("Server", func() {
 	Describe("GET /containers/:container_id", func() {
 		BeforeEach(func() {
 			prov.Containers = []*provider.ContainerInfo{
-				{Id: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000},
+				{Id: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000, State: provider.ContainerStateRunning},
 			}
 		})
 
@@ -203,7 +210,9 @@ var _ = Describe("Server", func() {
 
 			It("returns 200 ok with container information", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(res.Body.String()).To(MatchJSON(`{"container":{"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","port":10000}}`))
+				Expect(res.Body.String()).To(MatchJSON(`{"container":{
+					"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","port":10000,"state":"running"
+				}}`))
 			})
 		})
 

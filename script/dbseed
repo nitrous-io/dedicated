@@ -1,0 +1,10 @@
+#!/bin/bash
+
+port=60001
+sql=""
+until [ $port -gt 60200 ]; do
+	sql+='INSERT INTO store (key, val) VALUES ("port:'"$port"'", "0");'
+	let port+=1
+done
+
+sqlite3 $1 "$sql"

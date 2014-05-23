@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -36,5 +37,9 @@ func Wait() {
 }
 
 func TempFile(extension string) string {
-	return path.Join(os.TempDir(), fmt.Sprintf("freightertest-%v.%v", time.Now().UnixNano(), extension))
+	return path.Join(os.TempDir(), fmt.Sprintf("%v.%v", RandomName("freightertest"), extension))
+}
+
+func RandomName(name string) string {
+	return fmt.Sprintf("%v-%v-%v", name, time.Now().UnixNano(), rand.Intn(1000))
 }
