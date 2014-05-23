@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+APP=freighter
+
+docker run \
+  --rm=true \
+  registry.nitrous.io/$APP ./script/start-test

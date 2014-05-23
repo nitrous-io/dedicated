@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#Setup the shell environment suitable for running tests etc...
+
+# install necessary binaries
+export GOBIN=$(pwd)/_vendor/bin
+mkdir -p $GOBIN
+go get github.com/onsi/ginkgo/ginkgo
+
+echo "Running tests"
+$GOBIN/ginkgo -r -trace -keepGoing
