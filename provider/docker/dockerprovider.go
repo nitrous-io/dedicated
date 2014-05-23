@@ -20,6 +20,7 @@ func init() {
 }
 
 type TemplateData struct {
+	Name       string
 	Image      string
 	PublicKeys []string
 }
@@ -130,7 +131,7 @@ func (p *DockerProvider) buildImage(name string, image string, publicKeys []stri
 	}
 
 	buf := bytes.NewBuffer(nil)
-	err := dockerfileUbuntu.Execute(buf, &TemplateData{Image: image, PublicKeys: publicKeys})
+	err := dockerfileUbuntu.Execute(buf, &TemplateData{Name: name, Image: image, PublicKeys: publicKeys})
 	if err != nil {
 		return "", err
 	}
@@ -160,7 +161,7 @@ func (p *DockerProvider) buildImage(name string, image string, publicKeys []stri
 func (p *DockerProvider) runContainer(imageName string, containerName string, port uint16) (*dockerclient.Container, error) {
 	container, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
 		Name:   containerName,
-		Config: &dockerclient.Config{Image: imageName},
+		Config: &dockerclient.Config{Hostname: containerName, Image: imageName},
 	})
 	if err != nil {
 		return container, err
