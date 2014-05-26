@@ -33,6 +33,6 @@
     "vcs": "git",
     "repo": "https://github.com/nitrous-io/go-dockerclient",
     "rev": "1a432ba0f10447ac13e54ac538cdbf44eaf12547",
-    "path": "github.com/nitrous-io/go-dockerclient"
+    "path": "github.com/fsouza/go-dockerclient"
   }
 ]
