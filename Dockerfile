@@ -1,4 +1,4 @@
-FROM nitrousio/goboxer-ci
+FROM nitrousio/ubuntu-dind:14.04
 MAINTAINER Nitrous.IO <eng@nitrous.io>
 
 RUN apt-get update && apt-get install -y \
@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
   mercurial \
   ruby1.9.1 \
   sqlite3 \
+  lxc \
   sudo
 
 RUN curl -s https://storage.googleapis.com/golang/go1.2.2.linux-amd64.tar.gz \
@@ -22,4 +23,3 @@ ENV GOPATH /opt/src/github.com/nitrous-io/freighter/_vendor:/opt
 ENV HOME /root
 
 WORKDIR /opt/src/github.com/nitrous-io/freighter
-ADD . /opt/src/github.com/nitrous-io/freighter
