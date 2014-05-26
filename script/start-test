@@ -1,10 +1,24 @@
 #!/usr/bin/env bash
 #Setup the shell environment suitable for running tests etc...
 
+# mount docker volume
+if [[ `cat /proc/mounts | grep "/var/lib/docker\s\+"` ]]; then
+  umount /var/lib/docker
+fi
+mount -t ext4 -o defaults,usrquota,noatime /docker_disk.img /var/lib/docker
+
+# start docker daemon
+if which docker >/dev/null; then
+  docker -d -e lxc >& /var/log/docker.log &
+fi
+
 # install necessary binaries
 export GOBIN=$(pwd)/_vendor/bin
 mkdir -p $GOBIN
-go get github.com/onsi/ginkgo/ginkgo
+if [ ! -f $GOBIN/ginkgo ]; then
+  echo "dont have ginkgo"
+  go get github.com/onsi/ginkgo/ginkgo
+fi
 
 echo "Running tests"
 $GOBIN/ginkgo -r -trace -keepGoing

@@ -3,5 +3,6 @@
 APP=freighter
 
 docker run \
+  --privileged \
   --rm=true \
   registry.nitrous.io/$APP ./script/start-test

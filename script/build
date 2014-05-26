@@ -7,6 +7,7 @@ APP=freighter
 # we only link the build directory as that will be used to store the build
 # output
 docker run \
+  --privileged \
   --rm=true \
   --volume $(pwd)/build:/opt/src/github.com/nitrous-io/$APP/build \
   registry.nitrous.io/$APP ./script/start-build $VERSION
