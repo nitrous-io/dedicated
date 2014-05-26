@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+APP=freighter
+
+docker run \
+  --privileged \
+  --rm=true \
+  --volume $(pwd):/opt/src/github.com/nitrous-io/$APP \
+  -i -t registry.nitrous.io/$APP ./script/start-shell

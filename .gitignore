@@ -10,6 +10,8 @@
 _obj/
 _test/
 bin/
+_vendor/
+build/
 
 # Architecture specific extensions/prefixes
 *.[568vq]

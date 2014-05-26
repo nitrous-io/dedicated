@@ -4,24 +4,31 @@ ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
 BIN_NAME=freighterd
 
-all:
-	@mkdir -p bin/
-	@echo "$(OK_COLOR)==> Installing dependencies$(NO_COLOR)"
-	go get -d -v ./...
-	@echo "$(OK_COLOR)==> Building$(NO_COLOR)"
-	go install -x ./...
-	cp $(GOPATH)/bin/$(BIN_NAME) bin/$(BIN_NAME)
+image:
+	@docker build -t registry.nitrous.io/freighter .
+.PHONY: image
+
+deps:
+	@./script/install-deps
+.PHONY: image
+
+build: image
+	@./script/build
+.PHONY: build
+
+shell: image
+	@./script/shell
+.PHONY: shell
+
+test: image
+	@./script/test
+.PHONY: test
 
 format:
 	go fmt ./...
+.PHONY: format
 
-test:
-	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
-	@go list -f '{{range .TestImports}}{{.}} {{end}}' ./... | xargs -n1 go get -d
-	@ginkgo -r -trace -keepGoing
-
-run: all
+run: build
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
-	@bin/freighterd
-
-.PHONY: all format test run
+	@build/freighterd
+.PHONY: run

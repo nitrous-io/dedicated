@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+
+VERSION=$1
+APP=freighter
+PACKAGE=github.com/nitrous-io/$APP
+BUILD=$(pwd)/build
+
+# create build directory
+mkdir -p build
+
+echo "Building revision ${VERSION} ...."
+export GOBIN=$BUILD
+go install -x -ldflags "-X main.version ${VERSION}" -v $PACKAGE/...
