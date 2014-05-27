@@ -64,6 +64,8 @@ For digitalocean, the config is:
   image_id: "3240036", # Ubuntu 14.04 x64
   region_id: "6", # Singapore 1
   size_id: "66", # 512MB
+  apt_username: "dqminh", # username in nitrous.io webapp
+  apt_password: "ahahahah", # valid access token of the user
   public_keys: [
     File.read("#{ENV['HOME']}/.ssh/id_rsa.pub")
   ]

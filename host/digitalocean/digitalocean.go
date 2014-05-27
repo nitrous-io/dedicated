@@ -21,6 +21,12 @@ type HostConfig struct {
 	RegionId   string   `json:"region_id"`
 	SizeId     string   `json:"size_id"`
 	PublicKeys []string `json:"public_keys"`
+
+	// for setting up repository on the host
+	AptUsername string `json:"apt_username"` // username of nitrous.io
+	AptPassword string `json:"apt_password"` // nitrous.io access token
+	AptLocation string `json:"apt_location"` // URI of the repository
+	AptDist     string `json:"apt_dist"`     // distribution of the repo
 }
 
 type Host struct {
@@ -81,7 +87,21 @@ func (h *Host) Create() (*host.Info, error) {
 	if err := sshConn.Upload("/root/.ssh/authorized_keys", pubKeyR); err != nil {
 		return nil, err
 	}
-	log.Printf("SSH ready at %v", h.instance.IpAddress)
+	log.Printf("Uploaded authorized keys at %v", h.instance.IpAddress)
+
+	// write deb information for the host so it can update packages
+	// - create content with compatible sources.list content
+	// - upload it to the host at `host.SourceLocation` which
+	// the host will have dependencies injected automatically so we dont have
+	// to update/upgrade
+	sourceData := bytes.NewBuffer(nil)
+	if err := host.SourceTemplate.Execute(sourceData, h.Config); err != nil {
+		return nil, err
+	}
+	if err := sshConn.Upload(host.SourceLocation, sourceData); err != nil {
+		return nil, err
+	}
+	log.Printf("Uploaded apt details at %v", h.instance.IpAddress)
 	return h.Info()
 }
 

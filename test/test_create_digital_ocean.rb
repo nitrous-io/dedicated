@@ -18,6 +18,10 @@ params = {
   public_keys: [
     File.read("#{ENV['HOME']}/.ssh/id_rsa.pub")
   ],
+  apt_username: "dqminh",
+  apt_password: "my_access_token",
+  apt_location: "aptidude-usw2.n2ostaging.com",
+  apt_dist: "precise",
 }
 
 resp = client.post "http://localhost:6666/host", {
