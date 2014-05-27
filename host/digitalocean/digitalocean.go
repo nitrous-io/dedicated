@@ -56,6 +56,11 @@ func (h *Host) Create() (*host.Info, error) {
 	}
 	ctx := context.NewContext(h, steps)
 	if err := ctx.Execute(); err != nil {
+		if h.instance != nil {
+			if derr := h.Client.DestroyDroplet(h.instance.Id); derr != nil {
+				return nil, fmt.Errorf("Failed to destroy after create error: %v, %v", err, derr)
+			}
+		}
 		return nil, err
 	}
 	return h.Info()
@@ -172,16 +177,17 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
 	config := h.Config
 	sshKey := h.sshKey
+	var err error
 
 	// create the droplet
-	droplet, err := h.Client.CreateDroplet(config.Name, config.SizeId,
+	h.instance, err = h.Client.CreateDroplet(config.Name, config.SizeId,
 		config.ImageId, config.RegionId, sshKey.Id, false)
 	if err != nil {
 		return err
 	}
 
 	// wait for the droplet to be active
-	droplet, err = do.WaitForState("active", droplet.Id, h.Client,
+	droplet, err := do.WaitForState("active", h.instance.Id, h.Client,
 		do.StateWaitTime, 5*time.Minute)
 	if err != nil {
 		return err
