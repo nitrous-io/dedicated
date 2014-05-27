@@ -2,6 +2,7 @@ package digitalocean
 
 import (
 	"bytes"
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/nitrous-io/hostbuilder/context"
 	"github.com/nitrous-io/hostbuilder/host"
 	do "github.com/nitrous-io/hostbuilder/pkg/digitalocean"
 	"github.com/nitrous-io/hostbuilder/pkg/ssh"
@@ -33,75 +35,29 @@ type Host struct {
 	Client *do.Client
 	Config *HostConfig
 
-	instance *do.Droplet
+	instance   *do.Droplet
+	privateKey *rsa.PrivateKey
+	conn       *ssh.Conn
+	sshKey     *do.SSHKey
 }
 
 func (h *Host) Create() (*host.Info, error) {
-	config := h.Config
-	// create a tmp keypair
-	privateKey, err := ssh.GenerateSSHKey()
-	if err != nil {
+	defer func() {
+		if h.sshKey != nil {
+			h.Client.DestroyKey(h.sshKey.Id)
+		}
+	}()
+	steps := []context.Step{
+		createSSHKey,
+		createDroplet,
+		waitForSSH,
+		writePublicKeys,
+		writeRepository,
+	}
+	ctx := context.NewContext(h, steps)
+	if err := ctx.Execute(); err != nil {
 		return nil, err
 	}
-	pubKey, err := ssh.GetPubKey(privateKey)
-	if err != nil {
-		return nil, err
-	}
-	sshKey, err := h.Client.CreateKey(h.Config.Name, string(pubKey))
-	if err != nil {
-		return nil, err
-	}
-	// remove the tmp keypair when we dont use it anymore
-	defer h.Client.DestroyKey(sshKey.Id)
-
-	// create the droplet
-	droplet, err := h.Client.CreateDroplet(config.Name, config.SizeId,
-		config.ImageId, config.RegionId, sshKey.Id, false)
-	if err != nil {
-		return nil, err
-	}
-
-	// wait for the droplet to be active
-	droplet, err = do.WaitForState("active", droplet.Id, h.Client,
-		do.StateWaitTime, 5*time.Minute)
-	if err != nil {
-		return nil, err
-	}
-	h.instance = droplet
-
-	// check that we can ssh into the server
-	address := fmt.Sprintf("%s:%s", h.instance.IpAddress, "22")
-	sshConn, err := ssh.WaitForSSH(address, "root", privateKey,
-		ssh.TimeWait, make(chan struct{}))
-	if err != nil {
-		return nil, err
-	}
-	log.Println("SSH READY for droplet %v", h.instance.Id)
-
-	// write the public keys into server
-	// This needs /root/.ssn/authorized_keys to be accessible
-	pubKeyR := bytes.NewBufferString("")
-	for _, k := range h.Config.PublicKeys {
-		fmt.Fprintln(pubKeyR, k)
-	}
-	if err := sshConn.Upload("/root/.ssh/authorized_keys", pubKeyR); err != nil {
-		return nil, err
-	}
-	log.Printf("Uploaded authorized keys at %v", h.instance.IpAddress)
-
-	// write deb information for the host so it can update packages
-	// - create content with compatible sources.list content
-	// - upload it to the host at `host.SourceLocation` which
-	// the host will have dependencies injected automatically so we dont have
-	// to update/upgrade
-	sourceData := bytes.NewBuffer(nil)
-	if err := host.SourceTemplate.Execute(sourceData, h.Config); err != nil {
-		return nil, err
-	}
-	if err := sshConn.Upload(host.SourceLocation, sourceData); err != nil {
-		return nil, err
-	}
-	log.Printf("Uploaded apt details at %v", h.instance.IpAddress)
 	return h.Info()
 }
 
@@ -190,4 +146,87 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 
 func init() {
 	host.Hosts["digitalocean"] = NewHost
+}
+
+func createSSHKey(ctx *context.Context, hst host.Host) error {
+	h := hst.(*Host)
+	// create a tmp keypair
+	privateKey, err := ssh.GenerateSSHKey()
+	if err != nil {
+		return err
+	}
+	h.privateKey = privateKey
+	pubKey, err := ssh.GetPubKey(privateKey)
+	if err != nil {
+		return err
+	}
+	sshKey, err := h.Client.CreateKey(h.Config.Name, string(pubKey))
+	if err != nil {
+		return err
+	}
+	h.sshKey = sshKey
+	return nil
+}
+
+func createDroplet(ctx *context.Context, hst host.Host) error {
+	h := hst.(*Host)
+	config := h.Config
+	sshKey := h.sshKey
+
+	// create the droplet
+	droplet, err := h.Client.CreateDroplet(config.Name, config.SizeId,
+		config.ImageId, config.RegionId, sshKey.Id, false)
+	if err != nil {
+		return err
+	}
+
+	// wait for the droplet to be active
+	droplet, err = do.WaitForState("active", droplet.Id, h.Client,
+		do.StateWaitTime, 5*time.Minute)
+	if err != nil {
+		return err
+	}
+	h.instance = droplet
+	return nil
+}
+
+func waitForSSH(ctx *context.Context, hst host.Host) error {
+	h := hst.(*Host)
+	privateKey := h.privateKey
+	// check that we can ssh into the server
+	address := fmt.Sprintf("%s:%s", h.instance.IpAddress, "22")
+	sshConn, err := ssh.WaitForSSH(address, "root", privateKey,
+		ssh.TimeWait, make(chan struct{}))
+	if err != nil {
+		return err
+	}
+	log.Println("SSH READY for droplet %v", h.instance.Id)
+	h.conn = sshConn
+	return nil
+}
+
+func writePublicKeys(ctx *context.Context, hst host.Host) error {
+	h := hst.(*Host)
+	pubKeyR := bytes.NewBuffer(nil)
+	for _, k := range h.Config.PublicKeys {
+		fmt.Fprintln(pubKeyR, k)
+	}
+	if err := h.conn.Upload("/root/.ssh/authorized_keys", pubKeyR); err != nil {
+		return err
+	}
+	log.Printf("Uploaded authorized keys at %v", h.instance.IpAddress)
+	return nil
+}
+
+func writeRepository(ctx *context.Context, hst host.Host) error {
+	h := hst.(*Host)
+	sourceData := bytes.NewBuffer(nil)
+	if err := host.SourceTemplate.Execute(sourceData, h.Config); err != nil {
+		return err
+	}
+	if err := h.conn.Upload(host.SourceLocation, sourceData); err != nil {
+		return err
+	}
+	log.Printf("Uploaded apt details at %v", h.instance.IpAddress)
+	return nil
 }
