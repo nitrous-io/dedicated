@@ -6,10 +6,10 @@ shell: image
 	@./script/shell
 .PHONY: shell
 
-setup:
+deps:
 	@rm -rf _vendor
-	@./script/setup
-.PHONY: setup
+	@./script/install-deps
+.PHONY: deps
 
 run:
 	@./script/install
