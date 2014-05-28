@@ -91,6 +91,7 @@ func (s *Server) postHost(w http.ResponseWriter, r *http.Request) error {
 	go doWebhook(webhook, func() (string, error) {
 		var info *host.Info
 		info, err = h.Create()
+		log.Printf("Created: %+v\n, %v", info, err)
 		if err != nil {
 			return "", err
 		}
