@@ -17,7 +17,7 @@ var version string
 
 func main() {
 	flDataPath := flag.String("d", "/var/lib/freighter", "Specify the path to store freighter's data files")
-	flPort := flag.Int("p", 3342, "Specify the port on which freighterd listens for connections")
+	flPort := flag.Int("p", 65333, "Specify the port on which freighterd listens for connections")
 	flVersion := flag.Bool("v", false, "Display the version and exit")
 	flag.Parse()
 

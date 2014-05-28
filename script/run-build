@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
+VERSION=${1:?"version is required"}
 APP=freighter
-REVISION=$(shell git rev-parse --short HEAD)
-BASE_VERSION=$(shell cat VERSION)
-VERSION=$(BASE_VERSION)-$(REVISION)
 
 script/make-image
 
@@ -11,4 +9,4 @@ docker run \
   --privileged \
   --rm=true \
   --volume $(pwd):/opt/src/github.com/nitrous-io/$APP \
-  registry.nitrous.io/$APP script/build $VERSION
+  registry.nitrous.io/$APP script/start-cibuild script/build $VERSION
