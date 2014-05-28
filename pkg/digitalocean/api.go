@@ -177,9 +177,9 @@ func (d Client) CreateDroplet(
 		return nil, fmt.Errorf("Invalid region or lookup failure: '%s': %s", region, err)
 	}
 
-	params.Set("size_slug", size.Slug)
-	params.Set("image_slug", image.Slug)
-	params.Set("region_slug", region.Slug)
+	params.Set("size_id", strconv.Itoa(size.Id))
+	params.Set("image_id", strconv.Itoa(image.Id))
+	params.Set("region_id", strconv.Itoa(region.Id))
 	params.Set("ssh_key_ids", fmt.Sprintf("%v", keyId))
 	params.Set("private_networking", fmt.Sprintf("%v", privateNetworking))
 
