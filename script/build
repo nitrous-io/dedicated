@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
+# we get primary version from `VERSION` file
 set -e
 
-VERSION=${1:?"version is required"}
+REVISION=$(git rev-parse --short HEAD)
+VERSION="$(cat VERSION)-$REVISION"
+
 APP=freighter
 PACKAGE=github.com/nitrous-io/$APP
 BUILD=$(pwd)/build
