@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
+set -e
 
-mkdir -p $(pwd)/build
-VERSION=$(git rev-parse --short HEAD)
+VERSION=${1:?"version is required"}
 APP=freighter
+PACKAGE=github.com/nitrous-io/$APP
+BUILD=$(pwd)/build
 
-docker run \
-  --privileged \
-  --rm=true \
-  --volume $(pwd):/opt/src/github.com/nitrous-io/$APP \
-  registry.nitrous.io/$APP ./script/start-build $VERSION
+mkdir -p $BUILD
+
+GOBIN=$BUILD go install -x -ldflags "-X main.version ${VERSION}" -v $PACKAGE/...

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+APP=freighter
+mkdir -p $HOME/.freighterd-cache
+
+script/make-image
+
+docker run \
+  --privileged \
+  --rm=true \
+  --volume $(pwd):/opt/src/github.com/nitrous-io/$APP \
+  --volume $HOME/.freighterd-cache:/var/lib/docker \
+  registry.nitrous.io/$APP script/start-docker script/test

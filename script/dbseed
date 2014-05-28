@@ -1,5 +1,6 @@
 #!/bin/bash
 
+SQLFILE=${1:?"sqlfile must be specified"}
 port=60001
 sql=""
 until [ $port -gt 60200 ]; do
@@ -7,4 +8,4 @@ until [ $port -gt 60200 ]; do
 	let port+=1
 done
 
-sqlite3 $1 "$sql"
+sqlite3 $SQLFILE "$sql"

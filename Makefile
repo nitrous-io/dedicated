@@ -3,32 +3,25 @@ OK_COLOR=\033[32;01m
 ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
 BIN_NAME=freighterd
+VERSION=$(shell git rev-parse --short HEAD)
 
-image:
-	@docker build -t registry.nitrous.io/freighter .
-.PHONY: image
+all: build
 
-deps:
-	@./script/install-deps
-.PHONY: image
-
-build: image
-	@./script/build
-.PHONY: build
-
-shell: image
-	@./script/shell
-.PHONY: shell
-
-test: image
-	@./script/test
-.PHONY: test
+build:
+	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
+	@script/build $(VERSION)
 
 format:
 	go fmt ./...
-.PHONY: format
+
+test:
+	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
+	@script/test
 
 run: build
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
-	@build/freighterd
-.PHONY: run
+	@build/$(BIN_NAME)
+
+.PHONY: all build format test run
+
+all: build

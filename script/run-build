@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+APP=freighter
+VERSION=$(git rev-parse --short HEAD)
+
+script/make-image
+
+docker run \
+  --privileged \
+  --rm=true \
+  --volume $(pwd):/opt/src/github.com/nitrous-io/$APP \
+  registry.nitrous.io/$APP script/build $VERSION
