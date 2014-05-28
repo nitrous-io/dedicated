@@ -66,6 +66,8 @@ For digitalocean, the config is:
   size_id: "66", # 512MB
   apt_username: "dqminh", # username in nitrous.io webapp
   apt_password: "ahahahah", # valid access token of the user
+  apt_dist: "trusty", # current disttribution of the image
+  apt_location: "apt.nitrous.io", # current repository server
   public_keys: [
     File.read("#{ENV['HOME']}/.ssh/id_rsa.pub")
   ]
