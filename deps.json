@@ -22,6 +22,12 @@
     "repo": "https://code.google.com/p/go.crypto",
     "rev": "fe6c00a82e55",
     "path": "code.google.com/p/go.crypto"
+  },
+  {
+    "vcs": "git",
+    "repo": "https://github.com/fsouza/go-dockerclient",
+    "rev": "6062c6b35beaffaf643b2f80f926b6337c3db63a",
+    "path": "github.com/fsouza/go-dockerclient"
   }
 ]
 

@@ -24,6 +24,8 @@ profile. I use autoenv (https://github.com/kennethreitz/autoenv)
       client_id: ...,
       api_key: ...
     }
+  , "docker": {
+    }
   }
 }
 ```
@@ -73,3 +75,14 @@ For digitalocean, the config is:
   ]
 }
 ```
+
+For docker, the config is:
+
+```ruby
+{
+  name: "user-box-1",
+  image: "nitrousio/upstart-dind", # docker image
+  public_keys: [
+    File.read("#{ENV['HOME']}/.ssh/id_rsa.pub")
+  ]
+}
