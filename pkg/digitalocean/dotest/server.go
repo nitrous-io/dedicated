@@ -26,6 +26,8 @@ var (
 		"/regions":                          "regions",
 		"/images":                           "images",
 		"/images/{id}":                      "images/id",
+		"/ssh_keys/new":                     "ssh_keys/new",
+		"/ssh_keys/{id}/destroy":            "ssh_keys/id/destroy",
 	}
 )
 

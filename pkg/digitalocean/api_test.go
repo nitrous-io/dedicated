@@ -152,3 +152,39 @@ func TestRestoreSnapshot(t *testing.T) {
 		t.Fatal("invalid url", request.URL)
 	}
 }
+
+func TestCreateKey(t *testing.T) {
+	s := dotest.NewServer()
+	s.AddResponse("ssh_keys/new", dotest.NewResponse(200, newSSH))
+	ts := httptest.NewServer(s.Router)
+	defer ts.Close()
+
+	c := testClient(ts.URL)
+	key, err := c.CreateKey("my_key", "ssh-rsa key user@host")
+	if err != nil || key.Id != 47 || key.Name != "my_key" ||
+		key.PubKey != "ssh-rsa key user@host" {
+		t.Fatal("failed to create ssh key", err)
+	}
+	request := s.Requests["ssh_keys/new"][0]
+	if request.URL.Query().Get("name") != "my_key" ||
+		request.URL.Query().Get("ssh_pub_key") != "ssh-rsa key user@host" {
+		t.Fatal("invalid url", request.URL)
+	}
+}
+
+func TestDestroyKey(t *testing.T) {
+	s := dotest.NewServer()
+	s.AddResponse("ssh_keys/id/destroy", dotest.OkResponse)
+	ts := httptest.NewServer(s.Router)
+	defer ts.Close()
+
+	c := testClient(ts.URL)
+	err := c.DestroyKey(123)
+	if err != nil {
+		t.Fatal("failed to destroy ssh key", err)
+	}
+	request := s.Requests["ssh_keys/id/destroy"][0]
+	if request.URL.Path != "/ssh_keys/123/destroy" {
+		t.Fatal("invalid url", request.URL)
+	}
+}

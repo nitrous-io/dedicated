@@ -119,6 +119,18 @@ var (
 		}
 	}
 	`
+
+	// /ssh_keys/new
+	newSSH = `
+	{
+		"status": "OK",
+		"ssh_key": {
+			"id": 47,
+			"name": "my_key",
+			"ssh_pub_key": "ssh-rsa key user@host"
+		}
+	}
+	`
 )
 
 func testClient(url string) *Client {
