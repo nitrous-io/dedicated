@@ -14,7 +14,7 @@ type Host struct {
 	CreateSuccess  bool   `json:"create"`
 	StopSuccess    bool   `json:"stop"`
 	StartSuccess   bool   `json:"start"`
-	RestartSuccess bool   `json:"start"`
+	RestartSuccess bool   `json:"restart"`
 }
 
 func (h *Host) Create() (*host.Info, error) {
