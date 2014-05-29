@@ -127,7 +127,12 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	for i, v := range host.PublicKeys {
 		host.PublicKeys[i] = strings.TrimSpace(v)
 	}
-	client, err := dockerclient.NewClient("unix:///var/run/docker.sock")
+	// fetch docker client endpoint from defaultConfig
+	endpoint, ok := defaultConfig["endpoint"]
+	if !ok {
+		endpoint = "unix:///var/run/docker.sock"
+	}
+	client, err := dockerclient.NewClient(endpoint)
 	if err != nil {
 		return nil, err
 	}
