@@ -45,5 +45,5 @@ func main() {
 	}
 	http.Handle("/", server.Router)
 	log.Printf("hostbuilder: starting server at %v", server.Config.Address)
-	http.ListenAndServe(server.Config.Address, nil)
+	log.Fatal(http.ListenAndServe(server.Config.Address, nil))
 }

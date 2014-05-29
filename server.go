@@ -61,9 +61,11 @@ func doWebhook(endpoint string, f func() (string, error)) {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 	client := &http.Client{Transport: transport}
-	// perform the webhook but ignore errors here
 	// TODO: retry the webhook if it failes for a few times
-	client.PostForm(endpoint, params)
+	_, err = client.PostForm(endpoint, params)
+	if err != nil {
+		log.Printf("hostbuilder: error posting to webhook: %v", err)
+	}
 }
 
 func toString(b []byte, err error) (string, error) {
