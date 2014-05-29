@@ -15,26 +15,23 @@ import (
 
 type webhookTest func(t *testing.T, data WebhookData)
 
-func webhookTestServer(wg sync.WaitGroup, t *testing.T, f webhookTest) *httptest.Server {
+func webhookTestServer(wg *sync.WaitGroup, t *testing.T, f webhookTest) *httptest.Server {
 	wg.Add(1)
 	wh := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer wg.Done()
 		r.ParseForm()
 
 		payload := r.Form.Get("payload")
 		var data WebhookData
 		json.Unmarshal([]byte(payload), &data)
 		f(t, data)
-
-		fmt.Println(wg)
-		wg.Done()
-		fmt.Println(wg)
 	}))
 	return wh
 }
 
 func TestCreateHost(t *testing.T) {
 	var wg sync.WaitGroup
-	wh := webhookTestServer(wg, t, func(t *testing.T, data WebhookData) {
+	wh := webhookTestServer(&wg, t, func(t *testing.T, data WebhookData) {
 		if data.Success != true {
 			t.Fatal("Failed to create a dummy host")
 		}
@@ -62,7 +59,7 @@ func TestCreateHost(t *testing.T) {
 
 func TestDestroyHost(t *testing.T) {
 	var wg sync.WaitGroup
-	wh := webhookTestServer(wg, t, func(t *testing.T, data WebhookData) {
+	wh := webhookTestServer(&wg, t, func(t *testing.T, data WebhookData) {
 		if data.Success != true {
 			t.Fatal("Failed to destroy a dummy host", data)
 		}
@@ -85,7 +82,7 @@ func TestDestroyHost(t *testing.T) {
 
 func TestStopHost(t *testing.T) {
 	var wg sync.WaitGroup
-	wh := webhookTestServer(wg, t, func(t *testing.T, data WebhookData) {
+	wh := webhookTestServer(&wg, t, func(t *testing.T, data WebhookData) {
 		if data.Success != true {
 			t.Fatal("Failed to stop a dummy host", data)
 		}
@@ -110,7 +107,7 @@ func TestStopHost(t *testing.T) {
 
 func TestStartHost(t *testing.T) {
 	var wg sync.WaitGroup
-	wh := webhookTestServer(wg, t, func(t *testing.T, data WebhookData) {
+	wh := webhookTestServer(&wg, t, func(t *testing.T, data WebhookData) {
 		if data.Success != true {
 			t.Fatal("Failed to start a dummy host", data)
 		}
@@ -135,7 +132,7 @@ func TestStartHost(t *testing.T) {
 
 func TestRestartHost(t *testing.T) {
 	var wg sync.WaitGroup
-	wh := webhookTestServer(wg, t, func(t *testing.T, data WebhookData) {
+	wh := webhookTestServer(&wg, t, func(t *testing.T, data WebhookData) {
 		if data.Success != true {
 			t.Fatal("Failed to restart a dummy host", data)
 		}
