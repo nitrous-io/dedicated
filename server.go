@@ -1,6 +1,7 @@
 package hostbuilder
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -54,7 +55,15 @@ func doWebhook(endpoint string, f func() (string, error)) {
 	payload, _ := json.Marshal(d)
 	params := url.Values{}
 	params.Set("payload", string(payload))
-	http.PostForm(endpoint, params)
+	transport := &http.Transport{Proxy: http.ProxyFromEnvironment}
+	// if debug mode is on (DEBUG=true env) then we skip cert verification
+	if debug {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+	client := &http.Client{Transport: transport}
+	// perform the webhook but ignore errors here
+	// TODO: retry the webhook if it failes for a few times
+	client.PostForm(endpoint, params)
 }
 
 func toString(b []byte, err error) (string, error) {
