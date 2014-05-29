@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path"
+	"strconv"
 
 	"github.com/nitrous-io/freighter/datastore"
 	"github.com/nitrous-io/freighter/provider/docker"
@@ -14,13 +16,13 @@ import (
 var version string
 
 func main() {
-	flData := flag.String("data", "freighter.sqlite3", "location of data store")
-	flPort := flag.Int("port", 3342, "listening port")
-	flVersion := flag.Bool("v", false, "current version")
+	flDataPath := flag.String("d", "/var/lib/freighter", "Specify the path to store freighter's data files")
+	flPort := flag.Int("p", 3342, "Specify the port on which freighterd listens for connections")
+	flVersion := flag.Bool("v", false, "Display the version and exit")
 	flag.Parse()
 
 	if *flVersion {
-		fmt.Printf("Freighterd: current version %v\n", version)
+		fmt.Printf("freighterd: current version %v\n", version)
 		os.Exit(0)
 	}
 
@@ -32,12 +34,37 @@ func main() {
 		}
 	}()
 
-	store, err := datastore.NewSqliteDatastore(*flData)
+	_, err := os.Stat(*flDataPath)
+	if err != nil && os.IsNotExist(err) {
+		if err := os.Mkdir(*flDataPath, 0700); err != nil {
+			logger.FatalExit(err)
+		}
+	} else if err != nil {
+		logger.FatalExit(err)
+	}
+
+	file, err := os.Create(path.Join(*flDataPath, "freighter.pid"))
 	if err != nil {
 		logger.FatalExit(err)
 	}
 
-	prov, err := docker.NewDockerProvider(store)
+	pid := os.Getpid()
+	_, err = file.WriteString(strconv.Itoa(pid))
+	if err != nil {
+		logger.FatalExit(err)
+	}
+
+	err = file.Close()
+	if err != nil {
+		logger.FatalExit(err)
+	}
+
+	store, err := datastore.NewSqliteDatastore(path.Join(*flDataPath, "freighter.sqlite3"))
+	if err != nil {
+		logger.FatalExit(err)
+	}
+
+	prov, err := docker.NewDockerProvider(store, *flDataPath)
 	if err != nil {
 		logger.FatalExit(err)
 	}
@@ -45,6 +72,6 @@ func main() {
 	svr := server.NewServer(logger, prov, &server.HTTPCallback{})
 	host := "0.0.0.0"
 	port := uint16(*flPort)
-	logger.Infof("freighterd listening on %s:%d", host, port)
+	logger.Infof("freighterd (rev: %v, pid: %v) listening on %s:%d", version, pid, host, port)
 	svr.Start(host, port)
 }

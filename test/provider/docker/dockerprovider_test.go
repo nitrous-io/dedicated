@@ -34,7 +34,9 @@ var _ = Describe("DockerProvider", func() {
 		err = store.Set("port:65001", "0")
 		Expect(err).To(BeNil())
 
-		prov, err = docker.NewDockerProvider(store)
+		datadir, err := TempDir()
+		Expect(err).To(BeNil())
+		prov, err = docker.NewDockerProvider(store, datadir)
 		Expect(err).To(BeNil())
 	})
 
@@ -64,11 +66,12 @@ var _ = Describe("DockerProvider", func() {
 		AfterEach(func() {
 			exec.Command("docker", "stop", name).Run()
 			exec.Command("docker", "rm", name).Run()
+			exec.Command("docker", "rmi", "image-", name).Run()
 		})
 
 		expectSSHToWork := func() {
 			time.Sleep(1 * time.Second)
-			out, err := exec.Command("ssh", "action@localhost", "-p", "65001", "-o", "StrictHostKeyChecking=no", "echo success").CombinedOutput()
+			out, err := exec.Command("ssh", "action@localhost", "-p", "65001", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "echo success").CombinedOutput()
 			Expect(out).To(ContainSubstring("success"))
 			Expect(err).To(BeNil())
 		}
@@ -78,6 +81,7 @@ var _ = Describe("DockerProvider", func() {
 			Expect(err).To(BeNil())
 			Expect(info.Id).To(Equal(strings.TrimSpace(string(id))))
 			Expect(info.Name).To(Equal(name))
+			Expect(info.Image).To(Equal("image-" + name))
 			Expect(info.Port).To(Equal(uint16(65001)))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			portUsed, err := store.Get("port:65001")
@@ -95,6 +99,7 @@ var _ = Describe("DockerProvider", func() {
 					Expect(err).To(BeNil())
 					Expect(info.Id).To(Equal(strings.TrimSpace(string(id))))
 					Expect(info.Name).To(Equal(name))
+					Expect(info.Image).To(Equal("image-" + name))
 					Expect(info.Port).To(Equal(uint16(65001)))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
 				})

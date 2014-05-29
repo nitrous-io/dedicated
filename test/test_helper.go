@@ -40,6 +40,15 @@ func TempFile(extension string) string {
 	return path.Join(os.TempDir(), fmt.Sprintf("%v.%v", RandomName("freightertest"), extension))
 }
 
+func TempDir() (string, error) {
+	dir := path.Join(os.TempDir(), RandomName("freightertest"))
+	err := os.Mkdir(dir, 0700)
+	if err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
 func RandomName(name string) string {
 	return fmt.Sprintf("%v-%v-%v", name, time.Now().UnixNano(), rand.Intn(1000))
 }

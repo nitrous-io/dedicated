@@ -3,6 +3,8 @@ package docker
 import (
 	"archive/tar"
 	"bytes"
+	"os"
+	"path"
 	"strconv"
 	"strings"
 	"text/template"
@@ -20,23 +22,23 @@ func init() {
 }
 
 type TemplateData struct {
-	Name       string
-	Image      string
-	PublicKeys []string
+	Name  string
+	Image string
 }
 
 type DockerProvider struct {
 	client   *dockerclient.Client
 	store    *datastore.Datastore
+	dataPath string
 	portPool *PortPool
 }
 
-func NewDockerProvider(store *datastore.Datastore) (*DockerProvider, error) {
+func NewDockerProvider(store *datastore.Datastore, dataPath string) (*DockerProvider, error) {
 	client, err := dockerclient.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
 		return nil, err
 	}
-	return &DockerProvider{client: client, store: store, portPool: NewPortPool(store)}, nil
+	return &DockerProvider{client: client, store: store, dataPath: dataPath, portPool: NewPortPool(store)}, nil
 }
 
 func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
@@ -44,11 +46,16 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 }
 
 func (p *DockerProvider) Create(name string, image string, publicKeys []string) (*provider.ContainerInfo, error) {
-	imageName, err := p.buildImage(name, image, publicKeys)
+	imageName, err := p.buildImage(name, image)
 	if err != nil {
 		return nil, err
 	}
 	port, err := p.portPool.Acquire()
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.createAuthorizedKeys(name, publicKeys)
 	if err != nil {
 		return nil, err
 	}
@@ -122,16 +129,17 @@ func (p *DockerProvider) Terminate(id string) error {
 		return err
 	}
 
+	err = p.client.RemoveImage(container.Config.Image)
+	if err != nil {
+		return err
+	}
+
 	return p.portPool.Release(portFromContainer(container))
 }
 
-func (p *DockerProvider) buildImage(name string, image string, publicKeys []string) (string, error) {
-	for i, v := range publicKeys {
-		publicKeys[i] = strings.TrimSpace(v)
-	}
-
+func (p *DockerProvider) buildImage(name string, image string) (string, error) {
 	buf := bytes.NewBuffer(nil)
-	err := dockerfileUbuntu.Execute(buf, &TemplateData{Name: name, Image: image, PublicKeys: publicKeys})
+	err := dockerfileUbuntu.Execute(buf, &TemplateData{Name: name, Image: image})
 	if err != nil {
 		return "", err
 	}
@@ -143,11 +151,12 @@ func (p *DockerProvider) buildImage(name string, image string, publicKeys []stri
 	tr.Write(buf.Bytes())
 	tr.Close()
 
-	imageName := "registry.nitrous.io/" + name
+	imageName := "image-" + name
 	opts := dockerclient.BuildImageOptions{
-		Name:         imageName,
-		InputStream:  inputbuf,
-		OutputStream: outputbuf,
+		Name:           imageName,
+		InputStream:    inputbuf,
+		OutputStream:   outputbuf,
+		RmTmpContainer: true,
 	}
 
 	err = p.client.BuildImage(opts)
@@ -158,16 +167,53 @@ func (p *DockerProvider) buildImage(name string, image string, publicKeys []stri
 	return imageName, err
 }
 
+func (p *DockerProvider) containerSettingsDir(containerName string) string {
+	return path.Join(p.dataPath, "containers", containerName)
+}
+
+func (p *DockerProvider) createAuthorizedKeys(containerName string, publicKeys []string) error {
+	dir := path.Join(p.containerSettingsDir(containerName), "ssh")
+	err := os.MkdirAll(dir, 0770)
+	if err != nil {
+		return err
+	}
+	filename := path.Join(dir, "authorized_keys")
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	for _, key := range publicKeys {
+		key = strings.TrimSpace(strings.Replace(key, "\n", "", -1)) + "\n"
+		_, err = file.Write([]byte(key))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (p *DockerProvider) runContainer(imageName string, containerName string, port uint16) (*dockerclient.Container, error) {
 	container, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
-		Name:   containerName,
-		Config: &dockerclient.Config{Hostname: containerName, Image: imageName},
+		Name: containerName,
+		Config: &dockerclient.Config{
+			Hostname: containerName,
+			Image:    imageName,
+			Volumes: map[string]struct{}{
+				"/etc/ssh/freighter": {},
+			},
+		},
 	})
 	if err != nil {
 		return container, err
 	}
 
 	err = p.client.StartContainer(container.ID, &dockerclient.HostConfig{
+		Binds: []string{
+			(p.containerSettingsDir(containerName) + "/ssh:/etc/ssh/freighter:ro"),
+		},
 		PortBindings: map[dockerclient.Port][]dockerclient.PortBinding{
 			"22/tcp": {{HostPort: strconv.Itoa(int(port))}},
 		},
