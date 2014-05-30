@@ -49,13 +49,12 @@ func (p *DockerProvider) Create(name string, image string, publicKeys []string) 
 		return nil, err
 	}
 
-	// validate pubkeys
-	for _, key := range publicKeys {
-		_, err := util.Md5Fingerprint(key)
-		if err != nil {
-			return nil, err
-		}
+	// validate pubkeys and remove duplicates
+	keymap, err := keysToKeyMap(publicKeys)
+	if err != nil {
+		return nil, err
 	}
+	publicKeys = keyMapToKeys(keymap)
 
 	port, err := p.portPool.Acquire()
 	if err != nil {
@@ -155,14 +154,7 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 		return nil, err
 	}
 
-	keymap := map[string]string{}
-	for _, key := range keys {
-		fingerprint, err := util.Md5Fingerprint(key)
-		if err == nil {
-			keymap[fingerprint] = key
-		}
-	}
-	return keymap, nil
+	return keysToKeyMap(keys)
 }
 
 func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
@@ -172,35 +164,41 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 	}
 	name := nameFromContainer(container)
 
-	// create a map with fingerprint as the key so that duplicate keys are not added
-	keySet := map[string]string{}
+	existingKeys, err := p.readAuthorizedKeys(name)
+	if err != nil {
+		return err
+	}
+
+	// validate pubkeys and remove duplicates
+	keymap, err := keysToKeyMap(append(publicKeys, existingKeys...))
+	if err != nil {
+		return err
+	}
+	publicKeys = keyMapToKeys(keymap)
+
+	return p.createAuthorizedKeys(name, publicKeys)
+}
+
+func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
+	container, err := p.client.InspectContainer(id)
+	if err != nil {
+		return err
+	}
+	name := nameFromContainer(container)
 
 	keys, err := p.readAuthorizedKeys(name)
 	if err != nil {
 		return err
 	}
 
-	for _, key := range append(publicKeys, keys...) {
-		fingerprint, err := util.Md5Fingerprint(key)
-		if err != nil {
-			return err
-		}
-		keySet[fingerprint] = key
+	keymap, err := keysToKeyMap(keys)
+	if err != nil {
+		return err
 	}
-
-	// convert back to slice
-	keys = make([]string, len(keySet))
-	i := 0
-	for _, key := range keySet {
-		keys[i] = key
-		i++
-	}
+	delete(keymap, keyFingerprint)
+	keys = keyMapToKeys(keymap)
 
 	return p.createAuthorizedKeys(name, keys)
-}
-
-func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
-	return nil
 }
 
 func (p *DockerProvider) buildImage(name string, image string) (string, error) {
@@ -310,4 +308,28 @@ func stateFromContainer(container *dockerclient.Container) string {
 func portFromContainer(container *dockerclient.Container) uint16 {
 	port, _ := strconv.Atoi(container.HostConfig.PortBindings["22/tcp"][0].HostPort)
 	return uint16(port)
+}
+
+// converts []pubkey to map[keyFingerprint]pubkey
+func keysToKeyMap(keys []string) (map[string]string, error) {
+	keymap := map[string]string{}
+	for _, key := range keys {
+		fingerprint, err := util.Md5Fingerprint(key)
+		if err != nil {
+			return nil, err
+		}
+		keymap[fingerprint] = key
+	}
+	return keymap, nil
+}
+
+// converts map[keyFingerprint]pubkey back to []pubkey
+func keyMapToKeys(keymap map[string]string) []string {
+	keys := make([]string, len(keymap))
+	i := 0
+	for _, key := range keymap {
+		keys[i] = key
+		i++
+	}
+	return keys
 }

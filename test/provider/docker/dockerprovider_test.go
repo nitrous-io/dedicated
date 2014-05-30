@@ -338,6 +338,63 @@ var _ = Describe("DockerProvider", func() {
 					})
 				})
 			})
+
+			Describe(".RemovePublicKeys()", func() {
+				Context("when a pub key with a given fingerprint is found", func() {
+					itWorks := func() {
+						It("removes the matching pub key from the authorized_keys file", func() {
+							err := prov.RemovePublicKey(id, fingerprint1)
+							Expect(err).To(BeNil())
+							pubkeys, err := prov.ListPublicKeys(id)
+							Expect(err).To(BeNil())
+							Expect(pubkeys).To(Equal(map[string]string{
+								fingerprint2: pubkey2,
+							}))
+						})
+					}
+
+					Context("when the container is running", func() {
+						itWorks()
+					})
+
+					Context("when the container is stopped", func() {
+						BeforeEach(func() {
+							err := exec.Command("docker", "stop", id).Run()
+							Expect(err).To(BeNil())
+						})
+
+						itWorks()
+					})
+				})
+
+				Context("when a pub key with a given fingerprint is not found", func() {
+					itDoesNotWork := func() {
+						It("does nothing", func() {
+							err := prov.RemovePublicKey(id, "11:11:11:11:11:11:11:11:11:11:11:11:11:11:11:11")
+							Expect(err).To(BeNil())
+							pubkeys, err := prov.ListPublicKeys(id)
+							Expect(err).To(BeNil())
+							Expect(pubkeys).To(Equal(map[string]string{
+								fingerprint1: pubkey1,
+								fingerprint2: pubkey2,
+							}))
+						})
+					}
+
+					Context("when the container is running", func() {
+						itDoesNotWork()
+					})
+
+					Context("when the container is stopped", func() {
+						BeforeEach(func() {
+							err := exec.Command("docker", "stop", id).Run()
+							Expect(err).To(BeNil())
+						})
+
+						itDoesNotWork()
+					})
+				})
+			})
 		})
 	})
 })
