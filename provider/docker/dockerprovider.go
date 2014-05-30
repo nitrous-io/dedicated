@@ -211,7 +211,7 @@ func (p *DockerProvider) buildImage(name string, image string) (string, error) {
 	tr.Write(buf.Bytes())
 	tr.Close()
 
-	imageName := "image-" + name
+	imageName := "freighter." + name
 	opts := dockerclient.BuildImageOptions{
 		Name:           imageName,
 		InputStream:    inputbuf,

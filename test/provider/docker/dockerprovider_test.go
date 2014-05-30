@@ -77,7 +77,7 @@ var _ = Describe("DockerProvider", func() {
 		AfterEach(func() {
 			exec.Command("docker", "stop", name).Run()
 			exec.Command("docker", "rm", name).Run()
-			exec.Command("docker", "rmi", "image-", name).Run()
+			exec.Command("docker", "rmi", "freighter."+name).Run()
 		})
 
 		expectSSHToWork := func() {
@@ -90,7 +90,7 @@ var _ = Describe("DockerProvider", func() {
 		It("creates a container successfully", func() {
 			Expect(info.Id).To(Equal(id))
 			Expect(info.Name).To(Equal(name))
-			Expect(info.Image).To(Equal("image-" + name))
+			Expect(info.Image).To(Equal("freighter." + name))
 			Expect(info.Port).To(Equal(uint16(65001)))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			portUsed, err := store.Get("port:65001")
@@ -106,7 +106,7 @@ var _ = Describe("DockerProvider", func() {
 					Expect(err).To(BeNil())
 					Expect(info.Id).To(Equal(id))
 					Expect(info.Name).To(Equal(name))
-					Expect(info.Image).To(Equal("image-" + name))
+					Expect(info.Image).To(Equal("freighter." + name))
 					Expect(info.Port).To(Equal(uint16(65001)))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
 				})
