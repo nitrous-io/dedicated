@@ -2,5 +2,6 @@
 config.json
 tags
 _vendor
+.vagrant
 
 build/
