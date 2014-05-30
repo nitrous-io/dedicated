@@ -48,6 +48,15 @@ func (p *DockerProvider) Create(name string, image string, publicKeys []string) 
 	if err != nil {
 		return nil, err
 	}
+
+	// validate pubkeys
+	for _, key := range publicKeys {
+		_, err := util.Md5Fingerprint(key)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	port, err := p.portPool.Acquire()
 	if err != nil {
 		return nil, err
@@ -141,12 +150,11 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 		return nil, err
 	}
 
-	keysFile := path.Join(p.containerSettingsDir(nameFromContainer(container)), "ssh", "authorized_keys")
-	bkeys, err := ioutil.ReadFile(keysFile)
+	keys, err := p.readAuthorizedKeys(nameFromContainer(container))
 	if err != nil {
 		return nil, err
 	}
-	keys := strings.Split(strings.TrimSpace(string(bkeys)), "\n")
+
 	keymap := map[string]string{}
 	for _, key := range keys {
 		fingerprint, err := util.Md5Fingerprint(key)
@@ -158,7 +166,37 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 }
 
 func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
-	return nil
+	container, err := p.client.InspectContainer(id)
+	if err != nil {
+		return err
+	}
+	name := nameFromContainer(container)
+
+	// create a map with fingerprint as the key so that duplicate keys are not added
+	keySet := map[string]string{}
+
+	keys, err := p.readAuthorizedKeys(name)
+	if err != nil {
+		return err
+	}
+
+	for _, key := range append(publicKeys, keys...) {
+		fingerprint, err := util.Md5Fingerprint(key)
+		if err != nil {
+			return err
+		}
+		keySet[fingerprint] = key
+	}
+
+	// convert back to slice
+	keys = make([]string, len(keySet))
+	i := 0
+	for _, key := range keySet {
+		keys[i] = key
+		i++
+	}
+
+	return p.createAuthorizedKeys(name, keys)
 }
 
 func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
@@ -221,6 +259,15 @@ func (p *DockerProvider) createAuthorizedKeys(containerName string, publicKeys [
 	}
 
 	return nil
+}
+
+func (p *DockerProvider) readAuthorizedKeys(containerName string) ([]string, error) {
+	keysFile := path.Join(p.containerSettingsDir(containerName), "ssh", "authorized_keys")
+	bkeys, err := ioutil.ReadFile(keysFile)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(strings.TrimSpace(string(bkeys)), "\n"), nil
 }
 
 func (p *DockerProvider) runContainer(imageName string, containerName string, port uint16) (*dockerclient.Container, error) {

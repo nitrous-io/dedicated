@@ -268,6 +268,76 @@ var _ = Describe("DockerProvider", func() {
 					itWorks()
 				})
 			})
+
+			Describe(".AddPublicKeys()", func() {
+				pubkey3 := "ssh-dss AAAAB3NzaC1kc3MAAACBAKPiMSg6vvWZAK1a+Vj+yPH0kRpCDUqhNCyPJd8yIfvs8c+uGgnXkDG6vW3gamyxkFilxgLvqW89NnvmcBRoAXkrT5e8uiciLJ2CqJuqZPHFNf3T298xFleh/43X5dxgS6CdODzrkreFe8XD1R1DozMgChU8wGVpQNQWGKU/x7xXAAAAFQCa8OP3WB4V2mNA/8cN7fj4gxDbLwAAAIEAhxHz0xu/EAWvq+nZ5CXnWZ2g++t1IEJcJWnTTIQakU+aZV0DxQ4hesrFiXllBX/oUTgr8ZlqYgqTy4+lHpXIhesNy3k9OjjU8/dYm9zZZw3TWIL64dAEp9L0xNZ7MFgOVvDwpjNqjUrbDCIujk7iZ+J/hFFoTqRxSeciX+cbusQAAACBAIcGybaGJ2Z4E21jR0iD05kNhJm97CJHavhH6fgxkeecVdXU2+k/DjLHTz7UfhbAtg6XqE0s5PVUgh0P/stQRGyosTmasYE3hTwwOXYQ2k/HLqM/ZGwEXW2kLSpi2MROowQf25wQrWmJBjTQ8mjG5jm0KOCX2jFf0QN3qTzVovSc vagrant@ubuntu-14"
+
+				Context("with valid public keys", func() {
+					var (
+						pubkey4      = "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBIC/WqXhoJC0FSaocOrx/uyneeqH32CUNbva4L6PdY7mIZ99mTTpdREowMo1T3pvY46JxwL6X3stuhZmIYNJEc0="
+						fingerprint3 = "9b:e8:01:40:ff:35:c5:12:05:dc:cd:17:3e:a9:55:53"
+						fingerprint4 = "2a:43:73:52:6c:21:b5:5f:cc:cd:73:21:2b:05:50:de"
+					)
+
+					itWorks := func() {
+						It("adds given pub keys to the authorized_keys file for the container", func() {
+							err := prov.AddPublicKeys(id, []string{pubkey3, pubkey4, pubkey1}) // dupe key should be ignored
+							Expect(err).To(BeNil())
+							pubkeys, err := prov.ListPublicKeys(id)
+							Expect(err).To(BeNil())
+							Expect(pubkeys).To(Equal(map[string]string{
+								fingerprint1: pubkey1,
+								fingerprint2: pubkey2,
+								fingerprint3: pubkey3,
+								fingerprint4: pubkey4,
+							}))
+						})
+					}
+
+					Context("when the container is running", func() {
+						itWorks()
+					})
+
+					Context("when the container is stopped", func() {
+						BeforeEach(func() {
+							err := exec.Command("docker", "stop", id).Run()
+							Expect(err).To(BeNil())
+						})
+
+						itWorks()
+					})
+				})
+
+				Context("with an invalid public key in the mix", func() {
+					pubkey4 := "ssh-rsa S4!#AFLJKN*F@NF12f"
+
+					itDoesNotWork := func() {
+						It("does not add given pub keys to the authorized_keys file for the container", func() {
+							err := prov.AddPublicKeys(id, []string{pubkey3, pubkey4, pubkey1})
+							Expect(err).To(MatchError(util.ErrInvalidPublicKey))
+							pubkeys, err := prov.ListPublicKeys(id)
+							Expect(err).To(BeNil())
+							Expect(pubkeys).To(Equal(map[string]string{
+								fingerprint1: pubkey1,
+								fingerprint2: pubkey2,
+							}))
+						})
+					}
+
+					Context("when the container is running", func() {
+						itDoesNotWork()
+					})
+
+					Context("when the container is stopped", func() {
+						BeforeEach(func() {
+							err := exec.Command("docker", "stop", id).Run()
+							Expect(err).To(BeNil())
+						})
+
+						itDoesNotWork()
+					})
+				})
+			})
 		})
 	})
 })
