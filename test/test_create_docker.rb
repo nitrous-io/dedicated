@@ -1,0 +1,26 @@
+#!/usr/bin/env ruby
+require "rubygems"
+require "bundler/setup"
+require "httpclient"
+require "json"
+require "securerandom"
+
+client = HTTPClient.new
+client.receive_timeout = 10000
+
+random_id = SecureRandom.hex(8)
+
+params = {
+  name: "test-box-#{random_id}",
+  image: "dqminh/upstart-dind",
+  public_keys: [
+    File.read("#{ENV['HOME']}/.ssh/id_rsa.pub")
+  ],
+}
+
+resp = client.post "http://localhost:6666/host", {
+  provider: "docker",
+  webhook: "http://127.0.0.1:4567/webhook",
+  config: JSON.generate(params)
+}
+p resp
