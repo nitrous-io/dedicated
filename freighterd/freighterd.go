@@ -64,7 +64,7 @@ func main() {
 		logger.FatalExit(err)
 	}
 
-	prov, err := docker.NewDockerProvider(store, *flDataPath)
+	prov, err := docker.NewDockerProvider(store, *flDataPath, "freighter")
 	if err != nil {
 		logger.FatalExit(err)
 	}

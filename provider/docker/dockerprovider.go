@@ -25,22 +25,42 @@ type TemplateData struct {
 }
 
 type DockerProvider struct {
-	client   *dockerclient.Client
-	store    *datastore.Datastore
-	dataPath string
-	portPool *PortPool
+	client         *dockerclient.Client
+	store          *datastore.Datastore
+	dataPath       string
+	portPool       *PortPool
+	imageNamespace string
 }
 
-func NewDockerProvider(store *datastore.Datastore, dataPath string) (*DockerProvider, error) {
+func NewDockerProvider(store *datastore.Datastore, dataPath string, imageNamespace string) (*DockerProvider, error) {
 	client, err := dockerclient.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
 		return nil, err
 	}
-	return &DockerProvider{client: client, store: store, dataPath: dataPath, portPool: NewPortPool(store)}, nil
+	return &DockerProvider{client: client, store: store, dataPath: dataPath, portPool: NewPortPool(store), imageNamespace: imageNamespace + "."}, nil
 }
 
 func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
-	return nil, nil
+	apicontainers, err := p.client.ListContainers(dockerclient.ListContainersOptions{
+		All: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	list := []*provider.ContainerInfo{}
+
+	for _, apicontainer := range apicontainers {
+		if strings.HasPrefix(apicontainer.Image, p.imageNamespace) {
+			info, err := p.GetInfo(apicontainer.ID)
+			if err != nil {
+				return nil, err
+			}
+			list = append(list, info)
+		}
+	}
+
+	return list, nil
 }
 
 func (p *DockerProvider) Create(name string, image string, publicKeys []string) (*provider.ContainerInfo, error) {
@@ -211,7 +231,7 @@ func (p *DockerProvider) buildImage(name string, image string) (string, error) {
 	tr.Write(buf.Bytes())
 	tr.Close()
 
-	imageName := "freighter." + name
+	imageName := p.imageNamespace + name
 	opts := dockerclient.BuildImageOptions{
 		Name:           imageName,
 		InputStream:    inputbuf,

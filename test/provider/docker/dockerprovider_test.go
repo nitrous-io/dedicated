@@ -21,9 +21,10 @@ import (
 
 var _ = Describe("DockerProvider", func() {
 	var (
-		store  *datastore.Datastore
-		dbFile string
-		prov   *docker.DockerProvider
+		store     *datastore.Datastore
+		dbFile    string
+		prov      *docker.DockerProvider
+		namespace = "freightertest"
 	)
 
 	BeforeEach(func() {
@@ -34,10 +35,12 @@ var _ = Describe("DockerProvider", func() {
 
 		err = store.Set("port:65001", "0")
 		Expect(err).To(BeNil())
+		err = store.Set("port:65002", "0")
+		Expect(err).To(BeNil())
 
 		datadir, err := TempDir()
 		Expect(err).To(BeNil())
-		prov, err = docker.NewDockerProvider(store, datadir)
+		prov, err = docker.NewDockerProvider(store, datadir, namespace)
 		Expect(err).To(BeNil())
 	})
 
@@ -47,6 +50,12 @@ var _ = Describe("DockerProvider", func() {
 		}
 		os.Remove(dbFile)
 	})
+
+	cleanUpContainer := func(name string) {
+		exec.Command("docker", "stop", name).Run()
+		exec.Command("docker", "rm", name).Run()
+		exec.Command("docker", "rmi", namespace+"."+name).Run()
+	}
 
 	Describe(".Create()", func() {
 		var (
@@ -60,7 +69,7 @@ var _ = Describe("DockerProvider", func() {
 		)
 
 		BeforeEach(func() {
-			name = RandomName("test")
+			name = RandomName("freightertest")
 			userPubkey, err := ioutil.ReadFile(path.Join(os.Getenv("HOME"), ".ssh", "id_rsa.pub"))
 			Expect(err).To(BeNil())
 			pubkey2 = strings.TrimSpace(string(userPubkey))
@@ -75,9 +84,7 @@ var _ = Describe("DockerProvider", func() {
 		})
 
 		AfterEach(func() {
-			exec.Command("docker", "stop", name).Run()
-			exec.Command("docker", "rm", name).Run()
-			exec.Command("docker", "rmi", "freighter."+name).Run()
+			cleanUpContainer(name)
 		})
 
 		expectSSHToWork := func() {
@@ -90,7 +97,7 @@ var _ = Describe("DockerProvider", func() {
 		It("creates a container successfully", func() {
 			Expect(info.Id).To(Equal(id))
 			Expect(info.Name).To(Equal(name))
-			Expect(info.Image).To(Equal("freighter." + name))
+			Expect(info.Image).To(Equal(namespace + "." + name))
 			Expect(info.Port).To(Equal(uint16(65001)))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			portUsed, err := store.Get("port:65001")
@@ -100,13 +107,57 @@ var _ = Describe("DockerProvider", func() {
 		})
 
 		Context("after container is created", func() {
+			Describe(".List()", func() {
+				var (
+					container2name string
+					container2info *provider.ContainerInfo
+				)
+
+				BeforeEach(func() {
+					container2name = RandomName("freightertest2")
+					// shut down first container
+					err := exec.Command("docker", "stop", id).Run()
+					Expect(err).To(BeNil())
+
+					// create another container
+					container2info, err = prov.Create(container2name, "ubuntu-upstart:trusty", []string{})
+					Expect(err).To(BeNil())
+				})
+
+				AfterEach(func() {
+					cleanUpContainer(container2name)
+				})
+
+				It("returns a list of all containers, running or stopped", func() {
+					list, err := prov.List()
+					Expect(err).To(BeNil())
+
+					Expect(list).To(HaveLen(2))
+					Expect(list).To(ContainElement(&provider.ContainerInfo{
+						Id:    id,
+						Name:  name,
+						Image: namespace + "." + name,
+						Port:  uint16(65001),
+						State: provider.ContainerStateStopped,
+					}))
+
+					Expect(list).To(ContainElement(&provider.ContainerInfo{
+						Id:    container2info.Id,
+						Name:  container2name,
+						Image: namespace + "." + container2name,
+						Port:  uint16(65002),
+						State: provider.ContainerStateRunning,
+					}))
+				})
+			})
+
 			Describe(".GetInfo()", func() {
 				It("returns container info", func() {
 					info, err := prov.GetInfo(id)
 					Expect(err).To(BeNil())
 					Expect(info.Id).To(Equal(id))
 					Expect(info.Name).To(Equal(name))
-					Expect(info.Image).To(Equal("freighter." + name))
+					Expect(info.Image).To(Equal(namespace + "." + name))
 					Expect(info.Port).To(Equal(uint16(65001)))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
 				})
