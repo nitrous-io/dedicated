@@ -94,6 +94,7 @@ var _ = Describe("Server", func() {
 			publicKey   string
 			publicKey2  string
 			callbackUrl string
+			state       string
 		)
 
 		BeforeEach(func() {
@@ -108,6 +109,8 @@ var _ = Describe("Server", func() {
 			params.Set("callback_url", callbackUrl)
 			params.Set("public_key[]", publicKey)
 			params.Add("public_key[]", publicKey2)
+			state = RandomName("state")
+			params.Set("state", state)
 		})
 
 		doRequest := func() {
@@ -147,7 +150,7 @@ var _ = Describe("Server", func() {
 						Wait()
 						Expect(cb.InvokeCalled).To(BeTrue())
 						Expect(cb.To).To(Equal(callbackUrl))
-						Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter"}`))
+						Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter", "state": "` + state + `"}`))
 					})
 				})
 
@@ -162,15 +165,15 @@ var _ = Describe("Server", func() {
 						Wait()
 						Expect(cb.InvokeCalled).To(BeTrue())
 						Expect(cb.To).To(Equal(callbackUrl))
-						Expect(cb.Payload).To(MatchJSON(`{"status":"created", "container":{
+						Expect(cb.Payload).To(MatchJSON(`{"result":"created", "container":{
 							"id":"aaa","name":"fragrant-wind-69","image":"ubuntu","host":"1.2.3.4","port":10000,"state":"running"
-						}}`))
+						}, "state": "` + state + `"}`))
 					})
 				})
 			})
 		})
 
-		for _, param := range []string{"name", "callback_url", "public_key[]"} {
+		for _, param := range []string{"name", "image"} {
 			Context(fmt.Sprintf("when param '%v' is missing", param), func() {
 				BeforeEach(func() {
 					params.Del(param)
@@ -242,6 +245,7 @@ var _ = Describe("Server", func() {
 			var (
 				id          string
 				callbackUrl string
+				state       string
 			)
 
 			BeforeEach(func() {
@@ -249,6 +253,8 @@ var _ = Describe("Server", func() {
 				callbackUrl = "http://www.example.com/cb"
 				params = &url.Values{}
 				params.Set("callback_url", callbackUrl)
+				state = RandomName("state")
+				params.Set("state", state)
 
 				prov.Containers = []*provider.ContainerInfo{
 					{Id: id, Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000},
@@ -282,7 +288,7 @@ var _ = Describe("Server", func() {
 							Wait()
 							Expect(cb.InvokeCalled).To(BeTrue())
 							Expect(cb.To).To(Equal(callbackUrl))
-							Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter"}`))
+							Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter", "state":"` + state + `"}`))
 						})
 					})
 
@@ -296,7 +302,7 @@ var _ = Describe("Server", func() {
 							Wait()
 							Expect(cb.InvokeCalled).To(BeTrue())
 							Expect(cb.To).To(Equal(callbackUrl))
-							Expect(cb.Payload).To(MatchJSON(fmt.Sprintf(`{"status":"%v", "container_id":"aaa"}`, successStatus)))
+							Expect(cb.Payload).To(MatchJSON(fmt.Sprintf(`{"result":"%v", "container_id":"aaa", "state":"`+state+`"}`, successStatus)))
 						})
 					})
 				})
@@ -506,7 +512,6 @@ var _ = Describe("Server", func() {
 						Expect(prov.ReceivedId).To(Equal(id))
 						Expect(res.Code).To(Equal(http.StatusOK))
 						j, _ := json.Marshal(map[string]interface{}{
-							"status":      "ok",
 							"public_keys": prov.PublicKeys,
 						})
 
@@ -594,7 +599,6 @@ var _ = Describe("Server", func() {
 					Expect(prov.ReceivedId).To(Equal(id))
 					Expect(res.Code).To(Equal(http.StatusOK))
 					j, _ := json.Marshal(map[string]interface{}{
-						"status":      "ok",
 						"public_keys": prov.PublicKeys,
 					})
 

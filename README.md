@@ -56,7 +56,7 @@ Content-Type: application/json; charset=utf-8
 POST /containers HTTP/1.1
 Content-Type: application/x-www-form-urlencoded
 
-name=foo&image=ubuntu-upstart:trusty&callback_url=http://example.com/cb&public_key[]=ssh-rsa%20AAAAB3NzaC1yc2EAAAADAQABAAABAQCzRcsDraIFmeuZ%2Bq6Ic9epAzXPy8WnkqZwLnauH9YBMPhrVQH6nnr%2FYSGxhYivnG1Qu0AirSUBAjFL7uD9YLeUhwwdKkhHa%2BbPPMpycmOopyafZyYAEIuZUwyjnK%2F2mniNJZ%2BYZhfBJ1z9Xh1hMIFtls%2FLP1Q7C25rIDg7l1khZ1cEV0mAzJjb4QBvqAt6TjC%2FYbUZ4%2F45rHRuQsu%2FRBhYpuffFwqlLHfjSO2i6TuJtNsEJ2kDDLooM%2FTHf3J2TxObomusErPTgwAo8ya1GmEB5NuwysZx1posjPZIQwg0Q3RqLzMOPlnZpG2l%2FlvVfEU%2BiCcc246z4D4Ej9WnuWFR%20jihoon%40ubuntu
+name=foo&image=ubuntu-upstart:trusty&callback_url=http://example.com/cb&public_key[]=ssh-rsa%20AAAAB3NzaC1yc2EAAAADAQABAAABAQCzRcsDraIFmeuZ%2Bq6Ic9epAzXPy8WnkqZwLnauH9YBMPhrVQH6nnr%2FYSGxhYivnG1Qu0AirSUBAjFL7uD9YLeUhwwdKkhHa%2BbPPMpycmOopyafZyYAEIuZUwyjnK%2F2mniNJZ%2BYZhfBJ1z9Xh1hMIFtls%2FLP1Q7C25rIDg7l1khZ1cEV0mAzJjb4QBvqAt6TjC%2FYbUZ4%2F45rHRuQsu%2FRBhYpuffFwqlLHfjSO2i6TuJtNsEJ2kDDLooM%2FTHf3J2TxObomusErPTgwAo8ya1GmEB5NuwysZx1posjPZIQwg0Q3RqLzMOPlnZpG2l%2FlvVfEU%2BiCcc246z4D4Ej9WnuWFR%20jihoon%40ubuntu&state=xyz
 ```
 
 **Example response**:
@@ -72,8 +72,9 @@ Content-Type: application/json; charset=utf-8
 
 - **name** - container name (a-z, 0-9, and hyphen(-), can't start with hyphen or digits, can't end with hyphen.)
 - **image** - image to use
-- **public\_key[]** - ssh pub keys to add
-- **callback\_url** - callback url to which freighter will POST result data
+- **public\_key[]** - _(optional)_ ssh pub keys to add
+- **callback\_url** - _(optional)_ callback url to which freighter will POST result data
+- **state** - _(optional)_ an opaque value used by the client to maintain state between the request and callback. If given, freighter will include this value in the callback
 
 **Status Codes**:
 
@@ -84,7 +85,7 @@ Content-Type: application/json; charset=utf-8
 
 ```javascript
 {
-  "status": "created",
+  "result": "created",
   "container": {
     "id":  "2cf1503ed6a0",
     "name": "foobar",
@@ -92,14 +93,15 @@ Content-Type: application/json; charset=utf-8
     "host": "1.2.3.4",
     "port": 10000,
     "state": "running"
-  }
+  },
+  "state": "xyz"
 }
 ```
 
 **Example callback (failure)**:
 
 ```javascript
-{ "error": "pc load letter" }
+{ "error": "pc load letter", "state": "xyz" }
 ```
 
 ### Get container info
@@ -145,7 +147,7 @@ Content-Type: application/json; charset=utf-8
 POST /containers/2cf1503ed6a0/start HTTP/1.1
 Content-Type: application/x-www-form-urlencoded
 
-callback_url=http://example.com/cb
+callback_url=http://example.com/cb&state=xyz
 ```
 
 **Example response**:
@@ -159,7 +161,8 @@ Content-Type: application/json; charset=utf-8
 
 **POST Params**:
 
-- **callback\_url** - callback url to which freighter will POST result data
+- **callback\_url** - _(optional)_ callback url to which freighter will POST result data
+- **state** - _(optional)_ an opaque value used by the client to maintain state between the request and callback. If given, freighter will include this value in the callback.
 
 **Status Codes**:
 
@@ -169,13 +172,13 @@ Content-Type: application/json; charset=utf-8
 **Example callback (success)**:
 
 ```javascript
-{ "status": "started" }
+{ "result": "started", "container_id": "2cf1503ed6a0", "state": "xyz" }
 ```
 
 **Example callback (failure)**:
 
 ```javascript
-{ "error": "pc load letter" }
+{ "error": "pc load letter", "state": "xyz" }
 ```
 
 ### Stop a container
@@ -188,7 +191,7 @@ Content-Type: application/json; charset=utf-8
 POST /containers/2cf1503ed6a0/stop HTTP/1.1
 Content-Type: application/x-www-form-urlencoded
 
-callback_url=http://example.com/cb
+callback_url=http://example.com/cb&state=xyz
 ```
 
 **Example response**:
@@ -202,7 +205,8 @@ Content-Type: application/json; charset=utf-8
 
 **POST Params**:
 
-- **callback\_url** - callback url to which freighter will POST result data
+- **callback\_url** - _(optional)_ callback url to which freighter will POST result data
+- **state** - _(optional)_ an opaque value used by the client to maintain state between the request and callback. If given, freighter will include this value in the callback.
 
 **Status Codes**:
 
@@ -212,13 +216,13 @@ Content-Type: application/json; charset=utf-8
 **Example callback (success)**:
 
 ```javascript
-{ "status": "stopped" }
+{ "result": "stopped", "container_id": "2cf1503ed6a0", "state": "xyz" }
 ```
 
 **Example callback (failure)**:
 
 ```javascript
-{ "error": "pc load letter" }
+{ "error": "pc load letter", "state": "xyz" }
 ```
 
 ### Restart a container
@@ -231,7 +235,7 @@ Content-Type: application/json; charset=utf-8
 POST /containers/2cf1503ed6a0/restart HTTP/1.1
 Content-Type: application/x-www-form-urlencoded
 
-callback_url=http://example.com/cb
+callback_url=http://example.com/cb&state=xyz
 ```
 
 **Example response**:
@@ -245,7 +249,8 @@ Content-Type: application/json; charset=utf-8
 
 **POST Params**:
 
-- **callback\_url** - callback url to which freighter will POST result data
+- **callback\_url** - _(optional)_ callback url to which freighter will POST result data
+- **state** - _(optional)_ an opaque value used by the client to maintain state between the request and callback. If given, freighter will include this value in the callback.
 
 **Status Codes**:
 
@@ -255,13 +260,13 @@ Content-Type: application/json; charset=utf-8
 **Example callback (success)**:
 
 ```javascript
-{ "status": "restarted" }
+{ "result": "restarted", "container_id": "2cf1503ed6a0", "state": "xyz" }
 ```
 
 **Example callback (failure)**:
 
 ```javascript
-{ "error": "pc load letter" }
+{ "error": "pc load letter", "state": "xyz" }
 ```
 
 ### Terminate a container
@@ -271,7 +276,7 @@ Content-Type: application/json; charset=utf-8
 **Example request**:
 
 ```
-DELETE /containers/2cf1503ed6a0?callback_url=http://example.com/cb HTTP/1.1
+DELETE /containers/2cf1503ed6a0?callback_url=http://example.com/cb&state=xyz HTTP/1.1
 ```
 
 **Example response**:
@@ -285,7 +290,8 @@ Content-Type: application/json; charset=utf-8
 
 **Query Params**:
 
-- **callback\_url** - callback url to which freighter will POST result data
+- **callback\_url** - _(optional)_ callback url to which freighter will POST result data
+- **state** - _(optional)_ an opaque value used by the client to maintain state between the request and callback. If given, freighter will include this value in the callback.
 
 **Status Codes**:
 
@@ -295,13 +301,13 @@ Content-Type: application/json; charset=utf-8
 **Example callback (success)**:
 
 ```javascript
-{ "status": "terminated" }
+{ "result": "terminated", "container_id": "2cf1503ed6a0", "state": "xyz" }
 ```
 
 **Example callback (failure)**:
 
 ```javascript
-{ "error": "pc load letter" }
+{ "error": "pc load letter", "state": "xyz" }
 ```
 
 ### List authorized public keys for a container
@@ -353,7 +359,6 @@ HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 
 {
-  "status": "ok",
   "public_keys": {
     "c1:fc:6d:29:ab:b8:03:57:c4:30:a6:b7:58:40:74:af": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCzRcsDraIFmeuZ+q6Ic9epAzXPy8WnkqZwLnauH9YBMPhrVQH6nnr/YSGxhYivnG1Qu0AirSUBAjFL7uD9YLeUhwwdKkhHa+bPPMpycmOopyafZyYAEIuZUwyjnK/2mniNJZ+YZhfBJ1z9Xh1hMIFtls/LP1Q7C25rIDg7l1khZ1cEV0mAzJjb4QBvqAt6TjC/YbUZ4/45rHRuQsu/RBhYpuffFwqlLHfjSO2i6TuJtNsEJ2kDDLooM/THf3J2TxObomusErPTgwAo8ya1GmEB5NuwysZx1posjPZIQwg0Q3RqLzMOPlnZpG2l/lvVfEU+iCcc246z4D4Ej9WnuWFR jihoon@ubuntu",
     "e1:82:d8:93:44:20:cc:ff:c1:b8:0c:c3:82:bc:17:a9": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDMEj71VsgCsMiV3yRhAoot2vozfg2tFklv53MchMxjoQEebXCbdevKs92d9R+9c7hPG4h8uiTwozfC6IMYLNXQgQsUItmoWZqu16a6iQ5j7vmkkNPNR78moJIr/8ZQkg4K2I0382QVSU1JB3Sp2QrsTrwU46PtKiiASTJPTP5ynCpVECTwZKdcf6LfA9GXTpEgJJQkKRFrkGAJxMeZDRI4PBR5UDYGCOivIvGB7DQCLuEQax0T6M+FmMISU7UqXZ03947w0muunLhwMVPC76GI0OpYB+4hRmXjLv/LYDRES3rhB2T2fuq4iCXQ3SzI1o5bG1FPBoWprCBYWvbzHnjb jihoon@mac"
@@ -368,7 +373,8 @@ Content-Type: application/json; charset=utf-8
 **Status Codes**:
 
 - **200** - no error
-- **404** - not found
+- **422** - missing or invalid params
+- **404** - container not found
 - **500** - error
 
 ### Remove an authorized public key
@@ -388,7 +394,6 @@ HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 
 {
-  "status": "ok",
   "public_keys": {
     "c1:fc:6d:29:ab:b8:03:57:c4:30:a6:b7:58:40:74:af": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCzRcsDraIFmeuZ+q6Ic9epAzXPy8WnkqZwLnauH9YBMPhrVQH6nnr/YSGxhYivnG1Qu0AirSUBAjFL7uD9YLeUhwwdKkhHa+bPPMpycmOopyafZyYAEIuZUwyjnK/2mniNJZ+YZhfBJ1z9Xh1hMIFtls/LP1Q7C25rIDg7l1khZ1cEV0mAzJjb4QBvqAt6TjC/YbUZ4/45rHRuQsu/RBhYpuffFwqlLHfjSO2i6TuJtNsEJ2kDDLooM/THf3J2TxObomusErPTgwAo8ya1GmEB5NuwysZx1posjPZIQwg0Q3RqLzMOPlnZpG2l/lvVfEU+iCcc246z4D4Ej9WnuWFR jihoon@ubuntu"
   }
@@ -398,7 +403,7 @@ Content-Type: application/json; charset=utf-8
 **Status Codes**:
 
 - **200** - no error
-- **404** - not found
+- **404** - container not found
 - **500** - error
 
 - - -

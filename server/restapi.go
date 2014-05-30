@@ -39,23 +39,39 @@ func (a *RestAPI) CreateContainer(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	image := r.FormValue("image")
 	callbackUrl := r.FormValue("callback_url")
+	state := r.FormValue("state")
 	publicKeys := r.PostForm["public_key[]"]
 
-	if name == "" || callbackUrl == "" || publicKeys == nil {
+	if publicKeys == nil {
+		publicKeys = []string{}
+	}
+
+	if name == "" || image == "" {
 		respond(w, 422, []byte(`{"error":"invalid params"}`))
 		return
 	}
 
 	go func() {
 		info, err := a.Provider.Create(name, image, publicKeys)
+		if callbackUrl == "" {
+			return
+		}
 		if err != nil {
-			j, err := json.Marshal(map[string]string{"error": err.Error()})
+			res := map[string]string{"error": err.Error()}
+			if state != "" {
+				res["state"] = state
+			}
+			j, err := json.Marshal(res)
 			if err == nil {
 				a.Callback.Invoke(callbackUrl, string(j))
 			}
 			return
 		}
-		j, err := json.Marshal(map[string]interface{}{"status": "created", "container": info})
+		res := map[string]interface{}{"result": "created", "container": info}
+		if state != "" {
+			res["state"] = state
+		}
+		j, err := json.Marshal(res)
 		if err == nil {
 			a.Callback.Invoke(callbackUrl, string(j))
 		}
@@ -131,7 +147,7 @@ func (a *RestAPI) AddPublicKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondEncodeJson(w, http.StatusOK, map[string]interface{}{"status": "ok", "public_keys": allPubKeys})
+	respondEncodeJson(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
 
 func (a *RestAPI) RemovePublicKey(w http.ResponseWriter, r *http.Request) {
@@ -150,12 +166,13 @@ func (a *RestAPI) RemovePublicKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondEncodeJson(w, http.StatusOK, map[string]interface{}{"status": "ok", "public_keys": allPubKeys})
+	respondEncodeJson(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
 
 func (a *RestAPI) performContainerControl(w http.ResponseWriter, r *http.Request, controlFunc func(string) error, successStatus string) {
 	id := mux.Vars(r)["id"]
 	callbackUrl := r.FormValue("callback_url")
+	state := r.FormValue("state")
 
 	_, err := a.Provider.GetInfo(id)
 
@@ -166,14 +183,25 @@ func (a *RestAPI) performContainerControl(w http.ResponseWriter, r *http.Request
 
 	go func() {
 		err := controlFunc(id)
+		if callbackUrl == "" {
+			return
+		}
 		if err != nil {
-			j, err := json.Marshal(map[string]string{"error": err.Error()})
+			res := map[string]string{"error": err.Error()}
+			if state != "" {
+				res["state"] = state
+			}
+			j, err := json.Marshal(res)
 			if err == nil {
 				a.Callback.Invoke(callbackUrl, string(j))
 			}
 			return
 		}
-		j, err := json.Marshal(map[string]string{"status": successStatus, "container_id": id})
+		res := map[string]string{"result": successStatus, "container_id": id}
+		if state != "" {
+			res["state"] = state
+		}
+		j, err := json.Marshal(res)
 		if err == nil {
 			a.Callback.Invoke(callbackUrl, string(j))
 		}
