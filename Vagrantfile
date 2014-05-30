@@ -39,6 +39,10 @@ $script = <<SCRIPT
   if [ ! -h $HOME/hostbuilder ]; then
     ln -fs $HOME/gocode/src/github.com/nitrous-io/hostbuilder $HOME/hostbuilder
   fi
+  cd $HOME/hostbuilder
+  source /etc/profile
+  go get github.com/dqminh/govendor
+  govendor
   chown -R vagrant:vagrant $HOME/gocode
 SCRIPT
 
