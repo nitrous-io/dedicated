@@ -13,8 +13,8 @@
   },
   {
     "vcs": "git",
-    "repo": "git@github.com:nitrous-io/goamz.git",
-    "rev": "7e07f125ffda1a3f0e10a1f1335ef9a1a27d3e61",
+    "repo": "https://github.com/mitchellh/goamz.git",
+    "rev": "a229e58f69971f5e1a31d6870734d2abaa4468e1",
     "path": "github.com/mitchellh/goamz"
   },
   {
