@@ -3,6 +3,7 @@ package docker
 import (
 	"archive/tar"
 	"bytes"
+	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
@@ -13,13 +14,10 @@ import (
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/freighter/datastore"
 	"github.com/nitrous-io/freighter/provider"
+	"github.com/nitrous-io/freighter/util"
 )
 
-var dockerfileUbuntu *template.Template
-
-func init() {
-	dockerfileUbuntu = template.Must(template.New("ubuntu").Parse(dockerfileUbuntuTmpl))
-}
+var dockerfileUbuntu = template.Must(template.New("ubuntu").Parse(dockerfileUbuntuTmpl))
 
 type TemplateData struct {
 	Name  string
@@ -79,7 +77,7 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 
 	return &provider.ContainerInfo{
 		Id:    container.ID,
-		Name:  container.Name[1:],
+		Name:  nameFromContainer(container),
 		Image: container.Config.Image,
 		Port:  portFromContainer(container),
 		State: stateFromContainer(container),
@@ -135,6 +133,36 @@ func (p *DockerProvider) Terminate(id string) error {
 	}
 
 	return p.portPool.Release(portFromContainer(container))
+}
+
+func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
+	container, err := p.client.InspectContainer(id)
+	if err != nil {
+		return nil, err
+	}
+
+	keysFile := path.Join(p.containerSettingsDir(nameFromContainer(container)), "ssh", "authorized_keys")
+	bkeys, err := ioutil.ReadFile(keysFile)
+	if err != nil {
+		return nil, err
+	}
+	keys := strings.Split(strings.TrimSpace(string(bkeys)), "\n")
+	keymap := map[string]string{}
+	for _, key := range keys {
+		fingerprint, err := util.Md5Fingerprint(key)
+		if err == nil {
+			keymap[fingerprint] = key
+		}
+	}
+	return keymap, nil
+}
+
+func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
+	return nil
+}
+
+func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
+	return nil
 }
 
 func (p *DockerProvider) buildImage(name string, image string) (string, error) {
@@ -219,6 +247,10 @@ func (p *DockerProvider) runContainer(imageName string, containerName string, po
 		},
 	})
 	return container, err
+}
+
+func nameFromContainer(container *dockerclient.Container) string {
+	return container.Name[1:]
 }
 
 func stateFromContainer(container *dockerclient.Container) string {

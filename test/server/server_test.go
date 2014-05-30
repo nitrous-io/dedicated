@@ -1,6 +1,7 @@
 package servertest
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -100,7 +101,7 @@ var _ = Describe("Server", func() {
 			image = "ubuntu"
 			publicKey = "ssh-rsa Foo"
 			publicKey2 = "ssh-rsa Bar"
-			callbackUrl = "http://www.example.com/created"
+			callbackUrl = "http://www.example.com/cb"
 			params = &url.Values{}
 			params.Set("name", name)
 			params.Set("image", image)
@@ -127,11 +128,11 @@ var _ = Describe("Server", func() {
 				Expect(prov.CreateCalled).To(BeFalse())
 				Wait()
 				Expect(prov.CreateCalled).To(BeTrue())
-				Expect(prov.Name).To(Equal(name))
-				Expect(prov.Image).To(Equal(image))
-				Expect(prov.PublicKeys).To(HaveLen(2))
-				Expect(prov.PublicKeys).To(ContainElement(publicKey))
-				Expect(prov.PublicKeys).To(ContainElement(publicKey2))
+				Expect(prov.ReceivedName).To(Equal(name))
+				Expect(prov.ReceivedImage).To(Equal(image))
+				Expect(prov.ReceivedPublicKeys).To(HaveLen(2))
+				Expect(prov.ReceivedPublicKeys).To(ContainElement(publicKey))
+				Expect(prov.ReceivedPublicKeys).To(ContainElement(publicKey2))
 			})
 
 			Context("when provider.Create()", func() {
@@ -261,15 +262,15 @@ var _ = Describe("Server", func() {
 					Expect(res.Body.String()).To(MatchJSON(`{"status":"accepted"}`))
 				})
 
-				It("calls provider.Start() asynchronously", func() {
+				It("calls provider func asynchronously", func() {
 					doRequest(id)
 					Expect(*provFuncCalled).To(BeFalse())
 					Wait()
 					Expect(*provFuncCalled).To(BeTrue())
-					Expect(prov.Id).To(Equal(id))
+					Expect(prov.ReceivedId).To(Equal(id))
 				})
 
-				Context("when provider.Start()", func() {
+				Context("when provider func", func() {
 					Context("returns an error", func() {
 						BeforeEach(func() {
 							*provFuncError = errors.New("pc load letter")
@@ -375,6 +376,231 @@ var _ = Describe("Server", func() {
 			})
 
 			itWorks()
+		})
+	})
+
+	Describe("GET /containers/:container_id/public_keys", func() {
+		var (
+			id           = "cafebabe"
+			publicKey1   = "ssh-rsa Foo"
+			publicKey2   = "ssh-rsa Bar"
+			publicKey3   = "ssh-dsa Baz"
+			fingerprint1 = "11:11:11:11:11:11:11:11:11:11:11:11:11:11:11:11"
+			fingerprint2 = "22:22:22:22:22:22:22:22:22:22:22:22:22:22:22:22"
+			fingerprint3 = "33:33:33:33:33:33:33:33:33:33:33:33:33:33:33:33"
+		)
+
+		doRequest := func() {
+			req, err = NewRequest("GET", fmt.Sprintf("/containers/%v/public_keys", id), nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.ListPublicKeys()", func() {
+			Expect(prov.ListPublicKeysCalled).To(BeFalse())
+			doRequest()
+			Expect(prov.ListPublicKeysCalled).To(BeTrue())
+			Expect(prov.ReceivedId).To(Equal(id))
+		})
+
+		Context("when provider.ListPublicKeys() fails with error", func() {
+			BeforeEach(func() {
+				prov.ListPublicKeysError = errors.New("unknown error")
+				doRequest()
+			})
+
+			It("responds with 500 internal server error with error json", func() {
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"unknown error"}`))
+			})
+		})
+
+		Context("when provider.ListPublicKeys() succeeds", func() {
+			BeforeEach(func() {
+				prov.PublicKeys = map[string]string{fingerprint1: publicKey1, fingerprint2: publicKey2, fingerprint3: publicKey3}
+				doRequest()
+			})
+
+			It("responds with 200 ok with public keys json", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j, _ := json.Marshal(map[string]interface{}{
+					"public_keys": prov.PublicKeys,
+				})
+
+				Expect(res.Body.String()).To(MatchJSON(string(j)))
+			})
+		})
+	})
+
+	Describe("POST /containers/:container_id/public_keys", func() {
+		var (
+			params     *url.Values
+			id         = "cafebabe"
+			publicKey  = "ssh-rsa Foo"
+			publicKey2 = "ssh-rsa Bar"
+		)
+
+		BeforeEach(func() {
+			params = &url.Values{}
+			params.Set("public_key[]", publicKey)
+			params.Add("public_key[]", publicKey2)
+		})
+
+		doRequest := func() {
+			req, err = NewFormRequest("POST", fmt.Sprintf("/containers/%v/public_keys", id), params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		Context("when params are valid", func() {
+			It("calls provider.AddPublicKeys()", func() {
+				Expect(prov.AddPublicKeysCalled).To(BeFalse())
+				doRequest()
+				Expect(prov.AddPublicKeysCalled).To(BeTrue())
+				Expect(prov.ReceivedId).To(Equal(id))
+				Expect(prov.ReceivedPublicKeys).To(HaveLen(2))
+				Expect(prov.ReceivedPublicKeys).To(ContainElement(publicKey))
+				Expect(prov.ReceivedPublicKeys).To(ContainElement(publicKey2))
+			})
+
+			Context("when provider.AddPublicKeys() fails with error", func() {
+				BeforeEach(func() {
+					prov.AddPublicKeysError = errors.New("pc load letter")
+					doRequest()
+				})
+
+				It("responds with 500 internal server error with error json", func() {
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+					Expect(res.Body.String()).To(MatchJSON(`{"error":"pc load letter"}`))
+				})
+			})
+
+			Context("when provider.AddPublicKeys() succeeds", func() {
+				Context("when provider.ListPublicKeys() fails with error", func() {
+					BeforeEach(func() {
+						prov.ListPublicKeysError = errors.New("unknown error")
+						doRequest()
+					})
+
+					It("responds with 500 internal server error with error json", func() {
+						Expect(prov.ListPublicKeysCalled).To(BeTrue())
+						Expect(prov.ReceivedId).To(Equal(id))
+						Expect(res.Code).To(Equal(http.StatusInternalServerError))
+						Expect(res.Body.String()).To(MatchJSON(`{"error":"unknown error"}`))
+					})
+				})
+
+				Context("when provider.ListPublicKeys() succeeds", func() {
+					fingerprint1 := "11:11:11:11:11:11:11:11:11:11:11:11:11:11:11:11"
+					fingerprint2 := "22:22:22:22:22:22:22:22:22:22:22:22:22:22:22:22"
+					fingerprint3 := "33:33:33:33:33:33:33:33:33:33:33:33:33:33:33:33"
+					publicKey3 := "ssh-dsa Baz"
+
+					BeforeEach(func() {
+						prov.PublicKeys = map[string]string{fingerprint1: publicKey, fingerprint2: publicKey2, fingerprint3: publicKey3}
+						doRequest()
+					})
+
+					It("responds with 200 ok with public keys json", func() {
+						Expect(prov.ListPublicKeysCalled).To(BeTrue())
+						Expect(prov.ReceivedId).To(Equal(id))
+						Expect(res.Code).To(Equal(http.StatusOK))
+						j, _ := json.Marshal(map[string]interface{}{
+							"status":      "ok",
+							"public_keys": prov.PublicKeys,
+						})
+
+						Expect(res.Body.String()).To(MatchJSON(string(j)))
+					})
+				})
+			})
+		})
+
+		Context("when public_key[] param is missing", func() {
+			BeforeEach(func() {
+				params.Del("public_key[]")
+				doRequest()
+			})
+
+			It("returns 422 unprocessable entity", func() {
+				Expect(res.Code).To(Equal(422))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"invalid params"}`))
+			})
+
+			It("does not call provider.AddPublicKeys()", func() {
+				Expect(prov.AddPublicKeysCalled).To(BeFalse())
+			})
+		})
+	})
+
+	Describe("DELETE /containers/:container_id/public_keys/:key_fingerprint", func() {
+		var (
+			params      *url.Values
+			id          = "cafebabe"
+			fingerprint = "11:11:11:11:11:11:11:11:11:11:11:11:11:11:11:11"
+		)
+
+		doRequest := func() {
+			req, err = NewRequest("DELETE", fmt.Sprintf("/containers/%v/public_keys/%v", id, fingerprint), params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.RemovePublicKey()", func() {
+			Expect(prov.RemovePublicKeyCalled).To(BeFalse())
+			doRequest()
+			Expect(prov.RemovePublicKeyCalled).To(BeTrue())
+			Expect(prov.ReceivedId).To(Equal(id))
+			Expect(prov.ReceivedKeyFingerprint).To(Equal(fingerprint))
+		})
+
+		Context("when provider.RemovePublicKey() fails with error", func() {
+			BeforeEach(func() {
+				prov.RemovePublicKeyError = errors.New("pc load letter")
+				doRequest()
+			})
+
+			It("responds with 500 internal server error with error json", func() {
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"pc load letter"}`))
+			})
+		})
+
+		Context("when provider.RemovePublicKey() succeeds", func() {
+			Context("when provider.ListPublicKeys() fails with error", func() {
+				BeforeEach(func() {
+					prov.ListPublicKeysError = errors.New("unknown error")
+					doRequest()
+				})
+
+				It("responds with 500 internal server error with error json", func() {
+					Expect(prov.ListPublicKeysCalled).To(BeTrue())
+					Expect(prov.ReceivedId).To(Equal(id))
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+					Expect(res.Body.String()).To(MatchJSON(`{"error":"unknown error"}`))
+				})
+			})
+
+			Context("when provider.ListPublicKeys() succeeds", func() {
+				publicKey := "ssh-dsa Baz"
+
+				BeforeEach(func() {
+					prov.PublicKeys = map[string]string{fingerprint: publicKey}
+					doRequest()
+				})
+
+				It("responds with 200 ok with public keys json", func() {
+					Expect(prov.ListPublicKeysCalled).To(BeTrue())
+					Expect(prov.ReceivedId).To(Equal(id))
+					Expect(res.Code).To(Equal(http.StatusOK))
+					j, _ := json.Marshal(map[string]interface{}{
+						"status":      "ok",
+						"public_keys": prov.PublicKeys,
+					})
+
+					Expect(res.Body.String()).To(MatchJSON(string(j)))
+				})
+			})
 		})
 	})
 })

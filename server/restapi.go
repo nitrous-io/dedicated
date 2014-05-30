@@ -93,6 +93,66 @@ func (a *RestAPI) RestartContainer(w http.ResponseWriter, r *http.Request) {
 	a.performContainerControl(w, r, a.Provider.Restart, "restarted")
 }
 
+func (a *RestAPI) ListPublicKeys(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	allPubKeys, err := a.Provider.ListPublicKeys(id)
+	if err != nil {
+		respondEncodeJson(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	respondEncodeJson(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
+}
+
+func (a *RestAPI) AddPublicKeys(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	err := r.ParseForm()
+	if err != nil {
+		respondEncodeJson(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	publicKeys := r.PostForm["public_key[]"]
+
+	if publicKeys == nil {
+		respond(w, 422, []byte(`{"error":"invalid params"}`))
+		return
+	}
+
+	err = a.Provider.AddPublicKeys(id, publicKeys)
+	if err != nil {
+		respondEncodeJson(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	allPubKeys, err := a.Provider.ListPublicKeys(id)
+	if err != nil {
+		respondEncodeJson(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	respondEncodeJson(w, http.StatusOK, map[string]interface{}{"status": "ok", "public_keys": allPubKeys})
+}
+
+func (a *RestAPI) RemovePublicKey(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	keyFingerprint := mux.Vars(r)["key_fingerprint"]
+
+	err := a.Provider.RemovePublicKey(id, keyFingerprint)
+	if err != nil {
+		respondEncodeJson(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	allPubKeys, err := a.Provider.ListPublicKeys(id)
+	if err != nil {
+		respondEncodeJson(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	respondEncodeJson(w, http.StatusOK, map[string]interface{}{"status": "ok", "public_keys": allPubKeys})
+}
+
 func (a *RestAPI) performContainerControl(w http.ResponseWriter, r *http.Request, controlFunc func(string) error, successStatus string) {
 	id := mux.Vars(r)["id"]
 	callbackUrl := r.FormValue("callback_url")
