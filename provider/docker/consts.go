@@ -2,6 +2,7 @@ package docker
 
 const dockerfileUbuntuTmpl = `
 FROM {{.Image}}
+MAINTAINER Nitrous.IO, hello@nitrous.io
 
 # compatible with images based on ubuntu-upstart
 
@@ -26,13 +27,10 @@ RUN \
 	sed -i 's|#PasswordAuthentication yes|PasswordAuthentication no|g' /etc/ssh/sshd_config && \
 	mkdir /var/run/sshd
 
-# Regenerate SSH host key
+# Regenerate SSH host key && generate ssh keypair
 RUN \
 	rm -rf /etc/ssh/ssh_host_* && \
-	ssh-keygen -A
-
-# Generate SSH keypair
-RUN \
+	ssh-keygen -A && \
 	mkdir /home/action/.ssh && \
 	chmod 0700 /home/action/.ssh && \
 	ssh-keygen -b 2048 -t rsa -C 'action@{{.Name}}' -f /home/action/.ssh/id_rsa && \

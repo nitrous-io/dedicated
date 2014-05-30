@@ -126,11 +126,7 @@ func (p *DockerProvider) Terminate(id string) error {
 		}
 	}
 
-	err = p.client.RemoveContainer(dockerclient.RemoveContainerOptions{
-		ID:            id,
-		RemoveVolumes: false,
-		Force:         false,
-	})
+	err = p.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: id})
 	if err != nil {
 		return err
 	}
@@ -220,7 +216,7 @@ func (p *DockerProvider) buildImage(name string, image string) (string, error) {
 		Name:           imageName,
 		InputStream:    inputbuf,
 		OutputStream:   outputbuf,
-		RmTmpContainer: true,
+		RmTmpContainer: false,
 	}
 
 	err = p.client.BuildImage(opts)
