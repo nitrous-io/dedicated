@@ -43,7 +43,7 @@ var _ = Describe("Server", func() {
 			handler.ServeHTTP(res, req)
 		})
 
-		It("returns 200 ok", func() {
+		It("responds with 200 ok", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 			Expect(res.Body.String()).To(MatchJSON(`{"status":"ok"}`))
 		})
@@ -61,7 +61,7 @@ var _ = Describe("Server", func() {
 				doRequest()
 			})
 
-			It("returns 200 ok with empty container info array", func() {
+			It("responds with 200 ok with empty container info array", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(MatchJSON(`{"containers":[]}`))
 			})
@@ -76,7 +76,7 @@ var _ = Describe("Server", func() {
 				doRequest()
 			})
 
-			It("returns 200 ok with container info array", func() {
+			It("responds with 200 ok with container info array", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(MatchJSON(`{"containers":[
 				  {"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","port":10000,"state":"running"},
@@ -120,7 +120,7 @@ var _ = Describe("Server", func() {
 		}
 
 		Context("when params are valid", func() {
-			It("returns 202 accepted immediately", func() {
+			It("responds with 202 accepted immediately", func() {
 				doRequest()
 				Expect(res.Code).To(Equal(http.StatusAccepted))
 				Expect(res.Body.String()).To(MatchJSON(`{"status":"accepted"}`))
@@ -180,7 +180,7 @@ var _ = Describe("Server", func() {
 					doRequest()
 				})
 
-				It("returns 422 unprocessable entity", func() {
+				It("responds with 422 unprocessable entity", func() {
 					Expect(res.Code).To(Equal(422))
 					Expect(res.Body.String()).To(MatchJSON(`{"error":"invalid params"}`))
 				})
@@ -212,7 +212,7 @@ var _ = Describe("Server", func() {
 				doRequest("aaa")
 			})
 
-			It("returns 200 ok with container information", func() {
+			It("responds with 200 ok with container information", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(MatchJSON(`{"container":{
 					"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","port":10000,"state":"running"
@@ -225,9 +225,9 @@ var _ = Describe("Server", func() {
 				doRequest("bbb")
 			})
 
-			It("returns 404 not found", func() {
+			It("responds with 404 not found", func() {
 				Expect(res.Code).To(Equal(http.StatusNotFound))
-				Expect(res.Body.String()).To(MatchJSON(`{"error":"not found"}`))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"no such container"}`))
 			})
 		})
 	})
@@ -262,7 +262,7 @@ var _ = Describe("Server", func() {
 			})
 
 			Context("when container by the given id exists", func() {
-				It("returns 202 accepted immediately", func() {
+				It("responds with 202 accepted immediately", func() {
 					doRequest(id)
 					Expect(res.Code).To(Equal(http.StatusAccepted))
 					Expect(res.Body.String()).To(MatchJSON(`{"status":"accepted"}`))
@@ -313,9 +313,9 @@ var _ = Describe("Server", func() {
 					doRequest("bbb")
 				})
 
-				It("returns 404 not found", func() {
+				It("responds with 404 not found", func() {
 					Expect(res.Code).To(Equal(http.StatusNotFound))
-					Expect(res.Body.String()).To(MatchJSON(`{"error":"not found"}`))
+					Expect(res.Body.String()).To(MatchJSON(`{"error":"no such container"}`))
 				})
 			})
 		}
@@ -410,14 +410,28 @@ var _ = Describe("Server", func() {
 		})
 
 		Context("when provider.ListPublicKeys() fails with error", func() {
-			BeforeEach(func() {
-				prov.ListPublicKeysError = errors.New("unknown error")
-				doRequest()
+			Context("because no such container exists", func() {
+				BeforeEach(func() {
+					prov.ListPublicKeysError = ErrMockProviderContainerNotFound
+					doRequest()
+				})
+
+				It("responds with 404 not found", func() {
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+					Expect(res.Body.String()).To(MatchJSON(`{"error":"no such container"}`))
+				})
 			})
 
-			It("responds with 500 internal server error with error json", func() {
-				Expect(res.Code).To(Equal(http.StatusInternalServerError))
-				Expect(res.Body.String()).To(MatchJSON(`{"error":"unknown error"}`))
+			Context("because of some unknown error", func() {
+				BeforeEach(func() {
+					prov.ListPublicKeysError = errors.New("unknown error")
+					doRequest()
+				})
+
+				It("responds with 500 internal server error with error json", func() {
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+					Expect(res.Body.String()).To(MatchJSON(`{"error":"unknown error"}`))
+				})
 			})
 		})
 
@@ -470,29 +484,55 @@ var _ = Describe("Server", func() {
 			})
 
 			Context("when provider.AddPublicKeys() fails with error", func() {
-				BeforeEach(func() {
-					prov.AddPublicKeysError = errors.New("pc load letter")
-					doRequest()
+				Context("because no such container exists", func() {
+					BeforeEach(func() {
+						prov.AddPublicKeysError = ErrMockProviderContainerNotFound
+						doRequest()
+					})
+
+					It("responds with 404 not found", func() {
+						Expect(res.Code).To(Equal(http.StatusNotFound))
+						Expect(res.Body.String()).To(MatchJSON(`{"error":"no such container"}`))
+					})
 				})
 
-				It("responds with 500 internal server error with error json", func() {
-					Expect(res.Code).To(Equal(http.StatusInternalServerError))
-					Expect(res.Body.String()).To(MatchJSON(`{"error":"pc load letter"}`))
+				Context("because of some unknown error", func() {
+					BeforeEach(func() {
+						prov.AddPublicKeysError = errors.New("unknown error")
+						doRequest()
+					})
+
+					It("responds with 500 internal server error with error json", func() {
+						Expect(res.Code).To(Equal(http.StatusInternalServerError))
+						Expect(res.Body.String()).To(MatchJSON(`{"error":"unknown error"}`))
+					})
 				})
 			})
 
 			Context("when provider.AddPublicKeys() succeeds", func() {
 				Context("when provider.ListPublicKeys() fails with error", func() {
-					BeforeEach(func() {
-						prov.ListPublicKeysError = errors.New("unknown error")
-						doRequest()
+					Context("because no such container exists", func() {
+						BeforeEach(func() {
+							prov.ListPublicKeysError = ErrMockProviderContainerNotFound
+							doRequest()
+						})
+
+						It("responds with 404 not found", func() {
+							Expect(res.Code).To(Equal(http.StatusNotFound))
+							Expect(res.Body.String()).To(MatchJSON(`{"error":"no such container"}`))
+						})
 					})
 
-					It("responds with 500 internal server error with error json", func() {
-						Expect(prov.ListPublicKeysCalled).To(BeTrue())
-						Expect(prov.ReceivedId).To(Equal(id))
-						Expect(res.Code).To(Equal(http.StatusInternalServerError))
-						Expect(res.Body.String()).To(MatchJSON(`{"error":"unknown error"}`))
+					Context("because of some unknown error", func() {
+						BeforeEach(func() {
+							prov.ListPublicKeysError = errors.New("unknown error")
+							doRequest()
+						})
+
+						It("responds with 500 internal server error with error json", func() {
+							Expect(res.Code).To(Equal(http.StatusInternalServerError))
+							Expect(res.Body.String()).To(MatchJSON(`{"error":"unknown error"}`))
+						})
 					})
 				})
 
@@ -527,7 +567,7 @@ var _ = Describe("Server", func() {
 				doRequest()
 			})
 
-			It("returns 422 unprocessable entity", func() {
+			It("responds with 422 unprocessable entity", func() {
 				Expect(res.Code).To(Equal(422))
 				Expect(res.Body.String()).To(MatchJSON(`{"error":"invalid params"}`))
 			})
@@ -560,29 +600,55 @@ var _ = Describe("Server", func() {
 		})
 
 		Context("when provider.RemovePublicKey() fails with error", func() {
-			BeforeEach(func() {
-				prov.RemovePublicKeyError = errors.New("pc load letter")
-				doRequest()
+			Context("because no such container exists", func() {
+				BeforeEach(func() {
+					prov.RemovePublicKeyError = ErrMockProviderContainerNotFound
+					doRequest()
+				})
+
+				It("responds with 404 not found", func() {
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+					Expect(res.Body.String()).To(MatchJSON(`{"error":"no such container"}`))
+				})
 			})
 
-			It("responds with 500 internal server error with error json", func() {
-				Expect(res.Code).To(Equal(http.StatusInternalServerError))
-				Expect(res.Body.String()).To(MatchJSON(`{"error":"pc load letter"}`))
+			Context("because of some unknown error", func() {
+				BeforeEach(func() {
+					prov.RemovePublicKeyError = errors.New("unknown error")
+					doRequest()
+				})
+
+				It("responds with 500 internal server error with error json", func() {
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+					Expect(res.Body.String()).To(MatchJSON(`{"error":"unknown error"}`))
+				})
 			})
 		})
 
 		Context("when provider.RemovePublicKey() succeeds", func() {
 			Context("when provider.ListPublicKeys() fails with error", func() {
-				BeforeEach(func() {
-					prov.ListPublicKeysError = errors.New("unknown error")
-					doRequest()
+				Context("because no such container exists", func() {
+					BeforeEach(func() {
+						prov.ListPublicKeysError = ErrMockProviderContainerNotFound
+						doRequest()
+					})
+
+					It("responds with 404 not found", func() {
+						Expect(res.Code).To(Equal(http.StatusNotFound))
+						Expect(res.Body.String()).To(MatchJSON(`{"error":"no such container"}`))
+					})
 				})
 
-				It("responds with 500 internal server error with error json", func() {
-					Expect(prov.ListPublicKeysCalled).To(BeTrue())
-					Expect(prov.ReceivedId).To(Equal(id))
-					Expect(res.Code).To(Equal(http.StatusInternalServerError))
-					Expect(res.Body.String()).To(MatchJSON(`{"error":"unknown error"}`))
+				Context("because of some unknown error", func() {
+					BeforeEach(func() {
+						prov.ListPublicKeysError = errors.New("unknown error")
+						doRequest()
+					})
+
+					It("responds with 500 internal server error with error json", func() {
+						Expect(res.Code).To(Equal(http.StatusInternalServerError))
+						Expect(res.Body.String()).To(MatchJSON(`{"error":"unknown error"}`))
+					})
 				})
 			})
 

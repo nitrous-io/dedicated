@@ -44,7 +44,6 @@ Content-Type: application/json; charset=utf-8
 **Status Codes**:
 
 - **200**  - no error
-- **500** - error
 
 ### Create a container
 
@@ -135,7 +134,7 @@ Content-Type: application/json; charset=utf-8
 **Status codes**:
 
 - **200** - no error
-- **404** - container not found
+- **404** - no such container
 
 ### Start a container
 
@@ -167,7 +166,7 @@ Content-Type: application/json; charset=utf-8
 **Status Codes**:
 
 - **202** - accepted
-- **404** - container not found
+- **404** - no such container
 
 **Example callback (success)**:
 
@@ -211,7 +210,7 @@ Content-Type: application/json; charset=utf-8
 **Status Codes**:
 
 - **202** - accepted
-- **404** - container not found
+- **404** - no such container
 
 **Example callback (success)**:
 
@@ -255,7 +254,7 @@ Content-Type: application/json; charset=utf-8
 **Status Codes**:
 
 - **202** - accepted
-- **404** - container not found
+- **404** - no such container
 
 **Example callback (success)**:
 
@@ -296,7 +295,7 @@ Content-Type: application/json; charset=utf-8
 **Status Codes**:
 
 - **202** - accepted
-- **404** - container not found
+- **404** - no such container
 
 **Example callback (success)**:
 
@@ -337,7 +336,7 @@ Content-Type: application/json; charset=utf-8
 **Status Codes**:
 
 - **200**  - no error
-- **404** - container not found
+- **404** - no such container
 
 ### Add authorized public keys
 
@@ -374,8 +373,7 @@ Content-Type: application/json; charset=utf-8
 
 - **200** - no error
 - **422** - missing or invalid params
-- **404** - container not found
-- **500** - error
+- **404** - no such container
 
 ### Remove an authorized public key
 
@@ -403,8 +401,7 @@ Content-Type: application/json; charset=utf-8
 **Status Codes**:
 
 - **200** - no error
-- **404** - container not found
-- **500** - error
+- **404** - no such container
 
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.

@@ -14,6 +14,7 @@ type Provider interface {
 	//ForwardPort(id string, hostPort uint16, containerPort uint16) (err error)
 	//TakeSnapshot(id string, tag name, description string) (info *SnapshotInfo, err error)
 	//RestoreSnapshot(id string, snapshotId string) (err error)
+	IsNotFoundError(err error) bool
 }
 
 type ContainerInfo struct {

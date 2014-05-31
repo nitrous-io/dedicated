@@ -2,9 +2,7 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/provider"
@@ -13,7 +11,7 @@ import (
 var (
 	jsonStatusOK       = []byte(`{"status":"ok"}`)
 	jsonStatusAccepted = []byte(`{"status":"accepted"}`)
-	jsonErrorNotFound  = []byte(`{"error":"not found"}`)
+	jsonErrorNotFound  = []byte(`{"error":"no such container"}`)
 )
 
 type RestAPI struct {
@@ -28,7 +26,7 @@ func (a *RestAPI) Home(w http.ResponseWriter, r *http.Request) {
 func (a *RestAPI) ListContainers(w http.ResponseWriter, r *http.Request) {
 	infoList, err := a.Provider.List()
 	if err != nil {
-		respondWith500(w, "failed to fetch container list")
+		a.handleError(w, err)
 		return
 	}
 
@@ -84,9 +82,8 @@ func (a *RestAPI) GetContainerInfo(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 
 	info, err := a.Provider.GetInfo(id)
-
 	if err != nil {
-		respond(w, http.StatusNotFound, jsonErrorNotFound)
+		a.handleError(w, err)
 		return
 	}
 
@@ -113,7 +110,7 @@ func (a *RestAPI) ListPublicKeys(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	allPubKeys, err := a.Provider.ListPublicKeys(id)
 	if err != nil {
-		respondEncodeJson(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		a.handleError(w, err)
 		return
 	}
 
@@ -124,7 +121,7 @@ func (a *RestAPI) AddPublicKeys(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	err := r.ParseForm()
 	if err != nil {
-		respondEncodeJson(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		a.handleError(w, err)
 		return
 	}
 
@@ -137,13 +134,13 @@ func (a *RestAPI) AddPublicKeys(w http.ResponseWriter, r *http.Request) {
 
 	err = a.Provider.AddPublicKeys(id, publicKeys)
 	if err != nil {
-		respondEncodeJson(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		a.handleError(w, err)
 		return
 	}
 
 	allPubKeys, err := a.Provider.ListPublicKeys(id)
 	if err != nil {
-		respondEncodeJson(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		a.handleError(w, err)
 		return
 	}
 
@@ -156,13 +153,13 @@ func (a *RestAPI) RemovePublicKey(w http.ResponseWriter, r *http.Request) {
 
 	err := a.Provider.RemovePublicKey(id, keyFingerprint)
 	if err != nil {
-		respondEncodeJson(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		a.handleError(w, err)
 		return
 	}
 
 	allPubKeys, err := a.Provider.ListPublicKeys(id)
 	if err != nil {
-		respondEncodeJson(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		a.handleError(w, err)
 		return
 	}
 
@@ -175,9 +172,8 @@ func (a *RestAPI) performContainerControl(w http.ResponseWriter, r *http.Request
 	state := r.FormValue("state")
 
 	_, err := a.Provider.GetInfo(id)
-
 	if err != nil {
-		respond(w, http.StatusNotFound, jsonErrorNotFound)
+		a.handleError(w, err)
 		return
 	}
 
@@ -210,6 +206,16 @@ func (a *RestAPI) performContainerControl(w http.ResponseWriter, r *http.Request
 	respond(w, http.StatusAccepted, jsonStatusAccepted)
 }
 
+func (a *RestAPI) handleError(w http.ResponseWriter, err error) {
+	if err != nil {
+		if a.Provider.IsNotFoundError(err) {
+			respond(w, http.StatusNotFound, jsonErrorNotFound)
+		} else {
+			respondWith500(w, err.Error())
+		}
+	}
+}
+
 func respond(w http.ResponseWriter, status int, data []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
@@ -226,6 +232,10 @@ func respondEncodeJson(w http.ResponseWriter, status int, data map[string]interf
 }
 
 func respondWith500(w http.ResponseWriter, errMsg string) {
-	errJson := fmt.Sprintf(`{"error":"%v"}`, strings.Replace(errMsg, `"`, `\"`, -1))
-	respond(w, http.StatusInternalServerError, []byte(errJson))
+	e := map[string]string{"error": errMsg}
+	j, err := json.Marshal(e)
+	if err != nil {
+		j = []byte("json marshaling failed")
+	}
+	respond(w, http.StatusInternalServerError, []byte(j))
 }

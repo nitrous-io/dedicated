@@ -217,6 +217,11 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 	return p.createAuthorizedKeys(name, keys)
 }
 
+func (p *DockerProvider) IsNotFoundError(err error) bool {
+	_, ok := err.(*dockerclient.NoSuchContainer)
+	return ok
+}
+
 func (p *DockerProvider) buildImage(name string, image string) (string, error) {
 	buf := bytes.NewBuffer(nil)
 	err := dockerfileUbuntu.Execute(buf, &TemplateData{Name: name, Image: image})

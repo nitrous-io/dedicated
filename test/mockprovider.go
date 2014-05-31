@@ -6,6 +6,8 @@ import (
 	"github.com/nitrous-io/freighter/provider"
 )
 
+var ErrMockProviderContainerNotFound = errors.New("no such container")
+
 type MockProvider struct {
 	CreateCalled        bool
 	CreateContainerInfo *provider.ContainerInfo
@@ -63,7 +65,7 @@ func (p *MockProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 			return info, nil
 		}
 	}
-	return nil, errors.New("container not found")
+	return nil, ErrMockProviderContainerNotFound
 }
 
 func (p *MockProvider) Start(id string) error {
@@ -108,4 +110,8 @@ func (p *MockProvider) RemovePublicKey(id string, keyFingerprint string) error {
 	p.ReceivedId = id
 	p.ReceivedKeyFingerprint = keyFingerprint
 	return p.RemovePublicKeyError
+}
+
+func (p *MockProvider) IsNotFoundError(err error) bool {
+	return err == ErrMockProviderContainerNotFound
 }
