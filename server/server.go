@@ -18,39 +18,38 @@ type Server struct {
 
 func NewServer(logger *util.Logger, provider provider.Provider, callback Callback) *Server {
 	svr := &Server{logger: logger, provider: provider, callback: callback}
-	svr.router = newRouter(provider, callback)
+	svr.router = svr.newRouter(provider, callback)
 	return svr
 }
 
-func (s *Server) Start(host string, port uint16) {
-	http.Handle("/", s.router)
+func (self *Server) Start(host string, port uint16) {
+	http.Handle("/", self.router)
 	svr := &http.Server{Addr: fmt.Sprintf("%s:%d", host, port)}
 	err := svr.ListenAndServe()
-	if s.logger != nil {
-		s.logger.FatalExit(err)
+	if self.logger != nil {
+		self.logger.FatalExit(err)
 	}
 }
 
-func (s *Server) Router() *mux.Router {
-	return s.router
+func (self *Server) Router() *mux.Router {
+	return self.router
 }
 
-func newRouter(provider provider.Provider, callback Callback) *mux.Router {
-	a := RestAPI{Provider: provider, Callback: callback}
+func (self *Server) newRouter(provider provider.Provider, callback Callback) *mux.Router {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/", a.Home).Methods("GET")
+	r.HandleFunc("/", self.home).Methods("GET")
 
-	r.HandleFunc("/containers", a.ListContainers).Methods("GET")
-	r.HandleFunc("/containers", a.CreateContainer).Methods("POST")
-	r.HandleFunc("/containers/{id}", a.GetContainerInfo).Methods("GET")
-	r.HandleFunc("/containers/{id}", a.TerminateContainer).Methods("DELETE")
-	r.HandleFunc("/containers/{id}/start", a.StartContainer).Methods("POST")
-	r.HandleFunc("/containers/{id}/stop", a.StopContainer).Methods("POST")
-	r.HandleFunc("/containers/{id}/restart", a.RestartContainer).Methods("POST")
-	r.HandleFunc("/containers/{id}/public_keys", a.ListPublicKeys).Methods("GET")
-	r.HandleFunc("/containers/{id}/public_keys", a.AddPublicKeys).Methods("POST", "PUT")
-	r.HandleFunc("/containers/{id}/public_keys/{key_fingerprint}", a.RemovePublicKey).Methods("DELETE")
+	r.HandleFunc("/containers", self.listContainers).Methods("GET")
+	r.HandleFunc("/containers", self.createContainer).Methods("POST")
+	r.HandleFunc("/containers/{id}", self.getContainerInfo).Methods("GET")
+	r.HandleFunc("/containers/{id}", self.terminateContainer).Methods("DELETE")
+	r.HandleFunc("/containers/{id}/start", self.startContainer).Methods("POST")
+	r.HandleFunc("/containers/{id}/stop", self.stopContainer).Methods("POST")
+	r.HandleFunc("/containers/{id}/restart", self.restartContainer).Methods("POST")
+	r.HandleFunc("/containers/{id}/public_keys", self.listPublicKeys).Methods("GET")
+	r.HandleFunc("/containers/{id}/public_keys", self.addPublicKeys).Methods("POST", "PUT")
+	r.HandleFunc("/containers/{id}/public_keys/{key_fingerprint}", self.removePublicKey).Methods("DELETE")
 
 	return r
 }

@@ -32,53 +32,34 @@ func NewSqliteDatastore(dbfile string) (*Datastore, error) {
 	return &Datastore{Conn: conn}, nil
 }
 
-func (d *Datastore) Set(key string, val string) error {
-	_, err := d.Conn.Exec("INSERT OR REPLACE INTO store (key, val) VALUES (?, ?)", key, val)
+func (self *Datastore) Set(key string, val string) error {
+	_, err := self.Conn.Exec("INSERT OR REPLACE INTO store (key, val) VALUES (?, ?)", key, val)
 	return err
 }
 
-func (d *Datastore) Update(key string, val string) error {
-	_, err := d.Conn.Exec("UPDATE store SET val = ? WHERE key = ?", val, key)
+func (self *Datastore) Update(key string, val string) error {
+	_, err := self.Conn.Exec("UPDATE store SET val = ? WHERE key = ?", val, key)
 	return err
 }
 
-func (d *Datastore) Get(key string) (string, error) {
+func (self *Datastore) Get(key string) (string, error) {
 	var val string
-	err := d.Conn.QueryRow("SELECT val FROM store WHERE key = ?", key).Scan(&val)
+	err := self.Conn.QueryRow("SELECT val FROM store WHERE key = ?", key).Scan(&val)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
 	return val, err
 }
 
-func (d *Datastore) Find(pattern string) ([]*KeyVal, error) {
-	return d.query(func() (*sql.Rows, error) {
-		return d.Conn.Query("SELECT key, val FROM store WHERE key LIKE ? ORDER BY key ASC", pattern)
+func (self *Datastore) Find(pattern string) ([]*KeyVal, error) {
+	return self.query(func() (*sql.Rows, error) {
+		return self.Conn.Query("SELECT key, val FROM store WHERE key LIKE ? ORDER BY key ASC", pattern)
 	})
 }
 
-func (d *Datastore) FindOne(pattern string) (*KeyVal, error) {
-	kvs, err := d.query(func() (*sql.Rows, error) {
-		return d.Conn.Query("SELECT key, val FROM store WHERE key LIKE ? ORDER BY key ASC LIMIT 1", pattern)
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(kvs) == 0 {
-		return nil, nil
-	}
-	return kvs[0], nil
-}
-
-func (d *Datastore) FindWhere(pattern string, val string) ([]*KeyVal, error) {
-	return d.query(func() (*sql.Rows, error) {
-		return d.Conn.Query("SELECT key, val FROM store WHERE key LIKE ? AND val = ? ORDER BY key ASC", pattern, val)
-	})
-}
-
-func (d *Datastore) FindOneWhere(pattern string, val string) (*KeyVal, error) {
-	kvs, err := d.query(func() (*sql.Rows, error) {
-		return d.Conn.Query("SELECT key, val FROM store WHERE key LIKE ? AND val = ? ORDER BY key ASC LIMIT 1", pattern, val)
+func (self *Datastore) FindOne(pattern string) (*KeyVal, error) {
+	kvs, err := self.query(func() (*sql.Rows, error) {
+		return self.Conn.Query("SELECT key, val FROM store WHERE key LIKE ? ORDER BY key ASC LIMIT 1", pattern)
 	})
 	if err != nil {
 		return nil, err
@@ -89,7 +70,26 @@ func (d *Datastore) FindOneWhere(pattern string, val string) (*KeyVal, error) {
 	return kvs[0], nil
 }
 
-func (d *Datastore) query(queryFn func() (*sql.Rows, error)) ([]*KeyVal, error) {
+func (self *Datastore) FindWhere(pattern string, val string) ([]*KeyVal, error) {
+	return self.query(func() (*sql.Rows, error) {
+		return self.Conn.Query("SELECT key, val FROM store WHERE key LIKE ? AND val = ? ORDER BY key ASC", pattern, val)
+	})
+}
+
+func (self *Datastore) FindOneWhere(pattern string, val string) (*KeyVal, error) {
+	kvs, err := self.query(func() (*sql.Rows, error) {
+		return self.Conn.Query("SELECT key, val FROM store WHERE key LIKE ? AND val = ? ORDER BY key ASC LIMIT 1", pattern, val)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(kvs) == 0 {
+		return nil, nil
+	}
+	return kvs[0], nil
+}
+
+func (self *Datastore) query(queryFn func() (*sql.Rows, error)) ([]*KeyVal, error) {
 	kvs := []*KeyVal{}
 	rows, err := queryFn()
 	if err == sql.ErrNoRows {

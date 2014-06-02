@@ -44,23 +44,23 @@ type MockProvider struct {
 	PublicKeys map[string]string
 }
 
-func (p *MockProvider) List() ([]*provider.ContainerInfo, error) {
-	if p.Containers == nil {
+func (self *MockProvider) List() ([]*provider.ContainerInfo, error) {
+	if self.Containers == nil {
 		return []*provider.ContainerInfo{}, nil
 	}
-	return p.Containers, nil
+	return self.Containers, nil
 }
 
-func (p *MockProvider) Create(name string, image string, publicKeys []string) (*provider.ContainerInfo, error) {
-	p.CreateCalled = true
-	p.ReceivedName = name
-	p.ReceivedImage = image
-	p.ReceivedPublicKeys = publicKeys
-	return p.CreateContainerInfo, p.CreateError
+func (self *MockProvider) Create(name string, image string, publicKeys []string) (*provider.ContainerInfo, error) {
+	self.CreateCalled = true
+	self.ReceivedName = name
+	self.ReceivedImage = image
+	self.ReceivedPublicKeys = publicKeys
+	return self.CreateContainerInfo, self.CreateError
 }
 
-func (p *MockProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
-	for _, info := range p.Containers {
+func (self *MockProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
+	for _, info := range self.Containers {
 		if info.Id == id {
 			return info, nil
 		}
@@ -68,50 +68,50 @@ func (p *MockProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	return nil, ErrMockProviderContainerNotFound
 }
 
-func (p *MockProvider) Start(id string) error {
-	p.StartCalled = true
-	p.ReceivedId = id
-	return p.StartError
+func (self *MockProvider) Start(id string) error {
+	self.StartCalled = true
+	self.ReceivedId = id
+	return self.StartError
 }
 
-func (p *MockProvider) Stop(id string) error {
-	p.StopCalled = true
-	p.ReceivedId = id
-	return p.StopError
+func (self *MockProvider) Stop(id string) error {
+	self.StopCalled = true
+	self.ReceivedId = id
+	return self.StopError
 }
 
-func (p *MockProvider) Restart(id string) error {
-	p.RestartCalled = true
-	p.ReceivedId = id
-	return p.RestartError
+func (self *MockProvider) Restart(id string) error {
+	self.RestartCalled = true
+	self.ReceivedId = id
+	return self.RestartError
 }
 
-func (p *MockProvider) Terminate(id string) error {
-	p.TerminateCalled = true
-	p.ReceivedId = id
-	return p.TerminateError
+func (self *MockProvider) Terminate(id string) error {
+	self.TerminateCalled = true
+	self.ReceivedId = id
+	return self.TerminateError
 }
 
-func (p *MockProvider) ListPublicKeys(id string) (map[string]string, error) {
-	p.ListPublicKeysCalled = true
-	p.ReceivedId = id
-	return p.PublicKeys, p.ListPublicKeysError
+func (self *MockProvider) ListPublicKeys(id string) (map[string]string, error) {
+	self.ListPublicKeysCalled = true
+	self.ReceivedId = id
+	return self.PublicKeys, self.ListPublicKeysError
 }
 
-func (p *MockProvider) AddPublicKeys(id string, publicKeys []string) error {
-	p.AddPublicKeysCalled = true
-	p.ReceivedId = id
-	p.ReceivedPublicKeys = publicKeys
-	return p.AddPublicKeysError
+func (self *MockProvider) AddPublicKeys(id string, publicKeys []string) error {
+	self.AddPublicKeysCalled = true
+	self.ReceivedId = id
+	self.ReceivedPublicKeys = publicKeys
+	return self.AddPublicKeysError
 }
 
-func (p *MockProvider) RemovePublicKey(id string, keyFingerprint string) error {
-	p.RemovePublicKeyCalled = true
-	p.ReceivedId = id
-	p.ReceivedKeyFingerprint = keyFingerprint
-	return p.RemovePublicKeyError
+func (self *MockProvider) RemovePublicKey(id string, keyFingerprint string) error {
+	self.RemovePublicKeyCalled = true
+	self.ReceivedId = id
+	self.ReceivedKeyFingerprint = keyFingerprint
+	return self.RemovePublicKeyError
 }
 
-func (p *MockProvider) IsNotFoundError(err error) bool {
+func (self *MockProvider) IsNotFoundError(err error) bool {
 	return err == ErrMockProviderContainerNotFound
 }

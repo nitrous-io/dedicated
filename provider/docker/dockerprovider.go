@@ -40,8 +40,8 @@ func NewDockerProvider(store *datastore.Datastore, dataPath string, imageNamespa
 	return &DockerProvider{client: client, store: store, dataPath: dataPath, portPool: NewPortPool(store), imageNamespace: imageNamespace + "."}, nil
 }
 
-func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
-	apicontainers, err := p.client.ListContainers(dockerclient.ListContainersOptions{
+func (self *DockerProvider) List() ([]*provider.ContainerInfo, error) {
+	apicontainers, err := self.client.ListContainers(dockerclient.ListContainersOptions{
 		All: true,
 	})
 	if err != nil {
@@ -51,8 +51,8 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 	list := []*provider.ContainerInfo{}
 
 	for _, apicontainer := range apicontainers {
-		if strings.HasPrefix(apicontainer.Image, p.imageNamespace) {
-			info, err := p.GetInfo(apicontainer.ID)
+		if strings.HasPrefix(apicontainer.Image, self.imageNamespace) {
+			info, err := self.GetInfo(apicontainer.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -63,8 +63,8 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 	return list, nil
 }
 
-func (p *DockerProvider) Create(name string, image string, publicKeys []string) (*provider.ContainerInfo, error) {
-	imageName, err := p.buildImage(name, image)
+func (self *DockerProvider) Create(name string, image string, publicKeys []string) (*provider.ContainerInfo, error) {
+	imageName, err := self.buildImage(name, image)
 	if err != nil {
 		return nil, err
 	}
@@ -76,29 +76,29 @@ func (p *DockerProvider) Create(name string, image string, publicKeys []string) 
 	}
 	publicKeys = keyMapToKeys(keymap)
 
-	port, err := p.portPool.Acquire()
+	port, err := self.portPool.Acquire()
 	if err != nil {
 		return nil, err
 	}
 
-	err = p.createAuthorizedKeys(name, publicKeys)
+	err = self.createAuthorizedKeys(name, publicKeys)
 	if err != nil {
 		return nil, err
 	}
 
-	container, err := p.runContainer(imageName, name, port)
+	container, err := self.runContainer(imageName, name, port)
 	if err != nil {
-		if err := p.portPool.Release(port); err != nil {
+		if err := self.portPool.Release(port); err != nil {
 			return nil, err
 		}
 		return nil, err
 	}
 
-	return p.GetInfo(container.ID)
+	return self.GetInfo(container.ID)
 }
 
-func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
-	container, err := p.client.InspectContainer(id)
+func (self *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
+	container, err := self.client.InspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +112,8 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	}, nil
 }
 
-func (p *DockerProvider) Start(id string) error {
-	container, err := p.client.InspectContainer(id)
+func (self *DockerProvider) Start(id string) error {
+	container, err := self.client.InspectContainer(id)
 	if err != nil {
 		return err
 	}
@@ -122,50 +122,50 @@ func (p *DockerProvider) Start(id string) error {
 		return nil
 	}
 
-	return p.client.StartContainer(id, container.HostConfig)
+	return self.client.StartContainer(id, container.HostConfig)
 }
 
-func (p *DockerProvider) Stop(id string) error {
-	return p.client.StopContainer(id, 15)
+func (self *DockerProvider) Stop(id string) error {
+	return self.client.StopContainer(id, 15)
 }
 
-func (p *DockerProvider) Restart(id string) error {
-	return p.client.RestartContainer(id, 15)
+func (self *DockerProvider) Restart(id string) error {
+	return self.client.RestartContainer(id, 15)
 }
 
-func (p *DockerProvider) Terminate(id string) error {
-	container, err := p.client.InspectContainer(id)
+func (self *DockerProvider) Terminate(id string) error {
+	container, err := self.client.InspectContainer(id)
 	if err != nil {
 		return err
 	}
 
 	if container.State.Running {
-		err = p.client.StopContainer(id, 15)
+		err = self.client.StopContainer(id, 15)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = p.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: id})
+	err = self.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: id})
 	if err != nil {
 		return err
 	}
 
-	err = p.client.RemoveImage(container.Config.Image)
+	err = self.client.RemoveImage(container.Config.Image)
 	if err != nil {
 		return err
 	}
 
-	return p.portPool.Release(portFromContainer(container))
+	return self.portPool.Release(portFromContainer(container))
 }
 
-func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
-	container, err := p.client.InspectContainer(id)
+func (self *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
+	container, err := self.client.InspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
 
-	keys, err := p.readAuthorizedKeys(nameFromContainer(container))
+	keys, err := self.readAuthorizedKeys(nameFromContainer(container))
 	if err != nil {
 		return nil, err
 	}
@@ -173,14 +173,14 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 	return keysToKeyMap(keys)
 }
 
-func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
-	container, err := p.client.InspectContainer(id)
+func (self *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
+	container, err := self.client.InspectContainer(id)
 	if err != nil {
 		return err
 	}
 	name := nameFromContainer(container)
 
-	existingKeys, err := p.readAuthorizedKeys(name)
+	existingKeys, err := self.readAuthorizedKeys(name)
 	if err != nil {
 		return err
 	}
@@ -192,17 +192,17 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 	}
 	publicKeys = keyMapToKeys(keymap)
 
-	return p.createAuthorizedKeys(name, publicKeys)
+	return self.createAuthorizedKeys(name, publicKeys)
 }
 
-func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
-	container, err := p.client.InspectContainer(id)
+func (self *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
+	container, err := self.client.InspectContainer(id)
 	if err != nil {
 		return err
 	}
 	name := nameFromContainer(container)
 
-	keys, err := p.readAuthorizedKeys(name)
+	keys, err := self.readAuthorizedKeys(name)
 	if err != nil {
 		return err
 	}
@@ -214,15 +214,15 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 	delete(keymap, keyFingerprint)
 	keys = keyMapToKeys(keymap)
 
-	return p.createAuthorizedKeys(name, keys)
+	return self.createAuthorizedKeys(name, keys)
 }
 
-func (p *DockerProvider) IsNotFoundError(err error) bool {
+func (self *DockerProvider) IsNotFoundError(err error) bool {
 	_, ok := err.(*dockerclient.NoSuchContainer)
 	return ok
 }
 
-func (p *DockerProvider) buildImage(name string, image string) (string, error) {
+func (self *DockerProvider) buildImage(name string, image string) (string, error) {
 	buf := bytes.NewBuffer(nil)
 	err := dockerfileUbuntu.Execute(buf, &TemplateData{Name: name, Image: image})
 	if err != nil {
@@ -236,7 +236,7 @@ func (p *DockerProvider) buildImage(name string, image string) (string, error) {
 	tr.Write(buf.Bytes())
 	tr.Close()
 
-	imageName := p.imageNamespace + name
+	imageName := self.imageNamespace + name
 	opts := dockerclient.BuildImageOptions{
 		Name:           imageName,
 		InputStream:    inputbuf,
@@ -244,7 +244,7 @@ func (p *DockerProvider) buildImage(name string, image string) (string, error) {
 		RmTmpContainer: false,
 	}
 
-	err = p.client.BuildImage(opts)
+	err = self.client.BuildImage(opts)
 	if err != nil {
 		return "", err
 	}
@@ -252,12 +252,12 @@ func (p *DockerProvider) buildImage(name string, image string) (string, error) {
 	return imageName, err
 }
 
-func (p *DockerProvider) containerSettingsDir(containerName string) string {
-	return path.Join(p.dataPath, "containers", containerName)
+func (self *DockerProvider) containerSettingsDir(containerName string) string {
+	return path.Join(self.dataPath, "containers", containerName)
 }
 
-func (p *DockerProvider) createAuthorizedKeys(containerName string, publicKeys []string) error {
-	dir := path.Join(p.containerSettingsDir(containerName), "ssh")
+func (self *DockerProvider) createAuthorizedKeys(containerName string, publicKeys []string) error {
+	dir := path.Join(self.containerSettingsDir(containerName), "ssh")
 	err := os.MkdirAll(dir, 0770)
 	if err != nil {
 		return err
@@ -280,8 +280,8 @@ func (p *DockerProvider) createAuthorizedKeys(containerName string, publicKeys [
 	return nil
 }
 
-func (p *DockerProvider) readAuthorizedKeys(containerName string) ([]string, error) {
-	keysFile := path.Join(p.containerSettingsDir(containerName), "ssh", "authorized_keys")
+func (self *DockerProvider) readAuthorizedKeys(containerName string) ([]string, error) {
+	keysFile := path.Join(self.containerSettingsDir(containerName), "ssh", "authorized_keys")
 	bkeys, err := ioutil.ReadFile(keysFile)
 	if err != nil {
 		return nil, err
@@ -289,8 +289,8 @@ func (p *DockerProvider) readAuthorizedKeys(containerName string) ([]string, err
 	return strings.Split(strings.TrimSpace(string(bkeys)), "\n"), nil
 }
 
-func (p *DockerProvider) runContainer(imageName string, containerName string, port uint16) (*dockerclient.Container, error) {
-	container, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
+func (self *DockerProvider) runContainer(imageName string, containerName string, port uint16) (*dockerclient.Container, error) {
+	container, err := self.client.CreateContainer(dockerclient.CreateContainerOptions{
 		Name: containerName,
 		Config: &dockerclient.Config{
 			Hostname: containerName,
@@ -304,9 +304,9 @@ func (p *DockerProvider) runContainer(imageName string, containerName string, po
 		return container, err
 	}
 
-	err = p.client.StartContainer(container.ID, &dockerclient.HostConfig{
+	err = self.client.StartContainer(container.ID, &dockerclient.HostConfig{
 		Binds: []string{
-			(p.containerSettingsDir(containerName) + "/ssh:/etc/ssh/freighter:ro"),
+			(self.containerSettingsDir(containerName) + "/ssh:/etc/ssh/freighter:ro"),
 		},
 		PortBindings: map[dockerclient.Port][]dockerclient.PortBinding{
 			"22/tcp": {{HostPort: strconv.Itoa(int(port))}},

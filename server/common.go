@@ -1,0 +1,88 @@
+package server
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/gorilla/mux"
+)
+
+var (
+	jsonStatusOK       = []byte(`{"status":"ok"}`)
+	jsonStatusAccepted = []byte(`{"status":"accepted"}`)
+	jsonErrorNotFound  = []byte(`{"error":"no such container"}`)
+)
+
+func (self *Server) handleError(w http.ResponseWriter, err error) {
+	if err != nil {
+		if self.provider.IsNotFoundError(err) {
+			self.respond(w, http.StatusNotFound, jsonErrorNotFound)
+		} else {
+			self.respondWith500(w, err.Error())
+		}
+	}
+}
+
+func (self *Server) respond(w http.ResponseWriter, status int, data []byte) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	w.Write(data)
+}
+
+func (self *Server) respondEncodeJson(w http.ResponseWriter, status int, data map[string]interface{}) {
+	j, err := json.Marshal(data)
+	if err != nil {
+		self.respondWith500(w, "json marshaling failed")
+		return
+	}
+	self.respond(w, status, j)
+}
+
+func (self *Server) respondWith500(w http.ResponseWriter, errMsg string) {
+	e := map[string]string{"error": errMsg}
+	j, err := json.Marshal(e)
+	if err != nil {
+		j = []byte("json marshaling failed")
+	}
+	self.respond(w, http.StatusInternalServerError, []byte(j))
+}
+
+func (self *Server) performContainerControl(w http.ResponseWriter, r *http.Request, controlFunc func(string) error, successStatus string) {
+	id := mux.Vars(r)["id"]
+	callbackUrl := r.FormValue("callback_url")
+	state := r.FormValue("state")
+
+	_, err := self.provider.GetInfo(id)
+	if err != nil {
+		self.handleError(w, err)
+		return
+	}
+
+	go func() {
+		err := controlFunc(id)
+		if callbackUrl == "" {
+			return
+		}
+		if err != nil {
+			res := map[string]string{"error": err.Error()}
+			if state != "" {
+				res["state"] = state
+			}
+			j, err := json.Marshal(res)
+			if err == nil {
+				self.callback.Invoke(callbackUrl, string(j))
+			}
+			return
+		}
+		res := map[string]string{"result": successStatus, "container_id": id}
+		if state != "" {
+			res["state"] = state
+		}
+		j, err := json.Marshal(res)
+		if err == nil {
+			self.callback.Invoke(callbackUrl, string(j))
+		}
+	}()
+
+	self.respond(w, http.StatusAccepted, jsonStatusAccepted)
+}
