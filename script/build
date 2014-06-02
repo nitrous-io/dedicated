@@ -2,8 +2,7 @@
 # we get primary version from `VERSION` file
 set -e
 
-REVISION=$(git rev-parse --short HEAD)
-VERSION="$(cat VERSION)-$REVISION"
+VERSION=${1:?"version is required"}
 
 APP=freighter
 PACKAGE=github.com/nitrous-io/$APP

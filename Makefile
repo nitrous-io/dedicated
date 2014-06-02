@@ -3,7 +3,9 @@ OK_COLOR=\033[32;01m
 ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
 BIN_NAME=freighterd
-VERSION=$(shell git rev-parse --short HEAD)
+REVISION=$(shell git rev-parse --short HEAD)
+BASE_VERSION=$(shell cat VERSION)
+VERSION=$(BASE_VERSION)-$(REVISION)
 
 all: build
 
