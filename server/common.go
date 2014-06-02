@@ -14,6 +14,7 @@ var (
 )
 
 func (self *Server) handleError(w http.ResponseWriter, err error) {
+	self.logger.Error(err)
 	if err != nil {
 		if self.provider.IsNotFoundError(err) {
 			self.respond(w, http.StatusNotFound, jsonErrorNotFound)
@@ -27,6 +28,7 @@ func (self *Server) respond(w http.ResponseWriter, status int, data []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	w.Write(data)
+	self.logger.Infof("Response: %v %v", status, string(data))
 }
 
 func (self *Server) respondEncodeJson(w http.ResponseWriter, status int, data map[string]interface{}) {
@@ -60,29 +62,36 @@ func (self *Server) performContainerControl(w http.ResponseWriter, r *http.Reque
 
 	go func() {
 		err := controlFunc(id)
-		if callbackUrl == "" {
-			return
-		}
-		if err != nil {
-			res := map[string]string{"error": err.Error()}
-			if state != "" {
-				res["state"] = state
-			}
-			j, err := json.Marshal(res)
-			if err == nil {
-				self.callback.Invoke(callbackUrl, string(j))
-			}
-			return
-		}
-		res := map[string]string{"result": successStatus, "container_id": id}
-		if state != "" {
-			res["state"] = state
-		}
-		j, err := json.Marshal(res)
-		if err == nil {
-			self.callback.Invoke(callbackUrl, string(j))
-		}
+		self.invokeCallback(callbackUrl, state, map[string]interface{}{
+			"result":       successStatus,
+			"container_id": id,
+		}, err)
 	}()
 
 	self.respond(w, http.StatusAccepted, jsonStatusAccepted)
+}
+
+func (self *Server) invokeCallback(callbackUrl string, state string, data map[string]interface{}, err error) {
+	if callbackUrl == "" {
+		return
+	}
+	var res map[string]interface{}
+
+	if err != nil {
+		self.logger.Error(err)
+		res = map[string]interface{}{"error": err.Error()}
+	} else {
+		res = data
+	}
+	if state != "" {
+		res["state"] = state
+	}
+	j, err := json.Marshal(res)
+	if err != nil {
+		self.logger.Error(err)
+		return
+	}
+	sj := string(j)
+	self.logger.Infof("Callback: %v %v", callbackUrl, sj)
+	self.callback.Invoke(callbackUrl, sj)
 }

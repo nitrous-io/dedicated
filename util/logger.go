@@ -11,7 +11,8 @@ type Logger struct {
 }
 
 const (
-	LogLevelUnknown = iota
+	LogLevelQuiet = iota
+	LogLevelUnknown
 	LogLevelFatal
 	LogLevelError
 	LogLevelWarn

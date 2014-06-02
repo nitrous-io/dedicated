@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -40,28 +39,10 @@ func (self *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		info, err := self.provider.Create(name, image, publicKeys)
-		if callbackUrl == "" {
-			return
-		}
-		if err != nil {
-			res := map[string]string{"error": err.Error()}
-			if state != "" {
-				res["state"] = state
-			}
-			j, err := json.Marshal(res)
-			if err == nil {
-				self.callback.Invoke(callbackUrl, string(j))
-			}
-			return
-		}
-		res := map[string]interface{}{"result": "created", "container": info}
-		if state != "" {
-			res["state"] = state
-		}
-		j, err := json.Marshal(res)
-		if err == nil {
-			self.callback.Invoke(callbackUrl, string(j))
-		}
+		self.invokeCallback(callbackUrl, state, map[string]interface{}{
+			"result":    "created",
+			"container": info,
+		}, err)
 	}()
 
 	self.respond(w, http.StatusAccepted, jsonStatusAccepted)

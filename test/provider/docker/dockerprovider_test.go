@@ -1,8 +1,6 @@
 package dockertest
 
 import (
-	//. "github.com/nitrous-io/freighter/test"
-
 	"io/ioutil"
 	"os"
 	"os/exec"
