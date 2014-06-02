@@ -44,7 +44,7 @@ func (a *RestAPI) CreateContainer(w http.ResponseWriter, r *http.Request) {
 		publicKeys = []string{}
 	}
 
-	if name == "" || image == "" {
+	if name == "" || image == "" || !provider.IsValidName(name) {
 		respond(w, 422, []byte(`{"error":"invalid params"}`))
 		return
 	}

@@ -1,5 +1,9 @@
 package provider
 
+import "regexp"
+
+var containerNameRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
+
 type Provider interface {
 	List() (infoList []*ContainerInfo, err error)
 	Create(name string, image string, publicKeys []string) (info *ContainerInfo, err error)
@@ -36,3 +40,7 @@ const (
 //	Tag         string `json:"tag"`
 //	Description string `json:"description"`
 //}
+
+func IsValidName(name string) bool {
+	return containerNameRe.Match([]byte(name))
+}

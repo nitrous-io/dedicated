@@ -192,6 +192,24 @@ var _ = Describe("Server", func() {
 				})
 			})
 		}
+
+		Context("when an invalid name is given", func() {
+			BeforeEach(func() {
+				params.Set("name", "-foobar")
+				doRequest()
+			})
+
+			It("responds with 422 unprocessable entity", func() {
+				Expect(res.Code).To(Equal(422))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"invalid params"}`))
+			})
+
+			It("does not call provider.Create()", func() {
+				Expect(prov.CreateCalled).To(BeFalse())
+				Wait()
+				Expect(prov.CreateCalled).To(BeFalse())
+			})
+		})
 	})
 
 	Describe("GET /containers/:container_id", func() {
