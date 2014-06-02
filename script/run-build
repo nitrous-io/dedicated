@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 APP=freighter
-VERSION=$(git rev-parse --short HEAD)
+REVISION=$(shell git rev-parse --short HEAD)
+BASE_VERSION=$(shell cat VERSION)
+VERSION=$(BASE_VERSION)-$(REVISION)
 
 script/make-image
 
