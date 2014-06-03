@@ -52,7 +52,7 @@ func (s *Server) respondWith500(w http.ResponseWriter, errMsg string) {
 
 func (s *Server) performContainerControl(w http.ResponseWriter, r *http.Request, controlFunc func(string) (*provider.ContainerInfo, error), successStatus string) {
 	id := mux.Vars(r)["id"]
-	callbackUrl := r.FormValue("callback_url")
+	callbackURL := r.FormValue("callback_url")
 	state := r.FormValue("state")
 
 	_, err := s.provider.GetInfo(id)
@@ -64,7 +64,7 @@ func (s *Server) performContainerControl(w http.ResponseWriter, r *http.Request,
 	go func() {
 		info, err := controlFunc(id)
 
-		s.invokeCallback(callbackUrl, state, map[string]interface{}{
+		s.invokeCallback(callbackURL, state, map[string]interface{}{
 			"result":    successStatus,
 			"container": info,
 		}, err)
@@ -73,8 +73,8 @@ func (s *Server) performContainerControl(w http.ResponseWriter, r *http.Request,
 	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
 }
 
-func (s *Server) invokeCallback(callbackUrl string, state string, data map[string]interface{}, err error) {
-	if callbackUrl == "" {
+func (s *Server) invokeCallback(callbackURL string, state string, data map[string]interface{}, err error) {
+	if callbackURL == "" {
 		return
 	}
 	var res map[string]interface{}
@@ -94,6 +94,6 @@ func (s *Server) invokeCallback(callbackUrl string, state string, data map[strin
 		return
 	}
 	sj := string(j)
-	s.logger.Infof("Callback: %v %v", callbackUrl, sj)
-	s.callback.Invoke(callbackUrl, sj)
+	s.logger.Infof("Callback: %v %v", callbackURL, sj)
+	s.callback.Invoke(callbackURL, sj)
 }

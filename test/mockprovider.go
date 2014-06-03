@@ -34,7 +34,7 @@ type MockProvider struct {
 	RemovePublicKeyCalled bool
 	RemovePublicKeyError  error
 
-	ReceivedId             string
+	ReceivedID             string
 	ReceivedName           string
 	ReceivedImage          string
 	ReceivedPublicKeys     []string
@@ -61,7 +61,7 @@ func (p *MockProvider) Create(name string, image string, publicKeys []string) (*
 
 func (p *MockProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	for _, info := range p.Containers {
-		if info.Id == id {
+		if info.ID == id {
 			return info, nil
 		}
 	}
@@ -74,7 +74,7 @@ func (p *MockProvider) Start(id string) (*provider.ContainerInfo, error) {
 		info.State = provider.ContainerStateRunning
 	}
 	p.StartCalled = true
-	p.ReceivedId = id
+	p.ReceivedID = id
 	return info, p.StartError
 }
 
@@ -85,7 +85,7 @@ func (p *MockProvider) Stop(id string) (*provider.ContainerInfo, error) {
 		info.State = provider.ContainerStateStopped
 	}
 	p.StopCalled = true
-	p.ReceivedId = id
+	p.ReceivedID = id
 	return info, p.StopError
 }
 
@@ -95,7 +95,7 @@ func (p *MockProvider) Restart(id string) (*provider.ContainerInfo, error) {
 		info.State = provider.ContainerStateRunning
 	}
 	p.RestartCalled = true
-	p.ReceivedId = id
+	p.ReceivedID = id
 	return info, p.RestartError
 }
 
@@ -107,26 +107,26 @@ func (p *MockProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 		info.State = ""
 	}
 	p.TerminateCalled = true
-	p.ReceivedId = id
+	p.ReceivedID = id
 	return info, p.TerminateError
 }
 
 func (p *MockProvider) ListPublicKeys(id string) (map[string]string, error) {
 	p.ListPublicKeysCalled = true
-	p.ReceivedId = id
+	p.ReceivedID = id
 	return p.PublicKeys, p.ListPublicKeysError
 }
 
 func (p *MockProvider) AddPublicKeys(id string, publicKeys []string) error {
 	p.AddPublicKeysCalled = true
-	p.ReceivedId = id
+	p.ReceivedID = id
 	p.ReceivedPublicKeys = publicKeys
 	return p.AddPublicKeysError
 }
 
 func (p *MockProvider) RemovePublicKey(id string, keyFingerprint string) error {
 	p.RemovePublicKeyCalled = true
-	p.ReceivedId = id
+	p.ReceivedID = id
 	p.ReceivedKeyFingerprint = keyFingerprint
 	return p.RemovePublicKeyError
 }

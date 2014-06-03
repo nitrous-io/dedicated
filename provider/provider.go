@@ -17,12 +17,12 @@ type Provider interface {
 	RemovePublicKey(id string, keyFingerprint string) (err error)
 	//ForwardPort(id string, hostPort uint16, containerPort uint16) (err error)
 	//TakeSnapshot(id string, tag name, description string) (info *SnapshotInfo, err error)
-	//RestoreSnapshot(id string, snapshotId string) (err error)
+	//RestoreSnapshot(id string, snapshotID string) (err error)
 	IsNotFoundError(err error) bool
 }
 
 type ContainerInfo struct {
-	Id      string `json:"id"`
+	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Image   string `json:"image"`
 	Host    string `json:"host"`
@@ -36,7 +36,7 @@ const (
 )
 
 //type SnapshotInfo struct {
-//	Id          string `json:"id"`
+//	ID          string `json:"id"`
 //	Tag         string `json:"tag"`
 //	Description string `json:"description"`
 //}

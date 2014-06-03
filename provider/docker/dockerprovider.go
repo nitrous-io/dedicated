@@ -113,7 +113,7 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	}
 
 	return &provider.ContainerInfo{
-		Id:      container.ID,
+		ID:      container.ID,
 		Name:    nameFromContainer(container),
 		Image:   container.Config.Image,
 		Host:    container.NetworkSettings.IPAddress,

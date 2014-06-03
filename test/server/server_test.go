@@ -73,8 +73,8 @@ var _ = Describe("Server", func() {
 		Context("when there exists containers", func() {
 			BeforeEach(func() {
 				prov.Containers = []*provider.ContainerInfo{
-					{Id: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", SSHPort: 10000, State: provider.ContainerStateRunning},
-					{Id: "bbb", Name: "bar", Image: "centos", Host: "1.2.3.5", SSHPort: 10001, State: provider.ContainerStateStopped},
+					{ID: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", SSHPort: 10000, State: provider.ContainerStateRunning},
+					{ID: "bbb", Name: "bar", Image: "centos", Host: "1.2.3.5", SSHPort: 10001, State: provider.ContainerStateStopped},
 				}
 				doRequest()
 			})
@@ -96,7 +96,7 @@ var _ = Describe("Server", func() {
 			image       string
 			publicKey   string
 			publicKey2  string
-			callbackUrl string
+			callbackURL string
 			state       string
 		)
 
@@ -105,11 +105,11 @@ var _ = Describe("Server", func() {
 			image = "ubuntu"
 			publicKey = "ssh-rsa Foo"
 			publicKey2 = "ssh-rsa Bar"
-			callbackUrl = "http://www.example.com/cb"
+			callbackURL = "http://www.example.com/cb"
 			params = &url.Values{}
 			params.Set("name", name)
 			params.Set("image", image)
-			params.Set("callback_url", callbackUrl)
+			params.Set("callback_url", callbackURL)
 			params.Set("public_key[]", publicKey)
 			params.Add("public_key[]", publicKey2)
 			state = RandomName("state")
@@ -152,14 +152,14 @@ var _ = Describe("Server", func() {
 						Expect(cb.InvokeCalled).To(BeFalse())
 						Wait()
 						Expect(cb.InvokeCalled).To(BeTrue())
-						Expect(cb.To).To(Equal(callbackUrl))
+						Expect(cb.To).To(Equal(callbackURL))
 						Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter", "state": "` + state + `"}`))
 					})
 				})
 
 				Context("returns a container info with no error", func() {
 					BeforeEach(func() {
-						prov.CreateContainerInfo = &provider.ContainerInfo{Id: "aaa", Name: name, Image: "ubuntu", Host: "1.2.3.4", SSHPort: 10000, State: provider.ContainerStateRunning}
+						prov.CreateContainerInfo = &provider.ContainerInfo{ID: "aaa", Name: name, Image: "ubuntu", Host: "1.2.3.4", SSHPort: 10000, State: provider.ContainerStateRunning}
 						doRequest()
 					})
 
@@ -167,7 +167,7 @@ var _ = Describe("Server", func() {
 						Expect(cb.InvokeCalled).To(BeFalse())
 						Wait()
 						Expect(cb.InvokeCalled).To(BeTrue())
-						Expect(cb.To).To(Equal(callbackUrl))
+						Expect(cb.To).To(Equal(callbackURL))
 						Expect(cb.Payload).To(MatchJSON(`{"result":"created", "container":{
 							"id":"aaa","name":"fragrant-wind-69","image":"ubuntu","host":"1.2.3.4","ssh_port":10000,"state":"running"
 						}, "state": "` + state + `"}`))
@@ -218,7 +218,7 @@ var _ = Describe("Server", func() {
 	Describe("GET /containers/:container_id", func() {
 		BeforeEach(func() {
 			prov.Containers = []*provider.ContainerInfo{
-				{Id: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", SSHPort: 10000, State: provider.ContainerStateRunning},
+				{ID: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", SSHPort: 10000, State: provider.ContainerStateRunning},
 			}
 		})
 
@@ -264,17 +264,17 @@ var _ = Describe("Server", func() {
 			image            = "ubuntu"
 			host             = "1.2.3.4"
 			sshPort          = uint16(10000)
-			callbackUrl      = "http://www.example.com/cb"
+			callbackURL      = "http://www.example.com/cb"
 			state            string
 			params           *url.Values
 		)
 
 		BeforeEach(func() {
 			prov.Containers = []*provider.ContainerInfo{
-				{Id: id, Name: name, Image: image, Host: host, SSHPort: sshPort},
+				{ID: id, Name: name, Image: image, Host: host, SSHPort: sshPort},
 			}
 			params = &url.Values{}
-			params.Set("callback_url", callbackUrl)
+			params.Set("callback_url", callbackURL)
 			state = RandomName("state")
 			params.Set("state", state)
 		})
@@ -292,7 +292,7 @@ var _ = Describe("Server", func() {
 					Expect(*provFuncCalled).To(BeFalse())
 					Wait()
 					Expect(*provFuncCalled).To(BeTrue())
-					Expect(prov.ReceivedId).To(Equal(id))
+					Expect(prov.ReceivedID).To(Equal(id))
 				})
 
 				Context("when provider func", func() {
@@ -306,7 +306,7 @@ var _ = Describe("Server", func() {
 							Expect(cb.InvokeCalled).To(BeFalse())
 							Wait()
 							Expect(cb.InvokeCalled).To(BeTrue())
-							Expect(cb.To).To(Equal(callbackUrl))
+							Expect(cb.To).To(Equal(callbackURL))
 							Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter", "state":"` + state + `"}`))
 						})
 					})
@@ -320,7 +320,7 @@ var _ = Describe("Server", func() {
 							Expect(cb.InvokeCalled).To(BeFalse())
 							Wait()
 							Expect(cb.InvokeCalled).To(BeTrue())
-							Expect(cb.To).To(Equal(callbackUrl))
+							Expect(cb.To).To(Equal(callbackURL))
 							Expect(cb.Payload).To(MatchJSON(expectedResponse))
 						})
 					})
@@ -469,7 +469,7 @@ var _ = Describe("Server", func() {
 			Expect(prov.ListPublicKeysCalled).To(BeFalse())
 			doRequest()
 			Expect(prov.ListPublicKeysCalled).To(BeTrue())
-			Expect(prov.ReceivedId).To(Equal(id))
+			Expect(prov.ReceivedID).To(Equal(id))
 		})
 
 		Context("when provider.ListPublicKeys() fails with error", func() {
@@ -540,7 +540,7 @@ var _ = Describe("Server", func() {
 				Expect(prov.AddPublicKeysCalled).To(BeFalse())
 				doRequest()
 				Expect(prov.AddPublicKeysCalled).To(BeTrue())
-				Expect(prov.ReceivedId).To(Equal(id))
+				Expect(prov.ReceivedID).To(Equal(id))
 				Expect(prov.ReceivedPublicKeys).To(HaveLen(2))
 				Expect(prov.ReceivedPublicKeys).To(ContainElement(publicKey))
 				Expect(prov.ReceivedPublicKeys).To(ContainElement(publicKey2))
@@ -612,7 +612,7 @@ var _ = Describe("Server", func() {
 
 					It("responds with 200 ok with public keys json", func() {
 						Expect(prov.ListPublicKeysCalled).To(BeTrue())
-						Expect(prov.ReceivedId).To(Equal(id))
+						Expect(prov.ReceivedID).To(Equal(id))
 						Expect(res.Code).To(Equal(http.StatusOK))
 						j, _ := json.Marshal(map[string]interface{}{
 							"public_keys": prov.PublicKeys,
@@ -658,7 +658,7 @@ var _ = Describe("Server", func() {
 			Expect(prov.RemovePublicKeyCalled).To(BeFalse())
 			doRequest()
 			Expect(prov.RemovePublicKeyCalled).To(BeTrue())
-			Expect(prov.ReceivedId).To(Equal(id))
+			Expect(prov.ReceivedID).To(Equal(id))
 			Expect(prov.ReceivedKeyFingerprint).To(Equal(fingerprint))
 		})
 
@@ -725,7 +725,7 @@ var _ = Describe("Server", func() {
 
 				It("responds with 200 ok with public keys json", func() {
 					Expect(prov.ListPublicKeysCalled).To(BeTrue())
-					Expect(prov.ReceivedId).To(Equal(id))
+					Expect(prov.ReceivedID).To(Equal(id))
 					Expect(res.Code).To(Equal(http.StatusOK))
 					j, _ := json.Marshal(map[string]interface{}{
 						"public_keys": prov.PublicKeys,
