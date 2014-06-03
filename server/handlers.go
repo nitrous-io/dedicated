@@ -7,21 +7,21 @@ import (
 	"github.com/nitrous-io/freighter/provider"
 )
 
-func (self *Server) home(w http.ResponseWriter, r *http.Request) {
-	self.respond(w, http.StatusOK, jsonStatusOK)
+func (s *Server) home(w http.ResponseWriter, r *http.Request) {
+	s.respond(w, http.StatusOK, jsonStatusOK)
 }
 
-func (self *Server) listContainers(w http.ResponseWriter, r *http.Request) {
-	infoList, err := self.provider.List()
+func (s *Server) listContainers(w http.ResponseWriter, r *http.Request) {
+	infoList, err := s.provider.List()
 	if err != nil {
-		self.handleError(w, err)
+		s.handleError(w, err)
 		return
 	}
 
-	self.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"containers": infoList})
+	s.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"containers": infoList})
 }
 
-func (self *Server) createContainer(w http.ResponseWriter, r *http.Request) {
+func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	image := r.FormValue("image")
 	callbackUrl := r.FormValue("callback_url")
@@ -33,105 +33,105 @@ func (self *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if name == "" || image == "" || !provider.IsValidName(name) {
-		self.respond(w, 422, []byte(`{"error":"invalid params"}`))
+		s.respond(w, 422, []byte(`{"error":"invalid params"}`))
 		return
 	}
 
 	go func() {
-		info, err := self.provider.Create(name, image, publicKeys)
-		self.invokeCallback(callbackUrl, state, map[string]interface{}{
+		info, err := s.provider.Create(name, image, publicKeys)
+		s.invokeCallback(callbackUrl, state, map[string]interface{}{
 			"result":    "created",
 			"container": info,
 		}, err)
 	}()
 
-	self.respond(w, http.StatusAccepted, jsonStatusAccepted)
+	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
 }
 
-func (self *Server) getContainerInfo(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getContainerInfo(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 
-	info, err := self.provider.GetInfo(id)
+	info, err := s.provider.GetInfo(id)
 	if err != nil {
-		self.handleError(w, err)
+		s.handleError(w, err)
 		return
 	}
 
-	self.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"container": info})
+	s.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"container": info})
 }
 
-func (self *Server) terminateContainer(w http.ResponseWriter, r *http.Request) {
-	self.performContainerControl(w, r, self.provider.Terminate, "terminated")
+func (s *Server) terminateContainer(w http.ResponseWriter, r *http.Request) {
+	s.performContainerControl(w, r, s.provider.Terminate, "terminated")
 }
 
-func (self *Server) startContainer(w http.ResponseWriter, r *http.Request) {
-	self.performContainerControl(w, r, self.provider.Start, "started")
+func (s *Server) startContainer(w http.ResponseWriter, r *http.Request) {
+	s.performContainerControl(w, r, s.provider.Start, "started")
 }
 
-func (self *Server) stopContainer(w http.ResponseWriter, r *http.Request) {
-	self.performContainerControl(w, r, self.provider.Stop, "stopped")
+func (s *Server) stopContainer(w http.ResponseWriter, r *http.Request) {
+	s.performContainerControl(w, r, s.provider.Stop, "stopped")
 }
 
-func (self *Server) restartContainer(w http.ResponseWriter, r *http.Request) {
-	self.performContainerControl(w, r, self.provider.Restart, "restarted")
+func (s *Server) restartContainer(w http.ResponseWriter, r *http.Request) {
+	s.performContainerControl(w, r, s.provider.Restart, "restarted")
 }
 
-func (self *Server) listPublicKeys(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listPublicKeys(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	allPubKeys, err := self.provider.ListPublicKeys(id)
+	allPubKeys, err := s.provider.ListPublicKeys(id)
 	if err != nil {
-		self.handleError(w, err)
+		s.handleError(w, err)
 		return
 	}
 
-	self.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
+	s.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
 
-func (self *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
+func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	err := r.ParseForm()
 	if err != nil {
-		self.handleError(w, err)
+		s.handleError(w, err)
 		return
 	}
 
 	publicKeys := r.PostForm["public_key[]"]
 
 	if publicKeys == nil {
-		self.respond(w, 422, []byte(`{"error":"invalid params"}`))
+		s.respond(w, 422, []byte(`{"error":"invalid params"}`))
 		return
 	}
 
-	err = self.provider.AddPublicKeys(id, publicKeys)
+	err = s.provider.AddPublicKeys(id, publicKeys)
 	if err != nil {
-		self.handleError(w, err)
+		s.handleError(w, err)
 		return
 	}
 
-	allPubKeys, err := self.provider.ListPublicKeys(id)
+	allPubKeys, err := s.provider.ListPublicKeys(id)
 	if err != nil {
-		self.handleError(w, err)
+		s.handleError(w, err)
 		return
 	}
 
-	self.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
+	s.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
 
-func (self *Server) removePublicKey(w http.ResponseWriter, r *http.Request) {
+func (s *Server) removePublicKey(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	keyFingerprint := mux.Vars(r)["key_fingerprint"]
 
-	err := self.provider.RemovePublicKey(id, keyFingerprint)
+	err := s.provider.RemovePublicKey(id, keyFingerprint)
 	if err != nil {
-		self.handleError(w, err)
+		s.handleError(w, err)
 		return
 	}
 
-	allPubKeys, err := self.provider.ListPublicKeys(id)
+	allPubKeys, err := s.provider.ListPublicKeys(id)
 	if err != nil {
-		self.handleError(w, err)
+		s.handleError(w, err)
 		return
 	}
 
-	self.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
+	s.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }

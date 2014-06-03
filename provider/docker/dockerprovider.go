@@ -45,8 +45,8 @@ func NewDockerProvider(logger *util.Logger, store *datastore.Datastore, dataPath
 	return &DockerProvider{client: client, store: store, dataPath: dataPath, portPool: NewPortPool(store), imageNamespace: imageNamespace + ".", logger: logger}, nil
 }
 
-func (self *DockerProvider) List() ([]*provider.ContainerInfo, error) {
-	apicontainers, err := self.client.ListContainers(dockerclient.ListContainersOptions{
+func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
+	apicontainers, err := p.client.ListContainers(dockerclient.ListContainersOptions{
 		All: true,
 	})
 	if err != nil {
@@ -56,8 +56,8 @@ func (self *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 	list := []*provider.ContainerInfo{}
 
 	for _, apicontainer := range apicontainers {
-		if strings.HasPrefix(apicontainer.Image, self.imageNamespace) {
-			info, err := self.GetInfo(apicontainer.ID)
+		if strings.HasPrefix(apicontainer.Image, p.imageNamespace) {
+			info, err := p.GetInfo(apicontainer.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -68,8 +68,8 @@ func (self *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 	return list, nil
 }
 
-func (self *DockerProvider) Create(name string, image string, publicKeys []string) (*provider.ContainerInfo, error) {
-	imageName, err := self.buildImage(name, image)
+func (p *DockerProvider) Create(name string, image string, publicKeys []string) (*provider.ContainerInfo, error) {
+	imageName, err := p.buildImage(name, image)
 	if err != nil {
 		return nil, err
 	}
@@ -81,33 +81,33 @@ func (self *DockerProvider) Create(name string, image string, publicKeys []strin
 	}
 	publicKeys = keyMapToKeys(keymap)
 
-	port, err := self.portPool.Acquire()
+	port, err := p.portPool.Acquire()
 	if err != nil {
 		return nil, err
 	}
-	self.logger.Info("DockerProvider: acquired port", port)
+	p.logger.Info("DockerProvider: acquired port", port)
 
-	err = self.createAuthorizedKeys(name, publicKeys)
+	err = p.createAuthorizedKeys(name, publicKeys)
 	if err != nil {
 		return nil, err
 	}
 
-	container, err := self.createContainer(imageName, name, port)
+	container, err := p.createContainer(imageName, name, port)
 	if err != nil {
-		self.logger.Info("DockerProvider: releasing port", port)
-		errr := self.portPool.Release(port)
+		p.logger.Info("DockerProvider: releasing port", port)
+		errr := p.portPool.Release(port)
 		if errr != nil {
 			return nil, errr
 		}
-		self.logger.Info("DockerProvider: released port", port)
+		p.logger.Info("DockerProvider: released port", port)
 		return nil, err
 	}
 
-	return self.GetInfo(container.ID)
+	return p.GetInfo(container.ID)
 }
 
-func (self *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
-	container, err := self.client.InspectContainer(id)
+func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
+	container, err := p.client.InspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
@@ -122,122 +122,122 @@ func (self *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) 
 	}, nil
 }
 
-func (self *DockerProvider) Start(id string) (*provider.ContainerInfo, error) {
-	container, err := self.client.InspectContainer(id)
+func (p *DockerProvider) Start(id string) (*provider.ContainerInfo, error) {
+	container, err := p.client.InspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
 
 	if !container.State.Running {
-		self.logger.Info("DockerProvider: starting container", id)
+		p.logger.Info("DockerProvider: starting container", id)
 		start := time.Now()
 
-		err = self.client.StartContainer(id, container.HostConfig)
+		err = p.client.StartContainer(id, container.HostConfig)
 		if err != nil {
 			return nil, err
 		}
 
-		self.logger.TimeInfo(start, "DockerProvider: started container", id, "in")
+		p.logger.TimeInfo(start, "DockerProvider: started container", id, "in")
 	}
-	return self.GetInfo(id)
+	return p.GetInfo(id)
 }
 
-func (self *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
-	container, err := self.client.InspectContainer(id)
+func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
+	container, err := p.client.InspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
 
 	if container.State.Running {
-		self.logger.Info("DockerProvider: stopping container", id)
+		p.logger.Info("DockerProvider: stopping container", id)
 		start := time.Now()
 
-		err := self.client.StopContainer(id, 15)
+		err := p.client.StopContainer(id, 15)
 		if err != nil {
 			return nil, err
 		}
 
-		self.logger.TimeInfo(start, "DockerProvider: stopped container", id, "in")
+		p.logger.TimeInfo(start, "DockerProvider: stopped container", id, "in")
 	}
-	return self.GetInfo(id)
+	return p.GetInfo(id)
 }
 
-func (self *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
-	_, err := self.client.InspectContainer(id)
+func (p *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
+	_, err := p.client.InspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
 
-	self.logger.Info("DockerProvider: restarting container", id)
+	p.logger.Info("DockerProvider: restarting container", id)
 	start := time.Now()
 
-	err = self.client.RestartContainer(id, 15)
+	err = p.client.RestartContainer(id, 15)
 	if err != nil {
 		return nil, err
 	}
 
-	self.logger.TimeInfo(start, "DockerProvider: restarted container", id, "in")
-	return self.GetInfo(id)
+	p.logger.TimeInfo(start, "DockerProvider: restarted container", id, "in")
+	return p.GetInfo(id)
 }
 
-func (self *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
-	container, err := self.client.InspectContainer(id)
+func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
+	container, err := p.client.InspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
 
-	self.logger.Info("DockerProvider: terminating container", id)
+	p.logger.Info("DockerProvider: terminating container", id)
 	terminationStart := time.Now()
 
-	info, err := self.Stop(id)
+	info, err := p.Stop(id)
 	if err != nil {
 		return nil, err
 	}
 
-	self.logger.Info("DockerProvider: removing container", id)
+	p.logger.Info("DockerProvider: removing container", id)
 	start := time.Now()
 
-	err = self.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: id})
+	err = p.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: id})
 	if err != nil {
 		return nil, err
 	}
 
-	self.logger.TimeInfo(start, "DockerProvider: removed container", id, "in")
+	p.logger.TimeInfo(start, "DockerProvider: removed container", id, "in")
 
 	containerImage := container.Config.Image
-	self.logger.Info("DockerProvider: removing container image", containerImage)
+	p.logger.Info("DockerProvider: removing container image", containerImage)
 	start = time.Now()
 
-	err = self.client.RemoveImage(containerImage)
+	err = p.client.RemoveImage(containerImage)
 	if err != nil {
 		return nil, err
 	}
 
-	self.logger.TimeInfo(start, "DockerProvider: removed container image", containerImage, "in")
+	p.logger.TimeInfo(start, "DockerProvider: removed container image", containerImage, "in")
 
 	port := portFromContainer(container)
-	self.logger.Info("DockerProvider: releasing port", port)
-	err = self.portPool.Release(port)
+	p.logger.Info("DockerProvider: releasing port", port)
+	err = p.portPool.Release(port)
 	if err != nil {
 		return nil, err
 	}
-	self.logger.Info("DockerProvider: released port", port)
+	p.logger.Info("DockerProvider: released port", port)
 
 	info.Host = ""
 	info.SSHPort = 0
 	info.State = ""
 
-	self.logger.TimeInfo(terminationStart, "DockerProvider: terminated container", id, "in")
+	p.logger.TimeInfo(terminationStart, "DockerProvider: terminated container", id, "in")
 	return info, nil
 }
 
-func (self *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
-	container, err := self.client.InspectContainer(id)
+func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
+	container, err := p.client.InspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
 
-	keys, err := self.readAuthorizedKeys(nameFromContainer(container))
+	keys, err := p.readAuthorizedKeys(nameFromContainer(container))
 	if err != nil {
 		return nil, err
 	}
@@ -245,14 +245,14 @@ func (self *DockerProvider) ListPublicKeys(id string) (map[string]string, error)
 	return keysToKeyMap(keys)
 }
 
-func (self *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
-	container, err := self.client.InspectContainer(id)
+func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
+	container, err := p.client.InspectContainer(id)
 	if err != nil {
 		return err
 	}
 	name := nameFromContainer(container)
 
-	existingKeys, err := self.readAuthorizedKeys(name)
+	existingKeys, err := p.readAuthorizedKeys(name)
 	if err != nil {
 		return err
 	}
@@ -264,17 +264,17 @@ func (self *DockerProvider) AddPublicKeys(id string, publicKeys []string) error 
 	}
 	publicKeys = keyMapToKeys(keymap)
 
-	return self.createAuthorizedKeys(name, publicKeys)
+	return p.createAuthorizedKeys(name, publicKeys)
 }
 
-func (self *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
-	container, err := self.client.InspectContainer(id)
+func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
+	container, err := p.client.InspectContainer(id)
 	if err != nil {
 		return err
 	}
 	name := nameFromContainer(container)
 
-	keys, err := self.readAuthorizedKeys(name)
+	keys, err := p.readAuthorizedKeys(name)
 	if err != nil {
 		return err
 	}
@@ -286,17 +286,17 @@ func (self *DockerProvider) RemovePublicKey(id string, keyFingerprint string) er
 	delete(keymap, keyFingerprint)
 	keys = keyMapToKeys(keymap)
 
-	return self.createAuthorizedKeys(name, keys)
+	return p.createAuthorizedKeys(name, keys)
 }
 
-func (self *DockerProvider) IsNotFoundError(err error) bool {
+func (p *DockerProvider) IsNotFoundError(err error) bool {
 	_, ok := err.(*dockerclient.NoSuchContainer)
 	return ok
 }
 
-func (self *DockerProvider) buildImage(name string, image string) (string, error) {
-	imageName := self.imageNamespace + name
-	self.logger.Info("DockerProvider: building container image", imageName, "with base image", image)
+func (p *DockerProvider) buildImage(name string, image string) (string, error) {
+	imageName := p.imageNamespace + name
+	p.logger.Info("DockerProvider: building container image", imageName, "with base image", image)
 	start := time.Now()
 
 	buf := bytes.NewBuffer(nil)
@@ -318,22 +318,22 @@ func (self *DockerProvider) buildImage(name string, image string) (string, error
 		RmTmpContainer: false,
 	}
 
-	err = self.client.BuildImage(opts)
+	err = p.client.BuildImage(opts)
 	if err != nil {
 		return "", err
 	}
 
-	self.logger.TimeInfo(start, "DockerProvider: built container image", imageName, "in")
+	p.logger.TimeInfo(start, "DockerProvider: built container image", imageName, "in")
 	return imageName, err
 }
 
-func (self *DockerProvider) containerSettingsDir(containerName string) string {
-	return path.Join(self.dataPath, "containers", containerName)
+func (p *DockerProvider) containerSettingsDir(containerName string) string {
+	return path.Join(p.dataPath, "containers", containerName)
 }
 
-func (self *DockerProvider) createAuthorizedKeys(containerName string, publicKeys []string) error {
-	self.logger.Info("DockerProvider: creating SSH authorized keys file for container", containerName, "with", len(publicKeys), "entries")
-	dir := path.Join(self.containerSettingsDir(containerName), "ssh")
+func (p *DockerProvider) createAuthorizedKeys(containerName string, publicKeys []string) error {
+	p.logger.Info("DockerProvider: creating SSH authorized keys file for container", containerName, "with", len(publicKeys), "entries")
+	dir := path.Join(p.containerSettingsDir(containerName), "ssh")
 	err := os.MkdirAll(dir, 0770)
 	if err != nil {
 		return err
@@ -353,12 +353,12 @@ func (self *DockerProvider) createAuthorizedKeys(containerName string, publicKey
 		}
 	}
 
-	self.logger.Info("DockerProvider: created SSH authorized keys file for container", containerName)
+	p.logger.Info("DockerProvider: created SSH authorized keys file for container", containerName)
 	return nil
 }
 
-func (self *DockerProvider) readAuthorizedKeys(containerName string) ([]string, error) {
-	keysFile := path.Join(self.containerSettingsDir(containerName), "ssh", "authorized_keys")
+func (p *DockerProvider) readAuthorizedKeys(containerName string) ([]string, error) {
+	keysFile := path.Join(p.containerSettingsDir(containerName), "ssh", "authorized_keys")
 	bkeys, err := ioutil.ReadFile(keysFile)
 	if err != nil {
 		return nil, err
@@ -366,11 +366,11 @@ func (self *DockerProvider) readAuthorizedKeys(containerName string) ([]string, 
 	return strings.Split(strings.TrimSpace(string(bkeys)), "\n"), nil
 }
 
-func (self *DockerProvider) createContainer(imageName string, containerName string, port uint16) (*dockerclient.Container, error) {
-	self.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
+func (p *DockerProvider) createContainer(imageName string, containerName string, port uint16) (*dockerclient.Container, error) {
+	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
 	start := time.Now()
 
-	container, err := self.client.CreateContainer(dockerclient.CreateContainerOptions{
+	container, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
 		Name: containerName,
 		Config: &dockerclient.Config{
 			Hostname: containerName,
@@ -385,20 +385,20 @@ func (self *DockerProvider) createContainer(imageName string, containerName stri
 	}
 
 	id := container.ID
-	self.logger.TimeInfo(start, "DockerProvider: created container", containerName, id, "in")
-	self.logger.Info("DockerProvider: starting container", containerName)
+	p.logger.TimeInfo(start, "DockerProvider: created container", containerName, id, "in")
+	p.logger.Info("DockerProvider: starting container", containerName)
 	start = time.Now()
 
-	err = self.client.StartContainer(id, &dockerclient.HostConfig{
+	err = p.client.StartContainer(id, &dockerclient.HostConfig{
 		Binds: []string{
-			(self.containerSettingsDir(containerName) + "/ssh:/etc/ssh/freighter:ro"),
+			(p.containerSettingsDir(containerName) + "/ssh:/etc/ssh/freighter:ro"),
 		},
 		PortBindings: map[dockerclient.Port][]dockerclient.PortBinding{
 			"22/tcp": {{HostPort: strconv.Itoa(int(port))}},
 		},
 	})
 
-	self.logger.TimeInfo(start, "DockerProvider: started container", containerName, id, "in")
+	p.logger.TimeInfo(start, "DockerProvider: started container", containerName, id, "in")
 	return container, err
 }
 

@@ -26,35 +26,35 @@ func NewServer(logger *util.Logger, provider provider.Provider, callback Callbac
 	return svr
 }
 
-func (self *Server) Start(host string, port uint16) {
-	http.Handle("/", self.router)
+func (s *Server) Start(host string, port uint16) {
+	http.Handle("/", s.router)
 	svr := &http.Server{Addr: fmt.Sprintf("%s:%d", host, port)}
 	err := svr.ListenAndServe()
-	self.logger.FatalExit(err)
+	s.logger.FatalExit(err)
 }
 
-func (self *Server) Router() *mux.Router {
-	return self.router
+func (s *Server) Router() *mux.Router {
+	return s.router
 }
 
-func (self *Server) route(route string, handler http.HandlerFunc, methods ...string) {
+func (s *Server) route(route string, handler http.HandlerFunc, methods ...string) {
 	h := func(w http.ResponseWriter, r *http.Request) {
-		self.logger.Infof("Request: %v %v", r.Method, r.URL.String())
+		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
 		handler(w, r)
 	}
-	self.router.HandleFunc(route, h).Methods(methods...)
+	s.router.HandleFunc(route, h).Methods(methods...)
 }
 
-func (self *Server) drawRoutes() {
-	self.route("/", self.home, "GET")
-	self.route("/containers", self.listContainers, "GET")
-	self.route("/containers", self.createContainer, "POST")
-	self.route("/containers/{id}", self.getContainerInfo, "GET")
-	self.route("/containers/{id}", self.terminateContainer, "DELETE")
-	self.route("/containers/{id}/start", self.startContainer, "POST")
-	self.route("/containers/{id}/stop", self.stopContainer, "POST")
-	self.route("/containers/{id}/restart", self.restartContainer, "POST")
-	self.route("/containers/{id}/public_keys", self.listPublicKeys, "GET")
-	self.route("/containers/{id}/public_keys", self.addPublicKeys, "POST", "PUT")
-	self.route("/containers/{id}/public_keys/{key_fingerprint}", self.removePublicKey, "DELETE")
+func (s *Server) drawRoutes() {
+	s.route("/", s.home, "GET")
+	s.route("/containers", s.listContainers, "GET")
+	s.route("/containers", s.createContainer, "POST")
+	s.route("/containers/{id}", s.getContainerInfo, "GET")
+	s.route("/containers/{id}", s.terminateContainer, "DELETE")
+	s.route("/containers/{id}/start", s.startContainer, "POST")
+	s.route("/containers/{id}/stop", s.stopContainer, "POST")
+	s.route("/containers/{id}/restart", s.restartContainer, "POST")
+	s.route("/containers/{id}/public_keys", s.listPublicKeys, "GET")
+	s.route("/containers/{id}/public_keys", s.addPublicKeys, "POST", "PUT")
+	s.route("/containers/{id}/public_keys/{key_fingerprint}", s.removePublicKey, "DELETE")
 }

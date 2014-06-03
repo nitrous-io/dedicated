@@ -21,15 +21,15 @@ func NewPortPool(store *datastore.Datastore) *PortPool {
 	return &PortPool{store: store}
 }
 
-func (self *PortPool) Acquire() (uint16, error) {
+func (p *PortPool) Acquire() (uint16, error) {
 	mutex.Lock()
 	var port uint16
-	kv, err := self.store.FindOneWhere("port:%", "0")
+	kv, err := p.store.FindOneWhere("port:%", "0")
 	if err == nil {
 		if kv == nil {
 			err = ErrNoFreePort
 		} else {
-			err = self.store.Set(kv.Key, "1")
+			err = p.store.Set(kv.Key, "1")
 			if err == nil {
 				fmt.Sscanf(kv.Key, "port:%d", &port)
 			}
@@ -39,7 +39,7 @@ func (self *PortPool) Acquire() (uint16, error) {
 	return port, err
 }
 
-func (self *PortPool) Release(port uint16) error {
-	err := self.store.Update(fmt.Sprintf("port:%v", port), "0")
+func (p *PortPool) Release(port uint16) error {
+	err := p.store.Update(fmt.Sprintf("port:%v", port), "0")
 	return err
 }

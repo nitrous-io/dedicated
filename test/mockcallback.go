@@ -6,8 +6,8 @@ type MockCallback struct {
 	Payload      string
 }
 
-func (self *MockCallback) Invoke(to string, payload string) {
-	self.InvokeCalled = true
-	self.To = to
-	self.Payload = payload
+func (c *MockCallback) Invoke(to string, payload string) {
+	c.InvokeCalled = true
+	c.To = to
+	c.Payload = payload
 }

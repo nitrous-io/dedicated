@@ -21,78 +21,78 @@ const (
 	LogLevelDebug
 )
 
-func (self *Logger) output(level int, tag string, v ...interface{}) {
-	if self.Level >= level {
+func (l *Logger) output(level int, tag string, v ...interface{}) {
+	if l.Level >= level {
 		w := append([]interface{}{tag}, v...)
 		log.Println(w...)
 	}
 }
 
-func (self *Logger) outputf(level int, tag string, format string, v ...interface{}) {
-	if self.Level >= level {
+func (l *Logger) outputf(level int, tag string, format string, v ...interface{}) {
+	if l.Level >= level {
 		log.Printf(fmt.Sprintf("%v %v\n", tag, format), v...)
 	}
 }
 
-func (self *Logger) Debug(v ...interface{}) {
-	self.output(LogLevelDebug, "[DEBUG]", v...)
+func (l *Logger) Debug(v ...interface{}) {
+	l.output(LogLevelDebug, "[DEBUG]", v...)
 }
 
-func (self *Logger) Debugf(format string, v ...interface{}) {
-	self.outputf(LogLevelDebug, "[DEBUG]", format, v...)
+func (l *Logger) Debugf(format string, v ...interface{}) {
+	l.outputf(LogLevelDebug, "[DEBUG]", format, v...)
 }
 
-func (self *Logger) Info(v ...interface{}) {
-	self.output(LogLevelInfo, "[INFO]", v...)
+func (l *Logger) Info(v ...interface{}) {
+	l.output(LogLevelInfo, "[INFO]", v...)
 }
 
-func (self *Logger) Infof(format string, v ...interface{}) {
-	self.outputf(LogLevelInfo, "[INFO]", format, v...)
+func (l *Logger) Infof(format string, v ...interface{}) {
+	l.outputf(LogLevelInfo, "[INFO]", format, v...)
 }
 
-func (self *Logger) Warn(v ...interface{}) {
-	self.output(LogLevelWarn, "[WARN]", v...)
+func (l *Logger) Warn(v ...interface{}) {
+	l.output(LogLevelWarn, "[WARN]", v...)
 }
 
-func (self *Logger) Warnf(format string, v ...interface{}) {
-	self.outputf(LogLevelWarn, "[WARN]", format, v...)
+func (l *Logger) Warnf(format string, v ...interface{}) {
+	l.outputf(LogLevelWarn, "[WARN]", format, v...)
 }
 
-func (self *Logger) Error(v ...interface{}) {
-	self.output(LogLevelError, "[ERROR]", v...)
+func (l *Logger) Error(v ...interface{}) {
+	l.output(LogLevelError, "[ERROR]", v...)
 }
 
-func (self *Logger) Errorf(format string, v ...interface{}) {
-	self.outputf(LogLevelError, "[ERROR]", format, v...)
+func (l *Logger) Errorf(format string, v ...interface{}) {
+	l.outputf(LogLevelError, "[ERROR]", format, v...)
 }
 
-func (self *Logger) Fatal(v ...interface{}) {
-	self.output(LogLevelFatal, "[FATAL]", v...)
+func (l *Logger) Fatal(v ...interface{}) {
+	l.output(LogLevelFatal, "[FATAL]", v...)
 }
 
-func (self *Logger) Fatalf(format string, v ...interface{}) {
-	self.outputf(LogLevelFatal, "[FATAL]", format, v...)
+func (l *Logger) Fatalf(format string, v ...interface{}) {
+	l.outputf(LogLevelFatal, "[FATAL]", format, v...)
 }
 
-func (self *Logger) Unknown(v ...interface{}) {
-	self.output(LogLevelUnknown, "[UNKNOWN]", v...)
+func (l *Logger) Unknown(v ...interface{}) {
+	l.output(LogLevelUnknown, "[UNKNOWN]", v...)
 }
 
-func (self *Logger) Unknownf(format string, v ...interface{}) {
-	self.outputf(LogLevelUnknown, "[UNKNOWN]", format, v...)
+func (l *Logger) Unknownf(format string, v ...interface{}) {
+	l.outputf(LogLevelUnknown, "[UNKNOWN]", format, v...)
 }
 
-func (self *Logger) FatalExit(v ...interface{}) {
-	self.Fatal(v...)
+func (l *Logger) FatalExit(v ...interface{}) {
+	l.Fatal(v...)
 	os.Exit(1)
 }
 
-func (self *Logger) FatalfExit(format string, v ...interface{}) {
-	self.Fatalf(format, v...)
+func (l *Logger) FatalfExit(format string, v ...interface{}) {
+	l.Fatalf(format, v...)
 	os.Exit(1)
 }
 
-func (self *Logger) TimeInfo(start time.Time, v ...interface{}) {
+func (l *Logger) TimeInfo(start time.Time, v ...interface{}) {
 	elapsed := time.Since(start)
-	self.Info(append(v, elapsed)...)
+	l.Info(append(v, elapsed)...)
 }
