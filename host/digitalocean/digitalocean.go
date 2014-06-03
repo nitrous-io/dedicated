@@ -200,7 +200,7 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
 	privateKey := h.privateKey
 	// check that we can ssh into the server
-	address := fmt.Sprintf("%s:%s", h.instance.IpAddress, "22")
+	address := fmt.Sprintf("%s:%s", h.instance.IpAddress, "65100")
 	sshConn, err := ssh.WaitForSSH(address, "root", privateKey,
 		ssh.TimeWait, make(chan struct{}))
 	if err != nil {
