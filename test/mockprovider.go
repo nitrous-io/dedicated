@@ -68,28 +68,47 @@ func (self *MockProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	return nil, ErrMockProviderContainerNotFound
 }
 
-func (self *MockProvider) Start(id string) error {
+func (self *MockProvider) Start(id string) (*provider.ContainerInfo, error) {
+	info, _ := self.GetInfo(id)
+	if info != nil {
+		info.State = provider.ContainerStateRunning
+	}
 	self.StartCalled = true
 	self.ReceivedId = id
-	return self.StartError
+	return info, self.StartError
 }
 
-func (self *MockProvider) Stop(id string) error {
+func (self *MockProvider) Stop(id string) (*provider.ContainerInfo, error) {
+	info, _ := self.GetInfo(id)
+	if info != nil {
+		info.Host = ""
+		info.State = provider.ContainerStateStopped
+	}
 	self.StopCalled = true
 	self.ReceivedId = id
-	return self.StopError
+	return info, self.StopError
 }
 
-func (self *MockProvider) Restart(id string) error {
+func (self *MockProvider) Restart(id string) (*provider.ContainerInfo, error) {
+	info, _ := self.GetInfo(id)
+	if info != nil {
+		info.State = provider.ContainerStateRunning
+	}
 	self.RestartCalled = true
 	self.ReceivedId = id
-	return self.RestartError
+	return info, self.RestartError
 }
 
-func (self *MockProvider) Terminate(id string) error {
+func (self *MockProvider) Terminate(id string) (*provider.ContainerInfo, error) {
+	info, _ := self.GetInfo(id)
+	if info != nil {
+		info.Host = ""
+		info.SSHPort = 0
+		info.State = ""
+	}
 	self.TerminateCalled = true
 	self.ReceivedId = id
-	return self.TerminateError
+	return info, self.TerminateError
 }
 
 func (self *MockProvider) ListPublicKeys(id string) (map[string]string, error) {

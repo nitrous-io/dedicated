@@ -104,59 +104,87 @@ func (self *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) 
 	}
 
 	return &provider.ContainerInfo{
-		Id:    container.ID,
-		Name:  nameFromContainer(container),
-		Image: container.Config.Image,
-		Port:  portFromContainer(container),
-		State: stateFromContainer(container),
+		Id:      container.ID,
+		Name:    nameFromContainer(container),
+		Image:   container.Config.Image,
+		Host:    container.NetworkSettings.IPAddress,
+		SSHPort: portFromContainer(container),
+		State:   stateFromContainer(container),
 	}, nil
 }
 
-func (self *DockerProvider) Start(id string) error {
+func (self *DockerProvider) Start(id string) (*provider.ContainerInfo, error) {
 	container, err := self.client.InspectContainer(id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if container.State.Running {
-		return nil
+	if !container.State.Running {
+		err = self.client.StartContainer(id, container.HostConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return self.client.StartContainer(id, container.HostConfig)
+	return self.GetInfo(id)
 }
 
-func (self *DockerProvider) Stop(id string) error {
-	return self.client.StopContainer(id, 15)
+func (self *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
+	err := self.client.StopContainer(id, 15)
+	if err != nil {
+		return nil, err
+	}
+
+	return self.GetInfo(id)
 }
 
-func (self *DockerProvider) Restart(id string) error {
-	return self.client.RestartContainer(id, 15)
+func (self *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
+	err := self.client.RestartContainer(id, 15)
+	if err != nil {
+		return nil, err
+	}
+
+	return self.GetInfo(id)
 }
 
-func (self *DockerProvider) Terminate(id string) error {
+func (self *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 	container, err := self.client.InspectContainer(id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if container.State.Running {
 		err = self.client.StopContainer(id, 15)
 		if err != nil {
-			return err
+			return nil, err
 		}
+	}
+
+	info, err := self.GetInfo(id)
+	if err != nil {
+		return nil, err
 	}
 
 	err = self.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: id})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = self.client.RemoveImage(container.Config.Image)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return self.portPool.Release(portFromContainer(container))
+	err = self.portPool.Release(portFromContainer(container))
+	if err != nil {
+		return nil, err
+	}
+
+	info.Host = ""
+	info.SSHPort = 0
+	info.State = ""
+
+	return info, nil
 }
 
 func (self *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {

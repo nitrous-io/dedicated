@@ -26,7 +26,7 @@ Content-Type: application/json; charset=utf-8
       "name": "foobar",
       "image": "freighter.foobar",
       "host": "1.2.3.4",
-      "port": 10000,
+      "ssh_port": 10000,
       "state": "running"
     },
     {
@@ -34,7 +34,7 @@ Content-Type: application/json; charset=utf-8
       "name": "bar",
       "image": "freighter.bar",
       "host": "1.2.3.5",
-      "port": 10001,
+      "ssh_port": 10001,
       "state": "stopped"
     }
   ]
@@ -90,7 +90,7 @@ Content-Type: application/json; charset=utf-8
     "name": "foobar",
     "image": "freighter.foobar",
     "host": "1.2.3.4",
-    "port": 10000,
+    "ssh_port": 10000,
     "state": "running"
   },
   "state": "xyz"
@@ -125,7 +125,7 @@ Content-Type: application/json; charset=utf-8
     "name":"foobar",
     "image":"freighter.foobar",
     "host":"1.2.3.4",
-    "port":60003,
+    "ssh_port":60003,
     "state":"running"
   }
 }
@@ -171,7 +171,18 @@ Content-Type: application/json; charset=utf-8
 **Example callback (success)**:
 
 ```javascript
-{ "result": "started", "container_id": "2cf1503ed6a0", "state": "xyz" }
+{
+  "result": "started",
+  "container": {
+    "id": "2cf1503ed6a0",
+    "name": "foobar",
+    "image": "freighter.foobar",
+    "host": "1.2.3.4",
+    "ssh_port": 10000,
+    "state": "running"
+  },
+  "state": "xyz"
+}
 ```
 
 **Example callback (failure)**:
@@ -215,7 +226,18 @@ Content-Type: application/json; charset=utf-8
 **Example callback (success)**:
 
 ```javascript
-{ "result": "stopped", "container_id": "2cf1503ed6a0", "state": "xyz" }
+{
+  "result": "stopped",
+  "container": {
+    "id": "2cf1503ed6a0",
+    "name": "foobar",
+    "image": "freighter.foobar",
+    "host": "",
+    "ssh_port": 10000,
+    "state": "stopped"
+  },
+  "state": "xyz"
+}
 ```
 
 **Example callback (failure)**:
@@ -259,7 +281,18 @@ Content-Type: application/json; charset=utf-8
 **Example callback (success)**:
 
 ```javascript
-{ "result": "restarted", "container_id": "2cf1503ed6a0", "state": "xyz" }
+{
+  "result": "restarted",
+  "container": {
+    "id": "2cf1503ed6a0",
+    "name": "foobar",
+    "image": "freighter.foobar",
+    "host": "1.2.3.4",
+    "ssh_port": 10000,
+    "state": "running"
+  },
+  "state": "xyz"
+}
 ```
 
 **Example callback (failure)**:
@@ -300,7 +333,13 @@ Content-Type: application/json; charset=utf-8
 **Example callback (success)**:
 
 ```javascript
-{ "result": "terminated", "container_id": "2cf1503ed6a0", "state": "xyz" }
+{
+  "result": "terminated",
+  "container": {
+    "id":  "2cf1503ed6a0"
+  },
+  "state": "xyz"
+}
 ```
 
 **Example callback (failure)**:

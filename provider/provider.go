@@ -8,10 +8,10 @@ type Provider interface {
 	List() (infoList []*ContainerInfo, err error)
 	Create(name string, image string, publicKeys []string) (info *ContainerInfo, err error)
 	GetInfo(id string) (info *ContainerInfo, err error)
-	Start(id string) (err error)
-	Stop(id string) (err error)
-	Restart(id string) (err error)
-	Terminate(id string) (err error)
+	Start(id string) (info *ContainerInfo, err error)
+	Stop(id string) (info *ContainerInfo, err error)
+	Restart(id string) (info *ContainerInfo, err error)
+	Terminate(id string) (info *ContainerInfo, err error)
 	ListPublicKeys(id string) (publicKeys map[string]string, err error)
 	AddPublicKeys(id string, publicKeys []string) (err error)
 	RemovePublicKey(id string, keyFingerprint string) (err error)
@@ -22,12 +22,12 @@ type Provider interface {
 }
 
 type ContainerInfo struct {
-	Id    string `json:"id"`
-	Name  string `json:"name"`
-	Image string `json:"image"`
-	Host  string `json:"host"`
-	Port  uint16 `json:"port"`
-	State string `json:"state"`
+	Id      string `json:"id"`
+	Name    string `json:"name"`
+	Image   string `json:"image"`
+	Host    string `json:"host"`
+	SSHPort uint16 `json:"ssh_port"`
+	State   string `json:"state"`
 }
 
 const (

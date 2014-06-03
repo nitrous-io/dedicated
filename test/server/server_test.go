@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/provider"
@@ -71,8 +72,8 @@ var _ = Describe("Server", func() {
 		Context("when there exists containers", func() {
 			BeforeEach(func() {
 				prov.Containers = []*provider.ContainerInfo{
-					{Id: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000, State: provider.ContainerStateRunning},
-					{Id: "bbb", Name: "bar", Image: "centos", Host: "1.2.3.5", Port: 10001, State: provider.ContainerStateStopped},
+					{Id: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", SSHPort: 10000, State: provider.ContainerStateRunning},
+					{Id: "bbb", Name: "bar", Image: "centos", Host: "1.2.3.5", SSHPort: 10001, State: provider.ContainerStateStopped},
 				}
 				doRequest()
 			})
@@ -80,8 +81,8 @@ var _ = Describe("Server", func() {
 			It("responds with 200 ok with container info array", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(MatchJSON(`{"containers":[
-				  {"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","port":10000,"state":"running"},
-					{"id":"bbb","name":"bar","image":"centos","host":"1.2.3.5","port":10001,"state":"stopped"}
+				  {"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","ssh_port":10000,"state":"running"},
+					{"id":"bbb","name":"bar","image":"centos","host":"1.2.3.5","ssh_port":10001,"state":"stopped"}
 				]}`))
 			})
 		})
@@ -157,7 +158,7 @@ var _ = Describe("Server", func() {
 
 				Context("returns a container info with no error", func() {
 					BeforeEach(func() {
-						prov.CreateContainerInfo = &provider.ContainerInfo{Id: "aaa", Name: name, Image: "ubuntu", Host: "1.2.3.4", Port: 10000, State: provider.ContainerStateRunning}
+						prov.CreateContainerInfo = &provider.ContainerInfo{Id: "aaa", Name: name, Image: "ubuntu", Host: "1.2.3.4", SSHPort: 10000, State: provider.ContainerStateRunning}
 						doRequest()
 					})
 
@@ -167,7 +168,7 @@ var _ = Describe("Server", func() {
 						Expect(cb.InvokeCalled).To(BeTrue())
 						Expect(cb.To).To(Equal(callbackUrl))
 						Expect(cb.Payload).To(MatchJSON(`{"result":"created", "container":{
-							"id":"aaa","name":"fragrant-wind-69","image":"ubuntu","host":"1.2.3.4","port":10000,"state":"running"
+							"id":"aaa","name":"fragrant-wind-69","image":"ubuntu","host":"1.2.3.4","ssh_port":10000,"state":"running"
 						}, "state": "` + state + `"}`))
 					})
 				})
@@ -216,7 +217,7 @@ var _ = Describe("Server", func() {
 	Describe("GET /containers/:container_id", func() {
 		BeforeEach(func() {
 			prov.Containers = []*provider.ContainerInfo{
-				{Id: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000, State: provider.ContainerStateRunning},
+				{Id: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", SSHPort: 10000, State: provider.ContainerStateRunning},
 			}
 		})
 
@@ -234,7 +235,7 @@ var _ = Describe("Server", func() {
 			It("responds with 200 ok with container information", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(MatchJSON(`{"container":{
-					"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","port":10000,"state":"running"
+					"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","ssh_port":10000,"state":"running"
 				}}`))
 			})
 		})
@@ -253,33 +254,31 @@ var _ = Describe("Server", func() {
 
 	Describe("Container Control", func() {
 		var (
-			provFuncCalled *bool
-			provFuncError  *error
-			successStatus  string
-			doRequest      func(string)
-			params         *url.Values
+			provFuncCalled   *bool
+			provFuncError    *error
+			expectedResponse string
+			doRequest        func(string)
+			id               = "aaa"
+			name             = "foobar"
+			image            = "ubuntu"
+			host             = "1.2.3.4"
+			sshPort          = uint16(10000)
+			callbackUrl      = "http://www.example.com/cb"
+			state            string
+			params           *url.Values
 		)
 
+		BeforeEach(func() {
+			prov.Containers = []*provider.ContainerInfo{
+				{Id: id, Name: name, Image: image, Host: host, SSHPort: sshPort},
+			}
+			params = &url.Values{}
+			params.Set("callback_url", callbackUrl)
+			state = RandomName("state")
+			params.Set("state", state)
+		})
+
 		itWorks := func() {
-			var (
-				id          string
-				callbackUrl string
-				state       string
-			)
-
-			BeforeEach(func() {
-				id = "aaa"
-				callbackUrl = "http://www.example.com/cb"
-				params = &url.Values{}
-				params.Set("callback_url", callbackUrl)
-				state = RandomName("state")
-				params.Set("state", state)
-
-				prov.Containers = []*provider.ContainerInfo{
-					{Id: id, Name: "foo", Image: "ubuntu", Host: "1.2.3.4", Port: 10000},
-				}
-			})
-
 			Context("when container by the given id exists", func() {
 				It("responds with 202 accepted immediately", func() {
 					doRequest(id)
@@ -321,7 +320,7 @@ var _ = Describe("Server", func() {
 							Wait()
 							Expect(cb.InvokeCalled).To(BeTrue())
 							Expect(cb.To).To(Equal(callbackUrl))
-							Expect(cb.Payload).To(MatchJSON(fmt.Sprintf(`{"result":"%v", "container_id":"aaa", "state":"`+state+`"}`, successStatus)))
+							Expect(cb.Payload).To(MatchJSON(expectedResponse))
 						})
 					})
 				})
@@ -343,7 +342,18 @@ var _ = Describe("Server", func() {
 			BeforeEach(func() {
 				provFuncCalled = &prov.TerminateCalled
 				provFuncError = &prov.TerminateError
-				successStatus = "terminated"
+				expectedResponse = `{
+					"result": "terminated",
+					"container": {
+						"id": "` + id + `",
+						"name": "` + name + `",
+						"image": "` + image + `",
+						"host": "",
+						"ssh_port": 0,
+						"state": ""
+					},
+					"state": "` + state + `"
+				}`
 
 				doRequest = func(id string) {
 					req, err = NewRequest("DELETE", fmt.Sprintf("/containers/%v", id), params)
@@ -359,7 +369,18 @@ var _ = Describe("Server", func() {
 			BeforeEach(func() {
 				provFuncCalled = &prov.StartCalled
 				provFuncError = &prov.StartError
-				successStatus = "started"
+				expectedResponse = `{
+					"result": "started",
+					"container": {
+						"id": "` + id + `",
+						"name": "` + name + `",
+						"image": "` + image + `",
+						"host": "` + host + `",
+						"ssh_port": ` + strconv.Itoa(int(sshPort)) + `,
+						"state": "running"
+					},
+					"state": "` + state + `"
+				}`
 
 				doRequest = func(id string) {
 					req, err = NewFormRequest("POST", fmt.Sprintf("/containers/%v/start", id), params)
@@ -375,7 +396,18 @@ var _ = Describe("Server", func() {
 			BeforeEach(func() {
 				provFuncCalled = &prov.StopCalled
 				provFuncError = &prov.StopError
-				successStatus = "stopped"
+				expectedResponse = `{
+					"result": "stopped",
+					"container": {
+						"id": "` + id + `",
+						"name": "` + name + `",
+						"image": "` + image + `",
+						"host": "",
+						"ssh_port": ` + strconv.Itoa(int(sshPort)) + `,
+						"state": "stopped"
+					},
+					"state": "` + state + `"
+				}`
 
 				doRequest = func(id string) {
 					req, err = NewFormRequest("POST", fmt.Sprintf("/containers/%v/stop", id), params)
@@ -391,7 +423,18 @@ var _ = Describe("Server", func() {
 			BeforeEach(func() {
 				provFuncCalled = &prov.RestartCalled
 				provFuncError = &prov.RestartError
-				successStatus = "restarted"
+				expectedResponse = `{
+					"result": "restarted",
+					"container": {
+						"id": "` + id + `",
+						"name": "` + name + `",
+						"image": "` + image + `",
+						"host": "` + host + `",
+						"ssh_port": ` + strconv.Itoa(int(sshPort)) + `,
+						"state": "running"
+					},
+					"state": "` + state + `"
+				}`
 
 				doRequest = func(id string) {
 					req, err = NewFormRequest("POST", fmt.Sprintf("/containers/%v/restart", id), params)

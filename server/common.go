@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/freighter/provider"
 )
 
 var (
@@ -49,7 +50,7 @@ func (self *Server) respondWith500(w http.ResponseWriter, errMsg string) {
 	self.respond(w, http.StatusInternalServerError, []byte(j))
 }
 
-func (self *Server) performContainerControl(w http.ResponseWriter, r *http.Request, controlFunc func(string) error, successStatus string) {
+func (self *Server) performContainerControl(w http.ResponseWriter, r *http.Request, controlFunc func(string) (*provider.ContainerInfo, error), successStatus string) {
 	id := mux.Vars(r)["id"]
 	callbackUrl := r.FormValue("callback_url")
 	state := r.FormValue("state")
@@ -61,10 +62,11 @@ func (self *Server) performContainerControl(w http.ResponseWriter, r *http.Reque
 	}
 
 	go func() {
-		err := controlFunc(id)
+		info, err := controlFunc(id)
+
 		self.invokeCallback(callbackUrl, state, map[string]interface{}{
-			"result":       successStatus,
-			"container_id": id,
+			"result":    successStatus,
+			"container": info,
 		}, err)
 	}()
 
