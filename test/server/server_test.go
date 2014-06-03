@@ -33,7 +33,8 @@ var _ = Describe("Server", func() {
 	BeforeEach(func() {
 		prov = &MockProvider{}
 		cb = &MockCallback{}
-		svr = server.NewServer(&util.Logger{Level: util.LogLevelQuiet}, prov, cb)
+		logger := &util.Logger{Level: util.LogLevelQuiet}
+		svr = server.NewServer(logger, prov, cb)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 	})

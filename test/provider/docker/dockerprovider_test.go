@@ -38,7 +38,8 @@ var _ = Describe("DockerProvider", func() {
 
 		datadir, err := TempDir()
 		Expect(err).To(BeNil())
-		prov, err = docker.NewDockerProvider(store, datadir, namespace)
+		logger := &util.Logger{Level: util.LogLevelQuiet}
+		prov, err = docker.NewDockerProvider(logger, store, datadir, namespace)
 		Expect(err).To(BeNil())
 	})
 
