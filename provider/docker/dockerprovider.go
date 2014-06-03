@@ -107,7 +107,7 @@ func (p *DockerProvider) Create(name string, image string, publicKeys []string) 
 }
 
 func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
-	container, err := p.client.InspectContainer(id)
+	container, err := p.inspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 }
 
 func (p *DockerProvider) Start(id string) (*provider.ContainerInfo, error) {
-	container, err := p.client.InspectContainer(id)
+	container, err := p.inspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (p *DockerProvider) Start(id string) (*provider.ContainerInfo, error) {
 }
 
 func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
-	container, err := p.client.InspectContainer(id)
+	container, err := p.inspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 }
 
 func (p *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
-	_, err := p.client.InspectContainer(id)
+	_, err := p.inspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func (p *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
 }
 
 func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
-	container, err := p.client.InspectContainer(id)
+	container, err := p.inspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 }
 
 func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
-	container, err := p.client.InspectContainer(id)
+	container, err := p.inspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +246,7 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 }
 
 func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
-	container, err := p.client.InspectContainer(id)
+	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
 	}
@@ -268,7 +268,7 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 }
 
 func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
-	container, err := p.client.InspectContainer(id)
+	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
 	}
@@ -400,6 +400,18 @@ func (p *DockerProvider) createContainer(imageName string, containerName string,
 
 	p.logger.TimeInfo(start, "DockerProvider: started container", containerName, id, "in")
 	return container, err
+}
+
+func (p *DockerProvider) inspectContainer(id string) (*dockerclient.Container, error) {
+	// returns container only if container is created by freighter
+	container, err := p.client.InspectContainer(id)
+	if err != nil {
+		return nil, err
+	}
+	if !strings.HasPrefix(container.Config.Image, p.imageNamespace) {
+		return nil, &dockerclient.NoSuchContainer{ID: id}
+	}
+	return container, nil
 }
 
 func nameFromContainer(container *dockerclient.Container) string {

@@ -70,7 +70,7 @@ Content-Type: application/json; charset=utf-8
 **POST Params**:
 
 - **name** - container name (a-z, 0-9, and hyphen(-), can't start with hyphen or digits, can't end with hyphen.)
-- **image** - image to use
+- **image** - base image to use
 - **public\_key[]** - _(optional)_ ssh pub keys to add
 - **callback\_url** - _(optional)_ callback url to which freighter will POST result data
 - **state** - _(optional)_ an opaque value used by the client to maintain state between the request and callback. If given, freighter will include this value in the callback

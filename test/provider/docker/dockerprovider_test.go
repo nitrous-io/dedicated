@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/freighter/datastore"
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/provider/docker"
@@ -111,62 +112,94 @@ var _ = Describe("DockerProvider", func() {
 		})
 
 		Context("after container is created", func() {
-			Describe(".List()", func() {
+			Describe("Inspecting", func() {
 				var (
-					container2name string
-					container2info *provider.ContainerInfo
+					container2Name string
+					container2Info *provider.ContainerInfo
+
+					foreignContainerName string
+					foreignContainerID   string
 				)
 
 				BeforeEach(func() {
-					container2name = RandomName("freightertest2")
+					container2Name = RandomName("freightertest2")
+					foreignContainerName = RandomName("freightertest-foreign")
+
 					// shut down first container
 					err := exec.Command("docker", "stop", id).Run()
 					Expect(err).To(BeNil())
 
 					// create another container
-					container2info, err = prov.Create(container2name, "ubuntu-upstart:trusty", []string{})
+					container2Info, err = prov.Create(container2Name, "ubuntu-upstart:trusty", []string{})
 					Expect(err).To(BeNil())
+
+					// create a container not managed by freighter
+					out, err := exec.Command("docker", "run", "-d", "-i", "-t", "--name", foreignContainerName, "ubuntu-upstart:trusty", "/bin/bash").CombinedOutput()
+					Expect(err).To(BeNil())
+					foreignContainerID = strings.TrimSpace(string(out))
 				})
 
 				AfterEach(func() {
-					cleanUpContainer(container2name)
+					cleanUpContainer(container2Name)
+					cleanUpContainer(foreignContainerName)
 				})
 
-				It("returns a list of all containers, running or stopped", func() {
-					list, err := prov.List()
-					Expect(err).To(BeNil())
+				Describe(".List()", func() {
+					It("returns a list of all containers managed by freighter, running or stopped", func() {
+						list, err := prov.List()
+						Expect(err).To(BeNil())
 
-					Expect(list).To(HaveLen(2))
-					Expect(list).To(ContainElement(&provider.ContainerInfo{
-						ID:      id,
-						Name:    name,
-						Image:   namespace + "." + name,
-						Host:    "",
-						SSHPort: uint16(65001),
-						State:   provider.ContainerStateStopped,
-					}))
+						Expect(list).To(HaveLen(2))
+						Expect(list).To(ContainElement(&provider.ContainerInfo{
+							ID:      id,
+							Name:    name,
+							Image:   namespace + "." + name,
+							Host:    "",
+							SSHPort: uint16(65001),
+							State:   provider.ContainerStateStopped,
+						}))
 
-					Expect(list).To(ContainElement(&provider.ContainerInfo{
-						ID:      container2info.ID,
-						Name:    container2name,
-						Host:    container2info.Host,
-						Image:   namespace + "." + container2name,
-						SSHPort: uint16(65002),
-						State:   provider.ContainerStateRunning,
-					}))
+						Expect(list).To(ContainElement(&provider.ContainerInfo{
+							ID:      container2Info.ID,
+							Name:    container2Name,
+							Host:    container2Info.Host,
+							Image:   namespace + "." + container2Name,
+							SSHPort: uint16(65002),
+							State:   provider.ContainerStateRunning,
+						}))
+					})
 				})
-			})
 
-			Describe(".GetInfo()", func() {
-				It("returns container info", func() {
-					info, err := prov.GetInfo(id)
-					Expect(err).To(BeNil())
-					Expect(info.ID).To(Equal(id))
-					Expect(info.Name).To(Equal(name))
-					Expect(info.Image).To(Equal(namespace + "." + name))
-					Expect(info.Host).To(Equal(host))
-					Expect(info.SSHPort).To(Equal(uint16(65001)))
-					Expect(info.State).To(Equal(provider.ContainerStateRunning))
+				Describe(".GetInfo()", func() {
+					Context("if a container with a given id is managed by freighter", func() {
+						It("returns container info", func() {
+							info, err := prov.GetInfo(id)
+							Expect(err).To(BeNil())
+							Expect(info.ID).To(Equal(id))
+							Expect(info.Name).To(Equal(name))
+							Expect(info.Image).To(Equal(namespace + "." + name))
+							Expect(info.Host).To(Equal(""))
+							Expect(info.SSHPort).To(Equal(uint16(65001)))
+							Expect(info.State).To(Equal(provider.ContainerStateStopped))
+
+							info, err = prov.GetInfo(container2Info.ID)
+							Expect(err).To(BeNil())
+							Expect(info.ID).To(Equal(container2Info.ID))
+							Expect(info.Name).To(Equal(container2Name))
+							Expect(info.Image).To(Equal(namespace + "." + container2Name))
+							Expect(info.Host).To(Equal(container2Info.Host))
+							Expect(info.SSHPort).To(Equal(uint16(65002)))
+							Expect(info.State).To(Equal(provider.ContainerStateRunning))
+						})
+					})
+
+					Context("if a container with a given id is not managed by freighter", func() {
+						It("returns no such container error", func() {
+							info, err := prov.GetInfo(foreignContainerID)
+							Expect(err).To(MatchError(&dockerclient.NoSuchContainer{ID: foreignContainerID}))
+							Expect(info).To(BeNil())
+						})
+					})
 				})
 			})
 
