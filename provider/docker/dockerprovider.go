@@ -315,7 +315,7 @@ func (p *DockerProvider) buildImage(name string, image string) (string, error) {
 		Name:           imageName,
 		InputStream:    inputbuf,
 		OutputStream:   outputbuf,
-		RmTmpContainer: false,
+		RmTmpContainer: true,
 	}
 
 	err = p.client.BuildImage(opts)
