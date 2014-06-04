@@ -9,6 +9,9 @@ VERSION=$(BASE_VERSION)-$(REVISION)
 
 all: build
 
+install-deps:
+	@script/install-deps
+
 build:
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
 	@script/build $(VERSION)
@@ -35,6 +38,4 @@ run: build
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
 	@build/$(BIN_NAME)
 
-.PHONY: all build format test run
-
-all: build
+.PHONY: all install-deps build format test run
