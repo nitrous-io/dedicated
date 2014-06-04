@@ -204,6 +204,14 @@ func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 
 	p.logger.TimeInfo(start, "DockerProvider: removed container", id, "in")
 
+	port := portFromContainer(container)
+	p.logger.Info("DockerProvider: releasing port", port)
+	err = p.portPool.Release(port)
+	if err != nil {
+		return nil, err
+	}
+	p.logger.Info("DockerProvider: released port", port)
+
 	containerImage := container.Config.Image
 	p.logger.Info("DockerProvider: removing container image", containerImage)
 	start = time.Now()
@@ -214,14 +222,6 @@ func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 	}
 
 	p.logger.TimeInfo(start, "DockerProvider: removed container image", containerImage, "in")
-
-	port := portFromContainer(container)
-	p.logger.Info("DockerProvider: releasing port", port)
-	err = p.portPool.Release(port)
-	if err != nil {
-		return nil, err
-	}
-	p.logger.Info("DockerProvider: released port", port)
 
 	info.Host = ""
 	info.SSHPort = 0
