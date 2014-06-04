@@ -94,6 +94,12 @@ func (p *DockerProvider) Create(name string, image string, publicKeys []string) 
 
 	container, err := p.createContainer(imageName, name, port)
 	if err != nil {
+		// A HTTP 409 Conflict from the Docker API usually means the container
+		// already exists.
+		if dcErr, ok := err.(*dockerclient.Error); ok && dcErr.Status == 409 {
+			return nil, err
+		}
+
 		p.logger.Info("DockerProvider: releasing port", port)
 		errr := p.portPool.Release(port)
 		if errr != nil {
@@ -382,7 +388,9 @@ func (p *DockerProvider) createContainer(imageName string, containerName string,
 			},
 		},
 	})
+
 	if err != nil {
+		p.logger.Warnf("DockerProvider: can't create container %s: %v", containerName, err)
 		return container, err
 	}
 
