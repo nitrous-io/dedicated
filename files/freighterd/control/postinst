@@ -1,0 +1,37 @@
+#!/bin/sh
+set -e
+
+if [ "$1" != "configure" ]; then
+  exit 0
+fi
+
+# symlink /etc/default/docker to /etc/default/docker.io
+if [ ! -h "/etc/default/docker.io" ]; then
+  if [ -f "/etc/default/docker.io" ]; then
+    mv /etc/default/docker.io /etc/default/docker.io.disabled
+  fi
+  ln -s /etc/default/freighter-docker /etc/default/docker.io
+fi
+
+if [ ! -h "/etc/default/docker" ]; then
+  if [ -f "/etc/default/docker" ]; then
+    mv /etc/default/docker /etc/default/docker.disabled
+  fi
+  ln -s /etc/default/freighter-docker /etc/default/docker
+fi
+
+if [ -x "/etc/init/docker.io.conf" ]; then
+  if [ -f "/var/run/docker.pid" ]; then
+    service docker.io restart || echo "docker.io restart failed"
+  else
+    service docker.io start || echo "docker.io start failed"
+  fi
+fi
+
+if [ -x "/etc/init/freighterd.conf" ]; then
+  if [ -f "/var/run/freighterd.pid" ]; then
+    service freighterd restart || echo "freighterd restart failed"
+  else
+    service freighterd start || echo "freighterd start failed"
+  fi
+fi

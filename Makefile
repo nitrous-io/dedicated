@@ -13,12 +13,23 @@ build:
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
 	@script/build $(VERSION)
 
+release:
+	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
+	@./script/run-build $(VERSION)
+	@echo "$(OK_COLOR)==> Releasing revision $(VERSION)...$(NO_COLOR)"
+	@./script/run-release $(VERSION)
+.PHONY: release
+
 format:
 	go fmt ./...
 
 test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
 	@script/test
+
+citest:
+	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
+	@script/run-test
 
 run: build
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
