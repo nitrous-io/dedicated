@@ -19,6 +19,7 @@ func main() {
 	flDataPath := flag.String("d", "/var/lib/freighter", "Specify the path to store freighter's data files")
 	flPort := flag.Int("p", 65333, "Specify the port on which freighterd listens for connections")
 	flVersion := flag.Bool("v", false, "Display the version and exit")
+	flInit := flag.Bool("z", false, "Initialize datastore and exit")
 	flag.Parse()
 
 	if *flVersion {
@@ -59,9 +60,14 @@ func main() {
 		logger.FatalExit(err)
 	}
 
-	store, err := datastore.NewSqliteDatastore(path.Join(*flDataPath, "freighter.sqlite3"))
+	dbfile := path.Join(*flDataPath, "freighter.sqlite3")
+	store, err := datastore.NewSqliteDatastore(dbfile)
 	if err != nil {
 		logger.FatalExit(err)
+	}
+	if *flInit {
+		fmt.Printf("freighterd: initalized %v\n", dbfile)
+		os.Exit(0)
 	}
 
 	prov, err := docker.NewDockerProvider(logger, store, *flDataPath, "freighter")

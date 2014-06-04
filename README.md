@@ -3,12 +3,16 @@ freighter
 
 ## Development
 
-* Use a VM with Ubuntu.
-* Install Docker. Validate it works with a `sudo docker pull ubuntu-upstart:trusty`.
-* Install sqlite3: `sudo apt-get install sqlite3`.
-* Seed the sqlite database: `sudo script/dbseed`.
-* Build freighter: `make build`.
-* Run freighter with sudo: `sudo make run`.
+* `vagrant up` using the bundled `Vagrantfile`
+* Run `script/run-shell` to start a shell in Docker
+
+**In Docker shell:**
+* Run `script/setup`
+* Run `make test` to run tests
+* Run `make run` to run server
+
+* freighter folder is bind-mounted inside the docker container, so you
+  can make edits outside, and run tests inside.
 
 ## REST API
 

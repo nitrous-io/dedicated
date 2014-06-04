@@ -1,2 +1,2 @@
 #!/bin/bash
-docker build -t registry.nitrous.io/freighter .
+docker build -t registry.nitrous.io/freighter ./docker

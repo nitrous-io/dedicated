@@ -1,0 +1,94 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+VAGRANTFILE_API_VERSION = '2'
+
+$script = <<SCRIPT
+if [[ ! -e /etc/ssh/.ssh_regen_done ]]; then
+  echo "#{File.read "#{Dir.home}/.ssh/id_rsa.pub"}" > /home/vagrant/.ssh/authorized_keys
+  chown -R vagrant:vagrant /home/vagrant/.ssh
+  sed -ri 's|#PasswordAuthentication yes|PasswordAuthentication no|' /etc/ssh/sshd_config
+  rm -rf /etc/ssh/ssh_host_*
+  ssh-keygen -A
+  mkdir /home/vagrant/.ssh
+  chmod 0700 /home/vagrant/.ssh
+  ssh-keygen -b 2048 -t rsa -C 'vagrant@freighter' -f /home/vagrant/.ssh/id_rsa -N ''
+  chown -R vagrant:vagrant /home/vagrant/.ssh
+  service ssh restart
+  touch /etc/ssh/.ssh_regen_done
+fi
+
+export VAGRANT_HOME=/home/vagrant
+export GOPATH=$VAGRANT_HOME/go
+export GOROOT=/usr/local/opt/go
+
+apt-get install -yy --no-install-recommends lxc build-essential curl git-core mercurial docker.io sqlite3
+
+install_go() {
+  echo "Installing Go..."
+  mkdir -p $GOROOT
+  curl -s https://storage.googleapis.com/golang/go1.2.2.linux-amd64.tar.gz | tar -v -C /usr/local/opt -xz
+}
+
+if [[ ! -e $GOROOT/bin/go ]]; then
+  install_go
+  echo "export GOPATH=$GOPATH" >> /etc/profile
+  echo "export GOROOT=$GOROOT" >> /etc/profile
+  echo "export PATH=$GOPATH/bin:$GOROOT/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin" >> /etc/profile
+else
+  if [[ ! $(go version | grep go1.2) ]]; then
+    install_go
+    rm -rf $GOPATH/pkg $GOPATH/bin
+  fi
+fi
+
+if [ ! -h $VAGRANT_HOME/freighter ]; then
+  ln -fs /vagrant $VAGRANT_HOME/freighter
+fi
+
+if [ ! -h /usr/local/bin/docker ]; then
+  ln -fs /usr/bin/docker.io /usr/local/bin/docker
+fi
+
+cat > /etc/default/docker.io <<EOF
+#Docker Upstart and SysVinit configuration file
+
+# Customize location of Docker binary (especially for development testing).
+#DOCKER="/usr/local/bin/docker"
+
+# Use DOCKER_OPTS to modify the daemon startup options.
+DOCKER_OPTS="-dns 8.8.8.8 -dns 8.8.4.4 -e lxc"
+
+# If you need Docker to use an HTTP proxy, it can also be specified here.
+#export http_proxy="http://127.0.0.1:3128/"
+
+# This is also a handy place to tweak where Docker's temporary files go.
+#export TMPDIR="/mnt/bigdrive/docker-tmp"
+EOF
+service docker.io restart
+
+adduser vagrant docker
+SCRIPT
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.hostname = 'freighter'
+  config.vm.box = 'petejkim/trusty64'
+
+  config.vm.provider :virtualbox do |v|
+    v.memory = 2048
+    v.cpus   = 2
+    v.customize ['modifyvm', :id, '--natdnshostresolver1', 'on']
+    v.customize ['modifyvm', :id, '--natdnsproxy1', 'on']
+  end
+
+  config.vm.provider 'vmware_fusion' do |v|
+    v.gui = true
+    v.vmx['memsize'] = '2048'
+    v.vmx['numvcpus'] = '2'
+  end
+
+  config.ssh.shell = "bash -c 'BASH_ENV=/etc/profile exec bash'" # avoids 'stdin: is not a tty' error.
+  config.ssh.forward_agent = true
+  config.ssh.private_key_path = %w(~/.ssh/id_rsa ~/.vagrant.d/insecure_private_key)
+  config.vm.provision 'shell', inline: $script
+end

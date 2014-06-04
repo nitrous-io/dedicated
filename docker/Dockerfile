@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ruby1.9.1-dev \
   sqlite3 \
   lxc \
-  sudo
+  sudo \
+  tmux
 
 RUN curl -s https://storage.googleapis.com/golang/go1.2.2.linux-amd64.tar.gz \
   | tar -C /usr/local -xz

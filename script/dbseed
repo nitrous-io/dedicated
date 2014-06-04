@@ -8,4 +8,5 @@ until [ $port -gt 60200 ]; do
 	let port+=1
 done
 
+echo "Seeding db..."
 sqlite3 $SQLFILE "$sql"
