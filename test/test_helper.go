@@ -42,7 +42,7 @@ func TempFile(extension string) string {
 
 func TempDir() (string, error) {
 	dir := path.Join(os.TempDir(), RandomName("freightertest"))
-	err := os.Mkdir(dir, 0700)
+	err := os.Mkdir(dir, 0755)
 	if err != nil {
 		return "", err
 	}

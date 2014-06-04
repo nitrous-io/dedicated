@@ -36,7 +36,7 @@ func main() {
 
 	_, err := os.Stat(*flDataPath)
 	if err != nil && os.IsNotExist(err) {
-		if err := os.Mkdir(*flDataPath, 0700); err != nil {
+		if err := os.Mkdir(*flDataPath, 0755); err != nil {
 			logger.FatalExit(err)
 		}
 	} else if err != nil {

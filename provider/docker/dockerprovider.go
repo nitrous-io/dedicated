@@ -307,9 +307,9 @@ func (p *DockerProvider) buildImage(name string, image string) (string, error) {
 
 	inputbuf, outputbuf := &bytes.Buffer{}, &bytes.Buffer{}
 	tr := tar.NewWriter(inputbuf)
-	tr.WriteHeader(&tar.Header{Name: "Dockerfile", Size: int64(buf.Len()), ModTime: start, AccessTime: start, ChangeTime: start})
+	tr.WriteHeader(&tar.Header{Name: "Dockerfile", Mode: 0644, Size: int64(buf.Len()), ModTime: start, AccessTime: start, ChangeTime: start})
 	tr.Write(buf.Bytes())
-	tr.WriteHeader(&tar.Header{Name: "sshd_config", Size: int64(len(sshdConfig)), ModTime: start, AccessTime: start, ChangeTime: start})
+	tr.WriteHeader(&tar.Header{Name: "sshd_config", Mode: 0644, Size: int64(len(sshdConfig)), ModTime: start, AccessTime: start, ChangeTime: start})
 	tr.Write(sshdConfig)
 	tr.Close()
 
@@ -336,7 +336,7 @@ func (p *DockerProvider) containerSettingsDir(containerName string) string {
 func (p *DockerProvider) createAuthorizedKeys(containerName string, publicKeys []string) error {
 	p.logger.Info("DockerProvider: creating SSH authorized keys file for container", containerName, "with", len(publicKeys), "entries")
 	dir := path.Join(p.containerSettingsDir(containerName), "ssh")
-	err := os.MkdirAll(dir, 0770)
+	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
 	}
