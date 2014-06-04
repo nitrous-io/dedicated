@@ -12,8 +12,7 @@ random_id = SecureRandom.hex(8)
 
 params = {
   name: "test-box-#{random_id}",
-  #image_id: "3240036", # Ubuntu 14.04 x64
-  image_id: "4121892", # test trusty image
+  image_id: "4185676", # updated image with freighterd and docker
   region_id: "6", # Singapore 1
   size_id: "66", # 512MB
   public_keys: [
