@@ -1,6 +1,15 @@
 freighter
 =========
 
+## Development
+
+* Use a VM with Ubuntu.
+* Install Docker. Validate it works with a `sudo docker pull ubuntu-upstart:trusty`.
+* Install sqlite3: `sudo apt-get install sqlite3`.
+* Seed the sqlite database: `sudo script/dbseed`.
+* Build freighter: `make build`.
+* Run freighter with sudo: `sudo make run`.
+
 ## REST API
 
 ### List containers
