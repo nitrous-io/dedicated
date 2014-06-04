@@ -299,16 +299,18 @@ func (p *DockerProvider) buildImage(name string, image string) (string, error) {
 	p.logger.Info("DockerProvider: building container image", imageName, "with base image", image)
 	start := time.Now()
 
-	buf := bytes.NewBuffer(nil)
+	buf := &bytes.Buffer{}
 	err := dockerfileUbuntu.Execute(buf, &TemplateData{Name: name, Image: image})
 	if err != nil {
 		return "", err
 	}
 
-	inputbuf, outputbuf := bytes.NewBuffer(nil), bytes.NewBuffer(nil)
+	inputbuf, outputbuf := &bytes.Buffer{}, &bytes.Buffer{}
 	tr := tar.NewWriter(inputbuf)
 	tr.WriteHeader(&tar.Header{Name: "Dockerfile", Size: int64(buf.Len()), ModTime: start, AccessTime: start, ChangeTime: start})
 	tr.Write(buf.Bytes())
+	tr.WriteHeader(&tar.Header{Name: "sshd_config", Size: int64(len(sshdConfig)), ModTime: start, AccessTime: start, ChangeTime: start})
+	tr.Write(sshdConfig)
 	tr.Close()
 
 	opts := dockerclient.BuildImageOptions{
