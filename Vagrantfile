@@ -72,7 +72,7 @@ SCRIPT
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.hostname = 'freighter'
-  config.vm.box = 'petejkim/trusty64'
+  config.vm.box = 'nitrous-io/trusty64'
 
   config.vm.provider :virtualbox do |v|
     v.memory = 2048

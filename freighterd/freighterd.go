@@ -23,7 +23,7 @@ func main() {
 	flag.Parse()
 
 	if *flVersion {
-		fmt.Printf("freighterd: current version %v\n", version)
+		fmt.Printf("freighterd version %v\n", version)
 		os.Exit(0)
 	}
 
@@ -66,7 +66,7 @@ func main() {
 		logger.FatalExit(err)
 	}
 	if *flInit {
-		fmt.Printf("freighterd: initalized %v\n", dbfile)
+		fmt.Printf("freighterd: Initialized %v\n", dbfile)
 		os.Exit(0)
 	}
 
