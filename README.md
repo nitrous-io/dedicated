@@ -14,6 +14,11 @@ freighter
 * freighter folder is bind-mounted inside the docker container, so you
   can make edits outside, and run tests inside.
 
+The server can be accessed from your Vagrant VM via `127.0.0.1:65333`, and from
+other Vagrant VMs by the IP address given in the `FREIGHTER_INTERFACE`
+environment variable (passed to Vagrant on `vagrant up`), for example
+`33.33.33.12:65333`.
+
 ## REST API
 
 ### List containers

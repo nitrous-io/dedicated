@@ -10,4 +10,5 @@ docker run \
   --rm=true \
   --volume $(pwd):/opt/src/github.com/nitrous-io/$APP \
   --volume $HOME/.freighterd-cache:/var/lib/docker \
+  --publish 65333:65333 \
   -i -t registry.nitrous.io/$APP script/start-docker exec /bin/bash
