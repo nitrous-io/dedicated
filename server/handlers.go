@@ -32,8 +32,11 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 		publicKeys = []string{}
 	}
 
-	if name == "" || image == "" || !provider.IsValidName(name) {
-		s.respond(w, 422, []byte(`{"error":"invalid params"}`))
+	if name == "" || !provider.IsValidName(name) {
+		s.respond(w, 422, []byte(`{"error":"name is not valid"}`))
+		return
+	} else if image == "" {
+		s.respond(w, 422, []byte(`{"error":"image is not valid"}`))
 		return
 	}
 
@@ -44,7 +47,7 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, c := range list {
 		if c.Name == name {
-			s.respond(w, 422, []byte(`{"error":"invalid params"}`))
+			s.respond(w, 422, []byte(`{"error":"name is already taken"}`))
 			return
 		}
 	}
@@ -110,7 +113,7 @@ func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
 	publicKeys := r.PostForm["public_key[]"]
 
 	if publicKeys == nil {
-		s.respond(w, 422, []byte(`{"error":"invalid params"}`))
+		s.respond(w, 422, []byte(`{"error":"public_key[] is missing"}`))
 		return
 	}
 
