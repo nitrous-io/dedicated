@@ -75,16 +75,16 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = 'nitrous-io/trusty64'
 
   config.vm.provider :virtualbox do |v|
-    v.memory = 2048
-    v.cpus   = 2
+    v.memory = ENV['FREIGHTER_VM_MEM'] || 2048
+    v.cpus   = ENV['FREIGHTER_VM_CPU'] || 2
     v.customize ['modifyvm', :id, '--natdnshostresolver1', 'on']
     v.customize ['modifyvm', :id, '--natdnsproxy1', 'on']
   end
 
   config.vm.provider 'vmware_fusion' do |v|
     v.gui = true
-    v.vmx['memsize'] = '2048'
-    v.vmx['numvcpus'] = '2'
+    v.vmx['memsize'] = ENV['FREIGHTER_VM_MEM'] || '2048'
+    v.vmx['numvcpus'] = ENV['FREIGHTER_VM_CPU'] || '2'
   end
 
   config.ssh.shell = "bash -c 'BASH_ENV=/etc/profile exec bash'" # avoids 'stdin: is not a tty' error.
