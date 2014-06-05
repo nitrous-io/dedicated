@@ -12,13 +12,13 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listContainers(w http.ResponseWriter, r *http.Request) {
-	infoList, err := s.provider.List()
+	list, err := s.provider.List()
 	if err != nil {
 		s.handleError(w, err)
 		return
 	}
 
-	s.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"containers": infoList})
+	s.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"containers": list})
 }
 
 func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +35,18 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	if name == "" || image == "" || !provider.IsValidName(name) {
 		s.respond(w, 422, []byte(`{"error":"invalid params"}`))
 		return
+	}
+
+	list, err := s.provider.List()
+	if err != nil {
+		s.handleError(w, err)
+		return
+	}
+	for _, c := range list {
+		if c.Name == name {
+			s.respond(w, 422, []byte(`{"error":"invalid params"}`))
+			return
+		}
 	}
 
 	go func() {

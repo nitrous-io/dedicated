@@ -213,6 +213,26 @@ var _ = Describe("Server", func() {
 				Expect(prov.CreateCalled).To(BeFalse())
 			})
 		})
+
+		Context("when a given name is already taken", func() {
+			BeforeEach(func() {
+				prov.Containers = []*provider.ContainerInfo{
+					{ID: "aaa", Name: name, Image: "ubuntu", Host: "1.2.3.4", SSHPort: 10000, State: provider.ContainerStateRunning},
+				}
+				doRequest()
+			})
+
+			It("responds with 422 unprocessable entity", func() {
+				Expect(res.Code).To(Equal(422))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"invalid params"}`))
+			})
+
+			It("does not call provider.Create()", func() {
+				Expect(prov.CreateCalled).To(BeFalse())
+				Wait()
+				Expect(prov.CreateCalled).To(BeFalse())
+			})
+		})
 	})
 
 	Describe("GET /containers/:container_id", func() {
