@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"path"
 	"strconv"
@@ -56,6 +58,12 @@ func main() {
 	err = file.Close()
 	if err != nil {
 		logger.FatalExit(err)
+	}
+
+	s := os.Getenv("NO_SSL_VERIFY")
+	if v, _ := strconv.ParseBool(s); v {
+		logger.Warn("SSL cert verification disabled!")
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
 	prov, err := docker.NewDockerProvider(logger, *flDataPath, "freighter")
