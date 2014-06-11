@@ -3,24 +3,27 @@ package main
 import (
 	"os"
 
-	"github.com/nitrous-io/nitrous/pkg/logger"
+	"bitbucket.org/kardianos/osext"
+
+	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous-common/must"
 	"github.com/nitrous-io/nitrous/server"
 )
 
 func main() {
-	l := &logger.Logger{Level: logger.LogLevelDebug}
+	logr := &logger.Logger{Level: logger.LogLevelDebug}
 
 	defer func() {
 		if r := recover(); r != nil {
-			l.FatalExit(r)
+			logr.FatalExit(r)
 		}
 	}()
 
 	pid := os.Getpid()
 
-	svr := server.NewServer(l)
+	svr := server.NewServer(must.String(osext.ExecutableFolder()), logr)
 	host := "0.0.0.0"
 	port := uint16(3000)
-	l.Infof("nitrousd (pid: %v) listening on %s:%d", pid, host, port)
+	logr.Infof("nitrousd (pid: %v) listening on %s:%d", pid, host, port)
 	svr.Start(host, port)
 }

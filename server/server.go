@@ -3,22 +3,26 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"path"
+	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/nitrous/pkg/logger"
+	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 type Server struct {
+	root   string
 	logger *logger.Logger
 	router *mux.Router
 }
 
-func NewServer(l *logger.Logger) *Server {
+func NewServer(root string, l *logger.Logger) *Server {
 	if l == nil {
 		panic("server.NewServer: invalid argument")
 	}
 
-	svr := &Server{logger: l, router: mux.NewRouter()}
+	svr := &Server{root: root, logger: l, router: mux.NewRouter()}
+	fmt.Println(svr.root)
 	svr.drawRoutes()
 	return svr
 }
@@ -42,6 +46,19 @@ func (s *Server) route(route string, handler http.HandlerFunc, methods ...string
 	s.router.HandleFunc(route, h).Methods(methods...)
 }
 
+func (s *Server) static(prefix string, dir string) {
+	s.router.PathPrefix(prefix).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		s.logger.Infof("Static asset: %v", r.URL.Path)
+		http.StripPrefix(prefix, http.FileServer(http.Dir(path.Join(s.root, dir)))).ServeHTTP(w, r)
+	})
+}
+
 func (s *Server) drawRoutes() {
 	s.route("/", s.home, "GET")
+
+	s.static("/static", "static")
 }
