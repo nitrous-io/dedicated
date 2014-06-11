@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+BUILD_DIR=./build
+
+GOBIN="$BUILD_DIR" go install -x -v ./...
+cp -dR ./templates "$BUILD_DIR"/templates
