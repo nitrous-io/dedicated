@@ -34,7 +34,7 @@ if [[ ! -e $GOROOT/bin/go ]]; then
   install_go
   echo "export GOPATH=$GOPATH" >> /etc/profile
   echo "export GOROOT=$GOROOT" >> /etc/profile
-  echo "export PATH=$GOPATH/bin:$GOROOT/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin" >> /etc/profile
+  echo "export PATH=$GOPATH/bin:$GOROOT/bin:/usr/local/opt/go/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin" >> /etc/profile
 else
   if [[ ! $(go version | grep go1.2) ]]; then
     install_go
@@ -43,7 +43,7 @@ else
 fi
 
 if [ ! -h $VAGRANT_HOME/freighter ]; then
-  ln -fs /vagrant $VAGRANT_HOME/freighter
+  ln -fs $VAGRANT_HOME/go/src/github.com/nitrous-io/freighter $VAGRANT_HOME/freighter
 fi
 
 if [ ! -h /usr/local/bin/docker ]; then
@@ -68,6 +68,13 @@ EOF
 service docker.io restart
 
 adduser vagrant docker
+
+cd $VAGRANT_HOME/freighter
+/usr/local/opt/go/bin/go get -d -v ./...
+/usr/local/opt/go/bin/go get github.com/onsi/ginkgo/ginkgo
+/usr/local/opt/go/bin/go get github.com/onsi/gomega
+
+sudo chown -R vagrant:vagrant $VAGRANT_HOME/go
 SCRIPT
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
@@ -90,6 +97,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   if private_ip = ENV['FREIGHTER_INTERFACE']
     config.vm.network :private_network, ip: private_ip
   end
+
+  config.vm.synced_folder './', '/home/vagrant/go/src/github.com/nitrous-io/freighter'
 
   config.ssh.shell = "bash -c 'BASH_ENV=/etc/profile exec bash'" # avoids 'stdin: is not a tty' error.
   config.ssh.forward_agent = true
