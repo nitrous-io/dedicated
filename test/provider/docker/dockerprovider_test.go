@@ -79,7 +79,7 @@ var _ = Describe("DockerProvider", func() {
 
 			info, err = prov.Create(name, "ubuntu-upstart:trusty", []string{pubkey1, pubkey2})
 			Expect(err).To(BeNil())
-			bid, err := exec.Command("docker", "inspect", "-f", "{{.ID}}", name).CombinedOutput()
+			bid, err := exec.Command("docker", "inspect", "-f", "{{.Id}}", name).CombinedOutput()
 			Expect(err).To(BeNil())
 			id = strings.TrimSpace(string(bid))
 			bhost, err := exec.Command("docker", "inspect", "-f", "{{.NetworkSettings.IPAddress}}", name).CombinedOutput()
@@ -227,6 +227,9 @@ var _ = Describe("DockerProvider", func() {
 					var err error
 					info, err = prov.Start(id)
 					Expect(err).To(BeNil())
+					bhost, err := exec.Command("docker", "inspect", "-f", "{{.NetworkSettings.IPAddress}}", name).CombinedOutput()
+					Expect(err).To(BeNil())
+					host = strings.TrimSpace(string(bhost))
 				})
 
 				Context("when the container is running", func() {
@@ -313,6 +316,9 @@ var _ = Describe("DockerProvider", func() {
 						Expect(err).To(BeNil())
 						info, err = prov.Restart(id)
 						Expect(err).To(BeNil())
+						bhost, err := exec.Command("docker", "inspect", "-f", "{{.NetworkSettings.IPAddress}}", name).CombinedOutput()
+						Expect(err).To(BeNil())
+						host = strings.TrimSpace(string(bhost))
 						expectContainerInfoToHaveBeenReturned(info)
 						out, err = exec.Command("docker", "inspect", "-f", "{{.State.Running}}", id).CombinedOutput()
 						Expect(err).To(BeNil())
@@ -334,6 +340,9 @@ var _ = Describe("DockerProvider", func() {
 					It("starts the container", func() {
 						info, err := prov.Restart(id)
 						Expect(err).To(BeNil())
+						bhost, err := exec.Command("docker", "inspect", "-f", "{{.NetworkSettings.IPAddress}}", name).CombinedOutput()
+						Expect(err).To(BeNil())
+						host = strings.TrimSpace(string(bhost))
 						expectContainerInfoToHaveBeenReturned(info)
 						out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", id).CombinedOutput()
 						Expect(err).To(BeNil())
