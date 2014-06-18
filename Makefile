@@ -24,7 +24,7 @@ release:
 .PHONY: release
 
 format:
-	go fmt ./...
+	goop go fmt ./...
 
 test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 user=`whoami`
 script/install-deps
-go get github.com/onsi/ginkgo/ginkgo
 sudo mkdir -p /var/lib/freighter
 sudo chown $user:$user /var/lib/freighter
 make build
