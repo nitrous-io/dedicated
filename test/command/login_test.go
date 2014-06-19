@@ -1,4 +1,4 @@
-package command_test
+package commandtest
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ var _ = Describe("LoginCommand", func() {
 
 	BeforeEach(func() {
 		ui = &cli.MockUi{}
-		cmd = &LoginCommand{Ui: ui}
+		cmd = &LoginCommand{UI: ui}
 
 		username = "iamclovin"
 		password = "man u 4evar!!1!"
@@ -42,7 +42,7 @@ var _ = Describe("LoginCommand", func() {
 
 		It("prints the username and exits successfully", func() {
 			exitCode := cmd.Run(args)
-			Expect(exitCode).To(Equal(0), "Did not exit successfully")
+			Expect(exitCode).To(Equal(0))
 			Expect(ui.OutputWriter.String()).To(ContainSubstring("Logged in as '%s'", username))
 		})
 
@@ -56,7 +56,7 @@ var _ = Describe("LoginCommand", func() {
 
 			It("prints the username and exits successfully", func() {
 				exitCode := cmd.Run(args)
-				Expect(exitCode).To(Equal(0), "Did not exit successfully")
+				Expect(exitCode).To(Equal(0))
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Logged in as '%s'", username))
 			})
 		})
@@ -71,7 +71,7 @@ var _ = Describe("LoginCommand", func() {
 
 			It("prints the username and exits successfully", func() {
 				exitCode := cmd.Run(args)
-				Expect(exitCode).To(Equal(0), "Did not exit successfully")
+				Expect(exitCode).To(Equal(0))
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Logged in as '%s'", username))
 			})
 		})
