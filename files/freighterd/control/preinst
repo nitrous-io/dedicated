@@ -1,13 +1,3 @@
 #!/bin/bash
 
 mkdir -p /var/lib/freighterd
-database=/var/lib/freighterd/freighter.sqlite3
-
-port=60001
-sql="CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY NOT NULL, val TEXT);"
-until [ $port -gt 60200 ]; do
-  sql+='INSERT OR IGNORE INTO store (key, val) VALUES ("port:'"$port"'", "0");'
-  let port+=1
-done
-
-sqlite3 $database "$sql"

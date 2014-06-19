@@ -69,10 +69,9 @@ service docker.io restart
 
 adduser vagrant docker
 
+/usr/local/opt/go/bin/go get github.com/nitrous-io/goop
 cd $VAGRANT_HOME/freighter
-/usr/local/opt/go/bin/go get -d -v ./...
-/usr/local/opt/go/bin/go get github.com/onsi/ginkgo/ginkgo
-/usr/local/opt/go/bin/go get github.com/onsi/gomega
+goop install
 
 sudo chown -R vagrant:vagrant $VAGRANT_HOME/go
 SCRIPT
