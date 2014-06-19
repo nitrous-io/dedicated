@@ -5,11 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
-	"github.com/nitrous-io/freighter/datastore"
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/provider/docker"
 	. "github.com/nitrous-io/freighter/test"
@@ -20,7 +20,6 @@ import (
 
 var _ = Describe("DockerProvider", func() {
 	var (
-		store     *datastore.Datastore
 		dbFile    string
 		prov      *docker.DockerProvider
 		namespace = "freightertest"
@@ -29,26 +28,13 @@ var _ = Describe("DockerProvider", func() {
 	BeforeEach(func() {
 		var err error
 		dbFile = TempFile("sqlite3")
-		store, err = datastore.NewSqliteDatastore(dbFile)
-		Expect(err).To(BeNil())
-
-		err = store.Set("port:65001", "0")
-		Expect(err).To(BeNil())
-		err = store.Set("port:65002", "0")
 		Expect(err).To(BeNil())
 
 		datadir, err := TempDir()
 		Expect(err).To(BeNil())
 		logger := &util.Logger{Level: util.LogLevelQuiet}
-		prov, err = docker.NewDockerProvider(logger, store, datadir, namespace)
+		prov, err = docker.NewDockerProvider(logger, datadir, namespace)
 		Expect(err).To(BeNil())
-	})
-
-	AfterEach(func() {
-		if store != nil && store.Conn != nil {
-			store.Conn.Close()
-		}
-		os.Remove(dbFile)
 	})
 
 	cleanUpContainer := func(name string) {
@@ -62,12 +48,33 @@ var _ = Describe("DockerProvider", func() {
 			name         string
 			id           string
 			host         string
+			port         uint16
 			info         *provider.ContainerInfo
 			pubkey1      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCxCeR/jJna6xXELDV8HF51QQPbj++JNDE4W/nqLyhzRTEDDnAfyp8gXW/EXXos8w5XXLak6eUDXE/QI6o8blX39RYoT47u45v4b2scN0ZiS5McmESo193KwWH3gXHbnHWywzPy7+GrRF3nHm/uidvp0tqh4ywqIZujaMjST1sIOQ== test@example.com"
 			pubkey2      string
 			fingerprint1 = "f7:de:4d:6f:54:6b:b9:d5:78:a9:62:15:e2:ad:ec:bb"
 			fingerprint2 string
 		)
+
+		getID := func(name string) string {
+			id, err := exec.Command("docker", "inspect", "-f", "{{.Id}}", name).CombinedOutput()
+			Expect(err).To(BeNil())
+			return strings.TrimSpace(string(id))
+		}
+
+		getHost := func(id string) string {
+			host, err := exec.Command("docker", "inspect", "-f", "{{.NetworkSettings.IPAddress}}", id).CombinedOutput()
+			Expect(err).To(BeNil())
+			return strings.TrimSpace(string(host))
+		}
+
+		getPort := func(id string) uint16 {
+			port, err := exec.Command("bash", "-c", `docker inspect -f {{.NetworkSettings.Ports}} `+id+` | sed 's/.*HostPort:\([0-9]*\).*/\1/'`).CombinedOutput()
+			Expect(err).To(BeNil())
+			n, err := strconv.Atoi(strings.TrimSpace(string(port)))
+			Expect(err).To(BeNil())
+			return uint16(n)
+		}
 
 		BeforeEach(func() {
 			name = RandomName("freightertest")
@@ -79,12 +86,9 @@ var _ = Describe("DockerProvider", func() {
 
 			info, err = prov.Create(name, "ubuntu-upstart:trusty", []string{pubkey1, pubkey2})
 			Expect(err).To(BeNil())
-			bid, err := exec.Command("docker", "inspect", "-f", "{{.Id}}", name).CombinedOutput()
-			Expect(err).To(BeNil())
-			id = strings.TrimSpace(string(bid))
-			bhost, err := exec.Command("docker", "inspect", "-f", "{{.NetworkSettings.IPAddress}}", name).CombinedOutput()
-			Expect(err).To(BeNil())
-			host = strings.TrimSpace(string(bhost))
+			id = getID(name)
+			host = getHost(id)
+			port = getPort(id)
 		})
 
 		AfterEach(func() {
@@ -93,7 +97,7 @@ var _ = Describe("DockerProvider", func() {
 
 		expectSSHToWork := func() {
 			time.Sleep(1 * time.Second)
-			out, err := exec.Command("ssh", "action@localhost", "-p", "65001", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "echo success").CombinedOutput()
+			out, err := exec.Command("ssh", "action@localhost", "-p", strconv.Itoa(int(port)), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "echo success").CombinedOutput()
 			Expect(out).To(ContainSubstring("success"))
 			Expect(err).To(BeNil())
 		}
@@ -103,11 +107,8 @@ var _ = Describe("DockerProvider", func() {
 			Expect(info.Name).To(Equal(name))
 			Expect(info.Image).To(Equal(namespace + "." + name))
 			Expect(info.Host).To(Equal(host))
-			Expect(info.SSHPort).To(Equal(uint16(65001)))
+			Expect(info.SSHPort).To(Equal(port))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
-			portUsed, err := store.Get("port:65001")
-			Expect(err).To(BeNil())
-			Expect(portUsed).To(Equal("1"))
 			expectSSHToWork()
 		})
 
@@ -155,7 +156,7 @@ var _ = Describe("DockerProvider", func() {
 							Name:    name,
 							Image:   namespace + "." + name,
 							Host:    "",
-							SSHPort: uint16(65001),
+							SSHPort: port,
 							State:   provider.ContainerStateStopped,
 						}))
 
@@ -164,7 +165,7 @@ var _ = Describe("DockerProvider", func() {
 							Name:    container2Name,
 							Host:    container2Info.Host,
 							Image:   namespace + "." + container2Name,
-							SSHPort: uint16(65002),
+							SSHPort: container2Info.SSHPort,
 							State:   provider.ContainerStateRunning,
 						}))
 					})
@@ -179,7 +180,7 @@ var _ = Describe("DockerProvider", func() {
 							Expect(info.Name).To(Equal(name))
 							Expect(info.Image).To(Equal(namespace + "." + name))
 							Expect(info.Host).To(Equal(""))
-							Expect(info.SSHPort).To(Equal(uint16(65001)))
+							Expect(info.SSHPort).To(Equal(port))
 							Expect(info.State).To(Equal(provider.ContainerStateStopped))
 
 							info, err = prov.GetInfo(container2Info.ID)
@@ -188,7 +189,7 @@ var _ = Describe("DockerProvider", func() {
 							Expect(info.Name).To(Equal(container2Name))
 							Expect(info.Image).To(Equal(namespace + "." + container2Name))
 							Expect(info.Host).To(Equal(container2Info.Host))
-							Expect(info.SSHPort).To(Equal(uint16(65002)))
+							Expect(info.SSHPort).To(Equal(container2Info.SSHPort))
 							Expect(info.State).To(Equal(provider.ContainerStateRunning))
 						})
 					})
@@ -219,7 +220,7 @@ var _ = Describe("DockerProvider", func() {
 					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(namespace + "." + name))
 					Expect(info.Host).To(Equal(host))
-					Expect(info.SSHPort).To(Equal(uint16(65001)))
+					Expect(info.SSHPort).To(Equal(port))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
 				}
 
@@ -227,9 +228,7 @@ var _ = Describe("DockerProvider", func() {
 					var err error
 					info, err = prov.Start(id)
 					Expect(err).To(BeNil())
-					bhost, err := exec.Command("docker", "inspect", "-f", "{{.NetworkSettings.IPAddress}}", name).CombinedOutput()
-					Expect(err).To(BeNil())
-					host = strings.TrimSpace(string(bhost))
+					host = getHost(id)
 				})
 
 				Context("when the container is running", func() {
@@ -267,7 +266,7 @@ var _ = Describe("DockerProvider", func() {
 					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(namespace + "." + name))
 					Expect(info.Host).To(Equal(""))
-					Expect(info.SSHPort).To(Equal(uint16(65001)))
+					Expect(info.SSHPort).To(Equal(port))
 					Expect(info.State).To(Equal(provider.ContainerStateStopped))
 				}
 
@@ -304,7 +303,7 @@ var _ = Describe("DockerProvider", func() {
 					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(namespace + "." + name))
 					Expect(info.Host).To(Equal(host))
-					Expect(info.SSHPort).To(Equal(uint16(65001)))
+					Expect(info.SSHPort).To(Equal(port))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
 				}
 
@@ -316,9 +315,7 @@ var _ = Describe("DockerProvider", func() {
 						Expect(err).To(BeNil())
 						info, err = prov.Restart(id)
 						Expect(err).To(BeNil())
-						bhost, err := exec.Command("docker", "inspect", "-f", "{{.NetworkSettings.IPAddress}}", name).CombinedOutput()
-						Expect(err).To(BeNil())
-						host = strings.TrimSpace(string(bhost))
+						host = getHost(id)
 						expectContainerInfoToHaveBeenReturned(info)
 						out, err = exec.Command("docker", "inspect", "-f", "{{.State.Running}}", id).CombinedOutput()
 						Expect(err).To(BeNil())
@@ -340,9 +337,7 @@ var _ = Describe("DockerProvider", func() {
 					It("starts the container", func() {
 						info, err := prov.Restart(id)
 						Expect(err).To(BeNil())
-						bhost, err := exec.Command("docker", "inspect", "-f", "{{.NetworkSettings.IPAddress}}", name).CombinedOutput()
-						Expect(err).To(BeNil())
-						host = strings.TrimSpace(string(bhost))
+						host = getHost(id)
 						expectContainerInfoToHaveBeenReturned(info)
 						out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", id).CombinedOutput()
 						Expect(err).To(BeNil())
@@ -359,9 +354,6 @@ var _ = Describe("DockerProvider", func() {
 					out, err := exec.Command("docker", "inspect", id).CombinedOutput()
 					Expect(err).NotTo(BeNil())
 					Expect(out).To(ContainSubstring("No such image or container"))
-					portUsed, err := store.Get("port:65001")
-					Expect(err).To(BeNil())
-					Expect(portUsed).To(Equal("0"))
 				}
 
 				expectContainerInfoToHaveBeenReturned := func() {

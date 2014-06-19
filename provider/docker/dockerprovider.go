@@ -13,7 +13,6 @@ import (
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
-	"github.com/nitrous-io/freighter/datastore"
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/util"
 )
@@ -27,22 +26,20 @@ type TemplateData struct {
 
 type DockerProvider struct {
 	client         *dockerclient.Client
-	store          *datastore.Datastore
 	dataPath       string
-	portPool       *PortPool
 	imageNamespace string
 	logger         *util.Logger
 }
 
-func NewDockerProvider(logger *util.Logger, store *datastore.Datastore, dataPath string, imageNamespace string) (*DockerProvider, error) {
-	if logger == nil || store == nil || dataPath == "" || imageNamespace == "" {
+func NewDockerProvider(logger *util.Logger, dataPath string, imageNamespace string) (*DockerProvider, error) {
+	if logger == nil || dataPath == "" || imageNamespace == "" {
 		return nil, errors.New("docker.NewDockerProvider: invalid argument")
 	}
 	client, err := dockerclient.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
 		return nil, err
 	}
-	return &DockerProvider{client: client, store: store, dataPath: dataPath, portPool: NewPortPool(store), imageNamespace: imageNamespace + ".", logger: logger}, nil
+	return &DockerProvider{client: client, dataPath: dataPath, imageNamespace: imageNamespace + ".", logger: logger}, nil
 }
 
 func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
@@ -81,25 +78,13 @@ func (p *DockerProvider) Create(name string, image string, publicKeys []string) 
 	}
 	publicKeys = keyMapToKeys(keymap)
 
-	port, err := p.portPool.Acquire()
-	if err != nil {
-		return nil, err
-	}
-	p.logger.Info("DockerProvider: acquired port", port)
-
 	err = p.createAuthorizedKeys(name, publicKeys)
 	if err != nil {
 		return nil, err
 	}
 
-	container, err := p.createContainer(imageName, name, port)
+	container, err := p.createContainer(imageName, name)
 	if err != nil {
-		p.logger.Info("DockerProvider: releasing port", port)
-		errr := p.portPool.Release(port)
-		if errr != nil {
-			return nil, errr
-		}
-		p.logger.Info("DockerProvider: released port", port)
 		return nil, err
 	}
 
@@ -203,14 +188,6 @@ func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 	}
 
 	p.logger.TimeInfo(start, "DockerProvider: removed container", id, "in")
-
-	port := portFromContainer(container)
-	p.logger.Info("DockerProvider: releasing port", port)
-	err = p.portPool.Release(port)
-	if err != nil {
-		return nil, err
-	}
-	p.logger.Info("DockerProvider: released port", port)
 
 	containerImage := container.Config.Image
 	p.logger.Info("DockerProvider: removing container image", containerImage)
@@ -368,7 +345,7 @@ func (p *DockerProvider) readAuthorizedKeys(containerName string) ([]string, err
 	return strings.Split(strings.TrimSpace(string(bkeys)), "\n"), nil
 }
 
-func (p *DockerProvider) createContainer(imageName string, containerName string, port uint16) (*dockerclient.Container, error) {
+func (p *DockerProvider) createContainer(imageName string, containerName string) (*dockerclient.Container, error) {
 	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
 	start := time.Now()
 
@@ -395,9 +372,8 @@ func (p *DockerProvider) createContainer(imageName string, containerName string,
 		Binds: []string{
 			(p.containerSettingsDir(containerName) + "/ssh:/etc/ssh/freighter:ro"),
 		},
-		PortBindings: map[dockerclient.Port][]dockerclient.PortBinding{
-			"22/tcp": {{HostPort: strconv.Itoa(int(port))}},
-		},
+		PortBindings:    map[dockerclient.Port][]dockerclient.PortBinding{},
+		PublishAllPorts: true,
 	})
 
 	p.logger.TimeInfo(start, "DockerProvider: started container", containerName, id, "in")
