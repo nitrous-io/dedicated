@@ -7,12 +7,13 @@ import (
 	"github.com/mitchellh/cli"
 )
 
+var version string
+
 func main() {
-	cli := &cli.CLI{
-		Args:     os.Args[1:],
-		Commands: Commands,
-		HelpFunc: helpFunc,
-	}
+	cli := cli.NewCLI("nitro", version)
+	cli.Args = os.Args[1:]
+	cli.Commands = Commands
+	cli.HelpFunc = helpFunc
 
 	exitCode, err := cli.Run()
 	if err != nil {
