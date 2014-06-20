@@ -1,6 +1,22 @@
 .vendor
 *.sqlite3
 
+# Rails
+rails/.bundle/
+rails/db/*.sqlite3
+rails/log/*.log
+rails/tmp/
+rails/.sass-cache/
+rails/public/assets/
+rails/vendor/bundle/
+rails/config/database.yml
+rails/spec/tmp/*
+rails/coverage/
+rails/.env
+
+*.swp
+**.orig
+
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
 *.a
