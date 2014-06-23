@@ -1,0 +1,6 @@
+github.com/gorilla/mux #136d54f81f00414c45c3c68dd47e98cc97519c5e
+github.com/gorilla/context #1be7a086a5fd6440ef16fe96baeda0c78282b980
+github.com/mitchellh/goamz/ec2 #a229e58f69971f5e1a31d6870734d2abaa4468e1
+github.com/mitchellh/goamz/aws #a229e58f69971f5e1a31d6870734d2abaa4468e1
+code.google.com/p/go.crypto/ssh #fe6c00a82e55
+github.com/fsouza/go-dockerclient #6062c6b35beaffaf643b2f80f926b6337c3db63a

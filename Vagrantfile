@@ -41,8 +41,8 @@ $script = <<SCRIPT
   fi
   cd $HOME/hostbuilder
   source /etc/profile
-  go get github.com/dqminh/govendor
-  govendor
+  go get github.com/nitrous-io/goop
+  goop install
   chown -R vagrant:vagrant $HOME/gocode
 SCRIPT
 

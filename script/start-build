@@ -9,12 +9,9 @@ BUILD=$(pwd)/build
 # create build directory
 mkdir -p build
 
-# remove cached compiled dependencies
-rm -rf _vendor/pkg
-
 echo "Building revision ${VERSION} ...."
 export GOBIN=$BUILD
-go install -ldflags "-X main.version ${VERSION}" -v $PACKAGE/...
+goop go install -ldflags "-X main.version ${VERSION}" -v $PACKAGE/...
 
 cd $BUILD
 tar -f hostbuilder_${VERSION}.tgz -zv -c hostbuilder

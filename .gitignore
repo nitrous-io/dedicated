@@ -1,7 +1,7 @@
 .bundle
 config.json
 tags
-_vendor
 .vagrant
+.vendor
 
 build/
