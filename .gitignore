@@ -13,6 +13,7 @@ rails/config/database.yml
 rails/spec/tmp/*
 rails/coverage/
 rails/.env
+rails/public/index.html
 
 *.swp
 **.orig

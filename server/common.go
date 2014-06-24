@@ -18,8 +18,12 @@ func (s *Server) renderTemplate(w http.ResponseWriter, status int, tmpl *templat
 		return
 	}
 
+	s.renderHTML(w, status, buf.Bytes())
+}
+
+func (s *Server) renderHTML(w http.ResponseWriter, status int, html []byte) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
-	w.Write(buf.Bytes())
+	w.Write(html)
 	s.logger.Infof("Response: %v", status)
 }

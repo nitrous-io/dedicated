@@ -9,9 +9,15 @@ VERSION=$(BASE_VERSION)-$(REVISION)
 
 all: build
 
-build:
+go:
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
-	@script/build
+	@script/build-go
+
+assets:
+	@echo "$(OK_COLOR)==> Building assets...$(NO_COLOR)"
+	@script/build-assets
+
+build: go assets
 
 format:
 	go fmt ./...
@@ -20,4 +26,4 @@ run: build
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
 	@build/$(BIN_NAME)
 
-.PHONY: all build format run
+.PHONY: all go assets build format run

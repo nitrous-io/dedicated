@@ -1,9 +1,0 @@
-#!/bin/bash
-set -e
-BUILD_DIR=./build
-
-rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR"
-GOBIN="$BUILD_DIR" go install -x -v ./...
-cp -dR ./templates "$BUILD_DIR"
-cp -dR ./static "$BUILD_DIR"

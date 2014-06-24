@@ -22,7 +22,6 @@ func NewServer(root string, l *logger.Logger) *Server {
 	}
 
 	svr := &Server{root: root, logger: l, router: mux.NewRouter()}
-	fmt.Println(svr.root)
 	svr.drawRoutes()
 	return svr
 }
@@ -59,6 +58,5 @@ func (s *Server) static(prefix string, dir string) {
 
 func (s *Server) drawRoutes() {
 	s.route("/", s.home, "GET")
-
-	s.static("/static", "static")
+	s.static("/", "public")
 }

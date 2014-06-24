@@ -1,0 +1,25 @@
+#= require ember-bootstrap
+#= require_self
+#= require app-classes
+
+window.Nitrous = Em.Application.extend Em.Evented,
+  rootElement: '#app'
+
+  online: if !Em.isNone(window.navigator.onLine) then window.navigator.onLine else true
+  offline: Em.computed.not 'online'
+
+window.App = Nitrous.create()
+
+# prevent file drops on the document causing browser to navigate away
+$(document).bind 'drop dragover', (e) ->
+  e.preventDefault()
+
+# prevent esc from disconnecting websocket connection in firefox
+$(window).keydown (e) ->
+  e.preventDefault() if e.keyCode == 27
+
+$(window).on 'offline', ->
+  window.App?.set 'online', false
+
+$(window).on 'online', ->
+  window.App?.set 'online', true
