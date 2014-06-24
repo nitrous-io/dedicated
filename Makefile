@@ -7,7 +7,7 @@ shell: image
 .PHONY: shell
 
 deps:
-	@rm -rf _vendor
+	@rm -rf .vendor
 	@./script/install-deps
 .PHONY: deps
 
