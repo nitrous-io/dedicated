@@ -23,22 +23,22 @@ var _ = Describe("Database", func() {
 		}
 		d, err = db.NewDatabase(dburl)
 		Expect(err).To(BeNil())
-		d.DB.Exec("DROP TABLE schema_migrations CASCADE")
-		d.DB.Exec("DROP TABLE people CASCADE")
+		d.Exec("DROP TABLE schema_migrations CASCADE")
+		d.Exec("DROP TABLE people CASCADE")
 	})
 
 	AfterEach(func() {
-		if d != nil && d.DB != nil {
-			d.DB.Close()
+		if d != nil && d != nil {
+			d.Close()
 		}
 	})
 
 	Describe("NewSqliteDatabase()", func() {
 		It("returns *Database with usable sqlite db handle", func() {
 			Expect(d).NotTo(BeNil())
-			Expect(d.DB).NotTo(BeNil())
+			Expect(d).NotTo(BeNil())
 			var ans int
-			err := d.DB.QueryRow("SELECT 1+2").Scan(&ans)
+			err := d.QueryRow("SELECT 1+2").Scan(&ans)
 			Expect(err).To(BeNil())
 			Expect(ans).To(Equal(3))
 		})
@@ -48,7 +48,7 @@ var _ = Describe("Database", func() {
 		var (
 			migrations = []*db.Migration{
 				{Version: "0", Up: `CREATE TABLE people (
-					id bigserial PRIMARY KEY NOT NULL,
+					id serial PRIMARY KEY NOT NULL,
 					name character varying(255)
 				)`},
 				{Version: "1", Up: `ALTER TABLE people ADD COLUMN age integer`},
@@ -57,7 +57,7 @@ var _ = Describe("Database", func() {
 		)
 
 		getCols := func() []string {
-			rows, err := d.DB.Query(`SELECT * FROM people`)
+			rows, err := d.Query(`SELECT * FROM people`)
 			Expect(err).To(BeNil())
 			cols, err := rows.Columns()
 			Expect(err).To(BeNil())
@@ -67,7 +67,7 @@ var _ = Describe("Database", func() {
 		It("runs all migrations", func() {
 			Context("when no migration has run yet", func() {
 				It("should not have the table created", func() {
-					_, err := d.DB.Exec(`SELECT * FROM people`)
+					_, err := d.Exec(`SELECT * FROM people`)
 					Expect(err).NotTo(BeNil()) // no such table
 				})
 			})
@@ -91,15 +91,15 @@ var _ = Describe("Database", func() {
 			})
 
 			It("does not affect data", func() {
-				_, err := d.DB.Exec(`INSERT INTO people (name) VALUES ('Peter')`)
+				_, err := d.Exec(`INSERT INTO people (name) VALUES ('Peter')`)
 				Expect(err).To(BeNil())
 				var id int
-				err = d.DB.QueryRow(`SELECT id FROM people WHERE name = 'Peter'`).Scan(&id)
+				err = d.QueryRow(`SELECT id FROM people WHERE name = 'Peter'`).Scan(&id)
 				Expect(err).To(BeNil())
 				Expect(id).NotTo(BeZero())
 				doAction()
 				var newId int
-				err = d.DB.QueryRow(`SELECT id FROM people WHERE name = 'Peter'`).Scan(&newId)
+				err = d.QueryRow(`SELECT id FROM people WHERE name = 'Peter'`).Scan(&newId)
 				Expect(err).To(BeNil())
 				Expect(newId).To(Equal(id))
 			})

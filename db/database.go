@@ -8,7 +8,7 @@ import (
 )
 
 type Database struct {
-	DB     *sql.DB
+	*sql.DB
 	Logger *util.Logger
 }
 
@@ -30,15 +30,14 @@ func NewDatabase(conn string) (*Database, error) {
 }
 
 func (d *Database) Migrate(migrations []*Migration) error {
-	db := d.DB
 	logger := d.Logger
 
 	var i int
 
-	err := db.QueryRow(`SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'schema_migrations'`).Scan(&i)
+	err := d.QueryRow(`SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'schema_migrations'`).Scan(&i)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			_, err = db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+			_, err = d.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
 				version character varying(255) NOT NULL
 			);
 			CREATE UNIQUE INDEX unique_schema_migrations ON schema_migrations (version)`)
@@ -50,7 +49,7 @@ func (d *Database) Migrate(migrations []*Migration) error {
 		}
 	}
 
-	checkVersionExistsStmt, err := db.Prepare(`SELECT 1 FROM schema_migrations WHERE version = $1`)
+	checkVersionExistsStmt, err := d.Prepare(`SELECT 1 FROM schema_migrations WHERE version = $1`)
 	if err != nil {
 		return err
 	}
@@ -69,7 +68,7 @@ func (d *Database) Migrate(migrations []*Migration) error {
 			logger.Infof(`Migrating "%v"...`, version)
 			logger.Info("BEGIN")
 		}
-		tx, err := db.Begin()
+		tx, err := d.Begin()
 		if err != nil {
 			return err
 		}
