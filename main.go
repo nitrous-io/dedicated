@@ -5,6 +5,10 @@ import (
 	"os"
 
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/command"
+
+	// import all individual commands here so they register themselves in init()
+	_ "github.com/nitrous-io/nitro/command/login"
 )
 
 var version string
@@ -12,7 +16,7 @@ var version string
 func main() {
 	cli := cli.NewCLI("nitro", version)
 	cli.Args = os.Args[1:]
-	cli.Commands = Commands
+	cli.Commands = command.Commands
 	cli.HelpFunc = helpFunc
 
 	exitCode, err := cli.Run()
