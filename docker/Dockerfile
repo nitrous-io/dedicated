@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   sudo \
   tmux
 
-RUN curl -s https://storage.googleapis.com/golang/go1.2.2.linux-amd64.tar.gz \
+RUN curl -s https://storage.googleapis.com/golang/go1.3.linux-amd64.tar.gz \
   | tar -C /usr/local -xz
 
 RUN gem install fpm --no-rdoc --no-ri --version 1.0.2
