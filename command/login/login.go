@@ -1,4 +1,4 @@
-package command
+package login
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/howeyc/gopass"
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/command"
 	flag "github.com/ogier/pflag"
 )
 
@@ -27,6 +28,16 @@ Options:
 
 type LoginCommand struct {
 	UI cli.Ui
+}
+
+func init() {
+	command.Register("login", NewLoginCommand)
+}
+
+func NewLoginCommand() (cli.Command, error) {
+	return &LoginCommand{
+		UI: command.DefaultUI,
+	}, nil
 }
 
 func (c *LoginCommand) Help() string {

@@ -1,10 +1,10 @@
-package commandtest
+package logintest
 
 import (
 	"fmt"
 
 	"github.com/mitchellh/cli"
-	. "github.com/nitrous-io/nitro/command"
+	. "github.com/nitrous-io/nitro/command/login"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
