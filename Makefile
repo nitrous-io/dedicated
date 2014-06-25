@@ -19,6 +19,10 @@ assets:
 
 build: go assets
 
+test:
+	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
+	@script/test
+
 format:
 	go fmt ./...
 
@@ -26,4 +30,12 @@ run: build
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
 	@build/$(BIN_NAME)
 
-.PHONY: all go assets build format run
+createdb:
+	createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_development || true
+	createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_test || true
+
+dropdb:
+	dropdb nitrous_development || true
+	dropdb nitrous_test || true
+
+.PHONY: all go assets build format run test createdb dropdb

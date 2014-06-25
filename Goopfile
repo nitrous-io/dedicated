@@ -1,3 +1,6 @@
 github.com/gorilla/mux
 github.com/nitrous-io/nitrous-common
 bitbucket.org/kardianos/osext
+github.com/lib/pq
+github.com/onsi/ginkgo/ginkgo
+github.com/onsi/gomega
