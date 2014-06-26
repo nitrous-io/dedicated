@@ -8,7 +8,7 @@ func init() {
 			Version: "10",
 			Up: `
 				CREATE TABLE users (
-					id serial PRIMARY KEY NOT NULL,
+					id bigserial PRIMARY KEY NOT NULL,
 					username character varying(20) NOT NULL,
 					email character varying(255) NOT NULL,
 					encrypted_password character varying(255) NOT NULL,
@@ -24,8 +24,8 @@ func init() {
 			Version: "20",
 			Up: `
 				CREATE TABLE access_tokens (
-					id serial PRIMARY KEY NOT NULL,
-					user_id integer NOT NULL,
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint NOT NULL,
 					token character varying(255) NOT NULL,
 					created_at timestamp without time zone DEFAULT now()
 				);
