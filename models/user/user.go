@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/pkg/bcrypt"
 )
 
 type User struct {
@@ -15,6 +16,8 @@ type User struct {
 	Name              string     `db:"name"`
 	CreatedAt         *time.Time `db:"created_at"`
 	UpdatedAt         *time.Time `db:"updated_at"`
+
+	Password string
 }
 
 func FindByUsername(db *db.Database, username string) (*User, error) {
@@ -27,4 +30,18 @@ func FindByUsername(db *db.Database, username string) (*User, error) {
 		return nil, nil
 	}
 	return &user, nil
+}
+
+func (u *User) Insert(d db.QueryReceiver) error {
+	if u.Password != "" {
+		encrypted, err := bcrypt.Hash(u.Password)
+		if err != nil {
+			return err
+		}
+		u.EncryptedPassword = encrypted
+		u.Password = ""
+	}
+	q := "INSERT INTO users (email, username, encrypted_password, name) VALUES (:email, :username, :encrypted_password, :name);"
+	_, err := d.NamedExec(q, u)
+	return err
 }

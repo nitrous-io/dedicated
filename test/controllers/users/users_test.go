@@ -21,12 +21,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestServer(t *testing.T) {
+func TestUsers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "controllers/user")
+	RunSpecs(t, "controllers/users")
 }
 
-var _ = Describe("POST /users", func() {
+var _ = Describe("controllers/users", func() {
 	var (
 		db      *db.Database
 		handler *mux.Router
@@ -54,107 +54,109 @@ var _ = Describe("POST /users", func() {
 		}
 	})
 
-	doRequest := func() {
-		var err error
-		req, err = NewFormRequest("POST", "/users", params)
-		Expect(err).To(BeNil())
-		handler.ServeHTTP(res, req)
-	}
-
-	Context("when valid params are received", func() {
-		BeforeEach(func() {
-			params = &url.Values{}
-			params.Set("email", "foo@example.com")
-			params.Set("username", "foo")
-			params.Set("password", "123456")
-			params.Set("name", "Foo Bar")
-			doRequest()
-		})
-
-		It("responds with ok", func() {
-			Expect(res.Code).To(Equal(http.StatusOK))
-			j := map[string]string{}
-			err := json.Unmarshal(res.Body.Bytes(), &j)
+	Describe("POST /users", func() {
+		doRequest := func() {
+			var err error
+			req, err = NewFormRequest("POST", "/users", params)
 			Expect(err).To(BeNil())
-			Expect(j["status"]).To(Equal("ok"))
-		})
+			handler.ServeHTTP(res, req)
+		}
 
-		It("creates a user record in the db", func() {
-			u, err := user.FindByUsername(db, "foo")
-			Expect(err).To(BeNil())
-			Expect(u).NotTo(BeNil())
-			Expect(u.Email).To(Equal("foo@example.com"))
-			Expect(u.Username).To(Equal("foo"))
-			Expect(u.Name).To(Equal("Foo Bar"))
-			Expect(u.CreatedAt).NotTo(BeNil())
-		})
-
-		It("encrypts the password using bcrypt", func() {
-			u, err := user.FindByUsername(db, "foo")
-			Expect(err).To(BeNil())
-			Expect(u).NotTo(BeNil())
-			Expect(bcrypt.Verify(u.EncryptedPassword, "123456")).To(BeTrue())
-		})
-	})
-
-	for _, v := range []string{"email", "username", "password"} {
-		Context(fmt.Sprintf(`when the required param "%s" is missing`, v), func() {
+		Context("when valid params are received", func() {
 			BeforeEach(func() {
 				params = &url.Values{}
 				params.Set("email", "foo@example.com")
 				params.Set("username", "foo")
 				params.Set("password", "123456")
-				params.Del(v)
+				params.Set("name", "Foo Bar")
 				doRequest()
 			})
 
-			It("responds with 422 unprocessible entity", func() {
-				Expect(res.Code).To(Equal(422))
+			It("responds with ok", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
 				j := map[string]string{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal(v + " is required"))
+				Expect(j["status"]).To(Equal("ok"))
+			})
+
+			It("creates a user record in the db", func() {
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u).NotTo(BeNil())
+				Expect(u.Email).To(Equal("foo@example.com"))
+				Expect(u.Username).To(Equal("foo"))
+				Expect(u.Name).To(Equal("Foo Bar"))
+				Expect(u.CreatedAt).NotTo(BeNil())
+			})
+
+			It("encrypts the password using bcrypt", func() {
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u).NotTo(BeNil())
+				Expect(bcrypt.Verify(u.EncryptedPassword, "123456")).To(BeTrue())
 			})
 		})
-	}
 
-	Context("with an existing user", func() {
-		BeforeEach(func() {
-			_, err := db.Exec("INSERT INTO users (username, email, encrypted_password) VALUES ('foo', 'foo@example.com', '!@#$%')")
-			Expect(err).To(BeNil())
-			params = &url.Values{}
-			params.Set("email", "lol@example.com")
-			params.Set("username", "bar")
-			params.Set("password", "123456")
-		})
+		for _, v := range []string{"email", "username", "password"} {
+			Context(fmt.Sprintf(`when the required param "%s" is missing`, v), func() {
+				BeforeEach(func() {
+					params = &url.Values{}
+					params.Set("email", "foo@example.com")
+					params.Set("username", "foo")
+					params.Set("password", "123456")
+					params.Del(v)
+					doRequest()
+				})
 
-		Context("when an existing username is given", func() {
+				It("responds with 422 unprocessible entity", func() {
+					Expect(res.Code).To(Equal(422))
+					j := map[string]string{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					Expect(j["error"]).To(Equal(v + " is required"))
+				})
+			})
+		}
+
+		Context("with an existing user", func() {
 			BeforeEach(func() {
-				params.Set("username", "foo")
-				doRequest()
-			})
-
-			It("responds with 422 unprocessible entity", func() {
-				Expect(res.Code).To(Equal(422))
-				j := map[string]string{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
+				_, err := db.Exec("INSERT INTO users (username, email, encrypted_password) VALUES ('foo', 'foo@example.com', '!@#$%')")
 				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("username is taken"))
-			})
-		})
-
-		Context("when an existing email is given", func() {
-			BeforeEach(func() {
-				params.Set("email", "foo@example.com")
-				doRequest()
+				params = &url.Values{}
+				params.Set("email", "lol@example.com")
+				params.Set("username", "bar")
+				params.Set("password", "123456")
 			})
 
-			It("responds with 422 unprocessible entity", func() {
-				Expect(res.Code).To(Equal(422))
-				j := map[string]string{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("email is taken"))
+			Context("when an existing username is given", func() {
+				BeforeEach(func() {
+					params.Set("username", "foo")
+					doRequest()
+				})
+
+				It("responds with 422 unprocessible entity", func() {
+					Expect(res.Code).To(Equal(422))
+					j := map[string]string{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					Expect(j["error"]).To(Equal("username is taken"))
+				})
+			})
+
+			Context("when an existing email is given", func() {
+				BeforeEach(func() {
+					params.Set("email", "foo@example.com")
+					doRequest()
+				})
+
+				It("responds with 422 unprocessible entity", func() {
+					Expect(res.Code).To(Equal(422))
+					j := map[string]string{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					Expect(j["error"]).To(Equal("email is taken"))
+				})
 			})
 		})
 	})

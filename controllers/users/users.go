@@ -6,7 +6,6 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/models/user"
-	"github.com/nitrous-io/nitrous/pkg/bcrypt"
 )
 
 func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
@@ -33,27 +32,20 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encryptedPassword, err := bcrypt.Hash(password)
-	if err != nil {
-		logger.Error(err.Error())
-		c.RespondWith500(w, "password encryption failed")
-		return
-	}
-
 	tx, err := db.Beginx()
 	if err != nil {
 		logger.Error(err.Error())
 		c.RespondWith500(w, "failed to write to db")
 		return
 	}
-	user := &user.User{
-		Email:             email,
-		Username:          username,
-		EncryptedPassword: encryptedPassword,
-		Name:              name,
+	u := &user.User{
+		Email:    email,
+		Username: username,
+		Name:     name,
+		Password: password,
 	}
 
-	_, err = tx.NamedExec("INSERT INTO users (email, username, encrypted_password, name) VALUES (:email, :username, :encrypted_password, :name);", &user)
+	err = u.Insert(tx)
 	if err != nil {
 		tx.Rollback()
 		logger.Error(err.Error())

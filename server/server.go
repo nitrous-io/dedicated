@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/controllers/home"
+	"github.com/nitrous-io/nitrous/controllers/tokens"
 	"github.com/nitrous-io/nitrous/controllers/users"
 	"github.com/nitrous-io/nitrous/db"
 )
@@ -64,6 +65,7 @@ func (s *Server) static(prefix string, dir string) {
 func (s *Server) drawRoutes() {
 	s.route("/", s.action(home.Index), "GET")
 	s.route("/users", s.action(users.Create), "POST")
+	s.route("/oauth/token", s.action(tokens.Post), "POST")
 	s.static("/", "public")
 }
 

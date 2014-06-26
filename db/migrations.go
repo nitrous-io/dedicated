@@ -23,13 +23,13 @@ func init() {
 		{
 			Version: "20",
 			Up: `
-				CREATE TABLE access_tokens (
+				CREATE TABLE tokens (
 					id bigserial PRIMARY KEY NOT NULL,
-					user_id bigint NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
 					token character varying(255) NOT NULL,
 					created_at timestamp without time zone DEFAULT now()
 				);
-				CREATE UNIQUE INDEX index_access_tokens_on_token ON access_tokens USING btree (token);
+				CREATE UNIQUE INDEX index_tokens_on_token ON tokens USING btree (token);
 			`,
 		},
 	}
