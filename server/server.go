@@ -8,20 +8,22 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/db"
 )
 
 type Server struct {
 	root   string
 	logger *logger.Logger
 	router *mux.Router
+	db     *db.Database
 }
 
-func NewServer(root string, l *logger.Logger) *Server {
+func NewServer(root string, db *db.Database, l *logger.Logger) *Server {
 	if l == nil {
 		panic("server.NewServer: invalid argument")
 	}
 
-	svr := &Server{root: root, logger: l, router: mux.NewRouter()}
+	svr := &Server{root: root, db: db, logger: l, router: mux.NewRouter()}
 	svr.drawRoutes()
 	return svr
 }
@@ -58,5 +60,6 @@ func (s *Server) static(prefix string, dir string) {
 
 func (s *Server) drawRoutes() {
 	s.route("/", s.home, "GET")
+	s.route("/users", s.createUser, "POST")
 	s.static("/", "public")
 }

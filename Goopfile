@@ -4,3 +4,5 @@ bitbucket.org/kardianos/osext
 github.com/lib/pq
 github.com/onsi/ginkgo/ginkgo
 github.com/onsi/gomega
+github.com/jmoiron/sqlx
+code.google.com/p/go.crypto/bcrypt

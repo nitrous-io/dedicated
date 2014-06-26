@@ -3,12 +3,13 @@ package db
 import (
 	"database/sql"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/nitrous-io/freighter/util"
 )
 
 type Database struct {
-	*sql.DB
+	*sqlx.DB
 	Logger *util.Logger
 }
 
@@ -18,7 +19,7 @@ type Migration struct {
 }
 
 func NewDatabase(conn string) (*Database, error) {
-	db, err := sql.Open("postgres", conn)
+	db, err := sqlx.Open("postgres", conn)
 	if err != nil {
 		return nil, err
 	}

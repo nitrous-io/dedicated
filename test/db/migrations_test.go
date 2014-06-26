@@ -1,11 +1,10 @@
 package dbtest
 
 import (
-	"fmt"
 	"os/exec"
-	"os/user"
 
 	"github.com/nitrous-io/nitrous/db"
+	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -14,16 +13,11 @@ var _ = Describe("Database", func() {
 	var d *db.Database
 
 	BeforeEach(func() {
-		var err error
-		u, err := user.Current()
-		err = exec.Command("dropdb", "--if-exists", "nitrous_migrations_test").Run()
+		err := exec.Command("dropdb", "--if-exists", "nitrous_migrations_test").Run()
 		Expect(err).To(BeNil())
 		err = exec.Command("createdb", "-E", "UTF8", "-T", "template0", "-l", "en_US.utf8", "nitrous_migrations_test").Run()
 		Expect(err).To(BeNil())
-		dburl := fmt.Sprintf("host=/var/run/postgresql user=%s dbname=nitrous_migrations_test sslmode=disable", u.Username)
-		Expect(err).To(BeNil())
-		d, err = db.NewDatabase(dburl)
-		d.SetMaxIdleConns(0)
+		d, err = ConnectToTestDatabase("nitrous_migrations_test")
 		Expect(err).To(BeNil())
 	})
 
