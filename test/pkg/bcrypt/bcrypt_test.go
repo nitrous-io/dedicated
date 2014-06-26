@@ -1,10 +1,17 @@
 package bcrypttest
 
 import (
+	"testing"
+
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func TestBcrypt(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "pkg/bcrypt")
+}
 
 var _ = Describe("pkg/bcrypt", func() {
 	var (

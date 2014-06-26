@@ -1,4 +1,4 @@
-package servertest
+package userstest
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"testing"
 
 	"bitbucket.org/kardianos/osext"
 
@@ -19,6 +20,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func TestServer(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "controllers/user")
+}
 
 var _ = Describe("POST /users", func() {
 	var (

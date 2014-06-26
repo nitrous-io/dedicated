@@ -1,45 +1,49 @@
-package server
+package users
 
 import (
 	"net/http"
 
 	"github.com/lib/pq"
+	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
 )
 
-func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
+func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
+	db := c.DB()
+	logger := c.Logger()
+
 	email := r.FormValue("email")
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 	name := r.FormValue("name")
 
 	if email == "" {
-		s.respond(w, 422, []byte(`{"error":"email is required"}`))
+		c.Respond(w, 422, []byte(`{"error":"email is required"}`))
 		return
 	}
 
 	if username == "" {
-		s.respond(w, 422, []byte(`{"error":"username is required"}`))
+		c.Respond(w, 422, []byte(`{"error":"username is required"}`))
 		return
 	}
 
 	if password == "" {
-		s.respond(w, 422, []byte(`{"error":"password is required"}`))
+		c.Respond(w, 422, []byte(`{"error":"password is required"}`))
 		return
 	}
 
 	encryptedPassword, err := bcrypt.Hash(password)
 	if err != nil {
-		s.logger.Error(err.Error())
-		s.respondWith500(w, "password encryption failed")
+		logger.Error(err.Error())
+		c.RespondWith500(w, "password encryption failed")
 		return
 	}
 
-	tx, err := s.db.Beginx()
+	tx, err := db.Beginx()
 	if err != nil {
-		s.logger.Error(err.Error())
-		s.respondWith500(w, "failed to write to db")
+		logger.Error(err.Error())
+		c.RespondWith500(w, "failed to write to db")
 		return
 	}
 	user := &user.User{
@@ -52,27 +56,27 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.NamedExec("INSERT INTO users (email, username, encrypted_password, name) VALUES (:email, :username, :encrypted_password, :name);", &user)
 	if err != nil {
 		tx.Rollback()
-		s.logger.Error(err.Error())
+		logger.Error(err.Error())
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
 			switch e.Constraint {
 			case "index_users_on_username":
-				s.respond(w, 422, []byte(`{"error":"username is taken"}`))
+				c.Respond(w, 422, []byte(`{"error":"username is taken"}`))
 				return
 			case "index_users_on_email":
-				s.respond(w, 422, []byte(`{"error":"email is taken"}`))
+				c.Respond(w, 422, []byte(`{"error":"email is taken"}`))
 				return
 			}
 		}
-		s.respondWith500(w, "failed to write to db")
+		c.RespondWith500(w, "failed to write to db")
 		return
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		s.logger.Error(err.Error())
-		s.respondWith500(w, "failed to write to db")
+		logger.Error(err.Error())
+		c.RespondWith500(w, "failed to write to db")
 		return
 	}
 
-	s.respond(w, http.StatusOK, jsonStatusOK)
+	c.Respond(w, http.StatusOK, []byte(`{"status":"ok"}`))
 }

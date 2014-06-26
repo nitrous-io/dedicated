@@ -8,13 +8,16 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/controllers"
+	"github.com/nitrous-io/nitrous/controllers/home"
+	"github.com/nitrous-io/nitrous/controllers/users"
 	"github.com/nitrous-io/nitrous/db"
 )
 
 type Server struct {
+	router *mux.Router
 	root   string
 	logger *logger.Logger
-	router *mux.Router
 	db     *db.Database
 }
 
@@ -28,15 +31,15 @@ func NewServer(root string, db *db.Database, l *logger.Logger) *Server {
 	return svr
 }
 
+func (s *Server) Router() *mux.Router {
+	return s.router
+}
+
 func (s *Server) Start(host string, port uint16) {
 	http.Handle("/", s.router)
 	svr := &http.Server{Addr: fmt.Sprintf("%s:%d", host, port)}
 	err := svr.ListenAndServe()
 	s.logger.FatalExit(err)
-}
-
-func (s *Server) Router() *mux.Router {
-	return s.router
 }
 
 func (s *Server) route(route string, handler http.HandlerFunc, methods ...string) {
@@ -59,7 +62,13 @@ func (s *Server) static(prefix string, dir string) {
 }
 
 func (s *Server) drawRoutes() {
-	s.route("/", s.home, "GET")
-	s.route("/users", s.createUser, "POST")
+	s.route("/", s.action(home.Index), "GET")
+	s.route("/users", s.action(users.Create), "POST")
 	s.static("/", "public")
+}
+
+func (s *Server) action(fn func(c controllers.Helper, w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fn(s, w, r)
+	}
 }

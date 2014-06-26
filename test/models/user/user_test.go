@@ -1,12 +1,19 @@
 package usertest
 
 import (
+	"testing"
+
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/user"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func TestUser(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "models/user")
+}
 
 var _ = Describe("pkg/user", func() {
 	var db *db.Database
