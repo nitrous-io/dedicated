@@ -2,7 +2,7 @@ package dbtest
 
 import (
 	"fmt"
-	"os"
+	"os/exec"
 	"os/user"
 
 	"github.com/nitrous-io/nitrous/db"
@@ -15,20 +15,20 @@ var _ = Describe("Database", func() {
 
 	BeforeEach(func() {
 		var err error
-		dburl := os.Getenv("NITROUS_POSTGRES_URL_TEST")
-		if dburl == "" {
-			u, err := user.Current()
-			dburl = fmt.Sprintf("host=/var/run/postgresql user=%s dbname=nitrous_test sslmode=disable", u.Username)
-			Expect(err).To(BeNil())
-		}
-		d, err = db.NewDatabase(dburl)
+		u, err := user.Current()
+		err = exec.Command("dropdb", "--if-exists", "nitrous_migrations_test").Run()
 		Expect(err).To(BeNil())
-		d.Exec("DROP TABLE schema_migrations CASCADE")
-		d.Exec("DROP TABLE people CASCADE")
+		err = exec.Command("createdb", "-E", "UTF8", "-T", "template0", "-l", "en_US.utf8", "nitrous_migrations_test").Run()
+		Expect(err).To(BeNil())
+		dburl := fmt.Sprintf("host=/var/run/postgresql user=%s dbname=nitrous_migrations_test sslmode=disable", u.Username)
+		Expect(err).To(BeNil())
+		d, err = db.NewDatabase(dburl)
+		d.SetMaxIdleConns(0)
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
-		if d != nil && d != nil {
+		if d != nil {
 			d.Close()
 		}
 	})
@@ -47,29 +47,28 @@ var _ = Describe("Database", func() {
 	Describe("Migrate()", func() {
 		var (
 			migrations = []*db.Migration{
-				{Version: "0", Up: `CREATE TABLE people (
+				{Version: "10", Up: `CREATE TABLE people (
 					id serial PRIMARY KEY NOT NULL,
 					name character varying(255)
 				)`},
-				{Version: "1", Up: `ALTER TABLE people ADD COLUMN age integer`},
-				{Version: "2", Up: `ALTER TABLE people ADD COLUMN birthyear integer`},
+				{Version: "20", Up: `ALTER TABLE people ADD COLUMN age integer`},
+				{Version: "30", Up: `ALTER TABLE people ADD COLUMN birthyear integer`},
 			}
 		)
 
 		getCols := func() []string {
 			rows, err := d.Query(`SELECT * FROM people`)
+			defer rows.Close()
 			Expect(err).To(BeNil())
 			cols, err := rows.Columns()
 			Expect(err).To(BeNil())
 			return cols
 		}
 
-		It("runs all migrations", func() {
-			Context("when no migration has run yet", func() {
-				It("should not have the table created", func() {
-					_, err := d.Exec(`SELECT * FROM people`)
-					Expect(err).NotTo(BeNil()) // no such table
-				})
+		Context("when no migration has run yet", func() {
+			It("should not have the table created", func() {
+				_, err := d.Exec(`SELECT * FROM people`)
+				Expect(err).NotTo(BeNil()) // no such table
 			})
 		})
 

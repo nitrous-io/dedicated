@@ -35,7 +35,8 @@ createdb:
 	createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_test || true
 
 dropdb:
-	dropdb nitrous_development || true
-	dropdb nitrous_test || true
+	dropdb --if-exists nitrous_development
+	dropdb --if-exists nitrous_migrations_test
+	dropdb --if-exists nitrous_test
 
 .PHONY: all go assets build format run test createdb dropdb

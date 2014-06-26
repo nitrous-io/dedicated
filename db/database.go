@@ -40,7 +40,7 @@ func (d *Database) Migrate(migrations []*Migration) error {
 			_, err = d.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
 				version character varying(255) NOT NULL
 			);
-			CREATE UNIQUE INDEX unique_schema_migrations ON schema_migrations (version)`)
+			CREATE UNIQUE INDEX unique_schema_migrations ON schema_migrations USING btree (version);`)
 			if err != nil {
 				return err
 			}
