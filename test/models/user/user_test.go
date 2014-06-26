@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("user", func() {
+var _ = Describe("pkg/user", func() {
 	var db *db.Database
 
 	BeforeEach(func() {
