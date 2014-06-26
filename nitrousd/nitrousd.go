@@ -7,8 +7,11 @@ import (
 
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous-common/must"
+	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/server"
 )
+
+const DBEnvVar = "NITROUS_PG_URL"
 
 func main() {
 	logr := &logger.Logger{Level: logger.LogLevelDebug}
@@ -21,7 +24,17 @@ func main() {
 
 	pid := os.Getpid()
 
-	svr := server.NewServer(must.String(osext.ExecutableFolder()), logr)
+	dbURL := os.Getenv(DBEnvVar)
+	if dbURL == "" {
+		logr.FatalExit(DBEnvVar, "is not defined")
+	}
+	dbConn, err := db.NewDatabase(dbURL)
+	if err != nil {
+		logr.FatalExit(err)
+	}
+	dbConn.MigrateAll()
+	defer dbConn.DB.Close()
+	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr)
 	host := "0.0.0.0"
 	port := uint16(3000)
 	logr.Infof("nitrousd (pid: %v) listening on %s:%d", pid, host, port)

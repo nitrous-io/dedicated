@@ -30,6 +30,10 @@ func NewDatabase(conn string) (*Database, error) {
 	return &Database{DB: db}, nil
 }
 
+func (d *Database) MigrateAll() error {
+	return d.Migrate(Migrations)
+}
+
 func (d *Database) Migrate(migrations []*Migration) error {
 	logger := d.Logger
 
