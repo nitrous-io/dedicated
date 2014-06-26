@@ -10,7 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ruby1.9.1 \
   ruby1.9.1-dev \
   sqlite3 \
-  lxc \
+  lxc=1.0.* \
+  cgmanager \
+  libcgmanager0 \
   sudo \
   tmux
 
