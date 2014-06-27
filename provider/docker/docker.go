@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"strconv"
 	"strings"
@@ -340,6 +341,30 @@ func (p *DockerProvider) Logs(id string, w io.Writer, follow, timestamps bool, t
 		OutputStream: w,
 		ErrorStream:  w,
 	})
+}
+
+func (p *DockerProvider) Login(username, password, email, registry string) ([]byte, error) {
+	args := []string{
+		"login",
+		"--username", username,
+		"--password", password,
+		"--email", email,
+	}
+	if registry != "" {
+		args = append(args, registry)
+	}
+	return exec.Command("docker", args...).CombinedOutput()
+}
+
+// Added to Docker with PR https://github.com/dotcloud/docker/pull/6719
+func (p *DockerProvider) Logout(registry string) ([]byte, error) {
+	args := []string{
+		"logout",
+	}
+	if registry != "" {
+		args = append(args, registry)
+	}
+	return exec.Command("docker", args...).CombinedOutput()
 }
 
 func (p *DockerProvider) IsNotFoundError(err error) bool {
