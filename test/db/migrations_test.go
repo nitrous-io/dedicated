@@ -91,10 +91,10 @@ var _ = Describe("Database", func() {
 				Expect(err).To(BeNil())
 				Expect(id).NotTo(BeZero())
 				doAction()
-				var newId int
-				err = d.QueryRow(`SELECT id FROM people WHERE name = 'Peter'`).Scan(&newId)
+				var newID int
+				err = d.QueryRow(`SELECT id FROM people WHERE name = 'Peter'`).Scan(&newID)
 				Expect(err).To(BeNil())
-				Expect(newId).To(Equal(id))
+				Expect(newID).To(Equal(id))
 			})
 		})
 

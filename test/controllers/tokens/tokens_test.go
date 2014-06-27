@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
@@ -63,6 +64,7 @@ var _ = Describe("controllers/tokens", func() {
 			}
 			err := u.Insert(db)
 			Expect(err).To(BeNil())
+			Expect(u.ID).NotTo(BeZero())
 
 			params = &url.Values{}
 			params.Set("grant_type", "password")
@@ -91,6 +93,15 @@ var _ = Describe("controllers/tokens", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(j["access_token"]).NotTo(BeNil())
 				Expect(j["token_type"]).To(Equal("Bearer"))
+			})
+
+			It("persists the token in the database", func() {
+				t, err := token.FindByToken(db, j["access_token"].(string))
+				Expect(err).To(BeNil())
+				Expect(t).NotTo(BeNil())
+				Expect(t.UserID).To(Equal(u.ID))
+				Expect(t.Token).To(Equal(j["access_token"]))
+				Expect(t.CreatedAt).NotTo(BeNil())
 			})
 
 			It("has no-cache headers", func() {

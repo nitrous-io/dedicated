@@ -8,7 +8,6 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
-	"github.com/nitrous-io/nitrous/pkg/securerandom"
 )
 
 func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
@@ -50,18 +49,7 @@ func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tok, err := securerandom.Base64(191)
-	if err != nil {
-		logger.Error(err)
-		c.RespondWith500(w, "token_generation_failed")
-		return
-	}
-	tok = tok[:255]
-
-	t := &token.Token{
-		UserID: u.ID,
-		Token:  tok,
-	}
+	t := &token.Token{UserID: u.ID}
 
 	err = t.Insert(db)
 	if err != nil {
@@ -74,7 +62,7 @@ func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Pragma", "no-cache")
 
 	c.RespondEncodeJson(w, http.StatusOK, map[string]interface{}{
-		"access_token": tok,
+		"access_token": t.Token,
 		"token_type":   "Bearer",
 	})
 }

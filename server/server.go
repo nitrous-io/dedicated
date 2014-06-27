@@ -102,7 +102,7 @@ func (s *Server) authedAction(fn func(controllers.Helper, *user.User, http.Respo
 			return
 		}
 
-		u, err := user.FindById(s.db, t.UserID)
+		u, err := user.FindByID(s.db, t.UserID)
 		if err != nil {
 			s.logger.Error(err)
 			s.RespondWith500(w, "db_read_failed")

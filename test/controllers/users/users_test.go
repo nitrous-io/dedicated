@@ -85,6 +85,7 @@ var _ = Describe("controllers/users", func() {
 				u, err := user.FindByUsername(db, "foo")
 				Expect(err).To(BeNil())
 				Expect(u).NotTo(BeNil())
+				Expect(u.ID).NotTo(BeZero())
 				Expect(u.Email).To(Equal("foo@example.com"))
 				Expect(u.Username).To(Equal("foo"))
 				Expect(u.Name).To(Equal("Foo Bar"))

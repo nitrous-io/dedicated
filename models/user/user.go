@@ -20,7 +20,7 @@ type User struct {
 	Password string
 }
 
-func FindById(d db.QueryReceiver, id int64) (*User, error) {
+func FindByID(d db.QueryReceiver, id int64) (*User, error) {
 	user := &User{}
 	err := d.Get(user, "SELECT * FROM users WHERE id = $1", id)
 	if err != nil {

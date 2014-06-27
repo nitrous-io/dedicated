@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/pkg/securerandom"
 )
 
 type Token struct {
@@ -27,6 +28,14 @@ func FindByToken(d db.QueryReceiver, token string) (*Token, error) {
 }
 
 func (t *Token) Insert(d db.QueryReceiver) error {
+	if t.Token == "" {
+		tok, err := securerandom.Base64(191)
+		if err != nil {
+			return err
+		}
+		t.Token = tok[:255]
+	}
+
 	_, err := d.NamedExec("INSERT INTO tokens (user_id, token) VALUES (:user_id, :token);", t)
 	if err != nil {
 		return err
