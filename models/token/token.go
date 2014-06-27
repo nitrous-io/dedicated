@@ -1,6 +1,7 @@
 package token
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
@@ -13,8 +14,22 @@ type Token struct {
 	CreatedAt *time.Time `db:"created_at"`
 }
 
+func FindByToken(d db.QueryReceiver, token string) (*Token, error) {
+	t := &Token{}
+	err := d.Get(t, "SELECT * FROM tokens WHERE token = $1", token)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return t, nil
+}
+
 func (t *Token) Insert(d db.QueryReceiver) error {
-	q := "INSERT INTO tokens (user_id, token) VALUES (:user_id, :token);"
-	_, err := d.NamedExec(q, t)
-	return err
+	_, err := d.NamedExec("INSERT INTO tokens (user_id, token) VALUES (:user_id, :token);", t)
+	if err != nil {
+		return err
+	}
+	return d.Get(t, "SELECT * FROM tokens WHERE user_id = $1 AND token = $2;", t.UserID, t.Token)
 }

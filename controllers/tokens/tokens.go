@@ -75,6 +75,6 @@ func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 
 	c.RespondEncodeJson(w, http.StatusOK, map[string]interface{}{
 		"access_token": tok,
-		"token_type":   "bearer",
+		"token_type":   "Bearer",
 	})
 }

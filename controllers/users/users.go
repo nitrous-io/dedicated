@@ -72,3 +72,14 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 
 	c.Respond(w, http.StatusOK, []byte(`{"status":"ok"}`))
 }
+
+func GetAuthenticatedUser(c controllers.Helper, u *user.User, w http.ResponseWriter, r *http.Request) {
+	c.RespondEncodeJson(w, http.StatusOK, map[string]interface{}{
+		"user": map[string]interface{}{
+			"username":   u.Username,
+			"email":      u.Email,
+			"created_at": u.CreatedAt,
+			"updated_at": u.UpdatedAt,
+		},
+	})
+}

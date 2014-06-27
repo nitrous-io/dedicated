@@ -90,7 +90,7 @@ var _ = Describe("controllers/tokens", func() {
 			It("responds with a unique access token", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(j["access_token"]).NotTo(BeNil())
-				Expect(j["token_type"]).To(Equal("bearer"))
+				Expect(j["token_type"]).To(Equal("Bearer"))
 			})
 
 			It("has no-cache headers", func() {
@@ -112,7 +112,7 @@ var _ = Describe("controllers/tokens", func() {
 					err := json.Unmarshal(res.Body.Bytes(), &j)
 					Expect(err).To(BeNil())
 					Expect(j["access_token"]).NotTo(Equal(prevToken))
-					Expect(j["token_type"]).To(Equal("bearer"))
+					Expect(j["token_type"]).To(Equal("Bearer"))
 				})
 			})
 		})
