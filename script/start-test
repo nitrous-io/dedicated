@@ -1,5 +1,3 @@
 #!/usr/bin/env bash
-#Setup the shell environment suitable for running tests etc...
 
-echo "Running tests"
-goop go test ./...
+goop exec ginkgo -r -trace -keepGoing

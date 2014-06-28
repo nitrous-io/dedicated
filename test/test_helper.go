@@ -1,8 +1,12 @@
-package digitalocean
+package test
+
+import (
+	. "github.com/nitrous-io/hostbuilder/pkg/digitalocean"
+)
 
 var (
 	// /droplets
-	allDroplets = `
+	AllDroplets = `
 	{
 		"status": "OK",
 		"droplets": [
@@ -24,7 +28,7 @@ var (
 	`
 
 	// /droplets/new
-	newDroplet = `
+	NewDroplet = `
 	{
 		"status": "OK",
 		"droplet": {
@@ -38,7 +42,7 @@ var (
 	`
 
 	// /droplets/id
-	newDropletState = `
+	NewDropletState = `
 	{
 		"status": "OK",
 		"droplet": {
@@ -54,7 +58,7 @@ var (
 	}
 	`
 
-	activeDropletState = `
+	ActiveDropletState = `
 	{
 		"status": "OK",
 		"droplet": {
@@ -71,7 +75,7 @@ var (
 	`
 
 	// /regions
-	allRegions = `
+	AllRegions = `
 	{
 		"status": "OK",
 		"regions": [
@@ -83,7 +87,7 @@ var (
 	`
 
 	// /sizes
-	allSizes = `
+	AllSizes = `
 	{
 		"status": "OK",
 		"sizes": [
@@ -98,7 +102,7 @@ var (
 	`
 
 	// /images
-	allImages = `
+	AllImages = `
 	{
 		"status": "OK",
 		"images": [
@@ -109,7 +113,7 @@ var (
 	`
 
 	// /image/id
-	oneImage = `
+	OneImage = `
 	{
 		"status": "OK",
 		"image": {
@@ -121,7 +125,7 @@ var (
 	`
 
 	// /ssh_keys/new
-	newSSH = `
+	NewSSH = `
 	{
 		"status": "OK",
 		"ssh_key": {
@@ -133,7 +137,7 @@ var (
 	`
 )
 
-func testClient(url string) *Client {
+func TestClient(url string) *Client {
 	client := NewClient("client_id", "api_key")
 	client.BaseURL = url
 	return client
