@@ -32,8 +32,8 @@ type Provider interface {
 	Export(id string, output io.Writer) error
 	Logs(id string, w io.Writer, follow, timestamps bool, tail string) error
 
-	Login(username, password, email, registry string) ([]byte, error)
-	Logout(registry string) ([]byte, error)
+	Login(username, password, email, registry string) error
+	Logout(registry string) error
 }
 
 type ContainerInfo struct {

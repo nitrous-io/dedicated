@@ -73,4 +73,7 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/shells", s.wrapError(s.createShell), "POST")
 	s.route("/shells/{id}/attach", s.wrapError(s.attachShell), "POST")
 	s.route("/shells/{id}/resize", s.wrapError(s.resizeShell), "POST")
+
+	s.route("/registry/auth", s.loginRegistry, "POST")
+	s.route("/registry/auth", s.logoutRegistry, "DELETE")
 }

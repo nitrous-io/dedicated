@@ -343,7 +343,7 @@ func (p *DockerProvider) Logs(id string, w io.Writer, follow, timestamps bool, t
 	})
 }
 
-func (p *DockerProvider) Login(username, password, email, registry string) ([]byte, error) {
+func (p *DockerProvider) Login(username, password, email, registry string) error {
 	args := []string{
 		"login",
 		"--username", username,
@@ -353,18 +353,18 @@ func (p *DockerProvider) Login(username, password, email, registry string) ([]by
 	if registry != "" {
 		args = append(args, registry)
 	}
-	return exec.Command("docker", args...).CombinedOutput()
+	return exec.Command("docker", args...).Run()
 }
 
 // Added to Docker with PR https://github.com/dotcloud/docker/pull/6719
-func (p *DockerProvider) Logout(registry string) ([]byte, error) {
+func (p *DockerProvider) Logout(registry string) error {
 	args := []string{
 		"logout",
 	}
 	if registry != "" {
 		args = append(args, registry)
 	}
-	return exec.Command("docker", args...).CombinedOutput()
+	return exec.Command("docker", args...).Run()
 }
 
 func (p *DockerProvider) IsNotFoundError(err error) bool {
