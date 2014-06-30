@@ -1,4 +1,4 @@
-package servertest
+package hostbuilder_test
 
 import (
 	"encoding/json"

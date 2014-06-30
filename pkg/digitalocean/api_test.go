@@ -1,4 +1,4 @@
-package digitalocean
+package digitalocean_test
 
 import (
 	"encoding/json"

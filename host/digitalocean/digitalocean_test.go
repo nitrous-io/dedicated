@@ -1,4 +1,4 @@
-package digitaloceantest
+package digitalocean_test
 
 import (
 	"net/http/httptest"
