@@ -43,14 +43,14 @@ var _ = Describe("hostbuilder", func() {
 			form := url.Values{}
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
-			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host"), form)
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts"), form)
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(201))
 
-			var info host.Info
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).To(BeNil())
 
+			var info host.Info
 			json.Unmarshal(body, &info)
 			Expect(info.Id).To(Equal("123"))
 			Expect(info.IpAddress).To(Equal("10.0.0.1"))
@@ -64,7 +64,7 @@ var _ = Describe("hostbuilder", func() {
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
 
-			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/delete"), form)
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/delete"), form)
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(200))
 
@@ -80,7 +80,7 @@ var _ = Describe("hostbuilder", func() {
 			form := url.Values{}
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
-			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/stop"), form)
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/stop"), form)
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(200))
 
@@ -97,7 +97,7 @@ var _ = Describe("hostbuilder", func() {
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
 
-			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/start"), form)
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/start"), form)
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(200))
 
@@ -114,7 +114,7 @@ var _ = Describe("hostbuilder", func() {
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
 
-			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/restart"), form)
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/restart"), form)
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(200))
 

@@ -165,11 +165,11 @@ func (s *Server) CreateRouter() {
 	r := mux.NewRouter()
 	m := map[string]map[string]HttpHandler{
 		"POST": {
-			"/host":         s.postHost,
-			"/host/delete":  s.deleteHost,
-			"/host/stop":    s.stopHost,
-			"/host/start":   s.startHost,
-			"/host/restart": s.restartHost,
+			"/hosts":         s.postHost,
+			"/hosts/delete":  s.deleteHost,
+			"/hosts/stop":    s.stopHost,
+			"/hosts/start":   s.startHost,
+			"/hosts/restart": s.restartHost,
 		},
 	}
 	for method, routes := range m {
