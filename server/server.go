@@ -92,8 +92,7 @@ func (s *Server) authedAction(fn func(controllers.Helper, *user.User, http.Respo
 		tok := authHeader[len(prefix):]
 		t, err := token.FindByToken(s.db, tok)
 		if err != nil {
-			s.logger.Error(err)
-			s.RespondWith500(w, "db_read_failed")
+			s.RespondWithError(w, err)
 			return
 		}
 		if t == nil {
@@ -104,8 +103,7 @@ func (s *Server) authedAction(fn func(controllers.Helper, *user.User, http.Respo
 
 		u, err := user.FindByID(s.db, t.UserID)
 		if err != nil {
-			s.logger.Error(err)
-			s.RespondWith500(w, "db_read_failed")
+			s.RespondWithError(w, err)
 			return
 		}
 		if u == nil {

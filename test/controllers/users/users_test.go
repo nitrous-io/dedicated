@@ -116,7 +116,8 @@ var _ = Describe("controllers/users", func() {
 					j := map[string]string{}
 					err := json.Unmarshal(res.Body.Bytes(), &j)
 					Expect(err).To(BeNil())
-					Expect(j["error"]).To(Equal(v + " is required"))
+					Expect(j["error"]).To(Equal("validation_failed"))
+					Expect(j["error_description"]).To(Equal(v + " is required"))
 				})
 			})
 		}
@@ -142,7 +143,8 @@ var _ = Describe("controllers/users", func() {
 					j := map[string]string{}
 					err := json.Unmarshal(res.Body.Bytes(), &j)
 					Expect(err).To(BeNil())
-					Expect(j["error"]).To(Equal("username is taken"))
+					Expect(j["error"]).To(Equal("validation_failed"))
+					Expect(j["error_description"]).To(Equal("username is taken"))
 				})
 			})
 
@@ -157,7 +159,8 @@ var _ = Describe("controllers/users", func() {
 					j := map[string]string{}
 					err := json.Unmarshal(res.Body.Bytes(), &j)
 					Expect(err).To(BeNil())
-					Expect(j["error"]).To(Equal("email is taken"))
+					Expect(j["error"]).To(Equal("validation_failed"))
+					Expect(j["error_description"]).To(Equal("email is taken"))
 				})
 			})
 		})

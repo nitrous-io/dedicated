@@ -12,7 +12,6 @@ import (
 
 func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 	db := c.DB()
-	logger := c.Logger()
 
 	grantType := r.FormValue("grant_type")
 	username := r.FormValue("username")
@@ -35,8 +34,7 @@ func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 
 	u, err := user.FindByUsername(db, username)
 	if err != nil {
-		logger.Error(err)
-		c.RespondWith500(w, "db_read_failed")
+		c.RespondWithError(w, err)
 		return
 	}
 	if u == nil {
@@ -53,15 +51,14 @@ func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 
 	err = t.Insert(db)
 	if err != nil {
-		logger.Error(err)
-		c.RespondWith500(w, "db_write_failed")
+		c.RespondWithError(w, err)
 		return
 	}
 
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Pragma", "no-cache")
 
-	c.RespondEncodeJson(w, http.StatusOK, map[string]interface{}{
+	c.RespondEncodeJSON(w, http.StatusOK, map[string]interface{}{
 		"access_token": t.Token,
 		"token_type":   "Bearer",
 	})

@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -45,26 +46,28 @@ func (s *Server) RenderHTML(w http.ResponseWriter, status int, html []byte) {
 }
 
 func (s *Server) Respond(w http.ResponseWriter, status int, data []byte) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if w.Header().Get("Content-Type") == "" {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	}
 	w.WriteHeader(status)
 	w.Write(data)
 	s.logger.Infof("Response: %v %v", status, string(data))
 }
 
-func (s *Server) RespondEncodeJson(w http.ResponseWriter, status int, data map[string]interface{}) {
+func (s *Server) RespondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{}) {
 	j, err := json.Marshal(data)
 	if err != nil {
-		s.RespondWith500(w, "json marshaling failed")
+		s.RespondWithError(w, err)
 		return
 	}
 	s.Respond(w, status, j)
 }
 
-func (s *Server) RespondWith500(w http.ResponseWriter, errMsg string) {
-	e := map[string]string{"error": errMsg}
-	j, err := json.Marshal(e)
-	if err != nil {
-		j = []byte("json marshaling failed")
-	}
+// logs error along with its hash and responds with json containing the error's hash
+func (s *Server) RespondWithError(w http.ResponseWriter, err error) {
+	errMsg := err.Error()
+	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
+	j := `{"error":"internal_server_error","error_hash":"` + errHash + `"}`
+	s.logger.Error(errHash, errMsg)
 	s.Respond(w, http.StatusInternalServerError, []byte(j))
 }

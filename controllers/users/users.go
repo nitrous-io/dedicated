@@ -10,7 +10,6 @@ import (
 
 func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 	db := c.DB()
-	logger := c.Logger()
 
 	email := r.FormValue("email")
 	username := r.FormValue("username")
@@ -18,24 +17,23 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 
 	if email == "" {
-		c.Respond(w, 422, []byte(`{"error":"email is required"}`))
+		c.Respond(w, 422, []byte(`{"error":"validation_failed","error_description":"email is required"}`))
 		return
 	}
 
 	if username == "" {
-		c.Respond(w, 422, []byte(`{"error":"username is required"}`))
+		c.Respond(w, 422, []byte(`{"error":"validation_failed","error_description":"username is required"}`))
 		return
 	}
 
 	if password == "" {
-		c.Respond(w, 422, []byte(`{"error":"password is required"}`))
+		c.Respond(w, 422, []byte(`{"error":"validation_failed","error_description":"password is required"}`))
 		return
 	}
 
 	tx, err := db.Beginx()
 	if err != nil {
-		logger.Error(err.Error())
-		c.RespondWith500(w, "failed to write to db")
+		c.RespondWithError(w, err)
 		return
 	}
 	u := &user.User{
@@ -48,25 +46,23 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 	err = u.Insert(tx)
 	if err != nil {
 		tx.Rollback()
-		logger.Error(err.Error())
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
 			switch e.Constraint {
 			case "index_users_on_username":
-				c.Respond(w, 422, []byte(`{"error":"username is taken"}`))
+				c.Respond(w, 422, []byte(`{"error":"validation_failed","error_description":"username is taken"}`))
 				return
 			case "index_users_on_email":
-				c.Respond(w, 422, []byte(`{"error":"email is taken"}`))
+				c.Respond(w, 422, []byte(`{"error":"validation_failed","error_description":"email is taken"}`))
 				return
 			}
 		}
-		c.RespondWith500(w, "failed to write to db")
+		c.RespondWithError(w, err)
 		return
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		logger.Error(err.Error())
-		c.RespondWith500(w, "failed to write to db")
+		c.RespondWithError(w, err)
 		return
 	}
 
@@ -74,7 +70,7 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAuthenticatedUser(c controllers.Helper, u *user.User, w http.ResponseWriter, r *http.Request) {
-	c.RespondEncodeJson(w, http.StatusOK, map[string]interface{}{
+	c.RespondEncodeJSON(w, http.StatusOK, map[string]interface{}{
 		"user": map[string]interface{}{
 			"username":   u.Username,
 			"email":      u.Email,
