@@ -1,3 +1,8 @@
 #!/usr/bin/env bash
 
-goop exec ginkgo -r -trace -keepGoing
+paths=""
+for p in $@; do
+  paths+="test/$p "
+done
+
+goop exec ginkgo -r -trace -keepGoing $paths
