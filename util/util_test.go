@@ -1,11 +1,17 @@
-package utiltest
+package util_test
 
 import (
 	"github.com/nitrous-io/freighter/util"
 
+	"testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func Test(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "util")
+}
 
 var _ = Describe("util", func() {
 	Describe("Md5Fingerprint()", func() {

@@ -1,4 +1,4 @@
-package servertest
+package server_test
 
 import (
 	"io/ioutil"
@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("HTTPCallback", func() {
+var _ = Describe("server.HTTPCallback", func() {
 	var (
 		cb *server.HTTPCallback
 	)

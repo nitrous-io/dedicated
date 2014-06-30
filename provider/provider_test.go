@@ -1,10 +1,17 @@
-package providertest
+package provider_test
 
 import (
 	"github.com/nitrous-io/freighter/provider"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"testing"
 )
+
+func Test(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "provider")
+}
 
 var _ = Describe("provider", func() {
 	Describe("IsValidName()", func() {

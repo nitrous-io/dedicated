@@ -32,7 +32,7 @@ func (s *Server) respond(w http.ResponseWriter, status int, data []byte) {
 	s.logger.Infof("Response: %v %v", status, string(data))
 }
 
-func (s *Server) respondEncodeJson(w http.ResponseWriter, status int, data map[string]interface{}) {
+func (s *Server) respondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{}) {
 	j, err := json.Marshal(data)
 	if err != nil {
 		s.respondWith500(w, "json marshaling failed")

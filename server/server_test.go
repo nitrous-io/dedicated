@@ -1,4 +1,4 @@
-package servertest
+package server_test
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"testing"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/provider"
@@ -19,7 +20,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Server", func() {
+func Test(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "server")
+}
+
+var _ = Describe("server", func() {
 	var (
 		handler *mux.Router
 		res     *httptest.ResponseRecorder

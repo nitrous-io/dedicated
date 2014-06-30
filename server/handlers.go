@@ -18,7 +18,7 @@ func (s *Server) listContainers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"containers": list})
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"containers": list})
 }
 
 func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +72,7 @@ func (s *Server) getContainerInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"container": info})
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"container": info})
 }
 
 func (s *Server) terminateContainer(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +99,7 @@ func (s *Server) listPublicKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
 
 func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +129,7 @@ func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
 
 func (s *Server) removePublicKey(w http.ResponseWriter, r *http.Request) {
@@ -148,5 +148,5 @@ func (s *Server) removePublicKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.respondEncodeJson(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }

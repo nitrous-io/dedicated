@@ -1,10 +1,9 @@
-package dockertest
+package docker_test
 
 import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -16,9 +15,16 @@ import (
 	"github.com/nitrous-io/freighter/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"testing"
 )
 
-var _ = Describe("DockerProvider", func() {
+func Test(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "provider/docker")
+}
+
+var _ = Describe("provider/docker", func() {
 	var (
 		dbFile    string
 		prov      *docker.DockerProvider
@@ -54,6 +60,7 @@ var _ = Describe("DockerProvider", func() {
 			pubkey2      string
 			fingerprint1 = "f7:de:4d:6f:54:6b:b9:d5:78:a9:62:15:e2:ad:ec:bb"
 			fingerprint2 string
+			sshkeypath   string
 		)
 
 		getID := func(name string) string {
@@ -77,12 +84,16 @@ var _ = Describe("DockerProvider", func() {
 		}
 
 		BeforeEach(func() {
+			var err error
 			name = RandomName("freightertest")
-			userPubkey, err := ioutil.ReadFile(path.Join(os.Getenv("HOME"), ".ssh", "id_rsa.pub"))
-			Expect(err).To(BeNil())
+
+			userPubkey := TestSSHPubKey
 			pubkey2 = strings.TrimSpace(string(userPubkey))
 			fingerprint2, err = util.Md5Fingerprint(pubkey2)
 			Expect(err).To(BeNil())
+
+			sshkeypath = TempFile("")
+			ioutil.WriteFile(sshkeypath, []byte(TestSSHPrivKey), 0600)
 
 			info, err = prov.Create(name, "ubuntu-upstart:trusty", []string{pubkey1, pubkey2})
 			Expect(err).To(BeNil())
@@ -93,11 +104,12 @@ var _ = Describe("DockerProvider", func() {
 
 		AfterEach(func() {
 			cleanUpContainer(name)
+			os.Remove(sshkeypath)
 		})
 
 		expectSSHToWork := func() {
 			time.Sleep(1 * time.Second)
-			out, err := exec.Command("ssh", "action@localhost", "-p", strconv.Itoa(int(port)), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "echo success").CombinedOutput()
+			out, err := exec.Command("ssh", "action@localhost", "-i", sshkeypath, "-p", strconv.Itoa(int(port)), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "echo success").CombinedOutput()
 			Expect(out).To(ContainSubstring("success"))
 			Expect(err).To(BeNil())
 		}
