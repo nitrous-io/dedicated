@@ -1,4 +1,4 @@
-package tokenstest
+package tokens_test
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestTokens(t *testing.T) {
+func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "controllers/tokens")
 }

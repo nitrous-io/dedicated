@@ -1,13 +1,19 @@
-package dbtest
+package db_test
 
 import (
 	"os/exec"
+	"testing"
 
 	"github.com/nitrous-io/nitrous/db"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func Test(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "db")
+}
 
 var _ = Describe("Database", func() {
 	var d *db.Database

@@ -1,4 +1,4 @@
-package userstest
+package users_test
 
 import (
 	"encoding/json"
@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestUsers(t *testing.T) {
+func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "controllers/users")
 }

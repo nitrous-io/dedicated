@@ -1,4 +1,4 @@
-package bcrypttest
+package bcrypt_test
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestBcrypt(t *testing.T) {
+func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "pkg/bcrypt")
 }
