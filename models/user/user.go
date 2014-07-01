@@ -2,10 +2,29 @@ package user
 
 import (
 	"database/sql"
+	"errors"
+	"regexp"
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
+)
+
+var (
+	usernameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
+	emailRe    = regexp.MustCompile(`\A[^@\s]+@([^@\s]+\.)+[^@\s]+\z`)
+)
+
+var (
+	ErrEmailBlank       = errors.New("email can't be blank")
+	ErrEmailInvalid     = errors.New("email is not valid")
+	ErrUsernameBlank    = errors.New("username can't be blank")
+	ErrUsernameTooShort = errors.New("username is too short (minimum is 3 characters)")
+	ErrUsernameTooLong  = errors.New("username is too long (maximum is 30 characters)")
+	ErrUsernameInvalid  = errors.New("username may only contain alphanumeric characters or dashes and cannot begin with a dash")
+	ErrPasswordBlank    = errors.New("password can't be blank")
+	ErrPasswordTooShort = errors.New("password is too short (minimum is 6 characters)")
+	ErrPasswordTooLong  = errors.New("password is too long (maximum is 30 characters)")
 )
 
 type User struct {
@@ -58,4 +77,42 @@ func (u *User) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	return d.Get(u, "SELECT * FROM users WHERE username = $1;", u.Username)
+}
+
+func (u *User) Validate() error {
+	if u.Email == "" {
+		return ErrEmailBlank
+	}
+	if !emailRe.MatchString(u.Email) {
+		return ErrEmailInvalid
+	}
+
+	if u.Username == "" {
+		return ErrUsernameBlank
+	}
+	usernameLen := len(u.Username)
+	if usernameLen < 2 {
+		return ErrUsernameTooShort
+	}
+	if usernameLen > 30 {
+		return ErrUsernameTooLong
+	}
+	if !usernameRe.MatchString(u.Username) {
+		return ErrUsernameInvalid
+	}
+
+	if u.Password == "" && u.EncryptedPassword == "" {
+		return ErrPasswordBlank
+	}
+	if u.Password != "" {
+		passwordLen := len(u.Password)
+		if passwordLen < 6 {
+			return ErrPasswordTooShort
+		}
+		if passwordLen > 30 {
+			return ErrPasswordTooLong
+		}
+	}
+
+	return nil
 }

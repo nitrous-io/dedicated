@@ -2,6 +2,7 @@ package users
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/nitrous/controllers"
@@ -11,23 +12,24 @@ import (
 func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 	db := c.DB()
 
-	email := r.FormValue("email")
-	username := r.FormValue("username")
+	email := strings.ToLower(r.FormValue("email"))
+	username := strings.ToLower(r.FormValue("username"))
 	password := r.FormValue("password")
 	name := r.FormValue("name")
 
-	if email == "" {
-		c.Respond(w, 422, []byte(`{"error":"validation_failed","error_description":"email is required"}`))
-		return
+	u := &user.User{
+		Email:    email,
+		Username: username,
+		Name:     name,
+		Password: password,
 	}
 
-	if username == "" {
-		c.Respond(w, 422, []byte(`{"error":"validation_failed","error_description":"username is required"}`))
-		return
-	}
-
-	if password == "" {
-		c.Respond(w, 422, []byte(`{"error":"validation_failed","error_description":"password is required"}`))
+	err := u.Validate()
+	if err != nil {
+		c.RespondEncodeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error":             "validation_failed",
+			"error_description": err.Error(),
+		})
 		return
 	}
 
@@ -36,12 +38,6 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 		c.RespondWithError(w, err)
 		return
 	}
-	u := &user.User{
-		Email:    email,
-		Username: username,
-		Name:     name,
-		Password: password,
-	}
 
 	err = u.Insert(tx)
 	if err != nil {
@@ -49,10 +45,10 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
 			switch e.Constraint {
 			case "index_users_on_username":
-				c.Respond(w, 422, []byte(`{"error":"validation_failed","error_description":"username is taken"}`))
+				c.Respond(w, http.StatusBadRequest, []byte(`{"error":"validation_failed","error_description":"username is taken"}`))
 				return
 			case "index_users_on_email":
-				c.Respond(w, 422, []byte(`{"error":"validation_failed","error_description":"email is taken"}`))
+				c.Respond(w, http.StatusBadRequest, []byte(`{"error":"validation_failed","error_description":"email is taken"}`))
 				return
 			}
 		}

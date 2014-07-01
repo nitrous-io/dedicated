@@ -202,4 +202,81 @@ var _ = Describe("models/user", func() {
 			})
 		})
 	})
+
+	Describe("Validate()", func() {
+		var u *user.User
+
+		BeforeEach(func() {
+			u = &user.User{
+				Email:    "foo@gmail.com",
+				Username: "foo",
+				Password: "123456",
+			}
+			Expect(u.Validate()).To(BeNil())
+		})
+
+		It("validates email", func() {
+			tests := []struct {
+				input string
+				err   error
+			}{
+				{"", user.ErrEmailBlank},
+				{"foo", user.ErrEmailInvalid},
+				{"foo@gmail.com", nil},
+				{"foo+bar@gmail.com", nil},
+				{"foo+bar@hello.com.sg", nil},
+			}
+
+			for _, t := range tests {
+				u.Email = t.input
+				Expect(u.Validate() == t.err).To(BeTrue())
+			}
+		})
+
+		It("validates username", func() {
+			tests := []struct {
+				input string
+				err   error
+			}{
+				{"", user.ErrUsernameBlank},
+				{"foo", nil},
+				{"fo", nil},
+				{"f", user.ErrUsernameTooShort},
+				{"ffffffffffffffffffffffffffffff", nil},
+				{"fffffffffffffffffffffffffffffff", user.ErrUsernameTooLong},
+				{"f00", nil},
+				{"f-o-0-", nil},
+				{"-foo", user.ErrUsernameInvalid},
+				{"FOO", user.ErrUsernameInvalid},
+			}
+
+			for _, t := range tests {
+				u.Username = t.input
+				Expect(u.Validate() == t.err).To(BeTrue())
+			}
+		})
+
+		It("validates password", func() {
+			tests := []struct {
+				input string
+				err   error
+			}{
+				{"", user.ErrPasswordBlank},
+				{"12345", user.ErrPasswordTooShort},
+				{"123456", nil},
+				{"fQ@*($&($()ZXv897ua]oo", nil},
+				{"ffffffffffffffffffffffffffffff", nil},
+				{"fffffffffffffffffffffffffffffff", user.ErrPasswordTooLong},
+			}
+
+			for _, t := range tests {
+				u.Password = t.input
+				Expect(u.Validate() == t.err).To(BeTrue())
+			}
+
+			u.Password = ""
+			u.EncryptedPassword = "something"
+			Expect(u.Validate()).To(BeNil())
+		})
+	})
 })

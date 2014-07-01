@@ -111,16 +111,35 @@ var _ = Describe("controllers/users", func() {
 					doRequest()
 				})
 
-				It("responds with 422 unprocessible entity", func() {
-					Expect(res.Code).To(Equal(422))
+				It("responds with 400 bad request", func() {
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
 					j := map[string]string{}
 					err := json.Unmarshal(res.Body.Bytes(), &j)
 					Expect(err).To(BeNil())
 					Expect(j["error"]).To(Equal("validation_failed"))
-					Expect(j["error_description"]).To(Equal(v + " is required"))
+					Expect(j["error_description"]).To(Equal(v + " can't be blank"))
 				})
 			})
 		}
+
+		Context("when other types of validation fails", func() {
+			BeforeEach(func() {
+				params = &url.Values{}
+				params.Set("email", "foobar")
+				params.Set("username", "foo")
+				params.Set("password", "123456")
+				doRequest()
+			})
+
+			It("responds with 400 bad request", func() {
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]string{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("validation_failed"))
+				Expect(j["error_description"]).To(Equal("email is not valid"))
+			})
+		})
 
 		Context("with an existing user", func() {
 			BeforeEach(func() {
@@ -138,8 +157,8 @@ var _ = Describe("controllers/users", func() {
 					doRequest()
 				})
 
-				It("responds with 422 unprocessible entity", func() {
-					Expect(res.Code).To(Equal(422))
+				It("responds with 400 bad request", func() {
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
 					j := map[string]string{}
 					err := json.Unmarshal(res.Body.Bytes(), &j)
 					Expect(err).To(BeNil())
@@ -154,8 +173,8 @@ var _ = Describe("controllers/users", func() {
 					doRequest()
 				})
 
-				It("responds with 422 unprocessible entity", func() {
-					Expect(res.Code).To(Equal(422))
+				It("responds with 400 bad request", func() {
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
 					j := map[string]string{}
 					err := json.Unmarshal(res.Body.Bytes(), &j)
 					Expect(err).To(BeNil())
