@@ -460,5 +460,28 @@ Content-Type: application/json; charset=utf-8
 - **200** - no error
 - **404** - no such container
 
+### Export a container
+`GET /containers/(id)/export`
+
+**Example request**:
+
+```
+GET /containers/2cf1503ed6a0/export HTTP/1.1
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 200 OK
+Content-Type: application/octet-stream
+
+{{ STREAM }}
+```
+
+**Status Codes**:
+
+- **200** - no error
+- **404** - no such container
+
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.
