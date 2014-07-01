@@ -393,5 +393,33 @@ Search for "Export a container"
 - **200** - no error
 - **404** - no such container
 
+### Print logs of a container
+
+`GET /containers/(id)/logs`
+
+**Example request**:
+
+```
+GET /containers/2cf1503ed6a0/logs HTTP/1.1
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 200 OK
+Content-Type: application/vnd.docker.raw-stream
+
+{{ STREAM }}
+```
+
+**GET Params**:
+- **follow**: follow logs
+- **timestamps**: print timestamps
+
+**Status Codes**:
+
+- **200** - no error
+- **404** - no such container
+
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.
