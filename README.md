@@ -9,5 +9,10 @@ Nitrous On-Prem
 2. Create Postgres User - `sudo su postgres -c "psql -c \"CREATE ROLE "$(whoami)" NOSUPERUSER CREATEDB NOCREATEROLE INHERIT LOGIN;\""`
 3. `make createdb`
 
+## Running
+1. `cp .env-example .env`
+2. `export $(cat .env)` or use [Autoenv](https://github.com/kennethreitz/autoenv).
+3. `make run` or `make go; build/nitrousd`
+
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.
