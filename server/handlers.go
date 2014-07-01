@@ -1,7 +1,9 @@
 package server
 
 import (
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/provider"
@@ -149,4 +151,17 @@ func (s *Server) removePublicKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
+}
+
+// export content of the container as a .tar stream
+func (s *Server) exportContainer(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	defer func(start time.Time) {
+		log.Printf("Export container %s took %v", id, time.Now().Sub(start))
+	}(time.Now())
+	w.Header().Set("Content-Type", "application/octet-stream")
+	err := s.provider.Export(id, w)
+	if err != nil {
+		s.handleError(w, err)
+	}
 }

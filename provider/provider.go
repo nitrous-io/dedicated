@@ -1,6 +1,9 @@
 package provider
 
-import "regexp"
+import (
+	"io"
+	"regexp"
+)
 
 var containerNameRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
 
@@ -19,6 +22,7 @@ type Provider interface {
 	//TakeSnapshot(id string, tag name, description string) (info *SnapshotInfo, err error)
 	//RestoreSnapshot(id string, snapshotID string) (err error)
 	IsNotFoundError(err error) bool
+	Export(id string, output io.Writer) error
 }
 
 type ContainerInfo struct {
