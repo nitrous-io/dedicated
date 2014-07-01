@@ -273,6 +273,9 @@ func (p *DockerProvider) IsNotFoundError(err error) bool {
 }
 
 func (p *DockerProvider) Export(id string, output io.Writer) error {
+	defer func(start time.Time) {
+		p.logger.Infof("Export container %s took %v", id, time.Now().Sub(start))
+	}(time.Now())
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
