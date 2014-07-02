@@ -1,4 +1,4 @@
-package digitalocean
+package digitalocean_test
 
 import (
 	"encoding/json"
@@ -6,185 +6,167 @@ import (
 	"reflect"
 	"testing"
 
+	. "github.com/nitrous-io/hostbuilder/pkg/digitalocean"
 	"github.com/nitrous-io/hostbuilder/pkg/digitalocean/dotest"
+	. "github.com/nitrous-io/hostbuilder/test"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-func TestCreateDroplet(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets", dotest.NewResponse(200, allDroplets))
-	s.AddResponse("sizes", dotest.NewResponse(200, allSizes))
-	s.AddResponse("images/id", dotest.NewResponse(200, oneImage))
-	s.AddResponse("regions", dotest.NewResponse(200, allRegions))
-	s.AddResponse("droplets/new", dotest.NewResponse(200, newDroplet))
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
-
-	c := testClient(ts.URL)
-	droplet, err := c.CreateDroplet("test222", "33", "2", "3", 1, false)
-	if err != nil || droplet == nil {
-		t.Fatal("failed to create new droplet", droplet, err)
-	}
-	expectedDroplet := &DropletResp{}
-	json.Unmarshal([]byte(newDroplet), expectedDroplet)
-	if !reflect.DeepEqual(droplet, expectedDroplet.Droplet) {
-		t.Fatal("Failed to return correct droplet, expected %v, got %v",
-			expectedDroplet.Droplet, newDroplet)
-	}
+func TestDigitalOceanAPI(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "pkg/digitalocean")
 }
 
-func TestDestroyDroplet(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id/destroy", dotest.OkResponse)
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+var _ = Describe("pkg/digitalocean", func() {
+	var s *dotest.Server
+	var ts *httptest.Server
+	var c *Client
 
-	c := testClient(ts.URL)
-	err := c.DestroyDroplet(123)
-	if err != nil {
-		t.Fatal("failed to destroy droplet", err)
-	}
-	request := s.Requests["droplets/id/destroy"][0]
-	if request.URL.Path != "/droplets/123/destroy" {
-		t.Fatal("invalid destroy url", request.URL)
-	}
-}
+	BeforeEach(func() {
+		s = dotest.NewServer()
+		ts = httptest.NewServer(s.Router)
+		c = TestClient(ts.URL)
+	})
 
-func TestPoweroffDroplet(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id/power_off", dotest.OkResponse)
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+	AfterEach(func() {
+		ts.Close()
+	})
 
-	c := testClient(ts.URL)
-	err := c.PowerOffDroplet(123)
-	if err != nil {
-		t.Fatal("failed to power off droplet", err)
-	}
-	request := s.Requests["droplets/id/power_off"][0]
-	if request.URL.Path != "/droplets/123/power_off" {
-		t.Fatal("invalid power off url", request.URL)
-	}
-}
+	Describe("Create Droplet", func() {
+		Context("Succesful Creation", func() {
+			It("should successfully create a droplet", func() {
+				s.AddResponse("droplets", dotest.NewResponse(200, AllDroplets))
+				s.AddResponse("sizes", dotest.NewResponse(200, AllSizes))
+				s.AddResponse("images/id", dotest.NewResponse(200, OneImage))
+				s.AddResponse("regions", dotest.NewResponse(200, AllRegions))
+				s.AddResponse("droplets/new", dotest.NewResponse(200, NewDroplet))
 
-func TestPowerOnDroplet(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id/power_on", dotest.OkResponse)
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+				droplet, err := c.CreateDroplet("test222", "33", "2", "3", 1, false)
+				Expect(err).To(BeNil())
 
-	c := testClient(ts.URL)
-	err := c.PowerOnDroplet(123)
-	if err != nil {
-		t.Fatal("failed to power on droplet", err)
-	}
-	request := s.Requests["droplets/id/power_on"][0]
-	if request.URL.Path != "/droplets/123/power_on" {
-		t.Fatal("invalid power on url", request.URL)
-	}
-}
+				expectedDroplet := &DropletResp{}
+				json.Unmarshal([]byte(NewDroplet), expectedDroplet)
+				Expect(reflect.DeepEqual(droplet, expectedDroplet.Droplet)).To(Equal(true))
+			})
+		})
+	})
 
-func TestPowerCycleDroplet(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id/power_cycle", dotest.OkResponse)
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+	Describe("Destroy Droplet", func() {
+		Context("Successful Destruction", func() {
+			It("should successfully destroy a droplet", func() {
+				s.AddResponse("droplets/id/destroy", dotest.OkResponse)
+				err := c.DestroyDroplet(123)
+				Expect(err).To(BeNil())
+				request := s.Requests["droplets/id/destroy"][0]
+				Expect(request.URL.Path).To(Equal("/droplets/123/destroy"))
+			})
+		})
+	})
 
-	c := testClient(ts.URL)
-	err := c.PowerCycleDroplet(123)
-	if err != nil {
-		t.Fatal("failed to power cycle droplet", err)
-	}
-	request := s.Requests["droplets/id/power_cycle"][0]
-	if request.URL.Path != "/droplets/123/power_cycle" {
-		t.Fatal("invalid url", request.URL)
-	}
-}
+	Describe("Power Off Droplet", func() {
+		Context("Powering Off Droplet", func() {
+			It("should successfully power off the droplet", func() {
+				s.AddResponse("droplets/id/power_off", dotest.OkResponse)
+				err := c.PowerOffDroplet(123)
+				Expect(err).To(BeNil())
+				request := s.Requests["droplets/id/power_off"][0]
+				Expect(request.URL.Path).To(Equal("/droplets/123/power_off"))
+			})
+		})
+	})
 
-func TestRebootDroplet(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id/reboot", dotest.OkResponse)
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+	Describe("Power On Droplet", func() {
+		Context("Powering on Droplet", func() {
+			It("should successfully power on the droplet", func() {
+				s.AddResponse("droplets/id/power_on", dotest.OkResponse)
+				err := c.PowerOnDroplet(123)
+				Expect(err).To(BeNil())
+				request := s.Requests["droplets/id/power_on"][0]
+				Expect(request.URL.Path).To(Equal("/droplets/123/power_on"))
+			})
+		})
+	})
 
-	c := testClient(ts.URL)
-	err := c.RebootDroplet(123)
-	if err != nil {
-		t.Fatal("failed to reboot droplet", err)
-	}
-	request := s.Requests["droplets/id/reboot"][0]
-	if request.URL.Path != "/droplets/123/reboot" {
-		t.Fatal("invalid url", request.URL)
-	}
-}
+	Describe("Power Cycle Droplet", func() {
+		Context("Power cycling a Droplet", func() {
+			It("should successfully power cycle the droplet", func() {
+				s.AddResponse("droplets/id/power_cycle", dotest.OkResponse)
+				err := c.PowerCycleDroplet(123)
+				Expect(err).To(BeNil())
+				request := s.Requests["droplets/id/power_cycle"][0]
+				Expect(request.URL.Path).To(Equal("/droplets/123/power_cycle"))
+			})
+		})
+	})
 
-func TestSnapshotDroplet(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id/snapshot", dotest.OkResponse)
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+	Describe("Rebooting Droplet", func() {
+		Context("Rebooting the Droplet", func() {
+			It("should successfully reboot the droplet", func() {
+				s.AddResponse("droplets/id/reboot", dotest.OkResponse)
+				err := c.RebootDroplet(123)
+				Expect(err).To(BeNil())
+				request := s.Requests["droplets/id/reboot"][0]
+				Expect(request.URL.Path).To(Equal("/droplets/123/reboot"))
+			})
+		})
+	})
 
-	c := testClient(ts.URL)
-	err := c.CreateSnapshot(123, "winterfell-rails-123")
-	if err != nil {
-		t.Fatal("failed to reboot droplet", err)
-	}
-	request := s.Requests["droplets/id/snapshot"][0]
-	if request.URL.Path != "/droplets/123/snapshot" ||
-		request.URL.Query().Get("name") != "winterfell-rails-123" {
-		t.Fatal("invalid url", request.URL)
-	}
-}
+	Describe("Snapshotting Droplet", func() {
+		Context("Succesfully Snapshotting a Droplet", func() {
+			It("should successfully snapshot the droplet", func() {
+				s.AddResponse("droplets/id/snapshot", dotest.OkResponse)
+				err := c.CreateSnapshot(123, "winterfell-rails-123")
+				Expect(err).To(BeNil())
+				request := s.Requests["droplets/id/snapshot"][0]
+				Expect(request.URL.Path).To(Equal("/droplets/123/snapshot"))
+				Expect(request.URL.Query().Get("name")).To(Equal("winterfell-rails-123"))
+			})
+		})
+	})
 
-func TestRestoreSnapshot(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id/restore", dotest.OkResponse)
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+	Describe("Restoring a Droplet Snapshot", func() {
+		Context("Successfully Restoring a Droplet Snapshot", func() {
+			It("should successfully snapshot the droplet", func() {
+				s.AddResponse("droplets/id/restore", dotest.OkResponse)
+				err := c.RestoreSnapshot(123, 234)
+				Expect(err).To(BeNil())
+				request := s.Requests["droplets/id/restore"][0]
+				Expect(request.URL.Path).To(Equal("/droplets/123/restore"))
+				Expect(request.URL.Query().Get("image_id")).To(Equal("234"))
+			})
+		})
+	})
 
-	c := testClient(ts.URL)
-	err := c.RestoreSnapshot(123, 234)
-	if err != nil {
-		t.Fatal("failed to restore droplet", err)
-	}
-	request := s.Requests["droplets/id/restore"][0]
-	if request.URL.Path != "/droplets/123/restore" ||
-		request.URL.Query().Get("image_id") != "234" {
-		t.Fatal("invalid url", request.URL)
-	}
-}
+	Describe("Creating a Key", func() {
+		Context("Successfully Creating a key", func() {
+			It("should create a key", func() {
+				s.AddResponse("ssh_keys/new", dotest.NewResponse(200, NewSSH))
+				key, err := c.CreateKey("my_key", "ssh-rsa key user@host")
+				Expect(err).To(BeNil())
+				Expect(key.Id).To(Equal(47))
+				Expect(key.Name).To(Equal("my_key"))
+				Expect(key.PubKey).To(Equal("ssh-rsa key user@host"))
 
-func TestCreateKey(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("ssh_keys/new", dotest.NewResponse(200, newSSH))
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+				request := s.Requests["ssh_keys/new"][0]
+				Expect(request.URL.Query().Get("name")).To(Equal("my_key"))
+				Expect(request.URL.Query().Get("ssh_pub_key")).To(Equal("ssh-rsa key user@host"))
+			})
+		})
+	})
 
-	c := testClient(ts.URL)
-	key, err := c.CreateKey("my_key", "ssh-rsa key user@host")
-	if err != nil || key.Id != 47 || key.Name != "my_key" ||
-		key.PubKey != "ssh-rsa key user@host" {
-		t.Fatal("failed to create ssh key", err)
-	}
-	request := s.Requests["ssh_keys/new"][0]
-	if request.URL.Query().Get("name") != "my_key" ||
-		request.URL.Query().Get("ssh_pub_key") != "ssh-rsa key user@host" {
-		t.Fatal("invalid url", request.URL)
-	}
-}
+	Describe("Destroying a key", func() {
+		Context("Successfully Destroying a key", func() {
+			It("should destroy a key", func() {
+				s.AddResponse("ssh_keys/id/destroy", dotest.OkResponse)
+				err := c.DestroyKey(123)
+				Expect(err).To(BeNil())
 
-func TestDestroyKey(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("ssh_keys/id/destroy", dotest.OkResponse)
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+				request := s.Requests["ssh_keys/id/destroy"][0]
+				Expect(request.URL.Path).To(Equal("/ssh_keys/123/destroy"))
+			})
+		})
+	})
 
-	c := testClient(ts.URL)
-	err := c.DestroyKey(123)
-	if err != nil {
-		t.Fatal("failed to destroy ssh key", err)
-	}
-	request := s.Requests["ssh_keys/id/destroy"][0]
-	if request.URL.Path != "/ssh_keys/123/destroy" {
-		t.Fatal("invalid url", request.URL)
-	}
-}
+})

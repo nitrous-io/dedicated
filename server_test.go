@@ -1,4 +1,4 @@
-package hostbuilder
+package hostbuilder_test
 
 import (
 	"encoding/json"
@@ -9,13 +9,22 @@ import (
 	"sync"
 	"testing"
 
+	. "github.com/nitrous-io/hostbuilder"
 	"github.com/nitrous-io/hostbuilder/host"
 	"github.com/nitrous-io/hostbuilder/host/dummy"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-type webhookTest func(t *testing.T, data WebhookData)
+func TestDigitalOceanAPI(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "hostbuilder")
+}
 
-func webhookTestServer(wg *sync.WaitGroup, t *testing.T, f webhookTest) *httptest.Server {
+type webhookTest func(data WebhookData)
+
+func webhookTestServer(wg *sync.WaitGroup, f webhookTest) *httptest.Server {
 	wg.Add(1)
 	wh := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer wg.Done()
@@ -24,134 +33,127 @@ func webhookTestServer(wg *sync.WaitGroup, t *testing.T, f webhookTest) *httptes
 		payload := r.Form.Get("payload")
 		var data WebhookData
 		json.Unmarshal([]byte(payload), &data)
-		f(t, data)
+		f(data)
 	}))
 	return wh
 }
 
-func TestCreateHost(t *testing.T) {
-	var wg sync.WaitGroup
-	wh := webhookTestServer(&wg, t, func(t *testing.T, data WebhookData) {
-		if data.Success != true {
-			t.Fatal("Failed to create a dummy host")
-		}
-		var info host.Info
-		json.Unmarshal([]byte(data.Message), &info)
-		if info.Id != "123" || info.IpAddress != "10.0.0.1" {
-			t.Fatal("Failed to return correct host info", info, data)
-		}
+var _ = Describe("hostbuilder", func() {
+	var ts *httptest.Server
+	var s *Server
+	var err error
+
+	BeforeEach(func() {
+		s, err = New([]byte(`{"dummy":{}}`))
+		Expect(err).To(BeNil())
+		ts = httptest.NewServer(s.Router)
 	})
-	defer wh.Close()
 
-	s, _ := New([]byte(`{"dummy":{}}`))
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
-
-	config, _ := json.Marshal(dummy.Host{Id: "123", IpAddress: "10.0.0.1", CreateSuccess: true})
-	form := url.Values{}
-	form.Set("provider", "dummy")
-	form.Set("config", string(config))
-	form.Set("webhook", string(wh.URL))
-	http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host"), form)
-
-	wg.Wait()
-}
-
-func TestDestroyHost(t *testing.T) {
-	var wg sync.WaitGroup
-	wh := webhookTestServer(&wg, t, func(t *testing.T, data WebhookData) {
-		if data.Success != true {
-			t.Fatal("Failed to destroy a dummy host", data)
-		}
+	AfterEach(func() {
+		ts.Close()
 	})
-	defer wh.Close()
 
-	s, _ := New([]byte(`{"dummy":{}}`))
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+	Describe("Creating a host", func() {
+		It("should successfully create a host and call a webhook", func() {
+			var wg sync.WaitGroup
+			wh := webhookTestServer(&wg, func(data WebhookData) {
+				Expect(data.Success).To(Equal(true))
+				var info host.Info
+				json.Unmarshal([]byte(data.Message), &info)
+				Expect(info.Id).To(Equal("123"))
+				Expect(info.IpAddress).To(Equal("10.0.0.1"))
+			})
+			defer wh.Close()
 
-	config, _ := json.Marshal(dummy.Host{DestroySuccess: true})
-	form := url.Values{}
-	form.Set("provider", "dummy")
-	form.Set("webhook", string(wh.URL))
-	form.Set("config", string(config))
-	http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/delete"), form)
-
-	wg.Wait()
-}
-
-func TestStopHost(t *testing.T) {
-	var wg sync.WaitGroup
-	wh := webhookTestServer(&wg, t, func(t *testing.T, data WebhookData) {
-		if data.Success != true {
-			t.Fatal("Failed to stop a dummy host", data)
-		}
+			config, _ := json.Marshal(dummy.Host{Id: "123", IpAddress: "10.0.0.1", CreateSuccess: true})
+			form := url.Values{}
+			form.Set("provider", "dummy")
+			form.Set("config", string(config))
+			form.Set("webhook", string(wh.URL))
+			http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host"), form)
+			wg.Wait()
+		})
 	})
-	defer wh.Close()
 
-	s, _ := New([]byte(`{"dummy":{}}`))
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+	Describe("Destroying a host", func() {
+		It("should successfully destroy a host and call a webhook", func() {
+			var wg sync.WaitGroup
+			wh := webhookTestServer(&wg, func(data WebhookData) {
+				Expect(data.Success).To(Equal(true))
+			})
+			defer wh.Close()
 
-	config, _ := json.Marshal(dummy.Host{StopSuccess: true})
-	form := url.Values{}
-	form.Set("provider", "dummy")
-	form.Set("webhook", string(wh.URL))
-	form.Set("config", string(config))
-	resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/stop"), form)
-	if err != nil || resp.StatusCode != 200 {
-		t.Fatal("Failed to stop host", resp)
-	}
-	wg.Wait()
-}
+			config, _ := json.Marshal(dummy.Host{DestroySuccess: true})
+			form := url.Values{}
+			form.Set("provider", "dummy")
+			form.Set("webhook", string(wh.URL))
+			form.Set("config", string(config))
+			http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/delete"), form)
 
-func TestStartHost(t *testing.T) {
-	var wg sync.WaitGroup
-	wh := webhookTestServer(&wg, t, func(t *testing.T, data WebhookData) {
-		if data.Success != true {
-			t.Fatal("Failed to start a dummy host", data)
-		}
+			wg.Wait()
+		})
 	})
-	defer wh.Close()
 
-	s, _ := New([]byte(`{"dummy":{}}`))
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+	Describe("Stopping a host", func() {
+		It("should successfully stop host and call webhook", func() {
+			var wg sync.WaitGroup
+			wh := webhookTestServer(&wg, func(data WebhookData) {
+				Expect(data.Success).To(Equal(true))
+			})
+			defer wh.Close()
 
-	config, _ := json.Marshal(dummy.Host{StartSuccess: true})
-	form := url.Values{}
-	form.Set("provider", "dummy")
-	form.Set("webhook", string(wh.URL))
-	form.Set("config", string(config))
-	resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/start"), form)
-	if err != nil || resp.StatusCode != 200 {
-		t.Fatal("Failed to start host", resp)
-	}
-	wg.Wait()
-}
+			config, _ := json.Marshal(dummy.Host{StopSuccess: true})
+			form := url.Values{}
+			form.Set("provider", "dummy")
+			form.Set("webhook", string(wh.URL))
+			form.Set("config", string(config))
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/stop"), form)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
 
-func TestRestartHost(t *testing.T) {
-	var wg sync.WaitGroup
-	wh := webhookTestServer(&wg, t, func(t *testing.T, data WebhookData) {
-		if data.Success != true {
-			t.Fatal("Failed to restart a dummy host", data)
-		}
+			wg.Wait()
+		})
 	})
-	defer wh.Close()
 
-	s, _ := New([]byte(`{"dummy":{}}`))
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+	Describe("Starting host", func() {
+		It("should successfully start host and call webhook", func() {
+			var wg sync.WaitGroup
+			wh := webhookTestServer(&wg, func(data WebhookData) {
+				Expect(data.Success).To(Equal(true))
+			})
+			defer wh.Close()
 
-	config, _ := json.Marshal(dummy.Host{RestartSuccess: true})
-	form := url.Values{}
-	form.Set("provider", "dummy")
-	form.Set("webhook", string(wh.URL))
-	form.Set("config", string(config))
-	resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/restart"), form)
-	if err != nil || resp.StatusCode != 200 {
-		t.Fatal("Failed to restart host", resp)
-	}
-	wg.Wait()
+			config, _ := json.Marshal(dummy.Host{StartSuccess: true})
+			form := url.Values{}
+			form.Set("provider", "dummy")
+			form.Set("webhook", string(wh.URL))
+			form.Set("config", string(config))
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/start"), form)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
 
-}
+			wg.Wait()
+		})
+	})
+
+	Describe("Restarting host", func() {
+		It("should successfully start host and call webhook", func() {
+			var wg sync.WaitGroup
+			wh := webhookTestServer(&wg, func(data WebhookData) {
+				Expect(data.Success).To(Equal(true))
+			})
+			defer wh.Close()
+
+			config, _ := json.Marshal(dummy.Host{RestartSuccess: true})
+			form := url.Values{}
+			form.Set("provider", "dummy")
+			form.Set("webhook", string(wh.URL))
+			form.Set("config", string(config))
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "host/restart"), form)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
+
+			wg.Wait()
+		})
+	})
+})

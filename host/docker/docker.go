@@ -119,7 +119,7 @@ func (h *Host) createContainer(imageName string) (string, error) {
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
-	host := new(Host)
+	host := &Host{}
 	if err := json.Unmarshal([]byte(config), host); err != nil {
 		return nil, err
 	}

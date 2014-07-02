@@ -1,66 +1,83 @@
-package docker
+package docker_test
 
 import (
 	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/nitrous-io/hostbuilder/host"
+	"github.com/nitrous-io/hostbuilder/host/docker"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	dockertest "github.com/fsouza/go-dockerclient/testing"
 )
 
-func TestCreate(t *testing.T) {
-	requests := []*http.Request{}
-	server, _ := dockertest.NewServer("127.0.0.1:0", func(r *http.Request) {
-		requests = append(requests, r)
-	})
-	defer server.Stop()
-
-	host, _ := NewHost(
-		map[string]string{"endpoint": server.URL()},
-		`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
-	)
-
-	info, err := host.Create()
-	if err != nil {
-		t.Fatal("Failed to create host", err)
-	}
-	// assert that an image is created
-	{
-		r := requests[0]
-		if r.URL.Path != "/build" ||
-			r.URL.Query().Get("t") != "registry.nitrous.io/test-123" {
-			t.Fatal("Incorrect image creation")
-		}
-	}
-	// assert that a container is created
-	{
-		r := requests[1]
-		if r.URL.Path != "/containers/create" ||
-			r.URL.Query().Get("name") != "test-123" {
-			t.Fatal("Incorrect container creation")
-		}
-	}
-	// assert that container is started
-	{
-		r := requests[2]
-		if r.URL.Path != "/containers/"+info.Id+"/start" {
-			t.Fatal("Incorrect container start")
-		}
-	}
-	// assert that container info is called and
-	{
-		r := requests[3]
-		if r.URL.Path != "/containers/"+info.Id+"/json" {
-			t.Fatal("Incorrect container info")
-		}
-	}
-	// we return get the ip address of the container
-	{
-		if info.Provider != "docker" ||
-			len(info.Id) == 0 ||
-			// hard-coded dockerclient testing ip
-			strings.Index(info.IpAddress, "172.16.42") == -1 {
-			t.Fatal("Incorrect container info", info)
-		}
-	}
+func TestDocker(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "host/docker")
 }
+
+var _ = Describe("host/docker", func() {
+	var server *dockertest.DockerServer
+	var requests = []*http.Request{}
+	var err error
+
+	BeforeEach(func() {
+		server, err = dockertest.NewServer("127.0.0.1:0", func(r *http.Request) {
+			requests = append(requests, r)
+		})
+		Expect(err).To(BeNil())
+	})
+
+	AfterEach(func() {
+		requests = []*http.Request{}
+		server.Stop()
+	})
+
+	Describe("Create", func() {
+		Context("Successful Creation", func() {
+			var h host.Host
+			var err error
+			var info *host.Info
+
+			BeforeEach(func() {
+				h, err = docker.NewHost(
+					map[string]string{"endpoint": server.URL()},
+					`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
+				)
+				Expect(err).To(BeNil())
+				info, err = h.Create()
+			})
+
+			It("should successfully create the host", func() {
+				Expect(err).To(BeNil())
+			})
+
+			It("should create a new image", func() {
+				r := requests[0]
+				Expect(r.URL.Path).To(Equal("/build"))
+				Expect(r.URL.Query().Get("t")).To(Equal("registry.nitrous.io/test-123"))
+			})
+
+			It("should create a new container", func() {
+				r := requests[1]
+				Expect(r.URL.Path).To(Equal("/containers/create"))
+				Expect(r.URL.Query().Get("name")).To(Equal("test-123"))
+			})
+
+			It("should start the container", func() {
+				r := requests[2]
+				Expect(r.URL.Path).To(Equal("/containers/" + info.Id + "/start"))
+			})
+
+			It("should get the container info and return it's IP address", func() {
+				r := requests[3]
+				Expect(r.URL.Path).To(Equal("/containers/" + info.Id + "/json"))
+				Expect(info.Provider).To(Equal("docker"))
+				Expect(len(info.Id)).To(BeNumerically(">", 0))
+				Expect(strings.Index(info.IpAddress, "172.16.42")).To(Equal(0))
+			})
+		})
+	})
+})

@@ -1,4 +1,4 @@
-package digitalocean
+package digitalocean_test
 
 import (
 	"net/http/httptest"
@@ -6,7 +6,16 @@ import (
 
 	do "github.com/nitrous-io/hostbuilder/pkg/digitalocean"
 	"github.com/nitrous-io/hostbuilder/pkg/digitalocean/dotest"
+
+	. "github.com/nitrous-io/hostbuilder/host/digitalocean"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
+
+func TestDigitalOcean(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "host/digitalocean")
+}
 
 var (
 	defaultTestConfig = map[string]string{
@@ -84,107 +93,82 @@ var (
 	`
 )
 
-func TestCleanFailDropletsAfterCreate(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("ssh_keys/new", dotest.NewResponse(200, newSSH))
-	s.AddResponse("sizes", dotest.NewResponse(200, allSizes))
-	s.AddResponse("images/id", dotest.NewResponse(200, oneImage))
-	s.AddResponse("regions", dotest.NewResponse(200, allRegions))
-	s.AddResponse("droplets/new", dotest.NewResponse(200, newDroplet))
-	s.AddResponse("droplets/id", dotest.NotfoundResponse)
-	s.AddResponse("droplets/id/destroy", dotest.OkResponse)
-	s.AddResponse("ssh_keys/id/destroy", dotest.OkResponse)
+var _ = Describe("host/digitalocean", func() {
+	var s *dotest.Server
+	var ts *httptest.Server
+	var c *do.Client
 
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+	BeforeEach(func() {
+		s = dotest.NewServer()
+		ts = httptest.NewServer(s.Router)
+		c = do.NewClient("client_id", "api_key")
+		c.BaseURL = ts.URL
+	})
 
-	c := do.NewClient("client_id", "api_key")
-	c.BaseURL = ts.URL
-	h := Host{Config: &HostConfig{Id: "1", ImageId: "1", RegionId: "1", SizeId: "33"}, Client: c}
+	AfterEach(func() {
+		ts.Close()
+	})
 
-	_, err := h.Create()
-	if err == nil {
-		t.Fatal("Create should fail")
-	}
+	Describe("Create", func() {
+		BeforeEach(func() {
+			s.AddResponse("ssh_keys/new", dotest.NewResponse(200, newSSH))
+			s.AddResponse("sizes", dotest.NewResponse(200, allSizes))
+			s.AddResponse("images/id", dotest.NewResponse(200, oneImage))
+			s.AddResponse("regions", dotest.NewResponse(200, allRegions))
+			s.AddResponse("droplets/new", dotest.NewResponse(200, newDroplet))
+			s.AddResponse("droplets/id", dotest.NotfoundResponse)
+			s.AddResponse("droplets/id/destroy", dotest.OkResponse)
+			s.AddResponse("ssh_keys/id/destroy", dotest.OkResponse)
+		})
 
-	// check that the instance will be destroyed
-	{
-		request := s.Requests["droplets/id/destroy"][0]
-		if request.URL.Path != "/droplets/100823/destroy" {
-			t.Fatal("invalid droplets destroy url", request.URL)
-		}
-	}
-	// check that ssh key will be destroyed
-	{
-		request := s.Requests["ssh_keys/id/destroy"][0]
-		if request.URL.Path != "/ssh_keys/47/destroy" {
-			t.Fatal("invalid ssh destroy url", request.URL)
-		}
-	}
-}
+		Context("Unsuccessful creation", func() {
+			It("should clean up the droplet", func() {
+				h := Host{Config: &HostConfig{Id: "1", ImageId: "1", RegionId: "1", SizeId: "33"}, Client: c}
+				_, err := h.Create()
+				Expect(err).NotTo(BeNil())
 
-func TestStop(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id/power_off", dotest.OkResponse)
+				request := s.Requests["droplets/id/destroy"][0]
+				Expect(request.URL.Path).To(Equal("/droplets/100823/destroy"))
 
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+				request = s.Requests["ssh_keys/id/destroy"][0]
+				Expect(request.URL.Path).To(Equal("/ssh_keys/47/destroy"))
+			})
+		})
+	})
 
-	c := do.NewClient("client_id", "api_key")
-	c.BaseURL = ts.URL
-	h := Host{Config: &HostConfig{Id: "1"}, Client: c}
+	Describe("Stop", func() {
+		BeforeEach(func() {
+			s.AddResponse("droplets/id/power_off", dotest.OkResponse)
+		})
 
-	err := h.Stop()
-	if err != nil {
-		t.Fatal("Failed to stop the host")
-	}
+		Context("Successful Stop", func() {
+			It("stops the droplet", func() {
+				h := Host{Config: &HostConfig{Id: "1"}, Client: c}
 
-	request := s.Requests["droplets/id/power_off"][0]
-	if request.URL.Path != "/droplets/1/power_off" {
-		t.Fatal("invalid poweroff url", request.URL)
-	}
-}
+				err := h.Stop()
+				Expect(err).To(BeNil())
 
-func TestStart(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id/power_on", dotest.OkResponse)
+				request := s.Requests["droplets/id/power_off"][0]
+				Expect(request.URL.Path).To(Equal("/droplets/1/power_off"))
+			})
+		})
+	})
 
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+	Describe("Start", func() {
+		BeforeEach(func() {
+			s.AddResponse("droplets/id/power_on", dotest.OkResponse)
+		})
 
-	c := do.NewClient("client_id", "api_key")
-	c.BaseURL = ts.URL
-	h := Host{Config: &HostConfig{Id: "1"}, Client: c}
+		Context("Successful Start", func() {
+			It("starts the droplet", func() {
+				h := Host{Config: &HostConfig{Id: "1"}, Client: c}
 
-	err := h.Start()
-	if err != nil {
-		t.Fatal("Failed to start the host")
-	}
+				err := h.Start()
+				Expect(err).To(BeNil())
 
-	request := s.Requests["droplets/id/power_on"][0]
-	if request.URL.Path != "/droplets/1/power_on" {
-		t.Fatal("invalid power_on url", request.URL)
-	}
-}
-
-func TestRestart(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id/reboot", dotest.OkResponse)
-
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
-
-	c := do.NewClient("client_id", "api_key")
-	c.BaseURL = ts.URL
-	h := Host{Config: &HostConfig{Id: "1"}, Client: c}
-
-	err := h.Restart()
-	if err != nil {
-		t.Fatal("Failed to restart the host")
-	}
-
-	request := s.Requests["droplets/id/reboot"][0]
-	if request.URL.Path != "/droplets/1/reboot" {
-		t.Fatal("invalid reboot url", request.URL)
-	}
-}
+				request := s.Requests["droplets/id/power_on"][0]
+				Expect(request.URL.Path).To(Equal("/droplets/1/power_on"))
+			})
+		})
+	})
+})

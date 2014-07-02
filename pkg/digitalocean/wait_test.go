@@ -1,55 +1,66 @@
-package digitalocean
+package digitalocean_test
 
 import (
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	. "github.com/nitrous-io/hostbuilder/pkg/digitalocean"
 	"github.com/nitrous-io/hostbuilder/pkg/digitalocean/dotest"
+	. "github.com/nitrous-io/hostbuilder/test"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-func TestWaitForStateSuccess(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id", dotest.NewResponse(200, newDropletState))
-	s.AddResponse("droplets/id", dotest.NewResponse(200, activeDropletState))
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
-
-	client := testClient(ts.URL)
-	droplet, err := WaitForState("active", 1, client, 1*time.Millisecond, 1*time.Second)
-	if err != nil {
-		t.Fatalf("failed to wait for state %v", "active")
-	}
-	if droplet.Status != "active" {
-		t.Fatalf("failed to return droplet %v", droplet)
-	}
+func TestDigitalOceanWait(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "pkg/digitalocean")
 }
 
-func TestWaitForStateTimedout(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id", dotest.NewResponse(200, newDropletState))
-	s.AddResponse("droplets/id", dotest.NewResponse(200, activeDropletState))
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+var _ = Describe("pkg/digitalocean", func() {
+	var s *dotest.Server
+	var ts *httptest.Server
+	var c *Client
 
-	client := testClient(ts.URL)
-	droplet, err := WaitForState("active", 1, client, 1*time.Millisecond,
-		1*time.Millisecond)
-	if err == nil || droplet != nil {
-		t.Fatal("failed to timeout")
-	}
-}
+	BeforeEach(func() {
+		s = dotest.NewServer()
+		ts = httptest.NewServer(s.Router)
+		c = TestClient(ts.URL)
+	})
 
-func TestWaitForStateFailed(t *testing.T) {
-	s := dotest.NewServer()
-	s.AddResponse("droplets/id", dotest.NewResponse(200, newDropletState))
-	ts := httptest.NewServer(s.Router)
-	defer ts.Close()
+	AfterEach(func() {
+		ts.Close()
+	})
 
-	client := testClient(ts.URL)
-	droplet, err := WaitForState("active", 1, client, 1*time.Millisecond,
-		5*time.Millisecond)
-	if err == nil || droplet != nil {
-		t.Fatal("failed to receive error")
-	}
-}
+	Describe("State Success", func() {
+		It("should wait for success", func() {
+			s.AddResponse("droplets/id", dotest.NewResponse(200, NewDropletState))
+			s.AddResponse("droplets/id", dotest.NewResponse(200, ActiveDropletState))
+
+			droplet, err := WaitForState("active", 1, c, 1*time.Millisecond, 1*time.Second)
+			Expect(err).To(BeNil())
+			Expect(droplet.Status).To(Equal("active"))
+		})
+	})
+
+	Describe("State Timeout", func() {
+		It("should timeout", func() {
+			s.AddResponse("droplets/id", dotest.NewResponse(200, NewDropletState))
+			s.AddResponse("droplets/id", dotest.NewResponse(200, ActiveDropletState))
+
+			droplet, err := WaitForState("active", 1, c, 1*time.Millisecond, 1*time.Millisecond)
+			Expect(err).ToNot(BeNil())
+			Expect(droplet).To(BeNil())
+		})
+	})
+
+	Describe("State Failed", func() {
+		It("should fail", func() {
+			s.AddResponse("droplets/id", dotest.NewResponse(200, NewDropletState))
+			droplet, err := WaitForState("active", 1, c, 1*time.Millisecond, 5*time.Millisecond)
+			Expect(err).ToNot(BeNil())
+			Expect(droplet).To(BeNil())
+		})
+	})
+})
