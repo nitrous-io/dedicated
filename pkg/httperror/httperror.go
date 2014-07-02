@@ -30,7 +30,7 @@ func New(code int, m ...string) error {
 		e.Description = m[1]
 	}
 	if len(m) >= 3 {
-		e.Hash = m[3]
+		e.Hash = m[2]
 	}
 	return e
 }
