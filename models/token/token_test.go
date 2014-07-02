@@ -50,6 +50,12 @@ var _ = Describe("models/token", func() {
 		Expect(err).To(BeNil())
 	})
 
+	AfterEach(func() {
+		if db != nil {
+			db.Close()
+		}
+	})
+
 	Describe("FindByToken()", func() {
 		Context("when a token record with a given token exists", func() {
 			It("returns the token record", func() {
@@ -69,7 +75,7 @@ var _ = Describe("models/token", func() {
 			})
 		})
 
-		Context("when a user record with a given username does not exist", func() {
+		Context("when a token record with a given token does not exist", func() {
 			It("returns nil", func() {
 				t, err := token.FindByToken(db, "batbat")
 				Expect(t).To(BeNil())
@@ -107,7 +113,7 @@ var _ = Describe("models/token", func() {
 					Expect(t2).NotTo(BeNil())
 				})
 
-				It("persists the user in the database", func() {
+				It("persists the token in the database", func() {
 					Expect(t2.ID).NotTo(BeZero())
 					Expect(t2.UserID).To(Equal(u1.ID))
 					Expect(t2.Token).To(Equal("foobar"))
@@ -131,7 +137,7 @@ var _ = Describe("models/token", func() {
 					Expect(t2).NotTo(BeNil())
 				})
 
-				It("persists the user in the database", func() {
+				It("persists the token in the database", func() {
 					Expect(t2.ID).NotTo(BeZero())
 					Expect(t2.UserID).To(Equal(u1.ID))
 					Expect(t2.CreatedAt).NotTo(BeNil())

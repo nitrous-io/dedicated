@@ -81,9 +81,9 @@ var _ = Describe("models/user", func() {
 			})
 		})
 
-		Context("when a user record with a given username does not exist", func() {
+		Context("when a user record with a given id does not exist", func() {
 			It("returns nil", func() {
-				u, err := user.FindByUsername(db, "bat")
+				u, err := user.FindByID(db, 9001)
 				Expect(u).To(BeNil())
 				Expect(err).To(BeNil())
 			})
@@ -92,7 +92,7 @@ var _ = Describe("models/user", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				u, err := user.FindByUsername(db, "foo")
+				u, err := user.FindByID(db, fooID)
 				Expect(u).To(BeNil())
 				Expect(err).NotTo(BeNil())
 			})
