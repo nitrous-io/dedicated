@@ -16,9 +16,10 @@ var errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request")
 var errInvalidToken = httperror.New(http.StatusUnauthorized, "invalid_token")
 
 func (s *Server) serverError(err error) error {
+	code := http.StatusInternalServerError
 	errMsg := err.Error()
 	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
-	e := httperror.New(http.StatusInternalServerError, "internal_server_error", "", errHash)
+	e := httperror.New(code, "internal_server_error", "", errHash)
 	s.logger.Error(errHash, e.Error())
 	return e
 }
@@ -29,7 +30,7 @@ func (s *Server) serverError(err error) error {
 func (s *Server) handleError(w http.ResponseWriter, err error) {
 	e, ok := err.(*httperror.Error)
 	if !ok {
-		e = errInvalidRequest.(*httperror.Error)
+		e = s.serverError(e).(*httperror.Error)
 	}
 	j, err := e.JSON()
 	if err != nil {

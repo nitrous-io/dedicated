@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -57,17 +56,8 @@ func (s *Server) Respond(w http.ResponseWriter, status int, data []byte) {
 func (s *Server) RespondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{}) {
 	j, err := json.Marshal(data)
 	if err != nil {
-		s.RespondWithError(w, err)
+		s.handleError(w, err)
 		return
 	}
 	s.Respond(w, status, j)
-}
-
-// logs error along with its hash and responds with json containing the error's hash
-func (s *Server) RespondWithError(w http.ResponseWriter, err error) {
-	errMsg := err.Error()
-	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
-	j := `{"error":"internal_server_error","error_hash":"` + errHash + `"}`
-	s.logger.Error(errHash, errMsg)
-	s.Respond(w, http.StatusInternalServerError, []byte(j))
 }
