@@ -62,7 +62,7 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) error 
 	return nil
 }
 
-func GetAuthenticatedUser(c controllers.Helper, u *user.User, w http.ResponseWriter, r *http.Request) {
+func GetAuthenticatedUser(c controllers.Helper, u *user.User, w http.ResponseWriter, r *http.Request) error {
 	c.RespondEncodeJSON(w, http.StatusOK, map[string]interface{}{
 		"user": map[string]interface{}{
 			"username":   u.Username,
@@ -71,4 +71,5 @@ func GetAuthenticatedUser(c controllers.Helper, u *user.User, w http.ResponseWri
 			"updated_at": u.UpdatedAt,
 		},
 	})
+	return nil
 }
