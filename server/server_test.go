@@ -183,23 +183,25 @@ var _ = Describe("server", func() {
 		})
 
 		for _, param := range []string{"name", "image"} {
-			Context(fmt.Sprintf("when param '%v' is missing", param), func() {
-				BeforeEach(func() {
-					params.Del(param)
-					doRequest()
-				})
+			func(param string) {
+				Context(fmt.Sprintf("when param '%v' is missing", param), func() {
+					BeforeEach(func() {
+						params.Del(param)
+						doRequest()
+					})
 
-				It("responds with 422 unprocessable entity", func() {
-					Expect(res.Code).To(Equal(422))
-					Expect(res.Body.String()).To(MatchJSON(fmt.Sprintf(`{"error":"%v is not valid"}`, param)))
-				})
+					It("responds with 422 unprocessable entity", func() {
+						Expect(res.Code).To(Equal(422))
+						Expect(res.Body.String()).To(MatchJSON(fmt.Sprintf(`{"error":"%v is not valid"}`, param)))
+					})
 
-				It("does not call provider.Create()", func() {
-					Expect(prov.CreateCalled).To(BeFalse())
-					Wait()
-					Expect(prov.CreateCalled).To(BeFalse())
+					It("does not call provider.Create()", func() {
+						Expect(prov.CreateCalled).To(BeFalse())
+						Wait()
+						Expect(prov.CreateCalled).To(BeFalse())
+					})
 				})
-			})
+			}(param)
 		}
 
 		Context("when an invalid name is given", func() {
