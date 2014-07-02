@@ -11,9 +11,10 @@ import (
 
 var homeIndexHtml []byte
 
-func Index(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
+func Index(c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	if homeIndexHtml == nil {
 		homeIndexHtml = must.ByteArray(ioutil.ReadFile(path.Join(c.Root(), "public", "index.html")))
 	}
 	c.RenderHTML(w, http.StatusOK, homeIndexHtml)
+	return nil
 }

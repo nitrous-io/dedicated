@@ -1,0 +1,87 @@
+package server
+
+import (
+	"crypto/sha1"
+	"fmt"
+	"net/http"
+	"strings"
+
+	"github.com/nitrous-io/nitrous/controllers"
+	"github.com/nitrous-io/nitrous/models/token"
+	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/pkg/httperror"
+)
+
+var errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request")
+var errInvalidToken = httperror.New(http.StatusUnauthorized, "invalid_token")
+
+func (s *Server) serverError(err error) error {
+	errMsg := err.Error()
+	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
+	e := httperror.New(http.StatusInternalServerError, "internal_server_error", "", errHash)
+	s.logger.Error(errHash, e.Error())
+	return e
+}
+
+// process the request error. If the error is of type *httperror.Error, then we
+// convert and serialize that to JSON, otherwise, the error will be
+// `500 invalid_request`
+func (s *Server) handleError(w http.ResponseWriter, err error) {
+	e, ok := err.(*httperror.Error)
+	if !ok {
+		e = errInvalidRequest.(*httperror.Error)
+	}
+	j, err := e.JSON()
+	if err != nil {
+		j = []byte(`{"error":"invalid_request"}`)
+	}
+	s.Respond(w, e.Code, j)
+}
+
+func (s *Server) action(fn func(controllers.Helper, http.ResponseWriter, *http.Request) error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := fn(s, w, r)
+		if err != nil {
+			s.handleError(w, err)
+		}
+	}
+}
+
+func (s *Server) authedAction(fn func(controllers.Helper, *user.User, http.ResponseWriter, *http.Request)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		prefix := "Bearer "
+		if len(authHeader) <= len(prefix) ||
+			(!strings.HasPrefix(authHeader, prefix) &&
+				!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_request"`)
+			s.Respond(w, http.StatusBadRequest, []byte(`{"error":"invalid_request"}`))
+			return
+		}
+
+		tok := authHeader[len(prefix):]
+		t, err := token.FindByToken(s.db, tok)
+		if err != nil {
+			s.RespondWithError(w, err)
+			return
+		}
+		if t == nil {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
+			s.Respond(w, http.StatusUnauthorized, []byte(`{"error":"invalid_token"}`))
+			return
+		}
+
+		u, err := user.FindByID(s.db, t.UserID)
+		if err != nil {
+			s.RespondWithError(w, err)
+			return
+		}
+		if u == nil {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
+			s.Respond(w, http.StatusUnauthorized, []byte(`{"error":"invalid_token"}`))
+			return
+		}
+
+		fn(s, u, w, r)
+	}
+}

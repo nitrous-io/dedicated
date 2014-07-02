@@ -7,9 +7,10 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
-func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
+func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
 	email := strings.ToLower(r.FormValue("email"))
@@ -26,17 +27,12 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 
 	err := u.Validate()
 	if err != nil {
-		c.RespondEncodeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"error":             "validation_failed",
-			"error_description": err.Error(),
-		})
-		return
+		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
 	}
 
 	tx, err := db.Beginx()
 	if err != nil {
-		c.RespondWithError(w, err)
-		return
+		return err
 	}
 
 	err = u.Insert(tx)
@@ -45,24 +41,21 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
 			switch e.Constraint {
 			case "index_users_on_username":
-				c.Respond(w, http.StatusBadRequest, []byte(`{"error":"validation_failed","error_description":"username is taken"}`))
-				return
+				return httperror.New(http.StatusBadRequest, "validation_failed", "username is taken")
 			case "index_users_on_email":
-				c.Respond(w, http.StatusBadRequest, []byte(`{"error":"validation_failed","error_description":"email is taken"}`))
-				return
+				return httperror.New(http.StatusBadRequest, "validation_failed", "email is taken")
 			}
 		}
-		c.RespondWithError(w, err)
-		return
+		return err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		c.RespondWithError(w, err)
-		return
+		return err
 	}
 
 	c.Respond(w, http.StatusOK, []byte(`{"status":"ok"}`))
+	return nil
 }
 
 func GetAuthenticatedUser(c controllers.Helper, u *user.User, w http.ResponseWriter, r *http.Request) {

@@ -8,10 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/token"
-	"github.com/nitrous-io/nitrous/models/user"
 )
 
 // route namespace stack
@@ -69,49 +66,4 @@ func (s *Server) static(prefix string, dir string) {
 		s.logger.Infof("Static asset: %v", r.URL.Path)
 		http.StripPrefix(prefix, http.FileServer(http.Dir(path.Join(s.root, dir)))).ServeHTTP(w, r)
 	})
-}
-
-func (s *Server) action(fn func(controllers.Helper, http.ResponseWriter, *http.Request)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		fn(s, w, r)
-	}
-}
-
-func (s *Server) authedAction(fn func(controllers.Helper, *user.User, http.ResponseWriter, *http.Request)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		prefix := "Bearer "
-		if len(authHeader) <= len(prefix) ||
-			(!strings.HasPrefix(authHeader, prefix) &&
-				!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_request"`)
-			s.Respond(w, http.StatusBadRequest, []byte(`{"error":"invalid_request"}`))
-			return
-		}
-
-		tok := authHeader[len(prefix):]
-		t, err := token.FindByToken(s.db, tok)
-		if err != nil {
-			s.RespondWithError(w, err)
-			return
-		}
-		if t == nil {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
-			s.Respond(w, http.StatusUnauthorized, []byte(`{"error":"invalid_token"}`))
-			return
-		}
-
-		u, err := user.FindByID(s.db, t.UserID)
-		if err != nil {
-			s.RespondWithError(w, err)
-			return
-		}
-		if u == nil {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
-			s.Respond(w, http.StatusUnauthorized, []byte(`{"error":"invalid_token"}`))
-			return
-		}
-
-		fn(s, u, w, r)
-	}
 }
