@@ -32,8 +32,12 @@ func main() {
 	if err != nil {
 		logr.FatalExit(err)
 	}
-	dbConn.MigrateAll()
+	err = dbConn.MigrateAll()
+	if err != nil {
+		logr.Infof("Migrations failed: %v", err)
+	}
 	defer dbConn.DB.Close()
+
 	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr)
 	host := "0.0.0.0"
 	port := uint16(3000)
