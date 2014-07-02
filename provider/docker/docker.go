@@ -300,6 +300,23 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 	return p.createAuthorizedKeys(name, keys)
 }
 
+// Read the logs from the container. If success, caller of this methods can then read the
+// logs from the `io.Reader` result
+func (p *DockerProvider) Logs(id string, w io.Writer, follow, timestamps bool) error {
+	container, err := p.inspectContainer(id)
+	if err != nil {
+		return err
+	}
+	return p.client.Logs(dockerclient.LogsOptions{
+		Container:    container.ID,
+		Follow:       follow,
+		Stdout:       true,
+		Stderr:       true,
+		Timestamps:   timestamps,
+		OutputStream: w,
+	})
+}
+
 func (p *DockerProvider) IsNotFoundError(err error) bool {
 	_, ok := err.(*dockerclient.NoSuchContainer)
 	return ok

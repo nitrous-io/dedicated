@@ -45,6 +45,11 @@ type MockProvider struct {
 	ReceivedPublicKeys     []string
 	ReceivedKeyFingerprint string
 
+	LogsCalled         bool
+	LogsError          error
+	ReceivedFollow     bool
+	ReceivedTimestamps bool
+
 	Containers []*provider.ContainerInfo
 	PublicKeys map[string]string
 }
@@ -140,6 +145,14 @@ func (p *MockProvider) Export(id string, output io.Writer) error {
 	p.ReceivedIOWriter = output
 
 	return p.ExportError
+}
+
+func (p *MockProvider) Logs(id string, w io.Writer, follow, timestamps bool) error {
+	p.LogsCalled = true
+	p.ReceivedID = id
+	p.ReceivedFollow = follow
+	p.ReceivedTimestamps = timestamps
+	return p.LogsError
 }
 
 func (p *MockProvider) IsNotFoundError(err error) bool {

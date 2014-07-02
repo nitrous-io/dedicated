@@ -711,4 +711,49 @@ var _ = Describe("server", func() {
 			})
 		})
 	})
+
+	Describe("GET /containers/:id/logs", func() {
+		doRequest := func(id, follow, timestamps string) {
+			params := &url.Values{}
+			params.Set("follow", follow)
+			params.Set("timestamps", timestamps)
+			req, _ := NewRequest("GET", fmt.Sprintf("/containers/%v/logs", id), params)
+			handler.ServeHTTP(res, req)
+		}
+
+		It("ignore invalid parameters for follow and timestamps", func() {
+			testCases := []struct {
+				follow     string
+				timestamps string
+				status     int
+			}{
+				{"", "", 200},
+				{"invalid", "bool", 200},
+			}
+			for _, tc := range testCases {
+				doRequest("test-container", tc.follow, tc.timestamps)
+				Expect(res.Code).To(Equal(tc.status), "Unexpected status %v for %v", res.Code, tc)
+				Expect(prov.ReceivedID).To(Equal("test-container"), "Unexpected id for %v", tc)
+				Expect(prov.ReceivedFollow).To(BeFalse(), "Unexpected id for %v", tc)
+				Expect(prov.ReceivedTimestamps).To(BeFalse(), "Unexpected id for %v", tc)
+			}
+		})
+
+		It("accepts valid parameters for follow and timestamps", func() {
+			testCases := []struct {
+				follow             string
+				timestamps         string
+				expectedFollow     bool
+				expectedTimestamps bool
+			}{
+				{"1", "1", true, true},
+				{"true", "false", true, false},
+			}
+			for _, tc := range testCases {
+				doRequest("test-container", tc.follow, tc.timestamps)
+				Expect(prov.ReceivedFollow).To(Equal(tc.expectedFollow), "Unexpected follow for %v", tc)
+				Expect(prov.ReceivedTimestamps).To(Equal(tc.expectedTimestamps), "Unexpected timestamps for %v", tc)
+			}
+		})
+	})
 })
