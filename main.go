@@ -30,8 +30,11 @@ import (
 	_ "github.com/nitrous-io/nitro/command/keys/remove"
 	_ "github.com/nitrous-io/nitro/command/login"
 	_ "github.com/nitrous-io/nitro/command/logout"
+	_ "github.com/nitrous-io/nitro/command/logs"
 	_ "github.com/nitrous-io/nitro/command/registry/login"
 	_ "github.com/nitrous-io/nitro/command/registry/logout"
+	_ "github.com/nitrous-io/nitro/command/run"
+	_ "github.com/nitrous-io/nitro/command/shell"
 )
 
 var version string
@@ -50,10 +53,14 @@ func main() {
 
 	exitCode, err := cli.Run()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "nitro: unexpected error: %v\n", err)
+		switch err {
+		case command.ErrMissingAuthToken:
+			fmt.Fprintf(os.Stderr, "nitro: requires a logged in user. Maybe you want nitro login first\n")
+		default:
+			fmt.Fprintf(os.Stderr, "nitro: unexpected error: %v\n", err)
+		}
 		os.Exit(1)
 	}
-
 	os.Exit(exitCode)
 }
 
