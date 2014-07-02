@@ -1,7 +1,8 @@
-package logintest
+package login_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/mitchellh/cli"
 	. "github.com/nitrous-io/nitro/command/login"
@@ -9,6 +10,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func TestLogin(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "login")
+}
 
 var _ = Describe("LoginCommand", func() {
 	var (
