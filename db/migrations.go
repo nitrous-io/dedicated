@@ -76,5 +76,29 @@ func init() {
 				CREATE INDEX index_provider_templates_on_plan_id ON provider_templates USING btree (plan_id);
 			`,
 		},
+		{
+			Version: "60",
+			Up: `
+				CREATE TABLE hosts (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					region_id bigint REFERENCES regions(id) NOT NULL,
+					plan_id bigint REFERENCES plans(id) NOT NULL,
+					provider_template_id bigint REFERENCES provider_templates(id) NOT NULL,
+					name character varying(63) NOT NULL, -- Used as DNS label, see http://tools.ietf.org/html/rfc1034#section-3.1.
+					long_name character varying(255),
+					state character varying(255) NOT NULL DEFAULT 'born',
+					ip_address character varying(45), -- See http://tools.ietf.org/html/rfc4291.
+					provider_identifier character varying(255),
+					max_containers bigint,
+					terminated_at timestamp without time zone,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE INDEX index_hosts_on_user_id ON hosts USING btree (user_id);
+				CREATE INDEX index_hosts_on_region_id ON hosts USING btree (region_id);
+				CREATE UNIQUE INDEX index_hosts_on_user_id_and_name ON hosts USING btree (user_id, name);
+			`,
+		},
 	}
 }
