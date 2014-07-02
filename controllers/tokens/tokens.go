@@ -11,6 +11,13 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
+var (
+	errGrantType   = httperror.New(http.StatusBadRequest, "unsupported_grant_type")
+	errUsername    = httperror.New(http.StatusBadRequest, "invalid_request", "username is required")
+	errPassword    = httperror.New(http.StatusBadRequest, "invalid_request", "password is required")
+	errInvalidCred = httperror.New(http.StatusBadRequest, "invalid_grant", "incorrect username or password")
+)
+
 func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
@@ -19,15 +26,15 @@ func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	password := r.FormValue("password")
 
 	if grantType != "password" {
-		return httperror.New(http.StatusBadRequest, "unsupported_grant_type")
+		return errGrantType
 	}
 
 	if username == "" {
-		return httperror.New(http.StatusBadRequest, "invalid_request", "username is required")
+		return errUsername
 	}
 
 	if password == "" {
-		return httperror.New(http.StatusBadRequest, "invalid_request", "password is required")
+		return errPassword
 	}
 
 	u, err := user.FindByUsername(db, username)
@@ -35,11 +42,11 @@ func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	if u == nil {
-		return httperror.New(http.StatusBadRequest, "invalid_grant", "incorrect username or password")
+		return errInvalidCred
 	}
 
 	if !bcrypt.Verify(u.EncryptedPassword, password) {
-		return httperror.New(http.StatusBadRequest, "invalid_grant", "incorrect username or password")
+		return errInvalidCred
 	}
 
 	t := &token.Token{UserID: u.ID}
