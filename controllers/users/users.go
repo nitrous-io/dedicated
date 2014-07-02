@@ -10,6 +10,13 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
+var (
+	validations = map[string]error{
+		"index_users_on_username": httperror.New(http.StatusBadRequest, "validation_failed", "username is taken"),
+		"index_users_on_email":    httperror.New(http.StatusBadRequest, "validation_failed", "email is taken"),
+	}
+)
+
 func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
@@ -39,11 +46,8 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		tx.Rollback()
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
-			switch e.Constraint {
-			case "index_users_on_username":
-				return httperror.New(http.StatusBadRequest, "validation_failed", "username is taken")
-			case "index_users_on_email":
-				return httperror.New(http.StatusBadRequest, "validation_failed", "email is taken")
+			if validationErr, ok := validations[e.Constraint]; ok {
+				return validationErr
 			}
 		}
 		return err
