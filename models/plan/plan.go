@@ -1,0 +1,37 @@
+package plan
+
+import (
+	"database/sql"
+	"time"
+
+	"github.com/nitrous-io/nitrous/db"
+)
+
+type Plan struct {
+	ID            int64      `db:"id"`
+	Name          string     `db:"name"`
+	MaxContainers int64      `db:"max_containers"`
+	Price         int64      `db:"price"`
+	CreatedAt     *time.Time `db:"created_at"`
+	UpdatedAt     *time.Time `db:"updated_at"`
+}
+
+func FindByName(d db.QueryReceiver, name string) (*Plan, error) {
+	plan := &Plan{}
+	err := d.Get(plan, `SELECT * FROM plans WHERE name = $1`, name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return plan, nil
+}
+
+func (p *Plan) Insert(d db.QueryReceiver) error {
+	_, err := d.NamedExec("INSERT INTO plans (name, max_containers, price) VALUES (:name, :max_containers, :price);", p)
+	if err != nil {
+		return err
+	}
+	return d.Get(p, "SELECT * FROM plans WHERE name = $1;", p.Name)
+}

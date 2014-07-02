@@ -45,5 +45,19 @@ func init() {
 				CREATE UNIQUE INDEX index_regions_on_name ON regions USING btree (name);
 			`,
 		},
+		{
+			Version: "40",
+			Up: `
+				CREATE TABLE plans (
+					id bigserial PRIMARY KEY NOT NULL,
+					name character varying(255) NOT NULL,
+					max_containers bigint NOT NULL,
+					price bigint NOT NULL, -- Price in cents so that we always deal with integers.
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE UNIQUE INDEX index_plans_on_name ON plans USING btree (name);
+			`,
+		},
 	}
 }
