@@ -15,6 +15,9 @@ import (
 var errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request")
 var errInvalidToken = httperror.New(http.StatusUnauthorized, "invalid_token")
 
+// This is called when the error is not a *httperror.Error*, i.e. there's
+// something wrong with the controller. We transform that error into
+// InternalServerError and logged it.
 func (s *Server) serverError(err error) error {
 	code := http.StatusInternalServerError
 	errMsg := err.Error()
