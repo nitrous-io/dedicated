@@ -5,7 +5,7 @@ Nitrous On-Prem
 
 ## Setup
 
-1. Install Postgres - `sudo apt-get install postgresql-9.3 postgresql-9.3-contrib libpq-dev`
+1. Install Postgres - `sudo apt-get install postgresql-9.3 postgresql-contrib-9.3 libpq-dev`
 2. Create Postgres User - `sudo su postgres -c "psql -c \"CREATE ROLE "$(whoami)" NOSUPERUSER CREATEDB NOCREATEROLE INHERIT LOGIN;\""`
 3. `make createdb`
 
