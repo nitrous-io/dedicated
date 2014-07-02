@@ -32,5 +32,18 @@ func init() {
 				CREATE UNIQUE INDEX index_tokens_on_token ON tokens USING btree (token);
 			`,
 		},
+		{
+			Version: "30",
+			Up: `
+				CREATE TABLE regions (
+					id bigserial PRIMARY KEY NOT NULL,
+					name character varying(255) NOT NULL,
+					description character varying(255) NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE UNIQUE INDEX index_regions_on_name ON regions USING btree (name);
+			`,
+		},
 	}
 }
