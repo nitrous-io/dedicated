@@ -59,5 +59,22 @@ func init() {
 				CREATE UNIQUE INDEX index_plans_on_name ON plans USING btree (name);
 			`,
 		},
+		{
+			Version: "50",
+			Up: `
+				CREATE TABLE provider_templates (
+					id bigserial PRIMARY KEY NOT NULL,
+					region_id bigint REFERENCES regions(id) NOT NULL,
+					plan_id bigint REFERENCES plans(id) NOT NULL,
+					name character varying(255) NOT NULL,
+					provider character varying(255) NOT NULL,
+					config hstore,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE INDEX index_provider_templates_on_region_id ON provider_templates USING btree (region_id);
+				CREATE INDEX index_provider_templates_on_plan_id ON provider_templates USING btree (plan_id);
+			`,
+		},
 	}
 }
