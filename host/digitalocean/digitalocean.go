@@ -87,9 +87,10 @@ func (h *Host) Info() (*host.Info, error) {
 		return nil, errors.New("Invalid ec2 instance")
 	}
 	info := &host.Info{
-		Provider:  "digitalocean",
-		Id:        strconv.Itoa(h.instance.Id),
-		IpAddress: h.instance.IpAddress,
+		Provider:       "digitalocean",
+		Id:             strconv.Itoa(h.instance.Id),
+		IpAddress:      h.instance.IpAddress,
+		FreighterdPort: uint16(65533),
 	}
 	return info, nil
 }

@@ -33,9 +33,10 @@ func (h *Host) Destroy() error {
 
 func (h *Host) Info() (*host.Info, error) {
 	info := &host.Info{
-		Provider:  "digitalocean",
-		Id:        h.Id,
-		IpAddress: h.IpAddress,
+		Provider:       "dummy",
+		Id:             h.Id,
+		IpAddress:      h.IpAddress,
+		FreighterdPort: uint16(65533),
 	}
 	return info, nil
 }
