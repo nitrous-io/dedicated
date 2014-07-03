@@ -12,12 +12,14 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
-var errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request")
-var errInvalidToken = httperror.New(http.StatusUnauthorized, "invalid_token")
+var (
+	errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request")
+	errInvalidToken   = httperror.New(http.StatusUnauthorized, "invalid_token")
+)
 
 // This is called when the error is not a *httperror.Error*, i.e. there's
-// something wrong with the controller. We transform that error into
-// InternalServerError and logged it.
+// something wrong with the controller. We transform that error into a
+// httperror.Error and log it.
 func (s *Server) serverError(err error) error {
 	code := http.StatusInternalServerError
 	errMsg := err.Error()
@@ -29,7 +31,7 @@ func (s *Server) serverError(err error) error {
 
 // process the request error. If the error is of type *httperror.Error, then we
 // convert and serialize that to JSON, otherwise, the error will be
-// `500 invalid_request`
+// `500 internal_server_error`
 func (s *Server) handleError(w http.ResponseWriter, err error) {
 	e, ok := err.(*httperror.Error)
 	if !ok {
