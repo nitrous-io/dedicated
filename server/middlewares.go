@@ -37,7 +37,7 @@ func (s *Server) handleError(w http.ResponseWriter, err error) {
 	}
 	j, err := e.JSON()
 	if err != nil {
-		j = []byte(`{"error":"invalid_request"}`)
+		j = []byte(`{"error":"internal_server_error"}`)
 	}
 	s.Respond(w, e.Code, j)
 }
