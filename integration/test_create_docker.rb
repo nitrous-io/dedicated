@@ -12,15 +12,10 @@ random_id = SecureRandom.hex(8)
 
 params = {
   name: "test-box-#{random_id}",
-  image: "dqminh/upstart-dind",
-  public_keys: [
-    File.read("#{ENV['HOME']}/.ssh/id_rsa.pub")
-  ],
 }
 
-resp = client.post "http://localhost:6666/host", {
+resp = client.post "http://localhost:6666/hosts", {
   provider: "docker",
-  webhook: "http://127.0.0.1:4567/webhook",
   config: JSON.generate(params)
 }
 p resp
