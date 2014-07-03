@@ -7,9 +7,17 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
-func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
+var (
+	validations = map[string]error{
+		"index_users_on_username": httperror.New(http.StatusBadRequest, "validation_failed", "username is taken"),
+		"index_users_on_email":    httperror.New(http.StatusBadRequest, "validation_failed", "email is taken"),
+	}
+)
+
+func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
 	email := strings.ToLower(r.FormValue("email"))
@@ -26,46 +34,35 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 
 	err := u.Validate()
 	if err != nil {
-		c.RespondEncodeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"error":             "validation_failed",
-			"error_description": err.Error(),
-		})
-		return
+		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
 	}
 
 	tx, err := db.Beginx()
 	if err != nil {
-		c.RespondWithError(w, err)
-		return
+		return err
 	}
 
 	err = u.Insert(tx)
 	if err != nil {
 		tx.Rollback()
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
-			switch e.Constraint {
-			case "index_users_on_username":
-				c.Respond(w, http.StatusBadRequest, []byte(`{"error":"validation_failed","error_description":"username is taken"}`))
-				return
-			case "index_users_on_email":
-				c.Respond(w, http.StatusBadRequest, []byte(`{"error":"validation_failed","error_description":"email is taken"}`))
-				return
+			if validationErr, ok := validations[e.Constraint]; ok {
+				return validationErr
 			}
 		}
-		c.RespondWithError(w, err)
-		return
+		return err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		c.RespondWithError(w, err)
-		return
+		return err
 	}
 
 	c.Respond(w, http.StatusOK, []byte(`{"status":"ok"}`))
+	return nil
 }
 
-func GetAuthenticatedUser(c controllers.Helper, u *user.User, w http.ResponseWriter, r *http.Request) {
+func GetAuthenticatedUser(c controllers.Helper, u *user.User, w http.ResponseWriter, r *http.Request) error {
 	c.RespondEncodeJSON(w, http.StatusOK, map[string]interface{}{
 		"user": map[string]interface{}{
 			"username":   u.Username,
@@ -74,4 +71,5 @@ func GetAuthenticatedUser(c controllers.Helper, u *user.User, w http.ResponseWri
 			"updated_at": u.UpdatedAt,
 		},
 	})
+	return nil
 }

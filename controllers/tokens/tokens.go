@@ -8,9 +8,17 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
-func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
+var (
+	errGrantType   = httperror.New(http.StatusBadRequest, "unsupported_grant_type")
+	errUsername    = httperror.New(http.StatusBadRequest, "invalid_request", "username is required")
+	errPassword    = httperror.New(http.StatusBadRequest, "invalid_request", "password is required")
+	errInvalidCred = httperror.New(http.StatusBadRequest, "invalid_grant", "incorrect username or password")
+)
+
+func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
 	grantType := r.FormValue("grant_type")
@@ -18,41 +26,34 @@ func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 
 	if grantType != "password" {
-		c.Respond(w, http.StatusBadRequest, []byte(`{"error":"unsupported_grant_type"}`))
-		return
+		return errGrantType
 	}
 
 	if username == "" {
-		c.Respond(w, http.StatusBadRequest, []byte(`{"error":"invalid_request","error_description":"username is required"}`))
-		return
+		return errUsername
 	}
 
 	if password == "" {
-		c.Respond(w, http.StatusBadRequest, []byte(`{"error":"invalid_request","error_description":"password is required"}`))
-		return
+		return errPassword
 	}
 
 	u, err := user.FindByUsername(db, username)
 	if err != nil {
-		c.RespondWithError(w, err)
-		return
+		return err
 	}
 	if u == nil {
-		c.Respond(w, http.StatusBadRequest, []byte(`{"error":"invalid_grant","error_description":"incorrect username or password"}`))
-		return
+		return errInvalidCred
 	}
 
 	if !bcrypt.Verify(u.EncryptedPassword, password) {
-		c.Respond(w, http.StatusBadRequest, []byte(`{"error":"invalid_grant","error_description":"incorrect username or password"}`))
-		return
+		return errInvalidCred
 	}
 
 	t := &token.Token{UserID: u.ID}
 
 	err = t.Insert(db)
 	if err != nil {
-		c.RespondWithError(w, err)
-		return
+		return err
 	}
 
 	w.Header().Set("Cache-Control", "no-store")
@@ -62,4 +63,5 @@ func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) {
 		"access_token": t.Token,
 		"token_type":   "Bearer",
 	})
+	return nil
 }
