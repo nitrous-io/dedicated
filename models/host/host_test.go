@@ -160,4 +160,85 @@ var _ = Describe("models/host", func() {
 			Expect(h.UpdatedAt).NotTo(BeNil())
 		})
 	})
+
+	Describe("Validate()", func() {
+		var (
+			h *host.Host
+			u *user.User
+		)
+
+		BeforeEach(func() {
+			var err error
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err = u.Insert(db)
+			Expect(err).To(BeNil())
+
+			h = &host.Host{
+				UserID:             u.ID,
+				Name:               "my-host-1",
+				RegionID:           r.ID,
+				PlanID:             p.ID,
+				ProviderTemplateID: pt.ID,
+			}
+			Expect(h.Validate(db)).To(BeNil())
+		})
+
+		It("validates name", func() {
+			buf := make([]byte, 64)
+			for i := range buf {
+				buf[i] = 'f'
+			}
+			s := string(buf) // "f" * 64.
+
+			tests := []struct {
+				input string
+				err   error
+			}{
+				{"", host.ErrNameBlank},
+				{"foo", nil},
+				{"fo", nil},
+				{"f", host.ErrNameTooShort},
+				{"ffffffffffffffffffffffffffffff", nil},
+				{s, host.ErrNameTooLong},
+				{s[:63], nil},
+				{"f00", nil},
+				{"f-o-0-", nil},
+				{"-foo", host.ErrNameInvalid},
+				{"FOO", host.ErrNameInvalid},
+			}
+
+			for _, t := range tests {
+				h.Name = t.input
+				Expect(h.Validate(db) == t.err).To(BeTrue(),
+					"Expected '%s' to return error '%v'", t.input, t.err)
+			}
+		})
+
+		Context("when a host with the same name exists", func() {
+			BeforeEach(func() {
+				var err error
+				h2 := &host.Host{
+					UserID:             u.ID,
+					Name:               "foo",
+					RegionID:           r.ID,
+					PlanID:             p.ID,
+					ProviderTemplateID: pt.ID,
+				}
+				Expect(h2.Validate(db)).To(BeNil())
+				err = h2.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("validates name is unique to a user", func() {
+				Expect(h.Validate(db)).To(BeNil())
+
+				h.Name = "foo"
+				Expect(h.Validate(db)).To(Equal(host.ErrNameTaken))
+			})
+		})
+	})
 })

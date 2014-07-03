@@ -2,10 +2,24 @@ package host
 
 import (
 	"database/sql"
+	"errors"
+	"regexp"
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/user"
+)
+
+var (
+	nameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
+)
+
+var (
+	ErrNameBlank    = errors.New("name can't be blank")
+	ErrNameInvalid  = errors.New("name is not valid")
+	ErrNameTooShort = errors.New("name is too short (minimum is 2 characters)")
+	ErrNameTooLong  = errors.New("name is too long (maximum is 63 characters)")
+	ErrNameTaken    = errors.New("name has already been used")
 )
 
 type Host struct {
@@ -64,7 +78,37 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	return d.Get(h, "SELECT * FROM hosts WHERE user_id = $1 AND name = $2;", h.UserID, h.Name)
 }
 
-func (h *Host) Validate() error {
-	// name should be unique since the API accepts hostname as a host identifier.
+func (h *Host) Validate(db *db.Database) error {
+	if h.Name == "" {
+		return ErrNameBlank
+	}
+	if !nameRe.MatchString(h.Name) {
+		return ErrNameInvalid
+	}
+	nameLen := len(h.Name)
+	if nameLen < 2 {
+		return ErrNameTooShort
+	}
+	if nameLen > 63 {
+		return ErrNameTooLong
+	}
+	err := h.validateUniqueName(db)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateUniqueName returns an error if Name is already in use by the same
+// user.
+func (h *Host) validateUniqueName(db *db.Database) error {
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM hosts WHERE user_id = $1 AND name = $2;", h.UserID, h.Name).Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return ErrNameTaken
+	}
 	return nil
 }
