@@ -29,9 +29,17 @@ func FindByName(d db.QueryReceiver, name string) (*Plan, error) {
 }
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
-	_, err := d.NamedExec("INSERT INTO plans (name, max_containers, price) VALUES (:name, :max_containers, :price);", p)
+	nstmt, err := d.PrepareNamed(`INSERT INTO plans
+		(name, max_containers, price)
+		VALUES (:name, :max_containers, :price)
+		RETURNING id;`)
 	if err != nil {
 		return err
 	}
-	return d.Get(p, "SELECT * FROM plans WHERE name = $1;", p.Name)
+	var id int64
+	err = nstmt.QueryRow(p).Scan(&id)
+	if err != nil {
+		return err
+	}
+	return d.Get(p, "SELECT * FROM plans WHERE id = $1;", id)
 }

@@ -72,11 +72,19 @@ func (u *User) Insert(d db.QueryReceiver) error {
 		u.EncryptedPassword = encrypted
 		u.Password = ""
 	}
-	_, err := d.NamedExec("INSERT INTO users (email, username, encrypted_password, name) VALUES (:email, :username, :encrypted_password, :name);", u)
+	nstmt, err := d.PrepareNamed(`INSERT INTO users
+		(email, username, encrypted_password, name)
+		VALUES (:email, :username, :encrypted_password, :name)
+		RETURNING id;`)
 	if err != nil {
 		return err
 	}
-	return d.Get(u, "SELECT * FROM users WHERE username = $1;", u.Username)
+	var id int64
+	err = nstmt.QueryRow(u).Scan(&id)
+	if err != nil {
+		return err
+	}
+	return d.Get(u, "SELECT * FROM users WHERE id = $1;", id)
 }
 
 func (u *User) Validate() error {

@@ -36,9 +36,14 @@ func (t *Token) Insert(d db.QueryReceiver) error {
 		t.Token = tok[:255]
 	}
 
-	_, err := d.NamedExec("INSERT INTO tokens (user_id, token) VALUES (:user_id, :token);", t)
+	nstmt, err := d.PrepareNamed(`INSERT INTO tokens (user_id, token) VALUES (:user_id, :token) RETURNING id;`)
 	if err != nil {
 		return err
 	}
-	return d.Get(t, "SELECT * FROM tokens WHERE user_id = $1 AND token = $2;", t.UserID, t.Token)
+	var id int64
+	err = nstmt.QueryRow(t).Scan(&id)
+	if err != nil {
+		return err
+	}
+	return d.Get(t, "SELECT * FROM tokens WHERE id = $1;", id)
 }

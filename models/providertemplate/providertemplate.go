@@ -41,9 +41,17 @@ func FindAllByRegionAndPlan(d db.QueryReceiver, regionID, planID int64) ([]Provi
 }
 
 func (pt *ProviderTemplate) Insert(d db.QueryReceiver) error {
-	_, err := d.NamedExec("INSERT INTO provider_templates (region_id, plan_id, name, provider, config) VALUES (:region_id, :plan_id, :name, :provider, :config);", pt)
+	nstmt, err := d.PrepareNamed(`INSERT INTO provider_templates
+		(region_id, plan_id, name, provider, config)
+		VALUES (:region_id, :plan_id, :name, :provider, :config)
+		RETURNING id;`)
 	if err != nil {
 		return err
 	}
-	return d.Get(pt, "SELECT * FROM provider_templates WHERE region_id = $1 AND plan_id = $2 AND name = $3 AND provider = $4;", pt.RegionID, pt.PlanID, pt.Name, pt.Provider)
+	var id int64
+	err = nstmt.QueryRow(pt).Scan(&id)
+	if err != nil {
+		return err
+	}
+	return d.Get(pt, "SELECT * FROM provider_templates WHERE id = $1;", id)
 }

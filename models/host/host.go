@@ -64,18 +64,22 @@ func findAllByUserID(db *db.Database, userID int64) ([]Host, error) {
 }
 
 func (h *Host) Insert(d db.QueryReceiver) error {
-	_, err := d.NamedExec(`INSERT INTO hosts
-		(user_id, region_id, plan_id, provider_template_id,
-			name, long_name, state,
-			ip_address, provider_identifier, max_containers)
+	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
+		(user_id, region_id, plan_id, provider_template_id, name, long_name,
+			state, ip_address, provider_identifier, max_containers)
 		VALUES
-		(:user_id, :region_id, :plan_id, :provider_template_id,
-			:name, :long_name, :state,
-			:ip_address, :provider_identifier, :max_containers);`, h)
+		(:user_id, :region_id, :plan_id, :provider_template_id, :name,
+			:long_name, :state, :ip_address, :provider_identifier, :max_containers)
+		RETURNING id;`)
 	if err != nil {
 		return err
 	}
-	return d.Get(h, "SELECT * FROM hosts WHERE user_id = $1 AND name = $2;", h.UserID, h.Name)
+	var id int64
+	err = nstmt.QueryRow(h).Scan(&id)
+	if err != nil {
+		return err
+	}
+	return d.Get(h, "SELECT * FROM hosts WHERE id = $1;", id)
 }
 
 func (h *Host) Validate(db *db.Database) error {

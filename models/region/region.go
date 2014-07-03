@@ -28,9 +28,14 @@ func FindByName(d db.QueryReceiver, name string) (*Region, error) {
 }
 
 func (r *Region) Insert(d db.QueryReceiver) error {
-	_, err := d.NamedExec("INSERT INTO regions (name, description) VALUES (:name, :description);", r)
+	nstmt, err := d.PrepareNamed(`INSERT INTO regions (name, description) VALUES (:name, :description) RETURNING id;`)
 	if err != nil {
 		return err
 	}
-	return d.Get(r, "SELECT * FROM regions WHERE name = $1;", r.Name)
+	var id int64
+	err = nstmt.QueryRow(r).Scan(&id)
+	if err != nil {
+		return err
+	}
+	return d.Get(r, "SELECT * FROM regions WHERE id = $1;", id)
 }
