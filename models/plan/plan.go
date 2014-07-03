@@ -32,14 +32,9 @@ func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
 		(name, max_containers, price)
 		VALUES (:name, :max_containers, :price)
-		RETURNING id;`)
+		RETURNING *;`)
 	if err != nil {
 		return err
 	}
-	var id int64
-	err = nstmt.QueryRow(p).Scan(&id)
-	if err != nil {
-		return err
-	}
-	return d.Get(p, "SELECT * FROM plans WHERE id = $1;", id)
+	return nstmt.QueryRowx(p).StructScan(p)
 }

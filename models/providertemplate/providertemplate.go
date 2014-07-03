@@ -44,14 +44,9 @@ func (pt *ProviderTemplate) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO provider_templates
 		(region_id, plan_id, name, provider, config)
 		VALUES (:region_id, :plan_id, :name, :provider, :config)
-		RETURNING id;`)
+		RETURNING *;`)
 	if err != nil {
 		return err
 	}
-	var id int64
-	err = nstmt.QueryRow(pt).Scan(&id)
-	if err != nil {
-		return err
-	}
-	return d.Get(pt, "SELECT * FROM provider_templates WHERE id = $1;", id)
+	return nstmt.QueryRowx(pt).StructScan(pt)
 }

@@ -70,16 +70,11 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 		VALUES
 		(:user_id, :region_id, :plan_id, :provider_template_id, :name,
 			:long_name, :state, :ip_address, :provider_identifier, :max_containers)
-		RETURNING id;`)
+		RETURNING *;`)
 	if err != nil {
 		return err
 	}
-	var id int64
-	err = nstmt.QueryRow(h).Scan(&id)
-	if err != nil {
-		return err
-	}
-	return d.Get(h, "SELECT * FROM hosts WHERE id = $1;", id)
+	return nstmt.QueryRowx(h).StructScan(h)
 }
 
 func (h *Host) Validate(db *db.Database) error {
