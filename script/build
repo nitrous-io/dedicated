@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
+set -e
 
-mkdir -p $(pwd)/build
-VERSION=$(git rev-parse --short HEAD)
+VERSION=$1
+PACKAGE=github.com/nitrous-io/hostbuilder
+BUILD=$(pwd)/build
 
-# we only link the build directory as that will be used to store the build
-# output
-docker run \
-  --rm=true \
-  --volume $(pwd)/build:/opt/src/github.com/nitrous-io/hostbuilder/build \
-  registry.nitrous.io/hostbuilder ./script/start-build $VERSION
+mkdir -p $BUILD
+
+echo "Building revision ${VERSION} ...."
+GOBIN=$BUILD goop go install -ldflags "-X main.version ${VERSION}" -v $PACKAGE/...
+
+cd $BUILD
+tar -f hostbuilder_${VERSION}.tgz -zv -c hostbuilder
+tar -f hostbuilder_latest.tgz -zv -c hostbuilder
