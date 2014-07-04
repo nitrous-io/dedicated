@@ -47,20 +47,16 @@ func (s *Server) postHost(w http.ResponseWriter, r *http.Request) error {
 	var info *host.Info
 	info, err = h.Create()
 	log.Printf("Created: %+v\n, %v", info, err)
-
 	if err != nil {
 		return err
-	} else {
-		j, err := json.Marshal(info)
-		if err != nil {
-			return err
-		} else {
-			w.WriteHeader(http.StatusCreated)
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(j)
-		}
 	}
-
+	j, err := json.Marshal(info)
+	if err != nil {
+		return err
+	}
+	w.WriteHeader(http.StatusCreated)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(j)
 	return nil
 }
 
@@ -79,11 +75,10 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	err = h.Destroy()
 	if err != nil {
 		return err
-	} else {
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`))
 	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"ok"}`))
 	return nil
 }
 
@@ -102,11 +97,10 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 	err = h.Stop()
 	if err != nil {
 		return err
-	} else {
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`))
 	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"ok"}`))
 	return nil
 }
 
@@ -125,11 +119,10 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 	err = h.Start()
 	if err != nil {
 		return err
-	} else {
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`))
 	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"ok"}`))
 	return nil
 }
 
@@ -148,11 +141,10 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	err = h.Restart()
 	if err != nil {
 		return err
-	} else {
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`))
 	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"ok"}`))
 	return nil
 }
 
