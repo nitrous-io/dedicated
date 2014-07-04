@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/nitrous-io/nitrous/controllers/home"
+	"github.com/nitrous-io/nitrous/controllers/hosts"
 	"github.com/nitrous-io/nitrous/controllers/tokens"
 	"github.com/nitrous-io/nitrous/controllers/users"
 )
@@ -13,6 +14,8 @@ func (s *Server) drawRoutes() {
 	s.namespace("/api/v0", func() {
 		s.route("/users", s.action(users.Create), "POST")
 		s.route("/user", s.authedAction(users.GetAuthenticatedUser), "GET")
+
+		s.route("/hosts", s.authedAction(hosts.Index), "GET")
 	})
 
 	s.static("/", "public") // catch-all, must come last

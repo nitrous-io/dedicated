@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"testing"
 
-	"bitbucket.org/kardianos/osext"
-
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
@@ -29,24 +27,24 @@ func Test(t *testing.T) {
 
 var _ = Describe("controllers/users", func() {
 	var (
-		db      *db.Database
-		handler *mux.Router
-		res     *httptest.ResponseRecorder
-		req     *http.Request
-		svr     *server.Server
-		params  *url.Values
+		db              *db.Database
+		handler         *mux.Router
+		res             *httptest.ResponseRecorder
+		req             *http.Request
+		svr             *server.Server
+		params          *url.Values
+		authTokenInputs AuthTokenInputs
 	)
 
 	BeforeEach(func() {
 		var err error
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		root, err := osext.ExecutableFolder()
-		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer(root, db, logger)
+		svr = server.NewServer("", db, logger)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
+		authTokenInputs = AuthTokenInputs{Handler: handler}
 	})
 
 	AfterEach(func() {
@@ -194,10 +192,10 @@ var _ = Describe("controllers/users", func() {
 		doRequest := func(token string) {
 			var err error
 			req, err = NewRequest("GET", "/api/v0/user", nil)
+			Expect(err).To(BeNil())
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
 			}
-			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
@@ -241,34 +239,13 @@ var _ = Describe("controllers/users", func() {
 			})
 		})
 
-		Context("when an invalid oauth token is given", func() {
+		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
-				doRequest("barbar")
+				authTokenInputs.Path = "/api/v0/user"
+				authTokenInputs.Method = "GET"
 			})
 
-			It("responds with 401 unauthorized", func() {
-				Expect(res.Code).To(Equal(http.StatusUnauthorized))
-				Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="invalid_token"`))
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("invalid_token"))
-			})
-		})
-
-		Context("when no oauth token is given", func() {
-			BeforeEach(func() {
-				doRequest("")
-			})
-
-			It("responds with 401 unauthorized", func() {
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="invalid_request"`))
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("invalid_request"))
-			})
+			ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 })

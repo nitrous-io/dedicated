@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"testing"
 
-	"bitbucket.org/kardianos/osext"
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
@@ -39,10 +38,8 @@ var _ = Describe("controllers/tokens", func() {
 		var err error
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		root, err := osext.ExecutableFolder()
-		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer(root, db, logger)
+		svr = server.NewServer("", db, logger)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 	})
