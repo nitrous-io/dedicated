@@ -20,7 +20,7 @@ params = {
   ],
 }
 
-resp = client.post "http://localhost:6666/host", {
+resp = client.post "http://localhost:6666/hosts", {
   provider: "amazon",
   config: JSON.generate(params)
 }
