@@ -26,11 +26,6 @@ type config struct {
 	Providers map[string]providerConfig `json:"providers"`
 }
 
-type WebhookData struct {
-	Success bool   `json:"success,omitempty"`
-	Message string `json:"message,omitempty"`
-}
-
 type Server struct {
 	Config *config
 	Router *mux.Router
