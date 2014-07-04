@@ -19,7 +19,6 @@ var (
 	ErrNameInvalid  = errors.New("name is not valid")
 	ErrNameTooShort = errors.New("name is too short (minimum is 2 characters)")
 	ErrNameTooLong  = errors.New("name is too long (maximum is 63 characters)")
-	ErrNameTaken    = errors.New("name has already been used")
 )
 
 type Host struct {
@@ -90,24 +89,6 @@ func (h *Host) Validate(db *db.Database) error {
 	}
 	if nameLen > 63 {
 		return ErrNameTooLong
-	}
-	err := h.validateUniqueName(db)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// validateUniqueName returns an error if Name is already in use by the same
-// user.
-func (h *Host) validateUniqueName(db *db.Database) error {
-	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM hosts WHERE user_id = $1 AND name = $2;", h.UserID, h.Name).Scan(&count)
-	if err != nil {
-		return err
-	}
-	if count > 0 {
-		return ErrNameTaken
 	}
 	return nil
 }

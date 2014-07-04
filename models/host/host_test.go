@@ -217,28 +217,5 @@ var _ = Describe("models/host", func() {
 					"Expected '%s' to return error '%v'", t.input, t.err)
 			}
 		})
-
-		Context("when a host with the same name exists", func() {
-			BeforeEach(func() {
-				var err error
-				h2 := &host.Host{
-					UserID:             u.ID,
-					Name:               "foo",
-					RegionID:           r.ID,
-					PlanID:             p.ID,
-					ProviderTemplateID: pt.ID,
-				}
-				Expect(h2.Validate(db)).To(BeNil())
-				err = h2.Insert(db)
-				Expect(err).To(BeNil())
-			})
-
-			It("validates name is unique to a user", func() {
-				Expect(h.Validate(db)).To(BeNil())
-
-				h.Name = "foo"
-				Expect(h.Validate(db)).To(Equal(host.ErrNameTaken))
-			})
-		})
 	})
 })
