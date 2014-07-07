@@ -5,6 +5,7 @@ BUILD_DIR=./build
 cd rails
 rm -rf ./public/assets
 RACK_ENV=production bundle exec rake assets:clean assets:precompile
+bundle install
 bundle exec rails runner -e production 'puts ActionView::Base.new(Rails::Application::Configuration.new(Rails.root).paths["app/views"]).render(template: "web_app/index")' > public/index.html
 cd ..
 
