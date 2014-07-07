@@ -58,7 +58,7 @@ var _ = Describe("hostbuilder", func() {
 	})
 
 	Describe("Destroying a host", func() {
-		It("should successfully destroy a host and call a webhook", func() {
+		It("should successfully destroy the host", func() {
 			config, _ := json.Marshal(dummy.Host{DestroySuccess: true})
 			form := url.Values{}
 			form.Set("provider", "dummy")
@@ -75,7 +75,7 @@ var _ = Describe("hostbuilder", func() {
 	})
 
 	Describe("Stopping a host", func() {
-		It("should successfully stop host and call webhook", func() {
+		It("should successfully stop the host", func() {
 			config, _ := json.Marshal(dummy.Host{StopSuccess: true})
 			form := url.Values{}
 			form.Set("provider", "dummy")
@@ -91,7 +91,7 @@ var _ = Describe("hostbuilder", func() {
 	})
 
 	Describe("Starting host", func() {
-		It("should successfully start host and call webhook", func() {
+		It("should successfully start the host", func() {
 			config, _ := json.Marshal(dummy.Host{StartSuccess: true})
 			form := url.Values{}
 			form.Set("provider", "dummy")
@@ -108,7 +108,7 @@ var _ = Describe("hostbuilder", func() {
 	})
 
 	Describe("Restarting host", func() {
-		It("should successfully start host and call webhook", func() {
+		It("should successfully start the host", func() {
 			config, _ := json.Marshal(dummy.Host{RestartSuccess: true})
 			form := url.Values{}
 			form.Set("provider", "dummy")
