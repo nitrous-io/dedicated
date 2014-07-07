@@ -1,15 +1,6 @@
 ## Hostbuilder
 
-Provision a box host
-
-## Development
-
-This vendor dependencies into `vendor` folder so we can easily change the
-dependencies without changing import path. To fetch dependencies, use `make
-setup` command.
-
-Then you probably will need to change how GOPATH is defined in the shell
-profile. I use autoenv (https://github.com/kennethreitz/autoenv)
+Hostbuilder is a service that provisions box hosts.
 
 ## Config
 
@@ -35,8 +26,7 @@ profile. I use autoenv (https://github.com/kennethreitz/autoenv)
 - `POST /host`: create a boxhost, with the following params
 
 ```
-provider: amazon
-webhook: "https://hostbuild.er/webhook",
+provider: amazon,
 config: json encoded value for the provider
 ```
 
