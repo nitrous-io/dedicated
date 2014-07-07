@@ -35,7 +35,7 @@ func (s *Server) serverError(err error) error {
 func (s *Server) handleError(w http.ResponseWriter, err error) {
 	e, ok := err.(*httperror.Error)
 	if !ok {
-		e = s.serverError(e).(*httperror.Error)
+		e = s.serverError(err).(*httperror.Error)
 	}
 	j, err := e.JSON()
 	if err != nil {
