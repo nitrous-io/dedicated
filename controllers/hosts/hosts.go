@@ -8,14 +8,17 @@ import (
 	"github.com/nitrous-io/nitrous/models/user"
 )
 
-func Index(c controllers.Helper, u *user.User, w http.ResponseWriter, r *http.Request) error {
+func Index(c controllers.Helper, u *user.User, w http.ResponseWriter, r *http.Request) (*controllers.JSONResponse, error) {
 	db := c.DB()
 	hosts, err := host.FindAllByUser(db, u)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	c.RespondEncodeJSON(w, http.StatusOK, map[string]interface{}{
-		"hosts": hosts,
-	})
-	return nil
+
+	return &controllers.JSONResponse{
+		Code: http.StatusOK,
+		Data: map[string]interface{}{
+			"hosts": hosts,
+		},
+	}, nil
 }

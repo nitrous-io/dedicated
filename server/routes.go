@@ -15,7 +15,7 @@ func (s *Server) drawRoutes() {
 		s.route("/users", s.action(users.Create), "POST")
 		s.route("/user", s.authenticated(s.privateJSON(users.GetAuthenticatedUser)), "GET")
 
-		s.route("/hosts", s.authedAction(hosts.Index), "GET")
+		s.route("/hosts", s.authenticated(s.privateJSON(hosts.Index)), "GET")
 	})
 
 	s.static("/", "public") // catch-all, must come last
