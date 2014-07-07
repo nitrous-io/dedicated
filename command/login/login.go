@@ -2,10 +2,12 @@ package login
 
 import (
 	"fmt"
+
 	"strings"
 
-	"github.com/howeyc/gopass"
+	"github.com/bgentry/speakeasy"
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/auth"
 	"github.com/nitrous-io/nitro/command"
 	flag "github.com/ogier/pflag"
 )
@@ -27,7 +29,8 @@ Options:
 `
 
 type LoginCommand struct {
-	UI cli.Ui
+	UI     cli.Ui
+	Server string
 }
 
 func init() {
@@ -36,7 +39,8 @@ func init() {
 
 func NewLoginCommand() (cli.Command, error) {
 	return &LoginCommand{
-		UI: command.DefaultUI,
+		UI:     command.DefaultUI,
+		Server: command.Env.APIURL,
 	}, nil
 }
 
@@ -61,21 +65,36 @@ func (c *LoginCommand) Run(args []string) int {
 	if username == "" {
 		username, err = c.UI.Ask("Username:")
 		if err != nil {
+			if err.Error() == "interrupted" {
+				c.UI.Error("Login cancelled.")
+				return 130
+			}
 			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
 		}
 	}
 	if password == "" {
-		c.UI.Output("Password (will not be echoed): ")
-		p := gopass.GetPasswd()
-		password = string(p)
+		password, err = speakeasy.Ask("Password (will not be echoed): ")
+		if err != nil {
+			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
+		}
 	}
+
 	username = strings.TrimSpace(username)
 	password = strings.TrimSpace(password)
 
-	c.UI.Info(fmt.Sprintf("Logging in with '%v', '%v'", username, password))
-	// TODO Actually log in.
-	c.UI.Info(fmt.Sprintf("Logged in as '%v'", username))
+	accessToken, err := auth.FetchToken(c.Server, username, password)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Failed to login: %v", err))
+		return 1
+	}
 
+	err = auth.SaveToken(c.Server, username, accessToken)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Error occurred when saving the access token: %v", err))
+		return 1
+	}
+
+	c.UI.Info(fmt.Sprintf("Logged in as '%v'", username))
 	return 0
 }
 
