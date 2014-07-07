@@ -159,6 +159,10 @@ var _ = Describe("models/host", func() {
 			Expect(h.CreatedAt).NotTo(BeNil())
 			Expect(h.UpdatedAt).NotTo(BeNil())
 		})
+
+		It("sets state to a default of 'born'", func() {
+			Expect(h.State).To(Equal("born"))
+		})
 	})
 
 	Describe("Validate()", func() {

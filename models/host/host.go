@@ -63,6 +63,9 @@ func findAllByUserID(db *db.Database, userID int64) ([]Host, error) {
 }
 
 func (h *Host) Insert(d db.QueryReceiver) error {
+	if h.State == "" {
+		h.State = "born"
+	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
 		(user_id, region_id, plan_id, provider_template_id, name, long_name,
 			state, ip_address, provider_identifier, max_containers)
