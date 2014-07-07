@@ -1,5 +1,2 @@
 #!/usr/bin/env bash
-
-docker run \
-  --rm=true \
-  registry.nitrous.io/hostbuilder ./script/start-test
+goop exec ginkgo -r -trace -keepGoing
