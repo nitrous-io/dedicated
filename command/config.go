@@ -16,8 +16,12 @@ type AuthConfig struct {
 }
 
 func LoadConfig() (*ConfigFile, error) {
+	return loadConfig(Env.ConfigPath)
+}
+
+func loadConfig(path string) (*ConfigFile, error) {
 	configFile := ConfigFile{Auths: make(map[string]AuthConfig)}
-	fd, err := os.Open(Env.ConfigPath)
+	fd, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &configFile, nil
