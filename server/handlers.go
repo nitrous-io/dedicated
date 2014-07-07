@@ -150,3 +150,13 @@ func (s *Server) removePublicKey(w http.ResponseWriter, r *http.Request) {
 
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
+
+// export content of the container as a .tar stream
+func (s *Server) exportContainer(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	w.Header().Set("Content-Type", "application/octet-stream")
+	err := s.provider.Export(id, w)
+	if err != nil {
+		s.handleError(w, err)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -269,6 +270,21 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 func (p *DockerProvider) IsNotFoundError(err error) bool {
 	_, ok := err.(*dockerclient.NoSuchContainer)
 	return ok
+}
+
+func (p *DockerProvider) Export(id string, output io.Writer) error {
+	defer func(start time.Time) {
+		p.logger.Infof("Export container %s took %v", id, time.Now().Sub(start))
+	}(time.Now())
+	container, err := p.inspectContainer(id)
+	if err != nil {
+		return err
+	}
+	opts := dockerclient.ExportContainerOptions{
+		ID:           container.ID,
+		OutputStream: output,
+	}
+	return p.client.ExportContainer(opts)
 }
 
 func (p *DockerProvider) buildImage(name string, image string) (string, error) {

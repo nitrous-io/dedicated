@@ -460,5 +460,32 @@ Content-Type: application/json; charset=utf-8
 - **200** - no error
 - **404** - no such container
 
+### Export a container
+`GET /containers/(id)/export`
+
+**Example request**:
+
+```
+GET /containers/2cf1503ed6a0/export HTTP/1.1
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 200 OK
+Content-Type: application/octet-stream
+
+{{ STREAM }}
+```
+
+The stream will be a [tar
+archive](https://docs.docker.com/reference/api/docker_remote_api_v1.13/#21-containers)
+Search for "Export a container"
+
+**Status Codes**:
+
+- **200** - no error
+- **404** - no such container
+
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.
