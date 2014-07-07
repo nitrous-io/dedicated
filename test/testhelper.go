@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"runtime"
 	"strings"
 	"time"
 )
@@ -44,11 +43,6 @@ func NewFormRequest(method string, urlStr string, params *url.Values) (*http.Req
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 	return req, err
-}
-
-func Wait() {
-	runtime.Gosched()
-	time.Sleep(50 * time.Millisecond)
 }
 
 func TempFile(extension string) string {
