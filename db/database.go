@@ -5,12 +5,12 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"github.com/nitrous-io/freighter/util"
+	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 type Database struct {
 	*sqlx.DB
-	Logger *util.Logger
+	Logger *logger.Logger
 }
 
 type Migration struct {
