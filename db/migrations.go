@@ -100,5 +100,25 @@ func init() {
 				CREATE UNIQUE INDEX index_hosts_on_user_id_and_name ON hosts USING btree (user_id, name);
 			`,
 		},
+		{
+			Version: "70",
+			Up: `
+				CREATE TABLE containers (
+					id character varying(255) PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					host_id bigint REFERENCES hosts(id) NOT NULL,
+					image character varying(255) NOT NULL,
+					name character varying(255) NOT NULL,
+					long_name character varying(255),
+					ip_address character varying(45),
+					terminated_at timestamp without time zone,
+					touched_at timestamp without time zone,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE INDEX index_containers_on_user_id ON containers USING btree (user_id);
+				CREATE UNIQUE INDEX index_containers_on_host_id_and_name ON containers USING btree (host_id, name);
+			`,
+		},
 	}
 }
