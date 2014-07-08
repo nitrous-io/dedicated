@@ -71,7 +71,7 @@ func main() {
 		logger.FatalExit(err)
 	}
 
-	svr := server.NewServer(logger, prov, &server.HTTPCallback{})
+	svr := server.NewServer(logger, prov)
 	host := "0.0.0.0"
 	port := uint16(*flPort)
 	logger.Infof("freighterd (rev: %v, pid: %v) listening on %s:%d", version, pid, host, port)

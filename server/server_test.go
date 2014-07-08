@@ -33,14 +33,12 @@ var _ = Describe("server", func() {
 		err     error
 		svr     *server.Server
 		prov    *MockProvider
-		cb      *MockCallback
 	)
 
 	BeforeEach(func() {
 		prov = &MockProvider{}
-		cb = &MockCallback{}
 		logger := &util.Logger{Level: util.LogLevelQuiet}
-		svr = server.NewServer(logger, prov, cb)
+		svr = server.NewServer(logger, prov)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 	})
@@ -97,13 +95,12 @@ var _ = Describe("server", func() {
 
 	Describe("POST /containers", func() {
 		var (
-			params      *url.Values
-			name        string
-			image       string
-			publicKey   string
-			publicKey2  string
-			callbackURL string
-			state       string
+			params     *url.Values
+			name       string
+			image      string
+			publicKey  string
+			publicKey2 string
+			state      string
 		)
 
 		BeforeEach(func() {
@@ -111,11 +108,9 @@ var _ = Describe("server", func() {
 			image = "ubuntu"
 			publicKey = "ssh-rsa Foo"
 			publicKey2 = "ssh-rsa Bar"
-			callbackURL = "http://www.example.com/cb"
 			params = &url.Values{}
 			params.Set("name", name)
 			params.Set("image", image)
-			params.Set("callback_url", callbackURL)
 			params.Set("public_key[]", publicKey)
 			params.Add("public_key[]", publicKey2)
 			state = RandomName("state")
@@ -129,16 +124,8 @@ var _ = Describe("server", func() {
 		}
 
 		Context("when params are valid", func() {
-			It("responds with 202 accepted immediately", func() {
+			It("calls provider.Create()", func() {
 				doRequest()
-				Expect(res.Code).To(Equal(http.StatusAccepted))
-				Expect(res.Body.String()).To(MatchJSON(`{"status":"accepted"}`))
-			})
-
-			It("calls provider.Create() asynchronously", func() {
-				doRequest()
-				Expect(prov.CreateCalled).To(BeFalse())
-				Wait()
 				Expect(prov.CreateCalled).To(BeTrue())
 				Expect(prov.ReceivedName).To(Equal(name))
 				Expect(prov.ReceivedImage).To(Equal(image))
@@ -154,12 +141,9 @@ var _ = Describe("server", func() {
 						doRequest()
 					})
 
-					It("calls callback with error", func() {
-						Expect(cb.InvokeCalled).To(BeFalse())
-						Wait()
-						Expect(cb.InvokeCalled).To(BeTrue())
-						Expect(cb.To).To(Equal(callbackURL))
-						Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter", "state": "` + state + `"}`))
+					It("responds with 500 Internal Server Error", func() {
+						Expect(res.Code).To(Equal(http.StatusInternalServerError))
+						Expect(res.Body.String()).To(MatchJSON(`{"error":"pc load letter"}`))
 					})
 				})
 
@@ -169,14 +153,11 @@ var _ = Describe("server", func() {
 						doRequest()
 					})
 
-					It("calls callback with container info", func() {
-						Expect(cb.InvokeCalled).To(BeFalse())
-						Wait()
-						Expect(cb.InvokeCalled).To(BeTrue())
-						Expect(cb.To).To(Equal(callbackURL))
-						Expect(cb.Payload).To(MatchJSON(`{"result":"created", "container":{
+					It("responds with 200 OK and container info", func() {
+						Expect(res.Code).To(Equal(http.StatusOK))
+						Expect(res.Body.String()).To(MatchJSON(`{"container":{
 							"id":"aaa","name":"fragrant-wind-69","image":"ubuntu","host":"1.2.3.4","ssh_port":10000,"state":"running"
-						}, "state": "` + state + `"}`))
+						}}`))
 					})
 				})
 			})
@@ -197,8 +178,6 @@ var _ = Describe("server", func() {
 
 					It("does not call provider.Create()", func() {
 						Expect(prov.CreateCalled).To(BeFalse())
-						Wait()
-						Expect(prov.CreateCalled).To(BeFalse())
 					})
 				})
 			}(param)
@@ -217,8 +196,6 @@ var _ = Describe("server", func() {
 
 			It("does not call provider.Create()", func() {
 				Expect(prov.CreateCalled).To(BeFalse())
-				Wait()
-				Expect(prov.CreateCalled).To(BeFalse())
 			})
 		})
 
@@ -236,8 +213,6 @@ var _ = Describe("server", func() {
 			})
 
 			It("does not call provider.Create()", func() {
-				Expect(prov.CreateCalled).To(BeFalse())
-				Wait()
 				Expect(prov.CreateCalled).To(BeFalse())
 			})
 		})
@@ -292,8 +267,6 @@ var _ = Describe("server", func() {
 			image            = "ubuntu"
 			host             = "1.2.3.4"
 			sshPort          = uint16(10000)
-			callbackURL      = "http://www.example.com/cb"
-			state            string
 			params           *url.Values
 		)
 
@@ -302,23 +275,12 @@ var _ = Describe("server", func() {
 				{ID: id, Name: name, Image: image, Host: host, SSHPort: sshPort},
 			}
 			params = &url.Values{}
-			params.Set("callback_url", callbackURL)
-			state = RandomName("state")
-			params.Set("state", state)
 		})
 
 		itWorks := func() {
 			Context("when container by the given id exists", func() {
-				It("responds with 202 accepted immediately", func() {
+				It("calls provider func", func() {
 					doRequest(id)
-					Expect(res.Code).To(Equal(http.StatusAccepted))
-					Expect(res.Body.String()).To(MatchJSON(`{"status":"accepted"}`))
-				})
-
-				It("calls provider func asynchronously", func() {
-					doRequest(id)
-					Expect(*provFuncCalled).To(BeFalse())
-					Wait()
 					Expect(*provFuncCalled).To(BeTrue())
 					Expect(prov.ReceivedID).To(Equal(id))
 				})
@@ -330,12 +292,9 @@ var _ = Describe("server", func() {
 							doRequest(id)
 						})
 
-						It("calls callback with error", func() {
-							Expect(cb.InvokeCalled).To(BeFalse())
-							Wait()
-							Expect(cb.InvokeCalled).To(BeTrue())
-							Expect(cb.To).To(Equal(callbackURL))
-							Expect(cb.Payload).To(MatchJSON(`{"error":"pc load letter", "state":"` + state + `"}`))
+						It("responds with 500 Internal Server Error", func() {
+							Expect(res.Code).To(Equal(http.StatusInternalServerError))
+							Expect(res.Body.String()).To(MatchJSON(`{"error":"pc load letter"}`))
 						})
 					})
 
@@ -344,12 +303,9 @@ var _ = Describe("server", func() {
 							doRequest(id)
 						})
 
-						It("calls callback with no error", func() {
-							Expect(cb.InvokeCalled).To(BeFalse())
-							Wait()
-							Expect(cb.InvokeCalled).To(BeTrue())
-							Expect(cb.To).To(Equal(callbackURL))
-							Expect(cb.Payload).To(MatchJSON(expectedResponse))
+						It("responds with 200 OK", func() {
+							Expect(res.Code).To(Equal(http.StatusOK))
+							Expect(res.Body.String()).To(MatchJSON(expectedResponse))
 						})
 					})
 				})
@@ -380,8 +336,7 @@ var _ = Describe("server", func() {
 						"host": "",
 						"ssh_port": 0,
 						"state": ""
-					},
-					"state": "` + state + `"
+					}
 				}`
 
 				doRequest = func(id string) {
@@ -407,8 +362,7 @@ var _ = Describe("server", func() {
 						"host": "` + host + `",
 						"ssh_port": ` + strconv.Itoa(int(sshPort)) + `,
 						"state": "running"
-					},
-					"state": "` + state + `"
+					}
 				}`
 
 				doRequest = func(id string) {
@@ -434,8 +388,7 @@ var _ = Describe("server", func() {
 						"host": "",
 						"ssh_port": ` + strconv.Itoa(int(sshPort)) + `,
 						"state": "stopped"
-					},
-					"state": "` + state + `"
+					}
 				}`
 
 				doRequest = func(id string) {
@@ -461,8 +414,7 @@ var _ = Describe("server", func() {
 						"host": "` + host + `",
 						"ssh_port": ` + strconv.Itoa(int(sshPort)) + `,
 						"state": "running"
-					},
-					"state": "` + state + `"
+					}
 				}`
 
 				doRequest = func(id string) {

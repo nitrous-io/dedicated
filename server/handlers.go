@@ -24,8 +24,6 @@ func (s *Server) listContainers(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	image := r.FormValue("image")
-	callbackURL := r.FormValue("callback_url")
-	state := r.FormValue("state")
 	publicKeys := r.PostForm["public_key[]"]
 
 	if publicKeys == nil {
@@ -52,15 +50,14 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	go func() {
-		info, err := s.provider.Create(name, image, publicKeys)
-		s.invokeCallback(callbackURL, state, map[string]interface{}{
-			"result":    "created",
-			"container": info,
-		}, err)
-	}()
+	info, err := s.provider.Create(name, image, publicKeys)
 
-	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
+	if err != nil {
+		s.logger.Error(err)
+		s.respondEncodeJSON(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+	} else {
+		s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"container": info})
+	}
 }
 
 func (s *Server) getContainerInfo(w http.ResponseWriter, r *http.Request) {

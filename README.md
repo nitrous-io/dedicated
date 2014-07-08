@@ -79,10 +79,10 @@ name=foo&image=ubuntu-upstart:trusty&callback_url=http://example.com/cb&public_k
 **Example response**:
 
 ```javascript
-HTTP/1.1 202 Accepted
+HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 
-{ "status": "accepted" }
+{ "container" : { "id":"aaa", "name":"fragrant-wind-69", "image":"ubuntu", "host":"1.2.3.4", "ssh_port":10000, "state":"running" } }
 ```
 
 **POST Params**:
@@ -90,36 +90,11 @@ Content-Type: application/json; charset=utf-8
 - **name** - container name (a-z, 0-9, and hyphen(-), can't start with hyphen or digits, can't end with hyphen.)
 - **image** - base image to use
 - **public\_key[]** - _(optional)_ ssh pub keys to add
-- **callback\_url** - _(optional)_ callback url to which freighter will POST result data
-- **state** - _(optional)_ an opaque value used by the client to maintain state between the request and callback. If given, freighter will include this value in the callback
 
 **Status Codes**:
 
-- **202** - accepted
+- **200** - accepted
 - **422** - missing or invalid params
-
-**Example callback (success)**:
-
-```javascript
-{
-  "result": "created",
-  "container": {
-    "id":  "2cf1503ed6a0",
-    "name": "foobar",
-    "image": "freighter.foobar",
-    "host": "1.2.3.4",
-    "ssh_port": 10000,
-    "state": "running"
-  },
-  "state": "xyz"
-}
-```
-
-**Example callback (failure)**:
-
-```javascript
-{ "error": "pc load letter", "state": "xyz" }
-```
 
 ### Get container info
 
@@ -163,51 +138,33 @@ Content-Type: application/json; charset=utf-8
 ```
 POST /containers/2cf1503ed6a0/start HTTP/1.1
 Content-Type: application/x-www-form-urlencoded
-
-callback_url=http://example.com/cb&state=xyz
 ```
 
 **Example response**:
 
 ```javascript
-HTTP/1.1 202 Accepted
+HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 
-{ "status": "accepted" }
+{
+	"result": "started",
+	"container": {
+		"id": "1001",
+		"name": "container-name",
+		"image": "nitrousio/ubuntu",
+		"host": "1.2.3.4",
+		"ssh_port": 1000,
+		"state": "running"
+	}
+}
 ```
 
 **POST Params**:
 
-- **callback\_url** - _(optional)_ callback url to which freighter will POST result data
-- **state** - _(optional)_ an opaque value used by the client to maintain state between the request and callback. If given, freighter will include this value in the callback.
-
 **Status Codes**:
 
-- **202** - accepted
+- **200** - ok
 - **404** - no such container
-
-**Example callback (success)**:
-
-```javascript
-{
-  "result": "started",
-  "container": {
-    "id": "2cf1503ed6a0",
-    "name": "foobar",
-    "image": "freighter.foobar",
-    "host": "1.2.3.4",
-    "ssh_port": 10000,
-    "state": "running"
-  },
-  "state": "xyz"
-}
-```
-
-**Example callback (failure)**:
-
-```javascript
-{ "error": "pc load letter", "state": "xyz" }
-```
 
 ### Stop a container
 
@@ -218,51 +175,33 @@ Content-Type: application/json; charset=utf-8
 ```
 POST /containers/2cf1503ed6a0/stop HTTP/1.1
 Content-Type: application/x-www-form-urlencoded
-
-callback_url=http://example.com/cb&state=xyz
 ```
 
 **Example response**:
 
 ```javascript
-HTTP/1.1 202 Accepted
+HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 
-{ "status": "accepted" }
+{
+	"result": "stopped",
+	"container": {
+		"id": "1001",
+		"name": "container-name",
+		"image": "nitrousio/ubuntu",
+		"host": "1.2.3.4",
+		"ssh_port": 1000,
+		"state": "stopped"
+	}
+}
 ```
 
 **POST Params**:
 
-- **callback\_url** - _(optional)_ callback url to which freighter will POST result data
-- **state** - _(optional)_ an opaque value used by the client to maintain state between the request and callback. If given, freighter will include this value in the callback.
-
 **Status Codes**:
 
-- **202** - accepted
+- **200** - ok
 - **404** - no such container
-
-**Example callback (success)**:
-
-```javascript
-{
-  "result": "stopped",
-  "container": {
-    "id": "2cf1503ed6a0",
-    "name": "foobar",
-    "image": "freighter.foobar",
-    "host": "",
-    "ssh_port": 10000,
-    "state": "stopped"
-  },
-  "state": "xyz"
-}
-```
-
-**Example callback (failure)**:
-
-```javascript
-{ "error": "pc load letter", "state": "xyz" }
-```
 
 ### Restart a container
 
@@ -273,32 +212,15 @@ Content-Type: application/json; charset=utf-8
 ```
 POST /containers/2cf1503ed6a0/restart HTTP/1.1
 Content-Type: application/x-www-form-urlencoded
-
-callback_url=http://example.com/cb&state=xyz
 ```
 
 **Example response**:
 
 ```javascript
-HTTP/1.1 202 Accepted
+HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 
 { "status": "accepted" }
-```
-
-**POST Params**:
-
-- **callback\_url** - _(optional)_ callback url to which freighter will POST result data
-- **state** - _(optional)_ an opaque value used by the client to maintain state between the request and callback. If given, freighter will include this value in the callback.
-
-**Status Codes**:
-
-- **202** - accepted
-- **404** - no such container
-
-**Example callback (success)**:
-
-```javascript
 {
   "result": "restarted",
   "container": {
@@ -308,16 +230,18 @@ Content-Type: application/json; charset=utf-8
     "host": "1.2.3.4",
     "ssh_port": 10000,
     "state": "running"
-  },
-  "state": "xyz"
+  }
 }
 ```
 
-**Example callback (failure)**:
+**POST Params**:
 
-```javascript
-{ "error": "pc load letter", "state": "xyz" }
-```
+**Status Codes**:
+
+- **200** - ok
+- **404** - no such container
+
+**Example callback (success)**:
 
 ### Terminate a container
 
@@ -326,45 +250,29 @@ Content-Type: application/json; charset=utf-8
 **Example request**:
 
 ```
-DELETE /containers/2cf1503ed6a0?callback_url=http://example.com/cb&state=xyz HTTP/1.1
+DELETE /containers/2cf1503ed6a0
 ```
 
 **Example response**:
 
 ```javascript
-HTTP/1.1 202 Accepted
+HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 
-{ "status": "accepted" }
-```
-
-**Query Params**:
-
-- **callback\_url** - _(optional)_ callback url to which freighter will POST result data
-- **state** - _(optional)_ an opaque value used by the client to maintain state between the request and callback. If given, freighter will include this value in the callback.
-
-**Status Codes**:
-
-- **202** - accepted
-- **404** - no such container
-
-**Example callback (success)**:
-
-```javascript
 {
   "result": "terminated",
   "container": {
     "id":  "2cf1503ed6a0"
-  },
-  "state": "xyz"
+  }
 }
 ```
 
-**Example callback (failure)**:
+**Query Params**:
 
-```javascript
-{ "error": "pc load letter", "state": "xyz" }
-```
+**Status Codes**:
+
+- **200** - ok
+- **404** - no such container
 
 ### List authorized public keys for a container
 

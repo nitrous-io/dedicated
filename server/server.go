@@ -12,15 +12,14 @@ import (
 type Server struct {
 	logger   *util.Logger
 	provider provider.Provider
-	callback Callback
 	router   *mux.Router
 }
 
-func NewServer(logger *util.Logger, provider provider.Provider, callback Callback) *Server {
-	if logger == nil || provider == nil || callback == nil {
+func NewServer(logger *util.Logger, provider provider.Provider) *Server {
+	if logger == nil || provider == nil {
 		panic("server.NewServer: invalid argument")
 	}
-	svr := &Server{logger: logger, provider: provider, callback: callback}
+	svr := &Server{logger: logger, provider: provider}
 	svr.router = mux.NewRouter()
 	svr.drawRoutes()
 	return svr

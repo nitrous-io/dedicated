@@ -52,8 +52,6 @@ func (s *Server) respondWith500(w http.ResponseWriter, errMsg string) {
 
 func (s *Server) performContainerControl(w http.ResponseWriter, r *http.Request, controlFunc func(string) (*provider.ContainerInfo, error), successStatus string) {
 	id := mux.Vars(r)["id"]
-	callbackURL := r.FormValue("callback_url")
-	state := r.FormValue("state")
 
 	_, err := s.provider.GetInfo(id)
 	if err != nil {
@@ -61,39 +59,12 @@ func (s *Server) performContainerControl(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	go func() {
-		info, err := controlFunc(id)
-
-		s.invokeCallback(callbackURL, state, map[string]interface{}{
-			"result":    successStatus,
-			"container": info,
-		}, err)
-	}()
-
-	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
-}
-
-func (s *Server) invokeCallback(callbackURL string, state string, data map[string]interface{}, err error) {
-	if callbackURL == "" {
-		return
-	}
-	var res map[string]interface{}
+	info, err := controlFunc(id)
 
 	if err != nil {
 		s.logger.Error(err)
-		res = map[string]interface{}{"error": err.Error()}
+		s.respondEncodeJSON(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
 	} else {
-		res = data
+		s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"result": successStatus, "container": info})
 	}
-	if state != "" {
-		res["state"] = state
-	}
-	j, err := json.Marshal(res)
-	if err != nil {
-		s.logger.Error(err)
-		return
-	}
-	sj := string(j)
-	s.logger.Infof("Callback: %v %v", callbackURL, sj)
-	s.callback.Invoke(callbackURL, sj)
 }
