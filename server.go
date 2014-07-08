@@ -31,7 +31,7 @@ type Server struct {
 	Router *mux.Router
 }
 
-func (s *Server) postHost(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ func (s *Server) CreateRouter() {
 	r := mux.NewRouter()
 	m := map[string]map[string]HttpHandler{
 		"POST": {
-			"/hosts":         s.postHost,
+			"/hosts":         s.createHost,
 			"/hosts/delete":  s.deleteHost,
 			"/hosts/stop":    s.stopHost,
 			"/hosts/start":   s.startHost,
