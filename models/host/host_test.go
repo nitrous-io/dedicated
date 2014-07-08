@@ -5,9 +5,6 @@ import (
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/models/plan"
-	"github.com/nitrous-io/nitrous/models/providertemplate"
-	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/user"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -22,9 +19,7 @@ func Test(t *testing.T) {
 var _ = Describe("models/host", func() {
 	var (
 		db *db.Database
-		r  *region.Region
-		p  *plan.Plan
-		pt *providertemplate.ProviderTemplate
+		hs *HostStack
 	)
 
 	BeforeEach(func() {
@@ -32,21 +27,7 @@ var _ = Describe("models/host", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		r = &region.Region{Name: "apse1", Description: "Southeast Asia"}
-		err = r.Insert(db)
-		Expect(err).To(BeNil())
-
-		p = &plan.Plan{Name: "micro", MaxContainers: 1, Price: 500}
-		err = p.Insert(db)
-		Expect(err).To(BeNil())
-
-		pt = &providertemplate.ProviderTemplate{
-			RegionID: r.ID,
-			PlanID:   p.ID,
-			Name:     "digital-ocean-1",
-			Provider: "digitalocean",
-		}
-		err = pt.Insert(db)
+		hs, err = CreateHostStack(db, nil)
 		Expect(err).To(BeNil())
 	})
 
@@ -83,11 +64,11 @@ var _ = Describe("models/host", func() {
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, name, region_id, plan_id, provider_template_id)
 				VALUES ($1, $2, $3, $4, $5);`,
-				u1.ID, "my-host-1", r.ID, p.ID, pt.ID)
+				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts (user_id, name, region_id, plan_id, provider_template_id)
 				VALUES ($1, $2, $3, $4, $5);`,
-				u1.ID, "my-host-2", r.ID, p.ID, pt.ID)
+				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID)
 			Expect(err).To(BeNil())
 		})
 
@@ -135,9 +116,9 @@ var _ = Describe("models/host", func() {
 			h = &host.Host{
 				UserID:             u.ID,
 				Name:               "my-host-1",
-				RegionID:           r.ID,
-				PlanID:             p.ID,
-				ProviderTemplateID: pt.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
 			}
 			err = h.Insert(db)
 			Expect(err).To(BeNil())
@@ -168,25 +149,15 @@ var _ = Describe("models/host", func() {
 	Describe("Validate()", func() {
 		var (
 			h *host.Host
-			u *user.User
 		)
 
 		BeforeEach(func() {
-			var err error
-			u = &user.User{
-				Username: "foo",
-				Email:    "foo@example.com",
-				Password: "123456",
-			}
-			err = u.Insert(db)
-			Expect(err).To(BeNil())
-
 			h = &host.Host{
-				UserID:             u.ID,
+				UserID:             hs.U.ID,
 				Name:               "my-host-1",
-				RegionID:           r.ID,
-				PlanID:             p.ID,
-				ProviderTemplateID: pt.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
 			}
 			Expect(h.Validate(db)).To(BeNil())
 		})

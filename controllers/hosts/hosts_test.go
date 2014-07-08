@@ -10,9 +10,6 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/models/plan"
-	"github.com/nitrous-io/nitrous/models/providertemplate"
-	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/server"
@@ -89,42 +86,19 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when a valid oauth token is given", func() {
 			Context("when user has hosts", func() {
 				BeforeEach(func() {
-					var err error
-
-					r := &region.Region{Name: "apse1", Description: "Southeast Asia"}
-					err = r.Insert(db)
+					hs, err := CreateHostStack(db, &HostStack{
+						H: &host.Host{Name: "foo"},
+						U: u,
+					})
 					Expect(err).To(BeNil())
 
-					p := &plan.Plan{Name: "micro", MaxContainers: 1, Price: 500}
-					err = p.Insert(db)
-					Expect(err).To(BeNil())
-
-					pt := &providertemplate.ProviderTemplate{
-						RegionID: r.ID,
-						PlanID:   p.ID,
-						Name:     "digital-ocean-1",
-						Provider: "digitalocean",
-					}
-					err = pt.Insert(db)
-					Expect(err).To(BeNil())
-
-					h1 := &host.Host{
-						Name:               "foo",
-						UserID:             u.ID,
-						RegionID:           r.ID,
-						PlanID:             p.ID,
-						ProviderTemplateID: pt.ID,
-					}
-					err = h1.Insert(db)
-					Expect(err).To(BeNil())
-					h2 := &host.Host{
-						Name:               "bar",
-						UserID:             u.ID,
-						RegionID:           r.ID,
-						PlanID:             p.ID,
-						ProviderTemplateID: pt.ID,
-					}
-					err = h2.Insert(db)
+					_, err = CreateHostStack(db, &HostStack{
+						H:  &host.Host{Name: "bar"},
+						U:  u,
+						R:  hs.R,
+						P:  hs.P,
+						PT: hs.PT,
+					})
 					Expect(err).To(BeNil())
 				})
 
