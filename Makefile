@@ -9,6 +9,9 @@ VERSION=$(BASE_VERSION)-$(REVISION)
 
 all: build
 
+image:
+	@docker build -t registry.nitrous.io/nitrous .
+
 go:
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
 	@script/build-go
@@ -41,4 +44,10 @@ dropdb:
 	dropdb --if-exists nitrous_migrations_test
 	dropdb --if-exists nitrous_test
 
-.PHONY: all go assets build format run test createdb dropdb
+test-with-docker:
+	@script/docker-test
+
+run-with-docker:
+	@script/docker-run
+
+.PHONY: all go assets build format run test createdb dropdb image test-with-docker run-with-docker
