@@ -28,7 +28,7 @@ format:
 
 run: build
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
-	@forego start
+	@goop exec forego start
 
 createdb:
 	createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_development || true
