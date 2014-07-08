@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"net/http"
 	"path"
@@ -9,6 +10,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
 // route namespace stack
@@ -48,11 +51,14 @@ func (s *Server) namespace(ns string, f func()) {
 	nsStack = nsStack[:len(nsStack)-1]
 }
 
-func (s *Server) route(route string, handler http.HandlerFunc, methods ...string) {
+func (s *Server) route(route string, mw middlewares.Middleware, methods ...string) {
 	route = strings.Join(nsStack, "") + route
 	h := func(w http.ResponseWriter, r *http.Request) {
 		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
-		handler(w, r)
+		err := mw(&middlewares.Env{}, s, w, r)
+		if err != nil {
+			s.handleError(w, err)
+		}
 	}
 	s.router.HandleFunc(route, h).Methods(methods...)
 }
@@ -66,4 +72,30 @@ func (s *Server) static(prefix string, dir string) {
 		s.logger.Infof("Static asset: %v", r.URL.Path)
 		http.StripPrefix(prefix, http.FileServer(http.Dir(path.Join(s.root, dir)))).ServeHTTP(w, r)
 	})
+}
+
+// process the request error. If the error is of type *httperror.Error, then we
+// convert and serialize that to JSON, otherwise, the error will be
+// `500 internal_server_error`
+func (s *Server) handleError(w http.ResponseWriter, err error) {
+	e, ok := err.(*httperror.Error)
+	if !ok {
+		e = s.serverError(err).(*httperror.Error)
+	}
+	j, err := e.JSON()
+	if err != nil {
+		j = []byte(`{"error":"internal_server_error"}`)
+	}
+	s.RespondJSON(w, e.Code, j)
+}
+
+// This is called when the error is not a *httperror.Error*, i.e. there's
+// something wrong with the controller. We transform that error into a
+// httperror.Error and log it.
+func (s *Server) serverError(err error) error {
+	errMsg := err.Error()
+	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
+	e := httperror.New(http.StatusInternalServerError, "internal_server_error", "", errHash)
+	s.logger.Error(errHash, e.Error())
+	return e
 }

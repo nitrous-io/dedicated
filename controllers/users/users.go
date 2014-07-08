@@ -1,11 +1,13 @@
 package users
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/nitrous/controllers"
+	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
@@ -17,7 +19,7 @@ var (
 	}
 )
 
-func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
 	email := strings.ToLower(r.FormValue("email"))
@@ -58,18 +60,21 @@ func Create(c controllers.Helper, w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	c.Respond(w, http.StatusOK, []byte(`{"status":"ok"}`))
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+	}
 	return nil
 }
 
-func GetAuthenticatedUser(c controllers.Helper, u *user.User, w http.ResponseWriter, r *http.Request) error {
-	c.RespondEncodeJSON(w, http.StatusOK, map[string]interface{}{
-		"user": map[string]interface{}{
-			"username":   u.Username,
-			"email":      u.Email,
-			"created_at": u.CreatedAt,
-			"updated_at": u.UpdatedAt,
-		},
-	})
+func GetAuthenticatedUser(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	u := env.User
+	if u == nil {
+		return errors.New("user is nil")
+	}
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"user": u,
+	}
 	return nil
 }

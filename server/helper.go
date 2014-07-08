@@ -35,6 +35,7 @@ func (s *Server) RenderTemplate(w http.ResponseWriter, status int, tmpl *templat
 	}
 
 	s.RenderHTML(w, status, buf.Bytes())
+	s.logger.Infof("Response: %v", status)
 }
 
 func (s *Server) RenderHTML(w http.ResponseWriter, status int, html []byte) {
@@ -44,10 +45,8 @@ func (s *Server) RenderHTML(w http.ResponseWriter, status int, html []byte) {
 	s.logger.Infof("Response: %v", status)
 }
 
-func (s *Server) Respond(w http.ResponseWriter, status int, data []byte) {
-	if w.Header().Get("Content-Type") == "" {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	}
+func (s *Server) RespondJSON(w http.ResponseWriter, status int, data []byte) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	w.Write(data)
 	s.logger.Infof("Response: %v %v", status, string(data))
@@ -59,5 +58,5 @@ func (s *Server) RespondEncodeJSON(w http.ResponseWriter, status int, data map[s
 		s.handleError(w, err)
 		return
 	}
-	s.Respond(w, status, j)
+	s.RespondJSON(w, status, j)
 }
