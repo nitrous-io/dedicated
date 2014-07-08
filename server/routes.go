@@ -5,17 +5,18 @@ import (
 	"github.com/nitrous-io/nitrous/controllers/hosts"
 	"github.com/nitrous-io/nitrous/controllers/tokens"
 	"github.com/nitrous-io/nitrous/controllers/users"
+	mw "github.com/nitrous-io/nitrous/middlewares"
 )
 
 func (s *Server) drawRoutes() {
-	s.route("/", s.action(home.Index), "GET")
-	s.route("/oauth/token", s.publicJSON(tokens.Post), "POST")
+	s.route("/", home.Index, "GET")
+	s.route("/oauth/token", mw.JSON(tokens.Post), "POST")
 
 	s.namespace("/api/v0", func() {
-		s.route("/users", s.action(users.Create), "POST")
-		s.route("/user", s.authenticated(s.privateJSON(users.GetAuthenticatedUser)), "GET")
+		s.route("/users", mw.JSON(users.Create), "POST")
+		s.route("/user", mw.Auth(mw.JSON(users.GetAuthenticatedUser)), "GET")
 
-		s.route("/hosts", s.authenticated(s.privateJSON(hosts.Index)), "GET")
+		s.route("/hosts", mw.Auth(mw.JSON(hosts.Index)), "GET")
 	})
 
 	s.static("/", "public") // catch-all, must come last

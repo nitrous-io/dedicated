@@ -3,6 +3,7 @@ package tokens
 import (
 	"net/http"
 
+	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/token"
 
 	"github.com/nitrous-io/nitrous/controllers"
@@ -18,7 +19,7 @@ var (
 	errInvalidCred = httperror.New(http.StatusBadRequest, "invalid_grant", "incorrect username or password")
 )
 
-func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) (*controllers.JSONResponse, error) {
+func Post(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
 	grantType := r.FormValue("grant_type")
@@ -26,44 +27,43 @@ func Post(c controllers.Helper, w http.ResponseWriter, r *http.Request) (*contro
 	password := r.FormValue("password")
 
 	if grantType != "password" {
-		return nil, errGrantType
+		return errGrantType
 	}
 
 	if username == "" {
-		return nil, errUsername
+		return errUsername
 	}
 
 	if password == "" {
-		return nil, errPassword
+		return errPassword
 	}
 
 	u, err := user.FindByUsername(db, username)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if u == nil {
-		return nil, errInvalidCred
+		return errInvalidCred
 	}
 
 	if !bcrypt.Verify(u.EncryptedPassword, password) {
-		return nil, errInvalidCred
+		return errInvalidCred
 	}
 
 	t := &token.Token{UserID: u.ID}
 
 	err = t.Insert(db)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Pragma", "no-cache")
 
-	return &controllers.JSONResponse{
-		Code: http.StatusOK,
-		Data: map[string]interface{}{
-			"access_token": t.Token,
-			"token_type":   "Bearer",
-		},
-	}, nil
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"access_token": t.Token,
+		"token_type":   "Bearer",
+	}
+	return nil
 }
