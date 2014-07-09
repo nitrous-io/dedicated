@@ -176,6 +176,67 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("UpdateColumn()", func() {
+		var (
+			h   *host.Host
+			err error
+		)
+
+		BeforeEach(func() {
+			h = &host.Host{
+				Name:               "foo",
+				UserID:             hs.U.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+				State:              "running",
+			}
+
+			err = h.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("updates the given column in host record", func() {
+			h.Name = "bar"
+			err := h.UpdateColumn(db, "name")
+			Expect(err).To(BeNil())
+
+			h1, err := host.FindByName(db, "bar")
+			Expect(err).To(BeNil())
+			Expect(h1.ID).To(Equal(h.ID))
+		})
+	})
+
+	Describe("Delete()", func() {
+		var (
+			h   *host.Host
+			err error
+		)
+
+		BeforeEach(func() {
+			h = &host.Host{
+				Name:               "foo",
+				UserID:             hs.U.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+				State:              "running",
+			}
+
+			err = h.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("deletes the host record", func() {
+			err := h.Delete(db)
+			Expect(err).To(BeNil())
+
+			h, err = host.FindByName(db, "foo")
+			Expect(err).To(BeNil())
+			Expect(h).To(BeNil())
+		})
+	})
+
 	Describe("Validate()", func() {
 		var (
 			h *host.Host
