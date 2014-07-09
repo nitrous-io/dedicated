@@ -1,8 +1,6 @@
 Nitrous
 =======
 
-Nitrous On-Prem
-
 ## Setup
 
 1. Install Postgres - `sudo apt-get install postgresql-9.3 postgresql-contrib-9.3 libpq-dev`
@@ -11,8 +9,7 @@ Nitrous On-Prem
 
 ## Running
 1. `cp .env-example .env`
-2. `export $(cat .env)` or use [Autoenv](https://github.com/kennethreitz/autoenv).
-3. `make run` or `make go; build/nitrousd`
+2. `make run` or `make go; goop exec forego start`
 
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.
