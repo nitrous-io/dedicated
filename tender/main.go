@@ -26,7 +26,7 @@ var (
 // TODO: eventually we may look into etcd ( and co ) so we dont have to touch
 // the main database / calling HTTP API *because* latency
 func init() {
-	databaseURL = envStr("ADDR")
+	addr = "0.0.0.0:" + envStr("PORT")
 	databaseURL = envStr("DATABASE_URL")
 	authedPort = envInt("AUTHED_PORT")
 	baseDomain = envStr("BASE_DOMAIN")

@@ -3,10 +3,12 @@ package tender
 import (
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"os"
 	"strconv"
 	"strings"
 
@@ -38,6 +40,7 @@ const (
 
 type env struct {
 	userID int
+	host   string
 }
 
 func (e *env) authenticated() bool {
@@ -47,11 +50,17 @@ func (e *env) authenticated() bool {
 func user(db *sql.DB, token string) (int, error) {
 	var id int
 	err := db.QueryRow(userQuery, token).Scan(&id)
+	if os.Getenv("DEBUG") == "true" {
+		return 1, nil
+	}
 	return id, err
 }
 
 func host(db *sql.DB, hostName string) (net.IP, error) {
 	var ip string
+	if os.Getenv("DEBUG") == "true" {
+		return net.ParseIP("172.17.0.24"), nil
+	}
 	err := db.QueryRow(hostQuery, hostName).Scan(&ip)
 	if err != nil {
 		return nil, err
@@ -61,6 +70,9 @@ func host(db *sql.DB, hostName string) (net.IP, error) {
 
 func hostUser(db *sql.DB, userID int, hostName string) (net.IP, error) {
 	var ip string
+	if os.Getenv("DEBUG") == "true" {
+		return net.ParseIP("172.17.0.24"), nil
+	}
 	err := db.QueryRow(hostUserQuery, userID, hostName).Scan(&ip)
 	if err != nil {
 		return nil, err
@@ -81,14 +93,89 @@ type Server struct {
 	baseDomain string
 }
 
-func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err error) {
-	log.Printf("Request received: %v", r)
-
-	hostName, err := s.getHost(r.URL.Host)
+// use when the client expects a HTTP stream
+func (s *Server) proxyStream(env *env, w http.ResponseWriter, r *http.Request) (err error) {
+	// create the stream for the HTTP client
+	clientIn, clientOut, err := hijackServer(w)
 	if err != nil {
 		return err
 	}
-	log.Printf("Got request to %s:%s", hostName)
+	// close clientIn
+	defer func() {
+		if tcpc, ok := clientIn.(*net.TCPConn); ok {
+			tcpc.CloseWrite()
+		} else {
+			clientIn.Close()
+		}
+	}()
+	// close clientOut
+	defer func() {
+		if tcpc, ok := clientOut.(*net.TCPConn); ok {
+			tcpc.CloseWrite()
+		} else if closer, ok := clientOut.(io.Closer); ok {
+			closer.Close()
+		}
+	}()
+
+	// get the HTTP stream from remote server
+	dial, err := net.Dial("tcp", env.host)
+	if err != nil {
+		return err
+	}
+	c := httputil.NewClientConn(dial, nil)
+	defer c.Close()
+	// we ignore error because the connection will be hijacked
+	resp, _ := c.Do(r)
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Failed to connect to remote server %s, status %d",
+			env.host, resp.StatusCode)
+	}
+
+	// hijack the http . We have the stream writer and reader now
+	serverStream, br := c.Hijack()
+	defer serverStream.Close()
+
+	// Now we have
+	// - the stream for client
+	// - the read/writecloser for server
+	done := make(chan error, 1)
+	go func() {
+		log.Println("start copying clientin")
+		_, err := io.Copy(serverStream, clientIn)
+		log.Println("read from client", err)
+		done <- err
+	}()
+	go func() {
+		log.Println("start copying serverout")
+		_, err := io.Copy(clientOut, br)
+		log.Println("read from server", err)
+		done <- err
+	}()
+	return <-done
+}
+
+func (s *Server) proxyHTTP(env *env, w http.ResponseWriter, r *http.Request) (err error) {
+	// start reverse proxy the request
+	p := &httputil.ReverseProxy{
+		Director: func(r *http.Request) {
+			r.URL.Scheme = "http"
+			log.Printf("Request to %s is mapped to %v", r.URL.Host, env.host)
+		},
+		Transport: &http.Transport{Proxy: nil},
+	}
+	p.ServeHTTP(w, r)
+	return nil
+}
+
+func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err error) {
+	port := parsePort(r)
+	log.Printf("Request received: %v, for port %d", r, port)
+
+	hostName, err := s.getHost(r.Host)
+	if err != nil {
+		return err
+	}
+	log.Printf("Got request to %s", hostName)
 
 	// get host id and host ip
 	// host ip will be the new destination for current request
@@ -101,17 +188,13 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 	if err != nil {
 		return err
 	}
+	env.host = hostToIP(r, hostIP)
 
-	// convert the request's Host to use ip address
-	hostToIP(r, hostIP)
-	log.Printf("Request to %s is mapped to %v", r.URL.Host, hostIP)
-
-	// start reverse proxy the request
-	p := &httputil.ReverseProxy{
-		Transport: &http.Transport{Proxy: nil},
+	if r.Header.Get("X-NITROUS-STREAM") == "true" {
+		return s.proxyStream(env, w, r)
+	} else {
+		return s.proxyHTTP(env, w, r)
 	}
-	p.ServeHTTP(w, r)
-	return nil
 }
 
 // Instead of using the standard Authorization header for OAuth token, we use a
@@ -123,7 +206,7 @@ func (s *Server) authenticated(env *env, w http.ResponseWriter, r *http.Request)
 	port := parsePort(r)
 	// if we dont request a port that requires authentication, passthrough.
 	// This most likely is for preview.
-	if port != s.authedPort {
+	if port != s.authedPort || os.Getenv("DEBUG") == "true" {
 		return nil
 	}
 	authHeader := r.Header.Get("X-Nitrous-Authorization")
@@ -184,9 +267,13 @@ func (s *Server) getHost(url string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+	} else {
+		domain = url
 	}
+	log.Printf("Domain: %s, base: %s", domain, s.baseDomain)
 	prefix := domain[:len(domain)-len(s.baseDomain)]
 	splits := strings.Split(prefix, ".")
+	log.Printf("Prefix: %s", prefix, splits, len(splits))
 	// request only specified host
 	if len(splits) == 1 {
 		return splits[0], nil
@@ -211,7 +298,9 @@ var portMap = map[string]int{
 // parsePort returns the port of an HTTP request. If there is no port specified
 // in the request, 80 or 443 (HTTPS) is assumed.
 func parsePort(req *http.Request) int {
+	log.Printf("Host: %s %s %s", req.Host, req.URL.Host, req.URL.Scheme)
 	if _, portStr, err := net.SplitHostPort(req.Host); err == nil {
+		log.Println(portStr, err)
 		if p, err := strconv.Atoi(portStr); err == nil {
 			return p
 		}
@@ -222,8 +311,21 @@ func parsePort(req *http.Request) int {
 // ConvertToIPBased modifies an HTTP request to use an IP address as its host.
 // The "Host" header is preserved so that receiver will correctly recognize the
 // original host instead of the ip address
-func hostToIP(req *http.Request, ip net.IP) {
+func hostToIP(req *http.Request, ip net.IP) string {
 	// Change Host to "IP:Port".
 	port := parsePort(req)
-	req.URL.Host = net.JoinHostPort(ip.String(), strconv.Itoa(int(port)))
+	h := net.JoinHostPort(ip.String(), strconv.Itoa(int(port)))
+	req.URL.Host = h
+	return h
+}
+
+func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
+	conn, _, err := w.(http.Hijacker).Hijack()
+	if err != nil {
+		return nil, nil, err
+	}
+	// Flush the options to make sure the client sets the raw mode
+	conn.Write([]byte{})
+	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.nitrous.raw-stream\r\n\r\n")
+	return conn, conn, nil
 }
