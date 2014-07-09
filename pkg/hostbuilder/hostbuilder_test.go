@@ -22,14 +22,30 @@ func createServer(fn func(w http.ResponseWriter, r *http.Request)) *httptest.Ser
 	return httptest.NewServer(http.HandlerFunc(fn))
 }
 
+func mockOKServer(path string) *httptest.Server {
+	return createServer(func(w http.ResponseWriter, r *http.Request) {
+		Expect(r.URL.Path).To(Equal(path))
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+}
+
+func mockErrorServer(path string) *httptest.Server {
+	return createServer(func(w http.ResponseWriter, r *http.Request) {
+		Expect(r.URL.Path).To(Equal(path))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("some_error"))
+	})
+}
+
 var _ = Describe("hostbuilder", func() {
 	Describe("Create()", func() {
-		var mockHostbuilder *httptest.Server
 		var hb *hostbuilder.Hostbuilder
 
 		Context("when hostbuilder creates a host", func() {
 			BeforeEach(func() {
-				mockHostbuilder = createServer(func(w http.ResponseWriter, r *http.Request) {
+				mockHostbuilder := createServer(func(w http.ResponseWriter, r *http.Request) {
 					r.ParseForm()
 
 					provider := r.FormValue("provider")
@@ -71,18 +87,137 @@ var _ = Describe("hostbuilder", func() {
 
 		Context("when hostbuilder fails to create a host", func() {
 			BeforeEach(func() {
-				mockHostbuilder = createServer(func(w http.ResponseWriter, r *http.Request) {
-					w.WriteHeader(http.StatusBadRequest)
-					w.Write([]byte("some_error"))
-				})
-
-				hb = hostbuilder.NewHostbuilder(mockHostbuilder.URL)
+				hb = hostbuilder.NewHostbuilder(mockErrorServer("/hosts/").URL)
 			})
 
 			It("returns an error returned by hostbuilder", func() {
 				_, err := hb.Create("digitalocean", map[string]sql.NullString{
 					"name":        sql.NullString{"doublerainbow", true},
 					"public_keys": sql.NullString{"value1,value2", true},
+				})
+
+				Expect(err).To(MatchError("some_error"))
+			})
+		})
+	})
+
+	Describe("Delete()", func() {
+		var hb *hostbuilder.Hostbuilder
+
+		Context("when hostbuilder deletes the host", func() {
+			BeforeEach(func() {
+				hb = hostbuilder.NewHostbuilder(mockOKServer("/hosts/delete").URL)
+			})
+
+			It("returns no errors", func() {
+				_, err := hb.Delete("digitalocean", map[string]sql.NullString{
+					"id": sql.NullString{"hostid", true},
+				})
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when hostbuilder fails to delete the host", func() {
+			BeforeEach(func() {
+				hb = hostbuilder.NewHostbuilder(mockErrorServer("/hosts/delete").URL)
+			})
+
+			It("returns an error returned by hostbuilder", func() {
+				_, err := hb.Delete("digitalocean", map[string]sql.NullString{
+					"id": sql.NullString{"hosid", true},
+				})
+
+				Expect(err).To(MatchError("some_error"))
+			})
+		})
+	})
+
+	Describe("Start()", func() {
+		var hb *hostbuilder.Hostbuilder
+
+		Context("when hostbuilder starts the host", func() {
+			BeforeEach(func() {
+				hb = hostbuilder.NewHostbuilder(mockOKServer("/hosts/start").URL)
+			})
+
+			It("returns no errors", func() {
+				_, err := hb.Start("digitalocean", map[string]sql.NullString{
+					"id": sql.NullString{"hostid", true},
+				})
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when hostbuilder fails to start the host", func() {
+			BeforeEach(func() {
+				hb = hostbuilder.NewHostbuilder(mockErrorServer("/hosts/start").URL)
+			})
+
+			It("returns an error returned by hostbuilder", func() {
+				_, err := hb.Start("digitalocean", map[string]sql.NullString{
+					"id": sql.NullString{"hosid", true},
+				})
+
+				Expect(err).To(MatchError("some_error"))
+			})
+		})
+	})
+
+	Describe("Stop()", func() {
+		var hb *hostbuilder.Hostbuilder
+
+		Context("when hostbuilder stops the host", func() {
+			BeforeEach(func() {
+				hb = hostbuilder.NewHostbuilder(mockOKServer("/hosts/stop").URL)
+			})
+
+			It("returns no errors", func() {
+				_, err := hb.Stop("digitalocean", map[string]sql.NullString{
+					"id": sql.NullString{"hostid", true},
+				})
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when hostbuilder fails to stop the host", func() {
+			BeforeEach(func() {
+				hb = hostbuilder.NewHostbuilder(mockErrorServer("/hosts/stop").URL)
+			})
+
+			It("returns an error returned by hostbuilder", func() {
+				_, err := hb.Stop("digitalocean", map[string]sql.NullString{
+					"id": sql.NullString{"hosid", true},
+				})
+
+				Expect(err).To(MatchError("some_error"))
+			})
+		})
+	})
+
+	Describe("Restart()", func() {
+		var hb *hostbuilder.Hostbuilder
+
+		Context("when hostbuilder restarts the host", func() {
+			BeforeEach(func() {
+				hb = hostbuilder.NewHostbuilder(mockOKServer("/hosts/restart").URL)
+			})
+
+			It("returns no errors", func() {
+				_, err := hb.Restart("digitalocean", map[string]sql.NullString{
+					"id": sql.NullString{"hostid", true},
+				})
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when hostbuilder fails to restart the host", func() {
+			BeforeEach(func() {
+				hb = hostbuilder.NewHostbuilder(mockErrorServer("/hosts/restart").URL)
+			})
+
+			It("returns an error returned by hostbuilder", func() {
+				_, err := hb.Restart("digitalocean", map[string]sql.NullString{
+					"id": sql.NullString{"hosid", true},
 				})
 
 				Expect(err).To(MatchError("some_error"))

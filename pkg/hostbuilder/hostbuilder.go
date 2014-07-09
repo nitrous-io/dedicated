@@ -40,7 +40,13 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 
 	//TODO: probably we need to timeout the request,
 	//but leaving it out for now, for the sake of simplicity.
-	url := hb.URL + "/" + path
+	var url string
+	if path == "" {
+		url = hb.URL + "/hosts"
+	} else {
+		url = hb.URL + "/hosts/" + path
+	}
+
 	response, err := client.PostForm(url, p)
 	if err != nil {
 		return nil, err
@@ -77,6 +83,21 @@ func (hb *Hostbuilder) getRequestHandler() func(path string, provider string, co
 }
 
 func (hb *Hostbuilder) Create(provider string, config map[string]sql.NullString) (map[string]string, error) {
-	rh := hb.getRequestHandler()
-	return rh("create", provider, &config)
+	return hb.getRequestHandler()("", provider, &config)
+}
+
+func (hb *Hostbuilder) Delete(provider string, config map[string]sql.NullString) (map[string]string, error) {
+	return hb.getRequestHandler()("delete", provider, &config)
+}
+
+func (hb *Hostbuilder) Start(provider string, config map[string]sql.NullString) (map[string]string, error) {
+	return hb.getRequestHandler()("start", provider, &config)
+}
+
+func (hb *Hostbuilder) Stop(provider string, config map[string]sql.NullString) (map[string]string, error) {
+	return hb.getRequestHandler()("stop", provider, &config)
+}
+
+func (hb *Hostbuilder) Restart(provider string, config map[string]sql.NullString) (map[string]string, error) {
+	return hb.getRequestHandler()("restart", provider, &config)
 }
