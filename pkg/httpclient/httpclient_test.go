@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/nitrous-io/nitro/pkg/httpclient"
@@ -64,148 +65,176 @@ func MethodMockServer(method string) *MockServer {
 
 var _ = Describe("httpclient", func() {
 	var (
-		c     *httpclient.Client
-		token = "correct_token"
+		c      *httpclient.Client
+		ms     *MockServer
+		check  func()
+		token  = "correct_token"
+		params = &url.Values{
+			"containers": {"arch", "ubuntu"},
+			"say":        {"hello world!"},
+		}
 	)
 
 	BeforeEach(func() {
+		ms = nil
+		check = nil
 		c = httpclient.New(token)
 	})
 
-	Describe("AuthedGet()", func() {
+	ItHasAuthHeader := func() {
 		It("has auth header", func() {
-			ms := AuthMockServer(token)
-			ms.Check(func() (*http.Response, error) { return c.AuthedGet(ms.URL, nil) })
+			ms = AuthMockServer(token)
+			check()
 		})
+	}
 
-		It("is a GET request", func() {
-			ms := MethodMockServer("GET")
-			ms.Check(func() (*http.Response, error) { return c.AuthedGet(ms.URL, nil) })
+	ItHasNoAuthHeader := func() {
+		It("has no auth header", func() {
+			ms = AuthMockServer("")
+			check()
 		})
+	}
 
-		It("includes params in querystring", func() {
-			ms := &MockServer{}
+	ItUsesHTTPVerb := func(verb string) {
+		It("is a "+verb+" request", func() {
+			ms = MethodMockServer(verb)
+			check()
+		})
+	}
+
+	ItIncludesQueryString := func() {
+		It("includes query string", func() {
+			ms = &MockServer{}
 			ms.HandlerFn = func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.URL.String()).To(Equal("/?host=starport-123"))
+				Expect(strings.HasSuffix(r.URL.String(), "?containers=arch&containers=ubuntu&say=hello+world%21")).To(BeTrue())
 				ms.Called = true
 			}
-			ms.Check(func() (*http.Response, error) {
-				return c.AuthedGet(ms.URL, &url.Values{
-					"host": {"starport-123"},
-				})
-			})
+			check()
 		})
-	})
+	}
 
-	Describe("AuthedDelete()", func() {
-		It("has auth header", func() {
-			ms := AuthMockServer(token)
-			ms.Check(func() (*http.Response, error) { return c.AuthedDelete(ms.URL, nil) })
-		})
-
-		It("is a DELETE request", func() {
-			ms := MethodMockServer("DELETE")
-			ms.Check(func() (*http.Response, error) { return c.AuthedDelete(ms.URL, nil) })
-		})
-
-		It("includes params in querystring", func() {
-			ms := &MockServer{}
-			ms.HandlerFn = func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.URL.String()).To(Equal("/?container=kings-landing&host=starport%3A123"))
-				ms.Called = true
-			}
-			ms.Check(func() (*http.Response, error) {
-				return c.AuthedDelete(ms.URL, &url.Values{
-					"container": {"kings-landing"},
-					"host":      {"starport:123"},
-				})
-			})
-		})
-	})
-
-	Describe("AuthedPostForm()", func() {
-		It("has auth header", func() {
-			ms := AuthMockServer(token)
-			ms.Check(func() (*http.Response, error) { return c.AuthedPostForm(ms.URL, nil) })
-		})
-
-		It("is a POST request", func() {
-			ms := MethodMockServer("POST")
-			ms.Check(func() (*http.Response, error) { return c.AuthedPostForm(ms.URL, nil) })
-		})
-	})
-
-	Describe("AuthedPutForm()", func() {
-		It("has auth header", func() {
-			ms := AuthMockServer(token)
-			ms.Check(func() (*http.Response, error) { return c.AuthedPostForm(ms.URL, nil) })
-		})
-
-		It("is a PUT request", func() {
-			ms := MethodMockServer("POST")
-			ms.Check(func() (*http.Response, error) { return c.AuthedPostForm(ms.URL, nil) })
-		})
-	})
-
-	Describe("Delete()", func() {
-		It("has no auth header", func() {
-			ms := AuthMockServer("")
-			ms.Check(func() (*http.Response, error) { return c.Delete(ms.URL, nil) })
-		})
-
-		It("is a GET request", func() {
-			ms := MethodMockServer("DELETE")
-			ms.Check(func() (*http.Response, error) { return c.Delete(ms.URL, nil) })
-		})
-	})
-
-	Describe("Get()", func() {
-		It("has no auth header", func() {
-			ms := AuthMockServer("")
-			ms.Check(func() (*http.Response, error) { return c.Get(ms.URL, nil) })
-		})
-
-		It("is a GET request", func() {
-			ms := MethodMockServer("GET")
-			ms.Check(func() (*http.Response, error) { return c.Get(ms.URL, nil) })
-		})
-
-		It("includes params in querystring", func() {
-			ms := &MockServer{}
-			ms.HandlerFn = func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.URL.String()).To(Equal("/?host=starport%22123%22"))
-				ms.Called = true
-			}
-			ms.Check(func() (*http.Response, error) {
-				return c.Get(ms.URL, &url.Values{"host": {"starport\"123\""}})
-			})
-		})
-	})
-
-	Describe("PutForm()", func() {
-		It("has no auth header", func() {
-			ms := AuthMockServer("")
-			ms.Check(func() (*http.Response, error) { return c.PutForm(ms.URL, nil) })
-		})
-
-		It("is a PUT request", func() {
-			ms := MethodMockServer("PUT")
-			ms.Check(func() (*http.Response, error) { return c.PutForm(ms.URL, nil) })
-		})
-
-		It("has encoded data", func() {
-			ms := &MockServer{}
+	ItIncludesFormData := func() {
+		It("includes form data", func() {
+			ms = &MockServer{}
 			ms.HandlerFn = func(w http.ResponseWriter, r *http.Request) {
 				body, err := ioutil.ReadAll(r.Body)
 				Expect(err).To(BeNil())
-				Expect(body).To(Equal([]byte("containers=arch&containers=ubuntu")))
+				Expect(body).To(Equal([]byte("containers=arch&containers=ubuntu&say=hello+world%21")))
 				ms.Called = true
 			}
-			ms.Check(func() (*http.Response, error) {
-				return c.PutForm(ms.URL, &url.Values{
-					"containers": {"arch", "ubuntu"},
-				})
-			})
+			check()
 		})
+	}
+
+	Describe("Get()", func() {
+		BeforeEach(func() {
+			check = func() {
+				ms.Check(func() (*http.Response, error) {
+					return c.Get(ms.URL, params)
+				})
+			}
+		})
+
+		ItHasNoAuthHeader()
+		ItUsesHTTPVerb("GET")
+		ItIncludesQueryString()
+	})
+
+	Describe("Delete()", func() {
+		BeforeEach(func() {
+			check = func() {
+				ms.Check(func() (*http.Response, error) {
+					return c.Delete(ms.URL, params)
+				})
+			}
+		})
+
+		ItHasNoAuthHeader()
+		ItUsesHTTPVerb("DELETE")
+		ItIncludesQueryString()
+	})
+
+	Describe("PostForm()", func() {
+		BeforeEach(func() {
+			check = func() {
+				ms.Check(func() (*http.Response, error) {
+					return c.PostForm(ms.URL, params)
+				})
+			}
+		})
+
+		ItHasNoAuthHeader()
+		ItUsesHTTPVerb("POST")
+		ItIncludesFormData()
+	})
+
+	Describe("PutForm()", func() {
+		BeforeEach(func() {
+			check = func() {
+				ms.Check(func() (*http.Response, error) {
+					return c.PutForm(ms.URL, params)
+				})
+			}
+		})
+
+		ItHasNoAuthHeader()
+		ItUsesHTTPVerb("PUT")
+		ItIncludesFormData()
+	})
+
+	Describe("GetAuthed()", func() {
+		BeforeEach(func() {
+			check = func() {
+				ms.Check(func() (*http.Response, error) {
+					return c.GetAuthed(ms.URL, params)
+				})
+			}
+		})
+
+		ItHasAuthHeader()
+		ItUsesHTTPVerb("GET")
+		ItIncludesQueryString()
+	})
+
+	Describe("DeleteAuthed()", func() {
+		BeforeEach(func() {
+			check = func() {
+				ms.Check(func() (*http.Response, error) {
+					return c.DeleteAuthed(ms.URL, params)
+				})
+			}
+		})
+
+		ItHasAuthHeader()
+		ItUsesHTTPVerb("DELETE")
+		ItIncludesQueryString()
+	})
+
+	Describe("PostFormAuthed()", func() {
+		BeforeEach(func() {
+			check = func() {
+				ms.Check(func() (*http.Response, error) {
+					return c.PostFormAuthed(ms.URL, params)
+				})
+			}
+		})
+
+		ItHasAuthHeader()
+		ItUsesHTTPVerb("POST")
+		ItIncludesFormData()
+	})
+
+	Describe("PutFormAuthed()", func() {
+		BeforeEach(func() {
+			check = func() {
+				ms.Check(func() (*http.Response, error) {
+					return c.PutFormAuthed(ms.URL, params)
+				})
+			}
+		})
+
+		ItHasAuthHeader()
+		ItUsesHTTPVerb("PUT")
+		ItIncludesFormData()
 	})
 })

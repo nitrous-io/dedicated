@@ -1,11 +1,9 @@
-// httpclient is a wrapper for net/http.Client with convenience methods for
-// authenticated requests
 package httpclient
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,98 +16,93 @@ type Client struct {
 
 var DefaultClient = &Client{http.DefaultClient, ""}
 
-// New returns a client that uses net/http's DefaultClient with the token given by authToken.  If authToken is the empty string, authed*() calls will fail with a "must be logged in" error message
+var ErrAuthTokenEmpty = errors.New("Auth token is not provided")
+
+// New returns a client that uses net/http's DefaultClient with the token given by authToken.
+// If AuthToken is an empty string, *Authed() calls will fail with a "must be logged in" error message
 func New(authToken string) *Client {
 	return &Client{http.DefaultClient, authToken}
 }
 
-// ResponseJSON takes a response expected to be JSON and unmarshals it
+// ResponseJSON takes a response expected to be JSON and unmarshals it.
 func ResponseJSON(resp *http.Response) (map[string]interface{}, error) {
+	defer resp.Body.Close()
+
 	j := map[string]interface{}{}
-	b, err := ioutil.ReadAll(resp.Body)
+	err := json.NewDecoder(resp.Body).Decode(&j)
 	if err != nil {
 		return nil, err
 	}
-	err = json.Unmarshal(b, &j)
-	return j, err
-}
 
-func (c *Client) AuthedGet(urlStr string, params *url.Values) (*http.Response, error) {
-	return c.DoAuthedRequest("GET", urlStr, params)
-}
-
-func (c *Client) AuthedDelete(urlStr string, params *url.Values) (*http.Response, error) {
-	return c.DoAuthedRequest("DELETE", urlStr, params)
-}
-
-func (c *Client) AuthedPostForm(urlStr string, data *url.Values) (*http.Response, error) {
-	req, err := c.prepareForm("POST", urlStr, data)
-	if err != nil {
-		return nil, err
-	}
-	return c.authedDo(req)
-}
-
-func (c *Client) AuthedPutForm(urlStr string, data *url.Values) (*http.Response, error) {
-	req, err := c.prepareForm("PUT", urlStr, data)
-	if err != nil {
-		return nil, err
-	}
-	return c.authedDo(req)
-}
-
-func (c *Client) Delete(urlStr string, params *url.Values) (*http.Response, error) {
-	return c.DoRequest("DELETE", urlStr, params)
+	return j, nil
 }
 
 func (c *Client) Get(urlStr string, params *url.Values) (*http.Response, error) {
 	return c.DoRequest("GET", urlStr, params)
 }
 
+func (c *Client) Delete(urlStr string, params *url.Values) (*http.Response, error) {
+	return c.DoRequest("DELETE", urlStr, params)
+}
+
+// http.Client already includes PostForm, but this is here for consistency
+func (c *Client) PostForm(urlStr string, data *url.Values) (*http.Response, error) {
+	return c.DoFormRequest("POST", urlStr, data)
+}
+
 func (c *Client) PutForm(urlStr string, data *url.Values) (*http.Response, error) {
-	req, err := c.prepareForm("PUT", urlStr, data)
-	if err != nil {
-		return nil, err
-	}
-	return c.Do(req)
+	return c.DoFormRequest("PUT", urlStr, data)
+}
+
+func (c *Client) GetAuthed(urlStr string, params *url.Values) (*http.Response, error) {
+	return c.DoRequestAuthed("GET", urlStr, params)
+}
+
+func (c *Client) DeleteAuthed(urlStr string, params *url.Values) (*http.Response, error) {
+	return c.DoRequestAuthed("DELETE", urlStr, params)
+}
+
+func (c *Client) PostFormAuthed(urlStr string, data *url.Values) (*http.Response, error) {
+	return c.DoFormRequestAuthed("POST", urlStr, data)
+}
+
+func (c *Client) PutFormAuthed(urlStr string, data *url.Values) (*http.Response, error) {
+	return c.DoFormRequestAuthed("PUT", urlStr, data)
 }
 
 func (c *Client) DoRequest(method string, urlStr string, params *url.Values) (*http.Response, error) {
-	req, err := c.prepareRequest(method, urlStr, params)
+	req, err := c.PrepareRequest(method, urlStr, params)
 	if err != nil {
 		return nil, err
 	}
 	return c.Do(req)
 }
 
-func (c *Client) DoAuthedRequest(method string, urlStr string, params *url.Values) (*http.Response, error) {
-	req, err := c.prepareRequest(method, urlStr, params)
-	if err != nil {
-		return nil, err
-	}
-	return c.authedDo(req)
-}
-
-func (c *Client) DoForm(method string, urlStr string, data *url.Values) (*http.Response, error) {
-	req, err := c.prepareForm(method, urlStr, data)
+func (c *Client) DoFormRequest(method string, urlStr string, data *url.Values) (*http.Response, error) {
+	req, err := c.PrepareFormRequest(method, urlStr, data)
 	if err != nil {
 		return nil, err
 	}
 	return c.Do(req)
 }
 
-func (c *Client) DoAuthedForm(method string, urlStr string, data *url.Values) (*http.Response, error) {
-	req, err := c.prepareForm(method, urlStr, data)
+func (c *Client) DoRequestAuthed(method string, urlStr string, params *url.Values) (*http.Response, error) {
+	req, err := c.PrepareRequest(method, urlStr, params)
 	if err != nil {
 		return nil, err
 	}
-	return c.authedDo(req)
+	return c.DoAuthed(req)
 }
 
-func (c *Client) prepareRequest(method string, urlStr string, params *url.Values) (*http.Request, error) {
-	if method != "GET" && method != "DELETE" {
-		return nil, fmt.Errorf("method argument must be GET or DELETE")
+func (c *Client) DoFormRequestAuthed(method string, urlStr string, data *url.Values) (*http.Response, error) {
+	req, err := c.PrepareFormRequest(method, urlStr, data)
+	if err != nil {
+		return nil, err
 	}
+	return c.DoAuthed(req)
+}
+
+func (c *Client) PrepareRequest(method string, urlStr string, params *url.Values) (*http.Request, error) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
@@ -124,11 +117,7 @@ func (c *Client) prepareRequest(method string, urlStr string, params *url.Values
 	return req, nil
 }
 
-// prepareForm is modeled after net/http Client.Post
-func (c *Client) prepareForm(method string, urlStr string, data *url.Values) (*http.Request, error) {
-	if method != "POST" && method != "PUT" {
-		return nil, fmt.Errorf("method argument must be POST or PUT")
-	}
+func (c *Client) PrepareFormRequest(method string, urlStr string, data *url.Values) (*http.Request, error) {
 	var body *strings.Reader
 	if data == nil {
 		body = strings.NewReader("")
@@ -143,9 +132,9 @@ func (c *Client) prepareForm(method string, urlStr string, data *url.Values) (*h
 	return req, nil
 }
 
-func (c *Client) authedDo(req *http.Request) (*http.Response, error) {
+func (c *Client) DoAuthed(req *http.Request) (*http.Response, error) {
 	if c.AuthToken == "" {
-		return nil, fmt.Errorf("You must be logged in to do that")
+		return nil, ErrAuthTokenEmpty
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.AuthToken))
 	return c.Do(req)
