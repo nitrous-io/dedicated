@@ -11,3 +11,5 @@ cd ..
 
 rm -rf "$BUILD_DIR"/public
 cp -dR ./rails/public "$BUILD_DIR"
+
+rm ./rails/public/index.html

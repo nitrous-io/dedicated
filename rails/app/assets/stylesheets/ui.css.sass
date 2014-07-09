@@ -1,0 +1,55 @@
+@import 'colors'
+
+.ui
+  &.dropdown-triangle
+    display: inline-block
+    margin-left: 5px
+    width: 0
+    height: 0
+    vertical-align: middle
+    border-top: 5px solid
+    border-left: 5px solid transparent
+    border-right: 5px solid transparent
+
+  &.dropdown
+    .dropdown-menu
+      display: none
+
+    &.open
+      .dropdown-menu
+        display: block
+
+    .dropdown-menu
+      position: absolute
+      left: 0
+      right: auto
+      padding: 2px 0
+      background: white
+      border-radius: 2px
+      box-shadow: 0 1px 5px rgba(0,0,0,.4)
+      list-style: none
+      white-space: nowrap
+      font-size: 14px
+
+      $dropdownMenuItemHeight: 28px
+
+      &.right
+        left: auto
+        right: 0
+
+      > li
+        &.separator
+          height: 0
+          border-top: 1px solid $gray300
+          margin: 2px 0
+
+        > a
+          display: block
+          height: $dropdownMenuItemHeight
+          line-height: $dropdownMenuItemHeight
+          padding: 0 16px
+          color: #000
+
+          &:hover
+            background: $lightBlue600
+            color: #fff

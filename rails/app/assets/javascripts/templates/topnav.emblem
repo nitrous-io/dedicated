@@ -1,0 +1,26 @@
+.container
+  h1.logo Nitrous
+  ul.nav
+    li
+      a href='#'
+        img.gravatar src='http://gravatar.com/avatar/2ac28b22a3596136ad31d53553383d9b?s=48'
+        | petejkim
+    li
+      a href='#'
+        | New
+        .ui.dropdown-triangle
+    li.ui.dropdown.open
+      a href='#'
+        | Account
+        .ui.dropdown-triangle
+      ul.dropdown-menu.right
+        li
+          a href='#' Account Settings
+        li
+          a href='#' Billing
+        li.separator
+        li
+          a href='#' Help
+        li.separator
+        li
+          a href='#' Log Out
