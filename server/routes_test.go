@@ -29,7 +29,7 @@ var _ = Describe("server/routes", func() {
 	)
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = TestDatabase("nitrous_test") // TODO: get rid of the database setup
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		svr = server.NewServer("", db, logger)
@@ -66,6 +66,7 @@ var _ = Describe("server/routes", func() {
 
 			[]string{"GET", "/api/v0/hosts"},
 			[]string{"POST", "/api/v0/hosts"},
+			[]string{"DELETE", "/api/v0/hosts/test"},
 		}
 		for _, r := range routes {
 			func(method, path string) {

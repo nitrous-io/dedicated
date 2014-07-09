@@ -310,4 +310,80 @@ var _ = Describe("controllers/hosts", func() {
 			})
 		})
 	})
+
+	Describe("Destroy", func() {
+		var (
+			hb  *hostbuilder.Hostbuilder
+			env *middlewares.Env
+			hs  *HostStack
+			err error
+		)
+
+		doRequest := func(name string) error {
+			req, err := NewRequest("DELETE", "/api/v0/hosts"+name, nil)
+			Expect(err).To(BeNil())
+			env.Vars = map[string]string{"name": name}
+
+			return hosts.Destroy(hb, env, svr, res, req)
+		}
+
+		BeforeEach(func() {
+			hs, err = CreateHostStack(db, &HostStack{
+				H: &host.Host{Name: "honeybadger", ProviderIdentifier: sql.NullString{"001", true}},
+			})
+			Expect(err).To(BeNil())
+			env = &middlewares.Env{User: hs.U}
+		})
+
+		Context("with an invalid host name", func() {
+			It("returns error host not found", func() {
+				err = doRequest("somehost")
+				Expect(err).To(MatchError(hosts.ErrHostNotFound))
+			})
+		})
+
+		Context("with a valid host name", func() {
+			Context("when hostbuilder successfully deletes the host", func() {
+				BeforeEach(func() {
+					hb = hostbuilder.NewHostbuilder("www.exmple.com")
+					ch := func(path string, provider string, config *map[string]sql.NullString) (map[string]string, error) {
+						return map[string]string{"status": "ok"}, nil
+					}
+					hb.OverrideRequestHandler(ch)
+
+					err = doRequest(hs.H.Name)
+					Expect(err).To(BeNil())
+				})
+
+				It("deletes the host record", func() {
+					h, err := host.FindByName(db, hs.H.Name)
+					Expect(err).To(BeNil())
+					Expect(h).To(BeNil())
+				})
+
+				It("responds with status OK", func() {
+					Expect(res.Code).To(Equal(http.StatusOK))
+				})
+			})
+
+			Context("when hostbuilder fails to delete the host", func() {
+				BeforeEach(func() {
+					hb = hostbuilder.NewHostbuilder("www.exmple.com")
+					ch := func(path string, provider string, config *map[string]sql.NullString) (map[string]string, error) {
+						return nil, errors.New("some error occurred")
+					}
+					hb.OverrideRequestHandler(ch)
+
+					err = doRequest(hs.H.Name)
+					Expect(err).To(MatchError("some error occurred"))
+				})
+
+				It("does not delete the host", func() {
+					h, err := host.FindByName(db, hs.H.Name)
+					Expect(err).To(BeNil())
+					Expect(h).NotTo(BeNil())
+				})
+			})
+		})
+	})
 })

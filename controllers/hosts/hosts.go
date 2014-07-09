@@ -20,7 +20,6 @@ import (
 var (
 	ErrUserNil                  = errors.New("user is nil")
 	ErrSizeRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "host size not provided")
-	ErrHostRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "host not provided")
 	ErrPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
 	ErrRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
 	ErrProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
@@ -150,6 +149,46 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 	env.Data = map[string]interface{}{
 		"host": h,
 	}
+	return nil
+}
+
+func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	db := c.DB()
+	vars := env.Vars
+
+	name := vars["name"]
+	ht, err := host.FindByName(db, name)
+	if err != nil {
+		return err
+	}
+	if ht == nil {
+		return ErrHostNotFound
+	}
+
+	// Consider storing provider name in host?
+	pt, err := providertemplate.FindByID(db, ht.ProviderTemplateID)
+	if err != nil {
+		return err
+	}
+	if pt == nil {
+		return ErrProvidertemplateNotFound
+	}
+
+	config := map[string]sql.NullString{}
+	config["id"] = ht.ProviderIdentifier
+
+	_, err = hb.Delete(pt.Provider, config)
+	if err != nil {
+		return err
+	}
+
+	err = ht.Delete(db)
+	if err != nil {
+		return err
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte{})
 	return nil
 }
 
