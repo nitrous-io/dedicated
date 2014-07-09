@@ -1,6 +1,8 @@
 package command_test
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -48,6 +50,55 @@ var _ = Describe("environment", func() {
 		It("defaults to ~/.nitrocfg", func() {
 			os.Setenv("NITRO_CONFIG_PATH", "")
 			Expect(command.ConfigureEnvironment().ConfigPath).To(Equal(filepath.Join(os.Getenv("HOME"), ".nitrocfg")))
+		})
+	})
+
+	createConfig := func(conf map[string]command.AuthConfig) *os.File {
+		f, err := ioutil.TempFile("", "nitrocfg")
+		Expect(err).To(BeNil())
+		os.Setenv("NITRO_CONFIG_PATH", f.Name())
+		s, err := json.Marshal(conf)
+		Expect(err).To(BeNil())
+		f.Write(s)
+		f.Close()
+		return f
+	}
+
+	Context("Config", func() {
+		It("sets from file", func() {
+			f := createConfig(map[string]command.AuthConfig{
+				command.DefaultAPIURL: {"someuser", "a_token"},
+			})
+			defer os.Remove(f.Name())
+
+			auths := command.ConfigureEnvironment().Config.Auths
+			Expect(auths).To(HaveLen(1))
+			authConfig, ok := auths[command.DefaultAPIURL]
+			Expect(ok).To(BeTrue())
+			Expect(authConfig.Username).To(Equal("someuser"))
+			Expect(authConfig.Token).To(Equal("a_token"))
+		})
+
+		It("defaults to empty", func() {
+			os.Setenv("NITRO_CONFIG_PATH", "/tmp/myconf")
+			Expect(command.ConfigureEnvironment().Config.Auths).To(BeEmpty())
+		})
+	})
+
+	Context("AuthToken", func() {
+		It("sets from file", func() {
+			f := createConfig(map[string]command.AuthConfig{
+				command.DefaultAPIURL: {"someuser", "a_token"},
+			})
+			defer os.Remove(f.Name())
+
+			token := command.ConfigureEnvironment().AuthToken
+			Expect(token).To(Equal("a_token"))
+		})
+
+		It("defaults to empty", func() {
+			os.Setenv("NITRO_CONFIG_PATH", "/tmp/myconf")
+			Expect(command.ConfigureEnvironment().AuthToken).To(BeEmpty())
 		})
 	})
 })

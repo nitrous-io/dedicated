@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/auth"
 	"github.com/nitrous-io/nitro/command"
 	. "github.com/nitrous-io/nitro/command/login"
 
@@ -113,7 +112,7 @@ var _ = Describe("LoginCommand", func() {
 		})
 
 		It("adds a new auth token to the config file", func() {
-			c, err := auth.LoadConfig(testConfigFile.Name())
+			c, err := command.LoadConfig()
 			Expect(err).To(BeNil())
 			Expect(c.Auths[testServer.URL].Username).To(Equal(username))
 			Expect(c.Auths[testServer.URL].Token).To(Equal("the_token"))
@@ -136,7 +135,7 @@ var _ = Describe("LoginCommand", func() {
 		})
 
 		It("does not add a new token to the auth config file", func() {
-			c, err := auth.LoadConfig(testConfigFile.Name())
+			c, err := command.LoadConfig()
 			Expect(err).To(BeNil())
 			Expect(c.Auths[testServer.URL].Username).To(BeEmpty())
 			Expect(c.Auths[testServer.URL].Token).To(BeEmpty())

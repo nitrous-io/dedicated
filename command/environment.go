@@ -1,6 +1,7 @@
 package command
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -10,11 +11,13 @@ import (
 type Environment struct {
 	APIURL     string
 	ConfigPath string
+	Config     *ConfigFile
+	AuthToken  string
 }
 
 // defaults for missing env vars
 const (
-	defaultAPIURL = "http://127.0.0.1:3000"
+	DefaultAPIURL = "http://127.0.0.1:3000"
 )
 
 func ConfigureEnvironment() *Environment {
@@ -27,7 +30,18 @@ func ConfigureEnvironment() *Environment {
 
 	e.APIURL = os.Getenv("NITRO_API_URL")
 	if e.APIURL == "" {
-		e.APIURL = defaultAPIURL
+		e.APIURL = DefaultAPIURL
+	}
+
+	config, err := loadConfig(e.ConfigPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "nitro: unexpected error: %v\n", err)
+		os.Exit(1)
+	}
+	e.Config = config
+
+	if authConfig, ok := config.Auths[e.APIURL]; ok {
+		e.AuthToken = authConfig.Token
 	}
 
 	return e
