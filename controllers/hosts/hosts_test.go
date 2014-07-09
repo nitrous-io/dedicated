@@ -1,17 +1,26 @@
 package hosts_test
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/controllers/hosts"
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/plan"
+	"github.com/nitrous-io/nitrous/models/region"
+
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/pkg/hostbuilder"
 	"github.com/nitrous-io/nitrous/server"
 
 	. "github.com/nitrous-io/nitrous/test"
@@ -143,6 +152,162 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("Create", func() {
+		var (
+			params *url.Values
+			u      *user.User
+			hb     *hostbuilder.Hostbuilder
+			env    *middlewares.Env
+			hs     *HostStack
+		)
+
+		doRequest := func() error {
+			req, err := NewRequest("POST", "/api/v0/hosts", params)
+			Expect(err).To(BeNil())
+
+			return hosts.Create(hb, env, svr, res, req)
+		}
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Password: "123456",
+				Email:    "foo@example.com",
+			}
+			err := u.Insert(db)
+			Expect(err).To(BeNil())
+			Expect(u.ID).NotTo(BeZero())
+
+			env = &middlewares.Env{User: u}
+
+			hs, err = CreateHostStack(db, &HostStack{
+				R: &region.Region{
+					Name: "use",
+				},
+				P: &plan.Plan{
+					Name: "large",
+				},
+			})
+			Expect(err).To(BeNil())
+		})
+
+		Context("when request does not specify a size", func() {
+			It("returns error size required", func() {
+				params = &url.Values{}
+				params.Set("size", "")
+				err := doRequest()
+				Expect(err).To(MatchError(hosts.ErrSizeRequired))
+			})
+		})
+
+		Context("when a matching plan cannot be found for the specified size", func() {
+			It("returns error plan not found", func() {
+				params = &url.Values{}
+				params.Set("size", "doubledouble")
+				err := doRequest()
+				Expect(err).To(MatchError(hosts.ErrPlanNotFound))
+			})
+		})
+
+		Context("when an invalid region is specified", func() {
+			It("returns error region not found", func() {
+				params = &url.Values{}
+				params.Set("size", hs.P.Name)
+				params.Set("region", "antarctica")
+				err := doRequest()
+				Expect(err).To(MatchError(hosts.ErrRegionNotFound))
+			})
+		})
+
+		Context("when no provider template found for the given plan and region", func() {
+			var r2 *region.Region
+			BeforeEach(func() {
+				r2 = &region.Region{Name: "usw", Description: "US West"}
+				err := r2.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns provider template not found error", func() {
+				params = &url.Values{}
+				params.Set("size", hs.P.Name)
+				params.Set("region", r2.Name)
+				err := doRequest()
+				Expect(err).To(MatchError(hosts.ErrProvidertemplateNotFound))
+			})
+		})
+
+		Context("with valid parameters", func() {
+			BeforeEach(func() {
+				params = &url.Values{}
+				params.Set("name", "honeybadger")
+				params.Set("size", hs.P.Name)
+				params.Set("region", hs.R.Name)
+			})
+
+			Context("when hostbuilder successfully creates a host", func() {
+				BeforeEach(func() {
+					hb = hostbuilder.NewHostbuilder("www.exmple.com")
+					ch := func(path string, provider string, config *map[string]sql.NullString) (map[string]string, error) {
+						return map[string]string{
+							"id":         "abcd1234",
+							"ip_address": "0.0.0.0",
+							"provider":   hs.PT.Name,
+						}, nil
+					}
+					hb.OverrideRequestHandler(ch)
+
+					err := doRequest()
+					Expect(err).To(BeNil())
+				})
+
+				It("creates a host record for the user", func() {
+					hosts, err := host.FindAllByUser(db, u)
+					Expect(err).To(BeNil())
+					Expect(len(hosts)).To(Equal(1))
+
+					h := hosts[0]
+					Expect(h.RegionID).To(Equal(hs.R.ID))
+					Expect(h.PlanID).To(Equal(hs.P.ID))
+					Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
+
+					Expect(h.Name).To(Equal("honeybadger"))
+					Expect(h.LongName.String).To(Equal("honeybadger"))
+
+					Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
+					Expect(h.State).To(Equal("created"))
+					Expect(h.MaxContainers.Int64).To(Equal(hs.P.MaxContainers))
+					Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
+				})
+
+				It("responds with the created host", func() {
+					Expect(env.Status).To(Equal(http.StatusCreated))
+					Expect(env.Data["host"]).NotTo(BeNil())
+					h := env.Data["host"].(*host.Host)
+					Expect(h.Name).To(Equal("honeybadger"))
+				})
+			})
+
+			Context("when hostbuilder fails to create the host", func() {
+				BeforeEach(func() {
+					hb = hostbuilder.NewHostbuilder("www.exmple.com")
+					ch := func(path string, provider string, config *map[string]sql.NullString) (map[string]string, error) {
+						return nil, errors.New("some error occurred")
+					}
+					hb.OverrideRequestHandler(ch)
+
+					err := doRequest()
+					Expect(err).To(MatchError("some error occurred"))
+				})
+
+				It("does not create a host for the user", func() {
+					hosts, err := host.FindAllByUser(db, u)
+					Expect(err).To(BeNil())
+					Expect(len(hosts)).To(Equal(0))
+				})
+			})
 		})
 	})
 })

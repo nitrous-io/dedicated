@@ -17,6 +17,7 @@ func (s *Server) drawRoutes() {
 		s.route("/user", mw.Auth(mw.JSON(users.GetAuthenticatedUser)), "GET")
 
 		s.route("/hosts", mw.Auth(mw.JSON(hosts.Index)), "GET")
+		s.route("/hosts", mw.Auth(mw.JSON(hosts.UseHostbuilder(hosts.Create))), "POST")
 	})
 
 	s.static("/", "public") // catch-all, must come last
