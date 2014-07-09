@@ -24,6 +24,7 @@ import (
 	_ "github.com/nitrous-io/nitro/command/hosts/restart"
 	_ "github.com/nitrous-io/nitro/command/hosts/start"
 	_ "github.com/nitrous-io/nitro/command/hosts/stop"
+	_ "github.com/nitrous-io/nitro/command/keys"
 	_ "github.com/nitrous-io/nitro/command/keysadd"
 	_ "github.com/nitrous-io/nitro/command/login"
 	_ "github.com/nitrous-io/nitro/command/logout"
