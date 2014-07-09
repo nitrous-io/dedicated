@@ -116,7 +116,9 @@ func (s *Server) proxyStream(env *env, w http.ResponseWriter, r *http.Request) (
 			closer.Close()
 		}
 	}()
+	log.Println("we have raw stream for client now")
 
+	log.Println("starting to proxy stream")
 	// get the HTTP stream from remote server
 	dial, err := net.Dial("tcp", env.host)
 	if err != nil {
@@ -130,6 +132,7 @@ func (s *Server) proxyStream(env *env, w http.ResponseWriter, r *http.Request) (
 		return fmt.Errorf("Failed to connect to remote server %s, status %d",
 			env.host, resp.StatusCode)
 	}
+	log.Println("connected to upstream", resp)
 
 	// hijack the http . We have the stream writer and reader now
 	serverStream, br := c.Hijack()
@@ -140,18 +143,16 @@ func (s *Server) proxyStream(env *env, w http.ResponseWriter, r *http.Request) (
 	// - the read/writecloser for server
 	done := make(chan error, 1)
 	go func() {
-		log.Println("start copying clientin")
 		_, err := io.Copy(serverStream, clientIn)
 		log.Println("read from client", err)
 		done <- err
 	}()
 	go func() {
-		log.Println("start copying serverout")
 		_, err := io.Copy(clientOut, br)
-		log.Println("read from server", err)
 		done <- err
 	}()
-	return <-done
+	<-done
+	return nil
 }
 
 func (s *Server) proxyHTTP(env *env, w http.ResponseWriter, r *http.Request) (err error) {
@@ -300,7 +301,6 @@ var portMap = map[string]int{
 func parsePort(req *http.Request) int {
 	log.Printf("Host: %s %s %s", req.Host, req.URL.Host, req.URL.Scheme)
 	if _, portStr, err := net.SplitHostPort(req.Host); err == nil {
-		log.Println(portStr, err)
 		if p, err := strconv.Atoi(portStr); err == nil {
 			return p
 		}
@@ -325,7 +325,6 @@ func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
 		return nil, nil, err
 	}
 	// Flush the options to make sure the client sets the raw mode
-	conn.Write([]byte{})
 	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.nitrous.raw-stream\r\n\r\n")
 	return conn, conn, nil
 }

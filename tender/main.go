@@ -11,7 +11,6 @@ import (
 )
 
 var (
-	addr        string
 	databaseURL string
 	baseDomain  string
 	authedPort  int
@@ -26,7 +25,6 @@ var (
 // TODO: eventually we may look into etcd ( and co ) so we dont have to touch
 // the main database / calling HTTP API *because* latency
 func init() {
-	addr = "0.0.0.0:" + envStr("PORT")
 	databaseURL = envStr("DATABASE_URL")
 	authedPort = envInt("AUTHED_PORT")
 	baseDomain = envStr("BASE_DOMAIN")
@@ -41,8 +39,22 @@ func main() {
 		fmt.Printf("Failed to start tender server %v", err)
 		os.Exit(1)
 	}
-	log.Printf("Tender starting at %s", addr)
-	log.Fatal(http.ListenAndServe(addr, s))
+	// proxy preview requests
+	var startPort, endPort int
+	if os.Getenv("DEBUG") == "true" {
+		startPort = 6666
+		endPort = 6666
+	} else {
+		startPort = 1000
+		endPort = 9999
+	}
+	log.Printf("listen to port from %d to %d", startPort, endPort)
+	for i := startPort; i <= endPort; i++ {
+		go http.ListenAndServe(fmt.Sprintf(":%d", i), s)
+	}
+	// proxy freighterd ports
+	log.Println("listen to port 65333")
+	http.ListenAndServe(":65333", s)
 }
 
 func envStr(name string) string {
