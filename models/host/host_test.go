@@ -97,6 +97,36 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("FindByName()", func() {
+		Context("when there's a host record for the given name", func() {
+			It("returns the host record matching the name", func() {
+				h, err := host.FindByName(db, hs.H.Name)
+				Expect(err).To(BeNil())
+				Expect(h).NotTo(BeNil())
+				Expect(h.ID).To(Equal(hs.H.ID))
+				Expect(h.UserID).To(Equal(hs.U.ID))
+				Expect(h.Name).To(Equal(hs.H.Name))
+			})
+		})
+
+		Context("when a host record with the given name does not exist", func() {
+			It("returns nil without an error", func() {
+				h, err := host.FindByName(db, "vivabrazil")
+				Expect(err).To(BeNil())
+				Expect(h).To(BeNil())
+			})
+		})
+
+		Context("when some error happens", func() {
+			It("returns error", func() {
+				db.Close()
+				h, err := host.FindByName(db, hs.H.Name)
+				Expect(h).To(BeNil())
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("Insert()", func() {
 		var (
 			h *host.Host

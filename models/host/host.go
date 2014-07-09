@@ -62,6 +62,19 @@ func findAllByUserID(db *db.Database, userID int64) ([]Host, error) {
 	return hosts, nil
 }
 
+func FindByName(db *db.Database, name string) (*Host, error) {
+	host := &Host{}
+	err := db.Get(host, "SELECT * from hosts WHERE name = $1", name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return host, err
+}
+
 func (h *Host) Insert(d db.QueryReceiver) error {
 	if h.State == "" {
 		h.State = "born"
