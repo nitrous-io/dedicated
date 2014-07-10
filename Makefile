@@ -44,7 +44,7 @@ dropdb:
 	dropdb --if-exists nitrous_migrations_test
 	dropdb --if-exists nitrous_test
 
-seed: build
+seed: go
 	@build/dbseed
 
 test-with-docker:

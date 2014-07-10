@@ -141,7 +141,7 @@ func templates(d db.QueryReceiver) error {
 	for _, p := range plans {
 		for _, r := range regions {
 			pt := &providertemplate.ProviderTemplate{
-				Name:     "digital-ocean-1",
+				Name:     fmt.Sprintf("digital-ocean-%s-%s", p.Name, r.Name),
 				Provider: "digitalocean",
 				RegionID: r.ID,
 				PlanID:   p.ID,
