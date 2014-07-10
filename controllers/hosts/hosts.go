@@ -290,6 +290,43 @@ func Stop(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helpe
 	return nil
 }
 
+func Restart(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	db := c.DB()
+	vars := env.Vars
+
+	htp, err := getHostWithProvider(db, vars["name"])
+	if err != nil {
+		return err
+	}
+
+	ht := htp.host
+
+	config := map[string]string{}
+	if ht.ProviderIdentifier.Valid {
+		config["id"] = ht.ProviderIdentifier.String
+	} else {
+		return errors.New("Provider identifier is nil")
+	}
+
+	_, err = hb.Restart(htp.provider, config)
+	if err != nil {
+		return err
+	}
+
+	// not entirely sure about the purpose of state,
+	// but we don't check the state before running the command,
+	// so just setting it to "running" if the action was successful.
+	ht.State = "running"
+	err = ht.UpdateColumn(db, "state")
+	if err != nil {
+		return err
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte{})
+	return nil
+}
+
 func UseHostbuilder(fn func(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
 	return func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		hb := hostbuilder.NewHostbuilder(hostbuilderURL)

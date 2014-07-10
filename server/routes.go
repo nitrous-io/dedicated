@@ -21,6 +21,7 @@ func (s *Server) drawRoutes() {
 		s.route("/hosts/{name}", mw.Auth(mw.Vars(hosts.UseHostbuilder(hosts.Destroy))), "DELETE")
 		s.route("/hosts/{name}/start", mw.Auth(mw.Vars(hosts.UseHostbuilder(hosts.Start))), "POST")
 		s.route("/hosts/{name}/stop", mw.Auth(mw.Vars(hosts.UseHostbuilder(hosts.Stop))), "POST")
+		s.route("/hosts/{name}/restart", mw.Auth(mw.Vars(hosts.UseHostbuilder(hosts.Restart))), "POST")
 	})
 
 	s.static("/", "public") // catch-all, must come last
