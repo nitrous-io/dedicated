@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middlewares"
@@ -191,6 +192,7 @@ func getHostWithProvider(db *db.Database, name string) (*hostWithProvider, error
 
 func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
+	logger := c.Logger()
 	vars := env.Vars
 
 	htp, err := getHostWithProvider(db, vars["name"])
@@ -199,7 +201,6 @@ func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 	}
 
 	ht := htp.host
-
 	config := map[string]string{}
 	if ht.ProviderIdentifier.Valid {
 		config["id"] = ht.ProviderIdentifier.String
@@ -217,13 +218,13 @@ func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 		return err
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte{})
+	respondOK(w, logger)
 	return nil
 }
 
 func Start(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
+	logger := c.Logger()
 	vars := env.Vars
 
 	htp, err := getHostWithProvider(db, vars["name"])
@@ -251,13 +252,13 @@ func Start(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Help
 		return err
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte{})
+	respondOK(w, logger)
 	return nil
 }
 
 func Stop(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
+	logger := c.Logger()
 	vars := env.Vars
 
 	htp, err := getHostWithProvider(db, vars["name"])
@@ -285,13 +286,13 @@ func Stop(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helpe
 		return err
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte{})
+	respondOK(w, logger)
 	return nil
 }
 
 func Restart(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
+	logger := c.Logger()
 	vars := env.Vars
 
 	htp, err := getHostWithProvider(db, vars["name"])
@@ -322,9 +323,14 @@ func Restart(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 		return err
 	}
 
+	respondOK(w, logger)
+	return nil
+}
+
+func respondOK(w http.ResponseWriter, logger *logger.Logger) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte{})
-	return nil
+	logger.Infof("Response: 200 OK")
 }
 
 func UseHostbuilder(fn func(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
