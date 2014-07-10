@@ -1,7 +1,6 @@
 package hostbuilder_test
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -73,9 +72,9 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns the info of the created host", func() {
-				info, err := hb.Create("digitalocean", map[string]sql.NullString{
-					"name":        sql.NullString{"doublerainbow", true},
-					"public_keys": sql.NullString{"value1,value2", true},
+				info, err := hb.Create("digitalocean", map[string]string{
+					"name":        "doublerainbow",
+					"public_keys": "value1,value2",
 				})
 
 				Expect(err).To(BeNil())
@@ -91,9 +90,9 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns an error returned by hostbuilder", func() {
-				_, err := hb.Create("digitalocean", map[string]sql.NullString{
-					"name":        sql.NullString{"doublerainbow", true},
-					"public_keys": sql.NullString{"value1,value2", true},
+				_, err := hb.Create("digitalocean", map[string]string{
+					"name":        "doublerainbow",
+					"public_keys": "value1,value2",
 				})
 
 				Expect(err).To(MatchError("some_error"))
@@ -110,8 +109,8 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns no errors", func() {
-				_, err := hb.Delete("digitalocean", map[string]sql.NullString{
-					"id": sql.NullString{"hostid", true},
+				_, err := hb.Delete("digitalocean", map[string]string{
+					"id": "hostid",
 				})
 				Expect(err).To(BeNil())
 			})
@@ -123,8 +122,8 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns an error returned by hostbuilder", func() {
-				_, err := hb.Delete("digitalocean", map[string]sql.NullString{
-					"id": sql.NullString{"hosid", true},
+				_, err := hb.Delete("digitalocean", map[string]string{
+					"id": "hostid",
 				})
 
 				Expect(err).To(MatchError("some_error"))
@@ -141,8 +140,8 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns no errors", func() {
-				_, err := hb.Start("digitalocean", map[string]sql.NullString{
-					"id": sql.NullString{"hostid", true},
+				_, err := hb.Start("digitalocean", map[string]string{
+					"id": "hostid",
 				})
 				Expect(err).To(BeNil())
 			})
@@ -154,8 +153,8 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns an error returned by hostbuilder", func() {
-				_, err := hb.Start("digitalocean", map[string]sql.NullString{
-					"id": sql.NullString{"hosid", true},
+				_, err := hb.Start("digitalocean", map[string]string{
+					"id": "hostid",
 				})
 
 				Expect(err).To(MatchError("some_error"))
@@ -172,8 +171,8 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns no errors", func() {
-				_, err := hb.Stop("digitalocean", map[string]sql.NullString{
-					"id": sql.NullString{"hostid", true},
+				_, err := hb.Stop("digitalocean", map[string]string{
+					"id": "hostid",
 				})
 				Expect(err).To(BeNil())
 			})
@@ -185,8 +184,8 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns an error returned by hostbuilder", func() {
-				_, err := hb.Stop("digitalocean", map[string]sql.NullString{
-					"id": sql.NullString{"hosid", true},
+				_, err := hb.Stop("digitalocean", map[string]string{
+					"id": "hostid",
 				})
 
 				Expect(err).To(MatchError("some_error"))
@@ -203,8 +202,8 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns no errors", func() {
-				_, err := hb.Restart("digitalocean", map[string]sql.NullString{
-					"id": sql.NullString{"hostid", true},
+				_, err := hb.Restart("digitalocean", map[string]string{
+					"id": "hostid",
 				})
 				Expect(err).To(BeNil())
 			})
@@ -216,8 +215,8 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns an error returned by hostbuilder", func() {
-				_, err := hb.Restart("digitalocean", map[string]sql.NullString{
-					"id": sql.NullString{"hosid", true},
+				_, err := hb.Restart("digitalocean", map[string]string{
+					"id": "hostid",
 				})
 
 				Expect(err).To(MatchError("some_error"))
@@ -229,12 +228,12 @@ var _ = Describe("hostbuilder", func() {
 		It("overrides the default request handler", func() {
 			hb := hostbuilder.NewHostbuilder("www.exmple.com")
 
-			ch := func(path string, provider string, config *map[string]sql.NullString) (map[string]string, error) {
+			ch := func(path string, provider string, config *map[string]string) (map[string]string, error) {
 				return nil, errors.New("this is a custom handler")
 			}
 			hb.OverrideRequestHandler(ch)
 
-			o, err := hb.Create("provider", map[string]sql.NullString{})
+			o, err := hb.Create("provider", map[string]string{})
 			Expect(o).To(BeNil())
 			Expect(err).To(MatchError("this is a custom handler"))
 		})

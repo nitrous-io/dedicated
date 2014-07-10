@@ -2,7 +2,6 @@ package hostbuilder
 
 import (
 	"crypto/tls"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -14,14 +13,14 @@ import (
 
 type Hostbuilder struct {
 	URL            string
-	requestHandler func(path string, provider string, config *map[string]sql.NullString) (map[string]string, error)
+	requestHandler func(path string, provider string, config *map[string]string) (map[string]string, error)
 }
 
 func NewHostbuilder(url string) *Hostbuilder {
 	return &Hostbuilder{URL: url}
 }
 
-func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config *map[string]sql.NullString) (map[string]string, error) {
+func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config *map[string]string) (map[string]string, error) {
 	// FIXME: make this a global setting
 	v, _ := strconv.ParseBool(os.Getenv("NO_SSL_VERIFY"))
 	tr := &http.Transport{
@@ -70,11 +69,11 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 	}
 }
 
-func (hb *Hostbuilder) OverrideRequestHandler(fn func(path string, provider string, config *map[string]sql.NullString) (map[string]string, error)) {
+func (hb *Hostbuilder) OverrideRequestHandler(fn func(path string, provider string, config *map[string]string) (map[string]string, error)) {
 	hb.requestHandler = fn
 }
 
-func (hb *Hostbuilder) getRequestHandler() func(path string, provider string, config *map[string]sql.NullString) (map[string]string, error) {
+func (hb *Hostbuilder) getRequestHandler() func(path string, provider string, config *map[string]string) (map[string]string, error) {
 	rh := hb.requestHandler
 	if rh == nil {
 		rh = hb.defaultRequestHandler
@@ -82,22 +81,22 @@ func (hb *Hostbuilder) getRequestHandler() func(path string, provider string, co
 	return rh
 }
 
-func (hb *Hostbuilder) Create(provider string, config map[string]sql.NullString) (map[string]string, error) {
+func (hb *Hostbuilder) Create(provider string, config map[string]string) (map[string]string, error) {
 	return hb.getRequestHandler()("", provider, &config)
 }
 
-func (hb *Hostbuilder) Delete(provider string, config map[string]sql.NullString) (map[string]string, error) {
+func (hb *Hostbuilder) Delete(provider string, config map[string]string) (map[string]string, error) {
 	return hb.getRequestHandler()("delete", provider, &config)
 }
 
-func (hb *Hostbuilder) Start(provider string, config map[string]sql.NullString) (map[string]string, error) {
+func (hb *Hostbuilder) Start(provider string, config map[string]string) (map[string]string, error) {
 	return hb.getRequestHandler()("start", provider, &config)
 }
 
-func (hb *Hostbuilder) Stop(provider string, config map[string]sql.NullString) (map[string]string, error) {
+func (hb *Hostbuilder) Stop(provider string, config map[string]string) (map[string]string, error) {
 	return hb.getRequestHandler()("stop", provider, &config)
 }
 
-func (hb *Hostbuilder) Restart(provider string, config map[string]sql.NullString) (map[string]string, error) {
+func (hb *Hostbuilder) Restart(provider string, config map[string]string) (map[string]string, error) {
 	return hb.getRequestHandler()("restart", provider, &config)
 }

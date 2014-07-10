@@ -114,12 +114,16 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 	// pick the first template for now
 	pt := pts[0]
 
-	config := pt.Config.Map
-	if config == nil {
-		config = map[string]sql.NullString{}
+	config := map[string]string{}
+	for k, v := range pt.Config.Map {
+		if v.Valid {
+			config[k] = v.String
+		} else {
+			config[k] = ""
+		}
 	}
-	config["name"] = sql.NullString{name, true}
-	config["public_keys"] = sql.NullString{"", true} //FIXME: pass actual public keys
+	config["name"] = name
+	config["public_keys"] = "" //FIXME: pass actual public keys
 
 	info, err := hb.Create(pt.Provider, config)
 	if err != nil {
@@ -174,8 +178,12 @@ func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 		return ErrProvidertemplateNotFound
 	}
 
-	config := map[string]sql.NullString{}
-	config["id"] = ht.ProviderIdentifier
+	config := map[string]string{}
+	if ht.ProviderIdentifier.Valid {
+		config["id"] = ht.ProviderIdentifier.String
+	} else {
+		return errors.New("Provider identifier is nil")
+	}
 
 	_, err = hb.Delete(pt.Provider, config)
 	if err != nil {

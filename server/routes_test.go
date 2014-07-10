@@ -59,14 +59,15 @@ var _ = Describe("server/routes", func() {
 
 	Describe("valid routes", func() {
 		routes := [][]string{
-			[]string{"POST", "/oauth/token"},
+			{"POST", "/oauth/token"},
 
-			[]string{"POST", "/api/v0/users"},
-			[]string{"GET", "/api/v0/user"},
+			{"POST", "/api/v0/users"},
+			{"GET", "/api/v0/user"},
 
-			[]string{"GET", "/api/v0/hosts"},
-			[]string{"POST", "/api/v0/hosts"},
-			[]string{"DELETE", "/api/v0/hosts/test"},
+			{"GET", "/api/v0/hosts"},
+			{"POST", "/api/v0/hosts"},
+			{"DELETE", "/api/v0/hosts/test"},
+			{"POST", "/api/v0/hosts/test/start"},
 		}
 		for _, r := range routes {
 			func(method, path string) {

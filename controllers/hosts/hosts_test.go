@@ -250,7 +250,7 @@ var _ = Describe("controllers/hosts", func() {
 			Context("when hostbuilder successfully creates a host", func() {
 				BeforeEach(func() {
 					hb = hostbuilder.NewHostbuilder("www.exmple.com")
-					ch := func(path string, provider string, config *map[string]sql.NullString) (map[string]string, error) {
+					ch := func(path string, provider string, config *map[string]string) (map[string]string, error) {
 						return map[string]string{
 							"id":         "abcd1234",
 							"ip_address": "0.0.0.0",
@@ -293,7 +293,7 @@ var _ = Describe("controllers/hosts", func() {
 			Context("when hostbuilder fails to create the host", func() {
 				BeforeEach(func() {
 					hb = hostbuilder.NewHostbuilder("www.exmple.com")
-					ch := func(path string, provider string, config *map[string]sql.NullString) (map[string]string, error) {
+					ch := func(path string, provider string, config *map[string]string) (map[string]string, error) {
 						return nil, errors.New("some error occurred")
 					}
 					hb.OverrideRequestHandler(ch)
@@ -346,7 +346,7 @@ var _ = Describe("controllers/hosts", func() {
 			Context("when hostbuilder successfully deletes the host", func() {
 				BeforeEach(func() {
 					hb = hostbuilder.NewHostbuilder("www.exmple.com")
-					ch := func(path string, provider string, config *map[string]sql.NullString) (map[string]string, error) {
+					ch := func(path string, provider string, config *map[string]string) (map[string]string, error) {
 						return map[string]string{"status": "ok"}, nil
 					}
 					hb.OverrideRequestHandler(ch)
@@ -369,7 +369,7 @@ var _ = Describe("controllers/hosts", func() {
 			Context("when hostbuilder fails to delete the host", func() {
 				BeforeEach(func() {
 					hb = hostbuilder.NewHostbuilder("www.exmple.com")
-					ch := func(path string, provider string, config *map[string]sql.NullString) (map[string]string, error) {
+					ch := func(path string, provider string, config *map[string]string) (map[string]string, error) {
 						return nil, errors.New("some error occurred")
 					}
 					hb.OverrideRequestHandler(ch)
