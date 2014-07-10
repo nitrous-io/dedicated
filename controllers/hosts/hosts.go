@@ -116,7 +116,7 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 	// pick the first template for now
 	pt := pts[0]
 
-	config := map[string]string{}
+	config := hostbuilder.ConfigType{}
 	for k, v := range pt.Config.Map {
 		if v.Valid {
 			config[k] = v.String
@@ -125,9 +125,9 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 		}
 	}
 	config["name"] = name
-	config["public_keys"] = "" //FIXME: pass actual public keys
+	config["public_keys"] = []string{} //FIXME: pass actual public keys
 
-	info, err := hb.Create(pt.Provider, config)
+	info, err := hb.Create(pt.Provider, &config)
 	if err != nil {
 		return err
 	}
@@ -142,8 +142,8 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 		LongName:      sql.NullString{longname, true},
 		MaxContainers: sql.NullInt64{pl.MaxContainers, true},
 
-		IPAddress:          sql.NullString{info["ip_address"], true},
-		ProviderIdentifier: sql.NullString{info["id"], true},
+		IPAddress:          sql.NullString{info["ip_address"].(string), true},
+		ProviderIdentifier: sql.NullString{info["id"].(string), true},
 		State:              "created",
 	}
 	err = h.Insert(db)
@@ -206,7 +206,7 @@ func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 		return err
 	}
 
-	_, err = hb.Delete(htp.provider, map[string]string{"id": htp.pid})
+	_, err = hb.Delete(htp.provider, &hostbuilder.ConfigType{"id": htp.pid})
 	if err != nil {
 		return err
 	}
@@ -230,7 +230,7 @@ func Start(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Help
 		return err
 	}
 
-	_, err = hb.Start(htp.provider, map[string]string{"id": htp.pid})
+	_, err = hb.Start(htp.provider, &hostbuilder.ConfigType{"id": htp.pid})
 	if err != nil {
 		return err
 	}
@@ -256,7 +256,7 @@ func Stop(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helpe
 		return err
 	}
 
-	_, err = hb.Stop(htp.provider, map[string]string{"id": htp.pid})
+	_, err = hb.Stop(htp.provider, &hostbuilder.ConfigType{"id": htp.pid})
 	if err != nil {
 		return err
 	}
@@ -282,7 +282,7 @@ func Restart(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 		return err
 	}
 
-	_, err = hb.Restart(htp.provider, map[string]string{"id": htp.pid})
+	_, err = hb.Restart(htp.provider, &hostbuilder.ConfigType{"id": htp.pid})
 	if err != nil {
 		return err
 	}

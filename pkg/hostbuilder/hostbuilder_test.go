@@ -42,6 +42,13 @@ var _ = Describe("hostbuilder", func() {
 	Describe("Create()", func() {
 		var hb *hostbuilder.Hostbuilder
 
+		doRequest := func() (hostbuilder.OutputType, error) {
+			return hb.Create("digitalocean", &hostbuilder.ConfigType{
+				"name":        "doublerainbow",
+				"public_keys": []string{"value1", "value2"},
+			})
+		}
+
 		Context("when hostbuilder creates a host", func() {
 			BeforeEach(func() {
 				mockHostbuilder := createServer(func(w http.ResponseWriter, r *http.Request) {
@@ -49,13 +56,15 @@ var _ = Describe("hostbuilder", func() {
 
 					provider := r.FormValue("provider")
 					m := struct {
-						Provider  string `json:"provider"`
-						ID        string `json:"id"`
-						IPAddress string `json:"ip_address"`
+						Provider       string `json:"provider"`
+						ID             string `json:"id"`
+						IPAddress      string `json:"ip_address"`
+						FreighterdPort uint16 `json:"freighterd_port"`
 					}{
-						Provider:  provider,
-						ID:        "some_id",
-						IPAddress: "0.0.0.0",
+						Provider:       provider,
+						ID:             "some_id",
+						IPAddress:      "0.0.0.0",
+						FreighterdPort: 1234,
 					}
 
 					payload, err := json.Marshal(m)
@@ -72,29 +81,23 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns the info of the created host", func() {
-				info, err := hb.Create("digitalocean", map[string]string{
-					"name":        "doublerainbow",
-					"public_keys": "value1,value2",
-				})
+				info, err := doRequest()
 
 				Expect(err).To(BeNil())
 				Expect(info["provider"]).To(Equal("digitalocean"))
 				Expect(info["id"]).To(Equal("some_id"))
 				Expect(info["ip_address"]).To(Equal("0.0.0.0"))
+				Expect(info["freighterd_port"]).To(Equal(float64(1234)))
 			})
 		})
 
 		Context("when hostbuilder fails to create a host", func() {
 			BeforeEach(func() {
-				hb = hostbuilder.NewHostbuilder(mockErrorServer("/hosts/").URL)
+				hb = hostbuilder.NewHostbuilder(mockErrorServer("/hosts").URL)
 			})
 
 			It("returns an error returned by hostbuilder", func() {
-				_, err := hb.Create("digitalocean", map[string]string{
-					"name":        "doublerainbow",
-					"public_keys": "value1,value2",
-				})
-
+				_, err := doRequest()
 				Expect(err).To(MatchError("some_error"))
 			})
 		})
@@ -103,15 +106,19 @@ var _ = Describe("hostbuilder", func() {
 	Describe("Delete()", func() {
 		var hb *hostbuilder.Hostbuilder
 
+		doRequest := func() (hostbuilder.OutputType, error) {
+			return hb.Delete("digitalocean", &hostbuilder.ConfigType{
+				"id": "hostid",
+			})
+		}
+
 		Context("when hostbuilder deletes the host", func() {
 			BeforeEach(func() {
 				hb = hostbuilder.NewHostbuilder(mockOKServer("/hosts/delete").URL)
 			})
 
 			It("returns no errors", func() {
-				_, err := hb.Delete("digitalocean", map[string]string{
-					"id": "hostid",
-				})
+				_, err := doRequest()
 				Expect(err).To(BeNil())
 			})
 		})
@@ -122,9 +129,7 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns an error returned by hostbuilder", func() {
-				_, err := hb.Delete("digitalocean", map[string]string{
-					"id": "hostid",
-				})
+				_, err := doRequest()
 
 				Expect(err).To(MatchError("some_error"))
 			})
@@ -134,15 +139,19 @@ var _ = Describe("hostbuilder", func() {
 	Describe("Start()", func() {
 		var hb *hostbuilder.Hostbuilder
 
+		doRequest := func() (hostbuilder.OutputType, error) {
+			return hb.Start("digitalocean", &hostbuilder.ConfigType{
+				"id": "hostid",
+			})
+		}
+
 		Context("when hostbuilder starts the host", func() {
 			BeforeEach(func() {
 				hb = hostbuilder.NewHostbuilder(mockOKServer("/hosts/start").URL)
 			})
 
 			It("returns no errors", func() {
-				_, err := hb.Start("digitalocean", map[string]string{
-					"id": "hostid",
-				})
+				_, err := doRequest()
 				Expect(err).To(BeNil())
 			})
 		})
@@ -153,10 +162,7 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns an error returned by hostbuilder", func() {
-				_, err := hb.Start("digitalocean", map[string]string{
-					"id": "hostid",
-				})
-
+				_, err := doRequest()
 				Expect(err).To(MatchError("some_error"))
 			})
 		})
@@ -165,15 +171,19 @@ var _ = Describe("hostbuilder", func() {
 	Describe("Stop()", func() {
 		var hb *hostbuilder.Hostbuilder
 
+		doRequest := func() (hostbuilder.OutputType, error) {
+			return hb.Stop("digitalocean", &hostbuilder.ConfigType{
+				"id": "hostid",
+			})
+		}
+
 		Context("when hostbuilder stops the host", func() {
 			BeforeEach(func() {
 				hb = hostbuilder.NewHostbuilder(mockOKServer("/hosts/stop").URL)
 			})
 
 			It("returns no errors", func() {
-				_, err := hb.Stop("digitalocean", map[string]string{
-					"id": "hostid",
-				})
+				_, err := doRequest()
 				Expect(err).To(BeNil())
 			})
 		})
@@ -184,10 +194,7 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns an error returned by hostbuilder", func() {
-				_, err := hb.Stop("digitalocean", map[string]string{
-					"id": "hostid",
-				})
-
+				_, err := doRequest()
 				Expect(err).To(MatchError("some_error"))
 			})
 		})
@@ -196,15 +203,19 @@ var _ = Describe("hostbuilder", func() {
 	Describe("Restart()", func() {
 		var hb *hostbuilder.Hostbuilder
 
+		doRequest := func() (hostbuilder.OutputType, error) {
+			return hb.Restart("digitalocean", &hostbuilder.ConfigType{
+				"id": "hostid",
+			})
+		}
+
 		Context("when hostbuilder restarts the host", func() {
 			BeforeEach(func() {
 				hb = hostbuilder.NewHostbuilder(mockOKServer("/hosts/restart").URL)
 			})
 
 			It("returns no errors", func() {
-				_, err := hb.Restart("digitalocean", map[string]string{
-					"id": "hostid",
-				})
+				_, err := doRequest()
 				Expect(err).To(BeNil())
 			})
 		})
@@ -215,10 +226,7 @@ var _ = Describe("hostbuilder", func() {
 			})
 
 			It("returns an error returned by hostbuilder", func() {
-				_, err := hb.Restart("digitalocean", map[string]string{
-					"id": "hostid",
-				})
-
+				_, err := doRequest()
 				Expect(err).To(MatchError("some_error"))
 			})
 		})
@@ -228,12 +236,12 @@ var _ = Describe("hostbuilder", func() {
 		It("overrides the default request handler", func() {
 			hb := hostbuilder.NewHostbuilder("www.exmple.com")
 
-			ch := func(path string, provider string, config *map[string]string) (map[string]string, error) {
+			ch := func(path string, provider string, config *hostbuilder.ConfigType) (hostbuilder.OutputType, error) {
 				return nil, errors.New("this is a custom handler")
 			}
 			hb.OverrideRequestHandler(ch)
 
-			o, err := hb.Create("provider", map[string]string{})
+			o, err := hb.Create("provider", &hostbuilder.ConfigType{})
 			Expect(o).To(BeNil())
 			Expect(err).To(MatchError("this is a custom handler"))
 		})
