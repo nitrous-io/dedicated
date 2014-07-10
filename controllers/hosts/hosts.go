@@ -161,22 +161,26 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 // Provider name should be stored in the host?
 type hostWithProvider struct {
 	host     *host.Host
+	pid      string
 	provider string
 }
 
 func getHostWithProvider(db *db.Database, name string) (*hostWithProvider, error) {
-	htp := &hostWithProvider{}
 	ht, err := host.FindByName(db, name)
 	if err != nil {
-		return htp, err
+		return nil, err
 	}
 	if ht == nil {
 		return nil, ErrHostNotFound
 	}
 
-	htp.host = ht
+	var pid string
+	if ht.ProviderIdentifier.Valid {
+		pid = ht.ProviderIdentifier.String
+	} else {
+		return nil, errors.New("Provider identifier is nil")
+	}
 
-	// Consider storing provider name in host?
 	pt, err := providertemplate.FindByID(db, ht.ProviderTemplateID)
 	if err != nil {
 		return nil, err
@@ -185,9 +189,11 @@ func getHostWithProvider(db *db.Database, name string) (*hostWithProvider, error
 		return nil, ErrProvidertemplateNotFound
 	}
 
-	htp.provider = pt.Provider
-
-	return htp, nil
+	return &hostWithProvider{
+		provider: pt.Provider,
+		host:     ht,
+		pid:      pid,
+	}, nil
 }
 
 func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
@@ -200,20 +206,12 @@ func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 		return err
 	}
 
-	ht := htp.host
-	config := map[string]string{}
-	if ht.ProviderIdentifier.Valid {
-		config["id"] = ht.ProviderIdentifier.String
-	} else {
-		return errors.New("Provider identifier is nil")
-	}
-
-	_, err = hb.Delete(htp.provider, config)
+	_, err = hb.Delete(htp.provider, map[string]string{"id": htp.pid})
 	if err != nil {
 		return err
 	}
 
-	err = ht.Delete(db)
+	err = htp.host.Delete(db)
 	if err != nil {
 		return err
 	}
@@ -232,20 +230,12 @@ func Start(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Help
 		return err
 	}
 
-	ht := htp.host
-
-	config := map[string]string{}
-	if ht.ProviderIdentifier.Valid {
-		config["id"] = ht.ProviderIdentifier.String
-	} else {
-		return errors.New("Provider identifier is nil")
-	}
-
-	_, err = hb.Start(htp.provider, config)
+	_, err = hb.Start(htp.provider, map[string]string{"id": htp.pid})
 	if err != nil {
 		return err
 	}
 
+	ht := htp.host
 	ht.State = "running"
 	err = ht.UpdateColumn(db, "state")
 	if err != nil {
@@ -266,20 +256,12 @@ func Stop(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helpe
 		return err
 	}
 
-	ht := htp.host
-
-	config := map[string]string{}
-	if ht.ProviderIdentifier.Valid {
-		config["id"] = ht.ProviderIdentifier.String
-	} else {
-		return errors.New("Provider identifier is nil")
-	}
-
-	_, err = hb.Stop(htp.provider, config)
+	_, err = hb.Stop(htp.provider, map[string]string{"id": htp.pid})
 	if err != nil {
 		return err
 	}
 
+	ht := htp.host
 	ht.State = "stopped"
 	err = ht.UpdateColumn(db, "state")
 	if err != nil {
@@ -300,16 +282,7 @@ func Restart(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 		return err
 	}
 
-	ht := htp.host
-
-	config := map[string]string{}
-	if ht.ProviderIdentifier.Valid {
-		config["id"] = ht.ProviderIdentifier.String
-	} else {
-		return errors.New("Provider identifier is nil")
-	}
-
-	_, err = hb.Restart(htp.provider, config)
+	_, err = hb.Restart(htp.provider, map[string]string{"id": htp.pid})
 	if err != nil {
 		return err
 	}
@@ -317,6 +290,7 @@ func Restart(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 	// not entirely sure about the purpose of state,
 	// but we don't check the state before running the command,
 	// so just setting it to "running" if the action was successful.
+	ht := htp.host
 	ht.State = "running"
 	err = ht.UpdateColumn(db, "state")
 	if err != nil {
