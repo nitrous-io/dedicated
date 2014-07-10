@@ -74,7 +74,7 @@ Content-Type: application/json; charset=utf-8
 ```javascript
 {
   "name": "user-box-1",
-  "image": "nitrousio/upstart-dind", // docker image
+  "image": "nitrousio/ubuntu-dind", // docker image
   "public_keys": [
     "ssh-rsa AAAAB3Nz me@macbook",
     "ssh-rsa AAAABBaZ me@example.com"
