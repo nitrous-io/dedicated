@@ -4,9 +4,7 @@
 
 #sidebar-view
   width: 200px
-  padding-left: $containerPadding
   $lineItemHeight: 32px
-  $paddingLeft: 32px
 
   ul.hosts, ul.containers
     list-style: none
@@ -27,18 +25,12 @@
 
   ul.containers
     > li.selected
-      height: $lineItemHeight
-      background: $lightBlue600
-
-      .state-indicator
-        border: 1px solid #fff
-
-      h4
-        color: white
+      background: $gray200
+      border-radius: 2px
 
   h3, h4
     margin: 0
-    padding-left: $paddingLeft
+    padding-left: 36px
     font-size: 14px
     +truncate
 
@@ -51,5 +43,5 @@
 
   .state-indicator
     position: absolute
-    left: ($paddingLeft - 12px) / 2
+    left: $containerPadding
     top: ($lineItemHeight - 12px) / 2
