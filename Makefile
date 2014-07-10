@@ -53,4 +53,7 @@ test-with-docker:
 run-with-docker:
 	@script/docker-run
 
-.PHONY: all go assets build format run test createdb dropdb image test-with-docker run-with-docker seed
+release: build
+	@script/release
+
+.PHONY: all go assets build format run test createdb dropdb image test-with-docker run-with-docker seed release
