@@ -1,20 +1,21 @@
 package tender
 
 import (
+	"crypto/sha1"
 	"database/sql"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
-	"net/http/httputil"
-	"os"
-	"strconv"
 	"strings"
 
 	_ "github.com/lib/pq"
+	"github.com/nitrous-io/tender/pkg/httperror"
+	"github.com/nitrous-io/tender/pkg/proxy"
 )
 
+// env of the request. This should be created once for each request and valid
+// during the request duration
 type env struct {
 	userID int
 	host   string
@@ -37,155 +38,18 @@ type Server struct {
 	baseDomain string
 }
 
-func (s *Server) proxyWebsocket(env *env, w http.ResponseWriter, r *http.Request) (err error) {
-	serverStream, err := net.Dial("tcp", env.host)
-	if err != nil {
-		return err
-	}
-	defer serverStream.Close()
-	if err := r.Write(serverStream); err != nil {
-		return fmt.Errorf("error writing WebSocket request to backend %s", env.host)
-	}
-
-	clientStream, err := hijackServer(w)
-	if err != nil {
-		return fmt.Errorf("hijacking failed for host %s", env.host)
-	}
-	defer clientStream.Close()
-
-	bidirectionalCopy(serverStream, clientStream)
-	return nil
-}
-
-// use when the client expects a HTTP stream
-func (s *Server) proxyStream(env *env, w http.ResponseWriter, r *http.Request) (err error) {
-	// get the HTTP stream from remote server
-	dial, err := net.Dial("tcp", env.host)
-	if err != nil {
-		return err
-	}
-	c := httputil.NewClientConn(dial, nil)
-	defer c.Close()
-	// we ignore error because the connection will be hijacked
-	resp, _ := c.Do(r)
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Failed to connect to remote server %s, status %d",
-			env.host, resp.StatusCode)
-	}
-	log.Println("connected to upstream", resp)
-
-	// hijack the http . We have the stream writer and reader now
-	serverStream, _ := c.Hijack()
-	defer serverStream.Close()
-
-	// create the stream for the HTTP client
-	clientStream, err := hijackServer(w)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(clientStream, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.nitrous.raw-stream\r\n\r\n")
-
-	// close clientIn
-	defer func() {
-		if tcpc, ok := clientStream.(*net.TCPConn); ok {
-			tcpc.CloseWrite()
-		} else {
-			clientStream.Close()
-		}
-	}()
-	log.Println("we have raw stream for client now")
-
-	// Now we have
-	// - the stream for client
-	// - the read/writecloser for server
-	bidirectionalCopy(serverStream, clientStream)
-	return nil
-}
-
-func (s *Server) proxyHTTP(env *env, w http.ResponseWriter, r *http.Request) (err error) {
-	// start reverse proxy the request
-	p := &httputil.ReverseProxy{
-		Director: func(r *http.Request) {
-			r.URL.Scheme = "http"
-			log.Printf("Request to %s is mapped to %v", r.URL.Host, env.host)
-		},
-		Transport: &http.Transport{Proxy: nil},
-	}
-	p.ServeHTTP(w, r)
-	return nil
-}
-
-func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err error) {
-	port := parsePort(r)
-	log.Printf("Request received: %v, for port %d", r, port)
-
-	hostName, err := s.getHost(r.Host)
-	if err != nil {
-		return err
-	}
-	log.Printf("Got request to %s", hostName)
-
-	// get host id and host ip
-	// host ip will be the new destination for current request
-	var hostIP net.IP
-	if env.authenticated() {
-		hostIP, err = host(s.db, hostName)
-	} else {
-		hostIP, err = hostByUser(s.db, env.userID, hostName)
-	}
-	if err != nil {
-		return err
-	}
-	env.host = hostToIP(r, hostIP)
-
-	if r.Header.Get("X-NITROUS-STREAM") == "true" {
-		return s.proxyStream(env, w, r)
-	} else if isWebSocket(r) {
-		return s.proxyWebsocket(env, w, r)
-	} else {
-		return s.proxyHTTP(env, w, r)
-	}
-}
-
-// Instead of using the standard Authorization header for OAuth token, we use a
-// non-standard header `X-Nitrous-Authorization` so it doesnt clash with normal
-// `Authorization` header when the hosted app requires it.
-//
-// This is used only when we want to proxy container management's api
-func (s *Server) authenticated(env *env, w http.ResponseWriter, r *http.Request) error {
-	port := parsePort(r)
-	// if we dont request a port that requires authentication, passthrough.
-	// This most likely is for preview.
-	if port != s.authedPort || os.Getenv("DEBUG") == "true" {
-		return nil
-	}
-	authHeader := r.Header.Get("X-Nitrous-Authorization")
-	prefix := "Bearer "
-	if len(authHeader) <= len(prefix) ||
-		(!strings.HasPrefix(authHeader, prefix) &&
-			!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_request"`)
-		return fmt.Errorf("Invalid authorization token %s", authHeader)
-	}
-
-	userID, err := user(s.db, authHeader[len(prefix):])
-	if err != nil {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_request"`)
-		return fmt.Errorf("Invalid authorization token %s", authHeader)
-	}
-	env.userID = userID
-	return nil
-}
-
 // first check if the request endpoints requires authentication, then proxy it
 // to the respected host
+// This enable *Server to act as a http.Handler
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	env := &env{}
 	if err := s.authenticated(env, w, r); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.handleError(w, err)
+		return
 	}
 	if err := s.proxy(env, w, r); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.handleError(w, err)
+		return
 	}
 }
 
@@ -206,83 +70,97 @@ func NewServer(baseDomain, databaseURL string, authedPort int) (http.Handler, er
 	}, nil
 }
 
-// Given a request with host:
-// winterfell.yammer.nitrousapp.com:8000, it will return host name as "yammer"
-// yammer.nitrousapp.com:65333, it will return host name as "yammer"
-func (s *Server) getHost(url string) (string, error) {
-	var domain string
-	var err error
-	if strings.Contains(url, ":") {
-		domain, _, err = net.SplitHostPort(url)
-		if err != nil {
-			return "", err
-		}
-	} else {
-		domain = url
+// Instead of using the standard Authorization header for OAuth token, we use a
+// non-standard header `X-Nitrous-Authorization` so it doesnt clash with normal
+// `Authorization` header when the hosted app requires it.
+//
+// This is used only when we want to proxy container management's api
+func (s *Server) authenticated(env *env, w http.ResponseWriter, r *http.Request) error {
+	port := parsePort(r)
+	// if we dont request a port that requires authentication, passthrough.
+	// This most likely is for preview.
+	if port != s.authedPort {
+		return nil
 	}
-	log.Printf("Domain: %s, base: %s", domain, s.baseDomain)
-	prefix := domain[:len(domain)-len(s.baseDomain)]
-	splits := strings.Split(prefix, ".")
-	log.Printf("Prefix: %s", prefix, splits, len(splits))
-	// request only specified host
-	if len(splits) == 1 {
-		return splits[0], nil
+	authHeader := r.Header.Get("X-Nitrous-Authorization")
+	prefix := "Bearer "
+	if len(authHeader) <= len(prefix) ||
+		(!strings.HasPrefix(authHeader, prefix) &&
+			!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
+		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_request"`)
+		return fmt.Errorf("Invalid authorization token %s", authHeader)
 	}
-	// request specified both container and host
-	if len(splits) == 2 {
-		return splits[1], nil
-	}
-	return "", fmt.Errorf("Invalid format %s", url)
-}
 
-func isWebSocket(r *http.Request) bool {
-	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket") &&
-		strings.EqualFold(r.Header.Get("Connection"), "upgrade")
-}
-
-var portMap = map[string]int{
-	"http":  80,
-	"https": 443,
-}
-
-// parsePort returns the port of an HTTP request. If there is no port specified
-// in the request, 80 or 443 (HTTPS) is assumed.
-func parsePort(req *http.Request) int {
-	log.Printf("Host: %s %s %s", req.Host, req.URL.Host, req.URL.Scheme)
-	if _, portStr, err := net.SplitHostPort(req.Host); err == nil {
-		if p, err := strconv.Atoi(portStr); err == nil {
-			return p
-		}
-	}
-	return portMap[req.URL.Scheme]
-}
-
-// ConvertToIPBased modifies an HTTP request to use an IP address as its host.
-// The "Host" header is preserved so that receiver will correctly recognize the
-// original host instead of the ip address
-func hostToIP(req *http.Request, ip net.IP) string {
-	// Change Host to "IP:Port".
-	port := parsePort(req)
-	h := net.JoinHostPort(ip.String(), strconv.Itoa(int(port)))
-	req.URL.Host = h
-	return h
-}
-
-func hijackServer(w http.ResponseWriter) (io.ReadWriteCloser, error) {
-	conn, _, err := w.(http.Hijacker).Hijack()
+	userID, err := user(s.db, authHeader[len(prefix):])
 	if err != nil {
-		return nil, err
+		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_request"`)
+		return fmt.Errorf("Invalid authorization token %s", authHeader)
 	}
-	return conn, nil
+	env.userID = userID
+	return nil
 }
 
-func bidirectionalCopy(rw1, rw2 io.ReadWriter) {
-	errChan := make(chan error, 2)
-	cp := func(dst io.Writer, src io.Reader) {
-		_, err := io.Copy(dst, src)
-		errChan <- err
+// proxy the request to respected boxhost. We will switch the proxy strategy
+// depends on the type of the request
+// - if this is a normal HTTP, use `http.ReverseProxy`
+// - if the request as `X-NITROUS-STREAM` header which indicates that it wants
+// to open a bidirectional HTTP stream, use `proxyStream`
+// - if the request wants to open a websocket, use `proxyWebsocket`
+func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err error) {
+	port := parsePort(r)
+	log.Printf("Request received: %v, for port %d", r, port)
+
+	hostName, err := getHost(r.Host, s.baseDomain)
+	if err != nil {
+		return err
 	}
-	go cp(rw1, rw2)
-	go cp(rw2, rw1)
-	<-errChan
+	log.Printf("Got request to %s", hostName)
+
+	// get host id and host ip
+	// host ip will be the new destination for current request
+	var hostIP net.IP
+	if env.authenticated() {
+		hostIP, err = host(s.db, hostName)
+	} else {
+		hostIP, err = hostByUser(s.db, env.userID, hostName)
+	}
+	if err != nil {
+		return err
+	}
+	env.host = hostToIP(r, hostIP)
+
+	if r.Header.Get("X-NITROUS-STREAM") == "true" {
+		proxy.ProxyStream(env.host)(w, r)
+	} else if isWebSocket(r) {
+		proxy.ProxyWebsocket(env.host)(w, r)
+	} else {
+		proxy.ProxyHTTP(env.host)(w, r)
+	}
+	return nil
+}
+
+// This is called when the error is not a *httperror.Error*, i.e. there's
+// something wrong with the controller. We transform that error into a
+// httperror.Error and log it.
+func (s *Server) serverError(err error) error {
+	code := http.StatusInternalServerError
+	errMsg := err.Error()
+	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
+	e := httperror.New(code, "internal_server_error", "", errHash)
+	log.Printf("[ERROR] %v %v", errHash, e.Error())
+	return e
+}
+
+// handle error returned by the server HTTP Handler
+func (s *Server) handleError(w http.ResponseWriter, err error) {
+	e, ok := err.(*httperror.Error)
+	if !ok {
+		e = s.serverError(err).(*httperror.Error)
+	}
+	j, err := e.JSON()
+	if err != nil {
+		j = []byte(`{"error":"internal_server_error"}`)
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	http.Error(w, string(j), e.Code)
 }
