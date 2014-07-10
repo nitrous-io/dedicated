@@ -79,7 +79,7 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 
 	regionName := r.FormValue("region")
 	if regionName == "" {
-		regionName = "apse1" //FIXME: user model should specify a default region?
+		regionName = "apse" //FIXME: user model should specify a default region?
 	}
 
 	longname := r.FormValue("longname")

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 
+	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/container"
@@ -141,10 +143,15 @@ func templates(d db.QueryReceiver) error {
 	for _, p := range plans {
 		for _, r := range regions {
 			pt := &providertemplate.ProviderTemplate{
-				Name:     fmt.Sprintf("digital-ocean-%s-%s", p.Name, r.Name),
-				Provider: "digitalocean",
+				Name:     fmt.Sprintf("docker-%s-%s", p.Name, r.Name),
+				Provider: "docker",
 				RegionID: r.ID,
 				PlanID:   p.ID,
+				Config: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"image": {"nitrousio/ubuntu-dind", true},
+					},
+				},
 			}
 			err := pt.Insert(d)
 			if err != nil {
