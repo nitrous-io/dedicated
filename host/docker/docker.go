@@ -4,7 +4,8 @@ import (
 	"archive/tar"
 	"bytes"
 	"encoding/json"
-	"strings"
+	"fmt"
+	"strconv"
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
@@ -12,11 +13,11 @@ import (
 )
 
 type Host struct {
-	Id         string   `json:"id"`
-	Name       string   `json:"name"`
-	Image      string   `json:"image"`
-	PublicKeys []string `json:"public_keys"`
-	IpAddress  string   `json:"ip_address"`
+	Id                 string   `json:"id"`
+	Name               string   `json:"name"`
+	PublicKeys         []string `json:"public_keys"`
+	IpAddress          string   `json:"ip_address"`
+	FreighterdLocation string   `json:"freighterd_location"`
 
 	client *dockerclient.Client
 }
@@ -46,10 +47,12 @@ func (h *Host) Info() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &host.Info{
-		Provider:  "docker",
-		Id:        h.Id,
-		IpAddress: container.NetworkSettings.IPAddress,
+		Provider:       "docker",
+		Id:             h.Id,
+		IpAddress:      container.NetworkSettings.IPAddress,
+		FreighterdPort: uint16(getFreighterdPort(container)),
 	}, nil
 }
 
@@ -103,14 +106,16 @@ func (h *Host) createImage() (string, error) {
 func (h *Host) createContainer(imageName string) (string, error) {
 	container, err := h.client.CreateContainer(dockerclient.CreateContainerOptions{
 		Name:   h.Name,
-		Config: &dockerclient.Config{Hostname: h.Name, Image: imageName},
+		Config: &dockerclient.Config{Hostname: h.Name, Image: imageName, Cmd: []string{"/start-freighterd"}},
 	})
 	if err != nil {
 		return "", err
 	}
 	// we want privileged because this will be a dind container
 	err = h.client.StartContainer(container.ID, &dockerclient.HostConfig{
-		Privileged: true,
+		Privileged:      true,
+		PublishAllPorts: true,
+		Binds:           []string{fmt.Sprintf("%s:/freighterd", h.FreighterdLocation)},
 	})
 	if err != nil {
 		return "", err
@@ -123,21 +128,37 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	if err := json.Unmarshal([]byte(config), host); err != nil {
 		return nil, err
 	}
-	// trim all spaces for public keys
-	for i, v := range host.PublicKeys {
-		host.PublicKeys[i] = strings.TrimSpace(v)
-	}
 	// fetch docker client endpoint from defaultConfig
 	endpoint, ok := defaultConfig["endpoint"]
 	if !ok {
 		endpoint = "unix:///var/run/docker.sock"
 	}
+	freighterdLocation, _ := defaultConfig["freighterd_location"]
+	host.FreighterdLocation = freighterdLocation
+
 	client, err := dockerclient.NewClient(endpoint)
 	if err != nil {
 		return nil, err
 	}
 	host.client = client
+
 	return host, nil
+}
+
+func getFreighterdPort(container *dockerclient.Container) uint16 {
+	var freighterdPort int = 0
+	var err error
+
+	freighterdPortMappings := container.NetworkSettings.Ports["65333/tcp"]
+	if len(freighterdPortMappings) == 1 {
+		freighterdPort, err = strconv.Atoi(freighterdPortMappings[0].HostPort)
+		if err != nil {
+			freighterdPort = 0
+		}
+	} else {
+		freighterdPort = 0
+	}
+	return uint16(freighterdPort)
 }
 
 func init() {

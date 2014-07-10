@@ -54,6 +54,7 @@ var _ = Describe("hostbuilder", func() {
 			json.Unmarshal(body, &info)
 			Expect(info.Id).To(Equal("123"))
 			Expect(info.IpAddress).To(Equal("10.0.0.1"))
+			Expect(info.FreighterdPort).To(Equal(uint16(65533)))
 		})
 	})
 

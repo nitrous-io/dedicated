@@ -3,9 +3,10 @@ package host
 import "fmt"
 
 type Info struct {
-	Provider  string `json:"provider"`
-	Id        string `json:"id"`
-	IpAddress string `json:"ip_address"`
+	Provider       string `json:"provider"`
+	Id             string `json:"id"`
+	IpAddress      string `json:"ip_address"`
+	FreighterdPort uint16 `json:"freighterd_port"`
 }
 
 type Host interface {

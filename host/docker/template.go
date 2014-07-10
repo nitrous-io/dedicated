@@ -3,17 +3,11 @@ package docker
 import "text/template"
 
 const dockerfileTmpl = `
-FROM {{.Image}}
+FROM nitrousio/ubuntu-dind:14.04
 
-# compatible with images based on ubuntu-upstart
-
-# Add public keys
-RUN \
-  sed -i 's|#AuthorizedKeysFile|AuthorizedKeysFile /etc/ssh/authorized_keys |g' /etc/ssh/sshd_config && \
-  sed -i 's|#PasswordAuthentication yes|PasswordAuthentication no|g' /etc/ssh/sshd_config && \
-  touch /etc/ssh/authorized_keys && \
-  {{ range $i, $key := .PublicKeys }}echo '{{$key}}' >> /etc/ssh/authorized_keys && {{end}} \
-  mkdir /var/run/sshd
+RUN apt-get update && apt-get install -y --no-install-recommends lxc=1.0.* cgmanager libcgmanager0
+RUN /bin/bash -c "echo -e '#!/bin/bash\ndocker -d -e lxc >& /var/log/docker.log &\n/freighterd' > /start-freighterd" && chmod +x /start-freighterd
+EXPOSE 65333
 `
 
 var dockerfileTemplate *template.Template
