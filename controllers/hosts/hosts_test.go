@@ -249,7 +249,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder successfully creates a host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.exmple.com")
+					hb = hostbuilder.NewHostbuilder("www.example.com")
 					ch := func(path string, provider string, config *map[string]string) (map[string]string, error) {
 						return map[string]string{
 							"id":         "abcd1234",
@@ -320,7 +320,7 @@ var _ = Describe("controllers/hosts", func() {
 		)
 
 		doRequest := func(name string) error {
-			req, err := NewRequest("DELETE", "/api/v0/hosts"+name, nil)
+			req, err := NewRequest("DELETE", "/api/v0/hosts/"+name, nil)
 			Expect(err).To(BeNil())
 			env.Vars = map[string]string{"name": name}
 
@@ -382,6 +382,86 @@ var _ = Describe("controllers/hosts", func() {
 					h, err := host.FindByName(db, hs.H.Name)
 					Expect(err).To(BeNil())
 					Expect(h).NotTo(BeNil())
+				})
+			})
+		})
+	})
+
+	Describe("Start", func() {
+		var (
+			hb  *hostbuilder.Hostbuilder
+			env *middlewares.Env
+			hs  *HostStack
+			err error
+		)
+
+		doRequest := func(name string) error {
+			req, err := NewRequest("POST", "/api/v0/hosts/"+name+"/start", nil)
+			Expect(err).To(BeNil())
+			env.Vars = map[string]string{"name": name}
+
+			return hosts.Start(hb, env, svr, res, req)
+		}
+
+		BeforeEach(func() {
+			hs, err = CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Name:               "honeybadger",
+					ProviderIdentifier: sql.NullString{"001", true},
+					State:              "stopped",
+				},
+			})
+			Expect(err).To(BeNil())
+			env = &middlewares.Env{User: hs.U}
+		})
+
+		Context("with an invalid host name", func() {
+			It("returns error host not found", func() {
+				err = doRequest("somehost")
+				Expect(err).To(MatchError(hosts.ErrHostNotFound))
+			})
+		})
+
+		Context("with a valid host name", func() {
+			Context("when hostbuilder successfully starts the host", func() {
+				BeforeEach(func() {
+					hb = hostbuilder.NewHostbuilder("www.example.com")
+					ch := func(path string, provider string, config *map[string]string) (map[string]string, error) {
+						return map[string]string{"status": "ok"}, nil
+					}
+					hb.OverrideRequestHandler(ch)
+
+					err = doRequest(hs.H.Name)
+					Expect(err).To(BeNil())
+				})
+
+				It("updates the host state to start", func() {
+					h, err := host.FindByName(db, hs.H.Name)
+					Expect(err).To(BeNil())
+					Expect(h.State).To(Equal("running"))
+				})
+
+				It("responds with status OK", func() {
+					Expect(res.Code).To(Equal(http.StatusOK))
+				})
+			})
+
+			Context("when hostbuilder fails to start the host", func() {
+				BeforeEach(func() {
+					hb = hostbuilder.NewHostbuilder("www.example.com")
+					ch := func(path string, provider string, config *map[string]string) (map[string]string, error) {
+						return nil, errors.New("some error occurred")
+					}
+					hb.OverrideRequestHandler(ch)
+
+					err = doRequest(hs.H.Name)
+					Expect(err).To(MatchError("some error occurred"))
+				})
+
+				It("does not change the host state", func() {
+					h, err := host.FindByName(db, hs.H.Name)
+					Expect(err).To(BeNil())
+					Expect(h.State).To(Equal("stopped"))
 				})
 			})
 		})

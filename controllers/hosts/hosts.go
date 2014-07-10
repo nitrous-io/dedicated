@@ -222,6 +222,40 @@ func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 	return nil
 }
 
+func Start(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	db := c.DB()
+	vars := env.Vars
+
+	htp, err := getHostWithProvider(db, vars["name"])
+	if err != nil {
+		return err
+	}
+
+	ht := htp.host
+
+	config := map[string]string{}
+	if ht.ProviderIdentifier.Valid {
+		config["id"] = ht.ProviderIdentifier.String
+	} else {
+		return errors.New("Provider identifier is nil")
+	}
+
+	_, err = hb.Start(htp.provider, config)
+	if err != nil {
+		return err
+	}
+
+	ht.State = "running"
+	err = ht.UpdateColumn(db, "state")
+	if err != nil {
+		return err
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte{})
+	return nil
+}
+
 func UseHostbuilder(fn func(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
 	return func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		hb := hostbuilder.NewHostbuilder(hostbuilderURL)
