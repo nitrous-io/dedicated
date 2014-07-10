@@ -96,6 +96,6 @@ func (s *Server) serverError(err error) error {
 	errMsg := err.Error()
 	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
 	e := httperror.New(http.StatusInternalServerError, "internal_server_error", "", errHash)
-	s.logger.Error(errHash, e.Error())
+	s.logger.Error(errHash, errMsg)
 	return e
 }
