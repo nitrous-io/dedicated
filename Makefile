@@ -44,10 +44,13 @@ dropdb:
 	dropdb --if-exists nitrous_migrations_test
 	dropdb --if-exists nitrous_test
 
+seed: go
+	@build/dbseed
+
 test-with-docker:
 	@script/docker-test
 
 run-with-docker:
 	@script/docker-run
 
-.PHONY: all go assets build format run test createdb dropdb image test-with-docker run-with-docker
+.PHONY: all go assets build format run test createdb dropdb image test-with-docker run-with-docker seed
