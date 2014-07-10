@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/nitrous-io/nitrous/controllers"
+	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/plan"
@@ -156,27 +157,48 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 	return nil
 }
 
-func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-	vars := env.Vars
+// Provider name should be stored in the host?
+type hostWithProvider struct {
+	host     *host.Host
+	provider string
+}
 
-	name := vars["name"]
+func getHostWithProvider(db *db.Database, name string) (*hostWithProvider, error) {
+	htp := &hostWithProvider{}
 	ht, err := host.FindByName(db, name)
 	if err != nil {
-		return err
+		return htp, err
 	}
 	if ht == nil {
-		return ErrHostNotFound
+		return nil, ErrHostNotFound
 	}
+
+	htp.host = ht
 
 	// Consider storing provider name in host?
 	pt, err := providertemplate.FindByID(db, ht.ProviderTemplateID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if pt == nil {
-		return ErrProvidertemplateNotFound
+		return nil, ErrProvidertemplateNotFound
 	}
+
+	htp.provider = pt.Provider
+
+	return htp, nil
+}
+
+func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	db := c.DB()
+	vars := env.Vars
+
+	htp, err := getHostWithProvider(db, vars["name"])
+	if err != nil {
+		return err
+	}
+
+	ht := htp.host
 
 	config := map[string]string{}
 	if ht.ProviderIdentifier.Valid {
@@ -185,7 +207,7 @@ func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 		return errors.New("Provider identifier is nil")
 	}
 
-	_, err = hb.Delete(pt.Provider, config)
+	_, err = hb.Delete(htp.provider, config)
 	if err != nil {
 		return err
 	}
