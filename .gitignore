@@ -30,6 +30,7 @@ _test/
 bin/
 _vendor/
 build/
+release/
 
 # Architecture specific extensions/prefixes
 *.[568vq]

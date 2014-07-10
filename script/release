@@ -1,0 +1,15 @@
+#/bin/bash
+set -e
+RELEASE_DIR=release
+BUILD_DIR=./build
+TIMESTAMP=$(date +"%d%m%y%H%M%S")
+
+latest_commit() {
+        local commit=$(git rev-parse --short HEAD)
+        echo $commit
+}
+
+COMMIT=$(latest_commit)
+
+mkdir -p ./$RELEASE_DIR
+cd $BUILD_DIR && tar -cJf ../$RELEASE_DIR/nitrousd-$COMMIT-$TIMESTAMP.tar.xz .
