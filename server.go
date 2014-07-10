@@ -71,7 +71,7 @@ func host(db *sql.DB, hostName string) (net.IP, error) {
 func hostUser(db *sql.DB, userID int, hostName string) (net.IP, error) {
 	var ip string
 	if os.Getenv("DEBUG") == "true" {
-		return net.ParseIP("172.17.0.24"), nil
+		return net.ParseIP("172.17.0.2"), nil
 	}
 	err := db.QueryRow(hostUserQuery, userID, hostName).Scan(&ip)
 	if err != nil {
@@ -93,32 +93,28 @@ type Server struct {
 	baseDomain string
 }
 
-// use when the client expects a HTTP stream
-func (s *Server) proxyStream(env *env, w http.ResponseWriter, r *http.Request) (err error) {
-	// create the stream for the HTTP client
-	clientIn, clientOut, err := hijackServer(w)
+func (s *Server) proxyWebsocket(env *env, w http.ResponseWriter, r *http.Request) (err error) {
+	serverStream, err := net.Dial("tcp", env.host)
 	if err != nil {
 		return err
 	}
-	// close clientIn
-	defer func() {
-		if tcpc, ok := clientIn.(*net.TCPConn); ok {
-			tcpc.CloseWrite()
-		} else {
-			clientIn.Close()
-		}
-	}()
-	// close clientOut
-	defer func() {
-		if tcpc, ok := clientOut.(*net.TCPConn); ok {
-			tcpc.CloseWrite()
-		} else if closer, ok := clientOut.(io.Closer); ok {
-			closer.Close()
-		}
-	}()
-	log.Println("we have raw stream for client now")
+	defer serverStream.Close()
+	if err := r.Write(serverStream); err != nil {
+		return fmt.Errorf("error writing WebSocket request to backend %s", env.host)
+	}
 
-	log.Println("starting to proxy stream")
+	clientStream, err := hijackServer(w)
+	if err != nil {
+		return fmt.Errorf("hijacking failed for host %s", env.host)
+	}
+	defer clientStream.Close()
+
+	bidirectionalCopy(serverStream, clientStream)
+	return nil
+}
+
+// use when the client expects a HTTP stream
+func (s *Server) proxyStream(env *env, w http.ResponseWriter, r *http.Request) (err error) {
 	// get the HTTP stream from remote server
 	dial, err := net.Dial("tcp", env.host)
 	if err != nil {
@@ -135,23 +131,30 @@ func (s *Server) proxyStream(env *env, w http.ResponseWriter, r *http.Request) (
 	log.Println("connected to upstream", resp)
 
 	// hijack the http . We have the stream writer and reader now
-	serverStream, br := c.Hijack()
+	serverStream, _ := c.Hijack()
 	defer serverStream.Close()
+
+	// create the stream for the HTTP client
+	clientStream, err := hijackServer(w)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(clientStream, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.nitrous.raw-stream\r\n\r\n")
+
+	// close clientIn
+	defer func() {
+		if tcpc, ok := clientStream.(*net.TCPConn); ok {
+			tcpc.CloseWrite()
+		} else {
+			clientStream.Close()
+		}
+	}()
+	log.Println("we have raw stream for client now")
 
 	// Now we have
 	// - the stream for client
 	// - the read/writecloser for server
-	done := make(chan error, 1)
-	go func() {
-		_, err := io.Copy(serverStream, clientIn)
-		log.Println("read from client", err)
-		done <- err
-	}()
-	go func() {
-		_, err := io.Copy(clientOut, br)
-		done <- err
-	}()
-	<-done
+	bidirectionalCopy(serverStream, clientStream)
 	return nil
 }
 
@@ -193,6 +196,8 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 
 	if r.Header.Get("X-NITROUS-STREAM") == "true" {
 		return s.proxyStream(env, w, r)
+	} else if isWebSocket(r) {
+		return s.proxyWebsocket(env, w, r)
 	} else {
 		return s.proxyHTTP(env, w, r)
 	}
@@ -319,12 +324,21 @@ func hostToIP(req *http.Request, ip net.IP) string {
 	return h
 }
 
-func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
+func hijackServer(w http.ResponseWriter) (io.ReadWriteCloser, error) {
 	conn, _, err := w.(http.Hijacker).Hijack()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	// Flush the options to make sure the client sets the raw mode
-	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.nitrous.raw-stream\r\n\r\n")
-	return conn, conn, nil
+	return conn, nil
+}
+
+func bidirectionalCopy(rw1, rw2 io.ReadWriter) {
+	errChan := make(chan error, 2)
+	cp := func(dst io.Writer, src io.Reader) {
+		_, err := io.Copy(dst, src)
+		errChan <- err
+	}
+	go cp(rw1, rw2)
+	go cp(rw2, rw1)
+	<-errChan
 }
