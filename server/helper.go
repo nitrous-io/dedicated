@@ -55,7 +55,7 @@ func (s *Server) RespondJSON(w http.ResponseWriter, status int, data []byte) {
 func (s *Server) RespondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{}) {
 	j, err := json.Marshal(data)
 	if err != nil {
-		s.handleError(w, err)
+		s.HandleError(w, err)
 		return
 	}
 	s.RespondJSON(w, status, j)

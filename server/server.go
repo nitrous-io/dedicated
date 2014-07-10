@@ -57,7 +57,7 @@ func (s *Server) route(route string, mw middlewares.Middleware, methods ...strin
 		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
 		err := mw(&middlewares.Env{}, s, w, r)
 		if err != nil {
-			s.handleError(w, err)
+			s.HandleError(w, err)
 		}
 	}
 	s.router.HandleFunc(route, h).Methods(methods...)
@@ -77,7 +77,7 @@ func (s *Server) static(prefix string, dir string) {
 // process the request error. If the error is of type *httperror.Error, then we
 // convert and serialize that to JSON, otherwise, the error will be
 // `500 internal_server_error`
-func (s *Server) handleError(w http.ResponseWriter, err error) {
+func (s *Server) HandleError(w http.ResponseWriter, err error) {
 	e, ok := err.(*httperror.Error)
 	if !ok {
 		e = s.serverError(err).(*httperror.Error)
