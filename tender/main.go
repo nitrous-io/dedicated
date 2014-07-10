@@ -33,6 +33,9 @@ func init() {
 	}
 }
 
+// TODO: accept SSL
+// TODO: listen to port 80
+// TODO: listen to port 443
 func main() {
 	s, err := tender.NewServer(baseDomain, databaseURL, authedPort)
 	if err != nil {
@@ -45,7 +48,7 @@ func main() {
 		startPort = 6666
 		endPort = 6666
 	} else {
-		startPort = 1000
+		startPort = 1024
 		endPort = 9999
 	}
 	log.Printf("listen to port from %d to %d", startPort, endPort)
