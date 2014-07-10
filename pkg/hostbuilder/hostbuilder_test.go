@@ -234,7 +234,7 @@ var _ = Describe("hostbuilder", func() {
 
 	Describe("OverrideRequestHandler()", func() {
 		It("overrides the default request handler", func() {
-			hb := hostbuilder.NewHostbuilder("www.exmple.com")
+			hb := hostbuilder.NewHostbuilder("www.example.com")
 
 			ch := func(path string, provider string, config *hostbuilder.ConfigType) (hostbuilder.OutputType, error) {
 				return nil, errors.New("this is a custom handler")

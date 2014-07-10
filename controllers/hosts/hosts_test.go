@@ -299,7 +299,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder fails to create the host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.exmple.com")
+					hb = hostbuilder.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderError)
 
 					err := doRequest()
@@ -349,7 +349,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("with a valid host name", func() {
 			Context("when hostbuilder successfully deletes the host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.exmple.com")
+					hb = hostbuilder.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderOK)
 
 					err = doRequest(hs.H.Name)
@@ -369,7 +369,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder fails to delete the host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.exmple.com")
+					hb = hostbuilder.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderError)
 
 					err = doRequest(hs.H.Name)
