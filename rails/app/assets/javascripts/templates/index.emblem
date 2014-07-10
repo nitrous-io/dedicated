@@ -1,3 +1,5 @@
 = outlet topnav
-= outlet sidebar
-h1 Hello World!
+.container
+  = outlet sidebar
+  h1 Hello World!
+  = partial 'footer'

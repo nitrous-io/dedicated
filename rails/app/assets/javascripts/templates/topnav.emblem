@@ -1,5 +1,5 @@
 .container
-  h1.logo Nitrous
+  h1.logo Nitrous.IO
   ul.nav
     li
       a href='#'

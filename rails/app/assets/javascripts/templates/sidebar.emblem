@@ -1,1 +1,36 @@
-h2 sidebar
+ul.hosts
+  li
+    h3 Project X
+    ul.containers
+      li.selected
+        h4 Web App
+        .state-indicator.running
+          span (Running)
+      li
+        h4 Postgres
+        .state-indicator.running
+          span (Running)
+      li
+        h4 Worker Server
+        .state-indicator.stopped
+          span (Stopped)
+
+  li
+    h3 Consulting
+    ul.containers
+      li
+        h4 Instaflyer
+        .state-indicator.running
+          span (Running)
+      li
+        h4 Burpper
+        .state-indicator.running
+          span (Running)
+      li
+        h4 Vikki
+        .state-indicator.stopped
+          span (Stopped)
+      li
+        h4 Yesterday's News
+        .state-indicator.terminated
+          span (Terminated)

@@ -1,0 +1,55 @@
+@import 'colors'
+@import 'variables'
+@import 'mixins'
+
+#sidebar-view
+  width: 200px
+  padding-left: $containerPadding
+  $lineItemHeight: 32px
+  $paddingLeft: 32px
+
+  ul.hosts, ul.containers
+    list-style: none
+    padding: 0
+
+  li
+    position: relative
+    line-height: $lineItemHeight
+
+  ul.hosts
+    > li
+      padding-bottom: 8px
+      border-bottom: 1px solid $gray300
+      margin-bottom: 8px
+
+      &:last-of-type
+        border-bottom: 0
+
+  ul.containers
+    > li.selected
+      height: $lineItemHeight
+      background: $lightBlue600
+
+      .state-indicator
+        border: 1px solid #fff
+
+      h4
+        color: white
+
+  h3, h4
+    margin: 0
+    padding-left: $paddingLeft
+    font-size: 14px
+    +truncate
+
+  h3
+    color: black
+
+  h4
+    font-weight: normal
+    color: $gray800
+
+  .state-indicator
+    position: absolute
+    left: ($paddingLeft - 12px) / 2
+    top: ($lineItemHeight - 12px) / 2

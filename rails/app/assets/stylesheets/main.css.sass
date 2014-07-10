@@ -1,7 +1,10 @@
 @import 'colors'
 
 html
-  background: $gray100
+  background: $gray50
+
+*, *:before, *:after
+  box-sizing: border-box
 
 body
   font-family: 'Roboto'
@@ -25,3 +28,8 @@ a
 
 .hide
   display: none
+
+.truncate
+  white-space: nowrap
+  overflow: hidden
+  text-overflow: ellipsis
