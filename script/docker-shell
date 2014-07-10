@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+
+docker run \
+  -v $(pwd):/opt/src/github.com/nitrous-io/tender \
+  -w /opt/src/github.com/nitrous-io/tender \
+  -it \
+  registry.nitrous.io/tender ./script/shell
+

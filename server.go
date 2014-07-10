@@ -15,29 +15,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const (
-	// get the user id if we know the access token of that user
-	userQuery = `
-	SELECT users.id
-	FROM users INNER JOIN tokens ON tokens.user_id = users.id
-	WHERE tokens.token = $1
-	`
-
-	// get the host
-	hostQuery = `
-	SELECT hosts.ip_address
-	FROM hosts
-	WHERE hosts.name = $1
-	`
-
-	// get the host id and ip address if we know the user and the host name
-	hostUserQuery = `
-	SELECT hosts.ip_address
-	FROM hosts INNER JOIN users ON hosts.user_id = users.id
-	WHERE users.id = $1 AND hosts.name = $2
-	`
-)
-
 type env struct {
 	userID int
 	host   string
@@ -45,39 +22,6 @@ type env struct {
 
 func (e *env) authenticated() bool {
 	return e.userID > 0
-}
-
-func user(db *sql.DB, token string) (int, error) {
-	var id int
-	err := db.QueryRow(userQuery, token).Scan(&id)
-	if os.Getenv("DEBUG") == "true" {
-		return 1, nil
-	}
-	return id, err
-}
-
-func host(db *sql.DB, hostName string) (net.IP, error) {
-	var ip string
-	if os.Getenv("DEBUG") == "true" {
-		return net.ParseIP("172.17.0.24"), nil
-	}
-	err := db.QueryRow(hostQuery, hostName).Scan(&ip)
-	if err != nil {
-		return nil, err
-	}
-	return net.ParseIP(ip), nil
-}
-
-func hostUser(db *sql.DB, userID int, hostName string) (net.IP, error) {
-	var ip string
-	if os.Getenv("DEBUG") == "true" {
-		return net.ParseIP("172.17.0.2"), nil
-	}
-	err := db.QueryRow(hostUserQuery, userID, hostName).Scan(&ip)
-	if err != nil {
-		return nil, err
-	}
-	return net.ParseIP(ip), nil
 }
 
 type Server struct {
@@ -187,7 +131,7 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 	if env.authenticated() {
 		hostIP, err = host(s.db, hostName)
 	} else {
-		hostIP, err = hostUser(s.db, env.userID, hostName)
+		hostIP, err = hostByUser(s.db, env.userID, hostName)
 	}
 	if err != nil {
 		return err
