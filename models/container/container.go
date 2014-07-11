@@ -10,18 +10,20 @@ import (
 // FIXME add accompanying tables to lookup which users have access to a
 // container (e.g. collaborators, users in the same team/organization).
 type Container struct {
-	ID        string         `db:"id"`
-	UserID    int64          `db:"user_id"`
-	HostID    int64          `db:"host_id"`
-	Image     string         `db:"image"`
-	Name      string         `db:"name"`
-	LongName  sql.NullString `db:"long_name"`
-	IPAddress sql.NullString `db:"ip_address"`
+	ID        string         `db:"id"         json:"id"`
+	UserID    int64          `db:"user_id"    json:"user_id"`
+	HostID    int64          `db:"host_id"    json:"host_id"`
+	Image     string         `db:"image"      json:"image"`
+	Name      string         `db:"name"       json:"name"`
+	LongName  sql.NullString `db:"long_name"  json:"long_name"`
+	IPAddress sql.NullString `db:"ip_address" json:"ip_address"`
 
-	TerminatedAt *time.Time `db:"terminated_at"`
-	TouchedAt    *time.Time `db:"touched_at"`
-	CreatedAt    *time.Time `db:"created_at"`
-	UpdatedAt    *time.Time `db:"updated_at"`
+	TerminatedAt *time.Time `db:"terminated_at" json:"terminated_at"`
+	TouchedAt    *time.Time `db:"touched_at"    json:"touched_at"`
+	CreatedAt    *time.Time `db:"created_at"    json:"created_at"`
+	UpdatedAt    *time.Time `db:"updated_at"    json:"updated_at"`
+
+	State string `json:"state"`
 }
 
 func FindByID(d db.QueryReceiver, id string) (*Container, error) {
@@ -48,11 +50,11 @@ func FindByHostIDAndName(d db.QueryReceiver, hostID int64, name string) (*Contai
 	return c, nil
 }
 
-func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]Container, error) {
-	containers := []Container{}
+func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
+	containers := []*Container{}
 	err := d.Select(&containers, `SELECT * FROM containers WHERE host_id = $1;`, hostID)
 	if err != nil {
-		return []Container{}, err
+		return []*Container{}, err
 	}
 	return containers, nil
 }
