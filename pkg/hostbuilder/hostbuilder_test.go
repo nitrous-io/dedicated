@@ -4,46 +4,39 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/nitrous-io/nitrous/pkg/hostbuilder"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 )
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "hostbuilder")
+	RunSpecs(t, "pkg/hostbuilder")
 }
 
-func createServer(fn func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(fn))
-}
+var _ = Describe("pkg/hostbuilder", func() {
+	var (
+		hb  *hostbuilder.Hostbuilder
+		srv *ghttp.Server
+	)
 
-func mockOKServer(path, method string) *httptest.Server {
-	return createServer(func(w http.ResponseWriter, r *http.Request) {
-		Expect(r.URL.Path).To(Equal(path))
-		Expect(r.Method).To(Equal(method))
+	prepareHandlers := func(method, path string, code int, body string) {
+		srv.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest(method, path),
+			ghttp.RespondWith(code, body),
+		))
+	}
 
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`))
+	BeforeEach(func() {
+		srv = ghttp.NewServer()
 	})
-}
 
-func mockErrorServer(path, method string) *httptest.Server {
-	return createServer(func(w http.ResponseWriter, r *http.Request) {
-		Expect(r.URL.Path).To(Equal(path))
-		Expect(r.Method).To(Equal(method))
-
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("some_error"))
+	AfterEach(func() {
+		srv.Close()
 	})
-}
-
-var _ = Describe("hostbuilder", func() {
-	var hb *hostbuilder.Hostbuilder
 
 	Describe("Create()", func() {
 		doRequest := func() (hostbuilder.Output, error) {
@@ -55,36 +48,21 @@ var _ = Describe("hostbuilder", func() {
 
 		Context("when hostbuilder creates a host", func() {
 			BeforeEach(func() {
-				ms := createServer(func(w http.ResponseWriter, r *http.Request) {
-					Expect(r.URL.Path).To(Equal("/hosts"))
-					Expect(r.Method).To(Equal("POST"))
-
-					r.ParseForm()
-
-					provider := r.FormValue("provider")
-					m := struct {
-						Provider       string `json:"provider"`
-						ID             string `json:"id"`
-						IPAddress      string `json:"ip_address"`
-						FreighterdPort uint16 `json:"freighterd_port"`
-					}{
-						Provider:       provider,
-						ID:             "some_id",
-						IPAddress:      "0.0.0.0",
-						FreighterdPort: 1234,
-					}
-
-					payload, err := json.Marshal(m)
-					if err != nil {
-						panic(err) // should not fail
-					}
-
-					w.WriteHeader(http.StatusCreated)
-					w.Header().Set("Content-Type", "application/json")
-					w.Write(payload)
-				})
-
-				hb = hostbuilder.NewHostbuilder(ms.URL)
+				m := struct {
+					Provider       string `json:"provider"`
+					ID             string `json:"id"`
+					IPAddress      string `json:"ip_address"`
+					FreighterdPort uint16 `json:"freighterd_port"`
+				}{
+					Provider:       "digitalocean",
+					ID:             "some_id",
+					IPAddress:      "0.0.0.0",
+					FreighterdPort: 1234,
+				}
+				payload, err := json.Marshal(m)
+				Expect(err).To(BeNil())
+				prepareHandlers("POST", "/hosts", http.StatusCreated, string(payload))
+				hb = hostbuilder.NewHostbuilder(srv.URL())
 			})
 
 			It("returns the info of the created host", func() {
@@ -100,8 +78,8 @@ var _ = Describe("hostbuilder", func() {
 
 		Context("when hostbuilder fails to create a host", func() {
 			BeforeEach(func() {
-				ms := mockErrorServer("/hosts", "POST")
-				hb = hostbuilder.NewHostbuilder(ms.URL)
+				prepareHandlers("POST", "/hosts", http.StatusBadRequest, "some_error")
+				hb = hostbuilder.NewHostbuilder(srv.URL())
 			})
 
 			It("returns an error returned by hostbuilder", func() {
@@ -122,8 +100,8 @@ var _ = Describe("hostbuilder", func() {
 
 		Context("when hostbuilder deletes the host", func() {
 			BeforeEach(func() {
-				ms := mockOKServer("/hosts/delete", "POST")
-				hb = hostbuilder.NewHostbuilder(ms.URL)
+				prepareHandlers("POST", "/hosts/delete", http.StatusOK, `{"status":"ok"}`)
+				hb = hostbuilder.NewHostbuilder(srv.URL())
 			})
 
 			It("returns no errors", func() {
@@ -134,8 +112,8 @@ var _ = Describe("hostbuilder", func() {
 
 		Context("when hostbuilder fails to delete the host", func() {
 			BeforeEach(func() {
-				ms := mockErrorServer("/hosts/delete", "POST")
-				hb = hostbuilder.NewHostbuilder(ms.URL)
+				prepareHandlers("POST", "/hosts/delete", http.StatusBadRequest, "some_error")
+				hb = hostbuilder.NewHostbuilder(srv.URL())
 			})
 
 			It("returns an error returned by hostbuilder", func() {
@@ -157,8 +135,8 @@ var _ = Describe("hostbuilder", func() {
 
 		Context("when hostbuilder starts the host", func() {
 			BeforeEach(func() {
-				ms := mockOKServer("/hosts/start", "POST")
-				hb = hostbuilder.NewHostbuilder(ms.URL)
+				prepareHandlers("POST", "/hosts/start", http.StatusOK, `{"status":"ok"}`)
+				hb = hostbuilder.NewHostbuilder(srv.URL())
 			})
 
 			It("returns no errors", func() {
@@ -169,8 +147,8 @@ var _ = Describe("hostbuilder", func() {
 
 		Context("when hostbuilder fails to start the host", func() {
 			BeforeEach(func() {
-				ms := mockErrorServer("/hosts/start", "POST")
-				hb = hostbuilder.NewHostbuilder(ms.URL)
+				prepareHandlers("POST", "/hosts/start", http.StatusBadRequest, "some_error")
+				hb = hostbuilder.NewHostbuilder(srv.URL())
 			})
 
 			It("returns an error returned by hostbuilder", func() {
@@ -189,8 +167,8 @@ var _ = Describe("hostbuilder", func() {
 
 		Context("when hostbuilder stops the host", func() {
 			BeforeEach(func() {
-				ms := mockOKServer("/hosts/stop", "POST")
-				hb = hostbuilder.NewHostbuilder(ms.URL)
+				prepareHandlers("POST", "/hosts/stop", http.StatusOK, `{"status":"ok"}`)
+				hb = hostbuilder.NewHostbuilder(srv.URL())
 			})
 
 			It("returns no errors", func() {
@@ -201,8 +179,8 @@ var _ = Describe("hostbuilder", func() {
 
 		Context("when hostbuilder fails to stop the host", func() {
 			BeforeEach(func() {
-				ms := mockErrorServer("/hosts/stop", "POST")
-				hb = hostbuilder.NewHostbuilder(ms.URL)
+				prepareHandlers("POST", "/hosts/stop", http.StatusBadRequest, "some_error")
+				hb = hostbuilder.NewHostbuilder(srv.URL())
 			})
 
 			It("returns an error returned by hostbuilder", func() {
@@ -221,8 +199,8 @@ var _ = Describe("hostbuilder", func() {
 
 		Context("when hostbuilder restarts the host", func() {
 			BeforeEach(func() {
-				ms := mockOKServer("/hosts/restart", "POST")
-				hb = hostbuilder.NewHostbuilder(ms.URL)
+				prepareHandlers("POST", "/hosts/restart", http.StatusOK, `{"status":"ok"}`)
+				hb = hostbuilder.NewHostbuilder(srv.URL())
 			})
 
 			It("returns no errors", func() {
@@ -233,8 +211,8 @@ var _ = Describe("hostbuilder", func() {
 
 		Context("when hostbuilder fails to restart the host", func() {
 			BeforeEach(func() {
-				ms := mockErrorServer("/hosts/restart", "POST")
-				hb = hostbuilder.NewHostbuilder(ms.URL)
+				prepareHandlers("POST", "/hosts/restart", http.StatusBadRequest, "some_error")
+				hb = hostbuilder.NewHostbuilder(srv.URL())
 			})
 
 			It("returns an error returned by hostbuilder", func() {

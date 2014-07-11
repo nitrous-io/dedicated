@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+
+	"github.com/nitrous-io/nitrous-common/httpclient"
 )
 
 type Config map[string]interface{}
@@ -26,12 +28,13 @@ func NewHostbuilder(url string) *Hostbuilder {
 }
 
 func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config *Config) (Output, error) {
+	client := httpclient.New("")
 	// FIXME: make this a global setting
 	v, _ := strconv.ParseBool(os.Getenv("NO_SSL_VERIFY"))
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: v},
 	}
-	client := &http.Client{Transport: tr}
+	client.Client.Transport = tr
 
 	p := url.Values{}
 	p.Set("provider", provider)
@@ -51,7 +54,7 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 		url = hb.URL + "/hosts/" + path
 	}
 
-	response, err := client.PostForm(url, p)
+	response, err := client.PostForm(url, &p)
 	if err != nil {
 		return nil, err
 	}
