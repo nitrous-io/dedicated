@@ -1,7 +1,9 @@
 package container_test
 
 import (
+	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/container"
@@ -210,6 +212,7 @@ var _ = Describe("models/container", func() {
 			Expect(cntnr).NotTo(BeNil())
 			Expect(cntnr.ID).To(Equal("cafebabe"))
 			Expect(cntnr.UserID).To(Equal(u.ID))
+			Expect(cntnr.HostID).To(Equal(h.ID))
 			Expect(cntnr.Image).To(Equal("nitrous-base"))
 			Expect(cntnr.Name).To(Equal("java-test-container"))
 		})
@@ -217,6 +220,168 @@ var _ = Describe("models/container", func() {
 		It("fills up the fields in original struct", func() {
 			Expect(c.CreatedAt).NotTo(BeNil())
 			Expect(c.UpdatedAt).NotTo(BeNil())
+		})
+	})
+
+	Describe("Update()", func() {
+		var (
+			c   *container.Container
+			cid = "cafebabe"
+		)
+
+		BeforeEach(func() {
+			var err error
+			c = &container.Container{
+				ID:     cid,
+				UserID: u.ID,
+				HostID: h.ID,
+				Image:  "nitrous-base",
+				Name:   "java-test-container",
+			}
+			err = c.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("updates the container in the database", func() {
+			c.Name = "jboss"
+			c.IPAddress = sql.NullString{"1.2.3.4", true}
+			touchedAt := time.Date(2013, time.November, 10, 0, 0, 0, 0, time.UTC)
+			c.TouchedAt = &touchedAt
+			err := c.Update(db)
+			Expect(err).To(BeNil())
+
+			cntnr, err := container.FindByID(db, cid)
+			Expect(err).To(BeNil())
+			Expect(cntnr).NotTo(BeNil())
+			Expect(cntnr.ID).To(Equal(cid))
+
+			// Updated fields.
+			Expect(cntnr.Name).To(Equal("jboss"))
+			Expect(cntnr.IPAddress.String).To(Equal("1.2.3.4"))
+			Expect(cntnr.TouchedAt.Unix()).To(Equal(touchedAt.Unix()))
+
+			// Unchanged fields.
+			Expect(cntnr.UserID).To(Equal(u.ID))
+			Expect(cntnr.HostID).To(Equal(h.ID))
+			Expect(cntnr.Image).To(Equal("nitrous-base"))
+		})
+
+		It("fills up the fields in original struct", func() {
+			c.Name = "jboss"
+			err := c.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(c.CreatedAt).NotTo(BeNil())
+			Expect(c.UpdatedAt).NotTo(BeNil())
+		})
+
+		It("updates UpdatedAt", func() {
+			origUpdatedAt := c.UpdatedAt
+
+			c.Name = "jboss"
+			err := c.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(c.UpdatedAt).NotTo(Equal(origUpdatedAt))
+		})
+
+		Context("when the ID is changed to a non-existent ID", func() {
+			var newID = "cafebabe-2"
+
+			BeforeEach(func() {
+				c.ID = newID
+				c.Name = "jboss"
+				err := c.Update(db)
+				Expect(err).NotTo(BeNil())
+			})
+
+			It("does not update original container", func() {
+				cntnr, err := container.FindByID(db, cid)
+				Expect(err).To(BeNil())
+				Expect(cntnr.ID).To(Equal(cid))
+				Expect(cntnr.UserID).To(Equal(u.ID))
+				Expect(cntnr.HostID).To(Equal(h.ID))
+				Expect(cntnr.Image).To(Equal("nitrous-base"))
+				Expect(cntnr.Name).To(Equal("java-test-container"))
+			})
+
+			It("does not create a new container with the non-existent ID", func() {
+				cntnr, err := container.FindByID(db, newID)
+				Expect(err).To(BeNil())
+				Expect(cntnr).To(BeNil())
+			})
+		})
+
+		Context("unchangeable fields", func() {
+			Context("user ID", func() {
+				It("does not get updated", func() {
+					u2 := &user.User{
+						Username: "bar",
+						Email:    "bar@example.com",
+						Password: "123456",
+					}
+					err := u2.Insert(db)
+					Expect(err).To(BeNil())
+
+					c.UserID = u2.ID
+					err = c.Update(db)
+					Expect(err).To(BeNil())
+
+					cntnr, err := container.FindByID(db, cid)
+					Expect(err).To(BeNil())
+					Expect(cntnr.UserID).To(Equal(u.ID))
+				})
+			})
+
+			Context("host ID", func() {
+				It("does not get updated", func() {
+					h2 := &host.Host{
+						UserID:             u.ID,
+						Name:               "my-host-2",
+						RegionID:           r.ID,
+						PlanID:             p.ID,
+						ProviderTemplateID: pt.ID,
+					}
+					err := h2.Insert(db)
+					Expect(err).To(BeNil())
+
+					c.HostID = h2.ID
+					err = c.Update(db)
+					Expect(err).To(BeNil())
+
+					cntnr, err := container.FindByID(db, cid)
+					Expect(err).To(BeNil())
+					Expect(cntnr.HostID).To(Equal(h.ID))
+				})
+			})
+
+			Context("image", func() {
+				It("does not get updated", func() {
+					c.Image = "nitrous-base-v2"
+					err := c.Update(db)
+					Expect(err).To(BeNil())
+
+					cntnr, err := container.FindByID(db, cid)
+					Expect(err).To(BeNil())
+					Expect(cntnr.Image).To(Equal("nitrous-base"))
+				})
+			})
+
+			Context("created at timestamp", func() {
+				It("does not get updated", func() {
+					origCreatedAt := c.CreatedAt
+
+					newCreatedAt := time.Date(2013, time.November, 10, 0, 0, 0, 0, time.UTC)
+					c.CreatedAt = &newCreatedAt
+					err := c.Update(db)
+					Expect(err).To(BeNil())
+
+					cntnr, err := container.FindByID(db, cid)
+					Expect(err).To(BeNil())
+					Expect(cntnr.CreatedAt).NotTo(Equal(newCreatedAt))
+					Expect(cntnr.CreatedAt).To(Equal(origCreatedAt))
+				})
+			})
 		})
 	})
 })

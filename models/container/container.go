@@ -67,3 +67,15 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 	}
 	return nstmt.QueryRowx(c).StructScan(c)
 }
+
+func (c *Container) Update(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE containers
+		SET (name, long_name, ip_address, terminated_at, touched_at, updated_at)
+		= (:name, :long_name, :ip_address, :terminated_at, :touched_at, now())
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(c).StructScan(c)
+}
