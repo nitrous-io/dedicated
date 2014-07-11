@@ -120,5 +120,12 @@ func init() {
 				CREATE UNIQUE INDEX index_containers_on_host_id_and_name ON containers USING btree (host_id, name);
 			`,
 		},
+		{
+			Version: "80",
+			Up: `
+				DROP INDEX index_hosts_on_user_id_and_name;
+				CREATE UNIQUE INDEX index_hosts_on_name ON hosts USING btree (name);
+			`,
+		},
 	}
 }
