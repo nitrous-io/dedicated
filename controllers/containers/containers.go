@@ -20,7 +20,10 @@ var FreighterClient freighter.Client
 
 var errHostNotFound = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
 
-var Index middlewares.Middleware = withHost(index)
+var (
+	Index  middlewares.Middleware = withHost(index)
+	Create middlewares.Middleware = withHost(create)
+)
 
 func init() {
 	FreighterClient = freighter.NewClient(nil)
@@ -95,6 +98,67 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"containers": containers,
+	}
+	return nil
+}
+
+func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	db := c.DB()
+	logger := c.Logger()
+
+	name := r.FormValue("name")
+	longname := r.FormValue("longname")
+	image := r.FormValue("image")
+
+	if name == "" {
+		// TODO We should probably retry if the generated name ends up being
+		// already in use.
+		name = container.GenerateRandomName()
+	}
+
+	fHost := mkFreighterHost(h)
+	created, err := FreighterClient.Create(fHost, name, image)
+	if err != nil {
+		switch err := err.(type) {
+		case freighter.InvalidParamError:
+			return httperror.New(http.StatusBadRequest, "validation_failed", err.Msg)
+		default:
+			return err
+		}
+	}
+
+	cntnr := &container.Container{
+		ID:        created.ID,
+		Image:     created.Image,
+		Name:      created.Name,
+		State:     created.State,
+		IPAddress: sql.NullString{created.Host, true},
+		UserID:    env.User.ID,
+		HostID:    h.ID,
+	}
+	if longname != "" {
+		cntnr.LongName = sql.NullString{longname, true}
+	}
+
+	err = cntnr.Validate()
+	if err != nil {
+		// TODO What should we do? Freighter successfully created the container,
+		// but we can't save it to DB.
+		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
+	}
+
+	err = cntnr.Insert(db)
+	if err != nil {
+		// TODO What should we do? Freighter successfully created the container,
+		// but we can't save it to DB.
+		logger.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to save to database as '%+v'", created, cntnr)
+		return err
+	}
+
+	env.Status = http.StatusCreated
+	env.Data = map[string]interface{}{
+		"status":    "created",
+		"container": cntnr,
 	}
 	return nil
 }

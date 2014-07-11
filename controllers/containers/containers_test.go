@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -308,6 +309,139 @@ var _ = Describe("controllers/containers", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = "/api/v0/hosts/foo/containers"
 				authTokenInputs.Method = "GET"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("POST /api/v0/hosts/{host}/containers", func() {
+		var params *url.Values
+
+		BeforeEach(func() {
+			params = &url.Values{}
+			params.Set("name", "elixir-web-1")
+			params.Set("longname", "Elixir Web Server 1")
+			params.Set("image", "elixir")
+		})
+
+		doRequest := func(token, host string, params *url.Values) {
+			req, err := NewFormRequest("POST", fmt.Sprintf("/api/v0/hosts/%s/containers", host), params)
+			Expect(err).To(BeNil())
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+			handler.ServeHTTP(res, req)
+		}
+
+		Context("when a valid oauth token is given", func() {
+			Context("when valid params are given", func() {
+				It("calls the Freighter client to create a container", func() {
+					mockClient.CreateError = errors.New("create failed")
+
+					doRequest("valid-token", "foo", params)
+
+					Expect(mockClient.CreateCalled).To(Equal(1))
+					Expect(mockClient.ReceivedName).To(Equal("elixir-web-1"))
+					Expect(mockClient.ReceivedImage).To(Equal("elixir"))
+				})
+
+				Context("when the Freighter client returns an error", func() {
+					BeforeEach(func() {
+						mockClient.CreateError = errors.New("only Chuck Norris is allowed")
+					})
+
+					It("responds with HTTP 500 Internal Server Error", func() {
+						doRequest("valid-token", "foo", params)
+
+						Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+						j := map[string]interface{}{}
+						err := json.Unmarshal(res.Body.Bytes(), &j)
+						Expect(err).To(BeNil())
+
+						errType, ok := j["error"].(string)
+						Expect(ok).To(BeTrue())
+						Expect(errType).To(Equal("internal_server_error"))
+					})
+
+					Context("when the error is an InvalidParamError", func() {
+						BeforeEach(func() {
+							mockClient.CreateError = freighter.InvalidParamError{"invalid name"}
+						})
+
+						It("responds with HTTP 400 Bad Request", func() {
+							doRequest("valid-token", "foo", params)
+
+							Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+							j := map[string]interface{}{}
+							err := json.Unmarshal(res.Body.Bytes(), &j)
+							Expect(err).To(BeNil())
+
+							errType, ok := j["error"].(string)
+							Expect(ok).To(BeTrue())
+							Expect(errType).To(Equal("validation_failed"))
+						})
+					})
+				})
+
+				Context("when Freighter client returns a Container with no error", func() {
+					BeforeEach(func() {
+						mockClient.CreatedContainer = &freighter.Container{
+							ID:      "deadbeef",
+							Name:    "elixir-web-1",
+							Host:    "1.2.3.4",
+							State:   "running",
+							Image:   "elixir",
+							SSHPort: 60001,
+						}
+					})
+
+					It("responds with HTTP 201 Created", func() {
+						doRequest("valid-token", "foo", params)
+						Expect(res.Code).To(Equal(http.StatusCreated))
+					})
+
+					It("responds with the container and a status of created", func() {
+						doRequest("valid-token", "foo", params)
+
+						j := struct {
+							Status    string               `json:"status"`
+							Container *container.Container `json:"container"`
+						}{}
+						err := json.Unmarshal(res.Body.Bytes(), &j)
+						Expect(err).To(BeNil())
+
+						Expect(j.Status).To(Equal("created"))
+						Expect(j.Container).NotTo(BeNil())
+						Expect(j.Container.ID).To(Equal("deadbeef"))
+						Expect(j.Container.Image).To(Equal("elixir"))
+						Expect(j.Container.Name).To(Equal("elixir-web-1"))
+						Expect(j.Container.IPAddress.String).To(Equal("1.2.3.4"))
+						Expect(j.Container.State).To(Equal("running"))
+						Expect(j.Container.LongName.String).To(Equal("Elixir Web Server 1"))
+					})
+
+					Context("when model validation fails", func() {
+						BeforeEach(func() {
+							mockClient.CreatedContainer.Name = ""
+						})
+
+						It("responds with HTTP 400 Bad Request", func() {
+							doRequest("valid-token", "foo", params)
+
+							Expect(res.Code).To(Equal(http.StatusBadRequest))
+						})
+					})
+				})
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo/containers"
+				authTokenInputs.Method = "POST"
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
