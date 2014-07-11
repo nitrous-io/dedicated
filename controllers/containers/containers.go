@@ -1,6 +1,7 @@
 package containers
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 
@@ -9,19 +10,88 @@ import (
 	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/pkg/freighter"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
-var (
-	errHostNotFound = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
-)
+// FreighterClient is a shared freighter.Client for making requests to Freighter
+// API hosts.
+var FreighterClient freighter.Client
 
-func Index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-	containers, err := container.FindAllByHostID(db, h.ID)
+var errHostNotFound = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
+
+var Index middlewares.Middleware = withHost(index)
+
+func init() {
+	FreighterClient = freighter.NewClient(nil)
+}
+
+func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	logger := c.Logger()
+
+	// FIXME Make Freighter API request and DB query concurrent.
+	// 1. send request to Freighter API in goroutine.
+	// 2. query DB normally.
+	// 3. If db query, stop other Freighter API goroutine (to avoid leaks) and return err.
+	// 4. Wait for both db query and Freighter API goroutine to complete.
+	fHost := mkFreighterHost(h)
+	liveContainers, err := FreighterClient.List(fHost)
 	if err != nil {
 		return err
 	}
+
+	db := c.DB()
+	savedContainers, err := container.FindAllByHostID(db, h.ID)
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("Live containers:")
+	for _, c := range liveContainers {
+		logger.Debugf("  %+v", c)
+	}
+	logger.Debug("Saved containers:")
+	for _, c := range savedContainers {
+		logger.Debugf("  %+v", c)
+	}
+
+	containers := []*container.Container{}
+	for _, lc := range liveContainers {
+		var savedContainer *container.Container
+		for _, sc := range savedContainers {
+			if sc.ID == lc.ID {
+				savedContainer = sc
+				break
+			}
+		}
+
+		c := &container.Container{
+			ID:        lc.ID,
+			Image:     lc.Image,
+			Name:      lc.Name,
+			State:     lc.State,
+			IPAddress: sql.NullString{lc.Host, true},
+			UserID:    env.User.ID,
+			HostID:    h.ID,
+		}
+
+		if savedContainer != nil {
+			c.LongName = savedContainer.LongName
+			c.TerminatedAt = savedContainer.TerminatedAt
+			c.TouchedAt = savedContainer.TouchedAt
+			c.CreatedAt = savedContainer.CreatedAt
+			c.UpdatedAt = savedContainer.UpdatedAt
+		} else {
+			// It's possible that a container exists in Freighter but isn't
+			// present in the database, e.g. container has been created by
+			// Freighter but we have not been notified of its creation yet.
+			// We just send as much info as possible.
+			logger.Warnf("Found container from Freighter that isn't stored in database: %v", lc)
+		}
+
+		containers = append(containers, c)
+	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"containers": containers,
@@ -29,7 +99,7 @@ func Index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 	return nil
 }
 
-func WithHost(fn func(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
+func withHost(fn func(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
 	return func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		db := c.DB()
 
@@ -49,4 +119,11 @@ func WithHost(fn func(h *host.Host, env *middlewares.Env, c controllers.Helper, 
 
 		return fn(h, env, c, w, r)
 	}
+}
+
+func mkFreighterHost(h *host.Host) *freighter.Host {
+	// TODO Freighter port and TLS enabled might vary for each Freighter host.
+	// Freighter port should come from Hostbuilder, i.e. it'll be sent in the
+	// response from Hostbuilder and we should save it into the hosts table.
+	return freighter.NewHost(h.IPAddress.String, 0, false)
 }

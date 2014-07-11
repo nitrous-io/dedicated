@@ -1,22 +1,24 @@
 package containers_test
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/models/plan"
-	"github.com/nitrous-io/nitrous/models/providertemplate"
-	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/pkg/freighter"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -28,7 +30,7 @@ func Test(t *testing.T) {
 	RunSpecs(t, "controllers/containers")
 }
 
-var _ = Describe("controllers/hosts", func() {
+var _ = Describe("controllers/containers", func() {
 	var (
 		db              *db.Database
 		svr             *server.Server
@@ -36,15 +38,20 @@ var _ = Describe("controllers/hosts", func() {
 		res             *httptest.ResponseRecorder
 		authTokenInputs AuthTokenInputs
 
+		// Mock client that satisfies the freighter.Client interface.
+		mockClient *freighter.MockClient
+
 		u  *user.User
 		t  *token.Token
-		r  *region.Region
-		p  *plan.Plan
-		pt *providertemplate.ProviderTemplate
+		hs *HostStack
 	)
 
 	BeforeEach(func() {
 		var err error
+
+		mockClient = &freighter.MockClient{}
+		containers.FreighterClient = mockClient
+
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
@@ -68,21 +75,10 @@ var _ = Describe("controllers/hosts", func() {
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
 
-		r = &region.Region{Name: "apse1", Description: "Southeast Asia"}
-		err = r.Insert(db)
-		Expect(err).To(BeNil())
-
-		p = &plan.Plan{Name: "micro", MaxContainers: 1, Price: 500}
-		err = p.Insert(db)
-		Expect(err).To(BeNil())
-
-		pt = &providertemplate.ProviderTemplate{
-			RegionID: r.ID,
-			PlanID:   p.ID,
-			Name:     "digital-ocean-1",
-			Provider: "digitalocean",
-		}
-		err = pt.Insert(db)
+		hs, err = CreateHostStack(db, &HostStack{
+			H: &host.Host{Name: "foo"},
+			U: u,
+		})
 		Expect(err).To(BeNil())
 	})
 
@@ -93,21 +89,6 @@ var _ = Describe("controllers/hosts", func() {
 	})
 
 	Describe("GET /api/v0/hosts/{host}/containers", func() {
-		var h *host.Host
-
-		BeforeEach(func() {
-			var err error
-			h = &host.Host{
-				Name:               "foo-host",
-				UserID:             u.ID,
-				RegionID:           r.ID,
-				PlanID:             p.ID,
-				ProviderTemplateID: pt.ID,
-			}
-			err = h.Insert(db)
-			Expect(err).To(BeNil())
-		})
-
 		doRequest := func(token, host string) {
 			req, err := NewRequest("GET", fmt.Sprintf("/api/v0/hosts/%s/containers", host), nil)
 			Expect(err).To(BeNil())
@@ -120,23 +101,68 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when a valid oauth token is given", func() {
 			Context("when host exists for user", func() {
 				Context("when host has containers", func() {
-					var c *container.Container
+					var (
+						c         *container.Container
+						fc        *freighter.Container
+						touchedAt time.Time
+					)
 
 					BeforeEach(func() {
-						var err error
 						c = &container.Container{
-							ID:     "deadbeef",
-							UserID: u.ID,
-							HostID: h.ID,
-							Image:  "nitrous-base",
-							Name:   "dominant-intercooler-42",
+							ID:        "deadbeef",
+							Name:      "dominant-intercooler-42",
+							IPAddress: sql.NullString{"1.2.3.4", true},
+							Image:     "nitrous-base",
+							UserID:    u.ID,
+							HostID:    hs.H.ID,
+							LongName:  sql.NullString{"Rails app server", true},
 						}
-						err = c.Insert(db)
+						err := c.Insert(db)
 						Expect(err).To(BeNil())
+
+						touchedAt = time.Date(2013, time.November, 10, 0, 0, 0, 0, time.UTC)
+						c.TouchedAt = &touchedAt
+						err = c.Update(db)
+						Expect(err).To(BeNil())
+
+						fc = &freighter.Container{
+							ID:      "deadbeef",
+							Name:    "dominant-intercooler-42",
+							Host:    "1.2.3.4",
+							State:   "running",
+							Image:   "nitrous-base",
+							SSHPort: 60001,
+						}
+						mockClient.Containers = []*freighter.Container{fc}
 					})
 
-					It("responds with the containers on the host", func() {
-						doRequest("valid-token", "foo-host")
+					It("calls the Freighter client to list containers", func() {
+						doRequest("valid-token", "foo")
+						Expect(mockClient.ListCalled).To(Equal(1))
+					})
+
+					Context("when the Freighter client returns an error", func() {
+						BeforeEach(func() {
+							mockClient.ListError = errors.New("you are not Chuck Norris")
+						})
+
+						It("responds with HTTP 500 Internal Server Error", func() {
+							doRequest("valid-token", "foo")
+
+							Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+							j := map[string]interface{}{}
+							err := json.Unmarshal(res.Body.Bytes(), &j)
+							Expect(err).To(BeNil())
+
+							errType, ok := j["error"].(string)
+							Expect(ok).To(BeTrue())
+							Expect(errType).To(Equal("internal_server_error"))
+						})
+					})
+
+					It("responds with the containers from Freighter and augments them with data from the database", func() {
+						doRequest("valid-token", "foo")
 
 						Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -147,17 +173,104 @@ var _ = Describe("controllers/hosts", func() {
 						Expect(ok).To(BeTrue())
 						Expect(containers).To(HaveLen(1))
 
+						// Fields from Freighter API.
 						Expect(containers[0].ID).To(Equal("deadbeef"))
-						Expect(containers[0].UserID).To(Equal(u.ID))
-						Expect(containers[0].HostID).To(Equal(h.ID))
 						Expect(containers[0].Image).To(Equal("nitrous-base"))
 						Expect(containers[0].Name).To(Equal("dominant-intercooler-42"))
+						Expect(containers[0].IPAddress.String).To(Equal("1.2.3.4"))
+						Expect(containers[0].State).To(Equal("running"))
+
+						// Fields from database.
+						Expect(containers[0].UserID).To(Equal(u.ID))
+						Expect(containers[0].HostID).To(Equal(hs.H.ID))
+						Expect(containers[0].LongName.String).To(Equal("Rails app server"))
+						Expect(containers[0].TouchedAt.Unix()).To(Equal(touchedAt.Unix()))
+					})
+
+					Context("when containers from Freighter differs from data in the database", func() {
+						BeforeEach(func() {
+							fc.Image = "new-image"
+							fc.Name = "new-name-42"
+							fc.Host = "2.4.6.8"
+							fc.State = "stopped"
+							mockClient.Containers = []*freighter.Container{fc}
+						})
+
+						It("prefers the data in the Freighter response", func() {
+							doRequest("valid-token", "foo")
+
+							Expect(res.Code).To(Equal(http.StatusOK))
+
+							var j map[string][]container.Container
+							err := json.Unmarshal(res.Body.Bytes(), &j)
+							Expect(err).To(BeNil())
+							containers, ok := j["containers"]
+							Expect(ok).To(BeTrue())
+							Expect(containers).To(HaveLen(1))
+
+							Expect(containers[0].ID).To(Equal("deadbeef"))
+							Expect(containers[0].Image).To(Equal("new-image"))
+							Expect(containers[0].Name).To(Equal("new-name-42"))
+							Expect(containers[0].IPAddress.String).To(Equal("2.4.6.8"))
+							Expect(containers[0].State).To(Equal("stopped"))
+						})
+					})
+
+					Context("when there are more containers from Freighter than in the database", func() {
+						BeforeEach(func() {
+							fc2 := &freighter.Container{
+								ID:      "cafebabe",
+								Name:    "wicked-baby-69",
+								Host:    "1.2.3.5",
+								State:   "running",
+								Image:   "nitrous-base",
+								SSHPort: 60002,
+							}
+							mockClient.Containers = []*freighter.Container{fc, fc2}
+						})
+
+						It("responds with all the containers from Freighter", func() {
+							doRequest("valid-token", "foo")
+
+							Expect(res.Code).To(Equal(http.StatusOK))
+
+							var j map[string][]container.Container
+							err := json.Unmarshal(res.Body.Bytes(), &j)
+							Expect(err).To(BeNil())
+							containers, ok := j["containers"]
+							Expect(ok).To(BeTrue())
+							Expect(containers).To(HaveLen(2))
+
+							Expect(containers[0].ID).To(Equal("deadbeef"))
+							Expect(containers[0].Image).To(Equal("nitrous-base"))
+							Expect(containers[0].Name).To(Equal("dominant-intercooler-42"))
+							Expect(containers[0].IPAddress.String).To(Equal("1.2.3.4"))
+							Expect(containers[0].State).To(Equal("running"))
+							Expect(containers[0].UserID).To(Equal(u.ID))
+							Expect(containers[0].HostID).To(Equal(hs.H.ID))
+							Expect(containers[0].LongName.String).To(Equal("Rails app server"))
+							Expect(containers[0].TouchedAt.Unix()).To(Equal(touchedAt.Unix()))
+
+							Expect(containers[1].ID).To(Equal("cafebabe"))
+							Expect(containers[1].Image).To(Equal("nitrous-base"))
+							Expect(containers[1].Name).To(Equal("wicked-baby-69"))
+							Expect(containers[1].IPAddress.String).To(Equal("1.2.3.5"))
+							Expect(containers[1].State).To(Equal("running"))
+							Expect(containers[1].UserID).To(Equal(u.ID))
+							Expect(containers[1].HostID).To(Equal(hs.H.ID))
+							Expect(containers[1].LongName.String).To(Equal(""))
+							Expect(containers[1].TouchedAt).To(BeNil())
+						})
 					})
 				})
 
 				Context("when host has no containers", func() {
+					BeforeEach(func() {
+						mockClient.Containers = []*freighter.Container{}
+					})
+
 					It("responds with an empty array", func() {
-						doRequest("valid-token", "foo-host")
+						doRequest("valid-token", "foo")
 
 						Expect(res.Code).To(Equal(http.StatusOK))
 						j := map[string]interface{}{}
@@ -193,7 +306,7 @@ var _ = Describe("controllers/hosts", func() {
 
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
-				authTokenInputs.Path = "/api/v0/hosts/foo-host/containers"
+				authTokenInputs.Path = "/api/v0/hosts/foo/containers"
 				authTokenInputs.Method = "GET"
 			})
 
