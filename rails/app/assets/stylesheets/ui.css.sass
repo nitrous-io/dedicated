@@ -21,6 +21,7 @@
 
   ul.dropdown-menu
     position: absolute
+    z-index: 10
     left: 0
     right: auto
     padding: 8px 0
@@ -124,7 +125,14 @@ button.ui.btn
   color: $gray800
 
   &:hover
-    background-color: $gray200
+    background: $gray100
+
+  &:focus
+    background: $gray200
+    outline: none
+
+  &:active
+    background: $gray300
 
   &.primary
     color: $lightBlue500
