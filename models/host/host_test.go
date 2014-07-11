@@ -176,7 +176,7 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("UpdateColumn()", func() {
+	Describe("UpdateState()", func() {
 		var (
 			h   *host.Host
 			err error
@@ -196,14 +196,14 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("updates the given column in host record", func() {
-			h.Name = "bar"
-			err := h.UpdateColumn(db, "name")
+		It("changes the state column in host record", func() {
+			err := h.UpdateState(db, "stopped")
 			Expect(err).To(BeNil())
+			Expect(h.State).To(Equal("stopped"))
 
-			h1, err := host.FindByName(db, "bar")
+			h1, err := host.FindByName(db, "foo")
 			Expect(err).To(BeNil())
-			Expect(h1.ID).To(Equal(h.ID))
+			Expect(h1.State).To(Equal("stopped"))
 		})
 	})
 

@@ -237,8 +237,7 @@ func Start(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Help
 	}
 
 	ht := htp.host
-	ht.State = "running"
-	err = ht.UpdateColumn(db, "state")
+	err = ht.UpdateState(db, "running")
 	if err != nil {
 		return err
 	}
@@ -263,8 +262,7 @@ func Stop(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helpe
 	}
 
 	ht := htp.host
-	ht.State = "stopped"
-	err = ht.UpdateColumn(db, "state")
+	err = ht.UpdateState(db, "stopped")
 	if err != nil {
 		return err
 	}
@@ -292,8 +290,7 @@ func Restart(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 	// but we don't check the state before running the command,
 	// so just setting it to "running" if the action was successful.
 	ht := htp.host
-	ht.State = "running"
-	err = ht.UpdateColumn(db, "state")
+	err = ht.UpdateState(db, "running")
 	if err != nil {
 		return err
 	}

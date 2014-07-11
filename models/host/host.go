@@ -3,7 +3,6 @@ package host
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"regexp"
 	"time"
 
@@ -93,9 +92,9 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(h).StructScan(h)
 }
 
-func (h *Host) UpdateColumn(d db.QueryReceiver, column string) error {
-	q := fmt.Sprintf("UPDATE hosts SET %s = :%s WHERE id = :id", column, column)
-	_, err := d.NamedExec(q, h)
+func (h *Host) UpdateState(d db.QueryReceiver, state string) error {
+	h.State = state
+	_, err := d.Exec("UPDATE hosts SET state = $1 WHERE id = $2", state, h.ID)
 	return err
 }
 
