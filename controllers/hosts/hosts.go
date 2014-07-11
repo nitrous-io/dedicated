@@ -159,60 +159,22 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 	return nil
 }
 
-// Provider name should be stored in the host?
-type hostWithProvider struct {
-	host     *host.Host
-	pid      string
-	provider string
-}
-
-func getHostWithProvider(db *db.Database, name string) (*hostWithProvider, error) {
-	ht, err := host.FindByName(db, name)
-	if err != nil {
-		return nil, err
-	}
-	if ht == nil {
-		return nil, ErrHostNotFound
-	}
-
-	var pid string
-	if ht.ProviderIdentifier.Valid {
-		pid = ht.ProviderIdentifier.String
-	} else {
-		return nil, errors.New("Provider identifier is nil")
-	}
-
-	pt, err := providertemplate.FindByID(db, ht.ProviderTemplateID)
-	if err != nil {
-		return nil, err
-	}
-	if pt == nil {
-		return nil, ErrProvidertemplateNotFound
-	}
-
-	return &hostWithProvider{
-		provider: pt.Provider,
-		host:     ht,
-		pid:      pid,
-	}, nil
-}
-
 func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	logger := c.Logger()
 	vars := env.Vars
 
-	htp, err := getHostWithProvider(db, vars["name"])
+	ht, err := getHost(db, vars["name"])
 	if err != nil {
 		return err
 	}
 
-	_, err = hb.Delete(htp.provider, &hostbuilder.Config{"id": htp.pid})
+	_, err = hb.Delete(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
 
-	err = htp.host.Delete(db)
+	err = ht.Delete(db)
 	if err != nil {
 		return err
 	}
@@ -226,17 +188,16 @@ func Start(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Help
 	logger := c.Logger()
 	vars := env.Vars
 
-	htp, err := getHostWithProvider(db, vars["name"])
+	ht, err := getHost(db, vars["name"])
 	if err != nil {
 		return err
 	}
 
-	_, err = hb.Start(htp.provider, &hostbuilder.Config{"id": htp.pid})
+	_, err = hb.Start(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
 
-	ht := htp.host
 	err = ht.UpdateState(db, "running")
 	if err != nil {
 		return err
@@ -251,17 +212,16 @@ func Stop(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helpe
 	logger := c.Logger()
 	vars := env.Vars
 
-	htp, err := getHostWithProvider(db, vars["name"])
+	ht, err := getHost(db, vars["name"])
 	if err != nil {
 		return err
 	}
 
-	_, err = hb.Stop(htp.provider, &hostbuilder.Config{"id": htp.pid})
+	_, err = hb.Stop(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
 
-	ht := htp.host
 	err = ht.UpdateState(db, "stopped")
 	if err != nil {
 		return err
@@ -276,12 +236,12 @@ func Restart(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 	logger := c.Logger()
 	vars := env.Vars
 
-	htp, err := getHostWithProvider(db, vars["name"])
+	ht, err := getHost(db, vars["name"])
 	if err != nil {
 		return err
 	}
 
-	_, err = hb.Restart(htp.provider, &hostbuilder.Config{"id": htp.pid})
+	_, err = hb.Restart(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
@@ -289,7 +249,6 @@ func Restart(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 	// not entirely sure about the purpose of state,
 	// but we don't check the state before running the command,
 	// so just setting it to "running" if the action was successful.
-	ht := htp.host
 	err = ht.UpdateState(db, "running")
 	if err != nil {
 		return err
@@ -303,6 +262,21 @@ func respondOK(w http.ResponseWriter, logger *logger.Logger) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte{})
 	logger.Infof("Response: 200 OK")
+}
+
+func getHost(db *db.Database, name string) (*host.Host, error) {
+	ht, err := host.FindByName(db, name)
+	if err != nil {
+		return nil, err
+	}
+	if ht == nil {
+		return nil, ErrHostNotFound
+	}
+	if ht.ProviderIdentifier.Valid != true {
+		return nil, errors.New("Provider identifier is nil")
+	}
+
+	return ht, nil
 }
 
 func UseHostbuilder(fn func(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {

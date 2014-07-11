@@ -106,6 +106,7 @@ var _ = Describe("models/host", func() {
 				Expect(h.ID).To(Equal(hs.H.ID))
 				Expect(h.UserID).To(Equal(hs.U.ID))
 				Expect(h.Name).To(Equal(hs.H.Name))
+				Expect(h.Provider).To(Equal(hs.PT.Provider))
 			})
 		})
 

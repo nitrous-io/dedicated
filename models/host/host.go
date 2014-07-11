@@ -21,6 +21,10 @@ var (
 	ErrNameTooLong  = errors.New("name is too long (maximum is 63 characters)")
 )
 
+type ProviderTemplate struct {
+	Provider string `db:"provider"`
+}
+
 type Host struct {
 	ID                 int64 `db:"id"`
 	UserID             int64 `db:"user_id"`
@@ -47,6 +51,8 @@ type Host struct {
 	TerminatedAt *time.Time `db:"terminated_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
+
+	*ProviderTemplate
 }
 
 func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
@@ -55,7 +61,7 @@ func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
 
 func findAllByUserID(db *db.Database, userID int64) ([]Host, error) {
 	hosts := []Host{}
-	err := db.Select(&hosts, "SELECT * from hosts WHERE user_id = $1 ORDER BY id", userID)
+	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 ORDER BY id", userID)
 	if err != nil {
 		return []Host{}, err
 	}
@@ -64,7 +70,11 @@ func findAllByUserID(db *db.Database, userID int64) ([]Host, error) {
 
 func FindByName(db *db.Database, name string) (*Host, error) {
 	host := &Host{}
-	err := db.Get(host, "SELECT * from hosts WHERE name = $1", name)
+	q := `SELECT hosts.*, provider_templates.provider
+				FROM hosts
+				INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
+				WHERE hosts.name = $1`
+	err := db.Get(host, q, name)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
