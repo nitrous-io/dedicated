@@ -23,7 +23,13 @@ provider=digitalocean&config=[JSON encoded config]
 HTTP/1.1 201 Created
 Content-Type: application/json; charset=utf-8
 
-{ "provider": "digitalocean", "id": "id-of-host", "ip_address": "1.2.3.4" }
+{
+  "provider": "digitalocean",
+  "id": "id-of-host",
+  "ip_address": "1.2.3.4",
+  "freighterd_port": 65333,
+  "status": "created"
+}
 ```
 
 **POST Params**:
