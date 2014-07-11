@@ -166,7 +166,6 @@ var _ = Describe("controllers/hosts", func() {
 		var (
 			params *url.Values
 			u      *user.User
-			hb     *hostbuilder.Hostbuilder
 			env    *middlewares.Env
 			hs     *HostStack
 		)
@@ -175,7 +174,7 @@ var _ = Describe("controllers/hosts", func() {
 			req, err := NewRequest("POST", "/api/v0/hosts", params)
 			Expect(err).To(BeNil())
 
-			return hosts.Create(hb, env, svr, res, req)
+			return hosts.Create(env, svr, res, req)
 		}
 
 		BeforeEach(func() {
@@ -256,7 +255,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder successfully creates a host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilder.NewHostbuilder("www.example.com")
 					ch := func(path string, provider string, config *hostbuilder.Config) (hostbuilder.Output, error) {
 						return hostbuilder.Output{
 							"id":         "abcd1234",
@@ -265,6 +264,8 @@ var _ = Describe("controllers/hosts", func() {
 						}, nil
 					}
 					hb.OverrideRequestHandler(ch)
+
+					hosts.HostbuilderClient = hb
 
 					err := doRequest()
 					Expect(err).To(BeNil())
@@ -300,8 +301,10 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder fails to create the host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilder.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderError)
+
+					hosts.HostbuilderClient = hb
 
 					err := doRequest()
 					Expect(err).To(MatchError("some error occurred"))
@@ -318,7 +321,6 @@ var _ = Describe("controllers/hosts", func() {
 
 	Describe("Destroy", func() {
 		var (
-			hb  *hostbuilder.Hostbuilder
 			env *middlewares.Env
 			hs  *HostStack
 			err error
@@ -329,7 +331,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 			env.Vars = map[string]string{"name": name}
 
-			return hosts.Destroy(hb, env, svr, res, req)
+			return hosts.Destroy(env, svr, res, req)
 		}
 
 		BeforeEach(func() {
@@ -350,8 +352,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("with a valid host name", func() {
 			Context("when hostbuilder successfully deletes the host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilder.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderOK)
+
+					hosts.HostbuilderClient = hb
 
 					err = doRequest(hs.H.Name)
 					Expect(err).To(BeNil())
@@ -370,8 +374,10 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder fails to delete the host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilder.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderError)
+
+					hosts.HostbuilderClient = hb
 
 					err = doRequest(hs.H.Name)
 					Expect(err).To(MatchError("some error occurred"))
@@ -388,7 +394,6 @@ var _ = Describe("controllers/hosts", func() {
 
 	Describe("Start", func() {
 		var (
-			hb  *hostbuilder.Hostbuilder
 			env *middlewares.Env
 			hs  *HostStack
 			err error
@@ -399,7 +404,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 			env.Vars = map[string]string{"name": name}
 
-			return hosts.Start(hb, env, svr, res, req)
+			return hosts.Start(env, svr, res, req)
 		}
 
 		BeforeEach(func() {
@@ -424,8 +429,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("with a valid host name", func() {
 			Context("when hostbuilder successfully starts the host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilder.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderOK)
+
+					hosts.HostbuilderClient = hb
 
 					err = doRequest(hs.H.Name)
 					Expect(err).To(BeNil())
@@ -444,8 +451,10 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder fails to start the host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilder.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderError)
+
+					hosts.HostbuilderClient = hb
 
 					err = doRequest(hs.H.Name)
 					Expect(err).To(MatchError("some error occurred"))
@@ -462,7 +471,6 @@ var _ = Describe("controllers/hosts", func() {
 
 	Describe("Stop", func() {
 		var (
-			hb  *hostbuilder.Hostbuilder
 			env *middlewares.Env
 			hs  *HostStack
 			err error
@@ -473,7 +481,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 			env.Vars = map[string]string{"name": name}
 
-			return hosts.Stop(hb, env, svr, res, req)
+			return hosts.Stop(env, svr, res, req)
 		}
 
 		BeforeEach(func() {
@@ -498,8 +506,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("with a valid host name", func() {
 			Context("when hostbuilder successfully stops the host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilder.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderOK)
+
+					hosts.HostbuilderClient = hb
 
 					err = doRequest(hs.H.Name)
 					Expect(err).To(BeNil())
@@ -518,8 +528,10 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder fails to stop the host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilder.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderError)
+
+					hosts.HostbuilderClient = hb
 
 					err = doRequest(hs.H.Name)
 					Expect(err).To(MatchError("some error occurred"))
@@ -536,7 +548,6 @@ var _ = Describe("controllers/hosts", func() {
 
 	Describe("Restart", func() {
 		var (
-			hb  *hostbuilder.Hostbuilder
 			env *middlewares.Env
 			hs  *HostStack
 			err error
@@ -547,7 +558,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 			env.Vars = map[string]string{"name": name}
 
-			return hosts.Restart(hb, env, svr, res, req)
+			return hosts.Restart(env, svr, res, req)
 		}
 
 		BeforeEach(func() {
@@ -572,8 +583,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("with a valid host name", func() {
 			Context("when hostbuilder successfully restarts the host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilder.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderOK)
+
+					hosts.HostbuilderClient = hb
 
 					err = doRequest(hs.H.Name)
 					Expect(err).To(BeNil())
@@ -592,8 +605,10 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder fails to restart the host", func() {
 				BeforeEach(func() {
-					hb = hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilder.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderError)
+
+					hosts.HostbuilderClient = hb
 
 					err = doRequest(hs.H.Name)
 					Expect(err).To(MatchError("some error occurred"))

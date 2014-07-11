@@ -32,11 +32,15 @@ var (
 
 const HostbuilderURLEnvVar = "HOSTBUILDER_URL"
 
+var HostbuilderClient *hostbuilder.Hostbuilder
+
 func init() {
 	hostbuilderURL = os.Getenv(HostbuilderURLEnvVar)
 	if hostbuilderURL == "" {
 		panic(fmt.Sprintf("%v is not set", HostbuilderURLEnvVar))
 	}
+
+	HostbuilderClient = hostbuilder.NewHostbuilder(hostbuilderURL)
 }
 
 func Index(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
@@ -59,7 +63,7 @@ func Index(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r 
 	return nil
 }
 
-func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
 	u := env.User
@@ -127,7 +131,7 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 	config["name"] = name
 	config["public_keys"] = []string{} //FIXME: pass actual public keys
 
-	info, err := hb.Create(pt.Provider, &config)
+	info, err := HostbuilderClient.Create(pt.Provider, &config)
 	if err != nil {
 		return err
 	}
@@ -159,7 +163,7 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 	return nil
 }
 
-func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Destroy(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	logger := c.Logger()
 	vars := env.Vars
@@ -169,7 +173,7 @@ func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 		return err
 	}
 
-	_, err = hb.Delete(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
+	_, err = HostbuilderClient.Delete(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
@@ -183,7 +187,7 @@ func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 	return nil
 }
 
-func Start(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Start(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	logger := c.Logger()
 	vars := env.Vars
@@ -193,7 +197,7 @@ func Start(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Help
 		return err
 	}
 
-	_, err = hb.Start(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
+	_, err = HostbuilderClient.Start(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
@@ -207,7 +211,7 @@ func Start(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Help
 	return nil
 }
 
-func Stop(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Stop(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	logger := c.Logger()
 	vars := env.Vars
@@ -217,7 +221,7 @@ func Stop(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helpe
 		return err
 	}
 
-	_, err = hb.Stop(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
+	_, err = HostbuilderClient.Stop(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
@@ -231,7 +235,7 @@ func Stop(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helpe
 	return nil
 }
 
-func Restart(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Restart(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	logger := c.Logger()
 	vars := env.Vars
@@ -241,7 +245,7 @@ func Restart(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 		return err
 	}
 
-	_, err = hb.Restart(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
+	_, err = HostbuilderClient.Restart(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
@@ -277,11 +281,4 @@ func getHost(db *db.Database, name string) (*host.Host, error) {
 	}
 
 	return ht, nil
-}
-
-func UseHostbuilder(fn func(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
-	return func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-		hb := hostbuilder.NewHostbuilder(hostbuilderURL)
-		return fn(hb, env, c, w, r)
-	}
 }

@@ -17,11 +17,11 @@ func (s *Server) drawRoutes() {
 		s.route("/user", mw.Auth(mw.JSON(users.GetAuthenticatedUser)), "GET")
 
 		s.route("/hosts", mw.Auth(mw.JSON(hosts.Index)), "GET")
-		s.route("/hosts", mw.Auth(mw.JSON(hosts.UseHostbuilder(hosts.Create))), "POST")
-		s.route("/hosts/{name}", mw.Auth(mw.Vars(hosts.UseHostbuilder(hosts.Destroy))), "DELETE")
-		s.route("/hosts/{name}/start", mw.Auth(mw.Vars(hosts.UseHostbuilder(hosts.Start))), "POST")
-		s.route("/hosts/{name}/stop", mw.Auth(mw.Vars(hosts.UseHostbuilder(hosts.Stop))), "POST")
-		s.route("/hosts/{name}/restart", mw.Auth(mw.Vars(hosts.UseHostbuilder(hosts.Restart))), "POST")
+		s.route("/hosts", mw.Auth(mw.JSON(hosts.Create)), "POST")
+		s.route("/hosts/{name}", mw.Auth(mw.Vars(hosts.Destroy)), "DELETE")
+		s.route("/hosts/{name}/start", mw.Auth(mw.Vars(hosts.Start)), "POST")
+		s.route("/hosts/{name}/stop", mw.Auth(mw.Vars(hosts.Stop)), "POST")
+		s.route("/hosts/{name}/restart", mw.Auth(mw.Vars(hosts.Restart)), "POST")
 	})
 
 	s.static("/", "public") // catch-all, must come last
