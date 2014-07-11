@@ -384,4 +384,69 @@ var _ = Describe("models/container", func() {
 			})
 		})
 	})
+
+	Describe("Validate()", func() {
+		var (
+			c *container.Container
+		)
+
+		BeforeEach(func() {
+			c = &container.Container{
+				UserID: u.ID,
+				HostID: h.ID,
+				Name:   "foo",
+				Image:  "nitrous-base",
+			}
+			Expect(c.Validate()).To(BeNil())
+		})
+
+		It("validates name", func() {
+			buf := make([]byte, 256)
+			for i := range buf {
+				buf[i] = 'f'
+			}
+			s := string(buf) // "f" * 256.
+
+			tests := []struct {
+				input string
+				err   error
+			}{
+				{"", container.ErrNameBlank},
+				{"foo", nil},
+				{"f00", nil},
+				{"foo-bar", nil},
+				{"fo", nil},
+				{"f", container.ErrNameTooShort},
+				{"ffffffffffffffffffffffffffffff", nil},
+				{s, container.ErrNameTooLong},
+				{s[:255], nil},
+				{"foo-", container.ErrNameInvalid},
+				{"f-o-0-", container.ErrNameInvalid},
+				{"-foo", container.ErrNameInvalid},
+				{"FOO", container.ErrNameInvalid},
+			}
+
+			for _, t := range tests {
+				c.Name = t.input
+				Expect(c.Validate() == t.err).To(BeTrue(),
+					"Expected '%s' to return error '%v'", t.input, t.err)
+			}
+		})
+
+		It("validates image", func() {
+			tests := []struct {
+				input string
+				err   error
+			}{
+				{"", container.ErrImageBlank},
+				{"foo", nil},
+			}
+
+			for _, t := range tests {
+				c.Image = t.input
+				Expect(c.Validate() == t.err).To(BeTrue(),
+					"Expected '%s' to return error '%v'", t.input, t.err)
+			}
+		})
+	})
 })

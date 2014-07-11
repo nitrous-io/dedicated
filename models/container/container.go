@@ -2,9 +2,21 @@ package container
 
 import (
 	"database/sql"
+	"errors"
+	"regexp"
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
+)
+
+var nameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*[a-z0-9]\z`)
+
+var (
+	ErrNameBlank    = errors.New("name can't be blank")
+	ErrNameInvalid  = errors.New("name may only contain alphanumeric characters or dashes and cannot begin or end with a dash")
+	ErrNameTooShort = errors.New("name is too short (minimum is 2 characters)")
+	ErrNameTooLong  = errors.New("name is too long (maximum is 255 characters)")
+	ErrImageBlank   = errors.New("image can't be blank")
 )
 
 // FIXME add accompanying tables to lookup which users have access to a
@@ -80,4 +92,24 @@ func (c *Container) Update(d db.QueryReceiver) error {
 		return err
 	}
 	return nstmt.QueryRowx(c).StructScan(c)
+}
+
+func (c *Container) Validate() error {
+	if c.Name == "" {
+		return ErrNameBlank
+	}
+	nameLen := len(c.Name)
+	if nameLen < 2 {
+		return ErrNameTooShort
+	}
+	if nameLen > 255 {
+		return ErrNameTooLong
+	}
+	if !nameRe.MatchString(c.Name) {
+		return ErrNameInvalid
+	}
+	if c.Image == "" {
+		return ErrImageBlank
+	}
+	return nil
 }
