@@ -9,6 +9,20 @@ import (
 	"github.com/nitrous-io/hostbuilder/host"
 )
 
+var (
+	okResponse = &Response{StatusCode: http.StatusOK, Status: "ok"}
+)
+
+// API response of the server
+type Response struct {
+	StatusCode     int    `json:"-"`
+	Status         string `json:"status"`
+	Provider       string `json:"provider,omitempty"`
+	Id             string `json:"id,omitempty"`
+	IpAddress      string `json:"ip_address,omitempty"`
+	FreighterdPort uint16 `json:"freighterd_port,omitempty"`
+}
+
 type HttpHandler func(w http.ResponseWriter, r *http.Request) error
 
 func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
@@ -50,13 +64,15 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	j, err := json.Marshal(info)
-	if err != nil {
-		return err
+	resp := &Response{
+		StatusCode:     http.StatusCreated,
+		Status:         "created",
+		Provider:       info.Provider,
+		Id:             info.Id,
+		IpAddress:      info.IpAddress,
+		FreighterdPort: info.FreighterdPort,
 	}
-	w.WriteHeader(http.StatusCreated)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(j)
+	writeResponse(w, resp)
 	return nil
 }
 
@@ -76,9 +92,7 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"status":"ok"}`))
+	writeResponse(w, okResponse)
 	return nil
 }
 
@@ -98,9 +112,7 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"status":"ok"}`))
+	writeResponse(w, okResponse)
 	return nil
 }
 
@@ -120,9 +132,7 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"status":"ok"}`))
+	writeResponse(w, okResponse)
 	return nil
 }
 
@@ -142,9 +152,7 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"status":"ok"}`))
+	writeResponse(w, okResponse)
 	return nil
 }
 
@@ -180,4 +188,16 @@ func New(configData []byte) (*Server, error) {
 	server := &Server{Config: config}
 	server.CreateRouter()
 	return server, nil
+}
+
+func writeResponse(w http.ResponseWriter, resp *Response) {
+	w.Header().Set("Content-Type", "application/json")
+	data, err := json.Marshal(resp)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		data = []byte(`{"status":"error"}`)
+	} else {
+		w.WriteHeader(resp.StatusCode)
+	}
+	w.Write(data)
 }
