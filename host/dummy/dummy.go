@@ -36,7 +36,7 @@ func (h *Host) Info() (*host.Info, error) {
 		Provider:       "dummy",
 		Id:             h.Id,
 		IpAddress:      h.IpAddress,
-		FreighterdPort: uint16(65533),
+		FreighterdPort: uint16(65333),
 	}
 	return info, nil
 }

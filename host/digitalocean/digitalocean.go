@@ -90,7 +90,7 @@ func (h *Host) Info() (*host.Info, error) {
 		Provider:       "digitalocean",
 		Id:             strconv.Itoa(h.instance.Id),
 		IpAddress:      h.instance.IpAddress,
-		FreighterdPort: uint16(65533),
+		FreighterdPort: uint16(65333),
 	}
 	return info, nil
 }
