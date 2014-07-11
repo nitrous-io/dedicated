@@ -1,0 +1,16 @@
+@import 'variables'
+@import 'mixins'
+
+#body-wrapper
+  display: flex
+  flex-direction: row
+
+  #content-wrapper
+    margin-top: $containerPadding
+    margin-left: $containerPadding
+    flex-grow: 1
+    background: white
+    +light-shadow
+
+  #sidebar-wrapper
+    margin-top: $containerPadding

@@ -1,4 +1,4 @@
-@import 'colors'
+@import 'variables'
 
 html
   background: $gray50
@@ -8,11 +8,13 @@ html
 
 body
   font-family: 'Roboto'
-  font-size: 15px
+  font-size: $fontSizeMedium
 
 a
   text-decoration: none
   color: $lightBlue700
+  transition: color .2s
+
   &:link
     color: $lightBlue700
   &:visited

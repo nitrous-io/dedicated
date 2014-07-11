@@ -1,0 +1,77 @@
+h2.title
+  a href='#' Project X
+  span.divider.fa.fa-angle-right
+  a href='#' Web App
+ul.ui.tab-bar
+  li.selected
+    a href='#' General
+  li
+    a href='#' Volumes
+  li
+    a href='#' Ports
+  li
+    a href='#' Env
+  li
+    a href='#' Logs
+  li
+    a href='#' Images
+  li
+    a href='#' Collaborators
+.content
+  table.ui.table
+    tr
+      th State
+      td
+        .state-indicator.running
+        | Running
+
+    tr
+      th Image
+      td nitrous-io/ubuntu
+
+    tr
+      th CMD
+      td
+        | /sbin/init
+
+    tr
+      th ENTRYPOINT
+      td
+        span.empty &ndash;
+
+    tr
+      th Internal IP
+      td 172.17.0.2
+
+    tr
+      th Gateway IP
+      td 172.17.42.1
+
+    tr
+      th Host IP
+      td 107.170.220.61
+
+    tr
+      th Host
+      td web-app.nitrouspro.com
+
+    tr
+      th Started At
+      td July 7, 2014 18:41:51 UTC
+
+    tr
+      th Finished At
+      td
+        span.empty &ndash;
+
+    tr
+      th Exit Code
+      td
+        span.empty &ndash;
+
+.buttons
+  .left
+    button.ui.btn.primary Terminal
+  .right
+    button.ui.btn Restart
+    button.ui.btn Shut Down

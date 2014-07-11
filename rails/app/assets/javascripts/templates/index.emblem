@@ -1,5 +1,8 @@
 = outlet topnav
 .container
-  = outlet sidebar
-  h1 Hello World!
+  #body-wrapper
+    #sidebar-wrapper
+      = outlet sidebar
+    #content-wrapper
+      = outlet content
   = partial 'footer'

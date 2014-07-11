@@ -1,0 +1,30 @@
+@import 'variables'
+@import 'mixins'
+
+#content-view
+  h2.title
+    height: $barHeight
+    line-height: $barHeight
+    background: $gray50
+    color: $gray800
+    margin: 0
+    padding: 0 $containerPadding
+    font-size: $fontSizeLarge
+    font-weight: 300
+    +truncate
+
+    .divider
+      padding: 0 12px
+
+  > .content
+    padding: $containerPadding
+
+  > .buttons
+    padding: $containerPadding
+    border-top: 1px solid $gray300
+
+    .left, .right
+      display: inline-block
+
+    .right
+      float: right
