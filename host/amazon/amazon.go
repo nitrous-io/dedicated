@@ -22,8 +22,8 @@ ssh_authorized_keys:
 var compiledUserData *template.Template
 
 type HostConfig struct {
-	Id               string            `json:"id"`
-	SourceAmi        string            `json:"source_ami"`
+	ID               string            `json:"id"`
+	SourceAMI        string            `json:"source_ami"`
 	AvailabilityZone string            `json:"availability_zone"`
 	InstanceType     string            `json:"instance_type"`
 	RawRegion        string            `json:"region"`
@@ -71,7 +71,7 @@ func (h *Host) Create() (*host.Info, error) {
 	}
 	runOpts := &ec2.RunInstances{
 		KeyName:        k.name,
-		ImageId:        h.Config.SourceAmi,
+		ImageId:        h.Config.SourceAMI,
 		InstanceType:   h.Config.InstanceType,
 		SecurityGroups: h.Config.securityGroups(),
 		AvailZone:      h.Config.AvailabilityZone,
@@ -106,10 +106,10 @@ func (h *Host) Create() (*host.Info, error) {
 func (h *Host) Destroy() error {
 	var instancesResp *ec2.InstancesResp
 	var err error
-	if instancesResp, err = h.provider.Instances([]string{h.Config.Id}, nil); err != nil {
+	if instancesResp, err = h.provider.Instances([]string{h.Config.ID}, nil); err != nil {
 		return err
 	}
-	if _, err := h.provider.TerminateInstances([]string{h.Config.Id}); err != nil {
+	if _, err := h.provider.TerminateInstances([]string{h.Config.ID}); err != nil {
 		return err
 	}
 	instance := instancesResp.Reservations[0].Instances[0]
@@ -132,8 +132,8 @@ func (h *Host) Info() (*host.Info, error) {
 	}
 	info := &host.Info{
 		Provider:  "amazon",
-		Id:        h.instance.InstanceId,
-		IpAddress: h.instance.PublicIpAddress,
+		ID:        h.instance.InstanceId,
+		IPAddress: h.instance.PublicIpAddress,
 	}
 	return info, nil
 }

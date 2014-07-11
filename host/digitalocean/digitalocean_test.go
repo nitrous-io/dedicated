@@ -123,7 +123,7 @@ var _ = Describe("host/digitalocean", func() {
 
 		Context("Unsuccessful creation", func() {
 			It("should clean up the droplet", func() {
-				h := Host{Config: &HostConfig{Id: "1", ImageId: "1", RegionId: "1", SizeId: "33"}, Client: c}
+				h := Host{Config: &HostConfig{ID: "1", ImageID: "1", RegionID: "1", SizeID: "33"}, Client: c}
 				_, err := h.Create()
 				Expect(err).NotTo(BeNil())
 
@@ -143,7 +143,7 @@ var _ = Describe("host/digitalocean", func() {
 
 		Context("Successful Stop", func() {
 			It("stops the droplet", func() {
-				h := Host{Config: &HostConfig{Id: "1"}, Client: c}
+				h := Host{Config: &HostConfig{ID: "1"}, Client: c}
 
 				err := h.Stop()
 				Expect(err).To(BeNil())
@@ -161,7 +161,7 @@ var _ = Describe("host/digitalocean", func() {
 
 		Context("Successful Start", func() {
 			It("starts the droplet", func() {
-				h := Host{Config: &HostConfig{Id: "1"}, Client: c}
+				h := Host{Config: &HostConfig{ID: "1"}, Client: c}
 
 				err := h.Start()
 				Expect(err).To(BeNil())

@@ -145,7 +145,7 @@ var _ = Describe("pkg/digitalocean", func() {
 				s.AddResponse("ssh_keys/new", dotest.NewResponse(200, NewSSH))
 				key, err := c.CreateKey("my_key", "ssh-rsa key user@host")
 				Expect(err).To(BeNil())
-				Expect(key.Id).To(Equal(47))
+				Expect(key.ID).To(Equal(47))
 				Expect(key.Name).To(Equal("my_key"))
 				Expect(key.PubKey).To(Equal("ssh-rsa key user@host"))
 

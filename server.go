@@ -18,8 +18,8 @@ type Response struct {
 	StatusCode     int    `json:"-"`
 	Status         string `json:"status"`
 	Provider       string `json:"provider,omitempty"`
-	Id             string `json:"id,omitempty"`
-	IpAddress      string `json:"ip_address,omitempty"`
+	ID             string `json:"id,omitempty"`
+	IPAddress      string `json:"ip_address,omitempty"`
 	FreighterdPort uint16 `json:"freighterd_port,omitempty"`
 }
 
@@ -68,8 +68,8 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		StatusCode:     http.StatusCreated,
 		Status:         "created",
 		Provider:       info.Provider,
-		Id:             info.Id,
-		IpAddress:      info.IpAddress,
+		ID:             info.ID,
+		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
 	}
 	writeResponse(w, resp)

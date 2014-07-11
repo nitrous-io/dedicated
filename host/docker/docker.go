@@ -13,7 +13,7 @@ import (
 )
 
 type Host struct {
-	Id                 string   `json:"id"`
+	ID                 string   `json:"id"`
 	Name               string   `json:"name"`
 	PublicKeys         []string `json:"public_keys"`
 	IpAddress          string   `json:"ip_address"`
@@ -27,49 +27,49 @@ func (h *Host) Create() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	containerId, err := h.createContainer(imageName)
+	containerID, err := h.createContainer(imageName)
 	if err != nil {
 		return nil, err
 	}
-	h.Id = containerId
+	h.ID = containerID
 	return h.Info()
 }
 
 func (h *Host) Destroy() error {
 	return h.client.RemoveContainer(dockerclient.RemoveContainerOptions{
-		ID:    h.Id,
+		ID:    h.ID,
 		Force: true,
 	})
 }
 
 func (h *Host) Info() (*host.Info, error) {
-	container, err := h.client.InspectContainer(h.Id)
+	container, err := h.client.InspectContainer(h.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	return &host.Info{
 		Provider:       "docker",
-		Id:             h.Id,
-		IpAddress:      container.NetworkSettings.IPAddress,
+		ID:             h.ID,
+		IPAddress:      container.NetworkSettings.IPAddress,
 		FreighterdPort: uint16(getFreighterdPort(container)),
 	}, nil
 }
 
 func (h *Host) Stop() error {
 	return h.client.KillContainer(dockerclient.KillContainerOptions{
-		ID: h.Id,
+		ID: h.ID,
 	})
 }
 
 func (h *Host) Start() error {
-	return h.client.StartContainer(h.Id, &dockerclient.HostConfig{
+	return h.client.StartContainer(h.ID, &dockerclient.HostConfig{
 		Privileged: true,
 	})
 }
 
 func (h *Host) Restart() error {
-	return h.client.RestartContainer(h.Id, uint(5))
+	return h.client.RestartContainer(h.ID, uint(5))
 }
 
 func (h *Host) createImage() (string, error) {
