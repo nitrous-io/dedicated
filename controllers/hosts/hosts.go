@@ -153,7 +153,8 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"host": h,
+		"status": "created",
+		"host":   h,
 	}
 	return nil
 }

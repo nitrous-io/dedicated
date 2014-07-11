@@ -289,9 +289,10 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
 				})
 
-				It("responds with the created host", func() {
+				It("responds with the created host and status created", func() {
 					Expect(env.Status).To(Equal(http.StatusCreated))
 					Expect(env.Data["host"]).NotTo(BeNil())
+					Expect(env.Data["status"]).To(Equal("created"))
 					h := env.Data["host"].(*host.Host)
 					Expect(h.Name).To(Equal("honeybadger"))
 				})
