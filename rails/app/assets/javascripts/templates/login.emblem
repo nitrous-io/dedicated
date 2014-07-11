@@ -1,0 +1,22 @@
+= outlet topnav
+
+.login-box.ui.card
+  h2.card-header Log In
+
+  form
+    .card-body
+      .ui.input-group
+        label for='login-login'
+          | Username or Email
+        input type='text' id='login-login' name='login'
+
+        label for='login-password'
+          | Password
+        input type='password' id='login-password' name='password'
+
+    .card-footer
+      .right
+        button.ui.btn.primary id='login-submit' click='shake target="view"'
+          | Log In
+
+= partial 'footer'

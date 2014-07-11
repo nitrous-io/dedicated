@@ -1,4 +1,4 @@
-h2.title
+h2.card-header.bordered
   a href='#' Project X
   span.divider.fa.fa-angle-right
   a href='#' Web App
@@ -17,7 +17,8 @@ ul.ui.tab-bar
     a href='#' Images
   li
     a href='#' Collaborators
-.content
+
+.card-body
   table.ui.table
     tr
       th State
@@ -69,7 +70,7 @@ ul.ui.tab-bar
       td
         span.empty &ndash;
 
-.buttons
+.card-footer.bordered
   .left
     button.ui.btn.primary Terminal
   .right

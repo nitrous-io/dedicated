@@ -1,4 +1,8 @@
 App.IndexRoute = Em.Route.extend
+  activate: ->
+    App.set 'title', null
+    App.set 'currentUser', 'petejkim'
+
   renderTemplate: ->
     @_super()
     @render 'topnav',  into: 'index', outlet: 'topnav',  controller: 'topnav'

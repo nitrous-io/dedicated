@@ -5,3 +5,18 @@
 
 =light-shadow
   box-shadow: 0 1px 4px rgba(0, 0, 0, .4)
+
+=card
+  background: white
+  border-radius: 2px
+  +light-shadow
+
+// Clearfix
+// Source: http://nicolasgallagher.com/micro-clearfix-hack/
+=clearfix
+  &:before, &:after
+    content: " "
+    display: table
+
+  &:after
+    clear: both

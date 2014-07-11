@@ -1,31 +1,44 @@
 .container
   h1.logo Nitrous.IO
-  ul.nav
-    li
-      a href='#'
-        img.gravatar src='http://gravatar.com/avatar/2ac28b22a3596136ad31d53553383d9b?s=48'
-        | petejkim
-    li.ui.dropdown
-      a href='#'
-        | New
-        .ui.dropdown-triangle
-      ul.dropdown-menu
-        li
-          a href='#' New Host...
-        li
-          a href='#' New Container...
-    li.ui.dropdown
-      a href='#'
-        | Account
-        .ui.dropdown-triangle
-      ul.dropdown-menu.right
-        li
-          a href='#' Account Settings
-        li
-          a href='#' Billing
-        li.separator
-        li
-          a href='#' Help
-        li.separator
-        li
-          a href='#' Log Out
+  if App.currentUser
+    ul.nav
+      li
+        a href='#'
+          img.gravatar src='http://gravatar.com/avatar/2ac28b22a3596136ad31d53553383d9b?s=48'
+          = App.currentUser
+      li.ui.dropdown
+        a href='#'
+          | New
+          .ui.dropdown-triangle
+        ul.dropdown-menu
+          li
+            a href='#' New Host...
+          li
+            a href='#' New Container...
+      li.ui.dropdown
+        a href='#'
+          | Account
+          .ui.dropdown-triangle
+        ul.dropdown-menu.right
+          li
+            a href='#' Account Settings
+          li
+            a href='#' Billing
+          li.separator
+          li
+            a href='#' Help
+          li.separator
+          li
+            a href='#' Log Out
+  else
+    ul.nav
+      li
+        a href='#' Features
+      li
+        a href='#' Enterprise
+      li
+        a href='#' Blog
+      li.primary
+        a href='#' Sign Up
+      li.primary
+        a href='#' Log In
