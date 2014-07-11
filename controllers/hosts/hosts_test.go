@@ -414,11 +414,24 @@ var _ = Describe("controllers/hosts", func() {
 				H: &host.Host{
 					Name:               "honeybadger",
 					ProviderIdentifier: sql.NullString{"001", true},
-					State:              "stopped",
+					State:              host.StateStopped,
 				},
 			})
 			Expect(err).To(BeNil())
 			env = &middlewares.Env{User: hs.U}
+		})
+
+		Context("with an unexpected starting state", func() {
+			It("returns state transition error", func() {
+				hb := hostbuilder.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(mockHostbuilderOK)
+
+				hosts.HostbuilderClient = hb
+
+				hs.H.UpdateState(db, host.StateRestarting)
+				err = doRequest(hs.H.Name)
+				Expect(err).To(MatchError("Expected initial state to be stopped, was restarting"))
+			})
 		})
 
 		Context("with an invalid host name", func() {
@@ -443,7 +456,7 @@ var _ = Describe("controllers/hosts", func() {
 				It("updates the host state to running", func() {
 					h, err := host.FindByName(db, hs.H.Name)
 					Expect(err).To(BeNil())
-					Expect(h.State).To(Equal("running"))
+					Expect(h.State).To(Equal(host.StateRunning))
 				})
 
 				It("responds with status OK", func() {
@@ -462,10 +475,10 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(err).To(MatchError("some error occurred"))
 				})
 
-				It("does not change the host state", func() {
+				It("leaves host in intermediate state", func() {
 					h, err := host.FindByName(db, hs.H.Name)
 					Expect(err).To(BeNil())
-					Expect(h.State).To(Equal("stopped"))
+					Expect(h.State).To(Equal(host.StateStarting))
 				})
 			})
 		})
@@ -491,7 +504,7 @@ var _ = Describe("controllers/hosts", func() {
 				H: &host.Host{
 					Name:               "honeybadger",
 					ProviderIdentifier: sql.NullString{"001", true},
-					State:              "running",
+					State:              host.StateRunning,
 				},
 			})
 			Expect(err).To(BeNil())
@@ -520,7 +533,7 @@ var _ = Describe("controllers/hosts", func() {
 				It("updates the host state to stopped", func() {
 					h, err := host.FindByName(db, hs.H.Name)
 					Expect(err).To(BeNil())
-					Expect(h.State).To(Equal("stopped"))
+					Expect(h.State).To(Equal(host.StateStopped))
 				})
 
 				It("responds with status OK", func() {
@@ -539,10 +552,10 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(err).To(MatchError("some error occurred"))
 				})
 
-				It("does not change the host state", func() { // or should it change to a dangling state?
+				It("leaves host in intermediate state", func() {
 					h, err := host.FindByName(db, hs.H.Name)
 					Expect(err).To(BeNil())
-					Expect(h.State).To(Equal("running"))
+					Expect(h.State).To(Equal(host.StateStopping))
 				})
 			})
 		})
@@ -568,7 +581,7 @@ var _ = Describe("controllers/hosts", func() {
 				H: &host.Host{
 					Name:               "honeybadger",
 					ProviderIdentifier: sql.NullString{"001", true},
-					State:              "some-state",
+					State:              host.StateRunning,
 				},
 			})
 			Expect(err).To(BeNil())
@@ -597,7 +610,7 @@ var _ = Describe("controllers/hosts", func() {
 				It("updates the host state to running", func() {
 					h, err := host.FindByName(db, hs.H.Name)
 					Expect(err).To(BeNil())
-					Expect(h.State).To(Equal("running"))
+					Expect(h.State).To(Equal(host.StateRunning))
 				})
 
 				It("responds with status OK", func() {
@@ -616,10 +629,10 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(err).To(MatchError("some error occurred"))
 				})
 
-				It("does not change the host state", func() { // or should it change to a dangling state?
+				It("leaves host in intermediate state", func() {
 					h, err := host.FindByName(db, hs.H.Name)
 					Expect(err).To(BeNil())
-					Expect(h.State).To(Equal("some-state"))
+					Expect(h.State).To(Equal(host.StateRestarting))
 				})
 			})
 		})

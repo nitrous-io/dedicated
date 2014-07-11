@@ -20,7 +20,6 @@ import (
 )
 
 var (
-	ErrUserNil                  = errors.New("user is nil")
 	ErrSizeRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "host size not provided")
 	ErrPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
 	ErrRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
@@ -45,11 +44,7 @@ func init() {
 
 func Index(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
-
 	u := env.User
-	if u == nil {
-		return ErrUserNil
-	}
 
 	hosts, err := host.FindAllByUser(db, u)
 	if err != nil {
@@ -65,11 +60,7 @@ func Index(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r 
 
 func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
-
 	u := env.User
-	if u == nil {
-		return ErrUserNil
-	}
 
 	size := r.FormValue("size")
 	if size == "" {
@@ -150,7 +141,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 		ProviderIdentifier: sql.NullString{info["id"].(string), true},
 
 		FreighterdPort: sql.NullInt64{int64(info["freighterd_port"].(int)), true},
-		State:          "created",
+		State:          host.StateCreated,
 	}
 	err = h.Insert(db)
 	if err != nil {
@@ -199,12 +190,9 @@ func Start(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return err
 	}
 
-	_, err = HostbuilderClient.Start(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
-	if err != nil {
-		return err
-	}
-
-	err = ht.UpdateState(db, "running")
+	err = transition(db, ht,
+		&stateTransition{host.StateStopped, host.StateStarting, host.StateRunning},
+		HostbuilderClient.Start)
 	if err != nil {
 		return err
 	}
@@ -223,12 +211,9 @@ func Stop(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *
 		return err
 	}
 
-	_, err = HostbuilderClient.Stop(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
-	if err != nil {
-		return err
-	}
-
-	err = ht.UpdateState(db, "stopped")
+	err = transition(db, ht,
+		&stateTransition{host.StateRunning, host.StateStopping, host.StateStopped},
+		HostbuilderClient.Stop)
 	if err != nil {
 		return err
 	}
@@ -247,15 +232,9 @@ func Restart(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 		return err
 	}
 
-	_, err = HostbuilderClient.Restart(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
-	if err != nil {
-		return err
-	}
-
-	// not entirely sure about the purpose of state,
-	// but we don't check the state before running the command,
-	// so just setting it to "running" if the action was successful.
-	err = ht.UpdateState(db, "running")
+	err = transition(db, ht,
+		&stateTransition{host.StateRunning, host.StateRestarting, host.StateRunning},
+		HostbuilderClient.Restart)
 	if err != nil {
 		return err
 	}
@@ -283,4 +262,34 @@ func getHost(db *db.Database, name string) (*host.Host, error) {
 	}
 
 	return ht, nil
+}
+
+// a stateTransition reflects the transition of host states during a hostbuilder operation
+type stateTransition struct {
+	From         string
+	Intermediate string
+	To           string
+}
+
+func transition(d db.QueryReceiver, h *host.Host, st *stateTransition, fn hostbuilder.OperationFn) error {
+	if h.State != st.From {
+		return fmt.Errorf("Expected initial state to be %s, was %s", st.From, h.State)
+	}
+
+	err := h.UpdateState(d, st.Intermediate)
+	if err != nil {
+		return err
+	}
+
+	_, err = fn(h.Provider, &hostbuilder.Config{"id": h.ProviderIdentifier.String})
+	if err != nil {
+		return err
+	}
+
+	err = h.UpdateState(d, st.To)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

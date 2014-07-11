@@ -25,6 +25,15 @@ type ProviderTemplate struct {
 	Provider string `db:"provider"`
 }
 
+const (
+	StateCreated    = "created"
+	StateRunning    = "running"
+	StateStopped    = "stopped"
+	StateStopping   = "stopping"
+	StateStarting   = "starting"
+	StateRestarting = "restarting"
+)
+
 type Host struct {
 	ID                 int64 `db:"id"`
 	UserID             int64 `db:"user_id"`

@@ -85,6 +85,8 @@ func (hb *Hostbuilder) getRequestHandler() RequestHandler {
 	return hb.defaultRequestHandler
 }
 
+type OperationFn func(provider string, config *Config) (Output, error)
+
 func (hb *Hostbuilder) Create(provider string, config *Config) (Output, error) {
 	return hb.getRequestHandler()("", provider, config)
 }
