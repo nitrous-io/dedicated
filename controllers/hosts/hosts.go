@@ -116,7 +116,7 @@ func Create(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Hel
 	// pick the first template for now
 	pt := pts[0]
 
-	config := hostbuilder.ConfigType{}
+	config := hostbuilder.Config{}
 	for k, v := range pt.Config.Map {
 		if v.Valid {
 			config[k] = v.String
@@ -207,7 +207,7 @@ func Destroy(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 		return err
 	}
 
-	_, err = hb.Delete(htp.provider, &hostbuilder.ConfigType{"id": htp.pid})
+	_, err = hb.Delete(htp.provider, &hostbuilder.Config{"id": htp.pid})
 	if err != nil {
 		return err
 	}
@@ -231,7 +231,7 @@ func Start(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Help
 		return err
 	}
 
-	_, err = hb.Start(htp.provider, &hostbuilder.ConfigType{"id": htp.pid})
+	_, err = hb.Start(htp.provider, &hostbuilder.Config{"id": htp.pid})
 	if err != nil {
 		return err
 	}
@@ -257,7 +257,7 @@ func Stop(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.Helpe
 		return err
 	}
 
-	_, err = hb.Stop(htp.provider, &hostbuilder.ConfigType{"id": htp.pid})
+	_, err = hb.Stop(htp.provider, &hostbuilder.Config{"id": htp.pid})
 	if err != nil {
 		return err
 	}
@@ -283,7 +283,7 @@ func Restart(hb *hostbuilder.Hostbuilder, env *middlewares.Env, c controllers.He
 		return err
 	}
 
-	_, err = hb.Restart(htp.provider, &hostbuilder.ConfigType{"id": htp.pid})
+	_, err = hb.Restart(htp.provider, &hostbuilder.Config{"id": htp.pid})
 	if err != nil {
 		return err
 	}

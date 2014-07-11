@@ -11,19 +11,21 @@ import (
 	"strconv"
 )
 
-type ConfigType map[string]interface{}
-type OutputType map[string]interface{}
+type Config map[string]interface{}
+type Output map[string]interface{}
+
+type RequestHandler func(path string, provider string, config *Config) (Output, error)
 
 type Hostbuilder struct {
 	URL            string
-	requestHandler func(path string, provider string, config *ConfigType) (OutputType, error)
+	requestHandler RequestHandler
 }
 
 func NewHostbuilder(url string) *Hostbuilder {
 	return &Hostbuilder{URL: url}
 }
 
-func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config *ConfigType) (OutputType, error) {
+func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config *Config) (Output, error) {
 	// FIXME: make this a global setting
 	v, _ := strconv.ParseBool(os.Getenv("NO_SSL_VERIFY"))
 	tr := &http.Transport{
@@ -57,7 +59,7 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 
 	switch response.StatusCode {
 	case http.StatusOK, http.StatusCreated:
-		var m OutputType
+		var m Output
 		err = json.NewDecoder(response.Body).Decode(&m)
 		if err != nil {
 			return nil, err
@@ -72,34 +74,33 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 	}
 }
 
-func (hb *Hostbuilder) OverrideRequestHandler(fn func(path string, provider string, config *ConfigType) (OutputType, error)) {
+func (hb *Hostbuilder) OverrideRequestHandler(fn RequestHandler) {
 	hb.requestHandler = fn
 }
 
-func (hb *Hostbuilder) getRequestHandler() func(path string, provider string, config *ConfigType) (OutputType, error) {
-	rh := hb.requestHandler
-	if rh == nil {
-		rh = hb.defaultRequestHandler
+func (hb *Hostbuilder) getRequestHandler() RequestHandler {
+	if hb.requestHandler != nil {
+		return hb.requestHandler
 	}
-	return rh
+	return hb.defaultRequestHandler
 }
 
-func (hb *Hostbuilder) Create(provider string, config *ConfigType) (OutputType, error) {
+func (hb *Hostbuilder) Create(provider string, config *Config) (Output, error) {
 	return hb.getRequestHandler()("", provider, config)
 }
 
-func (hb *Hostbuilder) Delete(provider string, config *ConfigType) (OutputType, error) {
+func (hb *Hostbuilder) Delete(provider string, config *Config) (Output, error) {
 	return hb.getRequestHandler()("delete", provider, config)
 }
 
-func (hb *Hostbuilder) Start(provider string, config *ConfigType) (OutputType, error) {
+func (hb *Hostbuilder) Start(provider string, config *Config) (Output, error) {
 	return hb.getRequestHandler()("start", provider, config)
 }
 
-func (hb *Hostbuilder) Stop(provider string, config *ConfigType) (OutputType, error) {
+func (hb *Hostbuilder) Stop(provider string, config *Config) (Output, error) {
 	return hb.getRequestHandler()("stop", provider, config)
 }
 
-func (hb *Hostbuilder) Restart(provider string, config *ConfigType) (OutputType, error) {
+func (hb *Hostbuilder) Restart(provider string, config *Config) (Output, error) {
 	return hb.getRequestHandler()("restart", provider, config)
 }

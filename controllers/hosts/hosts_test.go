@@ -33,10 +33,10 @@ func Test(t *testing.T) {
 	RunSpecs(t, "controllers/hosts")
 }
 
-func mockHostbuilderOK(path string, provider string, config *hostbuilder.ConfigType) (hostbuilder.OutputType, error) {
-	return hostbuilder.OutputType{"status": "ok"}, nil
+func mockHostbuilderOK(path string, provider string, config *hostbuilder.Config) (hostbuilder.Output, error) {
+	return hostbuilder.Output{"status": "ok"}, nil
 }
-func mockHostbuilderError(path string, provider string, config *hostbuilder.ConfigType) (hostbuilder.OutputType, error) {
+func mockHostbuilderError(path string, provider string, config *hostbuilder.Config) (hostbuilder.Output, error) {
 	return nil, errors.New("some error occurred")
 }
 
@@ -257,8 +257,8 @@ var _ = Describe("controllers/hosts", func() {
 			Context("when hostbuilder successfully creates a host", func() {
 				BeforeEach(func() {
 					hb = hostbuilder.NewHostbuilder("www.example.com")
-					ch := func(path string, provider string, config *hostbuilder.ConfigType) (hostbuilder.OutputType, error) {
-						return hostbuilder.OutputType{
+					ch := func(path string, provider string, config *hostbuilder.Config) (hostbuilder.Output, error) {
+						return hostbuilder.Output{
 							"id":         "abcd1234",
 							"ip_address": "0.0.0.0",
 							"provider":   hs.PT.Name,
