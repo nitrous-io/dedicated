@@ -48,6 +48,10 @@ type Host struct {
 	// be changed independently when necessary.
 	MaxContainers sql.NullInt64 `db:"max_containers"`
 
+	// FreighterdPort is needed during dev, since port will be different everytime you
+	// create a host.
+	FreighterdPort sql.NullInt64 `db:"freighterd_port"`
+
 	TerminatedAt *time.Time `db:"terminated_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
@@ -91,10 +95,10 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
 		(user_id, region_id, plan_id, provider_template_id, name, long_name,
-			state, ip_address, provider_identifier, max_containers)
+			state, ip_address, provider_identifier, max_containers, freighterd_port)
 		VALUES
 		(:user_id, :region_id, :plan_id, :provider_template_id, :name,
-			:long_name, :state, :ip_address, :provider_identifier, :max_containers)
+		:long_name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port)
 		RETURNING *;`)
 	if err != nil {
 		return err

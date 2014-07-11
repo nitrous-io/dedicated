@@ -127,5 +127,11 @@ func init() {
 				CREATE UNIQUE INDEX index_hosts_on_name ON hosts USING btree (name);
 			`,
 		},
+		{
+			Version: "90",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN freighterd_port bigint;
+			`,
+		},
 	}
 }

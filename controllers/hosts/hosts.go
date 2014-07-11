@@ -148,7 +148,9 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 
 		IPAddress:          sql.NullString{info["ip_address"].(string), true},
 		ProviderIdentifier: sql.NullString{info["id"].(string), true},
-		State:              "created",
+
+		FreighterdPort: sql.NullInt64{int64(info["freighterd_port"].(int)), true},
+		State:          "created",
 	}
 	err = h.Insert(db)
 	if err != nil {

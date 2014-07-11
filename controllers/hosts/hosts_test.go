@@ -258,9 +258,10 @@ var _ = Describe("controllers/hosts", func() {
 					hb := hostbuilder.NewHostbuilder("www.example.com")
 					ch := func(path string, provider string, config *hostbuilder.Config) (hostbuilder.Output, error) {
 						return hostbuilder.Output{
-							"id":         "abcd1234",
-							"ip_address": "0.0.0.0",
-							"provider":   hs.PT.Name,
+							"id":              "abcd1234",
+							"ip_address":      "0.0.0.0",
+							"provider":        hs.PT.Name,
+							"freighterd_port": 65333,
 						}, nil
 					}
 					hb.OverrideRequestHandler(ch)
@@ -288,6 +289,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.State).To(Equal("created"))
 					Expect(h.MaxContainers.Int64).To(Equal(hs.P.MaxContainers))
 					Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
+					Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
 				})
 
 				It("responds with the created host and status created", func() {
