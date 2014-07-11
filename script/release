@@ -2,7 +2,7 @@
 set -e
 RELEASE_DIR=release
 BUILD_DIR=./build
-TIMESTAMP=$(date +"%d%m%y%H%M%S")
+TIMESTAMP=$(date +"%Y%d%m%H%M%S")
 
 latest_commit() {
         local commit=$(git rev-parse --short HEAD)
