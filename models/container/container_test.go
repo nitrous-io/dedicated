@@ -83,6 +83,17 @@ var _ = Describe("models/container", func() {
 		}
 	})
 
+	Describe("GenerateRandomName()", func() {
+		It("returns 'container-' suffixed with a timestamp", func() {
+			name := container.GenerateRandomName()
+			Expect(name).To(MatchRegexp(`\Acontainer-[0-9]+\z`))
+		})
+
+		It("differs when called a second time", func() {
+			Expect(container.GenerateRandomName()).NotTo(Equal(container.GenerateRandomName()))
+		})
+	})
+
 	Describe("FindByID()", func() {
 		Context("when a container record with a given id exists", func() {
 			It("returns the container record", func() {
