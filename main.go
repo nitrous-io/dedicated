@@ -12,6 +12,8 @@ import (
 
 	// import all individual commands here so they register themselves in init()
 	_ "github.com/nitrous-io/nitro/command/hosts"
+	_ "github.com/nitrous-io/nitro/command/hostscreate"
+	_ "github.com/nitrous-io/nitro/command/hostsdestroy"
 	_ "github.com/nitrous-io/nitro/command/login"
 	_ "github.com/nitrous-io/nitro/command/logout"
 )
