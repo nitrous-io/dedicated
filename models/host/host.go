@@ -81,13 +81,13 @@ func findAllByUserID(db *db.Database, userID int64) ([]Host, error) {
 	return hosts, nil
 }
 
-func FindByName(db *db.Database, name string) (*Host, error) {
+func FindByUserAndName(db *db.Database, user *user.User, name string) (*Host, error) {
 	host := &Host{}
 	q := `SELECT hosts.*, provider_templates.provider
 				FROM hosts
 				INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
-				WHERE hosts.name = $1`
-	err := db.Get(host, q, name)
+				WHERE hosts.user_id = $1 AND hosts.name = $2`
+	err := db.Get(host, q, user.ID, name)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

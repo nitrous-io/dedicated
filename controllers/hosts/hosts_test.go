@@ -364,7 +364,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("deletes the host record", func() {
-					h, err := host.FindByName(db, hs.H.Name)
+					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
 					Expect(err).To(BeNil())
 					Expect(h).To(BeNil())
 				})
@@ -386,7 +386,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("does not delete the host", func() {
-					h, err := host.FindByName(db, hs.H.Name)
+					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
 					Expect(err).To(BeNil())
 					Expect(h).NotTo(BeNil())
 				})
@@ -454,7 +454,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("updates the host state to running", func() {
-					h, err := host.FindByName(db, hs.H.Name)
+					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateRunning))
 				})
@@ -476,7 +476,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("leaves host in intermediate state", func() {
-					h, err := host.FindByName(db, hs.H.Name)
+					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateStarting))
 				})
@@ -531,7 +531,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("updates the host state to stopped", func() {
-					h, err := host.FindByName(db, hs.H.Name)
+					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateStopped))
 				})
@@ -553,7 +553,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("leaves host in intermediate state", func() {
-					h, err := host.FindByName(db, hs.H.Name)
+					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateStopping))
 				})
@@ -608,7 +608,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("updates the host state to running", func() {
-					h, err := host.FindByName(db, hs.H.Name)
+					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateRunning))
 				})
@@ -630,7 +630,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("leaves host in intermediate state", func() {
-					h, err := host.FindByName(db, hs.H.Name)
+					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateRestarting))
 				})

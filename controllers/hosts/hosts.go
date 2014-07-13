@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/providertemplate"
 	"github.com/nitrous-io/nitrous/models/region"
+	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/hostbuilder"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
@@ -161,7 +162,7 @@ func Destroy(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 	logger := c.Logger()
 	vars := env.Vars
 
-	ht, err := getHost(db, vars["name"])
+	ht, err := getHost(db, env.User, vars["name"])
 	if err != nil {
 		return err
 	}
@@ -185,7 +186,7 @@ func Start(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r 
 	logger := c.Logger()
 	vars := env.Vars
 
-	ht, err := getHost(db, vars["name"])
+	ht, err := getHost(db, env.User, vars["name"])
 	if err != nil {
 		return err
 	}
@@ -206,7 +207,7 @@ func Stop(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *
 	logger := c.Logger()
 	vars := env.Vars
 
-	ht, err := getHost(db, vars["name"])
+	ht, err := getHost(db, env.User, vars["name"])
 	if err != nil {
 		return err
 	}
@@ -227,7 +228,7 @@ func Restart(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 	logger := c.Logger()
 	vars := env.Vars
 
-	ht, err := getHost(db, vars["name"])
+	ht, err := getHost(db, env.User, vars["name"])
 	if err != nil {
 		return err
 	}
@@ -249,8 +250,8 @@ func respondOK(w http.ResponseWriter, logger *logger.Logger) {
 	logger.Infof("Response: 200 OK")
 }
 
-func getHost(db *db.Database, name string) (*host.Host, error) {
-	ht, err := host.FindByName(db, name)
+func getHost(db *db.Database, user *user.User, name string) (*host.Host, error) {
+	ht, err := host.FindByUserAndName(db, user, name)
 	if err != nil {
 		return nil, err
 	}

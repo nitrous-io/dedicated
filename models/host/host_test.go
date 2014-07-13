@@ -97,10 +97,10 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("FindByName()", func() {
-		Context("when there's a host record for the given name", func() {
+	Describe("FindByUserAndName()", func() {
+		Context("when there's a host record for the given name that belongs to the user", func() {
 			It("returns the host record matching the name", func() {
-				h, err := host.FindByName(db, hs.H.Name)
+				h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
 				Expect(err).To(BeNil())
 				Expect(h).NotTo(BeNil())
 				Expect(h.ID).To(Equal(hs.H.ID))
@@ -110,9 +110,28 @@ var _ = Describe("models/host", func() {
 			})
 		})
 
+		Context("when there's a host record for the given name that does not belong to the user", func() {
+			var u *user.User
+			BeforeEach(func() {
+				u = &user.User{
+					Username: "barbaz",
+					Email:    "barbaz@example.com",
+					Password: "123456",
+				}
+				err := u.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns nil without an error", func() {
+				h, err := host.FindByUserAndName(db, u, hs.H.Name)
+				Expect(err).To(BeNil())
+				Expect(h).To(BeNil())
+			})
+		})
+
 		Context("when a host record with the given name does not exist", func() {
 			It("returns nil without an error", func() {
-				h, err := host.FindByName(db, "vivabrazil")
+				h, err := host.FindByUserAndName(db, hs.U, "vivabrazil")
 				Expect(err).To(BeNil())
 				Expect(h).To(BeNil())
 			})
@@ -121,7 +140,7 @@ var _ = Describe("models/host", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				h, err := host.FindByName(db, hs.H.Name)
+				h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
 				Expect(h).To(BeNil())
 				Expect(err).NotTo(BeNil())
 			})
@@ -202,7 +221,7 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 			Expect(h.State).To(Equal("stopped"))
 
-			h1, err := host.FindByName(db, "foo")
+			h1, err := host.FindByUserAndName(db, hs.U, "foo")
 			Expect(err).To(BeNil())
 			Expect(h1.State).To(Equal("stopped"))
 		})
@@ -232,7 +251,7 @@ var _ = Describe("models/host", func() {
 			err := h.Delete(db)
 			Expect(err).To(BeNil())
 
-			h, err = host.FindByName(db, "foo")
+			h, err = host.FindByUserAndName(db, hs.U, "foo")
 			Expect(err).To(BeNil())
 			Expect(h).To(BeNil())
 		})
