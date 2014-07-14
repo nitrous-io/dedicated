@@ -1,0 +1,16 @@
+li class={generalSelected:selected}
+  link-to 'container.index' | General
+li class={sshSelected:selected}
+  a href='#' SSH
+li class={volumesSelected:selected}
+  a href='#' Volumes
+li class={portsSelected:selected}
+  a href='#' Ports
+li class={envSelected:selected}
+  a href='#' Env
+li class={logsSelected:selected}
+  a href='#' Logs
+li class={imageSelected:selected}
+  a href='#' Images
+li class={usersSelected:selected}
+  a href='#' Users

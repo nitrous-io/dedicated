@@ -1,7 +1,10 @@
 .container
-  h1.logo Nitrous.IO
-  if App.currentUser
-    ul.nav
+  ul.nav.left
+    li
+      link-to 'home.index'
+        h1.logo Nitrous.IO
+  ul.nav.right
+    if App.currentUser
       li
         a href='#'
           img.gravatar src='http://gravatar.com/avatar/2ac28b22a3596136ad31d53553383d9b?s=48'
@@ -30,8 +33,7 @@
           li.separator
           li
             a href='#' Log Out
-  else
-    ul.nav
+    else
       li
         a href='#' Features
       li

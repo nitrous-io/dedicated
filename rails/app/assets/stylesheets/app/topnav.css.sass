@@ -3,16 +3,13 @@
 #topnav-view
   $topnavHeight: $barHeight
 
-  height: $topnavHeight
+  height: $topnavHeight + 1px
   background: white
   border-bottom: 1px solid $gray300
   font-size: $fontSizeSmall
 
-  h1
-    display: inline-block
+  h1.logo
     margin: 0
-    line-height: $topnavHeight
-    padding-left: $containerPadding
     font-size: 18px
     font-family: 'EurostileLTPro-BoldEx2'
     text-transform: uppercase
@@ -21,10 +18,13 @@
     -moz-osx-font-smoothing: grayscale
 
   ul.nav
-    padding-right: 4px
+    display: inline-block
     margin: 0
-    float: right
+    padding: 0 4px
     list-style: none
+
+    &.right
+      float: right
 
     > li
       position: relative

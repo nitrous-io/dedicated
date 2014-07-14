@@ -25,10 +25,17 @@
         border-bottom: 0
         margin-bottom: 0
 
-  ul.containers
-    > li.selected
-      background: $gray200
+  ul.hosts, ul.containers
+    > li > a
+      display: block
       border-radius: 2px
+      transition: background-color .2s
+
+      &:hover
+        background: $gray100
+
+    > li.selected > a
+      background: $gray200
 
   h3, h4
     margin: 0

@@ -1,22 +1,4 @@
-h2.card-header.bordered
-  a href='#' Project X
-  span.divider.fa.fa-angle-right
-  a href='#' Web App
-ul.ui.tab-bar
-  li.selected
-    a href='#' General
-  li
-    a href='#' Volumes
-  li
-    a href='#' Ports
-  li
-    a href='#' Env
-  li
-    a href='#' Logs
-  li
-    a href='#' Images
-  li
-    a href='#' Collaborators
+= container-tab-bar selected='general'
 
 .card-body
   table.ui.table
@@ -25,6 +7,10 @@ ul.ui.tab-bar
       td
         .state-indicator.running
         | Running
+
+    tr
+      th Short Name
+      td web-app
 
     tr
       th Image

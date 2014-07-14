@@ -35,3 +35,7 @@ $(window).on 'offline', ->
 
 $(window).on 'online', ->
   window.App?.set 'online', true
+
+Em.Route.reopen
+  activate: ->
+    App.set 'title', null
