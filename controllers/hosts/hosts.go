@@ -34,6 +34,7 @@ var (
 	ErrHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 
 	hostbuilderURL string
+	aesKey         string
 )
 
 const HostbuilderURLEnvVar = "HOSTBUILDER_URL"
@@ -47,6 +48,11 @@ func init() {
 	}
 
 	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
+
+	aesKey = os.Getenv("AES_KEY")
+	if aesKey == "" {
+		panic("AES_KEY is not set")
+	}
 }
 
 func Index(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
