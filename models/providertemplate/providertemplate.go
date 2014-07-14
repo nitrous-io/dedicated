@@ -35,7 +35,7 @@ func FindAllByRegionAndPlan(d db.QueryReceiver, regionID, planID int64) ([]Provi
 	templates := []ProviderTemplate{}
 	err := d.Select(&templates, "SELECT * FROM provider_templates WHERE region_id = $1 AND plan_id = $2", regionID, planID)
 	if err != nil {
-		return []ProviderTemplate{}, err
+		return nil, err
 	}
 	return templates, nil
 }

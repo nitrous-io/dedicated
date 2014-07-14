@@ -71,7 +71,7 @@ func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
 	containers := []*Container{}
 	err := d.Select(&containers, `SELECT * FROM containers WHERE host_id = $1;`, hostID)
 	if err != nil {
-		return []*Container{}, err
+		return nil, err
 	}
 	return containers, nil
 }
