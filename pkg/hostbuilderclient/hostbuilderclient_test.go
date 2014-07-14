@@ -40,7 +40,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 	})
 
 	Describe("Create()", func() {
-		doRequest := func() (hostbuilder.Response, error) {
+		doRequest := func() (*hostbuilder.Response, error) {
 			return hb.Create("digitalocean", &hostbuilderclient.Config{
 				"name":        "doublerainbow",
 				"public_keys": []string{"value1", "value2"},
@@ -93,7 +93,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 	Describe("Delete()", func() {
 		var hb *hostbuilderclient.Hostbuilder
 
-		doRequest := func() (hostbuilder.Response, error) {
+		doRequest := func() (*hostbuilder.Response, error) {
 			return hb.Delete("digitalocean", &hostbuilderclient.Config{
 				"id": "hostid",
 			})
@@ -128,7 +128,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 	Describe("Start()", func() {
 		var hb *hostbuilderclient.Hostbuilder
 
-		doRequest := func() (hostbuilder.Response, error) {
+		doRequest := func() (*hostbuilder.Response, error) {
 			return hb.Start("digitalocean", &hostbuilderclient.Config{
 				"id": "hostid",
 			})
@@ -160,7 +160,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 	})
 
 	Describe("Stop()", func() {
-		doRequest := func() (hostbuilder.Response, error) {
+		doRequest := func() (*hostbuilder.Response, error) {
 			return hb.Stop("digitalocean", &hostbuilderclient.Config{
 				"id": "hostid",
 			})
@@ -192,7 +192,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 	})
 
 	Describe("Restart()", func() {
-		doRequest := func() (hostbuilder.Response, error) {
+		doRequest := func() (*hostbuilder.Response, error) {
 			return hb.Restart("digitalocean", &hostbuilderclient.Config{
 				"id": "hostid",
 			})
@@ -227,13 +227,13 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 		It("overrides the default request handler", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 
-			ch := func(path string, provider string, config *hostbuilderclient.Config) (hostbuilder.Response, error) {
-				return hostbuilder.Response{}, errors.New("this is a custom handler")
+			ch := func(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
+				return nil, errors.New("this is a custom handler")
 			}
 			hb.OverrideRequestHandler(ch)
 
 			o, err := hb.Create("provider", &hostbuilderclient.Config{})
-			Expect(o).To(Equal(hostbuilder.Response{}))
+			Expect(o).To(BeNil())
 			Expect(err).To(MatchError("this is a custom handler"))
 		})
 	})

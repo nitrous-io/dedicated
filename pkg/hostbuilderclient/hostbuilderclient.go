@@ -16,7 +16,7 @@ import (
 
 type Config map[string]interface{}
 
-type RequestHandler func(path string, provider string, config *Config) (hostbuilder.Response, error)
+type RequestHandler func(path string, provider string, config *Config) (*hostbuilder.Response, error)
 
 type Hostbuilder struct {
 	URL            string
@@ -27,7 +27,7 @@ func NewHostbuilder(url string) *Hostbuilder {
 	return &Hostbuilder{URL: url}
 }
 
-func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config *Config) (hostbuilder.Response, error) {
+func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config *Config) (*hostbuilder.Response, error) {
 	client := httpclient.New("")
 	// FIXME: make this a global setting
 	v, _ := strconv.ParseBool(os.Getenv("NO_SSL_VERIFY"))
@@ -36,14 +36,12 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 	}
 	client.Client.Transport = tr
 
-	output := hostbuilder.Response{}
-
 	p := url.Values{}
 	p.Set("provider", provider)
 
 	cg, err := json.Marshal(config)
 	if err != nil {
-		return output, err
+		return nil, err
 	}
 	p.Set("config", string(cg))
 
@@ -58,23 +56,24 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 
 	response, err := client.PostForm(url, &p)
 	if err != nil {
-		return output, err
+		return nil, err
 	}
 	defer response.Body.Close()
 
+	m := &hostbuilder.Response{}
 	switch response.StatusCode {
 	case http.StatusOK, http.StatusCreated:
-		err = json.NewDecoder(response.Body).Decode(&output)
+		err = json.NewDecoder(response.Body).Decode(m)
 		if err != nil {
-			return output, err
+			return nil, err
 		}
-		return output, nil
+		return m, nil
 	default:
 		e, err := ioutil.ReadAll(response.Body)
 		if err != nil {
-			return output, err
+			return nil, err
 		}
-		return output, errors.New(string(e))
+		return nil, errors.New(string(e))
 	}
 }
 
@@ -89,24 +88,24 @@ func (hb *Hostbuilder) getRequestHandler() RequestHandler {
 	return hb.defaultRequestHandler
 }
 
-type OperationFn func(provider string, config *Config) (hostbuilder.Response, error)
+type OperationFn func(provider string, config *Config) (*hostbuilder.Response, error)
 
-func (hb *Hostbuilder) Create(provider string, config *Config) (hostbuilder.Response, error) {
+func (hb *Hostbuilder) Create(provider string, config *Config) (*hostbuilder.Response, error) {
 	return hb.getRequestHandler()("", provider, config)
 }
 
-func (hb *Hostbuilder) Delete(provider string, config *Config) (hostbuilder.Response, error) {
+func (hb *Hostbuilder) Delete(provider string, config *Config) (*hostbuilder.Response, error) {
 	return hb.getRequestHandler()("delete", provider, config)
 }
 
-func (hb *Hostbuilder) Start(provider string, config *Config) (hostbuilder.Response, error) {
+func (hb *Hostbuilder) Start(provider string, config *Config) (*hostbuilder.Response, error) {
 	return hb.getRequestHandler()("start", provider, config)
 }
 
-func (hb *Hostbuilder) Stop(provider string, config *Config) (hostbuilder.Response, error) {
+func (hb *Hostbuilder) Stop(provider string, config *Config) (*hostbuilder.Response, error) {
 	return hb.getRequestHandler()("stop", provider, config)
 }
 
-func (hb *Hostbuilder) Restart(provider string, config *Config) (hostbuilder.Response, error) {
+func (hb *Hostbuilder) Restart(provider string, config *Config) (*hostbuilder.Response, error) {
 	return hb.getRequestHandler()("restart", provider, config)
 }
