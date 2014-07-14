@@ -156,8 +156,7 @@ var _ = Describe("controllers/containers", func() {
 							err := json.Unmarshal(res.Body.Bytes(), &j)
 							Expect(err).To(BeNil())
 
-							errType, ok := j["error"].(string)
-							Expect(ok).To(BeTrue())
+							errType, _ := j["error"].(string)
 							Expect(errType).To(Equal("internal_server_error"))
 						})
 					})
@@ -294,12 +293,10 @@ var _ = Describe("controllers/containers", func() {
 					err := json.Unmarshal(res.Body.Bytes(), &j)
 					Expect(err).To(BeNil())
 
-					errType, ok := j["error"].(string)
-					Expect(ok).To(BeTrue())
+					errType, _ := j["error"].(string)
 					Expect(errType).To(Equal("not_found"))
 
-					errDesc, ok := j["error_description"].(string)
-					Expect(ok).To(BeTrue())
+					errDesc, _ := j["error_description"].(string)
 					Expect(errDesc).To(Equal("host does not exist"))
 				})
 			})
@@ -360,8 +357,7 @@ var _ = Describe("controllers/containers", func() {
 						err := json.Unmarshal(res.Body.Bytes(), &j)
 						Expect(err).To(BeNil())
 
-						errType, ok := j["error"].(string)
-						Expect(ok).To(BeTrue())
+						errType, _ := j["error"].(string)
 						Expect(errType).To(Equal("internal_server_error"))
 					})
 
@@ -379,8 +375,7 @@ var _ = Describe("controllers/containers", func() {
 							err := json.Unmarshal(res.Body.Bytes(), &j)
 							Expect(err).To(BeNil())
 
-							errType, ok := j["error"].(string)
-							Expect(ok).To(BeTrue())
+							errType, _ := j["error"].(string)
 							Expect(errType).To(Equal("validation_failed"))
 						})
 					})
