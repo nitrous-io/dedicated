@@ -6,11 +6,11 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command/hostsdestroy"
-	"github.com/nitrous-io/nitro/test"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 )
 
 func Test(t *testing.T) {
@@ -20,16 +20,25 @@ func Test(t *testing.T) {
 
 var _ = Describe("hosts:destroy", func() {
 	var (
-		cmd *hostsdestroy.Command
-		ui  *cli.MockUi
+		cmd      *hostsdestroy.Command
+		ui       *cli.MockUi
+		srv      *ghttp.Server
+		handlers []http.HandlerFunc
 	)
 
 	BeforeEach(func() {
+		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
 		cmd = &hostsdestroy.Command{
 			UI:     ui,
-			Server: "example.com",
+			Server: srv.URL(),
 			Client: httpclient.New("a_token"),
+		}
+		handlers = []http.HandlerFunc{
+			ghttp.VerifyHeader(http.Header{
+				"Authorization": []string{"Bearer a_token"},
+			}),
+			ghttp.VerifyRequest("DELETE", "/api/v0/hosts/foo"),
 		}
 	})
 
@@ -40,26 +49,12 @@ var _ = Describe("hosts:destroy", func() {
 	})
 
 	Context("hitting the server", func() {
-		It("populates request correctly", func() {
-			ms := test.RequestChecker(func(r *http.Request) {
-				Expect(r.Method).To(Equal("DELETE"))
-				Expect(r.URL.Path).To(Equal("/api/v0/hosts/foo"))
-				Expect(r.Header.Get("Authorization")).To(Equal("Bearer a_token"))
-			})
-
-			ms.Check(func() (*http.Response, error) {
-				cmd.Server = ms.URL
-				cmd.Run([]string{"foo"})
-				return nil, nil
-			})
-		})
-
 		Context("when request succeeds", func() {
 			It("reports success", func() {
-				ms := test.QuickMockServer("/api/v0/hosts/foo", http.StatusOK, `{"status":"ok"}`)
-				defer ms.Close()
+				handlers = append(handlers,
+					ghttp.RespondWith(http.StatusOK, `{"status":"ok"}`))
+				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 
-				cmd.Server = ms.URL
 				code := cmd.Run([]string{"foo"})
 
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
@@ -69,11 +64,12 @@ var _ = Describe("hosts:destroy", func() {
 
 		Context("when request fails", func() {
 			It("displays error message", func() {
-				ms := test.QuickMockServer("/api/v0/hosts/foo", http.StatusBadRequest,
-					test.ErrorJSON("invalid_request", "host not found"))
-				defer ms.Close()
+				handlers = append(handlers,
+					ghttp.RespondWith(http.StatusBadRequest,
+						`{"error":"invalid_request","error_description":"host not found"}`),
+				)
+				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 
-				cmd.Server = ms.URL
 				code := cmd.Run([]string{"foo"})
 
 				Expect(ui.ErrorWriter.String()).To(ContainSubstring("host not found"))

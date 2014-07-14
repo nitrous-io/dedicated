@@ -7,11 +7,11 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command/hosts"
-	"github.com/nitrous-io/nitro/test"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 )
 
 func Test(t *testing.T) {
@@ -21,32 +21,33 @@ func Test(t *testing.T) {
 
 var _ = Describe("hosts", func() {
 	var (
-		cmd *hosts.Command
-		ui  *cli.MockUi
+		cmd      *hosts.Command
+		ui       *cli.MockUi
+		srv      *ghttp.Server
+		handlers []http.HandlerFunc
 	)
 
 	BeforeEach(func() {
+		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
 		cmd = &hosts.Command{
 			UI:     ui,
-			Server: "example.com",
+			Server: srv.URL(),
 			Client: httpclient.New("a_token"),
+		}
+		handlers = []http.HandlerFunc{
+			ghttp.VerifyHeader(http.Header{
+				"Authorization": []string{"Bearer a_token"},
+			}),
+			ghttp.VerifyRequest("GET", "/api/v0/hosts"),
 		}
 	})
 
-	Context("hitting the server", func() {
-		It("populates request correctly", func() {
-			ms := test.RequestChecker(func(r *http.Request) {
-				Expect(r.Method).To(Equal("GET"))
-				Expect(r.Header.Get("Authorization")).To(Equal("Bearer a_token"))
-			})
-			ms.Check(func() (*http.Response, error) {
-				cmd.Server = ms.URL
-				cmd.Run([]string{})
-				return nil, nil
-			})
-		})
+	AfterEach(func() {
+		srv.Close()
+	})
 
+	Context("hitting the server", func() {
 		Context("when server responds with hosts", func() {
 			var (
 				responseJSON = strings.TrimSpace(`
@@ -60,11 +61,13 @@ host-2    running
 `) + "\n\n"
 			)
 
+			BeforeEach(func() {
+				handlers = append(handlers,
+					ghttp.RespondWith(http.StatusOK, responseJSON))
+				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+			})
+
 			It("outputs formatted hosts on success", func() {
-				ms := test.QuickMockServer("/api/v0/hosts", http.StatusOK,
-					responseJSON)
-				defer ms.Close()
-				cmd.Server = ms.URL
 				code := cmd.Run([]string{})
 				Expect(ui.OutputWriter.String()).To(Equal(formattedOutput))
 				Expect(code).To(Equal(0))
@@ -72,11 +75,13 @@ host-2    running
 		})
 
 		Context("when user has no hosts", func() {
+			BeforeEach(func() {
+				handlers = append(handlers,
+					ghttp.RespondWith(http.StatusOK, `{"hosts":[],"status":"ok"}`))
+				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+			})
+
 			It("displays no hosts found", func() {
-				ms := test.QuickMockServer("/api/v0/hosts", http.StatusOK,
-					`{"hosts":[],"status":"ok"}`)
-				defer ms.Close()
-				cmd.Server = ms.URL
 				code := cmd.Run([]string{})
 				Expect(ui.OutputWriter.String()).To(Equal("No hosts found\n"))
 				Expect(code).To(Equal(0))
@@ -84,12 +89,15 @@ host-2    running
 		})
 
 		Context("when server responds with an internal_server_error", func() {
-			It("displays unknown error message", func() {
-				ms := test.QuickMockServer("/api/v0/hosts", http.StatusInternalServerError,
-					`{"error":"internal_server_error","error_hash":"b482fd5b602650c798366fe9ee8e6cf65ef759fc"}`,
+			BeforeEach(func() {
+				handlers = append(handlers,
+					ghttp.RespondWith(http.StatusInternalServerError,
+						`{"error":"internal_server_error","error_hash":"b482fd5b602650c798366fe9ee8e6cf65ef759fc"}`),
 				)
-				defer ms.Close()
-				cmd.Server = ms.URL
+				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+			})
+
+			It("displays unknown error message", func() {
 				code := cmd.Run([]string{})
 				Expect(ui.ErrorWriter.String()).To(ContainSubstring("Unknown error occurred"))
 				Expect(code).To(Equal(1))
