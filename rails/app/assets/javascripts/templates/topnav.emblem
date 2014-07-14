@@ -10,7 +10,7 @@
         a href='#'
           | New
           .ui.dropdown-triangle
-        ul.dropdown-menu
+        ul.dropdown-menu style='display: none'
           li
             a href='#' New Host...
           li
@@ -19,7 +19,7 @@
         a href='#'
           | Account
           .ui.dropdown-triangle
-        ul.dropdown-menu.right
+        ul.dropdown-menu.right style='display: none'
           li
             a href='#' Account Settings
           li
