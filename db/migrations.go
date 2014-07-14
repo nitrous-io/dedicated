@@ -169,5 +169,21 @@ func init() {
 				ALTER TABLE hosts ADD COLUMN size character varying(255);
 			`,
 		},
+		{
+			Version: "140",
+			Up: `
+				CREATE TABLE key_pairs (
+					id bigserial PRIMARY KEY NOT NULL,
+					owner_type character varying(255) NOT NULL,
+					owner_id integer,
+					public_key text NOT NULL,
+					encrypted_private_key text NOT NULL,
+					encrypted_private_key_iv character varying(255) NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE INDEX index_key_pairs_on_owner_id_and_owner_type ON key_pairs USING btree (owner_id, owner_type);
+			`,
+		},
 	}
 }
