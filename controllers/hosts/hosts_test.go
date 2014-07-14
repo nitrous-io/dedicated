@@ -10,18 +10,19 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/hostbuilder"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers/hosts"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
+	"github.com/nitrous-io/nitrous/server"
+
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/region"
-
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
-	"github.com/nitrous-io/nitrous/pkg/hostbuilder"
-	"github.com/nitrous-io/nitrous/server"
 
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -33,11 +34,11 @@ func Test(t *testing.T) {
 	RunSpecs(t, "controllers/hosts")
 }
 
-func mockHostbuilderOK(path string, provider string, config *hostbuilder.Config) (hostbuilder.Output, error) {
-	return hostbuilder.Output{Status: "ok"}, nil
+func mockHostbuilderOK(path string, provider string, config *hostbuilderclient.Config) (hostbuilder.Response, error) {
+	return hostbuilder.Response{Status: "ok"}, nil
 }
-func mockHostbuilderError(path string, provider string, config *hostbuilder.Config) (hostbuilder.Output, error) {
-	return hostbuilder.Output{}, errors.New("some error occurred")
+func mockHostbuilderError(path string, provider string, config *hostbuilderclient.Config) (hostbuilder.Response, error) {
+	return hostbuilder.Response{}, errors.New("some error occurred")
 }
 
 var _ = Describe("controllers/hosts", func() {
@@ -255,9 +256,9 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder successfully creates a host", func() {
 				BeforeEach(func() {
-					hb := hostbuilder.NewHostbuilder("www.example.com")
-					ch := func(path string, provider string, config *hostbuilder.Config) (hostbuilder.Output, error) {
-						return hostbuilder.Output{
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					ch := func(path string, provider string, config *hostbuilderclient.Config) (hostbuilder.Response, error) {
+						return hostbuilder.Response{
 							ID:             "abcd1234",
 							IPAddress:      "0.0.0.0",
 							Provider:       hs.PT.Name,
@@ -303,7 +304,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder fails to create the host", func() {
 				BeforeEach(func() {
-					hb := hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderError)
 
 					hosts.HostbuilderClient = hb
@@ -354,7 +355,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("with a valid host name", func() {
 			Context("when hostbuilder successfully deletes the host", func() {
 				BeforeEach(func() {
-					hb := hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderOK)
 
 					hosts.HostbuilderClient = hb
@@ -376,7 +377,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder fails to delete the host", func() {
 				BeforeEach(func() {
-					hb := hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderError)
 
 					hosts.HostbuilderClient = hb
@@ -423,7 +424,7 @@ var _ = Describe("controllers/hosts", func() {
 
 		Context("with an unexpected starting state", func() {
 			It("returns state transition error", func() {
-				hb := hostbuilder.NewHostbuilder("www.example.com")
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				hb.OverrideRequestHandler(mockHostbuilderOK)
 
 				hosts.HostbuilderClient = hb
@@ -444,7 +445,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("with a valid host name", func() {
 			Context("when hostbuilder successfully starts the host", func() {
 				BeforeEach(func() {
-					hb := hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderOK)
 
 					hosts.HostbuilderClient = hb
@@ -466,7 +467,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder fails to start the host", func() {
 				BeforeEach(func() {
-					hb := hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderError)
 
 					hosts.HostbuilderClient = hb
@@ -521,7 +522,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("with a valid host name", func() {
 			Context("when hostbuilder successfully stops the host", func() {
 				BeforeEach(func() {
-					hb := hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderOK)
 
 					hosts.HostbuilderClient = hb
@@ -543,7 +544,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder fails to stop the host", func() {
 				BeforeEach(func() {
-					hb := hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderError)
 
 					hosts.HostbuilderClient = hb
@@ -598,7 +599,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("with a valid host name", func() {
 			Context("when hostbuilder successfully restarts the host", func() {
 				BeforeEach(func() {
-					hb := hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderOK)
 
 					hosts.HostbuilderClient = hb
@@ -620,7 +621,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when hostbuilder fails to restart the host", func() {
 				BeforeEach(func() {
-					hb := hostbuilder.NewHostbuilder("www.example.com")
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderError)
 
 					hosts.HostbuilderClient = hb
