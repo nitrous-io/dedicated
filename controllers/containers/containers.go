@@ -18,7 +18,10 @@ import (
 // API hosts.
 var FreighterClient freighter.Client
 
-var errHostNotFound = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
+var (
+	errImageRequired = httperror.New(http.StatusBadRequest, "invalid_request", "image is required")
+	errHostNotFound  = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
+)
 
 var (
 	Index  middlewares.Middleware = withHost(index)
@@ -114,6 +117,10 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 		// TODO We should probably retry if the generated name ends up being
 		// already in use.
 		name = container.GenerateRandomName()
+	}
+
+	if image == "" {
+		return errImageRequired
 	}
 
 	fHost := mkFreighterHost(h)

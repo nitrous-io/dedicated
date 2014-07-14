@@ -431,6 +431,25 @@ var _ = Describe("controllers/containers", func() {
 					})
 				})
 			})
+
+			Context("when image param is missing", func() {
+				BeforeEach(func() {
+					params.Del("image")
+				})
+
+				It("responds with HTTP 400 Bad Request", func() {
+					doRequest("valid-token", "foo", params)
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+
+					errType, _ := j["error"].(string)
+					Expect(errType).To(Equal("invalid_request"))
+				})
+			})
 		})
 
 		Context("oauth token failure modes", func() {
