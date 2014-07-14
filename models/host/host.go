@@ -21,6 +21,19 @@ var (
 	ErrNameTooLong  = errors.New("name is too long (maximum is 63 characters)")
 )
 
+type ProviderTemplate struct {
+	Provider string `db:"provider"`
+}
+
+const (
+	StateCreated    = "created"
+	StateRunning    = "running"
+	StateStopped    = "stopped"
+	StateStopping   = "stopping"
+	StateStarting   = "starting"
+	StateRestarting = "restarting"
+)
+
 type Host struct {
 	ID                 int64 `db:"id"`
 	UserID             int64 `db:"user_id"`
@@ -44,9 +57,15 @@ type Host struct {
 	// be changed independently when necessary.
 	MaxContainers sql.NullInt64 `db:"max_containers"`
 
+	// FreighterdPort is needed during dev, since port will be different everytime you
+	// create a host.
+	FreighterdPort sql.NullInt64 `db:"freighterd_port"`
+
 	TerminatedAt *time.Time `db:"terminated_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
+
+	*ProviderTemplate
 }
 
 func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
@@ -55,11 +74,28 @@ func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
 
 func findAllByUserID(db *db.Database, userID int64) ([]Host, error) {
 	hosts := []Host{}
-	err := db.Select(&hosts, "SELECT * from hosts WHERE user_id = $1 ORDER BY id", userID)
+	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 ORDER BY id", userID)
 	if err != nil {
 		return []Host{}, err
 	}
 	return hosts, nil
+}
+
+func FindByUserAndName(db *db.Database, user *user.User, name string) (*Host, error) {
+	host := &Host{}
+	q := `SELECT hosts.*, provider_templates.provider
+				FROM hosts
+				INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
+				WHERE hosts.user_id = $1 AND hosts.name = $2`
+	err := db.Get(host, q, user.ID, name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return host, err
 }
 
 func (h *Host) Insert(d db.QueryReceiver) error {
@@ -68,15 +104,26 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
 		(user_id, region_id, plan_id, provider_template_id, name, long_name,
-			state, ip_address, provider_identifier, max_containers)
+			state, ip_address, provider_identifier, max_containers, freighterd_port)
 		VALUES
 		(:user_id, :region_id, :plan_id, :provider_template_id, :name,
-			:long_name, :state, :ip_address, :provider_identifier, :max_containers)
+		:long_name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port)
 		RETURNING *;`)
 	if err != nil {
 		return err
 	}
 	return nstmt.QueryRowx(h).StructScan(h)
+}
+
+func (h *Host) UpdateState(d db.QueryReceiver, state string) error {
+	h.State = state
+	_, err := d.Exec("UPDATE hosts SET state = $1 WHERE id = $2", state, h.ID)
+	return err
+}
+
+func (h *Host) Delete(d db.QueryReceiver) error {
+	_, err := d.Exec("DELETE FROM hosts WHERE id = $1", h.ID)
+	return err
 }
 
 func (h *Host) Validate(db *db.Database) error {
