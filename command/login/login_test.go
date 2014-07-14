@@ -58,9 +58,9 @@ func authTestServer(username, password string) *httptest.Server {
 	}))
 }
 
-var _ = Describe("LoginCommand", func() {
+var _ = Describe("login", func() {
 	var (
-		cmd *LoginCommand
+		cmd *Command
 		ui  *cli.MockUi
 
 		username   string
@@ -78,7 +78,7 @@ var _ = Describe("LoginCommand", func() {
 		testServer = authTestServer(username, password)
 
 		ui = &cli.MockUi{}
-		cmd = &LoginCommand{
+		cmd = &Command{
 			UI:     ui,
 			Server: testServer.URL,
 		}

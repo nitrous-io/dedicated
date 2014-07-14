@@ -28,27 +28,27 @@ Options:
   -p, --pass=""    %s.
 `
 
-type LoginCommand struct {
+type Command struct {
 	UI     cli.Ui
 	Server string
 }
 
 func init() {
-	command.Register("login", NewLoginCommand)
+	command.Register("login", NewCommand)
 }
 
-func NewLoginCommand() (cli.Command, error) {
-	return &LoginCommand{
+func NewCommand() (cli.Command, error) {
+	return &Command{
 		UI:     command.DefaultUI,
 		Server: command.Env.APIURL,
 	}, nil
 }
 
-func (c *LoginCommand) Help() string {
+func (c *Command) Help() string {
 	return strings.TrimSpace(fmt.Sprintf(usage, usernameUsage, passwordUsage))
 }
 
-func (c *LoginCommand) Run(args []string) int {
+func (c *Command) Run(args []string) int {
 	var username string
 	var password string
 
@@ -98,6 +98,6 @@ func (c *LoginCommand) Run(args []string) int {
 	return 0
 }
 
-func (c *LoginCommand) Synopsis() string {
+func (c *Command) Synopsis() string {
 	return "Login to Nitrous.IO"
 }

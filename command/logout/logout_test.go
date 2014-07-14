@@ -18,9 +18,9 @@ func TestLogout(t *testing.T) {
 	RunSpecs(t, "logout")
 }
 
-var _ = Describe("LogoutCommand", func() {
+var _ = Describe("logout", func() {
 	var (
-		cmd  *LogoutCommand
+		cmd  *Command
 		ui   *cli.MockUi
 		args []string
 
@@ -29,7 +29,7 @@ var _ = Describe("LogoutCommand", func() {
 
 	BeforeEach(func() {
 		ui = &cli.MockUi{}
-		cmd = &LogoutCommand{UI: ui, Server: "www.example.com"}
+		cmd = &Command{UI: ui, Server: "www.example.com"}
 
 		f, err := ioutil.TempFile("", "nitrocfg")
 		Expect(err).To(BeNil())

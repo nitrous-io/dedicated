@@ -17,27 +17,27 @@ Usage: nitro logout
   logout from authenticated Nitrous.IO account.
 `
 
-type LogoutCommand struct {
+type Command struct {
 	UI     cli.Ui
 	Server string
 }
 
 func init() {
-	command.Register("logout", NewLogoutCommand)
+	command.Register("logout", NewCommand)
 }
 
-func NewLogoutCommand() (cli.Command, error) {
-	return &LogoutCommand{
+func NewCommand() (cli.Command, error) {
+	return &Command{
 		UI:     command.DefaultUI,
 		Server: command.Env.APIURL,
 	}, nil
 }
 
-func (c *LogoutCommand) Help() string {
+func (c *Command) Help() string {
 	return strings.TrimSpace(fmt.Sprintf(usage))
 }
 
-func (c *LogoutCommand) Run(args []string) int {
+func (c *Command) Run(args []string) int {
 	cmdFlags := flag.NewFlagSet("logout", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
 
@@ -56,6 +56,6 @@ func (c *LogoutCommand) Run(args []string) int {
 	return 0
 }
 
-func (c *LogoutCommand) Synopsis() string {
+func (c *Command) Synopsis() string {
 	return "Logout from authenticated Nitrous.IO account"
 }
