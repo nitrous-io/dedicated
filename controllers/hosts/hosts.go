@@ -16,7 +16,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/providertemplate"
 	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/user"
-	"github.com/nitrous-io/nitrous/pkg/hostbuilder"
+	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
@@ -32,7 +32,7 @@ var (
 
 const HostbuilderURLEnvVar = "HOSTBUILDER_URL"
 
-var HostbuilderClient *hostbuilder.Hostbuilder
+var HostbuilderClient *hostbuilderclient.Hostbuilder
 
 func init() {
 	hostbuilderURL = os.Getenv(HostbuilderURLEnvVar)
@@ -40,7 +40,7 @@ func init() {
 		panic(fmt.Sprintf("%v is not set", HostbuilderURLEnvVar))
 	}
 
-	HostbuilderClient = hostbuilder.NewHostbuilder(hostbuilderURL)
+	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
 }
 
 func Index(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
@@ -112,7 +112,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 	// pick the first template for now
 	pt := pts[0]
 
-	config := hostbuilder.Config{}
+	config := hostbuilderclient.Config{}
 	for k, v := range pt.Config.Map {
 		if v.Valid {
 			config[k] = v.String
@@ -138,10 +138,10 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 		LongName:      sql.NullString{longname, true},
 		MaxContainers: sql.NullInt64{pl.MaxContainers, true},
 
-		IPAddress:          sql.NullString{info["ip_address"].(string), true},
-		ProviderIdentifier: sql.NullString{info["id"].(string), true},
+		IPAddress:          sql.NullString{info.IPAddress, true},
+		ProviderIdentifier: sql.NullString{info.ID, true},
 
-		FreighterdPort: sql.NullInt64{int64(info["freighterd_port"].(int)), true},
+		FreighterdPort: sql.NullInt64{int64(info.FreighterdPort), true},
 		State:          host.StateCreated,
 	}
 	err = h.Insert(db)
@@ -167,7 +167,7 @@ func Destroy(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 		return err
 	}
 
-	_, err = HostbuilderClient.Delete(ht.Provider, &hostbuilder.Config{"id": ht.ProviderIdentifier.String})
+	_, err = HostbuilderClient.Delete(ht.Provider, &hostbuilderclient.Config{"id": ht.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
@@ -272,7 +272,7 @@ type stateTransition struct {
 	To           string
 }
 
-func transition(d db.QueryReceiver, h *host.Host, st *stateTransition, fn hostbuilder.OperationFn) error {
+func transition(d db.QueryReceiver, h *host.Host, st *stateTransition, fn hostbuilderclient.OperationFn) error {
 	if h.State != st.From {
 		return fmt.Errorf("Expected initial state to be %s, was %s", st.From, h.State)
 	}
@@ -282,7 +282,7 @@ func transition(d db.QueryReceiver, h *host.Host, st *stateTransition, fn hostbu
 		return err
 	}
 
-	_, err = fn(h.Provider, &hostbuilder.Config{"id": h.ProviderIdentifier.String})
+	_, err = fn(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
