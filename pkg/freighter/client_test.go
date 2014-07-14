@@ -139,7 +139,7 @@ var _ = Describe("freighter/client", func() {
 				It("returns ErrUnexpectedResponse", func() {
 					containers, err := client.List(host)
 					Expect(err).NotTo(BeNil())
-					Expect(err).To(Equal(freighter.ErrUnexpectedResponse))
+					Expect(err).To(MatchError(freighter.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(containers).To(BeNil())
 				})
@@ -153,9 +153,7 @@ var _ = Describe("freighter/client", func() {
 
 			It("returns a StatusError", func() {
 				containers, err := client.List(host)
-				Expect(err).NotTo(BeNil())
-				_, ok := err.(*freighter.StatusError)
-				Expect(ok).To(BeTrue())
+				Expect(err).To(MatchError(&freighter.StatusError{Code: http.StatusInternalServerError}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(containers).To(BeNil())
 			})
@@ -328,7 +326,7 @@ var _ = Describe("freighter/client", func() {
 				It("returns ErrUnexpectedResponse", func() {
 					container, err := client.Create(host, "yosemite", "ubuntu")
 					Expect(err).NotTo(BeNil())
-					Expect(err).To(Equal(freighter.ErrUnexpectedResponse))
+					Expect(err).To(MatchError(freighter.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
 				})
@@ -347,10 +345,7 @@ var _ = Describe("freighter/client", func() {
 
 				It("returns InvalidParamError", func() {
 					container, err := client.Create(host, "yosemite", "ubuntu")
-					Expect(err).NotTo(BeNil())
-					e, ok := err.(*freighter.InvalidParamError)
-					Expect(ok).To(BeTrue())
-					Expect(e.Msg).To(Equal("invalid name"))
+					Expect(err).To(MatchError(&freighter.InvalidParamError{Msg: "invalid name"}))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
 				})
@@ -364,7 +359,7 @@ var _ = Describe("freighter/client", func() {
 				It("returns ErrUnexpectedResponse", func() {
 					container, err := client.Create(host, "yosemite", "ubuntu")
 					Expect(err).NotTo(BeNil())
-					Expect(err).To(Equal(freighter.ErrUnexpectedResponse))
+					Expect(err).To(MatchError(freighter.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
 				})
@@ -378,9 +373,7 @@ var _ = Describe("freighter/client", func() {
 
 			It("returns a StatusError", func() {
 				container, err := client.Create(host, "yosemite", "ubuntu")
-				Expect(err).NotTo(BeNil())
-				_, ok := err.(*freighter.StatusError)
-				Expect(ok).To(BeTrue())
+				Expect(err).To(MatchError(&freighter.StatusError{Code: http.StatusInternalServerError}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
 			})
@@ -462,7 +455,7 @@ var _ = Describe("freighter/client", func() {
 
 				It("returns ErrUnexpectedResponse", func() {
 					container, err := client.Info(host, "deadbeef")
-					Expect(err).To(Equal(freighter.ErrUnexpectedResponse))
+					Expect(err).To(MatchError(freighter.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
 				})
@@ -476,7 +469,7 @@ var _ = Describe("freighter/client", func() {
 
 			It("returns ErrNotFound", func() {
 				container, err := client.Info(host, "deadbeef")
-				Expect(err).To(Equal(freighter.ErrNotFound))
+				Expect(err).To(MatchError(freighter.ErrNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
 			})
@@ -489,9 +482,7 @@ var _ = Describe("freighter/client", func() {
 
 			It("returns a StatusError", func() {
 				container, err := client.Info(host, "deadbeef")
-				Expect(err).NotTo(BeNil())
-				_, ok := err.(*freighter.StatusError)
-				Expect(ok).To(BeTrue())
+				Expect(err).To(MatchError(&freighter.StatusError{Code: http.StatusInternalServerError}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
 			})
