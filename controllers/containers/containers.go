@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/container"
@@ -33,7 +34,7 @@ func init() {
 }
 
 func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	logger := c.Logger()
+	log := c.Logger()
 
 	// FIXME Make Freighter API request and DB query concurrent.
 	// 1. send request to Freighter API in goroutine.
@@ -55,13 +56,13 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 		return err
 	}
 
-	logger.Debug("Live containers:")
+	log.Debug("Live containers:")
 	for _, c := range liveContainers {
-		logger.Debugf("  %+v", c)
+		log.Debugf("  %+v", c)
 	}
-	logger.Debug("Saved containers:")
+	log.Debug("Saved containers:")
 	for _, c := range savedContainers {
-		logger.Debugf("  %+v", c)
+		log.Debugf("  %+v", c)
 	}
 
 	containers := []*container.Container{}
@@ -74,31 +75,8 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 			}
 		}
 
-		c := &container.Container{
-			ID:        lc.ID,
-			Image:     lc.Image,
-			Name:      lc.Name,
-			State:     lc.State,
-			IPAddress: sql.NullString{lc.Host, true},
-			UserID:    env.User.ID,
-			HostID:    h.ID,
-		}
-
-		if savedContainer != nil {
-			c.LongName = savedContainer.LongName
-			c.TerminatedAt = savedContainer.TerminatedAt
-			c.TouchedAt = savedContainer.TouchedAt
-			c.CreatedAt = savedContainer.CreatedAt
-			c.UpdatedAt = savedContainer.UpdatedAt
-		} else {
-			// It's possible that a container exists in Freighter but isn't
-			// present in the database, e.g. container has been created by
-			// Freighter but we have not been notified of its creation yet.
-			// We just send as much info as possible.
-			logger.Warnf("Found container from Freighter that isn't stored in database: %v", lc)
-		}
-
-		containers = append(containers, c)
+		cntnr := hydrateContainer(lc, savedContainer, h, log)
+		containers = append(containers, cntnr)
 	}
 
 	env.Status = http.StatusOK
@@ -110,7 +88,7 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 
 func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
-	logger := c.Logger()
+	log := c.Logger()
 
 	name := r.FormValue("name")
 	longname := r.FormValue("longname")
@@ -164,7 +142,7 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 	if err != nil {
 		// TODO What should we do? Freighter successfully created the container,
 		// but we can't save it to DB.
-		logger.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to save to database as '%+v'", created, cntnr)
+		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to save to database as '%+v'", created, cntnr)
 		return err
 	}
 
@@ -203,4 +181,30 @@ func mkFreighterHost(h *host.Host) (*freighter.Host, error) {
 		return nil, errHostIPUnknown
 	}
 	return freighter.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), false), nil
+}
+
+func hydrateContainer(fc *freighter.Container, cc *container.Container, h *host.Host, log *logger.Logger) *container.Container {
+	c := &container.Container{
+		ID:        fc.ID,
+		Image:     fc.Image,
+		Name:      fc.Name,
+		State:     fc.State,
+		IPAddress: sql.NullString{fc.Host, true},
+		UserID:    h.UserID,
+		HostID:    h.ID,
+	}
+	if cc != nil {
+		c.LongName = cc.LongName
+		c.TerminatedAt = cc.TerminatedAt
+		c.TouchedAt = cc.TouchedAt
+		c.CreatedAt = cc.CreatedAt
+		c.UpdatedAt = cc.UpdatedAt
+	} else {
+		// It's possible that a container exists in Freighter but isn't
+		// present in the database, e.g. container has been created by
+		// Freighter but we have not been notified of its creation yet.
+		// We just send as much info as possible.
+		log.Warnf("Found container from Freighter that isn't stored in database: %v", fc)
+	}
+	return c
 }
