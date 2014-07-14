@@ -16,7 +16,7 @@ const DIGITALOCEAN_API_URL = "https://api.digitalocean.com"
 
 type (
 	SSHKey struct {
-		Id     int    `json:"id"`
+		ID     int    `json:"id"`
 		Name   string `json:"name"`
 		PubKey string `json:"ssh_pub_key"`
 	}
@@ -32,7 +32,7 @@ type (
 	}
 
 	Image struct {
-		Id           int    `json:"id"`
+		ID           int    `json:"id"`
 		Name         string `json:"name"`
 		Slug         string `json:"slug"`
 		Distribution string `json:"distribution"`
@@ -49,7 +49,7 @@ type (
 	}
 
 	Region struct {
-		Id   int    `json:"id"`
+		ID   int    `json:"id"`
 		Name string `json:"name"`
 		Slug string `json:"slug"`
 	}
@@ -65,7 +65,7 @@ type (
 	}
 
 	Size struct {
-		Id   int    `json:"id"`
+		ID   int    `json:"id"`
 		Name string `json:"name"`
 		Slug string `json:"slug"`
 	}
@@ -91,10 +91,10 @@ type (
 	}
 
 	Droplet struct {
-		Id        int       `json:"id"`
-		ImageId   int       `json:"image_id"`
-		SizeId    int       `json:"size_id"`
-		RegionId  int       `json:"region_id"`
+		ID        int       `json:"id"`
+		ImageID   int       `json:"image_id"`
+		SizeID    int       `json:"size_id"`
+		RegionID  int       `json:"region_id"`
 		Name      string    `json:"name"`
 		IpAddress string    `json:"ip_address"`
 		Locked    bool      `json:"locked"`
@@ -157,7 +157,7 @@ func (d Client) CreateDroplet(
 	rawSize string,
 	rawImage string,
 	rawRegion string,
-	keyId int,
+	keyID int,
 	privateNetworking bool) (*Droplet, error) {
 	params := url.Values{}
 	params.Set("name", name)
@@ -177,10 +177,10 @@ func (d Client) CreateDroplet(
 		return nil, fmt.Errorf("Invalid region or lookup failure: '%s': %s", region, err)
 	}
 
-	params.Set("size_id", strconv.Itoa(size.Id))
-	params.Set("image_id", strconv.Itoa(image.Id))
-	params.Set("region_id", strconv.Itoa(region.Id))
-	params.Set("ssh_key_ids", fmt.Sprintf("%v", keyId))
+	params.Set("size_id", strconv.Itoa(size.ID))
+	params.Set("image_id", strconv.Itoa(image.ID))
+	params.Set("region_id", strconv.Itoa(region.ID))
+	params.Set("ssh_key_ids", fmt.Sprintf("%v", keyID))
 	params.Set("private_networking", fmt.Sprintf("%v", privateNetworking))
 
 	body, err := NewRequest(d, "droplets/new", params)
@@ -247,10 +247,10 @@ func (d Client) CreateSnapshot(id int, name string) error {
 }
 
 // Restores a snapshot of a droplet by it's ID
-func (d Client) RestoreSnapshot(id int, imageId int) error {
+func (d Client) RestoreSnapshot(id int, imageID int) error {
 	path := fmt.Sprintf("droplets/%v/restore", id)
 	params := url.Values{}
-	params.Set("image_id", strconv.Itoa(imageId))
+	params.Set("image_id", strconv.Itoa(imageID))
 	_, err := NewRequest(d, path, params)
 	return err
 }
@@ -352,8 +352,8 @@ func NewRequest(d Client, path string, params url.Values) ([]byte, error) {
 	return nil, lastErr
 }
 
-func (d Client) Image(slugOrId string) (*Image, error) {
-	body, err := NewRequest(d, fmt.Sprintf("images/%v", slugOrId), url.Values{})
+func (d Client) Image(slugOrID string) (*Image, error) {
+	body, err := NewRequest(d, fmt.Sprintf("images/%v", slugOrID), url.Values{})
 	if err != nil {
 		return nil, err
 	}
@@ -377,25 +377,25 @@ func (d Client) Regions() ([]*Region, error) {
 	return result.Regions, nil
 }
 
-func (d Client) Region(slugOrId string) (*Region, error) {
+func (d Client) Region(slugOrID string) (*Region, error) {
 	regions, err := d.Regions()
 	if err != nil {
 		return nil, err
 	}
 	for _, region := range regions {
-		if strings.EqualFold(region.Slug, slugOrId) {
+		if strings.EqualFold(region.Slug, slugOrID) {
 			return region, nil
 		}
 	}
 	for _, region := range regions {
-		id, err := strconv.Atoi(slugOrId)
+		id, err := strconv.Atoi(slugOrID)
 		if err == nil {
-			if region.Id == id {
+			if region.ID == id {
 				return region, nil
 			}
 		}
 	}
-	return nil, fmt.Errorf("Unknown region '%v'", slugOrId)
+	return nil, fmt.Errorf("Unknown region '%v'", slugOrID)
 }
 
 // Returns all available sizes.
@@ -411,21 +411,21 @@ func (d Client) Sizes() ([]*Size, error) {
 	return result.Sizes, nil
 }
 
-func (d Client) Size(slugOrId string) (*Size, error) {
+func (d Client) Size(slugOrID string) (*Size, error) {
 	sizes, err := d.Sizes()
 	if err != nil {
 		return nil, err
 	}
 	for _, size := range sizes {
-		if strings.EqualFold(size.Slug, slugOrId) {
+		if strings.EqualFold(size.Slug, slugOrID) {
 			return size, nil
 		}
-		id, err := strconv.Atoi(slugOrId)
+		id, err := strconv.Atoi(slugOrID)
 		if err == nil {
-			if size.Id == id {
+			if size.ID == id {
 				return size, nil
 			}
 		}
 	}
-	return nil, fmt.Errorf("Unknown size %v", slugOrId)
+	return nil, fmt.Errorf("Unknown size %v", slugOrID)
 }

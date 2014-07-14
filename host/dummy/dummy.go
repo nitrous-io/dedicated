@@ -8,8 +8,8 @@ import (
 )
 
 type Host struct {
-	Id             string `json:"id"`
-	IpAddress      string `json:"ip_address"`
+	ID             string `json:"id"`
+	IPAddress      string `json:"ip_address"`
 	DestroySuccess bool   `json:"destroy"`
 	CreateSuccess  bool   `json:"create"`
 	StopSuccess    bool   `json:"stop"`
@@ -34,8 +34,8 @@ func (h *Host) Destroy() error {
 func (h *Host) Info() (*host.Info, error) {
 	info := &host.Info{
 		Provider:       "dummy",
-		Id:             h.Id,
-		IpAddress:      h.IpAddress,
+		ID:             h.ID,
+		IPAddress:      h.IPAddress,
 		FreighterdPort: uint16(65333),
 	}
 	return info, nil

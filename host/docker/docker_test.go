@@ -68,15 +68,15 @@ var _ = Describe("host/docker", func() {
 
 			It("should start the container", func() {
 				r := requests[2]
-				Expect(r.URL.Path).To(Equal("/containers/" + info.Id + "/start"))
+				Expect(r.URL.Path).To(Equal("/containers/" + info.ID + "/start"))
 			})
 
 			It("should get the container info and return its IP address", func() {
 				r := requests[3]
-				Expect(r.URL.Path).To(Equal("/containers/" + info.Id + "/json"))
+				Expect(r.URL.Path).To(Equal("/containers/" + info.ID + "/json"))
 				Expect(info.Provider).To(Equal("docker"))
-				Expect(len(info.Id)).To(BeNumerically(">", 0))
-				Expect(strings.Index(info.IpAddress, "172.16.42")).To(Equal(0))
+				Expect(len(info.ID)).To(BeNumerically(">", 0))
+				Expect(strings.Index(info.IPAddress, "172.16.42")).To(Equal(0))
 			})
 		})
 	})

@@ -12,7 +12,7 @@ const StateWaitTime = 3 * time.Second
 // a state we expect, while eventually timing out.
 func WaitForState(
 	desiredState string,
-	dropletId int,
+	dropletID int,
 	client *Client,
 	sleep time.Duration,
 	timeout time.Duration) (*Droplet, error) {
@@ -25,13 +25,13 @@ func WaitForState(
 	go func() {
 		var err error
 		for {
-			droplet, err = client.DropletInfo(dropletId)
+			droplet, err = client.DropletInfo(dropletID)
 			if err != nil {
 				result <- err
 				return
 			}
 			log.Printf("Waiting for droplet %v to have state %v, got %v",
-				dropletId, desiredState, droplet.Status)
+				dropletID, desiredState, droplet.Status)
 			if droplet.Status == desiredState {
 				result <- nil
 				return

@@ -39,7 +39,7 @@ var _ = Describe("hostbuilder", func() {
 
 	Describe("Creating a host", func() {
 		It("should successfully create a host and respond with host's info", func() {
-			config, _ := json.Marshal(dummy.Host{Id: "123", IpAddress: "10.0.0.1", CreateSuccess: true})
+			config, _ := json.Marshal(dummy.Host{ID: "123", IPAddress: "10.0.0.1", CreateSuccess: true})
 			form := url.Values{}
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
@@ -52,8 +52,8 @@ var _ = Describe("hostbuilder", func() {
 
 			var info host.Info
 			json.Unmarshal(body, &info)
-			Expect(info.Id).To(Equal("123"))
-			Expect(info.IpAddress).To(Equal("10.0.0.1"))
+			Expect(info.ID).To(Equal("123"))
+			Expect(info.IPAddress).To(Equal("10.0.0.1"))
 			Expect(info.FreighterdPort).To(Equal(uint16(65333)))
 		})
 	})

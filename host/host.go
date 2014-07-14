@@ -4,8 +4,8 @@ import "fmt"
 
 type Info struct {
 	Provider       string `json:"provider"`
-	Id             string `json:"id"`
-	IpAddress      string `json:"ip_address"`
+	ID             string `json:"id"`
+	IPAddress      string `json:"ip_address"`
 	FreighterdPort uint16 `json:"freighterd_port"`
 }
 

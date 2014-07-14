@@ -17,11 +17,11 @@ import (
 )
 
 type HostConfig struct {
-	Id         string   `json:"id"`
+	ID         string   `json:"id"`
 	Name       string   `json:"name"`
-	ImageId    string   `json:"image_id"`
-	RegionId   string   `json:"region_id"`
-	SizeId     string   `json:"size_id"`
+	ImageID    string   `json:"image_id"`
+	RegionID   string   `json:"region_id"`
+	SizeID     string   `json:"size_id"`
 	PublicKeys []string `json:"public_keys"`
 
 	// for setting up repository on the host
@@ -44,7 +44,7 @@ type Host struct {
 func (h *Host) Create() (*host.Info, error) {
 	defer func() {
 		if h.sshKey != nil {
-			h.Client.DestroyKey(h.sshKey.Id)
+			h.Client.DestroyKey(h.sshKey.ID)
 		}
 	}()
 	steps := []context.Step{
@@ -57,7 +57,7 @@ func (h *Host) Create() (*host.Info, error) {
 	ctx := context.NewContext(h, steps)
 	if err := ctx.Execute(); err != nil {
 		if h.instance != nil {
-			if derr := h.Client.DestroyDroplet(h.instance.Id); derr != nil {
+			if derr := h.Client.DestroyDroplet(h.instance.ID); derr != nil {
 				return nil, fmt.Errorf("Failed to destroy after create error: %v, %v", err, derr)
 			}
 		}
@@ -88,8 +88,8 @@ func (h *Host) Info() (*host.Info, error) {
 	}
 	info := &host.Info{
 		Provider:       "digitalocean",
-		Id:             strconv.Itoa(h.instance.Id),
-		IpAddress:      h.instance.IpAddress,
+		ID:             strconv.Itoa(h.instance.ID),
+		IPAddress:      h.instance.IpAddress,
 		FreighterdPort: uint16(65333),
 	}
 	return info, nil
@@ -129,7 +129,7 @@ func (h *Host) Restart() error {
 }
 
 func (h *Host) id() (int, error) {
-	id64, err := strconv.ParseInt(h.Config.Id, 10, 64)
+	id64, err := strconv.ParseInt(h.Config.ID, 10, 64)
 	if err != nil {
 		return 0, err
 	}
@@ -181,14 +181,14 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	var err error
 
 	// create the droplet
-	h.instance, err = h.Client.CreateDroplet(config.Name, config.SizeId,
-		config.ImageId, config.RegionId, sshKey.Id, false)
+	h.instance, err = h.Client.CreateDroplet(config.Name, config.SizeID,
+		config.ImageID, config.RegionID, sshKey.ID, false)
 	if err != nil {
 		return err
 	}
 
 	// wait for the droplet to be active
-	droplet, err := do.WaitForState("active", h.instance.Id, h.Client,
+	droplet, err := do.WaitForState("active", h.instance.ID, h.Client,
 		do.StateWaitTime, 5*time.Minute)
 	if err != nil {
 		return err
@@ -207,7 +207,7 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	if err != nil {
 		return err
 	}
-	log.Println("SSH READY for droplet %v", h.instance.Id)
+	log.Println("SSH READY for droplet %v", h.instance.ID)
 	h.conn = sshConn
 	return nil
 }
