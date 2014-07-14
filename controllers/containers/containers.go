@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/container"
@@ -179,7 +178,7 @@ func withHost(fn func(h *host.Host, env *middlewares.Env, c controllers.Helper, 
 			return errors.New("user is nil")
 		}
 
-		hName := mux.Vars(r)["host"]
+		hName := env.Vars["host"]
 		h, err := host.FindByUserAndName(db, u, hName)
 		if err != nil {
 			return err
