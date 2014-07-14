@@ -34,10 +34,10 @@ func Test(t *testing.T) {
 }
 
 func mockHostbuilderOK(path string, provider string, config *hostbuilder.Config) (hostbuilder.Output, error) {
-	return hostbuilder.Output{"status": "ok"}, nil
+	return hostbuilder.Output{Status: "ok"}, nil
 }
 func mockHostbuilderError(path string, provider string, config *hostbuilder.Config) (hostbuilder.Output, error) {
-	return nil, errors.New("some error occurred")
+	return hostbuilder.Output{}, errors.New("some error occurred")
 }
 
 var _ = Describe("controllers/hosts", func() {
@@ -258,10 +258,10 @@ var _ = Describe("controllers/hosts", func() {
 					hb := hostbuilder.NewHostbuilder("www.example.com")
 					ch := func(path string, provider string, config *hostbuilder.Config) (hostbuilder.Output, error) {
 						return hostbuilder.Output{
-							"id":              "abcd1234",
-							"ip_address":      "0.0.0.0",
-							"provider":        hs.PT.Name,
-							"freighterd_port": 65333,
+							ID:             "abcd1234",
+							IPAddress:      "0.0.0.0",
+							Provider:       hs.PT.Name,
+							FreighterdPort: uint16(65333),
 						}, nil
 					}
 					hb.OverrideRequestHandler(ch)

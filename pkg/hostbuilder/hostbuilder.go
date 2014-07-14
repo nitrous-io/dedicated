@@ -10,11 +10,12 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/nitrous-io/hostbuilder"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
 
 type Config map[string]interface{}
-type Output map[string]interface{}
+type Output hostbuilder.Response
 
 type RequestHandler func(path string, provider string, config *Config) (Output, error)
 
@@ -36,12 +37,14 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 	}
 	client.Client.Transport = tr
 
+	output := Output{}
+
 	p := url.Values{}
 	p.Set("provider", provider)
 
 	cg, err := json.Marshal(config)
 	if err != nil {
-		return nil, err
+		return output, err
 	}
 	p.Set("config", string(cg))
 
@@ -56,24 +59,23 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 
 	response, err := client.PostForm(url, &p)
 	if err != nil {
-		return nil, err
+		return output, err
 	}
 	defer response.Body.Close()
 
 	switch response.StatusCode {
 	case http.StatusOK, http.StatusCreated:
-		var m Output
-		err = json.NewDecoder(response.Body).Decode(&m)
+		err = json.NewDecoder(response.Body).Decode(&output)
 		if err != nil {
-			return nil, err
+			return output, err
 		}
-		return m, nil
+		return output, nil
 	default:
 		e, err := ioutil.ReadAll(response.Body)
 		if err != nil {
-			return nil, err
+			return output, err
 		}
-		return nil, errors.New(string(e))
+		return output, errors.New(string(e))
 	}
 }
 

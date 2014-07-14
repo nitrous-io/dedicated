@@ -57,7 +57,7 @@ var _ = Describe("pkg/hostbuilder", func() {
 					Provider:       "digitalocean",
 					ID:             "some_id",
 					IPAddress:      "0.0.0.0",
-					FreighterdPort: 1234,
+					FreighterdPort: 65333,
 				}
 				payload, err := json.Marshal(m)
 				Expect(err).To(BeNil())
@@ -69,10 +69,10 @@ var _ = Describe("pkg/hostbuilder", func() {
 				info, err := doRequest()
 
 				Expect(err).To(BeNil())
-				Expect(info["provider"]).To(Equal("digitalocean"))
-				Expect(info["id"]).To(Equal("some_id"))
-				Expect(info["ip_address"]).To(Equal("0.0.0.0"))
-				Expect(info["freighterd_port"]).To(Equal(float64(1234)))
+				Expect(info.Provider).To(Equal("digitalocean"))
+				Expect(info.ID).To(Equal("some_id"))
+				Expect(info.IPAddress).To(Equal("0.0.0.0"))
+				Expect(info.FreighterdPort).To(Equal(uint16(65333)))
 			})
 		})
 
@@ -227,12 +227,12 @@ var _ = Describe("pkg/hostbuilder", func() {
 			hb := hostbuilder.NewHostbuilder("www.example.com")
 
 			ch := func(path string, provider string, config *hostbuilder.Config) (hostbuilder.Output, error) {
-				return nil, errors.New("this is a custom handler")
+				return hostbuilder.Output{}, errors.New("this is a custom handler")
 			}
 			hb.OverrideRequestHandler(ch)
 
 			o, err := hb.Create("provider", &hostbuilder.Config{})
-			Expect(o).To(BeNil())
+			Expect(o).To(Equal(hostbuilder.Output{}))
 			Expect(err).To(MatchError("this is a custom handler"))
 		})
 	})

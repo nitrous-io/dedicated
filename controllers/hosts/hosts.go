@@ -138,10 +138,10 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 		LongName:      sql.NullString{longname, true},
 		MaxContainers: sql.NullInt64{pl.MaxContainers, true},
 
-		IPAddress:          sql.NullString{info["ip_address"].(string), true},
-		ProviderIdentifier: sql.NullString{info["id"].(string), true},
+		IPAddress:          sql.NullString{info.IPAddress, true},
+		ProviderIdentifier: sql.NullString{info.ID, true},
 
-		FreighterdPort: sql.NullInt64{int64(info["freighterd_port"].(int)), true},
+		FreighterdPort: sql.NullInt64{int64(info.FreighterdPort), true},
 		State:          host.StateCreated,
 	}
 	err = h.Insert(db)
