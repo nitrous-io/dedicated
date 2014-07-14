@@ -20,6 +20,7 @@ var FreighterClient freighter.Client
 var (
 	errImageRequired = httperror.New(http.StatusBadRequest, "invalid_request", "image is required")
 	errHostNotFound  = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
+	errHostIPUnknown = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
 )
 
 var (
@@ -39,7 +40,10 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 	// 2. query DB normally.
 	// 3. If db query, stop other Freighter API goroutine (to avoid leaks) and return err.
 	// 4. Wait for both db query and Freighter API goroutine to complete.
-	fHost := mkFreighterHost(h)
+	fHost, err := mkFreighterHost(h)
+	if err != nil {
+		return err
+	}
 	liveContainers, err := FreighterClient.List(fHost)
 	if err != nil {
 		return err
@@ -122,7 +126,10 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 		return errImageRequired
 	}
 
-	fHost := mkFreighterHost(h)
+	fHost, err := mkFreighterHost(h)
+	if err != nil {
+		return err
+	}
 	created, err := FreighterClient.Create(fHost, name, image)
 	if err != nil {
 		switch err := err.(type) {
@@ -191,9 +198,9 @@ func withHost(fn func(h *host.Host, env *middlewares.Env, c controllers.Helper, 
 	}
 }
 
-func mkFreighterHost(h *host.Host) *freighter.Host {
-	// TODO Freighter port and TLS enabled might vary for each Freighter host.
-	// Freighter port should come from Hostbuilder, i.e. it'll be sent in the
-	// response from Hostbuilder and we should save it into the hosts table.
-	return freighter.NewHost(h.IPAddress.String, 0, false)
+func mkFreighterHost(h *host.Host) (*freighter.Host, error) {
+	if h.IPAddress.String == "" {
+		return nil, errHostIPUnknown
+	}
+	return freighter.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), false), nil
 }

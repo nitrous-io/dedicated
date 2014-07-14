@@ -77,7 +77,10 @@ var _ = Describe("controllers/containers", func() {
 		Expect(err).To(BeNil())
 
 		hs, err = CreateHostStack(db, &HostStack{
-			H: &host.Host{Name: "foo"},
+			H: &host.Host{
+				Name:      "foo",
+				IPAddress: sql.NullString{"127.0.0.1", true},
+			},
 			U: u,
 		})
 		Expect(err).To(BeNil())
@@ -281,10 +284,42 @@ var _ = Describe("controllers/containers", func() {
 						Expect(containers).To(BeEmpty())
 					})
 				})
+
+				Context("when host IP address is not available", func() {
+					BeforeEach(func() {
+						_, err := CreateHostStack(db, &HostStack{
+							H: &host.Host{
+								Name:      "bar",
+								IPAddress: sql.NullString{},
+							},
+							U:  u,
+							R:  hs.R,
+							P:  hs.P,
+							PT: hs.PT,
+						})
+						Expect(err).To(BeNil())
+					})
+
+					It("returns HTTP 400 Bad Request", func() {
+						doRequest("valid-token", "bar")
+
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+						j := map[string]interface{}{}
+						err := json.Unmarshal(res.Body.Bytes(), &j)
+						Expect(err).To(BeNil())
+
+						errType, _ := j["error"].(string)
+						Expect(errType).To(Equal("invalid_request"))
+
+						errDesc, _ := j["error_description"].(string)
+						Expect(errDesc).To(Equal("host IP is unknown"))
+					})
+				})
 			})
 
 			Context("when host does not exist for user", func() {
-				It("returns 404", func() {
+				It("returns HTTP 404 Not Found", func() {
 					doRequest("valid-token", "no-such-host")
 
 					Expect(res.Code).To(Equal(http.StatusNotFound))
