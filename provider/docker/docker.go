@@ -16,15 +16,14 @@ import (
 	"github.com/nitrous-io/freighter/util"
 )
 
-var dockerfileUbuntu = template.Must(template.New("ubuntu").Parse(dockerfileUbuntuTmpl))
-var dockerHost = "unix:///var/run/docker.sock"
-
-var errTimeout = errors.New("timeout")
-var errSSHNotSupported = errors.New("SSH functionality is not supported on this container")
-
 var (
-	registryName          = "nitrousio" + "/"
-	images       []string = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
+	dockerfileUbuntu          = template.Must(template.New("ubuntu").Parse(dockerfileUbuntuTmpl))
+	dockerHost                = "unix:///var/run/docker.sock"
+	registryName              = "nitrousio" + "/"
+	images           []string = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
+
+	ErrTimeout               = errors.New("Operation timed out")
+	ErrPubKeyOpsNotSupported = errors.New("Public key operations are not supported on this container")
 )
 
 func init() {
@@ -156,7 +155,7 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 			for {
 				select {
 				case <-timeout:
-					ch <- errTimeout
+					ch <- ErrTimeout
 					return
 				default:
 					info, err := p.GetInfo(id)
@@ -236,7 +235,7 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 	}
 
 	if !usesNitrousImage(container) {
-		return nil, errSSHNotSupported
+		return nil, ErrPubKeyOpsNotSupported
 	}
 
 	keys, err := p.readAuthorizedKeys(nameFromContainer(container))
@@ -254,7 +253,7 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 	}
 
 	if !usesNitrousImage(container) {
-		return errSSHNotSupported
+		return ErrPubKeyOpsNotSupported
 	}
 
 	name := nameFromContainer(container)
@@ -281,7 +280,7 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 	}
 
 	if !usesNitrousImage(container) {
-		return errSSHNotSupported
+		return ErrPubKeyOpsNotSupported
 	}
 
 	name := nameFromContainer(container)

@@ -447,21 +447,21 @@ var _ = Describe("provider/docker", func() {
 						It("returns an error", func() {
 							pubkeys, err := prov.ListPublicKeys(busyboxID)
 							Expect(pubkeys).To(BeNil())
-							Expect(err).To(MatchError("SSH functionality is not supported on this container"))
+							Expect(err).To(Equal(docker.ErrPubKeyOpsNotSupported))
 						})
 					})
 
 					Describe(".AddPublicKeys()", func() {
 						It("returns an error", func() {
 							err := prov.AddPublicKeys(busyboxID, []string{pubkey1})
-							Expect(err).To(MatchError("SSH functionality is not supported on this container"))
+							Expect(err).To(Equal(docker.ErrPubKeyOpsNotSupported))
 						})
 					})
 
 					Describe(".RemovePublicKey()", func() {
 						It("returns an error", func() {
 							err := prov.RemovePublicKey(busyboxID, fingerprint1)
-							Expect(err).To(MatchError("SSH functionality is not supported on this container"))
+							Expect(err).To(Equal(docker.ErrPubKeyOpsNotSupported))
 						})
 					})
 				})
