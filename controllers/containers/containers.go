@@ -39,7 +39,7 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 	// FIXME Make Freighter API request and DB query concurrent.
 	// 1. send request to Freighter API in goroutine.
 	// 2. query DB normally.
-	// 3. If db query, stop other Freighter API goroutine (to avoid leaks) and return err.
+	// 3. If db query returns err, stop other Freighter API goroutine (to avoid leaks) and return err.
 	// 4. Wait for both db query and Freighter API goroutine to complete.
 	fHost, err := mkFreighterHost(h)
 	if err != nil {
@@ -94,14 +94,18 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 	longname := r.FormValue("longname")
 	image := r.FormValue("image")
 
+	if image == "" {
+		return errImageRequired
+	}
+
 	if name == "" {
 		// TODO We should probably retry if the generated name ends up being
 		// already in use.
 		name = container.GenerateRandomName()
 	}
 
-	if image == "" {
-		return errImageRequired
+	if longname == "" {
+		longname = name
 	}
 
 	fHost, err := mkFreighterHost(h)
@@ -124,26 +128,17 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 		Name:      created.Name,
 		State:     created.State,
 		IPAddress: sql.NullString{created.Host, true},
+		LongName:  sql.NullString{longname, true},
 		UserID:    env.User.ID,
 		HostID:    h.ID,
 	}
-	if longname != "" {
-		cntnr.LongName = sql.NullString{longname, true}
-	}
 
-	err = cntnr.Validate()
-	if err != nil {
-		// TODO What should we do? Freighter successfully created the container,
-		// but we can't save it to DB.
-		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
-	}
-
+	// Save container to database without validations - since Freighter
+	// successfuly created the container, we just want to save it.
 	err = cntnr.Insert(db)
 	if err != nil {
-		// TODO What should we do? Freighter successfully created the container,
-		// but we can't save it to DB.
 		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to save to database as '%+v'", created, cntnr)
-		return err
+		// Continue responding as if nothing happened.
 	}
 
 	env.Status = http.StatusCreated

@@ -428,13 +428,10 @@ var _ = Describe("controllers/containers", func() {
 						}
 					})
 
-					It("responds with HTTP 201 Created", func() {
+					It("responds with HTTP 201 Created, the container and a status of created", func() {
 						doRequest("valid-token", "foo", params)
-						Expect(res.Code).To(Equal(http.StatusCreated))
-					})
 
-					It("responds with the container and a status of created", func() {
-						doRequest("valid-token", "foo", params)
+						Expect(res.Code).To(Equal(http.StatusCreated))
 
 						j := struct {
 							Status    string               `json:"status"`
@@ -453,15 +450,53 @@ var _ = Describe("controllers/containers", func() {
 						Expect(j.Container.LongName.String).To(Equal("Elixir Web Server 1"))
 					})
 
-					Context("when model validation fails", func() {
+					Context("when Container cannot be saved to database", func() {
 						BeforeEach(func() {
 							mockClient.CreatedContainer.Name = ""
 						})
 
-						It("responds with HTTP 400 Bad Request", func() {
+						It("still responds with HTTP 201 Created, the container and a status of created", func() {
 							doRequest("valid-token", "foo", params)
 
-							Expect(res.Code).To(Equal(http.StatusBadRequest))
+							Expect(res.Code).To(Equal(http.StatusCreated))
+
+							j := struct {
+								Status    string               `json:"status"`
+								Container *container.Container `json:"container"`
+							}{}
+							err := json.Unmarshal(res.Body.Bytes(), &j)
+							Expect(err).To(BeNil())
+
+							Expect(j.Status).To(Equal("created"))
+							Expect(j.Container).NotTo(BeNil())
+							Expect(j.Container.ID).To(Equal("deadbeef"))
+							Expect(j.Container.Image).To(Equal("elixir"))
+							Expect(j.Container.Name).To(Equal(""))
+							Expect(j.Container.IPAddress.String).To(Equal("1.2.3.4"))
+							Expect(j.Container.State).To(Equal("running"))
+							Expect(j.Container.LongName.String).To(Equal("Elixir Web Server 1"))
+						})
+					})
+
+					Context("when longname param not given", func() {
+						BeforeEach(func() {
+							params.Del("longname")
+						})
+
+						It("sets long name to name", func() {
+							doRequest("valid-token", "foo", params)
+
+							Expect(res.Code).To(Equal(http.StatusCreated))
+
+							j := struct {
+								Status    string               `json:"status"`
+								Container *container.Container `json:"container"`
+							}{}
+							err := json.Unmarshal(res.Body.Bytes(), &j)
+							Expect(err).To(BeNil())
+
+							Expect(j.Status).To(Equal("created"))
+							Expect(j.Container.LongName.String).To(Equal("elixir-web-1"))
 						})
 					})
 				})
