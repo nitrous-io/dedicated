@@ -28,8 +28,15 @@ type Keypair struct {
 	UpdatedAt             *time.Time `db:"updated_at"`
 }
 
-func Create(db db.QueryReceiver, aesKey, ownerType string, ownerID int64) (*Keypair, error) {
-	kp, err := generateKeypair(aesKey)
+// Accepts a private key for specified owner and save it as a keypair
+func Create(
+	db db.QueryReceiver,
+	priv *rsa.PrivateKey,
+	aesKey string,
+	ownerType string,
+	ownerID int64,
+) (*Keypair, error) {
+	kp, err := generateKeypair(priv, aesKey)
 	if err != nil {
 		return nil, err
 	}
@@ -60,8 +67,14 @@ func Get(db db.QueryReceiver, ownerType string, ownerID int64) (*Keypair, error)
 	return kp, nil
 }
 
+// wrapper around `rsa.GenerateKey` to return a private key with predefined key
+// length
+func GenerateKey() (*rsa.PrivateKey, error) {
+	return rsa.GenerateKey(rand.Reader, KeyLen)
+}
+
 // return pem format of the public key
-func publicKey(pub *rsa.PublicKey) ([]byte, error) {
+func PublicKey(pub *rsa.PublicKey) ([]byte, error) {
 	data, err := ssh.NewPublicKey(pub)
 	if err != nil {
 		return nil, err
@@ -82,14 +95,9 @@ func privateKey(priv *rsa.PrivateKey) []byte {
 }
 
 // generate a new keypair
-func generateKeypair(aesKey string) (*Keypair, error) {
-	// generate an rsa keypair
-	priv, err := rsa.GenerateKey(rand.Reader, KeyLen)
-	if err != nil {
-		return nil, err
-	}
+func generateKeypair(priv *rsa.PrivateKey, aesKey string) (*Keypair, error) {
 	// get the generated public key
-	pubkey, err := publicKey(&priv.PublicKey)
+	pubkey, err := PublicKey(&priv.PublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +107,6 @@ func generateKeypair(aesKey string) (*Keypair, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// insert the keypair into database
 	kp := &Keypair{
 		PublicKey:             string(pubkey),
 		EncryptedPrivateKey:   string(privKey),
