@@ -103,21 +103,19 @@ var _ = Describe("client", func() {
 					Expect(containers).To(HaveLen(2))
 
 					Expect(containers[0]).To(Equal(&freighterclient.Container{
-						ID:      "cafebabe",
-						Name:    "yosemite",
-						Image:   "freighter.yosemite",
-						Host:    "172.17.0.1",
-						SSHPort: 60001,
-						State:   "running",
+						ID:    "cafebabe",
+						Name:  "yosemite",
+						Image: "freighter.yosemite",
+						Host:  "172.17.0.1",
+						State: "running",
 					}))
 
 					Expect(containers[1]).To(Equal(&freighterclient.Container{
-						ID:      "deadbeef",
-						Name:    "mavericks",
-						Image:   "freighter.mavericks",
-						Host:    "172.17.0.2",
-						SSHPort: 60002,
-						State:   "running",
+						ID:    "deadbeef",
+						Name:  "mavericks",
+						Image: "freighter.mavericks",
+						Host:  "172.17.0.2",
+						State: "running",
 					}))
 				})
 			})
@@ -238,12 +236,11 @@ var _ = Describe("client", func() {
 					Expect(containers).To(HaveLen(1))
 
 					Expect(containers[0]).To(Equal(&freighterclient.Container{
-						ID:      "cafebabe",
-						Name:    "yosemite",
-						Image:   "freighter.yosemite",
-						Host:    "172.17.0.1",
-						SSHPort: 60001,
-						State:   "running",
+						ID:    "cafebabe",
+						Name:  "yosemite",
+						Image: "freighter.yosemite",
+						Host:  "172.17.0.1",
+						State: "running",
 					}))
 				})
 			})
@@ -318,12 +315,11 @@ var _ = Describe("client", func() {
 					Expect(receivedRequests[0].PostFormValue("image")).To(Equal("ubuntu"))
 
 					Expect(container).To(Equal(&freighterclient.Container{
-						ID:      "cafebabe",
-						Name:    "yosemite",
-						Image:   "ubuntu",
-						Host:    "172.17.0.1",
-						SSHPort: 60001,
-						State:   "running",
+						ID:    "cafebabe",
+						Name:  "yosemite",
+						Image: "ubuntu",
+						Host:  "172.17.0.1",
+						State: "running",
 					}))
 				})
 			})
@@ -453,12 +449,11 @@ var _ = Describe("client", func() {
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 
 					Expect(container).To(Equal(&freighterclient.Container{
-						ID:      "deadbeef",
-						Name:    "mavericks",
-						Image:   "ubuntu-upstart",
-						Host:    "172.17.0.2",
-						SSHPort: 60002,
-						State:   "running",
+						ID:    "deadbeef",
+						Name:  "mavericks",
+						Image: "ubuntu-upstart",
+						Host:  "172.17.0.2",
+						State: "running",
 					}))
 				})
 			})
@@ -577,12 +572,11 @@ var _ = Describe("client", func() {
 						Expect(container).NotTo(BeNil())
 
 						Expect(container).To(Equal(&freighterclient.Container{
-							ID:      id,
-							Name:    "mavericks",
-							Image:   "ubuntu-upstart",
-							Host:    "172.17.0.2",
-							SSHPort: 60002,
-							State:   "running",
+							ID:    id,
+							Name:  "mavericks",
+							Image: "ubuntu-upstart",
+							Host:  "172.17.0.2",
+							State: "running",
 						}))
 					})
 				})
