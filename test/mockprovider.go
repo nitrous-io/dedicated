@@ -2,6 +2,7 @@ package test
 
 import (
 	"errors"
+	"io"
 
 	"github.com/nitrous-io/freighter/provider"
 )
@@ -33,6 +34,9 @@ type MockProvider struct {
 
 	RemovePublicKeyCalled bool
 	RemovePublicKeyError  error
+
+	ExportCalled bool
+	ExportError  error
 
 	ReceivedID             string
 	ReceivedName           string
@@ -129,6 +133,12 @@ func (p *MockProvider) RemovePublicKey(id string, keyFingerprint string) error {
 	p.ReceivedID = id
 	p.ReceivedKeyFingerprint = keyFingerprint
 	return p.RemovePublicKeyError
+}
+
+func (p *MockProvider) Export(id string, output io.Writer) error {
+	p.ExportCalled = true
+	p.ReceivedID = id
+	return p.ExportError
 }
 
 func (p *MockProvider) IsNotFoundError(err error) bool {
