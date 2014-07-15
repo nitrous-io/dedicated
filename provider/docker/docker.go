@@ -20,6 +20,12 @@ var dockerfileUbuntu = template.Must(template.New("ubuntu").Parse(dockerfileUbun
 var dockerHost = "unix:///var/run/docker.sock"
 
 var errTimeout = errors.New("timeout")
+var errSSHNotSupported = errors.New("SSH functionality is not supported on this container")
+
+var (
+	registryName          = "nitrousio" + "/"
+	images       []string = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
+)
 
 func init() {
 	if host := os.Getenv("DOCKER_HOST"); host != "" {
@@ -229,6 +235,10 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 		return nil, err
 	}
 
+	if !usesNitrousImage(container) {
+		return nil, errSSHNotSupported
+	}
+
 	keys, err := p.readAuthorizedKeys(nameFromContainer(container))
 	if err != nil {
 		return nil, err
@@ -242,6 +252,11 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 	if err != nil {
 		return err
 	}
+
+	if !usesNitrousImage(container) {
+		return errSSHNotSupported
+	}
+
 	name := nameFromContainer(container)
 
 	existingKeys, err := p.readAuthorizedKeys(name)
@@ -264,6 +279,11 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 	if err != nil {
 		return err
 	}
+
+	if !usesNitrousImage(container) {
+		return errSSHNotSupported
+	}
+
 	name := nameFromContainer(container)
 
 	keys, err := p.readAuthorizedKeys(name)
@@ -324,8 +344,10 @@ func (p *DockerProvider) createContainer(imageName string, containerName string)
 		return nil, err
 	}
 
+	containerName = p.containerNamespace + containerName
+
 	container, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
-		Name: p.containerNamespace + containerName,
+		Name: containerName,
 		Config: &dockerclient.Config{
 			Hostname: containerName,
 			Image:    imageName,
@@ -446,6 +468,19 @@ func keysToKeyMap(keys []string) (map[string]string, error) {
 		keymap[fingerprint] = key
 	}
 	return keymap, nil
+}
+
+func usesNitrousImage(container *dockerclient.Container) bool {
+	image := container.Config.Image
+	usesNitrousImage := false
+
+	for _, nitrousImage := range images {
+		if registryName+nitrousImage == image {
+			return true
+		}
+	}
+
+	return usesNitrousImage
 }
 
 // converts map[keyFingerprint]pubkey back to []pubkey
