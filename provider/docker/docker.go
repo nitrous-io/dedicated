@@ -17,10 +17,10 @@ import (
 )
 
 var (
-	dockerfileUbuntu          = template.Must(template.New("ubuntu").Parse(dockerfileUbuntuTmpl))
-	dockerHost                = "unix:///var/run/docker.sock"
-	registryName              = "nitrousio" + "/"
-	images           []string = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
+	dockerfileUbuntu = template.Must(template.New("ubuntu").Parse(dockerfileUbuntuTmpl))
+	dockerHost       = "unix:///var/run/docker.sock"
+	registryName     = "nitrousio"
+	images           = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
 
 	ErrTimeout               = errors.New("Operation timed out")
 	ErrPubKeyOpsNotSupported = errors.New("Public key operations are not supported on this container")
@@ -471,15 +471,13 @@ func keysToKeyMap(keys []string) (map[string]string, error) {
 
 func usesNitrousImage(container *dockerclient.Container) bool {
 	image := container.Config.Image
-	usesNitrousImage := false
-
 	for _, nitrousImage := range images {
-		if registryName+nitrousImage == image {
+		if registryName+"/"+nitrousImage == image {
 			return true
 		}
 	}
 
-	return usesNitrousImage
+	return false
 }
 
 // converts map[keyFingerprint]pubkey back to []pubkey
