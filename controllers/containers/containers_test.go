@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/db"
@@ -19,7 +20,6 @@ import (
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
-	"github.com/nitrous-io/nitrous/pkg/freighter"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -39,8 +39,8 @@ var _ = Describe("controllers/containers", func() {
 		res             *httptest.ResponseRecorder
 		authTokenInputs AuthTokenInputs
 
-		// Mock client that satisfies the freighter.Client interface.
-		mockClient *freighter.MockClient
+		// Mock client that satisfies the freighterclient.Client interface.
+		mockClient *freighterclient.MockClient
 
 		u  *user.User
 		t  *token.Token
@@ -50,7 +50,7 @@ var _ = Describe("controllers/containers", func() {
 	BeforeEach(func() {
 		var err error
 
-		mockClient = &freighter.MockClient{}
+		mockClient = &freighterclient.MockClient{}
 		containers.FreighterClient = mockClient
 
 		db, err = TestDatabase("nitrous_test")
@@ -107,7 +107,7 @@ var _ = Describe("controllers/containers", func() {
 				Context("when host has containers", func() {
 					var (
 						c         *container.Container
-						fc        *freighter.Container
+						fc        *freighterclient.Container
 						touchedAt time.Time
 					)
 
@@ -129,7 +129,7 @@ var _ = Describe("controllers/containers", func() {
 						err = c.Update(db)
 						Expect(err).To(BeNil())
 
-						fc = &freighter.Container{
+						fc = &freighterclient.Container{
 							ID:      "deadbeef",
 							Name:    "dominant-intercooler-42",
 							Host:    "1.2.3.4",
@@ -137,7 +137,7 @@ var _ = Describe("controllers/containers", func() {
 							Image:   "nitrous-base",
 							SSHPort: 60001,
 						}
-						mockClient.Containers = []*freighter.Container{fc}
+						mockClient.Containers = []*freighterclient.Container{fc}
 					})
 
 					It("calls the Freighter client to list containers", func() {
@@ -197,7 +197,7 @@ var _ = Describe("controllers/containers", func() {
 							fc.Name = "new-name-42"
 							fc.Host = "2.4.6.8"
 							fc.State = "stopped"
-							mockClient.Containers = []*freighter.Container{fc}
+							mockClient.Containers = []*freighterclient.Container{fc}
 						})
 
 						It("prefers the data in the Freighter response", func() {
@@ -222,7 +222,7 @@ var _ = Describe("controllers/containers", func() {
 
 					Context("when there are more containers from Freighter than in the database", func() {
 						BeforeEach(func() {
-							fc2 := &freighter.Container{
+							fc2 := &freighterclient.Container{
 								ID:      "cafebabe",
 								Name:    "wicked-baby-69",
 								Host:    "1.2.3.5",
@@ -230,7 +230,7 @@ var _ = Describe("controllers/containers", func() {
 								Image:   "nitrous-base",
 								SSHPort: 60002,
 							}
-							mockClient.Containers = []*freighter.Container{fc, fc2}
+							mockClient.Containers = []*freighterclient.Container{fc, fc2}
 						})
 
 						It("responds with all the containers from Freighter", func() {
@@ -270,7 +270,7 @@ var _ = Describe("controllers/containers", func() {
 
 				Context("when host has no containers", func() {
 					BeforeEach(func() {
-						mockClient.Containers = []*freighter.Container{}
+						mockClient.Containers = []*freighterclient.Container{}
 					})
 
 					It("responds with an empty array", func() {
@@ -399,7 +399,7 @@ var _ = Describe("controllers/containers", func() {
 
 					Context("when the error is an InvalidParamError", func() {
 						BeforeEach(func() {
-							mockClient.CreateError = freighter.InvalidParamError{"invalid name"}
+							mockClient.CreateError = &freighterclient.InvalidParamError{"invalid name"}
 						})
 
 						It("responds with HTTP 400 Bad Request", func() {
@@ -419,7 +419,7 @@ var _ = Describe("controllers/containers", func() {
 
 				Context("when Freighter client returns a Container with no error", func() {
 					BeforeEach(func() {
-						mockClient.CreatedContainer = &freighter.Container{
+						mockClient.CreatedContainer = &freighterclient.Container{
 							ID:      "deadbeef",
 							Name:    "elixir-web-1",
 							Host:    "1.2.3.4",
@@ -557,7 +557,7 @@ var _ = Describe("controllers/containers", func() {
 			Context("when host exists for user", func() {
 				var (
 					c  *container.Container
-					fc *freighter.Container
+					fc *freighterclient.Container
 				)
 
 				BeforeEach(func() {
@@ -573,7 +573,7 @@ var _ = Describe("controllers/containers", func() {
 					err := c.Insert(db)
 					Expect(err).To(BeNil())
 
-					fc = &freighter.Container{
+					fc = &freighterclient.Container{
 						ID:      "deadbeef",
 						Name:    containerName,
 						Host:    "1.2.3.4",
@@ -581,7 +581,7 @@ var _ = Describe("controllers/containers", func() {
 						Image:   "nitrous-base",
 						SSHPort: 60001,
 					}
-					mockClient.Containers = []*freighter.Container{fc}
+					mockClient.Containers = []*freighterclient.Container{fc}
 				})
 
 				It("calls the Freighter client to get the container's info", func() {
@@ -715,7 +715,7 @@ var _ = Describe("controllers/containers", func() {
 				Context("when host exists for user", func() {
 					var (
 						c  *container.Container
-						fc *freighter.Container
+						fc *freighterclient.Container
 					)
 
 					BeforeEach(func() {
@@ -731,7 +731,7 @@ var _ = Describe("controllers/containers", func() {
 						err := c.Insert(db)
 						Expect(err).To(BeNil())
 
-						fc = &freighter.Container{
+						fc = &freighterclient.Container{
 							ID:      "deadbeef",
 							Name:    containerName,
 							Host:    "1.2.3.4",
@@ -739,7 +739,7 @@ var _ = Describe("controllers/containers", func() {
 							Image:   "nitrous-base",
 							SSHPort: 60001,
 						}
-						mockClient.Containers = []*freighter.Container{fc}
+						mockClient.Containers = []*freighterclient.Container{fc}
 					})
 
 					It("calls the Freighter client to perform the control action", func() {
@@ -905,7 +905,7 @@ var _ = Describe("controllers/containers", func() {
 			Context("when host exists for user", func() {
 				var (
 					c  *container.Container
-					fc *freighter.Container
+					fc *freighterclient.Container
 				)
 
 				BeforeEach(func() {
@@ -921,7 +921,7 @@ var _ = Describe("controllers/containers", func() {
 					err := c.Insert(db)
 					Expect(err).To(BeNil())
 
-					fc = &freighter.Container{
+					fc = &freighterclient.Container{
 						ID:      "deadbeef",
 						Name:    containerName,
 						Host:    "",
@@ -929,7 +929,7 @@ var _ = Describe("controllers/containers", func() {
 						Image:   "nitrous-base",
 						SSHPort: 0,
 					}
-					mockClient.Containers = []*freighter.Container{fc}
+					mockClient.Containers = []*freighterclient.Container{fc}
 				})
 
 				It("calls the Freighter client to Terminate the container", func() {

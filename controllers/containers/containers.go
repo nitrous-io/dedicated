@@ -6,17 +6,17 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/pkg/freighter"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
-// FreighterClient is a shared freighter.Client for making requests to Freighter
+// FreighterClient is a shared freighterclient.Client for making requests to Freighter
 // API hosts.
-var FreighterClient freighter.Client
+var FreighterClient freighterclient.Client
 
 var (
 	errImageRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "image is required")
@@ -36,7 +36,7 @@ var (
 )
 
 func init() {
-	FreighterClient = freighter.NewClient(nil)
+	FreighterClient = freighterclient.NewClient(nil)
 }
 
 func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
@@ -120,12 +120,10 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 	}
 	created, err := FreighterClient.Create(fHost, name, image)
 	if err != nil {
-		switch err := err.(type) {
-		case freighter.InvalidParamError:
-			return httperror.New(http.StatusBadRequest, "validation_failed", err.Msg)
-		default:
-			return err
+		if e, ok := err.(*freighterclient.InvalidParamError); ok {
+			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
 		}
+		return err
 	}
 
 	cntnr := &container.Container{
@@ -194,7 +192,7 @@ func restart(h *host.Host, cn *container.Container, env *middlewares.Env, c cont
 	return performControlAction(FreighterClient.Restart, h, cn, env, c, w, r)
 }
 
-type actionFn func(h *freighter.Host, id string) (*freighter.Container, error)
+type actionFn func(h *freighterclient.Host, id string) (*freighterclient.Container, error)
 
 func performControlAction(fn actionFn, h *host.Host, cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	fHost, err := mkFreighterHost(h)
@@ -289,14 +287,14 @@ func withContainer(fn func(h *host.Host, cn *container.Container, env *middlewar
 	}
 }
 
-func mkFreighterHost(h *host.Host) (*freighter.Host, error) {
+func mkFreighterHost(h *host.Host) (*freighterclient.Host, error) {
 	if h.IPAddress.String == "" {
 		return nil, errHostIPUnknown
 	}
-	return freighter.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), false), nil
+	return freighterclient.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), false), nil
 }
 
-func hydrateContainer(fc *freighter.Container, cc *container.Container, h *host.Host) *container.Container {
+func hydrateContainer(fc *freighterclient.Container, cc *container.Container, h *host.Host) *container.Container {
 	c := &container.Container{
 		ID:        fc.ID,
 		Image:     fc.Image,
