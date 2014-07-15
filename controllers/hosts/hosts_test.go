@@ -20,6 +20,7 @@ import (
 
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/keypairs"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/token"
@@ -322,6 +323,14 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.Size.String).To(Equal(hs.P.Name))
 					Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
 					Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
+				})
+
+				It("creates a keypair associated with that host", func() {
+					hosts, _ := host.FindAllByUser(db, u)
+					kp, err := keypairs.Get(db, "host", hosts[0].ID)
+					Expect(err).To(BeNil())
+					Expect(kp.OwnerID).To(Equal(hosts[0].ID))
+					Expect(kp.OwnerType).To(Equal("host"))
 				})
 
 				It("responds with the created host and status created", func() {
