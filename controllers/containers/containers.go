@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middlewares"
@@ -23,6 +24,12 @@ var (
 	errHostIPUnknown     = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
 	errHostNotFound      = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
+)
+
+var (
+	validations = map[string]error{
+		"index_containers_on_name": httperror.New(http.StatusBadRequest, "validation_failed", "name is taken"),
+	}
 )
 
 var (
@@ -75,7 +82,7 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 	for _, lc := range liveContainers {
 		var savedContainer *container.Container
 		for _, sc := range savedContainers {
-			if sc.ID == lc.ID {
+			if sc.CID == lc.ID {
 				savedContainer = sc
 				break
 			}
@@ -114,6 +121,34 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 		longname = name
 	}
 
+	cntnr := &container.Container{
+		UserID:   env.User.ID,
+		HostID:   h.ID,
+		Name:     name,
+		Image:    image,
+		LongName: sql.NullString{longname, true},
+	}
+
+	// Save record to db first to reserve name (since it's globally unique).
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+	err = cntnr.Insert(tx)
+	if err != nil {
+		tx.Rollback()
+		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
+			if validationErr, ok := validations[e.Constraint]; ok {
+				return validationErr
+			}
+		}
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
 	fHost, err := mkFreighterHost(h)
 	if err != nil {
 		return err
@@ -126,22 +161,14 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 		return err
 	}
 
-	cntnr := &container.Container{
-		ID:        created.ID,
-		Image:     created.Image,
-		Name:      created.Name,
-		State:     created.State,
-		IPAddress: sql.NullString{created.Host, true},
-		LongName:  sql.NullString{longname, true},
-		UserID:    env.User.ID,
-		HostID:    h.ID,
-	}
-
-	// Save container to database without validations - since Freighter
-	// successfuly created the container, we just want to save it.
-	err = cntnr.Insert(db)
+	// Update existing record with new info from Freighter.
+	cntnr.CID = created.ID
+	cntnr.Image = created.Image
+	cntnr.State = created.State
+	cntnr.IPAddress = sql.NullString{created.Host, true}
+	err = cntnr.Update(db)
 	if err != nil {
-		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to save to database as '%+v'", created, cntnr)
+		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cntnr)
 		// Continue responding as if nothing happened.
 	}
 
@@ -159,13 +186,13 @@ func show(h *host.Host, cn *container.Container, env *middlewares.Env, c control
 		return err
 	}
 	// TODO Run this in a goroutine so it runs concurrently with DB query.
-	liveContainer, err := FreighterClient.Info(fHost, cn.ID)
+	liveContainer, err := FreighterClient.Info(fHost, cn.CID)
 	if err != nil {
 		return err
 	}
 
 	db := c.DB()
-	savedContainer, err := container.FindByID(db, cn.ID)
+	savedContainer, err := container.FindByCID(db, cn.CID)
 	if err != nil {
 		return err
 	}
@@ -199,7 +226,7 @@ func performControlAction(fn actionFn, h *host.Host, cn *container.Container, en
 	if err != nil {
 		return err
 	}
-	liveContainer, err := fn(fHost, cn.ID)
+	liveContainer, err := fn(fHost, cn.CID)
 	if err != nil {
 		return err
 	}
@@ -220,13 +247,13 @@ func destroy(h *host.Host, cn *container.Container, env *middlewares.Env, c cont
 	if err != nil {
 		return err
 	}
-	liveContainer, err := FreighterClient.Terminate(fHost, cn.ID)
+	liveContainer, err := FreighterClient.Terminate(fHost, cn.CID)
 	if err != nil {
 		return err
 	}
 
 	db := c.DB()
-	savedContainer, err := container.FindByID(db, cn.ID)
+	savedContainer, err := container.FindByCID(db, cn.CID)
 	if err != nil {
 		return err
 	}
@@ -296,7 +323,7 @@ func mkFreighterHost(h *host.Host) (*freighterclient.Host, error) {
 
 func hydrateContainer(fc *freighterclient.Container, cc *container.Container, h *host.Host) *container.Container {
 	c := &container.Container{
-		ID:        fc.ID,
+		CID:       fc.ID,
 		Image:     fc.Image,
 		Name:      fc.Name,
 		State:     fc.State,
@@ -305,6 +332,7 @@ func hydrateContainer(fc *freighterclient.Container, cc *container.Container, h 
 		HostID:    h.ID,
 	}
 	if cc != nil {
+		c.ID = cc.ID
 		c.LongName = cc.LongName
 		c.TerminatedAt = cc.TerminatedAt
 		c.TouchedAt = cc.TouchedAt

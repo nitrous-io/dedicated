@@ -23,7 +23,8 @@ var (
 // FIXME add accompanying tables to lookup which users have access to a
 // container (e.g. collaborators, users in the same team/organization).
 type Container struct {
-	ID        string         `db:"id"         json:"id"`
+	ID        int64          `db:"id"         json:"id"`
+	CID       string         `db:"cid"        json:"cid"`
 	UserID    int64          `db:"user_id"    json:"user_id"`
 	HostID    int64          `db:"host_id"    json:"host_id"`
 	Image     string         `db:"image"      json:"image"`
@@ -43,9 +44,9 @@ func GenerateRandomName() string {
 	return fmt.Sprintf("container-%d", time.Now().UnixNano())
 }
 
-func FindByID(d db.QueryReceiver, id string) (*Container, error) {
+func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
 	c := &Container{}
-	err := d.Get(c, `SELECT * FROM containers WHERE id = $1;`, id)
+	err := d.Get(c, `SELECT * FROM containers WHERE cid = $1;`, cid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -78,8 +79,8 @@ func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
 
 func (c *Container) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO containers
-		(id, user_id, host_id, image, name, long_name, ip_address)
-		VALUES (:id, :user_id, :host_id, :image, :name, :long_name, :ip_address)
+		(id, cid, user_id, host_id, image, name, long_name, ip_address)
+		VALUES (:id, :cid, :user_id, :host_id, :image, :name, :long_name, :ip_address)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -89,8 +90,8 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 
 func (c *Container) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE containers
-		SET (name, long_name, ip_address, terminated_at, touched_at, updated_at)
-		= (:name, :long_name, :ip_address, :terminated_at, :touched_at, now())
+		SET (cid, name, long_name, ip_address, terminated_at, touched_at, updated_at)
+		= (:cid, :name, :long_name, :ip_address, :terminated_at, :touched_at, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

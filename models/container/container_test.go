@@ -72,7 +72,7 @@ var _ = Describe("models/container", func() {
 		err = h.Insert(db)
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec("INSERT INTO containers (id, user_id, host_id, image, name) values ($1, $2, $3, $4, $5);",
+		_, err = db.Exec("INSERT INTO containers (cid, user_id, host_id, image, name) values ($1, $2, $3, $4, $5);",
 			"deadbeef", u.ID, h.ID, "nitrous-base", "my-1st-container")
 		Expect(err).To(BeNil())
 	})
@@ -94,21 +94,21 @@ var _ = Describe("models/container", func() {
 		})
 	})
 
-	Describe("FindByID()", func() {
-		Context("when a container record with a given id exists", func() {
+	Describe("FindByCID()", func() {
+		Context("when a container record with a given cid exists", func() {
 			It("returns the container record", func() {
-				c, err := container.FindByID(db, "deadbeef")
+				c, err := container.FindByCID(db, "deadbeef")
 				Expect(err).To(BeNil())
 				Expect(c).NotTo(BeNil())
-				Expect(c.ID).To(Equal("deadbeef"))
+				Expect(c.CID).To(Equal("deadbeef"))
 				Expect(c.Image).To(Equal("nitrous-base"))
 				Expect(c.Name).To(Equal("my-1st-container"))
 			})
 		})
 
-		Context("when a container record with a given id does not exist", func() {
+		Context("when a container record with a given cid does not exist", func() {
 			It("returns nil", func() {
-				c, err := container.FindByID(db, "non-existent-id")
+				c, err := container.FindByCID(db, "non-existent-id")
 				Expect(err).To(BeNil())
 				Expect(c).To(BeNil())
 			})
@@ -117,7 +117,7 @@ var _ = Describe("models/container", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				c, err := container.FindByID(db, "deadbeef")
+				c, err := container.FindByCID(db, "deadbeef")
 				Expect(err).NotTo(BeNil())
 				Expect(c).To(BeNil())
 			})
@@ -130,7 +130,7 @@ var _ = Describe("models/container", func() {
 				c, err := container.FindByHostIDAndName(db, h.ID, "my-1st-container")
 				Expect(err).To(BeNil())
 				Expect(c).NotTo(BeNil())
-				Expect(c.ID).To(Equal("deadbeef"))
+				Expect(c.CID).To(Equal("deadbeef"))
 				Expect(c.Image).To(Equal("nitrous-base"))
 				Expect(c.Name).To(Equal("my-1st-container"))
 			})
@@ -161,7 +161,7 @@ var _ = Describe("models/container", func() {
 				Expect(err).To(BeNil())
 				Expect(containers).To(HaveLen(1))
 
-				Expect(containers[0].ID).To(Equal("deadbeef"))
+				Expect(containers[0].CID).To(Equal("deadbeef"))
 				Expect(containers[0].Image).To(Equal("nitrous-base"))
 				Expect(containers[0].Name).To(Equal("my-1st-container"))
 			})
@@ -207,7 +207,7 @@ var _ = Describe("models/container", func() {
 		BeforeEach(func() {
 			var err error
 			c = &container.Container{
-				ID:     "cafebabe",
+				CID:    "cafebabe",
 				UserID: u.ID,
 				HostID: h.ID,
 				Image:  "nitrous-base",
@@ -218,10 +218,10 @@ var _ = Describe("models/container", func() {
 		})
 
 		It("persists the container in the database", func() {
-			cntnr, err := container.FindByID(db, "cafebabe")
+			cntnr, err := container.FindByCID(db, "cafebabe")
 			Expect(err).To(BeNil())
 			Expect(cntnr).NotTo(BeNil())
-			Expect(cntnr.ID).To(Equal("cafebabe"))
+			Expect(cntnr.CID).To(Equal("cafebabe"))
 			Expect(cntnr.UserID).To(Equal(u.ID))
 			Expect(cntnr.HostID).To(Equal(h.ID))
 			Expect(cntnr.Image).To(Equal("nitrous-base"))
@@ -243,7 +243,7 @@ var _ = Describe("models/container", func() {
 		BeforeEach(func() {
 			var err error
 			c = &container.Container{
-				ID:     cid,
+				CID:    cid,
 				UserID: u.ID,
 				HostID: h.ID,
 				Image:  "nitrous-base",
@@ -261,10 +261,10 @@ var _ = Describe("models/container", func() {
 			err := c.Update(db)
 			Expect(err).To(BeNil())
 
-			cntnr, err := container.FindByID(db, cid)
+			cntnr, err := container.FindByCID(db, cid)
 			Expect(err).To(BeNil())
 			Expect(cntnr).NotTo(BeNil())
-			Expect(cntnr.ID).To(Equal(cid))
+			Expect(cntnr.CID).To(Equal(cid))
 
 			// Updated fields.
 			Expect(cntnr.Name).To(Equal("jboss"))
@@ -296,33 +296,6 @@ var _ = Describe("models/container", func() {
 			Expect(c.UpdatedAt).NotTo(Equal(origUpdatedAt))
 		})
 
-		Context("when the ID is changed to a non-existent ID", func() {
-			var newID = "cafebabe-2"
-
-			BeforeEach(func() {
-				c.ID = newID
-				c.Name = "jboss"
-				err := c.Update(db)
-				Expect(err).NotTo(BeNil())
-			})
-
-			It("does not update original container", func() {
-				cntnr, err := container.FindByID(db, cid)
-				Expect(err).To(BeNil())
-				Expect(cntnr.ID).To(Equal(cid))
-				Expect(cntnr.UserID).To(Equal(u.ID))
-				Expect(cntnr.HostID).To(Equal(h.ID))
-				Expect(cntnr.Image).To(Equal("nitrous-base"))
-				Expect(cntnr.Name).To(Equal("java-test-container"))
-			})
-
-			It("does not create a new container with the non-existent ID", func() {
-				cntnr, err := container.FindByID(db, newID)
-				Expect(err).To(BeNil())
-				Expect(cntnr).To(BeNil())
-			})
-		})
-
 		Context("unchangeable fields", func() {
 			Context("user ID", func() {
 				It("does not get updated", func() {
@@ -338,7 +311,7 @@ var _ = Describe("models/container", func() {
 					err = c.Update(db)
 					Expect(err).To(BeNil())
 
-					cntnr, err := container.FindByID(db, cid)
+					cntnr, err := container.FindByCID(db, cid)
 					Expect(err).To(BeNil())
 					Expect(cntnr.UserID).To(Equal(u.ID))
 				})
@@ -360,7 +333,7 @@ var _ = Describe("models/container", func() {
 					err = c.Update(db)
 					Expect(err).To(BeNil())
 
-					cntnr, err := container.FindByID(db, cid)
+					cntnr, err := container.FindByCID(db, cid)
 					Expect(err).To(BeNil())
 					Expect(cntnr.HostID).To(Equal(h.ID))
 				})
@@ -372,7 +345,7 @@ var _ = Describe("models/container", func() {
 					err := c.Update(db)
 					Expect(err).To(BeNil())
 
-					cntnr, err := container.FindByID(db, cid)
+					cntnr, err := container.FindByCID(db, cid)
 					Expect(err).To(BeNil())
 					Expect(cntnr.Image).To(Equal("nitrous-base"))
 				})
@@ -387,7 +360,7 @@ var _ = Describe("models/container", func() {
 					err := c.Update(db)
 					Expect(err).To(BeNil())
 
-					cntnr, err := container.FindByID(db, cid)
+					cntnr, err := container.FindByCID(db, cid)
 					Expect(err).To(BeNil())
 					Expect(cntnr.CreatedAt).NotTo(Equal(newCreatedAt))
 					Expect(cntnr.CreatedAt).To(Equal(origCreatedAt))

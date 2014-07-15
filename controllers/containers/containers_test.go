@@ -113,7 +113,7 @@ var _ = Describe("controllers/containers", func() {
 
 					BeforeEach(func() {
 						c = &container.Container{
-							ID:        "deadbeef",
+							CID:       "deadbeef",
 							Name:      "dominant-intercooler-42",
 							IPAddress: sql.NullString{"1.2.3.4", true},
 							Image:     "nitrous-base",
@@ -158,7 +158,7 @@ var _ = Describe("controllers/containers", func() {
 						Expect(containers).To(HaveLen(1))
 
 						// Fields from Freighter API.
-						Expect(containers[0].ID).To(Equal("deadbeef"))
+						Expect(containers[0].CID).To(Equal("deadbeef"))
 						Expect(containers[0].Image).To(Equal("nitrous-base"))
 						Expect(containers[0].Name).To(Equal("dominant-intercooler-42"))
 						Expect(containers[0].IPAddress.String).To(Equal("1.2.3.4"))
@@ -212,7 +212,7 @@ var _ = Describe("controllers/containers", func() {
 							Expect(ok).To(BeTrue())
 							Expect(containers).To(HaveLen(1))
 
-							Expect(containers[0].ID).To(Equal("deadbeef"))
+							Expect(containers[0].CID).To(Equal("deadbeef"))
 							Expect(containers[0].Image).To(Equal("new-image"))
 							Expect(containers[0].Name).To(Equal("new-name-42"))
 							Expect(containers[0].IPAddress.String).To(Equal("2.4.6.8"))
@@ -245,7 +245,7 @@ var _ = Describe("controllers/containers", func() {
 							Expect(ok).To(BeTrue())
 							Expect(containers).To(HaveLen(2))
 
-							Expect(containers[0].ID).To(Equal("deadbeef"))
+							Expect(containers[0].CID).To(Equal("deadbeef"))
 							Expect(containers[0].Image).To(Equal("nitrous-base"))
 							Expect(containers[0].Name).To(Equal("dominant-intercooler-42"))
 							Expect(containers[0].IPAddress.String).To(Equal("1.2.3.4"))
@@ -255,7 +255,7 @@ var _ = Describe("controllers/containers", func() {
 							Expect(containers[0].LongName.String).To(Equal("Rails app server"))
 							Expect(containers[0].TouchedAt.Unix()).To(Equal(touchedAt.Unix()))
 
-							Expect(containers[1].ID).To(Equal("cafebabe"))
+							Expect(containers[1].CID).To(Equal("cafebabe"))
 							Expect(containers[1].Image).To(Equal("nitrous-base"))
 							Expect(containers[1].Name).To(Equal("wicked-baby-69"))
 							Expect(containers[1].IPAddress.String).To(Equal("1.2.3.5"))
@@ -443,7 +443,7 @@ var _ = Describe("controllers/containers", func() {
 
 						Expect(j.Status).To(Equal("created"))
 						Expect(j.Container).NotTo(BeNil())
-						Expect(j.Container.ID).To(Equal("deadbeef"))
+						Expect(j.Container.CID).To(Equal("deadbeef"))
 						Expect(j.Container.Image).To(Equal("elixir"))
 						Expect(j.Container.Name).To(Equal("elixir-web-1"))
 						Expect(j.Container.IPAddress.String).To(Equal("1.2.3.4"))
@@ -451,31 +451,32 @@ var _ = Describe("controllers/containers", func() {
 						Expect(j.Container.LongName.String).To(Equal("Elixir Web Server 1"))
 					})
 
-					Context("when Container cannot be saved to database", func() {
+					Context("when name is already taken", func() {
 						BeforeEach(func() {
-							mockClient.CreatedContainer.Name = ""
+							c := &container.Container{
+								CID:    "facecafe",
+								Name:   "elixir-web-1",
+								Image:  "nitrous-base",
+								UserID: u.ID,
+								HostID: hs.H.ID,
+							}
+							err := c.Insert(db)
+							Expect(err).To(BeNil())
 						})
 
-						It("still responds with HTTP 201 Created, the container and a status of created", func() {
+						It("responds with HTTP 400 Bad Request", func() {
 							doRequest("valid-token", "foo", params)
 
-							Expect(res.Code).To(Equal(http.StatusCreated))
+							Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-							j := struct {
-								Status    string               `json:"status"`
-								Container *container.Container `json:"container"`
-							}{}
+							j := map[string]interface{}{}
 							err := json.Unmarshal(res.Body.Bytes(), &j)
 							Expect(err).To(BeNil())
 
-							Expect(j.Status).To(Equal("created"))
-							Expect(j.Container).NotTo(BeNil())
-							Expect(j.Container.ID).To(Equal("deadbeef"))
-							Expect(j.Container.Image).To(Equal("elixir"))
-							Expect(j.Container.Name).To(Equal(""))
-							Expect(j.Container.IPAddress.String).To(Equal("1.2.3.4"))
-							Expect(j.Container.State).To(Equal("running"))
-							Expect(j.Container.LongName.String).To(Equal("Elixir Web Server 1"))
+							errType, _ := j["error"].(string)
+							Expect(errType).To(Equal("validation_failed"))
+							errDesc, _ := j["error_description"].(string)
+							Expect(errDesc).To(Equal("name is taken"))
 						})
 					})
 
@@ -562,7 +563,7 @@ var _ = Describe("controllers/containers", func() {
 
 				BeforeEach(func() {
 					c = &container.Container{
-						ID:        "deadbeef",
+						CID:       "deadbeef",
 						Name:      containerName,
 						IPAddress: sql.NullString{"8.8.8.8", true},
 						Image:     "nitrous-base",
@@ -602,7 +603,7 @@ var _ = Describe("controllers/containers", func() {
 					Expect(ok).To(BeTrue())
 
 					// Fields from Freighter API.
-					Expect(c.ID).To(Equal("deadbeef"))
+					Expect(c.CID).To(Equal("deadbeef"))
 					Expect(c.Image).To(Equal("nitrous-base"))
 					Expect(c.Name).To(Equal(containerName))
 					Expect(c.IPAddress.String).To(Equal("1.2.3.4"))
@@ -631,7 +632,6 @@ var _ = Describe("controllers/containers", func() {
 
 						errType, _ := j["error"].(string)
 						Expect(errType).To(Equal("not_found"))
-
 						errDesc, _ := j["error_description"].(string)
 						Expect(errDesc).To(Equal("container does not exist"))
 					})
@@ -720,7 +720,7 @@ var _ = Describe("controllers/containers", func() {
 
 					BeforeEach(func() {
 						c = &container.Container{
-							ID:        "deadbeef",
+							CID:       "deadbeef",
 							Name:      containerName,
 							IPAddress: sql.NullString{"8.8.8.8", true},
 							Image:     "nitrous-base",
@@ -760,7 +760,7 @@ var _ = Describe("controllers/containers", func() {
 						Expect(ok).To(BeTrue())
 
 						// Fields from Freighter API.
-						Expect(c.ID).To(Equal("deadbeef"))
+						Expect(c.CID).To(Equal("deadbeef"))
 						Expect(c.Image).To(Equal("nitrous-base"))
 						Expect(c.Name).To(Equal(containerName))
 						Expect(c.IPAddress.String).To(Equal("1.2.3.4"))
@@ -910,7 +910,7 @@ var _ = Describe("controllers/containers", func() {
 
 				BeforeEach(func() {
 					c = &container.Container{
-						ID:        "deadbeef",
+						CID:       "deadbeef",
 						Name:      containerName,
 						IPAddress: sql.NullString{"8.8.8.8", true},
 						Image:     "nitrous-base",
@@ -950,7 +950,7 @@ var _ = Describe("controllers/containers", func() {
 					Expect(ok).To(BeTrue())
 
 					// Fields from Freighter API.
-					Expect(c.ID).To(Equal("deadbeef"))
+					Expect(c.CID).To(Equal("deadbeef"))
 					Expect(c.Image).To(Equal("nitrous-base"))
 					Expect(c.Name).To(Equal(containerName))
 					Expect(c.IPAddress.String).To(Equal(""))
