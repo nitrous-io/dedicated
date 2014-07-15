@@ -16,10 +16,15 @@ import (
 	"github.com/nitrous-io/freighter/util"
 )
 
-var dockerfileUbuntu = template.Must(template.New("ubuntu").Parse(dockerfileUbuntuTmpl))
-var dockerHost = "unix:///var/run/docker.sock"
+var (
+	dockerfileUbuntu = template.Must(template.New("ubuntu").Parse(dockerfileUbuntuTmpl))
+	dockerHost       = "unix:///var/run/docker.sock"
+	registryName     = "nitrousio"
+	images           = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
 
-var errTimeout = errors.New("timeout")
+	ErrTimeout               = errors.New("Operation timed out")
+	ErrPubKeyOpsNotSupported = errors.New("Public key operations are not supported on this container")
+)
 
 func init() {
 	if host := os.Getenv("DOCKER_HOST"); host != "" {
@@ -150,7 +155,7 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 			for {
 				select {
 				case <-timeout:
-					ch <- errTimeout
+					ch <- ErrTimeout
 					return
 				default:
 					info, err := p.GetInfo(id)
@@ -229,6 +234,10 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 		return nil, err
 	}
 
+	if !usesNitrousImage(container) {
+		return nil, ErrPubKeyOpsNotSupported
+	}
+
 	keys, err := p.readAuthorizedKeys(nameFromContainer(container))
 	if err != nil {
 		return nil, err
@@ -242,6 +251,11 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 	if err != nil {
 		return err
 	}
+
+	if !usesNitrousImage(container) {
+		return ErrPubKeyOpsNotSupported
+	}
+
 	name := nameFromContainer(container)
 
 	existingKeys, err := p.readAuthorizedKeys(name)
@@ -264,6 +278,11 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 	if err != nil {
 		return err
 	}
+
+	if !usesNitrousImage(container) {
+		return ErrPubKeyOpsNotSupported
+	}
+
 	name := nameFromContainer(container)
 
 	keys, err := p.readAuthorizedKeys(name)
@@ -324,8 +343,10 @@ func (p *DockerProvider) createContainer(imageName string, containerName string)
 		return nil, err
 	}
 
+	containerName = p.containerNamespace + containerName
+
 	container, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
-		Name: p.containerNamespace + containerName,
+		Name: containerName,
 		Config: &dockerclient.Config{
 			Hostname: containerName,
 			Image:    imageName,
@@ -446,6 +467,17 @@ func keysToKeyMap(keys []string) (map[string]string, error) {
 		keymap[fingerprint] = key
 	}
 	return keymap, nil
+}
+
+func usesNitrousImage(container *dockerclient.Container) bool {
+	image := container.Config.Image
+	for _, nitrousImage := range images {
+		if registryName+"/"+nitrousImage == image {
+			return true
+		}
+	}
+
+	return false
 }
 
 // converts map[keyFingerprint]pubkey back to []pubkey
