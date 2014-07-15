@@ -5,11 +5,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   build-essential \
   curl \
   git \
-  libsqlite3-dev \
   mercurial \
   ruby1.9.1 \
   ruby1.9.1-dev \
-  sqlite3 \
   lxc=1.0.* \
   cgmanager \
   libcgmanager0 \

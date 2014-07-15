@@ -5,4 +5,3 @@ sudo mkdir -p /var/lib/freighter
 sudo chown $user:$user /var/lib/freighter
 make build
 build/freighterd -z
-script/dbseed /var/lib/freighter/freighter.sqlite3

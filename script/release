@@ -45,8 +45,6 @@ bundle() {
     --provides $PKGNAME \
     --replaces $PKGNAME \
     --depends lxc \
-    --depends sqlite3 \
-    --depends libsqlite3-dev \
     --before-install $FILES/control/preinst \
     --after-install $FILES/control/postinst \
     --before-remove $FILES/control/prerm \
