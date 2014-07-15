@@ -19,8 +19,7 @@ var (
 
 type Keypair struct {
 	ID                    int64      `db:"id"`
-	OwnerType             string     `db:"owner_type"`
-	OwnerID               int64      `db:"owner_id"`
+	HostID                int64      `db:"host_id"`
 	PublicKey             string     `db:"public_key"`
 	EncryptedPrivateKey   string     `db:"encrypted_private_key"`
 	EncryptedPrivateKeyIv string     `db:"encrypted_private_key_iv"`
@@ -33,20 +32,18 @@ func Create(
 	db db.QueryReceiver,
 	priv *rsa.PrivateKey,
 	aesKey string,
-	ownerType string,
-	ownerID int64,
+	hostID int64,
 ) (*Keypair, error) {
 	kp, err := generateKeypair(priv, aesKey)
 	if err != nil {
 		return nil, err
 	}
 
-	kp.OwnerType = ownerType
-	kp.OwnerID = ownerID
+	kp.HostID = hostID
 
 	stmt, err := db.PrepareNamed(`INSERT INTO key_pairs
-	(owner_type, owner_id, public_key, encrypted_private_key, encrypted_private_key_iv)
-	VALUES (:owner_type, :owner_id, :public_key, :encrypted_private_key, :encrypted_private_key_iv)
+	(host_id, public_key, encrypted_private_key, encrypted_private_key_iv)
+	VALUES (:host_id, :public_key, :encrypted_private_key, :encrypted_private_key_iv)
 	RETURNING *;`)
 	if err != nil {
 		return nil, err
@@ -57,10 +54,10 @@ func Create(
 	return kp, nil
 }
 
-func Get(db db.QueryReceiver, ownerType string, ownerID int64) (*Keypair, error) {
+func Get(db db.QueryReceiver, hostID int64) (*Keypair, error) {
 	kp := &Keypair{}
-	q := `SELECT * FROM key_pairs WHERE owner_type = $1 AND owner_id = $2`
-	err := db.Get(kp, q, ownerType, ownerID)
+	q := `SELECT * FROM key_pairs WHERE host_id = $1`
+	err := db.Get(kp, q, hostID)
 	if err != nil {
 		return nil, err
 	}

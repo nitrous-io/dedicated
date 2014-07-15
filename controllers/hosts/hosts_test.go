@@ -327,10 +327,9 @@ var _ = Describe("controllers/hosts", func() {
 
 				It("creates a keypair associated with that host", func() {
 					hosts, _ := host.FindAllByUser(db, u)
-					kp, err := keypairs.Get(db, "host", hosts[0].ID)
+					kp, err := keypairs.Get(db, hosts[0].ID)
 					Expect(err).To(BeNil())
-					Expect(kp.OwnerID).To(Equal(hosts[0].ID))
-					Expect(kp.OwnerType).To(Equal("host"))
+					Expect(kp.HostID).To(Equal(hosts[0].ID))
 				})
 
 				It("responds with the created host and status created", func() {

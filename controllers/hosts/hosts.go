@@ -178,7 +178,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 	}
 
 	// create the keypair
-	_, err = keypairs.Create(tx, priv, aesKey, "host", h.ID)
+	_, err = keypairs.Create(tx, priv, aesKey, h.ID)
 	if err != nil {
 		tx.Rollback()
 		return err
