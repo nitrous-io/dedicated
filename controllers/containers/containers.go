@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"time"
 
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/container"
@@ -19,14 +19,20 @@ import (
 var FreighterClient freighter.Client
 
 var (
-	errImageRequired = httperror.New(http.StatusBadRequest, "invalid_request", "image is required")
-	errHostNotFound  = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
-	errHostIPUnknown = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
+	errImageRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "image is required")
+	errHostIPUnknown     = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
+	errHostNotFound      = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
+	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
 )
 
 var (
-	Index  middlewares.Middleware = withHost(index)
-	Create middlewares.Middleware = withHost(create)
+	Index   middlewares.Middleware = withHost(index)
+	Create  middlewares.Middleware = withHost(create)
+	Show    middlewares.Middleware = withHost(withContainer(show))
+	Start   middlewares.Middleware = withHost(withContainer(start))
+	Stop    middlewares.Middleware = withHost(withContainer(stop))
+	Restart middlewares.Middleware = withHost(withContainer(restart))
+	Destroy middlewares.Middleware = withHost(withContainer(destroy))
 )
 
 func init() {
@@ -75,7 +81,7 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 			}
 		}
 
-		cntnr := hydrateContainer(lc, savedContainer, h, log)
+		cntnr := hydrateContainer(lc, savedContainer, h)
 		containers = append(containers, cntnr)
 	}
 
@@ -149,8 +155,101 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 	return nil
 }
 
+func show(h *host.Host, cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	fHost, err := mkFreighterHost(h)
+	if err != nil {
+		return err
+	}
+	// TODO Run this in a goroutine so it runs concurrently with DB query.
+	liveContainer, err := FreighterClient.Info(fHost, cn.ID)
+	if err != nil {
+		return err
+	}
+
+	db := c.DB()
+	savedContainer, err := container.FindByID(db, cn.ID)
+	if err != nil {
+		return err
+	}
+
+	cntnr := hydrateContainer(liveContainer, savedContainer, h)
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"container": cntnr,
+	}
+
+	return nil
+}
+
+func start(h *host.Host, cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	return performControlAction(FreighterClient.Start, h, cn, env, c, w, r)
+}
+
+func stop(h *host.Host, cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	return performControlAction(FreighterClient.Stop, h, cn, env, c, w, r)
+}
+
+func restart(h *host.Host, cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	return performControlAction(FreighterClient.Restart, h, cn, env, c, w, r)
+}
+
+type actionFn func(h *freighter.Host, id string) (*freighter.Container, error)
+
+func performControlAction(fn actionFn, h *host.Host, cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	fHost, err := mkFreighterHost(h)
+	if err != nil {
+		return err
+	}
+	liveContainer, err := fn(fHost, cn.ID)
+	if err != nil {
+		return err
+	}
+
+	cntnr := hydrateContainer(liveContainer, nil, h)
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"container": cntnr,
+	}
+
+	return nil
+}
+
+func destroy(h *host.Host, cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+
+	fHost, err := mkFreighterHost(h)
+	if err != nil {
+		return err
+	}
+	liveContainer, err := FreighterClient.Terminate(fHost, cn.ID)
+	if err != nil {
+		return err
+	}
+
+	db := c.DB()
+	savedContainer, err := container.FindByID(db, cn.ID)
+	if err != nil {
+		return err
+	}
+
+	cntnr := hydrateContainer(liveContainer, savedContainer, h)
+	now := time.Now()
+	cntnr.TerminatedAt = &now
+	err = cntnr.Update(db)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"container": cntnr,
+	}
+	return nil
+}
+
 func withHost(fn func(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
-	return func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	return middlewares.Vars(func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		db := c.DB()
 
 		u := env.User
@@ -168,6 +267,25 @@ func withHost(fn func(h *host.Host, env *middlewares.Env, c controllers.Helper, 
 		}
 
 		return fn(h, env, c, w, r)
+	})
+}
+
+type withHostMiddlewareFn func(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error
+
+func withContainer(fn func(h *host.Host, cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) withHostMiddlewareFn {
+	return func(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+		db := c.DB()
+
+		cName := env.Vars["name"]
+		cntnr, err := container.FindByHostIDAndName(db, h.ID, cName)
+		if err != nil {
+			return err
+		}
+		if cntnr == nil {
+			return errContainerNotFound
+		}
+
+		return fn(h, cntnr, env, c, w, r)
 	}
 }
 
@@ -178,7 +296,7 @@ func mkFreighterHost(h *host.Host) (*freighter.Host, error) {
 	return freighter.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), false), nil
 }
 
-func hydrateContainer(fc *freighter.Container, cc *container.Container, h *host.Host, log *logger.Logger) *container.Container {
+func hydrateContainer(fc *freighter.Container, cc *container.Container, h *host.Host) *container.Container {
 	c := &container.Container{
 		ID:        fc.ID,
 		Image:     fc.Image,
@@ -194,12 +312,6 @@ func hydrateContainer(fc *freighter.Container, cc *container.Container, h *host.
 		c.TouchedAt = cc.TouchedAt
 		c.CreatedAt = cc.CreatedAt
 		c.UpdatedAt = cc.UpdatedAt
-	} else {
-		// It's possible that a container exists in Freighter but isn't
-		// present in the database, e.g. container has been created by
-		// Freighter but we have not been notified of its creation yet.
-		// We just send as much info as possible.
-		log.Warnf("Found container from Freighter that isn't stored in database: %v", fc)
 	}
 	return c
 }
