@@ -94,7 +94,7 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	c.UI.Info(fmt.Sprintf("Logged in as '%v'", username))
+	c.UI.Info(fmt.Sprintf("Logged in as '%v'.", username))
 	return 0
 }
 

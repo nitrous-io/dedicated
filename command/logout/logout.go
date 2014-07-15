@@ -14,7 +14,7 @@ import (
 const usage = `
 Usage: nitro logout
 
-  logout from authenticated Nitrous.IO account.
+  logout from Nitrous.IO.
 `
 
 type Command struct {
@@ -52,10 +52,10 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	c.UI.Info("You are no longer logged-in to Nitrous.IO")
+	c.UI.Info("You have been logged out from Nitrous.IO.")
 	return 0
 }
 
 func (c *Command) Synopsis() string {
-	return "Logout from authenticated Nitrous.IO account"
+	return "Logout from Nitrous.IO"
 }
