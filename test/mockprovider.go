@@ -35,8 +35,9 @@ type MockProvider struct {
 	RemovePublicKeyCalled bool
 	RemovePublicKeyError  error
 
-	ExportCalled bool
-	ExportError  error
+	ExportCalled     bool
+	ExportError      error
+	ReceivedIOWriter io.Writer
 
 	ReceivedID             string
 	ReceivedName           string
@@ -55,11 +56,10 @@ func (p *MockProvider) List() ([]*provider.ContainerInfo, error) {
 	return p.Containers, nil
 }
 
-func (p *MockProvider) Create(name string, image string, publicKeys []string) (*provider.ContainerInfo, error) {
+func (p *MockProvider) Create(name string, image string) (*provider.ContainerInfo, error) {
 	p.CreateCalled = true
 	p.ReceivedName = name
 	p.ReceivedImage = image
-	p.ReceivedPublicKeys = publicKeys
 	return p.CreateContainerInfo, p.CreateError
 }
 
@@ -107,7 +107,6 @@ func (p *MockProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 	info, _ := p.GetInfo(id)
 	if info != nil {
 		info.Host = ""
-		info.SSHPort = 0
 		info.State = ""
 	}
 	p.TerminateCalled = true
@@ -138,6 +137,8 @@ func (p *MockProvider) RemovePublicKey(id string, keyFingerprint string) error {
 func (p *MockProvider) Export(id string, output io.Writer) error {
 	p.ExportCalled = true
 	p.ReceivedID = id
+	p.ReceivedIOWriter = output
+
 	return p.ExportError
 }
 

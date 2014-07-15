@@ -1,8 +1,6 @@
 package docker
 
 import (
-	"archive/tar"
-	"bytes"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -19,6 +17,15 @@ import (
 )
 
 var dockerfileUbuntu = template.Must(template.New("ubuntu").Parse(dockerfileUbuntuTmpl))
+var dockerHost = "unix:///var/run/docker.sock"
+
+var errTimeout = errors.New("timeout")
+
+func init() {
+	if host := os.Getenv("DOCKER_HOST"); host != "" {
+		dockerHost = host
+	}
+}
 
 type TemplateData struct {
 	Name  string
@@ -26,21 +33,21 @@ type TemplateData struct {
 }
 
 type DockerProvider struct {
-	client         *dockerclient.Client
-	dataPath       string
-	imageNamespace string
-	logger         *util.Logger
+	client             *dockerclient.Client
+	dataPath           string
+	containerNamespace string
+	logger             *util.Logger
 }
 
-func NewDockerProvider(logger *util.Logger, dataPath string, imageNamespace string) (*DockerProvider, error) {
-	if logger == nil || dataPath == "" || imageNamespace == "" {
+func NewDockerProvider(logger *util.Logger, dataPath string, containerNamespace string) (*DockerProvider, error) {
+	if logger == nil || dataPath == "" || containerNamespace == "" {
 		return nil, errors.New("docker.NewDockerProvider: invalid argument")
 	}
-	client, err := dockerclient.NewClient("unix:///var/run/docker.sock")
+	client, err := dockerclient.NewClient(dockerHost)
 	if err != nil {
 		return nil, err
 	}
-	return &DockerProvider{client: client, dataPath: dataPath, imageNamespace: imageNamespace + ".", logger: logger}, nil
+	return &DockerProvider{client: client, dataPath: dataPath, containerNamespace: containerNamespace + ".", logger: logger}, nil
 }
 
 func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
@@ -54,37 +61,30 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 	list := []*provider.ContainerInfo{}
 
 	for _, apicontainer := range apicontainers {
-		if strings.HasPrefix(apicontainer.Image, p.imageNamespace) {
-			info, err := p.GetInfo(apicontainer.ID)
-			if err != nil {
-				return nil, err
+		for _, name := range apicontainer.Names {
+			if strings.HasPrefix(name, "/"+p.containerNamespace) {
+				info, err := p.GetInfo(apicontainer.ID)
+				if err != nil {
+					return nil, err
+				}
+				list = append(list, info)
+				break
 			}
-			list = append(list, info)
 		}
 	}
 
 	return list, nil
 }
 
-func (p *DockerProvider) Create(name string, image string, publicKeys []string) (*provider.ContainerInfo, error) {
-	imageName, err := p.buildImage(name, image)
-	if err != nil {
-		return nil, err
-	}
+func (p *DockerProvider) Create(name string, imageName string) (*provider.ContainerInfo, error) {
+	err := p.createAuthorizedKeys(p.containerNamespace+name, []string{})
 
-	// validate pubkeys and remove duplicates
-	keymap, err := keysToKeyMap(publicKeys)
-	if err != nil {
-		return nil, err
-	}
-	publicKeys = keyMapToKeys(keymap)
-
-	err = p.createAuthorizedKeys(name, publicKeys)
 	if err != nil {
 		return nil, err
 	}
 
 	container, err := p.createContainer(imageName, name)
+
 	if err != nil {
 		return nil, err
 	}
@@ -99,12 +99,12 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	}
 
 	return &provider.ContainerInfo{
-		ID:      container.ID,
-		Name:    nameFromContainer(container),
-		Image:   container.Config.Image,
-		Host:    container.NetworkSettings.IPAddress,
-		SSHPort: portFromContainer(container),
-		State:   stateFromContainer(container),
+		ID:    container.ID,
+		Name:  nameFromContainer(container),
+		Image: container.Config.Image,
+		Host:  container.NetworkSettings.IPAddress,
+		Ports: portsFromContainer(container),
+		State: stateFromContainer(container),
 	}, nil
 }
 
@@ -143,8 +143,36 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 			return nil, err
 		}
 
-		p.logger.TimeInfo(start, "DockerProvider: stopped container", id, "in")
+		ch := make(chan error, 1)
+
+		go func() {
+			timeout := time.After(15 * time.Second)
+			for {
+				select {
+				case <-timeout:
+					ch <- errTimeout
+					return
+				default:
+					info, err := p.GetInfo(id)
+					if err != nil {
+						ch <- err
+						return
+					}
+					if info.State == provider.ContainerStateStopped && info.Host == "" {
+						p.logger.TimeInfo(start, "DockerProvider: stopped container", id)
+						ch <- nil
+						return
+					}
+					time.Sleep(100 * time.Millisecond)
+				}
+			}
+		}()
+
+		if err := <-ch; err != nil {
+			return nil, err
+		}
 	}
+
 	return p.GetInfo(id)
 }
 
@@ -167,11 +195,6 @@ func (p *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
 }
 
 func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
-	container, err := p.inspectContainer(id)
-	if err != nil {
-		return nil, err
-	}
-
 	p.logger.Info("DockerProvider: terminating container", id)
 	terminationStart := time.Now()
 
@@ -179,6 +202,8 @@ func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	info, err = p.GetInfo(id)
 
 	p.logger.Info("DockerProvider: removing container", id)
 	start := time.Now()
@@ -190,20 +215,9 @@ func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 
 	p.logger.TimeInfo(start, "DockerProvider: removed container", id, "in")
 
-	containerImage := container.Config.Image
-	p.logger.Info("DockerProvider: removing container image", containerImage)
-	start = time.Now()
-
-	err = p.client.RemoveImage(containerImage)
-	if err != nil {
-		return nil, err
-	}
-
-	p.logger.TimeInfo(start, "DockerProvider: removed container image", containerImage, "in")
-
 	info.Host = ""
-	info.SSHPort = 0
 	info.State = ""
+	info.Ports = map[string]int{}
 
 	p.logger.TimeInfo(terminationStart, "DockerProvider: terminated container", id, "in")
 	return info, nil
@@ -287,39 +301,59 @@ func (p *DockerProvider) Export(id string, output io.Writer) error {
 	return p.client.ExportContainer(opts)
 }
 
-func (p *DockerProvider) buildImage(name string, image string) (string, error) {
-	imageName := p.imageNamespace + name
-	p.logger.Info("DockerProvider: building container image", imageName, "with base image", image)
+func (p *DockerProvider) createContainer(imageName string, containerName string) (*dockerclient.Container, error) {
+	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
 	start := time.Now()
 
-	buf := &bytes.Buffer{}
-	err := dockerfileUbuntu.Execute(buf, &TemplateData{Name: name, Image: image})
+	parts := strings.Split(imageName, ":")
+	var repository, tag string
+	repository = parts[0]
+
+	if len(parts) == 1 {
+		tag = "latest"
+	} else {
+		tag = parts[1]
+	}
+
+	err := p.client.PullImage(dockerclient.PullImageOptions{
+		Repository: repository,
+		Tag:        tag,
+	}, dockerclient.AuthConfiguration{})
+
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	inputbuf, outputbuf := &bytes.Buffer{}, &bytes.Buffer{}
-	tr := tar.NewWriter(inputbuf)
-	tr.WriteHeader(&tar.Header{Name: "Dockerfile", Mode: 0644, Size: int64(buf.Len()), ModTime: start, AccessTime: start, ChangeTime: start})
-	tr.Write(buf.Bytes())
-	tr.WriteHeader(&tar.Header{Name: "sshd_config", Mode: 0644, Size: int64(len(sshdConfig)), ModTime: start, AccessTime: start, ChangeTime: start})
-	tr.Write(sshdConfig)
-	tr.Close()
+	container, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
+		Name: p.containerNamespace + containerName,
+		Config: &dockerclient.Config{
+			Hostname: containerName,
+			Image:    imageName,
+			Volumes: map[string]struct{}{
+				"/etc/ssh/freighter": {},
+			},
+		},
+	})
 
-	opts := dockerclient.BuildImageOptions{
-		Name:           imageName,
-		InputStream:    inputbuf,
-		OutputStream:   outputbuf,
-		RmTmpContainer: true,
-	}
-
-	err = p.client.BuildImage(opts)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	p.logger.TimeInfo(start, "DockerProvider: built container image", imageName, "in")
-	return imageName, err
+	id := container.ID
+	p.logger.TimeInfo(start, "DockerProvider: created container", containerName, id, "in")
+	p.logger.Info("DockerProvider: starting container", containerName)
+	start = time.Now()
+
+	err = p.client.StartContainer(id, &dockerclient.HostConfig{
+		Binds: []string{
+			(p.containerSettingsDir(containerName) + "/ssh:/etc/ssh/freighter:ro"),
+		},
+		PortBindings:    map[dockerclient.Port][]dockerclient.PortBinding{},
+		PublishAllPorts: true,
+	})
+
+	p.logger.TimeInfo(start, "DockerProvider: started container", containerName, id, "in")
+	return container, err
 }
 
 func (p *DockerProvider) containerSettingsDir(containerName string) string {
@@ -358,42 +392,13 @@ func (p *DockerProvider) readAuthorizedKeys(containerName string) ([]string, err
 	if err != nil {
 		return nil, err
 	}
-	return strings.Split(strings.TrimSpace(string(bkeys)), "\n"), nil
-}
-
-func (p *DockerProvider) createContainer(imageName string, containerName string) (*dockerclient.Container, error) {
-	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
-	start := time.Now()
-
-	container, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
-		Name: containerName,
-		Config: &dockerclient.Config{
-			Hostname: containerName,
-			Image:    imageName,
-			Volumes: map[string]struct{}{
-				"/etc/ssh/freighter": {},
-			},
-		},
-	})
-	if err != nil {
-		return container, err
+	keys := []string{}
+	for _, key := range strings.Split(strings.TrimSpace(string(bkeys)), "\n") {
+		if key != "" {
+			keys = append(keys, key)
+		}
 	}
-
-	id := container.ID
-	p.logger.TimeInfo(start, "DockerProvider: created container", containerName, id, "in")
-	p.logger.Info("DockerProvider: starting container", containerName)
-	start = time.Now()
-
-	err = p.client.StartContainer(id, &dockerclient.HostConfig{
-		Binds: []string{
-			(p.containerSettingsDir(containerName) + "/ssh:/etc/ssh/freighter:ro"),
-		},
-		PortBindings:    map[dockerclient.Port][]dockerclient.PortBinding{},
-		PublishAllPorts: true,
-	})
-
-	p.logger.TimeInfo(start, "DockerProvider: started container", containerName, id, "in")
-	return container, err
+	return keys, nil
 }
 
 func (p *DockerProvider) inspectContainer(id string) (*dockerclient.Container, error) {
@@ -402,7 +407,7 @@ func (p *DockerProvider) inspectContainer(id string) (*dockerclient.Container, e
 	if err != nil {
 		return nil, err
 	}
-	if !strings.HasPrefix(container.Config.Image, p.imageNamespace) {
+	if !strings.HasPrefix(container.Name, "/"+p.containerNamespace) {
 		return nil, &dockerclient.NoSuchContainer{ID: id}
 	}
 	return container, nil
@@ -419,9 +424,15 @@ func stateFromContainer(container *dockerclient.Container) string {
 	return provider.ContainerStateStopped
 }
 
-func portFromContainer(container *dockerclient.Container) uint16 {
-	port, _ := strconv.Atoi(container.HostConfig.PortBindings["22/tcp"][0].HostPort)
-	return uint16(port)
+func portsFromContainer(container *dockerclient.Container) (ports map[string]int) {
+	ports = make(map[string]int)
+	for port, bindings := range container.HostConfig.PortBindings {
+		containerPort, _ := strconv.Atoi(port.Port())
+		for _, binding := range bindings {
+			ports[string(binding.HostPort)] = containerPort
+		}
+	}
+	return
 }
 
 // converts []pubkey to map[keyFingerprint]pubkey

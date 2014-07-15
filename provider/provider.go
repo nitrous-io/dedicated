@@ -9,7 +9,7 @@ var containerNameRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
 
 type Provider interface {
 	List() (infoList []*ContainerInfo, err error)
-	Create(name string, image string, publicKeys []string) (info *ContainerInfo, err error)
+	Create(name string, image string) (info *ContainerInfo, err error)
 	GetInfo(id string) (info *ContainerInfo, err error)
 	Start(id string) (info *ContainerInfo, err error)
 	Stop(id string) (info *ContainerInfo, err error)
@@ -26,12 +26,12 @@ type Provider interface {
 }
 
 type ContainerInfo struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Image   string `json:"image"`
-	Host    string `json:"host"`
-	SSHPort uint16 `json:"ssh_port"`
-	State   string `json:"state"`
+	ID    string         `json:"id"`
+	Name  string         `json:"name"`
+	Image string         `json:"image"`
+	Host  string         `json:"host"`
+	State string         `json:"state"`
+	Ports map[string]int `json:"ports"`
 }
 
 const (

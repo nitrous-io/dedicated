@@ -109,7 +109,6 @@ func (c *MockClient) Terminate(h *Host, id string) (*Container, error) {
 	if cntnr != nil {
 		cntnr.Host = ""
 		cntnr.State = ""
-		cntnr.SSHPort = 0
 	}
 	return cntnr, c.TerminateError
 }
