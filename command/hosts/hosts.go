@@ -20,6 +20,14 @@ Usage: nitro hosts
   list all hosts
 `
 
+const (
+	minWidth    = 0
+	tabWidth    = 0
+	padding     = 2
+	paddingChar = ' '
+	flags       = 0
+)
+
 type Command struct {
 	UI     cli.Ui
 	Server string
@@ -103,7 +111,7 @@ func formattedOutput(headers []string, hosts *[]Host) string {
 	b := &bytes.Buffer{}
 	w := &tabwriter.Writer{}
 
-	w.Init(b, 0, 0, 2, ' ', 0)
+	w.Init(b, minWidth, tabWidth, padding, paddingChar, flags)
 	fmt.Fprintln(w, strings.Join(headers, "\t "))
 	for _, r := range *hosts {
 		fmt.Fprintln(w, r.Name, "\t", r.State)
