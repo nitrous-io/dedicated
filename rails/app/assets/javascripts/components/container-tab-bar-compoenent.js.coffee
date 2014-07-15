@@ -5,7 +5,7 @@ App.ContainerTabBarComponent = Em.Component.extend
   selected: null
 
   generalSelected: Em.computed.equal 'selected', 'general'
-  sshSelected:     Em.computed.equal 'selected', 'ssh'
+  keysSelected:    Em.computed.equal 'selected', 'keys'
   volumesSelected: Em.computed.equal 'selected', 'volumes'
   portsSelected:   Em.computed.equal 'selected', 'ports'
   envSelected:     Em.computed.equal 'selected', 'env'

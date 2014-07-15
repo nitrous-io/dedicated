@@ -1,7 +1,7 @@
 li class={generalSelected:selected}
   link-to 'container.index' | General
-li class={sshSelected:selected}
-  a href='#' SSH
+li class={keysSelected:selected}
+  link-to 'container.keys' | Keys
 li class={volumesSelected:selected}
   a href='#' Volumes
 li class={portsSelected:selected}

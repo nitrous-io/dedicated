@@ -1,0 +1,19 @@
+= container-tab-bar selected='keys'
+
+form
+  .card-body
+    h3 Add SSH Public Key
+    .ui.input-group
+      label for='keys-new-title'
+        | Title
+      input type='text' id='keys-new-title' name='title'
+
+      label for='keys-new-key'
+        | Key
+      textarea.textarea-transition id='keys-new-key' name='key' rows='2'
+
+  .card-footer.bordered
+    .left
+      button.ui.btn Cancel
+    .right
+      button.ui.btn.primary Add Key
