@@ -8,7 +8,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -22,25 +21,17 @@ func Test(t *testing.T) {
 
 var _ = Describe("server/routes", func() {
 	var (
-		db      *db.Database
 		svr     *server.Server
 		handler *mux.Router
 		res     *httptest.ResponseRecorder
 	)
 	BeforeEach(func() {
-		var err error
-		db, err = TestDatabase("nitrous_test") // TODO: get rid of the database setup
-		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer("", db, logger)
+		// NOTE: server has nil database, i.e. tests in this suite do not
+		// support DB operations
+		svr = server.NewServer("", nil, logger)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
-	})
-
-	AfterEach(func() {
-		if db != nil {
-			db.Close()
-		}
 	})
 
 	Describe("invalid route", func() {
