@@ -174,7 +174,7 @@ func init() {
 			Up: `
 				CREATE TABLE key_pairs (
 					id bigserial PRIMARY KEY NOT NULL,
-					host_id bigint REFERENCES hosts(id) NOT NULL,
+					host_id bigint REFERENCES hosts(id) ON DELETE CASCADE NOT NULL,
 					public_key text NOT NULL,
 					encrypted_private_key text NOT NULL,
 					encrypted_private_key_iv character varying(255) NOT NULL,

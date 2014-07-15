@@ -34,4 +34,21 @@ var _ = Describe("models/keypairs", func() {
 		_, err := Get(db, 1)
 		Expect(err).NotTo(BeNil(), "should fail to find invalid keypair")
 	})
+
+	It("deletes the keypair when its host is deleted", func() {
+		db, _ := TestDatabase("nitrous_test")
+
+		// prepare the host
+		hs, _ := CreateHostStack(db, nil)
+		priv, _ := GenerateKey()
+
+		kp, _ := Create(db, priv, "aes_key", hs.H.ID)
+		Expect(kp.HostID).To(Equal(hs.H.ID))
+
+		err := hs.H.Delete(db)
+		Expect(err).To(BeNil(), "should succesfully delete the host")
+
+		_, err = Get(db, hs.H.ID)
+		Expect(err).ToNot(BeNil(), "should delete the host's keypairs")
+	})
 })
