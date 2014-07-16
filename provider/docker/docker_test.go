@@ -26,7 +26,6 @@ func Test(t *testing.T) {
 
 var _ = Describe("provider/docker", func() {
 	var (
-		dbFile    string
 		prov      *docker.DockerProvider
 		namespace = "freightertest"
 		image     = "nitrousio/ubuntu-bare:trusty"
@@ -34,8 +33,6 @@ var _ = Describe("provider/docker", func() {
 
 	BeforeEach(func() {
 		var err error
-		dbFile = TempFile("sqlite3")
-		Expect(err).To(BeNil())
 
 		datadir, err := TempDir()
 		Expect(err).To(BeNil())

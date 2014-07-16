@@ -22,7 +22,7 @@ export VAGRANT_HOME=/home/vagrant
 export GOPATH=$VAGRANT_HOME/go
 export GOROOT=/usr/local/opt/go
 
-apt-get install -yy --no-install-recommends lxc build-essential curl git-core mercurial docker.io sqlite3
+apt-get install -yy --no-install-recommends lxc build-essential curl git-core mercurial docker.io
 
 install_go() {
   echo "Installing Go..."
