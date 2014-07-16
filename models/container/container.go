@@ -3,7 +3,6 @@ package container
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"regexp"
 	"time"
 
@@ -38,10 +37,6 @@ type Container struct {
 	UpdatedAt    *time.Time `db:"updated_at"    json:"updated_at"`
 
 	State string `json:"state"`
-}
-
-func GenerateRandomName() string {
-	return fmt.Sprintf("container-%d", time.Now().UnixNano())
 }
 
 func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {

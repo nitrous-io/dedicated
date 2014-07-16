@@ -23,7 +23,7 @@ const DefaultImage = "nitrousio/ubuntu:trusty"
 var FreighterClient freighterclient.Client
 
 var (
-	errImageRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "image is required")
+	errNameRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
 	errHostIPUnknown     = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
 	errHostNotFound      = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
@@ -118,13 +118,7 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 	}
 
 	if name == "" {
-		// TODO We should probably retry if the generated name ends up being
-		// already in use.
-		name = container.GenerateRandomName()
-	}
-
-	if longname == "" {
-		longname = name
+		return errNameRequired
 	}
 
 	cntnr := &container.Container{

@@ -477,25 +477,24 @@ var _ = Describe("controllers/containers", func() {
 						})
 					})
 
-					Context("when longname param not given", func() {
+					Context("when name param is not given", func() {
 						BeforeEach(func() {
-							params.Del("longname")
+							params.Del("name")
 						})
 
-						It("sets long name to name", func() {
+						It("responds with HTTP 400 Bad Request", func() {
 							doRequest("valid-token", "foo", params)
 
-							Expect(res.Code).To(Equal(http.StatusCreated))
+							Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-							j := struct {
-								Status    string               `json:"status"`
-								Container *container.Container `json:"container"`
-							}{}
+							j := map[string]interface{}{}
 							err := json.Unmarshal(res.Body.Bytes(), &j)
 							Expect(err).To(BeNil())
 
-							Expect(j.Status).To(Equal("created"))
-							Expect(j.Container.LongName.String).To(Equal("elixir-web-1"))
+							errType, _ := j["error"].(string)
+							Expect(errType).To(Equal("invalid_request"))
+							errDesc, _ := j["error_description"].(string)
+							Expect(errDesc).To(Equal("name is required"))
 						})
 					})
 
