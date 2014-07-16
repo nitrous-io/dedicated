@@ -22,17 +22,16 @@ const (
 )
 
 const usage = `
-Usage: nitro create
+Usage: nitro create [options]
 
   create a new container
 
 Options:
 
-	-H, --host=""       %s
-	-n, --name=""       %s
-	-L, --longname=""   %s
-	-i, --image=""      %s
-
+  -H, --host=""        %s
+  -n, --name=""        %s
+  -L, --longname=""    %s
+  -i, --image=""       %s
 `
 
 type Command struct {
