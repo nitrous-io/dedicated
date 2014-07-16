@@ -130,12 +130,11 @@ var _ = Describe("controllers/containers", func() {
 						Expect(err).To(BeNil())
 
 						fc = &freighterclient.Container{
-							ID:      "deadbeef",
-							Name:    "dominant-intercooler-42",
-							Host:    "1.2.3.4",
-							State:   "running",
-							Image:   "nitrous-base",
-							SSHPort: 60001,
+							ID:    "deadbeef",
+							Name:  "dominant-intercooler-42",
+							Host:  "1.2.3.4",
+							State: "running",
+							Image: "nitrous-base",
 						}
 						mockClient.Containers = []*freighterclient.Container{fc}
 					})
@@ -223,12 +222,11 @@ var _ = Describe("controllers/containers", func() {
 					Context("when there are more containers from Freighter than in the database", func() {
 						BeforeEach(func() {
 							fc2 := &freighterclient.Container{
-								ID:      "cafebabe",
-								Name:    "wicked-baby-69",
-								Host:    "1.2.3.5",
-								State:   "running",
-								Image:   "nitrous-base",
-								SSHPort: 60002,
+								ID:    "cafebabe",
+								Name:  "wicked-baby-69",
+								Host:  "1.2.3.5",
+								State: "running",
+								Image: "nitrous-base",
 							}
 							mockClient.Containers = []*freighterclient.Container{fc, fc2}
 						})
@@ -420,12 +418,11 @@ var _ = Describe("controllers/containers", func() {
 				Context("when Freighter client returns a Container with no error", func() {
 					BeforeEach(func() {
 						mockClient.CreatedContainer = &freighterclient.Container{
-							ID:      "deadbeef",
-							Name:    "elixir-web-1",
-							Host:    "1.2.3.4",
-							State:   "running",
-							Image:   "elixir",
-							SSHPort: 60001,
+							ID:    "deadbeef",
+							Name:  "elixir-web-1",
+							Host:  "1.2.3.4",
+							State: "running",
+							Image: "elixir",
 						}
 					})
 
@@ -575,12 +572,11 @@ var _ = Describe("controllers/containers", func() {
 					Expect(err).To(BeNil())
 
 					fc = &freighterclient.Container{
-						ID:      "deadbeef",
-						Name:    containerName,
-						Host:    "1.2.3.4",
-						State:   "running",
-						Image:   "nitrous-base",
-						SSHPort: 60001,
+						ID:    "deadbeef",
+						Name:  containerName,
+						Host:  "1.2.3.4",
+						State: "running",
+						Image: "nitrous-base",
 					}
 					mockClient.Containers = []*freighterclient.Container{fc}
 				})
@@ -732,12 +728,11 @@ var _ = Describe("controllers/containers", func() {
 						Expect(err).To(BeNil())
 
 						fc = &freighterclient.Container{
-							ID:      "deadbeef",
-							Name:    containerName,
-							Host:    "1.2.3.4",
-							State:   "stopped",
-							Image:   "nitrous-base",
-							SSHPort: 60001,
+							ID:    "deadbeef",
+							Name:  containerName,
+							Host:  "1.2.3.4",
+							State: "stopped",
+							Image: "nitrous-base",
 						}
 						mockClient.Containers = []*freighterclient.Container{fc}
 					})
@@ -922,12 +917,11 @@ var _ = Describe("controllers/containers", func() {
 					Expect(err).To(BeNil())
 
 					fc = &freighterclient.Container{
-						ID:      "deadbeef",
-						Name:    containerName,
-						Host:    "",
-						State:   "",
-						Image:   "nitrous-base",
-						SSHPort: 0,
+						ID:    "deadbeef",
+						Name:  containerName,
+						Host:  "",
+						State: "",
+						Image: "nitrous-base",
 					}
 					mockClient.Containers = []*freighterclient.Container{fc}
 				})
