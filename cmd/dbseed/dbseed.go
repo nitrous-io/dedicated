@@ -88,10 +88,11 @@ func regions(d db.QueryReceiver) error {
 		return err
 	}
 	regions := []region.Region{
-		{Name: "apse", Description: "Southeast Asia"},
-		{Name: "use", Description: "US East"},
-		{Name: "usw", Description: "US West"},
-		{Name: "euw", Description: "Europe"},
+		{Name: "sgp", Description: "Southeast Asia (Singapore)"},
+		{Name: "nyc", Description: "US East (New York)"},
+		{Name: "sfo", Description: "US West (San Francisco)"},
+		{Name: "ams", Description: "Europe (Amsterdam)"},
+		{Name: "lon", Description: "Europe (London)"},
 	}
 	for _, r := range regions {
 		err = r.Insert(d)
