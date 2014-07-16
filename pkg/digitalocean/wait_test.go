@@ -33,34 +33,28 @@ var _ = Describe("pkg/digitalocean", func() {
 		ts.Close()
 	})
 
-	Describe("State Success", func() {
-		It("should wait for success", func() {
-			s.AddResponse("droplets/id", dotest.NewResponse(200, NewDropletState))
-			s.AddResponse("droplets/id", dotest.NewResponse(200, ActiveDropletState))
+	It("waits for the desired state", func() {
+		s.AddResponse("droplets/id", dotest.NewResponse(200, NewDropletState))
+		s.AddResponse("droplets/id", dotest.NewResponse(200, ActiveDropletState))
 
-			droplet, err := WaitForState("active", 1, c, 1*time.Millisecond, 1*time.Second)
-			Expect(err).To(BeNil())
-			Expect(droplet.Status).To(Equal("active"))
-		})
+		droplet, err := WaitForState("active", 1, c, 1*time.Millisecond, 1*time.Second)
+		Expect(err).To(BeNil())
+		Expect(droplet.Status).To(Equal("active"))
 	})
 
-	Describe("State Timeout", func() {
-		It("should timeout", func() {
-			s.AddResponse("droplets/id", dotest.NewResponse(200, NewDropletState))
-			s.AddResponse("droplets/id", dotest.NewResponse(200, ActiveDropletState))
+	It("should be able to timed out", func() {
+		s.AddResponse("droplets/id", dotest.NewResponse(200, NewDropletState))
+		s.AddResponse("droplets/id", dotest.NewResponse(200, ActiveDropletState))
 
-			droplet, err := WaitForState("active", 1, c, 1*time.Millisecond, 1*time.Millisecond)
-			Expect(err).ToNot(BeNil())
-			Expect(droplet).To(BeNil())
-		})
+		droplet, err := WaitForState("active", 1, c, 1*time.Millisecond, 1*time.Millisecond)
+		Expect(err).ToNot(BeNil())
+		Expect(droplet).To(BeNil())
 	})
 
-	Describe("State Failed", func() {
-		It("should fail", func() {
-			s.AddResponse("droplets/id", dotest.NewResponse(200, NewDropletState))
-			droplet, err := WaitForState("active", 1, c, 1*time.Millisecond, 5*time.Millisecond)
-			Expect(err).ToNot(BeNil())
-			Expect(droplet).To(BeNil())
-		})
+	It("fails when we cant get the desired state before timing out", func() {
+		s.AddResponse("droplets/id", dotest.NewResponse(200, NewDropletState))
+		droplet, err := WaitForState("active", 1, c, 1*time.Millisecond, 5*time.Millisecond)
+		Expect(err).ToNot(BeNil())
+		Expect(droplet).To(BeNil())
 	})
 })
