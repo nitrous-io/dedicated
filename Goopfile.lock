@@ -1,5 +1,5 @@
 github.com/onsi/ginkgo/ginkgo #12446bbcc74950944c897e32ea99cc8d058f9c92
 github.com/onsi/gomega #036273e6f643552b16fe7a6464afd2ae0324992e
 github.com/gorilla/mux #854d482e26505d59549690719cbc009f04042c2e
-github.com/fsouza/go-dockerclient #5e5b0c4275b4ea28690cfed6dd3550bfd3701683
+github.com/fsouza/go-dockerclient #194816684825a3abf28d60e5243ec5240608414d
 github.com/gorilla/context #14f550f51af52180c2eefed15e5fd18d63c0a64a
