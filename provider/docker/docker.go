@@ -315,6 +315,7 @@ func (p *DockerProvider) Logs(id string, w io.Writer, follow, timestamps bool, t
 		Timestamps:   timestamps,
 		Tail:         tail,
 		OutputStream: w,
+		ErrorStream:  w,
 	})
 }
 
