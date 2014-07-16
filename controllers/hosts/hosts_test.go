@@ -210,10 +210,22 @@ var _ = Describe("controllers/hosts", func() {
 			})
 		})
 
+		Context("when request not specify a name", func() {
+			It("returns error name required", func() {
+				params = &url.Values{}
+				params.Set("name", "")
+				params.Set("size", hs.P.Name)
+				params.Set("region", hs.R.Name)
+				err := doRequest()
+				Expect(err).To(MatchError(hosts.ErrNameRequired))
+			})
+		})
+
 		Context("when a matching plan cannot be found for the specified size", func() {
 			It("returns error plan not found", func() {
 				params = &url.Values{}
 				params.Set("size", "doubledouble")
+				params.Set("name", "honeybadger")
 				err := doRequest()
 				Expect(err).To(MatchError(hosts.ErrPlanNotFound))
 			})
@@ -223,6 +235,7 @@ var _ = Describe("controllers/hosts", func() {
 			It("returns error region not found", func() {
 				params = &url.Values{}
 				params.Set("size", hs.P.Name)
+				params.Set("name", "honeybadger")
 				params.Set("region", "antarctica")
 				err := doRequest()
 				Expect(err).To(MatchError(hosts.ErrRegionNotFound))
@@ -240,6 +253,7 @@ var _ = Describe("controllers/hosts", func() {
 			It("returns provider template not found error", func() {
 				params = &url.Values{}
 				params.Set("size", hs.P.Name)
+				params.Set("name", "honeybadger")
 				params.Set("region", r2.Name)
 				err := doRequest()
 				Expect(err).To(MatchError(hosts.ErrProvidertemplateNotFound))
@@ -250,6 +264,7 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				params = &url.Values{}
 				params.Set("name", "honeybadger")
+				params.Set("longname", "honeybadger don't care")
 				params.Set("size", hs.P.Name)
 				params.Set("region", hs.R.Name)
 			})
@@ -284,7 +299,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
 
 					Expect(h.Name).To(Equal("honeybadger"))
-					Expect(h.LongName.String).To(Equal("honeybadger"))
+					Expect(h.LongName.String).To(Equal("honeybadger don't care"))
 
 					Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
 					Expect(h.State).To(Equal("created"))
