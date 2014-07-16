@@ -51,7 +51,7 @@ func (h *Host) Info() (*host.Info, error) {
 	return &host.Info{
 		Provider:       "docker",
 		ID:             h.ID,
-		IPAddress:      container.NetworkSettings.IPAddress,
+		IPAddress:      "127.0.0.1",
 		FreighterdPort: uint16(getFreighterdPort(container)),
 	}, nil
 }
