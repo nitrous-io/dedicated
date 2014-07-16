@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	regionUsage   = "Region in which you want to create the host (apse, use, usw, euw)"
+	regionUsage   = "Region in which you want to create the host"
 	nameUsage     = "A unique name for the host"
 	longnameUsage = "An optional name tag for the host"
 )
@@ -26,7 +26,7 @@ Usage: nitro hosts:create <size>
 
 Options:
 
-  size - nano, micro, small, medium, large, xlarge, 2xlarge, 4xlarge
+  size
   -r, --region=""       %s
   -n, --name=""         %s
   -L, --longname=""     %s
