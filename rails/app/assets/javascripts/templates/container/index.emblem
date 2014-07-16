@@ -9,12 +9,7 @@
         | Running
 
     tr
-      th ID
-      td colspan='3'
-        | 9ed35e220ebabd573b9f130a738e083cc73b4b8e3daa88c3923ec4ab3294e5b7
-
-    tr
-      th Short Name
+      th Slug
       td colspan='3'
         | web-app
 
