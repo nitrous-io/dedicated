@@ -10,7 +10,7 @@
       "api_key": ""
     },
     "docker": {
-      "freighterd_location": "/home/vagrant/workspace/freighter/build/freighterd"
+      "freighterd_location": "/home/vagrant/workspace/freighter/.vendor/bin/freighterd"
     }
   }
 }

@@ -24,7 +24,7 @@ func main() {
 	flVersion := flag.Bool("v", false, "current version")
 	flag.Parse()
 	if *flVersion {
-		fmt.Printf("Hostbuilder: revision %s\n", version)
+		fmt.Printf("hostbuilder version %v\n", version)
 		os.Exit(0)
 		return
 	}

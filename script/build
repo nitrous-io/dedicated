@@ -1,15 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
-VERSION=$1
-PACKAGE=github.com/nitrous-io/hostbuilder
-BUILD=$(pwd)/build
+VERSION=${1:?"version is required"}
+BUILD_DIR=./build
+rm -f "$BUILD_DIR/hostbuilder"
+mkdir -p "$BUILD_DIR"
+VERSION=$VERSION goop go install -x -ldflags "-X main.version ${VERSION}" -v ./...
+BUILD_DIR=$BUILD_DIR goop exec bash -c 'cp $GOBIN/hostbuilder $BUILD_DIR/hostbuilder'
 
-mkdir -p $BUILD
-
-echo "Building revision ${VERSION} ...."
-GOBIN=$BUILD goop go install -ldflags "-X main.version ${VERSION}" -v $PACKAGE/...
-
-cd $BUILD
-tar -f hostbuilder_${VERSION}.tgz -zv -c hostbuilder
-tar -f hostbuilder_latest.tgz -zv -c hostbuilder

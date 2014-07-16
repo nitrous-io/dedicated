@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-goop go install -v github.com/nitrous-io/hostbuilder/hostbuilder
