@@ -16,19 +16,19 @@ h1, h2, h3, h4
   color: $gray800
 
 h1
-  font-size: 34px
+  font-size: $fontSize2XLarge
   font-weight: 300
 
 h2
-  font-size: 24px
+  font-size: $fontSizeXLarge
   font-weight: 300
 
 h3
-  font-size: 20px
+  font-size: $fontSizeLarge
   font-weight: 500
 
 h4
-  font-size: 16px
+  font-size: $fontSizeMedium
   font-weight: 400
 
 a
@@ -44,6 +44,15 @@ a
     color: $lightBlue900
   &:active
     color: $lightBlue900
+
+html input, html textarea, html button
+  &:disabled, &[disabled]
+    cursor: not-allowed
+
+hr
+  border: none
+  border-bottom: 1px solid $gray300
+  margin: 16px 0
 
 .container
   width: 1000px

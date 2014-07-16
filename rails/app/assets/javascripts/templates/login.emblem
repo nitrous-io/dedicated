@@ -6,11 +6,11 @@
   form
     .card-body
       .ui.input-group
-        label for='login-login'
+        label.field-label for='login-login'
           | Username or Email
         input type='text' id='login-login' name='login'
 
-        label for='login-password'
+        label.field-label for='login-password'
           | Password
         input type='password' id='login-password' name='password'
 

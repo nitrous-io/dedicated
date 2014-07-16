@@ -1,0 +1,41 @@
+@import 'variables'
+
+#hosts-new-view
+  .size-selection
+    display: flex
+    flex-direction: row
+
+    .size-list
+      width: 300px
+      margin-right: 8px
+
+      .disabled p
+        color: $gray400
+
+    .size-description
+      margin-left: 8px
+      flex-grow: 1
+
+      tr
+        height: 39px
+        line-height: 39px
+
+      th
+        width: 200px
+
+      td
+        text-align: right
+
+      i
+        color: $green300
+
+        span
+          display: none
+
+  .region-selection
+    ul
+      display: flex
+      flex-direction: row
+
+    .lines
+      margin: 0 10px

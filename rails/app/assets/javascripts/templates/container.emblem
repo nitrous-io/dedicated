@@ -1,6 +1,7 @@
-h2.card-header.bordered
-  a href='#' Project X
-  span.divider.fa.fa-angle-right
-  a href='#' Web App
+.card-header.bordered
+  h2
+    a href='#' Project X
+    span.divider.fa.fa-angle-right
+    a href='#' Web App
 
 = outlet

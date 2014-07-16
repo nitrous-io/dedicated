@@ -5,3 +5,6 @@ App.Router.map ->
     @resource 'container', path: '/containers/:container_id', ->
       @route 'keys'
       @route 'keys-new', path: '/keys/new'
+
+    @resource 'hosts', path: '/hosts', ->
+      @route 'new'

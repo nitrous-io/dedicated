@@ -58,8 +58,8 @@
         span.empty &ndash;
 
 .card-footer.bordered
-  .right
-    button.ui.btn.primary Terminal
   .left
     button.ui.btn Restart
     button.ui.btn Shut Down
+  .right
+    button.ui.btn.primary Terminal

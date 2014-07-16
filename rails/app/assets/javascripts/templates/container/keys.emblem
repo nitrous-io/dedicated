@@ -4,7 +4,7 @@
   h3 SSH Public Keys
 
   ul.ui.list
-    li.item-2-line
+    li.list-item.item-2-line
       .left-accessory
         .ui.checkbox
           input type='checkbox'
@@ -13,7 +13,7 @@
         h4 pete@nitrous.io
         p 14:fc:c8:6f:a0:4b:be:bc:39:df:34:75:4f:48:30:4a
 
-    li.item-2-line
+    li.list-item.item-2-line
       .left-accessory
         .ui.checkbox
           input type='checkbox'
@@ -22,7 +22,7 @@
         h4 jihoon@ubuntu
         p c1:fc:6d:29:ab:b8:03:57:c4:30:a6:b7:58:40:74:af
 
-    li.item-2-line
+    li.list-item.item-2-line
       .left-accessory
         .ui.checkbox
           input type='checkbox'
