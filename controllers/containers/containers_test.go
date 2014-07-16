@@ -498,25 +498,28 @@ var _ = Describe("controllers/containers", func() {
 							Expect(j.Container.LongName.String).To(Equal("elixir-web-1"))
 						})
 					})
-				})
-			})
 
-			Context("when image param is missing", func() {
-				BeforeEach(func() {
-					params.Del("image")
-				})
+					Context("when image param is not given", func() {
+						BeforeEach(func() {
+							params.Del("image")
+						})
 
-				It("responds with HTTP 400 Bad Request", func() {
-					doRequest("valid-token", "foo", params)
+						It("uses the default image", func() {
+							doRequest("valid-token", "foo", params)
 
-					Expect(res.Code).To(Equal(http.StatusBadRequest))
+							Expect(res.Code).To(Equal(http.StatusCreated))
 
-					j := map[string]interface{}{}
-					err := json.Unmarshal(res.Body.Bytes(), &j)
-					Expect(err).To(BeNil())
+							j := struct {
+								Status    string               `json:"status"`
+								Container *container.Container `json:"container"`
+							}{}
+							err := json.Unmarshal(res.Body.Bytes(), &j)
+							Expect(err).To(BeNil())
 
-					errType, _ := j["error"].(string)
-					Expect(errType).To(Equal("invalid_request"))
+							Expect(j.Status).To(Equal("created"))
+							Expect(j.Container.Image).To(Equal(containers.DefaultImage))
+						})
+					})
 				})
 			})
 		})

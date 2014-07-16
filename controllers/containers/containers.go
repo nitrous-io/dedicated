@@ -14,6 +14,10 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
+// DefaultImage is the default Docker image used to create containers if an
+// image isn't specified.
+const DefaultImage = "nitrousio/ubuntu:trusty"
+
 // FreighterClient is a shared freighterclient.Client for making requests to Freighter
 // API hosts.
 var FreighterClient freighterclient.Client
@@ -105,7 +109,7 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 	image := r.FormValue("image")
 
 	if image == "" {
-		return errImageRequired
+		image = DefaultImage
 	}
 
 	if name == "" {
