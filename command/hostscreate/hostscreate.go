@@ -8,6 +8,7 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/pkg/randomnamegenerator"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
 )
@@ -76,6 +77,10 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
+	if name == "" {
+		name = randomnamegenerator.Generate("host")
+	}
+
 	size := args[0]
 
 	c.UI.Output("Creating the host. Please wait...\n")
@@ -96,8 +101,8 @@ func (c *Command) Synopsis() string {
 func (c *Command) createHost(size, region, name, longname string) error {
 	p := &url.Values{}
 	p.Set("size", size)
-	p.Set("region", region)
 	p.Set("name", name)
+	p.Set("region", region)
 	p.Set("longname", longname)
 
 	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/%s", c.Server, "hosts"), p)
