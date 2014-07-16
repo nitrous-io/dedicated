@@ -250,6 +250,7 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				params = &url.Values{}
 				params.Set("name", "honeybadger")
+				params.Set("longname", "honeybadger don't care")
 				params.Set("size", hs.P.Name)
 				params.Set("region", hs.R.Name)
 			})
@@ -284,7 +285,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
 
 					Expect(h.Name).To(Equal("honeybadger"))
-					Expect(h.LongName.String).To(Equal("honeybadger"))
+					Expect(h.LongName.String).To(Equal("honeybadger don't care"))
 
 					Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
 					Expect(h.State).To(Equal("created"))

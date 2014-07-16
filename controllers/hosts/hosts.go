@@ -79,12 +79,8 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 	}
 
 	longname := r.FormValue("longname")
-	if longname == "" {
-		longname = name
-	}
 
 	// TODO: check if user account is eligible to create hosts (has a credit card on file)
-
 	pl, err := plan.FindByName(db, size)
 	if err != nil {
 		return err
