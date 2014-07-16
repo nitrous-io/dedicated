@@ -320,9 +320,9 @@ func NewRequest(d Client, path string, params url.Values) ([]byte, error) {
 
 		genericResp := &GenericResp{}
 		if err = json.Unmarshal(body, genericResp); err != nil {
-			log.Println(err)
 			err = fmt.Errorf("Failed to decode response (%v): %s",
 				resp.StatusCode, body)
+			log.Println(err)
 			return body, err
 		}
 
