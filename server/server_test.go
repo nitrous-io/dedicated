@@ -713,15 +713,16 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("GET /containers/:id/logs", func() {
-		doRequest := func(id, follow, timestamps string) {
+		doRequest := func(id, follow, timestamps, tail string) {
 			params := &url.Values{}
 			params.Set("follow", follow)
 			params.Set("timestamps", timestamps)
+			params.Set("tail", tail)
 			req, _ := NewRequest("GET", fmt.Sprintf("/containers/%v/logs", id), params)
 			handler.ServeHTTP(res, req)
 		}
 
-		It("ignore invalid parameters for follow and timestamps", func() {
+		It("ignore invalid parameters", func() {
 			testCases := []struct {
 				follow     string
 				timestamps string
@@ -731,12 +732,18 @@ var _ = Describe("server", func() {
 				{"invalid", "bool", 200},
 			}
 			for _, tc := range testCases {
-				doRequest("test-container", tc.follow, tc.timestamps)
+				doRequest("test-container", tc.follow, tc.timestamps, "tail-value")
 				Expect(res.Code).To(Equal(tc.status), "Unexpected status %v for %v", res.Code, tc)
 				Expect(prov.ReceivedID).To(Equal("test-container"), "Unexpected id for %v", tc)
 				Expect(prov.ReceivedFollow).To(BeFalse(), "Unexpected id for %v", tc)
 				Expect(prov.ReceivedTimestamps).To(BeFalse(), "Unexpected id for %v", tc)
 			}
+		})
+
+		It("accepts any value for tail", func() {
+			doRequest("test-container", "true", "false", "tail-value")
+			Expect(res.Code).To(Equal(200), "Unexpected status %v", res.Code)
+			Expect(prov.ReceivedTail).To(Equal("tail-value"))
 		})
 
 		It("accepts valid parameters for follow and timestamps", func() {
@@ -750,7 +757,7 @@ var _ = Describe("server", func() {
 				{"true", "false", true, false},
 			}
 			for _, tc := range testCases {
-				doRequest("test-container", tc.follow, tc.timestamps)
+				doRequest("test-container", tc.follow, tc.timestamps, "tail-value")
 				Expect(prov.ReceivedFollow).To(Equal(tc.expectedFollow), "Unexpected follow for %v", tc)
 				Expect(prov.ReceivedTimestamps).To(Equal(tc.expectedTimestamps), "Unexpected timestamps for %v", tc)
 			}

@@ -162,12 +162,13 @@ func (s *Server) getContainerLogs(w http.ResponseWriter, r *http.Request) {
 	// happens
 	follow, _ := strconv.ParseBool(r.FormValue("follow"))
 	timestamps, _ := strconv.ParseBool(r.FormValue("timestamps"))
+	tail := r.FormValue("tail")
 
 	w.Header().Set("Content-Type", "application/vnd.docker.raw-stream")
 
 	// write the logs to response writer
 	outstream := flusher.NewWriteFlusher(w)
-	err := s.provider.Logs(id, outstream, follow, timestamps)
+	err := s.provider.Logs(id, outstream, follow, timestamps, tail)
 	if err != nil {
 		s.handleError(w, err)
 	}

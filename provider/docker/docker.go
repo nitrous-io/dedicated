@@ -302,7 +302,7 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 
 // Read the logs from the container. If success, caller of this methods can then read the
 // logs from the `io.Reader` result
-func (p *DockerProvider) Logs(id string, w io.Writer, follow, timestamps bool) error {
+func (p *DockerProvider) Logs(id string, w io.Writer, follow, timestamps bool, tail string) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
@@ -313,6 +313,7 @@ func (p *DockerProvider) Logs(id string, w io.Writer, follow, timestamps bool) e
 		Stdout:       true,
 		Stderr:       true,
 		Timestamps:   timestamps,
+		Tail:         tail,
 		OutputStream: w,
 	})
 }

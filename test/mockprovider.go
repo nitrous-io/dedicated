@@ -49,6 +49,7 @@ type MockProvider struct {
 	LogsError          error
 	ReceivedFollow     bool
 	ReceivedTimestamps bool
+	ReceivedTail       string
 
 	Containers []*provider.ContainerInfo
 	PublicKeys map[string]string
@@ -147,11 +148,12 @@ func (p *MockProvider) Export(id string, output io.Writer) error {
 	return p.ExportError
 }
 
-func (p *MockProvider) Logs(id string, w io.Writer, follow, timestamps bool) error {
+func (p *MockProvider) Logs(id string, w io.Writer, follow, timestamps bool, tail string) error {
 	p.LogsCalled = true
 	p.ReceivedID = id
 	p.ReceivedFollow = follow
 	p.ReceivedTimestamps = timestamps
+	p.ReceivedTail = tail
 	return p.LogsError
 }
 

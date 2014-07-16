@@ -415,6 +415,7 @@ Content-Type: application/vnd.docker.raw-stream
 **GET Params**:
 - **follow**: follow logs
 - **timestamps**: print timestamps
+- **tail**: Output specified number of lines at the end of logs: `all` or `<number>`. Default all
 
 **Status Codes**:
 
