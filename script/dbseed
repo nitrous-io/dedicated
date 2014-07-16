@@ -1,0 +1,3 @@
+#!/bin/bash
+
+goop exec forego ./build/dbseed

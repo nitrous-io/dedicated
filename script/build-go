@@ -6,3 +6,4 @@ rm -f "$BUILD_DIR/nitrousd"
 mkdir -p "$BUILD_DIR"
 goop go install -x -v ./...
 BUILD_DIR=$BUILD_DIR goop exec bash -c 'cp $GOBIN/nitrousd $BUILD_DIR/nitrousd'
+BUILD_DIR=$BUILD_DIR goop exec bash -c 'cp $GOBIN/dbseed $BUILD_DIR/dbseed'
