@@ -1,17 +1,17 @@
 package list
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitrous-common/httpclient"
+
+	. "github.com/nitrous-io/nitro/command/containers"
 )
 
 const usage = `
@@ -24,12 +24,6 @@ type Command struct {
 	UI     cli.Ui
 	Server string
 	Client *httpclient.Client
-}
-
-type Container struct {
-	Name  string `json:"name"`
-	Image string `json:"image"`
-	State string `json:"state"`
 }
 
 func init() {
@@ -76,7 +70,7 @@ func (c *Command) Run(args []string) int {
 		return 0
 	}
 
-	t := formattedOutput([]string{"Name", "State"}, containers)
+	t := PrettyPrint([]string{"Name", "State"}, containers)
 	c.UI.Output(t)
 
 	return 0
@@ -106,20 +100,4 @@ func (c *Command) fetchContainers(host string) ([]Container, error) {
 	}
 
 	return j.Containers, nil
-}
-
-func formattedOutput(headers []string, containers []Container) string {
-	b := &bytes.Buffer{}
-	w := &tabwriter.Writer{}
-
-	w.Init(b, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, strings.Join(headers, "\t "))
-	for _, r := range containers {
-		fmt.Fprintln(w,
-			r.Name, "\t",
-			r.State,
-		)
-	}
-	w.Flush()
-	return b.String()
 }
