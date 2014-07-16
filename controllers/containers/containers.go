@@ -90,7 +90,12 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 				break
 			}
 		}
-		containers = append(containers, hydrateContainer(lc, savedContainer, h))
+		if savedContainer != nil {
+			hydrateContainer(savedContainer, lc, h)
+			containers = append(containers, savedContainer)
+		} else {
+			containers = append(containers, mkContainer(lc, h))
+		}
 	}
 
 	env.Status = http.StatusOK
@@ -191,10 +196,11 @@ func show(h *host.Host, cn *container.Container, env *middlewares.Env, c control
 	if err != nil {
 		return err
 	}
+	hydrateContainer(cn, liveContainer, h)
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": hydrateContainer(liveContainer, cn, h),
+		"container": cn,
 	}
 
 	return nil
@@ -226,7 +232,7 @@ func performControlAction(fn actionFn, h *host.Host, cn *container.Container, en
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": hydrateContainer(liveContainer, nil, h),
+		"container": mkContainer(liveContainer, h),
 	}
 
 	return nil
@@ -248,10 +254,11 @@ func destroy(h *host.Host, cn *container.Container, env *middlewares.Env, c cont
 	if err != nil {
 		return err
 	}
+	hydrateContainer(cn, liveContainer, h)
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": hydrateContainer(liveContainer, cn, h),
+		"container": cn,
 	}
 	return nil
 }
@@ -304,8 +311,16 @@ func mkFreighterHost(h *host.Host) (*freighterclient.Host, error) {
 	return freighterclient.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), false), nil
 }
 
-func hydrateContainer(fc *freighterclient.Container, cc *container.Container, h *host.Host) *container.Container {
-	c := &container.Container{
+func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) {
+	c.CID = fc.ID
+	c.Image = fc.Image
+	c.Name = fc.Name
+	c.State = fc.State
+	c.IPAddress = sql.NullString{fc.Host, true}
+}
+
+func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Container {
+	return &container.Container{
 		CID:       fc.ID,
 		Image:     fc.Image,
 		Name:      fc.Name,
@@ -314,12 +329,4 @@ func hydrateContainer(fc *freighterclient.Container, cc *container.Container, h 
 		UserID:    h.UserID,
 		HostID:    h.ID,
 	}
-	if cc != nil {
-		c.ID = cc.ID
-		c.LongName = cc.LongName
-		c.TouchedAt = cc.TouchedAt
-		c.CreatedAt = cc.CreatedAt
-		c.UpdatedAt = cc.UpdatedAt
-	}
-	return c
 }
