@@ -1,0 +1,60 @@
+.card-header.bordered
+  h2 New Container
+
+form
+  .card-body
+    .ui.input-group
+      label.field-label
+        | Host
+      .ui.select
+        select
+          option Project X
+          option Consulting
+
+      label.field-label for='containers-new-name'
+        | Name
+      input type='text' id='containers-new-name' name='long_name'
+
+      label.field-label for='containers-new-slug'
+        | Unique Slug
+      input type='text' id='containers-new-slug' name='slug'
+
+  .card-body.bordered
+    .ui.input-group
+      label.field-label
+        | Image
+
+      .image-selection
+        ul.ui.checkbox-group
+          li
+            .ui.checkbox
+              input type='radio' id='containers-new-image-type-nitrous' name='image_type' checked='checked'
+              label
+            label for='containers-new-image-type-nitrous' Use Nitrous.IO image
+
+        .ui.select.indent
+          select
+            option Go
+            option Node.js
+            option PHP
+            option Python
+            option Python with Django
+            option Ruby
+            option Ruby on Rails
+            option Ubuntu
+
+        ul.ui.checkbox-group
+          li
+            .ui.checkbox
+              input type='radio' id='containers-new-image-type-custom' name='image_type'
+              label
+            label for='containers-new-image-type-custom' Use custom Docker image
+
+        .indent
+          input type='text' id='containers-new-slug' name='slug' placeholder='docker-registry/repo'
+
+
+  .card-footer.bordered
+    .right
+      button.ui.btn Cancel
+      button.ui.btn.primary Create

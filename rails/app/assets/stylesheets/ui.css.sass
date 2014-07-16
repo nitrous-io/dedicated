@@ -46,9 +46,10 @@
   width: 0
   height: 0
   vertical-align: middle
-  border-top: 5px solid
-  border-left: 5px solid transparent
-  border-right: 5px solid transparent
+  border: 5px solid
+  border-left-color: transparent
+  border-right-color: transparent
+  border-bottom: none
 
 .ui.dropdown
   &.open
@@ -195,14 +196,18 @@ button.ui.btn
       margin-top: 0
 
   input[type=text], input[type=password], textarea
+    +appearance(none)
     display: block
     width: 100%
     border: none
     border-bottom: 1px solid $gray300
+    background: transparent
+    border-radius: 0
     transition: border-bottom-color .2s
     outline: none
 
     &:focus
+      outline: none
       border-bottom: 2px solid $lightBlue500
 
     &:disabled
@@ -219,13 +224,40 @@ button.ui.btn
     transition: height .2s
     padding: 8px 0
 
-    &:focus
-      padding-top: 7px
+.ui.select
+  position: relative
+  display: block
+  overflow: hidden
 
-.ui.checkbox, .ui.radio
+  &:before
+    content: ' '
+    position: absolute
+    top: 19px
+    right: 8px
+    border: 5px solid $gray400
+    border-left-color: transparent
+    border-right-color: transparent
+    border-bottom: none
+
+  select
+    position: relative
+    +appearance(none)
+    display: block
+    width: 100%
+    width: calc(100% + 15px)
+    background: transparent
+    border: none
+    border-bottom: 1px solid $gray300
+    border-radius: 0
+    padding: 8px 26px 8px 0
+    outline: none
+
+    &:focus
+      outline: none
+
+.ui.checkbox
   position: relative
   display: inline-block
-  width: 20px
   height: 20px
   vertical-align: text-bottom
 
@@ -260,8 +292,7 @@ button.ui.btn
       font-size: $fontSizeSmall
       line-height: 16px
       color: rgba(0, 0, 0, 0)
-      -webkit-font-smoothing: antialiased
-      -moz-osx-font-smoothing: grayscale
+      +grayscale-font-smoothing
 
     &:checked + label:before
       border-color: $green300
@@ -301,6 +332,29 @@ button.ui.btn
     &:disabled:checked + label:after
       background: $gray400
 
+ul.ui.checkbox-group
+  list-style: none
+  margin: 8px 0
+  padding: 0
+
+  .ui.checkbox
+    top: 1px
+
+    > input[type='radio'], > input[type='checkbox']
+      margin-right: 16px
+
+  > li
+    line-height: 40px
+    padding: 0 16px
+
+    > label
+      color: $gray800
+      font-size: 14px
+
+  &.horizontal
+    display: flex
+    flex-direction: row
+
 ul.ui.list
   margin: 8px 0
   padding: 0
@@ -319,20 +373,20 @@ ul.ui.list
       flex-grow: 1
       color: $gray800
       margin: 0 16px
+      font-size: $fontSizeSmall
+      font-weight: 400
 
       &.right
         text-align: right
 
       h4, p
         margin: 0
-        font-weight: 400
-        font-size: $fontSizeMedium
 
       h4
         margin-bottom: 8px
+        font-size: $fontSizeMedium
 
       p
-        font-size: $fontSizeSmall
         color: $gray800
 
   .item-1-line

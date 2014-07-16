@@ -3,4 +3,4 @@ App.HostsNewRoute = Em.Route.extend
     App.set 'title', 'New Host'
 
   renderTemplate: ->
-    @render 'hosts-new', outlet: 'content'
+    @render 'hosts/new', outlet: 'content'
