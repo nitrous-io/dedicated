@@ -1,11 +1,17 @@
 package server
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/pkg/flusher"
+	"github.com/nitrous-io/freighter/pkg/shell"
 	"github.com/nitrous-io/freighter/provider"
 )
 
@@ -172,4 +178,103 @@ func (s *Server) getContainerLogs(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.handleError(w, err)
 	}
+}
+
+func (s *Server) createShell(w http.ResponseWriter, r *http.Request) error {
+	id := mux.Vars(r)["id"]
+	info, err := s.provider.GetInfo(id)
+	if err != nil {
+		return err
+	}
+	containerID := info.ID
+	if info.State != provider.ContainerStateRunning {
+		return fmt.Errorf("Cannot attach to stopped container %v", containerID)
+	}
+
+	command := r.FormValue("command")
+	width := getFormInt(r, "width")
+	height := getFormInt(r, "height")
+
+	shell, err := shell.OpenShell(containerID, command, width, height)
+	if err != nil {
+		return err
+	}
+	shellID := randomString()
+	s.shells[shellID] = shell
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"id": shellID})
+	return nil
+}
+
+func (s *Server) attachShell(w http.ResponseWriter, r *http.Request) error {
+	shellID := mux.Vars(r)["id"]
+	shell, ok := s.shells[shellID]
+	if !ok {
+		return fmt.Errorf("Invalid shell %v", shellID)
+	}
+
+	stdin, stdout, err := hijackServer(w)
+	if err != nil {
+		shell.Close()
+		return err
+	}
+
+	defer func() {
+		if tcpc, ok := stdin.(*net.TCPConn); ok {
+			tcpc.CloseWrite()
+		} else {
+			stdin.Close()
+		}
+
+		if tcpc, ok := stdout.(*net.TCPConn); ok {
+			tcpc.CloseWrite()
+		} else if closer, ok := stdout.(io.Closer); ok {
+			closer.Close()
+		}
+	}()
+
+	<-shell.Attach(stdin, stdout)
+	return nil
+}
+
+func (s *Server) resizeShell(w http.ResponseWriter, r *http.Request) error {
+	shellID := mux.Vars(r)["id"]
+	shell, ok := s.shells[shellID]
+	if !ok {
+		return fmt.Errorf("Invalid shell %v", shellID)
+	}
+
+	width := getFormInt(r, "width")
+	height := getFormInt(r, "height")
+	if err := shell.Resize(width, height); err != nil {
+		return fmt.Errorf("Resize failed %v", err)
+	}
+	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
+	return nil
+}
+
+func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
+	conn, _, err := w.(http.Hijacker).Hijack()
+	if err != nil {
+		return nil, nil, err
+	}
+	// Flush the options to make sure the client sets the raw mode
+	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.containerd.raw-stream\r\n\r\n")
+	return conn, conn, nil
+}
+
+func randomString() string {
+	id := make([]byte, 32)
+	_, err := io.ReadFull(rand.Reader, id)
+	if err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(id)
+}
+
+func getFormInt(r *http.Request, k string) int {
+	v, err := strconv.Atoi(r.FormValue(k))
+	if err != nil {
+		return 0
+	}
+	return v
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/freighter/pkg/shell"
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/util"
 )
@@ -13,13 +14,21 @@ type Server struct {
 	logger   *util.Logger
 	provider provider.Provider
 	router   *mux.Router
+
+	// collection of current attached shells
+	shells map[string]*shell.Shell
 }
 
 func NewServer(logger *util.Logger, provider provider.Provider) *Server {
 	if logger == nil || provider == nil {
 		panic("server.NewServer: invalid argument")
 	}
-	svr := &Server{logger: logger, provider: provider}
+	svr := &Server{
+		logger:   logger,
+		provider: provider,
+		shells:   map[string]*shell.Shell{},
+	}
+
 	svr.router = mux.NewRouter()
 	svr.drawRoutes()
 	return svr
@@ -58,4 +67,9 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/public_keys", s.addPublicKeys, "POST", "PUT")
 	s.route("/containers/{id}/public_keys/{key_fingerprint}", s.removePublicKey, "DELETE")
 	s.route("/containers/{id}/logs", s.getContainerLogs, "GET")
+
+	// access the shells
+	s.route("/containers/{id}/shells", s.wrapError(s.createShell), "POST")
+	s.route("/shells/{id}/attach", s.wrapError(s.attachShell), "POST")
+	s.route("/shells/{id}/resize", s.wrapError(s.resizeShell), "POST")
 }
