@@ -2,8 +2,10 @@ package server
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/freighter/pkg/flusher"
 	"github.com/nitrous-io/freighter/provider"
 )
 
@@ -148,6 +150,25 @@ func (s *Server) exportContainer(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	w.Header().Set("Content-Type", "application/octet-stream")
 	err := s.provider.Export(id, w)
+	if err != nil {
+		s.handleError(w, err)
+	}
+}
+
+func (s *Server) getContainerLogs(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	// convert to bool, ignore the errors as the value will be false when error
+	// happens
+	follow, _ := strconv.ParseBool(r.FormValue("follow"))
+	timestamps, _ := strconv.ParseBool(r.FormValue("timestamps"))
+	tail := r.FormValue("tail")
+
+	w.Header().Set("Content-Type", "application/vnd.docker.raw-stream")
+
+	// write the logs to response writer
+	outstream := flusher.NewWriteFlusher(w)
+	err := s.provider.Logs(id, outstream, follow, timestamps, tail)
 	if err != nil {
 		s.handleError(w, err)
 	}
