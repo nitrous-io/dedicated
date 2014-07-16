@@ -11,6 +11,7 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/consts"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
 
@@ -19,14 +20,6 @@ Usage: nitro hosts
 
   list all hosts
 `
-
-const (
-	minWidth    = 0
-	tabWidth    = 0
-	padding     = 2
-	paddingChar = ' '
-	flags       = 0
-)
 
 type Command struct {
 	UI     cli.Ui
@@ -111,7 +104,7 @@ func formattedOutput(headers []string, hosts *[]Host) string {
 	b := &bytes.Buffer{}
 	w := &tabwriter.Writer{}
 
-	w.Init(b, minWidth, tabWidth, padding, paddingChar, flags)
+	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
 	fmt.Fprintln(w, strings.Join(headers, "\t "))
 	for _, r := range *hosts {
 		fmt.Fprintln(w, r.Name, "\t", r.State)

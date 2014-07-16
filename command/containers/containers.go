@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/nitrous-io/nitro/consts"
 )
 
 type Container struct {
@@ -17,7 +19,7 @@ func PrettyPrint(headers []string, containers []Container) string {
 	b := &bytes.Buffer{}
 	w := &tabwriter.Writer{}
 
-	w.Init(b, 0, 0, 2, ' ', 0)
+	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
 	fmt.Fprintln(w, strings.Join(headers, "\t "))
 	for _, r := range containers {
 		fmt.Fprintln(w,
