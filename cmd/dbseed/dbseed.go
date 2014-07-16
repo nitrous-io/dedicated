@@ -8,8 +8,6 @@ import (
 	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/container"
-	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/providertemplate"
 	"github.com/nitrous-io/nitrous/models/region"
@@ -28,7 +26,7 @@ func init() {
 
 type SeedFn func(db.QueryReceiver) error
 
-var seeds = []SeedFn{users, regions, plans, templates, hosts, containers}
+var seeds = []SeedFn{users, regions, plans, templates}
 
 func main() {
 	dbURL := os.Getenv(DBEnvVar)
@@ -160,67 +158,6 @@ func templates(d db.QueryReceiver) error {
 			}
 			logr.Infof("Added provider template %+v", pt)
 		}
-	}
-	return nil
-}
-
-func hosts(d db.QueryReceiver) error {
-	ok, err := shouldSeed(d, "hosts")
-	if err != nil || !ok {
-		return err
-	}
-	pts := []providertemplate.ProviderTemplate{}
-	err = d.Select(&pts, "SELECT * FROM provider_templates")
-	if err != nil {
-		return err
-	}
-	users := []user.User{}
-	err = d.Select(&users, "SELECT * FROM users")
-	if err != nil {
-		return err
-	}
-	for _, pt := range pts {
-		for _, u := range users {
-			h := &host.Host{
-				Name:               fmt.Sprintf("host-%d", pt.ID),
-				RegionID:           pt.RegionID,
-				PlanID:             pt.PlanID,
-				ProviderTemplateID: pt.ID,
-				UserID:             u.ID,
-			}
-			err := h.Insert(d)
-			if err != nil {
-				return err
-			}
-			logr.Infof("Added host %+v", h)
-		}
-	}
-	return nil
-}
-
-func containers(d db.QueryReceiver) error {
-	ok, err := shouldSeed(d, "containers")
-	if err != nil || !ok {
-		return err
-	}
-	hs := []host.Host{}
-	err = d.Select(&hs, "SELECT * FROM hosts")
-	if err != nil {
-		return err
-	}
-	for _, h := range hs {
-		c := &container.Container{
-			ID:     fmt.Sprintf("cc%dff%d", h.ID, h.UserID),
-			UserID: h.UserID,
-			HostID: h.ID,
-			Image:  "nitrous-base",
-			Name:   fmt.Sprintf("%s-container-%d", h.Name, h.UserID),
-		}
-		err := c.Insert(d)
-		if err != nil {
-			return err
-		}
-		logr.Infof("Added container %+v", c)
 	}
 	return nil
 }
