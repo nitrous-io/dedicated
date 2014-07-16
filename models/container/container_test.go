@@ -104,6 +104,19 @@ var _ = Describe("models/container", func() {
 				Expect(c.Image).To(Equal("nitrous-base"))
 				Expect(c.Name).To(Equal("my-1st-container"))
 			})
+
+			Context("when container has been terminated", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE containers SET terminated_at = now() WHERE cid = $1;`, "deadbeef")
+					Expect(err).To(BeNil())
+				})
+
+				It("returns nil", func() {
+					c, err := container.FindByCID(db, "deadbeef")
+					Expect(err).To(BeNil())
+					Expect(c).To(BeNil())
+				})
+			})
 		})
 
 		Context("when a container record with a given cid does not exist", func() {
@@ -133,6 +146,20 @@ var _ = Describe("models/container", func() {
 				Expect(c.CID).To(Equal("deadbeef"))
 				Expect(c.Image).To(Equal("nitrous-base"))
 				Expect(c.Name).To(Equal("my-1st-container"))
+			})
+
+			Context("when container has been terminated", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE containers SET terminated_at = now()
+						WHERE host_id = $1 AND name = $2;`, h.ID, "my-1st-container")
+					Expect(err).To(BeNil())
+				})
+
+				It("returns nil", func() {
+					c, err := container.FindByHostIDAndName(db, h.ID, "my-1st-container")
+					Expect(err).To(BeNil())
+					Expect(c).To(BeNil())
+				})
 			})
 		})
 
@@ -164,6 +191,19 @@ var _ = Describe("models/container", func() {
 				Expect(containers[0].CID).To(Equal("deadbeef"))
 				Expect(containers[0].Image).To(Equal("nitrous-base"))
 				Expect(containers[0].Name).To(Equal("my-1st-container"))
+			})
+
+			Context("when some containers have been terminated", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE containers SET terminated_at = now() WHERE cid = $1;`, "deadbeef")
+					Expect(err).To(BeNil())
+				})
+
+				It("does not return those containers", func() {
+					containers, err := container.FindAllByHostID(db, h.ID)
+					Expect(err).To(BeNil())
+					Expect(containers).To(HaveLen(0))
+				})
 			})
 		})
 
@@ -366,6 +406,48 @@ var _ = Describe("models/container", func() {
 					Expect(cntnr.CreatedAt).To(Equal(origCreatedAt))
 				})
 			})
+		})
+	})
+
+	Describe("Delete()", func() {
+		var c *container.Container
+
+		BeforeEach(func() {
+			c = &container.Container{
+				CID:          "beefface",
+				UserID:       u.ID,
+				HostID:       h.ID,
+				Image:        "nitrous-base",
+				Name:         "java-test-container",
+				TerminatedAt: nil,
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+
+			c, err = container.FindByHostIDAndName(db, h.ID, "java-test-container")
+			Expect(err).To(BeNil())
+			Expect(c).NotTo(BeNil())
+			Expect(c.CID).To(Equal("beefface"))
+		})
+
+		It("sets terminated_at instead of removing the container from the database", func() {
+			err := c.Delete(db)
+			Expect(err).To(BeNil())
+			Expect(c.TerminatedAt).NotTo(BeNil())
+
+			c2 := &container.Container{}
+			err = db.QueryRowx("SELECT * FROM containers WHERE id = $1", c.ID).StructScan(c2)
+			Expect(err).To(BeNil())
+			Expect(c2).To(Equal(c))
+		})
+
+		It("fills up the fields in the struct", func() {
+			c2 := &container.Container{ID: c.ID}
+			err := c2.Delete(db)
+			Expect(err).To(BeNil())
+
+			Expect(c2.CreatedAt).NotTo(BeNil())
+			Expect(c2.UpdatedAt).NotTo(BeNil())
 		})
 	})
 

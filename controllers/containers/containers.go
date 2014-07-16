@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/freighter/freighterclient"
@@ -87,9 +86,7 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 				break
 			}
 		}
-
-		cntnr := hydrateContainer(lc, savedContainer, h)
-		containers = append(containers, cntnr)
+		containers = append(containers, hydrateContainer(lc, savedContainer, h))
 	}
 
 	env.Status = http.StatusOK
@@ -191,17 +188,9 @@ func show(h *host.Host, cn *container.Container, env *middlewares.Env, c control
 		return err
 	}
 
-	db := c.DB()
-	savedContainer, err := container.FindByCID(db, cn.CID)
-	if err != nil {
-		return err
-	}
-
-	cntnr := hydrateContainer(liveContainer, savedContainer, h)
-
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": cntnr,
+		"container": hydrateContainer(liveContainer, cn, h),
 	}
 
 	return nil
@@ -231,11 +220,9 @@ func performControlAction(fn actionFn, h *host.Host, cn *container.Container, en
 		return err
 	}
 
-	cntnr := hydrateContainer(liveContainer, nil, h)
-
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": cntnr,
+		"container": hydrateContainer(liveContainer, nil, h),
 	}
 
 	return nil
@@ -253,22 +240,14 @@ func destroy(h *host.Host, cn *container.Container, env *middlewares.Env, c cont
 	}
 
 	db := c.DB()
-	savedContainer, err := container.FindByCID(db, cn.CID)
-	if err != nil {
-		return err
-	}
-
-	cntnr := hydrateContainer(liveContainer, savedContainer, h)
-	now := time.Now()
-	cntnr.TerminatedAt = &now
-	err = cntnr.Update(db)
+	err = cn.Delete(db)
 	if err != nil {
 		return err
 	}
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": cntnr,
+		"container": hydrateContainer(liveContainer, cn, h),
 	}
 	return nil
 }
@@ -334,7 +313,6 @@ func hydrateContainer(fc *freighterclient.Container, cc *container.Container, h 
 	if cc != nil {
 		c.ID = cc.ID
 		c.LongName = cc.LongName
-		c.TerminatedAt = cc.TerminatedAt
 		c.TouchedAt = cc.TouchedAt
 		c.CreatedAt = cc.CreatedAt
 		c.UpdatedAt = cc.UpdatedAt

@@ -763,7 +763,6 @@ var _ = Describe("controllers/containers", func() {
 
 						// Fields from database.
 						Expect(c.LongName.String).To(Equal(""))
-						Expect(c.TerminatedAt).To(BeNil())
 						Expect(c.TouchedAt).To(BeNil())
 						Expect(c.CreatedAt).To(BeNil())
 						Expect(c.UpdatedAt).To(BeNil())
@@ -953,10 +952,17 @@ var _ = Describe("controllers/containers", func() {
 					// Fields from database.
 					Expect(c.LongName.String).To(Equal("Elixir server"))
 					Expect(c.UpdatedAt).NotTo(BeNil())
-					Expect(c.TerminatedAt).NotTo(BeNil())
 
 					Expect(c.UserID).To(Equal(u.ID))
 					Expect(c.HostID).To(Equal(hs.H.ID))
+				})
+
+				It("deletes the container from the database", func() {
+					doRequest()
+
+					c, err := container.FindByHostIDAndName(db, hs.H.ID, containerName)
+					Expect(err).To(BeNil())
+					Expect(c).To(BeNil())
 				})
 
 				Context("when container does not exist", func() {

@@ -46,7 +46,7 @@ func GenerateRandomName() string {
 
 func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
 	c := &Container{}
-	err := d.Get(c, `SELECT * FROM containers WHERE cid = $1;`, cid)
+	err := d.Get(c, `SELECT * FROM containers WHERE cid = $1 AND terminated_at IS NULL;`, cid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -58,7 +58,7 @@ func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
 
 func FindByHostIDAndName(d db.QueryReceiver, hostID int64, name string) (*Container, error) {
 	c := &Container{}
-	err := d.Get(c, `SELECT * FROM containers WHERE host_id = $1 AND name = $2;`, hostID, name)
+	err := d.Get(c, `SELECT * FROM containers WHERE host_id = $1 AND name = $2 AND terminated_at IS NULL;`, hostID, name)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -70,7 +70,7 @@ func FindByHostIDAndName(d db.QueryReceiver, hostID int64, name string) (*Contai
 
 func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
 	containers := []*Container{}
-	err := d.Select(&containers, `SELECT * FROM containers WHERE host_id = $1;`, hostID)
+	err := d.Select(&containers, `SELECT * FROM containers WHERE host_id = $1 AND terminated_at IS NULL;`, hostID)
 	if err != nil {
 		return nil, err
 	}
@@ -90,12 +90,20 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 
 func (c *Container) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE containers
-		SET (cid, name, long_name, ip_address, terminated_at, touched_at, updated_at)
-		= (:cid, :name, :long_name, :ip_address, :terminated_at, :touched_at, now())
+		SET (cid, name, long_name, ip_address, touched_at, updated_at)
+		= (:cid, :name, :long_name, :ip_address, :touched_at, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
 		return err
+	}
+	return nstmt.QueryRowx(c).StructScan(c)
+}
+
+func (c *Container) Delete(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE containers SET terminated_at = now() WHERE id = :id RETURNING *;`)
+	if err != nil {
+		return nil
 	}
 	return nstmt.QueryRowx(c).StructScan(c)
 }
