@@ -4,4 +4,5 @@ BUILD_DIR=./build
 
 rm -f "$BUILD_DIR/nitrousd"
 mkdir -p "$BUILD_DIR"
-GOBIN="$BUILD_DIR" goop go install -x -v ./...
+goop go install -x -v ./...
+BUILD_DIR=$BUILD_DIR goop exec bash -c 'cp $GOBIN/nitrousd $BUILD_DIR/nitrousd'
