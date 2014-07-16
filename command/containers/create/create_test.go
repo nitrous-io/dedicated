@@ -2,7 +2,6 @@ package containerscreate_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"testing"
@@ -10,6 +9,7 @@ import (
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/containers/create"
+	"github.com/nitrous-io/nitro/test"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -31,24 +31,8 @@ var _ = Describe("containerscreate", func() {
 		configPath string
 	)
 
-	writeConfig := func(conf *command.ConfigFile, path string) string {
-		var f *os.File
-		var err error
-		if path == "" {
-			f, err = ioutil.TempFile("", "nitrocfg")
-		} else {
-			f, err = os.Create(path)
-		}
-		Expect(err).To(BeNil())
-		defer f.Close()
-		os.Setenv("NITRO_CONFIG_PATH", f.Name())
-		err = json.NewEncoder(f).Encode(conf)
-		Expect(err).To(BeNil())
-		command.Env = command.ConfigureEnvironment()
-		return f.Name()
-	}
-
 	BeforeEach(func() {
+		var err error
 		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
 		cmd = &containerscreate.Command{
@@ -62,7 +46,8 @@ var _ = Describe("containerscreate", func() {
 			}),
 			ghttp.VerifyRequest("POST", "/api/v0/hosts/host-1/containers"),
 		}
-		configPath = writeConfig(&command.ConfigFile{}, "")
+		configPath, err = test.WriteConfig(&command.ConfigFile{}, "")
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -112,9 +97,10 @@ var _ = Describe("containerscreate", func() {
 
 		Context("when there is a default host in the config file", func() {
 			BeforeEach(func() {
-				writeConfig(&command.ConfigFile{
+				_, err := test.WriteConfig(&command.ConfigFile{
 					DefaultHost: "host-1",
 				}, configPath)
+				Expect(err).To(BeNil())
 			})
 
 			It("uses the default host", func() {
