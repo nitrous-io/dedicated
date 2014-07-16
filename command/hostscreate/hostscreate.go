@@ -26,11 +26,10 @@ Usage: nitro hosts:create <size>
 
 Options:
 
-	size - nano, micro, small, medium, large, xlarge, 2xlarge, 4xlarge
-	-r, --region=""       %s 
-	-n, --name=""         %s
-	-L, --longname=""     %s
-
+  size - nano, micro, small, medium, large, xlarge, 2xlarge, 4xlarge
+  -r, --region=""       %s
+  -n, --name=""         %s
+  -L, --longname=""     %s
 `
 
 type Command struct {
@@ -83,14 +82,14 @@ func (c *Command) Run(args []string) int {
 
 	size := args[0]
 
-	c.UI.Output("Creating the host. Please wait...\n")
+	c.UI.Output("Creating the host. Please wait...")
 	err = c.createHost(size, region, name, longname)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Failed to create the host - %v", err.Error()))
 		return 1
 	}
 
-	c.UI.Output("Done.\n")
+	c.UI.Output("Done.")
 	return 0
 }
 

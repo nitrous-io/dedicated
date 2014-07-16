@@ -15,7 +15,6 @@ const usage = `
 Usage: nitro hosts:destroy <name>
 
   deletes the host identified by the name
-
 `
 
 type Command struct {
@@ -56,14 +55,14 @@ func (c *Command) Run(args []string) int {
 
 	name := args[0]
 
-	c.UI.Output("Deleting the host. Please wait...\n")
+	c.UI.Output("Deleting host. Please wait...")
 	err = c.destroyHost(name)
 	if err != nil {
-		c.UI.Error(fmt.Sprintf("Failed to delete the host - %v", err.Error()))
+		c.UI.Error(fmt.Sprintf("Failed to delete host - %v", err.Error()))
 		return 1
 	}
 
-	c.UI.Output("Done.\n")
+	c.UI.Output("Done.")
 	return 0
 }
 
