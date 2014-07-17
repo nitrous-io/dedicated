@@ -225,8 +225,11 @@ func Destroy(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 		tx.Rollback()
 		return err
 	}
-	err = tx.Commit()
-	if err != nil {
+	if err = keypairs.Delete(tx, ht.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 

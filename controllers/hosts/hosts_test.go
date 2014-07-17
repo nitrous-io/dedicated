@@ -436,6 +436,14 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(err).To(BeNil())
 					Expect(res.Code).To(Equal(http.StatusOK))
 				})
+
+				It("deletes keypairs associated to the host", func() {
+					priv, _ := keypairs.GenerateKey()
+					keypairs.Create(db, priv, "aes_key", hs.H.ID)
+					doRequest(hs.H.Name)
+					_, err := keypairs.Get(db, hs.H.ID)
+					Expect(err).ToNot(BeNil(), "host's keypairs should be removed")
+				})
 			})
 
 			Context("when hostbuilder fails to delete the host", func() {
