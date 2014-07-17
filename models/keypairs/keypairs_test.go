@@ -15,7 +15,7 @@ func Test(t *testing.T) {
 
 var _ = Describe("models/keypairs", func() {
 	Describe(".Create", func() {
-		It("creates and keypair for the specified host", func() {
+		It("creates a keypair for the specified host", func() {
 			db, _ := TestDatabase("nitrous_test")
 			priv, _ := GenerateKey()
 			kp1, err := Create(db, priv, "aes_key", 1)
