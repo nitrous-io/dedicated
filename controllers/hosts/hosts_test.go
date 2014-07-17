@@ -439,7 +439,9 @@ var _ = Describe("controllers/hosts", func() {
 
 				It("deletes keypairs associated to the host", func() {
 					priv, _ := keypairs.GenerateKey()
-					keypairs.Create(db, priv, "aes_key", hs.H.ID)
+					tx, _ := db.Beginx()
+					keypairs.Create(tx, priv, "aes_key", hs.H.ID)
+					tx.Commit()
 					doRequest(hs.H.Name)
 					_, err := keypairs.Get(db, hs.H.ID)
 					Expect(err).ToNot(BeNil(), "host's keypairs should be removed")

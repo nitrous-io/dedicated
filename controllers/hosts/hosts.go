@@ -178,9 +178,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 	}
 
 	// create the keypair
-	_, err = keypairs.Create(tx, priv, aesKey, h.ID)
-	if err != nil {
-		tx.Rollback()
+	if _, err = keypairs.Create(tx, priv, aesKey, h.ID); err != nil {
 		return err
 	}
 
@@ -225,8 +223,8 @@ func Destroy(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 		tx.Rollback()
 		return err
 	}
+	// we dont need to rollback here because keypairs.Delete handle it
 	if err = keypairs.Delete(tx, ht.ID); err != nil {
-		tx.Rollback()
 		return err
 	}
 	if err := tx.Commit(); err != nil {

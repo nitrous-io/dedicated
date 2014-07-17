@@ -9,6 +9,7 @@ import (
 
 	"code.google.com/p/go.crypto/ssh"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/gorainbow/cipher"
 	"github.com/nitrous-io/nitrous/db"
 )
@@ -30,19 +31,23 @@ type Keypair struct {
 
 // Accepts a private key for specified owner and save it as a keypair
 func Create(
-	db db.QueryReceiver,
+	tx *sqlx.Tx,
 	priv *rsa.PrivateKey,
 	aesKey string,
 	hostID int64,
-) (*Keypair, error) {
-	kp, err := generateKeypair(priv, aesKey)
+) (kp *Keypair, err error) {
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	kp, err = generateKeypair(priv, aesKey)
 	if err != nil {
 		return nil, err
 	}
-
 	kp.HostID = hostID
 
-	stmt, err := db.PrepareNamed(`INSERT INTO key_pairs
+	stmt, err := tx.PrepareNamed(`INSERT INTO key_pairs
 		(host_id, public_key, encrypted_private_key, encrypted_private_key_iv)
 		VALUES (:host_id, :public_key, :encrypted_private_key, :encrypted_private_key_iv)
 		RETURNING *;`)
@@ -68,9 +73,12 @@ func Get(db db.QueryReceiver, hostID int64) (*Keypair, error) {
 }
 
 // delete all keypairs belongs to a host
-func Delete(db db.QueryReceiver, hostID int64) error {
-	_, err := db.Exec("UPDATE key_pairs SET terminated_at = $1 WHERE host_id = $2",
+func Delete(tx *sqlx.Tx, hostID int64) error {
+	_, err := tx.Exec("UPDATE key_pairs SET terminated_at = $1 WHERE host_id = $2",
 		time.Now().UTC(), hostID)
+	if err != nil {
+		tx.Rollback()
+	}
 	return err
 }
 

@@ -18,8 +18,11 @@ var _ = Describe("models/keypairs", func() {
 		It("creates a keypair for the specified host", func() {
 			db, _ := TestDatabase("nitrous_test")
 			priv, _ := GenerateKey()
-			kp1, err := Create(db, priv, "aes_key", 1)
+
+			tx, _ := db.Beginx()
+			kp1, err := Create(tx, priv, "aes_key", 1)
 			Expect(err).To(BeNil(), "should be able to create new keypair")
+			tx.Commit()
 
 			kp2, err := Get(db, 1)
 			Expect(err).To(BeNil(), "should be able to get an existing keypair")
@@ -40,10 +43,15 @@ var _ = Describe("models/keypairs", func() {
 		It("deletes the keypair when its host is deleted", func() {
 			db, _ := TestDatabase("nitrous_test")
 			priv, _ := GenerateKey()
-			kp, _ := Create(db, priv, "aes_key", 1)
 
-			err := Delete(db, 1)
+			tx, _ := db.Beginx()
+			kp, _ := Create(tx, priv, "aes_key", 1)
+			tx.Commit()
+
+			tx, _ = db.Beginx()
+			err := Delete(tx, 1)
 			Expect(err).To(BeNil(), "should delete the host's keypairs")
+			tx.Commit()
 
 			_, err = Get(db, 1)
 			Expect(err).ToNot(BeNil(), "should not find deleted keypairs")
