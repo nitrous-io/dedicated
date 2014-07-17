@@ -82,7 +82,8 @@ func (c *Command) Synopsis() string {
 }
 
 func (c *Command) inspectContainer(host, container string) (*Container, error) {
-	resp, err := c.Client.GetAuthed(fmt.Sprintf("%s/api/v0/hosts/%s/containers/%s", c.Server, host, container), nil)
+	url := fmt.Sprintf("%s/api/v0/hosts/%s/containers/%s", c.Server, host, container)
+	resp, err := c.Client.GetAuthed(url, nil)
 	if err != nil {
 		return nil, err
 	}

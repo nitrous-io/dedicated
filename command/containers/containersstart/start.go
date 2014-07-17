@@ -82,7 +82,8 @@ func (c *Command) Synopsis() string {
 }
 
 func (c *Command) start(host, container string) (*Container, error) {
-	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/hosts/%s/containers/%s/start", c.Server, host, container), nil)
+	url := fmt.Sprintf("%s/api/v0/hosts/%s/containers/%s/start", c.Server, host, container)
+	resp, err := c.Client.PostFormAuthed(url, nil)
 	if err != nil {
 		return nil, err
 	}
