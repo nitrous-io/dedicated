@@ -94,6 +94,14 @@
         &:hover
           background: $gray200
 
+      &.disabled
+        > a
+          color: $gray400
+          cursor: not-allowed
+
+          &:hover
+            background: transparent
+
 ul.ui.tab-bar
   background: $gray50
   list-style: none
@@ -122,6 +130,11 @@ ul.ui.tab-bar
 
       a
         color: $lightBlue500
+
+    &.disabled
+      a
+        color: $gray400
+        cursor: not-allowed
 
 table.ui.table
   width: 100%

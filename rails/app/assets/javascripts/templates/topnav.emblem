@@ -23,12 +23,12 @@
           | Account
           .ui.dropdown-triangle
         ul.dropdown-menu.right style='display: none'
-          li
+          li.disabled
             a href='#' Account Settings
-          li
+          li.disabled
             a href='#' Billing
           li.separator
-          li
+          li.disabled
             a href='#' Help
           li.separator
           li

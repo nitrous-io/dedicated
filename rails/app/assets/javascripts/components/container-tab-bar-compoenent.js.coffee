@@ -12,3 +12,12 @@ App.ContainerTabBarComponent = Em.Component.extend
   logsSelected:    Em.computed.equal 'selected', 'logs'
   imagesSelected:  Em.computed.equal 'selected', 'images'
   usersSelected:   Em.computed.equal 'selected', 'users'
+
+  didInsertElement: ->
+    @_super()
+    @$('li.disabled > a').on 'click.container-tab-bar', ->
+      false
+
+  willDestroyElement: ->
+    @_super()
+    @$('li.disabled > a').off 'click.container-tab-bar'
