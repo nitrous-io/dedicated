@@ -17,10 +17,10 @@ func init() {
 	Env = ConfigureEnvironment()
 }
 
-var DefaultUI = &cli.BasicUi{
+var DefaultUI = &BasicUI{cli.BasicUi{
 	Reader: os.Stdin,
 	Writer: os.Stdout,
-}
+}}
 
 func Register(name string, factory cli.CommandFactory) {
 	Commands[name] = factory

@@ -1,4 +1,4 @@
-package containerslist_test
+package list_test
 
 import (
 	"encoding/json"
@@ -25,7 +25,7 @@ func Test(t *testing.T) {
 
 var _ = Describe("containerslist", func() {
 	var (
-		cmd        *containerslist.Command
+		cmd        *list.Command
 		ui         *cli.MockUi
 		srv        *ghttp.Server
 		handlers   []http.HandlerFunc
@@ -36,7 +36,7 @@ var _ = Describe("containerslist", func() {
 		var err error
 		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
-		cmd = &containerslist.Command{
+		cmd = &list.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),
@@ -91,8 +91,8 @@ var _ = Describe("containerslist", func() {
 				`)
 
 			formattedOutput = strings.TrimSpace(`
-Name   State
-foo    running
+Name   Image            State
+foo    freighter.foo    running
 `) + "\n\n"
 		)
 
