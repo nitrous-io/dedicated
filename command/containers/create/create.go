@@ -1,7 +1,6 @@
 package containerscreate
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -65,30 +64,42 @@ func (c *Command) Help() string {
 }
 
 func (c *Command) Run(args []string) int {
-	cp := &containerParams{}
+	params := &containerParams{}
 
 	cmdFlags := flag.NewFlagSet("create", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
-	cmdFlags.StringVarP(&cp.host, "host", "H", "", hostUsage)
-	cmdFlags.StringVarP(&cp.name, "name", "n", "", nameUsage)
-	cmdFlags.StringVarP(&cp.longname, "longname", "L", "", longnameUsage)
-	cmdFlags.StringVarP(&cp.image, "image", "i", "", imageUsage)
+	cmdFlags.StringVarP(&params.host, "host", "H", "", hostUsage)
+	cmdFlags.StringVarP(&params.name, "name", "n", "", nameUsage)
+	cmdFlags.StringVarP(&params.longname, "longname", "L", "", longnameUsage)
+	cmdFlags.StringVarP(&params.image, "image", "i", "", imageUsage)
 
 	err := cmdFlags.Parse(args)
 	if err != nil {
 		return 1
 	}
 
-	if cp.name == "" {
-		cp.name = randomnamegenerator.Generate("container")
+	if params.name == "" {
+		params.name = randomnamegenerator.Generate("container")
 	}
 
-	c.UI.Output("Creating the container. Please wait...\n")
-	err = c.createContainer(cp)
+	if params.host == "" {
+		h := command.DefaultHost()
+		if h == "" {
+			c.UI.Error(fmt.Sprintf("Please specify a host."))
+			c.UI.Output(c.Help())
+			return 1
+		}
+		params.host = h
+	}
+
+	c.UI.Output(fmt.Sprintf("Creating container on '%s'. Please wait...", params.host))
+	err = c.createContainer(params)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Failed to create the container - %v", err.Error()))
 		return 1
 	}
+
+	command.SaveDefaultHost(params.host)
 
 	c.UI.Output("Done.\n")
 	return 0
@@ -101,19 +112,12 @@ func (c *Command) Synopsis() string {
 func (c *Command) createContainer(cp *containerParams) error {
 	p := &url.Values{}
 
-	if cp.host == "" {
-		// TODO: when host is not specified pick the last accessed host
-		return errors.New("host required")
-	}
-
 	if cp.name != "" {
 		p.Set("name", cp.name)
 	}
-
 	if cp.longname != "" {
 		p.Set("longname", cp.longname)
 	}
-
 	if cp.image != "" {
 		p.Set("image", cp.image)
 	}

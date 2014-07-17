@@ -39,7 +39,7 @@ func NewCommand() (cli.Command, error) {
 }
 
 func (c *Command) Help() string {
-	return strings.TrimSpace(usage)
+	return strings.TrimSpace(usage) + "\n"
 }
 
 func (c *Command) Run(args []string) int {
@@ -51,22 +51,32 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
+	var host string
 	args = cmdFlags.Args()
-	if len(args) != 1 {
+	switch len(args) {
+	case 0:
+		host = command.DefaultHost()
+		if host == "" {
+			c.UI.Output(c.Help())
+			return 1
+		}
+	case 1:
+		host = args[0]
+	default:
 		c.UI.Output(c.Help())
 		return 1
 	}
 
-	host := args[0]
-
+	c.UI.Output(fmt.Sprintf("Listing containers on '%s'...\n", host))
 	containers, err := c.fetchContainers(host)
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
+	command.SaveDefaultHost(host)
 
 	if len(containers) == 0 {
-		c.UI.Output("No containers found\n")
+		c.UI.Output("No containers found.\n")
 		return 0
 	}
 

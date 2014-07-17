@@ -7,7 +7,8 @@ import (
 )
 
 type ConfigFile struct {
-	Auths map[string]AuthConfig `json:"auths"`
+	Auths       map[string]AuthConfig `json:"auths,omitempty"`
+	DefaultHost string                `json:"default_host,omitempty"`
 }
 
 type AuthConfig struct {
@@ -38,7 +39,7 @@ func loadConfig(path string) (*ConfigFile, error) {
 		return &configFile, nil
 	}
 
-	err = json.Unmarshal(b, &configFile.Auths)
+	err = json.Unmarshal(b, &configFile)
 	if err != nil {
 		return nil, err
 	}
@@ -47,9 +48,26 @@ func loadConfig(path string) (*ConfigFile, error) {
 }
 
 func SaveConfig(configFile *ConfigFile) error {
-	b, err := json.Marshal(&configFile.Auths)
+	b, err := json.Marshal(&configFile)
 	if err != nil {
 		return err
 	}
 	return ioutil.WriteFile(Env.ConfigPath, b, 0600)
+}
+
+func DefaultHost() string {
+	config, err := LoadConfig()
+	if err != nil {
+		return ""
+	}
+	return config.DefaultHost
+}
+
+func SaveDefaultHost(h string) error {
+	config, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+	config.DefaultHost = h
+	return SaveConfig(config)
 }

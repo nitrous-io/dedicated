@@ -53,21 +53,22 @@ var _ = Describe("environment", func() {
 		})
 	})
 
-	createConfig := func(conf map[string]command.AuthConfig) *os.File {
+	createConfig := func(conf *command.ConfigFile) *os.File {
 		f, err := ioutil.TempFile("", "nitrocfg")
 		Expect(err).To(BeNil())
+		defer f.Close()
 		os.Setenv("NITRO_CONFIG_PATH", f.Name())
-		s, err := json.Marshal(conf)
+		err = json.NewEncoder(f).Encode(conf)
 		Expect(err).To(BeNil())
-		f.Write(s)
-		f.Close()
 		return f
 	}
 
 	Context("Config", func() {
 		It("sets from file", func() {
-			f := createConfig(map[string]command.AuthConfig{
-				command.DefaultAPIURL: {"someuser", "a_token"},
+			f := createConfig(&command.ConfigFile{
+				Auths: map[string]command.AuthConfig{
+					command.DefaultAPIURL: {"someuser", "a_token"},
+				},
 			})
 			defer os.Remove(f.Name())
 
@@ -87,13 +88,14 @@ var _ = Describe("environment", func() {
 
 	Context("AuthToken", func() {
 		It("sets from file", func() {
-			f := createConfig(map[string]command.AuthConfig{
-				command.DefaultAPIURL: {"someuser", "a_token"},
+			f := createConfig(&command.ConfigFile{
+				Auths: map[string]command.AuthConfig{
+					command.DefaultAPIURL: {"someuser", "a_token"},
+				},
 			})
 			defer os.Remove(f.Name())
 
-			token := command.ConfigureEnvironment().AuthToken
-			Expect(token).To(Equal("a_token"))
+			Expect(command.ConfigureEnvironment().AuthToken).To(Equal("a_token"))
 		})
 
 		It("defaults to empty", func() {

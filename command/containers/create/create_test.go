@@ -1,11 +1,15 @@
 package containerscreate_test
 
 import (
+	"encoding/json"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/containers/create"
+	"github.com/nitrous-io/nitro/test"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -20,13 +24,15 @@ func Test(t *testing.T) {
 
 var _ = Describe("containerscreate", func() {
 	var (
-		cmd      *containerscreate.Command
-		ui       *cli.MockUi
-		srv      *ghttp.Server
-		handlers []http.HandlerFunc
+		cmd        *containerscreate.Command
+		ui         *cli.MockUi
+		srv        *ghttp.Server
+		handlers   []http.HandlerFunc
+		configPath string
 	)
 
 	BeforeEach(func() {
+		var err error
 		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
 		cmd = &containerscreate.Command{
@@ -40,6 +46,12 @@ var _ = Describe("containerscreate", func() {
 			}),
 			ghttp.VerifyRequest("POST", "/api/v0/hosts/host-1/containers"),
 		}
+		configPath, err = test.WriteConfig(&command.ConfigFile{}, "")
+		Expect(err).To(BeNil())
+	})
+
+	AfterEach(func() {
+		os.Remove(configPath)
 	})
 
 	Context("when not all options are specified", func() {
@@ -68,14 +80,38 @@ var _ = Describe("containerscreate", func() {
 	})
 
 	Context("when host is not specified", func() {
-		It("returns an error message without making a request", func() {
-			code := cmd.Run([]string{
+		doCmd := func() int {
+			return cmd.Run([]string{
 				"--name=foo",
 				"--longname=foobar",
 				"--image=ubuntu",
 			})
-			Expect(ui.ErrorWriter.String()).To(ContainSubstring("host required"))
-			Expect(code).To(Equal(1))
+		}
+		Context("when there is no default host in the config file", func() {
+			It("returns an error message without making a request", func() {
+				code := doCmd()
+				Expect(ui.ErrorWriter.String()).To(ContainSubstring("Please specify a host"))
+				Expect(code).To(Equal(1))
+			})
+		})
+
+		Context("when there is a default host in the config file", func() {
+			BeforeEach(func() {
+				_, err := test.WriteConfig(&command.ConfigFile{
+					DefaultHost: "host-1",
+				}, configPath)
+				Expect(err).To(BeNil())
+			})
+
+			It("uses the default host", func() {
+				handlers = append(handlers,
+					ghttp.RespondWith(http.StatusCreated, `{"status":"created"}`))
+				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+
+				code := doCmd()
+				Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
+				Expect(code).To(Equal(0))
+			})
 		})
 	})
 
@@ -100,28 +136,51 @@ var _ = Describe("containerscreate", func() {
 		})
 
 		Context("when request succeeds", func() {
-			It("reports success", func() {
+			BeforeEach(func() {
 				handlers = append(handlers,
 					ghttp.RespondWith(http.StatusCreated, `{"status":"created"}`))
 				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+			})
 
+			It("reports success", func() {
 				code := doCmd()
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
 				Expect(code).To(Equal(0))
 			})
+
+			It("writes the host to the config file", func() {
+				doCmd()
+
+				configFile, err := command.LoadConfig()
+				Expect(err).To(BeNil())
+				Expect(configFile.DefaultHost).To(Equal("host-1"))
+			})
 		})
 
 		Context("when request fails", func() {
-			It("displays error message", func() {
+			BeforeEach(func() {
 				handlers = append(handlers,
 					ghttp.RespondWith(http.StatusBadRequest,
 						`{"error":"validation_failed","error_description":"image required"}`),
 				)
 				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+			})
 
+			It("displays error message", func() {
 				code := doCmd()
 				Expect(ui.ErrorWriter.String()).To(ContainSubstring("image required"))
 				Expect(code).To(Equal(1))
+			})
+
+			It("doesn't write the host to the config file", func() {
+				doCmd()
+
+				f, err := os.Open(configPath)
+				Expect(err).To(BeNil())
+				var configFile command.ConfigFile
+				err = json.NewDecoder(f).Decode(&configFile)
+				Expect(err).To(BeNil())
+				Expect(configFile.DefaultHost).To(Equal(""))
 			})
 		})
 	})
