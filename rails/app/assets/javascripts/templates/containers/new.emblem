@@ -51,8 +51,7 @@ form
             label for='containers-new-image-type-custom' Use custom Docker image
 
         .indent
-          input type='text' id='containers-new-slug' name='slug' placeholder='docker-registry/repo'
-
+          input type='text' id='containers-new-slug' name='slug' placeholder='docker-registry/repo:latest'
 
   .card-footer.bordered
     .right

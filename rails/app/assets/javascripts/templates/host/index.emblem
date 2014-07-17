@@ -1,3 +1,5 @@
+= host-tab-bar selected='general'
+
 .card-body
   table.ui.table
     tr
@@ -8,29 +10,19 @@
 
     tr
       th Slug
-      td colspan='3'
-        | project-x-37
-
-    tr
-      th Region
-      td colspan='3'
-        | US West (sfo)
-
-    tr
-      th Size
-      td Small
+      td project-x-37
       th CPU Usage (%)
       td.usage 12.5, 27.3
 
     tr
-      th
-      td
+      th Region
+      td US West (sfo)
       th Memory (GB)
       td.usage 0.77 / 2.00
 
     tr
-      th
-      td
+      th Size
+      td Small
       th Storage (GB)
       td.usage 3.14 / 40.00
 

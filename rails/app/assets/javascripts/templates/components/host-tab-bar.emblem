@@ -1,0 +1,10 @@
+li class={generalSelected:selected}
+  link-to 'host.index' | General
+li.disabled class={registriesSelected:selected}
+  a href='#' Registries
+li.disabled class={imagesSelected:selected}
+  a href='#' Images
+li.disabled class={archivesSelected:selected}
+  a href='#' Archives
+li.disabled class={volumesSelected:selected}
+  a href='#' Volumes
