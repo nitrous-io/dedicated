@@ -80,7 +80,7 @@ func (c *Command) Run(args []string) int {
 		return 0
 	}
 
-	t := PrettyPrint([]string{"Name", "State"}, containers...)
+	t := PrettyPrint([]string{"Name", "Image", "State"}, containers...)
 	c.UI.Output(t)
 
 	return 0

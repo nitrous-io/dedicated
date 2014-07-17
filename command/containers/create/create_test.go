@@ -139,7 +139,7 @@ var _ = Describe("containerscreate", func() {
 			BeforeEach(func() {
 				response := `{
 					"status": "created",
-					"container": { "name": "wild-rocket-23", "image": "ubuntu", "state": "running"}
+					"container": { "name": "wild-rocket-23", "image": "ubuntu", "state": "running" }
 				}`
 				handlers = append(handlers, ghttp.RespondWith(http.StatusCreated, response))
 				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))

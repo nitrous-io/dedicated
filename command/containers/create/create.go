@@ -105,7 +105,7 @@ func (c *Command) Run(args []string) int {
 
 	if cnr != nil {
 		c.UI.Output(fmt.Sprintf("Created new container: '%s'", cnr.Name))
-		t := PrettyPrint([]string{"Name", "State"}, cnr)
+		t := PrettyPrint([]string{"Name", "Image", "State"}, cnr)
 		c.UI.Output(t)
 	} else {
 		c.UI.Output("Done.")

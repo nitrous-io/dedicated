@@ -24,6 +24,7 @@ func PrettyPrint(headers []string, containers ...*Container) string {
 	for _, c := range containers {
 		fmt.Fprintln(w,
 			c.Name, "\t",
+			c.Image, "\t",
 			c.State,
 		)
 	}

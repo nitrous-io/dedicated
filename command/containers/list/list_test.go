@@ -91,8 +91,8 @@ var _ = Describe("containerslist", func() {
 				`)
 
 			formattedOutput = strings.TrimSpace(`
-Name   State
-foo    running
+Name   Image            State
+foo    freighter.foo    running
 `) + "\n\n"
 		)
 
