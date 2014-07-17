@@ -43,9 +43,9 @@ func Create(
 	kp.HostID = hostID
 
 	stmt, err := db.PrepareNamed(`INSERT INTO key_pairs
-	(host_id, public_key, encrypted_private_key, encrypted_private_key_iv)
-	VALUES (:host_id, :public_key, :encrypted_private_key, :encrypted_private_key_iv)
-	RETURNING *;`)
+		(host_id, public_key, encrypted_private_key, encrypted_private_key_iv)
+		VALUES (:host_id, :public_key, :encrypted_private_key, :encrypted_private_key_iv)
+		RETURNING *;`)
 	if err != nil {
 		return nil, err
 	}
@@ -55,6 +55,8 @@ func Create(
 	return kp, nil
 }
 
+// Get the first keypair belongs to a host. As of now, a host can only have one
+// keypair generated when the host is created
 func Get(db db.QueryReceiver, hostID int64) (*Keypair, error) {
 	kp := &Keypair{}
 	q := `SELECT * FROM key_pairs WHERE host_id = $1 AND terminated_at IS NULL`
@@ -65,6 +67,7 @@ func Get(db db.QueryReceiver, hostID int64) (*Keypair, error) {
 	return kp, nil
 }
 
+// delete all keypairs belongs to a host
 func Delete(db db.QueryReceiver, hostID int64) error {
 	_, err := db.Exec("UPDATE key_pairs SET terminated_at = $1 WHERE host_id = $2",
 		time.Now().UTC(), hostID)
