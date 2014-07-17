@@ -46,6 +46,30 @@ var _ = Describe("provider/docker", func() {
 		exec.Command("docker", "rm", name).Run()
 	}
 
+	fullContainerName := func(name string) string {
+		return fmt.Sprintf("%s.%s", namespace, name)
+	}
+
+	// Stolen from @ddollar's script here:
+	// https://github.com/nitrous-io/freighter/commit/c5ebce6afd9e5bdf0727c9f2c24dc818a39368be#diff-b57cb1684dfddcbd75f478574803cd36R10
+	doInspect := func(id, format string) string {
+		out, err := exec.Command("docker", "inspect", "-f", format, id).CombinedOutput()
+		Expect(err).To(BeNil())
+		return strings.TrimSpace(string(out))
+	}
+
+	getID := func(name string) string {
+		return doInspect(fullContainerName(name), "{{.Id}}")
+	}
+
+	getPort := func(id string) string {
+		return doInspect(id, `{{(index (index .NetworkSettings.Ports "22/tcp") 0).HostPort}}`)
+	}
+
+	getHost := func(id string) string {
+		return doInspect(id, "{{.NetworkSettings.IPAddress}}")
+	}
+
 	Describe(".Create()", func() {
 		var (
 			name         string
@@ -60,35 +84,11 @@ var _ = Describe("provider/docker", func() {
 			sshkeypath   string
 		)
 
-		fullContainerName := func(name string) string {
-			return fmt.Sprintf("%s.%s", namespace, name)
-		}
-
-		getID := func(name string) string {
-			id, err := exec.Command("docker", "inspect", "-f", "{{.Id}}", fullContainerName(name)).CombinedOutput()
-			Expect(err).To(BeNil())
-			return strings.TrimSpace(string(id))
-		}
-
-		// Stolen from @ddollar's script here:
-		// https://github.com/nitrous-io/freighter/commit/c5ebce6afd9e5bdf0727c9f2c24dc818a39368be#diff-b57cb1684dfddcbd75f478574803cd36R10
-		getPort := func(id string) string {
-			port, err := exec.Command("docker", "inspect", "-f", `{{(index (index .NetworkSettings.Ports "22/tcp") 0).HostPort}}`, id).CombinedOutput()
-			Expect(err).To(BeNil())
-			return strings.TrimSpace(string(port))
-		}
-
-		getHost := func(id string) string {
-			host, err := exec.Command("docker", "inspect", "-f", "{{.NetworkSettings.IPAddress}}", id).CombinedOutput()
-			Expect(err).To(BeNil())
-			return strings.TrimSpace(string(host))
-		}
-
 		BeforeEach(func() {
 			var err error
 			name = RandomName("freightertest")
 
-			info, err = prov.Create(name, image)
+			info, err = prov.Create(name, image, "")
 			Expect(err).To(BeNil())
 			id = getID(name)
 			host = getHost(id)
@@ -136,7 +136,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(err).To(BeNil())
 
 					// create another container
-					container2Info, err = prov.Create(container2Name, image)
+					container2Info, err = prov.Create(container2Name, image, "")
 					Expect(err).To(BeNil())
 
 					container2Port = getPort(container2Info.ID)
@@ -665,6 +665,52 @@ var _ = Describe("provider/docker", func() {
 					})
 				})
 			})
+		})
+	})
+
+	Describe(".Create() with custom options", func() {
+		var (
+			name       string
+			info       *provider.ContainerInfo
+			configJSON string
+		)
+
+		BeforeEach(func() {
+			var err error
+			configJSON = `{
+  "Config": {
+    "Env": ["LANG=C"],
+    "ExposedPorts": {"8080/tcp": {}}
+  },
+  "HostConfig": {
+    "PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]}
+  }
+}`
+			name = RandomName("freightertest")
+			info, err = prov.Create(name, image, configJSON)
+			Expect(err).To(BeNil())
+		})
+
+		AfterEach(func() {
+			cleanUpContainer(fullContainerName(name))
+		})
+
+		It("creates container with options", func() {
+			id := getID(name)
+			Expect(info.ID).To(Equal(id))
+			Expect(info.Name).To(Equal(fullContainerName(name)))
+			Expect(info.Image).To(Equal(image))
+			Expect(info.State).To(Equal(provider.ContainerStateRunning))
+			Expect(doInspect(id, "{{.Config.Env}}")).To(ContainSubstring("LANG=C"))
+			Expect(doInspect(id,
+				"{{range $p, $stub := .Config.ExposedPorts}}{{$p}} {{end}}")).
+				To(Equal("22/tcp 8080/tcp"))
+			Expect(doInspect(id,
+				`{{index .HostConfig.PortBindings "3000/tcp"}}`)).
+				To(Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
+			Expect(doInspect(id,
+				`{{index .HostConfig.PortBindings "22/tcp"}}`)).
+				To(ContainSubstring("[map[HostIp:0.0.0.0 HostPort:49")) // Docker will use 49000-49900
 		})
 	})
 })

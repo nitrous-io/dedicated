@@ -53,7 +53,7 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	info, err := s.provider.Create(name, image)
+	info, err := s.provider.Create(name, image, r.FormValue("config"))
 
 	if err != nil {
 		s.logger.Error(err)

@@ -9,7 +9,7 @@ var containerNameRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
 
 type Provider interface {
 	List() (infoList []*ContainerInfo, err error)
-	Create(name string, image string) (info *ContainerInfo, err error)
+	Create(name, image, config string) (info *ContainerInfo, err error)
 	GetInfo(id string) (info *ContainerInfo, err error)
 	Start(id string) (info *ContainerInfo, err error)
 	Stop(id string) (info *ContainerInfo, err error)
