@@ -206,7 +206,7 @@ func show(cn *container.Container, env *middlewares.Env, c controllers.Helper, w
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": cn,
+		"container": controllers.NewContainerAPI(cn, h),
 	}
 
 	return nil

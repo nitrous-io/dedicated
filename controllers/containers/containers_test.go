@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/container"
@@ -591,27 +592,28 @@ var _ = Describe("controllers/containers", func() {
 
 			It("responds with the container from Freighter and augments it with data from the database", func() {
 				doRequest()
-
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				var j map[string]container.Container
+				var j map[string]controllers.ContainerAPI
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
-				c, ok := j["container"]
-				Expect(ok).To(BeTrue())
 
-				// Fields from Freighter API.
-				Expect(c.CID).To(Equal("deadbeef"))
-				Expect(c.Image).To(Equal("nitrous-base"))
-				Expect(c.Slug).To(Equal(containerName))
-				Expect(c.IPAddress.String).To(Equal("1.2.3.4"))
-				Expect(c.State).To(Equal("running"))
-
-				// Fields from database.
-				Expect(c.Name.String).To(Equal("Elixir server"))
-
-				Expect(c.UserID).To(Equal(u.ID))
-				Expect(c.HostID).To(Equal(hs.H.ID))
+				Expect(j["container"]).To(Equal(controllers.ContainerAPI{
+					ID:        c.ID,
+					CID:       "deadbeef",
+					UserID:    u.ID,
+					Image:     "nitrous-base",
+					Slug:      containerName,
+					Name:      "Elixir server",
+					IPAddress: "1.2.3.4",
+					State:     "running",
+					Host: controllers.HostAPI{
+						ID:             hs.H.ID,
+						Slug:           hs.H.Slug,
+						IPAddress:      hs.H.IPAddress.String,
+						FreighterdPort: hs.H.FreighterdPort.Int64,
+					},
+				}))
 			})
 
 			Context("when container does not exist", func() {
