@@ -74,9 +74,9 @@ func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
 
 func findAllByUserID(db *db.Database, userID int64) ([]Host, error) {
 	hosts := []Host{}
-	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 ORDER BY id", userID)
+	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL ORDER BY id;", userID)
 	if err != nil {
-		return []Host{}, err
+		return nil, err
 	}
 	return hosts, nil
 }
@@ -86,7 +86,7 @@ func FindByUserAndName(db *db.Database, user *user.User, name string) (*Host, er
 	q := `SELECT hosts.*, provider_templates.provider
 				FROM hosts
 				INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
-				WHERE hosts.user_id = $1 AND hosts.name = $2`
+				WHERE hosts.user_id = $1 AND hosts.name = $2 AND terminated_at IS NULL;`
 	err := db.Get(host, q, user.ID, name)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -122,8 +122,11 @@ func (h *Host) UpdateState(d db.QueryReceiver, state string) error {
 }
 
 func (h *Host) Delete(d db.QueryReceiver) error {
-	_, err := d.Exec("DELETE FROM hosts WHERE id = $1", h.ID)
-	return err
+	nstmt, err := d.PrepareNamed(`UPDATE hosts SET terminated_at = now() WHERE id = :id RETURNING *;`)
+	if err != nil {
+		return nil
+	}
+	return nstmt.QueryRowx(h).StructScan(h)
 }
 
 func (h *Host) Validate(db *db.Database) error {

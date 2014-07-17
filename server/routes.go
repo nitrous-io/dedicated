@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/controllers/home"
 	"github.com/nitrous-io/nitrous/controllers/hosts"
 	"github.com/nitrous-io/nitrous/controllers/tokens"
@@ -22,6 +23,14 @@ func (s *Server) drawRoutes() {
 		s.route("/hosts/{name}/start", mw.Auth(mw.Vars(hosts.Start)), "POST")
 		s.route("/hosts/{name}/stop", mw.Auth(mw.Vars(hosts.Stop)), "POST")
 		s.route("/hosts/{name}/restart", mw.Auth(mw.Vars(hosts.Restart)), "POST")
+
+		s.route("/hosts/{host}/containers", mw.Auth(mw.JSON(containers.Index)), "GET")
+		s.route("/hosts/{host}/containers", mw.Auth(mw.JSON(containers.Create)), "POST")
+		s.route("/hosts/{host}/containers/{name}", mw.Auth(mw.JSON(containers.Show)), "GET")
+		s.route("/hosts/{host}/containers/{name}/start", mw.Auth(mw.JSON(containers.Start)), "POST")
+		s.route("/hosts/{host}/containers/{name}/stop", mw.Auth(mw.JSON(containers.Stop)), "POST")
+		s.route("/hosts/{host}/containers/{name}/restart", mw.Auth(mw.JSON(containers.Restart)), "POST")
+		s.route("/hosts/{host}/containers/{name}", mw.Auth(mw.JSON(containers.Destroy)), "DELETE")
 	})
 
 	s.static("/", "public") // catch-all, must come last

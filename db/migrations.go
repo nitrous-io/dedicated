@@ -133,5 +133,21 @@ func init() {
 				ALTER TABLE hosts ADD COLUMN freighterd_port bigint;
 			`,
 		},
+		{
+			Version: "100",
+			Up: `
+				DROP INDEX index_containers_on_host_id_and_name;
+				CREATE UNIQUE INDEX index_containers_on_name ON containers USING btree (name);
+			`,
+		},
+		{
+			Version: "110",
+			Up: `
+				ALTER TABLE containers DROP CONSTRAINT containers_pkey;
+				ALTER TABLE containers RENAME COLUMN id TO cid;
+				ALTER TABLE containers ADD COLUMN id bigserial PRIMARY KEY NOT NULL;
+				CREATE INDEX index_containers_on_cid ON containers USING btree (cid);
+			`,
+		},
 	}
 }

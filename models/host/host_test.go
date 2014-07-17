@@ -229,8 +229,7 @@ var _ = Describe("models/host", func() {
 
 	Describe("Delete()", func() {
 		var (
-			h   *host.Host
-			err error
+			h *host.Host
 		)
 
 		BeforeEach(func() {
@@ -241,19 +240,30 @@ var _ = Describe("models/host", func() {
 				PlanID:             hs.P.ID,
 				ProviderTemplateID: hs.PT.ID,
 				State:              "running",
+				TerminatedAt:       nil,
 			}
-
-			err = h.Insert(db)
+			err := h.Insert(db)
 			Expect(err).To(BeNil())
 		})
 
-		It("deletes the host record", func() {
+		It("sets terminated_at instead of removing the host from the database", func() {
 			err := h.Delete(db)
 			Expect(err).To(BeNil())
+			Expect(h.TerminatedAt).NotTo(BeNil())
 
-			h, err = host.FindByUserAndName(db, hs.U, "foo")
+			h2 := &host.Host{}
+			err = db.QueryRowx("SELECT * FROM hosts WHERE id = $1", h.ID).StructScan(h2)
 			Expect(err).To(BeNil())
-			Expect(h).To(BeNil())
+			Expect(h2).To(Equal(h))
+		})
+
+		It("fills up the fields in the struct", func() {
+			h2 := &host.Host{ID: h.ID}
+			err := h2.Delete(db)
+			Expect(err).To(BeNil())
+
+			Expect(h2.CreatedAt).NotTo(BeNil())
+			Expect(h2.UpdatedAt).NotTo(BeNil())
 		})
 	})
 

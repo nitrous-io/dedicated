@@ -1,7 +1,9 @@
 package container_test
 
 import (
+	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/container"
@@ -70,7 +72,7 @@ var _ = Describe("models/container", func() {
 		err = h.Insert(db)
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec("INSERT INTO containers (id, user_id, host_id, image, name) values ($1, $2, $3, $4, $5);",
+		_, err = db.Exec("INSERT INTO containers (cid, user_id, host_id, image, name) values ($1, $2, $3, $4, $5);",
 			"deadbeef", u.ID, h.ID, "nitrous-base", "my-1st-container")
 		Expect(err).To(BeNil())
 	})
@@ -81,21 +83,34 @@ var _ = Describe("models/container", func() {
 		}
 	})
 
-	Describe("FindByID()", func() {
-		Context("when a container record with a given id exists", func() {
+	Describe("FindByCID()", func() {
+		Context("when a container record with a given cid exists", func() {
 			It("returns the container record", func() {
-				c, err := container.FindByID(db, "deadbeef")
+				c, err := container.FindByCID(db, "deadbeef")
 				Expect(err).To(BeNil())
 				Expect(c).NotTo(BeNil())
-				Expect(c.ID).To(Equal("deadbeef"))
+				Expect(c.CID).To(Equal("deadbeef"))
 				Expect(c.Image).To(Equal("nitrous-base"))
 				Expect(c.Name).To(Equal("my-1st-container"))
 			})
+
+			Context("when container has been terminated", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE containers SET terminated_at = now() WHERE cid = $1;`, "deadbeef")
+					Expect(err).To(BeNil())
+				})
+
+				It("returns nil", func() {
+					c, err := container.FindByCID(db, "deadbeef")
+					Expect(err).To(BeNil())
+					Expect(c).To(BeNil())
+				})
+			})
 		})
 
-		Context("when a container record with a given id does not exist", func() {
+		Context("when a container record with a given cid does not exist", func() {
 			It("returns nil", func() {
-				c, err := container.FindByID(db, "non-existent-id")
+				c, err := container.FindByCID(db, "non-existent-id")
 				Expect(err).To(BeNil())
 				Expect(c).To(BeNil())
 			})
@@ -104,7 +119,7 @@ var _ = Describe("models/container", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				c, err := container.FindByID(db, "deadbeef")
+				c, err := container.FindByCID(db, "deadbeef")
 				Expect(err).NotTo(BeNil())
 				Expect(c).To(BeNil())
 			})
@@ -117,9 +132,23 @@ var _ = Describe("models/container", func() {
 				c, err := container.FindByHostIDAndName(db, h.ID, "my-1st-container")
 				Expect(err).To(BeNil())
 				Expect(c).NotTo(BeNil())
-				Expect(c.ID).To(Equal("deadbeef"))
+				Expect(c.CID).To(Equal("deadbeef"))
 				Expect(c.Image).To(Equal("nitrous-base"))
 				Expect(c.Name).To(Equal("my-1st-container"))
+			})
+
+			Context("when container has been terminated", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE containers SET terminated_at = now()
+						WHERE host_id = $1 AND name = $2;`, h.ID, "my-1st-container")
+					Expect(err).To(BeNil())
+				})
+
+				It("returns nil", func() {
+					c, err := container.FindByHostIDAndName(db, h.ID, "my-1st-container")
+					Expect(err).To(BeNil())
+					Expect(c).To(BeNil())
+				})
 			})
 		})
 
@@ -148,9 +177,22 @@ var _ = Describe("models/container", func() {
 				Expect(err).To(BeNil())
 				Expect(containers).To(HaveLen(1))
 
-				Expect(containers[0].ID).To(Equal("deadbeef"))
+				Expect(containers[0].CID).To(Equal("deadbeef"))
 				Expect(containers[0].Image).To(Equal("nitrous-base"))
 				Expect(containers[0].Name).To(Equal("my-1st-container"))
+			})
+
+			Context("when some containers have been terminated", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE containers SET terminated_at = now() WHERE cid = $1;`, "deadbeef")
+					Expect(err).To(BeNil())
+				})
+
+				It("does not return those containers", func() {
+					containers, err := container.FindAllByHostID(db, h.ID)
+					Expect(err).To(BeNil())
+					Expect(containers).To(HaveLen(0))
+				})
 			})
 		})
 
@@ -194,7 +236,7 @@ var _ = Describe("models/container", func() {
 		BeforeEach(func() {
 			var err error
 			c = &container.Container{
-				ID:     "cafebabe",
+				CID:    "cafebabe",
 				UserID: u.ID,
 				HostID: h.ID,
 				Image:  "nitrous-base",
@@ -205,11 +247,12 @@ var _ = Describe("models/container", func() {
 		})
 
 		It("persists the container in the database", func() {
-			cntnr, err := container.FindByID(db, "cafebabe")
+			cntnr, err := container.FindByCID(db, "cafebabe")
 			Expect(err).To(BeNil())
 			Expect(cntnr).NotTo(BeNil())
-			Expect(cntnr.ID).To(Equal("cafebabe"))
+			Expect(cntnr.CID).To(Equal("cafebabe"))
 			Expect(cntnr.UserID).To(Equal(u.ID))
+			Expect(cntnr.HostID).To(Equal(h.ID))
 			Expect(cntnr.Image).To(Equal("nitrous-base"))
 			Expect(cntnr.Name).To(Equal("java-test-container"))
 		})
@@ -217,6 +260,248 @@ var _ = Describe("models/container", func() {
 		It("fills up the fields in original struct", func() {
 			Expect(c.CreatedAt).NotTo(BeNil())
 			Expect(c.UpdatedAt).NotTo(BeNil())
+		})
+	})
+
+	Describe("Update()", func() {
+		var (
+			c   *container.Container
+			cid = "cafebabe"
+		)
+
+		BeforeEach(func() {
+			var err error
+			c = &container.Container{
+				CID:    cid,
+				UserID: u.ID,
+				HostID: h.ID,
+				Image:  "nitrous-base",
+				Name:   "java-test-container",
+			}
+			err = c.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("updates the container in the database", func() {
+			c.Name = "jboss"
+			c.IPAddress = sql.NullString{"1.2.3.4", true}
+			touchedAt := time.Date(2013, time.November, 10, 0, 0, 0, 0, time.UTC)
+			c.TouchedAt = &touchedAt
+			err := c.Update(db)
+			Expect(err).To(BeNil())
+
+			cntnr, err := container.FindByCID(db, cid)
+			Expect(err).To(BeNil())
+			Expect(cntnr).NotTo(BeNil())
+			Expect(cntnr.CID).To(Equal(cid))
+
+			// Updated fields.
+			Expect(cntnr.Name).To(Equal("jboss"))
+			Expect(cntnr.IPAddress.String).To(Equal("1.2.3.4"))
+			Expect(cntnr.TouchedAt.Unix()).To(Equal(touchedAt.Unix()))
+
+			// Unchanged fields.
+			Expect(cntnr.UserID).To(Equal(u.ID))
+			Expect(cntnr.HostID).To(Equal(h.ID))
+			Expect(cntnr.Image).To(Equal("nitrous-base"))
+		})
+
+		It("fills up the fields in original struct", func() {
+			c.Name = "jboss"
+			err := c.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(c.CreatedAt).NotTo(BeNil())
+			Expect(c.UpdatedAt).NotTo(BeNil())
+		})
+
+		It("updates UpdatedAt", func() {
+			origUpdatedAt := c.UpdatedAt
+
+			c.Name = "jboss"
+			err := c.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(c.UpdatedAt).NotTo(Equal(origUpdatedAt))
+		})
+
+		Context("unchangeable fields", func() {
+			Context("user ID", func() {
+				It("does not get updated", func() {
+					u2 := &user.User{
+						Username: "bar",
+						Email:    "bar@example.com",
+						Password: "123456",
+					}
+					err := u2.Insert(db)
+					Expect(err).To(BeNil())
+
+					c.UserID = u2.ID
+					err = c.Update(db)
+					Expect(err).To(BeNil())
+
+					cntnr, err := container.FindByCID(db, cid)
+					Expect(err).To(BeNil())
+					Expect(cntnr.UserID).To(Equal(u.ID))
+				})
+			})
+
+			Context("host ID", func() {
+				It("does not get updated", func() {
+					h2 := &host.Host{
+						UserID:             u.ID,
+						Name:               "my-host-2",
+						RegionID:           r.ID,
+						PlanID:             p.ID,
+						ProviderTemplateID: pt.ID,
+					}
+					err := h2.Insert(db)
+					Expect(err).To(BeNil())
+
+					c.HostID = h2.ID
+					err = c.Update(db)
+					Expect(err).To(BeNil())
+
+					cntnr, err := container.FindByCID(db, cid)
+					Expect(err).To(BeNil())
+					Expect(cntnr.HostID).To(Equal(h.ID))
+				})
+			})
+
+			Context("image", func() {
+				It("does not get updated", func() {
+					c.Image = "nitrous-base-v2"
+					err := c.Update(db)
+					Expect(err).To(BeNil())
+
+					cntnr, err := container.FindByCID(db, cid)
+					Expect(err).To(BeNil())
+					Expect(cntnr.Image).To(Equal("nitrous-base"))
+				})
+			})
+
+			Context("created at timestamp", func() {
+				It("does not get updated", func() {
+					origCreatedAt := c.CreatedAt
+
+					newCreatedAt := time.Date(2013, time.November, 10, 0, 0, 0, 0, time.UTC)
+					c.CreatedAt = &newCreatedAt
+					err := c.Update(db)
+					Expect(err).To(BeNil())
+
+					cntnr, err := container.FindByCID(db, cid)
+					Expect(err).To(BeNil())
+					Expect(cntnr.CreatedAt).NotTo(Equal(newCreatedAt))
+					Expect(cntnr.CreatedAt).To(Equal(origCreatedAt))
+				})
+			})
+		})
+	})
+
+	Describe("Delete()", func() {
+		var c *container.Container
+
+		BeforeEach(func() {
+			c = &container.Container{
+				CID:          "beefface",
+				UserID:       u.ID,
+				HostID:       h.ID,
+				Image:        "nitrous-base",
+				Name:         "java-test-container",
+				TerminatedAt: nil,
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+
+			c, err = container.FindByHostIDAndName(db, h.ID, "java-test-container")
+			Expect(err).To(BeNil())
+			Expect(c).NotTo(BeNil())
+			Expect(c.CID).To(Equal("beefface"))
+		})
+
+		It("sets terminated_at instead of removing the container from the database", func() {
+			err := c.Delete(db)
+			Expect(err).To(BeNil())
+			Expect(c.TerminatedAt).NotTo(BeNil())
+
+			c2 := &container.Container{}
+			err = db.QueryRowx("SELECT * FROM containers WHERE id = $1", c.ID).StructScan(c2)
+			Expect(err).To(BeNil())
+			Expect(c2).To(Equal(c))
+		})
+
+		It("fills up the fields in the struct", func() {
+			c2 := &container.Container{ID: c.ID}
+			err := c2.Delete(db)
+			Expect(err).To(BeNil())
+
+			Expect(c2.CreatedAt).NotTo(BeNil())
+			Expect(c2.UpdatedAt).NotTo(BeNil())
+		})
+	})
+
+	Describe("Validate()", func() {
+		var (
+			c *container.Container
+		)
+
+		BeforeEach(func() {
+			c = &container.Container{
+				UserID: u.ID,
+				HostID: h.ID,
+				Name:   "foo",
+				Image:  "nitrous-base",
+			}
+			Expect(c.Validate()).To(BeNil())
+		})
+
+		It("validates name", func() {
+			buf := make([]byte, 256)
+			for i := range buf {
+				buf[i] = 'f'
+			}
+			s := string(buf) // "f" * 256.
+
+			tests := []struct {
+				input string
+				err   error
+			}{
+				{"", container.ErrNameBlank},
+				{"foo", nil},
+				{"f00", nil},
+				{"foo-bar", nil},
+				{"fo", nil},
+				{"f", container.ErrNameTooShort},
+				{"ffffffffffffffffffffffffffffff", nil},
+				{s, container.ErrNameTooLong},
+				{s[:255], nil},
+				{"foo-", container.ErrNameInvalid},
+				{"f-o-0-", container.ErrNameInvalid},
+				{"-foo", container.ErrNameInvalid},
+				{"FOO", container.ErrNameInvalid},
+			}
+
+			for _, t := range tests {
+				c.Name = t.input
+				Expect(c.Validate() == t.err).To(BeTrue(),
+					"Expected '%s' to return error '%v'", t.input, t.err)
+			}
+		})
+
+		It("validates image", func() {
+			tests := []struct {
+				input string
+				err   error
+			}{
+				{"", container.ErrImageBlank},
+				{"foo", nil},
+			}
+
+			for _, t := range tests {
+				c.Image = t.input
+				Expect(c.Validate() == t.err).To(BeTrue(),
+					"Expected '%s' to return error '%v'", t.input, t.err)
+			}
 		})
 	})
 })
