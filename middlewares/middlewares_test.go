@@ -133,6 +133,7 @@ var _ = Describe("middlewares", func() {
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 				Expect(j["error"]).To(Equal("invalid_token"))
+				Expect(j["error_description"]).To(Equal("auth token is invalid"))
 			})
 		})
 
@@ -148,6 +149,7 @@ var _ = Describe("middlewares", func() {
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 				Expect(j["error"]).To(Equal("invalid_request"))
+				Expect(j["error_description"]).To(Equal("auth token is required"))
 			})
 		})
 	})
