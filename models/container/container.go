@@ -74,8 +74,8 @@ func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
 
 func (c *Container) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO containers
-		(id, cid, user_id, host_id, image, name, long_name, ip_address)
-		VALUES (:id, :cid, :user_id, :host_id, :image, :name, :long_name, :ip_address)
+		(cid, user_id, host_id, image, name, long_name, ip_address)
+		VALUES (:cid, :user_id, :host_id, :image, :name, :long_name, :ip_address)
 		RETURNING *;`)
 	if err != nil {
 		return err
