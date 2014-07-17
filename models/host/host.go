@@ -15,10 +15,10 @@ var (
 )
 
 var (
-	ErrNameBlank    = errors.New("name can't be blank")
-	ErrNameInvalid  = errors.New("name is not valid")
-	ErrNameTooShort = errors.New("name is too short (minimum is 2 characters)")
-	ErrNameTooLong  = errors.New("name is too long (maximum is 63 characters)")
+	ErrSlugBlank    = errors.New("slug can't be blank")
+	ErrSlugInvalid  = errors.New("slug is not valid")
+	ErrSlugTooShort = errors.New("slug is too short (minimum is 2 characters)")
+	ErrSlugTooLong  = errors.New("slug is too long (maximum is 63 characters)")
 )
 
 type ProviderTemplate struct {
@@ -43,8 +43,8 @@ type Host struct {
 
 	// Name is the hostname and is used as a DNS label in a FQDN (thus limited
 	// to 63 characters).
-	Name      string         `db:"name"`
-	LongName  sql.NullString `db:"long_name"`
+	Slug      string         `db:"slug"`
+	Name      sql.NullString `db:"name"`
 	State     string         `db:"state"`
 	IPAddress sql.NullString `db:"ip_address"`
 
@@ -81,13 +81,13 @@ func findAllByUserID(db *db.Database, userID int64) ([]Host, error) {
 	return hosts, nil
 }
 
-func FindByUserAndName(db *db.Database, user *user.User, name string) (*Host, error) {
+func FindByUserAndSlug(db *db.Database, user *user.User, slug string) (*Host, error) {
 	host := &Host{}
 	q := `SELECT hosts.*, provider_templates.provider
 				FROM hosts
 				INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
-				WHERE hosts.user_id = $1 AND hosts.name = $2 AND terminated_at IS NULL;`
-	err := db.Get(host, q, user.ID, name)
+				WHERE hosts.user_id = $1 AND hosts.slug = $2 AND terminated_at IS NULL;`
+	err := db.Get(host, q, user.ID, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -103,11 +103,11 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 		h.State = "born"
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
-		(user_id, region_id, plan_id, provider_template_id, name, long_name,
+		(user_id, region_id, plan_id, provider_template_id, slug, name,
 			state, ip_address, provider_identifier, max_containers, freighterd_port)
 		VALUES
-		(:user_id, :region_id, :plan_id, :provider_template_id, :name,
-		:long_name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port)
+		(:user_id, :region_id, :plan_id, :provider_template_id, :slug,
+		:name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -130,18 +130,18 @@ func (h *Host) Delete(d db.QueryReceiver) error {
 }
 
 func (h *Host) Validate(db *db.Database) error {
-	if h.Name == "" {
-		return ErrNameBlank
+	if h.Slug == "" {
+		return ErrSlugBlank
 	}
-	if !nameRe.MatchString(h.Name) {
-		return ErrNameInvalid
+	if !nameRe.MatchString(h.Slug) {
+		return ErrSlugInvalid
 	}
-	nameLen := len(h.Name)
+	nameLen := len(h.Slug)
 	if nameLen < 2 {
-		return ErrNameTooShort
+		return ErrSlugTooShort
 	}
 	if nameLen > 63 {
-		return ErrNameTooLong
+		return ErrSlugTooLong
 	}
 	return nil
 }

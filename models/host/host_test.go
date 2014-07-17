@@ -62,11 +62,11 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, name, region_id, plan_id, provider_template_id)
+				(user_id, slug, region_id, plan_id, provider_template_id)
 				VALUES ($1, $2, $3, $4, $5);`,
 				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID)
 			Expect(err).To(BeNil())
-			_, err = db.Exec(`INSERT INTO hosts (user_id, name, region_id, plan_id, provider_template_id)
+			_, err = db.Exec(`INSERT INTO hosts (user_id, slug, region_id, plan_id, provider_template_id)
 				VALUES ($1, $2, $3, $4, $5);`,
 				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID)
 			Expect(err).To(BeNil())
@@ -80,11 +80,11 @@ var _ = Describe("models/host", func() {
 
 				Expect(hosts[0].ID).NotTo(BeZero())
 				Expect(hosts[0].UserID).To(Equal(u1.ID))
-				Expect(hosts[0].Name).To(Equal("my-host-1"))
+				Expect(hosts[0].Slug).To(Equal("my-host-1"))
 
 				Expect(hosts[1].ID).NotTo(BeZero())
 				Expect(hosts[1].UserID).To(Equal(u1.ID))
-				Expect(hosts[1].Name).To(Equal("my-host-2"))
+				Expect(hosts[1].Slug).To(Equal("my-host-2"))
 			})
 		})
 
@@ -97,15 +97,15 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("FindByUserAndName()", func() {
+	Describe("FindByUserAndSlug()", func() {
 		Context("when there's a host record for the given name that belongs to the user", func() {
 			It("returns the host record matching the name", func() {
-				h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h).NotTo(BeNil())
 				Expect(h.ID).To(Equal(hs.H.ID))
 				Expect(h.UserID).To(Equal(hs.U.ID))
-				Expect(h.Name).To(Equal(hs.H.Name))
+				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
 			})
 		})
@@ -123,7 +123,7 @@ var _ = Describe("models/host", func() {
 			})
 
 			It("returns nil without an error", func() {
-				h, err := host.FindByUserAndName(db, u, hs.H.Name)
+				h, err := host.FindByUserAndSlug(db, u, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h).To(BeNil())
 			})
@@ -131,7 +131,7 @@ var _ = Describe("models/host", func() {
 
 		Context("when a host record with the given name does not exist", func() {
 			It("returns nil without an error", func() {
-				h, err := host.FindByUserAndName(db, hs.U, "vivabrazil")
+				h, err := host.FindByUserAndSlug(db, hs.U, "vivabrazil")
 				Expect(err).To(BeNil())
 				Expect(h).To(BeNil())
 			})
@@ -140,7 +140,7 @@ var _ = Describe("models/host", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 				Expect(h).To(BeNil())
 				Expect(err).NotTo(BeNil())
 			})
@@ -165,7 +165,7 @@ var _ = Describe("models/host", func() {
 
 			h = &host.Host{
 				UserID:             u.ID,
-				Name:               "my-host-1",
+				Slug:               "my-host-1",
 				RegionID:           hs.R.ID,
 				PlanID:             hs.P.ID,
 				ProviderTemplateID: hs.PT.ID,
@@ -180,7 +180,7 @@ var _ = Describe("models/host", func() {
 			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].ID).NotTo(BeZero())
 			Expect(hosts[0].UserID).To(Equal(u.ID))
-			Expect(hosts[0].Name).To(Equal("my-host-1"))
+			Expect(hosts[0].Slug).To(Equal("my-host-1"))
 			Expect(hosts[0].CreatedAt).NotTo(BeNil())
 			Expect(hosts[0].UpdatedAt).NotTo(BeNil())
 		})
@@ -204,7 +204,7 @@ var _ = Describe("models/host", func() {
 
 		BeforeEach(func() {
 			h = &host.Host{
-				Name:               "foo",
+				Slug:               "foo",
 				UserID:             hs.U.ID,
 				RegionID:           hs.R.ID,
 				PlanID:             hs.P.ID,
@@ -221,7 +221,7 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 			Expect(h.State).To(Equal("stopped"))
 
-			h1, err := host.FindByUserAndName(db, hs.U, "foo")
+			h1, err := host.FindByUserAndSlug(db, hs.U, "foo")
 			Expect(err).To(BeNil())
 			Expect(h1.State).To(Equal("stopped"))
 		})
@@ -234,7 +234,7 @@ var _ = Describe("models/host", func() {
 
 		BeforeEach(func() {
 			h = &host.Host{
-				Name:               "foo",
+				Slug:               "foo",
 				UserID:             hs.U.ID,
 				RegionID:           hs.R.ID,
 				PlanID:             hs.P.ID,
@@ -275,7 +275,7 @@ var _ = Describe("models/host", func() {
 		BeforeEach(func() {
 			h = &host.Host{
 				UserID:             hs.U.ID,
-				Name:               "my-host-1",
+				Slug:               "my-host-1",
 				RegionID:           hs.R.ID,
 				PlanID:             hs.P.ID,
 				ProviderTemplateID: hs.PT.ID,
@@ -294,21 +294,21 @@ var _ = Describe("models/host", func() {
 				input string
 				err   error
 			}{
-				{"", host.ErrNameBlank},
+				{"", host.ErrSlugBlank},
 				{"foo", nil},
 				{"fo", nil},
-				{"f", host.ErrNameTooShort},
+				{"f", host.ErrSlugTooShort},
 				{"ffffffffffffffffffffffffffffff", nil},
-				{s, host.ErrNameTooLong},
+				{s, host.ErrSlugTooLong},
 				{s[:63], nil},
 				{"f00", nil},
 				{"f-o-0-", nil},
-				{"-foo", host.ErrNameInvalid},
-				{"FOO", host.ErrNameInvalid},
+				{"-foo", host.ErrSlugInvalid},
+				{"FOO", host.ErrSlugInvalid},
 			}
 
 			for _, t := range tests {
-				h.Name = t.input
+				h.Slug = t.input
 				Expect(h.Validate(db) == t.err).To(BeTrue(),
 					"Expected '%s' to return error '%v'", t.input, t.err)
 			}

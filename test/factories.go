@@ -90,7 +90,7 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 
 	if hs.H == nil {
 		hs.H = &host.Host{
-			Name: "hoststack-1",
+			Slug: "hoststack-1",
 		}
 	}
 
