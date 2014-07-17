@@ -87,7 +87,7 @@ var _ = Describe("containerslist", func() {
 	Context("when server responds with containers in host", func() {
 		var (
 			responseJSON = strings.TrimSpace(`
-				{"containers":[{"id":"df5b37192a6469652b68639f5736973cf0fe9ec0fe4747ade3747d55548ccfdb","user_id":1,"host_id":25,"image":"freighter.foo","name":"foo","long_name":{"String":"foo","Valid":true},"ip_address":{"String":"10.1.0.2","Valid":true},"terminated_at":null,"touched_at":null,"created_at":"2014-07-15T05:44:09.037793Z","updated_at":"2014-07-15T05:44:09.037793Z","state":"running"}]}
+				{"containers":[{"id":"df5b37192a6469652b68639f5736973cf0fe9ec0fe4747ade3747d55548ccfdb","user_id":1,"host_id":25,"image":"freighter.foo","slug":"foo","name":{"String":"foo","Valid":true},"ip_address":{"String":"10.1.0.2","Valid":true},"terminated_at":null,"touched_at":null,"created_at":"2014-07-15T05:44:09.037793Z","updated_at":"2014-07-15T05:44:09.037793Z","state":"running"}]}
 				`)
 
 			formattedOutput = strings.TrimSpace(`

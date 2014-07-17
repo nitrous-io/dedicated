@@ -50,45 +50,41 @@ var _ = Describe("hosts:create", func() {
 
 	Context("hitting the server", func() {
 		type createHostParams struct {
-			size     string
-			region   string
-			name     string
-			longname string
+			size   string
+			region string
+			slug   string
 		}
 
 		doCmd := func(params *createHostParams) int {
 			return cmd.Run([]string{params.size,
 				"-r", params.region,
-				"-n", params.name,
-				"-L", params.longname,
+				"-s", params.slug,
 			})
 		}
 
-		Context("when name is provided", func() {
+		Context("when slug is provided", func() {
 			It("populates request correctly", func() {
 				handlers = append(handlers, func(w http.ResponseWriter, r *http.Request) {
 					Expect(r.FormValue("size")).To(Equal("micro"))
 					Expect(r.FormValue("region")).To(Equal("apse"))
-					Expect(r.FormValue("name")).To(Equal("foo"))
-					Expect(r.FormValue("longname")).To(Equal("foo host"))
+					Expect(r.FormValue("slug")).To(Equal("foo"))
 				})
 				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
-				doCmd(&createHostParams{size: "micro", name: "foo", region: "apse", longname: "foo host"})
+				doCmd(&createHostParams{size: "micro", slug: "foo", region: "apse"})
 			})
 		})
 
-		Context("when name is not provided", func() {
-			It("populates request with a randomly generated name", func() {
+		Context("when slug is not provided", func() {
+			It("populates request with a randomly generated slug", func() {
 				handlers = append(handlers, func(w http.ResponseWriter, r *http.Request) {
 					Expect(r.FormValue("size")).To(Equal("micro"))
 					Expect(r.FormValue("region")).To(Equal("apse"))
 					// This will be a randomly generated name
-					Expect(r.FormValue("name")).NotTo(Equal(""))
-					Expect(r.FormValue("longname")).To(Equal("foo host"))
+					Expect(r.FormValue("slug")).NotTo(Equal(""))
 
 				})
 				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
-				doCmd(&createHostParams{size: "micro", region: "apse", longname: "foo host"})
+				doCmd(&createHostParams{size: "micro", region: "apse"})
 			})
 
 		})
@@ -99,7 +95,7 @@ var _ = Describe("hosts:create", func() {
 					ghttp.RespondWith(http.StatusCreated, `{"status":"created"}`))
 				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 
-				code := doCmd(&createHostParams{size: "micro", name: "test", region: "apse", longname: "test host"})
+				code := doCmd(&createHostParams{size: "micro", slug: "test", region: "apse"})
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
 				Expect(code).To(Equal(0))
 			})
@@ -113,7 +109,7 @@ var _ = Describe("hosts:create", func() {
 				)
 				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 
-				code := doCmd(&createHostParams{size: "micro", name: "test", region: "apse", longname: "test host"})
+				code := doCmd(&createHostParams{size: "micro", slug: "test", region: "apse"})
 				Expect(ui.ErrorWriter.String()).To(ContainSubstring("region not found"))
 				Expect(code).To(Equal(1))
 			})

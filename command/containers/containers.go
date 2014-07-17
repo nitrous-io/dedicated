@@ -15,7 +15,7 @@ import (
 )
 
 type Container struct {
-	Name  string `json:"name"`
+	Slug  string `json:"slug"`
 	Image string `json:"image"`
 	State string `json:"state"`
 }
@@ -28,7 +28,7 @@ func PrettyPrint(headers []string, containers ...*Container) string {
 	fmt.Fprintln(w, strings.Join(headers, "\t "))
 	for _, c := range containers {
 		fmt.Fprintln(w,
-			c.Name, "\t",
+			c.Slug, "\t",
 			c.Image, "\t",
 			c.State,
 		)

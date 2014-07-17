@@ -14,9 +14,8 @@ import (
 )
 
 const (
-	regionUsage   = "Region in which you want to create the host"
-	nameUsage     = "A unique name for the host"
-	longnameUsage = "An optional name tag for the host"
+	regionUsage = "Region in which you want to create the host"
+	slugUsage   = "A unique slug for the host"
 )
 
 const usage = `
@@ -28,8 +27,7 @@ Options:
 
   size
   -r, --region=""       %s
-  -n, --name=""         %s
-  -L, --longname=""     %s
+  -s, --slug=""         %s
 `
 
 type Command struct {
@@ -51,20 +49,18 @@ func NewCommand() (cli.Command, error) {
 }
 
 func (c *Command) Help() string {
-	return strings.TrimSpace(fmt.Sprintf(usage, regionUsage, nameUsage, longnameUsage))
+	return strings.TrimSpace(fmt.Sprintf(usage, regionUsage, slugUsage))
 }
 
 func (c *Command) Run(args []string) int {
 	var (
-		region   string
-		name     string
-		longname string
+		region string
+		slug   string
 	)
 	cmdFlags := flag.NewFlagSet("hosts:create", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
 	cmdFlags.StringVarP(&region, "region", "r", "", regionUsage)
-	cmdFlags.StringVarP(&name, "name", "n", "", nameUsage)
-	cmdFlags.StringVarP(&longname, "longname", "L", "", longnameUsage)
+	cmdFlags.StringVarP(&slug, "slug", "s", "", slugUsage)
 
 	err := cmdFlags.Parse(args)
 	if err != nil {
@@ -76,14 +72,14 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	if name == "" {
-		name = randomnamegenerator.Generate("host")
+	if slug == "" {
+		slug = randomnamegenerator.Generate("host")
 	}
 
 	size := args[0]
 
 	c.UI.Output("Creating the host. Please wait...")
-	err = c.createHost(size, region, name, longname)
+	err = c.createHost(size, region, slug)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Failed to create the host - %v", err.Error()))
 		return 1
@@ -97,12 +93,19 @@ func (c *Command) Synopsis() string {
 	return "Creates a new host"
 }
 
-func (c *Command) createHost(size, region, name, longname string) error {
+func (c *Command) createHost(size, region, slug string) error {
 	p := &url.Values{}
-	p.Set("size", size)
-	p.Set("name", name)
-	p.Set("region", region)
-	p.Set("longname", longname)
+	if size != "" {
+		p.Set("size", size)
+	}
+
+	if slug != "" {
+		p.Set("slug", slug)
+	}
+
+	if region != "" {
+		p.Set("region", region)
+	}
 
 	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/%s", c.Server, "hosts"), p)
 	if err != nil {
