@@ -1,6 +1,7 @@
 package containerscreate
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,6 +13,8 @@ import (
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/pkg/randomnamegenerator"
 	"github.com/nitrous-io/nitrous-common/httpclient"
+
+	. "github.com/nitrous-io/nitro/command/containers"
 )
 
 const (
@@ -93,15 +96,20 @@ func (c *Command) Run(args []string) int {
 	}
 
 	c.UI.Output(fmt.Sprintf("Creating container on '%s'. Please wait...", params.host))
-	err = c.createContainer(params)
+	cnr, err := c.createContainer(params)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Failed to create the container - %v", err.Error()))
 		return 1
 	}
-
 	command.SaveDefaultHost(params.host)
 
-	c.UI.Output("Done.\n")
+	if cnr != nil {
+		c.UI.Output(fmt.Sprintf("Created new container: '%s'", cnr.Name))
+		t := PrettyPrint([]string{"Name", "State"}, cnr)
+		c.UI.Output(t)
+	} else {
+		c.UI.Output("Done.")
+	}
 	return 0
 }
 
@@ -109,7 +117,7 @@ func (c *Command) Synopsis() string {
 	return "Create a new container"
 }
 
-func (c *Command) createContainer(cp *containerParams) error {
+func (c *Command) createContainer(cp *containerParams) (*Container, error) {
 	p := &url.Values{}
 
 	if cp.name != "" {
@@ -124,8 +132,21 @@ func (c *Command) createContainer(cp *containerParams) error {
 
 	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/hosts/%s/containers", c.Server, cp.host), p)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	err = httpclient.CheckResponse(resp, http.StatusCreated)
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
-	return httpclient.CheckResponse(resp, http.StatusCreated)
+
+	j := struct {
+		Container *Container `json:"container"`
+	}{}
+	err = json.NewDecoder(resp.Body).Decode(&j)
+	if err != nil {
+		return nil, err
+	}
+
+	return j.Container, nil
 }

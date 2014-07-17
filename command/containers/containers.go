@@ -15,16 +15,16 @@ type Container struct {
 	State string `json:"state"`
 }
 
-func PrettyPrint(headers []string, containers []Container) string {
+func PrettyPrint(headers []string, containers ...*Container) string {
 	b := &bytes.Buffer{}
 	w := &tabwriter.Writer{}
 
 	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
 	fmt.Fprintln(w, strings.Join(headers, "\t "))
-	for _, r := range containers {
+	for _, c := range containers {
 		fmt.Fprintln(w,
-			r.Name, "\t",
-			r.State,
+			c.Name, "\t",
+			c.State,
 		)
 	}
 	w.Flush()

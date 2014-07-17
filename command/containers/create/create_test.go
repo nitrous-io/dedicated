@@ -137,14 +137,17 @@ var _ = Describe("containerscreate", func() {
 
 		Context("when request succeeds", func() {
 			BeforeEach(func() {
-				handlers = append(handlers,
-					ghttp.RespondWith(http.StatusCreated, `{"status":"created"}`))
+				response := `{
+					"status": "created",
+					"container": { "name": "wild-rocket-23", "image": "ubuntu", "state": "running"}
+				}`
+				handlers = append(handlers, ghttp.RespondWith(http.StatusCreated, response))
 				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 			})
 
-			It("reports success", func() {
+			It("reports the container's name", func() {
 				code := doCmd()
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
+				Expect(ui.OutputWriter.String()).To(ContainSubstring("wild-rocket-23"))
 				Expect(code).To(Equal(0))
 			})
 

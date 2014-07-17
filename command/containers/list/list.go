@@ -39,7 +39,7 @@ func NewCommand() (cli.Command, error) {
 }
 
 func (c *Command) Help() string {
-	return strings.TrimSpace(usage) + "\n"
+	return strings.TrimSpace(usage)
 }
 
 func (c *Command) Run(args []string) int {
@@ -67,7 +67,7 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	c.UI.Output(fmt.Sprintf("Listing containers on '%s'...\n", host))
+	c.UI.Output(fmt.Sprintf("Listing containers on '%s'...", host))
 	containers, err := c.fetchContainers(host)
 	if err != nil {
 		c.UI.Error(err.Error())
@@ -76,11 +76,11 @@ func (c *Command) Run(args []string) int {
 	command.SaveDefaultHost(host)
 
 	if len(containers) == 0 {
-		c.UI.Output("No containers found.\n")
+		c.UI.Output("No containers found.")
 		return 0
 	}
 
-	t := PrettyPrint([]string{"Name", "State"}, containers)
+	t := PrettyPrint([]string{"Name", "State"}, containers...)
 	c.UI.Output(t)
 
 	return 0
@@ -90,7 +90,7 @@ func (c *Command) Synopsis() string {
 	return "List containers"
 }
 
-func (c *Command) fetchContainers(host string) ([]Container, error) {
+func (c *Command) fetchContainers(host string) ([]*Container, error) {
 	resp, err := c.Client.GetAuthed(fmt.Sprintf("%s/api/v0/hosts/%s/containers", c.Server, host), nil)
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func (c *Command) fetchContainers(host string) ([]Container, error) {
 	defer resp.Body.Close()
 
 	j := struct {
-		Containers []Container `json:"containers"`
+		Containers []*Container `json:"containers"`
 	}{}
 	err = json.NewDecoder(resp.Body).Decode(&j)
 	if err != nil {
