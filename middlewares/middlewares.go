@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request")
-	errInvalidToken   = httperror.New(http.StatusUnauthorized, "invalid_token")
+	errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request", "auth token is required")
+	errInvalidToken   = httperror.New(http.StatusUnauthorized, "invalid_token", "auth token is invalid")
 )
 
 type Env struct {
