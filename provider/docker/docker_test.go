@@ -429,15 +429,20 @@ var _ = Describe("provider/docker", func() {
 			Context("with public keys", func() {
 				Context("with generic containers", func() {
 					var (
-						busyboxID string
+						busyboxName string
+						busyboxID   string
 					)
 
 					BeforeEach(func() {
 						image := "jpetazzo/busybox"
-						name := RandomName("freightertest")
-						_, err := prov.Create(name, image)
+						busyboxName = RandomName("freightertest")
+						_, err := prov.Create(busyboxName, image)
 						Expect(err).To(BeNil())
-						busyboxID = getID(name)
+						busyboxID = getID(busyboxName)
+					})
+
+					AfterEach(func() {
+						cleanUpContainer(fullContainerName(busyboxName))
 					})
 
 					Describe(".ListPublicKeys()", func() {
