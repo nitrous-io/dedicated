@@ -24,7 +24,7 @@ func Test(t *testing.T) {
 var _ = Describe("containersstop", func() {
 	var (
 		cmd        *containersstop.Command
-		ui         *cli.MockUi
+		ui         *command.MockUI
 		configPath string
 
 		srv          *ghttp.Server
@@ -35,7 +35,7 @@ var _ = Describe("containersstop", func() {
 
 	BeforeEach(func() {
 		var err error
-		ui = &cli.MockUi{}
+		ui = &command.MockUI{&cli.MockUi{}}
 
 		handlers = ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),

@@ -29,7 +29,7 @@ Examples:
 `
 
 type Command struct {
-	UI     cli.Ui
+	UI     command.UI
 	Server string
 	Client *httpclient.Client
 }
@@ -70,19 +70,19 @@ func (c *Command) Run(args []string) int {
 	}
 
 	if !force {
-		answer, err := c.UI.Ask(fmt.Sprintf("Do you really want to stop '%s/%s'? [y/N]", host, containerStr))
-		if err != nil {
-			if err.Error() == "interrupted" {
-				c.UI.Error("Cancelled.")
-				return 130
-			}
+		confirmation := c.UI.Confirm(fmt.Sprintf("Do you really want to stop '%s/%s'? [y/N]", host, containerStr))
+		switch confirmation {
+		case command.ConfirmYes:
+			// Pass.
+		case command.ConfirmNo:
+			c.UI.Output("Cancelled.")
+			return 1
+		case command.ConfirmCancel:
+			c.UI.Error("Cancelled.")
+			return 130
+		case command.ConfirmErr:
 			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
 			return 1
-		}
-
-		if strings.ToLower(answer) != "y" {
-			c.UI.Output("Cancelled.")
-			return 0
 		}
 	}
 
