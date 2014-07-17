@@ -73,3 +73,7 @@ tramp
 .vagrant
 
 config.json
+
+# certificates
+*.crt
+*.key
