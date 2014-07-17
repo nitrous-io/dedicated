@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -97,6 +98,7 @@ func (h *Host) createImage() (string, error) {
 		InputStream:  inputbuf,
 		OutputStream: outputbuf,
 	}
+	log.Printf("docker: building image %s", imageName)
 	if err := h.client.BuildImage(opts); err != nil {
 		return "", err
 	}
@@ -104,6 +106,7 @@ func (h *Host) createImage() (string, error) {
 }
 
 func (h *Host) createContainer(imageName string) (string, error) {
+	log.Printf("docker: creating container from image %+s", imageName)
 	container, err := h.client.CreateContainer(dockerclient.CreateContainerOptions{
 		Name:   h.Name,
 		Config: &dockerclient.Config{Hostname: h.Name, Image: imageName, Cmd: []string{"/start-freighterd"}},

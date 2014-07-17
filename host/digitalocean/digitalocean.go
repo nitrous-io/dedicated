@@ -207,7 +207,7 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	if err != nil {
 		return err
 	}
-	log.Println("SSH READY for droplet %v", h.instance.ID)
+	log.Printf("SSH READY for droplet %v", h.instance.ID)
 	h.conn = sshConn
 	return nil
 }
