@@ -23,6 +23,7 @@ type Keypair struct {
 	PublicKey             string     `db:"public_key"`
 	EncryptedPrivateKey   string     `db:"encrypted_private_key"`
 	EncryptedPrivateKeyIv string     `db:"encrypted_private_key_iv"`
+	TerminatedAt          *time.Time `db:"terminated_at"`
 	CreatedAt             *time.Time `db:"created_at"`
 	UpdatedAt             *time.Time `db:"updated_at"`
 }
@@ -56,12 +57,18 @@ func Create(
 
 func Get(db db.QueryReceiver, hostID int64) (*Keypair, error) {
 	kp := &Keypair{}
-	q := `SELECT * FROM key_pairs WHERE host_id = $1`
+	q := `SELECT * FROM key_pairs WHERE host_id = $1 AND terminated_at IS NULL`
 	err := db.Get(kp, q, hostID)
 	if err != nil {
 		return nil, err
 	}
 	return kp, nil
+}
+
+func Delete(db db.QueryReceiver, hostID int64) error {
+	_, err := db.Exec("UPDATE key_pairs SET terminated_at = $1 WHERE host_id = $2",
+		time.Now().UTC(), hostID)
+	return err
 }
 
 // wrapper around `rsa.GenerateKey` to return a private key with predefined key
