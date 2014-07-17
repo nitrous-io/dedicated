@@ -226,6 +226,31 @@ var _ = Describe("models/container", func() {
 		})
 	})
 
+	Describe("DeleteAllByHostID()", func() {
+		var c *container.Container
+
+		BeforeEach(func() {
+			var err error
+			c, err = container.FindByUserAndSlug(db, u, "deadbeef")
+			Expect(err).To(BeNil())
+		})
+
+		It("sets terminated_at of all containers with the given host ID", func() {
+			var count int
+			err := db.QueryRow("SELECT COUNT(*) FROM containers WHERE host_id = $1 AND terminated_at IS NULL;", h.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+
+			err = container.DeleteAllByHostID(db, h.ID)
+			Expect(err).To(BeNil())
+
+			err = db.QueryRow("SELECT COUNT(*) FROM containers WHERE host_id = $1 AND terminated_at IS NULL;", h.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0))
+		})
+
+	})
+
 	Describe("Insert()", func() {
 		var (
 			c *container.Container

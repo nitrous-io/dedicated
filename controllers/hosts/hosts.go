@@ -11,6 +11,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/providertemplate"
@@ -174,7 +175,21 @@ func Destroy(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 		return err
 	}
 
-	err = ht.Delete(db)
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+	err = ht.Delete(tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	err = container.DeleteAllByHostID(tx, ht.ID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	err = tx.Commit()
 	if err != nil {
 		return err
 	}
