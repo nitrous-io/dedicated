@@ -55,7 +55,7 @@ var _ = Describe("hosts", func() {
 	`)
 
 				formattedOutput = strings.TrimSpace(`
-Name      State
+Slug      State
 host-1    born
 host-2    running
 `) + "\n\n"

@@ -68,7 +68,7 @@ func (c *Command) Run(args []string) int {
 		return 0
 	}
 
-	t := formattedOutput([]string{"Name", "State"}, hosts)
+	t := formattedOutput([]string{"Slug", "State"}, hosts)
 	c.UI.Output(t)
 
 	return 0
