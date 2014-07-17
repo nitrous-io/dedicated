@@ -11,13 +11,13 @@ import (
 	"github.com/nitrous-io/nitro/command"
 
 	// import all individual commands here so they register themselves in init()
-	_ "github.com/nitrous-io/nitro/command/containers/containersdestroy"
-	_ "github.com/nitrous-io/nitro/command/containers/containersinspect"
-	_ "github.com/nitrous-io/nitro/command/containers/containersrestart"
-	_ "github.com/nitrous-io/nitro/command/containers/containersstart"
-	_ "github.com/nitrous-io/nitro/command/containers/containersstop"
 	_ "github.com/nitrous-io/nitro/command/containers/create"
+	_ "github.com/nitrous-io/nitro/command/containers/destroy"
+	_ "github.com/nitrous-io/nitro/command/containers/inspect"
 	_ "github.com/nitrous-io/nitro/command/containers/list"
+	_ "github.com/nitrous-io/nitro/command/containers/restart"
+	_ "github.com/nitrous-io/nitro/command/containers/start"
+	_ "github.com/nitrous-io/nitro/command/containers/stop"
 	_ "github.com/nitrous-io/nitro/command/hosts"
 	_ "github.com/nitrous-io/nitro/command/hostscreate"
 	_ "github.com/nitrous-io/nitro/command/hostsdestroy"
