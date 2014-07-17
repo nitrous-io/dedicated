@@ -97,7 +97,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 		return ErrRegionNotFound
 	}
 
-	pts, err := providertemplate.FindAllByRegionAndPlan(db, pl.ID, rg.ID)
+	pts, err := providertemplate.FindAllByRegionAndPlan(db, rg.ID, pl.ID)
 	if err != nil {
 		return err
 	}
