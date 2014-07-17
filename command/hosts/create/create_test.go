@@ -1,11 +1,11 @@
-package hostscreate_test
+package create_test
 
 import (
 	"net/http"
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command/hostscreate"
+	"github.com/nitrous-io/nitro/command/hosts/create"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -15,12 +15,12 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "hostscreate")
+	RunSpecs(t, "hosts/create")
 }
 
-var _ = Describe("hosts:create", func() {
+var _ = Describe("hosts/create", func() {
 	var (
-		cmd      *hostscreate.Command
+		cmd      *create.Command
 		ui       *cli.MockUi
 		srv      *ghttp.Server
 		handlers []http.HandlerFunc
@@ -29,7 +29,7 @@ var _ = Describe("hosts:create", func() {
 	BeforeEach(func() {
 		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
-		cmd = &hostscreate.Command{
+		cmd = &create.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),

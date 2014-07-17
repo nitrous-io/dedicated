@@ -1,4 +1,4 @@
-package hosts_test
+package list_test
 
 import (
 	"net/http"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command/hosts"
+	"github.com/nitrous-io/nitro/command/hosts/list"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -16,12 +16,12 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "hosts")
+	RunSpecs(t, "hosts/list")
 }
 
-var _ = Describe("hosts", func() {
+var _ = Describe("hosts/list", func() {
 	var (
-		cmd      *hosts.Command
+		cmd      *list.Command
 		ui       *cli.MockUi
 		srv      *ghttp.Server
 		handlers []http.HandlerFunc
@@ -30,7 +30,7 @@ var _ = Describe("hosts", func() {
 	BeforeEach(func() {
 		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
-		cmd = &hosts.Command{
+		cmd = &list.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),
