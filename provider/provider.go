@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"encoding/json"
 	"io"
 	"regexp"
 )
@@ -33,6 +34,10 @@ type ContainerInfo struct {
 	Host  string         `json:"host"`
 	State string         `json:"state"`
 	Ports map[string]int `json:"ports"`
+}
+
+type ContainerConfig interface {
+	json.Marshaler
 }
 
 const (

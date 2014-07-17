@@ -1,6 +1,10 @@
 package freighterclient
 
-import "io"
+import (
+	"fmt"
+	"github.com/nitrous-io/freighter/provider/docker"
+	"io"
+)
 
 // MockClient is a mock satisfying the freighter.Client interface.
 type MockClient struct {
@@ -28,9 +32,10 @@ type MockClient struct {
 	TerminateCalled int
 	TerminateError  error
 
-	ReceivedID    string
-	ReceivedName  string
-	ReceivedImage string
+	ReceivedID     string
+	ReceivedName   string
+	ReceivedImage  string
+	ReceivedConfig ContainerConfig
 }
 
 func (c *MockClient) List(h *Host) ([]*Container, error) {
@@ -44,10 +49,11 @@ func (c *MockClient) List(h *Host) ([]*Container, error) {
 	return c.Containers, nil
 }
 
-func (c *MockClient) Create(h *Host, name, image string) (*Container, error) {
+func (c *MockClient) Create(h *Host, name, image string, config ContainerConfig) (*Container, error) {
 	c.CreateCalled = c.CreateCalled + 1
 	c.ReceivedName = name
 	c.ReceivedImage = image
+	c.ReceivedConfig = config
 	return c.CreatedContainer, c.CreateError
 }
 
@@ -117,4 +123,15 @@ func (c *MockClient) Terminate(h *Host, id string) (*Container, error) {
 
 func (c *MockClient) Logs(h *Host, id string, follow, timestamps, tail string, w io.Writer) error {
 	return nil
+}
+
+func (c *MockClient) DockerContainerConfig() (*docker.ContainerConfig, error) {
+	if c.ReceivedConfig == nil {
+		return nil, nil
+	}
+	dcc, ok := c.ReceivedConfig.(*docker.ContainerConfig)
+	if !ok {
+		return &docker.ContainerConfig{}, fmt.Errorf("%#v is not a docker ContainerConfig", c.ReceivedConfig)
+	}
+	return dcc, nil
 }
