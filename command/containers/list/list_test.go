@@ -1,4 +1,4 @@
-package list_test
+package containerslist_test
 
 import (
 	"net/http"
@@ -16,12 +16,12 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "list")
+	RunSpecs(t, "containerslist")
 }
 
-var _ = Describe("list", func() {
+var _ = Describe("containerslist", func() {
 	var (
-		cmd      *list.Command
+		cmd      *containerslist.Command
 		ui       *cli.MockUi
 		srv      *ghttp.Server
 		handlers []http.HandlerFunc
@@ -30,7 +30,7 @@ var _ = Describe("list", func() {
 	BeforeEach(func() {
 		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
-		cmd = &list.Command{
+		cmd = &containerslist.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),

@@ -1,4 +1,4 @@
-package create_test
+package containerscreate_test
 
 import (
 	"net/http"
@@ -15,12 +15,12 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "create")
+	RunSpecs(t, "containerscreate")
 }
 
-var _ = Describe("create", func() {
+var _ = Describe("containerscreate", func() {
 	var (
-		cmd      *create.Command
+		cmd      *containerscreate.Command
 		ui       *cli.MockUi
 		srv      *ghttp.Server
 		handlers []http.HandlerFunc
@@ -29,7 +29,7 @@ var _ = Describe("create", func() {
 	BeforeEach(func() {
 		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
-		cmd = &create.Command{
+		cmd = &containerscreate.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),
