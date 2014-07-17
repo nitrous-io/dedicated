@@ -73,7 +73,7 @@ Content-Type: application/json; charset=utf-8
 POST /containers HTTP/1.1
 Content-Type: application/x-www-form-urlencoded
 
-name=foo&image=ubuntu-upstart:trusty
+name=foo&image=ubuntu-upstart:trusty&config=JSON
 ```
 
 **Example response**:
@@ -82,13 +82,30 @@ name=foo&image=ubuntu-upstart:trusty
 HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 
-{ "container" : { "id":"aaa", "name":"fragrant-wind-69", "image":"ubuntu", "host":"1.2.3.4", "ssh_port":10000, "state":"running" } }
+{ "container" : { "id":"aaa", "name":"fragrant-wind-69", "image":"ubuntu", "host":"1.2.3.4", "ssh_port":10000, "state":"running", "ports":{"1234":3000,"49123":8080,"49273":22} }
 ```
 
 **POST Params**:
 
 - **name** - container name (a-z, 0-9, and hyphen(-), can't start with hyphen or digits, can't end with hyphen.)
 - **image** - base image to use
+- **config** - optional configuration json to passthrough to Docker
+
+All keys of config JSON are optional.  Fully populated JSON looks like:
+```
+{
+  "Config": {
+    "Env": ["LANG=C"],
+    "ExposedPorts": {"8080/tcp": {}, "3000/tcp": {}},
+    "Volumes": {"/data": {}, "/music": {}}
+  }
+  "HostConfig": {
+    "PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]},
+    "VolumesFrom": ["somecontainer"]
+  }
+}
+```
+
 
 **Status Codes**:
 
@@ -137,6 +154,8 @@ Content-Type: application/json; charset=utf-8
 ```
 POST /containers/2cf1503ed6a0/start HTTP/1.1
 Content-Type: application/x-www-form-urlencoded
+
+config=JSON
 ```
 
 **Example response**:
@@ -153,12 +172,27 @@ Content-Type: application/json; charset=utf-8
 		"image": "nitrousio/ubuntu",
 		"host": "1.2.3.4",
 		"ssh_port": 1000,
-		"state": "running"
+		"state": "running",
+		"ports": {"1234":3000,"49273":22}
 	}
 }
 ```
 
 **POST Params**:
+
+- **config** - optional configuration json to passthrough to Docker
+
+All keys of config JSON are optional.  If "Config" key is passed, it will be
+ignored.  A fully populated JSON looks like:
+
+```
+{
+  "HostConfig": {
+    "PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]},
+    "VolumesFrom": ["somecontainer"]
+  }
+}
+```
 
 **Status Codes**:
 
