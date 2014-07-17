@@ -1,6 +1,7 @@
 package containersstop_test
 
 import (
+	"io"
 	"net/http"
 	"os"
 	"testing"
@@ -25,6 +26,8 @@ var _ = Describe("containersstop", func() {
 	var (
 		cmd        *containersstop.Command
 		ui         *command.MockUI
+		r          *io.PipeReader
+		w          *io.PipeWriter
 		configPath string
 
 		srv          *ghttp.Server
@@ -35,7 +38,8 @@ var _ = Describe("containersstop", func() {
 
 	BeforeEach(func() {
 		var err error
-		ui = &command.MockUI{&cli.MockUi{}}
+		r, w = io.Pipe()
+		ui = &command.MockUI{&cli.MockUi{InputReader: r}}
 
 		handlers = ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
@@ -56,10 +60,10 @@ var _ = Describe("containersstop", func() {
 	})
 
 	AfterEach(func() {
+		r.Close()
+		w.Close()
 		os.Remove(configPath)
 	})
-
-	// TODO Add tests for --force flag.
 
 	Context("nitro stop hostname/containername", func() {
 		doCmd := func() int {
@@ -91,6 +95,24 @@ var _ = Describe("containersstop", func() {
 				c, err = command.LoadConfig()
 				Expect(err).To(BeNil())
 				Expect(c.DefaultHost).To(Equal("host-1"))
+			})
+
+			Context("when --force option is not specified", func() {
+				doCmd := func() int {
+					return cmd.Run([]string{"host-1/gregarious-scribe-24"})
+				}
+
+				It("asks for confirmation before proceeding", func() {
+					go w.Write([]byte("n\n"))
+					code := doCmd()
+					Expect(ui.OutputWriter.String()).To(ContainSubstring("Cancelled"))
+					Expect(code).To(Equal(1))
+
+					go w.Write([]byte("y\n"))
+					code = doCmd()
+					Expect(ui.OutputWriter.String()).To(ContainSubstring("gregarious-scribe-24"))
+					Expect(code).To(Equal(0))
+				})
 			})
 		})
 	})
