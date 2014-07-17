@@ -111,10 +111,7 @@ foo    running
 		It("writes the host to the config file", func() {
 			cmd.Run([]string{"host-1"})
 
-			f, err := os.Open(configPath)
-			Expect(err).To(BeNil())
-			var configFile command.ConfigFile
-			err = json.NewDecoder(f).Decode(&configFile)
+			configFile, err := command.LoadConfig()
 			Expect(err).To(BeNil())
 			Expect(configFile.DefaultHost).To(Equal("host-1"))
 		})

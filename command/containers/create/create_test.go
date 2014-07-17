@@ -151,10 +151,7 @@ var _ = Describe("containerscreate", func() {
 			It("writes the host to the config file", func() {
 				doCmd()
 
-				f, err := os.Open(configPath)
-				Expect(err).To(BeNil())
-				var configFile command.ConfigFile
-				err = json.NewDecoder(f).Decode(&configFile)
+				configFile, err := command.LoadConfig()
 				Expect(err).To(BeNil())
 				Expect(configFile.DefaultHost).To(Equal("host-1"))
 			})
