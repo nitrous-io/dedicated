@@ -28,7 +28,7 @@ type Command struct {
 }
 
 type Host struct {
-	Name  string `json:"name"`
+	Slug  string `json:"slug"`
 	State string `json:"state"`
 }
 
@@ -68,7 +68,7 @@ func (c *Command) Run(args []string) int {
 		return 0
 	}
 
-	t := formattedOutput([]string{"Name", "State"}, hosts)
+	t := formattedOutput([]string{"Slug", "State"}, hosts)
 	c.UI.Output(t)
 
 	return 0
@@ -107,7 +107,7 @@ func formattedOutput(headers []string, hosts *[]Host) string {
 	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
 	fmt.Fprintln(w, strings.Join(headers, "\t "))
 	for _, r := range *hosts {
-		fmt.Fprintln(w, r.Name, "\t", r.State)
+		fmt.Fprintln(w, r.Slug, "\t", r.State)
 	}
 	w.Flush()
 	return b.String()

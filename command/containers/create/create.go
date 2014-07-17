@@ -18,10 +18,9 @@ import (
 )
 
 const (
-	hostUsage     = "Specify a host to create the container"
-	nameUsage     = "A unique name for the container"
-	longnameUsage = "An optional name tag for the container"
-	imageUsage    = "Specify an image to use to create the container"
+	hostUsage  = "Specify a host to create the container"
+	slugUsage  = "A unique slug for the container"
+	imageUsage = "Specify an image to use to create the container"
 )
 
 const usage = `
@@ -32,8 +31,7 @@ Usage: nitro create [options]
 Options:
 
   -H, --host=""        %s
-  -n, --name=""        %s
-  -L, --longname=""    %s
+  -s, --slug=""        %s
   -i, --image=""       %s
 `
 
@@ -44,10 +42,9 @@ type Command struct {
 }
 
 type containerParams struct {
-	host     string
-	name     string
-	longname string
-	image    string
+	host  string
+	slug  string
+	image string
 }
 
 func init() {
@@ -63,7 +60,7 @@ func NewCommand() (cli.Command, error) {
 }
 
 func (c *Command) Help() string {
-	return strings.TrimSpace(fmt.Sprintf(usage, hostUsage, nameUsage, longnameUsage, imageUsage))
+	return strings.TrimSpace(fmt.Sprintf(usage, hostUsage, slugUsage, imageUsage))
 }
 
 func (c *Command) Run(args []string) int {
@@ -72,8 +69,7 @@ func (c *Command) Run(args []string) int {
 	cmdFlags := flag.NewFlagSet("create", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
 	cmdFlags.StringVarP(&params.host, "host", "H", "", hostUsage)
-	cmdFlags.StringVarP(&params.name, "name", "n", "", nameUsage)
-	cmdFlags.StringVarP(&params.longname, "longname", "L", "", longnameUsage)
+	cmdFlags.StringVarP(&params.slug, "slug", "s", "", slugUsage)
 	cmdFlags.StringVarP(&params.image, "image", "i", "", imageUsage)
 
 	err := cmdFlags.Parse(args)
@@ -81,8 +77,8 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	if params.name == "" {
-		params.name = randomnamegenerator.Generate("container")
+	if params.slug == "" {
+		params.slug = randomnamegenerator.Generate("container")
 	}
 
 	if params.host == "" {
@@ -104,8 +100,8 @@ func (c *Command) Run(args []string) int {
 	command.SaveDefaultHost(params.host)
 
 	if cnr != nil {
-		c.UI.Output(fmt.Sprintf("Created new container: '%s'", cnr.Name))
-		t := PrettyPrint([]string{"Name", "Image", "State"}, cnr)
+		c.UI.Output(fmt.Sprintf("Created new container: '%s'", cnr.Slug))
+		t := PrettyPrint([]string{"Slug", "Image", "State"}, cnr)
 		c.UI.Output(t)
 	} else {
 		c.UI.Output("Done.")
@@ -120,12 +116,10 @@ func (c *Command) Synopsis() string {
 func (c *Command) createContainer(cp *containerParams) (*Container, error) {
 	p := &url.Values{}
 
-	if cp.name != "" {
-		p.Set("name", cp.name)
+	if cp.slug != "" {
+		p.Set("slug", cp.slug)
 	}
-	if cp.longname != "" {
-		p.Set("longname", cp.longname)
-	}
+
 	if cp.image != "" {
 		p.Set("image", cp.image)
 	}

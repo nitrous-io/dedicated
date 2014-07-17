@@ -12,9 +12,9 @@ import (
 )
 
 const usage = `
-Usage: nitro hosts:destroy <name>
+Usage: nitro hosts:destroy <slug>
 
-  deletes the host identified by the name
+  deletes the host identified by the slug
 `
 
 type Command struct {

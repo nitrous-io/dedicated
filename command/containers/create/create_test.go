@@ -57,20 +57,20 @@ var _ = Describe("containerscreate", func() {
 	Context("when not all options are specified", func() {
 		It("populates request with only given params", func() {
 			handlers = append(handlers, func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.FormValue("name")).To(Equal("foo"))
+				Expect(r.FormValue("slug")).To(Equal("foo"))
 			})
 			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 			cmd.Run([]string{
 				"--host=host-1",
-				"--name=foo",
+				"--slug=foo",
 			})
 		})
 	})
 
-	Context("when name is not specified", func() {
-		It("populates request with a randomly generated name", func() {
+	Context("when slug is not specified", func() {
+		It("populates request with a randomly generated slug", func() {
 			handlers = append(handlers, func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.FormValue("name")).NotTo(Equal(""))
+				Expect(r.FormValue("slug")).NotTo(Equal(""))
 			})
 			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 			cmd.Run([]string{
@@ -82,8 +82,7 @@ var _ = Describe("containerscreate", func() {
 	Context("when host is not specified", func() {
 		doCmd := func() int {
 			return cmd.Run([]string{
-				"--name=foo",
-				"--longname=foobar",
+				"--slug=foo",
 				"--image=ubuntu",
 			})
 		}
@@ -119,16 +118,14 @@ var _ = Describe("containerscreate", func() {
 		doCmd := func() int {
 			return cmd.Run([]string{
 				"--host=host-1",
-				"--name=foo",
-				"--longname=foobar",
+				"--slug=foo",
 				"--image=ubuntu",
 			})
 		}
 
 		It("populates request with all params", func() {
 			handlers = append(handlers, func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.FormValue("name")).To(Equal("foo"))
-				Expect(r.FormValue("longname")).To(Equal("foobar"))
+				Expect(r.FormValue("slug")).To(Equal("foo"))
 				Expect(r.FormValue("image")).To(Equal("ubuntu"))
 			})
 			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
@@ -139,13 +136,13 @@ var _ = Describe("containerscreate", func() {
 			BeforeEach(func() {
 				response := `{
 					"status": "created",
-					"container": { "name": "wild-rocket-23", "image": "ubuntu", "state": "running" }
+					"container": { "slug": "wild-rocket-23", "image": "ubuntu", "state": "running" }
 				}`
 				handlers = append(handlers, ghttp.RespondWith(http.StatusCreated, response))
 				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 			})
 
-			It("reports the container's name", func() {
+			It("reports the container's slug", func() {
 				code := doCmd()
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("wild-rocket-23"))
 				Expect(code).To(Equal(0))
