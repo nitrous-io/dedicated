@@ -22,6 +22,7 @@ import (
 
 var (
 	ErrSizeRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "host size not provided")
+	ErrNameRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "name not provided")
 	ErrPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
 	ErrRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
 	ErrProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
@@ -70,7 +71,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 
 	name := r.FormValue("name")
 	if name == "" {
-		name = "double-rainbow" //FIXME: implement a random name generator
+		return ErrNameRequired
 	}
 
 	regionName := r.FormValue("region")
