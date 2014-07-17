@@ -1,10 +1,8 @@
 package containersinspect
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/mitchellh/cli"
@@ -56,20 +54,8 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	var host, containerStr string
-	arr := strings.Split(args[0], "/")
-	switch len(arr) {
-	case 1:
-		host = command.DefaultHost()
-		if host == "" {
-			c.UI.Output(c.Help())
-			return 1
-		}
-		containerStr = arr[0]
-	case 2:
-		// E.g. "hostname/containername".
-		host, containerStr = arr[0], arr[1]
-	default:
+	host, containerStr, err := SplitHostContainer(args[0])
+	if err != nil {
 		c.UI.Output(c.Help())
 		return 1
 	}
@@ -100,19 +86,9 @@ func (c *Command) inspectContainer(host, container string) (*Container, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = httpclient.CheckResponse(resp, http.StatusOK)
+	cnr, err := ParseContainerResponse(resp)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	j := struct {
-		Container *Container `json:"container"`
-	}{}
-	err = json.NewDecoder(resp.Body).Decode(&j)
-	if err != nil {
-		return nil, err
-	}
-
-	return j.Container, nil
+	return cnr, nil
 }
