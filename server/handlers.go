@@ -80,7 +80,12 @@ func (s *Server) terminateContainer(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) startContainer(w http.ResponseWriter, r *http.Request) {
-	s.performContainerControl(w, r, s.provider.Start, "started")
+	config := r.FormValue("config")
+	curryStart := func(id string) (*provider.ContainerInfo, error) {
+		return s.provider.Start(id, config)
+	}
+
+	s.performContainerControl(w, r, curryStart, "started")
 }
 
 func (s *Server) stopContainer(w http.ResponseWriter, r *http.Request) {

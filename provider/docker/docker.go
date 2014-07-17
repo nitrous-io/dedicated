@@ -118,17 +118,24 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	}, nil
 }
 
-func (p *DockerProvider) Start(id string) (*provider.ContainerInfo, error) {
+func (p *DockerProvider) Start(id, config string) (*provider.ContainerInfo, error) {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
 
+	startConfig := container.HostConfig
+	_, hostConfig, err := parseConfigParam(config)
+	if err != nil {
+		return nil, err
+	}
+	overrideHostConfig(startConfig, hostConfig)
+
 	if !container.State.Running {
 		p.logger.Info("DockerProvider: starting container", id)
 		start := time.Now()
 
-		err = p.client.StartContainer(id, container.HostConfig)
+		err = p.client.StartContainer(id, startConfig)
 		if err != nil {
 			return nil, err
 		}

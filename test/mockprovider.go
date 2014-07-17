@@ -80,13 +80,14 @@ func (p *MockProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	return nil, ErrMockProviderContainerNotFound
 }
 
-func (p *MockProvider) Start(id string) (*provider.ContainerInfo, error) {
+func (p *MockProvider) Start(id, config string) (*provider.ContainerInfo, error) {
 	info, _ := p.GetInfo(id)
 	if info != nil {
 		info.State = provider.ContainerStateRunning
 	}
 	p.StartCalled = true
 	p.ReceivedID = id
+	p.ReceivedConfig = config
 	return info, p.StartError
 }
 

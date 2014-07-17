@@ -262,7 +262,7 @@ var _ = Describe("provider/docker", func() {
 
 				JustBeforeEach(func() {
 					var err error
-					info, err = prov.Start(id)
+					info, err = prov.Start(id, "")
 					Expect(err).To(BeNil())
 					host = getHost(id)
 				})
@@ -436,7 +436,7 @@ var _ = Describe("provider/docker", func() {
 					BeforeEach(func() {
 						image := "jpetazzo/busybox"
 						busyboxName = RandomName("freightertest")
-						_, err := prov.Create(busyboxName, image)
+						_, err := prov.Create(busyboxName, image, "")
 						Expect(err).To(BeNil())
 						busyboxID = getID(busyboxName)
 					})
@@ -675,6 +675,13 @@ var _ = Describe("provider/docker", func() {
 			configJSON string
 		)
 
+		// getPortBindings output looks like "[map[HostIp:127.0.0.1 HostPort:1234]]"
+		// or "<no value>" if bindings for given port do not exist
+		getPortBindings := func(id, port string) string {
+			return doInspect(id, fmt.Sprintf(
+				`{{index .HostConfig.PortBindings "%s"}}`, port))
+		}
+
 		BeforeEach(func() {
 			var err error
 			configJSON = `{
@@ -705,12 +712,28 @@ var _ = Describe("provider/docker", func() {
 			Expect(doInspect(id,
 				"{{range $p, $stub := .Config.ExposedPorts}}{{$p}} {{end}}")).
 				To(Equal("22/tcp 8080/tcp"))
-			Expect(doInspect(id,
-				`{{index .HostConfig.PortBindings "3000/tcp"}}`)).
-				To(Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
-			Expect(doInspect(id,
-				`{{index .HostConfig.PortBindings "22/tcp"}}`)).
-				To(ContainSubstring("[map[HostIp:0.0.0.0 HostPort:49")) // Docker will use 49000-49900
+			Expect(getPortBindings(id, "3000/tcp")).To(
+				Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
+			Expect(getPortBindings(id, "22/tcp")).To(
+				ContainSubstring("[map[HostIp:0.0.0.0 HostPort:49")) // Docker will use 49000-49900
+
+			// should be split out but kept here due to each container create taking >10s
+			// It("persists PortBindings on next start if no options given")
+			_, err := prov.Stop(id)
+			Expect(err).To(BeNil())
+			_, err = prov.Start(id, "")
+			Expect(err).To(BeNil())
+			Expect(getPortBindings(id, "3000/tcp")).To(
+				Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
+
+			// It("overrides existing PortBindings on next start if options given")
+			_, err = prov.Stop(id)
+			Expect(err).To(BeNil())
+			_, err = prov.Start(id, strings.Replace(configJSON, "3000/tcp", "4242/tcp", 1))
+			Expect(err).To(BeNil())
+			Expect(getPortBindings(id, "4242/tcp")).To(
+				Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
+			Expect(getPortBindings(id, "3000/tcp")).To(Equal("<no value>"))
 		})
 	})
 })
