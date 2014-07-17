@@ -6,10 +6,10 @@ form
     .ui.input-group
       label.field-label for='hosts-new-name'
         | Name
-      input type='text' id='hosts-new-name' name='long_name'
+      input type='text' id='hosts-new-name' name='name'
 
       label.field-label for='hosts-new-slug'
-        | Unique Slug
+        | Slug
       input type='text' id='hosts-new-slug' name='slug'
 
       label.field-label for='hosts-new-region'
@@ -135,7 +135,7 @@ form
 
           tr
             th Total Memory
-            td 2GB
+            td 2 GB
 
           tr
             th Total SSD Storage

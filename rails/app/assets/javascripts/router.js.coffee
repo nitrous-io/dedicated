@@ -11,3 +11,5 @@ App.Router.map ->
 
     @resource 'hosts', ->
       @route 'new'
+
+    @resource 'host', path: '/hosts/:host_id', ->

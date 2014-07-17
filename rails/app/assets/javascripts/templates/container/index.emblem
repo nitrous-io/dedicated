@@ -11,7 +11,7 @@
     tr
       th Slug
       td colspan='3'
-        | web-app
+        | web-app-42
 
     tr
       th Image

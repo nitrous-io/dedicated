@@ -1,6 +1,6 @@
 ul.hosts
   li
-    a href='#'
+    a href='#/hosts/1'
       h3 Project X
     ul.containers
       li.selected

@@ -1,6 +1,6 @@
 App.ContainerIndexRoute = Em.Route.extend
   activate: ->
-    App.set 'title', 'container'
+    App.set 'title', 'Web App'
 
   renderTemplate: ->
     @render 'container/index', into: 'container'

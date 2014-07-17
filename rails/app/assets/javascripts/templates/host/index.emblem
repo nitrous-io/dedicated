@@ -1,0 +1,39 @@
+.card-body
+  table.ui.table
+    tr
+      th State
+      td colspan='3'
+        .state-indicator.running
+        | Running
+
+    tr
+      th Slug
+      td colspan='3'
+        | project-x-37
+
+    tr
+      th Region
+      td colspan='3'
+        | US West (sfo)
+
+    tr
+      th Size
+      td Small
+      th CPU Usage (%)
+      td.usage 12.5, 27.3
+
+    tr
+      th
+      td
+      th Memory (GB)
+      td.usage 0.77 / 2.00
+
+    tr
+      th
+      td
+      th Storage (GB)
+      td.usage 3.14 / 40.00
+
+.card-footer.bordered
+  .right
+    button.ui.btn.primary Restart

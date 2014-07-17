@@ -13,10 +13,10 @@ form
 
       label.field-label for='containers-new-name'
         | Name
-      input type='text' id='containers-new-name' name='long_name'
+      input type='text' id='containers-new-name' name='name'
 
       label.field-label for='containers-new-slug'
-        | Unique Slug
+        | Slug
       input type='text' id='containers-new-slug' name='slug'
 
   .card-body.bordered
