@@ -22,11 +22,11 @@ import (
 
 var (
 	ErrSizeRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "host size not provided")
-	ErrNameRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "name not provided")
+	ErrSlugRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "slug not provided")
 	ErrPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
 	ErrRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
 	ErrProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
-	ErrHostNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching host found for the given name")
+	ErrHostNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching host found for the given slug")
 
 	hostbuilderURL string
 )
@@ -69,9 +69,9 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 		return ErrSizeRequired
 	}
 
-	name := r.FormValue("name")
-	if name == "" {
-		return ErrNameRequired
+	slug := r.FormValue("slug")
+	if slug == "" {
+		return ErrSlugRequired
 	}
 
 	regionName := r.FormValue("region")
@@ -79,7 +79,10 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 		regionName = "apse" //FIXME: user model should specify a default region?
 	}
 
-	longname := r.FormValue("longname")
+	name := r.FormValue("name")
+	if name == "" {
+		name = slug
+	}
 
 	// TODO: check if user account is eligible to create hosts (has a credit card on file)
 	pl, err := plan.FindByName(db, size)
@@ -117,7 +120,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 			config[k] = ""
 		}
 	}
-	config["name"] = name
+	config["name"] = slug
 	config["public_keys"] = []string{} //FIXME: pass actual public keys
 
 	info, err := HostbuilderClient.Create(pt.Provider, &config)
@@ -131,8 +134,8 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 		PlanID:             pl.ID,
 		ProviderTemplateID: pt.ID,
 
-		Name:          name,
-		LongName:      sql.NullString{longname, true},
+		Slug:          slug,
+		Name:          sql.NullString{name, true},
 		MaxContainers: sql.NullInt64{pl.MaxContainers, true},
 
 		IPAddress:          sql.NullString{info.IPAddress, true},
@@ -159,7 +162,7 @@ func Destroy(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 	logger := c.Logger()
 	vars := env.Vars
 
-	ht, err := getHost(db, env.User, vars["name"])
+	ht, err := getHost(db, env.User, vars["slug"])
 	if err != nil {
 		return err
 	}
@@ -183,7 +186,7 @@ func Start(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r 
 	logger := c.Logger()
 	vars := env.Vars
 
-	ht, err := getHost(db, env.User, vars["name"])
+	ht, err := getHost(db, env.User, vars["slug"])
 	if err != nil {
 		return err
 	}
@@ -204,7 +207,7 @@ func Stop(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *
 	logger := c.Logger()
 	vars := env.Vars
 
-	ht, err := getHost(db, env.User, vars["name"])
+	ht, err := getHost(db, env.User, vars["slug"])
 	if err != nil {
 		return err
 	}
@@ -225,7 +228,7 @@ func Restart(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 	logger := c.Logger()
 	vars := env.Vars
 
-	ht, err := getHost(db, env.User, vars["name"])
+	ht, err := getHost(db, env.User, vars["slug"])
 	if err != nil {
 		return err
 	}
@@ -247,8 +250,8 @@ func respondOK(w http.ResponseWriter, logger *logger.Logger) {
 	logger.Infof("Response: 200 OK")
 }
 
-func getHost(db *db.Database, user *user.User, name string) (*host.Host, error) {
-	ht, err := host.FindByUserAndName(db, user, name)
+func getHost(db *db.Database, user *user.User, slug string) (*host.Host, error) {
+	ht, err := host.FindByUserAndSlug(db, user, slug)
 	if err != nil {
 		return nil, err
 	}

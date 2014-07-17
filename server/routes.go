@@ -19,18 +19,18 @@ func (s *Server) drawRoutes() {
 
 		s.route("/hosts", mw.Auth(mw.JSON(hosts.Index)), "GET")
 		s.route("/hosts", mw.Auth(mw.JSON(hosts.Create)), "POST")
-		s.route("/hosts/{name}", mw.Auth(mw.Vars(hosts.Destroy)), "DELETE")
-		s.route("/hosts/{name}/start", mw.Auth(mw.Vars(hosts.Start)), "POST")
-		s.route("/hosts/{name}/stop", mw.Auth(mw.Vars(hosts.Stop)), "POST")
-		s.route("/hosts/{name}/restart", mw.Auth(mw.Vars(hosts.Restart)), "POST")
+		s.route("/hosts/{slug}", mw.Auth(mw.Vars(hosts.Destroy)), "DELETE")
+		s.route("/hosts/{slug}/start", mw.Auth(mw.Vars(hosts.Start)), "POST")
+		s.route("/hosts/{slug}/stop", mw.Auth(mw.Vars(hosts.Stop)), "POST")
+		s.route("/hosts/{slug}/restart", mw.Auth(mw.Vars(hosts.Restart)), "POST")
 
 		s.route("/hosts/{host}/containers", mw.Auth(mw.JSON(containers.Index)), "GET")
 		s.route("/hosts/{host}/containers", mw.Auth(mw.JSON(containers.Create)), "POST")
-		s.route("/hosts/{host}/containers/{name}", mw.Auth(mw.JSON(containers.Show)), "GET")
-		s.route("/hosts/{host}/containers/{name}/start", mw.Auth(mw.JSON(containers.Start)), "POST")
-		s.route("/hosts/{host}/containers/{name}/stop", mw.Auth(mw.JSON(containers.Stop)), "POST")
-		s.route("/hosts/{host}/containers/{name}/restart", mw.Auth(mw.JSON(containers.Restart)), "POST")
-		s.route("/hosts/{host}/containers/{name}", mw.Auth(mw.JSON(containers.Destroy)), "DELETE")
+		s.route("/hosts/{host}/containers/{slug}", mw.Auth(mw.JSON(containers.Show)), "GET")
+		s.route("/hosts/{host}/containers/{slug}/start", mw.Auth(mw.JSON(containers.Start)), "POST")
+		s.route("/hosts/{host}/containers/{slug}/stop", mw.Auth(mw.JSON(containers.Stop)), "POST")
+		s.route("/hosts/{host}/containers/{slug}/restart", mw.Auth(mw.JSON(containers.Restart)), "POST")
+		s.route("/hosts/{host}/containers/{slug}", mw.Auth(mw.JSON(containers.Destroy)), "DELETE")
 	})
 
 	s.static("/", "public") // catch-all, must come last

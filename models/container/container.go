@@ -12,10 +12,10 @@ import (
 var nameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*[a-z0-9]\z`)
 
 var (
-	ErrNameBlank    = errors.New("name can't be blank")
-	ErrNameInvalid  = errors.New("name may only contain alphanumeric characters or dashes and cannot begin or end with a dash")
-	ErrNameTooShort = errors.New("name is too short (minimum is 2 characters)")
-	ErrNameTooLong  = errors.New("name is too long (maximum is 255 characters)")
+	ErrSlugBlank    = errors.New("name can't be blank")
+	ErrSlugInvalid  = errors.New("name may only contain alphanumeric characters or dashes and cannot begin or end with a dash")
+	ErrSlugTooShort = errors.New("name is too short (minimum is 2 characters)")
+	ErrSlugTooLong  = errors.New("name is too long (maximum is 255 characters)")
 	ErrImageBlank   = errors.New("image can't be blank")
 )
 
@@ -27,8 +27,8 @@ type Container struct {
 	UserID    int64          `db:"user_id"    json:"user_id"`
 	HostID    int64          `db:"host_id"    json:"host_id"`
 	Image     string         `db:"image"      json:"image"`
-	Name      string         `db:"name"       json:"name"`
-	LongName  sql.NullString `db:"long_name"  json:"long_name"`
+	Slug      string         `db:"slug"       json:"slug"`
+	Name      sql.NullString `db:"name"       json:"name"`
 	IPAddress sql.NullString `db:"ip_address" json:"ip_address"`
 
 	TerminatedAt *time.Time `db:"terminated_at" json:"terminated_at"`
@@ -51,9 +51,9 @@ func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
 	return c, nil
 }
 
-func FindByHostIDAndName(d db.QueryReceiver, hostID int64, name string) (*Container, error) {
+func FindByHostIDAndSlug(d db.QueryReceiver, hostID int64, slug string) (*Container, error) {
 	c := &Container{}
-	err := d.Get(c, `SELECT * FROM containers WHERE host_id = $1 AND name = $2 AND terminated_at IS NULL;`, hostID, name)
+	err := d.Get(c, `SELECT * FROM containers WHERE host_id = $1 AND slug = $2 AND terminated_at IS NULL;`, hostID, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -74,8 +74,8 @@ func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
 
 func (c *Container) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO containers
-		(cid, user_id, host_id, image, name, long_name, ip_address)
-		VALUES (:cid, :user_id, :host_id, :image, :name, :long_name, :ip_address)
+		(cid, user_id, host_id, image, slug, name, ip_address)
+		VALUES (:cid, :user_id, :host_id, :image, :slug, :name, :ip_address)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -85,8 +85,8 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 
 func (c *Container) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE containers
-		SET (cid, name, long_name, ip_address, touched_at, updated_at)
-		= (:cid, :name, :long_name, :ip_address, :touched_at, now())
+		SET (cid, slug, name, ip_address, touched_at, updated_at)
+		= (:cid, :slug, :name, :ip_address, :touched_at, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -104,18 +104,18 @@ func (c *Container) Delete(d db.QueryReceiver) error {
 }
 
 func (c *Container) Validate() error {
-	if c.Name == "" {
-		return ErrNameBlank
+	if c.Slug == "" {
+		return ErrSlugBlank
 	}
-	nameLen := len(c.Name)
+	nameLen := len(c.Slug)
 	if nameLen < 2 {
-		return ErrNameTooShort
+		return ErrSlugTooShort
 	}
 	if nameLen > 255 {
-		return ErrNameTooLong
+		return ErrSlugTooLong
 	}
-	if !nameRe.MatchString(c.Name) {
-		return ErrNameInvalid
+	if !nameRe.MatchString(c.Slug) {
+		return ErrSlugInvalid
 	}
 	if c.Image == "" {
 		return ErrImageBlank

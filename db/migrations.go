@@ -149,5 +149,19 @@ func init() {
 				CREATE INDEX index_containers_on_cid ON containers USING btree (cid);
 			`,
 		},
+		{
+			Version: "120",
+			Up: `
+				ALTER TABLE containers RENAME COLUMN name TO slug;
+				ALTER TABLE containers RENAME COLUMN long_name TO name;
+				DROP INDEX index_containers_on_name;
+				CREATE UNIQUE INDEX index_containers_on_slug ON containers USING btree (slug);
+
+				ALTER TABLE hosts RENAME COLUMN name TO slug;
+				ALTER TABLE hosts RENAME COLUMN long_name TO name;
+				DROP INDEX index_hosts_on_name;
+				CREATE UNIQUE INDEX index_hosts_on_slug ON hosts USING btree (slug);
+			`,
+		},
 	}
 }

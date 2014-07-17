@@ -64,7 +64,7 @@ var _ = Describe("models/container", func() {
 
 		h = &host.Host{
 			UserID:             u.ID,
-			Name:               "my-host-1",
+			Slug:               "my-host-1",
 			RegionID:           r.ID,
 			PlanID:             p.ID,
 			ProviderTemplateID: pt.ID,
@@ -72,7 +72,7 @@ var _ = Describe("models/container", func() {
 		err = h.Insert(db)
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec("INSERT INTO containers (cid, user_id, host_id, image, name) values ($1, $2, $3, $4, $5);",
+		_, err = db.Exec("INSERT INTO containers (cid, user_id, host_id, image, slug) values ($1, $2, $3, $4, $5);",
 			"deadbeef", u.ID, h.ID, "nitrous-base", "my-1st-container")
 		Expect(err).To(BeNil())
 	})
@@ -91,7 +91,7 @@ var _ = Describe("models/container", func() {
 				Expect(c).NotTo(BeNil())
 				Expect(c.CID).To(Equal("deadbeef"))
 				Expect(c.Image).To(Equal("nitrous-base"))
-				Expect(c.Name).To(Equal("my-1st-container"))
+				Expect(c.Slug).To(Equal("my-1st-container"))
 			})
 
 			Context("when container has been terminated", func() {
@@ -126,26 +126,26 @@ var _ = Describe("models/container", func() {
 		})
 	})
 
-	Describe("FindByHostIDAndName()", func() {
-		Context("when a container record with a given host ID and name exists", func() {
+	Describe("FindByHostIDAndSlug()", func() {
+		Context("when a container record with a given host ID and slug exists", func() {
 			It("returns the host record", func() {
-				c, err := container.FindByHostIDAndName(db, h.ID, "my-1st-container")
+				c, err := container.FindByHostIDAndSlug(db, h.ID, "my-1st-container")
 				Expect(err).To(BeNil())
 				Expect(c).NotTo(BeNil())
 				Expect(c.CID).To(Equal("deadbeef"))
 				Expect(c.Image).To(Equal("nitrous-base"))
-				Expect(c.Name).To(Equal("my-1st-container"))
+				Expect(c.Slug).To(Equal("my-1st-container"))
 			})
 
 			Context("when container has been terminated", func() {
 				BeforeEach(func() {
 					_, err := db.Exec(`UPDATE containers SET terminated_at = now()
-						WHERE host_id = $1 AND name = $2;`, h.ID, "my-1st-container")
+						WHERE host_id = $1 AND slug = $2;`, h.ID, "my-1st-container")
 					Expect(err).To(BeNil())
 				})
 
 				It("returns nil", func() {
-					c, err := container.FindByHostIDAndName(db, h.ID, "my-1st-container")
+					c, err := container.FindByHostIDAndSlug(db, h.ID, "my-1st-container")
 					Expect(err).To(BeNil())
 					Expect(c).To(BeNil())
 				})
@@ -154,7 +154,7 @@ var _ = Describe("models/container", func() {
 
 		Context("when a container record with a given host ID and name does not exist", func() {
 			It("returns nil", func() {
-				c, err := container.FindByHostIDAndName(db, h.ID, "non-existent-containername")
+				c, err := container.FindByHostIDAndSlug(db, h.ID, "non-existent-containername")
 				Expect(err).To(BeNil())
 				Expect(c).To(BeNil())
 			})
@@ -163,7 +163,7 @@ var _ = Describe("models/container", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				c, err := container.FindByHostIDAndName(db, h.ID, "my-1st-container")
+				c, err := container.FindByHostIDAndSlug(db, h.ID, "my-1st-container")
 				Expect(err).NotTo(BeNil())
 				Expect(c).To(BeNil())
 			})
@@ -179,7 +179,7 @@ var _ = Describe("models/container", func() {
 
 				Expect(containers[0].CID).To(Equal("deadbeef"))
 				Expect(containers[0].Image).To(Equal("nitrous-base"))
-				Expect(containers[0].Name).To(Equal("my-1st-container"))
+				Expect(containers[0].Slug).To(Equal("my-1st-container"))
 			})
 
 			Context("when some containers have been terminated", func() {
@@ -203,7 +203,7 @@ var _ = Describe("models/container", func() {
 				var err error
 				h2 = &host.Host{
 					UserID:             u.ID,
-					Name:               "my-host-2",
+					Slug:               "my-host-2",
 					RegionID:           r.ID,
 					PlanID:             p.ID,
 					ProviderTemplateID: pt.ID,
@@ -240,7 +240,7 @@ var _ = Describe("models/container", func() {
 				UserID: u.ID,
 				HostID: h.ID,
 				Image:  "nitrous-base",
-				Name:   "java-test-container",
+				Slug:   "java-test-container",
 			}
 			err = c.Insert(db)
 			Expect(err).To(BeNil())
@@ -254,7 +254,7 @@ var _ = Describe("models/container", func() {
 			Expect(cntnr.UserID).To(Equal(u.ID))
 			Expect(cntnr.HostID).To(Equal(h.ID))
 			Expect(cntnr.Image).To(Equal("nitrous-base"))
-			Expect(cntnr.Name).To(Equal("java-test-container"))
+			Expect(cntnr.Slug).To(Equal("java-test-container"))
 		})
 
 		It("fills up the fields in original struct", func() {
@@ -276,14 +276,14 @@ var _ = Describe("models/container", func() {
 				UserID: u.ID,
 				HostID: h.ID,
 				Image:  "nitrous-base",
-				Name:   "java-test-container",
+				Slug:   "java-test-container",
 			}
 			err = c.Insert(db)
 			Expect(err).To(BeNil())
 		})
 
 		It("updates the container in the database", func() {
-			c.Name = "jboss"
+			c.Slug = "jboss"
 			c.IPAddress = sql.NullString{"1.2.3.4", true}
 			touchedAt := time.Date(2013, time.November, 10, 0, 0, 0, 0, time.UTC)
 			c.TouchedAt = &touchedAt
@@ -296,7 +296,7 @@ var _ = Describe("models/container", func() {
 			Expect(cntnr.CID).To(Equal(cid))
 
 			// Updated fields.
-			Expect(cntnr.Name).To(Equal("jboss"))
+			Expect(cntnr.Slug).To(Equal("jboss"))
 			Expect(cntnr.IPAddress.String).To(Equal("1.2.3.4"))
 			Expect(cntnr.TouchedAt.Unix()).To(Equal(touchedAt.Unix()))
 
@@ -307,7 +307,7 @@ var _ = Describe("models/container", func() {
 		})
 
 		It("fills up the fields in original struct", func() {
-			c.Name = "jboss"
+			c.Slug = "jboss"
 			err := c.Update(db)
 			Expect(err).To(BeNil())
 
@@ -318,7 +318,7 @@ var _ = Describe("models/container", func() {
 		It("updates UpdatedAt", func() {
 			origUpdatedAt := c.UpdatedAt
 
-			c.Name = "jboss"
+			c.Slug = "jboss"
 			err := c.Update(db)
 			Expect(err).To(BeNil())
 
@@ -350,7 +350,7 @@ var _ = Describe("models/container", func() {
 				It("does not get updated", func() {
 					h2 := &host.Host{
 						UserID:             u.ID,
-						Name:               "my-host-2",
+						Slug:               "my-host-2",
 						RegionID:           r.ID,
 						PlanID:             p.ID,
 						ProviderTemplateID: pt.ID,
@@ -407,13 +407,13 @@ var _ = Describe("models/container", func() {
 				UserID:       u.ID,
 				HostID:       h.ID,
 				Image:        "nitrous-base",
-				Name:         "java-test-container",
+				Slug:         "java-test-container",
 				TerminatedAt: nil,
 			}
 			err := c.Insert(db)
 			Expect(err).To(BeNil())
 
-			c, err = container.FindByHostIDAndName(db, h.ID, "java-test-container")
+			c, err = container.FindByHostIDAndSlug(db, h.ID, "java-test-container")
 			Expect(err).To(BeNil())
 			Expect(c).NotTo(BeNil())
 			Expect(c.CID).To(Equal("beefface"))
@@ -449,7 +449,7 @@ var _ = Describe("models/container", func() {
 			c = &container.Container{
 				UserID: u.ID,
 				HostID: h.ID,
-				Name:   "foo",
+				Slug:   "foo",
 				Image:  "nitrous-base",
 			}
 			Expect(c.Validate()).To(BeNil())
@@ -466,23 +466,23 @@ var _ = Describe("models/container", func() {
 				input string
 				err   error
 			}{
-				{"", container.ErrNameBlank},
+				{"", container.ErrSlugBlank},
 				{"foo", nil},
 				{"f00", nil},
 				{"foo-bar", nil},
 				{"fo", nil},
-				{"f", container.ErrNameTooShort},
+				{"f", container.ErrSlugTooShort},
 				{"ffffffffffffffffffffffffffffff", nil},
-				{s, container.ErrNameTooLong},
+				{s, container.ErrSlugTooLong},
 				{s[:255], nil},
-				{"foo-", container.ErrNameInvalid},
-				{"f-o-0-", container.ErrNameInvalid},
-				{"-foo", container.ErrNameInvalid},
-				{"FOO", container.ErrNameInvalid},
+				{"foo-", container.ErrSlugInvalid},
+				{"f-o-0-", container.ErrSlugInvalid},
+				{"-foo", container.ErrSlugInvalid},
+				{"FOO", container.ErrSlugInvalid},
 			}
 
 			for _, t := range tests {
-				c.Name = t.input
+				c.Slug = t.input
 				Expect(c.Validate() == t.err).To(BeTrue(),
 					"Expected '%s' to return error '%v'", t.input, t.err)
 			}

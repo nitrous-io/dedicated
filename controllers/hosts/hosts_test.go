@@ -104,13 +104,13 @@ var _ = Describe("controllers/hosts", func() {
 			Context("when user has hosts", func() {
 				BeforeEach(func() {
 					hs, err := CreateHostStack(db, &HostStack{
-						H: &host.Host{Name: "foo"},
+						H: &host.Host{Slug: "foo"},
 						U: u,
 					})
 					Expect(err).To(BeNil())
 
 					_, err = CreateHostStack(db, &HostStack{
-						H:  &host.Host{Name: "bar"},
+						H:  &host.Host{Slug: "bar"},
 						U:  u,
 						R:  hs.R,
 						P:  hs.P,
@@ -130,10 +130,10 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(ok).To(BeTrue())
 					Expect(hosts).To(HaveLen(2))
 
-					Expect(hosts[0].Name).To(Equal("foo"))
+					Expect(hosts[0].Slug).To(Equal("foo"))
 					Expect(hosts[0].UserID).To(Equal(u.ID))
 
-					Expect(hosts[1].Name).To(Equal("bar"))
+					Expect(hosts[1].Slug).To(Equal("bar"))
 					Expect(hosts[1].UserID).To(Equal(u.ID))
 				})
 			})
@@ -217,7 +217,7 @@ var _ = Describe("controllers/hosts", func() {
 				params.Set("size", hs.P.Name)
 				params.Set("region", hs.R.Name)
 				err := doRequest()
-				Expect(err).To(MatchError(hosts.ErrNameRequired))
+				Expect(err).To(MatchError(hosts.ErrSlugRequired))
 			})
 		})
 
@@ -225,7 +225,7 @@ var _ = Describe("controllers/hosts", func() {
 			It("returns error plan not found", func() {
 				params = &url.Values{}
 				params.Set("size", "doubledouble")
-				params.Set("name", "honeybadger")
+				params.Set("slug", "honeybadger")
 				err := doRequest()
 				Expect(err).To(MatchError(hosts.ErrPlanNotFound))
 			})
@@ -235,7 +235,7 @@ var _ = Describe("controllers/hosts", func() {
 			It("returns error region not found", func() {
 				params = &url.Values{}
 				params.Set("size", hs.P.Name)
-				params.Set("name", "honeybadger")
+				params.Set("slug", "honeybadger")
 				params.Set("region", "antarctica")
 				err := doRequest()
 				Expect(err).To(MatchError(hosts.ErrRegionNotFound))
@@ -253,7 +253,7 @@ var _ = Describe("controllers/hosts", func() {
 			It("returns provider template not found error", func() {
 				params = &url.Values{}
 				params.Set("size", hs.P.Name)
-				params.Set("name", "honeybadger")
+				params.Set("slug", "honeybadger")
 				params.Set("region", r2.Name)
 				err := doRequest()
 				Expect(err).To(MatchError(hosts.ErrProvidertemplateNotFound))
@@ -263,8 +263,8 @@ var _ = Describe("controllers/hosts", func() {
 		Context("with valid parameters", func() {
 			BeforeEach(func() {
 				params = &url.Values{}
-				params.Set("name", "honeybadger")
-				params.Set("longname", "honeybadger don't care")
+				params.Set("slug", "honeybadger")
+				params.Set("name", "honeybadger don't care")
 				params.Set("size", hs.P.Name)
 				params.Set("region", hs.R.Name)
 			})
@@ -298,8 +298,8 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.PlanID).To(Equal(hs.P.ID))
 					Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
 
-					Expect(h.Name).To(Equal("honeybadger"))
-					Expect(h.LongName.String).To(Equal("honeybadger don't care"))
+					Expect(h.Slug).To(Equal("honeybadger"))
+					Expect(h.Name.String).To(Equal("honeybadger don't care"))
 
 					Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
 					Expect(h.State).To(Equal("created"))
@@ -313,7 +313,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(env.Data["host"]).NotTo(BeNil())
 					Expect(env.Data["status"]).To(Equal("created"))
 					h := env.Data["host"].(*host.Host)
-					Expect(h.Name).To(Equal("honeybadger"))
+					Expect(h.Slug).To(Equal("honeybadger"))
 				})
 			})
 
@@ -344,17 +344,17 @@ var _ = Describe("controllers/hosts", func() {
 			err error
 		)
 
-		doRequest := func(name string) error {
-			req, err := NewRequest("DELETE", "/api/v0/hosts/"+name, nil)
+		doRequest := func(slug string) error {
+			req, err := NewRequest("DELETE", "/api/v0/hosts/"+slug, nil)
 			Expect(err).To(BeNil())
-			env.Vars = map[string]string{"name": name}
+			env.Vars = map[string]string{"slug": slug}
 
 			return hosts.Destroy(env, svr, res, req)
 		}
 
 		BeforeEach(func() {
 			hs, err = CreateHostStack(db, &HostStack{
-				H: &host.Host{Name: "honeybadger", ProviderIdentifier: sql.NullString{"001", true}},
+				H: &host.Host{Slug: "honeybadger", ProviderIdentifier: sql.NullString{"001", true}},
 			})
 			Expect(err).To(BeNil())
 			env = &middlewares.Env{User: hs.U}
@@ -375,12 +375,12 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Name)
+					err = doRequest(hs.H.Slug)
 					Expect(err).To(BeNil())
 				})
 
 				It("deletes the host record", func() {
-					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
+					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 					Expect(err).To(BeNil())
 					Expect(h).To(BeNil())
 				})
@@ -397,12 +397,12 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Name)
+					err = doRequest(hs.H.Slug)
 					Expect(err).To(MatchError("some error occurred"))
 				})
 
 				It("does not delete the host", func() {
-					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
+					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 					Expect(err).To(BeNil())
 					Expect(h).NotTo(BeNil())
 				})
@@ -417,10 +417,10 @@ var _ = Describe("controllers/hosts", func() {
 			err error
 		)
 
-		doRequest := func(name string) error {
-			req, err := NewRequest("POST", "/api/v0/hosts/"+name+"/start", nil)
+		doRequest := func(slug string) error {
+			req, err := NewRequest("POST", "/api/v0/hosts/"+slug+"/start", nil)
 			Expect(err).To(BeNil())
-			env.Vars = map[string]string{"name": name}
+			env.Vars = map[string]string{"slug": slug}
 
 			return hosts.Start(env, svr, res, req)
 		}
@@ -428,7 +428,7 @@ var _ = Describe("controllers/hosts", func() {
 		BeforeEach(func() {
 			hs, err = CreateHostStack(db, &HostStack{
 				H: &host.Host{
-					Name:               "honeybadger",
+					Slug:               "honeybadger",
 					ProviderIdentifier: sql.NullString{"001", true},
 					State:              host.StateStopped,
 				},
@@ -445,7 +445,7 @@ var _ = Describe("controllers/hosts", func() {
 				hosts.HostbuilderClient = hb
 
 				hs.H.UpdateState(db, host.StateRestarting)
-				err = doRequest(hs.H.Name)
+				err = doRequest(hs.H.Slug)
 				Expect(err).To(MatchError("Expected initial state to be stopped, was restarting"))
 			})
 		})
@@ -465,12 +465,12 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Name)
+					err = doRequest(hs.H.Slug)
 					Expect(err).To(BeNil())
 				})
 
 				It("updates the host state to running", func() {
-					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
+					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateRunning))
 				})
@@ -487,12 +487,12 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Name)
+					err = doRequest(hs.H.Slug)
 					Expect(err).To(MatchError("some error occurred"))
 				})
 
 				It("leaves host in intermediate state", func() {
-					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
+					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateStarting))
 				})
@@ -507,10 +507,10 @@ var _ = Describe("controllers/hosts", func() {
 			err error
 		)
 
-		doRequest := func(name string) error {
-			req, err := NewRequest("POST", "/api/v0/hosts/"+name+"/stop", nil)
+		doRequest := func(slug string) error {
+			req, err := NewRequest("POST", "/api/v0/hosts/"+slug+"/stop", nil)
 			Expect(err).To(BeNil())
-			env.Vars = map[string]string{"name": name}
+			env.Vars = map[string]string{"slug": slug}
 
 			return hosts.Stop(env, svr, res, req)
 		}
@@ -518,7 +518,7 @@ var _ = Describe("controllers/hosts", func() {
 		BeforeEach(func() {
 			hs, err = CreateHostStack(db, &HostStack{
 				H: &host.Host{
-					Name:               "honeybadger",
+					Slug:               "honeybadger",
 					ProviderIdentifier: sql.NullString{"001", true},
 					State:              host.StateRunning,
 				},
@@ -542,12 +542,12 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Name)
+					err = doRequest(hs.H.Slug)
 					Expect(err).To(BeNil())
 				})
 
 				It("updates the host state to stopped", func() {
-					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
+					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateStopped))
 				})
@@ -564,12 +564,12 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Name)
+					err = doRequest(hs.H.Slug)
 					Expect(err).To(MatchError("some error occurred"))
 				})
 
 				It("leaves host in intermediate state", func() {
-					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
+					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateStopping))
 				})
@@ -584,10 +584,10 @@ var _ = Describe("controllers/hosts", func() {
 			err error
 		)
 
-		doRequest := func(name string) error {
-			req, err := NewRequest("POST", "/api/v0/hosts/"+name+"/restart", nil)
+		doRequest := func(slug string) error {
+			req, err := NewRequest("POST", "/api/v0/hosts/"+slug+"/restart", nil)
 			Expect(err).To(BeNil())
-			env.Vars = map[string]string{"name": name}
+			env.Vars = map[string]string{"slug": slug}
 
 			return hosts.Restart(env, svr, res, req)
 		}
@@ -595,7 +595,7 @@ var _ = Describe("controllers/hosts", func() {
 		BeforeEach(func() {
 			hs, err = CreateHostStack(db, &HostStack{
 				H: &host.Host{
-					Name:               "honeybadger",
+					Slug:               "honeybadger",
 					ProviderIdentifier: sql.NullString{"001", true},
 					State:              host.StateRunning,
 				},
@@ -619,12 +619,12 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Name)
+					err = doRequest(hs.H.Slug)
 					Expect(err).To(BeNil())
 				})
 
 				It("updates the host state to running", func() {
-					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
+					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateRunning))
 				})
@@ -641,12 +641,12 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Name)
+					err = doRequest(hs.H.Slug)
 					Expect(err).To(MatchError("some error occurred"))
 				})
 
 				It("leaves host in intermediate state", func() {
-					h, err := host.FindByUserAndName(db, hs.U, hs.H.Name)
+					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateRestarting))
 				})

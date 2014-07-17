@@ -23,7 +23,7 @@ const DefaultImage = "nitrousio/ubuntu:trusty"
 var FreighterClient freighterclient.Client
 
 var (
-	errNameRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
+	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errHostIPUnknown     = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
 	errHostNotFound      = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
@@ -31,7 +31,7 @@ var (
 
 var (
 	validations = map[string]error{
-		"index_containers_on_name": httperror.New(http.StatusBadRequest, "validation_failed", "name is taken"),
+		"index_containers_on_slug": httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken"),
 	}
 )
 
@@ -109,24 +109,28 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 	db := c.DB()
 	log := c.Logger()
 
+	slug := r.FormValue("slug")
 	name := r.FormValue("name")
-	longname := r.FormValue("longname")
 	image := r.FormValue("image")
 
 	if image == "" {
 		image = DefaultImage
 	}
 
+	if slug == "" {
+		return errSlugRequired
+	}
+
 	if name == "" {
-		return errNameRequired
+		name = slug
 	}
 
 	cntnr := &container.Container{
-		UserID:   env.User.ID,
-		HostID:   h.ID,
-		Name:     name,
-		Image:    image,
-		LongName: sql.NullString{longname, true},
+		UserID: env.User.ID,
+		HostID: h.ID,
+		Slug:   slug,
+		Image:  image,
+		Name:   sql.NullString{name, true},
 	}
 
 	// Save record to db first to reserve name (since it's globally unique).
@@ -153,7 +157,7 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 	if err != nil {
 		return err
 	}
-	created, err := FreighterClient.Create(fHost, name, image)
+	created, err := FreighterClient.Create(fHost, slug, image)
 	if err != nil {
 		if e, ok := err.(*freighterclient.InvalidParamError); ok {
 			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
@@ -266,8 +270,8 @@ func withHost(fn func(h *host.Host, env *middlewares.Env, c controllers.Helper, 
 			return errors.New("user is nil")
 		}
 
-		hName := env.Vars["host"]
-		h, err := host.FindByUserAndName(db, u, hName)
+		hSlug := env.Vars["host"]
+		h, err := host.FindByUserAndSlug(db, u, hSlug)
 		if err != nil {
 			return err
 		}
@@ -285,8 +289,8 @@ func withContainer(fn func(h *host.Host, cn *container.Container, env *middlewar
 	return func(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		db := c.DB()
 
-		cName := env.Vars["name"]
-		cntnr, err := container.FindByHostIDAndName(db, h.ID, cName)
+		cSlug := env.Vars["slug"]
+		cntnr, err := container.FindByHostIDAndSlug(db, h.ID, cSlug)
 		if err != nil {
 			return err
 		}
@@ -308,7 +312,7 @@ func mkFreighterHost(h *host.Host) (*freighterclient.Host, error) {
 func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) {
 	c.CID = fc.ID
 	c.Image = fc.Image
-	c.Name = fc.Name
+	c.Slug = fc.Name
 	c.State = fc.State
 	c.IPAddress = sql.NullString{fc.Host, true}
 }
@@ -317,7 +321,7 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 	return &container.Container{
 		CID:       fc.ID,
 		Image:     fc.Image,
-		Name:      fc.Name,
+		Slug:      fc.Name,
 		State:     fc.State,
 		IPAddress: sql.NullString{fc.Host, true},
 		UserID:    h.UserID,

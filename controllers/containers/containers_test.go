@@ -78,7 +78,7 @@ var _ = Describe("controllers/containers", func() {
 
 		hs, err = CreateHostStack(db, &HostStack{
 			H: &host.Host{
-				Name:      "foo",
+				Slug:      "foo",
 				IPAddress: sql.NullString{"127.0.0.1", true},
 			},
 			U: u,
@@ -114,12 +114,12 @@ var _ = Describe("controllers/containers", func() {
 					BeforeEach(func() {
 						c = &container.Container{
 							CID:       "deadbeef",
-							Name:      "dominant-intercooler-42",
+							Slug:      "dominant-intercooler-42",
 							IPAddress: sql.NullString{"1.2.3.4", true},
 							Image:     "nitrous-base",
 							UserID:    u.ID,
 							HostID:    hs.H.ID,
-							LongName:  sql.NullString{"Rails app server", true},
+							Name:      sql.NullString{"Rails app server", true},
 						}
 						err := c.Insert(db)
 						Expect(err).To(BeNil())
@@ -159,12 +159,12 @@ var _ = Describe("controllers/containers", func() {
 						// Fields from Freighter API.
 						Expect(containers[0].CID).To(Equal("deadbeef"))
 						Expect(containers[0].Image).To(Equal("nitrous-base"))
-						Expect(containers[0].Name).To(Equal("dominant-intercooler-42"))
+						Expect(containers[0].Slug).To(Equal("dominant-intercooler-42"))
 						Expect(containers[0].IPAddress.String).To(Equal("1.2.3.4"))
 						Expect(containers[0].State).To(Equal("running"))
 
 						// Fields from database.
-						Expect(containers[0].LongName.String).To(Equal("Rails app server"))
+						Expect(containers[0].Name.String).To(Equal("Rails app server"))
 						Expect(containers[0].TouchedAt.Unix()).To(Equal(touchedAt.Unix()))
 
 						Expect(containers[0].UserID).To(Equal(u.ID))
@@ -213,7 +213,7 @@ var _ = Describe("controllers/containers", func() {
 
 							Expect(containers[0].CID).To(Equal("deadbeef"))
 							Expect(containers[0].Image).To(Equal("new-image"))
-							Expect(containers[0].Name).To(Equal("new-name-42"))
+							Expect(containers[0].Slug).To(Equal("new-name-42"))
 							Expect(containers[0].IPAddress.String).To(Equal("2.4.6.8"))
 							Expect(containers[0].State).To(Equal("stopped"))
 						})
@@ -245,22 +245,22 @@ var _ = Describe("controllers/containers", func() {
 
 							Expect(containers[0].CID).To(Equal("deadbeef"))
 							Expect(containers[0].Image).To(Equal("nitrous-base"))
-							Expect(containers[0].Name).To(Equal("dominant-intercooler-42"))
+							Expect(containers[0].Slug).To(Equal("dominant-intercooler-42"))
 							Expect(containers[0].IPAddress.String).To(Equal("1.2.3.4"))
 							Expect(containers[0].State).To(Equal("running"))
 							Expect(containers[0].UserID).To(Equal(u.ID))
 							Expect(containers[0].HostID).To(Equal(hs.H.ID))
-							Expect(containers[0].LongName.String).To(Equal("Rails app server"))
+							Expect(containers[0].Name.String).To(Equal("Rails app server"))
 							Expect(containers[0].TouchedAt.Unix()).To(Equal(touchedAt.Unix()))
 
 							Expect(containers[1].CID).To(Equal("cafebabe"))
 							Expect(containers[1].Image).To(Equal("nitrous-base"))
-							Expect(containers[1].Name).To(Equal("wicked-baby-69"))
+							Expect(containers[1].Slug).To(Equal("wicked-baby-69"))
 							Expect(containers[1].IPAddress.String).To(Equal("1.2.3.5"))
 							Expect(containers[1].State).To(Equal("running"))
 							Expect(containers[1].UserID).To(Equal(u.ID))
 							Expect(containers[1].HostID).To(Equal(hs.H.ID))
-							Expect(containers[1].LongName.String).To(Equal(""))
+							Expect(containers[1].Name.String).To(Equal(""))
 							Expect(containers[1].TouchedAt).To(BeNil())
 						})
 					})
@@ -288,7 +288,7 @@ var _ = Describe("controllers/containers", func() {
 					BeforeEach(func() {
 						_, err := CreateHostStack(db, &HostStack{
 							H: &host.Host{
-								Name:      "bar",
+								Slug:      "bar",
 								IPAddress: sql.NullString{},
 							},
 							U:  u,
@@ -351,8 +351,8 @@ var _ = Describe("controllers/containers", func() {
 
 		BeforeEach(func() {
 			params = &url.Values{}
-			params.Set("name", "elixir-web-1")
-			params.Set("longname", "Elixir Web Server 1")
+			params.Set("slug", "elixir-web-1")
+			params.Set("name", "Elixir Web Server 1")
 			params.Set("image", "elixir")
 		})
 
@@ -442,17 +442,17 @@ var _ = Describe("controllers/containers", func() {
 						Expect(j.Container).NotTo(BeNil())
 						Expect(j.Container.CID).To(Equal("deadbeef"))
 						Expect(j.Container.Image).To(Equal("elixir"))
-						Expect(j.Container.Name).To(Equal("elixir-web-1"))
+						Expect(j.Container.Slug).To(Equal("elixir-web-1"))
 						Expect(j.Container.IPAddress.String).To(Equal("1.2.3.4"))
 						Expect(j.Container.State).To(Equal("running"))
-						Expect(j.Container.LongName.String).To(Equal("Elixir Web Server 1"))
+						Expect(j.Container.Name.String).To(Equal("Elixir Web Server 1"))
 					})
 
 					Context("when name is already taken", func() {
 						BeforeEach(func() {
 							c := &container.Container{
 								CID:    "facecafe",
-								Name:   "elixir-web-1",
+								Slug:   "elixir-web-1",
 								Image:  "nitrous-base",
 								UserID: u.ID,
 								HostID: hs.H.ID,
@@ -473,13 +473,13 @@ var _ = Describe("controllers/containers", func() {
 							errType, _ := j["error"].(string)
 							Expect(errType).To(Equal("validation_failed"))
 							errDesc, _ := j["error_description"].(string)
-							Expect(errDesc).To(Equal("name is taken"))
+							Expect(errDesc).To(Equal("slug is taken"))
 						})
 					})
 
-					Context("when name param is not given", func() {
+					Context("when slug param is not given", func() {
 						BeforeEach(func() {
-							params.Del("name")
+							params.Del("slug")
 						})
 
 						It("responds with HTTP 400 Bad Request", func() {
@@ -494,7 +494,7 @@ var _ = Describe("controllers/containers", func() {
 							errType, _ := j["error"].(string)
 							Expect(errType).To(Equal("invalid_request"))
 							errDesc, _ := j["error_description"].(string)
-							Expect(errDesc).To(Equal("name is required"))
+							Expect(errDesc).To(Equal("slug is required"))
 						})
 					})
 
@@ -563,12 +563,12 @@ var _ = Describe("controllers/containers", func() {
 				BeforeEach(func() {
 					c = &container.Container{
 						CID:       "deadbeef",
-						Name:      containerName,
+						Slug:      containerName,
 						IPAddress: sql.NullString{"8.8.8.8", true},
 						Image:     "nitrous-base",
 						UserID:    u.ID,
 						HostID:    hs.H.ID,
-						LongName:  sql.NullString{"Elixir server", true},
+						Name:      sql.NullString{"Elixir server", true},
 					}
 					err := c.Insert(db)
 					Expect(err).To(BeNil())
@@ -603,12 +603,12 @@ var _ = Describe("controllers/containers", func() {
 					// Fields from Freighter API.
 					Expect(c.CID).To(Equal("deadbeef"))
 					Expect(c.Image).To(Equal("nitrous-base"))
-					Expect(c.Name).To(Equal(containerName))
+					Expect(c.Slug).To(Equal(containerName))
 					Expect(c.IPAddress.String).To(Equal("1.2.3.4"))
 					Expect(c.State).To(Equal("running"))
 
 					// Fields from database.
-					Expect(c.LongName.String).To(Equal("Elixir server"))
+					Expect(c.Name.String).To(Equal("Elixir server"))
 
 					Expect(c.UserID).To(Equal(u.ID))
 					Expect(c.HostID).To(Equal(hs.H.ID))
@@ -719,12 +719,12 @@ var _ = Describe("controllers/containers", func() {
 					BeforeEach(func() {
 						c = &container.Container{
 							CID:       "deadbeef",
-							Name:      containerName,
+							Slug:      containerName,
 							IPAddress: sql.NullString{"8.8.8.8", true},
 							Image:     "nitrous-base",
 							UserID:    u.ID,
 							HostID:    hs.H.ID,
-							LongName:  sql.NullString{"Elixir server", true},
+							Name:      sql.NullString{"Elixir server", true},
 						}
 						err := c.Insert(db)
 						Expect(err).To(BeNil())
@@ -759,12 +759,12 @@ var _ = Describe("controllers/containers", func() {
 						// Fields from Freighter API.
 						Expect(c.CID).To(Equal("deadbeef"))
 						Expect(c.Image).To(Equal("nitrous-base"))
-						Expect(c.Name).To(Equal(containerName))
+						Expect(c.Slug).To(Equal(containerName))
 						Expect(c.IPAddress.String).To(Equal("1.2.3.4"))
 						Expect(c.State).To(Equal(*expectedState))
 
 						// Fields from database.
-						Expect(c.LongName.String).To(Equal(""))
+						Expect(c.Name.String).To(Equal(""))
 						Expect(c.TouchedAt).To(BeNil())
 						Expect(c.CreatedAt).To(BeNil())
 						Expect(c.UpdatedAt).To(BeNil())
@@ -907,12 +907,12 @@ var _ = Describe("controllers/containers", func() {
 				BeforeEach(func() {
 					c = &container.Container{
 						CID:       "deadbeef",
-						Name:      containerName,
+						Slug:      containerName,
 						IPAddress: sql.NullString{"8.8.8.8", true},
 						Image:     "nitrous-base",
 						UserID:    u.ID,
 						HostID:    hs.H.ID,
-						LongName:  sql.NullString{"Elixir server", true},
+						Name:      sql.NullString{"Elixir server", true},
 					}
 					err := c.Insert(db)
 					Expect(err).To(BeNil())
@@ -947,12 +947,12 @@ var _ = Describe("controllers/containers", func() {
 					// Fields from Freighter API.
 					Expect(c.CID).To(Equal("deadbeef"))
 					Expect(c.Image).To(Equal("nitrous-base"))
-					Expect(c.Name).To(Equal(containerName))
+					Expect(c.Slug).To(Equal(containerName))
 					Expect(c.IPAddress.String).To(Equal(""))
 					Expect(c.State).To(Equal(""))
 
 					// Fields from database.
-					Expect(c.LongName.String).To(Equal("Elixir server"))
+					Expect(c.Name.String).To(Equal("Elixir server"))
 					Expect(c.UpdatedAt).NotTo(BeNil())
 
 					Expect(c.UserID).To(Equal(u.ID))
@@ -962,7 +962,7 @@ var _ = Describe("controllers/containers", func() {
 				It("deletes the container from the database", func() {
 					doRequest()
 
-					c, err := container.FindByHostIDAndName(db, hs.H.ID, containerName)
+					c, err := container.FindByHostIDAndSlug(db, hs.H.ID, containerName)
 					Expect(err).To(BeNil())
 					Expect(c).To(BeNil())
 				})
