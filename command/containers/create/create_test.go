@@ -55,6 +55,18 @@ var _ = Describe("containerscreate", func() {
 		})
 	})
 
+	Context("when name is not specified", func() {
+		It("populates request with a randomly generated name", func() {
+			handlers = append(handlers, func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.FormValue("name")).NotTo(Equal(""))
+			})
+			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+			cmd.Run([]string{
+				"--host=host-1",
+			})
+		})
+	})
+
 	Context("when host is not specified", func() {
 		It("returns an error message without making a request", func() {
 			code := cmd.Run([]string{

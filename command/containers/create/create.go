@@ -11,6 +11,7 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/pkg/randomnamegenerator"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
 
@@ -76,6 +77,10 @@ func (c *Command) Run(args []string) int {
 	err := cmdFlags.Parse(args)
 	if err != nil {
 		return 1
+	}
+
+	if cp.name == "" {
+		cp.name = randomnamegenerator.Generate("container")
 	}
 
 	c.UI.Output("Creating the container. Please wait...\n")
