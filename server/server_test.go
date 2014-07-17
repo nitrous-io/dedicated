@@ -34,6 +34,8 @@ var _ = Describe("server", func() {
 		prov    *MockProvider
 	)
 
+	configJSON := `{"HostConfig": {"VolumesFrom": ["sharedcontainer"]}}`
+
 	BeforeEach(func() {
 		prov = &MockProvider{}
 		logger := &util.Logger{Level: util.LogLevelQuiet}
@@ -112,6 +114,7 @@ var _ = Describe("server", func() {
 			params.Set("image", image)
 			params.Set("public_key[]", publicKey)
 			params.Add("public_key[]", publicKey2)
+			params.Set("config", configJSON)
 			state = RandomName("state")
 			params.Set("state", state)
 		})
@@ -128,6 +131,7 @@ var _ = Describe("server", func() {
 				Expect(prov.CreateCalled).To(BeTrue())
 				Expect(prov.ReceivedName).To(Equal(name))
 				Expect(prov.ReceivedImage).To(Equal(image))
+				Expect(prov.ReceivedConfig).To(Equal(configJSON))
 			})
 
 			Context("when provider.Create()", func() {
@@ -368,6 +372,12 @@ var _ = Describe("server", func() {
 			})
 
 			itWorks()
+
+			It("receives config", func() {
+				params.Set("config", configJSON)
+				doRequest(id)
+				Expect(prov.ReceivedConfig).To(Equal(configJSON))
+			})
 		})
 
 		Describe("POST /containers/:container_id/stop", func() {

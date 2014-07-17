@@ -11,15 +11,17 @@ import (
 type allowedConfig struct {
 	Env          []string
 	ExposedPorts map[string]struct{}
+	Volumes      map[string]struct{}
 }
 
 // subset of dockerclient.HostConfig, used as whitelist
 type allowedHostConfig struct {
 	PortBindings map[string][]dockerclient.PortBinding
+	VolumesFrom  []string
 }
 
 // configParam is used to deserialize JSON from the config parameter in calls
-// to create
+// to create/start container
 type configParam struct {
 	Config     *allowedConfig
 	HostConfig *allowedHostConfig
@@ -55,8 +57,15 @@ func overrideConfig(c *dockerclient.Config, override *allowedConfig) {
 			c.ExposedPorts[dockerclient.Port(k)] = v
 		}
 	}
+	if override.Volumes != nil {
+		for k, v := range override.Volumes {
+			c.Volumes[k] = v
+		}
+	}
 }
 
+// overrideHostConfig is similar to overrideCreateConfig, but with
+// dockerclient.HostConfig instead of dockerclient.Config
 func overrideHostConfig(hc *dockerclient.HostConfig, override *allowedHostConfig) {
 	if override == nil {
 		return
@@ -66,5 +75,8 @@ func overrideHostConfig(hc *dockerclient.HostConfig, override *allowedHostConfig
 		for k, v := range override.PortBindings {
 			hc.PortBindings[dockerclient.Port(k)] = v
 		}
+	}
+	if override.VolumesFrom != nil {
+		hc.VolumesFrom = override.VolumesFrom
 	}
 }

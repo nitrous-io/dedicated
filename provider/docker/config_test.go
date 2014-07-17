@@ -10,11 +10,13 @@ var _ = Describe("provider/docker (config)", func() {
   "Config": {
     "Env": ["LANG=C"],
     "ExposedPorts": {"8080/tcp": {}}
+    "Volumes": {"/data": {}, "/music": {}}
   }
 }`
 	hostConfigJSON := `{
   "HostConfig": {
-    "PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]}
+    "PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]},
+    "VolumesFrom": ["somecontainer"]
   }
 }`
 
@@ -31,7 +33,13 @@ var _ = Describe("provider/docker (config)", func() {
 			Expect(err).To(BeNil())
 			Expect(h).To(BeNil())
 			Expect(c.Env).To(Equal([]string{"LANG=C"}))
+			Expect(c.ExposedPorts).To(HaveLen(1))
 			_, ok := c.ExposedPorts["8080/tcp"]
+			Expect(ok).To(BeTrue())
+			Expect(c.Volumes).To(HaveLen(2))
+			_, ok = c.Volumes["/data"]
+			Expect(ok).To(BeTrue())
+			_, ok = c.Volumes["/music"]
 			Expect(ok).To(BeTrue())
 		})
 
@@ -44,6 +52,7 @@ var _ = Describe("provider/docker (config)", func() {
 			Expect(pb).To(HaveLen(1))
 			Expect(pb[0].HostIp).To(Equal("127.0.0.1"))
 			Expect(pb[0].HostPort).To(Equal("1234"))
+			Expect(h.VolumesFrom).To(Equal([]string{"somecontainer"}))
 		})
 
 		It("returns error", func() {

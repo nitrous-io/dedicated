@@ -687,7 +687,8 @@ var _ = Describe("provider/docker", func() {
 			configJSON = `{
   "Config": {
     "Env": ["LANG=C"],
-    "ExposedPorts": {"8080/tcp": {}}
+    "ExposedPorts": {"8080/tcp": {}},
+    "Volumes": {"/data": {}, "/music": {}}
   },
   "HostConfig": {
     "PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]}
@@ -716,6 +717,9 @@ var _ = Describe("provider/docker", func() {
 				Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
 			Expect(getPortBindings(id, "22/tcp")).To(
 				ContainSubstring("[map[HostIp:0.0.0.0 HostPort:49")) // Docker will use 49000-49900
+			Expect(doInspect(id,
+				"{{range $v, $stub := .Config.Volumes}}{{$v}} {{end}}")).
+				To(Equal("/data /etc/ssh/freighter /music"))
 
 			// should be split out but kept here due to each container create taking >10s
 			// It("persists PortBindings on next start if no options given")
@@ -734,6 +738,17 @@ var _ = Describe("provider/docker", func() {
 			Expect(getPortBindings(id, "4242/tcp")).To(
 				Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
 			Expect(getPortBindings(id, "3000/tcp")).To(Equal("<no value>"))
+
+			// It("supports VolumesFrom option")
+			// VolumesFrom will error out if the container id given does not exist
+			volsName := RandomName("freightertest")
+			_, err = prov.Create(volsName, image,
+				fmt.Sprintf(`{"HostConfig": {"VolumesFrom":["%s"]}}`, id))
+			Expect(err).To(BeNil())
+			defer cleanUpContainer(fullContainerName(volsName))
+			volsID := getID(volsName)
+			Expect(doInspect(volsID, `{{.HostConfig.VolumesFrom}}`)).To(
+				Equal(fmt.Sprintf("[%s]", id)))
 		})
 	})
 })
