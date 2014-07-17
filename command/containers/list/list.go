@@ -1,4 +1,4 @@
-package containerslist
+package list
 
 import (
 	"encoding/json"

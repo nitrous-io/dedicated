@@ -1,4 +1,4 @@
-package containersdestroy_test
+package destroy_test
 
 import (
 	"io"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
-	"github.com/nitrous-io/nitro/command/containers/containersdestroy"
+	"github.com/nitrous-io/nitro/command/containers/destroy"
 	"github.com/nitrous-io/nitro/test"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
@@ -24,7 +24,7 @@ func Test(t *testing.T) {
 
 var _ = Describe("containersdestroy", func() {
 	var (
-		cmd        *containersdestroy.Command
+		cmd        *destroy.Command
 		ui         *command.MockUI
 		r          *io.PipeReader
 		w          *io.PipeWriter
@@ -49,7 +49,7 @@ var _ = Describe("containersdestroy", func() {
 		srv = ghttp.NewServer()
 		srv.AppendHandlers(handlers)
 
-		cmd = &containersdestroy.Command{
+		cmd = &destroy.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("correct_token"),

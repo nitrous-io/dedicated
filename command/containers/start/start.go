@@ -1,4 +1,4 @@
-package containersstart
+package start
 
 import (
 	"flag"

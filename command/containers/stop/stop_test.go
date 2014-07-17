@@ -1,4 +1,4 @@
-package containersstop_test
+package stop_test
 
 import (
 	"io"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
-	"github.com/nitrous-io/nitro/command/containers/containersstop"
+	"github.com/nitrous-io/nitro/command/containers/stop"
 	"github.com/nitrous-io/nitro/test"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
@@ -24,7 +24,7 @@ func Test(t *testing.T) {
 
 var _ = Describe("containersstop", func() {
 	var (
-		cmd        *containersstop.Command
+		cmd        *stop.Command
 		ui         *command.MockUI
 		r          *io.PipeReader
 		w          *io.PipeWriter
@@ -49,7 +49,7 @@ var _ = Describe("containersstop", func() {
 		srv = ghttp.NewServer()
 		srv.AppendHandlers(handlers)
 
-		cmd = &containersstop.Command{
+		cmd = &stop.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("correct_token"),

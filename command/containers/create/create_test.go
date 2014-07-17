@@ -1,4 +1,4 @@
-package containerscreate_test
+package create_test
 
 import (
 	"encoding/json"
@@ -24,7 +24,7 @@ func Test(t *testing.T) {
 
 var _ = Describe("containerscreate", func() {
 	var (
-		cmd        *containerscreate.Command
+		cmd        *create.Command
 		ui         *cli.MockUi
 		srv        *ghttp.Server
 		handlers   []http.HandlerFunc
@@ -35,7 +35,7 @@ var _ = Describe("containerscreate", func() {
 		var err error
 		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
-		cmd = &containerscreate.Command{
+		cmd = &create.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),

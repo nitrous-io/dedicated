@@ -1,4 +1,4 @@
-package containersrestart
+package restart
 
 import (
 	"fmt"

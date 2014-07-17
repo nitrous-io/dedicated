@@ -1,4 +1,4 @@
-package containersinspect
+package inspect
 
 import (
 	"flag"

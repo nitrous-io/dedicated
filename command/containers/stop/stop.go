@@ -1,4 +1,4 @@
-package containersdestroy
+package stop
 
 import (
 	"fmt"
@@ -15,17 +15,17 @@ import (
 const forceUsage = "Skip confirmation"
 
 const usage = `
-Usage: nitro destroy <host>/<container name>
+Usage: nitro stop <host>/<container name>
 
-  destroy a container
+  stop a container
 
 Options:
 
   -f, --force=""    %s
 
 Examples:
-  nitro destroy host-1/container-a
-  nitro destroy container-a
+  nitro stop host-1/container-a
+  nitro stop container-a
 `
 
 type Command struct {
@@ -35,7 +35,7 @@ type Command struct {
 }
 
 func init() {
-	command.Register("destroy", NewCommand)
+	command.Register("stop", NewCommand)
 }
 
 func NewCommand() (cli.Command, error) {
@@ -49,7 +49,7 @@ func NewCommand() (cli.Command, error) {
 func (c *Command) Run(args []string) int {
 	var force bool
 
-	cmdFlags := flag.NewFlagSet("destroy", flag.ContinueOnError)
+	cmdFlags := flag.NewFlagSet("stop", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
 	cmdFlags.BoolVarP(&force, "force", "f", false, forceUsage)
 
@@ -70,7 +70,7 @@ func (c *Command) Run(args []string) int {
 	}
 
 	if !force {
-		confirmation := c.UI.Confirm(fmt.Sprintf("Do you really want to destroy '%s/%s'? [y/N]", host, containerStr))
+		confirmation := c.UI.Confirm(fmt.Sprintf("Do you really want to stop '%s/%s'? [y/N]", host, containerStr))
 		switch confirmation {
 		case command.ConfirmYes:
 			// Pass.
@@ -86,8 +86,8 @@ func (c *Command) Run(args []string) int {
 		}
 	}
 
-	c.UI.Output(fmt.Sprintf("Destroying %s/%s...", host, containerStr))
-	container, err := c.destroy(host, containerStr)
+	c.UI.Output(fmt.Sprintf("Stopping %s/%s...", host, containerStr))
+	container, err := c.stop(host, containerStr)
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
@@ -104,12 +104,12 @@ func (c *Command) Help() string {
 }
 
 func (c *Command) Synopsis() string {
-	return "Destroy a container"
+	return "Stop a container"
 }
 
-func (c *Command) destroy(host, container string) (*Container, error) {
-	url := fmt.Sprintf("%s/api/v0/hosts/%s/containers/%s", c.Server, host, container)
-	resp, err := c.Client.DeleteAuthed(url, nil)
+func (c *Command) stop(host, container string) (*Container, error) {
+	url := fmt.Sprintf("%s/api/v0/hosts/%s/containers/%s/stop", c.Server, host, container)
+	resp, err := c.Client.PostFormAuthed(url, nil)
 	if err != nil {
 		return nil, err
 	}
