@@ -12,10 +12,10 @@ import (
 var nameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*[a-z0-9]\z`)
 
 var (
-	ErrSlugBlank    = errors.New("name can't be blank")
-	ErrSlugInvalid  = errors.New("name may only contain alphanumeric characters or dashes and cannot begin or end with a dash")
-	ErrSlugTooShort = errors.New("name is too short (minimum is 2 characters)")
-	ErrSlugTooLong  = errors.New("name is too long (maximum is 255 characters)")
+	ErrSlugBlank    = errors.New("slug can't be blank")
+	ErrSlugInvalid  = errors.New("slug may only contain alphanumeric characters or dashes and cannot begin or end with a dash")
+	ErrSlugTooShort = errors.New("slug is too short (minimum is 2 characters)")
+	ErrSlugTooLong  = errors.New("slug is too long (maximum is 255 characters)")
 	ErrImageBlank   = errors.New("image can't be blank")
 )
 
