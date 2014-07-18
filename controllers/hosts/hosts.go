@@ -137,6 +137,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 		Slug:          slug,
 		Name:          sql.NullString{name, true},
 		MaxContainers: sql.NullInt64{pl.MaxContainers, true},
+		Size:          sql.NullString{size, true},
 
 		IPAddress:          sql.NullString{info.IPAddress, true},
 		ProviderIdentifier: sql.NullString{info.ID, true},

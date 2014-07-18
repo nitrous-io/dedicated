@@ -57,6 +57,10 @@ type Host struct {
 	// be changed independently when necessary.
 	MaxContainers sql.NullInt64 `db:"max_containers" json:"provider_identifier"`
 
+	// Size is currently the name of the plan of this host. This is copied over
+	// from the associated Plan since size is often read.
+	Size sql.NullString `db:"size" json:"size"`
+
 	// FreighterdPort is needed during dev, since port will be different everytime you
 	// create a host.
 	FreighterdPort sql.NullInt64 `db:"freighterd_port" json:"freighterd_port"`
@@ -116,10 +120,10 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
 		(user_id, region_id, plan_id, provider_template_id, slug, name,
-			state, ip_address, provider_identifier, max_containers, freighterd_port)
+			state, ip_address, provider_identifier, max_containers, size, freighterd_port)
 		VALUES
 		(:user_id, :region_id, :plan_id, :provider_template_id, :slug,
-		:name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port)
+		:name, :state, :ip_address, :provider_identifier, :max_containers, :size, :freighterd_port)
 		RETURNING *;`)
 	if err != nil {
 		return err
