@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -54,6 +55,12 @@ type Client interface {
 	Stop(host *Host, id string) (*Container, error)
 	Restart(host *Host, id string) (*Container, error)
 	Terminate(host *Host, id string) (*Container, error)
+
+	// Logs get logs of the container's process and copy it to the writer
+	//
+	// https://docs.docker.com/reference/api/docker_remote_api_v1.13/#21-containers
+	// Search for `Get container logs` because docker's api documentation sucks
+	Logs(host *Host, id, follow, timestamps, tail string, w io.Writer) error
 }
 
 type (
@@ -266,6 +273,36 @@ func (c *client) Terminate(h *Host, id string) (*Container, error) {
 		return nil, err
 	}
 	return containerResp.Container, nil
+}
+
+// Establish a streaming HTTP connection with Freighter host to pull the
+// specified container's logs. The response will be write into a provided
+// `io.Writer`
+func (c *client) Logs(
+	h *Host,
+	id string,
+	follow string,
+	timestamps string,
+	tail string,
+	w io.Writer,
+) error {
+	params := url.Values{}
+	params.Set("follow", follow)
+	params.Set("timestamps", timestamps)
+	params.Set("tail", tail)
+	u := fmt.Sprintf("%s/containers/%s/logs?%s", h.BaseURL(), id, params.Encode())
+	resp, err := http.Get(u)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Failed to fetch container %s logs, status : %d", id, resp.StatusCode)
+	}
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		return fmt.Errorf("Unexpected error when fetching logs: %v", err)
+	}
+	return nil
 }
 
 func (c *client) containerControl(h *Host, id string, action string) (*Container, error) {

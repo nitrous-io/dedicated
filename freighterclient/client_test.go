@@ -1,9 +1,11 @@
 package freighterclient_test
 
 import (
+	"bytes"
 	"crypto/tls"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"testing"
 	"time"
@@ -737,6 +739,31 @@ var _ = Describe("client", func() {
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
 			})
+		})
+	})
+
+	Describe("Logs()", func() {
+		It("gets logs of the container", func() {
+			params := url.Values{}
+			params.Set("follow", "true")
+			params.Set("timestamps", "true")
+			params.Set("tail", "all")
+			handlers := ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/containers/deadbeef/logs", params.Encode()),
+				ghttp.RespondWith(http.StatusOK, "hello i am a log"),
+			)
+			server := ghttp.NewServer()
+			server.AppendHandlers(handlers)
+			defer server.Close()
+
+			ip, port := IPAndPort(server)
+			host := &freighterclient.Host{Host: ip, Port: port, Secure: false}
+			client := freighterclient.NewClient(nil)
+
+			w := bytes.NewBuffer(nil)
+			err := client.Logs(host, "deadbeef", "true", "true", "all", w)
+			Expect(err).To(BeNil(), "should successfully get the logs")
+			Expect(w.String()).To(Equal("hello i am a log"), "should write logs to the writer")
 		})
 	})
 })
