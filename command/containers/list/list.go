@@ -91,7 +91,7 @@ func (c *Command) Synopsis() string {
 }
 
 func (c *Command) fetchContainers(host string) ([]*Container, error) {
-	resp, err := c.Client.GetAuthed(fmt.Sprintf("%s/api/v0/hosts/%s/containers", c.Server, host), nil)
+	resp, err := c.Client.GetAuthed(fmt.Sprintf("%s/api/v0/containers?host=%s", c.Server, host), nil)
 	if err != nil {
 		return nil, err
 	}

@@ -13,13 +13,9 @@ import (
 )
 
 const usage = `
-Usage: nitro start <host>/<container name>
+Usage: nitro start <container slug>
 
   start a container
-
-Examples:
-  nitro start host-1/container-a
-  nitro start container-a
 `
 
 type Command struct {
@@ -54,21 +50,16 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	host, containerStr, err := SplitHostContainer(args[0])
-	if err != nil {
-		c.UI.Output(c.Help())
-		return 1
-	}
+	containerStr := args[0]
 
-	c.UI.Output(fmt.Sprintf("Starting %s/%s...", host, containerStr))
-	container, err := c.start(host, containerStr)
+	c.UI.Output(fmt.Sprintf("Starting%s...", containerStr))
+	container, err := c.start(containerStr)
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
-	command.SaveDefaultHost(host)
 
-	t := PrettyPrint([]string{"Name", "Image", "State"}, container)
+	t := PrettyPrint([]string{"Slug", "Image", "State"}, container)
 	c.UI.Output(t)
 	return 0
 }
@@ -81,8 +72,8 @@ func (c *Command) Synopsis() string {
 	return "Start a container"
 }
 
-func (c *Command) start(host, container string) (*Container, error) {
-	url := fmt.Sprintf("%s/api/v0/hosts/%s/containers/%s/start", c.Server, host, container)
+func (c *Command) start(container string) (*Container, error) {
+	url := fmt.Sprintf("%s/api/v0/containers/%s/start", c.Server, container)
 	resp, err := c.Client.PostFormAuthed(url, nil)
 	if err != nil {
 		return nil, err

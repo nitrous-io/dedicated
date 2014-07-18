@@ -116,15 +116,15 @@ func (c *Command) Synopsis() string {
 func (c *Command) createContainer(cp *containerParams) (*Container, error) {
 	p := &url.Values{}
 
+	p.Set("host", cp.host)
 	if cp.slug != "" {
 		p.Set("slug", cp.slug)
 	}
-
 	if cp.image != "" {
 		p.Set("image", cp.image)
 	}
 
-	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/hosts/%s/containers", c.Server, cp.host), p)
+	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/containers", c.Server), p)
 	if err != nil {
 		return nil, err
 	}

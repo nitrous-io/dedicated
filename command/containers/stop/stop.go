@@ -15,17 +15,13 @@ import (
 const forceUsage = "Skip confirmation"
 
 const usage = `
-Usage: nitro stop <host>/<container name>
+Usage: nitro stop <container slug>
 
   stop a container
 
 Options:
 
   -f, --force=""    %s
-
-Examples:
-  nitro stop host-1/container-a
-  nitro stop container-a
 `
 
 type Command struct {
@@ -63,14 +59,10 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	host, containerStr, err := SplitHostContainer(args[0])
-	if err != nil {
-		c.UI.Output(c.Help())
-		return 1
-	}
+	containerStr := args[0]
 
 	if !force {
-		confirmation := c.UI.Confirm(fmt.Sprintf("Do you really want to stop '%s/%s'? [y/N]", host, containerStr))
+		confirmation := c.UI.Confirm(fmt.Sprintf("Do you really want to stop '%s'? [y/N]", containerStr))
 		switch confirmation {
 		case command.ConfirmYes:
 			// Pass.
@@ -86,15 +78,14 @@ func (c *Command) Run(args []string) int {
 		}
 	}
 
-	c.UI.Output(fmt.Sprintf("Stopping %s/%s...", host, containerStr))
-	container, err := c.stop(host, containerStr)
+	c.UI.Output(fmt.Sprintf("Stopping %s...", containerStr))
+	container, err := c.stop(containerStr)
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
-	command.SaveDefaultHost(host)
 
-	t := PrettyPrint([]string{"Name", "Image", "State"}, container)
+	t := PrettyPrint([]string{"Slug", "Image", "State"}, container)
 	c.UI.Output(t)
 	return 0
 }
@@ -107,8 +98,8 @@ func (c *Command) Synopsis() string {
 	return "Stop a container"
 }
 
-func (c *Command) stop(host, container string) (*Container, error) {
-	url := fmt.Sprintf("%s/api/v0/hosts/%s/containers/%s/stop", c.Server, host, container)
+func (c *Command) stop(container string) (*Container, error) {
+	url := fmt.Sprintf("%s/api/v0/containers/%s/stop", c.Server, container)
 	resp, err := c.Client.PostFormAuthed(url, nil)
 	if err != nil {
 		return nil, err
