@@ -914,7 +914,7 @@ var _ = Describe("controllers/containers", func() {
 			It("deletes the container from the database", func() {
 				doRequest()
 
-				c, err := container.FindByHostIDAndSlug(db, hs.H.ID, containerName)
+				c, err := container.FindByUserAndSlug(db, hs.U, containerName)
 				Expect(err).To(BeNil())
 				Expect(c).To(BeNil())
 			})

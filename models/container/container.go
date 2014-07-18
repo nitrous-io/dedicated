@@ -64,18 +64,6 @@ func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
 	return c, nil
 }
 
-func FindByHostIDAndSlug(d db.QueryReceiver, hostID int64, slug string) (*Container, error) {
-	c := &Container{}
-	err := d.Get(c, `SELECT * FROM containers WHERE host_id = $1 AND slug = $2 AND terminated_at IS NULL;`, hostID, slug)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return c, nil
-}
-
 func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
 	containers := []*Container{}
 	err := d.Select(&containers, `SELECT * FROM containers WHERE host_id = $1 AND terminated_at IS NULL;`, hostID)

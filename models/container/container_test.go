@@ -168,50 +168,6 @@ var _ = Describe("models/container", func() {
 		})
 	})
 
-	Describe("FindByHostIDAndSlug()", func() {
-		Context("when a container record with a given host ID and slug exists", func() {
-			It("returns the host record", func() {
-				c, err := container.FindByHostIDAndSlug(db, h.ID, "my-1st-container")
-				Expect(err).To(BeNil())
-				Expect(c).NotTo(BeNil())
-				Expect(c.CID).To(Equal("deadbeef"))
-				Expect(c.Image).To(Equal("nitrous-base"))
-				Expect(c.Slug).To(Equal("my-1st-container"))
-			})
-
-			Context("when container has been terminated", func() {
-				BeforeEach(func() {
-					_, err := db.Exec(`UPDATE containers SET terminated_at = now()
-						WHERE host_id = $1 AND slug = $2;`, h.ID, "my-1st-container")
-					Expect(err).To(BeNil())
-				})
-
-				It("returns nil", func() {
-					c, err := container.FindByHostIDAndSlug(db, h.ID, "my-1st-container")
-					Expect(err).To(BeNil())
-					Expect(c).To(BeNil())
-				})
-			})
-		})
-
-		Context("when a container record with a given host ID and name does not exist", func() {
-			It("returns nil", func() {
-				c, err := container.FindByHostIDAndSlug(db, h.ID, "non-existent-containername")
-				Expect(err).To(BeNil())
-				Expect(c).To(BeNil())
-			})
-		})
-
-		Context("when some error happens", func() {
-			It("returns error", func() {
-				db.Close()
-				c, err := container.FindByHostIDAndSlug(db, h.ID, "my-1st-container")
-				Expect(err).NotTo(BeNil())
-				Expect(c).To(BeNil())
-			})
-		})
-	})
-
 	Describe("FindAllByHostID()", func() {
 		Context("when the given host has container records", func() {
 			It("returns the container records", func() {
@@ -455,7 +411,7 @@ var _ = Describe("models/container", func() {
 			err := c.Insert(db)
 			Expect(err).To(BeNil())
 
-			c, err = container.FindByHostIDAndSlug(db, h.ID, "java-test-container")
+			c, err = container.FindByUserAndSlug(db, u, "java-test-container")
 			Expect(err).To(BeNil())
 			Expect(c).NotTo(BeNil())
 			Expect(c.CID).To(Equal("beefface"))
