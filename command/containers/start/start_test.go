@@ -18,10 +18,10 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "containersstart")
+	RunSpecs(t, "containers/start")
 }
 
-var _ = Describe("containersstart", func() {
+var _ = Describe("containers/start", func() {
 	var (
 		cmd        *start.Command
 		ui         *cli.MockUi

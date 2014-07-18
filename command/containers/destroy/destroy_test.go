@@ -19,10 +19,10 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "containersdestroy")
+	RunSpecs(t, "containers/destroy")
 }
 
-var _ = Describe("containersdestroy", func() {
+var _ = Describe("containers/destroy", func() {
 	var (
 		cmd        *destroy.Command
 		ui         *command.MockUI
