@@ -1,4 +1,4 @@
-package hostsdestroy
+package destroy
 
 import (
 	"flag"

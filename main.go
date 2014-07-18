@@ -18,9 +18,9 @@ import (
 	_ "github.com/nitrous-io/nitro/command/containers/restart"
 	_ "github.com/nitrous-io/nitro/command/containers/start"
 	_ "github.com/nitrous-io/nitro/command/containers/stop"
-	_ "github.com/nitrous-io/nitro/command/hosts"
-	_ "github.com/nitrous-io/nitro/command/hostscreate"
-	_ "github.com/nitrous-io/nitro/command/hostsdestroy"
+	_ "github.com/nitrous-io/nitro/command/hosts/create"
+	_ "github.com/nitrous-io/nitro/command/hosts/destroy"
+	_ "github.com/nitrous-io/nitro/command/hosts/list"
 	_ "github.com/nitrous-io/nitro/command/login"
 	_ "github.com/nitrous-io/nitro/command/logout"
 )

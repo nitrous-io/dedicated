@@ -1,11 +1,11 @@
-package hostsdestroy_test
+package destroy_test
 
 import (
 	"net/http"
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command/hostsdestroy"
+	"github.com/nitrous-io/nitro/command/hosts/destroy"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -15,12 +15,12 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "hostsdestroy")
+	RunSpecs(t, "hosts/destroy")
 }
 
-var _ = Describe("hosts:destroy", func() {
+var _ = Describe("hosts/destroy", func() {
 	var (
-		cmd      *hostsdestroy.Command
+		cmd      *destroy.Command
 		ui       *cli.MockUi
 		srv      *ghttp.Server
 		handlers []http.HandlerFunc
@@ -29,7 +29,7 @@ var _ = Describe("hosts:destroy", func() {
 	BeforeEach(func() {
 		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
-		cmd = &hostsdestroy.Command{
+		cmd = &destroy.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),

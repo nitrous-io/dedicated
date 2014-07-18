@@ -1,4 +1,4 @@
-package hostscreate
+package create
 
 import (
 	"fmt"
