@@ -1,0 +1,53 @@
+.card-header.bordered
+  h2 New Image
+
+form
+  .card-body
+    .ui.input-group
+      .option-selection
+        ul.ui.checkbox-group
+          li
+            .ui.checkbox
+              input type='radio' id='images-new-option-github' name='option' checked='checked'
+              label
+            label for='images-new-option-github' Use Dockerfile in GitHub repo/gist
+
+        .indent
+          input type='text' id='images-new-github' name='github'
+
+        ul.ui.checkbox-group
+          li
+            .ui.checkbox
+              input type='radio' id='images-new-option-url' name='option'
+              label
+            label for='images-new-option-url' Fetch Dockerfile URL
+
+        .indent
+          input type='text' id='images-new-url' name='url'
+
+        ul.ui.checkbox-group
+          li
+            .ui.checkbox
+              input type='radio' id='images-new-option-file' name='option'
+              label
+            label for='images-new-option-file' Upload Dockerfile / tarball
+
+        .indent
+          .ui.file-picker.btn.raised
+            input type='file' id='images-new-file' name='file'
+
+        ul.ui.checkbox-group
+          li
+            .ui.checkbox
+              input type='radio' id='images-new-option-code' name='option'
+              label
+            label for='images-new-option-code' Enter Dockerfile Code
+
+        .indent
+          .editor
+            textarea id='dockerfile-code' name='dockerfile' rows='1'
+
+  .card-footer.bordered
+    .right
+      button.ui.btn Cancel
+      button.ui.btn.primary Create

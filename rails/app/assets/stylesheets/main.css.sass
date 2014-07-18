@@ -71,3 +71,12 @@ hr
   white-space: nowrap
   overflow: hidden
   text-overflow: ellipsis
+
+.CodeMirror
+  border: 1px solid $gray300
+  margin-bottom: 1px
+  transition: border-bottom-color .2s
+
+  &.CodeMirror-focused
+    border-bottom: 2px solid $lightBlue500
+    margin-bottom: 0

@@ -9,7 +9,7 @@
 #= require_tree ./templates
 #= require_tree ./routes
 #= require_self
-#= require router
+#= require routes
 
 # all classes except router are loaded
 App.trigger 'AppDidLoad'
