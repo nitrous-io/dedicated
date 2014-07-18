@@ -56,7 +56,10 @@ type Client interface {
 	Restart(host *Host, id string) (*Container, error)
 	Terminate(host *Host, id string) (*Container, error)
 
-	// Get logs of the container and copy it to the writer
+	// Logs get logs of the container's process and copy it to the writer
+	//
+	// https://docs.docker.com/reference/api/docker_remote_api_v1.13/#21-containers
+	// Search for `Get container logs` because docker's api documentation sucks
 	Logs(host *Host, id, follow, timestamps, tail string, w io.Writer) error
 }
 
@@ -293,11 +296,9 @@ func (c *client) Logs(
 		return err
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("Failed to fetch container %s logs, status : %d", id, resp.StatusCode)
 	}
-
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		return fmt.Errorf("Unexpected error when fetching logs: %v", err)
 	}
