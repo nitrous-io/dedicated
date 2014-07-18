@@ -27,25 +27,36 @@ var _ = Describe("containers/list", func() {
 	var (
 		cmd        *list.Command
 		ui         *cli.MockUi
-		srv        *ghttp.Server
-		handlers   []http.HandlerFunc
 		configPath string
+
+		srv          *ghttp.Server
+		handlers     http.HandlerFunc
+		statusCode   int
+		responseBody string
 	)
 
 	BeforeEach(func() {
 		var err error
+
+		handlers = ghttp.CombineHandlers(
+			func(w http.ResponseWriter, req *http.Request) {
+				// Call ParseForm() so that server.ReceivedRequests() have
+				// POST params populated.
+				err := req.ParseForm()
+				Expect(err).To(BeNil())
+			},
+			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
+			ghttp.VerifyRequest("GET", "/api/v0/hosts/host-1/containers"),
+			ghttp.RespondWithPtr(&statusCode, &responseBody),
+		)
 		srv = ghttp.NewServer()
+		srv.AppendHandlers(handlers)
+
 		ui = &cli.MockUi{}
 		cmd = &list.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),
-		}
-		handlers = []http.HandlerFunc{
-			ghttp.VerifyHeader(http.Header{
-				"Authorization": []string{"Bearer a_token"},
-			}),
-			ghttp.VerifyRequest("GET", "/api/v0/hosts/host-1/containers"),
 		}
 		configPath, err = test.WriteConfig(&command.ConfigFile{}, "")
 		Expect(err).To(BeNil())
@@ -74,9 +85,8 @@ var _ = Describe("containers/list", func() {
 			})
 
 			It("uses the default host", func() {
-				handlers = append(handlers,
-					ghttp.RespondWith(http.StatusOK, `{"containers":[],"status":"ok"}`))
-				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+				statusCode = http.StatusOK
+				responseBody = `{"containers":[],"status":"ok"}`
 
 				code := cmd.Run([]string{})
 				Expect(code).To(Equal(0))
@@ -86,10 +96,6 @@ var _ = Describe("containers/list", func() {
 
 	Context("when server responds with containers in host", func() {
 		var (
-			responseJSON = strings.TrimSpace(`
-				{"containers":[{"id":"df5b37192a6469652b68639f5736973cf0fe9ec0fe4747ade3747d55548ccfdb","user_id":1,"host_id":25,"image":"freighter.foo","slug":"foo","name":{"String":"foo","Valid":true},"ip_address":{"String":"10.1.0.2","Valid":true},"terminated_at":null,"touched_at":null,"created_at":"2014-07-15T05:44:09.037793Z","updated_at":"2014-07-15T05:44:09.037793Z","state":"running"}]}
-				`)
-
 			formattedOutput = strings.TrimSpace(`
 Name   Image            State
 foo    freighter.foo    running
@@ -97,9 +103,25 @@ foo    freighter.foo    running
 		)
 
 		BeforeEach(func() {
-			handlers = append(handlers,
-				ghttp.RespondWith(http.StatusOK, responseJSON))
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+			statusCode = http.StatusOK
+			responseBody = `{
+				"containers": [
+					{
+						"id":"df5b37192a6469652b68639f5736973cf0fe9ec0fe4747ade3747d55548ccfdb",
+						"user_id":1,
+						"host_id":25,
+						"image":"freighter.foo",
+						"slug":"foo",
+						"name":{"String":"foo","Valid":true},
+						"ip_address":{"String":"10.1.0.2","Valid":true},
+						"terminated_at":null,
+						"touched_at":null,
+						"created_at":"2014-07-15T05:44:09.037793Z",
+						"updated_at":"2014-07-15T05:44:09.037793Z",
+						"state":"running"
+					}
+				]
+			}`
 		})
 
 		It("outputs formatted containers on success", func() {
@@ -119,9 +141,8 @@ foo    freighter.foo    running
 
 	Context("when host has no containers", func() {
 		BeforeEach(func() {
-			handlers = append(handlers,
-				ghttp.RespondWith(http.StatusOK, `{"containers":[],"status":"ok"}`))
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+			statusCode = http.StatusOK
+			responseBody = `{"containers":[],"status":"ok"}`
 		})
 
 		It("displays no containers found", func() {
@@ -144,11 +165,8 @@ foo    freighter.foo    running
 
 	Context("when server responds with an internal_server_error", func() {
 		BeforeEach(func() {
-			handlers = append(handlers,
-				ghttp.RespondWith(http.StatusInternalServerError,
-					`{"error":"internal_server_error","error_hash":"b482fd5b602650c798366fe9ee8e6cf65ef759fc"}`),
-			)
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+			statusCode = http.StatusInternalServerError
+			responseBody = `{"error":"internal_server_error","error_hash":"b482fd5b602650c798366fe9ee8e6cf65ef759fc"}`
 		})
 
 		It("displays unknown error message", func() {
