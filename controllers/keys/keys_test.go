@@ -85,11 +85,10 @@ var _ = Describe("controllers/keys", func() {
 		Expect(err).To(BeNil())
 
 		c = &container.Container{
-			ID:     "1234abc",
 			UserID: hs.U.ID,
 			HostID: hs.H.ID,
 			Image:  "nitrous-base",
-			Name:   "java-test-container",
+			Slug:   "java-test-container",
 		}
 		err = c.Insert(db)
 		Expect(err).To(BeNil())
@@ -101,10 +100,10 @@ var _ = Describe("controllers/keys", func() {
 		}
 	})
 
-	Describe("GET /api/v0/keys", func() {
+	Describe("GET /api/v0/containers/{container}/keys", func() {
 		doRequest := func() {
 			var err error
-			req, err = NewApiRequest(authToken, "GET", "/api/v0/keys", params)
+			req, err = NewApiRequest(authToken, "GET", fmt.Sprintf("/api/v0/containers/%s/keys", c.Slug), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -164,10 +163,10 @@ var _ = Describe("controllers/keys", func() {
 
 	for _, meth := range []string{"POST", "PUT"} {
 		m := meth
-		Describe(m+" /api/v0/keys", func() {
-			doRequest := func() {
+		Describe(m+" /api/v0/containers/{container}/keys", func() {
+			doRequest := func(slug string) {
 				var err error
-				req, err = NewApiRequest(authToken, m, "/api/v0/keys", params)
+				req, err = NewApiRequest(authToken, m, fmt.Sprintf("/api/v0/containers/%s/keys", slug), params)
 				Expect(err).To(BeNil())
 				handler.ServeHTTP(res, req)
 			}
@@ -175,14 +174,13 @@ var _ = Describe("controllers/keys", func() {
 			Context("when valid params are received", func() {
 				BeforeEach(func() {
 					params = &url.Values{}
-					params.Set("container_id", c.ID)
 					params.Set("keytext", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0Ddg2BE+XhqJHHI164Sxi7euv5bTTxdW1D/mUTd1uQruFvyyMPAVjRhR1aSgvh8DGlaj/ndV5CViR6zU9upLf9XPjCg84/4HMBpbhSA3PWRb6YMwf85HEAfiXYLmw06PD40Ts6EHbvtWfQLo06bxsnGaRaP4dJNZRkDpEuQTZNoWh0SQzG3Ww5TA7V80WCAdBnIOXymjGDm+Ri24RibmO+mp4s2dnevZOPXAOSAn5axd5X6INg+TEYFaEvFT8JnBTBvCWTTeHj+Xti9wWBcGbdFI/vAoHNrDtCav0UBe5ueItXAUklm4lo7uG+CL/33fLQ+iEC+WTTivTt9U0IORB")
-					doRequest()
+					doRequest(c.Slug)
 				})
 
 				It("creates the key", func() {
 					expectSuccessfulRequest("created")
-					pks, err := publickey.FindAllByUserID(db, 1)
+					pks, err := publickey.FindAllByUserIDAndContainerID(db, 1, c.ID)
 					Expect(err).To(BeNil())
 					Expect(pks).To(HaveLen(1))
 				})
@@ -199,9 +197,8 @@ var _ = Describe("controllers/keys", func() {
 					Expect(err).To(BeNil())
 
 					params = &url.Values{}
-					params.Set("container_id", c.ID)
 					params.Set("keytext", validKeys[0])
-					doRequest()
+					doRequest(c.Slug)
 				})
 
 				It("responds with bad request", func() {
@@ -212,9 +209,8 @@ var _ = Describe("controllers/keys", func() {
 			Context("when invalid key is received", func() {
 				BeforeEach(func() {
 					params = &url.Values{}
-					params.Set("container_id", c.ID)
 					params.Set("keytext", "ssh-rsa bad key!!")
-					doRequest()
+					doRequest(c.Slug)
 				})
 
 				It("responds with bad request", func() {
@@ -225,9 +221,8 @@ var _ = Describe("controllers/keys", func() {
 			Context("when invalid container id is received", func() {
 				BeforeEach(func() {
 					params = &url.Values{}
-					params.Set("container_id", "bad id")
 					params.Set("keytext", validKeys[0])
-					doRequest()
+					doRequest("container-that-does-not-exist")
 				})
 
 				It("responds with bad request", func() {
@@ -237,10 +232,10 @@ var _ = Describe("controllers/keys", func() {
 		})
 	}
 
-	Describe("DELETE /api/v0/keys", func() {
-		doRequest := func() {
+	Describe("DELETE /api/v0/containers/{container}/keys", func() {
+		doRequest := func(slug string) {
 			var err error
-			req, err = NewApiRequest(authToken, "DELETE", "/api/v0/keys", params)
+			req, err = NewApiRequest(authToken, "DELETE", fmt.Sprintf("/api/v0/containers/%s/keys", slug), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -257,18 +252,18 @@ var _ = Describe("controllers/keys", func() {
 					Expect(err).To(BeNil())
 				}
 
-				pks, err := publickey.FindAllByUserID(db, 1)
+				pks, err := publickey.FindAllByUserIDAndContainerID(db, 1, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(2))
 
 				params = &url.Values{}
-				doRequest()
+				doRequest(c.Slug)
 			})
 
 			It("removes all of them", func() {
 				expectSuccessfulRequest("ok")
 
-				pks, err := publickey.FindAllByUserID(db, 1)
+				pks, err := publickey.FindAllByUserIDAndContainerID(db, 1, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(BeEmpty())
 
@@ -278,7 +273,7 @@ var _ = Describe("controllers/keys", func() {
 		Context("when user has no keys", func() {
 			BeforeEach(func() {
 				params = &url.Values{}
-				doRequest()
+				doRequest(c.Slug)
 			})
 
 			It("returns success", func() {
@@ -289,11 +284,13 @@ var _ = Describe("controllers/keys", func() {
 
 	Describe("DELETE /api/v0/keys/<md5_fingerprint>", func() {
 		var pks []*publickey.PublicKey
+		var c2 *container.Container
+		var fprint string
 
-		doRequest := func(fingerprint string) {
+		doRequest := func(slug string, fingerprint string) {
 			var err error
 			req, err = NewApiRequest(authToken, "DELETE",
-				fmt.Sprintf("/api/v0/keys/%s", fingerprint), params)
+				fmt.Sprintf("/api/v0/containers/%s/keys/%s", slug, fingerprint), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -310,71 +307,27 @@ var _ = Describe("controllers/keys", func() {
 				Expect(err).To(BeNil())
 				pks = append(pks, pk)
 			}
+
+			c2 = &container.Container{
+				UserID: hs.U.ID,
+				HostID: hs.H.ID,
+				Image:  "nitrous-base",
+				Slug:   "go-benchmark",
+			}
+			err := c2.Insert(db)
+			Expect(err).To(BeNil())
+			fprint, err = pks[1].Md5Fingerprint()
+			Expect(err).To(BeNil())
 		})
 
-		Context("when key exists for user", func() {
-			BeforeEach(func() {
-				fprint, err := pks[1].Md5Fingerprint()
-				Expect(err).To(BeNil())
-				doRequest(fprint)
-			})
-
-			It("removes key", func() {
-				expectSuccessfulRequest("ok")
-
-				upks, err := publickey.FindAllByUserID(db, 1)
-				Expect(err).To(BeNil())
-				Expect(upks).To(HaveLen(1))
-				Expect(upks[0].Key).To(Equal(pks[0].Key))
-			})
+		It("is successful when key is present in container", func() {
+			doRequest(c.Slug, fprint)
+			expectSuccessfulRequest("ok")
 		})
 
-		Context("when key does not exist for user", func() {
-			BeforeEach(func() {
-				params = &url.Values{}
-				doRequest("nosuchfingerprint")
-			})
-
-			It("returns 404", func() {
-				Expect(res.Code).To(Equal(http.StatusNotFound))
-			})
-
-			It("does not remove keys", func() {
-				upks, err := publickey.FindAllByUserID(db, hs.U.ID)
-				Expect(err).To(BeNil())
-				Expect(upks).To(HaveLen(len(pks)))
-			})
-		})
-
-		Context("when container is specified", func() {
-			var c2 *container.Container
-			var fprint string
-
-			BeforeEach(func() {
-				c2 = &container.Container{
-					ID:     "a1b2",
-					UserID: hs.U.ID,
-					HostID: hs.H.ID,
-					Image:  "nitrous-base",
-					Name:   "go-benchmark",
-				}
-				err := c2.Insert(db)
-				Expect(err).To(BeNil())
-				fprint, err = pks[1].Md5Fingerprint()
-				Expect(err).To(BeNil())
-			})
-
-			It("is successful when key is present in container", func() {
-				params = &url.Values{"container_id": {c.ID}}
-				doRequest(fprint)
-				expectSuccessfulRequest("ok")
-			})
-
-			It("is unsuccessful when key is not in container", func() {
-				params = &url.Values{"container_id": {c2.ID}}
-				doRequest(fprint)
-				expectBadRequest("fingerprint not found")
-			})
+		It("is unsuccessful when key is not in container", func() {
+			doRequest(c2.Slug, fprint)
+			expectBadRequest("fingerprint not found")
 		})
 	})
 })

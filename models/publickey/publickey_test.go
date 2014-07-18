@@ -23,6 +23,7 @@ var _ = Describe("models/publickey", func() {
 		db *db.Database
 		hs *HostStack
 		c  *container.Container
+		c2 *container.Container
 	)
 
 	validRSA := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC6YIJRY7GTMUOHjoRDP4IXa5LdmKVYpW0ORccuRztsbBVcZhkm2GVrvOPwnUc53k0zUe+q95im+Yb3d5pATX27KG0VheDx7mz2l2xUb44VzdT6aMpYEsQREw5RrUnpzFQgPh295ZbVPTIGzq0+7LALlDMP5YpY8oYrY1gAtTEmivcffD/fQMmcExlRbWRBvDc/nfSoN5wSpG+sW32gQ/l5IWtmPlnhb4ze/D32YDL6OVK75tlFNeMk2pmPWejnw9GFOBXkXEpYVfmd5AHpJqc1WskOdv1ahXwM2n8pghkjw3eh9YDmpiLkxeJEpA+pNJA69NdF4fYJhpm2Nz2dIvwn"
@@ -37,13 +38,21 @@ var _ = Describe("models/publickey", func() {
 		Expect(err).To(BeNil())
 
 		c = &container.Container{
-			ID:     "1234abc",
 			UserID: hs.U.ID,
 			HostID: hs.H.ID,
 			Image:  "nitrous-base",
-			Name:   "java-test-container",
+			Slug:   "java-test-container",
 		}
 		err = c.Insert(db)
+		Expect(err).To(BeNil())
+
+		c2 = &container.Container{
+			UserID: hs.U.ID,
+			HostID: hs.H.ID,
+			Image:  "nitrous-base",
+			Slug:   "java-test-container-2",
+		}
+		err = c2.Insert(db)
 		Expect(err).To(BeNil())
 	})
 
@@ -53,29 +62,18 @@ var _ = Describe("models/publickey", func() {
 		}
 	})
 
-	Describe("FindAllByUser()", func() {
-		var u2 *user.User
-
+	Describe("FindAllByUserIDAndContainerID()", func() {
 		BeforeEach(func() {
-
 			_, err := db.Exec("INSERT INTO public_keys (user_id, container_id, key, fingerprint) VALUES ($1, $2, $3, $4);", hs.U.ID, c.ID, validRSA, "fingerprint")
 			Expect(err).To(BeNil())
 
-			u2 = &user.User{
-				Username: "bar",
-				Password: "123456",
-				Email:    "bar@example.com",
-			}
-			err = u2.Insert(db)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec("INSERT INTO public_keys (user_id, container_id, key, fingerprint) VALUES ($1, $2, $3, $4);", u2.ID, c.ID, validECDSA, "fingerprint")
+			_, err = db.Exec("INSERT INTO public_keys (user_id, container_id, key, fingerprint) VALUES ($1, $2, $3, $4);", hs.U.ID, c2.ID, validECDSA, "fingerprint")
 			Expect(err).To(BeNil())
 		})
 
 		Context("when public_key records with a given user_id exists", func() {
 			It("finds public_keys by a given user", func() {
-				keys, err := publickey.FindAllByUser(db, hs.U)
+				keys, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(keys).To(HaveLen(1))
 
@@ -84,9 +82,13 @@ var _ = Describe("models/publickey", func() {
 			})
 		})
 
-		Context("when no public_key records with a given user_id exist", func() {
+		Context("when no public_key records with a given user_id and container_id exist", func() {
 			It("returns empty slice", func() {
-				keys, err := publickey.FindAllByUser(db, &user.User{ID: 999})
+				keys, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, 999)
+				Expect(err).To(BeNil())
+				Expect(keys).To(BeEmpty())
+
+				keys, err = publickey.FindAllByUserIDAndContainerID(db, 999, c.ID)
 				Expect(err).To(BeNil())
 				Expect(keys).To(BeEmpty())
 			})
@@ -95,7 +97,9 @@ var _ = Describe("models/publickey", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				keys, err := publickey.FindAllByUser(db, &user.User{})
+				u := user.User{}
+				c := container.Container{}
+				keys, err := publickey.FindAllByUserIDAndContainerID(db, u.ID, c.ID)
 				Expect(keys).To(BeEmpty())
 				Expect(err).NotTo(BeNil())
 			})
@@ -118,7 +122,7 @@ var _ = Describe("models/publickey", func() {
 				err := pk.Insert(db)
 				Expect(err).To(BeNil())
 
-				keys, err := publickey.FindAllByUserID(db, hs.U.ID)
+				keys, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(keys).To(HaveLen(1))
 				Expect(keys[0].UserID).To(Equal(hs.U.ID))
@@ -140,8 +144,9 @@ var _ = Describe("models/publickey", func() {
 		var (
 			u, u2 *user.User
 			// rsa1 and rsa2 belong to u, ecdsa belongs to u2
-			rsa1, rsa2, ecdsa *publickey.PublicKey
+			rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa *publickey.PublicKey
 		)
+
 		BeforeEach(func() {
 			u = &user.User{
 				Username: "foo",
@@ -150,6 +155,7 @@ var _ = Describe("models/publickey", func() {
 			}
 			err := u.Insert(db)
 			Expect(err).To(BeNil())
+
 			u2 = &user.User{
 				Username: "bar",
 				Password: "123456",
@@ -157,14 +163,25 @@ var _ = Describe("models/publickey", func() {
 			}
 			err = u2.Insert(db)
 			Expect(err).To(BeNil())
-			rsa1 = &publickey.PublicKey{
+
+			rsa1C1 = &publickey.PublicKey{
 				UserID:      u.ID,
 				ContainerID: c.ID,
 				Key:         validRSA,
 			}
-			rsa2 = &publickey.PublicKey{
+			rsa2C1 = &publickey.PublicKey{
 				UserID:      u.ID,
 				ContainerID: c.ID,
+				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
+			}
+			rsa1C2 = &publickey.PublicKey{
+				UserID:      u.ID,
+				ContainerID: c2.ID,
+				Key:         validRSA,
+			}
+			rsa2C2 = &publickey.PublicKey{
+				UserID:      u.ID,
+				ContainerID: c2.ID,
 				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
 			}
 			ecdsa = &publickey.PublicKey{
@@ -172,47 +189,51 @@ var _ = Describe("models/publickey", func() {
 				ContainerID: c.ID,
 				Key:         validECDSA,
 			}
-			for _, k := range []*publickey.PublicKey{rsa1, rsa2, ecdsa} {
+			for _, k := range []*publickey.PublicKey{rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa} {
 				err := k.Insert(db)
 				Expect(err).To(BeNil())
 			}
 		})
 
-		Describe("DestroyAllByUserID", func() {
-			It("removes a user's keys", func() {
-				pks, err := publickey.FindAllByUserID(db, u.ID)
+		Describe("DestroyAllByUserIDAndContainerID", func() {
+			It("removes a user's and keys from a given container", func() {
+				pks, err := publickey.FindAllByUserIDAndContainerID(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(2))
-				err = publickey.DestroyAllByUserID(db, u.ID)
+
+				err = publickey.DestroyAllByUserIDAndContainerID(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
-				pks, err = publickey.FindAllByUserID(db, u.ID)
+
+				pks, err = publickey.FindAllByUserIDAndContainerID(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(0))
 			})
 
-			It("does not remove other users' keys", func() {
-				pks, err := publickey.FindAllByUserID(db, u2.ID)
+			It("does not remove other users' or containers' keys", func() {
+				pks, err := publickey.FindAllByUserIDAndContainerID(db, u.ID, c2.ID)
 				Expect(err).To(BeNil())
-				Expect(pks).To(HaveLen(1))
-				err = publickey.DestroyAllByUserID(db, u.ID)
+				Expect(pks).To(HaveLen(2))
+
+				err = publickey.DestroyAllByUserIDAndContainerID(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
-				pks, err = publickey.FindAllByUserID(db, u2.ID)
+
+				pks, err = publickey.FindAllByUserIDAndContainerID(db, u.ID, c2.ID)
 				Expect(err).To(BeNil())
-				Expect(pks).To(HaveLen(1))
+				Expect(pks).To(HaveLen(2))
 			})
 		})
 
-		Describe("DestroyByUserIDAndFingerprint", func() {
+		Describe("DestroyByUserIDAndContainerIDAndFingerprint", func() {
 			It("removes a key with the right fingerprint", func() {
-				rsa1print, err := rsa1.Md5Fingerprint()
+				rsa1print, err := rsa1C1.Md5Fingerprint()
 				Expect(err).To(BeNil())
-				err = publickey.DestroyByUserIDAndFingerprint(db, u.ID, rsa1print)
+				err = publickey.DestroyByUserIDAndContainerIDAndFingerprint(db, u.ID, c.ID, rsa1print)
 				Expect(err).To(BeNil())
 
-				pks, err := publickey.FindAllByUserID(db, u.ID)
+				pks, err := publickey.FindAllByUserIDAndContainerID(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(1))
-				Expect(pks[0].Key).To(Equal(rsa2.Key))
+				Expect(pks[0].Key).To(Equal(rsa2C1.Key))
 			})
 		})
 	})

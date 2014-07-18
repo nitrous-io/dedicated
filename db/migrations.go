@@ -191,7 +191,7 @@ func init() {
 				CREATE TABLE public_keys (
 					id bigserial PRIMARY KEY NOT NULL,
 					user_id bigint REFERENCES users(id) NOT NULL,
-					container_id character varying(255) REFERENCES containers(id) NOT NULL,
+					container_id bigserial REFERENCES containers(id) NOT NULL,
 					key text NOT NULL,
 					fingerprint character varying(255) NOT NULL,
 					created_at timestamp without time zone DEFAULT now(),

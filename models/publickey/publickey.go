@@ -6,7 +6,6 @@ import (
 
 	"github.com/nitrous-io/nitrous-common/sshkey"
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/user"
 )
 
 var (
@@ -18,27 +17,14 @@ var (
 type PublicKey struct {
 	ID          int64      `db:"id" json:"id"`
 	UserID      int64      `db:"user_id" json:"-"`
-	ContainerID string     `db:"container_id" json:"container_id"`
+	ContainerID int64      `db:"container_id" json:"container_id"`
 	Fingerprint string     `db:"fingerprint" json:"fingerprint"`
 	Key         string     `db:"key" json:"key"`
 	CreatedAt   *time.Time `db:"created_at" json:"-"`
 	UpdatedAt   *time.Time `db:"updated_at" json:"-"`
 }
 
-func FindAllByUser(db *db.Database, user *user.User) ([]PublicKey, error) {
-	return FindAllByUserID(db, user.ID)
-}
-
-func FindAllByUserID(db *db.Database, userID int64) ([]PublicKey, error) {
-	keys := []PublicKey{}
-	err := db.Select(&keys, "SELECT * FROM public_keys WHERE user_id = $1 ORDER BY (container_id, id)", userID)
-	if err != nil {
-		return []PublicKey{}, err
-	}
-	return keys, nil
-}
-
-func FindAllByUserIDAndContainerID(db *db.Database, userID int64, containerID string) ([]PublicKey, error) {
+func FindAllByUserIDAndContainerID(db *db.Database, userID int64, containerID int64) ([]PublicKey, error) {
 	keys := []PublicKey{}
 	err := db.Select(&keys, "SELECT * FROM public_keys WHERE user_id = $1 AND container_id = $2 ORDER BY created_at", userID, containerID)
 	if err != nil {
@@ -47,28 +33,12 @@ func FindAllByUserIDAndContainerID(db *db.Database, userID int64, containerID st
 	return keys, nil
 }
 
-func DestroyAllByUserID(db *db.Database, userID int64) error {
-	_, err := db.Queryx("DELETE FROM public_keys WHERE user_id = $1", userID)
+func DestroyAllByUserIDAndContainerID(db *db.Database, userID int64, containerID int64) error {
+	_, err := db.Queryx("DELETE FROM public_keys WHERE user_id = $1 AND container_id = $2", userID, containerID)
 	return err
 }
 
-func DestroyByUserIDAndFingerprint(db *db.Database, userID int64, fingerprint string) error {
-	keys := []PublicKey{}
-	sqlf := "%s FROM public_keys WHERE user_id = $1 AND fingerprint = $2"
-	err := db.Select(&keys, fmt.Sprintf(sqlf, "SELECT *"), userID, fingerprint)
-
-	if err != nil {
-		return err
-	}
-	if len(keys) == 0 {
-		return ErrNotFound
-	}
-
-	_, err = db.Queryx(fmt.Sprintf(sqlf, "DELETE"), userID, fingerprint)
-	return err
-}
-
-func DestroyByUserIDAndContainerIDAndFingerprint(db *db.Database, userID int64, containerID string, fingerprint string) error {
+func DestroyByUserIDAndContainerIDAndFingerprint(db *db.Database, userID int64, containerID int64, fingerprint string) error {
 	keys := []PublicKey{}
 	sqlf := "%s FROM public_keys WHERE user_id = $1 AND container_id = $2 AND fingerprint = $3"
 	err := db.Select(&keys, fmt.Sprintf(sqlf, "SELECT *"), userID, containerID, fingerprint)
@@ -82,15 +52,6 @@ func DestroyByUserIDAndContainerIDAndFingerprint(db *db.Database, userID int64, 
 
 	_, err = db.Queryx(fmt.Sprintf(sqlf, "DELETE"), userID, containerID, fingerprint)
 	return err
-}
-
-func FindAllByContainerID(db *db.Database, containerID string) ([]PublicKey, error) {
-	keys := []PublicKey{}
-	err := db.Select(&keys, "SELECT * FROM public_keys WHERE container_id = $1", containerID)
-	if err != nil {
-		return []PublicKey{}, err
-	}
-	return keys, nil
 }
 
 func (pk *PublicKey) Insert(d db.QueryReceiver) error {

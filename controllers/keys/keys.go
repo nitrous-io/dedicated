@@ -1,6 +1,7 @@
 package keys
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -21,21 +22,20 @@ var (
 	ErrFingerprintNotFound = httperror.New(http.StatusNotFound, "validation_failed", "fingerprint not found")
 )
 
-func Index(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+var (
+	Index               middlewares.Middleware = withContainer(index)
+	Create              middlewares.Middleware = withContainer(create)
+	DeleteAll           middlewares.Middleware = withContainer(deleteAll)
+	DeleteByFingerprint middlewares.Middleware = withContainer(deleteByFingerprint)
+)
+
+func index(cnr *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
-	cid, err := getContainerID(db, r, u.ID, true)
-	if err != nil {
-		return err
-	}
-
 	keys := []publickey.PublicKey{}
-	if cid == "" {
-		keys, err = publickey.FindAllByUser(db, u)
-	} else {
-		keys, err = publickey.FindAllByUserIDAndContainerID(db, u.ID, cid)
-	}
+	keys, err := publickey.FindAllByUserIDAndContainerID(db, u.ID, cnr.ID)
+
 	if err != nil {
 		return err
 	}
@@ -48,22 +48,17 @@ func Index(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r 
 	return nil
 }
 
-func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func create(cnr *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
-	cid, err := getContainerID(db, r, u.ID, false)
-	if err != nil {
-		return err
-	}
-
 	pk := publickey.PublicKey{
 		UserID:      u.ID,
-		ContainerID: cid,
+		ContainerID: cnr.ID,
 		Key:         r.FormValue("keytext"),
 	}
 
-	err = pk.Validate()
+	err := pk.Validate()
 	if err != nil {
 		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
 	}
@@ -97,11 +92,11 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 	return nil
 }
 
-func DeleteAll(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func deleteAll(cnr *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
-	err := publickey.DestroyAllByUserID(db, u.ID)
+	err := publickey.DestroyAllByUserIDAndContainerID(db, u.ID, cnr.ID)
 	if err != nil {
 		return err
 	}
@@ -113,21 +108,14 @@ func DeleteAll(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter
 	return nil
 }
 
-func DeleteByFingerprint(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func deleteByFingerprint(cnr *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
 	fingerprint := mux.Vars(r)["md5_fingerprint"]
-	cid, err := getContainerID(db, r, u.ID, true)
-	if err != nil {
-		return err
-	}
 
-	if cid == "" {
-		err = publickey.DestroyByUserIDAndFingerprint(db, u.ID, fingerprint)
-	} else {
-		err = publickey.DestroyByUserIDAndContainerIDAndFingerprint(db, u.ID, cid, fingerprint)
-	}
+	err := publickey.DestroyByUserIDAndContainerIDAndFingerprint(db, u.ID, cnr.ID, fingerprint)
+
 	if err != nil {
 		if err == publickey.ErrNotFound {
 			return ErrFingerprintNotFound
@@ -142,18 +130,40 @@ func DeleteByFingerprint(env *middlewares.Env, c controllers.Helper, w http.Resp
 	return nil
 }
 
-func getContainerID(d db.QueryReceiver, r *http.Request, userID int64, optional bool) (string, error) {
+func withContainer(fn func(cnr *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
+	return middlewares.Vars(func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+		db := c.DB()
+
+		u := env.User
+		if u == nil {
+			return errors.New("user is nil")
+		}
+
+		cSlug := env.Vars["container"]
+		cnr, err := container.FindByUserIDAndSlug(db, u.ID, cSlug)
+		if err != nil {
+			return err
+		}
+		if cnr == nil {
+			return ErrContainerNotFound
+		}
+
+		return fn(cnr, env, c, w, r)
+	})
+}
+
+func getContainerID(d db.QueryReceiver, r *http.Request, userID int64, optional bool) (int64, error) {
 	cid := r.FormValue("container_id")
 	if cid == "" {
 		if optional {
-			return cid, nil
+			return 1, nil
 		} else {
-			return "", ErrContainerBlank
+			return 1, ErrContainerBlank
 		}
 	}
-	c, _ := container.FindByID(d, cid)
+	c := &container.Container{}
 	if c == nil || c.UserID != userID {
-		return "", ErrContainerNotFound
+		return 1, ErrContainerNotFound
 	}
 	return c.ID, nil
 }
