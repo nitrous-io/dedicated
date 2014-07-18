@@ -1,17 +1,15 @@
 package list
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
-	"github.com/nitrous-io/nitro/consts"
+	"github.com/nitrous-io/nitro/command/hosts"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
 
@@ -25,11 +23,6 @@ type Command struct {
 	UI     cli.Ui
 	Server string
 	Client *httpclient.Client
-}
-
-type Host struct {
-	Slug  string `json:"slug"`
-	State string `json:"state"`
 }
 
 func init() {
@@ -57,18 +50,18 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	hosts, err := c.fetchHosts()
+	hsts, err := c.fetchHosts()
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
 
-	if len(*hosts) == 0 {
-		c.UI.Output("No hosts found")
+	if len(hsts) == 0 {
+		c.UI.Output("No hosts found.")
 		return 0
 	}
 
-	t := formattedOutput([]string{"Slug", "State"}, hosts)
+	t := hosts.PrettyPrint([]string{"Slug", "State", "Size"}, hsts...)
 	c.UI.Output(t)
 
 	return 0
@@ -78,7 +71,7 @@ func (c *Command) Synopsis() string {
 	return "List all hosts"
 }
 
-func (c *Command) fetchHosts() (*[]Host, error) {
+func (c *Command) fetchHosts() ([]*hosts.Host, error) {
 	resp, err := c.Client.GetAuthed(fmt.Sprintf("%s/api/v0/hosts", c.Server), nil)
 	if err != nil {
 		return nil, err
@@ -90,25 +83,12 @@ func (c *Command) fetchHosts() (*[]Host, error) {
 	defer resp.Body.Close()
 
 	j := struct {
-		Hosts []Host `json:"hosts"`
+		Hosts []*hosts.Host `json:"hosts"`
 	}{}
 	err = json.NewDecoder(resp.Body).Decode(&j)
 	if err != nil {
 		return nil, err
 	}
 
-	return &j.Hosts, nil
-}
-
-func formattedOutput(headers []string, hosts *[]Host) string {
-	b := &bytes.Buffer{}
-	w := &tabwriter.Writer{}
-
-	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
-	fmt.Fprintln(w, strings.Join(headers, "\t "))
-	for _, r := range *hosts {
-		fmt.Fprintln(w, r.Slug, "\t", r.State)
-	}
-	w.Flush()
-	return b.String()
+	return j.Hosts, nil
 }

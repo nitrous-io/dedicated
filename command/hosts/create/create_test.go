@@ -2,6 +2,7 @@ package create_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/mitchellh/cli"
@@ -20,26 +21,40 @@ func Test(t *testing.T) {
 
 var _ = Describe("hosts/create", func() {
 	var (
-		cmd      *create.Command
-		ui       *cli.MockUi
-		srv      *ghttp.Server
-		handlers []http.HandlerFunc
+		cmd          *create.Command
+		ui           *cli.MockUi
+		srv          *ghttp.Server
+		handlers     http.HandlerFunc
+		statusCode   int
+		responseBody string
 	)
 
 	BeforeEach(func() {
-		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
+
+		handlers = ghttp.CombineHandlers(
+			func(w http.ResponseWriter, req *http.Request) {
+				// Call ParseForm() so that server.ReceivedRequests() have
+				// POST params populated.
+				err := req.ParseForm()
+				Expect(err).To(BeNil())
+			},
+			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
+			ghttp.VerifyRequest("POST", "/api/v0/hosts"),
+			ghttp.RespondWithPtr(&statusCode, &responseBody),
+		)
+		srv = ghttp.NewServer()
+		srv.AppendHandlers(handlers)
+
 		cmd = &create.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),
 		}
-		handlers = []http.HandlerFunc{
-			ghttp.VerifyHeader(http.Header{
-				"Authorization": []string{"Bearer a_token"},
-			}),
-			ghttp.VerifyRequest("POST", "/api/v0/hosts"),
-		}
+	})
+
+	AfterEach(func() {
+		srv.Close()
 	})
 
 	It("requires size as an argument", func() {
@@ -64,50 +79,47 @@ var _ = Describe("hosts/create", func() {
 
 		Context("when slug is provided", func() {
 			It("populates request correctly", func() {
-				handlers = append(handlers, func(w http.ResponseWriter, r *http.Request) {
-					Expect(r.FormValue("size")).To(Equal("micro"))
-					Expect(r.FormValue("region")).To(Equal("apse"))
-					Expect(r.FormValue("slug")).To(Equal("foo"))
-				})
-				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 				doCmd(&createHostParams{size: "micro", slug: "foo", region: "apse"})
+				receivedRequests := srv.ReceivedRequests()
+				Expect(receivedRequests).To(HaveLen(1))
+				Expect(receivedRequests[0].PostFormValue("size")).To(Equal("micro"))
+				Expect(receivedRequests[0].PostFormValue("region")).To(Equal("apse"))
+				Expect(receivedRequests[0].PostFormValue("slug")).To(Equal("foo"))
 			})
 		})
 
 		Context("when slug is not provided", func() {
 			It("populates request with a randomly generated slug", func() {
-				handlers = append(handlers, func(w http.ResponseWriter, r *http.Request) {
-					Expect(r.FormValue("size")).To(Equal("micro"))
-					Expect(r.FormValue("region")).To(Equal("apse"))
-					// This will be a randomly generated name
-					Expect(r.FormValue("slug")).NotTo(Equal(""))
-
-				})
-				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 				doCmd(&createHostParams{size: "micro", region: "apse"})
+				receivedRequests := srv.ReceivedRequests()
+				Expect(receivedRequests).To(HaveLen(1))
+				Expect(receivedRequests[0].PostFormValue("size")).To(Equal("micro"))
+				Expect(receivedRequests[0].PostFormValue("region")).To(Equal("apse"))
+				Expect(receivedRequests[0].PostFormValue("slug")).NotTo(Equal(""))
 			})
-
 		})
 
 		Context("when request succeeds", func() {
-			It("reports success", func() {
-				handlers = append(handlers,
-					ghttp.RespondWith(http.StatusCreated, `{"status":"created"}`))
-				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+			It("prints the host in the response", func() {
+				statusCode = http.StatusCreated
+				responseBody = `{
+					"host":{"slug":"test","state":"created","size":"micro"},
+					"status":"created"
+				}`
 
 				code := doCmd(&createHostParams{size: "micro", slug: "test", region: "apse"})
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
+				Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
+Slug    State      Size
+test    created    micro
+`)))
 				Expect(code).To(Equal(0))
 			})
 		})
 
 		Context("when request fails", func() {
 			It("displays error message", func() {
-				handlers = append(handlers,
-					ghttp.RespondWith(http.StatusBadRequest,
-						`{"error":"validation_failed","error_description":"region not found"}`),
-				)
-				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+				statusCode = http.StatusBadRequest
+				responseBody = `{"error":"validation_failed","error_description":"region not found"}`
 
 				code := doCmd(&createHostParams{size: "micro", slug: "test", region: "apse"})
 				Expect(ui.ErrorWriter.String()).To(ContainSubstring("region not found"))
