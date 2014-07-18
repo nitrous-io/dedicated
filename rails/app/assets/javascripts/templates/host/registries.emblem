@@ -1,0 +1,27 @@
+= host-tab-bar selected='registries'
+
+.card-body
+  ul.ui.list.with-separators.item-2-line
+    li.list-item
+      .left-accessory
+        .ui.checkbox
+          input type='checkbox'
+          label
+      .lines
+        h4 hub.docker.com
+        p petejkim
+
+    li.list-item
+      .left-accessory
+        .ui.checkbox
+          input type='checkbox'
+          label
+      .lines
+        h4 quay.io
+        p petejkim
+
+.card-footer.bordered
+  .left
+    button.ui.btn Remove
+  .right
+    button.ui.btn.primary Add Registry...

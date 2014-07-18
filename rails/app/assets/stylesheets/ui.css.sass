@@ -414,9 +414,9 @@ ul.ui.list
       display: inline-block
       flex-grow: 1
       color: $gray800
-      margin: 0 16px
       font-size: $fontSizeSmall
       font-weight: 400
+      padding: 0 16px
 
       &.right
         text-align: right
@@ -431,21 +431,34 @@ ul.ui.list
       p
         color: $gray800
 
-  .item-1-line
-    height: 40px
-    line-height: 40px
+  &.with-separators
+    .list-item
+      .lines
+        padding-left: 0
+        border-bottom: 1px solid $gray300
 
-  .item-2-line
-    height: 72px
+      &:last-of-type
+        .lines
+          border-bottom: none
 
-    .left-accessory
-      width: 40px
+  &.item-1-line
+    .list-item
       height: 40px
       line-height: 40px
-      margin: 16px 0 0 16px
 
-    .lines
-      margin: 10px 16px
+  &.item-2-line
+    .list-item
+      height: 72px
 
-      p
-        color: $gray500
+      .left-accessory
+        width: 40px
+        height: 40px
+        line-height: 40px
+        margin: 16px 0 0 16px
+
+      .lines
+        padding-top: 10px
+        padding-bottom: 10px
+
+        p
+          color: $gray600

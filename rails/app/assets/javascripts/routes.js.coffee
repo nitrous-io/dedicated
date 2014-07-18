@@ -13,6 +13,7 @@ App.Router.map ->
       @route 'new'
 
     @resource 'host', path: '/hosts/:host_id', ->
+      @route 'registries'
 
     @resource 'images', ->
       @route 'new'

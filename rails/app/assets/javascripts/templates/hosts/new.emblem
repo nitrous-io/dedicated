@@ -52,8 +52,8 @@ form
         | Size
     .size-selection
       .size-list
-        ul.ui.list
-          li.list-item.item-1-line
+        ul.ui.list.item-1-line
+          li.list-item
             .left-accessory
               .ui.checkbox
                 input type='radio' id='hosts-new-size-1gb' name='size'
@@ -63,7 +63,7 @@ form
                 label for='hosts-new-size-1gb' Micro
             .lines.right
               p $15/mo
-          li.list-item.item-1-line
+          li.list-item
             .left-accessory
               .ui.checkbox
                 input type='radio' id='hosts-new-size-2gb' name='size' checked='checked'
@@ -73,7 +73,7 @@ form
                 label for='hosts-new-size-2gb' Small
             .lines.right
               p $30/mo
-          li.list-item.item-1-line
+          li.list-item
             .left-accessory
               .ui.checkbox
                 input type='radio' id='hosts-new-size-4gb' name='size'
@@ -83,7 +83,7 @@ form
                 label for='hosts-new-size-4gb' Medium
             .lines.right
               p $60/mo
-          li.list-item.item-1-line.disabled
+          li.list-item.disabled
             .left-accessory
               .ui.checkbox
                 input type='radio' id='hosts-new-size-8gb' name='size' disabled='disabled'
@@ -93,7 +93,7 @@ form
                 label for='hosts-new-size-8gb' Large
             .lines.right
               p $120/mo
-          li.list-item.item-1-line.disabled
+          li.list-item.disabled
             .left-accessory
               .ui.checkbox
                 input type='radio' id='hosts-new-size-16gb' name='size' disabled='disabled'
@@ -103,7 +103,7 @@ form
                 label for='hosts-new-size-16gb' XLarge
             .lines.right
               p $240/mo
-          li.list-item.item-1-line.disabled
+          li.list-item.disabled
             .left-accessory
               .ui.checkbox
                 input type='radio' id='hosts-new-size-32gb' name='size' disabled='disabled'
@@ -113,7 +113,7 @@ form
                 label for='hosts-new-size-32gb' 2XLarge
             .lines.right
               p $480/mo
-          li.list-item.item-1-line.disabled
+          li.list-item.disabled
             .left-accessory
               .ui.checkbox
                 input type='radio' id='hosts-new-size-64gb' name='size' disabled='disabled'
