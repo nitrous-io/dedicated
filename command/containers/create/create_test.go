@@ -26,56 +26,66 @@ var _ = Describe("containers/create", func() {
 	var (
 		cmd        *create.Command
 		ui         *cli.MockUi
-		srv        *ghttp.Server
-		handlers   []http.HandlerFunc
 		configPath string
+
+		srv          *ghttp.Server
+		handlers     http.HandlerFunc
+		statusCode   int
+		responseBody string
 	)
 
 	BeforeEach(func() {
 		var err error
+
+		handlers = ghttp.CombineHandlers(
+			func(w http.ResponseWriter, req *http.Request) {
+				// Call ParseForm() so that server.ReceivedRequests() have
+				// POST params populated.
+				err := req.ParseForm()
+				Expect(err).To(BeNil())
+			},
+			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
+			ghttp.VerifyRequest("POST", "/api/v0/hosts/host-1/containers"),
+			ghttp.RespondWithPtr(&statusCode, &responseBody),
+		)
 		srv = ghttp.NewServer()
+		srv.AppendHandlers(handlers)
+
 		ui = &cli.MockUi{}
 		cmd = &create.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),
 		}
-		handlers = []http.HandlerFunc{
-			ghttp.VerifyHeader(http.Header{
-				"Authorization": []string{"Bearer a_token"},
-			}),
-			ghttp.VerifyRequest("POST", "/api/v0/hosts/host-1/containers"),
-		}
 		configPath, err = test.WriteConfig(&command.ConfigFile{}, "")
 		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
+		srv.Close()
 		os.Remove(configPath)
 	})
 
 	Context("when not all options are specified", func() {
 		It("populates request with only given params", func() {
-			handlers = append(handlers, func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.FormValue("slug")).To(Equal("foo"))
-			})
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 			cmd.Run([]string{
 				"--host=host-1",
 				"--slug=foo",
 			})
+			receivedRequests := srv.ReceivedRequests()
+			Expect(receivedRequests).To(HaveLen(1))
+			Expect(receivedRequests[0].PostFormValue("slug")).To(Equal("foo"))
 		})
 	})
 
 	Context("when slug is not specified", func() {
 		It("populates request with a randomly generated slug", func() {
-			handlers = append(handlers, func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.FormValue("slug")).NotTo(Equal(""))
-			})
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 			cmd.Run([]string{
 				"--host=host-1",
 			})
+			receivedRequests := srv.ReceivedRequests()
+			Expect(receivedRequests).To(HaveLen(1))
+			Expect(receivedRequests[0].PostFormValue("slug")).NotTo(Equal(""))
 		})
 	})
 
@@ -103,9 +113,8 @@ var _ = Describe("containers/create", func() {
 			})
 
 			It("uses the default host", func() {
-				handlers = append(handlers,
-					ghttp.RespondWith(http.StatusCreated, `{"status":"created"}`))
-				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+				statusCode = http.StatusCreated
+				responseBody = `{"status":"created"}`
 
 				code := doCmd()
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
@@ -124,22 +133,20 @@ var _ = Describe("containers/create", func() {
 		}
 
 		It("populates request with all params", func() {
-			handlers = append(handlers, func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.FormValue("slug")).To(Equal("foo"))
-				Expect(r.FormValue("image")).To(Equal("ubuntu"))
-			})
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 			doCmd()
+			receivedRequests := srv.ReceivedRequests()
+			Expect(receivedRequests).To(HaveLen(1))
+			Expect(receivedRequests[0].PostFormValue("slug")).To(Equal("foo"))
+			Expect(receivedRequests[0].PostFormValue("image")).To(Equal("ubuntu"))
 		})
 
 		Context("when request succeeds", func() {
 			BeforeEach(func() {
-				response := `{
+				statusCode = http.StatusCreated
+				responseBody = `{
 					"status": "created",
 					"container": { "slug": "wild-rocket-23", "image": "ubuntu", "state": "running" }
 				}`
-				handlers = append(handlers, ghttp.RespondWith(http.StatusCreated, response))
-				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
 			})
 
 			It("reports the container's slug", func() {
@@ -159,11 +166,8 @@ var _ = Describe("containers/create", func() {
 
 		Context("when request fails", func() {
 			BeforeEach(func() {
-				handlers = append(handlers,
-					ghttp.RespondWith(http.StatusBadRequest,
-						`{"error":"validation_failed","error_description":"image required"}`),
-				)
-				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+				statusCode = http.StatusBadRequest
+				responseBody = `{"error":"validation_failed","error_description":"image required"}`
 			})
 
 			It("displays error message", func() {
