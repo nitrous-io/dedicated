@@ -13,13 +13,9 @@ import (
 )
 
 const usage = `
-Usage: nitro inspect <host>/<container name>
+Usage: nitro inspect <container slug>
 
   inspect a container
-
-Examples:
-  nitro inspect host-1/container-a
-  nitro inspect container-a
 `
 
 type Command struct {
@@ -54,21 +50,16 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	host, containerStr, err := SplitHostContainer(args[0])
-	if err != nil {
-		c.UI.Output(c.Help())
-		return 1
-	}
+	containerStr := args[0]
 
-	c.UI.Output(fmt.Sprintf("%s/%s:", host, containerStr))
-	container, err := c.inspectContainer(host, containerStr)
+	c.UI.Output(fmt.Sprintf("%s:", containerStr))
+	container, err := c.inspectContainer(containerStr)
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
-	command.SaveDefaultHost(host)
 
-	t := PrettyPrint([]string{"Name", "Image", "State"}, container)
+	t := PrettyPrint([]string{"Slug", "Image", "State"}, container)
 	c.UI.Output(t)
 	return 0
 }
@@ -81,8 +72,8 @@ func (c *Command) Synopsis() string {
 	return "Inspect a container"
 }
 
-func (c *Command) inspectContainer(host, container string) (*Container, error) {
-	url := fmt.Sprintf("%s/api/v0/hosts/%s/containers/%s", c.Server, host, container)
+func (c *Command) inspectContainer(container string) (*Container, error) {
+	url := fmt.Sprintf("%s/api/v0/containers/%s", c.Server, container)
 	resp, err := c.Client.GetAuthed(url, nil)
 	if err != nil {
 		return nil, err

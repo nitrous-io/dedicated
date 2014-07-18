@@ -44,7 +44,7 @@ var _ = Describe("containers/destroy", func() {
 
 		handlers = ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
-			ghttp.VerifyRequest("DELETE", "/api/v0/hosts/host-1/containers/gregarious-scribe-24"),
+			ghttp.VerifyRequest("DELETE", "/api/v0/containers/gregarious-scribe-24"),
 			ghttp.RespondWithPtr(&statusCode, &responseBody),
 		)
 		srv = ghttp.NewServer()
@@ -63,12 +63,13 @@ var _ = Describe("containers/destroy", func() {
 	AfterEach(func() {
 		r.Close()
 		w.Close()
+		srv.Close()
 		os.Remove(configPath)
 	})
 
-	Context("nitro destroy hostslug/containerslug", func() {
+	Context("nitro destroy containerslug", func() {
 		doCmd := func() int {
-			return cmd.Run([]string{"host-1/gregarious-scribe-24", "--force"})
+			return cmd.Run([]string{"gregarious-scribe-24", "--force"})
 		}
 
 		Context("when the API responds with the container", func() {
@@ -80,27 +81,15 @@ var _ = Describe("containers/destroy", func() {
 			It("prints the container", func() {
 				code := doCmd()
 				Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
-Name                    Image     State
+Slug                    Image     State
 gregarious-scribe-24    ubuntu
 `)))
 				Expect(code).To(Equal(0))
 			})
 
-			It("writes the host to the config file", func() {
-				c, err := command.LoadConfig()
-				Expect(err).To(BeNil())
-				Expect(c.DefaultHost).To(Equal(""))
-
-				doCmd()
-
-				c, err = command.LoadConfig()
-				Expect(err).To(BeNil())
-				Expect(c.DefaultHost).To(Equal("host-1"))
-			})
-
 			Context("when --force option is not specified", func() {
 				doCmd := func() int {
-					return cmd.Run([]string{"host-1/gregarious-scribe-24"})
+					return cmd.Run([]string{"gregarious-scribe-24"})
 				}
 
 				It("asks for confirmation before proceeding", func() {
@@ -114,37 +103,6 @@ gregarious-scribe-24    ubuntu
 					Expect(ui.OutputWriter.String()).To(ContainSubstring("gregarious-scribe-24"))
 					Expect(code).To(Equal(0))
 				})
-			})
-		})
-	})
-
-	Context("nitro destroy containerslug", func() {
-		doCmd := func() int {
-			return cmd.Run([]string{"gregarious-scribe-24", "--force"})
-		}
-
-		Context("when there is no default host in the config file", func() {
-			It("prints usage and exits with error", func() {
-				code := doCmd()
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
-				Expect(code).To(Equal(1))
-			})
-		})
-
-		Context("when there is a default host in the config file", func() {
-			BeforeEach(func() {
-				_, err := test.WriteConfig(&command.ConfigFile{
-					DefaultHost: "host-1",
-				}, configPath)
-				Expect(err).To(BeNil())
-			})
-
-			It("uses the default host", func() {
-				statusCode = http.StatusOK
-				responseBody = `{ "container": { "slug": "gregarious-scribe-24", "image": "ubuntu", "state": "" } }`
-
-				code := doCmd()
-				Expect(code).To(Equal(0))
 			})
 		})
 	})

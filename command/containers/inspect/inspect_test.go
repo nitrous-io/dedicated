@@ -2,14 +2,11 @@ package inspect_test
 
 import (
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/containers/inspect"
-	"github.com/nitrous-io/nitro/test"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -24,9 +21,8 @@ func Test(t *testing.T) {
 
 var _ = Describe("containers/inspect", func() {
 	var (
-		cmd        *inspect.Command
-		ui         *cli.MockUi
-		configPath string
+		cmd *inspect.Command
+		ui  *cli.MockUi
 
 		srv          *ghttp.Server
 		handlers     http.HandlerFunc
@@ -35,12 +31,11 @@ var _ = Describe("containers/inspect", func() {
 	)
 
 	BeforeEach(func() {
-		var err error
 		ui = &cli.MockUi{}
 
 		handlers = ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
-			ghttp.VerifyRequest("GET", "/api/v0/hosts/host-1/containers/wild-rocket-23"),
+			ghttp.VerifyRequest("GET", "/api/v0/containers/wild-rocket-23"),
 			ghttp.RespondWithPtr(&statusCode, &responseBody),
 		)
 		srv = ghttp.NewServer()
@@ -51,18 +46,15 @@ var _ = Describe("containers/inspect", func() {
 			Server: srv.URL(),
 			Client: httpclient.New("correct_token"),
 		}
-
-		configPath, err = test.WriteConfig(&command.ConfigFile{}, "")
-		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
-		os.Remove(configPath)
+		srv.Close()
 	})
 
-	Context("nitro inspect hostslug/containerslug", func() {
+	Context("nitro inspect containerslug", func() {
 		doCmd := func() int {
-			return cmd.Run([]string{"host-1/wild-rocket-23"})
+			return cmd.Run([]string{"wild-rocket-23"})
 		}
 
 		Context("when the API responds with the container", func() {
@@ -74,52 +66,9 @@ var _ = Describe("containers/inspect", func() {
 			It("prints the container", func() {
 				code := doCmd()
 				Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
-Name              Image     State
+Slug              Image     State
 wild-rocket-23    ubuntu    running
 `)))
-				Expect(code).To(Equal(0))
-			})
-
-			It("writes the host to the config file", func() {
-				c, err := command.LoadConfig()
-				Expect(err).To(BeNil())
-				Expect(c.DefaultHost).To(Equal(""))
-
-				doCmd()
-
-				c, err = command.LoadConfig()
-				Expect(err).To(BeNil())
-				Expect(c.DefaultHost).To(Equal("host-1"))
-			})
-		})
-	})
-
-	Context("nitro inspect containerslug", func() {
-		doCmd := func() int {
-			return cmd.Run([]string{"wild-rocket-23"})
-		}
-
-		Context("when there is no default host in the config file", func() {
-			It("prints usage and exits with error", func() {
-				code := doCmd()
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
-				Expect(code).To(Equal(1))
-			})
-		})
-
-		Context("when there is a default host in the config file", func() {
-			BeforeEach(func() {
-				_, err := test.WriteConfig(&command.ConfigFile{
-					DefaultHost: "host-1",
-				}, configPath)
-				Expect(err).To(BeNil())
-			})
-
-			It("uses the default host", func() {
-				statusCode = http.StatusOK
-				responseBody = `{ "container": { "slug": "wild-rocket-23", "image": "ubuntu", "state": "running" } }`
-
-				code := doCmd()
 				Expect(code).To(Equal(0))
 			})
 		})

@@ -15,17 +15,13 @@ import (
 const forceUsage = "Skip confirmation"
 
 const usage = `
-Usage: nitro destroy <host>/<container name>
+Usage: nitro destroy <container slug>
 
   destroy a container
 
 Options:
 
   -f, --force=""    %s
-
-Examples:
-  nitro destroy host-1/container-a
-  nitro destroy container-a
 `
 
 type Command struct {
@@ -63,14 +59,10 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	host, containerStr, err := SplitHostContainer(args[0])
-	if err != nil {
-		c.UI.Output(c.Help())
-		return 1
-	}
+	containerStr := args[0]
 
 	if !force {
-		confirmation := c.UI.Confirm(fmt.Sprintf("Do you really want to destroy '%s/%s'? [y/N]", host, containerStr))
+		confirmation := c.UI.Confirm(fmt.Sprintf("Do you really want to destroy '%s'? [y/N]", containerStr))
 		switch confirmation {
 		case command.ConfirmYes:
 			// Pass.
@@ -86,15 +78,14 @@ func (c *Command) Run(args []string) int {
 		}
 	}
 
-	c.UI.Output(fmt.Sprintf("Destroying %s/%s...", host, containerStr))
-	container, err := c.destroy(host, containerStr)
+	c.UI.Output(fmt.Sprintf("Destroying %s...", containerStr))
+	container, err := c.destroy(containerStr)
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
-	command.SaveDefaultHost(host)
 
-	t := PrettyPrint([]string{"Name", "Image", "State"}, container)
+	t := PrettyPrint([]string{"Slug", "Image", "State"}, container)
 	c.UI.Output(t)
 	return 0
 }
@@ -107,8 +98,8 @@ func (c *Command) Synopsis() string {
 	return "Destroy a container"
 }
 
-func (c *Command) destroy(host, container string) (*Container, error) {
-	url := fmt.Sprintf("%s/api/v0/hosts/%s/containers/%s", c.Server, host, container)
+func (c *Command) destroy(container string) (*Container, error) {
+	url := fmt.Sprintf("%s/api/v0/containers/%s", c.Server, container)
 	resp, err := c.Client.DeleteAuthed(url, nil)
 	if err != nil {
 		return nil, err

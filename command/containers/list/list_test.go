@@ -39,14 +39,8 @@ var _ = Describe("containers/list", func() {
 		var err error
 
 		handlers = ghttp.CombineHandlers(
-			func(w http.ResponseWriter, req *http.Request) {
-				// Call ParseForm() so that server.ReceivedRequests() have
-				// POST params populated.
-				err := req.ParseForm()
-				Expect(err).To(BeNil())
-			},
 			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
-			ghttp.VerifyRequest("GET", "/api/v0/hosts/host-1/containers"),
+			ghttp.VerifyRequest("GET", "/api/v0/containers", "host=host-1"),
 			ghttp.RespondWithPtr(&statusCode, &responseBody),
 		)
 		srv = ghttp.NewServer()
@@ -69,7 +63,7 @@ var _ = Describe("containers/list", func() {
 
 	Context("when host is not specified", func() {
 		Context("when there is no default host in the config file", func() {
-			It("requires name as an argument", func() {
+			It("prints usage and exits with error", func() {
 				code := cmd.Run([]string{})
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
 				Expect(code).To(Equal(1))

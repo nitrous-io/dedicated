@@ -43,9 +43,10 @@ var _ = Describe("containers/create", func() {
 				// POST params populated.
 				err := req.ParseForm()
 				Expect(err).To(BeNil())
+				Expect(req.PostFormValue("host")).To(Equal("host-1"))
 			},
 			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
-			ghttp.VerifyRequest("POST", "/api/v0/hosts/host-1/containers"),
+			ghttp.VerifyRequest("POST", "/api/v0/containers"),
 			ghttp.RespondWithPtr(&statusCode, &responseBody),
 		)
 		srv = ghttp.NewServer()
