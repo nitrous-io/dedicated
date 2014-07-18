@@ -55,11 +55,16 @@ func (c *Command) Run(args []string) int {
 
 	name := args[0]
 
-	c.UI.Output("Deleting host. Please wait...")
+	c.UI.Output(fmt.Sprintf("Deleting host '%s'. Please wait...", name))
 	err = c.destroyHost(name)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Failed to delete host - %v", err.Error()))
 		return 1
+	}
+
+	// If we just deleted the default host, unset it.
+	if command.DefaultHost() == name {
+		command.SaveDefaultHost("")
 	}
 
 	c.UI.Output("Done.")
