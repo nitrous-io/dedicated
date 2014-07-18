@@ -59,7 +59,7 @@ type Host struct {
 
 	// Size is currently the name of the plan of this host. This is copied over
 	// from the associated Plan since size is often read.
-	Size sql.NullString `db:"size" json:"size"`
+	Size db.NullString `db:"size" json:"size"`
 
 	// FreighterdPort is needed during dev, since port will be different everytime you
 	// create a host.
