@@ -1,15 +1,16 @@
-package keys
+package list
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/mitchellh/cli"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/mitchellh/cli"
 
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitrous-common/httpclient"

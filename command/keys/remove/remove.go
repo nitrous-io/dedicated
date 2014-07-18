@@ -1,11 +1,12 @@
-package keysremove
+package remove
 
 import (
 	"fmt"
-	"github.com/mitchellh/cli"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/mitchellh/cli"
 
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitrous-common/httpclient"

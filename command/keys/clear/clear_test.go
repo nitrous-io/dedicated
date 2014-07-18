@@ -1,4 +1,4 @@
-package keysclear_test
+package clear_test
 
 import (
 	"io"
@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command/keysclear"
+	"github.com/nitrous-io/nitro/command/keys/clear"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -17,12 +17,12 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "keys:clear")
+	RunSpecs(t, "keys/clear")
 }
 
-var _ = Describe("keys:clear", func() {
+var _ = Describe("keys/clear", func() {
 	var (
-		cmd      *keysclear.Command
+		cmd      *clear.Command
 		ui       *cli.MockUi
 		srv      *ghttp.Server
 		handlers []http.HandlerFunc
@@ -33,7 +33,7 @@ var _ = Describe("keys:clear", func() {
 		srv = ghttp.NewServer()
 		r = strings.NewReader("YES")
 		ui = &cli.MockUi{InputReader: r}
-		cmd = &keysclear.Command{
+		cmd = &clear.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),

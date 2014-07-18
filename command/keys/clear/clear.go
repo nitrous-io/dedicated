@@ -1,10 +1,11 @@
-package keysclear
+package clear
 
 import (
 	"fmt"
-	"github.com/mitchellh/cli"
 	"net/http"
 	"strings"
+
+	"github.com/mitchellh/cli"
 
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitrous-common/httpclient"

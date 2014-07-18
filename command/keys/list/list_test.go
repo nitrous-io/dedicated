@@ -1,4 +1,4 @@
-package keys_test
+package list_test
 
 import (
 	"net/http"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command/keys"
+	"github.com/nitrous-io/nitro/command/keys/list"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -16,12 +16,12 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "keys")
+	RunSpecs(t, "keys/list")
 }
 
-var _ = Describe("keys", func() {
+var _ = Describe("keys/list", func() {
 	var (
-		cmd      *keys.Command
+		cmd      *list.Command
 		ui       *cli.MockUi
 		srv      *ghttp.Server
 		handlers []http.HandlerFunc
@@ -30,7 +30,7 @@ var _ = Describe("keys", func() {
 	BeforeEach(func() {
 		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
-		cmd = &keys.Command{
+		cmd = &list.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),

@@ -1,11 +1,11 @@
-package keysremove_test
+package remove_test
 
 import (
 	"net/http"
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command/keysremove"
+	"github.com/nitrous-io/nitro/command/keys/remove"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -15,12 +15,12 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "keys:remove")
+	RunSpecs(t, "keys/remove")
 }
 
-var _ = Describe("keys:remove", func() {
+var _ = Describe("keys/remove", func() {
 	var (
-		cmd      *keysremove.Command
+		cmd      *remove.Command
 		ui       *cli.MockUi
 		srv      *ghttp.Server
 		handlers []http.HandlerFunc
@@ -29,7 +29,7 @@ var _ = Describe("keys:remove", func() {
 	BeforeEach(func() {
 		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
-		cmd = &keysremove.Command{
+		cmd = &remove.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),

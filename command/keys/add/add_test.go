@@ -1,4 +1,4 @@
-package keysadd_test
+package add_test
 
 import (
 	"io/ioutil"
@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command/keysadd"
+	"github.com/nitrous-io/nitro/command/keys/add"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -17,12 +17,12 @@ import (
 
 func TestAdd(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "keys:add")
+	RunSpecs(t, "keys/add")
 }
 
-var _ = Describe("keys:add", func() {
+var _ = Describe("keys/add", func() {
 	var (
-		cmd      *keysadd.Command
+		cmd      *add.Command
 		ui       *cli.MockUi
 		srv      *ghttp.Server
 		handlers []http.HandlerFunc
@@ -31,7 +31,7 @@ var _ = Describe("keys:add", func() {
 	BeforeEach(func() {
 		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
-		cmd = &keysadd.Command{
+		cmd = &add.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),

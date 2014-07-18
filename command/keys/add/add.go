@@ -1,4 +1,4 @@
-package keysadd
+package add
 
 import (
 	"fmt"
