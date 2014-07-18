@@ -92,9 +92,9 @@ var _ = Describe("controllers/containers", func() {
 		}
 	})
 
-	Describe("GET /api/v0/hosts/{host}/containers", func() {
+	Describe("GET /api/v0/containers", func() {
 		doRequest := func(token, host string) {
-			req, err := NewRequest("GET", fmt.Sprintf("/api/v0/hosts/%s/containers", host), nil)
+			req, err := NewRequest("GET", fmt.Sprintf("/api/v0/containers?host=%s", host), nil)
 			Expect(err).To(BeNil())
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
@@ -338,7 +338,7 @@ var _ = Describe("controllers/containers", func() {
 
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
-				authTokenInputs.Path = "/api/v0/hosts/foo/containers"
+				authTokenInputs.Path = "/api/v0/containers"
 				authTokenInputs.Method = "GET"
 			})
 
@@ -346,7 +346,7 @@ var _ = Describe("controllers/containers", func() {
 		})
 	})
 
-	Describe("POST /api/v0/hosts/{host}/containers", func() {
+	Describe("POST /api/v0/containers", func() {
 		var params *url.Values
 
 		BeforeEach(func() {
@@ -357,7 +357,11 @@ var _ = Describe("controllers/containers", func() {
 		})
 
 		doRequest := func(token, host string, params *url.Values) {
-			req, err := NewFormRequest("POST", fmt.Sprintf("/api/v0/hosts/%s/containers", host), params)
+			if params == nil {
+				params = &url.Values{}
+			}
+			params.Set("host", host)
+			req, err := NewFormRequest("POST", "/api/v0/containers", params)
 			Expect(err).To(BeNil())
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
@@ -525,7 +529,7 @@ var _ = Describe("controllers/containers", func() {
 
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
-				authTokenInputs.Path = "/api/v0/hosts/foo/containers"
+				authTokenInputs.Path = "/api/v0/containers"
 				authTokenInputs.Method = "POST"
 			})
 
@@ -533,15 +537,14 @@ var _ = Describe("controllers/containers", func() {
 		})
 	})
 
-	Describe("GET /api/v0/hosts/{host}/containers/{name}", func() {
+	Describe("GET /containers/{name}", func() {
 		var (
-			host          = "foo"
 			containerName = "elixir-web-1"
 			token         = ""
 		)
 
 		doRequest := func() {
-			req, err := NewRequest("GET", fmt.Sprintf("/api/v0/hosts/%s/containers/%s", host, containerName), nil)
+			req, err := NewRequest("GET", fmt.Sprintf("/api/v0/containers/%s", containerName), nil)
 			Expect(err).To(BeNil())
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
@@ -550,11 +553,139 @@ var _ = Describe("controllers/containers", func() {
 		}
 
 		Context("when a valid oauth token is given", func() {
+			var (
+				c  *container.Container
+				fc *freighterclient.Container
+			)
+
 			BeforeEach(func() {
 				token = "valid-token"
+
+				c = &container.Container{
+					CID:       "deadbeef",
+					Slug:      containerName,
+					IPAddress: sql.NullString{"8.8.8.8", true},
+					Image:     "nitrous-base",
+					UserID:    u.ID,
+					HostID:    hs.H.ID,
+					Name:      sql.NullString{"Elixir server", true},
+				}
+				err := c.Insert(db)
+				Expect(err).To(BeNil())
+
+				fc = &freighterclient.Container{
+					ID:    "deadbeef",
+					Name:  containerName,
+					Host:  "1.2.3.4",
+					State: "running",
+					Image: "nitrous-base",
+				}
+				mockClient.Containers = []*freighterclient.Container{fc}
 			})
 
-			Context("when host exists for user", func() {
+			It("calls the Freighter client to get the container's info", func() {
+				doRequest()
+				Expect(mockClient.InfoCalled).To(Equal(1))
+				Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
+			})
+
+			It("responds with the container from Freighter and augments it with data from the database", func() {
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j map[string]container.Container
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				c, ok := j["container"]
+				Expect(ok).To(BeTrue())
+
+				// Fields from Freighter API.
+				Expect(c.CID).To(Equal("deadbeef"))
+				Expect(c.Image).To(Equal("nitrous-base"))
+				Expect(c.Slug).To(Equal(containerName))
+				Expect(c.IPAddress.String).To(Equal("1.2.3.4"))
+				Expect(c.State).To(Equal("running"))
+
+				// Fields from database.
+				Expect(c.Name.String).To(Equal("Elixir server"))
+
+				Expect(c.UserID).To(Equal(u.ID))
+				Expect(c.HostID).To(Equal(hs.H.ID))
+			})
+
+			Context("when container does not exist", func() {
+				BeforeEach(func() {
+					containerName = "no-such-container"
+				})
+
+				It("returns HTTP 404 Not Found", func() {
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+
+					errType, _ := j["error"].(string)
+					Expect(errType).To(Equal("not_found"))
+					errDesc, _ := j["error_description"].(string)
+					Expect(errDesc).To(Equal("container does not exist"))
+				})
+			})
+
+			Context("when the Freighter client returns an error", func() {
+				BeforeEach(func() {
+					mockClient.InfoError = errors.New("you are not Chuck Norris")
+				})
+
+				It("responds with HTTP 500 Internal Server Error", func() {
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+
+					errType, _ := j["error"].(string)
+					Expect(errType).To(Equal("internal_server_error"))
+				})
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s", containerName)
+				authTokenInputs.Method = "GET"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("container control actions", func() {
+		var (
+			containerName = "elixir-web-1"
+
+			action        string
+			actionCounter *int
+			actionError   *error
+			expectedState *string
+		)
+
+		doRequest := func(token, host, containerName string) {
+			req, err := NewRequest("POST", fmt.Sprintf("/api/v0/containers/%s/%s", containerName, action), nil)
+			Expect(err).To(BeNil())
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+			handler.ServeHTTP(res, req)
+		}
+
+		itBehavesLikeAControlAction := func() {
+			Context("when a valid oauth token is given", func() {
 				var (
 					c  *container.Container
 					fc *freighterclient.Container
@@ -577,20 +708,20 @@ var _ = Describe("controllers/containers", func() {
 						ID:    "deadbeef",
 						Name:  containerName,
 						Host:  "1.2.3.4",
-						State: "running",
+						State: "stopped",
 						Image: "nitrous-base",
 					}
 					mockClient.Containers = []*freighterclient.Container{fc}
 				})
 
-				It("calls the Freighter client to get the container's info", func() {
-					doRequest()
-					Expect(mockClient.InfoCalled).To(Equal(1))
+				It("calls the Freighter client to perform the control action", func() {
+					doRequest("valid-token", "foo", "elixir-web-1")
+					Expect(*actionCounter).To(Equal(1))
 					Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
 				})
 
-				It("responds with the container from Freighter and augments it with data from the database", func() {
-					doRequest()
+				It("responds with the container from Freighter without data from the database", func() {
+					doRequest("valid-token", "foo", "elixir-web-1")
 
 					Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -605,22 +736,21 @@ var _ = Describe("controllers/containers", func() {
 					Expect(c.Image).To(Equal("nitrous-base"))
 					Expect(c.Slug).To(Equal(containerName))
 					Expect(c.IPAddress.String).To(Equal("1.2.3.4"))
-					Expect(c.State).To(Equal("running"))
+					Expect(c.State).To(Equal(*expectedState))
 
 					// Fields from database.
-					Expect(c.Name.String).To(Equal("Elixir server"))
+					Expect(c.Name.String).To(Equal(""))
+					Expect(c.TouchedAt).To(BeNil())
+					Expect(c.CreatedAt).To(BeNil())
+					Expect(c.UpdatedAt).To(BeNil())
 
 					Expect(c.UserID).To(Equal(u.ID))
 					Expect(c.HostID).To(Equal(hs.H.ID))
 				})
 
 				Context("when container does not exist", func() {
-					BeforeEach(func() {
-						containerName = "no-such-container"
-					})
-
 					It("returns HTTP 404 Not Found", func() {
-						doRequest()
+						doRequest("valid-token", "foo", "no-such-container")
 
 						Expect(res.Code).To(Equal(http.StatusNotFound))
 
@@ -630,6 +760,7 @@ var _ = Describe("controllers/containers", func() {
 
 						errType, _ := j["error"].(string)
 						Expect(errType).To(Equal("not_found"))
+
 						errDesc, _ := j["error_description"].(string)
 						Expect(errDesc).To(Equal("container does not exist"))
 					})
@@ -637,11 +768,11 @@ var _ = Describe("controllers/containers", func() {
 
 				Context("when the Freighter client returns an error", func() {
 					BeforeEach(func() {
-						mockClient.InfoError = errors.New("you are not Chuck Norris")
+						*actionError = errors.New("control action failed")
 					})
 
 					It("responds with HTTP 500 Internal Server Error", func() {
-						doRequest()
+						doRequest("valid-token", "foo", "elixir-web-1")
 
 						Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
@@ -655,184 +786,9 @@ var _ = Describe("controllers/containers", func() {
 				})
 			})
 
-			Context("when host does not exist for user", func() {
-				BeforeEach(func() {
-					host = "no-such-host"
-				})
-
-				It("returns HTTP 404 Not Found", func() {
-					doRequest()
-
-					Expect(res.Code).To(Equal(http.StatusNotFound))
-
-					j := map[string]interface{}{}
-					err := json.Unmarshal(res.Body.Bytes(), &j)
-					Expect(err).To(BeNil())
-
-					errType, _ := j["error"].(string)
-					Expect(errType).To(Equal("not_found"))
-
-					errDesc, _ := j["error_description"].(string)
-					Expect(errDesc).To(Equal("host does not exist"))
-				})
-			})
-		})
-
-		Context("oauth token failure modes", func() {
-			BeforeEach(func() {
-				authTokenInputs.Path = fmt.Sprintf("/api/v0/hosts/%s/containers/%s", host, containerName)
-				authTokenInputs.Method = "GET"
-			})
-
-			ItRequiresAuthToken(&authTokenInputs)
-		})
-	})
-
-	Describe("container control actions", func() {
-		var (
-			host          = "foo"
-			containerName = "elixir-web-1"
-
-			action        string
-			actionCounter *int
-			actionError   *error
-			expectedState *string
-		)
-
-		doRequest := func(token, host, containerName string) {
-			req, err := NewRequest("POST", fmt.Sprintf("/api/v0/hosts/%s/containers/%s/%s", host, containerName, action), nil)
-			Expect(err).To(BeNil())
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-			handler.ServeHTTP(res, req)
-		}
-
-		itBehavesLikeAControlAction := func() {
-			Context("when a valid oauth token is given", func() {
-				Context("when host exists for user", func() {
-					var (
-						c  *container.Container
-						fc *freighterclient.Container
-					)
-
-					BeforeEach(func() {
-						c = &container.Container{
-							CID:       "deadbeef",
-							Slug:      containerName,
-							IPAddress: sql.NullString{"8.8.8.8", true},
-							Image:     "nitrous-base",
-							UserID:    u.ID,
-							HostID:    hs.H.ID,
-							Name:      sql.NullString{"Elixir server", true},
-						}
-						err := c.Insert(db)
-						Expect(err).To(BeNil())
-
-						fc = &freighterclient.Container{
-							ID:    "deadbeef",
-							Name:  containerName,
-							Host:  "1.2.3.4",
-							State: "stopped",
-							Image: "nitrous-base",
-						}
-						mockClient.Containers = []*freighterclient.Container{fc}
-					})
-
-					It("calls the Freighter client to perform the control action", func() {
-						doRequest("valid-token", "foo", "elixir-web-1")
-						Expect(*actionCounter).To(Equal(1))
-						Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
-					})
-
-					It("responds with the container from Freighter without data from the database", func() {
-						doRequest("valid-token", "foo", "elixir-web-1")
-
-						Expect(res.Code).To(Equal(http.StatusOK))
-
-						var j map[string]container.Container
-						err := json.Unmarshal(res.Body.Bytes(), &j)
-						Expect(err).To(BeNil())
-						c, ok := j["container"]
-						Expect(ok).To(BeTrue())
-
-						// Fields from Freighter API.
-						Expect(c.CID).To(Equal("deadbeef"))
-						Expect(c.Image).To(Equal("nitrous-base"))
-						Expect(c.Slug).To(Equal(containerName))
-						Expect(c.IPAddress.String).To(Equal("1.2.3.4"))
-						Expect(c.State).To(Equal(*expectedState))
-
-						// Fields from database.
-						Expect(c.Name.String).To(Equal(""))
-						Expect(c.TouchedAt).To(BeNil())
-						Expect(c.CreatedAt).To(BeNil())
-						Expect(c.UpdatedAt).To(BeNil())
-
-						Expect(c.UserID).To(Equal(u.ID))
-						Expect(c.HostID).To(Equal(hs.H.ID))
-					})
-
-					Context("when container does not exist", func() {
-						It("returns HTTP 404 Not Found", func() {
-							doRequest("valid-token", "foo", "no-such-container")
-
-							Expect(res.Code).To(Equal(http.StatusNotFound))
-
-							j := map[string]interface{}{}
-							err := json.Unmarshal(res.Body.Bytes(), &j)
-							Expect(err).To(BeNil())
-
-							errType, _ := j["error"].(string)
-							Expect(errType).To(Equal("not_found"))
-
-							errDesc, _ := j["error_description"].(string)
-							Expect(errDesc).To(Equal("container does not exist"))
-						})
-					})
-
-					Context("when the Freighter client returns an error", func() {
-						BeforeEach(func() {
-							*actionError = errors.New("control action failed")
-						})
-
-						It("responds with HTTP 500 Internal Server Error", func() {
-							doRequest("valid-token", "foo", "elixir-web-1")
-
-							Expect(res.Code).To(Equal(http.StatusInternalServerError))
-
-							j := map[string]interface{}{}
-							err := json.Unmarshal(res.Body.Bytes(), &j)
-							Expect(err).To(BeNil())
-
-							errType, _ := j["error"].(string)
-							Expect(errType).To(Equal("internal_server_error"))
-						})
-					})
-				})
-
-				Context("when host does not exist for user", func() {
-					It("returns HTTP 404 Not Found", func() {
-						doRequest("valid-token", "no-such-host", "elixir-web-1")
-
-						Expect(res.Code).To(Equal(http.StatusNotFound))
-
-						j := map[string]interface{}{}
-						err := json.Unmarshal(res.Body.Bytes(), &j)
-						Expect(err).To(BeNil())
-
-						errType, _ := j["error"].(string)
-						Expect(errType).To(Equal("not_found"))
-
-						errDesc, _ := j["error_description"].(string)
-						Expect(errDesc).To(Equal("host does not exist"))
-					})
-				})
-			})
-
 			Context("oauth token failure modes", func() {
 				BeforeEach(func() {
-					authTokenInputs.Path = fmt.Sprintf("/api/v0/hosts/%s/containers/%s/%s", host, containerName, action)
+					authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s/%s", containerName, action)
 					authTokenInputs.Method = "POST"
 				})
 
@@ -840,7 +796,7 @@ var _ = Describe("controllers/containers", func() {
 			})
 		}
 
-		Describe("POST /api/v0/hosts/{host}/containers/{name}/start", func() {
+		Describe("POST /api/v0/containers/{name}/start", func() {
 			BeforeEach(func() {
 				action = "start"
 				actionCounter = &mockClient.StartCalled
@@ -852,7 +808,7 @@ var _ = Describe("controllers/containers", func() {
 			itBehavesLikeAControlAction()
 		})
 
-		Describe("POST /api/v0/hosts/{host}/containers/{name}/stop", func() {
+		Describe("POST /api/v0/containers/{name}/stop", func() {
 			BeforeEach(func() {
 				action = "stop"
 				actionCounter = &mockClient.StopCalled
@@ -864,7 +820,7 @@ var _ = Describe("controllers/containers", func() {
 			itBehavesLikeAControlAction()
 		})
 
-		Describe("POST /api/v0/hosts/{host}/containers/{name}/restart", func() {
+		Describe("POST /api/v0/containers/{name}/restart", func() {
 			BeforeEach(func() {
 				action = "restart"
 				actionCounter = &mockClient.RestartCalled
@@ -877,15 +833,14 @@ var _ = Describe("controllers/containers", func() {
 		})
 	})
 
-	Describe("DELETE /hosts/{host}/containers/{name}", func() {
+	Describe("DELETE /containers/{name}", func() {
 		var (
-			host          = "foo"
 			containerName = "elixir-web-1"
 			token         = ""
 		)
 
 		doRequest := func() {
-			req, err := NewRequest("DELETE", fmt.Sprintf("/api/v0/hosts/%s/containers/%s", host, containerName), nil)
+			req, err := NewRequest("DELETE", fmt.Sprintf("/api/v0/containers/%s", containerName), nil)
 			Expect(err).To(BeNil())
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
@@ -894,124 +849,79 @@ var _ = Describe("controllers/containers", func() {
 		}
 
 		Context("when a valid oauth token is given", func() {
+			var (
+				c  *container.Container
+				fc *freighterclient.Container
+			)
+
 			BeforeEach(func() {
 				token = "valid-token"
+
+				c = &container.Container{
+					CID:       "deadbeef",
+					Slug:      containerName,
+					IPAddress: sql.NullString{"8.8.8.8", true},
+					Image:     "nitrous-base",
+					UserID:    u.ID,
+					HostID:    hs.H.ID,
+					Name:      sql.NullString{"Elixir server", true},
+				}
+				err := c.Insert(db)
+				Expect(err).To(BeNil())
+
+				fc = &freighterclient.Container{
+					ID:    "deadbeef",
+					Name:  containerName,
+					Host:  "",
+					State: "",
+					Image: "nitrous-base",
+				}
+				mockClient.Containers = []*freighterclient.Container{fc}
 			})
 
-			Context("when host exists for user", func() {
-				var (
-					c  *container.Container
-					fc *freighterclient.Container
-				)
-
-				BeforeEach(func() {
-					c = &container.Container{
-						CID:       "deadbeef",
-						Slug:      containerName,
-						IPAddress: sql.NullString{"8.8.8.8", true},
-						Image:     "nitrous-base",
-						UserID:    u.ID,
-						HostID:    hs.H.ID,
-						Name:      sql.NullString{"Elixir server", true},
-					}
-					err := c.Insert(db)
-					Expect(err).To(BeNil())
-
-					fc = &freighterclient.Container{
-						ID:    "deadbeef",
-						Name:  containerName,
-						Host:  "",
-						State: "",
-						Image: "nitrous-base",
-					}
-					mockClient.Containers = []*freighterclient.Container{fc}
-				})
-
-				It("calls the Freighter client to Terminate the container", func() {
-					doRequest()
-					Expect(mockClient.TerminateCalled).To(Equal(1))
-					Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
-				})
-
-				It("responds with the container from Freighter and augments it with data from the database", func() {
-					doRequest()
-
-					Expect(res.Code).To(Equal(http.StatusOK))
-
-					var j map[string]container.Container
-					err := json.Unmarshal(res.Body.Bytes(), &j)
-					Expect(err).To(BeNil())
-					c, ok := j["container"]
-					Expect(ok).To(BeTrue())
-
-					// Fields from Freighter API.
-					Expect(c.CID).To(Equal("deadbeef"))
-					Expect(c.Image).To(Equal("nitrous-base"))
-					Expect(c.Slug).To(Equal(containerName))
-					Expect(c.IPAddress.String).To(Equal(""))
-					Expect(c.State).To(Equal(""))
-
-					// Fields from database.
-					Expect(c.Name.String).To(Equal("Elixir server"))
-					Expect(c.UpdatedAt).NotTo(BeNil())
-
-					Expect(c.UserID).To(Equal(u.ID))
-					Expect(c.HostID).To(Equal(hs.H.ID))
-				})
-
-				It("deletes the container from the database", func() {
-					doRequest()
-
-					c, err := container.FindByHostIDAndSlug(db, hs.H.ID, containerName)
-					Expect(err).To(BeNil())
-					Expect(c).To(BeNil())
-				})
-
-				Context("when container does not exist", func() {
-					BeforeEach(func() {
-						containerName = "no-such-container"
-					})
-
-					It("returns HTTP 404 Not Found", func() {
-						doRequest()
-
-						Expect(res.Code).To(Equal(http.StatusNotFound))
-
-						j := map[string]interface{}{}
-						err := json.Unmarshal(res.Body.Bytes(), &j)
-						Expect(err).To(BeNil())
-
-						errType, _ := j["error"].(string)
-						Expect(errType).To(Equal("not_found"))
-
-						errDesc, _ := j["error_description"].(string)
-						Expect(errDesc).To(Equal("container does not exist"))
-					})
-				})
-
-				Context("when the Freighter client returns an error", func() {
-					BeforeEach(func() {
-						mockClient.TerminateError = errors.New("only Chuck Norris can terminate containers")
-					})
-
-					It("responds with HTTP 500 Internal Server Error", func() {
-						doRequest()
-
-						Expect(res.Code).To(Equal(http.StatusInternalServerError))
-
-						j := map[string]interface{}{}
-						err := json.Unmarshal(res.Body.Bytes(), &j)
-						Expect(err).To(BeNil())
-
-						errType, _ := j["error"].(string)
-						Expect(errType).To(Equal("internal_server_error"))
-					})
-				})
+			It("calls the Freighter client to Terminate the container", func() {
+				doRequest()
+				Expect(mockClient.TerminateCalled).To(Equal(1))
+				Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
 			})
 
-			Context("when host does not exist for user", func() {
+			It("responds with the container from Freighter and augments it with data from the database", func() {
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j map[string]container.Container
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				c, ok := j["container"]
+				Expect(ok).To(BeTrue())
+
+				// Fields from Freighter API.
+				Expect(c.CID).To(Equal("deadbeef"))
+				Expect(c.Image).To(Equal("nitrous-base"))
+				Expect(c.Slug).To(Equal(containerName))
+				Expect(c.IPAddress.String).To(Equal(""))
+				Expect(c.State).To(Equal(""))
+
+				// Fields from database.
+				Expect(c.Name.String).To(Equal("Elixir server"))
+				Expect(c.UpdatedAt).NotTo(BeNil())
+
+				Expect(c.UserID).To(Equal(u.ID))
+				Expect(c.HostID).To(Equal(hs.H.ID))
+			})
+
+			It("deletes the container from the database", func() {
+				doRequest()
+
+				c, err := container.FindByHostIDAndSlug(db, hs.H.ID, containerName)
+				Expect(err).To(BeNil())
+				Expect(c).To(BeNil())
+			})
+
+			Context("when container does not exist", func() {
 				BeforeEach(func() {
-					host = "no-such-host"
+					containerName = "no-such-container"
 				})
 
 				It("returns HTTP 404 Not Found", func() {
@@ -1027,14 +937,33 @@ var _ = Describe("controllers/containers", func() {
 					Expect(errType).To(Equal("not_found"))
 
 					errDesc, _ := j["error_description"].(string)
-					Expect(errDesc).To(Equal("host does not exist"))
+					Expect(errDesc).To(Equal("container does not exist"))
+				})
+			})
+
+			Context("when the Freighter client returns an error", func() {
+				BeforeEach(func() {
+					mockClient.TerminateError = errors.New("only Chuck Norris can terminate containers")
+				})
+
+				It("responds with HTTP 500 Internal Server Error", func() {
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+
+					errType, _ := j["error"].(string)
+					Expect(errType).To(Equal("internal_server_error"))
 				})
 			})
 		})
 
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
-				authTokenInputs.Path = fmt.Sprintf("/api/v0/hosts/%s/containers/%s", host, containerName)
+				authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s", containerName)
 				authTokenInputs.Method = "DELETE"
 			})
 

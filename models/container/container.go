@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/models/user"
 )
 
 var nameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*[a-z0-9]\z`)
@@ -37,6 +38,18 @@ type Container struct {
 	UpdatedAt    *time.Time `db:"updated_at"    json:"updated_at"`
 
 	State string `json:"state"`
+}
+
+func FindByUserAndSlug(d db.QueryReceiver, user *user.User, slug string) (*Container, error) {
+	c := &Container{}
+	err := d.Get(c, `SELECT * FROM containers WHERE user_id = $1 AND slug = $2 AND containers.terminated_at IS NULL;`, user.ID, slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return c, nil
 }
 
 func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
