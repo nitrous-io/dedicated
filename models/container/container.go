@@ -73,6 +73,11 @@ func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
 	return containers, nil
 }
 
+func DeleteAllByHostID(d db.QueryReceiver, hostID int64) error {
+	_, err := d.Exec(`UPDATE containers SET terminated_at = now() WHERE host_id = $1;`, hostID)
+	return err
+}
+
 func (c *Container) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO containers
 		(cid, user_id, host_id, image, slug, name, ip_address)
@@ -99,7 +104,7 @@ func (c *Container) Update(d db.QueryReceiver) error {
 func (c *Container) Delete(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE containers SET terminated_at = now() WHERE id = :id RETURNING *;`)
 	if err != nil {
-		return nil
+		return err
 	}
 	return nstmt.QueryRowx(c).StructScan(c)
 }

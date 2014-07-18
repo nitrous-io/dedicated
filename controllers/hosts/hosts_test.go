@@ -18,6 +18,7 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/server"
 
+	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/region"
@@ -239,6 +240,7 @@ var _ = Describe("controllers/hosts", func() {
 				params = &url.Values{}
 				params.Set("size", "doubledouble")
 				params.Set("slug", "honeybadger")
+				params.Set("region", hs.R.Name)
 				err := doRequest()
 				Expect(err).To(MatchError(hosts.ErrPlanNotFound))
 			})
@@ -355,6 +357,7 @@ var _ = Describe("controllers/hosts", func() {
 		var (
 			env *middlewares.Env
 			hs  *HostStack
+			c   *container.Container
 			err error
 		)
 
@@ -362,7 +365,6 @@ var _ = Describe("controllers/hosts", func() {
 			req, err := NewRequest("DELETE", "/api/v0/hosts/"+slug, nil)
 			Expect(err).To(BeNil())
 			env.Vars = map[string]string{"slug": slug}
-
 			return hosts.Destroy(env, svr, res, req)
 		}
 
@@ -371,35 +373,59 @@ var _ = Describe("controllers/hosts", func() {
 				H: &host.Host{Slug: "honeybadger", ProviderIdentifier: sql.NullString{"001", true}},
 			})
 			Expect(err).To(BeNil())
+
 			env = &middlewares.Env{User: hs.U}
+
+			c = &container.Container{
+				CID:    "beefface",
+				UserID: hs.U.ID,
+				HostID: hs.H.ID,
+				Slug:   "beef-jerky",
+			}
+			err = c.Insert(db)
+			Expect(err).To(BeNil())
 		})
 
-		Context("with an invalid host name", func() {
+		Context("with an invalid host slug", func() {
 			It("returns error host not found", func() {
 				err = doRequest("somehost")
 				Expect(err).To(MatchError(hosts.ErrHostNotFound))
 			})
 		})
 
-		Context("with a valid host name", func() {
+		Context("with a valid host slug", func() {
 			Context("when hostbuilder successfully deletes the host", func() {
 				BeforeEach(func() {
 					hb := hostbuilderclient.NewHostbuilder("www.example.com")
 					hb.OverrideRequestHandler(mockHostbuilderOK)
-
 					hosts.HostbuilderClient = hb
-
-					err = doRequest(hs.H.Slug)
-					Expect(err).To(BeNil())
 				})
 
 				It("deletes the host record", func() {
+					err = doRequest(hs.H.Slug)
+					Expect(err).To(BeNil())
+
 					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 					Expect(err).To(BeNil())
 					Expect(h).To(BeNil())
 				})
 
+				It("deletes all container records belonging to the host", func() {
+					c2, err := container.FindByUserAndSlug(db, hs.U, c.Slug)
+					Expect(err).To(BeNil())
+					Expect(c2).To(Equal(c))
+
+					err = doRequest(hs.H.Slug)
+					Expect(err).To(BeNil())
+
+					c2, err = container.FindByUserAndSlug(db, hs.U, c.Slug)
+					Expect(err).To(BeNil())
+					Expect(c2).To(BeNil())
+				})
+
 				It("responds with status OK", func() {
+					err = doRequest(hs.H.Slug)
+					Expect(err).To(BeNil())
 					Expect(res.Code).To(Equal(http.StatusOK))
 				})
 			})
