@@ -3,6 +3,7 @@ package start_test
 import (
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/mitchellh/cli"
@@ -59,7 +60,7 @@ var _ = Describe("containers/start", func() {
 		os.Remove(configPath)
 	})
 
-	Context("nitro start hostname/containername", func() {
+	Context("nitro start hostslug/containerslug", func() {
 		doCmd := func() int {
 			return cmd.Run([]string{"host-1/gregarious-scribe-24"})
 		}
@@ -67,15 +68,15 @@ var _ = Describe("containers/start", func() {
 		Context("when the API responds with the container", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusOK
-				responseBody = `{ "container": { "name": "gregarious-scribe-24", "image": "ubuntu", "state": "running" } }`
+				responseBody = `{ "container": { "slug": "gregarious-scribe-24", "image": "ubuntu", "state": "running" } }`
 			})
 
 			It("prints the container", func() {
 				code := doCmd()
-				output := ui.OutputWriter.String()
-				Expect(output).To(ContainSubstring("gregarious-scribe-24"))
-				Expect(output).To(ContainSubstring("ubuntu"))
-				Expect(output).To(ContainSubstring("running"))
+				Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
+Name                    Image     State
+gregarious-scribe-24    ubuntu    running
+`)))
 				Expect(code).To(Equal(0))
 			})
 
@@ -93,7 +94,7 @@ var _ = Describe("containers/start", func() {
 		})
 	})
 
-	Context("nitro start containername", func() {
+	Context("nitro start containerslug", func() {
 		doCmd := func() int {
 			return cmd.Run([]string{"gregarious-scribe-24"})
 		}
@@ -116,7 +117,7 @@ var _ = Describe("containers/start", func() {
 
 			It("uses the default host", func() {
 				statusCode = http.StatusOK
-				responseBody = `{ "container": { "name": "gregarious-scribe-24", "image": "ubuntu", "state": "running" } }`
+				responseBody = `{ "container": { "slug": "gregarious-scribe-24", "image": "ubuntu", "state": "running" } }`
 
 				code := doCmd()
 				Expect(code).To(Equal(0))
