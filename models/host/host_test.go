@@ -97,6 +97,33 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("FindByID()", func() {
+		var id int64
+
+		BeforeEach(func() {
+			err := db.QueryRow("SELECT id FROM hosts WHERE slug = $1;", hs.H.Slug).Scan(&id)
+			Expect(err).To(BeNil())
+			Expect(id).NotTo(BeZero())
+		})
+
+		Context("when a host record with a given id exists", func() {
+			It("returns the host record", func() {
+				h, err := host.FindByID(db, id)
+				Expect(err).To(BeNil())
+				Expect(h).NotTo(BeNil())
+				Expect(h.ID).To(Equal(id))
+			})
+		})
+
+		Context("when a host record with a given id does not exist", func() {
+			It("returns nil", func() {
+				h, err := host.FindByID(db, 9001)
+				Expect(err).To(BeNil())
+				Expect(h).To(BeNil())
+			})
+		})
+	})
+
 	Describe("FindByUserAndSlug()", func() {
 		Context("when there's a host record for the given name that belongs to the user", func() {
 			It("returns the host record matching the name", func() {

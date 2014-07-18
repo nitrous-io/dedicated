@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/models/user"
 )
 
 var nameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*[a-z0-9]\z`)
@@ -39,9 +40,9 @@ type Container struct {
 	State string `json:"state"`
 }
 
-func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
+func FindByUserAndSlug(d db.QueryReceiver, user *user.User, slug string) (*Container, error) {
 	c := &Container{}
-	err := d.Get(c, `SELECT * FROM containers WHERE cid = $1 AND terminated_at IS NULL;`, cid)
+	err := d.Get(c, `SELECT * FROM containers WHERE user_id = $1 AND slug = $2 AND containers.terminated_at IS NULL;`, user.ID, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -51,9 +52,9 @@ func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
 	return c, nil
 }
 
-func FindByHostIDAndSlug(d db.QueryReceiver, hostID int64, slug string) (*Container, error) {
+func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
 	c := &Container{}
-	err := d.Get(c, `SELECT * FROM containers WHERE host_id = $1 AND slug = $2 AND terminated_at IS NULL;`, hostID, slug)
+	err := d.Get(c, `SELECT * FROM containers WHERE cid = $1 AND terminated_at IS NULL;`, cid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

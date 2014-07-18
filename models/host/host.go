@@ -81,6 +81,18 @@ func findAllByUserID(db *db.Database, userID int64) ([]Host, error) {
 	return hosts, nil
 }
 
+func FindByID(db *db.Database, id int64) (*Host, error) {
+	host := &Host{}
+	err := db.Get(host, `SELECT * FROM hosts WHERE id = $1`, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return host, err
+}
+
 func FindByUserAndSlug(db *db.Database, user *user.User, slug string) (*Host, error) {
 	host := &Host{}
 	q := `SELECT hosts.*, provider_templates.provider
