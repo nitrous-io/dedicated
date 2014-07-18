@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/keys/add"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
@@ -22,23 +23,29 @@ func TestAdd(t *testing.T) {
 
 var _ = Describe("keys/add", func() {
 	var (
-		cmd      *add.Command
-		ui       *cli.MockUi
-		srv      *ghttp.Server
-		handlers []http.HandlerFunc
+		cmd          *add.Command
+		ui           *command.MockUI
+		srv          *ghttp.Server
+		statusCode   int
+		responseBody string
+		handlers     http.HandlerFunc
 	)
 
 	BeforeEach(func() {
+		ui = &command.MockUI{&cli.MockUi{}}
+		handlers = ghttp.CombineHandlers(
+			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
+			ghttp.VerifyRequest("PUT", "/api/v0/containers/container/keys"),
+			ghttp.RespondWithPtr(&statusCode, &responseBody),
+		)
 		srv = ghttp.NewServer()
-		ui = &cli.MockUi{}
+		srv.AppendHandlers(handlers)
+
 		cmd = &add.Command{
 			UI:     ui,
 			Server: srv.URL(),
-			Client: httpclient.New("a_token"),
+			Client: httpclient.New("correct_token"),
 		}
-		handlers = []http.HandlerFunc{ghttp.VerifyHeader(http.Header{
-			"Authorization": []string{"Bearer a_token"},
-		})}
 	})
 
 	AfterEach(func() {
@@ -46,10 +53,10 @@ var _ = Describe("keys/add", func() {
 	})
 
 	Context("preconditions for request", func() {
-		It("requires container id and path to key arguments", func() {
+		It("requires container and path to key arguments", func() {
 			cases := [][]string{
 				{},
-				{"container id only"},
+				{"container_only"},
 				{"container", "~/.ssh/a_key.pub", "excess"},
 			}
 			for _, tc := range cases {
@@ -60,7 +67,7 @@ var _ = Describe("keys/add", func() {
 		})
 
 		It("checks the presence of path to key", func() {
-			code := cmd.Run([]string{"cid", "/tmp/nosuchfile"})
+			code := cmd.Run([]string{"container", "/tmp/nosuchfile"})
 			Expect(ui.ErrorWriter.String()).To(ContainSubstring("Could not find key"))
 			Expect(code).To(Equal(1))
 		})
@@ -80,41 +87,47 @@ var _ = Describe("keys/add", func() {
 		BeforeEach(func() { keypath = makeTemp("somekey") })
 		AfterEach(func() { os.Remove(keypath) })
 
-		It("populates request correctly", func() {
-			formValues := func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.FormValue("keytext")).To(Equal("somekey"))
-				Expect(r.FormValue("container_id")).To(Equal("cid"))
-			}
-			handlers = append(handlers,
-				ghttp.VerifyRequest("PUT", "/api/v0/keys"),
-				formValues,
-			)
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
-			cmd.Run([]string{"cid", keypath})
+		doCmd := func() int {
+			return cmd.Run([]string{"container", keypath})
+		}
+
+		Context("Successful API call with key created", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusCreated
+				responseBody = `"status": "created"}`
+			})
+
+			It("outputs message on success", func() {
+				code := doCmd()
+				Expect(ui.OutputWriter.String()).To(ContainSubstring("Added key"))
+				Expect(code).To(Equal(0))
+			})
 		})
 
-		It("outputs message on success", func() {
-			handlers = append(handlers, ghttp.RespondWithJSONEncoded(http.StatusCreated, map[string]string{"status": "created"}))
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
-			code := cmd.Run([]string{"cid", keypath})
-			Expect(ui.OutputWriter.String()).To(ContainSubstring("Added key"))
-			Expect(code).To(Equal(0))
+		Context("Unsuccessful API call with JSON error message", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusBadRequest
+				responseBody = `{"error": "validation_failed", "error_description": "container not found"}`
+			})
+
+			It("displays json error message", func() {
+				code := doCmd()
+				Expect(ui.ErrorWriter.String()).To(ContainSubstring("container not found"))
+				Expect(code).To(Equal(1))
+			})
 		})
 
-		It("displays json error message", func() {
-			handlers = append(handlers, ghttp.RespondWithJSONEncoded(http.StatusBadRequest, map[string]string{"error": "validation_failed", "error_description": "container not found"}))
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
-			code := cmd.Run([]string{"cid", keypath})
-			Expect(ui.ErrorWriter.String()).To(ContainSubstring("container not found"))
-			Expect(code).To(Equal(1))
-		})
+		Context("Unsuccessful API call with non-JSON error message", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusInternalServerError
+				responseBody = "not json"
+			})
 
-		It("handles non-json error", func() {
-			handlers = append(handlers, ghttp.RespondWith(http.StatusBadRequest, "not json"))
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
-			code := cmd.Run([]string{"cid", keypath})
-			Expect(ui.ErrorWriter.String()).To(ContainSubstring("Unknown error"))
-			Expect(code).To(Equal(1))
+			It("handles non-json error", func() {
+				code := doCmd()
+				Expect(ui.ErrorWriter.String()).To(ContainSubstring("Unknown error"))
+				Expect(code).To(Equal(1))
+			})
 		})
 	})
 })

@@ -16,10 +16,7 @@ import (
 
 const (
 	Usage = `
-Usage: nitro keys:add <container_id> <key>
-
-  container_id	the id of a container
-  key			the path to a public key file on your local machine
+Usage: nitro keys:add <container> <key>
 
   add a public key to a container
 `
@@ -61,7 +58,7 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	containerID := args[0]
+	container := args[0]
 	keyfile := args[1]
 
 	if _, err := os.Stat(keyfile); err != nil {
@@ -79,9 +76,8 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	err = c.makeRequest(&url.Values{
-		"keytext":      {string(keybytes)},
-		"container_id": {containerID},
+	err = c.makeRequest(container, &url.Values{
+		"keytext": {string(keybytes)},
 	})
 	if err != nil {
 		c.UI.Error(err.Error())
@@ -91,9 +87,10 @@ func (c *Command) Run(args []string) int {
 	return 0
 }
 
-func (c *Command) makeRequest(data *url.Values) error {
-	resp, err := c.Client.PutFormAuthed(fmt.Sprintf("%s/api/v0/%s", c.Server, "keys"),
+func (c *Command) makeRequest(container string, data *url.Values) error {
+	resp, err := c.Client.PutFormAuthed(fmt.Sprintf("%s/api/v0/containers/%s/keys", c.Server, container),
 		data)
+
 	if err != nil {
 		return err
 	}

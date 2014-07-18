@@ -6,22 +6,26 @@ import (
 	"strings"
 
 	"github.com/mitchellh/cli"
-
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitrous-common/httpclient"
+	flag "github.com/ogier/pflag"
 )
 
 const (
-	Usage = `
-Usage: nitro keys:clear
+	forceUsage = "Skip confirmation"
+	Usage      = `
+Usage: nitro keys:clear container
 
-  remove all public keys
+  remove all public keys from container
+
+Options:
+
+  -f, --force=""    %s
 `
-	Warning = "This will REMOVE all keys on your system.  Please type 'YES' without quotes to confirm: "
 )
 
 type Command struct {
-	UI     cli.Ui
+	UI     command.UI
 	Server string
 	Client *httpclient.Client
 }
@@ -43,31 +47,53 @@ func (c *Command) Help() string {
 }
 
 func (c *Command) Run(args []string) int {
-	y, err := c.UI.Ask(Warning)
+	var force bool
+	cmdFlags := flag.NewFlagSet("keys:clear", flag.ContinueOnError)
+	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
+	cmdFlags.BoolVarP(&force, "force", "f", false, forceUsage)
+
+	err := cmdFlags.Parse(args)
 	if err != nil {
-		if err.Error() == "interrupted" {
-			c.UI.Error("keys:clear cancelled")
-			return 130
-		}
-		c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
 		return 1
 	}
-	if y != "YES" {
-		c.UI.Output("Confirmation not given, quitting\n")
-		return 0
+	args = cmdFlags.Args()
+	if len(args) != 1 {
+		c.UI.Output(c.Help())
+		return 1
 	}
 
-	err = c.makeRequest()
+	container := args[0]
+
+	if !force {
+		confirmation := c.UI.Confirm(fmt.Sprintf("Do you really want to clear all public keys in '%s'? [y/N]", container))
+		switch confirmation {
+		case command.ConfirmYes:
+			// Pass.
+		case command.ConfirmNo:
+			c.UI.Output("Cancelled.")
+			return 1
+		case command.ConfirmCancel:
+			c.UI.Error("Cancelled.")
+			return 130
+		case command.ConfirmErr:
+			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
+			return 1
+		}
+	}
+
+	err = c.makeRequest(container)
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
-	c.UI.Output("All keys removed\n")
+	c.UI.Output(fmt.Sprintf("All public keys removed for container %s", container))
 	return 0
 }
 
-func (c *Command) makeRequest() error {
-	resp, err := c.Client.DeleteAuthed(fmt.Sprintf("%s/api/v0/%s", c.Server, "keys"), nil)
+func (c *Command) makeRequest(container string) error {
+	path := fmt.Sprintf("%s/api/v0/containers/%s/keys", c.Server, container)
+	resp, err := c.Client.DeleteAuthed(path, nil)
+	defer resp.Body.Close()
 	if err != nil {
 		return err
 	}
@@ -75,5 +101,5 @@ func (c *Command) makeRequest() error {
 }
 
 func (c *Command) Synopsis() string {
-	return "Remove all public keys"
+	return "Remove all public keys from container"
 }

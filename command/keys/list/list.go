@@ -6,39 +6,33 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/mitchellh/cli"
 
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/consts"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
 )
 
 const (
-	ContainerUsage = "display only keys for this container name"
-	Usage          = `
-Usage: nitro keys
+	Usage = `
+Usage: nitro keys <container>
 
-  list public keys on user containers
-
-Options:
-
- -c, --container=""	%s
+  list public keys in the container
 `
 )
 
 type Command struct {
-	UI     cli.Ui
+	UI     command.UI
 	Server string
 	Client *httpclient.Client
 }
 
 type Response struct {
 	Keys []struct {
-		ContainerID string `json:"container_id"`
 		Fingerprint string `json:"fingerprint"`
 		Key         string `json:"key"`
 	}
@@ -57,26 +51,26 @@ func NewCommand() (cli.Command, error) {
 }
 
 func (c *Command) Help() string {
-	return strings.TrimSpace(fmt.Sprintf(Usage, ContainerUsage))
+	return Usage
 }
 
 func (c *Command) Run(args []string) int {
-	var container string
-
 	cmdFlags := flag.NewFlagSet("keys", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
-	cmdFlags.StringVarP(&container, "container", "c", "", ContainerUsage)
 
 	err := cmdFlags.Parse(args)
 	if err != nil {
 		return 1
 	}
-
-	params := &url.Values{}
-	if container != "" {
-		params.Add("container_id", container)
+	args = cmdFlags.Args()
+	if len(args) != 1 {
+		c.UI.Output(c.Help())
+		return 1
 	}
-	b, err := c.makeRequest(params)
+
+	container := args[0]
+
+	b, err := c.makeRequest(container)
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
@@ -89,8 +83,8 @@ func (c *Command) Run(args []string) int {
 	return 0
 }
 
-func (c *Command) makeRequest(params *url.Values) (io.ReadCloser, error) {
-	resp, err := c.Client.GetAuthed(fmt.Sprintf("%s/api/v0/%s", c.Server, "keys"), params)
+func (c *Command) makeRequest(container string) (io.ReadCloser, error) {
+	resp, err := c.Client.GetAuthed(fmt.Sprintf("%s/api/v0/containers/%s/keys", c.Server, container), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -115,20 +109,18 @@ func (c *Command) handleResponse(body io.ReadCloser) error {
 
 	b := &bytes.Buffer{}
 	w := &tabwriter.Writer{}
-	w.Init(b, 0, 0, 2, ' ', 0)
+	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
 	defer func() {
 		w.Flush()
 		c.UI.Output(b.String())
 	}()
 
 	fmt.Fprintln(w, strings.Join([]string{
-		"Container ID",
 		"Fingerprint",
 		"Key",
 	}, "\t"))
 	for _, k := range j.Keys {
 		fmt.Fprintln(w, strings.Join([]string{
-			k.ContainerID,
 			k.Fingerprint,
 			strings.TrimSpace(k.Key),
 		}, "\t"))
@@ -137,5 +129,5 @@ func (c *Command) handleResponse(body io.ReadCloser) error {
 }
 
 func (c *Command) Synopsis() string {
-	return "List public keys on user containers"
+	return "List public keys in container"
 }

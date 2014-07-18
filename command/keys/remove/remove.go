@@ -3,7 +3,6 @@ package remove
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/mitchellh/cli"
@@ -15,31 +14,29 @@ import (
 )
 
 const (
-	ContainerUsage = "only remove key from this container"
-	Usage          = `
-Usage: nitro keys:remove <md5_fingerprint>
-
-  md5_fingerprint	the fingerprint of the key to remove
+	forceUsage = "Skip confirmation"
+	usage      = `
+Usage: nitro keys:remove <container> <md5_fingerprint>
 
   remove a public key
 
 Options:
 
--c, --container=""	%s
+  -f, --force=""    %s
 `
 )
 
 type Command struct {
-	UI     cli.Ui
+	UI     command.UI
 	Server string
 	Client *httpclient.Client
 }
 
 func init() {
-	command.Register("keys:remove", NewCommand)
+	command.Register("keys:remove", RemoveCommand)
 }
 
-func NewCommand() (cli.Command, error) {
+func RemoveCommand() (cli.Command, error) {
 	return &Command{
 		UI:     command.DefaultUI,
 		Server: command.Env.APIURL,
@@ -48,58 +45,65 @@ func NewCommand() (cli.Command, error) {
 }
 
 func (c *Command) Help() string {
-	return strings.TrimSpace(fmt.Sprintf(Usage, ContainerUsage))
+	return strings.TrimSpace(fmt.Sprintf(usage, forceUsage))
 }
 
 func (c *Command) Run(args []string) int {
-	var container string
-
-	cmdFlags := flag.NewFlagSet("keys:add", flag.ContinueOnError)
+	var force bool
+	cmdFlags := flag.NewFlagSet("keys:remove", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
-	cmdFlags.StringVarP(&container, "container", "c", "", ContainerUsage)
+	cmdFlags.BoolVarP(&force, "force", "f", false, forceUsage)
 
 	err := cmdFlags.Parse(args)
 	if err != nil {
 		return 1
 	}
 	args = cmdFlags.Args()
-	if len(args) != 1 {
+	if len(args) != 2 {
 		c.UI.Output(c.Help())
 		return 1
 	}
 
-	fingerprint := args[0]
-	params := &url.Values{}
-	if container != "" {
-		params.Add("container_id", container)
+	container := args[0]
+	fingerprint := args[1]
+
+	if !force {
+		confirmation := c.UI.Confirm(fmt.Sprintf("Do you really want to remove this key from '%s'? [y/N]", container))
+		switch confirmation {
+		case command.ConfirmYes:
+			// Pass.
+		case command.ConfirmNo:
+			c.UI.Output("Cancelled.")
+			return 1
+		case command.ConfirmCancel:
+			c.UI.Error("Cancelled.")
+			return 130
+		case command.ConfirmErr:
+			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
+			return 1
+		}
 	}
 
-	err = c.makeRequest(fingerprint, params)
+	err = c.makeRequest(container, fingerprint)
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
 
-	var status string
-	if container == "" {
-		status = fmt.Sprintf("Removed all instances of key %s", fingerprint)
-	} else {
-		status = fmt.Sprintf("Removed key %s from container %s", fingerprint, container)
-	}
-	c.UI.Output(status + "\n")
+	c.UI.Output(fmt.Sprintf("Removed key %s from container %s", fingerprint, container))
 	return 0
 }
 
-func (c *Command) makeRequest(fingerprint string, params *url.Values) error {
-	path := fmt.Sprintf("%s/api/v0/%s/%s", c.Server, "keys", fingerprint)
-	resp, err := c.Client.DeleteAuthed(path, params)
+func (c *Command) makeRequest(container, fingerprint string) error {
+	path := fmt.Sprintf("%s/api/v0/containers/%s/keys/%s", c.Server, container, fingerprint)
+	resp, err := c.Client.DeleteAuthed(path, nil)
+	defer resp.Body.Close()
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
 	return httpclient.CheckResponse(resp, http.StatusOK)
 }
 
 func (c *Command) Synopsis() string {
-	return "Remove a public key"
+	return "Remove public key from container"
 }

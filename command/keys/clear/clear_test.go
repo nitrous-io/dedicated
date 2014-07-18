@@ -3,10 +3,10 @@ package clear_test
 import (
 	"io"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/keys/clear"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
@@ -22,80 +22,118 @@ func Test(t *testing.T) {
 
 var _ = Describe("keys/clear", func() {
 	var (
-		cmd      *clear.Command
-		ui       *cli.MockUi
-		srv      *ghttp.Server
-		handlers []http.HandlerFunc
-		r        io.Reader
+		cmd          *clear.Command
+		ui           *command.MockUI
+		r            *io.PipeReader
+		w            *io.PipeWriter
+		srv          *ghttp.Server
+		handlers     http.HandlerFunc
+		statusCode   int
+		responseBody string
 	)
 
 	BeforeEach(func() {
+		r, w = io.Pipe()
+		ui = &command.MockUI{&cli.MockUi{InputReader: r}}
+
+		handlers = ghttp.CombineHandlers(
+			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
+			ghttp.VerifyRequest("DELETE", "/api/v0/containers/gregarious-scribe-24/keys"),
+			ghttp.RespondWithPtr(&statusCode, &responseBody),
+		)
 		srv = ghttp.NewServer()
-		r = strings.NewReader("YES")
-		ui = &cli.MockUi{InputReader: r}
+		srv.AppendHandlers(handlers)
+
 		cmd = &clear.Command{
 			UI:     ui,
 			Server: srv.URL(),
-			Client: httpclient.New("a_token"),
+			Client: httpclient.New("correct_token"),
 		}
-		handlers = []http.HandlerFunc{ghttp.VerifyHeader(http.Header{
-			"Authorization": []string{"Bearer a_token"},
-		})}
 	})
 
 	AfterEach(func() {
+		// Reset it after every test so that any error conditions that
+		// are set in contexts don't linger
+		statusCode = http.StatusOK
+		responseBody = `{"keys":[],"status":"ok"}`
+
+		r.Close()
+		w.Close()
 		srv.Close()
 	})
 
-	Context("requires confirmation", func() {
-		BeforeEach(func() {
-			r = strings.NewReader("NOPE")
-			ui = &cli.MockUi{InputReader: r}
-			cmd.UI = ui
+	Context("nitro keys:clear containerslug", func() {
+		doCmd := func() int {
+			return cmd.Run([]string{"gregarious-scribe-24", "--force"})
+		}
+
+		Context("successful clearing of keys", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = `{"keys":[],"status":"ok"}`
+			})
+
+			It("outputs success msg", func() {
+				code := doCmd()
+				Expect(ui.OutputWriter.String()).To(ContainSubstring("All public keys removed"))
+				Expect(code).To(Equal(0))
+			})
 		})
 
-		It("quits if confirmation is not given", func() {
-			handlers = append(handlers, func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.Method).To(Equal("Never Called"))
+		Context("JSON response with error", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusBadRequest
+				responseBody = `{"error": "validation_failed", "error_description": "container not found"}`
 			})
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
-			code := cmd.Run([]string{})
-			Expect(ui.OutputWriter.String()).To(ContainSubstring("to confirm:"))
-			Expect(ui.OutputWriter.String()).To(ContainSubstring("Confirmation not given"))
-			Expect(code).To(Equal(0))
+
+			It("outputs error message", func() {
+				code := doCmd()
+				Expect(ui.ErrorWriter.String()).To(Equal("container not found\n"))
+				Expect(code).To(Equal(1))
+			})
+		})
+
+		Context("Non-JSON error message", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusBadRequest
+				responseBody = "not json"
+			})
+
+			It("handles non-json error", func() {
+				code := doCmd()
+				Expect(ui.ErrorWriter.String()).To(ContainSubstring("Unknown error"))
+				Expect(code).To(Equal(1))
+			})
+		})
+
+		Context("when --force option is not specified", func() {
+			doCmd := func() int {
+				return cmd.Run([]string{"gregarious-scribe-24"})
+			}
+
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = `{"keys":[],"status":"ok"}`
+			})
+
+			It("asks for confirmation before proceeding", func() {
+				go w.Write([]byte("n\n"))
+				code := doCmd()
+				Expect(ui.OutputWriter.String()).To(ContainSubstring("Cancelled"))
+				Expect(code).To(Equal(1))
+
+				go w.Write([]byte("y\n"))
+				code = doCmd()
+				Expect(ui.OutputWriter.String()).To(ContainSubstring("gregarious-scribe-24"))
+				Expect(code).To(Equal(0))
+			})
 		})
 	})
 
-	Context("hitting the server", func() {
-		It("populates request correctly", func() {
-			handlers = append(handlers, ghttp.VerifyRequest("DELETE", "/api/v0/keys"))
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+	Context("when not given any arguments", func() {
+		It("prints usage and exits with error", func() {
 			code := cmd.Run([]string{})
-			Expect(code).To(Equal(0))
-		})
-
-		It("outputs success msg", func() {
-			handlers = append(handlers, ghttp.RespondWith(
-				http.StatusOK, `{"keys":[],"status":"ok"}`))
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
-			code := cmd.Run([]string{})
-			Expect(ui.OutputWriter.String()).To(ContainSubstring("All keys removed"))
-			Expect(code).To(Equal(0))
-		})
-
-		It("displays json error message", func() {
-			handlers = append(handlers, ghttp.RespondWithJSONEncoded(http.StatusBadRequest, map[string]string{"error": "validation_failed", "error_description": "container not found"}))
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
-			code := cmd.Run([]string{})
-			Expect(ui.ErrorWriter.String()).To(Equal("container not found\n"))
-			Expect(code).To(Equal(1))
-		})
-
-		It("handles non-json error", func() {
-			handlers = append(handlers, ghttp.RespondWith(http.StatusBadRequest, "not json"))
-			srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
-			code := cmd.Run([]string{})
-			Expect(ui.ErrorWriter.String()).To(ContainSubstring("Unknown error"))
+			Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
 			Expect(code).To(Equal(1))
 		})
 	})
