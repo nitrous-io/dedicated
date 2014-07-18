@@ -1,5 +1,7 @@
 package freighterclient
 
+import "io"
+
 // MockClient is a mock satisfying the freighter.Client interface.
 type MockClient struct {
 	Containers []*Container
@@ -111,4 +113,8 @@ func (c *MockClient) Terminate(h *Host, id string) (*Container, error) {
 		cntnr.State = ""
 	}
 	return cntnr, c.TerminateError
+}
+
+func (c *MockClient) Logs(h *Host, id string, follow, timestamps, tail string, w io.Writer) error {
+	return nil
 }
