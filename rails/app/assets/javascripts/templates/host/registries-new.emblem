@@ -1,0 +1,32 @@
+= host-tab-bar selected='registries'
+
+form
+  .card-body
+    h3 Add Registry
+    .ui.input-group
+      label.field-label for='registries-new-url'
+        | Registry URL
+      .registry-url
+        input type='text' id='registries-new-url' name='url'
+        .registry-buttons
+          button.ui.btn.raised id='quay-io-btn' data-url='quay.io'
+            | Quay.io
+          button.ui.btn.raised id='docker-hub-btn' data-url='https://index.docker.io/v1'
+            | Docker Hub
+
+      label.field-label for='registries-new-username'
+        | Username
+      input type='text' id='registries-new-username' name='username'
+
+      label.field-label for='registries-new-email'
+        | Email
+      input type='email' id='registries-new-email' name='email'
+
+      label.field-label for='registries-new-password'
+        | Password
+      input type='password' id='registries-new-password' name='password'
+
+  .card-footer.bordered
+    .right
+      button.ui.btn Cancel
+      button.ui.btn.primary Add Key

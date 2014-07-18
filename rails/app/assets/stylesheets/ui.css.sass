@@ -222,7 +222,7 @@ table.ui.table
     &:first-of-type
       margin-top: 0
 
-  input[type=text], input[type=password], textarea
+  input[type=text], input[type=password], input[type=search], input[type=email], input[type=url], input[type=number], textarea
     +appearance(none)
     display: block
     width: 100%
@@ -230,7 +230,7 @@ table.ui.table
     border-bottom: 1px solid $gray300
     background: transparent
     border-radius: 0
-    transition: border-bottom-color .2s
+    transition: border-bottom-color .2s, background-color .2s
     outline: none
 
     &:focus
@@ -241,7 +241,7 @@ table.ui.table
       color: $gray400
       border-bottom: 1px dotted $gray300
 
-  input[type=text], input[type=password]
+  input[type=text], input[type=password], input[type=search], input[type=email], input[type=url], input[type=number]
     height: 38px
 
     &:focus
@@ -288,7 +288,7 @@ table.ui.table
   height: 20px
   vertical-align: text-bottom
 
-  input[type='checkbox'], input[type='radio']
+  input[type=checkbox], input[type=radio]
     position: relative
     width: 20px
     height: 20px
@@ -328,7 +328,7 @@ table.ui.table
     &:disabled + label:before
       border-color: $gray400
 
-  input[type='checkbox']
+  input[type=checkbox]
     + label:before
       border-radius: 2px
 
@@ -339,7 +339,7 @@ table.ui.table
     &:disabled:checked + label:before
       background: $gray400
 
-  input[type='radio']
+  input[type=radio]
     + label:before
       border-radius: 10px
       font-size: 9px
@@ -367,7 +367,7 @@ ul.ui.checkbox-group
   .ui.checkbox
     top: 1px
 
-    > input[type='radio'], > input[type='checkbox']
+    > input[type=radio], > input[type=checkbox]
       margin-right: 16px
 
   > li
@@ -389,7 +389,7 @@ ul.ui.checkbox-group
   &:before
     content: 'Choose File'
 
-  input[type='file']
+  input[type=file]
     position: absolute
     opacity: 0
     left: 0

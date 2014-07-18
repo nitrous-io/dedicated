@@ -4,9 +4,11 @@
   table.ui.table
     tr
       th State
-      td colspan='3'
+      td
         .state-indicator.running
         | Running
+      th Uptime
+      td.usage 2 days, 13:37
 
     tr
       th Slug

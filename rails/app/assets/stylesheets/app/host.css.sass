@@ -1,8 +1,33 @@
+@import 'variables'
+
 #host-view
   .card-header.bordered
     border-bottom: none
+
+  .host-tab-bar > li a
+    padding: 0 22px
 
 #host-index-view
   td.usage
     width: 160px
     text-align: right
+
+#host-registries-view
+
+#host-registries-new-view
+  .ui.input-group
+    padding: $containerPadding 0
+
+  .registry-url
+    display: flex
+    flex-direction: rows
+
+    input[type=text]
+      position: relative
+      flex-grow: 1
+      width: auto
+      align-self: center
+
+    .registry-buttons
+      button
+        margin-left: 16px

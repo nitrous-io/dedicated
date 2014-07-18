@@ -1,4 +1,4 @@
 App.ContainerKeysController = Em.Controller.extend
   actions:
-    addKey: ->
+    add: ->
       @transitionToRoute 'container.keys-new'

@@ -9,7 +9,7 @@
           label
       .lines
         h4 hub.docker.com
-        p petejkim
+        p nitrousio
 
     li.list-item
       .left-accessory
@@ -24,4 +24,4 @@
   .left
     button.ui.btn Remove
   .right
-    button.ui.btn.primary Add Registry...
+    button.ui.btn.primary click='add' Add Registry...
