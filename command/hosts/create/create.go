@@ -86,6 +86,7 @@ func (c *Command) Run(args []string) int {
 		c.UI.Error(fmt.Sprintf("Failed to create host - %v", err.Error()))
 		return 1
 	}
+	command.SaveDefaultHost(host.Slug)
 
 	c.UI.Output("Created new host:")
 	t := hosts.PrettyPrint([]string{"Slug", "State", "Size"}, host)
