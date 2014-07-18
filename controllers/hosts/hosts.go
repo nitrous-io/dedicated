@@ -9,7 +9,7 @@ import (
 
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/db"
+	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/plan"
@@ -138,6 +138,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 		Slug:          slug,
 		Name:          sql.NullString{name, true},
 		MaxContainers: sql.NullInt64{pl.MaxContainers, true},
+		Size:          ndb.NullString{sql.NullString{size, true}},
 
 		IPAddress:          sql.NullString{info.IPAddress, true},
 		ProviderIdentifier: sql.NullString{info.ID, true},
@@ -251,7 +252,7 @@ func respondOK(w http.ResponseWriter, logger *logger.Logger) {
 	logger.Infof("Response: 200 OK")
 }
 
-func getHost(db *db.Database, user *user.User, slug string) (*host.Host, error) {
+func getHost(db *ndb.Database, user *user.User, slug string) (*host.Host, error) {
 	ht, err := host.FindByUserAndSlug(db, user, slug)
 	if err != nil {
 		return nil, err
@@ -273,7 +274,7 @@ type stateTransition struct {
 	To           string
 }
 
-func transition(d db.QueryReceiver, h *host.Host, st *stateTransition, fn hostbuilderclient.OperationFn) error {
+func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostbuilderclient.OperationFn) error {
 	if h.State != st.From {
 		return fmt.Errorf("Expected initial state to be %s, was %s", st.From, h.State)
 	}

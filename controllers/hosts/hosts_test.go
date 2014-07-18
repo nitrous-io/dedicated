@@ -317,6 +317,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
 					Expect(h.State).To(Equal("created"))
 					Expect(h.MaxContainers.Int64).To(Equal(hs.P.MaxContainers))
+					Expect(h.Size.String).To(Equal(hs.P.Name))
 					Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
 					Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
 				})

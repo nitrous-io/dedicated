@@ -163,5 +163,11 @@ func init() {
 				CREATE UNIQUE INDEX index_hosts_on_slug ON hosts USING btree (slug);
 			`,
 		},
+		{
+			Version: "130",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN size character varying(255);
+			`,
+		},
 	}
 }
