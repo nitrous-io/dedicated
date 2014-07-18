@@ -204,16 +204,29 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when request does not specify a size", func() {
 			It("returns error size required", func() {
 				params = &url.Values{}
+				params.Set("slug", "honeybadger")
 				params.Set("size", "")
+				params.Set("region", hs.R.Name)
 				err := doRequest()
 				Expect(err).To(MatchError(hosts.ErrSizeRequired))
 			})
 		})
 
-		Context("when request not specify a name", func() {
-			It("returns error name required", func() {
+		Context("when request does not specify a region", func() {
+			It("returns error region required", func() {
 				params = &url.Values{}
-				params.Set("name", "")
+				params.Set("slug", "honeybadger")
+				params.Set("size", hs.P.Name)
+				params.Set("region", "")
+				err := doRequest()
+				Expect(err).To(MatchError(hosts.ErrRegionRequired))
+			})
+		})
+
+		Context("when request not specify a slug", func() {
+			It("returns error slug required", func() {
+				params = &url.Values{}
+				params.Set("slug", "")
 				params.Set("size", hs.P.Name)
 				params.Set("region", hs.R.Name)
 				err := doRequest()

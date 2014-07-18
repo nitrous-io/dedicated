@@ -23,6 +23,7 @@ import (
 var (
 	ErrSizeRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "host size can't be blank")
 	ErrSlugRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "slug can't be blank")
+	ErrRegionRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "region can't be blank")
 	ErrPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
 	ErrRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
 	ErrProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
@@ -76,7 +77,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 
 	regionName := r.FormValue("region")
 	if regionName == "" {
-		regionName = "apse" //FIXME: user model should specify a default region?
+		return ErrRegionRequired
 	}
 
 	name := r.FormValue("name")
