@@ -1,7 +1,6 @@
 package destroy
 
 import (
-	"flag"
 	"fmt"
 	"net/http"
 	"strings"
@@ -9,16 +8,23 @@ import (
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitrous-common/httpclient"
+	flag "github.com/ogier/pflag"
 )
+
+const forceUsage = "Skip confirmation"
 
 const usage = `
 Usage: nitro hosts:destroy <slug>
 
-  deletes the host identified by the slug
+  destroy host with the given slug
+
+Options:
+
+  -f, --force=""    %s
 `
 
 type Command struct {
-	UI     cli.Ui
+	UI     command.UI
 	Server string
 	Client *httpclient.Client
 }
@@ -40,8 +46,11 @@ func (c *Command) Help() string {
 }
 
 func (c *Command) Run(args []string) int {
+	var force bool
+
 	cmdFlags := flag.NewFlagSet("hosts:destroy", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
+	cmdFlags.BoolVarP(&force, "force", "f", false, forceUsage)
 
 	err := cmdFlags.Parse(args)
 	if err != nil {
@@ -53,12 +62,29 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	name := args[0]
+	slug := args[0]
 
-	c.UI.Output(fmt.Sprintf("Deleting host '%s'. Please wait...", name))
-	err = c.destroyHost(name)
+	if !force {
+		confirmation := c.UI.Confirm(fmt.Sprintf("Do you really want to destroy '%s'? [y/N]", slug))
+		switch confirmation {
+		case command.ConfirmYes:
+			// Pass.
+		case command.ConfirmNo:
+			c.UI.Output("Cancelled.")
+			return 1
+		case command.ConfirmCancel:
+			c.UI.Error("Cancelled.")
+			return 130
+		case command.ConfirmErr:
+			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
+			return 1
+		}
+	}
+
+	c.UI.Output(fmt.Sprintf("Destroying host %s...", slug))
+	err = c.destroyHost(slug)
 	if err != nil {
-		c.UI.Error(fmt.Sprintf("Failed to delete host - %v", err.Error()))
+		c.UI.Error(fmt.Sprintf("Failed to destroy host - %v", err.Error()))
 		return 1
 	}
 
@@ -67,11 +93,11 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Synopsis() string {
-	return "Deletes the given host"
+	return "Destroy a host"
 }
 
-func (c *Command) destroyHost(name string) error {
-	resp, err := c.Client.DeleteAuthed(fmt.Sprintf("%s/api/v0/%s/%s", c.Server, "hosts", name), nil)
+func (c *Command) destroyHost(slug string) error {
+	resp, err := c.Client.DeleteAuthed(fmt.Sprintf("%s/api/v0/%s/%s", c.Server, "hosts", slug), nil)
 	if err != nil {
 		return err
 	}
