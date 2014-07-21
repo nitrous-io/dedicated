@@ -1,1 +1,8 @@
-p home/index
+.no-host
+  .bubble
+    p
+      | Looks like you don&rsquo;t have any hosts.
+      br
+      | Click here to create your first host.
+
+  .pointer.fa.fa-hand-o-up
