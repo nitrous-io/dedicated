@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"time"
 
@@ -80,7 +81,7 @@ func (h *Host) createImage() (string, error) {
 	}
 
 	t := time.Now()
-	inputbuf, outputbuf := bytes.NewBuffer(nil), bytes.NewBuffer(nil)
+	inputbuf := bytes.NewBuffer(nil)
 	tr := tar.NewWriter(inputbuf)
 	tr.WriteHeader(&tar.Header{
 		Name:       "Dockerfile",
@@ -96,7 +97,7 @@ func (h *Host) createImage() (string, error) {
 	opts := dockerclient.BuildImageOptions{
 		Name:         imageName,
 		InputStream:  inputbuf,
-		OutputStream: outputbuf,
+		OutputStream: os.Stdout,
 	}
 	log.Printf("docker: building image %s", imageName)
 	if err := h.client.BuildImage(opts); err != nil {
