@@ -659,12 +659,43 @@ Content-Type: application/json; charset=utf-8
     }
   ]
 }
-....
 ```
 
 **Status Codes**:
 
 - **200** - ok
 
+### Create a volume
+
+`POST /hosts/(host slug)/volumes`
+
+**Example request**:
+
+```
+POST /hosts/myhost/volumes HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+
+slug=music
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 201 Created
+Content-Type: application/json; charset=utf-8
+
+{ "status" : "created" }
+```
+
+**POST Params**:
+
+- **slug** - required volume slug (alphanumeric, hyphen(-), underscore(\_), must start with alphanumeric).  This will be the directory name of the created volume
+
+**Status Codes**:
+
+- **201** - created
+- **422** - missing or invalid params
+
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.
+

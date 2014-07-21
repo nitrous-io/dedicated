@@ -36,6 +36,8 @@ type Provider interface {
 	Logout(registry string) error
 
 	ListImages() (infoList []*ImageInfo, err error)
+
+	CreateVolume(slug string) error
 }
 
 type ContainerInfo struct {

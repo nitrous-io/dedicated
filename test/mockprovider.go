@@ -49,6 +49,10 @@ type MockProvider struct {
 	ReceivedPublicKeys     []string
 	ReceivedKeyFingerprint string
 
+	CreateVolumeCalled bool
+	CreateVolumeError  error
+	CreateVolumeSlug   string
+
 	LogsCalled         bool
 	LogsError          error
 	ReceivedFollow     bool
@@ -210,6 +214,12 @@ func (p *MockProvider) ListImages() ([]*provider.ImageInfo, error) {
 	}
 
 	return p.ListImagesContents, nil
+}
+
+func (p *MockProvider) CreateVolume(slug string) error {
+	p.CreateVolumeCalled = true
+	p.CreateVolumeSlug = slug
+	return p.CreateVolumeError
 }
 
 func (p *MockProvider) IsNotFoundError(err error) bool {

@@ -780,6 +780,35 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("POST /volumes", func() {
+		doRequest := func(slug string) {
+			req, _ := NewRequest("POST", "/volumes", &url.Values{"slug": []string{slug}})
+			handler.ServeHTTP(res, req)
+		}
+
+		It("is Created when provider.CreateVolumes() succeeds", func() {
+			doRequest("good-slug")
+			Expect(prov.CreateVolumeSlug).To(Equal("good-slug"))
+			Expect(res.Code).To(Equal(http.StatusCreated))
+		})
+
+		Context("when provider.CreateVolumes() fails", func() {
+			It("with a known error", func() {
+				prov.CreateVolumeError = fmt.Errorf("volume is pi r cubed")
+				doRequest("fails")
+				Expect(res.Code).To(Equal(422))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"volume is pi r cubed"}`))
+			})
+
+			It("with an unexpected error", func() {
+				prov.CreateVolumeError = fmt.Errorf("mkdir failed")
+				doRequest("fails")
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"mkdir failed"}`))
+			})
+		})
+	})
+
 	Describe("GET /containers/:id/logs", func() {
 		doRequest := func(id, follow, timestamps, tail string) {
 			params := &url.Values{}
