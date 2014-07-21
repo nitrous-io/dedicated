@@ -140,6 +140,87 @@ var _ = Describe("models/publickey", func() {
 		})
 	})
 
+	Describe("FindByUserIDAndContainerIDAndFingerprint", func() {
+		var (
+			u, u2 *user.User
+			// rsa1 and rsa2 belong to u, ecdsa belongs to u2
+			rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa              *publickey.PublicKey
+			rsa1C1print, rsa2C1print, rsa1C2print, rsa2C2print string
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Password: "123456",
+				Email:    "foo@example.com",
+			}
+			err := u.Insert(db)
+			Expect(err).To(BeNil())
+
+			u2 = &user.User{
+				Username: "bar",
+				Password: "123456",
+				Email:    "bar@example.com",
+			}
+			err = u2.Insert(db)
+			Expect(err).To(BeNil())
+
+			rsa1C1 = &publickey.PublicKey{
+				UserID:      u.ID,
+				ContainerID: c.ID,
+				Key:         validRSA,
+			}
+			rsa1C1print, err = rsa1C1.Md5Fingerprint()
+			Expect(err).To(BeNil())
+
+			rsa2C1 = &publickey.PublicKey{
+				UserID:      u.ID,
+				ContainerID: c.ID,
+				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
+			}
+			rsa2C1print, err = rsa2C1.Md5Fingerprint()
+			Expect(err).To(BeNil())
+
+			rsa1C2 = &publickey.PublicKey{
+				UserID:      u.ID,
+				ContainerID: c2.ID,
+				Key:         validRSA,
+			}
+			rsa1C2print, err = rsa1C2.Md5Fingerprint()
+			Expect(err).To(BeNil())
+
+			rsa2C2 = &publickey.PublicKey{
+				UserID:      u.ID,
+				ContainerID: c2.ID,
+				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
+			}
+			rsa2C2print, err = rsa2C2.Md5Fingerprint()
+			Expect(err).To(BeNil())
+
+			ecdsa = &publickey.PublicKey{
+				UserID:      u2.ID,
+				ContainerID: c.ID,
+				Key:         validECDSA,
+			}
+			for _, k := range []*publickey.PublicKey{rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa} {
+				err := k.Insert(db)
+				Expect(err).To(BeNil())
+			}
+		})
+
+		It("should return the right publickey object if found", func() {
+			pk, err := publickey.FindByUserIDAndContainerIDAndFingerprint(db, u.ID, c.ID, rsa1C1print)
+			Expect(err).To(BeNil())
+			Expect(pk).To(Equal(rsa1C1))
+		})
+
+		It("should return nil if it can't find a key with the given fingerprint", func() {
+			pk, err := publickey.FindByUserIDAndContainerIDAndFingerprint(db, u.ID, c.ID, "invalid fingerprint")
+			Expect(err).To(Equal(publickey.ErrNotFound))
+			Expect(pk).To(BeNil())
+		})
+	})
+
 	Describe("Destroy methods", func() {
 		var (
 			u, u2 *user.User

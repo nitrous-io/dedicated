@@ -9,9 +9,10 @@ import (
 )
 
 var (
-	ErrNotFound   = fmt.Errorf("public key not found")
-	ErrKeyBlank   = fmt.Errorf("missing public key")
-	ErrInvalidKey = fmt.Errorf("invalid public key")
+	ErrNotFound              = fmt.Errorf("public key not found")
+	ErrKeyBlank              = fmt.Errorf("missing public key")
+	ErrInvalidKey            = fmt.Errorf("invalid public key")
+	ErrDuplicateFingerprints = fmt.Errorf("multiple keys found for fingerprint")
 )
 
 type PublicKey struct {
@@ -31,6 +32,21 @@ func FindAllByUserIDAndContainerID(db *db.Database, userID int64, containerID in
 		return []PublicKey{}, err
 	}
 	return keys, nil
+}
+
+func FindByUserIDAndContainerIDAndFingerprint(db *db.Database, userID int64, containerID int64, fprint string) (*PublicKey, error) {
+	keys := []PublicKey{}
+	err := db.Select(&keys, "SELECT * FROM public_keys WHERE user_id = $1 AND container_id = $2 AND fingerprint = $3 ORDER BY created_at", userID, containerID, fprint)
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) == 0 {
+		return nil, ErrNotFound
+	}
+	if len(keys) > 1 {
+		return nil, ErrDuplicateFingerprints
+	}
+	return &keys[0], err
 }
 
 func DestroyAllByUserIDAndContainerID(db *db.Database, userID int64, containerID int64) error {

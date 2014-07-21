@@ -1,6 +1,7 @@
 package keys_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,9 +12,12 @@ import (
 	"bitbucket.org/kardianos/osext"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/controllers/keys"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/container"
+	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/publickey"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/server"
@@ -43,6 +47,9 @@ var _ = Describe("controllers/keys", func() {
 		hs        *HostStack
 		c         *container.Container
 		authToken *token.Token
+
+		// Mock client that satisfies the freighterclient.Client interface.
+		mockClient *freighterclient.MockClient
 	)
 
 	expectSuccessfulRequest := func(status string) map[string]interface{} {
@@ -65,6 +72,9 @@ var _ = Describe("controllers/keys", func() {
 
 	BeforeEach(func() {
 		var err error
+		mockClient = &freighterclient.MockClient{}
+		keys.FreighterClient = mockClient
+
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		root, err := osext.ExecutableFolder()
@@ -74,7 +84,12 @@ var _ = Describe("controllers/keys", func() {
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 
-		hs, err = CreateHostStack(db, nil)
+		hs, err = CreateHostStack(db, &HostStack{
+			H: &host.Host{
+				Slug:      "foo",
+				IPAddress: sql.NullString{"127.0.0.1", true},
+			},
+		})
 		Expect(err).To(BeNil())
 
 		authToken = &token.Token{
@@ -176,6 +191,7 @@ var _ = Describe("controllers/keys", func() {
 					params = &url.Values{}
 					params.Set("keytext", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0Ddg2BE+XhqJHHI164Sxi7euv5bTTxdW1D/mUTd1uQruFvyyMPAVjRhR1aSgvh8DGlaj/ndV5CViR6zU9upLf9XPjCg84/4HMBpbhSA3PWRb6YMwf85HEAfiXYLmw06PD40Ts6EHbvtWfQLo06bxsnGaRaP4dJNZRkDpEuQTZNoWh0SQzG3Ww5TA7V80WCAdBnIOXymjGDm+Ri24RibmO+mp4s2dnevZOPXAOSAn5axd5X6INg+TEYFaEvFT8JnBTBvCWTTeHj+Xti9wWBcGbdFI/vAoHNrDtCav0UBe5ueItXAUklm4lo7uG+CL/33fLQ+iEC+WTTivTt9U0IORB")
 					doRequest(c.Slug)
+					mockClient.AddPublicKeysError = nil
 				})
 
 				It("creates the key", func() {
@@ -183,6 +199,8 @@ var _ = Describe("controllers/keys", func() {
 					pks, err := publickey.FindAllByUserIDAndContainerID(db, 1, c.ID)
 					Expect(err).To(BeNil())
 					Expect(pks).To(HaveLen(1))
+					Expect(mockClient.AddPublicKeysCalled).To(Equal(1))
+					Expect(mockClient.ReceivedID).To(Equal(c.CID))
 				})
 			})
 
@@ -229,6 +247,25 @@ var _ = Describe("controllers/keys", func() {
 					expectBadRequest("container not found")
 				})
 			})
+
+			Context("when the call to freighter fails for some reason", func() {
+				BeforeEach(func() {
+					mockClient.AddPublicKeysError = freighterclient.ErrPubKeyOpsNotSupported
+					params = &url.Values{}
+					params.Set("keytext", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0Ddg2BE+XhqJHHI164Sxi7euv5bTTxdW1D/mUTd1uQruFvyyMPAVjRhR1aSgvh8DGlaj/ndV5CViR6zU9upLf9XPjCg84/4HMBpbhSA3PWRb6YMwf85HEAfiXYLmw06PD40Ts6EHbvtWfQLo06bxsnGaRaP4dJNZRkDpEuQTZNoWh0SQzG3Ww5TA7V80WCAdBnIOXymjGDm+Ri24RibmO+mp4s2dnevZOPXAOSAn5axd5X6INg+TEYFaEvFT8JnBTBvCWTTeHj+Xti9wWBcGbdFI/vAoHNrDtCav0UBe5ueItXAUklm4lo7uG+CL/33fLQ+iEC+WTTivTt9U0IORB")
+					doRequest(c.Slug)
+				})
+
+				It("responds with bad request", func() {
+					expectBadRequest("public key operations not supported on this container")
+				})
+
+				It("should not persist the key in the database", func() {
+					pks, err := publickey.FindAllByUserIDAndContainerID(db, 1, c.ID)
+					Expect(err).To(BeNil())
+					Expect(pks).To(HaveLen(0))
+				})
+			})
 		})
 	}
 
@@ -241,7 +278,7 @@ var _ = Describe("controllers/keys", func() {
 		}
 
 		Context("when user has multiple keys", func() {
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				for i := 0; i < 2; i++ {
 					pk := &publickey.PublicKey{
 						UserID:      hs.U.ID,
@@ -260,13 +297,38 @@ var _ = Describe("controllers/keys", func() {
 				doRequest(c.Slug)
 			})
 
-			It("removes all of them", func() {
-				expectSuccessfulRequest("ok")
+			Context("when call to freighterclient succeeds", func() {
+				BeforeEach(func() {
+					mockClient.ClearPublicKeysError = nil
+				})
 
-				pks, err := publickey.FindAllByUserIDAndContainerID(db, 1, c.ID)
-				Expect(err).To(BeNil())
-				Expect(pks).To(BeEmpty())
+				It("removes all of them", func() {
+					expectSuccessfulRequest("ok")
 
+					pks, err := publickey.FindAllByUserIDAndContainerID(db, 1, c.ID)
+					Expect(err).To(BeNil())
+					Expect(pks).To(BeEmpty())
+					Expect(mockClient.ClearPublicKeysCalled).To(Equal(1))
+					Expect(mockClient.ReceivedID).To(Equal(c.CID))
+				})
+			})
+
+			Context("when the call to freighter fails for some reason", func() {
+				BeforeEach(func() {
+					mockClient.ClearPublicKeysError = freighterclient.ErrPubKeyOpsNotSupported
+				})
+
+				It("returns bad request", func() {
+					expectBadRequest("public key operations not supported on this container")
+					Expect(mockClient.ClearPublicKeysCalled).To(Equal(1))
+					Expect(mockClient.ReceivedID).To(Equal(c.CID))
+				})
+
+				It("should not destroy the keys from the database", func() {
+					pks, err := publickey.FindAllByUserIDAndContainerID(db, 1, c.ID)
+					Expect(err).To(BeNil())
+					Expect(len(pks)).To(Equal(2))
+				})
 			})
 		})
 
@@ -274,12 +336,16 @@ var _ = Describe("controllers/keys", func() {
 			BeforeEach(func() {
 				params = &url.Values{}
 				doRequest(c.Slug)
+				mockClient.ClearPublicKeysError = nil
 			})
 
 			It("returns success", func() {
 				expectSuccessfulRequest("ok")
+				Expect(mockClient.ClearPublicKeysCalled).To(Equal(1))
+				Expect(mockClient.ReceivedID).To(Equal(c.CID))
 			})
 		})
+
 	})
 
 	Describe("DELETE /api/v0/keys/<md5_fingerprint>", func() {
@@ -318,16 +384,50 @@ var _ = Describe("controllers/keys", func() {
 			Expect(err).To(BeNil())
 			fprint, err = pks[1].Md5Fingerprint()
 			Expect(err).To(BeNil())
+			mockClient.RemovePublicKeyCalled = 0
 		})
 
-		It("is successful when key is present in container", func() {
-			doRequest(c.Slug, fprint)
-			expectSuccessfulRequest("ok")
+		Context("when call to freighter is successful", func() {
+			BeforeEach(func() {
+				mockClient.RemovePublicKeyError = nil
+			})
+
+			It("is successful when key is present in container", func() {
+				doRequest(c.Slug, fprint)
+				expectSuccessfulRequest("ok")
+				Expect(mockClient.RemovePublicKeyCalled).To(Equal(1))
+				Expect(mockClient.ReceivedID).To(Equal(c.CID))
+			})
+		})
+
+		Context("when call to freighter is unsuccessful", func() {
+			BeforeEach(func() {
+				mockClient.RemovePublicKeyError = freighterclient.ErrPubKeyOpsNotSupported
+			})
+
+			It("is unsuccessful", func() {
+				doRequest(c.Slug, fprint)
+				expectBadRequest("public key operations not supported on this container")
+				Expect(mockClient.RemovePublicKeyCalled).To(Equal(1))
+				Expect(mockClient.ReceivedID).To(Equal(c.CID))
+			})
+
+			It("should not destroy the keys from the database", func() {
+				doRequest(c.Slug, fprint)
+				pks, err := publickey.FindAllByUserIDAndContainerID(db, 1, c.ID)
+				Expect(err).To(BeNil())
+				Expect(len(pks)).To(Equal(2))
+			})
 		})
 
 		It("is unsuccessful when key is not in container", func() {
 			doRequest(c2.Slug, fprint)
 			expectBadRequest("fingerprint not found")
+			Expect(mockClient.RemovePublicKeyCalled).To(Equal(0))
+
+			pks, err := publickey.FindAllByUserIDAndContainerID(db, 1, c.ID)
+			Expect(err).To(BeNil())
+			Expect(len(pks)).To(Equal(2))
 		})
 	})
 })
