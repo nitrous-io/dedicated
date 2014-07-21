@@ -10,7 +10,7 @@ form
             .ui.checkbox
               input type='radio' id='images-new-option-github' name='option' checked='checked'
               label
-            label for='images-new-option-github' Use Dockerfile in GitHub repo/gist
+            label for='images-new-option-github' Use Dockerfile in GitHub Repo / Gist
 
         .indent
           input type='text' id='images-new-github' name='github'
@@ -30,7 +30,7 @@ form
             .ui.checkbox
               input type='radio' id='images-new-option-file' name='option'
               label
-            label for='images-new-option-file' Upload Dockerfile / tarball
+            label for='images-new-option-file' Upload Dockerfile / Tarball
 
         .indent
           .ui.file-picker.btn.raised

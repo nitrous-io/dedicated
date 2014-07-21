@@ -151,24 +151,26 @@ table.ui.table
 
   th, td
     border-bottom: 1px solid $gray300
+    padding: 0 8px
 
   th
-    width: 160px
-    padding-right: $containerPadding
     color: $gray600
     font-size: 12px
     font-weight: 500
     text-transform: uppercase
-    text-align: right
-
-    &:first-of-type
-      border-bottom: 1px solid transparent
 
   td
-    padding: 0 8px
-
     span.empty
       color: $gray300
+
+  &.horizontal
+    th
+      width: 160px
+      padding: 0 $containerPadding 0 0
+      text-align: right
+
+      &:first-of-type
+        border-bottom: 1px solid transparent
 
 .ui.btn
   display: inline-block
@@ -462,3 +464,30 @@ ul.ui.list
 
         p
           color: $gray600
+
+ul.ui.chips
+  margin: 12px
+  padding: 0
+  list-style: none
+
+  > li
+    display: inline-block
+    padding: 8px 8px 8px 12px
+    margin: 4px 8px 4px 0
+    font-size: $fontSizeSmall
+    background: $gray200
+    border-radius: 16px
+    line-height: 16px
+
+    a.close
+      display: inline-block
+      width: 16px
+      margin-left: 4px
+      text-align: center
+      font-style: normal
+      color: black
+      border-radius: 8px
+      transition: background-color .2s
+
+      &:hover
+        background: $gray400

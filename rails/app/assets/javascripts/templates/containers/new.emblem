@@ -28,9 +28,21 @@ form
         ul.ui.checkbox-group
           li
             .ui.checkbox
-              input type='radio' id='containers-new-image-type-nitrous' name='image_type' checked='checked'
+              input type='radio' id='containers-new-image-type-host-image' name='image_type' checked='checked'
               label
-            label for='containers-new-image-type-nitrous' Use Nitrous.IO image
+            label for='containers-new-image-type-host-image' Use Image On This Host
+
+        .ui.select.indent
+          select
+            option web-app-template
+            option fun-times-33
+
+        ul.ui.checkbox-group
+          li
+            .ui.checkbox
+              input type='radio' id='containers-new-image-type-nitrous' name='image_type'
+              label
+            label for='containers-new-image-type-nitrous' Use Nitrous.IO Image
 
         .ui.select.indent
           select
@@ -48,12 +60,66 @@ form
             .ui.checkbox
               input type='radio' id='containers-new-image-type-custom' name='image_type'
               label
-            label for='containers-new-image-type-custom' Use custom Docker image
+            label for='containers-new-image-type-custom' Use Image From Docker Registry
 
         .indent
           input type='text' id='containers-new-slug' name='slug' placeholder='docker-registry/repo:latest'
 
+  .advanced-options
+    .card-body.bordered.port-bindings
+      .ui.input-group
+        label.field-label
+          | Port Bindings
+
+        ul.ui.chips
+          li
+            | Public:80:3000
+            a.close href='#' &times;
+
+          li
+            | Private:1337:1337
+            a.close href='#' &times;
+
+        table.ui.table
+          thead
+            tr
+              th Public
+              th Host Port (Optional)
+              th colspan='2' Container Port
+          tbody
+            tr
+              td
+                .ui.checkbox
+                  input type='checkbox'
+                  label
+              td
+                input type='number' min='1' max='65535' step='1' placeholder='63000'
+              td
+                input type='number' min='1' max='65535' step='1' placeholder='3000'
+              td
+                button.ui.btn.raised Add
+
+        ul.ui.checkbox-group
+          li
+            .ui.checkbox
+              input type='checkbox' id='containers-new-publish-all' name='publish_all' checked='checked'
+              label
+            label for='containers-new-publish-all' Publish All Exposed Ports
+
+    .card-body.bordered
+      .ui.input-group
+        label.field-label
+          | Volumes
+
+    .card-body.bordered
+      .ui.input-group
+        label.field-label
+          | Mount Volumes From Another Container
+
   .card-footer.bordered
+    .left
+      button.ui.btn Show Advanced
+
     .right
       button.ui.btn Cancel
       button.ui.btn.primary Create

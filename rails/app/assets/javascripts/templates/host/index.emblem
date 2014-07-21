@@ -1,7 +1,7 @@
 = host-tab-bar selected='general'
 
 .card-body
-  table.ui.table
+  table.ui.table.horizontal
     tr
       th State
       td

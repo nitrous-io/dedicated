@@ -124,7 +124,7 @@ form
             .lines.right
               p $960/mo
       .size-description
-        table.ui.table
+        table.ui.table.horizontal
           tr
             th Container Limit
             td ∞
