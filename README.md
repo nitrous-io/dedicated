@@ -163,7 +163,6 @@ All keys of config JSON are optional.  Fully populated JSON looks like:
   }
   "HostConfig": {
     "PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]},
-    "VolumesFrom": ["somecontainer"]
   }
 }
 ```
@@ -251,7 +250,6 @@ ignored.  A fully populated JSON looks like:
 {
   "HostConfig": {
     "PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]},
-    "VolumesFrom": ["somecontainer"]
   }
 }
 ```

@@ -34,7 +34,7 @@ var _ = Describe("server", func() {
 		prov    *MockProvider
 	)
 
-	configJSON := `{"HostConfig": {"VolumesFrom": ["sharedcontainer"]}}`
+	configJSON := `{"HostConfig": {"PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]}}}`
 
 	BeforeEach(func() {
 		prov = &MockProvider{}

@@ -782,17 +782,6 @@ var _ = Describe("provider/docker", func() {
 			Expect(getPortBindings(id, "4242/tcp")).To(
 				Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
 			Expect(getPortBindings(id, "3000/tcp")).To(Equal("<no value>"))
-
-			// It("supports VolumesFrom option")
-			// VolumesFrom will error out if the container id given does not exist
-			volsName := RandomName("freightertest")
-			_, err = prov.Create(volsName, image,
-				fmt.Sprintf(`{"HostConfig": {"VolumesFrom":["%s"]}}`, id))
-			Expect(err).To(BeNil())
-			defer cleanUpContainer(fullContainerName(volsName))
-			volsID := getID(volsName)
-			Expect(doInspect(volsID, `{{.HostConfig.VolumesFrom}}`)).To(
-				Equal(fmt.Sprintf("[%s]", id)))
 		})
 	})
 

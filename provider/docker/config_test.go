@@ -21,14 +21,13 @@ var _ = Describe("provider/docker config", func() {
 			j, err := json.Marshal(&docker.ContainerConfig{
 				Env:          []string{"LANG=C"},
 				Volumes:      []string{"/music"},
-				VolumesFrom:  []string{"somecontainer"},
 				ExposedPorts: []string{"3000/tcp"},
 				PortBindings: map[string]string{
 					"3000/tcp": ":1234",
 				},
 			})
 			Expect(err).To(BeNil())
-			Expect(string(j)).To(Equal(`{"Config":{"Env":["LANG=C"],"ExposedPorts":{"3000/tcp":{}},"Volumes":{"/music":{}}},"HostConfig":{"PortBindings":{"3000/tcp":[{"HostIp":"127.0.0.1","HostPort":"1234"}]},"VolumesFrom":["somecontainer"]}}`))
+			Expect(string(j)).To(Equal(`{"Config":{"Env":["LANG=C"],"ExposedPorts":{"3000/tcp":{}},"Volumes":{"/music":{}}},"HostConfig":{"PortBindings":{"3000/tcp":[{"HostIp":"127.0.0.1","HostPort":"1234"}]}}}`))
 		})
 
 		It("returns error on invalid port binding", func() {
@@ -42,10 +41,10 @@ var _ = Describe("provider/docker config", func() {
 
 		It("handles missing Config", func() {
 			j, err := json.Marshal(&docker.ContainerConfig{
-				VolumesFrom: []string{"somecontainer"},
+				PortBindings: map[string]string{"3000/tcp": ":1234"},
 			})
 			Expect(err).To(BeNil())
-			Expect(string(j)).To(Equal(`{"Config":{},"HostConfig":{"VolumesFrom":["somecontainer"]}}`))
+			Expect(string(j)).To(Equal(`{"Config":{},"HostConfig":{"PortBindings":{"3000/tcp":[{"HostIp":"127.0.0.1","HostPort":"1234"}]}}}`))
 		})
 
 		It("handles missing HostConfig", func() {
