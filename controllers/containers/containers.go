@@ -2,7 +2,9 @@ package containers
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/freighter/freighterclient"
@@ -26,6 +28,7 @@ var (
 	errHostIPUnknown     = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
 	errHostNotFound      = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
+	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 )
 
 var (
@@ -156,7 +159,13 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 	if err != nil {
 		return err
 	}
-	created, err := FreighterClient.Create(fHost, slug, image)
+
+	config, err := parseConfig(r)
+	if err != nil {
+		return err
+	}
+
+	created, err := FreighterClient.Create(fHost, slug, image, config)
 	if err != nil {
 		if e, ok := err.(*freighterclient.InvalidParamError); ok {
 			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
@@ -343,5 +352,54 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 		IPAddress: sql.NullString{fc.Host, true},
 		UserID:    h.UserID,
 		HostID:    h.ID,
+	}
+}
+
+func parseConfig(r *http.Request) (freighterclient.ContainerConfig, error) {
+	c := freighterclient.NewDockerContainerConfig()
+	err := r.ParseForm()
+	if err != nil {
+		return nil, err
+	}
+	if envs, ok := r.PostForm["env"]; ok {
+		c.Env = envs
+	}
+	if vols, ok := r.PostForm["volume"]; ok {
+		c.Volumes = vols
+	}
+	if volsFrom, ok := r.PostForm["volumes_from"]; ok {
+		c.VolumesFrom = volsFrom
+	}
+	if ports, ok := r.PostForm["port"]; ok {
+		c.ExposedPorts = make([]string, 0, len(ports))
+		c.PortBindings = make(map[string]string, len(ports))
+		for _, spec := range ports {
+			cport, binding, err := parsePortspec(spec)
+			if err != nil {
+				return nil, err
+			}
+			c.ExposedPorts = append(c.ExposedPorts, cport)
+			c.PortBindings[cport] = binding
+		}
+	}
+	return c, nil
+}
+
+// parsePortspec supports any of:
+//   ip:hostPort:containerPort
+//   ip::containerPort
+//   hostPort:containerPort ... :
+// returns (container port, ip:hostport, err)
+func parsePortspec(portspec string) (string, string, error) {
+	parts := strings.Split(portspec, ":")
+	switch { // TODO more stringent checking
+	case len(parts) == 3 && parts[1] == "": // ip::containerPort
+		return parts[2], fmt.Sprintf("%s:%s", parts[0], parts[2]), nil
+	case len(parts) == 3: // ip:hostPort:containerPort
+		return parts[2], fmt.Sprintf("%s:%s", parts[0], parts[1]), nil
+	case len(parts) == 2: // hostPort:containerPort
+		return parts[1], fmt.Sprintf(":%s", parts[0]), nil
+	default:
+		return "", "", errInvalidPortspec
 	}
 }
