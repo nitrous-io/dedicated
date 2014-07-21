@@ -21,6 +21,7 @@ import (
 	_ "github.com/nitrous-io/nitro/command/hosts/create"
 	_ "github.com/nitrous-io/nitro/command/hosts/destroy"
 	_ "github.com/nitrous-io/nitro/command/hosts/list"
+	_ "github.com/nitrous-io/nitro/command/hosts/restart"
 	_ "github.com/nitrous-io/nitro/command/login"
 	_ "github.com/nitrous-io/nitro/command/logout"
 )
