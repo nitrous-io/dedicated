@@ -354,6 +354,13 @@ var _ = Describe("controllers/containers", func() {
 			params.Set("slug", "elixir-web-1")
 			params.Set("name", "Elixir Web Server 1")
 			params.Set("image", "elixir")
+			params.Add("env", "LANG=C")
+			params.Add("env", "NODE=nope")
+			params.Add("volume", "/music")
+			params.Add("volumes_from", "sharedcontainer")
+			params.Add("port", "3000:8080")
+			params.Add("port", "0.0.0.0::4552")
+			params.Add("port", "0.0.0.0:8081:11211")
 		})
 
 		doRequest := func(token, host string, params *url.Values) {
@@ -379,6 +386,16 @@ var _ = Describe("controllers/containers", func() {
 					Expect(mockClient.CreateCalled).To(Equal(1))
 					Expect(mockClient.ReceivedName).To(Equal("elixir-web-1"))
 					Expect(mockClient.ReceivedImage).To(Equal("elixir"))
+					conf, err := mockClient.DockerContainerConfig()
+					Expect(err).To(BeNil())
+					Expect(conf.Env).To(Equal([]string{"LANG=C", "NODE=nope"}))
+					Expect(conf.Volumes).To(Equal([]string{"/music"}))
+					Expect(conf.VolumesFrom).To(Equal([]string{"sharedcontainer"}))
+					Expect(conf.ExposedPorts).To(Equal([]string{"8080", "4552", "11211"}))
+					Expect(conf.PortBindings).To(HaveLen(3))
+					Expect(conf.PortBindings["8080"]).To(Equal(":3000"))
+					Expect(conf.PortBindings["4552"]).To(Equal("0.0.0.0:4552"))
+					Expect(conf.PortBindings["11211"]).To(Equal("0.0.0.0:8081"))
 				})
 
 				Context("when the Freighter client returns an error", func() {
