@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rsa"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -35,7 +34,7 @@ type Host struct {
 	Client *do.Client
 	Config *HostConfig
 
-	instance   *do.Droplet
+	droplet    *do.Droplet
 	privateKey *rsa.PrivateKey
 	conn       *ssh.Conn
 	sshKey     *do.SSHKey
@@ -56,14 +55,14 @@ func (h *Host) Create() (*host.Info, error) {
 	}
 	ctx := context.NewContext(h, steps)
 	if err := ctx.Execute(); err != nil {
-		if h.instance != nil {
-			if derr := h.Client.DestroyDroplet(h.instance.ID); derr != nil {
+		if h.droplet != nil {
+			if derr := h.Client.DestroyDroplet(h.droplet.ID); derr != nil {
 				return nil, fmt.Errorf("Failed to destroy after create error: %v, %v", err, derr)
 			}
 		}
 		return nil, err
 	}
-	return h.Info()
+	return h.dropletToInfo(), nil
 }
 
 func (h *Host) Destroy() error {
@@ -75,7 +74,7 @@ func (h *Host) Destroy() error {
 	if err != nil {
 		return err
 	}
-	h.instance = droplet
+	h.droplet = droplet
 	if err := h.Client.DestroyDroplet(id); err != nil {
 		return err
 	}
@@ -83,16 +82,25 @@ func (h *Host) Destroy() error {
 }
 
 func (h *Host) Info() (*host.Info, error) {
-	if h.instance == nil {
-		return nil, errors.New("Invalid ec2 instance")
+	id, err := h.id()
+	if err != nil {
+		return nil, err
 	}
-	info := &host.Info{
+	droplet, err := h.Client.DropletInfo(id)
+	if err != nil {
+		return nil, err
+	}
+	h.droplet = droplet
+	return h.dropletToInfo(), nil
+}
+
+func (h *Host) dropletToInfo() *host.Info {
+	return &host.Info{
 		Provider:       "digitalocean",
-		ID:             strconv.Itoa(h.instance.ID),
-		IPAddress:      h.instance.IpAddress,
+		ID:             strconv.Itoa(h.droplet.ID),
+		IPAddress:      h.droplet.IpAddress,
 		FreighterdPort: uint16(65333),
 	}
-	return info, nil
 }
 
 func (h *Host) Stop() error {
@@ -181,19 +189,19 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	var err error
 
 	// create the droplet
-	h.instance, err = h.Client.CreateDroplet(config.Name, config.SizeID,
+	h.droplet, err = h.Client.CreateDroplet(config.Name, config.SizeID,
 		config.ImageID, config.RegionID, sshKey.ID, false)
 	if err != nil {
 		return err
 	}
 
 	// wait for the droplet to be active
-	droplet, err := do.WaitForState("active", h.instance.ID, h.Client,
+	droplet, err := do.WaitForState("active", h.droplet.ID, h.Client,
 		do.StateWaitTime, 5*time.Minute)
 	if err != nil {
 		return err
 	}
-	h.instance = droplet
+	h.droplet = droplet
 	return nil
 }
 
@@ -201,13 +209,13 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
 	privateKey := h.privateKey
 	// check that we can ssh into the server
-	address := fmt.Sprintf("%s:%s", h.instance.IpAddress, "65100")
+	address := fmt.Sprintf("%s:%s", h.droplet.IpAddress, "65100")
 	sshConn, err := ssh.WaitForSSH(address, "root", privateKey,
 		ssh.TimeWait, make(chan struct{}))
 	if err != nil {
 		return err
 	}
-	log.Printf("SSH READY for droplet %v", h.instance.ID)
+	log.Printf("SSH READY for droplet %v", h.droplet.ID)
 	h.conn = sshConn
 	return nil
 }
@@ -221,7 +229,7 @@ func writePublicKeys(ctx *context.Context, hst host.Host) error {
 	if err := h.conn.Upload("/root/.ssh/authorized_keys", pubKeyR); err != nil {
 		return err
 	}
-	log.Printf("Uploaded authorized keys at %v", h.instance.IpAddress)
+	log.Printf("Uploaded authorized keys at %v", h.droplet.IpAddress)
 	return nil
 }
 
@@ -234,6 +242,6 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 	if err := h.conn.Upload(host.SourceLocation, sourceData); err != nil {
 		return err
 	}
-	log.Printf("Uploaded apt details at %v", h.instance.IpAddress)
+	log.Printf("Uploaded apt details at %v", h.droplet.IpAddress)
 	return nil
 }

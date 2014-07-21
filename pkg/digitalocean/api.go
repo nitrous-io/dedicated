@@ -275,7 +275,7 @@ func (d Client) DestroyImage(id int) error {
 	return err
 }
 
-// Returns DO's string representation of status "off" "new" "active" etc.
+// DropletInfo returns the information of the droplet with the given id.
 func (d Client) DropletInfo(id int) (*Droplet, error) {
 	body, err := NewRequest(d, fmt.Sprintf("droplets/%v", id), url.Values{})
 	if err != nil {

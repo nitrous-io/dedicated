@@ -4,5 +4,6 @@ tags
 .test
 .vagrant
 .vendor
+integration/vendor/bundle
 
 build/

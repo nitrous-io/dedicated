@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/hostbuilder/host"
 )
 
 var (
@@ -58,8 +57,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	var info *host.Info
-	info, err = h.Create()
+	info, err := h.Create()
 	log.Printf("Created: %+v\n, %v", info, err)
 	if err != nil {
 		return err
