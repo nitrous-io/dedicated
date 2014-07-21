@@ -9,7 +9,8 @@ Nitrous
 
 ## Running
 1. `cp .env-example .env`
-2. `make run` or `make go; goop exec forego start`
+2. `make seed`
+3. `make run` or `make go; goop exec forego start`
 
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.
