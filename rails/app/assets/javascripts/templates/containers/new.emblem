@@ -65,7 +65,39 @@ form
         .indent
           input type='text' id='containers-new-slug' name='slug' placeholder='docker-registry/repo:latest'
 
-  .advanced-options
+  .advanced-options class={view.showAdvanced::hidden}
+    .card-body.bordered.volumes
+      .ui.input-group
+        label.field-label
+          | Volumes
+
+        ul.ui.chips
+          li
+            | code:/volumes/code
+            a.close href='#' &times;
+
+          li
+            | dotfiles:/dotfiles
+            a.close href='#' &times;
+
+        table.ui.table
+          thead
+            tr
+              th Volume
+              th colspan='2' Mount Point (Optional)
+          tbody
+            tr
+              td
+                .ui.select
+                  select
+                    option code
+                    option dotfiles
+                    option db
+              td
+                input type='text' placeholder='/code'
+              td
+                button.ui.btn.raised Add
+
     .card-body.bordered.port-bindings
       .ui.input-group
         label.field-label
@@ -106,19 +138,13 @@ form
               label
             label for='containers-new-publish-all' Publish All Exposed Ports
 
-    .card-body.bordered
-      .ui.input-group
-        label.field-label
-          | Volumes
-
-    .card-body.bordered
-      .ui.input-group
-        label.field-label
-          | Mount Volumes From Another Container
-
   .card-footer.bordered
     .left
-      button.ui.btn Show Advanced
+      button#toggle-advanced-btn.ui.btn click='toggleShowAdvanced target="view"'
+        if view.showAdvanced
+          | Hide Advanced
+        else
+          | Show Advanced
 
     .right
       button.ui.btn Cancel
