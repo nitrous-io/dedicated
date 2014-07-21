@@ -2,10 +2,13 @@ package destroy_test
 
 import (
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/hosts/destroy"
+	"github.com/nitrous-io/nitro/test"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -20,26 +23,34 @@ func Test(t *testing.T) {
 
 var _ = Describe("hosts/destroy", func() {
 	var (
-		cmd      *destroy.Command
-		ui       *cli.MockUi
-		srv      *ghttp.Server
-		handlers []http.HandlerFunc
+		cmd          *destroy.Command
+		ui           *cli.MockUi
+		srv          *ghttp.Server
+		handlers     http.HandlerFunc
+		statusCode   int
+		responseBody string
 	)
 
 	BeforeEach(func() {
-		srv = ghttp.NewServer()
 		ui = &cli.MockUi{}
+
+		handlers = ghttp.CombineHandlers(
+			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
+			ghttp.VerifyRequest("DELETE", "/api/v0/hosts/foo"),
+			ghttp.RespondWithPtr(&statusCode, &responseBody),
+		)
+		srv = ghttp.NewServer()
+		srv.AppendHandlers(handlers)
+
 		cmd = &destroy.Command{
 			UI:     ui,
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),
 		}
-		handlers = []http.HandlerFunc{
-			ghttp.VerifyHeader(http.Header{
-				"Authorization": []string{"Bearer a_token"},
-			}),
-			ghttp.VerifyRequest("DELETE", "/api/v0/hosts/foo"),
-		}
+	})
+
+	AfterEach(func() {
+		srv.Close()
 	})
 
 	It("requires name as an argument", func() {
@@ -48,33 +59,57 @@ var _ = Describe("hosts/destroy", func() {
 		Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
 	})
 
-	Context("hitting the server", func() {
-		Context("when request succeeds", func() {
-			It("reports success", func() {
-				handlers = append(handlers,
-					ghttp.RespondWith(http.StatusOK, `{"status":"ok"}`))
-				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+	Context("when host is successfully destroyed", func() {
+		BeforeEach(func() {
+			statusCode = http.StatusOK
+			responseBody = `{"status":"ok"}`
+		})
 
-				code := cmd.Run([]string{"foo"})
+		It("reports success", func() {
+			code := cmd.Run([]string{"foo"})
+			Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
+			Expect(code).To(Equal(0))
+		})
 
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
-				Expect(code).To(Equal(0))
+		Context("when host is the default host in the config file", func() {
+			It("unsets default host in config file", func() {
+				configPath, err := test.WriteConfig(&command.ConfigFile{DefaultHost: "foo"}, "")
+				Expect(err).To(BeNil())
+				defer os.Remove(configPath)
+
+				cmd.Run([]string{"foo"})
+
+				c, err := command.LoadConfig()
+				Expect(err).To(BeNil())
+				Expect(c.DefaultHost).To(Equal(""))
 			})
 		})
 
-		Context("when request fails", func() {
-			It("displays error message", func() {
-				handlers = append(handlers,
-					ghttp.RespondWith(http.StatusBadRequest,
-						`{"error":"invalid_request","error_description":"host not found"}`),
-				)
-				srv.AppendHandlers(ghttp.CombineHandlers(handlers...))
+		Context("when host is not the default host in the config file", func() {
+			It("doesn't change the default host in config file", func() {
+				configPath, err := test.WriteConfig(&command.ConfigFile{DefaultHost: "another-host"}, "")
+				Expect(err).To(BeNil())
+				defer os.Remove(configPath)
 
-				code := cmd.Run([]string{"foo"})
+				cmd.Run([]string{"foo"})
 
-				Expect(ui.ErrorWriter.String()).To(ContainSubstring("host not found"))
-				Expect(code).To(Equal(1))
+				c, err := command.LoadConfig()
+				Expect(err).To(BeNil())
+				Expect(c.DefaultHost).To(Equal("another-host"))
 			})
+		})
+	})
+
+	Context("when host cannot be destroyed", func() {
+		BeforeEach(func() {
+			statusCode = http.StatusBadRequest
+			responseBody = `{"error":"invalid_request","error_description":"host not found"}`
+		})
+
+		It("displays error message", func() {
+			code := cmd.Run([]string{"foo"})
+			Expect(ui.ErrorWriter.String()).To(ContainSubstring("host not found"))
+			Expect(code).To(Equal(1))
 		})
 	})
 })

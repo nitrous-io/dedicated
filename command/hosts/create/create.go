@@ -1,6 +1,7 @@
 package create
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/command/hosts"
 	"github.com/nitrous-io/nitro/pkg/randomnamegenerator"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
@@ -78,14 +80,17 @@ func (c *Command) Run(args []string) int {
 
 	size := args[0]
 
-	c.UI.Output("Creating the host. Please wait...")
-	err = c.createHost(size, region, slug)
+	c.UI.Output(fmt.Sprintf("Creating new host '%s'. Please wait...", slug))
+	host, err := c.createHost(size, region, slug)
 	if err != nil {
-		c.UI.Error(fmt.Sprintf("Failed to create the host - %v", err.Error()))
+		c.UI.Error(fmt.Sprintf("Failed to create host - %v", err.Error()))
 		return 1
 	}
+	command.SaveDefaultHost(host.Slug)
 
-	c.UI.Output("Done.")
+	c.UI.Output("Created new host:")
+	t := hosts.PrettyPrint([]string{"Slug", "State", "Size"}, host)
+	c.UI.Output(t)
 	return 0
 }
 
@@ -93,7 +98,7 @@ func (c *Command) Synopsis() string {
 	return "Creates a new host"
 }
 
-func (c *Command) createHost(size, region, slug string) error {
+func (c *Command) createHost(size, region, slug string) (*hosts.Host, error) {
 	p := &url.Values{}
 	if size != "" {
 		p.Set("size", size)
@@ -109,8 +114,21 @@ func (c *Command) createHost(size, region, slug string) error {
 
 	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/%s", c.Server, "hosts"), p)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	err = httpclient.CheckResponse(resp, http.StatusCreated)
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
-	return httpclient.CheckResponse(resp, http.StatusCreated)
+
+	j := struct {
+		Host *hosts.Host `json:"host"`
+	}{}
+	err = json.NewDecoder(resp.Body).Decode(&j)
+	if err != nil {
+		return nil, err
+	}
+
+	return j.Host, nil
 }
