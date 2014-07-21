@@ -140,7 +140,7 @@ func withContainer(fn func(cnr *container.Container, env *middlewares.Env, c con
 		}
 
 		cSlug := env.Vars["container"]
-		cnr, err := container.FindByUserIDAndSlug(db, u.ID, cSlug)
+		cnr, err := container.FindByUserAndSlug(db, u, cSlug)
 		if err != nil {
 			return err
 		}
