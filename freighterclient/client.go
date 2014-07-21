@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/freighter/provider"
+	"github.com/nitrous-io/freighter/provider/docker"
 )
 
 const (
@@ -44,7 +45,7 @@ var SharedHTTPClient = &http.Client{
 // Client represents a Freighter API consumer.
 type Client interface {
 	List(host *Host) ([]*Container, error)
-	Create(host *Host, name, image string) (*Container, error)
+	Create(host *Host, name, image string, config ContainerConfig) (*Container, error)
 
 	// Info returns the Container with the given id.
 	// If there is no Container with the given id, Info should return
@@ -64,7 +65,8 @@ type Client interface {
 }
 
 type (
-	Container provider.ContainerInfo
+	Container       provider.ContainerInfo
+	ContainerConfig provider.ContainerConfig
 
 	containerResponse struct {
 		*Container `json:"container"`
@@ -82,6 +84,10 @@ type (
 		Error string `json:error`
 	}
 )
+
+func NewDockerContainerConfig() *docker.ContainerConfig {
+	return docker.NewContainerConfig()
+}
 
 type RequestFailedError struct {
 	Req *http.Request
@@ -154,12 +160,21 @@ func (c *client) List(h *Host) ([]*Container, error) {
 }
 
 // Create makes an API request to a given Freighter Host to create a container
-// with the given name and image.
-func (c *client) Create(h *Host, name, image string) (*Container, error) {
+// with the given name, image, and configuration.
+func (c *client) Create(h *Host, name, image string, config ContainerConfig) (*Container, error) {
 	u := h.BaseURL() + "/containers"
 	data := url.Values{}
 	data.Set("name", name)
 	data.Set("image", image)
+
+	if config != nil {
+		configJSON, err := json.Marshal(config)
+		if err != nil {
+			return nil, err
+		}
+		data.Set("config", string(configJSON))
+	}
+
 	req, err := http.NewRequest("POST", u, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, err

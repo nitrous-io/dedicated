@@ -307,14 +307,19 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns the Container", func() {
-					container, err := client.Create(host, "yosemite", "ubuntu")
+					config := freighterclient.NewDockerContainerConfig()
+					config.Env = []string{"LANG=C"}
+					container, err := client.Create(host, "yosemite", "ubuntu", config)
 					Expect(err).To(BeNil())
 					Expect(container).NotTo(BeNil())
 
 					receivedRequests := server.ReceivedRequests()
 					Expect(receivedRequests).To(HaveLen(1))
+
 					Expect(receivedRequests[0].PostFormValue("name")).To(Equal("yosemite"))
 					Expect(receivedRequests[0].PostFormValue("image")).To(Equal("ubuntu"))
+					Expect(receivedRequests[0].PostFormValue("config")).To(Equal(
+						`{"Config":{"Env":["LANG=C"]},"HostConfig":{}}`))
 
 					Expect(container).To(Equal(&freighterclient.Container{
 						ID:    "cafebabe",
@@ -332,7 +337,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns ErrUnexpectedResponse", func() {
-					container, err := client.Create(host, "yosemite", "ubuntu")
+					container, err := client.Create(host, "yosemite", "ubuntu", nil)
 					Expect(err).NotTo(BeNil())
 					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
@@ -352,7 +357,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns InvalidParamError", func() {
-					container, err := client.Create(host, "yosemite", "ubuntu")
+					container, err := client.Create(host, "yosemite", "ubuntu", nil)
 					Expect(err).NotTo(BeNil())
 					e, ok := err.(*freighterclient.InvalidParamError)
 					Expect(ok).To(BeTrue())
@@ -368,7 +373,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns ErrUnexpectedResponse", func() {
-					container, err := client.Create(host, "yosemite", "ubuntu")
+					container, err := client.Create(host, "yosemite", "ubuntu", nil)
 					Expect(err).NotTo(BeNil())
 					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
@@ -383,7 +388,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns a StatusError", func() {
-				container, err := client.Create(host, "yosemite", "ubuntu")
+				container, err := client.Create(host, "yosemite", "ubuntu", nil)
 				Expect(err).NotTo(BeNil())
 				_, ok := err.(*freighterclient.StatusError)
 				Expect(ok).To(BeTrue())

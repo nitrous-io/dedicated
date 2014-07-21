@@ -41,6 +41,7 @@ type MockProvider struct {
 
 	ReceivedID             string
 	ReceivedName           string
+	ReceivedConfig         string
 	ReceivedImage          string
 	ReceivedPublicKeys     []string
 	ReceivedKeyFingerprint string
@@ -62,10 +63,11 @@ func (p *MockProvider) List() ([]*provider.ContainerInfo, error) {
 	return p.Containers, nil
 }
 
-func (p *MockProvider) Create(name string, image string) (*provider.ContainerInfo, error) {
+func (p *MockProvider) Create(name, image, config string) (*provider.ContainerInfo, error) {
 	p.CreateCalled = true
 	p.ReceivedName = name
 	p.ReceivedImage = image
+	p.ReceivedConfig = config
 	return p.CreateContainerInfo, p.CreateError
 }
 
@@ -78,13 +80,14 @@ func (p *MockProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	return nil, ErrMockProviderContainerNotFound
 }
 
-func (p *MockProvider) Start(id string) (*provider.ContainerInfo, error) {
+func (p *MockProvider) Start(id, config string) (*provider.ContainerInfo, error) {
 	info, _ := p.GetInfo(id)
 	if info != nil {
 		info.State = provider.ContainerStateRunning
 	}
 	p.StartCalled = true
 	p.ReceivedID = id
+	p.ReceivedConfig = config
 	return info, p.StartError
 }
 
