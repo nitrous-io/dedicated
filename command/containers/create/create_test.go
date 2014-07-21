@@ -133,12 +133,25 @@ var _ = Describe("containers/create", func() {
 			})
 		}
 
-		It("populates request with all params", func() {
-			doCmd()
+		It("populates request params", func() {
+			code := cmd.Run([]string{
+				"--host=host-1",
+				"--slug=foo",
+				"--image=ubuntu",
+				"--volume=/shared", // repeat args supported
+				"--volume=/music",
+				"--volumes-from=data_container,code_container", // comma-separated supported
+				"--port-forward=8080:3000,127.0.0.1:4242",
+			})
+			Expect(code).To(Equal(0))
 			receivedRequests := srv.ReceivedRequests()
 			Expect(receivedRequests).To(HaveLen(1))
-			Expect(receivedRequests[0].PostFormValue("slug")).To(Equal("foo"))
-			Expect(receivedRequests[0].PostFormValue("image")).To(Equal("ubuntu"))
+			r := receivedRequests[0]
+			Expect(r.PostFormValue("slug")).To(Equal("foo"))
+			Expect(r.PostFormValue("image")).To(Equal("ubuntu"))
+			Expect(r.PostForm["volume"]).To(Equal([]string{"/shared", "/music"}))
+			Expect(r.PostForm["volumes_from"]).To(Equal([]string{"data_container", "code_container"}))
+			Expect(r.PostForm["port"]).To(Equal([]string{"8080:3000", "127.0.0.1:4242"}))
 		})
 
 		Context("when request succeeds", func() {

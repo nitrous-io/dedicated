@@ -18,9 +18,13 @@ import (
 )
 
 const (
-	hostUsage  = "Specify a host to create the container"
-	slugUsage  = "A unique slug for the container"
-	imageUsage = "Specify an image to use to create the container"
+	hostUsage         = "Specify a host to create the container"
+	slugUsage         = "A unique slug for the container"
+	imageUsage        = "Specify an image to use to create the container"
+	envUsage          = "Set environment variables for the container in the format <key>:<value>. " + command.MultiargUsage
+	volumesUsage      = "Add data volume so other containers can mount given <path>. " + command.MultiargUsage
+	volumesFromUsage  = "Mount data volumes from container <container_slug>. " + command.MultiargUsage
+	portForwardsUsage = "Forward ports from container to host.  Use one of: 'ip:hostPort:containerPort', 'ip::containerPort', or 'hostPort:containerPort' specifications. " + command.MultiargUsage
 )
 
 const usage = `
@@ -30,9 +34,13 @@ Usage: nitro create [options]
 
 Options:
 
-  -H, --host=""        %s
-  -s, --slug=""        %s
-  -i, --image=""       %s
+  -H, --host=""           %s
+  -s, --slug=""           %s
+  -i, --image=""          %s
+  -e, --env=[]            %s
+  -v, --volume=[]         %s
+  -V, --volumes-from=[]   %s
+  -p, --port-forward=[]   %s
 `
 
 type Command struct {
@@ -42,9 +50,13 @@ type Command struct {
 }
 
 type containerParams struct {
-	host  string
-	slug  string
-	image string
+	host         string
+	slug         string
+	image        string
+	envVars      command.Multiarg
+	volumes      command.Multiarg
+	volumesFrom  command.Multiarg
+	portForwards command.Multiarg
 }
 
 func init() {
@@ -60,7 +72,9 @@ func NewCommand() (cli.Command, error) {
 }
 
 func (c *Command) Help() string {
-	return strings.TrimSpace(fmt.Sprintf(usage, hostUsage, slugUsage, imageUsage))
+	// TODO this is getting unwieldy, maybe text/template
+	return strings.TrimSpace(fmt.Sprintf(usage, hostUsage, slugUsage,
+		imageUsage, envUsage, volumesUsage, volumesFromUsage, portForwardsUsage))
 }
 
 func (c *Command) Run(args []string) int {
@@ -71,6 +85,11 @@ func (c *Command) Run(args []string) int {
 	cmdFlags.StringVarP(&params.host, "host", "H", "", hostUsage)
 	cmdFlags.StringVarP(&params.slug, "slug", "s", "", slugUsage)
 	cmdFlags.StringVarP(&params.image, "image", "i", "", imageUsage)
+
+	cmdFlags.VarP(&params.envVars, "env", "e", envUsage)
+	cmdFlags.VarP(&params.volumes, "volume", "v", volumesUsage)
+	cmdFlags.VarP(&params.volumesFrom, "volumes-from", "V", volumesFromUsage)
+	cmdFlags.VarP(&params.portForwards, "port-forward", "p", portForwardsUsage)
 
 	err := cmdFlags.Parse(args)
 	if err != nil {
@@ -122,6 +141,18 @@ func (c *Command) createContainer(cp *containerParams) (*Container, error) {
 	}
 	if cp.image != "" {
 		p.Set("image", cp.image)
+	}
+	for _, e := range cp.envVars {
+		p.Add("env", e)
+	}
+	for _, v := range cp.volumes {
+		p.Add("volume", v)
+	}
+	for _, vf := range cp.volumesFrom {
+		p.Add("volumes_from", vf)
+	}
+	for _, pf := range cp.portForwards {
+		p.Add("port", pf)
 	}
 
 	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/containers", c.Server), p)
