@@ -338,7 +338,7 @@ func mkFreighterHost(h *host.Host) (*freighterclient.Host, error) {
 func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) {
 	c.CID = fc.ID
 	c.Image = fc.Image
-	c.Slug = fc.Name
+	c.Slug = dropNamespace(fc.Name)
 	c.State = fc.State
 	c.IPAddress = sql.NullString{fc.Host, true}
 }
@@ -347,11 +347,26 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 	return &container.Container{
 		CID:       fc.ID,
 		Image:     fc.Image,
-		Slug:      fc.Name,
+		Slug:      dropNamespace(fc.Name),
 		State:     fc.State,
 		IPAddress: sql.NullString{fc.Host, true},
 		UserID:    h.UserID,
 		HostID:    h.ID,
+	}
+}
+
+func dropNamespace(freighterName string) string {
+	parts := strings.SplitN(freighterName, ".", 2)
+	switch len(parts) {
+	case 1:
+		return freighterName
+	case 2:
+		// more than one period is unexpected (disallowed in container slug)
+		// not this func's concern, so pass-through after stripping portion
+		// before first period
+		return parts[1]
+	default:
+		return freighterName // never reached, satisfy compiler
 	}
 }
 
