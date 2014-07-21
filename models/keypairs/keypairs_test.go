@@ -40,7 +40,7 @@ var _ = Describe("models/keypairs", func() {
 	})
 
 	Describe(".Delete", func() {
-		It("deletes the keypair when its host is deleted", func() {
+		It("deletes the keypairs belongs to a host", func() {
 			db, _ := TestDatabase("nitrous_test")
 			priv, _ := GenerateKey()
 
