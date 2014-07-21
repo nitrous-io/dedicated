@@ -1,4 +1,4 @@
-#= require ember-bootstrap
+#= require emberjs
 #= require_self
 #= require app-classes
 
