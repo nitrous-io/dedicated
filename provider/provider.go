@@ -2,11 +2,16 @@ package provider
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"regexp"
 )
 
 var containerNameRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
+var (
+	ErrTimeout               = errors.New("Operation timed out")
+	ErrPubKeyOpsNotSupported = errors.New("Public key operations are not supported on this container")
+)
 
 type Provider interface {
 	List() (infoList []*ContainerInfo, err error)
@@ -18,6 +23,7 @@ type Provider interface {
 	Terminate(id string) (info *ContainerInfo, err error)
 	ListPublicKeys(id string) (publicKeys map[string]string, err error)
 	AddPublicKeys(id string, publicKeys []string) (err error)
+	ClearPublicKeys(id string) (err error)
 	RemovePublicKey(id string, keyFingerprint string) (err error)
 	//ForwardPort(id string, hostPort uint16, containerPort uint16) (err error)
 	//TakeSnapshot(id string, tag name, description string) (info *SnapshotInfo, err error)

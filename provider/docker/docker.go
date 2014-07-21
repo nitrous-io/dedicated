@@ -21,9 +21,6 @@ var (
 	dockerHost       = "unix:///var/run/docker.sock"
 	registryName     = "nitrousio"
 	images           = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
-
-	ErrTimeout               = errors.New("Operation timed out")
-	ErrPubKeyOpsNotSupported = errors.New("Public key operations are not supported on this container")
 )
 
 func init() {
@@ -167,7 +164,7 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 			for {
 				select {
 				case <-timeout:
-					ch <- ErrTimeout
+					ch <- provider.ErrTimeout
 					return
 				default:
 					info, err := p.GetInfo(id)
@@ -247,7 +244,7 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 	}
 
 	if !usesNitrousImage(container) {
-		return nil, ErrPubKeyOpsNotSupported
+		return nil, provider.ErrPubKeyOpsNotSupported
 	}
 
 	keys, err := p.readAuthorizedKeys(nameFromContainer(container))
@@ -265,7 +262,7 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 	}
 
 	if !usesNitrousImage(container) {
-		return ErrPubKeyOpsNotSupported
+		return provider.ErrPubKeyOpsNotSupported
 	}
 
 	name := nameFromContainer(container)
@@ -285,6 +282,20 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 	return p.createAuthorizedKeys(name, publicKeys)
 }
 
+func (p *DockerProvider) ClearPublicKeys(id string) error {
+	container, err := p.inspectContainer(id)
+	if err != nil {
+		return err
+	}
+
+	if !usesNitrousImage(container) {
+		return provider.ErrPubKeyOpsNotSupported
+	}
+
+	name := nameFromContainer(container)
+	return p.createAuthorizedKeys(name, []string{})
+}
+
 func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
@@ -292,7 +303,7 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 	}
 
 	if !usesNitrousImage(container) {
-		return ErrPubKeyOpsNotSupported
+		return provider.ErrPubKeyOpsNotSupported
 	}
 
 	name := nameFromContainer(container)

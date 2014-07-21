@@ -544,6 +544,18 @@ var _ = Describe("server", func() {
 					})
 				})
 
+				Context("because the container does not support public key operations", func() {
+					BeforeEach(func() {
+						prov.AddPublicKeysError = provider.ErrPubKeyOpsNotSupported
+						doRequest()
+					})
+
+					It("responds with 400 bad request", func() {
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+						Expect(res.Body.String()).To(MatchJSON(fmt.Sprintf(`{"error":"%s"}`, provider.ErrPubKeyOpsNotSupported.Error())))
+					})
+				})
+
 				Context("because of some unknown error", func() {
 					BeforeEach(func() {
 						prov.AddPublicKeysError = errors.New("unknown error")
@@ -622,6 +634,52 @@ var _ = Describe("server", func() {
 
 			It("does not call provider.AddPublicKeys()", func() {
 				Expect(prov.AddPublicKeysCalled).To(BeFalse())
+			})
+		})
+	})
+
+	Describe("DELETE /containers/:container_id/public_keys", func() {
+		var (
+			params *url.Values
+			id     = "cafebabe"
+		)
+
+		doRequest := func() {
+			req, err = NewRequest("DELETE", fmt.Sprintf("/containers/%v/public_keys", id), params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.ClearPublicKeys()", func() {
+			Expect(prov.ClearPublicKeysCalled).To(BeFalse())
+			doRequest()
+			Expect(prov.ClearPublicKeysCalled).To(BeTrue())
+			Expect(prov.ReceivedID).To(Equal(id))
+		})
+
+		Context("when provider.ClearPublicKeys() fails with error", func() {
+			Context("because no such container exists", func() {
+				BeforeEach(func() {
+					prov.ClearPublicKeysError = ErrMockProviderContainerNotFound
+					doRequest()
+				})
+
+				It("responds with 404 not found", func() {
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+					Expect(res.Body.String()).To(MatchJSON(`{"error":"no such container"}`))
+				})
+			})
+
+			Context("because of some unknown error", func() {
+				BeforeEach(func() {
+					prov.ClearPublicKeysError = errors.New("unknown error")
+					doRequest()
+				})
+
+				It("responds with 500 internal server error with error json", func() {
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+					Expect(res.Body.String()).To(MatchJSON(`{"error":"unknown error"}`))
+				})
 			})
 		})
 	})

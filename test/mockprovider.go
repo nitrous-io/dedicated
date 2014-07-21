@@ -32,6 +32,9 @@ type MockProvider struct {
 	AddPublicKeysCalled bool
 	AddPublicKeysError  error
 
+	ClearPublicKeysCalled bool
+	ClearPublicKeysError  error
+
 	RemovePublicKeyCalled bool
 	RemovePublicKeyError  error
 
@@ -134,6 +137,12 @@ func (p *MockProvider) AddPublicKeys(id string, publicKeys []string) error {
 	p.ReceivedID = id
 	p.ReceivedPublicKeys = publicKeys
 	return p.AddPublicKeysError
+}
+
+func (p *MockProvider) ClearPublicKeys(id string) error {
+	p.ClearPublicKeysCalled = true
+	p.ReceivedID = id
+	return p.ClearPublicKeysError
 }
 
 func (p *MockProvider) RemovePublicKey(id string, keyFingerprint string) error {

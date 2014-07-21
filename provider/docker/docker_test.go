@@ -449,21 +449,28 @@ var _ = Describe("provider/docker", func() {
 						It("returns an error", func() {
 							pubkeys, err := prov.ListPublicKeys(busyboxID)
 							Expect(pubkeys).To(BeNil())
-							Expect(err).To(Equal(docker.ErrPubKeyOpsNotSupported))
+							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
 						})
 					})
 
 					Describe(".AddPublicKeys()", func() {
 						It("returns an error", func() {
 							err := prov.AddPublicKeys(busyboxID, []string{pubkey1})
-							Expect(err).To(Equal(docker.ErrPubKeyOpsNotSupported))
+							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
 						})
 					})
 
 					Describe(".RemovePublicKey()", func() {
 						It("returns an error", func() {
 							err := prov.RemovePublicKey(busyboxID, fingerprint1)
-							Expect(err).To(Equal(docker.ErrPubKeyOpsNotSupported))
+							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
+						})
+					})
+
+					Describe(".ClearPublicKeys()", func() {
+						It("returns an error", func() {
+							err := prov.ClearPublicKeys(busyboxID)
+							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
 						})
 					})
 				})
@@ -593,6 +600,41 @@ var _ = Describe("provider/docker", func() {
 
 								itDoesNotWork()
 							})
+						})
+					})
+
+					Describe(".ClearPublicKeys()", func() {
+						itWorks := func() {
+							It("removes all keys from the container", func() {
+								err := prov.ClearPublicKeys(id)
+								Expect(err).To(BeNil())
+								pubkeys, err := prov.ListPublicKeys(id)
+								Expect(err).To(BeNil())
+								Expect(pubkeys).To(Equal(map[string]string{}))
+							})
+						}
+
+						sshStopsWorking := func() {
+							It("disallows SSH access to the container", func() {
+								expectSSHToWork(port, sshkeypath)
+								err := prov.ClearPublicKeys(id)
+								Expect(err).To(BeNil())
+								expectSSHToNotWork(port, sshkeypath)
+							})
+						}
+
+						Context("when the container is running", func() {
+							itWorks()
+							sshStopsWorking()
+						})
+
+						Context("when the container is stopped", func() {
+							BeforeEach(func() {
+								err := exec.Command("docker", "stop", id).Run()
+								Expect(err).To(BeNil())
+							})
+
+							itWorks()
 						})
 					})
 
