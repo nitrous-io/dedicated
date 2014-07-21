@@ -1,0 +1,18 @@
+= host-tab-bar selected='volumes'
+
+form
+  .card-body
+    h3 New Volume
+    .ui.input-group
+      label.field-label for='volumes-new-name'
+        | Name
+      input type='text' id='volumes-new-name' name='name'
+
+      label.field-label for='volumes-new-slug'
+        | Unique Slug
+      input type='text' id='volumes-new-slug' name='slug'
+
+  .card-footer.bordered
+    .right
+      button.ui.btn Cancel
+      button.ui.btn.primary Create

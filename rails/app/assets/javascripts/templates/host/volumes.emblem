@@ -1,0 +1,37 @@
+= host-tab-bar selected='volumes'
+
+.card-body
+  ul.ui.list.with-separators.item-2-line
+    li.list-item
+      .left-accessory
+        .ui.checkbox
+          input type='checkbox'
+          label
+      .lines
+        h4 Source Code
+        p
+          | code
+          span.sep
+          | Created 7 days ago
+          span.sep
+          a href='#' Calculate Size
+
+    li.list-item
+      .left-accessory
+        .ui.checkbox
+          input type='checkbox'
+          label
+      .lines
+        h4 Personal Dotfiles
+        p
+          | dotfiles
+          span.sep
+          | Created 2 days ago
+          span.sep
+          a href='#' Calculate Size
+
+.card-footer.bordered
+  .left
+    button.ui.btn Remove
+  .right
+    button.ui.btn.primary click='new' New Volume...

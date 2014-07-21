@@ -9,7 +9,7 @@ form
       input type='text' id='hosts-new-name' name='name'
 
       label.field-label for='hosts-new-slug'
-        | Slug
+        | Unique Slug
       input type='text' id='hosts-new-slug' name='slug'
 
       label.field-label for='hosts-new-region'

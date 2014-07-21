@@ -16,7 +16,7 @@ form
       input type='text' id='containers-new-name' name='name'
 
       label.field-label for='containers-new-slug'
-        | Slug
+        | Unique Slug
       input type='text' id='containers-new-slug' name='slug'
 
   .card-body.bordered

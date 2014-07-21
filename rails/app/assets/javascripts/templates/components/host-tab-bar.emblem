@@ -6,8 +6,8 @@ li.disabled class={containersSelected:selected}
   a href='#' Containers
 li.disabled class={imagesSelected:selected}
   a href='#' Images
-li.disabled class={volumesSelected:selected}
-  a href='#' Volumes
+li class={volumesSelected:selected}
+  link-to 'host.volumes' | Volumes
 li.disabled class={archivesSelected:selected}
   a href='#' Archives
 li.disabled class={usersSelected:selected}
