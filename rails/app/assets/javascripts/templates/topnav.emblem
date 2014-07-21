@@ -43,6 +43,6 @@
       li
         a href='#' Blog
       li.primary
-        a href='#' Sign Up
+        link-to 'signup' | Sign Up
       li.primary
-        a href='#' Log In
+        link-to 'login' | Log In

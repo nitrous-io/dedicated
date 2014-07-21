@@ -1,0 +1,36 @@
+= outlet topnav
+
+.ui.card
+  h2.card-header Sign Up
+
+  form
+    .card-body
+      .ui.input-group
+        label.field-label for='signup-username'
+          | Username
+        input type='text' id='signup-username' name='username'
+
+        label.field-label for='signup-email'
+          | Email
+        input type='text' id='signup-email' name='email'
+
+        label.field-label for='signup-password'
+          | Password
+        input type='password' id='signup-password' name='password'
+
+        label.field-label for='signup-password_confirmation'
+          | Confirm Password
+        input type='password' id='signup-password_confirmation' name='password_confirmation'
+
+
+    .card-footer
+      .right
+        button.ui.btn.primary id='signup-submit' click='shake target="view"'
+          | Sign Up
+
+p.note
+  | Already have an account?&nbsp;
+  link-to 'login' | Log in
+  | .
+
+= partial 'footer'

@@ -3,8 +3,8 @@ App.LoginView = Em.View.extend
 
   actions:
     shake: ->
-      $loginButton = @$('#login-submit').attr('disabled', true).blur()
-      $loginBox = @$('.login-box').addClass('shake')
+      $loginButton = @$('#login-submit-btn').attr('disabled', true).blur()
+      $loginBox = @$('.ui.card').addClass('shake')
       setTimeout(->
         $loginBox.removeClass('shake')
         $loginButton.attr('disabled', false)

@@ -1,11 +1,18 @@
 @import 'mixins'
 @import 'variables'
 
-#login-view
-  .login-box
+#login-view, #signup-view
+  .ui.card
     width: 400px
-    margin: ($containerPadding*5) auto
+    margin: ($containerPadding*5) auto 0 auto
 
+  p.note
+    text-align: center
+    font-size: 14px
+    color: $gray700
+    margin: 32px 0 $containerPadding*5 0
+
+#login-view
   .shake
     position: relative
     animation: login-shake 1s

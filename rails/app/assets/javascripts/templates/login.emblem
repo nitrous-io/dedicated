@@ -1,6 +1,6 @@
 = outlet topnav
 
-.login-box.ui.card
+.ui.card
   h2.card-header Log In
 
   form
@@ -16,7 +16,12 @@
 
     .card-footer
       .right
-        button.ui.btn.primary id='login-submit' click='shake target="view"'
+        button.ui.btn.primary id='login-submit-btn' click='shake target="view"'
           | Log In
+
+p.note
+  | Don&rsquo;t have an account?&nbsp;
+  link-to 'signup' | Sign up
+  | .
 
 = partial 'footer'

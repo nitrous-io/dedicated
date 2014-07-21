@@ -5,4 +5,4 @@ App.LoginRoute = Em.Route.extend
 
   renderTemplate: ->
     @_super()
-    @render 'topnav',  into: 'login', outlet: 'topnav',  controller: 'topnav'
+    @render 'topnav', into: 'login', outlet: 'topnav', controller: 'topnav'
