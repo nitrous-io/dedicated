@@ -2,7 +2,7 @@ github.com/ddollar/forego
 github.com/gorilla/mux
 github.com/nitrous-io/nitrous-common #0e9652a23ed102d07b140ec479cb5a54e894a708 !git@github.com:nitrous-io/nitrous-common
 github.com/nitrous-io/hostbuilder !git@github.com:nitrous-io/hostbuilder
-github.com/nitrous-io/freighter/freighterclient !git@github.com:nitrous-io/freighter
+github.com/nitrous-io/freighter/freighterclient !git@github.com:nitrous-io/freighter #273420384f2daf159dbb3000c1ae30e205d7ef0d
 bitbucket.org/kardianos/osext
 github.com/lib/pq
 github.com/onsi/ginkgo/ginkgo
