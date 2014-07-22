@@ -16,6 +16,23 @@ import (
 	"github.com/nitrous-io/freighter/util"
 )
 
+// default server's configuration when we dont have a valid configuration
+var DefaultConfig *Config
+
+func init() {
+	DefaultConfig = &Config{
+		DataPath:  "/var/lib/freighter",
+		TLSVerify: true,
+		CA:        "/etc/freighterd/ca.crt",
+		Cert:      "/etc/freighterd/cert.crt",
+		Key:       "/etc/freighterd/key.crt",
+		Hosts: []HostAddress{
+			{Proto: "unix", Address: "/var/run/freighterd.sock"},
+			{Proto: "tcp", Address: "0.0.0.0:65333"},
+		},
+	}
+}
+
 // address that the server will listen at. For example
 // { "proto": "unix", "address": "/var/run/docker.sock" }
 // { "proto": "tcp", "address": "0.0.0.0:65333" }

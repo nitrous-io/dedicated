@@ -48,14 +48,16 @@ func main() {
 		}
 	}()
 
+	var conf *server.Config
 	// parse config file
 	confFile, err := os.Open(*flConfigPath)
 	if err != nil {
-		logger.FatalExit(err)
-	}
-	conf := &server.Config{}
-	if err := json.NewDecoder(confFile).Decode(conf); err != nil {
-		logger.FatalExit(err)
+		logger.Info("Missing config file. Use default config")
+		conf = server.DefaultConfig
+	} else {
+		if err := json.NewDecoder(confFile).Decode(conf); err != nil {
+			logger.FatalExit(err)
+		}
 	}
 
 	// setup data path
