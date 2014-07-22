@@ -9,6 +9,7 @@ import (
 	"github.com/bgentry/speakeasy"
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
 )
 
@@ -16,7 +17,7 @@ const (
 	usernameUsage = "Docker registry's username"
 	passwordUsage = "Docker registry's password"
 	emailUsage    = "Docker registry's email"
-	registryUsage = "Docker registry's server"
+	registryUsage = "Docker registry's server.  Defaults to Docker Hub registry"
 )
 
 var usage = fmt.Sprintf(`
@@ -32,7 +33,9 @@ Options:
 `, usernameUsage, passwordUsage, emailUsage, registryUsage)
 
 type Command struct {
-	UI cli.Ui
+	UI     cli.Ui
+	Server string
+	Client *httpclient.Client
 }
 
 func init() {
@@ -41,7 +44,9 @@ func init() {
 
 func NewCommand() (cli.Command, error) {
 	return &Command{
-		UI: command.DefaultUI,
+		UI:     command.DefaultUI,
+		Server: command.Env.APIURL,
+		Client: httpclient.New(command.Env.AuthToken),
 	}, nil
 }
 
@@ -54,7 +59,7 @@ func (c *Command) Run(args []string) int {
 
 	cmdFlags := flag.NewFlagSet("registry:login", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
-	cmdFlags.StringVarP(&username, "useranme", "u", "", usernameUsage)
+	cmdFlags.StringVarP(&username, "username", "u", "", usernameUsage)
 	cmdFlags.StringVarP(&password, "password", "p", "", passwordUsage)
 	cmdFlags.StringVarP(&email, "email", "e", "", emailUsage)
 	cmdFlags.StringVarP(&registry, "registry", "r", "", registryUsage)
@@ -102,9 +107,9 @@ func (c *Command) Run(args []string) int {
 	email = strings.TrimSpace(email)
 	registry = strings.TrimSpace(registry)
 
-	err = registryLogin(username, password, email, registry, host)
+	err = c.registryLogin(username, password, email, registry, host)
 	if err != nil {
-		c.UI.Error(fmt.Sprintf("ERROR: %v", err))
+		c.UI.Error(fmt.Sprintf("Failed to login to Docker registry (%v)", err))
 		return 1
 	}
 	c.UI.Output(fmt.Sprintf("Successfully logged in to Docker registry on %s\n", host))
@@ -119,27 +124,20 @@ func (c *Command) Synopsis() string {
 	return "Login to a Docker registry on a Nitrous.IO host"
 }
 
-// login to a Docker registry on the specified host
-// The host needs to run a freighterd daemon to accept auth request.
-func registryLogin(username, password, email, registry, host string) error {
-	params := url.Values{}
-	params.Add("username", username)
-	params.Add("password", password)
-	params.Add("email", email)
-	params.Add("registry", registry)
+func (c *Command) registryLogin(username, password, email, registry, host string) error {
+	p := &url.Values{}
+	p.Add("username", username)
+	p.Add("password", password)
+	p.Add("email", email)
 
-	req, err := http.NewRequest("POST",
-		fmt.Sprintf("%s/registry/auth?%v", host, params.Encode()), nil)
+	if registry != "" {
+		p.Add("registry", registry)
+	}
+
+	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/hosts/%s/registries", c.Server, host), p)
 	if err != nil {
 		return err
 	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("Failed to login to the Docker registry: %v", err)
-	}
-	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("Failed to login to the Docker registry: status %d", resp.StatusCode)
-	}
-	return nil
+	defer resp.Body.Close()
+	return httpclient.CheckResponse(resp, http.StatusOK)
 }
