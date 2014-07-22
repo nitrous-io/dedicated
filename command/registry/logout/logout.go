@@ -26,7 +26,7 @@ Options:
 `, registryUsage)
 
 type Command struct {
-	UI cli.Ui
+	UI command.UI
 }
 
 func init() {
@@ -60,15 +60,20 @@ func (c *Command) Run(args []string) int {
 	host = args[0]
 
 	if registry == "" {
-		msg := "Docker registry is not specified, will log out from Docker Hub registry (yes|no) (default=yes):"
-		confirm, err := c.UI.Ask(msg)
-		if err != nil {
-			c.UI.Error(fmt.Sprintf("Failed to get user's response: %v", err))
+		prompt := "Docker registry is not specified, will log out from Docker Hub registry [y/N]:"
+		errMsg := "registry:logout is canceled. Please specify the desired Docker registry."
+		confirmation := c.UI.Confirm(prompt)
+		switch confirmation {
+		case command.ConfirmYes:
+			// Pass.
+		case command.ConfirmNo:
+			c.UI.Error(errMsg)
 			return 1
-		}
-		confirm = strings.ToLower(confirm)
-		if confirm == "no" {
-			c.UI.Error("registry:logout is canceled. Please specify the desired Docker registry.")
+		case command.ConfirmCancel:
+			c.UI.Error(errMsg)
+			return 130
+		case command.ConfirmErr:
+			c.UI.Error(fmt.Sprintf("Failed to get user's response: %v", err))
 			return 1
 		}
 	}
