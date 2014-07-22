@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
@@ -143,7 +142,7 @@ func deleteByFingerprint(cnr *container.Container, env *middlewares.Env, c contr
 	db := c.DB()
 	u := env.User
 
-	fingerprint := mux.Vars(r)["md5_fingerprint"]
+	fingerprint := env.Vars["md5_fingerprint"]
 
 	_, err := publickey.FindByUserIDAndContainerIDAndFingerprint(db, u.ID, cnr.ID, fingerprint)
 	if err != nil {
