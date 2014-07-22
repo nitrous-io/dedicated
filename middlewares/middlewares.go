@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous/controllers"
+	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
@@ -15,6 +16,7 @@ import (
 var (
 	errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request", "auth token is required")
 	errInvalidToken   = httperror.New(http.StatusUnauthorized, "invalid_token", "auth token is invalid")
+	ErrHostNotFound   = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
 )
 
 type Env struct {
@@ -81,5 +83,41 @@ func JSON(mw Middleware) Middleware {
 		}
 		c.RespondEncodeJSON(w, env.Status, env.Data)
 		return nil
+	}
+}
+
+type hostHandlerFn func(h *host.Host, env *Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error
+
+func HostViaForm(srcVar string, fn hostHandlerFn) Middleware {
+	return withHost("form", srcVar, fn)
+}
+
+func HostViaPath(srcVar string, fn hostHandlerFn) Middleware {
+	return withHost("path", srcVar, fn)
+}
+
+// withHost takes a src ("form" or "path") and the formvalue/pattern to look
+// for to retrieve host slug.
+func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
+	return func(env *Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+		var hSlug string
+		switch src {
+		case "form":
+			hSlug = r.FormValue(srcVar)
+		case "path":
+			hSlug = mux.Vars(r)[srcVar]
+		default:
+			return errors.New("Invalid host source: " + src)
+		}
+
+		h, err := host.FindByUserAndSlug(c.DB(), env.User, hSlug)
+		if err != nil {
+			return err
+		}
+		if h == nil {
+			return ErrHostNotFound
+		}
+
+		return fn(h, env, c, w, r)
 	}
 }

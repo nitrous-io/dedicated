@@ -26,7 +26,7 @@ var FreighterClient freighterclient.Client
 var (
 	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errHostIPUnknown     = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
-	errHostNotFound      = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
+	errHostNotFound      = middlewares.ErrHostNotFound
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 )
@@ -38,8 +38,8 @@ var (
 )
 
 var (
-	Index   middlewares.Middleware = withHost(index)
-	Create  middlewares.Middleware = withHost(create)
+	Index   middlewares.Middleware = middlewares.HostViaForm("host", index)
+	Create  middlewares.Middleware = middlewares.HostViaForm("host", create)
 	Show    middlewares.Middleware = withContainer(show)
 	Start   middlewares.Middleware = withContainer(start)
 	Stop    middlewares.Middleware = withContainer(stop)
@@ -292,23 +292,6 @@ func destroy(cn *container.Container, env *middlewares.Env, c controllers.Helper
 		"container": cn,
 	}
 	return nil
-}
-
-func withHost(fn func(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
-	return func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-		db := c.DB()
-
-		hSlug := r.FormValue("host")
-		h, err := host.FindByUserAndSlug(db, env.User, hSlug)
-		if err != nil {
-			return err
-		}
-		if h == nil {
-			return errHostNotFound
-		}
-
-		return fn(h, env, c, w, r)
-	}
 }
 
 func withContainer(fn func(cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
