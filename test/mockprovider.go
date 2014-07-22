@@ -65,6 +65,11 @@ type MockProvider struct {
 	LogoutCalled bool
 	LogoutError  error
 
+	ListImagesCalled     bool
+	ListImagesShowAllArg bool
+	ListImagesContents   []*provider.ImageInfo
+	ListImagesError      error
+
 	Containers []*provider.ContainerInfo
 	PublicKeys map[string]string
 }
@@ -192,6 +197,21 @@ func (p *MockProvider) Logout(registry string) error {
 	p.LogoutCalled = true
 	p.ReceivedRegistry = registry
 	return p.LogoutError
+}
+
+func (p *MockProvider) ListImages(showAll bool) ([]*provider.ImageInfo, error) {
+	p.ListImagesCalled = true
+	p.ListImagesShowAllArg = showAll
+
+	if p.ListImagesError != nil {
+		return nil, p.ListImagesError
+	}
+
+	if p.ListImagesContents == nil {
+		return []*provider.ImageInfo{}, nil
+	}
+
+	return p.ListImagesContents, nil
 }
 
 func (p *MockProvider) IsNotFoundError(err error) bool {

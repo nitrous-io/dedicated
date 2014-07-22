@@ -387,6 +387,34 @@ func (p *DockerProvider) Export(id string, output io.Writer) error {
 	return p.client.ExportContainer(opts)
 }
 
+func (p *DockerProvider) ListImages(showAll bool) ([]*provider.ImageInfo, error) {
+	dockerImages, err := p.client.ListImages(showAll)
+	if err != nil {
+		return nil, err
+	}
+
+	list := []*provider.ImageInfo{}
+	for _, dockerImage := range dockerImages {
+		for _, name := range dockerImage.RepoTags {
+			repoSplit := strings.SplitN(name, ":", 2)
+			info := &provider.ImageInfo{
+				ID:          dockerImage.ID,
+				ParentID:    dockerImage.ParentId,
+				Source:      repoSplit[0],
+				CreatedAt:   dockerImage.Created,
+				ActualSize:  dockerImage.Size,
+				VirtualSize: dockerImage.VirtualSize,
+			}
+			if len(repoSplit) > 1 {
+				info.SourceTag = repoSplit[1]
+			}
+			list = append(list, info)
+		}
+	}
+
+	return list, nil
+}
+
 func (p *DockerProvider) createContainer(imageName, containerName string, config *allowedConfig, hostConfig *allowedHostConfig) (*dockerclient.Container, error) {
 	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
 	start := time.Now()
