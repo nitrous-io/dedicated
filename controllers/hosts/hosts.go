@@ -29,6 +29,9 @@ var (
 	ErrRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
 	ErrProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
 	ErrHostNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching host found for the given slug")
+	ErrHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "host is not stopped")
+	ErrHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
+	ErrHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 
 	hostbuilderURL string
 )
@@ -145,7 +148,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 		ProviderIdentifier: sql.NullString{info.ID, true},
 
 		FreighterdPort: sql.NullInt64{int64(info.FreighterdPort), true},
-		State:          host.StateCreated,
+		State:          host.StateRunning,
 	}
 	err = h.Insert(db)
 	if err != nil {
@@ -212,6 +215,9 @@ func Start(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r 
 		&stateTransition{host.StateStopped, host.StateStarting, host.StateRunning},
 		HostbuilderClient.Start)
 	if err != nil {
+		if _, ok := err.(*stateTransitionError); ok {
+			return ErrHostStartInvalidState
+		}
 		return err
 	}
 
@@ -233,6 +239,9 @@ func Stop(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *
 		&stateTransition{host.StateRunning, host.StateStopping, host.StateStopped},
 		HostbuilderClient.Stop)
 	if err != nil {
+		if _, ok := err.(*stateTransitionError); ok {
+			return ErrHostStopInvalidState
+		}
 		return err
 	}
 
@@ -254,6 +263,9 @@ func Restart(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 		&stateTransition{host.StateRunning, host.StateRestarting, host.StateRunning},
 		HostbuilderClient.Restart)
 	if err != nil {
+		if _, ok := err.(*stateTransitionError); ok {
+			return ErrHostRestartInvalidState
+		}
 		return err
 	}
 
@@ -289,9 +301,18 @@ type stateTransition struct {
 	To           string
 }
 
+type stateTransitionError struct {
+	Expected string
+	Actual   string
+}
+
+func (e *stateTransitionError) Error() string {
+	return fmt.Sprintf("Expected initial state to be %s, was %s", e.Expected, e.Actual)
+}
+
 func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostbuilderclient.OperationFn) error {
-	if h.State != st.From {
-		return fmt.Errorf("Expected initial state to be %s, was %s", st.From, h.State)
+	if h.State != string(st.From) {
+		return &stateTransitionError{Expected: string(st.From), Actual: h.State}
 	}
 
 	err := h.UpdateState(d, st.Intermediate)

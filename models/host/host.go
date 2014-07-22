@@ -26,7 +26,7 @@ type ProviderTemplate struct {
 }
 
 const (
-	StateCreated    = "created"
+	StateBorn       = "born"
 	StateRunning    = "running"
 	StateStopped    = "stopped"
 	StateStopping   = "stopping"
@@ -116,7 +116,7 @@ func FindByUserAndSlug(db *db.Database, user *user.User, slug string) (*Host, er
 
 func (h *Host) Insert(d db.QueryReceiver) error {
 	if h.State == "" {
-		h.State = "born"
+		h.State = StateBorn
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
 		(user_id, region_id, plan_id, provider_template_id, slug, name,

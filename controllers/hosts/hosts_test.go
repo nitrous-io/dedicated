@@ -317,7 +317,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.Name.String).To(Equal("honeybadger don't care"))
 
 					Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
-					Expect(h.State).To(Equal("created"))
+					Expect(h.State).To(Equal(host.StateRunning))
 					Expect(h.MaxContainers.Int64).To(Equal(hs.P.MaxContainers))
 					Expect(h.Size.String).To(Equal(hs.P.Name))
 					Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
@@ -477,8 +477,8 @@ var _ = Describe("controllers/hosts", func() {
 			env = &middlewares.Env{User: hs.U}
 		})
 
-		Context("with an unexpected starting state", func() {
-			It("returns state transition error", func() {
+		Context("when host is not in the stopped state", func() {
+			It("returns an invalid start state error", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				hb.OverrideRequestHandler(mockHostbuilderOK)
 
@@ -486,7 +486,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				hs.H.UpdateState(db, host.StateRestarting)
 				err = doRequest(hs.H.Slug)
-				Expect(err).To(MatchError("Expected initial state to be stopped, was restarting"))
+				Expect(err).To(MatchError(hosts.ErrHostStartInvalidState))
 			})
 		})
 
@@ -567,6 +567,19 @@ var _ = Describe("controllers/hosts", func() {
 			env = &middlewares.Env{User: hs.U}
 		})
 
+		Context("when host is already stopped", func() {
+			It("returns an invalid stop state error", func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(mockHostbuilderOK)
+
+				hosts.HostbuilderClient = hb
+
+				hs.H.UpdateState(db, host.StateStopped)
+				err = doRequest(hs.H.Slug)
+				Expect(err).To(MatchError(hosts.ErrHostStopInvalidState))
+			})
+		})
+
 		Context("with an invalid host name", func() {
 			It("returns error host not found", func() {
 				err = doRequest("somehost")
@@ -642,6 +655,19 @@ var _ = Describe("controllers/hosts", func() {
 			})
 			Expect(err).To(BeNil())
 			env = &middlewares.Env{User: hs.U}
+		})
+
+		Context("when host is not in the running state", func() {
+			It("returns an invalid restart state error", func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(mockHostbuilderOK)
+
+				hosts.HostbuilderClient = hb
+
+				hs.H.UpdateState(db, host.StateStopped)
+				err = doRequest(hs.H.Slug)
+				Expect(err).To(MatchError(hosts.ErrHostRestartInvalidState))
+			})
 		})
 
 		Context("with an invalid host name", func() {
