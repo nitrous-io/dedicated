@@ -432,4 +432,13 @@ var _ = Describe("models/host", func() {
 			}
 		})
 	})
+
+	Describe(".Domain", func() {
+		It("return the host domain", func() {
+			h := &host.Host{
+				Slug: "hello",
+			}
+			Expect(h.Domain()).To(Equal("hello.nitrouspro.com"))
+		})
+	})
 })

@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
+	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/keypairs"
@@ -21,6 +22,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
+	"github.com/nitrous-io/sslider/sslgen"
 )
 
 var (
@@ -77,6 +79,9 @@ func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *
 	return nil
 }
 
+// TODO:
+// check if we need to save the slug first to secure the uniqueness of domain,
+// before we generate the cert.
 func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
@@ -165,6 +170,11 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return err
 	}
 
+	crt, err := generateCerts(fmt.Sprintf("%s.nitrouspro.com", slug))
+	if err != nil {
+		return err
+	}
+
 	// generate hostbuilder config
 	config := hostbuilderclient.Config{}
 	for k, v := range pt.Config.Map {
@@ -176,6 +186,11 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	}
 	config["name"] = slug
 	config["public_keys"] = []string{string(pubkey)}
+	config["tls"] = map[string]string{
+		"ca":   crt.CA,
+		"cert": crt.ServerCert,
+		"key":  crt.ServerKey,
+	}
 
 	info, err := HostbuilderClient.Create(pt.Provider, &config)
 	if err != nil {
@@ -204,6 +219,13 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		tx.Rollback()
 		return err
 	}
+
+	// create the cert
+	if err := crt.Insert(tx, h.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	if err := tx.Commit(); err != nil {
 		return err
 	}
@@ -267,6 +289,10 @@ func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 		return err
 	}
 	if err = keypairs.Delete(tx, h.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := cert.Delete(tx, ht.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -379,4 +405,47 @@ func generateKey() (priv *rsa.PrivateKey, pub []byte, err error) {
 		return nil, nil, err
 	}
 	return priv, pub, nil
+}
+
+// generate a certificate that include the certificate authority, server
+// certificate and key, client certificate and key. The data will be suitable
+// for TLS authentication
+func generateCerts(hostname string) (*cert.Cert, error) {
+	// generate certificate authority
+	ca, err := sslgen.CreateCA(hostname)
+	if err != nil {
+		return nil, err
+	}
+	_, caCrt, err := ca.Generate()
+	if err != nil {
+		return nil, err
+	}
+
+	// generate server certificates
+	srv, err := sslgen.CreateServerCert(hostname, ca.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	srvKey, srvCrt, err := srv.Generate()
+	if err != nil {
+		return nil, err
+	}
+
+	// generate client certificates
+	cl, err := sslgen.CreateClientCert(hostname, ca.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	clKey, clCrt, err := cl.Generate()
+	if err != nil {
+		return nil, err
+	}
+
+	return &cert.Cert{
+		CA:         string(caCrt),
+		ServerCert: string(srvCrt),
+		ServerKey:  string(srvKey),
+		ClientCert: string(clCrt),
+		ClientKey:  string(clKey),
+	}, nil
 }

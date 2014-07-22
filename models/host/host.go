@@ -176,9 +176,11 @@ func (h *Host) Validate(db *db.Database) error {
 	return nil
 }
 
+// Hostname returns the public domain that the host can be reached. This should be the
+// same as the DNS address which we map the the host IP address
+//
+// We assume that slug is vald ( its cant be empty ), therefore we wont check
+// it here
 func (h *Host) Hostname() string {
-	if h.Slug == "" {
-		return ""
-	}
 	return h.Slug + ".nitrouspro.com" // FIXME
 }
