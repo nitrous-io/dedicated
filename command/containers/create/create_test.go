@@ -110,20 +110,15 @@ var _ = Describe("containers/create", func() {
 				"--host=host-1",
 				"--slug=foo",
 				"--image=ubuntu",
-			})
-		}
-
-		It("populates request params", func() {
-			code := cmd.Run([]string{
-				"--host=host-1",
-				"--slug=foo",
-				"--image=ubuntu",
 				"--volume=/shared", // repeat args supported
 				"--volume=/music",
 				"--volumes-from=data_container,code_container", // comma-separated supported
 				"--port-forward=8080:3000,127.0.0.1:4242",
 			})
-			Expect(code).To(Equal(0))
+		}
+
+		It("populates request params", func() {
+			doCmd()
 			receivedRequests := srv.ReceivedRequests()
 			Expect(receivedRequests).To(HaveLen(1))
 			r := receivedRequests[0]
