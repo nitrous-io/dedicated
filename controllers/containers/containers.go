@@ -378,9 +378,6 @@ func parseConfig(r *http.Request) (freighterclient.ContainerConfig, error) {
 	if vols, ok := r.PostForm["volume"]; ok {
 		c.Volumes = vols
 	}
-	if volsFrom, ok := r.PostForm["volumes_from"]; ok {
-		c.VolumesFrom = volsFrom
-	}
 	if ports, ok := r.PostForm["port"]; ok {
 		c.ExposedPorts = make([]string, 0, len(ports))
 		c.PortBindings = make(map[string]string, len(ports))
