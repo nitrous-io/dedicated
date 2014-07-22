@@ -830,6 +830,26 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("DELETE /volumes/:slug", func() {
+		doRequest := func() {
+			req, _ := NewRequest("DELETE", "/volumes/some-volume", nil)
+			handler.ServeHTTP(res, req)
+		}
+
+		It("returns ok on success", func() {
+			doRequest()
+			Expect(prov.RemoveVolumeCalled).To(BeTrue())
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("returns error on failure", func() {
+			prov.RemoveVolumeError = fmt.Errorf("remove failed")
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			Expect(res.Body.String()).To(MatchJSON(`{"error":"remove failed"}`))
+		})
+	})
+
 	Describe("GET /containers/:id/logs", func() {
 		doRequest := func(id, follow, timestamps, tail string) {
 			params := &url.Values{}

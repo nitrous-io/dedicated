@@ -719,5 +719,30 @@ Content-Type: application/json; charset=utf-8
 - **201** - created
 - **422** - missing or invalid params
 
+### Remove a volume
+
+`DELETE /hosts/(host slug)/volumes/(volume slug)`
+
+**Example request**:
+
+```
+DELETE /hosts/myhost/volumes/oldvolume HTTP/1.1
+Content-Type: application/json
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+
+{ "status" : "ok" }
+```
+
+**Status Codes**:
+
+- **200** - ok
+- **422** - missing or invalid params
+
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.

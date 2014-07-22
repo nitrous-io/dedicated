@@ -82,4 +82,5 @@ func (s *Server) drawRoutes() {
 	// volumes
 	s.route("/volumes", s.wrapError(s.listVolumes), "GET")
 	s.route("/volumes", s.wrapError(s.createVolume), "POST")
+	s.route("/volumes/{slug}", s.wrapError(s.removeVolume), "DELETE")
 }

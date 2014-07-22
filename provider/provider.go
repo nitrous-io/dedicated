@@ -39,6 +39,7 @@ type Provider interface {
 
 	CreateVolume(slug string) error
 	ListVolumes() ([]string, error)
+	RemoveVolume(slug string) error
 }
 
 type ContainerInfo struct {

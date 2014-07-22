@@ -14,6 +14,7 @@ var (
 	ErrMissingVolumeSlug   = fmt.Errorf("volume slug not given")
 	ErrBadVolumeSlugFormat = fmt.Errorf("volume slug can only contain alphanumeric characters, dash, and underscore.  It must start with an alphanumeric character")
 	ErrVolumeExists        = fmt.Errorf("volume already exists")
+	ErrVolumeNotFound      = fmt.Errorf("volume not found")
 )
 
 func (p *DockerProvider) CreateVolume(slug string) error {
@@ -54,6 +55,24 @@ func (p *DockerProvider) ListVolumes() ([]string, error) {
 		vols = append(vols, filepath.Base(m))
 	}
 	return vols, nil
+}
+
+func (p *DockerProvider) RemoveVolume(slug string) error {
+	if slug == "" {
+		return ErrMissingVolumeSlug
+	}
+
+	path := p.VolumesDir(slug)
+	if path == p.VolumesDir("") { // double-check to be safe
+		return fmt.Errorf("Cannot delete all volumes")
+	}
+
+	_, err := os.Stat(path)
+	if err != nil && os.IsNotExist(err) {
+		return ErrVolumeNotFound
+	}
+
+	return os.RemoveAll(path)
 }
 
 // VolumesDir returns the path on the host for a volume of the given slug.  If

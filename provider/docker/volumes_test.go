@@ -99,6 +99,44 @@ var _ = Describe("provider/docker volumes", func() {
 		})
 	})
 
+	Describe(".RemoveVolume()", func() {
+		var (
+			volBase     string
+			dirs, files []string
+		)
+
+		BeforeEach(func() {
+			volBase = prov.VolumesDir("")
+			dirs = []string{"dotfiles", "Shared", "mpd-albums"}
+			for _, d := range dirs {
+				err := os.MkdirAll(filepath.Join(volBase, d), 0755)
+				Expect(err).To(BeNil())
+			}
+			for _, f := range files {
+				fi, err := os.Create(filepath.Join(volBase, f))
+				Expect(err).To(BeNil())
+				fi.Close()
+			}
+		})
+
+		It("removes volume path", func() {
+			err := prov.RemoveVolume("Shared")
+			Expect(err).To(BeNil())
+
+			_, err = os.Stat(filepath.Join(volBase, "Shared"))
+			Expect(os.IsNotExist(err)).To(BeTrue())
+
+			vols, err := prov.ListVolumes()
+			Expect(err).To(BeNil())
+			Expect(vols).To(Equal([]string{"dotfiles", "mpd-albums"}))
+		})
+
+		It("returns error when slug is not found", func() {
+			err := prov.RemoveVolume("nosuch")
+			Expect(err).To(MatchError(docker.ErrVolumeNotFound))
+		})
+	})
+
 	Describe(".VolumesDir()", func() {
 		It("returns parent dir of volumes when given empty string", func() {
 			Expect(prov.VolumesDir("")).To(Equal(filepath.Join(datadir, "volumes")))
