@@ -26,10 +26,10 @@ Usage: nitro registry:login [options] [zone]
 
 Options:
 
-  -u, --user=""			%s.
-  -p, --passwd=""		%s.
-  -e, --email=""		%s.
-  -r, --registry=""		%s.
+  -u, --username=""   %s
+  -p, --password=""   %s
+  -e, --email=""      %s
+  -r, --registry=""   %s
 `, usernameUsage, passwordUsage, emailUsage, registryUsage)
 
 type Command struct {
@@ -55,8 +55,8 @@ func (c *Command) Run(args []string) int {
 
 	cmdFlags := flag.NewFlagSet("registry:login", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
-	cmdFlags.StringVarP(&username, "user", "u", "", usernameUsage)
-	cmdFlags.StringVarP(&password, "passwd", "p", "", passwordUsage)
+	cmdFlags.StringVarP(&username, "useranme", "u", "", usernameUsage)
+	cmdFlags.StringVarP(&password, "password", "p", "", passwordUsage)
 	cmdFlags.StringVarP(&email, "email", "e", "", emailUsage)
 	cmdFlags.StringVarP(&registry, "registry", "r", "", registryUsage)
 

@@ -24,8 +24,8 @@ Usage: nitro login [options]
 
 Options:
 
-  -u, --user=""    %s.
-  -p, --pass=""    %s.
+  -u, --username=""    %s
+  -p, --password=""    %s
 `
 
 type Command struct {
@@ -54,8 +54,8 @@ func (c *Command) Run(args []string) int {
 
 	cmdFlags := flag.NewFlagSet("login", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
-	cmdFlags.StringVarP(&username, "user", "u", "", usernameUsage)
-	cmdFlags.StringVarP(&password, "pass", "p", "", passwordUsage)
+	cmdFlags.StringVarP(&username, "username", "u", "", usernameUsage)
+	cmdFlags.StringVarP(&password, "password", "p", "", passwordUsage)
 
 	err := cmdFlags.Parse(args)
 	if err != nil {
