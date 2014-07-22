@@ -1,6 +1,7 @@
 package hosts
 
 import (
+	"crypto/rsa"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/keypairs"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/providertemplate"
 	"github.com/nitrous-io/nitrous/models/region"
@@ -34,6 +36,7 @@ var (
 	ErrHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 
 	hostbuilderURL string
+	aesKey         string
 )
 
 const HostbuilderURLEnvVar = "HOSTBUILDER_URL"
@@ -47,6 +50,11 @@ func init() {
 	}
 
 	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
+
+	aesKey = os.Getenv("AES_KEY")
+	if aesKey == "" {
+		panic("AES_KEY is not set")
+	}
 }
 
 func Index(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
@@ -117,6 +125,12 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 	// pick the first template for now
 	pt := pts[0]
 
+	priv, pubkey, err := generateKey()
+	if err != nil {
+		return err
+	}
+
+	// generate hostbuilder config
 	config := hostbuilderclient.Config{}
 	for k, v := range pt.Config.Map {
 		if v.Valid {
@@ -126,7 +140,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 		}
 	}
 	config["name"] = slug
-	config["public_keys"] = []string{} //FIXME: pass actual public keys
+	config["public_keys"] = []string{string(pubkey)}
 
 	info, err := HostbuilderClient.Create(pt.Provider, &config)
 	if err != nil {
@@ -150,8 +164,26 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 		FreighterdPort: sql.NullInt64{int64(info.FreighterdPort), true},
 		State:          host.StateRunning,
 	}
-	err = h.Insert(db)
+
+	tx, err := db.Beginx()
 	if err != nil {
+		return err
+	}
+
+	// create the host
+	err = h.Insert(tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// create the keypair
+	if _, err = keypairs.Create(tx, priv, aesKey, h.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 
@@ -192,8 +224,11 @@ func Destroy(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 		tx.Rollback()
 		return err
 	}
-	err = tx.Commit()
-	if err != nil {
+	if err = keypairs.Delete(tx, ht.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 
@@ -331,4 +366,18 @@ func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostb
 	}
 
 	return nil
+}
+
+// generate a private key and return it, together with its public key
+func generateKey() (priv *rsa.PrivateKey, pub []byte, err error) {
+	// generate a private key for the host
+	priv, err = keypairs.GenerateKey()
+	if err != nil {
+		return nil, nil, err
+	}
+	pub, err = keypairs.PublicKey(&priv.PublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return priv, pub, nil
 }

@@ -20,6 +20,7 @@ import (
 
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/keypairs"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/token"
@@ -324,6 +325,13 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
 				})
 
+				It("creates a keypair associated with that host", func() {
+					hosts, _ := host.FindAllByUser(db, u)
+					kp, err := keypairs.Get(db, hosts[0].ID)
+					Expect(err).To(BeNil())
+					Expect(kp.HostID).To(Equal(hosts[0].ID))
+				})
+
 				It("responds with the created host and status created", func() {
 					Expect(env.Status).To(Equal(http.StatusCreated))
 					Expect(env.Data["host"]).NotTo(BeNil())
@@ -421,6 +429,17 @@ var _ = Describe("controllers/hosts", func() {
 					c2, err = container.FindByUserAndSlug(db, hs.U, c.Slug)
 					Expect(err).To(BeNil())
 					Expect(c2).To(BeNil())
+				})
+
+				It("deletes keypairs associated to the host", func() {
+					priv, _ := keypairs.GenerateKey()
+					tx, _ := db.Beginx()
+					keypairs.Create(tx, priv, "aes_key", hs.H.ID)
+					tx.Commit()
+
+					doRequest(hs.H.Slug)
+					_, err := keypairs.Get(db, hs.H.ID)
+					Expect(err).ToNot(BeNil(), "host's keypairs should be removed")
 				})
 
 				It("responds with status OK", func() {
