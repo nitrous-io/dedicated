@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/howeyc/gopass"
+	"github.com/bgentry/speakeasy"
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
 	flag "github.com/ogier/pflag"
@@ -79,9 +79,10 @@ func (c *Command) Run(args []string) int {
 		}
 	}
 	if password == "" {
-		c.UI.Output("Password (will not be echoed): ")
-		p := gopass.GetPasswd()
-		password = string(p)
+		password, err = speakeasy.Ask("Password (will not be echoed): ")
+		if err != nil {
+			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
+		}
 	}
 	if email == "" {
 		email, err = c.UI.Ask("Email:")
