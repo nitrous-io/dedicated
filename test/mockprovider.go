@@ -55,6 +55,16 @@ type MockProvider struct {
 	ReceivedTimestamps bool
 	ReceivedTail       string
 
+	LoginCalled      bool
+	LoginError       error
+	ReceivedUsername string
+	ReceivedPassword string
+	ReceivedEmail    string
+	ReceivedRegistry string
+
+	LogoutCalled bool
+	LogoutError  error
+
 	Containers []*provider.ContainerInfo
 	PublicKeys map[string]string
 }
@@ -167,6 +177,21 @@ func (p *MockProvider) Logs(id string, w io.Writer, follow, timestamps bool, tai
 	p.ReceivedTimestamps = timestamps
 	p.ReceivedTail = tail
 	return p.LogsError
+}
+
+func (p *MockProvider) Login(username, password, email, registry string) error {
+	p.LoginCalled = true
+	p.ReceivedUsername = username
+	p.ReceivedPassword = password
+	p.ReceivedEmail = email
+	p.ReceivedRegistry = registry
+	return p.LoginError
+}
+
+func (p *MockProvider) Logout(registry string) error {
+	p.LogoutCalled = true
+	p.ReceivedRegistry = registry
+	return p.LogoutError
 }
 
 func (p *MockProvider) IsNotFoundError(err error) bool {

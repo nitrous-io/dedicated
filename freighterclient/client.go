@@ -47,6 +47,13 @@ var SharedHTTPClient = &http.Client{
 	},
 }
 
+type RegistryAuth struct {
+	Username string
+	Password string
+	Email    string
+	Registry string
+}
+
 // Client represents a Freighter API consumer.
 type Client interface {
 	List(host *Host) ([]*Container, error)
@@ -71,6 +78,9 @@ type Client interface {
 	// https://docs.docker.com/reference/api/docker_remote_api_v1.13/#21-containers
 	// Search for `Get container logs` because docker's api documentation sucks
 	Logs(host *Host, id, follow, timestamps, tail string, w io.Writer) error
+
+	RegistryLogin(host *Host, params *RegistryAuth) error
+	RegistryLogout(host *Host, registry string) error
 }
 
 type (
@@ -324,6 +334,65 @@ func (c *client) Logs(
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		return fmt.Errorf("Unexpected error when fetching logs: %v", err)
 	}
+	return nil
+}
+
+func (c *client) RegistryLogin(h *Host, p *RegistryAuth) error {
+	params := url.Values{}
+	params.Set("username", p.Username)
+	params.Set("password", p.Password)
+	params.Set("email", p.Email)
+	if p.Registry != "" {
+		params.Set("registry", p.Registry)
+	}
+
+	u := fmt.Sprintf("%s/registry/auth", h.BaseURL())
+	req, err := http.NewRequest("POST", u, strings.NewReader(params.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.Do(req)
+	if err != nil {
+		return &RequestFailedError{Req: req, Err: err}
+	}
+	switch resp.StatusCode {
+	case http.StatusCreated:
+		// Success, do nothing.
+	case http.StatusNotFound:
+		return ErrNotFound
+	default:
+		return &StatusError{resp.StatusCode}
+	}
+
+	return nil
+}
+
+func (c *client) RegistryLogout(h *Host, registry string) error {
+	params := url.Values{}
+	params.Set("registry", registry)
+
+	u := fmt.Sprintf("%s/registry/auth", h.BaseURL())
+	req, err := http.NewRequest("DELETE", u, strings.NewReader(params.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.Do(req)
+	if err != nil {
+		return &RequestFailedError{Req: req, Err: err}
+	}
+	switch resp.StatusCode {
+	case http.StatusNoContent:
+		// Deleted, do nothing.
+	case http.StatusNotFound:
+		return ErrNotFound
+	default:
+		return &StatusError{resp.StatusCode}
+	}
+
 	return nil
 }
 
