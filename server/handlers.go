@@ -124,7 +124,12 @@ func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
 
 	err = s.provider.AddPublicKeys(id, publicKeys)
 	if err != nil {
-		s.handleError(w, err)
+		if err == provider.ErrPubKeyOpsNotSupported {
+			s.respondEncodeJSON(w, http.StatusBadRequest, map[string]interface{}{"error": err.Error()})
+		} else {
+			s.handleError(w, err)
+		}
+
 		return
 	}
 
@@ -154,6 +159,18 @@ func (s *Server) removePublicKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
+}
+
+func (s *Server) clearPublicKeys(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	err := s.provider.ClearPublicKeys(id)
+	if err != nil {
+		s.handleError(w, err)
+		return
+	}
+
+	s.respond(w, http.StatusOK, []byte{})
 }
 
 // export content of the container as a .tar stream

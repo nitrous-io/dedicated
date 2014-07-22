@@ -3,6 +3,7 @@ package freighterclient_test
 import (
 	"bytes"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/freighter/freighterclient"
+	"github.com/nitrous-io/freighter/provider"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -743,6 +745,198 @@ var _ = Describe("client", func() {
 				Expect(err).To(MatchError(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
+			})
+		})
+	})
+
+	Describe("Public Key Operations", func() {
+		var (
+			client freighterclient.Client
+			host   *freighterclient.Host
+
+			server       *ghttp.Server
+			handlers     http.HandlerFunc
+			statusCode   int
+			responseBody string
+		)
+
+		setupServer := func(method, url string) {
+			handlers = ghttp.CombineHandlers(
+				func(w http.ResponseWriter, req *http.Request) {
+					// Call ParseForm() so that server.ReceivedRequests() have
+					// POST params populated.
+					err := req.ParseForm()
+					Expect(err).To(BeNil())
+				},
+				ghttp.VerifyRequest(method, url),
+				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
+
+			server = ghttp.NewServer()
+			server.AppendHandlers(handlers)
+
+			ip, port := IPAndPort(server)
+			host = &freighterclient.Host{Host: ip, Port: port, Secure: false}
+			client = freighterclient.NewClient(nil)
+		}
+
+		teardownServer := func() {
+			if server.HTTPTestServer != nil {
+				server.Close()
+			}
+		}
+
+		Describe("AddPublicKeys()", func() {
+			BeforeEach(func() {
+				setupServer("POST", "/containers/yosemite/public_keys")
+			})
+
+			AfterEach(func() {
+				teardownServer()
+			})
+
+			Context("when the response is HTTP 200 OK", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusOK
+				})
+
+				Context("when the response has public keys", func() {
+					BeforeEach(func() {
+						responseBody = `{
+							"public_keys": [
+								"fprint1":"key1",
+								"fprint2":"key2"
+							]
+						}`
+					})
+
+					It("returns a nil error", func() {
+						err := client.AddPublicKeys(host, "yosemite", []string{"key1", "key2"})
+						Expect(err).To(BeNil())
+
+						receivedRequests := server.ReceivedRequests()
+						Expect(receivedRequests).To(HaveLen(1))
+						Expect(receivedRequests[0].Form["public_key[]"]).To(Equal([]string{"key1", "key2"}))
+					})
+				})
+			})
+
+			Context("when the error is 'pub keys not supported'", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusBadRequest
+					responseBody = fmt.Sprintf(`{"error":"%s"}`, provider.ErrPubKeyOpsNotSupported.Error())
+				})
+
+				It("returns a ErrPubKeyOpsNotSupported error", func() {
+					err := client.AddPublicKeys(host, "yosemite", []string{"key1", "key2"})
+					Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
+				})
+			})
+
+			Context("when it's a general error", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusInternalServerError
+				})
+
+				It("returns a StatusError", func() {
+					err := client.AddPublicKeys(host, "yosemite", []string{"key1", "key2"})
+					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+				})
+			})
+		})
+
+		Describe("ClearPublicKeys()", func() {
+			BeforeEach(func() {
+				setupServer("DELETE", "/containers/yosemite/public_keys")
+			})
+
+			AfterEach(func() {
+				teardownServer()
+			})
+
+			Context("when the response is HTTP 200 OK", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusOK
+				})
+
+				It("returns a nil error", func() {
+					err := client.ClearPublicKeys(host, "yosemite")
+					Expect(err).To(BeNil())
+
+					receivedRequests := server.ReceivedRequests()
+					Expect(receivedRequests).To(HaveLen(1))
+				})
+			})
+
+			Context("when the error is 'pub keys not supported'", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusBadRequest
+					responseBody = fmt.Sprintf(`{"error":"%s"}`, provider.ErrPubKeyOpsNotSupported.Error())
+				})
+
+				It("returns a ErrPubKeyOpsNotSupported error", func() {
+					err := client.ClearPublicKeys(host, "yosemite")
+					Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
+				})
+			})
+
+			Context("when it's a general error", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusInternalServerError
+				})
+
+				It("returns a StatusError", func() {
+					err := client.ClearPublicKeys(host, "yosemite")
+					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+				})
+			})
+		})
+
+		Describe("RemovePublicKey()", func() {
+			BeforeEach(func() {
+				setupServer("DELETE", "/containers/yosemite/public_keys/fprint1")
+			})
+
+			AfterEach(func() {
+				teardownServer()
+			})
+
+			Context("when the response is HTTP 200 OK", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusOK
+				})
+
+				It("returns a nil error", func() {
+					err := client.RemovePublicKey(host, "yosemite", "fprint1")
+					Expect(err).To(BeNil())
+
+					receivedRequests := server.ReceivedRequests()
+					Expect(receivedRequests).To(HaveLen(1))
+				})
+			})
+
+			Context("when the error is 'pub keys not supported'", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusBadRequest
+					responseBody = fmt.Sprintf(`{"error":"%s"}`, provider.ErrPubKeyOpsNotSupported.Error())
+				})
+
+				It("returns a ErrPubKeyOpsNotSupported error", func() {
+					err := client.RemovePublicKey(host, "yosemite", "fprint1")
+					Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
+				})
+			})
+
+			Context("when it's a general error", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusInternalServerError
+				})
+
+				It("returns a StatusError", func() {
+					err := client.RemovePublicKey(host, "yosemite", "fprint1")
+					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+				})
 			})
 		})
 	})

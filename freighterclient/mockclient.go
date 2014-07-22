@@ -2,8 +2,9 @@ package freighterclient
 
 import (
 	"fmt"
-	"github.com/nitrous-io/freighter/provider/docker"
 	"io"
+
+	"github.com/nitrous-io/freighter/provider/docker"
 )
 
 // MockClient is a mock satisfying the freighter.Client interface.
@@ -31,6 +32,15 @@ type MockClient struct {
 
 	TerminateCalled int
 	TerminateError  error
+
+	AddPublicKeysCalled int
+	AddPublicKeysError  error
+
+	ClearPublicKeysCalled int
+	ClearPublicKeysError  error
+
+	RemovePublicKeyCalled int
+	RemovePublicKeyError  error
 
 	ReceivedID     string
 	ReceivedName   string
@@ -119,6 +129,27 @@ func (c *MockClient) Terminate(h *Host, id string) (*Container, error) {
 		cntnr.State = ""
 	}
 	return cntnr, c.TerminateError
+}
+
+func (c *MockClient) AddPublicKeys(h *Host, id string, pubkeys []string) error {
+	c.AddPublicKeysCalled = c.AddPublicKeysCalled + 1
+	c.ReceivedID = id
+
+	return c.AddPublicKeysError
+}
+
+func (c *MockClient) ClearPublicKeys(h *Host, id string) error {
+	c.ClearPublicKeysCalled = c.ClearPublicKeysCalled + 1
+	c.ReceivedID = id
+
+	return c.ClearPublicKeysError
+}
+
+func (c *MockClient) RemovePublicKey(h *Host, id string, fingerprint string) error {
+	c.RemovePublicKeyCalled = c.RemovePublicKeyCalled + 1
+	c.ReceivedID = id
+
+	return c.RemovePublicKeyError
 }
 
 func (c *MockClient) Logs(h *Host, id string, follow, timestamps, tail string, w io.Writer) error {

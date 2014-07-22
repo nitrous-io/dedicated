@@ -65,6 +65,7 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/export", s.exportContainer, "GET")
 	s.route("/containers/{id}/public_keys", s.listPublicKeys, "GET")
 	s.route("/containers/{id}/public_keys", s.addPublicKeys, "POST", "PUT")
+	s.route("/containers/{id}/public_keys", s.clearPublicKeys, "DELETE")
 	s.route("/containers/{id}/public_keys/{key_fingerprint}", s.removePublicKey, "DELETE")
 	s.route("/containers/{id}/logs", s.getContainerLogs, "GET")
 

@@ -28,6 +28,11 @@ var (
 	// ErrNotFound is returned when trying to perform an action against a
 	// container that does not exist.
 	ErrNotFound = errors.New("freighter: container not found")
+
+	// ErrPubKeyOpsNotSupported is return when trying to perform a public key op
+	// against a container that does not support SSH.
+	// This mirrors provider.ErrPubKeyOpsNotSupported
+	ErrPubKeyOpsNotSupported = provider.ErrPubKeyOpsNotSupported
 )
 
 // SharedHTTPClient is the shared default http.Client used by Clients created
@@ -56,6 +61,10 @@ type Client interface {
 	Stop(host *Host, id string) (*Container, error)
 	Restart(host *Host, id string) (*Container, error)
 	Terminate(host *Host, id string) (*Container, error)
+
+	AddPublicKeys(host *Host, id string, keys []string) error
+	ClearPublicKeys(host *Host, id string) error
+	RemovePublicKey(host *Host, id string, fingerprint string) error
 
 	// Logs get logs of the container's process and copy it to the writer
 	//
@@ -189,9 +198,7 @@ func (c *client) Create(h *Host, name, image string, config ContainerConfig) (*C
 	case http.StatusOK:
 		// Success, do nothing.
 	case 422:
-		var errResp errorResponse
-		err = json.NewDecoder(resp.Body).Decode(&errResp)
-		resp.Body.Close()
+		errResp, err := unmarshalErrorResponse(resp)
 		if err != nil {
 			return nil, ErrUnexpectedResponse
 		}
@@ -320,6 +327,76 @@ func (c *client) Logs(
 	return nil
 }
 
+func (c *client) doPublicKeyOp(req *http.Request) error {
+	resp, err := c.Do(req)
+	if err != nil {
+		return &RequestFailedError{Req: req, Err: err}
+	}
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusNotFound:
+		return ErrNotFound
+	case http.StatusBadRequest:
+		errorResp, err := unmarshalErrorResponse(resp)
+		if err != nil {
+			return err
+		}
+
+		if errorResp.Error == provider.ErrPubKeyOpsNotSupported.Error() {
+			return ErrPubKeyOpsNotSupported
+		} else {
+			return &StatusError{resp.StatusCode}
+		}
+	default:
+		return &StatusError{resp.StatusCode}
+	}
+
+	return nil
+}
+
+func (c *client) AddPublicKeys(h *Host, id string, keys []string) error {
+	u := fmt.Sprintf("%s/containers/%s/public_keys", h.BaseURL(), id)
+
+	data := url.Values{}
+	for _, key := range keys {
+		data.Add("public_key[]", key)
+	}
+
+	req, err := http.NewRequest("POST", u, strings.NewReader(data.Encode()))
+
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	return c.doPublicKeyOp(req)
+}
+
+func (c *client) ClearPublicKeys(h *Host, id string) error {
+	u := fmt.Sprintf("%s/containers/%s/public_keys", h.BaseURL(), id)
+
+	req, err := http.NewRequest("DELETE", u, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	return c.doPublicKeyOp(req)
+}
+
+func (c *client) RemovePublicKey(h *Host, id string, fingerprint string) error {
+	u := fmt.Sprintf("%s/containers/%s/public_keys/%s", h.BaseURL(), id, fingerprint)
+
+	req, err := http.NewRequest("DELETE", u, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	return c.doPublicKeyOp(req)
+}
+
 func (c *client) containerControl(h *Host, id string, action string) (*Container, error) {
 	u := fmt.Sprintf("%s/containers/%s/%s", h.BaseURL(), id, action)
 	req, err := http.NewRequest("POST", u, nil)
@@ -356,4 +433,14 @@ func unmarshalContainerResponse(resp *http.Response) (*containerResponse, error)
 		return nil, ErrUnexpectedResponse
 	}
 	return &cntnr, nil
+}
+
+func unmarshalErrorResponse(resp *http.Response) (errorResponse, error) {
+	var errResp errorResponse
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	resp.Body.Close()
+	if err != nil {
+		return errorResponse{}, ErrUnexpectedResponse
+	}
+	return errResp, nil
 }
