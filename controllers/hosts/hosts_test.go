@@ -431,20 +431,21 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(c2).To(BeNil())
 				})
 
-				It("responds with status OK", func() {
-					err = doRequest(hs.H.Slug)
-					Expect(err).To(BeNil())
-					Expect(res.Code).To(Equal(http.StatusOK))
-				})
-
 				It("deletes keypairs associated to the host", func() {
 					priv, _ := keypairs.GenerateKey()
 					tx, _ := db.Beginx()
 					keypairs.Create(tx, priv, "aes_key", hs.H.ID)
 					tx.Commit()
-					doRequest(hs.H.Name)
+
+					doRequest(hs.H.Slug)
 					_, err := keypairs.Get(db, hs.H.ID)
 					Expect(err).ToNot(BeNil(), "host's keypairs should be removed")
+				})
+
+				It("responds with status OK", func() {
+					err = doRequest(hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(res.Code).To(Equal(http.StatusOK))
 				})
 			})
 
