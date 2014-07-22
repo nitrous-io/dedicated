@@ -191,6 +191,15 @@ func (s *Server) createVolume(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Server) listVolumes(w http.ResponseWriter, r *http.Request) error {
+	volumes, err := s.provider.ListVolumes()
+	if err != nil {
+		return err
+	}
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"volumes": volumes})
+	return nil
+}
+
 // export content of the container as a .tar stream
 func (s *Server) exportContainer(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]

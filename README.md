@@ -661,6 +661,29 @@ Content-Type: application/json; charset=utf-8
 }
 ```
 
+### List volumes
+
+`GET /hosts/(host slug)/volumes`
+
+**Example request**:
+
+`GET /hosts/myhost/volumes HTTP/1.1`
+
+**Example response**:
+
+```javascript
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+
+{
+  "volumes": [
+    "dotfiles",
+    "code",
+    "db"
+  ]
+}
+```
+
 **Status Codes**:
 
 - **200** - ok
@@ -698,4 +721,3 @@ Content-Type: application/json; charset=utf-8
 
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.
-

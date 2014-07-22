@@ -2,6 +2,7 @@ package docker_test
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/nitrous-io/freighter/provider/docker"
 	. "github.com/nitrous-io/freighter/test"
@@ -15,16 +16,21 @@ var _ = Describe("provider/docker volumes", func() {
 	var (
 		prov      *docker.DockerProvider
 		namespace = "freightertest"
+		datadir   string
 	)
 
 	BeforeEach(func() {
 		var err error
 
-		datadir, err := TempDir()
+		datadir, err = TempDir()
 		Expect(err).To(BeNil())
 		logger := &util.Logger{Level: util.LogLevelQuiet}
 		prov, err = docker.NewDockerProvider(logger, datadir, namespace)
 		Expect(err).To(BeNil())
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(datadir)
 	})
 
 	Describe(".CreateVolume()", func() {
@@ -62,6 +68,34 @@ var _ = Describe("provider/docker volumes", func() {
 			It("returns error", func() {
 				Expect(prov.CreateVolume(slug)).To(MatchError(docker.ErrVolumeExists))
 			})
+		})
+	})
+
+	Describe(".ListVolumes()", func() {
+		var (
+			volBase     string
+			dirs, files []string
+		)
+
+		BeforeEach(func() {
+			volBase = prov.VolumesDir("")
+			dirs = []string{"dotfiles", "Shared", "mpd-albums"}
+			files = []string{"README.txt", "config.json"}
+			for _, d := range dirs {
+				err := os.MkdirAll(filepath.Join(volBase, d), 0755)
+				Expect(err).To(BeNil())
+			}
+			for _, f := range files {
+				fi, err := os.Create(filepath.Join(volBase, f))
+				Expect(err).To(BeNil())
+				fi.Close()
+			}
+		})
+
+		It("returns a list of volumes", func() {
+			vols, err := prov.ListVolumes()
+			Expect(err).To(BeNil())
+			Expect(vols).To(Equal([]string{"Shared", "dotfiles", "mpd-albums"}))
 		})
 	})
 

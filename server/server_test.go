@@ -809,6 +809,27 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("GET /volumes", func() {
+		doRequest := func() {
+			req, _ := NewRequest("GET", "/volumes", nil)
+			handler.ServeHTTP(res, req)
+		}
+
+		It("lists volumes on success", func() {
+			prov.ListVolumesReturn = []string{"data", "music", "downloads"}
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Body.String()).To(MatchJSON(`{"volumes":["data","music","downloads"]}`))
+		})
+
+		It("returns err on failure", func() {
+			prov.ListVolumesError = fmt.Errorf("glob failed")
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			Expect(res.Body.String()).To(MatchJSON(`{"error":"glob failed"}`))
+		})
+	})
+
 	Describe("GET /containers/:id/logs", func() {
 		doRequest := func(id, follow, timestamps, tail string) {
 			params := &url.Values{}

@@ -3,7 +3,7 @@ package docker
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"regexp"
 )
 
@@ -34,6 +34,33 @@ func (p *DockerProvider) CreateVolume(slug string) error {
 	return os.MkdirAll(path, 0755)
 }
 
+func (p *DockerProvider) ListVolumes() ([]string, error) {
+	vols := []string{}
+	volumesBase := p.VolumesDir("")
+	matches, err := filepath.Glob(filepath.Join(volumesBase, "*"))
+	if err != nil {
+		return []string{}, err
+	}
+	for _, m := range matches {
+		fi, err := os.Stat(m)
+		if err != nil {
+			// do not allow a single problematic path to prevent access to list
+			p.logger.Warn("ERR: Error in ListVolumes with path %s: %s", m, err)
+			continue
+		}
+		if !fi.IsDir() {
+			continue
+		}
+		vols = append(vols, filepath.Base(m))
+	}
+	return vols, nil
+}
+
+// VolumesDir returns the path on the host for a volume of the given slug.  If
+// slug is "", it returns the parent directory of all volumes.
 func (p *DockerProvider) VolumesDir(slug string) string {
-	return path.Join(p.dataPath, "volumes", slug)
+	if slug == "" {
+		return filepath.Join(p.dataPath, "volumes")
+	}
+	return filepath.Join(p.dataPath, "volumes", slug)
 }

@@ -38,6 +38,7 @@ type Provider interface {
 	ListImages() (infoList []*ImageInfo, err error)
 
 	CreateVolume(slug string) error
+	ListVolumes() ([]string, error)
 }
 
 type ContainerInfo struct {

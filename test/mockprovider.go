@@ -53,6 +53,10 @@ type MockProvider struct {
 	CreateVolumeError  error
 	CreateVolumeSlug   string
 
+	ListVolumesCalled bool
+	ListVolumesReturn []string
+	ListVolumesError  error
+
 	LogsCalled         bool
 	LogsError          error
 	ReceivedFollow     bool
@@ -220,6 +224,11 @@ func (p *MockProvider) CreateVolume(slug string) error {
 	p.CreateVolumeCalled = true
 	p.CreateVolumeSlug = slug
 	return p.CreateVolumeError
+}
+
+func (p *MockProvider) ListVolumes() ([]string, error) {
+	p.ListVolumesCalled = true
+	return p.ListVolumesReturn, p.ListVolumesError
 }
 
 func (p *MockProvider) IsNotFoundError(err error) bool {
