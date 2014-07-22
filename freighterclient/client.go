@@ -90,11 +90,15 @@ type Client interface {
 
 	RegistryLogin(host *Host, params *RegistryAuth) error
 	RegistryLogout(host *Host, registry string) error
+
+	ListImages(host *Host, showAll bool) ([]*Image, error)
 }
 
 type (
 	Container       provider.ContainerInfo
 	ContainerConfig provider.ContainerConfig
+
+	Image provider.ImageInfo
 
 	containerResponse struct {
 		*Container `json:"container"`
@@ -106,6 +110,10 @@ type (
 
 	containersResponse struct {
 		Containers []*Container `json:"containers"`
+	}
+
+	listImagesResponse struct {
+		Images []*Image `json:"images"`
 	}
 
 	errorResponse struct {
