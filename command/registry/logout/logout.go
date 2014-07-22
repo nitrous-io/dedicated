@@ -1,4 +1,4 @@
-package registrylogout
+package logout
 
 import (
 	"fmt"

@@ -23,8 +23,8 @@ import (
 	_ "github.com/nitrous-io/nitro/command/hosts/list"
 	_ "github.com/nitrous-io/nitro/command/login"
 	_ "github.com/nitrous-io/nitro/command/logout"
-	_ "github.com/nitrous-io/nitro/command/registrylogin"
-	_ "github.com/nitrous-io/nitro/command/registrylogout"
+	_ "github.com/nitrous-io/nitro/command/registry/login"
+	_ "github.com/nitrous-io/nitro/command/registry/logout"
 )
 
 var version string

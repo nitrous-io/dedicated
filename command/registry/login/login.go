@@ -1,4 +1,4 @@
-package registrylogin
+package login
 
 import (
 	"fmt"
