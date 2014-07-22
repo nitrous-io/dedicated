@@ -74,7 +74,11 @@ func (c *Command) Run(args []string) int {
 	if username == "" {
 		username, err = c.UI.Ask("Username:")
 		if err != nil {
-			c.UI.Error(fmt.Sprintf("Failed to get user's username: %v", err))
+			if err.Error() == "interrupted" {
+				c.UI.Error("Login cancelled.")
+				return 130
+			}
+			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
 		}
 	}
 	if password == "" {
@@ -86,7 +90,11 @@ func (c *Command) Run(args []string) int {
 	if email == "" {
 		email, err = c.UI.Ask("Email:")
 		if err != nil {
-			c.UI.Error(fmt.Sprintf("Failed to get user's email: %v", err))
+			if err.Error() == "interrupted" {
+				c.UI.Error("Login cancelled.")
+				return 130
+			}
+			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
 		}
 	}
 	username = strings.TrimSpace(username)
