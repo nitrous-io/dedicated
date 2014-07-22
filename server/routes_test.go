@@ -61,6 +61,8 @@ var _ = Describe("server/routes", func() {
 			{"POST", "/api/v0/hosts/test/start"},
 			{"POST", "/api/v0/hosts/test/stop"},
 			{"POST", "/api/v0/hosts/test/restart"},
+			{"POST", "/api/v0/hosts/test/registries"},
+			{"DELETE", "/api/v0/hosts/test/registries"},
 		}
 		for _, r := range routes {
 			func(method, path string) {
