@@ -12,17 +12,17 @@ import (
 )
 
 const (
-	registryUsage = "Docker registry's server. Default to Docker Hub registry"
+	registryUsage = "Docker registry's server. Defaults to Docker Hub registry"
 )
 
 var usage = fmt.Sprintf(`
-Usage: nitro registry:logout [options] [zone]
+Usage: nitro registry:logout [options] <host>
 
-  log out from a Docker registry on a Nitrous.IO zone.
+  log out from a Docker registry on a Nitrous.IO host.
 
 Options:
 
-  -r, --registry=""		%s.
+  -r, --registry=""  %s
 `, registryUsage)
 
 type Command struct {
@@ -88,7 +88,7 @@ func (c *Command) Help() string {
 }
 
 func (c *Command) Synopsis() string {
-	return "Login to a Docker registry on a Nitrous.IO zone"
+	return "Login to a Docker registry on a Nitrous.IO host"
 }
 
 // log out from a Docker registry

@@ -20,12 +20,11 @@ const (
 )
 
 var usage = fmt.Sprintf(`
-Usage: nitro registry:login [options] [zone]
+Usage: nitro registry:login [options] <host>
 
-  login to a Docker registry on a Nitrous.IO zone.
+  login to a Docker registry on a Nitrous.IO host.
 
 Options:
-
   -u, --username=""   %s
   -p, --password=""   %s
   -e, --email=""      %s
@@ -109,7 +108,7 @@ func (c *Command) Help() string {
 }
 
 func (c *Command) Synopsis() string {
-	return "Login to a Docker registry on a Nitrous.IO zone"
+	return "Login to a Docker registry on a Nitrous.IO host"
 }
 
 // login to a Docker registry on the specified host
