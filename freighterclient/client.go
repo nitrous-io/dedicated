@@ -35,9 +35,9 @@ var (
 	// ErrInvalidParams is returned when received a Unprocessable Entity (HTTP 422) response.
 	ErrInvalidParams = errors.New("freighter: invalid params")
 
-	ErrEndpointNotFound = errors.New("freighter: endpoint not found")
-
+	ErrEndpointNotFound  = errors.New("freighter: endpoint not found")
 	ErrContainerNotFound = errors.New("freighter: container not found")
+	ErrHostNotFound      = errors.New("freighter: host not found")
 )
 
 // SharedHTTPClient is the shared default http.Client used by Clients created
@@ -77,6 +77,10 @@ type Client interface {
 	AddPublicKeys(host *Host, id string, keys []string) error
 	ClearPublicKeys(host *Host, id string) error
 	RemovePublicKey(host *Host, id string, fingerprint string) error
+
+	ListVolumes(host *Host) ([]string, error)
+	CreateVolume(host *Host, slug string) error
+	RemoveVolume(host *Host, slug string) error
 
 	// Logs get logs of the container's process and copy it to the writer
 	//
@@ -518,6 +522,86 @@ func (c *client) ListImages(h *Host) ([]*Image, error) {
 	}
 
 	return images.Images, nil
+}
+
+func (c *client) ListVolumes(h *Host) ([]string, error) {
+	u := fmt.Sprintf("%s/volumes", h.BaseURL())
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.Do(req)
+	if err != nil {
+		return nil, &RequestFailedError{Req: req, Err: err}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, &StatusError{resp.StatusCode}
+	}
+
+	var volumes struct {
+		Volumes []string `json:"volumes"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&volumes)
+
+	if err != nil {
+		return nil, ErrUnexpectedResponse
+	}
+
+	return volumes.Volumes, nil
+}
+
+func (c *client) CreateVolume(h *Host, slug string) error {
+	u := fmt.Sprintf("%s/volumes", h.BaseURL())
+	data := &url.Values{"slug": []string{slug}}
+	req, err := http.NewRequest("POST", u, strings.NewReader(data.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.Do(req)
+	if err != nil {
+		return &RequestFailedError{Req: req, Err: err}
+	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusCreated:
+		return nil
+	case StatusUnprocessableEntity:
+		return ErrInvalidParams
+	case http.StatusNotFound:
+		return ErrHostNotFound
+	default:
+		return &StatusError{resp.StatusCode}
+	}
+}
+
+func (c *client) RemoveVolume(h *Host, slug string) error {
+	u := fmt.Sprintf("%s/volumes/%s", h.BaseURL(), slug)
+	req, err := http.NewRequest("DELETE", u, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.Do(req)
+	if err != nil {
+		return &RequestFailedError{Req: req, Err: err}
+	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return nil
+	case StatusUnprocessableEntity:
+		return ErrInvalidParams
+	case http.StatusNotFound:
+		return ErrHostNotFound
+	default:
+		return &StatusError{resp.StatusCode}
+	}
 }
 
 func (c *client) containerControl(h *Host, id string, action string) (*Container, error) {

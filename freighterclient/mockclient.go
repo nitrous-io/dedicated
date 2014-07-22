@@ -48,6 +48,15 @@ type MockClient struct {
 	RegistryLogoutCalled int
 	RegistryLogoutError  error
 
+	ListVolumesCalled  int
+	ListVolumesReturn  []string
+	ListVolumesError   error
+	CreateVolumeCalled int
+	CreateVolumeSlug   string
+	CreateVolumeError  error
+	RemoveVolumeCalled int
+	RemoveVolumeError  error
+
 	ReceivedID     string
 	ReceivedName   string
 	ReceivedImage  string
@@ -165,6 +174,22 @@ func (c *MockClient) RemovePublicKey(h *Host, id string, fingerprint string) err
 	c.ReceivedID = id
 
 	return c.RemovePublicKeyError
+}
+
+func (c *MockClient) ListVolumes(h *Host) ([]string, error) {
+	c.ListVolumesCalled += 1
+	return c.ListVolumesReturn, c.ListVolumesError
+}
+
+func (c *MockClient) CreateVolume(host *Host, slug string) error {
+	c.CreateVolumeCalled += 1
+	c.CreateVolumeSlug = slug
+	return c.CreateVolumeError
+}
+
+func (c *MockClient) RemoveVolume(host *Host, slug string) error {
+	c.RemoveVolumeCalled += 1
+	return c.RemoveVolumeError
 }
 
 func (c *MockClient) Logs(h *Host, id string, follow, timestamps, tail string, w io.Writer) error {

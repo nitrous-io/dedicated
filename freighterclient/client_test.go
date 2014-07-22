@@ -917,6 +917,179 @@ var _ = Describe("client", func() {
 		})
 	})
 
+	Describe("ListVolumes()", func() {
+		var (
+			st           *ServerTest
+			client       freighterclient.Client
+			host         *freighterclient.Host
+			server       *ghttp.Server
+			statusCode   int
+			responseBody string
+		)
+
+		BeforeEach(func() {
+			handlers := ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/volumes"),
+				ghttp.VerifyContentType("application/json"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
+			st = NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
+		})
+
+		AfterEach(func() {
+			if server.HTTPTestServer != nil {
+				server.Close()
+			}
+		})
+
+		Context("when the response has volumes", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = `{"volumes": ["music", "repos"]}`
+			})
+
+			It("returns slice of strings", func() {
+				vols, err := client.ListVolumes(host)
+				Expect(err).To(BeNil())
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(vols).To(HaveLen(2))
+				Expect(vols[0]).To(Equal("music"))
+				Expect(vols[1]).To(Equal("repos"))
+			})
+		})
+
+		Context("when the response has no volumes", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = `{"volumes": []}`
+			})
+
+			It("returns slice of strings", func() {
+				vols, err := client.ListVolumes(host)
+				Expect(err).To(BeNil())
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(vols).To(HaveLen(0))
+			})
+		})
+
+		Context("when the response fails", func() {
+			BeforeEach(func() {
+				server.Close() // simulate failure
+			})
+
+			It("returns error", func() {
+				vols, err := client.ListVolumes(host)
+				Expect(err).NotTo(BeNil())
+				_, ok := err.(*freighterclient.RequestFailedError)
+				Expect(ok).To(BeTrue())
+				Expect(server.ReceivedRequests()).To(HaveLen(0))
+				Expect(vols).To(BeNil())
+			})
+		})
+	})
+
+	Describe("CreateVolume()", func() {
+		var (
+			st           *ServerTest
+			client       freighterclient.Client
+			host         *freighterclient.Host
+			server       *ghttp.Server
+			statusCode   int
+			responseBody string
+		)
+
+		BeforeEach(func() {
+			handlers := ghttp.CombineHandlers(
+				func(w http.ResponseWriter, req *http.Request) {
+					// Call ParseForm() so that server.ReceivedRequests() have
+					// POST params populated.
+					err := req.ParseForm()
+					Expect(err).To(BeNil())
+				},
+				ghttp.VerifyRequest("POST", "/volumes"),
+				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
+			st = NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
+		})
+
+		Context("on success", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusCreated
+				responseBody = ""
+			})
+
+			It("returns nil", func() {
+				err := client.CreateVolume(host, "repos")
+				Expect(err).To(BeNil())
+				receivedRequests := server.ReceivedRequests()
+				Expect(receivedRequests).To(HaveLen(1))
+				Expect(receivedRequests[0].PostFormValue("slug")).To(Equal("repos"))
+			})
+		})
+
+		Context("on error", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusNotFound
+				responseBody = ""
+			})
+
+			It("returns error", func() {
+				err := client.CreateVolume(host, "repos")
+				Expect(err).To(MatchError(freighterclient.ErrHostNotFound))
+				receivedRequests := server.ReceivedRequests()
+				Expect(receivedRequests).To(HaveLen(1))
+			})
+		})
+	})
+
+	Describe("RemoveVolume()", func() {
+		var (
+			st           *ServerTest
+			client       freighterclient.Client
+			host         *freighterclient.Host
+			server       *ghttp.Server
+			statusCode   int
+			responseBody string
+		)
+
+		BeforeEach(func() {
+			handlers := ghttp.CombineHandlers(
+				ghttp.VerifyRequest("DELETE", "/volumes/music"),
+				ghttp.VerifyContentType("application/json"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
+			st = NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
+		})
+
+		Context("on success", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = ""
+			})
+
+			It("returns nil", func() {
+				err := client.RemoveVolume(host, "music")
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("on error", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusNotFound
+				responseBody = ""
+			})
+
+			It("returns error", func() {
+				err := client.RemoveVolume(host, "music")
+				Expect(err).To(MatchError(freighterclient.ErrHostNotFound))
+			})
+		})
+	})
+
 	Describe("Logs()", func() {
 		It("gets logs of the container", func() {
 			params := url.Values{}
