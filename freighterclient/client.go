@@ -32,7 +32,7 @@ var (
 	// ErrPubKeyOpsNotSupported is return when trying to perform a public key op
 	// against a container that does not support SSH.
 	// This mirrors provider.ErrPubKeyOpsNotSupported
-	ErrPubKeyOpsNotSupported = errors.New("freighter: public key operations not supported on this container")
+	ErrPubKeyOpsNotSupported = provider.ErrPubKeyOpsNotSupported
 )
 
 // SharedHTTPClient is the shared default http.Client used by Clients created
@@ -198,9 +198,7 @@ func (c *client) Create(h *Host, name, image string, config ContainerConfig) (*C
 	case http.StatusOK:
 		// Success, do nothing.
 	case 422:
-		var errResp errorResponse
-		err = json.NewDecoder(resp.Body).Decode(&errResp)
-		resp.Body.Close()
+		errResp, err := unmarshalErrorResponse(resp)
 		if err != nil {
 			return nil, ErrUnexpectedResponse
 		}
@@ -340,12 +338,12 @@ func (c *client) doPublicKeyOp(req *http.Request) error {
 	case http.StatusNotFound:
 		return ErrNotFound
 	case http.StatusBadRequest:
-		errorString, err := unmarshalErrorResponse(resp)
+		errorResp, err := unmarshalErrorResponse(resp)
 		if err != nil {
 			return err
 		}
 
-		if errorString == provider.ErrPubKeyOpsNotSupported.Error() {
+		if errorResp.Error == provider.ErrPubKeyOpsNotSupported.Error() {
 			return ErrPubKeyOpsNotSupported
 		} else {
 			return &StatusError{resp.StatusCode}
@@ -437,12 +435,12 @@ func unmarshalContainerResponse(resp *http.Response) (*containerResponse, error)
 	return &cntnr, nil
 }
 
-func unmarshalErrorResponse(resp *http.Response) (string, error) {
-	var errorMap map[string]string
-	err := json.NewDecoder(resp.Body).Decode(&errorMap)
+func unmarshalErrorResponse(resp *http.Response) (errorResponse, error) {
+	var errResp errorResponse
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	resp.Body.Close()
 	if err != nil {
-		return "", ErrUnexpectedResponse
+		return errorResponse{}, ErrUnexpectedResponse
 	}
-	return errorMap["error"], nil
+	return errResp, nil
 }
