@@ -171,7 +171,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 	}
 
 	// create the host
-	err = h.Insert(db)
+	err = h.Insert(tx)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -179,6 +179,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 
 	// create the keypair
 	if _, err = keypairs.Create(tx, priv, aesKey, h.ID); err != nil {
+		tx.Rollback()
 		return err
 	}
 
@@ -223,8 +224,8 @@ func Destroy(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 		tx.Rollback()
 		return err
 	}
-	// we dont need to rollback here because keypairs.Delete handle it
 	if err = keypairs.Delete(tx, ht.ID); err != nil {
+		tx.Rollback()
 		return err
 	}
 	if err := tx.Commit(); err != nil {

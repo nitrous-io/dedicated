@@ -36,11 +36,6 @@ func Create(
 	aesKey string,
 	hostID int64,
 ) (kp *Keypair, err error) {
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
 	kp, err = generateKeypair(priv, aesKey)
 	if err != nil {
 		return nil, err
@@ -76,9 +71,6 @@ func Get(db db.QueryReceiver, hostID int64) (*Keypair, error) {
 func Delete(tx *sqlx.Tx, hostID int64) error {
 	_, err := tx.Exec("UPDATE key_pairs SET terminated_at = $1 WHERE host_id = $2",
 		time.Now().UTC(), hostID)
-	if err != nil {
-		tx.Rollback()
-	}
 	return err
 }
 
