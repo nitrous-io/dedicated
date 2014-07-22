@@ -2,14 +2,11 @@ package create_test
 
 import (
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/hosts/create"
-	"github.com/nitrous-io/nitro/test"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -118,18 +115,6 @@ Slug    State      Size
 test    created    micro
 `)))
 				Expect(code).To(Equal(0))
-			})
-
-			It("writes the host to the config file", func() {
-				configPath, err := test.WriteConfig(&command.ConfigFile{DefaultHost: ""}, "")
-				Expect(err).To(BeNil())
-				defer os.Remove(configPath)
-
-				doCmd(&createHostParams{size: "micro", slug: "test", region: "apse"})
-
-				c, err := command.LoadConfig()
-				Expect(err).To(BeNil())
-				Expect(c.DefaultHost).To(Equal("test"))
 			})
 		})
 

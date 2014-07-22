@@ -1,7 +1,6 @@
 package create_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"os"
 	"testing"
@@ -97,30 +96,11 @@ var _ = Describe("containers/create", func() {
 				"--image=ubuntu",
 			})
 		}
-		Context("when there is no default host in the config file", func() {
-			It("returns an error message without making a request", func() {
-				code := doCmd()
-				Expect(ui.ErrorWriter.String()).To(ContainSubstring("Please specify a host"))
-				Expect(code).To(Equal(1))
-			})
-		})
 
-		Context("when there is a default host in the config file", func() {
-			BeforeEach(func() {
-				_, err := test.WriteConfig(&command.ConfigFile{
-					DefaultHost: "host-1",
-				}, configPath)
-				Expect(err).To(BeNil())
-			})
-
-			It("uses the default host", func() {
-				statusCode = http.StatusCreated
-				responseBody = `{"status":"created"}`
-
-				code := doCmd()
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
-				Expect(code).To(Equal(0))
-			})
+		It("returns an error message without making a request", func() {
+			code := doCmd()
+			Expect(ui.ErrorWriter.String()).To(ContainSubstring("Please specify a host"))
+			Expect(code).To(Equal(1))
 		})
 	})
 
@@ -130,20 +110,15 @@ var _ = Describe("containers/create", func() {
 				"--host=host-1",
 				"--slug=foo",
 				"--image=ubuntu",
-			})
-		}
-
-		It("populates request params", func() {
-			code := cmd.Run([]string{
-				"--host=host-1",
-				"--slug=foo",
-				"--image=ubuntu",
 				"--volume=/shared", // repeat args supported
 				"--volume=/music",
 				"--volumes-from=data_container,code_container", // comma-separated supported
 				"--port-forward=8080:3000,127.0.0.1:4242",
 			})
-			Expect(code).To(Equal(0))
+		}
+
+		It("populates request params", func() {
+			doCmd()
 			receivedRequests := srv.ReceivedRequests()
 			Expect(receivedRequests).To(HaveLen(1))
 			r := receivedRequests[0]
@@ -168,14 +143,6 @@ var _ = Describe("containers/create", func() {
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("wild-rocket-23"))
 				Expect(code).To(Equal(0))
 			})
-
-			It("writes the host to the config file", func() {
-				doCmd()
-
-				configFile, err := command.LoadConfig()
-				Expect(err).To(BeNil())
-				Expect(configFile.DefaultHost).To(Equal("host-1"))
-			})
 		})
 
 		Context("when request fails", func() {
@@ -188,17 +155,6 @@ var _ = Describe("containers/create", func() {
 				code := doCmd()
 				Expect(ui.ErrorWriter.String()).To(ContainSubstring("image required"))
 				Expect(code).To(Equal(1))
-			})
-
-			It("doesn't write the host to the config file", func() {
-				doCmd()
-
-				f, err := os.Open(configPath)
-				Expect(err).To(BeNil())
-				var configFile command.ConfigFile
-				err = json.NewDecoder(f).Decode(&configFile)
-				Expect(err).To(BeNil())
-				Expect(configFile.DefaultHost).To(Equal(""))
 			})
 		})
 	})

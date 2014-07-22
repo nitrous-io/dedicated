@@ -55,11 +55,8 @@ func (c *Command) Run(args []string) int {
 	args = cmdFlags.Args()
 	switch len(args) {
 	case 0:
-		host = command.DefaultHost()
-		if host == "" {
-			c.UI.Output(c.Help())
-			return 1
-		}
+		c.UI.Output(c.Help())
+		return 1
 	case 1:
 		host = args[0]
 	default:
@@ -73,7 +70,6 @@ func (c *Command) Run(args []string) int {
 		c.UI.Error(err.Error())
 		return 1
 	}
-	command.SaveDefaultHost(host)
 
 	if len(containers) == 0 {
 		c.UI.Output("No containers found.")

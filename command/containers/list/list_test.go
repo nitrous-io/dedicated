@@ -1,7 +1,6 @@
 package list_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"os"
 	"strings"
@@ -62,29 +61,10 @@ var _ = Describe("containers/list", func() {
 	})
 
 	Context("when host is not specified", func() {
-		Context("when there is no default host in the config file", func() {
-			It("prints usage and exits with error", func() {
-				code := cmd.Run([]string{})
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
-				Expect(code).To(Equal(1))
-			})
-		})
-
-		Context("when there is a default host in the config file", func() {
-			BeforeEach(func() {
-				_, err := test.WriteConfig(&command.ConfigFile{
-					DefaultHost: "host-1",
-				}, configPath)
-				Expect(err).To(BeNil())
-			})
-
-			It("uses the default host", func() {
-				statusCode = http.StatusOK
-				responseBody = `{"containers":[],"status":"ok"}`
-
-				code := cmd.Run([]string{})
-				Expect(code).To(Equal(0))
-			})
+		It("prints usage and exits with error", func() {
+			code := cmd.Run([]string{})
+			Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
+			Expect(code).To(Equal(1))
 		})
 	})
 
@@ -123,14 +103,6 @@ foo    freighter.foo    running
 			Expect(ui.OutputWriter.String()).To(ContainSubstring(formattedOutput))
 			Expect(code).To(Equal(0))
 		})
-
-		It("writes the host to the config file", func() {
-			cmd.Run([]string{"host-1"})
-
-			configFile, err := command.LoadConfig()
-			Expect(err).To(BeNil())
-			Expect(configFile.DefaultHost).To(Equal("host-1"))
-		})
 	})
 
 	Context("when host has no containers", func() {
@@ -144,17 +116,6 @@ foo    freighter.foo    running
 			Expect(ui.OutputWriter.String()).To(ContainSubstring("No containers found"))
 			Expect(code).To(Equal(0))
 		})
-
-		It("writes the host to the config file", func() {
-			cmd.Run([]string{"host-1"})
-
-			f, err := os.Open(configPath)
-			Expect(err).To(BeNil())
-			var configFile command.ConfigFile
-			err = json.NewDecoder(f).Decode(&configFile)
-			Expect(err).To(BeNil())
-			Expect(configFile.DefaultHost).To(Equal("host-1"))
-		})
 	})
 
 	Context("when server responds with an internal_server_error", func() {
@@ -167,17 +128,6 @@ foo    freighter.foo    running
 			code := cmd.Run([]string{"host-1"})
 			Expect(ui.ErrorWriter.String()).To(ContainSubstring("Unknown error occurred"))
 			Expect(code).To(Equal(1))
-		})
-
-		It("doesn't write the host to the config file", func() {
-			cmd.Run([]string{"host-1"})
-
-			f, err := os.Open(configPath)
-			Expect(err).To(BeNil())
-			var configFile command.ConfigFile
-			err = json.NewDecoder(f).Decode(&configFile)
-			Expect(err).To(BeNil())
-			Expect(configFile.DefaultHost).To(Equal(""))
 		})
 	})
 })
