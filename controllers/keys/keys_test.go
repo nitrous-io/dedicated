@@ -278,7 +278,7 @@ var _ = Describe("controllers/keys", func() {
 		}
 
 		Context("when user has multiple keys", func() {
-			JustBeforeEach(func() {
+			BeforeEach(func() {
 				for i := 0; i < 2; i++ {
 					pk := &publickey.PublicKey{
 						UserID:      hs.U.ID,
@@ -294,12 +294,12 @@ var _ = Describe("controllers/keys", func() {
 				Expect(pks).To(HaveLen(2))
 
 				params = &url.Values{}
-				doRequest(c.Slug)
 			})
 
 			Context("when call to freighterclient succeeds", func() {
 				BeforeEach(func() {
 					mockClient.ClearPublicKeysError = nil
+					doRequest(c.Slug)
 				})
 
 				It("removes all of them", func() {
@@ -316,6 +316,7 @@ var _ = Describe("controllers/keys", func() {
 			Context("when the call to freighter fails for some reason", func() {
 				BeforeEach(func() {
 					mockClient.ClearPublicKeysError = freighterclient.ErrPubKeyOpsNotSupported
+					doRequest(c.Slug)
 				})
 
 				It("returns bad request", func() {
@@ -405,7 +406,7 @@ var _ = Describe("controllers/keys", func() {
 				mockClient.RemovePublicKeyError = freighterclient.ErrPubKeyOpsNotSupported
 			})
 
-			It("is unsuccessful", func() {
+			It("should respond with bad request", func() {
 				doRequest(c.Slug, fprint)
 				expectBadRequest("public key operations not supported on this container")
 				Expect(mockClient.RemovePublicKeyCalled).To(Equal(1))
