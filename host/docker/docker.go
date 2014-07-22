@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
@@ -25,6 +26,9 @@ type Host struct {
 }
 
 func (h *Host) Create() (*host.Info, error) {
+	for i, k := range h.PublicKeys {
+		h.PublicKeys[i] = strings.TrimSpace(k)
+	}
 	imageName, err := h.createImage()
 	if err != nil {
 		return nil, err
