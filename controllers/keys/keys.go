@@ -195,22 +195,6 @@ func withContainer(fn func(cnr *container.Container, env *middlewares.Env, c con
 	})
 }
 
-func getContainerID(d db.QueryReceiver, r *http.Request, userID int64, optional bool) (int64, error) {
-	cid := r.FormValue("container_id")
-	if cid == "" {
-		if optional {
-			return 1, nil
-		} else {
-			return 1, ErrContainerBlank
-		}
-	}
-	c := &container.Container{}
-	if c == nil || c.UserID != userID {
-		return 1, ErrContainerNotFound
-	}
-	return c.ID, nil
-}
-
 func findAndMakeFreighterHost(db *db.Database, hostID int64) (*freighterclient.Host, error) {
 	h, err := host.FindByID(db, hostID)
 	if err != nil {
