@@ -101,13 +101,9 @@ func (c *Command) Run(args []string) int {
 	}
 
 	if params.host == "" {
-		h := command.DefaultHost()
-		if h == "" {
-			c.UI.Error(fmt.Sprintf("Please specify a host."))
-			c.UI.Output(c.Help())
-			return 1
-		}
-		params.host = h
+		c.UI.Error(fmt.Sprintf("Please specify a host."))
+		c.UI.Output(c.Help())
+		return 1
 	}
 
 	c.UI.Output(fmt.Sprintf("Creating container on '%s'. Please wait...", params.host))
@@ -116,7 +112,6 @@ func (c *Command) Run(args []string) int {
 		c.UI.Error(fmt.Sprintf("Failed to create the container - %v", err.Error()))
 		return 1
 	}
-	command.SaveDefaultHost(params.host)
 
 	if cnr != nil {
 		c.UI.Output(fmt.Sprintf("Created new container: '%s'", cnr.Slug))

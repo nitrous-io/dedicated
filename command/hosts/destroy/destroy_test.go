@@ -2,13 +2,10 @@ package destroy_test
 
 import (
 	"net/http"
-	"os"
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/hosts/destroy"
-	"github.com/nitrous-io/nitro/test"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -69,34 +66,6 @@ var _ = Describe("hosts/destroy", func() {
 			code := cmd.Run([]string{"foo"})
 			Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
 			Expect(code).To(Equal(0))
-		})
-
-		Context("when host is the default host in the config file", func() {
-			It("unsets default host in config file", func() {
-				configPath, err := test.WriteConfig(&command.ConfigFile{DefaultHost: "foo"}, "")
-				Expect(err).To(BeNil())
-				defer os.Remove(configPath)
-
-				cmd.Run([]string{"foo"})
-
-				c, err := command.LoadConfig()
-				Expect(err).To(BeNil())
-				Expect(c.DefaultHost).To(Equal(""))
-			})
-		})
-
-		Context("when host is not the default host in the config file", func() {
-			It("doesn't change the default host in config file", func() {
-				configPath, err := test.WriteConfig(&command.ConfigFile{DefaultHost: "another-host"}, "")
-				Expect(err).To(BeNil())
-				defer os.Remove(configPath)
-
-				cmd.Run([]string{"foo"})
-
-				c, err := command.LoadConfig()
-				Expect(err).To(BeNil())
-				Expect(c.DefaultHost).To(Equal("another-host"))
-			})
 		})
 	})
 

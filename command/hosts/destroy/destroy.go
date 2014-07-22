@@ -62,11 +62,6 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	// If we just deleted the default host, unset it.
-	if command.DefaultHost() == name {
-		command.SaveDefaultHost("")
-	}
-
 	c.UI.Output("Done.")
 	return 0
 }
