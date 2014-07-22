@@ -1,17 +1,10 @@
 package freighterclient_test
 
 import (
-	"testing"
-
 	"github.com/nitrous-io/freighter/freighterclient"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-func TestHost(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "client/host")
-}
 
 var _ = Describe("freighterclient/host", func() {
 	Describe("NewHost()", func() {
