@@ -10,7 +10,7 @@ import (
 	"code.google.com/p/go.crypto/ssh"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/nitrous-io/gorainbow/cipher"
+	"github.com/nitrous-io/nitrous-common/cipher"
 	"github.com/nitrous-io/nitrous/db"
 )
 
