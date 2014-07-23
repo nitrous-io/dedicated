@@ -21,6 +21,68 @@ environment variable (passed to Vagrant on `vagrant up`), for example
 
 ## REST API
 
+### Login to a docker registry
+
+`POST /registry/auth`
+
+**Example request**:
+
+```
+POST /registry/auth HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+
+username=daniel&password=anything&email=daniel@nitrous.io&registry=private.registry.io
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 201 Created
+Content-Type: application/json; charset=utf-8
+
+{ "status": "created" }
+```
+
+**POST Params**:
+
+- **username** - username for the registry
+- **password** - password for the registry
+- **email** - email for the registry
+- **registry** - _(optional)_ custom registry server, if not specified we will
+  use the docker default registry
+
+**Status Codes**:
+
+- **201** - accepted
+- **422** - missing or invalid params
+
+### Logout of a docker registry
+
+`DELETE /registry/auth`
+
+**Example request**:
+
+```
+DELETE /registry/auth?registry=private.registry.io
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 204 No Content
+Content-Type: application/json; charset=utf-8
+```
+
+**DELETE Params**:
+
+- **registry** - _(optional)_ custom registry server, if not specified we will
+  use the docker default registry
+
+**Status Codes**:
+
+- **204** - no content
+- **422** - missing or invalid params
+
 ### List containers
 
 `GET /containers`

@@ -18,6 +18,8 @@ import (
 const (
 	StateRunning = "running"
 	StateStopped = "stopped"
+
+	StatusUnprocessableEntity = 422
 )
 
 var (
@@ -25,14 +27,21 @@ var (
 	// an unexpected response body.
 	ErrUnexpectedResponse = errors.New("freighter: unexpected response")
 
-	// ErrNotFound is returned when trying to perform an action against a
+	// ErrEndpointNotFound is returned when trying to send a request
+	// to a non-existing endpoint.
+	ErrEndpointNotFound = errors.New("freighter: endpoint not found")
+
+	// ErrContainerNotFound is returned when trying to perform an action against a
 	// container that does not exist.
-	ErrNotFound = errors.New("freighter: container not found")
+	ErrContainerNotFound = errors.New("freighter: container not found")
 
 	// ErrPubKeyOpsNotSupported is return when trying to perform a public key op
 	// against a container that does not support SSH.
 	// This mirrors provider.ErrPubKeyOpsNotSupported
 	ErrPubKeyOpsNotSupported = provider.ErrPubKeyOpsNotSupported
+
+	// ErrInvalidParams is returned when received a Unprocessable Entity (HTTP 422) response.
+	ErrInvalidParams = errors.New("freighter: invalid params")
 )
 
 // SharedHTTPClient is the shared default http.Client used by Clients created
@@ -47,6 +56,13 @@ var SharedHTTPClient = &http.Client{
 	},
 }
 
+type RegistryAuth struct {
+	Username string
+	Password string
+	Email    string
+	Registry string
+}
+
 // Client represents a Freighter API consumer.
 type Client interface {
 	List(host *Host) ([]*Container, error)
@@ -54,7 +70,7 @@ type Client interface {
 
 	// Info returns the Container with the given id.
 	// If there is no Container with the given id, Info should return
-	// ErrNotFound.
+	// ErrContainerNotFound.
 	Info(host *Host, id string) (*Container, error)
 
 	Start(host *Host, id string) (*Container, error)
@@ -71,6 +87,9 @@ type Client interface {
 	// https://docs.docker.com/reference/api/docker_remote_api_v1.13/#21-containers
 	// Search for `Get container logs` because docker's api documentation sucks
 	Logs(host *Host, id, follow, timestamps, tail string, w io.Writer) error
+
+	RegistryLogin(host *Host, params *RegistryAuth) error
+	RegistryLogout(host *Host, registry string) error
 }
 
 type (
@@ -197,7 +216,7 @@ func (c *client) Create(h *Host, name, image string, config ContainerConfig) (*C
 	switch resp.StatusCode {
 	case http.StatusOK:
 		// Success, do nothing.
-	case 422:
+	case StatusUnprocessableEntity:
 		errResp, err := unmarshalErrorResponse(resp)
 		if err != nil {
 			return nil, ErrUnexpectedResponse
@@ -216,7 +235,7 @@ func (c *client) Create(h *Host, name, image string, config ContainerConfig) (*C
 
 // Info makes an API request to a given Freighter Host and returns the
 // Container with the given id.
-// If the Container does not exist, ErrNotFound is returned.
+// If the Container does not exist, ErrContainerNotFound is returned.
 func (c *client) Info(h *Host, id string) (*Container, error) {
 	u := h.BaseURL() + "/containers/" + id
 	req, err := http.NewRequest("GET", u, nil)
@@ -233,7 +252,7 @@ func (c *client) Info(h *Host, id string) (*Container, error) {
 	case http.StatusOK:
 		// Success, do nothing.
 	case http.StatusNotFound:
-		return nil, ErrNotFound
+		return nil, ErrContainerNotFound
 	default:
 		return nil, &StatusError{resp.StatusCode}
 	}
@@ -247,28 +266,28 @@ func (c *client) Info(h *Host, id string) (*Container, error) {
 
 // Start makes an API request to a given Freighter host to start the Container
 // with the given id. The Container is returned.
-// If the Container does not exist, ErrNotFound is returned.
+// If the Container does not exist, ErrContainerNotFound is returned.
 func (c *client) Start(h *Host, id string) (*Container, error) {
 	return c.containerControl(h, id, "start")
 }
 
 // Stop makes an API request to a given Freighter host to stop the Container
 // with the given id. The Container is returned.
-// If the Container does not exist, ErrNotFound is returned.
+// If the Container does not exist, ErrContainerNotFound is returned.
 func (c *client) Stop(h *Host, id string) (*Container, error) {
 	return c.containerControl(h, id, "stop")
 }
 
 // Restart makes an API request to a given Freighter host to restart the
 // Container with the given id. The Container is returned.
-// If the Container does not exist, ErrNotFound is returned.
+// If the Container does not exist, ErrContainerNotFound is returned.
 func (c *client) Restart(h *Host, id string) (*Container, error) {
 	return c.containerControl(h, id, "restart")
 }
 
 // Terminate makes an API request to a given Freighter host to terminate the
 // Container with the given id. The Container is returned.
-// If the Container does not exist, ErrNotFound is returned.
+// If the Container does not exist, ErrContainerNotFound is returned.
 func (c *client) Terminate(h *Host, id string) (*Container, error) {
 	u := fmt.Sprintf("%s/containers/%s", h.BaseURL(), id)
 	req, err := http.NewRequest("DELETE", u, nil)
@@ -285,7 +304,7 @@ func (c *client) Terminate(h *Host, id string) (*Container, error) {
 	case http.StatusOK:
 		// Success, do nothing.
 	case http.StatusNotFound:
-		return nil, ErrNotFound
+		return nil, ErrContainerNotFound
 	default:
 		return nil, &StatusError{resp.StatusCode}
 	}
@@ -327,6 +346,69 @@ func (c *client) Logs(
 	return nil
 }
 
+func (c *client) RegistryLogin(h *Host, p *RegistryAuth) error {
+	params := url.Values{}
+	params.Set("username", p.Username)
+	params.Set("password", p.Password)
+	params.Set("email", p.Email)
+	if p.Registry != "" {
+		params.Set("registry", p.Registry)
+	}
+
+	u := fmt.Sprintf("%s/registry/auth", h.BaseURL())
+	req, err := http.NewRequest("POST", u, strings.NewReader(params.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.Do(req)
+	if err != nil {
+		return &RequestFailedError{Req: req, Err: err}
+	}
+	switch resp.StatusCode {
+	case http.StatusCreated:
+		// Success, do nothing.
+	case http.StatusNotFound:
+		return ErrEndpointNotFound
+	case StatusUnprocessableEntity:
+		return ErrInvalidParams
+	default:
+		return &StatusError{resp.StatusCode}
+	}
+
+	return nil
+}
+
+func (c *client) RegistryLogout(h *Host, registry string) error {
+	params := url.Values{}
+	params.Set("registry", registry)
+
+	u := fmt.Sprintf("%s/registry/auth", h.BaseURL())
+	req, err := http.NewRequest("DELETE", u, strings.NewReader(params.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.Do(req)
+	if err != nil {
+		return &RequestFailedError{Req: req, Err: err}
+	}
+	switch resp.StatusCode {
+	case http.StatusNoContent:
+		// Deleted, do nothing.
+	case http.StatusNotFound:
+		return ErrEndpointNotFound
+	case StatusUnprocessableEntity:
+		return ErrInvalidParams
+	default:
+		return &StatusError{resp.StatusCode}
+	}
+
+	return nil
+}
+
 func (c *client) doPublicKeyOp(req *http.Request) error {
 	resp, err := c.Do(req)
 	if err != nil {
@@ -336,7 +418,7 @@ func (c *client) doPublicKeyOp(req *http.Request) error {
 	case http.StatusOK:
 		return nil
 	case http.StatusNotFound:
-		return ErrNotFound
+		return ErrContainerNotFound
 	case http.StatusBadRequest:
 		errorResp, err := unmarshalErrorResponse(resp)
 		if err != nil {
@@ -413,7 +495,7 @@ func (c *client) containerControl(h *Host, id string, action string) (*Container
 	case http.StatusOK:
 		// Success, do nothing.
 	case http.StatusNotFound:
-		return nil, ErrNotFound
+		return nil, ErrContainerNotFound
 	default:
 		return nil, &StatusError{resp.StatusCode}
 	}

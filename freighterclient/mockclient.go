@@ -42,10 +42,21 @@ type MockClient struct {
 	RemovePublicKeyCalled int
 	RemovePublicKeyError  error
 
+	RegistryLoginCalled int
+	RegistryLoginError  error
+
+	RegistryLogoutCalled int
+	RegistryLogoutError  error
+
 	ReceivedID     string
 	ReceivedName   string
 	ReceivedImage  string
 	ReceivedConfig ContainerConfig
+
+	ReceivedUsername string
+	ReceivedPassword string
+	ReceivedEmail    string
+	ReceivedRegistry string
 }
 
 func (c *MockClient) List(h *Host) ([]*Container, error) {
@@ -78,7 +89,7 @@ func (c *MockClient) Info(h *Host, id string) (*Container, error) {
 			return c, nil
 		}
 	}
-	return nil, ErrNotFound
+	return nil, ErrContainerNotFound
 }
 
 func (c *MockClient) Start(h *Host, id string) (*Container, error) {
@@ -154,6 +165,23 @@ func (c *MockClient) RemovePublicKey(h *Host, id string, fingerprint string) err
 
 func (c *MockClient) Logs(h *Host, id string, follow, timestamps, tail string, w io.Writer) error {
 	return nil
+}
+
+func (c *MockClient) RegistryLogin(h *Host, p *RegistryAuth) error {
+	c.RegistryLoginCalled = c.RegistryLoginCalled + 1
+	c.ReceivedUsername = p.Username
+	c.ReceivedPassword = p.Password
+	c.ReceivedEmail = p.Email
+	c.ReceivedRegistry = p.Registry
+
+	return c.RegistryLoginError
+}
+
+func (c *MockClient) RegistryLogout(h *Host, registry string) error {
+	c.RegistryLogoutCalled = c.RegistryLogoutCalled + 1
+	c.ReceivedRegistry = registry
+
+	return c.RegistryLogoutError
 }
 
 func (c *MockClient) DockerContainerConfig() (*docker.ContainerConfig, error) {

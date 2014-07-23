@@ -363,9 +363,9 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the response is not HTTP 422 Unprocessible Entity", func() {
+		Context("when the response is not HTTP 422 Unprocessable Entity", func() {
 			BeforeEach(func() {
-				statusCode = 422
+				statusCode = freighterclient.StatusUnprocessableEntity
 			})
 
 			Context("when the response body is JSON with an 'error' key", func() {
@@ -399,7 +399,7 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the response is not HTTP 200 OK nor HTTP 422 Unprocessible Entity", func() {
+		Context("when the response is not HTTP 200 OK nor HTTP 422 Unprocessable Entity", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusInternalServerError
 			})
@@ -492,9 +492,9 @@ var _ = Describe("client", func() {
 				statusCode = http.StatusNotFound
 			})
 
-			It("returns ErrNotFound", func() {
+			It("returns ErrContainerNotFound", func() {
 				container, err := client.Info(host, "deadbeef")
-				Expect(err).To(Equal(freighterclient.ErrNotFound))
+				Expect(err).To(Equal(freighterclient.ErrContainerNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
 			})
@@ -604,9 +604,9 @@ var _ = Describe("client", func() {
 					statusCode = http.StatusNotFound
 				})
 
-				It("returns ErrNotFound", func() {
+				It("returns ErrContainerNotFound", func() {
 					container, err := fnUnderTest(host, id)
-					Expect(err).To(MatchError(freighterclient.ErrNotFound))
+					Expect(err).To(MatchError(freighterclient.ErrContainerNotFound))
 					Expect(container).To(BeNil())
 				})
 			})
@@ -713,9 +713,9 @@ var _ = Describe("client", func() {
 				statusCode = http.StatusNotFound
 			})
 
-			It("returns ErrNotFound", func() {
+			It("returns ErrContainerNotFound", func() {
 				container, err := client.Terminate(host, "cafefeed")
-				Expect(err).To(MatchError(freighterclient.ErrNotFound))
+				Expect(err).To(MatchError(freighterclient.ErrContainerNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
 			})
@@ -934,6 +934,174 @@ var _ = Describe("client", func() {
 			err := client.Logs(host, "deadbeef", "true", "true", "all", w)
 			Expect(err).To(BeNil(), "should successfully get the logs")
 			Expect(w.String()).To(Equal("hello i am a log"), "should write logs to the writer")
+		})
+	})
+
+	Describe("RegistryLogin()", func() {
+		var (
+			client freighterclient.Client
+			host   *freighterclient.Host
+
+			server       *ghttp.Server
+			handlers     http.HandlerFunc
+			statusCode   int
+			responseBody string
+		)
+
+		BeforeEach(func() {
+			handlers = ghttp.CombineHandlers(
+				ghttp.VerifyRequest("POST", "/registry/auth"),
+				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
+
+			st := NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
+		})
+
+		AfterEach(func() {
+			if server.HTTPTestServer != nil {
+				server.Close()
+			}
+		})
+
+		doRequest := func() error {
+			p := &freighterclient.RegistryAuth{
+				Username: "foo",
+				Password: "123456",
+				Email:    "foo@example.com",
+				Registry: "hub.example.com",
+			}
+			return client.RegistryLogin(host, p)
+		}
+
+		Context("when the response is HTTP 201 Created", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusCreated
+			})
+
+			It("does not return any error", func() {
+				err := doRequest()
+				Expect(err).To(BeNil())
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+			})
+		})
+
+		Context("when the response is HTTP 404 Not Found", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusNotFound
+			})
+
+			It("returns ErrEndpointNotFound", func() {
+				err := doRequest()
+				Expect(err).To(MatchError(freighterclient.ErrEndpointNotFound))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+			})
+		})
+
+		Context("when the response is HTTP 422 Unprocessable Entity", func() {
+			BeforeEach(func() {
+				statusCode = freighterclient.StatusUnprocessableEntity
+			})
+
+			It("returns ErrInvalidParams", func() {
+				err := doRequest()
+				Expect(err).To(MatchError(freighterclient.ErrInvalidParams))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+			})
+		})
+
+		Context("when the response is not HTTP 200, 404 or 422", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusInternalServerError
+			})
+
+			It("returns a StatusError", func() {
+				err := doRequest()
+				Expect(err).To(MatchError(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+			})
+		})
+	})
+
+	Describe("RegistryLogout()", func() {
+		var (
+			client freighterclient.Client
+			host   *freighterclient.Host
+
+			server       *ghttp.Server
+			handlers     http.HandlerFunc
+			statusCode   int
+			responseBody string
+		)
+
+		BeforeEach(func() {
+			handlers = ghttp.CombineHandlers(
+				ghttp.VerifyRequest("DELETE", "/registry/auth"),
+				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
+
+			st := NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
+		})
+
+		AfterEach(func() {
+			if server.HTTPTestServer != nil {
+				server.Close()
+			}
+		})
+
+		doRequest := func() error {
+			return client.RegistryLogout(host, "hub.example.com")
+		}
+
+		Context("when the response is HTTP 204 No Content", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusNoContent
+			})
+
+			It("does not return any error", func() {
+				err := doRequest()
+				Expect(err).To(BeNil())
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+			})
+		})
+
+		Context("when the response is HTTP 404 Not Found", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusNotFound
+			})
+
+			It("returns ErrEndpointNotFound", func() {
+				err := doRequest()
+				Expect(err).To(MatchError(freighterclient.ErrEndpointNotFound))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+			})
+		})
+
+		Context("when the response is HTTP 422 Unprocessable Entity", func() {
+			BeforeEach(func() {
+				statusCode = freighterclient.StatusUnprocessableEntity
+			})
+
+			It("returns ErrInvalidParams", func() {
+				err := doRequest()
+				Expect(err).To(MatchError(freighterclient.ErrInvalidParams))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+			})
+		})
+
+		Context("when the response is not HTTP 204, 404 and 422", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusInternalServerError
+			})
+
+			It("returns a StatusError", func() {
+				err := doRequest()
+				Expect(err).To(MatchError(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+			})
 		})
 	})
 })
