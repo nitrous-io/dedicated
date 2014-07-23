@@ -1,10 +1,12 @@
 package destroy_test
 
 import (
+	"io"
 	"net/http"
 	"testing"
 
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/hosts/destroy"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
@@ -20,8 +22,11 @@ func Test(t *testing.T) {
 
 var _ = Describe("hosts/destroy", func() {
 	var (
-		cmd          *destroy.Command
-		ui           *cli.MockUi
+		cmd *destroy.Command
+		ui  *command.MockUI
+		r   *io.PipeReader
+		w   *io.PipeWriter
+
 		srv          *ghttp.Server
 		handlers     http.HandlerFunc
 		statusCode   int
@@ -29,7 +34,8 @@ var _ = Describe("hosts/destroy", func() {
 	)
 
 	BeforeEach(func() {
-		ui = &cli.MockUi{}
+		r, w = io.Pipe()
+		ui = &command.MockUI{&cli.MockUi{InputReader: r}}
 
 		handlers = ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
@@ -47,6 +53,8 @@ var _ = Describe("hosts/destroy", func() {
 	})
 
 	AfterEach(func() {
+		r.Close()
+		w.Close()
 		srv.Close()
 	})
 
@@ -62,10 +70,32 @@ var _ = Describe("hosts/destroy", func() {
 			responseBody = `{"status":"ok"}`
 		})
 
+		doCmd := func() int {
+			return cmd.Run([]string{"foo", "--force"})
+		}
+
 		It("reports success", func() {
-			code := cmd.Run([]string{"foo"})
+			code := doCmd()
 			Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
 			Expect(code).To(Equal(0))
+		})
+
+		Context("when --force option is not specified", func() {
+			doCmd := func() int {
+				return cmd.Run([]string{"foo"})
+			}
+
+			It("asks for confirmation before proceeding", func() {
+				go w.Write([]byte("n\n"))
+				code := doCmd()
+				Expect(ui.OutputWriter.String()).To(ContainSubstring("Cancelled"))
+				Expect(code).To(Equal(1))
+
+				go w.Write([]byte("y\n"))
+				code = doCmd()
+				Expect(ui.OutputWriter.String()).To(ContainSubstring("Done"))
+				Expect(code).To(Equal(0))
+			})
 		})
 	})
 
@@ -76,7 +106,7 @@ var _ = Describe("hosts/destroy", func() {
 		})
 
 		It("displays error message", func() {
-			code := cmd.Run([]string{"foo"})
+			code := cmd.Run([]string{"foo", "--force"})
 			Expect(ui.ErrorWriter.String()).To(ContainSubstring("host not found"))
 			Expect(code).To(Equal(1))
 		})
