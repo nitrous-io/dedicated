@@ -17,6 +17,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
@@ -91,6 +92,95 @@ var _ = Describe("controllers/containers", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("WithContainerAndHost", func() {
+		var (
+			env           *middlewares.Env
+			handler       *mux.Router
+			c             *container.Container
+			handlerCalled bool
+		)
+
+		BeforeEach(func() {
+			env = &middlewares.Env{User: u}
+
+			h := func(w http.ResponseWriter, r *http.Request) {
+				mw := containers.WithContainerAndHost(func(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+					Expect(cn).NotTo(BeNil())
+					Expect(h).NotTo(BeNil())
+					Expect(h.State).To(Equal(host.StateRunning))
+					handlerCalled = true
+					return nil
+				})
+				err := mw(env, svr, w, r)
+				if err != nil {
+					svr.HandleError(w, err)
+				}
+			}
+			handler = mux.NewRouter()
+			handler.HandleFunc("/{slug}/action", h).Methods("GET")
+		})
+
+		Context("when there is no container with the given slug", func() {
+			It("returns a not found error", func() {
+				req, err := NewRequest("GET", "/missing-container/action", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+				Expect(handlerCalled).To(BeFalse())
+
+				j := map[string]interface{}{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				errType, _ := j["error"].(string)
+				Expect(errType).To(Equal("not_found"))
+				errDesc, _ := j["error_description"].(string)
+				Expect(errDesc).To(Equal("container does not exist"))
+			})
+		})
+
+		Context("when a container with the given slug exists", func() {
+			BeforeEach(func() {
+				c = &container.Container{
+					CID:    "beefface",
+					Slug:   "rails-box",
+					Image:  "nitrous-base",
+					UserID: u.ID,
+					HostID: hs.H.ID,
+				}
+				err := c.Insert(db)
+				Expect(err).To(BeNil())
+
+				handlerCalled = false
+			})
+
+			It("runs the wrapped handler", func() {
+				req, err := NewRequest("GET", "/rails-box/action", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(handlerCalled).To(BeTrue())
+			})
+
+			Context("when container's host is not running", func() {
+				BeforeEach(func() {
+					hs.H.UpdateState(db, host.StateStopped)
+				})
+
+				It("returns HTTP 400 Bad Request", func() {
+					req, err := NewRequest("GET", "/rails-box/action", nil)
+					Expect(err).To(BeNil())
+					handler.ServeHTTP(res, req)
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					Expect(handlerCalled).To(BeFalse())
+				})
+			})
+		})
 	})
 
 	Describe("GET /api/v0/containers", func() {
@@ -282,6 +372,27 @@ var _ = Describe("controllers/containers", func() {
 						containers, ok := j["containers"].([]interface{})
 						Expect(ok).To(BeTrue())
 						Expect(containers).To(BeEmpty())
+					})
+				})
+
+				Context("when host is not running", func() {
+					BeforeEach(func() {
+						err := hs.H.UpdateState(db, host.StateStopped)
+						Expect(err).To(BeNil())
+					})
+
+					It("returns HTTP 400 Bad Request", func() {
+						doRequest("valid-token", "foo")
+
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+						j := map[string]interface{}{}
+						err := json.Unmarshal(res.Body.Bytes(), &j)
+						Expect(err).To(BeNil())
+						errType, _ := j["error"].(string)
+						Expect(errType).To(Equal("invalid_state"))
+						errDesc, _ := j["error_description"].(string)
+						Expect(errDesc).To(Equal("host is not running"))
 					})
 				})
 
@@ -543,6 +654,27 @@ var _ = Describe("controllers/containers", func() {
 					})
 				})
 			})
+
+			Context("when host is not running", func() {
+				BeforeEach(func() {
+					err := hs.H.UpdateState(db, host.StateStopped)
+					Expect(err).To(BeNil())
+				})
+
+				It("returns HTTP 400 Bad Request", func() {
+					doRequest("valid-token", "foo", params)
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					errType, _ := j["error"].(string)
+					Expect(errType).To(Equal("invalid_state"))
+					errDesc, _ := j["error_description"].(string)
+					Expect(errDesc).To(Equal("host is not running"))
+				})
+			})
 		})
 
 		Context("oauth token failure modes", func() {
@@ -631,27 +763,6 @@ var _ = Describe("controllers/containers", func() {
 						FreighterdPort: hs.H.FreighterdPort.Int64,
 					},
 				}))
-			})
-
-			Context("when container does not exist", func() {
-				BeforeEach(func() {
-					containerName = "no-such-container"
-				})
-
-				It("returns HTTP 404 Not Found", func() {
-					doRequest()
-
-					Expect(res.Code).To(Equal(http.StatusNotFound))
-
-					j := map[string]interface{}{}
-					err := json.Unmarshal(res.Body.Bytes(), &j)
-					Expect(err).To(BeNil())
-
-					errType, _ := j["error"].(string)
-					Expect(errType).To(Equal("not_found"))
-					errDesc, _ := j["error_description"].(string)
-					Expect(errDesc).To(Equal("container does not exist"))
-				})
 			})
 
 			Context("when the Freighter client returns an error", func() {
@@ -765,24 +876,6 @@ var _ = Describe("controllers/containers", func() {
 
 					Expect(c.UserID).To(Equal(u.ID))
 					Expect(c.HostID).To(Equal(hs.H.ID))
-				})
-
-				Context("when container does not exist", func() {
-					It("returns HTTP 404 Not Found", func() {
-						doRequest("valid-token", "foo", "no-such-container")
-
-						Expect(res.Code).To(Equal(http.StatusNotFound))
-
-						j := map[string]interface{}{}
-						err := json.Unmarshal(res.Body.Bytes(), &j)
-						Expect(err).To(BeNil())
-
-						errType, _ := j["error"].(string)
-						Expect(errType).To(Equal("not_found"))
-
-						errDesc, _ := j["error_description"].(string)
-						Expect(errDesc).To(Equal("container does not exist"))
-					})
 				})
 
 				Context("when the Freighter client returns an error", func() {
@@ -936,28 +1029,6 @@ var _ = Describe("controllers/containers", func() {
 				c, err := container.FindByUserAndSlug(db, hs.U, containerName)
 				Expect(err).To(BeNil())
 				Expect(c).To(BeNil())
-			})
-
-			Context("when container does not exist", func() {
-				BeforeEach(func() {
-					containerName = "no-such-container"
-				})
-
-				It("returns HTTP 404 Not Found", func() {
-					doRequest()
-
-					Expect(res.Code).To(Equal(http.StatusNotFound))
-
-					j := map[string]interface{}{}
-					err := json.Unmarshal(res.Body.Bytes(), &j)
-					Expect(err).To(BeNil())
-
-					errType, _ := j["error"].(string)
-					Expect(errType).To(Equal("not_found"))
-
-					errDesc, _ := j["error_description"].(string)
-					Expect(errDesc).To(Equal("container does not exist"))
-				})
 			})
 
 			Context("when the Freighter client returns an error", func() {
