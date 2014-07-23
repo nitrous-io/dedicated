@@ -54,19 +54,8 @@ func init() {
 func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	log := c.Logger()
 
-	// FIXME Make Freighter API request and DB query concurrent.
-	// 1. send request to Freighter API in goroutine.
-	// 2. query DB normally.
-	// 3. If db query returns err, stop other Freighter API goroutine (to avoid leaks) and return err.
-	// 4. Wait for both db query and Freighter API goroutine to complete.
-	fHost, err := mkFreighterHost(h)
-	if err != nil {
-		return err
-	}
-	liveContainers, err := FreighterClient.List(fHost)
-	if err != nil {
-		return err
-	}
+	out := make(chan listresult, 1)
+	go freighterList(h, out)
 
 	db := c.DB()
 	savedContainers, err := container.FindAllByHostID(db, h.ID)
@@ -74,8 +63,13 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 		return err
 	}
 
+	live := <-out
+	if live.Err != nil {
+		return live.Err
+	}
+
 	log.Debug("Live containers:")
-	for _, c := range liveContainers {
+	for _, c := range live.Containers {
 		log.Debugf("  %+v", c)
 	}
 	log.Debug("Saved containers:")
@@ -84,7 +78,7 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 	}
 
 	containers := []*container.Container{}
-	for _, lc := range liveContainers {
+	for _, lc := range live.Containers {
 		var savedContainer *container.Container
 		for _, sc := range savedContainers {
 			if sc.CID == lc.ID {
@@ -105,6 +99,25 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 		"containers": containers,
 	}
 	return nil
+}
+
+type listresult struct {
+	Containers []*freighterclient.Container
+	Err        error
+}
+
+func freighterList(h *host.Host, out chan<- listresult) {
+	fHost, err := mkFreighterHost(h)
+	if err != nil {
+		out <- listresult{Err: err}
+		return
+	}
+	liveContainers, err := FreighterClient.List(fHost)
+	if err != nil {
+		out <- listresult{Err: err}
+		return
+	}
+	out <- listresult{Containers: liveContainers, Err: nil}
 }
 
 func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
