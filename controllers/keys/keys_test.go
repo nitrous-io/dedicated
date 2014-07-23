@@ -130,11 +130,11 @@ var _ = Describe("controllers/keys", func() {
 				var pks []*publickey.PublicKey
 
 				BeforeEach(func() {
-					for i := 0; i < 2; i++ {
+					for _, k := range validKeys {
 						pk := &publickey.PublicKey{
 							UserID:      hs.U.ID,
 							ContainerID: c.ID,
-							Key:         validKeys[i],
+							Key:         k,
 						}
 						err := pk.Insert(db)
 						Expect(err).To(BeNil())
