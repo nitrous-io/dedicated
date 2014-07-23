@@ -834,7 +834,10 @@ var _ = Describe("server", func() {
 
 	Describe("POST /containers/:id/shells", func() {
 		doRequest := func(id string) {
-			req, _ = NewRequest("POST", fmt.Sprintf("/containers/%v/shells", id), nil)
+			params := &url.Values{}
+			params.Set("command", "/bin/bash")
+
+			req, _ = NewRequest("POST", fmt.Sprintf("/containers/%v/shells", id), params)
 			handler.ServeHTTP(res, req)
 		}
 
