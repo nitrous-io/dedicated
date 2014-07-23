@@ -1,8 +1,7 @@
 = outlet topnav
-.container
-  #body-wrapper
-    #sidebar-wrapper
-      = outlet sidebar
-    #content-wrapper
-      = outlet content
+#body-wrapper.container
+  #sidebar-wrapper
+    = outlet sidebar
+  #content-wrapper
+    = outlet content
 = partial 'footer'

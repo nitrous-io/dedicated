@@ -57,4 +57,4 @@
     button.ui.btn Restart
     button.ui.btn Shut Down
   .right
-    button.ui.btn.primary Terminal
+    button.ui.btn.primary click='openTerminal' Terminal

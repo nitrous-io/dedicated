@@ -178,21 +178,25 @@ table.ui.table
   font-size: $fontSizeSmall
   text-transform: uppercase
   font-weight: 500
-  background: white
+  background: transparent
   border: 0
   border-radius: 2px
   transition: background-color .2s
   color: $gray800
 
   &:hover
-    background: $gray100
+    background: rgba(153, 153, 153, .2)
 
   &:focus
-    background: $gray200
+    background: rgba(153, 153, 153, .3)
     outline: none
 
   &:active
-    background: $gray300
+    background: rgba(153, 153, 153, .4)
+
+  &:disabled
+    color: $gray400
+    background: rgba(153, 153, 153, .1)
 
   &.raised
     +light-shadow
@@ -210,9 +214,8 @@ table.ui.table
     &:active
       background: $lightBlue700
 
-  &:disabled
-    color: $gray400
-    background: $gray100
+    &:disabled
+      background: rgba(204, 204, 204, .1)
 
 .ui.input-group
   label.field-label

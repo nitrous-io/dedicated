@@ -1,5 +1,23 @@
 @import 'variables'
 
+html.fullscreen
+  &, body, #app, #application-view, #home-view
+    height: 100%
+
+  #home-view, #content-wrapper, #container-view
+    display: flex
+    flex-direction: column
+
+  #body-wrapper, #container-view
+    flex-grow: 1
+
+  #topnav-view, #footer
+    flex-shrink: 0
+
+  #container-view
+    .card-header
+      flex-shrink: 0
+
 .state-indicator
   display: inline-block
   width: 12px

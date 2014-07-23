@@ -1,0 +1,12 @@
+.tabs
+  ul.ui.tab-bar.terminal-tab-bar
+    li.selected
+      a href='#' Term 1
+
+  .fullscreen-btn
+    button.ui.btn title='Toggle Full Screen' click='toggleFullscreen target="view"'
+      i.fa.fa-arrows-alt
+      span Fullscreen
+.terminal.card-body
+  pre
+    code
