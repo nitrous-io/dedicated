@@ -127,7 +127,7 @@ var (
 func Generate(suffix string) string {
 	adjectiveIndex := rand.Intn(len(adjectives))
 	nounIndex := rand.Intn(len(nouns))
-	randomInt := (int(rand.Float32()+0.5) * 90) + 10
+	randomInt := rand.Intn(100) + 1
 
 	return fmt.Sprintf("%s-%s-%s-%d", adjectives[adjectiveIndex], nouns[nounIndex], suffix, randomInt)
 }
