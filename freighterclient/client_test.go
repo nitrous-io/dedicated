@@ -363,9 +363,9 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the response is not HTTP 422 Unprocessible Entity", func() {
+		Context("when the response is not HTTP 422 Unprocessable Entity", func() {
 			BeforeEach(func() {
-				statusCode = 422
+				statusCode = freighterclient.StatusUnprocessableEntity
 			})
 
 			Context("when the response body is JSON with an 'error' key", func() {
@@ -399,7 +399,7 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the response is not HTTP 200 OK nor HTTP 422 Unprocessible Entity", func() {
+		Context("when the response is not HTTP 200 OK nor HTTP 422 Unprocessable Entity", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusInternalServerError
 			})
@@ -955,12 +955,8 @@ var _ = Describe("client", func() {
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
 
-			server = ghttp.NewServer()
-			server.AppendHandlers(handlers)
-
-			ip, port := IPAndPort(server)
-			host = &freighterclient.Host{Host: ip, Port: port, Secure: false}
-			client = freighterclient.NewClient(nil)
+			st := NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
@@ -1003,7 +999,19 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the response is not HTTP 200 OK nor HTTP 404 Not Found", func() {
+		Context("when the response is HTTP 422 Unprocessable Entity", func() {
+			BeforeEach(func() {
+				statusCode = freighterclient.StatusUnprocessableEntity
+			})
+
+			It("returns ErrInvalidParams", func() {
+				err := doRequest()
+				Expect(err).To(MatchError(freighterclient.ErrInvalidParams))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+			})
+		})
+
+		Context("when the response is not HTTP 200, 404 or 422", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusInternalServerError
 			})
@@ -1034,12 +1042,8 @@ var _ = Describe("client", func() {
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
 
-			server = ghttp.NewServer()
-			server.AppendHandlers(handlers)
-
-			ip, port := IPAndPort(server)
-			host = &freighterclient.Host{Host: ip, Port: port, Secure: false}
-			client = freighterclient.NewClient(nil)
+			st := NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
@@ -1076,7 +1080,19 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the response is not HTTP 204 No Content nor HTTP 404 Not Found", func() {
+		Context("when the response is HTTP 422 Unprocessable Entity", func() {
+			BeforeEach(func() {
+				statusCode = freighterclient.StatusUnprocessableEntity
+			})
+
+			It("returns ErrInvalidParams", func() {
+				err := doRequest()
+				Expect(err).To(MatchError(freighterclient.ErrInvalidParams))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+			})
+		})
+
+		Context("when the response is not HTTP 204, 404 and 422", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusInternalServerError
 			})

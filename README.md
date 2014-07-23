@@ -81,6 +81,7 @@ Content-Type: application/json; charset=utf-8
 **Status Codes**:
 
 - **204** - no content
+- **422** - missing or invalid params
 
 ### List containers
 

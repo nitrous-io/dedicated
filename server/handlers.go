@@ -15,6 +15,8 @@ import (
 	"github.com/nitrous-io/freighter/provider"
 )
 
+const StatusUnprocessableEntity = 422
+
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, http.StatusOK, jsonStatusOK)
 }
@@ -34,10 +36,10 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	image := r.FormValue("image")
 
 	if name == "" || !provider.IsValidName(name) {
-		s.respond(w, 422, []byte(`{"error":"name is not valid"}`))
+		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"name is not valid"}`))
 		return
 	} else if image == "" {
-		s.respond(w, 422, []byte(`{"error":"image is not valid"}`))
+		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"image is not valid"}`))
 		return
 	}
 
@@ -48,7 +50,7 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, c := range list {
 		if c.Name == name {
-			s.respond(w, 422, []byte(`{"error":"name is already taken"}`))
+			s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"name is already taken"}`))
 			return
 		}
 	}
@@ -118,7 +120,7 @@ func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
 	publicKeys := r.PostForm["public_key[]"]
 
 	if publicKeys == nil {
-		s.respond(w, 422, []byte(`{"error":"public_key[] is missing"}`))
+		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"public_key[] is missing"}`))
 		return
 	}
 
@@ -219,6 +221,7 @@ func (s *Server) createShell(w http.ResponseWriter, r *http.Request) error {
 
 	shell, err := shell.OpenShell(containerID, command, width, height)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	shellID := randomString()
@@ -310,7 +313,7 @@ func (s *Server) loginRegistry(w http.ResponseWriter, r *http.Request) {
 	status := http.StatusCreated
 	err := s.provider.Login(username, password, email, registry)
 	if err != nil {
-		status = http.StatusBadRequest
+		status = StatusUnprocessableEntity
 	}
 	s.respond(w, status, nil)
 }
@@ -321,7 +324,7 @@ func (s *Server) logoutRegistry(w http.ResponseWriter, r *http.Request) {
 	status := http.StatusNoContent
 	err := s.provider.Logout(registry)
 	if err != nil {
-		status = http.StatusBadRequest
+		status = StatusUnprocessableEntity
 	}
 	s.respond(w, status, nil)
 }

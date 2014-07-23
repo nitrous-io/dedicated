@@ -18,6 +18,8 @@ import (
 const (
 	StateRunning = "running"
 	StateStopped = "stopped"
+
+	StatusUnprocessableEntity = 422
 )
 
 var (
@@ -37,6 +39,9 @@ var (
 	// against a container that does not support SSH.
 	// This mirrors provider.ErrPubKeyOpsNotSupported
 	ErrPubKeyOpsNotSupported = provider.ErrPubKeyOpsNotSupported
+
+	// ErrInvalidParams is returned when received a Unprocessable Entity (HTTP 422) response.
+	ErrInvalidParams = errors.New("freighter: invalid params")
 )
 
 // SharedHTTPClient is the shared default http.Client used by Clients created
@@ -211,7 +216,7 @@ func (c *client) Create(h *Host, name, image string, config ContainerConfig) (*C
 	switch resp.StatusCode {
 	case http.StatusOK:
 		// Success, do nothing.
-	case 422:
+	case StatusUnprocessableEntity:
 		errResp, err := unmarshalErrorResponse(resp)
 		if err != nil {
 			return nil, ErrUnexpectedResponse
@@ -366,6 +371,8 @@ func (c *client) RegistryLogin(h *Host, p *RegistryAuth) error {
 		// Success, do nothing.
 	case http.StatusNotFound:
 		return ErrEndpointNotFound
+	case StatusUnprocessableEntity:
+		return ErrInvalidParams
 	default:
 		return &StatusError{resp.StatusCode}
 	}
@@ -393,6 +400,8 @@ func (c *client) RegistryLogout(h *Host, registry string) error {
 		// Deleted, do nothing.
 	case http.StatusNotFound:
 		return ErrEndpointNotFound
+	case StatusUnprocessableEntity:
+		return ErrInvalidParams
 	default:
 		return &StatusError{resp.StatusCode}
 	}
