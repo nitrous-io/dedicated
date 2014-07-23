@@ -1,7 +1,6 @@
 package keys
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/lib/pq"
@@ -176,11 +175,7 @@ func deleteByFingerprint(cnr *container.Container, env *middlewares.Env, c contr
 func withContainer(fn func(cnr *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
 	return middlewares.Vars(func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		db := c.DB()
-
 		u := env.User
-		if u == nil {
-			return errors.New("user is nil")
-		}
 
 		cSlug := env.Vars["container"]
 		cnr, err := container.FindByUserAndSlug(db, u, cSlug)

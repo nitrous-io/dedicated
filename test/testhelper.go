@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/token"
 )
 
 func TestDatabase(dbname string) (*db.Database, error) {
@@ -70,12 +69,12 @@ func TruncateTables(db *db.Database) error {
 	return nil
 }
 
-func NewApiRequest(t *token.Token, method string, urlStr string, params *url.Values) (*http.Request, error) {
+func NewApiRequest(token string, method string, urlStr string, params *url.Values) (*http.Request, error) {
 	req, err := NewRequest(method, urlStr, params)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+t.Token)
+	req.Header.Set("Authorization", "Bearer "+token)
 	return req, nil
 }
 
