@@ -175,7 +175,7 @@ var _ = Describe("controllers/registry", func() {
 
 			It("Returns host not found error", func() {
 				err := doRequest("nanana-8928")
-				Expect(err).To(Equal(registry.ErrHostNotFound))
+				Expect(err).To(Equal(middlewares.ErrHostNotFound))
 			})
 		})
 	})
@@ -224,7 +224,7 @@ var _ = Describe("controllers/registry", func() {
 
 			It("Returns host not found error", func() {
 				err := doRequest("nanana-8928")
-				Expect(err).To(Equal(registry.ErrHostNotFound))
+				Expect(err).To(Equal(middlewares.ErrHostNotFound))
 			})
 		})
 	})
