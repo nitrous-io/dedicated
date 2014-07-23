@@ -435,12 +435,12 @@ func unmarshalContainerResponse(resp *http.Response) (*containerResponse, error)
 	return &cntnr, nil
 }
 
-func unmarshalErrorResponse(resp *http.Response) (errorResponse, error) {
+func unmarshalErrorResponse(resp *http.Response) (*errorResponse, error) {
 	var errResp errorResponse
 	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	resp.Body.Close()
 	if err != nil {
-		return errorResponse{}, ErrUnexpectedResponse
+		return nil, ErrUnexpectedResponse
 	}
-	return errResp, nil
+	return &errResp, nil
 }
