@@ -28,6 +28,7 @@ import (
 	_ "github.com/nitrous-io/nitro/command/keys/clear"
 	_ "github.com/nitrous-io/nitro/command/keys/list"
 	_ "github.com/nitrous-io/nitro/command/keys/remove"
+	_ "github.com/nitrous-io/nitro/command/images/list"
 	_ "github.com/nitrous-io/nitro/command/login"
 	_ "github.com/nitrous-io/nitro/command/logout"
 )
