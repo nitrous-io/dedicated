@@ -4,4 +4,7 @@
     span.divider.fa.fa-angle-right
     a href='#/containers/1' Web App
 
+  button.ui.btn.mini.rename-btn
+    i.fa.fa-pencil
+
 = outlet

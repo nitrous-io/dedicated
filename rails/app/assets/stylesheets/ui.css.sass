@@ -183,6 +183,7 @@ table.ui.table
   border-radius: 2px
   transition: background-color .2s
   color: $gray800
+  line-height: normal
 
   &:hover
     background: rgba(153, 153, 153, .2)
@@ -216,6 +217,14 @@ table.ui.table
 
     &:disabled
       background: rgba(204, 204, 204, .1)
+
+  &.mini
+    width: 30px
+    height: 30px
+    padding: 6px 9px
+
+    span
+      display: none
 
 .ui.input-group
   label.field-label
