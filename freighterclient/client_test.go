@@ -23,46 +23,76 @@ func TestClient(t *testing.T) {
 	RunSpecs(t, "client")
 }
 
+type ServerTest struct {
+	client    freighterclient.Client
+	host      *freighterclient.Host
+	server    *ghttp.Server
+	handlerFn http.HandlerFunc
+	tls       bool
+}
+
+func NewServerTest(handlerFn http.HandlerFunc) *ServerTest {
+	st := &ServerTest{handlerFn: handlerFn}
+	return st.Setup()
+}
+
+func (st *ServerTest) Setup() *ServerTest {
+	if st.tls {
+		st.server = ghttp.NewTLSServer()
+	} else {
+		st.server = ghttp.NewServer()
+	}
+	st.server.AppendHandlers(st.handlerFn)
+
+	ip, port := func() (string, int) {
+		serverAddr := st.server.HTTPTestServer.Listener.Addr().String()
+		ip, portStr, err := net.SplitHostPort(serverAddr)
+		Expect(err).To(BeNil())
+		port, err := strconv.Atoi(portStr)
+		Expect(err).To(BeNil())
+		return ip, port
+	}()
+	st.host = &freighterclient.Host{Host: ip, Port: port, Secure: st.tls}
+
+	if st.tls {
+		tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+		c := &http.Client{Transport: tr}
+		st.client = freighterclient.NewClient(c)
+	} else {
+		st.client = freighterclient.NewClient(nil)
+	}
+
+	return st
+}
+
 var _ = Describe("client", func() {
+	var (
+		st     *ServerTest
+		client freighterclient.Client
+		host   *freighterclient.Host
+		server *ghttp.Server
+	)
+
 	Describe("NewClient()", func() {
 		It("implements Client", func() {
 			var _ freighterclient.Client = freighterclient.NewClient(nil)
 		})
 	})
 
-	IPAndPort := func(s *ghttp.Server) (string, int) {
-		serverAddr := s.HTTPTestServer.Listener.Addr().String()
-		ip, portStr, err := net.SplitHostPort(serverAddr)
-		Expect(err).To(BeNil())
-		port, err := strconv.Atoi(portStr)
-		Expect(err).To(BeNil())
-		return ip, port
-	}
-
 	Describe("List()", func() {
 		var (
-			client freighterclient.Client
-			host   *freighterclient.Host
-
-			server       *ghttp.Server
-			handlers     http.HandlerFunc
 			statusCode   int
 			responseBody string
 		)
 
 		BeforeEach(func() {
-			handlers = ghttp.CombineHandlers(
+			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", "/containers"),
 				ghttp.VerifyContentType("application/json"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-
-			server = ghttp.NewServer()
-			server.AppendHandlers(handlers)
-
-			ip, port := IPAndPort(server)
-			host = &freighterclient.Host{Host: ip, Port: port, Secure: false}
-			client = freighterclient.NewClient(nil)
+			st = NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
@@ -205,15 +235,10 @@ var _ = Describe("client", func() {
 
 		Context("when connecting to a Freighter host over TLS", func() {
 			BeforeEach(func() {
-				server = ghttp.NewTLSServer()
-				server.AppendHandlers(handlers)
-
-				ip, port := IPAndPort(server)
-				host = &freighterclient.Host{Host: ip, Port: port, Secure: true}
-
-				tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-				c := &http.Client{Transport: tr}
-				client = freighterclient.NewClient(c)
+				st.server.Close()
+				st.tls = true
+				st = st.Setup()
+				client, host, server = st.client, st.host, st.server
 			})
 
 			Context("when the response is HTTP 200 OK", func() {
@@ -253,17 +278,12 @@ var _ = Describe("client", func() {
 
 	Describe("Create()", func() {
 		var (
-			client freighterclient.Client
-			host   *freighterclient.Host
-
-			server       *ghttp.Server
-			handlers     http.HandlerFunc
 			statusCode   int
 			responseBody string
 		)
 
 		BeforeEach(func() {
-			handlers = ghttp.CombineHandlers(
+			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
 					// Call ParseForm() so that server.ReceivedRequests() have
 					// POST params populated.
@@ -274,13 +294,8 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-
-			server = ghttp.NewServer()
-			server.AppendHandlers(handlers)
-
-			ip, port := IPAndPort(server)
-			host = &freighterclient.Host{Host: ip, Port: port, Secure: false}
-			client = freighterclient.NewClient(nil)
+			st = NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
@@ -402,28 +417,19 @@ var _ = Describe("client", func() {
 
 	Describe("Info()", func() {
 		var (
-			client freighterclient.Client
-			host   *freighterclient.Host
-
-			server       *ghttp.Server
-			handlers     http.HandlerFunc
 			statusCode   int
 			responseBody string
 		)
 
 		BeforeEach(func() {
-			handlers = ghttp.CombineHandlers(
+			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", "/containers/deadbeef"),
 				ghttp.VerifyContentType("application/json"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
 
-			server = ghttp.NewServer()
-			server.AppendHandlers(handlers)
-
-			ip, port := IPAndPort(server)
-			host = &freighterclient.Host{Host: ip, Port: port, Secure: false}
-			client = freighterclient.NewClient(nil)
+			st = NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
@@ -515,11 +521,6 @@ var _ = Describe("client", func() {
 			fnUnderTest func(h *freighterclient.Host, id string) (*freighterclient.Container, error)
 			path        string
 
-			client freighterclient.Client
-			host   *freighterclient.Host
-
-			server       *ghttp.Server
-			handlers     http.HandlerFunc
 			statusCode   int
 			responseBody string
 
@@ -527,17 +528,12 @@ var _ = Describe("client", func() {
 		)
 
 		BeforeEach(func() {
-			handlers = ghttp.CombineHandlers(
+			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-
-			server = ghttp.NewServer()
-			server.AppendHandlers(handlers)
-
-			ip, port := IPAndPort(server)
-			host = &freighterclient.Host{Host: ip, Port: port, Secure: false}
-			client = freighterclient.NewClient(nil)
+			st = NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
@@ -658,28 +654,18 @@ var _ = Describe("client", func() {
 
 	Describe("Terminate()", func() {
 		var (
-			client freighterclient.Client
-			host   *freighterclient.Host
-
-			server       *ghttp.Server
-			handlers     http.HandlerFunc
 			statusCode   int
 			responseBody string
 		)
 
 		BeforeEach(func() {
-			handlers = ghttp.CombineHandlers(
+			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("DELETE", "/containers/cafefeed"),
 				ghttp.VerifyContentType("application/json"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-
-			server = ghttp.NewServer()
-			server.AppendHandlers(handlers)
-
-			ip, port := IPAndPort(server)
-			host = &freighterclient.Host{Host: ip, Port: port, Secure: false}
-			client = freighterclient.NewClient(nil)
+			st = NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
@@ -751,17 +737,12 @@ var _ = Describe("client", func() {
 
 	Describe("Public Key Operations", func() {
 		var (
-			client freighterclient.Client
-			host   *freighterclient.Host
-
-			server       *ghttp.Server
-			handlers     http.HandlerFunc
 			statusCode   int
 			responseBody string
 		)
 
 		setupServer := func(method, url string) {
-			handlers = ghttp.CombineHandlers(
+			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
 					// Call ParseForm() so that server.ReceivedRequests() have
 					// POST params populated.
@@ -772,13 +753,8 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-
-			server = ghttp.NewServer()
-			server.AppendHandlers(handlers)
-
-			ip, port := IPAndPort(server)
-			host = &freighterclient.Host{Host: ip, Port: port, Secure: false}
-			client = freighterclient.NewClient(nil)
+			st = NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
 		}
 
 		teardownServer := func() {
@@ -951,13 +927,8 @@ var _ = Describe("client", func() {
 				ghttp.VerifyRequest("GET", "/containers/deadbeef/logs", params.Encode()),
 				ghttp.RespondWith(http.StatusOK, "hello i am a log"),
 			)
-			server := ghttp.NewServer()
-			server.AppendHandlers(handlers)
-			defer server.Close()
-
-			ip, port := IPAndPort(server)
-			host := &freighterclient.Host{Host: ip, Port: port, Secure: false}
-			client := freighterclient.NewClient(nil)
+			st := NewServerTest(handlers)
+			client, host := st.client, st.host
 
 			w := bytes.NewBuffer(nil)
 			err := client.Logs(host, "deadbeef", "true", "true", "all", w)
