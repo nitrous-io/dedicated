@@ -42,6 +42,8 @@ var _ = Describe("controllers/images", func() {
 		u  *user.User
 		t  *token.Token
 		hs *HostStack
+
+		showAll string
 	)
 
 	BeforeEach(func() {
@@ -91,7 +93,7 @@ var _ = Describe("controllers/images", func() {
 
 	Describe("GET /api/v0/hosts/{slug}/images", func() {
 		doRequest := func(token, host string) {
-			req, err := NewRequest("GET", fmt.Sprintf("/api/v0/hosts/%v/images?show_all=%s", host), nil)
+			req, err := NewRequest("GET", fmt.Sprintf("/api/v0/hosts/%v/images?show_all=%s", host, showAll), nil)
 			Expect(err).To(BeNil())
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
@@ -101,154 +103,184 @@ var _ = Describe("controllers/images", func() {
 
 		Context("when a valid oauth token is given", func() {
 			Context("when host exists for user", func() {
-				FContext("when host has images", func() {
-					var (
-						img1 *freighterclient.Image
-						img2 *freighterclient.Image
-					)
 
+				Context("when show_all is malformed parameter", func() {
 					BeforeEach(func() {
-						img1 = &freighterclient.Image{
-							ID:          "1a",
-							ParentID:    "p1a",
-							Source:      "source1",
-							SourceTag:   "sourcetag1",
-							CreatedAt:   1903,
-							ActualSize:  13,
-							VirtualSize: 29,
-						}
-						img2 = &freighterclient.Image{
-							ID:          "2a",
-							ParentID:    "p2a",
-							Source:      "source2",
-							SourceTag:   "sourcetag2",
-							CreatedAt:   1904,
-							ActualSize:  14,
-							VirtualSize: 30,
-						}
-						mockClient.ListImagesArray = []*freighterclient.Image{img1, img2}
+						showAll = "_not_even_a_bool"
 					})
 
-					It("calls the Freighter client to list images", func() {
+					It("responds with a bad request", func() {
 						doRequest("valid-token", "foo")
-						Expect(mockClient.ListImagesCalled).To(Equal(1))
-						Expect(mockClient.ListImagesShowAllArgs).To(BeFalse())
-					})
+						Expect(mockClient.ListImagesCalled).To(Equal(0))
 
-					It("responds with the images from Freighter", func() {
-						doRequest("valid-token", "foo")
-
-						Expect(res.Code).To(Equal(http.StatusOK))
-
-						var j map[string][]freighterclient.Image
-						data := res.Body.Bytes()
-						err := json.Unmarshal(data, &j)
-						Expect(err).To(BeNil())
-						images, ok := j["images"]
-						Expect(ok).To(BeTrue())
-						Expect(images).To(HaveLen(2))
-
-						// Fields from Freighter API.
-						Expect(images[0].ID).To(Equal("1a"))
-						Expect(images[0].ParentID).To(Equal("p1a"))
-						Expect(images[0].Source).To(Equal("source1"))
-						Expect(images[0].SourceTag).To(Equal("sourcetag1"))
-						Expect(images[0].CreatedAt).To(Equal(int64(1903)))
-						Expect(images[0].ActualSize).To(Equal(int64(13)))
-						Expect(images[0].VirtualSize).To(Equal(int64(29)))
-					})
-
-					Context("passing showAll options", func() {
-
-					})
-
-					Context("when the Freighter client returns an error", func() {
-						BeforeEach(func() {
-							mockClient.ListImagesError = errors.New("you are not Chuck Norris")
-						})
-
-						It("responds with HTTP 500 Internal Server Error", func() {
-							doRequest("valid-token", "foo")
-
-							Expect(res.Code).To(Equal(http.StatusInternalServerError))
-
-							j := map[string]interface{}{}
-							err := json.Unmarshal(res.Body.Bytes(), &j)
-							Expect(err).To(BeNil())
-
-							errType, _ := j["error"].(string)
-							Expect(errType).To(Equal("internal_server_error"))
-						})
-					})
-
-					Context("when host has no images", func() {
-						BeforeEach(func() {
-							mockClient.ListImagesArray = []*freighterclient.Image{}
-						})
-
-						It("responds with an empty array", func() {
-							doRequest("valid-token", "foo")
-
-							Expect(res.Code).To(Equal(http.StatusOK))
-							j := map[string]interface{}{}
-
-							data := res.Body.Bytes()
-							err := json.Unmarshal(data, &j)
-							Expect(err).To(BeNil())
-							images, ok := j["images"].([]interface{})
-							Expect(ok).To(BeTrue())
-							Expect(images).To(BeEmpty())
-						})
-					})
-
-					Context("when host IP address is not available", func() {
-						BeforeEach(func() {
-							_, err := CreateHostStack(db, &HostStack{
-								H: &host.Host{
-									Slug:      "bar",
-									IPAddress: sql.NullString{},
-								},
-								U:  u,
-								R:  hs.R,
-								P:  hs.P,
-								PT: hs.PT,
-							})
-							Expect(err).To(BeNil())
-						})
-
-						It("returns HTTP 400 Bad Request", func() {
-							doRequest("valid-token", "bar")
-
-							Expect(res.Code).To(Equal(http.StatusBadRequest))
-
-							j := map[string]interface{}{}
-							err := json.Unmarshal(res.Body.Bytes(), &j)
-							Expect(err).To(BeNil())
-
-							errType, _ := j["error"].(string)
-							Expect(errType).To(Equal("invalid_request"))
-
-							errDesc, _ := j["error_description"].(string)
-							Expect(errDesc).To(Equal("host IP is unknown"))
-						})
-					})
-				})
-
-				Context("when host does not exist for user", func() {
-					It("returns HTTP 404 Not Found", func() {
-						doRequest("valid-token", "no-such-host")
-
-						Expect(res.Code).To(Equal(http.StatusNotFound))
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+						Expect(mockClient.ListImagesCalled).To(Equal(0))
 
 						j := map[string]interface{}{}
 						err := json.Unmarshal(res.Body.Bytes(), &j)
 						Expect(err).To(BeNil())
 
 						errType, _ := j["error"].(string)
-						Expect(errType).To(Equal("not_found"))
+						Expect(errType).To(Equal("invalid_request"))
 
 						errDesc, _ := j["error_description"].(string)
-						Expect(errDesc).To(Equal("host does not exist"))
+						Expect(errDesc).To(Equal("show_all is a malformed boolean"))
+					})
+				})
+
+				Context("when show_all is a valid parameter", func() {
+
+					BeforeEach(func() {
+						showAll = "false"
+					})
+
+					Context("when host has images", func() {
+						var (
+							img1 *freighterclient.Image
+							img2 *freighterclient.Image
+						)
+
+						BeforeEach(func() {
+							img1 = &freighterclient.Image{
+								ID:          "1a",
+								ParentID:    "p1a",
+								Source:      "source1",
+								SourceTag:   "sourcetag1",
+								CreatedAt:   1903,
+								ActualSize:  13,
+								VirtualSize: 29,
+							}
+							img2 = &freighterclient.Image{
+								ID:          "2a",
+								ParentID:    "p2a",
+								Source:      "source2",
+								SourceTag:   "sourcetag2",
+								CreatedAt:   1904,
+								ActualSize:  14,
+								VirtualSize: 30,
+							}
+							mockClient.ListImagesArray = []*freighterclient.Image{img1, img2}
+						})
+
+						It("calls the Freighter client to list images", func() {
+							doRequest("valid-token", "foo")
+							Expect(mockClient.ListImagesCalled).To(Equal(1))
+							Expect(mockClient.ListImagesShowAllArgs).To(BeFalse())
+						})
+
+						It("responds with the images from Freighter", func() {
+							doRequest("valid-token", "foo")
+
+							Expect(res.Code).To(Equal(http.StatusOK))
+
+							var j map[string][]freighterclient.Image
+							data := res.Body.Bytes()
+							err := json.Unmarshal(data, &j)
+							Expect(err).To(BeNil())
+							images, ok := j["images"]
+							Expect(ok).To(BeTrue())
+							Expect(images).To(HaveLen(2))
+
+							// Fields from Freighter API.
+							Expect(images[0].ID).To(Equal("1a"))
+							Expect(images[0].ParentID).To(Equal("p1a"))
+							Expect(images[0].Source).To(Equal("source1"))
+							Expect(images[0].SourceTag).To(Equal("sourcetag1"))
+							Expect(images[0].CreatedAt).To(Equal(int64(1903)))
+							Expect(images[0].ActualSize).To(Equal(int64(13)))
+							Expect(images[0].VirtualSize).To(Equal(int64(29)))
+						})
+
+						Context("when the Freighter client returns an error", func() {
+							BeforeEach(func() {
+								mockClient.ListImagesError = errors.New("you are not Chuck Norris")
+							})
+
+							It("responds with HTTP 500 Internal Server Error", func() {
+								doRequest("valid-token", "foo")
+
+								Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+								j := map[string]interface{}{}
+								err := json.Unmarshal(res.Body.Bytes(), &j)
+								Expect(err).To(BeNil())
+
+								errType, _ := j["error"].(string)
+								Expect(errType).To(Equal("internal_server_error"))
+							})
+						})
+
+						Context("when host has no images", func() {
+							BeforeEach(func() {
+								mockClient.ListImagesArray = []*freighterclient.Image{}
+							})
+
+							It("responds with an empty array", func() {
+								doRequest("valid-token", "foo")
+
+								Expect(res.Code).To(Equal(http.StatusOK))
+								j := map[string]interface{}{}
+
+								data := res.Body.Bytes()
+								err := json.Unmarshal(data, &j)
+								Expect(err).To(BeNil())
+								images, ok := j["images"].([]interface{})
+								Expect(ok).To(BeTrue())
+								Expect(images).To(BeEmpty())
+							})
+						})
+
+						Context("when host IP address is not available", func() {
+							BeforeEach(func() {
+								_, err := CreateHostStack(db, &HostStack{
+									H: &host.Host{
+										Slug:      "bar",
+										IPAddress: sql.NullString{},
+									},
+									U:  u,
+									R:  hs.R,
+									P:  hs.P,
+									PT: hs.PT,
+								})
+								Expect(err).To(BeNil())
+							})
+
+							It("returns HTTP 400 Bad Request", func() {
+								doRequest("valid-token", "bar")
+
+								Expect(res.Code).To(Equal(http.StatusBadRequest))
+								Expect(mockClient.ListImagesCalled).To(Equal(0))
+
+								j := map[string]interface{}{}
+								err := json.Unmarshal(res.Body.Bytes(), &j)
+								Expect(err).To(BeNil())
+
+								errType, _ := j["error"].(string)
+								Expect(errType).To(Equal("invalid_request"))
+
+								errDesc, _ := j["error_description"].(string)
+								Expect(errDesc).To(Equal("host IP is unknown"))
+							})
+						})
+					})
+
+					Context("when host does not exist for user", func() {
+						It("returns HTTP 404 Not Found", func() {
+							doRequest("valid-token", "no-such-host")
+
+							Expect(res.Code).To(Equal(http.StatusNotFound))
+							Expect(mockClient.ListImagesCalled).To(Equal(0))
+
+							j := map[string]interface{}{}
+							err := json.Unmarshal(res.Body.Bytes(), &j)
+							Expect(err).To(BeNil())
+
+							errType, _ := j["error"].(string)
+							Expect(errType).To(Equal("not_found"))
+
+							errDesc, _ := j["error_description"].(string)
+							Expect(errDesc).To(Equal("host does not exist"))
+						})
 					})
 				})
 			})

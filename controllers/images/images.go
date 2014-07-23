@@ -8,6 +8,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/pkg/freighterclienttools"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
@@ -16,14 +17,11 @@ import (
 var FreighterClient freighterclient.Client
 
 var (
-	errHostIPUnknown = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
-	errHostNotFound  = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
-
 	errBadShowAllParameter = httperror.New(http.StatusBadRequest, "invalid_request", "show_all is a malformed boolean")
 )
 
 var (
-	Index middlewares.Middleware = withHost(index)
+	Index middlewares.Middleware = middlewares.HostViaPath("slug", index)
 )
 
 func init() {
@@ -60,25 +58,5 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 }
 
 func mkFreighterHost(h *host.Host) (*freighterclient.Host, error) {
-	if h.IPAddress.String == "" {
-		return nil, errHostIPUnknown
-	}
-	return freighterclient.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), false), nil
-}
-
-func withHost(fn func(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
-	return func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-		db := c.DB()
-
-		hSlug := env.Vars["slug"]
-		h, err := host.FindByUserAndSlug(db, env.User, hSlug)
-		if err != nil {
-			return err
-		}
-		if h == nil {
-			return errHostNotFound
-		}
-
-		return fn(h, env, c, w, r)
-	}
+	return freighterclienttools.MakeFreighterHost(h, false)
 }
