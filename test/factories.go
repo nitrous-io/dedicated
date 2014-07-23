@@ -93,6 +93,9 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 			Slug: "hoststack-1",
 		}
 	}
+	if hs.H.State == "" {
+		hs.H.State = host.StateRunning
+	}
 
 	hs.H.RegionID = hs.R.ID
 	hs.H.PlanID = hs.P.ID

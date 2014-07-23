@@ -25,6 +25,7 @@ var FreighterClient freighterclient.Client
 
 var (
 	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
+	errHostNotRunning    = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running") // Not 100% on the status code - how about 409 Conflict?
 	errHostIPUnknown     = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
 	errHostNotFound      = middlewares.ErrHostNotFound
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
@@ -40,11 +41,11 @@ var (
 var (
 	Index   middlewares.Middleware = middlewares.HostViaForm("host", index)
 	Create  middlewares.Middleware = middlewares.HostViaForm("host", create)
-	Show    middlewares.Middleware = withContainer(show)
-	Start   middlewares.Middleware = withContainer(start)
-	Stop    middlewares.Middleware = withContainer(stop)
-	Restart middlewares.Middleware = withContainer(restart)
-	Destroy middlewares.Middleware = withContainer(destroy)
+	Show    middlewares.Middleware = withContainerAndHost(show)
+	Start   middlewares.Middleware = withContainerAndHost(start)
+	Stop    middlewares.Middleware = withContainerAndHost(stop)
+	Restart middlewares.Middleware = withContainerAndHost(restart)
+	Destroy middlewares.Middleware = withContainerAndHost(destroy)
 )
 
 func init() {
@@ -52,6 +53,10 @@ func init() {
 }
 
 func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	if h.State != host.StateRunning {
+		return errHostNotRunning
+	}
+
 	log := c.Logger()
 
 	out := make(chan listresult, 1)
@@ -128,6 +133,10 @@ func freighterList(h *host.Host, out chan<- listresult, quit <-chan struct{}) {
 }
 
 func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	if h.State != host.StateRunning {
+		return errHostNotRunning
+	}
+
 	db := c.DB()
 	log := c.Logger()
 
@@ -212,16 +221,7 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 	return nil
 }
 
-func show(cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-
-	h, err := host.FindByID(db, cn.HostID)
-	if err != nil {
-		return err
-	}
-	if h == nil {
-		return errHostNotFound
-	}
+func show(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	fHost, err := mkFreighterHost(h)
 	if err != nil {
 		return err
@@ -241,30 +241,21 @@ func show(cn *container.Container, env *middlewares.Env, c controllers.Helper, w
 	return nil
 }
 
-func start(cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	return performControlAction(FreighterClient.Start, cn, env, c, w, r)
+func start(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	return performControlAction(FreighterClient.Start, cn, h, env, c, w, r)
 }
 
-func stop(cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	return performControlAction(FreighterClient.Stop, cn, env, c, w, r)
+func stop(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	return performControlAction(FreighterClient.Stop, cn, h, env, c, w, r)
 }
 
-func restart(cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	return performControlAction(FreighterClient.Restart, cn, env, c, w, r)
+func restart(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	return performControlAction(FreighterClient.Restart, cn, h, env, c, w, r)
 }
 
 type actionFn func(h *freighterclient.Host, id string) (*freighterclient.Container, error)
 
-func performControlAction(fn actionFn, cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-
-	h, err := host.FindByID(db, cn.HostID)
-	if err != nil {
-		return err
-	}
-	if h == nil {
-		return errHostNotFound
-	}
+func performControlAction(fn actionFn, cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	fHost, err := mkFreighterHost(h)
 	if err != nil {
 		return err
@@ -282,16 +273,7 @@ func performControlAction(fn actionFn, cn *container.Container, env *middlewares
 	return nil
 }
 
-func destroy(cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-
-	h, err := host.FindByID(db, cn.HostID)
-	if err != nil {
-		return err
-	}
-	if h == nil {
-		return errHostNotFound
-	}
+func destroy(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	fHost, err := mkFreighterHost(h)
 	if err != nil {
 		return err
@@ -301,7 +283,7 @@ func destroy(cn *container.Container, env *middlewares.Env, c controllers.Helper
 		return err
 	}
 
-	err = cn.Delete(db)
+	err = cn.Delete(c.DB())
 	if err != nil {
 		return err
 	}
@@ -314,7 +296,7 @@ func destroy(cn *container.Container, env *middlewares.Env, c controllers.Helper
 	return nil
 }
 
-func withContainer(fn func(cn *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
+func withContainerAndHost(fn func(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
 	return middlewares.Vars(func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		db := c.DB()
 
@@ -327,7 +309,18 @@ func withContainer(fn func(cn *container.Container, env *middlewares.Env, c cont
 			return errContainerNotFound
 		}
 
-		return fn(cn, env, c, w, r)
+		h, err := host.FindByID(db, cn.HostID)
+		if err != nil {
+			return err
+		}
+		if h == nil {
+			return errHostNotFound
+		}
+		if h.State != host.StateRunning {
+			return errHostNotRunning
+		}
+
+		return fn(cn, h, env, c, w, r)
 	})
 }
 

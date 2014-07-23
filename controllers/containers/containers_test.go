@@ -285,6 +285,27 @@ var _ = Describe("controllers/containers", func() {
 					})
 				})
 
+				Context("when host is not running", func() {
+					BeforeEach(func() {
+						err := hs.H.UpdateState(db, host.StateStopped)
+						Expect(err).To(BeNil())
+					})
+
+					It("returns HTTP 400 Bad Request", func() {
+						doRequest("valid-token", "foo")
+
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+						j := map[string]interface{}{}
+						err := json.Unmarshal(res.Body.Bytes(), &j)
+						Expect(err).To(BeNil())
+						errType, _ := j["error"].(string)
+						Expect(errType).To(Equal("invalid_state"))
+						errDesc, _ := j["error_description"].(string)
+						Expect(errDesc).To(Equal("host is not running"))
+					})
+				})
+
 				Context("when host IP address is not available", func() {
 					BeforeEach(func() {
 						_, err := CreateHostStack(db, &HostStack{
@@ -543,6 +564,27 @@ var _ = Describe("controllers/containers", func() {
 					})
 				})
 			})
+
+			Context("when host is not running", func() {
+				BeforeEach(func() {
+					err := hs.H.UpdateState(db, host.StateStopped)
+					Expect(err).To(BeNil())
+				})
+
+				It("returns HTTP 400 Bad Request", func() {
+					doRequest("valid-token", "foo", params)
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					errType, _ := j["error"].(string)
+					Expect(errType).To(Equal("invalid_state"))
+					errDesc, _ := j["error_description"].(string)
+					Expect(errDesc).To(Equal("host is not running"))
+				})
+			})
 		})
 
 		Context("oauth token failure modes", func() {
@@ -670,6 +712,27 @@ var _ = Describe("controllers/containers", func() {
 
 					errType, _ := j["error"].(string)
 					Expect(errType).To(Equal("internal_server_error"))
+				})
+			})
+
+			Context("when host is not running", func() {
+				BeforeEach(func() {
+					err := hs.H.UpdateState(db, host.StateStopped)
+					Expect(err).To(BeNil())
+				})
+
+				It("returns HTTP 400 Bad Request", func() {
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					errType, _ := j["error"].(string)
+					Expect(errType).To(Equal("invalid_state"))
+					errDesc, _ := j["error_description"].(string)
+					Expect(errDesc).To(Equal("host is not running"))
 				})
 			})
 		})
@@ -801,6 +864,27 @@ var _ = Describe("controllers/containers", func() {
 
 						errType, _ := j["error"].(string)
 						Expect(errType).To(Equal("internal_server_error"))
+					})
+				})
+
+				Context("when host is not running", func() {
+					BeforeEach(func() {
+						err := hs.H.UpdateState(db, host.StateStopped)
+						Expect(err).To(BeNil())
+					})
+
+					It("returns HTTP 400 Bad Request", func() {
+						doRequest("valid-token", "foo", "elixir-web-1")
+
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+						j := map[string]interface{}{}
+						err := json.Unmarshal(res.Body.Bytes(), &j)
+						Expect(err).To(BeNil())
+						errType, _ := j["error"].(string)
+						Expect(errType).To(Equal("invalid_state"))
+						errDesc, _ := j["error_description"].(string)
+						Expect(errDesc).To(Equal("host is not running"))
 					})
 				})
 			})
@@ -976,6 +1060,27 @@ var _ = Describe("controllers/containers", func() {
 
 					errType, _ := j["error"].(string)
 					Expect(errType).To(Equal("internal_server_error"))
+				})
+			})
+
+			Context("when host is not running", func() {
+				BeforeEach(func() {
+					err := hs.H.UpdateState(db, host.StateStopped)
+					Expect(err).To(BeNil())
+				})
+
+				It("returns HTTP 400 Bad Request", func() {
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					errType, _ := j["error"].(string)
+					Expect(errType).To(Equal("invalid_state"))
+					errDesc, _ := j["error_description"].(string)
+					Expect(errDesc).To(Equal("host is not running"))
 				})
 			})
 		})
