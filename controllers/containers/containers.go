@@ -41,11 +41,11 @@ var (
 var (
 	Index   middlewares.Middleware = middlewares.HostViaForm("host", index)
 	Create  middlewares.Middleware = middlewares.HostViaForm("host", create)
-	Show    middlewares.Middleware = withContainerAndHost(show)
-	Start   middlewares.Middleware = withContainerAndHost(start)
-	Stop    middlewares.Middleware = withContainerAndHost(stop)
-	Restart middlewares.Middleware = withContainerAndHost(restart)
-	Destroy middlewares.Middleware = withContainerAndHost(destroy)
+	Show    middlewares.Middleware = WithContainerAndHost(show)
+	Start   middlewares.Middleware = WithContainerAndHost(start)
+	Stop    middlewares.Middleware = WithContainerAndHost(stop)
+	Restart middlewares.Middleware = WithContainerAndHost(restart)
+	Destroy middlewares.Middleware = WithContainerAndHost(destroy)
 )
 
 func init() {
@@ -296,7 +296,7 @@ func destroy(cn *container.Container, h *host.Host, env *middlewares.Env, c cont
 	return nil
 }
 
-func withContainerAndHost(fn func(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
+func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
 	return middlewares.Vars(func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		db := c.DB()
 
