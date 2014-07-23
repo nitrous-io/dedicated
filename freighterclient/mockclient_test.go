@@ -1,7 +1,6 @@
-package freighterclient_test
+package freighterclient
 
 import (
-	"github.com/nitrous-io/freighter/freighterclient"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -10,18 +9,18 @@ import (
 // MockClient is not broken for external users
 var _ = Describe("mockclient", func() {
 	It("implements freighterclient.Client", func() {
-		var _ freighterclient.Client = &freighterclient.MockClient{}
+		var _ Client = &MockClient{}
 	})
 
 	It("returns docker config", func() {
-		mc := &freighterclient.MockClient{}
+		mc := &MockClient{}
 		dcc, err := mc.DockerContainerConfig()
 		Expect(err).To(BeNil())
 		Expect(dcc).To(BeNil())
 
-		dcc = freighterclient.NewDockerContainerConfig()
+		dcc = NewDockerContainerConfig()
 		dcc.Env = []string{"LANG=C"}
-		mc.Create(nil, "stub", "stub", dcc)
+		mc.Create("stub", "stub", dcc)
 		mockConf, err := mc.DockerContainerConfig()
 		Expect(err).To(BeNil())
 		Expect(mockConf).NotTo(BeNil())

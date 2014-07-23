@@ -80,7 +80,7 @@ type MockClient struct {
 	ListImagesError  error
 }
 
-func (c *MockClient) List(h *Host) ([]*Container, error) {
+func (c *MockClient) List() ([]*Container, error) {
 	c.ListCalled = c.ListCalled + 1
 	if c.ListError != nil {
 		return nil, c.ListError
@@ -91,7 +91,7 @@ func (c *MockClient) List(h *Host) ([]*Container, error) {
 	return c.Containers, nil
 }
 
-func (c *MockClient) Create(h *Host, name, image string, config ContainerConfig) (*Container, error) {
+func (c *MockClient) Create(name, image string, config ContainerConfig) (*Container, error) {
 	c.CreateCalled = c.CreateCalled + 1
 	c.ReceivedName = name
 	c.ReceivedImage = image
@@ -99,7 +99,7 @@ func (c *MockClient) Create(h *Host, name, image string, config ContainerConfig)
 	return c.CreatedContainer, c.CreateError
 }
 
-func (c *MockClient) Info(h *Host, id string) (*Container, error) {
+func (c *MockClient) Info(id string) (*Container, error) {
 	c.InfoCalled = c.InfoCalled + 1
 	c.ReceivedID = id
 	if c.InfoError != nil {
@@ -113,49 +113,49 @@ func (c *MockClient) Info(h *Host, id string) (*Container, error) {
 	return nil, ErrContainerNotFound
 }
 
-func (c *MockClient) Start(h *Host, id string) (*Container, error) {
+func (c *MockClient) Start(id string) (*Container, error) {
 	c.StartCalled = c.StartCalled + 1
 	c.ReceivedID = id
 	if c.StartError != nil {
 		return nil, c.StartError
 	}
-	cntnr, _ := c.Info(h, id)
+	cntnr, _ := c.Info(id)
 	if cntnr != nil {
 		cntnr.State = StateRunning
 	}
 	return cntnr, nil
 }
 
-func (c *MockClient) Stop(h *Host, id string) (*Container, error) {
+func (c *MockClient) Stop(id string) (*Container, error) {
 	c.StopCalled = c.StopCalled + 1
 	c.ReceivedID = id
 	if c.StopError != nil {
 		return nil, c.StopError
 	}
-	cntnr, _ := c.Info(h, id)
+	cntnr, _ := c.Info(id)
 	if cntnr != nil {
 		cntnr.State = StateStopped
 	}
 	return cntnr, nil
 }
 
-func (c *MockClient) Restart(h *Host, id string) (*Container, error) {
+func (c *MockClient) Restart(id string) (*Container, error) {
 	c.RestartCalled = c.RestartCalled + 1
 	c.ReceivedID = id
 	if c.RestartError != nil {
 		return nil, c.RestartError
 	}
-	cntnr, _ := c.Info(h, id)
+	cntnr, _ := c.Info(id)
 	if cntnr != nil {
 		cntnr.State = StateRunning
 	}
 	return cntnr, nil
 }
 
-func (c *MockClient) Terminate(h *Host, id string) (*Container, error) {
+func (c *MockClient) Terminate(id string) (*Container, error) {
 	c.TerminateCalled = c.TerminateCalled + 1
 	c.ReceivedID = id
-	cntnr, _ := c.Info(h, id)
+	cntnr, _ := c.Info(id)
 	if cntnr != nil {
 		cntnr.Host = ""
 		cntnr.State = ""
@@ -163,53 +163,53 @@ func (c *MockClient) Terminate(h *Host, id string) (*Container, error) {
 	return cntnr, c.TerminateError
 }
 
-func (c *MockClient) AddPublicKeys(h *Host, id string, pubkeys []string) error {
+func (c *MockClient) AddPublicKeys(id string, pubkeys []string) error {
 	c.AddPublicKeysCalled = c.AddPublicKeysCalled + 1
 	c.ReceivedID = id
 
 	return c.AddPublicKeysError
 }
 
-func (c *MockClient) ClearPublicKeys(h *Host, id string) error {
+func (c *MockClient) ClearPublicKeys(id string) error {
 	c.ClearPublicKeysCalled = c.ClearPublicKeysCalled + 1
 	c.ReceivedID = id
 
 	return c.ClearPublicKeysError
 }
 
-func (c *MockClient) RemovePublicKey(h *Host, id string, fingerprint string) error {
+func (c *MockClient) RemovePublicKey(id string, fingerprint string) error {
 	c.RemovePublicKeyCalled = c.RemovePublicKeyCalled + 1
 	c.ReceivedID = id
 
 	return c.RemovePublicKeyError
 }
 
-func (c *MockClient) ListVolumes(h *Host) ([]string, error) {
+func (c *MockClient) ListVolumes() ([]string, error) {
 	c.ListVolumesCalled += 1
 	return c.ListVolumesReturn, c.ListVolumesError
 }
 
-func (c *MockClient) CreateVolume(host *Host, slug string) (*Volume, error) {
+func (c *MockClient) CreateVolume(slug string) (*Volume, error) {
 	c.CreateVolumeCalled += 1
 	c.CreateVolumeSlug = slug
 	return c.CreateVolumeReturn, c.CreateVolumeError
 }
 
-func (c *MockClient) RemoveVolume(host *Host, slug string) error {
+func (c *MockClient) RemoveVolume(slug string) error {
 	c.RemoveVolumeCalled += 1
 	return c.RemoveVolumeError
 }
 
-func (c *MockClient) GetVolumeInfo(host *Host, slug string) (*Volume, error) {
+func (c *MockClient) GetVolumeInfo(slug string) (*Volume, error) {
 	c.VolumeInfoCalled += 1
 	return c.VolumeInfoReturn, c.VolumeInfoError
 }
 
-func (c *MockClient) Logs(h *Host, id string, follow, timestamps, tail string, w io.Writer) error {
+func (c *MockClient) Logs(id string, follow, timestamps, tail string, w io.Writer) error {
 	return nil
 }
 
-func (c *MockClient) RegistryLogin(h *Host, p *RegistryAuth) error {
+func (c *MockClient) RegistryLogin(p *RegistryAuth) error {
 	c.RegistryLoginCalled = c.RegistryLoginCalled + 1
 	c.ReceivedUsername = p.Username
 	c.ReceivedPassword = p.Password
@@ -219,19 +219,19 @@ func (c *MockClient) RegistryLogin(h *Host, p *RegistryAuth) error {
 	return c.RegistryLoginError
 }
 
-func (c *MockClient) RegistryLogout(h *Host, registry string) error {
+func (c *MockClient) RegistryLogout(registry string) error {
 	c.RegistryLogoutCalled = c.RegistryLogoutCalled + 1
 	c.ReceivedRegistry = registry
 
 	return c.RegistryLogoutError
 }
 
-func (c *MockClient) HostInfo(h *Host) (*HostInfo, error) {
+func (c *MockClient) HostInfo() (*HostInfo, error) {
 	c.HostInfoCalled = c.HostInfoCalled + 1
 	return c.HostInfoReturn, c.HostInfoError
 }
 
-func (c *MockClient) ListImages(h *Host) ([]*Image, error) {
+func (c *MockClient) ListImages() ([]*Image, error) {
 	c.ListImagesCalled = c.ListImagesCalled + 1
 
 	return c.ListImagesArray, c.ListImagesError
