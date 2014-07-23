@@ -89,7 +89,7 @@ func (c *MockClient) Info(h *Host, id string) (*Container, error) {
 			return c, nil
 		}
 	}
-	return nil, ErrNotFound
+	return nil, ErrContainerNotFound
 }
 
 func (c *MockClient) Start(h *Host, id string) (*Container, error) {

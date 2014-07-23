@@ -492,9 +492,9 @@ var _ = Describe("client", func() {
 				statusCode = http.StatusNotFound
 			})
 
-			It("returns ErrNotFound", func() {
+			It("returns ErrContainerNotFound", func() {
 				container, err := client.Info(host, "deadbeef")
-				Expect(err).To(Equal(freighterclient.ErrNotFound))
+				Expect(err).To(Equal(freighterclient.ErrContainerNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
 			})
@@ -604,9 +604,9 @@ var _ = Describe("client", func() {
 					statusCode = http.StatusNotFound
 				})
 
-				It("returns ErrNotFound", func() {
+				It("returns ErrContainerNotFound", func() {
 					container, err := fnUnderTest(host, id)
-					Expect(err).To(MatchError(freighterclient.ErrNotFound))
+					Expect(err).To(MatchError(freighterclient.ErrContainerNotFound))
 					Expect(container).To(BeNil())
 				})
 			})
@@ -713,9 +713,9 @@ var _ = Describe("client", func() {
 				statusCode = http.StatusNotFound
 			})
 
-			It("returns ErrNotFound", func() {
+			It("returns ErrContainerNotFound", func() {
 				container, err := client.Terminate(host, "cafefeed")
-				Expect(err).To(MatchError(freighterclient.ErrNotFound))
+				Expect(err).To(MatchError(freighterclient.ErrContainerNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
 			})
@@ -996,9 +996,9 @@ var _ = Describe("client", func() {
 				statusCode = http.StatusNotFound
 			})
 
-			It("returns ErrNotFound", func() {
+			It("returns ErrEndpointNotFound", func() {
 				err := doRequest()
-				Expect(err).To(MatchError(freighterclient.ErrNotFound))
+				Expect(err).To(MatchError(freighterclient.ErrEndpointNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
@@ -1069,9 +1069,9 @@ var _ = Describe("client", func() {
 				statusCode = http.StatusNotFound
 			})
 
-			It("returns ErrNotFound", func() {
+			It("returns ErrEndpointNotFound", func() {
 				err := doRequest()
-				Expect(err).To(MatchError(freighterclient.ErrNotFound))
+				Expect(err).To(MatchError(freighterclient.ErrEndpointNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
