@@ -55,21 +55,23 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 	log := c.Logger()
 
 	out := make(chan listresult, 1)
-	go freighterList(h, out)
+	quit := make(chan struct{})
+	go freighterList(h, out, quit)
 
 	db := c.DB()
 	savedContainers, err := container.FindAllByHostID(db, h.ID)
 	if err != nil {
+		close(quit)
 		return err
 	}
 
 	live := <-out
-	if live.Err != nil {
-		return live.Err
+	if live.err != nil {
+		return live.err
 	}
 
 	log.Debug("Live containers:")
-	for _, c := range live.Containers {
+	for _, c := range live.containers {
 		log.Debugf("  %+v", c)
 	}
 	log.Debug("Saved containers:")
@@ -78,7 +80,7 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 	}
 
 	containers := []*container.Container{}
-	for _, lc := range live.Containers {
+	for _, lc := range live.containers {
 		var savedContainer *container.Container
 		for _, sc := range savedContainers {
 			if sc.CID == lc.ID {
@@ -102,22 +104,27 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 }
 
 type listresult struct {
-	Containers []*freighterclient.Container
-	Err        error
+	containers []*freighterclient.Container
+	err        error
 }
 
-func freighterList(h *host.Host, out chan<- listresult) {
-	fHost, err := mkFreighterHost(h)
-	if err != nil {
-		out <- listresult{Err: err}
+func freighterList(h *host.Host, out chan<- listresult, quit <-chan struct{}) {
+	select {
+	case <-quit:
 		return
+	default:
+		fHost, err := mkFreighterHost(h)
+		if err != nil {
+			out <- listresult{err: err}
+			return
+		}
+		liveContainers, err := FreighterClient.List(fHost)
+		if err != nil {
+			out <- listresult{err: err}
+			return
+		}
+		out <- listresult{containers: liveContainers, err: nil}
 	}
-	liveContainers, err := FreighterClient.List(fHost)
-	if err != nil {
-		out <- listresult{Err: err}
-		return
-	}
-	out <- listresult{Containers: liveContainers, Err: nil}
 }
 
 func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
