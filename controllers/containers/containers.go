@@ -12,6 +12,7 @@ import (
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/pkg/freighterclienttools"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
@@ -26,8 +27,7 @@ var FreighterClient freighterclient.Client
 var (
 	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errHostNotRunning    = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running") // Not 100% on the status code - how about 409 Conflict?
-	errHostIPUnknown     = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
-	errHostNotFound      = middleware.ErrHostNotFound
+	errHostNotFound      = middlewares.ErrHostNotFound
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 )
@@ -325,10 +325,7 @@ func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *mi
 }
 
 func mkFreighterHost(h *host.Host) (*freighterclient.Host, error) {
-	if h.IPAddress.String == "" {
-		return nil, errHostIPUnknown
-	}
-	return freighterclient.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), false), nil
+	return freighterclienttools.MakeFreighterHost(h, false)
 }
 
 func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) {

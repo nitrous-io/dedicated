@@ -1,7 +1,6 @@
 package freighterclienttools
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/nitrous-io/freighter/freighterclient"
