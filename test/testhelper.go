@@ -69,7 +69,7 @@ func TruncateTables(db *db.Database) error {
 	return nil
 }
 
-func NewApiRequest(token string, method string, urlStr string, params *url.Values) (*http.Request, error) {
+func NewAPIRequest(token string, method string, urlStr string, params *url.Values) (*http.Request, error) {
 	req, err := NewRequest(method, urlStr, params)
 	if err != nil {
 		return nil, err
