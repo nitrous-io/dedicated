@@ -866,32 +866,24 @@ var _ = Describe("provider/docker", func() {
 
 				Expect(imageList).To(HaveLen(1))
 
-				Expect(imageList[0].Name).To(Equal("basic"))
 			})
 
-			It("should fetch the basic info about an Image", func() {
+			It("should fetch basic info about an Image", func() {
 				imageList, err := prov.ListImages()
 				Expect(err).To(BeNil())
 
-				splitSet := strings.Split(image, ":")
-				Expect(splitSet).To(HaveLen(2))
+				i1 := imageList[0]
 
-				var target *provider.ImageInfo
-				for _, imageInf := range imageList {
-					if imageInf.Name == "basic" && imageInf.Tag == "n1" {
-						target = imageInf
-						break
-					}
-				}
+				Expect(i1.Name).To(Equal("basic"))
+				Expect(i1.Tag).To(Equal("n1"))
 
-				Expect(target).ToNot(BeNil())
-				Expect(target.ActualSize).To(Equal(imageSize(target.ID)))
+				Expect(i1.ActualSize).To(Equal(imageSize(i1.ID)))
 
-				timeStr := doInspect(target.ID, "{{.Created}}")
+				timeStr := doInspect(i1.ID, "{{.Created}}")
 				expectingTime, err := time.Parse(time.RFC3339, timeStr)
 				Expect(err).To(BeNil())
 				expectingUTime := expectingTime.Unix()
-				Expect(target.CreatedAt).To(Equal(expectingUTime))
+				Expect(i1.CreatedAt).To(Equal(expectingUTime))
 			})
 		})
 
@@ -909,33 +901,19 @@ var _ = Describe("provider/docker", func() {
 			})
 
 			It("should break them out into separate entries", func() {
-				imageList, _ := prov.ListImages()
+				imageList, err := prov.ListImages()
+				Expect(err).To(BeNil())
 
-				splitSet := strings.Split(image, ":")
-				Expect(splitSet).To(HaveLen(2))
+				Expect(len(imageList)).To(Equal(2))
+				i1 := imageList[0]
+				i2 := imageList[1]
 
-				var target1 *provider.ImageInfo
-				var target2 *provider.ImageInfo
-				for _, imageInf := range imageList {
-					if imageInf.Name == "multiple" {
-						switch imageInf.Tag {
-						case "n1":
-							target1 = imageInf
-						case "n2":
-							target2 = imageInf
-						}
-					}
-
-					if target1 != nil && target2 != nil {
-						break
-					}
-				}
-
-				Expect(target1).ToNot(BeNil())
-				Expect(target2).ToNot(BeNil())
-				Expect(target2.ID).To(Equal(target1.ID))
+				Expect(i1.Name).To(Equal("multiple"))
+				Expect(i2.Name).To(Equal("multiple"))
+				Expect(i1.Tag).To(Equal("n1"))
+				Expect(i2.Tag).To(Equal("n2"))
+				Expect(i1.ID).To(Equal(i2.ID))
 			})
 		})
-
 	})
 })
