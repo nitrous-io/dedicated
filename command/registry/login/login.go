@@ -89,6 +89,10 @@ func (c *Command) Run(args []string) int {
 	if password == "" {
 		password, err = speakeasy.Ask("Password (will not be echoed): ")
 		if err != nil {
+			if err.Error() == "interrupted" {
+				c.UI.Error("Login cancelled.")
+				return 130
+			}
 			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
 		}
 	}
