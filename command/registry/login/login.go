@@ -17,7 +17,7 @@ const (
 	usernameUsage = "Docker registry's username"
 	passwordUsage = "Docker registry's password"
 	emailUsage    = "Docker registry's email"
-	registryUsage = "Docker registry's server.  Defaults to Docker Hub registry"
+	registryUsage = "Docker registry's server. Defaults to Docker Hub registry"
 )
 
 var usage = fmt.Sprintf(`
