@@ -102,6 +102,18 @@ func (c *Command) Run(args []string) int {
 			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
 		}
 	}
+
+	if registry == "" {
+		registry, err = c.UI.Ask("Registry (press enter for hub.docker.com): ")
+		if err != nil {
+			if err.Error() == "interrupted" {
+				c.UI.Error("Login cancelled.")
+				return 130
+			}
+			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
+		}
+	}
+
 	username = strings.TrimSpace(username)
 	password = strings.TrimSpace(password)
 	email = strings.TrimSpace(email)
