@@ -27,14 +27,6 @@ var (
 	// an unexpected response body.
 	ErrUnexpectedResponse = errors.New("freighter: unexpected response")
 
-	// ErrEndpointNotFound is returned when trying to send a request
-	// to a non-existing endpoint.
-	ErrEndpointNotFound = errors.New("freighter: endpoint not found")
-
-	// ErrContainerNotFound is returned when trying to perform an action against a
-	// container that does not exist.
-	ErrContainerNotFound = errors.New("freighter: container not found")
-
 	// ErrPubKeyOpsNotSupported is return when trying to perform a public key op
 	// against a container that does not support SSH.
 	// This mirrors provider.ErrPubKeyOpsNotSupported
@@ -42,6 +34,10 @@ var (
 
 	// ErrInvalidParams is returned when received a Unprocessable Entity (HTTP 422) response.
 	ErrInvalidParams = errors.New("freighter: invalid params")
+
+	ErrEndpointNotFound = errors.New("freighter: endpoint not found")
+
+	ErrContainerNotFound = errors.New("freighter: container not found")
 )
 
 // SharedHTTPClient is the shared default http.Client used by Clients created
