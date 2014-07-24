@@ -14,9 +14,11 @@ var FreighterClient freighterclient.Client
 
 var (
 	errHostIPUnknown    = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
-	ErrUsernameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "username is required")
-	ErrPasswordRequired = httperror.New(http.StatusBadRequest, "invalid_request", "password is required")
-	ErrEmailRequired    = httperror.New(http.StatusBadRequest, "invalid_request", "email is required")
+	errUsernameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "username is required")
+	errPasswordRequired = httperror.New(http.StatusBadRequest, "invalid_request", "password is required")
+	errEmailRequired    = httperror.New(http.StatusBadRequest, "invalid_request", "email is required")
+	errLoginFailed      = httperror.New(http.StatusBadRequest, "login_failed", "registry login failed")
+	errLogoutFailed     = httperror.New(http.StatusBadRequest, "logout_failed", "registry logout failed")
 )
 
 var (
@@ -33,17 +35,17 @@ func login(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 
 	username := r.FormValue("username")
 	if username == "" {
-		return ErrUsernameRequired
+		return errUsernameRequired
 	}
 
 	password := r.FormValue("password")
 	if password == "" {
-		return ErrPasswordRequired
+		return errPasswordRequired
 	}
 
 	email := r.FormValue("email")
 	if email == "" {
-		return ErrEmailRequired
+		return errEmailRequired
 	}
 
 	registry := r.FormValue("registry")
@@ -62,6 +64,10 @@ func login(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 
 	err = FreighterClient.RegistryLogin(fHost, params)
 	if err != nil {
+		if err == freighterclient.ErrInvalidParams {
+			return errLoginFailed
+		}
+
 		return err
 	}
 
@@ -82,6 +88,9 @@ func logout(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 
 	err = FreighterClient.RegistryLogout(fHost, r.FormValue("registry"))
 	if err != nil {
+		if err == freighterclient.ErrInvalidParams {
+			return errLogoutFailed
+		}
 		return err
 	}
 
