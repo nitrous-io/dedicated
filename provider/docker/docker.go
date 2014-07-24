@@ -36,21 +36,21 @@ type TemplateData struct {
 }
 
 type DockerProvider struct {
-	client             *dockerclient.Client
-	dataPath           string
-	containerNamespace string
-	logger             *util.Logger
+	client    *dockerclient.Client
+	dataPath  string
+	namespace string
+	logger    *util.Logger
 }
 
-func NewDockerProvider(logger *util.Logger, dataPath string, containerNamespace string) (*DockerProvider, error) {
-	if logger == nil || dataPath == "" || containerNamespace == "" {
+func NewDockerProvider(logger *util.Logger, dataPath string, namespace string) (*DockerProvider, error) {
+	if logger == nil || dataPath == "" || namespace == "" {
 		return nil, errors.New("docker.NewDockerProvider: invalid argument")
 	}
 	client, err := dockerclient.NewClient(dockerHost)
 	if err != nil {
 		return nil, err
 	}
-	return &DockerProvider{client: client, dataPath: dataPath, containerNamespace: containerNamespace + ".", logger: logger}, nil
+	return &DockerProvider{client: client, dataPath: dataPath, namespace: namespace + ".", logger: logger}, nil
 }
 
 func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
@@ -65,7 +65,7 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 
 	for _, apicontainer := range apicontainers {
 		for _, name := range apicontainer.Names {
-			if strings.HasPrefix(name, "/"+p.containerNamespace) {
+			if strings.HasPrefix(name, "/"+p.namespace) {
 				info, err := p.GetInfo(apicontainer.ID)
 				if err != nil {
 					return nil, err
@@ -80,7 +80,7 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 }
 
 func (p *DockerProvider) Create(name, imageName, configJSON string) (*provider.ContainerInfo, error) {
-	err := p.createAuthorizedKeys(p.containerNamespace+name, []string{})
+	err := p.createAuthorizedKeys(p.namespace+name, []string{})
 
 	if err != nil {
 		return nil, err
@@ -387,6 +387,36 @@ func (p *DockerProvider) Export(id string, output io.Writer) error {
 	return p.client.ExportContainer(opts)
 }
 
+func (p *DockerProvider) ListImages() ([]*provider.ImageInfo, error) {
+	dockerImages, err := p.client.ListImages(false)
+	if err != nil {
+		return nil, err
+	}
+
+	list := []*provider.ImageInfo{}
+	for _, dockerImage := range dockerImages {
+		for _, name := range dockerImage.RepoTags {
+			if strings.HasPrefix(name, p.namespace) {
+				cleansedName := strings.TrimPrefix(name, p.namespace)
+				repoSplit := strings.SplitN(cleansedName, ":", 2)
+				info := &provider.ImageInfo{
+					ID:          dockerImage.ID,
+					Name:        repoSplit[0],
+					CreatedAt:   dockerImage.Created,
+					ActualSize:  dockerImage.Size,
+					VirtualSize: dockerImage.VirtualSize,
+				}
+				if len(repoSplit) > 1 {
+					info.Tag = repoSplit[1]
+				}
+				list = append(list, info)
+			}
+		}
+	}
+
+	return list, nil
+}
+
 func (p *DockerProvider) createContainer(imageName, containerName string, config *allowedConfig, hostConfig *allowedHostConfig) (*dockerclient.Container, error) {
 	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
 	start := time.Now()
@@ -410,7 +440,7 @@ func (p *DockerProvider) createContainer(imageName, containerName string, config
 		return nil, err
 	}
 
-	containerName = p.containerNamespace + containerName
+	containerName = p.namespace + containerName
 
 	createConfig := &dockerclient.Config{
 		Hostname: containerName,
@@ -502,7 +532,7 @@ func (p *DockerProvider) inspectContainer(id string) (*dockerclient.Container, e
 	if err != nil {
 		return nil, err
 	}
-	if !strings.HasPrefix(container.Name, "/"+p.containerNamespace) {
+	if !strings.HasPrefix(container.Name, "/"+p.namespace) {
 		return nil, &dockerclient.NoSuchContainer{ID: id}
 	}
 	return container, nil

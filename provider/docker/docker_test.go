@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -791,6 +793,127 @@ var _ = Describe("provider/docker", func() {
 			volsID := getID(volsName)
 			Expect(doInspect(volsID, `{{.HostConfig.VolumesFrom}}`)).To(
 				Equal(fmt.Sprintf("[%s]", id)))
+		})
+	})
+
+	Describe(".ListImages()", func() {
+
+		imageSize := func(id string) int64 {
+			sizeInspect := doInspect(id, "{{.Size}}")
+			parsedSize, err := strconv.ParseInt(sizeInspect, 10, 64)
+			Expect(err).To(BeNil())
+			return parsedSize
+		}
+
+		createImages := func(count int, name string) []string {
+			dockerSource := `
+			FROM %s
+			MAINTAINER Nitrous.IO, hello@nitrous.io
+
+			CMD /bin/bash
+			`
+			interpolated := fmt.Sprintf(dockerSource, image)
+			dockerLoc, err := ioutil.TempDir("", "DockerTest")
+			Expect(err).To(BeNil())
+			fileLoc := filepath.Join(dockerLoc, "Dockerfile")
+			dockerFile, err := os.Create(fileLoc)
+			Expect(err).To(BeNil())
+			dockerFile.WriteString(interpolated)
+			dockerFile.Close()
+
+			list := []string{}
+			for index := 1; index <= count; index++ {
+				findableName := fmt.Sprintf("%v.%v:n%v", namespace, name, index)
+				hiddenName := fmt.Sprintf("%vprivate.bad%v:n%v", namespace, name, index)
+
+				exec.Command("docker", "build", "-t", findableName, dockerLoc).Run()
+				exec.Command("docker", "build", "-t", hiddenName, dockerLoc).Run()
+
+				list = append(list, findableName)
+				list = append(list, hiddenName)
+			}
+
+			err = os.Remove(fileLoc)
+			Expect(err).To(BeNil())
+			err = os.Remove(dockerLoc)
+			Expect(err).To(BeNil())
+
+			return list
+		}
+
+		removeCreated := func(names []string) {
+			for _, name := range names {
+				exec.Command("docker", "rmi", name).Run()
+			}
+		}
+
+		Context("with one image", func() {
+			var (
+				createdImages []string
+			)
+
+			BeforeEach(func() {
+				createdImages = createImages(1, "basic")
+			})
+
+			AfterEach(func() {
+				removeCreated(createdImages)
+			})
+
+			It("should not expose images not managed by the namespace", func() {
+				imageList, err := prov.ListImages()
+				Expect(err).To(BeNil())
+
+				Expect(imageList).To(HaveLen(1))
+
+			})
+
+			It("should fetch basic info about an Image", func() {
+				imageList, err := prov.ListImages()
+				Expect(err).To(BeNil())
+
+				i1 := imageList[0]
+
+				Expect(i1.Name).To(Equal("basic"))
+				Expect(i1.Tag).To(Equal("n1"))
+
+				Expect(i1.ActualSize).To(Equal(imageSize(i1.ID)))
+
+				timeStr := doInspect(i1.ID, "{{.Created}}")
+				expectingTime, err := time.Parse(time.RFC3339, timeStr)
+				Expect(err).To(BeNil())
+				expectingUTime := expectingTime.Unix()
+				Expect(i1.CreatedAt).To(Equal(expectingUTime))
+			})
+		})
+
+		Context("when the same image is under multiple repositories", func() {
+			var (
+				createdImages []string
+			)
+
+			BeforeEach(func() {
+				createdImages = createImages(2, "multiple")
+			})
+
+			AfterEach(func() {
+				removeCreated(createdImages)
+			})
+
+			It("should break them out into separate entries", func() {
+				imageList, err := prov.ListImages()
+				Expect(err).To(BeNil())
+
+				Expect(len(imageList)).To(Equal(2))
+				i1 := imageList[0]
+				i2 := imageList[1]
+
+				Expect(i1.Name).To(Equal("multiple"))
+				Expect(i2.Name).To(Equal("multiple"))
+				Expect(i1.Tag).To(Equal("n1"))
+				Expect(i2.Tag).To(Equal("n2"))
+				Expect(i1.ID).To(Equal(i2.ID))
+			})
 		})
 	})
 })

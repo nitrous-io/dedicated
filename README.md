@@ -630,5 +630,43 @@ width=100&height=80
 - **202** - accepted
 - **404** - no such shell session
 
+### Listing freighter managed images on a host
+
+```
+GET /images HTTP/1.1
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+{
+  "images": [
+    {
+      "id": "cd9c7e7c1c7722201543137a2a3b09496bc1f885f39d222b8b731762ca580133",
+      "name": "jpetazzo/busybox",
+      "tag": "",
+      "created_at": 1406054592,
+      "actual_size": 333282,
+      "virtual_size": 323787052
+    },
+    {
+      "id": "fed6222a047ca3b027fbe7b53301f473aa03d9d53444a50c405dd2f087b1765b",
+      "name": "nitrousio/ubuntu",
+      "tag": "trusty",
+      "created_at": 1406054685,
+      "actual_size": 838,
+      "virtual_size": 699414781
+    }
+  ]
+}
+....
+```
+
+**Status Codes**:
+
+- **200** - ok
+
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.
