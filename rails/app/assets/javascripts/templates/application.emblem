@@ -1,1 +1,2 @@
 = outlet
+App.SnackbarView items=App.snackbar.items

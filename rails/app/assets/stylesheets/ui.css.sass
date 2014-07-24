@@ -504,3 +504,38 @@ ul.ui.chips
 
       &:hover
         background: $gray400
+
+ul.ui.snackbar
+  position: fixed
+  bottom: 0
+  left: 0
+  margin: 0
+  padding: 0
+  list-style: none
+  margin: 24px
+  height: 0
+  transition: height 1s
+
+  .snackbar-item
+    border-radius: 2px
+    background: #323232
+    min-width: 288px
+    padding: 14px 24px 15px 24px
+    height: 48px
+    margin-top: 16px
+    opacity: 0
+    left: 0
+    transition: opacity 1s, left 1s
+
+    p
+      margin: 0
+      font-size: 14px
+      color: white
+
+    &.fadein
+      opacity: 1
+
+    &.fadeout
+      position: relative
+      opacity: 0
+      left: -120%

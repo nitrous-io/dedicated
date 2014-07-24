@@ -19,7 +19,12 @@ window.Nitrous = Em.Application.extend Em.Evented,
       "Nitrous.IO"
   ).observes 'title'
 
-window.App = Nitrous.create()
+window.App = Nitrous.create
+  snackbar: null
+
+App.on 'AppDidLoad', ->
+  App.set 'snackbar', App.Snackbar.create()
+
 App.didChangeTitle()
 
 # prevent file drops on the document causing browser to navigate away
