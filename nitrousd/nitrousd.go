@@ -40,7 +40,7 @@ func main() {
 
 	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr)
 	host := "0.0.0.0"
-	port := uint16(3000)
+	port := uint16(3333)
 	logr.Infof("nitrousd (pid: %v) listening on %s:%d", pid, host, port)
 	svr.Start(host, port)
 }
