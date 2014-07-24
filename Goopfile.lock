@@ -5,18 +5,18 @@ github.com/daviddengcn/go-colortext #b5c0891944c2f150ccc9d02aecf51b76c14c2948
 github.com/ddollar/dist #f559761fd36c52dc90d7d2c0bc537e6d96b0edc5
 github.com/ddollar/forego #73521422bea32cc8d14491b271bf96ebb2625a9c
 github.com/ddollar/go-update #4733469d35539f410e0e84552944fa0df7e72c98
-github.com/fsouza/go-dockerclient #433479ff1777c472a9a1dafb0091bc1dc9752fee
+github.com/fsouza/go-dockerclient #654234057e97013ef9bb3e3bafad7e7b4b45a0f4
 github.com/gorilla/context #14f550f51af52180c2eefed15e5fd18d63c0a64a
 github.com/gorilla/mux #14cafe28513321476c73967a5a4f3454b6129c46
 github.com/jmoiron/sqlx #65a94448495c675514bd4eb183b94f6dea516227
 github.com/kr/binarydist #9955b0ab8708602d411341e55fffd7e0700f86bd
-github.com/kr/pretty #bc9499caa0f45ee5edb2f0209fbd61fbf3d9018f
+github.com/kr/pretty #088c856450c08c03eb32f7a6c221e6eefaa10e6f
 github.com/kr/pty #67e2db24c831afa6c64fc17b4a143390674365ef
 github.com/kr/text #6807e777504f54ad073ecef66747de158294b639
 github.com/lib/pq #ae7391529ced9c12f06bf01eae33dadb4c70e49f
 github.com/mitchellh/cli #eaf0e415fc517a431dca53c7b2e7559d42238ebe
-github.com/mitchellh/goamz #e41d75070a473bfb735d79f68bda55de13885ee5
-github.com/nitrous-io/freighter/freighterclient #d52d84e0be891480f3f1e0fd2f106c8ff9375424 !git@github.com:nitrous-io/freighter
+github.com/mitchellh/goamz #dacb391ac2d13b950b00219648c29c9d5eb5756a
+github.com/nitrous-io/freighter/freighterclient #9c8fdfd1fdcde80fed22625feb8241c8ec5f521e !git@github.com:nitrous-io/freighter
 github.com/nitrous-io/hostbuilder #5b04849a3c8f44de76b7c69a96c2797122eae166 !git@github.com:nitrous-io/hostbuilder
 github.com/nitrous-io/nitrous-common #0e9652a23ed102d07b140ec479cb5a54e894a708 !git@github.com:nitrous-io/nitrous-common
 github.com/nitrous-io/sslider/sslgen #19c0f55007eb1ff34f61ef487d559b46167aed43 !git@github.com:nitrous-io/sslider
