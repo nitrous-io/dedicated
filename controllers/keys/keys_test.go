@@ -258,7 +258,7 @@ var _ = Describe("controllers/keys", func() {
 					})
 
 					It("responds with bad request", func() {
-						expectBadRequest("container not found")
+						expectBadRequest("container does not exist")
 					})
 				})
 
