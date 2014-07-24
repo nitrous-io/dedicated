@@ -24,13 +24,13 @@ import (
 )
 
 var (
-	ErrSizeRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "host size can't be blank")
-	ErrSlugRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "slug can't be blank")
-	ErrRegionRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "region can't be blank")
+	ErrSizeRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "size is required")
+	ErrSlugRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
+	ErrRegionRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "region is required")
 	ErrPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
 	ErrRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
 	ErrProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
-	ErrHostNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching host found for the given slug")
+	ErrHostNotFound             = httperror.New(http.StatusNotFound, "not_found", "no matching host found for the given slug")
 	ErrHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "host is not stopped")
 	ErrHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	ErrHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
