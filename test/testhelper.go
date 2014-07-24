@@ -1,7 +1,9 @@
 package test
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -13,6 +15,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/models/token"
 )
 
 func TestDatabase(dbname string) (*db.Database, error) {
@@ -89,12 +92,42 @@ func NewRequest(method string, urlStr string, params *url.Values) (*http.Request
 	return http.NewRequest(method, u.String(), nil)
 }
 
+func NewAuthedRequest(t *token.Token, method string, urlStr string, params *url.Values) (*http.Request, error) {
+	req, err := NewRequest(method, urlStr, params)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+t.Token)
+	return req, nil
+}
+
 func NewFormRequest(method string, urlStr string, params *url.Values) (*http.Request, error) {
 	req, err := http.NewRequest(method, urlStr, strings.NewReader(params.Encode()))
 	if err == nil {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 	return req, err
+}
+
+func NewAuthedFormRequest(t *token.Token, method string, urlStr string, params *url.Values) (*http.Request, error) {
+	req, err := NewFormRequest(method, urlStr, params)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+t.Token)
+	return req, nil
+}
+
+// ErrorSlug expects a JSON object as string with 'error' and
+// 'error_description' keys, and returns those respectively.  It swallows any
+// errors and returns two empty strings.
+func ErrorSlug(body io.Reader) (string, string) {
+	j := map[string]string{}
+	err := json.NewDecoder(body).Decode(&j)
+	if err != nil {
+		return "", ""
+	}
+	return j["error"], j["error_description"]
 }
 
 func Wait() {
