@@ -645,18 +645,16 @@ Content-Type: application/json; charset=utf-8
   "images": [
     {
       "id": "cd9c7e7c1c7722201543137a2a3b09496bc1f885f39d222b8b731762ca580133",
-      "parent_id": "6e42d64a4315d4f33655f4953469d3a180f15a1bc536c38b08feab6d152d233b",
-      "source": "<none>",
-      "source_tag": "<none>",
+      "name": "jpetazzo/busybox",
+      "tag": "",
       "created_at": 1406054592,
       "actual_size": 333282,
       "virtual_size": 323787052
     },
     {
       "id": "fed6222a047ca3b027fbe7b53301f473aa03d9d53444a50c405dd2f087b1765b",
-      "parent_id": "0bddb6a0068fa0081c5e5fa650cc98b64c04b3cf6058f4a90301d17c76ce3ba2",
-      "source": "nitrousio/ubuntu",
-      "source_tag": "trusty",
+      "name": "nitrousio/ubuntu",
+      "tag": "trusty",
       "created_at": 1406054685,
       "actual_size": 838,
       "virtual_size": 699414781
