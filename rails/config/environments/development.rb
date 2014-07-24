@@ -28,4 +28,10 @@ Rails.application.configure do
 
   # Raises error for missing translations
   # config.action_view.raise_on_missing_translations = true
+
+  config.qunit.tests_path = File.join('test', 'javascripts')
+  config.qunit.javascripts_path = '.'
+  config.qunit.stylesheets_path = '.'
+
+  config.assets.precompile += %w(qunit.css qunit.js test_helper.js test_helper.css)
 end

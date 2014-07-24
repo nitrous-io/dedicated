@@ -1,0 +1,32 @@
+#= require application
+#= require qunit-bdd-0.6.1
+#= require sinon-1.10.3
+#= require emberjs
+#= require app
+#= require_self
+#= require_tree .
+
+window.beforeEach = window.before
+window.afterEach = window.after
+
+window.expect.configure Object.defineProperties {},
+  instanceof:
+    value: (expected, message) ->
+      if @_flags.negate
+        QUnit.strictEqual(@_actual instanceof expected, false, message)
+      else
+        QUnit.strictEqual(@_actual instanceof expected, true, message)
+
+# expected global vars
+[
+  'XMLHttpRequest'
+].forEach (s) ->
+  window[s] = window[s]
+
+App.setupForTesting()
+App.injectTestHelpers()
+
+Em.Test.adapter = Em.Test.QUnitAdapter.create()
+
+$ ->
+  $('body').append($('<div>').attr(id: 'app').css(display: 'none'))
