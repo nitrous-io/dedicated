@@ -14,7 +14,7 @@ import (
 const (
 	forceUsage = "Skip confirmation"
 	Usage      = `
-Usage: nitro keys:clear container
+Usage: nitro keys:clear <container>
 
   remove all public keys from container
 

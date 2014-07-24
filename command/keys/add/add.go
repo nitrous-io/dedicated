@@ -16,7 +16,7 @@ import (
 
 const (
 	Usage = `
-Usage: nitro keys:add <container> <key>
+Usage: nitro keys:add <container> <path to public key file>
 
   add a public key to a container
 `
