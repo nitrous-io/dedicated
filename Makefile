@@ -36,6 +36,6 @@ citest:
 
 run: build
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
-	@build/$(BIN_NAME)
+	@.vendor/bin/$(BIN_NAME)
 
 .PHONY: all install-deps build format test run
