@@ -744,5 +744,35 @@ Content-Type: application/json; charset=utf-8
 - **200** - ok
 - **422** - missing or invalid params
 
+### Get volume info
+
+`GET /hosts/(host slug)/volumes/(volume slug)`
+
+**Example request**:
+
+```
+GET /hosts/myhost/volumes/sharedvol HTTP/1.1
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+
+{
+  "volume": {
+    "slug":"sharedvol",
+    "size":5915182,
+  }
+}
+```
+
+**Status codes**:
+
+- **200** - ok
+- **404** - no such container
+
+
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.

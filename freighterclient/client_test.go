@@ -919,10 +919,6 @@ var _ = Describe("client", func() {
 
 	Describe("ListVolumes()", func() {
 		var (
-			st           *ServerTest
-			client       freighterclient.Client
-			host         *freighterclient.Host
-			server       *ghttp.Server
 			statusCode   int
 			responseBody string
 		)
@@ -991,10 +987,6 @@ var _ = Describe("client", func() {
 
 	Describe("CreateVolume()", func() {
 		var (
-			st           *ServerTest
-			client       freighterclient.Client
-			host         *freighterclient.Host
-			server       *ghttp.Server
 			statusCode   int
 			responseBody string
 		)
@@ -1038,7 +1030,7 @@ var _ = Describe("client", func() {
 
 			It("returns error", func() {
 				err := client.CreateVolume(host, "repos")
-				Expect(err).To(MatchError(freighterclient.ErrHostNotFound))
+				Expect(err).To(MatchError(freighterclient.ErrVolumeNotFound))
 				receivedRequests := server.ReceivedRequests()
 				Expect(receivedRequests).To(HaveLen(1))
 			})
@@ -1047,10 +1039,6 @@ var _ = Describe("client", func() {
 
 	Describe("RemoveVolume()", func() {
 		var (
-			st           *ServerTest
-			client       freighterclient.Client
-			host         *freighterclient.Host
-			server       *ghttp.Server
 			statusCode   int
 			responseBody string
 		)
@@ -1085,7 +1073,39 @@ var _ = Describe("client", func() {
 
 			It("returns error", func() {
 				err := client.RemoveVolume(host, "music")
-				Expect(err).To(MatchError(freighterclient.ErrHostNotFound))
+				Expect(err).To(MatchError(freighterclient.ErrVolumeNotFound))
+			})
+		})
+	})
+
+	Describe("GetVolumeInfo()", func() {
+		var (
+			statusCode   int
+			responseBody string
+		)
+
+		BeforeEach(func() {
+			handlers := ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/volumes/music"),
+				ghttp.VerifyContentType("application/json"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
+			st = NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
+		})
+
+		Context("on success", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = `{"Volume": {"Slug":"music","Size":12345}}`
+			})
+
+			It("returns nil", func() {
+				vi, err := client.GetVolumeInfo(host, "music")
+				Expect(err).To(BeNil())
+				Expect(vi).NotTo(BeNil())
+				Expect(vi.Slug).To(Equal("music"))
+				Expect(vi.Size).To(Equal(uint64(12345)))
 			})
 		})
 	})

@@ -200,6 +200,21 @@ func (s *Server) listVolumes(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Server) getVolumeInfo(w http.ResponseWriter, r *http.Request) error {
+	slug := mux.Vars(r)["slug"]
+	vi, err := s.provider.GetVolumeInfo(slug)
+	if err != nil {
+		// temporary workaround until we start using httperror
+		if strings.HasPrefix(err.Error(), "volume") {
+			s.respond(w, 422, []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
+			return nil
+		}
+		return err
+	}
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"volume": vi})
+	return nil
+}
+
 func (s *Server) removeVolume(w http.ResponseWriter, r *http.Request) error {
 	slug := mux.Vars(r)["slug"]
 	err := s.provider.RemoveVolume(slug)

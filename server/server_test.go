@@ -850,6 +850,31 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("GET /volumes/:slug", func() {
+		doRequest := func() {
+			req, _ := NewRequest("GET", "/volumes/eleven", nil)
+			handler.ServeHTTP(res, req)
+		}
+
+		It("returns ok on success", func() {
+			prov.VolumeInfoReturn = &provider.VolumeInfo{
+				Slug: "eleven",
+				Size: 1234567,
+			}
+			doRequest()
+			Expect(prov.VolumeInfoCalled).To(BeTrue())
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Body.String()).To(MatchJSON(`{"volume":{"slug":"eleven","size":1234567}}`))
+		})
+
+		It("returns error on failure", func() {
+			prov.VolumeInfoError = fmt.Errorf("info failed")
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			Expect(res.Body.String()).To(MatchJSON(`{"error":"info failed"}`))
+		})
+	})
+
 	Describe("GET /containers/:id/logs", func() {
 		doRequest := func(id, follow, timestamps, tail string) {
 			params := &url.Values{}
