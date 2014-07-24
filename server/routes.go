@@ -33,11 +33,11 @@ func (s *Server) drawRoutes() {
 		s.route("/containers/{slug}/restart", mw.Auth(mw.JSON(containers.Restart)), "POST")
 		s.route("/containers/{slug}", mw.Auth(mw.JSON(containers.Destroy)), "DELETE")
 
-		s.route("/containers/{container}/keys", mw.Auth(mw.JSON(keys.Index)), "GET")
-		s.route("/containers/{container}/keys", mw.Auth(mw.JSON(keys.Create)), "POST")
-		s.route("/containers/{container}/keys", mw.Auth(mw.JSON(keys.Create)), "PUT")
-		s.route("/containers/{container}/keys/{md5_fingerprint}", mw.Auth(mw.JSON(keys.DeleteByFingerprint)), "DELETE")
-		s.route("/containers/{container}/keys", mw.Auth(mw.JSON(keys.DeleteAll)), "DELETE")
+		s.route("/containers/{slug}/keys", mw.Auth(mw.JSON(keys.Index)), "GET")
+		s.route("/containers/{slug}/keys", mw.Auth(mw.JSON(keys.Create)), "POST")
+		s.route("/containers/{slug}/keys", mw.Auth(mw.JSON(keys.Create)), "PUT")
+		s.route("/containers/{slug}/keys/{md5_fingerprint}", mw.Auth(mw.JSON(keys.DeleteByFingerprint)), "DELETE")
+		s.route("/containers/{slug}/keys", mw.Auth(mw.JSON(keys.DeleteAll)), "DELETE")
 	})
 
 	s.static("/", "public") // catch-all, must come last

@@ -6,6 +6,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
+	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/container"
@@ -16,7 +17,7 @@ import (
 
 var (
 	ErrContainerBlank        = httperror.New(http.StatusBadRequest, "validation_failed", "missing container id")
-	ErrContainerNotFound     = httperror.New(http.StatusBadRequest, "validation_failed", "container not found")
+	ErrContainerNotFound     = httperror.New(http.StatusBadRequest, "validation_failed", "container does not exist")
 	ErrInvalidKey            = httperror.New(http.StatusBadRequest, "validation_failed", "invalid key")
 	ErrKeyExists             = httperror.New(http.StatusBadRequest, "validation_failed", "key already exists")
 	ErrPubKeyOpsNotSupported = httperror.New(http.StatusBadRequest, "invalid_request", "public key operations not supported on this container")
@@ -26,9 +27,9 @@ var (
 
 var (
 	Index               middlewares.Middleware = withContainer(index)
-	Create              middlewares.Middleware = withContainer(create)
-	DeleteAll           middlewares.Middleware = withContainer(deleteAll)
-	DeleteByFingerprint middlewares.Middleware = withContainer(deleteByFingerprint)
+	Create              middlewares.Middleware = containers.WithContainerAndHost(create)
+	DeleteAll           middlewares.Middleware = containers.WithContainerAndHost(deleteAll)
+	DeleteByFingerprint middlewares.Middleware = containers.WithContainerAndHost(deleteByFingerprint)
 )
 
 // FreighterClient is a shared freighterclient.Client for making requests to Freighter
@@ -58,7 +59,7 @@ func index(cnr *container.Container, env *middlewares.Env, c controllers.Helper,
 	return nil
 }
 
-func create(cnr *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func create(cnr *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
@@ -112,7 +113,7 @@ func create(cnr *container.Container, env *middlewares.Env, c controllers.Helper
 	return nil
 }
 
-func deleteAll(cnr *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func deleteAll(cnr *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
@@ -137,7 +138,7 @@ func deleteAll(cnr *container.Container, env *middlewares.Env, c controllers.Hel
 	return nil
 }
 
-func deleteByFingerprint(cnr *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func deleteByFingerprint(cnr *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
@@ -177,7 +178,7 @@ func withContainer(fn func(cnr *container.Container, env *middlewares.Env, c con
 		db := c.DB()
 		u := env.User
 
-		cSlug := env.Vars["container"]
+		cSlug := env.Vars["slug"]
 		cnr, err := container.FindByUserAndSlug(db, u, cSlug)
 		if err != nil {
 			return err
