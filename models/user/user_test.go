@@ -165,6 +165,51 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
+	Describe("FindByUsernameOrEmail()", func() {
+		Context("when a user record with a given username or email exists", func() {
+			It("returns the user record", func() {
+				u, err := user.FindByUsernameOrEmail(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u).NotTo(BeNil())
+				Expect(u.ID).NotTo(BeZero())
+				Expect(u.Username).To(Equal("foo"))
+				Expect(u.Email).To(Equal("foo@example.com"))
+				Expect(u.Name).To(Equal("foo bar"))
+				Expect(u.EncryptedPassword).To(Equal("foofoo"))
+
+				u, err = user.FindByUsernameOrEmail(db, "bar@example.com")
+				Expect(err).To(BeNil())
+				Expect(u).NotTo(BeNil())
+				Expect(u.ID).NotTo(BeZero())
+				Expect(u.Username).To(Equal("bar"))
+				Expect(u.Email).To(Equal("bar@example.com"))
+				Expect(u.Name).To(Equal("bar baz"))
+				Expect(u.EncryptedPassword).To(Equal("barbar"))
+			})
+		})
+
+		Context("when a user record with a given username does not exist", func() {
+			It("returns nil", func() {
+				u, err := user.FindByUsernameOrEmail(db, "bat")
+				Expect(u).To(BeNil())
+				Expect(err).To(BeNil())
+
+				u, err = user.FindByUsernameOrEmail(db, "bat@example.com")
+				Expect(u).To(BeNil())
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when some error happens", func() {
+			It("returns error", func() {
+				db.Close()
+				u, err := user.FindByUsername(db, "foo")
+				Expect(u).To(BeNil())
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("Insert()", func() {
 		var u *user.User
 

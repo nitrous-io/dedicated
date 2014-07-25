@@ -14,7 +14,7 @@ import (
 
 var (
 	errGrantType   = httperror.New(http.StatusBadRequest, "unsupported_grant_type")
-	errUsername    = httperror.New(http.StatusBadRequest, "invalid_request", "username is required")
+	errLogin       = httperror.New(http.StatusBadRequest, "invalid_request", "username or email is required")
 	errPassword    = httperror.New(http.StatusBadRequest, "invalid_request", "password is required")
 	errInvalidCred = httperror.New(http.StatusBadRequest, "invalid_grant", "incorrect username or password")
 )
@@ -23,22 +23,22 @@ func Post(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *
 	db := c.DB()
 
 	grantType := r.FormValue("grant_type")
-	username := r.FormValue("username")
+	login := r.FormValue("username") // this can be either username or email
 	password := r.FormValue("password")
 
 	if grantType != "password" {
 		return errGrantType
 	}
 
-	if username == "" {
-		return errUsername
+	if login == "" {
+		return errLogin
 	}
 
 	if password == "" {
 		return errPassword
 	}
 
-	u, err := user.FindByUsername(db, username)
+	u, err := user.FindByUsernameOrEmail(db, login)
 	if err != nil {
 		return err
 	}
