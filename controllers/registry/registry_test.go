@@ -2,18 +2,20 @@ package registry_test
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
+	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers/registry"
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
@@ -28,18 +30,45 @@ func Test(t *testing.T) {
 
 var _ = Describe("controllers/registry", func() {
 	var (
-		db     *db.Database
-		svr    *server.Server
-		res    *httptest.ResponseRecorder
-		params *url.Values
-		env    *middlewares.Env
+		db              *db.Database
+		handler         *mux.Router
+		svr             *server.Server
+		res             *httptest.ResponseRecorder
+		authTokenInputs AuthTokenInputs
 
 		u  *user.User
+		t  *token.Token
 		hs *HostStack
 
 		// Mock client that satisfies the freighterclient.Client interface.
 		mockClient *freighterclient.MockClient
 	)
+
+	type errorResponse struct {
+		Error            string `json:"error"`
+		ErrorDescription string `json:"error_description"`
+	}
+	type overrides map[string]string
+
+	unmarshalErrorResponse := func() (error, *errorResponse) {
+		errRes := &errorResponse{}
+		err := json.Unmarshal(res.Body.Bytes(), errRes)
+		return err, errRes
+	}
+
+	ItRespondsHostNotFound := func(doRequest func(overrides)) {
+		It("responds host not found error", func() {
+			doRequest(overrides{"slug": "nanana-8928"})
+
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			err, j := unmarshalErrorResponse()
+			Expect(err).To(BeNil())
+
+			Expect(j.Error).To(Equal("not_found"))
+			Expect(j.ErrorDescription).To(Equal("host does not exist"))
+		})
+	}
 
 	BeforeEach(func() {
 		var err error
@@ -51,7 +80,9 @@ var _ = Describe("controllers/registry", func() {
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		svr = server.NewServer("", db, logger)
+		handler = svr.Router()
 		res = httptest.NewRecorder()
+		authTokenInputs = AuthTokenInputs{Handler: handler}
 
 		u = &user.User{
 			Username: "foo",
@@ -59,6 +90,13 @@ var _ = Describe("controllers/registry", func() {
 			Email:    "foo@example.com",
 		}
 		err = u.Insert(db)
+		Expect(err).To(BeNil())
+
+		t = &token.Token{
+			UserID: u.ID,
+			Token:  "valid-token",
+		}
+		err = t.Insert(db)
 		Expect(err).To(BeNil())
 
 		hs, err = CreateHostStack(db, &HostStack{
@@ -69,8 +107,6 @@ var _ = Describe("controllers/registry", func() {
 			U: u,
 		})
 		Expect(err).To(BeNil())
-
-		env = &middlewares.Env{User: u}
 	})
 
 	AfterEach(func() {
@@ -79,153 +115,213 @@ var _ = Describe("controllers/registry", func() {
 		}
 	})
 
-	Describe("Login", func() {
-		doRequest := func(slug string) error {
-			req, err := NewRequest("POST", "/api/v0/hosts/"+slug+"/registries", params)
-			Expect(err).To(BeNil())
-			env.Vars = map[string]string{"slug": slug}
-			return registry.Login(env, svr, res, req)
-		}
+	Describe("POST /api/v0/hosts/{slug}/registries", func() {
+		Context("when a valid oauth token is given", func() {
 
-		Context("with a valid host available for user", func() {
-			Context("when username is not provided", func() {
-				BeforeEach(func() {
-					params = &url.Values{}
-					params.Set("username", "")
-					params.Set("password", "123456")
-					params.Set("email", "dockeruser@example.com")
-					params.Set("registry", "http://hub.example.com")
+			doRequest := func(o overrides) {
+				var ok bool
+
+				slug := "foo"
+				if _, ok = o["slug"]; ok {
+					slug = o["slug"]
+					delete(o, "slug")
+				}
+
+				if _, ok = o["username"]; !ok {
+					o["username"] = "dockeruser"
+				}
+
+				if _, ok = o["password"]; !ok {
+					o["password"] = "123456"
+				}
+
+				if _, ok = o["email"]; !ok {
+					o["email"] = "dockeruser@example.com"
+				}
+
+				if _, ok = o["registry"]; !ok {
+					o["registry"] = "http://hub.example.com"
+				}
+
+				params := &url.Values{}
+				for k, v := range o {
+					params.Set(k, v)
+
+				}
+
+				req, err := NewRequest("POST", "/api/v0/hosts/"+slug+"/registries", params)
+				Expect(err).To(BeNil())
+				req.Header.Set("Authorization", "Bearer valid-token")
+				handler.ServeHTTP(res, req)
+			}
+			Context("with a valid host available for user", func() {
+				Context("when username is not provided", func() {
+					It("returns username required error", func() {
+						doRequest(overrides{"username": ""})
+
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+						err, j := unmarshalErrorResponse()
+						Expect(err).To(BeNil())
+
+						Expect(j.Error).To(Equal("invalid_request"))
+						Expect(j.ErrorDescription).To(Equal("username is required"))
+					})
 				})
 
-				It("returns username required error", func() {
-					err := doRequest("foo")
-					Expect(err).To(Equal(registry.ErrUsernameRequired))
+				Context("when password is not provided", func() {
+					It("returns password required error", func() {
+						doRequest(overrides{"password": ""})
+
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+						err, j := unmarshalErrorResponse()
+						Expect(err).To(BeNil())
+
+						Expect(j.Error).To(Equal("invalid_request"))
+						Expect(j.ErrorDescription).To(Equal("password is required"))
+					})
+				})
+
+				Context("when email is not provided", func() {
+					It("returns email required error", func() {
+						doRequest(overrides{"email": ""})
+
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+						err, j := unmarshalErrorResponse()
+						Expect(err).To(BeNil())
+
+						Expect(j.Error).To(Equal("invalid_request"))
+						Expect(j.ErrorDescription).To(Equal("email is required"))
+					})
+				})
+
+				Context("when all params are provided", func() {
+					It("calls the Freighter client with the given params to login to the registry", func() {
+						doRequest(overrides{})
+
+						Expect(mockClient.RegistryLoginCalled).To(Equal(1))
+						Expect(mockClient.ReceivedUsername).To(Equal("dockeruser"))
+						Expect(mockClient.ReceivedPassword).To(Equal("123456"))
+						Expect(mockClient.ReceivedEmail).To(Equal("dockeruser@example.com"))
+						Expect(mockClient.ReceivedRegistry).To(Equal("http://hub.example.com"))
+					})
+
+					It("returns HTTP 200 OK if logged in successfully", func() {
+						mockClient.RegistryLoginError = nil
+						doRequest(overrides{})
+
+						Expect(res.Code).To(Equal(http.StatusOK))
+					})
+
+					It("informs user if login failed", func() {
+						mockClient.RegistryLoginError = freighterclient.ErrInvalidParams
+						doRequest(overrides{})
+
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+						err, j := unmarshalErrorResponse()
+						Expect(err).To(BeNil())
+
+						Expect(j.Error).To(Equal("login_failed"))
+						Expect(j.ErrorDescription).To(Equal("registry login failed"))
+					})
+
+					It("returns internal server error for other errors", func() {
+						mockClient.RegistryLoginError = errors.New("some other error")
+						doRequest(overrides{})
+
+						Expect(res.Code).To(Equal(http.StatusInternalServerError))
+					})
 				})
 			})
 
-			Context("when password is not provided", func() {
-				BeforeEach(func() {
-					params = &url.Values{}
-					params.Set("username", "dockeruser")
-					params.Set("password", "")
-					params.Set("email", "dockeruser@example.com")
-					params.Set("registry", "http://hub.example.com")
-				})
-
-				It("returns password required error", func() {
-					err := doRequest("foo")
-					Expect(err).To(Equal(registry.ErrPasswordRequired))
-				})
-			})
-
-			Context("when email is not provided", func() {
-				BeforeEach(func() {
-					params = &url.Values{}
-					params.Set("username", "dockeruser")
-					params.Set("password", "123456")
-					params.Set("email", "")
-					params.Set("registry", "http://hub.example.com")
-				})
-
-				It("returns email required error", func() {
-					err := doRequest("foo")
-					Expect(err).To(Equal(registry.ErrEmailRequired))
-				})
-			})
-
-			Context("when all params are provided", func() {
-				BeforeEach(func() {
-					params = &url.Values{}
-					params.Set("username", "dockeruser")
-					params.Set("password", "123456")
-					params.Set("email", "dockeruser@example.com")
-					params.Set("registry", "http://hub.example.com")
-				})
-
-				It("calls the Freighter client with the given params to login to the registry", func() {
-					err := doRequest("foo")
-					Expect(err).To(BeNil())
-
-					Expect(mockClient.RegistryLoginCalled).To(Equal(1))
-					Expect(mockClient.ReceivedUsername).To(Equal("dockeruser"))
-					Expect(mockClient.ReceivedPassword).To(Equal("123456"))
-					Expect(mockClient.ReceivedEmail).To(Equal("dockeruser@example.com"))
-					Expect(mockClient.ReceivedRegistry).To(Equal("http://hub.example.com"))
-				})
-
-				It("returns HTTP 200 OK if logged in successfully", func() {
-					mockClient.RegistryLoginError = nil
-					err := doRequest("foo")
-					Expect(err).To(BeNil())
-					Expect(res.Code).To(Equal(http.StatusOK))
-				})
-
-				It("returns error if failed to login", func() {
-					mockClient.RegistryLoginError = errors.New("some error occurred")
-					err := doRequest("foo")
-					Expect(err.Error()).To(Equal("some error occurred"))
-				})
+			Context("with an invalid host", func() {
+				ItRespondsHostNotFound(doRequest)
 			})
 		})
 
-		Context("with an invalid host", func() {
+		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
-				params = &url.Values{}
+				authTokenInputs.Path = "/api/v0/hosts/foo/registries"
+				authTokenInputs.Method = "POST"
 			})
 
-			It("Returns host not found error", func() {
-				err := doRequest("nanana-8928")
-				Expect(err).To(Equal(middlewares.ErrHostNotFound))
-			})
+			ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
-	Describe("Logout", func() {
-		doRequest := func(slug string) error {
+	Describe("DELETE /api/v0/hosts/{slug}/registries", func() {
+		doRequest := func(o overrides) {
+			slug := "foo"
+			if _, ok := o["slug"]; ok {
+				slug = o["slug"]
+			}
+
+			r := "http://hub.example.com"
+			if _, ok := o["registry"]; ok {
+				r = o["registry"]
+			}
+
+			params := &url.Values{}
+			params.Set("registry", r)
+
 			req, err := NewRequest("DELETE", "/api/v0/hosts/"+slug+"/registries", params)
 			Expect(err).To(BeNil())
-			env.Vars = map[string]string{"slug": slug}
-
-			return registry.Logout(env, svr, res, req)
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
 		}
 
-		Context("with a valid host available for user", func() {
-			BeforeEach(func() {
-				params = &url.Values{}
-				params.Set("registry", "http://hub.example.com")
+		Context("when a valid oauth token is given", func() {
+			Context("with a valid host available for user", func() {
+				It("calls the Freighter client with the given registry to logout", func() {
+					doRequest(overrides{})
+
+					Expect(mockClient.RegistryLogoutCalled).To(Equal(1))
+					Expect(mockClient.ReceivedRegistry).To(Equal("http://hub.example.com"))
+				})
+
+				It("returns HTTP 200 OK if logged out successfully", func() {
+					mockClient.RegistryLogoutError = nil
+					doRequest(overrides{})
+
+					Expect(res.Code).To(Equal(http.StatusOK))
+				})
+
+				It("informs user if logout failed", func() {
+					mockClient.RegistryLogoutError = freighterclient.ErrInvalidParams
+					doRequest(overrides{})
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+					err, j := unmarshalErrorResponse()
+					Expect(err).To(BeNil())
+
+					Expect(j.Error).To(Equal("logout_failed"))
+					Expect(j.ErrorDescription).To(Equal("registry logout failed"))
+				})
+
+				It("returns internal server error for other errors", func() {
+					mockClient.RegistryLogoutError = errors.New("some other error")
+					doRequest(overrides{})
+
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				})
 			})
 
-			It("calls the Freighter client with the given registry to logout", func() {
-				err := doRequest("foo")
-				Expect(err).To(BeNil())
-
-				Expect(mockClient.RegistryLogoutCalled).To(Equal(1))
-				Expect(mockClient.ReceivedRegistry).To(Equal("http://hub.example.com"))
-			})
-
-			It("returns HTTP 200 OK if logged in successfully", func() {
-				mockClient.RegistryLogoutError = nil
-				err := doRequest("foo")
-				Expect(err).To(BeNil())
-				Expect(res.Code).To(Equal(http.StatusOK))
-			})
-
-			It("returns error if failed to login", func() {
-				mockClient.RegistryLogoutError = errors.New("some error occurred")
-				err := doRequest("foo")
-				Expect(err.Error()).To(Equal("some error occurred"))
+			Context("with an invalid host", func() {
+				ItRespondsHostNotFound(doRequest)
 			})
 		})
 
-		Context("with an invalid host", func() {
+		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
-				params = &url.Values{}
+				authTokenInputs.Path = "/api/v0/hosts/foo/registries"
+				authTokenInputs.Method = "DELETE"
 			})
 
-			It("Returns host not found error", func() {
-				err := doRequest("nanana-8928")
-				Expect(err).To(Equal(middlewares.ErrHostNotFound))
-			})
+			ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 })
