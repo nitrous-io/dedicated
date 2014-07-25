@@ -8,7 +8,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/publickey"
@@ -26,10 +26,10 @@ var (
 )
 
 var (
-	Index               middlewares.Middleware = withContainer(index)
-	Create              middlewares.Middleware = containers.WithContainerAndHost(create)
-	DeleteAll           middlewares.Middleware = containers.WithContainerAndHost(deleteAll)
-	DeleteByFingerprint middlewares.Middleware = containers.WithContainerAndHost(deleteByFingerprint)
+	Index               middleware.Middleware = withContainer(index)
+	Create              middleware.Middleware = containers.WithContainerAndHost(create)
+	DeleteAll           middleware.Middleware = containers.WithContainerAndHost(deleteAll)
+	DeleteByFingerprint middleware.Middleware = containers.WithContainerAndHost(deleteByFingerprint)
 )
 
 // FreighterClient is a shared freighterclient.Client for making requests to Freighter
@@ -40,7 +40,7 @@ func init() {
 	FreighterClient = freighterclient.NewClient(nil)
 }
 
-func index(cnr *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func index(cnr *container.Container, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
@@ -59,7 +59,7 @@ func index(cnr *container.Container, env *middlewares.Env, c controllers.Helper,
 	return nil
 }
 
-func create(cnr *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func create(cnr *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
@@ -113,7 +113,7 @@ func create(cnr *container.Container, h *host.Host, env *middlewares.Env, c cont
 	return nil
 }
 
-func deleteAll(cnr *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func deleteAll(cnr *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
@@ -138,7 +138,7 @@ func deleteAll(cnr *container.Container, h *host.Host, env *middlewares.Env, c c
 	return nil
 }
 
-func deleteByFingerprint(cnr *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func deleteByFingerprint(cnr *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
@@ -173,8 +173,8 @@ func deleteByFingerprint(cnr *container.Container, h *host.Host, env *middleware
 	return nil
 }
 
-func withContainer(fn func(cnr *container.Container, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
-	return middlewares.Vars(func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func withContainer(fn func(cnr *container.Container, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middleware.Middleware {
+	return middleware.Vars(func(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		db := c.DB()
 		u := env.User
 

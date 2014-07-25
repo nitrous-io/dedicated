@@ -17,7 +17,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
@@ -96,17 +96,17 @@ var _ = Describe("controllers/containers", func() {
 
 	Describe("WithContainerAndHost", func() {
 		var (
-			env           *middlewares.Env
+			env           *middleware.Env
 			handler       *mux.Router
 			c             *container.Container
 			handlerCalled bool
 		)
 
 		BeforeEach(func() {
-			env = &middlewares.Env{User: u}
+			env = &middleware.Env{User: u}
 
 			h := func(w http.ResponseWriter, r *http.Request) {
-				mw := containers.WithContainerAndHost(func(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+				mw := containers.WithContainerAndHost(func(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 					Expect(cn).NotTo(BeNil())
 					Expect(h).NotTo(BeNil())
 					Expect(h.State).To(Equal(host.StateRunning))

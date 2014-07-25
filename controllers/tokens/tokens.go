@@ -3,7 +3,7 @@ package tokens
 import (
 	"net/http"
 
-	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/token"
 
 	"github.com/nitrous-io/nitrous/controllers"
@@ -19,7 +19,7 @@ var (
 	errInvalidCred = httperror.New(http.StatusBadRequest, "invalid_grant", "incorrect username or password")
 )
 
-func Post(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Post(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
 	grantType := r.FormValue("grant_type")

@@ -7,7 +7,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
@@ -19,7 +19,7 @@ var (
 	}
 )
 
-func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
 	email := strings.ToLower(r.FormValue("email"))
@@ -67,7 +67,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 	return nil
 }
 
-func GetAuthenticatedUser(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func GetAuthenticatedUser(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	u := env.User
 	if u == nil {
 		return errors.New("user is nil")
