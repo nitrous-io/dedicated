@@ -40,14 +40,10 @@ shell: image
 	@./script/shell
 .PHONY: shell
 
-test-with-docker: image
-	@./script/test-with-docker
-.PHONY: test-with-docker
+build-and-test-with-docker: image
+	@./script/docker-test-and-build $(REVISION)
+.PHONY: build-and-test-with-docker
 
-build-with-docker: image test-with-docker
-	@./script/build-with-docker
-.PHONY: build-with-docker
-
-release: image test-with-docker build-with-docker
-	@./script/release $(VERSION)
+release: image build-and-test-with-docker
+	@./script/release
 .PHONY: release
