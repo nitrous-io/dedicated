@@ -1,6 +1,8 @@
 package test
 
 import (
+	"database/sql"
+
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/plan"
@@ -89,12 +91,17 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 	}
 
 	if hs.H == nil {
-		hs.H = &host.Host{
-			Slug: "hoststack-1",
-		}
+		hs.H = &host.Host{}
+	}
+	if hs.H.Slug == "" {
+		hs.H.Slug = "hoststack-1"
 	}
 	if hs.H.State == "" {
 		hs.H.State = host.StateRunning
+	}
+
+	if !hs.H.ProviderIdentifier.Valid {
+		hs.H.ProviderIdentifier = sql.NullString{"host-0001", true}
 	}
 
 	hs.H.RegionID = hs.R.ID

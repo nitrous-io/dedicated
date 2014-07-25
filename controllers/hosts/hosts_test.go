@@ -14,7 +14,6 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers/hosts"
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/server"
 
@@ -36,6 +35,11 @@ func Test(t *testing.T) {
 	RunSpecs(t, "controllers/hosts")
 }
 
+type errorResponse struct {
+	Error            string `json:"error"`
+	ErrorDescription string `json:"error_description"`
+}
+
 func mockHostbuilderOK(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
 	return &hostbuilder.Response{Status: "ok"}, nil
 }
@@ -50,7 +54,30 @@ var _ = Describe("controllers/hosts", func() {
 		handler         *mux.Router
 		res             *httptest.ResponseRecorder
 		authTokenInputs AuthTokenInputs
+
+		u  *user.User
+		t  *token.Token
+		hs *HostStack
 	)
+
+	unmarshalErrorResponse := func() (error, *errorResponse) {
+		errRes := &errorResponse{}
+		err := json.Unmarshal(res.Body.Bytes(), errRes)
+		return err, errRes
+	}
+
+	ItRespondsHostNotFound := func(doRequest func(string)) {
+		It("responds with HTTP 404 Not Found", func() {
+			doRequest("somehost")
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			err, j := unmarshalErrorResponse()
+			Expect(err).To(BeNil())
+
+			Expect(j.Error).To(Equal("not_found"))
+			Expect(j.ErrorDescription).To(Equal("no matching host found for the given slug"))
+		})
+	}
 
 	BeforeEach(func() {
 		var err error
@@ -61,6 +88,22 @@ var _ = Describe("controllers/hosts", func() {
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = AuthTokenInputs{Handler: handler}
+
+		u = &user.User{
+			Username: "foo",
+			Password: "123456",
+			Email:    "foo@example.com",
+		}
+		err = u.Insert(db)
+		Expect(err).To(BeNil())
+		Expect(u.ID).NotTo(BeZero())
+
+		t = &token.Token{
+			UserID: u.ID,
+			Token:  "valid-token",
+		}
+		err = t.Insert(db)
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -70,88 +113,63 @@ var _ = Describe("controllers/hosts", func() {
 	})
 
 	Describe("GET /api/v0/hosts", func() {
-		var (
-			u *user.User
-			t *token.Token
-		)
-
-		doRequest := func(token string) {
+		doRequest := func() {
 			req, err := NewRequest("GET", "/api/v0/hosts", nil)
 			Expect(err).To(BeNil())
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
+			req.Header.Set("Authorization", "Bearer valid-token")
 			handler.ServeHTTP(res, req)
 		}
 
-		BeforeEach(func() {
-			u = &user.User{
-				Username: "foo",
-				Password: "123456",
-				Email:    "foo@example.com",
-			}
-			err := u.Insert(db)
-			Expect(err).To(BeNil())
-			Expect(u.ID).NotTo(BeZero())
-
-			t = &token.Token{
-				UserID: u.ID,
-				Token:  "tokenblackguy",
-			}
-			err = t.Insert(db)
-			Expect(err).To(BeNil())
-		})
-
-		Context("when a valid oauth token is given", func() {
-			Context("when user has hosts", func() {
-				BeforeEach(func() {
-					hs, err := CreateHostStack(db, &HostStack{
-						H: &host.Host{Slug: "foo"},
-						U: u,
-					})
-					Expect(err).To(BeNil())
-
-					_, err = CreateHostStack(db, &HostStack{
-						H:  &host.Host{Slug: "bar"},
-						U:  u,
-						R:  hs.R,
-						P:  hs.P,
-						PT: hs.PT,
-					})
-					Expect(err).To(BeNil())
+		Context("when user has hosts", func() {
+			BeforeEach(func() {
+				hs, err := CreateHostStack(db, &HostStack{
+					H: &host.Host{Slug: "foo"},
+					R: &region.Region{Name: "use"},
+					P: &plan.Plan{Name: "large"},
+					U: u,
 				})
+				Expect(err).To(BeNil())
 
-				It("responds with the authenticated user's hosts", func() {
-					doRequest("tokenblackguy")
-
-					Expect(res.Code).To(Equal(http.StatusOK))
-					var j map[string][]host.Host
-					err := json.Unmarshal(res.Body.Bytes(), &j)
-					Expect(err).To(BeNil())
-					hosts, ok := j["hosts"]
-					Expect(ok).To(BeTrue())
-					Expect(hosts).To(HaveLen(2))
-
-					Expect(hosts[0].Slug).To(Equal("foo"))
-					Expect(hosts[0].UserID).To(Equal(u.ID))
-
-					Expect(hosts[1].Slug).To(Equal("bar"))
-					Expect(hosts[1].UserID).To(Equal(u.ID))
+				_, err = CreateHostStack(db, &HostStack{
+					H:  &host.Host{Slug: "bar"},
+					U:  u,
+					R:  hs.R,
+					P:  hs.P,
+					PT: hs.PT,
 				})
+				Expect(err).To(BeNil())
 			})
 
-			Context("when user has no hosts", func() {
-				It("responds with an empty array", func() {
-					doRequest("tokenblackguy")
+			It("responds with the authenticated user's hosts", func() {
+				doRequest()
 
-					Expect(res.Code).To(Equal(http.StatusOK))
-					j := map[string]interface{}{}
-					err := json.Unmarshal(res.Body.Bytes(), &j)
-					Expect(err).To(BeNil())
-					hosts, ok := j["hosts"].([]interface{})
-					Expect(ok).To(BeTrue())
-					Expect(hosts).To(BeEmpty())
-				})
+				Expect(res.Code).To(Equal(http.StatusOK))
+				var j map[string][]host.Host
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				hosts, ok := j["hosts"]
+				Expect(ok).To(BeTrue())
+				Expect(hosts).To(HaveLen(2))
+
+				Expect(hosts[0].Slug).To(Equal("foo"))
+				Expect(hosts[0].UserID).To(Equal(u.ID))
+
+				Expect(hosts[1].Slug).To(Equal("bar"))
+				Expect(hosts[1].UserID).To(Equal(u.ID))
+			})
+		})
+
+		Context("when user has no hosts", func() {
+			It("responds with an empty array", func() {
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				hosts, ok := j["hosts"].([]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(hosts).To(BeEmpty())
 			})
 		})
 
@@ -165,126 +183,115 @@ var _ = Describe("controllers/hosts", func() {
 		})
 	})
 
-	Describe("Create", func() {
-		var (
-			params *url.Values
-			u      *user.User
-			env    *middlewares.Env
-			hs     *HostStack
-		)
-
-		doRequest := func() error {
-			req, err := NewRequest("POST", "/api/v0/hosts", params)
+	Describe("POST /api/v0/hosts", func() {
+		BeforeEach(func() {
+			var err error
+			hs, err = CreateHostStack(db, &HostStack{
+				R: &region.Region{Name: "use"},
+				P: &plan.Plan{Name: "large"},
+			})
 			Expect(err).To(BeNil())
+		})
 
-			return hosts.Create(env, svr, res, req)
+		type overrides map[string]string
+		doRequest := func(o overrides) {
+			var ok bool
+
+			if _, ok = o["slug"]; !ok {
+				o["slug"] = "honeybadger"
+			}
+
+			if _, ok = o["size"]; !ok {
+				o["size"] = hs.P.Name
+			}
+
+			if _, ok = o["region"]; !ok {
+				o["region"] = hs.R.Name
+			}
+
+			if _, ok = o["name"]; !ok {
+				o["name"] = "honeybadger don't care"
+			}
+
+			p := &url.Values{}
+			for k, v := range o {
+				p.Set(k, v)
+			}
+
+			req, err := NewRequest("POST", "/api/v0/hosts", p)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
 		}
 
-		BeforeEach(func() {
-			u = &user.User{
-				Username: "foo",
-				Password: "123456",
-				Email:    "foo@example.com",
-			}
-			err := u.Insert(db)
-			Expect(err).To(BeNil())
-			Expect(u.ID).NotTo(BeZero())
+		// tests for required params
+		for _, param := range []string{"size", "region", "slug"} {
+			p := param
 
-			env = &middlewares.Env{User: u}
+			Context("when request does not specify a "+p, func() {
+				It("responds with "+p+" required", func() {
+					doRequest(overrides{p: ""})
 
-			hs, err = CreateHostStack(db, &HostStack{
-				R: &region.Region{
-					Name: "use",
-				},
-				P: &plan.Plan{
-					Name: "large",
-				},
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+					err, j := unmarshalErrorResponse()
+					Expect(err).To(BeNil())
+
+					Expect(j.Error).To(Equal("invalid_request"))
+					Expect(j.ErrorDescription).To(Equal(p + " is required"))
+				})
 			})
-			Expect(err).To(BeNil())
-		})
-
-		Context("when request does not specify a size", func() {
-			It("returns error size required", func() {
-				params = &url.Values{}
-				params.Set("slug", "honeybadger")
-				params.Set("size", "")
-				params.Set("region", hs.R.Name)
-				err := doRequest()
-				Expect(err).To(MatchError(hosts.ErrSizeRequired))
-			})
-		})
-
-		Context("when request does not specify a region", func() {
-			It("returns error region required", func() {
-				params = &url.Values{}
-				params.Set("slug", "honeybadger")
-				params.Set("size", hs.P.Name)
-				params.Set("region", "")
-				err := doRequest()
-				Expect(err).To(MatchError(hosts.ErrRegionRequired))
-			})
-		})
-
-		Context("when request not specify a slug", func() {
-			It("returns error slug required", func() {
-				params = &url.Values{}
-				params.Set("slug", "")
-				params.Set("size", hs.P.Name)
-				params.Set("region", hs.R.Name)
-				err := doRequest()
-				Expect(err).To(MatchError(hosts.ErrSlugRequired))
-			})
-		})
+		}
 
 		Context("when a matching plan cannot be found for the specified size", func() {
-			It("returns error plan not found", func() {
-				params = &url.Values{}
-				params.Set("size", "doubledouble")
-				params.Set("slug", "honeybadger")
-				params.Set("region", hs.R.Name)
-				err := doRequest()
-				Expect(err).To(MatchError(hosts.ErrPlanNotFound))
+			It("responds with plan not found", func() {
+				doRequest(overrides{"size": "doubledouble"})
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				err, j := unmarshalErrorResponse()
+				Expect(err).To(BeNil())
+
+				Expect(j.Error).To(Equal("invalid_request"))
+				Expect(j.ErrorDescription).To(Equal("no matching plan found for the given size"))
 			})
 		})
 
 		Context("when an invalid region is specified", func() {
-			It("returns error region not found", func() {
-				params = &url.Values{}
-				params.Set("size", hs.P.Name)
-				params.Set("slug", "honeybadger")
-				params.Set("region", "antarctica")
-				err := doRequest()
-				Expect(err).To(MatchError(hosts.ErrRegionNotFound))
+			It("responds with region not found", func() {
+				doRequest(overrides{"region": "antarctica"})
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				err, j := unmarshalErrorResponse()
+				Expect(err).To(BeNil())
+
+				Expect(j.Error).To(Equal("invalid_request"))
+				Expect(j.ErrorDescription).To(Equal("no matching region found for the given name"))
 			})
 		})
 
 		Context("when no provider template found for the given plan and region", func() {
-			var r2 *region.Region
-			BeforeEach(func() {
+			It("responds with provider template not found error", func() {
+				var r2 *region.Region
+
 				r2 = &region.Region{Name: "usw", Description: "US West"}
 				err := r2.Insert(db)
 				Expect(err).To(BeNil())
-			})
 
-			It("returns provider template not found error", func() {
-				params = &url.Values{}
-				params.Set("size", hs.P.Name)
-				params.Set("slug", "honeybadger")
-				params.Set("region", r2.Name)
-				err := doRequest()
-				Expect(err).To(MatchError(hosts.ErrProvidertemplateNotFound))
+				doRequest(overrides{"region": r2.Name})
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				err, j := unmarshalErrorResponse()
+				Expect(err).To(BeNil())
+
+				Expect(j.Error).To(Equal("invalid_request"))
+				Expect(j.ErrorDescription).To(Equal("no matching templates found for the given plan and regions combination"))
 			})
 		})
 
 		Context("with valid parameters", func() {
-			BeforeEach(func() {
-				params = &url.Values{}
-				params.Set("slug", "honeybadger")
-				params.Set("name", "honeybadger don't care")
-				params.Set("size", hs.P.Name)
-				params.Set("region", hs.R.Name)
-			})
-
 			Context("when hostbuilder successfully creates a host", func() {
 				BeforeEach(func() {
 					hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -300,8 +307,7 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err := doRequest()
-					Expect(err).To(BeNil())
+					doRequest(overrides{})
 				})
 
 				It("creates a host record for the user", func() {
@@ -333,11 +339,17 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("responds with the created host and status created", func() {
-					Expect(env.Status).To(Equal(http.StatusCreated))
-					Expect(env.Data["host"]).NotTo(BeNil())
-					Expect(env.Data["status"]).To(Equal("created"))
-					h := env.Data["host"].(*host.Host)
-					Expect(h.Slug).To(Equal("honeybadger"))
+					Expect(res.Code).To(Equal(http.StatusCreated))
+
+					var j struct {
+						Status string                 `json:"status"`
+						Host   map[string]interface{} `json:"host"`
+					}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+
+					Expect(j.Status).To(Equal("created"))
+					Expect(j.Host["slug"].(string)).To(Equal("honeybadger"))
 				})
 			})
 
@@ -348,8 +360,7 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err := doRequest()
-					Expect(err).To(MatchError("some error occurred"))
+					doRequest(overrides{})
 				})
 
 				It("does not create a host for the user", func() {
@@ -357,32 +368,40 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(err).To(BeNil())
 					Expect(len(hosts)).To(Equal(0))
 				})
+
+				It("responds with a internal server error", func() {
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				})
 			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts"
+				authTokenInputs.Method = "POST"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
-	Describe("Destroy", func() {
-		var (
-			env *middlewares.Env
-			hs  *HostStack
-			c   *container.Container
-			err error
-		)
+	Describe("DELETE /api/v0/hosts/{slug}", func() {
+		var c *container.Container
 
-		doRequest := func(slug string) error {
+		doRequest := func(slug string) {
 			req, err := NewRequest("DELETE", "/api/v0/hosts/"+slug, nil)
 			Expect(err).To(BeNil())
-			env.Vars = map[string]string{"slug": slug}
-			return hosts.Destroy(env, svr, res, req)
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
 		}
 
 		BeforeEach(func() {
+			var err error
 			hs, err = CreateHostStack(db, &HostStack{
 				H: &host.Host{Slug: "honeybadger", ProviderIdentifier: sql.NullString{"001", true}},
+				U: u,
 			})
 			Expect(err).To(BeNil())
-
-			env = &middlewares.Env{User: hs.U}
 
 			c = &container.Container{
 				CID:    "beefface",
@@ -394,14 +413,11 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 		})
 
-		Context("with an invalid host slug", func() {
-			It("returns error host not found", func() {
-				err = doRequest("somehost")
-				Expect(err).To(MatchError(hosts.ErrHostNotFound))
-			})
+		Context("when requested with an invalid host", func() {
+			ItRespondsHostNotFound(doRequest)
 		})
 
-		Context("with a valid host slug", func() {
+		Context("when requested with a valid host", func() {
 			Context("when hostbuilder successfully deletes the host", func() {
 				BeforeEach(func() {
 					hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -410,8 +426,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("deletes the host record", func() {
-					err = doRequest(hs.H.Slug)
-					Expect(err).To(BeNil())
+					doRequest(hs.H.Slug)
 
 					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 					Expect(err).To(BeNil())
@@ -423,8 +438,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(err).To(BeNil())
 					Expect(c2).To(Equal(c))
 
-					err = doRequest(hs.H.Slug)
-					Expect(err).To(BeNil())
+					doRequest(hs.H.Slug)
 
 					c2, err = container.FindByUserAndSlug(db, hs.U, c.Slug)
 					Expect(err).To(BeNil())
@@ -438,13 +452,13 @@ var _ = Describe("controllers/hosts", func() {
 					tx.Commit()
 
 					doRequest(hs.H.Slug)
+
 					_, err := keypairs.Get(db, hs.H.ID)
 					Expect(err).ToNot(BeNil(), "host's keypairs should be removed")
 				})
 
 				It("responds with status OK", func() {
-					err = doRequest(hs.H.Slug)
-					Expect(err).To(BeNil())
+					doRequest(hs.H.Slug)
 					Expect(res.Code).To(Equal(http.StatusOK))
 				})
 			})
@@ -456,8 +470,7 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Slug)
-					Expect(err).To(MatchError("some error occurred"))
+					doRequest(hs.H.Slug)
 				})
 
 				It("does not delete the host", func() {
@@ -465,58 +478,65 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(err).To(BeNil())
 					Expect(h).NotTo(BeNil())
 				})
+
+				It("responds with HTTP 500 Internal Server Error", func() {
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				})
 			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo"
+				authTokenInputs.Method = "DELETE"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
-	Describe("Start", func() {
-		var (
-			env *middlewares.Env
-			hs  *HostStack
-			err error
-		)
-
-		doRequest := func(slug string) error {
+	Describe("POST /api/v0/hosts/{slug}/start", func() {
+		doRequest := func(slug string) {
 			req, err := NewRequest("POST", "/api/v0/hosts/"+slug+"/start", nil)
 			Expect(err).To(BeNil())
-			env.Vars = map[string]string{"slug": slug}
-
-			return hosts.Start(env, svr, res, req)
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
 		}
 
 		BeforeEach(func() {
+			var err error
 			hs, err = CreateHostStack(db, &HostStack{
-				H: &host.Host{
-					Slug:               "honeybadger",
-					ProviderIdentifier: sql.NullString{"001", true},
-					State:              host.StateStopped,
-				},
+				H: &host.Host{State: host.StateStopped},
+				U: u,
 			})
 			Expect(err).To(BeNil())
-			env = &middlewares.Env{User: hs.U}
 		})
 
 		Context("when host is not in the stopped state", func() {
-			It("returns an invalid start state error", func() {
+			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				hb.OverrideRequestHandler(mockHostbuilderOK)
 
 				hosts.HostbuilderClient = hb
 
 				hs.H.UpdateState(db, host.StateRestarting)
-				err = doRequest(hs.H.Slug)
-				Expect(err).To(MatchError(hosts.ErrHostStartInvalidState))
+				doRequest(hs.H.Slug)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				err, j := unmarshalErrorResponse()
+				Expect(err).To(BeNil())
+
+				Expect(j.Error).To(Equal("invalid_state"))
+				Expect(j.ErrorDescription).To(Equal("host is not stopped"))
 			})
 		})
 
-		Context("with an invalid host name", func() {
-			It("returns error host not found", func() {
-				err = doRequest("somehost")
-				Expect(err).To(MatchError(hosts.ErrHostNotFound))
-			})
+		Context("when requested with an invalid host", func() {
+			ItRespondsHostNotFound(doRequest)
 		})
 
-		Context("with a valid host name", func() {
+		Context("when requested with a valid host", func() {
 			Context("when hostbuilder successfully starts the host", func() {
 				BeforeEach(func() {
 					hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -524,8 +544,7 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Slug)
-					Expect(err).To(BeNil())
+					doRequest(hs.H.Slug)
 				})
 
 				It("updates the host state to running", func() {
@@ -546,8 +565,11 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Slug)
-					Expect(err).To(MatchError("some error occurred"))
+					doRequest(hs.H.Slug)
+				})
+
+				It("responds with HTTP 500 Internal Server Error", func() {
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				})
 
 				It("leaves host in intermediate state", func() {
@@ -557,56 +579,59 @@ var _ = Describe("controllers/hosts", func() {
 				})
 			})
 		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo/start"
+				authTokenInputs.Method = "POST"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
 	})
 
-	Describe("Stop", func() {
-		var (
-			env *middlewares.Env
-			hs  *HostStack
-			err error
-		)
-
-		doRequest := func(slug string) error {
+	Describe("POST /api/v0/hosts/{slug}/stop", func() {
+		doRequest := func(slug string) {
 			req, err := NewRequest("POST", "/api/v0/hosts/"+slug+"/stop", nil)
 			Expect(err).To(BeNil())
-			env.Vars = map[string]string{"slug": slug}
-
-			return hosts.Stop(env, svr, res, req)
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
 		}
 
 		BeforeEach(func() {
+			var err error
 			hs, err = CreateHostStack(db, &HostStack{
-				H: &host.Host{
-					Slug:               "honeybadger",
-					ProviderIdentifier: sql.NullString{"001", true},
-					State:              host.StateRunning,
-				},
+				H: &host.Host{State: host.StateRunning},
+				U: u,
 			})
 			Expect(err).To(BeNil())
-			env = &middlewares.Env{User: hs.U}
 		})
 
 		Context("when host is already stopped", func() {
-			It("returns an invalid stop state error", func() {
+			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				hb.OverrideRequestHandler(mockHostbuilderOK)
 
 				hosts.HostbuilderClient = hb
 
 				hs.H.UpdateState(db, host.StateStopped)
-				err = doRequest(hs.H.Slug)
-				Expect(err).To(MatchError(hosts.ErrHostStopInvalidState))
+				doRequest(hs.H.Slug)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				err, j := unmarshalErrorResponse()
+				Expect(err).To(BeNil())
+
+				Expect(j.Error).To(Equal("invalid_state"))
+				Expect(j.ErrorDescription).To(Equal("host is not running"))
 			})
 		})
 
-		Context("with an invalid host name", func() {
-			It("returns error host not found", func() {
-				err = doRequest("somehost")
-				Expect(err).To(MatchError(hosts.ErrHostNotFound))
-			})
+		Context("when requested with an invalid host", func() {
+			ItRespondsHostNotFound(doRequest)
 		})
 
-		Context("with a valid host name", func() {
+		Context("when requested with a valid host", func() {
 			Context("when hostbuilder successfully stops the host", func() {
 				BeforeEach(func() {
 					hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -614,8 +639,7 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Slug)
-					Expect(err).To(BeNil())
+					doRequest(hs.H.Slug)
 				})
 
 				It("updates the host state to stopped", func() {
@@ -624,7 +648,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.State).To(Equal(host.StateStopped))
 				})
 
-				It("responds with status OK", func() {
+				It("responds with HTTP 200 OK", func() {
 					Expect(res.Code).To(Equal(http.StatusOK))
 				})
 			})
@@ -636,8 +660,11 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Slug)
-					Expect(err).To(MatchError("some error occurred"))
+					doRequest(hs.H.Slug)
+				})
+
+				It("responds with HTTP 500 Internal Server Error", func() {
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				})
 
 				It("leaves host in intermediate state", func() {
@@ -647,56 +674,59 @@ var _ = Describe("controllers/hosts", func() {
 				})
 			})
 		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo/stop"
+				authTokenInputs.Method = "POST"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
 	})
 
 	Describe("Restart", func() {
-		var (
-			env *middlewares.Env
-			hs  *HostStack
-			err error
-		)
-
-		doRequest := func(slug string) error {
+		doRequest := func(slug string) {
 			req, err := NewRequest("POST", "/api/v0/hosts/"+slug+"/restart", nil)
 			Expect(err).To(BeNil())
-			env.Vars = map[string]string{"slug": slug}
-
-			return hosts.Restart(env, svr, res, req)
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
 		}
 
 		BeforeEach(func() {
+			var err error
 			hs, err = CreateHostStack(db, &HostStack{
-				H: &host.Host{
-					Slug:               "honeybadger",
-					ProviderIdentifier: sql.NullString{"001", true},
-					State:              host.StateRunning,
-				},
+				H: &host.Host{State: host.StateRunning},
+				U: u,
 			})
 			Expect(err).To(BeNil())
-			env = &middlewares.Env{User: hs.U}
 		})
 
 		Context("when host is not in the running state", func() {
-			It("returns an invalid restart state error", func() {
+			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				hb.OverrideRequestHandler(mockHostbuilderOK)
 
 				hosts.HostbuilderClient = hb
 
 				hs.H.UpdateState(db, host.StateStopped)
-				err = doRequest(hs.H.Slug)
-				Expect(err).To(MatchError(hosts.ErrHostRestartInvalidState))
+				doRequest(hs.H.Slug)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				err, j := unmarshalErrorResponse()
+				Expect(err).To(BeNil())
+
+				Expect(j.Error).To(Equal("invalid_state"))
+				Expect(j.ErrorDescription).To(Equal("host is not running"))
 			})
 		})
 
-		Context("with an invalid host name", func() {
-			It("returns error host not found", func() {
-				err = doRequest("somehost")
-				Expect(err).To(MatchError(hosts.ErrHostNotFound))
-			})
+		Context("when requested with an invalid host", func() {
+			ItRespondsHostNotFound(doRequest)
 		})
 
-		Context("with a valid host name", func() {
+		Context("when requested with a valid host name", func() {
 			Context("when hostbuilder successfully restarts the host", func() {
 				BeforeEach(func() {
 					hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -704,8 +734,7 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Slug)
-					Expect(err).To(BeNil())
+					doRequest(hs.H.Slug)
 				})
 
 				It("updates the host state to running", func() {
@@ -726,8 +755,11 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts.HostbuilderClient = hb
 
-					err = doRequest(hs.H.Slug)
-					Expect(err).To(MatchError("some error occurred"))
+					doRequest(hs.H.Slug)
+				})
+
+				It("responds with HTTP 500 Internal Server Error", func() {
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				})
 
 				It("leaves host in intermediate state", func() {
@@ -736,6 +768,15 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.State).To(Equal(host.StateRestarting))
 				})
 			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo/restart"
+				authTokenInputs.Method = "POST"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 })
