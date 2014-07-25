@@ -35,6 +35,10 @@ import (
 	_ "github.com/nitrous-io/nitro/command/registry/logout"
 	_ "github.com/nitrous-io/nitro/command/run"
 	_ "github.com/nitrous-io/nitro/command/shell"
+	_ "github.com/nitrous-io/nitro/command/volumes/create"
+	_ "github.com/nitrous-io/nitro/command/volumes/inspect"
+	_ "github.com/nitrous-io/nitro/command/volumes/list"
+	_ "github.com/nitrous-io/nitro/command/volumes/remove"
 )
 
 var version string
