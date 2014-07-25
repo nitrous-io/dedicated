@@ -23,7 +23,6 @@ const (
 	imageUsage        = "Specify an image to use to create the container"
 	envUsage          = "Set environment variables for the container in the format <key>:<value>. " + command.MultiargUsage
 	volumesUsage      = "Add data volume so other containers can mount given <path>. " + command.MultiargUsage
-	volumesFromUsage  = "Mount data volumes from container <container_slug>. " + command.MultiargUsage
 	portForwardsUsage = "Forward ports from container to host.  Use one of: 'ip:hostPort:containerPort', 'ip::containerPort', or 'hostPort:containerPort' specifications. " + command.MultiargUsage
 )
 
@@ -39,7 +38,6 @@ Options:
   -i, --image=""          %s
   -e, --env=[]            %s
   -v, --volume=[]         %s
-  -V, --volumes-from=[]   %s
   -p, --port-forward=[]   %s
 `
 
@@ -55,7 +53,6 @@ type containerParams struct {
 	image        string
 	envVars      command.Multiarg
 	volumes      command.Multiarg
-	volumesFrom  command.Multiarg
 	portForwards command.Multiarg
 }
 
@@ -74,7 +71,7 @@ func NewCommand() (cli.Command, error) {
 func (c *Command) Help() string {
 	// TODO this is getting unwieldy, maybe text/template
 	return strings.TrimSpace(fmt.Sprintf(usage, hostUsage, slugUsage,
-		imageUsage, envUsage, volumesUsage, volumesFromUsage, portForwardsUsage))
+		imageUsage, envUsage, volumesUsage, portForwardsUsage))
 }
 
 func (c *Command) Run(args []string) int {
@@ -88,7 +85,6 @@ func (c *Command) Run(args []string) int {
 
 	cmdFlags.VarP(&params.envVars, "env", "e", envUsage)
 	cmdFlags.VarP(&params.volumes, "volume", "v", volumesUsage)
-	cmdFlags.VarP(&params.volumesFrom, "volumes-from", "V", volumesFromUsage)
 	cmdFlags.VarP(&params.portForwards, "port-forward", "p", portForwardsUsage)
 
 	err := cmdFlags.Parse(args)
@@ -142,9 +138,6 @@ func (c *Command) createContainer(cp *containerParams) (*Container, error) {
 	}
 	for _, v := range cp.volumes {
 		p.Add("volume", v)
-	}
-	for _, vf := range cp.volumesFrom {
-		p.Add("volumes_from", vf)
 	}
 	for _, pf := range cp.portForwards {
 		p.Add("port", pf)
