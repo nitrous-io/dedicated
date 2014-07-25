@@ -22,6 +22,6 @@ format:
 
 test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
-	goop exec ginkgo -r -trace -keepGoing
+	script/test $(TEST)
 
 .PHONY: all build clean format test
