@@ -7,6 +7,11 @@ import (
 	"regexp"
 )
 
+const (
+	ContainerStateStopped = "stopped"
+	ContainerStateRunning = "running"
+)
+
 var containerNameRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
 var (
 	ErrTimeout               = errors.New("Operation timed out")
@@ -41,6 +46,8 @@ type Provider interface {
 	ListVolumes() ([]string, error)
 	RemoveVolume(slug string) error
 	GetVolumeInfo(slug string) (*VolumeInfo, error)
+
+	HostInfo() (*HostInfo, error)
 }
 
 type ContainerInfo struct {
@@ -65,10 +72,33 @@ type ImageInfo struct {
 	VirtualSize int64  `json:"virtual_size"`
 }
 
-const (
-	ContainerStateStopped = "stopped"
-	ContainerStateRunning = "running"
-)
+type HostInfo struct {
+	// Uptime in seconds.
+	Uptime       uint64       `json:"uptime"`
+	MemoryStats  MemoryStats  `json:"memory_stats"`
+	StorageStats StorageStats `json:"storage_stats"`
+	CPUStats     CPUStats     `json:"cpu_stats"`
+}
+
+type MemoryStats struct {
+	// Usage in bytes.
+	Usage uint64 `json:"usage"`
+	// Total in bytes.
+	Total uint64 `json:"total"`
+}
+
+type StorageStats struct {
+	// Usage in bytes.
+	Usage uint64 `json:"usage"`
+	// Total in bytes.
+	Total uint64 `json:"total"`
+}
+
+type CPUStats struct {
+	NumCPU int `json:"num_cpu"`
+	// Percent usage per CPU.
+	PerCPUUsage []float64 `json:"per_cpu_usage"`
+}
 
 type VolumeInfo struct {
 	Slug string `json:"slug"`

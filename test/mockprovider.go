@@ -85,6 +85,10 @@ type MockProvider struct {
 	ListImagesContents []*provider.ImageInfo
 	ListImagesError    error
 
+	HostInfoCalled bool
+	HostInfoError  error
+	HostInfoReturn *provider.HostInfo
+
 	Containers []*provider.ContainerInfo
 	PublicKeys map[string]string
 }
@@ -247,6 +251,11 @@ func (p *MockProvider) RemoveVolume(slug string) error {
 func (p *MockProvider) GetVolumeInfo(slug string) (*provider.VolumeInfo, error) {
 	p.VolumeInfoCalled = true
 	return p.VolumeInfoReturn, p.VolumeInfoError
+}
+
+func (p *MockProvider) HostInfo() (*provider.HostInfo, error) {
+	p.HostInfoCalled = true
+	return p.HostInfoReturn, p.HostInfoError
 }
 
 func (p *MockProvider) IsNotFoundError(err error) bool {

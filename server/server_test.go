@@ -1033,4 +1033,68 @@ var _ = Describe("server", func() {
 			})
 		})
 	})
+
+	Describe("GET /info", func() {
+		BeforeEach(func() {
+			prov.HostInfoReturn = &provider.HostInfo{
+				Uptime: 30,
+				MemoryStats: provider.MemoryStats{
+					Usage: 12345678,
+					Total: 17179869184,
+				},
+				StorageStats: provider.StorageStats{
+					Usage: 2000000000,
+					Total: 1000000000000,
+				},
+				CPUStats: provider.CPUStats{
+					NumCPU:      2,
+					PerCPUUsage: []float64{0.5, 30.0},
+				},
+			}
+		})
+
+		doRequest := func() {
+			req, err = NewRequest("GET", "/info", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.HostInfo()", func() {
+			Expect(prov.HostInfoCalled).To(BeFalse())
+			doRequest()
+			Expect(prov.HostInfoCalled).To(BeTrue())
+		})
+
+		It("responds with 200 OK and host info", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Body.String()).To(MatchJSON(`{"info":{
+				"uptime": 30,
+				"memory_stats": {
+					"usage": 12345678,
+					"total": 17179869184
+				},
+				"storage_stats": {
+					"usage": 2000000000,
+					"total": 1000000000000
+				},
+				"cpu_stats": {
+					"num_cpu": 2,
+					"per_cpu_usage": [0.5, 30]
+				}
+			}}`))
+		})
+
+		Context("when provider.Host() returns an error", func() {
+			BeforeEach(func() {
+				prov.HostInfoError = errors.New("host party time")
+			})
+
+			It("responds with 500 Internal Server Error", func() {
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"host party time"}`))
+			})
+		})
+	})
 })

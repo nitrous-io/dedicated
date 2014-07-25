@@ -69,7 +69,6 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/public_keys/{key_fingerprint}", s.removePublicKey, "DELETE")
 	s.route("/containers/{id}/logs", s.getContainerLogs, "GET")
 
-	// access the shells
 	s.route("/containers/{id}/shells", s.wrapError(s.createShell), "POST")
 	s.route("/shells/{id}/attach", s.wrapError(s.attachShell), "POST")
 	s.route("/shells/{id}/resize", s.wrapError(s.resizeShell), "POST")
@@ -84,4 +83,6 @@ func (s *Server) drawRoutes() {
 	s.route("/volumes", s.wrapError(s.createVolume), "POST")
 	s.route("/volumes/{slug}", s.wrapError(s.removeVolume), "DELETE")
 	s.route("/volumes/{slug}", s.wrapError(s.getVolumeInfo), "GET")
+
+	s.route("/info", s.hostInfo, "GET")
 }
