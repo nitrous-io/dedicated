@@ -1,4 +1,4 @@
-package middlewares_test
+package middleware_test
 
 import (
 	"encoding/json"
@@ -10,7 +10,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/server"
 
 	"github.com/nitrous-io/nitrous/models/token"
@@ -26,14 +26,14 @@ func Test(t *testing.T) {
 	RunSpecs(t, "middleware")
 }
 
-var _ = Describe("middlewares", func() {
+var _ = Describe("middleware", func() {
 	var (
 		db      *db.Database
 		svr     *server.Server
 		handler *mux.Router
 		res     *httptest.ResponseRecorder
-		env     *middlewares.Env
-		emptyMw middlewares.Middleware
+		env     *middleware.Env
+		emptyMw middleware.Middleware
 	)
 
 	BeforeEach(func() {
@@ -46,16 +46,16 @@ var _ = Describe("middlewares", func() {
 		handler = mux.NewRouter()
 		res = httptest.NewRecorder()
 
-		emptyMw = func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+		emptyMw = func(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 			return nil
 		}
-		env = &middlewares.Env{}
+		env = &middleware.Env{}
 	})
 
 	Describe("Vars", func() {
 		It("sets the Vars in the environment", func() {
 			h := func(w http.ResponseWriter, r *http.Request) {
-				middlewares.Vars(emptyMw)(env, svr, w, r)
+				middleware.Vars(emptyMw)(env, svr, w, r)
 			}
 			handler.HandleFunc("/path/{name}", h).Methods("GET")
 
@@ -90,7 +90,7 @@ var _ = Describe("middlewares", func() {
 			Expect(err).To(BeNil())
 
 			h := func(w http.ResponseWriter, r *http.Request) {
-				err := middlewares.Auth(emptyMw)(env, svr, w, r)
+				err := middleware.Auth(emptyMw)(env, svr, w, r)
 				if err != nil {
 					svr.HandleError(w, err)
 				}

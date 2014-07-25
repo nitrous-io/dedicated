@@ -8,7 +8,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers/registry"
 	"github.com/nitrous-io/nitrous/controllers/tokens"
 	"github.com/nitrous-io/nitrous/controllers/users"
-	mw "github.com/nitrous-io/nitrous/middlewares"
+	mw "github.com/nitrous-io/nitrous/middleware"
 )
 
 func (s *Server) drawRoutes() {

@@ -10,7 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
@@ -51,11 +51,11 @@ func (s *Server) namespace(ns string, f func()) {
 	nsStack = nsStack[:len(nsStack)-1]
 }
 
-func (s *Server) route(route string, mw middlewares.Middleware, methods ...string) {
+func (s *Server) route(route string, mw middleware.Middleware, methods ...string) {
 	route = strings.Join(nsStack, "") + route
 	h := func(w http.ResponseWriter, r *http.Request) {
 		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
-		err := mw(&middlewares.Env{}, s, w, r)
+		err := mw(&middleware.Env{}, s, w, r)
 		if err != nil {
 			s.HandleError(w, err)
 		}

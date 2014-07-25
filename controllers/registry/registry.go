@@ -5,7 +5,7 @@ import (
 
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
@@ -22,15 +22,15 @@ var (
 )
 
 var (
-	Login  middlewares.Middleware = middlewares.HostViaPath("slug", login)
-	Logout middlewares.Middleware = middlewares.HostViaPath("slug", logout)
+	Login  middleware.Middleware = middleware.HostViaPath("slug", login)
+	Logout middleware.Middleware = middleware.HostViaPath("slug", logout)
 )
 
 func init() {
 	FreighterClient = freighterclient.NewClient(nil)
 }
 
-func login(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	logger := c.Logger()
 
 	username := r.FormValue("username")
@@ -78,7 +78,7 @@ func login(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 	return nil
 }
 
-func logout(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	logger := c.Logger()
 
 	fHost, err := mkFreighterHost(h)

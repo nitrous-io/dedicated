@@ -11,7 +11,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/keypairs"
@@ -57,7 +57,7 @@ func init() {
 	}
 }
 
-func Index(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
@@ -73,7 +73,7 @@ func Index(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r 
 	return nil
 }
 
-func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
@@ -195,7 +195,7 @@ func Create(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r
 	return nil
 }
 
-func Destroy(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Destroy(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	logger := c.Logger()
 	vars := env.Vars
@@ -236,7 +236,7 @@ func Destroy(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, 
 	return nil
 }
 
-func Start(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Start(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	logger := c.Logger()
 	vars := env.Vars
@@ -260,7 +260,7 @@ func Start(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r 
 	return nil
 }
 
-func Stop(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Stop(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	logger := c.Logger()
 	vars := env.Vars
@@ -284,7 +284,7 @@ func Stop(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *
 	return nil
 }
 
-func Restart(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Restart(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	logger := c.Logger()
 	vars := env.Vars

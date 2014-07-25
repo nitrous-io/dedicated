@@ -9,7 +9,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
@@ -27,7 +27,7 @@ var (
 	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errHostNotRunning    = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running") // Not 100% on the status code - how about 409 Conflict?
 	errHostIPUnknown     = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
-	errHostNotFound      = middlewares.ErrHostNotFound
+	errHostNotFound      = middleware.ErrHostNotFound
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 )
@@ -39,20 +39,20 @@ var (
 )
 
 var (
-	Index   middlewares.Middleware = middlewares.HostViaForm("host", index)
-	Create  middlewares.Middleware = middlewares.HostViaForm("host", create)
-	Show    middlewares.Middleware = WithContainerAndHost(show)
-	Start   middlewares.Middleware = WithContainerAndHost(start)
-	Stop    middlewares.Middleware = WithContainerAndHost(stop)
-	Restart middlewares.Middleware = WithContainerAndHost(restart)
-	Destroy middlewares.Middleware = WithContainerAndHost(destroy)
+	Index   middleware.Middleware = middleware.HostViaForm("host", index)
+	Create  middleware.Middleware = middleware.HostViaForm("host", create)
+	Show    middleware.Middleware = WithContainerAndHost(show)
+	Start   middleware.Middleware = WithContainerAndHost(start)
+	Stop    middleware.Middleware = WithContainerAndHost(stop)
+	Restart middleware.Middleware = WithContainerAndHost(restart)
+	Destroy middleware.Middleware = WithContainerAndHost(destroy)
 )
 
 func init() {
 	FreighterClient = freighterclient.NewClient(nil)
 }
 
-func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	if h.State != host.StateRunning {
 		return errHostNotRunning
 	}
@@ -132,7 +132,7 @@ func freighterList(h *host.Host, out chan<- listresult, quit <-chan struct{}) {
 	}
 }
 
-func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func create(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	if h.State != host.StateRunning {
 		return errHostNotRunning
 	}
@@ -221,7 +221,7 @@ func create(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Res
 	return nil
 }
 
-func show(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func show(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	fHost, err := mkFreighterHost(h)
 	if err != nil {
 		return err
@@ -241,21 +241,21 @@ func show(cn *container.Container, h *host.Host, env *middlewares.Env, c control
 	return nil
 }
 
-func start(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func start(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	return performControlAction(FreighterClient.Start, cn, h, env, c, w, r)
 }
 
-func stop(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func stop(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	return performControlAction(FreighterClient.Stop, cn, h, env, c, w, r)
 }
 
-func restart(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func restart(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	return performControlAction(FreighterClient.Restart, cn, h, env, c, w, r)
 }
 
 type actionFn func(h *freighterclient.Host, id string) (*freighterclient.Container, error)
 
-func performControlAction(fn actionFn, cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func performControlAction(fn actionFn, cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	fHost, err := mkFreighterHost(h)
 	if err != nil {
 		return err
@@ -273,7 +273,7 @@ func performControlAction(fn actionFn, cn *container.Container, h *host.Host, en
 	return nil
 }
 
-func destroy(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func destroy(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	fHost, err := mkFreighterHost(h)
 	if err != nil {
 		return err
@@ -296,8 +296,8 @@ func destroy(cn *container.Container, h *host.Host, env *middlewares.Env, c cont
 	return nil
 }
 
-func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middlewares.Middleware {
-	return middlewares.Vars(func(env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middleware.Middleware {
+	return middleware.Vars(func(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		db := c.DB()
 
 		cSlug := env.Vars["slug"]
