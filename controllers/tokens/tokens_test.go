@@ -76,54 +76,65 @@ var _ = Describe("controllers/tokens", func() {
 			handler.ServeHTTP(res, req)
 		}
 
-		Context("when valid params are received", func() {
-			var j map[string]interface{}
+		logins := []string{
+			"foo",
+			"foo@example.com",
+		}
 
-			BeforeEach(func() {
-				doRequest()
-				j = map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-			})
+		for _, login := range logins {
+			l := login
 
-			It("responds with a unique access token", func() {
-				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(j["access_token"]).NotTo(BeNil())
-				Expect(j["token_type"]).To(Equal("Bearer"))
-			})
-
-			It("persists the token in the database", func() {
-				t, err := token.FindByToken(db, j["access_token"].(string))
-				Expect(err).To(BeNil())
-				Expect(t).NotTo(BeNil())
-				Expect(t.UserID).To(Equal(u.ID))
-				Expect(t.Token).To(Equal(j["access_token"]))
-				Expect(t.CreatedAt).NotTo(BeNil())
-			})
-
-			It("has no-cache headers", func() {
-				Expect(res.Header().Get("Cache-Control")).To(Equal("no-store"))
-				Expect(res.Header().Get("Pragma")).To(Equal("no-cache"))
-			})
-
-			Context("making another token request", func() {
-				var prevToken interface{}
+			Context("when requested with valid login("+l+") and password", func() {
+				var j map[string]interface{}
 
 				BeforeEach(func() {
-					res = httptest.NewRecorder()
-					prevToken = j["access_token"]
+					params.Set("username", l)
 					doRequest()
-				})
 
-				It("responds with a different access token", func() {
-					Expect(res.Code).To(Equal(http.StatusOK))
+					j = map[string]interface{}{}
 					err := json.Unmarshal(res.Body.Bytes(), &j)
 					Expect(err).To(BeNil())
-					Expect(j["access_token"]).NotTo(Equal(prevToken))
+				})
+
+				It("responds with a unique access token", func() {
+					Expect(res.Code).To(Equal(http.StatusOK))
+					Expect(j["access_token"]).NotTo(BeNil())
 					Expect(j["token_type"]).To(Equal("Bearer"))
 				})
+
+				It("persists the token in the database", func() {
+					t, err := token.FindByToken(db, j["access_token"].(string))
+					Expect(err).To(BeNil())
+					Expect(t).NotTo(BeNil())
+					Expect(t.UserID).To(Equal(u.ID))
+					Expect(t.Token).To(Equal(j["access_token"]))
+					Expect(t.CreatedAt).NotTo(BeNil())
+				})
+
+				It("has no-cache headers", func() {
+					Expect(res.Header().Get("Cache-Control")).To(Equal("no-store"))
+					Expect(res.Header().Get("Pragma")).To(Equal("no-cache"))
+				})
+
+				Context("making another token request", func() {
+					var prevToken interface{}
+
+					BeforeEach(func() {
+						res = httptest.NewRecorder()
+						prevToken = j["access_token"]
+						doRequest()
+					})
+
+					It("responds with a different access token", func() {
+						Expect(res.Code).To(Equal(http.StatusOK))
+						err := json.Unmarshal(res.Body.Bytes(), &j)
+						Expect(err).To(BeNil())
+						Expect(j["access_token"]).NotTo(Equal(prevToken))
+						Expect(j["token_type"]).To(Equal("Bearer"))
+					})
+				})
 			})
-		})
+		}
 
 		Context("when a wrong password is given", func() {
 			BeforeEach(func() {

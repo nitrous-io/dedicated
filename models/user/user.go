@@ -64,6 +64,18 @@ func FindByUsername(d db.QueryReceiver, username string) (*User, error) {
 	return user, nil
 }
 
+func FindByUsernameOrEmail(d db.QueryReceiver, login string) (*User, error) {
+	user := &User{}
+	err := d.Get(user, "SELECT * FROM users WHERE username = $1 OR email = $1", login)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return user, nil
+}
+
 func (u *User) Insert(d db.QueryReceiver) error {
 	if u.Password != "" {
 		encrypted, err := bcrypt.Hash(u.Password)
