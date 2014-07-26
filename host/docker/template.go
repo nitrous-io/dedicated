@@ -11,7 +11,6 @@ RUN touch /etc/ssh/univ_public_keys
 RUN echo -e "{{.}}" >> /etc/ssh/univ_public_keys
 {{ end }}
 
-RUN apt-get update && apt-get install -y --no-install-recommends lxc=1.0.* cgmanager libcgmanager0
 RUN /bin/bash -c "echo -e '#!/bin/bash\nrm /var/run/docker.pid\ndocker -d -e lxc >& /var/log/docker.log &\n/freighterd' > /start-freighterd" && chmod +x /start-freighterd
 
 EXPOSE 65333
