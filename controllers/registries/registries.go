@@ -101,6 +101,7 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 }
 
 func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	db := c.DB()
 	logger := c.Logger()
 
 	fHost, err := mkFreighterHost(h)
@@ -108,11 +109,22 @@ func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 		return err
 	}
 
-	err = FreighterClient.RegistryLogout(fHost, r.FormValue("registry"))
+	registryURL := r.FormValue("registry")
+
+	err = FreighterClient.RegistryLogout(fHost, registryURL)
 	if err != nil {
 		if err == freighterclient.ErrInvalidParams {
 			return errLogoutFailed
 		}
+		return err
+	}
+
+	if registryURL == "" {
+		registryURL = "hub.docker.com"
+	}
+
+	err = registry.Delete(db, env.User.ID, h.ID, registryURL)
+	if err != nil {
 		return err
 	}
 

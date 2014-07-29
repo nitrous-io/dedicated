@@ -36,3 +36,8 @@ func (r *Registry) Insert(d db.QueryReceiver) error {
 	}
 	return nstmt.QueryRowx(r).StructScan(r)
 }
+
+func Delete(db *db.Database, userID int64, hostID int64, registryURL string) error {
+	_, err := db.Exec("DELETE FROM registries WHERE user_id = $1 AND host_id = $2 AND registry_url = $3", userID, hostID, registryURL)
+	return err
+}

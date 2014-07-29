@@ -128,4 +128,36 @@ var _ = Describe("models/registry", func() {
 			})
 		})
 	})
+
+	Describe("Delete()", func() {
+		BeforeEach(func() {
+			_, err := db.Exec(`INSERT INTO registries
+				(user_id, host_id, registry_url, username, email)
+				VALUES ($1, $2, $3, $4, $5);`,
+				hs.U.ID, hs.H.ID, "hub.example.com", "foo", "foo@example.com")
+			Expect(err).To(BeNil())
+		})
+
+		Context("when theres a matching registry record", func() {
+			It("deletes the matching record", func() {
+				err := registry.Delete(db, hs.U.ID, hs.H.ID, "hub.example.com")
+				Expect(err).To(BeNil())
+
+				rx, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(rx).To(HaveLen(0))
+			})
+		})
+
+		Context("when there's no matching registry record", func() {
+			It("does not delete the matching record", func() {
+				err := registry.Delete(db, hs.U.ID, hs.H.ID, "not-exist.example.com")
+				Expect(err).To(BeNil())
+
+				rx, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(rx).To(HaveLen(1))
+			})
+		})
+	})
 })
