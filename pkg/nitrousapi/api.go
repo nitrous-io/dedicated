@@ -3,6 +3,7 @@ package nitrousapi
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
@@ -39,6 +40,9 @@ func GetContainer(client *httpclient.Client, server, slug string) (*ContainerAPI
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Failed to find container %s", slug)
+	}
 
 	cr := &containerResp{}
 	if err := json.NewDecoder(resp.Body).Decode(cr); err != nil {
