@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
@@ -39,14 +40,16 @@ var (
 const HostbuilderURLEnvVar = "HOSTBUILDER_URL"
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
+var FreighterClient freighterclient.Client
 
 func init() {
 	hostbuilderURL = os.Getenv(HostbuilderURLEnvVar)
 	if hostbuilderURL == "" {
 		panic(fmt.Sprintf("%v is not set", HostbuilderURLEnvVar))
 	}
-
 	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
+
+	FreighterClient = freighterclient.NewClient(nil)
 
 	aesKey = os.Getenv("AES_KEY")
 	if aesKey == "" {
@@ -176,6 +179,36 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	env.Data = map[string]interface{}{
 		"status": "created",
 		"host":   h,
+	}
+	return nil
+}
+
+func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	var info *freighterclient.HostInfo
+	var err error
+
+	// Request info from Freighter if host is running with an IP address.
+	if h.IPAddress.String != "" && h.State == host.StateRunning {
+		fHost := freighterclient.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), false)
+		info, err = FreighterClient.HostInfo(fHost)
+		if err != nil {
+			return err
+		}
+	}
+
+	rg, err := region.FindByID(c.DB(), h.RegionID)
+	if err != nil {
+		return err
+	}
+
+	pl, err := plan.FindByID(c.DB(), h.PlanID)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"host": controllers.NewHostDetailedAPI(h, rg, pl, info),
 	}
 	return nil
 }

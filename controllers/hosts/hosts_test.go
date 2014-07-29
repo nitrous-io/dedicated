@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/hostbuilder"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers/hosts"
@@ -366,6 +367,164 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = "/api/v0/hosts"
 				authTokenInputs.Method = "POST"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("GET /api/v0/hosts/{slug}", func() {
+		var (
+			mockClient *freighterclient.MockClient
+			hs         *HostStack
+		)
+
+		type expectedResp struct {
+			Host struct {
+				ID             int64  `json:"id"`
+				Slug           string `json:"slug"`
+				IPAddress      string `json:"ip_address"`
+				FreighterdPort int64  `json:"freighterd_port"`
+				State          string `json:"state"`
+				Hostname       string `json:"hostname"`
+				Region         *struct {
+					ID          int64  `json:"id"`
+					Name        string `json:"name"`
+					Description string `json:"description"`
+				} `json:"region"`
+				Plan *struct {
+					ID   int64  `json:"id"`
+					Name string `json:"name"`
+				} `json:"plan"`
+				Stats *struct {
+					Uptime       uint64    `json:"uptime"`
+					MemoryUsage  uint64    `json:"memory_usage"`
+					MemoryTotal  uint64    `json:"memory_total"`
+					StorageUsage uint64    `json:"storage_usage"`
+					StorageTotal uint64    `json:"storage_total"`
+					NumCPU       int       `json:"num_cpu"`
+					PerCPUUsage  []float64 `json:"per_cpu_usage"`
+				} `json:"stats"`
+			} `json:"host"`
+		}
+
+		doRequest := func(slug string) {
+			req, err := NewRequest("GET", "/api/v0/hosts/"+slug, nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			var err error
+
+			mockClient = &freighterclient.MockClient{}
+			mockClient.HostInfoReturn = &freighterclient.HostInfo{
+				Uptime:       30,
+				MemoryUsage:  12345678,
+				MemoryTotal:  17179869184,
+				StorageUsage: 2000000000,
+				StorageTotal: 1000000000000,
+				NumCPU:       2,
+				PerCPUUsage:  []float64{0.5, 30},
+			}
+			hosts.FreighterClient = mockClient
+
+			hs, err = CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:           "foo",
+					IPAddress:      sql.NullString{"1.2.3.4", true},
+					FreighterdPort: sql.NullInt64{64000, true},
+					State:          host.StateRunning,
+				},
+				R: &region.Region{Name: "use", Description: "US East"},
+				P: &plan.Plan{Name: "large"},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		It("calls the Freighter client to get host info", func() {
+			doRequest("foo")
+			Expect(mockClient.HostInfoCalled).To(Equal(1))
+		})
+
+		It("responds with host info from the database and augments it with stats from the Freighter API", func() {
+			doRequest("foo")
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j expectedResp
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			Expect(j.Host.ID).To(Equal(hs.H.ID))
+			Expect(j.Host.Slug).To(Equal("foo"))
+			Expect(j.Host.IPAddress).To(Equal("1.2.3.4"))
+			Expect(j.Host.FreighterdPort).To(Equal(int64(64000)))
+			Expect(j.Host.State).To(Equal(host.StateRunning))
+			Expect(j.Host.Hostname).To(Equal("foo.nitrouspro.com"))
+
+			Expect(j.Host.Region.ID).To(Equal(hs.R.ID))
+			Expect(j.Host.Region.Name).To(Equal("use"))
+			Expect(j.Host.Region.Description).To(Equal("US East"))
+
+			Expect(j.Host.Plan.ID).To(Equal(hs.P.ID))
+			Expect(j.Host.Plan.Name).To(Equal("large"))
+
+			Expect(j.Host.Stats.Uptime).To(Equal(uint64(30)))
+			Expect(j.Host.Stats.MemoryUsage).To(Equal(uint64(12345678)))
+			Expect(j.Host.Stats.MemoryTotal).To(Equal(uint64(17179869184)))
+			Expect(j.Host.Stats.StorageUsage).To(Equal(uint64(2000000000)))
+			Expect(j.Host.Stats.StorageTotal).To(Equal(uint64(1000000000000)))
+			Expect(j.Host.Stats.NumCPU).To(Equal(2))
+			Expect(j.Host.Stats.PerCPUUsage).To(Equal([]float64{0.5, 30}))
+		})
+
+		Context("when host is not running", func() {
+			BeforeEach(func() {
+				hs.H.UpdateState(db, host.StateStopped)
+			})
+
+			It("excludes host stats from Freighter", func() {
+				doRequest("foo")
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j expectedResp
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.Slug).To(Equal("foo"))
+				Expect(j.Host.Stats).To(BeNil())
+			})
+		})
+
+		Context("when host does not have an IP address", func() {
+			BeforeEach(func() {
+				_, err := CreateHostStack(db, &HostStack{
+					H: &host.Host{
+						Slug:      "bar",
+						IPAddress: sql.NullString{"", false},
+					},
+					U: u,
+				})
+				Expect(err).To(BeNil())
+			})
+
+			It("excludes host stats from Freighter", func() {
+				doRequest("bar")
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j expectedResp
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.Slug).To(Equal("bar"))
+				Expect(j.Host.Stats).To(BeNil())
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo"
+				authTokenInputs.Method = "GET"
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
