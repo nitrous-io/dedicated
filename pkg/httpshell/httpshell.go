@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/dotcloud/docker/pkg/term"
+	"github.com/nitrous-io/nitrous-common/term"
 )
 
 const (
