@@ -7,6 +7,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/registry"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
@@ -31,6 +32,7 @@ func init() {
 }
 
 func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	db := c.DB()
 	logger := c.Logger()
 
 	username := r.FormValue("username")
@@ -48,13 +50,13 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 		return errEmailRequired
 	}
 
-	registry := r.FormValue("registry")
+	registryURL := r.FormValue("registry")
 
 	params := &freighterclient.RegistryAuth{
 		Username: username,
 		Password: password,
 		Email:    email,
-		Registry: registry,
+		Registry: registryURL,
 	}
 
 	fHost, err := mkFreighterHost(h)
@@ -68,6 +70,26 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 			return errLoginFailed
 		}
 
+		return err
+	}
+
+	// set the default registry URL to "hub.docker.com",
+	// if user hasn't specified one.
+	// This is only to record in the DB.
+	if registryURL == "" {
+		registryURL = "hub.docker.com"
+	}
+
+	reg := &registry.Registry{
+		UserID:      env.User.ID,
+		HostID:      h.ID,
+		RegistryURL: registryURL,
+		Username:    username,
+		Email:       email,
+	}
+
+	err = reg.Insert(db)
+	if err != nil {
 		return err
 	}
 

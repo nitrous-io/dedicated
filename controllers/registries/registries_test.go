@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers/registries"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/registry"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/server"
@@ -154,6 +155,7 @@ var _ = Describe("controllers/registries", func() {
 				req.Header.Set("Authorization", "Bearer valid-token")
 				handler.ServeHTTP(res, req)
 			}
+
 			Context("with a valid host available for user", func() {
 				Context("when username is not provided", func() {
 					It("returns username required error", func() {
@@ -208,24 +210,49 @@ var _ = Describe("controllers/registries", func() {
 						Expect(mockClient.ReceivedRegistry).To(Equal("http://hub.example.com"))
 					})
 
-					It("returns HTTP 200 OK if logged in successfully", func() {
-						mockClient.RegistryLoginError = nil
-						doRequest(overrides{})
+					Context("when registry login succeeds", func() {
+						BeforeEach(func() {
+							mockClient.RegistryLoginError = nil
+							doRequest(overrides{})
+						})
 
-						Expect(res.Code).To(Equal(http.StatusOK))
+						It("creates a registry record for the user and host", func() {
+							regions, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+							Expect(err).To(BeNil())
+							Expect(len(regions)).To(Equal(1))
+
+							r := regions[0]
+							Expect(r.Username).To(Equal("dockeruser"))
+							Expect(r.Email).To(Equal("dockeruser@example.com"))
+							Expect(r.RegistryURL).To(Equal("http://hub.example.com"))
+						})
+
+						It("returns HTTP 200 OK if logged in successfully", func() {
+							Expect(res.Code).To(Equal(http.StatusOK))
+						})
 					})
 
-					It("informs user if login failed", func() {
-						mockClient.RegistryLoginError = freighterclient.ErrInvalidParams
-						doRequest(overrides{})
+					Context("when registry login fails", func() {
+						BeforeEach(func() {
+							mockClient.RegistryLoginError = freighterclient.ErrInvalidParams
+							doRequest(overrides{})
+						})
 
-						Expect(res.Code).To(Equal(http.StatusBadRequest))
+						It("creates a registry record for the user and host", func() {
+							regions, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+							Expect(err).To(BeNil())
+							Expect(len(regions)).To(Equal(0))
+						})
 
-						err, j := unmarshalErrorResponse()
-						Expect(err).To(BeNil())
+						It("informs user if login failed", func() {
+							Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-						Expect(j.Error).To(Equal("login_failed"))
-						Expect(j.ErrorDescription).To(Equal("registry login failed"))
+							err, j := unmarshalErrorResponse()
+							Expect(err).To(BeNil())
+
+							Expect(j.Error).To(Equal("login_failed"))
+							Expect(j.ErrorDescription).To(Equal("registry login failed"))
+						})
 					})
 
 					It("returns internal server error for other errors", func() {
