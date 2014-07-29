@@ -1,7 +1,6 @@
 package docker_test
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -140,22 +139,37 @@ var _ = Describe("provider/docker volumes", func() {
 	})
 
 	Describe(".GetVolumeInfo()", func() {
-		var volBase string
+		var (
+			volBase     string
+			fileContent = []byte("take up space")
+		)
 
 		BeforeEach(func() {
 			volBase = prov.VolumesDir("")
 			vpath := filepath.Join(volBase, "backups")
-			err := os.MkdirAll(vpath, 0755)
+			fpath := filepath.Join(vpath, "very", "deeply", "nested")
+			err := os.MkdirAll(fpath, 0755)
 			Expect(err).To(BeNil())
-			err = ioutil.WriteFile(filepath.Join(vpath, "production.psql"), []byte("take up space"), 0644)
+			err = ioutil.WriteFile(filepath.Join(fpath, "inner-production.psql"), fileContent, 0644)
+			Expect(err).To(BeNil())
+			err = ioutil.WriteFile(filepath.Join(fpath, "outer-production.psql"), fileContent, 0644)
 			Expect(err).To(BeNil())
 		})
 
 		It("returns volume info if exists", func() {
+			fileSize := uint64(len(fileContent))
 			vi, err := prov.GetVolumeInfo("backups")
 			Expect(err).To(BeNil())
 			Expect(vi.Slug).To(Equal("backups"))
-			Expect(vi.Size).To(BeNumerically(">", len("take up space")))
+			Expect(vi.Size).To(Equal(fileSize * 2))
+		})
+
+		It("returns zero size on new volume", func() {
+			vpath := filepath.Join(volBase, "emptydir")
+			err := os.MkdirAll(vpath, 0755)
+			vi, err := prov.GetVolumeInfo("emptydir")
+			Expect(err).To(BeNil())
+			Expect(vi.Size).To(BeZero())
 		})
 
 		It("returns err if volume doesn't exist", func() {
@@ -173,36 +187,5 @@ var _ = Describe("provider/docker volumes", func() {
 		It("returns volume dir when given slug", func() {
 			Expect(prov.VolumesDir("shared")).To(Equal(filepath.Join(datadir, "volumes", "shared")))
 		})
-	})
-
-	Describe("parseDuOutput()", func() {
-		testCases := []struct {
-			output       string
-			path         string
-			expectedSize uint64
-			expectedErr  string
-		}{
-			{"12345\tpathok\n", "pathok", 12345, ""},
-			{"12345\tmismatch\n", "pathok", 0, "path in 2nd field"},
-			{"12345\tpathok\n54321\nanother\t", "pathok", 0, "expected 2 fields"},
-			{"notasize\tpathok\n", "pathok", 0, "converting size"},
-			{"1.2GB\tpathok\n", "pathok", 0, "converting size"},
-		}
-		for i, tc2 := range testCases {
-			tc, c := tc2, i+1
-			size, err := docker.ParseDuOutput([]byte(tc.output), tc.path)
-			if tc.expectedErr == "" {
-				It(fmt.Sprintf("has size %u for case %d", tc.expectedSize, c), func() {
-					Expect(err).To(BeNil())
-					Expect(size).To(Equal(tc.expectedSize))
-				})
-			} else {
-				It(fmt.Sprintf("returns error on case %d", c), func() {
-					Expect(err).NotTo(BeNil(), "no error returned")
-					Expect(err.Error()).To(ContainSubstring(tc.expectedErr))
-					Expect(size).To(BeZero())
-				})
-			}
-		}
 	})
 })

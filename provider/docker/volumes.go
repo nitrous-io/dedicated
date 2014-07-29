@@ -3,11 +3,9 @@ package docker
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
-	"strings"
+	"syscall"
 
 	"github.com/nitrous-io/freighter/provider"
 )
@@ -91,15 +89,9 @@ func (p *DockerProvider) GetVolumeInfo(slug string) (*provider.VolumeInfo, error
 		return nil, ErrVolumeNotFound
 	}
 
-	// TODO add timeout
-	out, err := exec.Command("du", "--summarize", "--bytes", path).CombinedOutput()
+	size, err := treeSize(path)
 	if err != nil {
-		return nil, err
-	}
-
-	size, err := parseDuOutput(out, path)
-	if err != nil {
-		p.logger.Errorf("ERR: unexpected du output %s:\n%s", err, string(out))
+		p.logger.Errorf("ERR treeSize: %s", err)
 		return nil, fmt.Errorf("unexpected error while checking disk usage")
 	}
 	vi := &provider.VolumeInfo{
@@ -119,19 +111,37 @@ func (p *DockerProvider) VolumesDir(slug string) string {
 	return filepath.Join(p.dataPath, "volumes", slug)
 }
 
-// parses the output of `du --summarize --bytes <path>`
-// which is expected to look like: 1234567\tpatharg\n
-func parseDuOutput(output []byte, path string) (uint64, error) {
-	fields := strings.Fields(string(output))
-	if len(fields) != 2 {
-		return 0, fmt.Errorf("expected 2 fields, got %d", len(fields))
-	}
-	if fields[1] != path {
-		return 0, fmt.Errorf("expected path in 2nd field, got %s", fields[1])
-	}
-	size, err := strconv.ParseUint(fields[0], 10, 64)
+// treeSize walks a directory tree and returns its total size in bytes.
+// Adapted from dotcloud/docker/utils
+func treeSize(path string) (uint64, error) {
+	data := make(map[uint64]struct{})
+	size := uint64(0)
+	err := filepath.Walk(path, func(d string, fileInfo os.FileInfo, e error) error {
+		// Ignore directory sizes
+		if fileInfo == nil {
+			return nil
+		}
+
+		s := fileInfo.Size()
+		if fileInfo.IsDir() || s == 0 {
+			return nil
+		}
+
+		// Check inode to handle hard links correctly
+		inode := fileInfo.Sys().(*syscall.Stat_t).Ino
+		// inode is not a uint64 on all platforms. Cast it to avoid issues.
+		if _, exists := data[uint64(inode)]; exists {
+			return nil
+		}
+		// inode is not a uint64 on all platforms. Cast it to avoid issues.
+		data[uint64(inode)] = struct{}{}
+
+		size += uint64(s)
+
+		return nil
+	})
 	if err != nil {
-		return 0, fmt.Errorf("error converting size: %v", err)
+		return 0, err
 	}
 	return size, nil
 }
