@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"regexp"
@@ -58,7 +57,6 @@ type ContainerInfo struct {
 }
 
 type ContainerConfig interface {
-	json.Marshaler
 }
 
 type ImageInfo struct {

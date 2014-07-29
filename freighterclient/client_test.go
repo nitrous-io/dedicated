@@ -296,7 +296,7 @@ var _ = Describe("client", func() {
 					Expect(receivedRequests[0].PostFormValue("name")).To(Equal("yosemite"))
 					Expect(receivedRequests[0].PostFormValue("image")).To(Equal("ubuntu"))
 					Expect(receivedRequests[0].PostFormValue("config")).To(Equal(
-						`{"Config":{"Env":["LANG=C"]},"HostConfig":{}}`))
+						`{"Env":["LANG=C"],"Mounts":null,"PortBindings":null}`))
 
 					Expect(container).To(Equal(&freighterclient.Container{
 						ID:    "cafebabe",

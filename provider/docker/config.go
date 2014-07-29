@@ -1,130 +1,113 @@
 package docker
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
 )
 
+var (
+	ErrInvalidPortSpec = fmt.Errorf("port spec invalid")
+)
+
 type ContainerConfig struct {
-	Env          []string
-	Volumes      []string
-	ExposedPorts []string
-	PortBindings map[string]string
-}
-
-// subset of dockerclient.Config, used as whitelist
-type allowedConfig struct {
-	Env          []string            `json:"Env,omitempty"`
-	ExposedPorts map[string]struct{} `json:"ExposedPorts,omitempty"`
-	Volumes      map[string]struct{} `json:"Volumes,omitempty"`
-}
-
-// subset of dockerclient.HostConfig, used as whitelist
-type allowedHostConfig struct {
-	PortBindings map[string][]dockerclient.PortBinding `json:"PortBindings,omitempty"`
-}
-
-// configParam is used to deserialize JSON from the config parameter in calls
-// to create/start container
-type configParam struct {
-	Config     *allowedConfig     `json:"Config,omitempty"`
-	HostConfig *allowedHostConfig `json:"HostConfig,omitempty"`
+	Env          []string `json:"Env"`
+	Mounts       []string `json:"Mounts"`
+	PortBindings []string `json:"PortBindings"`
 }
 
 func NewContainerConfig() *ContainerConfig {
 	return &ContainerConfig{}
 }
 
-func (conf ContainerConfig) MarshalJSON() ([]byte, error) {
-	cp := configParam{
-		Config: &allowedConfig{}, HostConfig: &allowedHostConfig{},
+// CreateConfigs returns the dockerclient Config and HostConfig needed to
+// create a container.  These can be customized by cfg ContainerConfig.
+func (p *DockerProvider) CreateConfigs(containerName, imageName string, cfg *ContainerConfig) (*dockerclient.Config, *dockerclient.HostConfig, error) {
+	dcConfig := &dockerclient.Config{
+		Hostname:     containerName,
+		Image:        imageName,
+		Volumes:      map[string]struct{}{},
+		ExposedPorts: map[dockerclient.Port]struct{}{},
+		Env:          []string{},
 	}
-	if len(conf.Env) > 0 {
-		cp.Config.Env = conf.Env
+	dcHostConfig := &dockerclient.HostConfig{
+		Binds:           []string{},
+		PortBindings:    map[dockerclient.Port][]dockerclient.PortBinding{},
+		PublishAllPorts: true,
 	}
-	if len(conf.ExposedPorts) > 0 {
-		cp.Config.ExposedPorts = make(map[string]struct{})
-		for _, port := range conf.ExposedPorts {
-			cp.Config.ExposedPorts[port] = struct{}{}
+	if cfg != nil {
+		dcConfig.Env = cfg.Env
+		bs, err := dockerPortBindings(cfg.PortBindings)
+		if err != nil {
+			return nil, nil, err
+		}
+		dcHostConfig.PortBindings = bs
+		for port, _ := range bs {
+			dcConfig.ExposedPorts[dockerclient.Port(port)] = struct{}{}
 		}
 	}
-	if len(conf.PortBindings) > 0 {
-		cp.HostConfig.PortBindings = make(map[string][]dockerclient.PortBinding)
-		for cPort, hDest := range conf.PortBindings {
-			hParts := strings.Split(hDest, ":")
-			if len(hParts) != 2 {
-				return []byte{}, fmt.Errorf("Error parsing port binding %s: %s", cPort, hDest)
-			}
-			hostIP := hParts[0]
-			// support ':1234', defaults to 127.0.0.1:1234
-			if hostIP == "" {
-				hostIP = "127.0.0.1"
-			}
-			hostPort := hParts[1]
-			cp.HostConfig.PortBindings[cPort] = []dockerclient.PortBinding{
-				{HostIp: hostIP, HostPort: hostPort},
-			}
-		}
-	}
-	if len(conf.Volumes) > 0 {
-		cp.Config.Volumes = make(map[string]struct{})
-		for _, path := range conf.Volumes {
-			cp.Config.Volumes[path] = struct{}{}
-		}
-	}
-	return json.Marshal(cp)
+
+	dcConfig.ExposedPorts[dockerclient.Port("22/tcp")] = struct{}{}
+	dcConfig.Volumes["/etc/ssh/freighter"] = struct{}{}
+	dcHostConfig.Binds = append(dcHostConfig.Binds, fmt.Sprintf("%s/ssh:/etc/ssh/freighter:ro", p.containerSettingsDir(containerName)))
+
+	return dcConfig, dcHostConfig, nil
 }
 
-// parseConfigParam takes json that looks like
-// {"Config": { ...container create config... },
-//  "HostConfig": { ...container start config }}
-// and returns (config json, host config json)
-func parseConfigParam(configJSON string) (*allowedConfig, *allowedHostConfig, error) {
-	if configJSON == "" {
-		configJSON = "{}"
+// StartConfig returns the dockerclient HostConfig needed to start a container.
+// It can be customized by cfg ContainerConfig.
+func (p *DockerProvider) StartConfig(container *dockerclient.Container, cfg *ContainerConfig) (*dockerclient.HostConfig, error) {
+	dcHostConfig := container.HostConfig
+	if cfg == nil {
+		return dcHostConfig, nil
 	}
-	j := configParam{}
-	err := json.NewDecoder(strings.NewReader(configJSON)).Decode(&j)
-	if err != nil {
-		return nil, nil, err
+	if len(cfg.PortBindings) != 0 { // if empty, do not override existing
+		bs, err := dockerPortBindings(cfg.PortBindings)
+		if err != nil {
+			return nil, err
+		}
+		dcHostConfig.PortBindings = bs
 	}
-	return j.Config, j.HostConfig, nil
+	return dcHostConfig, nil
 }
 
-// overrideCreateConfig takes an existing dockerclient config and merges in
-// allowedConfig parsed from JSON
-// TODO: Docker Remote API does not validate, so we have to do our own
-// validation, i.e. env var without '='
-func overrideConfig(c *dockerclient.Config, override *allowedConfig) {
-	if override == nil {
-		return
+func dockerPortBindings(portSpecs []string) (map[dockerclient.Port][]dockerclient.PortBinding, error) {
+	bindings := map[dockerclient.Port][]dockerclient.PortBinding{}
+	if len(portSpecs) == 0 {
+		return bindings, nil
 	}
-	c.Env = override.Env
-	if override.ExposedPorts != nil {
-		for k, v := range override.ExposedPorts {
-			c.ExposedPorts[dockerclient.Port(k)] = v
+	for _, portSpec := range portSpecs {
+		p, pb, err := parsePortSpec(portSpec)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := bindings[p]; ok {
+			bindings[p] = append(bindings[p], pb)
+		} else {
+			bindings[p] = []dockerclient.PortBinding{pb}
 		}
 	}
-	if override.Volumes != nil {
-		for k, v := range override.Volumes {
-			c.Volumes[k] = v
-		}
-	}
+	return bindings, nil
 }
 
-// overrideHostConfig is similar to overrideCreateConfig, but with
-// dockerclient.HostConfig instead of dockerclient.Config
-func overrideHostConfig(hc *dockerclient.HostConfig, override *allowedHostConfig) {
-	if override == nil {
-		return
+// parsePortspec supports any of:
+//   ip:hostPort:containerPort
+//   ip::containerPort
+//   hostPort:containerPort ... :
+func parsePortSpec(portSpec string) (dockerclient.Port, dockerclient.PortBinding, error) {
+	parts := strings.Split(portSpec, ":")
+	var hostIP, hostPort, containerPort string
+	switch { // TODO more stringent checking
+	case len(parts) == 3 && parts[1] == "": // ip::containerPort
+		hostIP, hostPort, containerPort = parts[0], "", parts[2]
+	case len(parts) == 3 && parts[1] != "": // ip:hostPort:containerPort
+		hostIP, hostPort, containerPort = parts[0], parts[1], parts[2]
+	case len(parts) == 2: // hostPort:containerPort
+		hostIP, hostPort, containerPort = "127.0.0.1", parts[0], parts[1]
+	default:
+		return "", dockerclient.PortBinding{}, ErrInvalidPortSpec
 	}
-	if override.PortBindings != nil {
-		hc.PortBindings = make(map[dockerclient.Port][]dockerclient.PortBinding)
-		for k, v := range override.PortBindings {
-			hc.PortBindings[dockerclient.Port(k)] = v
-		}
-	}
+	return dockerclient.Port(containerPort),
+		dockerclient.PortBinding{HostIp: hostIP, HostPort: hostPort}, nil
 }

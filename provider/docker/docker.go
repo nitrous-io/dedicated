@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -86,12 +87,12 @@ func (p *DockerProvider) Create(name, imageName, configJSON string) (*provider.C
 		return nil, err
 	}
 
-	config, hostConfig, err := parseConfigParam(configJSON)
+	cfg, err := containerConfigFromJSON(configJSON)
 	if err != nil {
 		return nil, err
 	}
 
-	container, err := p.createContainer(imageName, name, config, hostConfig)
+	container, err := p.createContainer(imageName, name, cfg)
 
 	if err != nil {
 		return nil, err
@@ -116,18 +117,20 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	}, nil
 }
 
-func (p *DockerProvider) Start(id, config string) (*provider.ContainerInfo, error) {
+func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, error) {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return nil, err
 	}
 
-	startConfig := container.HostConfig
-	_, hostConfig, err := parseConfigParam(config)
+	cfg, err := containerConfigFromJSON(configJSON)
 	if err != nil {
 		return nil, err
 	}
-	overrideHostConfig(startConfig, hostConfig)
+	startConfig, err := p.StartConfig(container, cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	if !container.State.Running {
 		p.logger.Info("DockerProvider: starting container", id)
@@ -415,7 +418,7 @@ func (p *DockerProvider) ListImages() ([]*provider.ImageInfo, error) {
 	return list, nil
 }
 
-func (p *DockerProvider) createContainer(imageName, containerName string, config *allowedConfig, hostConfig *allowedHostConfig) (*dockerclient.Container, error) {
+func (p *DockerProvider) createContainer(imageName, containerName string, config *ContainerConfig) (*dockerclient.Container, error) {
 	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
 	start := time.Now()
 
@@ -440,15 +443,10 @@ func (p *DockerProvider) createContainer(imageName, containerName string, config
 
 	containerName = p.namespace + containerName
 
-	createConfig := &dockerclient.Config{
-		Hostname: containerName,
-		Image:    imageName,
-		Volumes: map[string]struct{}{
-			"/etc/ssh/freighter": {},
-		},
-		ExposedPorts: map[dockerclient.Port]struct{}{},
+	createConfig, startConfig, err := p.CreateConfigs(containerName, imageName, config)
+	if err != nil {
+		return nil, err
 	}
-	overrideConfig(createConfig, config)
 
 	container, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
 		Name:   containerName,
@@ -463,15 +461,6 @@ func (p *DockerProvider) createContainer(imageName, containerName string, config
 	p.logger.TimeInfo(start, "DockerProvider: created container", containerName, id, "in")
 	p.logger.Info("DockerProvider: starting container", containerName)
 	start = time.Now()
-
-	startConfig := &dockerclient.HostConfig{
-		Binds: []string{
-			(p.containerSettingsDir(containerName) + "/ssh:/etc/ssh/freighter:ro"),
-		},
-		PortBindings:    map[dockerclient.Port][]dockerclient.PortBinding{},
-		PublishAllPorts: true,
-	}
-	overrideHostConfig(startConfig, hostConfig)
 
 	err = p.client.StartContainer(id, startConfig)
 
@@ -591,4 +580,16 @@ func keyMapToKeys(keymap map[string]string) []string {
 		i++
 	}
 	return keys
+}
+
+func containerConfigFromJSON(jsonStr string) (*ContainerConfig, error) {
+	cfg := &ContainerConfig{}
+	if jsonStr == "" {
+		return cfg, nil
+	}
+	err := json.NewDecoder(strings.NewReader(jsonStr)).Decode(&cfg)
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
