@@ -2,14 +2,18 @@ package logs
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
+	"strconv"
 	"testing"
 
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitrous-common/httpclient"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -20,61 +24,79 @@ func TestLogs(t *testing.T) {
 }
 
 var _ = Describe("logs", func() {
-	It("requires host and container id", func() {
-		testCases := [][]string{
-			{},
-			{"only-host"},
+	It("requires container slug", func() {
+		cmd := &Command{
+			UI: &cli.BasicUi{ErrorWriter: bytes.NewBuffer(nil)},
 		}
-		for _, tc := range testCases {
-			cmd := &Command{
-				UI: &cli.BasicUi{ErrorWriter: bytes.NewBuffer(nil)},
-			}
-			code := cmd.Run(tc)
-			Expect(code).To(Equal(1), "Requires hosts and containers but got %v", tc)
-		}
+		code := cmd.Run([]string{})
+		Expect(code).To(Equal(1), "Requires container slug")
 	})
 
-	It("handles default value for follow and timestamps", func() {
-		ts := newTestServer("container")
-		defer ts.Close()
-
-		testCases := []struct {
-			args           []string
-			expectedParams string
-		}{
-			{[]string{ts.srv.URL, "container"}, ""},
-			{[]string{"-f", ts.srv.URL, "container"}, "follow=1"},
-			{[]string{"-t", ts.srv.URL, "container"}, "timestamps=1"},
-			{[]string{"-f", "-t", ts.srv.URL, "container"}, "follow=1&timestamps=1"},
+	It("get logs of the container", func() {
+		ns := newNitrousServer("container-slug")
+		defer ns.Close()
+		stdout := bytes.NewBuffer(nil)
+		cmd := &Command{
+			UI:     &cli.BasicUi{Writer: stdout},
+			server: ns.srv.URL,
+			client: httpclient.New("testtoken"),
 		}
-
-		for _, tc := range testCases {
-			cmd := &Command{
-				UI: &cli.BasicUi{
-					Writer:      bytes.NewBuffer(nil),
-					ErrorWriter: bytes.NewBuffer(nil),
-				},
-			}
-			cmd.Run(tc.args)
-			Expect(ts.lastForm.Encode()).To(Equal(tc.expectedParams))
-			GinkgoRecover()
-		}
+		cmd.Run([]string{"container-slug"})
+		Expect(stdout.String()).To(Equal("hello im a log"))
 	})
 })
 
+// nitrous test server
+type nitrousServer struct {
+	srv         *httptest.Server
+	ts          *testServer
+	containerID string
+}
+
+func (s *nitrousServer) getContainer(w http.ResponseWriter, r *http.Request) {
+	addr := s.ts.srv.Listener.Addr().String()
+	host, port, _ := net.SplitHostPort(addr)
+	portInt, _ := strconv.ParseInt(port, 10, 64)
+	resp := map[string]interface{}{
+		"CID": s.containerID,
+		"host": map[string]interface{}{
+			"ip_address":      host,
+			"freighterd_port": portInt,
+		},
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"container": resp,
+	})
+}
+
+func (s *nitrousServer) Close() {
+	s.ts.Close()
+	s.srv.CloseClientConnections()
+	s.srv.Close()
+}
+
+func newNitrousServer(containerID string) *nitrousServer {
+	ts := newTestServer(containerID)
+	s := &nitrousServer{
+		ts:          ts,
+		containerID: containerID,
+	}
+	r := mux.NewRouter()
+	r.HandleFunc("/api/v0/containers/"+containerID, s.getContainer).Methods("GET")
+	srv := httptest.NewServer(r)
+	s.srv = srv
+	return s
+}
+
+// freighter test server
 type testServer struct {
 	srv         *httptest.Server
-	containerId string
-	output      *bytes.Buffer
-	lastForm    url.Values
+	containerID string
+	stdout      io.Reader
 }
 
 func (s *testServer) getLogs(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-	Expect(id).To(Equal(s.containerId))
-	r.ParseForm()
-	s.lastForm = r.Form
-	io.Copy(w, s.output)
+	io.Copy(w, s.stdout)
 }
 
 func (s *testServer) Close() {
@@ -82,14 +104,13 @@ func (s *testServer) Close() {
 	s.srv.Close()
 }
 
-func newTestServer(containerId string) *testServer {
+func newTestServer(containerID string) *testServer {
 	s := &testServer{
-		containerId: containerId,
-		output:      bytes.NewBuffer(nil),
+		containerID: containerID,
+		stdout:      bytes.NewBufferString("hello im a log"),
 	}
 	r := mux.NewRouter()
-	r.HandleFunc("/containers/{id}/logs", s.getLogs).Methods("GET")
-
+	r.HandleFunc(fmt.Sprintf("/containers/%s/logs", containerID), s.getLogs).Methods("GET")
 	srv := httptest.NewServer(r)
 	s.srv = srv
 	return s
