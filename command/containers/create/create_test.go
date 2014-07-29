@@ -112,8 +112,7 @@ var _ = Describe("containers/create", func() {
 				"--image=ubuntu",
 				"--volume=/shared", // repeat args supported
 				"--volume=/music",
-				"--volumes-from=data_container,code_container", // comma-separated supported
-				"--port-forward=8080:3000,127.0.0.1:4242",
+				"--port-forward=8080:3000,127.0.0.1:4242", // comma-separated supported
 			})
 		}
 
@@ -125,7 +124,6 @@ var _ = Describe("containers/create", func() {
 			Expect(r.PostFormValue("slug")).To(Equal("foo"))
 			Expect(r.PostFormValue("image")).To(Equal("ubuntu"))
 			Expect(r.PostForm["volume"]).To(Equal([]string{"/shared", "/music"}))
-			Expect(r.PostForm["volumes_from"]).To(Equal([]string{"data_container", "code_container"}))
 			Expect(r.PostForm["port"]).To(Equal([]string{"8080:3000", "127.0.0.1:4242"}))
 		})
 
