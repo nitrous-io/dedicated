@@ -8,6 +8,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers/registry"
 	"github.com/nitrous-io/nitrous/controllers/tokens"
 	"github.com/nitrous-io/nitrous/controllers/users"
+	"github.com/nitrous-io/nitrous/controllers/volumes"
 	mw "github.com/nitrous-io/nitrous/middleware"
 )
 
@@ -28,6 +29,11 @@ func (s *Server) drawRoutes() {
 
 		s.route("/hosts/{slug}/registries", mw.Auth(mw.Vars(registry.Login)), "POST")
 		s.route("/hosts/{slug}/registries", mw.Auth(mw.Vars(registry.Logout)), "DELETE")
+
+		s.route("/hosts/{slug}/volumes", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Index)))), "GET")
+		s.route("/hosts/{slug}/volumes", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Create)))), "POST")
+		s.route("/hosts/{slug}/volumes/{vslug}", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Destroy)))), "DELETE")
+		s.route("/hosts/{slug}/volumes/{vslug}", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Show)))), "GET")
 
 		s.route("/containers", mw.Auth(mw.JSON(containers.Index)), "GET")
 		s.route("/containers", mw.Auth(mw.JSON(containers.Create)), "POST")

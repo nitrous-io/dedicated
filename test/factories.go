@@ -2,6 +2,7 @@ package test
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
@@ -19,6 +20,10 @@ type HostStack struct {
 	U  *user.User
 }
 
+// track number of hoststacks successfully created so we can generate unique
+// fields
+var HostStackCount int
+
 // CreateHostStack returns a HostStack with created user,
 // region, plan, providertemplate, and host.
 // If any model fields in hs are present, they are used, otherwise
@@ -35,10 +40,23 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 		hs = &HostStack{}
 	}
 
+	makeUnique := func(val string) string {
+		if HostStackCount == 0 {
+			return val
+		}
+		return fmt.Sprintf("%s%d", val, HostStackCount)
+	}
+
 	if hs.U == nil {
+		var username string
+		if HostStackCount == 0 {
+			username = "hoststackuser"
+		} else {
+			username = makeUnique("hoststackuser")
+		}
 		hs.U = &user.User{
-			Username: "hoststackuser",
-			Email:    "hoststackuser@example.com",
+			Username: username,
+			Email:    fmt.Sprintf("%s@example.com", username),
 			Password: "123456",
 		}
 	}
@@ -51,7 +69,7 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 	}
 
 	if hs.R == nil {
-		hs.R = &region.Region{Name: "apse1", Description: "Southeast Asia"}
+		hs.R = &region.Region{Name: makeUnique("apse"), Description: "Southeast Asia"}
 	}
 
 	if hs.R.ID == 0 {
@@ -63,7 +81,7 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 	}
 
 	if hs.P == nil {
-		hs.P = &plan.Plan{Name: "micro", MaxContainers: 1, Price: 500}
+		hs.P = &plan.Plan{Name: makeUnique("micro"), MaxContainers: 1, Price: 500}
 	}
 	if hs.P.ID == 0 {
 		err = hs.P.Insert(tx)
@@ -94,7 +112,7 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 		hs.H = &host.Host{}
 	}
 	if hs.H.Slug == "" {
-		hs.H.Slug = "hoststack-1"
+		hs.H.Slug = makeUnique("hoststack")
 	}
 	if hs.H.State == "" {
 		hs.H.State = host.StateRunning
@@ -119,6 +137,8 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	HostStackCount += 1
 
 	return hs, nil
 }
