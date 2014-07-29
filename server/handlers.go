@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/pkg/flusher"
@@ -173,6 +174,60 @@ func (s *Server) clearPublicKeys(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.respond(w, http.StatusOK, []byte{})
+}
+
+func (s *Server) createVolume(w http.ResponseWriter, r *http.Request) error {
+	slug := r.FormValue("slug")
+	vi, err := s.provider.CreateVolume(slug)
+	if err != nil {
+		// temporary workaround until we start using httperror
+		if strings.HasPrefix(err.Error(), "volume") {
+			s.respond(w, 422, []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
+			return nil
+		}
+		return err
+	}
+	s.respondEncodeJSON(w, http.StatusCreated, map[string]interface{}{"volume": vi})
+	return nil
+}
+
+func (s *Server) listVolumes(w http.ResponseWriter, r *http.Request) error {
+	volumes, err := s.provider.ListVolumes()
+	if err != nil {
+		return err
+	}
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"volumes": volumes})
+	return nil
+}
+
+func (s *Server) getVolumeInfo(w http.ResponseWriter, r *http.Request) error {
+	slug := mux.Vars(r)["slug"]
+	vi, err := s.provider.GetVolumeInfo(slug)
+	if err != nil {
+		// temporary workaround until we start using httperror
+		if strings.HasPrefix(err.Error(), "volume") {
+			s.respond(w, 422, []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
+			return nil
+		}
+		return err
+	}
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"volume": vi})
+	return nil
+}
+
+func (s *Server) removeVolume(w http.ResponseWriter, r *http.Request) error {
+	slug := mux.Vars(r)["slug"]
+	err := s.provider.RemoveVolume(slug)
+	if err != nil {
+		// temporary workaround until we start using httperror
+		if strings.HasPrefix(err.Error(), "volume") {
+			s.respond(w, 422, []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
+			return nil
+		}
+		return err
+	}
+	s.respond(w, http.StatusOK, jsonStatusOK)
+	return nil
 }
 
 // export content of the container as a .tar stream

@@ -34,7 +34,7 @@ var _ = Describe("server", func() {
 		prov    *MockProvider
 	)
 
-	configJSON := `{"HostConfig": {"VolumesFrom": ["sharedcontainer"]}}`
+	configJSON := `{"HostConfig": {"PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]}}}`
 
 	BeforeEach(func() {
 		prov = &MockProvider{}
@@ -777,6 +777,106 @@ var _ = Describe("server", func() {
 					Expect(res.Body.String()).To(MatchJSON(string(j)))
 				})
 			})
+		})
+	})
+
+	Describe("POST /volumes", func() {
+		doRequest := func(slug string) {
+			req, _ := NewRequest("POST", "/volumes", &url.Values{"slug": []string{slug}})
+			handler.ServeHTTP(res, req)
+		}
+
+		It("is Created when provider.CreateVolumes() succeeds", func() {
+			prov.CreateVolumeReturn = &provider.VolumeInfo{
+				Slug: "good-slug",
+				Size: 0,
+			}
+			doRequest("good-slug")
+			Expect(prov.CreateVolumeSlug).To(Equal("good-slug"))
+			Expect(res.Code).To(Equal(http.StatusCreated))
+			Expect(res.Body.String()).To(MatchJSON(`{"volume": {"slug":"good-slug","size":0}}`))
+		})
+
+		Context("when provider.CreateVolumes() fails", func() {
+			It("with a known error", func() {
+				prov.CreateVolumeError = fmt.Errorf("volume is pi r cubed")
+				doRequest("fails")
+				Expect(res.Code).To(Equal(422))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"volume is pi r cubed"}`))
+			})
+
+			It("with an unexpected error", func() {
+				prov.CreateVolumeError = fmt.Errorf("mkdir failed")
+				doRequest("fails")
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"mkdir failed"}`))
+			})
+		})
+	})
+
+	Describe("GET /volumes", func() {
+		doRequest := func() {
+			req, _ := NewRequest("GET", "/volumes", nil)
+			handler.ServeHTTP(res, req)
+		}
+
+		It("lists volumes on success", func() {
+			prov.ListVolumesReturn = []string{"data", "music", "downloads"}
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Body.String()).To(MatchJSON(`{"volumes":["data","music","downloads"]}`))
+		})
+
+		It("returns err on failure", func() {
+			prov.ListVolumesError = fmt.Errorf("glob failed")
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			Expect(res.Body.String()).To(MatchJSON(`{"error":"glob failed"}`))
+		})
+	})
+
+	Describe("DELETE /volumes/:slug", func() {
+		doRequest := func() {
+			req, _ := NewRequest("DELETE", "/volumes/some-volume", nil)
+			handler.ServeHTTP(res, req)
+		}
+
+		It("returns ok on success", func() {
+			doRequest()
+			Expect(prov.RemoveVolumeCalled).To(BeTrue())
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("returns error on failure", func() {
+			prov.RemoveVolumeError = fmt.Errorf("remove failed")
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			Expect(res.Body.String()).To(MatchJSON(`{"error":"remove failed"}`))
+		})
+	})
+
+	Describe("GET /volumes/:slug", func() {
+		doRequest := func() {
+			req, _ := NewRequest("GET", "/volumes/eleven", nil)
+			handler.ServeHTTP(res, req)
+		}
+
+		It("returns ok on success", func() {
+			prov.VolumeInfoReturn = &provider.VolumeInfo{
+				Slug: "eleven",
+				Size: 1234567,
+			}
+			doRequest()
+			Expect(prov.VolumeInfoCalled).To(BeTrue())
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Body.String()).To(MatchJSON(`{"volume":{"slug":"eleven","size":1234567}}`))
+		})
+
+		It("returns error on failure", func() {
+			prov.VolumeInfoError = fmt.Errorf("info failed")
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			Expect(res.Body.String()).To(MatchJSON(`{"error":"info failed"}`))
 		})
 	})
 

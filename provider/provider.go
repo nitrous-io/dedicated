@@ -36,6 +36,11 @@ type Provider interface {
 	Logout(registry string) error
 
 	ListImages() (infoList []*ImageInfo, err error)
+
+	CreateVolume(slug string) (*VolumeInfo, error)
+	ListVolumes() ([]string, error)
+	RemoveVolume(slug string) error
+	GetVolumeInfo(slug string) (*VolumeInfo, error)
 }
 
 type ContainerInfo struct {
@@ -64,6 +69,11 @@ const (
 	ContainerStateStopped = "stopped"
 	ContainerStateRunning = "running"
 )
+
+type VolumeInfo struct {
+	Slug string `json:"slug"`
+	Size uint64 `json:"size"`
+}
 
 //type SnapshotInfo struct {
 //	ID          string `json:"id"`

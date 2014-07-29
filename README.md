@@ -163,7 +163,6 @@ All keys of config JSON are optional.  Fully populated JSON looks like:
   }
   "HostConfig": {
     "PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]},
-    "VolumesFrom": ["somecontainer"]
   }
 }
 ```
@@ -251,7 +250,6 @@ ignored.  A fully populated JSON looks like:
 {
   "HostConfig": {
     "PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]},
-    "VolumesFrom": ["somecontainer"]
   }
 }
 ```
@@ -661,12 +659,120 @@ Content-Type: application/json; charset=utf-8
     }
   ]
 }
-....
+```
+
+### List volumes
+
+`GET /hosts/(host slug)/volumes`
+
+**Example request**:
+
+`GET /hosts/myhost/volumes HTTP/1.1`
+
+**Example response**:
+
+```javascript
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+
+{
+  "volumes": [
+    "dotfiles",
+    "code",
+    "db"
+  ]
+}
 ```
 
 **Status Codes**:
 
 - **200** - ok
+
+### Create a volume
+
+`POST /hosts/(host slug)/volumes`
+
+**Example request**:
+
+```
+POST /hosts/myhost/volumes HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+
+slug=music
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 201 Created
+Content-Type: application/json; charset=utf-8
+
+{ "status" : "created" }
+```
+
+**POST Params**:
+
+- **slug** - required volume slug (alphanumeric, hyphen(-), underscore(\_), must start with alphanumeric).  This will be the directory name of the created volume
+
+**Status Codes**:
+
+- **201** - created
+- **422** - missing or invalid params
+
+### Remove a volume
+
+`DELETE /hosts/(host slug)/volumes/(volume slug)`
+
+**Example request**:
+
+```
+DELETE /hosts/myhost/volumes/oldvolume HTTP/1.1
+Content-Type: application/json
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+
+{ "status" : "ok" }
+```
+
+**Status Codes**:
+
+- **200** - ok
+- **422** - missing or invalid params
+
+### Get volume info
+
+`GET /hosts/(host slug)/volumes/(volume slug)`
+
+**Example request**:
+
+```
+GET /hosts/myhost/volumes/sharedvol HTTP/1.1
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+
+{
+  "volume": {
+    "slug":"sharedvol",
+    "size":5915182,
+  }
+}
+```
+
+**Status codes**:
+
+- **200** - ok
+- **404** - no such container
+
 
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.

@@ -49,6 +49,22 @@ type MockProvider struct {
 	ReceivedPublicKeys     []string
 	ReceivedKeyFingerprint string
 
+	CreateVolumeCalled bool
+	CreateVolumeReturn *provider.VolumeInfo
+	CreateVolumeError  error
+	CreateVolumeSlug   string
+
+	ListVolumesCalled bool
+	ListVolumesReturn []string
+	ListVolumesError  error
+
+	RemoveVolumeCalled bool
+	RemoveVolumeError  error
+
+	VolumeInfoCalled bool
+	VolumeInfoReturn *provider.VolumeInfo
+	VolumeInfoError  error
+
 	LogsCalled         bool
 	LogsError          error
 	ReceivedFollow     bool
@@ -210,6 +226,27 @@ func (p *MockProvider) ListImages() ([]*provider.ImageInfo, error) {
 	}
 
 	return p.ListImagesContents, nil
+}
+
+func (p *MockProvider) CreateVolume(slug string) (*provider.VolumeInfo, error) {
+	p.CreateVolumeCalled = true
+	p.CreateVolumeSlug = slug
+	return p.CreateVolumeReturn, p.CreateVolumeError
+}
+
+func (p *MockProvider) ListVolumes() ([]string, error) {
+	p.ListVolumesCalled = true
+	return p.ListVolumesReturn, p.ListVolumesError
+}
+
+func (p *MockProvider) RemoveVolume(slug string) error {
+	p.RemoveVolumeCalled = true
+	return p.RemoveVolumeError
+}
+
+func (p *MockProvider) GetVolumeInfo(slug string) (*provider.VolumeInfo, error) {
+	p.VolumeInfoCalled = true
+	return p.VolumeInfoReturn, p.VolumeInfoError
 }
 
 func (p *MockProvider) IsNotFoundError(err error) bool {

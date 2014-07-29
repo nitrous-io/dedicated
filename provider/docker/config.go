@@ -11,7 +11,6 @@ import (
 type ContainerConfig struct {
 	Env          []string
 	Volumes      []string
-	VolumesFrom  []string
 	ExposedPorts []string
 	PortBindings map[string]string
 }
@@ -26,7 +25,6 @@ type allowedConfig struct {
 // subset of dockerclient.HostConfig, used as whitelist
 type allowedHostConfig struct {
 	PortBindings map[string][]dockerclient.PortBinding `json:"PortBindings,omitempty"`
-	VolumesFrom  []string                              `json:"VolumesFrom,omitempty"`
 }
 
 // configParam is used to deserialize JSON from the config parameter in calls
@@ -77,7 +75,6 @@ func (conf ContainerConfig) MarshalJSON() ([]byte, error) {
 			cp.Config.Volumes[path] = struct{}{}
 		}
 	}
-	cp.HostConfig.VolumesFrom = conf.VolumesFrom
 	return json.Marshal(cp)
 }
 
@@ -129,8 +126,5 @@ func overrideHostConfig(hc *dockerclient.HostConfig, override *allowedHostConfig
 		for k, v := range override.PortBindings {
 			hc.PortBindings[dockerclient.Port(k)] = v
 		}
-	}
-	if override.VolumesFrom != nil {
-		hc.VolumesFrom = override.VolumesFrom
 	}
 }

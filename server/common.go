@@ -11,6 +11,7 @@ import (
 var (
 	jsonStatusOK       = []byte(`{"status":"ok"}`)
 	jsonStatusAccepted = []byte(`{"status":"accepted"}`)
+	jsonStatusCreated  = []byte(`{"status":"created"}`)
 	jsonErrorNotFound  = []byte(`{"error":"no such container"}`)
 )
 

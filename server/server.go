@@ -78,4 +78,10 @@ func (s *Server) drawRoutes() {
 	s.route("/registry/auth", s.logoutRegistry, "DELETE")
 
 	s.route("/images", s.listImages, "GET")
+
+	// volumes
+	s.route("/volumes", s.wrapError(s.listVolumes), "GET")
+	s.route("/volumes", s.wrapError(s.createVolume), "POST")
+	s.route("/volumes/{slug}", s.wrapError(s.removeVolume), "DELETE")
+	s.route("/volumes/{slug}", s.wrapError(s.getVolumeInfo), "GET")
 }
