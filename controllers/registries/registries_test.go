@@ -1,4 +1,4 @@
-package registry_test
+package registries_test
 
 import (
 	"database/sql"
@@ -12,7 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/nitrous-io/nitrous/controllers/registry"
+	"github.com/nitrous-io/nitrous/controllers/registries"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
@@ -25,10 +25,10 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "controllers/registry")
+	RunSpecs(t, "controllers/registries")
 }
 
-var _ = Describe("controllers/registry", func() {
+var _ = Describe("controllers/registries", func() {
 	var (
 		db              *db.Database
 		handler         *mux.Router
@@ -74,7 +74,7 @@ var _ = Describe("controllers/registry", func() {
 		var err error
 
 		mockClient = &freighterclient.MockClient{}
-		registry.FreighterClient = mockClient
+		registries.FreighterClient = mockClient
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
