@@ -50,6 +50,7 @@ type MockProvider struct {
 	ReceivedKeyFingerprint string
 
 	CreateVolumeCalled bool
+	CreateVolumeReturn *provider.VolumeInfo
 	CreateVolumeError  error
 	CreateVolumeSlug   string
 
@@ -227,10 +228,10 @@ func (p *MockProvider) ListImages() ([]*provider.ImageInfo, error) {
 	return p.ListImagesContents, nil
 }
 
-func (p *MockProvider) CreateVolume(slug string) error {
+func (p *MockProvider) CreateVolume(slug string) (*provider.VolumeInfo, error) {
 	p.CreateVolumeCalled = true
 	p.CreateVolumeSlug = slug
-	return p.CreateVolumeError
+	return p.CreateVolumeReturn, p.CreateVolumeError
 }
 
 func (p *MockProvider) ListVolumes() ([]string, error) {

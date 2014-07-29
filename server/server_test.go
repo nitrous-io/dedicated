@@ -787,9 +787,14 @@ var _ = Describe("server", func() {
 		}
 
 		It("is Created when provider.CreateVolumes() succeeds", func() {
+			prov.CreateVolumeReturn = &provider.VolumeInfo{
+				Slug: "good-slug",
+				Size: 0,
+			}
 			doRequest("good-slug")
 			Expect(prov.CreateVolumeSlug).To(Equal("good-slug"))
 			Expect(res.Code).To(Equal(http.StatusCreated))
+			Expect(res.Body.String()).To(MatchJSON(`{"volume": {"slug":"good-slug","size":0}}`))
 		})
 
 		Context("when provider.CreateVolumes() fails", func() {

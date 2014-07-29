@@ -178,7 +178,7 @@ func (s *Server) clearPublicKeys(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createVolume(w http.ResponseWriter, r *http.Request) error {
 	slug := r.FormValue("slug")
-	err := s.provider.CreateVolume(slug)
+	vi, err := s.provider.CreateVolume(slug)
 	if err != nil {
 		// temporary workaround until we start using httperror
 		if strings.HasPrefix(err.Error(), "volume") {
@@ -187,7 +187,7 @@ func (s *Server) createVolume(w http.ResponseWriter, r *http.Request) error {
 		}
 		return err
 	}
-	s.respond(w, http.StatusCreated, jsonStatusCreated)
+	s.respondEncodeJSON(w, http.StatusCreated, map[string]interface{}{"volume": vi})
 	return nil
 }
 

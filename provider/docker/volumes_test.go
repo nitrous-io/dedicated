@@ -37,20 +37,24 @@ var _ = Describe("provider/docker volumes", func() {
 	Describe(".CreateVolume()", func() {
 		It("creates a volume", func() {
 			slug := "my-data"
-			err := prov.CreateVolume("my-data")
+			vi, err := prov.CreateVolume("my-data")
 			Expect(err).To(BeNil())
 			_, err = os.Stat(prov.VolumesDir(slug))
 			Expect(err).To(BeNil())
+			Expect(vi.Slug).To(Equal("my-data"))
+			Expect(vi.Size).To(Equal(uint64(0)))
 		})
 
 		It("errs on missing slug", func() {
-			Expect(prov.CreateVolume("")).To(MatchError(docker.ErrMissingVolumeSlug))
+			_, err := prov.CreateVolume("")
+			Expect(err).To(MatchError(docker.ErrMissingVolumeSlug))
 		})
 
 		It("errs on invalid slug", func() {
 			for _, s := range []string{"../../pwned",
 				"sub/dir", "justbad!", "$(echo nice try)"} {
-				Expect(prov.CreateVolume(s)).To(MatchError(docker.ErrBadVolumeSlugFormat))
+				_, err := prov.CreateVolume(s)
+				Expect(err).To(MatchError(docker.ErrBadVolumeSlugFormat))
 			}
 		})
 
@@ -67,7 +71,8 @@ var _ = Describe("provider/docker volumes", func() {
 			AfterEach(func() { err := os.RemoveAll(path); Expect(err).To(BeNil()) })
 
 			It("returns error", func() {
-				Expect(prov.CreateVolume(slug)).To(MatchError(docker.ErrVolumeExists))
+				_, err := prov.CreateVolume(slug)
+				Expect(err).To(MatchError(docker.ErrVolumeExists))
 			})
 		})
 	})

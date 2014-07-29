@@ -37,7 +37,7 @@ type Provider interface {
 
 	ListImages() (infoList []*ImageInfo, err error)
 
-	CreateVolume(slug string) error
+	CreateVolume(slug string) (*VolumeInfo, error)
 	ListVolumes() ([]string, error)
 	RemoveVolume(slug string) error
 	GetVolumeInfo(slug string) (*VolumeInfo, error)

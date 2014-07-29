@@ -1010,15 +1010,17 @@ var _ = Describe("client", func() {
 		Context("on success", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusCreated
-				responseBody = ""
+				responseBody = `{"volume":{"slug":"repos","size":0}}`
 			})
 
 			It("returns nil", func() {
-				err := client.CreateVolume(host, "repos")
+				vol, err := client.CreateVolume(host, "repos")
 				Expect(err).To(BeNil())
 				receivedRequests := server.ReceivedRequests()
 				Expect(receivedRequests).To(HaveLen(1))
 				Expect(receivedRequests[0].PostFormValue("slug")).To(Equal("repos"))
+				Expect(vol.Slug).To(Equal("repos"))
+				Expect(vol.Size).To(Equal(uint64(0)))
 			})
 		})
 
@@ -1029,7 +1031,8 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns error", func() {
-				err := client.CreateVolume(host, "repos")
+				vol, err := client.CreateVolume(host, "repos")
+				Expect(vol).To(BeNil())
 				Expect(err).To(MatchError(freighterclient.ErrVolumeNotFound))
 				receivedRequests := server.ReceivedRequests()
 				Expect(receivedRequests).To(HaveLen(1))

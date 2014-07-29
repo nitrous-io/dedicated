@@ -80,7 +80,7 @@ type Client interface {
 	RemovePublicKey(host *Host, id string, fingerprint string) error
 
 	ListVolumes(host *Host) ([]string, error)
-	CreateVolume(host *Host, slug string) error
+	CreateVolume(host *Host, slug string) (*Volume, error)
 	RemoveVolume(host *Host, slug string) error
 	GetVolumeInfo(host *Host, slug string) (*Volume, error)
 
@@ -556,30 +556,38 @@ func (c *client) ListVolumes(h *Host) ([]string, error) {
 	return volumes.Volumes, nil
 }
 
-func (c *client) CreateVolume(h *Host, slug string) error {
+func (c *client) CreateVolume(h *Host, slug string) (*Volume, error) {
 	u := fmt.Sprintf("%s/volumes", h.BaseURL())
 	data := &url.Values{"slug": []string{slug}}
 	req, err := http.NewRequest("POST", u, strings.NewReader(data.Encode()))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := performRequest(c, req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusCreated {
+		var vol struct {
+			Vol *Volume `json:"volume"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&vol); err != nil {
+			return nil, ErrUnexpectedResponse
+		}
+		return vol.Vol, nil
+	}
+
 	switch resp.StatusCode {
-	case http.StatusCreated:
-		return nil
 	case StatusUnprocessableEntity:
-		return ErrInvalidParams
+		return nil, ErrInvalidParams
 	case http.StatusNotFound:
-		return ErrVolumeNotFound
+		return nil, ErrVolumeNotFound
 	default:
-		return &StatusError{resp.StatusCode}
+		return nil, &StatusError{resp.StatusCode}
 	}
 }
 

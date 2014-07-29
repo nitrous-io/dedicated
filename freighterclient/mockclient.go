@@ -52,6 +52,7 @@ type MockClient struct {
 	ListVolumesReturn  []string
 	ListVolumesError   error
 	CreateVolumeCalled int
+	CreateVolumeReturn *Volume
 	CreateVolumeSlug   string
 	CreateVolumeError  error
 	RemoveVolumeCalled int
@@ -184,10 +185,10 @@ func (c *MockClient) ListVolumes(h *Host) ([]string, error) {
 	return c.ListVolumesReturn, c.ListVolumesError
 }
 
-func (c *MockClient) CreateVolume(host *Host, slug string) error {
+func (c *MockClient) CreateVolume(host *Host, slug string) (*Volume, error) {
 	c.CreateVolumeCalled += 1
 	c.CreateVolumeSlug = slug
-	return c.CreateVolumeError
+	return c.CreateVolumeReturn, c.CreateVolumeError
 }
 
 func (c *MockClient) RemoveVolume(host *Host, slug string) error {

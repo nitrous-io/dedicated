@@ -20,22 +20,26 @@ var (
 	ErrVolumeNotFound      = fmt.Errorf("volume not found")
 )
 
-func (p *DockerProvider) CreateVolume(slug string) error {
+func (p *DockerProvider) CreateVolume(slug string) (*provider.VolumeInfo, error) {
 	if slug == "" {
-		return ErrMissingVolumeSlug
+		return nil, ErrMissingVolumeSlug
 	}
 	if !slugRe.MatchString(slug) {
-		return ErrBadVolumeSlugFormat
+		return nil, ErrBadVolumeSlugFormat
 	}
 
 	path := p.VolumesDir(slug)
 
 	_, err := os.Stat(path)
 	if err == nil || !os.IsNotExist(err) {
-		return ErrVolumeExists
+		return nil, ErrVolumeExists
 	}
 
-	return os.MkdirAll(path, 0755)
+	err = os.MkdirAll(path, 0755)
+	if err != nil {
+		return nil, err
+	}
+	return p.GetVolumeInfo(slug)
 }
 
 func (p *DockerProvider) ListVolumes() ([]string, error) {
