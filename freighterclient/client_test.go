@@ -1301,6 +1301,87 @@ var _ = Describe("client", func() {
 		})
 	})
 
+	Describe("HostInfo()", func() {
+		var (
+			statusCode   int
+			responseBody string
+		)
+
+		BeforeEach(func() {
+			handlers := ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/info"),
+				ghttp.VerifyContentType("application/json"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
+			st = NewServerTest(handlers)
+			client, host, server = st.client, st.host, st.server
+		})
+
+		AfterEach(func() {
+			if server.HTTPTestServer != nil {
+				server.Close()
+			}
+		})
+
+		Context("when the response is HTTP 200 OK", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = `{"info":{
+					"uptime": 30,
+					"memory_usage": 12345678,
+					"memory_total": 17179869184,
+					"storage_usage": 2000000000,
+					"storage_total": 1000000000000,
+					"num_cpu": 2,
+					"per_cpu_usage": [0.5, 30]
+				}}`
+			})
+
+			It("returns the HostInfo", func() {
+				info, err := client.HostInfo(host)
+				Expect(err).To(BeNil())
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(info).To(Equal(&freighterclient.HostInfo{
+					Uptime:       30,
+					MemoryUsage:  12345678,
+					MemoryTotal:  17179869184,
+					StorageUsage: 2000000000,
+					StorageTotal: 1000000000000,
+					NumCPU:       2,
+					PerCPUUsage:  []float64{0.5, 30},
+				}))
+			})
+		})
+
+		Context("when the response is empty", func() {
+			BeforeEach(func() {
+				responseBody = ``
+			})
+
+			It("returns ErrUnexpectedResponse", func() {
+				info, err := client.HostInfo(host)
+				Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(info).To(BeNil())
+			})
+		})
+
+		Context("when the response is not HTTP 200 OK", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusInternalServerError
+			})
+
+			It("returns a StatusError", func() {
+				info, err := client.HostInfo(host)
+				Expect(err).NotTo(BeNil())
+				_, ok := err.(*freighterclient.StatusError)
+				Expect(ok).To(BeTrue())
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(info).To(BeNil())
+			})
+		})
+	})
+
 	Describe("Image Operations", func() {
 		var (
 			client freighterclient.Client

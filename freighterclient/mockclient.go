@@ -61,6 +61,10 @@ type MockClient struct {
 	VolumeInfoReturn   *Volume
 	VolumeInfoError    error
 
+	HostInfoCalled int
+	HostInfoError  error
+	HostInfoReturn *HostInfo
+
 	ReceivedID     string
 	ReceivedName   string
 	ReceivedImage  string
@@ -220,6 +224,11 @@ func (c *MockClient) RegistryLogout(h *Host, registry string) error {
 	c.ReceivedRegistry = registry
 
 	return c.RegistryLogoutError
+}
+
+func (c *MockClient) HostInfo(h *Host) (*HostInfo, error) {
+	c.HostInfoCalled = c.HostInfoCalled + 1
+	return c.HostInfoReturn, c.HostInfoError
 }
 
 func (c *MockClient) ListImages(h *Host) ([]*Image, error) {
