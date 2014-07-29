@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -915,6 +916,20 @@ var _ = Describe("provider/docker", func() {
 				Expect(i2.Tag).To(Equal("n2"))
 				Expect(i1.ID).To(Equal(i2.ID))
 			})
+		})
+	})
+
+	Describe(".HostInfo()", func() {
+		It("returns info and stats about the host", func() {
+			info, err := prov.HostInfo()
+			Expect(err).To(BeNil())
+			Expect(info.Uptime).NotTo(BeZero())
+			Expect(info.MemoryStats.Usage).NotTo(BeZero())
+			Expect(info.MemoryStats.Total).NotTo(BeZero())
+			Expect(info.StorageStats.Usage).NotTo(BeZero())
+			Expect(info.StorageStats.Total).NotTo(BeZero())
+			Expect(info.CPUStats.NumCPU).To(Equal(runtime.NumCPU()))
+			Expect(info.CPUStats.PerCPUUsage).To(HaveLen(runtime.NumCPU()))
 		})
 	})
 })

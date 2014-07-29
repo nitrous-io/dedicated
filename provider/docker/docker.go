@@ -9,9 +9,11 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 
+	"github.com/c9s/goprocinfo/linux"
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/util"
@@ -419,7 +421,91 @@ func (p *DockerProvider) ListImages() ([]*provider.ImageInfo, error) {
 
 func (p *DockerProvider) HostInfo() (*provider.HostInfo, error) {
 	info := &provider.HostInfo{}
+
+	sys := &syscall.Sysinfo_t{}
+	err := syscall.Sysinfo(sys)
+	if err != nil {
+		return nil, err
+	}
+	unit := uint64(sys.Unit) // Sysinfo_t.Unit is the memory unit size in bytes.
+	info.Uptime = uint64(sys.Uptime)
+	info.MemoryStats = provider.MemoryStats{
+		Usage: (sys.Totalram - sys.Freeram) / unit,
+		Total: sys.Totalram / unit,
+	}
+
+	statfs := &syscall.Statfs_t{}
+	syscall.Statfs("/", statfs) // Assume root volume is the volume made available to users.
+	total := statfs.Blocks * uint64(statfs.Bsize)
+	used := total - (statfs.Bfree * uint64(statfs.Bsize))
+	info.StorageStats = provider.StorageStats{
+		Usage: used,
+		Total: total,
+	}
+
+	errch := make(chan error)
+	usagech := make(chan []float64)
+	go func() {
+		// FIXME Hardcode CPU sample period for now.
+		usage, err := cpuUsage(100 * time.Millisecond)
+		if err != nil {
+			errch <- err
+			return
+		}
+		usagech <- usage
+	}()
+
+	select {
+	case usage := <-usagech:
+		info.CPUStats = provider.CPUStats{
+			NumCPU:      len(usage),
+			PerCPUUsage: usage,
+		}
+	case err := <-errch:
+		return nil, err
+	}
+
 	return info, nil
+}
+
+type cpuSample struct {
+	idle  uint64
+	total uint64
+}
+
+// sampleCPU gets the idle and total ticks for each CPU.
+func sampleCPU() ([]cpuSample, error) {
+	stat, err := linux.ReadStat("/proc/stat")
+	if err != nil {
+		return nil, err
+	}
+	s := make([]cpuSample, len(stat.CPUStats))
+	for i, c := range stat.CPUStats {
+		s[i].total = c.User + c.Nice + c.System + c.Idle + c.IOWait + c.IRQ +
+			c.SoftIRQ + c.Steal + c.Guest + c.GuestNice
+		s[i].idle = c.Idle + c.IOWait
+	}
+	return s, nil
+}
+
+// cpuUsage computes per-CPU usage over the given period as percentages.
+func cpuUsage(period time.Duration) ([]float64, error) {
+	start, err := sampleCPU()
+	if err != nil {
+		return nil, err
+	}
+	time.Sleep(period)
+	end, err := sampleCPU()
+	if err != nil {
+		return nil, err
+	}
+	usage := make([]float64, len(start))
+	for i := range start {
+		idleTicks := float64(end[i].idle - start[i].idle)
+		totalTicks := float64(end[i].total - start[i].total)
+		usage[i] = (totalTicks - idleTicks) * 100 / totalTicks
+	}
+	return usage, nil
 }
 
 func (p *DockerProvider) createContainer(imageName, containerName string, config *allowedConfig, hostConfig *allowedHostConfig) (*dockerclient.Container, error) {
