@@ -5,107 +5,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/gorilla/mux"
 	"github.com/kr/pty"
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
-	conn, _, err := w.(http.Hijacker).Hijack()
-	if err != nil {
-		return nil, nil, err
-	}
-	// Flush the options to make sure the client sets the raw mode
-	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.containerd.raw-stream\r\n\r\n")
-	return conn, conn, nil
-}
-
-type testServer struct {
-	srv *httptest.Server
-
-	containerId string
-	shellId     string
-
-	stdin, stdout *bytes.Buffer
-	resized       bool
-	finished      bool
-}
-
-func (s *testServer) createShell(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-	Expect(id).To(Equal(s.containerId))
-	json.NewEncoder(w).Encode(map[string]string{
-		"id": s.shellId,
-	})
-}
-
-func (s *testServer) attachShell(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-	Expect(id).To(Equal(s.shellId))
-	stdin, stdout, _ := hijackServer(w)
-	go io.Copy(s.stdin, stdin)
-	io.Copy(stdout, s.stdout)
-	s.finished = true
-}
-
-func (s *testServer) resizeShell(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-	Expect(id).To(Equal(s.shellId))
-	s.resized = true
-	w.WriteHeader(http.StatusAccepted)
-}
-
-func (s *testServer) Close() {
-	s.srv.CloseClientConnections()
-	s.srv.Close()
-}
-
-func newTestServer(containerId, shellId string) *testServer {
-	s := &testServer{
-		containerId: containerId,
-		shellId:     shellId,
-		stdin:       bytes.NewBuffer(nil),
-		stdout:      bytes.NewBuffer(nil),
-	}
-	r := mux.NewRouter()
-	r.HandleFunc("/containers/{id}/shells", s.createShell).Methods("POST")
-	r.HandleFunc("/shells/{id}/attach", s.attachShell).Methods("POST")
-	r.HandleFunc("/shells/{id}/resize", s.resizeShell).Methods("POST")
-
-	srv := httptest.NewServer(r)
-	s.srv = srv
-	return s
-}
 
 func TestShell(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "shell")
 }
 
-var _ = Describe("ShellCommand", func() {
-	It("requires host and container name", func() {
-		testCases := [][]string{
-			{},
-			{"only-host"},
+var _ = Describe("Command", func() {
+	It("requires container slug", func() {
+		cmd := &Command{
+			UI: &cli.BasicUi{ErrorWriter: bytes.NewBuffer(nil)},
 		}
-		for _, tc := range testCases {
-			cmd := &ShellCommand{UI: &cli.MockUi{}}
-			code := cmd.Run(tc)
-			Expect(code).To(Equal(1), "Expect command to fail with status %d", 1)
-		}
+		code := cmd.Run([]string{})
+		Expect(code).To(Equal(1), "Requires container slug", 1)
 	})
 
 	It("attaches to the remote shell", func() {
-		containerID := "best-container"
-		ts := newTestServer(containerID, "shell-id")
-		defer ts.Close()
+		containerID := "container-slug"
+		ns := newNitrousServer(containerID, "shell-id")
+		defer ns.Close()
 
 		stdin, stdout, _ := pty.Open()
 		ui := &cli.BasicUi{
@@ -113,20 +45,24 @@ var _ = Describe("ShellCommand", func() {
 			Writer:      stdout,
 			ErrorWriter: bytes.NewBuffer(nil),
 		}
-		cmd := &ShellCommand{UI: ui}
+		cmd := &Command{
+			UI:     ui,
+			server: ns.srv.URL,
+			client: httpclient.New("authtoken"),
+		}
 
 		go func() {
 			defer GinkgoRecover()
-			cmd.Run([]string{ts.srv.Listener.Addr().String(), containerID})
+			cmd.Run([]string{containerID})
 			Expect(ui.ErrorWriter.(*bytes.Buffer).String()).To(BeEmpty())
 		}()
 
 		Eventually(func() bool {
-			return ts.resized
+			return ns.ts.resized
 		}).Should(BeTrue())
 
 		Eventually(func() bool {
-			return ts.finished
+			return ns.ts.finished
 		}).Should(BeTrue())
 	})
 
@@ -144,3 +80,113 @@ var _ = Describe("ShellCommand", func() {
 		})
 	})
 })
+
+// nitrous test server
+type nitrousServer struct {
+	srv         *httptest.Server
+	ts          *testServer
+	containerID string
+}
+
+func (s *nitrousServer) getContainer(w http.ResponseWriter, r *http.Request) {
+	addr := s.ts.srv.Listener.Addr().String()
+	host, port, _ := net.SplitHostPort(addr)
+	portInt, _ := strconv.ParseInt(port, 10, 64)
+	resp := map[string]interface{}{
+		"CID": s.containerID,
+		"host": map[string]interface{}{
+			"ip_address":      host,
+			"freighterd_port": portInt,
+		},
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"container": resp,
+	})
+}
+
+func (s *nitrousServer) Close() {
+	s.ts.Close()
+	s.srv.CloseClientConnections()
+	s.srv.Close()
+}
+
+func newNitrousServer(containerID, shellID string) *nitrousServer {
+	ts := newTestServer(containerID, shellID)
+	s := &nitrousServer{
+		ts:          ts,
+		containerID: containerID,
+	}
+	r := mux.NewRouter()
+	r.HandleFunc("/api/v0/containers/"+containerID, s.getContainer).Methods("GET")
+	srv := httptest.NewServer(r)
+	s.srv = srv
+	return s
+}
+
+// freighter test server
+type testServer struct {
+	srv *httptest.Server
+
+	containerID string
+	shellID     string
+
+	stdin, stdout *bytes.Buffer
+	resized       bool
+	finished      bool
+}
+
+func (s *testServer) createShell(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	Expect(id).To(Equal(s.containerID))
+	json.NewEncoder(w).Encode(map[string]string{
+		"id": s.shellID,
+	})
+}
+
+func (s *testServer) attachShell(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	Expect(id).To(Equal(s.shellID))
+	stdin, stdout, _ := hijackServer(w)
+	go io.Copy(s.stdin, stdin)
+	io.Copy(stdout, s.stdout)
+	s.finished = true
+}
+
+func (s *testServer) resizeShell(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	Expect(id).To(Equal(s.shellID))
+	s.resized = true
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (s *testServer) Close() {
+	s.srv.CloseClientConnections()
+	s.srv.Close()
+}
+
+func newTestServer(containerID, shellID string) *testServer {
+	s := &testServer{
+		containerID: containerID,
+		shellID:     shellID,
+		stdin:       bytes.NewBuffer(nil),
+		stdout:      bytes.NewBuffer(nil),
+	}
+	r := mux.NewRouter()
+	r.HandleFunc("/containers/{id}/shells", s.createShell).Methods("POST")
+	r.HandleFunc("/shells/{id}/attach", s.attachShell).Methods("POST")
+	r.HandleFunc("/shells/{id}/resize", s.resizeShell).Methods("POST")
+
+	srv := httptest.NewServer(r)
+	s.srv = srv
+	return s
+}
+
+func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
+	conn, _, err := w.(http.Hijacker).Hijack()
+	if err != nil {
+		return nil, nil, err
+	}
+	// Flush the options to make sure the client sets the raw mode
+	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.containerd.raw-stream\r\n\r\n")
+	return conn, conn, nil
+}
