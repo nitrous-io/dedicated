@@ -37,6 +37,33 @@ var _ = Describe("models/plan", func() {
 		}
 	})
 
+	Describe("FindByID()", func() {
+		var id int64
+
+		BeforeEach(func() {
+			err := db.QueryRow(`SELECT id FROM plans WHERE name = $1;`, "small").Scan(&id)
+			Expect(err).To(BeNil())
+			Expect(id).NotTo(BeZero())
+		})
+
+		Context("when a plan record with a given id exists", func() {
+			It("returns the plan record", func() {
+				p, err := plan.FindByID(db, id)
+				Expect(err).To(BeNil())
+				Expect(p).NotTo(BeNil())
+				Expect(p.ID).To(Equal(id))
+			})
+		})
+
+		Context("when a plan record with a given id does not exist", func() {
+			It("returns nil", func() {
+				p, err := plan.FindByID(db, 9001)
+				Expect(err).To(BeNil())
+				Expect(p).To(BeNil())
+			})
+		})
+	})
+
 	Describe("FindByName()", func() {
 		Context("when a plan record with a given name exists", func() {
 			It("returns the plan record", func() {
