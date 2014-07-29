@@ -23,6 +23,7 @@ import (
 	_ "github.com/nitrous-io/nitro/command/containers/stop"
 	_ "github.com/nitrous-io/nitro/command/hosts/create"
 	_ "github.com/nitrous-io/nitro/command/hosts/destroy"
+	_ "github.com/nitrous-io/nitro/command/hosts/inspect"
 	_ "github.com/nitrous-io/nitro/command/hosts/list"
 	_ "github.com/nitrous-io/nitro/command/hosts/restart"
 	_ "github.com/nitrous-io/nitro/command/hosts/start"

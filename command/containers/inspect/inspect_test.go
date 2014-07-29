@@ -84,7 +84,7 @@ wild-rocket-23    ubuntu    running
 
 	Context("when given > 1 argument", func() {
 		It("prints usage and exits with error", func() {
-			code := cmd.Run([]string{"host-1/wild-rocket-23", "hey", "man"})
+			code := cmd.Run([]string{"wild-rocket-23", "hey", "man"})
 			Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
 			Expect(code).To(Equal(1))
 		})
