@@ -316,13 +316,13 @@ var _ = Describe("controllers/registries", func() {
 							doRequest(overrides{})
 						})
 
-						It("creates a registry record for the user and host", func() {
+						It("does not create a registry record for the user and host", func() {
 							regions, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
 							Expect(err).To(BeNil())
 							Expect(len(regions)).To(Equal(0))
 						})
 
-						It("informs user if login failed", func() {
+						It("informs user that login failed", func() {
 							Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 							err, j := unmarshalErrorResponse()
@@ -333,7 +333,30 @@ var _ = Describe("controllers/registries", func() {
 						})
 					})
 
-					It("returns internal server error for other errors", func() {
+					Context("when already logged in to the registry", func() {
+						It("responds with an error mentioning already logged in to the registry", func() {
+							r := &registry.Registry{
+								UserID:      hs.U.ID,
+								HostID:      hs.H.ID,
+								RegistryURL: "hub.example.com",
+								Username:    "foo",
+								Email:       "foo@example.com",
+							}
+							err := r.Insert(db)
+							Expect(err).To(BeNil())
+
+							doRequest(overrides{})
+
+							Expect(res.Code).To(Equal(http.StatusBadRequest))
+							err, j := unmarshalErrorResponse()
+							Expect(err).To(BeNil())
+
+							Expect(j.Error).To(Equal("login_failed"))
+							Expect(j.ErrorDescription).To(Equal("already logged in to the given registry"))
+						})
+					})
+
+					It("responds with internal server error for other errors", func() {
 						mockClient.RegistryLoginError = errors.New("some other error")
 						doRequest(overrides{})
 

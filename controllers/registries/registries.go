@@ -20,6 +20,7 @@ var (
 	errEmailRequired    = httperror.New(http.StatusBadRequest, "invalid_request", "email is required")
 	errLoginFailed      = httperror.New(http.StatusBadRequest, "login_failed", "registry login failed")
 	errLogoutFailed     = httperror.New(http.StatusBadRequest, "logout_failed", "registry logout failed")
+	errAlreadyLoggedIn  = httperror.New(http.StatusBadRequest, "login_failed", "already logged in to the given registry")
 )
 
 var (
@@ -68,6 +69,22 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 
 	registryURL := r.FormValue("registry")
 
+	// set the default registry URL to "hub.docker.com",
+	// if user hasn't specified one.
+	// This is only to record in the DB.
+	if registryURL == "" {
+		URL = "index.docker.io"
+	}
+
+	existingReg, err := registry.FindByUserIDAndHostIDAndRegistryURL(db, env.User.ID, h.ID, registryURL)
+	if err != nil {
+		return err
+	}
+
+	if existingReg != nil {
+		return errAlreadyLoggedIn
+	}
+
 	params := &freighterclient.RegistryAuth{
 		Username: username,
 		Password: password,
@@ -87,13 +104,6 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 		}
 
 		return err
-	}
-
-	// set the default registry URL to "hub.docker.com",
-	// if user hasn't specified one.
-	// This is only to record in the DB.
-	if registryURL == "" {
-		registryURL = "hub.docker.com"
 	}
 
 	reg := &registry.Registry{

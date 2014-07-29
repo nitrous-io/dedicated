@@ -90,6 +90,44 @@ var _ = Describe("models/registry", func() {
 		})
 	})
 
+	Describe("FindByUserIDAndHostIDAndRegistryURL()", func() {
+		Context("when a registry record exist for given user, host and registry URL", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`INSERT INTO registries
+				(user_id, host_id, registry_url, username, email)
+				VALUES ($1, $2, $3, $4, $5);`,
+					hs.U.ID, hs.H.ID, "hub.example.com", "foo", "foo@example.com")
+				Expect(err).To(BeNil())
+			})
+
+			It("returns the registry record", func() {
+				r, err := registry.FindByUserIDAndHostIDAndRegistryURL(db, hs.U.ID, hs.H.ID, "hub.example.com")
+				Expect(err).To(BeNil())
+				Expect(r).NotTo(BeNil())
+				Expect(r.UserID).To(Equal(hs.U.ID))
+				Expect(r.HostID).To(Equal(hs.H.ID))
+				Expect(r.RegistryURL).To(Equal("hub.example.com"))
+			})
+		})
+
+		Context("when a registry record does not exist for given user, host and registry URL", func() {
+			It("returns nil", func() {
+				r, err := registry.FindByUserIDAndHostIDAndRegistryURL(db, hs.U.ID, hs.H.ID, "hub.example.com")
+				Expect(err).To(BeNil())
+				Expect(r).To(BeNil())
+			})
+		})
+
+		Context("when some error happens", func() {
+			It("returns error", func() {
+				db.Close()
+				r, err := registry.FindByUserIDAndHostIDAndRegistryURL(db, hs.U.ID, hs.H.ID, "hub.example.com")
+				Expect(err).NotTo(BeNil())
+				Expect(r).To(BeNil())
+			})
+		})
+	})
+
 	Describe("Insert()", func() {
 		var r *registry.Registry
 

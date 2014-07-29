@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
@@ -24,6 +25,18 @@ func FindAllByUserIDAndHostID(db *db.Database, userID int64, hostID int64) ([]Re
 		return []Registry{}, err
 	}
 	return registries, nil
+}
+
+func FindByUserIDAndHostIDAndRegistryURL(d db.QueryReceiver, userID int64, hostID int64, registryURL string) (*Registry, error) {
+	r := &Registry{}
+	err := d.Get(r, `SELECT * FROM registries WHERE user_id = $1 AND host_id = $2 AND registry_url = $3;`, userID, hostID, registryURL)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return r, nil
 }
 
 func (r *Registry) Insert(d db.QueryReceiver) error {
