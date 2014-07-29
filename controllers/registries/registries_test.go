@@ -352,7 +352,7 @@ var _ = Describe("controllers/registries", func() {
 							Expect(err).To(BeNil())
 
 							Expect(j.Error).To(Equal("login_failed"))
-							Expect(j.ErrorDescription).To(Equal("already logged in to the given registry"))
+							Expect(j.ErrorDescription).To(Equal("already logged in to this registry"))
 						})
 					})
 

@@ -20,7 +20,7 @@ var (
 	errEmailRequired    = httperror.New(http.StatusBadRequest, "invalid_request", "email is required")
 	errLoginFailed      = httperror.New(http.StatusBadRequest, "login_failed", "registry login failed")
 	errLogoutFailed     = httperror.New(http.StatusBadRequest, "logout_failed", "registry logout failed")
-	errAlreadyLoggedIn  = httperror.New(http.StatusBadRequest, "login_failed", "already logged in to the given registry")
+	errAlreadyLoggedIn  = httperror.New(http.StatusBadRequest, "login_failed", "already logged in to this registry")
 )
 
 var (
