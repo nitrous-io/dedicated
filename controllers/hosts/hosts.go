@@ -3,7 +3,6 @@ package hosts
 import (
 	"crypto/rsa"
 	"database/sql"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,7 +17,6 @@ import (
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/providertemplate"
 	"github.com/nitrous-io/nitrous/models/region"
-	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
@@ -30,7 +28,6 @@ var (
 	ErrPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
 	ErrRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
 	ErrProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
-	ErrHostNotFound             = httperror.New(http.StatusNotFound, "not_found", "no matching host found for the given slug")
 	ErrHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "host is not stopped")
 	ErrHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	ErrHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
@@ -58,10 +55,7 @@ func init() {
 }
 
 func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-	u := env.User
-
-	hosts, err := host.FindAllByUser(db, u)
+	hosts, err := host.FindAllByUser(c.DB(), env.User)
 	if err != nil {
 		return err
 	}
@@ -74,9 +68,6 @@ func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *
 }
 
 func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-	u := env.User
-
 	size := r.FormValue("size")
 	if size == "" {
 		return ErrSizeRequired
@@ -98,7 +89,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	}
 
 	// TODO: check if user account is eligible to create hosts (has a credit card on file)
-	pl, err := plan.FindByName(db, size)
+	pl, err := plan.FindByName(c.DB(), size)
 	if err != nil {
 		return err
 	}
@@ -106,7 +97,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return ErrPlanNotFound
 	}
 
-	rg, err := region.FindByName(db, regionName)
+	rg, err := region.FindByName(c.DB(), regionName)
 	if err != nil {
 		return err
 	}
@@ -114,7 +105,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return ErrRegionNotFound
 	}
 
-	pts, err := providertemplate.FindAllByRegionAndPlan(db, rg.ID, pl.ID)
+	pts, err := providertemplate.FindAllByRegionAndPlan(c.DB(), rg.ID, pl.ID)
 	if err != nil {
 		return err
 	}
@@ -130,7 +121,6 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return err
 	}
 
-	// generate hostbuilder config
 	config := hostbuilderclient.Config{}
 	for k, v := range pt.Config.Map {
 		if v.Valid {
@@ -148,7 +138,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	}
 
 	h := &host.Host{
-		UserID:             u.ID,
+		UserID:             env.User.ID,
 		RegionID:           rg.ID,
 		PlanID:             pl.ID,
 		ProviderTemplateID: pt.ID,
@@ -165,24 +155,19 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		State:          host.StateRunning,
 	}
 
-	tx, err := db.Beginx()
+	tx, err := c.DB().Beginx()
 	if err != nil {
 		return err
 	}
-
-	// create the host
 	err = h.Insert(tx)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
-
-	// create the keypair
 	if _, err = keypairs.Create(tx, priv, aesKey, h.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
-
 	if err := tx.Commit(); err != nil {
 		return err
 	}
@@ -195,36 +180,27 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	return nil
 }
 
-func Destroy(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-	logger := c.Logger()
-	vars := env.Vars
-
-	ht, err := getHost(db, env.User, vars["slug"])
+func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	_, err := HostbuilderClient.Delete(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
 
-	_, err = HostbuilderClient.Delete(ht.Provider, &hostbuilderclient.Config{"id": ht.ProviderIdentifier.String})
+	tx, err := c.DB().Beginx()
 	if err != nil {
 		return err
 	}
-
-	tx, err := db.Beginx()
-	if err != nil {
-		return err
-	}
-	err = ht.Delete(tx)
+	err = h.Delete(tx)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
-	err = container.DeleteAllByHostID(tx, ht.ID)
+	err = container.DeleteAllByHostID(tx, h.ID)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
-	if err = keypairs.Delete(tx, ht.ID); err != nil {
+	if err = keypairs.Delete(tx, h.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -232,21 +208,12 @@ func Destroy(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r
 		return err
 	}
 
-	respondOK(w, logger)
+	respondOK(w, c.Logger())
 	return nil
 }
 
-func Start(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-	logger := c.Logger()
-	vars := env.Vars
-
-	ht, err := getHost(db, env.User, vars["slug"])
-	if err != nil {
-		return err
-	}
-
-	err = transition(db, ht,
+func Start(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	err := transition(c.DB(), h,
 		&stateTransition{host.StateStopped, host.StateStarting, host.StateRunning},
 		HostbuilderClient.Start)
 	if err != nil {
@@ -256,21 +223,12 @@ func Start(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *
 		return err
 	}
 
-	respondOK(w, logger)
+	respondOK(w, c.Logger())
 	return nil
 }
 
-func Stop(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-	logger := c.Logger()
-	vars := env.Vars
-
-	ht, err := getHost(db, env.User, vars["slug"])
-	if err != nil {
-		return err
-	}
-
-	err = transition(db, ht,
+func Stop(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	err := transition(c.DB(), h,
 		&stateTransition{host.StateRunning, host.StateStopping, host.StateStopped},
 		HostbuilderClient.Stop)
 	if err != nil {
@@ -280,21 +238,12 @@ func Stop(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *h
 		return err
 	}
 
-	respondOK(w, logger)
+	respondOK(w, c.Logger())
 	return nil
 }
 
-func Restart(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-	logger := c.Logger()
-	vars := env.Vars
-
-	ht, err := getHost(db, env.User, vars["slug"])
-	if err != nil {
-		return err
-	}
-
-	err = transition(db, ht,
+func Restart(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	err := transition(c.DB(), h,
 		&stateTransition{host.StateRunning, host.StateRestarting, host.StateRunning},
 		HostbuilderClient.Restart)
 	if err != nil {
@@ -304,7 +253,7 @@ func Restart(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r
 		return err
 	}
 
-	respondOK(w, logger)
+	respondOK(w, c.Logger())
 	return nil
 }
 
@@ -314,22 +263,7 @@ func respondOK(w http.ResponseWriter, logger *logger.Logger) {
 	logger.Infof("Response: 200 OK")
 }
 
-func getHost(db *ndb.Database, user *user.User, slug string) (*host.Host, error) {
-	ht, err := host.FindByUserAndSlug(db, user, slug)
-	if err != nil {
-		return nil, err
-	}
-	if ht == nil {
-		return nil, ErrHostNotFound
-	}
-	if ht.ProviderIdentifier.Valid != true {
-		return nil, errors.New("Provider identifier is nil")
-	}
-
-	return ht, nil
-}
-
-// a stateTransition reflects the transition of host states during a hostbuilder operation
+// stateTransition reflects the transition of host states during a hostbuilder operation.
 type stateTransition struct {
 	From         string
 	Intermediate string
@@ -368,9 +302,8 @@ func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostb
 	return nil
 }
 
-// generate a private key and return it, together with its public key
+// generateKey generates and returns a private key together with its public key.
 func generateKey() (priv *rsa.PrivateKey, pub []byte, err error) {
-	// generate a private key for the host
 	priv, err = keypairs.GenerateKey()
 	if err != nil {
 		return nil, nil, err
