@@ -35,9 +35,9 @@ Options:
 `, followUsage, timestampsUsage, tailUsage)
 
 type Command struct {
-	UI     *cli.BasicUi
-	client *httpclient.Client
-	server string
+	UI     *command.BasicUI
+	Client *httpclient.Client
+	Server string
 }
 
 // `logs` command requires user to be logged in first via `nitro login`
@@ -48,13 +48,13 @@ func init() {
 // Create a new command that when run will return the logs of a container
 func NewCommand(token string) (cli.Command, error) {
 	return &Command{
-		UI: &cli.BasicUi{
+		UI: &command.BasicUI{cli.BasicUi{
 			Reader:      os.Stdin,
 			Writer:      os.Stdout,
 			ErrorWriter: os.Stderr,
-		},
-		server: command.Env.APIURL,
-		client: httpclient.New(token),
+		}},
+		Server: command.Env.APIURL,
+		Client: httpclient.New(token),
 	}, nil
 }
 
@@ -81,7 +81,7 @@ func (c *Command) Run(args []string) int {
 
 	slug := args[0]
 
-	cr, err := nitrousapi.GetContainer(c.client, c.server, slug)
+	cr, err := nitrousapi.GetContainer(c.Client, c.Server, slug)
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
@@ -128,8 +128,8 @@ type containerResp struct {
 
 func (c *Command) getContainerResp(slug string) (*containerResp, error) {
 	// get container data
-	endpoint := fmt.Sprintf("%s/api/v0/containers/%s", c.server, slug)
-	resp, err := c.client.GetAuthed(endpoint, nil)
+	endpoint := fmt.Sprintf("%s/api/v0/containers/%s", c.Server, slug)
+	resp, err := c.Client.GetAuthed(endpoint, nil)
 	if err != nil {
 		return nil, err
 	}

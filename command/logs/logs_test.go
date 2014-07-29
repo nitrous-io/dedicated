@@ -1,21 +1,21 @@
-package logs
+package logs_test
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
+	"strconv"
+
 	"net"
 	"net/http"
-	"net/http/httptest"
-	"strconv"
+
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/command/logs"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 )
 
 func TestLogs(t *testing.T) {
@@ -24,94 +24,93 @@ func TestLogs(t *testing.T) {
 }
 
 var _ = Describe("logs", func() {
-	It("requires container slug", func() {
-		cmd := &Command{
-			UI: &cli.BasicUi{ErrorWriter: bytes.NewBuffer(nil)},
+	var (
+		cmd *logs.Command
+
+		stdout *bytes.Buffer
+		// Nitrous Server
+		nsrv      *ghttp.Server
+		nhandlers http.HandlerFunc
+		// Freighter Server
+		fsrv      *ghttp.Server
+		fhandlers http.HandlerFunc
+
+		nStatusCode   int
+		nResponseBody interface{}
+
+		fStatusCode   int
+		fResponseBody string
+	)
+
+	BeforeEach(func() {
+		// Setup handlers for nitrous server
+		nhandlers = ghttp.CombineHandlers(
+			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
+			ghttp.VerifyRequest("GET", "/api/v0/containers/foo-container-42"),
+			ghttp.RespondWithJSONEncodedPtr(&nStatusCode, &nResponseBody),
+		)
+		nsrv = ghttp.NewServer()
+		nsrv.AppendHandlers(nhandlers)
+
+		// Setup handlers for freighter which nitro
+		// will be querying to get the log stream
+		fhandlers = ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", "/containers/42/logs"),
+			ghttp.RespondWithPtr(&fStatusCode, &fResponseBody),
+		)
+		fsrv = ghttp.NewServer()
+		fsrv.AppendHandlers(fhandlers)
+
+		stdout = bytes.NewBuffer(nil)
+
+		cmd = &logs.Command{
+			UI: &command.BasicUI{cli.BasicUi{
+				Writer:      stdout,
+				ErrorWriter: bytes.NewBuffer(nil),
+			}},
+			Server: nsrv.URL(),
+			Client: httpclient.New("correct_token"),
 		}
-		code := cmd.Run([]string{})
-		Expect(code).To(Equal(1), "Requires container slug")
 	})
 
-	It("get logs of the container", func() {
-		ns := newNitrousServer("container-slug")
-		defer ns.Close()
-		stdout := bytes.NewBuffer(nil)
-		cmd := &Command{
-			UI:     &cli.BasicUi{Writer: stdout},
-			server: ns.srv.URL,
-			client: httpclient.New("testtoken"),
-		}
-		cmd.Run([]string{"container-slug"})
-		Expect(stdout.String()).To(Equal("hello im a log"))
+	AfterEach(func() {
+		nsrv.Close()
+		fsrv.Close()
+	})
+
+	Context("with valid parameters", func() {
+		BeforeEach(func() {
+			addr := fsrv.HTTPTestServer.Listener.Addr().String()
+			host, port, _ := net.SplitHostPort(addr)
+			portInt, err := strconv.ParseInt(port, 10, 64)
+			Expect(err).To(BeNil())
+
+			nStatusCode = http.StatusOK
+			nResponseBody = map[string]interface{}{
+				"container": map[string]interface{}{
+					"CID": "42",
+					"host": map[string]interface{}{
+						"ip_address":      host,
+						"freighterd_port": portInt,
+					},
+				},
+			}
+
+			fStatusCode = http.StatusOK
+			fResponseBody = "hello im a log"
+		})
+
+		It("get logs of the container", func() {
+			code := cmd.Run([]string{"foo-container-42"})
+			Expect(code).To(Equal(0))
+			Expect(stdout.String()).To(Equal("hello im a log"))
+		})
+	})
+
+	Context("without providing container slug", func() {
+		It("requires container slug", func() {
+			code := cmd.Run([]string{})
+			Expect(code).To(Equal(1), "Requires container slug")
+		})
 	})
 })
-
-// nitrous test server
-type nitrousServer struct {
-	srv         *httptest.Server
-	ts          *testServer
-	containerID string
-}
-
-func (s *nitrousServer) getContainer(w http.ResponseWriter, r *http.Request) {
-	addr := s.ts.srv.Listener.Addr().String()
-	host, port, _ := net.SplitHostPort(addr)
-	portInt, _ := strconv.ParseInt(port, 10, 64)
-	resp := map[string]interface{}{
-		"CID": s.containerID,
-		"host": map[string]interface{}{
-			"ip_address":      host,
-			"freighterd_port": portInt,
-		},
-	}
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"container": resp,
-	})
-}
-
-func (s *nitrousServer) Close() {
-	s.ts.Close()
-	s.srv.CloseClientConnections()
-	s.srv.Close()
-}
-
-func newNitrousServer(containerID string) *nitrousServer {
-	ts := newTestServer(containerID)
-	s := &nitrousServer{
-		ts:          ts,
-		containerID: containerID,
-	}
-	r := mux.NewRouter()
-	r.HandleFunc("/api/v0/containers/"+containerID, s.getContainer).Methods("GET")
-	srv := httptest.NewServer(r)
-	s.srv = srv
-	return s
-}
-
-// freighter test server
-type testServer struct {
-	srv         *httptest.Server
-	containerID string
-	stdout      io.Reader
-}
-
-func (s *testServer) getLogs(w http.ResponseWriter, r *http.Request) {
-	io.Copy(w, s.stdout)
-}
-
-func (s *testServer) Close() {
-	s.srv.CloseClientConnections()
-	s.srv.Close()
-}
-
-func newTestServer(containerID string) *testServer {
-	s := &testServer{
-		containerID: containerID,
-		stdout:      bytes.NewBufferString("hello im a log"),
-	}
-	r := mux.NewRouter()
-	r.HandleFunc(fmt.Sprintf("/containers/%s/logs", containerID), s.getLogs).Methods("GET")
-	srv := httptest.NewServer(r)
-	s.srv = srv
-	return s
-}
