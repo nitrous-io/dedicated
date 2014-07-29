@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers/registries"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
+
 	"github.com/nitrous-io/nitrous/models/registry"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
@@ -114,6 +115,83 @@ var _ = Describe("controllers/registries", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("GET /api/v0/hosts/{slug}/registries", func() {
+		doRequest := func(o overrides) {
+			slug := "foo"
+			if _, ok := o["slug"]; ok {
+				slug = o["slug"]
+				delete(o, "slug")
+			}
+
+			req, err := NewRequest("GET", "/api/v0/hosts/"+slug+"/registries", nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		Context("when user has logged-in to registries", func() {
+			BeforeEach(func() {
+				r1 := &registry.Registry{
+					UserID:      hs.U.ID,
+					HostID:      hs.H.ID,
+					RegistryURL: "hub1.example.com",
+					Username:    "foo",
+					Email:       "foo@example.com",
+				}
+				err := r1.Insert(db)
+				Expect(err).To(BeNil())
+
+				r2 := &registry.Registry{
+					UserID:      hs.U.ID,
+					HostID:      hs.H.ID,
+					RegistryURL: "hub2.example.com",
+					Username:    "foo",
+					Email:       "foo@example.com",
+				}
+				err = r2.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with the registries user has logged in", func() {
+				doRequest(overrides{})
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				var j map[string][]registry.Registry
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				registries, ok := j["registries"]
+				Expect(ok).To(BeTrue())
+				Expect(registries).To(HaveLen(2))
+
+				Expect(registries[0].RegistryURL).To(Equal("hub1.example.com"))
+				Expect(registries[1].RegistryURL).To(Equal("hub2.example.com"))
+			})
+		})
+
+		Context("when user has not logged in to registries", func() {
+			It("responds with an empty array", func() {
+				doRequest(overrides{})
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				registries, ok := j["registries"].([]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(registries).To(BeEmpty())
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo/registries"
+				authTokenInputs.Method = "GET"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/registries", func() {

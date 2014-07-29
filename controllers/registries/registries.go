@@ -23,12 +23,28 @@ var (
 )
 
 var (
+	Index  middleware.Middleware = middleware.HostViaPath("slug", index)
 	Login  middleware.Middleware = middleware.HostViaPath("slug", login)
 	Logout middleware.Middleware = middleware.HostViaPath("slug", logout)
 )
 
 func init() {
 	FreighterClient = freighterclient.NewClient(nil)
+}
+
+func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	db := c.DB()
+
+	registries, err := registry.FindAllByUserIDAndHostID(db, env.User.ID, h.ID)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"registries": registries,
+	}
+	return nil
 }
 
 func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
