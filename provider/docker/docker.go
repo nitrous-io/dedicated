@@ -429,19 +429,15 @@ func (p *DockerProvider) HostInfo() (*provider.HostInfo, error) {
 	}
 	unit := uint64(sys.Unit) // Sysinfo_t.Unit is the memory unit size in bytes.
 	info.Uptime = uint64(sys.Uptime)
-	info.MemoryStats = provider.MemoryStats{
-		Usage: (sys.Totalram - sys.Freeram) / unit,
-		Total: sys.Totalram / unit,
-	}
+	info.MemoryUsage = (sys.Totalram - sys.Freeram) / unit
+	info.MemoryTotal = sys.Totalram / unit
 
 	statfs := &syscall.Statfs_t{}
 	syscall.Statfs("/", statfs) // Assume root volume is the volume made available to users.
 	total := statfs.Blocks * uint64(statfs.Bsize)
 	used := total - (statfs.Bfree * uint64(statfs.Bsize))
-	info.StorageStats = provider.StorageStats{
-		Usage: used,
-		Total: total,
-	}
+	info.StorageUsage = used
+	info.StorageTotal = total
 
 	errch := make(chan error)
 	usagech := make(chan []float64)
@@ -457,10 +453,8 @@ func (p *DockerProvider) HostInfo() (*provider.HostInfo, error) {
 
 	select {
 	case usage := <-usagech:
-		info.CPUStats = provider.CPUStats{
-			NumCPU:      len(usage),
-			PerCPUUsage: usage,
-		}
+		info.NumCPU = len(usage)
+		info.PerCPUUsage = usage
 	case err := <-errch:
 		return nil, err
 	}

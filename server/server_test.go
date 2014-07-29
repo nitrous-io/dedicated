@@ -1037,19 +1037,13 @@ var _ = Describe("server", func() {
 	Describe("GET /info", func() {
 		BeforeEach(func() {
 			prov.HostInfoReturn = &provider.HostInfo{
-				Uptime: 30,
-				MemoryStats: provider.MemoryStats{
-					Usage: 12345678,
-					Total: 17179869184,
-				},
-				StorageStats: provider.StorageStats{
-					Usage: 2000000000,
-					Total: 1000000000000,
-				},
-				CPUStats: provider.CPUStats{
-					NumCPU:      2,
-					PerCPUUsage: []float64{0.5, 30.0},
-				},
+				Uptime:       30,
+				MemoryUsage:  12345678,
+				MemoryTotal:  17179869184,
+				StorageUsage: 2000000000,
+				StorageTotal: 1000000000000,
+				NumCPU:       2,
+				PerCPUUsage:  []float64{0.5, 30.0},
 			}
 		})
 
@@ -1070,18 +1064,12 @@ var _ = Describe("server", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 			Expect(res.Body.String()).To(MatchJSON(`{"info":{
 				"uptime": 30,
-				"memory_stats": {
-					"usage": 12345678,
-					"total": 17179869184
-				},
-				"storage_stats": {
-					"usage": 2000000000,
-					"total": 1000000000000
-				},
-				"cpu_stats": {
-					"num_cpu": 2,
-					"per_cpu_usage": [0.5, 30]
-				}
+				"memory_usage": 12345678,
+				"memory_total": 17179869184,
+				"storage_usage": 2000000000,
+				"storage_total": 1000000000000,
+				"num_cpu": 2,
+				"per_cpu_usage": [0.5, 30]
 			}}`))
 		})
 

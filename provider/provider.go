@@ -74,27 +74,18 @@ type ImageInfo struct {
 
 type HostInfo struct {
 	// Uptime in seconds.
-	Uptime       uint64       `json:"uptime"`
-	MemoryStats  MemoryStats  `json:"memory_stats"`
-	StorageStats StorageStats `json:"storage_stats"`
-	CPUStats     CPUStats     `json:"cpu_stats"`
-}
+	Uptime uint64 `json:"uptime"`
 
-type MemoryStats struct {
-	// Usage in bytes.
-	Usage uint64 `json:"usage"`
-	// Total in bytes.
-	Total uint64 `json:"total"`
-}
+	// MemoryUsage in bytes.
+	MemoryUsage uint64 `json:"memory_usage"`
+	// MemoryTotal in bytes.
+	MemoryTotal uint64 `json:"memory_total"`
 
-type StorageStats struct {
-	// Usage in bytes.
-	Usage uint64 `json:"usage"`
-	// Total in bytes.
-	Total uint64 `json:"total"`
-}
+	// StorageUsage in bytes.
+	StorageUsage uint64 `json:"storage_usage"`
+	// StorageTotal in bytes.
+	StorageTotal uint64 `json:"storage_total"`
 
-type CPUStats struct {
 	NumCPU int `json:"num_cpu"`
 	// Percent usage per CPU.
 	PerCPUUsage []float64 `json:"per_cpu_usage"`
