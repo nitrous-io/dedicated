@@ -53,6 +53,7 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
+	args = cmdFlags.Args()
 	if len(args) < 1 {
 		c.UI.Output(c.Help())
 		return 1
