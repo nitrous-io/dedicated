@@ -7,6 +7,11 @@ import (
 	"regexp"
 )
 
+const (
+	ContainerStateStopped = "stopped"
+	ContainerStateRunning = "running"
+)
+
 var containerNameRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
 var (
 	ErrTimeout               = errors.New("Operation timed out")
@@ -64,11 +69,6 @@ type ImageInfo struct {
 	ActualSize  int64  `json:"actual_size"`
 	VirtualSize int64  `json:"virtual_size"`
 }
-
-const (
-	ContainerStateStopped = "stopped"
-	ContainerStateRunning = "running"
-)
 
 type VolumeInfo struct {
 	Slug string `json:"slug"`

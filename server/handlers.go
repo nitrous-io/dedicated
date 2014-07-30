@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/pkg/flusher"
 	"github.com/nitrous-io/freighter/pkg/shell"
+	"github.com/nitrous-io/freighter/pkg/stats"
 	"github.com/nitrous-io/freighter/provider"
 )
 
@@ -342,6 +344,42 @@ func (s *Server) listImages(w http.ResponseWriter, r *http.Request) {
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"images": listing})
 }
 
+func (s *Server) loginRegistry(w http.ResponseWriter, r *http.Request) {
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+	email := r.FormValue("email")
+	registry := r.FormValue("registry")
+
+	status := http.StatusCreated
+	err := s.provider.Login(username, password, email, registry)
+	if err != nil {
+		status = StatusUnprocessableEntity
+	}
+	s.respond(w, status, nil)
+}
+
+func (s *Server) logoutRegistry(w http.ResponseWriter, r *http.Request) {
+	registry := r.FormValue("registry")
+
+	status := http.StatusNoContent
+	err := s.provider.Logout(registry)
+	if err != nil {
+		status = StatusUnprocessableEntity
+	}
+	s.respond(w, status, nil)
+}
+
+func (s *Server) serverInfo(w http.ResponseWriter, r *http.Request) error {
+	// FIXME Hardcoded sample period for now - maybe make it a query param.
+	stats, err := stats.Sample(100 * time.Millisecond)
+	if err != nil {
+		return err
+	}
+
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"info": stats})
+	return nil
+}
+
 func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
 	conn, _, err := w.(http.Hijacker).Hijack()
 	if err != nil {
@@ -367,29 +405,4 @@ func getFormInt(r *http.Request, k string) int {
 		return 0
 	}
 	return v
-}
-
-func (s *Server) loginRegistry(w http.ResponseWriter, r *http.Request) {
-	username := r.FormValue("username")
-	password := r.FormValue("password")
-	email := r.FormValue("email")
-	registry := r.FormValue("registry")
-
-	status := http.StatusCreated
-	err := s.provider.Login(username, password, email, registry)
-	if err != nil {
-		status = StatusUnprocessableEntity
-	}
-	s.respond(w, status, nil)
-}
-
-func (s *Server) logoutRegistry(w http.ResponseWriter, r *http.Request) {
-	registry := r.FormValue("registry")
-
-	status := http.StatusNoContent
-	err := s.provider.Logout(registry)
-	if err != nil {
-		status = StatusUnprocessableEntity
-	}
-	s.respond(w, status, nil)
 }

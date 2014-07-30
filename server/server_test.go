@@ -8,8 +8,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/freighter/pkg/stats"
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/server"
 	"github.com/nitrous-io/freighter/util"
@@ -1030,6 +1032,62 @@ var _ = Describe("server", func() {
 				doRequest()
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not contact cloud."}`))
+			})
+		})
+	})
+
+	Describe("GET /info", func() {
+		doRequest := func() {
+			req, err = NewRequest("GET", "/info", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		var origFn = stats.Sample
+
+		BeforeEach(func() {
+			stats.Sample = func(period time.Duration) (*stats.Stats, error) {
+				return &stats.Stats{
+					Uptime:       30,
+					MemoryUsage:  12345678,
+					MemoryTotal:  17179869184,
+					StorageUsage: 2000000000,
+					StorageTotal: 1000000000000,
+					NumCPU:       2,
+					PerCPUUsage:  []float64{0.5, 30},
+				}, nil
+			}
+		})
+
+		AfterEach(func() {
+			stats.Sample = origFn
+		})
+
+		It("responds with 200 OK and host info", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Body.String()).To(MatchJSON(`{"info":{
+				"uptime": 30,
+				"memory_usage": 12345678,
+				"memory_total": 17179869184,
+				"storage_usage": 2000000000,
+				"storage_total": 1000000000000,
+				"num_cpu": 2,
+				"per_cpu_usage": [0.5, 30]
+			}}`))
+		})
+
+		Context("when stats.Sample() returns an error", func() {
+			BeforeEach(func() {
+				stats.Sample = func(period time.Duration) (*stats.Stats, error) {
+					return nil, errors.New("sampling failed")
+				}
+			})
+
+			It("responds with 500 Internal Server Error", func() {
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error": "sampling failed"}`))
 			})
 		})
 	})

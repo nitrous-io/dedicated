@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nitrous-io/freighter/pkg/stats"
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/provider/docker"
 )
@@ -93,15 +94,17 @@ type Client interface {
 	RegistryLogin(host *Host, params *RegistryAuth) error
 	RegistryLogout(host *Host, registry string) error
 
+	HostInfo(host *Host) (*HostInfo, error)
+
 	ListImages(host *Host) ([]*Image, error)
 }
 
 type (
 	Container       provider.ContainerInfo
 	ContainerConfig provider.ContainerConfig
-
-	Image  provider.ImageInfo
-	Volume provider.VolumeInfo
+	Image           provider.ImageInfo
+	Volume          provider.VolumeInfo
+	HostInfo        stats.Stats
 
 	containerResponse struct {
 		*Container `json:"container"`
@@ -496,11 +499,40 @@ func (c *client) RemovePublicKey(h *Host, id string, fingerprint string) error {
 	return c.doPublicKeyOp(req)
 }
 
+func (c *client) HostInfo(h *Host) (*HostInfo, error) {
+	u := fmt.Sprintf("%s/info", h.BaseURL())
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, &StatusError{resp.StatusCode}
+	}
+
+	var info struct {
+		Info *HostInfo `json:"info"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&info)
+	if err != nil {
+		return nil, ErrUnexpectedResponse
+	}
+
+	return info.Info, nil
+}
+
 // ListImages makes an API request to a given Freighter Host and returns a list of
 // Images.
 func (c *client) ListImages(h *Host) ([]*Image, error) {
-	formattedURL := fmt.Sprintf("%s/images", h.BaseURL())
-	req, err := http.NewRequest("GET", formattedURL, nil)
+	u := fmt.Sprintf("%s/images", h.BaseURL())
+	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
 	}
