@@ -2,13 +2,15 @@ package docker
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
 )
 
 var (
-	ErrInvalidPortSpec = fmt.Errorf("port spec invalid")
+	ErrInvalidPortSpec  = fmt.Errorf("port binding invalid")
+	ErrInvalidMountSpec = fmt.Errorf("volume specification invalid")
 )
 
 type ContainerConfig struct {
@@ -46,6 +48,11 @@ func (p *DockerProvider) CreateConfigs(containerName, imageName string, cfg *Con
 		for port, _ := range bs {
 			dcConfig.ExposedPorts[dockerclient.Port(port)] = struct{}{}
 		}
+		ms, err := dockerMountBinds(cfg.Mounts, p.VolumesDir(""))
+		if err != nil {
+			return nil, nil, err
+		}
+		dcHostConfig.Binds = ms
 	}
 
 	dcConfig.ExposedPorts[dockerclient.Port("22/tcp")] = struct{}{}
@@ -62,21 +69,61 @@ func (p *DockerProvider) StartConfig(container *dockerclient.Container, cfg *Con
 	if cfg == nil {
 		return dcHostConfig, nil
 	}
-	if len(cfg.PortBindings) != 0 { // if empty, do not override existing
+	// if config field is nil, ignore
+	// if config field is non-nil but len == 0, override with empty
+	if cfg.PortBindings != nil {
 		bs, err := dockerPortBindings(cfg.PortBindings)
 		if err != nil {
 			return nil, err
 		}
 		dcHostConfig.PortBindings = bs
 	}
+	if cfg.Mounts != nil {
+		ms, err := dockerMountBinds(cfg.Mounts, p.VolumesDir(""))
+		if err != nil {
+			return nil, err
+		}
+		dcHostConfig.Binds = ms
+		dcHostConfig.Binds = append(dcHostConfig.Binds, fmt.Sprintf("%s/ssh:/etc/ssh/freighter:ro", p.containerSettingsDir(container.Config.Hostname)))
+	}
 	return dcHostConfig, nil
+}
+
+func dockerMountBinds(mountSpecs []string, hostVolsPath string) ([]string, error) {
+	binds := []string{}
+	for _, mspec := range mountSpecs {
+		// TODO do we want to validate host volume existence at this point?
+		bind, err := parseMountSpec(mspec, hostVolsPath)
+		if err != nil {
+			return []string{}, err
+		}
+		binds = append(binds, bind)
+	}
+	return binds, nil
+}
+
+// parseMountSpec supports any of:
+//   volumeSlug:mountPoint
+//   volumeSlug
+// It appends the appropriate host path to the volume slug.  No validations on
+// mountPoint are performed -- let docker handle.  If mountPoint is missing,
+// mount to /volumes/<volumeSlug>
+func parseMountSpec(mspec string, hostVolsPath string) (string, error) {
+	var mountPoint string
+	parts := strings.Split(mspec, ":")
+	switch len(parts) {
+	case 1:
+		mountPoint = fmt.Sprintf("/volumes/%s", parts[0])
+	case 2:
+		mountPoint = parts[1]
+	default:
+		return "", ErrInvalidMountSpec
+	}
+	return fmt.Sprintf("%s:%s", filepath.Join(hostVolsPath, parts[0]), mountPoint), nil
 }
 
 func dockerPortBindings(portSpecs []string) (map[dockerclient.Port][]dockerclient.PortBinding, error) {
 	bindings := map[dockerclient.Port][]dockerclient.PortBinding{}
-	if len(portSpecs) == 0 {
-		return bindings, nil
-	}
 	for _, portSpec := range portSpecs {
 		p, pb, err := parsePortSpec(portSpec)
 		if err != nil {
@@ -91,7 +138,7 @@ func dockerPortBindings(portSpecs []string) (map[dockerclient.Port][]dockerclien
 	return bindings, nil
 }
 
-// parsePortspec supports any of:
+// parsePortSpec supports any of:
 //   ip:hostPort:containerPort
 //   ip::containerPort
 //   hostPort:containerPort ... :

@@ -31,11 +31,12 @@ var _ = Describe("provider/docker", func() {
 		prov      *docker.DockerProvider
 		namespace = "freightertest"
 		image     = "nitrousio/ubuntu-bare:trusty"
+		datadir   string
 	)
 
 	BeforeEach(func() {
 		var err error
-		datadir := os.Getenv("FREIGHTERD_BASE")
+		datadir = os.Getenv("FREIGHTERD_BASE")
 
 		if datadir == "" {
 			datadir, err = TempDir()
@@ -738,10 +739,23 @@ var _ = Describe("provider/docker", func() {
 				`{{index .HostConfig.PortBindings "%s"}}`, port))
 		}
 
+		// given docker inspect output "Volumes": {
+		//   "/etc/dotfiles": "/var/lib/freighter/volumes/dotfiles",
+		//   "/voluems/backups": "/var/lib/freighter/volumes/backups"
+		// }
+		// returns
+		//   /etc/dotfiles /var/lib/freighter/volumes/dotfiles\n
+		//   /volumes/backups /var/lib/freighter/volumes/backups\n
+		getVolumes := func(id string) string {
+			return doInspect(id,
+				"{{range $cnrPath, $hostPath := .Volumes}}{{$cnrPath}} {{$hostPath}}\n{{end}}")
+		}
+
 		BeforeEach(func() {
 			var err error
 			configJSON = `{
   "Env": ["LANG=C"],
+  "Mounts": ["dotfiles:/etc/dotfiles","backups"],
   "PortBindings": ["127.0.0.1:1234:3000"]
 }`
 			name = RandomName("freightertest")
@@ -767,27 +781,45 @@ var _ = Describe("provider/docker", func() {
 				Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
 			Expect(getPortBindings(id, "22/tcp")).To(
 				ContainSubstring("[map[HostIp:0.0.0.0 HostPort:49")) // Docker will use 49000-49900
-			Expect(doInspect(id,
-				"{{range $v, $stub := .Config.Volumes}}{{$v}} {{end}}")).
-				To(Equal("/etc/ssh/freighter"))
+			containerDir := filepath.Join(datadir, "containers")
+			volumeDir := filepath.Join(datadir, "volumes")
+			vols := getVolumes(id)
+			Expect(vols).To(ContainSubstring(
+				fmt.Sprintf("/etc/ssh/freighter %s/%s/ssh", containerDir, fullContainerName(name))))
+			Expect(vols).To(ContainSubstring(
+				fmt.Sprintf("/etc/dotfiles %s", filepath.Join(volumeDir, "dotfiles"))))
+			Expect(vols).To(ContainSubstring(
+				fmt.Sprintf("/volumes/backups %s", filepath.Join(volumeDir, "backups"))))
 
 			// should be split out but kept here due to each container create taking >10s
-			// It("persists PortBindings on next start if no options given")
+			// It("persists PortBindings,Binds on next start if no options given")
 			_, err := prov.Stop(id)
 			Expect(err).To(BeNil())
 			_, err = prov.Start(id, "")
 			Expect(err).To(BeNil())
 			Expect(getPortBindings(id, "3000")).To(
 				Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
+			vols = getVolumes(id)
+			Expect(vols).To(ContainSubstring("/etc/ssh/freighter"))
+			Expect(vols).To(ContainSubstring("dotfiles"))
+			Expect(vols).To(ContainSubstring("backups"))
 
-			// It("overrides existing PortBindings on next start if options given")
+			// It("overrides existing PortBindings,Binds on next start if options given")
 			_, err = prov.Stop(id)
 			Expect(err).To(BeNil())
-			_, err = prov.Start(id, strings.Replace(configJSON, "3000", "4242/tcp", 1))
+			newConfig := strings.Replace(configJSON, "3000", "4242/tcp", 1)
+			newConfig = strings.Replace(newConfig, "backups", "restores", 1)
+			_, err = prov.Start(id, newConfig)
 			Expect(err).To(BeNil())
 			Expect(getPortBindings(id, "4242/tcp")).To(
 				Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
 			Expect(getPortBindings(id, "3000/tcp")).To(Equal("<no value>"))
+			vols = getVolumes(id)
+			Expect(vols).To(ContainSubstring("/etc/ssh/freighter"))
+			Expect(vols).To(ContainSubstring("dotfiles"))
+			Expect(vols).To(ContainSubstring("restores"))
+			Expect(doInspect(id, fmt.Sprintf(
+				`{{.HostConfig.Binds}}`))).NotTo(ContainSubstring("backups"))
 		})
 	})
 

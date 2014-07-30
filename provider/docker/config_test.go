@@ -14,15 +14,17 @@ import (
 
 var _ = Describe("provider/docker config", func() {
 	var (
-		prov      *docker.DockerProvider
-		namespace = "freightertest"
-		datadir   string
+		prov             *docker.DockerProvider
+		namespace        = "freightertest"
+		datadir, sshBind string
+		cnrName          = "php-box"
 	)
 
 	BeforeEach(func() {
 		var err error
 		datadir, err = TempDir()
 		Expect(err).To(BeNil())
+		sshBind = filepath.Join(datadir, "containers", cnrName, "ssh") + ":/etc/ssh/freighter:ro"
 		logger := &util.Logger{Level: util.LogLevelQuiet}
 		prov, err = docker.NewDockerProvider(logger, datadir, namespace)
 		Expect(err).To(BeNil())
@@ -37,12 +39,12 @@ var _ = Describe("provider/docker config", func() {
 		Context("defaults (no config passed)", func() {
 			BeforeEach(func() {
 				var err error
-				cfg, hostCfg, err = prov.CreateConfigs("php-box", "nitrous-io/php", nil)
+				cfg, hostCfg, err = prov.CreateConfigs(cnrName, "nitrous-io/php", nil)
 				Expect(err).To(BeNil())
 			})
 
 			It("has hostname and image", func() {
-				Expect(cfg.Hostname).To(Equal("php-box"))
+				Expect(cfg.Hostname).To(Equal(cnrName))
 				Expect(cfg.Image).To(Equal("nitrous-io/php"))
 			})
 
@@ -51,8 +53,7 @@ var _ = Describe("provider/docker config", func() {
 				_, ok := cfg.Volumes["/etc/ssh/freighter"]
 				Expect(ok).To(BeTrue())
 				Expect(hostCfg.Binds).To(HaveLen(1))
-				Expect(hostCfg.Binds[0]).To(Equal(filepath.Join(
-					datadir, "containers", "php-box", "ssh:/etc/ssh/freighter:ro")))
+				Expect(hostCfg.Binds[0]).To(Equal(sshBind))
 			})
 
 			It("has no env", func() {
@@ -72,7 +73,7 @@ var _ = Describe("provider/docker config", func() {
 		Context("with PortBindings config", func() {
 			BeforeEach(func() {
 				var err error
-				cfg, hostCfg, err = prov.CreateConfigs("php-box", "nitrous-io/php",
+				cfg, hostCfg, err = prov.CreateConfigs(cnrName, "nitrous-io/php",
 					&docker.ContainerConfig{
 						PortBindings: []string{"0.0.0.0::4000", "3000:8080", "127.0.0.1:5000:5001"},
 					})
@@ -103,6 +104,26 @@ var _ = Describe("provider/docker config", func() {
 				}
 			})
 		})
+
+		Context("with Mounts config", func() {
+			BeforeEach(func() {
+				var err error
+				cfg, hostCfg, err = prov.CreateConfigs(cnrName, "nitrous-io/php",
+					&docker.ContainerConfig{
+						Mounts: []string{"data", "music:/mpd/albums"},
+					})
+				Expect(err).To(BeNil())
+			})
+
+			It("parses mount specs", func() {
+				Expect(hostCfg.Binds).To(HaveLen(3))
+				Expect(hostCfg.Binds).To(ContainElement(filepath.Join(
+					datadir, "volumes/data") + ":/volumes/data"))
+				Expect(hostCfg.Binds).To(ContainElement(filepath.Join(
+					datadir, "volumes/music") + ":/mpd/albums"))
+				Expect(hostCfg.Binds).To(ContainElement(sshBind))
+			})
+		})
 	})
 
 	Describe("StartConfig", func() {
@@ -113,10 +134,14 @@ var _ = Describe("provider/docker config", func() {
 
 		BeforeEach(func() {
 			container = &dockerclient.Container{
+				Config: &dockerclient.Config{
+					Hostname: cnrName,
+				},
 				HostConfig: &dockerclient.HostConfig{
 					PortBindings: map[dockerclient.Port][]dockerclient.PortBinding{
 						dockerclient.Port("22"): []dockerclient.PortBinding{},
 					},
+					Binds: []string{sshBind},
 				},
 			}
 		})
@@ -131,6 +156,79 @@ var _ = Describe("provider/docker config", func() {
 			It("preserves existing port bindings", func() {
 				Expect(hostCfg.PortBindings).To(HaveLen(1))
 				Expect(hostCfg.PortBindings[dockerclient.Port("22")]).To(Equal([]dockerclient.PortBinding{}))
+			})
+		})
+
+		Context("Mounts config handling (always keeps ssh bind)", func() {
+			getCfg := func(cfg *docker.ContainerConfig) *dockerclient.HostConfig {
+				var err error
+				hostCfg, err = prov.StartConfig(container, cfg)
+				Expect(err).To(BeNil())
+				return hostCfg
+			}
+
+			It("replaces existing with mount specs", func() {
+				container.HostConfig.Binds = []string{sshBind, "REMOVEME"}
+				hostCfg = getCfg(&docker.ContainerConfig{
+					Mounts: []string{"data", "music:/mpd/albums"},
+				})
+				Expect(hostCfg.Binds).To(HaveLen(3))
+				Expect(hostCfg.Binds).To(ContainElement(filepath.Join(
+					datadir, "volumes/data") + ":/volumes/data"))
+				Expect(hostCfg.Binds).To(ContainElement(filepath.Join(
+					datadir, "volumes/music") + ":/mpd/albums"))
+				Expect(hostCfg.Binds).To(ContainElement(sshBind))
+				Expect(hostCfg.Binds).NotTo(ContainElement("REMOVEME"))
+			})
+
+			It("does not remove existing when Mounts is nil", func() {
+				container.HostConfig.Binds = []string{sshBind, "KEEPME"}
+				hostCfg = getCfg(&docker.ContainerConfig{
+					Mounts: nil,
+				})
+				Expect(hostCfg.Binds).To(HaveLen(2))
+				Expect(hostCfg.Binds).To(ContainElement(sshBind))
+				Expect(hostCfg.Binds).To(ContainElement("KEEPME"))
+			})
+
+			It("removes existing when Mounts is present but empty", func() {
+				container.HostConfig.Binds = []string{sshBind, "REMOVEME"}
+				hostCfg = getCfg(&docker.ContainerConfig{
+					Mounts: []string{},
+				})
+				Expect(hostCfg.Binds).To(HaveLen(1))
+				Expect(hostCfg.Binds).To(ContainElement(sshBind))
+			})
+		})
+
+		Context("with PortBindings config", func() {
+			BeforeEach(func() {
+				var err error
+				hostCfg, err = prov.StartConfig(container,
+					&docker.ContainerConfig{
+						PortBindings: []string{"0.0.0.0::4000", "3000:8080", "127.0.0.1:5000:5001"},
+					})
+				Expect(err).To(BeNil())
+			})
+
+			It("parses portspecs", func() {
+				Expect(hostCfg.PortBindings).To(HaveLen(3))
+				portBinds := []struct {
+					conPort  string
+					hostIP   string
+					hostPort string
+				}{
+					{"4000", "0.0.0.0", ""},
+					{"8080", "127.0.0.1", "3000"},
+					{"5001", "127.0.0.1", "5000"},
+				}
+				for _, pb := range portBinds {
+					pbs := hostCfg.PortBindings[dockerclient.Port(pb.conPort)]
+					Expect(pbs).To(HaveLen(1))
+					Expect(pbs[0]).To(Equal(
+						dockerclient.PortBinding{
+							HostIp: pb.hostIP, HostPort: pb.hostPort}))
+				}
 			})
 		})
 	})
