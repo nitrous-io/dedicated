@@ -274,6 +274,77 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("Update()", func() {
+		var (
+			h    *host.Host
+			slug = "foo"
+		)
+
+		BeforeEach(func() {
+			var err error
+			h = &host.Host{
+				Slug:               slug,
+				UserID:             hs.U.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+				State:              "running",
+				TerminatedAt:       nil,
+			}
+			err = h.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("updates the host in the database", func() {
+			h.Name = sql.NullString{"foo host", true}
+			h.State = host.StateRestarting
+			h.IPAddress = sql.NullString{"1.2.3.4", true}
+			h.ProviderIdentifier = sql.NullString{"digitalocean", true}
+			h.MaxContainers = sql.NullInt64{2, true}
+			h.FreighterdPort = sql.NullInt64{60000, true}
+			err := h.Update(db)
+			Expect(err).To(BeNil())
+
+			h2, err := host.FindByUserAndSlug(db, hs.U, slug)
+			Expect(err).To(BeNil())
+			Expect(h2).NotTo(BeNil())
+			Expect(h2.Slug).To(Equal(slug))
+
+			// Updated fields.
+			Expect(h2.Name.String).To(Equal("foo host"))
+			Expect(h2.State).To(Equal(host.StateRestarting))
+			Expect(h2.IPAddress.String).To(Equal("1.2.3.4"))
+			Expect(h2.ProviderIdentifier.String).To(Equal("digitalocean"))
+			Expect(h2.MaxContainers.Int64).To(Equal(int64(2)))
+			Expect(h2.FreighterdPort.Int64).To(Equal(int64(60000)))
+
+			// Unchanged fields.
+			Expect(h2.UserID).To(Equal(hs.U.ID))
+			Expect(h2.RegionID).To(Equal(hs.R.ID))
+			Expect(h2.PlanID).To(Equal(hs.P.ID))
+			Expect(h2.ProviderTemplateID).To(Equal(hs.PT.ID))
+		})
+
+		It("fills up the fields in original struct", func() {
+			h.Name = sql.NullString{"foo host", true}
+			err := h.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(h.CreatedAt).NotTo(BeNil())
+			Expect(h.UpdatedAt).NotTo(BeNil())
+		})
+
+		It("updates UpdatedAt", func() {
+			origUpdatedAt := h.UpdatedAt
+
+			h.Name = sql.NullString{"foo host", true}
+			err := h.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(h.UpdatedAt).NotTo(Equal(origUpdatedAt))
+		})
+	})
+
 	Describe("Delete()", func() {
 		var (
 			h *host.Host
@@ -311,6 +382,34 @@ var _ = Describe("models/host", func() {
 
 			Expect(h2.CreatedAt).NotTo(BeNil())
 			Expect(h2.UpdatedAt).NotTo(BeNil())
+		})
+	})
+
+	Describe("DeletePermanently()", func() {
+		It("deletes the host from the database", func() {
+			h := &host.Host{
+				Slug:               "foo",
+				UserID:             hs.U.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+				State:              "running",
+				TerminatedAt:       nil,
+			}
+			err := h.Insert(db)
+			Expect(err).To(BeNil())
+
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM hosts WHERE slug = $1;`, "foo").Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+
+			err = h.DeletePermanently(db)
+			Expect(err).To(BeNil())
+
+			err = db.QueryRow(`SELECT COUNT(*) FROM hosts WHERE slug = $1;`, "foo").Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0))
 		})
 	})
 
