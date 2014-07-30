@@ -40,13 +40,13 @@ var _ = Describe("models/registry", func() {
 	Describe("FindAllByUserIDAndHostID()", func() {
 		BeforeEach(func() {
 			_, err := db.Exec(`INSERT INTO registries
-				(user_id, host_id, registry_url, username, email)
+				(user_id, host_id, url, username, email)
 				VALUES ($1, $2, $3, $4, $5);`,
 				hs.U.ID, hs.H.ID, "hub.example.com", "foo", "foo@example.com")
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO registries
-				(user_id, host_id, registry_url, username, email)
+				(user_id, host_id, url, username, email)
 				VALUES ($1, $2, $3, $4, $5);`,
 				hs.U.ID, hs.H.ID, "hub1.example.com", "foo1", "foo1@example.com")
 			Expect(err).To(BeNil())
@@ -60,13 +60,13 @@ var _ = Describe("models/registry", func() {
 
 				Expect(registries[0].ID).NotTo(BeZero())
 				Expect(registries[0].UserID).To(Equal(hs.U.ID))
-				Expect(registries[0].RegistryURL).To(Equal("hub.example.com"))
+				Expect(registries[0].URL).To(Equal("hub.example.com"))
 				Expect(registries[0].Username).To(Equal("foo"))
 				Expect(registries[0].Email).To(Equal("foo@example.com"))
 
 				Expect(registries[1].ID).NotTo(BeZero())
 				Expect(registries[1].UserID).To(Equal(hs.U.ID))
-				Expect(registries[1].RegistryURL).To(Equal("hub1.example.com"))
+				Expect(registries[1].URL).To(Equal("hub1.example.com"))
 				Expect(registries[1].Username).To(Equal("foo1"))
 				Expect(registries[1].Email).To(Equal("foo1@example.com"))
 			})
@@ -90,29 +90,29 @@ var _ = Describe("models/registry", func() {
 		})
 	})
 
-	Describe("FindByUserIDAndHostIDAndRegistryURL()", func() {
+	Describe("FindByUserIDAndHostIDAndURL()", func() {
 		Context("when a registry record exist for given user, host and registry URL", func() {
 			BeforeEach(func() {
 				_, err := db.Exec(`INSERT INTO registries
-				(user_id, host_id, registry_url, username, email)
+				(user_id, host_id, url, username, email)
 				VALUES ($1, $2, $3, $4, $5);`,
 					hs.U.ID, hs.H.ID, "hub.example.com", "foo", "foo@example.com")
 				Expect(err).To(BeNil())
 			})
 
 			It("returns the registry record", func() {
-				r, err := registry.FindByUserIDAndHostIDAndRegistryURL(db, hs.U.ID, hs.H.ID, "hub.example.com")
+				r, err := registry.FindByUserIDAndHostIDAndURL(db, hs.U.ID, hs.H.ID, "hub.example.com")
 				Expect(err).To(BeNil())
 				Expect(r).NotTo(BeNil())
 				Expect(r.UserID).To(Equal(hs.U.ID))
 				Expect(r.HostID).To(Equal(hs.H.ID))
-				Expect(r.RegistryURL).To(Equal("hub.example.com"))
+				Expect(r.URL).To(Equal("hub.example.com"))
 			})
 		})
 
 		Context("when a registry record does not exist for given user, host and registry URL", func() {
 			It("returns nil", func() {
-				r, err := registry.FindByUserIDAndHostIDAndRegistryURL(db, hs.U.ID, hs.H.ID, "hub.example.com")
+				r, err := registry.FindByUserIDAndHostIDAndURL(db, hs.U.ID, hs.H.ID, "hub.example.com")
 				Expect(err).To(BeNil())
 				Expect(r).To(BeNil())
 			})
@@ -121,7 +121,7 @@ var _ = Describe("models/registry", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				r, err := registry.FindByUserIDAndHostIDAndRegistryURL(db, hs.U.ID, hs.H.ID, "hub.example.com")
+				r, err := registry.FindByUserIDAndHostIDAndURL(db, hs.U.ID, hs.H.ID, "hub.example.com")
 				Expect(err).NotTo(BeNil())
 				Expect(r).To(BeNil())
 			})
@@ -133,11 +133,11 @@ var _ = Describe("models/registry", func() {
 
 		BeforeEach(func() {
 			r = &registry.Registry{
-				UserID:      hs.U.ID,
-				HostID:      hs.H.ID,
-				RegistryURL: "hub.example.com",
-				Username:    "foo",
-				Email:       "foo@example.com",
+				UserID:   hs.U.ID,
+				HostID:   hs.H.ID,
+				URL:      "hub.example.com",
+				Username: "foo",
+				Email:    "foo@example.com",
 			}
 		})
 
@@ -151,7 +151,7 @@ var _ = Describe("models/registry", func() {
 				Expect(rx[0].ID).NotTo(BeZero())
 				Expect(rx[0].UserID).To(Equal(hs.U.ID))
 				Expect(rx[0].HostID).To(Equal(hs.H.ID))
-				Expect(rx[0].RegistryURL).To(Equal("hub.example.com"))
+				Expect(rx[0].URL).To(Equal("hub.example.com"))
 				Expect(rx[0].Username).To(Equal("foo"))
 				Expect(rx[0].Email).To(Equal("foo@example.com"))
 				Expect(rx[0].CreatedAt).NotTo(BeNil())
@@ -170,7 +170,7 @@ var _ = Describe("models/registry", func() {
 	Describe("Delete()", func() {
 		BeforeEach(func() {
 			_, err := db.Exec(`INSERT INTO registries
-				(user_id, host_id, registry_url, username, email)
+				(user_id, host_id, url, username, email)
 				VALUES ($1, $2, $3, $4, $5);`,
 				hs.U.ID, hs.H.ID, "hub.example.com", "foo", "foo@example.com")
 			Expect(err).To(BeNil())

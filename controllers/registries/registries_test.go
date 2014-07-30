@@ -134,21 +134,21 @@ var _ = Describe("controllers/registries", func() {
 		Context("when user has logged-in to registries", func() {
 			BeforeEach(func() {
 				r1 := &registry.Registry{
-					UserID:      hs.U.ID,
-					HostID:      hs.H.ID,
-					RegistryURL: "hub1.example.com",
-					Username:    "foo",
-					Email:       "foo@example.com",
+					UserID:   hs.U.ID,
+					HostID:   hs.H.ID,
+					URL:      "hub1.example.com",
+					Username: "foo",
+					Email:    "foo@example.com",
 				}
 				err := r1.Insert(db)
 				Expect(err).To(BeNil())
 
 				r2 := &registry.Registry{
-					UserID:      hs.U.ID,
-					HostID:      hs.H.ID,
-					RegistryURL: "hub2.example.com",
-					Username:    "foo",
-					Email:       "foo@example.com",
+					UserID:   hs.U.ID,
+					HostID:   hs.H.ID,
+					URL:      "hub2.example.com",
+					Username: "foo",
+					Email:    "foo@example.com",
 				}
 				err = r2.Insert(db)
 				Expect(err).To(BeNil())
@@ -165,8 +165,8 @@ var _ = Describe("controllers/registries", func() {
 				Expect(ok).To(BeTrue())
 				Expect(registries).To(HaveLen(2))
 
-				Expect(registries[0].RegistryURL).To(Equal("hub1.example.com"))
-				Expect(registries[1].RegistryURL).To(Equal("hub2.example.com"))
+				Expect(registries[0].URL).To(Equal("hub1.example.com"))
+				Expect(registries[1].URL).To(Equal("hub2.example.com"))
 			})
 		})
 
@@ -302,7 +302,7 @@ var _ = Describe("controllers/registries", func() {
 							r := regions[0]
 							Expect(r.Username).To(Equal("dockeruser"))
 							Expect(r.Email).To(Equal("dockeruser@example.com"))
-							Expect(r.RegistryURL).To(Equal("hub.example.com"))
+							Expect(r.URL).To(Equal("hub.example.com"))
 						})
 
 						It("returns HTTP 200 OK if logged in successfully", func() {
@@ -336,11 +336,11 @@ var _ = Describe("controllers/registries", func() {
 					Context("when already logged in to the registry", func() {
 						It("responds with an error mentioning already logged in to the registry", func() {
 							r := &registry.Registry{
-								UserID:      hs.U.ID,
-								HostID:      hs.H.ID,
-								RegistryURL: "hub.example.com",
-								Username:    "foo",
-								Email:       "foo@example.com",
+								UserID:   hs.U.ID,
+								HostID:   hs.H.ID,
+								URL:      "hub.example.com",
+								Username: "foo",
+								Email:    "foo@example.com",
 							}
 							err := r.Insert(db)
 							Expect(err).To(BeNil())
@@ -403,11 +403,11 @@ var _ = Describe("controllers/registries", func() {
 
 		BeforeEach(func() {
 			r := &registry.Registry{
-				UserID:      hs.U.ID,
-				HostID:      hs.H.ID,
-				RegistryURL: "hub.example.com",
-				Username:    "foo",
-				Email:       "foo@example.com",
+				UserID:   hs.U.ID,
+				HostID:   hs.H.ID,
+				URL:      "hub.example.com",
+				Username: "foo",
+				Email:    "foo@example.com",
 			}
 			err := r.Insert(db)
 			Expect(err).To(BeNil())
