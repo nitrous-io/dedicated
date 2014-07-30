@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"text/tabwriter"
 
@@ -121,13 +122,17 @@ func (c *Command) inspectHost(slug string) (*response, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
+	err = httpclient.CheckResponse(resp, http.StatusOK)
+	if err != nil {
+		return nil, err
+	}
 
 	var j response
 	err = json.NewDecoder(resp.Body).Decode(&j)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 	return &j, nil
 }
 
