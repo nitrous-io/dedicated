@@ -5,7 +5,7 @@ import (
 
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/middlewares"
+	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
 )
 
@@ -14,14 +14,14 @@ import (
 var FreighterClient freighterclient.Client
 
 var (
-	Index middlewares.Middleware = middlewares.HostViaPath("slug", index)
+	Index middleware.Middleware = middleware.HostViaPath("slug", index)
 )
 
 func init() {
 	FreighterClient = freighterclient.NewClient(nil)
 }
 
-func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	fHost, err := mkFreighterHost(h)
 	if err != nil {
 		return err

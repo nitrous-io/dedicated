@@ -26,7 +26,7 @@ var FreighterClient freighterclient.Client
 var (
 	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errHostNotRunning    = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running") // Not 100% on the status code - how about 409 Conflict?
-	errHostNotFound      = middlewares.ErrHostNotFound
+	errHostNotFound      = middleware.ErrHostNotFound
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 )
