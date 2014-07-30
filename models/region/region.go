@@ -15,6 +15,18 @@ type Region struct {
 	UpdatedAt   *time.Time `db:"updated_at"`
 }
 
+func FindByID(d db.QueryReceiver, id int64) (*Region, error) {
+	r := &Region{}
+	err := d.Get(r, "SELECT * FROM regions WHERE id = $1", id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return r, nil
+}
+
 func FindByName(d db.QueryReceiver, name string) (*Region, error) {
 	r := &Region{}
 	err := d.Get(r, "SELECT * FROM regions WHERE name = $1", name)

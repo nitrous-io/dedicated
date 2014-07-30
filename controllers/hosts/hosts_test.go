@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/hostbuilder"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers/hosts"
@@ -64,19 +65,6 @@ var _ = Describe("controllers/hosts", func() {
 		errRes := &errorResponse{}
 		err := json.Unmarshal(res.Body.Bytes(), errRes)
 		return err, errRes
-	}
-
-	ItRespondsHostNotFound := func(doRequest func(string)) {
-		It("responds with HTTP 404 Not Found", func() {
-			doRequest("somehost")
-			Expect(res.Code).To(Equal(http.StatusNotFound))
-
-			err, j := unmarshalErrorResponse()
-			Expect(err).To(BeNil())
-
-			Expect(j.Error).To(Equal("not_found"))
-			Expect(j.ErrorDescription).To(Equal("no matching host found for the given slug"))
-		})
 	}
 
 	BeforeEach(func() {
@@ -385,6 +373,164 @@ var _ = Describe("controllers/hosts", func() {
 		})
 	})
 
+	Describe("GET /api/v0/hosts/{slug}", func() {
+		var (
+			mockClient *freighterclient.MockClient
+			hs         *HostStack
+		)
+
+		type expectedResp struct {
+			Host struct {
+				ID             int64  `json:"id"`
+				Slug           string `json:"slug"`
+				IPAddress      string `json:"ip_address"`
+				FreighterdPort int64  `json:"freighterd_port"`
+				State          string `json:"state"`
+				Hostname       string `json:"hostname"`
+				Region         *struct {
+					ID          int64  `json:"id"`
+					Name        string `json:"name"`
+					Description string `json:"description"`
+				} `json:"region"`
+				Plan *struct {
+					ID   int64  `json:"id"`
+					Name string `json:"name"`
+				} `json:"plan"`
+				Stats *struct {
+					Uptime       uint64    `json:"uptime"`
+					MemoryUsage  uint64    `json:"memory_usage"`
+					MemoryTotal  uint64    `json:"memory_total"`
+					StorageUsage uint64    `json:"storage_usage"`
+					StorageTotal uint64    `json:"storage_total"`
+					NumCPU       int       `json:"num_cpu"`
+					PerCPUUsage  []float64 `json:"per_cpu_usage"`
+				} `json:"stats"`
+			} `json:"host"`
+		}
+
+		doRequest := func(slug string) {
+			req, err := NewRequest("GET", "/api/v0/hosts/"+slug, nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			var err error
+
+			mockClient = &freighterclient.MockClient{}
+			mockClient.HostInfoReturn = &freighterclient.HostInfo{
+				Uptime:       30,
+				MemoryUsage:  12345678,
+				MemoryTotal:  17179869184,
+				StorageUsage: 2000000000,
+				StorageTotal: 1000000000000,
+				NumCPU:       2,
+				PerCPUUsage:  []float64{0.5, 30},
+			}
+			hosts.FreighterClient = mockClient
+
+			hs, err = CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:           "foo",
+					IPAddress:      sql.NullString{"1.2.3.4", true},
+					FreighterdPort: sql.NullInt64{64000, true},
+					State:          host.StateRunning,
+				},
+				R: &region.Region{Name: "use", Description: "US East"},
+				P: &plan.Plan{Name: "large"},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		It("calls the Freighter client to get host info", func() {
+			doRequest("foo")
+			Expect(mockClient.HostInfoCalled).To(Equal(1))
+		})
+
+		It("responds with host info from the database and augments it with stats from the Freighter API", func() {
+			doRequest("foo")
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j expectedResp
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			Expect(j.Host.ID).To(Equal(hs.H.ID))
+			Expect(j.Host.Slug).To(Equal("foo"))
+			Expect(j.Host.IPAddress).To(Equal("1.2.3.4"))
+			Expect(j.Host.FreighterdPort).To(Equal(int64(64000)))
+			Expect(j.Host.State).To(Equal(host.StateRunning))
+			Expect(j.Host.Hostname).To(Equal("foo.nitrouspro.com"))
+
+			Expect(j.Host.Region.ID).To(Equal(hs.R.ID))
+			Expect(j.Host.Region.Name).To(Equal("use"))
+			Expect(j.Host.Region.Description).To(Equal("US East"))
+
+			Expect(j.Host.Plan.ID).To(Equal(hs.P.ID))
+			Expect(j.Host.Plan.Name).To(Equal("large"))
+
+			Expect(j.Host.Stats.Uptime).To(Equal(uint64(30)))
+			Expect(j.Host.Stats.MemoryUsage).To(Equal(uint64(12345678)))
+			Expect(j.Host.Stats.MemoryTotal).To(Equal(uint64(17179869184)))
+			Expect(j.Host.Stats.StorageUsage).To(Equal(uint64(2000000000)))
+			Expect(j.Host.Stats.StorageTotal).To(Equal(uint64(1000000000000)))
+			Expect(j.Host.Stats.NumCPU).To(Equal(2))
+			Expect(j.Host.Stats.PerCPUUsage).To(Equal([]float64{0.5, 30}))
+		})
+
+		Context("when host is not running", func() {
+			BeforeEach(func() {
+				hs.H.UpdateState(db, host.StateStopped)
+			})
+
+			It("excludes host stats from Freighter", func() {
+				doRequest("foo")
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j expectedResp
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.Slug).To(Equal("foo"))
+				Expect(j.Host.Stats).To(BeNil())
+			})
+		})
+
+		Context("when host does not have an IP address", func() {
+			BeforeEach(func() {
+				_, err := CreateHostStack(db, &HostStack{
+					H: &host.Host{
+						Slug:      "bar",
+						IPAddress: sql.NullString{"", false},
+					},
+					U: u,
+				})
+				Expect(err).To(BeNil())
+			})
+
+			It("excludes host stats from Freighter", func() {
+				doRequest("bar")
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j expectedResp
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.Slug).To(Equal("bar"))
+				Expect(j.Host.Stats).To(BeNil())
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo"
+				authTokenInputs.Method = "GET"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
 	Describe("DELETE /api/v0/hosts/{slug}", func() {
 		var c *container.Container
 
@@ -413,75 +559,69 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 		})
 
-		Context("when requested with an invalid host", func() {
-			ItRespondsHostNotFound(doRequest)
-		})
-
-		Context("when requested with a valid host", func() {
-			Context("when hostbuilder successfully deletes the host", func() {
-				BeforeEach(func() {
-					hb := hostbuilderclient.NewHostbuilder("www.example.com")
-					hb.OverrideRequestHandler(mockHostbuilderOK)
-					hosts.HostbuilderClient = hb
-				})
-
-				It("deletes the host record", func() {
-					doRequest(hs.H.Slug)
-
-					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
-					Expect(err).To(BeNil())
-					Expect(h).To(BeNil())
-				})
-
-				It("deletes all container records belonging to the host", func() {
-					c2, err := container.FindByUserAndSlug(db, hs.U, c.Slug)
-					Expect(err).To(BeNil())
-					Expect(c2).To(Equal(c))
-
-					doRequest(hs.H.Slug)
-
-					c2, err = container.FindByUserAndSlug(db, hs.U, c.Slug)
-					Expect(err).To(BeNil())
-					Expect(c2).To(BeNil())
-				})
-
-				It("deletes keypairs associated to the host", func() {
-					priv, _ := keypairs.GenerateKey()
-					tx, _ := db.Beginx()
-					keypairs.Create(tx, priv, "aes_key", hs.H.ID)
-					tx.Commit()
-
-					doRequest(hs.H.Slug)
-
-					_, err := keypairs.Get(db, hs.H.ID)
-					Expect(err).ToNot(BeNil(), "host's keypairs should be removed")
-				})
-
-				It("responds with status OK", func() {
-					doRequest(hs.H.Slug)
-					Expect(res.Code).To(Equal(http.StatusOK))
-				})
+		Context("when hostbuilder successfully deletes the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(mockHostbuilderOK)
+				hosts.HostbuilderClient = hb
 			})
 
-			Context("when hostbuilder fails to delete the host", func() {
-				BeforeEach(func() {
-					hb := hostbuilderclient.NewHostbuilder("www.example.com")
-					hb.OverrideRequestHandler(mockHostbuilderError)
+			It("deletes the host record", func() {
+				doRequest(hs.H.Slug)
 
-					hosts.HostbuilderClient = hb
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h).To(BeNil())
+			})
 
-					doRequest(hs.H.Slug)
-				})
+			It("deletes all container records belonging to the host", func() {
+				c2, err := container.FindByUserAndSlug(db, hs.U, c.Slug)
+				Expect(err).To(BeNil())
+				Expect(c2).To(Equal(c))
 
-				It("does not delete the host", func() {
-					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
-					Expect(err).To(BeNil())
-					Expect(h).NotTo(BeNil())
-				})
+				doRequest(hs.H.Slug)
 
-				It("responds with HTTP 500 Internal Server Error", func() {
-					Expect(res.Code).To(Equal(http.StatusInternalServerError))
-				})
+				c2, err = container.FindByUserAndSlug(db, hs.U, c.Slug)
+				Expect(err).To(BeNil())
+				Expect(c2).To(BeNil())
+			})
+
+			It("deletes keypairs associated to the host", func() {
+				priv, _ := keypairs.GenerateKey()
+				tx, _ := db.Beginx()
+				keypairs.Create(tx, priv, "aes_key", hs.H.ID)
+				tx.Commit()
+
+				doRequest(hs.H.Slug)
+
+				_, err := keypairs.Get(db, hs.H.ID)
+				Expect(err).ToNot(BeNil(), "host's keypairs should be removed")
+			})
+
+			It("responds with status OK", func() {
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
+		})
+
+		Context("when hostbuilder fails to delete the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(mockHostbuilderError)
+
+				hosts.HostbuilderClient = hb
+
+				doRequest(hs.H.Slug)
+			})
+
+			It("does not delete the host", func() {
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h).NotTo(BeNil())
+			})
+
+			It("responds with HTTP 500 Internal Server Error", func() {
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 			})
 		})
 
@@ -532,51 +672,45 @@ var _ = Describe("controllers/hosts", func() {
 			})
 		})
 
-		Context("when requested with an invalid host", func() {
-			ItRespondsHostNotFound(doRequest)
-		})
+		Context("when hostbuilder successfully starts the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(mockHostbuilderOK)
 
-		Context("when requested with a valid host", func() {
-			Context("when hostbuilder successfully starts the host", func() {
-				BeforeEach(func() {
-					hb := hostbuilderclient.NewHostbuilder("www.example.com")
-					hb.OverrideRequestHandler(mockHostbuilderOK)
+				hosts.HostbuilderClient = hb
 
-					hosts.HostbuilderClient = hb
-
-					doRequest(hs.H.Slug)
-				})
-
-				It("updates the host state to running", func() {
-					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
-					Expect(err).To(BeNil())
-					Expect(h.State).To(Equal(host.StateRunning))
-				})
-
-				It("responds with status OK", func() {
-					Expect(res.Code).To(Equal(http.StatusOK))
-				})
+				doRequest(hs.H.Slug)
 			})
 
-			Context("when hostbuilder fails to start the host", func() {
-				BeforeEach(func() {
-					hb := hostbuilderclient.NewHostbuilder("www.example.com")
-					hb.OverrideRequestHandler(mockHostbuilderError)
+			It("updates the host state to running", func() {
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateRunning))
+			})
 
-					hosts.HostbuilderClient = hb
+			It("responds with status OK", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
+		})
 
-					doRequest(hs.H.Slug)
-				})
+		Context("when hostbuilder fails to start the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(mockHostbuilderError)
 
-				It("responds with HTTP 500 Internal Server Error", func() {
-					Expect(res.Code).To(Equal(http.StatusInternalServerError))
-				})
+				hosts.HostbuilderClient = hb
 
-				It("leaves host in intermediate state", func() {
-					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
-					Expect(err).To(BeNil())
-					Expect(h.State).To(Equal(host.StateStarting))
-				})
+				doRequest(hs.H.Slug)
+			})
+
+			It("responds with HTTP 500 Internal Server Error", func() {
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+
+			It("leaves host in intermediate state", func() {
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateStarting))
 			})
 		})
 
@@ -627,51 +761,45 @@ var _ = Describe("controllers/hosts", func() {
 			})
 		})
 
-		Context("when requested with an invalid host", func() {
-			ItRespondsHostNotFound(doRequest)
-		})
+		Context("when hostbuilder successfully stops the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(mockHostbuilderOK)
 
-		Context("when requested with a valid host", func() {
-			Context("when hostbuilder successfully stops the host", func() {
-				BeforeEach(func() {
-					hb := hostbuilderclient.NewHostbuilder("www.example.com")
-					hb.OverrideRequestHandler(mockHostbuilderOK)
+				hosts.HostbuilderClient = hb
 
-					hosts.HostbuilderClient = hb
-
-					doRequest(hs.H.Slug)
-				})
-
-				It("updates the host state to stopped", func() {
-					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
-					Expect(err).To(BeNil())
-					Expect(h.State).To(Equal(host.StateStopped))
-				})
-
-				It("responds with HTTP 200 OK", func() {
-					Expect(res.Code).To(Equal(http.StatusOK))
-				})
+				doRequest(hs.H.Slug)
 			})
 
-			Context("when hostbuilder fails to stop the host", func() {
-				BeforeEach(func() {
-					hb := hostbuilderclient.NewHostbuilder("www.example.com")
-					hb.OverrideRequestHandler(mockHostbuilderError)
+			It("updates the host state to stopped", func() {
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateStopped))
+			})
 
-					hosts.HostbuilderClient = hb
+			It("responds with HTTP 200 OK", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
+		})
 
-					doRequest(hs.H.Slug)
-				})
+		Context("when hostbuilder fails to stop the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(mockHostbuilderError)
 
-				It("responds with HTTP 500 Internal Server Error", func() {
-					Expect(res.Code).To(Equal(http.StatusInternalServerError))
-				})
+				hosts.HostbuilderClient = hb
 
-				It("leaves host in intermediate state", func() {
-					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
-					Expect(err).To(BeNil())
-					Expect(h.State).To(Equal(host.StateStopping))
-				})
+				doRequest(hs.H.Slug)
+			})
+
+			It("responds with HTTP 500 Internal Server Error", func() {
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+
+			It("leaves host in intermediate state", func() {
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateStopping))
 			})
 		})
 
@@ -722,51 +850,45 @@ var _ = Describe("controllers/hosts", func() {
 			})
 		})
 
-		Context("when requested with an invalid host", func() {
-			ItRespondsHostNotFound(doRequest)
-		})
+		Context("when hostbuilder successfully restarts the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(mockHostbuilderOK)
 
-		Context("when requested with a valid host name", func() {
-			Context("when hostbuilder successfully restarts the host", func() {
-				BeforeEach(func() {
-					hb := hostbuilderclient.NewHostbuilder("www.example.com")
-					hb.OverrideRequestHandler(mockHostbuilderOK)
+				hosts.HostbuilderClient = hb
 
-					hosts.HostbuilderClient = hb
-
-					doRequest(hs.H.Slug)
-				})
-
-				It("updates the host state to running", func() {
-					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
-					Expect(err).To(BeNil())
-					Expect(h.State).To(Equal(host.StateRunning))
-				})
-
-				It("responds with status OK", func() {
-					Expect(res.Code).To(Equal(http.StatusOK))
-				})
+				doRequest(hs.H.Slug)
 			})
 
-			Context("when hostbuilder fails to restart the host", func() {
-				BeforeEach(func() {
-					hb := hostbuilderclient.NewHostbuilder("www.example.com")
-					hb.OverrideRequestHandler(mockHostbuilderError)
+			It("updates the host state to running", func() {
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateRunning))
+			})
 
-					hosts.HostbuilderClient = hb
+			It("responds with status OK", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
+		})
 
-					doRequest(hs.H.Slug)
-				})
+		Context("when hostbuilder fails to restart the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(mockHostbuilderError)
 
-				It("responds with HTTP 500 Internal Server Error", func() {
-					Expect(res.Code).To(Equal(http.StatusInternalServerError))
-				})
+				hosts.HostbuilderClient = hb
 
-				It("leaves host in intermediate state", func() {
-					h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
-					Expect(err).To(BeNil())
-					Expect(h.State).To(Equal(host.StateRestarting))
-				})
+				doRequest(hs.H.Slug)
+			})
+
+			It("responds with HTTP 500 Internal Server Error", func() {
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+
+			It("leaves host in intermediate state", func() {
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateRestarting))
 			})
 		})
 

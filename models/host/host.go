@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
+
 	"github.com/nitrous-io/nitrous/models/user"
 )
 
@@ -160,4 +161,11 @@ func (h *Host) Validate(db *db.Database) error {
 		return ErrSlugTooLong
 	}
 	return nil
+}
+
+func (h *Host) Hostname() string {
+	if h.Slug == "" {
+		return ""
+	}
+	return h.Slug + ".nitrouspro.com" // FIXME
 }

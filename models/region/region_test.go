@@ -37,6 +37,33 @@ var _ = Describe("models/region", func() {
 		}
 	})
 
+	Describe("FindByID()", func() {
+		var id int64
+
+		BeforeEach(func() {
+			err := db.QueryRow(`SELECT id FROM regions WHERE name = $1;`, "apse1").Scan(&id)
+			Expect(err).To(BeNil())
+			Expect(id).NotTo(BeZero())
+		})
+
+		Context("when a region record with a given id exists", func() {
+			It("returns the region record", func() {
+				r, err := region.FindByID(db, id)
+				Expect(err).To(BeNil())
+				Expect(r).NotTo(BeNil())
+				Expect(r.ID).To(Equal(id))
+			})
+		})
+
+		Context("when a region record with a given id does not exist", func() {
+			It("returns nil", func() {
+				r, err := region.FindByID(db, 9001)
+				Expect(err).To(BeNil())
+				Expect(r).To(BeNil())
+			})
+		})
+	})
+
 	Describe("FindByName()", func() {
 		Context("when a region record with a given name exists", func() {
 			It("returns the region record", func() {
