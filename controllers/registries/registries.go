@@ -1,17 +1,17 @@
 package registries
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
+	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/registry"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
-
-var FreighterClient freighterclient.Client
 
 var (
 	errHostIPUnknown    = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
@@ -28,10 +28,6 @@ var (
 	Login  middleware.Middleware = middleware.HostViaPath("slug", login)
 	Logout middleware.Middleware = middleware.HostViaPath("slug", logout)
 )
-
-func init() {
-	FreighterClient = freighterclient.NewClient(nil)
-}
 
 func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
@@ -92,12 +88,17 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 		Registry: registryURL,
 	}
 
-	fHost, err := mkFreighterHost(h)
+	crt, err := cert.Get(db, h.ID)
 	if err != nil {
 		return err
 	}
 
-	err = FreighterClient.RegistryLogin(fHost, params)
+	cl, err := mkFreighterClient(h, crt)
+	if err != nil {
+		return err
+	}
+
+	err = cl.RegistryLogin(params)
 	if err != nil {
 		if err == freighterclient.ErrInvalidParams {
 			return errLoginFailed
@@ -130,14 +131,19 @@ func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 	db := c.DB()
 	logger := c.Logger()
 
-	fHost, err := mkFreighterHost(h)
+	crt, err := cert.Get(db, h.ID)
+	if err != nil {
+		return err
+	}
+
+	cl, err := mkFreighterClient(h, crt)
 	if err != nil {
 		return err
 	}
 
 	registryURL := r.FormValue("registry")
 
-	err = FreighterClient.RegistryLogout(fHost, registryURL)
+	err = cl.RegistryLogout(registryURL)
 	if err != nil {
 		if err == freighterclient.ErrInvalidParams {
 			return errLogoutFailed
@@ -161,9 +167,17 @@ func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 	return nil
 }
 
-func mkFreighterHost(h *host.Host) (*freighterclient.Host, error) {
+func mkFreighterClient(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
 	if h.IPAddress.String == "" {
 		return nil, errHostIPUnknown
 	}
-	return freighterclient.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), false), nil
+	hst := freighterclient.NewHost(
+		h.IPAddress.String,
+		int(h.FreighterdPort.Int64),
+		fmt.Sprintf("%s.nitrouspro.com", h.Slug),
+		[]byte(c.CA),
+		[]byte(c.ClientCert),
+		[]byte(c.ClientKey),
+	)
+	return freighterclient.NewClient(hst)
 }
