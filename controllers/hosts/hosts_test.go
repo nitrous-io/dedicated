@@ -341,6 +341,39 @@ var _ = Describe("controllers/hosts", func() {
 				})
 			})
 
+			Context("when trying to create a host with an existing slug", func() {
+				BeforeEach(func() {
+					_, err := CreateHostStack(db, &HostStack{
+						H: &host.Host{Slug: "honeybadger"},
+						U: u,
+					})
+					Expect(err).To(BeNil())
+
+					hosts, err := host.FindAllByUser(db, u)
+					Expect(err).To(BeNil())
+					Expect(len(hosts)).To(Equal(1))
+
+					doRequest(overrides{"slug": "honeybadger"})
+				})
+
+				It("does not create a host", func() {
+					hosts, err := host.FindAllByUser(db, u)
+					Expect(err).To(BeNil())
+					Expect(len(hosts)).To(Equal(1))
+				})
+
+				It("responds with HTTP 400 Bad Request", func() {
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					errType, _ := j["error"].(string)
+					Expect(errType).To(Equal("validation_failed"))
+					errDesc, _ := j["error_description"].(string)
+					Expect(errDesc).To(Equal("slug is taken"))
+				})
+			})
+
 			Context("when hostbuilder fails to create the host", func() {
 				BeforeEach(func() {
 					hb := hostbuilderclient.NewHostbuilder("www.example.com")
