@@ -44,6 +44,21 @@ var (
 	Destroy middleware.Middleware = WithContainerAndHost(destroy)
 )
 
+var mkFreighterClient = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
+	if h.IPAddress.String == "" {
+		return nil, errHostIPUnknown
+	}
+	hst := freighterclient.NewHost(
+		h.IPAddress.String,
+		int(h.FreighterdPort.Int64),
+		fmt.Sprintf("%s.nitrouspro.com", h.Slug),
+		[]byte(c.CA),
+		[]byte(c.ClientCert),
+		[]byte(c.ClientKey),
+	)
+	return freighterclient.NewClient(hst)
+}
+
 func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	if h.State != host.StateRunning {
 		return errHostNotRunning
@@ -364,21 +379,6 @@ func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *mi
 
 		return fn(cn, h, env, c, w, r)
 	})
-}
-
-func mkFreighterClient(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
-	if h.IPAddress.String == "" {
-		return nil, errHostIPUnknown
-	}
-	hst := freighterclient.NewHost(
-		h.IPAddress.String,
-		int(h.FreighterdPort.Int64),
-		fmt.Sprintf("%s.nitrouspro.com", h.Slug),
-		[]byte(c.CA),
-		[]byte(c.ClientCert),
-		[]byte(c.ClientKey),
-	)
-	return freighterclient.NewClient(hst)
 }
 
 func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) {
