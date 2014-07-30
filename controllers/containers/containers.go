@@ -2,7 +2,6 @@ package containers
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -380,38 +379,10 @@ func parseConfig(r *http.Request) (freighterclient.ContainerConfig, error) {
 		c.Env = envs
 	}
 	if vols, ok := r.PostForm["volume"]; ok {
-		c.Volumes = vols
+		c.Mounts = vols
 	}
 	if ports, ok := r.PostForm["port"]; ok {
-		c.ExposedPorts = make([]string, 0, len(ports))
-		c.PortBindings = make(map[string]string, len(ports))
-		for _, spec := range ports {
-			cport, binding, err := parsePortspec(spec)
-			if err != nil {
-				return nil, err
-			}
-			c.ExposedPorts = append(c.ExposedPorts, cport)
-			c.PortBindings[cport] = binding
-		}
+		c.PortBindings = ports
 	}
 	return c, nil
-}
-
-// parsePortspec supports any of:
-//   ip:hostPort:containerPort
-//   ip::containerPort
-//   hostPort:containerPort ... :
-// returns (container port, ip:hostport, err)
-func parsePortspec(portspec string) (string, string, error) {
-	parts := strings.Split(portspec, ":")
-	switch { // TODO more stringent checking
-	case len(parts) == 3 && parts[1] == "": // ip::containerPort
-		return parts[2], fmt.Sprintf("%s:%s", parts[0], parts[2]), nil
-	case len(parts) == 3: // ip:hostPort:containerPort
-		return parts[2], fmt.Sprintf("%s:%s", parts[0], parts[1]), nil
-	case len(parts) == 2: // hostPort:containerPort
-		return parts[1], fmt.Sprintf(":%s", parts[0]), nil
-	default:
-		return "", "", errInvalidPortspec
-	}
 }

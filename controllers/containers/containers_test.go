@@ -505,12 +505,11 @@ var _ = Describe("controllers/containers", func() {
 			conf, err := mockClient.DockerContainerConfig()
 			Expect(err).To(BeNil())
 			Expect(conf.Env).To(Equal([]string{"LANG=C", "NODE=nope"}))
-			Expect(conf.Volumes).To(Equal([]string{"/music"}))
-			Expect(conf.ExposedPorts).To(Equal([]string{"8080", "4552", "11211"}))
+			Expect(conf.Mounts).To(Equal([]string{"/music"}))
 			Expect(conf.PortBindings).To(HaveLen(3))
-			Expect(conf.PortBindings["8080"]).To(Equal(":3000"))
-			Expect(conf.PortBindings["4552"]).To(Equal("0.0.0.0:4552"))
-			Expect(conf.PortBindings["11211"]).To(Equal("0.0.0.0:8081"))
+			Expect(conf.PortBindings).To(ContainElement("3000:8080"))
+			Expect(conf.PortBindings).To(ContainElement("0.0.0.0::4552"))
+			Expect(conf.PortBindings).To(ContainElement("0.0.0.0:8081:11211"))
 		})
 
 		It("creates a new container record", func() {
