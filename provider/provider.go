@@ -46,8 +46,6 @@ type Provider interface {
 	ListVolumes() ([]string, error)
 	RemoveVolume(slug string) error
 	GetVolumeInfo(slug string) (*VolumeInfo, error)
-
-	HostInfo() (*HostInfo, error)
 }
 
 type ContainerInfo struct {
@@ -70,25 +68,6 @@ type ImageInfo struct {
 	CreatedAt   int64  `json:"created_at"`
 	ActualSize  int64  `json:"actual_size"`
 	VirtualSize int64  `json:"virtual_size"`
-}
-
-type HostInfo struct {
-	// Uptime in seconds.
-	Uptime uint64 `json:"uptime"`
-
-	// MemoryUsage in bytes.
-	MemoryUsage uint64 `json:"memory_usage"`
-	// MemoryTotal in bytes.
-	MemoryTotal uint64 `json:"memory_total"`
-
-	// StorageUsage in bytes.
-	StorageUsage uint64 `json:"storage_usage"`
-	// StorageTotal in bytes.
-	StorageTotal uint64 `json:"storage_total"`
-
-	NumCPU int `json:"num_cpu"`
-	// Percent usage per CPU.
-	PerCPUUsage []float64 `json:"per_cpu_usage"`
 }
 
 type VolumeInfo struct {

@@ -8,8 +8,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/freighter/pkg/stats"
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/server"
 	"github.com/nitrous-io/freighter/util"
@@ -1035,28 +1037,30 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("GET /info", func() {
-		BeforeEach(func() {
-			prov.HostInfoReturn = &provider.HostInfo{
-				Uptime:       30,
-				MemoryUsage:  12345678,
-				MemoryTotal:  17179869184,
-				StorageUsage: 2000000000,
-				StorageTotal: 1000000000000,
-				NumCPU:       2,
-				PerCPUUsage:  []float64{0.5, 30.0},
-			}
-		})
-
 		doRequest := func() {
 			req, err = NewRequest("GET", "/info", nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
-		It("calls provider.HostInfo()", func() {
-			Expect(prov.HostInfoCalled).To(BeFalse())
-			doRequest()
-			Expect(prov.HostInfoCalled).To(BeTrue())
+		var origFn = stats.Sample
+
+		BeforeEach(func() {
+			stats.Sample = func(period time.Duration) (*stats.Stats, error) {
+				return &stats.Stats{
+					Uptime:       30,
+					MemoryUsage:  12345678,
+					MemoryTotal:  17179869184,
+					StorageUsage: 2000000000,
+					StorageTotal: 1000000000000,
+					NumCPU:       2,
+					PerCPUUsage:  []float64{0.5, 30},
+				}, nil
+			}
+		})
+
+		AfterEach(func() {
+			stats.Sample = origFn
 		})
 
 		It("responds with 200 OK and host info", func() {
@@ -1073,15 +1077,17 @@ var _ = Describe("server", func() {
 			}}`))
 		})
 
-		Context("when provider.Host() returns an error", func() {
+		Context("when stats.Sample() returns an error", func() {
 			BeforeEach(func() {
-				prov.HostInfoError = errors.New("host party time")
+				stats.Sample = func(period time.Duration) (*stats.Stats, error) {
+					return nil, errors.New("sampling failed")
+				}
 			})
 
 			It("responds with 500 Internal Server Error", func() {
 				doRequest()
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
-				Expect(res.Body.String()).To(MatchJSON(`{"error":"host party time"}`))
+				Expect(res.Body.String()).To(MatchJSON(`{"error": "sampling failed"}`))
 			})
 		})
 	})

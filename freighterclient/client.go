@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nitrous-io/freighter/pkg/stats"
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/provider/docker"
 )
@@ -103,7 +104,7 @@ type (
 	ContainerConfig provider.ContainerConfig
 	Image           provider.ImageInfo
 	Volume          provider.VolumeInfo
-	HostInfo        provider.HostInfo
+	HostInfo        stats.Stats
 
 	containerResponse struct {
 		*Container `json:"container"`

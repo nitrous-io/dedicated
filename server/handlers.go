@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/pkg/flusher"
 	"github.com/nitrous-io/freighter/pkg/shell"
+	"github.com/nitrous-io/freighter/pkg/stats"
 	"github.com/nitrous-io/freighter/provider"
 )
 
@@ -367,14 +369,15 @@ func (s *Server) logoutRegistry(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, status, nil)
 }
 
-func (s *Server) hostInfo(w http.ResponseWriter, r *http.Request) {
-	info, err := s.provider.HostInfo()
+func (s *Server) serverInfo(w http.ResponseWriter, r *http.Request) error {
+	// FIXME Hardcoded sample period for now - maybe make it a query param.
+	stats, err := stats.Sample(100 * time.Millisecond)
 	if err != nil {
-		s.handleError(w, err)
-		return
+		return err
 	}
 
-	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"info": info})
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"info": stats})
+	return nil
 }
 
 func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
