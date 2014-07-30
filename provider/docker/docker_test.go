@@ -35,9 +35,13 @@ var _ = Describe("provider/docker", func() {
 
 	BeforeEach(func() {
 		var err error
+		datadir := os.Getenv("FREIGHTERD_BASE")
 
-		datadir, err := TempDir()
-		Expect(err).To(BeNil())
+		if datadir == "" {
+			datadir, err = TempDir()
+			Expect(err).To(BeNil())
+		}
+
 		logger := &util.Logger{Level: util.LogLevelQuiet}
 		prov, err = docker.NewDockerProvider(logger, datadir, namespace)
 		Expect(err).To(BeNil())
@@ -478,7 +482,7 @@ var _ = Describe("provider/docker", func() {
 				})
 
 				Context("with SSH enabled containers", func() {
-					sshTarget := func() (string) {
+					sshTarget := func() string {
 						if ip := os.Getenv("DOCKER_IP"); ip != "" {
 							return fmt.Sprintf("action@%s", ip)
 						} else {

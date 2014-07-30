@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-tmp=$(mktemp -t docker_XXXXX)
+tmp=$(mktemp -d /tmp/docker_XXXXX)
 
 cleanup() {
   (docker stop $cid && docker rm $cid) >/dev/null
@@ -13,13 +13,10 @@ die() {
 version=$(docker version | grep 'Client version' | cut -d':' -f2 | tr -d ' ')
 docker pull ddollar/dind:$version >/dev/null 2>&1 || die "image ddollar/dind:$version does not exist"
 
-cache=$HOME/.freighterd-cache
-mkdir -p $cache
-
 # ddollar/dind is built from https://github.com/jpetazzo/dind
-cid=$(docker run --privileged -d -e PORT=4444 ddollar/dind)
+cid=$(docker run --privileged -d -v $tmp:$tmp -e PORT=4444 ddollar/dind)
 ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $cid)
 
 trap cleanup EXIT
 
-env DOCKER_IP=$ip DOCKER_HOST=tcp://$ip:4444 goop exec ginkgo -r -trace -keepGoing -noisyPendings=false $*
+env FREIGHTERD_BASE=$tmp DOCKER_IP=$ip DOCKER_HOST=tcp://$ip:4444 goop exec ginkgo -r -trace -keepGoing -noisyPendings=false $*
