@@ -67,16 +67,16 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 		return errEmailRequired
 	}
 
-	URL := r.FormValue("registry")
+	registryURL := r.FormValue("registry")
 
 	// set the default registry URL to "hub.docker.com",
 	// if user hasn't specified one.
 	// This is only to record in the DB.
-	if URL == "" {
-		URL = "index.docker.io"
+	if registryURL == "" {
+		registryURL = "index.docker.io"
 	}
 
-	existingReg, err := registry.FindByUserIDAndHostIDAndURL(db, env.User.ID, h.ID, URL)
+	existingReg, err := registry.FindByUserIDAndHostIDAndURL(db, env.User.ID, h.ID, registryURL)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 		Username: username,
 		Password: password,
 		Email:    email,
-		Registry: URL,
+		Registry: registryURL,
 	}
 
 	fHost, err := mkFreighterHost(h)
@@ -109,7 +109,7 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	reg := &registry.Registry{
 		UserID:   env.User.ID,
 		HostID:   h.ID,
-		URL:      URL,
+		URL:      registryURL,
 		Username: username,
 		Email:    email,
 	}
@@ -135,9 +135,9 @@ func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 		return err
 	}
 
-	URL := r.FormValue("registry")
+	registryURL := r.FormValue("registry")
 
-	err = FreighterClient.RegistryLogout(fHost, URL)
+	err = FreighterClient.RegistryLogout(fHost, registryURL)
 	if err != nil {
 		if err == freighterclient.ErrInvalidParams {
 			return errLogoutFailed
@@ -145,11 +145,11 @@ func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 		return err
 	}
 
-	if URL == "" {
-		URL = "hub.docker.com"
+	if registryURL == "" {
+		registryURL = "hub.docker.com"
 	}
 
-	err = registry.Delete(db, env.User.ID, h.ID, URL)
+	err = registry.Delete(db, env.User.ID, h.ID, registryURL)
 	if err != nil {
 		return err
 	}
