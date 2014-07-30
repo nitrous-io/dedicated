@@ -375,13 +375,13 @@ func parseConfig(r *http.Request) (freighterclient.ContainerConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	if envs, ok := r.PostForm["env"]; ok {
+	if envs, ok := r.PostForm["env[]"]; ok {
 		c.Env = envs
 	}
-	if vols, ok := r.PostForm["volume"]; ok {
+	if vols, ok := r.PostForm["volume[]"]; ok {
 		c.Mounts = vols
 	}
-	if ports, ok := r.PostForm["port"]; ok {
+	if ports, ok := r.PostForm["port[]"]; ok {
 		c.PortBindings = ports
 	}
 	return c, nil

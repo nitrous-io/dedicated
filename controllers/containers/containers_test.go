@@ -465,12 +465,12 @@ var _ = Describe("controllers/containers", func() {
 			params.Set("slug", "elixir-web-1")
 			params.Set("name", "Elixir Web Server 1")
 			params.Set("image", "elixir")
-			params.Add("env", "LANG=C")
-			params.Add("env", "NODE=nope")
-			params.Add("volume", "/music")
-			params.Add("port", "3000:8080")
-			params.Add("port", "0.0.0.0::4552")
-			params.Add("port", "0.0.0.0:8081:11211")
+			params.Add("env[]", "LANG=C")
+			params.Add("env[]", "NODE=nope")
+			params.Add("volume[]", "/music")
+			params.Add("port[]", "3000:8080")
+			params.Add("port[]", "0.0.0.0::4552")
+			params.Add("port[]", "0.0.0.0:8081:11211")
 
 			mockClient.CreatedContainer = &freighterclient.Container{
 				ID:    "deadbeef",
