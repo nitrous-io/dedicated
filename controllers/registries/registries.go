@@ -72,7 +72,7 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	// set the default registry URL to "hub.docker.com",
 	// if user hasn't specified one.
 	// This is only to record in the DB.
-	if registryURL == "" {
+	if URL == "" {
 		URL = "index.docker.io"
 	}
 
