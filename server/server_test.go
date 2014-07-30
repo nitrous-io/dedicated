@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1334,6 +1336,82 @@ var _ = Describe("server", func() {
 				doRequest("ubuntu", "quay.io/me/ubuntu:14.04", true)
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not tag image."}`))
+			})
+		})
+	})
+
+	Describe("POST /containers/:id/attach", func() {
+		Context("for invalid containers", func() {
+			doRequest := func(id string) {
+				params := &url.Values{}
+				req, err := NewRequest("POST", fmt.Sprintf("/containers/%v/attach", id), params)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+			}
+
+			testCases := []struct {
+				id         string
+				container  *provider.ContainerInfo
+				statusCode int
+			}{
+				{"empty", nil, 404},
+				{"missing", &provider.ContainerInfo{ID: "aaa", State: provider.ContainerStateRunning}, 404},
+				{"stopped", &provider.ContainerInfo{ID: "stopped", State: provider.ContainerStateStopped}, 500},
+			}
+
+			for _, tc := range testCases {
+				local := tc
+				Context(fmt.Sprintf("Attach to container %v", local.id), func() {
+					BeforeEach(func() {
+						if local.container != nil {
+							prov.Containers = []*provider.ContainerInfo{local.container}
+						}
+						doRequest(local.id)
+					})
+
+					It("responds to the request", func() {
+						Expect(res.Code).To(Equal(local.statusCode))
+					})
+				})
+			}
+		})
+
+		Context("for valid containers", func() {
+			var rc io.ReadCloser
+			var w io.Writer
+
+			doRequest := func(id string) {
+				params := &url.Values{}
+				req, err := NewRequest("POST", fmt.Sprintf("/containers/%v/attach", id), params)
+				Expect(err).To(BeNil())
+
+				h := &HijackTester{
+					ResponseRecorder: res,
+					Rc:               rc,
+					W:                w,
+				}
+				handler.ServeHTTP(h, req)
+			}
+
+			It("calls provider's attach function and hijacks connection", func() {
+				rc, w = io.Pipe()
+
+				prov.Containers = []*provider.ContainerInfo{{ID: "container-id", State: provider.ContainerStateRunning}}
+				prov.WriteToStdout = "attach"
+
+				go func() {
+					defer GinkgoRecover()
+					stdout, err := ioutil.ReadAll(rc)
+					Expect(err).To(BeNil())
+					Expect(stdout).To(ContainSubstring("attach"))
+				}()
+
+				doRequest("container-id")
+
+				Expect(prov.AttachToContainerCalled).To(BeTrue())
+				Expect(prov.ReceivedID).To(Equal("container-id"))
+
+				Expect(res.Code).To(Equal(http.StatusOK))
 			})
 		})
 	})

@@ -56,6 +56,8 @@ type Provider interface {
 	ListVolumes() ([]string, error)
 	RemoveVolume(slug string) error
 	GetVolumeInfo(slug string) (*VolumeInfo, error)
+
+	AttachToContainer(id string, stdin io.Reader, stdout io.Writer) error
 }
 
 type ContainerInfo struct {
