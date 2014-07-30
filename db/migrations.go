@@ -216,5 +216,22 @@ func init() {
 				CREATE UNIQUE INDEX index_volumes_on_host_id_and_slug ON volumes USING btree (host_id, slug);
 			`,
 		},
+		{
+			Version: "170",
+			Up: `
+				CREATE TABLE registries (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					host_id bigint REFERENCES hosts(id) NOT NULL,
+					url character varying(45),
+					username character varying(45),
+					email character varying(45),
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE INDEX index_registries_on_user_id ON registries USING btree (user_id);
+				CREATE UNIQUE INDEX index_registries_on_host_id_and_url ON registries USING btree (host_id, url);
+			`,
+		},
 	}
 }

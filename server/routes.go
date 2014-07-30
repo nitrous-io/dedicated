@@ -5,7 +5,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers/home"
 	"github.com/nitrous-io/nitrous/controllers/hosts"
 	"github.com/nitrous-io/nitrous/controllers/keys"
-	"github.com/nitrous-io/nitrous/controllers/registry"
+	"github.com/nitrous-io/nitrous/controllers/registries"
 	"github.com/nitrous-io/nitrous/controllers/tokens"
 	"github.com/nitrous-io/nitrous/controllers/users"
 	"github.com/nitrous-io/nitrous/controllers/volumes"
@@ -27,8 +27,9 @@ func (s *Server) drawRoutes() {
 		s.route("/hosts/{slug}/stop", mw.Auth(mw.Vars(hosts.Stop)), "POST")
 		s.route("/hosts/{slug}/restart", mw.Auth(mw.Vars(hosts.Restart)), "POST")
 
-		s.route("/hosts/{slug}/registries", mw.Auth(mw.Vars(registry.Login)), "POST")
-		s.route("/hosts/{slug}/registries", mw.Auth(mw.Vars(registry.Logout)), "DELETE")
+		s.route("/hosts/{slug}/registries", mw.Auth(mw.JSON(mw.Vars(registries.Index))), "GET")
+		s.route("/hosts/{slug}/registries", mw.Auth(mw.Vars(registries.Login)), "POST")
+		s.route("/hosts/{slug}/registries", mw.Auth(mw.Vars(registries.Logout)), "DELETE")
 
 		s.route("/hosts/{slug}/volumes", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Index)))), "GET")
 		s.route("/hosts/{slug}/volumes", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Create)))), "POST")
