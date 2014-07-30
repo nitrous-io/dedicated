@@ -7,7 +7,6 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middlewares"
 	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/pkg/freighterclienttools"
 )
 
 // FreighterClient is a shared freighterclient.Client for making requests to Freighter
@@ -42,5 +41,5 @@ func index(h *host.Host, env *middlewares.Env, c controllers.Helper, w http.Resp
 }
 
 func mkFreighterHost(h *host.Host) (*freighterclient.Host, error) {
-	return freighterclienttools.MakeFreighterHost(h, false)
+	return controllers.MakeFreighterHost(h, false)
 }

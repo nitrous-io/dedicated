@@ -12,7 +12,6 @@ import (
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/pkg/freighterclienttools"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
@@ -325,7 +324,7 @@ func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *mi
 }
 
 func mkFreighterHost(h *host.Host) (*freighterclient.Host, error) {
-	return freighterclienttools.MakeFreighterHost(h, false)
+	return controllers.MakeFreighterHost(h, false)
 }
 
 func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) {
