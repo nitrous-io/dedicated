@@ -185,7 +185,7 @@ func withContainer(fn func(cnr *container.Container, env *middleware.Env, c cont
 	})
 }
 
-func mkFreighterClient(db *db.Database, hostID int64) (freighterclient.Client, error) {
+var mkFreighterClient = func(db *db.Database, hostID int64) (freighterclient.Client, error) {
 	h, err := host.FindByID(db, hostID)
 	if err != nil {
 		return nil, err

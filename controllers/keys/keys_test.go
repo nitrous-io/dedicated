@@ -15,7 +15,7 @@ import (
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers/keys"
-	"github.com/nitrous-io/nitrous/db"
+	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/publickey"
@@ -38,7 +38,7 @@ var _ = Describe("controllers/keys", func() {
 	}
 
 	var (
-		db              *db.Database
+		db              *ndb.Database
 		handler         *mux.Router
 		res             *httptest.ResponseRecorder
 		req             *http.Request
@@ -74,7 +74,10 @@ var _ = Describe("controllers/keys", func() {
 	BeforeEach(func() {
 		var err error
 		mockClient = &freighterclient.MockClient{}
-		keys.FreighterClient = mockClient
+
+		*keys.TestClient = func(dbconn *ndb.Database, hostID int64) (freighterclient.Client, error) {
+			return mockClient, nil
+		}
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
