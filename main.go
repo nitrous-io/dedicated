@@ -33,6 +33,7 @@ import (
 	_ "github.com/nitrous-io/nitro/command/keys/remove"
 	_ "github.com/nitrous-io/nitro/command/login"
 	_ "github.com/nitrous-io/nitro/command/logout"
+	_ "github.com/nitrous-io/nitro/command/registry/list"
 	_ "github.com/nitrous-io/nitro/command/registry/login"
 	_ "github.com/nitrous-io/nitro/command/registry/logout"
 	_ "github.com/nitrous-io/nitro/command/volumes/create"
