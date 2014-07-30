@@ -4,6 +4,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/controllers/home"
 	"github.com/nitrous-io/nitrous/controllers/hosts"
+	"github.com/nitrous-io/nitrous/controllers/images"
 	"github.com/nitrous-io/nitrous/controllers/keys"
 	"github.com/nitrous-io/nitrous/controllers/registries"
 	"github.com/nitrous-io/nitrous/controllers/tokens"
@@ -36,6 +37,8 @@ func (s *Server) drawRoutes() {
 		s.route("/hosts/{slug}/volumes", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Create)))), "POST")
 		s.route("/hosts/{slug}/volumes/{vslug}", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Destroy)))), "DELETE")
 		s.route("/hosts/{slug}/volumes/{vslug}", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Show)))), "GET")
+
+		s.route("/hosts/{slug}/images", mw.Auth(mw.Vars(mw.JSON(images.Index))), "GET")
 
 		s.route("/containers", mw.Auth(mw.JSON(containers.Index)), "GET")
 		s.route("/containers", mw.Auth(mw.JSON(containers.Create)), "POST")
