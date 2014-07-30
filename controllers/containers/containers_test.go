@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/models/volume"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -467,7 +468,6 @@ var _ = Describe("controllers/containers", func() {
 			params.Set("image", "elixir")
 			params.Add("env[]", "LANG=C")
 			params.Add("env[]", "NODE=nope")
-			params.Add("volume[]", "/music")
 			params.Add("port[]", "3000:8080")
 			params.Add("port[]", "0.0.0.0::4552")
 			params.Add("port[]", "0.0.0.0:8081:11211")
@@ -505,7 +505,6 @@ var _ = Describe("controllers/containers", func() {
 			conf, err := mockClient.DockerContainerConfig()
 			Expect(err).To(BeNil())
 			Expect(conf.Env).To(Equal([]string{"LANG=C", "NODE=nope"}))
-			Expect(conf.Mounts).To(Equal([]string{"/music"}))
 			Expect(conf.PortBindings).To(HaveLen(3))
 			Expect(conf.PortBindings).To(ContainElement("3000:8080"))
 			Expect(conf.PortBindings).To(ContainElement("0.0.0.0::4552"))
@@ -677,6 +676,39 @@ var _ = Describe("controllers/containers", func() {
 				errDesc, _ := j["error_description"].(string)
 				Expect(errDesc).To(Equal("host is not running"))
 			})
+		})
+
+		Context("with volumes param", func() {
+			BeforeEach(func() {
+				params.Add("volume[]", "music:/mpd/albums")
+				params.Add("volume[]", "backups")
+			})
+
+			It("returns success if volume does exist", func() {
+				v := &volume.Volume{HostID: hs.H.ID, Slug: "music"}
+				err := v.Insert(db)
+				Expect(err).To(BeNil())
+				v2 := &volume.Volume{HostID: hs.H.ID, Slug: "backups"}
+				err = v2.Insert(db)
+				Expect(err).To(BeNil())
+				doRequest("valid-token", "foo", params)
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+				conf, err := mockClient.DockerContainerConfig()
+				Expect(err).To(BeNil())
+				Expect(conf.Mounts).To(HaveLen(2))
+				Expect(conf.Mounts).To(ContainElement("music:/mpd/albums"))
+				Expect(conf.Mounts).To(ContainElement("backups"))
+			})
+
+			It("returns error if volume does not exist", func() {
+				doRequest("valid-token", "foo", params)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				_, errDesc := ErrorSlug(res.Body)
+				Expect(errDesc).To(ContainSubstring("volume not found"))
+			})
+
 		})
 
 		Context("oauth token failure modes", func() {

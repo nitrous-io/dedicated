@@ -12,6 +12,7 @@ import (
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/volume"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
@@ -22,6 +23,7 @@ const DefaultImage = "nitrousio/ubuntu:trusty"
 var (
 	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errHostNotFound      = middleware.ErrHostNotFound
+	errVolumeNotFound    = httperror.New(http.StatusBadRequest, "invalid_state", "volume not found")
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 )
@@ -136,6 +138,11 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 
 	if name == "" {
 		name = slug
+	}
+
+	config, err := parseConfig(r, db, h)
+	if err != nil {
+		return err
 	}
 
 	cntnr := &container.Container{
@@ -369,7 +376,7 @@ func dropNamespace(freighterName string) string {
 	}
 }
 
-func parseConfig(r *http.Request) (freighterclient.ContainerConfig, error) {
+func parseConfig(r *http.Request, db ndb.QueryReceiver, h *host.Host) (freighterclient.ContainerConfig, error) {
 	c := freighterclient.NewDockerContainerConfig()
 	err := r.ParseForm()
 	if err != nil {
@@ -379,6 +386,21 @@ func parseConfig(r *http.Request) (freighterclient.ContainerConfig, error) {
 		c.Env = envs
 	}
 	if vols, ok := r.PostForm["volume[]"]; ok {
+		hvols, err := volume.FindAllByHostID(db, h.ID)
+		if err != nil {
+			return nil, err
+		}
+		volSlugs := map[string]struct{}{}
+		for _, hv := range hvols {
+			volSlugs[hv.Slug] = struct{}{}
+		}
+		for _, v := range vols {
+			// vol spec can be volSlug:mountpoint; only check volSlug
+			parts := strings.Split(v, ":")
+			if _, ok := volSlugs[parts[0]]; !ok {
+				return nil, errVolumeNotFound
+			}
+		}
 		c.Mounts = vols
 	}
 	if ports, ok := r.PostForm["port[]"]; ok {
