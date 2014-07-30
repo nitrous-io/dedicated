@@ -178,7 +178,7 @@ func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 	return nil
 }
 
-func mkFreighterClient(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
+var mkFreighterClient = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
 	if h.IPAddress.String == "" {
 		return nil, errHostIPUnknown
 	}

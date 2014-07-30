@@ -14,6 +14,7 @@ import (
 
 	"github.com/nitrous-io/nitrous/controllers/volumes"
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
@@ -49,7 +50,9 @@ var _ = Describe("controllers/volumes", func() {
 		var err error
 
 		mockClient = &freighterclient.MockClient{}
-		volumes.FreighterClient = mockClient
+		*(volumes.TestClient) = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
+			return mockClient, nil
+		}
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -226,6 +229,8 @@ var _ = Describe("controllers/volumes", func() {
 		Context("when host is unavailable", func() {
 			BeforeEach(func() {
 				hs.H.UpdateState(db, host.StateStopped)
+
+				*volumes.TestClient = volumes.ActualClient
 			})
 
 			It("responds with 503 and no volume is added to db", func() {
@@ -304,6 +309,8 @@ var _ = Describe("controllers/volumes", func() {
 		Context("when host is unavailable", func() {
 			BeforeEach(func() {
 				hs.H.UpdateState(db, host.StateStopped)
+
+				*volumes.TestClient = volumes.ActualClient
 			})
 
 			It("returns 503 without destroying volume", func() {
