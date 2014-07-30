@@ -34,7 +34,6 @@ var _ = Describe("images/list", func() {
 		It("should expose the usage", func() {
 			Expect(cmd.Help()).To(ContainSubstring("Usage: nitro images <host>"))
 		})
-
 	})
 
 	Describe("Run", func() {
@@ -60,7 +59,6 @@ var _ = Describe("images/list", func() {
 		})
 
 		Context("when host is specified", func() {
-
 			var (
 				svr          *ghttp.Server
 				handlers     http.HandlerFunc
@@ -75,7 +73,7 @@ var _ = Describe("images/list", func() {
 
 				svr = ghttp.NewServer()
 				handlers = ghttp.CombineHandlers(
-					ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
+					ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
 					ghttp.VerifyRequest("GET", path),
 					ghttp.RespondWithPtr(&statusCode, &responseBody),
 				)
@@ -84,7 +82,7 @@ var _ = Describe("images/list", func() {
 				cmd = &list.Command{
 					UI:     ui,
 					Server: svr.URL(),
-					Client: httpclient.New("a_token"),
+					Client: httpclient.New("correct_token"),
 				}
 			}
 
@@ -156,7 +154,6 @@ ID    Name       Tag           Created   Size   Virtual Size
 			})
 
 			Context("when the response does not respond with OK", func() {
-
 				BeforeEach(func() {
 					statusCode = http.StatusBadRequest
 				})
