@@ -109,6 +109,11 @@ func (c *Container) Delete(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(c).StructScan(c)
 }
 
+func (c *Container) DeletePermanently(d db.QueryReceiver) error {
+	_, err := d.Exec(`DELETE FROM containers WHERE id = $1`, c.ID)
+	return err
+}
+
 func (c *Container) Validate() error {
 	if c.Slug == "" {
 		return ErrSlugBlank

@@ -508,6 +508,13 @@ var _ = Describe("controllers/containers", func() {
 			Expect(conf.PortBindings["11211"]).To(Equal("0.0.0.0:8081"))
 		})
 
+		It("creates a new container record", func() {
+			doRequest("valid-token", "foo", params)
+			c, err := container.FindByUserAndSlug(db, u, "elixir-web-1")
+			Expect(err).To(BeNil())
+			Expect(c.Slug).To(Equal("elixir-web-1"))
+		})
+
 		It("responds with HTTP 201 Created, the container and a status of created", func() {
 			doRequest("valid-token", "foo", params)
 
@@ -533,6 +540,13 @@ var _ = Describe("controllers/containers", func() {
 		Context("when the Freighter client returns an error", func() {
 			BeforeEach(func() {
 				mockClient.CreateError = errors.New("only Chuck Norris is allowed")
+			})
+
+			It("does not create a new container record", func() {
+				doRequest("valid-token", "foo", params)
+				c, err := container.FindByUserAndSlug(db, u, "elixir-web-1")
+				Expect(err).To(BeNil())
+				Expect(c).To(BeNil())
 			})
 
 			It("responds with HTTP 500 Internal Server Error", func() {
