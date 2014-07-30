@@ -197,7 +197,7 @@ func create(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 	if err != nil {
 		delErr := cntnr.DeletePermanently(db)
 		if delErr != nil {
-			c.Logger().Error("Unable to delete container %d that failed on freighter: %v", cntnr.ID, delErr)
+			c.Logger().Errorf("Unable to delete container %d that failed on freighter: %v", cntnr.ID, delErr)
 		}
 		if e, ok := err.(*freighterclient.InvalidParamError); ok {
 			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)

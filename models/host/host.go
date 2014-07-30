@@ -33,6 +33,7 @@ const (
 	StateStopping   = "stopping"
 	StateStarting   = "starting"
 	StateRestarting = "restarting"
+	StateOrphan     = "orphan"
 )
 
 type Host struct {
@@ -156,11 +157,6 @@ func (h *Host) Delete(d db.QueryReceiver) error {
 		return nil
 	}
 	return nstmt.QueryRowx(h).StructScan(h)
-}
-
-func (h *Host) DeletePermanently(d db.QueryReceiver) error {
-	_, err := d.Exec(`DELETE FROM hosts WHERE id = $1`, h.ID)
-	return err
 }
 
 func (h *Host) Validate(db *db.Database) error {

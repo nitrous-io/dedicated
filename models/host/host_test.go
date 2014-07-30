@@ -385,34 +385,6 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("DeletePermanently()", func() {
-		It("deletes the host from the database", func() {
-			h := &host.Host{
-				Slug:               "foo",
-				UserID:             hs.U.ID,
-				RegionID:           hs.R.ID,
-				PlanID:             hs.P.ID,
-				ProviderTemplateID: hs.PT.ID,
-				State:              "running",
-				TerminatedAt:       nil,
-			}
-			err := h.Insert(db)
-			Expect(err).To(BeNil())
-
-			var count int
-			err = db.QueryRow(`SELECT COUNT(*) FROM hosts WHERE slug = $1;`, "foo").Scan(&count)
-			Expect(err).To(BeNil())
-			Expect(count).To(Equal(1))
-
-			err = h.DeletePermanently(db)
-			Expect(err).To(BeNil())
-
-			err = db.QueryRow(`SELECT COUNT(*) FROM hosts WHERE slug = $1;`, "foo").Scan(&count)
-			Expect(err).To(BeNil())
-			Expect(count).To(Equal(0))
-		})
-	})
-
 	Describe("Validate()", func() {
 		var (
 			h *host.Host

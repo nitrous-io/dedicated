@@ -301,7 +301,7 @@ var _ = Describe("controllers/hosts", func() {
 				It("creates a host record for the user", func() {
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
-					Expect(len(hosts)).To(Equal(1))
+					Expect(hosts).To(HaveLen(1))
 
 					h := hosts[0]
 					Expect(h.RegionID).To(Equal(hs.R.ID))
@@ -351,7 +351,7 @@ var _ = Describe("controllers/hosts", func() {
 
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
-					Expect(len(hosts)).To(Equal(1))
+					Expect(hosts).To(HaveLen(1))
 
 					doRequest(overrides{"slug": "honeybadger"})
 				})
@@ -359,7 +359,7 @@ var _ = Describe("controllers/hosts", func() {
 				It("does not create a host", func() {
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
-					Expect(len(hosts)).To(Equal(1))
+					Expect(hosts).To(HaveLen(1))
 				})
 
 				It("responds with HTTP 400 Bad Request", func() {
@@ -384,10 +384,11 @@ var _ = Describe("controllers/hosts", func() {
 					doRequest(overrides{})
 				})
 
-				It("does not create a host for the user", func() {
-					hosts, err := host.FindAllByUser(db, u)
+				It("creates a host in the orphan state for the user", func() {
+					h, err := host.FindByUserAndSlug(db, u, "honeybadger")
 					Expect(err).To(BeNil())
-					Expect(len(hosts)).To(Equal(0))
+					Expect(h.Slug).To(Equal("honeybadger"))
+					Expect(h.State).To(Equal(host.StateOrphan))
 				})
 
 				It("responds with a internal server error", func() {

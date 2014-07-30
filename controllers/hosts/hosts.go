@@ -145,7 +145,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		State:              host.StateBorn,
 	}
 
-	// Save record to db first to reserve name (since it's globally unique).
+	// Save record to db first to reserve slug (since it's globally unique).
 	tx, err := db.Beginx()
 	if err != nil {
 		return err
@@ -179,9 +179,9 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 
 	info, err := HostbuilderClient.Create(pt.Provider, &config)
 	if err != nil {
-		delErr := h.DeletePermanently(db)
-		if delErr != nil {
-			c.Logger().Error("Unable to delete host %d that failed on hostbuilder: %v", h.ID, delErr)
+		updErr := h.UpdateState(db, host.StateOrphan)
+		if updErr != nil {
+			c.Logger().Errorf("Unable to update host %d to orphan state that failed on hostbuilder: %v", h.ID, updErr)
 		}
 		return err
 	}
