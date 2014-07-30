@@ -1,0 +1,17 @@
+#!/bin/bash
+VERSION=${1:?"version is required"}
+BUILD_DIR=./build
+rm -f "$BUILD_DIR/hostbuilder"
+mkdir -p "$BUILD_DIR"
+
+go get github.com/nitrous-io/goop
+rm -rf .vendor
+
+goop install
+goop exec ginkgo -r -trace -keepGoing
+
+VERSION=$VERSION goop go install -x -ldflags "-X main.version ${VERSION}" -v ./...
+BUILD_DIR=$BUILD_DIR goop exec bash -c 'cp $GOBIN/hostbuilder $BUILD_DIR/hostbuilder'
+
+cd $BUILD_DIR
+tar -czf hostbuilder-$VERSION.tgz hostbuilder
