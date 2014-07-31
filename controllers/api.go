@@ -39,6 +39,7 @@ type HostAPI struct {
 	Slug           string `json:"slug"`
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort int64  `json:"freighterd_port"`
+	Domain         string `json:"domain"` // where we can access the host i.e. slug.nitrouspro.com
 
 	// tls authentication settings for a client
 	CA   string `json:"ca"`
@@ -94,6 +95,7 @@ func NewContainerAPI(c *container.Container, h *host.Host, crt *cert.Cert) Conta
 			Slug:           h.Slug,
 			IPAddress:      h.IPAddress.String,
 			FreighterdPort: h.FreighterdPort.Int64,
+			Domain:         h.Domain(),
 
 			CA:   crt.CA,
 			Cert: crt.ClientCert,
