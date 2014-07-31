@@ -26,7 +26,8 @@ func init() {
 		CA:        "/etc/freighterd/ca.crt",
 		Cert:      "/etc/freighterd/cert.crt",
 		Key:       "/etc/freighterd/key.crt",
-		Hosts: []HostAddress{
+
+		Listen: []HostAddress{
 			{Proto: "unix", Address: "/var/run/freighterd.sock"},
 			{Proto: "tcp", Address: "0.0.0.0:65333"},
 		},
@@ -50,7 +51,7 @@ type Config struct {
 	Cert      string `json:"tls_cert"`   // path to cert
 	Key       string `json:"tls_key"`    // path to key
 
-	Hosts []HostAddress `json:"hosts"`
+	Listen []HostAddress `json:"listen"`
 }
 
 type Server struct {
@@ -79,8 +80,8 @@ func NewServer(logger *util.Logger, provider provider.Provider, conf *Config) *S
 }
 
 func (s *Server) Start() {
-	chErrors := make(chan error, len(s.conf.Hosts))
-	for _, h := range s.conf.Hosts {
+	chErrors := make(chan error, len(s.conf.Listen))
+	for _, h := range s.conf.Listen {
 		proto, addr := h.Proto, h.Address
 		switch h.Proto {
 		case "unix":
@@ -96,7 +97,7 @@ func (s *Server) Start() {
 		}
 	}
 
-	for i := 0; i < len(s.conf.Hosts); i++ {
+	for i := 0; i < len(s.conf.Listen); i++ {
 		if err := <-chErrors; err != nil {
 			s.logger.FatalExit(err)
 		}
