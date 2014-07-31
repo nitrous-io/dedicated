@@ -1273,14 +1273,12 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/json"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+			st, _ = NewServerTest(handlers)
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
-			if server.HTTPTestServer != nil {
-				server.Close()
-			}
+			st.Close()
 		})
 
 		Context("when the response is HTTP 200 OK", func() {
@@ -1298,7 +1296,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns the HostInfo", func() {
-				info, err := client.HostInfo(host)
+				info, err := cl.HostInfo()
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(info).To(Equal(&freighterclient.HostInfo{
@@ -1319,7 +1317,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns ErrUnexpectedResponse", func() {
-				info, err := client.HostInfo(host)
+				info, err := cl.HostInfo()
 				Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(info).To(BeNil())
@@ -1332,7 +1330,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns a StatusError", func() {
-				info, err := client.HostInfo(host)
+				info, err := cl.HostInfo()
 				Expect(err).NotTo(BeNil())
 				_, ok := err.(*freighterclient.StatusError)
 				Expect(ok).To(BeTrue())

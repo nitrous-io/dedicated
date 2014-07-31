@@ -519,8 +519,8 @@ func (c *client) RemovePublicKey(id string, fingerprint string) error {
 	return c.doPublicKeyOp(req)
 }
 
-func (c *client) HostInfo(h *Host) (*HostInfo, error) {
-	u := fmt.Sprintf("%s/info", h.BaseURL())
+func (c *client) HostInfo() (*HostInfo, error) {
+	u := fmt.Sprintf("%s/info", c.host.BaseURL())
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
