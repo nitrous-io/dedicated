@@ -502,8 +502,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(mockClient.CreateCalled).To(Equal(1))
 			Expect(mockClient.ReceivedName).To(Equal("elixir-web-1"))
 			Expect(mockClient.ReceivedImage).To(Equal("elixir"))
-			conf, err := mockClient.DockerContainerConfig()
-			Expect(err).To(BeNil())
+			conf := mockClient.ReceivedConfig
 			Expect(conf.Env).To(Equal([]string{"LANG=C", "NODE=nope"}))
 			Expect(conf.PortBindings).To(HaveLen(3))
 			Expect(conf.PortBindings).To(ContainElement("3000:8080"))
@@ -694,8 +693,7 @@ var _ = Describe("controllers/containers", func() {
 				doRequest("valid-token", "foo", params)
 
 				Expect(res.Code).To(Equal(http.StatusCreated))
-				conf, err := mockClient.DockerContainerConfig()
-				Expect(err).To(BeNil())
+				conf := mockClient.ReceivedConfig
 				Expect(conf.Mounts).To(HaveLen(2))
 				Expect(conf.Mounts).To(ContainElement("music:/mpd/albums"))
 				Expect(conf.Mounts).To(ContainElement("backups"))

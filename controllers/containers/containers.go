@@ -376,8 +376,8 @@ func dropNamespace(freighterName string) string {
 	}
 }
 
-func parseConfig(r *http.Request, db ndb.QueryReceiver, h *host.Host) (freighterclient.ContainerConfig, error) {
-	c := freighterclient.NewDockerContainerConfig()
+func parseConfig(r *http.Request, db ndb.QueryReceiver, h *host.Host) (*freighterclient.ContainerConfig, error) {
+	c := &freighterclient.ContainerConfig{}
 	err := r.ParseForm()
 	if err != nil {
 		return nil, err
