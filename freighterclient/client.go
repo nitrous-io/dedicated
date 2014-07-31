@@ -113,7 +113,7 @@ type (
 	}
 
 	errorResponse struct {
-		Error string `json:error`
+		Error string `json:"error"`
 	}
 )
 
@@ -210,7 +210,6 @@ func (c *client) List() ([]*Container, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, &StatusError{resp.StatusCode}
 	}
-	defer resp.Body.Close()
 
 	var containers containersResponse
 	err = json.NewDecoder(resp.Body).Decode(&containers)
@@ -469,17 +468,13 @@ func (c *client) doPublicKeyOp(req *http.Request) error {
 		if err != nil {
 			return err
 		}
-
 		if errorResp.Error == provider.ErrPubKeyOpsNotSupported.Error() {
 			return ErrPubKeyOpsNotSupported
-		} else {
-			return &StatusError{resp.StatusCode}
 		}
+		return &StatusError{resp.StatusCode}
 	default:
 		return &StatusError{resp.StatusCode}
 	}
-
-	return nil
 }
 
 func (c *client) AddPublicKeys(id string, keys []string) error {
