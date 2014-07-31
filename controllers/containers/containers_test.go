@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/container"
+	"github.com/nitrous-io/nitrous/models/cvolume"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
@@ -693,10 +694,22 @@ var _ = Describe("controllers/containers", func() {
 				doRequest("valid-token", "foo", params)
 
 				Expect(res.Code).To(Equal(http.StatusCreated))
+				j := struct {
+					Status    string               `json:"status"`
+					Container *container.Container `json:"container"`
+				}{}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
 				conf := mockClient.ReceivedConfig
 				Expect(conf.Mounts).To(HaveLen(2))
 				Expect(conf.Mounts).To(ContainElement("music:/mpd/albums"))
 				Expect(conf.Mounts).To(ContainElement("backups"))
+				cv, err := cvolume.Find(db, j.Container, v)
+				Expect(err).To(BeNil())
+				Expect(cv.VolumeID).To(Equal(v.ID))
+				cv2, err := cvolume.Find(db, j.Container, v2)
+				Expect(err).To(BeNil())
+				Expect(cv2.VolumeID).To(Equal(v2.ID))
 			})
 
 			It("returns error if volume does not exist", func() {

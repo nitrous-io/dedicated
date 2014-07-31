@@ -11,6 +11,7 @@ import (
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/container"
+	"github.com/nitrous-io/nitrous/models/cvolume"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/volume"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
@@ -140,7 +141,12 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 		name = slug
 	}
 
-	config, err := parseConfig(r, db, h)
+	hv, err := hostVolumes(db, h)
+	if err != nil {
+		return err
+	}
+
+	config, err := prepareConfig(r, hv)
 	if err != nil {
 		return err
 	}
@@ -204,6 +210,13 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 	if err != nil {
 		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cntnr)
 		// Continue responding as if nothing happened.
+	}
+
+	for _, v := range volumeSlugs(config.Mounts) {
+		cv := cvolume.ContainerVolume{ContainerID: cntnr.ID, VolumeID: hv[v].ID}
+		if err := cv.Insert(db); err != nil { // log and continue
+			log.Errorf("containers.create: failed to attach volume %s to container %s", hv[v].Slug, cntnr.CID)
+		}
 	}
 
 	env.Status = http.StatusCreated
@@ -376,7 +389,7 @@ func dropNamespace(freighterName string) string {
 	}
 }
 
-func parseConfig(r *http.Request, db ndb.QueryReceiver, h *host.Host) (*freighterclient.ContainerConfig, error) {
+func prepareConfig(r *http.Request, hv map[string]*volume.Volume) (*freighterclient.ContainerConfig, error) {
 	c := &freighterclient.ContainerConfig{}
 	err := r.ParseForm()
 	if err != nil {
@@ -386,18 +399,8 @@ func parseConfig(r *http.Request, db ndb.QueryReceiver, h *host.Host) (*freighte
 		c.Env = envs
 	}
 	if vols, ok := r.PostForm["volume[]"]; ok {
-		hvols, err := volume.FindAllByHostID(db, h.ID)
-		if err != nil {
-			return nil, err
-		}
-		volSlugs := map[string]struct{}{}
-		for _, hv := range hvols {
-			volSlugs[hv.Slug] = struct{}{}
-		}
-		for _, v := range vols {
-			// vol spec can be volSlug:mountpoint; only check volSlug
-			parts := strings.Split(v, ":")
-			if _, ok := volSlugs[parts[0]]; !ok {
+		for _, v := range volumeSlugs(vols) {
+			if _, ok := hv[v]; !ok {
 				return nil, errVolumeNotFound
 			}
 		}
@@ -407,4 +410,24 @@ func parseConfig(r *http.Request, db ndb.QueryReceiver, h *host.Host) (*freighte
 		c.PortBindings = ports
 	}
 	return c, nil
+}
+
+func volumeSlugs(volParams []string) []string {
+	slugs := []string{}
+	for _, v := range volParams {
+		slugs = append(slugs, strings.Split(v, ":")[0])
+	}
+	return slugs
+}
+
+func hostVolumes(d db.QueryReceiver, h *host.Host) (map[string]*volume.Volume, error) {
+	slugsToVols := map[string]*volume.Volume{}
+	hvols, err := volume.FindAllByHostID(d, h.ID)
+	if err != nil {
+		return nil, err
+	}
+	for _, hv := range hvols {
+		slugsToVols[hv.Slug] = hv
+	}
+	return slugsToVols, nil
 }
