@@ -26,6 +26,10 @@ type HostAPI struct {
 	Slug           string `json:"slug"`
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort int64  `json:"freighterd_port"`
+
+	CA   string `json:"ca"`
+	Cert string `json:"cert"`
+	Key  string `json:"key"`
 }
 
 type containerResp struct {
