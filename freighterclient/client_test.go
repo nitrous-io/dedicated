@@ -284,7 +284,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns the Container", func() {
-					config := freighterclient.NewDockerContainerConfig()
+					config := &freighterclient.ContainerConfig{}
 					config.Env = []string{"LANG=C"}
 					container, err := cl.Create("yosemite", "ubuntu", config)
 					Expect(err).To(BeNil())

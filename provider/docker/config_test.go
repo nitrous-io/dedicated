@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
+	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/provider/docker"
 	. "github.com/nitrous-io/freighter/test"
 	"github.com/nitrous-io/freighter/util"
@@ -74,7 +75,7 @@ var _ = Describe("provider/docker config", func() {
 			BeforeEach(func() {
 				var err error
 				cfg, hostCfg, err = prov.CreateConfigs(cnrName, "nitrous-io/php",
-					&docker.ContainerConfig{
+					&provider.ContainerConfig{
 						PortBindings: []string{"0.0.0.0::4000", "3000:8080", "127.0.0.1:5000:5001"},
 					})
 				Expect(err).To(BeNil())
@@ -109,7 +110,7 @@ var _ = Describe("provider/docker config", func() {
 			BeforeEach(func() {
 				var err error
 				cfg, hostCfg, err = prov.CreateConfigs(cnrName, "nitrous-io/php",
-					&docker.ContainerConfig{
+					&provider.ContainerConfig{
 						Mounts: []string{"data", "music:/mpd/albums"},
 					})
 				Expect(err).To(BeNil())
@@ -160,7 +161,7 @@ var _ = Describe("provider/docker config", func() {
 		})
 
 		Context("Mounts config handling (always keeps ssh bind)", func() {
-			getCfg := func(cfg *docker.ContainerConfig) *dockerclient.HostConfig {
+			getCfg := func(cfg *provider.ContainerConfig) *dockerclient.HostConfig {
 				var err error
 				hostCfg, err = prov.StartConfig(container, cfg)
 				Expect(err).To(BeNil())
@@ -169,7 +170,7 @@ var _ = Describe("provider/docker config", func() {
 
 			It("replaces existing with mount specs", func() {
 				container.HostConfig.Binds = []string{sshBind, "REMOVEME"}
-				hostCfg = getCfg(&docker.ContainerConfig{
+				hostCfg = getCfg(&provider.ContainerConfig{
 					Mounts: []string{"data", "music:/mpd/albums"},
 				})
 				Expect(hostCfg.Binds).To(HaveLen(3))
@@ -183,7 +184,7 @@ var _ = Describe("provider/docker config", func() {
 
 			It("does not remove existing when Mounts is nil", func() {
 				container.HostConfig.Binds = []string{sshBind, "KEEPME"}
-				hostCfg = getCfg(&docker.ContainerConfig{
+				hostCfg = getCfg(&provider.ContainerConfig{
 					Mounts: nil,
 				})
 				Expect(hostCfg.Binds).To(HaveLen(2))
@@ -193,7 +194,7 @@ var _ = Describe("provider/docker config", func() {
 
 			It("removes existing when Mounts is present but empty", func() {
 				container.HostConfig.Binds = []string{sshBind, "REMOVEME"}
-				hostCfg = getCfg(&docker.ContainerConfig{
+				hostCfg = getCfg(&provider.ContainerConfig{
 					Mounts: []string{},
 				})
 				Expect(hostCfg.Binds).To(HaveLen(1))
@@ -205,7 +206,7 @@ var _ = Describe("provider/docker config", func() {
 			BeforeEach(func() {
 				var err error
 				hostCfg, err = prov.StartConfig(container,
-					&docker.ContainerConfig{
+					&provider.ContainerConfig{
 						PortBindings: []string{"0.0.0.0::4000", "3000:8080", "127.0.0.1:5000:5001"},
 					})
 				Expect(err).To(BeNil())

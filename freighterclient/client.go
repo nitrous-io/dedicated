@@ -15,7 +15,6 @@ import (
 
 	"github.com/nitrous-io/freighter/pkg/stats"
 	"github.com/nitrous-io/freighter/provider"
-	"github.com/nitrous-io/freighter/provider/docker"
 )
 
 const (
@@ -54,7 +53,7 @@ type RegistryAuth struct {
 // Client represents a Freighter API consumer.
 type Client interface {
 	List() ([]*Container, error)
-	Create(name, image string, config ContainerConfig) (*Container, error)
+	Create(name, image string, config *ContainerConfig) (*Container, error)
 
 	// Info returns the Container with the given id.
 	// If there is no Container with the given id, Info should return
@@ -116,10 +115,6 @@ type (
 		Error string `json:"error"`
 	}
 )
-
-func NewDockerContainerConfig() *docker.ContainerConfig {
-	return docker.NewContainerConfig()
-}
 
 type RequestFailedError struct {
 	Req *http.Request
@@ -222,7 +217,7 @@ func (c *client) List() ([]*Container, error) {
 
 // Create makes an API request to a given Freighter Host to create a container
 // with the given name, image, and configuration.
-func (c *client) Create(name, image string, config ContainerConfig) (*Container, error) {
+func (c *client) Create(name, image string, config *ContainerConfig) (*Container, error) {
 	u := c.host.BaseURL() + "/containers"
 	data := url.Values{}
 	data.Set("name", name)

@@ -56,7 +56,10 @@ type ContainerInfo struct {
 	Ports map[string]int `json:"ports"`
 }
 
-type ContainerConfig interface {
+type ContainerConfig struct {
+	Env          []string `json:"Env"`
+	Mounts       []string `json:"Mounts"`
+	PortBindings []string `json:"PortBindings"`
 }
 
 type ImageInfo struct {

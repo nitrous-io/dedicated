@@ -1,10 +1,7 @@
 package freighterclient
 
 import (
-	"fmt"
 	"io"
-
-	"github.com/nitrous-io/freighter/provider/docker"
 )
 
 // MockClient is a mock satisfying the freighter.Client interface.
@@ -68,7 +65,7 @@ type MockClient struct {
 	ReceivedID     string
 	ReceivedName   string
 	ReceivedImage  string
-	ReceivedConfig ContainerConfig
+	ReceivedConfig *ContainerConfig
 
 	ReceivedUsername string
 	ReceivedPassword string
@@ -91,7 +88,7 @@ func (c *MockClient) List() ([]*Container, error) {
 	return c.Containers, nil
 }
 
-func (c *MockClient) Create(name, image string, config ContainerConfig) (*Container, error) {
+func (c *MockClient) Create(name, image string, config *ContainerConfig) (*Container, error) {
 	c.CreateCalled = c.CreateCalled + 1
 	c.ReceivedName = name
 	c.ReceivedImage = image
@@ -235,15 +232,4 @@ func (c *MockClient) ListImages() ([]*Image, error) {
 	c.ListImagesCalled = c.ListImagesCalled + 1
 
 	return c.ListImagesArray, c.ListImagesError
-}
-
-func (c *MockClient) DockerContainerConfig() (*docker.ContainerConfig, error) {
-	if c.ReceivedConfig == nil {
-		return nil, nil
-	}
-	dcc, ok := c.ReceivedConfig.(*docker.ContainerConfig)
-	if !ok {
-		return &docker.ContainerConfig{}, fmt.Errorf("%#v is not a docker ContainerConfig", c.ReceivedConfig)
-	}
-	return dcc, nil
 }

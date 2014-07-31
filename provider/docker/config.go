@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
+
+	"github.com/nitrous-io/freighter/provider"
 )
 
 var (
@@ -13,19 +15,9 @@ var (
 	ErrInvalidMountSpec = fmt.Errorf("volume specification invalid")
 )
 
-type ContainerConfig struct {
-	Env          []string `json:"Env"`
-	Mounts       []string `json:"Mounts"`
-	PortBindings []string `json:"PortBindings"`
-}
-
-func NewContainerConfig() *ContainerConfig {
-	return &ContainerConfig{}
-}
-
 // CreateConfigs returns the dockerclient Config and HostConfig needed to
 // create a container.  These can be customized by cfg ContainerConfig.
-func (p *DockerProvider) CreateConfigs(containerName, imageName string, cfg *ContainerConfig) (*dockerclient.Config, *dockerclient.HostConfig, error) {
+func (p *DockerProvider) CreateConfigs(containerName, imageName string, cfg *provider.ContainerConfig) (*dockerclient.Config, *dockerclient.HostConfig, error) {
 	dcConfig := &dockerclient.Config{
 		Hostname:     containerName,
 		Image:        imageName,
@@ -64,7 +56,7 @@ func (p *DockerProvider) CreateConfigs(containerName, imageName string, cfg *Con
 
 // StartConfig returns the dockerclient HostConfig needed to start a container.
 // It can be customized by cfg ContainerConfig.
-func (p *DockerProvider) StartConfig(container *dockerclient.Container, cfg *ContainerConfig) (*dockerclient.HostConfig, error) {
+func (p *DockerProvider) StartConfig(container *dockerclient.Container, cfg *provider.ContainerConfig) (*dockerclient.HostConfig, error) {
 	dcHostConfig := container.HostConfig
 	if cfg == nil {
 		return dcHostConfig, nil

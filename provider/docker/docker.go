@@ -418,7 +418,7 @@ func (p *DockerProvider) ListImages() ([]*provider.ImageInfo, error) {
 	return list, nil
 }
 
-func (p *DockerProvider) createContainer(imageName, containerName string, config *ContainerConfig) (*dockerclient.Container, error) {
+func (p *DockerProvider) createContainer(imageName, containerName string, config *provider.ContainerConfig) (*dockerclient.Container, error) {
 	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
 	start := time.Now()
 
@@ -582,8 +582,8 @@ func keyMapToKeys(keymap map[string]string) []string {
 	return keys
 }
 
-func containerConfigFromJSON(jsonStr string) (*ContainerConfig, error) {
-	cfg := &ContainerConfig{}
+func containerConfigFromJSON(jsonStr string) (*provider.ContainerConfig, error) {
+	cfg := &provider.ContainerConfig{}
 	if jsonStr == "" {
 		return cfg, nil
 	}
