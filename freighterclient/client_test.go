@@ -21,10 +21,16 @@ type ServerTest struct {
 	host      *Host
 	server    *ghttp.Server
 	handlerFn http.HandlerFunc
+	tp        *http.Transport
 }
 
 func NewServerTest(handlerFn http.HandlerFunc) (*ServerTest, error) {
 	st := &ServerTest{handlerFn: handlerFn}
+	return st.Setup()
+}
+
+func NewServerTestTransport(fn http.HandlerFunc, tp *http.Transport) (*ServerTest, error) {
+	st := &ServerTest{handlerFn: fn, tp: tp}
 	return st.Setup()
 }
 
@@ -38,7 +44,7 @@ func (st *ServerTest) Setup() (*ServerTest, error) {
 	}
 	host := NewHost(ip, port, "example.com", localhostCert,
 		localhostCert, localhostKey)
-	client, err := NewClient(host)
+	client, err := NewClientTransport(host, st.tp)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +80,28 @@ var _ = Describe("client", func() {
 		host   *Host
 		server *ghttp.Server
 	)
+
+	Describe("NewClientHTTP", func() {
+		It("times out a long request", func() {
+			handlers := ghttp.CombineHandlers(
+				func(w http.ResponseWriter, r *http.Request) {
+					time.Sleep(1 * time.Millisecond)
+					w.Write([]byte(`{"status": "toolong"}`))
+				},
+			)
+			tp := &http.Transport{
+				Dial: (&net.Dialer{
+					Timeout: 1 * time.Nanosecond,
+				}).Dial,
+			}
+			st, _ := NewServerTestTransport(handlers, tp)
+			defer st.Close()
+
+			_, err := st.client.List()
+			_, ok := err.(*RequestFailedError)
+			Expect(ok).To(BeTrue(), "should receive RequestFailedError")
+		})
+	})
 
 	Describe("List()", func() {
 		var (
@@ -209,24 +237,6 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the request times out", func() {
-			BeforeEach(func() {
-				cl.(*client).Transport = &http.Transport{
-					Dial: (&net.Dialer{
-						Timeout: 1 * time.Nanosecond,
-					}).Dial,
-				}
-			})
-
-			It("returns a RequestFailedError", func() {
-				containers, err := cl.List()
-				Expect(err).NotTo(BeNil())
-				_, ok := err.(*RequestFailedError)
-				Expect(ok).To(BeTrue())
-				Expect(server.ReceivedRequests()).To(HaveLen(0))
-				Expect(containers).To(BeNil())
-			})
-		})
 	})
 
 	Describe("Create()", func() {

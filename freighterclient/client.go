@@ -155,6 +155,13 @@ type client struct {
 // NewClient returns a new Freighter API Client that can be used to communicate
 // with a freighterd instance on a host
 func NewClient(host *Host) (Client, error) {
+	return NewClientTransport(host, nil)
+}
+
+// NewClientTransport returns a new Freighter API Client that reuses an existing
+// transport but with new TLS config so it can be used to communicate with
+// a freighterd instance
+func NewClientTransport(host *Host, tp *http.Transport) (Client, error) {
 	// generate proper tls config
 	tlsConfig := &tls.Config{
 		ServerName: host.ServerName,
@@ -168,15 +175,18 @@ func NewClient(host *Host) (Client, error) {
 	}
 	tlsConfig.Certificates = []tls.Certificate{crt}
 
-	cl := &http.Client{
-		Transport: &http.Transport{
+	if tp == nil {
+		tp = &http.Transport{
 			Proxy: nil,
 			Dial: (&net.Dialer{
 				KeepAlive: 10 * time.Second,
 			}).Dial,
 			TLSHandshakeTimeout: 10 * time.Second,
-			TLSClientConfig:     tlsConfig,
-		},
+		}
+	}
+	tp.TLSClientConfig = tlsConfig
+	cl := &http.Client{
+		Transport: tp,
 	}
 	return &client{host: host, Client: cl}, nil
 }
