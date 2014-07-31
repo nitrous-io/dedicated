@@ -191,18 +191,19 @@ func getTLSConfig(caPath, certPath, keyPath string) (*tls.Config, error) {
 		return nil, fmt.Errorf("Couldn't load X509 key pair (%s, %s): %s. Key encrypted?",
 			certPath, keyPath, err)
 	}
-	tlsConfig := &tls.Config{
-		NextProtos:   []string{"http/1.1"},
-		Certificates: []tls.Certificate{cert},
-	}
-	certPool := x509.NewCertPool()
 	file, err := ioutil.ReadFile(caPath)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't read CA certificate %s: %s", caPath, err)
 	}
+	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(file)
 
-	tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-	tlsConfig.ClientCAs = certPool
+	tlsConfig := &tls.Config{
+		NextProtos:   []string{"http/1.1"},
+		Certificates: []tls.Certificate{cert},
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    certPool,
+	}
+
 	return tlsConfig, nil
 }

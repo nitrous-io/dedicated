@@ -163,17 +163,17 @@ func NewClient(host *Host) (Client, error) {
 // a freighterd instance
 func NewClientTransport(host *Host, tp *http.Transport) (Client, error) {
 	// generate proper tls config
-	tlsConfig := &tls.Config{
-		ServerName: host.ServerName,
-	}
-	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM(host.CA)
-	tlsConfig.RootCAs = certPool
 	crt, err := tls.X509KeyPair(host.Cert, host.Key)
 	if err != nil {
 		return nil, err
 	}
-	tlsConfig.Certificates = []tls.Certificate{crt}
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM(host.CA)
+	tlsConfig := &tls.Config{
+		ServerName:   host.ServerName,
+		RootCAs:      certPool,
+		Certificates: []tls.Certificate{crt},
+	}
 
 	if tp == nil {
 		tp = &http.Transport{
