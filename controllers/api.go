@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/nitrous-io/freighter/freighterclient"
+	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/plan"
@@ -38,6 +39,11 @@ type HostAPI struct {
 	Slug           string `json:"slug"`
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort int64  `json:"freighterd_port"`
+
+	// tls authentication settings for a client
+	CA   string `json:"ca"`
+	Cert string `json:"cert"`
+	Key  string `json:"key"`
 }
 
 type HostDetailedAPI struct {
@@ -73,7 +79,7 @@ type StatsAPI struct {
 	PerCPUUsage  []float64 `json:"per_cpu_usage"`
 }
 
-func NewContainerAPI(c *container.Container, h *host.Host) ContainerAPI {
+func NewContainerAPI(c *container.Container, h *host.Host, crt *cert.Cert) ContainerAPI {
 	return ContainerAPI{
 		ID:        c.ID,
 		CID:       c.CID,
@@ -83,16 +89,16 @@ func NewContainerAPI(c *container.Container, h *host.Host) ContainerAPI {
 		Name:      c.Name.String,
 		IPAddress: c.IPAddress.String,
 		State:     c.State,
-		Host:      NewHostAPI(h),
-	}
-}
+		Host: HostAPI{
+			ID:             h.ID,
+			Slug:           h.Slug,
+			IPAddress:      h.IPAddress.String,
+			FreighterdPort: h.FreighterdPort.Int64,
 
-func NewHostAPI(h *host.Host) HostAPI {
-	return HostAPI{
-		ID:             h.ID,
-		Slug:           h.Slug,
-		IPAddress:      h.IPAddress.String,
-		FreighterdPort: h.FreighterdPort.Int64,
+			CA:   crt.CA,
+			Cert: crt.ClientCert,
+			Key:  crt.ClientKey,
+		},
 	}
 }
 
@@ -130,12 +136,4 @@ func NewHostDetailedAPI(h *host.Host, r *region.Region, p *plan.Plan, stats *fre
 		}
 	}
 	return hDict
-}
-
-func MakeFreighterHost(h *host.Host, secure bool) (*freighterclient.Host, error) {
-	if h.IPAddress.String == "" {
-		return nil, ErrHostIPUnknown
-	}
-
-	return freighterclient.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), secure), nil
 }

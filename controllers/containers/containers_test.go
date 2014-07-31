@@ -763,6 +763,10 @@ var _ = Describe("controllers/containers", func() {
 					Slug:           hs.H.Slug,
 					IPAddress:      hs.H.IPAddress.String,
 					FreighterdPort: hs.H.FreighterdPort.Int64,
+
+					CA:   hs.Crt.CA,
+					Cert: hs.Crt.ClientCert,
+					Key:  hs.Crt.ClientKey,
 				},
 			}))
 		})

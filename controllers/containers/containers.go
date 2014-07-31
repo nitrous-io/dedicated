@@ -262,7 +262,7 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, c controll
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": controllers.NewContainerAPI(cn, h),
+		"container": controllers.NewContainerAPI(cn, h, crt),
 	}
 
 	return nil
