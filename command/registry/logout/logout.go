@@ -99,7 +99,7 @@ func (c *Command) Help() string {
 }
 
 func (c *Command) Synopsis() string {
-	return "Login to a Docker registry on a Nitrous.IO host"
+	return "Log out from a Docker registry on a Nitrous.IO host"
 }
 
 func (c *Command) registryLogout(registry, host string) error {
