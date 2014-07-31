@@ -63,6 +63,11 @@ func (c *Command) Run(args []string) int {
 
 	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
 	command := strings.Join(args[1:], " ")
+	tlsConfig, err := nitrousapi.TLSConfig(cr.Host)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Invalid HTTPS configuration %v", err))
+		return 1
+	}
 
 	stdin := c.UI.Reader
 	stdout := c.UI.Writer
@@ -72,7 +77,7 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	err = httpshell.Run(host, cr.CID, command, pty.Fd(), stdin, stdout)
+	err = httpshell.Run(host, cr.CID, command, tlsConfig, pty.Fd(), stdin, stdout)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
