@@ -1,4 +1,4 @@
-package freighterclient
+package freighterclient_test
 
 import (
 	"testing"

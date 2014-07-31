@@ -1,4 +1,4 @@
-package freighterclient
+package freighterclient_test
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/onsi/gomega/ghttp"
 
@@ -17,8 +18,8 @@ import (
 )
 
 type ServerTest struct {
-	client    Client
-	host      *Host
+	client    freighterclient.Client
+	host      *freighterclient.Host
 	server    *ghttp.Server
 	handlerFn http.HandlerFunc
 	tp        *http.Transport
@@ -42,9 +43,9 @@ func (st *ServerTest) Setup() (*ServerTest, error) {
 	if err != nil {
 		return nil, err
 	}
-	host := NewHost(ip, port, "example.com", localhostCert,
+	host := freighterclient.NewHost(ip, port, "example.com", localhostCert,
 		localhostCert, localhostKey)
-	client, err := NewClientTransport(host, st.tp)
+	client, err := freighterclient.NewClientTransport(host, st.tp)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +77,8 @@ func ipAndPort(s *ghttp.Server) (string, int, error) {
 var _ = Describe("client", func() {
 	var (
 		st     *ServerTest
-		cl     Client
-		host   *Host
+		cl     freighterclient.Client
+		host   *freighterclient.Host
 		server *ghttp.Server
 	)
 
@@ -98,7 +99,7 @@ var _ = Describe("client", func() {
 			defer st.Close()
 
 			_, err := st.client.List()
-			_, ok := err.(*RequestFailedError)
+			_, ok := err.(*freighterclient.RequestFailedError)
 			Expect(ok).To(BeTrue(), "should receive RequestFailedError")
 		})
 	})
@@ -160,7 +161,7 @@ var _ = Describe("client", func() {
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(containers).To(HaveLen(2))
 
-					Expect(containers[0]).To(Equal(&Container{
+					Expect(containers[0]).To(Equal(&freighterclient.Container{
 						ID:    "cafebabe",
 						Name:  "yosemite",
 						Image: "freighter.yosemite",
@@ -168,7 +169,7 @@ var _ = Describe("client", func() {
 						State: "running",
 					}))
 
-					Expect(containers[1]).To(Equal(&Container{
+					Expect(containers[1]).To(Equal(&freighterclient.Container{
 						ID:    "deadbeef",
 						Name:  "mavericks",
 						Image: "freighter.mavericks",
@@ -197,11 +198,8 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns ErrUnexpectedResponse", func() {
-					containers, err := cl.List()
-					Expect(err).NotTo(BeNil())
-					Expect(err).To(Equal(ErrUnexpectedResponse))
-					Expect(server.ReceivedRequests()).To(HaveLen(1))
-					Expect(containers).To(BeNil())
+					_, err := cl.List()
+					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 				})
 			})
 		})
@@ -213,8 +211,7 @@ var _ = Describe("client", func() {
 
 			It("returns a StatusError", func() {
 				containers, err := cl.List()
-				Expect(err).NotTo(BeNil())
-				_, ok := err.(*StatusError)
+				_, ok := err.(*freighterclient.StatusError)
 				Expect(ok).To(BeTrue())
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(containers).To(BeNil())
@@ -229,8 +226,7 @@ var _ = Describe("client", func() {
 
 			It("returns a RequestFailedError", func() {
 				containers, err := cl.List()
-				Expect(err).NotTo(BeNil())
-				_, ok := err.(*RequestFailedError)
+				_, ok := err.(*freighterclient.RequestFailedError)
 				Expect(ok).To(BeTrue())
 				Expect(server.ReceivedRequests()).To(HaveLen(0))
 				Expect(containers).To(BeNil())
@@ -288,7 +284,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns the Container", func() {
-					config := NewDockerContainerConfig()
+					config := freighterclient.NewDockerContainerConfig()
 					config.Env = []string{"LANG=C"}
 					container, err := cl.Create("yosemite", "ubuntu", config)
 					Expect(err).To(BeNil())
@@ -302,7 +298,7 @@ var _ = Describe("client", func() {
 					Expect(receivedRequests[0].PostFormValue("config")).To(Equal(
 						`{"Config":{"Env":["LANG=C"]},"HostConfig":{}}`))
 
-					Expect(container).To(Equal(&Container{
+					Expect(container).To(Equal(&freighterclient.Container{
 						ID:    "cafebabe",
 						Name:  "yosemite",
 						Image: "ubuntu",
@@ -319,8 +315,7 @@ var _ = Describe("client", func() {
 
 				It("returns ErrUnexpectedResponse", func() {
 					container, err := cl.Create("yosemite", "ubuntu", nil)
-					Expect(err).NotTo(BeNil())
-					Expect(err).To(Equal(ErrUnexpectedResponse))
+					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
 				})
@@ -329,7 +324,7 @@ var _ = Describe("client", func() {
 
 		Context("when the response is not HTTP 422 Unprocessable Entity", func() {
 			BeforeEach(func() {
-				statusCode = StatusUnprocessableEntity
+				statusCode = freighterclient.StatusUnprocessableEntity
 			})
 
 			Context("when the response body is JSON with an 'error' key", func() {
@@ -339,8 +334,7 @@ var _ = Describe("client", func() {
 
 				It("returns InvalidParamError", func() {
 					container, err := cl.Create("yosemite", "ubuntu", nil)
-					Expect(err).NotTo(BeNil())
-					e, ok := err.(*InvalidParamError)
+					e, ok := err.(*freighterclient.InvalidParamError)
 					Expect(ok).To(BeTrue())
 					Expect(e.Msg).To(Equal("invalid name"))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
@@ -355,8 +349,7 @@ var _ = Describe("client", func() {
 
 				It("returns ErrUnexpectedResponse", func() {
 					container, err := cl.Create("yosemite", "ubuntu", nil)
-					Expect(err).NotTo(BeNil())
-					Expect(err).To(Equal(ErrUnexpectedResponse))
+					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
 				})
@@ -370,8 +363,7 @@ var _ = Describe("client", func() {
 
 			It("returns a StatusError", func() {
 				container, err := cl.Create("yosemite", "ubuntu", nil)
-				Expect(err).NotTo(BeNil())
-				_, ok := err.(*StatusError)
+				_, ok := err.(*freighterclient.StatusError)
 				Expect(ok).To(BeTrue())
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
@@ -427,7 +419,7 @@ var _ = Describe("client", func() {
 					Expect(container).NotTo(BeNil())
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 
-					Expect(container).To(Equal(&Container{
+					Expect(container).To(Equal(&freighterclient.Container{
 						ID:    "deadbeef",
 						Name:  "mavericks",
 						Image: "ubuntu-upstart",
@@ -444,7 +436,7 @@ var _ = Describe("client", func() {
 
 				It("returns ErrUnexpectedResponse", func() {
 					container, err := cl.Info("deadbeef")
-					Expect(err).To(Equal(ErrUnexpectedResponse))
+					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
 				})
@@ -458,7 +450,7 @@ var _ = Describe("client", func() {
 
 			It("returns ErrContainerNotFound", func() {
 				container, err := cl.Info("deadbeef")
-				Expect(err).To(Equal(ErrContainerNotFound))
+				Expect(err).To(Equal(freighterclient.ErrContainerNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
 			})
@@ -472,7 +464,7 @@ var _ = Describe("client", func() {
 			It("returns a StatusError", func() {
 				container, err := cl.Info("deadbeef")
 				Expect(err).NotTo(BeNil())
-				_, ok := err.(*StatusError)
+				_, ok := err.(*freighterclient.StatusError)
 				Expect(ok).To(BeTrue())
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
@@ -482,7 +474,7 @@ var _ = Describe("client", func() {
 
 	Describe("container control actions", func() {
 		var (
-			fnUnderTest func(id string) (*Container, error)
+			fnUnderTest func(id string) (*freighterclient.Container, error)
 			path        string
 
 			statusCode   int
@@ -540,7 +532,7 @@ var _ = Describe("client", func() {
 						Expect(err).To(BeNil())
 						Expect(container).NotTo(BeNil())
 
-						Expect(container).To(Equal(&Container{
+						Expect(container).To(Equal(&freighterclient.Container{
 							ID:    id,
 							Name:  "mavericks",
 							Image: "ubuntu-upstart",
@@ -557,7 +549,7 @@ var _ = Describe("client", func() {
 
 					It("returns ErrUnexpectedResponse", func() {
 						container, err := fnUnderTest(id)
-						Expect(err).To(MatchError(ErrUnexpectedResponse))
+						Expect(err).To(MatchError(freighterclient.ErrUnexpectedResponse))
 						Expect(container).To(BeNil())
 					})
 				})
@@ -570,7 +562,7 @@ var _ = Describe("client", func() {
 
 				It("returns ErrContainerNotFound", func() {
 					container, err := fnUnderTest(id)
-					Expect(err).To(MatchError(ErrContainerNotFound))
+					Expect(err).To(MatchError(freighterclient.ErrContainerNotFound))
 					Expect(container).To(BeNil())
 				})
 			})
@@ -582,7 +574,9 @@ var _ = Describe("client", func() {
 
 				It("returns a StatusError", func() {
 					container, err := fnUnderTest(id)
-					Expect(err).To(MatchError(&StatusError{Code: http.StatusInternalServerError}))
+					Expect(err).To(MatchError(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+					}))
 					Expect(container).To(BeNil())
 				})
 			})
@@ -666,7 +660,7 @@ var _ = Describe("client", func() {
 
 				It("returns ErrUnexpectedResponse", func() {
 					container, err := cl.Terminate("cafefeed")
-					Expect(err).To(MatchError(ErrUnexpectedResponse))
+					Expect(err).To(MatchError(freighterclient.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
 				})
@@ -680,7 +674,7 @@ var _ = Describe("client", func() {
 
 			It("returns ErrContainerNotFound", func() {
 				container, err := cl.Terminate("cafefeed")
-				Expect(err).To(MatchError(ErrContainerNotFound))
+				Expect(err).To(MatchError(freighterclient.ErrContainerNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
 			})
@@ -693,7 +687,9 @@ var _ = Describe("client", func() {
 
 			It("returns a StatusError", func() {
 				container, err := cl.Terminate("cafefeed")
-				Expect(err).To(MatchError(&StatusError{Code: http.StatusInternalServerError}))
+				Expect(err).To(MatchError(&freighterclient.StatusError{
+					Code: http.StatusInternalServerError,
+				}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
 			})
@@ -767,7 +763,7 @@ var _ = Describe("client", func() {
 
 				It("returns a ErrPubKeyOpsNotSupported error", func() {
 					err := cl.AddPublicKeys("yosemite", []string{"key1", "key2"})
-					Expect(err).To(Equal(ErrPubKeyOpsNotSupported))
+					Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
 				})
 			})
 
@@ -778,7 +774,9 @@ var _ = Describe("client", func() {
 
 				It("returns a StatusError", func() {
 					err := cl.AddPublicKeys("yosemite", []string{"key1", "key2"})
-					Expect(err).To(Equal(&StatusError{Code: http.StatusInternalServerError}))
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+					}))
 				})
 			})
 		})
@@ -814,7 +812,7 @@ var _ = Describe("client", func() {
 
 				It("returns a ErrPubKeyOpsNotSupported error", func() {
 					err := cl.ClearPublicKeys("yosemite")
-					Expect(err).To(Equal(ErrPubKeyOpsNotSupported))
+					Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
 				})
 			})
 
@@ -825,7 +823,9 @@ var _ = Describe("client", func() {
 
 				It("returns a StatusError", func() {
 					err := cl.ClearPublicKeys("yosemite")
-					Expect(err).To(Equal(&StatusError{Code: http.StatusInternalServerError}))
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+					}))
 				})
 			})
 		})
@@ -861,7 +861,7 @@ var _ = Describe("client", func() {
 
 				It("returns a ErrPubKeyOpsNotSupported error", func() {
 					err := cl.RemovePublicKey("yosemite", "fprint1")
-					Expect(err).To(Equal(ErrPubKeyOpsNotSupported))
+					Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
 				})
 			})
 
@@ -872,7 +872,9 @@ var _ = Describe("client", func() {
 
 				It("returns a StatusError", func() {
 					err := cl.RemovePublicKey("yosemite", "fprint1")
-					Expect(err).To(Equal(&StatusError{Code: http.StatusInternalServerError}))
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+					}))
 				})
 			})
 		})
@@ -937,8 +939,7 @@ var _ = Describe("client", func() {
 
 			It("returns error", func() {
 				vols, err := cl.ListVolumes()
-				Expect(err).NotTo(BeNil())
-				_, ok := err.(*RequestFailedError)
+				_, ok := err.(*freighterclient.RequestFailedError)
 				Expect(ok).To(BeTrue())
 				Expect(server.ReceivedRequests()).To(HaveLen(0))
 				Expect(vols).To(BeNil())
@@ -996,7 +997,7 @@ var _ = Describe("client", func() {
 			It("returns error", func() {
 				vol, err := cl.CreateVolume("repos")
 				Expect(vol).To(BeNil())
-				Expect(err).To(MatchError(ErrVolumeNotFound))
+				Expect(err).To(MatchError(freighterclient.ErrVolumeNotFound))
 				receivedRequests := server.ReceivedRequests()
 				Expect(receivedRequests).To(HaveLen(1))
 			})
@@ -1041,7 +1042,7 @@ var _ = Describe("client", func() {
 
 			It("returns error", func() {
 				err := cl.RemoveVolume("music")
-				Expect(err).To(MatchError(ErrVolumeNotFound))
+				Expect(err).To(MatchError(freighterclient.ErrVolumeNotFound))
 			})
 		})
 	})
@@ -1121,7 +1122,7 @@ var _ = Describe("client", func() {
 		})
 
 		doRequest := func() error {
-			p := &RegistryAuth{
+			p := &freighterclient.RegistryAuth{
 				Username: "foo",
 				Password: "123456",
 				Email:    "foo@example.com",
@@ -1149,19 +1150,19 @@ var _ = Describe("client", func() {
 
 			It("returns ErrEndpointNotFound", func() {
 				err := doRequest()
-				Expect(err).To(MatchError(ErrEndpointNotFound))
+				Expect(err).To(MatchError(freighterclient.ErrEndpointNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
 
 		Context("when the response is HTTP 422 Unprocessable Entity", func() {
 			BeforeEach(func() {
-				statusCode = StatusUnprocessableEntity
+				statusCode = freighterclient.StatusUnprocessableEntity
 			})
 
 			It("returns ErrInvalidParams", func() {
 				err := doRequest()
-				Expect(err).To(MatchError(ErrInvalidParams))
+				Expect(err).To(MatchError(freighterclient.ErrInvalidParams))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
@@ -1173,7 +1174,9 @@ var _ = Describe("client", func() {
 
 			It("returns a StatusError", func() {
 				err := doRequest()
-				Expect(err).To(MatchError(&StatusError{Code: http.StatusInternalServerError}))
+				Expect(err).To(MatchError(&freighterclient.StatusError{
+					Code: http.StatusInternalServerError,
+				}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
@@ -1226,19 +1229,19 @@ var _ = Describe("client", func() {
 
 			It("returns ErrEndpointNotFound", func() {
 				err := doRequest()
-				Expect(err).To(MatchError(ErrEndpointNotFound))
+				Expect(err).To(MatchError(freighterclient.ErrEndpointNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
 
 		Context("when the response is HTTP 422 Unprocessable Entity", func() {
 			BeforeEach(func() {
-				statusCode = StatusUnprocessableEntity
+				statusCode = freighterclient.StatusUnprocessableEntity
 			})
 
 			It("returns ErrInvalidParams", func() {
 				err := doRequest()
-				Expect(err).To(MatchError(ErrInvalidParams))
+				Expect(err).To(MatchError(freighterclient.ErrInvalidParams))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
@@ -1250,7 +1253,9 @@ var _ = Describe("client", func() {
 
 			It("returns a StatusError", func() {
 				err := doRequest()
-				Expect(err).To(MatchError(&StatusError{Code: http.StatusInternalServerError}))
+				Expect(err).To(MatchError(&freighterclient.StatusError{
+					Code: http.StatusInternalServerError,
+				}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
@@ -1375,7 +1380,7 @@ var _ = Describe("client", func() {
 
 					images, err := cl.ListImages()
 					Expect(err).NotTo(BeNil())
-					_, ok := err.(*RequestFailedError)
+					_, ok := err.(*freighterclient.RequestFailedError)
 					Expect(ok).To(BeTrue())
 					Expect(server.ReceivedRequests()).To(HaveLen(0))
 					Expect(images).To(BeNil())
@@ -1385,7 +1390,9 @@ var _ = Describe("client", func() {
 					statusCode = http.StatusInternalServerError
 					images, err := cl.ListImages()
 
-					Expect(err).To(Equal(&StatusError{Code: http.StatusInternalServerError}))
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+					}))
 					Expect(images).To(BeNil())
 				})
 
@@ -1406,7 +1413,7 @@ var _ = Describe("client", func() {
 					responseBody = `<<???>>`
 
 					images, err := cl.ListImages()
-					Expect(err).To(Equal(ErrUnexpectedResponse))
+					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 					Expect(images).To(BeNil())
 				})
 
@@ -1438,7 +1445,7 @@ var _ = Describe("client", func() {
 					Expect(err).To(BeNil())
 					Expect(images).To(HaveLen(2))
 
-					Expect(images[0]).To(Equal(&Image{
+					Expect(images[0]).To(Equal(&freighterclient.Image{
 						ID:          "12",
 						Name:        "source1",
 						Tag:         "sourcetag1",
@@ -1447,7 +1454,7 @@ var _ = Describe("client", func() {
 						VirtualSize: 39,
 					}))
 
-					Expect(images[1]).To(Equal(&Image{
+					Expect(images[1]).To(Equal(&freighterclient.Image{
 						ID:          "13",
 						Name:        "source2",
 						Tag:         "sourcetag2",
