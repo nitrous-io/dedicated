@@ -16,22 +16,19 @@ import (
 	"github.com/nitrous-io/freighter/util"
 )
 
-var version string
-
 var (
-	confDir = "/etc/freighterd"
-
+	version     string
 	defaultConf string
 )
 
 func init() {
-	defaultConf = path.Join(confDir, "config.json")
+	defaultConf = path.Join("etc", "freighterd", "config.json")
 }
 
 func main() {
 	var (
 		flVersion    = flag.Bool("v", false, "Display the version and exit")
-		flConfigPath = flag.String("c", "config.json", "Specify freighterd's configuration file")
+		flConfigPath = flag.String("c", defaultConf, "Path to the configuration file. Default to "+defaultConf)
 	)
 	flag.Parse()
 
@@ -48,7 +45,7 @@ func main() {
 		}
 	}()
 
-	var conf *server.Config
+	conf := &server.Config{}
 	// parse config file
 	confFile, err := os.Open(*flConfigPath)
 	if err != nil {
