@@ -118,7 +118,7 @@ var _ = Describe("client", func() {
 			)
 			var err error
 			st, err = NewServerTest(handlers)
-			Expect(err).To(BeNil(), "test server started succesfully")
+			Expect(err).To(BeNil(), "test server failed to start")
 			cl, host, server = st.client, st.host, st.server
 		})
 
@@ -256,7 +256,7 @@ var _ = Describe("client", func() {
 
 			var err error
 			st, err = NewServerTest(handlers)
-			Expect(err).To(BeNil(), "test server started successfully")
+			Expect(err).To(BeNil(), "test server failed to start")
 			cl, host, server = st.client, st.host, st.server
 		})
 
@@ -386,7 +386,7 @@ var _ = Describe("client", func() {
 
 			var err error
 			st, err = NewServerTest(handlers)
-			Expect(err).To(BeNil(), "test server started succesfully")
+			Expect(err).To(BeNil(), "test server failed to start")
 			cl, host, server = st.client, st.host, st.server
 		})
 
@@ -490,7 +490,7 @@ var _ = Describe("client", func() {
 			)
 			var err error
 			st, err = NewServerTest(handlers)
-			Expect(err).To(BeNil(), "test server started succesfully")
+			Expect(err).To(BeNil(), "test server failed to start")
 			cl, host, server = st.client, st.host, st.server
 		})
 
@@ -625,7 +625,7 @@ var _ = Describe("client", func() {
 
 			var err error
 			st, err = NewServerTest(handlers)
-			Expect(err).To(BeNil(), "test server started succesfully")
+			Expect(err).To(BeNil(), "test server failed to start")
 			cl, host, server = st.client, st.host, st.server
 		})
 
@@ -716,7 +716,7 @@ var _ = Describe("client", func() {
 			)
 			var err error
 			st, err = NewServerTest(handlers)
-			Expect(err).To(BeNil(), "test server started successfully")
+			Expect(err).To(BeNil(), "test server failed to start")
 			cl, host, server = st.client, st.host, st.server
 		}
 
@@ -894,7 +894,7 @@ var _ = Describe("client", func() {
 			)
 			var err error
 			st, err = NewServerTest(handlers)
-			Expect(err).To(BeNil(), "test server started successfully")
+			Expect(err).To(BeNil(), "test server failed to start")
 			cl, host, server = st.client, st.host, st.server
 		})
 
@@ -967,7 +967,7 @@ var _ = Describe("client", func() {
 			)
 			var err error
 			st, err = NewServerTest(handlers)
-			Expect(err).To(BeNil(), "test server started successfully")
+			Expect(err).To(BeNil(), "test server failed to start")
 			cl, host, server = st.client, st.host, st.server
 		})
 
@@ -1018,7 +1018,7 @@ var _ = Describe("client", func() {
 			)
 			var err error
 			st, err = NewServerTest(handlers)
-			Expect(err).To(BeNil(), "test server started successfully")
+			Expect(err).To(BeNil(), "test server failed to start")
 			cl, host, server = st.client, st.host, st.server
 		})
 
