@@ -1,6 +1,8 @@
 package nitrousapi
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -26,6 +28,7 @@ type HostAPI struct {
 	Slug           string `json:"slug"`
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort int64  `json:"freighterd_port"`
+	Domain         string `json:"domain"`
 
 	CA   string `json:"ca"`
 	Cert string `json:"cert"`
@@ -53,4 +56,21 @@ func GetContainer(client *httpclient.Client, server, slug string) (*ContainerAPI
 		return nil, err
 	}
 	return cr.Container, nil
+}
+
+// TLSConfig returns a tls configuration generated from api response that is
+// valid for establishing HTTPS connection with the dedicated host
+func TLSConfig(h HostAPI) (*tls.Config, error) {
+	crt, err := tls.X509KeyPair([]byte(h.Cert), []byte(h.Key))
+	if err != nil {
+		return nil, err
+	}
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM([]byte(h.CA))
+	tlsConfig := &tls.Config{
+		ServerName:   h.Domain,
+		RootCAs:      certPool,
+		Certificates: []tls.Certificate{crt},
+	}
+	return tlsConfig, nil
 }
