@@ -63,6 +63,9 @@ func (v *Volume) Insert(d db.QueryReceiver) error {
 }
 
 func (v *Volume) Delete(d db.QueryReceiver) error {
+	if _, err := d.Exec(`DELETE FROM container_volumes WHERE volume_id = $1`, v.ID); err != nil {
+		return err
+	}
 	_, err := d.Exec(`DELETE FROM volumes WHERE id = $1`, v.ID)
 	return err
 }
