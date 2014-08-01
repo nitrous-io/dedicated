@@ -51,7 +51,7 @@ var mkFreighterClient = func(h *host.Host, c *cert.Cert) (freighterclient.Client
 	hst := freighterclient.NewHost(
 		h.IPAddress.String,
 		int(h.FreighterdPort.Int64),
-		fmt.Sprintf("%s.nitrouspro.com", h.Slug),
+		h.Hostname(),
 		[]byte(c.CA),
 		[]byte(c.ClientCert),
 		[]byte(c.ClientKey),

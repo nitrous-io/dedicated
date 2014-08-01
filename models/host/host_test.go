@@ -433,12 +433,12 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe(".Domain", func() {
-		It("return the host domain", func() {
+	Describe(".Hostname", func() {
+		It("return the host DNS name", func() {
 			h := &host.Host{
 				Slug: "hello",
 			}
-			Expect(h.Domain()).To(Equal("hello.nitrouspro.com"))
+			Expect(h.Hostname()).To(Equal("hello.nitrouspro.com"))
 		})
 	})
 })

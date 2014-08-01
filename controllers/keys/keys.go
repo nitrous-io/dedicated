@@ -1,7 +1,6 @@
 package keys
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/lib/pq"
@@ -201,7 +200,7 @@ var mkFreighterClient = func(db *db.Database, hostID int64) (freighterclient.Cli
 	hst := freighterclient.NewHost(
 		h.IPAddress.String,
 		int(h.FreighterdPort.Int64),
-		fmt.Sprintf("%s.nitrouspro.com", h.Slug),
+		h.Hostname(),
 		[]byte(crt.CA),
 		[]byte(crt.ClientCert),
 		[]byte(crt.ClientKey),

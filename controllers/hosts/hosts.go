@@ -170,7 +170,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return err
 	}
 
-	crt, err := generateCerts(fmt.Sprintf("%s.nitrouspro.com", slug))
+	crt, err := generateCerts(h.Hostname())
 	if err != nil {
 		return err
 	}
