@@ -11,10 +11,7 @@ import (
 
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
-
-	"github.com/nitrous-io/nitrous/controllers/volumes"
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
@@ -50,9 +47,7 @@ var _ = Describe("controllers/volumes", func() {
 		var err error
 
 		mockClient = &freighterclient.MockClient{}
-		*(volumes.TestClient) = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
-			return mockClient, nil
-		}
+		StubDefaultFreighterFn(mockClient)
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -90,6 +85,7 @@ var _ = Describe("controllers/volumes", func() {
 		if db != nil {
 			db.Close()
 		}
+		UnstubFreighterFn()
 	})
 
 	makeVolumes := func(slugs ...string) {
@@ -229,8 +225,7 @@ var _ = Describe("controllers/volumes", func() {
 		Context("when host is unavailable", func() {
 			BeforeEach(func() {
 				hs.H.UpdateState(db, host.StateStopped)
-
-				*volumes.TestClient = volumes.ActualClient
+				UnstubFreighterFn()
 			})
 
 			It("responds with 503 and no volume is added to db", func() {
@@ -305,25 +300,6 @@ var _ = Describe("controllers/volumes", func() {
 				Expect(v.Slug).To(Equal("deprecated"))
 			})
 		})
-
-		Context("when host is unavailable", func() {
-			BeforeEach(func() {
-				hs.H.UpdateState(db, host.StateStopped)
-
-				*volumes.TestClient = volumes.ActualClient
-			})
-
-			It("returns 503 without destroying volume", func() {
-				doRequest("deprecated")
-				Expect(mockClient.RemoveVolumeCalled).To(Equal(0))
-				Expect(res.Code).To(Equal(http.StatusServiceUnavailable))
-				v, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "deprecated")
-				Expect(err).To(BeNil())
-				Expect(v).NotTo(BeNil())
-				Expect(v.Slug).To(Equal("deprecated"))
-			})
-		})
-
 	})
 
 	Describe("GET /api/v0/hosts/:slug/volumes/:vslug", func() {

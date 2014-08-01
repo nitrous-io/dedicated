@@ -6,14 +6,12 @@ import (
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/registry"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
 var (
-	errHostIPUnknown    = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
 	errUsernameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "username is required")
 	errPasswordRequired = httperror.New(http.StatusBadRequest, "invalid_request", "password is required")
 	errEmailRequired    = httperror.New(http.StatusBadRequest, "invalid_request", "email is required")
@@ -87,12 +85,7 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 		Registry: registryURL,
 	}
 
-	crt, err := cert.Get(db, h.ID)
-	if err != nil {
-		return err
-	}
-
-	cl, err := mkFreighterClient(h, crt)
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
@@ -130,12 +123,7 @@ func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 	db := c.DB()
 	logger := c.Logger()
 
-	crt, err := cert.Get(db, h.ID)
-	if err != nil {
-		return err
-	}
-
-	cl, err := mkFreighterClient(h, crt)
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
@@ -164,19 +152,4 @@ func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 	logger.Infof("Response: 200 OK")
 
 	return nil
-}
-
-var mkFreighterClient = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
-	if h.IPAddress.String == "" {
-		return nil, errHostIPUnknown
-	}
-	hst := freighterclient.NewHost(
-		h.IPAddress.String,
-		int(h.FreighterdPort.Int64),
-		h.Hostname(),
-		[]byte(c.CA),
-		[]byte(c.ClientCert),
-		[]byte(c.ClientKey),
-	)
-	return freighterclient.NewClient(hst)
 }

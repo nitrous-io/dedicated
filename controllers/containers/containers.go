@@ -9,8 +9,8 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
+	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
@@ -44,37 +44,17 @@ var (
 	Destroy middleware.Middleware = WithContainerAndHost(destroy)
 )
 
-var mkFreighterClient = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
-	if h.IPAddress.String == "" {
-		return nil, controllers.ErrHostIPUnknown
-	}
-	hst := freighterclient.NewHost(
-		h.IPAddress.String,
-		int(h.FreighterdPort.Int64),
-		h.Hostname(),
-		[]byte(c.CA),
-		[]byte(c.ClientCert),
-		[]byte(c.ClientKey),
-	)
-	return freighterclient.NewClient(hst)
-}
-
 func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	if h.State != host.StateRunning {
 		return errHostNotRunning
 	}
 
 	db := c.DB()
-	crt, err := cert.Get(c.DB(), h.ID)
-	if err != nil {
-		return err
-	}
-
 	log := c.Logger()
 
 	out := make(chan listresult, 1)
 	quit := make(chan struct{})
-	go freighterList(h, crt, out, quit)
+	go freighterList(db, h, out, quit)
 
 	savedContainers, err := container.FindAllByHostID(db, h.ID)
 	if err != nil {
@@ -125,12 +105,12 @@ type listresult struct {
 	err        error
 }
 
-func freighterList(h *host.Host, crt *cert.Cert, out chan<- listresult, quit <-chan struct{}) {
+func freighterList(db db.QueryReceiver, h *host.Host, out chan<- listresult, quit <-chan struct{}) {
 	select {
 	case <-quit:
 		return
 	default:
-		cl, err := mkFreighterClient(h, crt)
+		cl, err := controllers.NewFreighterClient(db, h)
 		if err != nil {
 			out <- listresult{err: err}
 			return
@@ -196,12 +176,7 @@ func create(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 		return err
 	}
 
-	crt, err := cert.Get(db, h.ID)
-	if err != nil {
-		return err
-	}
-
-	cl, err := mkFreighterClient(h, crt)
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
@@ -243,12 +218,7 @@ func create(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 }
 
 func show(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	crt, err := cert.Get(c.DB(), h.ID)
-	if err != nil {
-		return err
-	}
-
-	cl, err := mkFreighterClient(h, crt)
+	cl, err := controllers.NewFreighterClient(c.DB(), h)
 	if err != nil {
 		return err
 	}
@@ -262,19 +232,14 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, c controll
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": controllers.NewContainerAPI(cn, h, crt),
+		"container": controllers.NewContainerAPI(cn, h, cl.Cert),
 	}
 
 	return nil
 }
 
 func start(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	crt, err := cert.Get(c.DB(), h.ID)
-	if err != nil {
-		return err
-	}
-
-	cl, err := mkFreighterClient(h, crt)
+	cl, err := controllers.NewFreighterClient(c.DB(), h)
 	if err != nil {
 		return err
 	}
@@ -282,12 +247,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, c control
 }
 
 func stop(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	crt, err := cert.Get(c.DB(), h.ID)
-	if err != nil {
-		return err
-	}
-
-	cl, err := mkFreighterClient(h, crt)
+	cl, err := controllers.NewFreighterClient(c.DB(), h)
 	if err != nil {
 		return err
 	}
@@ -295,11 +255,7 @@ func stop(cn *container.Container, h *host.Host, env *middleware.Env, c controll
 }
 
 func restart(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	crt, err := cert.Get(c.DB(), h.ID)
-	if err != nil {
-		return err
-	}
-	cl, err := mkFreighterClient(h, crt)
+	cl, err := controllers.NewFreighterClient(c.DB(), h)
 	if err != nil {
 		return err
 	}
@@ -325,12 +281,7 @@ func performControlAction(fn actionFn, cn *container.Container, h *host.Host, en
 func destroy(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
-	crt, err := cert.Get(db, h.ID)
-	if err != nil {
-		return err
-	}
-
-	cl, err := mkFreighterClient(h, crt)
+	cl, err := controllers.NewFreighterClient(c.DB(), h)
 	if err != nil {
 		return err
 	}

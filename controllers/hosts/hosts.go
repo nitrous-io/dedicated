@@ -76,9 +76,6 @@ func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *
 	return nil
 }
 
-// TODO:
-// check if we need to save the slug first to secure the uniqueness of domain,
-// before we generate the cert.
 func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
@@ -238,15 +235,11 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	var info *freighterclient.HostInfo
 	var err error
-
-	crt, err := cert.Get(c.DB(), h.ID)
-	if err != nil {
-		return err
-	}
+	db := c.DB()
 
 	// Request info from Freighter if host is running with an IP address.
 	if h.IPAddress.String != "" && h.State == host.StateRunning {
-		cl, err := mkFreighterClient(h, crt)
+		cl, err := controllers.NewFreighterClient(db, h)
 		if err != nil {
 			return err
 		}
@@ -453,19 +446,4 @@ func generateCerts(hostname string) (*cert.Cert, error) {
 		ClientCert: string(clCrt),
 		ClientKey:  string(clKey),
 	}, nil
-}
-
-var mkFreighterClient = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
-	if h.IPAddress.String == "" {
-		return nil, controllers.ErrHostIPUnknown
-	}
-	hst := freighterclient.NewHost(
-		h.IPAddress.String,
-		int(h.FreighterdPort.Int64),
-		h.Hostname(),
-		[]byte(c.CA),
-		[]byte(c.ClientCert),
-		[]byte(c.ClientKey),
-	)
-	return freighterclient.NewClient(hst)
 }

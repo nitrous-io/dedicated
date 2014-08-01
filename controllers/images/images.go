@@ -3,10 +3,8 @@ package images
 import (
 	"net/http"
 
-	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 )
 
@@ -15,12 +13,7 @@ var (
 )
 
 func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	crt, err := cert.Get(c.DB(), h.ID)
-	if err != nil {
-		return err
-	}
-
-	cl, err := mkFreighterClient(h, crt)
+	cl, err := controllers.NewFreighterClient(c.DB(), h)
 	if err != nil {
 		return err
 	}
@@ -36,19 +29,4 @@ func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	}
 
 	return nil
-}
-
-var mkFreighterClient = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
-	if h.IPAddress.String == "" {
-		return nil, controllers.ErrHostIPUnknown
-	}
-	hst := freighterclient.NewHost(
-		h.IPAddress.String,
-		int(h.FreighterdPort.Int64),
-		h.Hostname(),
-		[]byte(c.CA),
-		[]byte(c.ClientCert),
-		[]byte(c.ClientKey),
-	)
-	return freighterclient.NewClient(hst)
 }

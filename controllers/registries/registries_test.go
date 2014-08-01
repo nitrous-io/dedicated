@@ -12,9 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/nitrous-io/nitrous/controllers/registries"
 	ndb "github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 
 	"github.com/nitrous-io/nitrous/models/registry"
@@ -77,9 +75,7 @@ var _ = Describe("controllers/registries", func() {
 		var err error
 
 		mockClient = &freighterclient.MockClient{}
-		*(registries.TestClient) = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
-			return mockClient, nil
-		}
+		StubDefaultFreighterFn(mockClient)
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -118,6 +114,7 @@ var _ = Describe("controllers/registries", func() {
 		if db != nil {
 			db.Close()
 		}
+		UnstubFreighterFn()
 	})
 
 	Describe("GET /api/v0/hosts/{slug}/registries", func() {

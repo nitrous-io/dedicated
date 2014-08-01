@@ -18,7 +18,6 @@ import (
 	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
@@ -54,10 +53,7 @@ var _ = Describe("controllers/containers", func() {
 		var err error
 
 		mockClient = &freighterclient.MockClient{}
-		// replace the actual mkFreighterClient with a mock implementation
-		*(containers.TestClient) = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
-			return mockClient, nil
-		}
+		StubDefaultFreighterFn(mockClient)
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -96,6 +92,7 @@ var _ = Describe("controllers/containers", func() {
 		if db != nil {
 			db.Close()
 		}
+		UnstubFreighterFn()
 	})
 
 	Describe("WithContainerAndHost", func() {
@@ -173,7 +170,7 @@ var _ = Describe("controllers/containers", func() {
 			Context("when container's host is not running", func() {
 				BeforeEach(func() {
 					hs.H.UpdateState(db, host.StateStopped)
-
+					UnstubFreighterFn()
 				})
 
 				It("returns HTTP 400 Bad Request", func() {
@@ -411,8 +408,8 @@ var _ = Describe("controllers/containers", func() {
 				})
 				Expect(err).To(BeNil())
 
-				// test the actual logic of checking host ip
-				*containers.TestClient = containers.ActualClient
+				// test the actual client
+				UnstubFreighterFn()
 			})
 
 			It("returns HTTP 400 Bad Request", func() {

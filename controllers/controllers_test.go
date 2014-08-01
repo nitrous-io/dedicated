@@ -10,6 +10,3 @@ func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "controllers")
 }
-
-var _ = Describe("controllers", func() {
-})

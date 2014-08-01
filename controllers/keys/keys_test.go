@@ -14,7 +14,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/nitrous-io/nitrous/controllers/keys"
 	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
@@ -74,10 +73,7 @@ var _ = Describe("controllers/keys", func() {
 	BeforeEach(func() {
 		var err error
 		mockClient = &freighterclient.MockClient{}
-
-		*keys.TestClient = func(dbconn *ndb.Database, hostID int64) (freighterclient.Client, error) {
-			return mockClient, nil
-		}
+		StubDefaultFreighterFn(mockClient)
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -118,6 +114,7 @@ var _ = Describe("controllers/keys", func() {
 		if db != nil {
 			db.Close()
 		}
+		UnstubFreighterFn()
 	})
 
 	Describe("GET /api/v0/containers/{container}/keys", func() {

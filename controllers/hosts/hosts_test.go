@@ -475,9 +475,7 @@ var _ = Describe("controllers/hosts", func() {
 				NumCPU:       2,
 				PerCPUUsage:  []float64{0.5, 30},
 			}
-			*(hosts.TestClient) = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
-				return mockClient, nil
-			}
+			StubDefaultFreighterFn(mockClient)
 
 			hs, err = CreateHostStack(db, &HostStack{
 				H: &host.Host{
@@ -491,6 +489,10 @@ var _ = Describe("controllers/hosts", func() {
 				U: u,
 			})
 			Expect(err).To(BeNil())
+		})
+
+		AfterEach(func() {
+			UnstubFreighterFn()
 		})
 
 		It("calls the Freighter client to get host info", func() {
@@ -532,6 +534,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when host is not running", func() {
 			BeforeEach(func() {
 				hs.H.UpdateState(db, host.StateStopped)
+				UnstubFreighterFn()
 			})
 
 			It("excludes host stats from Freighter", func() {

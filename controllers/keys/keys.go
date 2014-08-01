@@ -7,9 +7,7 @@ import (
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/controllers/containers"
-	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/publickey"
@@ -23,7 +21,6 @@ var (
 	ErrKeyExists             = httperror.New(http.StatusBadRequest, "validation_failed", "key already exists")
 	ErrPubKeyOpsNotSupported = httperror.New(http.StatusBadRequest, "invalid_request", "public key operations not supported on this container")
 	ErrFingerprintNotFound   = httperror.New(http.StatusNotFound, "validation_failed", "fingerprint not found")
-	ErrHostIPUnknown         = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
 )
 
 var (
@@ -83,7 +80,7 @@ func create(cnr *container.Container, h *host.Host, env *middleware.Env, c contr
 		}
 		return err
 	} else {
-		cl, err := mkFreighterClient(db, cnr.HostID)
+		cl, err := controllers.NewFreighterClient(db, h)
 		if err != nil {
 			return err
 		}
@@ -110,7 +107,7 @@ func deleteAll(cnr *container.Container, h *host.Host, env *middleware.Env, c co
 	db := c.DB()
 	u := env.User
 
-	cl, err := mkFreighterClient(db, cnr.HostID)
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
@@ -145,7 +142,7 @@ func deleteByFingerprint(cnr *container.Container, h *host.Host, env *middleware
 		return err
 	}
 
-	cl, err := mkFreighterClient(db, cnr.HostID)
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
@@ -182,30 +179,6 @@ func withContainer(fn func(cnr *container.Container, env *middleware.Env, c cont
 
 		return fn(cnr, env, c, w, r)
 	})
-}
-
-var mkFreighterClient = func(db *db.Database, hostID int64) (freighterclient.Client, error) {
-	h, err := host.FindByID(db, hostID)
-	if err != nil {
-		return nil, err
-	}
-	if h.IPAddress.String == "" {
-		return nil, ErrHostIPUnknown
-	}
-	crt, err := cert.Get(db, hostID)
-	if err != nil {
-		return nil, err
-	}
-
-	hst := freighterclient.NewHost(
-		h.IPAddress.String,
-		int(h.FreighterdPort.Int64),
-		h.Hostname(),
-		[]byte(crt.CA),
-		[]byte(crt.ClientCert),
-		[]byte(crt.ClientKey),
-	)
-	return freighterclient.NewClient(hst)
 }
 
 func freighterError(err error) error {

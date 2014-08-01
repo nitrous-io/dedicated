@@ -10,17 +10,14 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/volume"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
 var (
-	errSlugRequired   = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
-	errHostNotRunning = httperror.New(http.StatusServiceUnavailable, "service_unavailable", "host is not running")
-	errHostIPUnknown  = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
-	errNotFound       = httperror.New(http.StatusNotFound, "not_found", "volume could not be found")
+	errSlugRequired = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
+	errNotFound     = httperror.New(http.StatusNotFound, "not_found", "volume could not be found")
 )
 
 var (
@@ -51,12 +48,7 @@ func Create(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 		return errSlugRequired
 	}
 
-	crt, err := cert.Get(db, h.ID)
-	if err != nil {
-		return err
-	}
-
-	cl, err := mkFreighterClient(h, crt)
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
@@ -108,12 +100,7 @@ func Create(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
-	crt, err := cert.Get(db, h.ID)
-	if err != nil {
-		return err
-	}
-
-	cl, err := mkFreighterClient(h, crt)
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
@@ -147,12 +134,7 @@ func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 
-	crt, err := cert.Get(db, h.ID)
-	if err != nil {
-		return err
-	}
-
-	cl, err := mkFreighterClient(h, crt)
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
@@ -175,24 +157,6 @@ func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 		"volume": vi,
 	}
 	return nil
-}
-
-var mkFreighterClient = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
-	if h.IPAddress.String == "" {
-		return nil, errHostIPUnknown
-	}
-	if h.State != host.StateRunning {
-		return nil, errHostNotRunning
-	}
-	hst := freighterclient.NewHost(
-		h.IPAddress.String,
-		int(h.FreighterdPort.Int64),
-		h.Hostname(),
-		[]byte(c.CA),
-		[]byte(c.ClientCert),
-		[]byte(c.ClientKey),
-	)
-	return freighterclient.NewClient(hst)
 }
 
 func getVolume(db ndb.QueryReceiver, hostID int64, slug string) (*volume.Volume, error) {
