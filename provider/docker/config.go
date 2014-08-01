@@ -47,9 +47,9 @@ func (p *DockerProvider) createConfigs(containerName, imageName string, cfg *pro
 		dcHostConfig.Binds = ms
 	}
 
-	dcConfig.ExposedPorts[dockerclient.Port("22/tcp")] = struct{}{}
-	dcConfig.Volumes["/etc/ssh/freighter"] = struct{}{}
-	dcHostConfig.Binds = append(dcHostConfig.Binds, fmt.Sprintf("%s/ssh:/etc/ssh/freighter:ro", p.containerSettingsDir(containerName)))
+	if isNitrousImage(imageName) {
+		p.nitrousImageConfig(dcConfig, dcHostConfig)
+	}
 
 	return dcConfig, dcHostConfig, nil
 }
@@ -76,9 +76,26 @@ func (p *DockerProvider) startConfig(container *dockerclient.Container, cfg *pro
 			return nil, err
 		}
 		dcHostConfig.Binds = ms
-		dcHostConfig.Binds = append(dcHostConfig.Binds, fmt.Sprintf("%s/ssh:/etc/ssh/freighter:ro", p.containerSettingsDir(container.Config.Hostname)))
+	}
+	if usesNitrousImage(container) {
+		p.nitrousImageConfig(container.Config, dcHostConfig)
 	}
 	return dcHostConfig, nil
+}
+
+func (p *DockerProvider) nitrousImageConfig(dcConfig *dockerclient.Config, dcHostConfig *dockerclient.HostConfig) {
+	dcConfig.ExposedPorts[dockerclient.Port("22/tcp")] = struct{}{}
+	dcConfig.Volumes["/etc/ssh/freighter"] = struct{}{}
+
+	hasSSHBind := false
+	for _, bind := range dcHostConfig.Binds {
+		if strings.HasSuffix(bind, "/etc/ssh/freighter:ro") {
+			hasSSHBind = true
+		}
+	}
+	if !hasSSHBind {
+		dcHostConfig.Binds = append(dcHostConfig.Binds, fmt.Sprintf("%s/ssh:/etc/ssh/freighter:ro", p.containerSettingsDir(dcConfig.Hostname)))
+	}
 }
 
 func dockerMountBinds(mountSpecs []string, hostVolsPath string) ([]string, error) {

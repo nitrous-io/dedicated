@@ -561,13 +561,15 @@ func keysToKeyMap(keys []string) (map[string]string, error) {
 }
 
 func usesNitrousImage(container *dockerclient.Container) bool {
-	image := container.Config.Image
+	return isNitrousImage(container.Config.Image)
+}
+
+func isNitrousImage(image string) bool {
 	for _, nitrousImage := range images {
 		if registryName+"/"+nitrousImage == image {
 			return true
 		}
 	}
-
 	return false
 }
 
