@@ -402,9 +402,8 @@ func (c *client) RegistryLogin(h *Host, p *RegistryAuth) error {
 func (c *client) RegistryLogout(h *Host, registry string) error {
 	params := url.Values{}
 	params.Set("registry", registry)
-
-	u := fmt.Sprintf("%s/registry/auth", h.BaseURL())
-	req, err := http.NewRequest("DELETE", u, strings.NewReader(params.Encode()))
+	u := fmt.Sprintf("%s/registry/auth?%s", h.BaseURL(), params.Encode())
+	req, err := http.NewRequest("DELETE", u, nil)
 	if err != nil {
 		return err
 	}

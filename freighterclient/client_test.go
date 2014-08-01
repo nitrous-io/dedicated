@@ -1260,7 +1260,10 @@ var _ = Describe("client", func() {
 			It("does not return any error", func() {
 				err := doRequest()
 				Expect(err).To(BeNil())
-				Expect(server.ReceivedRequests()).To(HaveLen(1))
+
+				reqs := server.ReceivedRequests()
+				Expect(reqs).To(HaveLen(1))
+				Expect(reqs[0].FormValue("registry")).To(Equal("hub.example.com"))
 			})
 		})
 
