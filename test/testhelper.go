@@ -115,7 +115,11 @@ func NewAuthedRequest(t *token.Token, method string, urlStr string, params *url.
 }
 
 func NewFormRequest(method string, urlStr string, params *url.Values) (*http.Request, error) {
-	req, err := http.NewRequest(method, urlStr, strings.NewReader(params.Encode()))
+	var r io.Reader
+	if params != nil {
+		r = strings.NewReader(params.Encode())
+	}
+	req, err := http.NewRequest(method, urlStr, r)
 	if err == nil {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}

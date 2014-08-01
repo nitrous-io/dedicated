@@ -38,7 +38,12 @@ func (s *Server) drawRoutes() {
 		s.route("/hosts/{slug}/volumes/{vslug}", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Destroy)))), "DELETE")
 		s.route("/hosts/{slug}/volumes/{vslug}", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Show)))), "GET")
 
-		s.route("/hosts/{slug}/images", mw.Auth(mw.Vars(mw.JSON(images.Index))), "GET")
+		s.route("/hosts/{slug}/images", mw.Auth(mw.Vars(mw.JSON(mw.HostViaPath("slug", images.Index)))), "GET")
+		s.route("/hosts/{slug}/images", mw.Auth(mw.Vars(mw.JSON(mw.HostViaPath("slug", images.Build)))), "POST")
+		s.route("/hosts/{slug}/images/pull", mw.Auth(mw.JSON(mw.HostViaPath("slug", images.Pull))), "POST")
+		s.route("/hosts/{slug}/images/{image}/push", mw.Auth(mw.JSON(mw.HostViaPath("slug", images.Push))), "POST")
+		s.route("/hosts/{slug}/images/{image}", mw.Auth(mw.JSON(mw.HostViaPath("slug", images.Remove))), "DELETE")
+		s.route("/hosts/{slug}/images/{image}/tag", mw.Auth(mw.JSON(mw.HostViaPath("slug", images.Tag))), "POST")
 
 		s.route("/containers", mw.Auth(mw.JSON(containers.Index)), "GET")
 		s.route("/containers", mw.Auth(mw.JSON(containers.Create)), "POST")
