@@ -77,7 +77,7 @@ var _ = Describe("models/publickey", func() {
 				Expect(err).To(BeNil())
 				Expect(keys).To(HaveLen(1))
 
-				Expect(keys[0].ID).To(Equal(hs.U.ID))
+				Expect(keys[0].UserID).To(Equal(hs.U.ID))
 				Expect(keys[0].Key).To(Equal(validRSA))
 			})
 		})
