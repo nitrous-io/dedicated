@@ -28,9 +28,15 @@ format:
 
 test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
-	@script/embedded-docker $(TEST)
+	@script/test $(TEST)
 
-citest: test
+ci: image
+	@echo "$(OK_COLOR)==> Running within docker...$(NO_COLOR)"
+	@script/ci $(VERSION)
+
+image:
+	@echo "$(OK_COLOR)==> Building image...$(NO_COLOR)"
+	@script/image $(VERSION)
 
 run: build
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"

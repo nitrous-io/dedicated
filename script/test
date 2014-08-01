@@ -10,6 +10,8 @@ die() {
   echo $* && exit 1
 }
 
+test -f /var/run/docker.pid || docker -d -e lxc >& /var/log/docker.log &
+while test ! -f /var/run/docker.pid; do sleep 1; done
 version=$(docker version | grep 'Client version' | cut -d':' -f2 | tr -d ' ')
 docker pull ddollar/dind:$version >/dev/null 2>&1 || die "image ddollar/dind:$version does not exist"
 

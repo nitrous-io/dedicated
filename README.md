@@ -4,10 +4,6 @@ freighter
 ## Development
 
 * `vagrant up` using the bundled `Vagrantfile`
-* Run `script/run-shell` to start a shell in Docker
-
-**In Docker shell:**
-* Run `script/setup`
 * Run `make test` to run tests
 * Run `make run` to run server
 

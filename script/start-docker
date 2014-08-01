@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-# start docker daemon
-if which docker >/dev/null; then
-  docker -d -e lxc >& /var/log/docker.log &
-fi
-
-$*

@@ -13,4 +13,4 @@ docker run \
   --privileged \
   --volume $HOME/build:/opt/freighterd/build \
   --volume $(pwd):/opt/src/github.com/nitrous-io/$APP \
-  registry.nitrous.io/$APP ./script/release $VERSION
+  $APP:$VERSION ./script/release $VERSION

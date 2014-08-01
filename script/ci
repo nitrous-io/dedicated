@@ -1,0 +1,6 @@
+#!/bin/bash
+docker run \
+  --privileged=true \
+  --rm=true \
+  -v $(readlink -f $SSH_AUTH_SOCK):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent \
+  freighter:$1 ./script/install-deps ./script/test
