@@ -46,7 +46,7 @@ var (
 
 var mkFreighterClient = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
 	if h.IPAddress.String == "" {
-		return nil, errHostIPUnknown
+		return nil, controllers.ErrHostIPUnknown
 	}
 	hst := freighterclient.NewHost(
 		h.IPAddress.String,

@@ -49,7 +49,6 @@ var (
 const HostbuilderURLEnvVar = "HOSTBUILDER_URL"
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
-var FreighterClient freighterclient.Client
 
 func init() {
 	hostbuilderURL = os.Getenv(HostbuilderURLEnvVar)
@@ -57,8 +56,6 @@ func init() {
 		panic(fmt.Sprintf("%v is not set", HostbuilderURLEnvVar))
 	}
 	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
-
-	FreighterClient = freighterclient.NewClient(nil)
 
 	aesKey = os.Getenv("AES_KEY")
 	if aesKey == "" {
@@ -242,10 +239,18 @@ func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 	var info *freighterclient.HostInfo
 	var err error
 
+	crt, err := cert.Get(c.DB(), h.ID)
+	if err != nil {
+		return err
+	}
+
 	// Request info from Freighter if host is running with an IP address.
 	if h.IPAddress.String != "" && h.State == host.StateRunning {
-		fHost := freighterclient.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), false)
-		info, err = FreighterClient.HostInfo(fHost)
+		cl, err := mkFreighterClient(h, crt)
+		if err != nil {
+			return err
+		}
+		info, err = cl.HostInfo()
 		if err != nil {
 			return err
 		}
@@ -292,7 +297,7 @@ func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 		tx.Rollback()
 		return err
 	}
-	if err := cert.Delete(tx, ht.ID); err != nil {
+	if err := cert.Delete(tx, h.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -448,4 +453,19 @@ func generateCerts(hostname string) (*cert.Cert, error) {
 		ClientCert: string(clCrt),
 		ClientKey:  string(clKey),
 	}, nil
+}
+
+var mkFreighterClient = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
+	if h.IPAddress.String == "" {
+		return nil, controllers.ErrHostIPUnknown
+	}
+	hst := freighterclient.NewHost(
+		h.IPAddress.String,
+		int(h.FreighterdPort.Int64),
+		h.Hostname(),
+		[]byte(c.CA),
+		[]byte(c.ClientCert),
+		[]byte(c.ClientKey),
+	)
+	return freighterclient.NewClient(hst)
 }

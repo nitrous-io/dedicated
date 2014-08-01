@@ -475,7 +475,9 @@ var _ = Describe("controllers/hosts", func() {
 				NumCPU:       2,
 				PerCPUUsage:  []float64{0.5, 30},
 			}
-			hosts.FreighterClient = mockClient
+			*(hosts.TestClient) = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
+				return mockClient, nil
+			}
 
 			hs, err = CreateHostStack(db, &HostStack{
 				H: &host.Host{

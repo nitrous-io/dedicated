@@ -6,28 +6,26 @@ import (
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
+	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 )
-
-// FreighterClient is a shared freighterclient.Client for making requests to Freighter
-// API hosts.
-var FreighterClient freighterclient.Client
 
 var (
 	Index middleware.Middleware = middleware.HostViaPath("slug", index)
 )
 
-func init() {
-	FreighterClient = freighterclient.NewClient(nil)
-}
-
 func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	fHost, err := mkFreighterHost(h)
+	crt, err := cert.Get(c.DB(), h.ID)
 	if err != nil {
 		return err
 	}
 
-	images, err := FreighterClient.ListImages(fHost)
+	cl, err := mkFreighterClient(h, crt)
+	if err != nil {
+		return err
+	}
+
+	images, err := cl.ListImages()
 	if err != nil {
 		return err
 	}
@@ -40,6 +38,17 @@ func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	return nil
 }
 
-func mkFreighterHost(h *host.Host) (*freighterclient.Host, error) {
-	return controllers.MakeFreighterHost(h, false)
+var mkFreighterClient = func(h *host.Host, c *cert.Cert) (freighterclient.Client, error) {
+	if h.IPAddress.String == "" {
+		return nil, controllers.ErrHostIPUnknown
+	}
+	hst := freighterclient.NewHost(
+		h.IPAddress.String,
+		int(h.FreighterdPort.Int64),
+		h.Hostname(),
+		[]byte(c.CA),
+		[]byte(c.ClientCert),
+		[]byte(c.ClientKey),
+	)
+	return freighterclient.NewClient(hst)
 }
