@@ -22,7 +22,6 @@ const DefaultImage = "nitrousio/ubuntu:trusty"
 
 var (
 	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
-	errHostNotRunning    = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running") // Not 100% on the status code - how about 409 Conflict?
 	errHostNotFound      = middleware.ErrHostNotFound
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
@@ -35,8 +34,8 @@ var (
 )
 
 var (
-	Index   middleware.Middleware = middleware.HostViaForm("host", index)
-	Create  middleware.Middleware = middleware.HostViaForm("host", create)
+	Index   middleware.Middleware = middleware.HostViaForm("host", requiresRunningHost(index))
+	Create  middleware.Middleware = middleware.HostViaForm("host", requiresRunningHost(create))
 	Show    middleware.Middleware = WithContainerAndHost(show)
 	Start   middleware.Middleware = WithContainerAndHost(start)
 	Stop    middleware.Middleware = WithContainerAndHost(stop)
@@ -44,11 +43,7 @@ var (
 	Destroy middleware.Middleware = WithContainerAndHost(destroy)
 )
 
-func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	if h.State != host.StateRunning {
-		return errHostNotRunning
-	}
-
+func index(h runningHost, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	log := c.Logger()
 
@@ -124,11 +119,7 @@ func freighterList(db db.QueryReceiver, h *host.Host, out chan<- listresult, qui
 	}
 }
 
-func create(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	if h.State != host.StateRunning {
-		return errHostNotRunning
-	}
-
+func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	log := c.Logger()
 
@@ -325,11 +316,23 @@ func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *mi
 			return errHostNotFound
 		}
 		if h.State != host.StateRunning {
-			return errHostNotRunning
+			return controllers.ErrHostNotRunning
 		}
-
 		return fn(cn, h, env, c, w, r)
 	})
+}
+
+type runningHost *host.Host
+type hostFn func(h runningHost, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error
+
+// requiresRunningHost is a wrapper which guarantees the action is called for a running host
+func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	return func(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+		if h.State != host.StateRunning {
+			return controllers.ErrHostNotRunning
+		}
+		return fn(h, env, c, w, r)
+	}
 }
 
 func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) {
