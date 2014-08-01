@@ -463,6 +463,32 @@ var _ = Describe("models/container", func() {
 		})
 	})
 
+	Describe("DeletePermanently()", func() {
+		It("deletes the container from the database", func() {
+			c := &container.Container{
+				UserID:       u.ID,
+				HostID:       h.ID,
+				Image:        "nitrous-base",
+				Slug:         "beef",
+				TerminatedAt: nil,
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM containers WHERE slug = $1;`, "beef").Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+
+			err = c.DeletePermanently(db)
+			Expect(err).To(BeNil())
+
+			err = db.QueryRow(`SELECT COUNT(*) FROM containers WHERE slug = $1;`, "beef").Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0))
+		})
+	})
+
 	Describe("Validate()", func() {
 		var (
 			c *container.Container

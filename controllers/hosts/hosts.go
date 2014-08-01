@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/lib/pq"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
@@ -35,6 +36,12 @@ var (
 
 	hostbuilderURL string
 	aesKey         string
+)
+
+var (
+	validations = map[string]error{
+		"index_hosts_on_slug": httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken"),
+	}
 )
 
 const HostbuilderURLEnvVar = "HOSTBUILDER_URL"
@@ -71,6 +78,8 @@ func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *
 }
 
 func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	db := c.DB()
+
 	size := r.FormValue("size")
 	if size == "" {
 		return ErrSizeRequired
@@ -92,7 +101,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	}
 
 	// TODO: check if user account is eligible to create hosts (has a credit card on file)
-	pl, err := plan.FindByName(c.DB(), size)
+	pl, err := plan.FindByName(db, size)
 	if err != nil {
 		return err
 	}
@@ -100,7 +109,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return ErrPlanNotFound
 	}
 
-	rg, err := region.FindByName(c.DB(), regionName)
+	rg, err := region.FindByName(db, regionName)
 	if err != nil {
 		return err
 	}
@@ -108,7 +117,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return ErrRegionNotFound
 	}
 
-	pts, err := providertemplate.FindAllByRegionAndPlan(c.DB(), rg.ID, pl.ID)
+	pts, err := providertemplate.FindAllByRegionAndPlan(db, rg.ID, pl.ID)
 	if err != nil {
 		return err
 	}
@@ -124,6 +133,39 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return err
 	}
 
+	h := &host.Host{
+		UserID:             env.User.ID,
+		RegionID:           rg.ID,
+		PlanID:             pl.ID,
+		ProviderTemplateID: pt.ID,
+		Slug:               slug,
+		Name:               sql.NullString{name, true},
+		MaxContainers:      sql.NullInt64{pl.MaxContainers, true},
+		Size:               ndb.NullString{sql.NullString{size, true}},
+		State:              host.StateBorn,
+	}
+
+	// Save record to db first to reserve slug (since it's globally unique).
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+	err = h.Insert(tx)
+	if err != nil {
+		tx.Rollback()
+		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
+			if validationErr, ok := validations[e.Constraint]; ok {
+				return validationErr
+			}
+		}
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	// generate hostbuilder config
 	config := hostbuilderclient.Config{}
 	for k, v := range pt.Config.Map {
 		if v.Valid {
@@ -137,32 +179,23 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 
 	info, err := HostbuilderClient.Create(pt.Provider, &config)
 	if err != nil {
+		updErr := h.UpdateState(db, host.StateOrphan)
+		if updErr != nil {
+			c.Logger().Errorf("Unable to update host %d to orphan state that failed on hostbuilder: %v", h.ID, updErr)
+		}
 		return err
 	}
 
-	h := &host.Host{
-		UserID:             env.User.ID,
-		RegionID:           rg.ID,
-		PlanID:             pl.ID,
-		ProviderTemplateID: pt.ID,
+	h.IPAddress = sql.NullString{info.IPAddress, true}
+	h.ProviderIdentifier = sql.NullString{info.ID, true}
+	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+	h.State = host.StateRunning
 
-		Slug:          slug,
-		Name:          sql.NullString{name, true},
-		MaxContainers: sql.NullInt64{pl.MaxContainers, true},
-		Size:          ndb.NullString{sql.NullString{size, true}},
-
-		IPAddress:          sql.NullString{info.IPAddress, true},
-		ProviderIdentifier: sql.NullString{info.ID, true},
-
-		FreighterdPort: sql.NullInt64{int64(info.FreighterdPort), true},
-		State:          host.StateRunning,
-	}
-
-	tx, err := c.DB().Beginx()
+	tx, err = db.Beginx()
 	if err != nil {
 		return err
 	}
-	err = h.Insert(tx)
+	err = h.Update(tx)
 	if err != nil {
 		tx.Rollback()
 		return err

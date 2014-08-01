@@ -50,7 +50,7 @@ func FindByUserIDAndContainerIDAndFingerprint(db *db.Database, userID int64, con
 }
 
 func DestroyAllByUserIDAndContainerID(db *db.Database, userID int64, containerID int64) error {
-	_, err := db.Queryx("DELETE FROM public_keys WHERE user_id = $1 AND container_id = $2", userID, containerID)
+	_, err := db.Exec(`DELETE FROM public_keys WHERE user_id = $1 AND container_id = $2;`, userID, containerID)
 	return err
 }
 
@@ -58,10 +58,7 @@ func DestroyByUserIDAndContainerIDAndFingerprint(db *db.Database, userID int64, 
 	_, err := db.Exec(`DELETE FROM public_keys
 		WHERE user_id = $1 AND container_id = $2 AND fingerprint = $3;`,
 		userID, containerID, fingerprint)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (pk *PublicKey) Insert(d db.QueryReceiver) error {

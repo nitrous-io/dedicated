@@ -33,6 +33,7 @@ const (
 	StateStopping   = "stopping"
 	StateStarting   = "starting"
 	StateRestarting = "restarting"
+	StateOrphan     = "orphan"
 )
 
 type Host struct {
@@ -56,7 +57,7 @@ type Host struct {
 	// MaxContainers is the maximum number of containers that can be created on
 	// this host. This is copied over from the associated Plan so that it can
 	// be changed independently when necessary.
-	MaxContainers sql.NullInt64 `db:"max_containers" json:"provider_identifier"`
+	MaxContainers sql.NullInt64 `db:"max_containers" json:"max_containers"`
 
 	// Size is currently the name of the plan of this host. This is copied over
 	// from the associated Plan since size is often read.
@@ -136,6 +137,18 @@ func (h *Host) UpdateState(d db.QueryReceiver, state string) error {
 	h.State = state
 	_, err := d.Exec("UPDATE hosts SET state = $1 WHERE id = $2", state, h.ID)
 	return err
+}
+
+func (h *Host) Update(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE hosts
+		SET (name, state, ip_address, provider_identifier, max_containers, freighterd_port, updated_at)
+		= (:name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port, now())
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(h).StructScan(h)
 }
 
 func (h *Host) Delete(d db.QueryReceiver) error {

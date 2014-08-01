@@ -301,7 +301,7 @@ var _ = Describe("controllers/hosts", func() {
 				It("creates a host record for the user", func() {
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
-					Expect(len(hosts)).To(Equal(1))
+					Expect(hosts).To(HaveLen(1))
 
 					h := hosts[0]
 					Expect(h.RegionID).To(Equal(hs.R.ID))
@@ -341,6 +341,39 @@ var _ = Describe("controllers/hosts", func() {
 				})
 			})
 
+			Context("when trying to create a host with an existing slug", func() {
+				BeforeEach(func() {
+					_, err := CreateHostStack(db, &HostStack{
+						H: &host.Host{Slug: "honeybadger"},
+						U: u,
+					})
+					Expect(err).To(BeNil())
+
+					hosts, err := host.FindAllByUser(db, u)
+					Expect(err).To(BeNil())
+					Expect(hosts).To(HaveLen(1))
+
+					doRequest(overrides{"slug": "honeybadger"})
+				})
+
+				It("does not create a host", func() {
+					hosts, err := host.FindAllByUser(db, u)
+					Expect(err).To(BeNil())
+					Expect(hosts).To(HaveLen(1))
+				})
+
+				It("responds with HTTP 400 Bad Request", func() {
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					errType, _ := j["error"].(string)
+					Expect(errType).To(Equal("validation_failed"))
+					errDesc, _ := j["error_description"].(string)
+					Expect(errDesc).To(Equal("slug is taken"))
+				})
+			})
+
 			Context("when hostbuilder fails to create the host", func() {
 				BeforeEach(func() {
 					hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -351,10 +384,11 @@ var _ = Describe("controllers/hosts", func() {
 					doRequest(overrides{})
 				})
 
-				It("does not create a host for the user", func() {
-					hosts, err := host.FindAllByUser(db, u)
+				It("creates a host in the orphan state for the user", func() {
+					h, err := host.FindByUserAndSlug(db, u, "honeybadger")
 					Expect(err).To(BeNil())
-					Expect(len(hosts)).To(Equal(0))
+					Expect(h.Slug).To(Equal("honeybadger"))
+					Expect(h.State).To(Equal(host.StateOrphan))
 				})
 
 				It("responds with a internal server error", func() {
