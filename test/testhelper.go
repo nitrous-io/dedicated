@@ -63,7 +63,7 @@ func truncateTables(db *db.Database) error {
 		tables = tbls
 	}
 
-	_, err := db.Exec(fmt.Sprintf(`TRUNCATE TABLE %s RESTART IDENTITY;`, strings.Join(tables, ", ")))
+	_, err := db.Exec(fmt.Sprintf(`TRUNCATE TABLE %s;`, strings.Join(tables, ", ")))
 	return err
 }
 

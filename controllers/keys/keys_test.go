@@ -157,11 +157,11 @@ var _ = Describe("controllers/keys", func() {
 					}{}
 					err := json.NewDecoder(res.Body).Decode(&j)
 					Expect(err).To(BeNil())
-					for i := 0; i < 2; i++ {
-						Expect(j.Keys[i].ID).To(Equal(pks[i].ID))
-						Expect(j.Keys[i].ContainerID).To(Equal(c.ID))
-						Expect(j.Keys[i].Key).To(Equal(pks[i].Key))
-						Expect(j.Keys[i].UserID).To(Equal(int64(0))) // UserID not marshalled
+					Expect(j.Keys).To(HaveLen(2))
+					for _, k := range j.Keys {
+						Expect(validKeys).To(ContainElement(k.Key))
+						Expect(k.ContainerID).To(Equal(c.ID))
+						Expect(k.UserID).To(Equal(int64(0))) // UserID not marshalled
 					}
 				})
 			})
@@ -400,7 +400,7 @@ var _ = Describe("controllers/keys", func() {
 			pks = []*publickey.PublicKey{}
 			for i := 0; i < 2; i++ {
 				pk := &publickey.PublicKey{
-					UserID:      1,
+					UserID:      hs.U.ID,
 					ContainerID: c.ID,
 					Key:         validKeys[i],
 				}
