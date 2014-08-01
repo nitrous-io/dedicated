@@ -18,6 +18,8 @@ import (
 	"github.com/nitrous-io/nitrous/models/token"
 )
 
+var tables []string // retrieve list of tables once and store here
+
 func TestDatabase(dbname string) (*db.Database, error) {
 	d, err := ConnectToTestDatabase(dbname)
 	if err != nil {
@@ -28,7 +30,7 @@ func TestDatabase(dbname string) (*db.Database, error) {
 		d.Close()
 		return nil, err
 	}
-	err = TruncateTables(d)
+	err = truncateTables(d)
 	if err != nil {
 		d.Close()
 		return nil, err
@@ -52,24 +54,35 @@ func ConnectToTestDatabase(dbname string) (*db.Database, error) {
 	return d, nil
 }
 
-func TruncateTables(db *db.Database) error {
+func truncateTables(db *db.Database) error {
+	if len(tables) == 0 {
+		tbls, err := getTables(db)
+		if err != nil {
+			return err
+		}
+		tables = tbls
+	}
+
+	_, err := db.Exec(fmt.Sprintf(`TRUNCATE TABLE %s RESTART IDENTITY;`, strings.Join(tables, ", ")))
+	return err
+}
+
+func getTables(db *db.Database) ([]string, error) {
 	rows, err := db.Query(`SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations';`)
 	if err != nil {
-		return err
+		return []string{}, err
 	}
 	defer rows.Close()
+	tbls := []string{}
 	for rows.Next() {
 		var tablename string
 		err = rows.Scan(&tablename)
 		if err != nil {
-			return err
+			return []string{}, err
 		}
-		_, err = db.Exec(fmt.Sprintf(`TRUNCATE TABLE %s RESTART IDENTITY CASCADE;`, tablename))
-		if err != nil {
-			return err
-		}
+		tbls = append(tbls, tablename)
 	}
-	return nil
+	return tbls, nil
 }
 
 func NewAPIRequest(token string, method string, urlStr string, params *url.Values) (*http.Request, error) {
