@@ -3,6 +3,7 @@ package containers
 import (
 	"database/sql"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/lib/pq"
@@ -146,7 +147,7 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 		return err
 	}
 
-	config, err := prepareConfig(r, hv)
+	config, err := prepareConfig(r.PostForm, hv)
 	if err != nil {
 		return err
 	}
@@ -180,11 +181,6 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 	}
 
 	cl, err := controllers.NewFreighterClient(db, h)
-	if err != nil {
-		return err
-	}
-
-	config, err := parseConfig(r)
 	if err != nil {
 		return err
 	}
@@ -389,16 +385,12 @@ func dropNamespace(freighterName string) string {
 	}
 }
 
-func prepareConfig(r *http.Request, hv map[string]*volume.Volume) (*freighterclient.ContainerConfig, error) {
+func prepareConfig(form url.Values, hv map[string]*volume.Volume) (*freighterclient.ContainerConfig, error) {
 	c := &freighterclient.ContainerConfig{}
-	err := r.ParseForm()
-	if err != nil {
-		return nil, err
-	}
-	if envs, ok := r.PostForm["env[]"]; ok {
+	if envs, ok := form["env[]"]; ok {
 		c.Env = envs
 	}
-	if vols, ok := r.PostForm["volume[]"]; ok {
+	if vols, ok := form["volume[]"]; ok {
 		for _, v := range volumeSlugs(vols) {
 			if _, ok := hv[v]; !ok {
 				return nil, errVolumeNotFound
@@ -406,7 +398,7 @@ func prepareConfig(r *http.Request, hv map[string]*volume.Volume) (*freightercli
 		}
 		c.Mounts = vols
 	}
-	if ports, ok := r.PostForm["port[]"]; ok {
+	if ports, ok := form["port[]"]; ok {
 		c.PortBindings = ports
 	}
 	return c, nil

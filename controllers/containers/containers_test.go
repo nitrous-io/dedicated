@@ -1098,4 +1098,67 @@ var _ = Describe("controllers/containers", func() {
 			ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
+
+	Describe("prepareConfig()", func() {
+		var (
+			form url.Values
+			hv   map[string]*volume.Volume
+		)
+
+		BeforeEach(func() {
+			form = url.Values{}
+			hv = map[string]*volume.Volume{}
+		})
+
+		getConfs := func() *freighterclient.ContainerConfig {
+			fcc, err := containers.PrepareConfig(form, hv)
+			Expect(err).To(BeNil())
+			return fcc
+		}
+
+		It("is empty when nothing relevant is provided", func() {
+			fcc := getConfs()
+			Expect(fcc.Env).To(BeNil())
+			Expect(fcc.Mounts).To(BeNil())
+			Expect(fcc.PortBindings).To(BeNil())
+		})
+
+		It("populates Env", func() {
+			form.Add("env[]", "PAGER=less")
+			fcc := getConfs()
+			Expect(fcc.Env).To(Equal([]string{"PAGER=less"}))
+		})
+
+		Context("populates Mounts", func() {
+			BeforeEach(func() {
+				form.Add("volume[]", "music:/mpd/music")
+				form.Add("volume[]", "backups")
+				hv["music"] = &volume.Volume{}
+				hv["backups"] = &volume.Volume{}
+			})
+
+			It("if host volumes are present", func() {
+				vols := getConfs().Mounts
+				Expect(vols).To(HaveLen(2))
+				Expect(vols).To(ContainElement("music:/mpd/music"))
+				Expect(vols).To(ContainElement("backups"))
+			})
+
+			It("returns error if host volume requested is absent", func() {
+				delete(hv, "backups")
+				fcc, err := containers.PrepareConfig(form, hv)
+				Expect(err).To(Equal(containers.ErrVolumeNotFound))
+				Expect(fcc).To(BeNil())
+			})
+		})
+
+		It("populates PortBindings", func() {
+			form.Add("port[]", "3030:4040")
+			form.Add("port[]", "5050:6060")
+			pbs := getConfs().PortBindings
+			Expect(pbs).To(HaveLen(2))
+			Expect(pbs).To(ContainElement("3030:4040"))
+			Expect(pbs).To(ContainElement("5050:6060"))
+		})
+	})
 })
