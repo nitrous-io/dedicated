@@ -15,9 +15,9 @@ var (
 	ErrInvalidMountSpec = fmt.Errorf("volume specification invalid")
 )
 
-// CreateConfigs returns the dockerclient Config and HostConfig needed to
+// createConfigs returns the dockerclient Config and HostConfig needed to
 // create a container.  These can be customized by cfg ContainerConfig.
-func (p *DockerProvider) CreateConfigs(containerName, imageName string, cfg *provider.ContainerConfig) (*dockerclient.Config, *dockerclient.HostConfig, error) {
+func (p *DockerProvider) createConfigs(containerName, imageName string, cfg *provider.ContainerConfig) (*dockerclient.Config, *dockerclient.HostConfig, error) {
 	dcConfig := &dockerclient.Config{
 		Hostname:     containerName,
 		Image:        imageName,
@@ -54,9 +54,9 @@ func (p *DockerProvider) CreateConfigs(containerName, imageName string, cfg *pro
 	return dcConfig, dcHostConfig, nil
 }
 
-// StartConfig returns the dockerclient HostConfig needed to start a container.
+// startConfig returns the dockerclient HostConfig needed to start a container.
 // It can be customized by cfg ContainerConfig.
-func (p *DockerProvider) StartConfig(container *dockerclient.Container, cfg *provider.ContainerConfig) (*dockerclient.HostConfig, error) {
+func (p *DockerProvider) startConfig(container *dockerclient.Container, cfg *provider.ContainerConfig) (*dockerclient.HostConfig, error) {
 	dcHostConfig := container.HostConfig
 	if cfg == nil {
 		return dcHostConfig, nil

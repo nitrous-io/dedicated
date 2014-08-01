@@ -31,7 +31,7 @@ var _ = Describe("provider/docker config", func() {
 		Expect(err).To(BeNil())
 	})
 
-	Describe("CreateConfigs", func() {
+	Describe("createConfigs", func() {
 		var (
 			cfg     *dockerclient.Config
 			hostCfg *dockerclient.HostConfig
@@ -127,7 +127,7 @@ var _ = Describe("provider/docker config", func() {
 		})
 	})
 
-	Describe("StartConfig", func() {
+	Describe("startConfig", func() {
 		var (
 			container *dockerclient.Container
 			hostCfg   *dockerclient.HostConfig

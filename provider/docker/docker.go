@@ -127,7 +127,7 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 	if err != nil {
 		return nil, err
 	}
-	startConfig, err := p.StartConfig(container, cfg)
+	startConfig, err := p.startConfig(container, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +443,7 @@ func (p *DockerProvider) createContainer(imageName, containerName string, config
 
 	containerName = p.namespace + containerName
 
-	createConfig, startConfig, err := p.CreateConfigs(containerName, imageName, config)
+	createConfig, startConfig, err := p.createConfigs(containerName, imageName, config)
 	if err != nil {
 		return nil, err
 	}
