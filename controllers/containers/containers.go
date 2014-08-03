@@ -44,14 +44,15 @@ var (
 )
 
 var (
-	Create  = middleware.HostViaForm("host", requiresRunningHost(create))
-	Commit  = WithContainerAndHost(commit)
-	Show    = WithContainerAndHost(show)
-	Start   = WithContainerAndHost(start)
-	Stop    = WithContainerAndHost(stop)
-	Restart = WithContainerAndHost(restart)
-	Destroy = WithContainerAndHost(destroy)
-	Token   = WithContainerAndHost(token)
+	Create   = middleware.HostViaForm("host", requiresRunningHost(create))
+	Commit   = WithContainerAndHost(commit)
+	Show     = WithContainerAndHost(show)
+	Start    = WithContainerAndHost(start)
+	Stop     = WithContainerAndHost(stop)
+	Restart  = WithContainerAndHost(restart)
+	Destroy  = WithContainerAndHost(destroy)
+	Token    = WithContainerAndHost(token)
+	Reconfig = WithContainerAndHost(reconfig)
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -524,10 +525,47 @@ func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	if err != nil {
 		return err
 	}
-
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"token": t,
+	}
+	return nil
+}
+
+func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	log := env.Logger
+
+	cl, err := controllers.NewFreighterClient(db, h)
+	if err != nil {
+		return err
+	}
+
+	r.ParseForm()
+	hv, err := hostVolumes(db, h)
+	if err != nil {
+		return err
+	}
+	config, err := prepareConfig(r.PostForm, hv)
+	if err != nil {
+		return err
+	}
+
+	liveContainer, err := cl.Reconfig(cn.CID, config)
+	if err != nil {
+		return err
+	}
+
+	cn = hydrateContainer(cn, liveContainer, h)
+	if err := cn.Update(db); err != nil {
+		log.Errorf("containers.reconfig: successfully reconfigured container '%+v' in Freighter but failed to update database with '%+v', err: %v", liveContainer, cn, err)
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status":    "ok",
+		"container": serializers.SerializeContainer(cn),
 	}
 	return nil
 }

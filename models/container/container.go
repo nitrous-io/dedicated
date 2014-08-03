@@ -119,8 +119,8 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 
 func (c *Container) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE containers
-		SET (cid, slug, name, touched_at, updated_at)
-		= (:cid, :slug, :name, :touched_at, now())
+		SET (cid, slug, name, image, touched_at, updated_at)
+		= (:cid, :slug, :name, :image, :touched_at, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
