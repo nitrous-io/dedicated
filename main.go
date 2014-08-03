@@ -22,6 +22,7 @@ import (
 	_ "github.com/nitrous-io/nitro/command/containers/inspect"
 	_ "github.com/nitrous-io/nitro/command/containers/list"
 	_ "github.com/nitrous-io/nitro/command/containers/logs"
+	_ "github.com/nitrous-io/nitro/command/containers/reconfig"
 	_ "github.com/nitrous-io/nitro/command/containers/restart"
 	_ "github.com/nitrous-io/nitro/command/containers/run"
 	_ "github.com/nitrous-io/nitro/command/containers/shell"
