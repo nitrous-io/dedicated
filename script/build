@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# we get primary version from `VERSION` file
+set -e
+
+VERSION=${1:?"version is required"}
+goop go install -ldflags "-X main.version $VERSION" -x -v .
+

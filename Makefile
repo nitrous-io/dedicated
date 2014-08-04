@@ -12,22 +12,22 @@ all: build
 
 build: clean
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
-	GOBIN=$(BUILD_DIR) goop go install -ldflags "-X main.version $(VERSION)" -x -v .
+	@script/build $(VERSION)
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf .vendor/bin/$(APP)
 
 image:
-	@./script/image $(APP) $(VERSION)
+	@script/image $(APP) $(VERSION)
 
 ci: image
-	@./script/ci $(APP) $(VERSION)
+	@script/ci $(APP) $(VERSION)
 
 format:
 	go fmt ./...
 
 test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
-	script/test $(TEST)
+	@script/test $(TEST)
 
 .PHONY: all build clean format test image ci

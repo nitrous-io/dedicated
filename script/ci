@@ -2,8 +2,19 @@
 APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
 
+ARTIFACT_DIR=/tmp/$APP/$VERSION
+BIN_DIR=/opt/src/github.com/nitrous-io/$APP/.vendor/bin
+
+rm -rf $ARTIFACT_DIR
+mkdir -p $ARTIFACT_DIR
+
 docker run \
-  --privileged=true \
-  --rm=true \
-  -v $(readlink -f $SSH_AUTH_SOCK):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent \
-  $APP:$VERSION ./script/install-deps ./script/test
+  -v $(readlink -f $SSH_AUTH_SOCK):/ssh-agent \
+  --cidfile=$ARTIFACT_DIR/container \
+  -e SSH_AUTH_SOCK=/ssh-agent \
+  $APP:$VERSION /bin/bash -c "./script/install-deps && ./script/test && ./script/build $VERSION"
+
+cid=$(cat $ARTIFACT_DIR/container)
+rm -rf $ARTIFACT_DIR/container
+
+docker cp $cid:$BIN_DIR/$APP $ARTIFACT_DIR && docker rm $cid
