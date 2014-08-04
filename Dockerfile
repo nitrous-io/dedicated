@@ -5,24 +5,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   build-essential \
   curl \
   git-core \
-  mercurial \
-  ruby1.9.1 \
-  ruby1.9.1-dev \
-  sudo \
-  tmux
+  mercurial
 
 RUN curl -s https://storage.googleapis.com/golang/go1.3.linux-amd64.tar.gz \
   | tar -C /usr/local -xz
 
-RUN gem install fpm --no-rdoc --no-ri --version 1.0.2
-
 RUN mkdir -p /opt/src/github.com/nitrous-io/freighter
 
-ENV VENDOR_PATH /opt/src/github.com/nitrous-io/freighter/.vendor
-ENV GOPATH $VENDOR_PATH:/opt
-ENV GOBIN $VENDOR_PATH/bin
-ENV PATH $GOBIN:/usr/local/go/bin:$PATH
-ENV HOME /root
+ENV GOPATH /opt
+ENV PATH /opt/bin:/usr/local/go/bin:$PATH
 ENV WORKDIR /opt/src/github.com/nitrous-io/freighter
 
 ADD util/ssh_config /etc/ssh/ssh_config
