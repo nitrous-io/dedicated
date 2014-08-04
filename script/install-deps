@@ -1,0 +1,9 @@
+#!/bin/bash
+
+bundle install --path=rails
+
+go get github.com/nitrous-io/goop
+goop install
+
+$*
+

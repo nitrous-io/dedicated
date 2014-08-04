@@ -10,7 +10,8 @@ VERSION=$(BASE_VERSION)-$(REVISION)
 all: build
 
 image:
-	@docker build -t registry.nitrous.io/nitrous .
+	@echo "$(OK_COLOR)==> Building image...$(NO_COLOR)"
+	@script/image $(VERSION)
 
 go:
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
@@ -25,6 +26,10 @@ build: go assets
 test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
 	@script/test
+
+ci: image
+	@echo "$(OK_COLOR)==> Running within docker...$(NO_COLOR)"
+	@script/ci $(VERSION)
 
 format:
 	go fmt ./...

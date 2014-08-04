@@ -1,0 +1,6 @@
+#!/bin/bash
+docker run \
+  --rm=true \
+  -v $(readlink -f $SSH_AUTH_SOCK):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent \
+  nitrous:$1 ./script/install-deps ./script/start-db ./script/test
+

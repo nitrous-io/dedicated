@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN locale-gen en_US.utf8
 
-RUN curl -s https://storage.googleapis.com/golang/go1.2.2.linux-amd64.tar.gz \
+RUN curl -s https://storage.googleapis.com/golang/go1.3.linux-amd64.tar.gz \
   | tar -v -C /usr/local -xz
 
 ENV GOPATH /opt/src/github.com/nitrous-io/nitrous/.vendor:/opt
@@ -29,18 +29,14 @@ RUN cd /tmp/ruby-2.1.2 && ./configure && make && make install
 RUN gem install bundle
 
 RUN mkdir -p /opt/src/github.com/nitrous-io/nitrous
-WORKDIR /opt/src/github.com/nitrous-io/
 ADD . /opt/src/github.com/nitrous-io/nitrous
 
 RUN /etc/init.d/postgresql start &&\
     su postgres -c "psql -c \"CREATE ROLE "$(whoami)" NOSUPERUSER CREATEDB NOCREATEROLE INHERIT LOGIN;\""
 
 WORKDIR /opt/src/github.com/nitrous-io/nitrous
-# FIXME Remove this step when goop has support for private repos
-RUN echo "machine github.com login <token>" > $HOME/.netrc
-RUN goop install
+ADD util/ssh_config /etc/ssh/ssh_config
 
 RUN /etc/init.d/postgresql start &&\
     make createdb
 
-RUN cd rails && bundle install
