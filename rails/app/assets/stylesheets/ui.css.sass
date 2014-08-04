@@ -195,15 +195,15 @@ table.ui.table
   &:active
     background: rgba(153, 153, 153, .4)
 
-  &:disabled
-    color: $gray400
-    background: rgba(153, 153, 153, .1)
-
   &.raised
     +light-shadow
 
   &.primary
     color: $lightBlue500
+
+  &:disabled
+    color: $gray400
+    background: rgba(153, 153, 153, .1)
 
   &.raised.primary
     background: $lightBlue500
@@ -216,6 +216,7 @@ table.ui.table
       background: $lightBlue700
 
     &:disabled
+      color: $gray400
       background: rgba(204, 204, 204, .1)
 
   &.mini
@@ -515,6 +516,7 @@ ul.ui.snackbar
   margin: 24px
   height: 0
   transition: height 1s
+  pointer-events: none
 
   .snackbar-item
     border-radius: 2px

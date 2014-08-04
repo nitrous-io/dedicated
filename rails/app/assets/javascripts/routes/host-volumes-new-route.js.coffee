@@ -1,4 +1,4 @@
-App.HostVolumesNewRoute = Em.Route.extend
+App.HostVolumesNewRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'New Volume'
 

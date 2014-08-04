@@ -1,4 +1,4 @@
-App.ContainerKeysNewRoute = Em.Route.extend
+App.ContainerKeysNewRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'Add Key'
 

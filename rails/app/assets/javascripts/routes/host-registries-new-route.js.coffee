@@ -1,4 +1,4 @@
-App.HostRegistriesNewRoute = Em.Route.extend
+App.HostRegistriesNewRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'Add Registry'
 

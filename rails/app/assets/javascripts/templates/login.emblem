@@ -1,6 +1,6 @@
 = outlet topnav
 
-.ui.card
+.ui.card class={error:shake}
   h2.card-header Log In
 
   form
@@ -8,15 +8,15 @@
       .ui.input-group
         label.field-label for='login-login'
           | Username or Email
-        input type='text' id='login-login' name='login'
+        = input type='text' id='login-login' value=login
 
         label.field-label for='login-password'
           | Password
-        input type='password' id='login-password' name='password'
+        = input type='password' id='login-password' value=password
 
     .card-footer
       .right
-        button.ui.btn.primary id='login-submit-btn' click='shake target="view"'
+        button.ui.btn.primary.login-submit-btn click='login' disabled={view.disableSubmitButton}
           | Log In
 
 p.note

@@ -1,3 +1,4 @@
-App.ContainersIndexRoute = Em.Route.extend
+App.ContainersIndexRoute = App.AuthedRoute.extend
   beforeModel: ->
+    @_super()
     @transitionTo 'home.index'

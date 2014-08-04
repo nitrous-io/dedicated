@@ -1,4 +1,4 @@
-App.ContainersNewRoute = Em.Route.extend
+App.ContainersNewRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'New Container'
 

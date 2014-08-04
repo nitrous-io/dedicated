@@ -1,4 +1,4 @@
-App.HostVolumesRoute = Em.Route.extend
+App.HostVolumesRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'Project X > Volumes'
 

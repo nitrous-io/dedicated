@@ -148,7 +148,6 @@ DEPENDENCIES
   autoprefixer-rails (~> 2.1.1)
   bcrypt (~> 3.1.7)
   coffee-rails (~> 4.0.1)
-  ember-data-source (= 1.0.0.beta8)
   ember-rails (= 0.15.0)
   ember-source (= 1.6.1)
   emblem-rails (~> 0.2.1)

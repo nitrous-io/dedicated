@@ -30,16 +30,15 @@ var (
 )
 
 type User struct {
-	ID                int64  `db:"id" json:"-"`
-	Name              string `db:"name" json:"-"`
-	EncryptedPassword string `db:"encrypted_password" json:"-"`
-	Password          string `json:"-"`
-
-	// Exposed attributes to API
+	ID        int64      `db:"id" json:"id"`
+	Name      string     `db:"name" json:"name"`
 	Username  string     `db:"username" json:"username"`
 	Email     string     `db:"email" json:"email"`
 	CreatedAt *time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at" json:"updated_at"`
+
+	Password          string `json:"-"`
+	EncryptedPassword string `db:"encrypted_password" json:"-"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {

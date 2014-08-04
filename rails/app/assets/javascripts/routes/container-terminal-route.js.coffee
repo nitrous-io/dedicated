@@ -1,4 +1,4 @@
-App.ContainerTerminalRoute = Em.Route.extend
+App.ContainerTerminalRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'Terminal'
 

@@ -1,4 +1,4 @@
-App.ContainerRoute = Em.Route.extend
+App.ContainerRoute = App.AuthedRoute.extend
   model: ->
 
   renderTemplate: ->

@@ -6,6 +6,10 @@
   form
     .card-body
       .ui.input-group
+        label.field-label for='signup-name'
+          | Name
+        input type='text' id='signup-name' name='name'
+
         label.field-label for='signup-username'
           | Username
         input type='text' id='signup-username' name='username'

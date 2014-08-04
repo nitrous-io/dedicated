@@ -1,4 +1,4 @@
-App.ContainerIndexRoute = Em.Route.extend
+App.ContainerIndexRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'Web App'
 

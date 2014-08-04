@@ -1,4 +1,4 @@
-App.HostRoute = Em.Route.extend
+App.HostRoute = App.AuthedRoute.extend
   model: ->
 
   renderTemplate: ->

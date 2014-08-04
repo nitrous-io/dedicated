@@ -1,6 +1,7 @@
 App.Router.map ->
-  @route 'login'
   @route 'signup'
+  @route 'login'
+  @route 'logout'
 
   @resource 'home', path: '/', ->
     @resource 'containers', ->

@@ -1,7 +1,6 @@
-App.HomeRoute = Em.Route.extend
+App.HomeRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', null
-    App.set 'currentUser', 'petejkim'
 
   renderTemplate: ->
     @_super()

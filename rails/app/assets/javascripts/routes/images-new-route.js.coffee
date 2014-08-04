@@ -1,4 +1,4 @@
-App.ImagesNewRoute = Em.Route.extend
+App.ImagesNewRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'New Image'
 

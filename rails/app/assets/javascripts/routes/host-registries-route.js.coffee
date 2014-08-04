@@ -1,4 +1,4 @@
-App.HostRegistriesRoute = Em.Route.extend
+App.HostRegistriesRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'Project X > Registries'
 

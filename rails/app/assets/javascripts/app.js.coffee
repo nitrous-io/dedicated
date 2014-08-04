@@ -9,7 +9,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
   offline: Em.computed.not 'online'
 
   title: null
-  currentUser: null
+  snackbar: null
+
+  token: null
+  user: null
 
   didChangeTitle: (->
     title = @get 'title'
@@ -19,10 +22,18 @@ window.Nitrous = Em.Application.extend Em.Evented,
       "Nitrous.IO"
   ).observes 'title'
 
+  didChangeToken: (->
+    if token = @get('token')
+      window.localStorage.setItem('token', token)
+    else
+      window.localStorage.removeItem('token')
+  ).observes 'token'
+
 window.App = Nitrous.create
-  snackbar: null
+  token: window.localStorage.getItem('token')
 
 App.on 'AppDidLoad', ->
+  App.__container__.lookup('adapter:application') # init app adapter class
   App.set 'snackbar', App.Snackbar.create()
 
 App.didChangeTitle()

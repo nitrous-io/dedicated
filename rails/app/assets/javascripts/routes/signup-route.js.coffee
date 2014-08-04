@@ -1,7 +1,13 @@
 App.SignupRoute = Em.Route.extend
+  beforeModel: ->
+    @_super.apply this, arguments
+    if App.get('token')
+      @transitionTo 'home'
+
   activate: ->
     App.set 'title', 'Sign Up'
-    App.set 'currentUser', null
+    App.set 'user', null
+    App.set 'token', null
 
   renderTemplate: ->
     @_super()

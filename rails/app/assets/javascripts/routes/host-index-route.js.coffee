@@ -1,4 +1,4 @@
-App.HostIndexRoute = Em.Route.extend
+App.HostIndexRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'Project X'
 
