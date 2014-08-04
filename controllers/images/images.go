@@ -17,6 +17,8 @@ var (
 	errRepoRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "repository is required")
 	errDestRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "destination is required")
 	errTagRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "tag is required")
+	errNameRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
+	errFileRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "file is required")
 )
 
 func Index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
@@ -33,6 +35,40 @@ func Index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"images": images,
+	}
+
+	return nil
+}
+
+func Build(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(c.DB(), h)
+	if err != nil {
+		return err
+	}
+
+	_, fh, err := r.FormFile("file")
+	if err != nil {
+		return errFileRequired
+	}
+
+	name := r.FormValue("name")
+	if name == "" {
+		return errNameRequired
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	image, err := cl.BuildImage(name, f)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"image": image,
 	}
 
 	return nil

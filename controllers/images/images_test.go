@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -214,6 +215,61 @@ var _ = Describe("controllers/images", func() {
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("POST /api/v0/hosts/{slug}/image", func() {
+		doRequest := func(host, image string, files map[string]string) {
+			req, err := NewFileRequest("POST",
+				fmt.Sprintf("/api/v0/hosts/%v/images", host),
+				map[string]string{"name": image},
+				files,
+			)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer "+t.Token)
+			handler.ServeHTTP(res, req)
+		}
+
+		It("responds with image on success", func() {
+			mockClient.BuildImageReturn = &freighterclient.Image{
+				Name: "test",
+			}
+			doRequest("foo", "scratcher", map[string]string{"file": "FROM fake"})
+			j := struct {
+				Image freighterclient.Image `json:"image"`
+			}{}
+			sent, err := ioutil.ReadAll(mockClient.BuildImageReader)
+			Expect(err).To(BeNil())
+			Expect(string(sent)).To(Equal("FROM fake"))
+			Expect(mockClient.BuildImageCalled).To(Equal(1))
+			Expect(res.Code).To(Equal(http.StatusOK))
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Image.Name).To(Equal("test"))
+		})
+
+		It("requires name", func() {
+			doRequest("foo", "", map[string]string{"file": "filecontent"})
+			Expect(mockClient.BuildImageCalled).To(Equal(0))
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("name is required"))
+		})
+
+		It("requires file", func() {
+			doRequest("foo", "name", map[string]string{})
+			Expect(mockClient.BuildImageCalled).To(Equal(0))
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("file is required"))
+		})
+
+		It("returns 500 on freighterclient error", func() {
+			mockClient.BuildImageError = &freighterclient.StatusError{418}
+			doRequest("foo", "scratcher", map[string]string{"file": "FROM fake"})
+			Expect(mockClient.BuildImageCalled).To(Equal(1))
+			errType, _ := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("internal_server_error"))
 		})
 	})
 
