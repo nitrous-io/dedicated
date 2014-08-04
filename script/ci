@@ -1,0 +1,9 @@
+#!/bin/bash
+APP=${1:?"app name is required"}
+VERSION=${2:?"version is required"}
+
+docker run \
+  --privileged=true \
+  --rm=true \
+  -v $(readlink -f $SSH_AUTH_SOCK):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent \
+  $APP:$VERSION ./script/install-deps ./script/test

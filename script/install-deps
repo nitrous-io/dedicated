@@ -1,4 +1,6 @@
 #!/bin/bash
 
-go install github.com/nitrous-io/goop
+go get github.com/nitrous-io/goop
 goop install
+
+$*

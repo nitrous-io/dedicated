@@ -27,23 +27,27 @@ test:
 
 install-deps:
 	@echo "$(OK_COLOR)==> Install dependencies...$(NO_COLOR)"
-	@rm -rf .vendor
 	@./script/install-deps
 .PHONY: install-deps
 
 image:
 	@echo "$(OK_COLOR)==> Building Docker image...$(NO_COLOR)"
-	@docker build -t registry.nitrous.io/hostbuilder .
+	@./script/image $(BIN_NAME) $(VERSION)
 .PHONY: image
+
+ci: image
+	@echo "$(OK_COLOR)==> Running tests within Docker...$(NO_COLOR)"
+	@./script/ci $(BIN_NAME) $(VERSION)
+.PHONY: ci
 
 shell: image
 	@./script/shell
 .PHONY: shell
 
-build-and-test-with-docker: image
-	@./script/docker-test-and-build $(REVISION)
-.PHONY: build-and-test-with-docker
+build-with-docker: image ci
+	@./script/build-with-docker
+.PHONY: build-with-docker
 
-release: image build-and-test-with-docker
-	@./script/release
+release: build-with-docker
+	@./script/release $(VERSION)
 .PHONY: release
