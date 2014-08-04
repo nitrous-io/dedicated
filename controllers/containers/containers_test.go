@@ -53,7 +53,7 @@ var _ = Describe("controllers/containers", func() {
 		var err error
 
 		mockClient = &freighterclient.MockClient{}
-		containers.FreighterClient = mockClient
+		StubDefaultFreighterFn(mockClient)
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -92,6 +92,7 @@ var _ = Describe("controllers/containers", func() {
 		if db != nil {
 			db.Close()
 		}
+		UnstubFreighterFn()
 	})
 
 	Describe("WithContainerAndHost", func() {
@@ -169,14 +170,15 @@ var _ = Describe("controllers/containers", func() {
 			Context("when container's host is not running", func() {
 				BeforeEach(func() {
 					hs.H.UpdateState(db, host.StateStopped)
+					UnstubFreighterFn()
 				})
 
-				It("returns HTTP 400 Bad Request", func() {
+				It("returns HTTP 503 Service Unavailable", func() {
 					req, err := NewRequest("GET", "/rails-box/action", nil)
 					Expect(err).To(BeNil())
 					handler.ServeHTTP(res, req)
 
-					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					Expect(res.Code).To(Equal(http.StatusServiceUnavailable))
 					Expect(handlerCalled).To(BeFalse())
 				})
 			})
@@ -377,16 +379,16 @@ var _ = Describe("controllers/containers", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("returns HTTP 400 Bad Request", func() {
+			It("returns HTTP 503 Service Unavailable", func() {
 				doRequest("valid-token", "foo")
 
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				Expect(res.Code).To(Equal(http.StatusServiceUnavailable))
 
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 				errType, _ := j["error"].(string)
-				Expect(errType).To(Equal("invalid_state"))
+				Expect(errType).To(Equal("service_unavailable"))
 				errDesc, _ := j["error_description"].(string)
 				Expect(errDesc).To(Equal("host is not running"))
 			})
@@ -405,6 +407,9 @@ var _ = Describe("controllers/containers", func() {
 					PT: hs.PT,
 				})
 				Expect(err).To(BeNil())
+
+				// test the actual client
+				UnstubFreighterFn()
 			})
 
 			It("returns HTTP 400 Bad Request", func() {
@@ -660,16 +665,16 @@ var _ = Describe("controllers/containers", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("returns HTTP 400 Bad Request", func() {
+			It("returns HTTP 503 Service Unavailable", func() {
 				doRequest("valid-token", "foo", params)
 
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				Expect(res.Code).To(Equal(http.StatusServiceUnavailable))
 
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 				errType, _ := j["error"].(string)
-				Expect(errType).To(Equal("invalid_state"))
+				Expect(errType).To(Equal("service_unavailable"))
 				errDesc, _ := j["error_description"].(string)
 				Expect(errDesc).To(Equal("host is not running"))
 			})
@@ -755,6 +760,11 @@ var _ = Describe("controllers/containers", func() {
 					Slug:           hs.H.Slug,
 					IPAddress:      hs.H.IPAddress.String,
 					FreighterdPort: hs.H.FreighterdPort.Int64,
+					Hostname:       hs.H.Hostname(),
+
+					CA:   hs.Crt.CA,
+					Cert: hs.Crt.ClientCert,
+					Key:  hs.Crt.ClientKey,
 				},
 			}))
 		})

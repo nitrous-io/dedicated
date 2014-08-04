@@ -12,7 +12,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/nitrous-io/nitrous/controllers/images"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
@@ -48,7 +47,7 @@ var _ = Describe("controllers/images", func() {
 		var err error
 
 		mockClient = &freighterclient.MockClient{}
-		images.FreighterClient = mockClient
+		StubDefaultFreighterFn(mockClient)
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -87,6 +86,7 @@ var _ = Describe("controllers/images", func() {
 		if db != nil {
 			db.Close()
 		}
+		UnstubFreighterFn()
 	})
 
 	Describe("GET /api/v0/hosts/{slug}/images", func() {
@@ -207,6 +207,8 @@ var _ = Describe("controllers/images", func() {
 								PT: hs.PT,
 							})
 							Expect(err).To(BeNil())
+
+							UnstubFreighterFn()
 						})
 
 						It("returns HTTP 400 Bad Request", func() {

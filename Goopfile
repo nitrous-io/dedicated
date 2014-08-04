@@ -1,11 +1,12 @@
-github.com/ddollar/forego
-github.com/gorilla/mux
+github.com/ddollar/forego #73521422bea32cc8d14491b271bf96ebb2625a9c
+github.com/gorilla/mux #14cafe28513321476c73967a5a4f3454b6129c46
 github.com/nitrous-io/nitrous-common #0e9652a23ed102d07b140ec479cb5a54e894a708 !git@github.com:nitrous-io/nitrous-common
-github.com/nitrous-io/hostbuilder !git@github.com:nitrous-io/hostbuilder
-github.com/nitrous-io/freighter/freighterclient #efbf4619f1cc2fb8209209eef364c4109f181eb5 !git@github.com:nitrous-io/freighter
-bitbucket.org/kardianos/osext
-github.com/lib/pq
-github.com/onsi/ginkgo/ginkgo
-github.com/onsi/gomega
-github.com/jmoiron/sqlx
-code.google.com/p/go.crypto/bcrypt
+github.com/nitrous-io/hostbuilder #5b04849a3c8f44de76b7c69a96c2797122eae166 !git@github.com:nitrous-io/hostbuilder
+github.com/nitrous-io/freighter/freighterclient #7d541ef6c8f1259137e918414e9d494107eff86e !git@github.com:nitrous-io/freighter
+github.com/nitrous-io/sslider/sslgen #19c0f55007eb1ff34f61ef487d559b46167aed43 !git@github.com:nitrous-io/sslider
+bitbucket.org/kardianos/osext #6836bbd915dac0c3115ca7febb32af9ce74eb1d6
+github.com/lib/pq #ae7391529ced9c12f06bf01eae33dadb4c70e49f
+github.com/onsi/ginkgo/ginkgo #12446bbcc74950944c897e32ea99cc8d058f9c92
+github.com/onsi/gomega #036273e6f643552b16fe7a6464afd2ae0324992e
+github.com/jmoiron/sqlx #65a94448495c675514bd4eb183b94f6dea516227
+code.google.com/p/go.crypto/bcrypt #1064b89a6fb591df0dd65422295b8498916b092f

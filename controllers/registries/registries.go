@@ -11,10 +11,7 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
-var FreighterClient freighterclient.Client
-
 var (
-	errHostIPUnknown    = httperror.New(http.StatusBadRequest, "invalid_request", "host IP is unknown")
 	errUsernameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "username is required")
 	errPasswordRequired = httperror.New(http.StatusBadRequest, "invalid_request", "password is required")
 	errEmailRequired    = httperror.New(http.StatusBadRequest, "invalid_request", "email is required")
@@ -28,10 +25,6 @@ var (
 	Login  middleware.Middleware = middleware.HostViaPath("slug", login)
 	Logout middleware.Middleware = middleware.HostViaPath("slug", logout)
 )
-
-func init() {
-	FreighterClient = freighterclient.NewClient(nil)
-}
 
 func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
@@ -92,12 +85,12 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 		Registry: registryURL,
 	}
 
-	fHost, err := mkFreighterHost(h)
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
 
-	err = FreighterClient.RegistryLogin(fHost, params)
+	err = cl.RegistryLogin(params)
 	if err != nil {
 		if err == freighterclient.ErrInvalidParams {
 			return errLoginFailed
@@ -130,14 +123,14 @@ func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 	db := c.DB()
 	logger := c.Logger()
 
-	fHost, err := mkFreighterHost(h)
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
 
 	registryURL := r.FormValue("registry")
 
-	err = FreighterClient.RegistryLogout(fHost, registryURL)
+	err = cl.RegistryLogout(registryURL)
 	if err != nil {
 		if err == freighterclient.ErrInvalidParams {
 			return errLogoutFailed
@@ -159,11 +152,4 @@ func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 	logger.Infof("Response: 200 OK")
 
 	return nil
-}
-
-func mkFreighterHost(h *host.Host) (*freighterclient.Host, error) {
-	if h.IPAddress.String == "" {
-		return nil, errHostIPUnknown
-	}
-	return freighterclient.NewHost(h.IPAddress.String, int(h.FreighterdPort.Int64), false), nil
 }
