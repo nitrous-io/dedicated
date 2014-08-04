@@ -4,9 +4,5 @@ set -e
 
 VERSION=${1:?"version is required"}
 
-BUILD=$(pwd)/build
-
-mkdir -p $BUILD
-
-GOBIN=$BUILD goop go install -x -ldflags "-X main.version ${VERSION}" -v \
+goop go install -x -ldflags "-X main.version ${VERSION}" -v \
   github.com/nitrous-io/freighter/freighterd
