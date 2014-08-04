@@ -1,0 +1,31 @@
+#!/bin/bash
+APP=${1:?"app name is required"}
+VERSION=${2:?"version is required"}
+
+ARTIFACT_DIR=/tmp/$APP/$VERSION
+
+PACKAGE_NAME=$APP
+PACKAGE_VERSION=$VERSION
+PACKAGE_ARCHITECTURE="$(dpkg-architecture -qDEB_HOST_ARCH)"
+PACKAGE_MAINTAINER="eng@nitrous.io"
+PACKAGE_DESCRIPTION="CLI for Nitrous.IO"
+PACKAGE_LICENSE="Private"
+
+PKGDIR=$ARTIFACT_DIR
+
+# install binary
+install -m 0755 -D $ARTIFACT_DIR/$APP $PKGDIR/usr/bin/$APP
+cd $PKGDIR
+
+fpm \
+  -s dir \
+  --name $PACKAGE_NAME \
+  --version $PACKAGE_VERSION \
+  --architecture "$PACKAGE_ARCHITECTURE" \
+  --prefix / \
+  --description "$PACKAGE_DESCRIPTION" \
+  --maintainer "$PACKAGE_MAINTAINER" \
+  --provides $PACKAGE_NAME \
+  --replaces $PACKAGE_NAME \
+  --deb-compression gz \
+  -t deb .

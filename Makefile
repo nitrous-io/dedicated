@@ -23,6 +23,9 @@ image:
 ci: image
 	@script/ci $(APP) $(VERSION)
 
+release: ci
+	@script/release $(APP) $(VERSION)
+
 format:
 	go fmt ./...
 
