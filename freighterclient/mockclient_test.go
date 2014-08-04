@@ -21,7 +21,7 @@ var _ = Describe("mockclient", func() {
 
 		dcc = freighterclient.NewDockerContainerConfig()
 		dcc.Env = []string{"LANG=C"}
-		mc.Create(nil, "stub", "stub", dcc)
+		mc.Create("stub", "stub", dcc)
 		mockConf, err := mc.DockerContainerConfig()
 		Expect(err).To(BeNil())
 		Expect(mockConf).NotTo(BeNil())

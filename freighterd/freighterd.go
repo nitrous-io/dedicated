@@ -1,8 +1,12 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
@@ -12,12 +16,20 @@ import (
 	"github.com/nitrous-io/freighter/util"
 )
 
-var version string
+var (
+	version     string
+	defaultConf string
+)
+
+func init() {
+	defaultConf = path.Join("etc", "freighterd", "config.json")
+}
 
 func main() {
-	flDataPath := flag.String("d", "/var/lib/freighter", "Specify the path to store freighter's data files")
-	flPort := flag.Int("p", 65333, "Specify the port on which freighterd listens for connections")
-	flVersion := flag.Bool("v", false, "Display the version and exit")
+	var (
+		flVersion    = flag.Bool("v", false, "Display the version and exit")
+		flConfigPath = flag.String("c", defaultConf, "Path to the configuration file. Default to "+defaultConf)
+	)
 	flag.Parse()
 
 	if *flVersion {
@@ -33,16 +45,46 @@ func main() {
 		}
 	}()
 
-	_, err := os.Stat(*flDataPath)
-	if err != nil && os.IsNotExist(err) {
-		if err := os.Mkdir(*flDataPath, 0755); err != nil {
+	conf := &server.Config{}
+	// parse config file
+	confFile, err := os.Open(*flConfigPath)
+	if err != nil {
+		logger.Info("Missing config file. Use default config")
+		conf = server.DefaultConfig
+	} else {
+		if err := json.NewDecoder(confFile).Decode(conf); err != nil {
 			logger.FatalExit(err)
 		}
-	} else if err != nil {
+	}
+
+	// setup data path
+	if _, err := os.Stat(conf.DataPath); err != nil {
+		if os.IsNotExist(err) {
+			if err := os.Mkdir(conf.DataPath, 0755); err != nil {
+				logger.FatalExit(err)
+			}
+		} else {
+			logger.FatalExit(err)
+		}
+	}
+
+	// initialze the docker provider
+	prov, err := docker.NewDockerProvider(logger, conf.DataPath, "freighter")
+	if err != nil {
 		logger.FatalExit(err)
 	}
 
-	file, err := os.Create(path.Join(*flDataPath, "freighter.pid"))
+	// save current pid
+	pid := setPid(logger, conf.DataPath)
+	logger.Infof("freighterd (rev: %v, pid: %v) started", version, pid)
+
+	// start the API server
+	svr := server.NewServer(logger, prov, conf)
+	svr.Start()
+}
+
+func setPid(logger *util.Logger, dataPath string) int {
+	file, err := os.Create(path.Join(dataPath, "freighter.pid"))
 	if err != nil {
 		logger.FatalExit(err)
 	}
@@ -57,15 +99,34 @@ func main() {
 	if err != nil {
 		logger.FatalExit(err)
 	}
+	return pid
+}
 
-	prov, err := docker.NewDockerProvider(logger, *flDataPath, "freighter")
+// given:
+// - a certificate authority
+// - a certificate signed by the CA
+// - a private key for the certificate
+// return a proper tls config that can be used with tls.NewListener to secure a
+// net.Listener
+func getTLSConfig(logger *util.Logger, caPath, certPath, keyPath string) *tls.Config {
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
-		logger.FatalExit(err)
+		logger.FatalExit(fmt.Errorf(
+			"Couldn't load X509 key pair (%s, %s): %s. Key encrypted?",
+			certPath, keyPath, err))
 	}
+	tlsConfig := &tls.Config{
+		NextProtos:   []string{"http/1.1"},
+		Certificates: []tls.Certificate{cert},
+	}
+	certPool := x509.NewCertPool()
+	file, err := ioutil.ReadFile(caPath)
+	if err != nil {
+		logger.FatalExit(fmt.Errorf("Couldn't read CA certificate %s: %s", caPath, err))
+	}
+	certPool.AppendCertsFromPEM(file)
 
-	svr := server.NewServer(logger, prov)
-	host := "0.0.0.0"
-	port := uint16(*flPort)
-	logger.Infof("freighterd (rev: %v, pid: %v) listening on %s:%d", version, pid, host, port)
-	svr.Start(host, port)
+	tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+	tlsConfig.ClientCAs = certPool
+	return tlsConfig
 }

@@ -1,6 +1,8 @@
 package freighterclient
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,18 +44,6 @@ var (
 	ErrHostNotFound      = errors.New("freighter: host not found")
 )
 
-// SharedHTTPClient is the shared default http.Client used by Clients created
-// with NewClient() without a given http.Client.
-var SharedHTTPClient = &http.Client{
-	Transport: &http.Transport{
-		Proxy: nil,
-		Dial: (&net.Dialer{
-			KeepAlive: 10 * time.Second,
-		}).Dial,
-		TLSHandshakeTimeout: 10 * time.Second,
-	},
-}
-
 type RegistryAuth struct {
 	Username string
 	Password string
@@ -63,40 +53,40 @@ type RegistryAuth struct {
 
 // Client represents a Freighter API consumer.
 type Client interface {
-	List(host *Host) ([]*Container, error)
-	Create(host *Host, name, image string, config ContainerConfig) (*Container, error)
+	List() ([]*Container, error)
+	Create(name, image string, config ContainerConfig) (*Container, error)
 
 	// Info returns the Container with the given id.
 	// If there is no Container with the given id, Info should return
 	// ErrContainerNotFound.
-	Info(host *Host, id string) (*Container, error)
+	Info(id string) (*Container, error)
 
-	Start(host *Host, id string) (*Container, error)
-	Stop(host *Host, id string) (*Container, error)
-	Restart(host *Host, id string) (*Container, error)
-	Terminate(host *Host, id string) (*Container, error)
+	Start(id string) (*Container, error)
+	Stop(id string) (*Container, error)
+	Restart(id string) (*Container, error)
+	Terminate(id string) (*Container, error)
 
-	AddPublicKeys(host *Host, id string, keys []string) error
-	ClearPublicKeys(host *Host, id string) error
-	RemovePublicKey(host *Host, id string, fingerprint string) error
+	AddPublicKeys(id string, keys []string) error
+	ClearPublicKeys(id string) error
+	RemovePublicKey(id string, fingerprint string) error
 
-	ListVolumes(host *Host) ([]string, error)
-	CreateVolume(host *Host, slug string) (*Volume, error)
-	RemoveVolume(host *Host, slug string) error
-	GetVolumeInfo(host *Host, slug string) (*Volume, error)
+	ListVolumes() ([]string, error)
+	CreateVolume(slug string) (*Volume, error)
+	RemoveVolume(slug string) error
+	GetVolumeInfo(slug string) (*Volume, error)
 
 	// Logs get logs of the container's process and copy it to the writer
 	//
 	// https://docs.docker.com/reference/api/docker_remote_api_v1.13/#21-containers
 	// Search for `Get container logs` because docker's api documentation sucks
-	Logs(host *Host, id, follow, timestamps, tail string, w io.Writer) error
+	Logs(id, follow, timestamps, tail string, w io.Writer) error
 
-	RegistryLogin(host *Host, params *RegistryAuth) error
-	RegistryLogout(host *Host, registry string) error
+	RegistryLogin(params *RegistryAuth) error
+	RegistryLogout(registry string) error
 
-	HostInfo(host *Host) (*HostInfo, error)
+	HostInfo() (*HostInfo, error)
 
-	ListImages(host *Host) ([]*Image, error)
+	ListImages() ([]*Image, error)
 }
 
 type (
@@ -123,7 +113,7 @@ type (
 	}
 
 	errorResponse struct {
-		Error string `json:error`
+		Error string `json:"error"`
 	}
 )
 
@@ -158,25 +148,53 @@ func (e *StatusError) Error() string {
 }
 
 type client struct {
+	host *Host
 	*http.Client
 }
 
-// NewClient returns a new Freighter API Client.
-// httpclient is optional and defaults to SharedHTTPClient.
-//
-// Clients wrap around the underlying HTTP request/response business and are
-// safe for concurrent use in multiple goroutines.
-func NewClient(httpclient *http.Client) Client {
-	if httpclient == nil {
-		httpclient = SharedHTTPClient
+// NewClient returns a new Freighter API Client that can be used to communicate
+// with a freighterd instance on a host
+func NewClient(host *Host) (Client, error) {
+	return NewClientTransport(host, nil)
+}
+
+// NewClientTransport returns a new Freighter API Client that reuses an existing
+// transport but with new TLS config so it can be used to communicate with
+// a freighterd instance
+func NewClientTransport(host *Host, tp *http.Transport) (Client, error) {
+	// generate proper tls config
+	crt, err := tls.X509KeyPair(host.Cert, host.Key)
+	if err != nil {
+		return nil, err
 	}
-	return &client{Client: httpclient}
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM(host.CA)
+	tlsConfig := &tls.Config{
+		ServerName:   host.ServerName,
+		RootCAs:      certPool,
+		Certificates: []tls.Certificate{crt},
+	}
+
+	if tp == nil {
+		tp = &http.Transport{
+			Proxy: nil,
+			Dial: (&net.Dialer{
+				KeepAlive: 10 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout: 10 * time.Second,
+		}
+	}
+	tp.TLSClientConfig = tlsConfig
+	cl := &http.Client{
+		Transport: tp,
+	}
+	return &client{host: host, Client: cl}, nil
 }
 
 // List makes an API request to a given Freighter Host and returns a list of
 // Containers.
-func (c *client) List(h *Host) ([]*Container, error) {
-	u := h.BaseURL() + "/containers"
+func (c *client) List() ([]*Container, error) {
+	u := c.host.BaseURL() + "/containers"
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
@@ -195,7 +213,6 @@ func (c *client) List(h *Host) ([]*Container, error) {
 
 	var containers containersResponse
 	err = json.NewDecoder(resp.Body).Decode(&containers)
-
 	if err != nil {
 		return nil, ErrUnexpectedResponse
 	}
@@ -205,8 +222,8 @@ func (c *client) List(h *Host) ([]*Container, error) {
 
 // Create makes an API request to a given Freighter Host to create a container
 // with the given name, image, and configuration.
-func (c *client) Create(h *Host, name, image string, config ContainerConfig) (*Container, error) {
-	u := h.BaseURL() + "/containers"
+func (c *client) Create(name, image string, config ContainerConfig) (*Container, error) {
+	u := c.host.BaseURL() + "/containers"
 	data := url.Values{}
 	data.Set("name", name)
 	data.Set("image", image)
@@ -229,6 +246,7 @@ func (c *client) Create(h *Host, name, image string, config ContainerConfig) (*C
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -253,8 +271,8 @@ func (c *client) Create(h *Host, name, image string, config ContainerConfig) (*C
 // Info makes an API request to a given Freighter Host and returns the
 // Container with the given id.
 // If the Container does not exist, ErrContainerNotFound is returned.
-func (c *client) Info(h *Host, id string) (*Container, error) {
-	u := h.BaseURL() + "/containers/" + id
+func (c *client) Info(id string) (*Container, error) {
+	u := c.host.BaseURL() + "/containers/" + id
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
@@ -265,6 +283,7 @@ func (c *client) Info(h *Host, id string) (*Container, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -285,29 +304,29 @@ func (c *client) Info(h *Host, id string) (*Container, error) {
 // Start makes an API request to a given Freighter host to start the Container
 // with the given id. The Container is returned.
 // If the Container does not exist, ErrContainerNotFound is returned.
-func (c *client) Start(h *Host, id string) (*Container, error) {
-	return c.containerControl(h, id, "start")
+func (c *client) Start(id string) (*Container, error) {
+	return c.containerControl(id, "start")
 }
 
 // Stop makes an API request to a given Freighter host to stop the Container
 // with the given id. The Container is returned.
 // If the Container does not exist, ErrContainerNotFound is returned.
-func (c *client) Stop(h *Host, id string) (*Container, error) {
-	return c.containerControl(h, id, "stop")
+func (c *client) Stop(id string) (*Container, error) {
+	return c.containerControl(id, "stop")
 }
 
 // Restart makes an API request to a given Freighter host to restart the
 // Container with the given id. The Container is returned.
 // If the Container does not exist, ErrContainerNotFound is returned.
-func (c *client) Restart(h *Host, id string) (*Container, error) {
-	return c.containerControl(h, id, "restart")
+func (c *client) Restart(id string) (*Container, error) {
+	return c.containerControl(id, "restart")
 }
 
 // Terminate makes an API request to a given Freighter host to terminate the
 // Container with the given id. The Container is returned.
 // If the Container does not exist, ErrContainerNotFound is returned.
-func (c *client) Terminate(h *Host, id string) (*Container, error) {
-	u := fmt.Sprintf("%s/containers/%s", h.BaseURL(), id)
+func (c *client) Terminate(id string) (*Container, error) {
+	u := fmt.Sprintf("%s/containers/%s", c.host.BaseURL(), id)
 	req, err := http.NewRequest("DELETE", u, nil)
 	if err != nil {
 		return nil, err
@@ -318,6 +337,7 @@ func (c *client) Terminate(h *Host, id string) (*Container, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -339,7 +359,6 @@ func (c *client) Terminate(h *Host, id string) (*Container, error) {
 // specified container's logs. The response will be write into a provided
 // `io.Writer`
 func (c *client) Logs(
-	h *Host,
 	id string,
 	follow string,
 	timestamps string,
@@ -350,12 +369,18 @@ func (c *client) Logs(
 	params.Set("follow", follow)
 	params.Set("timestamps", timestamps)
 	params.Set("tail", tail)
-	u := fmt.Sprintf("%s/containers/%s/logs?%s", h.BaseURL(), id, params.Encode())
-	resp, err := http.Get(u)
+	u := fmt.Sprintf("%s/containers/%s/logs?%s", c.host.BaseURL(), id, params.Encode())
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("Failed to fetch container %s logs, status : %d", id, resp.StatusCode)
 	}
@@ -365,7 +390,7 @@ func (c *client) Logs(
 	return nil
 }
 
-func (c *client) RegistryLogin(h *Host, p *RegistryAuth) error {
+func (c *client) RegistryLogin(p *RegistryAuth) error {
 	params := url.Values{}
 	params.Set("username", p.Username)
 	params.Set("password", p.Password)
@@ -374,7 +399,7 @@ func (c *client) RegistryLogin(h *Host, p *RegistryAuth) error {
 		params.Set("registry", p.Registry)
 	}
 
-	u := fmt.Sprintf("%s/registry/auth", h.BaseURL())
+	u := fmt.Sprintf("%s/registry/auth", c.host.BaseURL())
 	req, err := http.NewRequest("POST", u, strings.NewReader(params.Encode()))
 	if err != nil {
 		return err
@@ -399,10 +424,10 @@ func (c *client) RegistryLogin(h *Host, p *RegistryAuth) error {
 	return nil
 }
 
-func (c *client) RegistryLogout(h *Host, registry string) error {
+func (c *client) RegistryLogout(registry string) error {
 	params := url.Values{}
 	params.Set("registry", registry)
-	u := fmt.Sprintf("%s/registry/auth?%s", h.BaseURL(), params.Encode())
+	u := fmt.Sprintf("%s/registry/auth?%s", c.host.BaseURL(), params.Encode())
 	req, err := http.NewRequest("DELETE", u, nil)
 	if err != nil {
 		return err
@@ -443,21 +468,17 @@ func (c *client) doPublicKeyOp(req *http.Request) error {
 		if err != nil {
 			return err
 		}
-
 		if errorResp.Error == provider.ErrPubKeyOpsNotSupported.Error() {
 			return ErrPubKeyOpsNotSupported
-		} else {
-			return &StatusError{resp.StatusCode}
 		}
+		return &StatusError{resp.StatusCode}
 	default:
 		return &StatusError{resp.StatusCode}
 	}
-
-	return nil
 }
 
-func (c *client) AddPublicKeys(h *Host, id string, keys []string) error {
-	u := fmt.Sprintf("%s/containers/%s/public_keys", h.BaseURL(), id)
+func (c *client) AddPublicKeys(id string, keys []string) error {
+	u := fmt.Sprintf("%s/containers/%s/public_keys", c.host.BaseURL(), id)
 
 	data := url.Values{}
 	for _, key := range keys {
@@ -474,8 +495,8 @@ func (c *client) AddPublicKeys(h *Host, id string, keys []string) error {
 	return c.doPublicKeyOp(req)
 }
 
-func (c *client) ClearPublicKeys(h *Host, id string) error {
-	u := fmt.Sprintf("%s/containers/%s/public_keys", h.BaseURL(), id)
+func (c *client) ClearPublicKeys(id string) error {
+	u := fmt.Sprintf("%s/containers/%s/public_keys", c.host.BaseURL(), id)
 
 	req, err := http.NewRequest("DELETE", u, nil)
 	if err != nil {
@@ -486,8 +507,8 @@ func (c *client) ClearPublicKeys(h *Host, id string) error {
 	return c.doPublicKeyOp(req)
 }
 
-func (c *client) RemovePublicKey(h *Host, id string, fingerprint string) error {
-	u := fmt.Sprintf("%s/containers/%s/public_keys/%s", h.BaseURL(), id, fingerprint)
+func (c *client) RemovePublicKey(id string, fingerprint string) error {
+	u := fmt.Sprintf("%s/containers/%s/public_keys/%s", c.host.BaseURL(), id, fingerprint)
 
 	req, err := http.NewRequest("DELETE", u, nil)
 	if err != nil {
@@ -498,8 +519,8 @@ func (c *client) RemovePublicKey(h *Host, id string, fingerprint string) error {
 	return c.doPublicKeyOp(req)
 }
 
-func (c *client) HostInfo(h *Host) (*HostInfo, error) {
-	u := fmt.Sprintf("%s/info", h.BaseURL())
+func (c *client) HostInfo() (*HostInfo, error) {
+	u := fmt.Sprintf("%s/info", c.host.BaseURL())
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
@@ -529,8 +550,8 @@ func (c *client) HostInfo(h *Host) (*HostInfo, error) {
 
 // ListImages makes an API request to a given Freighter Host and returns a list of
 // Images.
-func (c *client) ListImages(h *Host) ([]*Image, error) {
-	u := fmt.Sprintf("%s/images", h.BaseURL())
+func (c *client) ListImages() ([]*Image, error) {
+	u := fmt.Sprintf("%s/images", c.host.BaseURL())
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
@@ -558,8 +579,8 @@ func (c *client) ListImages(h *Host) ([]*Image, error) {
 	return images.Images, nil
 }
 
-func (c *client) ListVolumes(h *Host) ([]string, error) {
-	u := fmt.Sprintf("%s/volumes", h.BaseURL())
+func (c *client) ListVolumes() ([]string, error) {
+	u := fmt.Sprintf("%s/volumes", c.host.BaseURL())
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
@@ -587,8 +608,8 @@ func (c *client) ListVolumes(h *Host) ([]string, error) {
 	return volumes.Volumes, nil
 }
 
-func (c *client) CreateVolume(h *Host, slug string) (*Volume, error) {
-	u := fmt.Sprintf("%s/volumes", h.BaseURL())
+func (c *client) CreateVolume(slug string) (*Volume, error) {
+	u := fmt.Sprintf("%s/volumes", c.host.BaseURL())
 	data := &url.Values{"slug": []string{slug}}
 	req, err := http.NewRequest("POST", u, strings.NewReader(data.Encode()))
 	if err != nil {
@@ -622,8 +643,8 @@ func (c *client) CreateVolume(h *Host, slug string) (*Volume, error) {
 	}
 }
 
-func (c *client) RemoveVolume(h *Host, slug string) error {
-	u := fmt.Sprintf("%s/volumes/%s", h.BaseURL(), slug)
+func (c *client) RemoveVolume(slug string) error {
+	u := fmt.Sprintf("%s/volumes/%s", c.host.BaseURL(), slug)
 	req, err := http.NewRequest("DELETE", u, nil)
 	if err != nil {
 		return err
@@ -648,8 +669,8 @@ func (c *client) RemoveVolume(h *Host, slug string) error {
 	}
 }
 
-func (c *client) GetVolumeInfo(h *Host, slug string) (*Volume, error) {
-	u := fmt.Sprintf("%s/volumes/%s", h.BaseURL(), slug)
+func (c *client) GetVolumeInfo(slug string) (*Volume, error) {
+	u := fmt.Sprintf("%s/volumes/%s", c.host.BaseURL(), slug)
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
@@ -679,8 +700,8 @@ func (c *client) GetVolumeInfo(h *Host, slug string) (*Volume, error) {
 	}
 }
 
-func (c *client) containerControl(h *Host, id string, action string) (*Container, error) {
-	u := fmt.Sprintf("%s/containers/%s/%s", h.BaseURL(), id, action)
+func (c *client) containerControl(id string, action string) (*Container, error) {
+	u := fmt.Sprintf("%s/containers/%s/%s", c.host.BaseURL(), id, action)
 	req, err := http.NewRequest("POST", u, nil)
 	if err != nil {
 		return nil, err
@@ -691,6 +712,7 @@ func (c *client) containerControl(h *Host, id string, action string) (*Container
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -719,7 +741,6 @@ func performRequest(c *client, req *http.Request) (*http.Response, error) {
 func unmarshalContainerResponse(resp *http.Response) (*containerResponse, error) {
 	var cntnr containerResponse
 	err := json.NewDecoder(resp.Body).Decode(&cntnr)
-	resp.Body.Close()
 	if err != nil {
 		return nil, ErrUnexpectedResponse
 	}

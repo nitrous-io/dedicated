@@ -2,80 +2,105 @@ package freighterclient_test
 
 import (
 	"bytes"
-	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"strconv"
-	"testing"
 	"time"
 
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/freighter/provider"
+	"github.com/onsi/gomega/ghttp"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
 )
-
-func TestClient(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "client")
-}
 
 type ServerTest struct {
 	client    freighterclient.Client
 	host      *freighterclient.Host
 	server    *ghttp.Server
 	handlerFn http.HandlerFunc
-	tls       bool
+	tp        *http.Transport
 }
 
-func NewServerTest(handlerFn http.HandlerFunc) *ServerTest {
+func NewServerTest(handlerFn http.HandlerFunc) (*ServerTest, error) {
 	st := &ServerTest{handlerFn: handlerFn}
 	return st.Setup()
 }
 
-func (st *ServerTest) Setup() *ServerTest {
-	if st.tls {
-		st.server = ghttp.NewTLSServer()
-	} else {
-		st.server = ghttp.NewServer()
-	}
+func NewServerTestTransport(fn http.HandlerFunc, tp *http.Transport) (*ServerTest, error) {
+	st := &ServerTest{handlerFn: fn, tp: tp}
+	return st.Setup()
+}
+
+func (st *ServerTest) Setup() (*ServerTest, error) {
+	st.server = ghttp.NewTLSServer()
 	st.server.AppendHandlers(st.handlerFn)
 
-	ip, port := func() (string, int) {
-		serverAddr := st.server.HTTPTestServer.Listener.Addr().String()
-		ip, portStr, err := net.SplitHostPort(serverAddr)
-		Expect(err).To(BeNil())
-		port, err := strconv.Atoi(portStr)
-		Expect(err).To(BeNil())
-		return ip, port
-	}()
-	st.host = &freighterclient.Host{Host: ip, Port: port, Secure: st.tls}
-
-	if st.tls {
-		tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-		c := &http.Client{Transport: tr}
-		st.client = freighterclient.NewClient(c)
-	} else {
-		st.client = freighterclient.NewClient(nil)
+	ip, port, err := ipAndPort(st.server)
+	if err != nil {
+		return nil, err
+	}
+	host := freighterclient.NewHost(ip, port, "example.com", localhostCert,
+		localhostCert, localhostKey)
+	client, err := freighterclient.NewClientTransport(host, st.tp)
+	if err != nil {
+		return nil, err
 	}
 
-	return st
+	st.host = host
+	st.client = client
+	return st, nil
+}
+
+func (st *ServerTest) Close() {
+	if st.server.HTTPTestServer != nil {
+		st.server.Close()
+	}
+}
+
+func ipAndPort(s *ghttp.Server) (string, int, error) {
+	serverAddr := s.HTTPTestServer.Listener.Addr().String()
+	ip, portStr, err := net.SplitHostPort(serverAddr)
+	if err != nil {
+		return "", 0, err
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return "", 0, err
+	}
+	return ip, port, nil
 }
 
 var _ = Describe("client", func() {
 	var (
 		st     *ServerTest
-		client freighterclient.Client
+		cl     freighterclient.Client
 		host   *freighterclient.Host
 		server *ghttp.Server
 	)
 
-	Describe("NewClient()", func() {
-		It("implements Client", func() {
-			var _ freighterclient.Client = freighterclient.NewClient(nil)
+	Describe("NewClientHTTP", func() {
+		It("times out a long request", func() {
+			handlers := ghttp.CombineHandlers(
+				func(w http.ResponseWriter, r *http.Request) {
+					time.Sleep(1 * time.Millisecond)
+					w.Write([]byte(`{"status": "toolong"}`))
+				},
+			)
+			tp := &http.Transport{
+				Dial: (&net.Dialer{
+					Timeout: 1 * time.Nanosecond,
+				}).Dial,
+			}
+			st, _ := NewServerTestTransport(handlers, tp)
+			defer st.Close()
+
+			_, err := st.client.List()
+			_, ok := err.(*freighterclient.RequestFailedError)
+			Expect(ok).To(BeTrue(), "should receive RequestFailedError")
 		})
 	})
 
@@ -91,14 +116,14 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/json"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
-			if server.HTTPTestServer != nil {
-				server.Close()
-			}
+			st.Close()
 		})
 
 		Context("when the response is HTTP 200 OK", func() {
@@ -131,7 +156,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a slice of Containers", func() {
-					containers, err := client.List(host)
+					containers, err := cl.List()
 					Expect(err).To(BeNil())
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(containers).To(HaveLen(2))
@@ -160,7 +185,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns an empty slice", func() {
-					containers, err := client.List(host)
+					containers, err := cl.List()
 					Expect(err).To(BeNil())
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(containers).To(HaveLen(0))
@@ -173,11 +198,8 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns ErrUnexpectedResponse", func() {
-					containers, err := client.List(host)
-					Expect(err).NotTo(BeNil())
+					_, err := cl.List()
 					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
-					Expect(server.ReceivedRequests()).To(HaveLen(1))
-					Expect(containers).To(BeNil())
 				})
 			})
 		})
@@ -188,8 +210,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns a StatusError", func() {
-				containers, err := client.List(host)
-				Expect(err).NotTo(BeNil())
+				containers, err := cl.List()
 				_, ok := err.(*freighterclient.StatusError)
 				Expect(ok).To(BeTrue())
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
@@ -204,8 +225,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns a RequestFailedError", func() {
-				containers, err := client.List(host)
-				Expect(err).NotTo(BeNil())
+				containers, err := cl.List()
 				_, ok := err.(*freighterclient.RequestFailedError)
 				Expect(ok).To(BeTrue())
 				Expect(server.ReceivedRequests()).To(HaveLen(0))
@@ -213,67 +233,6 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the request times out", func() {
-			BeforeEach(func() {
-				tr := &http.Transport{
-					Dial: (&net.Dialer{
-						Timeout: 1 * time.Nanosecond,
-					}).Dial,
-				}
-				client = freighterclient.NewClient(&http.Client{Transport: tr})
-			})
-
-			It("returns a RequestFailedError", func() {
-				containers, err := client.List(host)
-				Expect(err).NotTo(BeNil())
-				_, ok := err.(*freighterclient.RequestFailedError)
-				Expect(ok).To(BeTrue())
-				Expect(server.ReceivedRequests()).To(HaveLen(0))
-				Expect(containers).To(BeNil())
-			})
-		})
-
-		Context("when connecting to a Freighter host over TLS", func() {
-			BeforeEach(func() {
-				st.server.Close()
-				st.tls = true
-				st = st.Setup()
-				client, host, server = st.client, st.host, st.server
-			})
-
-			Context("when the response is HTTP 200 OK", func() {
-				BeforeEach(func() {
-					statusCode = http.StatusOK
-					responseBody = `{
-						"containers": [
-							{
-								"id":"cafebabe",
-								"name":"yosemite",
-								"image":"freighter.yosemite",
-								"host":"172.17.0.1",
-								"ssh_port":60001,
-								"state":"running"
-							}
-						]
-					}`
-				})
-
-				It("returns a slice of Containers", func() {
-					containers, err := client.List(host)
-					Expect(err).To(BeNil())
-					Expect(server.ReceivedRequests()).To(HaveLen(1))
-					Expect(containers).To(HaveLen(1))
-
-					Expect(containers[0]).To(Equal(&freighterclient.Container{
-						ID:    "cafebabe",
-						Name:  "yosemite",
-						Image: "freighter.yosemite",
-						Host:  "172.17.0.1",
-						State: "running",
-					}))
-				})
-			})
-		})
 	})
 
 	Describe("Create()", func() {
@@ -294,14 +253,15 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
-			if server.HTTPTestServer != nil {
-				server.Close()
-			}
+			st.Close()
 		})
 
 		Context("when the response is HTTP 200 OK", func() {
@@ -326,7 +286,7 @@ var _ = Describe("client", func() {
 				It("returns the Container", func() {
 					config := freighterclient.NewDockerContainerConfig()
 					config.Env = []string{"LANG=C"}
-					container, err := client.Create(host, "yosemite", "ubuntu", config)
+					container, err := cl.Create("yosemite", "ubuntu", config)
 					Expect(err).To(BeNil())
 					Expect(container).NotTo(BeNil())
 
@@ -354,8 +314,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns ErrUnexpectedResponse", func() {
-					container, err := client.Create(host, "yosemite", "ubuntu", nil)
-					Expect(err).NotTo(BeNil())
+					container, err := cl.Create("yosemite", "ubuntu", nil)
 					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
@@ -374,8 +333,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns InvalidParamError", func() {
-					container, err := client.Create(host, "yosemite", "ubuntu", nil)
-					Expect(err).NotTo(BeNil())
+					container, err := cl.Create("yosemite", "ubuntu", nil)
 					e, ok := err.(*freighterclient.InvalidParamError)
 					Expect(ok).To(BeTrue())
 					Expect(e.Msg).To(Equal("invalid name"))
@@ -390,8 +348,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns ErrUnexpectedResponse", func() {
-					container, err := client.Create(host, "yosemite", "ubuntu", nil)
-					Expect(err).NotTo(BeNil())
+					container, err := cl.Create("yosemite", "ubuntu", nil)
 					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
@@ -405,8 +362,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns a StatusError", func() {
-				container, err := client.Create(host, "yosemite", "ubuntu", nil)
-				Expect(err).NotTo(BeNil())
+				container, err := cl.Create("yosemite", "ubuntu", nil)
 				_, ok := err.(*freighterclient.StatusError)
 				Expect(ok).To(BeTrue())
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
@@ -428,14 +384,14 @@ var _ = Describe("client", func() {
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
 
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
-			if server.HTTPTestServer != nil {
-				server.Close()
-			}
+			st.Close()
 		})
 
 		Context("when the response is HTTP 200 OK", func() {
@@ -458,7 +414,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns the Container", func() {
-					container, err := client.Info(host, "deadbeef")
+					container, err := cl.Info("deadbeef")
 					Expect(err).To(BeNil())
 					Expect(container).NotTo(BeNil())
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
@@ -479,7 +435,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns ErrUnexpectedResponse", func() {
-					container, err := client.Info(host, "deadbeef")
+					container, err := cl.Info("deadbeef")
 					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
@@ -493,7 +449,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns ErrContainerNotFound", func() {
-				container, err := client.Info(host, "deadbeef")
+				container, err := cl.Info("deadbeef")
 				Expect(err).To(Equal(freighterclient.ErrContainerNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
@@ -506,7 +462,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns a StatusError", func() {
-				container, err := client.Info(host, "deadbeef")
+				container, err := cl.Info("deadbeef")
 				Expect(err).NotTo(BeNil())
 				_, ok := err.(*freighterclient.StatusError)
 				Expect(ok).To(BeTrue())
@@ -518,7 +474,7 @@ var _ = Describe("client", func() {
 
 	Describe("container control actions", func() {
 		var (
-			fnUnderTest func(h *freighterclient.Host, id string) (*freighterclient.Container, error)
+			fnUnderTest func(id string) (*freighterclient.Container, error)
 			path        string
 
 			statusCode   int
@@ -532,19 +488,19 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
-			if server.HTTPTestServer != nil {
-				server.Close()
-			}
+			st.Close()
 		})
 
 		itWorks := func() {
 			It("makes an HTTP POST request", func() {
-				fnUnderTest(host, id)
+				fnUnderTest(id)
 
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				req := server.ReceivedRequests()[0]
@@ -572,7 +528,7 @@ var _ = Describe("client", func() {
 					})
 
 					It("returns the Container", func() {
-						container, err := fnUnderTest(host, id)
+						container, err := fnUnderTest(id)
 						Expect(err).To(BeNil())
 						Expect(container).NotTo(BeNil())
 
@@ -592,7 +548,7 @@ var _ = Describe("client", func() {
 					})
 
 					It("returns ErrUnexpectedResponse", func() {
-						container, err := fnUnderTest(host, id)
+						container, err := fnUnderTest(id)
 						Expect(err).To(MatchError(freighterclient.ErrUnexpectedResponse))
 						Expect(container).To(BeNil())
 					})
@@ -605,7 +561,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns ErrContainerNotFound", func() {
-					container, err := fnUnderTest(host, id)
+					container, err := fnUnderTest(id)
 					Expect(err).To(MatchError(freighterclient.ErrContainerNotFound))
 					Expect(container).To(BeNil())
 				})
@@ -617,8 +573,10 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a StatusError", func() {
-					container, err := fnUnderTest(host, id)
-					Expect(err).To(MatchError(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+					container, err := fnUnderTest(id)
+					Expect(err).To(MatchError(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+					}))
 					Expect(container).To(BeNil())
 				})
 			})
@@ -626,7 +584,7 @@ var _ = Describe("client", func() {
 
 		Describe("Start()", func() {
 			BeforeEach(func() {
-				fnUnderTest = client.Start
+				fnUnderTest = cl.Start
 				path = "/containers/" + id + "/start"
 			})
 
@@ -635,7 +593,7 @@ var _ = Describe("client", func() {
 
 		Describe("Stop()", func() {
 			BeforeEach(func() {
-				fnUnderTest = client.Stop
+				fnUnderTest = cl.Stop
 				path = "/containers/" + id + "/stop"
 			})
 
@@ -644,7 +602,7 @@ var _ = Describe("client", func() {
 
 		Describe("Restart()", func() {
 			BeforeEach(func() {
-				fnUnderTest = client.Restart
+				fnUnderTest = cl.Restart
 				path = "/containers/" + id + "/restart"
 			})
 
@@ -664,14 +622,15 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/json"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
-			if server.HTTPTestServer != nil {
-				server.Close()
-			}
+			st.Close()
 		})
 
 		Context("when the response is HTTP 200 OK", func() {
@@ -685,7 +644,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns the Container", func() {
-					container, err := client.Terminate(host, "cafefeed")
+					container, err := cl.Terminate("cafefeed")
 					Expect(err).To(BeNil())
 					Expect(container).NotTo(BeNil())
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
@@ -700,7 +659,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns ErrUnexpectedResponse", func() {
-					container, err := client.Terminate(host, "cafefeed")
+					container, err := cl.Terminate("cafefeed")
 					Expect(err).To(MatchError(freighterclient.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
@@ -714,7 +673,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns ErrContainerNotFound", func() {
-				container, err := client.Terminate(host, "cafefeed")
+				container, err := cl.Terminate("cafefeed")
 				Expect(err).To(MatchError(freighterclient.ErrContainerNotFound))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
@@ -727,8 +686,10 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns a StatusError", func() {
-				container, err := client.Terminate(host, "cafefeed")
-				Expect(err).To(MatchError(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+				container, err := cl.Terminate("cafefeed")
+				Expect(err).To(MatchError(&freighterclient.StatusError{
+					Code: http.StatusInternalServerError,
+				}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
 			})
@@ -753,14 +714,10 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
-		}
-
-		teardownServer := func() {
-			if server.HTTPTestServer != nil {
-				server.Close()
-			}
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
 		}
 
 		Describe("AddPublicKeys()", func() {
@@ -769,7 +726,7 @@ var _ = Describe("client", func() {
 			})
 
 			AfterEach(func() {
-				teardownServer()
+				st.Close()
 			})
 
 			Context("when the response is HTTP 200 OK", func() {
@@ -788,7 +745,7 @@ var _ = Describe("client", func() {
 					})
 
 					It("returns a nil error", func() {
-						err := client.AddPublicKeys(host, "yosemite", []string{"key1", "key2"})
+						err := cl.AddPublicKeys("yosemite", []string{"key1", "key2"})
 						Expect(err).To(BeNil())
 
 						receivedRequests := server.ReceivedRequests()
@@ -805,7 +762,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a ErrPubKeyOpsNotSupported error", func() {
-					err := client.AddPublicKeys(host, "yosemite", []string{"key1", "key2"})
+					err := cl.AddPublicKeys("yosemite", []string{"key1", "key2"})
 					Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
 				})
 			})
@@ -816,8 +773,10 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a StatusError", func() {
-					err := client.AddPublicKeys(host, "yosemite", []string{"key1", "key2"})
-					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+					err := cl.AddPublicKeys("yosemite", []string{"key1", "key2"})
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+					}))
 				})
 			})
 		})
@@ -828,7 +787,7 @@ var _ = Describe("client", func() {
 			})
 
 			AfterEach(func() {
-				teardownServer()
+				st.Close()
 			})
 
 			Context("when the response is HTTP 200 OK", func() {
@@ -837,7 +796,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a nil error", func() {
-					err := client.ClearPublicKeys(host, "yosemite")
+					err := cl.ClearPublicKeys("yosemite")
 					Expect(err).To(BeNil())
 
 					receivedRequests := server.ReceivedRequests()
@@ -852,7 +811,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a ErrPubKeyOpsNotSupported error", func() {
-					err := client.ClearPublicKeys(host, "yosemite")
+					err := cl.ClearPublicKeys("yosemite")
 					Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
 				})
 			})
@@ -863,8 +822,10 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a StatusError", func() {
-					err := client.ClearPublicKeys(host, "yosemite")
-					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+					err := cl.ClearPublicKeys("yosemite")
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+					}))
 				})
 			})
 		})
@@ -875,7 +836,7 @@ var _ = Describe("client", func() {
 			})
 
 			AfterEach(func() {
-				teardownServer()
+				st.Close()
 			})
 
 			Context("when the response is HTTP 200 OK", func() {
@@ -884,7 +845,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a nil error", func() {
-					err := client.RemovePublicKey(host, "yosemite", "fprint1")
+					err := cl.RemovePublicKey("yosemite", "fprint1")
 					Expect(err).To(BeNil())
 
 					receivedRequests := server.ReceivedRequests()
@@ -899,7 +860,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a ErrPubKeyOpsNotSupported error", func() {
-					err := client.RemovePublicKey(host, "yosemite", "fprint1")
+					err := cl.RemovePublicKey("yosemite", "fprint1")
 					Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
 				})
 			})
@@ -910,8 +871,10 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a StatusError", func() {
-					err := client.RemovePublicKey(host, "yosemite", "fprint1")
-					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+					err := cl.RemovePublicKey("yosemite", "fprint1")
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+					}))
 				})
 			})
 		})
@@ -929,14 +892,14 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/json"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
-			if server.HTTPTestServer != nil {
-				server.Close()
-			}
+			st.Close()
 		})
 
 		Context("when the response has volumes", func() {
@@ -946,7 +909,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns slice of strings", func() {
-				vols, err := client.ListVolumes(host)
+				vols, err := cl.ListVolumes()
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(vols).To(HaveLen(2))
@@ -962,7 +925,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns slice of strings", func() {
-				vols, err := client.ListVolumes(host)
+				vols, err := cl.ListVolumes()
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(vols).To(HaveLen(0))
@@ -975,8 +938,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns error", func() {
-				vols, err := client.ListVolumes(host)
-				Expect(err).NotTo(BeNil())
+				vols, err := cl.ListVolumes()
 				_, ok := err.(*freighterclient.RequestFailedError)
 				Expect(ok).To(BeTrue())
 				Expect(server.ReceivedRequests()).To(HaveLen(0))
@@ -1003,8 +965,10 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		Context("on success", func() {
@@ -1014,7 +978,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns nil", func() {
-				vol, err := client.CreateVolume(host, "repos")
+				vol, err := cl.CreateVolume("repos")
 				Expect(err).To(BeNil())
 				receivedRequests := server.ReceivedRequests()
 				Expect(receivedRequests).To(HaveLen(1))
@@ -1031,7 +995,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns error", func() {
-				vol, err := client.CreateVolume(host, "repos")
+				vol, err := cl.CreateVolume("repos")
 				Expect(vol).To(BeNil())
 				Expect(err).To(MatchError(freighterclient.ErrVolumeNotFound))
 				receivedRequests := server.ReceivedRequests()
@@ -1052,8 +1016,10 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/json"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		Context("on success", func() {
@@ -1063,7 +1029,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns nil", func() {
-				err := client.RemoveVolume(host, "music")
+				err := cl.RemoveVolume("music")
 				Expect(err).To(BeNil())
 			})
 		})
@@ -1075,7 +1041,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns error", func() {
-				err := client.RemoveVolume(host, "music")
+				err := cl.RemoveVolume("music")
 				Expect(err).To(MatchError(freighterclient.ErrVolumeNotFound))
 			})
 		})
@@ -1093,8 +1059,8 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/json"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+			st, _ = NewServerTest(handlers)
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		Context("on success", func() {
@@ -1104,7 +1070,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns nil", func() {
-				vi, err := client.GetVolumeInfo(host, "music")
+				vi, err := cl.GetVolumeInfo("music")
 				Expect(err).To(BeNil())
 				Expect(vi).NotTo(BeNil())
 				Expect(vi.Slug).To(Equal("music"))
@@ -1123,11 +1089,12 @@ var _ = Describe("client", func() {
 				ghttp.VerifyRequest("GET", "/containers/deadbeef/logs", params.Encode()),
 				ghttp.RespondWith(http.StatusOK, "hello i am a log"),
 			)
-			st := NewServerTest(handlers)
-			client, host := st.client, st.host
+
+			st, _ := NewServerTest(handlers)
+			defer st.Close()
 
 			w := bytes.NewBuffer(nil)
-			err := client.Logs(host, "deadbeef", "true", "true", "all", w)
+			err := st.client.Logs("deadbeef", "true", "true", "all", w)
 			Expect(err).To(BeNil(), "should successfully get the logs")
 			Expect(w.String()).To(Equal("hello i am a log"), "should write logs to the writer")
 		})
@@ -1135,30 +1102,23 @@ var _ = Describe("client", func() {
 
 	Describe("RegistryLogin()", func() {
 		var (
-			client freighterclient.Client
-			host   *freighterclient.Host
-
-			server       *ghttp.Server
-			handlers     http.HandlerFunc
 			statusCode   int
 			responseBody string
 		)
 
 		BeforeEach(func() {
-			handlers = ghttp.CombineHandlers(
+			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("POST", "/registry/auth"),
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
 
-			st := NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+			st, _ := NewServerTest(handlers)
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
-			if server.HTTPTestServer != nil {
-				server.Close()
-			}
+			st.Close()
 		})
 
 		doRequest := func() error {
@@ -1168,7 +1128,7 @@ var _ = Describe("client", func() {
 				Email:    "foo@example.com",
 				Registry: "hub.example.com",
 			}
-			return client.RegistryLogin(host, p)
+			return cl.RegistryLogin(p)
 		}
 
 		Context("when the response is HTTP 201 Created", func() {
@@ -1214,7 +1174,9 @@ var _ = Describe("client", func() {
 
 			It("returns a StatusError", func() {
 				err := doRequest()
-				Expect(err).To(MatchError(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+				Expect(err).To(MatchError(&freighterclient.StatusError{
+					Code: http.StatusInternalServerError,
+				}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
@@ -1222,34 +1184,27 @@ var _ = Describe("client", func() {
 
 	Describe("RegistryLogout()", func() {
 		var (
-			client freighterclient.Client
-			host   *freighterclient.Host
-
-			server       *ghttp.Server
-			handlers     http.HandlerFunc
 			statusCode   int
 			responseBody string
 		)
 
 		BeforeEach(func() {
-			handlers = ghttp.CombineHandlers(
+			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("DELETE", "/registry/auth"),
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
 
-			st := NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+			st, _ := NewServerTest(handlers)
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
-			if server.HTTPTestServer != nil {
-				server.Close()
-			}
+			st.Close()
 		})
 
 		doRequest := func() error {
-			return client.RegistryLogout(host, "hub.example.com")
+			return cl.RegistryLogout("hub.example.com")
 		}
 
 		Context("when the response is HTTP 204 No Content", func() {
@@ -1298,7 +1253,9 @@ var _ = Describe("client", func() {
 
 			It("returns a StatusError", func() {
 				err := doRequest()
-				Expect(err).To(MatchError(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+				Expect(err).To(MatchError(&freighterclient.StatusError{
+					Code: http.StatusInternalServerError,
+				}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
@@ -1316,14 +1273,12 @@ var _ = Describe("client", func() {
 				ghttp.VerifyContentType("application/json"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
+			st, _ = NewServerTest(handlers)
+			cl, host, server = st.client, st.host, st.server
 		})
 
 		AfterEach(func() {
-			if server.HTTPTestServer != nil {
-				server.Close()
-			}
+			st.Close()
 		})
 
 		Context("when the response is HTTP 200 OK", func() {
@@ -1341,7 +1296,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns the HostInfo", func() {
-				info, err := client.HostInfo(host)
+				info, err := cl.HostInfo()
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(info).To(Equal(&freighterclient.HostInfo{
@@ -1362,7 +1317,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns ErrUnexpectedResponse", func() {
-				info, err := client.HostInfo(host)
+				info, err := cl.HostInfo()
 				Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(info).To(BeNil())
@@ -1375,7 +1330,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns a StatusError", func() {
-				info, err := client.HostInfo(host)
+				info, err := cl.HostInfo()
 				Expect(err).NotTo(BeNil())
 				_, ok := err.(*freighterclient.StatusError)
 				Expect(ok).To(BeTrue())
@@ -1387,17 +1342,12 @@ var _ = Describe("client", func() {
 
 	Describe("Image Operations", func() {
 		var (
-			client freighterclient.Client
-			host   *freighterclient.Host
-
-			server       *ghttp.Server
-			handlers     http.HandlerFunc
 			statusCode   int
 			responseBody string
 		)
 
 		setupServer := func(method, url string) {
-			handlers = ghttp.CombineHandlers(
+			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
 					err := req.ParseForm()
 					Expect(err).To(BeNil())
@@ -1407,14 +1357,8 @@ var _ = Describe("client", func() {
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
 
-			st = NewServerTest(handlers)
-			client, host, server = st.client, st.host, st.server
-		}
-
-		teardownServer := func() {
-			if server.HTTPTestServer != nil {
-				server.Close()
-			}
+			st, _ = NewServerTest(handlers)
+			cl, host, server = st.client, st.host, st.server
 		}
 
 		Describe("ListImages()", func() {
@@ -1426,13 +1370,13 @@ var _ = Describe("client", func() {
 				})
 
 				AfterEach(func() {
-					teardownServer()
+					st.Close()
 				})
 
 				It("should surface request failures", func() {
-					teardownServer()
+					st.Close()
 
-					images, err := client.ListImages(host)
+					images, err := cl.ListImages()
 					Expect(err).NotTo(BeNil())
 					_, ok := err.(*freighterclient.RequestFailedError)
 					Expect(ok).To(BeTrue())
@@ -1442,9 +1386,11 @@ var _ = Describe("client", func() {
 
 				It("should surface response failures in StatusErr", func() {
 					statusCode = http.StatusInternalServerError
-					images, err := client.ListImages(host)
+					images, err := cl.ListImages()
 
-					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+					}))
 					Expect(images).To(BeNil())
 				})
 
@@ -1457,14 +1403,14 @@ var _ = Describe("client", func() {
 				})
 
 				AfterEach(func() {
-					teardownServer()
+					st.Close()
 				})
 
 				It("should handle JSON decoding errors", func() {
 					statusCode = http.StatusOK
 					responseBody = `<<???>>`
 
-					images, err := client.ListImages(host)
+					images, err := cl.ListImages()
 					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 					Expect(images).To(BeNil())
 				})
@@ -1493,7 +1439,7 @@ var _ = Describe("client", func() {
 						]
 					}`
 
-					images, err := client.ListImages(host)
+					images, err := cl.ListImages()
 					Expect(err).To(BeNil())
 					Expect(images).To(HaveLen(2))
 
@@ -1520,3 +1466,34 @@ var _ = Describe("client", func() {
 		})
 	})
 })
+
+// These certs are the same as the certs embeded with net/http/httptest.
+// If there's mismatched certs error, look at net/http/httptest/server.go to
+// check if the cert has changed.
+//
+// localhostCert is a PEM-encoded TLS cert with SAN IPs
+// "127.0.0.1" and "[::1]", expiring at the last second of 2049 (the end
+// of ASN.1 time).
+// generated from src/pkg/crypto/tls:
+// go run generate_cert.go  --rsa-bits 512 --host 127.0.0.1,::1,example.com --ca --start-date "Jan 1 00:00:00 1970" --duration=1000000h
+var localhostCert = []byte(`-----BEGIN CERTIFICATE-----
+MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwEjEQMA4GA1UEChMHQWNtZSBD
+bzAeFw03MDAxMDEwMDAwMDBaFw00OTEyMzEyMzU5NTlaMBIxEDAOBgNVBAoTB0Fj
+bWUgQ28wWjALBgkqhkiG9w0BAQEDSwAwSAJBAN55NcYKZeInyTuhcCwFMhDHCmwa
+IUSdtXdcbItRB/yfXGBhiex00IaLXQnSU+QZPRZWYqeTEbFSgihqi1PUDy8CAwEA
+AaNoMGYwDgYDVR0PAQH/BAQDAgCkMBMGA1UdJQQMMAoGCCsGAQUFBwMBMA8GA1Ud
+EwEB/wQFMAMBAf8wLgYDVR0RBCcwJYILZXhhbXBsZS5jb22HBH8AAAGHEAAAAAAA
+AAAAAAAAAAAAAAEwCwYJKoZIhvcNAQEFA0EAAoQn/ytgqpiLcZu9XKbCJsJcvkgk
+Se6AbGXgSlq+ZCEVo0qIwSgeBqmsJxUu7NCSOwVJLYNEBO2DtIxoYVk+MA==
+-----END CERTIFICATE-----`)
+
+// localhostKey is the private key for localhostCert.
+var localhostKey = []byte(`-----BEGIN RSA PRIVATE KEY-----
+MIIBPAIBAAJBAN55NcYKZeInyTuhcCwFMhDHCmwaIUSdtXdcbItRB/yfXGBhiex0
+0IaLXQnSU+QZPRZWYqeTEbFSgihqi1PUDy8CAwEAAQJBAQdUx66rfh8sYsgfdcvV
+NoafYpnEcB5s4m/vSVe6SU7dCK6eYec9f9wpT353ljhDUHq3EbmE4foNzJngh35d
+AekCIQDhRQG5Li0Wj8TM4obOnnXUXf1jRv0UkzE9AHWLG5q3AwIhAPzSjpYUDjVW
+MCUXgckTpKCuGwbJk7424Nb8bLzf3kllAiA5mUBgjfr/WtFSJdWcPQ4Zt9KTMNKD
+EUO0ukpTwEIl6wIhAMbGqZK3zAAFdq8DD2jPx+UJXnh0rnOkZBzDtJ6/iN69AiEA
+1Aq8MJgTaYsDQWyU/hDq5YkDJc9e9DSCvUIzqxQWMQE=
+-----END RSA PRIVATE KEY-----`)
