@@ -11,6 +11,14 @@ RUN touch /etc/ssh/univ_public_keys
 RUN echo -e "{{.}}" >> /etc/ssh/univ_public_keys
 {{ end }}
 
+RUN mkdir -p /etc/freighterd
+
+{{ if .TLS }}
+RUN /bin/bash -c 'echo -e {{printf "%q" .TLS.CA}} > /etc/freighterd/ca.crt'
+RUN /bin/bash -c 'echo -e {{printf "%q" .TLS.Cert}} > /etc/freighterd/cert.crt'
+RUN /bin/bash -c 'echo -e {{printf "%q" .TLS.Key}} > /etc/freighterd/key.crt'
+{{ end }}
+
 RUN /bin/bash -c "echo -e '#!/bin/bash\nrm /var/run/docker.pid\ndocker -d -e lxc >& /var/log/docker.log &\n/freighterd' > /start-freighterd" && chmod +x /start-freighterd
 
 EXPOSE 65333
