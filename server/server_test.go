@@ -34,14 +34,16 @@ var _ = Describe("server", func() {
 		err     error
 		svr     *server.Server
 		prov    *MockProvider
+		config  *server.Config
 	)
 
 	configJSON := `{"HostConfig": {"PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]}}}`
 
 	BeforeEach(func() {
 		prov = &MockProvider{}
+		config = &server.Config{}
 		logger := &util.Logger{Level: util.LogLevelQuiet}
-		svr = server.NewServer(logger, prov)
+		svr = server.NewServer(logger, prov, config)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 	})
