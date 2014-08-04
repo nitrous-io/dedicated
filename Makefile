@@ -2,7 +2,7 @@ NO_COLOR=\033[0m
 OK_COLOR=\033[32;01m
 ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
-BIN_NAME=nitro
+APP=nitro
 BUILD_DIR=./build
 REVISION=$(shell git rev-parse --short HEAD)
 BASE_VERSION=$(shell cat VERSION)
@@ -17,6 +17,12 @@ build: clean
 clean:
 	rm -rf $(BUILD_DIR)
 
+image:
+	@./script/image $(APP) $(VERSION)
+
+ci: image
+	@./script/ci $(APP) $(VERSION)
+
 format:
 	go fmt ./...
 
@@ -24,4 +30,4 @@ test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
 	script/test $(TEST)
 
-.PHONY: all build clean format test
+.PHONY: all build clean format test image ci

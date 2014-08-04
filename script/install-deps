@@ -1,0 +1,6 @@
+#!/bin/bash
+
+go get github.com/nitrous-io/goop
+goop install
+
+$*
