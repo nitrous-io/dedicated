@@ -1,8 +1,6 @@
 #= require ./sm
 
 SM.RecordArray = Ember.ArrayProxy.extend Ember.Evented,
-  isLoaded: false
-  isLoading: false
   model: null
 
   load: (data) ->
@@ -15,6 +13,5 @@ SM.RecordArray = Ember.ArrayProxy.extend Ember.Evented,
         record = model._findInCache(key)
       record ||= model.create()
       record.setProperties(props)
-      record.set 'isLoaded', true
       record._saveToCache()
       record

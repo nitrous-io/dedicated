@@ -30,23 +30,29 @@ SM.RESTAdapter = Ember.Object.extend
       single = false
 
     r = if single
-      model.create(isLoading: true)
+      model.create()
     else
-      SM.RecordArray.create(model: model, isLoading: true)
+      SM.RecordArray.create(model: model)
 
-    @ajax('GET', url).done((data, status, jqxhr) ->
-      if single && model.rootKey
-        data = data[model.rootKey] || {}
-      else if !single && model.collectionKey
-        data = data[model.collectionKey] || {}
-      r.load(data)
-      r.setProperties
-        isLoading: false
-        isLoaded: true
-      r.trigger 'didLoad', r, jqxhr
-    ).fail (jqxhr) ->
-      r.setProperties
-        isLoading: false
-        isLoaded: false
-      r.trigger 'didFailToLoad', r, jqxhr
-    r
+    new Ember.RSVP.Promise (resolve, reject) =>
+      @ajax('GET', url).done((data) ->
+        if single && model.rootKey
+          data = data[model.rootKey] || {}
+        else if !single && model.collectionKey
+          data = data[model.collectionKey] || {}
+        r.load(data)
+        resolve(r)
+      ).fail (jqxhr) ->
+        reject(jqxhr)
+
+  createRecord: (record) ->
+    model = record.constructor
+    url = Ember.get(model, "createURL") || Ember.get(model, "url")
+    new Ember.RSVP.Promise (resolve, reject) =>
+      @ajax('POST', url, record.serialize()).done((data, status, jqxhr) ->
+        if model.rootKey
+          data = data[model.rootKey] || {}
+        record.load(data)
+        resolve(record)
+      ).fail (jqxhr) ->
+        reject(jqxhr)

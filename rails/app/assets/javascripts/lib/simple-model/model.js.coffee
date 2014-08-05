@@ -1,9 +1,6 @@
 #= require ./sm
 
 SM.Model = klass = Ember.Object.extend Ember.Evented,
-  isLoaded: false
-  isLoading: false
-
   _data: null
 
   serialize: ->
@@ -22,12 +19,20 @@ SM.Model = klass = Ember.Object.extend Ember.Evented,
     @setProperties(@constructor.deserialize(data))
     @_saveToCache()
 
+  getPrimaryKey: ->
+    @get(Em.get @constructor, 'primaryKey')
+
   _saveToCache: ->
-    if @constructor.primaryKey
-      primaryKey = @get(@constructor.primaryKey)
-      return unless primaryKey?
+    if primaryKey = @getPrimaryKey()
       unless @constructor._findInCache(primaryKey)
         Ember.get(@constructor, '_cache').set primaryKey, this
+
+  save: ->
+    adapter = Ember.get(@constructor, 'adapter')
+    if primaryKey = @getPrimaryKey()
+      # TODO: update record
+    else
+      adapter.createRecord(this)
 
 klass.reopenClass
   primaryKey: 'id'
@@ -76,7 +81,7 @@ klass.reopenClass
     d
 
   fetch: (primaryKey) ->
-    Ember.get(this, 'adapter')?.fetch(this, primaryKey)
+    Ember.get(this, 'adapter').fetch(this, primaryKey)
 
 SM.attr = (type, options) ->
   if typeof type != "string" && !options

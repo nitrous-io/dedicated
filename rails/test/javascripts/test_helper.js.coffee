@@ -28,5 +28,19 @@ App.injectTestHelpers()
 
 Em.Test.adapter = Em.Test.QUnitAdapter.create()
 
+window.Test =
+  nextTick: (next) ->
+    QUnit.stop()
+    window.setTimeout(->
+      QUnit.start()
+      next()
+    , 0)
+
+  responseInternalServerError: [
+    500
+    { 'Content-Type': 'application/json; charset=utf-8' }
+    '{"error": "internal server error"}'
+  ]
+
 $ ->
   $('body').append($('<div>').attr(id: 'app').css(display: 'none'))
