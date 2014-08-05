@@ -1,0 +1,62 @@
+// model for container<->volume many-to-many
+package cvolume
+
+import (
+	"errors"
+	"time"
+
+	"github.com/lib/pq"
+
+	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/models/container"
+	"github.com/nitrous-io/nitrous/models/volume"
+)
+
+type ContainerVolume struct {
+	ID          int64      `db:"id" json:"id"`
+	ContainerID int64      `db:"container_id" json:"container_id"`
+	VolumeID    int64      `db:"volume_id" json:"volume_id"`
+	CreatedAt   *time.Time `db:"created_at" json:"created_at"`
+}
+
+var (
+	ErrAlreadyAssociated = errors.New("container and volume are already associated")
+)
+
+func Find(d db.QueryReceiver, c *container.Container, v *volume.Volume) (*ContainerVolume, error) {
+	cv := &ContainerVolume{}
+	err := d.Get(cv, `SELECT cv.id, container_id, volume_id, cv.created_at
+		FROM container_volumes cv
+		JOIN containers ON containers.id = container_id
+		WHERE container_id = $1 AND volume_id = $2
+		  AND terminated_at IS NULL
+		`, c.ID, v.ID)
+	if err != nil {
+		return nil, err
+	}
+	return cv, nil
+}
+
+func (cv *ContainerVolume) Insert(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`INSERT INTO container_volumes
+		(container_id, volume_id) VALUES
+		(:container_id, :volume_id)
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	err = nstmt.QueryRowx(cv).StructScan(cv)
+	if err != nil {
+		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
+			if e.Constraint == "index_container_volumes_on_container_id_and_volume_id" {
+				return ErrAlreadyAssociated
+			}
+		}
+	}
+	return err
+}
+
+func (cv *ContainerVolume) Delete(d db.QueryReceiver) error {
+	_, err := d.Exec(`DELETE FROM container_volumes WHERE id = $1`, cv.ID)
+	return err
+}

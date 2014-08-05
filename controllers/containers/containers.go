@@ -2,8 +2,8 @@ package containers
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/lib/pq"
@@ -12,7 +12,9 @@ import (
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/container"
+	"github.com/nitrous-io/nitrous/models/cvolume"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/volume"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
@@ -23,6 +25,7 @@ const DefaultImage = "nitrousio/ubuntu:trusty"
 var (
 	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errHostNotFound      = middleware.ErrHostNotFound
+	errVolumeNotFound    = httperror.New(http.StatusBadRequest, "invalid_state", "volume not found")
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 )
@@ -139,6 +142,16 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 		name = slug
 	}
 
+	hv, err := hostVolumes(db, h)
+	if err != nil {
+		return err
+	}
+
+	config, err := prepareConfig(r.PostForm, hv)
+	if err != nil {
+		return err
+	}
+
 	cntnr := &container.Container{
 		UserID: env.User.ID,
 		HostID: h.ID,
@@ -172,11 +185,6 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 		return err
 	}
 
-	config, err := parseConfig(r)
-	if err != nil {
-		return err
-	}
-
 	created, err := cl.Create(slug, image, config)
 	if err != nil {
 		delErr := cntnr.DeletePermanently(db)
@@ -198,6 +206,13 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 	if err != nil {
 		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cntnr)
 		// Continue responding as if nothing happened.
+	}
+
+	for _, v := range volumeSlugs(config.Mounts) {
+		cv := cvolume.ContainerVolume{ContainerID: cntnr.ID, VolumeID: hv[v].ID}
+		if err := cv.Insert(db); err != nil { // log and continue
+			log.Errorf("containers.create: failed to attach volume %s to container %s", hv[v].Slug, cntnr.CID)
+		}
 	}
 
 	env.Status = http.StatusCreated
@@ -370,48 +385,41 @@ func dropNamespace(freighterName string) string {
 	}
 }
 
-func parseConfig(r *http.Request) (freighterclient.ContainerConfig, error) {
-	c := freighterclient.NewDockerContainerConfig()
-	err := r.ParseForm()
-	if err != nil {
-		return nil, err
-	}
-	if envs, ok := r.PostForm["env"]; ok {
+func prepareConfig(form url.Values, hv map[string]*volume.Volume) (*freighterclient.ContainerConfig, error) {
+	c := &freighterclient.ContainerConfig{}
+	if envs, ok := form["env[]"]; ok {
 		c.Env = envs
 	}
-	if vols, ok := r.PostForm["volume"]; ok {
-		c.Volumes = vols
-	}
-	if ports, ok := r.PostForm["port"]; ok {
-		c.ExposedPorts = make([]string, 0, len(ports))
-		c.PortBindings = make(map[string]string, len(ports))
-		for _, spec := range ports {
-			cport, binding, err := parsePortspec(spec)
-			if err != nil {
-				return nil, err
+	if vols, ok := form["volume[]"]; ok {
+		for _, v := range volumeSlugs(vols) {
+			if _, ok := hv[v]; !ok {
+				return nil, errVolumeNotFound
 			}
-			c.ExposedPorts = append(c.ExposedPorts, cport)
-			c.PortBindings[cport] = binding
 		}
+		c.Mounts = vols
+	}
+	if ports, ok := form["port[]"]; ok {
+		c.PortBindings = ports
 	}
 	return c, nil
 }
 
-// parsePortspec supports any of:
-//   ip:hostPort:containerPort
-//   ip::containerPort
-//   hostPort:containerPort ... :
-// returns (container port, ip:hostport, err)
-func parsePortspec(portspec string) (string, string, error) {
-	parts := strings.Split(portspec, ":")
-	switch { // TODO more stringent checking
-	case len(parts) == 3 && parts[1] == "": // ip::containerPort
-		return parts[2], fmt.Sprintf("%s:%s", parts[0], parts[2]), nil
-	case len(parts) == 3: // ip:hostPort:containerPort
-		return parts[2], fmt.Sprintf("%s:%s", parts[0], parts[1]), nil
-	case len(parts) == 2: // hostPort:containerPort
-		return parts[1], fmt.Sprintf(":%s", parts[0]), nil
-	default:
-		return "", "", errInvalidPortspec
+func volumeSlugs(volParams []string) []string {
+	slugs := []string{}
+	for _, v := range volParams {
+		slugs = append(slugs, strings.Split(v, ":")[0])
 	}
+	return slugs
+}
+
+func hostVolumes(d db.QueryReceiver, h *host.Host) (map[string]*volume.Volume, error) {
+	slugsToVols := map[string]*volume.Volume{}
+	hvols, err := volume.FindAllByHostID(d, h.ID)
+	if err != nil {
+		return nil, err
+	}
+	for _, hv := range hvols {
+		slugsToVols[hv.Slug] = hv
+	}
+	return slugsToVols, nil
 }

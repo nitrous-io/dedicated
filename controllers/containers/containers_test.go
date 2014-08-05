@@ -19,9 +19,11 @@ import (
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/container"
+	"github.com/nitrous-io/nitrous/models/cvolume"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/models/volume"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -465,12 +467,11 @@ var _ = Describe("controllers/containers", func() {
 			params.Set("slug", "elixir-web-1")
 			params.Set("name", "Elixir Web Server 1")
 			params.Set("image", "elixir")
-			params.Add("env", "LANG=C")
-			params.Add("env", "NODE=nope")
-			params.Add("volume", "/music")
-			params.Add("port", "3000:8080")
-			params.Add("port", "0.0.0.0::4552")
-			params.Add("port", "0.0.0.0:8081:11211")
+			params.Add("env[]", "LANG=C")
+			params.Add("env[]", "NODE=nope")
+			params.Add("port[]", "3000:8080")
+			params.Add("port[]", "0.0.0.0::4552")
+			params.Add("port[]", "0.0.0.0:8081:11211")
 
 			mockClient.CreatedContainer = &freighterclient.Container{
 				ID:    "deadbeef",
@@ -502,15 +503,12 @@ var _ = Describe("controllers/containers", func() {
 			Expect(mockClient.CreateCalled).To(Equal(1))
 			Expect(mockClient.ReceivedName).To(Equal("elixir-web-1"))
 			Expect(mockClient.ReceivedImage).To(Equal("elixir"))
-			conf, err := mockClient.DockerContainerConfig()
-			Expect(err).To(BeNil())
+			conf := mockClient.ReceivedConfig
 			Expect(conf.Env).To(Equal([]string{"LANG=C", "NODE=nope"}))
-			Expect(conf.Volumes).To(Equal([]string{"/music"}))
-			Expect(conf.ExposedPorts).To(Equal([]string{"8080", "4552", "11211"}))
 			Expect(conf.PortBindings).To(HaveLen(3))
-			Expect(conf.PortBindings["8080"]).To(Equal(":3000"))
-			Expect(conf.PortBindings["4552"]).To(Equal("0.0.0.0:4552"))
-			Expect(conf.PortBindings["11211"]).To(Equal("0.0.0.0:8081"))
+			Expect(conf.PortBindings).To(ContainElement("3000:8080"))
+			Expect(conf.PortBindings).To(ContainElement("0.0.0.0::4552"))
+			Expect(conf.PortBindings).To(ContainElement("0.0.0.0:8081:11211"))
 		})
 
 		It("creates a new container record", func() {
@@ -678,6 +676,50 @@ var _ = Describe("controllers/containers", func() {
 				errDesc, _ := j["error_description"].(string)
 				Expect(errDesc).To(Equal("host is not running"))
 			})
+		})
+
+		Context("with volumes param", func() {
+			BeforeEach(func() {
+				params.Add("volume[]", "music:/mpd/albums")
+				params.Add("volume[]", "backups")
+			})
+
+			It("returns success if volume does exist", func() {
+				v := &volume.Volume{HostID: hs.H.ID, Slug: "music"}
+				err := v.Insert(db)
+				Expect(err).To(BeNil())
+				v2 := &volume.Volume{HostID: hs.H.ID, Slug: "backups"}
+				err = v2.Insert(db)
+				Expect(err).To(BeNil())
+				doRequest("valid-token", "foo", params)
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+				j := struct {
+					Status    string               `json:"status"`
+					Container *container.Container `json:"container"`
+				}{}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				conf := mockClient.ReceivedConfig
+				Expect(conf.Mounts).To(HaveLen(2))
+				Expect(conf.Mounts).To(ContainElement("music:/mpd/albums"))
+				Expect(conf.Mounts).To(ContainElement("backups"))
+				cv, err := cvolume.Find(db, j.Container, v)
+				Expect(err).To(BeNil())
+				Expect(cv.VolumeID).To(Equal(v.ID))
+				cv2, err := cvolume.Find(db, j.Container, v2)
+				Expect(err).To(BeNil())
+				Expect(cv2.VolumeID).To(Equal(v2.ID))
+			})
+
+			It("returns error if volume does not exist", func() {
+				doRequest("valid-token", "foo", params)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				_, errDesc := ErrorSlug(res.Body)
+				Expect(errDesc).To(ContainSubstring("volume not found"))
+			})
+
 		})
 
 		Context("oauth token failure modes", func() {
@@ -1054,6 +1096,69 @@ var _ = Describe("controllers/containers", func() {
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("prepareConfig()", func() {
+		var (
+			form url.Values
+			hv   map[string]*volume.Volume
+		)
+
+		BeforeEach(func() {
+			form = url.Values{}
+			hv = map[string]*volume.Volume{}
+		})
+
+		getConfs := func() *freighterclient.ContainerConfig {
+			fcc, err := containers.PrepareConfig(form, hv)
+			Expect(err).To(BeNil())
+			return fcc
+		}
+
+		It("is empty when nothing relevant is provided", func() {
+			fcc := getConfs()
+			Expect(fcc.Env).To(BeNil())
+			Expect(fcc.Mounts).To(BeNil())
+			Expect(fcc.PortBindings).To(BeNil())
+		})
+
+		It("populates Env", func() {
+			form.Add("env[]", "PAGER=less")
+			fcc := getConfs()
+			Expect(fcc.Env).To(Equal([]string{"PAGER=less"}))
+		})
+
+		Context("populates Mounts", func() {
+			BeforeEach(func() {
+				form.Add("volume[]", "music:/mpd/music")
+				form.Add("volume[]", "backups")
+				hv["music"] = &volume.Volume{}
+				hv["backups"] = &volume.Volume{}
+			})
+
+			It("if host volumes are present", func() {
+				vols := getConfs().Mounts
+				Expect(vols).To(HaveLen(2))
+				Expect(vols).To(ContainElement("music:/mpd/music"))
+				Expect(vols).To(ContainElement("backups"))
+			})
+
+			It("returns error if host volume requested is absent", func() {
+				delete(hv, "backups")
+				fcc, err := containers.PrepareConfig(form, hv)
+				Expect(err).To(Equal(containers.ErrVolumeNotFound))
+				Expect(fcc).To(BeNil())
+			})
+		})
+
+		It("populates PortBindings", func() {
+			form.Add("port[]", "3030:4040")
+			form.Add("port[]", "5050:6060")
+			pbs := getConfs().PortBindings
+			Expect(pbs).To(HaveLen(2))
+			Expect(pbs).To(ContainElement("3030:4040"))
+			Expect(pbs).To(ContainElement("5050:6060"))
 		})
 	})
 })

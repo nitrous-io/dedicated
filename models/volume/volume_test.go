@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nitrous-io/nitrous/models/container"
+	"github.com/nitrous-io/nitrous/models/cvolume"
 	"github.com/nitrous-io/nitrous/models/volume"
 
 	ndb "github.com/nitrous-io/nitrous/db"
@@ -69,17 +71,48 @@ var _ = Describe("models/volume", func() {
 		})
 
 		Describe("Delete()", func() {
-			It("removes the volume", func() {
-				v := newVolume("data")
+			var v *volume.Volume
+
+			BeforeEach(func() {
+				v = newVolume("data")
 				err := v.Insert(db)
 				Expect(err).To(BeNil())
 				Expect(v.ID).NotTo(BeZero())
+			})
+
+			It("removes the volume", func() {
 
 				id := v.ID
-				err = v.Delete(db)
+				err := v.Delete(db)
 				Expect(err).To(BeNil())
 
 				err = db.Get(v, `SELECT * FROM volumes WHERE id = $1`, id)
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+
+			It("removes cvolume association if present", func() {
+				c := &container.Container{
+					CID:    "cafebabe",
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+					Image:  "nitrous-base",
+					Slug:   "java-test-container",
+				}
+				err := c.Insert(db)
+				Expect(err).To(BeNil())
+				cv := &cvolume.ContainerVolume{ContainerID: c.ID, VolumeID: v.ID}
+				err = cv.Insert(db)
+				Expect(err).To(BeNil())
+
+				vid := v.ID
+				err = v.Delete(db)
+				Expect(err).To(BeNil())
+
+				err = db.Get(v, `SELECT * FROM volumes WHERE id = $1`, vid)
+				Expect(err).To(MatchError(sql.ErrNoRows))
+
+				cv = &cvolume.ContainerVolume{}
+				err = db.Get(cv, `SELECT * FROM container_volumes WHERE volume_id = $1`, vid)
 				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
 		})

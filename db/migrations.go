@@ -251,5 +251,17 @@ func init() {
 				CREATE INDEX index_certs_on_host_id ON certs USING btree (host_id);
 			`,
 		},
+		{
+			Version: "190",
+			Up: `
+			    CREATE TABLE container_volumes (
+					id bigserial PRIMARY KEY NOT NULL,
+					container_id bigint REFERENCES containers(id) NOT NULL,
+					volume_id bigint REFERENCES volumes(id) NOT NULL,
+					created_at timestamp without time zone DEFAULT now()
+				);
+				CREATE UNIQUE INDEX index_container_volumes_on_container_id_and_volume_id ON container_volumes USING btree (container_id, volume_id);
+			`,
+		},
 	}
 }

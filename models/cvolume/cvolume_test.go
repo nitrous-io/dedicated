@@ -1,0 +1,111 @@
+package cvolume_test
+
+import (
+	"database/sql"
+	"testing"
+
+	"github.com/nitrous-io/nitrous/models/container"
+	"github.com/nitrous-io/nitrous/models/cvolume"
+	"github.com/nitrous-io/nitrous/models/volume"
+
+	ndb "github.com/nitrous-io/nitrous/db"
+	. "github.com/nitrous-io/nitrous/test"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
+func Test(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "models/cvolume")
+}
+
+var _ = Describe("models/volume", func() {
+	var (
+		db  *ndb.Database
+		hs  *HostStack
+		cnr *container.Container
+		vol *volume.Volume
+	)
+
+	BeforeEach(func() {
+		var err error
+		db, err = TestDatabase("nitrous_test")
+		Expect(err).To(BeNil())
+
+		hs, err = CreateHostStack(db, nil)
+		Expect(err).To(BeNil())
+
+		cnr = &container.Container{
+			CID:    "cafebabe",
+			UserID: hs.U.ID,
+			HostID: hs.H.ID,
+			Image:  "nitrous-base",
+			Slug:   "java-test-container",
+		}
+		err = cnr.Insert(db)
+		Expect(err).To(BeNil())
+		vol = &volume.Volume{HostID: hs.H.ID, Slug: "music"}
+		err = vol.Insert(db)
+		Expect(err).To(BeNil())
+	})
+
+	AfterEach(func() {
+		if db != nil {
+			db.Close()
+		}
+	})
+
+	Describe("Find()", func() {
+		It("finds given container and volume", func() {
+			cv := &cvolume.ContainerVolume{ContainerID: cnr.ID, VolumeID: vol.ID}
+			Expect(cv.Insert(db)).To(BeNil())
+			foundCV, err := cvolume.Find(db, cnr, vol)
+			Expect(err).To(BeNil())
+			Expect(foundCV.ID).To(Equal(cv.ID))
+		})
+
+		It("does not reveal associations of terminated containers and volume", func() {
+			cv := &cvolume.ContainerVolume{ContainerID: cnr.ID, VolumeID: vol.ID}
+			Expect(cv.Insert(db)).To(BeNil())
+			err := cnr.Delete(db)
+			Expect(err).To(BeNil())
+			_, err = cvolume.Find(db, cnr, vol)
+			Expect(err).To(MatchError(sql.ErrNoRows))
+		})
+
+		It("returns ErrNoRows if not found", func() {
+			cv, err := cvolume.Find(db, cnr, vol)
+			Expect(err).To(MatchError(sql.ErrNoRows))
+			Expect(cv).To(BeNil())
+		})
+	})
+
+	Describe("Insert()", func() {
+		It("saves", func() {
+			cv := &cvolume.ContainerVolume{ContainerID: cnr.ID, VolumeID: vol.ID}
+			Expect(cv.Insert(db)).To(BeNil())
+			Expect(cv.ContainerID).To(Equal(cnr.ID))
+			Expect(cv.VolumeID).To(Equal(vol.ID))
+		})
+
+		It("returns error on duplicate", func() {
+			cv := &cvolume.ContainerVolume{ContainerID: cnr.ID, VolumeID: vol.ID}
+			Expect(cv.Insert(db)).To(BeNil())
+			err := cv.Insert(db)
+			Expect(err).To(MatchError(cvolume.ErrAlreadyAssociated))
+		})
+	})
+
+	Describe("Delete()", func() {
+		It("removes", func() {
+			cv := &cvolume.ContainerVolume{ContainerID: cnr.ID, VolumeID: vol.ID}
+			Expect(cv.Insert(db)).To(BeNil())
+
+			id := cv.ID
+
+			Expect(cv.Delete(db)).To(BeNil())
+			err := db.Get(cv, `SELECT * FROM container_volumes WHERE id = $1`, id)
+			Expect(err).To(MatchError(sql.ErrNoRows))
+		})
+	})
+})
