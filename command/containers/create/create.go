@@ -134,13 +134,13 @@ func (c *Command) createContainer(cp *containerParams) (*Container, error) {
 		p.Set("image", cp.image)
 	}
 	for _, e := range cp.envVars {
-		p.Add("env", e)
+		p.Add("env[]", e)
 	}
 	for _, v := range cp.volumes {
-		p.Add("volume", v)
+		p.Add("volume[]", v)
 	}
 	for _, pf := range cp.portForwards {
-		p.Add("port", pf)
+		p.Add("port[]", pf)
 	}
 
 	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/containers", c.Server), p)
