@@ -5,6 +5,8 @@ import "text/template"
 const dockerfileTmpl = `
 FROM nitrousio/ubuntu-dind:14.04
 
+ENV HOME /root
+
 RUN mkdir -p /etc/ssh
 RUN touch /etc/ssh/univ_public_keys
 {{ range .PublicKeys }}
