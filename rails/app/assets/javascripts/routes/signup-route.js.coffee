@@ -12,3 +12,9 @@ App.SignupRoute = Em.Route.extend
   renderTemplate: ->
     @_super()
     @render 'topnav', into: 'signup', outlet: 'topnav', controller: 'topnav'
+
+  setupController: (controller) ->
+    controller.setProperties
+      user: App.User.create()
+      confirmPassword: null
+      error: null

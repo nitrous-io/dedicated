@@ -21,7 +21,6 @@ var (
 	ErrEmailBlank       = errors.New("email can't be blank")
 	ErrEmailInvalid     = errors.New("email is not valid")
 	ErrUsernameBlank    = errors.New("username can't be blank")
-	ErrUsernameTooShort = errors.New("username is too short (minimum is 3 characters)")
 	ErrUsernameTooLong  = errors.New("username is too long (maximum is 30 characters)")
 	ErrUsernameInvalid  = errors.New("username may only contain alphanumeric characters or dashes and cannot begin with a dash")
 	ErrPasswordBlank    = errors.New("password can't be blank")
@@ -118,9 +117,6 @@ func (u *User) Validate() error {
 		return ErrUsernameBlank
 	}
 	usernameLen := len(u.Username)
-	if usernameLen < 2 {
-		return ErrUsernameTooShort
-	}
 	if usernameLen > 30 {
 		return ErrUsernameTooLong
 	}

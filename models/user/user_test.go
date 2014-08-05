@@ -346,9 +346,7 @@ var _ = Describe("models/user", func() {
 				err   error
 			}{
 				{"", user.ErrUsernameBlank},
-				{"foo", nil},
-				{"fo", nil},
-				{"f", user.ErrUsernameTooShort},
+				{"f", nil},
 				{"ffffffffffffffffffffffffffffff", nil},
 				{"fffffffffffffffffffffffffffffff", user.ErrUsernameTooLong},
 				{"f00", nil},
