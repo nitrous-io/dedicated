@@ -110,6 +110,9 @@ func (c *Container) Delete(d db.QueryReceiver) error {
 }
 
 func (c *Container) DeletePermanently(d db.QueryReceiver) error {
+	if _, err := d.Exec(`DELETE FROM container_volumes WHERE container_id = $1`, c.ID); err != nil {
+		return err
+	}
 	_, err := d.Exec(`DELETE FROM containers WHERE id = $1`, c.ID)
 	return err
 }

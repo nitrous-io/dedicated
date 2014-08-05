@@ -25,7 +25,12 @@ var (
 
 func Find(d db.QueryReceiver, c *container.Container, v *volume.Volume) (*ContainerVolume, error) {
 	cv := &ContainerVolume{}
-	err := d.Get(cv, `SELECT * FROM container_volumes WHERE container_id = $1 AND volume_id = $2`, c.ID, v.ID)
+	err := d.Get(cv, `SELECT cv.id, container_id, volume_id, cv.created_at
+		FROM container_volumes cv
+		JOIN containers ON containers.id = container_id
+		WHERE container_id = $1 AND volume_id = $2
+		  AND terminated_at IS NULL
+		`, c.ID, v.ID)
 	if err != nil {
 		return nil, err
 	}

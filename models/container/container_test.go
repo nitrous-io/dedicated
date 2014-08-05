@@ -7,11 +7,13 @@ import (
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/container"
+	"github.com/nitrous-io/nitrous/models/cvolume"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/providertemplate"
 	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/models/volume"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -473,6 +475,14 @@ var _ = Describe("models/container", func() {
 				TerminatedAt: nil,
 			}
 			err := c.Insert(db)
+			Expect(err).To(BeNil())
+
+			// ensure association are deleted
+			v := &volume.Volume{Slug: "beefyvolume", HostID: h.ID}
+			err = v.Insert(db)
+			Expect(err).To(BeNil())
+			cv := &cvolume.ContainerVolume{ContainerID: c.ID, VolumeID: v.ID}
+			err = cv.Insert(db)
 			Expect(err).To(BeNil())
 
 			var count int

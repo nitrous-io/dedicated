@@ -64,6 +64,15 @@ var _ = Describe("models/volume", func() {
 			Expect(foundCV.ID).To(Equal(cv.ID))
 		})
 
+		It("does not reveal associations of terminated containers and volume", func() {
+			cv := &cvolume.ContainerVolume{ContainerID: cnr.ID, VolumeID: vol.ID}
+			Expect(cv.Insert(db)).To(BeNil())
+			err := cnr.Delete(db)
+			Expect(err).To(BeNil())
+			_, err = cvolume.Find(db, cnr, vol)
+			Expect(err).To(MatchError(sql.ErrNoRows))
+		})
+
 		It("returns ErrNoRows if not found", func() {
 			cv, err := cvolume.Find(db, cnr, vol)
 			Expect(err).To(MatchError(sql.ErrNoRows))
