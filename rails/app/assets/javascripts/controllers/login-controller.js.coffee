@@ -8,13 +8,12 @@ App.LoginController = Em.Controller.extend
     login: ->
       @set 'loggingIn', true
       @set 'error', null
-      App.authenticate @get('login'), @get('password'), (err, token) =>
-        @set 'loggingIn', false
-
+      App.authenticate(@get('login'), @get('password')).then((token) =>
+        App.set 'token', token
+        @transitionToRoute 'home.index'
+      , (err) =>
         if err
           @set 'error', err
           App.snackbar.post(err.message.capitalize())
-          return
-
-        App.set 'token', token
-        @transitionToRoute 'home.index'
+      ).then =>
+        @set 'loggingIn', false
