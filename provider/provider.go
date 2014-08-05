@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"regexp"
@@ -57,8 +56,10 @@ type ContainerInfo struct {
 	Ports map[string]int `json:"ports"`
 }
 
-type ContainerConfig interface {
-	json.Marshaler
+type ContainerConfig struct {
+	Env          []string `json:"Env"`
+	Mounts       []string `json:"Mounts"`
+	PortBindings []string `json:"PortBindings"`
 }
 
 type ImageInfo struct {

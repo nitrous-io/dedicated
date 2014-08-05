@@ -1,130 +1,169 @@
 package docker
 
 import (
-	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
+
+	"github.com/nitrous-io/freighter/provider"
 )
 
-type ContainerConfig struct {
-	Env          []string
-	Volumes      []string
-	ExposedPorts []string
-	PortBindings map[string]string
-}
+var (
+	ErrInvalidPortSpec  = fmt.Errorf("port binding invalid")
+	ErrInvalidMountSpec = fmt.Errorf("volume specification invalid")
+)
 
-// subset of dockerclient.Config, used as whitelist
-type allowedConfig struct {
-	Env          []string            `json:"Env,omitempty"`
-	ExposedPorts map[string]struct{} `json:"ExposedPorts,omitempty"`
-	Volumes      map[string]struct{} `json:"Volumes,omitempty"`
-}
-
-// subset of dockerclient.HostConfig, used as whitelist
-type allowedHostConfig struct {
-	PortBindings map[string][]dockerclient.PortBinding `json:"PortBindings,omitempty"`
-}
-
-// configParam is used to deserialize JSON from the config parameter in calls
-// to create/start container
-type configParam struct {
-	Config     *allowedConfig     `json:"Config,omitempty"`
-	HostConfig *allowedHostConfig `json:"HostConfig,omitempty"`
-}
-
-func NewContainerConfig() *ContainerConfig {
-	return &ContainerConfig{}
-}
-
-func (conf ContainerConfig) MarshalJSON() ([]byte, error) {
-	cp := configParam{
-		Config: &allowedConfig{}, HostConfig: &allowedHostConfig{},
+// createConfigs returns the dockerclient Config and HostConfig needed to
+// create a container.  These can be customized by cfg ContainerConfig.
+func (p *DockerProvider) createConfigs(containerName, imageName string, cfg *provider.ContainerConfig) (*dockerclient.Config, *dockerclient.HostConfig, error) {
+	dcConfig := &dockerclient.Config{
+		Hostname:     containerName,
+		Image:        imageName,
+		Volumes:      map[string]struct{}{},
+		ExposedPorts: map[dockerclient.Port]struct{}{},
+		Env:          []string{},
 	}
-	if len(conf.Env) > 0 {
-		cp.Config.Env = conf.Env
+	dcHostConfig := &dockerclient.HostConfig{
+		Binds:           []string{},
+		PortBindings:    map[dockerclient.Port][]dockerclient.PortBinding{},
+		PublishAllPorts: true,
 	}
-	if len(conf.ExposedPorts) > 0 {
-		cp.Config.ExposedPorts = make(map[string]struct{})
-		for _, port := range conf.ExposedPorts {
-			cp.Config.ExposedPorts[port] = struct{}{}
+	if cfg != nil {
+		dcConfig.Env = cfg.Env
+		bs, err := dockerPortBindings(cfg.PortBindings)
+		if err != nil {
+			return nil, nil, err
+		}
+		dcHostConfig.PortBindings = bs
+		for port, _ := range bs {
+			dcConfig.ExposedPorts[dockerclient.Port(port)] = struct{}{}
+		}
+		ms, err := dockerMountBinds(cfg.Mounts, p.VolumesDir(""))
+		if err != nil {
+			return nil, nil, err
+		}
+		dcHostConfig.Binds = ms
+	}
+
+	if isNitrousImage(imageName) {
+		p.nitrousImageConfig(dcConfig, dcHostConfig)
+	}
+
+	return dcConfig, dcHostConfig, nil
+}
+
+// startConfig returns the dockerclient HostConfig needed to start a container.
+// It can be customized by cfg ContainerConfig.
+func (p *DockerProvider) startConfig(container *dockerclient.Container, cfg *provider.ContainerConfig) (*dockerclient.HostConfig, error) {
+	dcHostConfig := container.HostConfig
+	if cfg == nil {
+		return dcHostConfig, nil
+	}
+	// if config field is nil, ignore
+	// if config field is non-nil but len == 0, override with empty
+	if cfg.PortBindings != nil {
+		bs, err := dockerPortBindings(cfg.PortBindings)
+		if err != nil {
+			return nil, err
+		}
+		dcHostConfig.PortBindings = bs
+	}
+	if cfg.Mounts != nil {
+		ms, err := dockerMountBinds(cfg.Mounts, p.VolumesDir(""))
+		if err != nil {
+			return nil, err
+		}
+		dcHostConfig.Binds = ms
+	}
+	if usesNitrousImage(container) {
+		p.nitrousImageConfig(container.Config, dcHostConfig)
+	}
+	return dcHostConfig, nil
+}
+
+func (p *DockerProvider) nitrousImageConfig(dcConfig *dockerclient.Config, dcHostConfig *dockerclient.HostConfig) {
+	dcConfig.ExposedPorts[dockerclient.Port("22/tcp")] = struct{}{}
+	dcConfig.Volumes["/etc/ssh/freighter"] = struct{}{}
+
+	hasSSHBind := false
+	for _, bind := range dcHostConfig.Binds {
+		if strings.HasSuffix(bind, "/etc/ssh/freighter:ro") {
+			hasSSHBind = true
 		}
 	}
-	if len(conf.PortBindings) > 0 {
-		cp.HostConfig.PortBindings = make(map[string][]dockerclient.PortBinding)
-		for cPort, hDest := range conf.PortBindings {
-			hParts := strings.Split(hDest, ":")
-			if len(hParts) != 2 {
-				return []byte{}, fmt.Errorf("Error parsing port binding %s: %s", cPort, hDest)
-			}
-			hostIP := hParts[0]
-			// support ':1234', defaults to 127.0.0.1:1234
-			if hostIP == "" {
-				hostIP = "127.0.0.1"
-			}
-			hostPort := hParts[1]
-			cp.HostConfig.PortBindings[cPort] = []dockerclient.PortBinding{
-				{HostIp: hostIP, HostPort: hostPort},
-			}
-		}
-	}
-	if len(conf.Volumes) > 0 {
-		cp.Config.Volumes = make(map[string]struct{})
-		for _, path := range conf.Volumes {
-			cp.Config.Volumes[path] = struct{}{}
-		}
-	}
-	return json.Marshal(cp)
-}
-
-// parseConfigParam takes json that looks like
-// {"Config": { ...container create config... },
-//  "HostConfig": { ...container start config }}
-// and returns (config json, host config json)
-func parseConfigParam(configJSON string) (*allowedConfig, *allowedHostConfig, error) {
-	if configJSON == "" {
-		configJSON = "{}"
-	}
-	j := configParam{}
-	err := json.NewDecoder(strings.NewReader(configJSON)).Decode(&j)
-	if err != nil {
-		return nil, nil, err
-	}
-	return j.Config, j.HostConfig, nil
-}
-
-// overrideCreateConfig takes an existing dockerclient config and merges in
-// allowedConfig parsed from JSON
-// TODO: Docker Remote API does not validate, so we have to do our own
-// validation, i.e. env var without '='
-func overrideConfig(c *dockerclient.Config, override *allowedConfig) {
-	if override == nil {
-		return
-	}
-	c.Env = override.Env
-	if override.ExposedPorts != nil {
-		for k, v := range override.ExposedPorts {
-			c.ExposedPorts[dockerclient.Port(k)] = v
-		}
-	}
-	if override.Volumes != nil {
-		for k, v := range override.Volumes {
-			c.Volumes[k] = v
-		}
+	if !hasSSHBind {
+		dcHostConfig.Binds = append(dcHostConfig.Binds, fmt.Sprintf("%s/ssh:/etc/ssh/freighter:ro", p.containerSettingsDir(dcConfig.Hostname)))
 	}
 }
 
-// overrideHostConfig is similar to overrideCreateConfig, but with
-// dockerclient.HostConfig instead of dockerclient.Config
-func overrideHostConfig(hc *dockerclient.HostConfig, override *allowedHostConfig) {
-	if override == nil {
-		return
+func dockerMountBinds(mountSpecs []string, hostVolsPath string) ([]string, error) {
+	binds := []string{}
+	for _, mspec := range mountSpecs {
+		// TODO do we want to validate host volume existence at this point?
+		bind, err := parseMountSpec(mspec, hostVolsPath)
+		if err != nil {
+			return []string{}, err
+		}
+		binds = append(binds, bind)
 	}
-	if override.PortBindings != nil {
-		hc.PortBindings = make(map[dockerclient.Port][]dockerclient.PortBinding)
-		for k, v := range override.PortBindings {
-			hc.PortBindings[dockerclient.Port(k)] = v
+	return binds, nil
+}
+
+// parseMountSpec supports any of:
+//   volumeSlug:mountPoint
+//   volumeSlug
+// It appends the appropriate host path to the volume slug.  No validations on
+// mountPoint are performed -- let docker handle.  If mountPoint is missing,
+// mount to /volumes/<volumeSlug>
+func parseMountSpec(mspec string, hostVolsPath string) (string, error) {
+	var mountPoint string
+	parts := strings.Split(mspec, ":")
+	switch len(parts) {
+	case 1:
+		mountPoint = fmt.Sprintf("/volumes/%s", parts[0])
+	case 2:
+		mountPoint = parts[1]
+	default:
+		return "", ErrInvalidMountSpec
+	}
+	return fmt.Sprintf("%s:%s", filepath.Join(hostVolsPath, parts[0]), mountPoint), nil
+}
+
+func dockerPortBindings(portSpecs []string) (map[dockerclient.Port][]dockerclient.PortBinding, error) {
+	bindings := map[dockerclient.Port][]dockerclient.PortBinding{}
+	for _, portSpec := range portSpecs {
+		p, pb, err := parsePortSpec(portSpec)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := bindings[p]; ok {
+			bindings[p] = append(bindings[p], pb)
+		} else {
+			bindings[p] = []dockerclient.PortBinding{pb}
 		}
 	}
+	return bindings, nil
+}
+
+// parsePortSpec supports any of:
+//   ip:hostPort:containerPort
+//   ip::containerPort
+//   hostPort:containerPort ... :
+func parsePortSpec(portSpec string) (dockerclient.Port, dockerclient.PortBinding, error) {
+	parts := strings.Split(portSpec, ":")
+	var hostIP, hostPort, containerPort string
+	switch { // TODO more stringent checking
+	case len(parts) == 3 && parts[1] == "": // ip::containerPort
+		hostIP, hostPort, containerPort = parts[0], "", parts[2]
+	case len(parts) == 3 && parts[1] != "": // ip:hostPort:containerPort
+		hostIP, hostPort, containerPort = parts[0], parts[1], parts[2]
+	case len(parts) == 2: // hostPort:containerPort
+		hostIP, hostPort, containerPort = "127.0.0.1", parts[0], parts[1]
+	default:
+		return "", dockerclient.PortBinding{}, ErrInvalidPortSpec
+	}
+	return dockerclient.Port(containerPort),
+		dockerclient.PortBinding{HostIp: hostIP, HostPort: hostPort}, nil
 }
