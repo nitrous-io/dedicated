@@ -30,6 +30,7 @@ import (
 	_ "github.com/nitrous-io/nitro/command/hosts/start"
 	_ "github.com/nitrous-io/nitro/command/hosts/stop"
 	_ "github.com/nitrous-io/nitro/command/images/list"
+	_ "github.com/nitrous-io/nitro/command/images/remove"
 	_ "github.com/nitrous-io/nitro/command/keys/add"
 	_ "github.com/nitrous-io/nitro/command/keys/clear"
 	_ "github.com/nitrous-io/nitro/command/keys/list"
