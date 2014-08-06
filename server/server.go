@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
+
+var jsonNotFound = []byte(`{"error":"not_found","error_description":"not found"}`)
 
 // route namespace stack
 var nsStack []string = []string{}
@@ -66,7 +69,12 @@ func (s *Server) route(route string, mw middleware.Middleware, methods ...string
 func (s *Server) static(prefix string, dir string) {
 	s.router.PathPrefix(prefix).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/") {
-			http.NotFound(w, r)
+			s.RespondJSON(w, http.StatusNotFound, jsonNotFound)
+			return
+		}
+		_, err := os.Stat(path.Join(s.root, dir, r.URL.Path))
+		if os.IsNotExist(err) {
+			s.RespondJSON(w, http.StatusNotFound, jsonNotFound)
 			return
 		}
 		s.logger.Infof("Static asset: %v", r.URL.Path)
