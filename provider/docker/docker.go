@@ -628,7 +628,7 @@ func (p *DockerProvider) fetchAuthenticationInfoBestMatch(registry string) (dock
 
 	authPath, err := p.dockerConfigLocation()
 	if err != nil {
-		return dockerclient.AuthConfiguration{}, nil
+		return dockerclient.AuthConfiguration{}, err
 	}
 
 	fileContents, err := ioutil.ReadFile(authPath)
