@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"text/template"
 
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -40,6 +41,7 @@ func (s *Server) RenderTemplate(w http.ResponseWriter, status int, tmpl *templat
 
 func (s *Server) RenderHTML(w http.ResponseWriter, status int, html []byte) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(len(html)))
 	w.WriteHeader(status)
 	w.Write(html)
 	s.logger.Infof("Response: %v", status)
@@ -47,6 +49,7 @@ func (s *Server) RenderHTML(w http.ResponseWriter, status int, html []byte) {
 
 func (s *Server) RespondJSON(w http.ResponseWriter, status int, data []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(status)
 	w.Write(data)
 	s.logger.Infof("Response: %v %v", status, string(data))
