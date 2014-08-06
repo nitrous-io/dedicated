@@ -108,8 +108,7 @@ func (c *Command) attach(host string, containerID string, tlsConfig *tls.Config,
 
 	resp, _ := conn.Do(req)
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Failed to attach to the remote shell for container %s, status %d",
-			containerID, resp.StatusCode)
+		return fmt.Errorf("failed to attach to the container. Make sure that it's running.")
 	}
 
 	wc, r := conn.Hijack()
