@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nitrous-io/freighter/pkg/stats"
 	"github.com/nitrous-io/freighter/provider"
 )
 
@@ -88,12 +87,31 @@ type Client interface {
 	ListImages() ([]*Image, error)
 }
 
+type Stats struct {
+	// Uptime in seconds.
+	Uptime uint64 `json:"uptime"`
+
+	// MemoryUsage in bytes.
+	MemoryUsage uint64 `json:"memory_usage"`
+	// MemoryTotal in bytes.
+	MemoryTotal uint64 `json:"memory_total"`
+
+	// StorageUsage in bytes.
+	StorageUsage uint64 `json:"storage_usage"`
+	// StorageTotal in bytes.
+	StorageTotal uint64 `json:"storage_total"`
+
+	NumCPU int `json:"num_cpu"`
+	// Percent usage per CPU.
+	PerCPUUsage []float64 `json:"per_cpu_usage"`
+}
+
 type (
 	Container       provider.ContainerInfo
 	ContainerConfig provider.ContainerConfig
 	Image           provider.ImageInfo
 	Volume          provider.VolumeInfo
-	HostInfo        stats.Stats
+	HostInfo        Stats
 
 	containerResponse struct {
 		*Container `json:"container"`
