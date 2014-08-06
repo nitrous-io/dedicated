@@ -108,6 +108,10 @@ type MockProvider struct {
 	ReceivedTag      string
 	ReceivedTagForce bool
 
+	AttachToContainerCalled bool
+	AttachToContainerError  error
+	WriteToStdout           string
+
 	Containers []*provider.ContainerInfo
 	PublicKeys map[string]string
 }
@@ -308,6 +312,13 @@ func (p *MockProvider) RemoveVolume(slug string) error {
 func (p *MockProvider) GetVolumeInfo(slug string) (*provider.VolumeInfo, error) {
 	p.VolumeInfoCalled = true
 	return p.VolumeInfoReturn, p.VolumeInfoError
+}
+
+func (p *MockProvider) AttachToContainer(id string, stdin io.Reader, stdout io.Writer) error {
+	p.AttachToContainerCalled = true
+	p.ReceivedID = id
+	stdout.Write([]byte(p.WriteToStdout))
+	return p.AttachToContainerError
 }
 
 func (p *MockProvider) IsNotFoundError(err error) bool {

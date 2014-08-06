@@ -366,7 +366,6 @@ func (s *Server) serverInfo(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"info": stats})
 	return nil
 }
@@ -450,6 +449,39 @@ func (s *Server) tagImage(w http.ResponseWriter, r *http.Request) error {
 	}
 	s.respond(w, http.StatusOK, jsonStatusOK)
 	return nil
+}
+
+func (s *Server) attachToContainer(w http.ResponseWriter, r *http.Request) error {
+	id := mux.Vars(r)["id"]
+	info, err := s.provider.GetInfo(id)
+	if err != nil {
+		return err
+	}
+	containerID := info.ID
+	if info.State != provider.ContainerStateRunning {
+		return fmt.Errorf("Cannot attach to stopped container %v", containerID)
+	}
+
+	stdin, stdout, err := hijackServer(w)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if conn, ok := stdin.(*net.TCPConn); ok {
+			conn.CloseWrite()
+		} else {
+			stdin.Close()
+		}
+
+		if conn, ok := stdout.(*net.TCPConn); ok {
+			conn.CloseWrite()
+		} else if closer, ok := stdout.(io.Closer); ok {
+			closer.Close()
+		}
+	}()
+
+	return s.provider.AttachToContainer(id, stdin, stdout)
 }
 
 func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {

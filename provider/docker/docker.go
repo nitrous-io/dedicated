@@ -598,6 +598,24 @@ func (p *DockerProvider) TagImage(imageIDOrName, newName string, force bool) err
 	return p.dockerTag(image.ID, finalName, true)
 }
 
+func (p *DockerProvider) AttachToContainer(id string, stdin io.Reader, stdout io.Writer) error {
+	container, err := p.inspectContainer(id)
+	if err != nil {
+		return err
+	}
+
+	return p.client.AttachToContainer(dockerclient.AttachToContainerOptions{
+		Container:    container.ID,
+		InputStream:  stdin,
+		OutputStream: stdout,
+		ErrorStream:  stdout,
+		Stream:       true,
+		Stdin:        true,
+		Stdout:       true,
+		Stderr:       true,
+	})
+}
+
 type authconfig struct {
 	Auth  string `json:"auth"`
 	Email string `json:"email"`
