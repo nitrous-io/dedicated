@@ -16,19 +16,11 @@ import (
 	flag "github.com/ogier/pflag"
 )
 
-const (
-	noStdinUsage = "Do not attach STDIN"
-)
-
-var usage = fmt.Sprintf(`
+var usage = `
 Usage: nitro attach [SLUG]
 
 Attach to a running container.
-
-Options:
-
-  --no-stdin=false     %s.
-`, noStdinUsage)
+`
 
 type Command struct {
 	UI     *cli.BasicUi
@@ -53,11 +45,8 @@ func NewCommand(token string) (cli.Command, error) {
 }
 
 func (c *Command) Run(args []string) int {
-	var noStdin bool
-
 	cmdFlags := flag.NewFlagSet("attach", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
-	cmdFlags.BoolVarP(&noStdin, "no-stdin", "", false, noStdinUsage)
 
 	if err := cmdFlags.Parse(args); err != nil {
 		return 1
@@ -76,13 +65,7 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	var stdin io.Reader
-	if !noStdin {
-		stdin = c.UI.Reader
-	}
-	stdout := c.UI.Writer
-
-	err = c.attach(cr, stdin, stdout)
+	err = c.attach(cr, c.UI.Writer)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
@@ -98,7 +81,7 @@ func (c *Command) Synopsis() string {
 	return "Attach to a running container."
 }
 
-func (c *Command) attach(cr *nitrousapi.ContainerAPI, stdin io.Reader, stdout io.Writer) error {
+func (c *Command) attach(cr *nitrousapi.ContainerAPI, stdout io.Writer) error {
 	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
 
 	dial, err := net.Dial("tcp", host)
@@ -127,18 +110,6 @@ func (c *Command) attach(cr *nitrousapi.ContainerAPI, stdin io.Reader, stdout io
 	wc, r := conn.Hijack()
 	defer wc.Close()
 
-	done := make(chan error, 1)
-	go func() {
-		_, err = io.Copy(stdout, r)
-		done <- err
-	}()
-
-	go func() {
-		if stdin != nil {
-			_, err = io.Copy(wc, stdin)
-			done <- err
-		}
-	}()
-
-	return <-done
+	_, err = io.Copy(stdout, r)
+	return err
 }
