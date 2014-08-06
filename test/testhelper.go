@@ -1,10 +1,12 @@
 package test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -115,7 +117,11 @@ func NewAuthedRequest(t *token.Token, method string, urlStr string, params *url.
 }
 
 func NewFormRequest(method string, urlStr string, params *url.Values) (*http.Request, error) {
-	req, err := http.NewRequest(method, urlStr, strings.NewReader(params.Encode()))
+	var r io.Reader
+	if params != nil {
+		r = strings.NewReader(params.Encode())
+	}
+	req, err := http.NewRequest(method, urlStr, r)
 	if err == nil {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
@@ -128,6 +134,34 @@ func NewAuthedFormRequest(t *token.Token, method string, urlStr string, params *
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+t.Token)
+	return req, nil
+}
+
+func NewFileRequest(method string, urlStr string, params map[string]string, files map[string]string) (*http.Request, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	for key, contents := range files {
+		part, err := writer.CreateFormFile(key, fmt.Sprintf("%s.txt", key))
+		if err != nil {
+			return nil, err
+		}
+		part.Write([]byte(contents))
+	}
+
+	for key, val := range params {
+		_ = writer.WriteField(key, val)
+	}
+
+	err := writer.Close()
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(method, urlStr, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 	return req, nil
 }
 
