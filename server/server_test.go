@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -979,14 +980,8 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("GET /images", func() {
-		var params *url.Values
-
-		BeforeEach(func() {
-			params = &url.Values{}
-		})
-
 		doRequest := func() {
-			req, err = NewRequest("GET", "/images", params)
+			req, err = NewRequest("GET", "/images", nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -997,8 +992,8 @@ var _ = Describe("server", func() {
 			Expect(prov.ListImagesCalled).To(BeTrue())
 		})
 
-		It("should expose the contents under `images`", func() {
-			content1 := &provider.ImageInfo{
+		It("responds with 200 OK and images", func() {
+			i1 := &provider.ImageInfo{
 				ID:          "ID1",
 				Name:        "Source1",
 				Tag:         "SourceTag1",
@@ -1006,7 +1001,7 @@ var _ = Describe("server", func() {
 				ActualSize:  12,
 				VirtualSize: 19,
 			}
-			content2 := &provider.ImageInfo{
+			i2 := &provider.ImageInfo{
 				ID:          "ID2",
 				Name:        "Source2",
 				Tag:         "SourceTag2",
@@ -1014,14 +1009,14 @@ var _ = Describe("server", func() {
 				ActualSize:  40,
 				VirtualSize: 28,
 			}
-			prov.ListImagesContents = []*provider.ImageInfo{content1, content2}
+			prov.ListImagesContents = []*provider.ImageInfo{i1, i2}
 			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
 
 			j, err := json.Marshal(map[string]interface{}{
 				"images": prov.ListImagesContents,
 			})
 			Expect(err).To(BeNil())
-
 			Expect(res.Body.String()).To(MatchJSON(string(j)))
 		})
 
@@ -1090,6 +1085,255 @@ var _ = Describe("server", func() {
 				doRequest()
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				Expect(res.Body.String()).To(MatchJSON(`{"error": "sampling failed"}`))
+			})
+		})
+	})
+
+	Describe("POST /images", func() {
+		var params, files map[string]string
+
+		BeforeEach(func() {
+			params = map[string]string{
+				"name": "image-name",
+			}
+			files = map[string]string{
+				"file": "test file",
+			}
+		})
+
+		doRequest := func() {
+			req, err = NewFileRequest("POST", "/images", params, files)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.BuildImage()", func() {
+			Expect(prov.BuildImageCalled).To(BeFalse())
+			doRequest()
+			Expect(prov.BuildImageCalled).To(BeTrue())
+			Expect(prov.ReceivedImageName).To(Equal("image-name"))
+		})
+
+		Context("BuildImage() returns successfully", func() {
+			BeforeEach(func() {
+				prov.PullImageReturn = &provider.ImageInfo{
+					ID:          "ID1",
+					Name:        "Source1",
+					Tag:         "SourceTag1",
+					CreatedAt:   1901,
+					ActualSize:  40,
+					VirtualSize: 28,
+				}
+				prov.BuildImageOutput = "test output"
+				doRequest()
+			})
+
+			It("responds with 200 OK", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j, err := json.Marshal(map[string]interface{}{
+					"image":  prov.BuildImageReturn,
+					"output": prov.BuildImageOutput,
+				})
+				Expect(err).To(BeNil())
+				Expect(res.Body.String()).To(MatchJSON(string(j)))
+			})
+		})
+
+		Context("BuildImage() returns an error", func() {
+			BeforeEach(func() {
+				prov.BuildImageError = errors.New("Could not build image.")
+			})
+
+			It("responds with 500 Internal Server Error", func() {
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not build image."}`))
+			})
+
+			Context("when the output buffer has contents", func() {
+				BeforeEach(func() {
+					prov.BuildImageOutput = "output error msg"
+				})
+
+				It("responds with 400 Bad Request and renders the output buffer", func() {
+					doRequest()
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not build image.", "output": "output error msg"}`))
+				})
+			})
+		})
+	})
+
+	Describe("DELETE /images", func() {
+		doRequest := func() {
+			params := &url.Values{}
+			params.Set("image", "nitrousio/ubuntu:12.04")
+			req, err = NewRequest("DELETE", "/images", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.RemoveImage()", func() {
+			Expect(prov.RemoveImageCalled).To(BeFalse())
+			doRequest()
+			Expect(prov.RemoveImageCalled).To(BeTrue())
+			Expect(prov.ReceivedImageName).To(Equal("nitrousio/ubuntu:12.04"))
+		})
+
+		Context("RemoveImage() returns successfully", func() {
+			BeforeEach(func() {
+				doRequest()
+			})
+
+			It("responds with 200 OK", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(res.Body.String()).To(MatchJSON(`{"status":"ok"}`))
+			})
+		})
+
+		Context("RemoveImage() returns an error", func() {
+			BeforeEach(func() {
+				prov.RemoveImageError = errors.New("Could not remove image.")
+				doRequest()
+			})
+
+			It("responds with 500 Internal Server Error", func() {
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not remove image."}`))
+			})
+		})
+	})
+
+	Describe("POST /images/pull", func() {
+		doRequest := func() {
+			params := &url.Values{}
+			params.Set("repository", "busybox")
+			req, err = NewRequest("POST", "/images/pull", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.PullImage()", func() {
+			Expect(prov.PullImageCalled).To(BeFalse())
+			doRequest()
+			Expect(prov.PullImageCalled).To(BeTrue())
+			Expect(prov.ReceivedRepository).To(Equal("busybox"))
+		})
+
+		Context("PullImage() returns successfully", func() {
+			BeforeEach(func() {
+				prov.PullImageReturn = &provider.ImageInfo{
+					ID:          "ID1",
+					Name:        "Source1",
+					Tag:         "SourceTag1",
+					CreatedAt:   1901,
+					ActualSize:  40,
+					VirtualSize: 28,
+				}
+				doRequest()
+			})
+
+			It("responds with 200 OK with the image info", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j, err := json.Marshal(map[string]interface{}{
+					"image": prov.PullImageReturn,
+				})
+				Expect(err).To(BeNil())
+				Expect(res.Body.String()).To(MatchJSON(string(j)))
+			})
+		})
+
+		Context("PullImage() returns an error", func() {
+			BeforeEach(func() {
+				prov.PullImageError = errors.New("Could not pull image.")
+				doRequest()
+			})
+
+			It("responds with 500 Internal Server Error", func() {
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not pull image."}`))
+			})
+		})
+	})
+
+	Describe("POST /images/push", func() {
+		doRequest := func(image, destination string) {
+			params := &url.Values{}
+			params.Set("image", image)
+			params.Set("destination", destination)
+			req, err = NewRequest("POST", "/images/push", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.PushImage()", func() {
+			Expect(prov.PushImageCalled).To(BeFalse())
+			doRequest("nitrousio/ubuntu:14.04", "quay.io/me/ubuntu")
+			Expect(prov.PushImageCalled).To(BeTrue())
+			Expect(prov.ReceivedImageName).To(Equal("nitrousio/ubuntu:14.04"))
+			Expect(prov.ReceivedImageDestination).To(Equal("quay.io/me/ubuntu"))
+		})
+
+		Context("PushImage() returns successfully", func() {
+			It("responds with 200 OK", func() {
+				doRequest("nitrousio/ubuntu:14.04", "quay.io/me/ubuntu")
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(res.Body.String()).To(MatchJSON(`{"status":"ok"}`))
+			})
+		})
+
+		Context("PushImage() returns an error", func() {
+			BeforeEach(func() {
+				prov.PushImageError = errors.New("Could not push image.")
+			})
+
+			It("responds with 500 Internal Server Error", func() {
+				doRequest("nitrousio/ubuntu:14.04", "quay.io/me/ubuntu")
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not push image."}`))
+			})
+		})
+	})
+
+	Describe("POST /images/tag", func() {
+		doRequest := func(image, tag string, force bool) {
+			params := &url.Values{}
+			params.Set("image", image)
+			params.Set("tag", tag)
+			params.Set("force", strconv.FormatBool(force))
+			req, err = NewRequest("POST", "/images/tag", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.TagImage()", func() {
+			Expect(prov.TagImageCalled).To(BeFalse())
+			doRequest("ubuntu", "quay.io/me/ubuntu:14.04", true)
+			Expect(prov.TagImageCalled).To(BeTrue())
+			Expect(prov.ReceivedImageName).To(Equal("ubuntu"))
+			Expect(prov.ReceivedTag).To(Equal("quay.io/me/ubuntu:14.04"))
+			Expect(prov.ReceivedTagForce).To(BeTrue())
+		})
+
+		Context("TagImage() returns successfully", func() {
+			It("responds with 200 OK", func() {
+				doRequest("ubuntu", "quay.io/me/ubuntu:14.04", true)
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(res.Body.String()).To(MatchJSON(`{"status":"ok"}`))
+			})
+		})
+
+		Context("TagImage() returns an error", func() {
+			BeforeEach(func() {
+				prov.TagImageError = errors.New("Could not tag image.")
+			})
+
+			It("responds with 500 Internal Server Error", func() {
+				doRequest("ubuntu", "quay.io/me/ubuntu:14.04", true)
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not tag image."}`))
 			})
 		})
 	})

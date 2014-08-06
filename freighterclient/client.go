@@ -1,15 +1,18 @@
 package freighterclient
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -85,6 +88,11 @@ type Client interface {
 	HostInfo() (*HostInfo, error)
 
 	ListImages() ([]*Image, error)
+	BuildImage(name string, in io.Reader) (*Image, error)
+	RemoveImage(image string) error
+	PullImage(location string) (*Image, error)
+	PushImage(image, destination string) error
+	TagImage(image, newName string, force bool) error
 }
 
 type Stats struct {
@@ -590,6 +598,154 @@ func (c *client) ListImages() ([]*Image, error) {
 	}
 
 	return images.Images, nil
+}
+
+// BuildImage builds an image. The input stream should be a tar archive (which
+// can be either uncompressed or compressed with gzip/bzip2/xz). The archive
+// must include a file named Dockerfile at its root. Any other files are made
+// available as the build context.
+func (c *client) BuildImage(name string, in io.Reader) (*Image, error) {
+	u := fmt.Sprintf("%s/images", c.host.BaseURL())
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", "buildcontext.tar")
+	if err != nil {
+		return nil, err
+	}
+	_, err = io.Copy(part, in)
+	if err != nil {
+		return nil, err
+	}
+	_ = writer.WriteField("name", name)
+	err = writer.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", u, body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, &StatusError{resp.StatusCode}
+	}
+
+	var imageInfo struct {
+		Image  *Image `json:"image"`
+		output string `json:"output"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&imageInfo)
+	if err != nil {
+		return nil, ErrUnexpectedResponse
+	}
+
+	return imageInfo.Image, nil
+}
+
+func (c *client) RemoveImage(image string) error {
+	data := url.Values{"image": []string{image}}
+	u := fmt.Sprintf("%s/images?%s", c.host.BaseURL(), data.Encode())
+	req, err := http.NewRequest("DELETE", u, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return &StatusError{resp.StatusCode}
+	}
+
+	return nil
+}
+
+func (c *client) PullImage(repository string) (*Image, error) {
+	u := fmt.Sprintf("%s/images/pull", c.host.BaseURL())
+	data := &url.Values{"repository": []string{repository}}
+	req, err := http.NewRequest("POST", u, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, &StatusError{resp.StatusCode}
+	}
+	var imageInfo struct {
+		Image *Image `json:"image"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&imageInfo)
+	if err != nil {
+		return nil, ErrUnexpectedResponse
+	}
+
+	return imageInfo.Image, nil
+}
+
+func (c *client) PushImage(image, destination string) error {
+	u := fmt.Sprintf("%s/images/push", c.host.BaseURL())
+	data := &url.Values{
+		"image":       []string{image},
+		"destination": []string{destination},
+	}
+	req, err := http.NewRequest("POST", u, strings.NewReader(data.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return &StatusError{resp.StatusCode}
+	}
+
+	return nil
+}
+
+func (c *client) TagImage(image, tag string, force bool) error {
+	u := fmt.Sprintf("%s/images/tag", c.host.BaseURL())
+	data := &url.Values{
+		"image": []string{image},
+		"tag":   []string{tag},
+		"force": []string{strconv.FormatBool(force)},
+	}
+	req, err := http.NewRequest("POST", u, strings.NewReader(data.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return &StatusError{resp.StatusCode}
+	}
+
+	return nil
 }
 
 func (c *client) ListVolumes() ([]string, error) {

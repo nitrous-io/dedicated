@@ -3,6 +3,7 @@ package freighterclient_test
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -76,10 +77,12 @@ func ipAndPort(s *ghttp.Server) (string, int, error) {
 
 var _ = Describe("client", func() {
 	var (
-		st     *ServerTest
-		cl     freighterclient.Client
-		host   *freighterclient.Host
-		server *ghttp.Server
+		st           *ServerTest
+		cl           freighterclient.Client
+		host         *freighterclient.Host
+		server       *ghttp.Server
+		statusCode   int
+		responseBody string
 	)
 
 	Describe("NewClientHTTP", func() {
@@ -105,11 +108,6 @@ var _ = Describe("client", func() {
 	})
 
 	Describe("List()", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
-
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", "/containers"),
@@ -236,11 +234,6 @@ var _ = Describe("client", func() {
 	})
 
 	Describe("Create()", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
-
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
@@ -372,11 +365,6 @@ var _ = Describe("client", func() {
 	})
 
 	Describe("Info()", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
-
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", "/containers/deadbeef"),
@@ -476,9 +464,6 @@ var _ = Describe("client", func() {
 		var (
 			fnUnderTest func(id string) (*freighterclient.Container, error)
 			path        string
-
-			statusCode   int
-			responseBody string
 
 			id = "facecafe"
 		)
@@ -611,11 +596,6 @@ var _ = Describe("client", func() {
 	})
 
 	Describe("Terminate()", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
-
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("DELETE", "/containers/cafefeed"),
@@ -697,11 +677,6 @@ var _ = Describe("client", func() {
 	})
 
 	Describe("Public Key Operations", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
-
 		setupServer := func(method, url string) {
 			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
@@ -881,11 +856,6 @@ var _ = Describe("client", func() {
 	})
 
 	Describe("ListVolumes()", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
-
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", "/volumes"),
@@ -948,11 +918,6 @@ var _ = Describe("client", func() {
 	})
 
 	Describe("CreateVolume()", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
-
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
@@ -1005,11 +970,6 @@ var _ = Describe("client", func() {
 	})
 
 	Describe("RemoveVolume()", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
-
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("DELETE", "/volumes/music"),
@@ -1048,11 +1008,6 @@ var _ = Describe("client", func() {
 	})
 
 	Describe("GetVolumeInfo()", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
-
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", "/volumes/music"),
@@ -1101,11 +1056,6 @@ var _ = Describe("client", func() {
 	})
 
 	Describe("RegistryLogin()", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
-
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("POST", "/registry/auth"),
@@ -1183,11 +1133,6 @@ var _ = Describe("client", func() {
 	})
 
 	Describe("RegistryLogout()", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
-
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("DELETE", "/registry/auth"),
@@ -1262,11 +1207,6 @@ var _ = Describe("client", func() {
 	})
 
 	Describe("HostInfo()", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
-
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", "/info"),
@@ -1340,82 +1280,345 @@ var _ = Describe("client", func() {
 		})
 	})
 
-	Describe("Image Operations", func() {
-		var (
-			statusCode   int
-			responseBody string
-		)
+	Describe("BuildImage()", func() {
+		BeforeEach(func() {
+			handlers := ghttp.CombineHandlers(
+				func(w http.ResponseWriter, req *http.Request) {
+					err := req.ParseMultipartForm(1 << 32)
+					Expect(err).To(BeNil())
+					Expect(req.Header.Get("Content-Type")).To(
+						ContainSubstring("multipart/form-data; boundary="))
+				},
+				ghttp.VerifyRequest("POST", "/images"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
 
-		setupServer := func(method, url string) {
+			st, _ = NewServerTest(handlers)
+			cl, host, server = st.client, st.host, st.server
+		})
+
+		AfterEach(func() {
+			st.Close()
+		})
+
+		Context("Successful Response", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = `{
+					"image": {
+						"id": "12",
+						"name": "myimage",
+						"tag": "tag",
+						"created_at": 1902,
+						"actual_size": 12,
+						"virtual_size": 39
+					},
+					"output": "image build output"
+				}`
+			})
+
+			It("should be capable of extracting an Image response", func() {
+				image, err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"))
+				Expect(err).To(BeNil())
+
+				Expect(image).To(Equal(&freighterclient.Image{
+					ID:          "12",
+					Name:        "myimage",
+					Tag:         "tag",
+					CreatedAt:   1902,
+					ActualSize:  12,
+					VirtualSize: 39,
+				}))
+
+				reqs := server.ReceivedRequests()
+				Expect(reqs).To(HaveLen(1))
+				Expect(reqs[0].FormValue("name")).To(Equal("myimage:tag"))
+				file, _, err := reqs[0].FormFile("file")
+				Expect(file).NotTo(BeNil())
+				b, err := ioutil.ReadAll(file)
+				Expect(err).To(BeNil())
+				Expect(b).To(Equal([]byte("dockerfile")))
+			})
+		})
+
+		Context("Error Response - JSON Parsing Error", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = `<<???>>`
+			})
+
+			It("should handle JSON decoding errors", func() {
+				image, err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"))
+				Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
+				Expect(image).To(BeNil())
+			})
+		})
+
+		Context("with failures communicating with endpoint", func() {
+			It("should surface request failures", func() {
+				st.Close()
+
+				image, err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"))
+				Expect(err).NotTo(BeNil())
+				_, ok := err.(*freighterclient.RequestFailedError)
+				Expect(ok).To(BeTrue())
+				Expect(server.ReceivedRequests()).To(HaveLen(0))
+				Expect(image).To(BeNil())
+			})
+
+			It("should surface response failures in StatusErr", func() {
+				statusCode = http.StatusInternalServerError
+				image, err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"))
+
+				Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+				Expect(image).To(BeNil())
+			})
+		})
+	})
+
+	Describe("Image Operations", func() {
+		setupServer := func(method, url, contentType string) {
 			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
 					err := req.ParseForm()
 					Expect(err).To(BeNil())
 				},
 				ghttp.VerifyRequest(method, url),
-				ghttp.VerifyContentType("application/json"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			)
+			if contentType != "" {
+				handlers = ghttp.CombineHandlers(handlers, ghttp.VerifyContentType(contentType))
+			}
 
-			st, _ = NewServerTest(handlers)
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
 			cl, host, server = st.client, st.host, st.server
 		}
 
-		Describe("ListImages()", func() {
+		Describe("RemoveImage()", func() {
+			BeforeEach(func() {
+				setupServer("DELETE", "/images", "application/x-www-form-urlencoded")
+			})
 
-			Context("with failures communicating with endpoint", func() {
+			AfterEach(func() {
+				st.Close()
+			})
 
+			Context("Successful response", func() {
 				BeforeEach(func() {
-					setupServer("GET", "/images")
+					statusCode = http.StatusOK
 				})
 
-				AfterEach(func() {
-					st.Close()
+				It("return nil", func() {
+					err := cl.RemoveImage("imageid")
+					Expect(err).To(BeNil())
+					reqs := server.ReceivedRequests()
+					Expect(reqs).To(HaveLen(1))
+					Expect(reqs[0].FormValue("image")).To(Equal("imageid"))
 				})
+			})
 
+			Context("Error Response - with failures communicating with endpoint", func() {
 				It("should surface request failures", func() {
 					st.Close()
 
-					images, err := cl.ListImages()
+					err := cl.RemoveImage("imageid")
 					Expect(err).NotTo(BeNil())
 					_, ok := err.(*freighterclient.RequestFailedError)
 					Expect(ok).To(BeTrue())
 					Expect(server.ReceivedRequests()).To(HaveLen(0))
-					Expect(images).To(BeNil())
 				})
 
 				It("should surface response failures in StatusErr", func() {
 					statusCode = http.StatusInternalServerError
-					images, err := cl.ListImages()
-
-					Expect(err).To(Equal(&freighterclient.StatusError{
-						Code: http.StatusInternalServerError,
-					}))
-					Expect(images).To(BeNil())
+					err := cl.RemoveImage("imageid")
+					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
 				})
+			})
+		})
 
+		Describe("PushImage()", func() {
+			BeforeEach(func() {
+				setupServer("POST", "/images/push", "application/x-www-form-urlencoded")
 			})
 
-			Context("parsing body", func() {
+			AfterEach(func() {
+				st.Close()
+			})
 
+			Context("Successful response", func() {
 				BeforeEach(func() {
-					setupServer("GET", "/images")
+					statusCode = http.StatusOK
 				})
 
-				AfterEach(func() {
+				It("should return nil error", func() {
+					err := cl.PushImage("imageid", "hub.docker.com/me/imageid")
+					Expect(err).To(BeNil())
+
+					reqs := server.ReceivedRequests()
+					Expect(reqs).To(HaveLen(1))
+					Expect(reqs[0].PostFormValue("image")).To(Equal("imageid"))
+					Expect(reqs[0].PostFormValue("destination")).To(Equal("hub.docker.com/me/imageid"))
+				})
+			})
+
+			Context("Error Response - with failures communicating with endpoint", func() {
+				It("should surface request failures", func() {
 					st.Close()
+
+					err := cl.PushImage("imageid", "hub.docker.com/me/imageid")
+					Expect(err).NotTo(BeNil())
+					_, ok := err.(*freighterclient.RequestFailedError)
+					Expect(ok).To(BeTrue())
+					Expect(server.ReceivedRequests()).To(HaveLen(0))
+				})
+
+				It("should surface response failures in StatusErr", func() {
+					statusCode = http.StatusInternalServerError
+					err := cl.PushImage("imageid", "hub.docker.com/me/imageid")
+
+					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+				})
+			})
+		})
+
+		Describe("TagImage()", func() {
+			BeforeEach(func() {
+				setupServer("POST", "/images/tag", "application/x-www-form-urlencoded")
+			})
+
+			AfterEach(func() {
+				st.Close()
+			})
+
+			Context("Successful response", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusOK
+				})
+
+				It("should return nil error", func() {
+					err := cl.TagImage("imageid", "mytag", true)
+					Expect(err).To(BeNil())
+
+					reqs := server.ReceivedRequests()
+					Expect(reqs).To(HaveLen(1))
+					Expect(reqs[0].PostFormValue("image")).To(Equal("imageid"))
+					Expect(reqs[0].PostFormValue("tag")).To(Equal("mytag"))
+					Expect(reqs[0].PostFormValue("force")).To(Equal("true"))
+				})
+			})
+
+			Context("Error Response - with failures communicating with endpoint", func() {
+				It("should surface request failures", func() {
+					st.Close()
+
+					err := cl.TagImage("imageid", "mytag", true)
+					Expect(err).NotTo(BeNil())
+					_, ok := err.(*freighterclient.RequestFailedError)
+					Expect(ok).To(BeTrue())
+					Expect(server.ReceivedRequests()).To(HaveLen(0))
+				})
+
+				It("should surface response failures in StatusErr", func() {
+					statusCode = http.StatusInternalServerError
+					err := cl.TagImage("imageid", "mytag", true)
+
+					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+				})
+			})
+		})
+
+		Describe("PullImage", func() {
+			BeforeEach(func() {
+				setupServer("POST", "/images/pull", "application/x-www-form-urlencoded")
+			})
+
+			AfterEach(func() {
+				st.Close()
+			})
+
+			Context("Successful response", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusOK
+					responseBody = `{
+						"image": {
+							"id": "12",
+							"name": "myimage",
+							"tag": "tag",
+							"created_at": 1902,
+							"actual_size": 12,
+							"virtual_size": 39
+						},
+						"output": "image build output"
+					}`
+				})
+
+				It("should return nil error", func() {
+					image, err := cl.PullImage("myimage:tag")
+					Expect(err).To(BeNil())
+
+					Expect(image).To(Equal(&freighterclient.Image{
+						ID:          "12",
+						Name:        "myimage",
+						Tag:         "tag",
+						CreatedAt:   1902,
+						ActualSize:  12,
+						VirtualSize: 39,
+					}))
+
+					reqs := server.ReceivedRequests()
+					Expect(reqs).To(HaveLen(1))
+					Expect(reqs[0].PostFormValue("repository")).To(Equal("myimage:tag"))
+				})
+			})
+
+			Context("Error Response - JSON parsing error", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusOK
+					responseBody = `<<???>>`
 				})
 
 				It("should handle JSON decoding errors", func() {
-					statusCode = http.StatusOK
-					responseBody = `<<???>>`
-
-					images, err := cl.ListImages()
+					image, err := cl.PullImage("myimage:tag")
 					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
-					Expect(images).To(BeNil())
+					Expect(image).To(BeNil())
+				})
+			})
+
+			Context("Error Response - with failures communicating with endpoint", func() {
+				It("should surface request failures", func() {
+					st.Close()
+
+					image, err := cl.PullImage("myimage:tag")
+					Expect(err).NotTo(BeNil())
+					Expect(image).To(BeNil())
+					_, ok := err.(*freighterclient.RequestFailedError)
+					Expect(ok).To(BeTrue())
+					Expect(server.ReceivedRequests()).To(HaveLen(0))
 				})
 
-				It("should be capable of extracting an Images response", func() {
+				It("should surface response failures in StatusErr", func() {
+					statusCode = http.StatusInternalServerError
+					image, err := cl.PullImage("myimage:tag")
+
+					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+					Expect(image).To(BeNil())
+				})
+			})
+		})
+
+		Describe("ListImages()", func() {
+			BeforeEach(func() {
+				setupServer("GET", "/images", "application/json")
+			})
+
+			AfterEach(func() {
+				st.Close()
+			})
+
+			Context("Successful Response", func() {
+				BeforeEach(func() {
 					statusCode = http.StatusOK
 					responseBody = `{
 						"images": [
@@ -1438,7 +1641,9 @@ var _ = Describe("client", func() {
 							}
 						]
 					}`
+				})
 
+				It("should be capable of extracting an Images response", func() {
 					images, err := cl.ListImages()
 					Expect(err).To(BeNil())
 					Expect(images).To(HaveLen(2))
@@ -1461,7 +1666,40 @@ var _ = Describe("client", func() {
 						VirtualSize: 48,
 					}))
 				})
+			})
 
+			Context("Error Response - JSON decoding Errors", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusOK
+					responseBody = `<<???>>`
+				})
+
+				It("should handle JSON decoding errors", func() {
+					images, err := cl.ListImages()
+					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
+					Expect(images).To(BeNil())
+				})
+			})
+
+			Context("Error Response - failures communicating with endpoint", func() {
+				It("should surface request failures", func() {
+					st.Close()
+
+					images, err := cl.ListImages()
+					Expect(err).NotTo(BeNil())
+					_, ok := err.(*freighterclient.RequestFailedError)
+					Expect(ok).To(BeTrue())
+					Expect(server.ReceivedRequests()).To(HaveLen(0))
+					Expect(images).To(BeNil())
+				})
+
+				It("should surface response failures in StatusErr", func() {
+					statusCode = http.StatusInternalServerError
+					images, err := cl.ListImages()
+
+					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+					Expect(images).To(BeNil())
+				})
 			})
 		})
 	})

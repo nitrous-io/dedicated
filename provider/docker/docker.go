@@ -1,12 +1,15 @@
 package docker
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
 	"strconv"
 	"strings"
@@ -15,6 +18,7 @@ import (
 
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/freighter/provider"
+	"github.com/nitrous-io/freighter/provider/docker/parsers"
 	"github.com/nitrous-io/freighter/util"
 )
 
@@ -41,9 +45,20 @@ type DockerProvider struct {
 	dataPath  string
 	namespace string
 	logger    *util.Logger
+
+	DockerClientProxy interface {
+		PushImage(opts dockerclient.PushImageOptions, auth dockerclient.AuthConfiguration) error
+		PullImage(opts dockerclient.PullImageOptions, auth dockerclient.AuthConfiguration) error
+	}
+	DockerConfigLocation string
 }
 
-func NewDockerProvider(logger *util.Logger, dataPath string, namespace string) (*DockerProvider, error) {
+type lookupImageResult struct {
+	image *provider.ImageInfo
+	byID  bool
+}
+
+func NewDockerProvider(logger *util.Logger, dataPath, namespace string) (*DockerProvider, error) {
 	if logger == nil || dataPath == "" || namespace == "" {
 		return nil, errors.New("docker.NewDockerProvider: invalid argument")
 	}
@@ -51,7 +66,13 @@ func NewDockerProvider(logger *util.Logger, dataPath string, namespace string) (
 	if err != nil {
 		return nil, err
 	}
-	return &DockerProvider{client: client, dataPath: dataPath, namespace: namespace + ".", logger: logger}, nil
+	return &DockerProvider{
+		client:            client,
+		dataPath:          dataPath,
+		namespace:         namespace + ".",
+		logger:            logger,
+		DockerClientProxy: client,
+	}, nil
 }
 
 func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
@@ -81,8 +102,7 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 }
 
 func (p *DockerProvider) Create(name, imageName, configJSON string) (*provider.ContainerInfo, error) {
-	err := p.createAuthorizedKeys(p.namespace+name, []string{})
-
+	err := p.createAuthorizedKeys(p.applyNamespace(name), []string{})
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +113,6 @@ func (p *DockerProvider) Create(name, imageName, configJSON string) (*provider.C
 	}
 
 	container, err := p.createContainer(imageName, name, cfg)
-
 	if err != nil {
 		return nil, err
 	}
@@ -397,51 +416,304 @@ func (p *DockerProvider) ListImages() ([]*provider.ImageInfo, error) {
 	list := []*provider.ImageInfo{}
 	for _, dockerImage := range dockerImages {
 		for _, name := range dockerImage.RepoTags {
-			if strings.HasPrefix(name, p.namespace) {
-				cleansedName := strings.TrimPrefix(name, p.namespace)
-				repoSplit := strings.SplitN(cleansedName, ":", 2)
-				info := &provider.ImageInfo{
-					ID:          dockerImage.ID,
-					Name:        repoSplit[0],
-					CreatedAt:   dockerImage.Created,
-					ActualSize:  dockerImage.Size,
-					VirtualSize: dockerImage.VirtualSize,
-				}
-				if len(repoSplit) > 1 {
-					info.Tag = repoSplit[1]
-				}
-				list = append(list, info)
+			name, ok := p.stripNamespace(name)
+			if !ok {
+				continue
 			}
+
+			repo, tag := parsers.ParseRepoAndTag(name)
+			info := &provider.ImageInfo{
+				ID:          dockerImage.ID,
+				Name:        repo,
+				Tag:         tag,
+				CreatedAt:   dockerImage.Created,
+				ActualSize:  dockerImage.Size,
+				VirtualSize: dockerImage.VirtualSize,
+			}
+			list = append(list, info)
 		}
 	}
 
 	return list, nil
 }
 
-func (p *DockerProvider) createContainer(imageName, containerName string, config *provider.ContainerConfig) (*dockerclient.Container, error) {
-	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
-	start := time.Now()
-
-	parts := strings.Split(imageName, ":")
-	var repository, tag string
-	repository = parts[0]
-
-	if len(parts) == 1 {
-		tag = "latest"
-	} else {
-		tag = parts[1]
+func (p *DockerProvider) BuildImage(name string, incoming io.Reader, result io.Writer) (*provider.ImageInfo, error) {
+	buildOptions := dockerclient.BuildImageOptions{
+		Name:         p.applyNamespace(name),
+		InputStream:  incoming,
+		OutputStream: result,
 	}
 
-	err := p.client.PullImage(dockerclient.PullImageOptions{
-		Repository: repository,
-		Tag:        tag,
-	}, dockerclient.AuthConfiguration{})
-
+	err := p.client.BuildImage(buildOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	containerName = p.namespace + containerName
+	info, err := p.lookupImage(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return info.image, nil
+}
+
+func (p *DockerProvider) RemoveImage(imageIDOrName string) error {
+	lookupResult, err := p.lookupImage(imageIDOrName)
+	if err != nil {
+		return err
+	}
+
+	image, useID := lookupResult.image, lookupResult.byID
+
+	if useID {
+		err = p.client.RemoveImage(image.ID)
+	} else {
+		merged := strings.Join([]string{image.Name, image.Tag}, ":")
+		fullName := p.applyNamespace(merged)
+		err = p.client.RemoveImage(fullName)
+	}
+	if err != nil && strings.Contains(err.Error(), "tagged in multiple repositories") {
+		return provider.ErrImageShared
+	}
+
+	return err
+}
+
+func (p *DockerProvider) PullImage(location string) (*provider.ImageInfo, error) {
+	registry := parsers.ParseRegistry(location)
+	auth, err := p.fetchAuthenticationInfoBestMatch(registry)
+	if err != nil {
+		return nil, err
+	}
+
+	repository, tag := parsers.ParseRepoAndTag(location)
+	pullOpts := dockerclient.PullImageOptions{
+		Repository: repository,
+		Tag:        tag,
+	}
+
+	err = p.DockerClientProxy.PullImage(pullOpts, auth)
+	if err != nil {
+		return nil, err
+	}
+
+	newRepo := p.applyNamespace(repository)
+	existingName := strings.Join([]string{repository, tag}, ":")
+	newName := strings.Join([]string{newRepo, tag}, ":")
+
+	err = p.dockerTag(existingName, newName, false)
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.client.RemoveImage(existingName)
+	if err != nil {
+		return nil, err
+	}
+
+	located, err := p.lookupImage(strings.TrimPrefix(newName, p.namespace))
+	if err != nil {
+		return nil, err
+	}
+
+	return located.image, nil
+}
+
+// PushImage pushes an image identified by its ID or name to a destination
+// repository.
+//
+// If destination repository is "", the image is simply pushed.
+//
+// As a side effect, the image will be tagged with the destination repository.
+//
+// Examples:
+//   push rails to chuyeow/rails
+//   push rails to quay.io/chuyeow/railsbox
+//   push quay.io/chuyeow/rails
+//   push quay.io/chuyeow/rails to tsuru.io/nitrous/railsbox
+func (p *DockerProvider) PushImage(imageIDOrName, dest string) error {
+	lookupResult, err := p.lookupImage(imageIDOrName)
+	if err != nil {
+		return err
+	}
+
+	image := lookupResult.image
+
+	// If destination repository is blank, we just want to push the image.
+	if dest == "" {
+		dest = strings.Join([]string{image.Name, image.Tag}, ":")
+	}
+
+	registry := parsers.ParseRegistry(dest)
+	auth, err := p.fetchAuthenticationInfoBestMatch(registry)
+	if err != nil {
+		return err
+	}
+	if auth == (dockerclient.AuthConfiguration{}) {
+		// docker push requires logging in to the registry first.
+		return provider.ErrImagePushAuthRequired
+	}
+
+	err = p.dockerTag(image.ID, dest, true)
+	if err != nil {
+		return err
+	}
+
+	repository, tag := parsers.ParseRepoAndTag(dest)
+	var buf bytes.Buffer
+	// while PushImageOptions contains a Registry attribute, it does not work
+	// docker push XXXXXX calls the API with the full name (registry and repository) as the image name
+	pushOpts := dockerclient.PushImageOptions{
+		Name:         repository,
+		Tag:          tag,
+		OutputStream: &buf,
+	}
+
+	return p.DockerClientProxy.PushImage(pushOpts, auth)
+}
+
+func (p *DockerProvider) TagImage(imageIDOrName, newName string, force bool) error {
+	lookupResult, err := p.lookupImage(imageIDOrName)
+	if err != nil {
+		return err
+	}
+
+	image := lookupResult.image
+
+	repository, tag := parsers.ParseRepoAndTag(newName)
+	if tag == "" {
+		tag = "latest"
+	}
+	newRepo := p.applyNamespace(repository)
+	finalName := strings.Join([]string{newRepo, tag}, ":")
+
+	if !force {
+		// check for collision
+		_, err := p.client.InspectImage(finalName)
+		if err != dockerclient.ErrNoSuchImage {
+			return provider.ErrImageTagExists
+		}
+	}
+
+	return p.dockerTag(image.ID, finalName, true)
+}
+
+type authconfig struct {
+	Auth  string `json:"auth"`
+	Email string `json:"email"`
+}
+
+func (p *DockerProvider) fetchAuthenticationInfoBestMatch(registry string) (dockerclient.AuthConfiguration, error) {
+	if registry == "" {
+		registry = "https://index.docker.io/v1/"
+	}
+
+	authPath, err := p.dockerConfigLocation()
+	if err != nil {
+		return dockerclient.AuthConfiguration{}, nil
+	}
+
+	fileContents, err := ioutil.ReadFile(authPath)
+	if err != nil {
+		return dockerclient.AuthConfiguration{}, err
+	}
+
+	var endpointMap map[string]authconfig
+	err = json.Unmarshal(fileContents, &endpointMap)
+	if err != nil {
+		return dockerclient.AuthConfiguration{}, err
+	}
+
+	for endpoint, authconfig := range endpointMap {
+		if strings.Contains(endpoint, registry) {
+			if authconfig.Auth == "" {
+				return dockerclient.AuthConfiguration{}, nil
+			}
+			decoded, err := base64.StdEncoding.DecodeString(authconfig.Auth)
+			if err != nil {
+				return dockerclient.AuthConfiguration{}, err
+			}
+			authParams := strings.Split(string(decoded), ":")
+			if len(authParams) != 2 {
+				return dockerclient.AuthConfiguration{}, provider.ErrImageAuthMisconfigured
+			}
+			user, password := authParams[0], authParams[1]
+			return dockerclient.AuthConfiguration{
+				Username: user,
+				Password: password,
+				Email:    authconfig.Email,
+			}, nil
+		}
+	}
+
+	return dockerclient.AuthConfiguration{}, nil
+}
+
+func (p *DockerProvider) dockerConfigLocation() (string, error) {
+	if len(p.DockerConfigLocation) != 0 {
+		return p.DockerConfigLocation, nil
+	}
+
+	currentUser, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	currentUserHomeDir := currentUser.HomeDir
+	authPath := path.Join(currentUserHomeDir, ".dockercfg")
+
+	_, err = os.Stat(authPath)
+	if err != nil {
+		return "", err
+	}
+	return authPath, nil
+}
+
+func (p *DockerProvider) lookupImage(imageIDOrName string) (lookupImageResult, error) {
+	// look up the image to test its validity
+	images, err := p.ListImages()
+	if err != nil {
+		return lookupImageResult{}, err
+	}
+
+	var repository, tag string
+	for _, image := range images {
+		if image.ID == imageIDOrName {
+			return lookupImageResult{image: image, byID: true}, nil
+		} else {
+			// break up parts, only when we truly need to
+			if repository == "" {
+				repository, tag = parsers.ParseRepoAndTag(imageIDOrName)
+				if tag == "" {
+					tag = "latest"
+				}
+			}
+
+			if repository == image.Name && tag == image.Tag {
+				return lookupImageResult{image: image}, nil
+			}
+		}
+	}
+
+	return lookupImageResult{}, provider.ErrImageNotFound
+}
+
+func (p *DockerProvider) createContainer(imageName, containerName string, config *provider.ContainerConfig) (*dockerclient.Container, error) {
+	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
+	start := time.Now()
+
+	repository, tag := parsers.ParseRepoAndTag(imageName)
+	if tag == "" {
+		tag = "latest"
+	}
+	err := p.client.PullImage(dockerclient.PullImageOptions{
+		Repository: repository,
+		Tag:        tag,
+	}, dockerclient.AuthConfiguration{})
+	if err != nil {
+		return nil, err
+	}
+
+	containerName = p.applyNamespace(containerName)
 
 	createConfig, startConfig, err := p.createConfigs(containerName, imageName, config)
 	if err != nil {
@@ -452,7 +724,6 @@ func (p *DockerProvider) createContainer(imageName, containerName string, config
 		Name:   containerName,
 		Config: createConfig,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -523,6 +794,27 @@ func (p *DockerProvider) inspectContainer(id string) (*dockerclient.Container, e
 		return nil, &dockerclient.NoSuchContainer{ID: id}
 	}
 	return container, nil
+}
+
+func (p *DockerProvider) dockerTag(image string, newName string, force bool) error {
+	repo, tag := parsers.ParseRepoAndTag(newName)
+	return p.client.TagImage(image, dockerclient.TagImageOptions{
+		Repo:  repo,
+		Tag:   tag,
+		Force: force,
+	})
+}
+
+func (p *DockerProvider) applyNamespace(name string) string {
+	return p.namespace + name
+}
+
+// Examples (with namespace = "freighter."):
+//   stripNamespace("freighter.foo") -> "foo", true
+//   stripNamespace("foo") -> "foo", false
+func (p *DockerProvider) stripNamespace(name string) (string, bool) {
+	stripped := strings.TrimPrefix(name, p.namespace)
+	return stripped, (stripped != name)
 }
 
 func nameFromContainer(container *dockerclient.Container) string {

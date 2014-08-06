@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -334,16 +335,6 @@ func (s *Server) resizeShell(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) listImages(w http.ResponseWriter, r *http.Request) {
-	listing, err := s.provider.ListImages()
-	if err != nil {
-		s.handleError(w, err)
-		return
-	}
-
-	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"images": listing})
-}
-
 func (s *Server) loginRegistry(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
@@ -377,6 +368,87 @@ func (s *Server) serverInfo(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"info": stats})
+	return nil
+}
+
+func (s *Server) listImages(w http.ResponseWriter, r *http.Request) error {
+	images, err := s.provider.ListImages()
+	if err != nil {
+		return err
+	}
+
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"images": images})
+	return nil
+}
+
+func (s *Server) buildImage(w http.ResponseWriter, r *http.Request) error {
+	_, fh, err := r.FormFile("file")
+	if err != nil {
+		return err
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	name := r.FormValue("name")
+	var buildBuffer bytes.Buffer
+	info, err := s.provider.BuildImage(name, f, &buildBuffer)
+	if err != nil {
+		output := buildBuffer.String()
+		if output == "" {
+			return err
+		}
+		s.respondEncodeJSON(w, http.StatusBadRequest, map[string]interface{}{"error": err.Error(), "output": output})
+		return nil
+	}
+
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"image": info, "output": buildBuffer.String()})
+	return err
+}
+
+func (s *Server) removeImage(w http.ResponseWriter, r *http.Request) error {
+	image := r.FormValue("image")
+	err := s.provider.RemoveImage(image)
+	if err != nil {
+		return err
+	}
+	s.respond(w, http.StatusOK, jsonStatusOK)
+	return nil
+}
+
+func (s *Server) pullImage(w http.ResponseWriter, r *http.Request) error {
+	repo := r.FormValue("repository")
+	info, err := s.provider.PullImage(repo)
+	if err != nil {
+		return err
+	}
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"image": info})
+	return nil
+}
+
+func (s *Server) pushImage(w http.ResponseWriter, r *http.Request) error {
+	image := r.FormValue("image")
+	destination := r.FormValue("destination")
+	err := s.provider.PushImage(image, destination)
+	if err != nil {
+		return err
+	}
+	s.respond(w, http.StatusOK, jsonStatusOK)
+	return nil
+}
+
+func (s *Server) tagImage(w http.ResponseWriter, r *http.Request) error {
+	image := r.FormValue("image")
+	tag := r.FormValue("tag")
+	force, _ := strconv.ParseBool(r.FormValue("force"))
+	err := s.provider.TagImage(image, tag, force)
+	if err != nil {
+		return err
+	}
+	s.respond(w, http.StatusOK, jsonStatusOK)
 	return nil
 }
 

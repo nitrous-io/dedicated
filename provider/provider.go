@@ -13,8 +13,14 @@ const (
 
 var containerNameRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
 var (
-	ErrTimeout               = errors.New("Operation timed out")
-	ErrPubKeyOpsNotSupported = errors.New("Public key operations are not supported on this container")
+	ErrTimeout                = errors.New("Operation timed out")
+	ErrPubKeyOpsNotSupported  = errors.New("Public key operations are not supported on this container")
+	ErrImageNotFound          = errors.New("Image does not exist")
+	ErrImageShared            = errors.New("Image is shared across multiple tags")
+	ErrImageTagExists         = errors.New("Image with same tag already exists")
+	ErrImageAuthNotAllowed    = errors.New("Do not have permission to push/pull image")
+	ErrImageAuthMisconfigured = errors.New("Image registry configuration invalid")
+	ErrImagePushAuthRequired  = errors.New("Log in to the registry before pushing an image to it")
 )
 
 type Provider interface {
@@ -40,6 +46,11 @@ type Provider interface {
 	Logout(registry string) error
 
 	ListImages() (infoList []*ImageInfo, err error)
+	BuildImage(name string, incoming io.Reader, result io.Writer) (*ImageInfo, error)
+	RemoveImage(name string) error
+	PullImage(repository string) (*ImageInfo, error)
+	PushImage(name, destination string) error
+	TagImage(name, tag string, force bool) error
 
 	CreateVolume(slug string) (*VolumeInfo, error)
 	ListVolumes() ([]string, error)
