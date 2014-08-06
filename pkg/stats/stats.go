@@ -36,8 +36,8 @@ var Sample = func(period time.Duration) (*Stats, error) {
 	}
 	unit := uint64(sys.Unit) // Sysinfo_t.Unit is the memory unit size in bytes.
 	stats.Uptime = uint64(sys.Uptime)
-	stats.MemoryUsage = (sys.Totalram - sys.Freeram) / unit
-	stats.MemoryTotal = sys.Totalram / unit
+	stats.MemoryUsage = (uint64(sys.Totalram) - uint64(sys.Freeram)) / unit
+	stats.MemoryTotal = uint64(sys.Totalram) / unit
 
 	statfs := &syscall.Statfs_t{}
 	syscall.Statfs("/", statfs) // Assume root volume is the volume made available to users.
