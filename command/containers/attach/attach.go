@@ -1,9 +1,9 @@
 package attach
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -65,7 +65,14 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	err = c.attach(cr, c.UI.Writer)
+	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
+	tlsConfig, err := nitrousapi.TLSConfig(cr.Host)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Invalid HTTPS configuration %v", err))
+		return 1
+	}
+
+	err = c.attach(host, cr.CID, tlsConfig, c.UI.Writer)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
@@ -81,10 +88,8 @@ func (c *Command) Synopsis() string {
 	return "Attach to a running container."
 }
 
-func (c *Command) attach(cr *nitrousapi.ContainerAPI, stdout io.Writer) error {
-	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
-
-	dial, err := net.Dial("tcp", host)
+func (c *Command) attach(host string, containerID string, tlsConfig *tls.Config, stdout io.Writer) error {
+	dial, err := tls.Dial("tcp", host, tlsConfig)
 	if err != nil {
 		return fmt.Errorf("Can't connect to %s", host)
 	}
@@ -95,7 +100,7 @@ func (c *Command) attach(cr *nitrousapi.ContainerAPI, stdout io.Writer) error {
 	}
 	defer conn.Close()
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("/containers/%s/attach", cr.CID), nil)
+	req, err := http.NewRequest("POST", fmt.Sprintf("/containers/%s/attach", containerID), nil)
 	if err != nil {
 		return err
 	}
@@ -104,7 +109,7 @@ func (c *Command) attach(cr *nitrousapi.ContainerAPI, stdout io.Writer) error {
 	resp, _ := conn.Do(req)
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("Failed to attach to the remote shell for container %s, status %d",
-			cr.CID, resp.StatusCode)
+			containerID, resp.StatusCode)
 	}
 
 	wc, r := conn.Hijack()
