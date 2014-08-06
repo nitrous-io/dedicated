@@ -1,24 +1,31 @@
-#!/usr/bin/env bash
-# create .deb file for freighterd
-#
-# This requires the binary to be built and placed into ./build
+#!/bin/bash
+set -e
+
+VERSION=${1:?"version is required"}
 
 PKGNAME="freighterd"
-PKGVERSION="$1"
+PKGVERSION=$VERSION
 PACKAGE_URL="http://nitrous.io/"
 PACKAGE_ARCHITECTURE="$(dpkg-architecture -qDEB_HOST_ARCH)"
 PACKAGE_DESCRIPTION="Nitrous.IO HTTP frontend for docker"
 PACKAGE_LICENSE="Private"
 
-BUILD=$WORKDIR/build # where we store freighterd binary
-FILES=$WORKDIR/files/$PKGNAME # where we store configuration files
-PKGDIR=/opt/$PKGNAME/build # /opt/freighterd/build is mapped to $HOME/build on the host
+RELEASE_DIR=/tmp/$PKGNAME/$VERSION
+mkdir -p $RELEASE_DIR
+BUILD=./build # where we store freighterd binary
+FILES=./files/$PKGNAME # where we store configuration files
+PKGDIR=$RELEASE_DIR 
 
 echo "PKGDIR: $PKGDIR"
 
 bundle() {
   rm -rf $PKGDIR
   mkdir -p $PKGDIR
+
+  # install our control files over to $PKDIR
+  install -m 0644 -D $FILES/control/preinst $PKGDIR/$FILES/control/preinst
+  install -m 0644 -D $FILES/control/postinst $PKGDIR/$FILES/control/postinst
+  install -m 0644 -D $FILES/control/prerm $PKGDIR/$FILES/control/prerm
 
   # install our freighterd configuration
   install -m 0644 -D $FILES/data/etc/init/freighterd.conf $PKGDIR/etc/init/freighterd.conf

@@ -16,12 +16,17 @@ build:
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
 	@script/build $(VERSION)
 
-release:
+release: image
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
-	@./script/run-build $(VERSION)
+	@./script/build-in-docker $(VERSION)
 	@echo "$(OK_COLOR)==> Releasing revision $(VERSION)...$(NO_COLOR)"
-	@./script/run-release $(VERSION)
+	@./script/release $(VERSION)
 .PHONY: release
+
+publish: release
+	@echo "$(OK_COLOR)==> Publishing revision $(VERSION)...$(NO_COLOR)"
+	@./script/publish $(VERSION)
+.PHONY: publish 
 
 format:
 	goop go fmt ./...

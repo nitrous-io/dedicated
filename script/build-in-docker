@@ -3,10 +3,10 @@
 VERSION=${1:?"version is required"}
 APP=freighter
 
-script/image
-
 docker run \
   --privileged \
   --rm=true \
   --volume $(pwd):/opt/src/github.com/nitrous-io/$APP \
-  $APP:$VERSION script/install-deps script/build $VERSION
+  --volume $(readlink -f $SSH_AUTH_SOCK):/ssh-agent \
+  -e SSH_AUTH_SOCK=/ssh-agent \
+  freighter:$VERSION script/docker-build $VERSION
