@@ -33,4 +33,14 @@ test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
 	@script/test $(TEST)
 
+xcompile:
+	@echo "$(OK_COLOR)==> Local cross compilation for revision $(VERSION)...$(NO_COLOR)"
+	@script/local-xcompile $(VERSION)
+.PHONY: xcompile
+
+xcompile-docker: image
+	@echo "$(OK_COLOR)==> Cross compilation in docker for revision $(VERSION)...$(NO_COLOR)"
+	@script/docker-run-xcompile $(APP) $(VERSION)
+.PHONY: xcompile-docker
+
 .PHONY: all build clean format test image ci
