@@ -29,6 +29,7 @@ import (
 	_ "github.com/nitrous-io/nitro/command/hosts/restart"
 	_ "github.com/nitrous-io/nitro/command/hosts/start"
 	_ "github.com/nitrous-io/nitro/command/hosts/stop"
+	_ "github.com/nitrous-io/nitro/command/images/ibuild"
 	_ "github.com/nitrous-io/nitro/command/images/list"
 	_ "github.com/nitrous-io/nitro/command/images/pull"
 	_ "github.com/nitrous-io/nitro/command/images/push"
