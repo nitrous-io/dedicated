@@ -36,6 +36,7 @@ RUN /etc/init.d/postgresql start &&\
 
 WORKDIR /opt/src/github.com/nitrous-io/nitrous
 ADD util/ssh_config /etc/ssh/ssh_config
+RUN cp .env-example .env
 
 RUN /etc/init.d/postgresql start &&\
     make createdb
