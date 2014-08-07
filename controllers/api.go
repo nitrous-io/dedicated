@@ -9,11 +9,6 @@ import (
 	"github.com/nitrous-io/nitrous/models/region"
 )
 
-type JSONResponse struct {
-	Code int
-	Data map[string]interface{}
-}
-
 type ContainerAPI struct {
 	ID        int64  `json:"id"`
 	CID       string `json:"cid"`
