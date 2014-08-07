@@ -16,7 +16,7 @@ version=$(docker version | grep 'Client version' | cut -d':' -f2 | tr -d ' ')
 docker pull ddollar/dind:$version >/dev/null 2>&1 || die "image ddollar/dind:$version does not exist"
 
 # ddollar/dind is built from https://github.com/jpetazzo/dind
-cid=$(docker run --privileged -d -v $tmp:$tmp -e PORT=4444 ddollar/dind)
+cid=$(docker run --privileged -d -v $tmp:$tmp -e PORT=4444 ddollar/dind:$version)
 ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $cid)
 
 trap cleanup EXIT
