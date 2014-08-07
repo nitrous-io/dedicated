@@ -248,6 +248,11 @@ func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 		return nil, err
 	}
 
+	err = os.RemoveAll(p.ContainerSettingsDir(info.Name))
+	if err != nil {
+		return nil, err
+	}
+
 	p.logger.TimeInfo(start, "DockerProvider: removed container", id, "in")
 
 	info.Host = ""
@@ -757,13 +762,13 @@ func (p *DockerProvider) createContainer(imageName, containerName string, config
 	return container, err
 }
 
-func (p *DockerProvider) containerSettingsDir(containerName string) string {
+func (p *DockerProvider) ContainerSettingsDir(containerName string) string {
 	return path.Join(p.dataPath, "containers", containerName)
 }
 
 func (p *DockerProvider) createAuthorizedKeys(containerName string, publicKeys []string) error {
 	p.logger.Info("DockerProvider: creating SSH authorized keys file for container", containerName, "with", len(publicKeys), "entries")
-	dir := path.Join(p.containerSettingsDir(containerName), "ssh")
+	dir := path.Join(p.ContainerSettingsDir(containerName), "ssh")
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
@@ -788,7 +793,7 @@ func (p *DockerProvider) createAuthorizedKeys(containerName string, publicKeys [
 }
 
 func (p *DockerProvider) readAuthorizedKeys(containerName string) ([]string, error) {
-	keysFile := path.Join(p.containerSettingsDir(containerName), "ssh", "authorized_keys")
+	keysFile := path.Join(p.ContainerSettingsDir(containerName), "ssh", "authorized_keys")
 	bkeys, err := ioutil.ReadFile(keysFile)
 	if err != nil {
 		return nil, err

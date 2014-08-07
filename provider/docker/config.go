@@ -94,7 +94,7 @@ func (p *DockerProvider) nitrousImageConfig(dcConfig *dockerclient.Config, dcHos
 		}
 	}
 	if !hasSSHBind {
-		dcHostConfig.Binds = append(dcHostConfig.Binds, fmt.Sprintf("%s/ssh:/etc/ssh/freighter:ro", p.containerSettingsDir(dcConfig.Hostname)))
+		dcHostConfig.Binds = append(dcHostConfig.Binds, fmt.Sprintf("%s/ssh:/etc/ssh/freighter:ro", p.ContainerSettingsDir(dcConfig.Hostname)))
 	}
 }
 

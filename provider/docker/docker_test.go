@@ -452,6 +452,9 @@ var _ = Describe("provider/docker", func() {
 					out, err := exec.Command("docker", "inspect", id).CombinedOutput()
 					Expect(err).NotTo(BeNil())
 					Expect(out).To(ContainSubstring("No such image or container"))
+					settingsDir := prov.ContainerSettingsDir(info.Name)
+					_, err = os.Stat(settingsDir)
+					Expect(os.IsNotExist(err)).To(BeTrue(), "Terminate did not remove settings dir %s", settingsDir)
 				}
 
 				expectContainerInfoToHaveBeenReturned := func() {
@@ -1589,5 +1592,12 @@ var _ = Describe("provider/docker", func() {
 			})
 		})
 
+	})
+
+	Describe("ContainerSettingsDir()", func() {
+		It("is in subdirectory 'containers' in base freighter dir", func() {
+			d := prov.ContainerSettingsDir("containername")
+			Expect(d).To(Equal(fmt.Sprintf("%s/containers/containername", datadir)))
+		})
 	})
 })
