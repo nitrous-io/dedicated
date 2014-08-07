@@ -33,6 +33,11 @@ test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
 	@script/test $(TEST)
 
+xrelease: xcompile-docker
+	@echo "$(OK_COLOR)==> Packaging revision $(VERSION)...$(NO_COLOR)"
+	@script/multi-release $(APP) $(VERSION)
+.PHONY: xrelease
+
 xcompile:
 	@echo "$(OK_COLOR)==> Local cross compilation for revision $(VERSION)...$(NO_COLOR)"
 	@script/local-xcompile $(VERSION)

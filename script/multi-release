@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -e
+
+APP=${1:?"app name is required"}
+VERSION=${2:?"version is required"}
+
+LINUX64="linux_amd64"
+LINUX32="linux_386"
+DARWIN64="darwin_amd64"
+DARWIN32="darwin_386"
+
+ARTIFACT_DIR=/tmp/$APP/$VERSION
+
+function fpm_package() {
+        ARCH=$1 # supported: amd64 and i386
+        OSARCH=$2
+        PACKAGE_NAME=$APP
+        PACKAGE_VERSION=$VERSION
+        PACKAGE_ARCHITECTURE=$ARCH
+        PACKAGE_MAINTAINER="eng@nitrous.io"
+        PACKAGE_DESCRIPTION="CLI for Nitrous.IO"
+        PACKAGE_LICENSE="Private"
+
+        PKGDIR=$ARTIFACT_DIR
+
+        # install binary
+        install -m 0755 -D $ARTIFACT_DIR/${APP}_${OSARCH} $PKGDIR/usr/bin/$APP
+        cd $PKGDIR
+
+        fpm \
+          -s dir \
+          --name $PACKAGE_NAME \
+          --version $PACKAGE_VERSION \
+          --architecture "$PACKAGE_ARCHITECTURE" \
+          --prefix / \
+          --description "$PACKAGE_DESCRIPTION" \
+          --maintainer "$PACKAGE_MAINTAINER" \
+          --provides $PACKAGE_NAME \
+          --replaces $PACKAGE_NAME \
+          --deb-compression gz \
+          -t deb .
+}
+
+function tarball() {
+   OSARCH=$1
+   cd $ARTIFACT_DIR && tar -czf $APP-$VERSION-$OSARCH.tgz ${APP}_${OSARCH}
+}
+
+echo -n "Packaging deb for amd64... "; fpm_package amd64 $LINUX64 || \
+echo -n "Packaging deb for i386... "; fpm_package i386 $LINUX32 || \
+echo -n "Packaging tarball for linux amd64..."; tarball $LINUX64 && echo " great success!"
+echo -n "Packaging tarball for linux i386..."; tarball $LINUX32 && echo " great success!"
+echo -n "Packaging tarball for darwin amd64..."; tarball $DARWIN64 && echo " great success!"
+echo -n "Packaging tarball for darwin i386..."; tarball $DARWIN32 && echo " great success!"
