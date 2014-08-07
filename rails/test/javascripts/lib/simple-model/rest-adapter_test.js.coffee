@@ -108,6 +108,12 @@ describe 'SM.RESTAdapter', ->
       context 'when it is not a singular resource (fetch with primary key)', ->
         itWorks('/foo/123', -> TestModel.fetch(123))
 
+        context 'when params are given', ->
+          it 'adds a query string to the request', ->
+            promise = TestModel.fetch(123, foo: 'bar baz=', baz: 777)
+            expect(server.requests.length).to.equal 1
+            expect(server.requests[0].url).to.equal '/foo/123?foo=bar%20baz%3D&baz=777'
+
       context 'when it is a singular resource', ->
         beforeEach ->
           klass.reopenClass(singular: true)
@@ -116,6 +122,12 @@ describe 'SM.RESTAdapter', ->
           klass.reopenClass(singular: false)
 
         itWorks('/foo', -> TestModel.fetch())
+
+        context 'when params are given', ->
+          it 'adds a query string to the request', ->
+            promise = TestModel.fetch(foo: 'bar baz=', baz: 777)
+            expect(server.requests.length).to.equal 1
+            expect(server.requests[0].url).to.equal '/foo?foo=bar%20baz%3D&baz=777'
 
     context 'fetching multiple records', ->
       context 'when request succeeds', ->
@@ -164,6 +176,12 @@ describe 'SM.RESTAdapter', ->
             expect(record2.get 'age').to.equal 20, 'age is loaded'
             expect(record2.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 30)), 'createdAt is loaded'
             expect(TestModel._findInCache(124)).to.equal record2, 'record is cached'
+
+        context 'when params are given', ->
+          it 'adds a query string to the request', ->
+            promise = TestModel.fetch(foo: 'bar baz=', baz: 777)
+            expect(server.requests.length).to.equal 1
+            expect(server.requests[0].url).to.equal '/foo?foo=bar%20baz%3D&baz=777'
 
         context 'when collectionKey is defined', ->
           beforeEach ->
@@ -243,7 +261,7 @@ describe 'SM.RESTAdapter', ->
 
     itWorks = (url) ->
       context 'when request succeeds', ->
-        it 'returns a promise that is resolved with the saved record', ->
+        it 'returns a promise that is resolved with the newly created record', ->
           server.respondWith 'POST', url, [
             201
             { 'Content-Type': 'application/json; charset=utf-8' }

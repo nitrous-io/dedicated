@@ -17,9 +17,13 @@ SM.RESTAdapter = Ember.Object.extend
       data: data
       headers: headers
 
-  fetch: (model, primaryKey) ->
+  fetch: (model, primaryKey, params) ->
     singular = Ember.get(model, 'singular')
     url = Ember.get(model, 'url')
+
+    if typeof primaryKey != 'number' && typeof primaryKey != 'string' && typeof primaryKey == 'object'
+      params = primaryKey
+      primaryKey = undefined
 
     if singular
       single = true
@@ -29,19 +33,32 @@ SM.RESTAdapter = Ember.Object.extend
     else
       single = false
 
+    if params
+      query = Ember.$.map(params, (v, k) ->
+        "#{k}=#{encodeURIComponent(v)}"
+      ).join("&")
+      url = "#{url}?#{query}"
+
     r = if single
       model.create()
     else
       SM.RecordArray.create(model: model)
 
     new Ember.RSVP.Promise (resolve, reject) =>
-      @ajax('GET', url).done((data) ->
+      @ajax('GET', url).done((data, status, jqxhr) ->
         if single && model.rootKey
           data = data[model.rootKey] || {}
         else if !single && model.collectionKey
           data = data[model.collectionKey] || {}
-        r.load(data)
-        resolve(r)
+        if single
+          r.load(data)
+          resolve(r)
+          return
+        if Em.isArray(data)
+          r.load(data)
+          resolve(r)
+          return
+        reject(jqxhr)
       ).fail (jqxhr) ->
         reject(jqxhr)
 

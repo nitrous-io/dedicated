@@ -1,6 +1,6 @@
 #= require ./sm
 
-SM.Model = klass = Ember.Object.extend Ember.Evented,
+SM.Model = klass = Ember.Object.extend
   _data: null
 
   serialize: ->
@@ -80,8 +80,9 @@ klass.reopenClass
         d[key] = val
     d
 
-  fetch: (primaryKey) ->
-    Ember.get(this, 'adapter').fetch(this, primaryKey)
+  fetch: ->
+    adapter = Ember.get this, 'adapter'
+    adapter.fetch.apply(adapter, [this].concat(Ember.$.makeArray(arguments)))
 
 SM.attr = (type, options) ->
   if typeof type != "string" && !options
