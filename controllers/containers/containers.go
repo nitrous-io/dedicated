@@ -236,9 +236,13 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, c controll
 	}
 	hydrateContainer(cn, liveContainer, h)
 
+	// Set associated fields so they get serialized.
+	cn.Host = h
+	h.Cert = cl.Cert
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": controllers.NewContainerAPI(cn, h, cl.Cert),
+		"container": controllers.NewSerializableContainer(cn),
 	}
 
 	return nil

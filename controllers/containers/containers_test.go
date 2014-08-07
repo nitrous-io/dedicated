@@ -35,6 +35,34 @@ func Test(t *testing.T) {
 	RunSpecs(t, "controllers/containers")
 }
 
+// Used to unmarshal expected JSON responses.
+type (
+	expectedHost struct {
+		ID             int64  `json:"id"`
+		Slug           string `json:"slug"`
+		IPAddress      string `json:"ip_address"`
+		FreighterdPort int    `json:"freighterd_port"`
+		Hostname       string `json:"hostname"`
+		Size           string `json:"size"`
+		State          string `json:"state"`
+		CA             string `json:"ca"`
+		Cert           string `json:"cert"`
+		Key            string `json:"key"`
+	}
+
+	expectedContainer struct {
+		ID        int64         `json:"id"`
+		CID       string        `json:"cid"`
+		UserID    int64         `json:"user_id"`
+		Image     string        `json:"image"`
+		Slug      string        `json:"slug"`
+		Name      string        `json:"name"`
+		IPAddress string        `json:"ip_address"`
+		State     string        `json:"state"`
+		Host      *expectedHost `json:"host"`
+	}
+)
+
 var _ = Describe("controllers/containers", func() {
 	var (
 		db              *db.Database
@@ -784,11 +812,13 @@ var _ = Describe("controllers/containers", func() {
 			doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
 
-			var j map[string]controllers.ContainerAPI
-			err := json.Unmarshal(res.Body.Bytes(), &j)
+			var j struct {
+				Container expectedContainer `json:"container"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
-			Expect(j["container"]).To(Equal(controllers.ContainerAPI{
+			Expect(j.Container).To(Equal(expectedContainer{
 				ID:        c.ID,
 				CID:       "deadbeef",
 				UserID:    u.ID,
@@ -797,16 +827,17 @@ var _ = Describe("controllers/containers", func() {
 				Name:      "Elixir server",
 				IPAddress: "1.2.3.4",
 				State:     "running",
-				Host: controllers.HostAPI{
+				Host: &expectedHost{
 					ID:             hs.H.ID,
 					Slug:           hs.H.Slug,
 					IPAddress:      hs.H.IPAddress.String,
-					FreighterdPort: hs.H.FreighterdPort.Int64,
+					FreighterdPort: int(hs.H.FreighterdPort.Int64),
 					Hostname:       hs.H.Hostname(),
-
-					CA:   hs.Crt.CA,
-					Cert: hs.Crt.ClientCert,
-					Key:  hs.Crt.ClientKey,
+					Size:           "",
+					State:          host.StateRunning,
+					CA:             hs.Crt.CA,
+					Cert:           hs.Crt.ClientCert,
+					Key:            hs.Crt.ClientKey,
 				},
 			}))
 		})

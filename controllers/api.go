@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"github.com/nitrous-io/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/plan"
@@ -19,32 +18,26 @@ type ContainerAPI struct {
 	IPAddress string `json:"ip_address"`
 	State     string `json:"state"`
 
-	Host HostAPI `json:"host"`
+	Host *HostAPI `json:"host"`
 }
 
 type HostAPI struct {
 	ID             int64  `json:"id"`
 	Slug           string `json:"slug"`
 	IPAddress      string `json:"ip_address"`
-	FreighterdPort int64  `json:"freighterd_port"`
+	FreighterdPort int    `json:"freighterd_port"`
 	Hostname       string `json:"hostname"` // where we can access the host i.e. slug.nitrouspro.com
+	Size           string `json:"size"`
+	State          string `json:"state"`
 
 	// tls authentication settings for a client
-	CA   string `json:"ca"`
-	Cert string `json:"cert"`
-	Key  string `json:"key"`
-}
+	CA   string `json:"ca,omitempty"`
+	Cert string `json:"cert,omitempty"`
+	Key  string `json:"key,omitempty"`
 
-type HostDetailedAPI struct {
-	ID             int64      `json:"id"`
-	Slug           string     `json:"slug"`
-	IPAddress      string     `json:"ip_address"`
-	FreighterdPort int64      `json:"freighterd_port"`
-	State          string     `json:"state"`
-	Hostname       string     `json:"hostname"`
-	Region         *RegionAPI `json:"region"`
-	Plan           *PlanAPI   `json:"plan"`
-	Stats          *StatsAPI  `json:"stats"`
+	Region *RegionAPI   `json:"region,omitempty"`
+	Plan   *PlanAPI     `json:"plan,omitempty"`
+	Stats  *HostInfoAPI `json:"stats,omitempty"`
 }
 
 type RegionAPI struct {
@@ -58,7 +51,7 @@ type PlanAPI struct {
 	Name string `json:"name"`
 }
 
-type StatsAPI struct {
+type HostInfoAPI struct {
 	Uptime       uint64    `json:"uptime"`
 	MemoryUsage  uint64    `json:"memory_usage"`
 	MemoryTotal  uint64    `json:"memory_total"`
@@ -68,8 +61,8 @@ type StatsAPI struct {
 	PerCPUUsage  []float64 `json:"per_cpu_usage"`
 }
 
-func NewContainerAPI(c *container.Container, h *host.Host, crt *cert.Cert) ContainerAPI {
-	return ContainerAPI{
+func NewSerializableContainer(c *container.Container) *ContainerAPI {
+	return &ContainerAPI{
 		ID:        c.ID,
 		CID:       c.CID,
 		UserID:    c.UserID,
@@ -78,52 +71,66 @@ func NewContainerAPI(c *container.Container, h *host.Host, crt *cert.Cert) Conta
 		Name:      c.Name.String,
 		IPAddress: c.IPAddress.String,
 		State:     c.State,
-		Host: HostAPI{
-			ID:             h.ID,
-			Slug:           h.Slug,
-			IPAddress:      h.IPAddress.String,
-			FreighterdPort: h.FreighterdPort.Int64,
-			Hostname:       h.Hostname(),
-
-			CA:   crt.CA,
-			Cert: crt.ClientCert,
-			Key:  crt.ClientKey,
-		},
+		Host:      NewSerializableHost(c.Host, nil),
 	}
 }
 
-func NewHostDetailedAPI(h *host.Host, r *region.Region, p *plan.Plan, stats *freighterclient.HostInfo) *HostDetailedAPI {
-	hDict := &HostDetailedAPI{
+func NewSerializableHost(h *host.Host, info *freighterclient.HostInfo) *HostAPI {
+	if h == nil {
+		return nil
+	}
+	ret := &HostAPI{
 		ID:             h.ID,
 		Slug:           h.Slug,
 		IPAddress:      h.IPAddress.String,
-		FreighterdPort: h.FreighterdPort.Int64,
+		FreighterdPort: int(h.FreighterdPort.Int64),
+		Size:           h.Size.String,
 		State:          h.State,
 		Hostname:       h.Hostname(),
 	}
-	if r != nil {
-		hDict.Region = &RegionAPI{
-			ID:          r.ID,
-			Name:        r.Name,
-			Description: r.Description,
-		}
+	if h.Cert != nil {
+		ret.CA = h.Cert.CA
+		ret.Cert = h.Cert.ClientCert
+		ret.Key = h.Cert.ClientKey
 	}
-	if p != nil {
-		hDict.Plan = &PlanAPI{
-			ID:   p.ID,
-			Name: p.Name,
-		}
+	ret.Region = NewSerializableRegion(h.Region)
+	ret.Plan = NewSerializablePlan(h.Plan)
+	ret.Stats = NewSerializableHostInfo(info)
+	return ret
+}
+
+func NewSerializablePlan(p *plan.Plan) *PlanAPI {
+	if p == nil {
+		return nil
 	}
-	if stats != nil {
-		hDict.Stats = &StatsAPI{
-			Uptime:       stats.Uptime,
-			MemoryUsage:  stats.MemoryUsage,
-			MemoryTotal:  stats.MemoryTotal,
-			StorageUsage: stats.StorageUsage,
-			StorageTotal: stats.StorageTotal,
-			NumCPU:       stats.NumCPU,
-			PerCPUUsage:  stats.PerCPUUsage,
-		}
+	return &PlanAPI{
+		ID:   p.ID,
+		Name: p.Name,
 	}
-	return hDict
+}
+
+func NewSerializableRegion(r *region.Region) *RegionAPI {
+	if r == nil {
+		return nil
+	}
+	return &RegionAPI{
+		ID:          r.ID,
+		Name:        r.Name,
+		Description: r.Description,
+	}
+}
+
+func NewSerializableHostInfo(info *freighterclient.HostInfo) *HostInfoAPI {
+	if info == nil {
+		return nil
+	}
+	return &HostInfoAPI{
+		Uptime:       info.Uptime,
+		MemoryUsage:  info.MemoryUsage,
+		MemoryTotal:  info.MemoryTotal,
+		StorageUsage: info.StorageUsage,
+		StorageTotal: info.StorageTotal,
+		NumCPU:       info.NumCPU,
+		PerCPUUsage:  info.PerCPUUsage,
+	}
 }

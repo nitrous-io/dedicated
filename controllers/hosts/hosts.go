@@ -69,9 +69,14 @@ func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *
 		return err
 	}
 
+	hostsResp := make([]*controllers.HostAPI, len(hosts))
+	for i, h := range hosts {
+		hostsResp[i] = controllers.NewSerializableHost(&h, nil)
+	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"hosts": hosts,
+		"hosts": hostsResp,
 	}
 	return nil
 }
@@ -140,8 +145,10 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		Slug:               slug,
 		Name:               sql.NullString{name, true},
 		MaxContainers:      sql.NullInt64{pl.MaxContainers, true},
-		Size:               ndb.NullString{sql.NullString{size, true}},
+		Size:               sql.NullString{size, true},
 		State:              host.StateBorn,
+		Region:             rg,
+		Plan:               pl,
 	}
 
 	// Save record to db first to reserve slug (since it's globally unique).
@@ -227,7 +234,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"status": "created",
-		"host":   h,
+		"host":   controllers.NewSerializableHost(h, nil),
 	}
 	return nil
 }
@@ -259,9 +266,13 @@ func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 		return err
 	}
 
+	// Set associated fields so they get serialized.
+	h.Region = rg
+	h.Plan = pl
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"host": controllers.NewHostDetailedAPI(h, rg, pl, info),
+		"host": controllers.NewSerializableHost(h, info),
 	}
 	return nil
 }

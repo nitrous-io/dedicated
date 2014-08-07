@@ -2,7 +2,6 @@ package host_test
 
 import (
 	"database/sql"
-	"encoding/json"
 	"testing"
 
 	ndb "github.com/nitrous-io/nitrous/db"
@@ -37,24 +36,6 @@ var _ = Describe("models/host", func() {
 		if db != nil {
 			db.Close()
 		}
-	})
-
-	Describe("JSON encoding", func() {
-		Describe("Size", func() {
-			It("encodes Size as a string without sql.NullString nonsense", func() {
-				h := &host.Host{Size: ndb.NullString{sql.NullString{"nano", true}}}
-				b, err := json.Marshal(h)
-				Expect(err).To(BeNil())
-				Expect(b).To(ContainSubstring(`"size":"nano"`))
-
-				var s struct {
-					Size string `json:"size"`
-				}
-				err = json.Unmarshal(b, &s)
-				Expect(err).To(BeNil())
-				Expect(s.Size).To(Equal("nano"))
-			})
-		})
 	})
 
 	Describe("FindAllByUser()", func() {

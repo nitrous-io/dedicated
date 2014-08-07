@@ -42,10 +42,47 @@ func Test(t *testing.T) {
 	RunSpecs(t, "controllers/hosts")
 }
 
-type errorResponse struct {
-	Error            string `json:"error"`
-	ErrorDescription string `json:"error_description"`
-}
+// Used to unmarshal expected JSON responses.
+type (
+	expectedRegion struct {
+		ID          int64  `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+
+	expectedPlan struct {
+		ID   int64  `json:"id"`
+		Name string `json:"name"`
+	}
+
+	expectedStats struct {
+		Uptime       uint64    `json:"uptime"`
+		MemoryUsage  uint64    `json:"memory_usage"`
+		MemoryTotal  uint64    `json:"memory_total"`
+		StorageUsage uint64    `json:"storage_usage"`
+		StorageTotal uint64    `json:"storage_total"`
+		NumCPU       int       `json:"num_cpu"`
+		PerCPUUsage  []float64 `json:"per_cpu_usage"`
+	}
+
+	expectedHost struct {
+		ID             int64           `json:"id"`
+		Slug           string          `json:"slug"`
+		IPAddress      string          `json:"ip_address"`
+		FreighterdPort int             `json:"freighterd_port"`
+		Size           string          `json:"size"`
+		State          string          `json:"state"`
+		Hostname       string          `json:"hostname"`
+		Region         *expectedRegion `json:"region,omitempty"`
+		Plan           *expectedPlan   `json:"plan,omitempty"`
+		Stats          *expectedStats  `json:"stats,omitempty"`
+	}
+
+	errorResponse struct {
+		Error            string `json:"error"`
+		ErrorDescription string `json:"error_description"`
+	}
+)
 
 func mockHostbuilderOK(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
 	return &hostbuilder.Response{Status: "ok"}, nil
@@ -115,21 +152,31 @@ var _ = Describe("controllers/hosts", func() {
 		}
 
 		Context("when user has hosts", func() {
+			var hs1, hs2 *HostStack
+
 			BeforeEach(func() {
-				hs, err := CreateHostStack(db, &HostStack{
-					H: &host.Host{Slug: "foo"},
-					R: &region.Region{Name: "use"},
-					P: &plan.Plan{Name: "large"},
+				var err error
+				hs1, err = CreateHostStack(db, &HostStack{
+					H: &host.Host{
+						Slug:           "foo",
+						IPAddress:      sql.NullString{"1.2.3.4", true},
+						FreighterdPort: sql.NullInt64{64000, true},
+						Size:           sql.NullString{"micro", true},
+						State:          host.StateRunning,
+					},
 					U: u,
 				})
 				Expect(err).To(BeNil())
 
-				_, err = CreateHostStack(db, &HostStack{
-					H:  &host.Host{Slug: "bar"},
-					U:  u,
-					R:  hs.R,
-					P:  hs.P,
-					PT: hs.PT,
+				hs2, err = CreateHostStack(db, &HostStack{
+					H: &host.Host{
+						Slug:           "bar",
+						IPAddress:      sql.NullString{"2.4.6.8", true},
+						FreighterdPort: sql.NullInt64{64001, true},
+						Size:           sql.NullString{"large", true},
+						State:          host.StateRunning,
+					},
+					U: u,
 				})
 				Expect(err).To(BeNil())
 			})
@@ -138,18 +185,31 @@ var _ = Describe("controllers/hosts", func() {
 				doRequest()
 
 				Expect(res.Code).To(Equal(http.StatusOK))
-				var j map[string][]host.Host
-				err := json.Unmarshal(res.Body.Bytes(), &j)
+				var j struct {
+					Hosts []expectedHost `json:"hosts"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				hosts, ok := j["hosts"]
-				Expect(ok).To(BeTrue())
-				Expect(hosts).To(HaveLen(2))
 
-				Expect(hosts[0].Slug).To(Equal("foo"))
-				Expect(hosts[0].UserID).To(Equal(u.ID))
-
-				Expect(hosts[1].Slug).To(Equal("bar"))
-				Expect(hosts[1].UserID).To(Equal(u.ID))
+				Expect(j.Hosts).To(HaveLen(2))
+				Expect(j.Hosts[0]).To(Equal(expectedHost{
+					ID:             hs1.H.ID,
+					Slug:           "foo",
+					IPAddress:      "1.2.3.4",
+					FreighterdPort: 64000,
+					Size:           "micro",
+					State:          host.StateRunning,
+					Hostname:       "foo.nitrouspro.com",
+				}))
+				Expect(j.Hosts[1]).To(Equal(expectedHost{
+					ID:             hs2.H.ID,
+					Slug:           "bar",
+					IPAddress:      "2.4.6.8",
+					FreighterdPort: 64001,
+					Size:           "large",
+					State:          host.StateRunning,
+					Hostname:       "bar.nitrouspro.com",
+				}))
 			})
 		})
 
@@ -158,12 +218,12 @@ var _ = Describe("controllers/hosts", func() {
 				doRequest()
 
 				Expect(res.Code).To(Equal(http.StatusOK))
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
+				var j struct {
+					Hosts []expectedHost `json:"hosts"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				hosts, ok := j["hosts"].([]interface{})
-				Expect(ok).To(BeTrue())
-				Expect(hosts).To(BeEmpty())
+				Expect(j.Hosts).To(BeEmpty())
 			})
 		})
 
@@ -343,14 +403,33 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(res.Code).To(Equal(http.StatusCreated))
 
 					var j struct {
-						Status string                 `json:"status"`
-						Host   map[string]interface{} `json:"host"`
+						Status string       `json:"status"`
+						Host   expectedHost `json:"host"`
 					}
-					err := json.Unmarshal(res.Body.Bytes(), &j)
+					err := json.NewDecoder(res.Body).Decode(&j)
 					Expect(err).To(BeNil())
 
 					Expect(j.Status).To(Equal("created"))
-					Expect(j.Host["slug"].(string)).To(Equal("honeybadger"))
+
+					hosts, _ := host.FindAllByUser(db, u)
+					Expect(j.Host).To(Equal(expectedHost{
+						ID:             hosts[0].ID,
+						Slug:           "honeybadger",
+						IPAddress:      "0.0.0.0",
+						FreighterdPort: 65333,
+						Size:           hs.P.Name,
+						State:          host.StateRunning,
+						Hostname:       "honeybadger.nitrouspro.com",
+						Region: &expectedRegion{
+							ID:          hs.R.ID,
+							Name:        hs.R.Name,
+							Description: hs.R.Description,
+						},
+						Plan: &expectedPlan{
+							ID:   hs.P.ID,
+							Name: hs.P.Name,
+						},
+					}))
 				})
 			})
 
@@ -426,35 +505,6 @@ var _ = Describe("controllers/hosts", func() {
 			hs         *HostStack
 		)
 
-		type expectedResp struct {
-			Host struct {
-				ID             int64  `json:"id"`
-				Slug           string `json:"slug"`
-				IPAddress      string `json:"ip_address"`
-				FreighterdPort int64  `json:"freighterd_port"`
-				State          string `json:"state"`
-				Hostname       string `json:"hostname"`
-				Region         *struct {
-					ID          int64  `json:"id"`
-					Name        string `json:"name"`
-					Description string `json:"description"`
-				} `json:"region"`
-				Plan *struct {
-					ID   int64  `json:"id"`
-					Name string `json:"name"`
-				} `json:"plan"`
-				Stats *struct {
-					Uptime       uint64    `json:"uptime"`
-					MemoryUsage  uint64    `json:"memory_usage"`
-					MemoryTotal  uint64    `json:"memory_total"`
-					StorageUsage uint64    `json:"storage_usage"`
-					StorageTotal uint64    `json:"storage_total"`
-					NumCPU       int       `json:"num_cpu"`
-					PerCPUUsage  []float64 `json:"per_cpu_usage"`
-				} `json:"stats"`
-			} `json:"host"`
-		}
-
 		doRequest := func(slug string) {
 			req, err := NewRequest("GET", "/api/v0/hosts/"+slug, nil)
 			Expect(err).To(BeNil())
@@ -482,6 +532,7 @@ var _ = Describe("controllers/hosts", func() {
 					Slug:           "foo",
 					IPAddress:      sql.NullString{"1.2.3.4", true},
 					FreighterdPort: sql.NullInt64{64000, true},
+					Size:           sql.NullString{"large", true},
 					State:          host.StateRunning,
 				},
 				R: &region.Region{Name: "use", Description: "US East"},
@@ -504,31 +555,38 @@ var _ = Describe("controllers/hosts", func() {
 			doRequest("foo")
 			Expect(res.Code).To(Equal(http.StatusOK))
 
-			var j expectedResp
+			var j struct {
+				Host expectedHost `json:"host"`
+			}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-
-			Expect(j.Host.ID).To(Equal(hs.H.ID))
-			Expect(j.Host.Slug).To(Equal("foo"))
-			Expect(j.Host.IPAddress).To(Equal("1.2.3.4"))
-			Expect(j.Host.FreighterdPort).To(Equal(int64(64000)))
-			Expect(j.Host.State).To(Equal(host.StateRunning))
-			Expect(j.Host.Hostname).To(Equal("foo.nitrouspro.com"))
-
-			Expect(j.Host.Region.ID).To(Equal(hs.R.ID))
-			Expect(j.Host.Region.Name).To(Equal("use"))
-			Expect(j.Host.Region.Description).To(Equal("US East"))
-
-			Expect(j.Host.Plan.ID).To(Equal(hs.P.ID))
-			Expect(j.Host.Plan.Name).To(Equal("large"))
-
-			Expect(j.Host.Stats.Uptime).To(Equal(uint64(30)))
-			Expect(j.Host.Stats.MemoryUsage).To(Equal(uint64(12345678)))
-			Expect(j.Host.Stats.MemoryTotal).To(Equal(uint64(17179869184)))
-			Expect(j.Host.Stats.StorageUsage).To(Equal(uint64(2000000000)))
-			Expect(j.Host.Stats.StorageTotal).To(Equal(uint64(1000000000000)))
-			Expect(j.Host.Stats.NumCPU).To(Equal(2))
-			Expect(j.Host.Stats.PerCPUUsage).To(Equal([]float64{0.5, 30}))
+			Expect(j.Host).To(Equal(expectedHost{
+				ID:             hs.H.ID,
+				Slug:           "foo",
+				IPAddress:      "1.2.3.4",
+				FreighterdPort: 64000,
+				Size:           "large",
+				State:          host.StateRunning,
+				Hostname:       "foo.nitrouspro.com",
+				Region: &expectedRegion{
+					ID:          hs.R.ID,
+					Name:        "use",
+					Description: "US East",
+				},
+				Plan: &expectedPlan{
+					ID:   hs.P.ID,
+					Name: "large",
+				},
+				Stats: &expectedStats{
+					Uptime:       uint64(30),
+					MemoryUsage:  uint64(12345678),
+					MemoryTotal:  uint64(17179869184),
+					StorageUsage: uint64(2000000000),
+					StorageTotal: uint64(1000000000000),
+					NumCPU:       2,
+					PerCPUUsage:  []float64{0.5, 30},
+				},
+			}))
 		})
 
 		Context("when host is not running", func() {
@@ -541,7 +599,9 @@ var _ = Describe("controllers/hosts", func() {
 				doRequest("foo")
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				var j expectedResp
+				var j struct {
+					Host expectedHost `json:"host"`
+				}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 				Expect(j.Host.Slug).To(Equal("foo"))
@@ -565,7 +625,9 @@ var _ = Describe("controllers/hosts", func() {
 				doRequest("bar")
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				var j expectedResp
+				var j struct {
+					Host expectedHost `json:"host"`
+				}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 				Expect(j.Host.Slug).To(Equal("bar"))

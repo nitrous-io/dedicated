@@ -8,6 +8,9 @@ import (
 
 	"github.com/nitrous-io/nitrous/db"
 
+	"github.com/nitrous-io/nitrous/models/cert"
+	"github.com/nitrous-io/nitrous/models/plan"
+	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/user"
 )
 
@@ -37,41 +40,42 @@ const (
 )
 
 type Host struct {
-	ID                 int64 `db:"id"                   json:"id"`
-	UserID             int64 `db:"user_id"              json:"user_id"`
-	RegionID           int64 `db:"region_id"            json:"region_id"`
-	PlanID             int64 `db:"plan_id"              json:"plan_id"`
-	ProviderTemplateID int64 `db:"provider_template_id" json:"provider_template_id"`
+	ID                 int64 `db:"id"`
+	UserID             int64 `db:"user_id"`
+	RegionID           int64 `db:"region_id"`
+	PlanID             int64 `db:"plan_id"`
+	ProviderTemplateID int64 `db:"provider_template_id"`
 
-	// Name is the hostname and is used as a DNS label in a FQDN (thus limited
-	// to 63 characters).
-	Slug      string         `db:"slug"       json:"slug"`
-	Name      sql.NullString `db:"name"       json:"name"`
-	State     string         `db:"state"      json:"state"`
-	IPAddress sql.NullString `db:"ip_address" json:"ip_address"`
+	// Slug is used as a DNS label in the host's FQDN (thus limited to 63 chars).
+	Slug           string         `db:"slug"`
+	Name           sql.NullString `db:"name"`
+	State          string         `db:"state"`
+	IPAddress      sql.NullString `db:"ip_address"`
+	FreighterdPort sql.NullInt64  `db:"freighterd_port"`
 
 	// ProviderIdentifier is the identifier used by the host's provider to
 	// uniquely identify this host.
-	ProviderIdentifier sql.NullString `db:"provider_identifier" json:"provider_identifier"`
+	ProviderIdentifier sql.NullString `db:"provider_identifier"`
 
 	// MaxContainers is the maximum number of containers that can be created on
 	// this host. This is copied over from the associated Plan so that it can
 	// be changed independently when necessary.
-	MaxContainers sql.NullInt64 `db:"max_containers" json:"max_containers"`
+	MaxContainers sql.NullInt64 `db:"max_containers"`
 
 	// Size is currently the name of the plan of this host. This is copied over
 	// from the associated Plan since size is often read.
-	Size db.NullString `db:"size" json:"size"`
+	Size sql.NullString `db:"size"`
 
-	// FreighterdPort is needed during dev, since port will be different everytime you
-	// create a host.
-	FreighterdPort sql.NullInt64 `db:"freighterd_port" json:"freighterd_port"`
-
-	TerminatedAt *time.Time `db:"terminated_at" json:"terminated_at"`
-	CreatedAt    *time.Time `db:"created_at"    json:"created_at"`
-	UpdatedAt    *time.Time `db:"updated_at"    json:"updated_at"`
+	TerminatedAt *time.Time `db:"terminated_at"`
+	CreatedAt    *time.Time `db:"created_at"`
+	UpdatedAt    *time.Time `db:"updated_at"`
 
 	*ProviderTemplate
+
+	Cert   *cert.Cert
+	User   *user.User
+	Region *region.Region
+	Plan   *plan.Plan
 }
 
 func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
