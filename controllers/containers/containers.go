@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/volume"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
+	"github.com/nitrous-io/nitrous/serializers"
 )
 
 // DefaultImage is the default Docker image used to create containers if an
@@ -74,7 +75,7 @@ func index(h runningHost, env *middleware.Env, c controllers.Helper, w http.Resp
 		log.Debugf("  %+v", c)
 	}
 
-	containersResp := []*controllers.ContainerAPI{}
+	containersResp := []*serializers.Container{}
 	for _, lc := range live.containers {
 		var savedContainer *container.Container
 		for _, sc := range savedContainers {
@@ -93,8 +94,8 @@ func index(h runningHost, env *middleware.Env, c controllers.Helper, w http.Resp
 		// Set associated fields so they get serialized.
 		cn.Host = h
 
-		serializable := controllers.NewSerializableContainer(cn)
-		containersResp = append(containersResp, serializable)
+		serialized := serializers.SerializeContainer(cn)
+		containersResp = append(containersResp, serialized)
 	}
 
 	env.Status = http.StatusOK
@@ -227,7 +228,7 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"status":    "created",
-		"container": controllers.NewSerializableContainer(cn),
+		"container": serializers.SerializeContainer(cn),
 	}
 	return nil
 }
@@ -251,7 +252,7 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, c controll
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": controllers.NewSerializableContainer(cn),
+		"container": serializers.SerializeContainer(cn),
 	}
 
 	return nil
@@ -293,7 +294,7 @@ func performControlAction(fn actionFn, cn *container.Container, h *host.Host, en
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": controllers.NewSerializableContainer(cn),
+		"container": serializers.SerializeContainer(cn),
 	}
 
 	return nil
@@ -320,7 +321,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, c contr
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": controllers.NewSerializableContainer(cn),
+		"container": serializers.SerializeContainer(cn),
 	}
 	return nil
 }

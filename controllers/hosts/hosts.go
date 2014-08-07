@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
+	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/sslider/sslgen"
 )
 
@@ -69,9 +70,9 @@ func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *
 		return err
 	}
 
-	hostsResp := make([]*controllers.HostAPI, len(hosts))
+	hostsResp := make([]*serializers.Host, len(hosts))
 	for i, h := range hosts {
-		hostsResp[i] = controllers.NewSerializableHost(&h, nil)
+		hostsResp[i] = serializers.SerializeHost(&h, nil)
 	}
 
 	env.Status = http.StatusOK
@@ -234,7 +235,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"status": "created",
-		"host":   controllers.NewSerializableHost(h, nil),
+		"host":   serializers.SerializeHost(h, nil),
 	}
 	return nil
 }
@@ -272,7 +273,7 @@ func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"host": controllers.NewSerializableHost(h, info),
+		"host": serializers.SerializeHost(h, info),
 	}
 	return nil
 }
