@@ -53,7 +53,7 @@ func (c *Command) Run(args []string) int {
 
 	containerStr := args[0]
 
-	c.UI.Output(fmt.Sprintf("Starting%s...", containerStr))
+	c.UI.Output(fmt.Sprintf("Starting %s...", containerStr))
 	container, err := c.start(containerStr)
 	if err != nil {
 		c.UI.Error(err.Error())

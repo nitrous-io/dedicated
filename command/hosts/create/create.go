@@ -74,6 +74,14 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
+	// FIXME Region should be auto-detected (pick the closest region) in future
+	// but we'll keep this check around until that's added.
+	if region == "" {
+		c.UI.Error(fmt.Sprintf("Please specify a region."))
+		c.UI.Output(c.Help())
+		return 1
+	}
+
 	if slug == "" {
 		slug = randomnamegenerator.Generate("host")
 	}
@@ -99,17 +107,9 @@ func (c *Command) Synopsis() string {
 
 func (c *Command) createHost(size, region, slug string) (*hosts.Host, error) {
 	p := &url.Values{}
-	if size != "" {
-		p.Set("size", size)
-	}
-
-	if slug != "" {
-		p.Set("slug", slug)
-	}
-
-	if region != "" {
-		p.Set("region", region)
-	}
+	p.Set("size", size)
+	p.Set("region", region)
+	p.Set("slug", slug)
 
 	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/%s", c.Server, "hosts"), p)
 	if err != nil {

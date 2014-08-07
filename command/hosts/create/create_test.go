@@ -99,6 +99,15 @@ var _ = Describe("hosts/create", func() {
 			})
 		})
 
+		Context("when region is not provided", func() {
+			It("returns an error message without making a request", func() {
+				code := doCmd(&createHostParams{size: "micro"})
+				Expect(ui.ErrorWriter.String()).To(ContainSubstring("Please specify a region"))
+				Expect(code).To(Equal(1))
+				Expect(srv.ReceivedRequests()).To(HaveLen(-0))
+			})
+		})
+
 		Context("when request succeeds", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusCreated
