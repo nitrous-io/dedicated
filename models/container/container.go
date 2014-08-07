@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/user"
 )
 
@@ -39,8 +38,6 @@ type Container struct {
 	UpdatedAt    *time.Time `db:"updated_at"`
 
 	State string
-
-	Host *host.Host
 }
 
 func FindByUserAndSlug(d db.QueryReceiver, user *user.User, slug string) (*Container, error) {

@@ -237,7 +237,7 @@ var _ = Describe("models/host", func() {
 				RegionID:           hs.R.ID,
 				PlanID:             hs.P.ID,
 				ProviderTemplateID: hs.PT.ID,
-				State:              "running",
+				State:              host.StateRunning,
 			}
 
 			err = h.Insert(db)
@@ -269,7 +269,7 @@ var _ = Describe("models/host", func() {
 				RegionID:           hs.R.ID,
 				PlanID:             hs.P.ID,
 				ProviderTemplateID: hs.PT.ID,
-				State:              "running",
+				State:              host.StateRunning,
 				TerminatedAt:       nil,
 			}
 			err = h.Insert(db)
@@ -338,7 +338,7 @@ var _ = Describe("models/host", func() {
 				RegionID:           hs.R.ID,
 				PlanID:             hs.P.ID,
 				ProviderTemplateID: hs.PT.ID,
-				State:              "running",
+				State:              host.StateRunning,
 				TerminatedAt:       nil,
 			}
 			err := h.Insert(db)
@@ -349,20 +349,12 @@ var _ = Describe("models/host", func() {
 			err := h.Delete(db)
 			Expect(err).To(BeNil())
 			Expect(h.TerminatedAt).NotTo(BeNil())
+			Expect(h.State).To(Equal(host.StateTerminated))
 
 			h2 := &host.Host{}
 			err = db.QueryRowx("SELECT * FROM hosts WHERE id = $1", h.ID).StructScan(h2)
 			Expect(err).To(BeNil())
 			Expect(h2).To(Equal(h))
-		})
-
-		It("fills up the fields in the struct", func() {
-			h2 := &host.Host{ID: h.ID}
-			err := h2.Delete(db)
-			Expect(err).To(BeNil())
-
-			Expect(h2.CreatedAt).NotTo(BeNil())
-			Expect(h2.UpdatedAt).NotTo(BeNil())
 		})
 	})
 

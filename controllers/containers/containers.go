@@ -75,7 +75,7 @@ func index(h runningHost, env *middleware.Env, c controllers.Helper, w http.Resp
 		log.Debugf("  %+v", c)
 	}
 
-	containersResp := []*serializers.Container{}
+	containersResp := make([]*serializers.Container, 0, len(live.containers))
 	for _, lc := range live.containers {
 		var savedContainer *container.Container
 		for _, sc := range savedContainers {
@@ -91,11 +91,7 @@ func index(h runningHost, env *middleware.Env, c controllers.Helper, w http.Resp
 			cn = mkContainer(lc, h)
 		}
 
-		// Set associated fields so they get serialized.
-		cn.Host = h
-
-		serialized := serializers.SerializeContainer(cn)
-		containersResp = append(containersResp, serialized)
+		containersResp = append(containersResp, serializers.SerializeContainer(cn))
 	}
 
 	env.Status = http.StatusOK
@@ -222,9 +218,6 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 		}
 	}
 
-	// Set associated fields so they get serialized.
-	cn.Host = h
-
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"status":    "created",
@@ -245,10 +238,6 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, c controll
 		return err
 	}
 	cn = hydrateContainer(cn, liveContainer, h)
-
-	// Set associated fields so they get serialized.
-	cn.Host = h
-	h.Cert = cl.Cert
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{

@@ -72,7 +72,7 @@ func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *
 
 	hostsResp := make([]*serializers.Host, len(hosts))
 	for i, h := range hosts {
-		hostsResp[i] = serializers.SerializeHost(&h, nil)
+		hostsResp[i] = serializers.SerializeHost(&h, nil, nil)
 	}
 
 	env.Status = http.StatusOK
@@ -148,8 +148,6 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		MaxContainers:      sql.NullInt64{pl.MaxContainers, true},
 		Size:               sql.NullString{size, true},
 		State:              host.StateBorn,
-		Region:             rg,
-		Plan:               pl,
 	}
 
 	// Save record to db first to reserve slug (since it's globally unique).
@@ -235,14 +233,13 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"status": "created",
-		"host":   serializers.SerializeHost(h, nil),
+		"host":   serializers.SerializeHost(h, nil, crt),
 	}
 	return nil
 }
 
 func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	var info *freighterclient.HostInfo
-	var err error
 	db := c.DB()
 
 	// Request info from Freighter if host is running with an IP address.
@@ -257,23 +254,9 @@ func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 		}
 	}
 
-	rg, err := region.FindByID(c.DB(), h.RegionID)
-	if err != nil {
-		return err
-	}
-
-	pl, err := plan.FindByID(c.DB(), h.PlanID)
-	if err != nil {
-		return err
-	}
-
-	// Set associated fields so they get serialized.
-	h.Region = rg
-	h.Plan = pl
-
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h, info),
+		"host": serializers.SerializeHost(h, info, nil),
 	}
 	return nil
 }
@@ -310,7 +293,10 @@ func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 		return err
 	}
 
-	respondOK(w, c.Logger())
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"host": serializers.SerializeHost(h, nil, nil),
+	}
 	return nil
 }
 

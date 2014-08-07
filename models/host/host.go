@@ -7,10 +7,6 @@ import (
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
-
-	"github.com/nitrous-io/nitrous/models/cert"
-	"github.com/nitrous-io/nitrous/models/plan"
-	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/user"
 )
 
@@ -37,6 +33,7 @@ const (
 	StateStarting   = "starting"
 	StateRestarting = "restarting"
 	StateOrphan     = "orphan"
+	StateTerminated = "terminated"
 )
 
 type Host struct {
@@ -71,11 +68,6 @@ type Host struct {
 	UpdatedAt    *time.Time `db:"updated_at"`
 
 	*ProviderTemplate
-
-	Cert   *cert.Cert
-	User   *user.User
-	Region *region.Region
-	Plan   *plan.Plan
 }
 
 func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
@@ -156,11 +148,7 @@ func (h *Host) Update(d db.QueryReceiver) error {
 }
 
 func (h *Host) Delete(d db.QueryReceiver) error {
-	nstmt, err := d.PrepareNamed(`UPDATE hosts SET terminated_at = now() WHERE id = :id RETURNING *;`)
-	if err != nil {
-		return nil
-	}
-	return nstmt.QueryRowx(h).StructScan(h)
+	return d.QueryRowx(`UPDATE hosts SET terminated_at = now(), state = $1 WHERE id = $2 RETURNING *;`, StateTerminated, h.ID).StructScan(h)
 }
 
 func (h *Host) Validate(db *db.Database) error {

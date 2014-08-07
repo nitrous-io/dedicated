@@ -24,6 +24,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/models/volume"
+	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -34,34 +35,6 @@ func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "controllers/containers")
 }
-
-// Used to unmarshal expected JSON responses.
-type (
-	expectedHost struct {
-		ID             int64  `json:"id"`
-		Slug           string `json:"slug"`
-		IPAddress      string `json:"ip_address"`
-		FreighterdPort int    `json:"freighterd_port"`
-		Hostname       string `json:"hostname"`
-		Size           string `json:"size"`
-		State          string `json:"state"`
-		CA             string `json:"ca"`
-		Cert           string `json:"cert"`
-		Key            string `json:"key"`
-	}
-
-	expectedContainer struct {
-		ID        int64         `json:"id"`
-		CID       string        `json:"cid"`
-		UserID    int64         `json:"user_id"`
-		Image     string        `json:"image"`
-		Slug      string        `json:"slug"`
-		Name      string        `json:"name"`
-		IPAddress string        `json:"ip_address"`
-		State     string        `json:"state"`
-		Host      *expectedHost `json:"host"`
-	}
-)
 
 var _ = Describe("controllers/containers", func() {
 	var (
@@ -270,33 +243,23 @@ var _ = Describe("controllers/containers", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
-				Containers []expectedContainer `json:"containers"`
+				Containers []*serializers.Container `json:"containers"`
 			}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j.Containers).To(HaveLen(1))
-			Expect(j.Containers[0]).To(Equal(expectedContainer{
-				ID:        c.ID,
-				CID:       "deadbeef",
-				UserID:    u.ID,
-				Image:     "nitrous-base",
-				Slug:      "dominant-intercooler-42",
-				IPAddress: "1.2.3.4",
-				State:     "running",
-				Name:      "Rails app server",
-				Host: &expectedHost{
-					ID:             hs.H.ID,
-					Slug:           hs.H.Slug,
-					IPAddress:      hs.H.IPAddress.String,
-					FreighterdPort: int(hs.H.FreighterdPort.Int64),
-					Hostname:       hs.H.Hostname(),
-					Size:           hs.H.Size.String,
-					State:          hs.H.State,
-					CA:             "", // TLS fields intentionally left empty.
-					Cert:           "",
-					Key:            "",
-				},
-			}))
+			Expect(j.Containers[0].ID).To(Equal(c.ID))
+			Expect(j.Containers[0].CID).To(Equal("deadbeef"))
+			Expect(j.Containers[0].UserID).To(Equal(u.ID))
+			Expect(j.Containers[0].Image).To(Equal("nitrous-base"))
+			Expect(j.Containers[0].Slug).To(Equal("dominant-intercooler-42"))
+			Expect(j.Containers[0].IPAddress).To(Equal("1.2.3.4"))
+			Expect(j.Containers[0].State).To(Equal("running"))
+			Expect(j.Containers[0].Name).To(Equal("Rails app server"))
+			Expect(j.Containers[0].HostID).To(Equal(hs.H.ID))
+			Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
+			Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
+			Expect(j.Containers[0].TerminatedAt).To(BeNil())
 		})
 
 		Context("when the Freighter client returns an error", func() {
@@ -333,7 +296,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var j struct {
-					Containers []expectedContainer `json:"containers"`
+					Containers []*serializers.Container `json:"containers"`
 				}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
@@ -365,48 +328,37 @@ var _ = Describe("controllers/containers", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var j struct {
-					Containers []expectedContainer `json:"containers"`
+					Containers []*serializers.Container `json:"containers"`
 				}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 				Expect(j.Containers).To(HaveLen(2))
 
-				host := &expectedHost{
-					ID:             hs.H.ID,
-					Slug:           hs.H.Slug,
-					IPAddress:      hs.H.IPAddress.String,
-					FreighterdPort: int(hs.H.FreighterdPort.Int64),
-					Hostname:       hs.H.Hostname(),
-					Size:           hs.H.Size.String,
-					State:          hs.H.State,
-					CA:             "", // TLS fields intentionally left empty.
-					Cert:           "",
-					Key:            "",
-				}
+				Expect(j.Containers[0].ID).To(Equal(c.ID))
+				Expect(j.Containers[0].CID).To(Equal("deadbeef"))
+				Expect(j.Containers[0].UserID).To(Equal(u.ID))
+				Expect(j.Containers[0].HostID).To(Equal(hs.H.ID))
+				Expect(j.Containers[0].Image).To(Equal("nitrous-base"))
+				Expect(j.Containers[0].Slug).To(Equal("dominant-intercooler-42"))
+				Expect(j.Containers[0].IPAddress).To(Equal("1.2.3.4"))
+				Expect(j.Containers[0].State).To(Equal("running"))
+				Expect(j.Containers[0].Name).To(Equal("Rails app server"))
+				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
+				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
+				Expect(j.Containers[0].TerminatedAt).To(BeNil())
 
-				Expect(j.Containers[0]).To(Equal(expectedContainer{
-					ID:        c.ID,
-					CID:       "deadbeef",
-					UserID:    u.ID,
-					Image:     "nitrous-base",
-					Slug:      "dominant-intercooler-42",
-					IPAddress: "1.2.3.4",
-					State:     "running",
-					Name:      "Rails app server",
-					Host:      host,
-				}))
-
-				Expect(j.Containers[1]).To(Equal(expectedContainer{
-					ID:        0, // Container exists in Freighter but not in DB.
-					CID:       "cafebabe",
-					UserID:    u.ID,
-					Image:     "nitrous-base",
-					Slug:      "wicked-baby-69",
-					IPAddress: "1.2.3.5",
-					State:     "running",
-					Name:      "",
-					Host:      host,
-				}))
+				Expect(j.Containers[1].ID).To(Equal(int64(0))) // Container exists in Freighter but not in DB.
+				Expect(j.Containers[1].CID).To(Equal("cafebabe"))
+				Expect(j.Containers[1].UserID).To(Equal(u.ID))
+				Expect(j.Containers[1].HostID).To(Equal(hs.H.ID))
+				Expect(j.Containers[1].Image).To(Equal("nitrous-base"))
+				Expect(j.Containers[1].Slug).To(Equal("wicked-baby-69"))
+				Expect(j.Containers[1].IPAddress).To(Equal("1.2.3.5"))
+				Expect(j.Containers[1].State).To(Equal("running"))
+				Expect(j.Containers[1].Name).To(Equal(""))
+				Expect(j.Containers[1].CreatedAt).To(BeNil())
+				Expect(j.Containers[1].UpdatedAt).To(BeNil())
+				Expect(j.Containers[1].TerminatedAt).To(BeNil())
 			})
 		})
 
@@ -577,8 +529,8 @@ var _ = Describe("controllers/containers", func() {
 			Expect(res.Code).To(Equal(http.StatusCreated))
 
 			var j struct {
-				Status    string            `json:"status"`
-				Container expectedContainer `json:"container"`
+				Status    string                 `json:"status"`
+				Container *serializers.Container `json:"container"`
 			}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
@@ -586,28 +538,15 @@ var _ = Describe("controllers/containers", func() {
 
 			c, err := container.FindByUserAndSlug(db, u, "elixir-web-1")
 			Expect(err).To(BeNil())
-			Expect(j.Container).To(Equal(expectedContainer{
-				ID:        c.ID,
-				CID:       "deadbeef",
-				UserID:    u.ID,
-				Image:     "elixir",
-				Slug:      "elixir-web-1",
-				IPAddress: "1.2.3.4",
-				State:     "running",
-				Name:      "Elixir Web Server 1",
-				Host: &expectedHost{
-					ID:             hs.H.ID,
-					Slug:           hs.H.Slug,
-					IPAddress:      hs.H.IPAddress.String,
-					FreighterdPort: int(hs.H.FreighterdPort.Int64),
-					Hostname:       hs.H.Hostname(),
-					Size:           hs.H.Size.String,
-					State:          hs.H.State,
-					CA:             "", // TLS fields intentionally left empty.
-					Cert:           "",
-					Key:            "",
-				},
-			}))
+			Expect(j.Container.ID).To(Equal(c.ID))
+			Expect(j.Container.CID).To(Equal("deadbeef"))
+			Expect(j.Container.UserID).To(Equal(u.ID))
+			Expect(j.Container.HostID).To(Equal(hs.H.ID))
+			Expect(j.Container.Image).To(Equal("elixir"))
+			Expect(j.Container.Slug).To(Equal("elixir-web-1"))
+			Expect(j.Container.IPAddress).To(Equal("1.2.3.4"))
+			Expect(j.Container.State).To(Equal("running"))
+			Expect(j.Container.Name).To(Equal("Elixir Web Server 1"))
 		})
 
 		Context("when the Freighter client returns an error", func() {
@@ -716,8 +655,8 @@ var _ = Describe("controllers/containers", func() {
 				Expect(res.Code).To(Equal(http.StatusCreated))
 
 				var j struct {
-					Status    string            `json:"status"`
-					Container expectedContainer `json:"container"`
+					Status    string                 `json:"status"`
+					Container *serializers.Container `json:"container"`
 				}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
@@ -764,8 +703,8 @@ var _ = Describe("controllers/containers", func() {
 
 				Expect(res.Code).To(Equal(http.StatusCreated))
 				var j struct {
-					Status    string            `json:"status"`
-					Container expectedContainer `json:"container"`
+					Status    string                 `json:"status"`
+					Container *serializers.Container `json:"container"`
 				}
 				err = json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
@@ -854,33 +793,23 @@ var _ = Describe("controllers/containers", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
-				Container expectedContainer `json:"container"`
+				Container *serializers.Container `json:"container"`
 			}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
-			Expect(j.Container).To(Equal(expectedContainer{
-				ID:        c.ID,
-				CID:       "deadbeef",
-				UserID:    u.ID,
-				Image:     "nitrous-base",
-				Slug:      slug,
-				Name:      "Elixir server",
-				IPAddress: "1.2.3.4",
-				State:     "running",
-				Host: &expectedHost{
-					ID:             hs.H.ID,
-					Slug:           hs.H.Slug,
-					IPAddress:      hs.H.IPAddress.String,
-					FreighterdPort: int(hs.H.FreighterdPort.Int64),
-					Hostname:       hs.H.Hostname(),
-					Size:           "",
-					State:          host.StateRunning,
-					CA:             hs.Crt.CA,
-					Cert:           hs.Crt.ClientCert,
-					Key:            hs.Crt.ClientKey,
-				},
-			}))
+			Expect(j.Container.ID).To(Equal(c.ID))
+			Expect(j.Container.CID).To(Equal("deadbeef"))
+			Expect(j.Container.UserID).To(Equal(u.ID))
+			Expect(j.Container.HostID).To(Equal(hs.H.ID))
+			Expect(j.Container.Image).To(Equal("nitrous-base"))
+			Expect(j.Container.Slug).To(Equal(slug))
+			Expect(j.Container.Name).To(Equal("Elixir server"))
+			Expect(j.Container.IPAddress).To(Equal("1.2.3.4"))
+			Expect(j.Container.State).To(Equal("running"))
+			Expect(j.Container.CreatedAt).NotTo(BeNil())
+			Expect(j.Container.UpdatedAt).NotTo(BeNil())
+			Expect(j.Container.TerminatedAt).To(BeNil())
 		})
 
 		Context("when the Freighter client returns an error", func() {
@@ -972,21 +901,22 @@ var _ = Describe("controllers/containers", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var j struct {
-					Container expectedContainer `json:"container"`
+					Container *serializers.Container `json:"container"`
 				}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				Expect(j.Container).To(Equal(expectedContainer{
-					ID:        c.ID,
-					CID:       "deadbeef",
-					UserID:    u.ID,
-					Image:     "nitrous-base",
-					Slug:      slug,
-					IPAddress: "1.2.3.4",
-					State:     *expectedState,
-					Name:      "Elixir server",
-					Host:      nil,
-				}))
+				Expect(j.Container.ID).To(Equal(c.ID))
+				Expect(j.Container.CID).To(Equal("deadbeef"))
+				Expect(j.Container.UserID).To(Equal(u.ID))
+				Expect(j.Container.Image).To(Equal("nitrous-base"))
+				Expect(j.Container.Slug).To(Equal(slug))
+				Expect(j.Container.IPAddress).To(Equal("1.2.3.4"))
+				Expect(j.Container.State).To(Equal(*expectedState))
+				Expect(j.Container.Name).To(Equal("Elixir server"))
+				Expect(j.Container.HostID).To(Equal(hs.H.ID))
+				Expect(j.Container.CreatedAt).NotTo(BeNil())
+				Expect(j.Container.UpdatedAt).NotTo(BeNil())
+				Expect(j.Container.TerminatedAt).To(BeNil())
 			})
 
 			Context("when the Freighter client returns an error", func() {
@@ -1109,20 +1039,21 @@ var _ = Describe("controllers/containers", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
-				Container expectedContainer `json:"container"`
+				Container *serializers.Container `json:"container"`
 			}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.Container).To(Equal(expectedContainer{
-				ID:        c.ID,
-				CID:       "deadbeef",
-				UserID:    u.ID,
-				Image:     "nitrous-base",
-				Slug:      slug,
-				Name:      "Elixir server",
-				IPAddress: "",
-				State:     "",
-			}))
+			Expect(j.Container.ID).To(Equal(c.ID))
+			Expect(j.Container.CID).To(Equal("deadbeef"))
+			Expect(j.Container.UserID).To(Equal(u.ID))
+			Expect(j.Container.Image).To(Equal("nitrous-base"))
+			Expect(j.Container.Slug).To(Equal(slug))
+			Expect(j.Container.Name).To(Equal("Elixir server"))
+			Expect(j.Container.IPAddress).To(Equal(""))
+			Expect(j.Container.State).To(Equal(""))
+			Expect(j.Container.CreatedAt).NotTo(BeNil())
+			Expect(j.Container.UpdatedAt).NotTo(BeNil())
+			Expect(j.Container.TerminatedAt).NotTo(BeNil())
 		})
 
 		It("deletes the container from the database", func() {
