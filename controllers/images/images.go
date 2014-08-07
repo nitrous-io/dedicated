@@ -80,7 +80,7 @@ func Remove(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 		return err
 	}
 
-	image := mux.Vars(r)["image"]
+	image := r.FormValue("image")
 	if image == "" {
 		return errIDOrNameRequired
 	}

@@ -275,7 +275,7 @@ var _ = Describe("controllers/images", func() {
 
 	Describe("DELETE /api/v0/hosts/{slug}/image/{image}", func() {
 		doRequest := func(host, image string) {
-			req, err := NewAuthedRequest(t, "DELETE", fmt.Sprintf("/api/v0/hosts/%v/images/%s", host, image), nil)
+			req, err := NewAuthedRequest(t, "DELETE", fmt.Sprintf("/api/v0/hosts/%v/images", host), &url.Values{"image": []string{"elixir"}})
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
