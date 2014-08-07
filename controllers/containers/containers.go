@@ -74,7 +74,7 @@ func index(h runningHost, env *middleware.Env, c controllers.Helper, w http.Resp
 		log.Debugf("  %+v", c)
 	}
 
-	containers := []*container.Container{}
+	containersResp := []*controllers.ContainerAPI{}
 	for _, lc := range live.containers {
 		var savedContainer *container.Container
 		for _, sc := range savedContainers {
@@ -83,17 +83,23 @@ func index(h runningHost, env *middleware.Env, c controllers.Helper, w http.Resp
 				break
 			}
 		}
+		var cn *container.Container
 		if savedContainer != nil {
-			hydrateContainer(savedContainer, lc, h)
-			containers = append(containers, savedContainer)
+			cn = hydrateContainer(savedContainer, lc, h)
 		} else {
-			containers = append(containers, mkContainer(lc, h))
+			cn = mkContainer(lc, h)
 		}
+
+		// Set associated fields so they get serialized.
+		cn.Host = h
+
+		serializable := controllers.NewSerializableContainer(cn)
+		containersResp = append(containersResp, serializable)
 	}
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"containers": containers,
+		"containers": containersResp,
 	}
 	return nil
 }
@@ -152,7 +158,7 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 		return err
 	}
 
-	cntnr := &container.Container{
+	cn := &container.Container{
 		UserID: env.User.ID,
 		HostID: h.ID,
 		Slug:   slug,
@@ -165,7 +171,7 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 	if err != nil {
 		return err
 	}
-	err = cntnr.Insert(tx)
+	err = cn.Insert(tx)
 	if err != nil {
 		tx.Rollback()
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
@@ -187,9 +193,9 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 
 	created, err := cl.Create(slug, image, config)
 	if err != nil {
-		delErr := cntnr.DeletePermanently(db)
+		delErr := cn.DeletePermanently(db)
 		if delErr != nil {
-			c.Logger().Errorf("Unable to delete container %d that failed on freighter: %v", cntnr.ID, delErr)
+			c.Logger().Errorf("Unable to delete container %d that failed on freighter: %v", cn.ID, delErr)
 		}
 		if e, ok := err.(*freighterclient.InvalidParamError); ok {
 			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
@@ -198,27 +204,30 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 	}
 
 	// Update existing record with new info from Freighter.
-	cntnr.CID = created.ID
-	cntnr.Image = created.Image
-	cntnr.State = created.State
-	cntnr.IPAddress = sql.NullString{created.Host, true}
-	err = cntnr.Update(db)
+	cn.CID = created.ID
+	cn.Image = created.Image
+	cn.State = created.State
+	cn.IPAddress = sql.NullString{created.Host, true}
+	err = cn.Update(db)
 	if err != nil {
-		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cntnr)
+		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cn)
 		// Continue responding as if nothing happened.
 	}
 
 	for _, v := range volumeSlugs(config.Mounts) {
-		cv := cvolume.ContainerVolume{ContainerID: cntnr.ID, VolumeID: hv[v].ID}
+		cv := cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: hv[v].ID}
 		if err := cv.Insert(db); err != nil { // log and continue
-			log.Errorf("containers.create: failed to attach volume %s to container %s", hv[v].Slug, cntnr.CID)
+			log.Errorf("containers.create: failed to attach volume %s to container %s", hv[v].Slug, cn.CID)
 		}
 	}
+
+	// Set associated fields so they get serialized.
+	cn.Host = h
 
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"status":    "created",
-		"container": cntnr,
+		"container": controllers.NewSerializableContainer(cn),
 	}
 	return nil
 }
@@ -234,7 +243,7 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, c controll
 	if err != nil {
 		return err
 	}
-	hydrateContainer(cn, liveContainer, h)
+	cn = hydrateContainer(cn, liveContainer, h)
 
 	// Set associated fields so they get serialized.
 	cn.Host = h
@@ -280,9 +289,11 @@ func performControlAction(fn actionFn, cn *container.Container, h *host.Host, en
 		return err
 	}
 
+	cn = hydrateContainer(cn, liveContainer, h)
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": mkContainer(liveContainer, h),
+		"container": controllers.NewSerializableContainer(cn),
 	}
 
 	return nil
@@ -305,11 +316,11 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, c contr
 	if err != nil {
 		return err
 	}
-	hydrateContainer(cn, liveContainer, h)
+	cn = hydrateContainer(cn, liveContainer, h)
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": cn,
+		"container": controllers.NewSerializableContainer(cn),
 	}
 	return nil
 }
@@ -354,12 +365,13 @@ func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, c co
 	}
 }
 
-func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) {
+func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) *container.Container {
 	c.CID = fc.ID
 	c.Image = fc.Image
 	c.Slug = dropNamespace(fc.Name)
 	c.State = fc.State
 	c.IPAddress = sql.NullString{fc.Host, true}
+	return c
 }
 
 func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Container {

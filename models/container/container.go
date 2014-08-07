@@ -24,21 +24,21 @@ var (
 // FIXME add accompanying tables to lookup which users have access to a
 // container (e.g. collaborators, users in the same team/organization).
 type Container struct {
-	ID        int64          `db:"id"         json:"id"`
-	CID       string         `db:"cid"        json:"cid"`
-	UserID    int64          `db:"user_id"    json:"user_id"`
-	HostID    int64          `db:"host_id"    json:"host_id"`
-	Image     string         `db:"image"      json:"image"`
-	Slug      string         `db:"slug"       json:"slug"`
-	Name      sql.NullString `db:"name"       json:"name"`
-	IPAddress sql.NullString `db:"ip_address" json:"ip_address"`
+	ID        int64          `db:"id"`
+	CID       string         `db:"cid"`
+	UserID    int64          `db:"user_id"`
+	HostID    int64          `db:"host_id"`
+	Image     string         `db:"image"`
+	Slug      string         `db:"slug"`
+	Name      sql.NullString `db:"name"`
+	IPAddress sql.NullString `db:"ip_address"`
 
-	TerminatedAt *time.Time `db:"terminated_at" json:"terminated_at"`
-	TouchedAt    *time.Time `db:"touched_at"    json:"touched_at"`
-	CreatedAt    *time.Time `db:"created_at"    json:"created_at"`
-	UpdatedAt    *time.Time `db:"updated_at"    json:"updated_at"`
+	TerminatedAt *time.Time `db:"terminated_at"`
+	TouchedAt    *time.Time `db:"touched_at"`
+	CreatedAt    *time.Time `db:"created_at"`
+	UpdatedAt    *time.Time `db:"updated_at"`
 
-	State string `json:"state"`
+	State string
 
 	Host *host.Host
 }

@@ -269,26 +269,34 @@ var _ = Describe("controllers/containers", func() {
 
 			Expect(res.Code).To(Equal(http.StatusOK))
 
-			var j map[string][]container.Container
-			err := json.Unmarshal(res.Body.Bytes(), &j)
+			var j struct {
+				Containers []expectedContainer `json:"containers"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			containers, ok := j["containers"]
-			Expect(ok).To(BeTrue())
-			Expect(containers).To(HaveLen(1))
-
-			// Fields from Freighter API.
-			Expect(containers[0].CID).To(Equal("deadbeef"))
-			Expect(containers[0].Image).To(Equal("nitrous-base"))
-			Expect(containers[0].Slug).To(Equal("dominant-intercooler-42"))
-			Expect(containers[0].IPAddress.String).To(Equal("1.2.3.4"))
-			Expect(containers[0].State).To(Equal("running"))
-
-			// Fields from database.
-			Expect(containers[0].Name.String).To(Equal("Rails app server"))
-			Expect(containers[0].TouchedAt.Unix()).To(Equal(touchedAt.Unix()))
-
-			Expect(containers[0].UserID).To(Equal(u.ID))
-			Expect(containers[0].HostID).To(Equal(hs.H.ID))
+			Expect(j.Containers).To(HaveLen(1))
+			Expect(j.Containers[0]).To(Equal(expectedContainer{
+				ID:        c.ID,
+				CID:       "deadbeef",
+				UserID:    u.ID,
+				Image:     "nitrous-base",
+				Slug:      "dominant-intercooler-42",
+				IPAddress: "1.2.3.4",
+				State:     "running",
+				Name:      "Rails app server",
+				Host: &expectedHost{
+					ID:             hs.H.ID,
+					Slug:           hs.H.Slug,
+					IPAddress:      hs.H.IPAddress.String,
+					FreighterdPort: int(hs.H.FreighterdPort.Int64),
+					Hostname:       hs.H.Hostname(),
+					Size:           hs.H.Size.String,
+					State:          hs.H.State,
+					CA:             "", // TLS fields intentionally left empty.
+					Cert:           "",
+					Key:            "",
+				},
+			}))
 		})
 
 		Context("when the Freighter client returns an error", func() {
@@ -324,18 +332,18 @@ var _ = Describe("controllers/containers", func() {
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				var j map[string][]container.Container
-				err := json.Unmarshal(res.Body.Bytes(), &j)
+				var j struct {
+					Containers []expectedContainer `json:"containers"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				containers, ok := j["containers"]
-				Expect(ok).To(BeTrue())
-				Expect(containers).To(HaveLen(1))
+				Expect(j.Containers).To(HaveLen(1))
 
-				Expect(containers[0].CID).To(Equal("deadbeef"))
-				Expect(containers[0].Image).To(Equal("new-image"))
-				Expect(containers[0].Slug).To(Equal("new-name-42"))
-				Expect(containers[0].IPAddress.String).To(Equal("2.4.6.8"))
-				Expect(containers[0].State).To(Equal("stopped"))
+				Expect(j.Containers[0].CID).To(Equal("deadbeef"))
+				Expect(j.Containers[0].Image).To(Equal("new-image"))
+				Expect(j.Containers[0].Slug).To(Equal("new-name-42"))
+				Expect(j.Containers[0].IPAddress).To(Equal("2.4.6.8"))
+				Expect(j.Containers[0].State).To(Equal("stopped"))
 			})
 		})
 
@@ -356,32 +364,49 @@ var _ = Describe("controllers/containers", func() {
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				var j map[string][]container.Container
-				err := json.Unmarshal(res.Body.Bytes(), &j)
+				var j struct {
+					Containers []expectedContainer `json:"containers"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				containers, ok := j["containers"]
-				Expect(ok).To(BeTrue())
-				Expect(containers).To(HaveLen(2))
+				Expect(j.Containers).To(HaveLen(2))
 
-				Expect(containers[0].CID).To(Equal("deadbeef"))
-				Expect(containers[0].Image).To(Equal("nitrous-base"))
-				Expect(containers[0].Slug).To(Equal("dominant-intercooler-42"))
-				Expect(containers[0].IPAddress.String).To(Equal("1.2.3.4"))
-				Expect(containers[0].State).To(Equal("running"))
-				Expect(containers[0].UserID).To(Equal(u.ID))
-				Expect(containers[0].HostID).To(Equal(hs.H.ID))
-				Expect(containers[0].Name.String).To(Equal("Rails app server"))
-				Expect(containers[0].TouchedAt.Unix()).To(Equal(touchedAt.Unix()))
+				host := &expectedHost{
+					ID:             hs.H.ID,
+					Slug:           hs.H.Slug,
+					IPAddress:      hs.H.IPAddress.String,
+					FreighterdPort: int(hs.H.FreighterdPort.Int64),
+					Hostname:       hs.H.Hostname(),
+					Size:           hs.H.Size.String,
+					State:          hs.H.State,
+					CA:             "", // TLS fields intentionally left empty.
+					Cert:           "",
+					Key:            "",
+				}
 
-				Expect(containers[1].CID).To(Equal("cafebabe"))
-				Expect(containers[1].Image).To(Equal("nitrous-base"))
-				Expect(containers[1].Slug).To(Equal("wicked-baby-69"))
-				Expect(containers[1].IPAddress.String).To(Equal("1.2.3.5"))
-				Expect(containers[1].State).To(Equal("running"))
-				Expect(containers[1].UserID).To(Equal(u.ID))
-				Expect(containers[1].HostID).To(Equal(hs.H.ID))
-				Expect(containers[1].Name.String).To(Equal(""))
-				Expect(containers[1].TouchedAt).To(BeNil())
+				Expect(j.Containers[0]).To(Equal(expectedContainer{
+					ID:        c.ID,
+					CID:       "deadbeef",
+					UserID:    u.ID,
+					Image:     "nitrous-base",
+					Slug:      "dominant-intercooler-42",
+					IPAddress: "1.2.3.4",
+					State:     "running",
+					Name:      "Rails app server",
+					Host:      host,
+				}))
+
+				Expect(j.Containers[1]).To(Equal(expectedContainer{
+					ID:        0, // Container exists in Freighter but not in DB.
+					CID:       "cafebabe",
+					UserID:    u.ID,
+					Image:     "nitrous-base",
+					Slug:      "wicked-baby-69",
+					IPAddress: "1.2.3.5",
+					State:     "running",
+					Name:      "",
+					Host:      host,
+				}))
 			})
 		})
 
@@ -551,21 +576,38 @@ var _ = Describe("controllers/containers", func() {
 
 			Expect(res.Code).To(Equal(http.StatusCreated))
 
-			j := struct {
-				Status    string               `json:"status"`
-				Container *container.Container `json:"container"`
-			}{}
-			err := json.Unmarshal(res.Body.Bytes(), &j)
+			var j struct {
+				Status    string            `json:"status"`
+				Container expectedContainer `json:"container"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-
 			Expect(j.Status).To(Equal("created"))
-			Expect(j.Container).NotTo(BeNil())
-			Expect(j.Container.CID).To(Equal("deadbeef"))
-			Expect(j.Container.Image).To(Equal("elixir"))
-			Expect(j.Container.Slug).To(Equal("elixir-web-1"))
-			Expect(j.Container.IPAddress.String).To(Equal("1.2.3.4"))
-			Expect(j.Container.State).To(Equal("running"))
-			Expect(j.Container.Name.String).To(Equal("Elixir Web Server 1"))
+
+			c, err := container.FindByUserAndSlug(db, u, "elixir-web-1")
+			Expect(err).To(BeNil())
+			Expect(j.Container).To(Equal(expectedContainer{
+				ID:        c.ID,
+				CID:       "deadbeef",
+				UserID:    u.ID,
+				Image:     "elixir",
+				Slug:      "elixir-web-1",
+				IPAddress: "1.2.3.4",
+				State:     "running",
+				Name:      "Elixir Web Server 1",
+				Host: &expectedHost{
+					ID:             hs.H.ID,
+					Slug:           hs.H.Slug,
+					IPAddress:      hs.H.IPAddress.String,
+					FreighterdPort: int(hs.H.FreighterdPort.Int64),
+					Hostname:       hs.H.Hostname(),
+					Size:           hs.H.Size.String,
+					State:          hs.H.State,
+					CA:             "", // TLS fields intentionally left empty.
+					Cert:           "",
+					Key:            "",
+				},
+			}))
 		})
 
 		Context("when the Freighter client returns an error", func() {
@@ -673,13 +715,12 @@ var _ = Describe("controllers/containers", func() {
 
 				Expect(res.Code).To(Equal(http.StatusCreated))
 
-				j := struct {
-					Status    string               `json:"status"`
-					Container *container.Container `json:"container"`
-				}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
+				var j struct {
+					Status    string            `json:"status"`
+					Container expectedContainer `json:"container"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-
 				Expect(j.Status).To(Equal("created"))
 				Expect(j.Container.Image).To(Equal(containers.DefaultImage))
 			})
@@ -722,20 +763,20 @@ var _ = Describe("controllers/containers", func() {
 				doRequest("valid-token", "foo", params)
 
 				Expect(res.Code).To(Equal(http.StatusCreated))
-				j := struct {
-					Status    string               `json:"status"`
-					Container *container.Container `json:"container"`
-				}{}
+				var j struct {
+					Status    string            `json:"status"`
+					Container expectedContainer `json:"container"`
+				}
 				err = json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 				conf := mockClient.ReceivedConfig
 				Expect(conf.Mounts).To(HaveLen(2))
 				Expect(conf.Mounts).To(ContainElement("music:/mpd/albums"))
 				Expect(conf.Mounts).To(ContainElement("backups"))
-				cv, err := cvolume.Find(db, j.Container, v)
+				cv, err := cvolume.Find(db, &container.Container{ID: j.Container.ID}, v)
 				Expect(err).To(BeNil())
 				Expect(cv.VolumeID).To(Equal(v.ID))
-				cv2, err := cvolume.Find(db, j.Container, v2)
+				cv2, err := cvolume.Find(db, &container.Container{ID: j.Container.ID}, v2)
 				Expect(err).To(BeNil())
 				Expect(cv2.VolumeID).To(Equal(v2.ID))
 			})
@@ -762,14 +803,14 @@ var _ = Describe("controllers/containers", func() {
 
 	Describe("GET /containers/{name}", func() {
 		var (
-			c             *container.Container
-			fc            *freighterclient.Container
-			containerName = "elixir-web-1"
-			token         = ""
+			c     *container.Container
+			fc    *freighterclient.Container
+			slug  = "elixir-web-1"
+			token = ""
 		)
 
 		doRequest := func() {
-			req, err := NewRequest("GET", fmt.Sprintf("/api/v0/containers/%s", containerName), nil)
+			req, err := NewRequest("GET", fmt.Sprintf("/api/v0/containers/%s", slug), nil)
 			Expect(err).To(BeNil())
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
@@ -782,7 +823,7 @@ var _ = Describe("controllers/containers", func() {
 
 			c = &container.Container{
 				CID:       "deadbeef",
-				Slug:      containerName,
+				Slug:      slug,
 				IPAddress: sql.NullString{"8.8.8.8", true},
 				Image:     "nitrous-base",
 				UserID:    u.ID,
@@ -794,7 +835,7 @@ var _ = Describe("controllers/containers", func() {
 
 			fc = &freighterclient.Container{
 				ID:    "deadbeef",
-				Name:  containerName,
+				Name:  slug,
 				Host:  "1.2.3.4",
 				State: "running",
 				Image: "nitrous-base",
@@ -823,7 +864,7 @@ var _ = Describe("controllers/containers", func() {
 				CID:       "deadbeef",
 				UserID:    u.ID,
 				Image:     "nitrous-base",
-				Slug:      containerName,
+				Slug:      slug,
 				Name:      "Elixir server",
 				IPAddress: "1.2.3.4",
 				State:     "running",
@@ -863,7 +904,7 @@ var _ = Describe("controllers/containers", func() {
 
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
-				authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s", containerName)
+				authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s", slug)
 				authTokenInputs.Method = "GET"
 			})
 
@@ -873,7 +914,7 @@ var _ = Describe("controllers/containers", func() {
 
 	Describe("container control actions", func() {
 		var (
-			containerName = "elixir-web-1"
+			slug = "elixir-web-1"
 
 			action        string
 			actionCounter *int
@@ -881,8 +922,8 @@ var _ = Describe("controllers/containers", func() {
 			expectedState *string
 		)
 
-		doRequest := func(token, host, containerName string) {
-			req, err := NewRequest("POST", fmt.Sprintf("/api/v0/containers/%s/%s", containerName, action), nil)
+		doRequest := func(token, host, slug string) {
+			req, err := NewRequest("POST", fmt.Sprintf("/api/v0/containers/%s/%s", slug, action), nil)
 			Expect(err).To(BeNil())
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
@@ -899,7 +940,7 @@ var _ = Describe("controllers/containers", func() {
 			BeforeEach(func() {
 				c = &container.Container{
 					CID:       "deadbeef",
-					Slug:      containerName,
+					Slug:      slug,
 					IPAddress: sql.NullString{"8.8.8.8", true},
 					Image:     "nitrous-base",
 					UserID:    u.ID,
@@ -911,7 +952,7 @@ var _ = Describe("controllers/containers", func() {
 
 				fc = &freighterclient.Container{
 					ID:    "deadbeef",
-					Name:  containerName,
+					Name:  slug,
 					Host:  "1.2.3.4",
 					State: "stopped",
 					Image: "nitrous-base",
@@ -925,32 +966,27 @@ var _ = Describe("controllers/containers", func() {
 				Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
 			})
 
-			It("responds with the container from Freighter without data from the database", func() {
+			It("responds with the container from Freighter and augments it with data from the database", func() {
 				doRequest("valid-token", "foo", "elixir-web-1")
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				var j map[string]container.Container
-				err := json.Unmarshal(res.Body.Bytes(), &j)
+				var j struct {
+					Container expectedContainer `json:"container"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				c, ok := j["container"]
-				Expect(ok).To(BeTrue())
-
-				// Fields from Freighter API.
-				Expect(c.CID).To(Equal("deadbeef"))
-				Expect(c.Image).To(Equal("nitrous-base"))
-				Expect(c.Slug).To(Equal(containerName))
-				Expect(c.IPAddress.String).To(Equal("1.2.3.4"))
-				Expect(c.State).To(Equal(*expectedState))
-
-				// Fields from database.
-				Expect(c.Name.String).To(Equal(""))
-				Expect(c.TouchedAt).To(BeNil())
-				Expect(c.CreatedAt).To(BeNil())
-				Expect(c.UpdatedAt).To(BeNil())
-
-				Expect(c.UserID).To(Equal(u.ID))
-				Expect(c.HostID).To(Equal(hs.H.ID))
+				Expect(j.Container).To(Equal(expectedContainer{
+					ID:        c.ID,
+					CID:       "deadbeef",
+					UserID:    u.ID,
+					Image:     "nitrous-base",
+					Slug:      slug,
+					IPAddress: "1.2.3.4",
+					State:     *expectedState,
+					Name:      "Elixir server",
+					Host:      nil,
+				}))
 			})
 
 			Context("when the Freighter client returns an error", func() {
@@ -974,7 +1010,7 @@ var _ = Describe("controllers/containers", func() {
 
 			Context("oauth token failure modes", func() {
 				BeforeEach(func() {
-					authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s/%s", containerName, action)
+					authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s/%s", slug, action)
 					authTokenInputs.Method = "POST"
 				})
 
@@ -1021,14 +1057,14 @@ var _ = Describe("controllers/containers", func() {
 
 	Describe("DELETE /containers/{name}", func() {
 		var (
-			c             *container.Container
-			fc            *freighterclient.Container
-			containerName = "elixir-web-1"
-			token         = ""
+			c     *container.Container
+			fc    *freighterclient.Container
+			slug  = "elixir-web-1"
+			token = ""
 		)
 
 		doRequest := func() {
-			req, err := NewRequest("DELETE", fmt.Sprintf("/api/v0/containers/%s", containerName), nil)
+			req, err := NewRequest("DELETE", fmt.Sprintf("/api/v0/containers/%s", slug), nil)
 			Expect(err).To(BeNil())
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
@@ -1041,7 +1077,7 @@ var _ = Describe("controllers/containers", func() {
 
 			c = &container.Container{
 				CID:       "deadbeef",
-				Slug:      containerName,
+				Slug:      slug,
 				IPAddress: sql.NullString{"8.8.8.8", true},
 				Image:     "nitrous-base",
 				UserID:    u.ID,
@@ -1053,7 +1089,7 @@ var _ = Describe("controllers/containers", func() {
 
 			fc = &freighterclient.Container{
 				ID:    "deadbeef",
-				Name:  containerName,
+				Name:  slug,
 				Host:  "",
 				State: "",
 				Image: "nitrous-base",
@@ -1072,31 +1108,27 @@ var _ = Describe("controllers/containers", func() {
 
 			Expect(res.Code).To(Equal(http.StatusOK))
 
-			var j map[string]container.Container
-			err := json.Unmarshal(res.Body.Bytes(), &j)
+			var j struct {
+				Container expectedContainer `json:"container"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			c, ok := j["container"]
-			Expect(ok).To(BeTrue())
-
-			// Fields from Freighter API.
-			Expect(c.CID).To(Equal("deadbeef"))
-			Expect(c.Image).To(Equal("nitrous-base"))
-			Expect(c.Slug).To(Equal(containerName))
-			Expect(c.IPAddress.String).To(Equal(""))
-			Expect(c.State).To(Equal(""))
-
-			// Fields from database.
-			Expect(c.Name.String).To(Equal("Elixir server"))
-			Expect(c.UpdatedAt).NotTo(BeNil())
-
-			Expect(c.UserID).To(Equal(u.ID))
-			Expect(c.HostID).To(Equal(hs.H.ID))
+			Expect(j.Container).To(Equal(expectedContainer{
+				ID:        c.ID,
+				CID:       "deadbeef",
+				UserID:    u.ID,
+				Image:     "nitrous-base",
+				Slug:      slug,
+				Name:      "Elixir server",
+				IPAddress: "",
+				State:     "",
+			}))
 		})
 
 		It("deletes the container from the database", func() {
 			doRequest()
 
-			c, err := container.FindByUserAndSlug(db, hs.U, containerName)
+			c, err := container.FindByUserAndSlug(db, hs.U, slug)
 			Expect(err).To(BeNil())
 			Expect(c).To(BeNil())
 		})
@@ -1122,7 +1154,7 @@ var _ = Describe("controllers/containers", func() {
 
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
-				authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s", containerName)
+				authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s", slug)
 				authTokenInputs.Method = "DELETE"
 			})
 
