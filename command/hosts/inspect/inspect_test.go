@@ -24,22 +24,29 @@ var _ = Describe("hosts/inspect", func() {
 		cmd *inspect.Command
 		ui  *cli.MockUi
 
-		srv          *ghttp.Server
-		handlers     http.HandlerFunc
-		statusCode   int
-		responseBody string
+		srv            *ghttp.Server
+		statusCodeR1   int
+		responseBodyR1 string
+		statusCodeR2   int
+		responseBodyR2 string
 	)
 
 	BeforeEach(func() {
 		ui = &cli.MockUi{}
 
-		handlers = ghttp.CombineHandlers(
+		srv = ghttp.NewServer()
+		// 1st request: get host.
+		srv.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
 			ghttp.VerifyRequest("GET", "/api/v0/hosts/foo"),
-			ghttp.RespondWithPtr(&statusCode, &responseBody),
-		)
-		srv = ghttp.NewServer()
-		srv.AppendHandlers(handlers)
+			ghttp.RespondWithPtr(&statusCodeR1, &responseBodyR1),
+		))
+		// 2nd request: get host stats.
+		srv.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
+			ghttp.VerifyRequest("GET", "/api/v0/hosts/foo/stats"),
+			ghttp.RespondWithPtr(&statusCodeR2, &responseBodyR2),
+		))
 
 		cmd = &inspect.Command{
 			UI:     ui,
@@ -52,38 +59,41 @@ var _ = Describe("hosts/inspect", func() {
 		srv.Close()
 	})
 
-	Context("when the API responds with the host", func() {
+	Context("when the API responds with the host and host stats", func() {
 		BeforeEach(func() {
-			statusCode = http.StatusOK
-			responseBody = `{
+			statusCodeR1 = http.StatusOK
+			responseBodyR1 = `{
 				"host": {
 					"id": 58,
 					"slug": "foo",
 					"ip_address": "127.0.0.1",
 					"freighterd_port": 49153,
+					"size": "micro",
 					"state": "running",
-					"hostname": "foo.nitrouspro.com",
-					"region": { "id": 5, "name": "sgp", "description": "Southeast Asia (Singapore)" },
-					"plan": { "id": 7, "name": "micro" },
-					"stats": {
-						"uptime": 107210,
-						"memory_usage": 1896906752,
-						"memory_total": 2100002816,
-						"storage_usage": 19692343296,
-						"storage_total": 83366748160,
-						"num_cpu": 2,
-						"per_cpu_usage": [0.5, 20.3]
-					}
+					"hostname": "foo.nitrouspro.com"
+				}
+			}`
+			statusCodeR2 = http.StatusOK
+			responseBodyR2 = `{
+				"stats": {
+					"uptime": 107210,
+					"memory_usage": 1896906752,
+					"memory_total": 2100002816,
+					"storage_usage": 19692343296,
+					"storage_total": 83366748160,
+					"num_cpu": 2,
+					"per_cpu_usage": [0.5, 20.3]
 				}
 			}`
 		})
 
 		It("prints the host", func() {
 			code := cmd.Run([]string{"foo"})
+			Expect(srv.ReceivedRequests()).To(HaveLen(2))
 			Expect(code).To(Equal(0))
 			Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
-Slug  State    Size   IP         Hostname            Region
-foo   running  micro  127.0.0.1  foo.nitrouspro.com  sgp
+Slug  State    Size   IP         Hostname
+foo   running  micro  127.0.0.1  foo.nitrouspro.com
 `)))
 			Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
 Uptime  Memory Used (bytes)  Memory Total (bytes)  Storage Used (bytes)  Storage Total (bytes)  Number of CPUs  CPU 0 Usage  CPU 1 Usage
@@ -99,21 +109,54 @@ Uptime  Memory Used (bytes)  Memory Total (bytes)  Storage Used (bytes)  Storage
 					"host": {
 						"slug": "foo",
 						"ip_address": "127.0.0.1",
+						"size": "micro",
 						"state": "running",
-						"hostname": "foo.nitrouspro.com",
-						"region": { "name": "sgp", "description": "Southeast Asia (Singapore)" },
-						"plan": { "name": "micro" },
-						"stats": {
-							"uptime": 107210,
-							"memory_usage": 1896906752,
-							"memory_total": 2100002816,
-							"storage_usage": 19692343296,
-							"storage_total": 83366748160,
-							"num_cpu": 2,
-							"per_cpu_usage": [0.5, 20.3]
-						}
+						"hostname": "foo.nitrouspro.com"
+					},
+					"stats": {
+						"uptime": 107210,
+						"memory_usage": 1896906752,
+						"memory_total": 2100002816,
+						"storage_usage": 19692343296,
+						"storage_total": 83366748160,
+						"num_cpu": 2,
+						"per_cpu_usage": [0.5, 20.3]
 					}
 				}`))
+			})
+		})
+
+		Context("when API responds with error to request for host stats", func() {
+			BeforeEach(func() {
+				statusCodeR2 = http.StatusBadRequest
+				responseBodyR2 = `{"error":"invalid_request","error_description":"host not running"}`
+			})
+
+			It("prints the host without stats", func() {
+				code := cmd.Run([]string{"foo"})
+				Expect(srv.ReceivedRequests()).To(HaveLen(2))
+				Expect(code).To(Equal(0))
+				Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
+Slug  State    Size   IP         Hostname
+foo   running  micro  127.0.0.1  foo.nitrouspro.com
+`)))
+				Expect(ui.OutputWriter.String()).NotTo(ContainSubstring("Uptime"))
+			})
+
+			Context("when --json flag is set", func() {
+				It("prints the host in JSON format", func() {
+					code := cmd.Run([]string{"foo", "--json"})
+					Expect(code).To(Equal(0))
+					Expect(ui.OutputWriter.String()).To(MatchJSON(`{
+						"host": {
+							"slug": "foo",
+							"ip_address": "127.0.0.1",
+							"size": "micro",
+							"state": "running",
+							"hostname": "foo.nitrouspro.com"
+						}
+					}`))
+				})
 			})
 		})
 	})

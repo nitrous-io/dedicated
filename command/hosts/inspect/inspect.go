@@ -52,8 +52,7 @@ func (c *Command) Run(args []string) int {
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
 	cmdFlags.BoolVarP(&showJSON, "json", "j", false, jsonUsage)
 
-	err := cmdFlags.Parse(args)
-	if err != nil {
+	if err := cmdFlags.Parse(args); err != nil {
 		return 1
 	}
 
@@ -64,20 +63,29 @@ func (c *Command) Run(args []string) int {
 	}
 
 	slug := args[0]
-	host, err := c.inspectHost(slug)
+	h, err := c.inspectHost(slug)
 	if err != nil {
 		c.printError(showJSON, err.Error())
 		return 1
 	}
+	s := c.getHostStats(slug)
+
 	if showJSON {
-		b, err := json.Marshal(host)
+		j := struct {
+			Host  *host  `json:"host,omitempty"`
+			Stats *stats `json:"stats,omitempty"`
+		}{
+			Host:  h,
+			Stats: s,
+		}
+		b, err := json.Marshal(j)
 		if err != nil {
 			c.printError(showJSON, "An unexpected error has occurred.")
 			return 1
 		}
 		c.UI.Output(string(b))
 	} else {
-		c.UI.Output(c.prettyPrint(host))
+		c.UI.Output(c.prettyPrint(h, s))
 	}
 
 	return 0
@@ -91,49 +99,64 @@ func (c *Command) Synopsis() string {
 	return "Inspect a host"
 }
 
-type response struct {
-	Host *struct {
+type (
+	host struct {
 		Slug      string `json:"slug"`
 		IPAddress string `json:"ip_address"`
 		State     string `json:"state"`
+		Size      string `json:"size"`
 		Hostname  string `json:"hostname"`
-		Region    *struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
-		} `json:"region"`
-		Plan *struct {
-			Name string `json:"name"`
-		} `json:"plan"`
-		Stats *struct {
-			Uptime       uint64    `json:"uptime"`
-			MemoryUsage  uint64    `json:"memory_usage"`
-			MemoryTotal  uint64    `json:"memory_total"`
-			StorageUsage uint64    `json:"storage_usage"`
-			StorageTotal uint64    `json:"storage_total"`
-			NumCPU       int       `json:"num_cpu"`
-			PerCPUUsage  []float64 `json:"per_cpu_usage"`
-		} `json:"stats,omitempty"`
-	} `json:"host"`
-}
+	}
 
-func (c *Command) inspectHost(slug string) (*response, error) {
+	stats struct {
+		Uptime       uint64    `json:"uptime"`
+		MemoryUsage  uint64    `json:"memory_usage"`
+		MemoryTotal  uint64    `json:"memory_total"`
+		StorageUsage uint64    `json:"storage_usage"`
+		StorageTotal uint64    `json:"storage_total"`
+		NumCPU       int       `json:"num_cpu"`
+		PerCPUUsage  []float64 `json:"per_cpu_usage"`
+	}
+)
+
+func (c *Command) inspectHost(slug string) (*host, error) {
 	url := fmt.Sprintf("%s/api/v0/hosts/%s", c.Server, slug)
 	resp, err := c.Client.GetAuthed(url, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	err = httpclient.CheckResponse(resp, http.StatusOK)
-	if err != nil {
+	if err := httpclient.CheckResponse(resp, http.StatusOK); err != nil {
 		return nil, err
 	}
 
-	var j response
-	err = json.NewDecoder(resp.Body).Decode(&j)
-	if err != nil {
+	var j struct {
+		Host *host `json:"host"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&j); err != nil {
 		return nil, err
 	}
-	return &j, nil
+	return j.Host, nil
+}
+
+func (c *Command) getHostStats(slug string) *stats {
+	url := fmt.Sprintf("%s/api/v0/hosts/%s/stats", c.Server, slug)
+	resp, err := c.Client.GetAuthed(url, nil)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	if err := httpclient.CheckResponse(resp, http.StatusOK); err != nil {
+		return nil
+	}
+
+	var j struct {
+		Stats *stats `json:"stats"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&j); err != nil {
+		return nil
+	}
+	return j.Stats
 }
 
 func (c *Command) printError(showJSON bool, msg string) {
@@ -149,32 +172,28 @@ func (c *Command) printError(showJSON bool, msg string) {
 	}
 }
 
-func (c *Command) prettyPrint(r *response) string {
-	h := r.Host
+func (c *Command) prettyPrint(h *host, s *stats) string {
 	b := &bytes.Buffer{}
 	w := &tabwriter.Writer{}
 
-	headers := []string{"Slug", "State", "Size", "IP", "Hostname", "Region"}
-	values := []interface{}{h.Slug, h.State, h.Plan.Name, h.IPAddress, h.Hostname, h.Region.Name}
+	headers := []string{"Slug", "State", "Size", "IP", "Hostname"}
+	values := []interface{}{h.Slug, h.State, h.Size, h.IPAddress, h.Hostname}
 
 	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
 	fmt.Fprint(w, strings.Join(headers, "\t"), "\n")
 	fmt.Fprint(w, insertAfterEach(values, "\t")...)
 	fmt.Fprintln(w)
 
-	stats := h.Stats
-	if stats != nil {
+	if s != nil {
 		headers = []string{
 			"Uptime", "Memory Used (bytes)", "Memory Total (bytes)",
-			"Storage Used (bytes)", "Storage Total (bytes)",
-			"Number of CPUs",
+			"Storage Used (bytes)", "Storage Total (bytes)", "Number of CPUs",
 		}
 		values = []interface{}{
-			stats.Uptime, stats.MemoryUsage, stats.MemoryTotal,
-			stats.StorageUsage, stats.StorageTotal,
-			stats.NumCPU,
+			s.Uptime, s.MemoryUsage, s.MemoryTotal,
+			s.StorageUsage, s.StorageTotal, s.NumCPU,
 		}
-		for i, usage := range stats.PerCPUUsage {
+		for i, usage := range s.PerCPUUsage {
 			headers = append(headers, fmt.Sprintf("CPU %d Usage", i))
 			values = append(values, fmt.Sprintf("%.2f %%", usage))
 		}
