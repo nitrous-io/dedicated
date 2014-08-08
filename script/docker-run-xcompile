@@ -9,18 +9,9 @@ ARTIFACT_DIR=/tmp/$APP/$VERSION
 rm -rf $ARTIFACT_DIR
 mkdir -p $ARTIFACT_DIR
 
-if [ -S $SSH_AUTH_SOCK ]; then  
-        SSH_AGENT=$SSH_AUTH_SOCK
-elif [ -h $SSH_AUTH_SOCK ]; then
-        SSH_AGENT=$(readlink -f $SSH_AUTH_SOCK)
-else
-        echo "No ssh agent socket found."
-        exit 1
-fi
-
 docker run \
   --rm=true \
-  --volume $SSH_AGENT:/ssh-agent \
+  --volume $(readlink -f $SSH_AUTH_SOCK):/ssh-agent \
   --volume $ARTIFACT_DIR:$ARTIFACT_DIR \
   -e SSH_AUTH_SOCK=/ssh-agent \
   $APP:$VERSION script/xcompile-docker $APP $VERSION

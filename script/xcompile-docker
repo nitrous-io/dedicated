@@ -5,14 +5,17 @@ set -e
 APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
 
-echo "installing dependencies..."
+echo "installing dependencies... "
 
 go get github.com/nitrous-io/goop
 goop install
 
-ARTIFACT_DIR=/tmp/$APP/$VERSION
+echo "running tests... "
+goop exec ginkgo -r -trace -keepGoing -noisyPendings=false
 
+ARTIFACT_DIR=/tmp/$APP/$VERSION
 ARCHS="linux/amd64 linux/386 darwin/amd64 darwin/386"
 BUILD=$ARTIFACT_DIR/"{{.Dir}}_{{.OS}}_{{.Arch}}"
- 
+
+echo "compiling binaries... "
 gox -osarch="${ARCHS}" -ldflags="-X main.version ${VERSION}" -output="${BUILD}" ./...
