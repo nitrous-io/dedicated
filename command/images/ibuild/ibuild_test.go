@@ -202,7 +202,7 @@ var _ = Describe("images/ibuild", func() {
 
 	Context("when given wrong arguments", func() {
 		It("prints usage and exits with error", func() {
-			for _, t := range [][]string{[]string{}, []string{"hostonly"}, []string{"host", "buildcontext", "somerandomextrastuff"}} {
+			for _, t := range [][]string{{}, {"hostonly"}, {"host", "buildcontext", "somerandomextrastuff"}} {
 				code := cmd.Run(t)
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
 				Expect(code).To(Equal(1))
