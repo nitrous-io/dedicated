@@ -92,7 +92,7 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Synopsis() string {
-	return "build images onto a given host"
+	return "Build image on a host"
 }
 
 func (c *Command) makeRequest(host, fpath, tag string) error {

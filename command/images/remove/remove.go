@@ -95,7 +95,7 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Synopsis() string {
-	return "remove images on a given host"
+	return "Remove image on a host"
 }
 
 func (c *Command) makeRequest(host, image string) error {

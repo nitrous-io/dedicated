@@ -71,7 +71,7 @@ func (c *Command) Run(args []string) int {
 
 	host, image, newName := args[0], args[1], args[2]
 
-	c.UI.Output(fmt.Sprintf("Tgaging image '%s' to '%s' on host '%s'...", image, newName, host))
+	c.UI.Output(fmt.Sprintf("Tagging image '%s' as '%s' on host '%s'...", image, newName, host))
 
 	err = c.makeRequest(host, image, newName, force)
 	if err != nil {
@@ -85,7 +85,7 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Synopsis() string {
-	return "Tag images on a given host"
+	return "Tag image on a host"
 }
 
 func (c *Command) makeRequest(host, image, newName string, force bool) error {

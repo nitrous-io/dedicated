@@ -83,7 +83,7 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Synopsis() string {
-	return "pull images onto a given host"
+	return "Pull image onto a host"
 }
 
 func (c *Command) makeRequest(host, image string) (io.ReadCloser, error) {

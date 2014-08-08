@@ -80,7 +80,7 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Synopsis() string {
-	return "List images on a given host"
+	return "List images on a host"
 }
 
 func (c *Command) fetchImages(host string) ([]*Image, error) {

@@ -71,7 +71,7 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Synopsis() string {
-	return "push images onto a given host"
+	return "Push image on a host to a registry"
 }
 
 func (c *Command) makeRequest(host, image, dest string) error {
