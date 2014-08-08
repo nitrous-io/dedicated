@@ -31,7 +31,7 @@ func SerializeContainer(c *container.Container) *Container {
 		Image:        c.Image,
 		Slug:         c.Slug,
 		Name:         c.Name.String,
-		IPAddress:    c.IPAddress.String,
+		IPAddress:    c.IPAddress,
 		State:        c.State,
 		CreatedAt:    c.CreatedAt,
 		UpdatedAt:    c.UpdatedAt,

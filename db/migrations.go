@@ -263,5 +263,11 @@ func init() {
 				CREATE UNIQUE INDEX index_container_volumes_on_container_id_and_volume_id ON container_volumes USING btree (container_id, volume_id);
 			`,
 		},
+		{
+			Version: "200",
+			Up: `
+				ALTER TABLE containers DROP COLUMN ip_address;
+			`,
+		},
 	}
 }
