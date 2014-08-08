@@ -33,11 +33,6 @@ test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
 	@script/test $(TEST)
 
-xrelease: xcompile-docker
-	@echo "$(OK_COLOR)==> Packaging revision $(VERSION)...$(NO_COLOR)"
-	@script/multi-release $(APP) $(VERSION)
-.PHONY: xrelease
-
 xcompile:
 	@echo "$(OK_COLOR)==> Local cross compilation for revision $(VERSION)...$(NO_COLOR)"
 	@script/local-xcompile $(VERSION)
@@ -47,5 +42,15 @@ xcompile-docker: image
 	@echo "$(OK_COLOR)==> Cross compilation in docker for revision $(VERSION)...$(NO_COLOR)"
 	@script/docker-run-xcompile $(APP) $(VERSION)
 .PHONY: xcompile-docker
+
+xrelease: xcompile-docker
+	@echo "$(OK_COLOR)==> Packaging revision $(VERSION)...$(NO_COLOR)"
+	@script/multi-release $(APP) $(VERSION)
+.PHONY: xrelease
+
+publish: xrelease
+	@echo "$(OK_COLOR)==> Uploading binaries for revision $(VERSION)...$(NO_COLOR)"
+	@script/publish $(APP) $(VERSION)
+.PHONY: publish 
 
 .PHONY: all build clean format test image ci

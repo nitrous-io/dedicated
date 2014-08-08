@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -e
+
+APP=${1:?"app is required"}
+VERSION=${2:?"version is required"}
+BUCKET=nitro-cli
+
+OSARCH="linux_amd64 linux_386 darwin_amd64 darwin_386"
+ARCH="amd64 i386"
+
+ARTIFACT_DIR=/tmp/$APP/$VERSION
+TAR=$APP-$VERSION # add -$OSARCH.tgz
+DEB=${APP}_${VERSION} # add _$ARCH.deb
+
+
+cd $ARTIFACT_DIR
+
+# upload deb files
+for A in $ARCH; do
+        PACKAGE="${DEB}_${A}.deb"
+        if [ -f $PACKAGE ]; then
+                echo "Uploading debian package to s3... "
+                s3cmd put ${PACKAGE} s3://${BUCKET}/${PACKAGE}
+        else
+                echo "Failed to find deb package: ${PACKAGE} in ${ARTIFACT_DIR} directory - skipping... "
+        fi
+done
+
+# upload binary tarballs
+for O in $OSARCH; do
+        TARBALL="${TAR}-${O}.tgz"
+        if [ -f $TARBALL ]; then
+                echo "Uploading binary tarball to s3... "
+                s3cmd put ${TARBALL} s3://${BUCKET}/${TARBALL}
+        else
+                echo "Failed to find tarball: ${TARBALL} in ${ARTIFACT_DIR} directory - skipping... "
+        fi
+done
+
