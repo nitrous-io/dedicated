@@ -455,13 +455,88 @@ var _ = Describe("controllers/hosts", func() {
 	})
 
 	Describe("GET /api/v0/hosts/{slug}", func() {
+		var hs *HostStack
+
+		doRequest := func(slug string) {
+			req, err := NewRequest("GET", "/api/v0/hosts/"+slug, nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			var err error
+			hs, err = CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:           "foo",
+					IPAddress:      sql.NullString{"1.2.3.4", true},
+					FreighterdPort: sql.NullInt64{64000, true},
+					Size:           sql.NullString{"large", true},
+					State:          host.StateRunning,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		AfterEach(func() {
+			UnstubFreighterFn()
+		})
+
+		It("responds with host info from the database", func() {
+			doRequest("foo")
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.ID).To(Equal(hs.H.ID))
+			Expect(j.Host.UserID).To(Equal(hs.U.ID))
+			Expect(j.Host.Slug).To(Equal("foo"))
+			Expect(j.Host.IPAddress).To(Equal("1.2.3.4"))
+			Expect(j.Host.FreighterdPort).To(Equal(int64(64000)))
+			Expect(j.Host.Size).To(Equal("large"))
+			Expect(j.Host.State).To(Equal(host.StateRunning))
+			Expect(j.Host.Hostname).To(Equal("foo.nitrouspro.com"))
+			Expect(j.Host.RegionID).To(Equal(hs.R.ID))
+			Expect(j.Host.PlanID).To(Equal(hs.P.ID))
+			Expect(j.Host.CreatedAt).NotTo(BeNil())
+			Expect(j.Host.UpdatedAt).NotTo(BeNil())
+			Expect(j.Host.TerminatedAt).To(BeNil())
+		})
+
+		It("responds with host info even when called with the host ID", func() {
+			doRequest(fmt.Sprintf("%d", hs.H.ID))
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.ID).To(Equal(hs.H.ID))
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo"
+				authTokenInputs.Method = "GET"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("GET /api/v0/hosts/{slug}/stats", func() {
 		var (
 			mockClient *freighterclient.MockClient
 			hs         *HostStack
 		)
 
 		doRequest := func(slug string) {
-			req, err := NewRequest("GET", "/api/v0/hosts/"+slug, nil)
+			req, err := NewRequest("GET", "/api/v0/hosts/"+slug+"/stats", nil)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
 			handler.ServeHTTP(res, req)
@@ -484,14 +559,10 @@ var _ = Describe("controllers/hosts", func() {
 
 			hs, err = CreateHostStack(db, &HostStack{
 				H: &host.Host{
-					Slug:           "foo",
-					IPAddress:      sql.NullString{"1.2.3.4", true},
-					FreighterdPort: sql.NullInt64{64000, true},
-					Size:           sql.NullString{"large", true},
-					State:          host.StateRunning,
+					Slug:      "foo",
+					IPAddress: sql.NullString{"1.2.3.4", true},
+					State:     host.StateRunning,
 				},
-				R: &region.Region{Name: "use", Description: "US East"},
-				P: &plan.Plan{Name: "large"},
 				U: u,
 			})
 			Expect(err).To(BeNil())
@@ -506,46 +577,22 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(mockClient.HostInfoCalled).To(Equal(1))
 		})
 
-		It("responds with host info even when called with the host ID", func() {
-			doRequest(fmt.Sprintf("%d", hs.H.ID))
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			var j struct {
-				Host *serializers.Host `json:"host"`
-			}
-			err := json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.Host.ID).To(Equal(hs.H.ID))
-		})
-
-		It("responds with host info from the database and augments it with stats from the Freighter API", func() {
+		It("responds with host stats from the Freighter API", func() {
 			doRequest("foo")
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
-				Host *serializers.Host `json:"host"`
+				Stats *serializers.HostInfo `json:"stats"`
 			}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.Host.ID).To(Equal(hs.H.ID))
-			Expect(j.Host.Slug).To(Equal("foo"))
-			Expect(j.Host.IPAddress).To(Equal("1.2.3.4"))
-			Expect(j.Host.FreighterdPort).To(Equal(int64(64000)))
-			Expect(j.Host.Size).To(Equal("large"))
-			Expect(j.Host.State).To(Equal(host.StateRunning))
-			Expect(j.Host.Hostname).To(Equal("foo.nitrouspro.com"))
-			Expect(j.Host.RegionID).To(Equal(hs.R.ID))
-			Expect(j.Host.PlanID).To(Equal(hs.P.ID))
-			Expect(j.Host.Stats.Uptime).To(Equal(uint64(30)))
-			Expect(j.Host.Stats.MemoryUsage).To(Equal(uint64(12345678)))
-			Expect(j.Host.Stats.MemoryTotal).To(Equal(uint64(17179869184)))
-			Expect(j.Host.Stats.StorageUsage).To(Equal(uint64(2000000000)))
-			Expect(j.Host.Stats.StorageTotal).To(Equal(uint64(1000000000000)))
-			Expect(j.Host.Stats.NumCPU).To(Equal(2))
-			Expect(j.Host.Stats.PerCPUUsage).To(Equal([]float64{0.5, 30}))
-			Expect(j.Host.CreatedAt).NotTo(BeNil())
-			Expect(j.Host.UpdatedAt).NotTo(BeNil())
-			Expect(j.Host.TerminatedAt).To(BeNil())
+			Expect(j.Stats.Uptime).To(Equal(uint64(30)))
+			Expect(j.Stats.MemoryUsage).To(Equal(uint64(12345678)))
+			Expect(j.Stats.MemoryTotal).To(Equal(uint64(17179869184)))
+			Expect(j.Stats.StorageUsage).To(Equal(uint64(2000000000)))
+			Expect(j.Stats.StorageTotal).To(Equal(uint64(1000000000000)))
+			Expect(j.Stats.NumCPU).To(Equal(2))
+			Expect(j.Stats.PerCPUUsage).To(Equal([]float64{0.5, 30}))
 		})
 
 		Context("when host is not running", func() {
@@ -554,17 +601,13 @@ var _ = Describe("controllers/hosts", func() {
 				UnstubFreighterFn()
 			})
 
-			It("excludes host stats from Freighter", func() {
+			It("responds with HTTP 400 Bad Request", func() {
 				doRequest("foo")
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				var j struct {
-					Host *serializers.Host `json:"host"`
-				}
-				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				err, j := unmarshalErrorResponse()
 				Expect(err).To(BeNil())
-				Expect(j.Host.Slug).To(Equal("foo"))
-				Expect(j.Host.Stats).To(BeNil())
+				Expect(j.Error).To(Equal("invalid_state"))
+				Expect(j.ErrorDescription).To(Equal("host is not running"))
 			})
 		})
 
@@ -580,23 +623,19 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("excludes host stats from Freighter", func() {
+			It("responds with HTTP 400 Bad Request", func() {
 				doRequest("bar")
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				var j struct {
-					Host *serializers.Host `json:"host"`
-				}
-				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				err, j := unmarshalErrorResponse()
 				Expect(err).To(BeNil())
-				Expect(j.Host.Slug).To(Equal("bar"))
-				Expect(j.Host.Stats).To(BeNil())
+				Expect(j.Error).To(Equal("invalid_state"))
+				Expect(j.ErrorDescription).To(Equal("host is not running"))
 			})
 		})
 
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
-				authTokenInputs.Path = "/api/v0/hosts/foo"
+				authTokenInputs.Path = "/api/v0/hosts/foo/stats"
 				authTokenInputs.Method = "GET"
 			})
 

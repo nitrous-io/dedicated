@@ -3,7 +3,6 @@ package serializers
 import (
 	"time"
 
-	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/models/host"
 )
 
@@ -26,11 +25,11 @@ type Host struct {
 	TerminatedAt *time.Time `json:"terminated_at,omitempty"`
 }
 
-func SerializeHost(h *host.Host, info *freighterclient.HostInfo) *Host {
+func SerializeHost(h *host.Host) *Host {
 	if h == nil {
 		return nil
 	}
-	ret := &Host{
+	return &Host{
 		ID:             h.ID,
 		UserID:         h.UserID,
 		RegionID:       h.RegionID,
@@ -45,8 +44,4 @@ func SerializeHost(h *host.Host, info *freighterclient.HostInfo) *Host {
 		UpdatedAt:      h.UpdatedAt,
 		TerminatedAt:   h.TerminatedAt,
 	}
-	if info != nil {
-		ret.Stats = SerializeHostInfo(info)
-	}
-	return ret
 }
