@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -e
+
+APP=${1:?"app is required"}
+VERSION=${2:?"version is required"}
+
+ARTIFACT_DIR=/tmp/$APP/$VERSION
+rm -rf $ARTIFACT_DIR
+mkdir -p $ARTIFACT_DIR
+
+docker run \
+  --privileged=true \
+  --rm=true \
+  --volume $(readlink -f $SSH_AUTH_SOCK):/ssh-agent \
+  --volume $ARTIFACT_DIR:$ARTIFACT_DIR \
+  -e SSH_AUTH_SOCK=/ssh-agent \
+  $APP:$VERSION ./script/test-and-build $APP $VERSION

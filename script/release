@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
-VERSION=$(git rev-parse --short HEAD)
-BUCKET=nitrous-dedicated
+set -e
 
-cd $(pwd)/build
-if [[ -f "hostbuilder-${VERSION}.tgz" || -f "hostbuilder-latest.tgz" ]]; then
-  echo "Uploading binary packages to s3 ...."
-  s3cmd put hostbuilder-${VERSION}.tgz s3://${BUCKET}/hostbuilder-${VERSION}.tgz
-  s3cmd put hostbuilder-latest.tgz s3://${BUCKET}/hostbuilder-latest.tgz
-else
-  echo "Failed to find package: $VERSION in ./build directory."
-  exit 1
-fi
+APP=${1:?"app name is required"}
+VERSION=${2:?"version is required"}
+
+ARTIFACT_DIR=/tmp/$APP/$VERSION
+
+cd $ARTIFACT_DIR
+tar -czf hostbuilder-$VERSION.tgz hostbuilder
