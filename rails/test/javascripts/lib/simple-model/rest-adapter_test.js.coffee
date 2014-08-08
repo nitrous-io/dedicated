@@ -36,6 +36,7 @@ describe 'SM.RESTAdapter', ->
             failSpy = sinon.spy()
             promise = doAction()
             promise.then(successSpy, failSpy)
+            promiseValue = promise.value
 
             expect(successSpy.called).to.be.false 'promise is not yet resolved'
             expect(failSpy.called).to.be.false 'promise is not yet rejected'
@@ -46,6 +47,7 @@ describe 'SM.RESTAdapter', ->
 
               record = successSpy.args[0][0]
               expect(record).to.be.instanceof TestModel, 'resolved object is a TestModel record'
+              expect(record).to.equal promiseValue, "resolved record is the same instance as the promise's previously returned value"
               expect(record.get 'id').to.equal 123, 'id is loaded'
               expect(record.get 'slug').to.equal 'foo', 'slug is loaded'
               expect(record.get 'name').to.equal 'Foo', 'name is loaded'
@@ -71,6 +73,7 @@ describe 'SM.RESTAdapter', ->
               failSpy = sinon.spy()
               promise = doAction()
               promise.then(successSpy, failSpy)
+              promiseValue = promise.value
 
               expect(successSpy.called).to.be.false 'promise is not yet resolved'
               expect(failSpy.called).to.be.false 'promise is not yet rejected'
@@ -81,6 +84,7 @@ describe 'SM.RESTAdapter', ->
 
                 record = successSpy.args[0][0]
                 expect(record).to.be.instanceof TestModel, 'resolved object is a TestModel record'
+                expect(record).to.equal promiseValue, "resolved record is the same instance as the promise's previously returned value"
                 expect(record.get 'id').to.equal 123, 'id is loaded'
                 expect(record.get 'slug').to.equal 'foo', 'slug is loaded'
                 expect(record.get 'name').to.equal 'Foo', 'name is loaded'
@@ -147,6 +151,7 @@ describe 'SM.RESTAdapter', ->
           failSpy = sinon.spy()
           promise = TestModel.fetch()
           promise.then(successSpy, failSpy)
+          promiseValue = promise.value
 
           expect(successSpy.called).to.be.false 'promise is not yet resolved'
           expect(failSpy.called).to.be.false 'promise is not yet rejected'
@@ -158,6 +163,7 @@ describe 'SM.RESTAdapter', ->
             recordArr = successSpy.args[0][0]
             expect(recordArr).to.be.instanceof SM.RecordArray, 'fetch returns a record array immediately'
             expect(recordArr.get 'model').to.equal TestModel, 'record array is for TestModel'
+            expect(recordArr).to.equal promiseValue, "resolved record array is the same instance as the promise's previously returned value"
             record1 = recordArr.objectAt(0)
             record2 = recordArr.objectAt(1)
 
@@ -206,6 +212,7 @@ describe 'SM.RESTAdapter', ->
             failSpy = sinon.spy()
             promise = TestModel.fetch()
             promise.then(successSpy, failSpy)
+            promiseValue = promise.value
 
             expect(successSpy.called).to.be.false 'promise is not yet resolved'
             expect(failSpy.called).to.be.false 'promise is not yet rejected'
@@ -216,6 +223,7 @@ describe 'SM.RESTAdapter', ->
 
               recordArr = successSpy.args[0][0]
               expect(recordArr).to.be.instanceof SM.RecordArray, 'fetch returns a record array immediately'
+              expect(recordArr).to.equal promiseValue, "resolved record array is the same instance as the promise's previously returned value"
               expect(recordArr.get 'model').to.equal TestModel, 'record array is for TestModel'
               record1 = recordArr.objectAt(0)
               record2 = recordArr.objectAt(1)
@@ -272,6 +280,7 @@ describe 'SM.RESTAdapter', ->
           failSpy = sinon.spy()
           promise = record.save()
           promise.then(successSpy, failSpy)
+          promiseValue = promise.value
 
           expect(successSpy.called).to.be.false 'promise is not yet resolved'
           expect(failSpy.called).to.be.false 'promise is not yet rejected'
@@ -282,6 +291,7 @@ describe 'SM.RESTAdapter', ->
 
             expect(successSpy.args[0][0]).to.equal record
             expect(record).to.be.instanceof TestModel, 'resolved object is a TestModel record'
+            expect(record).to.equal promiseValue, "resolved record is the same instance as the promise's previously returned value"
             expect(record.get 'id').to.equal 123, 'id is loaded'
             expect(record.get 'slug').to.equal 'foo', 'slug is loaded'
             expect(record.get 'name').to.equal 'Foo', 'name is loaded'
@@ -307,6 +317,7 @@ describe 'SM.RESTAdapter', ->
             failSpy = sinon.spy()
             promise = record.save()
             promise.then(successSpy, failSpy)
+            promiseValue = promise.value
 
             expect(successSpy.called).to.be.false 'promise is not yet resolved'
             expect(failSpy.called).to.be.false 'promise is not yet rejected'
@@ -317,6 +328,7 @@ describe 'SM.RESTAdapter', ->
 
               expect(successSpy.args[0][0]).to.equal record
               expect(record).to.be.instanceof TestModel, 'resolved object is a TestModel record'
+              expect(record).to.equal promiseValue, "resolved record is the same instance as the promise's previously returned value"
               expect(record.get 'id').to.equal 123, 'id is loaded'
               expect(record.get 'slug').to.equal 'foo', 'slug is loaded'
               expect(record.get 'name').to.equal 'Foo', 'name is loaded'

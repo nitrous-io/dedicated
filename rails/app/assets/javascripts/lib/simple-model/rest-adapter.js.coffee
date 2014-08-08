@@ -44,7 +44,7 @@ SM.RESTAdapter = Ember.Object.extend
     else
       SM.RecordArray.create(model: model)
 
-    new Ember.RSVP.Promise (resolve, reject) =>
+    promise = new Ember.RSVP.Promise (resolve, reject) =>
       @ajax('GET', url).done((data, status, jqxhr) ->
         if single && model.rootKey
           data = data[model.rootKey] || {}
@@ -61,11 +61,13 @@ SM.RESTAdapter = Ember.Object.extend
         reject(jqxhr)
       ).fail (jqxhr) ->
         reject(jqxhr)
+    promise.value = r
+    promise
 
   createRecord: (record) ->
     model = record.constructor
     url = Ember.get(model, "createURL") || Ember.get(model, "url")
-    new Ember.RSVP.Promise (resolve, reject) =>
+    promise = new Ember.RSVP.Promise (resolve, reject) =>
       @ajax('POST', url, record.serialize()).done((data, status, jqxhr) ->
         if model.rootKey
           data = data[model.rootKey] || {}
@@ -73,3 +75,5 @@ SM.RESTAdapter = Ember.Object.extend
         resolve(record)
       ).fail (jqxhr) ->
         reject(jqxhr)
+    promise.value = record
+    promise
