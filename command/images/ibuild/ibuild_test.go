@@ -140,6 +140,7 @@ var _ = Describe("images/ibuild", func() {
 				code := doCmd(fpath)
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Built image"))
 				Expect(code).To(Equal(0))
+				Expect(srv.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
 
@@ -154,6 +155,7 @@ var _ = Describe("images/ibuild", func() {
 				code := doCmd(fpath)
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Built image"))
 				Expect(code).To(Equal(0))
+				Expect(srv.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
 
@@ -169,6 +171,7 @@ var _ = Describe("images/ibuild", func() {
 				code := cmd.Run([]string{"myhost", fpath, "--tag=UseThisName"})
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Built image"))
 				Expect(code).To(Equal(0))
+				Expect(srv.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
 
@@ -177,6 +180,7 @@ var _ = Describe("images/ibuild", func() {
 				code := doCmd("/tmp/nosuch")
 				Expect(ui.ErrorWriter.String()).To(ContainSubstring("no such file"))
 				Expect(code).To(Equal(1))
+				Expect(srv.ReceivedRequests()).To(HaveLen(0))
 			})
 		})
 
@@ -191,6 +195,7 @@ var _ = Describe("images/ibuild", func() {
 				code := doCmd(fpath)
 				Expect(ui.ErrorWriter.String()).To(Equal("image not found\n"))
 				Expect(code).To(Equal(1))
+				Expect(srv.ReceivedRequests()).To(HaveLen(1))
 			})
 		})
 	})
