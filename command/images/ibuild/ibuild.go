@@ -188,7 +188,7 @@ func isValidTar(r io.Reader) bool {
 		if err != nil {
 			return false
 		}
-		if hdr.Name == "Dockerfile" {
+		if hdr.Name == "Dockerfile" || hdr.Name == "./Dockerfile" {
 			return true
 		}
 	}

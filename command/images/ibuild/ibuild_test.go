@@ -2,6 +2,7 @@ package ibuild_test
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -214,6 +215,22 @@ var _ = Describe("images/ibuild", func() {
 		It("is true with valid tarfile", func() {
 			path := makeValidTar()
 			f, err := os.Open(path)
+			Expect(err).To(BeNil())
+			defer f.Close()
+			Expect(ibuild.IsValidTar(f)).To(BeTrue())
+		})
+
+		It("is true with valid tarfile that contains a './Dockerfile' in the archive root", func() {
+			tarpath := path.Join(tmpdir, "valid.tar")
+			// Create a tarball using "tar cf file.tar ./*".
+			// This results in a tarball listing with name "./Dockerfile"
+			makeDockerfile(path.Join(tmpdir, "Dockerfile"))
+			cmd := exec.Command("sh", "-c", fmt.Sprintf("tar cf %s ./*", tarpath))
+			cmd.Dir = tmpdir
+			err := cmd.Run()
+			Expect(err).To(BeNil())
+
+			f, err := os.Open(tarpath)
 			Expect(err).To(BeNil())
 			defer f.Close()
 			Expect(ibuild.IsValidTar(f)).To(BeTrue())
