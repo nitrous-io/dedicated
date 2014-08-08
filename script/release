@@ -1,15 +1,65 @@
-#/bin/bash
+#!/bin/bash
 set -e
-RELEASE_DIR=release
-BUILD_DIR=./build
-TIMESTAMP=$(date +"%Y%d%m%H%M%S")
 
-latest_commit() {
-        local commit=$(git rev-parse --short HEAD)
-        echo $commit
-}
+APP=${1:?"app name is required"}
+VERSION=${2:?"version is required"}
+ARTIFACT_DIR=/tmp/$APP/$VERSION
 
-COMMIT=$(latest_commit)
+PACKAGE_NAME=$APP
+PACKAGE_COMPONENTS="nitrousd dbseed"
+PACKAGE_VERSION=$VERSION
+PACKAGE_ARCHITECTURE="$(dpkg-architecture -qDEB_HOST_ARCH)"
+PACKAGE_MAINTAINER="eng@nitrous.io"
+PACKAGE_DESCRIPTION="Nitrous.IO, Baby"
+PACKAGE_LICENSE="All Rights Reserved - Irrational Industries d/b/a Nitrous.IO"
+PACKAGE_URL="nitrous.io"
 
-mkdir -p ./$RELEASE_DIR
-cd $BUILD_DIR && tar -cJf ../$RELEASE_DIR/nitrousd-$COMMIT-$TIMESTAMP.tar.xz .
+FILES=./files/$PACKAGE_NAME
+PKGDIR=$ARTIFACT_DIR
+
+mkdir -p $PKGDIR/opt/$APP
+
+# setup app base directory, and install compiled app components
+for C in $PACKAGE_COMPONENTS; do
+  install -m 0755 -D $ARTIFACT_DIR/$C $PKGDIR/opt/$APP/$C
+done
+
+cp -axr $ARTIFACT_DIR/public $PKGDIR/opt/$APP/public
+
+# install control files over to $PKDIR, for when directory context changes
+install -m 0644 -D $FILES/control/preinst $PKGDIR/$FILES/control/preinst
+install -m 0644 -D $FILES/control/postinst $PKGDIR/$FILES/control/postinst
+install -m 0644 -D $FILES/control/prerm $PKGDIR/$FILES/control/prerm
+install -m 0644 -D $FILES/control/postrm $PKGDIR/$FILES/control/postrm
+
+# install nitrousd upstart config
+install -m 0644 -D $FILES/data/etc/init/nitrousd.conf $PKGDIR/etc/init/nitrousd.conf
+
+# install nitrousd env via /etc/default
+install -m 0644 -D $FILES/data/etc/default/nitrousd $PKGDIR/etc/default/nitrousd
+
+cd $PKGDIR
+
+fpm \
+  -s dir \
+  --name $PACKAGE_NAME \
+  --version $PACKAGE_VERSION \
+  --architecture "$PACKAGE_ARCHITECTURE" \
+  --prefix / \
+  --description "$PACKAGE_DESCRIPTION" \
+  --maintainer "$PACKAGE_MAINTAINER" \
+  --provides $PACKAGE_NAME \
+  --replaces $PACKAGE_NAME \
+  --before-install $FILES/control/preinst \
+  --after-install $FILES/control/postinst \
+  --before-remove $FILES/control/prerm \
+  --after-remove $FILES/control/postrm \
+  --config-files /etc/init/nitrousd.conf \
+  --config-files /etc/default/nitrousd \
+  --license "$PACKAGE_LICENSE" \
+  --url "$PACKAGE_URL" \
+  --deb-compression gz \
+  -t deb .
+
+# cleanup
+rm -rf $PKGDIR/{etc,opt,files}

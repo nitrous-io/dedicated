@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+APP=${1:?"app name is needed"}
+VERSION=${2:?"version is needed"}
+ARTIFACT_DIR=/tmp/$APP/$VERSION
+
+rm -rf $ARTIFACT_DIR
+mkdir -p $ARTIFACT_DIR
+
+docker run \
+  --rm=true \
+  --volume $ARTIFACT_DIR:$ARTIFACT_DIR \
+  --volume $(readlink -f $SSH_AUTH_SOCK):/ssh-agent \
+  -e SSH_AUTH_SOCK=/ssh-agent \
+  nitrous:$VERSION ./script/docker-build $APP $VERSION

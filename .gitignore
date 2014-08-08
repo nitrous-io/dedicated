@@ -1,6 +1,10 @@
 .vendor
 *.sqlite3
 
+# ssh keys
+id_rsa
+.github_rsa
+
 # Rails
 rails/.bundle/
 rails/db/*.sqlite3

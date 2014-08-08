@@ -29,15 +29,16 @@ RUN /usr/local/go/bin/go get github.com/nitrous-io/goop
 RUN /usr/local/ruby/2.1.2/bin/gem install bundle
 
 RUN mkdir -p /opt/src/github.com/nitrous-io/nitrous
+
+ADD util/ssh_config /etc/ssh/ssh_config
 ADD . /opt/src/github.com/nitrous-io/nitrous
 
 RUN /etc/init.d/postgresql start &&\
     su postgres -c "psql -c \"CREATE ROLE "$(whoami)" NOSUPERUSER CREATEDB NOCREATEROLE INHERIT LOGIN;\""
 
 WORKDIR /opt/src/github.com/nitrous-io/nitrous
-ADD util/ssh_config /etc/ssh/ssh_config
+
 RUN cp .env-example .env
 
 RUN /etc/init.d/postgresql start &&\
     make createdb
-
