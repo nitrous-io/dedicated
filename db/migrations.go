@@ -254,7 +254,7 @@ func init() {
 		{
 			Version: "190",
 			Up: `
-			    CREATE TABLE container_volumes (
+				CREATE TABLE container_volumes (
 					id bigserial PRIMARY KEY NOT NULL,
 					container_id bigint REFERENCES containers(id) NOT NULL,
 					volume_id bigint REFERENCES volumes(id) NOT NULL,
@@ -267,6 +267,12 @@ func init() {
 			Version: "200",
 			Up: `
 				ALTER TABLE containers DROP COLUMN ip_address;
+			`,
+		},
+		{
+			Version: "210",
+			Up: `
+				DROP TABLE certs;
 			`,
 		},
 	}
