@@ -38,10 +38,7 @@ func (st *ServerTest) Setup() (*ServerTest, error) {
 		return nil, err
 	}
 	host := freighterclient.NewHost(ip, port, "example.com")
-	client, err := freighterclient.NewClient(host)
-	if err != nil {
-		return nil, err
-	}
+	client := freighterclient.NewClient(host)
 
 	st.host = host
 	st.client = client

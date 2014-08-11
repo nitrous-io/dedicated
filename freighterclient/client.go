@@ -171,10 +171,10 @@ type client struct {
 
 // NewClient returns a new Freighter API Client that can be used to communicate
 // with a freighterd instance on a host
-func NewClient(host *Host) (Client, error) {
+func NewClient(host *Host) Client {
 	cl := &http.Client{}
 
-	return &client{host: host, Client: cl}, nil
+	return &client{host: host, Client: cl}
 }
 
 // List makes an API request to a given Freighter Host and returns a list of
