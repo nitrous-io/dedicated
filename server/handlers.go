@@ -13,13 +13,20 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/freighter/pkg/flusher"
 	"github.com/nitrous-io/freighter/pkg/shell"
 	"github.com/nitrous-io/freighter/pkg/stats"
+	"github.com/nitrous-io/freighter/pkg/wsconn"
 	"github.com/nitrous-io/freighter/provider"
 )
 
 const StatusUnprocessableEntity = 422
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, http.StatusOK, jsonStatusOK)
@@ -333,6 +340,27 @@ func (s *Server) attachShell(w http.ResponseWriter, r *http.Request) error {
 	}()
 
 	<-shell.Attach(stdin, stdout)
+	return nil
+}
+
+func (s *Server) wsAttachShell(w http.ResponseWriter, r *http.Request) error {
+	shellID := mux.Vars(r)["id"]
+	shell, ok := s.shells[shellID]
+	if !ok {
+		return fmt.Errorf("Invalid shell %v", shellID)
+	}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return fmt.Errorf("failed to upgrade websocket: %v", err)
+	}
+	stream := wsconn.NewConnection(conn)
+
+	defer func() {
+		stream.Close()
+	}()
+
+	<-shell.Attach(stream, stream)
 	return nil
 }
 
