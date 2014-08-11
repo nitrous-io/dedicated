@@ -37,10 +37,7 @@ var NewFreighterClient = func(db db.QueryReceiver, h *host.Host) (*FreighterClie
 		int(h.FreighterdPort.Int64),
 		h.Hostname(),
 	)
-	cl, err := fc.NewClient(hst)
-	if err != nil {
-		return nil, err
-	}
+	cl := fc.NewClient(hst)
 	return &FreighterClient{
 		Client: cl,
 	}, nil
