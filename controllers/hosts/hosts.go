@@ -23,7 +23,6 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 	"github.com/nitrous-io/nitrous/serializers"
-	"github.com/nitrous-io/sslider/sslgen"
 )
 
 var (
@@ -72,7 +71,7 @@ func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *
 
 	hostsResp := make([]*serializers.Host, len(hosts))
 	for i, h := range hosts {
-		hostsResp[i] = serializers.SerializeHost(&h, nil, nil)
+		hostsResp[i] = serializers.SerializeHost(&h, nil)
 	}
 
 	env.Status = http.StatusOK
@@ -170,11 +169,6 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return err
 	}
 
-	crt, err := generateCerts(h.Hostname())
-	if err != nil {
-		return err
-	}
-
 	// generate hostbuilder config
 	config := hostbuilderclient.Config{}
 	for k, v := range pt.Config.Map {
@@ -186,11 +180,6 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	}
 	config["name"] = slug
 	config["public_keys"] = []string{string(pubkey)}
-	config["tls"] = map[string]string{
-		"ca":   crt.CA,
-		"cert": crt.ServerCert,
-		"key":  crt.ServerKey,
-	}
 
 	info, err := HostbuilderClient.Create(pt.Provider, &config)
 	if err != nil {
@@ -220,12 +209,6 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return err
 	}
 
-	// create the cert
-	if err := crt.Insert(tx, h.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-
 	if err := tx.Commit(); err != nil {
 		return err
 	}
@@ -233,7 +216,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"status": "created",
-		"host":   serializers.SerializeHost(h, nil, crt),
+		"host":   serializers.SerializeHost(h, nil),
 	}
 	return nil
 }
@@ -256,7 +239,7 @@ func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h, info, nil),
+		"host": serializers.SerializeHost(h, info),
 	}
 	return nil
 }
@@ -295,7 +278,7 @@ func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h, nil, nil),
+		"host": serializers.SerializeHost(h, nil),
 	}
 	return nil
 }
@@ -401,47 +384,4 @@ func generateKey() (priv *rsa.PrivateKey, pub []byte, err error) {
 		return nil, nil, err
 	}
 	return priv, pub, nil
-}
-
-// generate a certificate that include the certificate authority, server
-// certificate and key, client certificate and key. The data will be suitable
-// for TLS authentication
-func generateCerts(hostname string) (*cert.Cert, error) {
-	// generate certificate authority
-	ca, err := sslgen.CreateCA(hostname)
-	if err != nil {
-		return nil, err
-	}
-	_, caCrt, err := ca.Generate()
-	if err != nil {
-		return nil, err
-	}
-
-	// generate server certificates
-	srv, err := sslgen.CreateServerCert(hostname, ca.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	srvKey, srvCrt, err := srv.Generate()
-	if err != nil {
-		return nil, err
-	}
-
-	// generate client certificates
-	cl, err := sslgen.CreateClientCert(hostname, ca.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	clKey, clCrt, err := cl.Generate()
-	if err != nil {
-		return nil, err
-	}
-
-	return &cert.Cert{
-		CA:         string(caCrt),
-		ServerCert: string(srvCrt),
-		ServerKey:  string(srvKey),
-		ClientCert: string(clCrt),
-		ClientKey:  string(clKey),
-	}, nil
 }

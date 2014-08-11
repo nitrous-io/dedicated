@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/nitrous-io/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 )
 
@@ -20,11 +19,6 @@ type Host struct {
 	Size           string `json:"size"`
 	State          string `json:"state"`
 
-	// tls authentication settings for a client
-	CA   string `json:"ca,omitempty"`
-	Cert string `json:"cert,omitempty"`
-	Key  string `json:"key,omitempty"`
-
 	Stats *HostInfo `json:"stats,omitempty"`
 
 	CreatedAt    *time.Time `json:"created_at"`
@@ -32,7 +26,7 @@ type Host struct {
 	TerminatedAt *time.Time `json:"terminated_at,omitempty"`
 }
 
-func SerializeHost(h *host.Host, info *freighterclient.HostInfo, cert *cert.Cert) *Host {
+func SerializeHost(h *host.Host, info *freighterclient.HostInfo) *Host {
 	if h == nil {
 		return nil
 	}
@@ -50,11 +44,6 @@ func SerializeHost(h *host.Host, info *freighterclient.HostInfo, cert *cert.Cert
 		CreatedAt:      h.CreatedAt,
 		UpdatedAt:      h.UpdatedAt,
 		TerminatedAt:   h.TerminatedAt,
-	}
-	if cert != nil {
-		ret.CA = cert.CA
-		ret.Cert = cert.ClientCert
-		ret.Key = cert.ClientKey
 	}
 	if info != nil {
 		ret.Stats = SerializeHostInfo(info)

@@ -4,7 +4,6 @@ import (
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 )
 
@@ -16,13 +15,8 @@ var actualClient = controllers.NewFreighterClient
 // have a valid host with proper cert.
 func StubDefaultFreighterFn(cl freighterclient.Client) {
 	fn := func(db db.QueryReceiver, h *host.Host) (*controllers.FreighterClient, error) {
-		crt, err := cert.Get(db, h.ID)
-		if err != nil {
-			return nil, err
-		}
 		return &controllers.FreighterClient{
 			Client: cl,
-			Cert:   crt,
 		}, nil
 	}
 	StubFreighterFn(fn)

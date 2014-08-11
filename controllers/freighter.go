@@ -5,7 +5,6 @@ import (
 
 	fc "github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
@@ -22,7 +21,6 @@ var (
 // certificate for HTTPS connection
 type FreighterClient struct {
 	fc.Client
-	Cert *cert.Cert
 }
 
 // NewFreighterClient returns a client that is able to communicate with a
@@ -34,17 +32,10 @@ var NewFreighterClient = func(db db.QueryReceiver, h *host.Host) (*FreighterClie
 	if h.State != host.StateRunning {
 		return nil, ErrHostNotRunning
 	}
-	crt, err := cert.Get(db, h.ID)
-	if err != nil {
-		return nil, err
-	}
 	hst := fc.NewHost(
 		h.IPAddress.String,
 		int(h.FreighterdPort.Int64),
 		h.Hostname(),
-		[]byte(crt.CA),
-		[]byte(crt.ClientCert),
-		[]byte(crt.ClientKey),
 	)
 	cl, err := fc.NewClient(hst)
 	if err != nil {
@@ -52,6 +43,5 @@ var NewFreighterClient = func(db db.QueryReceiver, h *host.Host) (*FreighterClie
 	}
 	return &FreighterClient{
 		Client: cl,
-		Cert:   crt,
 	}, nil
 }
