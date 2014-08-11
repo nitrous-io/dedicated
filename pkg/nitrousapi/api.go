@@ -1,8 +1,6 @@
 package nitrousapi
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -20,7 +18,8 @@ type ContainerAPI struct {
 	IPAddress string `json:"ip_address"`
 	State     string `json:"state"`
 
-	Host HostAPI `json:"host"`
+	HostID int64 `json:"host_id"`
+	Host   *HostAPI
 }
 
 type HostAPI struct {
@@ -29,14 +28,6 @@ type HostAPI struct {
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort int64  `json:"freighterd_port"`
 	Domain         string `json:"domain"`
-
-	CA   string `json:"ca"`
-	Cert string `json:"cert"`
-	Key  string `json:"key"`
-}
-
-type containerResp struct {
-	Container *ContainerAPI `json:"container"`
 }
 
 func GetContainer(client *httpclient.Client, server, slug string) (*ContainerAPI, error) {
@@ -50,27 +41,33 @@ func GetContainer(client *httpclient.Client, server, slug string) (*ContainerAPI
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Failed to find container %s", slug)
 	}
+	type containerResp struct {
+		Container *ContainerAPI `json:"container"`
+	}
 
 	cr := &containerResp{}
 	if err := json.NewDecoder(resp.Body).Decode(cr); err != nil {
 		return nil, err
 	}
-	return cr.Container, nil
-}
 
-// TLSConfig returns a tls configuration generated from api response that is
-// valid for establishing HTTPS connection with the dedicated host
-func TLSConfig(h HostAPI) (*tls.Config, error) {
-	crt, err := tls.X509KeyPair([]byte(h.Cert), []byte(h.Key))
+	hostEndpoint := fmt.Sprintf("%s/api/v0/hosts/%d", server, cr.Container.HostID)
+	resp, err = client.GetAuthed(hostEndpoint, nil)
 	if err != nil {
 		return nil, err
 	}
-	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM([]byte(h.CA))
-	tlsConfig := &tls.Config{
-		ServerName:   h.Domain,
-		RootCAs:      certPool,
-		Certificates: []tls.Certificate{crt},
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Failed to find host for container %s", slug)
 	}
-	return tlsConfig, nil
+
+	type hostResp struct {
+		Host *HostAPI `json:"host"`
+	}
+	h := &hostResp{}
+	if err := json.NewDecoder(resp.Body).Decode(h); err != nil {
+		return nil, err
+	}
+	cr.Container.Host = h.Host
+
+	return cr.Container, nil
 }

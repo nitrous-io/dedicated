@@ -1,7 +1,6 @@
 package httpshell
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
 )
@@ -9,11 +8,10 @@ import (
 // Run executes a remote command inside a container in a specific host
 func Run(
 	host, container, command string,
-	tlsConfig *tls.Config,
 	fd uintptr,
 	stdin io.Reader, stdout io.Writer,
 ) error {
-	s, err := NewHTTPShell(host, container, command, tlsConfig)
+	s, err := NewHTTPShell(host, container, command)
 	if err != nil {
 		return fmt.Errorf("failed to create a http shell")
 	}

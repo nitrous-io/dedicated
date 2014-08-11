@@ -36,7 +36,8 @@ var _ = Describe("Command", func() {
 
 	It("attaches to the container", func() {
 		containerID := "container-slug"
-		ns := newNitrousServer(containerID)
+		hostID := 1
+		ns := newNitrousServer(containerID, int64(hostID))
 		defer ns.Close()
 
 		stdin, stdout, _ := pty.Open()
@@ -68,22 +69,27 @@ type nitrousServer struct {
 	srv         *httptest.Server
 	ts          *testServer
 	containerID string
+	hostID      int64
 }
 
-func (s *nitrousServer) getContainer(w http.ResponseWriter, r *http.Request) {
+func (s *nitrousServer) getHost(w http.ResponseWriter, r *http.Request) {
 	addr := s.ts.srv.Listener.Addr().String()
 	host, port, _ := net.SplitHostPort(addr)
 	portInt, _ := strconv.ParseInt(port, 10, 64)
 	resp := map[string]interface{}{
-		"CID": s.containerID,
-		"host": map[string]interface{}{
-			"ip_address":      host,
-			"freighterd_port": portInt,
-			"domain":          "example.com",
-			"ca":              localhostCert,
-			"cert":            localhostCert,
-			"key":             localhostKey,
-		},
+		"ip_address":      host,
+		"freighterd_port": portInt,
+		"domain":          "example.com",
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"host": resp,
+	})
+}
+
+func (s *nitrousServer) getContainer(w http.ResponseWriter, r *http.Request) {
+	resp := map[string]interface{}{
+		"CID":     s.containerID,
+		"host_id": s.hostID,
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"container": resp,
@@ -96,14 +102,16 @@ func (s *nitrousServer) Close() {
 	s.srv.Close()
 }
 
-func newNitrousServer(containerID string) *nitrousServer {
+func newNitrousServer(containerID string, hostID int64) *nitrousServer {
 	ts := newTestServer(containerID)
 	s := &nitrousServer{
 		ts:          ts,
 		containerID: containerID,
+		hostID:      hostID,
 	}
 	r := mux.NewRouter()
 	r.HandleFunc("/api/v0/containers/"+containerID, s.getContainer).Methods("GET")
+	r.HandleFunc("/api/v0/hosts/"+fmt.Sprintf("%d", hostID), s.getHost).Methods("GET")
 	srv := httptest.NewServer(r)
 	s.srv = srv
 	return s
@@ -142,7 +150,7 @@ func newTestServer(containerID string) *testServer {
 	r := mux.NewRouter()
 	r.HandleFunc("/containers/{id}/attach", s.attachToContainer).Methods("POST")
 
-	srv := httptest.NewTLSServer(r)
+	srv := httptest.NewServer(r)
 	s.srv = srv
 	return s
 }
@@ -156,34 +164,3 @@ func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
 	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.containerd.raw-stream\r\n\r\n")
 	return conn, conn, nil
 }
-
-// These certs are the same as the certs embeded with net/http/httptest.
-// If there's mismatched certs error, look at net/http/httptest/server.go to
-// check if the cert has changed.
-//
-// localhostCert is a PEM-encoded TLS cert with SAN IPs
-// "127.0.0.1" and "[::1]", expiring at the last second of 2049 (the end
-// of ASN.1 time).
-// generated from src/pkg/crypto/tls:
-// go run generate_cert.go  --rsa-bits 512 --host 127.0.0.1,::1,example.com --ca --start-date "Jan 1 00:00:00 1970" --duration=1000000h
-var localhostCert = `-----BEGIN CERTIFICATE-----
-MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwEjEQMA4GA1UEChMHQWNtZSBD
-bzAeFw03MDAxMDEwMDAwMDBaFw00OTEyMzEyMzU5NTlaMBIxEDAOBgNVBAoTB0Fj
-bWUgQ28wWjALBgkqhkiG9w0BAQEDSwAwSAJBAN55NcYKZeInyTuhcCwFMhDHCmwa
-IUSdtXdcbItRB/yfXGBhiex00IaLXQnSU+QZPRZWYqeTEbFSgihqi1PUDy8CAwEA
-AaNoMGYwDgYDVR0PAQH/BAQDAgCkMBMGA1UdJQQMMAoGCCsGAQUFBwMBMA8GA1Ud
-EwEB/wQFMAMBAf8wLgYDVR0RBCcwJYILZXhhbXBsZS5jb22HBH8AAAGHEAAAAAAA
-AAAAAAAAAAAAAAEwCwYJKoZIhvcNAQEFA0EAAoQn/ytgqpiLcZu9XKbCJsJcvkgk
-Se6AbGXgSlq+ZCEVo0qIwSgeBqmsJxUu7NCSOwVJLYNEBO2DtIxoYVk+MA==
------END CERTIFICATE-----`
-
-// localhostKey is the private key for localhostCert.
-var localhostKey = `-----BEGIN RSA PRIVATE KEY-----
-MIIBPAIBAAJBAN55NcYKZeInyTuhcCwFMhDHCmwaIUSdtXdcbItRB/yfXGBhiex0
-0IaLXQnSU+QZPRZWYqeTEbFSgihqi1PUDy8CAwEAAQJBAQdUx66rfh8sYsgfdcvV
-NoafYpnEcB5s4m/vSVe6SU7dCK6eYec9f9wpT353ljhDUHq3EbmE4foNzJngh35d
-AekCIQDhRQG5Li0Wj8TM4obOnnXUXf1jRv0UkzE9AHWLG5q3AwIhAPzSjpYUDjVW
-MCUXgckTpKCuGwbJk7424Nb8bLzf3kllAiA5mUBgjfr/WtFSJdWcPQ4Zt9KTMNKD
-EUO0ukpTwEIl6wIhAMbGqZK3zAAFdq8DD2jPx+UJXnh0rnOkZBzDtJ6/iN69AiEA
-1Aq8MJgTaYsDQWyU/hDq5YkDJc9e9DSCvUIzqxQWMQE=
------END RSA PRIVATE KEY-----`

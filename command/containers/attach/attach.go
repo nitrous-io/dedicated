@@ -1,9 +1,9 @@
 package attach
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -66,13 +66,8 @@ func (c *Command) Run(args []string) int {
 	}
 
 	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
-	tlsConfig, err := nitrousapi.TLSConfig(cr.Host)
-	if err != nil {
-		c.UI.Error(fmt.Sprintf("Invalid HTTPS configuration %v", err))
-		return 1
-	}
 
-	err = c.attach(host, cr.CID, tlsConfig, c.UI.Writer)
+	err = c.attach(host, cr.CID, c.UI.Writer)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
@@ -88,8 +83,8 @@ func (c *Command) Synopsis() string {
 	return "Attach to a running container."
 }
 
-func (c *Command) attach(host string, containerID string, tlsConfig *tls.Config, stdout io.Writer) error {
-	dial, err := tls.Dial("tcp", host, tlsConfig)
+func (c *Command) attach(host string, containerID string, stdout io.Writer) error {
+	dial, err := net.Dial("tcp", host)
 	if err != nil {
 		return fmt.Errorf("Can't connect to %s", host)
 	}
