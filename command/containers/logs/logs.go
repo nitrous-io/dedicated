@@ -91,9 +91,6 @@ func (c *Command) Run(args []string) int {
 		cr.Host.IPAddress,
 		int(cr.Host.FreighterdPort),
 		cr.Host.Domain,
-		[]byte(cr.Host.CA),
-		[]byte(cr.Host.Cert),
-		[]byte(cr.Host.Key),
 	)
 	client, err := freighterclient.NewClient(host)
 	if err != nil {
