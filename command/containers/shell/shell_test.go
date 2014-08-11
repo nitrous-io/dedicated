@@ -129,8 +129,8 @@ func newNitrousServer(containerID, shellID string, hostID int64) *nitrousServer 
 		hostID:      hostID,
 	}
 	r := mux.NewRouter()
-	r.HandleFunc("/api/v0/containers/"+containerID, s.getContainer).Methods("GET")
-	r.HandleFunc("/api/v0/hosts/"+fmt.Sprintf("%d", hostID), s.getHost).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/api/v0/containers/%s", containerID), s.getContainer).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/api/v0/hosts/%d", hostID), s.getHost).Methods("GET")
 	srv := httptest.NewServer(r)
 	s.srv = srv
 	return s

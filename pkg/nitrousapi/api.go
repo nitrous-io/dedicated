@@ -30,14 +30,6 @@ type HostAPI struct {
 	Domain         string `json:"domain"`
 }
 
-type containerResp struct {
-	Container *ContainerAPI `json:"container"`
-}
-
-type hostResp struct {
-	Host *HostAPI `json:"host"`
-}
-
 func GetContainer(client *httpclient.Client, server, slug string) (*ContainerAPI, error) {
 	// get container data
 	endpoint := fmt.Sprintf("%s/api/v0/containers/%s", server, slug)
@@ -48,6 +40,9 @@ func GetContainer(client *httpclient.Client, server, slug string) (*ContainerAPI
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Failed to find container %s", slug)
+	}
+	type containerResp struct {
+		Container *ContainerAPI `json:"container"`
 	}
 
 	cr := &containerResp{}
@@ -63,6 +58,10 @@ func GetContainer(client *httpclient.Client, server, slug string) (*ContainerAPI
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Failed to find host for container %s", slug)
+	}
+
+	type hostResp struct {
+		Host *HostAPI `json:"host"`
 	}
 	h := &hostResp{}
 	if err := json.NewDecoder(resp.Body).Decode(h); err != nil {
