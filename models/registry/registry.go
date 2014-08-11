@@ -8,21 +8,21 @@ import (
 )
 
 type Registry struct {
-	ID        int64      `db:"id" json:"id"`
-	UserID    int64      `db:"user_id" json:"-"`
-	HostID    int64      `db:"host_id" json:"host_id"`
-	URL       string     `db:"url" json:"url"`
-	Username  string     `db:"username" json:"username"`
-	Email     string     `db:"email" json:"email"`
-	CreatedAt *time.Time `db:"created_at" json:"-"`
-	UpdatedAt *time.Time `db:"updated_at" json:"-"`
+	ID        int64      `db:"id"`
+	UserID    int64      `db:"user_id"`
+	HostID    int64      `db:"host_id"`
+	URL       string     `db:"url"`
+	Username  string     `db:"username"`
+	Email     string     `db:"email"`
+	CreatedAt *time.Time `db:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at"`
 }
 
-func FindAllByUserIDAndHostID(db *db.Database, userID int64, hostID int64) ([]Registry, error) {
-	registries := []Registry{}
+func FindAllByUserIDAndHostID(db *db.Database, userID int64, hostID int64) ([]*Registry, error) {
+	registries := []*Registry{}
 	err := db.Select(&registries, "SELECT * FROM registries WHERE user_id = $1 AND host_id = $2 ORDER BY created_at", userID, hostID)
 	if err != nil {
-		return []Registry{}, err
+		return []*Registry{}, err
 	}
 	return registries, nil
 }

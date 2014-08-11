@@ -9,6 +9,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/registry"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
+	"github.com/nitrous-io/nitrous/serializers"
 )
 
 var (
@@ -27,16 +28,14 @@ var (
 )
 
 func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-
-	registries, err := registry.FindAllByUserIDAndHostID(db, env.User.ID, h.ID)
+	registries, err := registry.FindAllByUserIDAndHostID(c.DB(), env.User.ID, h.ID)
 	if err != nil {
 		return err
 	}
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"registries": registries,
+		"registries": serializers.SerializeRegistries(registries),
 	}
 	return nil
 }
