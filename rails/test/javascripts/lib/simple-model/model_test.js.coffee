@@ -180,18 +180,21 @@ describe 'SM.Model', ->
         expect(data.extra).not.to.be.defined 'extra is not deserialized'
 
     describe '#load', ->
-      it 'deserializes and loads data', ->
+      it 'deserializes and loads data and sets loaded to true', ->
+        expect(model.get 'loaded').to.be.false 'before load, loaded is false'
         model.load
+          id: 123
           first_name: 'Foo'
           last_name: 'Bar'
           bio: 'foobar!!!'
           age: 20
           born_at: '2014-07-28T00:00:00.000Z'
-        expect(model.get 'firstName').to.equal 'Foo', 'first_name is correctly deserialized'
-        expect(model.get 'lastName').to.equal 'Bar', 'last_name is correctly deserialized'
-        expect(model.get 'bio').to.equal 'foobar!!!', 'bio is correctly deserialized'
-        expect(model.get 'age').to.equal 20, 'age is correctly deserialized'
-        expect(model.get('bornAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 28)), 'born_at is correctly deserialized'
+        expect(model.get 'loaded').to.be.true 'after load, loaded is true'
+        expect(model.get 'firstName').to.equal 'Foo', 'first_name is correctly loaded'
+        expect(model.get 'lastName').to.equal 'Bar', 'last_name is correctly loaded'
+        expect(model.get 'bio').to.equal 'foobar!!!', 'bio is correctly loaded'
+        expect(model.get 'age').to.equal 20, 'age is correctly loaded'
+        expect(model.get('bornAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 28)), 'born_at is correctly loaded'
         expect(model.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 28)), 'createdAt is not updated (missing)'
 
       context 'when the data contains primary key', ->
@@ -206,3 +209,21 @@ describe 'SM.Model', ->
             TestModel.create(id: 123)._saveToCache()
             model.load(id: 123)
             expect(TestModel._findInCache(123)).not.to.equal model, 'the record in the cache is not overwritten'
+
+      context 'when deserialize option is false', ->
+        it 'loads the data without deserializing', ->
+          expect(model.get 'loaded').to.be.false 'before load, loaded is false'
+          model.load(
+            firstName: 'Foo'
+            lastName: 'Bar'
+            bio: 'foobar!!!'
+            age: 20
+            bornAt: new Date(Date.UTC(2014, 6, 28))
+          , deserialize: false)
+          expect(model.get 'loaded').to.be.true 'after load, loaded is true'
+          expect(model.get 'firstName').to.equal 'Foo', 'first_name is correctly loaded'
+          expect(model.get 'lastName').to.equal 'Bar', 'last_name is correctly loaded'
+          expect(model.get 'bio').to.equal 'foobar!!!', 'bio is correctly loaded'
+          expect(model.get 'age').to.equal 20, 'age is correctly loaded'
+          expect(model.get('bornAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 28)), 'born_at is correctly loaded'
+          expect(model.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 28)), 'createdAt is not updated (missing)'

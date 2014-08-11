@@ -2,6 +2,7 @@
 
 SM.Model = klass = Ember.Object.extend
   _data: null
+  loaded: false
 
   serialize: ->
     attrs = Ember.get @constructor, '_attrs'
@@ -15,8 +16,11 @@ SM.Model = klass = Ember.Object.extend
           serialized[@constructor._getKey(key)] = val
     serialized
 
-  load: (data) ->
-    @setProperties(@constructor.deserialize(data))
+  load: (data, options={}) ->
+    unless options.deserialize? && options.deserialize == false
+      data = @constructor.deserialize(data)
+    @setProperties(data)
+    @set 'loaded', true
     @_saveToCache()
 
   getPrimaryKey: ->
