@@ -13,7 +13,6 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/keypairs"
@@ -265,10 +264,6 @@ func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 		return err
 	}
 	if err = keypairs.Delete(tx, h.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := cert.Delete(tx, h.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
