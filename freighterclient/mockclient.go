@@ -15,6 +15,10 @@ type MockClient struct {
 	CreateError      error
 	CreatedContainer *Container
 
+	CommitCalled int
+	CommitImage  *Image
+	CommitError  error
+
 	InfoCalled int
 	InfoError  error
 
@@ -115,6 +119,13 @@ func (c *MockClient) Create(name, image string, config *ContainerConfig) (*Conta
 	c.ReceivedImage = image
 	c.ReceivedConfig = config
 	return c.CreatedContainer, c.CreateError
+}
+
+func (c *MockClient) Commit(id, imageName string) (*Image, error) {
+	c.CommitCalled += 1
+	c.ReceivedID = id
+	c.ReceivedName = imageName
+	return c.CommitImage, c.CommitError
 }
 
 func (c *MockClient) Info(id string) (*Container, error) {

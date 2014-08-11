@@ -132,6 +132,7 @@ func (s *Server) drawRoutes() {
 	s.route("/containers", s.createContainer, "POST")
 	s.route("/containers/{id}", s.getContainerInfo, "GET")
 	s.route("/containers/{id}", s.terminateContainer, "DELETE")
+	s.route("/containers/{id}/commit", s.commitContainer, "POST")
 	s.route("/containers/{id}/start", s.startContainer, "POST")
 	s.route("/containers/{id}/stop", s.stopContainer, "POST")
 	s.route("/containers/{id}/restart", s.restartContainer, "POST")
