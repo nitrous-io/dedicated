@@ -7,7 +7,7 @@ App.Router.map ->
     @resource 'containers', ->
       @route 'new'
 
-    @resource 'container', path: '/containers/:container_id', ->
+    @resource 'container', path: '/containers/:containerSlug', ->
       @route 'keys'
       @route 'keys-new', path: '/keys/new'
       @route 'terminal'
@@ -15,7 +15,7 @@ App.Router.map ->
     @resource 'hosts', ->
       @route 'new'
 
-    @resource 'host', path: '/hosts/:host_id', ->
+    @resource 'host', path: '/hosts/:hostSlug', ->
       @route 'registries'
       @route 'registries-new', path: '/registries/new'
       @route 'volumes'

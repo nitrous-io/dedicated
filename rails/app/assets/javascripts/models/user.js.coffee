@@ -2,7 +2,7 @@
 attr = SM.attr
 
 App.User = klass = App.Model.extend
-  id: attr('number')
+  id: attr('number', serialize: false)
   username: attr()
   name: attr()
   email: attr()

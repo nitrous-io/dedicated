@@ -13,6 +13,9 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   token: null
   user: null
+  hosts: null
+  selectedHost: null
+  selectedContainer: null
 
   didChangeTitle: (->
     title = @get 'title'

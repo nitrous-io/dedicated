@@ -17,14 +17,14 @@
       td.usage 12.5, 27.3
 
     tr
-      th Region
-      td US West (sfo)
+      th
+      td
       th Memory (GB)
       td.usage 0.77 / 2.00
 
     tr
-      th Size
-      td Small
+      th
+      td
       th Storage (GB)
       td.usage 3.14 / 40.00
 

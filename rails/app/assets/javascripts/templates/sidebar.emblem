@@ -1,45 +1,15 @@
 ul.hosts
-  li
-    a href='#/hosts/1'
-      h3 Project X
-    ul.containers
-      li.selected
-        a href='#/containers/1'
-          h4 Web App
-          .state-indicator.running
-            span (Running)
-      li
-        a href='#'
-          h4 Postgres
-          .state-indicator.running
-            span (Running)
-      li
-        a href='#'
-          h4 Worker Server
-          .state-indicator.stopped
-            span (Stopped)
-
-  li
-    a href='#'
-      h3 Consulting
-    ul.containers
-      li
-        a href='#'
-          h4 Instaflyer
-          .state-indicator.running
-            span (Running)
-      li
-        a href='#'
-          h4 Burpper
-          .state-indicator.running
-            span (Running)
-      li
-        a href='#'
-          h4 Vikki
-          .state-indicator.stopped
-            span (Stopped)
-      li
-        a href='#'
-          h4 Yesterday's News
-          .state-indicator.terminated
-            span (Terminated)
+  = each host in model
+    li class={host.selected}
+      link-to 'host.index' host.slug
+        h3
+          = host.displayName
+      ul.containers
+        = each container in host.containers
+          li class={container.selected}
+            link-to 'container.index' container.slug
+              h4
+                = container.displayName
+              .state-indicator class={container.state} title={container.state}
+                span
+                  = container.state
