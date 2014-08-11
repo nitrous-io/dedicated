@@ -204,7 +204,7 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 	cn.CID = created.ID
 	cn.Image = created.Image
 	cn.State = created.State
-	cn.IPAddress = sql.NullString{created.Host, true}
+	cn.IPAddress = created.Host
 	err = cn.Update(db)
 	if err != nil {
 		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cn)
@@ -360,7 +360,7 @@ func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *
 	c.Image = fc.Image
 	c.Slug = dropNamespace(fc.Name)
 	c.State = fc.State
-	c.IPAddress = sql.NullString{fc.Host, true}
+	c.IPAddress = fc.Host
 	return c
 }
 
@@ -370,7 +370,7 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 		Image:     fc.Image,
 		Slug:      dropNamespace(fc.Name),
 		State:     fc.State,
-		IPAddress: sql.NullString{fc.Host, true},
+		IPAddress: fc.Host,
 		UserID:    h.UserID,
 		HostID:    h.ID,
 	}

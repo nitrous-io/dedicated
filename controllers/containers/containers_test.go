@@ -206,13 +206,12 @@ var _ = Describe("controllers/containers", func() {
 
 		BeforeEach(func() {
 			c = &container.Container{
-				CID:       "deadbeef",
-				Slug:      "dominant-intercooler-42",
-				IPAddress: sql.NullString{"1.2.3.4", true},
-				Image:     "nitrous-base",
-				UserID:    u.ID,
-				HostID:    hs.H.ID,
-				Name:      sql.NullString{"Rails app server", true},
+				CID:    "deadbeef",
+				Slug:   "dominant-intercooler-42",
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+				Name:   sql.NullString{"Rails app server", true},
 			}
 			err := c.Insert(db)
 			Expect(err).To(BeNil())
@@ -761,13 +760,12 @@ var _ = Describe("controllers/containers", func() {
 			token = "valid-token"
 
 			c = &container.Container{
-				CID:       "deadbeef",
-				Slug:      slug,
-				IPAddress: sql.NullString{"8.8.8.8", true},
-				Image:     "nitrous-base",
-				UserID:    u.ID,
-				HostID:    hs.H.ID,
-				Name:      sql.NullString{"Elixir server", true},
+				CID:    "deadbeef",
+				Slug:   slug,
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+				Name:   sql.NullString{"Elixir server", true},
 			}
 			err := c.Insert(db)
 			Expect(err).To(BeNil())
@@ -868,13 +866,12 @@ var _ = Describe("controllers/containers", func() {
 
 			BeforeEach(func() {
 				c = &container.Container{
-					CID:       "deadbeef",
-					Slug:      slug,
-					IPAddress: sql.NullString{"8.8.8.8", true},
-					Image:     "nitrous-base",
-					UserID:    u.ID,
-					HostID:    hs.H.ID,
-					Name:      sql.NullString{"Elixir server", true},
+					CID:    "deadbeef",
+					Slug:   slug,
+					Image:  "nitrous-base",
+					UserID: u.ID,
+					HostID: hs.H.ID,
+					Name:   sql.NullString{"Elixir server", true},
 				}
 				err := c.Insert(db)
 				Expect(err).To(BeNil())
@@ -1006,13 +1003,12 @@ var _ = Describe("controllers/containers", func() {
 			token = "valid-token"
 
 			c = &container.Container{
-				CID:       "deadbeef",
-				Slug:      slug,
-				IPAddress: sql.NullString{"8.8.8.8", true},
-				Image:     "nitrous-base",
-				UserID:    u.ID,
-				HostID:    hs.H.ID,
-				Name:      sql.NullString{"Elixir server", true},
+				CID:    "deadbeef",
+				Slug:   slug,
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+				Name:   sql.NullString{"Elixir server", true},
 			}
 			err := c.Insert(db)
 			Expect(err).To(BeNil())

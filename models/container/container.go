@@ -23,21 +23,21 @@ var (
 // FIXME add accompanying tables to lookup which users have access to a
 // container (e.g. collaborators, users in the same team/organization).
 type Container struct {
-	ID        int64          `db:"id"`
-	CID       string         `db:"cid"`
-	UserID    int64          `db:"user_id"`
-	HostID    int64          `db:"host_id"`
-	Image     string         `db:"image"`
-	Slug      string         `db:"slug"`
-	Name      sql.NullString `db:"name"`
-	IPAddress sql.NullString `db:"ip_address"`
+	ID     int64          `db:"id"`
+	CID    string         `db:"cid"`
+	UserID int64          `db:"user_id"`
+	HostID int64          `db:"host_id"`
+	Image  string         `db:"image"`
+	Slug   string         `db:"slug"`
+	Name   sql.NullString `db:"name"`
 
 	TerminatedAt *time.Time `db:"terminated_at"`
 	TouchedAt    *time.Time `db:"touched_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
 
-	State string
+	IPAddress string
+	State     string
 }
 
 func FindByUserAndSlug(d db.QueryReceiver, user *user.User, slug string) (*Container, error) {
@@ -80,8 +80,8 @@ func DeleteAllByHostID(d db.QueryReceiver, hostID int64) error {
 
 func (c *Container) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO containers
-		(cid, user_id, host_id, image, slug, name, ip_address)
-		VALUES (:cid, :user_id, :host_id, :image, :slug, :name, :ip_address)
+		(cid, user_id, host_id, image, slug, name)
+		VALUES (:cid, :user_id, :host_id, :image, :slug, :name)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -91,8 +91,8 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 
 func (c *Container) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE containers
-		SET (cid, slug, name, ip_address, touched_at, updated_at)
-		= (:cid, :slug, :name, :ip_address, :touched_at, now())
+		SET (cid, slug, name, touched_at, updated_at)
+		= (:cid, :slug, :name, :touched_at, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

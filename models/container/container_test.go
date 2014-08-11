@@ -309,7 +309,7 @@ var _ = Describe("models/container", func() {
 
 		It("updates the container in the database", func() {
 			c.Slug = "jboss"
-			c.IPAddress = sql.NullString{"1.2.3.4", true}
+			c.Name = sql.NullString{"JBoss Enterprise Server", true}
 			touchedAt := time.Date(2013, time.November, 10, 0, 0, 0, 0, time.UTC)
 			c.TouchedAt = &touchedAt
 			err := c.Update(db)
@@ -322,7 +322,7 @@ var _ = Describe("models/container", func() {
 
 			// Updated fields.
 			Expect(cntnr.Slug).To(Equal("jboss"))
-			Expect(cntnr.IPAddress.String).To(Equal("1.2.3.4"))
+			Expect(cntnr.Name.String).To(Equal("JBoss Enterprise Server"))
 			Expect(cntnr.TouchedAt.Unix()).To(Equal(touchedAt.Unix()))
 
 			// Unchanged fields.
