@@ -12,6 +12,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/publickey"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
+	"github.com/nitrous-io/nitrous/serializers"
 )
 
 var (
@@ -30,13 +31,8 @@ var (
 	DeleteByFingerprint middleware.Middleware = containers.WithContainerAndHost(deleteByFingerprint)
 )
 
-func index(cnr *container.Container, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-	u := env.User
-
-	keys := []publickey.PublicKey{}
-	keys, err := publickey.FindAllByUserIDAndContainerID(db, u.ID, cnr.ID)
-
+func index(cn *container.Container, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	keys, err := publickey.FindAllByUserIDAndContainerID(c.DB(), env.User.ID, cn.ID)
 	if err != nil {
 		return err
 	}
@@ -44,18 +40,18 @@ func index(cnr *container.Container, env *middleware.Env, c controllers.Helper, 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "ok",
-		"keys":   keys,
+		"keys":   serializers.SerializePublicKeys(keys),
 	}
 	return nil
 }
 
-func create(cnr *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func create(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
 	pk := publickey.PublicKey{
 		UserID:      u.ID,
-		ContainerID: cnr.ID,
+		ContainerID: cn.ID,
 		Key:         r.FormValue("keytext"),
 	}
 
@@ -84,7 +80,7 @@ func create(cnr *container.Container, h *host.Host, env *middleware.Env, c contr
 		if err != nil {
 			return err
 		}
-		err = cl.AddPublicKeys(cnr.CID, []string{pk.Key})
+		err = cl.AddPublicKeys(cn.CID, []string{pk.Key})
 		if err != nil {
 			tx.Rollback()
 			return freighterError(err)
@@ -103,7 +99,7 @@ func create(cnr *container.Container, h *host.Host, env *middleware.Env, c contr
 	return nil
 }
 
-func deleteAll(cnr *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func deleteAll(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
@@ -111,12 +107,12 @@ func deleteAll(cnr *container.Container, h *host.Host, env *middleware.Env, c co
 	if err != nil {
 		return err
 	}
-	err = cl.ClearPublicKeys(cnr.CID)
+	err = cl.ClearPublicKeys(cn.CID)
 	if err != nil {
 		return freighterError(err)
 	}
 
-	err = publickey.DestroyAllByUserIDAndContainerID(db, u.ID, cnr.ID)
+	err = publickey.DestroyAllByUserIDAndContainerID(db, u.ID, cn.ID)
 	if err != nil {
 		return err
 	}
@@ -128,13 +124,13 @@ func deleteAll(cnr *container.Container, h *host.Host, env *middleware.Env, c co
 	return nil
 }
 
-func deleteByFingerprint(cnr *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func deleteByFingerprint(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
 	u := env.User
 
 	fingerprint := env.Vars["md5_fingerprint"]
 
-	_, err := publickey.FindByUserIDAndContainerIDAndFingerprint(db, u.ID, cnr.ID, fingerprint)
+	_, err := publickey.FindByUserIDAndContainerIDAndFingerprint(db, u.ID, cn.ID, fingerprint)
 	if err != nil {
 		if err == publickey.ErrNotFound {
 			return ErrFingerprintNotFound
@@ -146,11 +142,11 @@ func deleteByFingerprint(cnr *container.Container, h *host.Host, env *middleware
 	if err != nil {
 		return err
 	}
-	err = cl.RemovePublicKey(cnr.CID, fingerprint)
+	err = cl.RemovePublicKey(cn.CID, fingerprint)
 	if err != nil {
 		return freighterError(err)
 	} else {
-		err = publickey.DestroyByUserIDAndContainerIDAndFingerprint(db, u.ID, cnr.ID, fingerprint)
+		err = publickey.DestroyByUserIDAndContainerIDAndFingerprint(db, u.ID, cn.ID, fingerprint)
 		if err != nil {
 			return err
 		}
@@ -163,21 +159,21 @@ func deleteByFingerprint(cnr *container.Container, h *host.Host, env *middleware
 	return nil
 }
 
-func withContainer(fn func(cnr *container.Container, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middleware.Middleware {
+func withContainer(fn func(cn *container.Container, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middleware.Middleware {
 	return middleware.Vars(func(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		db := c.DB()
 		u := env.User
 
 		cSlug := env.Vars["slug"]
-		cnr, err := container.FindByUserAndSlug(db, u, cSlug)
+		cn, err := container.FindByUserAndSlug(db, u, cSlug)
 		if err != nil {
 			return err
 		}
-		if cnr == nil {
+		if cn == nil {
 			return ErrContainerNotFound
 		}
 
-		return fn(cnr, env, c, w, r)
+		return fn(cn, env, c, w, r)
 	})
 }
 

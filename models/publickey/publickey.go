@@ -25,11 +25,11 @@ type PublicKey struct {
 	UpdatedAt   *time.Time `db:"updated_at" json:"-"`
 }
 
-func FindAllByUserIDAndContainerID(db *db.Database, userID int64, containerID int64) ([]PublicKey, error) {
-	keys := []PublicKey{}
+func FindAllByUserIDAndContainerID(db *db.Database, userID int64, containerID int64) ([]*PublicKey, error) {
+	keys := []*PublicKey{}
 	err := db.Select(&keys, "SELECT * FROM public_keys WHERE user_id = $1 AND container_id = $2 ORDER BY created_at", userID, containerID)
 	if err != nil {
-		return []PublicKey{}, err
+		return []*PublicKey{}, err
 	}
 	return keys, nil
 }
