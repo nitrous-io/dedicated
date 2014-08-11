@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/volume"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
+	"github.com/nitrous-io/nitrous/serializers"
 )
 
 var (
@@ -35,7 +36,7 @@ func Index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status":  "ok",
-		"volumes": vols,
+		"volumes": serializers.SerializeVolumes(vols),
 	}
 	return nil
 }
@@ -92,7 +93,7 @@ func Create(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"status": "created",
-		"volume": vol,
+		"volume": serializers.SerializeVolume(vol),
 	}
 	return nil
 }
@@ -126,7 +127,7 @@ func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "ok",
-		"volume": vol,
+		"volume": serializers.SerializeVolume(vol),
 	}
 	return nil
 }
@@ -154,7 +155,7 @@ func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "ok",
-		"volume": vi,
+		"volume": serializers.SerializeFreighterVolume(vi),
 	}
 	return nil
 }
