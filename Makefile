@@ -25,7 +25,7 @@ build: go assets
 
 test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
-	@script/test
+	@script/test $(TEST)
 
 ci: image
 	@echo "$(OK_COLOR)==> Running within docker...$(NO_COLOR)"
