@@ -36,7 +36,8 @@ var _ = Describe("Command", func() {
 
 	It("attaches to the container", func() {
 		containerID := "container-slug"
-		ns := newNitrousServer(containerID)
+		hostID := 1
+		ns := newNitrousServer(containerID, int64(hostID))
 		defer ns.Close()
 
 		stdin, stdout, _ := pty.Open()
@@ -68,19 +69,27 @@ type nitrousServer struct {
 	srv         *httptest.Server
 	ts          *testServer
 	containerID string
+	hostID      int64
 }
 
-func (s *nitrousServer) getContainer(w http.ResponseWriter, r *http.Request) {
+func (s *nitrousServer) getHost(w http.ResponseWriter, r *http.Request) {
 	addr := s.ts.srv.Listener.Addr().String()
 	host, port, _ := net.SplitHostPort(addr)
 	portInt, _ := strconv.ParseInt(port, 10, 64)
 	resp := map[string]interface{}{
-		"CID": s.containerID,
-		"host": map[string]interface{}{
-			"ip_address":      host,
-			"freighterd_port": portInt,
-			"domain":          "example.com",
-		},
+		"ip_address":      host,
+		"freighterd_port": portInt,
+		"domain":          "example.com",
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"host": resp,
+	})
+}
+
+func (s *nitrousServer) getContainer(w http.ResponseWriter, r *http.Request) {
+	resp := map[string]interface{}{
+		"CID":     s.containerID,
+		"host_id": s.hostID,
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"container": resp,
@@ -93,14 +102,16 @@ func (s *nitrousServer) Close() {
 	s.srv.Close()
 }
 
-func newNitrousServer(containerID string) *nitrousServer {
+func newNitrousServer(containerID string, hostID int64) *nitrousServer {
 	ts := newTestServer(containerID)
 	s := &nitrousServer{
 		ts:          ts,
 		containerID: containerID,
+		hostID:      hostID,
 	}
 	r := mux.NewRouter()
 	r.HandleFunc("/api/v0/containers/"+containerID, s.getContainer).Methods("GET")
+	r.HandleFunc("/api/v0/hosts/"+fmt.Sprintf("%d", hostID), s.getHost).Methods("GET")
 	srv := httptest.NewServer(r)
 	s.srv = srv
 	return s

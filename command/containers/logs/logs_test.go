@@ -31,6 +31,7 @@ var _ = Describe("logs", func() {
 		// Nitrous Server
 		nsrv      *ghttp.Server
 		nhandlers http.HandlerFunc
+		hhandlers http.HandlerFunc
 		// Freighter Server
 		fsrv      *ghttp.Server
 		fhandlers http.HandlerFunc
@@ -38,19 +39,28 @@ var _ = Describe("logs", func() {
 		nStatusCode   int
 		nResponseBody interface{}
 
+		hStatusCode   int
+		hResponseBody interface{}
+
 		fStatusCode   int
 		fResponseBody string
 	)
 
 	BeforeEach(func() {
-		// Setup handlers for nitrous server
+		// Setup handlers for nitrous server (containers)
 		nhandlers = ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
 			ghttp.VerifyRequest("GET", "/api/v0/containers/foo-container-42"),
 			ghttp.RespondWithJSONEncodedPtr(&nStatusCode, &nResponseBody),
 		)
+		// Setup handlers for nitrous server (hosts)
+		hhandlers = ghttp.CombineHandlers(
+			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
+			ghttp.VerifyRequest("GET", "/api/v0/hosts/1"),
+			ghttp.RespondWithJSONEncodedPtr(&hStatusCode, &hResponseBody),
+		)
 		nsrv = ghttp.NewServer()
-		nsrv.AppendHandlers(nhandlers)
+		nsrv.AppendHandlers(nhandlers, hhandlers)
 
 		// Setup handlers for freighter which nitro
 		// will be querying to get the log stream
@@ -88,12 +98,17 @@ var _ = Describe("logs", func() {
 			nStatusCode = http.StatusOK
 			nResponseBody = map[string]interface{}{
 				"container": map[string]interface{}{
-					"CID": "42",
-					"host": map[string]interface{}{
-						"ip_address":      host,
-						"freighterd_port": portInt,
-						"domain":          "example.com",
-					},
+					"CID":     "42",
+					"host_id": 1,
+				},
+			}
+
+			hStatusCode = http.StatusOK
+			hResponseBody = map[string]interface{}{
+				"host": map[string]interface{}{
+					"ip_address":      host,
+					"freighterd_port": portInt,
+					"domain":          "example.com",
 				},
 			}
 
