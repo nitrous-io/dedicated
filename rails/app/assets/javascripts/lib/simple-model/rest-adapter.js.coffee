@@ -40,7 +40,10 @@ SM.RESTAdapter = Ember.Object.extend
       url = "#{url}?#{query}"
 
     r = if single
-      model.create()
+      props = {}
+      if primaryKey
+        props[Ember.get(model, 'primaryKey')] = primaryKey
+      model.newRecord(props)
     else
       SM.RecordArray.create(model: model)
 

@@ -12,7 +12,7 @@ klass.reopenClass
   url: '/foo'
 
 describe 'SM.RESTAdapter', ->
-  model = server = null
+  server = null
 
   beforeEach ->
     server = sinon.fakeServer.create()
@@ -91,6 +91,32 @@ describe 'SM.RESTAdapter', ->
                 expect(record.get 'age').to.equal 15, 'age is loaded'
                 expect(record.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 29)), 'createdAt is loaded'
                 expect(TestModel._findInCache(123)).to.equal record, 'record is cached'
+
+        context 'when fetching a pre-cached record', ->
+          model = null
+
+          beforeEach ->
+            model = TestModel.create(id: 123)
+            model._saveToCache()
+
+          it 'reuses the existing record object', ->
+            server.respondWith 'GET', url, [
+              200
+              { 'Content-Type': 'application/json; charset=utf-8' }
+              '{"foo": {"id": 123, "slug": "foo", "name": "Foo", "age": 15, "created_at": "2014-07-29T00:00:00.000Z"}, "slug": "ignorethis"}'
+            ]
+
+            successSpy = sinon.spy()
+            failSpy = sinon.spy()
+            promise = doAction()
+            promise.then(successSpy, failSpy)
+            promiseValue = promise.value
+
+            server.respond()
+            Test.nextTick ->
+              record = successSpy.args[0][0]
+              expect(record).to.equal model, "resolved record is the existing record"
+              expect(record).to.equal promiseValue, "resolved record is the same instance as the promise's previously returned value"
 
         context 'when request fails', ->
           it 'returns a promise that is rejected with jqxhr object', ->

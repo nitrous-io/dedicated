@@ -67,23 +67,31 @@ describe 'SM.Model', ->
       context 'when primary key is set', ->
         context 'when the cache does not already contain the record', ->
           it 'saves the record to cache', ->
-            expect(Em.get(TestModel, '_cache').get(1)).to.be.undefined 'model is not yet in cache'
-            expect(Em.get(TestModel, '_cache').get(2)).to.be.undefined 'model2 is not yet in cache'
+            cache = Em.get(TestModel, '_cache')
+            expect(cache.length).to.equal 0, 'nothing is cached yet'
             model._saveToCache()
             model2._saveToCache()
-            expect(Em.get(TestModel, '_cache').get(1)).to.equal model, 'model is cached'
-            expect(Em.get(TestModel, '_cache').get(2)).to.equal model2, 'model2 is cached'
+            expect(cache.length).to.equal 2, 'two items are cached'
+            expect(cache.get(1)).to.equal model, 'model is cached'
+            expect(cache.get(2)).to.equal model2, 'model2 is cached'
 
         context 'when the cache already contains the record', ->
-          beforeEach ->
-            TestModel.create(id: 1)._saveToCache()
-            TestModel.create(id: 2)._saveToCache()
+          oldModel = oldModel2 = null
 
-          it 'does not save the record to cache', ->
+          beforeEach ->
+            oldModel = TestModel.create(id: 1)
+            oldModel2 = TestModel.create(id: 2)
+            oldModel._saveToCache()
+            oldModel2._saveToCache()
+
+          it 'returns the last record saved', ->
+            cache = Em.get(TestModel, '_cache')
+            expect(cache.get(1)).to.equal oldModel, 'oldModel is cached'
+            expect(cache.get(2)).to.equal oldModel2, 'oldModel2 is cached'
             model._saveToCache()
             model2._saveToCache()
-            expect(Em.get(TestModel, '_cache').get(1)).not.to.equal model, 'model is not cached'
-            expect(Em.get(TestModel, '_cache').get(2)).not.to.equal model2, 'model2 is not cached'
+            expect(cache.get(1)).to.equal model, 'model is cached'
+            expect(cache.get(2)).to.equal model2, 'model2 is cached'
 
       context 'when primary key is not set', ->
         beforeEach ->
@@ -95,25 +103,59 @@ describe 'SM.Model', ->
           model2._saveToCache()
           expect(Em.get(TestModel, '_cache').length).to.equal 0, 'nothing is in the cache'
 
+      context 'when model is singular', ->
+        beforeEach ->
+          TestModel.reopenClass(singular: true)
+          # primary key is not relevant
+          model.set 'id', null
+          model2.set 'id', null
+
+        afterEach ->
+          TestModel.reopenClass(singular: false)
+
+        it 'only keeps the last item saved', ->
+          cache = Em.get(TestModel, '_cache')
+          model._saveToCache()
+          expect(cache.length).to.equal 1, "cache has one item"
+          expect(cache.get(cache.keys.list[0])).to.equal model
+          model2._saveToCache()
+          expect(cache.length).to.equal 1, "cache still has only one item"
+          expect(cache.get(cache.keys.list[0])).to.equal model2
+
     describe '._findInCache', ->
       model3 = null
 
-      beforeEach ->
-        model._saveToCache()
-        model2._saveToCache()
-        model3 = TestModel.create
-          id: 3
-          firstName: 'Foo'
-          lastName: 'Bar'
+      context 'when model is not a singular resource', ->
+        beforeEach ->
+          model._saveToCache()
+          model2._saveToCache()
+          model3 = TestModel.create
+            id: 3
+            firstName: 'Foo'
+            lastName: 'Bar'
 
-      context 'when the cache contains the record with a given primary key', ->
-        it 'returns the record', ->
-          expect(TestModel._findInCache(1)).to.equal model, 'model is returned'
+        context 'when the cache contains the record with a given primary key', ->
+          it 'returns the record', ->
+            expect(TestModel._findInCache(1)).to.equal model, 'model is returned'
+            expect(TestModel._findInCache(2)).to.equal model2, 'model2 is returned'
+
+        context 'when the cache does not contain the record with a given primary key', ->
+          it 'returns undefined', ->
+            expect(TestModel._findInCache(3)).to.be.undefined 'model3 is not returned (not cached)'
+
+      context 'when model is a singular resource', ->
+        beforeEach ->
+          TestModel.reopenClass(singular: true)
+          model._saveToCache()
+          model2._saveToCache()
+
+        afterEach ->
+          TestModel.reopenClass(singular: false)
+
+        it 'ignores primary key and always returns the last item saved', ->
+          expect(TestModel._findInCache(1)).to.equal model2, 'model2 is returned'
           expect(TestModel._findInCache(2)).to.equal model2, 'model2 is returned'
-
-      context 'when the cache does not contain the record with a given primary key', ->
-        it 'returns undefined', ->
-          expect(TestModel._findInCache(3)).to.be.undefined 'model3 is not returned (not cached)'
+          expect(TestModel._findInCache()).to.equal model2, 'model2 is returned'
 
     describe '._removeFromCache', ->
       beforeEach ->
@@ -127,6 +169,47 @@ describe 'SM.Model', ->
         expect(TestModel._findInCache(2)).not.to.be.undefined 'model2 is not yet uncached'
         TestModel._removeFromCache(2)
         expect(TestModel._findInCache(2)).to.be.undefined 'model2 is uncached'
+
+    describe '.newRecord', ->
+      context 'when a record with a given primary key already exists in the cache', ->
+        beforeEach ->
+          model._saveToCache()
+          model2._saveToCache()
+
+        it 'reuses the record object in the cache', ->
+          m = TestModel.newRecord(id: 1, firstName: 'Foo')
+          expect(m).to.equal model, 'model is reused'
+          expect(m.get 'firstName').to.equal 'Foo', 'new attrs are set on the reused obj'
+          expect(m.get 'lastName').to.equal 'Kim', 'previous attrs are preserved'
+
+          m2 = TestModel.newRecord(id: 2)
+          expect(m2).to.equal model2, 'model2 is reused'
+
+      context 'when a record with a given primary key does not exist in the cache', ->
+        it 'creates a new record', ->
+          m = TestModel.newRecord(id: 1, firstName: 'Foo')
+          expect(m).not.to.equal model, 'model is not reused'
+          expect(m.get 'firstName').to.equal 'Foo', 'new attrs are set on the new record'
+          expect(m.get 'lastName').to.be.undefined 'new record does not know about prev attrs'
+
+          m2 = TestModel.newRecord()
+          expect(m2).not.to.equal model, 'model is not reused'
+          expect(m2).not.to.equal model2, 'model2 is not reused'
+          expect(m2).to.be.instanceof TestModel, 'returns a new instance of TestModel'
+
+      context 'for a singular resource', ->
+        beforeEach ->
+          TestModel.reopenClass(singular: true)
+          model._saveToCache()
+
+        afterEach ->
+          TestModel.reopenClass(singular: false)
+
+        it 'always uses the same record', ->
+          m = TestModel.newRecord()
+          m2 = TestModel.newRecord()
+          expect(m).to.equal model, 'reuses the cached record'
+          expect(m2).to.equal model, 'reuses the cached record'
 
   describe 'serialization', ->
     beforeEach ->
@@ -197,18 +280,10 @@ describe 'SM.Model', ->
         expect(model.get('bornAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 28)), 'born_at is correctly loaded'
         expect(model.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 28)), 'createdAt is not updated (missing)'
 
-      context 'when the data contains primary key', ->
-        context 'when the cache does not already contain the record', ->
-          it 'caches the record', ->
-            expect(TestModel._findInCache(123)).to.be.undefined 'cache does not yet contain the record'
-            model.load(id: 123)
-            expect(TestModel._findInCache(123)).to.equal model, 'the record is cached'
-
-        context 'when the cache already contains the record', ->
-          it 'does nothing', ->
-            TestModel.create(id: 123)._saveToCache()
-            model.load(id: 123)
-            expect(TestModel._findInCache(123)).not.to.equal model, 'the record in the cache is not overwritten'
+      it 'caches the record', ->
+        expect(TestModel._findInCache(123)).to.be.undefined 'cache does not yet contain the record'
+        model.load(id: 123)
+        expect(TestModel._findInCache(123)).to.equal model, 'the record is cached'
 
       context 'when deserialize option is false', ->
         it 'loads the data without deserializing', ->

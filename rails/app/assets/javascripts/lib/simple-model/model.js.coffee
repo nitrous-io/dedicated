@@ -24,12 +24,15 @@ SM.Model = klass = Ember.Object.extend
     @_saveToCache()
 
   getPrimaryKey: ->
-    @get(Em.get @constructor, 'primaryKey')
+    @get(Ember.get @constructor, 'primaryKey')
 
   _saveToCache: ->
+    cache = Ember.get(@constructor, '_cache')
+    if Ember.get(@constructor, 'singular')
+      cache.set 1, this
+      return
     if primaryKey = @getPrimaryKey()
-      unless @constructor._findInCache(primaryKey)
-        Ember.get(@constructor, '_cache').set primaryKey, this
+      cache.set primaryKey, this
 
   save: ->
     adapter = Ember.get(@constructor, 'adapter')
@@ -40,6 +43,7 @@ SM.Model = klass = Ember.Object.extend
 
 klass.reopenClass
   primaryKey: 'id'
+  singular: false
   adapter: null
 
   _cache: Ember.computed ->
@@ -59,12 +63,20 @@ klass.reopenClass
     @_getAttr(propertyName).options.as || propertyName
 
   _findInCache: (primaryKey) ->
+    if Ember.get this, 'singular'
+      primaryKey = 1
     cache = Ember.get this, '_cache'
     cache.get(primaryKey)
 
   _removeFromCache: (primaryKey) ->
     cache = Ember.get this, '_cache'
     cache.remove(primaryKey)
+
+  newRecord: (props={}) ->
+    r = @_findInCache(props[Ember.get(this, 'primaryKey')])
+    if r
+      r.setProperties(props)
+    r ||= @create(props)
 
   deserialize: (data) ->
     d = {}
@@ -84,7 +96,7 @@ klass.reopenClass
         d[key] = val
     d
 
-  fetch: ->
+  fetch: (primaryKey, params) ->
     adapter = Ember.get this, 'adapter'
     adapter.fetch.apply(adapter, [this].concat(Ember.$.makeArray(arguments)))
 
