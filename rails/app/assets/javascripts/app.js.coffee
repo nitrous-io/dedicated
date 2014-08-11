@@ -32,6 +32,15 @@ window.Nitrous = Em.Application.extend Em.Evented,
       window.localStorage.removeItem('token')
   ).observes 'token'
 
+  clear: ->
+    App.setProperties
+      token: null
+      user: null
+      hosts: null
+    Ember.notifyPropertyChange App.User, '_cache'
+    Ember.notifyPropertyChange App.Host, '_cache'
+    Ember.notifyPropertyChange App.Container, '_cache'
+
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')
 
