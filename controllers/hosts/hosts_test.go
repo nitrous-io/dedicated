@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -503,6 +504,18 @@ var _ = Describe("controllers/hosts", func() {
 		It("calls the Freighter client to get host info", func() {
 			doRequest("foo")
 			Expect(mockClient.HostInfoCalled).To(Equal(1))
+		})
+
+		It("responds with host info even when called with the host ID", func() {
+			doRequest(fmt.Sprintf("%d", hs.H.ID))
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.ID).To(Equal(hs.H.ID))
 		})
 
 		It("responds with host info from the database and augments it with stats from the Freighter API", func() {
