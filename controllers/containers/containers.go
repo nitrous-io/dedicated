@@ -38,7 +38,6 @@ var (
 )
 
 var (
-	Index   middleware.Middleware = middleware.HostViaForm("host", requiresRunningHost(index))
 	Create  middleware.Middleware = middleware.HostViaForm("host", requiresRunningHost(create))
 	Show    middleware.Middleware = WithContainerAndHost(show)
 	Start   middleware.Middleware = WithContainerAndHost(start)
@@ -47,51 +46,71 @@ var (
 	Destroy middleware.Middleware = WithContainerAndHost(destroy)
 )
 
-func index(h runningHost, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
-	log := c.Logger()
+	var err error
 
-	out := make(chan listresult, 1)
-	quit := make(chan struct{})
-	go freighterList(db, h, out, quit)
+	hSlug := r.FormValue("host")
+	hosts := []host.Host{}
+	containersResp := []*serializers.Container{}
 
-	savedContainers, err := container.FindAllByHostID(db, h.ID)
-	if err != nil {
-		close(quit)
-		return err
+	// If no host is provided, then get all hosts belonging to the user
+	// and get all containers from all hosts
+	if hSlug != "" {
+		h, err := host.FindByUserAndSlug(db, env.User, hSlug)
+		if err != nil {
+			return err
+		}
+
+		if h != nil {
+			hosts = []host.Host{*h}
+		} else {
+			return errHostNotFound
+		}
+	} else {
+		hosts, err = host.FindAllByUser(db, env.User)
+		if err != nil {
+			return err
+		}
 	}
 
-	live := <-out
-	if live.err != nil {
-		return live.err
-	}
+	for _, h := range hosts {
+		liveContainers, freighterErr := freighterList(db, &h)
 
-	log.Debug("Live containers:")
-	for _, c := range live.containers {
-		log.Debugf("  %+v", c)
-	}
-	log.Debug("Saved containers:")
-	for _, c := range savedContainers {
-		log.Debugf("  %+v", c)
-	}
+		savedContainers, err := container.FindAllByHostID(db, h.ID)
+		if err != nil {
+			return err
+		}
 
-	containersResp := make([]*serializers.Container, 0, len(live.containers))
-	for _, lc := range live.containers {
-		var savedContainer *container.Container
-		for _, sc := range savedContainers {
-			if sc.CID == lc.ID {
-				savedContainer = sc
-				break
+		if freighterErr != nil {
+			// If we can't get through to the host, then pass them along without the Freighter specific
+			// info to the frontend
+			if freighterErr == controllers.ErrHostNotRunning || freighterErr == controllers.ErrHostIPUnknown {
+				for _, sc := range savedContainers {
+					containersResp = append(containersResp, serializers.SerializeContainer(sc))
+				}
+			} else {
+				return freighterErr
 			}
 		}
-		var cn *container.Container
-		if savedContainer != nil {
-			cn = hydrateContainer(savedContainer, lc, h)
-		} else {
-			cn = mkContainer(lc, h)
-		}
 
-		containersResp = append(containersResp, serializers.SerializeContainer(cn))
+		for _, lc := range liveContainers {
+			var savedContainer *container.Container
+			for _, sc := range savedContainers {
+				if sc.CID == lc.ID {
+					savedContainer = sc
+					break
+				}
+			}
+			var cn *container.Container
+			if savedContainer != nil {
+				cn = hydrateContainer(savedContainer, lc, &h)
+			} else {
+				cn = mkContainer(lc, &h)
+			}
+
+			containersResp = append(containersResp, serializers.SerializeContainer(cn))
+		}
 	}
 
 	env.Status = http.StatusOK
@@ -106,23 +125,16 @@ type listresult struct {
 	err        error
 }
 
-func freighterList(db db.QueryReceiver, h *host.Host, out chan<- listresult, quit <-chan struct{}) {
-	select {
-	case <-quit:
-		return
-	default:
-		cl, err := controllers.NewFreighterClient(db, h)
-		if err != nil {
-			out <- listresult{err: err}
-			return
-		}
-		liveContainers, err := cl.List()
-		if err != nil {
-			out <- listresult{err: err}
-			return
-		}
-		out <- listresult{containers: liveContainers, err: nil}
+func freighterList(db db.QueryReceiver, h *host.Host) ([]*freighterclient.Container, error) {
+	cl, err := controllers.NewFreighterClient(db, h)
+	if err != nil {
+		return nil, err
 	}
+	liveContainers, err := cl.List()
+	if err != nil {
+		return nil, err
+	}
+	return liveContainers, nil
 }
 
 func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
@@ -361,6 +373,7 @@ func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *
 	c.Slug = dropNamespace(fc.Name)
 	c.State = fc.State
 	c.IPAddress = fc.Host
+
 	return c
 }
 

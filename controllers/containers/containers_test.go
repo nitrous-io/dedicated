@@ -383,26 +383,45 @@ var _ = Describe("controllers/containers", func() {
 			BeforeEach(func() {
 				err := hs.H.UpdateState(db, host.StateStopped)
 				Expect(err).To(BeNil())
+				UnstubFreighterFn()
 			})
 
-			It("returns HTTP 503 Service Unavailable", func() {
+			It("should return containers belonging to the host (without the freighter-hydrated details)", func() {
 				doRequest("valid-token", "foo")
 
-				Expect(res.Code).To(Equal(http.StatusServiceUnavailable))
+				Expect(res.Code).To(Equal(http.StatusOK))
 
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
+				var j struct {
+					Containers []*serializers.Container `json:"containers"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				errType, _ := j["error"].(string)
-				Expect(errType).To(Equal("service_unavailable"))
-				errDesc, _ := j["error_description"].(string)
-				Expect(errDesc).To(Equal("host is not running"))
+				Expect(j.Containers).To(HaveLen(1))
+
+				Expect(j.Containers[0].ID).To(Equal(c.ID))
+				Expect(j.Containers[0].CID).To(Equal("deadbeef"))
+				Expect(j.Containers[0].UserID).To(Equal(u.ID))
+				Expect(j.Containers[0].HostID).To(Equal(hs.H.ID))
+				Expect(j.Containers[0].Image).To(Equal("nitrous-base"))
+				Expect(j.Containers[0].Slug).To(Equal("dominant-intercooler-42"))
+				Expect(j.Containers[0].Name).To(Equal("Rails app server"))
+				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
+				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
+				Expect(j.Containers[0].TerminatedAt).To(BeNil())
+				// ip address, state will be empty since the host is stopped,
+				// so the freighter API call didn't happen
+				Expect(j.Containers[0].IPAddress).To(Equal(""))
+				Expect(j.Containers[0].State).To(Equal(""))
 			})
 		})
 
 		Context("when host IP address is not available", func() {
+			var c1 *container.Container
+			var hs1 *HostStack
+			var err error
+
 			BeforeEach(func() {
-				_, err := CreateHostStack(db, &HostStack{
+				hs1, err = CreateHostStack(db, &HostStack{
 					H: &host.Host{
 						Slug:      "bar",
 						IPAddress: sql.NullString{},
@@ -414,24 +433,132 @@ var _ = Describe("controllers/containers", func() {
 				})
 				Expect(err).To(BeNil())
 
+				c1 = &container.Container{
+					CID:    "cafedead",
+					Slug:   "forever-container-21",
+					Image:  "nitrous-base",
+					UserID: u.ID,
+					HostID: hs1.H.ID,
+					Name:   sql.NullString{"Rails app server", true},
+				}
+				err = c1.Insert(db)
+				Expect(err).To(BeNil())
+
 				// test the actual client
 				UnstubFreighterFn()
 			})
 
-			It("returns HTTP 400 Bad Request", func() {
+			It("should return all containers belonging to the host (without the freighter-hydrated details)", func() {
 				doRequest("valid-token", "bar")
+				Expect(res.Code).To(Equal(http.StatusOK))
 
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				var j struct {
+					Containers []*serializers.Container `json:"containers"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Containers).To(HaveLen(1))
 
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(j.Containers[0].ID).To(Equal(c1.ID))
+				Expect(j.Containers[0].CID).To(Equal("cafedead"))
+				Expect(j.Containers[0].UserID).To(Equal(u.ID))
+				Expect(j.Containers[0].HostID).To(Equal(hs1.H.ID))
+				Expect(j.Containers[0].Image).To(Equal("nitrous-base"))
+				Expect(j.Containers[0].Slug).To(Equal("forever-container-21"))
+				Expect(j.Containers[0].Name).To(Equal("Rails app server"))
+				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
+				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
+				Expect(j.Containers[0].TerminatedAt).To(BeNil())
+				// ip address, state will be empty since the host is stopped,
+				// so the freighter API call didn't happen
+				Expect(j.Containers[0].IPAddress).To(Equal(""))
+				Expect(j.Containers[0].State).To(Equal(""))
+			})
+		})
+
+		Context("when host param is not provided", func() {
+			var c1 *container.Container
+			var hs1 *HostStack
+			var err error
+
+			BeforeEach(func() {
+				hs1, err = CreateHostStack(db, &HostStack{
+					H: &host.Host{
+						Slug:      "bar",
+						IPAddress: sql.NullString{},
+					},
+					U:  u,
+					R:  hs.R,
+					P:  hs.P,
+					PT: hs.PT,
+				})
 				Expect(err).To(BeNil())
 
-				errType, _ := j["error"].(string)
-				Expect(errType).To(Equal("invalid_request"))
+				c1 = &container.Container{
+					CID:    "cafedead",
+					Slug:   "forever-container-21",
+					Image:  "nitrous-base",
+					UserID: u.ID,
+					HostID: hs1.H.ID,
+					Name:   sql.NullString{"Rails app server", true},
+				}
+				err = c1.Insert(db)
+				Expect(err).To(BeNil())
 
-				errDesc, _ := j["error_description"].(string)
-				Expect(errDesc).To(Equal("host IP is unknown"))
+				// We are updating the state here to be stopped
+				// so that there are no Freighter API calls
+				// the way we stub the Freighter API right now
+				// doesnt' allow us to get different responses
+				// for different API requests (similar to stub chain)
+				err = hs.H.UpdateState(db, host.StateStopped)
+				Expect(err).To(BeNil())
+
+				err = hs1.H.UpdateState(db, host.StateStopped)
+				Expect(err).To(BeNil())
+
+				UnstubFreighterFn()
+			})
+
+			It("should return all containers belonging to the users' hosts", func() {
+				doRequest("valid-token", "")
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Containers []*serializers.Container `json:"containers"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Containers).To(HaveLen(2))
+
+				Expect(j.Containers[0].ID).To(Equal(c.ID))
+				Expect(j.Containers[0].CID).To(Equal("deadbeef"))
+				Expect(j.Containers[0].UserID).To(Equal(u.ID))
+				Expect(j.Containers[0].HostID).To(Equal(hs.H.ID))
+				Expect(j.Containers[0].Image).To(Equal("nitrous-base"))
+				Expect(j.Containers[0].Slug).To(Equal("dominant-intercooler-42"))
+				Expect(j.Containers[0].Name).To(Equal("Rails app server"))
+				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
+				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
+				Expect(j.Containers[0].TerminatedAt).To(BeNil())
+				// ip address, state will be empty since the host is stopped,
+				// so the freighter API call didn't happen
+				Expect(j.Containers[0].IPAddress).To(Equal(""))
+				Expect(j.Containers[0].State).To(Equal(""))
+
+				Expect(j.Containers[1].ID).To(Equal(c1.ID))
+				Expect(j.Containers[1].CID).To(Equal("cafedead"))
+				Expect(j.Containers[1].UserID).To(Equal(u.ID))
+				Expect(j.Containers[1].HostID).To(Equal(hs1.H.ID))
+				Expect(j.Containers[1].Image).To(Equal("nitrous-base"))
+				Expect(j.Containers[1].Slug).To(Equal("forever-container-21"))
+				Expect(j.Containers[1].Name).To(Equal("Rails app server"))
+				Expect(j.Containers[1].CreatedAt).NotTo(BeNil())
+				Expect(j.Containers[1].UpdatedAt).NotTo(BeNil())
+				Expect(j.Containers[1].TerminatedAt).To(BeNil())
+				// ip address, state will be empty since the host is stopped,
+				// so the freighter API call didn't happen
+				Expect(j.Containers[1].IPAddress).To(Equal(""))
+				Expect(j.Containers[1].State).To(Equal(""))
 			})
 		})
 
