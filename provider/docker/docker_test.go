@@ -34,10 +34,9 @@ func Test(t *testing.T) {
 
 var _ = Describe("provider/docker", func() {
 	var (
-		prov      *docker.DockerProvider
-		namespace = "freightertest"
-		image     = "nitrousio/ubuntu-bare:trusty"
-		datadir   string
+		prov    *docker.DockerProvider
+		image   = "nitrousio/ubuntu-bare:trusty"
+		datadir string
 	)
 
 	BeforeEach(func() {
@@ -50,17 +49,13 @@ var _ = Describe("provider/docker", func() {
 		}
 
 		logger := &util.Logger{Level: util.LogLevelQuiet}
-		prov, err = docker.NewDockerProvider(logger, datadir, namespace)
+		prov, err = docker.NewDockerProvider(logger, datadir)
 		Expect(err).To(BeNil())
 	})
 
 	cleanUpContainer := func(name string) {
 		exec.Command("docker", "stop", "--time=1", name).Run()
 		exec.Command("docker", "rm", name).Run()
-	}
-
-	fullNamespaceName := func(name string) string {
-		return fmt.Sprintf("%s.%s", namespace, name)
 	}
 
 	// Stolen from @ddollar's script here:
@@ -72,7 +67,7 @@ var _ = Describe("provider/docker", func() {
 	}
 
 	getID := func(name string) string {
-		return doInspect(fullNamespaceName(name), "{{.Id}}")
+		return doInspect(name, "{{.Id}}")
 	}
 
 	getPort := func(id string) string {
@@ -106,13 +101,13 @@ var _ = Describe("provider/docker", func() {
 		list := []string{}
 		for index := 1; index <= count; index++ {
 			if !noFindable {
-				findableName := fmt.Sprintf("%v.%v:n%v", namespace, name, index)
+				findableName := fmt.Sprintf("%v:n%v", name, index)
 				exec.Command("docker", "build", "-t", findableName, dockerLoc).Run()
 				list = append(list, findableName)
 			}
 
 			if hidden {
-				hiddenName := fmt.Sprintf("%vprivate.bad%v:n%v", namespace, name, index)
+				hiddenName := fmt.Sprintf("private.bad%v:n%v", name, index)
 				exec.Command("docker", "build", "-t", hiddenName, dockerLoc).Run()
 				list = append(list, hiddenName)
 			}
@@ -128,10 +123,6 @@ var _ = Describe("provider/docker", func() {
 		args := append([]string{"rmi"}, names...)
 		err := exec.Command("docker", args...).Run()
 		Expect(err).To(BeNil())
-	}
-
-	withoutNamespace := func(name string) string {
-		return strings.TrimPrefix(name, namespace+".")
 	}
 
 	Describe(".Create()", func() {
@@ -168,13 +159,13 @@ var _ = Describe("provider/docker", func() {
 		})
 
 		AfterEach(func() {
-			cleanUpContainer(fullNamespaceName(name))
+			cleanUpContainer(name)
 			os.Remove(sshkeypath)
 		})
 
 		It("creates a container successfully", func() {
 			Expect(info.ID).To(Equal(id))
-			Expect(info.Name).To(Equal(fullNamespaceName(name)))
+			Expect(info.Name).To(Equal(name))
 			Expect(info.Image).To(Equal(image))
 			Expect(info.Host).To(Equal(host))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
@@ -184,16 +175,13 @@ var _ = Describe("provider/docker", func() {
 		Context("after container is created", func() {
 			Describe("Inspecting", func() {
 				var (
-					container2Name       string
-					container2Info       *provider.ContainerInfo
-					container2Port       string
-					foreignContainerName string
-					foreignContainerID   string
+					container2Name string
+					container2Info *provider.ContainerInfo
+					container2Port string
 				)
 
 				BeforeEach(func() {
 					container2Name = RandomName("freightertest2")
-					foreignContainerName = "notfreighter." + RandomName("freightertest-foreign")
 
 					// shut down first container
 					err := exec.Command("docker", "stop", id).Run()
@@ -204,16 +192,10 @@ var _ = Describe("provider/docker", func() {
 					Expect(err).To(BeNil())
 
 					container2Port = getPort(container2Info.ID)
-
-					// create a container not managed by freighter
-					out, err := exec.Command("docker", "run", "-d", "-i", "-t", "--name", foreignContainerName, image, "/bin/sh").CombinedOutput()
-					Expect(err).To(BeNil())
-					foreignContainerID = strings.TrimSpace(string(out))
 				})
 
 				AfterEach(func() {
-					cleanUpContainer(fullNamespaceName(container2Name))
-					cleanUpContainer(foreignContainerName)
+					cleanUpContainer(container2Name)
 				})
 
 				Describe(".List()", func() {
@@ -241,15 +223,15 @@ var _ = Describe("provider/docker", func() {
 						return attributes
 					}
 
-					It("returns a list of all containers managed by freighter, running or stopped", func() {
+					It("returns a list of all containers running or stopped", func() {
 						list, err := prov.List()
 						Expect(err).To(BeNil())
 
 						Expect(list).To(HaveLen(2))
 
 						names := getAttributes("Name", list)
-						Expect(names).To(ContainElement(fullNamespaceName(name)))
-						Expect(names).To(ContainElement(fullNamespaceName(container2Name)))
+						Expect(names).To(ContainElement(name))
+						Expect(names).To(ContainElement(container2Name))
 
 						images := getAttributes("Image", list)
 						Expect(images).To(ContainElement(image))
@@ -278,7 +260,7 @@ var _ = Describe("provider/docker", func() {
 							info, err := prov.GetInfo(id)
 							Expect(err).To(BeNil())
 							Expect(info.ID).To(Equal(id))
-							Expect(info.Name).To(Equal(fullNamespaceName(name)))
+							Expect(info.Name).To(Equal(name))
 							Expect(info.Image).To(Equal(image))
 							Expect(info.Host).To(Equal(""))
 							Expect(info.Ports[port]).To(Equal(22))
@@ -287,19 +269,11 @@ var _ = Describe("provider/docker", func() {
 							info, err = prov.GetInfo(container2Info.ID)
 							Expect(err).To(BeNil())
 							Expect(info.ID).To(Equal(container2Info.ID))
-							Expect(info.Name).To(Equal(fullNamespaceName(container2Name)))
+							Expect(info.Name).To(Equal(container2Name))
 							Expect(info.Image).To(Equal(image))
 							Expect(info.Host).To(Equal(container2Info.Host))
 							Expect(info.Ports[container2Port]).To(Equal(22))
 							Expect(info.State).To(Equal(provider.ContainerStateRunning))
-						})
-					})
-
-					Context("if a container with a given id is not managed by freighter", func() {
-						It("returns no such container error", func() {
-							info, err := prov.GetInfo(foreignContainerID)
-							Expect(err).To(MatchError(&dockerclient.NoSuchContainer{ID: foreignContainerID}))
-							Expect(info).To(BeNil())
 						})
 					})
 				})
@@ -317,7 +291,7 @@ var _ = Describe("provider/docker", func() {
 				expectContainerInfoToHaveBeenReturned := func() {
 					Expect(info).NotTo(BeNil())
 					Expect(info.ID).To(Equal(id))
-					Expect(info.Name).To(Equal(fullNamespaceName(name)))
+					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(image))
 					Expect(info.Host).To(Equal(host))
 					Expect(info.Ports[port]).To(Equal(22))
@@ -365,7 +339,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.ID).To(Equal(id))
 					Expect(info.Host).To(Equal(""))
 					Expect(info.Ports[port]).To(Equal(22))
-					Expect(info.Name).To(Equal(fullNamespaceName(name)))
+					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(image))
 					Expect(info.State).To(Equal(provider.ContainerStateStopped))
 				}
@@ -400,7 +374,7 @@ var _ = Describe("provider/docker", func() {
 				expectContainerInfoToHaveBeenReturned := func(info *provider.ContainerInfo) {
 					Expect(info).NotTo(BeNil())
 					Expect(info.ID).To(Equal(id))
-					Expect(info.Name).To(Equal(fullNamespaceName(name)))
+					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(image))
 					Expect(info.Host).To(Equal(host))
 					Expect(info.Ports[port]).To(Equal(22))
@@ -460,7 +434,7 @@ var _ = Describe("provider/docker", func() {
 				expectContainerInfoToHaveBeenReturned := func() {
 					Expect(info).NotTo(BeNil())
 					Expect(info.ID).To(Equal(id))
-					Expect(info.Name).To(Equal(fullNamespaceName(name)))
+					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(image))
 					Expect(info.Host).To(Equal(""))
 					Expect(info.Ports).To(Equal(map[string]int{}))
@@ -535,7 +509,7 @@ var _ = Describe("provider/docker", func() {
 					})
 
 					AfterEach(func() {
-						cleanUpContainer(fullNamespaceName(busyboxName))
+						cleanUpContainer(busyboxName)
 					})
 
 					Describe(".ListPublicKeys()", func() {
@@ -850,13 +824,13 @@ var _ = Describe("provider/docker", func() {
 		})
 
 		AfterEach(func() {
-			cleanUpContainer(fullNamespaceName(name))
+			cleanUpContainer(name)
 		})
 
 		It("creates container with options", func() {
 			id := getID(name)
 			Expect(info.ID).To(Equal(id))
-			Expect(info.Name).To(Equal(fullNamespaceName(name)))
+			Expect(info.Name).To(Equal(name))
 			Expect(info.Image).To(Equal(image))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			Expect(doInspect(id, "{{.Config.Env}}")).To(ContainSubstring("LANG=C"))
@@ -871,7 +845,7 @@ var _ = Describe("provider/docker", func() {
 			volumeDir := filepath.Join(datadir, "volumes")
 			vols := getVolumes(id)
 			Expect(vols).To(ContainSubstring(
-				fmt.Sprintf("/etc/ssh/freighter %s/%s/ssh", containerDir, fullNamespaceName(name))))
+				fmt.Sprintf("/etc/ssh/freighter %s/%s/ssh", containerDir, name)))
 			Expect(vols).To(ContainSubstring(
 				fmt.Sprintf("/etc/dotfiles %s", filepath.Join(volumeDir, "dotfiles"))))
 			Expect(vols).To(ContainSubstring(
@@ -1053,7 +1027,7 @@ var _ = Describe("provider/docker", func() {
 
 			Expect(outputBuffer.String()).To(ContainSubstring("Successfully built"))
 
-			exec.Command("docker", "rmi", strings.Join([]string{namespace, "myimage:latest"}, ".")).Run()
+			exec.Command("docker", "rmi", "myimage:latest").Run()
 		})
 
 		It("correctly stores the additional data", func() {
@@ -1079,7 +1053,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(err).To(BeNil())
 			Expect(string(res)).To(Equal("Hello from Docker!"))
 
-			exec.Command("docker", "rmi", strings.Join([]string{namespace, "myimage:latest"}, ".")).Run()
+			exec.Command("docker", "rmi", "myimage:latest").Run()
 		})
 
 	})
@@ -1151,7 +1125,7 @@ var _ = Describe("provider/docker", func() {
 				It("should be deleted", func() {
 					images := createImages(1, "removeable", false, false, false)
 
-					err := prov.RemoveImage(withoutNamespace(images[0]))
+					err := prov.RemoveImage(images[0])
 					Expect(err).To(BeNil())
 
 					out, _ := exec.Command("docker", "inspect", "-f", "{{.Id}}", images[0]).CombinedOutput()
@@ -1385,7 +1359,7 @@ var _ = Describe("provider/docker", func() {
 
 		It("should allow for tagging images without tags", func() {
 			created := createImages(1, "withoutly", false, false, false)
-			err := prov.TagImage(withoutNamespace(created[0]), "withoutly2", false)
+			err := prov.TagImage(created[0], "withoutly2", false)
 			Expect(err).To(BeNil())
 
 			verifyImageExistence("withoutly2:latest")
@@ -1394,7 +1368,7 @@ var _ = Describe("provider/docker", func() {
 
 		It("should allow for tagging images with tags", func() {
 			created := createImages(1, "tagly", false, false, false)
-			err := prov.TagImage(withoutNamespace(created[0]), "tagly2:1907", false)
+			err := prov.TagImage(created[0], "tagly2:1907", false)
 			Expect(err).To(BeNil())
 
 			verifyImageExistence("tagly2:1907")
@@ -1405,7 +1379,8 @@ var _ = Describe("provider/docker", func() {
 
 			It("should not override existing tags with no force", func() {
 				created := createImages(1, "nooverridely", false, false, false)
-				err := prov.TagImage(withoutNamespace(created[0]), "nooverridely:n1", false)
+
+				err := prov.TagImage(created[0], "nooverridely:n1", false)
 				Expect(err).To(Equal(provider.ErrImageExists))
 
 				removeImages(created)
@@ -1416,7 +1391,7 @@ var _ = Describe("provider/docker", func() {
 				destination := createImages(1, "overridelyreplacey", false, false, false)
 				curId := doInspect(destination[0], "{{.Id}}")
 
-				err := prov.TagImage(withoutNamespace(target[0]), "overridelyreplacey:n1", true)
+				err := prov.TagImage(target[0], "overridelyreplacey:n1", true)
 				Expect(err).To(BeNil())
 
 				newId := getID("overridelyreplacey:n1")
@@ -1492,7 +1467,7 @@ var _ = Describe("provider/docker", func() {
 			})
 
 			It("should support pushing to the default Docker registry endpoint", func() {
-				err := prov.PushImage(withoutNamespace(srcImage), "callumj/test1:n1")
+				err := prov.PushImage(srcImage, "callumj/test1:n1")
 				defer removeImages([]string{"callumj/test1:n1"})
 				Expect(err).To(BeNil())
 
@@ -1505,7 +1480,7 @@ var _ = Describe("provider/docker", func() {
 			})
 
 			It("does not set tag if not specified", func() {
-				err := prov.PushImage(withoutNamespace(srcImage), "callumj/test1")
+				err := prov.PushImage(srcImage, "callumj/test1")
 				defer removeImages([]string{"callumj/test1"})
 				Expect(err).To(BeNil())
 
@@ -1514,7 +1489,7 @@ var _ = Describe("provider/docker", func() {
 			})
 
 			It("sets tag if specified", func() {
-				err := prov.PushImage(withoutNamespace(srcImage), "callumj/test1:latest")
+				err := prov.PushImage(srcImage, "callumj/test1:latest")
 				defer removeImages([]string{"callumj/test1:latest"})
 				Expect(err).To(BeNil())
 
@@ -1523,7 +1498,7 @@ var _ = Describe("provider/docker", func() {
 			})
 
 			It("should support pushing to an alternative registry endpoint", func() {
-				err := prov.PushImage(withoutNamespace(srcImage), "quay.io/callumj/test1:tag")
+				err := prov.PushImage(srcImage, "quay.io/callumj/test1:tag")
 				defer removeImages([]string{"quay.io/callumj/test1:tag"})
 				Expect(err).To(BeNil())
 
@@ -1536,7 +1511,7 @@ var _ = Describe("provider/docker", func() {
 			})
 
 			It("pushes the image if destination repository name is not specified", func() {
-				name := withoutNamespace(srcImage)
+				name := srcImage
 				repo, tag := parsers.ParseRepoAndTag(name)
 
 				err := prov.PushImage(name, "")
@@ -1549,7 +1524,7 @@ var _ = Describe("provider/docker", func() {
 			})
 
 			It("tags the image with the destination repository name", func() {
-				err := prov.PushImage(withoutNamespace(srcImage), "callumj/test1:mytag")
+				err := prov.PushImage(srcImage, "callumj/test1:mytag")
 				defer removeImages([]string{"callumj/test1:mytag"})
 				Expect(err).To(BeNil())
 
@@ -1559,7 +1534,7 @@ var _ = Describe("provider/docker", func() {
 				Expect(destID).To(Equal(srcID))
 
 				// Should not tag "namespace.callumj/test1:mytag".
-				out, err := exec.Command("docker", "inspect", "-f", "{{.Id}}", fullNamespaceName("callumj/test1:mytag")).CombinedOutput()
+				out, err := exec.Command("docker", "inspect", "-f", "{{.Id}}", "callumj/test1:mytag").CombinedOutput()
 				Expect(err).NotTo(BeNil())
 				Expect(out).To(ContainSubstring("No such image"))
 			})
@@ -1584,7 +1559,7 @@ var _ = Describe("provider/docker", func() {
 				})
 
 				It("overrides the local image by tagging it", func() {
-					err := prov.PushImage(withoutNamespace(srcImage), existingImageName)
+					err := prov.PushImage(srcImage, existingImageName)
 					Expect(err).To(BeNil())
 
 					Expect(mockProxy.PushImageCalled).To(BeTrue())
@@ -1597,13 +1572,13 @@ var _ = Describe("provider/docker", func() {
 			})
 
 			It("returns an error when auth credentials could not be located", func() {
-				err := prov.PushImage(withoutNamespace(srcImage), "thingyquay.io/callumj/test1")
+				err := prov.PushImage(srcImage, "thingyquay.io/callumj/test1")
 				Expect(err).To(Equal(provider.ErrImagePushAuthRequired))
 				Expect(mockProxy.PushImageCalled).To(BeFalse())
 			})
 
 			It("returns an error when auth config is malformed", func() {
-				err := prov.PushImage(withoutNamespace(srcImage), "magic.io/callumj/test1")
+				err := prov.PushImage(srcImage, "magic.io/callumj/test1")
 				Expect(err).To(Equal(provider.ErrImagePushAuthRequired))
 				Expect(mockProxy.PushImageCalled).To(BeFalse())
 			})
@@ -1611,7 +1586,7 @@ var _ = Describe("provider/docker", func() {
 			It("should surface PushImage errors", func() {
 				e := errors.New("Sorry!")
 				mockProxy.PushImageError = e
-				err := prov.PushImage(withoutNamespace(srcImage), "callumj/test1")
+				err := prov.PushImage(srcImage, "callumj/test1")
 				defer removeImages([]string{"callumj/test1"})
 				Expect(err).To(Equal(e))
 				Expect(mockProxy.PushImageCalled).To(BeTrue())

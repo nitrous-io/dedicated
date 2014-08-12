@@ -16,7 +16,6 @@ import (
 var _ = Describe("provider/docker config", func() {
 	var (
 		prov             *docker.DockerProvider
-		namespace        = "freightertest"
 		datadir, sshBind string
 		cnrName          = "php-box"
 	)
@@ -27,7 +26,7 @@ var _ = Describe("provider/docker config", func() {
 		Expect(err).To(BeNil())
 		sshBind = filepath.Join(datadir, "containers", cnrName, "ssh") + ":/etc/ssh/freighter:ro"
 		logger := &util.Logger{Level: util.LogLevelQuiet}
-		prov, err = docker.NewDockerProvider(logger, datadir, namespace)
+		prov, err = docker.NewDockerProvider(logger, datadir)
 		Expect(err).To(BeNil())
 	})
 
