@@ -715,14 +715,17 @@ func (p *DockerProvider) createContainer(imageName, containerName string, config
 	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
 	start := time.Now()
 
-	repository, tag := parsers.ParseRepoAndTag(imageName)
-	if tag == "" {
-		tag = "latest"
+	_, err := p.lookupImage(imageName)
+	if err == provider.ErrImageNotFound {
+		repository, tag := parsers.ParseRepoAndTag(imageName)
+		if tag == "" {
+			tag = "latest"
+		}
+		err = p.client.PullImage(dockerclient.PullImageOptions{
+			Repository: repository,
+			Tag:        tag,
+		}, dockerclient.AuthConfiguration{})
 	}
-	err := p.client.PullImage(dockerclient.PullImageOptions{
-		Repository: repository,
-		Tag:        tag,
-	}, dockerclient.AuthConfiguration{})
 	if err != nil {
 		return nil, err
 	}
