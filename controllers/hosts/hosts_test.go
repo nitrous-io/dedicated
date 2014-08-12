@@ -19,7 +19,6 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
-	"github.com/nitrous-io/sslider/sslgen"
 
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
@@ -33,10 +32,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-func init() {
-	sslgen.KeyLen = 512 // set low key length so cert generation finishes faster in test
-}
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
