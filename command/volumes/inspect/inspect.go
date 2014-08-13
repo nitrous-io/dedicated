@@ -44,14 +44,14 @@ type Response struct {
 }
 
 func init() {
-	command.Register("volumes:inspect", NewCommand)
+	command.RegisterAuth("volumes:inspect", NewCommand)
 }
 
-func NewCommand() (cli.Command, error) {
+func NewCommand(token string) (cli.Command, error) {
 	return &Command{
 		UI:     command.DefaultUI,
 		Server: command.Env.APIURL,
-		Client: httpclient.New(command.Env.AuthToken),
+		Client: httpclient.New(token),
 	}, nil
 }
 

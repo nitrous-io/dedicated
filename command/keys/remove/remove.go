@@ -33,14 +33,14 @@ type Command struct {
 }
 
 func init() {
-	command.Register("keys:remove", RemoveCommand)
+	command.RegisterAuth("keys:remove", RemoveCommand)
 }
 
-func RemoveCommand() (cli.Command, error) {
+func RemoveCommand(token string) (cli.Command, error) {
 	return &Command{
 		UI:     command.DefaultUI,
 		Server: command.Env.APIURL,
-		Client: httpclient.New(command.Env.AuthToken),
+		Client: httpclient.New(token),
 	}, nil
 }
 

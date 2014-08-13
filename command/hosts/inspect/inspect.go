@@ -34,14 +34,14 @@ type Command struct {
 }
 
 func init() {
-	command.Register("hosts:inspect", NewCommand)
+	command.RegisterAuth("hosts:inspect", NewCommand)
 }
 
-func NewCommand() (cli.Command, error) {
+func NewCommand(token string) (cli.Command, error) {
 	return &Command{
 		UI:     command.DefaultUI,
 		Server: command.Env.APIURL,
-		Client: httpclient.New(command.Env.AuthToken),
+		Client: httpclient.New(token),
 	}, nil
 }
 

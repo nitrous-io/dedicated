@@ -68,7 +68,7 @@ func main() {
 	if err != nil {
 		switch err {
 		case command.ErrMissingAuthToken:
-			fmt.Fprintf(os.Stderr, "nitro: requires a logged in user. Maybe you want nitro login first\n")
+			fmt.Fprintf(os.Stderr, "nitro: requires a logged in user. Run `nitro login` first\n")
 		default:
 			fmt.Fprintf(os.Stderr, "nitro: unexpected error: %v\n", err)
 		}
