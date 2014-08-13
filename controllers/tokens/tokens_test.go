@@ -71,7 +71,7 @@ var _ = Describe("controllers/tokens", func() {
 
 		doRequest := func() {
 			var err error
-			req, err = NewFormRequest("POST", "/oauth/token", params)
+			req, err = NewFormRequest("POST", "/api/v0/oauth/token", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}

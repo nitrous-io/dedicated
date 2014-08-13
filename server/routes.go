@@ -15,9 +15,9 @@ import (
 
 func (s *Server) drawRoutes() {
 	s.route("/", home.Index, "GET")
-	s.route("/oauth/token", mw.JSON(tokens.Post), "POST")
 
 	s.namespace("/api/v0", func() {
+		s.route("/oauth/token", mw.JSON(tokens.Post), "POST")
 		s.route("/users", mw.JSON(users.Create), "POST")
 		s.route("/user", mw.Auth(mw.JSON(users.GetAuthenticatedUser)), "GET")
 
