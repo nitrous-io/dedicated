@@ -866,6 +866,85 @@ var _ = Describe("controllers/containers", func() {
 		})
 	})
 
+	Describe("POST /containers/{name}/commit", func() {
+		var (
+			slug = "elixir-web-1"
+		)
+
+		doRequest := func(name string) {
+			params := &url.Values{}
+			if name != "" {
+				params.Set("name", name)
+			}
+			req, err := NewAuthedFormRequest(t, "POST",
+				fmt.Sprintf("/api/v0/containers/%s/commit", slug),
+				params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			c := &container.Container{
+				CID:    "deadbeef",
+				Slug:   slug,
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+				Name:   sql.NullString{"Elixir server", true},
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("returns image on success", func() {
+			mockClient.CommitImage = &freighterclient.Image{
+				ID:          "1a",
+				Name:        "elixir-staging",
+				Tag:         "latest",
+				CreatedAt:   1903,
+				ActualSize:  13,
+				VirtualSize: 29,
+			}
+			doRequest("elixir-staging")
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(mockClient.CommitCalled).To(Equal(1))
+			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
+			Expect(mockClient.ReceivedName).To(Equal("elixir-staging"))
+			var j struct {
+				Image *freighterclient.Image `json:"image"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Image).NotTo(BeNil())
+			Expect(j.Image.Name).To(Equal("elixir-staging"))
+			Expect(j.Image.Tag).To(Equal("latest"))
+		})
+
+		It("requires name parameter", func() {
+			doRequest("")
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("image name is required"))
+		})
+
+		It("handles image already exists error", func() {
+			mockClient.CommitError = freighterclient.ErrImageExists
+			doRequest("taken")
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("image already exists"))
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/containers/elixir-web-1/commit"
+				authTokenInputs.Method = "POST"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
 	Describe("GET /containers/{name}", func() {
 		var (
 			c     *container.Container

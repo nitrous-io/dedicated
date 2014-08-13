@@ -26,6 +26,7 @@ const DefaultImage = "nitrousio/ubuntu:trusty"
 
 var (
 	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
+	errImageNameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "image name is required")
 	errHostNotFound      = middleware.ErrHostNotFound
 	errVolumeNotFound    = httperror.New(http.StatusBadRequest, "invalid_state", "volume not found")
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
@@ -40,6 +41,7 @@ var (
 
 var (
 	Create  middleware.Middleware = middleware.HostViaForm("host", requiresRunningHost(create))
+	Commit  middleware.Middleware = WithContainerAndHost(commit)
 	Show    middleware.Middleware = WithContainerAndHost(show)
 	Start   middleware.Middleware = WithContainerAndHost(start)
 	Stop    middleware.Middleware = WithContainerAndHost(stop)
@@ -235,6 +237,38 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 	env.Data = map[string]interface{}{
 		"status":    "created",
 		"container": serializers.SerializeContainer(cn),
+	}
+	return nil
+}
+
+func commit(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(c.DB(), h)
+	if err != nil {
+		return err
+	}
+
+	name := r.FormValue("name")
+	if name == "" {
+		return errImageNameRequired
+	}
+
+	image, err := cl.Commit(cn.CID, name)
+	if err == freighterclient.ErrImageExists {
+		env.Status = http.StatusBadRequest
+		env.Data = map[string]interface{}{
+			"error":             "invalid_request",
+			"error_description": "image already exists",
+		}
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "created",
+		"image":  image,
 	}
 	return nil
 }
