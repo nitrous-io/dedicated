@@ -26,13 +26,13 @@ func (s *Server) drawRoutes() {
 		s.route("/hosts/{slug}", mw.Auth(mw.JSON(mw.HostViaPath("slug", hosts.Show))), "GET")
 		s.route("/hosts/{slug}/stats", mw.Auth(mw.JSON(mw.HostViaPath("slug", hosts.Stats))), "GET")
 		s.route("/hosts/{slug}", mw.Auth(mw.JSON(mw.HostViaPath("slug", hosts.Destroy))), "DELETE")
-		s.route("/hosts/{slug}/start", mw.Auth(mw.HostViaPath("slug", hosts.Start)), "POST")
-		s.route("/hosts/{slug}/stop", mw.Auth(mw.HostViaPath("slug", hosts.Stop)), "POST")
-		s.route("/hosts/{slug}/restart", mw.Auth(mw.HostViaPath("slug", hosts.Restart)), "POST")
+		s.route("/hosts/{slug}/start", mw.Auth(mw.JSON(mw.HostViaPath("slug", hosts.Start))), "POST")
+		s.route("/hosts/{slug}/stop", mw.Auth(mw.JSON(mw.HostViaPath("slug", hosts.Stop))), "POST")
+		s.route("/hosts/{slug}/restart", mw.Auth(mw.JSON(mw.HostViaPath("slug", hosts.Restart))), "POST")
 
 		s.route("/hosts/{slug}/registries", mw.Auth(mw.JSON(mw.Vars(registries.Index))), "GET")
-		s.route("/hosts/{slug}/registries", mw.Auth(mw.Vars(registries.Login)), "POST")
-		s.route("/hosts/{slug}/registries", mw.Auth(mw.Vars(registries.Logout)), "DELETE")
+		s.route("/hosts/{slug}/registries", mw.Auth(mw.JSON(mw.Vars(registries.Login))), "POST")
+		s.route("/hosts/{slug}/registries", mw.Auth(mw.JSON(mw.Vars(registries.Logout))), "DELETE")
 
 		s.route("/hosts/{slug}/volumes", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Index)))), "GET")
 		s.route("/hosts/{slug}/volumes", mw.Auth(mw.JSON(mw.Vars(mw.HostViaPath("slug", volumes.Create)))), "POST")

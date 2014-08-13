@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/lib/pq"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
@@ -292,7 +291,10 @@ func Start(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 		return err
 	}
 
-	respondOK(w, c.Logger())
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"host": serializers.SerializeHost(h),
+	}
 	return nil
 }
 
@@ -307,7 +309,10 @@ func Stop(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 		return err
 	}
 
-	respondOK(w, c.Logger())
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"host": serializers.SerializeHost(h),
+	}
 	return nil
 }
 
@@ -322,14 +327,11 @@ func Restart(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 		return err
 	}
 
-	respondOK(w, c.Logger())
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"host": serializers.SerializeHost(h),
+	}
 	return nil
-}
-
-func respondOK(w http.ResponseWriter, logger *logger.Logger) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte{})
-	logger.Infof("Response: 200 OK")
 }
 
 // stateTransition reflects the transition of host states during a hostbuilder operation.

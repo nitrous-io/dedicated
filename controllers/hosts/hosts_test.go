@@ -814,8 +814,27 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(h.State).To(Equal(host.StateRunning))
 			})
 
-			It("responds with status OK", func() {
+			It("responds with the host and status OK", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.ID).To(Equal(hs.H.ID))
+				Expect(j.Host.Slug).To(Equal(hs.H.Slug))
+				Expect(j.Host.IPAddress).To(Equal(""))
+				Expect(j.Host.FreighterdPort).To(Equal(int64(0)))
+				Expect(j.Host.Size).To(Equal(""))
+				Expect(j.Host.State).To(Equal(host.StateRunning))
+				Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
+				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
+				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
+				Expect(j.Host.Stats).To(BeNil())
+				Expect(j.Host.CreatedAt).NotTo(BeNil())
+				Expect(j.Host.UpdatedAt).NotTo(BeNil())
+				Expect(j.Host.TerminatedAt).To(BeNil())
 			})
 		})
 
@@ -903,8 +922,27 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(h.State).To(Equal(host.StateStopped))
 			})
 
-			It("responds with HTTP 200 OK", func() {
+			It("responds with the host and status OK", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.ID).To(Equal(hs.H.ID))
+				Expect(j.Host.Slug).To(Equal(hs.H.Slug))
+				Expect(j.Host.IPAddress).To(Equal(""))
+				Expect(j.Host.FreighterdPort).To(Equal(int64(0)))
+				Expect(j.Host.Size).To(Equal(""))
+				Expect(j.Host.State).To(Equal(host.StateStopped))
+				Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
+				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
+				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
+				Expect(j.Host.Stats).To(BeNil())
+				Expect(j.Host.CreatedAt).NotTo(BeNil())
+				Expect(j.Host.UpdatedAt).NotTo(BeNil())
+				Expect(j.Host.TerminatedAt).To(BeNil())
 			})
 		})
 
@@ -939,7 +977,7 @@ var _ = Describe("controllers/hosts", func() {
 		})
 	})
 
-	Describe("Restart", func() {
+	Describe("POST /api/v0/hosts/{slug}/restart", func() {
 		doRequest := func(slug string) {
 			req, err := NewRequest("POST", "/api/v0/hosts/"+slug+"/restart", nil)
 			Expect(err).To(BeNil())
@@ -992,8 +1030,27 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(h.State).To(Equal(host.StateRunning))
 			})
 
-			It("responds with status OK", func() {
+			It("responds with the host and status OK", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.ID).To(Equal(hs.H.ID))
+				Expect(j.Host.Slug).To(Equal(hs.H.Slug))
+				Expect(j.Host.IPAddress).To(Equal(""))
+				Expect(j.Host.FreighterdPort).To(Equal(int64(0)))
+				Expect(j.Host.Size).To(Equal(""))
+				Expect(j.Host.State).To(Equal(host.StateRunning))
+				Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
+				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
+				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
+				Expect(j.Host.Stats).To(BeNil())
+				Expect(j.Host.CreatedAt).NotTo(BeNil())
+				Expect(j.Host.UpdatedAt).NotTo(BeNil())
+				Expect(j.Host.TerminatedAt).To(BeNil())
 			})
 		})
 
