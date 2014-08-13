@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -62,6 +63,24 @@ func (s *Server) route(route string, mw middleware.Middleware, methods ...string
 		if err != nil {
 			s.HandleError(w, err)
 		}
+	}
+	s.router.HandleFunc(route, h).Methods(methods...)
+}
+
+func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...string) {
+	route = strings.Join(nsStack, "") + route
+	h := func(w http.ResponseWriter, r *http.Request) {
+		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
+		env := &middleware.Env{}
+		if err := mw(env, s, w, r); err != nil {
+			s.HandleError(w, err)
+			return
+		}
+		if env.Status == 0 || env.Data == nil {
+			s.HandleError(w, errors.New("Status and/or Data not set"))
+			return
+		}
+		s.RespondEncodeJSON(w, env.Status, env.Data)
 	}
 	s.router.HandleFunc(route, h).Methods(methods...)
 }
