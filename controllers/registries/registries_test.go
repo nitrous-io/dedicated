@@ -18,6 +18,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/registry"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -158,7 +159,7 @@ var _ = Describe("controllers/registries", func() {
 				doRequest(overrides{})
 
 				Expect(res.Code).To(Equal(http.StatusOK))
-				var j map[string][]registry.Registry
+				var j map[string][]serializers.Registry
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 				registries, ok := j["registries"]
@@ -305,8 +306,17 @@ var _ = Describe("controllers/registries", func() {
 							Expect(r.URL).To(Equal("hub.example.com"))
 						})
 
-						It("returns HTTP 200 OK if logged in successfully", func() {
+						It("responds with the registry user has logged in", func() {
 							Expect(res.Code).To(Equal(http.StatusOK))
+							var j map[string]serializers.Registry
+							err := json.Unmarshal(res.Body.Bytes(), &j)
+							Expect(err).To(BeNil())
+							registry, ok := j["registry"]
+							Expect(ok).To(BeTrue())
+
+							Expect(registry.Username).To(Equal("dockeruser"))
+							Expect(registry.Email).To(Equal("dockeruser@example.com"))
+							Expect(registry.URL).To(Equal("hub.example.com"))
 						})
 					})
 

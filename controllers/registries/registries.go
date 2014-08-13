@@ -42,7 +42,6 @@ func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 
 func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
-	logger := c.Logger()
 
 	username := r.FormValue("username")
 	if username == "" {
@@ -111,16 +110,15 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 		return err
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte{})
-	logger.Infof("Response: 200 OK")
-
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"registry": serializers.SerializeRegistry(reg),
+	}
 	return nil
 }
 
 func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 	db := c.DB()
-	logger := c.Logger()
 
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
@@ -146,9 +144,9 @@ func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 		return err
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte{})
-	logger.Infof("Response: 200 OK")
-
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "OK",
+	}
 	return nil
 }
