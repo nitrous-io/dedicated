@@ -10,12 +10,12 @@ import (
 )
 
 type Volume struct {
-	ID        int64      `db:"id" json:"id"`
-	HostID    int64      `db:"host_id" json:"-"`
-	Name      string     `db:"name" json:"name"`
-	Slug      string     `db:"slug" json:"slug"`
-	CreatedAt *time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt *time.Time `db:"updated_at" json:"updated_at"`
+	ID        int64      `db:"id"`
+	HostID    int64      `db:"host_id"`
+	Name      string     `db:"name"`
+	Slug      string     `db:"slug"`
+	CreatedAt *time.Time `db:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at"`
 }
 
 var slugRe = regexp.MustCompile(`\A[A-Za-z0-9][A-Za-z0-9_\-]*\z`)

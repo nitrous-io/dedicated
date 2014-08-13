@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/lib/pq"
-	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
@@ -25,15 +24,16 @@ import (
 )
 
 var (
-	ErrSizeRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "size is required")
-	ErrSlugRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
-	ErrRegionRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "region is required")
-	ErrPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
-	ErrRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
-	ErrProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
-	ErrHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "host is not stopped")
-	ErrHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
-	ErrHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
+	errSizeRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "size is required")
+	errSlugRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
+	errRegionRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "region is required")
+	errPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
+	errRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
+	errProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
+	errHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "host is not stopped")
+	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
+	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
+	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 
 	hostbuilderURL string
 	aesKey         string
@@ -70,7 +70,7 @@ func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *
 
 	hostsResp := make([]*serializers.Host, len(hosts))
 	for i, h := range hosts {
-		hostsResp[i] = serializers.SerializeHost(&h, nil)
+		hostsResp[i] = serializers.SerializeHost(&h)
 	}
 
 	env.Status = http.StatusOK
@@ -85,17 +85,17 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 
 	size := r.FormValue("size")
 	if size == "" {
-		return ErrSizeRequired
+		return errSizeRequired
 	}
 
 	slug := r.FormValue("slug")
 	if slug == "" {
-		return ErrSlugRequired
+		return errSlugRequired
 	}
 
 	regionName := r.FormValue("region")
 	if regionName == "" {
-		return ErrRegionRequired
+		return errRegionRequired
 	}
 
 	name := r.FormValue("name")
@@ -109,7 +109,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return err
 	}
 	if pl == nil {
-		return ErrPlanNotFound
+		return errPlanNotFound
 	}
 
 	rg, err := region.FindByName(db, regionName)
@@ -117,7 +117,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return err
 	}
 	if rg == nil {
-		return ErrRegionNotFound
+		return errRegionNotFound
 	}
 
 	pts, err := providertemplate.FindAllByRegionAndPlan(db, rg.ID, pl.ID)
@@ -125,7 +125,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 		return err
 	}
 	if len(pts) == 0 {
-		return ErrProvidertemplateNotFound
+		return errProvidertemplateNotFound
 	}
 	// TODO: Actual logic for picking the correct provider template
 	// pick the first template for now
@@ -215,30 +215,37 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"status": "created",
-		"host":   serializers.SerializeHost(h, nil),
+		"host":   serializers.SerializeHost(h),
 	}
 	return nil
 }
 
 func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	var info *freighterclient.HostInfo
-	db := c.DB()
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"host": serializers.SerializeHost(h),
+	}
+	return nil
+}
 
-	// Request info from Freighter if host is running with an IP address.
-	if h.IPAddress.String != "" && h.State == host.StateRunning {
-		cl, err := controllers.NewFreighterClient(db, h)
-		if err != nil {
-			return err
-		}
-		info, err = cl.HostInfo()
-		if err != nil {
-			return err
-		}
+func Stats(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	// Host should be running and have an IP address.
+	if h.State != host.StateRunning || h.IPAddress.String == "" {
+		return errHostNotRunning
+	}
+
+	cl, err := controllers.NewFreighterClient(c.DB(), h)
+	if err != nil {
+		return err
+	}
+	info, err := cl.HostInfo()
+	if err != nil {
+		return err
 	}
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h, info),
+		"stats": serializers.SerializeHostInfo(info),
 	}
 	return nil
 }
@@ -273,7 +280,7 @@ func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h, nil),
+		"host": serializers.SerializeHost(h),
 	}
 	return nil
 }
@@ -284,7 +291,7 @@ func Start(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 		HostbuilderClient.Start)
 	if err != nil {
 		if _, ok := err.(*stateTransitionError); ok {
-			return ErrHostStartInvalidState
+			return errHostStartInvalidState
 		}
 		return err
 	}
@@ -299,7 +306,7 @@ func Stop(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 		HostbuilderClient.Stop)
 	if err != nil {
 		if _, ok := err.(*stateTransitionError); ok {
-			return ErrHostStopInvalidState
+			return errHostStopInvalidState
 		}
 		return err
 	}
@@ -314,7 +321,7 @@ func Restart(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 		HostbuilderClient.Restart)
 	if err != nil {
 		if _, ok := err.(*stateTransitionError); ok {
-			return ErrHostRestartInvalidState
+			return errHostRestartInvalidState
 		}
 		return err
 	}

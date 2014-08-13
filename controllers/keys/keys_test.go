@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/publickey"
 	"github.com/nitrous-io/nitrous/models/token"
+	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -152,8 +153,8 @@ var _ = Describe("controllers/keys", func() {
 
 				It("responds with json keys", func() {
 					j := struct {
-						Status string                `json:"status"`
-						Keys   []publickey.PublicKey `json:"keys"`
+						Status string                   `json:"status"`
+						Keys   []*serializers.PublicKey `json:"keys"`
 					}{}
 					err := json.NewDecoder(res.Body).Decode(&j)
 					Expect(err).To(BeNil())
@@ -161,7 +162,6 @@ var _ = Describe("controllers/keys", func() {
 					for _, k := range j.Keys {
 						Expect(validKeys).To(ContainElement(k.Key))
 						Expect(k.ContainerID).To(Equal(c.ID))
-						Expect(k.UserID).To(Equal(int64(0))) // UserID not marshalled
 					}
 				})
 			})

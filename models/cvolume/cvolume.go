@@ -13,10 +13,10 @@ import (
 )
 
 type ContainerVolume struct {
-	ID          int64      `db:"id" json:"id"`
-	ContainerID int64      `db:"container_id" json:"container_id"`
-	VolumeID    int64      `db:"volume_id" json:"volume_id"`
-	CreatedAt   *time.Time `db:"created_at" json:"created_at"`
+	ID          int64      `db:"id"`
+	ContainerID int64      `db:"container_id"`
+	VolumeID    int64      `db:"volume_id"`
+	CreatedAt   *time.Time `db:"created_at"`
 }
 
 var (

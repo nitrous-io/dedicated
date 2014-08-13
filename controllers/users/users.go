@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
+	"github.com/nitrous-io/nitrous/serializers"
 )
 
 var (
@@ -74,7 +75,7 @@ func GetAuthenticatedUser(env *middleware.Env, c controllers.Helper, w http.Resp
 	}
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"user": u,
+		"user": serializers.SerializeUser(u),
 	}
 	return nil
 }
