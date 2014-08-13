@@ -26,6 +26,8 @@ const StatusUnprocessableEntity = 422
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	// allow all origins here
+	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
