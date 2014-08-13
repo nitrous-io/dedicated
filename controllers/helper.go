@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"net/http"
-	"text/template"
 
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
@@ -13,7 +12,6 @@ type Helper interface {
 	Logger() *logger.Logger
 	DB() *db.Database
 
-	RenderTemplate(w http.ResponseWriter, status int, tmpl *template.Template, data interface{})
 	RenderHTML(w http.ResponseWriter, status int, html []byte)
 	RespondJSON(w http.ResponseWriter, status int, data []byte)
 	RespondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{})
