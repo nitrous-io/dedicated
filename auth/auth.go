@@ -15,7 +15,7 @@ func FetchToken(server, username, password string) (string, error) {
 	p.Set("username", username)
 	p.Set("password", password)
 
-	url := fmt.Sprintf("%s/oauth/token", server)
+	url := fmt.Sprintf("%s/api/v0/oauth/token", server)
 	response, err := http.PostForm(url, p)
 	if err != nil {
 		return "", err
