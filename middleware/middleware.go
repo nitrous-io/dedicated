@@ -24,7 +24,6 @@ type Env struct {
 	Status int
 	User   *user.User
 	Data   map[string]interface{}
-	Vars   map[string]string
 }
 
 type Middleware func(env *Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error
@@ -62,13 +61,6 @@ func Auth(mw Middleware) Middleware {
 		}
 
 		env.User = u
-		return mw(env, c, w, r)
-	}
-}
-
-func Vars(mw Middleware) Middleware {
-	return func(env *Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-		env.Vars = mux.Vars(r)
 		return mw(env, c, w, r)
 	}
 }
