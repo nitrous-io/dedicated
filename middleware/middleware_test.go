@@ -52,21 +52,6 @@ var _ = Describe("middleware", func() {
 		env = &middleware.Env{}
 	})
 
-	Describe("Vars", func() {
-		It("sets the Vars in the environment", func() {
-			h := func(w http.ResponseWriter, r *http.Request) {
-				middleware.Vars(emptyMw)(env, svr, w, r)
-			}
-			handler.HandleFunc("/path/{name}", h).Methods("GET")
-
-			req, err := NewRequest("GET", "/path/foo", nil)
-			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
-
-			Expect(env.Vars["name"]).To(Equal("foo"))
-		})
-	})
-
 	Describe("Auth", func() {
 		var (
 			u *user.User

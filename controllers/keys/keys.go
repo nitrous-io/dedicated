@@ -3,6 +3,7 @@ package keys
 import (
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
@@ -128,7 +129,7 @@ func deleteByFingerprint(cn *container.Container, h *host.Host, env *middleware.
 	db := c.DB()
 	u := env.User
 
-	fingerprint := env.Vars["md5_fingerprint"]
+	fingerprint := mux.Vars(r)["md5_fingerprint"]
 
 	_, err := publickey.FindByUserIDAndContainerIDAndFingerprint(db, u.ID, cn.ID, fingerprint)
 	if err != nil {
@@ -160,11 +161,11 @@ func deleteByFingerprint(cn *container.Container, h *host.Host, env *middleware.
 }
 
 func withContainer(fn func(cn *container.Container, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middleware.Middleware {
-	return middleware.Vars(func(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	return func(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		db := c.DB()
 		u := env.User
 
-		cSlug := env.Vars["slug"]
+		cSlug := mux.Vars(r)["slug"]
 		cn, err := container.FindByUserAndSlug(db, u, cSlug)
 		if err != nil {
 			return err
@@ -174,7 +175,7 @@ func withContainer(fn func(cn *container.Container, env *middleware.Env, c contr
 		}
 
 		return fn(cn, env, c, w, r)
-	})
+	}
 }
 
 func freighterError(err error) error {

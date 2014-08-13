@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
@@ -328,10 +329,10 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, c contr
 }
 
 func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middleware.Middleware {
-	return middleware.Vars(func(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	return func(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
 		db := c.DB()
 
-		cSlug := env.Vars["slug"]
+		cSlug := mux.Vars(r)["slug"]
 		cn, err := container.FindByUserAndSlug(db, env.User, cSlug)
 		if err != nil {
 			return err
@@ -351,7 +352,7 @@ func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *mi
 			return controllers.ErrHostNotRunning
 		}
 		return fn(cn, h, env, c, w, r)
-	})
+	}
 }
 
 type runningHost *host.Host
