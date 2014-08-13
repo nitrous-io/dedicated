@@ -310,6 +310,7 @@ func (s *Server) createShell(w http.ResponseWriter, r *http.Request) error {
 	}
 	shellID := randomString()
 	s.shells[shellID] = shell
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"id": shellID})
 	return nil
 }
@@ -362,6 +363,7 @@ func (s *Server) wsAttachShell(w http.ResponseWriter, r *http.Request) error {
 		stream.Close()
 	}()
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	<-shell.Attach(stream, stream)
 	return nil
 }
@@ -378,6 +380,7 @@ func (s *Server) resizeShell(w http.ResponseWriter, r *http.Request) error {
 	if err := shell.Resize(width, height); err != nil {
 		return fmt.Errorf("Resize failed %v", err)
 	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
 	return nil
 }
