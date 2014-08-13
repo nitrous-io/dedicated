@@ -493,6 +493,32 @@ var _ = Describe("provider/docker", func() {
 				})
 			})
 
+			Describe(".Commit()", func() {
+				It("creates an image", func() {
+					image, err := prov.Commit(id, "committed")
+					Expect(err).To(BeNil())
+					defer removeImages([]string{image.ID})
+					Expect(image).NotTo(BeNil())
+					Expect(image.Name).To(Equal("committed"))
+					Expect(image.Tag).To(Equal("latest"))
+					out, err := exec.Command("docker", "images", "--no-trunc").CombinedOutput()
+					Expect(err).To(BeNil())
+					Expect(out).To(ContainSubstring(image.ID))
+				})
+
+				It("creates an image with a custom tag", func() {
+					image, err := prov.Commit(id, "archived:deprecated")
+					Expect(err).To(BeNil())
+					defer removeImages([]string{image.ID})
+					Expect(image).NotTo(BeNil())
+					Expect(image.Name).To(Equal("archived"))
+					Expect(image.Tag).To(Equal("deprecated"))
+					out, err := exec.Command("docker", "images", "--no-trunc").CombinedOutput()
+					Expect(err).To(BeNil())
+					Expect(out).To(ContainSubstring(image.ID))
+				})
+			})
+
 			Context("with public keys", func() {
 				Context("with generic containers", func() {
 					var (
@@ -1380,7 +1406,7 @@ var _ = Describe("provider/docker", func() {
 			It("should not override existing tags with no force", func() {
 				created := createImages(1, "nooverridely", false, false, false)
 				err := prov.TagImage(withoutNamespace(created[0]), "nooverridely:n1", false)
-				Expect(err).To(Equal(provider.ErrImageTagExists))
+				Expect(err).To(Equal(provider.ErrImageExists))
 
 				removeImages(created)
 			})

@@ -69,6 +69,23 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) commitContainer(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	name := r.FormValue("name")
+	if name == "" {
+		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"name is missing"}`))
+		return
+	}
+
+	image, err := s.provider.Commit(id, name)
+	if err != nil {
+		s.handleError(w, err)
+		return
+	}
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"image": image})
+}
+
 func (s *Server) getContainerInfo(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 

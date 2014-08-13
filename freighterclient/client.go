@@ -39,6 +39,7 @@ var (
 	ErrContainerNotFound = errors.New("freighter: container not found")
 	ErrVolumeNotFound    = errors.New("freighter: volume not found")
 	ErrHostNotFound      = errors.New("freighter: host not found")
+	ErrImageExists       = provider.ErrImageExists
 )
 
 type RegistryAuth struct {
@@ -52,6 +53,7 @@ type RegistryAuth struct {
 type Client interface {
 	List() ([]*Container, error)
 	Create(name, image string, config *ContainerConfig) (*Container, error)
+	Commit(id, image string) (*Image, error)
 
 	// Info returns the Container with the given id.
 	// If there is no Container with the given id, Info should return
@@ -252,6 +254,35 @@ func (c *client) Create(name, image string, config *ContainerConfig) (*Container
 		return nil, err
 	}
 	return containerResp.Container, nil
+}
+
+func (c *client) Commit(id, imageName string) (*Image, error) {
+	u := fmt.Sprintf("%s/containers/%s/commit", c.host.BaseURL(), id)
+	data := &url.Values{"name": []string{imageName}}
+	req, err := http.NewRequest("POST", u, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, &StatusError{resp.StatusCode}
+	}
+
+	var imageInfo struct {
+		Image *Image `json:"image"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&imageInfo)
+	if err != nil {
+		return nil, ErrUnexpectedResponse
+	}
+
+	return imageInfo.Image, nil
 }
 
 // Info makes an API request to a given Freighter Host and returns the

@@ -120,6 +120,29 @@ func (p *DockerProvider) Create(name, imageName, configJSON string) (*provider.C
 	return p.GetInfo(container.ID)
 }
 
+func (p *DockerProvider) Commit(id, imageName string) (*provider.ImageInfo, error) {
+	repo, tag := parsers.ParseRepoAndTag(imageName)
+	if tag == "" {
+		tag = "latest"
+	}
+
+	opts := dockerclient.CommitContainerOptions{
+		Container:  id,
+		Repository: p.applyNamespace(repo),
+		Tag:        tag,
+	}
+	dockerImage, err := p.client.CommitContainer(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := p.lookupImage(dockerImage.ID)
+	if err != nil {
+		return nil, err
+	}
+	return info.image, nil
+}
+
 func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 	container, err := p.inspectContainer(id)
 	if err != nil {
@@ -596,7 +619,7 @@ func (p *DockerProvider) TagImage(imageIDOrName, newName string, force bool) err
 		// check for collision
 		_, err := p.client.InspectImage(finalName)
 		if err != dockerclient.ErrNoSuchImage {
-			return provider.ErrImageTagExists
+			return provider.ErrImageExists
 		}
 	}
 
@@ -698,19 +721,14 @@ func (p *DockerProvider) lookupImage(imageIDOrName string) (lookupImageResult, e
 		return lookupImageResult{}, err
 	}
 
-	var repository, tag string
+	repository, tag := parsers.ParseRepoAndTag(imageIDOrName)
+	if tag == "" {
+		tag = "latest"
+	}
 	for _, image := range images {
 		if image.ID == imageIDOrName {
 			return lookupImageResult{image: image, byID: true}, nil
 		} else {
-			// break up parts, only when we truly need to
-			if repository == "" {
-				repository, tag = parsers.ParseRepoAndTag(imageIDOrName)
-				if tag == "" {
-					tag = "latest"
-				}
-			}
-
 			if repository == image.Name && tag == image.Tag {
 				return lookupImageResult{image: image}, nil
 			}
@@ -829,6 +847,9 @@ func (p *DockerProvider) dockerTag(image string, newName string, force bool) err
 }
 
 func (p *DockerProvider) applyNamespace(name string) string {
+	if strings.HasPrefix(name, p.namespace) {
+		return name
+	}
 	return p.namespace + name
 }
 

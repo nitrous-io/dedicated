@@ -263,6 +263,53 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("POST /containers/:container_id/commit", func() {
+		doRequest := func(id, name string) {
+			params := &url.Values{}
+			if name != "" {
+				params.Set("name", name)
+			}
+			req, err = NewRequest("POST", fmt.Sprintf("/containers/%v/commit", id), params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			prov.Containers = []*provider.ContainerInfo{
+				{ID: "python", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", State: provider.ContainerStateRunning},
+			}
+		})
+
+		It("responds with 200 OK when successful", func() {
+			prov.CommitInfo = &provider.ImageInfo{
+				ID:          "ID1",
+				Name:        "pipped",
+				Tag:         "latest",
+				CreatedAt:   1975,
+				ActualSize:  12,
+				VirtualSize: 19,
+			}
+			doRequest("python", "pipped")
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(prov.CommitCalled).To(BeTrue())
+			Expect(res.Body.String()).To(MatchJSON(`{"image":{
+				"id":"ID1","name":"pipped","tag":"latest","created_at":1975,"actual_size":12,"virtual_size":19}}`))
+		})
+
+		Context("when container commit fails", func() {
+			BeforeEach(func() {
+				prov.CommitError = fmt.Errorf("commit failed")
+				doRequest("python", "virtualenved")
+			})
+
+			It("responds with 500", func() {
+				Expect(prov.CommitCalled).To(BeTrue())
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"commit failed"}`))
+			})
+		})
+	})
+
 	Describe("Container Control", func() {
 		var (
 			provFuncCalled   *bool

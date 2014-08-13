@@ -17,7 +17,7 @@ var (
 	ErrPubKeyOpsNotSupported  = errors.New("Public key operations are not supported on this container")
 	ErrImageNotFound          = errors.New("Image does not exist")
 	ErrImageShared            = errors.New("Image is shared across multiple tags")
-	ErrImageTagExists         = errors.New("Image with same tag already exists")
+	ErrImageExists            = errors.New("Image with same name and tag already exists")
 	ErrImageAuthNotAllowed    = errors.New("Do not have permission to push/pull image")
 	ErrImageAuthMisconfigured = errors.New("Image registry configuration invalid")
 	ErrImagePushAuthRequired  = errors.New("Log in to the registry before pushing an image to it")
@@ -26,6 +26,7 @@ var (
 type Provider interface {
 	List() (infoList []*ContainerInfo, err error)
 	Create(name, image, config string) (info *ContainerInfo, err error)
+	Commit(id, imageName string) (info *ImageInfo, err error)
 	GetInfo(id string) (info *ContainerInfo, err error)
 	Start(id, config string) (info *ContainerInfo, err error)
 	Stop(id string) (info *ContainerInfo, err error)

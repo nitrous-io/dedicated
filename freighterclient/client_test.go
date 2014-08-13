@@ -331,6 +331,76 @@ var _ = Describe("client", func() {
 		})
 	})
 
+	Describe("Commit()", func() {
+		BeforeEach(func() {
+			handlers := ghttp.CombineHandlers(
+				func(w http.ResponseWriter, req *http.Request) {
+					err := req.ParseForm()
+					Expect(err).To(BeNil())
+				},
+				ghttp.VerifyRequest("POST", "/containers/mycon/commit"),
+				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
+
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
+		})
+
+		AfterEach(func() {
+			st.Close()
+		})
+
+		Context("successful response", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = `{
+					"image": {
+						"id": "12",
+						"name": "trusty-arm",
+						"tag": "latest",
+						"created_at": 1902,
+						"actual_size": 12,
+						"virtual_size": 39
+					}
+				}`
+			})
+
+			It("returns the image", func() {
+				image, err := cl.Commit("mycon", "trusty-arm")
+				Expect(err).To(BeNil())
+				reqs := server.ReceivedRequests()
+				Expect(reqs).To(HaveLen(1))
+				Expect(reqs[0].PostFormValue("name")).To(Equal("trusty-arm"))
+				Expect(image).To(Equal(&freighterclient.Image{
+					ID:          "12",
+					Name:        "trusty-arm",
+					Tag:         "latest",
+					CreatedAt:   1902,
+					ActualSize:  12,
+					VirtualSize: 39,
+				}))
+			})
+		})
+
+		Context("unsuccessful response", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusInternalServerError
+			})
+
+			It("returns a StatusError", func() {
+				container, err := cl.Commit("mycon", "trusty-arm")
+				Expect(err).NotTo(BeNil())
+				_, ok := err.(*freighterclient.StatusError)
+				Expect(ok).To(BeTrue())
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(container).To(BeNil())
+			})
+		})
+	})
+
 	Describe("Info()", func() {
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(

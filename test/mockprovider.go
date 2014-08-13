@@ -26,6 +26,10 @@ type MockProvider struct {
 	RestartCalled bool
 	RestartError  error
 
+	CommitCalled bool
+	CommitInfo   *provider.ImageInfo
+	CommitError  error
+
 	ListPublicKeysCalled bool
 	ListPublicKeysError  error
 
@@ -129,6 +133,13 @@ func (p *MockProvider) Create(name, image, config string) (*provider.ContainerIn
 	p.ReceivedImage = image
 	p.ReceivedConfig = config
 	return p.CreateContainerInfo, p.CreateError
+}
+
+func (p *MockProvider) Commit(id string, imageName string) (*provider.ImageInfo, error) {
+	p.CommitCalled = true
+	p.ReceivedID = id
+	p.ReceivedImageName = imageName
+	return p.CommitInfo, p.CommitError
 }
 
 func (p *MockProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
