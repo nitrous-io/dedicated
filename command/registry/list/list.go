@@ -29,7 +29,7 @@ type Command struct {
 }
 
 func init() {
-	command.Register("registry", NewCommand)
+	command.RegisterAuth("registry", NewCommand)
 }
 
 type Registry struct {
@@ -38,11 +38,11 @@ type Registry struct {
 	Email    string `json:"email"`
 }
 
-func NewCommand() (cli.Command, error) {
+func NewCommand(token string) (cli.Command, error) {
 	return &Command{
 		UI:     command.DefaultUI,
 		Server: command.Env.APIURL,
-		Client: httpclient.New(command.Env.AuthToken),
+		Client: httpclient.New(token),
 	}, nil
 }
 
