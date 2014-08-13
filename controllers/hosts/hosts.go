@@ -34,9 +34,6 @@ var (
 	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
-
-	hostbuilderURL string
-	aesKey         string
 )
 
 var (
@@ -45,14 +42,13 @@ var (
 	}
 )
 
-const HostbuilderURLEnvVar = "HOSTBUILDER_URL"
-
 var HostbuilderClient *hostbuilderclient.Hostbuilder
+var aesKey string
 
 func init() {
-	hostbuilderURL = os.Getenv(HostbuilderURLEnvVar)
+	hostbuilderURL := os.Getenv("HOSTBUILDER_URL")
 	if hostbuilderURL == "" {
-		panic(fmt.Sprintf("%v is not set", HostbuilderURLEnvVar))
+		panic("HOSTBUILDER_URL is not set")
 	}
 	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
 
