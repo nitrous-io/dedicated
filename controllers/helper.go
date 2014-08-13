@@ -12,7 +12,6 @@ type Helper interface {
 	Logger() *logger.Logger
 	DB() *db.Database
 
-	RenderHTML(w http.ResponseWriter, status int, html []byte)
 	RespondJSON(w http.ResponseWriter, status int, data []byte)
 	RespondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{})
 }

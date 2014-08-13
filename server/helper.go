@@ -21,14 +21,6 @@ func (s *Server) DB() *db.Database {
 	return s.db
 }
 
-func (s *Server) RenderHTML(w http.ResponseWriter, status int, html []byte) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Content-Length", strconv.Itoa(len(html)))
-	w.WriteHeader(status)
-	w.Write(html)
-	s.logger.Infof("Response: %v", status)
-}
-
 func (s *Server) RespondJSON(w http.ResponseWriter, status int, data []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))

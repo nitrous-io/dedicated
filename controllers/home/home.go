@@ -4,7 +4,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
+	"strconv"
 
+	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous-common/must"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
@@ -16,6 +18,14 @@ func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *
 	if homeIndexHtml == nil {
 		homeIndexHtml = must.ByteArray(ioutil.ReadFile(path.Join(c.Root(), "public", "index.html")))
 	}
-	c.RenderHTML(w, http.StatusOK, homeIndexHtml)
+	renderHTML(c.Logger(), w, http.StatusOK, homeIndexHtml)
 	return nil
+}
+
+func renderHTML(logger *logger.Logger, w http.ResponseWriter, status int, html []byte) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(len(html)))
+	w.WriteHeader(status)
+	w.Write(html)
+	logger.Infof("Response: %v", status)
 }
