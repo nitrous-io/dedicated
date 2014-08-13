@@ -12,6 +12,7 @@ import (
 
 	// import all individual commands here so they register themselves in init()
 	_ "github.com/nitrous-io/nitro/command/containers/attach"
+	_ "github.com/nitrous-io/nitro/command/containers/commit"
 	_ "github.com/nitrous-io/nitro/command/containers/create"
 	_ "github.com/nitrous-io/nitro/command/containers/destroy"
 	_ "github.com/nitrous-io/nitro/command/containers/inspect"
