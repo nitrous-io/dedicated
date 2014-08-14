@@ -1,7 +1,10 @@
 package events
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -9,6 +12,7 @@ import (
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 	"github.com/nitrous-io/nitrous/pkg/pubsub"
+	"github.com/nitrous-io/nitrous/pkg/wsconn"
 )
 
 const (
@@ -40,56 +44,22 @@ func Stream(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	go writer(ws, env.Events, env.User.ID)
-	reader(ws)
+	topic := pubsub.Topic(fmt.Sprintf("user-%d", env.User.ID))
+	ch := env.Events.Subscribe(topic)
+	defer env.Events.Unsubscribe(ch, topic)
+
+	conn := wsconn.New(ws, pongWait, pingPeriod, writeWait)
+	defer conn.Close()
+
+	go func() {
+		// Write received events to WebSocket as JSON.
+		for msg := range ch {
+			if err := json.NewEncoder(conn).Encode(msg); err != nil {
+				return
+			}
+		}
+	}()
+	io.Copy(ioutil.Discard, conn) // Reads from the WebSocket are ignored.
 
 	return nil
-}
-
-func writer(ws *websocket.Conn, ps *pubsub.Pubsub, userID int64) {
-	topic := pubsub.Topic(fmt.Sprintf("user-%d", userID))
-	msgCh := ps.Subscribe(topic)
-
-	pingTicker := time.NewTicker(pingPeriod)
-	defer func() {
-		ps.Unsubscribe(msgCh, topic)
-		pingTicker.Stop()
-		ws.Close()
-	}()
-
-	for {
-		select {
-		case msg, ok := <-msgCh:
-			ws.SetWriteDeadline(time.Now().Add(writeWait))
-			if !ok {
-				ws.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-			if err := ws.WriteJSON(msg); err != nil {
-				return
-			}
-		case <-pingTicker.C:
-			// Ping client periodically and expect pongs, else the connection
-			// is closed.
-			ws.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
-				return
-			}
-		}
-	}
-}
-
-func reader(ws *websocket.Conn) {
-	defer ws.Close()
-	ws.SetReadDeadline(time.Now().Add(pongWait))
-	ws.SetPongHandler(func(string) error {
-		ws.SetReadDeadline(time.Now().Add(pongWait))
-		return nil
-	})
-	for {
-		// We don't read anything except for pongs (handled by SetPongHandler).
-		if _, _, err := ws.NextReader(); err != nil {
-			break
-		}
-	}
 }
