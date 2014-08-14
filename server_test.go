@@ -87,7 +87,9 @@ var _ = Describe("hostbuilder", func() {
 
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).To(BeNil())
-			Expect(body).To(MatchJSON(`{"status":"ok"}`))
+			var info host.Info
+			json.Unmarshal(body, &info)
+			Expect(info.FreighterdPort).To(Equal(uint16(65333)))
 		})
 	})
 
@@ -104,7 +106,9 @@ var _ = Describe("hostbuilder", func() {
 
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).To(BeNil())
-			Expect(body).To(MatchJSON(`{"status":"ok"}`))
+			var info host.Info
+			json.Unmarshal(body, &info)
+			Expect(info.FreighterdPort).To(Equal(uint16(65333)))
 		})
 	})
 
@@ -121,7 +125,9 @@ var _ = Describe("hostbuilder", func() {
 
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).To(BeNil())
-			Expect(body).To(MatchJSON(`{"status":"ok"}`))
+			var info host.Info
+			json.Unmarshal(body, &info)
+			Expect(info.FreighterdPort).To(Equal(uint16(65333)))
 		})
 	})
 })

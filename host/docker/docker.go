@@ -33,11 +33,7 @@ func (h *Host) Create() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = h.createContainer(imageName)
-	if err != nil {
-		return nil, err
-	}
-	return h.Info()
+	return h.createContainer(imageName)
 }
 
 func (h *Host) Destroy() error {
@@ -61,20 +57,36 @@ func (h *Host) Info() (*host.Info, error) {
 	}, nil
 }
 
-func (h *Host) Stop() error {
-	return h.client.StopContainer(h.ID, uint(5))
+func (h *Host) Stop() (*host.Info, error) {
+	err := h.client.StopContainer(h.ID, uint(5))
+	if err != nil {
+		return nil, err
+	}
+
+	return h.Info()
 }
 
-func (h *Host) Start() error {
-	return h.client.StartContainer(h.ID, &dockerclient.HostConfig{
+func (h *Host) Start() (*host.Info, error) {
+	err := h.client.StartContainer(h.ID, &dockerclient.HostConfig{
 		Privileged:      true,
 		PublishAllPorts: true,
 		Binds:           []string{fmt.Sprintf("%s:/freighterd", h.FreighterdLocation)},
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return h.Info()
 }
 
-func (h *Host) Restart() error {
-	return h.client.RestartContainer(h.ID, uint(5))
+func (h *Host) Restart() (*host.Info, error) {
+	err := h.client.RestartContainer(h.ID, uint(5))
+	if err != nil {
+		return nil, err
+	}
+
+	return h.Info()
 }
 
 func (h *Host) createImage() (string, error) {
@@ -109,7 +121,7 @@ func (h *Host) createImage() (string, error) {
 	return imageName, nil
 }
 
-func (h *Host) createContainer(imageName string) error {
+func (h *Host) createContainer(imageName string) (*host.Info, error) {
 	log.Printf("docker: creating container from image %+s", imageName)
 	container, err := h.client.CreateContainer(dockerclient.CreateContainerOptions{
 		Name: h.Name,
@@ -120,14 +132,14 @@ func (h *Host) createContainer(imageName string) error {
 		},
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	h.ID = container.ID
-	err = h.Start()
+	info, err := h.Start()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return info, nil
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {

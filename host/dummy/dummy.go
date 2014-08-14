@@ -41,25 +41,25 @@ func (h *Host) Info() (*host.Info, error) {
 	return info, nil
 }
 
-func (h *Host) Stop() error {
+func (h *Host) Stop() (*host.Info, error) {
 	if h.StopSuccess {
-		return nil
+		return h.Info()
 	}
-	return errors.New("Failed to stop host")
+	return nil, errors.New("Failed to stop host")
 }
 
-func (h *Host) Start() error {
+func (h *Host) Start() (*host.Info, error) {
 	if h.StartSuccess {
-		return nil
+		return h.Info()
 	}
-	return errors.New("Failed to start host")
+	return nil, errors.New("Failed to start host")
 }
 
-func (h *Host) Restart() error {
+func (h *Host) Restart() (*host.Info, error) {
 	if h.RestartSuccess {
-		return nil
+		return h.Info()
 	}
-	return errors.New("Failed to restart host")
+	return nil, errors.New("Failed to restart host")
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {

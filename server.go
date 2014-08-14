@@ -106,11 +106,19 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	err = h.Stop()
+	info, err := h.Stop()
 	if err != nil {
 		return err
 	}
-	writeResponse(w, okResponse)
+	resp := &Response{
+		StatusCode:     http.StatusOK,
+		Status:         "stopped",
+		Provider:       info.Provider,
+		ID:             info.ID,
+		IPAddress:      info.IPAddress,
+		FreighterdPort: info.FreighterdPort,
+	}
+	writeResponse(w, resp)
 	return nil
 }
 
@@ -126,11 +134,19 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	err = h.Start()
+	info, err := h.Start()
 	if err != nil {
 		return err
 	}
-	writeResponse(w, okResponse)
+	resp := &Response{
+		StatusCode:     http.StatusOK,
+		Status:         "started",
+		Provider:       info.Provider,
+		ID:             info.ID,
+		IPAddress:      info.IPAddress,
+		FreighterdPort: info.FreighterdPort,
+	}
+	writeResponse(w, resp)
 	return nil
 }
 
@@ -146,11 +162,19 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	err = h.Restart()
+	info, err := h.Restart()
 	if err != nil {
 		return err
 	}
-	writeResponse(w, okResponse)
+	resp := &Response{
+		StatusCode:     http.StatusOK,
+		Status:         "restarted",
+		Provider:       info.Provider,
+		ID:             info.ID,
+		IPAddress:      info.IPAddress,
+		FreighterdPort: info.FreighterdPort,
+	}
+	writeResponse(w, resp)
 	return nil
 }
 
