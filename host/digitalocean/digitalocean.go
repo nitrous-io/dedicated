@@ -103,37 +103,37 @@ func (h *Host) dropletToInfo() *host.Info {
 	}
 }
 
-func (h *Host) Stop() error {
+func (h *Host) Stop() (*host.Info, error) {
 	id, err := h.id()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := h.Client.PowerOffDroplet(id); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return h.Info()
 }
 
-func (h *Host) Start() error {
+func (h *Host) Start() (*host.Info, error) {
 	id, err := h.id()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := h.Client.PowerOnDroplet(id); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return h.Info()
 }
 
-func (h *Host) Restart() error {
+func (h *Host) Restart() (*host.Info, error) {
 	id, err := h.id()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := h.Client.RebootDroplet(id); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return h.Info()
 }
 
 func (h *Host) id() (int, error) {

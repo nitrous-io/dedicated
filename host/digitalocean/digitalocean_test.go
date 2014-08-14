@@ -41,6 +41,26 @@ var (
 	}
 	`
 
+	// droplet show
+	droplet = `
+	{
+		"status": "OK",
+		"droplet": {
+			"id": 100823,
+			"image_id": 420,
+			"name": "test222",
+			"region_id": 1,
+			"size_id": 33,
+			"backups_active": false,
+			"backups": [],
+			"snapshots": [],
+			"ip_address": "127.0.0.1",
+			"private_ip_address": null,
+			"locked": false,
+			"status": "active"
+		}
+	}
+	`
 	// /ssh_keys/new
 	newSSH = `
 	{
@@ -116,12 +136,21 @@ var _ = Describe("host/digitalocean", func() {
 			s.AddResponse("images/id", dotest.NewResponse(200, oneImage))
 			s.AddResponse("regions", dotest.NewResponse(200, allRegions))
 			s.AddResponse("droplets/new", dotest.NewResponse(200, newDroplet))
-			s.AddResponse("droplets/id", dotest.NotfoundResponse)
-			s.AddResponse("droplets/id/destroy", dotest.OkResponse)
-			s.AddResponse("ssh_keys/id/destroy", dotest.OkResponse)
+		})
+
+		Context("Successful creation", func() {
+			// FIXME: this test was missing and I started to write it
+			// but found out that it actually tries to ssh into the server to do stuff
+			// so not sure how to do it - arun
 		})
 
 		Context("Unsuccessful creation", func() {
+			BeforeEach(func() {
+				s.AddResponse("droplets/id", dotest.NotfoundResponse)
+				s.AddResponse("droplets/id/destroy", dotest.OkResponse)
+				s.AddResponse("ssh_keys/id/destroy", dotest.OkResponse)
+			})
+
 			It("should clean up the droplet", func() {
 				h := Host{Config: &HostConfig{ID: "1", ImageID: "1", RegionID: "1", SizeID: "33"}, Client: c}
 				_, err := h.Create()
@@ -139,36 +168,80 @@ var _ = Describe("host/digitalocean", func() {
 	Describe("Stop", func() {
 		BeforeEach(func() {
 			s.AddResponse("droplets/id/power_off", dotest.OkResponse)
+			s.AddResponse("droplets/id", dotest.NewResponse(200, droplet))
 		})
 
-		Context("Successful Stop", func() {
-			It("stops the droplet", func() {
-				h := Host{Config: &HostConfig{ID: "1"}, Client: c}
+		It("stops the droplet", func() {
+			h := Host{Config: &HostConfig{ID: "1"}, Client: c}
 
-				err := h.Stop()
-				Expect(err).To(BeNil())
+			info, err := h.Stop()
+			Expect(info).ToNot(BeNil())
+			Expect(err).To(BeNil())
 
-				request := s.Requests["droplets/id/power_off"][0]
-				Expect(request.URL.Path).To(Equal("/droplets/1/power_off"))
-			})
+			request := s.Requests["droplets/id/power_off"][0]
+			Expect(request.URL.Path).To(Equal("/droplets/1/power_off"))
+
+			request = s.Requests["droplets/id"][0]
+			Expect(request.URL.Path).To(Equal("/droplets/1"))
 		})
 	})
 
 	Describe("Start", func() {
 		BeforeEach(func() {
+			s.AddResponse("droplets/id", dotest.NewResponse(200, droplet))
 			s.AddResponse("droplets/id/power_on", dotest.OkResponse)
 		})
 
-		Context("Successful Start", func() {
-			It("starts the droplet", func() {
-				h := Host{Config: &HostConfig{ID: "1"}, Client: c}
+		It("starts the droplet", func() {
+			h := Host{Config: &HostConfig{ID: "1"}, Client: c}
 
-				err := h.Start()
-				Expect(err).To(BeNil())
+			info, err := h.Start()
+			Expect(info).ToNot(BeNil())
+			Expect(err).To(BeNil())
 
-				request := s.Requests["droplets/id/power_on"][0]
-				Expect(request.URL.Path).To(Equal("/droplets/1/power_on"))
-			})
+			request := s.Requests["droplets/id/power_on"][0]
+			Expect(request.URL.Path).To(Equal("/droplets/1/power_on"))
+
+			request = s.Requests["droplets/id"][0]
+			Expect(request.URL.Path).To(Equal("/droplets/1"))
+		})
+	})
+
+	Describe("Restart", func() {
+		BeforeEach(func() {
+			s.AddResponse("droplets/id", dotest.NewResponse(200, droplet))
+			s.AddResponse("droplets/id/reboot", dotest.OkResponse)
+		})
+
+		It("restarts the droplet", func() {
+			h := Host{Config: &HostConfig{ID: "1"}, Client: c}
+
+			info, err := h.Restart()
+			Expect(info).ToNot(BeNil())
+			Expect(err).To(BeNil())
+
+			request := s.Requests["droplets/id/reboot"][0]
+			Expect(request.URL.Path).To(Equal("/droplets/1/reboot"))
+
+			request = s.Requests["droplets/id"][0]
+			Expect(request.URL.Path).To(Equal("/droplets/1"))
+		})
+	})
+
+	Describe("Info", func() {
+		BeforeEach(func() {
+			s.AddResponse("droplets/id", dotest.NewResponse(200, droplet))
+		})
+
+		It("return info about the droplet", func() {
+			h := Host{Config: &HostConfig{ID: "1"}, Client: c}
+
+			info, err := h.Info()
+			Expect(info).ToNot(BeNil())
+			Expect(err).To(BeNil())
+
+			request := s.Requests["droplets/id"][0]
+			Expect(request.URL.Path).To(Equal("/droplets/1"))
 		})
 	})
 })
