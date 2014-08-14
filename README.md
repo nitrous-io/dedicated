@@ -1,6 +1,8 @@
 freighter
 =========
 
+[![Build Status](https://ci-use1.nitrous.io/buildStatus/icon?job=freighter)](https://ci-use1.nitrous.io/job/freighter/)
+
 ## Development
 
 * `vagrant up` using the bundled `Vagrantfile`
