@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
+
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 	"github.com/nitrous-io/nitrous/controllers"
@@ -541,11 +542,12 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 		return err
 	}
 
-	r.ParseForm()
 	hv, err := hostVolumes(db, h)
 	if err != nil {
 		return err
 	}
+
+	r.ParseForm()
 	config, err := prepareConfig(r.PostForm, hv)
 	if err != nil {
 		return err
@@ -560,6 +562,10 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 	if err := cn.Update(db); err != nil {
 		log.Errorf("containers.reconfig: successfully reconfigured container '%+v' in Freighter but failed to update database with '%+v', err: %v", liveContainer, cn, err)
 		return err
+	}
+
+	if err := updateVolumes(db, cn, hv, volumeSlugs(config.Mounts)); err != nil { // log and continue
+		log.Errorf("containers.reconfig: failed to update volumes on container %s, err: %v", cn.CID, err)
 	}
 
 	env.Status = http.StatusOK
@@ -686,6 +692,25 @@ func hostVolumes(d db.QueryReceiver, h *host.Host) (map[string]*volume.Volume, e
 		slugsToVols[hv.Slug] = hv
 	}
 	return slugsToVols, nil
+}
+
+func updateVolumes(d *db.Database, cn *container.Container, hv map[string]*volume.Volume, slugs []string) error {
+	tx, err := d.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := cvolume.DeleteContainer(tx, cn); err != nil {
+		tx.Rollback()
+		return err
+	}
+	for _, v := range slugs {
+		cv := cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: hv[v].ID}
+		if err := cv.Insert(tx); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func timePtr(t time.Time) *time.Time {

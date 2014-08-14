@@ -1917,6 +1917,7 @@ var _ = Describe("controllers/containers", func() {
 	Describe("POST /containers/{name}/reconfig", func() {
 		var (
 			containerName = "elixir-web-1"
+			c             *container.Container
 		)
 
 		doRequest := func() {
@@ -1938,7 +1939,7 @@ var _ = Describe("controllers/containers", func() {
 			err := v.Insert(db)
 			Expect(err).To(BeNil())
 
-			c := &container.Container{
+			c = &container.Container{
 				CID:    "deadbeef",
 				Slug:   containerName,
 				Image:  "nitrous-base",
@@ -2001,6 +2002,29 @@ var _ = Describe("controllers/containers", func() {
 			Expect(err).To(BeNil())
 			Expect(c.CID).To(Equal("livebeef"))
 			Expect(c.Image).To(Equal("deadbeef-reconfig-image"))
+		})
+
+		It("updates volumes", func() {
+			// create previous volume association 'dotfiles', expect it to be
+			// replaced with 'music' as provided in params
+			v := &volume.Volume{HostID: hs.H.ID, Slug: "dotfiles"}
+			err := v.Insert(db)
+			Expect(err).To(BeNil())
+			cv := &cvolume.ContainerVolume{ContainerID: c.ID, VolumeID: v.ID}
+			err = cv.Insert(db)
+			Expect(err).To(BeNil())
+			doRequest()
+			cvs := []*cvolume.ContainerVolume{}
+			err = db.Select(&cvs, `SELECT cv.id, container_id, volume_id, cv.created_at
+				FROM container_volumes cv
+				JOIN containers ON containers.id = container_id
+				WHERE container_id = $1 AND terminated_at IS NULL`,
+				c.ID)
+			Expect(err).To(BeNil())
+			music, err := volume.Find(db, hs.H.ID, "music")
+			Expect(err).To(BeNil())
+			Expect(cvs).To(HaveLen(1))
+			Expect(cvs[0].VolumeID).To(Equal(music.ID))
 		})
 
 		Context("when the Freighter client returns an error", func() {

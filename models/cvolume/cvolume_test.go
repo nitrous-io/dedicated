@@ -80,6 +80,35 @@ var _ = Describe("models/volume", func() {
 		})
 	})
 
+	Describe("DeleteContainer()", func() {
+		It("deletes without removing other containers", func() {
+			delCnr := &container.Container{
+				CID:    "123456",
+				UserID: hs.U.ID,
+				HostID: hs.H.ID,
+				Image:  "nitrous-base",
+				Slug:   "java-staging-container",
+			}
+			err := delCnr.Insert(db)
+			Expect(err).To(BeNil())
+
+			toDelete := &cvolume.ContainerVolume{ContainerID: delCnr.ID, VolumeID: vol.ID}
+			Expect(toDelete.Insert(db)).To(BeNil())
+			toKeep := &cvolume.ContainerVolume{ContainerID: cnr.ID, VolumeID: vol.ID}
+			Expect(toKeep.Insert(db)).To(BeNil())
+
+			err = cvolume.DeleteContainer(db, delCnr)
+			Expect(err).To(BeNil())
+
+			_, err = cvolume.Find(db, delCnr, vol)
+			Expect(err).To(MatchError(sql.ErrNoRows))
+
+			cv, err := cvolume.Find(db, cnr, vol)
+			Expect(err).To(BeNil())
+			Expect(cv.ID).To(Equal(toKeep.ID))
+		})
+	})
+
 	Describe("Insert()", func() {
 		It("saves", func() {
 			cv := &cvolume.ContainerVolume{ContainerID: cnr.ID, VolumeID: vol.ID}
