@@ -5,8 +5,6 @@ import (
 
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/token"
-
-	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
@@ -19,8 +17,8 @@ var (
 	errInvalidCred = httperror.New(http.StatusBadRequest, "invalid_grant", "incorrect username or password")
 )
 
-func Post(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
+func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 
 	grantType := r.FormValue("grant_type")
 	login := r.FormValue("username") // this can be either username or email

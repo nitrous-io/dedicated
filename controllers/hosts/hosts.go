@@ -57,8 +57,8 @@ func init() {
 	}
 }
 
-func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	hosts, err := host.FindAllByUser(c.DB(), env.User)
+func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	hosts, err := host.FindAllByUser(env.DB, env.User)
 	if err != nil {
 		return err
 	}
@@ -75,8 +75,8 @@ func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *
 	return nil
 }
 
-func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
+func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 
 	size := r.FormValue("size")
 	if size == "" {
@@ -179,7 +179,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	if err != nil {
 		updErr := h.UpdateState(db, host.StateOrphan)
 		if updErr != nil {
-			c.Logger().Errorf("Unable to update host %d to orphan state that failed on hostbuilder: %v", h.ID, updErr)
+			env.Logger.Errorf("Unable to update host %d to orphan state that failed on hostbuilder: %v", h.ID, updErr)
 		}
 		return err
 	}
@@ -215,7 +215,7 @@ func Create(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r 
 	return nil
 }
 
-func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"host": serializers.SerializeHost(h),
@@ -223,13 +223,13 @@ func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 	return nil
 }
 
-func Stats(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// Host should be running and have an IP address.
 	if h.State != host.StateRunning || h.IPAddress.String == "" {
 		return errHostNotRunning
 	}
 
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
@@ -245,13 +245,13 @@ func Stats(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	return nil
 }
 
-func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	_, err := HostbuilderClient.Delete(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
 
-	tx, err := c.DB().Beginx()
+	tx, err := env.DB.Beginx()
 	if err != nil {
 		return err
 	}
@@ -280,8 +280,8 @@ func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 	return nil
 }
 
-func Start(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	err := transition(c.DB(), h,
+func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	err := transition(env.DB, h,
 		&stateTransition{host.StateStopped, host.StateStarting, host.StateRunning},
 		HostbuilderClient.Start)
 	if err != nil {
@@ -298,8 +298,8 @@ func Start(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	return nil
 }
 
-func Stop(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	err := transition(c.DB(), h,
+func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	err := transition(env.DB, h,
 		&stateTransition{host.StateRunning, host.StateStopping, host.StateStopped},
 		HostbuilderClient.Stop)
 	if err != nil {
@@ -316,8 +316,8 @@ func Stop(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 	return nil
 }
 
-func Restart(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	err := transition(c.DB(), h,
+func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	err := transition(env.DB, h,
 		&stateTransition{host.StateRunning, host.StateRestarting, host.StateRunning},
 		HostbuilderClient.Restart)
 	if err != nil {

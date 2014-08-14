@@ -7,7 +7,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/nitrous/controllers"
+	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
@@ -21,16 +22,19 @@ var (
 )
 
 type Env struct {
+	Root   string
+	Logger *logger.Logger
+	DB     *db.Database
 	Status int
 	User   *user.User
 	Data   map[string]interface{}
 }
 
-type Middleware func(env *Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error
+type Middleware func(env *Env, w http.ResponseWriter, r *http.Request) error
 
 func Auth(mw Middleware) Middleware {
-	return func(env *Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-		db := c.DB()
+	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
+		db := env.DB
 
 		authHeader := r.Header.Get("Authorization")
 		prefix := "Bearer "
@@ -61,11 +65,11 @@ func Auth(mw Middleware) Middleware {
 		}
 
 		env.User = u
-		return mw(env, c, w, r)
+		return mw(env, w, r)
 	}
 }
 
-type hostHandlerFn func(h *host.Host, env *Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error
+type hostHandlerFn func(h *host.Host, env *Env, w http.ResponseWriter, r *http.Request) error
 
 func HostViaForm(srcVar string, fn hostHandlerFn) Middleware {
 	return withHost("form", srcVar, fn)
@@ -78,7 +82,7 @@ func HostViaPath(srcVar string, fn hostHandlerFn) Middleware {
 // withHost takes a src ("form" or "path") and the formvalue/pattern to look
 // for to retrieve host slug.
 func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
-	return func(env *Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
 		var hSlug string
 		var h *host.Host
 
@@ -94,9 +98,9 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 		hID, err := strconv.Atoi(hSlug)
 		// If err is not nil, that means this is an ID
 		if err != nil {
-			h, err = host.FindByUserAndSlug(c.DB(), env.User, hSlug)
+			h, err = host.FindByUserAndSlug(env.DB, env.User, hSlug)
 		} else {
-			h, err = host.FindByUserAndID(c.DB(), env.User, int64(hID))
+			h, err = host.FindByUserAndID(env.DB, env.User, int64(hID))
 		}
 
 		if err != nil {
@@ -106,6 +110,6 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 			return ErrHostNotFound
 		}
 
-		return fn(h, env, c, w, r)
+		return fn(h, env, w, r)
 	}
 }

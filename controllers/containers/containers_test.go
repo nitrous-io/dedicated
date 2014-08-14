@@ -14,7 +14,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
@@ -107,17 +106,20 @@ var _ = Describe("controllers/containers", func() {
 		)
 
 		BeforeEach(func() {
-			env = &middleware.Env{User: u}
+			env = &middleware.Env{
+				DB:   db,
+				User: u,
+			}
 
 			h := func(w http.ResponseWriter, r *http.Request) {
-				mw := containers.WithContainerAndHost(func(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+				mw := containers.WithContainerAndHost(func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 					Expect(cn).NotTo(BeNil())
 					Expect(h).NotTo(BeNil())
 					Expect(h.State).To(Equal(host.StateRunning))
 					handlerCalled = true
 					return nil
 				})
-				err := mw(env, svr, w, r)
+				err := mw(env, w, r)
 				if err != nil {
 					svr.HandleError(w, err)
 				}

@@ -2,11 +2,13 @@ package server
 
 import (
 	"crypto/sha1"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -59,7 +61,11 @@ func (s *Server) route(route string, mw middleware.Middleware, methods ...string
 	route = strings.Join(nsStack, "") + route
 	h := func(w http.ResponseWriter, r *http.Request) {
 		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
-		err := mw(&middleware.Env{}, s, w, r)
+		err := mw(&middleware.Env{
+			Root:   s.root,
+			Logger: s.logger,
+			DB:     s.db,
+		}, w, r)
 		if err != nil {
 			s.HandleError(w, err)
 		}
@@ -71,8 +77,12 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 	route = strings.Join(nsStack, "") + route
 	h := func(w http.ResponseWriter, r *http.Request) {
 		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
-		env := &middleware.Env{}
-		if err := mw(env, s, w, r); err != nil {
+		env := &middleware.Env{
+			Root:   s.root,
+			Logger: s.logger,
+			DB:     s.db,
+		}
+		if err := mw(env, w, r); err != nil {
 			s.HandleError(w, err)
 			return
 		}
@@ -114,6 +124,23 @@ func (s *Server) HandleError(w http.ResponseWriter, err error) {
 		j = []byte(`{"error":"internal_server_error"}`)
 	}
 	s.RespondJSON(w, e.Code, j)
+}
+
+func (s *Server) RespondJSON(w http.ResponseWriter, status int, data []byte) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.WriteHeader(status)
+	w.Write(data)
+	s.logger.Infof("Response: %v %v", status, string(data))
+}
+
+func (s *Server) RespondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{}) {
+	j, err := json.Marshal(data)
+	if err != nil {
+		s.HandleError(w, err)
+		return
+	}
+	s.RespondJSON(w, status, j)
 }
 
 // This is called when the error is not a *httperror.Error*, i.e. there's

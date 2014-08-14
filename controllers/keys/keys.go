@@ -32,8 +32,8 @@ var (
 	DeleteByFingerprint middleware.Middleware = containers.WithContainerAndHost(deleteByFingerprint)
 )
 
-func index(cn *container.Container, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	keys, err := publickey.FindAllByUserIDAndContainerID(c.DB(), env.User.ID, cn.ID)
+func index(cn *container.Container, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	keys, err := publickey.FindAllByUserIDAndContainerID(env.DB, env.User.ID, cn.ID)
 	if err != nil {
 		return err
 	}
@@ -46,8 +46,8 @@ func index(cn *container.Container, env *middleware.Env, c controllers.Helper, w
 	return nil
 }
 
-func create(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
+func create(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 	u := env.User
 
 	pk := publickey.PublicKey{
@@ -100,8 +100,8 @@ func create(cn *container.Container, h *host.Host, env *middleware.Env, c contro
 	return nil
 }
 
-func deleteAll(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
+func deleteAll(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 	u := env.User
 
 	cl, err := controllers.NewFreighterClient(db, h)
@@ -125,8 +125,8 @@ func deleteAll(cn *container.Container, h *host.Host, env *middleware.Env, c con
 	return nil
 }
 
-func deleteByFingerprint(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
+func deleteByFingerprint(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 	u := env.User
 
 	fingerprint := mux.Vars(r)["md5_fingerprint"]
@@ -160,9 +160,9 @@ func deleteByFingerprint(cn *container.Container, h *host.Host, env *middleware.
 	return nil
 }
 
-func withContainer(fn func(cn *container.Container, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middleware.Middleware {
-	return func(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-		db := c.DB()
+func withContainer(fn func(cn *container.Container, env *middleware.Env, w http.ResponseWriter, r *http.Request) error) middleware.Middleware {
+	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+		db := env.DB
 		u := env.User
 
 		cSlug := mux.Vars(r)["slug"]
@@ -174,7 +174,7 @@ func withContainer(fn func(cn *container.Container, env *middleware.Env, c contr
 			return ErrContainerNotFound
 		}
 
-		return fn(cn, env, c, w, r)
+		return fn(cn, env, w, r)
 	}
 }
 
