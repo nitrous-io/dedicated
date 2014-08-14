@@ -18,7 +18,6 @@ import (
 )
 
 const (
-	hostUsage         = "Specify a host to create the container"
 	slugUsage         = "A unique slug for the container"
 	imageUsage        = "Specify an image to use to create the container"
 	envUsage          = "Set environment variables for the container in the format <key>:<value>. " + command.MultiargUsage
@@ -27,13 +26,12 @@ const (
 )
 
 const usage = `
-Usage: nitro create [options]
+Usage: nitro create <host> [options]
 
   create a new container
 
 Options:
 
-  -H, --host=""           %s
   -s, --slug=""           %s
   -i, --image=""          %s
   -e, --env=[]            %s
@@ -70,7 +68,7 @@ func NewCommand(token string) (cli.Command, error) {
 
 func (c *Command) Help() string {
 	// TODO this is getting unwieldy, maybe text/template
-	return strings.TrimSpace(fmt.Sprintf(usage, hostUsage, slugUsage,
+	return strings.TrimSpace(fmt.Sprintf(usage, slugUsage,
 		imageUsage, envUsage, volumesUsage, portForwardsUsage))
 }
 
@@ -79,7 +77,6 @@ func (c *Command) Run(args []string) int {
 
 	cmdFlags := flag.NewFlagSet("create", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
-	cmdFlags.StringVarP(&params.host, "host", "H", "", hostUsage)
 	cmdFlags.StringVarP(&params.slug, "slug", "s", "", slugUsage)
 	cmdFlags.StringVarP(&params.image, "image", "i", "", imageUsage)
 
@@ -92,14 +89,16 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	if params.slug == "" {
-		params.slug = randomnamegenerator.Generate("container")
-	}
-
-	if params.host == "" {
+	args = cmdFlags.Args()
+	if len(args) != 1 {
 		c.UI.Error(fmt.Sprintf("Please specify a host."))
 		c.UI.Output(c.Help())
 		return 1
+	}
+	params.host = args[0]
+
+	if params.slug == "" {
+		params.slug = randomnamegenerator.Generate("container")
 	}
 
 	c.UI.Output(fmt.Sprintf("Creating container on '%s'. Please wait...", params.host))
