@@ -69,7 +69,7 @@ var _ = Describe("containers/create", func() {
 	Context("when not all options are specified", func() {
 		It("populates request with only given params", func() {
 			cmd.Run([]string{
-				"--host=host-1",
+				"host-1",
 				"--slug=foo",
 			})
 			receivedRequests := srv.ReceivedRequests()
@@ -81,7 +81,7 @@ var _ = Describe("containers/create", func() {
 	Context("when slug is not specified", func() {
 		It("populates request with a randomly generated slug", func() {
 			cmd.Run([]string{
-				"--host=host-1",
+				"host-1",
 			})
 			receivedRequests := srv.ReceivedRequests()
 			Expect(receivedRequests).To(HaveLen(1))
@@ -107,7 +107,7 @@ var _ = Describe("containers/create", func() {
 	Context("when all options are provided", func() {
 		doCmd := func() int {
 			return cmd.Run([]string{
-				"--host=host-1",
+				"host-1",
 				"--slug=foo",
 				"--image=ubuntu",
 				"--env=PAGER=most",
