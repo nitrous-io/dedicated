@@ -29,7 +29,6 @@ var _ = Describe("containers/list", func() {
 		configPath string
 
 		srv          *ghttp.Server
-		handlers     http.HandlerFunc
 		statusCode   int
 		responseBody string
 	)
@@ -37,9 +36,9 @@ var _ = Describe("containers/list", func() {
 	BeforeEach(func() {
 		var err error
 
-		handlers = ghttp.CombineHandlers(
+		handlers := ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
-			ghttp.VerifyRequest("GET", "/api/v0/containers", "host=host-1"),
+			ghttp.VerifyRequest("GET", "/api/v0/containers"),
 			ghttp.RespondWithPtr(&statusCode, &responseBody),
 		)
 		srv = ghttp.NewServer()
@@ -60,22 +59,7 @@ var _ = Describe("containers/list", func() {
 		os.Remove(configPath)
 	})
 
-	Context("when host is not specified", func() {
-		It("prints usage and exits with error", func() {
-			code := cmd.Run([]string{})
-			Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
-			Expect(code).To(Equal(1))
-		})
-	})
-
-	Context("when server responds with containers in host", func() {
-		var (
-			formattedOutput = strings.TrimSpace(`
-Name   Image            State
-foo    freighter.foo    running
-`) + "\n\n"
-		)
-
+	Context("when server responds with containers", func() {
 		BeforeEach(func() {
 			statusCode = http.StatusOK
 			responseBody = `{
@@ -98,14 +82,30 @@ foo    freighter.foo    running
 			}`
 		})
 
-		It("outputs formatted containers on success", func() {
-			code := cmd.Run([]string{"host-1"})
+		It("outputs formatted containers", func() {
+			code := cmd.Run([]string{})
+			formattedOutput := strings.TrimSpace(`
+Name   Image            State
+foo    freighter.foo    running
+`) + "\n\n"
 			Expect(ui.OutputWriter.String()).To(ContainSubstring(formattedOutput))
 			Expect(code).To(Equal(0))
 		})
+
+		Context("when a host is provided", func() {
+			It("requests with the host parameter", func() {
+				code := cmd.Run([]string{"host-1"})
+				Expect(code).To(Equal(0))
+
+				receivedRequests := srv.ReceivedRequests()
+				Expect(receivedRequests).To(HaveLen(1))
+				r := receivedRequests[0]
+				Expect(r.FormValue("host")).To(Equal("host-1"))
+			})
+		})
 	})
 
-	Context("when host has no containers", func() {
+	Context("when server responds with no containers", func() {
 		BeforeEach(func() {
 			statusCode = http.StatusOK
 			responseBody = `{"containers":[],"status":"ok"}`
