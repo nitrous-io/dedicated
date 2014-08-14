@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -76,6 +77,30 @@ var _ = Describe("provider/docker", func() {
 
 	getHost := func(id string) string {
 		return doInspect(id, "{{.NetworkSettings.IPAddress}}")
+	}
+
+	type configInfo struct {
+		Cmd        []string
+		Entrypoint []string
+	}
+
+	type stateInfo struct {
+		ExitCode   int
+		StartedAt  time.Time
+		FinishedAt time.Time
+	}
+
+	type containerInfo struct {
+		Config configInfo
+		State  stateInfo
+	}
+
+	getContainerInfo := func(id string) *containerInfo {
+		out := doInspect(id, `{ "Config":{{json .Config}}, "State":{{json .State}} }`)
+		var v containerInfo
+		err := json.Unmarshal([]byte(out), &v)
+		Expect(err).To(BeNil())
+		return &v
 	}
 
 	createImages := func(count int, name string, noEntropy bool) []string {
@@ -162,6 +187,13 @@ var _ = Describe("provider/docker", func() {
 			Expect(info.Host).To(Equal(host))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			Expect(info.Ports[port]).To(Equal(22))
+
+			c := getContainerInfo(id)
+			Expect(info.Cmd).To(Equal(c.Config.Cmd))
+			Expect(info.Entrypoint).To(Equal(c.Config.Entrypoint))
+			Expect(info.ExitCode).To(Equal(c.State.ExitCode))
+			Expect(info.StartedAt).To(Equal(c.State.StartedAt))
+			Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
 		})
 
 		Context("after container is created", func() {
@@ -214,12 +246,26 @@ var _ = Describe("provider/docker", func() {
 						Expect(stopped.State).To(Equal(provider.ContainerStateStopped))
 						Expect(stopped.Ports[port]).To(Equal(22))
 
+						c := getContainerInfo(id)
+						Expect(stopped.Cmd).To(Equal(c.Config.Cmd))
+						Expect(stopped.Entrypoint).To(Equal(c.Config.Entrypoint))
+						Expect(stopped.ExitCode).To(Equal(c.State.ExitCode))
+						Expect(stopped.StartedAt).To(Equal(c.State.StartedAt))
+						Expect(stopped.FinishedAt).To(Equal(c.State.FinishedAt))
+
 						Expect(running.ID).To(Equal(container2Info.ID))
 						Expect(running.Name).To(Equal(container2Name))
 						Expect(running.Image).To(Equal(image))
 						Expect(running.Host).To(Equal(container2Info.Host))
 						Expect(running.State).To(Equal(provider.ContainerStateRunning))
 						Expect(running.Ports[container2Port]).To(Equal(22))
+
+						c = getContainerInfo(container2Info.ID)
+						Expect(running.Cmd).To(Equal(c.Config.Cmd))
+						Expect(running.Entrypoint).To(Equal(c.Config.Entrypoint))
+						Expect(running.ExitCode).To(Equal(c.State.ExitCode))
+						Expect(running.StartedAt).To(Equal(c.State.StartedAt))
+						Expect(running.FinishedAt).To(Equal(c.State.FinishedAt))
 					})
 				})
 
@@ -235,6 +281,13 @@ var _ = Describe("provider/docker", func() {
 							Expect(info.Ports[port]).To(Equal(22))
 							Expect(info.State).To(Equal(provider.ContainerStateStopped))
 
+							c := getContainerInfo(id)
+							Expect(info.Cmd).To(Equal(c.Config.Cmd))
+							Expect(info.Entrypoint).To(Equal(c.Config.Entrypoint))
+							Expect(info.ExitCode).To(Equal(c.State.ExitCode))
+							Expect(info.StartedAt).To(Equal(c.State.StartedAt))
+							Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
+
 							info, err = prov.GetInfo(container2Info.ID)
 							Expect(err).To(BeNil())
 							Expect(info.ID).To(Equal(container2Info.ID))
@@ -243,6 +296,13 @@ var _ = Describe("provider/docker", func() {
 							Expect(info.Host).To(Equal(container2Info.Host))
 							Expect(info.Ports[container2Port]).To(Equal(22))
 							Expect(info.State).To(Equal(provider.ContainerStateRunning))
+
+							c = getContainerInfo(container2Info.ID)
+							Expect(info.Cmd).To(Equal(c.Config.Cmd))
+							Expect(info.Entrypoint).To(Equal(c.Config.Entrypoint))
+							Expect(info.ExitCode).To(Equal(c.State.ExitCode))
+							Expect(info.StartedAt).To(Equal(c.State.StartedAt))
+							Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
 						})
 					})
 				})
@@ -265,6 +325,13 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.Host).To(Equal(host))
 					Expect(info.Ports[port]).To(Equal(22))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
+
+					c := getContainerInfo(id)
+					Expect(info.Cmd).To(Equal(c.Config.Cmd))
+					Expect(info.Entrypoint).To(Equal(c.Config.Entrypoint))
+					Expect(info.ExitCode).To(Equal(c.State.ExitCode))
+					Expect(info.StartedAt).To(Equal(c.State.StartedAt))
+					Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
 				}
 
 				JustBeforeEach(func() {
@@ -311,6 +378,13 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(image))
 					Expect(info.State).To(Equal(provider.ContainerStateStopped))
+
+					c := getContainerInfo(id)
+					Expect(info.Cmd).To(Equal(c.Config.Cmd))
+					Expect(info.Entrypoint).To(Equal(c.Config.Entrypoint))
+					Expect(info.ExitCode).To(Equal(c.State.ExitCode))
+					Expect(info.StartedAt).To(Equal(c.State.StartedAt))
+					Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
 				}
 
 				JustBeforeEach(func() {
@@ -348,6 +422,13 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.Host).To(Equal(host))
 					Expect(info.Ports[port]).To(Equal(22))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
+
+					c := getContainerInfo(id)
+					Expect(info.Cmd).To(Equal(c.Config.Cmd))
+					Expect(info.Entrypoint).To(Equal(c.Config.Entrypoint))
+					Expect(info.ExitCode).To(Equal(c.State.ExitCode))
+					Expect(info.StartedAt).To(Equal(c.State.StartedAt))
+					Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
 				}
 
 				Context("when the container is running", func() {
@@ -408,6 +489,13 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.Host).To(Equal(""))
 					Expect(info.Ports).To(Equal(map[string]int{}))
 					Expect(info.State).To(Equal(""))
+
+					c := getContainerInfo(id)
+					Expect(info.Cmd).To(Equal(c.Config.Cmd))
+					Expect(info.Entrypoint).To(Equal(c.Config.Entrypoint))
+					Expect(info.ExitCode).To(Equal(c.State.ExitCode))
+					Expect(info.StartedAt).To(Equal(c.State.StartedAt))
+					Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
 				}
 
 				JustBeforeEach(func() {
