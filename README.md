@@ -1,6 +1,8 @@
 Nitro
 =====
 
+[![Build Status](https://ci-use1.nitrous.io/buildStatus/icon?job=nitro)](https://ci-use1.nitrous.io/job/nitro/)
+
 (tentative name)
 
 Nitrous Dedicated CLI
