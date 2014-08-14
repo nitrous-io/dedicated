@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-set -e
-
 tmp=$(mktemp -d /tmp/docker_XXXXX)
 
 cleanup() {
