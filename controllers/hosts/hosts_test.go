@@ -46,7 +46,7 @@ type (
 )
 
 func mockHostbuilderOK(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
-	return &hostbuilder.Response{Status: "ok"}, nil
+	return &hostbuilder.Response{Status: "ok", IPAddress: "127.0.0.1", FreighterdPort: 65333}, nil
 }
 func mockHostbuilderError(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
 	return &hostbuilder.Response{}, errors.New("some error occurred")
@@ -824,8 +824,8 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(j.Host.ID).To(Equal(hs.H.ID))
 				Expect(j.Host.Slug).To(Equal(hs.H.Slug))
-				Expect(j.Host.IPAddress).To(Equal(""))
-				Expect(j.Host.FreighterdPort).To(Equal(int64(0)))
+				Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
+				Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
 				Expect(j.Host.Size).To(Equal(""))
 				Expect(j.Host.State).To(Equal(host.StateRunning))
 				Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
@@ -932,8 +932,8 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(j.Host.ID).To(Equal(hs.H.ID))
 				Expect(j.Host.Slug).To(Equal(hs.H.Slug))
-				Expect(j.Host.IPAddress).To(Equal(""))
-				Expect(j.Host.FreighterdPort).To(Equal(int64(0)))
+				Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
+				Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
 				Expect(j.Host.Size).To(Equal(""))
 				Expect(j.Host.State).To(Equal(host.StateStopped))
 				Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
@@ -1040,8 +1040,8 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(j.Host.ID).To(Equal(hs.H.ID))
 				Expect(j.Host.Slug).To(Equal(hs.H.Slug))
-				Expect(j.Host.IPAddress).To(Equal(""))
-				Expect(j.Host.FreighterdPort).To(Equal(int64(0)))
+				Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
+				Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
 				Expect(j.Host.Size).To(Equal(""))
 				Expect(j.Host.State).To(Equal(host.StateRunning))
 				Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
