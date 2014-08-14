@@ -49,8 +49,8 @@ var (
 	Destroy middleware.Middleware = WithContainerAndHost(destroy)
 )
 
-func Index(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
+func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 	var err error
 
 	hSlug := r.FormValue("host")
@@ -140,9 +140,9 @@ func freighterList(db db.QueryReceiver, h *host.Host) ([]*freighterclient.Contai
 	return liveContainers, nil
 }
 
-func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
-	log := c.Logger()
+func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	log := env.Logger
 
 	slug := r.FormValue("slug")
 	name := r.FormValue("name")
@@ -207,7 +207,7 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 	if err != nil {
 		delErr := cn.DeletePermanently(db)
 		if delErr != nil {
-			c.Logger().Errorf("Unable to delete container %d that failed on freighter: %v", cn.ID, delErr)
+			env.Logger.Errorf("Unable to delete container %d that failed on freighter: %v", cn.ID, delErr)
 		}
 		if e, ok := err.(*freighterclient.InvalidParamError); ok {
 			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
@@ -241,8 +241,8 @@ func create(h runningHost, env *middleware.Env, c controllers.Helper, w http.Res
 	return nil
 }
 
-func commit(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
@@ -273,8 +273,8 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, c contro
 	return nil
 }
 
-func show(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
@@ -294,33 +294,33 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, c controll
 	return nil
 }
 
-func start(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Start, cn, h, env, c, w, r)
+	return performControlAction(cl.Start, cn, h, env, w, r)
 }
 
-func stop(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Stop, cn, h, env, c, w, r)
+	return performControlAction(cl.Stop, cn, h, env, w, r)
 }
 
-func restart(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+func restart(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Restart, cn, h, env, c, w, r)
+	return performControlAction(cl.Restart, cn, h, env, w, r)
 }
 
 type actionFn func(id string) (*freighterclient.Container, error)
 
-func performControlAction(fn actionFn, cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func performControlAction(fn actionFn, cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	liveContainer, err := fn(cn.CID)
 	if err != nil {
 		return err
@@ -336,10 +336,10 @@ func performControlAction(fn actionFn, cn *container.Container, h *host.Host, en
 	return nil
 }
 
-func destroy(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
+func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
@@ -362,9 +362,9 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, c contr
 	return nil
 }
 
-func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error) middleware.Middleware {
-	return func(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-		db := c.DB()
+func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error) middleware.Middleware {
+	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+		db := env.DB
 
 		cSlug := mux.Vars(r)["slug"]
 		cn, err := container.FindByUserAndSlug(db, env.User, cSlug)
@@ -385,20 +385,20 @@ func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *mi
 		if h.State != host.StateRunning {
 			return controllers.ErrHostNotRunning
 		}
-		return fn(cn, h, env, c, w, r)
+		return fn(cn, h, env, w, r)
 	}
 }
 
 type runningHost *host.Host
-type hostFn func(h runningHost, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error
+type hostFn func(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 
 // requiresRunningHost is a wrapper which guarantees the action is called for a running host
-func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	return func(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	return func(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if h.State != host.StateRunning {
 			return controllers.ErrHostNotRunning
 		}
-		return fn(h, env, c, w, r)
+		return fn(h, env, w, r)
 	}
 }
 

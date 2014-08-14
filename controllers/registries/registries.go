@@ -27,8 +27,8 @@ var (
 	Logout middleware.Middleware = middleware.HostViaPath("slug", logout)
 )
 
-func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	registries, err := registry.FindAllByUserIDAndHostID(c.DB(), env.User.ID, h.ID)
+func index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	registries, err := registry.FindAllByUserIDAndHostID(env.DB, env.User.ID, h.ID)
 	if err != nil {
 		return err
 	}
@@ -40,8 +40,8 @@ func index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	return nil
 }
 
-func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
+func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 
 	username := r.FormValue("username")
 	if username == "" {
@@ -117,8 +117,8 @@ func login(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	return nil
 }
 
-func logout(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
+func logout(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {

@@ -27,8 +27,8 @@ var (
 	}
 )
 
-func Index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	vols, err := volume.FindAllByHostID(c.DB(), h.ID)
+func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	vols, err := volume.FindAllByHostID(env.DB, h.ID)
 	if err != nil {
 		return err
 	}
@@ -41,8 +41,8 @@ func Index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	return nil
 }
 
-func Create(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
+func Create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 
 	slug := r.FormValue("slug")
 	if slug == "" {
@@ -82,7 +82,7 @@ func Create(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 	if err != nil {
 		desErr := vol.Delete(db)
 		if desErr != nil {
-			c.Logger().Error("Unable to delete volume %d that failed on freighter: %v", vol.ID, desErr)
+			env.Logger.Error("Unable to delete volume %d that failed on freighter: %v", vol.ID, desErr)
 		}
 		if e, ok := err.(*freighterclient.InvalidParamError); ok {
 			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
@@ -98,8 +98,8 @@ func Create(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 	return nil
 }
 
-func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
+func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
@@ -120,7 +120,7 @@ func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 
 	err = vol.Delete(db)
 	if err != nil {
-		c.Logger().Error("Unable to delete volume %d that was destroyed on freighter: %v", vol.ID, err)
+		env.Logger.Error("Unable to delete volume %d that was destroyed on freighter: %v", vol.ID, err)
 		return err
 	}
 
@@ -132,8 +132,8 @@ func Destroy(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Res
 	return nil
 }
 
-func Show(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	db := c.DB()
+func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {

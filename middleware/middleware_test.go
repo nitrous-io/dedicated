@@ -8,7 +8,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/server"
@@ -46,10 +45,13 @@ var _ = Describe("middleware", func() {
 		handler = mux.NewRouter()
 		res = httptest.NewRecorder()
 
-		emptyMw = func(env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
+		emptyMw = func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return nil
 		}
-		env = &middleware.Env{}
+		env = &middleware.Env{
+			Logger: logger,
+			DB:     db,
+		}
 	})
 
 	Describe("Auth", func() {
@@ -75,7 +77,7 @@ var _ = Describe("middleware", func() {
 			Expect(err).To(BeNil())
 
 			h := func(w http.ResponseWriter, r *http.Request) {
-				err := middleware.Auth(emptyMw)(env, svr, w, r)
+				err := middleware.Auth(emptyMw)(env, w, r)
 				if err != nil {
 					svr.HandleError(w, err)
 				}

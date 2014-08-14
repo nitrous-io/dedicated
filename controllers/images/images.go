@@ -21,8 +21,8 @@ var (
 	errFileRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "file is required")
 )
 
-func Index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
@@ -40,8 +40,8 @@ func Index(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	return nil
 }
 
-func Build(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
@@ -74,8 +74,8 @@ func Build(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respo
 	return nil
 }
 
-func Remove(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
@@ -96,8 +96,8 @@ func Remove(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Resp
 	return nil
 }
 
-func Pull(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
@@ -120,8 +120,8 @@ func Pull(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 	return nil
 }
 
-func Push(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
@@ -147,8 +147,8 @@ func Push(h *host.Host, env *middleware.Env, c controllers.Helper, w http.Respon
 	return nil
 }
 
-func Tag(h *host.Host, env *middleware.Env, c controllers.Helper, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(c.DB(), h)
+func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
