@@ -627,16 +627,21 @@ func (p *DockerProvider) fetchAuthenticationInfoBestMatch(registry string) (dock
 		registry = "https://index.docker.io/v1/"
 	}
 
+	// if we dont have the auth configuration, use unauthenticated request
 	authPath, err := p.dockerConfigLocation()
 	if err != nil {
-		return dockerclient.AuthConfiguration{}, err
+		p.logger.Warnf("failed to find authentication location, err: %v", err)
+		return dockerclient.AuthConfiguration{}, nil
 	}
 
 	fileContents, err := ioutil.ReadFile(authPath)
 	if err != nil {
-		return dockerclient.AuthConfiguration{}, err
+		p.logger.Warnf("failed to find authentication details, err: %v", err)
+		return dockerclient.AuthConfiguration{}, nil
 	}
 
+	// got the auth contents here, parse it and get the correct configuration
+	// out
 	var endpointMap map[string]authconfig
 	err = json.Unmarshal(fileContents, &endpointMap)
 	if err != nil {

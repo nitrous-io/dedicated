@@ -1064,7 +1064,13 @@ var _ = Describe("provider/docker", func() {
 		)
 
 		createBasicImage := func(name string) {
-			err := exec.Command("docker", "tag", "-f", image, name).Run()
+			// FIXME: image originally comes from the other test, if we want to
+			// run this test independently, or if the order is wrong, we pull it
+			// here first
+			var err error
+			err = exec.Command("docker", "pull", image).Run()
+			Expect(err).To(BeNil())
+			err = exec.Command("docker", "tag", "-f", image, name).Run()
 			Expect(err).To(BeNil())
 		}
 
@@ -1220,6 +1226,16 @@ var _ = Describe("provider/docker", func() {
 			Expect(err).To(Equal(errors.New("Forbidden")))
 			Expect(info).To(BeNil())
 			Expect(mockProxy.PullImageCalled).To(BeTrue())
+			Expect(mockProxy.PullImageAuth).To(Equal(dockerclient.AuthConfiguration{}))
+		})
+
+		It("should allow to pull without credentials when we dont have a auth configuration", func() {
+			os.Remove(tempAuthFile.Name())
+			mockProxy.PullImageCallBack = func() {
+				createBasicImage("cloudy.io/nodejs")
+			}
+			_, err := prov.PullImage("cloudy.io/nodejs")
+			Expect(err).To(BeNil())
 			Expect(mockProxy.PullImageAuth).To(Equal(dockerclient.AuthConfiguration{}))
 		})
 
