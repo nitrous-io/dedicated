@@ -3,14 +3,12 @@ set -e
 
 APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
+ARTIFACT_DIR=/tmp/$APP/$VERSION
 
 LINUX64="linux_amd64"
 LINUX32="linux_386"
-DARWIN64="darwin_amd64"
-DARWIN32="darwin_386"
 
-ARTIFACT_DIR=/tmp/$APP/$VERSION
-
+# Debian Package
 function fpm_package() {
         ARCH=$1 # supported: amd64 and i386
         OSARCH=$2
@@ -39,16 +37,76 @@ function fpm_package() {
           --replaces $PACKAGE_NAME \
           --deb-compression gz \
           -t deb .
+
+        # cleanup
+        rm -rf $ARTIFACT_DIR/usr
 }
 
-function tarball() {
-   OSARCH=$1
-   cd $ARTIFACT_DIR && tar -czf $APP-$VERSION-$OSARCH.tgz ${APP}_${OSARCH}
+# OSX package
+OSX_ARCH="darwin_amd64"
+OSX_BIN=/usr/bin
+OSX_OSX_APP_ID=io.nitrous.nitro
+OSX_OSX_APP_DESC="The CLI for Nitrous.IO"
+OSX_BUILD=$ARTIFACT_DIR/osx-build/
+
+function osx_package() {
+
+# remove any packaging direcories
+rm -rf $OSX_BUILD/{flat,root}
+
+# prepare build directory structure
+mkdir -p $OSX_BUILD/flat/base.pkg 
+mkdir -p $OSX_BUILD/flat/Resources/en.lproj
+mkdir -p $OSX_BUILD/root/usr/bin 
+
+cp $ARTIFACT_DIR/${APP}_${OSX_ARCH} $OSX_BUILD/root/usr/bin/$APP
+( cd $OSX_BUILD/root && find . | cpio -o --format odc --owner 0:80 | gzip -c ) > $OSX_BUILD/flat/base.pkg/Payload
+
+FILE_COUNT=$(find $OSX_BUILD/root | wc -l)
+INSTALL_SIZE=$(du -k -s $OSX_BUILD/root)
+
+cat << EOF > $OSX_BUILD/flat/base.pkg/PackageInfo 
+<pkg-info format-version="2" identifier="${OSX_APP_ID}.base.pkg" version="${VERSION}" install-location="/" auth="root">
+  <payload installKBytes="${INSTALL_SIZE}" numberOfFiles="${FILE_COUNT}"/>
+<bundle-version>
+  <bundle id="${OSX_APP_ID}" CFBundleIdentifier="${OSX_APP_ID}" path=".${OSX_BIN}/${APP}" CFBundleVersion="${VERSION}"/>
+</bundle-version>
+</pkg-info>
+EOF
+
+mkbom -u 0 -g 80 $OSX_BUILD/root $OSX_BUILD/flat/base.pkg/Bom
+
+cat << EOF > $OSX_BUILD/flat/Distribution
+<?xml version="1.0" encoding="utf-8"?>
+<installer-script minSpecVersion="1.000000" authoringTool="com.apple.PackageMaker" authoringToolVersion="3.0.3" authoringToolBuild="174">
+    <title>${APP} - ${OSX_APP_DESC}</title>
+    <options customize="never" allow-external-scripts="no"/>
+    <domains enable_anywhere="true"/>
+    <installation-check script="pm_install_check();"/>
+    <script>function pm_install_check() {
+  if(!(system.version.ProductVersion >= '10.5')) {
+    my.result.title = 'Failure';
+    my.result.message = 'You need at least Mac OS X 10.5 to install nitro.';
+    my.result.type = 'Fatal';
+    return false;
+  }
+  return true;
+}
+</script>
+    <choices-outline>
+        <line choice="choice1"/>
+    </choices-outline>
+    <choice id="choice1" title="base">
+        <pkg-ref id="${OSX_APP_ID}.base.pkg"/>
+    </choice>
+    <pkg-ref id="${OSX_APP_ID}.base.pkg" installKBytes="${INSTALL_SIZE}" version="${VERSION}" auth="Root">#base.pkg</pkg-ref>
+</installer-script>
+EOF
+
+( cd $OSX_BUILD/flat && xar --compression none -cf "../${APP}-${VERSION}-${OSX_ARCH}.pkg" * )
+
 }
 
 echo -n "Packaging deb for amd64... "; fpm_package amd64 $LINUX64 || \
 echo -n "Packaging deb for i386... "; fpm_package i386 $LINUX32 || \
-echo -n "Packaging tarball for linux amd64..."; tarball $LINUX64 && echo " great success!"
-echo -n "Packaging tarball for linux i386..."; tarball $LINUX32 && echo " great success!"
-echo -n "Packaging tarball for darwin amd64..."; tarball $DARWIN64 && echo " great success!"
-echo -n "Packaging tarball for darwin i386..."; tarball $DARWIN32 && echo " great success!"
+echo -n "Packaging installer for darwin amd64..."; osx_package && echo " great success!"

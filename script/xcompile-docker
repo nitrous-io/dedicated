@@ -14,7 +14,7 @@ echo "running tests... "
 goop exec ginkgo -r -trace -keepGoing -noisyPendings=false
 
 ARTIFACT_DIR=/tmp/$APP/$VERSION
-ARCHS="linux/amd64 linux/386 darwin/amd64 darwin/386"
+ARCHS="linux/amd64 linux/386 darwin/amd64"
 BUILD=$ARTIFACT_DIR/"{{.Dir}}_{{.OS}}_{{.Arch}}"
 
 echo "compiling binaries... "
