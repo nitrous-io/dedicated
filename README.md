@@ -1,6 +1,8 @@
 Nitrous
 =======
 
+[![Build Status](https://ci-use1.nitrous.io/buildStatus/icon?job=nitrous)](https://ci-use1.nitrous.io/job/nitrous/)
+
 ## Setup
 
 1. Install Postgres - `sudo apt-get install postgresql-9.3 postgresql-contrib-9.3 libpq-dev`
