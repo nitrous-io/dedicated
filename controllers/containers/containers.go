@@ -220,6 +220,11 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	cn.Image = created.Image
 	cn.State = created.State
 	cn.IPAddress = created.Host
+	cn.Cmd = created.Cmd
+	cn.Entrypoint = created.Entrypoint
+	cn.ExitCode = created.ExitCode
+	cn.StartedAt = created.StartedAt
+	cn.FinishedAt = created.FinishedAt
 	err = cn.Update(db)
 	if err != nil {
 		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cn)
@@ -408,19 +413,29 @@ func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *
 	c.Slug = dropNamespace(fc.Name)
 	c.State = fc.State
 	c.IPAddress = fc.Host
+	c.Cmd = fc.Cmd
+	c.Entrypoint = fc.Entrypoint
+	c.ExitCode = fc.ExitCode
+	c.StartedAt = fc.StartedAt
+	c.FinishedAt = fc.FinishedAt
 
 	return c
 }
 
 func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Container {
 	return &container.Container{
-		CID:       fc.ID,
-		Image:     fc.Image,
-		Slug:      dropNamespace(fc.Name),
-		State:     fc.State,
-		IPAddress: fc.Host,
-		UserID:    h.UserID,
-		HostID:    h.ID,
+		CID:        fc.ID,
+		Image:      fc.Image,
+		Slug:       dropNamespace(fc.Name),
+		State:      fc.State,
+		IPAddress:  fc.Host,
+		UserID:     h.UserID,
+		HostID:     h.ID,
+		Cmd:        fc.Cmd,
+		Entrypoint: fc.Entrypoint,
+		ExitCode:   fc.ExitCode,
+		StartedAt:  fc.StartedAt,
+		FinishedAt: fc.FinishedAt,
 	}
 }
 

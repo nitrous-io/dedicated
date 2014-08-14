@@ -28,6 +28,11 @@ var _ = Describe("container serializer", func() {
 			Name:         sql.NullString{"Rails dev box", true},
 			IPAddress:    "1.2.3.4",
 			State:        "running",
+			Cmd:          []string{"/sbin/init"},
+			Entrypoint:   []string{"/bin/blah"},
+			ExitCode:     0,
+			StartedAt:    time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+			FinishedAt:   time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 			TouchedAt:    &touchedAt, // Not serialized.
 			TerminatedAt: &terminatedAt,
 			CreatedAt:    &createdAt,
@@ -50,6 +55,11 @@ var _ = Describe("container serializer", func() {
 				"name": "Rails dev box",
 				"ip_address": "1.2.3.4",
 				"state": "running",
+				"cmd": ["/sbin/init"],
+				"entrypoint": ["/bin/blah"],
+				"exit_code": 0,
+				"started_at": "2014-08-13T00:00:00Z",
+				"finished_at": "0001-01-01T00:00:00Z",
 				"terminated_at": "2013-11-03T00:00:00Z",
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"

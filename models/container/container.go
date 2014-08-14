@@ -36,8 +36,14 @@ type Container struct {
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
 
-	IPAddress string
-	State     string
+	// fetching these fields from Freighter
+	IPAddress  string
+	State      string
+	Cmd        []string
+	Entrypoint []string
+	ExitCode   int
+	StartedAt  time.Time
+	FinishedAt time.Time
 }
 
 func FindByUserAndSlug(d db.QueryReceiver, user *user.User, slug string) (*Container, error) {
