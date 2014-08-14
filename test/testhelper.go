@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/user"
 	"path"
-	"runtime"
 	"strings"
 	"time"
 
@@ -175,11 +174,6 @@ func ErrorSlug(body io.Reader) (string, string) {
 		return "", ""
 	}
 	return j["error"], j["error_description"]
-}
-
-func Wait() {
-	runtime.Gosched()
-	time.Sleep(50 * time.Millisecond)
 }
 
 func TempFile(extension string) string {
