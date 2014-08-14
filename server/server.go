@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
+	"github.com/nitrous-io/nitrous/pkg/pubsub"
 )
 
 var jsonNotFound = []byte(`{"error":"not_found","error_description":"not found"}`)
@@ -24,6 +25,7 @@ var jsonNotFound = []byte(`{"error":"not_found","error_description":"not found"}
 var nsStack []string = []string{}
 
 type Server struct {
+	Events *pubsub.Pubsub
 	router *mux.Router
 	root   string
 	logger *logger.Logger
@@ -35,7 +37,13 @@ func NewServer(root string, db *db.Database, l *logger.Logger) *Server {
 		panic("server.NewServer: invalid argument")
 	}
 
-	svr := &Server{root: root, db: db, logger: l, router: mux.NewRouter()}
+	svr := &Server{
+		root:   root,
+		db:     db,
+		logger: l,
+		router: mux.NewRouter(),
+		Events: pubsub.New(128),
+	}
 	svr.drawRoutes()
 	return svr
 }
@@ -65,6 +73,7 @@ func (s *Server) route(route string, mw middleware.Middleware, methods ...string
 			Root:   s.root,
 			Logger: s.logger,
 			DB:     s.db,
+			Events: s.Events,
 		}, w, r)
 		if err != nil {
 			s.HandleError(w, err)
@@ -81,6 +90,7 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 			Root:   s.root,
 			Logger: s.logger,
 			DB:     s.db,
+			Events: s.Events,
 		}
 		if err := mw(env, w, r); err != nil {
 			s.HandleError(w, err)
