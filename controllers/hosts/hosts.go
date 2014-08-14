@@ -365,11 +365,7 @@ func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostb
 		return err
 	}
 
-	err = h.UpdateState(d, st.To)
-	if err != nil {
-		return err
-	}
-
+	h.State = st.To
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
