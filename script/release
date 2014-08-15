@@ -3,8 +3,54 @@ set -e
 
 APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
-
 ARTIFACT_DIR=/tmp/$APP/$VERSION
 
-cd $ARTIFACT_DIR
-tar -czf hostbuilder-$VERSION.tgz hostbuilder
+PACKAGE_NAME=$APP
+PACKAGE_VERSION=$VERSION
+PACKAGE_ARCHITECTURE="$(dpkg-architecture -qDEB_HOST_ARCH)"
+PACKAGE_MAINTAINER="eng@nitrous.io"
+PACKAGE_DESCRIPTION="Hostbuilder: The Nitrous.IO host builder"
+PACKAGE_LICENSE="All Rights Reserved - Irrational Industries d/b/a Nitrous.IO"
+PACKAGE_URL="nitrous.io"
+
+FILES=./files/$PACKAGE_NAME
+PKGDIR=$ARTIFACT_DIR
+
+# setup app base
+install -m 0755 -D $ARTIFACT_DIR/$APP $PKGDIR/usr/local/bin/$APP
+
+# install control files over to $PKDIR, for when directory context changes
+install -m 0644 -D $FILES/control/preinst $PKGDIR/$FILES/control/preinst
+install -m 0644 -D $FILES/control/postinst $PKGDIR/$FILES/control/postinst
+install -m 0644 -D $FILES/control/prerm $PKGDIR/$FILES/control/prerm
+install -m 0644 -D $FILES/control/postrm $PKGDIR/$FILES/control/postrm
+
+# install configs
+install -m 0644 -D $FILES/data/etc/hostbuilder/config.json $PKGDIR/etc/hostbuilder/config.json
+install -m 0644 -D $FILES/data/etc/init/hostbuilder.conf $PKGDIR/etc/init/hostbuilder.conf
+
+cd $PKGDIR
+
+fpm \
+  -s dir \
+  --name $PACKAGE_NAME \
+  --version $PACKAGE_VERSION \
+  --architecture "$PACKAGE_ARCHITECTURE" \
+  --prefix / \
+  --description "$PACKAGE_DESCRIPTION" \
+  --maintainer "$PACKAGE_MAINTAINER" \
+  --provides $PACKAGE_NAME \
+  --replaces $PACKAGE_NAME \
+  --before-install $FILES/control/preinst \
+  --after-install $FILES/control/postinst \
+  --before-remove $FILES/control/prerm \
+  --after-remove $FILES/control/postrm \
+  --config-files /etc/init/hostbuilder.conf \
+  --config-files /etc/hostbuilder/config.json \
+  --license "$PACKAGE_LICENSE" \
+  --url "$PACKAGE_URL" \
+  --deb-compression gz \
+  -t deb .
+
+# cleanup
+rm -rf $PKGDIR/{usr,etc}

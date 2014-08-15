@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+if [ "$1" != "configure" ]; then
+  exit 0
+fi
+
+if [ -d /etc/hostbuilder ]; then
+  chown -R hostbuilder /etc/hostbuilder
+fi
+
+if [ -x "/etc/init/hostbuilder.conf" ]; then
+  if [ -f "/var/run/hostbuilder.pid" ]; then
+    service hostbuilder restart || echo "hostbuilder restart failed"
+  else
+    service hostbuilder start || echo "hostbuilder start failed"
+  fi
+fi
