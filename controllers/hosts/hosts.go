@@ -360,12 +360,16 @@ func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostb
 		return err
 	}
 
-	_, err = fn(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
+	info, err := fn(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
 	if err != nil {
 		return err
 	}
 
-	err = h.UpdateState(d, st.To)
+	h.State = st.To
+	h.IPAddress = sql.NullString{info.IPAddress, true}
+	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+
+	err = h.Update(d)
 	if err != nil {
 		return err
 	}
