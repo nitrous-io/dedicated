@@ -94,6 +94,16 @@ var _ = Describe("models/region", func() {
 		})
 	})
 
+	Describe("All()", func() {
+		It("returns all regions", func() {
+			rs, err := region.All(db)
+			Expect(err).To(BeNil())
+			Expect(rs).To(HaveLen(2))
+			Expect([]string{rs[0].Name, rs[1].Name}).To(ConsistOf([]string{"apse1", "uswest"}))
+			Expect([]string{rs[0].Description, rs[1].Description}).To(ConsistOf([]string{"Southeast Asia", "US West"}))
+		})
+	})
+
 	Describe("Insert()", func() {
 		var (
 			r *region.Region

@@ -18,3 +18,11 @@ func SerializeRegion(r *region.Region) *Region {
 		Description: r.Description,
 	}
 }
+
+func SerializeRegions(rs []*region.Region) []*Region {
+	ret := make([]*Region, len(rs))
+	for i, r := range rs {
+		ret[i] = SerializeRegion(r)
+	}
+	return ret
+}

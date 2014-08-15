@@ -39,6 +39,14 @@ func FindByName(d db.QueryReceiver, name string) (*Region, error) {
 	return r, nil
 }
 
+func All(d db.QueryReceiver) ([]*Region, error) {
+	rs := []*Region{}
+	if err := d.Select(&rs, `SELECT * FROM regions ORDER BY name`); err != nil {
+		return nil, err
+	}
+	return rs, nil
+}
+
 func (r *Region) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO regions (name, description) VALUES (:name, :description) RETURNING *;`)
 	if err != nil {
