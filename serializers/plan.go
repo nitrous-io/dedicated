@@ -16,3 +16,11 @@ func SerializePlan(p *plan.Plan) *Plan {
 		Name: p.Name,
 	}
 }
+
+func SerializePlans(pls []*plan.Plan) []*Plan {
+	ret := make([]*Plan, len(pls))
+	for i, p := range pls {
+		ret[i] = SerializePlan(p)
+	}
+	return ret
+}
