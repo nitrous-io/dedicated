@@ -30,6 +30,7 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/hosts", mw.Auth(hosts.Create), "POST")
 		s.routeJSON("/hosts/{slug}", mw.Auth(mw.HostViaPath("slug", hosts.Show)), "GET")
 		s.routeJSON("/hosts/{slug}/stats", mw.Auth(mw.HostViaPath("slug", hosts.Stats)), "GET")
+		s.routeJSON("/hosts/{slug}", mw.Auth(mw.HostViaPath("slug", hosts.Update)), "PUT")
 		s.routeJSON("/hosts/{slug}", mw.Auth(mw.HostViaPath("slug", hosts.Destroy)), "DELETE")
 		s.routeJSON("/hosts/{slug}/start", mw.Auth(mw.HostViaPath("slug", hosts.Start)), "POST")
 		s.routeJSON("/hosts/{slug}/stop", mw.Auth(mw.HostViaPath("slug", hosts.Stop)), "POST")
