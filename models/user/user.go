@@ -77,13 +77,8 @@ func FindByUsernameOrEmail(d db.QueryReceiver, login string) (*User, error) {
 }
 
 func (u *User) Insert(d db.QueryReceiver) error {
-	if u.Password != "" {
-		encrypted, err := bcrypt.Hash(u.Password)
-		if err != nil {
-			return err
-		}
-		u.EncryptedPassword = encrypted
-		u.Password = ""
+	if err := u.encryptPassword(); err != nil {
+		return err
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO users
 		(email, username, encrypted_password, name)
@@ -93,6 +88,21 @@ func (u *User) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	return nstmt.QueryRow(u).StructScan(u)
+}
+
+func (u *User) Update(d db.QueryReceiver) error {
+	if err := u.encryptPassword(); err != nil {
+		return err
+	}
+	nstmt, err := d.PrepareNamed(`UPDATE users
+		SET (name, email, encrypted_password, updated_at)
+		= (:name, :email, :encrypted_password, now())
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(u).StructScan(u)
 }
 
 func (u *User) Validate() error {
@@ -130,5 +140,18 @@ func (u *User) Validate() error {
 		}
 	}
 
+	return nil
+}
+
+func (u *User) encryptPassword() error {
+	if u.Password == "" {
+		return nil
+	}
+	encrypted, err := bcrypt.Hash(u.Password)
+	if err != nil {
+		return err
+	}
+	u.EncryptedPassword = encrypted
+	u.Password = ""
 	return nil
 }

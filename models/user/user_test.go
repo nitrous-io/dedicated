@@ -3,6 +3,7 @@ package user_test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/user"
@@ -261,6 +262,50 @@ var _ = Describe("models/user", func() {
 				err := u.Insert(db)
 				Expect(err).NotTo(BeNil())
 			})
+		})
+	})
+
+	Describe("Update()", func() {
+		var u *user.User
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			Expect(u.Insert(db)).To(BeNil())
+		})
+
+		It("updates name, email, encrypted_password, updated_at", func() {
+			u.Username = "nochange"
+			u.Name = "qux jr"
+			u.Password = "abcdef"
+			u.Email = "quxjr@example.com"
+			oldCreated, oldUpdated := u.CreatedAt, u.UpdatedAt
+			t := time.Now()
+			u.CreatedAt = &t
+
+			Expect(u.Update(db)).To(BeNil())
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(updated.Username).To(Equal("qux"))
+			Expect(updated.Name).To(Equal("qux jr"))
+			Expect(updated.Email).To(Equal("quxjr@example.com"))
+			Expect(updated.Password).To(BeEmpty())
+			Expect(bcrypt.Verify(updated.EncryptedPassword, "abcdef")).To(BeTrue())
+			Expect(updated.CreatedAt).To(Equal(oldCreated))
+			Expect(*updated.UpdatedAt).To(BeTemporally(">", *oldUpdated))
+		})
+
+		It("does not update encrypted password if password left blank", func() {
+			u.Password = ""
+			u.Email = "quxnopass@example.com"
+			Expect(u.Update(db)).To(BeNil())
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(bcrypt.Verify(updated.EncryptedPassword, "123456")).To(BeTrue())
 		})
 	})
 

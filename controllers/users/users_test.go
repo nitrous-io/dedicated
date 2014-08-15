@@ -34,6 +34,8 @@ var _ = Describe("controllers/users", func() {
 		svr             *server.Server
 		params          *url.Values
 		authTokenInputs AuthTokenInputs
+		u               *user.User
+		t               *token.Token
 	)
 
 	BeforeEach(func() {
@@ -45,6 +47,21 @@ var _ = Describe("controllers/users", func() {
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = AuthTokenInputs{Handler: handler}
+		u = &user.User{
+			Username: "tokenuser",
+			Password: "123456",
+			Email:    "tokenuser@example.com",
+		}
+		err = u.Insert(db)
+		Expect(err).To(BeNil())
+		Expect(u.ID).NotTo(BeZero())
+
+		t = &token.Token{
+			UserID: u.ID,
+			Token:  "foobarbazqux",
+		}
+		err = t.Insert(db)
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -183,12 +200,89 @@ var _ = Describe("controllers/users", func() {
 		})
 	})
 
-	Describe("GET /api/v0/user", func() {
-		var (
-			u *user.User
-			t *token.Token
-		)
+	Describe("PUT /api/v0/user", func() {
+		doRequest := func(params *url.Values) {
+			var err error
+			req, err = NewAuthedFormRequest(t, "PUT", "/api/v0/users", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
 
+		Context("when valid fields are given", func() {
+			BeforeEach(func() {
+				params := &url.Values{}
+				params.Set("password", "abcdef")
+				params.Set("email", "tupdate@example.com")
+				params.Set("name", "Token Update")
+				doRequest(params)
+			})
+
+			It("updates fields", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+				updated, err := user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(bcrypt.Verify(updated.EncryptedPassword, "abcdef")).To(BeTrue())
+				Expect(updated.Name).To(Equal("Token Update"))
+				Expect(updated.Email).To(Equal("tupdate@example.com"))
+				Expect(*updated.UpdatedAt).To(BeTemporally(">", *u.UpdatedAt))
+			})
+		})
+
+		Context("when an existing email is given", func() {
+			BeforeEach(func() {
+				u = &user.User{
+					Username: "taken",
+					Password: "123456",
+					Email:    "taken@example.com",
+				}
+				Expect(u.Insert(db)).To(BeNil())
+
+				params := &url.Values{}
+				params.Set("email", "taken@example.com")
+				doRequest(params)
+			})
+
+			It("responds with 400 bad request", func() {
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("validation_failed"))
+				Expect(errDesc).To(Equal("email is taken"))
+			})
+		})
+
+		Context("when validation fails", func() {
+			BeforeEach(func() {
+				params := &url.Values{}
+				params.Set("password", "a")
+				doRequest(params)
+			})
+
+			It("responds with 400 bad request", func() {
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("validation_failed"))
+				Expect(errDesc).To(ContainSubstring("too short"))
+			})
+		})
+
+		Context("when username is given", func() {
+			BeforeEach(func() {
+				params := &url.Values{}
+				params.Set("username", "nocando")
+				doRequest(params)
+			})
+
+			It("does not update", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+				usr, err := user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(usr.Username).To(Equal("tokenuser"))
+				Expect(usr.UpdatedAt).To(Equal(u.UpdatedAt))
+			})
+		})
+	})
+
+	Describe("GET /api/v0/user", func() {
 		doRequest := func(token string) {
 			var err error
 			req, err = NewRequest("GET", "/api/v0/user", nil)
@@ -198,24 +292,6 @@ var _ = Describe("controllers/users", func() {
 			}
 			handler.ServeHTTP(res, req)
 		}
-
-		BeforeEach(func() {
-			u = &user.User{
-				Username: "foo",
-				Password: "123456",
-				Email:    "foo@example.com",
-			}
-			err := u.Insert(db)
-			Expect(err).To(BeNil())
-			Expect(u.ID).NotTo(BeZero())
-
-			t = &token.Token{
-				UserID: u.ID,
-				Token:  "foobarbazqux",
-			}
-			err = t.Insert(db)
-			Expect(err).To(BeNil())
-		})
 
 		Context("when a valid oauth token is given", func() {
 			BeforeEach(func() {
@@ -230,8 +306,8 @@ var _ = Describe("controllers/users", func() {
 				userinfo, ok := j["user"].(map[string]interface{})
 				Expect(ok).To(BeTrue())
 				Expect(userinfo).NotTo(BeNil())
-				Expect(userinfo["username"]).To(Equal("foo"))
-				Expect(userinfo["email"]).To(Equal("foo@example.com"))
+				Expect(userinfo["username"]).To(Equal("tokenuser"))
+				Expect(userinfo["email"]).To(Equal("tokenuser@example.com"))
 				Expect(userinfo["created_at"]).NotTo(BeNil())
 				Expect(userinfo["updated_at"]).NotTo(BeNil())
 				Expect(userinfo["password"]).To(BeNil())

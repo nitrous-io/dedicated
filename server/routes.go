@@ -23,6 +23,7 @@ func (s *Server) drawRoutes() {
 	s.namespace("/api/v0", func() {
 		s.routeJSON("/oauth/token", tokens.Post, "POST")
 		s.routeJSON("/users", users.Create, "POST")
+		s.routeJSON("/users", mw.Auth(users.Update), "PUT")
 		s.routeJSON("/user", mw.Auth(users.GetAuthenticatedUser), "GET")
 
 		s.routeJSON("/hosts", mw.Auth(hosts.Index), "GET")
