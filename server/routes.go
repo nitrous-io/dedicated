@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/nitrous-io/nitrous/controllers/containers"
+	"github.com/nitrous-io/nitrous/controllers/events"
 	"github.com/nitrous-io/nitrous/controllers/home"
 	"github.com/nitrous-io/nitrous/controllers/hosts"
 	"github.com/nitrous-io/nitrous/controllers/images"
@@ -15,6 +16,7 @@ import (
 
 func (s *Server) drawRoutes() {
 	s.route("/", home.Index, "GET")
+	s.route("/events", mw.Auth(events.Stream), "GET")
 
 	s.namespace("/api/v0", func() {
 		s.routeJSON("/oauth/token", tokens.Post, "POST")

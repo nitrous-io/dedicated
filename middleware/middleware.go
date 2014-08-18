@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
+	"github.com/nitrous-io/nitrous/pkg/pubsub"
 )
 
 var (
@@ -25,6 +26,7 @@ type Env struct {
 	Root   string
 	Logger *logger.Logger
 	DB     *db.Database
+	Events *pubsub.Pubsub
 	Status int
 	User   *user.User
 	Data   map[string]interface{}
