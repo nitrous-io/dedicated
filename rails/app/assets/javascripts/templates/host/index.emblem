@@ -8,28 +8,43 @@
         .state-indicator class={state}
         = state
       th Uptime
-      td.usage 2 days, 13:37
+      td.usage
+        = durationInWords stats.uptime
 
     tr
       th Slug
       td
         = slug
       th CPU Usage (%)
-      td.usage 12.5, 27.3
+      td.usage
+        ul.cpu-usage
+          each cpuUsage in stats.perCPUUsage
+            li
+              = toFixed cpuUsage 1
 
     tr
       th Created At
       td
         abbr title={view.createdAtUTC}
           = ago createdAt
-      th Memory (GB)
-      td.usage 0.77 / 2.00
+      th
+        | Memory
+        span.no-text-transform &nbsp;(MiB)
+      td.usage
+        = mebibytes stats.memoryUsage
+        | &nbsp;/&nbsp;
+        = mebibytes stats.memoryTotal
 
     tr
       th
       td
-      th Storage (GB)
-      td.usage 3.14 / 40.00
+      th
+        | Storage
+        span.no-text-transform &nbsp;(GiB)
+      td.usage
+        = gibibytes stats.storageUsage
+        | &nbsp;/&nbsp;
+        = gibibytes stats.storageTotal
 
 .card-footer.bordered
   if view.hostIsRunning
@@ -37,7 +52,7 @@
       button.ui.btn click='restart' Restart
       button.ui.btn click='stop' Stop
     .right
-      button.ui.btn.primary click='refresh' Refresh
+      button.ui.btn.primary.refresh-btn click='refresh target="view"' Refresh
   else
     if view.hostIsStopped
       .left

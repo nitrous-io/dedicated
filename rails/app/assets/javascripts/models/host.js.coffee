@@ -13,6 +13,8 @@ App.Host = klass = App.Model.extend
   updatedAt: attr('date', as: 'updated_at', serialize: false)
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
 
+  stats: null
+
   displayName: (->
     @get('name') || @get('slug')
   ).property 'name', 'slug'
@@ -25,6 +27,11 @@ App.Host = klass = App.Model.extend
   selected: (->
     App.get('selectedHost') == this
   ).property 'App.selectedHost'
+
+  fetchStats: ->
+    @ajax('GET', 'stats').then (data) =>
+      if stats = data.stats
+        @set 'stats', App.HostStats.create(stats)
 
 klass.reopenClass
   url: '/hosts'

@@ -6,7 +6,7 @@ App.Model = klass = SM.Model.extend
     urlComponents = [Ember.get(@constructor, 'url')]
     unless Ember.get(@constructor, 'singular')
       urlComponents.push(@getPrimaryKey())
-    urlComponents.push(action)
+    urlComponents.push(action) if action?
     Em.RSVP.Promise.cast(@constructor.adapter.ajax(method, urlComponents.join('/'), data))
 
 klass.reopenClass

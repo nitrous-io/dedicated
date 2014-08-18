@@ -25,4 +25,4 @@ App.HostIndexController = Em.ObjectController.extend
       console.log 'terminate'
 
     refresh: ->
-      console.log 'refresh'
+      @get('model').fetchStats()

@@ -20,6 +20,20 @@
     position: relative
     bottom: 1px
 
+  ul.cpu-usage
+    margin: 0
+    padding: 0
+    list-style: none
+
+    li
+      display: inline
+
+      &:after
+        content: ', '
+
+      &:last-of-type:after
+        content: ''
+
 #host-registries-view
 
 #host-registries-new-view
