@@ -20,7 +20,7 @@ const (
 const usage = `
 Usage: nitro login [options]
 
-  login authenticates with your Nitrous.IO account.
+  log in to your Nitrous.IO account.
 
 Options:
 
@@ -99,5 +99,5 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Synopsis() string {
-	return "Login to Nitrous.IO"
+	return "Log in to Nitrous.IO"
 }

@@ -21,7 +21,7 @@ const (
 var usage = fmt.Sprintf(`
 Usage: nitro shell <slug>
 
-open a shell to a box on a Nitrous.IO zone
+  open a shell on a container
 
 Options:
 
@@ -99,7 +99,7 @@ func (c *Command) Help() string {
 }
 
 func (c *Command) Synopsis() string {
-	return "Open a shell on a Nitrous.IO box"
+	return "Open a shell on a container"
 }
 
 func getLoginCommand(username string) string {

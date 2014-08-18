@@ -18,7 +18,7 @@ const (
 	usage      = `
 Usage: nitro volumes:remove <host> <volume_slug>
 
-  remove a data volume
+  remove a data volume from a host
 
 Options:
 
@@ -106,5 +106,5 @@ func (c *Command) makeRequest(hostSlug, volSlug string) error {
 }
 
 func (c *Command) Synopsis() string {
-	return "Remove data volume from container"
+	return "Remove data volume from a host"
 }
