@@ -3,7 +3,6 @@ package remove
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/mitchellh/cli"
@@ -99,8 +98,8 @@ func (c *Command) Synopsis() string {
 }
 
 func (c *Command) makeRequest(host, image string) error {
-	path := fmt.Sprintf("%s/api/v0/hosts/%s/images", c.Server, host)
-	resp, err := c.Client.DeleteAuthed(path, &url.Values{"image": []string{image}})
+	path := fmt.Sprintf("%s/api/v0/hosts/%s/images/%s", c.Server, host, image)
+	resp, err := c.Client.DeleteAuthed(path, nil)
 	defer resp.Body.Close()
 	if err != nil {
 		return err

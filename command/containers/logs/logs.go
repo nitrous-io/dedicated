@@ -23,9 +23,9 @@ const (
 )
 
 var usage = fmt.Sprintf(`
-Usage: nitro logs [SLUG]
+Usage: nitro logs <container slug>
 
-Fetch the logs of the container with specified slug.
+  Fetch the logs of the container with specified slug.
 
 Options:
 
