@@ -21,7 +21,9 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
+	"github.com/nitrous-io/sslider/sslgen"
 
+	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/keypairs"
@@ -34,6 +36,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func init() {
+	sslgen.KeyLen = 512 // shorten key length so tests run faster
+}
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -370,6 +376,13 @@ var _ = Describe("controllers/hosts", func() {
 
 					Expect(hosts[0].Secret).NotTo(BeEmpty())
 					Expect(config["secret"]).To(Equal(hosts[0].Secret))
+				})
+
+				It("creates a cert associated with that host", func() {
+					hosts, _ := host.FindAllByUser(db, u)
+					crt, err := cert.Find(db, hosts[0].ID)
+					Expect(err).To(BeNil())
+					Expect(crt.HostID).To(Equal(hosts[0].ID))
 				})
 
 				It("responds with the created host and status created", func() {
@@ -844,7 +857,22 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).ToNot(BeNil(), "host's keypairs should be removed")
 			})
 
-			It("responds with destroyed host", func() {
+			It("deletes certs associated to the host", func() {
+				tx, _ := db.Beginx()
+				crt := &cert.Cert{
+					CA:         "ca",
+					ServerCert: "servercert",
+					ServerKey:  "serverkey",
+				}
+				crt.Insert(tx, hs.H.ID)
+				tx.Commit()
+
+				doRequest(hs.H.Slug)
+				_, err := cert.Find(db, hs.H.ID)
+				Expect(err).ToNot(BeNil(), "failed to remove host's certificates")
+			})
+
+			It("responds with status OK", func() {
 				doRequest(hs.H.Slug)
 				Expect(res.Code).To(Equal(http.StatusOK))
 

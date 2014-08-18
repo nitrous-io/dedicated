@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
+	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/keypairs"
@@ -23,6 +24,7 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 	"github.com/nitrous-io/nitrous/serializers"
+	"github.com/nitrous-io/sslider/sslgen"
 )
 
 var (
@@ -174,6 +176,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 				return validationErr
 			}
 		}
+		return err
+	}
+	// create the cert
+	crt, err := generateCerts(h.Hostname())
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := crt.Insert(tx, h.ID); err != nil {
+		tx.Rollback()
 		return err
 	}
 	err = tx.Commit()
@@ -331,6 +343,10 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		tx.Rollback()
 		return err
 	}
+	if err := cert.Delete(tx, h.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
 	if err := tx.Commit(); err != nil {
 		return err
 	}
@@ -457,4 +473,35 @@ func publishHostEvent(env *middleware.Env, name string, h *host.Host) {
 		controllers.NewEvent(name, serializers.SerializeHost(h)),
 		env.User.Topic(),
 	)
+}
+
+// generate a certificate that include the certificate authority, server
+// certificate and key, client certificate and key. The data will be suitable
+// for TLS authentication
+func generateCerts(hostname string) (*cert.Cert, error) {
+	// generate certificate authority
+	ca, err := sslgen.CreateCA(hostname)
+	if err != nil {
+		return nil, err
+	}
+	_, caCrt, err := ca.Generate()
+	if err != nil {
+		return nil, err
+	}
+
+	// generate server certificates
+	srv, err := sslgen.CreateServerCert(hostname, ca.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	srvKey, srvCrt, err := srv.Generate()
+	if err != nil {
+		return nil, err
+	}
+
+	return &cert.Cert{
+		CA:         string(caCrt),
+		ServerCert: string(srvCrt),
+		ServerKey:  string(srvKey),
+	}, nil
 }
