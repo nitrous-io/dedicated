@@ -524,6 +524,79 @@ var _ = Describe("controllers/hosts", func() {
 		})
 	})
 
+	Describe("PUT /api/v0/hosts/{slug}", func() {
+		var hs *HostStack
+
+		doRequest := func(params *url.Values) {
+			req, err := NewAuthedFormRequest(t, "PUT", "/api/v0/hosts/foo", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			var err error
+			hs, err = CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:           "foo",
+					Name:           sql.NullString{"foohost", true},
+					IPAddress:      sql.NullString{"1.2.3.4", true},
+					FreighterdPort: sql.NullInt64{64000, true},
+					Size:           sql.NullString{"large", true},
+					State:          host.StateRunning,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		Context("when name field is present and non-empty", func() {
+			BeforeEach(func() {
+				params := &url.Values{}
+				params.Set("name", "GhostHost")
+				doRequest(params)
+			})
+
+			It("updates name", func() {
+				updated, err := host.FindByID(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(updated.Name.String).To(Equal("GhostHost"))
+				Expect(*updated.UpdatedAt).To(BeTemporally(">", *hs.H.UpdatedAt))
+			})
+		})
+
+		Context("when name field is present and empty", func() {
+			BeforeEach(func() {
+				params := &url.Values{}
+				params.Set("name", "")
+				doRequest(params)
+			})
+
+			It("nullifies name", func() {
+				updated, err := host.FindByID(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(updated.Name.String).To(Equal(""))
+				Expect(updated.Name.Valid).To(BeFalse())
+				Expect(*updated.UpdatedAt).To(BeTemporally(">", *hs.H.UpdatedAt))
+			})
+		})
+
+		Context("when unused fields are given", func() {
+			BeforeEach(func() {
+				params := &url.Values{}
+				params.Set("slug", "younochange")
+				doRequest(params)
+			})
+
+			It("does not update fields", func() {
+				updated, err := host.FindByID(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(updated.Name.String).To(Equal("foohost"))
+				Expect(updated.Slug).To(Equal("foo"))
+				Expect(updated.UpdatedAt).To(Equal(hs.H.UpdatedAt))
+			})
+		})
+	})
+
 	Describe("GET /api/v0/hosts/{slug}/stats", func() {
 		var (
 			mockClient *freighterclient.MockClient

@@ -216,10 +216,27 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h),
+	serializeHost(env, h)
+	return nil
+}
+
+func Update(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	// since name can be null, we interpret absence of name field to mean no
+	// change, and presence of name field with empty string to mean set it to
+	// null
+	r.ParseForm()
+	if _, ok := r.PostForm["name"]; !ok {
+		serializeHost(env, h)
+		return nil
 	}
+
+	name := r.PostFormValue("name")
+	h.Name.String, h.Name.Valid = name, name != ""
+	if err := h.Update(env.DB); err != nil {
+		return err
+	}
+
+	serializeHost(env, h)
 	return nil
 }
 
@@ -273,10 +290,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h),
-	}
+	serializeHost(env, h)
 	return nil
 }
 
@@ -291,10 +305,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h),
-	}
+	serializeHost(env, h)
 	return nil
 }
 
@@ -309,10 +320,7 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return err
 	}
 
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h),
-	}
+	serializeHost(env, h)
 	return nil
 }
 
@@ -327,10 +335,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h),
-	}
+	serializeHost(env, h)
 	return nil
 }
 
@@ -388,4 +393,12 @@ func generateKey() (priv *rsa.PrivateKey, pub []byte, err error) {
 		return nil, nil, err
 	}
 	return priv, pub, nil
+}
+
+func serializeHost(env *middleware.Env, h *host.Host) {
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"host": serializers.SerializeHost(h),
+	}
+	return
 }
