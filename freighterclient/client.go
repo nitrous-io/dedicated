@@ -2,11 +2,14 @@ package freighterclient
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -181,9 +184,42 @@ type client struct {
 }
 
 // NewClient returns a new Freighter API Client that can be used to communicate
-// with a freighterd instance on a host.
-func NewClient(host *Host) Client {
-	return &client{host: host, Client: &http.Client{}}
+// with a freighterd instance on a host
+func NewClient(host *Host) (Client, error) {
+	return NewClientTransport(host, nil)
+}
+
+// NewClientTransport returns a new Freighter API Client that reuses an existing
+// transport but with new TLS config so it can be used to communicate with
+// a freighterd instance
+func NewClientTransport(host *Host, tp *http.Transport) (Client, error) {
+	// generate proper tls config
+	crt, err := tls.X509KeyPair(host.Cert, host.Key)
+	if err != nil {
+		return nil, err
+	}
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM(host.CA)
+	tlsConfig := &tls.Config{
+		ServerName:   host.ServerName,
+		RootCAs:      certPool,
+		Certificates: []tls.Certificate{crt},
+	}
+
+	if tp == nil {
+		tp = &http.Transport{
+			Proxy: nil,
+			Dial: (&net.Dialer{
+				KeepAlive: 10 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout: 10 * time.Second,
+		}
+	}
+	tp.TLSClientConfig = tlsConfig
+	cl := &http.Client{
+		Transport: tp,
+	}
+	return &client{host: host, Client: cl}, nil
 }
 
 // List makes an API request to a given Freighter Host and returns a list of
