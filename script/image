@@ -1,5 +1,6 @@
 #!/bin/bash
-VERSION=${1:?"version is required"}
+APP=${1:?"app is required"}
+VERSION=${2:?"version is required"}
 
-docker build -t nitrous:$VERSION .
+docker build -t $APP:$VERSION .
 

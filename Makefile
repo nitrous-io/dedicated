@@ -6,16 +6,17 @@ BIN_NAME=nitrousd
 REVISION=$(shell git rev-parse --short HEAD)
 BASE_VERSION=$(shell cat VERSION)
 VERSION=$(BASE_VERSION)-$(REVISION)
+APP=nitrousd
 
 all: build
 
 image:
 	@echo "$(OK_COLOR)==> Building image...$(NO_COLOR)"
-	@script/image $(VERSION)
+	@script/image $(APP) $(VERSION)
 
 go:
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
-	@script/build-go
+	@script/build-go $(VERSION)
 
 assets:
 	@echo "$(OK_COLOR)==> Building assets...$(NO_COLOR)"
@@ -29,7 +30,7 @@ test:
 
 ci: image
 	@echo "$(OK_COLOR)==> Running within docker...$(NO_COLOR)"
-	@script/ci $(VERSION)
+	@script/ci $(APP) $(VERSION)
 
 format:
 	go fmt ./...

@@ -12,21 +12,21 @@ RUN apt-get update && apt-get install -y \
   nodejs
 
 RUN locale-gen en_US.utf8
+RUN mkdir -p /usr/local/ruby
 
 RUN curl -s https://storage.googleapis.com/golang/go1.3.linux-amd64.tar.gz \
   | tar -v -C /usr/local -xz
 
+RUN curl -s https://intercityup.com/binaries/ruby/ubuntu/14.04/x86_64/ruby-2.1.2.tar.bz2 \
+  | tar -v -C /usr/local/ruby -xj
+
 ENV GOPATH /opt/src/github.com/nitrous-io/nitrous/.vendor:/opt
-ENV PATH /usr/local/go/bin:/opt/bin:$PATH
+ENV PATH /usr/local/ruby/2.1.2/bin:/usr/local/go/bin:/opt/bin:$PATH
 ENV GOBIN /opt/bin
 
 RUN /usr/local/go/bin/go get github.com/nitrous-io/goop
 
-RUN curl -s http://cache.ruby-lang.org/pub/ruby/2.1/ruby-2.1.2.tar.gz \
-  | tar -v -C /tmp -xz
-RUN cd /tmp/ruby-2.1.2 && ./configure && make && make install
-
-RUN gem install bundle
+RUN /usr/local/ruby/2.1.2/bin/gem install bundle
 
 RUN mkdir -p /opt/src/github.com/nitrous-io/nitrous
 ADD . /opt/src/github.com/nitrous-io/nitrous
