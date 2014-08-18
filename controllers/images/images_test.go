@@ -275,13 +275,13 @@ var _ = Describe("controllers/images", func() {
 
 	Describe("DELETE /api/v0/hosts/{slug}/image/{image}", func() {
 		doRequest := func(host, image string) {
-			req, err := NewAuthedRequest(t, "DELETE", fmt.Sprintf("/api/v0/hosts/%v/images", host), &url.Values{"image": []string{"elixir"}})
+			req, err := NewAuthedRequest(t, "DELETE", fmt.Sprintf("/api/v0/hosts/%v/images/%v", host, image), nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
 		It("calls RemoveImage", func() {
-			doRequest("foo", "elixir")
+			doRequest("foo", "nitrousio/elixir")
 
 			Expect(mockClient.RemoveImageCalled).To(Equal(1))
 		})
@@ -333,7 +333,7 @@ var _ = Describe("controllers/images", func() {
 		}
 
 		It("calls PushImage", func() {
-			doRequest("foo", "devenv", &url.Values{"destination": []string{"myuser/scratch"}})
+			doRequest("foo", "nitrousio/devenv:latest", &url.Values{"destination": []string{"myuser/scratch"}})
 			Expect(mockClient.PushImageCalled).To(Equal(1))
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
@@ -363,9 +363,9 @@ var _ = Describe("controllers/images", func() {
 		}
 
 		It("calls TagImage", func() {
-			doRequest("foo", "scratch", &url.Values{"tag": []string{"staging"}})
+			doRequest("foo", "nitrousio/scratch:tag", &url.Values{"tag": []string{"staging"}})
 			Expect(mockClient.TagImageCalled).To(Equal(1))
-			Expect(mockClient.ReceivedImage).To(Equal("scratch"))
+			Expect(mockClient.ReceivedImage).To(Equal("nitrousio/scratch:tag"))
 			Expect(mockClient.ReceivedTag).To(Equal("staging"))
 			Expect(mockClient.TagImageForce).To(BeFalse())
 			Expect(res.Code).To(Equal(http.StatusOK))
