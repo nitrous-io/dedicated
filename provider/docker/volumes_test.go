@@ -15,9 +15,8 @@ import (
 
 var _ = Describe("provider/docker volumes", func() {
 	var (
-		prov      *docker.DockerProvider
-		namespace = "freightertest"
-		datadir   string
+		prov    *docker.DockerProvider
+		datadir string
 	)
 
 	BeforeEach(func() {
@@ -26,7 +25,7 @@ var _ = Describe("provider/docker volumes", func() {
 		datadir, err = TempDir()
 		Expect(err).To(BeNil())
 		logger := &util.Logger{Level: util.LogLevelQuiet}
-		prov, err = docker.NewDockerProvider(logger, datadir, namespace)
+		prov, err = docker.NewDockerProvider(logger, datadir)
 		Expect(err).To(BeNil())
 	})
 

@@ -66,7 +66,7 @@ func main() {
 	}
 
 	// initialze the docker provider
-	prov, err := docker.NewDockerProvider(logger, conf.DataPath, "freighter")
+	prov, err := docker.NewDockerProvider(logger, conf.DataPath)
 	if err != nil {
 		logger.FatalExit(err)
 	}
