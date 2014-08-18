@@ -191,58 +191,35 @@ var _ = Describe("provider/docker", func() {
 				})
 
 				Describe(".List()", func() {
-					getAttributes := func(attr string, list []*provider.ContainerInfo) []string {
-						attributes := []string{}
-						for _, info := range list {
-							switch attr {
-							case "Name":
-								attributes = append(attributes, info.Name)
-							case "Host":
-								attributes = append(attributes, info.Host)
-							case "Image":
-								attributes = append(attributes, info.Image)
-							case "State":
-								attributes = append(attributes, info.State)
-							case "ID":
-								attributes = append(attributes, info.ID)
-							case "Ports":
-								for port := range info.Ports {
-									attributes = append(attributes, port)
-								}
-							}
-						}
-
-						return attributes
-					}
-
 					It("returns a list of all containers running or stopped", func() {
 						list, err := prov.List()
 						Expect(err).To(BeNil())
 
 						Expect(list).To(HaveLen(2))
 
-						names := getAttributes("Name", list)
-						Expect(names).To(ContainElement(name))
-						Expect(names).To(ContainElement(container2Name))
+						var stopped, running *provider.ContainerInfo
+						for _, c := range list {
+							if c.ID == id {
+								stopped = c
+							} else {
+								Expect(c.ID).To(Equal(container2Info.ID))
+								running = c
+							}
+						}
 
-						images := getAttributes("Image", list)
-						Expect(images).To(ContainElement(image))
+						Expect(stopped.ID).To(Equal(id))
+						Expect(stopped.Name).To(Equal(name))
+						Expect(stopped.Image).To(Equal(image))
+						Expect(stopped.Host).To(Equal(""))
+						Expect(stopped.State).To(Equal(provider.ContainerStateStopped))
+						Expect(stopped.Ports[port]).To(Equal(22))
 
-						hosts := getAttributes("Host", list)
-						Expect(hosts).To(ContainElement(""))
-						Expect(hosts).To(ContainElement(container2Info.Host))
-
-						states := getAttributes("State", list)
-						Expect(states).To(ContainElement(provider.ContainerStateStopped))
-						Expect(states).To(ContainElement(provider.ContainerStateRunning))
-
-						ids := getAttributes("ID", list)
-						Expect(ids).To(ContainElement(id))
-						Expect(ids).To(ContainElement(container2Info.ID))
-
-						ports := getAttributes("Ports", list)
-						Expect(ports).To(ContainElement(port))
-						Expect(ports).To(ContainElement(container2Port))
+						Expect(running.ID).To(Equal(container2Info.ID))
+						Expect(running.Name).To(Equal(container2Name))
+						Expect(running.Image).To(Equal(image))
+						Expect(running.Host).To(Equal(container2Info.Host))
+						Expect(running.State).To(Equal(provider.ContainerStateRunning))
+						Expect(running.Ports[container2Port]).To(Equal(22))
 					})
 				})
 
