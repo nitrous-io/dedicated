@@ -40,6 +40,14 @@ func FindByName(d db.QueryReceiver, name string) (*Plan, error) {
 	return plan, nil
 }
 
+func All(d db.QueryReceiver) ([]*Plan, error) {
+	pls := []*Plan{}
+	if err := d.Select(&pls, `SELECT * FROM plans ORDER BY (price, name)`); err != nil {
+		return nil, err
+	}
+	return pls, nil
+}
+
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
 		(name, max_containers, price)

@@ -95,6 +95,15 @@ var _ = Describe("models/plan", func() {
 		})
 	})
 
+	Describe("All()", func() {
+		It("returns all plans", func() {
+			pls, err := plan.All(db)
+			Expect(err).To(BeNil())
+			Expect(pls).To(HaveLen(2))
+			Expect([]string{pls[0].Name, pls[1].Name}).To(ConsistOf([]string{"small", "medium"}))
+		})
+	})
+
 	Describe("Insert()", func() {
 		var (
 			p *plan.Plan

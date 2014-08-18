@@ -7,6 +7,8 @@ import (
 	"github.com/nitrous-io/nitrous/controllers/hosts"
 	"github.com/nitrous-io/nitrous/controllers/images"
 	"github.com/nitrous-io/nitrous/controllers/keys"
+	"github.com/nitrous-io/nitrous/controllers/plans"
+	"github.com/nitrous-io/nitrous/controllers/regions"
 	"github.com/nitrous-io/nitrous/controllers/registries"
 	"github.com/nitrous-io/nitrous/controllers/tokens"
 	"github.com/nitrous-io/nitrous/controllers/users"
@@ -62,6 +64,10 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Create), "PUT")
 		s.routeJSON("/containers/{slug}/keys/{md5_fingerprint}", mw.Auth(keys.DeleteByFingerprint), "DELETE")
 		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.DeleteAll), "DELETE")
+
+		s.routeJSON("/plans", plans.Index, "GET")
+
+		s.routeJSON("/regions", regions.Index, "GET")
 	})
 
 	s.static("/", "public") // catch-all, must come last
