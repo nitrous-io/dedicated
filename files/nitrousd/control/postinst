@@ -7,10 +7,3 @@ fi
 
 chown -R nitrousd /opt/nitrousd
 
-if [ -x "/etc/init/nitrousd.conf" ]; then
-  if [ -f "/var/run/nitrousd.pid" ]; then
-    service nitrousd restart || echo "nitrousd restart failed"
-  else
-    service nitrousd start || echo "nitrousd start failed"
-  fi
-fi

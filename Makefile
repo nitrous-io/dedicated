@@ -53,22 +53,8 @@ dropdb:
 seed: go
 	@script/dbseed
 
-test-with-docker:
-	@script/docker-test
-
-run-with-docker:
-	@script/docker-run
-
-build-with-docker: image
-	@echo "$(OK_COLOR)==> Building revision $(VERSION) on docker...$(NO_COLOR)"
-	@script/build-with-docker $(APP) $(VERSION)
-
-release: build-with-docker
+release:
 	@echo "$(OK_COLOR)==> Releasing revision $(VERSION)...$(NO_COLOR)"
-	@script/release $(APP) $(VERSION)
+	@script/wrap-release-docker $(APP) $(VERSION)
 
-publish: release
-	@echo "$(OK_COLOR)==> Publishing revision $(VERSION)...$(NO_COLOR)"
-	@script/publish $(APP) $(VERSION)
-
-.PHONY: all go assets build format run test createdb dropdb image test-with-docker run-with-docker build-with-docker seed release publish
+.PHONY: all go assets build format run test createdb dropdb image seed release
