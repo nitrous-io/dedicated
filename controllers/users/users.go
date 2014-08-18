@@ -67,6 +67,44 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	u := env.User
+
+	email, password, name := r.PostFormValue("email"), r.PostFormValue("password"), r.PostFormValue("name")
+
+	if email == "" && password == "" && name == "" {
+		userResponse(env, u)
+		return nil
+	}
+
+	if email != "" {
+		u.Email = email
+	}
+	if password != "" {
+		u.Password = password
+	}
+	if name != "" {
+		u.Name = name
+	}
+
+	if err := u.Validate(); err != nil {
+		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
+	}
+
+	if err := u.Update(db); err != nil {
+		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
+			if validationErr, ok := validations[e.Constraint]; ok {
+				return validationErr
+			}
+		}
+		return err
+	}
+
+	userResponse(env, u)
+	return nil
+}
+
 func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	u := env.User
 	if u == nil {
@@ -77,4 +115,13 @@ func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Re
 		"user": serializers.SerializeUser(u),
 	}
 	return nil
+}
+
+func userResponse(env *middleware.Env, u *user.User) {
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+		"user":   serializers.SerializeUser(u),
+	}
+	return
 }
