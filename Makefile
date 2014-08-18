@@ -12,7 +12,7 @@ all: build
 
 build:
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
-	@./script/build $(VERSION)
+	@./script/build $(APP) $(VERSION)
 .PHONY: build
 
 run: build
@@ -44,17 +44,7 @@ shell: image
 	@./script/shell
 .PHONY: shell
 
-build-with-docker: image
-	@echo "$(OK_COLOR)==> Running tests and building within Docker...$(NO_COLOR)"
-	@./script/docker-test-build $(APP) $(VERSION)
-.PHONY: build-with-docker
-
-release: build-with-docker
+release:
 	@echo "$(OK_COLOR)==> Compiling hostbuilder version $(VERSION)...$(NO_COLOR)"
-	@./script/release $(APP) $(VERSION)
+	@./script/wrap-release-docker $(APP) $(VERSION)
 .PHONY: release
-
-publish: release
-	@echo "$(OK_COLOR)==> Uploading hostbuilder version $(VERSION) to s3...$(NO_COLOR)"
-	@./script/publish $(APP) $(VERSION)
-.PHONY: publish 

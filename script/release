@@ -16,17 +16,20 @@ PACKAGE_URL="nitrous.io"
 FILES=./files/$PACKAGE_NAME
 PKGDIR=$ARTIFACT_DIR
 
+rm -f $PKGDIR/*.deb
+
+
 # setup app base
 install -m 0755 -D $ARTIFACT_DIR/$APP $PKGDIR/usr/local/bin/$APP
 
-# install control files over to $PKDIR, for when directory context changes
+# install control files over to $PKGDIR, for when directory context changes
 install -m 0644 -D $FILES/control/preinst $PKGDIR/$FILES/control/preinst
 install -m 0644 -D $FILES/control/postinst $PKGDIR/$FILES/control/postinst
 install -m 0644 -D $FILES/control/prerm $PKGDIR/$FILES/control/prerm
 install -m 0644 -D $FILES/control/postrm $PKGDIR/$FILES/control/postrm
 
 # install configs
-install -m 0644 -D $FILES/data/etc/hostbuilder/config.json $PKGDIR/etc/hostbuilder/config.json
+install -m 0644 -D ./sample_config.json $PKGDIR/etc/hostbuilder/config.json
 install -m 0644 -D $FILES/data/etc/init/hostbuilder.conf $PKGDIR/etc/init/hostbuilder.conf
 
 cd $PKGDIR
@@ -54,3 +57,19 @@ fpm \
 
 # cleanup
 rm -rf $PKGDIR/{usr,etc}
+
+DEB=${APP}_${VERSION}_amd64.deb
+
+cd $ARTIFACT_DIR
+
+if [[ -f $DEB ]]; then
+  echo "Adding $DEB to local repository"
+  gpg --import $APT_GPG_PUBLIC
+  gpg --allow-secret-key-import --import $APT_GPG_SECRET
+
+  freightadder $DEB
+  freightcacher
+else
+  echo "Failed to find deb package: $DEB in $ARTIFACT_DIR directory."
+  exit 1
+fi
