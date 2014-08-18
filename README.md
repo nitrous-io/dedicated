@@ -2,6 +2,8 @@
 
 Hostbuilder is a service that provisions box hosts.
 
+[![Build Status](https://ci-use1.nitrous.io/buildStatus/icon?job=hostbuilder)](https://ci-use1.nitrous.io/job/hostbuilder/)
+
 ### Endpoints
 
 #### Create host
