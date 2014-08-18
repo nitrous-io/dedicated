@@ -121,7 +121,7 @@ func (p *DockerProvider) Commit(id, imageName string) (*provider.ImageInfo, erro
 
 	opts := dockerclient.CommitContainerOptions{
 		Container:  id,
-		Repository: p.applyNamespace(repo),
+		Repository: repo,
 		Tag:        tag,
 	}
 	dockerImage, err := p.client.CommitContainer(opts)
