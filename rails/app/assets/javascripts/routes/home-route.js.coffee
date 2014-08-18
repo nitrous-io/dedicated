@@ -8,5 +8,7 @@ App.HomeRoute = App.AuthedRoute.extend
     @render 'sidebar', into: 'home', outlet: 'sidebar', controller: 'sidebar'
 
   setupController: (controller) ->
-    App.Host.fetch().then (records) =>
-      @controllerFor('sidebar').set('model', records)
+    App.Host.fetch().then (records) ->
+      App.set 'hosts', records
+    App.Container.fetch().then (records) ->
+      App.set 'containers', records

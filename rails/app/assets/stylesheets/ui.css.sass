@@ -27,14 +27,15 @@
     padding: $containerPadding
 
   .card-footer
-    +clearfix
     padding: $containerPadding
+    display: flex
+    flex-direction: row
 
     > .left, > .right
-      display: inline-block
+      flex-grow: 1
 
     > .right
-      float: right
+      text-align: right
 
   .card-body, .card-footer
     &.bordered

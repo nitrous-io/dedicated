@@ -5,8 +5,8 @@
     tr
       th State
       td colspan='3'
-        .state-indicator.running
-        | Running
+        .state-indicator class={state}
+        = state
 
     tr
       th Slug
@@ -55,6 +55,6 @@
 .card-footer.bordered
   .left
     button.ui.btn Restart
-    button.ui.btn Shut Down
+    button.ui.btn Stop
   .right
     button.ui.btn.primary click='openTerminal' Terminal

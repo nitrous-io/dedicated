@@ -14,6 +14,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   token: null
   user: null
   hosts: null
+  containers: null
   selectedHost: null
   selectedContainer: null
 
@@ -37,6 +38,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
       token: null
       user: null
       hosts: null
+      containers: null
     Ember.notifyPropertyChange App.User, '_cache'
     Ember.notifyPropertyChange App.Host, '_cache'
     Ember.notifyPropertyChange App.Container, '_cache'

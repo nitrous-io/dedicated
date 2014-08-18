@@ -1,8 +1,11 @@
 .card-header.bordered
   h2
-    a href='#/hosts/1' Project X
-    span.divider.fa.fa-angle-right
-    a href='#/containers/1' Web App
+    if host
+      link-to 'host.index' host.slug
+        = host.displayName
+      span.divider.fa.fa-angle-right
+    link-to 'container.index' slug
+      = displayName
 
   button.ui.btn.mini.rename-btn
     i.fa.fa-pencil

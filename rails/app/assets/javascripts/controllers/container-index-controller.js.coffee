@@ -1,4 +1,4 @@
-App.ContainerIndexController = Em.Controller.extend
+App.ContainerIndexController = Em.ObjectController.extend
   actions:
     openTerminal: ->
       @transitionToRoute 'container.terminal'

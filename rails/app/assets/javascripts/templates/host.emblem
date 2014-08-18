@@ -1,6 +1,7 @@
 .card-header.bordered
   h2
-    a href='#/hosts/1' Project X
+    link-to 'host.index' slug
+      = displayName
 
   button.ui.btn.mini.rename-btn
     i.fa.fa-pencil

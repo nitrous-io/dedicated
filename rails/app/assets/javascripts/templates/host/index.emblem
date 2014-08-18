@@ -5,20 +5,23 @@
     tr
       th State
       td
-        .state-indicator.running
-        | Running
+        .state-indicator class={state}
+        = state
       th Uptime
       td.usage 2 days, 13:37
 
     tr
       th Slug
-      td project-x-37
+      td
+        = slug
       th CPU Usage (%)
       td.usage 12.5, 27.3
 
     tr
-      th
+      th Created At
       td
+        abbr title={view.createdAtUTC}
+          = ago createdAt
       th Memory (GB)
       td.usage 0.77 / 2.00
 
@@ -29,5 +32,18 @@
       td.usage 3.14 / 40.00
 
 .card-footer.bordered
-  .right
-    button.ui.btn.primary Restart
+  if view.hostIsRunning
+    .left
+      button.ui.btn click='restart' Restart
+      button.ui.btn click='stop' Stop
+    .right
+      button.ui.btn.primary click='refresh' Refresh
+  else
+    if view.hostIsStopped
+      .left
+        button.ui.btn click='terminate' Terminate
+      .right
+        button.ui.btn.primary click='start' Start
+    else
+      .left
+        button.ui.btn disabled='disabled' Please Wait...
