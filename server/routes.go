@@ -65,9 +65,9 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/containers/{slug}/keys/{md5_fingerprint}", mw.Auth(keys.DeleteByFingerprint), "DELETE")
 		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.DeleteAll), "DELETE")
 
-		s.routeJSON("/plans", mw.Auth(plans.Index), "GET")
+		s.routeJSON("/plans", plans.Index, "GET")
 
-		s.routeJSON("/regions", mw.Auth(regions.Index), "GET")
+		s.routeJSON("/regions", regions.Index, "GET")
 	})
 
 	s.static("/", "public") // catch-all, must come last

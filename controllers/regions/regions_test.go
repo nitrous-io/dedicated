@@ -9,8 +9,6 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/region"
-	"github.com/nitrous-io/nitrous/models/token"
-	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
 
@@ -26,13 +24,9 @@ func Test(t *testing.T) {
 
 var _ = Describe("controllers/regions", func() {
 	var (
-		db              *db.Database
-		svr             *server.Server
-		res             *httptest.ResponseRecorder
-		authTokenInputs AuthTokenInputs
-
-		u *user.User
-		t *token.Token
+		db  *db.Database
+		svr *server.Server
+		res *httptest.ResponseRecorder
 	)
 
 	BeforeEach(func() {
@@ -43,22 +37,6 @@ var _ = Describe("controllers/regions", func() {
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		svr = server.NewServer("", db, logger)
 		res = httptest.NewRecorder()
-		authTokenInputs = AuthTokenInputs{Handler: svr.Router()}
-
-		u = &user.User{
-			Username: "foo",
-			Password: "123456",
-			Email:    "foo@example.com",
-		}
-		err = u.Insert(db)
-		Expect(err).To(BeNil())
-
-		t = &token.Token{
-			UserID: u.ID,
-			Token:  "valid-token",
-		}
-		err = t.Insert(db)
-		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -69,7 +47,7 @@ var _ = Describe("controllers/regions", func() {
 
 	Describe("GET /api/v0/regions", func() {
 		doRequest := func() {
-			req, err := NewAuthedRequest(t, "GET", "/api/v0/regions", nil)
+			req, err := NewRequest("GET", "/api/v0/regions", nil)
 			Expect(err).To(BeNil())
 			svr.Router().ServeHTTP(res, req)
 		}
