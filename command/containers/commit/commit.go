@@ -94,7 +94,7 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Synopsis() string {
-	return "commit container to an image"
+	return "Commit container to an image"
 }
 
 func (c *Command) makeRequest(container, imageName string) (io.ReadCloser, error) {
