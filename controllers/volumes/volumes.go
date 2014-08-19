@@ -90,6 +90,7 @@ func Create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
+	publishVolumeEvent(env, "volume.created", vol)
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"status": "created",
@@ -124,6 +125,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
+	publishVolumeEvent(env, "volume.destroyed", vol)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "ok",
@@ -172,4 +174,11 @@ func getVolume(db ndb.QueryReceiver, hostID int64, slug string) (*volume.Volume,
 		return nil, errNotFound
 	}
 	return vol, nil
+}
+
+func publishVolumeEvent(env *middleware.Env, name string, v *volume.Volume) {
+	env.Events.Publish(
+		controllers.NewEvent(name, serializers.SerializeVolume(v)),
+		env.User.Topic(),
+	)
 }
