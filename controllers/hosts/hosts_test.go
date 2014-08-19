@@ -665,7 +665,9 @@ var _ = Describe("controllers/hosts", func() {
 
 		Context("when host is not running", func() {
 			BeforeEach(func() {
-				hs.H.UpdateState(db, host.StateStopped)
+				hs.H.State = host.StateStopped
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
 				UnstubFreighterFn()
 			})
 
@@ -858,7 +860,9 @@ var _ = Describe("controllers/hosts", func() {
 
 				hosts.HostbuilderClient = hb
 
-				hs.H.UpdateState(db, host.StateRestarting)
+				hs.H.State = host.StateRestarting
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
 				doRequest(hs.H.Slug)
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
@@ -966,7 +970,9 @@ var _ = Describe("controllers/hosts", func() {
 
 				hosts.HostbuilderClient = hb
 
-				hs.H.UpdateState(db, host.StateStopped)
+				hs.H.State = host.StateStopped
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
 				doRequest(hs.H.Slug)
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
@@ -1074,7 +1080,9 @@ var _ = Describe("controllers/hosts", func() {
 
 				hosts.HostbuilderClient = hb
 
-				hs.H.UpdateState(db, host.StateStopped)
+				hs.H.State = host.StateStopped
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
 				doRequest(hs.H.Slug)
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))

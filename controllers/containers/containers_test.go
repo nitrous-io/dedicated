@@ -174,7 +174,9 @@ var _ = Describe("controllers/containers", func() {
 
 			Context("when container's host is not running", func() {
 				BeforeEach(func() {
-					hs.H.UpdateState(db, host.StateStopped)
+					hs.H.State = host.StateStopped
+					err := hs.H.Update(db)
+					Expect(err).To(BeNil())
 					UnstubFreighterFn()
 				})
 
@@ -408,7 +410,8 @@ var _ = Describe("controllers/containers", func() {
 
 		Context("when host is not running", func() {
 			BeforeEach(func() {
-				err := hs.H.UpdateState(db, host.StateStopped)
+				hs.H.State = host.StateStopped
+				err := hs.H.Update(db)
 				Expect(err).To(BeNil())
 				UnstubFreighterFn()
 			})
@@ -549,10 +552,12 @@ var _ = Describe("controllers/containers", func() {
 				// the way we stub the Freighter API right now
 				// doesnt' allow us to get different responses
 				// for different API requests (similar to stub chain)
-				err = hs.H.UpdateState(db, host.StateStopped)
+				hs.H.State = host.StateStopped
+				err = hs.H.Update(db)
 				Expect(err).To(BeNil())
 
-				err = hs1.H.UpdateState(db, host.StateStopped)
+				hs1.H.State = host.StateStopped
+				err = hs1.H.Update(db)
 				Expect(err).To(BeNil())
 
 				UnstubFreighterFn()
@@ -832,7 +837,8 @@ var _ = Describe("controllers/containers", func() {
 
 		Context("when host is not running", func() {
 			BeforeEach(func() {
-				err := hs.H.UpdateState(db, host.StateStopped)
+				hs.H.State = host.StateStopped
+				err := hs.H.Update(db)
 				Expect(err).To(BeNil())
 			})
 
