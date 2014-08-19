@@ -501,6 +501,7 @@ func (p *DockerProvider) RemoveImage(imageIDOrName string) error {
 
 func (p *DockerProvider) PullImage(location string) (*provider.ImageInfo, error) {
 	registry := parsers.ParseRegistry(location)
+
 	auth, err := p.fetchAuthenticationInfoBestMatch(registry)
 	if err != nil {
 		return nil, err
@@ -632,16 +633,21 @@ func (p *DockerProvider) fetchAuthenticationInfoBestMatch(registry string) (dock
 		registry = "https://index.docker.io/v1/"
 	}
 
+	// if we dont have the auth configuration, use unauthenticated request
 	authPath, err := p.dockerConfigLocation()
 	if err != nil {
-		return dockerclient.AuthConfiguration{}, err
+		p.logger.Warnf("failed to find authentication location, err: %v", err)
+		return dockerclient.AuthConfiguration{}, nil
 	}
 
 	fileContents, err := ioutil.ReadFile(authPath)
 	if err != nil {
-		return dockerclient.AuthConfiguration{}, err
+		p.logger.Warnf("failed to find authentication details, err: %v", err)
+		return dockerclient.AuthConfiguration{}, nil
 	}
 
+	// got the auth contents here, parse it and get the correct configuration
+	// out
 	var endpointMap map[string]authconfig
 	err = json.Unmarshal(fileContents, &endpointMap)
 	if err != nil {
@@ -720,8 +726,17 @@ func (p *DockerProvider) createContainer(imageName, containerName string, config
 	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
 	start := time.Now()
 
+	// if image exists locally, use it without pulling from the registry
 	_, err := p.lookupImage(imageName)
 	if err == provider.ErrImageNotFound {
+		// get authentication details first in case we want to pull a private
+		// image that requires authentication
+		registry := parsers.ParseRegistry(imageName)
+		auth, err := p.fetchAuthenticationInfoBestMatch(registry)
+		if err != nil {
+			return nil, err
+		}
+
 		repository, tag := parsers.ParseRepoAndTag(imageName)
 		if tag == "" {
 			tag = "latest"
@@ -729,9 +744,11 @@ func (p *DockerProvider) createContainer(imageName, containerName string, config
 		err = p.client.PullImage(dockerclient.PullImageOptions{
 			Repository: repository,
 			Tag:        tag,
-		}, dockerclient.AuthConfiguration{})
-	}
-	if err != nil {
+		}, auth)
+		if err != nil {
+			return nil, err
+		}
+	} else if err != nil {
 		return nil, err
 	}
 
