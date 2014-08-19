@@ -53,7 +53,7 @@ dropdb:
 seed: go
 	@script/dbseed
 
-release:
+release: ci
 	@echo "$(OK_COLOR)==> Releasing revision $(VERSION)...$(NO_COLOR)"
 	@script/wrap-release-docker $(APP) $(VERSION)
 
