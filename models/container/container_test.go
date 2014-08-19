@@ -563,4 +563,49 @@ var _ = Describe("models/container", func() {
 			}
 		})
 	})
+
+	Describe("SetState()", func() {
+		It("sets state from string", func() {
+			testCases := []struct {
+				input         string
+				expectedState container.State
+				ok            bool
+			}{
+				{"", container.StateUnknown, false},
+				{"running", container.StateRunning, true},
+				{"stopped", container.StateStopped, true},
+				{"terminated", container.StateUnknown, false},
+				{"unknown", container.StateUnknown, false},
+				{"rubbish", container.StateUnknown, false},
+			}
+
+			for _, tc := range testCases {
+				c := container.Container{}
+				ok := c.SetState(tc.input)
+				Expect(c.State).To(Equal(tc.expectedState), "Unexpected state for '%s'", tc.expectedState)
+				Expect(ok).To(Equal(tc.ok))
+			}
+		})
+	})
+
+	Describe("ResolvedState()", func() {
+		It("returns state", func() {
+			c := container.Container{}
+			Expect(c.ResolvedState()).To(Equal(container.StateUnknown))
+
+			c.State = container.StateRunning
+			Expect(c.ResolvedState()).To(Equal(container.StateRunning))
+
+			c.State = container.StateStopped
+			Expect(c.ResolvedState()).To(Equal(container.StateStopped))
+		})
+
+		Context("when TerminatedAt is not nil", func() {
+			It("returns StateTerminated", func() {
+				terminatedAt := time.Date(2013, time.November, 3, 0, 0, 0, 0, time.UTC)
+				c := container.Container{TerminatedAt: &terminatedAt}
+				Expect(c.ResolvedState()).To(Equal(container.StateTerminated))
+			})
+		})
+	})
 })

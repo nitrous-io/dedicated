@@ -442,7 +442,7 @@ var _ = Describe("controllers/containers", func() {
 				// ip address, state will be empty since the host is stopped,
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
-				Expect(j.Containers[0].State).To(Equal(""))
+				Expect(j.Containers[0].State).To(Equal(container.StateUnknown.String()))
 
 				Expect(j.Containers[0].Cmd).To(BeNil())
 				Expect(j.Containers[0].Entrypoint).To(BeNil())
@@ -509,7 +509,7 @@ var _ = Describe("controllers/containers", func() {
 				// ip address, state will be empty since the host is stopped,
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
-				Expect(j.Containers[0].State).To(Equal(""))
+				Expect(j.Containers[0].State).To(Equal(container.StateUnknown.String()))
 
 				Expect(j.Containers[0].Cmd).To(BeNil())
 				Expect(j.Containers[0].Entrypoint).To(BeNil())
@@ -588,7 +588,7 @@ var _ = Describe("controllers/containers", func() {
 				// ip address, state will be empty since the host is stopped,
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
-				Expect(j.Containers[0].State).To(Equal(""))
+				Expect(j.Containers[0].State).To(Equal(container.StateUnknown.String()))
 
 				Expect(j.Containers[1].ID).To(Equal(c1.ID))
 				Expect(j.Containers[1].CID).To(Equal("cafedead"))
@@ -603,7 +603,7 @@ var _ = Describe("controllers/containers", func() {
 				// ip address, state will be empty since the host is stopped,
 				// so the freighter API call didn't happen
 				Expect(j.Containers[1].IPAddress).To(Equal(""))
-				Expect(j.Containers[1].State).To(Equal(""))
+				Expect(j.Containers[1].State).To(Equal(container.StateUnknown.String()))
 			})
 		})
 
@@ -1378,7 +1378,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.Slug).To(Equal(slug))
 			Expect(cn.Name).To(Equal("Elixir server"))
 			Expect(cn.IPAddress).To(Equal(""))
-			Expect(cn.State).To(Equal(""))
+			Expect(cn.State).To(Equal(container.StateTerminated.String()))
 			Expect(cn.Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(cn.Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(cn.ExitCode).To(Equal(126))

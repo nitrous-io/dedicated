@@ -218,17 +218,20 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	// Update existing record with new info from Freighter.
 	cn.CID = created.ID
 	cn.Image = created.Image
-	cn.State = created.State
 	cn.IPAddress = created.Host
 	cn.Cmd = created.Cmd
 	cn.Entrypoint = created.Entrypoint
 	cn.ExitCode = created.ExitCode
 	cn.StartedAt = created.StartedAt
 	cn.FinishedAt = created.FinishedAt
+
+	if ok := cn.SetState(created.State); !ok { // log and continue
+		log.Errorf("containers.create: Freighter returned container with unexpected state: %v", created.State)
+	}
+
 	err = cn.Update(db)
-	if err != nil {
+	if err != nil { // log and continue
 		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cn)
-		// Continue responding as if nothing happened.
 	}
 
 	for _, v := range volumeSlugs(config.Mounts) {
@@ -412,10 +415,10 @@ func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, w ht
 }
 
 func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) *container.Container {
+	c.SetState(fc.State)
 	c.CID = fc.ID
 	c.Image = fc.Image
 	c.Slug = fc.Name
-	c.State = fc.State
 	c.IPAddress = fc.Host
 	c.Cmd = fc.Cmd
 	c.Entrypoint = fc.Entrypoint
@@ -427,11 +430,10 @@ func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *
 }
 
 func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Container {
-	return &container.Container{
+	c := &container.Container{
 		CID:        fc.ID,
 		Image:      fc.Image,
 		Slug:       fc.Name,
-		State:      fc.State,
 		IPAddress:  fc.Host,
 		UserID:     h.UserID,
 		HostID:     h.ID,
@@ -441,6 +443,8 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 		StartedAt:  fc.StartedAt,
 		FinishedAt: fc.FinishedAt,
 	}
+	c.SetState(fc.State)
+	return c
 }
 
 func publishContainerEvent(env *middleware.Env, name string, c *container.Container) {
