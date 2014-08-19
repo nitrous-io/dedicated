@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export VERSION=${1:?"version is required"}
+
+./script/install-deps ./script/start-db ./script/test && ./script/build-go $VERSION && ./script/build-assets
