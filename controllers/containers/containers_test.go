@@ -224,11 +224,16 @@ var _ = Describe("controllers/containers", func() {
 			Expect(err).To(BeNil())
 
 			fc = &freighterclient.Container{
-				ID:    "deadbeef",
-				Name:  "dominant-intercooler-42",
-				Host:  "1.2.3.4",
-				State: "running",
-				Image: "nitrous-base",
+				ID:         "deadbeef",
+				Name:       "dominant-intercooler-42",
+				Host:       "1.2.3.4",
+				State:      "running",
+				Image:      "nitrous-base",
+				Cmd:        []string{"/sbin/init"},
+				Entrypoint: []string{"/bin/blah"},
+				ExitCode:   0,
+				StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+				FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 			}
 			mockClient.Containers = []*freighterclient.Container{fc}
 		})
@@ -258,6 +263,11 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].State).To(Equal("running"))
 			Expect(j.Containers[0].Name).To(Equal("Rails app server"))
 			Expect(j.Containers[0].HostID).To(Equal(hs.H.ID))
+			Expect(j.Containers[0].Cmd).To(Equal([]string{"/sbin/init"}))
+			Expect(j.Containers[0].Entrypoint).To(Equal([]string{"/bin/blah"}))
+			Expect(j.Containers[0].ExitCode).To(Equal(0))
+			Expect(j.Containers[0].StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
+			Expect(j.Containers[0].FinishedAt.IsZero()).To(BeTrue())
 			Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
 			Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
 			Expect(j.Containers[0].TerminatedAt).To(BeNil())
@@ -314,11 +324,16 @@ var _ = Describe("controllers/containers", func() {
 		Context("when there are more containers from Freighter than in the database", func() {
 			BeforeEach(func() {
 				fc2 := &freighterclient.Container{
-					ID:    "cafebabe",
-					Name:  "freighter.wicked-baby-69",
-					Host:  "1.2.3.5",
-					State: "running",
-					Image: "nitrous-base",
+					ID:         "cafebabe",
+					Name:       "freighter.wicked-baby-69",
+					Host:       "1.2.3.5",
+					State:      "running",
+					Image:      "nitrous-base",
+					Cmd:        []string{"/sbin/init"},
+					Entrypoint: []string{"/bin/blah"},
+					ExitCode:   0,
+					StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+					FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 				}
 				mockClient.Containers = []*freighterclient.Container{fc, fc2}
 			})
@@ -344,6 +359,11 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].IPAddress).To(Equal("1.2.3.4"))
 				Expect(j.Containers[0].State).To(Equal("running"))
 				Expect(j.Containers[0].Name).To(Equal("Rails app server"))
+				Expect(j.Containers[0].Cmd).To(Equal([]string{"/sbin/init"}))
+				Expect(j.Containers[0].Entrypoint).To(Equal([]string{"/bin/blah"}))
+				Expect(j.Containers[0].ExitCode).To(Equal(0))
+				Expect(j.Containers[0].StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
+				Expect(j.Containers[0].FinishedAt).To(Equal(time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC)))
 				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
 				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
 				Expect(j.Containers[0].TerminatedAt).To(BeNil())
@@ -357,6 +377,11 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[1].IPAddress).To(Equal("1.2.3.5"))
 				Expect(j.Containers[1].State).To(Equal("running"))
 				Expect(j.Containers[1].Name).To(Equal(""))
+				Expect(j.Containers[1].Cmd).To(Equal([]string{"/sbin/init"}))
+				Expect(j.Containers[1].Entrypoint).To(Equal([]string{"/bin/blah"}))
+				Expect(j.Containers[1].ExitCode).To(Equal(0))
+				Expect(j.Containers[1].StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
+				Expect(j.Containers[1].FinishedAt).To(Equal(time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC)))
 				Expect(j.Containers[1].CreatedAt).To(BeNil())
 				Expect(j.Containers[1].UpdatedAt).To(BeNil())
 				Expect(j.Containers[1].TerminatedAt).To(BeNil())
@@ -414,6 +439,12 @@ var _ = Describe("controllers/containers", func() {
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
 				Expect(j.Containers[0].State).To(Equal(""))
+
+				Expect(j.Containers[0].Cmd).To(BeNil())
+				Expect(j.Containers[0].Entrypoint).To(BeNil())
+				Expect(j.Containers[0].ExitCode).To(Equal(0))
+				Expect(j.Containers[0].StartedAt.IsZero()).To(BeTrue())
+				Expect(j.Containers[0].FinishedAt.IsZero()).To(BeTrue())
 			})
 		})
 
@@ -475,6 +506,12 @@ var _ = Describe("controllers/containers", func() {
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
 				Expect(j.Containers[0].State).To(Equal(""))
+
+				Expect(j.Containers[0].Cmd).To(BeNil())
+				Expect(j.Containers[0].Entrypoint).To(BeNil())
+				Expect(j.Containers[0].ExitCode).To(Equal(0))
+				Expect(j.Containers[0].StartedAt.IsZero()).To(BeTrue())
+				Expect(j.Containers[0].FinishedAt.IsZero()).To(BeTrue())
 			})
 		})
 
@@ -979,11 +1016,16 @@ var _ = Describe("controllers/containers", func() {
 			Expect(err).To(BeNil())
 
 			fc = &freighterclient.Container{
-				ID:    "deadbeef",
-				Name:  slug,
-				Host:  "1.2.3.4",
-				State: "running",
-				Image: "nitrous-base",
+				ID:         "deadbeef",
+				Name:       slug,
+				Host:       "1.2.3.4",
+				State:      "running",
+				Image:      "nitrous-base",
+				Cmd:        []string{"/sbin/init"},
+				Entrypoint: []string{"/bin/blah"},
+				ExitCode:   0,
+				StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+				FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 			}
 			mockClient.Containers = []*freighterclient.Container{fc}
 		})
@@ -1013,6 +1055,11 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.Name).To(Equal("Elixir server"))
 			Expect(j.Container.IPAddress).To(Equal("1.2.3.4"))
 			Expect(j.Container.State).To(Equal("running"))
+			Expect(j.Container.Cmd).To(Equal([]string{"/sbin/init"}))
+			Expect(j.Container.Entrypoint).To(Equal([]string{"/bin/blah"}))
+			Expect(j.Container.ExitCode).To(Equal(0))
+			Expect(j.Container.StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
+			Expect(j.Container.FinishedAt).To(Equal(time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC)))
 			Expect(j.Container.CreatedAt).NotTo(BeNil())
 			Expect(j.Container.UpdatedAt).NotTo(BeNil())
 			Expect(j.Container.TerminatedAt).To(BeNil())
@@ -1085,11 +1132,16 @@ var _ = Describe("controllers/containers", func() {
 				Expect(err).To(BeNil())
 
 				fc = &freighterclient.Container{
-					ID:    "deadbeef",
-					Name:  slug,
-					Host:  "1.2.3.4",
-					State: "stopped",
-					Image: "nitrous-base",
+					ID:         "deadbeef",
+					Name:       slug,
+					Host:       "1.2.3.4",
+					State:      "stopped",
+					Image:      "nitrous-base",
+					Cmd:        []string{"/sbin/init"},
+					Entrypoint: []string{"/bin/blah"},
+					ExitCode:   126,
+					StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+					FinishedAt: time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC),
 				}
 				mockClient.Containers = []*freighterclient.Container{fc}
 			})
@@ -1119,6 +1171,11 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Container.State).To(Equal(*expectedState))
 				Expect(j.Container.Name).To(Equal("Elixir server"))
 				Expect(j.Container.HostID).To(Equal(hs.H.ID))
+				Expect(j.Container.Cmd).To(Equal([]string{"/sbin/init"}))
+				Expect(j.Container.Entrypoint).To(Equal([]string{"/bin/blah"}))
+				Expect(j.Container.ExitCode).To(Equal(126))
+				Expect(j.Container.StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
+				Expect(j.Container.FinishedAt).To(Equal(time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)))
 				Expect(j.Container.CreatedAt).NotTo(BeNil())
 				Expect(j.Container.UpdatedAt).NotTo(BeNil())
 				Expect(j.Container.TerminatedAt).To(BeNil())
@@ -1222,11 +1279,16 @@ var _ = Describe("controllers/containers", func() {
 			Expect(err).To(BeNil())
 
 			fc = &freighterclient.Container{
-				ID:    "deadbeef",
-				Name:  slug,
-				Host:  "",
-				State: "",
-				Image: "nitrous-base",
+				ID:         "deadbeef",
+				Name:       slug,
+				Host:       "",
+				State:      "",
+				Image:      "nitrous-base",
+				Cmd:        []string{"/sbin/init"},
+				Entrypoint: []string{"/bin/blah"},
+				ExitCode:   126,
+				StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+				FinishedAt: time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC),
 			}
 			mockClient.Containers = []*freighterclient.Container{fc}
 		})
@@ -1255,6 +1317,11 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.Name).To(Equal("Elixir server"))
 			Expect(j.Container.IPAddress).To(Equal(""))
 			Expect(j.Container.State).To(Equal(""))
+			Expect(j.Container.Cmd).To(Equal([]string{"/sbin/init"}))
+			Expect(j.Container.Entrypoint).To(Equal([]string{"/bin/blah"}))
+			Expect(j.Container.ExitCode).To(Equal(126))
+			Expect(j.Container.StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
+			Expect(j.Container.FinishedAt).To(Equal(time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)))
 			Expect(j.Container.CreatedAt).NotTo(BeNil())
 			Expect(j.Container.UpdatedAt).NotTo(BeNil())
 			Expect(j.Container.TerminatedAt).NotTo(BeNil())
