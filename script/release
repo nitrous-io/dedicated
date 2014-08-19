@@ -1,83 +1,76 @@
 #!/bin/bash
 set -e
 
-VERSION=${1:?"version is required"}
+APP=${1:?"app name is required"}
+VERSION=${2:?"version is required"}
+ARTIFACT_DIR=/tmp/$APP/$VERSION
 
-PKGNAME="freighterd"
-PKGVERSION=$VERSION
-PACKAGE_URL="http://nitrous.io/"
+PACKAGE_NAME=$APP
+PACKAGE_VERSION=$VERSION
 PACKAGE_ARCHITECTURE="$(dpkg-architecture -qDEB_HOST_ARCH)"
 PACKAGE_DESCRIPTION="Nitrous.IO HTTP frontend for docker"
-PACKAGE_LICENSE="Private"
+PACKAGE_MAINTAINER="eng@nitrous.io"
+PACKAGE_LICENSE="All Rights Reserved - Irrational Industries d/b/a Nitrous.IO"
+PACKAGE_URL="nitrous.io"
 
-RELEASE_DIR=/tmp/$PKGNAME/$VERSION
-mkdir -p $RELEASE_DIR
-BUILD=./build # where we store freighterd binary
-FILES=./files/$PKGNAME # where we store configuration files
-PKGDIR=$RELEASE_DIR 
+FILES=./files/$PACKAGE_NAME # where we store configuration files
+PKGDIR=$ARTIFACT_DIR
 
-echo "PKGDIR: $PKGDIR"
+rm -rf $PKGDIR/*.deb
 
-bundle() {
-  rm -rf $PKGDIR
-  mkdir -p $PKGDIR
+# install our control files over to $PKDIR
+install -m 0644 -D $FILES/control/preinst $PKGDIR/$FILES/control/preinst
+install -m 0644 -D $FILES/control/postinst $PKGDIR/$FILES/control/postinst
+install -m 0644 -D $FILES/control/prerm $PKGDIR/$FILES/control/prerm
 
-  # install our control files over to $PKDIR
-  install -m 0644 -D $FILES/control/preinst $PKGDIR/$FILES/control/preinst
-  install -m 0644 -D $FILES/control/postinst $PKGDIR/$FILES/control/postinst
-  install -m 0644 -D $FILES/control/prerm $PKGDIR/$FILES/control/prerm
+# install our freighterd configuration
+install -m 0644 -D $FILES/data/etc/init/freighterd.conf $PKGDIR/etc/init/freighterd.conf
 
-  # install our freighterd configuration
-  install -m 0644 -D $FILES/data/etc/init/freighterd.conf $PKGDIR/etc/init/freighterd.conf
+# docker settings that we want
+install -m 0644 -D $FILES/data/etc/default/docker $PKGDIR/etc/default/docker
 
-  # docker settings that we want
-  install -m 0644 -D $FILES/data/etc/default/docker $PKGDIR/etc/default/freighter-docker
+# install our freighterd binary
+install -m 0755 -D $ARTIFACT_DIR/$APP $PKGDIR/usr/sbin/$APP
 
-  # install our freighterd binary
-  install -m 0755 -D $BUILD/freighterd $PKGDIR/usr/sbin/freighterd
+# TODO: we wants --depends docker.io too
 
-  # TODO: we wants --depends docker.io too
-  (
-  cd $PKGDIR
+cd $PKGDIR
 
-  fpm \
-    -s dir \
-    -C $PKGDIR \
-    --name $PKGNAME-$PKGVERSION \
-    --version $PKGVERSION \
-    --architecture "$PACKAGE_ARCHITECTURE" \
-    --prefix / \
-    --description "$PACKAGE_DESCRIPTION" \
-    --maintainer "$PACKAGE_MAINTAINER" \
-    --provides $PKGNAME \
-    --replaces $PKGNAME \
-    --depends lxc \
-    --before-install $FILES/control/preinst \
-    --after-install $FILES/control/postinst \
-    --before-remove $FILES/control/prerm \
-    --config-files /etc/init/freighterd.conf \
-    --config-files /etc/default/freighter-docker \
-    --deb-compression gz \
-    -t deb .
+fpm \
+  -s dir \
+  --name $PACKAGE_NAME \
+  --version $PACKAGE_VERSION \
+  --architecture "$PACKAGE_ARCHITECTURE" \
+  --prefix / \
+  --description "$PACKAGE_DESCRIPTION" \
+  --maintainer "$PACKAGE_MAINTAINER" \
+  --provides $PACKAGE_NAME \
+  --replaces $PACKAGE_NAME \
+  --before-install $FILES/control/preinst \
+  --after-install $FILES/control/postinst \
+  --before-remove $FILES/control/prerm \
+  --config-files /etc/init/freighterd.conf \
+  --config-files /etc/default/docker \
+  --license "$PACKAGE_LICENSE" \
+  --url "$PACKAGE_URL" \
+  --deb-compression gz \
+  -t deb .
 
-  fpm -s empty \
-    --name $PKGNAME \
-    --version $PKGVERSION \
-    --architecture "$PACKAGE_ARCHITECTURE" \
-    --depends $PKGNAME-$PKGVERSION \
-    --description "$PACKAGE_DESCRIPTION" \
-    --maintainer "$PACKAGE_MAINTAINER" \
-    --url "$PACKAGE_URL" \
-    --license "$PACKAGE_LICENSE" \
-    --deb-compression gz \
-    -t deb
-  )
+# cleanup the build directory
+rm -rf $PKGDIR/{usr,etc,var,lib}
 
-  # cleanup the build directory
-  rm -rf $PKGDIR/etc
-  rm -rf $PKGDIR/usr
-  rm -rf $PKGDIR/var
-  rm -rf $PKGDIR/lib
-}
+DEB=${APP}_${VERSION}_amd64.deb
 
-bundle
+cd $ARTIFACT_DIR
+
+if [[ -f $DEB ]]; then
+  echo "Adding $DEB to local repository"
+  gpg --import $APT_GPG_PUBLIC
+  gpg --allow-secret-key-import --import $APT_GPG_SECRET
+
+  freightadder $DEB
+  freightcacher
+else
+  echo "Failed to find deb package: $DEB in $ARTIFACT_DIR directory."
+  exit 1
+fi
