@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"regexp"
+	"time"
 )
 
 const (
@@ -62,12 +63,17 @@ type Provider interface {
 }
 
 type ContainerInfo struct {
-	ID    string         `json:"id"`
-	Name  string         `json:"name"`
-	Image string         `json:"image"`
-	Host  string         `json:"host"`
-	State string         `json:"state"`
-	Ports map[string]int `json:"ports"`
+	ID         string         `json:"id"`
+	Name       string         `json:"name"`
+	Image      string         `json:"image"`
+	Host       string         `json:"host"`
+	State      string         `json:"state"`
+	Ports      map[string]int `json:"ports"`
+	Cmd        []string       `json:"cmd,omitempty"`
+	Entrypoint []string       `json:"entrypoint,omitempty"`
+	ExitCode   int            `json:"exit_code"`
+	StartedAt  time.Time      `json:"started_at"`
+	FinishedAt time.Time      `json:"finished_at"`
 }
 
 type ContainerConfig struct {

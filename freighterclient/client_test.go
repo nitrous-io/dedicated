@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/freighter/provider"
@@ -103,18 +104,28 @@ var _ = Describe("client", func() {
 							{
 								"id":"cafebabe",
 								"name":"yosemite",
-								"image":"freighter.yosemite",
+								"image":"yosemite",
 								"host":"172.17.0.1",
 								"ssh_port":60001,
-								"state":"running"
+								"state":"running",
+								"cmd": ["/sbin/init"],
+								"entrypoint": null,
+								"exit_code": 0,
+								"started_at": "2014-08-13T00:00:00Z",
+								"finished_at": "2014-08-10T00:00:00Z"
 							},
 							{
 								"id":"deadbeef",
 								"name":"mavericks",
-								"image":"freighter.mavericks",
+								"image":"mavericks",
 								"host":"172.17.0.2",
 								"ssh_port":60002,
-								"state":"running"
+								"state":"running",
+								"cmd": ["/sbin/init"],
+								"entrypoint": null,
+								"exit_code": 0,
+								"started_at": "2014-08-13T00:00:00Z",
+								"finished_at": "2014-08-10T00:00:00Z"
 							}
 						]
 					}`
@@ -127,19 +138,29 @@ var _ = Describe("client", func() {
 					Expect(containers).To(HaveLen(2))
 
 					Expect(containers[0]).To(Equal(&freighterclient.Container{
-						ID:    "cafebabe",
-						Name:  "yosemite",
-						Image: "freighter.yosemite",
-						Host:  "172.17.0.1",
-						State: "running",
+						ID:         "cafebabe",
+						Name:       "yosemite",
+						Image:      "yosemite",
+						Host:       "172.17.0.1",
+						State:      "running",
+						Cmd:        []string{"/sbin/init"},
+						Entrypoint: nil,
+						ExitCode:   0,
+						StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+						FinishedAt: time.Date(2014, time.August, 10, 0, 0, 0, 0, time.UTC),
 					}))
 
 					Expect(containers[1]).To(Equal(&freighterclient.Container{
-						ID:    "deadbeef",
-						Name:  "mavericks",
-						Image: "freighter.mavericks",
-						Host:  "172.17.0.2",
-						State: "running",
+						ID:         "deadbeef",
+						Name:       "mavericks",
+						Image:      "mavericks",
+						Host:       "172.17.0.2",
+						State:      "running",
+						Cmd:        []string{"/sbin/init"},
+						Entrypoint: nil,
+						ExitCode:   0,
+						StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+						FinishedAt: time.Date(2014, time.August, 10, 0, 0, 0, 0, time.UTC),
 					}))
 				})
 			})
@@ -238,7 +259,12 @@ var _ = Describe("client", func() {
 							"image":"ubuntu",
 							"host":"172.17.0.1",
 							"ssh_port":60001,
-							"state":"running"
+							"state":"running",
+							"cmd": ["/sbin/init"],
+							"entrypoint": null,
+							"exit_code": 0,
+							"started_at": "2014-08-13T00:00:00Z",
+							"finished_at": "2014-08-10T00:00:00Z"
 						}
 					}`
 				})
@@ -259,11 +285,16 @@ var _ = Describe("client", func() {
 						`{"Env":["LANG=C"],"Mounts":null,"PortBindings":null}`))
 
 					Expect(container).To(Equal(&freighterclient.Container{
-						ID:    "cafebabe",
-						Name:  "yosemite",
-						Image: "ubuntu",
-						Host:  "172.17.0.1",
-						State: "running",
+						ID:         "cafebabe",
+						Name:       "yosemite",
+						Image:      "ubuntu",
+						Host:       "172.17.0.1",
+						State:      "running",
+						Cmd:        []string{"/sbin/init"},
+						Entrypoint: nil,
+						ExitCode:   0,
+						StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+						FinishedAt: time.Date(2014, time.August, 10, 0, 0, 0, 0, time.UTC),
 					}))
 				})
 			})
@@ -433,7 +464,12 @@ var _ = Describe("client", func() {
 							"image":"ubuntu-upstart",
 							"host":"172.17.0.2",
 							"ssh_port":60002,
-							"state":"running"
+							"state":"running",
+							"cmd": ["/sbin/init"],
+							"entrypoint": null,
+							"exit_code": 0,
+							"started_at": "2014-08-13T00:00:00Z",
+							"finished_at": "2014-08-10T00:00:00Z"
 						}
 					}`
 				})
@@ -445,11 +481,16 @@ var _ = Describe("client", func() {
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 
 					Expect(container).To(Equal(&freighterclient.Container{
-						ID:    "deadbeef",
-						Name:  "mavericks",
-						Image: "ubuntu-upstart",
-						Host:  "172.17.0.2",
-						State: "running",
+						ID:         "deadbeef",
+						Name:       "mavericks",
+						Image:      "ubuntu-upstart",
+						Host:       "172.17.0.2",
+						State:      "running",
+						Cmd:        []string{"/sbin/init"},
+						Entrypoint: nil,
+						ExitCode:   0,
+						StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+						FinishedAt: time.Date(2014, time.August, 10, 0, 0, 0, 0, time.UTC),
 					}))
 				})
 			})
@@ -544,7 +585,12 @@ var _ = Describe("client", func() {
 							"image":"ubuntu-upstart",
 							"host":"172.17.0.2",
 							"ssh_port":60002,
-							"state":"running"
+							"state":"running",
+							"cmd": ["/sbin/init"],
+							"entrypoint": null,
+							"exit_code": 0,
+							"started_at": "2014-08-13T00:00:00Z",
+							"finished_at": "2014-08-10T00:00:00Z"
 						}
 					}`
 					})
@@ -555,11 +601,16 @@ var _ = Describe("client", func() {
 						Expect(container).NotTo(BeNil())
 
 						Expect(container).To(Equal(&freighterclient.Container{
-							ID:    id,
-							Name:  "mavericks",
-							Image: "ubuntu-upstart",
-							Host:  "172.17.0.2",
-							State: "running",
+							ID:         id,
+							Name:       "mavericks",
+							Image:      "ubuntu-upstart",
+							Host:       "172.17.0.2",
+							State:      "running",
+							Cmd:        []string{"/sbin/init"},
+							Entrypoint: nil,
+							ExitCode:   0,
+							StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+							FinishedAt: time.Date(2014, time.August, 10, 0, 0, 0, 0, time.UTC),
 						}))
 					})
 				})
