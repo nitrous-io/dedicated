@@ -8,6 +8,7 @@ import (
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/pkg/securerandom"
 )
 
 var (
@@ -66,6 +67,8 @@ type Host struct {
 	TerminatedAt *time.Time `db:"terminated_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
+
+	Secret string `db:"secret"`
 
 	*ProviderTemplate
 }
@@ -133,12 +136,19 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	if h.State == "" {
 		h.State = StateBorn
 	}
+	if h.Secret == "" {
+		sec, err := securerandom.Base64(191)
+		if err != nil {
+			return err
+		}
+		h.Secret = sec[:255]
+	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
-		(user_id, region_id, plan_id, provider_template_id, slug, name,
+		(user_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, provider_identifier, max_containers, size, freighterd_port)
 		VALUES
-		(:user_id, :region_id, :plan_id, :provider_template_id, :slug,
-		:name, :state, :ip_address, :provider_identifier, :max_containers, :size, :freighterd_port)
+		(:user_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
+		:state, :ip_address, :provider_identifier, :max_containers, :size, :freighterd_port)
 		RETURNING *;`)
 	if err != nil {
 		return err

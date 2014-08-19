@@ -275,5 +275,12 @@ func init() {
 				DROP TABLE certs;
 			`,
 		},
+		{
+			Version: "220",
+			Up: `
+				ALTER TABLE tokens ALTER COLUMN token SET DEFAULT left(encode(gen_random_bytes(191), 'base64'), 255);
+				ALTER TABLE hosts ADD COLUMN secret character varying(255) NOT NULL DEFAULT left(encode(gen_random_bytes(191), 'base64'), 255);
+      `,
+		},
 	}
 }

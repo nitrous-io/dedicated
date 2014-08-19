@@ -272,6 +272,24 @@ var _ = Describe("models/host", func() {
 		It("sets state to a default of 'born'", func() {
 			Expect(h.State).To(Equal("born"))
 		})
+
+		It("generates a new secret", func() {
+			Expect(h.Secret).NotTo(BeEmpty())
+			Expect(h.Secret).To(HaveLen(255))
+
+			h2 := &host.Host{
+				UserID:             u.ID,
+				Slug:               "my-host-2",
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+			}
+			err := h2.Insert(db)
+			Expect(err).To(BeNil())
+			Expect(h2.Secret).NotTo(BeEmpty())
+			Expect(h2.Secret).To(HaveLen(255))
+			Expect(h2.Secret).NotTo(Equal(h.Secret))
+		})
 	})
 
 	Describe("Update()", func() {

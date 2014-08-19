@@ -178,6 +178,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	config["name"] = slug
 	config["public_keys"] = []string{string(pubkey)}
+	config["secret"] = h.Secret
 
 	info, err := HostbuilderClient.Create(pt.Provider, &config)
 	if err != nil {

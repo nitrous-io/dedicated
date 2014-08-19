@@ -311,9 +311,13 @@ var _ = Describe("controllers/hosts", func() {
 
 		Context("with valid parameters", func() {
 			Context("when hostbuilder successfully creates a host", func() {
+				var config hostbuilderclient.Config
+
 				BeforeEach(func() {
 					hb := hostbuilderclient.NewHostbuilder("www.example.com")
-					ch := func(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
+					ch := func(path string, provider string, conf *hostbuilderclient.Config) (*hostbuilder.Response, error) {
+						config = *conf
+
 						return &hostbuilder.Response{
 							ID:             "abcd1234",
 							IPAddress:      "0.0.0.0",
@@ -346,6 +350,8 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.Size.String).To(Equal(hs.P.Name))
 					Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
 					Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
+
+					Expect(config["name"]).To(Equal("honeybadger"))
 				})
 
 				It("creates a keypair associated with that host", func() {
@@ -354,6 +360,15 @@ var _ = Describe("controllers/hosts", func() {
 					kp, err := keypairs.Get(db, hosts[0].ID)
 					Expect(err).To(BeNil())
 					Expect(kp.HostID).To(Equal(hosts[0].ID))
+
+					Expect(config["public_keys"].([]string)[0]).To(Equal(kp.PublicKey))
+				})
+
+				It("creates a shared secret for the host", func() {
+					hosts, _ := host.FindAllByUser(db, u)
+
+					Expect(hosts[0].Secret).NotTo(BeEmpty())
+					Expect(config["secret"]).To(Equal(hosts[0].Secret))
 				})
 
 				It("responds with the created host and status created", func() {

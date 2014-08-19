@@ -41,9 +41,9 @@ run: build
 
 createdb:
 	createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_development || true
-	sudo su postgres -c "psql -d nitrous_development -c 'CREATE EXTENSION IF NOT EXISTS hstore;'" || true
+	sudo su postgres -c "psql -d nitrous_development -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" || true
 	createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_test || true
-	sudo su postgres -c "psql -d nitrous_test -c 'CREATE EXTENSION IF NOT EXISTS hstore;'" || true
+	sudo su postgres -c "psql -d nitrous_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" || true
 
 dropdb:
 	dropdb --if-exists nitrous_development
