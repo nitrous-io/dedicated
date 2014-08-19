@@ -3,11 +3,13 @@ package user
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"regexp"
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/nitrous/pkg/pubsub"
 )
 
 var (
@@ -141,6 +143,10 @@ func (u *User) Validate() error {
 	}
 
 	return nil
+}
+
+func (u *User) Topic() pubsub.Topic {
+	return pubsub.Topic(fmt.Sprintf("user-%d", u.ID))
 }
 
 func (u *User) encryptPassword() error {
