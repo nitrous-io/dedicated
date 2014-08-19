@@ -44,7 +44,7 @@ shell: image
 	@./script/shell
 .PHONY: shell
 
-release:
+release: ci
 	@echo "$(OK_COLOR)==> Compiling hostbuilder version $(VERSION)...$(NO_COLOR)"
 	@./script/wrap-release-docker $(APP) $(VERSION)
 .PHONY: release
