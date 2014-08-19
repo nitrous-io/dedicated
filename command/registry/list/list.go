@@ -18,8 +18,7 @@ import (
 var usage = `
 Usage: nitro registry <host>
 
-	list currently logged in Docker registries.
-
+  List currently logged in Docker registries.
 `
 
 type Command struct {

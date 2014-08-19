@@ -27,7 +27,6 @@ var _ = Describe("images/remove", func() {
 		r            *io.PipeReader
 		w            *io.PipeWriter
 		srv          *ghttp.Server
-		handlers     http.HandlerFunc
 		statusCode   int
 		responseBody string
 	)
@@ -35,16 +34,12 @@ var _ = Describe("images/remove", func() {
 	BeforeEach(func() {
 		r, w = io.Pipe()
 		ui = &command.MockUI{&cli.MockUi{InputReader: r}}
-		handlers = ghttp.CombineHandlers(
-			func(w http.ResponseWriter, req *http.Request) {
-				Expect(req.FormValue("image")).To(Equal("scratch"))
-			},
-			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
-			ghttp.VerifyRequest("DELETE", "/api/v0/hosts/myhost/images"),
-			ghttp.RespondWithPtr(&statusCode, &responseBody),
-		)
 		srv = ghttp.NewServer()
-		srv.AppendHandlers(handlers)
+		srv.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
+			ghttp.VerifyRequest("DELETE", "/api/v0/hosts/myhost/images/nitrousio/ubuntu"),
+			ghttp.RespondWithPtr(&statusCode, &responseBody),
+		))
 
 		cmd = &remove.Command{
 			UI:     ui,
@@ -61,7 +56,7 @@ var _ = Describe("images/remove", func() {
 
 	Context("nitro images:remove host image", func() {
 		doCmd := func() int {
-			return cmd.Run([]string{"myhost", "scratch", "--force"})
+			return cmd.Run([]string{"myhost", "nitrousio/ubuntu", "--force"})
 		}
 
 		Context("successful removal of image", func() {
@@ -72,7 +67,7 @@ var _ = Describe("images/remove", func() {
 
 			It("outputs success msg", func() {
 				code := doCmd()
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Removed image 'scratch' from host 'myhost'"))
+				Expect(ui.OutputWriter.String()).To(ContainSubstring("Removed image 'nitrousio/ubuntu' from host 'myhost'"))
 				Expect(code).To(Equal(0))
 			})
 		})
@@ -92,7 +87,7 @@ var _ = Describe("images/remove", func() {
 
 		Context("when --force option is not specified", func() {
 			doCmd := func() int {
-				return cmd.Run([]string{"myhost", "scratch"})
+				return cmd.Run([]string{"myhost", "nitrousio/ubuntu"})
 			}
 
 			BeforeEach(func() {
