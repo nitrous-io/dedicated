@@ -19,7 +19,7 @@ import (
 var usage = `
 Usage: nitro attach [SLUG]
 
-Attach to a running container.
+  attach to a running container
 `
 
 type Command struct {
@@ -80,7 +80,7 @@ func (c *Command) Help() string {
 }
 
 func (c *Command) Synopsis() string {
-	return "Attach to a running container."
+	return "Attach to a running container"
 }
 
 func (c *Command) attach(host string, containerID string, stdout io.Writer) error {

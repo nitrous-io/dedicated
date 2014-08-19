@@ -14,7 +14,7 @@ import (
 const usage = `
 Usage: nitro logout
 
-  logout from Nitrous.IO.
+  log out from Nitrous.IO.
 `
 
 type Command struct {
@@ -57,5 +57,5 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Synopsis() string {
-	return "Logout from Nitrous.IO"
+	return "Log out from Nitrous.IO"
 }

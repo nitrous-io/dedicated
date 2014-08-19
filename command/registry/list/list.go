@@ -18,7 +18,7 @@ import (
 var usage = `
 Usage: nitro registry <host>
 
-	lists currently logged in Docker registries.
+	list currently logged in Docker registries.
 
 `
 
@@ -85,7 +85,7 @@ func (c *Command) Help() string {
 }
 
 func (c *Command) Synopsis() string {
-	return "Lists currently logged in Docker registries"
+	return "List currently logged in Docker registries"
 }
 
 func (c *Command) fetchRegistries(host string) ([]*Registry, error) {

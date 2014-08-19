@@ -102,7 +102,7 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Synopsis() string {
-	return "Creates a new host"
+	return "Create a new host"
 }
 
 func (c *Command) createHost(size, region, slug string) (*hosts.Host, error) {

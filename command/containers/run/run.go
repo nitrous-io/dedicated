@@ -16,7 +16,7 @@ import (
 const usage = `
 Usage: nitro run [container] [cmd]
 
-run a command on a remote docker container.
+  run a command on a container
 `
 
 func init() {
@@ -85,5 +85,5 @@ func (c *Command) Help() string {
 }
 
 func (c *Command) Synopsis() string {
-	return "Run a command on a remote box"
+	return "Run a command on a container"
 }

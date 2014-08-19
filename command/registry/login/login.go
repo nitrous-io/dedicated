@@ -23,7 +23,7 @@ const (
 var usage = fmt.Sprintf(`
 Usage: nitro registry:login [options] <host>
 
-  login to a Docker registry on a Nitrous.IO host.
+  log in to a Docker registry on a Nitrous.IO host.
 
 Options:
   -u, --username=""   %s
@@ -137,7 +137,7 @@ func (c *Command) Help() string {
 }
 
 func (c *Command) Synopsis() string {
-	return "Login to a Docker registry on a Nitrous.IO host"
+	return "Log in to a Docker registry on a Nitrous.IO host"
 }
 
 func (c *Command) registryLogin(username, password, email, registry, host string) error {
