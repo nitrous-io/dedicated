@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
@@ -665,6 +666,18 @@ var _ = Describe("controllers/containers", func() {
 			handler.ServeHTTP(res, req)
 		}
 
+		expectSerializedContainer := func(cn *serializers.Container, c *container.Container) {
+			Expect(cn.ID).To(Equal(c.ID))
+			Expect(cn.CID).To(Equal("deadbeef"))
+			Expect(cn.UserID).To(Equal(u.ID))
+			Expect(cn.HostID).To(Equal(hs.H.ID))
+			Expect(cn.Image).To(Equal("elixir"))
+			Expect(cn.Slug).To(Equal("elixir-web-1"))
+			Expect(cn.IPAddress).To(Equal("1.2.3.4"))
+			Expect(cn.State).To(Equal("running"))
+			Expect(cn.Name).To(Equal("Elixir Web Server 1"))
+		}
+
 		It("calls the Freighter client to create a container", func() {
 			mockClient.CreateError = errors.New("create failed")
 
@@ -703,15 +716,27 @@ var _ = Describe("controllers/containers", func() {
 
 			c, err := container.FindByUserAndSlug(db, u, "elixir-web-1")
 			Expect(err).To(BeNil())
-			Expect(j.Container.ID).To(Equal(c.ID))
-			Expect(j.Container.CID).To(Equal("deadbeef"))
-			Expect(j.Container.UserID).To(Equal(u.ID))
-			Expect(j.Container.HostID).To(Equal(hs.H.ID))
-			Expect(j.Container.Image).To(Equal("elixir"))
-			Expect(j.Container.Slug).To(Equal("elixir-web-1"))
-			Expect(j.Container.IPAddress).To(Equal("1.2.3.4"))
-			Expect(j.Container.State).To(Equal("running"))
-			Expect(j.Container.Name).To(Equal("Elixir Web Server 1"))
+			expectSerializedContainer(j.Container, c)
+		})
+
+		It("publishes a container.created event with the created container", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest("valid-token", "foo", params)
+
+			msg := <-ch
+			evt, ok := msg.(*controllers.Event)
+			Expect(ok).To(BeTrue())
+			Expect(evt.Name).To(Equal("container.created"))
+
+			cn, ok := evt.Data.(*serializers.Container)
+			Expect(ok).To(BeTrue())
+			c, err := container.FindByUserAndSlug(db, u, "elixir-web-1")
+			Expect(err).To(BeNil())
+			expectSerializedContainer(cn, c)
+
+			close(done)
 		})
 
 		Context("when the Freighter client returns an error", func() {
@@ -906,17 +931,13 @@ var _ = Describe("controllers/containers", func() {
 	})
 
 	Describe("POST /containers/{name}/commit", func() {
-		var (
-			slug = "elixir-web-1"
-		)
-
 		doRequest := func(name string) {
 			params := &url.Values{}
 			if name != "" {
 				params.Set("name", name)
 			}
 			req, err := NewAuthedFormRequest(t, "POST",
-				fmt.Sprintf("/api/v0/containers/%s/commit", slug),
+				"/api/v0/containers/elixir-web-1/commit",
 				params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
@@ -925,7 +946,7 @@ var _ = Describe("controllers/containers", func() {
 		BeforeEach(func() {
 			c := &container.Container{
 				CID:    "deadbeef",
-				Slug:   slug,
+				Slug:   "elixir-web-1",
 				Image:  "nitrous-base",
 				UserID: u.ID,
 				HostID: hs.H.ID,
@@ -933,9 +954,7 @@ var _ = Describe("controllers/containers", func() {
 			}
 			err := c.Insert(db)
 			Expect(err).To(BeNil())
-		})
 
-		It("returns image on success", func() {
 			mockClient.CommitImage = &freighterclient.Image{
 				ID:          "1a",
 				Name:        "elixir-staging",
@@ -944,6 +963,9 @@ var _ = Describe("controllers/containers", func() {
 				ActualSize:  13,
 				VirtualSize: 29,
 			}
+		})
+
+		It("returns image on success", func() {
 			doRequest("elixir-staging")
 			Expect(res.Code).To(Equal(http.StatusOK))
 			Expect(mockClient.CommitCalled).To(Equal(1))
@@ -972,6 +994,26 @@ var _ = Describe("controllers/containers", func() {
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
 			Expect(errDesc).To(Equal("image already exists"))
+		})
+
+		It("publishes an image.created event with the committed image", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest("elixir-staging")
+
+			msg := <-ch
+			evt, ok := msg.(*controllers.Event)
+			Expect(ok).To(BeTrue())
+			Expect(evt.Name).To(Equal("image.created"))
+
+			img, ok := evt.Data.(*freighterclient.Image)
+			Expect(ok).To(BeTrue())
+			Expect(img).NotTo(BeNil())
+			Expect(img.Name).To(Equal("elixir-staging"))
+			Expect(img.Tag).To(Equal("latest"))
+
+			close(done)
 		})
 
 		Context("oauth token failure modes", func() {
@@ -1098,10 +1140,11 @@ var _ = Describe("controllers/containers", func() {
 		var (
 			slug = "elixir-web-1"
 
-			action        string
-			actionCounter *int
-			actionError   *error
-			expectedState *string
+			action            string
+			actionCounter     *int
+			actionError       *error
+			expectedState     *string
+			expectedEventName *string
 		)
 
 		doRequest := func(token, host, slug string) {
@@ -1146,6 +1189,26 @@ var _ = Describe("controllers/containers", func() {
 				mockClient.Containers = []*freighterclient.Container{fc}
 			})
 
+			expectSerializedContainer := func(cn *serializers.Container) {
+				Expect(cn.ID).To(Equal(c.ID))
+				Expect(cn.CID).To(Equal("deadbeef"))
+				Expect(cn.UserID).To(Equal(u.ID))
+				Expect(cn.Image).To(Equal("nitrous-base"))
+				Expect(cn.Slug).To(Equal(slug))
+				Expect(cn.IPAddress).To(Equal("1.2.3.4"))
+				Expect(cn.State).To(Equal(*expectedState))
+				Expect(cn.Name).To(Equal("Elixir server"))
+				Expect(cn.HostID).To(Equal(hs.H.ID))
+				Expect(cn.Cmd).To(Equal([]string{"/sbin/init"}))
+				Expect(cn.Entrypoint).To(Equal([]string{"/bin/blah"}))
+				Expect(cn.ExitCode).To(Equal(126))
+				Expect(cn.StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
+				Expect(cn.FinishedAt).To(Equal(time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)))
+				Expect(cn.CreatedAt).NotTo(BeNil())
+				Expect(cn.UpdatedAt).NotTo(BeNil())
+				Expect(cn.TerminatedAt).To(BeNil())
+			}
+
 			It("calls the Freighter client to perform the control action", func() {
 				doRequest("valid-token", "foo", "elixir-web-1")
 				Expect(*actionCounter).To(Equal(1))
@@ -1162,23 +1225,25 @@ var _ = Describe("controllers/containers", func() {
 				}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				Expect(j.Container.ID).To(Equal(c.ID))
-				Expect(j.Container.CID).To(Equal("deadbeef"))
-				Expect(j.Container.UserID).To(Equal(u.ID))
-				Expect(j.Container.Image).To(Equal("nitrous-base"))
-				Expect(j.Container.Slug).To(Equal(slug))
-				Expect(j.Container.IPAddress).To(Equal("1.2.3.4"))
-				Expect(j.Container.State).To(Equal(*expectedState))
-				Expect(j.Container.Name).To(Equal("Elixir server"))
-				Expect(j.Container.HostID).To(Equal(hs.H.ID))
-				Expect(j.Container.Cmd).To(Equal([]string{"/sbin/init"}))
-				Expect(j.Container.Entrypoint).To(Equal([]string{"/bin/blah"}))
-				Expect(j.Container.ExitCode).To(Equal(126))
-				Expect(j.Container.StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
-				Expect(j.Container.FinishedAt).To(Equal(time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)))
-				Expect(j.Container.CreatedAt).NotTo(BeNil())
-				Expect(j.Container.UpdatedAt).NotTo(BeNil())
-				Expect(j.Container.TerminatedAt).To(BeNil())
+				expectSerializedContainer(j.Container)
+			})
+
+			It("publishes a container.{action} event with the container", func(done Done) {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest("valid-token", "foo", "elixir-web-1")
+
+				msg := <-ch
+				evt, ok := msg.(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt.Name).To(Equal(*expectedEventName))
+
+				cn, ok := evt.Data.(*serializers.Container)
+				Expect(ok).To(BeTrue())
+				expectSerializedContainer(cn)
+
+				close(done)
 			})
 
 			Context("when the Freighter client returns an error", func() {
@@ -1217,6 +1282,8 @@ var _ = Describe("controllers/containers", func() {
 				actionError = &mockClient.StartError
 				state := "running"
 				expectedState = &state
+				evtName := "container.started"
+				expectedEventName = &evtName
 			})
 
 			itBehavesLikeAControlAction()
@@ -1229,6 +1296,8 @@ var _ = Describe("controllers/containers", func() {
 				actionError = &mockClient.StopError
 				state := "stopped"
 				expectedState = &state
+				evtName := "container.stopped"
+				expectedEventName = &evtName
 			})
 
 			itBehavesLikeAControlAction()
@@ -1241,6 +1310,8 @@ var _ = Describe("controllers/containers", func() {
 				actionError = &mockClient.RestartError
 				state := "running"
 				expectedState = &state
+				evtName := "container.restarted"
+				expectedEventName = &evtName
 			})
 
 			itBehavesLikeAControlAction()
@@ -1254,15 +1325,6 @@ var _ = Describe("controllers/containers", func() {
 			slug  = "elixir-web-1"
 			token = ""
 		)
-
-		doRequest := func() {
-			req, err := NewRequest("DELETE", fmt.Sprintf("/api/v0/containers/%s", slug), nil)
-			Expect(err).To(BeNil())
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-			handler.ServeHTTP(res, req)
-		}
 
 		BeforeEach(func() {
 			token = "valid-token"
@@ -1293,6 +1355,34 @@ var _ = Describe("controllers/containers", func() {
 			mockClient.Containers = []*freighterclient.Container{fc}
 		})
 
+		doRequest := func() {
+			req, err := NewRequest("DELETE", fmt.Sprintf("/api/v0/containers/%s", slug), nil)
+			Expect(err).To(BeNil())
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+			handler.ServeHTTP(res, req)
+		}
+
+		expectSerializedContainer := func(cn *serializers.Container) {
+			Expect(cn.ID).To(Equal(c.ID))
+			Expect(cn.CID).To(Equal("deadbeef"))
+			Expect(cn.UserID).To(Equal(u.ID))
+			Expect(cn.Image).To(Equal("nitrous-base"))
+			Expect(cn.Slug).To(Equal(slug))
+			Expect(cn.Name).To(Equal("Elixir server"))
+			Expect(cn.IPAddress).To(Equal(""))
+			Expect(cn.State).To(Equal(""))
+			Expect(cn.Cmd).To(Equal([]string{"/sbin/init"}))
+			Expect(cn.Entrypoint).To(Equal([]string{"/bin/blah"}))
+			Expect(cn.ExitCode).To(Equal(126))
+			Expect(cn.StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
+			Expect(cn.FinishedAt).To(Equal(time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)))
+			Expect(cn.CreatedAt).NotTo(BeNil())
+			Expect(cn.UpdatedAt).NotTo(BeNil())
+			Expect(cn.TerminatedAt).NotTo(BeNil())
+		}
+
 		It("calls the Freighter client to Terminate the container", func() {
 			doRequest()
 			Expect(mockClient.TerminateCalled).To(Equal(1))
@@ -1309,22 +1399,7 @@ var _ = Describe("controllers/containers", func() {
 			}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.Container.ID).To(Equal(c.ID))
-			Expect(j.Container.CID).To(Equal("deadbeef"))
-			Expect(j.Container.UserID).To(Equal(u.ID))
-			Expect(j.Container.Image).To(Equal("nitrous-base"))
-			Expect(j.Container.Slug).To(Equal(slug))
-			Expect(j.Container.Name).To(Equal("Elixir server"))
-			Expect(j.Container.IPAddress).To(Equal(""))
-			Expect(j.Container.State).To(Equal(""))
-			Expect(j.Container.Cmd).To(Equal([]string{"/sbin/init"}))
-			Expect(j.Container.Entrypoint).To(Equal([]string{"/bin/blah"}))
-			Expect(j.Container.ExitCode).To(Equal(126))
-			Expect(j.Container.StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
-			Expect(j.Container.FinishedAt).To(Equal(time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)))
-			Expect(j.Container.CreatedAt).NotTo(BeNil())
-			Expect(j.Container.UpdatedAt).NotTo(BeNil())
-			Expect(j.Container.TerminatedAt).NotTo(BeNil())
+			expectSerializedContainer(j.Container)
 		})
 
 		It("deletes the container from the database", func() {
@@ -1333,6 +1408,24 @@ var _ = Describe("controllers/containers", func() {
 			c, err := container.FindByUserAndSlug(db, hs.U, slug)
 			Expect(err).To(BeNil())
 			Expect(c).To(BeNil())
+		})
+
+		It("publishes a container.destroyed event with the destroyed container", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest()
+
+			msg := <-ch
+			evt, ok := msg.(*controllers.Event)
+			Expect(ok).To(BeTrue())
+			Expect(evt.Name).To(Equal("container.destroyed"))
+
+			cn, ok := evt.Data.(*serializers.Container)
+			Expect(ok).To(BeTrue())
+			expectSerializedContainer(cn)
+
+			close(done)
 		})
 
 		Context("when the Freighter client returns an error", func() {
