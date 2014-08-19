@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nitrous-io/hostbuilder/context"
@@ -20,6 +21,7 @@ var (
 	TLSCALocation   = "/etc/freighterd/ca.crt"
 	TLSCertLocation = "/etc/freighterd/cert.crt"
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
+	SecretLocation  = "/etc/freighterd/secret"
 )
 
 type tlsConfig struct {
@@ -36,6 +38,7 @@ type HostConfig struct {
 	SizeID     string     `json:"size_id"`
 	PublicKeys []string   `json:"public_keys"`
 	TLS        *tlsConfig `json:"tls"`
+	Secret     string     `json:"secret"`
 
 	// for setting up repository on the host
 	AptUsername string `json:"apt_username"` // username of nitrous.io
@@ -65,7 +68,9 @@ func (h *Host) Create() (*host.Info, error) {
 		createDroplet,
 		waitForSSH,
 		writePublicKeys,
+		createEtcFreighterd,
 		writeTLSCerts,
+		writeSecret,
 		writeRepository,
 		updateSoftware,
 	}
@@ -263,25 +268,40 @@ func writePublicKeys(ctx *context.Context, hst host.Host) error {
 	for _, k := range h.Config.PublicKeys {
 		fmt.Fprintln(pubKeyR, k)
 	}
-	if err := h.conn.Upload("/root/.ssh/authorized_keys", pubKeyR); err != nil {
-		return err
-	}
-	log.Printf("Uploaded authorized keys at %v", h.droplet.IpAddress)
-	return nil
+	return writeFile(h, map[string]io.Reader{
+		"/root/.ssh/authorized_keys": pubKeyR,
+	})
+}
+
+func createEtcFreighterd(ctx *context.Context, hst host.Host) error {
+	return hst.(*Host).conn.Execute("mkdir -p /etc/freighterd")
 }
 
 func writeTLSCerts(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	loc := map[string]io.Reader{
+	return writeFile(h, map[string]io.Reader{
 		TLSCALocation:   bytes.NewBufferString(h.Config.TLS.CA),
 		TLSCertLocation: bytes.NewBufferString(h.Config.TLS.Cert),
 		TLSKeyLocation:  bytes.NewBufferString(h.Config.TLS.Key),
-	}
-	for dest, val := range loc {
+	})
+}
+
+func writeSecret(ctx *context.Context, hst host.Host) error {
+	h := hst.(*Host)
+	return writeFile(h, map[string]io.Reader{
+		SecretLocation: bytes.NewBufferString(h.Config.Secret),
+	})
+}
+
+func writeFile(h *Host, files map[string]io.Reader) error {
+	flist := []string{}
+	for dest, val := range files {
 		if err := h.conn.Upload(dest, val); err != nil {
 			return err
 		}
+		flist = append(flist, dest)
 	}
+	log.Printf("Uploaded (%s) to %v", strings.Join(flist, " "), h.droplet.IpAddress)
 	return nil
 }
 

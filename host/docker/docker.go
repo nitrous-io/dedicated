@@ -19,6 +19,7 @@ var (
 	TLSCALocation   = "/etc/freighterd/ca.crt"
 	TLSCertLocation = "/etc/freighterd/cert.crt"
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
+	SecretLocation  = "/etc/freighterd/secret"
 )
 
 type tlsConfig struct {
@@ -34,6 +35,7 @@ type Host struct {
 	IpAddress          string     `json:"ip_address"`
 	FreighterdLocation string     `json:"freighterd_location"`
 	TLS                *tlsConfig `json:"tls"`
+	Secret             string     `json:"secret"`
 
 	client *dockerclient.Client
 }

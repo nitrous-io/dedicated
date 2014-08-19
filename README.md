@@ -55,6 +55,7 @@ Content-Type: application/json; charset=utf-8
     "ssh-rsa AAAAB3Nz me@macbook",
     "ssh-rsa AAAABBaZ me@example.com"
   ],
+  "secret": "base64encodedsecret",
   "tls": {
     "ca": "....",
     "cert": "....",
@@ -79,6 +80,7 @@ Content-Type: application/json; charset=utf-8
     "ssh-rsa AAAAB3Nz me@macbook",
     "ssh-rsa AAAABBaZ me@example.com"
   ],
+  "secret": "base64encodedsecret",
   "tls": {
     "ca": "....",
     "cert": "....",
@@ -97,6 +99,12 @@ Content-Type: application/json; charset=utf-8
     "ssh-rsa AAAAB3Nz me@macbook",
     "ssh-rsa AAAABBaZ me@example.com"
   ]
+  "secret": "base64encodedsecret",
+  "tls": {
+    "ca": "....",
+    "cert": "....",
+    "key": "...."
+  }
 }
 ```
 
