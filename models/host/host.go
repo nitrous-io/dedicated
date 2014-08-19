@@ -146,12 +146,6 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(h).StructScan(h)
 }
 
-func (h *Host) UpdateState(d db.QueryReceiver, state string) error {
-	h.State = state
-	_, err := d.Exec("UPDATE hosts SET state = $1 WHERE id = $2", state, h.ID)
-	return err
-}
-
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (name, state, ip_address, provider_identifier, max_containers, freighterd_port, updated_at)

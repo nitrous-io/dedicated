@@ -274,37 +274,6 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("UpdateState()", func() {
-		var (
-			h   *host.Host
-			err error
-		)
-
-		BeforeEach(func() {
-			h = &host.Host{
-				Slug:               "foo",
-				UserID:             hs.U.ID,
-				RegionID:           hs.R.ID,
-				PlanID:             hs.P.ID,
-				ProviderTemplateID: hs.PT.ID,
-				State:              host.StateRunning,
-			}
-
-			err = h.Insert(db)
-			Expect(err).To(BeNil())
-		})
-
-		It("changes the state column in host record", func() {
-			err := h.UpdateState(db, "stopped")
-			Expect(err).To(BeNil())
-			Expect(h.State).To(Equal("stopped"))
-
-			h1, err := host.FindByUserAndSlug(db, hs.U, "foo")
-			Expect(err).To(BeNil())
-			Expect(h1.State).To(Equal("stopped"))
-		})
-	})
-
 	Describe("Update()", func() {
 		var (
 			h    *host.Host

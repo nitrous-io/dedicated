@@ -177,7 +177,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	info, err := HostbuilderClient.Create(pt.Provider, &config)
 	if err != nil {
-		updErr := h.UpdateState(db, host.StateOrphan)
+		h.State = host.StateOrphan
+		updErr := h.Update(db)
 		if updErr != nil {
 			env.Logger.Errorf("Unable to update host %d to orphan state that failed on hostbuilder: %v", h.ID, updErr)
 		}
@@ -360,7 +361,8 @@ func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostb
 		return &stateTransitionError{Expected: string(st.From), Actual: h.State}
 	}
 
-	err := h.UpdateState(d, st.Intermediate)
+	h.State = st.Intermediate
+	err := h.Update(d)
 	if err != nil {
 		return err
 	}

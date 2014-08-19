@@ -224,7 +224,9 @@ var _ = Describe("controllers/volumes", func() {
 
 		Context("when host is unavailable", func() {
 			BeforeEach(func() {
-				hs.H.UpdateState(db, host.StateStopped)
+				hs.H.State = host.StateStopped
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
 				UnstubFreighterFn()
 			})
 
