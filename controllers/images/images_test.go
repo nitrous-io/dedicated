@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
@@ -91,17 +92,6 @@ var _ = Describe("controllers/images", func() {
 		UnstubFreighterFn()
 	})
 
-	newImage := func() *freighterclient.Image {
-		return &freighterclient.Image{
-			ID:          "1a",
-			Name:        "source1",
-			Tag:         "sourcetag1",
-			CreatedAt:   1903,
-			ActualSize:  13,
-			VirtualSize: 29,
-		}
-	}
-
 	Describe("GET /api/v0/hosts/{slug}/images", func() {
 		doRequest := func(host string) {
 			req, err := NewAuthedRequest(t, "GET", fmt.Sprintf("/api/v0/hosts/%v/images", host), nil)
@@ -115,7 +105,14 @@ var _ = Describe("controllers/images", func() {
 		)
 
 		BeforeEach(func() {
-			img1 = newImage()
+			img1 = &freighterclient.Image{
+				ID:          "1a",
+				Name:        "source1",
+				Tag:         "sourcetag1",
+				CreatedAt:   1903,
+				ActualSize:  13,
+				VirtualSize: 29,
+			}
 			img2 = &freighterclient.Image{
 				ID:          "2a",
 				Name:        "source2",
@@ -248,6 +245,23 @@ var _ = Describe("controllers/images", func() {
 			Expect(j.Image.Name).To(Equal("test"))
 		})
 
+		It("publishes an image.built event with the built image", func(done Done) {
+			mockClient.BuildImageReturn = &freighterclient.Image{
+				Name: "test",
+			}
+
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest("foo", "scratcher", map[string]string{"file": "FROM fake"})
+
+			Expect(<-ch).To(Equal(&controllers.Event{
+				Name: "image.built",
+				Data: &freighterclient.Image{Name: "test"},
+			}))
+			close(done)
+		})
+
 		It("requires name", func() {
 			doRequest("foo", "", map[string]string{"file": "filecontent"})
 			Expect(mockClient.BuildImageCalled).To(Equal(0))
@@ -285,6 +299,19 @@ var _ = Describe("controllers/images", func() {
 
 			Expect(mockClient.RemoveImageCalled).To(Equal(1))
 		})
+
+		It("publishes an image.removed event with the image ID/name", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest("foo", "nitrousio/elixir")
+
+			Expect(<-ch).To(Equal(&controllers.Event{
+				Name: "image.removed",
+				Data: "nitrousio/elixir",
+			}))
+			close(done)
+		})
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/images/pull", func() {
@@ -295,8 +322,13 @@ var _ = Describe("controllers/images", func() {
 		}
 
 		It("responds with image on success", func() {
-			mockClient.PullImageReturn = newImage()
+			mockClient.PullImageReturn = &freighterclient.Image{
+				ID:   "pulledbeef",
+				Name: "scratch",
+				Tag:  "latest",
+			}
 			doRequest("foo", &url.Values{"repository": []string{"scratch"}})
+
 			Expect(mockClient.PullImageCalled).To(Equal(1))
 			Expect(res.Code).To(Equal(http.StatusOK))
 			j := struct {
@@ -304,8 +336,32 @@ var _ = Describe("controllers/images", func() {
 			}{}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.Image.ID).To(Equal("1a"))
-			Expect(j.Image.Name).To(Equal("source1"))
+			Expect(j.Image.ID).To(Equal("pulledbeef"))
+			Expect(j.Image.Name).To(Equal("scratch"))
+			Expect(j.Image.Tag).To(Equal("latest"))
+		})
+
+		It("publishes an image.pulled event with the pulled image", func(done Done) {
+			mockClient.PullImageReturn = &freighterclient.Image{
+				ID:   "pulledbeef",
+				Name: "scratch",
+				Tag:  "latest",
+			}
+
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest("foo", &url.Values{"repository": []string{"scratch"}})
+
+			Expect(<-ch).To(Equal(&controllers.Event{
+				Name: "image.pulled",
+				Data: &freighterclient.Image{
+					ID:   "pulledbeef",
+					Name: "scratch",
+					Tag:  "latest",
+				},
+			}))
+			close(done)
 		})
 
 		It("requires repository param", func() {
@@ -336,6 +392,26 @@ var _ = Describe("controllers/images", func() {
 			doRequest("foo", "nitrousio/devenv:latest", &url.Values{"destination": []string{"myuser/scratch"}})
 			Expect(mockClient.PushImageCalled).To(Equal(1))
 			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("publishes an image.pushed event with the image ID/name and destination", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest("foo", "nitrousio/devenv:latest", &url.Values{"destination": []string{"myuser/scratch"}})
+
+			msg := <-ch
+			evt, ok := msg.(*controllers.Event)
+			Expect(ok).To(BeTrue())
+			Expect(evt.Name).To(Equal("image.pushed"))
+			Expect(evt.Data).To(BeEquivalentTo(struct {
+				Image       string `json:"image"`
+				Destination string `json:"destination"`
+			}{
+				Image:       "nitrousio/devenv:latest",
+				Destination: "myuser/scratch",
+			}))
+			close(done)
 		})
 
 		It("requires destination param", func() {
@@ -369,6 +445,26 @@ var _ = Describe("controllers/images", func() {
 			Expect(mockClient.ReceivedTag).To(Equal("staging"))
 			Expect(mockClient.TagImageForce).To(BeFalse())
 			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("publishes an image.tagged event with the image ID/name and tag", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest("foo", "nitrousio/scratch:tag", &url.Values{"tag": []string{"staging"}})
+
+			msg := <-ch
+			evt, ok := msg.(*controllers.Event)
+			Expect(ok).To(BeTrue())
+			Expect(evt.Name).To(Equal("image.tagged"))
+			Expect(evt.Data).To(BeEquivalentTo(struct {
+				Image string `json:"image"`
+				Tag   string `json:"tag"`
+			}{
+				Image: "nitrousio/scratch:tag",
+				Tag:   "staging",
+			}))
+			close(done)
 		})
 
 		It("sends force param", func() {
