@@ -1095,26 +1095,31 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("GET /info", func() {
-		doRequest := func() {
-			req, err = NewRequest("GET", "/info", nil)
+		doRequest := func(period string) {
+			var params *url.Values
+			if period != "" {
+				params = &url.Values{"period": []string{period}}
+			}
+			req, err = NewRequest("GET", "/info", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
 		var origFn = stats.Sample
+		var newFn = func(period time.Duration) (*stats.Stats, error) {
+			return &stats.Stats{
+				Uptime:       30,
+				MemoryUsage:  12345678,
+				MemoryTotal:  17179869184,
+				StorageUsage: 2000000000,
+				StorageTotal: 1000000000000,
+				NumCPU:       2,
+				PerCPUUsage:  []float64{0.5, 30},
+			}, nil
+		}
 
 		BeforeEach(func() {
-			stats.Sample = func(period time.Duration) (*stats.Stats, error) {
-				return &stats.Stats{
-					Uptime:       30,
-					MemoryUsage:  12345678,
-					MemoryTotal:  17179869184,
-					StorageUsage: 2000000000,
-					StorageTotal: 1000000000000,
-					NumCPU:       2,
-					PerCPUUsage:  []float64{0.5, 30},
-				}, nil
-			}
+			stats.Sample = newFn
 		})
 
 		AfterEach(func() {
@@ -1122,7 +1127,7 @@ var _ = Describe("server", func() {
 		})
 
 		It("responds with 200 OK and host info", func() {
-			doRequest()
+			doRequest("")
 			Expect(res.Code).To(Equal(http.StatusOK))
 			Expect(res.Body.String()).To(MatchJSON(`{"info":{
 				"uptime": 30,
@@ -1135,6 +1140,29 @@ var _ = Describe("server", func() {
 			}}`))
 		})
 
+		It("defaults to a sample period of 100ms", func() {
+			stats.Sample = func(period time.Duration) (*stats.Stats, error) {
+				Expect(period).To(Equal(100 * time.Millisecond))
+				return newFn(period)
+			}
+
+			doRequest("")
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			doRequest("10d") // Unparseable duration string.
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("supports a configurable sample period", func() {
+			stats.Sample = func(period time.Duration) (*stats.Stats, error) {
+				Expect(period).To(Equal(2 * time.Second))
+				return newFn(period)
+			}
+
+			doRequest("2s")
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
 		Context("when stats.Sample() returns an error", func() {
 			BeforeEach(func() {
 				stats.Sample = func(period time.Duration) (*stats.Stats, error) {
@@ -1143,7 +1171,7 @@ var _ = Describe("server", func() {
 			})
 
 			It("responds with 500 Internal Server Error", func() {
-				doRequest()
+				doRequest("")
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				Expect(res.Body.String()).To(MatchJSON(`{"error": "sampling failed"}`))
 			})
