@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/hostbuilder"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/controllers/hosts"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
@@ -322,11 +323,10 @@ var _ = Describe("controllers/hosts", func() {
 					hb.OverrideRequestHandler(ch)
 
 					hosts.HostbuilderClient = hb
-
-					doRequest(overrides{})
 				})
 
 				It("creates a host record for the user", func() {
+					doRequest(overrides{})
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
 					Expect(hosts).To(HaveLen(1))
@@ -348,6 +348,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("creates a keypair associated with that host", func() {
+					doRequest(overrides{})
 					hosts, _ := host.FindAllByUser(db, u)
 					kp, err := keypairs.Get(db, hosts[0].ID)
 					Expect(err).To(BeNil())
@@ -355,6 +356,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("responds with the created host and status created", func() {
+					doRequest(overrides{})
 					Expect(res.Code).To(Equal(http.StatusCreated))
 
 					var j struct {
@@ -380,6 +382,23 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(j.Host.CreatedAt).NotTo(BeNil())
 					Expect(j.Host.UpdatedAt).NotTo(BeNil())
 					Expect(j.Host.TerminatedAt).To(BeNil())
+				})
+
+				It("publishes a host.created event with the created host", func(done Done) {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					doRequest(overrides{})
+
+					hosts, err := host.FindAllByUser(db, u)
+					Expect(err).To(BeNil())
+					Expect(hosts).To(HaveLen(1))
+					h := hosts[0]
+					Expect(<-ch).To(Equal(&controllers.Event{
+						Name: "host.created",
+						Data: serializers.SerializeHost(&h),
+					}))
+					close(done)
 				})
 			})
 
@@ -595,6 +614,23 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(updated.UpdatedAt).To(Equal(hs.H.UpdatedAt))
 			})
 		})
+
+		It("publishes a host.updated event with the updated host", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			params := &url.Values{}
+			params.Set("name", "GhostHost")
+			doRequest(params)
+
+			updated, err := host.FindByID(db, hs.H.ID)
+			Expect(err).To(BeNil())
+			Expect(<-ch).To(Equal(&controllers.Event{
+				Name: "host.updated",
+				Data: serializers.SerializeHost(updated),
+			}))
+			close(done)
+		})
 	})
 
 	Describe("GET /api/v0/hosts/{slug}/stats", func() {
@@ -801,6 +837,21 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.UpdatedAt).NotTo(BeNil())
 				Expect(j.Host.TerminatedAt).NotTo(BeNil())
 			})
+
+			It("publishes a host.destroyed event with the destroyed host", func(done Done) {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(hs.H.Slug)
+
+				deleted, err := host.FindByID(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(<-ch).To(Equal(&controllers.Event{
+					Name: "host.destroyed",
+					Data: serializers.SerializeHost(deleted),
+				}))
+				close(done)
+			})
 		})
 
 		Context("when hostbuilder fails to delete the host", func() {
@@ -877,17 +928,17 @@ var _ = Describe("controllers/hosts", func() {
 				hb.OverrideRequestHandler(mockHostbuilderOK)
 
 				hosts.HostbuilderClient = hb
-
-				doRequest(hs.H.Slug)
 			})
 
 			It("updates the host state to running", func() {
+				doRequest(hs.H.Slug)
 				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateRunning))
 			})
 
 			It("responds with the host and status OK", func() {
+				doRequest(hs.H.Slug)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var j struct {
@@ -908,6 +959,21 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.CreatedAt).NotTo(BeNil())
 				Expect(j.Host.UpdatedAt).NotTo(BeNil())
 				Expect(j.Host.TerminatedAt).To(BeNil())
+			})
+
+			It("publishes a host.started event with the host", func(done Done) {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(hs.H.Slug)
+
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(<-ch).To(Equal(&controllers.Event{
+					Name: "host.started",
+					Data: serializers.SerializeHost(h),
+				}))
+				close(done)
 			})
 		})
 
@@ -985,17 +1051,17 @@ var _ = Describe("controllers/hosts", func() {
 				hb.OverrideRequestHandler(mockHostbuilderOK)
 
 				hosts.HostbuilderClient = hb
-
-				doRequest(hs.H.Slug)
 			})
 
 			It("updates the host state to stopped", func() {
+				doRequest(hs.H.Slug)
 				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateStopped))
 			})
 
 			It("responds with the host and status OK", func() {
+				doRequest(hs.H.Slug)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var j struct {
@@ -1016,6 +1082,21 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.CreatedAt).NotTo(BeNil())
 				Expect(j.Host.UpdatedAt).NotTo(BeNil())
 				Expect(j.Host.TerminatedAt).To(BeNil())
+			})
+
+			It("publishes a host.stopped event with the host", func(done Done) {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(hs.H.Slug)
+
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(<-ch).To(Equal(&controllers.Event{
+					Name: "host.stopped",
+					Data: serializers.SerializeHost(h),
+				}))
+				close(done)
 			})
 		})
 
@@ -1093,17 +1174,17 @@ var _ = Describe("controllers/hosts", func() {
 				hb.OverrideRequestHandler(mockHostbuilderOK)
 
 				hosts.HostbuilderClient = hb
-
-				doRequest(hs.H.Slug)
 			})
 
 			It("updates the host state to running", func() {
+				doRequest(hs.H.Slug)
 				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateRunning))
 			})
 
 			It("responds with the host and status OK", func() {
+				doRequest(hs.H.Slug)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var j struct {
@@ -1124,6 +1205,21 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.CreatedAt).NotTo(BeNil())
 				Expect(j.Host.UpdatedAt).NotTo(BeNil())
 				Expect(j.Host.TerminatedAt).To(BeNil())
+			})
+
+			It("publishes a host.restarted event with the host", func(done Done) {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(hs.H.Slug)
+
+				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(<-ch).To(Equal(&controllers.Event{
+					Name: "host.restarted",
+					Data: serializers.SerializeHost(h),
+				}))
+				close(done)
 			})
 		})
 
