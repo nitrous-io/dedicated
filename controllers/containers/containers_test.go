@@ -325,7 +325,7 @@ var _ = Describe("controllers/containers", func() {
 			BeforeEach(func() {
 				fc2 := &freighterclient.Container{
 					ID:         "cafebabe",
-					Name:       "freighter.wicked-baby-69",
+					Name:       "wicked-baby-69",
 					Host:       "1.2.3.5",
 					State:      "running",
 					Image:      "nitrous-base",
@@ -645,7 +645,7 @@ var _ = Describe("controllers/containers", func() {
 
 			mockClient.CreatedContainer = &freighterclient.Container{
 				ID:    "deadbeef",
-				Name:  "freighter.elixir-web-1",
+				Name:  "elixir-web-1",
 				Host:  "1.2.3.4",
 				State: "running",
 				Image: "elixir",

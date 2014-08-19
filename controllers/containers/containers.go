@@ -410,7 +410,7 @@ func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, w ht
 func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) *container.Container {
 	c.CID = fc.ID
 	c.Image = fc.Image
-	c.Slug = dropNamespace(fc.Name)
+	c.Slug = fc.Name
 	c.State = fc.State
 	c.IPAddress = fc.Host
 	c.Cmd = fc.Cmd
@@ -426,7 +426,7 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 	return &container.Container{
 		CID:        fc.ID,
 		Image:      fc.Image,
-		Slug:       dropNamespace(fc.Name),
+		Slug:       fc.Name,
 		State:      fc.State,
 		IPAddress:  fc.Host,
 		UserID:     h.UserID,
@@ -436,21 +436,6 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 		ExitCode:   fc.ExitCode,
 		StartedAt:  fc.StartedAt,
 		FinishedAt: fc.FinishedAt,
-	}
-}
-
-func dropNamespace(freighterName string) string {
-	parts := strings.SplitN(freighterName, ".", 2)
-	switch len(parts) {
-	case 1:
-		return freighterName
-	case 2:
-		// more than one period is unexpected (disallowed in container slug)
-		// not this func's concern, so pass-through after stripping portion
-		// before first period
-		return parts[1]
-	default:
-		return freighterName // never reached, satisfy compiler
 	}
 }
 
