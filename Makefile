@@ -35,7 +35,7 @@ run: build
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
 	@.build/$(APP)
 
-release:
+release: ci
 	@echo "$(OK_COLOR)==> Releasing freighter version $(VERSION)...$(NO_COLOR)"
 	@./script/wrap-release-docker $(APP) $(VERSION)
 

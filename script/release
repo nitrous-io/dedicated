@@ -35,6 +35,7 @@ install -m 0755 -D $ARTIFACT_DIR/$APP $PKGDIR/usr/sbin/$APP
 # TODO: we wants --depends docker.io too
 
 cd $PKGDIR
+rm -f *.deb
 
 fpm \
   -s dir \
@@ -62,14 +63,9 @@ rm -rf $PKGDIR/{usr,etc,var,lib}
 DEB=${APP}_${VERSION}_amd64.deb
 
 cd $ARTIFACT_DIR
-
 if [[ -f $DEB ]]; then
   echo "Adding $DEB to local repository"
-  gpg --import $APT_GPG_PUBLIC
-  gpg --allow-secret-key-import --import $APT_GPG_SECRET
-
-  freightadder $DEB
-  freightcacher
+  deb-upload get.nitrous.io $DEB public 6B19EAE0
 else
   echo "Failed to find deb package: $DEB in $ARTIFACT_DIR directory."
   exit 1

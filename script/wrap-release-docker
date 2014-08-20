@@ -13,4 +13,5 @@ docker run \
   -e SECRET_KEY=$SECRET_KEY \
   -e APT_GPG_PUBLIC=/get.nitrous.io/.gpg/nitrous.pub.gpg \
   -e APT_GPG_SECRET=/get.nitrous.io/.gpg/nitrous.sec.gpg \
+  -e APT_GPG_PASSPHRASE=/get.nitrous.io/.gpg/nitrous.passphrase.gpg \
   nitrousio/packager ./script/release $APP $VERSION
