@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -e
+
+APP=${1:?"app is required"}
+VERSION=${2:?"version is required"}
+ARCH="amd64 i386"
+
+ARTIFACT_DIR=/tmp/$APP/$VERSION
+DEB=${APP}_${VERSION} # add _$ARCH.deb
+REPO=get.nitrous.io
+
+BUCKET=nitro-cli
+OSX_ARCH=darwin_amd64
+OSX_PKG=${APP}-${VERSION}-${OSX_ARCH}.pkg
+OSX_PKG_SRC=${ARTIFACT_DIR}/osx-build/${OSX_PKG}
+
+cd $ARTIFACT_DIR
+
+# add freshly packaged debs to local repository...
+for A in $ARCH; do
+        PACKAGE="${DEB}_${A}.deb"
+        if [ -f $PACKAGE ]; then
+                echo "Adding $PACKAGE to local repository"
+                $HOME/freightadder $REPO $PACKAGE 
+        else
+                echo "Failed to find deb package: ${PACKAGE} in ${ARTIFACT_DIR} directory - skipping... "
+        fi
+done
+
+# run freightercacher to setup the local deb and upload to s3
+echo "Syncing $PACKAGE to $REPO repository"
+$HOME/freightcacher $REPO
+
+# upload the osx-package to an s3 bucket
+if [[ -f $OSX_PKG_SRC ]]; then
+        echo "Uploading $OSX_PKG to s3... "
+        s3cmd --acl-public put $OSX_PKG_SRC s3://$BUCKET/$OSX_PKG
+        s3cmd --acl-public put $OSX_PKG_SRC s3://${BUCKET}/${APP}-latest-${OSX_ARCH}.pkg
+else
+        echo "$OSX_PKG not found."
+        exit 1
+fi
+

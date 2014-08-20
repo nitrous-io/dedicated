@@ -1,20 +1,23 @@
 #!/bin/bash
+
 APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
 
 ARTIFACT_DIR=/tmp/$APP/$VERSION
-BIN_DIR=/opt/src/github.com/nitrous-io/$APP/.vendor/bin
+rm -rf $ARTIFACT_DIR
+mkdir -p $ARTIFACT_DIR
+BIN_DIR=/opt/src/github.com/nitrous-io/$APP/build
 
 rm -rf $ARTIFACT_DIR
 mkdir -p $ARTIFACT_DIR
+tmp=$(mktemp -d /tmp/docker_XXXXX)
 
 docker run \
+  --cidfile $tmp/$APP \
   -v $(readlink -f $SSH_AUTH_SOCK):/ssh-agent \
-  --cidfile=$ARTIFACT_DIR/container \
   -e SSH_AUTH_SOCK=/ssh-agent \
-  $APP:$VERSION /bin/bash -c "./script/install-deps && ./script/test && ./script/build $VERSION"
+  $APP:$VERSION /bin/bash -c "./script/install-deps && ./script/test && ./script/xbuild $APP $VERSION"
 
-cid=$(cat $ARTIFACT_DIR/container)
-rm -rf $ARTIFACT_DIR/container
-
-docker cp $cid:$BIN_DIR/$APP $ARTIFACT_DIR && docker rm $cid
+cid=$(cat $tmp/$APP)
+docker cp $cid:$BIN_DIR/linux $ARTIFACT_DIR
+docker cp $cid:$BIN_DIR/darwin $ARTIFACT_DIR

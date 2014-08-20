@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # we get primary version from `VERSION` file
 set -e
+export APP=${1:?"app is required"}
+export VERSION=${2:?"version is required"}
+export BUILD_DIR=./build
 
-VERSION=${1:?"version is required"}
-goop go install -ldflags "-X main.version $VERSION" -x -v .
+rm -f "$BUILD_DIR/$APP"
+mkdir -p "$BUILD_DIR"
 
+goop go install -ldflags "-X main.version $VERSION" -x -v ./...
+goop exec bash -c 'cp $GOBIN/$APP $BUILD_DIR/$APP'
