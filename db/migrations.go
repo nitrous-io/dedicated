@@ -311,5 +311,11 @@ func init() {
 				ALTER TABLE containers ADD COLUMN secret character varying(255) NOT NULL DEFAULT left(encode(gen_random_bytes(191), 'base64'), 255);
       `,
 		},
+		{
+			Version: "240",
+			Up: `
+				ALTER TABLE containers ADD COLUMN locked_at timestamp without time zone;
+			`,
+		},
 	}
 }

@@ -19,6 +19,7 @@ var (
 	ErrSlugTooShort = errors.New("slug is too short (minimum is 2 characters)")
 	ErrSlugTooLong  = errors.New("slug is too long (maximum is 255 characters)")
 	ErrImageBlank   = errors.New("image can't be blank")
+	ErrLocked       = errors.New("container is locked")
 )
 
 type Container struct {
@@ -35,6 +36,7 @@ type Container struct {
 	TouchedAt    *time.Time `db:"touched_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
+	LockedAt     *time.Time `db:"locked_at"`
 
 	// These fields come from Freighter.
 	State      State
@@ -166,4 +168,30 @@ func (c *Container) ResolvedState() State {
 		return StateTerminated
 	}
 	return c.State
+}
+
+func (c *Container) Lock(expiresIn time.Duration, d db.QueryReceiver) error {
+	now := time.Now()
+	expiredAt := now.Add(expiresIn)
+
+	res, err := d.Exec(`
+	UPDATE containers SET locked_at = $1 WHERE id = $2 AND (locked_at IS NULL OR locked_at < $3)
+	`, expiredAt, c.ID, now)
+
+	if err != nil {
+		return err
+	}
+
+	i, _ := res.RowsAffected()
+	if i < 1 {
+		return ErrLocked
+	}
+	c.LockedAt = &expiredAt
+	return nil
+}
+
+func (c *Container) Unlock(d db.QueryReceiver) error {
+	_, err := d.Exec(`UPDATE containers SET locked_at = null WHERE id = $1;`, c.ID)
+	c.LockedAt = nil
+	return err
 }

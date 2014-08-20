@@ -1307,6 +1307,34 @@ var _ = Describe("controllers/containers", func() {
 			close(done)
 		})
 
+		It("unlocks the container after the action", func() {
+			doRequest("elixir-web-1")
+
+			// check if the container is locakable
+			expiresIn := time.Duration(5) * time.Second
+			err := c.Lock(expiresIn, db)
+			Expect(err).To(BeNil())
+		})
+
+		Context("when container is already locked", func() {
+			It("responds with HTTP 409 Conflict", func() {
+				expiresIn := time.Duration(5) * time.Second
+				err := c.Lock(expiresIn, db)
+				Expect(err).To(BeNil())
+
+				doRequest("elixir-web-1")
+
+				Expect(res.Code).To(Equal(http.StatusConflict))
+
+				j := map[string]interface{}{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				errType, _ := j["error"].(string)
+				Expect(errType).To(Equal("container_locked"))
+			})
+		})
+
 		Context("when the Freighter client returns an error", func() {
 			BeforeEach(func() {
 				*inputs.actionError = errors.New("control action failed")
@@ -1323,6 +1351,14 @@ var _ = Describe("controllers/containers", func() {
 
 				errType, _ := j["error"].(string)
 				Expect(errType).To(Equal("internal_server_error"))
+			})
+
+			It("unlocks the container", func() {
+				doRequest("elixir-web-1")
+
+				cntnr, err := container.FindByCID(db, "deadbeef")
+				Expect(err).To(BeNil())
+				Expect(cntnr.LockedAt).To(BeNil())
 			})
 		})
 
@@ -1486,6 +1522,25 @@ var _ = Describe("controllers/containers", func() {
 			expectSerializedContainer(cn)
 
 			close(done)
+		})
+
+		Context("when container is locked", func() {
+			It("responds with HTTP 409 Conflict", func() {
+				expiresIn := time.Duration(5) * time.Second
+				err := c.Lock(expiresIn, db)
+				Expect(err).To(BeNil())
+
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusConflict))
+
+				j := map[string]interface{}{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				errType, _ := j["error"].(string)
+				Expect(errType).To(Equal("container_locked"))
+			})
 		})
 
 		Context("when the Freighter client returns an error", func() {
