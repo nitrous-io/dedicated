@@ -37,7 +37,7 @@ var _ = Describe("environment", func() {
 
 		It("defaults to ~/.nitrocfg", func() {
 			os.Setenv("NITRO_API_URL", "")
-			Expect(command.ConfigureEnvironment().APIURL).To(Equal("http://127.0.0.1:3000"))
+			Expect(command.ConfigureEnvironment().APIURL).To(Equal(command.DefaultAPIURL))
 		})
 	})
 
