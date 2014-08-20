@@ -1,0 +1,5 @@
+#!/bin/bash
+
+if [[ -n "$(getent passwd nitrousd)" ]]; then
+        userdel nitrousd
+fi

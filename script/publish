@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+APP=${1:?"app is required"}
+VERSION=${2:?"version is required"}
+ARTIFACT_DIR=/tmp/$APP/$VERSION
+DEB=${APP}_${VERSION}_amd64.deb
+
+cd $ARTIFACT_DIR
+
+if [[ -f $DEB ]]; then
+        echo "Adding $DEB to local repository"
+        $HOME/freightadder get.nitrous.io $DEB
+        $HOME/freightcacher get.nitrous.io
+else
+        echo "Failed to find deb package: $DEB in $ARTIFACT_DIR directory."
+        exit 1
+fi

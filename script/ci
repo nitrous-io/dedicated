@@ -10,9 +10,10 @@ tmp=$(mktemp -d /tmp/docker_XXXXX)
 docker run \
   --cidfile $tmp/$APP \
   -v $(readlink -f $SSH_AUTH_SOCK):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent \
-  $APP:$VERSION ./script/install-deps ./script/start-db ./script/test && ./script/build-go $APP $VERSION ./script/build-assets
+  $APP:$VERSION /bin/bash -c "./script/install-deps ./script/start-db ./script/test && ./script/build-go $VERSION && ./script/build-assets"
 
 cid=`cat $tmp/$APP`
-docker cp $cid:/opt/src/github.com/nitrous-io/nitrous/build/$APP $HOST_BUILD_DIR/
-docker cp $cid:/opt/src/github.com/nitrous-io/nitrous/build/public $HOST_BUILD_DIR/
 
+for C in $APP dbseed public; do
+  docker cp $cid:/opt/src/github.com/nitrous-io/nitrous/build/$C $HOST_BUILD_DIR/
+done

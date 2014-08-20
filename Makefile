@@ -2,7 +2,7 @@ NO_COLOR=\033[0m
 OK_COLOR=\033[32;01m
 ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
-BIN_NAME=nitrousd
+APP=nitrousd
 REVISION=$(shell git rev-parse --short HEAD)
 BASE_VERSION=$(shell cat VERSION)
 VERSION=$(BASE_VERSION)-$(REVISION)
@@ -53,13 +53,8 @@ dropdb:
 seed: go
 	@script/dbseed
 
-test-with-docker:
-	@script/docker-test
+release: ci
+	@echo "$(OK_COLOR)==> Releasing revision $(VERSION)...$(NO_COLOR)"
+	@script/wrap-release-docker $(APP) $(VERSION)
 
-run-with-docker:
-	@script/docker-run
-
-release: build
-	@script/release
-
-.PHONY: all go assets build format run test createdb dropdb image test-with-docker run-with-docker seed release
+.PHONY: all go assets build format run test createdb dropdb image seed release
