@@ -377,9 +377,14 @@ func (s *Server) logoutRegistry(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, status, nil)
 }
 
+var defaultPeriod = 100 * time.Millisecond
+
 func (s *Server) serverInfo(w http.ResponseWriter, r *http.Request) error {
-	// FIXME Hardcoded sample period for now - maybe make it a query param.
-	stats, err := stats.Sample(100 * time.Millisecond)
+	period, err := time.ParseDuration(r.FormValue("period"))
+	if err != nil || period == 0 {
+		period = defaultPeriod
+	}
+	stats, err := stats.Sample(period)
 	if err != nil {
 		return err
 	}

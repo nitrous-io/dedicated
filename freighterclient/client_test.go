@@ -1324,9 +1324,11 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns the HostInfo", func() {
-				info, err := cl.HostInfo()
+				info, err := cl.HostInfo(1 * time.Second)
 				Expect(err).To(BeNil())
-				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				reqs := server.ReceivedRequests()
+				Expect(reqs).To(HaveLen(1))
+				Expect(reqs[0].FormValue("period")).To(Equal("1s"))
 				Expect(info).To(Equal(&freighterclient.HostInfo{
 					Uptime:       30,
 					MemoryUsage:  12345678,
@@ -1336,6 +1338,7 @@ var _ = Describe("client", func() {
 					NumCPU:       2,
 					PerCPUUsage:  []float64{0.5, 30},
 				}))
+
 			})
 		})
 
@@ -1345,7 +1348,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns ErrUnexpectedResponse", func() {
-				info, err := cl.HostInfo()
+				info, err := cl.HostInfo(1 * time.Second)
 				Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(info).To(BeNil())
@@ -1358,7 +1361,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns a StatusError", func() {
-				info, err := cl.HostInfo()
+				info, err := cl.HostInfo(1 * time.Second)
 				Expect(err).NotTo(BeNil())
 				_, ok := err.(*freighterclient.StatusError)
 				Expect(ok).To(BeTrue())

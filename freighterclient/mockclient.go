@@ -2,6 +2,7 @@ package freighterclient
 
 import (
 	"io"
+	"time"
 )
 
 // MockClient is a mock satisfying the freighter.Client interface.
@@ -63,6 +64,7 @@ type MockClient struct {
 	VolumeInfoError    error
 
 	HostInfoCalled int
+	HostInfoPeriod time.Duration
 	HostInfoError  error
 	HostInfoReturn *HostInfo
 
@@ -103,7 +105,7 @@ type MockClient struct {
 }
 
 func (c *MockClient) List() ([]*Container, error) {
-	c.ListCalled = c.ListCalled + 1
+	c.ListCalled++
 	if c.ListError != nil {
 		return nil, c.ListError
 	}
@@ -114,7 +116,7 @@ func (c *MockClient) List() ([]*Container, error) {
 }
 
 func (c *MockClient) Create(name, image string, config *ContainerConfig) (*Container, error) {
-	c.CreateCalled = c.CreateCalled + 1
+	c.CreateCalled++
 	c.ReceivedName = name
 	c.ReceivedImage = image
 	c.ReceivedConfig = config
@@ -129,7 +131,7 @@ func (c *MockClient) Commit(id, imageName string) (*Image, error) {
 }
 
 func (c *MockClient) Info(id string) (*Container, error) {
-	c.InfoCalled = c.InfoCalled + 1
+	c.InfoCalled++
 	c.ReceivedID = id
 	if c.InfoError != nil {
 		return nil, c.InfoError
@@ -143,7 +145,7 @@ func (c *MockClient) Info(id string) (*Container, error) {
 }
 
 func (c *MockClient) Start(id string) (*Container, error) {
-	c.StartCalled = c.StartCalled + 1
+	c.StartCalled++
 	c.ReceivedID = id
 	if c.StartError != nil {
 		return nil, c.StartError
@@ -156,7 +158,7 @@ func (c *MockClient) Start(id string) (*Container, error) {
 }
 
 func (c *MockClient) Stop(id string) (*Container, error) {
-	c.StopCalled = c.StopCalled + 1
+	c.StopCalled++
 	c.ReceivedID = id
 	if c.StopError != nil {
 		return nil, c.StopError
@@ -169,7 +171,7 @@ func (c *MockClient) Stop(id string) (*Container, error) {
 }
 
 func (c *MockClient) Restart(id string) (*Container, error) {
-	c.RestartCalled = c.RestartCalled + 1
+	c.RestartCalled++
 	c.ReceivedID = id
 	if c.RestartError != nil {
 		return nil, c.RestartError
@@ -182,7 +184,7 @@ func (c *MockClient) Restart(id string) (*Container, error) {
 }
 
 func (c *MockClient) Terminate(id string) (*Container, error) {
-	c.TerminateCalled = c.TerminateCalled + 1
+	c.TerminateCalled++
 	c.ReceivedID = id
 	cntnr, _ := c.Info(id)
 	if cntnr != nil {
@@ -193,19 +195,19 @@ func (c *MockClient) Terminate(id string) (*Container, error) {
 }
 
 func (c *MockClient) AddPublicKeys(id string, pubkeys []string) error {
-	c.AddPublicKeysCalled = c.AddPublicKeysCalled + 1
+	c.AddPublicKeysCalled++
 	c.ReceivedID = id
 	return c.AddPublicKeysError
 }
 
 func (c *MockClient) ClearPublicKeys(id string) error {
-	c.ClearPublicKeysCalled = c.ClearPublicKeysCalled + 1
+	c.ClearPublicKeysCalled++
 	c.ReceivedID = id
 	return c.ClearPublicKeysError
 }
 
 func (c *MockClient) RemovePublicKey(id string, fingerprint string) error {
-	c.RemovePublicKeyCalled = c.RemovePublicKeyCalled + 1
+	c.RemovePublicKeyCalled++
 	c.ReceivedID = id
 	return c.RemovePublicKeyError
 }
@@ -236,7 +238,7 @@ func (c *MockClient) Logs(id string, follow, timestamps, tail string, w io.Write
 }
 
 func (c *MockClient) RegistryLogin(p *RegistryAuth) error {
-	c.RegistryLoginCalled = c.RegistryLoginCalled + 1
+	c.RegistryLoginCalled++
 	c.ReceivedUsername = p.Username
 	c.ReceivedPassword = p.Password
 	c.ReceivedEmail = p.Email
@@ -245,45 +247,46 @@ func (c *MockClient) RegistryLogin(p *RegistryAuth) error {
 }
 
 func (c *MockClient) RegistryLogout(registry string) error {
-	c.RegistryLogoutCalled = c.RegistryLogoutCalled + 1
+	c.RegistryLogoutCalled++
 	c.ReceivedRegistry = registry
 	return c.RegistryLogoutError
 }
 
-func (c *MockClient) HostInfo() (*HostInfo, error) {
-	c.HostInfoCalled = c.HostInfoCalled + 1
+func (c *MockClient) HostInfo(period time.Duration) (*HostInfo, error) {
+	c.HostInfoCalled++
+	c.HostInfoPeriod = period
 	return c.HostInfoReturn, c.HostInfoError
 }
 
 func (c *MockClient) ListImages() ([]*Image, error) {
-	c.ListImagesCalled = c.ListImagesCalled + 1
+	c.ListImagesCalled++
 	return c.ListImagesArray, c.ListImagesError
 }
 
 func (c *MockClient) BuildImage(name string, in io.Reader) (*Image, error) {
-	c.BuildImageCalled = c.BuildImageCalled + 1
+	c.BuildImageCalled++
 	c.BuildImageName = name
 	c.BuildImageReader = in
 	return c.BuildImageReturn, c.BuildImageError
 }
 
 func (c *MockClient) RemoveImage(slug string) error {
-	c.RemoveImageCalled = c.RemoveImageCalled + 1
+	c.RemoveImageCalled++
 	return c.RemoveImageError
 }
 
 func (c *MockClient) PullImage(location string) (*Image, error) {
-	c.PullImageCalled = c.PullImageCalled + 1
+	c.PullImageCalled++
 	return c.PullImageReturn, c.PullImageError
 }
 
 func (c *MockClient) PushImage(slug, location string) error {
-	c.PushImageCalled = c.PushImageCalled + 1
+	c.PushImageCalled++
 	return c.PushImageError
 }
 
 func (c *MockClient) TagImage(slug, newName string, force bool) error {
-	c.TagImageCalled = c.TagImageCalled + 1
+	c.TagImageCalled++
 	c.ReceivedImage = slug
 	c.ReceivedTag = newName
 	c.TagImageForce = force
