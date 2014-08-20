@@ -2,13 +2,13 @@
 APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
 
-ARTIFACT_DIR=/tmp/$APP/$VERSION
+ARTIFACT_DIR=/tmp/$APP/$VERSION/linux/amd64
 
 PACKAGE_NAME=$APP
 PACKAGE_VERSION=$VERSION
 PACKAGE_ARCHITECTURE="$(dpkg-architecture -qDEB_HOST_ARCH)"
 PACKAGE_MAINTAINER="eng@nitrous.io"
-PACKAGE_DESCRIPTION="CLI for Nitrous.IO"
+PACKAGE_DESCRIPTION="Nitrous.IO CLI"
 PACKAGE_LICENSE="Private"
 
 PKGDIR=$ARTIFACT_DIR
@@ -29,3 +29,18 @@ fpm \
   --replaces $PACKAGE_NAME \
   --deb-compression gz \
   -t deb .
+
+# cleanup
+rm -rf $PKGDIR/{usr,etc}
+
+DEB=${APP}_${VERSION}_amd64.deb
+
+# Release
+cd $ARTIFACT_DIR
+if [[ -f $DEB ]]; then
+  echo "Adding $DEB to local repository"
+  deb-upload get.nitrous.io $DEB public 6B19EAE0
+else
+  echo "Failed to find deb package: $DEB in $ARTIFACT_DIR directory."
+  exit 1
+fi

@@ -3,7 +3,6 @@ OK_COLOR=\033[32;01m
 ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
 APP=nitro
-BUILD_DIR=./build
 REVISION=$(shell git rev-parse --short HEAD)
 BASE_VERSION=$(shell cat VERSION)
 VERSION=$(BASE_VERSION)-$(REVISION)
@@ -12,7 +11,11 @@ all: build
 
 build: clean
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
-	@script/build $(VERSION)
+	@script/build $(APP) $(VERSION)
+
+xbuild:
+	@echo "$(OK_COLOR)==> Cross-Compiling revision $(VERSION)...$(NO_COLOR)"
+	@script/xbuild $(APP) $(VERSION)
 
 clean:
 	rm -rf .vendor/bin/$(APP)
@@ -30,14 +33,9 @@ test:
 	@echo "$(OK_COLOR)==> Testing...$(NO_COLOR)"
 	@script/test $(TEST)
 
-compile-docker: image
-	@echo "$(OK_COLOR)==> Cross compilation in docker for revision $(VERSION)...$(NO_COLOR)"
-	@script/docker-run-xcompile $(APP) $(VERSION)
-.PHONY: xcompile-docker
-
-release: compile-docker
+release: ci
 	@echo "$(OK_COLOR)==> Packaging revision $(VERSION)...$(NO_COLOR)"
-	@script/multi-release $(APP) $(VERSION)
+	@script/wrap-release-docker $(APP) $(VERSION)
 .PHONY: release
 
 publish: release

@@ -3,51 +3,17 @@ set -e
 
 APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
-ARTIFACT_DIR=/tmp/$APP/$VERSION
-
-LINUX64="linux_amd64"
-LINUX32="linux_386"
-
-# Debian Package
-function fpm_package() {
-        ARCH=$1 # supported: amd64 and i386
-        OSARCH=$2
-        PACKAGE_NAME=$APP
-        PACKAGE_VERSION=$VERSION
-        PACKAGE_ARCHITECTURE=$ARCH
-        PACKAGE_MAINTAINER="eng@nitrous.io"
-        PACKAGE_DESCRIPTION="CLI for Nitrous.IO"
-        PACKAGE_LICENSE="Private"
-
-        PKGDIR=$ARTIFACT_DIR
-
-        # install binary
-        install -m 0755 -D $ARTIFACT_DIR/${APP}_${OSARCH} $PKGDIR/usr/bin/$APP
-        cd $PKGDIR
-
-        fpm \
-          -s dir \
-          --name $PACKAGE_NAME \
-          --version $PACKAGE_VERSION \
-          --architecture "$PACKAGE_ARCHITECTURE" \
-          --prefix / \
-          --description "$PACKAGE_DESCRIPTION" \
-          --maintainer "$PACKAGE_MAINTAINER" \
-          --provides $PACKAGE_NAME \
-          --replaces $PACKAGE_NAME \
-          --deb-compression gz \
-          -t deb .
-
-        # cleanup
-        rm -rf $ARTIFACT_DIR/usr
-}
+ARTIFACT_DIR=/tmp/$APP/$VERSION/darwin/amd64
 
 # OSX package
 OSX_ARCH="darwin_amd64"
 OSX_BIN=/usr/bin
 OSX_OSX_APP_ID=io.nitrous.nitro
-OSX_OSX_APP_DESC="The CLI for Nitrous.IO"
+OSX_OSX_APP_DESC="Nitrous.IO CLI"
 OSX_BUILD=$ARTIFACT_DIR/osx-build/
+OSX_PKG=${APP}-${VERSION}-${OSX_ARCH}.pkg
+OSX_PKG_SRC=${OSX_BUILD}${OSX_PKG}
+OSX_BUCKET=osx.nitrous.io
 
 function osx_package() {
 
@@ -55,17 +21,17 @@ function osx_package() {
 rm -rf $OSX_BUILD/{flat,root}
 
 # prepare build directory structure
-mkdir -p $OSX_BUILD/flat/base.pkg 
+mkdir -p $OSX_BUILD/flat/base.pkg
 mkdir -p $OSX_BUILD/flat/Resources/en.lproj
-mkdir -p $OSX_BUILD/root/usr/bin 
+mkdir -p $OSX_BUILD/root/usr/bin
 
-cp $ARTIFACT_DIR/${APP}_${OSX_ARCH} $OSX_BUILD/root/usr/bin/$APP
+cp $ARTIFACT_DIR/${APP} $OSX_BUILD/root/usr/bin/$APP
 ( cd $OSX_BUILD/root && find . | cpio -o --format odc --owner 0:80 | gzip -c ) > $OSX_BUILD/flat/base.pkg/Payload
 
 FILE_COUNT=$(find $OSX_BUILD/root | wc -l)
 INSTALL_SIZE=$(du -k -s $OSX_BUILD/root)
 
-cat << EOF > $OSX_BUILD/flat/base.pkg/PackageInfo 
+cat << EOF > $OSX_BUILD/flat/base.pkg/PackageInfo
 <pkg-info format-version="2" identifier="${OSX_APP_ID}.base.pkg" version="${VERSION}" install-location="/" auth="root">
   <payload installKBytes="${INSTALL_SIZE}" numberOfFiles="${FILE_COUNT}"/>
 <bundle-version>
@@ -107,6 +73,8 @@ EOF
 
 }
 
-echo -n "Packaging deb for amd64... "; fpm_package amd64 $LINUX64 || \
-echo -n "Packaging deb for i386... "; fpm_package i386 $LINUX32 || \
 echo -n "Packaging installer for darwin amd64..."; osx_package && echo " great success!"
+
+s3cmd --access_key=$ACCESS_KEY --secret_key=$SECRET_KEY --acl-public put $OSX_PKG_SRC s3://${OSX_BUCKET}/${OSX_PKG}
+s3cmd --access_key=$ACCESS_KEY --secret_key=$SECRET_KEY --acl-public put $OSX_PKG_SRC s3://${OSX_BUCKET}/${APP}-latest-${OSX_ARCH}.pkg
+
