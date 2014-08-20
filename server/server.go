@@ -233,7 +233,9 @@ func getTLSConfig(caPath, certPath, keyPath string) (*tls.Config, error) {
 		return nil, fmt.Errorf("Couldn't read CA certificate %s: %s", caPath, err)
 	}
 	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM(file)
+	if ok := certPool.AppendCertsFromPEM(file); !ok {
+		return nil, fmt.Errorf("Couldn't append CA certificate %s", caPath)
+	}
 
 	// by default, we dont require any client cert i.e. no authentication
 	// as long as the client supplies the correct CA, it's allowed to talk to

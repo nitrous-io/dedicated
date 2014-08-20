@@ -206,7 +206,9 @@ func NewClientTransport(host *Host, authToken string, tp *http.Transport) (Clien
 		return nil, ErrInvalidAuthToken
 	}
 	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM(host.CA)
+	if ok := certPool.AppendCertsFromPEM(host.CA); !ok {
+		return nil, fmt.Errorf("Error appending cert")
+	}
 	tlsConfig := &tls.Config{
 		ServerName: host.ServerName,
 		RootCAs:    certPool,
