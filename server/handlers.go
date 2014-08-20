@@ -447,13 +447,18 @@ func (s *Server) removeImage(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// pullImage outputs raw docker's raw json stream to the client so it can
+// format the download progress by itself
+//
+// Refers to // https://docs.docker.com/reference/api/docker_remote_api_v1.13/#22-images
+// for more information on the output format
 func (s *Server) pullImage(w http.ResponseWriter, r *http.Request) error {
 	repo := r.FormValue("repository")
-	info, err := s.provider.PullImage(repo)
-	if err != nil {
+	outstream := flusher.NewWriteFlusher(w)
+	// default to use raw json stream
+	if err := s.provider.PullImage(repo, outstream, true); err != nil {
 		return err
 	}
-	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"image": info})
 	return nil
 }
 

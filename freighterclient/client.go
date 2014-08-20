@@ -96,7 +96,7 @@ type Client interface {
 	ListImages() ([]*Image, error)
 	BuildImage(name string, in io.Reader) (*Image, error)
 	RemoveImage(image string) error
-	PullImage(location string) (*Image, error)
+	PullImage(location string, output io.Writer) (*Image, error)
 	PushImage(image, destination string) error
 	TagImage(image, newName string, force bool) error
 	InspectImage(image string) (*Image, error)
@@ -693,7 +693,7 @@ func (c *client) RemoveImage(image string) error {
 	return nil
 }
 
-func (c *client) PullImage(repository string) (*Image, error) {
+func (c *client) PullImage(repository string, output io.Writer) (*Image, error) {
 	u := fmt.Sprintf("%s/images/pull", c.host.BaseURL())
 	data := &url.Values{"repository": []string{repository}}
 	req, err := http.NewRequest("POST", u, strings.NewReader(data.Encode()))
@@ -710,15 +710,10 @@ func (c *client) PullImage(repository string) (*Image, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, &StatusError{resp.StatusCode}
 	}
-	var imageInfo struct {
-		Image *Image `json:"image"`
-	}
-	err = json.NewDecoder(resp.Body).Decode(&imageInfo)
-	if err != nil {
-		return nil, ErrUnexpectedResponse
-	}
 
-	return imageInfo.Image, nil
+	io.Copy(output, resp.Body)
+
+	return nil, nil
 }
 
 func (c *client) PushImage(image, destination string) error {
