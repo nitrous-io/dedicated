@@ -6,7 +6,7 @@ VERSION=${2:?"version is required"}
 ARTIFACT_DIR=/tmp/$APP/$VERSION
 
 PACKAGE_NAME=$APP
-PACKAGE_COMPONENTS="nitrousd dbseed"
+PACKAGE_COMPONENTS="nitrousd"
 PACKAGE_VERSION=$VERSION
 PACKAGE_ARCHITECTURE="$(dpkg-architecture -qDEB_HOST_ARCH)"
 PACKAGE_MAINTAINER="eng@nitrous.io"
@@ -39,6 +39,7 @@ install -m 0644 -D $FILES/data/etc/init/nitrousd.conf $PKGDIR/etc/init/nitrousd.
 install -m 0644 -D $FILES/data/etc/default/nitrousd $PKGDIR/etc/default/nitrousd
 
 cd $PKGDIR
+rm -f *.deb
 
 fpm \
   -s dir \
@@ -67,14 +68,9 @@ rm -rf $PKGDIR/{etc,opt,files}
 DEB=${APP}_${VERSION}_amd64.deb
 
 cd $ARTIFACT_DIR
-
 if [[ -f $DEB ]]; then
   echo "Adding $DEB to local repository"
-  gpg --import $APT_GPG_PUBLIC
-  gpg --allow-secret-key-import --import $APT_GPG_SECRET
-
-  freightadder $DEB
-  freightcacher
+  deb-upload get.nitrous.io $DEB public 6B19EAE0
 else
   echo "Failed to find deb package: $DEB in $ARTIFACT_DIR directory."
   exit 1
