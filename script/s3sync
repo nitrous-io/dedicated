@@ -1,6 +1,0 @@
-#!/bin/bash
-BUCKET="apt.nitrous.io"
-LOCALREPO="$HOME/$BUCKET"
-
-s3cmd --verbose --acl-public --follow-symlinks sync $LOCALREPO/ s3://$BUCKET/
-s3cmd --verbose --acl-public sync $HOME/.gpg/nitrous.pub.gpg s3://$BUCKET/apt.nitrous.io.key

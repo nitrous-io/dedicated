@@ -1,0 +1,15 @@
+#!/bin/bash
+set -e
+
+VERSION=${1:?"version is required"}
+APP=freighterd
+ARCH=$(dpkg-architecture -qDEB_HOST_ARCH)
+CI_BUILD=$HOME/build
+RELEASE_DIR=/tmp/$APP/$VERSION
+
+[[ ! -d $CI_BUILD ]] && mkdir -pv $CI_BUILD
+
+echo $VERSION
+
+cp -v $RELEASE_DIR/${APP}-${VERSION}_${VERSION}_${ARCH}.deb  $CI_BUILD/
+cp -v $RELEASE_DIR/${APP}_${VERSION}_${ARCH}.deb  $CI_BUILD/

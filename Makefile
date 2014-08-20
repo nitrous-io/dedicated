@@ -2,10 +2,10 @@ NO_COLOR=\033[0m
 OK_COLOR=\033[32;01m
 ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
-BIN_NAME=freighterd
 REVISION=$(shell git rev-parse --short HEAD)
 BASE_VERSION=$(shell cat VERSION)
 VERSION=$(BASE_VERSION)-$(REVISION)
+APP=freighterd
 
 all: build
 
@@ -14,14 +14,7 @@ install-deps:
 
 build:
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
-	@script/build $(VERSION)
-
-release:
-	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
-	@./script/run-build $(VERSION)
-	@echo "$(OK_COLOR)==> Releasing revision $(VERSION)...$(NO_COLOR)"
-	@./script/run-release $(VERSION)
-.PHONY: release
+	@script/build $(APP) $(VERSION)
 
 format:
 	goop go fmt ./...
@@ -32,14 +25,18 @@ test:
 
 ci: image
 	@echo "$(OK_COLOR)==> Running within docker...$(NO_COLOR)"
-	@script/ci $(VERSION)
+	@script/ci $(APP) $(VERSION)
 
 image:
 	@echo "$(OK_COLOR)==> Building image...$(NO_COLOR)"
-	@script/image $(VERSION)
+	@script/image $(APP) $(VERSION)
 
 run: build
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
-	@.vendor/bin/$(BIN_NAME)
+	@.build/$(APP)
 
-.PHONY: all install-deps build format test run
+release: ci
+	@echo "$(OK_COLOR)==> Releasing freighter version $(VERSION)...$(NO_COLOR)"
+	@./script/wrap-release-docker $(APP) $(VERSION)
+
+.PHONY: all install-deps build format test run release image
