@@ -362,7 +362,10 @@ var _ = Describe("controllers/hosts", func() {
 
 				It("creates a keypair associated with that host", func() {
 					doRequest(overrides{})
-					hosts, _ := host.FindAllByUser(db, u)
+					hosts, err := host.FindAllByUser(db, u)
+					Expect(err).To(BeNil())
+					Expect(hosts).To(HaveLen(1))
+
 					kp, err := keypairs.Get(db, hosts[0].ID)
 					Expect(err).To(BeNil())
 					Expect(kp.HostID).To(Equal(hosts[0].ID))
@@ -379,7 +382,10 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("creates a cert associated with that host", func() {
-					hosts, _ := host.FindAllByUser(db, u)
+					doRequest(overrides{})
+					hosts, err := host.FindAllByUser(db, u)
+					Expect(err).To(BeNil())
+					Expect(hosts).To(HaveLen(1))
 					crt, err := cert.Find(db, hosts[0].ID)
 					Expect(err).To(BeNil())
 					Expect(crt.HostID).To(Equal(hosts[0].ID))
@@ -860,7 +866,6 @@ var _ = Describe("controllers/hosts", func() {
 			It("deletes certs associated to the host", func() {
 				tx, _ := db.Beginx()
 				crt := &cert.Cert{
-					CA:         "ca",
 					ServerCert: "servercert",
 					ServerKey:  "serverkey",
 				}

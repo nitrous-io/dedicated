@@ -11,7 +11,6 @@ type Cert struct {
 	ID     int64 `db:"id"`
 	HostID int64 `db:"host_id"`
 
-	CA         string `db:"ca"`
 	ServerCert string `db:"server_cert"`
 	ServerKey  string `db:"server_key"`
 
@@ -26,8 +25,8 @@ type Cert struct {
 func (c *Cert) Insert(tx *sqlx.Tx, hostID int64) error {
 	c.HostID = hostID
 	stmt, err := tx.PrepareNamed(`INSERT INTO certs
-		(host_id, ca, server_cert, server_key)
-		VALUES (:host_id, :ca, :server_cert, :server_key)
+		(host_id, server_cert, server_key)
+		VALUES (:host_id, :server_cert, :server_key)
 		RETURNING *;`)
 	if err != nil {
 		return err

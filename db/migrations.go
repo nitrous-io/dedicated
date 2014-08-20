@@ -372,5 +372,11 @@ func init() {
 				CREATE INDEX index_certs_on_host_id ON certs USING btree (host_id);
 			`,
 		},
+		{
+			Version: "271",
+			Up: `
+				ALTER TABLE certs DROP COLUMN ca;
+			`,
+		},
 	}
 }

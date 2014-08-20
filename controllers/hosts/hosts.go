@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nitrous-io/sslider/sslgen"
+
 	"github.com/lib/pq"
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
@@ -24,7 +26,6 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 	"github.com/nitrous-io/nitrous/serializers"
-	"github.com/nitrous-io/sslider/sslgen"
 )
 
 var (
@@ -89,7 +90,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	hostsResp := make([]*serializers.Host, len(hosts))
 	for i, h := range hosts {
-		hostsResp[i] = serializers.SerializeHost(&h, nil)
+		hostsResp[i] = serializers.SerializeHost(&h)
 	}
 
 	env.Status = http.StatusOK
@@ -220,6 +221,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	config["apt_location"] = defaultAPTLocation
 	config["apt_dist"] = defaultAPTDist
 
+	caPEM, err := controllers.CACertPEM()
+	if err != nil {
+		return err
+	}
+	config["tls"] = map[string]string{
+		"ca":   string(caPEM),
+		"cert": crt.ServerCert,
+		"key":  crt.ServerKey,
+	}
+
 	info, err := HostbuilderClient.Create(pt.Provider, &config)
 	if err != nil {
 		h.State = host.StateOrphan
@@ -255,17 +266,13 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	publishHostEvent(env, "host.created", h)
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h, crt),
+		"host": serializers.SerializeHost(h),
 	}
 	return nil
 }
 
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	crt, err := cert.Find(env.DB, h.ID)
-	if err != nil {
-		return errCertNotFound
-	}
-	serializeHost(env, h, crt)
+	serializeHost(env, h)
 	return nil
 }
 
@@ -286,7 +293,7 @@ func Update(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	}
 
 	publishHostEvent(env, "host.updated", h)
-	serializeHost(env, h, nil)
+	serializeHost(env, h)
 	return nil
 }
 
@@ -357,7 +364,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	publishHostEvent(env, "host.destroyed", h)
-	serializeHost(env, h, nil)
+	serializeHost(env, h)
 	return nil
 }
 
@@ -373,7 +380,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	publishHostEvent(env, "host.started", h)
-	serializeHost(env, h, nil)
+	serializeHost(env, h)
 	return nil
 }
 
@@ -389,7 +396,7 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 
 	publishHostEvent(env, "host.stopped", h)
-	serializeHost(env, h, nil)
+	serializeHost(env, h)
 	return nil
 }
 
@@ -405,7 +412,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	publishHostEvent(env, "host.restarted", h)
-	serializeHost(env, h, nil)
+	serializeHost(env, h)
 	return nil
 }
 
@@ -466,10 +473,10 @@ func generateKey() (priv *rsa.PrivateKey, pub []byte, err error) {
 	return priv, pub, nil
 }
 
-func serializeHost(env *middleware.Env, h *host.Host, crt *cert.Cert) {
+func serializeHost(env *middleware.Env, h *host.Host) {
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h, crt),
+		"host": serializers.SerializeHost(h),
 	}
 }
 
@@ -480,16 +487,10 @@ func publishHostEvent(env *middleware.Env, name string, h *host.Host) {
 	)
 }
 
-// generate a certificate that include the certificate authority, server
-// certificate and key, client certificate and key. The data will be suitable
-// for TLS authentication
+// generate cert with server certificate and key. The cert will be used for
+// TLS encryption
 func generateCerts(hostname string) (*cert.Cert, error) {
-	// generate certificate authority
-	ca, err := sslgen.CreateCA(hostname)
-	if err != nil {
-		return nil, err
-	}
-	_, caCrt, err := ca.Generate()
+	ca, err := controllers.CACert()
 	if err != nil {
 		return nil, err
 	}
@@ -505,7 +506,6 @@ func generateCerts(hostname string) (*cert.Cert, error) {
 	}
 
 	return &cert.Cert{
-		CA:         string(caCrt),
 		ServerCert: string(srvCrt),
 		ServerKey:  string(srvKey),
 	}, nil

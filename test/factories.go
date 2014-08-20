@@ -137,7 +137,6 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 
 	// create a certificate for the host
 	crt := &cert.Cert{
-		CA:         localhostCert,
 		ServerCert: localhostCert,
 		ServerKey:  localhostKey,
 	}

@@ -12,7 +12,6 @@ import (
 
 func mkcert() *cert.Cert {
 	return &cert.Cert{
-		CA:         "ca",
 		ServerCert: "servercert",
 		ServerKey:  "serverkey",
 	}

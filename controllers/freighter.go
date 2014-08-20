@@ -1,7 +1,13 @@
 package controllers
 
 import (
+	"crypto/rsa"
+	"io/ioutil"
 	"net/http"
+	"os"
+
+	"code.google.com/p/go.crypto/ssh"
+	"github.com/nitrous-io/sslider/sslgen"
 
 	fc "github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/db"
@@ -17,6 +23,19 @@ var (
 	// ErrHostNotRunning results when we tries to access a not-running host
 	ErrHostNotRunning = httperror.New(http.StatusServiceUnavailable, "service_unavailable", "host is not running")
 )
+
+var caCertPath, caKeyPath string
+
+func init() {
+	caKeyPath = os.Getenv("CA_KEY_PATH")
+	if caKeyPath == "" {
+		panic("CA_KEY_PATH is not set")
+	}
+	caCertPath = os.Getenv("CA_CERT_PATH")
+	if caCertPath == "" {
+		panic("CA_CERT_PATH is not set")
+	}
+}
 
 // FreighterClient embeds freighterclient.Client, but also expose the used
 // certificate for HTTPS connection
@@ -38,11 +57,15 @@ var NewFreighterClient = func(db db.QueryReceiver, h *host.Host) (*FreighterClie
 	if err != nil {
 		return nil, err
 	}
+	ca, err := CACertPEM()
+	if err != nil {
+		return nil, err
+	}
 	hst := fc.NewHost(
 		h.IPAddress.String,
 		int(h.FreighterdPort.Int64),
 		h.Hostname(),
-		[]byte(crt.CA),
+		ca, // TODO this can go away once freighter is updated to not require the argument
 	)
 	cl, err := fc.NewClient(hst)
 	if err != nil {
@@ -52,4 +75,30 @@ var NewFreighterClient = func(db db.QueryReceiver, h *host.Host) (*FreighterClie
 		Client: cl,
 		Cert:   crt,
 	}, nil
+}
+
+func CACert() (*sslgen.Cert, error) {
+	return certFromKey(caKeyPath)
+}
+
+func CACertPEM() ([]byte, error) {
+	return ioutil.ReadFile(caCertPath)
+}
+
+// TODO: move into sslgen?
+func certFromKey(keyPath string) (*sslgen.Cert, error) {
+	c := &sslgen.Cert{}
+	privBytes, err := ioutil.ReadFile(keyPath)
+	if err != nil {
+		return nil, err
+	}
+	priv, err := ssh.ParseRawPrivateKey(privBytes)
+	if err != nil {
+		return nil, err
+	}
+	pk := priv.(*rsa.PrivateKey)
+
+	c.PrivateKey = pk
+	c.PublicKey = (*rsa.PublicKey)(&pk.PublicKey)
+	return c, nil
 }
