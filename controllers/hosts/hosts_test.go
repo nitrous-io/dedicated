@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
@@ -639,8 +640,12 @@ var _ = Describe("controllers/hosts", func() {
 			hs         *HostStack
 		)
 
-		doRequest := func(slug string) {
-			req, err := NewRequest("GET", "/api/v0/hosts/"+slug+"/stats", nil)
+		doRequest := func(period string) {
+			var params *url.Values
+			if period != "" {
+				params = &url.Values{"period": []string{period}}
+			}
+			req, err := NewRequest("GET", "/api/v0/hosts/foo/stats", params)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
 			handler.ServeHTTP(res, req)
@@ -677,12 +682,17 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		It("calls the Freighter client to get host info", func() {
-			doRequest("foo")
+			doRequest("")
 			Expect(mockClient.HostInfoCalled).To(Equal(1))
+			Expect(mockClient.HostInfoPeriod).To(Equal(100 * time.Millisecond)) // Default is 100ms if not specified.
+
+			doRequest("2s")
+			Expect(mockClient.HostInfoCalled).To(Equal(2))
+			Expect(mockClient.HostInfoPeriod).To(Equal(2 * time.Second))
 		})
 
 		It("responds with host stats from the Freighter API", func() {
-			doRequest("foo")
+			doRequest("")
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
@@ -708,7 +718,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("responds with HTTP 400 Bad Request", func() {
-				doRequest("foo")
+				doRequest("")
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				err, j := unmarshalErrorResponse()
 				Expect(err).To(BeNil())
@@ -719,18 +729,14 @@ var _ = Describe("controllers/hosts", func() {
 
 		Context("when host does not have an IP address", func() {
 			BeforeEach(func() {
-				_, err := CreateHostStack(db, &HostStack{
-					H: &host.Host{
-						Slug:      "bar",
-						IPAddress: sql.NullString{"", false},
-					},
-					U: u,
-				})
+				hs.H.IPAddress = sql.NullString{}
+				err := hs.H.Update(db)
 				Expect(err).To(BeNil())
+				UnstubFreighterFn()
 			})
 
 			It("responds with HTTP 400 Bad Request", func() {
-				doRequest("bar")
+				doRequest("")
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				err, j := unmarshalErrorResponse()
 				Expect(err).To(BeNil())

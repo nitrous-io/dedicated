@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/nitrous/controllers"
@@ -242,6 +243,8 @@ func Update(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	return nil
 }
 
+var defaultPeriod = 100 * time.Millisecond
+
 func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// Host should be running and have an IP address.
 	if h.State != host.StateRunning || h.IPAddress.String == "" {
@@ -252,7 +255,13 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	if err != nil {
 		return err
 	}
-	info, err := cl.HostInfo()
+
+	period, err := time.ParseDuration(r.FormValue("period"))
+	if err != nil || period == 0 {
+		period = defaultPeriod
+	}
+
+	info, err := cl.HostInfo(period)
 	if err != nil {
 		return err
 	}
