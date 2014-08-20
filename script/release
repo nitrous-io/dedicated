@@ -18,7 +18,6 @@ PKGDIR=$ARTIFACT_DIR
 
 rm -f $PKGDIR/*.deb
 
-
 # setup app base
 install -m 0755 -D $ARTIFACT_DIR/$APP $PKGDIR/usr/local/bin/$APP
 
@@ -60,15 +59,11 @@ rm -rf $PKGDIR/{usr,etc}
 
 DEB=${APP}_${VERSION}_amd64.deb
 
+# Release
 cd $ARTIFACT_DIR
-
 if [[ -f $DEB ]]; then
   echo "Adding $DEB to local repository"
-  gpg --import $APT_GPG_PUBLIC
-  gpg --allow-secret-key-import --import $APT_GPG_SECRET
-
-  freightadder $DEB
-  freightcacher
+  deb-upload get.nitrous.io $DEB public 6B19EAE0
 else
   echo "Failed to find deb package: $DEB in $ARTIFACT_DIR directory."
   exit 1
