@@ -2,7 +2,7 @@ NO_COLOR=\033[0m
 OK_COLOR=\033[32;01m
 ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
-BIN_NAME=hostbuilder
+APP=hostbuilder
 REVISION=$(shell git rev-parse --short HEAD)
 BASE_VERSION=$(shell cat VERSION)
 VERSION=$(BASE_VERSION)-$(REVISION)
@@ -12,7 +12,7 @@ all: build
 
 build:
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
-	@./script/build $(VERSION)
+	@./script/build $(APP) $(VERSION)
 .PHONY: build
 
 run: build
@@ -32,22 +32,19 @@ install-deps:
 
 image:
 	@echo "$(OK_COLOR)==> Building Docker image...$(NO_COLOR)"
-	@./script/image $(BIN_NAME) $(VERSION)
+	@./script/image $(APP) $(VERSION)
 .PHONY: image
 
 ci: image
 	@echo "$(OK_COLOR)==> Running tests within Docker...$(NO_COLOR)"
-	@./script/ci $(BIN_NAME) $(VERSION)
+	@./script/ci $(APP) $(VERSION)
 .PHONY: ci
 
 shell: image
 	@./script/shell
 .PHONY: shell
 
-build-with-docker: image ci
-	@./script/build-with-docker
-.PHONY: build-with-docker
-
-release: build-with-docker
-	@./script/release $(VERSION)
+release: ci
+	@echo "$(OK_COLOR)==> Releasing hostbuilder version $(VERSION)...$(NO_COLOR)"
+	@./script/wrap-release-docker $(APP) $(VERSION)
 .PHONY: release

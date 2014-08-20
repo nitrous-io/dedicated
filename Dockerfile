@@ -16,5 +16,7 @@ RUN mkdir -p /opt/src/github.com/nitrous-io/hostbuilder
 ENV GOPATH /opt
 ENV PATH /usr/local/go/bin:/opt/bin:$PATH
 
+ADD util/ssh_config /etc/ssh/ssh_config
+
 WORKDIR /opt/src/github.com/nitrous-io/hostbuilder
 ADD . /opt/src/github.com/nitrous-io/hostbuilder
