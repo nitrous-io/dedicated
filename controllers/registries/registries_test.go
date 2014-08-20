@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
 
@@ -290,23 +291,20 @@ var _ = Describe("controllers/registries", func() {
 					})
 
 					Context("when registry login succeeds", func() {
-						BeforeEach(func() {
-							mockClient.RegistryLoginError = nil
-							doRequest(overrides{})
-						})
-
 						It("creates a registry record for the user and host", func() {
-							regions, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+							doRequest(overrides{})
+							regs, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
 							Expect(err).To(BeNil())
-							Expect(len(regions)).To(Equal(1))
+							Expect(regs).To(HaveLen(1))
 
-							r := regions[0]
+							r := regs[0]
 							Expect(r.Username).To(Equal("dockeruser"))
 							Expect(r.Email).To(Equal("dockeruser@example.com"))
 							Expect(r.URL).To(Equal("hub.example.com"))
 						})
 
 						It("responds with the registry user has logged in", func() {
+							doRequest(overrides{})
 							Expect(res.Code).To(Equal(http.StatusOK))
 							var j map[string]serializers.Registry
 							err := json.Unmarshal(res.Body.Bytes(), &j)
@@ -318,6 +316,24 @@ var _ = Describe("controllers/registries", func() {
 							Expect(registry.Email).To(Equal("dockeruser@example.com"))
 							Expect(registry.URL).To(Equal("hub.example.com"))
 						})
+
+						It("publishes a registry.authenticated event with the registry", func(done Done) {
+							ch := svr.Events.Subscribe(u.Topic())
+							defer svr.Events.Unsubscribe(ch, u.Topic())
+
+							doRequest(overrides{})
+
+							regs, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+							Expect(err).To(BeNil())
+							Expect(regs).To(HaveLen(1))
+							r := regs[0]
+
+							Expect(<-ch).To(Equal(&controllers.Event{
+								Name: "registry.authenticated",
+								Data: serializers.SerializeRegistry(r),
+							}))
+							close(done)
+						})
 					})
 
 					Context("when registry login fails", func() {
@@ -327,9 +343,9 @@ var _ = Describe("controllers/registries", func() {
 						})
 
 						It("does not create a registry record for the user and host", func() {
-							regions, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+							regs, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
 							Expect(err).To(BeNil())
-							Expect(len(regions)).To(Equal(0))
+							Expect(regs).To(BeEmpty())
 						})
 
 						It("informs user that login failed", func() {

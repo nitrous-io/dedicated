@@ -8,6 +8,7 @@ import (
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/nitrous/pkg/pubsub"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -383,6 +384,14 @@ var _ = Describe("models/user", func() {
 			u.Password = ""
 			u.EncryptedPassword = "something"
 			Expect(u.Validate()).To(BeNil())
+		})
+	})
+
+	Describe("Topic()", func() {
+		It("returns a Topic based on the user's ID", func() {
+			u := user.User{ID: 123}
+			Expect(u.Topic()).To(Equal(pubsub.Topic("user-123")))
+			Expect(u.Topic()).To(BeEquivalentTo("user-123"))
 		})
 	})
 })

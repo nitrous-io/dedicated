@@ -110,6 +110,10 @@ func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
+	env.Events.Publish(
+		controllers.NewEvent("registry.authenticated", serializers.SerializeRegistry(reg)),
+		env.User.Topic(),
+	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"registry": serializers.SerializeRegistry(reg),

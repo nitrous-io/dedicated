@@ -66,6 +66,10 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
+	env.Events.Publish(
+		controllers.NewEvent("image.built", image),
+		env.User.Topic(),
+	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"image": image,
@@ -89,6 +93,10 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
+	env.Events.Publish(
+		controllers.NewEvent("image.removed", image),
+		env.User.Topic(),
+	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "OK",
@@ -112,6 +120,10 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return err
 	}
 
+	env.Events.Publish(
+		controllers.NewEvent("image.pulled", image),
+		env.User.Topic(),
+	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "OK",
@@ -140,6 +152,14 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return err
 	}
 
+	type data struct {
+		Image       string `json:"image"`
+		Destination string `json:"destination"`
+	}
+	env.Events.Publish(
+		controllers.NewEvent("image.pushed", data{Image: image, Destination: dest}),
+		env.User.Topic(),
+	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "OK",
@@ -169,6 +189,14 @@ func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Reque
 		return err
 	}
 
+	type data struct {
+		Image string `json:"image"`
+		Tag   string `json:"tag"`
+	}
+	env.Events.Publish(
+		controllers.NewEvent("image.tagged", data{Image: image, Tag: tag}),
+		env.User.Topic(),
+	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "OK",

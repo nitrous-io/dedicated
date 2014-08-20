@@ -238,6 +238,7 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 		}
 	}
 
+	publishContainerEvent(env, "container.created", cn)
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"status":    "created",
@@ -270,6 +271,7 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
+	env.Events.Publish(controllers.NewEvent("image.created", image), env.User.Topic())
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "created",
@@ -304,7 +306,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Start, cn, h, env, w, r)
+	return performControlAction(cl.Start, "container.started", cn, h, env, w, r)
 }
 
 func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -312,7 +314,7 @@ func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Stop, cn, h, env, w, r)
+	return performControlAction(cl.Stop, "container.stopped", cn, h, env, w, r)
 }
 
 func restart(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -320,12 +322,12 @@ func restart(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Restart, cn, h, env, w, r)
+	return performControlAction(cl.Restart, "container.restarted", cn, h, env, w, r)
 }
 
 type actionFn func(id string) (*freighterclient.Container, error)
 
-func performControlAction(fn actionFn, cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func performControlAction(fn actionFn, eventName string, cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	liveContainer, err := fn(cn.CID)
 	if err != nil {
 		return err
@@ -333,6 +335,7 @@ func performControlAction(fn actionFn, cn *container.Container, h *host.Host, en
 
 	cn = hydrateContainer(cn, liveContainer, h)
 
+	publishContainerEvent(env, eventName, cn)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"container": serializers.SerializeContainer(cn),
@@ -360,6 +363,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	}
 	cn = hydrateContainer(cn, liveContainer, h)
 
+	publishContainerEvent(env, "container.destroyed", cn)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"container": serializers.SerializeContainer(cn),
@@ -410,7 +414,7 @@ func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, w ht
 func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) *container.Container {
 	c.CID = fc.ID
 	c.Image = fc.Image
-	c.Slug = dropNamespace(fc.Name)
+	c.Slug = fc.Name
 	c.State = fc.State
 	c.IPAddress = fc.Host
 	c.Cmd = fc.Cmd
@@ -426,7 +430,7 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 	return &container.Container{
 		CID:        fc.ID,
 		Image:      fc.Image,
-		Slug:       dropNamespace(fc.Name),
+		Slug:       fc.Name,
 		State:      fc.State,
 		IPAddress:  fc.Host,
 		UserID:     h.UserID,
@@ -439,19 +443,11 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 	}
 }
 
-func dropNamespace(freighterName string) string {
-	parts := strings.SplitN(freighterName, ".", 2)
-	switch len(parts) {
-	case 1:
-		return freighterName
-	case 2:
-		// more than one period is unexpected (disallowed in container slug)
-		// not this func's concern, so pass-through after stripping portion
-		// before first period
-		return parts[1]
-	default:
-		return freighterName // never reached, satisfy compiler
-	}
+func publishContainerEvent(env *middleware.Env, name string, c *container.Container) {
+	env.Events.Publish(
+		controllers.NewEvent(name, serializers.SerializeContainer(c)),
+		env.User.Topic(),
+	)
 }
 
 func prepareConfig(form url.Values, hv map[string]*volume.Volume) (*freighterclient.ContainerConfig, error) {

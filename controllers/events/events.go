@@ -11,7 +11,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
-	"github.com/nitrous-io/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/nitrous/pkg/wsconn"
 )
 
@@ -44,7 +43,7 @@ func Stream(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	topic := pubsub.Topic(fmt.Sprintf("user-%d", env.User.ID))
+	topic := env.User.Topic()
 	ch := env.Events.Subscribe(topic)
 	defer env.Events.Unsubscribe(ch, topic)
 

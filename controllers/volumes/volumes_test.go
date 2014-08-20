@@ -11,11 +11,13 @@ import (
 
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/models/volume"
+	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
 
 	. "github.com/nitrous-io/nitrous/test"
@@ -188,6 +190,21 @@ var _ = Describe("controllers/volumes", func() {
 				Expect(vols).To(HaveLen(1))
 				Expect(vols[0].Slug).To(Equal("metric"))
 			})
+
+			It("publishes a volume.created event with the created volume", func(done Done) {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest("metric")
+
+				v, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "metric")
+				Expect(err).To(BeNil())
+				Expect(<-ch).To(Equal(&controllers.Event{
+					Name: "volume.created",
+					Data: serializers.SerializeVolume(v),
+				}))
+				close(done)
+			})
 		})
 
 		Context("when slug already exists", func() {
@@ -262,7 +279,7 @@ var _ = Describe("controllers/volumes", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				j := struct {
-					Volume volume.Volume
+					Volume *serializers.Volume
 				}{}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
@@ -274,6 +291,23 @@ var _ = Describe("controllers/volumes", func() {
 				Expect(err).To(BeNil())
 				Expect(v).NotTo(BeNil())
 				Expect(v.Slug).To(Equal("conditioner"))
+			})
+
+			It("publishes a volume.destroyed event with the destroyed volume", func(done Done) {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest("deprecated")
+
+				msg := <-ch
+				evt, ok := msg.(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt.Name).To(Equal("volume.destroyed"))
+
+				vol, ok := evt.Data.(*serializers.Volume)
+				Expect(ok).To(BeTrue())
+				Expect(vol.Slug).To(Equal("deprecated"))
+				close(done)
 			})
 		})
 

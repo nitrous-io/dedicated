@@ -23,6 +23,7 @@ func New(capacity int) *Pubsub {
 
 // Subscribe returns a buffered channel that receives Messages about 1 or more
 // Topics.
+// Callers should call Unsubscribe() with the returned channel to clean up.
 // FIXME Should return `<-chan Message` but it's hard because Unsubscribe() takes
 // a channel and `<-chan Message` is not the same type as `chan Message`. Doing
 // this will require an additional tracking data structure.
