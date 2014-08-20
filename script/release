@@ -63,7 +63,7 @@ DEB=${APP}_${VERSION}_amd64.deb
 cd $ARTIFACT_DIR
 if [[ -f $DEB ]]; then
   echo "Adding $DEB to local repository"
-  deb-upload get.nitrous.io $DEB public 6B19EAE0
+  deb-upload apt.nitrous.io $DEB public 6B19EAE0
 else
   echo "Failed to find deb package: $DEB in $ARTIFACT_DIR directory."
   exit 1
