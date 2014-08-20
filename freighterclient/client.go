@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nitrous-io/freighter/provider"
 )
@@ -83,7 +84,7 @@ type Client interface {
 	RegistryLogin(params *RegistryAuth) error
 	RegistryLogout(registry string) error
 
-	HostInfo() (*HostInfo, error)
+	HostInfo(period time.Duration) (*HostInfo, error)
 
 	ListImages() ([]*Image, error)
 	BuildImage(name string, in io.Reader) (*Image, error)
@@ -172,11 +173,9 @@ type client struct {
 }
 
 // NewClient returns a new Freighter API Client that can be used to communicate
-// with a freighterd instance on a host
+// with a freighterd instance on a host.
 func NewClient(host *Host) Client {
-	cl := &http.Client{}
-
-	return &client{host: host, Client: cl}
+	return &client{host: host, Client: &http.Client{}}
 }
 
 // List makes an API request to a given Freighter Host and returns a list of
@@ -536,8 +535,9 @@ func (c *client) RemovePublicKey(id string, fingerprint string) error {
 	return c.doPublicKeyOp(req)
 }
 
-func (c *client) HostInfo() (*HostInfo, error) {
-	u := fmt.Sprintf("%s/info", c.host.BaseURL())
+func (c *client) HostInfo(period time.Duration) (*HostInfo, error) {
+	data := url.Values{"period": []string{period.String()}}
+	u := fmt.Sprintf("%s/info?%s", c.host.BaseURL(), data.Encode())
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
