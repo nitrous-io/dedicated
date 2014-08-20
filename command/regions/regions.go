@@ -32,14 +32,14 @@ type Region struct {
 }
 
 func init() {
-	command.RegisterAuth("regions", NewCommand)
+	command.Register("regions", NewCommand)
 }
 
-func NewCommand(token string) (cli.Command, error) {
+func NewCommand() (cli.Command, error) {
 	return &Command{
 		UI:     command.DefaultUI,
 		Server: command.Env.APIURL,
-		Client: httpclient.New(token),
+		Client: httpclient.New(""),
 	}, nil
 }
 

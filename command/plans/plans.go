@@ -31,14 +31,14 @@ type Plan struct {
 }
 
 func init() {
-	command.RegisterAuth("plans", NewCommand)
+	command.Register("plans", NewCommand)
 }
 
-func NewCommand(token string) (cli.Command, error) {
+func NewCommand() (cli.Command, error) {
 	return &Command{
 		UI:     command.DefaultUI,
 		Server: command.Env.APIURL,
-		Client: httpclient.New(token),
+		Client: httpclient.New(""),
 	}, nil
 }
 
