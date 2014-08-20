@@ -43,7 +43,7 @@ App.Host = klass = App.Model.extend
 
   fetchStats: ->
     if @get('state') == 'running'
-      @ajax('GET', 'stats').then (data) =>
+      @ajax('GET', 'stats', period: '1s').then (data) =>
         if stats = data.stats
           @set 'stats', App.HostStats.create(stats)
 
