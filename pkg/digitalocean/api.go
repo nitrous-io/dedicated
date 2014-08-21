@@ -172,12 +172,12 @@ func (d Client) CreateDroplet(
 
 	size, err := d.Size(rawSize)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid size or lookup failure: '%s': %s", size, err)
+		return nil, fmt.Errorf("Invalid size or lookup failure: '%s': %s", rawSize, err)
 	}
 
 	image, err := d.Image(rawImage)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid image or lookup failure: '%s': %s", image, err)
+		return nil, fmt.Errorf("Invalid image or lookup failure: '%s': %s", rawImage, err)
 	}
 
 	normalizedRegion, ok := regionsMap[rawRegion]
@@ -187,7 +187,7 @@ func (d Client) CreateDroplet(
 
 	region, err := d.Region(normalizedRegion)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid region or lookup failure: '%s': %s", region, err)
+		return nil, fmt.Errorf("Invalid region or lookup failure: '%s': %s", rawRegion, err)
 	}
 
 	params.Set("size_id", strconv.Itoa(size.ID))
