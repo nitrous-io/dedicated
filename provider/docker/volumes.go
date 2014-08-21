@@ -53,7 +53,7 @@ func (p *DockerProvider) ListVolumes() ([]string, error) {
 		fi, err := os.Stat(m)
 		if err != nil {
 			// do not allow a single problematic path to prevent access to list
-			p.logger.Error("ERR: Error in ListVolumes with path %s: %s", m, err)
+			p.logger.Errorf("ERR: Error in ListVolumes with path %s: %s", m, err)
 			continue
 		}
 		if !fi.IsDir() {
