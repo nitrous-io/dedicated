@@ -13,11 +13,10 @@ import (
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
 	"github.com/nitrous-io/nitrous-common/httpclient"
-	flag "github.com/ogier/pflag"
 )
 
 var usage = `
-Usage: nitro attach [SLUG]
+Usage: nitro attach <container slug>
 
   attach to a running container
 `
@@ -45,14 +44,6 @@ func NewCommand(token string) (cli.Command, error) {
 }
 
 func (c *Command) Run(args []string) int {
-	cmdFlags := flag.NewFlagSet("attach", flag.ContinueOnError)
-	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
-
-	if err := cmdFlags.Parse(args); err != nil {
-		return 1
-	}
-
-	args = cmdFlags.Args()
 	if len(args) != 1 {
 		c.UI.Error(c.Help())
 		return 1
