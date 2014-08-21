@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/freighter/freighterclient"
+	"github.com/nitrous-io/nitrous-common/hmactoken"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
@@ -40,13 +41,14 @@ var (
 )
 
 var (
-	Create  middleware.Middleware = middleware.HostViaForm("host", requiresRunningHost(create))
-	Commit  middleware.Middleware = WithContainerAndHost(commit)
-	Show    middleware.Middleware = WithContainerAndHost(show)
-	Start   middleware.Middleware = WithContainerAndHost(start)
-	Stop    middleware.Middleware = WithContainerAndHost(stop)
-	Restart middleware.Middleware = WithContainerAndHost(restart)
-	Destroy middleware.Middleware = WithContainerAndHost(destroy)
+	Create  = middleware.HostViaForm("host", requiresRunningHost(create))
+	Commit  = WithContainerAndHost(commit)
+	Show    = WithContainerAndHost(show)
+	Start   = WithContainerAndHost(start)
+	Stop    = WithContainerAndHost(stop)
+	Restart = WithContainerAndHost(restart)
+	Destroy = WithContainerAndHost(destroy)
+	Token   = WithContainerAndHost(token)
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -204,7 +206,7 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	created, err := cl.Create(slug, image, config)
+	created, err := cl.Create(slug, image, cn.Secret, config)
 	if err != nil {
 		delErr := cn.DeletePermanently(db)
 		if delErr != nil {
@@ -381,6 +383,19 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"container": serializers.SerializeContainer(cn),
+	}
+	return nil
+}
+
+func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	t, err := hmactoken.Generate([]string{"attach"}, cn.Secret)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"token": t,
 	}
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/pkg/securerandom"
 )
 
 var nameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*[a-z0-9]\z`)
@@ -28,6 +29,7 @@ type Container struct {
 	Image  string         `db:"image"`
 	Slug   string         `db:"slug"`
 	Name   sql.NullString `db:"name"`
+	Secret string         `db:"secret"`
 
 	TerminatedAt *time.Time `db:"terminated_at"`
 	TouchedAt    *time.Time `db:"touched_at"`
@@ -83,9 +85,16 @@ func DeleteAllByHostID(d db.QueryReceiver, hostID int64) error {
 }
 
 func (c *Container) Insert(d db.QueryReceiver) error {
+	if c.Secret == "" {
+		sec, err := securerandom.Base64(191)
+		if err != nil {
+			return err
+		}
+		c.Secret = sec[:255]
+	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO containers
-		(cid, user_id, host_id, image, slug, name)
-		VALUES (:cid, :user_id, :host_id, :image, :slug, :name)
+		(cid, user_id, host_id, image, slug, name, secret)
+    VALUES (:cid, :user_id, :host_id, :image, :slug, :name, :secret)
 		RETURNING *;`)
 	if err != nil {
 		return err

@@ -35,7 +35,6 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/hosts/{slug}/start", mw.Auth(mw.HostViaPath("slug", hosts.Start)), "POST")
 		s.routeJSON("/hosts/{slug}/stop", mw.Auth(mw.HostViaPath("slug", hosts.Stop)), "POST")
 		s.routeJSON("/hosts/{slug}/restart", mw.Auth(mw.HostViaPath("slug", hosts.Restart)), "POST")
-		s.routeJSON("/hosts/{slug}/token", mw.Auth(mw.HostViaPath("slug", hosts.Token)), "POST")
 
 		s.routeJSON("/hosts/{slug}/registries", mw.Auth(registries.Index), "GET")
 		s.routeJSON("/hosts/{slug}/registries", mw.Auth(registries.Login), "POST")
@@ -63,6 +62,7 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/containers/{slug}/stop", mw.Auth(containers.Stop), "POST")
 		s.routeJSON("/containers/{slug}/restart", mw.Auth(containers.Restart), "POST")
 		s.routeJSON("/containers/{slug}", mw.Auth(containers.Destroy), "DELETE")
+		s.routeJSON("/containers/{slug}/token", mw.Auth(containers.Token), "POST")
 
 		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Index), "GET")
 		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Create), "POST")

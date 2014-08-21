@@ -282,5 +282,11 @@ func init() {
 				ALTER TABLE hosts ADD COLUMN secret character varying(255) NOT NULL DEFAULT left(encode(gen_random_bytes(191), 'base64'), 255);
       `,
 		},
+		{
+			Version: "230",
+			Up: `
+				ALTER TABLE containers ADD COLUMN secret character varying(255) NOT NULL DEFAULT left(encode(gen_random_bytes(191), 'base64'), 255);
+      `,
+		},
 	}
 }

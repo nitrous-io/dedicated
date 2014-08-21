@@ -286,6 +286,24 @@ var _ = Describe("models/container", func() {
 			Expect(c.CreatedAt).NotTo(BeNil())
 			Expect(c.UpdatedAt).NotTo(BeNil())
 		})
+
+		It("generates a new secret", func() {
+			Expect(c.Secret).NotTo(BeEmpty())
+			Expect(c.Secret).To(HaveLen(255))
+
+			c2 := &container.Container{
+				CID:    "deadbeef",
+				UserID: u.ID,
+				HostID: h.ID,
+				Image:  "nitrous-base",
+				Slug:   "java-test-container-2",
+			}
+			err := c2.Insert(db)
+			Expect(err).To(BeNil())
+			Expect(c2.Secret).NotTo(BeEmpty())
+			Expect(c2.Secret).To(HaveLen(255))
+			Expect(c2.Secret).NotTo(Equal(c.Secret))
+		})
 	})
 
 	Describe("Update()", func() {
