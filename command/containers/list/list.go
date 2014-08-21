@@ -2,10 +2,12 @@ package list
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
+
+	flag "github.com/ogier/pflag"
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
@@ -15,9 +17,9 @@ import (
 )
 
 const usage = `
-Usage: nitro list <host>
+Usage: nitro list [host]
 
-  list containers in the host
+  list containers
 `
 
 type Command struct {
@@ -53,18 +55,15 @@ func (c *Command) Run(args []string) int {
 
 	var host string
 	args = cmdFlags.Args()
-	switch len(args) {
-	case 0:
-		c.UI.Output(c.Help())
-		return 1
-	case 1:
+	if len(args) == 1 {
 		host = args[0]
-	default:
-		c.UI.Output(c.Help())
-		return 1
 	}
 
-	c.UI.Output(fmt.Sprintf("Listing containers on '%s'...", host))
+	if host != "" {
+		c.UI.Output(fmt.Sprintf("Listing containers on '%s'...", host))
+	} else {
+		c.UI.Output("Listing all containers...")
+	}
 	containers, err := c.fetchContainers(host)
 	if err != nil {
 		c.UI.Error(err.Error())
@@ -87,7 +86,12 @@ func (c *Command) Synopsis() string {
 }
 
 func (c *Command) fetchContainers(host string) ([]*Container, error) {
-	resp, err := c.Client.GetAuthed(fmt.Sprintf("%s/api/v0/containers?host=%s", c.Server, host), nil)
+	params := &url.Values{}
+	endpoint := fmt.Sprintf("%s/api/v0/containers", c.Server)
+	if host != "" {
+		params.Set("host", host)
+	}
+	resp, err := c.Client.GetAuthed(endpoint, params)
 	if err != nil {
 		return nil, err
 	}
