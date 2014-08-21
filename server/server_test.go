@@ -106,6 +106,7 @@ var _ = Describe("server", func() {
 			params     *url.Values
 			name       string
 			image      string
+			secret     string
 			publicKey  string
 			publicKey2 string
 			state      string
@@ -119,6 +120,7 @@ var _ = Describe("server", func() {
 			params = &url.Values{}
 			params.Set("name", name)
 			params.Set("image", image)
+			params.Set("secret", secret)
 			params.Set("public_key[]", publicKey)
 			params.Add("public_key[]", publicKey2)
 			params.Set("config", configJSON)
@@ -138,6 +140,7 @@ var _ = Describe("server", func() {
 				Expect(prov.CreateCalled).To(BeTrue())
 				Expect(prov.ReceivedName).To(Equal(name))
 				Expect(prov.ReceivedImage).To(Equal(image))
+				Expect(prov.ReceivedSecret).To(Equal(secret))
 				Expect(prov.ReceivedConfig).To(Equal(configJSON))
 			})
 

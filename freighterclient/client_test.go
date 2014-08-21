@@ -272,7 +272,7 @@ var _ = Describe("client", func() {
 				It("returns the Container", func() {
 					config := &freighterclient.ContainerConfig{}
 					config.Env = []string{"LANG=C"}
-					container, err := cl.Create("yosemite", "ubuntu", config)
+					container, err := cl.Create("yosemite", "ubuntu", "s3cr3t", config)
 					Expect(err).To(BeNil())
 					Expect(container).NotTo(BeNil())
 
@@ -281,6 +281,7 @@ var _ = Describe("client", func() {
 
 					Expect(receivedRequests[0].PostFormValue("name")).To(Equal("yosemite"))
 					Expect(receivedRequests[0].PostFormValue("image")).To(Equal("ubuntu"))
+					Expect(receivedRequests[0].PostFormValue("secret")).To(Equal("s3cr3t"))
 					Expect(receivedRequests[0].PostFormValue("config")).To(Equal(
 						`{"Env":["LANG=C"],"Mounts":null,"PortBindings":null}`))
 
@@ -288,6 +289,7 @@ var _ = Describe("client", func() {
 						ID:         "cafebabe",
 						Name:       "yosemite",
 						Image:      "ubuntu",
+						Secret:     "s3cr3t",
 						Host:       "172.17.0.1",
 						State:      "running",
 						Cmd:        []string{"/sbin/init"},
@@ -305,7 +307,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns ErrUnexpectedResponse", func() {
-					container, err := cl.Create("yosemite", "ubuntu", nil)
+					container, err := cl.Create("yosemite", "ubuntu", "s3cr3t", nil)
 					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
@@ -324,7 +326,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns InvalidParamError", func() {
-					container, err := cl.Create("yosemite", "ubuntu", nil)
+					container, err := cl.Create("yosemite", "ubuntu", "s3cr3t", nil)
 					e, ok := err.(*freighterclient.InvalidParamError)
 					Expect(ok).To(BeTrue())
 					Expect(e.Msg).To(Equal("invalid name"))
@@ -339,7 +341,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns ErrUnexpectedResponse", func() {
-					container, err := cl.Create("yosemite", "ubuntu", nil)
+					container, err := cl.Create("yosemite", "ubuntu", "s3cr3t", nil)
 					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 					Expect(server.ReceivedRequests()).To(HaveLen(1))
 					Expect(container).To(BeNil())
@@ -353,7 +355,7 @@ var _ = Describe("client", func() {
 			})
 
 			It("returns a StatusError", func() {
-				container, err := cl.Create("yosemite", "ubuntu", nil)
+				container, err := cl.Create("yosemite", "ubuntu", "s3cr3t", nil)
 				_, ok := err.(*freighterclient.StatusError)
 				Expect(ok).To(BeTrue())
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
