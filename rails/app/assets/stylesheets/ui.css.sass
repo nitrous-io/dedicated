@@ -545,3 +545,62 @@ ul.ui.snackbar
       position: relative
       opacity: 0
       left: -120%
+
+.ui.modal
+  position: fixed
+  display: none
+  top: 0
+  left: 0
+  width: 100%
+  height: 100%
+
+  &:before
+    content: ''
+    position: fixed
+    background: rgba(0, 0, 0, .5)
+    top: 0
+    left: 0
+    width: 100%
+    height: 100%
+    opacity: 0
+    transition: opacity .3s
+
+  .ui.card
+    width: 500px
+    position: fixed
+    top: 80px
+    left: 0
+    right: 0
+    margin: 0 auto
+    box-shadow: 0 15px 30px rgba(0, 0, 0, .5)
+    opacity: 0
+    transform: scale3d(0.7, 0.7, 1)
+    transition: opacity .3s, transform .3s
+
+    .card-header
+      padding: 24px 24px 0 24px
+      height: auto
+      line-height: normal
+      font-weight: 500
+      color: $gray800
+
+    .card-body
+      padding: 24px
+
+      p
+        margin: 0 0 16px 0
+        color: $gray700
+        line-height: 1.5
+
+    .card-footer
+      padding: 0 16px 16px 16px
+
+  &.show
+    display: block
+
+    &:before
+      opacity: 1
+
+    .ui.card
+      opacity: 1
+      transform: scale3d(1, 1, 1)

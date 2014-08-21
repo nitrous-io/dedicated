@@ -66,6 +66,10 @@ $(window).on 'offline', ->
 $(window).on 'online', ->
   window.App?.set 'online', true
 
+$(document).on 'click', '.noclick', (e) ->
+  e.preventDefault()
+  e.stopPropagation()
+
 Em.Route.reopen
   activate: ->
     App.set 'title', null

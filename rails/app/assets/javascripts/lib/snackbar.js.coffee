@@ -15,11 +15,11 @@ App.Snackbar = Em.Object.extend
     # fade out
     window.setTimeout(->
       item.set 'fadeout', true
-    , 3500)
+    , 5500)
     # and then kill
     window.setTimeout(->
       items.removeObject(item)
-    , 60000)
+    , 100000)
 
 App.SnackbarItem = Em.Object.extend
   message: null

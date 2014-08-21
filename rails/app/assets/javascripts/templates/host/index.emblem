@@ -1,4 +1,4 @@
-= host-tab-bar selected='general'
+= host-tab-bar selected='general' disabled=isTerminated
 
 .card-body
   table.ui.table.horizontal
@@ -9,7 +9,10 @@
         = state
       th Uptime
       td.usage
-        = durationInWords stats.uptime
+        if view.hostStatsAvailable
+          = durationInWords stats.uptime
+        else
+          span.empty &ndash;
 
     tr
       th Slug
@@ -17,10 +20,13 @@
         = slug
       th CPU Usage (%)
       td.usage
-        ul.cpu-usage
-          each cpuUsage in stats.perCPUUsage
-            li
-              = toFixed cpuUsage 1
+        if view.hostStatsAvailable
+          ul.cpu-usage
+            each cpuUsage in stats.perCPUUsage
+              li
+                = toFixed cpuUsage 1
+        else
+          span.empty &ndash;
 
     tr
       th Created At
@@ -31,9 +37,12 @@
         | Memory
         span.no-text-transform &nbsp;(MiB)
       td.usage
-        = mebibytes stats.memoryUsage
-        | &nbsp;/&nbsp;
-        = mebibytes stats.memoryTotal
+        if view.hostStatsAvailable
+          = mebibytes stats.memoryUsage
+          | &nbsp;/&nbsp;
+          = mebibytes stats.memoryTotal
+        else
+          span.empty &ndash;
 
     tr
       th
@@ -42,23 +51,56 @@
         | Storage
         span.no-text-transform &nbsp;(GiB)
       td.usage
-        = gibibytes stats.storageUsage
-        | &nbsp;/&nbsp;
-        = gibibytes stats.storageTotal
+        if view.hostStatsAvailable
+          = gibibytes stats.storageUsage
+          | &nbsp;/&nbsp;
+          = gibibytes stats.storageTotal
+        else
+          span.empty &ndash;
 
 .card-footer.bordered
-  if view.hostIsRunning
+  if isRunning
     .left
       button.ui.btn click='restart' Restart
       button.ui.btn click='stop' Stop
     .right
       button.ui.btn.primary.refresh-btn click='refresh target="view"' Refresh
   else
-    if view.hostIsStopped
+    if isStopped
       .left
-        button.ui.btn click='terminate' Terminate
+        button.ui.btn click='showTerminateDialog target="view"' Terminate
       .right
         button.ui.btn.primary click='start' Start
     else
-      .left
-        button.ui.btn disabled='disabled' Please Wait...
+      if isTerminated
+        .left
+          button.ui.btn disabled='disabled' Terminated
+      else
+        .left
+          button.ui.btn disabled='disabled' Please Wait...
+
+#terminate-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Are you ABSOLUTELY sure?
+    .card-body
+      p
+        | This action&nbsp;
+        strong CANNOT
+        | &nbsp;be undone. This will permanently delete the&nbsp;
+        strong
+          = displayName
+        | &nbsp;host, containers, images, volumes, and archives.
+      p
+        | Please type in the slug of the host&nbsp;
+        strong
+          |(
+          = slug
+          |)
+        | &nbsp;to confirm:
+      .ui.input-group
+        = input class='focus' type='text' placeholder=displayName value=view.terminateSlugConfirmation
+    .card-footer
+      .right
+        button.ui.btn click='cancelTerminate target="view"' Cancel
+        button.ui.btn.primary click='confirmTerminate target="view"' disabled=view.terminateSlugConfirmationInvalid Terminate

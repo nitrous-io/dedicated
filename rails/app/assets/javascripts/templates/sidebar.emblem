@@ -1,15 +1,20 @@
 ul.hosts
   = each host in model
-    li class={host.selected}
-      link-to 'host.index' host.slug
-        h3
-          = host.displayName
-      ul.containers
-        = each container in host.containers
-          li class={container.selected}
-            link-to 'container.index' container.slug
-              h4
-                = container.displayName
-              .state-indicator class={container.state} title={container.state}
-                span
-                  = container.state
+    li class={host.selected host.isTerminated:disabled}
+      if host.isTerminated
+        a.noclick href='#'
+          h3
+            = host.displayName
+      else
+        link-to 'host.index' host.slug
+          h3
+            = host.displayName
+        ul.containers
+          = each container in host.containers
+            li class={container.selected}
+              link-to 'container.index' container.slug
+                h4
+                  = container.displayName
+                .state-indicator class={container.state} title={container.state}
+                  span
+                    = container.state

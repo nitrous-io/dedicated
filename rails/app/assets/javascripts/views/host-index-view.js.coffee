@@ -1,8 +1,15 @@
 App.HostIndexView = Em.View.extend
   elementId: 'host-index-view'
 
-  hostIsRunning: Em.computed.equal 'controller.model.state', 'running'
-  hostIsStopped: Em.computed.equal 'controller.model.state', 'stopped'
+  terminateSlugConfirmation: null
+
+  terminateSlugConfirmationInvalid: (->
+    @get('controller.model.slug') != @get('terminateSlugConfirmation')
+  ).property 'controller.model.slug', 'terminateSlugConfirmation'
+
+  hostStatsAvailable: (->
+    @get('controller.model.state') == 'running' && @get('controller.model.stats')
+  ).property 'controller.model.state', 'controller.model.stats'
 
   createdAtUTC: (->
     @get('controller.model.createdAt')?.toUTCString()
@@ -16,3 +23,14 @@ App.HostIndexView = Em.View.extend
       window.setTimeout(->
         $btn.attr 'disabled', false
       , 1000)
+
+    showTerminateDialog: ->
+      @set 'terminateSlugConfirmation', null
+      ui.showModal('#terminate-modal-dialog')
+
+    cancelTerminate: ->
+      ui.hideModal('#terminate-modal-dialog')
+
+    confirmTerminate: ->
+      ui.hideModal('#terminate-modal-dialog')
+      @get('controller').send 'terminate'

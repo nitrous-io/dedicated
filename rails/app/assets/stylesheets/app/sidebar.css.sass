@@ -14,17 +14,6 @@
     position: relative
     line-height: $lineItemHeight
 
-  ul.hosts
-    > li
-      padding-bottom: 8px
-      border-bottom: 1px solid $gray300
-      margin-bottom: 8px
-
-      &:last-of-type
-        padding-bottom: 0
-        border-bottom: 0
-        margin-bottom: 0
-
   ul.hosts, ul.containers
     > li > a
       display: block
@@ -37,6 +26,25 @@
 
     > li.selected > a
       background: $gray200
+
+  ul.hosts
+    > li
+      padding-bottom: 8px
+      border-bottom: 1px solid $gray300
+      margin-bottom: 8px
+
+      &:last-of-type
+        padding-bottom: 0
+        border-bottom: 0
+        margin-bottom: 0
+
+      &.disabled
+        h3
+          color: $gray400
+          cursor: not-allowed
+
+        > a:hover
+          background: transparent
 
   h3, h4
     margin: 0

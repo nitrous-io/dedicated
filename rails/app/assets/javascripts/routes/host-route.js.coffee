@@ -1,7 +1,8 @@
 App.HostRoute = App.AuthedRoute.extend
   model: (params) ->
     fetch = App.Host.fetch(params.hostSlug)
-    App.set 'selectedHost', fetch.value
+    host = fetch.value
+    App.set 'selectedHost', host
     fetch
 
   renderTemplate: ->

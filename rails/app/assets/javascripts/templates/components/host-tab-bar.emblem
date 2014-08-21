@@ -1,14 +1,30 @@
-li class={generalSelected:selected}
-  link-to 'host.index' | General
-li class={registriesSelected:selected}
-  link-to 'host.registries' | Registries
-li.disabled class={containersSelected:selected}
-  a href='#' Containers
-li.disabled class={imagesSelected:selected}
-  a href='#' Images
-li class={volumesSelected:selected}
-  link-to 'host.volumes' | Volumes
-li.disabled class={archivesSelected:selected}
-  a href='#' Archives
-li.disabled class={usersSelected:selected}
-  a href='#' Users
+if disabled
+  li class={generalSelected:selected}
+    link-to 'host.index' | General
+  li.disabled
+    a.noclick href='#' Registries
+  li.disabled
+    a.noclick href='#' Containers
+  li.disabled
+    a.noclick href='#' Images
+  li.disabled
+    a.noclick href='#' Volumes
+  li.disabled
+    a.noclick href='#' Archives
+  li.disabled
+    a.noclick href='#' Users
+else
+  li class={generalSelected:selected}
+    link-to 'host.index' | General
+  li class={registriesSelected:selected}
+    link-to 'host.registries' | Registries
+  li.disabled class={containersSelected:selected}
+    a href='#' Containers
+  li.disabled class={imagesSelected:selected}
+    a href='#' Images
+  li class={volumesSelected:selected}
+    link-to 'host.volumes' | Volumes
+  li.disabled class={archivesSelected:selected}
+    a href='#' Archives
+  li.disabled class={usersSelected:selected}
+    a href='#' Users

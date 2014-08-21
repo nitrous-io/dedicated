@@ -22,7 +22,9 @@ App.HostIndexController = Em.ObjectController.extend
       @performAction('POST', 'stop', 'stopping')
 
     terminate: ->
-      console.log 'terminate'
+      name = @get('model.displayName')
+      @performAction('DELETE', null, 'terminating').then ->
+        App.snackbar.post("Your host “#{name}” was successfully terminated.")
 
     refresh: ->
       @get('model').fetchStats()

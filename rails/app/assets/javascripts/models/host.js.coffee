@@ -15,6 +15,10 @@ App.Host = klass = App.Model.extend
 
   stats: null
 
+  isRunning: Em.computed.equal 'state', 'running'
+  isStopped: Em.computed.equal 'state', 'stopped'
+  isTerminated: Em.computed.equal 'state', 'terminated'
+
   displayName: (->
     @get('name') || @get('slug')
   ).property 'name', 'slug'
@@ -28,10 +32,20 @@ App.Host = klass = App.Model.extend
     App.get('selectedHost') == this
   ).property 'App.selectedHost'
 
+  hostStateDidChange: (->
+    if @get('state') == 'running'
+      Em.run.later(this, ->
+        @fetchStats()
+      , 1000)
+    else
+      @set 'stats', null
+  ).observes 'state'
+
   fetchStats: ->
-    @ajax('GET', 'stats').then (data) =>
-      if stats = data.stats
-        @set 'stats', App.HostStats.create(stats)
+    if @get('state') == 'running'
+      @ajax('GET', 'stats').then (data) =>
+        if stats = data.stats
+          @set 'stats', App.HostStats.create(stats)
 
 klass.reopenClass
   url: '/hosts'

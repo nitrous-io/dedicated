@@ -5,4 +5,3 @@ App.HostIndexRoute = App.AuthedRoute.extend
   setupController: (controller, model) ->
     @_super.apply this, arguments
     App.set 'title', model.get('displayName')
-    model.fetchStats()
