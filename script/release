@@ -22,7 +22,6 @@ rm -f $PKGDIR/*.deb
 install -m 0755 -D $ARTIFACT_DIR/$APP $PKGDIR/usr/local/bin/$APP
 
 # install control files over to $PKGDIR, for when directory context changes
-install -m 0644 -D $FILES/control/preinst $PKGDIR/$FILES/control/preinst
 install -m 0644 -D $FILES/control/postinst $PKGDIR/$FILES/control/postinst
 install -m 0644 -D $FILES/control/prerm $PKGDIR/$FILES/control/prerm
 install -m 0644 -D $FILES/control/postrm $PKGDIR/$FILES/control/postrm
@@ -43,7 +42,6 @@ fpm \
   --maintainer "$PACKAGE_MAINTAINER" \
   --provides $PACKAGE_NAME \
   --replaces $PACKAGE_NAME \
-  --before-install $FILES/control/preinst \
   --after-install $FILES/control/postinst \
   --before-remove $FILES/control/prerm \
   --after-remove $FILES/control/postrm \
