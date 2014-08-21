@@ -78,8 +78,8 @@ var (
 	{
 		"status": "OK",
 		"regions": [
-			{ "id": 1, "name": "New York 1", "slug": "nyc1" },
-			{ "id": 2, "name": "Amsterdam 1", "slug": "ams1" },
+			{ "id": 1, "name": "New York 1", "slug": "nyc2" },
+			{ "id": 2, "name": "Amsterdam 1", "slug": "ams2" },
 			{ "id": 3, "name": "San Francisco 1", "slug": "sfo1" }
 		]
 	}
@@ -152,7 +152,7 @@ var _ = Describe("host/digitalocean", func() {
 			})
 
 			It("should clean up the droplet", func() {
-				h := Host{Config: &HostConfig{ID: "1", ImageID: "1", RegionID: "1", SizeID: "33"}, Client: c}
+				h := Host{Config: &HostConfig{ID: "1", ImageID: "1", RegionID: "nyc", SizeID: "33"}, Client: c}
 				_, err := h.Create()
 				Expect(err).NotTo(BeNil())
 

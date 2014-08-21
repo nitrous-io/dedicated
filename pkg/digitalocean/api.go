@@ -110,6 +110,14 @@ type (
 	}
 )
 
+var regionsMap = map[string]string{
+	"sgp": "sgp1",
+	"nyc": "nyc2",
+	"sfo": "sfo1",
+	"ams": "ams2",
+	"lon": "lon1",
+}
+
 // Creates a new client for communicating with DO
 // To fake the server, replace BaseURL with the desired URL after the client is
 // created
@@ -172,7 +180,12 @@ func (d Client) CreateDroplet(
 		return nil, fmt.Errorf("Invalid image or lookup failure: '%s': %s", image, err)
 	}
 
-	region, err := d.Region(rawRegion)
+	normalizedRegion, ok := regionsMap[rawRegion]
+	if !ok {
+		return nil, fmt.Errorf("Invalid region or lookup failure: '%s': %s", rawRegion, err)
+	}
+
+	region, err := d.Region(normalizedRegion)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid region or lookup failure: '%s': %s", region, err)
 	}
