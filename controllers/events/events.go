@@ -50,15 +50,23 @@ func Stream(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	conn := wsconn.New(ws, pongWait, pingPeriod, writeWait)
 	defer conn.Close()
 
-	go func() {
-		// Write received events to WebSocket as JSON.
-		for msg := range ch {
-			if err := json.NewEncoder(conn).Encode(msg); err != nil {
+	quit := make(chan struct{})
+	go func(quit <-chan struct{}) {
+		// Write received events to WebSocket as JSON until told to quit.
+		for {
+			select {
+			case msg := <-ch:
+				if err := json.NewEncoder(conn).Encode(msg); err != nil {
+					return
+				}
+			case <-quit:
 				return
 			}
 		}
-	}()
+	}(quit)
 	io.Copy(ioutil.Discard, conn) // Reads from the WebSocket are ignored.
+
+	quit <- struct{}{}
 
 	return nil
 }
