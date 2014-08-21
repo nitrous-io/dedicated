@@ -3,6 +3,7 @@ package serializers_test
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/nitrous-io/nitrous/models/container"
@@ -27,7 +28,7 @@ var _ = Describe("container serializer", func() {
 			Slug:         "railsbox-10",
 			Name:         sql.NullString{"Rails dev box", true},
 			IPAddress:    "1.2.3.4",
-			State:        "running",
+			State:        container.StateStopped,
 			Cmd:          []string{"/sbin/init"},
 			Entrypoint:   []string{"/bin/blah"},
 			ExitCode:     0,
@@ -45,7 +46,7 @@ var _ = Describe("container serializer", func() {
 			c := serializers.SerializeContainer(model)
 			b, err := json.Marshal(c)
 			Expect(err).To(BeNil())
-			Expect(b).To(MatchJSON(`{
+			Expect(b).To(MatchJSON(fmt.Sprintf(`{
 				"id": 10,
 				"cid": "deadbeef",
 				"user_id": 11,
@@ -54,7 +55,7 @@ var _ = Describe("container serializer", func() {
 				"slug": "railsbox-10",
 				"name": "Rails dev box",
 				"ip_address": "1.2.3.4",
-				"state": "running",
+				"state": "%s",
 				"cmd": ["/sbin/init"],
 				"entrypoint": ["/bin/blah"],
 				"exit_code": 0,
@@ -63,7 +64,7 @@ var _ = Describe("container serializer", func() {
 				"terminated_at": "2013-11-03T00:00:00Z",
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
-			}`))
+			}`, model.ResolvedState())))
 		})
 	})
 })

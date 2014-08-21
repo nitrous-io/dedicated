@@ -20,8 +20,6 @@ var (
 	ErrImageBlank   = errors.New("image can't be blank")
 )
 
-// FIXME add accompanying tables to lookup which users have access to a
-// container (e.g. collaborators, users in the same team/organization).
 type Container struct {
 	ID     int64          `db:"id"`
 	CID    string         `db:"cid"`
@@ -36,9 +34,9 @@ type Container struct {
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
 
-	// fetching these fields from Freighter
+	// These fields come from Freighter.
+	State      State
 	IPAddress  string
-	State      string
 	Cmd        []string
 	Entrypoint []string
 	ExitCode   int
@@ -141,4 +139,22 @@ func (c *Container) Validate() error {
 		return ErrImageBlank
 	}
 	return nil
+}
+
+func (c *Container) SetState(state string) bool {
+	var ok bool
+	switch state {
+	case "running":
+		c.State, ok = StateRunning, true
+	case "stopped":
+		c.State, ok = StateStopped, true
+	}
+	return ok
+}
+
+func (c *Container) ResolvedState() State {
+	if c.TerminatedAt != nil {
+		return StateTerminated
+	}
+	return c.State
 }

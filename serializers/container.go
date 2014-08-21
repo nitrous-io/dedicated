@@ -37,7 +37,7 @@ func SerializeContainer(c *container.Container) *Container {
 		Slug:         c.Slug,
 		Name:         c.Name.String,
 		IPAddress:    c.IPAddress,
-		State:        c.State,
+		State:        c.ResolvedState().String(),
 		Cmd:          c.Cmd,
 		Entrypoint:   c.Entrypoint,
 		ExitCode:     c.ExitCode,
