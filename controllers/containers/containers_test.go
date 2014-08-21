@@ -1142,186 +1142,182 @@ var _ = Describe("controllers/containers", func() {
 		})
 	})
 
-	Describe("container control actions", func() {
-		var (
-			slug = "elixir-web-1"
+	type controlTestInputs struct {
+		action            string
+		actionCounter     *int
+		actionError       *error
+		expectedState     string
+		expectedEventName string
+	}
 
-			action            string
-			actionCounter     *int
-			actionError       *error
-			expectedState     *string
-			expectedEventName *string
+	itBehavesLikeAControlAction := func(inputs *controlTestInputs) {
+		var (
+			c  *container.Container
+			fc *freighterclient.Container
+
+			slug = "elixir-web-1"
 		)
 
-		doRequest := func(token, host, slug string) {
-			req, err := NewRequest("POST", fmt.Sprintf("/api/v0/containers/%s/%s", slug, action), nil)
+		doRequest := func(slug string) {
+			req, err := NewRequest("POST", fmt.Sprintf("/api/v0/containers/%s/%s", slug, inputs.action), nil)
 			Expect(err).To(BeNil())
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
+			req.Header.Set("Authorization", "Bearer valid-token")
 			handler.ServeHTTP(res, req)
 		}
 
-		itBehavesLikeAControlAction := func() {
-			var (
-				c  *container.Container
-				fc *freighterclient.Container
-			)
-
-			BeforeEach(func() {
-				c = &container.Container{
-					CID:    "deadbeef",
-					Slug:   slug,
-					Image:  "nitrous-base",
-					UserID: u.ID,
-					HostID: hs.H.ID,
-					Name:   sql.NullString{"Elixir server", true},
-				}
-				err := c.Insert(db)
-				Expect(err).To(BeNil())
-
-				fc = &freighterclient.Container{
-					ID:         "deadbeef",
-					Name:       slug,
-					Host:       "1.2.3.4",
-					State:      "stopped",
-					Image:      "nitrous-base",
-					Cmd:        []string{"/sbin/init"},
-					Entrypoint: []string{"/bin/blah"},
-					ExitCode:   126,
-					StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
-					FinishedAt: time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC),
-				}
-				mockClient.Containers = []*freighterclient.Container{fc}
-			})
-
-			expectSerializedContainer := func(cn *serializers.Container) {
-				Expect(cn.ID).To(Equal(c.ID))
-				Expect(cn.CID).To(Equal("deadbeef"))
-				Expect(cn.UserID).To(Equal(u.ID))
-				Expect(cn.Image).To(Equal("nitrous-base"))
-				Expect(cn.Slug).To(Equal(slug))
-				Expect(cn.IPAddress).To(Equal("1.2.3.4"))
-				Expect(cn.State).To(Equal(*expectedState))
-				Expect(cn.Name).To(Equal("Elixir server"))
-				Expect(cn.HostID).To(Equal(hs.H.ID))
-				Expect(cn.Cmd).To(Equal([]string{"/sbin/init"}))
-				Expect(cn.Entrypoint).To(Equal([]string{"/bin/blah"}))
-				Expect(cn.ExitCode).To(Equal(126))
-				Expect(cn.StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
-				Expect(cn.FinishedAt).To(Equal(time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)))
-				Expect(cn.CreatedAt).NotTo(BeNil())
-				Expect(cn.UpdatedAt).NotTo(BeNil())
-				Expect(cn.TerminatedAt).To(BeNil())
+		BeforeEach(func() {
+			c = &container.Container{
+				CID:    "deadbeef",
+				Slug:   slug,
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+				Name:   sql.NullString{"Elixir server", true},
 			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
 
-			It("calls the Freighter client to perform the control action", func() {
-				doRequest("valid-token", "foo", "elixir-web-1")
-				Expect(*actionCounter).To(Equal(1))
-				Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
-			})
+			fc = &freighterclient.Container{
+				ID:         "deadbeef",
+				Name:       slug,
+				Host:       "1.2.3.4",
+				State:      "stopped",
+				Image:      "nitrous-base",
+				Cmd:        []string{"/sbin/init"},
+				Entrypoint: []string{"/bin/blah"},
+				ExitCode:   126,
+				StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+				FinishedAt: time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC),
+			}
+			mockClient.Containers = []*freighterclient.Container{fc}
+		})
 
-			It("responds with the container from Freighter and augments it with data from the database", func() {
-				doRequest("valid-token", "foo", "elixir-web-1")
-
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				var j struct {
-					Container *serializers.Container `json:"container"`
-				}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-				expectSerializedContainer(j.Container)
-			})
-
-			It("publishes a container.{action} event with the container", func(done Done) {
-				ch := svr.Events.Subscribe(u.Topic())
-				defer svr.Events.Unsubscribe(ch, u.Topic())
-
-				doRequest("valid-token", "foo", "elixir-web-1")
-
-				msg := <-ch
-				evt, ok := msg.(*controllers.Event)
-				Expect(ok).To(BeTrue())
-				Expect(evt.Name).To(Equal(*expectedEventName))
-
-				cn, ok := evt.Data.(*serializers.Container)
-				Expect(ok).To(BeTrue())
-				expectSerializedContainer(cn)
-
-				close(done)
-			})
-
-			Context("when the Freighter client returns an error", func() {
-				BeforeEach(func() {
-					*actionError = errors.New("control action failed")
-				})
-
-				It("responds with HTTP 500 Internal Server Error", func() {
-					doRequest("valid-token", "foo", "elixir-web-1")
-
-					Expect(res.Code).To(Equal(http.StatusInternalServerError))
-
-					j := map[string]interface{}{}
-					err := json.Unmarshal(res.Body.Bytes(), &j)
-					Expect(err).To(BeNil())
-
-					errType, _ := j["error"].(string)
-					Expect(errType).To(Equal("internal_server_error"))
-				})
-			})
-
-			Context("oauth token failure modes", func() {
-				BeforeEach(func() {
-					authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s/%s", slug, action)
-					authTokenInputs.Method = "POST"
-				})
-
-				ItRequiresAuthToken(&authTokenInputs)
-			})
+		expectSerializedContainer := func(cn *serializers.Container) {
+			Expect(cn.ID).To(Equal(c.ID))
+			Expect(cn.CID).To(Equal("deadbeef"))
+			Expect(cn.UserID).To(Equal(u.ID))
+			Expect(cn.Image).To(Equal("nitrous-base"))
+			Expect(cn.Slug).To(Equal(slug))
+			Expect(cn.IPAddress).To(Equal("1.2.3.4"))
+			Expect(cn.State).To(Equal(inputs.expectedState))
+			Expect(cn.Name).To(Equal("Elixir server"))
+			Expect(cn.HostID).To(Equal(hs.H.ID))
+			Expect(cn.Cmd).To(Equal([]string{"/sbin/init"}))
+			Expect(cn.Entrypoint).To(Equal([]string{"/bin/blah"}))
+			Expect(cn.ExitCode).To(Equal(126))
+			Expect(cn.StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
+			Expect(cn.FinishedAt).To(Equal(time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)))
+			Expect(cn.CreatedAt).NotTo(BeNil())
+			Expect(cn.UpdatedAt).NotTo(BeNil())
+			Expect(cn.TerminatedAt).To(BeNil())
 		}
 
-		Describe("POST /api/v0/containers/{name}/start", func() {
-			BeforeEach(func() {
-				action = "start"
-				actionCounter = &mockClient.StartCalled
-				actionError = &mockClient.StartError
-				state := "running"
-				expectedState = &state
-				evtName := "container.started"
-				expectedEventName = &evtName
-			})
-
-			itBehavesLikeAControlAction()
+		It("calls the Freighter client to perform the control action", func() {
+			doRequest("elixir-web-1")
+			Expect(*inputs.actionCounter).To(Equal(1))
+			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
 		})
 
-		Describe("POST /api/v0/containers/{name}/stop", func() {
-			BeforeEach(func() {
-				action = "stop"
-				actionCounter = &mockClient.StopCalled
-				actionError = &mockClient.StopError
-				state := "stopped"
-				expectedState = &state
-				evtName := "container.stopped"
-				expectedEventName = &evtName
-			})
+		It("responds with the container from Freighter and augments it with data from the database", func() {
+			doRequest("elixir-web-1")
 
-			itBehavesLikeAControlAction()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Container *serializers.Container `json:"container"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			expectSerializedContainer(j.Container)
 		})
 
-		Describe("POST /api/v0/containers/{name}/restart", func() {
+		It("publishes a container.{action} event with the container", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest("elixir-web-1")
+
+			msg := <-ch
+			evt, ok := msg.(*controllers.Event)
+			Expect(ok).To(BeTrue())
+			Expect(evt.Name).To(Equal(inputs.expectedEventName))
+
+			cn, ok := evt.Data.(*serializers.Container)
+			Expect(ok).To(BeTrue())
+			expectSerializedContainer(cn)
+
+			close(done)
+		})
+
+		Context("when the Freighter client returns an error", func() {
 			BeforeEach(func() {
-				action = "restart"
-				actionCounter = &mockClient.RestartCalled
-				actionError = &mockClient.RestartError
-				state := "running"
-				expectedState = &state
-				evtName := "container.restarted"
-				expectedEventName = &evtName
+				*inputs.actionError = errors.New("control action failed")
 			})
 
-			itBehavesLikeAControlAction()
+			It("responds with HTTP 500 Internal Server Error", func() {
+				doRequest("elixir-web-1")
+
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				errType, _ := j["error"].(string)
+				Expect(errType).To(Equal("internal_server_error"))
+			})
 		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s/%s", slug, inputs.action)
+				authTokenInputs.Method = "POST"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
+	}
+
+	Describe("POST /api/v0/containers/{name}/start", func() {
+		var i = &controlTestInputs{}
+
+		BeforeEach(func() {
+			i.action = "start"
+			i.actionCounter = &mockClient.StartCalled
+			i.actionError = &mockClient.StartError
+			i.expectedState = "running"
+			i.expectedEventName = "container.started"
+		})
+
+		itBehavesLikeAControlAction(i)
+	})
+
+	Describe("POST /api/v0/containers/{name}/stop", func() {
+		var i = &controlTestInputs{}
+
+		BeforeEach(func() {
+			i.action = "stop"
+			i.actionCounter = &mockClient.StopCalled
+			i.actionError = &mockClient.StopError
+			i.expectedState = "stopped"
+			i.expectedEventName = "container.stopped"
+		})
+
+		itBehavesLikeAControlAction(i)
+	})
+
+	Describe("POST /api/v0/containers/{name}/restart", func() {
+		var i = &controlTestInputs{}
+
+		BeforeEach(func() {
+			i.action = "restart"
+			i.actionCounter = &mockClient.RestartCalled
+			i.actionError = &mockClient.RestartError
+			i.expectedState = "running"
+			i.expectedEventName = "container.restarted"
+		})
+
+		itBehavesLikeAControlAction(i)
 	})
 
 	Describe("DELETE /containers/{name}", func() {
