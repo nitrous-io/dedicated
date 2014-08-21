@@ -64,15 +64,7 @@ __nitro_hosts()
 
 __nitro_containers()
 {
-  # This should not be needed if nitro list showed all containers by default.
-  local hosts="$( __nitro_q hosts | awk 'NR>1{print $1}' | grep -v '^<none>$' )"
-  declare -a containers
-
-  for var in $hosts
-  do
-    containers+="$( __nitro_q list $var | awk 'NR>2{print $1}' | grep -v '^<none>$' )"
-  done
-
+  local containers="$( __nitro_q list | awk 'NR>1{print $1}' | grep -v '^<none>$' )"
   COMPREPLY=( $( compgen -W "$containers" -- "$cur" ) )
 }
 
@@ -110,18 +102,13 @@ _nitro_nitro()
 
 _nitro_create()
 {
-  case "$prev" in
-    -H|--host)
+  case "$cur" in
+    -*)
+      COMPREPLY=( $( compgen -W "-s --slug -i --image -e --env -v --volume -p --port-forward" -- "$cur" ) )
+      ;;
+    *)
       __nitro_hosts
       return
-      ;;
-    *)
-      ;;
-  esac
-
-  case "$cur" in
-    *)
-      COMPREPLY=( $( compgen -W "-H --host -s --slug -i --image -e --env -v --volume -V --volume-from -p --port-forward" -- "$cur" ) )
       ;;
   esac
 }
