@@ -1,5 +1,0 @@
-#!/bin/bash
-
-if [ -z "$(getent passwd nitrousd)" ]; then
-        useradd -s /bin/bash -U -d /opt/nitrousd -r nitrousd
-fi

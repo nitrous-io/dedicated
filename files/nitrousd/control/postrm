@@ -1,5 +1,13 @@
 #!/bin/bash
 
 if [[ -n "$(getent passwd nitrousd)" ]]; then
-        userdel nitrousd
+  PROCS=$(ps -U nitrousd -u nitrousd -o pid=)
+  if [[ -n $PROCS ]]; then
+    for P in $PROCS; do
+      kill -9 $P
+    done
+  fi
+  userdel nitrousd
+else
+  exit 0;
 fi
