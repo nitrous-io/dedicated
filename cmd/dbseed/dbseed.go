@@ -15,6 +15,7 @@ import (
 )
 
 const DBEnvVar = "NITROUS_PG_URL"
+const DigitalOceanImageID = "5656776"
 
 var (
 	logr *logger.Logger
@@ -108,11 +109,11 @@ func plans(d db.QueryReceiver) error {
 		return err
 	}
 	plans := []plan.Plan{
-		{Name: "nano", MaxContainers: 1, Price: 500},
-		{Name: "micro", MaxContainers: 2, Price: 1000},
-		{Name: "small", MaxContainers: 3, Price: 1500},
-		{Name: "medium", MaxContainers: 4, Price: 2000},
-		{Name: "large", MaxContainers: 5, Price: 2500},
+		{Name: "512mb", MaxContainers: 1, Price: 500},
+		{Name: "1gb", MaxContainers: 2, Price: 1000},
+		{Name: "2gb", MaxContainers: 3, Price: 1500},
+		{Name: "4gb", MaxContainers: 4, Price: 2000},
+		{Name: "8gb", MaxContainers: 5, Price: 2500},
 	}
 	for _, p := range plans {
 		err = p.Insert(d)
@@ -141,22 +142,29 @@ func templates(d db.QueryReceiver) error {
 	}
 	for _, p := range plans {
 		for _, r := range regions {
-			pt := &providertemplate.ProviderTemplate{
-				Name:     fmt.Sprintf("docker-%s-%s", p.Name, r.Name),
-				Provider: "docker",
-				RegionID: r.ID,
-				PlanID:   p.ID,
-				Config: hstore.Hstore{
-					Map: map[string]sql.NullString{
-						"image": {"nitrousio/ubuntu-dind", true},
+			providers := []string{"docker", "digitalocean"}
+			for _, provider := range providers {
+				pt := &providertemplate.ProviderTemplate{
+					Name:     fmt.Sprintf("%s-%s-%s", provider, p.Name, r.Name),
+					Provider: provider,
+					RegionID: r.ID,
+					PlanID:   p.ID,
+					Config: hstore.Hstore{
+						Map: map[string]sql.NullString{
+							"region_id": {r.Name, true},
+							"size_id":   {p.Name, true},
+						},
 					},
-				},
+				}
+				if provider == "digitalocean" {
+					pt.Config.Map["image_id"] = sql.NullString{DigitalOceanImageID, true}
+				}
+				err := pt.Insert(d)
+				if err != nil {
+					return err
+				}
+				logr.Infof("Added provider template %+v", pt)
 			}
-			err := pt.Insert(d)
-			if err != nil {
-				return err
-			}
-			logr.Infof("Added provider template %+v", pt)
 		}
 	}
 	return nil

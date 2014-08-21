@@ -88,34 +88,33 @@ var _ = Describe("models/providertemplate", func() {
 		})
 	})
 
-	Describe("FindAllByRegionAndPlan()", func() {
-		Context("when a provider template record with a given region ID and plan ID exists", func() {
+	Describe("FindByRegionAndPlanAndProvider()", func() {
+		Context("when a provider template record with a given region ID, plan ID and provider exists", func() {
 			It("returns the provider template record", func() {
-				templates, err := providertemplate.FindAllByRegionAndPlan(db, r.ID, p1.ID)
+				pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, r.ID, p1.ID, "digitalocean")
 				Expect(err).To(BeNil())
-				Expect(templates).To(HaveLen(1))
 
-				Expect(templates[0].ID).NotTo(BeZero())
-				Expect(templates[0].RegionID).To(Equal(r.ID))
-				Expect(templates[0].PlanID).To(Equal(p1.ID))
-				Expect(templates[0].Name).To(Equal("do-512MB"))
-				Expect(templates[0].Provider).To(Equal("digitalocean"))
+				Expect(pt.ID).NotTo(BeZero())
+				Expect(pt.RegionID).To(Equal(r.ID))
+				Expect(pt.PlanID).To(Equal(p1.ID))
+				Expect(pt.Name).To(Equal("do-512MB"))
+				Expect(pt.Provider).To(Equal("digitalocean"))
 			})
 		})
 
 		Context("when a provider template record with a given region ID and plan ID does not exist", func() {
 			It("returns nil", func() {
-				templates, err := providertemplate.FindAllByRegionAndPlan(db, 9001, 9002)
+				pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, 9001, 9002, "digitalocean")
 				Expect(err).To(BeNil())
-				Expect(templates).To(HaveLen(0))
+				Expect(pt).To(BeNil())
 			})
 		})
 
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				templates, err := providertemplate.FindAllByRegionAndPlan(db, r.ID, p1.ID)
-				Expect(templates).To(BeEmpty())
+				pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, 9001, 9002, "digitalocean")
+				Expect(pt).To(BeNil())
 				Expect(err).NotTo(BeNil())
 			})
 		})
