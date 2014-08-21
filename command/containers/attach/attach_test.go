@@ -58,9 +58,7 @@ var _ = Describe("Command", func() {
 			Expect(ui.ErrorWriter.(*bytes.Buffer).String()).To(BeEmpty())
 		}()
 
-		Eventually(func() bool {
-			return ns.ts.finished
-		}).Should(BeTrue())
+		Eventually(ns.ts.done).Should(BeClosed())
 	})
 })
 
@@ -124,7 +122,7 @@ type testServer struct {
 	containerID string
 
 	stdin, stdout *bytes.Buffer
-	finished      bool
+	done          chan struct{}
 }
 
 func (s *testServer) attachToContainer(w http.ResponseWriter, r *http.Request) {
@@ -133,7 +131,7 @@ func (s *testServer) attachToContainer(w http.ResponseWriter, r *http.Request) {
 	stdin, stdout, _ := hijackServer(w)
 	go io.Copy(s.stdin, stdin)
 	io.Copy(stdout, s.stdout)
-	s.finished = true
+	close(s.done)
 }
 
 func (s *testServer) Close() {
@@ -146,6 +144,7 @@ func newTestServer(containerID string) *testServer {
 		containerID: containerID,
 		stdin:       bytes.NewBuffer(nil),
 		stdout:      bytes.NewBuffer(nil),
+		done:        make(chan struct{}),
 	}
 	r := mux.NewRouter()
 	r.HandleFunc("/containers/{id}/attach", s.attachToContainer).Methods("POST")
