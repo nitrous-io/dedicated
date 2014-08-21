@@ -4,11 +4,13 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -1274,45 +1276,11 @@ var _ = Describe("provider/docker", func() {
 
 	Describe(".PullImage()", func() {
 		var (
-			mockProxy    *MockDockerProxy
 			tempAuthFile *os.File
 		)
 
-		createBasicImage := func(name string) {
-			// FIXME: image originally comes from the other test, if we want to
-			// run this test independently, or if the order is wrong, we pull it
-			// here first
-			var err error
-			err = exec.Command("docker", "pull", image).Run()
-			Expect(err).To(BeNil())
-			err = exec.Command("docker", "tag", "-f", image, name).Run()
-			Expect(err).To(BeNil())
-		}
-
-		checkImage := func(name string) {
-			parts := strings.Split(name, ":")
-			Expect(parts).To(HaveLen(2))
-			repo, tag := parts[0], parts[1]
-
-			knownImages, err := prov.ListImages()
-			Expect(err).To(BeNil())
-			var targetImage *provider.ImageInfo
-			for _, image := range knownImages {
-				if image.Name == repo && image.Tag == tag {
-					targetImage = image
-					break
-				}
-			}
-
-			Expect(targetImage).ToNot(BeNil())
-			err = prov.RemoveImage(name)
-			Expect(err).To(BeNil())
-		}
-
 		BeforeEach(func() {
 			var err error
-
-			mockProxy = &MockDockerProxy{}
 			tempAuthFile, err = ioutil.TempFile("", "cfg")
 			Expect(err).To(BeNil())
 
@@ -1322,29 +1290,20 @@ var _ = Describe("provider/docker", func() {
 			magic:abc34x1
 			*/
 			authFileSrc := `
-				{
-				  "https://index.docker.io/v1/": {
-				    "auth": "dGVzdDoxMjM0eHhjYwo=",
-				    "email": "docker@callumj.com"
-				  },
-				  "quay.io": {
-				    "auth": "dGVzdG86UGFzc3dvcmQxCg==",
-				    "email": "quay@callumj.com"
-				  },
-				  "cloud.inc": {
-				    "auth": "bWFnaWM6YWJjMzR4MQo=",
-				    "email": "cloud@callumj.com"
-				  },
-				  "magic.io": {}
-				}
-				`
+			{
+				"https://index.docker.io/v1/": { "auth": "dGVzdDoxMjM0eHhjYwo=", "email": "docker@callumj.com" },
+				"quay.io": { "auth": "dGVzdG86UGFzc3dvcmQxCg==", "email": "quay@callumj.com" },
+				"cloud.inc": { "auth": "bWFnaWM6YWJjMzR4MQo=", "email": "cloud@callumj.com" },
+				"magic.io": {}
+			}
+			`
 
 			_, err = tempAuthFile.WriteString(authFileSrc)
 			Expect(err).To(BeNil())
 			err = tempAuthFile.Close()
 			Expect(err).To(BeNil())
 
-			prov.DockerClientProxy = mockProxy
+			// FIXME: remove this stuff
 			prov.DockerConfigLocation = tempAuthFile.Name()
 		})
 
@@ -1352,115 +1311,154 @@ var _ = Describe("provider/docker", func() {
 			os.Remove(tempAuthFile.Name())
 		})
 
-		It("should allow for importing by default hub", func() {
-			mockProxy.PullImageCallBack = func() {
-				createBasicImage("nitrousio/nodejs")
+		It("streams the docker output", func() {
+			body := `
+			{"status":"Pulling..."}
+			{"status":"Pulling", "progress":"1 B/ 100 B", "progressDetail":{"current":1, "total":100}}
+			`
+			rt := &FakeRoundTripper{
+				message: body,
+				status:  http.StatusOK,
+				header: map[string]string{
+					"Content-Type": "application/json",
+				},
 			}
-			info, err := prov.PullImage("nitrousio/nodejs")
+			cl := prov.Client()
+			cl.HTTPClient = &http.Client{Transport: rt}
+			stdout := bytes.NewBuffer(nil)
+
+			err := prov.PullImage("nitrousio/nodejs", stdout, true)
+			Expect(err).To(BeNil())
+			Expect(stdout.String()).To(Equal(body), "unexpected stream output")
+		})
+
+		It("should allow for importing by default hub", func() {
+			rt := &FakeRoundTripper{message: "", status: http.StatusOK}
+			cl := prov.Client()
+			cl.HTTPClient = &http.Client{Transport: rt}
+
+			err := prov.PullImage("nitrousio/nodejs", ioutil.Discard, true)
 			Expect(err).To(BeNil())
 
-			Expect(mockProxy.PullImageCalled).To(BeTrue())
-			Expect(mockProxy.PullImageOpts.Repository).To(Equal("nitrousio/nodejs"))
-			Expect(mockProxy.PullImageOpts.Tag).To(Equal("latest"))
-			Expect(mockProxy.PullImageAuth.Username).To(Equal("test"))
-			Expect(mockProxy.PullImageAuth.Password).To(ContainSubstring("1234xxcc"))
-			Expect(mockProxy.PullImageAuth.Email).To(Equal("docker@callumj.com"))
-
-			Expect(info.Name).To(ContainSubstring("nitrousio/nodejs"))
-
-			checkImage("nitrousio/nodejs:latest")
+			r := rt.requests[0]
+			assertPullOptions(r, dockerclient.PullImageOptions{
+				Repository: "nitrousio/nodejs",
+			})
+			assertRegistryAuth(r, dockerclient.AuthConfiguration{
+				Username: "test",
+				Password: "1234xxcc\n",
+				Email:    "docker@callumj.com",
+			})
 		})
 
 		It("should allow for importing by a tagged image", func() {
-			mockProxy.PullImageCallBack = func() {
-				createBasicImage("ubuntu:10.04")
-			}
-			_, err := prov.PullImage("ubuntu:10.04")
+			rt := &FakeRoundTripper{message: "", status: http.StatusOK}
+			cl := prov.Client()
+			cl.HTTPClient = &http.Client{Transport: rt}
+
+			err := prov.PullImage("ubuntu:10.04", ioutil.Discard, true)
 			Expect(err).To(BeNil())
 
-			Expect(mockProxy.PullImageCalled).To(BeTrue())
-			Expect(mockProxy.PullImageOpts.Repository).To(Equal("ubuntu"))
-			Expect(mockProxy.PullImageOpts.Tag).To(Equal("10.04"))
-			Expect(mockProxy.PullImageAuth.Username).To(Equal("test"))
-			Expect(mockProxy.PullImageAuth.Password).To(ContainSubstring("1234xxcc"))
-			Expect(mockProxy.PullImageAuth.Email).To(Equal("docker@callumj.com"))
-
-			checkImage("ubuntu:10.04")
+			r := rt.requests[0]
+			assertPullOptions(r, dockerclient.PullImageOptions{
+				Repository: "ubuntu",
+				Tag:        "10.04",
+			})
 		})
 
 		It("should allow for importing by simple remote registry", func() {
-			mockProxy.PullImageCallBack = func() {
-				createBasicImage("quay.io/ubuntu")
-			}
-			_, err := prov.PullImage("quay.io/ubuntu")
+			rt := &FakeRoundTripper{message: "", status: http.StatusOK}
+			cl := prov.Client()
+			cl.HTTPClient = &http.Client{Transport: rt}
+
+			err := prov.PullImage("quay.io/ubuntu", ioutil.Discard, true)
 			Expect(err).To(BeNil())
 
-			Expect(mockProxy.PullImageCalled).To(BeTrue())
-			Expect(mockProxy.PullImageOpts.Repository).To(Equal("quay.io/ubuntu"))
-			Expect(mockProxy.PullImageOpts.Tag).To(Equal("latest"))
-			Expect(mockProxy.PullImageAuth.Username).To(Equal("testo"))
-			Expect(mockProxy.PullImageAuth.Password).To(ContainSubstring("Password1"))
-			Expect(mockProxy.PullImageAuth.Email).To(Equal("quay@callumj.com"))
-
-			checkImage("quay.io/ubuntu:latest")
+			r := rt.requests[0]
+			assertPullOptions(r, dockerclient.PullImageOptions{
+				Repository: "quay.io/ubuntu",
+			})
+			assertRegistryAuth(r, dockerclient.AuthConfiguration{
+				Username: "testo",
+				Password: "Password1\n",
+				Email:    "quay@callumj.com",
+			})
 		})
 
 		It("should allow for importing by remote registry", func() {
-			mockProxy.PullImageCallBack = func() {
-				createBasicImage("quay.io/quay/ubuntu")
-			}
-			_, err := prov.PullImage("quay.io/quay/ubuntu")
+			rt := &FakeRoundTripper{message: "", status: http.StatusOK}
+			cl := prov.Client()
+			cl.HTTPClient = &http.Client{Transport: rt}
+
+			err := prov.PullImage("quay.io/quay/ubuntu", ioutil.Discard, true)
 			Expect(err).To(BeNil())
 
-			Expect(mockProxy.PullImageCalled).To(BeTrue())
-			Expect(mockProxy.PullImageOpts.Repository).To(Equal("quay.io/quay/ubuntu"))
-			Expect(mockProxy.PullImageOpts.Tag).To(Equal("latest"))
-			Expect(mockProxy.PullImageAuth.Username).To(Equal("testo"))
-			Expect(mockProxy.PullImageAuth.Password).To(ContainSubstring("Password1"))
-			Expect(mockProxy.PullImageAuth.Email).To(Equal("quay@callumj.com"))
-
-			checkImage("quay.io/quay/ubuntu:latest")
+			r := rt.requests[0]
+			assertPullOptions(r, dockerclient.PullImageOptions{
+				Repository: "quay.io/quay/ubuntu",
+			})
+			assertRegistryAuth(r, dockerclient.AuthConfiguration{
+				Username: "testo",
+				Password: "Password1\n",
+				Email:    "quay@callumj.com",
+			})
 		})
 
 		It("should allow even when auth credentials could not be located", func() {
-			mockProxy.PullImageCallBack = func() {
-				createBasicImage("cloudy.io/nodejs")
-			}
-			info, err := prov.PullImage("cloudy.io/nodejs")
-			Expect(err).To(BeNil())
-			Expect(info).NotTo(BeNil())
-			Expect(mockProxy.PullImageCalled).To(BeTrue())
-			Expect(mockProxy.PullImageAuth).To(Equal(dockerclient.AuthConfiguration{}))
+			rt := &FakeRoundTripper{message: "", status: http.StatusOK}
+			cl := prov.Client()
+			cl.HTTPClient = &http.Client{Transport: rt}
 
-			checkImage("cloudy.io/nodejs:latest")
+			prov.PullImage("cloudy.io/nodejs", ioutil.Discard, true)
+
+			r := rt.requests[0]
+			assertPullOptions(r, dockerclient.PullImageOptions{
+				Repository: "cloudy.io/nodejs",
+			})
+			assertRegistryAuth(r, dockerclient.AuthConfiguration{})
 		})
 
 		It("should allow even a malformed config", func() {
-			mockProxy.PullImageError = errors.New("Forbidden")
-			info, err := prov.PullImage("magic.io/quay/ubuntu")
-			Expect(err).To(Equal(errors.New("Forbidden")))
-			Expect(info).To(BeNil())
-			Expect(mockProxy.PullImageCalled).To(BeTrue())
-			Expect(mockProxy.PullImageAuth).To(Equal(dockerclient.AuthConfiguration{}))
+			rt := &FakeRoundTripper{message: "", status: http.StatusOK}
+			cl := prov.Client()
+			cl.HTTPClient = &http.Client{Transport: rt}
+
+			prov.PullImage("magic.io/quay/ubuntu", ioutil.Discard, true)
+
+			r := rt.requests[0]
+			assertPullOptions(r, dockerclient.PullImageOptions{
+				Repository: "magic.io/quay/ubuntu",
+			})
+			assertRegistryAuth(r, dockerclient.AuthConfiguration{})
 		})
 
 		It("should allow to pull without credentials when we dont have a auth configuration", func() {
 			os.Remove(tempAuthFile.Name())
-			mockProxy.PullImageCallBack = func() {
-				createBasicImage("cloudy.io/nodejs")
-			}
-			_, err := prov.PullImage("cloudy.io/nodejs")
-			Expect(err).To(BeNil())
-			Expect(mockProxy.PullImageAuth).To(Equal(dockerclient.AuthConfiguration{}))
+			rt := &FakeRoundTripper{message: "", status: http.StatusOK}
+			cl := prov.Client()
+			cl.HTTPClient = &http.Client{Transport: rt}
+
+			prov.PullImage("cloudy.io/nodejs", ioutil.Discard, true)
+
+			r := rt.requests[0]
+			assertPullOptions(r, dockerclient.PullImageOptions{
+				Repository: "cloudy.io/nodejs",
+			})
+			assertRegistryAuth(r, dockerclient.AuthConfiguration{})
 		})
 
 		It("should surface PullImage errors", func() {
-			sharedErr := errors.New("Sorry!")
-			mockProxy.PullImageError = sharedErr
-			_, err := prov.PullImage("quay/ubuntu")
-			Expect(err).To(Equal(sharedErr))
+			rt := &FakeRoundTripper{message: `{"error":"Sorry!"}`, status: http.StatusInternalServerError}
+			cl := prov.Client()
+			cl.HTTPClient = &http.Client{Transport: rt}
 
-			Expect(mockProxy.PullImageCalled).To(BeTrue())
+			stdout := bytes.NewBuffer(nil)
+			err := prov.PullImage("quay/ubuntu", stdout, false)
+
+			dockerErr, ok := err.(*dockerclient.Error)
+			Expect(ok).To(BeTrue(), "invalid error type %q", err)
+			Expect(dockerErr.Status).To(Equal(http.StatusInternalServerError), "invalid http status")
+			Expect(dockerErr.Message).To(Equal(`{"error":"Sorry!"}`), "invalid error message")
 		})
 	})
 
@@ -1721,3 +1719,72 @@ var _ = Describe("provider/docker", func() {
 		})
 	})
 })
+
+// FakeRoundTripper implements a fake Transport layer that records the executed
+// requests and provide a fake response
+//
+// This is more lightweight than implementing a full HTTP server and should be
+// approriate for some tests
+type FakeRoundTripper struct {
+	message  string
+	status   int
+	header   map[string]string
+	requests []*http.Request
+}
+
+func (rt *FakeRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	body := strings.NewReader(rt.message)
+	rt.requests = append(rt.requests, r)
+	res := &http.Response{
+		StatusCode: rt.status,
+		Body:       ioutil.NopCloser(body),
+		Header:     make(http.Header),
+	}
+	for k, v := range rt.header {
+		res.Header.Set(k, v)
+	}
+	return res, nil
+}
+
+func (rt *FakeRoundTripper) Reset() {
+	rt.requests = nil
+}
+
+// parses base64-encoded auth information string
+func parseRegistryAuth(s string) (dockerclient.AuthConfiguration, error) {
+	a := dockerclient.AuthConfiguration{}
+	b, err := base64.URLEncoding.DecodeString(strings.TrimSpace(s))
+	if err != nil {
+		return a, err
+	}
+	if err := json.Unmarshal(b, &a); err != nil {
+		return a, err
+	}
+	return a, nil
+}
+
+// asserts that docker API receives the correct auth information
+// refers to https://docs.docker.com/reference/api/docker_remote_api_v1.13/#22-images
+// for more documentation
+func assertRegistryAuth(r *http.Request, expected dockerclient.AuthConfiguration) {
+	auth, err := parseRegistryAuth(r.Header.Get("X-Registry-Auth"))
+	Expect(err).To(BeNil(), "failed to decode auth data in header")
+	Expect(auth).To(Equal(expected), "invalid auth configuration")
+}
+
+// asserts that docker API receives the correct pull information
+// refers to https://docs.docker.com/reference/api/docker_remote_api_v1.13/#22-images
+// for more documentation
+func assertPullOptions(r *http.Request, expected dockerclient.PullImageOptions) {
+	// if we dont expect any tag, by default it only pulls the latest tag
+	// https://github.com/nitrous-io/freighter/commit/f3af226068ddd6eb697a58be38b2acb521e8e0b4
+	if expected.Tag == "" {
+		expected.Tag = "latest"
+	}
+	repo := r.FormValue("fromImage")
+	registry := r.FormValue("registry")
+	tag := r.FormValue("tag")
+	Expect(repo).To(Equal(expected.Repository), "invalid PullImage repository")
+	Expect(registry).To(Equal(expected.Registry), "invalid PullImage registry")
+	Expect(tag).To(Equal(expected.Tag), "invalid PullImage tag")
+}

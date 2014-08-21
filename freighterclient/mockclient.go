@@ -94,7 +94,6 @@ type MockClient struct {
 	RemoveImageError  error
 
 	PullImageCalled int
-	PullImageReturn *Image
 	PullImageError  error
 
 	PushImageCalled int
@@ -281,9 +280,9 @@ func (c *MockClient) RemoveImage(slug string) error {
 	return c.RemoveImageError
 }
 
-func (c *MockClient) PullImage(location string) (*Image, error) {
+func (c *MockClient) PullImage(location string, stdout io.Writer) error {
 	c.PullImageCalled++
-	return c.PullImageReturn, c.PullImageError
+	return c.PullImageError
 }
 
 func (c *MockClient) PushImage(slug, location string) error {

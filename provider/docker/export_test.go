@@ -13,3 +13,8 @@ func (p *DockerProvider) CreateConfigs(containerName, imageName string, cfg *pro
 func (p *DockerProvider) StartConfig(container *dockerclient.Container, cfg *provider.ContainerConfig) (*dockerclient.HostConfig, error) {
 	return p.startConfig(container, cfg)
 }
+
+// Client exposes private client in tests
+func (p *DockerProvider) Client() *dockerclient.Client {
+	return p.client
+}

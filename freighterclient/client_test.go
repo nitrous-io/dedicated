@@ -1716,31 +1716,18 @@ var _ = Describe("client", func() {
 			Context("Successful response", func() {
 				BeforeEach(func() {
 					statusCode = http.StatusOK
-					responseBody = `{
-						"image": {
-							"id": "12",
-							"name": "myimage",
-							"tag": "tag",
-							"created_at": 1902,
-							"actual_size": 12,
-							"virtual_size": 39
-						},
-						"output": "image build output"
-					}`
+					responseBody = `
+					{"status":"Pulling..."}
+					{"status":"Pulling", "progress":"1 B/ 100 B", "progressDetail":{"current":1, "total":100}}
+					`
 				})
 
 				It("should return nil error", func() {
-					image, err := cl.PullImage("myimage:tag")
+					stdout := bytes.NewBuffer(nil)
+					err := cl.PullImage("myimage:tag", stdout)
 					Expect(err).To(BeNil())
 
-					Expect(image).To(Equal(&freighterclient.Image{
-						ID:          "12",
-						Name:        "myimage",
-						Tag:         "tag",
-						CreatedAt:   1902,
-						ActualSize:  12,
-						VirtualSize: 39,
-					}))
+					Expect(stdout.String()).To(Equal(responseBody))
 
 					reqs := server.ReceivedRequests()
 					Expect(reqs).To(HaveLen(1))
@@ -1748,26 +1735,12 @@ var _ = Describe("client", func() {
 				})
 			})
 
-			Context("Error Response - JSON parsing error", func() {
-				BeforeEach(func() {
-					statusCode = http.StatusOK
-					responseBody = `<<???>>`
-				})
-
-				It("should handle JSON decoding errors", func() {
-					image, err := cl.PullImage("myimage:tag")
-					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
-					Expect(image).To(BeNil())
-				})
-			})
-
 			Context("Error Response - with failures communicating with endpoint", func() {
 				It("should surface request failures", func() {
 					st.Close()
 
-					image, err := cl.PullImage("myimage:tag")
+					err := cl.PullImage("myimage:tag", ioutil.Discard)
 					Expect(err).NotTo(BeNil())
-					Expect(image).To(BeNil())
 					_, ok := err.(*freighterclient.RequestFailedError)
 					Expect(ok).To(BeTrue())
 					Expect(server.ReceivedRequests()).To(HaveLen(0))
@@ -1775,10 +1748,8 @@ var _ = Describe("client", func() {
 
 				It("should surface response failures in StatusErr", func() {
 					statusCode = http.StatusInternalServerError
-					image, err := cl.PullImage("myimage:tag")
-
+					err := cl.PullImage("myimage:tag", ioutil.Discard)
 					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
-					Expect(image).To(BeNil())
 				})
 			})
 		})
