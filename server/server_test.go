@@ -115,6 +115,7 @@ var _ = Describe("server", func() {
 		BeforeEach(func() {
 			name = "fragrant-wind-69"
 			image = "ubuntu"
+			secret = "s3cr3t"
 			publicKey = "ssh-rsa Foo"
 			publicKey2 = "ssh-rsa Bar"
 			params = &url.Values{}
