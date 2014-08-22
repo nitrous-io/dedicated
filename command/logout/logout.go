@@ -23,10 +23,10 @@ type Command struct {
 }
 
 func init() {
-	command.Register("logout", NewCommand)
+	command.RegisterAuth("logout", NewCommand)
 }
 
-func NewCommand() (cli.Command, error) {
+func NewCommand(token string) (cli.Command, error) {
 	return &Command{
 		UI:     command.DefaultUI,
 		Server: command.Env.APIURL,
