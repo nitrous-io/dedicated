@@ -87,11 +87,11 @@ func regions(d db.QueryReceiver) error {
 		return err
 	}
 	regions := []region.Region{
-		{Name: "sgp", Description: "Southeast Asia (Singapore)"},
-		{Name: "nyc", Description: "US East (New York)"},
-		{Name: "sfo", Description: "US West (San Francisco)"},
-		{Name: "ams", Description: "Europe (Amsterdam)"},
-		{Name: "lon", Description: "Europe (London)"},
+		{Slug: "sgp", Name: "Southeast Asia (Singapore)"},
+		{Slug: "nyc", Name: "US East (New York)"},
+		{Slug: "sfo", Name: "US West (San Francisco)"},
+		{Slug: "ams", Name: "Europe (Amsterdam)"},
+		{Slug: "lon", Name: "Europe (London)"},
 	}
 	for _, r := range regions {
 		err = r.Insert(d)
@@ -109,11 +109,13 @@ func plans(d db.QueryReceiver) error {
 		return err
 	}
 	plans := []plan.Plan{
-		{Name: "512mb", MaxContainers: 1, Price: 500},
-		{Name: "1gb", MaxContainers: 2, Price: 1000},
-		{Name: "2gb", MaxContainers: 3, Price: 1500},
-		{Name: "4gb", MaxContainers: 4, Price: 2000},
-		{Name: "8gb", MaxContainers: 5, Price: 2500},
+		{Slug: "512mb", Name: "Nano", MaxContainers: 2, Price: 995},
+		{Slug: "1gb", Name: "Micro", MaxContainers: 4, Price: 1995},
+		{Slug: "2gb", Name: "Small", MaxContainers: 8, Price: 3995},
+		{Slug: "4gb", Name: "Medium", MaxContainers: 16, Price: 7995},
+		{Slug: "8gb", Name: "Large", MaxContainers: 32, Price: 15995},
+		{Slug: "16gb", Name: "XLarge", MaxContainers: 64, Price: 31995},
+		{Slug: "32gb", Name: "2XLarge", MaxContainers: 128, Price: 63995},
 	}
 	for _, p := range plans {
 		err = p.Insert(d)
@@ -145,14 +147,14 @@ func templates(d db.QueryReceiver) error {
 			providers := []string{"docker", "digitalocean"}
 			for _, provider := range providers {
 				pt := &providertemplate.ProviderTemplate{
-					Name:     fmt.Sprintf("%s-%s-%s", provider, p.Name, r.Name),
+					Name:     fmt.Sprintf("%s-%s-%s", provider, p.Slug, r.Slug),
 					Provider: provider,
 					RegionID: r.ID,
 					PlanID:   p.ID,
 					Config: hstore.Hstore{
 						Map: map[string]sql.NullString{
-							"region_id": {r.Name, true},
-							"size_id":   {p.Name, true},
+							"region_id": {r.Slug, true},
+							"size_id":   {p.Slug, true},
 						},
 					},
 				}

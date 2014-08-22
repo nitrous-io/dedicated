@@ -205,8 +205,8 @@ var _ = Describe("controllers/hosts", func() {
 		BeforeEach(func() {
 			var err error
 			hs, err = CreateHostStack(db, &HostStack{
-				R: &region.Region{Name: "use"},
-				P: &plan.Plan{Name: "large"},
+				R: &region.Region{Slug: "use"},
+				P: &plan.Plan{Slug: "large"},
 			})
 			Expect(err).To(BeNil())
 		})
@@ -220,11 +220,11 @@ var _ = Describe("controllers/hosts", func() {
 			}
 
 			if _, ok = o["size"]; !ok {
-				o["size"] = hs.P.Name
+				o["size"] = hs.P.Slug
 			}
 
 			if _, ok = o["region"]; !ok {
-				o["region"] = hs.R.Name
+				o["region"] = hs.R.Slug
 			}
 
 			if _, ok = o["name"]; !ok {
@@ -293,11 +293,11 @@ var _ = Describe("controllers/hosts", func() {
 			It("responds with provider template not found error", func() {
 				var r2 *region.Region
 
-				r2 = &region.Region{Name: "usw", Description: "US West"}
+				r2 = &region.Region{Slug: "usw", Name: "US West"}
 				err := r2.Insert(db)
 				Expect(err).To(BeNil())
 
-				doRequest(overrides{"region": r2.Name})
+				doRequest(overrides{"region": r2.Slug})
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
@@ -347,7 +347,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
 					Expect(h.State).To(Equal(host.StateRunning))
 					Expect(h.MaxContainers.Int64).To(Equal(hs.P.MaxContainers))
-					Expect(h.Size.String).To(Equal(hs.P.Name))
+					Expect(h.Size.String).To(Equal(hs.P.Slug))
 					Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
 					Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
 
@@ -393,7 +393,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(j.Host.Slug).To(Equal("honeybadger"))
 					Expect(j.Host.IPAddress).To(Equal("0.0.0.0"))
 					Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
-					Expect(j.Host.Size).To(Equal(hs.P.Name))
+					Expect(j.Host.Size).To(Equal(hs.P.Slug))
 					Expect(j.Host.State).To(Equal(host.StateRunning))
 					Expect(j.Host.Hostname).To(Equal("honeybadger.nitrouspro.com"))
 					Expect(j.Host.CreatedAt).NotTo(BeNil())

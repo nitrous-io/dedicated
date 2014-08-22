@@ -25,9 +25,9 @@ var _ = Describe("models/plan", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec("INSERT INTO plans (name, max_containers, price) values ($1, $2, $3);", "small", 3, 1000)
+		_, err = db.Exec("INSERT INTO plans (slug, name, max_containers, price) values ($1, $2, $3, $4);", "1gb", "Micro", 4, 1995)
 		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO plans (name, max_containers, price) values ($1, $2, $3);", "medium", 5, 2000)
+		_, err = db.Exec("INSERT INTO plans (slug, name, max_containers, price) values ($1, $2, $3, $4);", "2gb", "Small", 8, 3995)
 		Expect(err).To(BeNil())
 	})
 
@@ -41,7 +41,7 @@ var _ = Describe("models/plan", func() {
 		var id int64
 
 		BeforeEach(func() {
-			err := db.QueryRow(`SELECT id FROM plans WHERE name = $1;`, "small").Scan(&id)
+			err := db.QueryRow(`SELECT id FROM plans WHERE slug = $1;`, "1gb").Scan(&id)
 			Expect(err).To(BeNil())
 			Expect(id).NotTo(BeZero())
 		})
@@ -64,22 +64,23 @@ var _ = Describe("models/plan", func() {
 		})
 	})
 
-	Describe("FindByName()", func() {
-		Context("when a plan record with a given name exists", func() {
+	Describe("FindBySlug()", func() {
+		Context("when a plan record with a given slug exists", func() {
 			It("returns the plan record", func() {
-				p, err := plan.FindByName(db, "small")
+				p, err := plan.FindBySlug(db, "1gb")
 				Expect(err).To(BeNil())
 				Expect(p).NotTo(BeNil())
 				Expect(p.ID).NotTo(BeZero())
-				Expect(p.Name).To(Equal("small"))
-				Expect(p.MaxContainers).To(Equal(int64(3)))
-				Expect(p.Price).To(Equal(int64(1000)))
+				Expect(p.Slug).To(Equal("1gb"))
+				Expect(p.Name).To(Equal("Micro"))
+				Expect(p.MaxContainers).To(Equal(int64(4)))
+				Expect(p.Price).To(Equal(int64(1995)))
 			})
 		})
 
-		Context("when a plan record with a given name does not exist", func() {
+		Context("when a plan record with a given slug does not exist", func() {
 			It("returns nil", func() {
-				p, err := plan.FindByName(db, "non-existent-plan")
+				p, err := plan.FindBySlug(db, "non-existent-slug")
 				Expect(err).To(BeNil())
 				Expect(p).To(BeNil())
 			})
@@ -88,7 +89,7 @@ var _ = Describe("models/plan", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				p, err := plan.FindByName(db, "small")
+				p, err := plan.FindBySlug(db, "1gb")
 				Expect(p).To(BeNil())
 				Expect(err).NotTo(BeNil())
 			})
@@ -100,7 +101,8 @@ var _ = Describe("models/plan", func() {
 			pls, err := plan.All(db)
 			Expect(err).To(BeNil())
 			Expect(pls).To(HaveLen(2))
-			Expect([]string{pls[0].Name, pls[1].Name}).To(ConsistOf([]string{"small", "medium"}))
+			Expect([]string{pls[0].Slug, pls[1].Slug}).To(ConsistOf([]string{"1gb", "2gb"}))
+			Expect([]string{pls[0].Name, pls[1].Name}).To(ConsistOf([]string{"Micro", "Small"}))
 		})
 	})
 
@@ -112,22 +114,24 @@ var _ = Describe("models/plan", func() {
 		BeforeEach(func() {
 			var err error
 			p = &plan.Plan{
-				Name:          "micro",
-				MaxContainers: 1,
-				Price:         500,
+				Slug:          "512mb",
+				Name:          "Nano",
+				MaxContainers: 2,
+				Price:         995,
 			}
 			err = p.Insert(db)
 			Expect(err).To(BeNil())
 		})
 
 		It("persists the plan in the database", func() {
-			p2, err := plan.FindByName(db, "micro")
+			p2, err := plan.FindBySlug(db, "512mb")
 			Expect(err).To(BeNil())
 			Expect(p2).NotTo(BeNil())
 			Expect(p2.ID).NotTo(BeZero())
-			Expect(p2.Name).To(Equal("micro"))
-			Expect(p2.MaxContainers).To(Equal(int64(1)))
-			Expect(p2.Price).To(Equal(int64(500)))
+			Expect(p2.Slug).To(Equal("512mb"))
+			Expect(p2.Name).To(Equal("Nano"))
+			Expect(p2.MaxContainers).To(Equal(int64(2)))
+			Expect(p2.Price).To(Equal(int64(995)))
 			Expect(p2.CreatedAt).NotTo(BeNil())
 			Expect(p2.UpdatedAt).NotTo(BeNil())
 		})

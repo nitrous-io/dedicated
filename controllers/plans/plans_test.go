@@ -53,11 +53,11 @@ var _ = Describe("controllers/plans", func() {
 		}
 
 		Context("when plans exist", func() {
-			var planNames = []string{"start", "shift", "turbo"}
+			var planSlugs = []string{"start", "shift", "turbo"}
 
 			BeforeEach(func() {
-				for _, n := range planNames {
-					pl := plan.Plan{Name: n}
+				for _, n := range planSlugs {
+					pl := plan.Plan{Slug: n}
 					Expect(pl.Insert(db)).To(BeNil())
 				}
 			})
@@ -72,11 +72,11 @@ var _ = Describe("controllers/plans", func() {
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 				Expect(j.Plans).To(HaveLen(3))
-				names := []string{}
+				slugs := make([]string, 0, len(planSlugs))
 				for _, pl := range j.Plans {
-					names = append(names, pl.Name)
+					slugs = append(slugs, pl.Slug)
 				}
-				Expect(names).To(ConsistOf(planNames))
+				Expect(slugs).To(ConsistOf(planSlugs))
 			})
 		})
 

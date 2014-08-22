@@ -8,11 +8,11 @@ import (
 )
 
 type Region struct {
-	ID          int64      `db:"id"`
-	Name        string     `db:"name"`
-	Description string     `db:"description"`
-	CreatedAt   *time.Time `db:"created_at"`
-	UpdatedAt   *time.Time `db:"updated_at"`
+	ID        int64      `db:"id"`
+	Slug      string     `db:"slug"`
+	Name      string     `db:"name"`
+	CreatedAt *time.Time `db:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*Region, error) {
@@ -27,9 +27,9 @@ func FindByID(d db.QueryReceiver, id int64) (*Region, error) {
 	return r, nil
 }
 
-func FindByName(d db.QueryReceiver, name string) (*Region, error) {
+func FindBySlug(d db.QueryReceiver, slug string) (*Region, error) {
 	r := &Region{}
-	err := d.Get(r, "SELECT * FROM regions WHERE name = $1", name)
+	err := d.Get(r, "SELECT * FROM regions WHERE slug = $1", slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -41,14 +41,14 @@ func FindByName(d db.QueryReceiver, name string) (*Region, error) {
 
 func All(d db.QueryReceiver) ([]*Region, error) {
 	rs := []*Region{}
-	if err := d.Select(&rs, `SELECT * FROM regions ORDER BY name`); err != nil {
+	if err := d.Select(&rs, `SELECT * FROM regions ORDER BY slug`); err != nil {
 		return nil, err
 	}
 	return rs, nil
 }
 
 func (r *Region) Insert(d db.QueryReceiver) error {
-	nstmt, err := d.PrepareNamed(`INSERT INTO regions (name, description) VALUES (:name, :description) RETURNING *;`)
+	nstmt, err := d.PrepareNamed(`INSERT INTO regions (slug, name) VALUES (:slug, :name) RETURNING *;`)
 	if err != nil {
 		return err
 	}

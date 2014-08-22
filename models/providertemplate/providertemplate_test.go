@@ -30,14 +30,14 @@ var _ = Describe("models/providertemplate", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		r = &region.Region{Name: "apse1", Description: "Southeast Asia"}
+		r = &region.Region{Slug: "apse1", Name: "Southeast Asia"}
 		err = r.Insert(db)
 		Expect(err).To(BeNil())
 
-		p1 = &plan.Plan{Name: "micro", MaxContainers: 1, Price: 500}
+		p1 = &plan.Plan{Slug: "512mb", Name: "micro", MaxContainers: 1, Price: 500}
 		err = p1.Insert(db)
 		Expect(err).To(BeNil())
-		p2 = &plan.Plan{Name: "small", MaxContainers: 3, Price: 1000}
+		p2 = &plan.Plan{Slug: "1gb", Name: "small", MaxContainers: 3, Price: 1000}
 		err = p2.Insert(db)
 		Expect(err).To(BeNil())
 

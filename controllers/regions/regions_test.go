@@ -53,11 +53,11 @@ var _ = Describe("controllers/regions", func() {
 		}
 
 		Context("when regions exist", func() {
-			var regionNames = []string{"uswest", "useast", "europe"}
+			var regionSlugs = []string{"uswest", "useast", "europe"}
 
 			BeforeEach(func() {
-				for _, n := range regionNames {
-					r := region.Region{Name: n}
+				for _, n := range regionSlugs {
+					r := region.Region{Slug: n}
 					Expect(r.Insert(db)).To(BeNil())
 				}
 			})
@@ -72,11 +72,11 @@ var _ = Describe("controllers/regions", func() {
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 				Expect(j.Regions).To(HaveLen(3))
-				names := []string{}
+				slugs := make([]string, 0, len(regionSlugs))
 				for _, r := range j.Regions {
-					names = append(names, r.Name)
+					slugs = append(slugs, r.Slug)
 				}
-				Expect(names).To(ConsistOf(regionNames))
+				Expect(slugs).To(ConsistOf(regionSlugs))
 			})
 		})
 

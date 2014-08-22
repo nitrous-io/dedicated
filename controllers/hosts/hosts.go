@@ -95,8 +95,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return errSlugRequired
 	}
 
-	regionName := r.FormValue("region")
-	if regionName == "" {
+	regionSlug := r.FormValue("region")
+	if regionSlug == "" {
 		return errRegionRequired
 	}
 
@@ -106,7 +106,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// TODO: check if user account is eligible to create hosts (has a credit card on file)
-	pl, err := plan.FindByName(db, size)
+	pl, err := plan.FindBySlug(db, size)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return errPlanNotFound
 	}
 
-	rg, err := region.FindByName(db, regionName)
+	rg, err := region.FindBySlug(db, regionSlug)
 	if err != nil {
 		return err
 	}

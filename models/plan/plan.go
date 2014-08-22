@@ -10,6 +10,7 @@ import (
 type Plan struct {
 	ID            int64      `db:"id"`
 	Name          string     `db:"name"`
+	Slug          string     `db:"slug"`
 	MaxContainers int64      `db:"max_containers"`
 	Price         int64      `db:"price"`
 	CreatedAt     *time.Time `db:"created_at"`
@@ -28,9 +29,9 @@ func FindByID(d db.QueryReceiver, id int64) (*Plan, error) {
 	return plan, nil
 }
 
-func FindByName(d db.QueryReceiver, name string) (*Plan, error) {
+func FindBySlug(d db.QueryReceiver, slug string) (*Plan, error) {
 	plan := &Plan{}
-	err := d.Get(plan, `SELECT * FROM plans WHERE name = $1`, name)
+	err := d.Get(plan, `SELECT * FROM plans WHERE slug = $1`, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -42,7 +43,7 @@ func FindByName(d db.QueryReceiver, name string) (*Plan, error) {
 
 func All(d db.QueryReceiver) ([]*Plan, error) {
 	pls := []*Plan{}
-	if err := d.Select(&pls, `SELECT * FROM plans ORDER BY (price, name)`); err != nil {
+	if err := d.Select(&pls, `SELECT * FROM plans ORDER BY (price, max_containers, name)`); err != nil {
 		return nil, err
 	}
 	return pls, nil
@@ -50,8 +51,8 @@ func All(d db.QueryReceiver) ([]*Plan, error) {
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(name, max_containers, price)
-		VALUES (:name, :max_containers, :price)
+		(slug, name, max_containers, price)
+		VALUES (:slug, :name, :max_containers, :price)
 		RETURNING *;`)
 	if err != nil {
 		return err

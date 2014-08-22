@@ -25,9 +25,9 @@ var _ = Describe("models/region", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec("INSERT INTO regions (name, description) values ($1, $2);", "apse1", "Southeast Asia")
+		_, err = db.Exec("INSERT INTO regions (slug, name) values ($1, $2);", "apse1", "Southeast Asia")
 		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO regions (name, description) values ($1, $2);", "uswest", "US West")
+		_, err = db.Exec("INSERT INTO regions (slug, name) values ($1, $2);", "uswest", "US West")
 		Expect(err).To(BeNil())
 	})
 
@@ -41,7 +41,7 @@ var _ = Describe("models/region", func() {
 		var id int64
 
 		BeforeEach(func() {
-			err := db.QueryRow(`SELECT id FROM regions WHERE name = $1;`, "apse1").Scan(&id)
+			err := db.QueryRow(`SELECT id FROM regions WHERE slug = $1;`, "apse1").Scan(&id)
 			Expect(err).To(BeNil())
 			Expect(id).NotTo(BeZero())
 		})
@@ -64,21 +64,21 @@ var _ = Describe("models/region", func() {
 		})
 	})
 
-	Describe("FindByName()", func() {
-		Context("when a region record with a given name exists", func() {
+	Describe("FindBySlug()", func() {
+		Context("when a region record with a given slug exists", func() {
 			It("returns the region record", func() {
-				r, err := region.FindByName(db, "apse1")
+				r, err := region.FindBySlug(db, "apse1")
 				Expect(err).To(BeNil())
 				Expect(r).NotTo(BeNil())
 				Expect(r.ID).NotTo(BeZero())
-				Expect(r.Name).To(Equal("apse1"))
-				Expect(r.Description).To(Equal("Southeast Asia"))
+				Expect(r.Slug).To(Equal("apse1"))
+				Expect(r.Name).To(Equal("Southeast Asia"))
 			})
 		})
 
-		Context("when a region record with a given name does not exist", func() {
+		Context("when a region record with a given slug does not exist", func() {
 			It("returns nil", func() {
-				r, err := region.FindByName(db, "non-existent-region")
+				r, err := region.FindBySlug(db, "non-existent-region")
 				Expect(err).To(BeNil())
 				Expect(r).To(BeNil())
 			})
@@ -87,7 +87,7 @@ var _ = Describe("models/region", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				r, err := region.FindByName(db, "apse1")
+				r, err := region.FindBySlug(db, "apse1")
 				Expect(r).To(BeNil())
 				Expect(err).NotTo(BeNil())
 			})
@@ -99,8 +99,8 @@ var _ = Describe("models/region", func() {
 			rs, err := region.All(db)
 			Expect(err).To(BeNil())
 			Expect(rs).To(HaveLen(2))
-			Expect([]string{rs[0].Name, rs[1].Name}).To(ConsistOf([]string{"apse1", "uswest"}))
-			Expect([]string{rs[0].Description, rs[1].Description}).To(ConsistOf([]string{"Southeast Asia", "US West"}))
+			Expect([]string{rs[0].Slug, rs[1].Slug}).To(ConsistOf([]string{"apse1", "uswest"}))
+			Expect([]string{rs[0].Name, rs[1].Name}).To(ConsistOf([]string{"Southeast Asia", "US West"}))
 		})
 	})
 
@@ -112,20 +112,20 @@ var _ = Describe("models/region", func() {
 		BeforeEach(func() {
 			var err error
 			r = &region.Region{
-				Name:        "kalim",
-				Description: "Kalimdor",
+				Slug: "kalim",
+				Name: "Kalimdor",
 			}
 			err = r.Insert(db)
 			Expect(err).To(BeNil())
 		})
 
 		It("persists the region in the database", func() {
-			r2, err := region.FindByName(db, "kalim")
+			r2, err := region.FindBySlug(db, "kalim")
 			Expect(err).To(BeNil())
 			Expect(r2).NotTo(BeNil())
 			Expect(r2.ID).NotTo(BeZero())
-			Expect(r2.Name).To(Equal("kalim"))
-			Expect(r2.Description).To(Equal("Kalimdor"))
+			Expect(r2.Slug).To(Equal("kalim"))
+			Expect(r2.Name).To(Equal("Kalimdor"))
 			Expect(r2.CreatedAt).NotTo(BeNil())
 			Expect(r2.UpdatedAt).NotTo(BeNil())
 		})

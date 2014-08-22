@@ -13,8 +13,10 @@ var _ = Describe("plan serializer", func() {
 	Describe("SerializePlan", func() {
 		var model = &plan.Plan{
 			ID:            123,
-			Name:          "micro",
-			MaxContainers: 3, // Not serialized.
+			Slug:          "1gb",
+			Name:          "Small",
+			MaxContainers: 3,
+			Price:         1000,
 		}
 
 		It("serializes to JSON", func() {
@@ -23,7 +25,10 @@ var _ = Describe("plan serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
 				"id": 123,
-				"name": "micro"
+				"slug": "1gb",
+				"name": "Small",
+				"max_containers": 3,
+				"price": 1000
 			}`))
 		})
 	})

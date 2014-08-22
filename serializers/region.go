@@ -3,9 +3,9 @@ package serializers
 import "github.com/nitrous-io/nitrous/models/region"
 
 type Region struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	ID   int64  `json:"id"`
+	Slug string `json:"slug"`
+	Name string `json:"name"`
 }
 
 func SerializeRegion(r *region.Region) *Region {
@@ -13,9 +13,9 @@ func SerializeRegion(r *region.Region) *Region {
 		return nil
 	}
 	return &Region{
-		ID:          r.ID,
-		Name:        r.Name,
-		Description: r.Description,
+		ID:   r.ID,
+		Slug: r.Slug,
+		Name: r.Name,
 	}
 }
 

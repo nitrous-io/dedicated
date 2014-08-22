@@ -47,11 +47,11 @@ var _ = Describe("models/container", func() {
 		err = u.Insert(db)
 		Expect(err).To(BeNil())
 
-		r = &region.Region{Name: "apse1", Description: "Southeast Asia"}
+		r = &region.Region{Slug: "apse1", Name: "Southeast Asia"}
 		err = r.Insert(db)
 		Expect(err).To(BeNil())
 
-		p = &plan.Plan{Name: "micro", MaxContainers: 1, Price: 500}
+		p = &plan.Plan{Slug: "512mb", Name: "micro", MaxContainers: 1, Price: 500}
 		err = p.Insert(db)
 		Expect(err).To(BeNil())
 

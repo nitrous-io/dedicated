@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("region serializer", func() {
 	Describe("SerializeRegion", func() {
-		var model = &region.Region{ID: 5, Name: "apse", Description: "Southeast Asia"}
+		var model = &region.Region{ID: 5, Slug: "apse", Name: "Southeast Asia"}
 
 		It("serializes to JSON", func() {
 			r := serializers.SerializeRegion(model)
@@ -19,8 +19,8 @@ var _ = Describe("region serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
 				"id": 5,
-				"name": "apse",
-				"description": "Southeast Asia"
+				"slug": "apse",
+				"name": "Southeast Asia"
 			}`))
 		})
 	})

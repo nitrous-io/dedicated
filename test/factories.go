@@ -69,7 +69,7 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 	}
 
 	if hs.R == nil {
-		hs.R = &region.Region{Name: makeUnique("apse"), Description: "Southeast Asia"}
+		hs.R = &region.Region{Slug: makeUnique("apse"), Name: "Southeast Asia"}
 	}
 
 	if hs.R.ID == 0 {
@@ -81,7 +81,7 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 	}
 
 	if hs.P == nil {
-		hs.P = &plan.Plan{Name: makeUnique("micro"), MaxContainers: 1, Price: 500}
+		hs.P = &plan.Plan{Slug: makeUnique("plan"), Name: makeUnique("desc"), MaxContainers: 1, Price: 500}
 	}
 	if hs.P.ID == 0 {
 		err = hs.P.Insert(tx)

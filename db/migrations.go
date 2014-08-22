@@ -276,6 +276,18 @@ func init() {
 			`,
 		},
 		{
+			Version: "215",
+			Up: `
+				DROP INDEX index_plans_on_name;
+        ALTER TABLE plans ADD COLUMN slug character varying(255) NOT NULL;
+				CREATE UNIQUE INDEX index_plans_on_slug ON plans USING btree (slug);
+        DROP INDEX index_regions_on_name;
+				ALTER TABLE regions RENAME COLUMN name TO slug;
+				CREATE UNIQUE INDEX index_regions_on_slug ON regions USING btree (slug);
+				ALTER TABLE regions RENAME COLUMN description TO name;
+      `,
+		},
+		{
 			Version: "220",
 			Up: `
 				ALTER TABLE tokens ALTER COLUMN token SET DEFAULT left(encode(gen_random_bytes(191), 'base64'), 255);
