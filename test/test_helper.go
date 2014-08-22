@@ -79,8 +79,8 @@ var (
 	{
 		"status": "OK",
 		"regions": [
-			{ "id": 1, "name": "New York 1", "slug": "nyc1" },
-			{ "id": 2, "name": "Amsterdam 1", "slug": "ams1" },
+			{ "id": 1, "name": "New York 1", "slug": "nyc2" },
+			{ "id": 2, "name": "Amsterdam 1", "slug": "ams2" },
 			{ "id": 3, "name": "San Francisco 1", "slug": "sfo1" }
 		]
 	}

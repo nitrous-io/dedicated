@@ -42,7 +42,7 @@ var _ = Describe("pkg/digitalocean", func() {
 			s.AddResponse("regions", dotest.NewResponse(200, AllRegions))
 			s.AddResponse("droplets/new", dotest.NewResponse(200, NewDroplet))
 
-			droplet, err := c.CreateDroplet("test222", "33", "2", "3", 1, false)
+			droplet, err := c.CreateDroplet("test222", "33", "2", "nyc", 1, false)
 			Expect(err).To(BeNil())
 
 			expectedDroplet := &DropletResp{}

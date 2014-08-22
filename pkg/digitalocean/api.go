@@ -110,6 +110,14 @@ type (
 	}
 )
 
+var regionsMap = map[string]string{
+	"sgp": "sgp1",
+	"nyc": "nyc2",
+	"sfo": "sfo1",
+	"ams": "ams2",
+	"lon": "lon1",
+}
+
 // Creates a new client for communicating with DO
 // To fake the server, replace BaseURL with the desired URL after the client is
 // created
@@ -164,17 +172,22 @@ func (d Client) CreateDroplet(
 
 	size, err := d.Size(rawSize)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid size or lookup failure: '%s': %s", size, err)
+		return nil, fmt.Errorf("Invalid size or lookup failure: '%s': %s", rawSize, err)
 	}
 
 	image, err := d.Image(rawImage)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid image or lookup failure: '%s': %s", image, err)
+		return nil, fmt.Errorf("Invalid image or lookup failure: '%s': %s", rawImage, err)
 	}
 
-	region, err := d.Region(rawRegion)
+	normalizedRegion, ok := regionsMap[rawRegion]
+	if !ok {
+		return nil, fmt.Errorf("Invalid region or lookup failure: '%s': %s", rawRegion, err)
+	}
+
+	region, err := d.Region(normalizedRegion)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid region or lookup failure: '%s': %s", region, err)
+		return nil, fmt.Errorf("Invalid region or lookup failure: '%s': %s", rawRegion, err)
 	}
 
 	params.Set("size_id", strconv.Itoa(size.ID))
