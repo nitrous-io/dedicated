@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/hostbuilder"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous-common/msgverifier"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/controllers/hosts"
 	"github.com/nitrous-io/nitrous/db"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/hosttoken"
 	"github.com/nitrous-io/nitrous/models/keypairs"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/region"
@@ -1280,6 +1282,44 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("POST /api/v0/hosts/{slug}/token", func() {
+		secret := "s3cr3t"
+
+		doRequest := func() {
+			req, err := NewRequest("POST", "/api/v0/hosts/foo/token", nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			var err error
+			hs, err = CreateHostStack(db, &HostStack{
+				H: &host.Host{Slug: "foo", State: host.StateStopped, Secret: secret},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		It("returns an HMAC token signed with the shared secret", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j map[string]string
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			var t *hosttoken.HostToken
+			err = msgverifier.New(secret).Verify(j["host_token"], &t)
+			Expect(err).To(BeNil())
+			Expect(t.Permissions).To(HaveLen(1))
+			Expect(t.Permissions).To(ContainElement(hosttoken.PermissionAttach))
+			Expect(t.CreatedAt).NotTo(BeNil())
+			Expect(t.ExpiresAt).NotTo(BeNil())
+			Expect(t.ExpiresAt.Sub(*t.CreatedAt)).To(Equal(hosttoken.DefaultValidityPeriod))
 		})
 	})
 })

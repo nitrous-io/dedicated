@@ -9,11 +9,13 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/nitrous-io/nitrous-common/msgverifier"
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/hosttoken"
 	"github.com/nitrous-io/nitrous/models/keypairs"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/providertemplate"
@@ -358,6 +360,25 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	return nil
 }
 
+func Token(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	createdAt := time.Now()
+	expiresAt := createdAt.Add(hosttoken.DefaultValidityPeriod)
+	t, err := msgverifier.New(h.Secret).Generate(&hosttoken.HostToken{
+		Permissions: []string{hosttoken.PermissionAttach},
+		CreatedAt:   &createdAt,
+		ExpiresAt:   &expiresAt,
+	})
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"host_token": t,
+	}
+	return nil
+}
+
 // stateTransition reflects the transition of host states during a hostbuilder operation.
 type stateTransition struct {
 	From         string
@@ -420,7 +441,6 @@ func serializeHost(env *middleware.Env, h *host.Host) {
 	env.Data = map[string]interface{}{
 		"host": serializers.SerializeHost(h),
 	}
-	return
 }
 
 func publishHostEvent(env *middleware.Env, name string, h *host.Host) {
