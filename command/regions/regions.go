@@ -65,7 +65,7 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Synopsis() string {
-	return "List available regions in Nitrous.IO"
+	return "List available regions"
 }
 
 func (c *Command) fetchRegions() ([]*Region, error) {
