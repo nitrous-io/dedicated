@@ -4,3 +4,7 @@ App.HostsNewRoute = App.AuthedRoute.extend
 
   renderTemplate: ->
     @render 'hosts/new', outlet: 'content'
+
+  setupController: (controller) ->
+    @_super.apply this, arguments
+    controller.clear()

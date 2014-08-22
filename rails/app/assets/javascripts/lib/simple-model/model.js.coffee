@@ -36,7 +36,7 @@ SM.Model = klass = Ember.Object.extend
 
   save: ->
     adapter = Ember.get(@constructor, 'adapter')
-    if primaryKey = @getPrimaryKey()
+    if primaryKey = @getPrimaryKey() && @get('loaded')
       # TODO: update record
     else
       adapter.createRecord(this)

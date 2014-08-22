@@ -78,6 +78,23 @@ abbr[title]
 .no-text-transform
   text-transform: none
 
+.spinner
+  margin: 0 16px
+  display: inline-block
+  line-height: 1
+  animation: spin 2s infinite linear
+  font-family: FontAwesome
+  font-weight: normal
+  font-style: normal
+  +grayscale-font-smoothing
+
+  &:before
+    content: "\f1ce"
+
+.ui.btn
+  .spinner
+    margin: 0 8px 0 0
+
 .CodeMirror
   border: 1px solid $gray300
   margin-bottom: 1px

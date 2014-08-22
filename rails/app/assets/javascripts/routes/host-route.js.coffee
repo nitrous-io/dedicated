@@ -3,7 +3,12 @@ App.HostRoute = App.AuthedRoute.extend
     fetch = App.Host.fetch(params.hostSlug)
     host = fetch.value
     App.set 'selectedHost', host
-    fetch
+    fetch.catch (jqxhr) =>
+      if jqxhr.status == 404
+        Em.run.next ->
+          App.snackbar.post("Host “#{params.hostSlug}” could not be found.")
+      @transitionTo 'home.index'
+    host
 
   renderTemplate: ->
     @render 'host', outlet: 'content'

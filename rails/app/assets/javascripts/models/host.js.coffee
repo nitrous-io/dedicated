@@ -4,6 +4,8 @@ attr = SM.attr
 App.Host = klass = App.Model.extend
   id: attr('number', serialize: false)
   userId: attr('number', as: 'user_id', serialize: false)
+  regionId: attr('number', as: 'region_id', serialize: false)
+  planId: attr('number', as: 'plan_id', serialize: false)
   slug: attr()
   name: attr()
   state: attr(serialize: false)
@@ -12,6 +14,10 @@ App.Host = klass = App.Model.extend
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'updated_at', serialize: false)
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
+
+  # only used in create
+  planSlug: attr(as: 'size')
+  regionSlug: attr(as: 'region')
 
   stats: null
 
@@ -27,6 +33,16 @@ App.Host = klass = App.Model.extend
     if id = @get('id')
       App.get('containers')?.filterBy('hostId', id)
   ).property('id', 'App.containers.@each')
+
+  region: (->
+    if regionId = @get('regionId')
+      App.get('regions').findBy('id', regionId)
+  ).property('regionId')
+
+  plan: (->
+    if planId = @get('planId')
+      App.get('plans').findBy('id', planId)
+  ).property('planId')
 
   selected: (->
     App.get('selectedHost') == this

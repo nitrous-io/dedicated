@@ -6,45 +6,23 @@ form
     .ui.input-group
       label.field-label for='hosts-new-name'
         | Name
-      input type='text' id='hosts-new-name' name='name'
+      = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' value=name
 
       label.field-label for='hosts-new-slug'
         | Unique Slug
-      input type='text' id='hosts-new-slug' name='slug'
+      = input type='text' id='hosts-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern='[a-z0-9][a-z0-9\-]*' value=slug
 
       label.field-label for='hosts-new-region'
         | Region
 
       ul.ui.checkbox-group.horizontal
-        li
-          .ui.checkbox
-            input type='radio' id='hosts-new-region-sfo' name='region' checked='checked'
-            label
-          label for='hosts-new-region-sfo' US West (sfo)
-
-        li
-          .ui.checkbox
-            input type='radio' id='hosts-new-region-nyc' name='region'
-            label
-          label for='hosts-new-region-nyc' US East (nyc)
-
-        li
-          .ui.checkbox
-            input type='radio' id='hosts-new-region-sgp' name='region'
-            label
-          label for='hosts-new-region-sgp' Asia (sgp)
-
-        li
-          .ui.checkbox
-            input type='radio' id='hosts-new-region-lon' name='region'
-            label
-          label for='hosts-new-region-lon' Europe (lon)
-
-        li
-          .ui.checkbox
-            input type='radio' id='hosts-new-region-ams' name='region'
-            label
-          label for='hosts-new-region-ams' Europe (ams)
+        each region in App.regions
+          li
+            .ui.checkbox
+              = input type='radio' name='region' id=region.radioId value=region.slug
+              label
+            label for={region.radioId}
+              = region.name
 
   .card-body.bordered
     .ui.input-group
@@ -53,93 +31,43 @@ form
     .size-selection
       .size-list
         ul.ui.list.item-1-line
-          li.list-item
-            .left-accessory
-              .ui.checkbox
-                input type='radio' id='hosts-new-size-1gb' name='size'
-                label
-            .lines
-              p
-                label for='hosts-new-size-1gb' Micro
-            .lines.right
-              p $15/mo
-          li.list-item
-            .left-accessory
-              .ui.checkbox
-                input type='radio' id='hosts-new-size-2gb' name='size' checked='checked'
-                label
-            .lines
-              p
-                label for='hosts-new-size-2gb' Small
-            .lines.right
-              p $30/mo
-          li.list-item
-            .left-accessory
-              .ui.checkbox
-                input type='radio' id='hosts-new-size-4gb' name='size'
-                label
-            .lines
-              p
-                label for='hosts-new-size-4gb' Medium
-            .lines.right
-              p $60/mo
-          li.list-item.disabled
-            .left-accessory
-              .ui.checkbox
-                input type='radio' id='hosts-new-size-8gb' name='size' disabled='disabled'
-                label
-            .lines
-              p
-                label for='hosts-new-size-8gb' Large
-            .lines.right
-              p $120/mo
-          li.list-item.disabled
-            .left-accessory
-              .ui.checkbox
-                input type='radio' id='hosts-new-size-16gb' name='size' disabled='disabled'
-                label
-            .lines
-              p
-                label for='hosts-new-size-16gb' XLarge
-            .lines.right
-              p $240/mo
-          li.list-item.disabled
-            .left-accessory
-              .ui.checkbox
-                input type='radio' id='hosts-new-size-32gb' name='size' disabled='disabled'
-                label
-            .lines
-              p
-                label for='hosts-new-size-32gb' 2XLarge
-            .lines.right
-              p $480/mo
-          li.list-item.disabled
-            .left-accessory
-              .ui.checkbox
-                input type='radio' id='hosts-new-size-64gb' name='size' disabled='disabled'
-                label
-            .lines
-              p
-                label for='hosts-new-size-64gb' 4XLarge
-            .lines.right
-              p $960/mo
+          each plan in App.plans
+            li.list-item
+              .left-accessory
+                .ui.checkbox
+                  = input type='radio' name='size' id=plan.radioId value=plan.slug
+                  label
+              .lines
+                p
+                  label for=plan.radioId
+                    = plan.name
+              .lines.right
+                p
+                  | $&nbsp;
+                  = decimal plan.price 2
+                  | &nbsp;/&nbsp;mo.
+
       .size-description
         table.ui.table.horizontal
           tr
-            th Container Limit
-            td ∞
+            th Max. Containers
+            td
+              = selectedPlan.maxContainers
 
           tr
             th Processor Cores
-            td 2
+            td
+              = selectedPlan.cpu
 
           tr
             th Total Memory
-            td 2 GB
+            td
+              = selectedPlan.memory
 
           tr
             th Total SSD Storage
-            td 40 GB
+            td
+              = selectedPlan.storage
 
           tr
             th Container Root Access
@@ -168,5 +96,10 @@ form
 
   .card-footer.bordered
     .right
-      button.ui.btn Cancel
-      button.ui.btn.primary Create
+      if saving
+        button.ui.btn disabled='disabled'
+          .spinner
+          | Creating...
+      else
+        button.ui.btn click='cancel' Cancel
+        button.ui.btn.primary click='create' disabled={view.createButtonDisabled} Create

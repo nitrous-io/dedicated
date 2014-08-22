@@ -9,3 +9,7 @@ Em.Handlebars.helper 'gibibytes', (num) ->
 Em.Handlebars.helper 'toFixed', (num, digits) ->
   if typeof num == 'number'
     num.toFixed(digits)
+
+Em.Handlebars.helper 'decimal', (num, digits) ->
+  if typeof num == 'number'
+    num / Math.pow(10, digits)

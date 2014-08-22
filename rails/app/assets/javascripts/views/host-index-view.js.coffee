@@ -34,3 +34,6 @@ App.HostIndexView = Em.View.extend
     confirmTerminate: ->
       ui.hideModal('#terminate-modal-dialog')
       @get('controller').send 'terminate'
+
+  clickTerminate: =>
+    @$('.terminate-btn').click()

@@ -17,6 +17,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
   containers: null
   selectedHost: null
   selectedContainer: null
+  regions: null
+  plans: null
 
   didChangeTitle: (->
     title = @get 'title'
@@ -39,6 +41,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
       user: null
       hosts: null
       containers: null
+      regions: null
+      plans: null
     Ember.notifyPropertyChange App.User, '_cache'
     Ember.notifyPropertyChange App.Host, '_cache'
     Ember.notifyPropertyChange App.Container, '_cache'

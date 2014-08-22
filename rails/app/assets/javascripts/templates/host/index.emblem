@@ -29,10 +29,9 @@
           span.empty &ndash;
 
     tr
-      th Created At
+      th Region
       td
-        abbr title={view.createdAtUTC}
-          = ago createdAt
+        = region.name
       th
         | Memory
         span.no-text-transform &nbsp;(MiB)
@@ -45,8 +44,9 @@
           span.empty &ndash;
 
     tr
-      th
+      th Size
       td
+        = plan.name
       th
         | Storage
         span.no-text-transform &nbsp;(GiB)
@@ -57,6 +57,12 @@
           = gibibytes stats.storageTotal
         else
           span.empty &ndash;
+
+    tr
+      th Created At
+      td colspan='3'
+        abbr title={view.createdAtUTC}
+          = ago createdAt
 
 .card-footer.bordered
   if isRunning
@@ -99,8 +105,8 @@
           |)
         | &nbsp;to confirm:
       .ui.input-group
-        = input class='focus' type='text' placeholder=displayName value=view.terminateSlugConfirmation
+        Em.TextField class='focus' placeholder=slug value=view.terminateSlugConfirmation insertNewline=view.clickTerminate
     .card-footer
       .right
         button.ui.btn click='cancelTerminate target="view"' Cancel
-        button.ui.btn.primary click='confirmTerminate target="view"' disabled=view.terminateSlugConfirmationInvalid Terminate
+        button.ui.btn.primary.terminate-btn click='confirmTerminate target="view"' disabled=view.terminateSlugConfirmationInvalid Terminate
