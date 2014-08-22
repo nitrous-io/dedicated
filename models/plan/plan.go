@@ -13,6 +13,9 @@ type Plan struct {
 	Slug          string     `db:"slug"`
 	MaxContainers int64      `db:"max_containers"`
 	Price         int64      `db:"price"`
+	CPU           string     `db:"cpu"`
+	Memory        string     `db:"memory"`
+	Storage       string     `db:"storage"`
 	CreatedAt     *time.Time `db:"created_at"`
 	UpdatedAt     *time.Time `db:"updated_at"`
 }
@@ -51,8 +54,8 @@ func All(d db.QueryReceiver) ([]*Plan, error) {
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price)
-		VALUES (:slug, :name, :max_containers, :price)
+		(slug, name, max_containers, price, cpu, memory, storage)
+		VALUES (:slug, :name, :max_containers, :price, :cpu, :memory, :storage)
 		RETURNING *;`)
 	if err != nil {
 		return err

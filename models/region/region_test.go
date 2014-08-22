@@ -25,9 +25,11 @@ var _ = Describe("models/region", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec("INSERT INTO regions (slug, name) values ($1, $2);", "apse1", "Southeast Asia")
+		_, err = db.Exec("INSERT INTO regions (slug, name, rank) values ($1, $2, $3);", "apse1", "Southeast Asia", 2)
 		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO regions (slug, name) values ($1, $2);", "uswest", "US West")
+		_, err = db.Exec("INSERT INTO regions (slug, name, rank) values ($1, $2, $3);", "uswest", "US West", 3)
+		Expect(err).To(BeNil())
+		_, err = db.Exec("INSERT INTO regions (slug, name, rank) values ($1, $2, $3);", "useast", "US East", 1)
 		Expect(err).To(BeNil())
 	})
 
@@ -73,6 +75,7 @@ var _ = Describe("models/region", func() {
 				Expect(r.ID).NotTo(BeZero())
 				Expect(r.Slug).To(Equal("apse1"))
 				Expect(r.Name).To(Equal("Southeast Asia"))
+				Expect(r.Rank).To(Equal(int64(2)))
 			})
 		})
 
@@ -95,12 +98,12 @@ var _ = Describe("models/region", func() {
 	})
 
 	Describe("All()", func() {
-		It("returns all regions", func() {
+		It("returns all regions, ordered by rank", func() {
 			rs, err := region.All(db)
 			Expect(err).To(BeNil())
-			Expect(rs).To(HaveLen(2))
-			Expect([]string{rs[0].Slug, rs[1].Slug}).To(ConsistOf([]string{"apse1", "uswest"}))
-			Expect([]string{rs[0].Name, rs[1].Name}).To(ConsistOf([]string{"Southeast Asia", "US West"}))
+			Expect(rs).To(HaveLen(3))
+			Expect([]string{rs[0].Slug, rs[1].Slug, rs[2].Slug}).To(ConsistOf([]string{"useast", "apse1", "uswest"}))
+			Expect([]string{rs[0].Name, rs[1].Name, rs[2].Name}).To(ConsistOf([]string{"US East", "Southeast Asia", "US West"}))
 		})
 	})
 
@@ -114,6 +117,7 @@ var _ = Describe("models/region", func() {
 			r = &region.Region{
 				Slug: "kalim",
 				Name: "Kalimdor",
+				Rank: 33,
 			}
 			err = r.Insert(db)
 			Expect(err).To(BeNil())
@@ -126,6 +130,7 @@ var _ = Describe("models/region", func() {
 			Expect(r2.ID).NotTo(BeZero())
 			Expect(r2.Slug).To(Equal("kalim"))
 			Expect(r2.Name).To(Equal("Kalimdor"))
+			Expect(r2.Rank).To(Equal(int64(33)))
 			Expect(r2.CreatedAt).NotTo(BeNil())
 			Expect(r2.UpdatedAt).NotTo(BeNil())
 		})

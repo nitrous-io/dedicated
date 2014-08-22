@@ -25,9 +25,9 @@ var _ = Describe("models/plan", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec("INSERT INTO plans (slug, name, max_containers, price) values ($1, $2, $3, $4);", "1gb", "Micro", 4, 1995)
+		_, err = db.Exec("INSERT INTO plans (slug, name, max_containers, price, cpu, memory, storage) values ($1, $2, $3, $4, $5, $6, $7);", "1gb", "Micro", 4, 1995, "2", "1 GB", "20 GB")
 		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO plans (slug, name, max_containers, price) values ($1, $2, $3, $4);", "2gb", "Small", 8, 3995)
+		_, err = db.Exec("INSERT INTO plans (slug, name, max_containers, price, cpu, memory, storage) values ($1, $2, $3, $4, $5, $6, $7);", "2gb", "Small", 8, 3995, "4", "2 GB", "30 GB")
 		Expect(err).To(BeNil())
 	})
 
@@ -75,6 +75,9 @@ var _ = Describe("models/plan", func() {
 				Expect(p.Name).To(Equal("Micro"))
 				Expect(p.MaxContainers).To(Equal(int64(4)))
 				Expect(p.Price).To(Equal(int64(1995)))
+				Expect(p.CPU).To(Equal("2"))
+				Expect(p.Memory).To(Equal("1 GB"))
+				Expect(p.Storage).To(Equal("20 GB"))
 			})
 		})
 
@@ -118,6 +121,9 @@ var _ = Describe("models/plan", func() {
 				Name:          "Nano",
 				MaxContainers: 2,
 				Price:         995,
+				CPU:           "1",
+				Memory:        "512 MB",
+				Storage:       "20 GB",
 			}
 			err = p.Insert(db)
 			Expect(err).To(BeNil())
@@ -132,6 +138,9 @@ var _ = Describe("models/plan", func() {
 			Expect(p2.Name).To(Equal("Nano"))
 			Expect(p2.MaxContainers).To(Equal(int64(2)))
 			Expect(p2.Price).To(Equal(int64(995)))
+			Expect(p2.CPU).To(Equal("1"))
+			Expect(p2.Memory).To(Equal("512 MB"))
+			Expect(p2.Storage).To(Equal("20 GB"))
 			Expect(p2.CreatedAt).NotTo(BeNil())
 			Expect(p2.UpdatedAt).NotTo(BeNil())
 		})

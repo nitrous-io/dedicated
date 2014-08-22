@@ -12,6 +12,7 @@ type Host struct {
 	RegionID       int64  `json:"region_id"`
 	PlanID         int64  `json:"plan_id"`
 	Slug           string `json:"slug"`
+	Name           string `json:"name"`
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort int64  `json:"freighterd_port"`
 	Hostname       string `json:"hostname"` // where we can access the host i.e. slug.nitrouspro.com
@@ -35,6 +36,7 @@ func SerializeHost(h *host.Host) *Host {
 		RegionID:       h.RegionID,
 		PlanID:         h.PlanID,
 		Slug:           h.Slug,
+		Name:           h.Name.String,
 		IPAddress:      h.IPAddress.String,
 		FreighterdPort: h.FreighterdPort.Int64,
 		Size:           h.Size.String,

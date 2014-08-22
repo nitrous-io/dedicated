@@ -295,6 +295,15 @@ func init() {
       `,
 		},
 		{
+			Version: "225",
+			Up: `
+				ALTER TABLE regions ADD COLUMN rank bigint NOT NULL DEFAULT 0;
+				ALTER TABLE plans ADD COLUMN cpu character varying(255) NOT NULL DEFAULT '';
+				ALTER TABLE plans ADD COLUMN memory character varying(255) NOT NULL DEFAULT '';
+				ALTER TABLE plans ADD COLUMN storage character varying(255) NOT NULL DEFAULT '';
+			`,
+		},
+		{
 			Version: "230",
 			Up: `
 				ALTER TABLE containers ADD COLUMN secret character varying(255) NOT NULL DEFAULT left(encode(gen_random_bytes(191), 'base64'), 255);

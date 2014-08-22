@@ -6,6 +6,7 @@ type Region struct {
 	ID   int64  `json:"id"`
 	Slug string `json:"slug"`
 	Name string `json:"name"`
+	Rank int64  `json:"rank"`
 }
 
 func SerializeRegion(r *region.Region) *Region {
@@ -16,6 +17,7 @@ func SerializeRegion(r *region.Region) *Region {
 		ID:   r.ID,
 		Slug: r.Slug,
 		Name: r.Name,
+		Rank: r.Rank,
 	}
 }
 

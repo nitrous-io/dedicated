@@ -11,6 +11,7 @@ type Region struct {
 	ID        int64      `db:"id"`
 	Slug      string     `db:"slug"`
 	Name      string     `db:"name"`
+	Rank      int64      `db:"rank"`
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
 }
@@ -41,14 +42,14 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Region, error) {
 
 func All(d db.QueryReceiver) ([]*Region, error) {
 	rs := []*Region{}
-	if err := d.Select(&rs, `SELECT * FROM regions ORDER BY slug`); err != nil {
+	if err := d.Select(&rs, `SELECT * FROM regions ORDER BY rank`); err != nil {
 		return nil, err
 	}
 	return rs, nil
 }
 
 func (r *Region) Insert(d db.QueryReceiver) error {
-	nstmt, err := d.PrepareNamed(`INSERT INTO regions (slug, name) VALUES (:slug, :name) RETURNING *;`)
+	nstmt, err := d.PrepareNamed(`INSERT INTO regions (slug, name, rank) VALUES (:slug, :name, :rank) RETURNING *;`)
 	if err != nil {
 		return err
 	}

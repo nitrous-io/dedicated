@@ -87,11 +87,11 @@ func regions(d db.QueryReceiver) error {
 		return err
 	}
 	regions := []region.Region{
-		{Slug: "sgp", Name: "Southeast Asia (Singapore)"},
-		{Slug: "nyc", Name: "US East (New York)"},
-		{Slug: "sfo", Name: "US West (San Francisco)"},
-		{Slug: "ams", Name: "Europe (Amsterdam)"},
-		{Slug: "lon", Name: "Europe (London)"},
+		{Slug: "sfo", Rank: 100, Name: "US West (sfo)"},
+		{Slug: "nyc", Rank: 200, Name: "US East (nyc)"},
+		{Slug: "lon", Rank: 300, Name: "Europe (lon)"},
+		{Slug: "ams", Rank: 400, Name: "Europe (ams)"},
+		{Slug: "sgp", Rank: 500, Name: "Asia (sgp)"},
 	}
 	for _, r := range regions {
 		err = r.Insert(d)
@@ -109,13 +109,13 @@ func plans(d db.QueryReceiver) error {
 		return err
 	}
 	plans := []plan.Plan{
-		{Slug: "512mb", Name: "Nano", MaxContainers: 2, Price: 995},
-		{Slug: "1gb", Name: "Micro", MaxContainers: 4, Price: 1995},
-		{Slug: "2gb", Name: "Small", MaxContainers: 8, Price: 3995},
-		{Slug: "4gb", Name: "Medium", MaxContainers: 16, Price: 7995},
-		{Slug: "8gb", Name: "Large", MaxContainers: 32, Price: 15995},
-		{Slug: "16gb", Name: "XLarge", MaxContainers: 64, Price: 31995},
-		{Slug: "32gb", Name: "2XLarge", MaxContainers: 128, Price: 63995},
+		{Slug: "512mb", CPU: "1", Memory: "512 MB", Storage: "20 GB", Name: "Nano", MaxContainers: 2, Price: 995},
+		{Slug: "1gb", CPU: "1", Memory: "1 GB", Storage: "30 GB", Name: "Micro", MaxContainers: 4, Price: 1995},
+		{Slug: "2gb", CPU: "2", Memory: "2 GB", Storage: "40 GB", Name: "Small", MaxContainers: 8, Price: 3995},
+		{Slug: "4gb", CPU: "2", Memory: "4 GB", Storage: "60 GB", Name: "Medium", MaxContainers: 16, Price: 7995},
+		{Slug: "8gb", CPU: "4", Memory: "8 GB", Storage: "80 GB", Name: "Large", MaxContainers: 32, Price: 15995},
+		{Slug: "16gb", CPU: "8", Memory: "16 GB", Storage: "160 GB", Name: "XLarge", MaxContainers: 64, Price: 31995},
+		{Slug: "32gb", CPU: "12", Memory: "32 GB", Storage: "320 GB", Name: "2XLarge", MaxContainers: 128, Price: 63995},
 	}
 	for _, p := range plans {
 		err = p.Insert(d)

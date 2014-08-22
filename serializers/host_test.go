@@ -48,6 +48,7 @@ var _ = Describe("host serializer", func() {
 				"region_id": 12,
 				"plan_id": 13,
 				"slug": "wild-rocket-23",
+				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",
 				"freighterd_port": 65000,
 				"hostname": "%s",
