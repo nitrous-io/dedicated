@@ -20,14 +20,10 @@ rm -rf $PKGDIR/*.deb
 
 # install our control files over to $PKDIR
 install -m 0644 -D $FILES/control/preinst $PKGDIR/$FILES/control/preinst
-install -m 0644 -D $FILES/control/postinst $PKGDIR/$FILES/control/postinst
 install -m 0644 -D $FILES/control/prerm $PKGDIR/$FILES/control/prerm
 
 # install our freighterd configuration
 install -m 0644 -D $FILES/data/etc/init/freighterd.conf $PKGDIR/etc/init/freighterd.conf
-
-# docker settings that we want
-install -m 0644 -D $FILES/data/etc/default/docker $PKGDIR/etc/default/docker
 
 # install our freighterd binary
 install -m 0755 -D $ARTIFACT_DIR/$APP $PKGDIR/usr/sbin/$APP
@@ -48,10 +44,8 @@ fpm \
   --provides $PACKAGE_NAME \
   --replaces $PACKAGE_NAME \
   --before-install $FILES/control/preinst \
-  --after-install $FILES/control/postinst \
   --before-remove $FILES/control/prerm \
   --config-files /etc/init/freighterd.conf \
-  --config-files /etc/default/docker \
   --license "$PACKAGE_LICENSE" \
   --url "$PACKAGE_URL" \
   --deb-compression gz \
