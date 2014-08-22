@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nitrous-io/sslider/sslgen"
-
 	"github.com/lib/pq"
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
@@ -485,28 +483,4 @@ func publishHostEvent(env *middleware.Env, name string, h *host.Host) {
 		controllers.NewEvent(name, serializers.SerializeHost(h)),
 		env.User.Topic(),
 	)
-}
-
-// generate cert with server certificate and key. The cert will be used for
-// TLS encryption
-func generateCerts(hostname string) (*cert.Cert, error) {
-	ca, err := controllers.CACert()
-	if err != nil {
-		return nil, err
-	}
-
-	// generate server certificates
-	srv, err := sslgen.CreateServerCert(hostname, ca.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	srvKey, srvCrt, err := srv.Generate()
-	if err != nil {
-		return nil, err
-	}
-
-	return &cert.Cert{
-		ServerCert: string(srvCrt),
-		ServerKey:  string(srvKey),
-	}, nil
 }

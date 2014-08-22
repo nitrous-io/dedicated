@@ -2,6 +2,9 @@ package controllers
 
 import (
 	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -35,6 +38,15 @@ func init() {
 	if caCertPath == "" {
 		panic("CA_CERT_PATH is not set")
 	}
+
+	// ensure CA is valid
+	if _, err := CAKey(); err != nil {
+		panic(fmt.Errorf("Error with key in %s: %s", caKeyPath, err))
+	}
+
+	if _, err := CACertX509(); err != nil {
+		panic(fmt.Errorf("Error with cert in %s: %s", caCertPath, err))
+	}
 }
 
 // FreighterClient embeds freighterclient.Client, but also expose the used
@@ -65,9 +77,9 @@ var NewFreighterClient = func(db db.QueryReceiver, h *host.Host) (*FreighterClie
 		h.IPAddress.String,
 		int(h.FreighterdPort.Int64),
 		h.Hostname(),
-		ca, // TODO this can go away once freighter is updated to not require the argument
+		ca,
 	)
-	cl, err := fc.NewClient(hst)
+	cl, err := fc.NewClient(hst, h.Secret)
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +95,31 @@ func CACert() (*sslgen.Cert, error) {
 
 func CACertPEM() ([]byte, error) {
 	return ioutil.ReadFile(caCertPath)
+}
+
+func CAKeyPEM() ([]byte, error) {
+	return ioutil.ReadFile(caKeyPath)
+}
+
+func CAKey() (*rsa.PrivateKey, error) {
+	bs, err := CAKeyPEM()
+	if err != nil {
+		return nil, err
+	}
+	key, err := ssh.ParseRawPrivateKey(bs)
+	if err != nil {
+		return nil, err
+	}
+	return key.(*rsa.PrivateKey), nil
+}
+
+func CACertX509() (*x509.Certificate, error) {
+	bs, err := CACertPEM()
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(bs)
+	return x509.ParseCertificate(block.Bytes)
 }
 
 // TODO: move into sslgen?

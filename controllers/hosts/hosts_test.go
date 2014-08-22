@@ -21,7 +21,6 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
-	"github.com/nitrous-io/sslider/sslgen"
 
 	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/container"
@@ -38,7 +37,9 @@ import (
 )
 
 func init() {
-	sslgen.KeyLen = 512 // shorten key length so tests run faster
+	// shorten key length so tests run faster
+	hosts.KeyLen = 512
+	keypairs.KeyLen = 512
 }
 
 func Test(t *testing.T) {
@@ -869,7 +870,7 @@ var _ = Describe("controllers/hosts", func() {
 					ServerCert: "servercert",
 					ServerKey:  "serverkey",
 				}
-				crt.Insert(tx, hs.H.ID)
+				Expect(crt.Insert(tx, hs.H.ID)).To(BeNil())
 				tx.Commit()
 
 				doRequest(hs.H.Slug)
