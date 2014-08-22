@@ -15,7 +15,7 @@ import (
 )
 
 const DBEnvVar = "NITROUS_PG_URL"
-const DigitalOceanImageID = "5656776"
+const DigitalOceanImageID = "5714430"
 
 var (
 	logr *logger.Logger
