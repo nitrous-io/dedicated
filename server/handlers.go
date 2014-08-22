@@ -38,12 +38,16 @@ func (s *Server) listContainers(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	image := r.FormValue("image")
+	secret := r.FormValue("secret")
 
 	if name == "" || !provider.IsValidName(name) {
 		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"name is not valid"}`))
 		return
 	} else if image == "" {
 		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"image is not valid"}`))
+		return
+	} else if secret == "" {
+		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"secret is not valid"}`))
 		return
 	}
 
@@ -59,7 +63,7 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	info, err := s.provider.Create(name, image, r.FormValue("config"))
+	info, err := s.provider.Create(name, image, secret, r.FormValue("config"))
 
 	if err != nil {
 		s.logger.Error(err)

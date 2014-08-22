@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -37,6 +38,7 @@ var _ = Describe("provider/docker", func() {
 	var (
 		prov    *docker.DockerProvider
 		image   = "nitrousio/ubuntu-bare:trusty"
+		secret  = "s3cr3t"
 		datadir string
 	)
 
@@ -160,7 +162,7 @@ var _ = Describe("provider/docker", func() {
 			var err error
 			name = RandomName("freightertest")
 
-			info, err = prov.Create(name, image, "")
+			info, err = prov.Create(name, image, secret, "")
 			Expect(err).To(BeNil())
 			id = getID(name)
 			host = getHost(id)
@@ -194,6 +196,21 @@ var _ = Describe("provider/docker", func() {
 			Expect(info.ExitCode).To(Equal(c.State.ExitCode))
 			Expect(info.StartedAt).To(Equal(c.State.StartedAt))
 			Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
+
+			settingsDir := prov.ContainerSettingsDir(name)
+			_, err := os.Stat(settingsDir)
+			Expect(err).To(BeNil()) // container settings dir exists
+
+			authKeysFile := path.Join(settingsDir, "ssh", "authorized_keys")
+			_, err = os.Stat(authKeysFile)
+			Expect(err).To(BeNil()) // authorized_keys file exists
+
+			sharedSecretFile := path.Join(settingsDir, "secret")
+			fi, err := os.Stat(sharedSecretFile)
+			Expect(err).To(BeNil())                        // shared secret file exists
+			Expect(fi.Mode()).To(Equal(os.FileMode(0600))) // shared secret file has perm 0600
+			s, err := ioutil.ReadFile(sharedSecretFile)
+			Expect(string(s)).To(Equal(secret))
 		})
 
 		Context("after container is created", func() {
@@ -212,7 +229,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(err).To(BeNil())
 
 					// create another container
-					container2Info, err = prov.Create(container2Name, image, "")
+					container2Info, err = prov.Create(container2Name, image, secret, "")
 					Expect(err).To(BeNil())
 
 					container2Port = getPort(container2Info.ID)
@@ -560,7 +577,7 @@ var _ = Describe("provider/docker", func() {
 					BeforeEach(func() {
 						image := "jpetazzo/busybox"
 						busyboxName = RandomName("freightertest")
-						_, err := prov.Create(busyboxName, image, "")
+						_, err := prov.Create(busyboxName, image, secret, "")
 						Expect(err).To(BeNil())
 						busyboxID = getID(busyboxName)
 					})
@@ -876,7 +893,7 @@ var _ = Describe("provider/docker", func() {
   "PortBindings": ["127.0.0.1:1234:3000"]
 }`
 			name = RandomName("freightertest")
-			info, err = prov.Create(name, image, configJSON)
+			info, err = prov.Create(name, image, secret, configJSON)
 			Expect(err).To(BeNil())
 		})
 

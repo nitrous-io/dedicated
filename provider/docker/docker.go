@@ -94,8 +94,13 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 	return list, nil
 }
 
-func (p *DockerProvider) Create(name, imageName, configJSON string) (*provider.ContainerInfo, error) {
-	err := p.createAuthorizedKeys(name, []string{})
+func (p *DockerProvider) Create(name, imageName, secret, configJSON string) (*provider.ContainerInfo, error) {
+	err := p.storeSharedSecret(name, secret)
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.createAuthorizedKeys(name, []string{})
 	if err != nil {
 		return nil, err
 	}
@@ -778,6 +783,22 @@ func (p *DockerProvider) createContainer(imageName, containerName string, config
 
 func (p *DockerProvider) ContainerSettingsDir(containerName string) string {
 	return path.Join(p.dataPath, "containers", containerName)
+}
+
+func (p *DockerProvider) storeSharedSecret(containerName string, secret string) error {
+	p.logger.Info("DockerProvider: storing shared secret for ", containerName)
+	dir := p.ContainerSettingsDir(containerName)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		return err
+	}
+
+	filename := path.Join(dir, "secret")
+	err = ioutil.WriteFile(filename, []byte(secret), 0600)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p *DockerProvider) createAuthorizedKeys(containerName string, publicKeys []string) error {

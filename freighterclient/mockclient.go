@@ -71,6 +71,7 @@ type MockClient struct {
 	ReceivedID     string
 	ReceivedName   string
 	ReceivedImage  string
+	ReceivedSecret string
 	ReceivedConfig *ContainerConfig
 	ReceivedTag    string
 
@@ -115,10 +116,11 @@ func (c *MockClient) List() ([]*Container, error) {
 	return c.Containers, nil
 }
 
-func (c *MockClient) Create(name, image string, config *ContainerConfig) (*Container, error) {
+func (c *MockClient) Create(name, image string, secret string, config *ContainerConfig) (*Container, error) {
 	c.CreateCalled++
 	c.ReceivedName = name
 	c.ReceivedImage = image
+	c.ReceivedSecret = secret
 	c.ReceivedConfig = config
 	return c.CreatedContainer, c.CreateError
 }

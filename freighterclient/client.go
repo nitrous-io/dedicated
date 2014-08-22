@@ -53,7 +53,7 @@ type RegistryAuth struct {
 // Client represents a Freighter API consumer.
 type Client interface {
 	List() ([]*Container, error)
-	Create(name, image string, config *ContainerConfig) (*Container, error)
+	Create(name, image, secret string, config *ContainerConfig) (*Container, error)
 	Commit(id, image string) (*Image, error)
 
 	// Info returns the Container with the given id.
@@ -209,11 +209,12 @@ func (c *client) List() ([]*Container, error) {
 
 // Create makes an API request to a given Freighter Host to create a container
 // with the given name, image, and configuration.
-func (c *client) Create(name, image string, config *ContainerConfig) (*Container, error) {
+func (c *client) Create(name, image, secret string, config *ContainerConfig) (*Container, error) {
 	u := c.host.BaseURL() + "/containers"
 	data := url.Values{}
 	data.Set("name", name)
 	data.Set("image", image)
+	data.Set("secret", secret)
 
 	if config != nil {
 		configJSON, err := json.Marshal(config)
