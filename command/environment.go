@@ -17,7 +17,7 @@ type Environment struct {
 
 // defaults for missing env vars
 const (
-	DefaultAPIURL = "http://127.0.0.1:3000"
+	DefaultAPIURL = "http://127.0.0.1:3333"
 )
 
 func ConfigureEnvironment() *Environment {
