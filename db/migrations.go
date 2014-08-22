@@ -279,7 +279,9 @@ func init() {
 			Version: "215",
 			Up: `
 				DROP INDEX index_plans_on_name;
-        ALTER TABLE plans ADD COLUMN slug character varying(255) NOT NULL;
+        ALTER TABLE plans ADD COLUMN slug character varying(255);
+        UPDATE plans SET slug=name;
+        ALTER TABLE plans ALTER COLUMN slug SET NOT NULL;
 				CREATE UNIQUE INDEX index_plans_on_slug ON plans USING btree (slug);
         DROP INDEX index_regions_on_name;
 				ALTER TABLE regions RENAME COLUMN name TO slug;
