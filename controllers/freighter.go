@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -10,7 +11,6 @@ import (
 	"os"
 
 	"code.google.com/p/go.crypto/ssh"
-	"github.com/nitrous-io/sslider/sslgen"
 
 	fc "github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/db"
@@ -39,13 +39,9 @@ func init() {
 		panic("CA_CERT_PATH is not set")
 	}
 
-	// ensure CA is valid
-	if _, err := CAKey(); err != nil {
-		panic(fmt.Errorf("Error with key in %s: %s", caKeyPath, err))
-	}
-
-	if _, err := CACertX509(); err != nil {
-		panic(fmt.Errorf("Error with cert in %s: %s", caCertPath, err))
+	// ensure CA is valid on start
+	if _, err := NewCAInfo(caCertPath, caKeyPath); err != nil {
+		panic(fmt.Errorf("Error with keypair (%s,%s): %s", caCertPath, caKeyPath, err))
 	}
 }
 
@@ -69,7 +65,7 @@ var NewFreighterClient = func(db db.QueryReceiver, h *host.Host) (*FreighterClie
 	if err != nil {
 		return nil, err
 	}
-	ca, err := CACertPEM()
+	caInfo, err := GetCAInfo(false)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +73,7 @@ var NewFreighterClient = func(db db.QueryReceiver, h *host.Host) (*FreighterClie
 		h.IPAddress.String,
 		int(h.FreighterdPort.Int64),
 		h.Hostname(),
-		ca,
+		caInfo.CertPEM,
 	)
 	cl, err := fc.NewClient(hst, h.Secret)
 	if err != nil {
@@ -89,53 +85,64 @@ var NewFreighterClient = func(db db.QueryReceiver, h *host.Host) (*FreighterClie
 	}, nil
 }
 
-func CACert() (*sslgen.Cert, error) {
-	return certFromKey(caKeyPath)
+// CACertInfo contains various representations of a CA
+type CAInfo struct {
+	CertPEM  []byte
+	KeyPEM   []byte
+	X509Cert *x509.Certificate
+	TLSCert  tls.Certificate
+	Key      *rsa.PrivateKey
 }
 
-func CACertPEM() ([]byte, error) {
-	return ioutil.ReadFile(caCertPath)
+// GetCAInfo returns a populated CAInfo with root CA.  If
+// full is false, only populates CertPEM and X509Cert
+// (fields that do not require reading the key)
+func GetCAInfo(full bool) (*CAInfo, error) {
+	kp := ""
+	if full {
+		kp = caKeyPath
+	}
+	return NewCAInfo(caCertPath, kp)
 }
 
-func CAKeyPEM() ([]byte, error) {
-	return ioutil.ReadFile(caKeyPath)
-}
-
-func CAKey() (*rsa.PrivateKey, error) {
-	bs, err := CAKeyPEM()
+// NewCAInfo returns a populated CAInfo struct given paths to the cert and key
+// PEMs.  If keyPath is empty, it will only populate CertPEM and X509Cert.
+func NewCAInfo(certPath, keyPath string) (*CAInfo, error) {
+	info := &CAInfo{}
+	bs, err := ioutil.ReadFile(certPath)
 	if err != nil {
 		return nil, err
 	}
-	key, err := ssh.ParseRawPrivateKey(bs)
-	if err != nil {
-		return nil, err
-	}
-	return key.(*rsa.PrivateKey), nil
-}
+	info.CertPEM = bs
 
-func CACertX509() (*x509.Certificate, error) {
-	bs, err := CACertPEM()
+	block, _ := pem.Decode(info.CertPEM)
+	x509Cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		return nil, err
 	}
-	block, _ := pem.Decode(bs)
-	return x509.ParseCertificate(block.Bytes)
-}
+	info.X509Cert = x509Cert
 
-// TODO: move into sslgen?
-func certFromKey(keyPath string) (*sslgen.Cert, error) {
-	c := &sslgen.Cert{}
-	privBytes, err := ioutil.ReadFile(keyPath)
-	if err != nil {
-		return nil, err
+	if keyPath == "" {
+		return info, nil
 	}
-	priv, err := ssh.ParseRawPrivateKey(privBytes)
-	if err != nil {
-		return nil, err
-	}
-	pk := priv.(*rsa.PrivateKey)
 
-	c.PrivateKey = pk
-	c.PublicKey = (*rsa.PublicKey)(&pk.PublicKey)
-	return c, nil
+	bs, err = ioutil.ReadFile(keyPath)
+	if err != nil {
+		return nil, err
+	}
+	info.KeyPEM = bs
+
+	key, err := ssh.ParseRawPrivateKey(info.KeyPEM)
+	if err != nil {
+		return nil, err
+	}
+	info.Key = key.(*rsa.PrivateKey)
+
+	tlsCert, err := tls.X509KeyPair(info.CertPEM, info.KeyPEM)
+	if err != nil {
+		return nil, err
+	}
+	info.TLSCert = tlsCert
+
+	return info, nil
 }

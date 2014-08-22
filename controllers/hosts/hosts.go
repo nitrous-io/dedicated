@@ -219,12 +219,12 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	config["apt_location"] = defaultAPTLocation
 	config["apt_dist"] = defaultAPTDist
 
-	caPEM, err := controllers.CACertPEM()
+	caInfo, err := controllers.GetCAInfo(false)
 	if err != nil {
 		return err
 	}
 	config["tls"] = map[string]string{
-		"ca":   string(caPEM),
+		"ca":   string(caInfo.CertPEM),
 		"cert": crt.ServerCert,
 		"key":  crt.ServerKey,
 	}

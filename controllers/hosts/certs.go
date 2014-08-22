@@ -23,15 +23,11 @@ var (
 // generate cert with server certificate and key. The cert will be used for
 // TLS encryption
 func generateCerts(hostname string) (*cert.Cert, error) {
-	caKey, err := controllers.CAKey()
+	caInfo, err := controllers.GetCAInfo(true)
 	if err != nil {
 		return nil, err
 	}
-	caCert, err := controllers.CACertX509()
-	if err != nil {
-		return nil, err
-	}
-	srvCrt, srvKey, err := GenerateHostCert(hostname, caCert, caKey)
+	srvCrt, srvKey, err := GenerateHostCert(hostname, caInfo.X509Cert, caInfo.Key)
 	if err != nil {
 		return nil, err
 	}
