@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
+	"github.com/nitrous-io/nitrous-common/hmactoken"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/controllers/containers"
@@ -686,6 +687,9 @@ var _ = Describe("controllers/containers", func() {
 			c, err := container.FindByUserAndSlug(db, u, "elixir-web-1")
 			Expect(err).To(BeNil())
 			Expect(c.Slug).To(Equal("elixir-web-1"))
+			Expect(c.Image).To(Equal("elixir"))
+			Expect(c.Name.String).To(Equal("Elixir Web Server 1"))
+			Expect(mockClient.ReceivedSecret).To(Equal(c.Secret))
 		})
 
 		It("responds with HTTP 201 Created, the container and a status of created", func() {
@@ -918,7 +922,7 @@ var _ = Describe("controllers/containers", func() {
 		})
 	})
 
-	Describe("POST /containers/{name}/commit", func() {
+	Describe("POST /containers/{slug}/commit", func() {
 		doRequest := func(name string) {
 			params := &url.Values{}
 			if name != "" {
@@ -1014,7 +1018,7 @@ var _ = Describe("controllers/containers", func() {
 		})
 	})
 
-	Describe("GET /containers/{name}", func() {
+	Describe("GET /containers/{slug}", func() {
 		var (
 			c     *container.Container
 			fc    *freighterclient.Container
@@ -1332,7 +1336,7 @@ var _ = Describe("controllers/containers", func() {
 		})
 	}
 
-	Describe("POST /api/v0/containers/{name}/start", func() {
+	Describe("POST /api/v0/containers/{slug}/start", func() {
 		var i = &controlTestInputs{}
 
 		BeforeEach(func() {
@@ -1346,7 +1350,7 @@ var _ = Describe("controllers/containers", func() {
 		itBehavesLikeAControlAction(i)
 	})
 
-	Describe("POST /api/v0/containers/{name}/stop", func() {
+	Describe("POST /api/v0/containers/{slug}/stop", func() {
 		var i = &controlTestInputs{}
 
 		BeforeEach(func() {
@@ -1374,7 +1378,7 @@ var _ = Describe("controllers/containers", func() {
 		itBehavesLikeAControlAction(i)
 	})
 
-	Describe("DELETE /containers/{name}", func() {
+	Describe("DELETE /containers/{slug}", func() {
 		var (
 			c     *container.Container
 			fc    *freighterclient.Container
@@ -1507,6 +1511,51 @@ var _ = Describe("controllers/containers", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s", slug)
 				authTokenInputs.Method = "DELETE"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("POST /containers/{slug}/token", func() {
+		secret := "s3cr3t"
+
+		doRequest := func() {
+			req, err := NewAuthedRequest(t, "POST", "/api/v0/containers/elixir-web-1/token", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			c := &container.Container{
+				CID:    "deadbeef",
+				Slug:   "elixir-web-1",
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+				Name:   sql.NullString{"Elixir server", true},
+				Secret: secret,
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("returns an HMAC token signed with the shared secret", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j map[string]string
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			err = hmactoken.Verify([]string{"attach"}, j["token"], secret)
+			Expect(err).To(BeNil())
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/containers/elixir-web-1/token"
+				authTokenInputs.Method = "POST"
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
