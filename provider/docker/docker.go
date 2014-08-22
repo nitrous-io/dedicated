@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/provider/docker/parsers"
 	"github.com/nitrous-io/freighter/util"
+	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 
 var (
@@ -610,17 +611,21 @@ func (p *DockerProvider) TagImage(imageIDOrName, newName string, force bool) err
 	return p.dockerTag(image.ID, finalName, true)
 }
 
-func (p *DockerProvider) AttachToContainer(id string, stdin io.Reader, stdout io.Writer) error {
+func (p *DockerProvider) AttachToContainer(id, token string, in io.Reader, out io.Writer) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
 	}
 
+	if err := p.verifyToken(nameFromContainer(container), token, "attach"); err != nil {
+		return err
+	}
+
 	return p.client.AttachToContainer(dockerclient.AttachToContainerOptions{
 		Container:    container.ID,
-		InputStream:  stdin,
-		OutputStream: stdout,
-		ErrorStream:  stdout,
+		InputStream:  in,
+		OutputStream: out,
+		ErrorStream:  out,
 		Stream:       true,
 		Stdin:        true,
 		Stdout:       true,
@@ -786,7 +791,7 @@ func (p *DockerProvider) ContainerSettingsDir(containerName string) string {
 }
 
 func (p *DockerProvider) storeSharedSecret(containerName string, secret string) error {
-	p.logger.Info("DockerProvider: storing shared secret for ", containerName)
+	p.logger.Info("DockerProvider: storing shared secret for", containerName)
 	dir := p.ContainerSettingsDir(containerName)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
@@ -799,6 +804,31 @@ func (p *DockerProvider) storeSharedSecret(containerName string, secret string) 
 		return err
 	}
 	return nil
+}
+
+func (p *DockerProvider) readSharedSecret(containerName string) (string, error) {
+	filename := path.Join(p.ContainerSettingsDir(containerName), "secret")
+	secret, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(secret)), nil
+}
+
+func (p *DockerProvider) verifyToken(containerName, token string, permissions ...string) error {
+	secret, err := p.readSharedSecret(containerName)
+	if err != nil {
+		return provider.ErrUnverifiable
+	}
+	err = hmactoken.Verify(permissions, token, secret)
+	switch err {
+	case hmactoken.ErrInvalidToken, hmactoken.ErrPermissionDenied:
+		return provider.ErrTokenVerificationFailed
+	case hmactoken.ErrTokenExpired:
+		return provider.ErrTokenExpired
+	default:
+		return err
+	}
 }
 
 func (p *DockerProvider) createAuthorizedKeys(containerName string, publicKeys []string) error {

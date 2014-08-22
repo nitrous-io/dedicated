@@ -50,6 +50,7 @@ type MockProvider struct {
 	ReceivedName           string
 	ReceivedImage          string
 	ReceivedSecret         string
+	ReceivedToken          string
 	ReceivedConfig         string
 	ReceivedPublicKeys     []string
 	ReceivedKeyFingerprint string
@@ -327,9 +328,10 @@ func (p *MockProvider) GetVolumeInfo(slug string) (*provider.VolumeInfo, error) 
 	return p.VolumeInfoReturn, p.VolumeInfoError
 }
 
-func (p *MockProvider) AttachToContainer(id string, stdin io.Reader, stdout io.Writer) error {
+func (p *MockProvider) AttachToContainer(id, token string, stdin io.Reader, stdout io.Writer) error {
 	p.AttachToContainerCalled = true
 	p.ReceivedID = id
+	p.ReceivedToken = token
 	stdout.Write([]byte(p.WriteToStdout))
 	return p.AttachToContainerError
 }

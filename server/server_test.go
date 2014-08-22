@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1468,39 +1469,56 @@ var _ = Describe("server", func() {
 		})
 
 		Context("for valid containers", func() {
-			var rc io.ReadCloser
-			var w io.Writer
-
-			doRequest := func(id string) {
+			doRequest := func(id string, w io.Writer) {
 				params := &url.Values{}
+				params.Set("token", "container-token")
 				req, err := NewRequest("POST", fmt.Sprintf("/containers/%v/attach", id), params)
 				Expect(err).To(BeNil())
 
 				h := &HijackTester{
 					ResponseRecorder: res,
-					Rc:               rc,
+					Rc:               ioutil.NopCloser(bytes.NewBuffer(nil)),
 					W:                w,
 				}
 				handler.ServeHTTP(h, req)
 			}
 
 			It("calls provider's attach function and hijacks connection", func() {
-				rc, w = io.Pipe()
-
 				prov.Containers = []*provider.ContainerInfo{{ID: "container-id", State: provider.ContainerStateRunning}}
 				prov.WriteToStdout = "attach"
 
+				r, w := io.Pipe()
 				go func() {
-					defer GinkgoRecover()
-					stdout, err := ioutil.ReadAll(rc)
-					Expect(err).To(BeNil())
-					Expect(stdout).To(ContainSubstring("attach"))
+					doRequest("container-id", w)
+					w.Close()
 				}()
 
-				doRequest("container-id")
+				output, err := ioutil.ReadAll(r)
+				Expect(err).To(BeNil())
+				Expect(output).To(ContainSubstring("attach"))
+				Expect(output).To(ContainSubstring("Content-Type: application/vnd.containerd.raw-stream"))
 
 				Expect(prov.AttachToContainerCalled).To(BeTrue())
 				Expect(prov.ReceivedID).To(Equal("container-id"))
+				Expect(prov.ReceivedToken).To(Equal("container-token"))
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
+
+			It("writes the error to hijacked connection writer when there is an error", func() {
+				prov.Containers = []*provider.ContainerInfo{{ID: "container-id", State: provider.ContainerStateRunning}}
+				prov.AttachToContainerError = errors.New("some attach error")
+
+				r, w := io.Pipe()
+				go func() {
+					doRequest("container-id", w)
+					w.Close()
+				}()
+
+				output, err := ioutil.ReadAll(r)
+				Expect(err).To(BeNil())
+				Expect(output).To(ContainSubstring("some attach error"))
+				Expect(output).To(ContainSubstring("Content-Type: application/vnd.containerd.raw-stream"))
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 			})

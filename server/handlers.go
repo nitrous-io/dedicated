@@ -507,7 +507,14 @@ func (s *Server) attachToContainer(w http.ResponseWriter, r *http.Request) error
 		}
 	}()
 
-	return s.provider.AttachToContainer(id, stdin, stdout)
+	token := r.FormValue("token")
+	if err := s.provider.AttachToContainer(id, token, stdin, stdout); err != nil {
+		// Connection is already hijacked, so write to the wire instead of
+		// returning the error.
+		stdout.Write([]byte(err.Error()))
+	}
+
+	return nil
 }
 
 func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {

@@ -14,14 +14,17 @@ const (
 
 var containerNameRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
 var (
-	ErrTimeout                = errors.New("Operation timed out")
-	ErrPubKeyOpsNotSupported  = errors.New("Public key operations are not supported on this container")
-	ErrImageNotFound          = errors.New("Image does not exist")
-	ErrImageShared            = errors.New("Image is shared across multiple tags")
-	ErrImageExists            = errors.New("Image with same name and tag already exists")
-	ErrImageAuthNotAllowed    = errors.New("Do not have permission to push/pull image")
-	ErrImageAuthMisconfigured = errors.New("Image registry configuration invalid")
-	ErrImagePushAuthRequired  = errors.New("Log in to the registry before pushing an image to it")
+	ErrTimeout                 = errors.New("Operation timed out")
+	ErrPubKeyOpsNotSupported   = errors.New("Public key operations are not supported on this container")
+	ErrImageNotFound           = errors.New("Image does not exist")
+	ErrImageShared             = errors.New("Image is shared across multiple tags")
+	ErrImageExists             = errors.New("Image with same name and tag already exists")
+	ErrImageAuthNotAllowed     = errors.New("Do not have permission to push/pull image")
+	ErrImageAuthMisconfigured  = errors.New("Image registry configuration invalid")
+	ErrImagePushAuthRequired   = errors.New("Log in to the registry before pushing an image to it")
+	ErrTokenVerificationFailed = errors.New("Permission denied")
+	ErrTokenExpired            = errors.New("Verification expired, please re-try your request")
+	ErrUnverifiable            = errors.New("Container not configured for verification")
 )
 
 type Provider interface {
@@ -59,7 +62,7 @@ type Provider interface {
 	RemoveVolume(slug string) error
 	GetVolumeInfo(slug string) (*VolumeInfo, error)
 
-	AttachToContainer(id string, stdin io.Reader, stdout io.Writer) error
+	AttachToContainer(id, token string, in io.Reader, out io.Writer) error
 }
 
 type ContainerInfo struct {

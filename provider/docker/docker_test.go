@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/freighter/provider/docker/parsers"
 	. "github.com/nitrous-io/freighter/test"
 	"github.com/nitrous-io/freighter/util"
+	"github.com/nitrous-io/nitrous-common/hmactoken"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -568,6 +569,88 @@ var _ = Describe("provider/docker", func() {
 					out, err := exec.Command("docker", "images", "--no-trunc").CombinedOutput()
 					Expect(err).To(BeNil())
 					Expect(out).To(ContainSubstring(image.ID))
+				})
+			})
+
+			Describe("AttachToContainer()", func() {
+				It("attaches to container successfully with a valid token", func() {
+					correctToken, err := hmactoken.Generate([]string{"attach"}, secret)
+					Expect(err).To(BeNil())
+
+					var stdout bytes.Buffer
+					r := strings.NewReader("send value")
+					errCh := make(chan error)
+					go func() {
+						errCh <- prov.AttachToContainer(id, correctToken, r, &stdout)
+					}()
+
+					// FIXME Ideally we don't have to stop a container but a bug
+					// in either go-dockerclient or Docker causes
+					// AttachToContainer() to not return even after the output
+					// stream is closed for writing.
+					// This happens to containers that do not write any output.
+					err = exec.Command("docker", "stop", id).Run()
+					Expect(err).To(BeNil())
+
+					Expect(<-errCh).To(BeNil())
+				})
+
+				It("returns an error when given an invalid token", func() {
+					invalidToken := ""
+					in := ioutil.NopCloser(bytes.NewBuffer(nil))
+					err := prov.AttachToContainer(id, invalidToken, in, ioutil.Discard)
+					Expect(err).NotTo(BeNil())
+				})
+			})
+
+			Describe("VerifyToken()", func() {
+				var correctToken string
+
+				BeforeEach(func() {
+					var err error
+					correctToken, err = hmactoken.Generate([]string{"attach"}, secret)
+					Expect(err).To(BeNil())
+				})
+
+				It("doesn't return an error when verifying a correct token", func() {
+					err := prov.VerifyToken(name, correctToken, "attach")
+					Expect(err).To(BeNil())
+				})
+
+				It("returns ErrUnverifiable when the container's shared secret cannot be read", func() {
+					secretFile := path.Join(prov.ContainerSettingsDir(name), "secret")
+					newpath := path.Join(prov.ContainerSettingsDir(name), "somewhere")
+					err := os.Rename(secretFile, newpath)
+					Expect(err).To(BeNil())
+					defer os.Rename(newpath, secretFile)
+
+					err = prov.VerifyToken(name, correctToken, "attach")
+					Expect(err).To(MatchError(provider.ErrUnverifiable))
+				})
+
+				It("returns ErrTokenVerificationFailed when token is invalid", func() {
+					invalidToken, err := hmactoken.Generate([]string{"attach"}, "wrong secret")
+					Expect(err).To(BeNil())
+
+					err = prov.VerifyToken(name, invalidToken, "attach")
+					Expect(err).To(MatchError(provider.ErrTokenVerificationFailed))
+				})
+
+				It("returns ErrTokenVerificationFailed when token has incorrect permissions", func() {
+					invalidToken, err := hmactoken.Generate([]string{"admin"}, secret)
+					Expect(err).To(BeNil())
+
+					err = prov.VerifyToken(name, invalidToken, "attach")
+					Expect(err).To(MatchError(provider.ErrTokenVerificationFailed))
+				})
+
+				It("returns ErrTokenExpired when token has expired", func() {
+					hmactoken.DefaultValidityPeriod = 0
+					expiredToken, err := hmactoken.Generate([]string{"attach"}, secret)
+					Expect(err).To(BeNil())
+
+					err = prov.VerifyToken(name, expiredToken, "attach")
+					Expect(err).To(MatchError(provider.ErrTokenExpired))
 				})
 			})
 
@@ -1607,7 +1690,6 @@ var _ = Describe("provider/docker", func() {
 				Expect(mockProxy.PushImageCalled).To(BeTrue())
 			})
 		})
-
 	})
 
 	Describe("ContainerSettingsDir()", func() {
