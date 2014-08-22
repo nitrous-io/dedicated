@@ -43,6 +43,7 @@ var (
 )
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
+var defaultProvider string
 var aesKey string
 
 func init() {
@@ -55,6 +56,11 @@ func init() {
 	aesKey = os.Getenv("AES_KEY")
 	if aesKey == "" {
 		panic("AES_KEY is not set")
+	}
+
+	defaultProvider = os.Getenv("DEFAULT_PROVIDER")
+	if defaultProvider == "" {
+		panic("DEFAULT_PROVIDER is not set")
 	}
 }
 
@@ -116,16 +122,13 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return errRegionNotFound
 	}
 
-	pts, err := providertemplate.FindAllByRegionAndPlan(db, rg.ID, pl.ID)
+	pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, rg.ID, pl.ID, defaultProvider)
 	if err != nil {
 		return err
 	}
-	if len(pts) == 0 {
+	if pt == nil {
 		return errProvidertemplateNotFound
 	}
-	// TODO: Actual logic for picking the correct provider template
-	// pick the first template for now
-	pt := pts[0]
 
 	priv, pubkey, err := generateKey()
 	if err != nil {

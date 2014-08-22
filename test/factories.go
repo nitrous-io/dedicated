@@ -93,8 +93,8 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 
 	if hs.PT == nil {
 		hs.PT = &providertemplate.ProviderTemplate{
-			Name:     "digital-ocean-1",
-			Provider: "digitalocean",
+			Name:     "docker-1",
+			Provider: "docker",
 		}
 	}
 	hs.PT.RegionID = hs.R.ID
