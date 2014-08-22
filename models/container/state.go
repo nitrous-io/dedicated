@@ -7,6 +7,7 @@ const (
 	StateRunning
 	StateStopped
 	StateTerminated
+	StateHostStopped
 )
 
 func (s State) String() string {
@@ -17,6 +18,8 @@ func (s State) String() string {
 		return "stopped"
 	case StateTerminated:
 		return "terminated"
+	case StateHostStopped:
+		return "host_stopped"
 	default:
 		return "unknown"
 	}
