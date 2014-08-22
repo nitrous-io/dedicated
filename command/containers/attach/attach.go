@@ -89,10 +89,7 @@ func (c *Command) attach(host string, containerID string, stdout io.Writer) erro
 		return fmt.Errorf("Can't connect to %s", host)
 	}
 
-	conn, err := httputil.NewClientConn(dial, nil), nil
-	if err != nil {
-		return err
-	}
+	conn := httputil.NewClientConn(dial, nil)
 	defer conn.Close()
 
 	req, err := http.NewRequest("POST", fmt.Sprintf("/containers/%s/attach", containerID), nil)
