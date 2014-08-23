@@ -31,7 +31,6 @@ rails/public/index.html
 # Folders
 _obj/
 _test/
-bin/
 _vendor/
 build/
 release/
