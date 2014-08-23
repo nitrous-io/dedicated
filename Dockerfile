@@ -21,7 +21,7 @@ RUN curl -s https://intercityup.com/binaries/ruby/ubuntu/14.04/x86_64/ruby-2.1.2
   | tar -v -C /usr/local/ruby -xj
 
 ENV GOPATH /opt/src/github.com/nitrous-io/nitrous/.vendor:/opt
-ENV PATH /usr/local/ruby/2.1.2/bin:/usr/local/go/bin:/opt/bin:$PATH
+ENV PATH .bundle/binstubs:/usr/local/ruby/2.1.2/bin:/usr/local/go/bin:/opt/bin:$PATH
 ENV GOBIN /opt/bin
 
 RUN /usr/local/go/bin/go get github.com/nitrous-io/goop
@@ -30,7 +30,9 @@ RUN /usr/local/ruby/2.1.2/bin/gem install bundle
 
 RUN mkdir -p /opt/src/github.com/nitrous-io/nitrous
 
+RUN mkdir -p /root/.bundle
 ADD util/ssh_config /etc/ssh/ssh_config
+ADD util/bundle_config /root/.bundle/config
 ADD . /opt/src/github.com/nitrous-io/nitrous
 
 RUN /etc/init.d/postgresql start &&\
