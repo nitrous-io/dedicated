@@ -1,0 +1,7 @@
+#!/bin/bash
+usage="USAGE: ./script/update-image-id IMAGE_ID DB (DB is pro-n2ostaging-com for staging and pro-nitrous-io for production)"
+
+image_id=${1:?"image_id is required. ${usage}"}
+db=${2:?"db is required. ${usage}"}
+
+heroku pg:psql -a $db -c "update provider_templates set config = config || '\"image_id\"=>\"$image_id\"'::hstore where provider = 'digitalocean';"
