@@ -34,9 +34,14 @@ type authCommandFactory func(token string) (cli.Command, error)
 
 func RegisterAuth(name string, factory authCommandFactory) {
 	Commands[name] = func() (cli.Command, error) {
-		if Env.AuthToken == "" {
+		if NotLoggedIn() {
 			return nil, ErrMissingAuthToken
 		}
 		return factory(Env.AuthToken)
 	}
+}
+
+// NotLoggedIn returns true if the user is an anonymous user
+func NotLoggedIn() bool {
+	return Env.AuthToken == ""
 }

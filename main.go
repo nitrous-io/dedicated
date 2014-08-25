@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
@@ -80,7 +84,51 @@ func main() {
 	os.Exit(exitCode)
 }
 
-func helpFunc(commands map[string]cli.CommandFactory) string {
-	basicHelp := cli.BasicHelpFunc("nitro")(commands)
-	return fmt.Sprintf("nitro is a command-line interface to Nitrous.IO.\n\n%s", basicHelp)
+// helpFunc iterates through the list of commands and print their synopsis
+// It ignores the auth error for commands that require authentication token
+func helpFunc(cmds map[string]cli.CommandFactory) string {
+	var buf bytes.Buffer
+	buf.WriteString("nitro is a command-line interface to Nitrous.IO\n\n")
+	buf.WriteString("usage: nitro [--version] [--help] <command> [<args>]\n\n")
+	if command.NotLoggedIn() {
+		buf.WriteString("Available commands for anonymous user are:\n")
+	} else {
+		buf.WriteString("Available commands are:\n")
+	}
+
+	// Get the list of keys so we can sort them, and also get the maximum
+	// key length so they can be aligned properly.
+	keys := make([]string, 0, len(cmds))
+	maxKeyLen := 0
+	for key, _ := range cmds {
+		if len(key) > maxKeyLen {
+			maxKeyLen = len(key)
+		}
+
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		cmdFn, ok := cmds[key]
+		if !ok {
+			// This should never happen since we JUST built the list of
+			// keys.
+			panic("command not found: " + key)
+		}
+
+		cmd, err := cmdFn()
+		// we ignore missing auth token error for commands that requires auth
+		if err != nil {
+			if err != command.ErrMissingAuthToken {
+				log.Printf("[ERR] cli: Command '%s' failed to load: %s", key, err)
+			}
+			continue
+		}
+
+		key = fmt.Sprintf("%s%s", key, strings.Repeat(" ", maxKeyLen-len(key)))
+		buf.WriteString(fmt.Sprintf("    %s    %s\n", key, cmd.Synopsis()))
+	}
+
+	return buf.String()
 }
