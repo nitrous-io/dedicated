@@ -21,7 +21,7 @@ fi
 echo "ddollar/dind:$version is up to date ..."
 
 # ddollar/dind is built from https://github.com/jpetazzo/dind
-cid=$(docker run --privileged -d -v $tmp:$tmp -e PORT=4444 ddollar/dind:$version)
+cid=$(docker run --privileged -d -v $tmp:$tmp -e PORT=4444 --dns 8.8.8.8 --dns 8.8.4.4 ddollar/dind:$version)
 ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $cid)
 
 trap cleanup EXIT
