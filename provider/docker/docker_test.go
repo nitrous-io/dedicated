@@ -488,6 +488,12 @@ var _ = Describe("provider/docker", func() {
 
 			Describe(".Terminate()", func() {
 				var info *provider.ContainerInfo
+				var cntnrInfo *containerInfo
+
+				// fetch the container info before terminating the container
+				BeforeEach(func() {
+					cntnrInfo = getContainerInfo(id)
+				})
 
 				expectContainerToBeTerminatedAndPortReleased := func() {
 					out, err := exec.Command("docker", "inspect", id).CombinedOutput()
@@ -507,12 +513,10 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.Ports).To(Equal(map[string]int{}))
 					Expect(info.State).To(Equal(""))
 
-					c := getContainerInfo(id)
-					Expect(info.Cmd).To(Equal(c.Config.Cmd))
-					Expect(info.Entrypoint).To(Equal(c.Config.Entrypoint))
-					Expect(info.ExitCode).To(Equal(c.State.ExitCode))
-					Expect(info.StartedAt).To(Equal(c.State.StartedAt))
-					Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
+					Expect(info.Cmd).To(Equal(cntnrInfo.Config.Cmd))
+					Expect(info.Entrypoint).To(Equal(cntnrInfo.Config.Entrypoint))
+					Expect(info.StartedAt).To(Equal(cntnrInfo.State.StartedAt))
+					Expect(info.FinishedAt.IsZero()).NotTo(BeTrue())
 				}
 
 				JustBeforeEach(func() {
