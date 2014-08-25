@@ -5,7 +5,7 @@ WARN_COLOR=\033[33;01m
 APP=hostbuilder
 REVISION=$(shell git rev-parse --short HEAD)
 BASE_VERSION=$(shell cat VERSION)
-VERSION=$(BASE_VERSION)-$(REVISION)
+VERSION=$(BASE_VERSION)+$(BUILD_NUMBER)-$(REVISION)
 
 all: build
 .PHONY: all
