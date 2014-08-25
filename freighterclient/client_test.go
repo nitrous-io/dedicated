@@ -1126,6 +1126,7 @@ var _ = Describe("client", func() {
 	Describe("Logs()", func() {
 		It("gets logs of the container", func() {
 			params := url.Values{}
+			params.Set("token", "container-token")
 			params.Set("follow", "true")
 			params.Set("timestamps", "true")
 			params.Set("tail", "all")
@@ -1138,7 +1139,7 @@ var _ = Describe("client", func() {
 			defer st.Close()
 
 			w := bytes.NewBuffer(nil)
-			err := st.client.Logs("deadbeef", "true", "true", "all", w)
+			err := st.client.Logs("deadbeef", "container-token", "true", "true", "all", w)
 			Expect(err).To(BeNil(), "should successfully get the logs")
 			Expect(w.String()).To(Equal("hello i am a log"), "should write logs to the writer")
 		})

@@ -230,9 +230,10 @@ func (p *MockProvider) Export(id string, output io.Writer) error {
 	return p.ExportError
 }
 
-func (p *MockProvider) Logs(id string, w io.Writer, follow, timestamps bool, tail string) error {
+func (p *MockProvider) Logs(id, token string, w io.Writer, follow, timestamps bool, tail string) error {
 	p.LogsCalled = true
 	p.ReceivedID = id
+	p.ReceivedToken = token
 	p.ReceivedFollow = follow
 	p.ReceivedTimestamps = timestamps
 	p.ReceivedTail = tail

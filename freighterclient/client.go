@@ -33,6 +33,10 @@ var (
 	// This mirrors provider.ErrPubKeyOpsNotSupported
 	ErrPubKeyOpsNotSupported = provider.ErrPubKeyOpsNotSupported
 
+	ErrTokenVerificationFailed = provider.ErrTokenVerificationFailed
+	ErrTokenExpired            = provider.ErrTokenExpired
+	ErrUnverifiable            = provider.ErrUnverifiable
+
 	// ErrInvalidParams is returned when received a Unprocessable Entity (HTTP 422) response.
 	ErrInvalidParams = errors.New("freighter: invalid params")
 
@@ -75,11 +79,9 @@ type Client interface {
 	RemoveVolume(slug string) error
 	GetVolumeInfo(slug string) (*Volume, error)
 
-	// Logs get logs of the container's process and copy it to the writer
-	//
-	// https://docs.docker.com/reference/api/docker_remote_api_v1.13/#21-containers
-	// Search for `Get container logs` because docker's api documentation sucks
-	Logs(id, follow, timestamps, tail string, w io.Writer) error
+	// Logs get logs of the container's process and copy it to the writer.
+	// http://docs.docker.com/reference/api/docker_remote_api_v1.13/#get-container-logs
+	Logs(id, token, follow, timestamps, tail string, w io.Writer) error
 
 	RegistryLogin(params *RegistryAuth) error
 	RegistryLogout(registry string) error
@@ -377,12 +379,14 @@ func (c *client) Terminate(id string) (*Container, error) {
 // `io.Writer`
 func (c *client) Logs(
 	id string,
+	token string,
 	follow string,
 	timestamps string,
 	tail string,
 	w io.Writer,
 ) error {
 	params := url.Values{}
+	params.Set("token", token)
 	params.Set("follow", follow)
 	params.Set("timestamps", timestamps)
 	params.Set("tail", tail)
@@ -399,7 +403,20 @@ func (c *client) Logs(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Failed to fetch container %s logs, status : %d", id, resp.StatusCode)
+		errorResp, err := unmarshalErrorResponse(resp)
+		if err != nil {
+			return err
+		}
+		switch errorResp.Error {
+		case ErrTokenVerificationFailed.Error():
+			return ErrTokenVerificationFailed
+		case ErrTokenExpired.Error():
+			return ErrTokenExpired
+		case ErrUnverifiable.Error():
+			return ErrUnverifiable
+		default:
+			return &StatusError{resp.StatusCode}
+		}
 	}
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		return fmt.Errorf("Unexpected error when fetching logs: %v", err)

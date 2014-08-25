@@ -603,6 +603,25 @@ var _ = Describe("provider/docker", func() {
 				})
 			})
 
+			Describe("Logs()", func() {
+				It("writes logs with a valid token", func() {
+					correctToken, err := hmactoken.Generate([]string{"logs"}, secret)
+					Expect(err).To(BeNil())
+
+					// FIXME Ideally this should test against a container with
+					// actual log output and probably exercise the follow,
+					// timestamps and tail arguments.
+					err = prov.Logs(id, correctToken, ioutil.Discard, false, false, "")
+					Expect(err).To(BeNil())
+				})
+
+				It("returns an error when given an invalid token", func() {
+					invalidToken := ""
+					err := prov.Logs(id, invalidToken, ioutil.Discard, false, false, "")
+					Expect(err).NotTo(BeNil())
+				})
+			})
+
 			Describe("VerifyToken()", func() {
 				var correctToken string
 

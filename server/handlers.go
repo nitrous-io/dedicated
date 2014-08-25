@@ -275,9 +275,9 @@ func (s *Server) getContainerLogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/vnd.docker.raw-stream")
 
-	// write the logs to response writer
+	token := r.FormValue("token")
 	outstream := flusher.NewWriteFlusher(w)
-	err := s.provider.Logs(id, outstream, follow, timestamps, tail)
+	err := s.provider.Logs(id, token, outstream, follow, timestamps, tail)
 	if err != nil {
 		s.handleError(w, err)
 	}

@@ -45,7 +45,7 @@ type Provider interface {
 	//RestoreSnapshot(id string, snapshotID string) (err error)
 	IsNotFoundError(err error) bool
 	Export(id string, output io.Writer) error
-	Logs(id string, w io.Writer, follow, timestamps bool, tail string) error
+	Logs(id, token string, w io.Writer, follow, timestamps bool, tail string) error
 
 	Login(username, password, email, registry string) error
 	Logout(registry string) error

@@ -376,13 +376,18 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 	return p.createAuthorizedKeys(name, keys)
 }
 
-// Read the logs from the container. If success, caller of this methods can then read the
-// logs from the `io.Reader` result
-func (p *DockerProvider) Logs(id string, w io.Writer, follow, timestamps bool, tail string) error {
+// Logs gets stdout and stderr logs from a container. If successful, the logs
+// are written to the given io.Writer.
+func (p *DockerProvider) Logs(id, token string, w io.Writer, follow, timestamps bool, tail string) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
 	}
+
+	if err := p.verifyToken(nameFromContainer(container), token, "logs"); err != nil {
+		return err
+	}
+
 	return p.client.Logs(dockerclient.LogsOptions{
 		Container:    container.ID,
 		Follow:       follow,

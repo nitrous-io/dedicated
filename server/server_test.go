@@ -957,6 +957,7 @@ var _ = Describe("server", func() {
 			params.Set("follow", follow)
 			params.Set("timestamps", timestamps)
 			params.Set("tail", tail)
+			params.Set("token", "container-token")
 			req, _ := NewRequest("GET", fmt.Sprintf("/containers/%v/logs", id), params)
 			handler.ServeHTTP(res, req)
 		}
@@ -972,10 +973,11 @@ var _ = Describe("server", func() {
 			}
 			for _, tc := range testCases {
 				doRequest("test-container", tc.follow, tc.timestamps, "tail-value")
-				Expect(res.Code).To(Equal(tc.status), "Unexpected status %v for %v", res.Code, tc)
-				Expect(prov.ReceivedID).To(Equal("test-container"), "Unexpected id for %v", tc)
-				Expect(prov.ReceivedFollow).To(BeFalse(), "Unexpected id for %v", tc)
-				Expect(prov.ReceivedTimestamps).To(BeFalse(), "Unexpected id for %v", tc)
+				Expect(res.Code).To(Equal(tc.status), "Unexpected status %+v for %+v", res.Code, tc)
+				Expect(prov.ReceivedID).To(Equal("test-container"), "Unexpected id for %+v", tc)
+				Expect(prov.ReceivedToken).To(Equal("container-token"), "unexpected token for %+v", tc)
+				Expect(prov.ReceivedFollow).To(BeFalse(), "Unexpected follow for %+v", tc)
+				Expect(prov.ReceivedTimestamps).To(BeFalse(), "Unexpected timestamps for %+v", tc)
 			}
 		})
 
