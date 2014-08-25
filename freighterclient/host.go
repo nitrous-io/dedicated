@@ -15,7 +15,7 @@ type Host struct {
 	// certificates
 	ServerName string
 
-	// PEM encoded version of certificate that is requires for authentication
+	// PEM encoded version of certificate that is used for encryption
 	CA []byte
 }
 

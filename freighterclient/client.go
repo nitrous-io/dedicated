@@ -45,9 +45,9 @@ var (
 	ErrImageExists             = provider.ErrImageExists
 	ErrImagePushAuthRequired   = provider.ErrImagePushAuthRequired
 
-	// ErrInvalidAuthToken is returned when the user passed in an empty/invalid
-	// authentication token
-	ErrInvalidAuthToken = errors.New("freighter: invalid authentication token")
+	// ErrInvalidSecret is returned when freighterclient caller passed in an
+	// empty/invalid secret
+	ErrInvalidSecret = errors.New("freighter: invalid secret")
 
 	ErrEndpointNotFound  = errors.New("freighter: endpoint not found")
 	ErrContainerNotFound = errors.New("freighter: container not found")
@@ -183,15 +183,15 @@ func (e *StatusError) Error() string {
 }
 
 type client struct {
-	authToken string
-	host      *Host
+	secret string
+	host   *Host
 	*http.Client
 }
 
 // NewClient returns a new Freighter API Client that can be used to communicate
 // with a freighterd instance on a host
-func NewClient(host *Host, authToken string) (Client, error) {
-	return NewClientTransport(host, authToken, nil)
+func NewClient(host *Host, secret string) (Client, error) {
+	return NewClientTransport(host, secret, nil)
 }
 
 // NewClientTransport returns a new Freighter API Client that reuses an existing
@@ -201,9 +201,9 @@ func NewClient(host *Host, authToken string) (Client, error) {
 // Note: if we use this method to customize the transport, make sure that we
 // are sending the correct authentication token because we customize the token
 // using proxy
-func NewClientTransport(host *Host, authToken string, tp *http.Transport) (Client, error) {
-	if authToken == "" {
-		return nil, ErrInvalidAuthToken
+func NewClientTransport(host *Host, secret string, tp *http.Transport) (Client, error) {
+	if secret == "" {
+		return nil, ErrInvalidSecret
 	}
 	certPool := x509.NewCertPool()
 	if ok := certPool.AppendCertsFromPEM(host.CA); !ok {
@@ -217,7 +217,7 @@ func NewClientTransport(host *Host, authToken string, tp *http.Transport) (Clien
 	if tp == nil {
 		tp = &http.Transport{
 			Proxy: func(req *http.Request) (*url.URL, error) {
-				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+				req.Header.Set("X-Freighter-Secret", secret)
 				return nil, nil
 			},
 			Dial: (&net.Dialer{
@@ -231,9 +231,9 @@ func NewClientTransport(host *Host, authToken string, tp *http.Transport) (Clien
 		Transport: tp,
 	}
 	return &client{
-		authToken: authToken,
-		host:      host,
-		Client:    cl,
+		secret: secret,
+		host:   host,
+		Client: cl,
 	}, nil
 }
 

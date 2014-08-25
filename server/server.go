@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/gorilla/mux"
@@ -21,12 +22,12 @@ var DefaultConfig *Config
 
 func init() {
 	DefaultConfig = &Config{
-		AuthURL:   "https://localhost:3000/api/v0/user",
 		DataPath:  "/var/lib/freighter",
 		TLSVerify: true,
 		CA:        "/etc/freighterd/ca.crt",
 		Cert:      "/etc/freighterd/cert.crt",
 		Key:       "/etc/freighterd/key.crt",
+		Secret:    "/etc/freighterd/secret",
 
 		Listen: []HostAddress{
 			{Proto: "unix", Address: "/var/run/freighterd.sock"},
@@ -45,14 +46,13 @@ type HostAddress struct {
 
 // server config
 type Config struct {
-	// we ping this url with the auth token to check if the token is valid
-	AuthURL  string `json:"auth_url"`
 	DataPath string `json:"data_path"`
 
 	TLSVerify bool   `json:"tls_verify"` // whether we want to use TLS mode for all HTTP hosts
 	CA        string `json:"tls_ca"`     // path to CA
 	Cert      string `json:"tls_cert"`   // path to cert
 	Key       string `json:"tls_key"`    // path to key
+	Secret    string `json:"secret"`     // path to secret
 
 	Listen []HostAddress `json:"listen"`
 }
@@ -62,6 +62,7 @@ type Server struct {
 	provider provider.Provider
 	router   *mux.Router
 	conf     *Config
+	secret   string
 	// collection of current attached shells
 	shells map[string]*shell.Shell
 }
@@ -132,6 +133,13 @@ func (s *Server) serveTCP(proto, addr string) error {
 		}
 		l = tls.NewListener(l, tlsConfig)
 	}
+	if s.conf.Secret != "" {
+		secret, err := ioutil.ReadFile(s.conf.Secret)
+		if err != nil {
+			return fmt.Errorf("Error reading secret at %s: %s", s.conf.Secret, err)
+		}
+		s.secret = strings.TrimSpace(string(secret))
+	}
 	svr := &http.Server{Addr: addr, Handler: s.router}
 	return svr.Serve(l)
 }
@@ -140,56 +148,45 @@ func (s *Server) Router() *mux.Router {
 	return s.router
 }
 
-func (s *Server) route(route string, handler http.HandlerFunc, methods ...string) {
+func (s *Server) secretRoute(route string, handler http.HandlerFunc, methods ...string) {
 	h := func(w http.ResponseWriter, r *http.Request) {
-		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
-		// perform authentication with the auth token
-		if s.conf.AuthURL == "" {
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"error":"invalid nitrous.io authentication endpoint"}`))
+
+		if secret := r.Header.Get("X-Freighter-Secret"); secret != s.secret {
+			errMsg := "invalid_secret"
+			if secret == "" {
+				errMsg = "missing_secret"
+			}
+			s.respondEncodeJSON(w, http.StatusUnauthorized, map[string]interface{}{"error": errMsg})
 			return
 		}
-		authReq, err := http.NewRequest("GET", s.conf.AuthURL, nil)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error":"failed to set auth request"}`))
-			return
-		}
-		authReq.Header.Set("Authorization", r.Header.Get("Authorization"))
-		resp, err := http.DefaultClient.Do(authReq)
-		if err != nil {
-			s.logger.Errorf("failed to perform authentication %s", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error":"failed to perform authentication"}`))
-			return
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error":"invalid auth token"}`))
-			return
-		}
+
 		// authentication succeed, process the middleware as normal now
 		handler(w, r)
 	}
 	s.router.HandleFunc(route, h).Methods(methods...)
 }
 
+// unauthedRoute is for routes that have no secret-based authentication (either
+// no authentication at all, or handled within the route itself)
+func (s *Server) route(route string, handler http.HandlerFunc, methods ...string) {
+	s.router.HandleFunc(route, handler).Methods(methods...)
+}
+
 func (s *Server) drawRoutes() {
 	s.route("/", s.home, "GET")
-	s.route("/containers", s.listContainers, "GET")
-	s.route("/containers", s.createContainer, "POST")
-	s.route("/containers/{id}", s.getContainerInfo, "GET")
-	s.route("/containers/{id}", s.terminateContainer, "DELETE")
-	s.route("/containers/{id}/commit", s.commitContainer, "POST")
-	s.route("/containers/{id}/start", s.startContainer, "POST")
-	s.route("/containers/{id}/stop", s.stopContainer, "POST")
-	s.route("/containers/{id}/restart", s.restartContainer, "POST")
-	s.route("/containers/{id}/export", s.exportContainer, "GET")
-	s.route("/containers/{id}/public_keys", s.listPublicKeys, "GET")
-	s.route("/containers/{id}/public_keys", s.addPublicKeys, "POST", "PUT")
-	s.route("/containers/{id}/public_keys", s.clearPublicKeys, "DELETE")
-	s.route("/containers/{id}/public_keys/{key_fingerprint}", s.removePublicKey, "DELETE")
+	s.secretRoute("/containers", s.listContainers, "GET")
+	s.secretRoute("/containers", s.createContainer, "POST")
+	s.secretRoute("/containers/{id}", s.getContainerInfo, "GET")
+	s.secretRoute("/containers/{id}", s.terminateContainer, "DELETE")
+	s.secretRoute("/containers/{id}/commit", s.commitContainer, "POST")
+	s.secretRoute("/containers/{id}/start", s.startContainer, "POST")
+	s.secretRoute("/containers/{id}/stop", s.stopContainer, "POST")
+	s.secretRoute("/containers/{id}/restart", s.restartContainer, "POST")
+	s.secretRoute("/containers/{id}/export", s.exportContainer, "GET")
+	s.secretRoute("/containers/{id}/public_keys", s.listPublicKeys, "GET")
+	s.secretRoute("/containers/{id}/public_keys", s.addPublicKeys, "POST", "PUT")
+	s.secretRoute("/containers/{id}/public_keys", s.clearPublicKeys, "DELETE")
+	s.secretRoute("/containers/{id}/public_keys/{key_fingerprint}", s.removePublicKey, "DELETE")
 	s.route("/containers/{id}/logs", s.wrapError(s.withContainerToken(s.getContainerLogs, "logs")), "GET")
 	s.route("/containers/{id}/attach/ws", s.wrapError(s.withContainerToken(s.wsAttachToContainer, "attach")), "GET")
 
@@ -197,23 +194,23 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/shell", s.handleCORSPreflight, "OPTIONS")
 	s.route("/containers/{id}/shell", s.wrapError(s.cors(s.withContainerToken(s.wsNewShell, "shell"))), "GET")
 
-	s.route("/registry/auth", s.loginRegistry, "POST")
-	s.route("/registry/auth", s.logoutRegistry, "DELETE")
+	s.secretRoute("/registry/auth", s.loginRegistry, "POST")
+	s.secretRoute("/registry/auth", s.logoutRegistry, "DELETE")
 
-	s.route("/images", s.wrapError(s.listImages), "GET")
-	s.route("/images", s.wrapError(s.buildImage), "POST")
-	s.route("/images", s.wrapError(s.removeImage), "DELETE")
-	s.route("/images/pull", s.wrapError(s.pullImage), "POST")
-	s.route("/images/push", s.wrapError(s.pushImage), "POST")
-	s.route("/images/tag", s.wrapError(s.tagImage), "POST")
-	s.route("/images/inspect", s.wrapError(s.inspectImage), "GET")
+	s.secretRoute("/images", s.wrapError(s.listImages), "GET")
+	s.secretRoute("/images", s.wrapError(s.buildImage), "POST")
+	s.secretRoute("/images", s.wrapError(s.removeImage), "DELETE")
+	s.secretRoute("/images/pull", s.wrapError(s.pullImage), "POST")
+	s.secretRoute("/images/push", s.wrapError(s.pushImage), "POST")
+	s.secretRoute("/images/tag", s.wrapError(s.tagImage), "POST")
+	s.secretRoute("/images/inspect", s.wrapError(s.inspectImage), "GET")
 
-	s.route("/volumes", s.wrapError(s.listVolumes), "GET")
-	s.route("/volumes", s.wrapError(s.createVolume), "POST")
-	s.route("/volumes/{slug}", s.wrapError(s.removeVolume), "DELETE")
-	s.route("/volumes/{slug}", s.wrapError(s.getVolumeInfo), "GET")
+	s.secretRoute("/volumes", s.wrapError(s.listVolumes), "GET")
+	s.secretRoute("/volumes", s.wrapError(s.createVolume), "POST")
+	s.secretRoute("/volumes/{slug}", s.wrapError(s.removeVolume), "DELETE")
+	s.secretRoute("/volumes/{slug}", s.wrapError(s.getVolumeInfo), "GET")
 
-	s.route("/info", s.wrapError(s.serverInfo), "GET")
+	s.secretRoute("/info", s.wrapError(s.serverInfo), "GET")
 }
 
 // given:

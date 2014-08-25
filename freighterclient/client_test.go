@@ -46,7 +46,7 @@ func (st *ServerTest) Setup() (*ServerTest, error) {
 	}
 
 	host := freighterclient.NewHost(ip, port, "example.com", localhostCert)
-	client, err := freighterclient.NewClientTransport(host, "authtoken", st.tp)
+	client, err := freighterclient.NewClientTransport(host, "mysecret", st.tp)
 
 	if err != nil {
 		return nil, err
@@ -86,9 +86,9 @@ var _ = Describe("client", func() {
 		responseBody string
 	)
 
-	It("includes authentication token in the requests", func() {
+	It("includes secret in the requests", func() {
 		handlers := ghttp.CombineHandlers(
-			ghttp.VerifyHeaderKV("Authorization", "Bearer authtoken"),
+			ghttp.VerifyHeaderKV("X-Freighter-Secret", "mysecret"),
 			func(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte(`{"containers":[]}`))
 			},
