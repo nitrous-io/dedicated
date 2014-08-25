@@ -477,6 +477,16 @@ func (s *Server) tagImage(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Server) inspectImage(w http.ResponseWriter, r *http.Request) error {
+	image := r.FormValue("image")
+	info, err := s.provider.InspectImage(image)
+	if err != nil {
+		return err
+	}
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"image": info})
+	return nil
+}
+
 func (s *Server) attachToContainer(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	info, err := s.provider.GetInfo(id)
