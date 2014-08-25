@@ -388,7 +388,9 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 }
 
 func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	t, err := hmactoken.Generate([]string{"attach"}, cn.Secret)
+	r.ParseForm()
+	permissions := r.PostForm["permission[]"]
+	t, err := hmactoken.Generate(permissions, cn.Secret)
 	if err != nil {
 		return err
 	}

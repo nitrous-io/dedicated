@@ -1520,8 +1520,12 @@ var _ = Describe("controllers/containers", func() {
 	Describe("POST /containers/{slug}/token", func() {
 		secret := "s3cr3t"
 
-		doRequest := func() {
-			req, err := NewAuthedRequest(t, "POST", "/api/v0/containers/elixir-web-1/token", nil)
+		doRequest := func(permissions ...string) {
+			p := &url.Values{}
+			for _, perm := range permissions {
+				p.Add("permission[]", perm)
+			}
+			req, err := NewAuthedFormRequest(t, "POST", "/api/v0/containers/elixir-web-1/token", p)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1548,8 +1552,22 @@ var _ = Describe("controllers/containers", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
-			err = hmactoken.Verify([]string{"attach"}, j["token"], secret)
+			err = hmactoken.Verify(nil, j["token"], secret)
 			Expect(err).To(BeNil())
+		})
+
+		It("returns an HMAC token with only the requested permissions", func() {
+			doRequest("attach", "logs")
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j map[string]string
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			err = hmactoken.Verify([]string{"attach", "logs"}, j["token"], secret)
+			Expect(err).To(BeNil())
+			err = hmactoken.Verify([]string{"shell"}, j["token"], secret)
+			Expect(err).To(HaveOccurred())
 		})
 
 		Context("oauth token failure modes", func() {
