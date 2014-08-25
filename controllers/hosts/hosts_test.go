@@ -416,7 +416,7 @@ var _ = Describe("controllers/hosts", func() {
 						Data: serializers.SerializeHost(&h),
 					}))
 					close(done)
-				})
+				}, 3) // increase timeout to allow go routine to finish
 			})
 
 			Context("when trying to create a host with an existing slug", func() {
@@ -647,7 +647,7 @@ var _ = Describe("controllers/hosts", func() {
 				Data: serializers.SerializeHost(updated),
 			}))
 			close(done)
-		})
+		}, 3) // add longer timeout to allow goroutine to finish
 	})
 
 	Describe("GET /api/v0/hosts/{slug}/stats", func() {
@@ -875,7 +875,7 @@ var _ = Describe("controllers/hosts", func() {
 					Data: serializers.SerializeHost(deleted),
 				}))
 				close(done)
-			})
+			}, 3) // add longer timeout to allow goroutine to finish
 		})
 
 		Context("when hostbuilder fails to delete the host", func() {
@@ -1000,7 +1000,7 @@ var _ = Describe("controllers/hosts", func() {
 					Data: serializers.SerializeHost(h),
 				}))
 				close(done)
-			})
+			}, 3) // add longer timeout to allow goroutine to finish
 		})
 
 		Context("when hostbuilder fails to start the host", func() {
@@ -1125,7 +1125,7 @@ var _ = Describe("controllers/hosts", func() {
 					Data: serializers.SerializeHost(h),
 				}))
 				close(done)
-			})
+			}, 3) // add longer timeout to allow goroutine to finish
 		})
 
 		Context("when hostbuilder fails to stop the host", func() {
@@ -1250,7 +1250,7 @@ var _ = Describe("controllers/hosts", func() {
 					Data: serializers.SerializeHost(h),
 				}))
 				close(done)
-			})
+			}, 3) // increase timeout to allow go routine to finish
 		})
 
 		Context("when hostbuilder fails to restart the host", func() {
