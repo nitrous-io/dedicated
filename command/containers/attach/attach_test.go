@@ -1,23 +1,21 @@
-package attach
+package attach_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"strconv"
 	"testing"
 
-	"github.com/gorilla/mux"
-	"github.com/kr/pty"
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/command/containers/attach"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 )
 
 func TestAttach(t *testing.T) {
@@ -25,141 +23,126 @@ func TestAttach(t *testing.T) {
 	RunSpecs(t, "containers/attach")
 }
 
-var _ = Describe("Command", func() {
+var _ = Describe("containers/attach", func() {
+	var (
+		// Nitrous Server
+		nsrv *ghttp.Server
+		// Freighter Server
+		fsrv *ghttp.Server
+	)
+
+	BeforeEach(func() {
+		// Setup Freighter server.
+		fsrv = ghttp.NewServer()
+		// Setup handlers: attach to container.
+		fsrv.AppendHandlers(ghttp.CombineHandlers(
+			func(w http.ResponseWriter, r *http.Request) {
+				r.ParseForm()
+				Expect(r.PostForm["token"]).To(Equal([]string{"container-token"}))
+			},
+			ghttp.VerifyRequest("POST", "/containers/deadbeef/attach"),
+			func(w http.ResponseWriter, r *http.Request) {
+				_, out, _ := hijackServer(w)
+				out.Write([]byte("attach output"))
+				// Write more bytes than we will read so that io.Copy will fail.
+				out.Write([]byte("\n"))
+			},
+		))
+
+		// Setup nitrous server.
+		nsrv = ghttp.NewServer()
+		// Setup handlers: request container token.
+		nsrv.AppendHandlers(ghttp.CombineHandlers(
+			func(w http.ResponseWriter, r *http.Request) {
+				r.ParseForm()
+				Expect(r.PostForm["permission[]"]).To(Equal([]string{"attach"}))
+			},
+			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
+			ghttp.VerifyRequest("POST", "/api/v0/containers/foo-container-42/token"),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, map[string]string{"token": "container-token"}),
+		))
+		// Setup handlers: get container info.
+		nsrv.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
+			ghttp.VerifyRequest("GET", "/api/v0/containers/foo-container-42"),
+			ghttp.RespondWithJSONEncoded(
+				http.StatusOK,
+				map[string]interface{}{
+					"container": map[string]interface{}{
+						"CID":     "deadbeef",
+						"host_id": 1,
+					},
+				}),
+		))
+		// Setup handlers: get host info.
+		addr := fsrv.HTTPTestServer.Listener.Addr().String()
+		fhost, port, _ := net.SplitHostPort(addr)
+		fport, err := strconv.ParseInt(port, 10, 64)
+		Expect(err).To(BeNil())
+		nsrv.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
+			ghttp.VerifyRequest("GET", "/api/v0/hosts/1"),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, map[string]interface{}{
+				"host": map[string]interface{}{
+					"ip_address":      fhost,
+					"freighterd_port": fport,
+				},
+			}),
+		))
+	})
+
+	AfterEach(func() {
+		nsrv.Close()
+		fsrv.Close()
+	})
+
 	It("requires container slug", func() {
-		cmd := &Command{
+		cmd := &attach.Command{
 			UI: &cli.BasicUi{ErrorWriter: bytes.NewBuffer(nil)},
 		}
 		code := cmd.Run([]string{})
-		Expect(code).To(Equal(1), "Requires container slug", 1)
+		Expect(code).To(Equal(1))
 	})
 
 	It("attaches to the container", func() {
-		containerID := "container-slug"
-		hostID := 1
-		ns := newNitrousServer(containerID, int64(hostID))
-		defer ns.Close()
-
-		stdin, stdout, _ := pty.Open()
-		ui := &cli.BasicUi{
-			Reader:      stdin,
-			Writer:      stdout,
-			ErrorWriter: bytes.NewBuffer(nil),
-		}
-		cmd := &Command{
-			UI:     ui,
-			Server: ns.srv.URL,
-			Client: httpclient.New("authtoken"),
+		stdoutReader, stdout := io.Pipe()
+		cmd := &attach.Command{
+			UI: &cli.BasicUi{
+				Reader:      bytes.NewBuffer(nil),
+				Writer:      stdout,
+				ErrorWriter: bytes.NewBuffer(nil),
+			},
+			Server: nsrv.URL(),
+			Client: httpclient.New("correct_token"),
 		}
 
+		exited := make(chan struct{})
 		go func() {
-			defer GinkgoRecover()
-			cmd.Run([]string{containerID})
-			Expect(ui.ErrorWriter.(*bytes.Buffer).String()).To(BeEmpty())
+			cmd.Run([]string{"foo-container-42"})
+			close(exited)
 		}()
 
-		Eventually(ns.ts.done).Should(BeClosed())
+		b := make([]byte, len("attach output"))
+		_, err := stdoutReader.Read(b)
+		Expect(err).To(BeNil())
+		Expect(string(b)).To(Equal("attach output"))
+
+		// Close pipe so that the command will exit.
+		stdout.Close()
+		stdoutReader.Close()
+
+		<-exited
+
+		Expect(nsrv.ReceivedRequests()).To(HaveLen(3))
+		Expect(fsrv.ReceivedRequests()).To(HaveLen(1))
 	})
 })
-
-// nitrous test server
-type nitrousServer struct {
-	srv         *httptest.Server
-	ts          *testServer
-	containerID string
-	hostID      int64
-}
-
-func (s *nitrousServer) getHost(w http.ResponseWriter, r *http.Request) {
-	addr := s.ts.srv.Listener.Addr().String()
-	host, port, _ := net.SplitHostPort(addr)
-	portInt, _ := strconv.ParseInt(port, 10, 64)
-	resp := map[string]interface{}{
-		"ip_address":      host,
-		"freighterd_port": portInt,
-		"domain":          "example.com",
-	}
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"host": resp,
-	})
-}
-
-func (s *nitrousServer) getContainer(w http.ResponseWriter, r *http.Request) {
-	resp := map[string]interface{}{
-		"CID":     s.containerID,
-		"host_id": s.hostID,
-	}
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"container": resp,
-	})
-}
-
-func (s *nitrousServer) Close() {
-	s.ts.Close()
-	s.srv.CloseClientConnections()
-	s.srv.Close()
-}
-
-func newNitrousServer(containerID string, hostID int64) *nitrousServer {
-	ts := newTestServer(containerID)
-	s := &nitrousServer{
-		ts:          ts,
-		containerID: containerID,
-		hostID:      hostID,
-	}
-	r := mux.NewRouter()
-	r.HandleFunc("/api/v0/containers/"+containerID, s.getContainer).Methods("GET")
-	r.HandleFunc("/api/v0/hosts/"+fmt.Sprintf("%d", hostID), s.getHost).Methods("GET")
-	srv := httptest.NewServer(r)
-	s.srv = srv
-	return s
-}
-
-// freighter test server
-type testServer struct {
-	srv *httptest.Server
-
-	containerID string
-
-	stdin, stdout *bytes.Buffer
-	done          chan struct{}
-}
-
-func (s *testServer) attachToContainer(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-	Expect(id).To(Equal(s.containerID))
-	stdin, stdout, _ := hijackServer(w)
-	go io.Copy(s.stdin, stdin)
-	io.Copy(stdout, s.stdout)
-	close(s.done)
-}
-
-func (s *testServer) Close() {
-	s.srv.CloseClientConnections()
-	s.srv.Close()
-}
-
-func newTestServer(containerID string) *testServer {
-	s := &testServer{
-		containerID: containerID,
-		stdin:       bytes.NewBuffer(nil),
-		stdout:      bytes.NewBuffer(nil),
-		done:        make(chan struct{}),
-	}
-	r := mux.NewRouter()
-	r.HandleFunc("/containers/{id}/attach", s.attachToContainer).Methods("POST")
-
-	srv := httptest.NewServer(r)
-	s.srv = srv
-	return s
-}
 
 func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
 	conn, _, err := w.(http.Hijacker).Hijack()
 	if err != nil {
 		return nil, nil, err
 	}
-	// Flush the options to make sure the client sets the raw mode
 	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.containerd.raw-stream\r\n\r\n")
 	return conn, conn, nil
 }

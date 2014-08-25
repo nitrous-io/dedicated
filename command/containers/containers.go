@@ -3,8 +3,10 @@ package containers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"text/tabwriter"
 
@@ -16,6 +18,28 @@ type Container struct {
 	Slug  string `json:"slug"`
 	Image string `json:"image"`
 	State string `json:"state"`
+}
+
+func GetToken(slug, server string, permissions []string, client *httpclient.Client) (string, error) {
+	u := fmt.Sprintf("%s/api/v0/containers/%s/token", server, slug)
+	p := &url.Values{}
+	for _, perm := range permissions {
+		p.Add("permission[]", perm)
+	}
+	resp, err := client.PostFormAuthed(u, p)
+	if err != nil {
+		return "", fmt.Errorf("Failed to authenticate access to the %q container.", slug)
+	}
+	if err := httpclient.CheckResponse(resp, http.StatusOK); err != nil {
+		return "", fmt.Errorf("You don't have access to the %q container.", slug)
+	}
+	var j struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&j); err != nil {
+		return "", errors.New("An unexpected error has occurred.")
+	}
+	return j.Token, nil
 }
 
 func PrettyPrint(headers []string, containers ...*Container) string {

@@ -6,11 +6,13 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/command/containers"
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
@@ -50,16 +52,20 @@ func (c *Command) Run(args []string) int {
 	}
 	slug := args[0]
 
-	cr, err := nitrousapi.GetContainer(c.Client, c.Server, slug)
+	token, err := containers.GetToken(slug, c.Server, []string{"attach"}, c.Client)
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
 
-	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
-
-	err = c.attach(host, cr.CID, c.UI.Writer)
+	cn, err := nitrousapi.GetContainer(c.Client, c.Server, slug)
 	if err != nil {
+		c.UI.Error(err.Error())
+		return 1
+	}
+
+	host := fmt.Sprintf("%s:%d", cn.Host.IPAddress, cn.Host.FreighterdPort)
+	if err := c.attach(host, token, cn.CID, c.UI.Writer); err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
 	}
@@ -74,24 +80,29 @@ func (c *Command) Synopsis() string {
 	return "Attach to a running container"
 }
 
-func (c *Command) attach(host string, containerID string, stdout io.Writer) error {
+func (c *Command) attach(host, token, containerID string, stdout io.Writer) error {
 	dial, err := net.Dial("tcp", host)
 	if err != nil {
-		return fmt.Errorf("Can't connect to %s", host)
+		return fmt.Errorf("Can't connect to host %s", host)
 	}
 
 	conn := httputil.NewClientConn(dial, nil)
 	defer conn.Close()
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("/containers/%s/attach", containerID), nil)
+	p := &url.Values{"token": []string{token}}
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("/containers/%s/attach", containerID),
+		strings.NewReader(p.Encode()))
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Host = host
 
 	resp, _ := conn.Do(req)
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to attach to the container. Make sure that it's running.")
+		return fmt.Errorf("Failed to attach to the container. Make sure that it's running.")
 	}
 
 	wc, r := conn.Hijack()
