@@ -54,6 +54,10 @@ type RegistryAuth struct {
 	Registry string
 }
 
+type imageResponse struct {
+	Image *Image `json:"image"`
+}
+
 // Client represents a Freighter API consumer.
 type Client interface {
 	List() ([]*Container, error)
@@ -94,6 +98,7 @@ type Client interface {
 	PullImage(location string) (*Image, error)
 	PushImage(image, destination string) error
 	TagImage(image, newName string, force bool) error
+	InspectImage(image string) (*Image, error)
 }
 
 type Stats struct {
@@ -760,6 +765,33 @@ func (c *client) TagImage(image, tag string, force bool) error {
 	}
 
 	return nil
+}
+
+func (c *client) InspectImage(image string) (*Image, error) {
+	data := &url.Values{
+		"image": []string{image},
+	}
+	u := fmt.Sprintf("%s/images/inspect?%s", c.host.BaseURL(), data.Encode())
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, &StatusError{resp.StatusCode}
+	}
+
+	var imageInfo imageResponse
+	err = json.NewDecoder(resp.Body).Decode(&imageInfo)
+	if err != nil {
+		return nil, ErrUnexpectedResponse
+	}
+	return imageInfo.Image, nil
 }
 
 func (c *client) ListVolumes() ([]string, error) {

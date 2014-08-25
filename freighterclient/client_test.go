@@ -1469,6 +1469,70 @@ var _ = Describe("client", func() {
 		})
 	})
 
+	Describe("InspectImage()", func() {
+		It("returns image data", func() {
+			responseBody := `{
+				"image": {
+					"id": "12",
+					"name": "myimage",
+					"tag": "tag",
+					"created_at": 1902,
+					"actual_size": 12,
+					"virtual_size": 39
+				}
+			}`
+			handlers := ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/images/inspect"),
+				ghttp.RespondWith(http.StatusOK, responseBody),
+			)
+
+			st, _ := NewServerTest(handlers)
+			cl, server := st.client, st.server
+
+			image, err := cl.InspectImage("myimage:tag")
+			Expect(err).To(BeNil(), "failed to inspect image")
+			Expect(image).To(Equal(&freighterclient.Image{
+				ID:          "12",
+				Name:        "myimage",
+				Tag:         "tag",
+				CreatedAt:   1902,
+				ActualSize:  12,
+				VirtualSize: 39,
+			}))
+
+			reqs := server.ReceivedRequests()
+			Expect(reqs).To(HaveLen(1))
+			Expect(reqs[0].FormValue("image")).To(Equal("myimage:tag"), "failed to inspect correct image")
+		})
+
+		It("returns error when json is malformed", func() {
+			handlers := ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/images/inspect"),
+				ghttp.RespondWith(http.StatusOK, "<????>"),
+			)
+
+			st, _ := NewServerTest(handlers)
+			cl := st.client
+
+			_, err := cl.InspectImage("myimage:tag")
+			Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
+		})
+
+		It("returns error when we cant fetch image data", func() {
+			handlers := ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/images/inspect"),
+				ghttp.RespondWith(http.StatusInternalServerError, ""),
+			)
+
+			st, _ := NewServerTest(handlers)
+			cl := st.client
+
+			image, err := cl.InspectImage("myimage:tag")
+			Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+			Expect(image).To(BeNil())
+		})
+	})
+
 	Describe("Image Operations", func() {
 		setupServer := func(method, url, contentType string) {
 			handlers := ghttp.CombineHandlers(
