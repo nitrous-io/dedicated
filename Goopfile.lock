@@ -1,5 +1,6 @@
 bitbucket.org/kardianos/osext #6836bbd915dac0c3115ca7febb32af9ce74eb1d6
 code.google.com/p/go.crypto/bcrypt #1064b89a6fb591df0dd65422295b8498916b092f
+code.google.com/p/go.crypto/ssh #fe6c00a82e55
 github.com/c9s/goprocinfo #156cebb00efa1f184ce9f021404693012046c2fe
 github.com/daviddengcn/go-colortext #b5c0891944c2f150ccc9d02aecf51b76c14c2948
 github.com/ddollar/dist #f559761fd36c52dc90d7d2c0bc537e6d96b0edc5
