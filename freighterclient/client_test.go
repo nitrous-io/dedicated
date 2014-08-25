@@ -289,7 +289,6 @@ var _ = Describe("client", func() {
 						ID:         "cafebabe",
 						Name:       "yosemite",
 						Image:      "ubuntu",
-						Secret:     "s3cr3t",
 						Host:       "172.17.0.1",
 						State:      "running",
 						Cmd:        []string{"/sbin/init"},
