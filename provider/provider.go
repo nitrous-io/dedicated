@@ -56,6 +56,7 @@ type Provider interface {
 	PullImage(repository string) (*ImageInfo, error)
 	PushImage(name, destination string) error
 	TagImage(name, tag string, force bool) error
+	InspectImage(name string) (*ImageInfo, error)
 
 	CreateVolume(slug string) (*VolumeInfo, error)
 	ListVolumes() ([]string, error)

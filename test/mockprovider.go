@@ -114,6 +114,10 @@ type MockProvider struct {
 	ReceivedTag      string
 	ReceivedTagForce bool
 
+	InspectImageCalled bool
+	InspectImageReturn *provider.ImageInfo
+	InspectImageError  error
+
 	AttachToContainerCalled bool
 	AttachToContainerError  error
 	WriteToStdout           string
@@ -306,6 +310,11 @@ func (p *MockProvider) TagImage(name, tag string, force bool) error {
 	p.ReceivedTag = tag
 	p.ReceivedTagForce = force
 	return p.TagImageError
+}
+
+func (p *MockProvider) InspectImage(name string) (*provider.ImageInfo, error) {
+	p.InspectImageCalled = true
+	return p.InspectImageReturn, p.InspectImageError
 }
 
 func (p *MockProvider) CreateVolume(slug string) (*provider.VolumeInfo, error) {
