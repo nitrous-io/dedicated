@@ -4,3 +4,6 @@ window.helpers =
     if slug.charAt(0) == '-'
       return 'a-' + slug
     slug
+
+  escapeRegex: (text) ->
+    text.replace(/([.*+?^${}()|\[\]\/\\])/g, "\\$1")

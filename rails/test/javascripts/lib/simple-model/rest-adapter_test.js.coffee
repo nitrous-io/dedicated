@@ -141,8 +141,22 @@ describe 'SM.RESTAdapter', ->
         context 'when params are given', ->
           it 'adds a query string to the request', ->
             promise = TestModel.fetch(123, foo: 'bar baz=', baz: 777)
-            expect(server.requests.length).to.equal 1
-            expect(server.requests[0].url).to.equal '/foo/123?foo=bar%20baz%3D&baz=777'
+            expect(server.requests.length).to.equal 1, '1 request is made'
+            expect(server.requests[0].url).to.equal '/foo/123?foo=bar%20baz%3D&baz=777', 'query string is appended'
+
+          context 'when url contains dynamic segments', ->
+            beforeEach ->
+              klass.reopenClass
+                url: '/foo/:fooId/bar/:barId/baz'
+
+            afterEach ->
+              klass.reopenClass
+                url: '/foo'
+
+            it 'replaces them with values from params', ->
+              promise = TestModel.fetch(123, fooId: 'abc', barId: 3, foo: 'bar baz=', baz: 777)
+              expect(server.requests.length).to.equal 1, '1 request is made'
+              expect(server.requests[0].url).to.equal '/foo/abc/bar/3/baz/123?foo=bar%20baz%3D&baz=777', 'dynamic segments are filled and query string is appended'
 
       context 'when it is a singular resource', ->
         beforeEach ->
@@ -156,8 +170,22 @@ describe 'SM.RESTAdapter', ->
         context 'when params are given', ->
           it 'adds a query string to the request', ->
             promise = TestModel.fetch(foo: 'bar baz=', baz: 777)
-            expect(server.requests.length).to.equal 1
-            expect(server.requests[0].url).to.equal '/foo?foo=bar%20baz%3D&baz=777'
+            expect(server.requests.length).to.equal 1, '1 request is made'
+            expect(server.requests[0].url).to.equal '/foo?foo=bar%20baz%3D&baz=777', 'dynamic segments are filled and query string is appended'
+
+          context 'when url contains dynamic segments', ->
+            beforeEach ->
+              klass.reopenClass
+                url: '/foo/:fooId/bar/:barId/baz'
+
+            afterEach ->
+              klass.reopenClass
+                url: '/foo'
+
+            it 'replaces them with values from params', ->
+              promise = TestModel.fetch(fooId: 'abc', barId: 3, foo: 'bar baz=', baz: 777)
+              expect(server.requests.length).to.equal 1, '1 request is made',
+              expect(server.requests[0].url).to.equal '/foo/abc/bar/3/baz?foo=bar%20baz%3D&baz=777', 'dynamic segments are filled and query string is appended'
 
     context 'fetching multiple records', ->
       context 'when request succeeds', ->
@@ -390,3 +418,20 @@ describe 'SM.RESTAdapter', ->
         klass.reopenClass(createURL: null)
 
         itWorks('/foo/create')
+
+    context 'when url contains dynamic segments', ->
+      beforeEach ->
+        klass.reopenClass
+          url: '/foo/:fooId/bar/:barId/baz'
+
+      afterEach ->
+        klass.reopenClass
+          url: '/foo'
+
+      it 'replaces them with values in attrs', ->
+        record.setProperties
+          fooId: 'abc'
+          barId: 3
+        promise = record.save()
+        expect(server.requests.length).to.equal 1, '1 request is made'
+        expect(server.requests[0].url).to.equal '/foo/abc/bar/3/baz', 'dynamic segments are filled'

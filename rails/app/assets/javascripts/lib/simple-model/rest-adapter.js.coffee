@@ -29,15 +29,26 @@ SM.RESTAdapter = Ember.Object.extend
       single = true
     else if !singular && primaryKey?
       single = true
-      url = "#{url}/#{primaryKey}"
+      url = "#{url}/#{encodeURIComponent(primaryKey)}"
     else
       single = false
 
     if params
+      # handle dynamic segments
+      urlComps = url.split('/')
+      for k, v of params
+        if params.hasOwnProperty(k)
+          i = urlComps.indexOf(':'+k)
+          if i != -1
+            urlComps[i] = v
+            delete params[k]
+      url = urlComps.join('/')
+
+      # add the rest of the params as query string
       query = Ember.$.map(params, (v, k) ->
         "#{k}=#{encodeURIComponent(v)}"
       ).join("&")
-      url = "#{url}?#{query}"
+      url = "#{url}?#{query}" if query
 
     r = if single
       props = {}
@@ -70,6 +81,9 @@ SM.RESTAdapter = Ember.Object.extend
   createRecord: (record) ->
     model = record.constructor
     url = Ember.get(model, "createURL") || Ember.get(model, "url")
+
+    url = @_fillDynamicSegments(url, record)
+
     promise = new Ember.RSVP.Promise (resolve, reject) =>
       @ajax('POST', url, record.serialize()).done((data, status, jqxhr) ->
         if model.rootKey
@@ -80,3 +94,11 @@ SM.RESTAdapter = Ember.Object.extend
         reject(jqxhr)
     promise.value = record
     promise
+
+  _fillDynamicSegments: (url, data) ->
+    urlComps = url.split('/')
+    for comp, i in urlComps
+      if comp.charAt(0) == ':' && comp.length > 1
+        if v = Ember.get(data, comp.slice(1))
+          urlComps[i] = v
+    urlComps.join('/')
