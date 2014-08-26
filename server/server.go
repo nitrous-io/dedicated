@@ -141,8 +141,8 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/public_keys", s.addPublicKeys, "POST", "PUT")
 	s.route("/containers/{id}/public_keys", s.clearPublicKeys, "DELETE")
 	s.route("/containers/{id}/public_keys/{key_fingerprint}", s.removePublicKey, "DELETE")
-	s.route("/containers/{id}/logs", s.getContainerLogs, "GET")
-	s.route("/containers/{id}/attach", s.wrapError(s.attachToContainer), "POST")
+	s.route("/containers/{id}/logs", s.wrapError(s.withContainerToken(s.getContainerLogs, "logs")), "GET")
+	s.route("/containers/{id}/attach", s.wrapError(s.withContainerToken(s.attachToContainer, "attach")), "POST")
 
 	s.route("/containers/{id}/shells", s.wrapError(s.createShell), "POST")
 	s.route("/shells/{id}/attach", s.wrapError(s.attachShell), "POST")

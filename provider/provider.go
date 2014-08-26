@@ -28,6 +28,12 @@ var (
 )
 
 type Provider interface {
+	// VerifyToken verifies that the given token has the required permissions
+	// on the container with the given ID.
+	// It is the caller's responsibility to verify a token before subsequently
+	// calling other functions, wherever necessary.
+	VerifyToken(id, token string, permissions ...string) error
+
 	List() (infoList []*ContainerInfo, err error)
 	Create(name, image, secret, config string) (info *ContainerInfo, err error)
 	Commit(id, imageName string) (info *ImageInfo, err error)
@@ -45,7 +51,7 @@ type Provider interface {
 	//RestoreSnapshot(id string, snapshotID string) (err error)
 	IsNotFoundError(err error) bool
 	Export(id string, output io.Writer) error
-	Logs(id, token string, w io.Writer, follow, timestamps bool, tail string) error
+	Logs(id string, w io.Writer, follow, timestamps bool, tail string) error
 
 	Login(username, password, email, registry string) error
 	Logout(registry string) error
@@ -63,7 +69,7 @@ type Provider interface {
 	RemoveVolume(slug string) error
 	GetVolumeInfo(slug string) (*VolumeInfo, error)
 
-	AttachToContainer(id, token string, in io.Reader, out io.Writer) error
+	AttachToContainer(id string, in io.Reader, out io.Writer) error
 }
 
 type ContainerInfo struct {

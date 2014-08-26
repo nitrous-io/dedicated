@@ -74,6 +74,27 @@ func NewDockerProvider(logger *util.Logger, dataPath string) (*DockerProvider, e
 	}, nil
 }
 
+func (p *DockerProvider) VerifyToken(id, token string, permissions ...string) error {
+	container, err := p.inspectContainer(id)
+	if err != nil {
+		return err
+	}
+
+	secret, err := p.readSharedSecret(nameFromContainer(container))
+	if err != nil {
+		return provider.ErrUnverifiable
+	}
+	err = hmactoken.Verify(permissions, token, secret)
+	switch err {
+	case hmactoken.ErrInvalidToken, hmactoken.ErrPermissionDenied:
+		return provider.ErrTokenVerificationFailed
+	case hmactoken.ErrTokenExpired:
+		return provider.ErrTokenExpired
+	default:
+		return err
+	}
+}
+
 func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 	apicontainers, err := p.client.ListContainers(dockerclient.ListContainersOptions{
 		All: true,
@@ -378,13 +399,9 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 
 // Logs gets stdout and stderr logs from a container. If successful, the logs
 // are written to the given io.Writer.
-func (p *DockerProvider) Logs(id, token string, w io.Writer, follow, timestamps bool, tail string) error {
+func (p *DockerProvider) Logs(id string, w io.Writer, follow, timestamps bool, tail string) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
-		return err
-	}
-
-	if err := p.verifyToken(nameFromContainer(container), token, "logs"); err != nil {
 		return err
 	}
 
@@ -626,13 +643,9 @@ func (p *DockerProvider) InspectImage(name string) (*provider.ImageInfo, error) 
 	return lookupResult.image, nil
 }
 
-func (p *DockerProvider) AttachToContainer(id, token string, in io.Reader, out io.Writer) error {
+func (p *DockerProvider) AttachToContainer(id string, in io.Reader, out io.Writer) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
-		return err
-	}
-
-	if err := p.verifyToken(nameFromContainer(container), token, "attach"); err != nil {
 		return err
 	}
 
@@ -828,22 +841,6 @@ func (p *DockerProvider) readSharedSecret(containerName string) (string, error) 
 		return "", err
 	}
 	return strings.TrimSpace(string(secret)), nil
-}
-
-func (p *DockerProvider) verifyToken(containerName, token string, permissions ...string) error {
-	secret, err := p.readSharedSecret(containerName)
-	if err != nil {
-		return provider.ErrUnverifiable
-	}
-	err = hmactoken.Verify(permissions, token, secret)
-	switch err {
-	case hmactoken.ErrInvalidToken, hmactoken.ErrPermissionDenied:
-		return provider.ErrTokenVerificationFailed
-	case hmactoken.ErrTokenExpired:
-		return provider.ErrTokenExpired
-	default:
-		return err
-	}
 }
 
 func (p *DockerProvider) createAuthorizedKeys(containerName string, publicKeys []string) error {
