@@ -36,10 +36,7 @@ var _ = Describe("containers/attach", func() {
 		fsrv = ghttp.NewServer()
 		// Setup handlers: attach to container.
 		fsrv.AppendHandlers(ghttp.CombineHandlers(
-			func(w http.ResponseWriter, r *http.Request) {
-				r.ParseForm()
-				Expect(r.PostForm["token"]).To(Equal([]string{"container-token"}))
-			},
+			ghttp.VerifyHeaderKV("Authorization", "Token container-token"),
 			ghttp.VerifyRequest("POST", "/containers/deadbeef/attach"),
 			func(w http.ResponseWriter, r *http.Request) {
 				_, out, _ := hijackServer(w)
