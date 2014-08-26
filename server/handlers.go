@@ -264,7 +264,7 @@ func (s *Server) exportContainer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) getContainerLogs(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getContainerLogs(token string, w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 
 	// convert to bool, ignore the errors as the value will be false when error
@@ -275,12 +275,8 @@ func (s *Server) getContainerLogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/vnd.docker.raw-stream")
 
-	token := r.FormValue("token")
 	outstream := flusher.NewWriteFlusher(w)
-	err := s.provider.Logs(id, token, outstream, follow, timestamps, tail)
-	if err != nil {
-		s.handleError(w, err)
-	}
+	return s.provider.Logs(id, outstream, follow, timestamps, tail)
 }
 
 func (s *Server) createShell(w http.ResponseWriter, r *http.Request) error {
@@ -493,7 +489,7 @@ func (s *Server) inspectImage(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) attachToContainer(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) attachToContainer(token string, w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	info, err := s.provider.GetInfo(id)
 	if err != nil {
@@ -523,8 +519,7 @@ func (s *Server) attachToContainer(w http.ResponseWriter, r *http.Request) error
 		}
 	}()
 
-	token := r.FormValue("token")
-	if err := s.provider.AttachToContainer(id, token, stdin, stdout); err != nil {
+	if err := s.provider.AttachToContainer(id, stdin, stdout); err != nil {
 		// Connection is already hijacked, so write to the wire instead of
 		// returning the error.
 		stdout.Write([]byte(err.Error()))

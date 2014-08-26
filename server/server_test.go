@@ -952,15 +952,33 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("GET /containers/:id/logs", func() {
-		doRequest := func(id, follow, timestamps, tail string) {
+		doRequest := func(id, token, follow, timestamps, tail string) {
 			params := &url.Values{}
 			params.Set("follow", follow)
 			params.Set("timestamps", timestamps)
 			params.Set("tail", tail)
-			params.Set("token", "container-token")
 			req, _ := NewRequest("GET", fmt.Sprintf("/containers/%v/logs", id), params)
+			if token != "" {
+				req.Header.Set("Authorization", "Token "+token)
+			}
 			handler.ServeHTTP(res, req)
 		}
+
+		It("requires a container token", func() {
+			token := ""
+			doRequest("test-container", token, "false", "false", "")
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("requires a valid container token", func() {
+			prov.VerifyTokenError = errors.New("invalid token")
+			token := "some token"
+			doRequest("test-container", token, "false", "false", "")
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(prov.ReceivedID).To(Equal("test-container"))
+			Expect(prov.ReceivedToken).To(Equal(token))
+			Expect(prov.ReceivedPermissions).To(Equal([]string{"logs"}))
+		})
 
 		It("ignore invalid parameters", func() {
 			testCases := []struct {
@@ -972,7 +990,7 @@ var _ = Describe("server", func() {
 				{"invalid", "bool", 200},
 			}
 			for _, tc := range testCases {
-				doRequest("test-container", tc.follow, tc.timestamps, "tail-value")
+				doRequest("test-container", "container-token", tc.follow, tc.timestamps, "tail-value")
 				Expect(res.Code).To(Equal(tc.status), "Unexpected status %+v for %+v", res.Code, tc)
 				Expect(prov.ReceivedID).To(Equal("test-container"), "Unexpected id for %+v", tc)
 				Expect(prov.ReceivedToken).To(Equal("container-token"), "unexpected token for %+v", tc)
@@ -982,7 +1000,7 @@ var _ = Describe("server", func() {
 		})
 
 		It("accepts any value for tail", func() {
-			doRequest("test-container", "true", "false", "tail-value")
+			doRequest("test-container", "container-token", "true", "false", "tail-value")
 			Expect(res.Code).To(Equal(200), "Unexpected status %v", res.Code)
 			Expect(prov.ReceivedTail).To(Equal("tail-value"))
 		})
@@ -998,7 +1016,7 @@ var _ = Describe("server", func() {
 				{"true", "false", true, false},
 			}
 			for _, tc := range testCases {
-				doRequest("test-container", tc.follow, tc.timestamps, "tail-value")
+				doRequest("test-container", "container-token", tc.follow, tc.timestamps, "tail-value")
 				Expect(prov.ReceivedFollow).To(Equal(tc.expectedFollow), "Unexpected follow for %v", tc)
 				Expect(prov.ReceivedTimestamps).To(Equal(tc.expectedTimestamps), "Unexpected timestamps for %v", tc)
 			}
@@ -1473,14 +1491,32 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("POST /containers/:id/attach", func() {
-		Context("for invalid containers", func() {
-			doRequest := func(id string) {
-				params := &url.Values{}
-				req, err := NewRequest("POST", fmt.Sprintf("/containers/%v/attach", id), params)
-				Expect(err).To(BeNil())
-				handler.ServeHTTP(res, req)
+		doRequest := func(id, token string) {
+			req, err := NewRequest("POST", fmt.Sprintf("/containers/%v/attach", id), nil)
+			Expect(err).To(BeNil())
+			if token != "" {
+				req.Header.Set("Authorization", "Token "+token)
 			}
+			handler.ServeHTTP(res, req)
+		}
 
+		It("requires a container token", func() {
+			token := ""
+			doRequest("test-container", token)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("requires a valid container token", func() {
+			prov.VerifyTokenError = errors.New("invalid token")
+			token := "some token"
+			doRequest("test-container", token)
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(prov.ReceivedID).To(Equal("test-container"))
+			Expect(prov.ReceivedToken).To(Equal(token))
+			Expect(prov.ReceivedPermissions).To(Equal([]string{"attach"}))
+		})
+
+		Context("for invalid containers", func() {
 			testCases := []struct {
 				id         string
 				container  *provider.ContainerInfo
@@ -1498,7 +1534,7 @@ var _ = Describe("server", func() {
 						if local.container != nil {
 							prov.Containers = []*provider.ContainerInfo{local.container}
 						}
-						doRequest(local.id)
+						doRequest(local.id, "valid-token")
 					})
 
 					It("responds to the request", func() {
@@ -1509,11 +1545,12 @@ var _ = Describe("server", func() {
 		})
 
 		Context("for valid containers", func() {
-			doRequest := func(id string, w io.Writer) {
-				params := &url.Values{}
-				params.Set("token", "container-token")
-				req, err := NewRequest("POST", fmt.Sprintf("/containers/%v/attach", id), params)
+			doRequest := func(id, token string, w io.Writer) {
+				req, err := NewRequest("POST", fmt.Sprintf("/containers/%v/attach", id), nil)
 				Expect(err).To(BeNil())
+				if token != "" {
+					req.Header.Set("Authorization", "Token "+token)
+				}
 
 				h := &HijackTester{
 					ResponseRecorder: res,
@@ -1529,7 +1566,7 @@ var _ = Describe("server", func() {
 
 				r, w := io.Pipe()
 				go func() {
-					doRequest("container-id", w)
+					doRequest("container-id", "container-token", w)
 					w.Close()
 				}()
 
@@ -1551,7 +1588,7 @@ var _ = Describe("server", func() {
 
 				r, w := io.Pipe()
 				go func() {
-					doRequest("container-id", w)
+					doRequest("container-id", "container-token", w)
 					w.Close()
 				}()
 

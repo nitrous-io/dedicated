@@ -1126,11 +1126,11 @@ var _ = Describe("client", func() {
 	Describe("Logs()", func() {
 		It("gets logs of the container", func() {
 			params := url.Values{}
-			params.Set("token", "container-token")
 			params.Set("follow", "true")
 			params.Set("timestamps", "true")
 			params.Set("tail", "all")
 			handlers := ghttp.CombineHandlers(
+				ghttp.VerifyHeaderKV("Authorization", "Token container-token"),
 				ghttp.VerifyRequest("GET", "/containers/deadbeef/logs", params.Encode()),
 				ghttp.RespondWith(http.StatusOK, "hello i am a log"),
 			)

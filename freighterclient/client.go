@@ -391,7 +391,6 @@ func (c *client) Logs(
 	w io.Writer,
 ) error {
 	params := url.Values{}
-	params.Set("token", token)
 	params.Set("follow", follow)
 	params.Set("timestamps", timestamps)
 	params.Set("tail", tail)
@@ -399,6 +398,9 @@ func (c *client) Logs(
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return err
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Token "+token)
 	}
 
 	resp, err := c.Do(req)

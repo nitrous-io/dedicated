@@ -573,15 +573,12 @@ var _ = Describe("provider/docker", func() {
 			})
 
 			Describe("AttachToContainer()", func() {
-				It("attaches to container successfully with a valid token", func() {
-					correctToken, err := hmactoken.Generate([]string{"attach"}, secret)
-					Expect(err).To(BeNil())
-
+				It("attaches to container's stdin and stdout streams", func() {
 					var stdout bytes.Buffer
 					r := strings.NewReader("send value")
 					errCh := make(chan error)
 					go func() {
-						errCh <- prov.AttachToContainer(id, correctToken, r, &stdout)
+						errCh <- prov.AttachToContainer(id, r, &stdout)
 					}()
 
 					// FIXME Ideally we don't have to stop a container but a bug
@@ -589,36 +586,20 @@ var _ = Describe("provider/docker", func() {
 					// AttachToContainer() to not return even after the output
 					// stream is closed for writing.
 					// This happens to containers that do not write any output.
-					err = exec.Command("docker", "stop", id).Run()
+					err := exec.Command("docker", "stop", id).Run()
 					Expect(err).To(BeNil())
 
 					Expect(<-errCh).To(BeNil())
 				})
-
-				It("returns an error when given an invalid token", func() {
-					invalidToken := ""
-					in := ioutil.NopCloser(bytes.NewBuffer(nil))
-					err := prov.AttachToContainer(id, invalidToken, in, ioutil.Discard)
-					Expect(err).NotTo(BeNil())
-				})
 			})
 
 			Describe("Logs()", func() {
-				It("writes logs with a valid token", func() {
-					correctToken, err := hmactoken.Generate([]string{"logs"}, secret)
-					Expect(err).To(BeNil())
-
+				It("writes the container's logs", func() {
 					// FIXME Ideally this should test against a container with
 					// actual log output and probably exercise the follow,
 					// timestamps and tail arguments.
-					err = prov.Logs(id, correctToken, ioutil.Discard, false, false, "")
+					err := prov.Logs(id, ioutil.Discard, false, false, "")
 					Expect(err).To(BeNil())
-				})
-
-				It("returns an error when given an invalid token", func() {
-					invalidToken := ""
-					err := prov.Logs(id, invalidToken, ioutil.Discard, false, false, "")
-					Expect(err).NotTo(BeNil())
 				})
 			})
 
@@ -632,7 +613,7 @@ var _ = Describe("provider/docker", func() {
 				})
 
 				It("doesn't return an error when verifying a correct token", func() {
-					err := prov.VerifyToken(name, correctToken, "attach")
+					err := prov.VerifyToken(id, correctToken, "attach")
 					Expect(err).To(BeNil())
 				})
 
@@ -643,7 +624,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(err).To(BeNil())
 					defer os.Rename(newpath, secretFile)
 
-					err = prov.VerifyToken(name, correctToken, "attach")
+					err = prov.VerifyToken(id, correctToken, "attach")
 					Expect(err).To(MatchError(provider.ErrUnverifiable))
 				})
 
@@ -651,7 +632,7 @@ var _ = Describe("provider/docker", func() {
 					invalidToken, err := hmactoken.Generate([]string{"attach"}, "wrong secret")
 					Expect(err).To(BeNil())
 
-					err = prov.VerifyToken(name, invalidToken, "attach")
+					err = prov.VerifyToken(id, invalidToken, "attach")
 					Expect(err).To(MatchError(provider.ErrTokenVerificationFailed))
 				})
 
@@ -659,7 +640,7 @@ var _ = Describe("provider/docker", func() {
 					invalidToken, err := hmactoken.Generate([]string{"admin"}, secret)
 					Expect(err).To(BeNil())
 
-					err = prov.VerifyToken(name, invalidToken, "attach")
+					err = prov.VerifyToken(id, invalidToken, "attach")
 					Expect(err).To(MatchError(provider.ErrTokenVerificationFailed))
 				})
 
@@ -668,7 +649,7 @@ var _ = Describe("provider/docker", func() {
 					expiredToken, err := hmactoken.Generate([]string{"attach"}, secret)
 					Expect(err).To(BeNil())
 
-					err = prov.VerifyToken(name, expiredToken, "attach")
+					err = prov.VerifyToken(id, expiredToken, "attach")
 					Expect(err).To(MatchError(provider.ErrTokenExpired))
 				})
 			})
