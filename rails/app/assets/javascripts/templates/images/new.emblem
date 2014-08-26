@@ -4,50 +4,66 @@
 form
   .card-body
     .ui.input-group
+      label.field-label
+        | Host
+      .ui.select
+        Ember.Select content=App.hosts optionValuePath='content.slug' optionLabelPath='content.displayName' value=selectedHostSlug
+
+      label.field-label for='images-new-name'
+        | Name
+      = input type='text' name='name' id='images-new-name' value=name
+
+  .card-body.bordered
+    .ui.input-group
+      label.field-label
+        | Create from:
+
       .option-selection
+        /ul.ui.checkbox-group
+          /li
+            /.ui.checkbox
+              /input type='radio' id='images-new-option-github' name='option'
+              /label
+            /label for='images-new-option-github' Use Dockerfile in GitHub Repo / Gist
+
+        /.indent
+          /input type='text' id='images-new-github' name='github'
+
+        /ul.ui.checkbox-group
+          /li
+            /.ui.checkbox
+              /input type='radio' id='images-new-option-url' name='option'
+              /label
+            /label for='images-new-option-url' Fetch Dockerfile URL
+
+        /.indent
+          /input type='text' id='images-new-url' name='url'
+
         ul.ui.checkbox-group
           li
             .ui.checkbox
-              input type='radio' id='images-new-option-github' name='option' checked='checked'
-              label
-            label for='images-new-option-github' Use Dockerfile in GitHub Repo / Gist
-
-        .indent
-          input type='text' id='images-new-github' name='github'
-
-        ul.ui.checkbox-group
-          li
-            .ui.checkbox
-              input type='radio' id='images-new-option-url' name='option'
-              label
-            label for='images-new-option-url' Fetch Dockerfile URL
-
-        .indent
-          input type='text' id='images-new-url' name='url'
-
-        ul.ui.checkbox-group
-          li
-            .ui.checkbox
-              input type='radio' id='images-new-option-file' name='option'
+              input type='radio' id='images-new-option-file' name='option' checked='checked' value='file'
               label
             label for='images-new-option-file' Upload Dockerfile / Tarball
 
         .indent
           .ui.file-picker.btn.raised
-            input type='file' id='images-new-file' name='file'
+            input type='file' id='images-new-file' name='file' change='didChangeFile target="view"'
+          span.filename
+            = view.selectedFileName
 
         ul.ui.checkbox-group
           li
             .ui.checkbox
-              input type='radio' id='images-new-option-code' name='option'
+              input type='radio' id='images-new-option-code' name='option' value='code'
               label
             label for='images-new-option-code' Enter Dockerfile Code
 
         .indent
           .editor
-            textarea id='dockerfile-code' name='dockerfile' rows='1'
+            Ember.TextArea id='dockerfile-code' name='dockerfile' rows='1' value=view.dockerfileCode
 
   .card-footer.bordered
     .right
-      button.ui.btn Cancel
-      button.ui.btn.primary Create
+      a.ui.btn href='#' click='cancel' Cancel
+      button.ui.btn.primary disabled=view.disableCreateButton click='create target="view"' Create

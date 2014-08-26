@@ -5,17 +5,19 @@ SM.RESTAdapter = Ember.Object.extend
 
   namespace: ''
 
-  ajax: (method, url, data=null, headers={}) ->
+  ajax: (method, url, data=null, headers={}, options={}) ->
     headers = Ember.merge(Ember.merge({}, Ember.get(this, 'headers')), headers)
 
     if namespace = Ember.get(this, 'namespace')
       url = namespace + url
 
-    Ember.$.ajax
+    ajaxOptions =
       type: method
       url: url
       data: data
       headers: headers
+    Ember.merge(ajaxOptions, options)
+    Ember.$.ajax(ajaxOptions)
 
   fetch: (model, primaryKey, params) ->
     singular = Ember.get(model, 'singular')
