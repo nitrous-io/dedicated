@@ -1,0 +1,27 @@
+#!/bin/bash
+usage="USAGE: ./script/migrate_user USERNAME TO_DB (TO_DB is pro-n2ostaging-com for staging and pro-nitrous-io for production)"
+
+username=${1:?"username is required. ${usage}"}
+db=${2:?"db is required. ${usage}"}
+tmp=$(mktemp /tmp/migrate_user_XXXXX)
+
+heroku pg:psql -a action -c "\\copy (select username, email, encrypted_password, full_name from users where username = '${username}') to '${tmp}' with csv;"
+user_record=$(cat ${tmp})
+echo "user is ${user_record}"
+OIFS="$IFS"
+IFS=","
+read -a user <<< "${user_record}"
+IFS="$OIFS"
+
+echo username: ${user[0]}
+echo email: ${user[1]}
+echo encrypted password: ${user[2]}
+echo full name: ${user[3]}
+
+uname=${user[0]}
+email=${user[1]}
+pass=`echo ${user[2]} | sed -e 's#\\$#\\\\$#g'`
+name=${user[3]}
+
+# Put into the new database
+heroku pg:psql -a $db -c "insert into users(username, email, encrypted_password, name) values('$uname','$email','$pass','$name')";
