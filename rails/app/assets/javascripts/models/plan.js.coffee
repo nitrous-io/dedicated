@@ -11,12 +11,12 @@ App.Plan = klass = App.Model.extend
   memory: attr()
   storage: attr()
 
-  radioId: (->
+  inputId: (->
     if slug = @get 'slug'
       "plan-#{slug}"
   ).property 'slug'
 
 klass.reopenClass
   url: '/plans'
-  primarykey: 'id'
+  primaryKey: 'id'
   collectionKey: 'plans'

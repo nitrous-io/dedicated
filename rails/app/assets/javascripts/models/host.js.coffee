@@ -32,17 +32,22 @@ App.Host = klass = App.Model.extend
   containers: (->
     if id = @get('id')
       App.get('containers')?.filterBy('hostId', id)
-  ).property('id', 'App.containers.@each')
+  ).property 'id', 'App.containers.@each'
+
+  registries: (->
+    if id = @get('id')
+      App.Registry.fetch(hostId: id).value
+  ).property 'id'
 
   region: (->
     if regionId = @get('regionId')
       App.get('regions').findBy('id', regionId)
-  ).property('regionId')
+  ).property 'regionId'
 
   plan: (->
     if planId = @get('planId')
       App.get('plans').findBy('id', planId)
-  ).property('planId')
+  ).property 'planId'
 
   selected: (->
     App.get('selectedHost') == this

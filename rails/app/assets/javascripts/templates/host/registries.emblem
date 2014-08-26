@@ -1,27 +1,30 @@
 = host-tab-bar selected='registries'
 
 .card-body
-  ul.ui.list.with-separators.item-2-line
-    li.list-item
-      .left-accessory
-        .ui.checkbox
-          input type='checkbox'
-          label
-      .lines
-        h4 hub.docker.com
-        p nitrousio
-
-    li.list-item
-      .left-accessory
-        .ui.checkbox
-          input type='checkbox'
-          label
-      .lines
-        h4 quay.io
-        p petejkim
+  if registries.length
+    ul.ui.list.with-separators.item-2-line
+      each registry in registries
+        li.list-item
+          .left-accessory
+            .ui.checkbox
+              input type='checkbox' name='registry' id={registry.inputId} value={registry.url}
+              label
+          .lines
+            h4
+              = registry.url
+            p
+              = registry.username
+              if registry.email
+                | &nbsp;(
+                = registry.email
+                | )
+  else
+    p.hint-text
+      i.fa.fa-exclamation-circle
+      | This host is not connected to any Docker registry.
 
 .card-footer.bordered
   .left
-    button.ui.btn Remove
+    button.ui.btn click='remove target="view"' Remove
   .right
-    button.ui.btn.primary click='add' Add Registry...
+    button.ui.btn.primary click='add' Connect to Registry...

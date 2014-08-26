@@ -1,32 +1,37 @@
 = host-tab-bar selected='registries'
 
-form
+form submit='create'
   .card-body
-    h3 Add Registry
+    h3 Connect To Registry
     .ui.input-group
       label.field-label for='registries-new-url'
         | Registry URL
       .registry-url
-        input type='text' id='registries-new-url' name='url'
+        = input type='text' id='registries-new-url' name='registry' value=url
         .registry-buttons
-          button.ui.btn.raised id='quay-io-btn' data-url='quay.io'
+          a.ui.btn.raised id='quay-io-btn' data-url='quay.io' href='#'
             | Quay.io
-          button.ui.btn.raised id='docker-hub-btn' data-url='https://index.docker.io/v1'
+          a.ui.btn.raised.default id='docker-hub-btn' data-url='index.docker.io' href='#'
             | Docker Hub
 
       label.field-label for='registries-new-username'
         | Username
-      input type='text' id='registries-new-username' name='username'
+      = input type='text' id='registries-new-username' name='username' value=username
 
       label.field-label for='registries-new-email'
         | Email
-      input type='email' id='registries-new-email' name='email'
+      = input type='email' id='registries-new-email' name='email' value=email
 
       label.field-label for='registries-new-password'
         | Password
-      input type='password' id='registries-new-password' name='password'
+      = input type='password' id='registries-new-password' name='password' value=password
 
   .card-footer.bordered
     .right
-      button.ui.btn Cancel
-      button.ui.btn.primary Add Registry
+      if saving
+        button.ui.btn disabled='disabled'
+          .spinner
+          | Connecting...
+      else
+        a.ui.btn href='#' click='cancel' Cancel
+        input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Connect'

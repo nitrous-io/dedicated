@@ -6,7 +6,7 @@ App.Region = klass = App.Model.extend
   slug: attr()
   name: attr()
 
-  radioId: (->
+  inputId: (->
     if slug = @get 'slug'
       "region-#{slug}"
   ).property 'slug'

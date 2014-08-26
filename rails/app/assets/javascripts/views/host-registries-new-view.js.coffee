@@ -1,16 +1,22 @@
 App.HostRegistriesNewView = Em.View.extend
   elementId: 'host-registries-new-view'
 
+  createButtonDisabled: (->
+    !(@get('controller.url') && @get('controller.username') && @get('controller.email') && @get('controller.password'))
+  ).property 'controller.url', 'controller.username', 'controller.email', 'controller.password'
+
   didInsertElement: ->
     @_super()
-    $urlField = @$('#registries-new-url').val(@$('#docker-hub-btn').data('url'))
+    $urlField = @$('#registries-new-url')
 
-    @$('.registry-buttons button').on 'click', ->
+    @$('.registry-buttons .btn').on 'click', ->
       $this = $(this)
-      $urlField.val($this.data('url'))
+      $urlField.val($this.data('url')).change()
       $this.blur()
       false
 
+    @$('.registry-buttons .btn.default').click()
+
   willDestroyElement: ->
     @_super()
-    @$('.registry-buttons button').off()
+    @$('.registry-buttons .btn').off()

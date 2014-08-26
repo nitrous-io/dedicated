@@ -19,9 +19,9 @@ form
         each region in App.regions
           li
             .ui.checkbox
-              = input type='radio' name='region' id=region.radioId value=region.slug
+              = input type='radio' name='region' id=region.inputId value=region.slug
               label
-            label for={region.radioId}
+            label for={region.inputId}
               = region.name
 
   .card-body.bordered
@@ -35,11 +35,11 @@ form
             li.list-item
               .left-accessory
                 .ui.checkbox
-                  = input type='radio' name='size' id=plan.radioId value=plan.slug
+                  = input type='radio' name='size' id=plan.inputId value=plan.slug
                   label
               .lines
                 p
-                  label for=plan.radioId
+                  label for=plan.inputId
                     = plan.name
               .lines.right
                 p

@@ -25,6 +25,7 @@ App.HostsNewController = Em.ObjectController.extend
   actions:
     cancel: ->
       @transitionToRoute 'home.index'
+      false
 
     create: ->
       @set 'saving', true
