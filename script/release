@@ -14,9 +14,9 @@ PACKAGE_LICENSE="All Rights Reserved - Irrational Industries d/b/a Nitrous.IO"
 PACKAGE_URL="nitrous.io"
 
 FILES=./files/$PACKAGE_NAME
-PKGDIR=$ARTIFACT_DIR
+PKGDIR=$ARTIFACT_DIR/pkg_skel
 
-rm -f $PKGDIR/*.deb
+mkdir -p $PKGDIR
 
 # setup app base
 install -m 0755 -D $ARTIFACT_DIR/$APP $PKGDIR/usr/local/bin/$APP
@@ -31,6 +31,7 @@ install -m 0644 -D ./sample_config.json $PKGDIR/etc/hostbuilder/config.json
 install -m 0644 -D $FILES/data/etc/init/hostbuilder.conf $PKGDIR/etc/init/hostbuilder.conf
 
 cd $PKGDIR
+rm -f $PKGDIR/*.deb
 
 fpm \
   -s dir \
@@ -56,9 +57,11 @@ fpm \
 rm -rf $PKGDIR/{usr,etc}
 
 DEB=${APP}_${VERSION}_amd64.deb
-
 # Release
-cd $ARTIFACT_DIR
+
+sysctl -p
+
+cd $PKGDIR
 if [[ -f $DEB ]]; then
   echo "Adding $DEB to local repository"
   deb-upload apt.nitrous.io $DEB public 6B19EAE0
