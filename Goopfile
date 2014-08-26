@@ -10,3 +10,4 @@ github.com/onsi/ginkgo/ginkgo #12446bbcc74950944c897e32ea99cc8d058f9c92
 github.com/onsi/gomega #v1.0
 github.com/jmoiron/sqlx #65a94448495c675514bd4eb183b94f6dea516227
 code.google.com/p/go.crypto/bcrypt #1064b89a6fb591df0dd65422295b8498916b092f
+code.google.com/p/go.crypto/ssh #fe6c00a82e55
