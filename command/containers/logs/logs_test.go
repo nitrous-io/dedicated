@@ -29,12 +29,9 @@ var _ = Describe("logs", func() {
 
 		stdout *bytes.Buffer
 		// Nitrous Server
-		nsrv      *ghttp.Server
-		nhandlers http.HandlerFunc
-		hhandlers http.HandlerFunc
+		nsrv *ghttp.Server
 		// Freighter Server
-		fsrv      *ghttp.Server
-		fhandlers http.HandlerFunc
+		fsrv *ghttp.Server
 
 		nStatusCode   int
 		nResponseBody interface{}
@@ -47,25 +44,38 @@ var _ = Describe("logs", func() {
 	)
 
 	BeforeEach(func() {
-		// Setup handlers for nitrous server (containers)
-		nhandlers = ghttp.CombineHandlers(
+		// Setup handlers for nitrous server (request container token).
+		handlers1 := ghttp.CombineHandlers(
+			func(w http.ResponseWriter, r *http.Request) {
+				r.ParseForm()
+				Expect(r.PostForm["permission[]"]).To(Equal([]string{"logs"}))
+			},
+			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
+			ghttp.VerifyRequest("POST", "/api/v0/containers/foo-container-42/token"),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, map[string]string{"token": "container-token"}),
+		)
+		// Setup handlers for nitrous server (get container info).
+		handlers2 := ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
 			ghttp.VerifyRequest("GET", "/api/v0/containers/foo-container-42"),
 			ghttp.RespondWithJSONEncodedPtr(&nStatusCode, &nResponseBody),
 		)
-		// Setup handlers for nitrous server (hosts)
-		hhandlers = ghttp.CombineHandlers(
+		// Setup handlers for nitrous server (get host info).
+		handlers3 := ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
 			ghttp.VerifyRequest("GET", "/api/v0/hosts/1"),
 			ghttp.RespondWithJSONEncodedPtr(&hStatusCode, &hResponseBody),
 		)
 		nsrv = ghttp.NewServer()
-		nsrv.AppendHandlers(nhandlers, hhandlers)
+		nsrv.AppendHandlers(handlers1, handlers2, handlers3)
 
 		// Setup handlers for freighter which nitro
 		// will be querying to get the log stream
-		fhandlers = ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", "/containers/42/logs"),
+		fhandlers := ghttp.CombineHandlers(
+			ghttp.VerifyRequest(
+				"GET",
+				"/containers/deadbeef/logs",
+				"follow=false&tail=all&timestamps=false&token=container-token"),
 			ghttp.RespondWithPtr(&fStatusCode, &fResponseBody),
 		)
 		fsrv = ghttp.NewServer()
@@ -98,7 +108,7 @@ var _ = Describe("logs", func() {
 			nStatusCode = http.StatusOK
 			nResponseBody = map[string]interface{}{
 				"container": map[string]interface{}{
-					"CID":     "42",
+					"CID":     "deadbeef",
 					"host_id": 1,
 				},
 			}
@@ -108,7 +118,6 @@ var _ = Describe("logs", func() {
 				"host": map[string]interface{}{
 					"ip_address":      host,
 					"freighterd_port": portInt,
-					"domain":          "example.com",
 				},
 			}
 

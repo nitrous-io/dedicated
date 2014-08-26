@@ -11,6 +11,7 @@ import (
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/command/containers"
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
@@ -81,6 +82,12 @@ func (c *Command) Run(args []string) int {
 
 	slug := args[0]
 
+	token, err := containers.GetToken(slug, c.Server, []string{"logs"}, c.Client)
+	if err != nil {
+		c.UI.Error(err.Error())
+		return 1
+	}
+
 	cr, err := nitrousapi.GetContainer(c.Client, c.Server, slug)
 	if err != nil {
 		c.UI.Error(err.Error())
@@ -94,7 +101,7 @@ func (c *Command) Run(args []string) int {
 	)
 	client := freighterclient.NewClient(host)
 
-	err = client.Logs(cr.CID, strconv.FormatBool(follow),
+	err = client.Logs(cr.CID, token, strconv.FormatBool(follow),
 		strconv.FormatBool(timestamps), tail, c.UI.Writer)
 	if err != nil {
 		c.UI.Error(err.Error())
