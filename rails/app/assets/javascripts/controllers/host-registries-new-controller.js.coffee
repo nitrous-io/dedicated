@@ -30,8 +30,7 @@ App.HostRegistriesNewController = Em.ObjectController.extend
         email: @get('email')
         password: @get('password')
       registry.save().then =>
-        host.notifyPropertyChange 'registries'
-        host.get 'registries'
+        host.get('registries').reload()
         @transitionToRoute 'host.registries'
         @set 'saving', false
       , (jqxhr) =>

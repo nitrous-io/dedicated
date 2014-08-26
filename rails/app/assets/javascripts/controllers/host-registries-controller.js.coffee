@@ -16,5 +16,4 @@ App.HostRegistriesController = Em.ObjectController.extend
             cb(jqxhr)
 
       async.series fns, (err) ->
-        host.notifyPropertyChange 'registries'
-        host.get 'registries'
+        host.get('registries').reload()
