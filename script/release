@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 
-sysctl -p
-
 APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
 ARTIFACT_DIR=/tmp/$APP/$VERSION
@@ -66,6 +64,8 @@ fpm \
 rm -rf $PKGDIR/{etc,opt,files}
 
 DEB=${APP}_${VERSION}_amd64.deb
+
+sysctl -p
 
 cd $PKGDIR
 if [[ -f $DEB ]]; then
