@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
@@ -32,6 +33,7 @@ var (
 	errVolumeNotFound    = httperror.New(http.StatusBadRequest, "invalid_state", "volume not found")
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
+	errContainerLocked   = httperror.New(http.StatusConflict, "container_locked", "container is locked")
 )
 
 var (
@@ -344,6 +346,18 @@ func restart(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 type actionFn func(id string) (*freighterclient.Container, error)
 
 func performControlAction(fn actionFn, eventName string, cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	// automatically expire all control action locks after 1 minute.
+	// TODO: test with real ops and tweak this value
+	expiresIn := 60 * time.Second
+	err := cn.Lock(expiresIn, env.DB)
+	if err != nil {
+		if err == container.ErrLocked {
+			return errContainerLocked
+		}
+		return err
+	}
+	defer cn.Unlock(env.DB)
+
 	liveContainer, err := fn(cn.CID)
 	if err != nil {
 		return err
@@ -362,6 +376,18 @@ func performControlAction(fn actionFn, eventName string, cn *container.Container
 
 func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
+
+	// automatically expire destroy action lock after 1 minute.
+	// TODO: test with real ops and tweak this value
+	expiresIn := 60 * time.Second
+	err := cn.Lock(expiresIn, db)
+	if err != nil {
+		if err == container.ErrLocked {
+			return errContainerLocked
+		}
+		return err
+	}
+	defer cn.Unlock(env.DB)
 
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {

@@ -626,4 +626,89 @@ var _ = Describe("models/container", func() {
 			})
 		})
 	})
+
+	Describe("Lock()", func() {
+		var c *container.Container
+
+		BeforeEach(func() {
+			c = &container.Container{
+				CID:    "cafebabe",
+				UserID: u.ID,
+				HostID: h.ID,
+				Image:  "nitrous-base",
+				Slug:   "java-test-container",
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("locks the container if it is not already locked", func() {
+			expiresIn := 5 * time.Second
+			err := c.Lock(expiresIn, db)
+			Expect(err).To(BeNil())
+			Expect(c.LockedAt).NotTo(BeNil())
+		})
+
+		It("returns ErrLocked when the container is locked and lock is not expired", func() {
+			expiresIn := 5 * time.Second
+			err := c.Lock(expiresIn, db)
+			Expect(err).To(BeNil())
+
+			err = c.Lock(expiresIn, db)
+			Expect(err).To(Equal(container.ErrLocked))
+		})
+
+		It("locks the container if existing lock is expired", func() {
+			expiresIn := -1 * time.Minute
+			err := c.Lock(expiresIn, db)
+			Expect(err).To(BeNil())
+
+			err = c.Lock(expiresIn, db)
+			Expect(err).To(BeNil())
+		})
+
+		It("returns the error if Lock() fails for some other reason", func() {
+			db.Close()
+
+			expiresIn := time.Duration(0) * time.Second
+			err := c.Lock(expiresIn, db)
+			Expect(err).NotTo(BeNil())
+		})
+	})
+
+	Describe("Unlock()", func() {
+		var c *container.Container
+
+		BeforeEach(func() {
+			c = &container.Container{
+				CID:    "cafebabe",
+				UserID: u.ID,
+				HostID: h.ID,
+				Image:  "nitrous-base",
+				Slug:   "java-test-container",
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("unlocks the container, allowing it to be locked again", func() {
+			expiresIn := 5 * time.Second
+			err := c.Lock(expiresIn, db)
+			Expect(err).To(BeNil())
+
+			err = c.Unlock(db)
+			Expect(err).To(BeNil())
+			Expect(c.LockedAt).To(BeNil())
+
+			err = c.Lock(expiresIn, db)
+			Expect(err).To(BeNil())
+		})
+
+		It("returns the error if Unlock() fails for some reason", func() {
+			db.Close()
+
+			err := c.Unlock(db)
+			Expect(err).NotTo(BeNil())
+		})
+	})
 })
