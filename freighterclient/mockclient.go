@@ -235,7 +235,7 @@ func (c *MockClient) GetVolumeInfo(slug string) (*Volume, error) {
 	return c.VolumeInfoReturn, c.VolumeInfoError
 }
 
-func (c *MockClient) Logs(id string, follow, timestamps, tail string, w io.Writer) error {
+func (c *MockClient) Logs(id, token string, follow, timestamps, tail string, w io.Writer) error {
 	return nil
 }
 

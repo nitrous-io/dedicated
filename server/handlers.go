@@ -275,9 +275,9 @@ func (s *Server) getContainerLogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/vnd.docker.raw-stream")
 
-	// write the logs to response writer
+	token := r.FormValue("token")
 	outstream := flusher.NewWriteFlusher(w)
-	err := s.provider.Logs(id, outstream, follow, timestamps, tail)
+	err := s.provider.Logs(id, token, outstream, follow, timestamps, tail)
 	if err != nil {
 		s.handleError(w, err)
 	}
@@ -507,7 +507,14 @@ func (s *Server) attachToContainer(w http.ResponseWriter, r *http.Request) error
 		}
 	}()
 
-	return s.provider.AttachToContainer(id, stdin, stdout)
+	token := r.FormValue("token")
+	if err := s.provider.AttachToContainer(id, token, stdin, stdout); err != nil {
+		// Connection is already hijacked, so write to the wire instead of
+		// returning the error.
+		stdout.Write([]byte(err.Error()))
+	}
+
+	return nil
 }
 
 func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {

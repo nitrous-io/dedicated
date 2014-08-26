@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -956,6 +957,7 @@ var _ = Describe("server", func() {
 			params.Set("follow", follow)
 			params.Set("timestamps", timestamps)
 			params.Set("tail", tail)
+			params.Set("token", "container-token")
 			req, _ := NewRequest("GET", fmt.Sprintf("/containers/%v/logs", id), params)
 			handler.ServeHTTP(res, req)
 		}
@@ -971,10 +973,11 @@ var _ = Describe("server", func() {
 			}
 			for _, tc := range testCases {
 				doRequest("test-container", tc.follow, tc.timestamps, "tail-value")
-				Expect(res.Code).To(Equal(tc.status), "Unexpected status %v for %v", res.Code, tc)
-				Expect(prov.ReceivedID).To(Equal("test-container"), "Unexpected id for %v", tc)
-				Expect(prov.ReceivedFollow).To(BeFalse(), "Unexpected id for %v", tc)
-				Expect(prov.ReceivedTimestamps).To(BeFalse(), "Unexpected id for %v", tc)
+				Expect(res.Code).To(Equal(tc.status), "Unexpected status %+v for %+v", res.Code, tc)
+				Expect(prov.ReceivedID).To(Equal("test-container"), "Unexpected id for %+v", tc)
+				Expect(prov.ReceivedToken).To(Equal("container-token"), "unexpected token for %+v", tc)
+				Expect(prov.ReceivedFollow).To(BeFalse(), "Unexpected follow for %+v", tc)
+				Expect(prov.ReceivedTimestamps).To(BeFalse(), "Unexpected timestamps for %+v", tc)
 			}
 		})
 
@@ -1468,39 +1471,56 @@ var _ = Describe("server", func() {
 		})
 
 		Context("for valid containers", func() {
-			var rc io.ReadCloser
-			var w io.Writer
-
-			doRequest := func(id string) {
+			doRequest := func(id string, w io.Writer) {
 				params := &url.Values{}
+				params.Set("token", "container-token")
 				req, err := NewRequest("POST", fmt.Sprintf("/containers/%v/attach", id), params)
 				Expect(err).To(BeNil())
 
 				h := &HijackTester{
 					ResponseRecorder: res,
-					Rc:               rc,
+					Rc:               ioutil.NopCloser(bytes.NewBuffer(nil)),
 					W:                w,
 				}
 				handler.ServeHTTP(h, req)
 			}
 
 			It("calls provider's attach function and hijacks connection", func() {
-				rc, w = io.Pipe()
-
 				prov.Containers = []*provider.ContainerInfo{{ID: "container-id", State: provider.ContainerStateRunning}}
 				prov.WriteToStdout = "attach"
 
+				r, w := io.Pipe()
 				go func() {
-					defer GinkgoRecover()
-					stdout, err := ioutil.ReadAll(rc)
-					Expect(err).To(BeNil())
-					Expect(stdout).To(ContainSubstring("attach"))
+					doRequest("container-id", w)
+					w.Close()
 				}()
 
-				doRequest("container-id")
+				output, err := ioutil.ReadAll(r)
+				Expect(err).To(BeNil())
+				Expect(output).To(ContainSubstring("attach"))
+				Expect(output).To(ContainSubstring("Content-Type: application/vnd.containerd.raw-stream"))
 
 				Expect(prov.AttachToContainerCalled).To(BeTrue())
 				Expect(prov.ReceivedID).To(Equal("container-id"))
+				Expect(prov.ReceivedToken).To(Equal("container-token"))
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
+
+			It("writes the error to hijacked connection writer when there is an error", func() {
+				prov.Containers = []*provider.ContainerInfo{{ID: "container-id", State: provider.ContainerStateRunning}}
+				prov.AttachToContainerError = errors.New("some attach error")
+
+				r, w := io.Pipe()
+				go func() {
+					doRequest("container-id", w)
+					w.Close()
+				}()
+
+				output, err := ioutil.ReadAll(r)
+				Expect(err).To(BeNil())
+				Expect(output).To(ContainSubstring("some attach error"))
+				Expect(output).To(ContainSubstring("Content-Type: application/vnd.containerd.raw-stream"))
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 			})
