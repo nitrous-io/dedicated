@@ -92,7 +92,7 @@ var _ = Describe("registry/login", func() {
 			Expect(r.PostFormValue("username")).To(Equal("foo"))
 			Expect(r.PostFormValue("password")).To(Equal("123456"))
 			Expect(r.PostFormValue("email")).To(Equal("foo@example.com"))
-			Expect(r.PostFormValue("registry")).To(Equal("hub.example.com"))
+			Expect(r.PostFormValue("url")).To(Equal("hub.example.com"))
 		})
 
 		Context("when request succeeds", func() {
