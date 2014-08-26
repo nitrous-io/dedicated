@@ -6,8 +6,10 @@ SM.RecordArray = Ember.ArrayProxy.extend Ember.Evented,
 
   load: (data) ->
     model = @get 'model'
-    @set 'content', Ember.A() unless @get('content')?
-    @pushObjects data.map (d) ->
+    unless existing = @get('content')
+      @set 'content', existing = Em.A()
+
+    newRecords = Ember.A data.map (d) ->
       props = model.deserialize(d)
       pkey = Ember.get(model, 'primaryKey')
       keyHash = {}
@@ -15,4 +17,16 @@ SM.RecordArray = Ember.ArrayProxy.extend Ember.Evented,
       record = model.newRecord(keyHash)
       record.load(props, deserialize: false)
       record
+
+    removed = Em.A()
+    added = Em.A()
+
+    for record in existing
+      removed.push(record) if !newRecords.contains(record)
+    for record in newRecords
+      added.push(record) if !existing.contains(record)
+
+    existing.removeObjects(removed)
+    existing.pushObjects(added)
+
     @set 'loaded', true

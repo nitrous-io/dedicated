@@ -26,12 +26,12 @@ SM.RESTAdapter = Ember.Object.extend
       primaryKey = undefined
 
     if singular
-      single = true
+      fetchOne = true
     else if !singular && primaryKey?
-      single = true
+      fetchOne = true
       url = "#{url}/#{encodeURIComponent(primaryKey)}"
     else
-      single = false
+      fetchOne = false
 
     if params
       # handle dynamic segments
@@ -50,32 +50,47 @@ SM.RESTAdapter = Ember.Object.extend
       ).join("&")
       url = "#{url}?#{query}" if query
 
-    r = if single
-      props = {}
+    if fetchOne
+      attrs = {}
       if primaryKey
-        props[Ember.get(model, 'primaryKey')] = primaryKey
-      model.newRecord(props)
+        attrs[Ember.get(model, 'primaryKey')] = primaryKey
+      record = model.newRecord(attrs)
+      @_fetchOne(model, record, url)
     else
-      SM.RecordArray.create(model: model)
+      recordArray = SM.RecordArray.create(model: model)
+      @_fetchMultiple(model, recordArray, url)
 
+  _fetchOne: (model, record, url) ->
+    args = $.makeArray(arguments)
+    record.set 'reload', =>
+      @_fetchOne.apply(this, args)
     promise = new Ember.RSVP.Promise (resolve, reject) =>
       @ajax('GET', url).done((data, status, jqxhr) ->
-        if single && model.rootKey
-          data = data[model.rootKey] || {}
-        else if !single && model.collectionKey
-          data = data[model.collectionKey] || {}
-        if single
-          r.load(data)
-          resolve(r)
-          return
-        if Em.isArray(data)
-          r.load(data)
-          resolve(r)
+        if rootKey = Ember.get(model, 'rootKey')
+          data = data[rootKey] || {}
+        record.load(data)
+        resolve(record)
+      ).fail (jqxhr) ->
+        reject(jqxhr)
+    promise.value = record
+    promise
+
+  _fetchMultiple: (model, recordArray, url)->
+    args = $.makeArray(arguments)
+    recordArray.set 'reload', =>
+      @_fetchMultiple.apply(this, args)
+    promise = new Ember.RSVP.Promise (resolve, reject) =>
+      @ajax('GET', url).done((data, status, jqxhr) ->
+        if collectionKey = Ember.get(model, 'collectionKey')
+          data = data[collectionKey] || {}
+        if Ember.isArray(data)
+          recordArray.load(data)
+          resolve(recordArray)
           return
         reject(jqxhr)
       ).fail (jqxhr) ->
         reject(jqxhr)
-    promise.value = r
+    promise.value = recordArray
     promise
 
   createRecord: (record) ->

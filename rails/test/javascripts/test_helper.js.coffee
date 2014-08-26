@@ -17,6 +17,13 @@ window.expect.configure Object.defineProperties {},
       else
         QUnit.strictEqual(@_actual instanceof expected, true, message)
 
+  contain:
+    value: (expected, message) ->
+      if @_flags.negate
+        QUnit.strictEqual(@_actual.indexOf(expected), -1, message)
+      else
+        QUnit.notStrictEqual(@_actual.indexOf(expected), -1, message)
+
 # expected global vars
 [
   'XMLHttpRequest'

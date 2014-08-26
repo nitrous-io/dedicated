@@ -55,6 +55,20 @@ describe 'SM.RESTAdapter', ->
               expect(record.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 29)), 'createdAt is loaded'
               expect(TestModel._findInCache(123)).to.equal record, 'record is cached'
 
+              server.respondWith 'GET', url, [
+                200
+                { 'Content-Type': 'application/json; charset=utf-8' }
+                '{"id": 123, "slug": "foo", "name": "Bar", "age": 16, "created_at": "2014-07-29T00:00:00.000Z"}'
+              ]
+              record.reload()
+              server.respond()
+              Test.nextTick ->
+                expect(record.get 'id').to.equal 123, 'id is reloaded'
+                expect(record.get 'slug').to.equal 'foo', 'slug is reloaded'
+                expect(record.get 'name').to.equal 'Bar', 'name is reloaded'
+                expect(record.get 'age').to.equal 16, 'age is reloaded'
+                expect(record.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 29)), 'createdAt is reloaded'
+
           context 'when rootKey is defined', ->
             beforeEach ->
               klass.reopenClass(rootKey: "foo")
@@ -91,6 +105,20 @@ describe 'SM.RESTAdapter', ->
                 expect(record.get 'age').to.equal 15, 'age is loaded'
                 expect(record.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 29)), 'createdAt is loaded'
                 expect(TestModel._findInCache(123)).to.equal record, 'record is cached'
+
+                server.respondWith 'GET', url, [
+                  200
+                  { 'Content-Type': 'application/json; charset=utf-8' }
+                  '{"foo": {"id": 123, "slug": "foo", "name": "Bar", "age": 16, "created_at": "2014-07-29T00:00:00.000Z"}, "slug": "ignorethis"}'
+                ]
+                record.reload()
+                server.respond()
+                Test.nextTick ->
+                  expect(record.get 'id').to.equal 123, 'id is reloaded'
+                  expect(record.get 'slug').to.equal 'foo', 'slug is reloaded'
+                  expect(record.get 'name').to.equal 'Bar', 'name is reloaded'
+                  expect(record.get 'age').to.equal 16, 'age is reloaded'
+                  expect(record.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 29)), 'createdAt is reloaded'
 
         context 'when fetching a pre-cached record', ->
           model = null
@@ -218,6 +246,7 @@ describe 'SM.RESTAdapter', ->
             expect(recordArr).to.be.instanceof SM.RecordArray, 'fetch returns a record array immediately'
             expect(recordArr.get 'model').to.equal TestModel, 'record array is for TestModel'
             expect(recordArr).to.equal promiseValue, "resolved record array is the same instance as the promise's previously returned value"
+            expect(recordArr.get 'length').to.equal 2, 'record array has two items'
             record1 = recordArr.objectAt(0)
             record2 = recordArr.objectAt(1)
 
@@ -236,6 +265,41 @@ describe 'SM.RESTAdapter', ->
             expect(record2.get 'age').to.equal 20, 'age is loaded'
             expect(record2.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 30)), 'createdAt is loaded'
             expect(TestModel._findInCache(124)).to.equal record2, 'record is cached'
+
+            server.respondWith 'GET', '/foo', [
+              200
+              { 'Content-Type': 'application/json; charset=utf-8' }
+              '''
+              [
+                {"id": 123, "slug": "foo", "name": "Foooo", "age": 16, "created_at": "2014-07-29T00:00:00.000Z"},
+                {"id": 125, "slug": "baz", "name": "Baz", "age": 22, "created_at": "2014-07-31T00:00:00.000Z"}
+              ]
+              '''
+            ]
+            recordArr.reload()
+            server.respond()
+            Test.nextTick ->
+              expect(recordArr.get 'length').to.equal 2, 'record array has two items'
+
+              expect(recordArr).to.contain record1, 'record array still contains record1'
+              expect(recordArr).not.to.contain record2, 'record array no longer contains record2'
+              record3 = recordArr.objectAt(1)
+
+              expect(record1).to.be.instanceof TestModel
+              expect(record1.get 'id').to.equal 123, 'id is reloaded'
+              expect(record1.get 'slug').to.equal 'foo', 'slug is reloaded'
+              expect(record1.get 'name').to.equal 'Foooo', 'name is reloaded'
+              expect(record1.get 'age').to.equal 16, 'age is reloaded'
+              expect(record1.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 29)), 'createdAt is reloaded'
+              expect(TestModel._findInCache(123)).to.equal record1, 'record is still cached'
+
+              expect(record3).to.be.instanceof TestModel
+              expect(record3.get 'id').to.equal 125, 'id is loaded'
+              expect(record3.get 'slug').to.equal 'baz', 'slug is loaded'
+              expect(record3.get 'name').to.equal 'Baz', 'name is loaded'
+              expect(record3.get 'age').to.equal 22, 'age is loaded'
+              expect(record3.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 31)), 'createdAt is loaded'
+              expect(TestModel._findInCache(125)).to.equal record3, 'record is cached'
 
         context 'when params are given', ->
           it 'adds a query string to the request', ->
@@ -297,6 +361,41 @@ describe 'SM.RESTAdapter', ->
               expect(record2.get 'age').to.equal 20, 'age is loaded'
               expect(record2.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 30)), 'createdAt is loaded'
               expect(TestModel._findInCache(124)).to.equal record2, 'record is cached'
+
+              server.respondWith 'GET', '/foo', [
+                200
+                { 'Content-Type': 'application/json; charset=utf-8' }
+                '''
+                  {"foo": [
+                    {"id": 123, "slug": "foo", "name": "Foooo", "age": 16, "created_at": "2014-07-29T00:00:00.000Z"},
+                    {"id": 125, "slug": "baz", "name": "Baz", "age": 22, "created_at": "2014-07-31T00:00:00.000Z"}
+                  ], "slug": "ignorethis"}
+                '''
+              ]
+              recordArr.reload()
+              server.respond()
+              Test.nextTick ->
+                expect(recordArr.get 'length').to.equal 2, 'record array has two items'
+
+                expect(recordArr).to.contain record1, 'record array still contains record1'
+                expect(recordArr).not.to.contain record2, 'record array no longer contains record2'
+                record3 = recordArr.objectAt(1)
+
+                expect(record1).to.be.instanceof TestModel
+                expect(record1.get 'id').to.equal 123, 'id is reloaded'
+                expect(record1.get 'slug').to.equal 'foo', 'slug is reloaded'
+                expect(record1.get 'name').to.equal 'Foooo', 'name is reloaded'
+                expect(record1.get 'age').to.equal 16, 'age is reloaded'
+                expect(record1.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 29)), 'createdAt is reloaded'
+                expect(TestModel._findInCache(123)).to.equal record1, 'record is still cached'
+
+                expect(record3).to.be.instanceof TestModel
+                expect(record3.get 'id').to.equal 125, 'id is loaded'
+                expect(record3.get 'slug').to.equal 'baz', 'slug is loaded'
+                expect(record3.get 'name').to.equal 'Baz', 'name is loaded'
+                expect(record3.get 'age').to.equal 22, 'age is loaded'
+                expect(record3.get('createdAt').valueOf()).to.equal +new Date(Date.UTC(2014, 6, 31)), 'createdAt is loaded'
+                expect(TestModel._findInCache(125)).to.equal record3, 'record is cached'
 
       context 'when request fails', ->
         it 'returns a promise that is rejected with jqxhr object', ->

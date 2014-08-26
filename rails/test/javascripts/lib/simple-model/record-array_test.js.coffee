@@ -38,10 +38,13 @@ describe 'SM.RecordArray', ->
       expect(record2.get 'loaded').to.be.true 'loaded is true'
 
     context 'when some records are already in the cache', ->
-      it 'deserializes and updates cached data', ->
+      record = null
+
+      beforeEach ->
         record = TestModel.create(id: 124, name: "Baz")
         record._saveToCache()
 
+      it 'deserializes and updates cached data', ->
         recordArr = SM.RecordArray.create(model: TestModel)
         recordArr.load([
           { id: 123, name: "Foo" }
@@ -49,3 +52,17 @@ describe 'SM.RecordArray', ->
         ])
         expect(recordArr.get 'length').to.equal 2, '2 records are loaded'
         expect(recordArr.objectAt(1)).to.equal record, 'record is reused'
+
+      context 'when record array already contains existing records', ->
+        it 'adds new objects and removes deleted objects', ->
+          record2 = TestModel.create(id: 125, name: "Qux")
+          record2._saveToCache()
+
+          recordArr = SM.RecordArray.create(model: TestModel, content: Em.A([record, record2]))
+          recordArr.load([
+            { id: 123, name: "Foo" }
+            { id: 124, name: "Bar" }
+          ])
+          expect(recordArr.get 'length').to.equal 2, '2 records are loaded'
+          expect(recordArr).to.contain record, 'record array contains record'
+          expect(recordArr).not.to.contain record2, 'record array does not contain record2'
