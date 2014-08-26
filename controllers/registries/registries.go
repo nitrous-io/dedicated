@@ -19,6 +19,7 @@ var (
 	errUsernameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "username is required")
 	errPasswordRequired = httperror.New(http.StatusBadRequest, "invalid_request", "password is required")
 	errEmailRequired    = httperror.New(http.StatusBadRequest, "invalid_request", "email is required")
+	errRegistryRequired = httperror.New(http.StatusBadRequest, "invalid_request", "registry is required")
 	errLoginFailed      = httperror.New(http.StatusBadRequest, "login_failed", "registry login failed")
 	errLogoutFailed     = httperror.New(http.StatusBadRequest, "logout_failed", "registry logout failed")
 	errAlreadyLoggedIn  = httperror.New(http.StatusBadRequest, "login_failed", "already logged in to this registry")
@@ -63,12 +64,8 @@ func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	registryURL := r.FormValue("url")
-
-	// set the default registry URL to "hub.docker.com",
-	// if user hasn't specified one.
-	// This is only to record in the DB.
 	if registryURL == "" {
-		registryURL = "index.docker.io"
+		return errRegistryRequired
 	}
 
 	existingReg, err := registry.FindByUserIDAndHostIDAndURL(db, env.User.ID, h.ID, registryURL)
