@@ -54,7 +54,7 @@ fpm \
   -t deb .
 
 # cleanup
-rm -rf $PKGDIR/{usr,etc}
+rm -rf $PKGDIR/{usr,etc,files}
 
 DEB=${APP}_${VERSION}_amd64.deb
 # Release
