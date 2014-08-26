@@ -68,11 +68,12 @@ func (c *Command) Run(args []string) int {
 
 	if registry == "" {
 		prompt := "Docker registry is not specified, will log out from Docker Hub registry [y/N]:"
-		errMsg := "registry:logout is canceled. Please specify the desired Docker registry."
+		errMsg := "Registry logout canceled."
 		confirmation := c.UI.Confirm(prompt)
 		switch confirmation {
 		case command.ConfirmYes:
-			// Pass.
+			// Use docker hub
+			registry = "index.docker.io"
 		case command.ConfirmNo:
 			c.UI.Error(errMsg)
 			return 1
@@ -103,12 +104,13 @@ func (c *Command) Synopsis() string {
 }
 
 func (c *Command) registryLogout(registry, host string) error {
-	p := &url.Values{}
-	if registry != "" {
-		p.Add("registry", registry)
+	endpoint, err := url.Parse(fmt.Sprintf("%s/api/v0/hosts/%s/registries/", c.Server, host))
+	if err != nil {
+		return err
 	}
+	endpoint.Path += url.QueryEscape(registry)
 
-	resp, err := c.Client.DeleteAuthed(fmt.Sprintf("%s/api/v0/hosts/%s/registries", c.Server, host), p)
+	resp, err := c.Client.DeleteAuthed(endpoint.String(), nil)
 	if err != nil {
 		return err
 	}
