@@ -220,8 +220,8 @@ var _ = Describe("controllers/registries", func() {
 					o["email"] = "dockeruser@example.com"
 				}
 
-				if _, ok = o["registry"]; !ok {
-					o["registry"] = "hub.example.com"
+				if _, ok = o["url"]; !ok {
+					o["url"] = "hub.example.com"
 				}
 
 				params := &url.Values{}
@@ -414,12 +414,12 @@ var _ = Describe("controllers/registries", func() {
 			}
 
 			r := "hub.example.com"
-			if _, ok := o["registry"]; ok {
-				r = o["registry"]
+			if _, ok := o["url"]; ok {
+				r = o["url"]
 			}
 
 			params := &url.Values{}
-			params.Set("registry", r)
+			params.Set("url", r)
 
 			req, err := NewRequest("DELETE", "/api/v0/hosts/"+slug+"/registries", params)
 			Expect(err).To(BeNil())

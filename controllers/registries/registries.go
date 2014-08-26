@@ -58,7 +58,7 @@ func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return errEmailRequired
 	}
 
-	registryURL := r.FormValue("registry")
+	registryURL := r.FormValue("url")
 
 	// set the default registry URL to "hub.docker.com",
 	// if user hasn't specified one.
@@ -129,7 +129,7 @@ func logout(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	registryURL := r.FormValue("registry")
+	registryURL := r.FormValue("url")
 
 	err = cl.RegistryLogout(registryURL)
 	if err != nil {
