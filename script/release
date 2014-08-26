@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+sysctl -p
+
 APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
 ARTIFACT_DIR=/tmp/$APP/$VERSION
@@ -15,7 +17,7 @@ PACKAGE_LICENSE="All Rights Reserved - Irrational Industries d/b/a Nitrous.IO"
 PACKAGE_URL="nitrous.io"
 
 FILES=./files/$PACKAGE_NAME
-PKGDIR=$ARTIFACT_DIR
+PKGDIR=$ARTIFACT_DIR/pkg_skel
 
 mkdir -p $PKGDIR/opt/$APP
 
@@ -65,7 +67,7 @@ rm -rf $PKGDIR/{etc,opt,files}
 
 DEB=${APP}_${VERSION}_amd64.deb
 
-cd $ARTIFACT_DIR
+cd $PKGDIR
 if [[ -f $DEB ]]; then
   echo "Adding $DEB to local repository"
   deb-upload apt.nitrous.io $DEB public 6B19EAE0
