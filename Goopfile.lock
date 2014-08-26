@@ -5,7 +5,7 @@ github.com/gorilla/context #14f550f51af52180c2eefed15e5fd18d63c0a64a
 github.com/gorilla/mux #4b8fbc56f3b2400a7c7ea3dba9b3539787c486b6
 github.com/kr/pty #67e2db24c831afa6c64fc17b4a143390674365ef
 github.com/mitchellh/cli #aedcd92cc52d928752e870aaf076c9b5e48994f0 !git@github.com:nitrous-io/cli
-github.com/nitrous-io/freighter/freighterclient #c828e580f46bfb2c1b7dec80b4c1d42948261ffa !git@github.com:nitrous-io/freighter
+github.com/nitrous-io/freighter/freighterclient #0af1be67b6bc166057ab8c46b9c8fa22a462f2ef !git@github.com:nitrous-io/freighter
 github.com/nitrous-io/nitrous-common #f8c8c62c5bd7f742fd3e311f5546ba6c091424c1 !git@github.com:nitrous-io/nitrous-common
 github.com/ogier/pflag #e4f7d00f344b0954fa3791a8527d10ba7334eceb
 github.com/onsi/ginkgo/ginkgo #12446bbcc74950944c897e32ea99cc8d058f9c92
