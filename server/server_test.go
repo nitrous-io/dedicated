@@ -1434,6 +1434,44 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("GET /images/inspect", func() {
+		doRequest := func(image string) *httptest.ResponseRecorder {
+			params := &url.Values{}
+			params.Set("image", image)
+			req, err := NewRequest("GET", "/images/inspect", params)
+			Expect(err).To(BeNil())
+
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		It("responds with the image info", func() {
+			expected := &provider.ImageInfo{ID: "ID1"}
+			prov.InspectImageReturn = expected
+			res := doRequest("ubuntu")
+			Expect(res.Code).To(Equal(http.StatusOK), "failed to inspect image")
+
+			returned := map[string]*provider.ImageInfo{}
+			err := json.NewDecoder(res.Body).Decode(&returned)
+			Expect(err).To(BeNil(), "failed to decode response as valid image info")
+			Expect(returned["image"]).To(Equal(expected), "failed to encode valid response")
+		})
+
+		It("responds with 422 Status when the image is empty", func() {
+			res := doRequest("")
+			Expect(res.Code).To(Equal(422))
+			Expect(res.Body.String()).To(MatchJSON(`{"error":"image is not valid"}`))
+		})
+
+		It("responds with 500 Internal Server Error when we failed to inspect the image", func() {
+			prov.InspectImageError = errors.New("could not find image")
+			res := doRequest("ubuntu")
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			Expect(res.Body.String()).To(MatchJSON(`{"error":"could not find image"}`))
+		})
+	})
+
 	Describe("POST /containers/:id/attach", func() {
 		Context("for invalid containers", func() {
 			doRequest := func(id string) {

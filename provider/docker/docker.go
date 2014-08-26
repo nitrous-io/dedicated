@@ -616,6 +616,16 @@ func (p *DockerProvider) TagImage(imageIDOrName, newName string, force bool) err
 	return p.dockerTag(image.ID, finalName, true)
 }
 
+// InspectImage returns information about a single image ( which can be
+// identified by either its ID or its tag )
+func (p *DockerProvider) InspectImage(name string) (*provider.ImageInfo, error) {
+	lookupResult, err := p.lookupImage(name)
+	if err != nil {
+		return nil, err
+	}
+	return lookupResult.image, nil
+}
+
 func (p *DockerProvider) AttachToContainer(id, token string, in io.Reader, out io.Writer) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
