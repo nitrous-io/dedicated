@@ -5,7 +5,7 @@ if [ "$1" != "configure" ]; then
   exit 0
 fi
 
-if [[ -d /etc/nitrousd ]] && [[ -z "$(getent passwd nitrousd)" ]]; then
+if [[ -d /opt/nitrousd ]] && [[ -z "$(getent passwd nitrousd)" ]]; then
   useradd -s /bin/bash -U -d /opt/nitrousd -r nitrousd
   chown -R nitrousd /opt/nitrousd
 fi
