@@ -479,6 +479,12 @@ func (s *Server) tagImage(w http.ResponseWriter, r *http.Request) error {
 
 func (s *Server) inspectImage(w http.ResponseWriter, r *http.Request) error {
 	image := r.FormValue("image")
+	if image == "" {
+		s.respondEncodeJSON(w, StatusUnprocessableEntity, map[string]interface{}{
+			"error": "image is not valid",
+		})
+		return nil
+	}
 	info, err := s.provider.InspectImage(image)
 	if err != nil {
 		return err

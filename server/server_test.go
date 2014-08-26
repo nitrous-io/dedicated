@@ -1458,6 +1458,12 @@ var _ = Describe("server", func() {
 			Expect(returned["image"]).To(Equal(expected), "failed to encode valid response")
 		})
 
+		It("responds with 422 Status when the image is empty", func() {
+			res := doRequest("")
+			Expect(res.Code).To(Equal(422))
+			Expect(res.Body.String()).To(MatchJSON(`{"error":"image is not valid"}`))
+		})
+
 		It("responds with 500 Internal Server Error when we failed to inspect the image", func() {
 			prov.InspectImageError = errors.New("could not find image")
 			res := doRequest("ubuntu")
