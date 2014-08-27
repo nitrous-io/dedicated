@@ -18,7 +18,7 @@ xbuild:
 	@script/xbuild $(APP) $(VERSION)
 
 clean:
-	rm -rf .vendor/bin/$(APP)
+	rm -f .vendor/bin/$(APP)
 
 image:
 	@script/image $(APP) $(VERSION)
@@ -41,6 +41,6 @@ release: ci
 publish: release
 	@echo "$(OK_COLOR)==> Uploading binaries for revision $(VERSION)...$(NO_COLOR)"
 	@script/publish $(APP) $(VERSION)
-.PHONY: publish 
+.PHONY: publish
 
 .PHONY: all build clean format test image ci

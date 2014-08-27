@@ -10,3 +10,4 @@ mkdir -p "$BUILD_DIR"
 
 goop go install -ldflags "-X main.version $VERSION" -x -v ./...
 goop exec bash -c 'mv $GOBIN/$APP $BUILD_DIR/$APP'
+echo "Binary built successfully: $BUILD_DIR/$APP"
