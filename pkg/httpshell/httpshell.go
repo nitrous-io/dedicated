@@ -113,15 +113,17 @@ func (s *HTTPShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error 
 
 	done := make(chan error, 1)
 	go func() {
-		if err := s.monitorSize(fd); err != nil {
-			done <- err
-			return
-		}
 		_, err := io.Copy(stdout, r)
 		done <- err
 	}()
-	go io.Copy(wc, stdin)
+	go func() {
+		_, err := io.Copy(wc, stdin)
+		done <- err
+	}()
 
+	// monitor tty size but doesnt fail when it errors because the remote end
+	// may have been terminated
+	s.monitorSize(fd)
 	return <-done
 }
 
@@ -144,10 +146,14 @@ func Run(
 	return nil
 }
 
-func (s *HTTPShell) monitorSize(fd uintptr) error {
-	if err := s.resize(fd); err != nil {
-		return err
-	}
+// monitorSize resizes the local and remote shell so they have the same size
+//
+// There are cases where the remote-end had beeen terminated when we resizes it
+// (because the process finished / terminates early because it was run wrongly),
+// so we will just ignore errors here because it's probably the only source
+// of error for resizing.
+func (s *HTTPShell) monitorSize(fd uintptr) {
+	s.resize(fd)
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGWINCH)
 	go func() {
@@ -155,7 +161,6 @@ func (s *HTTPShell) monitorSize(fd uintptr) error {
 			s.resize(fd)
 		}
 	}()
-	return nil
 }
 
 // given the current terminal file descriptor, resize the remote terminal to
