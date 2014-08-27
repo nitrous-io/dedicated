@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"os/user"
 	"path"
 	"strconv"
 	"strings"
@@ -723,18 +722,15 @@ func (p *DockerProvider) dockerConfigLocation() (string, error) {
 		return p.DockerConfigLocation, nil
 	}
 
-	currentUser, err := user.Current()
-	if err != nil {
-		return "", err
-	}
-	currentUserHomeDir := currentUser.HomeDir
-	authPath := path.Join(currentUserHomeDir, ".dockercfg")
+	// Use $HOME as the root path when fetching .dockercfg file.
+	// As suggested in - https://github.com/nitrous-io/nitrous/issues/134
+	configPath := path.Join(os.Getenv("HOME"), ".dockercfg")
 
-	_, err = os.Stat(authPath)
+	_, err := os.Stat(configPath)
 	if err != nil {
 		return "", err
 	}
-	return authPath, nil
+	return configPath, nil
 }
 
 func (p *DockerProvider) lookupImage(imageIDOrName string) (lookupImageResult, error) {
