@@ -91,9 +91,9 @@ func helpFunc(cmds map[string]cli.CommandFactory) string {
 	buf.WriteString("nitro is a command-line interface to Nitrous.IO\n\n")
 	buf.WriteString("usage: nitro [--version] [--help] <command> [<args>]\n\n")
 	if command.NotLoggedIn() {
-		buf.WriteString("Available commands for anonymous user are:\n")
+		buf.WriteString("Available commands (login to access more commands):\n")
 	} else {
-		buf.WriteString("Available commands are:\n")
+		buf.WriteString("Available commands:\n")
 	}
 
 	// Get the list of keys so we can sort them, and also get the maximum
