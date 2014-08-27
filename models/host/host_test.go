@@ -125,6 +125,25 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("FindBySlug()", func() {
+		Context("when a host record with a given slug exists", func() {
+			It("returns the host record", func() {
+				h, err := host.FindBySlug(db, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h).NotTo(BeNil())
+				Expect(h.ID).To(Equal(hs.H.ID))
+			})
+		})
+
+		Context("when a host record with a given slug oes not exist", func() {
+			It("returns nil", func() {
+				h, err := host.FindBySlug(db, "deadbeefhost")
+				Expect(err).To(BeNil())
+				Expect(h).To(BeNil())
+			})
+		})
+	})
+
 	Describe("FindByUserAndID()", func() {
 		Context("when there's a host record for the given ID that belongs to the user", func() {
 			It("returns the host record matching the ID", func() {
