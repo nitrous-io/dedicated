@@ -1,6 +1,7 @@
 package login_test
 
 import (
+	"io"
 	"net/http"
 	"testing"
 
@@ -22,6 +23,8 @@ var _ = Describe("registry/login", func() {
 	var (
 		cmd *login.Command
 		ui  *cli.MockUi
+		r   *io.PipeReader
+		w   *io.PipeWriter
 
 		srv          *ghttp.Server
 		handlers     http.HandlerFunc
@@ -44,7 +47,8 @@ var _ = Describe("registry/login", func() {
 		srv = ghttp.NewServer()
 		srv.AppendHandlers(handlers)
 
-		ui = &cli.MockUi{}
+		r, w = io.Pipe()
+		ui = &cli.MockUi{InputReader: r}
 		cmd = &login.Command{
 			UI:     ui,
 			Server: srv.URL(),
@@ -121,6 +125,26 @@ var _ = Describe("registry/login", func() {
 				Expect(ui.ErrorWriter.String()).To(ContainSubstring("Failed to login to Docker registry"))
 				Expect(code).To(Equal(1))
 			})
+		})
+	})
+
+	Context("when no registry URL is provided", func() {
+		doCmd := func() int {
+			return cmd.Run([]string{
+				"foo-bar-123",
+				"--username=foo",
+				"--password=123456",
+				"--email=foo@example.com",
+			})
+		}
+
+		It("populates url param with default docker registry", func() {
+			go w.Write([]byte("\n"))
+			doCmd()
+			receivedRequests := srv.ReceivedRequests()
+			Expect(receivedRequests).To(HaveLen(1))
+			r := receivedRequests[0]
+			Expect(r.PostFormValue("url")).To(Equal("index.docker.io"))
 		})
 	})
 })

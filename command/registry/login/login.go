@@ -109,13 +109,17 @@ func (c *Command) Run(args []string) int {
 	}
 
 	if registryURL == "" {
-		registryURL, err = c.UI.Ask("Registry (press enter for hub.docker.com): ")
+		registryURL, err = c.UI.Ask("Registry (press enter for index.docker.io): ")
 		if err != nil {
 			if err.Error() == "interrupted" {
 				c.UI.Error("Registry login canceled.")
 				return 130
 			}
 			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
+		}
+		// user has pressed enter, use index.docker.io
+		if registryURL == "" {
+			registryURL = "index.docker.io"
 		}
 	}
 
