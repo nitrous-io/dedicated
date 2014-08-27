@@ -33,7 +33,7 @@ image:
 
 run: build
 	@echo "$(OK_COLOR)==> Running...$(NO_COLOR)"
-	@.build/$(APP)
+	@./build/$(APP)
 
 release: ci
 	@echo "$(OK_COLOR)==> Releasing freighter version $(VERSION)...$(NO_COLOR)"
