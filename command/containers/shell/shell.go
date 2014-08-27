@@ -7,8 +7,8 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
-	"github.com/nitrous-io/nitro/pkg/httpshell"
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
+	"github.com/nitrous-io/nitro/pkg/remoteshell"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
 )
@@ -85,8 +85,7 @@ func (c *Command) Run(args []string) int {
 	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
 	command := getLoginCommand(username)
 
-	// start the shell
-	err = httpshell.Run(host, cr.CID, command, pty.Fd(), stdin, stdout)
+	err = remoteshell.Run(host, cr.CID, command, pty.Fd(), stdin, stdout)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
