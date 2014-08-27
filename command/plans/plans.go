@@ -27,6 +27,7 @@ type Command struct {
 }
 
 type Plan struct {
+	Slug string `json:"slug"`
 	Name string `json:"name"`
 }
 
@@ -94,9 +95,9 @@ func prettyPrint(plans []*Plan) string {
 	w := &tabwriter.Writer{}
 
 	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
-	fmt.Fprintln(w, "Name")
+	fmt.Fprintln(w, "Slug", "\t", "Name")
 	for _, p := range plans {
-		fmt.Fprintln(w, p.Name)
+		fmt.Fprintln(w, p.Slug, "\t", p.Name)
 	}
 	w.Flush()
 	return b.String()

@@ -53,23 +53,23 @@ var _ = Describe("plans", func() {
 		BeforeEach(func() {
 			statusCode = http.StatusOK
 			responseBody = `{"plans":[
-					{"id":1,"name":"nano"},
-					{"id":2,"name":"micro"},
-					{"id":3,"name":"small"},
-					{"id":4,"name":"medium"},
-					{"id":5,"name":"large"}
+					{"id":1,"slug":"512mb","name":"nano"},
+					{"id":2,"slug":"1gb","name":"micro"},
+					{"id":3,"slug":"2gb","name":"small"},
+					{"id":4,"slug":"4gb","name":"medium"},
+					{"id":5,"slug":"8gb","name":"large"}
 				]}`
 		})
 
 		It("outputs formatted plans on success", func() {
 			code := cmd.Run([]string{})
 			Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
-Name
-nano
-micro
-small
-medium
-large
+Slug     Name
+512mb    nano
+1gb      micro
+2gb      small
+4gb      medium
+8gb      large
 `)))
 			Expect(code).To(Equal(0))
 		})
