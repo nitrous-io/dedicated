@@ -12,6 +12,7 @@ import (
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/containers"
+	"github.com/nitrous-io/nitro/consts"
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
@@ -97,9 +98,14 @@ func (c *Command) Run(args []string) int {
 	host := freighterclient.NewHost(
 		cr.Host.IPAddress,
 		int(cr.Host.FreighterdPort),
-		cr.Host.Domain,
+		cr.Host.Hostname,
+		[]byte(consts.CACert),
 	)
-	client := freighterclient.NewClient(host)
+	client, err := freighterclient.NewClient(host, "secret not used")
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Error connecting to container %s", slug))
+		return 1
+	}
 
 	err = client.Logs(cr.CID, token, strconv.FormatBool(follow),
 		strconv.FormatBool(timestamps), tail, c.UI.Writer)

@@ -141,7 +141,7 @@ func (s *nitrousServer) getHost(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]interface{}{
 		"ip_address":      host,
 		"freighterd_port": portInt,
-		"domain":          "example.com",
+		"hostname":        "example.com",
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"host": resp,

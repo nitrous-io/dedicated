@@ -12,6 +12,8 @@ import (
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/containers/logs"
+	"github.com/nitrous-io/nitro/consts"
+	"github.com/nitrous-io/nitro/test"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -79,7 +81,10 @@ var _ = Describe("logs", func() {
 				"follow=false&tail=all&timestamps=false"),
 			ghttp.RespondWithPtr(&fStatusCode, &fResponseBody),
 		)
-		fsrv = ghttp.NewServer()
+		fsrv = ghttp.NewTLSServer()
+		var err error
+		fsrv.HTTPTestServer, err = test.NewTLSServer(fsrv, test.SampleHostname, []byte(consts.CACert))
+		Expect(err).To(BeNil())
 		fsrv.AppendHandlers(fhandlers)
 
 		stdout = bytes.NewBuffer(nil)
@@ -118,6 +123,7 @@ var _ = Describe("logs", func() {
 			hResponseBody = map[string]interface{}{
 				"host": map[string]interface{}{
 					"ip_address":      host,
+					"hostname":        test.SampleHostname,
 					"freighterd_port": portInt,
 				},
 			}
