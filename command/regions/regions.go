@@ -27,8 +27,8 @@ type Command struct {
 }
 
 type Region struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Slug string `json:"slug"`
+	Name string `json:"name"`
 }
 
 func init() {
@@ -95,9 +95,9 @@ func prettyPrint(regions []*Region) string {
 	w := &tabwriter.Writer{}
 
 	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
-	fmt.Fprintln(w, "Name", "\t", "Description")
+	fmt.Fprintln(w, "Slug", "\t", "Name")
 	for _, r := range regions {
-		fmt.Fprintln(w, r.Name, "\t", r.Description)
+		fmt.Fprintln(w, r.Slug, "\t", r.Name)
 	}
 	w.Flush()
 	return b.String()

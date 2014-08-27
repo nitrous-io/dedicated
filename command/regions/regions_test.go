@@ -53,15 +53,15 @@ var _ = Describe("regions", func() {
 		BeforeEach(func() {
 			statusCode = http.StatusOK
 			responseBody = `{"regions":[
-					{"id":1,"name":"apse","description":"Southeast Asia"},
-					{"id":1,"name":"nyc","description":"US East (New York)"}
+					{"id":1,"slug":"apse","name":"Southeast Asia","rank":1},
+					{"id":2,"slug":"nyc","name":"US East (New York)","rank":2}
 				]}`
 		})
 
 		It("outputs formatted regions on success", func() {
 			code := cmd.Run([]string{})
 			Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
-Name    Description
+Slug    Name
 apse    Southeast Asia
 nyc     US East (New York)
 `)))
