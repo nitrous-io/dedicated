@@ -108,5 +108,6 @@ func getLoginCommand(username string) string {
 	}
 	// use getty autologin to get a tty (so screen/tmux can run) because
 	// lxc-attach will not allocate a new one
-	return fmt.Sprintf("sudo getty -a %s tty", username)
+	// we use direct path here incase /sbin is not set in $PATH for some image
+	return fmt.Sprintf("/sbin/getty -a %s tty", username)
 }
