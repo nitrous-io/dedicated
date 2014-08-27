@@ -1687,4 +1687,3 @@ var _ = Describe("provider/docker", func() {
 		})
 	})
 })
- 
