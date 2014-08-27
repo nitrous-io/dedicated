@@ -35,8 +35,7 @@ App.HostsNewController = Em.ObjectController.extend
         name: @get('name')
         slug: @get('slug')
       host.save().then =>
-        App.Host.fetch().then (records) =>
-          App.set 'hosts', records
+        App.get('hosts').reload().then =>
           @transitionToRoute 'host.index', host.get 'slug'
           @set 'saving', false
       , (jqxhr) =>
