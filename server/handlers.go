@@ -319,7 +319,7 @@ func (s *Server) attachShell(w http.ResponseWriter, r *http.Request) error {
 	shellID := mux.Vars(r)["id"]
 	shell, ok := s.shells[shellID]
 	if !ok {
-		return fmt.Errorf("Invalid shell %v", shellID)
+		return fmt.Errorf("invalid shell %v", shellID)
 	}
 
 	stdin, stdout, err := hijackServer(w)
@@ -350,7 +350,7 @@ func (s *Server) wsAttachShell(w http.ResponseWriter, r *http.Request) error {
 	shellID := mux.Vars(r)["id"]
 	shell, ok := s.shells[shellID]
 	if !ok {
-		return fmt.Errorf("Invalid shell %v", shellID)
+		return fmt.Errorf("invalid shell %v", shellID)
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -358,10 +358,7 @@ func (s *Server) wsAttachShell(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to upgrade websocket: %v", err)
 	}
 	stream := wsconn.NewConnection(conn)
-
-	defer func() {
-		stream.Close()
-	}()
+	defer stream.Close()
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	<-shell.Attach(stream, stream)
@@ -372,7 +369,7 @@ func (s *Server) resizeShell(w http.ResponseWriter, r *http.Request) error {
 	shellID := mux.Vars(r)["id"]
 	shell, ok := s.shells[shellID]
 	if !ok {
-		return fmt.Errorf("Invalid shell %v", shellID)
+		return fmt.Errorf("invalid shell %v", shellID)
 	}
 
 	width := getFormInt(r, "width")
