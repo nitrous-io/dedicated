@@ -72,10 +72,11 @@ var _ = Describe("logs", func() {
 		// Setup handlers for freighter which nitro
 		// will be querying to get the log stream
 		fhandlers := ghttp.CombineHandlers(
+			ghttp.VerifyHeaderKV("Authorization", "Token container-token"),
 			ghttp.VerifyRequest(
 				"GET",
 				"/containers/deadbeef/logs",
-				"follow=false&tail=all&timestamps=false&token=container-token"),
+				"follow=false&tail=all&timestamps=false"),
 			ghttp.RespondWithPtr(&fStatusCode, &fResponseBody),
 		)
 		fsrv = ghttp.NewServer()

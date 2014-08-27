@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"os"
 	"strings"
 
@@ -89,19 +88,21 @@ func (c *Command) attach(host, token, containerID string, stdout io.Writer) erro
 	conn := httputil.NewClientConn(dial, nil)
 	defer conn.Close()
 
-	p := &url.Values{"token": []string{token}}
-	req, err := http.NewRequest(
-		"POST",
-		fmt.Sprintf("/containers/%s/attach", containerID),
-		strings.NewReader(p.Encode()))
+	req, err := http.NewRequest("POST", fmt.Sprintf("/containers/%s/attach", containerID), nil)
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Authorization", "Token "+token)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Host = host
 
 	resp, _ := conn.Do(req)
-	if resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// Pass.
+	case http.StatusUnauthorized:
+		return fmt.Errorf("You do not have permission to attach to the container.")
+	default:
 		return fmt.Errorf("Failed to attach to the container. Make sure that it's running.")
 	}
 
