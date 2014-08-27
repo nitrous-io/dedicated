@@ -2,7 +2,10 @@ package registries
 
 import (
 	"net/http"
+	"net/url"
+	"strconv"
 
+	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
@@ -16,9 +19,11 @@ var (
 	errUsernameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "username is required")
 	errPasswordRequired = httperror.New(http.StatusBadRequest, "invalid_request", "password is required")
 	errEmailRequired    = httperror.New(http.StatusBadRequest, "invalid_request", "email is required")
+	errRegistryRequired = httperror.New(http.StatusBadRequest, "invalid_request", "registry is required")
 	errLoginFailed      = httperror.New(http.StatusBadRequest, "login_failed", "registry login failed")
 	errLogoutFailed     = httperror.New(http.StatusBadRequest, "logout_failed", "registry logout failed")
 	errAlreadyLoggedIn  = httperror.New(http.StatusBadRequest, "login_failed", "already logged in to this registry")
+	errRegistryNotFound = httperror.New(http.StatusNotFound, "not_found", "registry does not exist")
 )
 
 var (
@@ -58,13 +63,9 @@ func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return errEmailRequired
 	}
 
-	registryURL := r.FormValue("registry")
-
-	// set the default registry URL to "hub.docker.com",
-	// if user hasn't specified one.
-	// This is only to record in the DB.
+	registryURL := r.FormValue("url")
 	if registryURL == "" {
-		registryURL = "index.docker.io"
+		return errRegistryRequired
 	}
 
 	existingReg, err := registry.FindByUserIDAndHostIDAndURL(db, env.User.ID, h.ID, registryURL)
@@ -129,9 +130,34 @@ func logout(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	registryURL := r.FormValue("registry")
+	// registry var can either be an ID or a registry URL
+	regVar := mux.Vars(r)["rslug"]
 
-	err = cl.RegistryLogout(registryURL)
+	var reg *registry.Registry
+	rID, err := strconv.ParseInt(regVar, 10, 64)
+	if err != nil {
+		// treat the given value as a registry URL
+		// and try to find the registry by the URL
+		regURL, err := url.QueryUnescape(regVar)
+		if err != nil {
+			return err
+		}
+		reg, err = registry.FindByUserIDAndHostIDAndURL(db, env.User.ID, h.ID, regURL)
+		if err != nil {
+			return err
+		}
+	} else {
+		reg, err = registry.FindByUserIDAndID(db, env.User.ID, rID)
+		if err != nil {
+			return err
+		}
+	}
+
+	if reg == nil {
+		return errRegistryNotFound
+	}
+
+	err = cl.RegistryLogout(reg.URL)
 	if err != nil {
 		if err == freighterclient.ErrInvalidParams {
 			return errLogoutFailed
@@ -139,11 +165,7 @@ func logout(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	if registryURL == "" {
-		registryURL = "hub.docker.com"
-	}
-
-	err = registry.Delete(db, env.User.ID, h.ID, registryURL)
+	err = registry.Delete(db, env.User.ID, reg.ID)
 	if err != nil {
 		return err
 	}

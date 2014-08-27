@@ -39,6 +39,19 @@ func FindByUserIDAndHostIDAndURL(d db.QueryReceiver, userID int64, hostID int64,
 	return r, nil
 }
 
+// TODO: Refactor these finder methods
+func FindByUserIDAndID(d db.QueryReceiver, userID int64, ID int64) (*Registry, error) {
+	r := &Registry{}
+	err := d.Get(r, `SELECT * FROM registries WHERE user_id = $1 AND id = $2;`, userID, ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return r, nil
+}
+
 func (r *Registry) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO registries
 		(user_id, host_id, url, username, email)
@@ -50,7 +63,7 @@ func (r *Registry) Insert(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(r).StructScan(r)
 }
 
-func Delete(db *db.Database, userID int64, hostID int64, URL string) error {
-	_, err := db.Exec("DELETE FROM registries WHERE user_id = $1 AND host_id = $2 AND url = $3", userID, hostID, URL)
+func Delete(db *db.Database, userID int64, ID int64) error {
+	_, err := db.Exec("DELETE FROM registries WHERE user_id = $1 AND id = $2", userID, ID)
 	return err
 }
