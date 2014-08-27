@@ -14,10 +14,11 @@ import (
 )
 
 const (
-	usernameUsage = "Docker registry's username"
-	passwordUsage = "Docker registry's password"
-	emailUsage    = "Docker registry's email"
-	registryUsage = "Docker registry's server. Defaults to Docker Hub registry"
+	usernameUsage      = "Docker registry's username"
+	passwordUsage      = "Docker registry's password"
+	emailUsage         = "Docker registry's email"
+	registryUsage      = "Docker registry's server. Defaults to Docker Hub registry"
+	defaultRegistryURL = "https://index.docker.io/v1/"
 )
 
 var usage = fmt.Sprintf(`
@@ -122,6 +123,11 @@ func (c *Command) Run(args []string) int {
 	password = strings.TrimSpace(password)
 	email = strings.TrimSpace(email)
 	registry = strings.TrimSpace(registry)
+
+	//  FIXME: Didn't write tests since i need to rush to demo
+	if registry == "" {
+		registry = defaultRegistryURL
+	}
 
 	err = c.registryLogin(username, password, email, registry, host)
 	if err != nil {
