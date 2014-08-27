@@ -1,4 +1,4 @@
-github.com/mitchellh/cli !git@github.com:nitrous-io/cli
+github.com/mitchellh/cli #aedcd92cc52d928752e870aaf076c9b5e48994f0 !git@github.com:nitrous-io/cli
 github.com/ogier/pflag #e4f7d00f344b0954fa3791a8527d10ba7334eceb
 github.com/bgentry/speakeasy #5dfe43257d1f86b96484e760f2f0c4e2559089c7
 github.com/kr/pty #67e2db24c831afa6c64fc17b4a143390674365ef
