@@ -3,7 +3,6 @@ App.HostRegistriesNewController = Em.ObjectController.extend
   username: null
   email: null
   password: null
-  invalidField: null
   saving: false
 
   clear: ->
@@ -12,7 +11,6 @@ App.HostRegistriesNewController = Em.ObjectController.extend
       username: null
       email: null
       password: null
-      invalidField: null
       saving: false
 
   actions:
@@ -30,13 +28,10 @@ App.HostRegistriesNewController = Em.ObjectController.extend
         email: @get('email')
         password: @get('password')
       registry.save().then =>
-        host.get('registries').reload()
         @transitionToRoute 'host.registries'
         @set 'saving', false
       , (jqxhr) =>
-        if errMsg = jqxhr.responseJSON?.error_description
-          @set 'error', errMsg
-          @set 'invalidField', errMsg.match(/^\w+/)[0]
-          App.snackbar.post(errMsg.capitalize())
+        errMsg = jqxhr.responseJSON?.error_description
+        App.snackbar.post(errMsg?.capitalize() || 'Unknown Error')
         @set 'saving', false
       false

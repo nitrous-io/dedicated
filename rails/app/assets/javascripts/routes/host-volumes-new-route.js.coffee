@@ -1,6 +1,8 @@
 App.HostVolumesNewRoute = App.AuthedRoute.extend
-  activate: ->
-    App.set 'title', 'New Volume'
-
   renderTemplate: ->
     @render 'host/volumes-new', into: 'host'
+
+  setupController: (controller, model) ->
+    @_super.apply this, arguments
+    controller.clear()
+    App.set 'title', model.get('displayName') + ' » New Volume'

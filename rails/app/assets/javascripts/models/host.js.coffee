@@ -39,6 +39,11 @@ App.Host = klass = App.Model.extend
       App.Registry.fetch(hostId: id).value
   ).property 'id'
 
+  volumes: (->
+    if id = @get('id')
+      App.Volume.fetch(hostId: id).value
+  ).property 'id'
+
   region: (->
     if regionId = @get('regionId')
       App.get('regions').findBy('id', regionId)

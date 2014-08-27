@@ -1,18 +1,23 @@
 = host-tab-bar selected='volumes'
 
-form
+form submit='create'
   .card-body
     h3 New Volume
     .ui.input-group
       label.field-label for='volumes-new-name'
         | Name
-      input type='text' id='volumes-new-name' name='name'
+      = input type='text' id='volumes-new-name' name='name' value=name
 
       label.field-label for='volumes-new-slug'
         | Unique Slug
-      input type='text' id='volumes-new-slug' name='slug'
+      = input type='text' id='volumes-new-slug' name='slug' value=slug
 
   .card-footer.bordered
     .right
-      button.ui.btn Cancel
-      button.ui.btn.primary Create
+      if saving
+        button.ui.btn disabled='disabled'
+          .spinner
+          | Creating...
+      else
+        a.ui.btn href='#' click='cancel' Cancel
+        input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'
