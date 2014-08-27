@@ -106,5 +106,7 @@ func getLoginCommand(username string) string {
 	if username == "" {
 		username = "root"
 	}
-	return fmt.Sprintf("sudo login -f %s", username)
+	// use getty autologin to get a tty (so screen/tmux can run) because
+	// lxc-attach will not allocate a new one
+	return fmt.Sprintf("sudo getty -a %s tty", username)
 }
