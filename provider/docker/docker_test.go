@@ -1114,31 +1114,24 @@ var _ = Describe("provider/docker", func() {
 	})
 
 	Describe(".BuildImage()", func() {
-
 		createImageTarball := func() io.Reader {
 			buf := new(bytes.Buffer)
 			gzipWriter := gzip.NewWriter(buf)
 			tarWriter := tar.NewWriter(gzipWriter)
 
-			dockerSource := `
+			dockerSource := fmt.Sprintf(`
 			FROM %s
 			MAINTAINER Nitrous.IO, hello@nitrous.io
-
 			ADD some_file.txt /some/file.txt
+			CMD /bin/bash -c 'cat /some/file.txt'`, image)
 
-			CMD /bin/bash -c 'cat /some/file.txt'
-			`
-			formattedDockerSource := fmt.Sprintf(dockerSource, image)
-
-			dockerSourceHeader := &tar.Header{
+			err := tarWriter.WriteHeader(&tar.Header{
 				Name: "Dockerfile",
-				Size: int64(len(formattedDockerSource)),
-			}
-			err := tarWriter.WriteHeader(dockerSourceHeader)
+				Size: int64(len(dockerSource)),
+			})
 			Expect(err).To(BeNil())
-			written, err := tarWriter.Write([]byte(formattedDockerSource))
+			_, err = tarWriter.Write([]byte(dockerSource))
 			Expect(err).To(BeNil())
-			Expect(written).ToNot(Equal(0))
 
 			someFile := "Hello from Docker!"
 			someFileHeader := &tar.Header{
@@ -1147,10 +1140,8 @@ var _ = Describe("provider/docker", func() {
 			}
 			err = tarWriter.WriteHeader(someFileHeader)
 			Expect(err).To(BeNil())
-			Expect(written).ToNot(Equal(0))
-			written, err = tarWriter.Write([]byte(someFile))
+			_, err = tarWriter.Write([]byte(someFile))
 			Expect(err).To(BeNil())
-			Expect(written).ToNot(Equal(0))
 
 			err = tarWriter.Close()
 			Expect(err).To(BeNil())
@@ -1164,18 +1155,18 @@ var _ = Describe("provider/docker", func() {
 			readBuf := createImageTarball()
 			outputBuffer := new(bytes.Buffer)
 			info, err := prov.BuildImage("myimage", readBuf, outputBuffer)
+			defer exec.Command("docker", "rmi", "myimage:latest").Run()
 			Expect(err).To(BeNil())
 			Expect(info).ToNot(BeNil())
 
 			Expect(outputBuffer.String()).To(ContainSubstring("Successfully built"))
-
-			exec.Command("docker", "rmi", "myimage:latest").Run()
 		})
 
 		It("correctly stores the additional data", func() {
 			readBuf := createImageTarball()
 			outputBuffer := new(bytes.Buffer)
 			info, err := prov.BuildImage("myimage", readBuf, outputBuffer)
+			defer exec.Command("docker", "rmi", "myimage:latest").Run()
 			Expect(err).To(BeNil())
 			Expect(info).ToNot(BeNil())
 
@@ -1194,10 +1185,7 @@ var _ = Describe("provider/docker", func() {
 			res, err := exec.Command("docker", "run", "--rm=true", matchingImage.ID).Output()
 			Expect(err).To(BeNil())
 			Expect(string(res)).To(Equal("Hello from Docker!"))
-
-			exec.Command("docker", "rmi", "myimage:latest").Run()
 		})
-
 	})
 
 	Describe(".RemoveImage()", func() {
@@ -1699,3 +1687,4 @@ var _ = Describe("provider/docker", func() {
 		})
 	})
 })
+ 

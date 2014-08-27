@@ -488,9 +488,10 @@ func (p *DockerProvider) ListImages() ([]*provider.ImageInfo, error) {
 
 func (p *DockerProvider) BuildImage(name string, incoming io.Reader, result io.Writer) (*provider.ImageInfo, error) {
 	buildOptions := dockerclient.BuildImageOptions{
-		Name:         name,
-		InputStream:  incoming,
-		OutputStream: result,
+		Name:           name,
+		InputStream:    incoming,
+		OutputStream:   result,
+		RmTmpContainer: true,
 	}
 
 	err := p.client.BuildImage(buildOptions)
