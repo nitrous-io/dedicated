@@ -82,7 +82,7 @@ func Create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	if err != nil {
 		desErr := vol.Delete(db)
 		if desErr != nil {
-			env.Logger.Error("Unable to delete volume %d that failed on freighter: %v", vol.ID, desErr)
+			env.Logger.Errorf("Unable to delete volume %d that failed on freighter: %v", vol.ID, desErr)
 		}
 		if e, ok := err.(*freighterclient.InvalidParamError); ok {
 			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
@@ -121,7 +121,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 	err = vol.Delete(db)
 	if err != nil {
-		env.Logger.Error("Unable to delete volume %d that was destroyed on freighter: %v", vol.ID, err)
+		env.Logger.Errorf("Unable to delete volume %d that was destroyed on freighter: %v", vol.ID, err)
 		return err
 	}
 

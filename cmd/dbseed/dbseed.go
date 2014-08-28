@@ -186,7 +186,7 @@ func shouldSeed(d db.QueryReceiver, tableName string) (bool, error) {
 	case c == 0:
 		return true, nil
 	default: // if it's still -1
-		logr.Errorf("Unexpected count %s", c)
+		logr.Errorf("Unexpected count %v", c)
 		return false, err
 	}
 }

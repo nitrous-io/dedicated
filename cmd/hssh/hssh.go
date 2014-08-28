@@ -66,14 +66,14 @@ func main() {
 	// get db conection
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
-		log.Fatalf("failed to open db connection", dbConn)
+		log.Fatalf("failed to open db connection %v", dbConn)
 	}
 	log.Print("===> established db connection ...")
 
 	// get host
 	h, err := host.FindBySlug(dbConn, slug)
 	if err != nil || h == nil {
-		log.Fatalf("failed to find host with id %d", slug)
+		log.Fatalf("failed to find host with id %v", slug)
 	}
 	log.Print("===> found host...")
 
@@ -173,7 +173,7 @@ func monitorSize(fd int, s *ssh.Session) {
 		for _ = range sigchan {
 			w, h, err := terminal.GetSize(fd)
 			if err != nil {
-				log.Printf("failed to get terminal size", err)
+				log.Printf("failed to get terminal size %v", err)
 				w, h = 80, 24
 			}
 			req := &resizeRequest{
