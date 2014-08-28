@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
@@ -37,8 +36,6 @@ var _ = Describe("controllers/images", func() {
 	var (
 		db              *db.Database
 		svr             *server.Server
-		handler         *mux.Router
-		res             *httptest.ResponseRecorder
 		authTokenInputs AuthTokenInputs
 
 		// Mock client that satisfies the freighterclient.Client interface.
@@ -59,9 +56,7 @@ var _ = Describe("controllers/images", func() {
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		svr = server.NewServer("", db, logger)
-		handler = svr.Router()
-		res = httptest.NewRecorder()
-		authTokenInputs = AuthTokenInputs{Handler: handler}
+		authTokenInputs = AuthTokenInputs{Handler: svr.Router()}
 
 		u = &user.User{
 			Username: "foo",
@@ -100,7 +95,7 @@ var _ = Describe("controllers/images", func() {
 			req, err := NewAuthedRequest(t, "GET", fmt.Sprintf("/api/v0/hosts/%v/images", host), nil)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
+			svr.Router().ServeHTTP(res, req)
 			return res
 		}
 
@@ -264,7 +259,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			req.Header.Set("Authorization", "Bearer "+t.Token)
-			handler.ServeHTTP(res, req)
+			svr.Router().ServeHTTP(res, req)
 			return res
 		}
 
@@ -360,7 +355,7 @@ var _ = Describe("controllers/images", func() {
 			req, err := NewAuthedRequest(t, "DELETE", fmt.Sprintf("/api/v0/hosts/%v/images/%v", host, image), nil)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
+			svr.Router().ServeHTTP(res, req)
 			return res
 		}
 
@@ -409,7 +404,7 @@ var _ = Describe("controllers/images", func() {
 			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/pull", host), params)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
+			svr.Router().ServeHTTP(res, req)
 			return res
 		}
 
@@ -492,14 +487,16 @@ var _ = Describe("controllers/images", func() {
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/images/{image}/push", func() {
-		doRequest := func(host, image string, params *url.Values) {
+		doRequest := func(host, image string, params *url.Values) *httptest.ResponseRecorder {
 			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/%s/push", host, image), params)
 			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
 		}
 
 		It("calls PushImage", func() {
-			doRequest("foo", "nitrousio/devenv:latest", &url.Values{"destination": []string{"myuser/scratch"}})
+			res := doRequest("foo", "nitrousio/devenv:latest", &url.Values{"destination": []string{"myuser/scratch"}})
 			Expect(mockClient.PushImageCalled).To(Equal(1))
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
@@ -525,7 +522,7 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("requires destination param", func() {
-			doRequest("foo", "devenv", nil)
+			res := doRequest("foo", "devenv", nil)
 			Expect(mockClient.PushImageCalled).To(Equal(0))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
@@ -534,7 +531,7 @@ var _ = Describe("controllers/images", func() {
 
 		It("returns 500 on freighterclient error", func() {
 			mockClient.PushImageError = &freighterclient.StatusError{418}
-			doRequest("foo", "devenv", &url.Values{"destination": []string{"scratch"}})
+			res := doRequest("foo", "devenv", &url.Values{"destination": []string{"scratch"}})
 			Expect(mockClient.PushImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
@@ -542,14 +539,16 @@ var _ = Describe("controllers/images", func() {
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/images/{image}/tag", func() {
-		doRequest := func(host, image string, params *url.Values) {
+		doRequest := func(host, image string, params *url.Values) *httptest.ResponseRecorder {
 			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/%s/tag", host, image), params)
 			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
 		}
 
 		It("calls TagImage", func() {
-			doRequest("foo", "nitrousio/scratch:tag", &url.Values{"tag": []string{"staging"}})
+			res := doRequest("foo", "nitrousio/scratch:tag", &url.Values{"tag": []string{"staging"}})
 			Expect(mockClient.TagImageCalled).To(Equal(1))
 			Expect(mockClient.ReceivedImage).To(Equal("nitrousio/scratch:tag"))
 			Expect(mockClient.ReceivedTag).To(Equal("staging"))
@@ -578,14 +577,14 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("sends force param", func() {
-			doRequest("foo", "scratch", &url.Values{"tag": []string{"staging"}, "force": []string{"1"}})
+			res := doRequest("foo", "scratch", &url.Values{"tag": []string{"staging"}, "force": []string{"1"}})
 			Expect(mockClient.TagImageCalled).To(Equal(1))
 			Expect(mockClient.TagImageForce).To(BeTrue())
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
 		It("requires tag param", func() {
-			doRequest("foo", "devenv", nil)
+			res := doRequest("foo", "devenv", nil)
 			Expect(mockClient.TagImageCalled).To(Equal(0))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
@@ -594,7 +593,7 @@ var _ = Describe("controllers/images", func() {
 
 		It("returns 500 on freighterclient error", func() {
 			mockClient.TagImageError = &freighterclient.StatusError{418}
-			doRequest("foo", "devenv", &url.Values{"tag": []string{"staging"}})
+			res := doRequest("foo", "devenv", &url.Values{"tag": []string{"staging"}})
 			Expect(mockClient.TagImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
