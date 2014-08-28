@@ -64,7 +64,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// If no host is provided, then get all hosts belonging to the user
 	// and get all containers from all hosts
 	if hSlug != "" {
-		h, err := host.FindByUserAndSlug(db, env.User, hSlug)
+		h, err := host.Find(db, env.User, hSlug)
 		if err != nil {
 			return err
 		}

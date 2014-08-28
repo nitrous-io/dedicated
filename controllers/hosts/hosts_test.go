@@ -463,7 +463,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("creates a host in the orphan state for the user", func() {
-					h, err := host.FindByUserAndSlug(db, u, "honeybadger")
+					h, err := host.Find(db, u, "honeybadger")
 					Expect(err).To(BeNil())
 					Expect(h.Slug).To(Equal("honeybadger"))
 					Expect(h.State).To(Equal(host.StateOrphan))
@@ -809,7 +809,7 @@ var _ = Describe("controllers/hosts", func() {
 			It("deletes the host record", func() {
 				doRequest(hs.H.Slug)
 
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h).To(BeNil())
 			})
@@ -889,7 +889,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("does not delete the host", func() {
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h).NotTo(BeNil())
 			})
@@ -958,7 +958,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			It("updates the host state to running", func() {
 				doRequest(hs.H.Slug)
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateRunning))
 			})
@@ -993,7 +993,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				doRequest(hs.H.Slug)
 
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(<-ch).To(Equal(&controllers.Event{
 					Name: "host.started",
@@ -1018,7 +1018,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("leaves host in intermediate state", func() {
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateStarting))
 			})
@@ -1083,7 +1083,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			It("updates the host state to stopped", func() {
 				doRequest(hs.H.Slug)
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateStopped))
 			})
@@ -1118,7 +1118,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				doRequest(hs.H.Slug)
 
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(<-ch).To(Equal(&controllers.Event{
 					Name: "host.stopped",
@@ -1143,7 +1143,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("leaves host in intermediate state", func() {
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateStopping))
 			})
@@ -1208,7 +1208,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			It("updates the host state to running", func() {
 				doRequest(hs.H.Slug)
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateRunning))
 			})
@@ -1243,7 +1243,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				doRequest(hs.H.Slug)
 
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(<-ch).To(Equal(&controllers.Event{
 					Name: "host.restarted",
@@ -1268,7 +1268,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("leaves host in intermediate state", func() {
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateRestarting))
 			})

@@ -2,6 +2,7 @@ package host_test
 
 import (
 	"database/sql"
+	"strconv"
 	"testing"
 
 	ndb "github.com/nitrous-io/nitrous/db"
@@ -98,6 +99,81 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("Find()", func() {
+		Context("when given param is an ID", func() {
+			It("returns the matching record belongs to the user", func() {
+				h, err := host.Find(db, hs.U, strconv.FormatInt(hs.H.ID, 10))
+				Expect(err).To(BeNil())
+				Expect(h).NotTo(BeNil())
+				Expect(h.ID).To(Equal(hs.H.ID))
+				Expect(h.UserID).To(Equal(hs.U.ID))
+				Expect(h.Slug).To(Equal(hs.H.Slug))
+				Expect(h.Provider).To(Equal(hs.PT.Provider))
+			})
+
+			It("returns nil without an error when the matching record does not belong to the user", func() {
+				u := &user.User{
+					Username: "barbaz",
+					Email:    "barbaz@example.com",
+					Password: "123456",
+				}
+				err := u.Insert(db)
+				Expect(err).To(BeNil())
+
+				h, err := host.Find(db, u, strconv.FormatInt(hs.H.ID, 10))
+				Expect(err).To(BeNil())
+				Expect(h).To(BeNil())
+			})
+
+			It("returns nil without an error when there's no matching record", func() {
+				h, err := host.Find(db, hs.U, "10001")
+				Expect(err).To(BeNil())
+				Expect(h).To(BeNil())
+			})
+		})
+
+		Context("when given param is a slug", func() {
+			It("returns the mathching host record belongs to the user", func() {
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h).NotTo(BeNil())
+				Expect(h.ID).To(Equal(hs.H.ID))
+				Expect(h.UserID).To(Equal(hs.U.ID))
+				Expect(h.Slug).To(Equal(hs.H.Slug))
+				Expect(h.Provider).To(Equal(hs.PT.Provider))
+			})
+
+			It("returns nil without an error when matching record does not belong to the user", func() {
+				u := &user.User{
+					Username: "barbaz",
+					Email:    "barbaz@example.com",
+					Password: "123456",
+				}
+				err := u.Insert(db)
+				Expect(err).To(BeNil())
+
+				h, err := host.Find(db, u, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h).To(BeNil())
+			})
+
+			It("returns nil without an error when there's no matching record'", func() {
+				h, err := host.Find(db, hs.U, "vivabrazil")
+				Expect(err).To(BeNil())
+				Expect(h).To(BeNil())
+			})
+		})
+
+		Context("when some error happens", func() {
+			It("returns error", func() {
+				db.Close()
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(h).To(BeNil())
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("FindByID()", func() {
 		var id int64
 
@@ -140,106 +216,6 @@ var _ = Describe("models/host", func() {
 				h, err := host.FindBySlug(db, "deadbeefhost")
 				Expect(err).To(BeNil())
 				Expect(h).To(BeNil())
-			})
-		})
-	})
-
-	Describe("FindByUserAndID()", func() {
-		Context("when there's a host record for the given ID that belongs to the user", func() {
-			It("returns the host record matching the ID", func() {
-				h, err := host.FindByUserAndID(db, hs.U, hs.H.ID)
-				Expect(err).To(BeNil())
-				Expect(h).NotTo(BeNil())
-				Expect(h.ID).To(Equal(hs.H.ID))
-				Expect(h.UserID).To(Equal(hs.U.ID))
-				Expect(h.Slug).To(Equal(hs.H.Slug))
-				Expect(h.Provider).To(Equal(hs.PT.Provider))
-			})
-		})
-
-		Context("when there's a host record for the given ID that does not belong to the user", func() {
-			var u *user.User
-			BeforeEach(func() {
-				u = &user.User{
-					Username: "barbaz",
-					Email:    "barbaz@example.com",
-					Password: "123456",
-				}
-				err := u.Insert(db)
-				Expect(err).To(BeNil())
-			})
-
-			It("returns nil without an error", func() {
-				h, err := host.FindByUserAndID(db, u, hs.H.ID)
-				Expect(err).To(BeNil())
-				Expect(h).To(BeNil())
-			})
-		})
-
-		Context("when a host record with the given ID does not exist", func() {
-			It("returns nil without an error", func() {
-				h, err := host.FindByUserAndID(db, hs.U, 10001)
-				Expect(err).To(BeNil())
-				Expect(h).To(BeNil())
-			})
-		})
-
-		Context("when some error happens", func() {
-			It("returns error", func() {
-				db.Close()
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
-				Expect(h).To(BeNil())
-				Expect(err).NotTo(BeNil())
-			})
-		})
-	})
-
-	Describe("FindByUserAndSlug()", func() {
-		Context("when there's a host record for the given name that belongs to the user", func() {
-			It("returns the host record matching the name", func() {
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h).NotTo(BeNil())
-				Expect(h.ID).To(Equal(hs.H.ID))
-				Expect(h.UserID).To(Equal(hs.U.ID))
-				Expect(h.Slug).To(Equal(hs.H.Slug))
-				Expect(h.Provider).To(Equal(hs.PT.Provider))
-			})
-		})
-
-		Context("when there's a host record for the given name that does not belong to the user", func() {
-			var u *user.User
-			BeforeEach(func() {
-				u = &user.User{
-					Username: "barbaz",
-					Email:    "barbaz@example.com",
-					Password: "123456",
-				}
-				err := u.Insert(db)
-				Expect(err).To(BeNil())
-			})
-
-			It("returns nil without an error", func() {
-				h, err := host.FindByUserAndSlug(db, u, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h).To(BeNil())
-			})
-		})
-
-		Context("when a host record with the given name does not exist", func() {
-			It("returns nil without an error", func() {
-				h, err := host.FindByUserAndSlug(db, hs.U, "vivabrazil")
-				Expect(err).To(BeNil())
-				Expect(h).To(BeNil())
-			})
-		})
-
-		Context("when some error happens", func() {
-			It("returns error", func() {
-				db.Close()
-				h, err := host.FindByUserAndSlug(db, hs.U, hs.H.Slug)
-				Expect(h).To(BeNil())
-				Expect(err).NotTo(BeNil())
 			})
 		})
 	})
@@ -342,7 +318,7 @@ var _ = Describe("models/host", func() {
 			err := h.Update(db)
 			Expect(err).To(BeNil())
 
-			h2, err := host.FindByUserAndSlug(db, hs.U, slug)
+			h2, err := host.Find(db, hs.U, slug)
 			Expect(err).To(BeNil())
 			Expect(h2).NotTo(BeNil())
 			Expect(h2.Slug).To(Equal(slug))
