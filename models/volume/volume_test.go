@@ -2,6 +2,7 @@ package volume_test
 
 import (
 	"database/sql"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -26,147 +27,172 @@ var _ = Describe("models/volume", func() {
 		hs *HostStack
 	)
 
-	Context("with db", func() {
-		BeforeEach(func() {
-			var err error
-			db, err = TestDatabase("nitrous_test")
-			Expect(err).To(BeNil())
+	BeforeEach(func() {
+		var err error
+		db, err = TestDatabase("nitrous_test")
+		Expect(err).To(BeNil())
 
-			hs, err = CreateHostStack(db, nil)
-			Expect(err).To(BeNil())
-		})
+		hs, err = CreateHostStack(db, nil)
+		Expect(err).To(BeNil())
+	})
 
-		AfterEach(func() {
-			if db != nil {
-				db.Close()
-			}
-		})
-
-		newVolume := func(slug string) *volume.Volume {
-			return &volume.Volume{
-				HostID: hs.H.ID,
-				Slug:   slug,
-			}
+	AfterEach(func() {
+		if db != nil {
+			db.Close()
 		}
+	})
 
-		newHostVolume := func(slug string) (*HostStack, *volume.Volume) {
-			hs2, err := CreateHostStack(db, nil)
-			Expect(err).To(BeNil())
-			v := newVolume("data") // same slug
-			v.HostID = hs2.H.ID
-			err = v.Insert(db)
+	newVolume := func(slug string) *volume.Volume {
+		return &volume.Volume{
+			HostID: hs.H.ID,
+			Slug:   slug,
+		}
+	}
+
+	newHostVolume := func(slug string) (*HostStack, *volume.Volume) {
+		hs2, err := CreateHostStack(db, nil)
+		Expect(err).To(BeNil())
+		v := newVolume("data") // same slug
+		v.HostID = hs2.H.ID
+		err = v.Insert(db)
+		Expect(err).To(BeNil())
+		Expect(v.ID).NotTo(BeZero())
+		return hs2, v
+	}
+
+	Describe("Insert()", func() {
+		It("sets name and ID", func() {
+			v := newVolume("docs")
+			err := v.Insert(db)
 			Expect(err).To(BeNil())
 			Expect(v.ID).NotTo(BeZero())
-			return hs2, v
-		}
+			Expect(v.Name).To(Equal("docs"))
+			Expect(v.CreatedAt).NotTo(BeNil())
+			Expect(v.UpdatedAt).NotTo(BeNil())
+		})
+	})
 
-		Describe("Insert()", func() {
-			It("sets name and ID", func() {
-				v := newVolume("docs")
-				err := v.Insert(db)
-				Expect(err).To(BeNil())
-				Expect(v.ID).NotTo(BeZero())
-				Expect(v.Name).To(Equal("docs"))
-			})
+	Describe("Delete()", func() {
+		var v *volume.Volume
+
+		BeforeEach(func() {
+			v = newVolume("data")
+			err := v.Insert(db)
+			Expect(err).To(BeNil())
+			Expect(v.ID).NotTo(BeZero())
 		})
 
-		Describe("Delete()", func() {
-			var v *volume.Volume
+		It("removes the volume", func() {
+			id := v.ID
+			err := v.Delete(db)
+			Expect(err).To(BeNil())
 
-			BeforeEach(func() {
-				v = newVolume("data")
-				err := v.Insert(db)
-				Expect(err).To(BeNil())
-				Expect(v.ID).NotTo(BeZero())
-			})
-
-			It("removes the volume", func() {
-
-				id := v.ID
-				err := v.Delete(db)
-				Expect(err).To(BeNil())
-
-				err = db.Get(v, `SELECT * FROM volumes WHERE id = $1`, id)
-				Expect(err).To(MatchError(sql.ErrNoRows))
-			})
-
-			It("removes cvolume association if present", func() {
-				c := &container.Container{
-					CID:    "cafebabe",
-					UserID: hs.U.ID,
-					HostID: hs.H.ID,
-					Image:  "nitrous-base",
-					Slug:   "java-test-container",
-				}
-				err := c.Insert(db)
-				Expect(err).To(BeNil())
-				cv := &cvolume.ContainerVolume{ContainerID: c.ID, VolumeID: v.ID}
-				err = cv.Insert(db)
-				Expect(err).To(BeNil())
-
-				vid := v.ID
-				err = v.Delete(db)
-				Expect(err).To(BeNil())
-
-				err = db.Get(v, `SELECT * FROM volumes WHERE id = $1`, vid)
-				Expect(err).To(MatchError(sql.ErrNoRows))
-
-				cv = &cvolume.ContainerVolume{}
-				err = db.Get(cv, `SELECT * FROM container_volumes WHERE volume_id = $1`, vid)
-				Expect(err).To(MatchError(sql.ErrNoRows))
-			})
+			err = db.Get(v, `SELECT * FROM volumes WHERE id = $1`, id)
+			Expect(err).To(MatchError(sql.ErrNoRows))
 		})
 
-		Describe("FindByHostIDAndSlug()", func() {
-			It("finds within host id", func() {
+		It("removes cvolume association if present", func() {
+			c := &container.Container{
+				CID:    "cafebabe",
+				UserID: hs.U.ID,
+				HostID: hs.H.ID,
+				Image:  "nitrous-base",
+				Slug:   "java-test-container",
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+			cv := &cvolume.ContainerVolume{ContainerID: c.ID, VolumeID: v.ID}
+			err = cv.Insert(db)
+			Expect(err).To(BeNil())
+
+			vid := v.ID
+			err = v.Delete(db)
+			Expect(err).To(BeNil())
+
+			err = db.Get(v, `SELECT * FROM volumes WHERE id = $1`, vid)
+			Expect(err).To(MatchError(sql.ErrNoRows))
+
+			cv = &cvolume.ContainerVolume{}
+			err = db.Get(cv, `SELECT * FROM container_volumes WHERE volume_id = $1`, vid)
+			Expect(err).To(MatchError(sql.ErrNoRows))
+		})
+	})
+
+	Describe("Find()", func() {
+		Context("when an ID is given", func() {
+			It("returns the matching record scoped by host", func() {
 				v := newVolume("data")
 				err := v.Insert(db)
 				Expect(err).To(BeNil())
 				Expect(v.ID).NotTo(BeZero())
 				hs2, v2 := newHostVolume("data")
 
-				foundV, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "data")
+				foundV, err := volume.Find(db, hs.H.ID, strconv.FormatInt(v.ID, 10))
 				Expect(err).To(BeNil())
 				Expect(foundV.ID).To(Equal(v.ID))
 
-				foundV2, err := volume.FindByHostIDAndSlug(db, hs2.H.ID, "data")
+				foundV2, err := volume.Find(db, hs2.H.ID, strconv.FormatInt(v2.ID, 10))
 				Expect(err).To(BeNil())
 				Expect(foundV2.ID).To(Equal(v2.ID))
 			})
 
 			It("returns (nil, nil) on not found", func() {
-				v, err := volume.FindByHostIDAndSlug(db, 12345, "nope")
+				v, err := volume.Find(db, 12345, "10001")
 				Expect(err).To(BeNil())
 				Expect(v).To(BeNil())
 			})
 		})
 
-		Describe("FindAllByHostID()", func() {
-			It("finds within host id", func() {
+		Context("when a slug is given", func() {
+			It("returns the matching record scoped by host", func() {
 				v := newVolume("data")
 				err := v.Insert(db)
 				Expect(err).To(BeNil())
 				Expect(v.ID).NotTo(BeZero())
 				hs2, v2 := newHostVolume("data")
 
-				foundV, err := volume.FindAllByHostID(db, hs.H.ID)
+				foundV, err := volume.Find(db, hs.H.ID, "data")
 				Expect(err).To(BeNil())
-				Expect(foundV).To(HaveLen(1))
-				Expect(foundV[0].ID).To(Equal(v.ID))
-				Expect(foundV[0].HostID).To(Equal(hs.H.ID))
+				Expect(foundV.ID).To(Equal(v.ID))
 
-				foundV2, err := volume.FindAllByHostID(db, hs2.H.ID)
+				foundV2, err := volume.Find(db, hs2.H.ID, "data")
 				Expect(err).To(BeNil())
-				Expect(foundV2).To(HaveLen(1))
-				Expect(foundV2[0].ID).To(Equal(v2.ID))
-				Expect(foundV2[0].HostID).To(Equal(hs2.H.ID))
+				Expect(foundV2.ID).To(Equal(v2.ID))
 			})
 
-			It("returns empty slice on not found", func() {
-				v, err := volume.FindAllByHostID(db, 12345)
+			It("returns (nil, nil) on not found", func() {
+				v, err := volume.Find(db, 12345, "nope")
 				Expect(err).To(BeNil())
-				Expect(v).To(BeEmpty())
+				Expect(v).To(BeNil())
 			})
+		})
+	})
+
+	Describe("FindAll()", func() {
+		It("finds all volumes scoped by host", func() {
+			v := newVolume("data")
+			err := v.Insert(db)
+			Expect(err).To(BeNil())
+			Expect(v.ID).NotTo(BeZero())
+			hs2, v2 := newHostVolume("data")
+
+			foundV, err := volume.FindAll(db, hs.H.ID)
+			Expect(err).To(BeNil())
+			Expect(foundV).To(HaveLen(1))
+			Expect(foundV[0].ID).To(Equal(v.ID))
+			Expect(foundV[0].HostID).To(Equal(hs.H.ID))
+
+			foundV2, err := volume.FindAll(db, hs2.H.ID)
+			Expect(err).To(BeNil())
+			Expect(foundV2).To(HaveLen(1))
+			Expect(foundV2[0].ID).To(Equal(v2.ID))
+			Expect(foundV2[0].HostID).To(Equal(hs2.H.ID))
+		})
+
+		It("returns empty slice on not found", func() {
+			v, err := volume.FindAll(db, 12345)
+			Expect(err).To(BeNil())
+			Expect(v).To(BeEmpty())
 		})
 	})
 

@@ -156,7 +156,7 @@ func getVolume(db ndb.QueryReceiver, hostID int64, slug string) (*volume.Volume,
 	if slug == "" {
 		return nil, errSlugRequired
 	}
-	vol, err := volume.FindByHostIDAndSlug(db, hostID, slug)
+	vol, err := volume.Find(db, hostID, slug)
 	if err != nil {
 		return nil, err
 	}

@@ -197,7 +197,7 @@ var _ = Describe("controllers/volumes", func() {
 
 				doRequest("metric")
 
-				v, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "metric")
+				v, err := volume.Find(db, hs.H.ID, "metric")
 				Expect(err).To(BeNil())
 				Expect(<-ch).To(Equal(&controllers.Event{
 					Name: "volume.created",
@@ -267,7 +267,7 @@ var _ = Describe("controllers/volumes", func() {
 
 		BeforeEach(func() {
 			makeVolumes("deprecated", "conditioner")
-			v, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "deprecated")
+			v, err := volume.Find(db, hs.H.ID, "deprecated")
 			Expect(err).To(BeNil())
 			Expect(v).NotTo(BeNil())
 		})
@@ -283,11 +283,11 @@ var _ = Describe("controllers/volumes", func() {
 				}{}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				v, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "deprecated")
+				v, err := volume.Find(db, hs.H.ID, "deprecated")
 				Expect(err).To(BeNil())
 				Expect(v).To(BeNil())
 
-				v, err = volume.FindByHostIDAndSlug(db, hs.H.ID, "conditioner")
+				v, err = volume.Find(db, hs.H.ID, "conditioner")
 				Expect(err).To(BeNil())
 				Expect(v).NotTo(BeNil())
 				Expect(v.Slug).To(Equal("conditioner"))
@@ -330,7 +330,7 @@ var _ = Describe("controllers/volumes", func() {
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				slug, _ := ErrorSlug(res.Body)
 				Expect(slug).To(Equal("internal_server_error"))
-				v, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "deprecated")
+				v, err := volume.Find(db, hs.H.ID, "deprecated")
 				Expect(err).To(BeNil())
 				Expect(v).NotTo(BeNil())
 				Expect(v.Slug).To(Equal("deprecated"))
