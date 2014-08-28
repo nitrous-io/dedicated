@@ -1,6 +1,7 @@
 package image_test
 
 import (
+	"database/sql"
 	"fmt"
 	"testing"
 
@@ -112,6 +113,26 @@ var _ = Describe("models/image", func() {
 			err = db.QueryRowx("SELECT * FROM images WHERE id = $1", i.ID).StructScan(i2)
 			Expect(err).To(BeNil())
 			Expect(i).To(Equal(i2))
+		})
+	})
+
+	Describe("Delete()", func() {
+		It("removes the image", func() {
+			hs, err := test.CreateHostStack(db, nil)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, tag) values ($1, $2, $3, $4, $5);", hs.U.ID, hs.H.ID, "cafebabe", "scratch", "latest")
+			Expect(err).To(BeNil())
+
+			img, err := image.Find(db, hs.U, hs.H, "cafebabe")
+			Expect(err).To(BeNil())
+			Expect(img).NotTo(BeNil())
+			Expect(img.FreighterID).To(Equal("cafebabe"))
+
+			err = img.Delete(db)
+			Expect(err).To(BeNil())
+
+			err = db.Get(img, `SELECT * FROM images WHERE id = $1`, img.ID)
+			Expect(err).To(MatchError(sql.ErrNoRows))
 		})
 	})
 

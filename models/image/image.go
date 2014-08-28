@@ -59,6 +59,11 @@ func (i *Image) Insert(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(i).StructScan(i)
 }
 
+func (i *Image) Delete(d db.QueryReceiver) error {
+	_, err := d.Exec(`DELETE FROM images WHERE id = $1`, i.ID)
+	return err
+}
+
 // ParseRepoAndTag extracts the repo name and tag from a repository string.
 // Examples:
 //    ubuntu -> "ubuntu" + ""
