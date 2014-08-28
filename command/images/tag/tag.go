@@ -16,9 +16,9 @@ import (
 const (
 	forceUsage = "overwrite tag if it already exists"
 	Usage      = `
-Usage: nitro images:tag <host> <image id or tag> <new image name>
+Usage: nitro images:tag <host> <image id or name[:tag]> <new image name[:tag]>
 
-  give a new alias to an image. This refers to the entire image name including the optional tag after the ':'
+  give a new alias to an image.
 
 Options:
 

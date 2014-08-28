@@ -14,7 +14,7 @@ import (
 const (
 	forceUsage = "Skip confirmation"
 	Usage      = `
-Usage: nitro images:remove <host> <image id or tag>
+Usage: nitro images:remove <host> <image id or name[:tag]>
 
   remove image on a given host
 
