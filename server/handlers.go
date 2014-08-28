@@ -13,13 +13,22 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/freighter/pkg/flusher"
 	"github.com/nitrous-io/freighter/pkg/shell"
 	"github.com/nitrous-io/freighter/pkg/stats"
+	"github.com/nitrous-io/freighter/pkg/wsconn"
 	"github.com/nitrous-io/freighter/provider"
 )
 
 const StatusUnprocessableEntity = 422
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	// allow all origins here
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, http.StatusOK, jsonStatusOK)
@@ -301,6 +310,7 @@ func (s *Server) createShell(w http.ResponseWriter, r *http.Request) error {
 	}
 	shellID := randomString()
 	s.shells[shellID] = shell
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"id": shellID})
 	return nil
 }
@@ -309,7 +319,7 @@ func (s *Server) attachShell(w http.ResponseWriter, r *http.Request) error {
 	shellID := mux.Vars(r)["id"]
 	shell, ok := s.shells[shellID]
 	if !ok {
-		return fmt.Errorf("Invalid shell %v", shellID)
+		return fmt.Errorf("invalid shell %v", shellID)
 	}
 
 	stdin, stdout, err := hijackServer(w)
@@ -336,11 +346,30 @@ func (s *Server) attachShell(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Server) wsAttachShell(w http.ResponseWriter, r *http.Request) error {
+	shellID := mux.Vars(r)["id"]
+	shell, ok := s.shells[shellID]
+	if !ok {
+		return fmt.Errorf("invalid shell %v", shellID)
+	}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return fmt.Errorf("failed to upgrade websocket: %v", err)
+	}
+	stream := wsconn.NewConnection(conn)
+	defer stream.Close()
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	<-shell.Attach(stream, stream)
+	return nil
+}
+
 func (s *Server) resizeShell(w http.ResponseWriter, r *http.Request) error {
 	shellID := mux.Vars(r)["id"]
 	shell, ok := s.shells[shellID]
 	if !ok {
-		return fmt.Errorf("Invalid shell %v", shellID)
+		return fmt.Errorf("invalid shell %v", shellID)
 	}
 
 	width := getFormInt(r, "width")
@@ -348,6 +377,7 @@ func (s *Server) resizeShell(w http.ResponseWriter, r *http.Request) error {
 	if err := shell.Resize(width, height); err != nil {
 		return fmt.Errorf("Resize failed %v", err)
 	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
 	return nil
 }
