@@ -1,4 +1,4 @@
-package httpshell
+package remoteshell
 
 import (
 	"bytes"
@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/gorilla/websocket"
+	"github.com/nitrous-io/nitro/pkg/wsconn"
 	"github.com/nitrous-io/nitrous-common/term"
 )
 
@@ -26,17 +28,17 @@ type shell struct {
 	ID string `json:"id"`
 }
 
-type HTTPShell struct {
+type RemoteShell struct {
 	ID          string `json:"id"`
 	host        string
 	containerID string
 	command     string
 }
 
-// NewHTTPShell creates a shell that uses HTTP hijacking to represent the
-// input/output stream. The stream is encrypted with HTTPS.
-func NewHTTPShell(host, containerID, command string) (*HTTPShell, error) {
-	return &HTTPShell{
+// New creates a shell that uses WebSockets.
+// FIXME Sprinkle TLS magic (i.e. wss://).
+func New(host, containerID, command string) (*RemoteShell, error) {
+	return &RemoteShell{
 		host:        host,
 		containerID: containerID,
 		command:     command,
@@ -45,7 +47,7 @@ func NewHTTPShell(host, containerID, command string) (*HTTPShell, error) {
 
 // request a new shell id. This will create a remote shell on the specified
 // container
-func (s *HTTPShell) RequestShell() error {
+func (s *RemoteShell) RequestShell() error {
 	params := url.Values{}
 	params.Set("command", s.command)
 	endpoint := fmt.Sprintf("/containers/%s/shells?%s", s.containerID, params.Encode())
@@ -77,7 +79,7 @@ func (s *HTTPShell) RequestShell() error {
 }
 
 // connect stdin and stdout respectively to their remote parts
-func (s *HTTPShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error {
+func (s *RemoteShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error {
 	// restore the terminal back to old state when we finish
 	var oldState *term.State
 	oldState, err := term.SetRawTerminal(fd)
@@ -86,38 +88,27 @@ func (s *HTTPShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error 
 	}
 	defer term.RestoreTerminal(fd, oldState)
 
-	endpoint := fmt.Sprintf("/shells/%s/attach", s.ID)
-	req, err := http.NewRequest("POST", endpoint, nil)
+	headers := http.Header{} // FIXME Add auth token in future when implemented in Freighter.
+	wsEndpointURI := fmt.Sprintf("ws://%s/shells/%s/attach/ws", s.host, s.ID)
+	ws, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, headers)
 	if err != nil {
-		return err
-	}
-	req.Host = s.host
-	// specicial header to signal that we expect a HTTP stream
-	req.Header.Add("X-NITROUS-STREAM", "true")
-
-	c, err := s.getConn()
-	if err != nil {
-		return err
-	}
-	defer c.Close()
-	// we ignore error because the connection will be hijacked
-	resp, _ := c.Do(req)
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Failed to attach to the remote shell for container %s, status %d",
-			s.containerID, resp.StatusCode)
+		return fmt.Errorf("Failed to attach to shell for container %s: %v", s.containerID, err)
 	}
 
-	// hijack the http . We have the stream writer and reader now
-	wc, r := c.Hijack()
-	defer wc.Close()
+	conn := wsconn.NewConnection(ws)
+	defer conn.Close()
 
-	done := make(chan error, 1)
+	done := make(chan error)
 	go func() {
-		_, err := io.Copy(stdout, r)
+		_, err := io.Copy(stdout, conn)
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			done <- nil
+			return
+		}
 		done <- err
 	}()
 	go func() {
-		_, err := io.Copy(wc, stdin)
+		_, err := io.Copy(conn, stdin)
 		done <- err
 	}()
 
@@ -133,7 +124,7 @@ func Run(
 	fd uintptr,
 	stdin io.Reader, stdout io.Writer,
 ) error {
-	s, err := NewHTTPShell(host, container, command)
+	s, err := New(host, container, command)
 	if err != nil {
 		return fmt.Errorf("failed to create a http shell")
 	}
@@ -152,7 +143,7 @@ func Run(
 // (because the process finished / terminates early because it was run wrongly),
 // so we will just ignore errors here because it's probably the only source
 // of error for resizing.
-func (s *HTTPShell) monitorSize(fd uintptr) {
+func (s *RemoteShell) monitorSize(fd uintptr) {
 	s.resize(fd)
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGWINCH)
@@ -165,7 +156,7 @@ func (s *HTTPShell) monitorSize(fd uintptr) {
 
 // given the current terminal file descriptor, resize the remote terminal to
 // match the local terminal size
-func (s *HTTPShell) resize(fd uintptr) error {
+func (s *RemoteShell) resize(fd uintptr) error {
 	w, h := getSize(fd)
 	values := make(url.Values)
 	values.Set("width", strconv.Itoa(w))
@@ -196,7 +187,7 @@ func (s *HTTPShell) resize(fd uintptr) error {
 
 // get a client connection to the remote server. The connection need to
 // implements Hijacker
-func (s *HTTPShell) getConn() (*httputil.ClientConn, error) {
+func (s *RemoteShell) getConn() (*httputil.ClientConn, error) {
 	dial, err := net.Dial("tcp", s.host)
 	if err != nil {
 		return nil, fmt.Errorf("Can't connect to %s", s.host)

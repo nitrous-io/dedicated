@@ -12,8 +12,10 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/kr/pty"
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/pkg/wsconn"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -31,14 +33,14 @@ var _ = Describe("Command", func() {
 			UI: &cli.BasicUi{ErrorWriter: bytes.NewBuffer(nil)},
 		}
 		code := cmd.Run([]string{})
-		Expect(code).To(Equal(1), "Requires container slug", 1)
+		Expect(code).To(Equal(1), "Requires container slug")
 	})
 
 	It("attaches to the remote shell", func() {
+		var hostID int64 = 1
 		containerID := "container-slug"
-		hostID := 1
 
-		ns := newNitrousServer(containerID, "shell-id", int64(hostID))
+		ns := newNitrousServer(containerID, "shell-id", hostID)
 		defer ns.Close()
 
 		stdin, stdout, _ := pty.Open()
@@ -50,7 +52,7 @@ var _ = Describe("Command", func() {
 		cmd := &Command{
 			UI:     ui,
 			server: ns.srv.URL,
-			client: httpclient.New("authtoken"),
+			client: httpclient.New("authtoken"), // FIXME This doesn't do anything.
 		}
 
 		go func() {
@@ -59,13 +61,8 @@ var _ = Describe("Command", func() {
 			Expect(ui.ErrorWriter.(*bytes.Buffer).String()).To(BeEmpty())
 		}()
 
-		Eventually(func() bool {
-			return ns.ts.resized
-		}).Should(BeTrue())
-
-		Eventually(func() bool {
-			return ns.ts.finished
-		}).Should(BeTrue())
+		Eventually(ns.ts.resized).Should(Receive())
+		Eventually(ns.ts.finished).Should(BeClosed())
 	})
 
 	Describe("getLoginCommand", func() {
@@ -145,8 +142,8 @@ type testServer struct {
 	shellID     string
 
 	stdin, stdout *bytes.Buffer
-	resized       bool
-	finished      bool
+	resized       chan struct{}
+	finished      chan struct{}
 }
 
 func (s *testServer) createShell(w http.ResponseWriter, r *http.Request) {
@@ -160,16 +157,23 @@ func (s *testServer) createShell(w http.ResponseWriter, r *http.Request) {
 func (s *testServer) attachShell(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	Expect(id).To(Equal(s.shellID))
-	stdin, stdout, _ := hijackServer(w)
-	go io.Copy(s.stdin, stdin)
-	io.Copy(stdout, s.stdout)
-	s.finished = true
+
+	upgrader := websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024}
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	stream := wsconn.NewConnection(conn)
+	defer stream.Close()
+	go io.Copy(s.stdin, stream)
+	io.Copy(stream, s.stdout)
+	close(s.finished)
 }
 
 func (s *testServer) resizeShell(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	Expect(id).To(Equal(s.shellID))
-	s.resized = true
+	s.resized <- struct{}{}
 	w.WriteHeader(http.StatusAccepted)
 }
 
@@ -184,23 +188,15 @@ func newTestServer(containerID, shellID string) *testServer {
 		shellID:     shellID,
 		stdin:       bytes.NewBuffer(nil),
 		stdout:      bytes.NewBuffer(nil),
+		resized:     make(chan struct{}, 1),
+		finished:    make(chan struct{}),
 	}
 	r := mux.NewRouter()
 	r.HandleFunc("/containers/{id}/shells", s.createShell).Methods("POST")
-	r.HandleFunc("/shells/{id}/attach", s.attachShell).Methods("POST")
+	r.HandleFunc("/shells/{id}/attach/ws", s.attachShell).Methods("GET")
 	r.HandleFunc("/shells/{id}/resize", s.resizeShell).Methods("POST")
 
 	srv := httptest.NewServer(r)
 	s.srv = srv
 	return s
-}
-
-func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
-	conn, _, err := w.(http.Hijacker).Hijack()
-	if err != nil {
-		return nil, nil, err
-	}
-	// Flush the options to make sure the client sets the raw mode
-	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.containerd.raw-stream\r\n\r\n")
-	return conn, conn, nil
 }
