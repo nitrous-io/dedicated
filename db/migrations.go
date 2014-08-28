@@ -317,5 +317,23 @@ func init() {
 				ALTER TABLE containers ADD COLUMN locked_at timestamp without time zone;
 			`,
 		},
+		{
+			Version: "250",
+			Up: `
+				CREATE TABLE images (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					host_id bigint REFERENCES hosts(id) NOT NULL,
+					freighter_id character varying(255) NOT NULL,
+					name character varying(255),
+					tag character varying(255),
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE INDEX index_images_on_user_id ON images USING btree (user_id);
+				CREATE INDEX index_images_on_host_id ON images USING btree (host_id);
+				CREATE INDEX index_images_on_freighter_id ON images USING btree (freighter_id);
+			`,
+		},
 	}
 }
