@@ -71,8 +71,8 @@ var _ = Describe("Command", func() {
 	Describe("getLoginCommand", func() {
 		It("returns the logins command", func() {
 			testCases := [][]string{
-				{"", "sudo getty -a root tty"},
-				{"action", "sudo getty -a action tty"},
+				{"", "/sbin/getty -a root tty"},
+				{"action", "/sbin/getty -a action tty"},
 			}
 
 			for _, tc := range testCases {
