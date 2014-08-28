@@ -1,6 +1,8 @@
 package logout_test
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 	"testing"
 
@@ -23,29 +25,25 @@ var _ = Describe("registry/logout", func() {
 	var (
 		cmd *logout.Command
 		ui  *command.MockUI
+		r   *io.PipeReader
+		w   *io.PipeWriter
 
 		srv          *ghttp.Server
-		handlers     http.HandlerFunc
 		statusCode   int
 		responseBody string
 	)
 
 	BeforeEach(func() {
-		handlers = ghttp.CombineHandlers(
-			func(w http.ResponseWriter, req *http.Request) {
-				// Call ParseForm() so that server.ReceivedRequests() have
-				// POST params populated.
-				err := req.ParseForm()
-				Expect(err).To(BeNil())
-			},
+		handlers := ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
-			ghttp.VerifyRequest("DELETE", "/api/v0/hosts/foo-bar-123/registries"),
 			ghttp.RespondWithPtr(&statusCode, &responseBody),
 		)
 		srv = ghttp.NewServer()
 		srv.AppendHandlers(handlers)
 
-		ui = &command.MockUI{&cli.MockUi{}}
+		r, w = io.Pipe()
+		ui = &command.MockUI{&cli.MockUi{InputReader: r}}
+
 		cmd = &logout.Command{
 			UI:     ui,
 			Server: srv.URL(),
@@ -54,39 +52,31 @@ var _ = Describe("registry/logout", func() {
 	})
 
 	AfterEach(func() {
+		r.Close()
+		w.Close()
 		srv.Close()
 	})
 
-	Context("when host is not specified", func() {
-		doCmd := func() int {
-			return cmd.Run([]string{
-				"--registry=hub.example.com",
-			})
+	doCmd := func(host, registry string) int {
+		args := []string{}
+		if host != "" {
+			args = append(args, host)
 		}
+		if registry != "" {
+			args = append(args, fmt.Sprintf("--registry=%s", registry))
+		}
+		return cmd.Run(args)
+	}
 
+	Context("when host is not specified", func() {
 		It("shows the usage without making a request", func() {
-			code := doCmd()
+			code := doCmd("", "hub.example.com")
 			Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
 			Expect(code).To(Equal(1))
 		})
 	})
 
 	Context("when host and registry are provided", func() {
-		doCmd := func() int {
-			return cmd.Run([]string{
-				"foo-bar-123",
-				"--registry=hub.example.com",
-			})
-		}
-
-		It("populates request params", func() {
-			doCmd()
-			receivedRequests := srv.ReceivedRequests()
-			Expect(receivedRequests).To(HaveLen(1))
-			r := receivedRequests[0]
-			Expect(r.FormValue("registry")).To(Equal("hub.example.com"))
-		})
-
 		Context("when request succeeds", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusOK
@@ -95,8 +85,17 @@ var _ = Describe("registry/logout", func() {
 				}`
 			})
 
+			It("makes a request with given registry URL escaped", func() {
+				doCmd("foo-bar-123", "https://hub.example.com")
+				receivedRequests := srv.ReceivedRequests()
+				Expect(receivedRequests).To(HaveLen(1))
+				r := receivedRequests[0]
+				Expect(r.Method).To(Equal("DELETE"))
+				Expect(r.URL.Path).To(Equal("/api/v0/hosts/foo-bar-123/registries/https%3A%2F%2Fhub.example.com"))
+			})
+
 			It("outputs success message", func() {
-				code := doCmd()
+				code := doCmd("foo-bar-123", "http://hub.example.com")
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Successfully logged out from the Docker registry on foo-bar-123"))
 				Expect(code).To(Equal(0))
 			})
@@ -108,11 +107,48 @@ var _ = Describe("registry/logout", func() {
 				responseBody = `{"error":"invalid_request","error_description":"host IP unknown"}`
 			})
 
+			It("makes a request with given registry URL", func() {
+				doCmd("foo-bar-123", "hub.example.com")
+				receivedRequests := srv.ReceivedRequests()
+				Expect(receivedRequests).To(HaveLen(1))
+				r := receivedRequests[0]
+				Expect(r.Method).To(Equal("DELETE"))
+				Expect(r.URL.Path).To(Equal("/api/v0/hosts/foo-bar-123/registries/hub.example.com"))
+			})
+
 			It("displays error message", func() {
-				code := doCmd()
+				code := doCmd("foo-bar-123", "hub.example.com")
 				Expect(ui.ErrorWriter.String()).To(ContainSubstring("Failed to logout from Docker registry"))
 				Expect(code).To(Equal(1))
 			})
+		})
+	})
+
+	Context("when registry is not provided", func() {
+		BeforeEach(func() {
+			statusCode = http.StatusOK
+			responseBody = `{
+					"status": "ok"
+				}`
+		})
+
+		It("asks users confirmation to use Docker Hub registry", func() {
+			go w.Write([]byte("n\n"))
+			code := doCmd("foo-bar-123", "")
+			Expect(ui.ErrorWriter.String()).To(ContainSubstring("Registry logout canceled"))
+			Expect(code).To(Equal(1))
+
+			go w.Write([]byte("y\n"))
+			code = doCmd("foo-bar-123", "")
+			Expect(ui.OutputWriter.String()).To(ContainSubstring("Successfully logged out from the Docker registry on foo-bar-123"))
+			Expect(code).To(Equal(0))
+
+			// makes a request with Docker Hub as the registry URL
+			receivedRequests := srv.ReceivedRequests()
+			Expect(receivedRequests).To(HaveLen(1))
+			r := receivedRequests[0]
+			Expect(r.Method).To(Equal("DELETE"))
+			Expect(r.URL.Path).To(Equal("/api/v0/hosts/foo-bar-123/registries/index.docker.io"))
 		})
 	})
 })

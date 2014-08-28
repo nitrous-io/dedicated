@@ -55,7 +55,7 @@ func (c *Command) Run(args []string) int {
 	var username string
 	var password string
 	var email string
-	var registry string
+	var registryURL string
 	var host string
 
 	cmdFlags := flag.NewFlagSet("registry:login", flag.ContinueOnError)
@@ -63,7 +63,7 @@ func (c *Command) Run(args []string) int {
 	cmdFlags.StringVarP(&username, "username", "u", "", usernameUsage)
 	cmdFlags.StringVarP(&password, "password", "p", "", passwordUsage)
 	cmdFlags.StringVarP(&email, "email", "e", "", emailUsage)
-	cmdFlags.StringVarP(&registry, "registry", "r", "", registryUsage)
+	cmdFlags.StringVarP(&registryURL, "registry", "r", "", registryUsage)
 
 	err := cmdFlags.Parse(args)
 	if err != nil {
@@ -108,28 +108,27 @@ func (c *Command) Run(args []string) int {
 		}
 	}
 
-	if registry == "" {
-		registry, err = c.UI.Ask("Registry (press enter for hub.docker.com): ")
+	if registryURL == "" {
+		registryURL, err = c.UI.Ask("Registry (press enter for index.docker.io): ")
 		if err != nil {
 			if err.Error() == "interrupted" {
-				c.UI.Error("Login cancelled.")
+				c.UI.Error("Registry login canceled.")
 				return 130
 			}
 			c.UI.Error(fmt.Sprintf("An unexpected error has occurred: %v", err))
+		}
+		// user has pressed enter, use index.docker.io
+		if registryURL == "" {
+			registryURL = "index.docker.io"
 		}
 	}
 
 	username = strings.TrimSpace(username)
 	password = strings.TrimSpace(password)
 	email = strings.TrimSpace(email)
-	registry = strings.TrimSpace(registry)
+	registryURL = strings.TrimSpace(registryURL)
 
-	//  FIXME: Didn't write tests since i need to rush to demo
-	if registry == "" {
-		registry = defaultRegistryURL
-	}
-
-	err = c.registryLogin(username, password, email, registry, host)
+	err = c.registryLogin(username, password, email, registryURL, host)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Failed to login to Docker registry (%v)", err))
 		return 1
@@ -146,14 +145,14 @@ func (c *Command) Synopsis() string {
 	return "Log in to a Docker registry on a Nitrous.IO host"
 }
 
-func (c *Command) registryLogin(username, password, email, registry, host string) error {
+func (c *Command) registryLogin(username, password, email, registryURL, host string) error {
 	p := &url.Values{}
 	p.Add("username", username)
 	p.Add("password", password)
 	p.Add("email", email)
 
-	if registry != "" {
-		p.Add("registry", registry)
+	if registryURL != "" {
+		p.Add("url", registryURL)
 	}
 
 	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/hosts/%s/registries", c.Server, host), p)
