@@ -3,7 +3,6 @@ package registries
 import (
 	"net/http"
 	"net/url"
-	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
@@ -33,7 +32,7 @@ var (
 )
 
 func index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	registries, err := registry.FindAllByUserIDAndHostID(env.DB, env.User.ID, h.ID)
+	registries, err := registry.FindAll(env.DB, env.User.ID, h.ID)
 	if err != nil {
 		return err
 	}
@@ -68,7 +67,7 @@ func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return errRegistryRequired
 	}
 
-	existingReg, err := registry.FindByUserIDAndHostIDAndURL(db, env.User.ID, h.ID, registryURL)
+	existingReg, err := registry.Find(db, env.User.ID, h.ID, registryURL)
 	if err != nil {
 		return err
 	}
@@ -130,29 +129,17 @@ func logout(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	// registry var can either be an ID or a registry URL
-	regVar := mux.Vars(r)["rslug"]
-
-	var reg *registry.Registry
-	rID, err := strconv.ParseInt(regVar, 10, 64)
+	// rSlug can either be a URL or an ID
+	rSlug := mux.Vars(r)["rslug"]
+	rSlug, err = url.QueryUnescape(rSlug)
 	if err != nil {
-		// treat the given value as a registry URL
-		// and try to find the registry by the URL
-		regURL, err := url.QueryUnescape(regVar)
-		if err != nil {
-			return err
-		}
-		reg, err = registry.FindByUserIDAndHostIDAndURL(db, env.User.ID, h.ID, regURL)
-		if err != nil {
-			return err
-		}
-	} else {
-		reg, err = registry.FindByUserIDAndID(db, env.User.ID, rID)
-		if err != nil {
-			return err
-		}
+		return err
 	}
 
+	reg, err := registry.Find(db, env.User.ID, h.ID, rSlug)
+	if err != nil {
+		return err
+	}
 	if reg == nil {
 		return errRegistryNotFound
 	}

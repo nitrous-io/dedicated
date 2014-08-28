@@ -1,6 +1,7 @@
 package registry_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/nitrous-io/nitrous/db"
@@ -37,7 +38,7 @@ var _ = Describe("models/registry", func() {
 		}
 	})
 
-	Describe("FindAllByUserIDAndHostID()", func() {
+	Describe("FindAll()", func() {
 		BeforeEach(func() {
 			_, err := db.Exec(`INSERT INTO registries
 				(user_id, host_id, url, username, email)
@@ -54,7 +55,7 @@ var _ = Describe("models/registry", func() {
 
 		Context("when there's registry records for given user and host", func() {
 			It("returns the registry records", func() {
-				registries, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+				registries, err := registry.FindAll(db, hs.U.ID, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(registries).To(HaveLen(2))
 
@@ -83,36 +84,54 @@ var _ = Describe("models/registry", func() {
 				err := h2.Insert(db)
 				Expect(err).To(BeNil())
 
-				registries, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, h2.ID)
+				registries, err := registry.FindAll(db, hs.U.ID, h2.ID)
 				Expect(err).To(BeNil())
 				Expect(registries).To(HaveLen(0))
 			})
 		})
 	})
 
-	Describe("FindByUserIDAndHostIDAndURL()", func() {
-		Context("when a registry record exist for given user, host and registry URL", func() {
-			BeforeEach(func() {
-				_, err := db.Exec(`INSERT INTO registries
-				(user_id, host_id, url, username, email)
-				VALUES ($1, $2, $3, $4, $5);`,
-					hs.U.ID, hs.H.ID, "hub.example.com", "foo", "foo@example.com")
-				Expect(err).To(BeNil())
-			})
+	Describe("Find()", func() {
+		var reg *registry.Registry
+		BeforeEach(func() {
+			reg = &registry.Registry{}
+			err := db.QueryRowx(`INSERT INTO registries
+					(user_id, host_id, url, username, email)
+					VALUES ($1, $2, $3, $4, $5)
+					RETURNING *;`,
+				hs.U.ID, hs.H.ID, "hub.example.com", "foo", "foo@example.com").StructScan(reg)
+			Expect(err).To(BeNil())
+		})
 
-			It("returns the registry record", func() {
-				r, err := registry.FindByUserIDAndHostIDAndURL(db, hs.U.ID, hs.H.ID, "hub.example.com")
+		Context("when given param is an ID", func() {
+			It("returns the matching registry record", func() {
+				r, err := registry.Find(db, hs.U.ID, hs.H.ID, strconv.FormatInt(reg.ID, 10))
 				Expect(err).To(BeNil())
 				Expect(r).NotTo(BeNil())
 				Expect(r.UserID).To(Equal(hs.U.ID))
 				Expect(r.HostID).To(Equal(hs.H.ID))
 				Expect(r.URL).To(Equal("hub.example.com"))
 			})
+
+			It("returns nil without an error when record does not exist", func() {
+				r, err := registry.Find(db, hs.U.ID, hs.H.ID, "9999")
+				Expect(err).To(BeNil())
+				Expect(r).To(BeNil())
+			})
 		})
 
-		Context("when a registry record does not exist for given user, host and registry URL", func() {
-			It("returns nil", func() {
-				r, err := registry.FindByUserIDAndHostIDAndURL(db, hs.U.ID, hs.H.ID, "hub.example.com")
+		Context("when given param is a registry URL", func() {
+			It("returns the matching registry record", func() {
+				r, err := registry.Find(db, hs.U.ID, hs.H.ID, "hub.example.com")
+				Expect(err).To(BeNil())
+				Expect(r).NotTo(BeNil())
+				Expect(r.UserID).To(Equal(hs.U.ID))
+				Expect(r.HostID).To(Equal(hs.H.ID))
+				Expect(r.URL).To(Equal("hub.example.com"))
+			})
+
+			It("returns nil without an error when record does not exist", func() {
+				r, err := registry.Find(db, hs.U.ID, hs.H.ID, "fail.example.com")
 				Expect(err).To(BeNil())
 				Expect(r).To(BeNil())
 			})
@@ -121,49 +140,7 @@ var _ = Describe("models/registry", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				r, err := registry.FindByUserIDAndHostIDAndURL(db, hs.U.ID, hs.H.ID, "hub.example.com")
-				Expect(err).NotTo(BeNil())
-				Expect(r).To(BeNil())
-			})
-		})
-	})
-
-	Describe("FindByUserIDAndID()", func() {
-		Context("when a registry record exist for given user and ID", func() {
-			var reg *registry.Registry
-
-			BeforeEach(func() {
-				reg = &registry.Registry{}
-				err := db.QueryRowx(`INSERT INTO registries
-				(user_id, host_id, url, username, email)
-				VALUES ($1, $2, $3, $4, $5)
-				RETURNING *;`,
-					hs.U.ID, hs.H.ID, "hub.example.com", "foo", "foo@example.com").StructScan(reg)
-				Expect(err).To(BeNil())
-			})
-
-			It("returns the registry record", func() {
-				r, err := registry.FindByUserIDAndID(db, hs.U.ID, reg.ID)
-				Expect(err).To(BeNil())
-				Expect(r).NotTo(BeNil())
-				Expect(r.UserID).To(Equal(hs.U.ID))
-				Expect(r.HostID).To(Equal(hs.H.ID))
-				Expect(r.URL).To(Equal("hub.example.com"))
-			})
-		})
-
-		Context("when a registry record does not exist for given user, host and registry URL", func() {
-			It("returns nil", func() {
-				r, err := registry.FindByUserIDAndID(db, hs.U.ID, 9999)
-				Expect(err).To(BeNil())
-				Expect(r).To(BeNil())
-			})
-		})
-
-		Context("when some error happens", func() {
-			It("returns error", func() {
-				db.Close()
-				r, err := registry.FindByUserIDAndID(db, hs.U.ID, 9999)
+				r, err := registry.Find(db, hs.U.ID, hs.H.ID, "hub.example.com")
 				Expect(err).NotTo(BeNil())
 				Expect(r).To(BeNil())
 			})
@@ -188,7 +165,7 @@ var _ = Describe("models/registry", func() {
 				err := r.Insert(db)
 				Expect(err).To(BeNil())
 
-				rx, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+				rx, err := registry.FindAll(db, hs.U.ID, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(rx[0].ID).NotTo(BeZero())
 				Expect(rx[0].UserID).To(Equal(hs.U.ID))
@@ -227,7 +204,7 @@ var _ = Describe("models/registry", func() {
 				err := registry.Delete(db, hs.U.ID, reg.ID)
 				Expect(err).To(BeNil())
 
-				rx, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+				rx, err := registry.FindAll(db, hs.U.ID, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(rx).To(HaveLen(0))
 			})
@@ -238,7 +215,7 @@ var _ = Describe("models/registry", func() {
 				err := registry.Delete(db, hs.U.ID, 9999)
 				Expect(err).To(BeNil())
 
-				rx, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+				rx, err := registry.FindAll(db, hs.U.ID, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(rx).To(HaveLen(1))
 			})
