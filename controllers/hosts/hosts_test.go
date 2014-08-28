@@ -815,13 +815,13 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("deletes all container records belonging to the host", func() {
-				c2, err := container.FindByUserAndSlug(db, hs.U, c.Slug)
+				c2, err := container.Find(db, hs.U, c.Slug)
 				Expect(err).To(BeNil())
 				Expect(c2).To(Equal(c))
 
 				doRequest(hs.H.Slug)
 
-				c2, err = container.FindByUserAndSlug(db, hs.U, c.Slug)
+				c2, err = container.Find(db, hs.U, c.Slug)
 				Expect(err).To(BeNil())
 				Expect(c2).To(BeNil())
 			})

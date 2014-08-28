@@ -432,8 +432,7 @@ func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *mi
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		db := env.DB
 
-		cSlug := mux.Vars(r)["slug"]
-		cn, err := container.FindByUserAndSlug(db, env.User, cSlug)
+		cn, err := container.Find(db, env.User, mux.Vars(r)["slug"])
 		if err != nil {
 			return err
 		}
