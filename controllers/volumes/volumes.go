@@ -48,6 +48,7 @@ func Create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	if slug == "" {
 		return errSlugRequired
 	}
+	name := r.FormValue("name")
 
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
@@ -57,6 +58,7 @@ func Create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	vol := &volume.Volume{
 		HostID: h.ID,
 		Slug:   slug,
+		Name:   name,
 	}
 
 	tx, err := db.Beginx()

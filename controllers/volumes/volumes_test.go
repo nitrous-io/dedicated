@@ -169,7 +169,8 @@ var _ = Describe("controllers/volumes", func() {
 
 	Describe("POST /api/v0/hosts/:slug/volumes", func() {
 		doRequest := func(vol string) {
-			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%s/volumes", hs.H.Slug), &url.Values{"slug": []string{vol}})
+			params := &url.Values{"slug": []string{vol}, "name": []string{"some label"}}
+			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%s/volumes", hs.H.Slug), params)
 			Expect(err).To(BeNil())
 			svr.Router().ServeHTTP(res, req)
 		}
@@ -189,6 +190,7 @@ var _ = Describe("controllers/volumes", func() {
 				Expect(err).To(BeNil())
 				Expect(vols).To(HaveLen(1))
 				Expect(vols[0].Slug).To(Equal("metric"))
+				Expect(vols[0].Name).To(Equal("some label"))
 			})
 
 			It("publishes a volume.created event with the created volume", func(done Done) {
@@ -347,7 +349,7 @@ var _ = Describe("controllers/volumes", func() {
 
 		Context("when volume exist", func() {
 			It("returns volume in JSON", func() {
-				v := volume.Volume{HostID: hs.H.ID, Slug: "music"}
+				v := volume.Volume{HostID: hs.H.ID, Slug: "music", Name: "my music volume"}
 				err := v.Insert(db)
 				Expect(err).To(BeNil())
 
@@ -358,7 +360,7 @@ var _ = Describe("controllers/volumes", func() {
 				err = json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 				Expect(j.Volume.ID).To(Equal(v.ID))
-				Expect(j.Volume.Name).To(Equal("music"))
+				Expect(j.Volume.Name).To(Equal("my music volume"))
 				Expect(j.Volume.Slug).To(Equal("music"))
 				Expect(j.Volume.HostID).To(Equal(hs.H.ID))
 				Expect(j.Volume.CreatedAt.IsZero()).NotTo(BeTrue())
