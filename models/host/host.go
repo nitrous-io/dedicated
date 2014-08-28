@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
@@ -86,26 +87,41 @@ func findAllByUserID(db *db.Database, userID int64) ([]Host, error) {
 	return hosts, nil
 }
 
-func FindByID(db *db.Database, id int64) (*Host, error) {
+// Find will return a Host scoped by User.
+// identifier can be either an ID or a slug.
+func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	host := &Host{}
-	err := db.Get(host, `SELECT * FROM hosts WHERE id = $1`, id)
+
+	id, err := strconv.ParseInt(identifier, 10, 64)
+	if err != nil {
+		// Parsing resulted in an error.
+		// That means identifier is a slug
+		err = db.Get(host,
+			`SELECT hosts.*, provider_templates.provider
+			FROM hosts
+			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
+			WHERE hosts.user_id = $1 AND hosts.slug = $2 AND terminated_at IS NULL;`, user.ID, identifier)
+	} else {
+		err = db.Get(host,
+			`SELECT hosts.*, provider_templates.provider
+			FROM hosts
+			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
+			WHERE hosts.user_id = $1 AND hosts.id = $2 AND terminated_at IS NULL;`, user.ID, id)
+	}
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
+
 	return host, err
 }
 
-func FindByUserAndID(db *db.Database, user *user.User, id int64) (*Host, error) {
+func FindByID(db *db.Database, id int64) (*Host, error) {
 	host := &Host{}
-	q := `SELECT hosts.*, provider_templates.provider
-				FROM hosts
-				INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
-				WHERE hosts.user_id = $1 AND hosts.ID = $2 AND terminated_at IS NULL;`
-	err := db.Get(host, q, user.ID, id)
-
+	err := db.Get(host, `SELECT * FROM hosts WHERE id = $1`, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -122,23 +138,6 @@ func FindBySlug(db *db.Database, slug string) (*Host, error) {
 				INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
 				WHERE hosts.slug = $1 AND terminated_at IS NULL;`
 	err := db.Get(host, q, slug)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return host, err
-}
-
-func FindByUserAndSlug(db *db.Database, user *user.User, slug string) (*Host, error) {
-	host := &Host{}
-	q := `SELECT hosts.*, provider_templates.provider
-				FROM hosts
-				INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
-				WHERE hosts.user_id = $1 AND hosts.slug = $2 AND terminated_at IS NULL;`
-	err := db.Get(host, q, user.ID, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

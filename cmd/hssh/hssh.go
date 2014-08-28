@@ -57,7 +57,7 @@ func init() {
 }
 
 func main() {
-	// get host's id
+	// get host's slug
 	if len(os.Args) != 2 {
 		log.Fatalf("Required host's slug")
 	}

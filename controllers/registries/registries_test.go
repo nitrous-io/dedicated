@@ -294,7 +294,7 @@ var _ = Describe("controllers/registries", func() {
 					Context("when registry login succeeds", func() {
 						It("creates a registry record for the user and host", func() {
 							doRequest(overrides{})
-							regs, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+							regs, err := registry.FindAll(db, hs.U.ID, hs.H.ID)
 							Expect(err).To(BeNil())
 							Expect(regs).To(HaveLen(1))
 
@@ -324,7 +324,7 @@ var _ = Describe("controllers/registries", func() {
 
 							doRequest(overrides{})
 
-							regs, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+							regs, err := registry.FindAll(db, hs.U.ID, hs.H.ID)
 							Expect(err).To(BeNil())
 							Expect(regs).To(HaveLen(1))
 							r := regs[0]
@@ -344,7 +344,7 @@ var _ = Describe("controllers/registries", func() {
 						})
 
 						It("does not create a registry record for the user and host", func() {
-							regs, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+							regs, err := registry.FindAll(db, hs.U.ID, hs.H.ID)
 							Expect(err).To(BeNil())
 							Expect(regs).To(BeEmpty())
 						})
@@ -465,7 +465,7 @@ var _ = Describe("controllers/registries", func() {
 				})
 
 				It("deletes the registry record", func() {
-					rx, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+					rx, err := registry.FindAll(db, hs.U.ID, hs.H.ID)
 					Expect(err).To(BeNil())
 					Expect(rx).To(HaveLen(0))
 				})
@@ -482,7 +482,7 @@ var _ = Describe("controllers/registries", func() {
 				})
 
 				It("does not delete the registry record", func() {
-					rx, err := registry.FindAllByUserIDAndHostID(db, hs.U.ID, hs.H.ID)
+					rx, err := registry.FindAll(db, hs.U.ID, hs.H.ID)
 					Expect(err).To(BeNil())
 					Expect(rx).To(HaveLen(1))
 				})

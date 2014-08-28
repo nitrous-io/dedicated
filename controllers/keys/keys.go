@@ -165,8 +165,7 @@ func withContainer(fn func(cn *container.Container, env *middleware.Env, w http.
 		db := env.DB
 		u := env.User
 
-		cSlug := mux.Vars(r)["slug"]
-		cn, err := container.FindByUserAndSlug(db, u, cSlug)
+		cn, err := container.Find(db, u, mux.Vars(r)["slug"])
 		if err != nil {
 			return err
 		}

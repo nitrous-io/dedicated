@@ -684,7 +684,7 @@ var _ = Describe("controllers/containers", func() {
 
 		It("creates a new container record", func() {
 			doRequest("valid-token", "foo", params)
-			c, err := container.FindByUserAndSlug(db, u, "elixir-web-1")
+			c, err := container.Find(db, u, "elixir-web-1")
 			Expect(err).To(BeNil())
 			Expect(c.Slug).To(Equal("elixir-web-1"))
 			Expect(c.Image).To(Equal("elixir"))
@@ -705,7 +705,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(err).To(BeNil())
 			Expect(j.Status).To(Equal("created"))
 
-			c, err := container.FindByUserAndSlug(db, u, "elixir-web-1")
+			c, err := container.Find(db, u, "elixir-web-1")
 			Expect(err).To(BeNil())
 			expectSerializedContainer(j.Container, c)
 		})
@@ -723,7 +723,7 @@ var _ = Describe("controllers/containers", func() {
 
 			cn, ok := evt.Data.(*serializers.Container)
 			Expect(ok).To(BeTrue())
-			c, err := container.FindByUserAndSlug(db, u, "elixir-web-1")
+			c, err := container.Find(db, u, "elixir-web-1")
 			Expect(err).To(BeNil())
 			expectSerializedContainer(cn, c)
 
@@ -737,7 +737,7 @@ var _ = Describe("controllers/containers", func() {
 
 			It("does not create a new container record", func() {
 				doRequest("valid-token", "foo", params)
-				c, err := container.FindByUserAndSlug(db, u, "elixir-web-1")
+				c, err := container.Find(db, u, "elixir-web-1")
 				Expect(err).To(BeNil())
 				Expect(c).To(BeNil())
 			})
@@ -1501,7 +1501,7 @@ var _ = Describe("controllers/containers", func() {
 		It("deletes the container from the database", func() {
 			doRequest()
 
-			c, err := container.FindByUserAndSlug(db, hs.U, slug)
+			c, err := container.Find(db, hs.U, slug)
 			Expect(err).To(BeNil())
 			Expect(c).To(BeNil())
 		})

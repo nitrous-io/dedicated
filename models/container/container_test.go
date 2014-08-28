@@ -2,6 +2,7 @@ package container_test
 
 import (
 	"database/sql"
+	"strconv"
 	"testing"
 	"time"
 
@@ -32,6 +33,8 @@ var _ = Describe("models/container", func() {
 		r  *region.Region
 		p  *plan.Plan
 		pt *providertemplate.ProviderTemplate
+
+		cID int64
 	)
 
 	BeforeEach(func() {
@@ -74,9 +77,18 @@ var _ = Describe("models/container", func() {
 		err = h.Insert(db)
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec("INSERT INTO containers (cid, user_id, host_id, image, slug) values ($1, $2, $3, $4, $5);",
-			"deadbeef", u.ID, h.ID, "nitrous-base", "my-1st-container")
+		cntnr := &container.Container{
+			CID:    "deadbeef",
+			UserID: u.ID,
+			HostID: h.ID,
+			Image:  "nitrous-base",
+			Slug:   "my-1st-container",
+		}
+		nstmt, err := db.PrepareNamed(`INSERT INTO containers
+			(cid, user_id, host_id, image, slug)
+			VALUES (:cid, :user_id, :host_id, :image, :slug) RETURNING id;`)
 		Expect(err).To(BeNil())
+		nstmt.QueryRowx(cntnr).Scan(&cID)
 	})
 
 	AfterEach(func() {
@@ -85,10 +97,10 @@ var _ = Describe("models/container", func() {
 		}
 	})
 
-	Describe("FindByUserAndSlug()", func() {
-		Context("when there's a container record for the given slug that belongs to the user", func() {
-			It("returns the container record matching the slug", func() {
-				c, err := container.FindByUserAndSlug(db, u, "my-1st-container")
+	Describe("Find()", func() {
+		Context("when finding by slug", func() {
+			It("returns the container record matching the slug that belongs to the user", func() {
+				c, err := container.Find(db, u, "my-1st-container")
 				Expect(err).To(BeNil())
 				Expect(c).NotTo(BeNil())
 				Expect(c.UserID).To(Equal(u.ID))
@@ -96,32 +108,65 @@ var _ = Describe("models/container", func() {
 				Expect(c.CID).To(Equal("deadbeef"))
 				Expect(c.Slug).To(Equal("my-1st-container"))
 			})
-		})
 
-		Context("when there's a container record for the given slug that does not belong to the user", func() {
-			var u2 *user.User
-
-			BeforeEach(func() {
-				u2 = &user.User{
+			It("returns nil without an error if the container matching the given slug does not belong to the user", func() {
+				u2 := &user.User{
 					Username: "barbaz",
 					Email:    "barbaz@example.com",
 					Password: "123456",
 				}
 				err := u2.Insert(db)
 				Expect(err).To(BeNil())
+
+				c, err := container.Find(db, u2, "my-1st-container")
+				Expect(err).To(BeNil())
+				Expect(c).To(BeNil())
 			})
 
-			It("returns nil without an error", func() {
-				c, err := container.FindByUserAndSlug(db, u2, "my-1st-container")
+			It("returns nil without an error when there's no matching container for the given slug'", func() {
+				c, err := container.Find(db, u, "no-such-container")
 				Expect(err).To(BeNil())
 				Expect(c).To(BeNil())
 			})
 		})
 
-		Context("when a container record with the given name does not exist", func() {
-			It("returns nil without an error", func() {
-				c, err := container.FindByUserAndSlug(db, u, "no-such-container")
+		Context("when finding by ID", func() {
+			It("returns the container record matching the ID that belongs to the user", func() {
+				c, err := container.Find(db, u, strconv.FormatInt(cID, 10))
 				Expect(err).To(BeNil())
+				Expect(c).NotTo(BeNil())
+				Expect(c.UserID).To(Equal(u.ID))
+				Expect(c.HostID).To(Equal(h.ID))
+				Expect(c.CID).To(Equal("deadbeef"))
+				Expect(c.Slug).To(Equal("my-1st-container"))
+			})
+
+			It("returns nil without an error if the container matching the given slug does not belong to the user", func() {
+				u2 := &user.User{
+					Username: "barbaz",
+					Email:    "barbaz@example.com",
+					Password: "123456",
+				}
+				err := u2.Insert(db)
+				Expect(err).To(BeNil())
+
+				c, err := container.Find(db, u2, strconv.FormatInt(cID, 10))
+				Expect(err).To(BeNil())
+				Expect(c).To(BeNil())
+			})
+
+			It("returns nil without an error when there's no matching container for the given slug'", func() {
+				c, err := container.Find(db, u, "10001")
+				Expect(err).To(BeNil())
+				Expect(c).To(BeNil())
+			})
+		})
+
+		Context("when some error happens", func() {
+			It("returns error", func() {
+				db.Close()
+				c, err := container.Find(db, u, "my-1st-container")
+				Expect(err).NotTo(BeNil())
 				Expect(c).To(BeNil())
 			})
 		})
@@ -233,7 +278,7 @@ var _ = Describe("models/container", func() {
 
 		BeforeEach(func() {
 			var err error
-			c, err = container.FindByUserAndSlug(db, u, "deadbeef")
+			c, err = container.Find(db, u, "deadbeef")
 			Expect(err).To(BeNil())
 		})
 
@@ -456,7 +501,7 @@ var _ = Describe("models/container", func() {
 			err := c.Insert(db)
 			Expect(err).To(BeNil())
 
-			c, err = container.FindByUserAndSlug(db, u, "java-test-container")
+			c, err = container.Find(db, u, "java-test-container")
 			Expect(err).To(BeNil())
 			Expect(c).NotTo(BeNil())
 			Expect(c.CID).To(Equal("beefface"))

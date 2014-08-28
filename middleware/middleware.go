@@ -3,7 +3,6 @@ package middleware
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -85,26 +84,20 @@ func HostViaPath(srcVar string, fn hostHandlerFn) Middleware {
 // for to retrieve host slug.
 func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
-		var hSlug string
+		var param string
 		var h *host.Host
 
 		switch src {
 		case "form":
-			hSlug = r.FormValue(srcVar)
+			param = r.FormValue(srcVar)
 		case "path":
-			hSlug = mux.Vars(r)[srcVar]
+			param = mux.Vars(r)[srcVar]
 		default:
 			return errors.New("Invalid host source: " + src)
 		}
 
-		hID, err := strconv.Atoi(hSlug)
-		// If err is not nil, that means this is an ID
-		if err != nil {
-			h, err = host.FindByUserAndSlug(env.DB, env.User, hSlug)
-		} else {
-			h, err = host.FindByUserAndID(env.DB, env.User, int64(hID))
-		}
-
+		// param can either be a slug or an ID
+		h, err := host.Find(env.DB, env.User, param)
 		if err != nil {
 			return err
 		}

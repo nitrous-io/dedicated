@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
@@ -48,9 +49,20 @@ type Container struct {
 	FinishedAt time.Time
 }
 
-func FindByUserAndSlug(d db.QueryReceiver, user *user.User, slug string) (*Container, error) {
+// Find queries for a container scoped to the user.
+// identifier can be either an ID or a slug.
+func Find(d db.QueryReceiver, user *user.User, identifier string) (*Container, error) {
 	c := &Container{}
-	err := d.Get(c, `SELECT * FROM containers WHERE user_id = $1 AND slug = $2 AND containers.terminated_at IS NULL;`, user.ID, slug)
+	id, err := strconv.ParseInt(identifier, 10, 64)
+
+	if err != nil {
+		err = d.Get(c,
+			`SELECT * FROM containers WHERE user_id = $1 AND slug = $2 AND containers.terminated_at IS NULL;`, user.ID, identifier)
+	} else {
+		err = d.Get(c,
+			`SELECT * FROM containers WHERE user_id = $1 AND id = $2 AND containers.terminated_at IS NULL;`, user.ID, id)
+	}
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
