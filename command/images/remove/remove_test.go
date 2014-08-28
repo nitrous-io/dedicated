@@ -119,7 +119,7 @@ var _ = Describe("images/remove", func() {
 
 	Context("Help", func() {
 		It("outputs usage", func() {
-			Expect(cmd.Help()).To(ContainSubstring("Usage: nitro images:remove <host> <image id or tag>"))
+			Expect(cmd.Help()).To(ContainSubstring("Usage: nitro images:remove"))
 		})
 	})
 })
