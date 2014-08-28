@@ -144,7 +144,7 @@ var _ = Describe("registry/login", func() {
 			receivedRequests := srv.ReceivedRequests()
 			Expect(receivedRequests).To(HaveLen(1))
 			r := receivedRequests[0]
-			Expect(r.PostFormValue("url")).To(Equal("index.docker.io"))
+			Expect(r.PostFormValue("url")).To(Equal("https://index.docker.io/v1/"))
 		})
 	})
 })

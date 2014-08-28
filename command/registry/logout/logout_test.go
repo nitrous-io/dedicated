@@ -148,7 +148,7 @@ var _ = Describe("registry/logout", func() {
 			Expect(receivedRequests).To(HaveLen(1))
 			r := receivedRequests[0]
 			Expect(r.Method).To(Equal("DELETE"))
-			Expect(r.URL.Path).To(Equal("/api/v0/hosts/foo-bar-123/registries/index.docker.io"))
+			Expect(r.URL.Path).To(Equal("/api/v0/hosts/foo-bar-123/registries/https%3A%2F%2Findex.docker.io%2Fv1%2F"))
 		})
 	})
 })

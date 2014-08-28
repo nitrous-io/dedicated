@@ -119,7 +119,7 @@ func (c *Command) Run(args []string) int {
 		}
 		// user has pressed enter, use index.docker.io
 		if registryURL == "" {
-			registryURL = "index.docker.io"
+			registryURL = defaultRegistryURL
 		}
 	}
 

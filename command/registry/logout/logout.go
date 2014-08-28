@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	registryUsage = "Docker registry's server. Defaults to Docker Hub registry"
+	registryUsage      = "Docker registry's server. Defaults to Docker Hub registry"
+	defaultRegistryURL = "https://index.docker.io/v1/"
 )
 
 var usage = fmt.Sprintf(`
@@ -72,8 +73,7 @@ func (c *Command) Run(args []string) int {
 		confirmation := c.UI.Confirm(prompt)
 		switch confirmation {
 		case command.ConfirmYes:
-			// Use docker hub
-			registry = "index.docker.io"
+			registry = defaultRegistryURL
 		case command.ConfirmNo:
 			c.UI.Error(errMsg)
 			return 1
