@@ -61,13 +61,8 @@ var _ = Describe("Command", func() {
 			Expect(ui.ErrorWriter.(*bytes.Buffer).String()).To(BeEmpty())
 		}()
 
-		Eventually(func() bool {
-			return ns.ts.resized
-		}).Should(BeTrue())
-
-		Eventually(func() bool {
-			return ns.ts.finished
-		}).Should(BeTrue())
+		Eventually(ns.ts.resized).Should(Receive())
+		Eventually(ns.ts.finished).Should(BeClosed())
 	})
 
 	Describe("getLoginCommand", func() {
@@ -147,8 +142,8 @@ type testServer struct {
 	shellID     string
 
 	stdin, stdout *bytes.Buffer
-	resized       bool
-	finished      bool
+	resized       chan struct{}
+	finished      chan struct{}
 }
 
 func (s *testServer) createShell(w http.ResponseWriter, r *http.Request) {
@@ -172,13 +167,13 @@ func (s *testServer) attachShell(w http.ResponseWriter, r *http.Request) {
 	defer stream.Close()
 	go io.Copy(s.stdin, stream)
 	io.Copy(stream, s.stdout)
-	s.finished = true
+	close(s.finished)
 }
 
 func (s *testServer) resizeShell(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	Expect(id).To(Equal(s.shellID))
-	s.resized = true
+	s.resized <- struct{}{}
 	w.WriteHeader(http.StatusAccepted)
 }
 
@@ -193,6 +188,8 @@ func newTestServer(containerID, shellID string) *testServer {
 		shellID:     shellID,
 		stdin:       bytes.NewBuffer(nil),
 		stdout:      bytes.NewBuffer(nil),
+		resized:     make(chan struct{}, 1),
+		finished:    make(chan struct{}),
 	}
 	r := mux.NewRouter()
 	r.HandleFunc("/containers/{id}/shells", s.createShell).Methods("POST")
