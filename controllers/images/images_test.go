@@ -356,23 +356,45 @@ var _ = Describe("controllers/images", func() {
 	})
 
 	Describe("DELETE /api/v0/hosts/{slug}/image/{image}", func() {
-		doRequest := func(host, image string) {
+		doRequest := func(host, image string) *httptest.ResponseRecorder {
 			req, err := NewAuthedRequest(t, "DELETE", fmt.Sprintf("/api/v0/hosts/%v/images/%v", host, image), nil)
 			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
+			return res
 		}
 
 		It("calls RemoveImage", func() {
 			doRequest("foo", "nitrousio/elixir")
-
 			Expect(mockClient.RemoveImageCalled).To(Equal(1))
+		})
+
+		It("deletes image record from the database", func() {
+			i := &image.Image{
+				UserID:      hs.U.ID,
+				HostID:      hs.H.ID,
+				FreighterID: "cafebabe",
+				Name:        "nitrousio/elixir",
+				Tag:         "latest",
+			}
+			err := i.Insert(db)
+			Expect(err).To(BeNil())
+			_, err = image.Find(db, hs.U, hs.H, "nitrousio/elixir")
+			Expect(err).To(BeNil())
+
+			res := doRequest("foo", "nitrousio/elixir")
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			_, err = image.Find(db, hs.U, hs.H, "nitrousio/elixir")
+			Expect(err).To(MatchError(sql.ErrNoRows))
 		})
 
 		It("publishes an image.removed event with the image ID/name", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
-			doRequest("foo", "nitrousio/elixir")
+			res := doRequest("foo", "nitrousio/elixir")
+			Expect(res.Code).To(Equal(http.StatusOK))
 
 			Expect(<-ch).To(Equal(&controllers.Event{
 				Name: "image.removed",

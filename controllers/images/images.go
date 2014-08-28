@@ -106,22 +106,31 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	db := env.DB
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
 
-	image := mux.Vars(r)["image"]
-	if image == "" {
+	name := mux.Vars(r)["image"]
+	if name == "" {
 		return errIDOrNameRequired
 	}
 
-	if err := cl.RemoveImage(image); err != nil {
+	if err := cl.RemoveImage(name); err != nil {
 		return err
 	}
 
+	if i, err := image.Find(db, env.User, h, name); err == nil {
+		if err := i.Delete(db); err != nil { // log and continue
+			env.Logger.Errorf("images.remove: successfully removed image '%+v' in Freighter but failed to remove from database: %v", i, err)
+		}
+	} else { // log and continue
+		env.Logger.Errorf("images.remove: successfully removed image '%s' in Freighter but it doesn't exist in database: %v", name, err)
+	}
+
 	env.Events.Publish(
-		controllers.NewEvent("image.removed", image),
+		controllers.NewEvent("image.removed", name),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK
@@ -222,6 +231,9 @@ func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Reque
 	if err := cl.TagImage(image, tag, force); err != nil {
 		return err
 	}
+
+	// FIXME TagImage should return new image info. Or we should make another
+	// request to Freighter to get the new image.
 
 	type data struct {
 		Image string `json:"image"`
