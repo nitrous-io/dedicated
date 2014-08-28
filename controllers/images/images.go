@@ -81,18 +81,25 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 	defer f.Close()
-	image, err := cl.BuildImage(name, f)
+	img, err := cl.BuildImage(name, f)
 	if err != nil {
 		return err
 	}
 
+	i := convertImage(img)
+	i.UserID = env.User.ID
+	i.HostID = h.ID
+	if err := i.Insert(env.DB); err != nil { // log and continue
+		env.Logger.Errorf("images.build: successfully built image '%+v' in Freighter but failed to update database with '%+v'", img, i)
+	}
+
 	env.Events.Publish(
-		controllers.NewEvent("image.built", image),
+		controllers.NewEvent("image.built", serializers.SerializeImage(i)),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"image": image,
+		"image": serializers.SerializeImage(i),
 	}
 
 	return nil
