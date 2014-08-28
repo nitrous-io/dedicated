@@ -97,7 +97,7 @@ func (c *Command) Synopsis() string {
 }
 
 func (c *Command) makeRequest(hostSlug, volSlug string) (io.ReadCloser, error) {
-	resp, err := c.Client.GetAuthed(fmt.Sprintf("%s/api/v0/hosts/%s/volumes/%s", c.Server, hostSlug, volSlug), nil)
+	resp, err := c.Client.GetAuthed(fmt.Sprintf("%s/api/v0/hosts/%s/volumes/%s/info", c.Server, hostSlug, volSlug), nil)
 	if err != nil {
 		return nil, err
 	}
