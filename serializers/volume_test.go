@@ -58,9 +58,9 @@ var _ = Describe("volume serializer", func() {
 		})
 	})
 
-	Describe("SerializeFreighterVolume", func() {
+	Describe("SerializeVolumeInfo", func() {
 		It("serializes to JSON", func() {
-			v := serializers.SerializeFreighterVolume(
+			v := serializers.SerializeVolumeInfo(
 				&freighterclient.Volume{Slug: "music", Size: 123456})
 			b, err := json.Marshal(v)
 			Expect(err).To(BeNil())

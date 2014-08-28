@@ -185,7 +185,7 @@ var _ = Describe("controllers/volumes", func() {
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 
-				vols, err := volume.FindAllByHostID(db, hs.H.ID)
+				vols, err := volume.FindAll(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(vols).To(HaveLen(1))
 				Expect(vols[0].Slug).To(Equal("metric"))
@@ -233,7 +233,7 @@ var _ = Describe("controllers/volumes", func() {
 				doRequest("sonic-boom")
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				Expect(mockClient.CreateVolumeCalled).To(Equal(1))
-				vols, err := volume.FindAllByHostID(db, hs.H.ID)
+				vols, err := volume.FindAll(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(vols).To(HaveLen(0))
 			})
@@ -251,7 +251,7 @@ var _ = Describe("controllers/volumes", func() {
 				doRequest("sonic-boom")
 				Expect(res.Code).To(Equal(http.StatusServiceUnavailable))
 				Expect(mockClient.CreateVolumeCalled).To(Equal(0))
-				vols, err := volume.FindAllByHostID(db, hs.H.ID)
+				vols, err := volume.FindAll(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(vols).To(HaveLen(0))
 			})
@@ -370,6 +370,69 @@ var _ = Describe("controllers/volumes", func() {
 			It("returns 404 Not Found", func() {
 				doRequest("nosuch")
 				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+	})
+
+	Describe("GET /api/v0/hosts/:slug/volumes/:vslug/info", func() {
+		doRequest := func(vol string) {
+			req, err := NewAuthedRequest(t, "GET", fmt.Sprintf("/api/v0/hosts/%s/volumes/%s/info", hs.H.Slug, vol), nil)
+			Expect(err).To(BeNil())
+			svr.Router().ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			makeVolumes("music")
+			v, err := volume.Find(db, hs.H.ID, "music")
+			Expect(err).To(BeNil())
+			Expect(v).NotTo(BeNil())
+		})
+
+		Context("successful get", func() {
+			BeforeEach(func() {
+				mockClient.VolumeInfoReturn = &freighterclient.Volume{
+					Slug: "music",
+					Size: 666,
+				}
+			})
+
+			It("returns info", func() {
+				doRequest("music")
+				Expect(mockClient.VolumeInfoCalled).To(Equal(1))
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j := struct {
+					Vol struct {
+						Slug string `json:"slug"`
+						Size uint64 `json:"size"`
+					} `json:"volume"`
+				}{}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Vol.Slug).To(Equal("music"))
+				Expect(j.Vol.Size).To(Equal(uint64(666)))
+			})
+		})
+
+		Context("when volume is not found", func() {
+			It("returns 404 without calling freighterclient", func() {
+				doRequest("nosuch")
+				Expect(mockClient.VolumeInfoCalled).To(Equal(0))
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+
+		Context("when Freighter client returns error", func() {
+			BeforeEach(func() {
+				mockClient.VolumeInfoError = fmt.Errorf("volume is deafening")
+			})
+
+			It("returns 500", func() {
+				doRequest("music")
+				Expect(mockClient.VolumeInfoCalled).To(Equal(1))
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				slug, _ := ErrorSlug(res.Body)
+				Expect(slug).To(Equal("internal_server_error"))
 			})
 		})
 	})

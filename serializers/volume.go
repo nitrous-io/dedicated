@@ -17,7 +17,6 @@ type Volume struct {
 }
 
 type VolumeInfo struct {
-	ID   int64  `json:"id,omitempty"`
 	Slug string `json:"slug"`
 	Size uint64 `json:"size,omitempty"`
 }
@@ -44,7 +43,7 @@ func SerializeVolumes(vols []*volume.Volume) []*Volume {
 	return ret
 }
 
-func SerializeFreighterVolume(v *freighterclient.Volume) *VolumeInfo {
+func SerializeVolumeInfo(v *freighterclient.Volume) *VolumeInfo {
 	if v == nil {
 		return nil
 	}

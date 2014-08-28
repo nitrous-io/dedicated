@@ -28,7 +28,7 @@ var (
 )
 
 func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	vols, err := volume.FindAllByHostID(env.DB, h.ID)
+	vols, err := volume.FindAll(env.DB, h.ID)
 	if err != nil {
 		return err
 	}
@@ -148,6 +148,34 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	env.Data = map[string]interface{}{
 		"status": "ok",
 		"volume": serializers.SerializeVolume(vol),
+	}
+	return nil
+}
+
+func Info(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	cl, err := controllers.NewFreighterClient(db, h)
+	if err != nil {
+		return err
+	}
+
+	slug := mux.Vars(r)["vslug"]
+
+	_, err = getVolume(db, h.ID, slug)
+	if err != nil {
+		return err
+	}
+
+	vi, err := cl.GetVolumeInfo(slug)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+		"volume": serializers.SerializeVolumeInfo(vi),
 	}
 	return nil
 }
