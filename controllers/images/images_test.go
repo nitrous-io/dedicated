@@ -383,13 +383,15 @@ var _ = Describe("controllers/images", func() {
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/images/pull", func() {
-		doRequest := func(host string, params *url.Values) {
+		doRequest := func(host string, params *url.Values) *httptest.ResponseRecorder {
 			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/pull", host), params)
 			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
+			return res
 		}
 
-		It("responds with image on success", func() {
+		It("creates an image record", func() {
 			mockClient.PullImageReturn = &freighterclient.Image{
 				ID:   "pulledbeef",
 				Name: "scratch",
@@ -397,10 +399,29 @@ var _ = Describe("controllers/images", func() {
 			}
 			doRequest("foo", &url.Values{"repository": []string{"scratch"}})
 
+			i, err := image.Find(db, u, hs.H, "pulledbeef")
+			Expect(err).To(BeNil())
+			Expect(i.UserID).To(Equal(u.ID))
+			Expect(i.HostID).To(Equal(hs.H.ID))
+			Expect(i.FreighterID).To(Equal("pulledbeef"))
+			Expect(i.Name).To(Equal("scratch"))
+			Expect(i.Tag).To(Equal("latest"))
+			Expect(i.CreatedAt).NotTo(BeNil())
+			Expect(i.UpdatedAt).NotTo(BeNil())
+		})
+
+		It("responds with image on success", func() {
+			mockClient.PullImageReturn = &freighterclient.Image{
+				ID:   "pulledbeef",
+				Name: "scratch",
+				Tag:  "latest",
+			}
+			res := doRequest("foo", &url.Values{"repository": []string{"scratch"}})
+
 			Expect(mockClient.PullImageCalled).To(Equal(1))
 			Expect(res.Code).To(Equal(http.StatusOK))
 			j := struct {
-				Image freighterclient.Image `json:"image"`
+				Image serializers.Image `json:"image"`
 			}{}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
@@ -421,19 +442,18 @@ var _ = Describe("controllers/images", func() {
 
 			doRequest("foo", &url.Values{"repository": []string{"scratch"}})
 
+			i, err := image.Find(db, u, hs.H, "pulledbeef")
+			Expect(err).To(BeNil())
+
 			Expect(<-ch).To(Equal(&controllers.Event{
 				Name: "image.pulled",
-				Data: &freighterclient.Image{
-					ID:   "pulledbeef",
-					Name: "scratch",
-					Tag:  "latest",
-				},
+				Data: serializers.SerializeImage(i),
 			}))
 			close(done)
 		})
 
 		It("requires repository param", func() {
-			doRequest("foo", nil)
+			res := doRequest("foo", nil)
 			Expect(mockClient.PullImageCalled).To(Equal(0))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
@@ -442,7 +462,7 @@ var _ = Describe("controllers/images", func() {
 
 		It("returns 500 on freighterclient error", func() {
 			mockClient.PullImageError = &freighterclient.StatusError{418}
-			doRequest("foo", &url.Values{"repository": []string{"scratch"}})
+			res := doRequest("foo", &url.Values{"repository": []string{"scratch"}})
 			Expect(mockClient.PullImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
