@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/nitrous-io/nitro/consts"
 )
@@ -12,12 +13,16 @@ import (
 var headers = []string{"ID", "Name", "Tag", "Created", "Size", "Virtual Size"}
 
 type Image struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Tag         string `json:"tag"`
-	CreatedAt   int64  `json:"created_at"`
-	ActualSize  int64  `json:"actual_size"`
-	VirtualSize int64  `json:"virtual_size"`
+	ID          string     `json:"id"`
+	UserID      int64      `json:"user_id"`
+	HostID      int64      `json:"host_id"`
+	Name        string     `json:"name"`
+	Tag         string     `json:"tag"`
+	ActualSize  int64      `json:"actual_size"`
+	VirtualSize int64      `json:"virtual_size"`
+	BuiltAt     *time.Time `json:"built_at"`
+	CreatedAt   *time.Time `json:"created_at"`
+	UpdatedAt   *time.Time `json:"updated_at"`
 }
 
 func PrettyPrint(images ...*Image) string {

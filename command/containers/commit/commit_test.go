@@ -63,16 +63,16 @@ var _ = Describe("containers/commit", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusOK
 				expectedName = "scrimage"
-				responseBody = `{"image":{"id":"123456snip","name":"scrimage","tag":"latest","created_at":1371157430,"actual_size":123,"virtual_size":456},"status":"OK"}`
+				responseBody = `{"image":{"id":"123456snip","slug":"scrimage","tag":"latest","name":"scratch image","created_at":"2013-11-01T00:00:00Z","actual_size":123,"virtual_size":456},"status":"OK"}`
 			})
 
 			It("outputs image details", func() {
 				code := cmd.Run([]string{"scratchcon", "-t", "scrimage"})
-				Expect(ui.OutputWriter.String()).To(ContainSubstring(`
-ID            Name        Tag       Created       Size   Virtual Size
-123456snip    scrimage    latest    1371157430    123    456
-`))
 				Expect(code).To(Equal(0))
+				Expect(ui.OutputWriter.String()).To(ContainSubstring(`
+ID            Slug        Tag       Name             Created                          Size   Virtual Size
+123456snip    scrimage    latest    scratch image    2013-11-01 00:00:00 +0000 UTC    123    456
+`))
 			})
 		})
 
@@ -80,16 +80,16 @@ ID            Name        Tag       Created       Size   Virtual Size
 			BeforeEach(func() {
 				statusCode = http.StatusOK
 				expectedName = ""
-				responseBody = `{"image":{"id":"123456snip","name":"random","tag":"latest","created_at":1371157430,"actual_size":123,"virtual_size":456},"status":"OK"}`
+				responseBody = `{"image":{"id":"123456snip","slug":"random","tag":"latest","name":"rand img","created_at":"2013-11-01T00:00:00Z","actual_size":123,"virtual_size":456},"status":"OK"}`
 			})
 
 			It("outputs image details", func() {
 				code := cmd.Run([]string{"scratchcon"})
-				Expect(ui.OutputWriter.String()).To(ContainSubstring(`
-ID            Name      Tag       Created       Size   Virtual Size
-123456snip    random    latest    1371157430    123    456
-`))
 				Expect(code).To(Equal(0))
+				Expect(ui.OutputWriter.String()).To(ContainSubstring(`
+ID            Slug      Tag       Name        Created                          Size   Virtual Size
+123456snip    random    latest    rand img    2013-11-01 00:00:00 +0000 UTC    123    456
+`))
 			})
 		})
 
