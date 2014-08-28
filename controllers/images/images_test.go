@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
@@ -17,8 +18,10 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/image"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -93,15 +96,20 @@ var _ = Describe("controllers/images", func() {
 	})
 
 	Describe("GET /api/v0/hosts/{slug}/images", func() {
-		doRequest := func(host string) {
+		doRequest := func(host string) *httptest.ResponseRecorder {
 			req, err := NewAuthedRequest(t, "GET", fmt.Sprintf("/api/v0/hosts/%v/images", host), nil)
 			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
+			return res
 		}
 
 		var (
 			img1 *freighterclient.Image
 			img2 *freighterclient.Image
+
+			i1 *image.Image
+			i2 *image.Image
 		)
 
 		BeforeEach(func() {
@@ -109,7 +117,7 @@ var _ = Describe("controllers/images", func() {
 				ID:          "1a",
 				Name:        "source1",
 				Tag:         "sourcetag1",
-				CreatedAt:   1903,
+				CreatedAt:   time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC).Unix(),
 				ActualSize:  13,
 				VirtualSize: 29,
 			}
@@ -117,20 +125,40 @@ var _ = Describe("controllers/images", func() {
 				ID:          "2a",
 				Name:        "source2",
 				Tag:         "sourcetag2",
-				CreatedAt:   1904,
+				CreatedAt:   time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC).Unix(),
 				ActualSize:  14,
 				VirtualSize: 30,
 			}
 			mockClient.ListImagesArray = []*freighterclient.Image{img1, img2}
+
+			i1 = &image.Image{
+				UserID:      hs.U.ID,
+				HostID:      hs.H.ID,
+				FreighterID: "1a",
+				Name:        "source1",
+				Tag:         "sourcetag1",
+			}
+			err := i1.Insert(db)
+			Expect(err).To(BeNil())
+
+			i2 = &image.Image{
+				UserID:      hs.U.ID,
+				HostID:      hs.H.ID,
+				FreighterID: "2a",
+				Name:        "source2",
+				Tag:         "sourcetag2",
+			}
+			err = i2.Insert(db)
+			Expect(err).To(BeNil())
 		})
 
-		It("responds with the images from Freighter", func() {
-			doRequest("foo")
+		It("responds with the images from Freighter augmented with data from the database", func() {
+			res := doRequest("foo")
 
 			Expect(mockClient.ListImagesCalled).To(Equal(1))
 			Expect(res.Code).To(Equal(http.StatusOK))
 
-			var j map[string][]freighterclient.Image
+			var j map[string][]serializers.Image
 			data := res.Body.Bytes()
 			err := json.Unmarshal(data, &j)
 			Expect(err).To(BeNil())
@@ -138,13 +166,24 @@ var _ = Describe("controllers/images", func() {
 			Expect(ok).To(BeTrue())
 			Expect(images).To(HaveLen(2))
 
-			// Fields from Freighter API.
 			Expect(images[0].ID).To(Equal("1a"))
 			Expect(images[0].Name).To(Equal("source1"))
 			Expect(images[0].Tag).To(Equal("sourcetag1"))
-			Expect(images[0].CreatedAt).To(Equal(int64(1903)))
 			Expect(images[0].ActualSize).To(Equal(int64(13)))
 			Expect(images[0].VirtualSize).To(Equal(int64(29)))
+			createdAt := time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)
+			Expect(images[0].CreatedAt).To(Equal(&createdAt))
+			Expect(images[0].UpdatedAt).NotTo(BeNil())
+
+			Expect(images[1].ID).To(Equal("2a"))
+			Expect(images[1].Name).To(Equal("source2"))
+			Expect(images[1].Tag).To(Equal("sourcetag2"))
+			Expect(images[1].ActualSize).To(Equal(int64(14)))
+			Expect(images[1].VirtualSize).To(Equal(int64(30)))
+			createdAt = time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)
+			Expect(images[1].CreatedAt).To(Equal(&createdAt))
+			Expect(images[1].CreatedAt).NotTo(BeNil())
+			Expect(images[1].UpdatedAt).NotTo(BeNil())
 		})
 
 		Context("when the Freighter client returns an error", func() {
@@ -153,7 +192,7 @@ var _ = Describe("controllers/images", func() {
 			})
 
 			It("responds with HTTP 500 Internal Server Error", func() {
-				doRequest("foo")
+				res := doRequest("foo")
 
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
@@ -172,7 +211,7 @@ var _ = Describe("controllers/images", func() {
 			})
 
 			It("responds with an empty array", func() {
-				doRequest("foo")
+				res := doRequest("foo")
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 				j := map[string]interface{}{}
@@ -188,7 +227,7 @@ var _ = Describe("controllers/images", func() {
 
 		Context("when host does not exist for user", func() {
 			It("returns HTTP 404 Not Found", func() {
-				doRequest("no-such-host")
+				res := doRequest("no-such-host")
 
 				Expect(res.Code).To(Equal(http.StatusNotFound))
 				Expect(mockClient.ListImagesCalled).To(Equal(0))

@@ -2,12 +2,16 @@ package images
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 
+	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/image"
+	"github.com/nitrous-io/nitrous/serializers"
 
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
@@ -27,14 +31,30 @@ func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	images, err := cl.ListImages()
+	imgs, err := cl.ListImages()
 	if err != nil {
 		return err
 	}
 
+	images := make([]*image.Image, 0, len(imgs))
+	for _, img := range imgs {
+		i := convertImage(img)
+		i.UserID = env.User.ID
+		i.HostID = h.ID
+
+		if iRec, err := image.Find(env.DB, env.User, h, img.ID); err == nil {
+			i.ID = iRec.ID
+			i.UpdatedAt = iRec.UpdatedAt
+		} else { // log and continue
+			env.Logger.Errorf("images.index: image '%+v' exists Freighter but not in database: %v", img, err)
+		}
+
+		images = append(images, i)
+	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"images": images,
+		"images": serializers.SerializeImages(images),
 	}
 
 	return nil
@@ -202,4 +222,20 @@ func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Reque
 		"status": "OK",
 	}
 	return nil
+}
+
+func convertImage(img *freighterclient.Image) *image.Image {
+	tag := img.Tag
+	if tag == "" {
+		tag = image.DefaultTag
+	}
+	createdAt := time.Unix(img.CreatedAt, 0)
+	return &image.Image{
+		FreighterID: img.ID,
+		Name:        img.Name,
+		CreatedAt:   &createdAt,
+		Tag:         tag,
+		ActualSize:  img.ActualSize,
+		VirtualSize: img.VirtualSize,
+	}
 }
