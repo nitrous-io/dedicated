@@ -345,58 +345,31 @@ var _ = Describe("controllers/volumes", func() {
 			svr.Router().ServeHTTP(res, req)
 		}
 
-		BeforeEach(func() {
-			makeVolumes("music")
-			v, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "music")
-			Expect(err).To(BeNil())
-			Expect(v).NotTo(BeNil())
-		})
-
-		Context("successful get", func() {
-			BeforeEach(func() {
-				mockClient.VolumeInfoReturn = &freighterclient.Volume{
-					Slug: "music",
-					Size: 666,
-				}
-			})
-
-			It("returns info", func() {
-				doRequest("music")
-				Expect(mockClient.VolumeInfoCalled).To(Equal(1))
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				j := struct {
-					Vol struct {
-						Slug string `json:"slug"`
-						Size uint64 `json:"size"`
-					} `json:"volume"`
-				}{}
-				err := json.NewDecoder(res.Body).Decode(&j)
+		Context("when volume exist", func() {
+			It("returns volume in JSON", func() {
+				v := volume.Volume{HostID: hs.H.ID, Slug: "music"}
+				err := v.Insert(db)
 				Expect(err).To(BeNil())
-				Expect(j.Vol.Slug).To(Equal("music"))
-				Expect(j.Vol.Size).To(Equal(uint64(666)))
+
+				doRequest("music")
+				var j struct {
+					Volume *serializers.Volume `json:"volume"`
+				}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Volume.ID).To(Equal(v.ID))
+				Expect(j.Volume.Name).To(Equal("music"))
+				Expect(j.Volume.Slug).To(Equal("music"))
+				Expect(j.Volume.HostID).To(Equal(hs.H.ID))
+				Expect(j.Volume.CreatedAt.IsZero()).NotTo(BeTrue())
+				Expect(j.Volume.UpdatedAt.IsZero()).NotTo(BeTrue())
 			})
 		})
 
 		Context("when volume is not found", func() {
-			It("returns 404 without calling freighterclient", func() {
+			It("returns 404 Not Found", func() {
 				doRequest("nosuch")
-				Expect(mockClient.VolumeInfoCalled).To(Equal(0))
 				Expect(res.Code).To(Equal(http.StatusNotFound))
-			})
-		})
-
-		Context("when Freighter client returns error", func() {
-			BeforeEach(func() {
-				mockClient.VolumeInfoError = fmt.Errorf("volume is deafening")
-			})
-
-			It("returns 500", func() {
-				doRequest("music")
-				Expect(mockClient.VolumeInfoCalled).To(Equal(1))
-				Expect(res.Code).To(Equal(http.StatusInternalServerError))
-				slug, _ := ErrorSlug(res.Body)
-				Expect(slug).To(Equal("internal_server_error"))
 			})
 		})
 	})

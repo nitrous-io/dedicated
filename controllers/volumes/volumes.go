@@ -137,19 +137,9 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	cl, err := controllers.NewFreighterClient(db, h)
-	if err != nil {
-		return err
-	}
-
 	slug := mux.Vars(r)["vslug"]
 
-	_, err = getVolume(db, h.ID, slug)
-	if err != nil {
-		return err
-	}
-
-	vi, err := cl.GetVolumeInfo(slug)
+	vol, err := getVolume(db, h.ID, slug)
 	if err != nil {
 		return err
 	}
@@ -157,7 +147,7 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "ok",
-		"volume": serializers.SerializeFreighterVolume(vi),
+		"volume": serializers.SerializeVolume(vol),
 	}
 	return nil
 }
