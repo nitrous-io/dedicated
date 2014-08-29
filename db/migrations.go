@@ -335,5 +335,12 @@ func init() {
 				CREATE INDEX index_images_on_freighter_id ON images USING btree (freighter_id);
 			`,
 		},
+		{
+			Version: "260",
+			Up: `
+				ALTER TABLE images ADD COLUMN slug character varying(255);
+				CREATE INDEX index_images_on_slug_and_tag ON images USING btree (slug, tag);
+			`,
+		},
 	}
 }
