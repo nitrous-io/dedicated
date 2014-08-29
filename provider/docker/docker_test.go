@@ -187,6 +187,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(info.ID).To(Equal(id))
 			Expect(info.Name).To(Equal(name))
 			Expect(info.Image).To(Equal(image))
+			Expect(info.ImageID).To(Equal(getID(image)))
 			Expect(info.Host).To(Equal(host))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			Expect(info.Ports[port]).To(Equal(22))
@@ -257,9 +258,11 @@ var _ = Describe("provider/docker", func() {
 							}
 						}
 
+						imageID := getID(image)
 						Expect(stopped.ID).To(Equal(id))
 						Expect(stopped.Name).To(Equal(name))
 						Expect(stopped.Image).To(Equal(image))
+						Expect(stopped.ImageID).To(Equal(imageID))
 						Expect(stopped.Host).To(Equal(""))
 						Expect(stopped.State).To(Equal(provider.ContainerStateStopped))
 						Expect(stopped.Ports[port]).To(Equal(22))
@@ -274,6 +277,7 @@ var _ = Describe("provider/docker", func() {
 						Expect(running.ID).To(Equal(container2Info.ID))
 						Expect(running.Name).To(Equal(container2Name))
 						Expect(running.Image).To(Equal(image))
+						Expect(running.ImageID).To(Equal(imageID))
 						Expect(running.Host).To(Equal(container2Info.Host))
 						Expect(running.State).To(Equal(provider.ContainerStateRunning))
 						Expect(running.Ports[container2Port]).To(Equal(22))
@@ -290,11 +294,14 @@ var _ = Describe("provider/docker", func() {
 				Describe(".GetInfo()", func() {
 					Context("if a container with a given id is managed by freighter", func() {
 						It("returns container info", func() {
+							imageID := getID(image)
+
 							info, err := prov.GetInfo(id)
 							Expect(err).To(BeNil())
 							Expect(info.ID).To(Equal(id))
 							Expect(info.Name).To(Equal(name))
 							Expect(info.Image).To(Equal(image))
+							Expect(info.ImageID).To(Equal(imageID))
 							Expect(info.Host).To(Equal(""))
 							Expect(info.Ports[port]).To(Equal(22))
 							Expect(info.State).To(Equal(provider.ContainerStateStopped))
@@ -311,6 +318,7 @@ var _ = Describe("provider/docker", func() {
 							Expect(info.ID).To(Equal(container2Info.ID))
 							Expect(info.Name).To(Equal(container2Name))
 							Expect(info.Image).To(Equal(image))
+							Expect(info.ImageID).To(Equal(imageID))
 							Expect(info.Host).To(Equal(container2Info.Host))
 							Expect(info.Ports[container2Port]).To(Equal(22))
 							Expect(info.State).To(Equal(provider.ContainerStateRunning))
@@ -340,6 +348,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.ID).To(Equal(id))
 					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(image))
+					Expect(info.ImageID).To(Equal(getID(image)))
 					Expect(info.Host).To(Equal(host))
 					Expect(info.Ports[port]).To(Equal(22))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
@@ -395,6 +404,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.Ports[port]).To(Equal(22))
 					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(image))
+					Expect(info.ImageID).To(Equal(getID(image)))
 					Expect(info.State).To(Equal(provider.ContainerStateStopped))
 
 					c := getContainerInfo(id)
@@ -437,6 +447,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.ID).To(Equal(id))
 					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(image))
+					Expect(info.ImageID).To(Equal(getID(image)))
 					Expect(info.Host).To(Equal(host))
 					Expect(info.Ports[port]).To(Equal(22))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
@@ -510,6 +521,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.ID).To(Equal(id))
 					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(image))
+					Expect(info.ImageID).To(Equal(getID(image)))
 					Expect(info.Host).To(Equal(""))
 					Expect(info.Ports).To(Equal(map[string]int{}))
 					Expect(info.State).To(Equal(""))
@@ -990,9 +1002,11 @@ var _ = Describe("provider/docker", func() {
 
 		It("creates container with options", func() {
 			id := getID(name)
+			imageID := getID(image)
 			Expect(info.ID).To(Equal(id))
 			Expect(info.Name).To(Equal(name))
 			Expect(info.Image).To(Equal(image))
+			Expect(info.ImageID).To(Equal(imageID))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			Expect(doInspect(id, "{{.Config.Env}}")).To(ContainSubstring("LANG=C"))
 			Expect(doInspect(id,
@@ -1237,7 +1251,6 @@ var _ = Describe("provider/docker", func() {
 	})
 
 	Describe(".PullImage()", func() {
-
 		var (
 			mockProxy    *MockDockerProxy
 			tempAuthFile *os.File
@@ -1326,7 +1339,7 @@ var _ = Describe("provider/docker", func() {
 
 			Expect(mockProxy.PullImageCalled).To(BeTrue())
 			Expect(mockProxy.PullImageOpts.Repository).To(Equal("nitrousio/nodejs"))
-			Expect(mockProxy.PullImageOpts.Tag).To(HaveLen(0))
+			Expect(mockProxy.PullImageOpts.Tag).To(Equal("latest"))
 			Expect(mockProxy.PullImageAuth.Username).To(Equal("test"))
 			Expect(mockProxy.PullImageAuth.Password).To(ContainSubstring("1234xxcc"))
 			Expect(mockProxy.PullImageAuth.Email).To(Equal("docker@callumj.com"))
@@ -1362,7 +1375,7 @@ var _ = Describe("provider/docker", func() {
 
 			Expect(mockProxy.PullImageCalled).To(BeTrue())
 			Expect(mockProxy.PullImageOpts.Repository).To(Equal("quay.io/ubuntu"))
-			Expect(mockProxy.PullImageOpts.Tag).To(HaveLen(0))
+			Expect(mockProxy.PullImageOpts.Tag).To(Equal("latest"))
 			Expect(mockProxy.PullImageAuth.Username).To(Equal("testo"))
 			Expect(mockProxy.PullImageAuth.Password).To(ContainSubstring("Password1"))
 			Expect(mockProxy.PullImageAuth.Email).To(Equal("quay@callumj.com"))
@@ -1379,7 +1392,7 @@ var _ = Describe("provider/docker", func() {
 
 			Expect(mockProxy.PullImageCalled).To(BeTrue())
 			Expect(mockProxy.PullImageOpts.Repository).To(Equal("quay.io/quay/ubuntu"))
-			Expect(mockProxy.PullImageOpts.Tag).To(HaveLen(0))
+			Expect(mockProxy.PullImageOpts.Tag).To(Equal("latest"))
 			Expect(mockProxy.PullImageAuth.Username).To(Equal("testo"))
 			Expect(mockProxy.PullImageAuth.Password).To(ContainSubstring("Password1"))
 			Expect(mockProxy.PullImageAuth.Email).To(Equal("quay@callumj.com"))
@@ -1427,7 +1440,6 @@ var _ = Describe("provider/docker", func() {
 
 			Expect(mockProxy.PullImageCalled).To(BeTrue())
 		})
-
 	})
 
 	Describe(".TagImage()", func() {

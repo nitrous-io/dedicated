@@ -86,8 +86,8 @@ var _ = Describe("server", func() {
 		Context("when there exists containers", func() {
 			BeforeEach(func() {
 				prov.Containers = []*provider.ContainerInfo{
-					{ID: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", State: provider.ContainerStateRunning},
-					{ID: "bbb", Name: "bar", Image: "centos", Host: "1.2.3.5", State: provider.ContainerStateStopped},
+					{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", State: provider.ContainerStateRunning},
+					{ID: "bbb", Name: "bar", Image: "centos", ImageID: "def456", Host: "1.2.3.5", State: provider.ContainerStateStopped},
 				}
 				doRequest()
 			})
@@ -95,8 +95,8 @@ var _ = Describe("server", func() {
 			It("responds with 200 ok with container info array", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(MatchJSON(`{"containers":[
-					{"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","state":"running","ports":null,"exit_code":0,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"},
-					{"id":"bbb","name":"bar","image":"centos","host":"1.2.3.5","state":"stopped","ports":null,"exit_code":0,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"}
+					{"id":"aaa","name":"foo","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","state":"running","ports":null,"exit_code":0,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"},
+					{"id":"bbb","name":"bar","image":"centos","image_id":"def456","host":"1.2.3.5","state":"stopped","ports":null,"exit_code":0,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"}
 				]}`))
 			})
 		})
@@ -161,14 +161,14 @@ var _ = Describe("server", func() {
 
 				Context("returns a container info with no error", func() {
 					BeforeEach(func() {
-						prov.CreateContainerInfo = &provider.ContainerInfo{ID: "aaa", Name: name, Image: "ubuntu", Host: "1.2.3.4", State: provider.ContainerStateRunning}
+						prov.CreateContainerInfo = &provider.ContainerInfo{ID: "aaa", Name: name, Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", State: provider.ContainerStateRunning}
 						doRequest()
 					})
 
 					It("responds with 200 OK and container info", func() {
 						Expect(res.Code).To(Equal(http.StatusOK))
 						Expect(res.Body.String()).To(MatchJSON(`{"container":{
-							"id":"aaa","name":"fragrant-wind-69","image":"ubuntu","host":"1.2.3.4","state":"running","ports": null,"exit_code":0,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"
+							"id":"aaa","name":"fragrant-wind-69","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","state":"running","ports": null,"exit_code":0,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"
 						}}`))
 					})
 				})
@@ -233,7 +233,7 @@ var _ = Describe("server", func() {
 	Describe("GET /containers/:container_id", func() {
 		BeforeEach(func() {
 			prov.Containers = []*provider.ContainerInfo{
-				{ID: "aaa", Name: "foo", Image: "ubuntu", Host: "1.2.3.4", State: provider.ContainerStateRunning},
+				{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", State: provider.ContainerStateRunning},
 			}
 		})
 
@@ -251,7 +251,7 @@ var _ = Describe("server", func() {
 			It("responds with 200 ok with container information", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(MatchJSON(`{"container":{
-					"id":"aaa","name":"foo","image":"ubuntu","host":"1.2.3.4","state":"running","ports":null,"exit_code":0,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"
+					"id":"aaa","name":"foo","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","state":"running","ports":null,"exit_code":0,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"
 				}}`))
 			})
 		})
@@ -324,13 +324,14 @@ var _ = Describe("server", func() {
 			id               = "aaa"
 			name             = "foobar"
 			image            = "ubuntu"
+			imageID          = "abc123"
 			host             = "1.2.3.4"
 			params           *url.Values
 		)
 
 		BeforeEach(func() {
 			prov.Containers = []*provider.ContainerInfo{
-				{ID: id, Name: name, Image: image, Host: host},
+				{ID: id, Name: name, Image: image, ImageID: imageID, Host: host},
 			}
 			params = &url.Values{}
 		})
@@ -391,6 +392,7 @@ var _ = Describe("server", func() {
 						"id": "` + id + `",
 						"name": "` + name + `",
 						"image": "` + image + `",
+						"image_id": "` + imageID + `",
 						"host": "",
 						"state": "",
 						"ports": null,
@@ -420,6 +422,7 @@ var _ = Describe("server", func() {
 						"id": "` + id + `",
 						"name": "` + name + `",
 						"image": "` + image + `",
+						"image_id": "` + imageID + `",
 						"host": "` + host + `",
 						"state": "running",
 						"ports": null,
@@ -455,6 +458,7 @@ var _ = Describe("server", func() {
 						"id": "` + id + `",
 						"name": "` + name + `",
 						"image": "` + image + `",
+						"image_id": "` + imageID + `",
 						"host": "",
 						"state": "stopped",
 						"ports": null,
@@ -484,6 +488,7 @@ var _ = Describe("server", func() {
 						"id": "` + id + `",
 						"name": "` + name + `",
 						"image": "` + image + `",
+						"image_id": "` + imageID + `",
 						"host": "` + host + `",
 						"state": "running",
 						"ports": null,
