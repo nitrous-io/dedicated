@@ -35,7 +35,7 @@ var _ = Describe("images/ibuild", func() {
 		statusCode   int
 		responseBody string
 		tmpdir       string
-		expectedName string
+		expectedSlug string
 		dfBytes      = []byte("FROM scratch")
 	)
 
@@ -80,13 +80,13 @@ var _ = Describe("images/ibuild", func() {
 		Expect(err).To(BeNil())
 		ui = &command.MockUI{&cli.MockUi{}}
 		srv = ghttp.NewServer()
-		expectedName = ""
+		expectedSlug = ""
 		handlers = ghttp.CombineHandlers(
 			func(w http.ResponseWriter, req *http.Request) {
-				if expectedName != "" {
-					Expect(req.FormValue("name")).To(Equal(expectedName))
+				if expectedSlug != "" {
+					Expect(req.FormValue("slug")).To(Equal(expectedSlug))
 				} else {
-					Expect(req.FormValue("name")).NotTo(BeEmpty())
+					Expect(req.FormValue("slug")).NotTo(BeEmpty())
 				}
 			},
 			func(w http.ResponseWriter, req *http.Request) {
@@ -159,16 +159,16 @@ var _ = Describe("images/ibuild", func() {
 			})
 		})
 
-		Context("with name specified", func() {
+		Context("with slug specified", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusOK
 				responseBody = `{"status":"OK"}`
-				expectedName = "UseThisName"
+				expectedSlug = "UseThisSlug"
 			})
 
-			It("uses name", func() {
+			It("uses slug", func() {
 				fpath := makeDockerfile("")
-				code := cmd.Run([]string{"myhost", fpath, "--tag=UseThisName"})
+				code := cmd.Run([]string{"myhost", fpath, "--tag=UseThisSlug"})
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Built image"))
 				Expect(code).To(Equal(0))
 				Expect(srv.ReceivedRequests()).To(HaveLen(1))

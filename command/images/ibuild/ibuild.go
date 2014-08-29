@@ -111,7 +111,7 @@ func (c *Command) makeRequest(host, fpath, tag string) error {
 	if _, err := io.Copy(part, r); err != nil {
 		return err
 	}
-	if err := writer.WriteField("name", tag); err != nil {
+	if err := writer.WriteField("slug", tag); err != nil {
 		return err
 	}
 	if err := writer.Close(); err != nil {
