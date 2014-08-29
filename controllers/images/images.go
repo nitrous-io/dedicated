@@ -21,7 +21,7 @@ var (
 	errRepoRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "repository is required")
 	errDestRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "destination is required")
 	errTagRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "tag is required")
-	errNameRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
+	errSlugRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errFileRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "file is required")
 )
 
@@ -44,6 +44,7 @@ func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 		if iRec, err := image.Find(env.DB, env.User, h, img.ID); err == nil {
 			i.ID = iRec.ID
+			i.Name = iRec.Name
 			i.UpdatedAt = iRec.UpdatedAt
 		} else { // log and continue
 			env.Logger.Errorf("images.index: image '%+v' exists Freighter but not in database: %v", img, err)
@@ -71,9 +72,9 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return errFileRequired
 	}
 
-	name := r.FormValue("name")
-	if name == "" {
-		return errNameRequired
+	slug := r.FormValue("slug")
+	if slug == "" {
+		return errSlugRequired
 	}
 
 	f, err := fh.Open()
@@ -81,7 +82,7 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 	defer f.Close()
-	img, err := cl.BuildImage(name, f)
+	img, err := cl.BuildImage(slug, f)
 	if err != nil {
 		return err
 	}
@@ -258,7 +259,7 @@ func convertImage(img *freighterclient.Image) *image.Image {
 	createdAt := time.Unix(img.CreatedAt, 0)
 	return &image.Image{
 		FreighterID: img.ID,
-		Name:        img.Name,
+		Slug:        img.Name,
 		CreatedAt:   &createdAt,
 		Tag:         tag,
 		ActualSize:  img.ActualSize,

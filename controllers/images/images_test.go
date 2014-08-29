@@ -162,7 +162,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(images).To(HaveLen(2))
 
 			Expect(images[0].ID).To(Equal("1a"))
-			Expect(images[0].Name).To(Equal("source1"))
+			Expect(images[0].Slug).To(Equal("source1"))
 			Expect(images[0].Tag).To(Equal("sourcetag1"))
 			Expect(images[0].ActualSize).To(Equal(int64(13)))
 			Expect(images[0].VirtualSize).To(Equal(int64(29)))
@@ -171,7 +171,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(images[0].UpdatedAt).NotTo(BeNil())
 
 			Expect(images[1].ID).To(Equal("2a"))
-			Expect(images[1].Name).To(Equal("source2"))
+			Expect(images[1].Slug).To(Equal("source2"))
 			Expect(images[1].Tag).To(Equal("sourcetag2"))
 			Expect(images[1].ActualSize).To(Equal(int64(14)))
 			Expect(images[1].VirtualSize).To(Equal(int64(30)))
@@ -253,7 +253,7 @@ var _ = Describe("controllers/images", func() {
 		doRequest := func(host, image string, files map[string]string) *httptest.ResponseRecorder {
 			req, err := NewFileRequest("POST",
 				fmt.Sprintf("/api/v0/hosts/%v/images", host),
-				map[string]string{"name": image},
+				map[string]string{"slug": image},
 				files,
 			)
 			Expect(err).To(BeNil())
@@ -277,7 +277,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(i.UserID).To(Equal(u.ID))
 			Expect(i.HostID).To(Equal(hs.H.ID))
 			Expect(i.FreighterID).To(Equal("cafebabe"))
-			Expect(i.Name).To(Equal("scratcher"))
+			Expect(i.Slug).To(Equal("scratcher"))
 			Expect(i.Tag).To(Equal("mytag"))
 			Expect(i.CreatedAt).NotTo(BeNil())
 			Expect(i.UpdatedAt).NotTo(BeNil())
@@ -300,7 +300,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.Image.Name).To(Equal("scratcher"))
+			Expect(j.Image.Slug).To(Equal("scratcher"))
 		})
 
 		It("publishes an image.built event with the built image", func(done Done) {
@@ -325,16 +325,16 @@ var _ = Describe("controllers/images", func() {
 			close(done)
 		})
 
-		It("requires name", func() {
+		It("requires slug", func() {
 			res := doRequest("foo", "", map[string]string{"file": "filecontent"})
 			Expect(mockClient.BuildImageCalled).To(Equal(0))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
-			Expect(errDesc).To(Equal("name is required"))
+			Expect(errDesc).To(Equal("slug is required"))
 		})
 
 		It("requires file", func() {
-			res := doRequest("foo", "name", map[string]string{})
+			res := doRequest("foo", "slug", map[string]string{})
 			Expect(mockClient.BuildImageCalled).To(Equal(0))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
@@ -369,7 +369,7 @@ var _ = Describe("controllers/images", func() {
 				UserID:      hs.U.ID,
 				HostID:      hs.H.ID,
 				FreighterID: "cafebabe",
-				Name:        "nitrousio/elixir",
+				Slug:        "nitrousio/elixir",
 				Tag:         "latest",
 			}
 			err := i.Insert(db)
@@ -384,7 +384,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(err).To(MatchError(sql.ErrNoRows))
 		})
 
-		It("publishes an image.removed event with the image ID/name", func(done Done) {
+		It("publishes an image.removed event with the image ID/slug", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -421,7 +421,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(i.UserID).To(Equal(u.ID))
 			Expect(i.HostID).To(Equal(hs.H.ID))
 			Expect(i.FreighterID).To(Equal("pulledbeef"))
-			Expect(i.Name).To(Equal("scratch"))
+			Expect(i.Slug).To(Equal("scratch"))
 			Expect(i.Tag).To(Equal("latest"))
 			Expect(i.CreatedAt).NotTo(BeNil())
 			Expect(i.UpdatedAt).NotTo(BeNil())
@@ -443,7 +443,7 @@ var _ = Describe("controllers/images", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j.Image.ID).To(Equal("pulledbeef"))
-			Expect(j.Image.Name).To(Equal("scratch"))
+			Expect(j.Image.Slug).To(Equal("scratch"))
 			Expect(j.Image.Tag).To(Equal("latest"))
 		})
 
@@ -501,7 +501,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
-		It("publishes an image.pushed event with the image ID/name and destination", func(done Done) {
+		It("publishes an image.pushed event with the image ID/slug and destination", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
