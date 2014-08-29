@@ -570,6 +570,19 @@ var _ = Describe("controllers/images", func() {
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/images/{image}/tag", func() {
+		BeforeEach(func() {
+			i := &image.Image{
+				UserID:      hs.U.ID,
+				HostID:      hs.H.ID,
+				FreighterID: "cafebabe",
+				Name:        "scratch v1",
+				Slug:        "nitrousio/scratch",
+				Tag:         "latest",
+			}
+			err := i.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
 		doRequest := func(host, image string, params *url.Values) *httptest.ResponseRecorder {
 			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/%s/tag", host, image), params)
 			Expect(err).To(BeNil())
@@ -578,10 +591,52 @@ var _ = Describe("controllers/images", func() {
 			return res
 		}
 
+		It("creates an image record", func() {
+			i, err := image.Find(db, u, hs.H, "staging")
+			Expect(err).To(MatchError(sql.ErrNoRows))
+
+			res := doRequest("foo", "nitrousio/scratch", &url.Values{"tag": []string{"staging"}})
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			i, err = image.Find(db, u, hs.H, "staging")
+			Expect(err).To(BeNil())
+			Expect(i.FreighterID).To(Equal("cafebabe"))
+			Expect(i.Name).To(Equal("")) // Left blank.
+			Expect(i.Slug).To(Equal("staging"))
+			Expect(i.Tag).To(Equal("latest"))
+		})
+
+		Context("when image already exists", func() {
+			BeforeEach(func() {
+				i := &image.Image{
+					UserID:      hs.U.ID,
+					HostID:      hs.H.ID,
+					FreighterID: "deadbeef",
+					Name:        "staging image",
+					Slug:        "staging", // We'll attempt to tag a new image with this image's repo.
+					Tag:         "latest",
+				}
+				err := i.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("updates the existing image record with the source image", func() {
+				res := doRequest("foo", "nitrousio/scratch", &url.Values{"tag": []string{"staging"}})
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				i, err := image.Find(db, u, hs.H, "staging")
+				Expect(err).To(BeNil())
+				Expect(i.FreighterID).To(Equal("cafebabe"))
+				Expect(i.Name).To(Equal("staging image")) // Unchanged.
+				Expect(i.Slug).To(Equal("staging"))
+				Expect(i.Tag).To(Equal("latest"))
+			})
+		})
+
 		It("calls TagImage", func() {
-			res := doRequest("foo", "nitrousio/scratch:tag", &url.Values{"tag": []string{"staging"}})
+			res := doRequest("foo", "nitrousio/scratch", &url.Values{"tag": []string{"staging"}})
 			Expect(mockClient.TagImageCalled).To(Equal(1))
-			Expect(mockClient.ReceivedImage).To(Equal("nitrousio/scratch:tag"))
+			Expect(mockClient.ReceivedImage).To(Equal("nitrousio/scratch:latest"))
 			Expect(mockClient.ReceivedTag).To(Equal("staging"))
 			Expect(mockClient.TagImageForce).To(BeFalse())
 			Expect(res.Code).To(Equal(http.StatusOK))
@@ -591,31 +646,29 @@ var _ = Describe("controllers/images", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
-			doRequest("foo", "nitrousio/scratch:tag", &url.Values{"tag": []string{"staging"}})
+			doRequest("foo", "nitrousio/scratch:latest", &url.Values{"tag": []string{"staging"}})
 
 			msg := <-ch
 			evt, ok := msg.(*controllers.Event)
 			Expect(ok).To(BeTrue())
 			Expect(evt.Name).To(Equal("image.tagged"))
-			Expect(evt.Data).To(BeEquivalentTo(struct {
-				Image string `json:"image"`
-				Tag   string `json:"tag"`
-			}{
-				Image: "nitrousio/scratch:tag",
-				Tag:   "staging",
-			}))
+			img, ok := evt.Data.(*serializers.Image)
+			Expect(ok).To(BeTrue())
+			Expect(img.ID).To(Equal("cafebabe"))
+			Expect(img.Slug).To(Equal("staging"))
+			Expect(img.Tag).To(Equal("latest"))
 			close(done)
 		})
 
 		It("sends force param", func() {
-			res := doRequest("foo", "scratch", &url.Values{"tag": []string{"staging"}, "force": []string{"1"}})
+			res := doRequest("foo", "nitrousio/scratch", &url.Values{"tag": []string{"staging"}, "force": []string{"1"}})
 			Expect(mockClient.TagImageCalled).To(Equal(1))
 			Expect(mockClient.TagImageForce).To(BeTrue())
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
 		It("requires tag param", func() {
-			res := doRequest("foo", "devenv", nil)
+			res := doRequest("foo", "dontcare", nil)
 			Expect(mockClient.TagImageCalled).To(Equal(0))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
@@ -624,10 +677,20 @@ var _ = Describe("controllers/images", func() {
 
 		It("returns 500 on freighterclient error", func() {
 			mockClient.TagImageError = &freighterclient.StatusError{418}
-			res := doRequest("foo", "devenv", &url.Values{"tag": []string{"staging"}})
+			res := doRequest("foo", "nitrousio/scratch", &url.Values{"tag": []string{"staging"}})
 			Expect(mockClient.TagImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
+		})
+
+		Context("when trying to tag an image that does not exist in the database", func() {
+			It("returns HTTP 400", func() {
+				res := doRequest("foo", "nonexistent", &url.Values{"tag": []string{"staging"}})
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_request"))
+				Expect(errDesc).To(Equal("image does not exist"))
+			})
 		})
 	})
 })

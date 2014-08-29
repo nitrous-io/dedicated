@@ -2,6 +2,7 @@ package images
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -23,6 +24,7 @@ var (
 	errTagRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "tag is required")
 	errSlugRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errFileRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "file is required")
+	errImageMissing     = httperror.New(http.StatusBadRequest, "invalid_request", "image does not exist")
 )
 
 func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -217,41 +219,59 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 }
 
 func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	db := env.DB
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
 
-	image := mux.Vars(r)["image"]
-	if image == "" {
+	slug := mux.Vars(r)["image"]
+	if slug == "" {
 		return errIDOrSlugRequired
 	}
-
-	tag := r.FormValue("tag")
-	if tag == "" {
+	newRepo := r.FormValue("tag")
+	if newRepo == "" {
 		return errTagRequired
 	}
+	force, _ := strconv.ParseBool(r.FormValue("force"))
 
-	force := r.FormValue("force") != ""
+	srcImg, err := image.Find(db, env.User, h, slug)
+	if err != nil {
+		return errImageMissing
+	}
 
-	if err := cl.TagImage(image, tag, force); err != nil {
+	if err := cl.TagImage(srcImg.FullRepository(), newRepo, force); err != nil {
 		return err
 	}
 
-	// FIXME TagImage should return new image info. Or we should make another
-	// request to Freighter to get the new image.
-
-	type data struct {
-		Image string `json:"image"`
-		Tag   string `json:"tag"`
+	repo, tag := image.ParseRepoAndTag(newRepo)
+	if tag == "" {
+		tag = image.DefaultTag
 	}
+	taggedImg := &image.Image{
+		UserID:      env.User.ID,
+		HostID:      h.ID,
+		FreighterID: srcImg.FreighterID,
+		Slug:        repo,
+		Tag:         tag,
+	}
+	// If image record already exists, update it.
+	if existing, err := image.Find(db, env.User, h, newRepo); err == nil {
+		taggedImg.ID = existing.ID
+		taggedImg.Name = existing.Name
+	}
+	if err := taggedImg.InsertOrUpdate(db); err != nil { // log and continue
+		env.Logger.Errorf("images.tag: successfully tagged image '%+v' as '%s' in Freighter but failed to update database with '%+v'", srcImg, newRepo, taggedImg)
+	}
+
 	env.Events.Publish(
-		controllers.NewEvent("image.tagged", data{Image: image, Tag: tag}),
+		controllers.NewEvent("image.tagged", serializers.SerializeImage(taggedImg)),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "OK",
+		"image":  serializers.SerializeImage(taggedImg),
 	}
 	return nil
 }
