@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/cvolume"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/image"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/models/volume"
@@ -633,11 +634,12 @@ var _ = Describe("controllers/containers", func() {
 			params.Add("port[]", "0.0.0.0:8081:11211")
 
 			mockClient.CreatedContainer = &freighterclient.Container{
-				ID:    "deadbeef",
-				Name:  "elixir-web-1",
-				Host:  "1.2.3.4",
-				State: "running",
-				Image: "elixir",
+				ID:      "deadbeef",
+				Name:    "elixir-web-1",
+				Host:    "1.2.3.4",
+				State:   "running",
+				Image:   "elixir",
+				ImageID: "abc123",
 			}
 		})
 
@@ -690,6 +692,46 @@ var _ = Describe("controllers/containers", func() {
 			Expect(c.Image).To(Equal("elixir"))
 			Expect(c.Name.String).To(Equal("Elixir Web Server 1"))
 			Expect(mockClient.ReceivedSecret).To(Equal(c.Secret))
+		})
+
+		It("creates a new image record", func() {
+			doRequest("valid-token", "foo", params)
+
+			i, err := image.Find(db, u, hs.H, "elixir:latest")
+			Expect(err).To(BeNil())
+			Expect(i.UserID).To(Equal(u.ID))
+			Expect(i.HostID).To(Equal(hs.H.ID))
+			Expect(i.FreighterID).To(Equal("abc123"))
+			Expect(i.Slug).To(Equal("elixir"))
+			Expect(i.Tag).To(Equal("latest"))
+		})
+
+		It("updates an existing image record if image already exists", func() {
+			existing := &image.Image{
+				UserID:      hs.U.ID,
+				HostID:      hs.H.ID,
+				FreighterID: "cafebabe",
+				Name:        "My Elixir Image",
+				Slug:        "existing-image",
+				Tag:         "mytag",
+			}
+			err := existing.Insert(db)
+			Expect(err).To(BeNil())
+
+			params.Del("image")
+			params.Set("image", "existing-image:mytag")
+
+			doRequest("valid-token", "foo", params)
+
+			i, err := image.Find(db, u, hs.H, "existing-image:mytag")
+			Expect(err).To(BeNil())
+			Expect(i.ID).To(Equal(existing.ID))
+			Expect(i.UserID).To(Equal(u.ID))
+			Expect(i.HostID).To(Equal(hs.H.ID))
+			Expect(i.FreighterID).To(Equal("abc123"))   // Updated.
+			Expect(i.Slug).To(Equal("existing-image"))  // Unchanged.
+			Expect(i.Tag).To(Equal("mytag"))            // Unchanged.
+			Expect(i.Name).To(Equal("My Elixir Image")) // Unchanged.
 		})
 
 		It("responds with HTTP 201 Created, the container and a status of created", func() {
