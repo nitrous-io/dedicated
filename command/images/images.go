@@ -10,13 +10,12 @@ import (
 	"github.com/nitrous-io/nitro/consts"
 )
 
-var headers = []string{"ID", "Name", "Tag", "Created", "Size", "Virtual Size"}
-
 type Image struct {
 	ID          string     `json:"id"`
 	UserID      int64      `json:"user_id"`
 	HostID      int64      `json:"host_id"`
 	Name        string     `json:"name"`
+	Slug        string     `json:"slug"`
 	Tag         string     `json:"tag"`
 	ActualSize  int64      `json:"actual_size"`
 	VirtualSize int64      `json:"virtual_size"`
@@ -30,9 +29,9 @@ func PrettyPrint(images ...*Image) string {
 	w := &tabwriter.Writer{}
 
 	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
-	fmt.Fprintln(w, strings.Join(headers, "\t "))
+	fmt.Fprintln(w, strings.Join([]string{"ID", "Slug", "Tag", "Name", "Created", "Size", "Virtual Size"}, "\t "))
 	for _, h := range images {
-		fmt.Fprintln(w, h.ID, "\t", h.Name, "\t", h.Tag, "\t", h.CreatedAt, "\t", h.ActualSize, "\t", h.VirtualSize)
+		fmt.Fprintln(w, h.ID, "\t", h.Slug, "\t", h.Tag, "\t", h.Name, "\t", h.CreatedAt, "\t", h.ActualSize, "\t", h.VirtualSize)
 	}
 	w.Flush()
 	return b.String()
