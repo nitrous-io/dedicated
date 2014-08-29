@@ -20,6 +20,7 @@ var _ = Describe("volume serializer", func() {
 			ID:        10,
 			Slug:      "music",
 			Name:      "music share",
+			HostID:    15,
 			CreatedAt: &createdAt,
 			UpdatedAt: &updatedAt,
 		}
@@ -34,6 +35,7 @@ var _ = Describe("volume serializer", func() {
 				"id": 10,
 				"slug": "music",
 				"name": "music share",
+				"host_id": 15,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -49,15 +51,16 @@ var _ = Describe("volume serializer", func() {
 				"id": 10,
 				"slug": "music",
 				"name": "music share",
+				"host_id": 15,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}]`))
 		})
 	})
 
-	Describe("SerializeFreighterVolume", func() {
+	Describe("SerializeVolumeInfo", func() {
 		It("serializes to JSON", func() {
-			v := serializers.SerializeFreighterVolume(
+			v := serializers.SerializeVolumeInfo(
 				&freighterclient.Volume{Slug: "music", Size: 123456})
 			b, err := json.Marshal(v)
 			Expect(err).To(BeNil())

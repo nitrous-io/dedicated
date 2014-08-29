@@ -533,7 +533,7 @@ func volumeSlugs(volParams []string) []string {
 
 func hostVolumes(d db.QueryReceiver, h *host.Host) (map[string]*volume.Volume, error) {
 	slugsToVols := map[string]*volume.Volume{}
-	hvols, err := volume.FindAllByHostID(d, h.ID)
+	hvols, err := volume.FindAll(d, h.ID)
 	if err != nil {
 		return nil, err
 	}

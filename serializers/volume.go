@@ -11,9 +11,14 @@ type Volume struct {
 	ID        int64      `json:"id,omitempty"`
 	Name      string     `json:"name,omitempty"`
 	Slug      string     `json:"slug"`
-	Size      uint64     `json:"size,omitempty"`
+	HostID    int64      `json:"host_id,omitempty"`
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+type VolumeInfo struct {
+	Slug string `json:"slug"`
+	Size uint64 `json:"size,omitempty"`
 }
 
 func SerializeVolume(v *volume.Volume) *Volume {
@@ -24,6 +29,7 @@ func SerializeVolume(v *volume.Volume) *Volume {
 		ID:        v.ID,
 		Name:      v.Name,
 		Slug:      v.Slug,
+		HostID:    v.HostID,
 		CreatedAt: v.CreatedAt,
 		UpdatedAt: v.UpdatedAt,
 	}
@@ -37,11 +43,11 @@ func SerializeVolumes(vols []*volume.Volume) []*Volume {
 	return ret
 }
 
-func SerializeFreighterVolume(v *freighterclient.Volume) *Volume {
+func SerializeVolumeInfo(v *freighterclient.Volume) *VolumeInfo {
 	if v == nil {
 		return nil
 	}
-	return &Volume{
+	return &VolumeInfo{
 		Slug: v.Slug,
 		Size: v.Size,
 	}

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
@@ -27,9 +28,17 @@ var (
 	ErrSlugTooLong  = errors.New("slug is too long (maximum is 127 characters)")
 )
 
-func FindByHostIDAndSlug(d db.QueryReceiver, hid int64, slug string) (*Volume, error) {
+func Find(d db.QueryReceiver, hid int64, identifier string) (*Volume, error) {
 	v := &Volume{}
-	err := d.Get(v, `SELECT * FROM volumes WHERE host_id = $1 AND slug = $2`, hid, slug)
+	id, err := strconv.ParseInt(identifier, 10, 64)
+
+	if err != nil {
+		// parse failed, treat identifier as a slug
+		err = d.Get(v, `SELECT * FROM volumes WHERE host_id = $1 AND slug = $2`, hid, identifier)
+	} else {
+		err = d.Get(v, `SELECT * FROM volumes WHERE host_id = $1 AND id = $2`, hid, id)
+	}
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -39,7 +48,7 @@ func FindByHostIDAndSlug(d db.QueryReceiver, hid int64, slug string) (*Volume, e
 	return v, nil
 }
 
-func FindAllByHostID(d db.QueryReceiver, hid int64) ([]*Volume, error) {
+func FindAll(d db.QueryReceiver, hid int64) ([]*Volume, error) {
 	vols := []*Volume{}
 	err := d.Select(&vols, `SELECT * FROM volumes WHERE host_id = $1 ORDER BY slug`, hid)
 	if err != nil {

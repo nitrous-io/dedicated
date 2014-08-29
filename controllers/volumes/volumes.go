@@ -28,7 +28,7 @@ var (
 )
 
 func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	vols, err := volume.FindAllByHostID(env.DB, h.ID)
+	vols, err := volume.FindAll(env.DB, h.ID)
 	if err != nil {
 		return err
 	}
@@ -48,6 +48,7 @@ func Create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	if slug == "" {
 		return errSlugRequired
 	}
+	name := r.FormValue("name")
 
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
@@ -57,6 +58,7 @@ func Create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	vol := &volume.Volume{
 		HostID: h.ID,
 		Slug:   slug,
+		Name:   name,
 	}
 
 	tx, err := db.Beginx()
@@ -137,6 +139,24 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
+	slug := mux.Vars(r)["vslug"]
+
+	vol, err := getVolume(db, h.ID, slug)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+		"volume": serializers.SerializeVolume(vol),
+	}
+	return nil
+}
+
+func Info(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
@@ -157,7 +177,7 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "ok",
-		"volume": serializers.SerializeFreighterVolume(vi),
+		"volume": serializers.SerializeVolumeInfo(vi),
 	}
 	return nil
 }
@@ -166,7 +186,7 @@ func getVolume(db ndb.QueryReceiver, hostID int64, slug string) (*volume.Volume,
 	if slug == "" {
 		return nil, errSlugRequired
 	}
-	vol, err := volume.FindByHostIDAndSlug(db, hostID, slug)
+	vol, err := volume.Find(db, hostID, slug)
 	if err != nil {
 		return nil, err
 	}

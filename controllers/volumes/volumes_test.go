@@ -169,7 +169,8 @@ var _ = Describe("controllers/volumes", func() {
 
 	Describe("POST /api/v0/hosts/:slug/volumes", func() {
 		doRequest := func(vol string) {
-			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%s/volumes", hs.H.Slug), &url.Values{"slug": []string{vol}})
+			params := &url.Values{"slug": []string{vol}, "name": []string{"some label"}}
+			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%s/volumes", hs.H.Slug), params)
 			Expect(err).To(BeNil())
 			svr.Router().ServeHTTP(res, req)
 		}
@@ -185,10 +186,11 @@ var _ = Describe("controllers/volumes", func() {
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 
-				vols, err := volume.FindAllByHostID(db, hs.H.ID)
+				vols, err := volume.FindAll(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(vols).To(HaveLen(1))
 				Expect(vols[0].Slug).To(Equal("metric"))
+				Expect(vols[0].Name).To(Equal("some label"))
 			})
 
 			It("publishes a volume.created event with the created volume", func(done Done) {
@@ -197,7 +199,7 @@ var _ = Describe("controllers/volumes", func() {
 
 				doRequest("metric")
 
-				v, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "metric")
+				v, err := volume.Find(db, hs.H.ID, "metric")
 				Expect(err).To(BeNil())
 				Expect(<-ch).To(Equal(&controllers.Event{
 					Name: "volume.created",
@@ -233,7 +235,7 @@ var _ = Describe("controllers/volumes", func() {
 				doRequest("sonic-boom")
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				Expect(mockClient.CreateVolumeCalled).To(Equal(1))
-				vols, err := volume.FindAllByHostID(db, hs.H.ID)
+				vols, err := volume.FindAll(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(vols).To(HaveLen(0))
 			})
@@ -251,7 +253,7 @@ var _ = Describe("controllers/volumes", func() {
 				doRequest("sonic-boom")
 				Expect(res.Code).To(Equal(http.StatusServiceUnavailable))
 				Expect(mockClient.CreateVolumeCalled).To(Equal(0))
-				vols, err := volume.FindAllByHostID(db, hs.H.ID)
+				vols, err := volume.FindAll(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(vols).To(HaveLen(0))
 			})
@@ -267,7 +269,7 @@ var _ = Describe("controllers/volumes", func() {
 
 		BeforeEach(func() {
 			makeVolumes("deprecated", "conditioner")
-			v, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "deprecated")
+			v, err := volume.Find(db, hs.H.ID, "deprecated")
 			Expect(err).To(BeNil())
 			Expect(v).NotTo(BeNil())
 		})
@@ -283,11 +285,11 @@ var _ = Describe("controllers/volumes", func() {
 				}{}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				v, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "deprecated")
+				v, err := volume.Find(db, hs.H.ID, "deprecated")
 				Expect(err).To(BeNil())
 				Expect(v).To(BeNil())
 
-				v, err = volume.FindByHostIDAndSlug(db, hs.H.ID, "conditioner")
+				v, err = volume.Find(db, hs.H.ID, "conditioner")
 				Expect(err).To(BeNil())
 				Expect(v).NotTo(BeNil())
 				Expect(v.Slug).To(Equal("conditioner"))
@@ -330,7 +332,7 @@ var _ = Describe("controllers/volumes", func() {
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				slug, _ := ErrorSlug(res.Body)
 				Expect(slug).To(Equal("internal_server_error"))
-				v, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "deprecated")
+				v, err := volume.Find(db, hs.H.ID, "deprecated")
 				Expect(err).To(BeNil())
 				Expect(v).NotTo(BeNil())
 				Expect(v.Slug).To(Equal("deprecated"))
@@ -345,9 +347,45 @@ var _ = Describe("controllers/volumes", func() {
 			svr.Router().ServeHTTP(res, req)
 		}
 
+		Context("when volume exist", func() {
+			It("returns volume in JSON", func() {
+				v := volume.Volume{HostID: hs.H.ID, Slug: "music", Name: "my music volume"}
+				err := v.Insert(db)
+				Expect(err).To(BeNil())
+
+				doRequest("music")
+				var j struct {
+					Volume *serializers.Volume `json:"volume"`
+				}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Volume.ID).To(Equal(v.ID))
+				Expect(j.Volume.Name).To(Equal("my music volume"))
+				Expect(j.Volume.Slug).To(Equal("music"))
+				Expect(j.Volume.HostID).To(Equal(hs.H.ID))
+				Expect(j.Volume.CreatedAt.IsZero()).NotTo(BeTrue())
+				Expect(j.Volume.UpdatedAt.IsZero()).NotTo(BeTrue())
+			})
+		})
+
+		Context("when volume is not found", func() {
+			It("returns 404 Not Found", func() {
+				doRequest("nosuch")
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+	})
+
+	Describe("GET /api/v0/hosts/:slug/volumes/:vslug/info", func() {
+		doRequest := func(vol string) {
+			req, err := NewAuthedRequest(t, "GET", fmt.Sprintf("/api/v0/hosts/%s/volumes/%s/info", hs.H.Slug, vol), nil)
+			Expect(err).To(BeNil())
+			svr.Router().ServeHTTP(res, req)
+		}
+
 		BeforeEach(func() {
 			makeVolumes("music")
-			v, err := volume.FindByHostIDAndSlug(db, hs.H.ID, "music")
+			v, err := volume.Find(db, hs.H.ID, "music")
 			Expect(err).To(BeNil())
 			Expect(v).NotTo(BeNil())
 		})
