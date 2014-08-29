@@ -1247,7 +1247,6 @@ var _ = Describe("provider/docker", func() {
 	})
 
 	Describe(".PullImage()", func() {
-
 		var (
 			mockProxy    *MockDockerProxy
 			tempAuthFile *os.File
@@ -1336,7 +1335,7 @@ var _ = Describe("provider/docker", func() {
 
 			Expect(mockProxy.PullImageCalled).To(BeTrue())
 			Expect(mockProxy.PullImageOpts.Repository).To(Equal("nitrousio/nodejs"))
-			Expect(mockProxy.PullImageOpts.Tag).To(HaveLen(0))
+			Expect(mockProxy.PullImageOpts.Tag).To(Equal("latest"))
 			Expect(mockProxy.PullImageAuth.Username).To(Equal("test"))
 			Expect(mockProxy.PullImageAuth.Password).To(ContainSubstring("1234xxcc"))
 			Expect(mockProxy.PullImageAuth.Email).To(Equal("docker@callumj.com"))
@@ -1372,7 +1371,7 @@ var _ = Describe("provider/docker", func() {
 
 			Expect(mockProxy.PullImageCalled).To(BeTrue())
 			Expect(mockProxy.PullImageOpts.Repository).To(Equal("quay.io/ubuntu"))
-			Expect(mockProxy.PullImageOpts.Tag).To(HaveLen(0))
+			Expect(mockProxy.PullImageOpts.Tag).To(Equal("latest"))
 			Expect(mockProxy.PullImageAuth.Username).To(Equal("testo"))
 			Expect(mockProxy.PullImageAuth.Password).To(ContainSubstring("Password1"))
 			Expect(mockProxy.PullImageAuth.Email).To(Equal("quay@callumj.com"))
@@ -1389,7 +1388,7 @@ var _ = Describe("provider/docker", func() {
 
 			Expect(mockProxy.PullImageCalled).To(BeTrue())
 			Expect(mockProxy.PullImageOpts.Repository).To(Equal("quay.io/quay/ubuntu"))
-			Expect(mockProxy.PullImageOpts.Tag).To(HaveLen(0))
+			Expect(mockProxy.PullImageOpts.Tag).To(Equal("latest"))
 			Expect(mockProxy.PullImageAuth.Username).To(Equal("testo"))
 			Expect(mockProxy.PullImageAuth.Password).To(ContainSubstring("Password1"))
 			Expect(mockProxy.PullImageAuth.Email).To(Equal("quay@callumj.com"))
@@ -1437,7 +1436,6 @@ var _ = Describe("provider/docker", func() {
 
 			Expect(mockProxy.PullImageCalled).To(BeTrue())
 		})
-
 	})
 
 	Describe(".TagImage()", func() {

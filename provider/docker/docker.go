@@ -538,6 +538,9 @@ func (p *DockerProvider) PullImage(location string) (*provider.ImageInfo, error)
 	}
 
 	repository, tag := parsers.ParseRepoAndTag(location)
+	if tag == "" {
+		tag = "latest"
+	}
 	pullOpts := dockerclient.PullImageOptions{
 		Repository: repository,
 		Tag:        tag,
