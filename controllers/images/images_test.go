@@ -419,7 +419,7 @@ var _ = Describe("controllers/images", func() {
 			}
 			doRequest("foo", &url.Values{"repository": []string{"scratch"}})
 
-			i, err := image.Find(db, u, hs.H, "pulledbeef")
+			i, err := image.Find(db, u, hs.H, "scratch:latest")
 			Expect(err).To(BeNil())
 			Expect(i.UserID).To(Equal(u.ID))
 			Expect(i.HostID).To(Equal(hs.H.ID))
@@ -428,6 +428,34 @@ var _ = Describe("controllers/images", func() {
 			Expect(i.Tag).To(Equal("latest"))
 			Expect(i.CreatedAt).NotTo(BeNil())
 			Expect(i.UpdatedAt).NotTo(BeNil())
+		})
+
+		Context("when image already exists", func() {
+			BeforeEach(func() {
+				i := &image.Image{
+					UserID:      hs.U.ID,
+					HostID:      hs.H.ID,
+					FreighterID: "cafebabe",
+					Name:        "scratch v1",
+					Slug:        "scratch",
+					Tag:         "latest",
+				}
+				err := i.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("updates the existing image record with the new info from Freighter", func() {
+				mockClient.PullImageReturn = &freighterclient.Image{
+					ID:   "cafedead",
+					Name: "scratch",
+					Tag:  "latest",
+				}
+				doRequest("foo", &url.Values{"repository": []string{"scratch"}})
+
+				i, err := image.Find(db, u, hs.H, "scratch:latest")
+				Expect(err).To(BeNil())
+				Expect(i.FreighterID).To(Equal("cafedead"))
+			})
 		})
 
 		It("responds with image on success", func() {
@@ -462,7 +490,7 @@ var _ = Describe("controllers/images", func() {
 
 			doRequest("foo", &url.Values{"repository": []string{"scratch"}})
 
-			i, err := image.Find(db, u, hs.H, "pulledbeef")
+			i, err := image.Find(db, u, hs.H, "scratch:latest")
 			Expect(err).To(BeNil())
 
 			Expect(<-ch).To(Equal(&controllers.Event{

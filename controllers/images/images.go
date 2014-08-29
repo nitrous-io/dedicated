@@ -142,7 +142,8 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 }
 
 func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	db := env.DB
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
@@ -160,7 +161,11 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	i := convertImage(img)
 	i.UserID = env.User.ID
 	i.HostID = h.ID
-	if err := i.Insert(env.DB); err != nil { // log and continue
+	// If image record already exists, update it.
+	if existing, err := image.Find(db, env.User, h, repo); err == nil {
+		i.ID = existing.ID
+	}
+	if err := i.InsertOrUpdate(db); err != nil { // log and continue
 		env.Logger.Errorf("images.pull: successfully pulled image '%+v' in Freighter but failed to update database with '%+v'", img, i)
 	}
 
