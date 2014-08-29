@@ -24,7 +24,7 @@ image:
 	@script/image $(APP) $(VERSION)
 
 ci: image
-	@script/ci $(APP) $(VERSION)
+	@script/ci $(APP) $(VERSION) $(NITRO_API_URL)
 
 format:
 	go fmt ./...
