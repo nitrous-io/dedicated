@@ -11,11 +11,11 @@ all: build
 
 build: clean
 	@echo "$(OK_COLOR)==> Building revision $(VERSION)...$(NO_COLOR)"
-	@script/build $(APP) $(VERSION)
+	@script/build $(APP) $(VERSION) $(NITRO_API_URL)
 
 xbuild:
 	@echo "$(OK_COLOR)==> Cross-Compiling revision $(VERSION)...$(NO_COLOR)"
-	@script/xbuild $(APP) $(VERSION)
+	@script/xbuild $(APP) $(VERSION) $(NITRO_API_URL)
 
 clean:
 	rm -f .vendor/bin/$(APP)

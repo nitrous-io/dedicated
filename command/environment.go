@@ -15,10 +15,8 @@ type Environment struct {
 	AuthToken  string
 }
 
-// defaults for missing env vars
-const (
-	DefaultAPIURL = "http://127.0.0.1:3333"
-)
+// defaults will be set by build
+var DefaultAPIURL string
 
 func ConfigureEnvironment() *Environment {
 	e := &Environment{}

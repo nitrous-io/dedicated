@@ -3,11 +3,12 @@
 set -e
 export APP=${1:?"app is required"}
 export VERSION=${2:?"version is required"}
+export NITRO_API_URL=${3:-http://127.0.0.1:3333}
 export BUILD_DIR=./build
 
 rm -f "$BUILD_DIR/$APP"
 mkdir -p "$BUILD_DIR"
 
-goop go install -ldflags "-X main.version $VERSION" -x -v ./...
+goop go install -ldflags "-X main.version $VERSION -X command.DefaultAPIURL $NITRO_API_URL" -x -v ./...
 goop exec bash -c 'mv $GOBIN/$APP $BUILD_DIR/$APP'
 echo "Binary built successfully: $BUILD_DIR/$APP"
