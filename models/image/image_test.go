@@ -37,7 +37,7 @@ var _ = Describe("models/image", func() {
 		It("returns the image record when given its Freighter ID", func() {
 			hs, err := test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, tag) values ($1, $2, $3, $4, $5);", hs.U.ID, hs.H.ID, "cafebabe", "scratch", "latest")
+			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag) values ($1, $2, $3, $4, $5, $6);", hs.U.ID, hs.H.ID, "cafebabe", "scratch image", "scratch", "latest")
 			Expect(err).To(BeNil())
 
 			img, err := image.Find(db, hs.U, hs.H, "cafebabe")
@@ -46,14 +46,14 @@ var _ = Describe("models/image", func() {
 			Expect(img.UserID).To(Equal(hs.U.ID))
 			Expect(img.HostID).To(Equal(hs.H.ID))
 			Expect(img.FreighterID).To(Equal("cafebabe"))
-			Expect(img.Name).To(Equal("scratch"))
+			Expect(img.Slug).To(Equal("scratch"))
 			Expect(img.Tag).To(Equal("latest"))
 		})
 
-		It("returns the image record when given its name", func() {
+		It("returns the image record when given its slug", func() {
 			hs, err := test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, tag) values ($1, $2, $3, $4, $5);", hs.U.ID, hs.H.ID, "cafebabe", "scratch", "latest")
+			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag) values ($1, $2, $3, $4, $5, $6);", hs.U.ID, hs.H.ID, "cafebabe", "scratch image", "scratch", "latest")
 			Expect(err).To(BeNil())
 
 			img, err := image.Find(db, hs.U, hs.H, "scratch")
@@ -62,14 +62,14 @@ var _ = Describe("models/image", func() {
 			Expect(img.UserID).To(Equal(hs.U.ID))
 			Expect(img.HostID).To(Equal(hs.H.ID))
 			Expect(img.FreighterID).To(Equal("cafebabe"))
-			Expect(img.Name).To(Equal("scratch"))
+			Expect(img.Slug).To(Equal("scratch"))
 			Expect(img.Tag).To(Equal("latest"))
 		})
 
-		It("returns the image record when given its name with a tag", func() {
+		It("returns the image record when given its slug with a tag", func() {
 			hs, err := test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, tag) values ($1, $2, $3, $4, $5);", hs.U.ID, hs.H.ID, "cafebabe", "scratch", "mytag")
+			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag) values ($1, $2, $3, $4, $5, $6);", hs.U.ID, hs.H.ID, "cafebabe", "scratch image", "scratch", "mytag")
 			Expect(err).To(BeNil())
 
 			img, err := image.Find(db, hs.U, hs.H, "scratch:mytag")
@@ -78,7 +78,7 @@ var _ = Describe("models/image", func() {
 			Expect(img.UserID).To(Equal(hs.U.ID))
 			Expect(img.HostID).To(Equal(hs.H.ID))
 			Expect(img.FreighterID).To(Equal("cafebabe"))
-			Expect(img.Name).To(Equal("scratch"))
+			Expect(img.Slug).To(Equal("scratch"))
 			Expect(img.Tag).To(Equal("mytag"))
 		})
 
@@ -99,7 +99,7 @@ var _ = Describe("models/image", func() {
 				UserID:      hs.U.ID,
 				HostID:      hs.H.ID,
 				FreighterID: "cafebabe",
-				Name:        "scratch",
+				Slug:        "scratch",
 				Tag:         "latest",
 			}
 			err = i.Insert(db)
@@ -120,7 +120,7 @@ var _ = Describe("models/image", func() {
 		It("removes the image", func() {
 			hs, err := test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, tag) values ($1, $2, $3, $4, $5);", hs.U.ID, hs.H.ID, "cafebabe", "scratch", "latest")
+			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag) values ($1, $2, $3, $4, $5, $6);", hs.U.ID, hs.H.ID, "cafebabe", "scratch image", "scratch", "latest")
 			Expect(err).To(BeNil())
 
 			img, err := image.Find(db, hs.U, hs.H, "cafebabe")

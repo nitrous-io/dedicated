@@ -15,8 +15,12 @@ type Image struct {
 	HostID int64 `db:"host_id"`
 
 	FreighterID string `db:"freighter_id"`
-	Name        string `db:"name"`
-	Tag         string `db:"tag"`
+	// Name is for display purposes only.
+	Name string `db:"name"`
+	// Slug is actually the equivalent of a Docker image repository without
+	// the optional tag, e.g. "ubuntu" or "quay.io/nitrousio/scratch"
+	Slug string `db:"slug"`
+	Tag  string `db:"tag"`
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
@@ -29,8 +33,8 @@ type Image struct {
 var DefaultTag = "latest"
 
 // Find returns the image on the given host with the given identifier. An
-// identifier can be either a FID (Freighter ID) or name (with optional tag,
-// i.e. name[:tag]).
+// identifier can be either a FID (Freighter ID) or slug (with optional tag,
+// i.e. slug[:tag]).
 func Find(d db.QueryReceiver, u *user.User, h *host.Host, identifier string) (*Image, error) {
 	var i Image
 	repo, tag := ParseRepoAndTag(identifier)
@@ -39,7 +43,7 @@ func Find(d db.QueryReceiver, u *user.User, h *host.Host, identifier string) (*I
 	}
 	err := d.Get(&i, `SELECT * FROM images
 		WHERE user_id = $1 AND host_id = $2 AND
-		(freighter_id = $3 OR (name = $4 AND tag = $5))`,
+		(freighter_id = $3 OR (slug = $4 AND tag = $5))`,
 		u.ID, h.ID,
 		identifier, repo, tag)
 	if err != nil {
@@ -50,8 +54,8 @@ func Find(d db.QueryReceiver, u *user.User, h *host.Host, identifier string) (*I
 
 func (i *Image) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO images
-		(user_id, host_id, freighter_id, name, tag, created_at)
-    VALUES (:user_id, :host_id, :freighter_id, :name, :tag, :created_at)
+		(user_id, host_id, freighter_id, name, slug, tag, created_at)
+    VALUES (:user_id, :host_id, :freighter_id, :name, :slug, :tag, :created_at)
 		RETURNING *;`)
 	if err != nil {
 		return err
