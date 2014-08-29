@@ -1,6 +1,7 @@
 package image
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -66,6 +67,16 @@ func (i *Image) Insert(d db.QueryReceiver) error {
 func (i *Image) Delete(d db.QueryReceiver) error {
 	_, err := d.Exec(`DELETE FROM images WHERE id = $1`, i.ID)
 	return err
+}
+
+// FullRepository returns the full repository of the image (i.e. including its
+// tag). If for some reason tag is empty, DefaultTag is assumed.
+func (i *Image) FullRepository() string {
+	tag := i.Tag
+	if tag == "" {
+		tag = DefaultTag
+	}
+	return fmt.Sprintf("%s:%s", i.Slug, tag)
 }
 
 // ParseRepoAndTag extracts the repo name and tag from a repository string.

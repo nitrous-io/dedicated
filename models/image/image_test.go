@@ -136,7 +136,19 @@ var _ = Describe("models/image", func() {
 		})
 	})
 
-	Describe("ParseRepoAndTag", func() {
+	Describe("FullRepository()", func() {
+		It("returns slug:tag", func() {
+			i := &image.Image{Slug: "scratch", Tag: "mytag"}
+			Expect(i.FullRepository()).To(Equal("scratch:mytag"))
+		})
+
+		It("defaults tag to 'latest'", func() {
+			i := &image.Image{Slug: "scratch"}
+			Expect(i.FullRepository()).To(Equal("scratch:latest"))
+		})
+	})
+
+	Describe("ParseRepoAndTag()", func() {
 		testCases := []struct {
 			input, repo, tag string
 		}{
