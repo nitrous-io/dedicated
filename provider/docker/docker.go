@@ -172,6 +172,7 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 		ID:         container.ID,
 		Name:       nameFromContainer(container),
 		Image:      container.Config.Image,
+		ImageID:    container.Image,
 		Host:       container.NetworkSettings.IPAddress,
 		Ports:      portsFromContainer(container),
 		State:      stateFromContainer(container),
