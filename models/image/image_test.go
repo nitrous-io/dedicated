@@ -136,6 +136,30 @@ var _ = Describe("models/image", func() {
 		})
 	})
 
+	Describe("Update()", func() {
+		It("updates the image in the database", func() {
+			hs, err := test.CreateHostStack(db, nil)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag) values ($1, $2, $3, $4, $5, $6);", hs.U.ID, hs.H.ID, "cafebabe", "scratch image", "scratch", "latest")
+			Expect(err).To(BeNil())
+
+			img, err := image.Find(db, hs.U, hs.H, "cafebabe")
+			Expect(err).To(BeNil())
+			Expect(img).NotTo(BeNil())
+			Expect(img.FreighterID).To(Equal("cafebabe"))
+
+			img.FreighterID = "cafedead"
+			img.Name = "scratch image v2"
+			err = img.Update(db)
+			Expect(err).To(BeNil())
+
+			i2 := &image.Image{}
+			err = db.QueryRowx("SELECT * FROM images WHERE id = $1", img.ID).StructScan(i2)
+			Expect(err).To(BeNil())
+			Expect(img).To(Equal(i2))
+		})
+	})
+
 	Describe("FullRepository()", func() {
 		It("returns slug:tag", func() {
 			i := &image.Image{Slug: "scratch", Tag: "mytag"}

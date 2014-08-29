@@ -64,6 +64,25 @@ func (i *Image) Insert(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(i).StructScan(i)
 }
 
+func (i *Image) Update(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE images
+		SET (user_id, host_id, freighter_id, name, slug, tag, created_at)
+		= (:user_id, :host_id, :freighter_id, :name, :slug, :tag, :created_at)
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(i).StructScan(i)
+}
+
+func (i *Image) InsertOrUpdate(d db.QueryReceiver) error {
+	if i.ID == 0 {
+		return i.Insert(d)
+	}
+	return i.Update(d)
+}
+
 func (i *Image) Delete(d db.QueryReceiver) error {
 	_, err := d.Exec(`DELETE FROM images WHERE id = $1`, i.ID)
 	return err
