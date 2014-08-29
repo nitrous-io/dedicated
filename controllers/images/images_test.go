@@ -351,6 +351,18 @@ var _ = Describe("controllers/images", func() {
 	})
 
 	Describe("DELETE /api/v0/hosts/{slug}/image/{image}", func() {
+		BeforeEach(func() {
+			i := &image.Image{
+				UserID:      hs.U.ID,
+				HostID:      hs.H.ID,
+				FreighterID: "cafebabe",
+				Slug:        "nitrousio/elixir",
+				Tag:         "latest",
+			}
+			err := i.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
 		doRequest := func(host, image string) *httptest.ResponseRecorder {
 			req, err := NewAuthedRequest(t, "DELETE", fmt.Sprintf("/api/v0/hosts/%v/images/%v", host, image), nil)
 			Expect(err).To(BeNil())
@@ -365,16 +377,7 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("deletes image record from the database", func() {
-			i := &image.Image{
-				UserID:      hs.U.ID,
-				HostID:      hs.H.ID,
-				FreighterID: "cafebabe",
-				Slug:        "nitrousio/elixir",
-				Tag:         "latest",
-			}
-			err := i.Insert(db)
-			Expect(err).To(BeNil())
-			_, err = image.Find(db, hs.U, hs.H, "nitrousio/elixir")
+			_, err := image.Find(db, hs.U, hs.H, "nitrousio/elixir")
 			Expect(err).To(BeNil())
 
 			res := doRequest("foo", "nitrousio/elixir")
@@ -393,7 +396,7 @@ var _ = Describe("controllers/images", func() {
 
 			Expect(<-ch).To(Equal(&controllers.Event{
 				Name: "image.removed",
-				Data: "nitrousio/elixir",
+				Data: "nitrousio/elixir:latest",
 			}))
 			close(done)
 		})

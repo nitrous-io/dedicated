@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	errIDOrNameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "id or name is required")
+	errIDOrSlugRequired = httperror.New(http.StatusBadRequest, "invalid_request", "id or slug is required")
 	errRepoRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "repository is required")
 	errDestRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "destination is required")
 	errTagRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "tag is required")
@@ -113,25 +113,25 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	name := mux.Vars(r)["image"]
-	if name == "" {
-		return errIDOrNameRequired
+	slug := mux.Vars(r)["image"]
+	if slug == "" {
+		return errIDOrSlugRequired
 	}
 
-	if err := cl.RemoveImage(name); err != nil {
+	i, err := image.Find(db, env.User, h, slug)
+	if err != nil {
+		return err
+	}
+	if err := i.Delete(db); err != nil {
 		return err
 	}
 
-	if i, err := image.Find(db, env.User, h, name); err == nil {
-		if err := i.Delete(db); err != nil { // log and continue
-			env.Logger.Errorf("images.remove: successfully removed image '%+v' in Freighter but failed to remove from database: %v", i, err)
-		}
-	} else { // log and continue
-		env.Logger.Errorf("images.remove: successfully removed image '%s' in Freighter but it doesn't exist in database: %v", name, err)
+	if err := cl.RemoveImage(i.FullRepository()); err != nil {
+		return err
 	}
 
 	env.Events.Publish(
-		controllers.NewEvent("image.removed", name),
+		controllers.NewEvent("image.removed", i.FullRepository()),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK
@@ -184,7 +184,7 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 	image := mux.Vars(r)["image"]
 	if image == "" {
-		return errIDOrNameRequired
+		return errIDOrSlugRequired
 	}
 
 	dest := r.FormValue("destination")
@@ -219,7 +219,7 @@ func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Reque
 
 	image := mux.Vars(r)["image"]
 	if image == "" {
-		return errIDOrNameRequired
+		return errIDOrSlugRequired
 	}
 
 	tag := r.FormValue("tag")
