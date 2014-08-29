@@ -37,7 +37,7 @@ var _ = Describe("volumes/inspect", func() {
 		ui = &command.MockUI{&cli.MockUi{}}
 		handlers = ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
-			ghttp.VerifyRequest("GET", "/api/v0/hosts/myhost/volumes/dotfiles"),
+			ghttp.VerifyRequest("GET", "/api/v0/hosts/myhost/volumes/dotfiles/info"),
 			ghttp.RespondWithPtr(&statusCode, &responseBody),
 		)
 		srv = ghttp.NewServer()
