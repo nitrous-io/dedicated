@@ -400,6 +400,16 @@ var _ = Describe("controllers/images", func() {
 			}))
 			close(done)
 		})
+
+		Context("when trying to delete an image that does not exist in the database", func() {
+			It("returns HTTP 400", func() {
+				res := doRequest("foo", "nonexistent")
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("not_found"))
+				Expect(errDesc).To(Equal("image does not exist"))
+			})
+		})
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/images/pull", func() {
@@ -686,9 +696,9 @@ var _ = Describe("controllers/images", func() {
 		Context("when trying to tag an image that does not exist in the database", func() {
 			It("returns HTTP 400", func() {
 				res := doRequest("foo", "nonexistent", &url.Values{"tag": []string{"staging"}})
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				Expect(res.Code).To(Equal(http.StatusNotFound))
 				errType, errDesc := ErrorSlug(res.Body)
-				Expect(errType).To(Equal("invalid_request"))
+				Expect(errType).To(Equal("not_found"))
 				Expect(errDesc).To(Equal("image does not exist"))
 			})
 		})

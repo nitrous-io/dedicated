@@ -24,7 +24,7 @@ var (
 	errTagRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "tag is required")
 	errSlugRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errFileRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "file is required")
-	errImageMissing     = httperror.New(http.StatusBadRequest, "invalid_request", "image does not exist")
+	errImageMissing     = httperror.New(http.StatusNotFound, "not_found", "image does not exist")
 )
 
 func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -122,7 +122,7 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 
 	i, err := image.Find(db, env.User, h, slug)
 	if err != nil {
-		return err
+		return errImageMissing
 	}
 	if err := i.Delete(db); err != nil {
 		return err
