@@ -24,7 +24,7 @@ import (
 
 func TestShell(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "shell")
+	RunSpecs(t, "containers/shell")
 }
 
 var _ = Describe("Command", func() {
@@ -36,7 +36,25 @@ var _ = Describe("Command", func() {
 		Expect(code).To(Equal(1), "Requires container slug")
 	})
 
-	It("attaches to the remote shell", func() {
+	It("requires a running container", func() {
+		containerID := "container-slug"
+		ns := newNitrousServer(containerID, "shell-id", 1)
+		ns.containerState = "stopped"
+		defer ns.Close()
+
+		ew := bytes.NewBuffer(nil)
+		cmd := &Command{
+			UI:     &cli.BasicUi{ErrorWriter: ew},
+			server: ns.srv.URL,
+			client: httpclient.New("authtoken"), // FIXME This doesn't do anything.
+
+		}
+		code := cmd.Run([]string{containerID})
+		Expect(ew.String()).To(ContainSubstring("Requires a running container"))
+		Expect(code).To(Equal(1))
+	})
+
+	It("opens a shell to running container", func() {
 		var hostID int64 = 1
 		containerID := "container-slug"
 
@@ -44,10 +62,11 @@ var _ = Describe("Command", func() {
 		defer ns.Close()
 
 		stdin, stdout, _ := pty.Open()
+		ew := bytes.NewBuffer(nil)
 		ui := &cli.BasicUi{
 			Reader:      stdin,
 			Writer:      stdout,
-			ErrorWriter: bytes.NewBuffer(nil),
+			ErrorWriter: ew,
 		}
 		cmd := &Command{
 			UI:     ui,
@@ -58,7 +77,7 @@ var _ = Describe("Command", func() {
 		go func() {
 			defer GinkgoRecover()
 			cmd.Run([]string{containerID})
-			Expect(ui.ErrorWriter.(*bytes.Buffer).String()).To(BeEmpty())
+			Expect(ew.String()).To(BeEmpty())
 		}()
 
 		Eventually(ns.ts.resized).Should(Receive())
@@ -82,16 +101,18 @@ var _ = Describe("Command", func() {
 
 // nitrous test server
 type nitrousServer struct {
-	srv         *httptest.Server
-	ts          *testServer
-	containerID string
-	hostID      int64
+	srv            *httptest.Server
+	ts             *testServer
+	containerID    string
+	hostID         int64
+	containerState string
 }
 
 func (s *nitrousServer) getContainer(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]interface{}{
 		"CID":     s.containerID,
 		"host_id": s.hostID,
+		"state":   s.containerState,
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"container": resp,
@@ -121,9 +142,10 @@ func (s *nitrousServer) Close() {
 func newNitrousServer(containerID, shellID string, hostID int64) *nitrousServer {
 	ts := newTestServer(containerID, shellID)
 	s := &nitrousServer{
-		ts:          ts,
-		containerID: containerID,
-		hostID:      hostID,
+		ts:             ts,
+		containerID:    containerID,
+		hostID:         hostID,
+		containerState: "running",
 	}
 	r := mux.NewRouter()
 	r.HandleFunc(fmt.Sprintf("/api/v0/containers/%s", containerID), s.getContainer).Methods("GET")

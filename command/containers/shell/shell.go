@@ -73,6 +73,11 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
+	if cr.State != "running" {
+		c.UI.Error("Requires a running container")
+		return 1
+	}
+
 	// prepare the term
 	stdin := c.UI.Reader
 	stdout := c.UI.Writer

@@ -63,6 +63,11 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
+	if cn.State != "running" {
+		c.UI.Error("Requires a running container")
+		return 1
+	}
+
 	host := fmt.Sprintf("%s:%d", cn.Host.IPAddress, cn.Host.FreighterdPort)
 	if err := c.attach(host, token, cn.CID, c.UI.Writer); err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
