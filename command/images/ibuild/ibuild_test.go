@@ -168,7 +168,7 @@ var _ = Describe("images/ibuild", func() {
 
 			It("uses slug", func() {
 				fpath := makeDockerfile("")
-				code := cmd.Run([]string{"myhost", fpath, "--tag=UseThisSlug"})
+				code := cmd.Run([]string{"myhost", fpath, "--slug=UseThisSlug"})
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Built image"))
 				Expect(code).To(Equal(0))
 				Expect(srv.ReceivedRequests()).To(HaveLen(1))

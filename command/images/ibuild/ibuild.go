@@ -19,18 +19,17 @@ import (
 	flag "github.com/ogier/pflag"
 )
 
-const (
-	tagUsage = "give image a name after building (automatically generated if omitted)"
-	Usage    = `
+const slugUsage = "A slug for the image (automatically generated if omitted)"
+
+var usage = fmt.Sprintf(`
 Usage: nitro images:build <host> <path to Dockerfile or tarball with Dockerfile>
 
-  build image on host.  If a tarball is provided, it must have a Dockerfile in the archive root
+  Build image on host. If a tarball is provided, it must have a Dockerfile in the archive root.
 
 Options:
 
-  -t, --tag=""    %s
-`
-)
+  -s, --slug=""   %s
+`, slugUsage)
 
 var (
 	errInvalidTar = fmt.Errorf("Invalid tar file: must contain a file named 'Dockerfile' in archive root")
@@ -55,14 +54,14 @@ func NewCommand(token string) (cli.Command, error) {
 }
 
 func (c *Command) Help() string {
-	return strings.TrimSpace(fmt.Sprintf(Usage, tagUsage))
+	return strings.TrimSpace(usage)
 }
 
 func (c *Command) Run(args []string) int {
-	var tag string
+	var slug string
 	cmdFlags := flag.NewFlagSet("images:build", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
-	cmdFlags.StringVarP(&tag, "tag", "t", "", tagUsage)
+	cmdFlags.StringVarP(&slug, "slug", "s", "", slugUsage)
 
 	err := cmdFlags.Parse(args)
 	if err != nil {
@@ -76,18 +75,18 @@ func (c *Command) Run(args []string) int {
 	}
 
 	host, fpath := args[0], args[1]
-	if tag == "" {
-		tag = randomnamegenerator.Generate("image")
+	if slug == "" {
+		slug = randomnamegenerator.Generate("image")
 	}
 
 	c.UI.Output(fmt.Sprintf("Building image on '%s' from %s ...", host, fpath))
 
-	if err := c.makeRequest(host, fpath, tag); err != nil {
+	if err := c.makeRequest(host, fpath, slug); err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
 
-	c.UI.Output(fmt.Sprintf("Built image '%s' on '%s'", tag, host))
+	c.UI.Output(fmt.Sprintf("Built image '%s' on '%s'", slug, host))
 	return 0
 }
 
@@ -95,7 +94,7 @@ func (c *Command) Synopsis() string {
 	return "Build image on a host"
 }
 
-func (c *Command) makeRequest(host, fpath, tag string) error {
+func (c *Command) makeRequest(host, fpath, slug string) error {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -111,7 +110,7 @@ func (c *Command) makeRequest(host, fpath, tag string) error {
 	if _, err := io.Copy(part, r); err != nil {
 		return err
 	}
-	if err := writer.WriteField("slug", tag); err != nil {
+	if err := writer.WriteField("slug", slug); err != nil {
 		return err
 	}
 	if err := writer.Close(); err != nil {
