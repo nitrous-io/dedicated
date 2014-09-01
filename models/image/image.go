@@ -35,6 +35,14 @@ type Image struct {
 
 var DefaultTag = "latest"
 
+func FindAll(d db.QueryReceiver, u *user.User, h *host.Host) ([]*Image, error) {
+	images := []*Image{}
+	if err := d.Select(&images, `SELECT * FROM images WHERE user_id = $1 AND host_id = $2 ORDER BY id;`, u.ID, h.ID); err != nil {
+		return nil, err
+	}
+	return images, nil
+}
+
 // Find returns the image on the given host with the given identifier. An
 // identifier can be either a FID (Freighter ID) or slug (with optional tag,
 // i.e. slug[:tag]).

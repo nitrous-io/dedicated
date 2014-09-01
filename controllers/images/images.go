@@ -33,34 +33,44 @@ func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	imgs, err := cl.ListImages()
+	fImgs, err := cl.ListImages()
 	if err != nil {
 		return err
 	}
 
-	images := make([]*image.Image, 0, len(imgs))
-	for _, img := range imgs {
-		i := convertImage(img)
-		i.UserID = env.User.ID
-		i.HostID = h.ID
-
-		if iRec, err := image.Find(env.DB, env.User, h, img.ID); err == nil {
-			i.ID = iRec.ID
-			i.Name = iRec.Name
-			i.CreatedAt = iRec.CreatedAt
-			i.UpdatedAt = iRec.UpdatedAt
-		} else { // log and continue
-			env.Logger.Errorf("images.index: image '%+v' exists Freighter but not in database: %v", img, err)
+	dbImgs, err := image.FindAll(env.DB, env.User, h)
+	if err != nil {
+		return err
+	}
+	for _, img := range dbImgs {
+		fImg := findMatchingFreighterImage(img, fImgs)
+		if fImg == nil { // log and continue
+			env.Logger.Errorf("images.index: image '%+v' exists in database but not in Freighter: %v", img, err)
+			continue
+		}
+		img.ActualSize = fImg.ActualSize
+		img.VirtualSize = fImg.VirtualSize
+		if fImg.CreatedAt != 0 {
+			t := time.Unix(fImg.CreatedAt, 0)
+			img.BuiltAt = &t
 		}
 
-		images = append(images, i)
 	}
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"images": serializers.SerializeImages(images),
+		"images": serializers.SerializeImages(dbImgs),
 	}
 
+	return nil
+}
+
+func findMatchingFreighterImage(i *image.Image, images []*freighterclient.Image) *freighterclient.Image {
+	for _, fImg := range images {
+		if fImg.ID == i.FreighterID && fImg.Name == i.Slug && i.Tag == i.Tag {
+			return fImg
+		}
+	}
 	return nil
 }
 

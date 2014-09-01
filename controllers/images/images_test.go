@@ -130,8 +130,9 @@ var _ = Describe("controllers/images", func() {
 				UserID:      hs.U.ID,
 				HostID:      hs.H.ID,
 				FreighterID: "1a",
-				Name:        "source1",
+				Name:        "source1 image",
 				Tag:         "sourcetag1",
+				Slug:        "source1",
 			}
 			err := i1.Insert(db)
 			Expect(err).To(BeNil())
@@ -140,14 +141,15 @@ var _ = Describe("controllers/images", func() {
 				UserID:      hs.U.ID,
 				HostID:      hs.H.ID,
 				FreighterID: "2a",
-				Name:        "source2",
+				Name:        "source2 image",
 				Tag:         "sourcetag2",
+				Slug:        "source2",
 			}
 			err = i2.Insert(db)
 			Expect(err).To(BeNil())
 		})
 
-		It("responds with the images from Freighter augmented with data from the database", func() {
+		It("responds with images from the database augmented with data from Freighter", func() {
 			res := doRequest("foo")
 
 			Expect(mockClient.ListImagesCalled).To(Equal(1))
@@ -162,6 +164,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(images).To(HaveLen(2))
 
 			Expect(images[0].ID).To(Equal("1a"))
+			Expect(images[0].Name).To(Equal("source1 image"))
 			Expect(images[0].Slug).To(Equal("source1"))
 			Expect(images[0].Tag).To(Equal("sourcetag1"))
 			Expect(images[0].ActualSize).To(Equal(int64(13)))
@@ -172,6 +175,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(images[0].UpdatedAt).NotTo(BeNil())
 
 			Expect(images[1].ID).To(Equal("2a"))
+			Expect(images[1].Name).To(Equal("source2 image"))
 			Expect(images[1].Slug).To(Equal("source2"))
 			Expect(images[1].Tag).To(Equal("sourcetag2"))
 			Expect(images[1].ActualSize).To(Equal(int64(14)))
@@ -204,6 +208,8 @@ var _ = Describe("controllers/images", func() {
 		Context("when host has no images", func() {
 			BeforeEach(func() {
 				mockClient.ListImagesArray = []*freighterclient.Image{}
+				_, err := db.Exec(`DELETE FROM images;`)
+				Expect(err).To(BeNil())
 			})
 
 			It("responds with an empty array", func() {
@@ -218,6 +224,23 @@ var _ = Describe("controllers/images", func() {
 				images, ok := j["images"].([]interface{})
 				Expect(ok).To(BeTrue())
 				Expect(images).To(BeEmpty())
+			})
+		})
+
+		Context("when host has images that are not in the database", func() {
+			It("does not include those images in the response", func() {
+				err := i2.Delete(db)
+				Expect(err).To(BeNil())
+
+				res := doRequest("foo")
+
+				var j map[string][]serializers.Image
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				images, ok := j["images"]
+				Expect(ok).To(BeTrue())
+				Expect(images).To(HaveLen(1))
+				Expect(images[0].ID).To(Equal("1a"))
 			})
 		})
 

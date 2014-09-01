@@ -33,6 +33,31 @@ var _ = Describe("models/image", func() {
 		}
 	})
 
+	Describe("FindAll()", func() {
+		It("returns image records belong to the user and host ordered by id", func() {
+			hs, err := test.CreateHostStack(db, nil)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag) values ($1, $2, $3, $4, $5, $6);", hs.U.ID, hs.H.ID, "cafebabe", "scratch image", "scratch", "latest")
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag) values ($1, $2, $3, $4, $5, $6);", hs.U.ID, hs.H.ID, "cafebabe v2", "scratch image v2", "scratchv2", "v2")
+			Expect(err).To(BeNil())
+
+			images, err := image.FindAll(db, hs.U, hs.H)
+			Expect(err).To(BeNil())
+			Expect(images).To(HaveLen(2))
+
+			Expect(images[0].FreighterID).To(Equal("cafebabe"))
+			Expect(images[0].Name).To(Equal("scratch image"))
+			Expect(images[0].Slug).To(Equal("scratch"))
+			Expect(images[0].Tag).To(Equal("latest"))
+
+			Expect(images[1].FreighterID).To(Equal("cafebabe v2"))
+			Expect(images[1].Name).To(Equal("scratch image v2"))
+			Expect(images[1].Slug).To(Equal("scratchv2"))
+			Expect(images[1].Tag).To(Equal("v2"))
+		})
+	})
+
 	Describe("Find()", func() {
 		It("returns the image record when given its Freighter ID", func() {
 			hs, err := test.CreateHostStack(db, nil)
