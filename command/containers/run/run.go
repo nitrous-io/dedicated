@@ -61,6 +61,11 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
+	if cr.State != "running" {
+		c.UI.Error("Requires a running container")
+		return 1
+	}
+
 	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
 	command := strings.Join(args[1:], " ")
 

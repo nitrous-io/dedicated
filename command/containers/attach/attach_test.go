@@ -68,6 +68,7 @@ var _ = Describe("containers/attach", func() {
 					"container": map[string]interface{}{
 						"CID":     "deadbeef",
 						"host_id": 1,
+						"state":   "running",
 					},
 				}),
 		))
