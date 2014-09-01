@@ -144,9 +144,9 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/logs", s.wrapError(s.withContainerToken(s.getContainerLogs, "logs")), "GET")
 	s.route("/containers/{id}/attach", s.wrapError(s.withContainerToken(s.attachToContainer, "attach")), "POST")
 
-	s.route("/containers/{id}/shells", s.wrapError(s.createShell), "POST")
-	s.route("/shells/{id}/attach/ws", s.wrapError(s.wsAttachShell), "GET")
-	s.route("/shells/{id}/resize", s.wrapError(s.resizeShell), "POST")
+	s.route("/containers/{id}/shells", s.wrapError(s.withContainerToken(s.createShell, "shell")), "POST")
+	s.route("/containers/{id}/shells/{shellID}/attach/ws", s.wrapError(s.withContainerToken(s.wsAttachShell, "shell")), "GET")
+	s.route("/containers/{id}/shells/{shellID}/resize", s.wrapError(s.withContainerToken(s.resizeShell, "shell")), "POST")
 
 	s.route("/registry/auth", s.loginRegistry, "POST")
 	s.route("/registry/auth", s.logoutRegistry, "DELETE")

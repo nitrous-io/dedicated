@@ -288,7 +288,7 @@ func (s *Server) getContainerLogs(token string, w http.ResponseWriter, r *http.R
 	return s.provider.Logs(id, outstream, follow, timestamps, tail)
 }
 
-func (s *Server) createShell(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) createShell(token string, w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	info, err := s.provider.GetInfo(id)
 	if err != nil {
@@ -303,23 +303,24 @@ func (s *Server) createShell(w http.ResponseWriter, r *http.Request) error {
 	width := getFormInt(r, "width")
 	height := getFormInt(r, "height")
 
-	shell, err := shell.OpenShell(containerID, command, width, height)
+	sh, err := shell.OpenShell(containerID, command, width, height)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 	shellID := randomString()
-	s.shells[shellID] = shell
+	s.shells[shellID] = sh
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"id": shellID})
 	return nil
 }
 
-func (s *Server) wsAttachShell(w http.ResponseWriter, r *http.Request) error {
-	shellID := mux.Vars(r)["id"]
-	shell, ok := s.shells[shellID]
+func (s *Server) wsAttachShell(token string, w http.ResponseWriter, r *http.Request) error {
+	shellID := mux.Vars(r)["shellID"]
+	sh, ok := s.shells[shellID]
 	if !ok {
-		return fmt.Errorf("invalid shell %v", shellID)
+		s.respondEncodeJSON(w, http.StatusNotFound, map[string]interface{}{"error": "shell does not exist"})
+		return nil
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -330,20 +331,21 @@ func (s *Server) wsAttachShell(w http.ResponseWriter, r *http.Request) error {
 	defer stream.Close()
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	<-shell.Attach(stream, stream)
+	<-sh.Attach(stream, stream)
 	return nil
 }
 
-func (s *Server) resizeShell(w http.ResponseWriter, r *http.Request) error {
-	shellID := mux.Vars(r)["id"]
-	shell, ok := s.shells[shellID]
+func (s *Server) resizeShell(token string, w http.ResponseWriter, r *http.Request) error {
+	shellID := mux.Vars(r)["shellID"]
+	sh, ok := s.shells[shellID]
 	if !ok {
-		return fmt.Errorf("invalid shell %v", shellID)
+		s.respondEncodeJSON(w, http.StatusNotFound, map[string]interface{}{"error": "shell does not exist"})
+		return nil
 	}
 
 	width := getFormInt(r, "width")
 	height := getFormInt(r, "height")
-	if err := shell.Resize(width, height); err != nil {
+	if err := sh.Resize(width, height); err != nil {
 		return fmt.Errorf("Resize failed %v", err)
 	}
 	w.Header().Set("Access-Control-Allow-Origin", "*")
