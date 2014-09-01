@@ -315,37 +315,6 @@ func (s *Server) createShell(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) attachShell(w http.ResponseWriter, r *http.Request) error {
-	shellID := mux.Vars(r)["id"]
-	shell, ok := s.shells[shellID]
-	if !ok {
-		return fmt.Errorf("invalid shell %v", shellID)
-	}
-
-	stdin, stdout, err := hijackServer(w)
-	if err != nil {
-		shell.Close()
-		return err
-	}
-
-	defer func() {
-		if tcpc, ok := stdin.(*net.TCPConn); ok {
-			tcpc.CloseWrite()
-		} else {
-			stdin.Close()
-		}
-
-		if tcpc, ok := stdout.(*net.TCPConn); ok {
-			tcpc.CloseWrite()
-		} else if closer, ok := stdout.(io.Closer); ok {
-			closer.Close()
-		}
-	}()
-
-	<-shell.Attach(stdin, stdout)
-	return nil
-}
-
 func (s *Server) wsAttachShell(w http.ResponseWriter, r *http.Request) error {
 	shellID := mux.Vars(r)["id"]
 	shell, ok := s.shells[shellID]

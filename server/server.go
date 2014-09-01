@@ -145,11 +145,8 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/attach", s.wrapError(s.withContainerToken(s.attachToContainer, "attach")), "POST")
 
 	s.route("/containers/{id}/shells", s.wrapError(s.createShell), "POST")
-	s.route("/shells/{id}/attach", s.wrapError(s.attachShell), "POST")
-	s.route("/shells/{id}/resize", s.wrapError(s.resizeShell), "POST")
-	// wrapper around attach that uses a websocket stream instead of the normal
-	// HTTP hijack
 	s.route("/shells/{id}/attach/ws", s.wrapError(s.wsAttachShell), "GET")
+	s.route("/shells/{id}/resize", s.wrapError(s.resizeShell), "POST")
 
 	s.route("/registry/auth", s.loginRegistry, "POST")
 	s.route("/registry/auth", s.logoutRegistry, "DELETE")
