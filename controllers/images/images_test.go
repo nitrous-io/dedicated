@@ -250,12 +250,9 @@ var _ = Describe("controllers/images", func() {
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/image", func() {
-		doRequest := func(host, image string, files map[string]string) *httptest.ResponseRecorder {
-			req, err := NewFileRequest("POST",
-				fmt.Sprintf("/api/v0/hosts/%v/images", host),
-				map[string]string{"slug": image},
-				files,
-			)
+		doRequest := func(host string, params *url.Values, files map[string]string) *httptest.ResponseRecorder {
+			url := fmt.Sprintf("/api/v0/hosts/%v/images", host)
+			req, err := NewFileRequest("POST", url, params, files)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			req.Header.Set("Authorization", "Bearer "+t.Token)
@@ -269,7 +266,10 @@ var _ = Describe("controllers/images", func() {
 				Name: "scratcher",
 				Tag:  "mytag",
 			}
-			res := doRequest("foo", "scratcher", map[string]string{"file": "FROM fake"})
+			params := &url.Values{}
+			params.Add("slug", "scratcher")
+			params.Add("name", "scratcher v1 test")
+			res := doRequest("foo", params, map[string]string{"file": "FROM fake"})
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			i, err := image.Find(db, u, hs.H, "scratcher:mytag")
@@ -277,6 +277,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(i.UserID).To(Equal(u.ID))
 			Expect(i.HostID).To(Equal(hs.H.ID))
 			Expect(i.FreighterID).To(Equal("cafebabe"))
+			Expect(i.Name).To(Equal("scratcher v1 test"))
 			Expect(i.Slug).To(Equal("scratcher"))
 			Expect(i.Tag).To(Equal("mytag"))
 			Expect(i.CreatedAt).NotTo(BeNil())
@@ -289,7 +290,9 @@ var _ = Describe("controllers/images", func() {
 				Name: "scratcher",
 				Tag:  "mytag",
 			}
-			res := doRequest("foo", "scratcher", map[string]string{"file": "FROM fake"})
+			params := &url.Values{}
+			params.Add("slug", "scratcher")
+			res := doRequest("foo", params, map[string]string{"file": "FROM fake"})
 			j := struct {
 				Image serializers.Image `json:"image"`
 			}{}
@@ -313,7 +316,9 @@ var _ = Describe("controllers/images", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
-			doRequest("foo", "scratcher", map[string]string{"file": "FROM fake"})
+			params := &url.Values{}
+			params.Add("slug", "scratcher")
+			doRequest("foo", params, map[string]string{"file": "FROM fake"})
 
 			i, err := image.Find(db, u, hs.H, "scratcher:mytag")
 			Expect(err).To(BeNil())
@@ -326,7 +331,7 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("requires slug", func() {
-			res := doRequest("foo", "", map[string]string{"file": "filecontent"})
+			res := doRequest("foo", &url.Values{}, map[string]string{"file": "filecontent"})
 			Expect(mockClient.BuildImageCalled).To(Equal(0))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
@@ -334,7 +339,9 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("requires file", func() {
-			res := doRequest("foo", "slug", map[string]string{})
+			params := &url.Values{}
+			params.Add("slug", "scratcher")
+			res := doRequest("foo", params, map[string]string{})
 			Expect(mockClient.BuildImageCalled).To(Equal(0))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
@@ -343,7 +350,9 @@ var _ = Describe("controllers/images", func() {
 
 		It("returns 500 on freighterclient error", func() {
 			mockClient.BuildImageError = &freighterclient.StatusError{418}
-			res := doRequest("foo", "scratcher", map[string]string{"file": "FROM fake"})
+			params := &url.Values{}
+			params.Add("slug", "scratcher")
+			res := doRequest("foo", params, map[string]string{"file": "FROM fake"})
 			Expect(mockClient.BuildImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
@@ -427,13 +436,17 @@ var _ = Describe("controllers/images", func() {
 				Name: "scratch",
 				Tag:  "latest",
 			}
-			doRequest("foo", &url.Values{"repository": []string{"scratch"}})
+			doRequest("foo", &url.Values{
+				"repository": []string{"scratch"},
+				"name":       []string{"scratcher v1 test"},
+			})
 
 			i, err := image.Find(db, u, hs.H, "scratch:latest")
 			Expect(err).To(BeNil())
 			Expect(i.UserID).To(Equal(u.ID))
 			Expect(i.HostID).To(Equal(hs.H.ID))
 			Expect(i.FreighterID).To(Equal("pulledbeef"))
+			Expect(i.Name).To(Equal("scratcher v1 test"))
 			Expect(i.Slug).To(Equal("scratch"))
 			Expect(i.Tag).To(Equal("latest"))
 			Expect(i.CreatedAt).NotTo(BeNil())
@@ -605,13 +618,16 @@ var _ = Describe("controllers/images", func() {
 			i, err := image.Find(db, u, hs.H, "staging")
 			Expect(err).To(MatchError(sql.ErrNoRows))
 
-			res := doRequest("foo", "nitrousio/scratch", &url.Values{"tag": []string{"staging"}})
+			res := doRequest("foo", "nitrousio/scratch", &url.Values{
+				"tag":  []string{"staging"},
+				"name": []string{"staging v1 from scratch"},
+			})
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			i, err = image.Find(db, u, hs.H, "staging")
 			Expect(err).To(BeNil())
 			Expect(i.FreighterID).To(Equal("cafebabe"))
-			Expect(i.Name).To(Equal("")) // Left blank.
+			Expect(i.Name).To(Equal("staging v1 from scratch"))
 			Expect(i.Slug).To(Equal("staging"))
 			Expect(i.Tag).To(Equal("latest"))
 		})
@@ -631,13 +647,16 @@ var _ = Describe("controllers/images", func() {
 			})
 
 			It("updates the existing image record with the source image", func() {
-				res := doRequest("foo", "nitrousio/scratch", &url.Values{"tag": []string{"staging"}})
+				res := doRequest("foo", "nitrousio/scratch", &url.Values{
+					"tag":  []string{"staging"},
+					"name": []string{"staging v1 from scratch"},
+				})
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				i, err := image.Find(db, u, hs.H, "staging")
 				Expect(err).To(BeNil())
 				Expect(i.FreighterID).To(Equal("cafebabe"))
-				Expect(i.Name).To(Equal("staging image")) // Unchanged.
+				Expect(i.Name).To(Equal("staging v1 from scratch"))
 				Expect(i.Slug).To(Equal("staging"))
 				Expect(i.Tag).To(Equal("latest"))
 			})
