@@ -160,6 +160,82 @@ var _ = Describe("models/image", func() {
 		})
 	})
 
+	Describe("InsertOrUpdate()", func() {
+		Context("when image ID is not set (i.e. zero value)", func() {
+			It("persists a new image record in the database", func() {
+				hs, err := test.CreateHostStack(db, nil)
+				Expect(err).To(BeNil())
+
+				var count int
+				err = db.QueryRow("SELECT COUNT(*) FROM images;").Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(0))
+
+				i := &image.Image{
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+				}
+				err = i.InsertOrUpdate(db)
+				Expect(err).To(BeNil())
+
+				err = db.QueryRow("SELECT COUNT(*) FROM images;").Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+				i2 := &image.Image{}
+				err = db.QueryRowx("SELECT * FROM images WHERE id = $1", i.ID).StructScan(i2)
+				Expect(err).To(BeNil())
+				Expect(i).To(Equal(i2))
+			})
+		})
+
+		Context("when image ID is set to an existing ID", func() {
+			It("updates the image in the database", func() {
+				hs, err := test.CreateHostStack(db, nil)
+				Expect(err).To(BeNil())
+				_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag) values ($1, $2, $3, $4, $5, $6);", hs.U.ID, hs.H.ID, "cafebabe", "scratch image", "scratch", "latest")
+				Expect(err).To(BeNil())
+
+				var count int
+				err = db.QueryRow("SELECT COUNT(*) FROM images;").Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+
+				img, err := image.Find(db, hs.U, hs.H, "cafebabe")
+				Expect(err).To(BeNil())
+				Expect(img.FreighterID).To(Equal("cafebabe"))
+
+				img.FreighterID = "cafedead"
+				img.Name = "scratch image v2"
+				err = img.InsertOrUpdate(db)
+				Expect(err).To(BeNil())
+
+				err = db.QueryRow("SELECT COUNT(*) FROM images;").Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+
+				i2 := &image.Image{}
+				err = db.QueryRowx("SELECT * FROM images WHERE id = $1", img.ID).StructScan(i2)
+				Expect(err).To(BeNil())
+				Expect(img).To(Equal(i2))
+			})
+		})
+
+		Context("when image ID is set to an ID that does not exist", func() {
+			It("returns an error", func() {
+				hs, err := test.CreateHostStack(db, nil)
+				Expect(err).To(BeNil())
+
+				i := &image.Image{
+					ID:     99999,
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+				}
+				err = i.InsertOrUpdate(db)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("FullRepository()", func() {
 		It("returns slug:tag", func() {
 			i := &image.Image{Slug: "scratch", Tag: "mytag"}
