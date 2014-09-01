@@ -91,9 +91,9 @@ hub1.example.com    test1      test1@example.com
 				responseBody = `{"error":"internal_server_error","error_hash":"b482fd5b602650c798366fe9ee8e6cf65ef759fc"}`
 			})
 
-			It("displays unknown error message", func() {
+			It("displays an error message containing an error code", func() {
 				code := cmd.Run([]string{"foo"})
-				Expect(ui.ErrorWriter.String()).To(ContainSubstring("Unknown error occurred"))
+				Expect(ui.ErrorWriter.String()).To(MatchRegexp(`error code: \w+`))
 				Expect(code).To(Equal(1))
 			})
 		})

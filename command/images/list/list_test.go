@@ -158,14 +158,14 @@ ID    Name       Tag           Created   Size   Virtual Size
 					statusCode = http.StatusBadRequest
 				})
 
-				Context("with no error_description", func() {
+				Context("with no error_hash", func() {
 					BeforeEach(func() {
-						responseBody = `{"foo": "bar"}`
+						responseBody = `{"error":"internal_server_error","error_hash":"b482fd5b602650c798366fe9ee8e6cf65ef759fc"}`
 					})
 
 					It("should exit 1 with a general error", func() {
 						code := cmd.Run([]string{host})
-						Expect(ui.ErrorWriter.String()).To(ContainSubstring("Unknown error occurred"))
+						Expect(ui.ErrorWriter.String()).To(MatchRegexp(`error code: \w+`))
 						Expect(code).To(Equal(1))
 					})
 				})
