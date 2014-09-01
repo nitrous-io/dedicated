@@ -13,18 +13,17 @@ import (
 	flag "github.com/ogier/pflag"
 )
 
-const (
-	forceUsage = "overwrite tag if it already exists"
-	Usage      = `
-Usage: nitro images:tag <host> <image id or name[:tag]> <new image name[:tag]>
+const forceUsage = "overwrites an existing image with the new slug:tag even if it exists"
 
-  give a new alias to an image.
+var usage = fmt.Sprintf(`
+Usage: nitro images:tag <host> <image id or slug[:tag]> <new image slug[:tag]>
+
+  Tag an existing image with a different slug and optional tag.
 
 Options:
 
   -f, --force=""    %s
-`
-)
+`, forceUsage)
 
 type Response struct {
 	Image images.Image `json:"image"`
@@ -49,7 +48,7 @@ func NewCommand(token string) (cli.Command, error) {
 }
 
 func (c *Command) Help() string {
-	return strings.TrimSpace(fmt.Sprintf(Usage, forceUsage))
+	return strings.TrimSpace(usage)
 }
 
 func (c *Command) Run(args []string) int {
@@ -58,8 +57,7 @@ func (c *Command) Run(args []string) int {
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
 	cmdFlags.BoolVarP(&force, "force", "f", false, forceUsage)
 
-	err := cmdFlags.Parse(args)
-	if err != nil {
+	if err := cmdFlags.Parse(args); err != nil {
 		return 1
 	}
 
@@ -73,8 +71,7 @@ func (c *Command) Run(args []string) int {
 
 	c.UI.Output(fmt.Sprintf("Tagging image '%s' as '%s' on host '%s'...", image, newName, host))
 
-	err = c.makeRequest(host, image, newName, force)
-	if err != nil {
+	if err := c.makeRequest(host, image, newName, force); err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
