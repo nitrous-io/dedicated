@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -88,14 +89,6 @@ var _ = Describe("controllers/users", func() {
 				doRequest()
 			})
 
-			It("responds with ok", func() {
-				Expect(res.Code).To(Equal(http.StatusOK))
-				j := map[string]string{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j["status"]).To(Equal("ok"))
-			})
-
 			It("creates a user record in the db", func() {
 				u, err := user.FindByUsername(db, "foo")
 				Expect(err).To(BeNil())
@@ -112,6 +105,16 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 				Expect(u).NotTo(BeNil())
 				Expect(bcrypt.Verify(u.EncryptedPassword, "123456")).To(BeTrue())
+			})
+
+			It("responds with created and serialized user", func() {
+				var j struct {
+					User *serializers.User `json:"user"`
+				}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j.User.Username).To(Equal("foo"))
+				Expect(j.User.Email).To(Equal("foo@example.com"))
 			})
 		})
 
