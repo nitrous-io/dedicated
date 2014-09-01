@@ -12,6 +12,7 @@ import (
 
 var _ = Describe("image serializer", func() {
 	var (
+		builtAt   = time.Date(2013, time.October, 1, 0, 0, 0, 0, time.UTC)
 		createdAt = time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
 		updatedAt = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
 
@@ -25,6 +26,7 @@ var _ = Describe("image serializer", func() {
 			Tag:         "latest",
 			ActualSize:  111111,
 			VirtualSize: 222222,
+			BuiltAt:     &builtAt,
 			CreatedAt:   &createdAt,
 			UpdatedAt:   &updatedAt,
 		}
@@ -43,6 +45,7 @@ var _ = Describe("image serializer", func() {
 				"tag": "latest",
 				"actual_size": 111111,
 				"virtual_size": 222222,
+				"built_at": "2013-10-01T00:00:00Z",
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -68,6 +71,7 @@ var _ = Describe("image serializer", func() {
 				"tag": "latest",
 				"actual_size": 111111,
 				"virtual_size": 222222,
+				"built_at": "2013-10-01T00:00:00Z",
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}]`))

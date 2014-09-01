@@ -7,14 +7,15 @@ import (
 )
 
 type Image struct {
-	ID          string `json:"id"`
-	UserID      int64  `json:"user_id"`
-	HostID      int64  `json:"host_id"`
-	Name        string `json:"name"`
-	Slug        string `json:"slug"`
-	Tag         string `json:"tag"`
-	ActualSize  int64  `json:"actual_size"`
-	VirtualSize int64  `json:"virtual_size"`
+	ID          string     `json:"id"`
+	UserID      int64      `json:"user_id"`
+	HostID      int64      `json:"host_id"`
+	Name        string     `json:"name"`
+	Slug        string     `json:"slug"`
+	Tag         string     `json:"tag"`
+	ActualSize  int64      `json:"actual_size"`
+	VirtualSize int64      `json:"virtual_size"`
+	BuiltAt     *time.Time `json:"built_at,omitempty"`
 
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
@@ -33,6 +34,7 @@ func SerializeImage(i *image.Image) *Image {
 		Tag:         i.Tag,
 		ActualSize:  i.ActualSize,
 		VirtualSize: i.VirtualSize,
+		BuiltAt:     i.BuiltAt,
 		CreatedAt:   i.CreatedAt,
 		UpdatedAt:   i.UpdatedAt,
 	}

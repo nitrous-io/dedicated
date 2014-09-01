@@ -47,6 +47,7 @@ func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		if iRec, err := image.Find(env.DB, env.User, h, img.ID); err == nil {
 			i.ID = iRec.ID
 			i.Name = iRec.Name
+			i.CreatedAt = iRec.CreatedAt
 			i.UpdatedAt = iRec.UpdatedAt
 		} else { // log and continue
 			env.Logger.Errorf("images.index: image '%+v' exists Freighter but not in database: %v", img, err)
@@ -286,11 +287,15 @@ func convertImage(img *freighterclient.Image) *image.Image {
 	if tag == "" {
 		tag = image.DefaultTag
 	}
-	createdAt := time.Unix(img.CreatedAt, 0)
+	var builtAt *time.Time
+	if img.CreatedAt != 0 {
+		t := time.Unix(img.CreatedAt, 0)
+		builtAt = &t
+	}
 	return &image.Image{
 		FreighterID: img.ID,
 		Slug:        img.Name,
-		CreatedAt:   &createdAt,
+		BuiltAt:     builtAt,
 		Tag:         tag,
 		ActualSize:  img.ActualSize,
 		VirtualSize: img.VirtualSize,

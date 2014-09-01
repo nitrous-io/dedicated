@@ -29,6 +29,8 @@ type Image struct {
 	// These fields come from Freighter.
 	ActualSize  int64
 	VirtualSize int64
+	// BuiltAt is time that Docker reports the image was created.
+	BuiltAt *time.Time
 }
 
 var DefaultTag = "latest"
@@ -55,8 +57,8 @@ func Find(d db.QueryReceiver, u *user.User, h *host.Host, identifier string) (*I
 
 func (i *Image) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO images
-		(user_id, host_id, freighter_id, name, slug, tag, created_at)
-    VALUES (:user_id, :host_id, :freighter_id, :name, :slug, :tag, :created_at)
+		(user_id, host_id, freighter_id, name, slug, tag)
+    VALUES (:user_id, :host_id, :freighter_id, :name, :slug, :tag)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -66,8 +68,8 @@ func (i *Image) Insert(d db.QueryReceiver) error {
 
 func (i *Image) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE images
-		SET (user_id, host_id, freighter_id, name, slug, tag, created_at)
-		= (:user_id, :host_id, :freighter_id, :name, :slug, :tag, :created_at)
+		SET (user_id, host_id, freighter_id, name, slug, tag)
+		= (:user_id, :host_id, :freighter_id, :name, :slug, :tag)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
