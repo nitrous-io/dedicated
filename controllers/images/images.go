@@ -124,11 +124,12 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	if err != nil {
 		return errImageMissing
 	}
-	if err := i.Delete(db); err != nil {
+
+	if err := cl.RemoveImage(i.FullRepository()); err != nil {
 		return err
 	}
 
-	if err := cl.RemoveImage(i.FullRepository()); err != nil {
+	if err := i.Delete(db); err != nil {
 		return err
 	}
 
