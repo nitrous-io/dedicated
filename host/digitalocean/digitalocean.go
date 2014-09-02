@@ -65,10 +65,22 @@ func (h *Host) Destroy() error {
 	}
 	droplet, err := h.Client.DropletInfo(id)
 	if err != nil {
+		// if the droplet does not exist, then consider that it is sucessfully
+		// destroyed
+		// https://github.com/nitrous-io/nitro/issues/99
+		if err == do.ErrNotFound {
+			return nil
+		}
 		return err
 	}
 	h.droplet = droplet
 	if err := h.Client.DestroyDroplet(id); err != nil {
+		// if the droplet does not exist, then consider that it is sucessfully
+		// destroyed
+		// https://github.com/nitrous-io/nitro/issues/99
+		if err == do.ErrNotFound {
+			return nil
+		}
 		return err
 	}
 	return nil

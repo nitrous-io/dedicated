@@ -244,4 +244,36 @@ var _ = Describe("host/digitalocean", func() {
 			Expect(request.URL.Path).To(Equal("/droplets/1"))
 		})
 	})
+
+	Describe("Destroy", func() {
+		It("succeeds when the droplet is not found", func() {
+			s.AddResponse("droplets/id", dotest.NewResponse(404, `{
+				"status":"ERROR",
+				"error_message":"No Droplets Found",
+				"message":"No Droplets Found"}`))
+
+			h := Host{Config: &HostConfig{ID: "1"}, Client: c}
+			err := h.Destroy()
+			Expect(err).To(BeNil(), "failed to destroy not-found droplet")
+		})
+
+		It("succeeds when destroy droplet returns 404", func() {
+			s.AddResponse("droplets/id", dotest.NewResponse(200, droplet))
+			s.AddResponse("droplets/id/destroy", dotest.NewResponse(404, `{
+				"status":"ERROR",
+				"error_message":"Specified droplet not found",
+				"message":"Specified droplet not found"}`))
+
+			h := Host{Config: &HostConfig{ID: "1"}, Client: c}
+			err := h.Destroy()
+			Expect(err).To(BeNil(), "failed to destroy not-found droplet")
+		})
+
+		It("fails when the API errors out", func() {
+			s.AddResponse("droplets/id", dotest.NewResponse(500, `{"status":"ERROR"}`))
+			h := Host{Config: &HostConfig{ID: "1"}, Client: c}
+			err := h.Destroy()
+			Expect(err).ToNot(BeNil(), "expect error when DO failed to process request")
+		})
+	})
 })
