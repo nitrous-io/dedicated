@@ -28,15 +28,17 @@ type RemoteShell struct {
 	ID          string `json:"id"`
 	host        string
 	containerID string
+	token       string
 	command     string
 }
 
 // New creates a shell that uses WebSockets.
-// FIXME Sprinkle TLS magic (i.e. wss://).
-func New(host, containerID, command string) *RemoteShell {
+// FIXME Sprinkle TLS magic (i.e. https and wss://).
+func New(host, containerID, token, command string) *RemoteShell {
 	return &RemoteShell{
 		host:        host,
 		containerID: containerID,
+		token:       token,
 		command:     command,
 	}
 }
@@ -51,6 +53,7 @@ func (s *RemoteShell) RequestShell() error {
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Authorization", "Token "+s.token)
 	req.Host = s.host
 
 	c, err := s.getConn()
@@ -84,8 +87,9 @@ func (s *RemoteShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) erro
 	}
 	defer term.RestoreTerminal(fd, oldState)
 
-	headers := http.Header{} // FIXME Add auth token in future when implemented in Freighter.
-	wsEndpointURI := fmt.Sprintf("ws://%s/shells/%s/attach/ws", s.host, s.ID)
+	headers := http.Header{}
+	headers.Add("Authorization", "Token "+s.token)
+	wsEndpointURI := fmt.Sprintf("ws://%s/containers/%s/shells/%s/attach/ws", s.host, s.containerID, s.ID)
 	ws, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, headers)
 	if err != nil {
 		return fmt.Errorf("Failed to attach to shell for container %s: %v", s.containerID, err)
@@ -116,11 +120,11 @@ func (s *RemoteShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) erro
 
 // Run executes a remote command inside a container in a specific host
 func Run(
-	host, container, command string,
+	host, container, token, command string,
 	fd uintptr,
 	stdin io.Reader, stdout io.Writer,
 ) error {
-	s := New(host, container, command)
+	s := New(host, container, token, command)
 	if err := s.RequestShell(); err != nil {
 		return fmt.Errorf("Failed to create a shell session %v", err)
 	}
@@ -155,11 +159,12 @@ func (s *RemoteShell) resize(fd uintptr) error {
 	values.Set("width", strconv.Itoa(w))
 	values.Set("height", strconv.Itoa(h))
 	req, err := http.NewRequest("POST",
-		fmt.Sprintf("/shells/%s/resize", s.ID),
+		fmt.Sprintf("/containers/%s/shells/%s/resize", s.containerID, s.ID),
 		bytes.NewBufferString(values.Encode()))
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Authorization", "Token "+s.token)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Host = s.host
 

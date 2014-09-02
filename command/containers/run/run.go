@@ -8,6 +8,7 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/command/containers"
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
 	"github.com/nitrous-io/nitro/pkg/remoteshell"
 	"github.com/nitrous-io/nitrous-common/httpclient"
@@ -55,6 +56,13 @@ func (c *Command) Run(args []string) int {
 	}
 
 	slug := args[0]
+
+	token, err := containers.GetToken(slug, c.server, []string{"shell"}, c.client)
+	if err != nil {
+		c.UI.Error(err.Error())
+		return 1
+	}
+
 	cr, err := nitrousapi.GetContainer(c.client, c.server, slug)
 	if err != nil {
 		c.UI.Error(err.Error())
@@ -77,7 +85,7 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	err = remoteshell.Run(host, cr.CID, command, pty.Fd(), stdin, stdout)
+	err = remoteshell.Run(host, cr.CID, token, command, pty.Fd(), stdin, stdout)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1

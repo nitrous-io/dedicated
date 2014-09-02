@@ -62,7 +62,6 @@ func (c *Command) Run(args []string) int {
 		c.UI.Error(err.Error())
 		return 1
 	}
-
 	if cn.State != "running" {
 		c.UI.Error("Requires a running container")
 		return 1
