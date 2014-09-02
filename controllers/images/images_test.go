@@ -1,14 +1,21 @@
 package images_test
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -45,6 +52,25 @@ var _ = Describe("controllers/images", func() {
 		t  *token.Token
 		hs *HostStack
 	)
+
+	makeDockerfile := func(tmpdir string) string {
+		path := filepath.Join(tmpdir, "Dockerfile")
+		err := ioutil.WriteFile(path, []byte("FROM scratch"), 0600)
+		Expect(err).To(BeNil())
+		return path
+	}
+
+	makeTar := func(dir, source, output string) error {
+		cmd := exec.Command("tar", "cf", output, path.Base(source))
+		cmd.Dir = dir
+		return cmd.Run()
+	}
+
+	makeTempDir := func() string {
+		tmpdir, err := ioutil.TempDir("", "nitro-build")
+		Expect(err).To(BeNil())
+		return tmpdir
+	}
 
 	BeforeEach(func() {
 		var err error
@@ -274,102 +300,61 @@ var _ = Describe("controllers/images", func() {
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/image", func() {
-		doRequest := func(host string, params *url.Values, files map[string]string) *httptest.ResponseRecorder {
-			url := fmt.Sprintf("/api/v0/hosts/%v/images", host)
-			req, err := NewFileRequest("POST", url, params, files)
+		doRequest := func(host string, params map[string]string, files map[string]io.Reader) *httptest.ResponseRecorder {
+			body := &bytes.Buffer{}
+			writer := multipart.NewWriter(body)
+
+			for k, v := range params {
+				err := writer.WriteField(k, v)
+				Expect(err).To(BeNil())
+			}
+
+			for n, c := range files {
+				part, err := writer.CreateFormFile("file", n)
+				Expect(err).To(BeNil())
+
+				_, err = io.Copy(part, c)
+				Expect(err).To(BeNil())
+			}
+
+			err := writer.Close()
 			Expect(err).To(BeNil())
-			res := httptest.NewRecorder()
+
+			req, err := http.NewRequest("POST",
+				fmt.Sprintf("/api/v0/hosts/%v/images", host), body)
+			Expect(err).To(BeNil())
+			req.Header.Set("Content-Type", writer.FormDataContentType())
 			req.Header.Set("Authorization", "Bearer "+t.Token)
+
+			res := httptest.NewRecorder()
 			svr.Router().ServeHTTP(res, req)
 			return res
 		}
 
-		It("creates an image record", func() {
-			mockClient.BuildImageReturn = &freighterclient.Image{
-				ID:   "cafebabe",
-				Name: "scratcher",
-				Tag:  "mytag",
-			}
-			params := &url.Values{}
-			params.Add("slug", "scratcher:mytag")
-			params.Add("name", "scratcher v1 test")
-			res := doRequest("foo", params, map[string]string{"file": "FROM fake"})
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			i, err := image.Find(db, u, hs.H, "scratcher:mytag")
-			Expect(err).To(BeNil())
-			Expect(i.UserID).To(Equal(u.ID))
-			Expect(i.HostID).To(Equal(hs.H.ID))
-			Expect(i.FreighterID).To(Equal("cafebabe"))
-			Expect(i.Name).To(Equal("scratcher v1 test"))
-			Expect(i.Slug).To(Equal("scratcher"))
-			Expect(i.Tag).To(Equal("mytag"))
-			Expect(i.CreatedAt).NotTo(BeNil())
-			Expect(i.UpdatedAt).NotTo(BeNil())
-		})
-
-		It("responds with image", func() {
-			mockClient.BuildImageReturn = &freighterclient.Image{
-				ID:   "cafebabe",
-				Name: "scratcher",
-				Tag:  "mytag",
-			}
-			params := &url.Values{}
-			params.Add("slug", "scratcher:mytag")
-			res := doRequest("foo", params, map[string]string{"file": "FROM fake"})
-			j := struct {
-				Image serializers.Image `json:"image"`
-			}{}
-			sent, err := ioutil.ReadAll(mockClient.BuildImageReader)
-			Expect(err).To(BeNil())
-			Expect(string(sent)).To(Equal("FROM fake"))
-			Expect(mockClient.BuildImageCalled).To(Equal(1))
-			Expect(res.Code).To(Equal(http.StatusOK))
-			err = json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.Image.Slug).To(Equal("scratcher"))
-		})
-
-		It("publishes an image.built event with the built image", func(done Done) {
-			mockClient.BuildImageReturn = &freighterclient.Image{
-				ID:   "cafebabe",
-				Name: "scratcher",
-				Tag:  "mytag",
-			}
-
-			ch := svr.Events.Subscribe(u.Topic())
-			defer svr.Events.Unsubscribe(ch, u.Topic())
-
-			params := &url.Values{}
-			params.Add("slug", "scratcher:mytag")
-			doRequest("foo", params, map[string]string{"file": "FROM fake"})
-
-			i, err := image.Find(db, u, hs.H, "scratcher:mytag")
-			Expect(err).To(BeNil())
-
-			Expect(<-ch).To(Equal(&controllers.Event{
-				Name: "image.built",
-				Data: serializers.SerializeImage(i),
-			}))
-			close(done)
-		})
-
 		It("requires slug", func() {
-			res := doRequest("foo", &url.Values{}, map[string]string{"file": "filecontent"})
+			params := map[string]string{
+				"slug": "",
+				"code": "FROM scratch",
+			}
+			res := doRequest("foo", params, map[string]io.Reader{})
+
 			Expect(mockClient.BuildImageCalled).To(Equal(0))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
 			Expect(errDesc).To(Equal("slug is required"))
 		})
 
-		It("requires file", func() {
-			params := &url.Values{}
-			params.Add("slug", "scratcher")
-			res := doRequest("foo", params, map[string]string{})
+		It("requires file param to be set if code param is empty", func() {
+			params := map[string]string{
+				"slug": "scratcher:mytag",
+				"code": "",
+			}
+			res := doRequest("foo", params, map[string]io.Reader{})
+
 			Expect(mockClient.BuildImageCalled).To(Equal(0))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
-			Expect(errDesc).To(Equal("file is required"))
+			Expect(errDesc).To(ContainSubstring("file is required"))
 		})
 
 		It("converts the name portion of the 'slug' form value to lowercase", func() {
@@ -379,59 +364,172 @@ var _ = Describe("controllers/images", func() {
 				Tag:  "MyTag",
 			}
 
-			params := &url.Values{}
-			params.Add("slug", "ScratchER:MyTag")
-			doRequest("foo", params, map[string]string{"file": "FROM fake"})
+			params := map[string]string{
+				"slug": "scRaTchEr:MyTag",
+				"code": "FROM fake",
+			}
+			doRequest("foo", params, map[string]io.Reader{})
 			Expect(mockClient.BuildImageCalled).To(Equal(1))
 			Expect(mockClient.BuildImageName).To(Equal("scratcher:MyTag"))
 		})
 
 		It("returns 500 on freighterclient error", func() {
 			mockClient.BuildImageError = &freighterclient.StatusError{418}
-			params := &url.Values{}
-			params.Add("slug", "scratcher")
-			res := doRequest("foo", params, map[string]string{"file": "FROM fake"})
+			params := map[string]string{
+				"slug": "scratcher",
+				"code": "FROM scratch",
+			}
+			res := doRequest("foo", params, map[string]io.Reader{})
+
 			Expect(mockClient.BuildImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
 		})
 
-		Context("when async param is true", func() {
-			It("returns 202 Accepted", func() {
+		itBuildsImageSuccessfully := func(filename string, contents io.Reader, code string) {
+			var (
+				params map[string]string
+				file   map[string]io.Reader
+				res    *httptest.ResponseRecorder
+			)
+
+			BeforeEach(func() {
 				mockClient.BuildImageReturn = &freighterclient.Image{
 					ID:   "cafebabe",
 					Name: "scratcher",
 					Tag:  "mytag",
 				}
-				params := &url.Values{}
-				params.Add("async", "true")
-				params.Add("slug", "scratcher:mytag")
-				params.Add("name", "scratcher v1 test")
-				res := doRequest("foo", params, map[string]string{"file": "FROM fake"})
 
-				Expect(res.Code).To(Equal(http.StatusAccepted))
+				file = map[string]io.Reader{}
+				if filename != "" && contents != nil {
+					file[filename] = contents
+				}
 
-				j := struct {
-					Image serializers.Image `json:"image"`
-				}{}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-				Expect(j.Image.UserID).To(Equal(u.ID))
-				Expect(j.Image.HostID).To(Equal(hs.H.ID))
-				Expect(j.Image.Name).To(Equal("scratcher v1 test"))
-				Expect(j.Image.Slug).To(Equal("scratcher"))
-				Expect(j.Image.Tag).To(Equal("mytag"))
-				Expect(j.Image.CreatedAt).NotTo(BeNil())
-				Expect(j.Image.UpdatedAt).NotTo(BeNil())
-
-				// These fields are not yet set.
-				Expect(j.Image.FreighterID).To(BeEmpty())
-				Expect(j.Image.BuiltAt).To(BeNil())
-
-				Eventually(func() int {
-					return mockClient.BuildImageCalled
-				}).Should(Equal(1))
+				params = map[string]string{
+					"slug": "scratcher:mytag",
+					"name": "scratcher v1 test",
+					"code": code,
+				}
 			})
+
+			Context("when async param is not given", func() {
+				It("creates an image record, responds with image and publishes image.built", func(done Done) {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					res = doRequest("foo", params, file)
+					Expect(res.Code).To(Equal(http.StatusOK))
+					i, err := image.Find(db, u, hs.H, "scratcher:mytag")
+					Expect(err).To(BeNil())
+					Expect(i.UserID).To(Equal(u.ID))
+					Expect(i.HostID).To(Equal(hs.H.ID))
+					Expect(i.FreighterID).To(Equal("cafebabe"))
+					Expect(i.Name).To(Equal("scratcher v1 test"))
+					Expect(i.Slug).To(Equal("scratcher"))
+					Expect(i.Tag).To(Equal("mytag"))
+					Expect(i.CreatedAt).NotTo(BeNil())
+					Expect(i.UpdatedAt).NotTo(BeNil())
+
+					sent, err := ioutil.ReadAll(mockClient.BuildImageReader)
+					Expect(err).To(BeNil())
+					Expect(string(sent)).NotTo(BeEmpty())
+					Expect(mockClient.BuildImageCalled).To(Equal(1))
+
+					j := struct {
+						Image serializers.Image `json:"image"`
+					}{}
+					err = json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+					Expect(j.Image.Slug).To(Equal("scratcher"))
+
+					Expect(<-ch).To(Equal(&controllers.Event{
+						Name: "image.built",
+						Data: serializers.SerializeImage(i),
+					}))
+					close(done)
+				})
+			})
+
+			Context("when async param is true", func() {
+				BeforeEach(func() {
+					params["async"] = "true"
+				})
+
+				It("returns 202 accepted and builds image asynchronously", func() {
+					res = doRequest("foo", params, file)
+					Expect(res.Code).To(Equal(http.StatusAccepted))
+
+					j := struct {
+						Image serializers.Image `json:"image"`
+					}{}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+					i, err := image.Find(db, u, hs.H, "scratcher:mytag")
+					Expect(err).To(BeNil())
+					Expect(j.Image.UserID).To(Equal(u.ID))
+					Expect(j.Image.HostID).To(Equal(hs.H.ID))
+					Expect(j.Image.Name).To(Equal("scratcher v1 test"))
+					Expect(j.Image.Slug).To(Equal("scratcher"))
+					Expect(j.Image.Tag).To(Equal("mytag"))
+					Expect(j.Image.CreatedAt).NotTo(BeNil())
+					Expect(j.Image.UpdatedAt).NotTo(BeNil())
+
+					Expect(j.Image.ID).To(Equal(i.ID))
+					Expect(j.Image.BuiltAt).To(BeNil())
+
+					Eventually(func() int {
+						return mockClient.BuildImageCalled
+					}).Should(Equal(1))
+				})
+			})
+		}
+
+		Context("when a tar archive containing a Dockerfile is given", func() {
+			tmpdir := makeTempDir()
+			defer os.RemoveAll(tmpdir)
+
+			// create a sample Dockerfile
+			dfPath := makeDockerfile(tmpdir)
+
+			// create a tmp file for the tar archive
+			f, err := ioutil.TempFile(tmpdir, "build-valid-tar")
+			Expect(err).To(BeNil())
+			f.Close()
+
+			// create a tar archive containing Dockerfile
+			err = makeTar(tmpdir, dfPath, f.Name())
+			Expect(err).To(BeNil())
+
+			buf, err := ioutil.ReadFile(f.Name())
+			Expect(err).To(BeNil())
+
+			itBuildsImageSuccessfully("sample.tar", bytes.NewBuffer(buf), "")
+		})
+
+		Context("when a plain Dockerfile is given", func() {
+			tmpdir := makeTempDir()
+			defer os.RemoveAll(tmpdir)
+
+			// create a sample Dockerfile
+			dfPath := makeDockerfile(tmpdir)
+
+			buf, err := ioutil.ReadFile(dfPath)
+			Expect(err).To(BeNil())
+
+			itBuildsImageSuccessfully("Dockerfile", bytes.NewBuffer(buf), "")
+		})
+
+		Context("when Dockerfile is given in code parameter", func() {
+			tmpdir := makeTempDir()
+			defer os.RemoveAll(tmpdir)
+
+			// create a sample Dockerfile
+			dfPath := makeDockerfile(tmpdir)
+
+			buf, err := ioutil.ReadFile(dfPath)
+			Expect(err).To(BeNil())
+
+			itBuildsImageSuccessfully("", nil, string(buf))
 		})
 	})
 
@@ -516,7 +614,6 @@ var _ = Describe("controllers/images", func() {
 				"repository": []string{"scratch"},
 				"name":       []string{"scratcher v1 test"},
 			})
-
 			i, err := image.Find(db, u, hs.H, "scratch:latest")
 			Expect(err).To(BeNil())
 			Expect(i.UserID).To(Equal(u.ID))

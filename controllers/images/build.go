@@ -1,7 +1,10 @@
 package images
 
 import (
+	"archive/tar"
+	"bytes"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"time"
@@ -77,21 +80,42 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	_, fh, err := r.FormFile("file")
-	if err != nil {
-		return errFileRequired
-	}
 	slug := r.FormValue("slug")
 	if slug == "" {
 		return errSlugRequired
 	}
 	slug = slugToLower(slug)
 
-	f, err := fh.Open()
-	if err != nil {
+	// if a file is uploaded it's preferred over
+	// code param.
+	var archive io.Reader
+	_, fh, err := r.FormFile("file")
+	switch err {
+	case nil:
+		f, err := fh.Open()
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		archive, err = archiveFromFile(fh, f)
+		if err != nil {
+			return err
+		}
+	case http.ErrMissingFile:
+		// if file is missing,
+		// check if a code param with a Dockerfile
+		// is provided.
+		code := r.FormValue("code")
+		if code == "" {
+			return errFileRequired
+		}
+		archive, err = archiveFromCode(code)
+		if err != nil {
+			return err
+		}
+	default:
 		return err
 	}
-	defer f.Close()
 
 	repo, tag := image.ParseRepoAndTag(slug)
 	if tag == "" {
@@ -109,7 +133,7 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	ctx := &buildContext{env: env, client: cl, img: img, slug: slug, input: f}
+	ctx := &buildContext{env: env, client: cl, img: img, slug: slug, input: archive}
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 	img, err = ctx.build(async)
 	if err != nil {
@@ -145,4 +169,48 @@ func mergeImage(remoteImg *freighterclient.Image, dbImg *image.Image) {
 	dbImg.Tag = tag
 	dbImg.ActualSize = remoteImg.ActualSize
 	dbImg.VirtualSize = remoteImg.VirtualSize
+}
+
+// archiveFromFile takes a mutlipart file-header and returns a archive reader
+func archiveFromFile(fh *multipart.FileHeader, f multipart.File) (io.Reader, error) {
+	// check if given file is named Dockerfile
+	// and then attempt to create an archive
+	if fh.Filename == "Dockerfile" {
+		var b bytes.Buffer
+		_, err := b.ReadFrom(f)
+		if err != nil {
+			return nil, err
+		}
+		return makeDockerArchive(b.String())
+	}
+
+	// pass any other file directly to freighter
+	// archive validation will be done in freighter end.
+	return f, nil
+}
+
+// archiveFromCode takes a string which can be a Dockerfile and returns an archive reader
+func archiveFromCode(code string) (io.Reader, error) {
+	return makeDockerArchive(code)
+}
+
+// makeDockerArchive takes a Dockerfile and returns a archive reader
+func makeDockerArchive(f string) (io.Reader, error) {
+	buf := bytes.NewBuffer(nil)
+	tw := tar.NewWriter(buf)
+
+	hdr := &tar.Header{
+		Name: "Dockerfile",
+		Size: int64(len(f)),
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		return nil, err
+	}
+	if _, err := tw.Write([]byte(f)); err != nil {
+		return nil, err
+	}
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	return buf, nil
 }
