@@ -96,7 +96,6 @@ func (c *Command) attach(host, token, containerID string, stdin io.Reader, stdou
 	conn := wsconn.NewConnection(ws)
 	defer conn.Close()
 
-	go io.Copy(conn, stdin)
 	_, err = io.Copy(stdout, conn)
 	return err
 }

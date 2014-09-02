@@ -3,7 +3,6 @@ package attach_test
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"strconv"
@@ -50,9 +49,6 @@ var _ = Describe("containers/attach", func() {
 				stream.Write([]byte("attach output"))
 				// Write more bytes than we will read so that io.Copy will fail.
 				stream.Write([]byte("\n"))
-
-				b, _ := ioutil.ReadAll(stream)
-				Expect(string(b)).To(Equal("attach input"))
 			},
 		))
 
@@ -116,7 +112,7 @@ var _ = Describe("containers/attach", func() {
 		stdoutReader, stdout := io.Pipe()
 		cmd := &attach.Command{
 			UI: &cli.BasicUi{
-				Reader:      bytes.NewBufferString("attach input"),
+				Reader:      bytes.NewBuffer(nil),
 				Writer:      stdout,
 				ErrorWriter: bytes.NewBuffer(nil),
 			},
