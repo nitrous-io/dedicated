@@ -90,10 +90,24 @@ type (
 		Droplets []*Droplet `json:"droplets"`
 	}
 
+	Event struct {
+		ID          int    `json:"id"`
+		Status      string `json:"action_status"`
+		DropletID   int    `json:"droplet_id"`
+		EventTypeID int    `json:"event_type_id"`
+		Percentage  string `json:"percentage"`
+	}
+
+	EventResp struct {
+		Status string `json:"status"`
+		*Event `json:"event"`
+	}
+
 	Droplet struct {
 		ID        int       `json:"id"`
 		ImageID   int       `json:"image_id"`
 		SizeID    int       `json:"size_id"`
+		EventID   int       `json:"event_id"`
 		RegionID  int       `json:"region_id"`
 		Name      string    `json:"name"`
 		IpAddress string    `json:"ip_address"`
@@ -299,6 +313,21 @@ func (d Client) DropletInfo(id int) (*Droplet, error) {
 		return nil, err
 	}
 	return resp.Droplet, nil
+}
+
+// Event returns the information of the event with the given id.
+// This is useful when we want to keep track of the event's progress such as
+// create a droplet
+func (d Client) Event(id int) (*Event, error) {
+	body, err := NewRequest(d, fmt.Sprintf("events/%v", id), url.Values{})
+	if err != nil {
+		return nil, err
+	}
+	var resp EventResp
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Event, nil
 }
 
 // Sends an api request and returns []byte for the response if possible
