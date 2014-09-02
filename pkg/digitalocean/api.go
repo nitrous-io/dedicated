@@ -2,6 +2,7 @@ package digitalocean
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -117,6 +118,12 @@ var regionsMap = map[string]string{
 	"ams": "ams2",
 	"lon": "lon1",
 }
+
+// ErrAccessDenied is returned when DO responds with 401 status code
+var ErrAccessDenied = errors.New("access denied")
+
+// ErrNotFound is returned when DO responds with 404 status code
+var ErrNotFound = errors.New("resource not found")
 
 // Creates a new client for communicating with DO
 // To fake the server, replace BaseURL with the desired URL after the client is
@@ -321,6 +328,11 @@ func NewRequest(d Client, path string, params url.Values) ([]byte, error) {
 		resp, err := client.Get(url)
 		if err != nil {
 			return nil, err
+		}
+		if resp.StatusCode == http.StatusUnauthorized {
+			return nil, ErrAccessDenied
+		} else if resp.StatusCode == http.StatusNotFound {
+			return nil, ErrNotFound
 		}
 
 		body, err := ioutil.ReadAll(resp.Body)
