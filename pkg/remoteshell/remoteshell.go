@@ -37,12 +37,12 @@ type RemoteShell struct {
 
 // New creates a shell that uses WebSockets.
 // FIXME Sprinkle TLS magic (i.e. wss://).
-func New(host, containerID, command string) (*RemoteShell, error) {
+func New(host, containerID, command string) *RemoteShell {
 	return &RemoteShell{
 		host:        host,
 		containerID: containerID,
 		command:     command,
-	}, nil
+	}
 }
 
 // request a new shell id. This will create a remote shell on the specified
@@ -124,15 +124,12 @@ func Run(
 	fd uintptr,
 	stdin io.Reader, stdout io.Writer,
 ) error {
-	s, err := New(host, container, command)
-	if err != nil {
-		return fmt.Errorf("failed to create a http shell")
-	}
+	s := New(host, container, command)
 	if err := s.RequestShell(); err != nil {
-		return fmt.Errorf("failed to request the shell %v", err)
+		return fmt.Errorf("Failed to create a shell session %v", err)
 	}
 	if err := s.Attach(fd, stdin, stdout); err != nil {
-		return fmt.Errorf("shell detached %v", err)
+		return fmt.Errorf("Shell detached %v", err)
 	}
 	return nil
 }
