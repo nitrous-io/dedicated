@@ -61,7 +61,7 @@ func (c *Command) Run(args []string) int {
 		return 0
 	}
 
-	t := hosts.PrettyPrint([]string{"Slug", "State", "Size"}, hsts...)
+	t := hosts.PrettyPrint([]string{"Slug", "State", "Size", "IP Address"}, hsts...)
 	c.UI.Output(t)
 
 	return 0

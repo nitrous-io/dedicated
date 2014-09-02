@@ -56,17 +56,17 @@ var _ = Describe("hosts/list", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusOK
 				responseBody = `{"hosts":[
-					{"slug":"host-1","state":"created","size":"nano"},
-					{"slug":"host-2","state":"born","size":"micro"}
+					{"slug":"host-1","state":"created","size":"nano","ip_address":"202.157.130.10"},
+					{"slug":"host-2","state":"born","size":"micro","ip_address":"202.157.130.11"}
 				]}`
 			})
 
 			It("outputs formatted hosts on success", func() {
 				code := cmd.Run([]string{})
 				Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
-Slug      State      Size
-host-1    created    nano
-host-2    born       micro
+Slug      State      Size     IP Address
+host-1    created    nano     202.157.130.10
+host-2    born       micro    202.157.130.11
 `)))
 				Expect(code).To(Equal(0))
 			})
