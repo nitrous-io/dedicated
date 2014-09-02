@@ -24,10 +24,6 @@ const (
 	defaultHeight = 24
 )
 
-type shell struct {
-	ID string `json:"id"`
-}
-
 type RemoteShell struct {
 	ID          string `json:"id"`
 	host        string
