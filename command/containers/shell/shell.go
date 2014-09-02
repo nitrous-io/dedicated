@@ -7,6 +7,7 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/command/containers"
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
 	"github.com/nitrous-io/nitro/pkg/remoteshell"
 	"github.com/nitrous-io/nitrous-common/httpclient"
@@ -72,7 +73,6 @@ func (c *Command) Run(args []string) int {
 		c.UI.Error(err.Error())
 		return 1
 	}
-
 	if cr.State != "running" {
 		c.UI.Error("Requires a running container")
 		return 1
@@ -89,9 +89,10 @@ func (c *Command) Run(args []string) int {
 
 	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
 	command := getLoginCommand(username)
-
-	err = remoteshell.Run(host, cr.CID, command, pty.Fd(), stdin, stdout)
-	if err != nil {
+	sh := remoteshell.New(host, cr.CID, command, func() (string, error) {
+		return containers.GetToken(slug, c.server, []string{"shell"}, c.client)
+	})
+	if err := sh.Run(pty.Fd(), stdin, stdout); err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
 	}
@@ -99,7 +100,7 @@ func (c *Command) Run(args []string) int {
 }
 
 func (c *Command) Help() string {
-	return strings.TrimSpace(fmt.Sprintf(usage))
+	return strings.TrimSpace(usage)
 }
 
 func (c *Command) Synopsis() string {

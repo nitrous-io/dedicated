@@ -8,6 +8,7 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/command/containers"
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
 	"github.com/nitrous-io/nitro/pkg/remoteshell"
 	"github.com/nitrous-io/nitrous-common/httpclient"
@@ -55,12 +56,12 @@ func (c *Command) Run(args []string) int {
 	}
 
 	slug := args[0]
+
 	cr, err := nitrousapi.GetContainer(c.client, c.server, slug)
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
-
 	if cr.State != "running" {
 		c.UI.Error("Requires a running container")
 		return 1
@@ -77,8 +78,10 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	err = remoteshell.Run(host, cr.CID, command, pty.Fd(), stdin, stdout)
-	if err != nil {
+	sh := remoteshell.New(host, cr.CID, command, func() (string, error) {
+		return containers.GetToken(slug, c.server, []string{"shell"}, c.client)
+	})
+	if err := sh.Run(pty.Fd(), stdin, stdout); err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
 	}
