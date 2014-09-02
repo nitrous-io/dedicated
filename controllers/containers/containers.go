@@ -17,6 +17,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/cvolume"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/image"
 	"github.com/nitrous-io/nitrous/models/volume"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 	"github.com/nitrous-io/nitrous/serializers"
@@ -151,10 +152,10 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 	slug := r.FormValue("slug")
 	name := r.FormValue("name")
-	image := r.FormValue("image")
+	imageSlug := r.FormValue("image")
 
-	if image == "" {
-		image = DefaultImage
+	if imageSlug == "" {
+		imageSlug = DefaultImage
 	}
 
 	if slug == "" {
@@ -179,7 +180,7 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 		UserID: env.User.ID,
 		HostID: h.ID,
 		Slug:   slug,
-		Image:  image,
+		Image:  imageSlug,
 		Name:   sql.NullString{name, true},
 	}
 
@@ -208,7 +209,7 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	created, err := cl.Create(slug, image, cn.Secret, config)
+	created, err := cl.Create(slug, imageSlug, cn.Secret, config)
 	if err != nil {
 		delErr := cn.DeletePermanently(db)
 		if delErr != nil {
@@ -237,6 +238,26 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	err = cn.Update(db)
 	if err != nil { // log and continue
 		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cn)
+	}
+
+	// Insert or update image record (the one used to create this container).
+	repo, tag := image.ParseRepoAndTag(imageSlug)
+	if tag == "" {
+		tag = image.DefaultTag
+	}
+	img := &image.Image{
+		UserID:      env.User.ID,
+		HostID:      h.ID,
+		FreighterID: created.ImageID,
+		Slug:        repo,
+		Tag:         tag,
+	}
+	if existing, err := image.Find(db, env.User, h, imageSlug); err == nil {
+		img.ID = existing.ID
+		img.Name = existing.Name
+	}
+	if err := img.InsertOrUpdate(db); err != nil { // log and continue
+		env.Logger.Errorf("containers.create: failed to insert or update image '%+v'", img)
 	}
 
 	for _, v := range volumeSlugs(config.Mounts) {

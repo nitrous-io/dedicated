@@ -2,23 +2,29 @@ package images
 
 import (
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 
+	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/image"
+	"github.com/nitrous-io/nitrous/serializers"
 
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
 var (
-	errIDOrNameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "id or name is required")
+	errIDOrSlugRequired = httperror.New(http.StatusBadRequest, "invalid_request", "id or slug is required")
 	errRepoRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "repository is required")
 	errDestRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "destination is required")
 	errTagRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "tag is required")
-	errNameRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
+	errSlugRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errFileRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "file is required")
+	errImageMissing     = httperror.New(http.StatusNotFound, "not_found", "image does not exist")
 )
 
 func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -27,16 +33,44 @@ func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	images, err := cl.ListImages()
+	fImgs, err := cl.ListImages()
 	if err != nil {
 		return err
 	}
 
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"images": images,
+	dbImgs, err := image.FindAll(env.DB, env.User, h)
+	if err != nil {
+		return err
+	}
+	for _, img := range dbImgs {
+		fImg := findMatchingFreighterImage(img, fImgs)
+		if fImg == nil { // log and continue
+			env.Logger.Errorf("images.index: image '%+v' exists in database but not in Freighter: %v", img, err)
+			continue
+		}
+		img.ActualSize = fImg.ActualSize
+		img.VirtualSize = fImg.VirtualSize
+		if fImg.CreatedAt != 0 {
+			t := time.Unix(fImg.CreatedAt, 0)
+			img.BuiltAt = &t
+		}
+
 	}
 
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"images": serializers.SerializeImages(dbImgs),
+	}
+
+	return nil
+}
+
+func findMatchingFreighterImage(i *image.Image, images []*freighterclient.Image) *freighterclient.Image {
+	for _, fImg := range images {
+		if fImg.ID == i.FreighterID && fImg.Name == i.Slug && i.Tag == i.Tag {
+			return fImg
+		}
+	}
 	return nil
 }
 
@@ -50,10 +84,9 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	if err != nil {
 		return errFileRequired
 	}
-
-	name := r.FormValue("name")
-	if name == "" {
-		return errNameRequired
+	slug := r.FormValue("slug")
+	if slug == "" {
+		return errSlugRequired
 	}
 
 	f, err := fh.Open()
@@ -61,40 +94,58 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 	defer f.Close()
-	image, err := cl.BuildImage(name, f)
+	img, err := cl.BuildImage(slug, f)
 	if err != nil {
 		return err
 	}
 
+	i := convertImage(img)
+	i.UserID = env.User.ID
+	i.HostID = h.ID
+	i.Name = r.FormValue("name")
+	if err := i.Insert(env.DB); err != nil { // log and continue
+		env.Logger.Errorf("images.build: successfully built image '%+v' in Freighter but failed to update database with '%+v'", img, i)
+	}
+
 	env.Events.Publish(
-		controllers.NewEvent("image.built", image),
+		controllers.NewEvent("image.built", serializers.SerializeImage(i)),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"image": image,
+		"image": serializers.SerializeImage(i),
 	}
 
 	return nil
 }
 
 func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	db := env.DB
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
 
-	image := mux.Vars(r)["image"]
-	if image == "" {
-		return errIDOrNameRequired
+	slug := mux.Vars(r)["image"]
+	if slug == "" {
+		return errIDOrSlugRequired
 	}
 
-	if err := cl.RemoveImage(image); err != nil {
+	i, err := image.Find(db, env.User, h, slug)
+	if err != nil {
+		return errImageMissing
+	}
+
+	if err := cl.RemoveImage(i.FullRepository()); err != nil {
+		return err
+	}
+
+	if err := i.Delete(db); err != nil {
 		return err
 	}
 
 	env.Events.Publish(
-		controllers.NewEvent("image.removed", image),
+		controllers.NewEvent("image.removed", i.FullRepository()),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK
@@ -105,7 +156,8 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 }
 
 func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	db := env.DB
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
@@ -115,19 +167,31 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return errRepoRequired
 	}
 
-	image, err := cl.PullImage(repo)
+	img, err := cl.PullImage(repo)
 	if err != nil {
 		return err
 	}
 
+	i := convertImage(img)
+	i.UserID = env.User.ID
+	i.HostID = h.ID
+	i.Name = r.FormValue("name")
+	// If image record already exists, update it.
+	if existing, err := image.Find(db, env.User, h, repo); err == nil {
+		i.ID = existing.ID
+	}
+	if err := i.InsertOrUpdate(db); err != nil { // log and continue
+		env.Logger.Errorf("images.pull: successfully pulled image '%+v' in Freighter but failed to update database with '%+v'", img, i)
+	}
+
 	env.Events.Publish(
-		controllers.NewEvent("image.pulled", image),
+		controllers.NewEvent("image.pulled", serializers.SerializeImage(i)),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "OK",
-		"image":  image,
+		"image":  serializers.SerializeImage(i),
 	}
 	return nil
 }
@@ -140,7 +204,7 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 	image := mux.Vars(r)["image"]
 	if image == "" {
-		return errIDOrNameRequired
+		return errIDOrSlugRequired
 	}
 
 	dest := r.FormValue("destination")
@@ -168,38 +232,82 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 }
 
 func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	db := env.DB
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
 
-	image := mux.Vars(r)["image"]
-	if image == "" {
-		return errIDOrNameRequired
+	slug := mux.Vars(r)["image"]
+	if slug == "" {
+		return errIDOrSlugRequired
 	}
-
-	tag := r.FormValue("tag")
-	if tag == "" {
+	newRepo := r.FormValue("tag")
+	if newRepo == "" {
 		return errTagRequired
 	}
+	force, _ := strconv.ParseBool(r.FormValue("force"))
 
-	force := r.FormValue("force") != ""
+	srcImg, err := image.Find(db, env.User, h, slug)
+	if err != nil {
+		return errImageMissing
+	}
 
-	if err := cl.TagImage(image, tag, force); err != nil {
+	if err := cl.TagImage(srcImg.FullRepository(), newRepo, force); err != nil {
 		return err
 	}
 
-	type data struct {
-		Image string `json:"image"`
-		Tag   string `json:"tag"`
+	repo, tag := image.ParseRepoAndTag(newRepo)
+	if tag == "" {
+		tag = image.DefaultTag
 	}
+	taggedImg := &image.Image{
+		UserID:      env.User.ID,
+		HostID:      h.ID,
+		FreighterID: srcImg.FreighterID,
+		Name:        r.FormValue("name"),
+		Slug:        repo,
+		Tag:         tag,
+	}
+	// If image record already exists, update it.
+	if existing, err := image.Find(db, env.User, h, newRepo); err == nil {
+		taggedImg.ID = existing.ID
+		if taggedImg.Name == "" {
+			taggedImg.Name = existing.Name
+		}
+	}
+	if err := taggedImg.InsertOrUpdate(db); err != nil { // log and continue
+		env.Logger.Errorf("images.tag: successfully tagged image '%+v' as '%s' in Freighter but failed to update database with '%+v'", srcImg, newRepo, taggedImg)
+	}
+
 	env.Events.Publish(
-		controllers.NewEvent("image.tagged", data{Image: image, Tag: tag}),
+		controllers.NewEvent("image.tagged", serializers.SerializeImage(taggedImg)),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "OK",
+		"image":  serializers.SerializeImage(taggedImg),
 	}
 	return nil
+}
+
+func convertImage(img *freighterclient.Image) *image.Image {
+	tag := img.Tag
+	if tag == "" {
+		tag = image.DefaultTag
+	}
+	var builtAt *time.Time
+	if img.CreatedAt != 0 {
+		t := time.Unix(img.CreatedAt, 0)
+		builtAt = &t
+	}
+	return &image.Image{
+		FreighterID: img.ID,
+		Slug:        img.Name,
+		BuiltAt:     builtAt,
+		Tag:         tag,
+		ActualSize:  img.ActualSize,
+		VirtualSize: img.VirtualSize,
+	}
 }

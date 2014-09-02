@@ -136,7 +136,7 @@ func NewAuthedFormRequest(t *token.Token, method string, urlStr string, params *
 	return req, nil
 }
 
-func NewFileRequest(method string, urlStr string, params map[string]string, files map[string]string) (*http.Request, error) {
+func NewFileRequest(method string, urlStr string, params *url.Values, files map[string]string) (*http.Request, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -148,8 +148,8 @@ func NewFileRequest(method string, urlStr string, params map[string]string, file
 		part.Write([]byte(contents))
 	}
 
-	for key, val := range params {
-		_ = writer.WriteField(key, val)
+	for key := range *params {
+		_ = writer.WriteField(key, params.Get(key))
 	}
 
 	err := writer.Close()
