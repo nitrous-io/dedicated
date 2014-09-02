@@ -12,8 +12,8 @@ random_id = SecureRandom.hex(8)
 
 params = {
   name: "test-box-#{random_id}",
-  image_id: "4185676", # updated image with freighterd and docker
-  region_id: "6", # Singapore 1
+  image_id: "5824829", # updated image with freighterd and docker
+  region_id: "sgp", # Singapore 1
   size_id: "66", # 512MB
   public_keys: [
     File.read("#{ENV['HOME']}/.ssh/id_rsa.pub")

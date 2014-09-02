@@ -200,12 +200,21 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 		return err
 	}
 
+	// wait for the create event to be done
+	err = do.WaitForEvent(h.droplet.EventID, h.Client, do.StateWaitTime, 10*time.Minute)
+	if err != nil {
+		log.Printf("[ERROR] timed out before create event is completed for droplet %d", h.droplet.ID)
+		return err
+	}
+
 	// wait for the droplet to be active
 	droplet, err := do.WaitForState("active", h.droplet.ID, h.Client,
 		do.StateWaitTime, 5*time.Minute)
 	if err != nil {
+		log.Printf("[ERROR] timed out before droplet %d is active", h.droplet.ID)
 		return err
 	}
+
 	h.droplet = droplet
 	return nil
 }
