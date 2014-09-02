@@ -24,22 +24,24 @@ const (
 	defaultHeight = 24
 )
 
+type TokenHandler func() (string, error)
+
 type RemoteShell struct {
-	ID          string `json:"id"`
-	host        string
-	containerID string
-	token       string
-	command     string
+	ID           string `json:"id"`
+	host         string
+	containerID  string
+	command      string
+	tokenHandler TokenHandler
 }
 
 // New creates a shell that uses WebSockets.
 // FIXME Sprinkle TLS magic (i.e. https and wss://).
-func New(host, containerID, token, command string) *RemoteShell {
+func New(host, containerID, command string, tokenHandler TokenHandler) *RemoteShell {
 	return &RemoteShell{
-		host:        host,
-		containerID: containerID,
-		token:       token,
-		command:     command,
+		host:         host,
+		containerID:  containerID,
+		command:      command,
+		tokenHandler: tokenHandler,
 	}
 }
 
@@ -53,7 +55,11 @@ func (s *RemoteShell) RequestShell() error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Token "+s.token)
+	token, err := s.tokenHandler()
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Token "+token)
 	req.Host = s.host
 
 	c, err := s.getConn()
@@ -87,8 +93,12 @@ func (s *RemoteShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) erro
 	}
 	defer term.RestoreTerminal(fd, oldState)
 
+	token, err := s.tokenHandler()
+	if err != nil {
+		return err
+	}
 	headers := http.Header{}
-	headers.Add("Authorization", "Token "+s.token)
+	headers.Add("Authorization", "Token "+token)
 	wsEndpointURI := fmt.Sprintf("ws://%s/containers/%s/shells/%s/attach/ws", s.host, s.containerID, s.ID)
 	ws, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, headers)
 	if err != nil {
@@ -119,12 +129,7 @@ func (s *RemoteShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) erro
 }
 
 // Run executes a remote command inside a container in a specific host
-func Run(
-	host, container, token, command string,
-	fd uintptr,
-	stdin io.Reader, stdout io.Writer,
-) error {
-	s := New(host, container, token, command)
+func (s *RemoteShell) Run(fd uintptr, stdin io.Reader, stdout io.Writer) error {
 	if err := s.RequestShell(); err != nil {
 		return fmt.Errorf("Failed to create a shell session %v", err)
 	}
@@ -164,7 +169,11 @@ func (s *RemoteShell) resize(fd uintptr) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Token "+s.token)
+	token, err := s.tokenHandler()
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Token "+token)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Host = s.host
 

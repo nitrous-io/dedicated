@@ -68,12 +68,6 @@ func (c *Command) Run(args []string) int {
 
 	slug := args[0]
 
-	token, err := containers.GetToken(slug, c.server, []string{"shell"}, c.client)
-	if err != nil {
-		c.UI.Error(err.Error())
-		return 1
-	}
-
 	cr, err := nitrousapi.GetContainer(c.client, c.server, slug)
 	if err != nil {
 		c.UI.Error(err.Error())
@@ -95,7 +89,10 @@ func (c *Command) Run(args []string) int {
 
 	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
 	command := getLoginCommand(username)
-	if err := remoteshell.Run(host, cr.CID, token, command, pty.Fd(), stdin, stdout); err != nil {
+	sh := remoteshell.New(host, cr.CID, command, func() (string, error) {
+		return containers.GetToken(slug, c.server, []string{"shell"}, c.client)
+	})
+	if err := sh.Run(pty.Fd(), stdin, stdout); err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
 	}
