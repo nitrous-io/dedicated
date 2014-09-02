@@ -1,16 +1,12 @@
 package test
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"math/rand"
 	"mime/multipart"
-	"net"
 
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"path"
@@ -99,30 +95,4 @@ func TempDir() (string, error) {
 
 func RandomName(name string) string {
 	return fmt.Sprintf("%v-%v-%v", name, time.Now().UnixNano(), rand.Intn(1000))
-}
-
-// Mocked types for tests
-type MockConn struct {
-	io.ReadCloser
-	io.Writer
-}
-
-func (c *MockConn) LocalAddr() net.Addr                { return nil }
-func (c *MockConn) RemoteAddr() net.Addr               { return nil }
-func (c *MockConn) SetDeadline(t time.Time) error      { return nil }
-func (c *MockConn) SetReadDeadline(t time.Time) error  { return nil }
-func (c *MockConn) SetWriteDeadline(t time.Time) error { return nil }
-
-type HijackTester struct {
-	*httptest.ResponseRecorder
-	Rc io.ReadCloser
-	W  io.Writer
-}
-
-func (r *HijackTester) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	conn := &MockConn{
-		ReadCloser: r.Rc,
-		Writer:     r.W,
-	}
-	return conn, nil, nil
 }

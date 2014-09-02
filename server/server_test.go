@@ -1,12 +1,9 @@
 package server_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/freighter/pkg/stats"
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/server"
@@ -1604,27 +1602,28 @@ var _ = Describe("server", func() {
 		})
 	})
 
-	Describe("POST /containers/:id/attach", func() {
-		doRequest := func(id, token string) {
-			req, err := NewRequest("POST", fmt.Sprintf("/containers/%v/attach", id), nil)
-			Expect(err).To(BeNil())
-			if token != "" {
-				req.Header.Set("Authorization", "Token "+token)
-			}
-			handler.ServeHTTP(res, req)
+	Describe("GET /containers/:id/attach/ws", func() {
+		doRequest := func(containerID, token string) (*websocket.Conn, error) {
+			ts := httptest.NewServer(handler)
+			defer ts.Close()
+			headers := http.Header{}
+			headers.Add("Authorization", "Token "+token)
+			wsEndpointURI := fmt.Sprintf("ws://%s/containers/%s/attach/ws", ts.Listener.Addr().String(), containerID)
+			conn, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, headers)
+			return conn, err
 		}
 
 		It("requires a container token", func() {
 			token := ""
-			doRequest("test-container", token)
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			_, err := doRequest("test-container", token)
+			Expect(err).To(MatchError(websocket.ErrBadHandshake))
 		})
 
 		It("requires a valid container token", func() {
 			prov.VerifyTokenError = errors.New("invalid token")
 			token := "some token"
-			doRequest("test-container", token)
-			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			_, err := doRequest("test-container", token)
+			Expect(err).To(MatchError(websocket.ErrBadHandshake))
 			Expect(prov.ReceivedID).To(Equal("test-container"))
 			Expect(prov.ReceivedToken).To(Equal(token))
 			Expect(prov.ReceivedPermissions).To(Equal([]string{"attach"}))
@@ -1632,13 +1631,12 @@ var _ = Describe("server", func() {
 
 		Context("for invalid containers", func() {
 			testCases := []struct {
-				id         string
-				container  *provider.ContainerInfo
-				statusCode int
+				id        string
+				container *provider.ContainerInfo
 			}{
-				{"empty", nil, 404},
-				{"missing", &provider.ContainerInfo{ID: "aaa", State: provider.ContainerStateRunning}, 404},
-				{"stopped", &provider.ContainerInfo{ID: "stopped", State: provider.ContainerStateStopped}, 500},
+				{"empty", nil},
+				{"missing", &provider.ContainerInfo{ID: "aaa", State: provider.ContainerStateRunning}},
+				{"stopped", &provider.ContainerInfo{ID: "stopped", State: provider.ContainerStateStopped}},
 			}
 
 			for _, tc := range testCases {
@@ -1648,70 +1646,55 @@ var _ = Describe("server", func() {
 						if local.container != nil {
 							prov.Containers = []*provider.ContainerInfo{local.container}
 						}
-						doRequest(local.id, "valid-token")
 					})
 
-					It("responds to the request", func() {
-						Expect(res.Code).To(Equal(local.statusCode))
+					It("returns an error", func() {
+						_, err := doRequest(local.id, "valid-token")
+						Expect(err).To(MatchError(websocket.ErrBadHandshake))
 					})
 				})
 			}
 		})
 
 		Context("for valid containers", func() {
-			doRequest := func(id, token string, w io.Writer) {
-				req, err := NewRequest("POST", fmt.Sprintf("/containers/%v/attach", id), nil)
-				Expect(err).To(BeNil())
-				if token != "" {
-					req.Header.Set("Authorization", "Token "+token)
-				}
-
-				h := &HijackTester{
-					ResponseRecorder: res,
-					Rc:               ioutil.NopCloser(bytes.NewBuffer(nil)),
-					W:                w,
-				}
-				handler.ServeHTTP(h, req)
-			}
-
-			It("calls provider's attach function and hijacks connection", func() {
+			It("calls provider's attach function and gets its output", func() {
 				prov.Containers = []*provider.ContainerInfo{{ID: "container-id", State: provider.ContainerStateRunning}}
-				prov.WriteToStdout = "attach"
+				prov.WriteToStdout = "attach output"
 
-				r, w := io.Pipe()
-				go func() {
-					doRequest("container-id", "container-token", w)
-					w.Close()
-				}()
-
-				output, err := ioutil.ReadAll(r)
+				conn, err := doRequest("container-id", "container-token")
 				Expect(err).To(BeNil())
-				Expect(output).To(ContainSubstring("attach"))
-				Expect(output).To(ContainSubstring("Content-Type: application/vnd.containerd.raw-stream"))
+				defer conn.Close()
 
 				Expect(prov.AttachToContainerCalled).To(BeTrue())
 				Expect(prov.ReceivedID).To(Equal("container-id"))
 				Expect(prov.ReceivedToken).To(Equal("container-token"))
 
-				Expect(res.Code).To(Equal(http.StatusOK))
+				messageType, msg, err := conn.ReadMessage()
+				Expect(err).To(BeNil())
+				Expect(messageType).To(Equal(websocket.TextMessage))
+				Expect(string(msg)).To(Equal("attach output"))
 			})
 
-			It("writes the error to hijacked connection writer when there is an error", func() {
+			It("writes the error to WebSocket when there is an error", func() {
 				prov.Containers = []*provider.ContainerInfo{{ID: "container-id", State: provider.ContainerStateRunning}}
 				prov.AttachToContainerError = errors.New("some attach error")
 
-				r, w := io.Pipe()
-				go func() {
-					doRequest("container-id", "container-token", w)
-					w.Close()
-				}()
-
-				output, err := ioutil.ReadAll(r)
+				conn, err := doRequest("container-id", "container-token")
 				Expect(err).To(BeNil())
-				Expect(output).To(ContainSubstring("some attach error"))
-				Expect(output).To(ContainSubstring("Content-Type: application/vnd.containerd.raw-stream"))
+				defer conn.Close()
 
-				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(prov.AttachToContainerCalled).To(BeTrue())
+
+				// Read from WebSocket until we get a non-empty text message.
+				for {
+					messageType, msg, err := conn.ReadMessage()
+					Expect(err).To(BeNil())
+					if messageType != websocket.TextMessage || string(msg) == "" {
+						continue
+					}
+					Expect(string(msg)).To(Equal("some attach error"))
+					break
+				}
 			})
 		})
 	})

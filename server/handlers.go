@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -490,53 +489,30 @@ func (s *Server) inspectImage(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) attachToContainer(token string, w http.ResponseWriter, r *http.Request) error {
+func (s *Server) wsAttachToContainer(token string, w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	info, err := s.provider.GetInfo(id)
 	if err != nil {
 		return err
 	}
-	containerID := info.ID
 	if info.State != provider.ContainerStateRunning {
-		return fmt.Errorf("Cannot attach to stopped container %v", containerID)
+		return fmt.Errorf("Cannot attach to stopped container %v", info.ID)
 	}
 
-	stdin, stdout, err := hijackServer(w)
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to upgrade websocket: %v", err)
 	}
+	stream := wsconn.NewConnection(conn)
+	defer stream.Close()
 
-	defer func() {
-		if conn, ok := stdin.(*net.TCPConn); ok {
-			conn.CloseWrite()
-		} else {
-			stdin.Close()
-		}
-
-		if conn, ok := stdout.(*net.TCPConn); ok {
-			conn.CloseWrite()
-		} else if closer, ok := stdout.(io.Closer); ok {
-			closer.Close()
-		}
-	}()
-
-	if err := s.provider.AttachToContainer(id, stdin, stdout); err != nil {
-		// Connection is already hijacked, so write to the wire instead of
+	if err := s.provider.AttachToContainer(id, stream, stream); err != nil {
+		// Connection is already hijacked, so write to the WebSocket instead of
 		// returning the error.
-		stdout.Write([]byte(err.Error()))
+		stream.Write([]byte(err.Error()))
 	}
 
 	return nil
-}
-
-func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
-	conn, _, err := w.(http.Hijacker).Hijack()
-	if err != nil {
-		return nil, nil, err
-	}
-	// Flush the options to make sure the client sets the raw mode
-	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.containerd.raw-stream\r\n\r\n")
-	return conn, conn, nil
 }
 
 func randomString() string {
