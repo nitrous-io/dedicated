@@ -113,5 +113,10 @@ func getLoginCommand(username string) string {
 	// use getty autologin to get a tty (so screen/tmux can run) because
 	// lxc-attach will not allocate a new one
 	// we use direct path here incase /sbin is not set in $PATH for some image
-	return fmt.Sprintf("/sbin/getty -a %s tty", username)
+	//
+	// if getty fails, we fall back to /bin/sh. This typically happens on
+	// system that doesnt bundle util-linux such as busybox. In those case, we
+	// just dont have a sane way to getty and autologin so we will just perform a
+	// normal login without getty
+	return fmt.Sprintf("/sbin/getty -a %s tty 2>/dev/null || /bin/login -f %s", username, username)
 }
