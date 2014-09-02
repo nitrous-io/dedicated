@@ -1029,13 +1029,31 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("POST /containers/:id/shells", func() {
-		doRequest := func(id string) {
+		doRequest := func(id, token string) {
 			params := &url.Values{}
 			params.Set("command", "/bin/bash")
-
 			req, _ = NewRequest("POST", fmt.Sprintf("/containers/%v/shells", id), params)
+			if token != "" {
+				req.Header.Set("Authorization", "Token "+token)
+			}
 			handler.ServeHTTP(res, req)
 		}
+
+		It("requires a container token", func() {
+			token := ""
+			doRequest("test-container", token)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("requires a valid container token", func() {
+			prov.VerifyTokenError = errors.New("invalid token")
+			token := "some token"
+			doRequest("test-container", token)
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(prov.ReceivedID).To(Equal("test-container"))
+			Expect(prov.ReceivedToken).To(Equal(token))
+			Expect(prov.ReceivedPermissions).To(Equal([]string{"shell"}))
+		})
 
 		testCases := []struct {
 			id         string
@@ -1055,7 +1073,7 @@ var _ = Describe("server", func() {
 					if local.container != nil {
 						prov.Containers = []*provider.ContainerInfo{local.container}
 					}
-					doRequest(local.id)
+					doRequest(local.id, "container-token")
 				})
 
 				It("responds to the request", func() {
@@ -1068,6 +1086,97 @@ var _ = Describe("server", func() {
 				})
 			})
 		}
+	})
+
+	requestShell := func(containerID string) string {
+		prov.Containers = []*provider.ContainerInfo{{ID: containerID, State: provider.ContainerStateRunning}}
+		params := &url.Values{}
+		params.Set("command", "/bin/bash")
+		req, _ := NewRequest("POST", "/containers/"+containerID+"/shells", params)
+		req.Header.Set("Authorization", "Token container-token")
+		res := httptest.NewRecorder()
+		handler.ServeHTTP(res, req)
+		Expect(res.Code).To(Equal(http.StatusOK))
+
+		var j map[string]string
+		json.Unmarshal(res.Body.Bytes(), &j)
+		shellID := j["id"]
+		Expect(shellID).NotTo(BeEmpty())
+		return shellID
+	}
+
+	Describe("GET /containers/:id/shells/:shellID/attach/ws", func() {
+		doRequest := func(containerID, shellID, token string) *httptest.ResponseRecorder {
+			req, _ = NewRequest("GET", fmt.Sprintf("/containers/%s/shells/%s/attach/ws", containerID, shellID), nil)
+			if token != "" {
+				req.Header.Set("Authorization", "Token "+token)
+			}
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		It("requires a container token", func() {
+			shellID := requestShell("test-container")
+
+			token := ""
+			res := doRequest("test-container", shellID, token)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("requires a valid container token", func() {
+			shellID := requestShell("test-container")
+
+			prov.VerifyTokenError = errors.New("invalid token")
+			token := "some token"
+			res := doRequest("test-container", shellID, token)
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(prov.ReceivedID).To(Equal("test-container"))
+			Expect(prov.ReceivedToken).To(Equal(token))
+			Expect(prov.ReceivedPermissions).To(Equal([]string{"shell"}))
+		})
+
+		It("responds with 404 not found when shell ID does not match an existing shell", func() {
+			res := doRequest("test-container", "non-existent-shell-id", "container-token")
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+	})
+
+	Describe("GET /containers/:id/shells/:shellID/resize", func() {
+		doRequest := func(containerID, shellID, token string) *httptest.ResponseRecorder {
+			req, _ = NewRequest("POST", fmt.Sprintf("/containers/%s/shells/%s/resize", containerID, shellID), nil)
+			if token != "" {
+				req.Header.Set("Authorization", "Token "+token)
+			}
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		It("requires a container token", func() {
+			shellID := requestShell("test-container")
+
+			token := ""
+			res := doRequest("test-container", shellID, token)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("requires a valid container token", func() {
+			shellID := requestShell("test-container")
+
+			prov.VerifyTokenError = errors.New("invalid token")
+			token := "some token"
+			res := doRequest("test-container", shellID, token)
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(prov.ReceivedID).To(Equal("test-container"))
+			Expect(prov.ReceivedToken).To(Equal(token))
+			Expect(prov.ReceivedPermissions).To(Equal([]string{"shell"}))
+		})
+
+		It("responds with 404 not found when shell ID does not match an existing shell", func() {
+			res := doRequest("test-container", "non-existent-shell-id", "container-token")
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
 	})
 
 	Describe("GET /images", func() {
