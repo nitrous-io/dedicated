@@ -1,18 +1,19 @@
 package attach
 
 import (
+	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"net/http/httputil"
 	"os"
 	"strings"
 
+	"github.com/gorilla/websocket"
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/containers"
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
+	"github.com/nitrous-io/nitro/pkg/wsconn"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
 
@@ -68,7 +69,7 @@ func (c *Command) Run(args []string) int {
 	}
 
 	host := fmt.Sprintf("%s:%d", cn.Host.IPAddress, cn.Host.FreighterdPort)
-	if err := c.attach(host, token, cn.CID, c.UI.Writer); err != nil {
+	if err := c.attach(host, token, cn.CID, c.UI.Reader, c.UI.Writer); err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
 	}
@@ -83,36 +84,18 @@ func (c *Command) Synopsis() string {
 	return "Attach to a running container"
 }
 
-func (c *Command) attach(host, token, containerID string, stdout io.Writer) error {
-	dial, err := net.Dial("tcp", host)
+func (c *Command) attach(host, token, containerID string, stdin io.Reader, stdout io.Writer) error {
+	headers := http.Header{}
+	headers.Add("Authorization", "Token "+token)
+	wsEndpointURI := fmt.Sprintf("ws://%s/containers/%s/attach/ws", host, containerID)
+	ws, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, headers)
 	if err != nil {
-		return fmt.Errorf("Can't connect to host %s", host)
+		return errors.New("Failed to attach to container.")
 	}
 
-	conn := httputil.NewClientConn(dial, nil)
+	conn := wsconn.NewConnection(ws)
 	defer conn.Close()
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("/containers/%s/attach", containerID), nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Token "+token)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Host = host
-
-	resp, _ := conn.Do(req)
-	switch resp.StatusCode {
-	case http.StatusOK:
-		// Pass.
-	case http.StatusUnauthorized:
-		return fmt.Errorf("You do not have permission to attach to the container.")
-	default:
-		return fmt.Errorf("Failed to attach to the container. Make sure that it's running.")
-	}
-
-	wc, r := conn.Hijack()
-	defer wc.Close()
-
-	_, err = io.Copy(stdout, r)
+	_, err = io.Copy(stdout, conn)
 	return err
 }

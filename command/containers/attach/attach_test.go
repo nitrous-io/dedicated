@@ -2,15 +2,16 @@ package attach_test
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"strconv"
 	"testing"
 
+	"github.com/gorilla/websocket"
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command/containers/attach"
+	"github.com/nitrous-io/nitro/pkg/wsconn"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -37,12 +38,17 @@ var _ = Describe("containers/attach", func() {
 		// Setup handlers: attach to container.
 		fsrv.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Token container-token"),
-			ghttp.VerifyRequest("POST", "/containers/deadbeef/attach"),
+			ghttp.VerifyRequest("GET", "/containers/deadbeef/attach/ws"),
 			func(w http.ResponseWriter, r *http.Request) {
-				_, out, _ := hijackServer(w)
-				out.Write([]byte("attach output"))
+				upgrader := websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024}
+				conn, err := upgrader.Upgrade(w, r, nil)
+				Expect(err).To(BeNil())
+				stream := wsconn.NewConnection(conn)
+				defer stream.Close()
+
+				stream.Write([]byte("attach output"))
 				// Write more bytes than we will read so that io.Copy will fail.
-				out.Write([]byte("\n"))
+				stream.Write([]byte("\n"))
 			},
 		))
 
@@ -135,12 +141,3 @@ var _ = Describe("containers/attach", func() {
 		Expect(fsrv.ReceivedRequests()).To(HaveLen(1))
 	})
 })
-
-func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
-	conn, _, err := w.(http.Hijacker).Hijack()
-	if err != nil {
-		return nil, nil, err
-	}
-	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.containerd.raw-stream\r\n\r\n")
-	return conn, conn, nil
-}
