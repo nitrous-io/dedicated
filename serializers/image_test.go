@@ -37,9 +37,10 @@ var _ = Describe("image serializer", func() {
 			b, err := json.Marshal(serializers.SerializeImage(model))
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
-				"id": "cafebabe",
+				"id": 10,
 				"user_id": 11,
 				"host_id": 12,
+				"freighter_id": "cafebabe",
 				"name": "scratch image",
 				"slug": "scratch",
 				"tag": "latest",
@@ -64,9 +65,10 @@ var _ = Describe("image serializer", func() {
 			b, err := json.Marshal(serializers.SerializeImages([]*image.Image{model}))
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`[{
-				"id": "cafebabe",
+				"id": 10,
 				"user_id": 11,
 				"host_id": 12,
+				"freighter_id": "cafebabe",
 				"name": "scratch image",
 				"slug": "scratch",
 				"tag": "latest",
