@@ -1,5 +1,6 @@
 App.LogoutRoute = Em.Route.extend
   beforeModel: ->
     @_super.apply this, arguments
-    App.clear()
-    @transitionTo 'login'
+    App.set 'token', null
+    Em.run.next ->
+      location.href = "/"

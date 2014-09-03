@@ -1,12 +1,10 @@
 App.HomeRoute = App.AuthedRoute.extend
-  beforeModel: ->
+  activate: ->
+    App.set 'title', null
     App.set 'hosts', App.Host.fetch().value
     App.set 'containers', App.Container.fetch().value
     App.set 'regions', App.Region.fetch().value
     App.set 'plans', App.Plan.fetch().value
-
-  activate: ->
-    App.set 'title', null
 
   renderTemplate: ->
     @_super()
