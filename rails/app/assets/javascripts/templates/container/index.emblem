@@ -11,46 +11,64 @@
     tr
       th Slug
       td colspan='3'
-        | web-app-42
+        = slug
 
     tr
       th Image
       td colspan='3'
-        | nitrous-io/ubuntu
+        = image
 
     tr
       th CMD
       td colspan='3'
-        | /sbin/init
+        if cmd
+          ul.comma-separated
+            each cm in cmd
+              li
+                = cm
+        else
+          span.empty &ndash;
 
     tr
       th ENTRYPOINT
       td colspan='3'
-        span.empty &ndash;
+        if entrypoint
+          ul.comma-separated
+            each ep in entrypoint
+              li
+                = ep
+        else
+          span.empty &ndash;
 
     tr
       th Internal IP
-      td 172.17.0.2
-      th Gateway IP
-      td 172.17.42.1
-
-    tr
-      th Host
-      td web-app.nitrouspro.com
-      th Host IP
-      td 107.170.220.61
-
-    tr
-      th Started At
-      td July 7, 2014 18:41:51 UTC
-      th Finished At
       td
-        span.empty &ndash;
+        = ipAddress
+      th Gateway IP
+      td.right
+        = gatewayIP
+
+    tr
+      th Created At
+      td
+        = dateabbr createdAt
+      th Started At
+      td
+        if startedAt
+          = dateabbr startedAt
+        else
+          span.empty &ndash;
 
     tr
       th Exit Code
-      td colspan='3'
-        span.empty &ndash;
+      td
+        = exitCodeString
+      th Finished At
+      td.right
+        if finishedAt
+          = dateabbr finishedAt
+        else
+          span.empty &ndash;
 
 .card-footer.bordered
   .left

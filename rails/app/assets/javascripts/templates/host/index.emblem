@@ -21,7 +21,7 @@
       th CPU Usage (%)
       td.usage
         if view.hostStatsAvailable
-          ul.cpu-usage
+          ul.comma-separated
             each cpuUsage in stats.perCPUUsage
               li
                 = toFixed cpuUsage 1
@@ -59,10 +59,14 @@
           span.empty &ndash;
 
     tr
+      th IP Address
+      td colspan='3'
+        = ipAddress
+
+    tr
       th Created At
       td colspan='3'
-        abbr title={view.createdAtUTC}
-          = ago createdAt
+        = dateabbr createdAt
 
 .card-footer.bordered
   if isRunning

@@ -11,10 +11,6 @@ App.HostIndexView = Em.View.extend
     @get('controller.model.state') == 'running' && @get('controller.model.stats')
   ).property 'controller.model.state', 'controller.model.stats'
 
-  createdAtUTC: (->
-    @get('controller.model.createdAt')?.toUTCString()
-  ).property 'controller.model.createdAt'
-
   actions:
     refresh: ->
       $btn = @$('.refresh-btn')
