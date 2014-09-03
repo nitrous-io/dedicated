@@ -7,7 +7,7 @@
     link-to 'container.index' slug
       = displayName
 
-  button.ui.btn.mini.rename-btn
-    i.fa.fa-pencil
+  /button.ui.btn.mini.rename-btn
+    /i.fa.fa-pencil
 
 = outlet

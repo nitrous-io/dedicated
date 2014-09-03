@@ -63,6 +63,13 @@ $(document).on 'click', '.noclick', (e) ->
   e.preventDefault()
   e.stopPropagation()
 
+$(document).on 'click', '.click-highlight', (e) ->
+  sel = window.getSelection()
+  range = document.createRange()
+  range.selectNodeContents(e.target)
+  sel.removeAllRanges()
+  sel.addRange(range)
+
 Em.Route.reopen
   activate: ->
     App.set 'title', null

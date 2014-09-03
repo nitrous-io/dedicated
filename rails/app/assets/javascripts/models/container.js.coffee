@@ -21,6 +21,10 @@ App.Container = klass = App.Model.extend
   finishedAt: attr('date', as: 'finished_at', serialize: false)
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
 
+  isRunning: Em.computed.equal 'state', 'running'
+  isStopped: Em.computed.equal 'state', 'stopped'
+  isTerminated: Em.computed.equal 'state', 'terminated'
+
   displayName: (->
     @get('name') || @get('slug')
   ).property 'name', 'slug'

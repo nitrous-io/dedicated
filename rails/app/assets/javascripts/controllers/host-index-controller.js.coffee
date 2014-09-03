@@ -1,16 +1,6 @@
-App.HostIndexController = Em.ObjectController.extend
-  performAction: (method, action, tempState) ->
-    host = @get('model')
-    prevState = host.get('state')
-    host.set 'state', tempState
-    ajax = host.ajax(method, action).then (json) ->
-      host.load(json.host) if json.host?
-    , (jqxhr) ->
-      if errMsg = jqxhr.responseJSON?.error_description
-        App.snackbar.post(errMsg.capitalize())
-      host.set('state', prevState)
-    ajax
+#= require ../mixins/perform-action-mixin
 
+App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
   actions:
     start: ->
       @performAction('POST', 'start', 'starting')

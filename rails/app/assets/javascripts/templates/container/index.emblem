@@ -11,12 +11,14 @@
     tr
       th Slug
       td colspan='3'
-        = slug
+        span.click-highlight
+          = slug
 
     tr
       th Image
       td colspan='3'
-        = image
+        span.click-highlight
+          = image
 
     tr
       th CMD
@@ -25,7 +27,8 @@
           ul.comma-separated
             each cm in cmd
               li
-                = cm
+                span.click-highlight
+                  = cm
         else
           span.empty &ndash;
 
@@ -36,17 +39,20 @@
           ul.comma-separated
             each ep in entrypoint
               li
-                = ep
+                span.click-highlight
+                  = ep
         else
           span.empty &ndash;
 
     tr
       th Internal IP
       td
-        = ipAddress
+        span.click-highlight
+          = ipAddress
       th Gateway IP
       td.right
-        = gatewayIP
+        span.click-highlight
+          = gatewayIP
 
     tr
       th Created At
@@ -62,7 +68,8 @@
     tr
       th Exit Code
       td
-        = exitCodeString
+        span.click-highlight
+          = exitCodeString
       th Finished At
       td.right
         if finishedAt
@@ -71,8 +78,53 @@
           span.empty &ndash;
 
 .card-footer.bordered
-  .left
-    button.ui.btn Restart
-    button.ui.btn Stop
-  .right
-    button.ui.btn.primary click='openTerminal' Terminal
+  if isRunning
+    .left
+      button.ui.btn click='restart' Restart
+      button.ui.btn click='stop' Stop
+    .right
+      button.ui.btn.primary click='openTerminal' Terminal
+  else
+    if isStopped
+      .left
+        button.ui.btn click='showTerminateDialog target="view"' Terminate
+      .right
+        button.ui.btn.primary click='start' Start
+    else
+      if isTerminated
+        .left
+          button.ui.btn disabled='disabled' Terminated
+      else
+        .left
+          button.ui.btn disabled='disabled' Please Wait...
+
+#terminate-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Are you ABSOLUTELY sure?
+    .card-body
+      p
+        | This action&nbsp;
+        strong CANNOT
+        | &nbsp;be undone!
+      p
+        | This will permanently delete the&nbsp;
+        strong
+          | &ldquo;
+          = displayName
+          | &rdquo;
+        | &nbsp;container and all data stored within the container.
+      p
+        | Please type in the slug of the host&nbsp;
+        strong
+          |(
+          span.click-highlight
+            = slug
+          |)
+        | &nbsp;to confirm:
+      .ui.input-group
+        Em.TextField class='focus' placeholder=slug value=view.terminateSlugConfirmation insertNewline=view.clickTerminate
+    .card-footer
+      .right
+        button.ui.btn click='cancelTerminate target="view"' Cancel
+        button.ui.btn.danger.terminate-btn click='confirmTerminate target="view"' disabled=view.terminateSlugConfirmationInvalid Terminate

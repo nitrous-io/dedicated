@@ -17,7 +17,8 @@
     tr
       th Slug
       td
-        = slug
+        span.click-highlight
+          = slug
       th CPU Usage (%)
       td.usage
         if view.hostStatsAvailable
@@ -61,7 +62,8 @@
     tr
       th IP Address
       td colspan='3'
-        = ipAddress
+        span.click-highlight
+          = ipAddress
 
     tr
       th Created At
@@ -97,15 +99,20 @@
       p
         | This action&nbsp;
         strong CANNOT
-        | &nbsp;be undone. This will permanently delete the&nbsp;
+        | &nbsp;be undone!
+      p
+        | This will permanently delete the&nbsp;
         strong
+          | &ldquo;
           = displayName
-        | &nbsp;host, containers, images, volumes, and archives.
+          | &rdquo;
+        | &nbsp;host and all containers, images, volumes, and archives within the host.
       p
         | Please type in the slug of the host&nbsp;
         strong
           |(
-          = slug
+          span.click-highlight
+            = slug
           |)
         | &nbsp;to confirm:
       .ui.input-group
@@ -113,4 +120,4 @@
     .card-footer
       .right
         button.ui.btn click='cancelTerminate target="view"' Cancel
-        button.ui.btn.primary.terminate-btn click='confirmTerminate target="view"' disabled=view.terminateSlugConfirmationInvalid Terminate
+        button.ui.btn.danger.terminate-btn click='confirmTerminate target="view"' disabled=view.terminateSlugConfirmationInvalid Terminate
