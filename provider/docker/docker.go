@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -28,6 +29,8 @@ var (
 	registryName     = "nitrousio"
 	images           = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
 )
+
+const defaultDockerGateway = "172.17.42.1"
 
 func init() {
 	if host := os.Getenv("DOCKER_HOST"); host != "" {
@@ -127,6 +130,7 @@ func (p *DockerProvider) Create(name, imageName, secret, configJSON string) (*pr
 	}
 
 	cfg, err := containerConfigFromJSON(configJSON)
+	setDefaultContainerConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -191,6 +195,7 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 	}
 
 	cfg, err := containerConfigFromJSON(configJSON)
+	setDefaultContainerConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -973,4 +978,8 @@ func containerConfigFromJSON(jsonStr string) (*provider.ContainerConfig, error) 
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func setDefaultContainerConfig(c *provider.ContainerConfig) {
+	c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", defaultDockerGateway))
 }

@@ -82,6 +82,10 @@ var _ = Describe("provider/docker", func() {
 		return doInspect(id, "{{.NetworkSettings.IPAddress}}")
 	}
 
+	getEnv := func(id string) string {
+		return doInspect(id, "{{.Config.Env}}")
+	}
+
 	type configInfo struct {
 		Cmd        []string
 		Entrypoint []string
@@ -191,6 +195,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(info.Host).To(Equal(host))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			Expect(info.Ports[port]).To(Equal(22))
+			Expect(getEnv(id)).To(ContainSubstring("__HOST=172.17.42.1"))
 
 			c := getContainerInfo(id)
 			Expect(info.Cmd).To(Equal(c.Config.Cmd))
