@@ -61,15 +61,15 @@ var _ = Describe("images/pull", func() {
 		Context("successful pull", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusOK
-				responseBody = `{"image":{"id":"123456snip","slug":"scratch","tag":"latest","name":"scratch image","created_at":"2013-11-01T00:00:00Z","actual_size":123,"virtual_size":456},"status":"OK"}`
+				responseBody = `{"image":{"id":1, "freighter_id":"123456snip","slug":"scratch","tag":"latest","name":"scratch image","created_at":"2013-11-01T00:00:00Z","actual_size":123,"virtual_size":456},"status":"OK"}`
 			})
 
 			It("outputs image details", func() {
 				code := doCmd()
 				Expect(code).To(Equal(0))
 				Expect(ui.OutputWriter.String()).To(ContainSubstring(`
-ID            Slug       Tag       Name             Created                          Size   Virtual Size
-123456snip    scratch    latest    scratch image    2013-11-01 00:00:00 +0000 UTC    123    456
+Slug       Tag       ID            Name             Created                          Size   Virtual Size
+scratch    latest    123456snip    scratch image    2013-11-01 00:00:00 +0000 UTC    123    456
 `))
 			})
 		})

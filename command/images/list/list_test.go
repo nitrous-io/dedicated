@@ -122,7 +122,8 @@ var _ = Describe("images/list", func() {
 						responseBody = `{
 							"images": [
 								{
-									"id": "12",
+									"id": 12,
+									"freighter_id": "cafefeed",
 									"slug": "source1",
 									"tag": "sourcetag1",
 									"name": "source1 img",
@@ -131,7 +132,8 @@ var _ = Describe("images/list", func() {
 									"virtual_size": 39
 								},
 								{
-									"id": "13",
+									"id": 13,
+									"freighter_id": "cafedead",
 									"slug": "source2",
 									"tag": "sourcetag2",
 									"name": "source2 img",
@@ -146,9 +148,9 @@ var _ = Describe("images/list", func() {
 					It("should communicate list the images", func() {
 						code := cmd.Run([]string{host})
 						Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
-ID    Slug       Tag           Name           Created                          Size   Virtual Size
-12    source1    sourcetag1    source1 img    2013-11-01 00:00:00 +0000 UTC    12     39
-13    source2    sourcetag2    source2 img    2013-11-02 00:00:00 +0000 UTC    10     48
+Slug       Tag           ID          Name           Created                          Size   Virtual Size
+source1    sourcetag1    cafefeed    source1 img    2013-11-01 00:00:00 +0000 UTC    12     39
+source2    sourcetag2    cafedead    source2 img    2013-11-02 00:00:00 +0000 UTC    10     48
 `)))
 						Expect(code).To(Equal(0))
 					})

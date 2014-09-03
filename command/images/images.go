@@ -11,9 +11,10 @@ import (
 )
 
 type Image struct {
-	ID          string     `json:"id"`
+	ID          int64      `json:"id"`
 	UserID      int64      `json:"user_id"`
 	HostID      int64      `json:"host_id"`
+	FreighterID string     `json:"freighter_id"`
 	Name        string     `json:"name"`
 	Slug        string     `json:"slug"`
 	Tag         string     `json:"tag"`
@@ -29,9 +30,9 @@ func PrettyPrint(images ...*Image) string {
 	w := &tabwriter.Writer{}
 
 	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
-	fmt.Fprintln(w, strings.Join([]string{"ID", "Slug", "Tag", "Name", "Created", "Size", "Virtual Size"}, "\t "))
+	fmt.Fprintln(w, strings.Join([]string{"Slug", "Tag", "ID", "Name", "Created", "Size", "Virtual Size"}, "\t "))
 	for _, h := range images {
-		fmt.Fprintln(w, h.ID, "\t", h.Slug, "\t", h.Tag, "\t", h.Name, "\t", h.CreatedAt, "\t", h.ActualSize, "\t", h.VirtualSize)
+		fmt.Fprintln(w, h.Slug, "\t", h.Tag, "\t", h.FreighterID, "\t", h.Name, "\t", h.CreatedAt, "\t", h.ActualSize, "\t", h.VirtualSize)
 	}
 	w.Flush()
 	return b.String()
