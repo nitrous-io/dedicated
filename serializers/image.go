@@ -13,6 +13,7 @@ type Image struct {
 	Name        string     `json:"name"`
 	Slug        string     `json:"slug"`
 	Tag         string     `json:"tag"`
+	Repo        string     `json:"repo"`
 	ActualSize  int64      `json:"actual_size"`
 	VirtualSize int64      `json:"virtual_size"`
 	BuiltAt     *time.Time `json:"built_at,omitempty"`
@@ -32,6 +33,7 @@ func SerializeImage(i *image.Image) *Image {
 		Name:        i.Name,
 		Slug:        i.Slug,
 		Tag:         i.Tag,
+		Repo:        i.FullRepository(),
 		ActualSize:  i.ActualSize,
 		VirtualSize: i.VirtualSize,
 		BuiltAt:     i.BuiltAt,
