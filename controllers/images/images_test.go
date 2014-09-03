@@ -372,6 +372,20 @@ var _ = Describe("controllers/images", func() {
 			Expect(errDesc).To(Equal("file is required"))
 		})
 
+		It("converts the name portion of the 'slug' form value to lowercase", func() {
+			mockClient.BuildImageReturn = &freighterclient.Image{
+				ID:   "cafebabe",
+				Name: "scratcher",
+				Tag:  "MyTag",
+			}
+
+			params := &url.Values{}
+			params.Add("slug", "ScratchER:MyTag")
+			doRequest("foo", params, map[string]string{"file": "FROM fake"})
+			Expect(mockClient.BuildImageCalled).To(Equal(1))
+			Expect(mockClient.BuildImageName).To(Equal("scratcher:MyTag"))
+		})
+
 		It("returns 500 on freighterclient error", func() {
 			mockClient.BuildImageError = &freighterclient.StatusError{418}
 			params := &url.Values{}
@@ -726,6 +740,15 @@ var _ = Describe("controllers/images", func() {
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
 			Expect(errDesc).To(Equal("tag is required"))
+		})
+
+		It("converts the name portion of the 'tag' form value to lowercase", func() {
+			params := &url.Values{}
+			params.Add("tag", "NitrousIO/Staging:MyTag")
+			doRequest("foo", "nitrousio/scratch", params)
+
+			Expect(mockClient.TagImageCalled).To(Equal(1))
+			Expect(mockClient.ReceivedTag).To(Equal("nitrousio/staging:MyTag"))
 		})
 
 		It("returns 500 on freighterclient error", func() {

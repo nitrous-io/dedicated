@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -90,7 +91,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return errSizeRequired
 	}
 
-	slug := r.FormValue("slug")
+	slug := strings.ToLower(r.FormValue("slug"))
 	if slug == "" {
 		return errSlugRequired
 	}

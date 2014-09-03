@@ -3,6 +3,7 @@ package images
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -88,6 +89,7 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	if slug == "" {
 		return errSlugRequired
 	}
+	slug = slugToLower(slug)
 
 	f, err := fh.Open()
 	if err != nil {
@@ -246,6 +248,7 @@ func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Reque
 	if newRepo == "" {
 		return errTagRequired
 	}
+	newRepo = slugToLower(newRepo)
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 
 	srcImg, err := image.Find(db, env.User, h, slug)
@@ -310,4 +313,16 @@ func convertImage(img *freighterclient.Image) *image.Image {
 		ActualSize:  img.ActualSize,
 		VirtualSize: img.VirtualSize,
 	}
+}
+
+// slugToLower converts the name portion of an image repo to lowercase but
+// leaves the tag portion unchanged.
+// E.g. "NitrousIO/Scratch:MyTag" -> "nitrousio/scratch:MyTag"
+func slugToLower(slug string) string {
+	repo, tag := image.ParseRepoAndTag(slug)
+	repo = strings.ToLower(repo)
+	if tag != "" {
+		repo = repo + ":" + tag
+	}
+	return repo
 }

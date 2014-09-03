@@ -150,7 +150,7 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	db := env.DB
 	log := env.Logger
 
-	slug := r.FormValue("slug")
+	slug := strings.ToLower(r.FormValue("slug"))
 	name := r.FormValue("name")
 	imageSlug := r.FormValue("image")
 
