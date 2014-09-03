@@ -9,20 +9,28 @@ App.HostsNewView = Em.View.extend
     !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedRegionSlug') && @get('controller.selectedPlanSlug')) || @get('controller.saving')
   ).property 'controller.name', 'controller.slug', 'controller.selectedRegionSlug', 'controller.selectedPlanSlug', 'controller.saving'
 
+  preselectRegion: (->
+    Em.run.scheduleOnce 'afterRender', this, ->
+      @$('input[name=region]')?.eq(0).attr('checked', true).change()
+  ).observes 'App.regions.@each'
+
+  preselectPlan: (->
+    Em.run.scheduleOnce 'afterRender', this, ->
+      @$('input[name=size]')?.eq(1).attr('checked', true).change()
+  ).observes 'App.plans.@each'
+
   didInsertElement: ->
     @_super()
     controller = @get 'controller'
-    $region = @$('input[name=region]')
-    $plan = @$('input[name=size]')
 
-    $region.on 'change.hosts-new', =>
-      controller.set 'selectedRegionSlug', $region.filter(':checked').val()
+    @$().on 'change.hosts-new', 'input[name=region]', =>
+      controller.set 'selectedRegionSlug', @$('input[name=region]').filter(':checked').val()
 
-    $plan.on 'change.hosts-new', =>
-      controller.set 'selectedPlanSlug', $plan.filter(':checked').val()
+    @$().on 'change.hosts-new', 'input[name=size]', =>
+      controller.set 'selectedPlanSlug', @$('input[name=size]').filter(':checked').val()
 
-    $region.eq(0).attr('checked', true).change()
-    $plan.eq(1).attr('checked', true).change()
+    @preselectRegion()
+    @preselectPlan()
 
     App.slug.slugify(@$('#hosts-new-name'), @$('#hosts-new-slug'))
 
@@ -30,6 +38,5 @@ App.HostsNewView = Em.View.extend
 
   willDestroyElement: ->
     @_super()
-    @$('input[name=region]').off 'change.hosts-new'
-    @$('input[name=size]').off 'change.hosts-new'
     App.slug.unslugify(@$('#hosts-new-name'))
+    @$().off 'change.hosts-new'

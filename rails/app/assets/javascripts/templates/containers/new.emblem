@@ -7,7 +7,7 @@ form submit='create target="view"'
       label.field-label
         | Host
       .ui.select
-        Ember.Select content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' value=selectedHostSlug
+        Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' value=selectedHostSlug
 
       label.field-label for='containers-new-name'
         | Name
@@ -31,7 +31,7 @@ form submit='create target="view"'
             label for='containers-new-option-host-image' Use Image On This Host
 
         .ui.select.indent
-          Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.nameAndTag' optionLabelPath='content.nameAndTag' value=view.selectedHostImage
+          Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage
 
         ul.ui.checkbox-group
           li

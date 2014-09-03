@@ -7,11 +7,15 @@ form submit='create target="view"'
       label.field-label
         | Host
       .ui.select
-        Ember.Select content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' value=selectedHostSlug
+        Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' value=selectedHostSlug
 
       label.field-label for='images-new-name'
         | Name
-      = input type='text' name='name' id='images-new-name' pattern=App.Image.inputPattern title=App.Image.inputTitle value=name
+      = input type='text' name='name' id='images-new-name' value=name
+
+      label.field-label for='images-new-slug'
+        | Slug
+      = input type='text' name='slug' id='images-new-slug' pattern=App.Image.inputPattern title=App.Image.inputTitle value=slug
 
   .card-body.bordered
     .ui.input-group

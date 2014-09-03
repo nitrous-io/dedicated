@@ -1,12 +1,14 @@
 App.ImagesNewController = Em.Controller.extend
   selectedHostSlug: null
   name: null
+  slug: null
   saving: false
 
   clear: ->
     @setProperties
       selectedHostSlug: null
       name: null
+      slug: null
       saving: false
 
   actions:
@@ -15,12 +17,14 @@ App.ImagesNewController = Em.Controller.extend
 
     create: (file) ->
       @set 'saving', true
-      name = @get 'name'
+      name = @get 'slug'
+      slug = @get 'slug'
       data = new FormData()
       data.append 'name', name
+      data.append 'slug', slug
       data.append 'file', file
 
-      image = App.Image.create(name: name)
+      image = App.Image.create(name: name, slug: slug)
       Em.RSVP.Promise.cast(Em.$.ajax(
         type: 'POST'
         url: "/api/v0/hosts/#{@get 'selectedHostSlug'}/images"

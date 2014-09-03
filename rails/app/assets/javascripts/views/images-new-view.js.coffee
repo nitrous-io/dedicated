@@ -13,12 +13,17 @@ App.ImagesNewView = Em.View.extend
 
   createButtonDisabled: (->
     !(
-      @get('controller.name') && @get('controller.selectedHostSlug') && (
+      @get('controller.name') && @get('controller.slug') && @get('controller.selectedHostSlug') && (
         (@get('selectedOption') == 'file' && @get('selectedFile')) ||
         (@get('selectedOption') == 'code' && @get('dockerfileCode'))
       )
     )
-  ).property 'controller.name', 'controller.selectedHostSlug', 'selectedOption', 'selectedFile', 'dockerfileCode'
+  ).property 'controller.name', 'controller.slug', 'controller.selectedHostSlug', 'selectedOption', 'selectedFile', 'dockerfileCode'
+
+  hostsDidChange: (->
+    Em.run.scheduleOnce 'afterRender', this, ->
+      @$('select[name=host]')?.change()
+  ).observes 'App.hosts.@each'
 
   didInsertElement: ->
     @_super()
@@ -43,10 +48,15 @@ App.ImagesNewView = Em.View.extend
         @set 'selectedOption', ev.target.value
     ).change()
 
+    App.slug.slugify(@$('#images-new-name'), @$('#images-new-slug'), false)
+
+    @$('select[name=host]').change()
+
     @$('#images-new-name').focus()
 
   willDestroyElement: ->
     @_super()
+    App.slug.unslugify(@$('#images-new-name'))
     @$('input[name=option]').off('change.images-new')
     @$('#images-new-file').off('click.images-new')
     @$('.editor .CodeMirror').off('click.images-new')

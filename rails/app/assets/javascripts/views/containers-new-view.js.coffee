@@ -24,12 +24,16 @@ App.ContainersNewView = Em.View.extend
   ).property 'selectedOption', 'selectedHostImage', 'selectedBaseImage', 'customImage'
 
   createButtonDisabled: (->
-    !(@get('controller.name') && @get('controller.slug') && @get('image'))
-  ).property 'controller.name', 'controller.slug', 'image'
+    !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedHostSlug') && @get('image'))
+  ).property 'controller.name', 'controller.slug', 'controller.selectedHostSlug', 'image'
 
-  didChangeHostImages: (->
-    # make sure selectedHostImage is updated
-    Em.run.next this, ->
+  hostsDidChange: (->
+    Em.run.scheduleOnce 'afterRender', this, ->
+      @$('select[name=host]')?.change()
+  ).observes 'App.hosts.@each'
+
+  hostImagesDidChange: (->
+    Em.run.scheduleOnce 'afterRender', this, ->
       @$('select[name=containers-new-option-host-image]')?.change()
   ).observes 'controller.selectedHost.images.@each'
 

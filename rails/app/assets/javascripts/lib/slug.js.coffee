@@ -1,13 +1,16 @@
 App.slug =
-  toSlug: (text) ->
+  toSlug: (text, appendNumber) ->
     if text
-      (text.dasherize().replace(/[^A-Za-z0-9\-]/g, '-') + '-' + util.randomInteger(10, 99).toString()).replace(/^-+/, '')
+      slug = text.dasherize().replace(/[^A-Za-z0-9\-]/g, '-')
+      if appendNumber
+        slug += '-' + util.randomInteger(10, 99).toString()
+      slug.replace(/-{2,}/g, '-').replace(/^-/, '').replace(/-$/, '')
     else
       ''
 
-  slugify: ($nameField, $slugField) ->
+  slugify: ($nameField, $slugField, appendNumber=true) ->
     $nameField.on 'input.slugify', (ev) =>
-      $slugField.val(@toSlug($.trim(ev.target.value))).change()
+      $slugField.val(@toSlug($.trim(ev.target.value), appendNumber)).change()
 
   unslugify: ($nameField) ->
     $nameField.off 'input.slugify'
