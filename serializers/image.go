@@ -7,9 +7,10 @@ import (
 )
 
 type Image struct {
-	ID          string     `json:"id"`
+	ID          int64      `json:"id"`
 	UserID      int64      `json:"user_id"`
 	HostID      int64      `json:"host_id"`
+	FreighterID string     `json:"freighter_id"`
 	Name        string     `json:"name"`
 	Slug        string     `json:"slug"`
 	Tag         string     `json:"tag"`
@@ -27,9 +28,10 @@ func SerializeImage(i *image.Image) *Image {
 		return nil
 	}
 	return &Image{
-		ID:          i.FreighterID, // Use Freighter ID as "id".
+		ID:          i.ID,
 		UserID:      i.UserID,
 		HostID:      i.HostID,
+		FreighterID: i.FreighterID,
 		Name:        i.Name,
 		Slug:        i.Slug,
 		Tag:         i.Tag,

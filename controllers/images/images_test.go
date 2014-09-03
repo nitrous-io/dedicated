@@ -163,7 +163,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(ok).To(BeTrue())
 			Expect(images).To(HaveLen(2))
 
-			Expect(images[0].ID).To(Equal("1a"))
+			Expect(images[0].FreighterID).To(Equal("1a"))
 			Expect(images[0].Name).To(Equal("source1 image"))
 			Expect(images[0].Slug).To(Equal("source1"))
 			Expect(images[0].Tag).To(Equal("sourcetag1"))
@@ -174,7 +174,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(images[0].CreatedAt).NotTo(BeNil())
 			Expect(images[0].UpdatedAt).NotTo(BeNil())
 
-			Expect(images[1].ID).To(Equal("2a"))
+			Expect(images[1].FreighterID).To(Equal("2a"))
 			Expect(images[1].Name).To(Equal("source2 image"))
 			Expect(images[1].Slug).To(Equal("source2"))
 			Expect(images[1].Tag).To(Equal("sourcetag2"))
@@ -240,7 +240,7 @@ var _ = Describe("controllers/images", func() {
 				images, ok := j["images"]
 				Expect(ok).To(BeTrue())
 				Expect(images).To(HaveLen(1))
-				Expect(images[0].ID).To(Equal("1a"))
+				Expect(images[0].FreighterID).To(Equal("1a"))
 			})
 		})
 
@@ -534,7 +534,7 @@ var _ = Describe("controllers/images", func() {
 			}{}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.Image.ID).To(Equal("pulledbeef"))
+			Expect(j.Image.FreighterID).To(Equal("pulledbeef"))
 			Expect(j.Image.Slug).To(Equal("scratch"))
 			Expect(j.Image.Tag).To(Equal("latest"))
 		})
@@ -721,7 +721,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(evt.Name).To(Equal("image.tagged"))
 			img, ok := evt.Data.(*serializers.Image)
 			Expect(ok).To(BeTrue())
-			Expect(img.ID).To(Equal("cafebabe"))
+			Expect(img.FreighterID).To(Equal("cafebabe"))
 			Expect(img.Slug).To(Equal("staging"))
 			Expect(img.Tag).To(Equal("latest"))
 			close(done)
