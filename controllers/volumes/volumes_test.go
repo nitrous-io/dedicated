@@ -207,6 +207,17 @@ var _ = Describe("controllers/volumes", func() {
 				}))
 				close(done)
 			})
+
+			It("converts the 'slug' form value to lowercase", func() {
+				doRequest("TitleCaseSlug")
+				Expect(mockClient.CreateVolumeCalled).To(Equal(1))
+				Expect(mockClient.CreateVolumeSlug).To(Equal("titlecaseslug"))
+
+				vols, err := volume.FindAll(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(vols).To(HaveLen(1))
+				Expect(vols[0].Slug).To(Equal("titlecaseslug"))
+			})
 		})
 
 		Context("when slug already exists", func() {

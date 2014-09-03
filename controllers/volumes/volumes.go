@@ -2,6 +2,7 @@ package volumes
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
@@ -44,7 +45,7 @@ func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 func Create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	slug := r.FormValue("slug")
+	slug := strings.ToLower(r.FormValue("slug"))
 	if slug == "" {
 		return errSlugRequired
 	}

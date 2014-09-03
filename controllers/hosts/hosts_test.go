@@ -416,7 +416,16 @@ var _ = Describe("controllers/hosts", func() {
 						Data: serializers.SerializeHost(&h),
 					}))
 					close(done)
-				}, 3) // increase timeout to allow go routine to finish
+				}, 3) // increase timeout to allow goroutine to finish
+
+				It("converts the 'slug' form value to lowercase", func() {
+					doRequest(overrides{"slug": "HoneyBADGER"})
+
+					hosts, err := host.FindAllByUser(db, u)
+					Expect(err).To(BeNil())
+					Expect(hosts).To(HaveLen(1))
+					Expect(hosts[0].Slug).To(Equal("honeybadger"))
+				})
 			})
 
 			Context("when trying to create a host with an existing slug", func() {
@@ -1250,7 +1259,7 @@ var _ = Describe("controllers/hosts", func() {
 					Data: serializers.SerializeHost(h),
 				}))
 				close(done)
-			}, 3) // increase timeout to allow go routine to finish
+			}, 3) // increase timeout to allow goroutine to finish
 		})
 
 		Context("when hostbuilder fails to restart the host", func() {

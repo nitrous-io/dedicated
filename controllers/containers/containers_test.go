@@ -706,6 +706,19 @@ var _ = Describe("controllers/containers", func() {
 			Expect(i.Tag).To(Equal("latest"))
 		})
 
+		It("converts the 'slug' form value to lowercase", func() {
+			params.Del("slug")
+			params.Set("slug", "Elixir-WEB-1")
+
+			doRequest("valid-token", "foo", params)
+			Expect(mockClient.CreateCalled).To(Equal(1))
+			Expect(mockClient.ReceivedName).To(Equal("elixir-web-1"))
+
+			c, err := container.Find(db, u, "elixir-web-1")
+			Expect(err).To(BeNil())
+			Expect(c.Slug).To(Equal("elixir-web-1"))
+		})
+
 		It("updates an existing image record if image already exists", func() {
 			existing := &image.Image{
 				UserID:      hs.U.ID,
