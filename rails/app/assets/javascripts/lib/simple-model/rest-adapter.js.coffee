@@ -95,14 +95,17 @@ SM.RESTAdapter = Ember.Object.extend
     promise.value = recordArray
     promise
 
-  createRecord: (record) ->
+  createRecord: (record, params) ->
     model = record.constructor
     url = Ember.get(model, "createURL") || Ember.get(model, "url")
 
     url = @_fillDynamicSegments(url, record)
 
     promise = new Ember.RSVP.Promise (resolve, reject) =>
-      @ajax('POST', url, record.serialize()).done((data, status, jqxhr) ->
+      serialized = record.serialize()
+      Ember.merge(serialized, params)
+
+      @ajax('POST', url, serialized).done((data, status, jqxhr) ->
         if model.rootKey
           data = data[model.rootKey] || {}
         record.load(data)

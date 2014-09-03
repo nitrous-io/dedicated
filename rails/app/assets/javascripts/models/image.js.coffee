@@ -10,8 +10,17 @@ App.Image = klass = App.Model.extend
   virtualSize: attr('number', as: 'virtual_size')
   createdAt: attr('date', as: 'created_at', serialize: false)
 
+  nameAndTag: (->
+    name = @get 'name'
+    tag = @get 'tag'
+    "#{name}:#{tag}"
+  ).property 'name', 'tag'
+
 klass.reopenClass
   url: '/hosts/:hostId/images'
-  primaryKey: 'id'
+  primaryKey: 'name'
   rootKey: 'image'
   collectionKey: 'images'
+
+  inputPattern: '[a-z0-9\._\-]{3,30}'
+  inputTitle: 'May only contain alphanumeric characters, underscores or dashes. (3-30 characters)'

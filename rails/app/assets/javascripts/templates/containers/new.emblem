@@ -1,23 +1,21 @@
 .card-header.bordered
   h2 New Container
 
-form
+form submit='create target="view"'
   .card-body
     .ui.input-group
       label.field-label
         | Host
       .ui.select
-        select
-          option Project X
-          option Consulting
+        Ember.Select content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' value=selectedHostSlug
 
       label.field-label for='containers-new-name'
         | Name
-      input type='text' id='containers-new-name' name='name'
+      = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' value=name
 
       label.field-label for='containers-new-slug'
         | Unique Slug
-      input type='text' id='containers-new-slug' name='slug'
+      = input type='text' id='containers-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle value=slug
 
   .card-body.bordered
     .ui.input-group
@@ -28,42 +26,32 @@ form
         ul.ui.checkbox-group
           li
             .ui.checkbox
-              input type='radio' id='containers-new-image-type-host-image' name='image_type' checked='checked'
+              input type='radio' id='containers-new-option-host-image' name='option' checked='checked' value='host-image'
               label
-            label for='containers-new-image-type-host-image' Use Image On This Host
+            label for='containers-new-option-host-image' Use Image On This Host
 
         .ui.select.indent
-          select
-            option web-app-template
-            option fun-times-33
+          Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.nameAndTag' optionLabelPath='content.nameAndTag' value=view.selectedHostImage
 
         ul.ui.checkbox-group
           li
             .ui.checkbox
-              input type='radio' id='containers-new-image-type-nitrous' name='image_type'
+              input type='radio' id='containers-new-option-base-image' name='option' value='base-image'
               label
-            label for='containers-new-image-type-nitrous' Use Nitrous.IO Image
+            label for='containers-new-option-base-image' Use Nitrous.IO Base Image
 
         .ui.select.indent
-          select
-            option Go
-            option Node.js
-            option PHP
-            option Python
-            option Python with Django
-            option Ruby
-            option Ruby on Rails
-            option Ubuntu
+          Ember.Select class='option-input' name='containers-new-option-base-image' content=App.baseImages optionValuePath='content.repo' optionLabelPath='content.repo' value=view.selectedBaseImage
 
         ul.ui.checkbox-group
           li
             .ui.checkbox
-              input type='radio' id='containers-new-image-type-custom' name='image_type'
+              input type='radio' id='containers-new-option-custom-image' name='option' value='custom-image'
               label
-            label for='containers-new-image-type-custom' Use Image From Docker Registry
+            label for='containers-new-option-custom-image' Specify Custom Image
 
         .indent
-          input type='text' id='containers-new-slug' name='slug' placeholder='docker-registry/repo:latest'
+          = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' value=view.customImage
 
   .advanced-options class={view.showAdvanced::hidden}
     .card-body.bordered.volumes
@@ -96,7 +84,7 @@ form
               td
                 input type='text' placeholder='/code'
               td
-                button.ui.btn.raised Add
+                a.ui.btn.raised href='#' Add
 
     .card-body.bordered.port-bindings
       .ui.input-group
@@ -129,7 +117,7 @@ form
               td
                 input type='number' min='1' max='65535' step='1' placeholder='3000'
               td
-                button.ui.btn.raised Add
+                a.ui.btn.raised href='#' Add
 
         ul.ui.checkbox-group
           li
@@ -139,13 +127,18 @@ form
             label for='containers-new-publish-all' Publish All Exposed Ports
 
   .card-footer.bordered
-    .left
-      button#toggle-advanced-btn.ui.btn click='toggleShowAdvanced target="view"'
-        if view.showAdvanced
-          | Hide Advanced
-        else
-          | Show Advanced
+    /.left
+      /a#toggle-advanced-btn.ui.btn href='#' click='toggleShowAdvanced target="view"'
+        /if view.showAdvanced
+          /| Hide Advanced
+        /else
+          /| Show Advanced
 
     .right
-      button.ui.btn Cancel
-      button.ui.btn.primary Create
+      if saving
+        button.ui.btn disabled='disabled'
+          i.spinner
+          | Creating...
+      else
+        a.ui.btn href='#' click='cancel' Cancel
+        input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'

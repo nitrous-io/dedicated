@@ -34,12 +34,12 @@ SM.Model = klass = Ember.Object.extend
     if primaryKey = @getPrimaryKey()
       cache.set primaryKey, this
 
-  save: ->
+  save: (params) ->
     adapter = Ember.get(@constructor, 'adapter')
     if primaryKey = @getPrimaryKey() && @get('loaded')
       # TODO: update record
     else
-      adapter.createRecord(this)
+      adapter.createRecord(this, params)
 
 klass.reopenClass
   primaryKey: 'id'

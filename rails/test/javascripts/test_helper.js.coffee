@@ -24,6 +24,13 @@ window.expect.configure Object.defineProperties {},
       else
         QUnit.notStrictEqual(@_actual.indexOf(expected), -1, message)
 
+  haveLength:
+    value: (expected, message) ->
+      if @_flags.negate
+        QUnit.notStrictEqual(@_actual.length, expected, message)
+      else
+        QUnit.strictEqual(@_actual.length, expected, message)
+
 # expected global vars
 [
   'XMLHttpRequest'

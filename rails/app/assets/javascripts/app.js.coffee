@@ -19,6 +19,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   selectedContainer: null
   regions: null
   plans: null
+  baseImages: null
 
   didChangeTitle: (->
     title = @get 'title'

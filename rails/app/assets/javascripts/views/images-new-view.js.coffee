@@ -1,4 +1,4 @@
-window.Blob ?= window.WebKitBlob
+Blob = window.Blob || window.WebKitBlob
 
 App.ImagesNewView = Em.View.extend
   elementId: 'images-new-view'
@@ -11,7 +11,7 @@ App.ImagesNewView = Em.View.extend
   selectedFileName: null
   dockerfileCode: null
 
-  disableCreateButton: (->
+  createButtonDisabled: (->
     !(
       @get('controller.name') && @get('controller.selectedHostSlug') && (
         (@get('selectedOption') == 'file' && @get('selectedFile')) ||
@@ -25,12 +25,18 @@ App.ImagesNewView = Em.View.extend
     @set 'codeMirror', codemirror = CodeMirror.fromTextArea @$('#dockerfile-code')[0],
       lineNumbers: true
       viewportMargin: Infinity
+
     codemirror.changeHandler = =>
       @set 'dockerfileCode', codemirror.getValue()
-    codemirror.focusHandler = =>
-      @$('#images-new-option-code').click()
     codemirror.on 'change', codemirror.changeHandler
-    codemirror.on 'focus', codemirror.focusHandler
+
+    @$('.editor .CodeMirror').on 'click.images-new', (ev) =>
+      Em.run.next this, ->
+        @$('#images-new-option-code').click()
+
+    @$('#images-new-file').on 'click.images-new', (ev) =>
+      Em.run.next this, ->
+        @$('#images-new-option-file').click()
 
     @$('input[name=option]').on('change.images-new', (ev) =>
       if $(ev.target).is(':checked')
@@ -41,14 +47,14 @@ App.ImagesNewView = Em.View.extend
 
   willDestroyElement: ->
     @_super()
+    @$('input[name=option]').off('change.images-new')
+    @$('#images-new-file').off('click.images-new')
+    @$('.editor .CodeMirror').off('click.images-new')
     if codeMirror = @get('codeMirror')
       codeMirror.off 'change', codeMirror.changeHandler
-      codeMirror.off 'focus', codeMirror.focusHandler
       codeMirror.changeHandler = null
-      codeMirror.focusHandler = null
       codeMirror.toTextArea()
     @set 'codeMirror', null
-    @$('input[name=option]').off('change.images-new')
 
   actions:
     didChangeFile: ->
@@ -56,7 +62,6 @@ App.ImagesNewView = Em.View.extend
         file = files[0]
         @set 'selectedFile', file
         @set 'selectedFileName', file?.name
-        @$('#images-new-option-file').click()
 
     create: ->
       file = switch @get('selectedOption')

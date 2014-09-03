@@ -534,3 +534,16 @@ describe 'SM.RESTAdapter', ->
         promise = record.save()
         expect(server.requests.length).to.equal 1, '1 request is made'
         expect(server.requests[0].url).to.equal '/foo/abc/bar/3/baz', 'dynamic segments are filled'
+
+    context 'when params are given', ->
+      it 'passes the params along with data', ->
+        promise = record.save(foo: 'lol', bar: 123)
+        expect(server.requests).to.haveLength 1, '1 request is made'
+        request = server.requests[0]
+        data = request.requestBody.split('&')
+        expect(data).to.haveLength 5, '5 params are passed'
+        expect(data).to.contain 'slug=foo', 'slug is in params'
+        expect(data).to.contain 'name=Foo', 'name is in params'
+        expect(data).to.contain 'age=15', 'age is in params'
+        expect(data).to.contain 'foo=lol', 'foo is in params'
+        expect(data).to.contain 'bar=123', 'bar is in params'

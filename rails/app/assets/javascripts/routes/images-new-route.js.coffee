@@ -4,3 +4,7 @@ App.ImagesNewRoute = App.AuthedRoute.extend
 
   renderTemplate: ->
     @render 'images/new', outlet: 'content'
+
+  setupController: (controller, model) ->
+    @_super.apply this, arguments
+    controller.clear()
