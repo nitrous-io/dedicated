@@ -178,6 +178,7 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 		Image:      container.Config.Image,
 		ImageID:    container.Image,
 		Host:       container.NetworkSettings.IPAddress,
+		Gateway:    container.NetworkSettings.Gateway,
 		Ports:      portsFromContainer(container),
 		State:      stateFromContainer(container),
 		Cmd:        container.Config.Cmd,
@@ -309,6 +310,7 @@ func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 	p.logger.TimeInfo(start, "DockerProvider: removed container", id, "in")
 
 	info.Host = ""
+	info.Gateway = ""
 	info.State = ""
 	info.Ports = map[string]int{}
 
