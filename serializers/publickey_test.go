@@ -17,7 +17,7 @@ var _ = Describe("public key serializer", func() {
 
 		model = &publickey.PublicKey{
 			ID:          10,
-			UserID:      11, // Not serialized.
+			UserID:      11,
 			ContainerID: 12,
 			Fingerprint: "bc:68:22:0a:6b:31:18:f7:52:33:fe:af:d9:ed:9f:81",
 			Key:         "ssh-rsa AAAAB3NzaC",
@@ -33,6 +33,7 @@ var _ = Describe("public key serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
 				"id": 10,
+				"user_id": 11,
 				"container_id": 12,
 				"fingerprint": "bc:68:22:0a:6b:31:18:f7:52:33:fe:af:d9:ed:9f:81",
 				"key": "ssh-rsa AAAAB3NzaC"
@@ -47,6 +48,7 @@ var _ = Describe("public key serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`[{
 				"id": 10,
+				"user_id": 11,
 				"container_id": 12,
 				"fingerprint": "bc:68:22:0a:6b:31:18:f7:52:33:fe:af:d9:ed:9f:81",
 				"key": "ssh-rsa AAAAB3NzaC"

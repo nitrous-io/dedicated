@@ -16,13 +16,13 @@ var (
 )
 
 type PublicKey struct {
-	ID          int64      `db:"id" json:"id"`
-	UserID      int64      `db:"user_id" json:"-"`
-	ContainerID int64      `db:"container_id" json:"container_id"`
-	Fingerprint string     `db:"fingerprint" json:"fingerprint"`
-	Key         string     `db:"key" json:"key"`
-	CreatedAt   *time.Time `db:"created_at" json:"-"`
-	UpdatedAt   *time.Time `db:"updated_at" json:"-"`
+	ID          int64      `db:"id"`
+	UserID      int64      `db:"user_id"`
+	ContainerID int64      `db:"container_id"`
+	Fingerprint string     `db:"fingerprint"`
+	Key         string     `db:"key"`
+	CreatedAt   *time.Time `db:"created_at"`
+	UpdatedAt   *time.Time `db:"updated_at"`
 }
 
 func FindAllByUserIDAndContainerID(db *db.Database, userID int64, containerID int64) ([]*PublicKey, error) {
