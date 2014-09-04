@@ -77,7 +77,7 @@ func (c *Command) Run(args []string) int {
 	}
 
 	err = c.makeRequest(container, &url.Values{
-		"keytext": {string(keybytes)},
+		"key": {string(keybytes)},
 	})
 	if err != nil {
 		c.UI.Error(err.Error())
