@@ -5,5 +5,5 @@ App.HostVolumesView = Em.View.extend
     remove: ->
       volumes = @get 'controller.model.volumes'
       selected = @$('input[name=volume]:checked').map (i, el) ->
-        volumes.findBy 'slug', el.value
+        volumes.findBy 'id', parseInt(el.value, 10)
       @get('controller').send 'remove', $.makeArray(selected)

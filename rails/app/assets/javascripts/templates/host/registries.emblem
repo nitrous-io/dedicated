@@ -8,7 +8,7 @@
           li.list-item
             .left-accessory
               .ui.checkbox
-                input type='checkbox' name='registry' id={registry.inputId} value={registry.url}
+                input type='checkbox' name='registry' id={registry.inputId} value={registry.id}
                 label
             .lines
               label for={registry.inputId}
@@ -31,6 +31,11 @@
 
 .card-footer.bordered
   .left
-    button.ui.btn click='remove target="view"' Remove
+    if removing
+      button.ui.btn disabled='disabled'
+        i.spinner
+        | Removing...
+    else
+      button.ui.btn click='remove target="view"' Remove
   .right
     button.ui.btn.primary click='add' Connect to Registry...

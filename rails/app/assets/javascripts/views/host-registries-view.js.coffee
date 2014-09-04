@@ -5,5 +5,5 @@ App.HostRegistriesView = Em.View.extend
     remove: ->
       registries = @get 'controller.model.registries'
       selected = @$('input[name=registry]:checked').map (i, el) ->
-        registries.findBy 'url', el.value
+        registries.findBy 'id', parseInt(el.value, 10)
       @get('controller').send 'remove', $.makeArray(selected)

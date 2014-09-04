@@ -8,7 +8,7 @@
           li.list-item
             .left-accessory
               .ui.checkbox
-                input type='checkbox' name='volume' id={volume.inputId} value={volume.slug}
+                input type='checkbox' name='volume' id={volume.inputId} value={volume.id}
                 label
             .lines
               label for={volume.inputId}
@@ -33,6 +33,11 @@
 
 .card-footer.bordered
   .left
-    button.ui.btn click='remove target="view"' Remove
+    if removing
+      button.ui.btn disabled='disabled'
+        i.spinner
+        | Removing...
+    else
+      button.ui.btn click='remove target="view"' Remove
   .right
     button.ui.btn.primary click='new' New Volume...

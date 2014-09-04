@@ -4,6 +4,7 @@ App.HostRegistriesRoute = App.AuthedRoute.extend
 
   setupController: (controller, model) ->
     @_super.apply this, arguments
-    registries = model.get('registries')
-    registries.reload() if registries.get('loaded')
-    App.set 'title', model.get('displayName') + ' » Registries'
+    controller.clear()
+    if (registries = model.get 'registries') && registries.get('loaded')
+      registries.reload()
+    App.set 'title', model.get('displayName') + ' › Registries'

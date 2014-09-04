@@ -4,6 +4,7 @@ App.HostVolumesRoute = App.AuthedRoute.extend
 
   setupController: (controller, model) ->
     @_super.apply this, arguments
-    volumes = model.get('volumes')
-    volumes.reload() if volumes.get('loaded')
-    App.set 'title', model.get('displayName') + ' » Volumes'
+    controller.clear()
+    if (volumes = model.get 'volumes') && volumes.get('loaded')
+      volumes.reload()
+    App.set 'title', model.get('displayName') + ' › Volumes'

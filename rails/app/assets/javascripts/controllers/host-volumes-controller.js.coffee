@@ -1,9 +1,16 @@
 App.HostVolumesController = Em.ObjectController.extend
+  removing: false
+
+  clear: ->
+    @setProperties
+      removing: false
+
   actions:
     new: ->
       @transitionToRoute 'host.volumes-new'
 
     remove: (volumes) ->
+      @set 'removing', true
       host = @get 'model'
 
       fns = volumes.map (volume) ->
@@ -15,5 +22,6 @@ App.HostVolumesController = Em.ObjectController.extend
               App.snackbar.post(errMsg.capitalize())
             cb(jqxhr)
 
-      async.series fns, (err) ->
+      async.series fns, (err) =>
         host.get('volumes').reload()
+        @set 'removing', false
