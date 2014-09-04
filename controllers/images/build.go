@@ -136,7 +136,7 @@ func mergeImage(dbImg *image.Image, remoteImg *freighterclient.Image) {
 	}
 	var builtAt *time.Time
 	if remoteImg.CreatedAt != 0 {
-		t := time.Unix(remoteImg.CreatedAt, 0)
+		t := time.Unix(remoteImg.CreatedAt, 0).UTC()
 		builtAt = &t
 	}
 	dbImg.FreighterID = remoteImg.ID

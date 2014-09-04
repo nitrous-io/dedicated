@@ -52,7 +52,7 @@ func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		img.ActualSize = fImg.ActualSize
 		img.VirtualSize = fImg.VirtualSize
 		if fImg.CreatedAt != 0 {
-			t := time.Unix(fImg.CreatedAt, 0)
+			t := time.Unix(fImg.CreatedAt, 0).UTC()
 			img.BuiltAt = &t
 		}
 
@@ -256,7 +256,7 @@ func convertImage(img *freighterclient.Image) *image.Image {
 	}
 	var builtAt *time.Time
 	if img.CreatedAt != 0 {
-		t := time.Unix(img.CreatedAt, 0)
+		t := time.Unix(img.CreatedAt, 0).UTC()
 		builtAt = &t
 	}
 	return &image.Image{
