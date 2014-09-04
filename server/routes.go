@@ -68,7 +68,7 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Index), "GET")
 		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Create), "POST")
 		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Create), "PUT")
-		s.routeJSON("/containers/{slug}/keys/{md5_fingerprint}", mw.Auth(keys.DeleteByFingerprint), "DELETE")
+		s.routeJSON("/containers/{slug}/keys/{kslug}", mw.Auth(keys.Delete), "DELETE")
 		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.DeleteAll), "DELETE")
 
 		s.routeJSON("/plans", plans.Index, "GET")

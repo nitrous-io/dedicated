@@ -26,14 +26,14 @@ var (
 )
 
 var (
-	Index               middleware.Middleware = withContainer(index)
-	Create              middleware.Middleware = containers.WithContainerAndHost(create)
-	DeleteAll           middleware.Middleware = containers.WithContainerAndHost(deleteAll)
-	DeleteByFingerprint middleware.Middleware = containers.WithContainerAndHost(deleteByFingerprint)
+	Index     middleware.Middleware = withContainer(index)
+	Create    middleware.Middleware = containers.WithContainerAndHost(create)
+	DeleteAll middleware.Middleware = containers.WithContainerAndHost(deleteAll)
+	Delete    middleware.Middleware = containers.WithContainerAndHost(delete)
 )
 
 func index(cn *container.Container, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	keys, err := publickey.FindAllByUserIDAndContainerID(env.DB, env.User.ID, cn.ID)
+	keys, err := publickey.FindAll(env.DB, env.User.ID, cn.ID)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func deleteAll(cn *container.Container, h *host.Host, env *middleware.Env, w htt
 		return freighterError(err)
 	}
 
-	err = publickey.DestroyAllByUserIDAndContainerID(db, u.ID, cn.ID)
+	err = publickey.DestroyAll(db, u.ID, cn.ID)
 	if err != nil {
 		return err
 	}
@@ -120,13 +120,18 @@ func deleteAll(cn *container.Container, h *host.Host, env *middleware.Env, w htt
 	return nil
 }
 
-func deleteByFingerprint(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func delete(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	u := env.User
 
-	fingerprint := mux.Vars(r)["md5_fingerprint"]
+	cl, err := controllers.NewFreighterClient(db, h)
+	if err != nil {
+		return err
+	}
 
-	_, err := publickey.FindByUserIDAndContainerIDAndFingerprint(db, u.ID, cn.ID, fingerprint)
+	slug := mux.Vars(r)["kslug"]
+
+	key, err := publickey.Find(db, u.ID, cn.ID, slug)
 	if err != nil {
 		if err == publickey.ErrNotFound {
 			return ErrFingerprintNotFound
@@ -134,15 +139,11 @@ func deleteByFingerprint(cn *container.Container, h *host.Host, env *middleware.
 		return err
 	}
 
-	cl, err := controllers.NewFreighterClient(db, h)
-	if err != nil {
-		return err
-	}
-	err = cl.RemovePublicKey(cn.CID, fingerprint)
+	err = cl.RemovePublicKey(cn.CID, key.Fingerprint)
 	if err != nil {
 		return freighterError(err)
 	} else {
-		err = publickey.DestroyByUserIDAndContainerIDAndFingerprint(db, u.ID, cn.ID, fingerprint)
+		err = publickey.Destroy(db, u.ID, cn.ID, key.ID)
 		if err != nil {
 			return err
 		}
