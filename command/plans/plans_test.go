@@ -64,7 +64,7 @@ var _ = Describe("plans", func() {
 		It("outputs formatted plans on success", func() {
 			code := cmd.Run([]string{})
 			Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
-Slug     Name
+Size     Name
 512mb    nano
 1gb      micro
 2gb      small
