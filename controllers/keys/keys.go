@@ -48,16 +48,14 @@ func index(cn *container.Container, env *middleware.Env, w http.ResponseWriter, 
 
 func create(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
-	u := env.User
 
 	pk := publickey.PublicKey{
-		UserID:      u.ID,
+		UserID:      env.User.ID,
 		ContainerID: cn.ID,
-		Key:         r.FormValue("keytext"),
+		Key:         r.FormValue("key"),
 	}
 
-	err := pk.Validate()
-	if err != nil {
+	if err := pk.Validate(); err != nil {
 		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
 	}
 
@@ -66,8 +64,7 @@ func create(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
-	err = pk.Insert(tx)
-	if err != nil {
+	if err := pk.Insert(tx); err != nil {
 		tx.Rollback()
 		if err == publickey.ErrInvalidKey {
 			return ErrInvalidKey
@@ -76,20 +73,19 @@ func create(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 			return ErrKeyExists
 		}
 		return err
-	} else {
-		cl, err := controllers.NewFreighterClient(db, h)
-		if err != nil {
-			return err
-		}
-		err = cl.AddPublicKeys(cn.CID, []string{pk.Key})
-		if err != nil {
-			tx.Rollback()
-			return freighterError(err)
-		}
 	}
 
-	err = tx.Commit()
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := cl.AddPublicKeys(cn.CID, []string{pk.Key}); err != nil {
+		tx.Rollback()
+		return freighterError(err)
+	}
+
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 

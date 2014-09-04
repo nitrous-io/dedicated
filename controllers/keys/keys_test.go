@@ -203,7 +203,7 @@ var _ = Describe("controllers/keys", func() {
 				Context("when valid params are received", func() {
 					BeforeEach(func() {
 						params = &url.Values{}
-						params.Set("keytext", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0Ddg2BE+XhqJHHI164Sxi7euv5bTTxdW1D/mUTd1uQruFvyyMPAVjRhR1aSgvh8DGlaj/ndV5CViR6zU9upLf9XPjCg84/4HMBpbhSA3PWRb6YMwf85HEAfiXYLmw06PD40Ts6EHbvtWfQLo06bxsnGaRaP4dJNZRkDpEuQTZNoWh0SQzG3Ww5TA7V80WCAdBnIOXymjGDm+Ri24RibmO+mp4s2dnevZOPXAOSAn5axd5X6INg+TEYFaEvFT8JnBTBvCWTTeHj+Xti9wWBcGbdFI/vAoHNrDtCav0UBe5ueItXAUklm4lo7uG+CL/33fLQ+iEC+WTTivTt9U0IORB")
+						params.Set("key", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0Ddg2BE+XhqJHHI164Sxi7euv5bTTxdW1D/mUTd1uQruFvyyMPAVjRhR1aSgvh8DGlaj/ndV5CViR6zU9upLf9XPjCg84/4HMBpbhSA3PWRb6YMwf85HEAfiXYLmw06PD40Ts6EHbvtWfQLo06bxsnGaRaP4dJNZRkDpEuQTZNoWh0SQzG3Ww5TA7V80WCAdBnIOXymjGDm+Ri24RibmO+mp4s2dnevZOPXAOSAn5axd5X6INg+TEYFaEvFT8JnBTBvCWTTeHj+Xti9wWBcGbdFI/vAoHNrDtCav0UBe5ueItXAUklm4lo7uG+CL/33fLQ+iEC+WTTivTt9U0IORB")
 						doRequest("valid-token", c.Slug)
 						mockClient.AddPublicKeysError = nil
 					})
@@ -229,7 +229,7 @@ var _ = Describe("controllers/keys", func() {
 						Expect(err).To(BeNil())
 
 						params = &url.Values{}
-						params.Set("keytext", validKeys[0])
+						params.Set("key", validKeys[0])
 						doRequest("valid-token", c.Slug)
 					})
 
@@ -241,7 +241,7 @@ var _ = Describe("controllers/keys", func() {
 				Context("when invalid key is received", func() {
 					BeforeEach(func() {
 						params = &url.Values{}
-						params.Set("keytext", "ssh-rsa bad key!!")
+						params.Set("key", "ssh-rsa bad key!!")
 						doRequest("valid-token", c.Slug)
 					})
 
@@ -253,7 +253,7 @@ var _ = Describe("controllers/keys", func() {
 				Context("when invalid container id is received", func() {
 					BeforeEach(func() {
 						params = &url.Values{}
-						params.Set("keytext", validKeys[0])
+						params.Set("key", validKeys[0])
 						doRequest("valid-token", "container-that-does-not-exist")
 					})
 
@@ -266,7 +266,7 @@ var _ = Describe("controllers/keys", func() {
 					BeforeEach(func() {
 						mockClient.AddPublicKeysError = freighterclient.ErrPubKeyOpsNotSupported
 						params = &url.Values{}
-						params.Set("keytext", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0Ddg2BE+XhqJHHI164Sxi7euv5bTTxdW1D/mUTd1uQruFvyyMPAVjRhR1aSgvh8DGlaj/ndV5CViR6zU9upLf9XPjCg84/4HMBpbhSA3PWRb6YMwf85HEAfiXYLmw06PD40Ts6EHbvtWfQLo06bxsnGaRaP4dJNZRkDpEuQTZNoWh0SQzG3Ww5TA7V80WCAdBnIOXymjGDm+Ri24RibmO+mp4s2dnevZOPXAOSAn5axd5X6INg+TEYFaEvFT8JnBTBvCWTTeHj+Xti9wWBcGbdFI/vAoHNrDtCav0UBe5ueItXAUklm4lo7uG+CL/33fLQ+iEC+WTTivTt9U0IORB")
+						params.Set("key", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0Ddg2BE+XhqJHHI164Sxi7euv5bTTxdW1D/mUTd1uQruFvyyMPAVjRhR1aSgvh8DGlaj/ndV5CViR6zU9upLf9XPjCg84/4HMBpbhSA3PWRb6YMwf85HEAfiXYLmw06PD40Ts6EHbvtWfQLo06bxsnGaRaP4dJNZRkDpEuQTZNoWh0SQzG3Ww5TA7V80WCAdBnIOXymjGDm+Ri24RibmO+mp4s2dnevZOPXAOSAn5axd5X6INg+TEYFaEvFT8JnBTBvCWTTeHj+Xti9wWBcGbdFI/vAoHNrDtCav0UBe5ueItXAUklm4lo7uG+CL/33fLQ+iEC+WTTivTt9U0IORB")
 						doRequest("valid-token", c.Slug)
 					})
 
