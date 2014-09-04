@@ -1,14 +1,14 @@
 = host-tab-bar selected='volumes'
 
 .card-body
-  if volumes.loaded
-    if volumes.length
+  if records.loaded
+    if records.length
       ul.ui.list.with-separators.item-2-line
-        each volume in volumes
+        each volume in records
           li.list-item
             .left-accessory
               .ui.checkbox
-                input type='checkbox' name='volume' id={volume.inputId} value={volume.id}
+                input.record-checkbox type='checkbox' id={volume.inputId} value={volume.id}
                 label
             .lines
               label for={volume.inputId}
@@ -38,6 +38,6 @@
         i.spinner
         | Removing...
     else
-      button.ui.btn click='remove target="view"' Remove
+      button.ui.btn click='remove' disabled=noneSelected Remove
   .right
-    button.ui.btn.primary click='new' New Volume...
+    button.ui.btn.primary click='add' New Volume...

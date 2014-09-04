@@ -39,6 +39,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')
 
+window.Lib = Ember.Namespace.create()
+
 App.on 'AppDidLoad', ->
   App.__container__.lookup('adapter:application') # init app adapter class
   App.set 'snackbar', App.Snackbar.create()

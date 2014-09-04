@@ -1,0 +1,38 @@
+Lib.RecordListController = Em.ObjectController.extend
+  removing: false
+  selectedIds: null
+  records: null
+
+  selected: (->
+    ids = @get 'selectedIds'
+    records = @get 'records'
+    if ids && records
+      ids.map (id) ->
+        records.findBy 'id', id
+  ).property 'selectedIds'
+
+  noneSelected: Em.computed.empty 'selectedIds'
+
+  clear: ->
+    @setProperties
+      removing: false
+      selectedIds: null
+
+  actions:
+    remove: ->
+      @set 'removing', true
+      selected = @get 'selected'
+      records = @get 'records'
+
+      fns = selected.map (key) ->
+        (cb) ->
+          key.ajax('DELETE').then ->
+            cb(null)
+          , (jqxhr) ->
+            if errMsg = jqxhr.responseJSON?.error_description
+              App.snackbar.post(errMsg.capitalize())
+            cb(jqxhr)
+
+      async.series fns, (err) =>
+        records.reload()
+        @set 'removing', false

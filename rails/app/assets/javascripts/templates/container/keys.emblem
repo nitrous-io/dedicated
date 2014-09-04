@@ -1,14 +1,14 @@
 = container-tab-bar selected='keys'
 
 .card-body
-  if keys.loaded
-    if keys.length
+  if records.loaded
+    if records.length
       ul.ui.list.with-separators.item-2-line
-        each key in keys
+        each key in records
           li.list-item
             .left-accessory
               .ui.checkbox
-                input type='checkbox' name='key' id={key.inputId} value={key.id}
+                input.record-checkbox type='checkbox' id={key.inputId} value={key.id}
                 label
             .lines
               label for={key.inputId}
@@ -33,6 +33,6 @@
         i.spinner
         | Removing...
     else
-      button.ui.btn click='remove target="view"' Remove
+      button.ui.btn click='remove' disabled=noneSelected Remove
   .right
     button.ui.btn.primary click='add' Register Key...
