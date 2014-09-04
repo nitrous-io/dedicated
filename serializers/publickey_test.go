@@ -21,8 +21,8 @@ var _ = Describe("public key serializer", func() {
 			ContainerID: 12,
 			Fingerprint: "bc:68:22:0a:6b:31:18:f7:52:33:fe:af:d9:ed:9f:81",
 			Key:         "ssh-rsa AAAAB3NzaC",
-			CreatedAt:   &createdAt, // Not serialized.
-			UpdatedAt:   &updatedAt, // Not serialized.
+			CreatedAt:   &createdAt,
+			UpdatedAt:   &updatedAt,
 		}
 	)
 
@@ -36,7 +36,9 @@ var _ = Describe("public key serializer", func() {
 				"user_id": 11,
 				"container_id": 12,
 				"fingerprint": "bc:68:22:0a:6b:31:18:f7:52:33:fe:af:d9:ed:9f:81",
-				"key": "ssh-rsa AAAAB3NzaC"
+				"key": "ssh-rsa AAAAB3NzaC",
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
 		})
 	})
@@ -51,7 +53,9 @@ var _ = Describe("public key serializer", func() {
 				"user_id": 11,
 				"container_id": 12,
 				"fingerprint": "bc:68:22:0a:6b:31:18:f7:52:33:fe:af:d9:ed:9f:81",
-				"key": "ssh-rsa AAAAB3NzaC"
+				"key": "ssh-rsa AAAAB3NzaC",
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
 			}]`))
 		})
 	})
