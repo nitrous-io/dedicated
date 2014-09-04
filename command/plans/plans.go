@@ -95,7 +95,7 @@ func prettyPrint(plans []*Plan) string {
 	w := &tabwriter.Writer{}
 
 	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
-	fmt.Fprintln(w, "Slug", "\t", "Name")
+	fmt.Fprintln(w, "Size", "\t", "Name")
 	for _, p := range plans {
 		fmt.Fprintln(w, p.Slug, "\t", p.Name)
 	}
