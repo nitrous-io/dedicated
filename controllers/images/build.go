@@ -14,28 +14,33 @@ import (
 	"github.com/nitrous-io/nitrous/serializers"
 )
 
-type result struct {
+type buildResult struct {
 	*image.Image
 	err error
 }
 
-func build(
-	env *middleware.Env,
-	cl *controllers.FreighterClient,
-	h *host.Host,
-	img *image.Image,
-	slug string,
-	f io.Reader,
-) <-chan result {
-	ch := make(chan result)
+type buildContext struct {
+	env    *middleware.Env
+	client *controllers.FreighterClient
+	img    *image.Image
+	slug   string
+	input  io.Reader
+}
+
+// build sends the build context to freighter in a goroutine. If we want an
+// async build, this returns immediately with the current stored image,
+// otherwise, the image is updated with new data after the build is done.
+func (c *buildContext) build(async bool) (*image.Image, error) {
+	ch := make(chan *buildResult, 1)
+	env, cl, img, slug, input := c.env, c.client, c.img, c.slug, c.input
+
 	go func() {
-		remoteImg, err := cl.BuildImage(slug, f)
+		remoteImg, err := cl.BuildImage(slug, input)
 		if err != nil {
-			delErr := img.Delete(env.DB)
-			if delErr != nil {
+			if delErr := img.Delete(env.DB); delErr != nil {
 				env.Logger.Errorf("Unable to delete image %d that failed to build on freighter: %v", img.ID, delErr)
 			}
-			ch <- result{err: err}
+			ch <- &buildResult{err: err}
 			return
 		}
 
@@ -51,9 +56,19 @@ func build(
 			env.User.Topic(),
 		)
 
-		ch <- result{Image: img}
+		ch <- &buildResult{Image: img}
 	}()
-	return ch
+
+	// if the build is async, we will just return the stored image immmediately
+	// without waiting for result from freighter
+	if async {
+		return img, nil
+	}
+	r := <-ch
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.Image, nil
 }
 
 func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -83,9 +98,7 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		tag = image.DefaultTag
 	}
 
-	var img *image.Image
-
-	img = &image.Image{
+	img := &image.Image{
 		UserID: env.User.ID,
 		HostID: h.ID,
 		Name:   r.FormValue("name"),
@@ -96,22 +109,19 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
+	ctx := &buildContext{env: env, client: cl, img: img, slug: slug, input: f}
 	async, _ := strconv.ParseBool(r.FormValue("async"))
+	img, err = ctx.build(async)
+	if err != nil {
+		return err
+	}
 	if async {
-		go build(env, cl, h, img, slug, f)
 		env.Status = http.StatusAccepted
-		env.Data = map[string]interface{}{
-			"image": serializers.SerializeImage(img),
-		}
 	} else {
-		result := <-build(env, cl, h, img, slug, f)
-		if result.err != nil {
-			return err
-		}
 		env.Status = http.StatusOK
-		env.Data = map[string]interface{}{
-			"image": serializers.SerializeImage(result.Image),
-		}
+	}
+	env.Data = map[string]interface{}{
+		"image": serializers.SerializeImage(img),
 	}
 
 	return nil
