@@ -42,6 +42,7 @@ type Container struct {
 	// These fields come from Freighter.
 	State      State
 	IPAddress  string
+	GatewayIP  string
 	Cmd        []string
 	Entrypoint []string
 	ExitCode   int

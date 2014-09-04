@@ -228,6 +228,7 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	cn.CID = created.ID
 	cn.Image = created.Image
 	cn.IPAddress = created.Host
+	cn.GatewayIP = created.Gateway
 	cn.Cmd = created.Cmd
 	cn.Entrypoint = created.Entrypoint
 	cn.ExitCode = created.ExitCode
@@ -494,6 +495,7 @@ func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *
 	c.Image = fc.Image
 	c.Slug = fc.Name
 	c.IPAddress = fc.Host
+	c.GatewayIP = fc.Gateway
 	c.Cmd = fc.Cmd
 	c.Entrypoint = fc.Entrypoint
 	c.ExitCode = fc.ExitCode
@@ -509,6 +511,7 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 		Image:      fc.Image,
 		Slug:       fc.Name,
 		IPAddress:  fc.Host,
+		GatewayIP:  fc.Gateway,
 		UserID:     h.UserID,
 		HostID:     h.ID,
 		Cmd:        fc.Cmd,
