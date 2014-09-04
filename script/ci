@@ -10,6 +10,7 @@ tmp=$(mktemp -d /tmp/docker_XXXXX)
 docker run \
   --privileged=true \
   --cidfile $tmp/$APP \
+  --net=host \
   -v $(readlink -f $SSH_AUTH_SOCK):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent \
   $APP:$VERSION /bin/bash -c "./script/install-deps ./script/test && ./script/build $APP $VERSION"
 

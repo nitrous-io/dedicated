@@ -1011,7 +1011,7 @@ var _ = Describe("provider/docker", func() {
 			configJSON = `{
   "Env": ["LANG=C"],
   "Mounts": ["dotfiles:/etc/dotfiles","backups"],
-  "PortBindings": ["127.0.0.1:1234:3000"]
+  "PortBindings": ["private:1234:5000"]
 }`
 			name = RandomName("freightertest")
 			info, err = prov.Create(name, image, secret, configJSON)
@@ -1033,9 +1033,9 @@ var _ = Describe("provider/docker", func() {
 			Expect(doInspect(id, "{{.Config.Env}}")).To(ContainSubstring("LANG=C"))
 			Expect(doInspect(id,
 				"{{range $p, $stub := .Config.ExposedPorts}}{{$p}} {{end}}")).
-				To(Equal("22/tcp 3000"))
-			Expect(getPortBindings(id, "3000")).To(
-				Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
+				To(Equal("22/tcp 5000"))
+			Expect(getPortBindings(id, "5000")).To(
+				Equal("[map[HostIp:172.17.42.1 HostPort:1234]]"))
 			Expect(getPortBindings(id, "22/tcp")).To(
 				ContainSubstring("[map[HostIp:0.0.0.0 HostPort:49")) // Docker will use 49000-49900
 			containerDir := filepath.Join(datadir, "containers")
@@ -1054,8 +1054,8 @@ var _ = Describe("provider/docker", func() {
 			Expect(err).To(BeNil())
 			_, err = prov.Start(id, "")
 			Expect(err).To(BeNil())
-			Expect(getPortBindings(id, "3000")).To(
-				Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
+			Expect(getPortBindings(id, "5000")).To(
+				Equal("[map[HostIp:172.17.42.1 HostPort:1234]]"))
 			vols = getVolumes(id)
 			Expect(vols).To(ContainSubstring("/etc/ssh/freighter"))
 			Expect(vols).To(ContainSubstring("dotfiles"))
@@ -1064,13 +1064,13 @@ var _ = Describe("provider/docker", func() {
 			// It("overrides existing PortBindings,Binds on next start if options given")
 			_, err = prov.Stop(id)
 			Expect(err).To(BeNil())
-			newConfig := strings.Replace(configJSON, "3000", "4242/tcp", 1)
+			newConfig := strings.Replace(configJSON, "5000", "4242/tcp", 1)
 			newConfig = strings.Replace(newConfig, "backups", "restores", 1)
 			_, err = prov.Start(id, newConfig)
 			Expect(err).To(BeNil())
 			Expect(getPortBindings(id, "4242/tcp")).To(
-				Equal("[map[HostIp:127.0.0.1 HostPort:1234]]"))
-			Expect(getPortBindings(id, "3000/tcp")).To(Equal("<no value>"))
+				Equal("[map[HostIp:172.17.42.1 HostPort:1234]]"))
+			Expect(getPortBindings(id, "5000/tcp")).To(Equal("<no value>"))
 			vols = getVolumes(id)
 			Expect(vols).To(ContainSubstring("/etc/ssh/freighter"))
 			Expect(vols).To(ContainSubstring("dotfiles"))
