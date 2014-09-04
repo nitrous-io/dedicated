@@ -185,6 +185,7 @@ func (p *MockProvider) Stop(id string) (*provider.ContainerInfo, error) {
 	info, _ := p.GetInfo(id)
 	if info != nil {
 		info.Host = ""
+		info.Gateway = ""
 		info.State = provider.ContainerStateStopped
 	}
 	p.StopCalled = true
@@ -206,6 +207,7 @@ func (p *MockProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 	info, _ := p.GetInfo(id)
 	if info != nil {
 		info.Host = ""
+		info.Gateway = ""
 		info.State = ""
 	}
 	p.TerminateCalled = true

@@ -78,6 +78,7 @@ type ContainerInfo struct {
 	Image      string         `json:"image"`
 	ImageID    string         `json:"image_id"`
 	Host       string         `json:"host"`
+	Gateway    string         `json:"gateway"`
 	State      string         `json:"state"`
 	Ports      map[string]int `json:"ports"`
 	Cmd        []string       `json:"cmd,omitempty"`

@@ -82,6 +82,10 @@ var _ = Describe("provider/docker", func() {
 		return doInspect(id, "{{.NetworkSettings.IPAddress}}")
 	}
 
+	getGateway := func(id string) string {
+		return doInspect(id, "{{.NetworkSettings.Gateway}}")
+	}
+
 	getEnv := func(id string) string {
 		return doInspect(id, "{{.Config.Env}}")
 	}
@@ -154,6 +158,7 @@ var _ = Describe("provider/docker", func() {
 			name         string
 			id           string
 			host         string
+			gateway      string
 			port         string
 			info         *provider.ContainerInfo
 			pubkey1      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCxCeR/jJna6xXELDV8HF51QQPbj++JNDE4W/nqLyhzRTEDDnAfyp8gXW/EXXos8w5XXLak6eUDXE/QI6o8blX39RYoT47u45v4b2scN0ZiS5McmESo193KwWH3gXHbnHWywzPy7+GrRF3nHm/uidvp0tqh4ywqIZujaMjST1sIOQ== test@example.com"
@@ -171,6 +176,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(err).To(BeNil())
 			id = getID(name)
 			host = getHost(id)
+			gateway = getGateway(id)
 			port = getPort(id)
 
 			userPubkey := TestSSHPubKey
@@ -193,6 +199,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(info.Image).To(Equal(image))
 			Expect(info.ImageID).To(Equal(getID(image)))
 			Expect(info.Host).To(Equal(host))
+			Expect(info.Gateway).To(Equal(gateway))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			Expect(info.Ports[port]).To(Equal(22))
 			Expect(getEnv(id)).To(ContainSubstring("__HOST=172.17.42.1"))
@@ -269,6 +276,7 @@ var _ = Describe("provider/docker", func() {
 						Expect(stopped.Image).To(Equal(image))
 						Expect(stopped.ImageID).To(Equal(imageID))
 						Expect(stopped.Host).To(Equal(""))
+						Expect(stopped.Gateway).To(Equal(""))
 						Expect(stopped.State).To(Equal(provider.ContainerStateStopped))
 						Expect(stopped.Ports[port]).To(Equal(22))
 
@@ -308,6 +316,7 @@ var _ = Describe("provider/docker", func() {
 							Expect(info.Image).To(Equal(image))
 							Expect(info.ImageID).To(Equal(imageID))
 							Expect(info.Host).To(Equal(""))
+							Expect(info.Gateway).To(Equal(""))
 							Expect(info.Ports[port]).To(Equal(22))
 							Expect(info.State).To(Equal(provider.ContainerStateStopped))
 
@@ -325,6 +334,7 @@ var _ = Describe("provider/docker", func() {
 							Expect(info.Image).To(Equal(image))
 							Expect(info.ImageID).To(Equal(imageID))
 							Expect(info.Host).To(Equal(container2Info.Host))
+							Expect(info.Gateway).To(Equal(container2Info.Gateway))
 							Expect(info.Ports[container2Port]).To(Equal(22))
 							Expect(info.State).To(Equal(provider.ContainerStateRunning))
 
@@ -355,6 +365,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.Image).To(Equal(image))
 					Expect(info.ImageID).To(Equal(getID(image)))
 					Expect(info.Host).To(Equal(host))
+					Expect(info.Gateway).To(Equal(gateway))
 					Expect(info.Ports[port]).To(Equal(22))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
 
@@ -371,6 +382,7 @@ var _ = Describe("provider/docker", func() {
 					info, err = prov.Start(id, "")
 					Expect(err).To(BeNil())
 					host = getHost(id)
+					gateway = getGateway(id)
 				})
 
 				Context("when the container is running", func() {
@@ -406,6 +418,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(info).NotTo(BeNil())
 					Expect(info.ID).To(Equal(id))
 					Expect(info.Host).To(Equal(""))
+					Expect(info.Gateway).To(Equal(""))
 					Expect(info.Ports[port]).To(Equal(22))
 					Expect(info.Name).To(Equal(name))
 					Expect(info.Image).To(Equal(image))
@@ -454,6 +467,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.Image).To(Equal(image))
 					Expect(info.ImageID).To(Equal(getID(image)))
 					Expect(info.Host).To(Equal(host))
+					Expect(info.Gateway).To(Equal(gateway))
 					Expect(info.Ports[port]).To(Equal(22))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
 
@@ -474,6 +488,7 @@ var _ = Describe("provider/docker", func() {
 						info, err = prov.Restart(id)
 						Expect(err).To(BeNil())
 						host = getHost(id)
+						gateway = getGateway(id)
 						expectContainerInfoToHaveBeenReturned(info)
 						out, err = exec.Command("docker", "inspect", "-f", "{{.State.Running}}", id).CombinedOutput()
 						Expect(err).To(BeNil())
@@ -495,6 +510,7 @@ var _ = Describe("provider/docker", func() {
 						info, err := prov.Restart(id)
 						Expect(err).To(BeNil())
 						host = getHost(id)
+						gateway = getGateway(id)
 						expectContainerInfoToHaveBeenReturned(info)
 						out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", id).CombinedOutput()
 						Expect(err).To(BeNil())
@@ -528,6 +544,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.Image).To(Equal(image))
 					Expect(info.ImageID).To(Equal(getID(image)))
 					Expect(info.Host).To(Equal(""))
+					Expect(info.Gateway).To(Equal(""))
 					Expect(info.Ports).To(Equal(map[string]int{}))
 					Expect(info.State).To(Equal(""))
 
