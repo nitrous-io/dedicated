@@ -22,7 +22,7 @@ const (
 	imageUsage        = "Specify an image to use to create the container"
 	envUsage          = "Set environment variables for the container in the format <key>:<value>. " + command.MultiargUsage
 	volumesUsage      = "Add data volume so other containers can mount given <path>. " + command.MultiargUsage
-	portForwardsUsage = "Forward ports from container to host.  Use one of: 'ip:hostPort:containerPort', 'ip::containerPort', or 'hostPort:containerPort' specifications. " + command.MultiargUsage
+	portForwardsUsage = "Forward ports from container to host.  Use one of: 'public:hostPort:containerPort', 'private:hostPort:containerPort', 'public::containerPort', or 'private::containerPort' specifications. Publicly forwarded ports will be accessible via the host. " + command.MultiargUsage
 )
 
 const usage = `
