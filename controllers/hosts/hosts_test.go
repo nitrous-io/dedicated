@@ -377,13 +377,10 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(res.Code).To(Equal(http.StatusCreated))
 
 					var j struct {
-						Status string            `json:"status"`
-						Host   *serializers.Host `json:"host"`
+						Host *serializers.Host `json:"host"`
 					}
 					err := json.NewDecoder(res.Body).Decode(&j)
 					Expect(err).To(BeNil())
-
-					Expect(j.Status).To(Equal("created"))
 
 					hosts, _ := host.FindAllByUser(db, u)
 					Expect(j.Host.ID).To(Equal(hosts[0].ID))
@@ -847,7 +844,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).ToNot(BeNil(), "host's keypairs should be removed")
 			})
 
-			It("responds with status OK", func() {
+			It("responds with destroyed host", func() {
 				doRequest(hs.H.Slug)
 				Expect(res.Code).To(Equal(http.StatusOK))
 

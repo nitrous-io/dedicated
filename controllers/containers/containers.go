@@ -273,7 +273,6 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	publishContainerEvent(env, "container.created", cn)
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"status":    "created",
 		"container": serializers.SerializeContainer(cn),
 	}
 	return nil
@@ -306,8 +305,7 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	env.Events.Publish(controllers.NewEvent("image.created", image), env.User.Topic())
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status": "created",
-		"image":  image,
+		"image": image,
 	}
 	return nil
 }

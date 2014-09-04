@@ -216,8 +216,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	publishHostEvent(env, "host.created", h)
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"status": "created",
-		"host":   serializers.SerializeHost(h),
+		"host": serializers.SerializeHost(h),
 	}
 	return nil
 }

@@ -152,7 +152,7 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status": "OK",
+		"status": "ok",
 	}
 	return nil
 }
@@ -192,8 +192,7 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status": "OK",
-		"image":  serializers.SerializeImage(i),
+		"image": serializers.SerializeImage(i),
 	}
 	return nil
 }
@@ -228,7 +227,7 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status": "OK",
+		"status": "ok",
 	}
 	return nil
 }
@@ -289,8 +288,7 @@ func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Reque
 	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status": "OK",
-		"image":  serializers.SerializeImage(taggedImg),
+		"image": serializers.SerializeImage(taggedImg),
 	}
 	return nil
 }

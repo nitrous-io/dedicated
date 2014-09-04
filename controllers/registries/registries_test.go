@@ -472,6 +472,11 @@ var _ = Describe("controllers/registries", func() {
 
 				It("returns HTTP 200 OK if logged out successfully", func() {
 					Expect(res.Code).To(Equal(http.StatusOK))
+
+					var j map[string]string
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					Expect(j["status"]).To(Equal("ok"))
 				})
 			})
 
