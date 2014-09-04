@@ -214,6 +214,7 @@ var _ = Describe("controllers/containers", func() {
 				ID:         "deadbeef",
 				Name:       "dominant-intercooler-42",
 				Host:       "1.2.3.4",
+				Gateway:    "1.2.3.0",
 				State:      "running",
 				Image:      "nitrous-base",
 				Cmd:        []string{"/sbin/init"},
@@ -247,6 +248,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].Image).To(Equal("nitrous-base"))
 			Expect(j.Containers[0].Slug).To(Equal("dominant-intercooler-42"))
 			Expect(j.Containers[0].IPAddress).To(Equal("1.2.3.4"))
+			Expect(j.Containers[0].GatewayIP).To(Equal("1.2.3.0"))
 			Expect(j.Containers[0].State).To(Equal("running"))
 			Expect(j.Containers[0].Name).To(Equal("Rails app server"))
 			Expect(j.Containers[0].HostID).To(Equal(hs.H.ID))
@@ -314,6 +316,7 @@ var _ = Describe("controllers/containers", func() {
 					ID:         "cafebabe",
 					Name:       "wicked-baby-69",
 					Host:       "1.2.3.5",
+					Gateway:    "1.2.3.0",
 					State:      "running",
 					Image:      "nitrous-base",
 					Cmd:        []string{"/sbin/init"},
@@ -344,6 +347,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].Image).To(Equal("nitrous-base"))
 				Expect(j.Containers[0].Slug).To(Equal("dominant-intercooler-42"))
 				Expect(j.Containers[0].IPAddress).To(Equal("1.2.3.4"))
+				Expect(j.Containers[0].GatewayIP).To(Equal("1.2.3.0"))
 				Expect(j.Containers[0].State).To(Equal("running"))
 				Expect(j.Containers[0].Name).To(Equal("Rails app server"))
 				Expect(j.Containers[0].Cmd).To(Equal([]string{"/sbin/init"}))
@@ -362,6 +366,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[1].Image).To(Equal("nitrous-base"))
 				Expect(j.Containers[1].Slug).To(Equal("wicked-baby-69"))
 				Expect(j.Containers[1].IPAddress).To(Equal("1.2.3.5"))
+				Expect(j.Containers[1].GatewayIP).To(Equal("1.2.3.0"))
 				Expect(j.Containers[1].State).To(Equal("running"))
 				Expect(j.Containers[1].Name).To(Equal(""))
 				Expect(j.Containers[1].Cmd).To(Equal([]string{"/sbin/init"}))
@@ -423,9 +428,10 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
 				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
 				Expect(j.Containers[0].TerminatedAt).To(BeNil())
-				// ip address will be empty since the host is stopped,
+				// ip address, gateway will be empty since the host is stopped,
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
+				Expect(j.Containers[0].GatewayIP).To(Equal(""))
 				Expect(j.Containers[0].State).To(Equal(container.StateHostStopped.String()))
 
 				Expect(j.Containers[0].Cmd).To(BeNil())
@@ -490,9 +496,10 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
 				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
 				Expect(j.Containers[0].TerminatedAt).To(BeNil())
-				// ip address, state will be empty since the host is stopped,
+				// ip address, gateway will be empty since the host is stopped,
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
+				Expect(j.Containers[0].GatewayIP).To(Equal(""))
 				Expect(j.Containers[0].State).To(Equal(container.StateHostStopped.String()))
 
 				Expect(j.Containers[0].Cmd).To(BeNil())
@@ -569,9 +576,10 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
 				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
 				Expect(j.Containers[0].TerminatedAt).To(BeNil())
-				// ip address, state will be empty since the host is stopped,
+				// ip address, gateway will be empty since the host is stopped,
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
+				Expect(j.Containers[0].GatewayIP).To(Equal(""))
 				Expect(j.Containers[0].State).To(Equal(container.StateHostStopped.String()))
 
 				Expect(j.Containers[1].ID).To(Equal(c1.ID))
@@ -584,9 +592,10 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[1].CreatedAt).NotTo(BeNil())
 				Expect(j.Containers[1].UpdatedAt).NotTo(BeNil())
 				Expect(j.Containers[1].TerminatedAt).To(BeNil())
-				// ip address, state will be empty since the host is stopped,
+				// ip address, gateway state will be empty since the host is stopped,
 				// so the freighter API call didn't happen
 				Expect(j.Containers[1].IPAddress).To(Equal(""))
+				Expect(j.Containers[1].GatewayIP).To(Equal(""))
 				Expect(j.Containers[1].State).To(Equal(container.StateHostStopped.String()))
 			})
 		})
@@ -637,6 +646,7 @@ var _ = Describe("controllers/containers", func() {
 				ID:      "deadbeef",
 				Name:    "elixir-web-1",
 				Host:    "1.2.3.4",
+				Gateway: "1.2.3.0",
 				State:   "running",
 				Image:   "elixir",
 				ImageID: "abc123",
@@ -664,6 +674,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.Image).To(Equal("elixir"))
 			Expect(cn.Slug).To(Equal("elixir-web-1"))
 			Expect(cn.IPAddress).To(Equal("1.2.3.4"))
+			Expect(cn.GatewayIP).To(Equal("1.2.3.0"))
 			Expect(cn.State).To(Equal("running"))
 			Expect(cn.Name).To(Equal("Elixir Web Server 1"))
 		}
@@ -1077,6 +1088,7 @@ var _ = Describe("controllers/containers", func() {
 				ID:         "deadbeef",
 				Name:       slug,
 				Host:       "1.2.3.4",
+				Gateway:    "1.2.3.0",
 				State:      "running",
 				Image:      "nitrous-base",
 				Cmd:        []string{"/sbin/init"},
@@ -1112,6 +1124,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.Slug).To(Equal(slug))
 			Expect(j.Container.Name).To(Equal("Elixir server"))
 			Expect(j.Container.IPAddress).To(Equal("1.2.3.4"))
+			Expect(j.Container.GatewayIP).To(Equal("1.2.3.0"))
 			Expect(j.Container.State).To(Equal("running"))
 			Expect(j.Container.Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(j.Container.Entrypoint).To(Equal([]string{"/bin/blah"}))
@@ -1168,6 +1181,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Container.Slug).To(Equal(slug))
 				Expect(j.Container.Name).To(Equal("Elixir server"))
 				Expect(j.Container.IPAddress).To(Equal(""))
+				Expect(j.Container.GatewayIP).To(Equal(""))
 				Expect(j.Container.State).To(Equal(container.StateHostStopped.String()))
 				Expect(j.Container.ExitCode).To(Equal(0))
 				Expect(j.Container.StartedAt.IsZero()).To(BeTrue())
@@ -1204,6 +1218,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Container.Slug).To(Equal(slug))
 				Expect(j.Container.Name).To(Equal("Elixir server"))
 				Expect(j.Container.IPAddress).To(Equal(""))
+				Expect(j.Container.GatewayIP).To(Equal(""))
 				Expect(j.Container.State).To(Equal(container.StateHostStopped.String()))
 				Expect(j.Container.ExitCode).To(Equal(0))
 				Expect(j.Container.StartedAt.IsZero()).To(BeTrue())
@@ -1263,6 +1278,7 @@ var _ = Describe("controllers/containers", func() {
 				ID:         "deadbeef",
 				Name:       slug,
 				Host:       "1.2.3.4",
+				Gateway:    "1.2.3.0",
 				State:      "stopped",
 				Image:      "nitrous-base",
 				Cmd:        []string{"/sbin/init"},
@@ -1281,6 +1297,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.Image).To(Equal("nitrous-base"))
 			Expect(cn.Slug).To(Equal(slug))
 			Expect(cn.IPAddress).To(Equal("1.2.3.4"))
+			Expect(cn.GatewayIP).To(Equal("1.2.3.0"))
 			Expect(cn.State).To(Equal(inputs.expectedState))
 			Expect(cn.Name).To(Equal("Elixir server"))
 			Expect(cn.HostID).To(Equal(hs.H.ID))
@@ -1464,6 +1481,7 @@ var _ = Describe("controllers/containers", func() {
 				ID:         "deadbeef",
 				Name:       slug,
 				Host:       "",
+				Gateway:    "",
 				State:      "",
 				Image:      "nitrous-base",
 				Cmd:        []string{"/sbin/init"},
@@ -1492,6 +1510,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.Slug).To(Equal(slug))
 			Expect(cn.Name).To(Equal("Elixir server"))
 			Expect(cn.IPAddress).To(Equal(""))
+			Expect(cn.GatewayIP).To(Equal(""))
 			Expect(cn.State).To(Equal(container.StateTerminated.String()))
 			Expect(cn.Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(cn.Entrypoint).To(Equal([]string{"/bin/blah"}))

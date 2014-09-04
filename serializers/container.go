@@ -15,6 +15,7 @@ type Container struct {
 	Slug       string   `json:"slug"`
 	Name       string   `json:"name,omitempty"`
 	IPAddress  string   `json:"ip_address,omitempty"`
+	GatewayIP  string   `json:"gateway_ip,omitempty"`
 	State      string   `json:"state"`
 	Cmd        []string `json:"cmd,omitempty"`
 	Entrypoint []string `json:"entrypoint,omitempty"`
@@ -37,6 +38,7 @@ func SerializeContainer(c *container.Container) *Container {
 		Slug:         c.Slug,
 		Name:         c.Name.String,
 		IPAddress:    c.IPAddress,
+		GatewayIP:    c.GatewayIP,
 		State:        c.ResolvedState().String(),
 		Cmd:          c.Cmd,
 		Entrypoint:   c.Entrypoint,
