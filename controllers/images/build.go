@@ -22,7 +22,6 @@ func build(
 	cl *controllers.FreighterClient,
 	h *host.Host,
 	intermediateImg *image.Image,
-	name string,
 	slug string,
 	f io.Reader,
 ) <-chan result {
@@ -42,7 +41,7 @@ func build(
 		i.ID = intermediateImg.ID
 		i.UserID = env.User.ID
 		i.HostID = h.ID
-		i.Name = name
+		i.Name = intermediateImg.Name
 		if err := i.Update(env.DB); err != nil { // log and continue
 			env.Logger.Errorf("images.build: successfully built image '%+v' in Freighter but failed to update database with '%+v'", img, i)
 		}
@@ -101,13 +100,13 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 	if async {
-		go build(env, cl, h, img, r.FormValue("name"), slug, f)
+		go build(env, cl, h, img, slug, f)
 		env.Status = http.StatusAccepted
 		env.Data = map[string]interface{}{
 			"image": serializers.SerializeImage(img),
 		}
 	} else {
-		result := <-build(env, cl, h, img, r.FormValue("name"), slug, f)
+		result := <-build(env, cl, h, img, slug, f)
 		if result.err != nil {
 			return err
 		}
