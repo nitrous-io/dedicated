@@ -13,5 +13,5 @@ App.Region = klass = App.Model.extend
 
 klass.reopenClass
   url: '/regions'
-  primarykey: 'id'
+  primaryKey: 'id'
   collectionKey: 'regions'
