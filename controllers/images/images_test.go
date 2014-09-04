@@ -621,9 +621,19 @@ var _ = Describe("controllers/images", func() {
 			Expect(errDesc).To(Equal("destination is required"))
 		})
 
+		It("returns 401 if freighterclient returns an ErrImagePushAuthRequired", func() {
+			mockClient.PushImageError = freighterclient.ErrImagePushAuthRequired
+			res := doRequest("foo", "devenv", &url.Values{"destination": []string{"scratch"}})
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(mockClient.PushImageCalled).To(Equal(1))
+			errType, _ := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+		})
+
 		It("returns 500 on freighterclient error", func() {
 			mockClient.PushImageError = &freighterclient.StatusError{418}
 			res := doRequest("foo", "devenv", &url.Values{"destination": []string{"scratch"}})
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 			Expect(mockClient.PushImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
