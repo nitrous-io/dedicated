@@ -1614,29 +1614,31 @@ var _ = Describe("client", func() {
 		Describe("PushImage()", func() {
 			BeforeEach(func() {
 				setupServer("POST", "/images/push", "application/x-www-form-urlencoded")
+				statusCode = http.StatusOK
 			})
 
 			AfterEach(func() {
 				st.Close()
 			})
 
-			Context("Successful response", func() {
-				BeforeEach(func() {
-					statusCode = http.StatusOK
-				})
+			It("makes a request to Freighter to push an image", func() {
+				err := cl.PushImage("imageid", "hub.docker.com/me/imageid")
+				Expect(err).To(BeNil())
 
-				It("should return nil error", func() {
-					err := cl.PushImage("imageid", "hub.docker.com/me/imageid")
-					Expect(err).To(BeNil())
-
-					reqs := server.ReceivedRequests()
-					Expect(reqs).To(HaveLen(1))
-					Expect(reqs[0].PostFormValue("image")).To(Equal("imageid"))
-					Expect(reqs[0].PostFormValue("destination")).To(Equal("hub.docker.com/me/imageid"))
-				})
+				reqs := server.ReceivedRequests()
+				Expect(reqs).To(HaveLen(1))
+				Expect(reqs[0].PostFormValue("image")).To(Equal("imageid"))
+				Expect(reqs[0].PostFormValue("destination")).To(Equal("hub.docker.com/me/imageid"))
 			})
 
-			Context("Error Response - with failures communicating with endpoint", func() {
+			Context("Error Responses", func() {
+				It("returns ErrImagePushAuthRequired when Freighter responds with HTTP 401", func() {
+					statusCode = http.StatusUnauthorized
+
+					err := cl.PushImage("imageid", "hub.docker.com/me/imageid")
+					Expect(err).To(MatchError(freighterclient.ErrImagePushAuthRequired))
+				})
+
 				It("should surface request failures", func() {
 					st.Close()
 
@@ -1649,8 +1651,8 @@ var _ = Describe("client", func() {
 
 				It("should surface response failures in StatusErr", func() {
 					statusCode = http.StatusInternalServerError
-					err := cl.PushImage("imageid", "hub.docker.com/me/imageid")
 
+					err := cl.PushImage("imageid", "hub.docker.com/me/imageid")
 					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
 				})
 			})

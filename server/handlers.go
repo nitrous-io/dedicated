@@ -455,6 +455,10 @@ func (s *Server) pushImage(w http.ResponseWriter, r *http.Request) error {
 	destination := r.FormValue("destination")
 	err := s.provider.PushImage(image, destination)
 	if err != nil {
+		if err == provider.ErrImagePushAuthRequired {
+			s.respondEncodeJSON(w, http.StatusUnauthorized, map[string]interface{}{"error": err.Error()})
+			return nil
+		}
 		return err
 	}
 	s.respond(w, http.StatusOK, jsonStatusOK)

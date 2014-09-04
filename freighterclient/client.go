@@ -28,6 +28,9 @@ var (
 	// an unexpected response body.
 	ErrUnexpectedResponse = errors.New("freighter: unexpected response")
 
+	// ErrInvalidParams is returned when we receive a Unprocessable Entity (HTTP 422) response.
+	ErrInvalidParams = errors.New("freighter: invalid params")
+
 	// ErrPubKeyOpsNotSupported is return when trying to perform a public key op
 	// against a container that does not support SSH.
 	// This mirrors provider.ErrPubKeyOpsNotSupported
@@ -36,15 +39,13 @@ var (
 	ErrTokenVerificationFailed = provider.ErrTokenVerificationFailed
 	ErrTokenExpired            = provider.ErrTokenExpired
 	ErrUnverifiable            = provider.ErrUnverifiable
-
-	// ErrInvalidParams is returned when received a Unprocessable Entity (HTTP 422) response.
-	ErrInvalidParams = errors.New("freighter: invalid params")
+	ErrImageExists             = provider.ErrImageExists
+	ErrImagePushAuthRequired   = provider.ErrImagePushAuthRequired
 
 	ErrEndpointNotFound  = errors.New("freighter: endpoint not found")
 	ErrContainerNotFound = errors.New("freighter: container not found")
 	ErrVolumeNotFound    = errors.New("freighter: volume not found")
 	ErrHostNotFound      = errors.New("freighter: host not found")
-	ErrImageExists       = provider.ErrImageExists
 )
 
 type RegistryAuth struct {
@@ -737,11 +738,14 @@ func (c *client) PushImage(image, destination string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusUnauthorized:
+		return ErrImagePushAuthRequired
+	default:
 		return &StatusError{resp.StatusCode}
 	}
-
-	return nil
 }
 
 func (c *client) TagImage(image, tag string, force bool) error {

@@ -1526,6 +1526,13 @@ var _ = Describe("server", func() {
 				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not push image."}`))
 			})
 		})
+
+		It("responds with 401 Unauthorized", func() {
+			prov.PushImageError = provider.ErrImagePushAuthRequired
+			doRequest("nitrousio/ubuntu:14.04", "quay.io/me/ubuntu")
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(res.Body.String()).To(MatchJSON(fmt.Sprintf(`{"error":"%s"}`, provider.ErrImagePushAuthRequired.Error())))
+		})
 	})
 
 	Describe("POST /images/tag", func() {
