@@ -89,25 +89,26 @@ var _ = Describe("provider/docker config", func() {
 				var err error
 				cfg, hostCfg, err = prov.CreateConfigs(cnrName, "nitrousio/php",
 					&provider.ContainerConfig{
-						PortBindings: []string{"0.0.0.0::4000", "3000:8080", "127.0.0.1:5000:5001"},
+						PortBindings: []string{"public::4000", "3000:8080", "private:5000:5001", "127.0.0.1:5002:5002"},
 					})
 				Expect(err).To(BeNil())
 			})
 
 			It("parses portspecs", func() {
-				Expect(cfg.ExposedPorts).To(HaveLen(4))
-				for _, p := range []dockerclient.Port{"4000", "8080", "5001", "22/tcp"} {
+				Expect(cfg.ExposedPorts).To(HaveLen(5))
+				for _, p := range []dockerclient.Port{"4000", "8080", "5001", "5002", "22/tcp"} {
 					Expect(cfg.ExposedPorts[p]).To(Equal(struct{}{}))
 				}
-				Expect(hostCfg.PortBindings).To(HaveLen(3))
+				Expect(hostCfg.PortBindings).To(HaveLen(4))
 				portBinds := []struct {
 					conPort  string
 					hostIP   string
 					hostPort string
 				}{
 					{"4000", "0.0.0.0", ""},
-					{"8080", "127.0.0.1", "3000"},
-					{"5001", "127.0.0.1", "5000"},
+					{"8080", "172.17.42.1", "3000"},
+					{"5001", "172.17.42.1", "5000"},
+					{"5002", "172.17.42.1", "5002"},
 				}
 				for _, pb := range portBinds {
 					pbs := hostCfg.PortBindings[dockerclient.Port(pb.conPort)]
