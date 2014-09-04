@@ -43,6 +43,11 @@ App.Container = klass = App.Model.extend
       App.get('hosts')?.findBy('id', hostId)
   ).property 'hostId', 'App.hosts.@each'
 
+  keys: (->
+    if id = @get('id')
+      App.PublicKey.fetch(containerId: id).value
+  ).property 'id'
+
 klass.reopenClass
   primaryKey: 'slug'
   url: '/containers'

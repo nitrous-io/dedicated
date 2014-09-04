@@ -1,36 +1,38 @@
 = container-tab-bar selected='keys'
 
 .card-body
-  ul.ui.list.with-separators.item-2-line
-    li.list-item
-      .left-accessory
-        .ui.checkbox
-          input type='checkbox'
-          label
-      .lines
-        h4 pete@nitrous.io
-        p 14:fc:c8:6f:a0:4b:be:bc:39:df:34:75:4f:48:30:4a
-
-    li.list-item
-      .left-accessory
-        .ui.checkbox
-          input type='checkbox'
-          label
-      .lines
-        h4 jihoon@ubuntu
-        p c1:fc:6d:29:ab:b8:03:57:c4:30:a6:b7:58:40:74:af
-
-    li.list-item
-      .left-accessory
-        .ui.checkbox
-          input type='checkbox'
-          label
-      .lines
-        h4 raingrove@gmail.com
-        p e1:82:d8:93:44:20:cc:ff:c1:b8:0c:c3:82:bc:17:a9
+  if keys.loaded
+    if keys.length
+      ul.ui.list.with-separators.item-2-line
+        each key in keys
+          li.list-item
+            .left-accessory
+              .ui.checkbox
+                input type='checkbox' name='key' id={key.inputId} value={key.id}
+                label
+            .lines
+              label for={key.inputId}
+                h4
+                  = key.name
+                p
+                  | Added &nbsp;
+                  = dateabbr key.createdAt
+    else
+      p.hint-text
+        i.fa.fa-exclamation-circle
+        | This container does not have any public key registered.
+  else
+    p.hint-text
+      i.spinner
+      | Loading...
 
 .card-footer.bordered
   .left
-    button.ui.btn Remove
+    if removing
+      button.ui.btn disabled='disabled'
+        i.spinner
+        | Removing...
+    else
+      button.ui.btn click='remove target="view"' Remove
   .right
-    button.ui.btn.primary click='add' Add Key...
+    button.ui.btn.primary click='add' Register Key...

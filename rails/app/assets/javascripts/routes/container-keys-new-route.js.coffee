@@ -1,6 +1,8 @@
 App.ContainerKeysNewRoute = App.AuthedRoute.extend
-  activate: ->
-    App.set 'title', 'Add Key'
-
   renderTemplate: ->
     @render 'container/keys-new', into: 'container'
+
+  setupController: (controller, model) ->
+    @_super.apply this, arguments
+    controller.clear()
+    App.set 'title', model.get('displayName') + ' › Regsiter Public Key'
