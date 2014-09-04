@@ -214,6 +214,14 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 
 	if err := cl.PushImage(image, dest); err != nil {
+		if err == freighterclient.ErrImagePushAuthRequired {
+			env.Status = http.StatusUnauthorized
+			env.Data = map[string]interface{}{
+				"error":             "invalid_request",
+				"error_description": err.Error(),
+			}
+			return nil
+		}
 		return err
 	}
 
