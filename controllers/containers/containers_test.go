@@ -801,12 +801,7 @@ var _ = Describe("controllers/containers", func() {
 				doRequest("valid-token", "foo", params)
 
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
-
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-
-				errType, _ := j["error"].(string)
+				errType, _ := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("internal_server_error"))
 			})
 
@@ -819,12 +814,7 @@ var _ = Describe("controllers/containers", func() {
 					doRequest("valid-token", "foo", params)
 
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
-
-					j := map[string]interface{}{}
-					err := json.Unmarshal(res.Body.Bytes(), &j)
-					Expect(err).To(BeNil())
-
-					errType, _ := j["error"].(string)
+					errType, _ := ErrorSlug(res.Body)
 					Expect(errType).To(Equal("validation_failed"))
 				})
 			})
@@ -847,14 +837,8 @@ var _ = Describe("controllers/containers", func() {
 				doRequest("valid-token", "foo", params)
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
-
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-
-				errType, _ := j["error"].(string)
+				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("validation_failed"))
-				errDesc, _ := j["error_description"].(string)
 				Expect(errDesc).To(Equal("slug is taken"))
 			})
 		})
@@ -868,14 +852,8 @@ var _ = Describe("controllers/containers", func() {
 				doRequest("valid-token", "foo", params)
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
-
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-
-				errType, _ := j["error"].(string)
+				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_request"))
-				errDesc, _ := j["error_description"].(string)
 				Expect(errDesc).To(Equal("slug is required"))
 			})
 		})
@@ -912,13 +890,8 @@ var _ = Describe("controllers/containers", func() {
 				doRequest("valid-token", "foo", params)
 
 				Expect(res.Code).To(Equal(http.StatusServiceUnavailable))
-
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				errType, _ := j["error"].(string)
+				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("service_unavailable"))
-				errDesc, _ := j["error_description"].(string)
 				Expect(errDesc).To(Equal("host is not running"))
 			})
 		})

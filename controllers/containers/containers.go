@@ -189,8 +189,7 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	if err != nil {
 		return err
 	}
-	err = cn.Insert(tx)
-	if err != nil {
+	if err := cn.Insert(tx); err != nil {
 		tx.Rollback()
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
 			if validationErr, ok := validations[e.Constraint]; ok {
@@ -199,22 +198,26 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 		}
 		return err
 	}
-	err = tx.Commit()
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		return err
+	}
+
+	deleteContainer := func(cn *container.Container) {
+		err := cn.DeletePermanently(db)
+		if err != nil {
+			env.Logger.Errorf("Unable to delete container %d that failed on freighter: %v", cn.ID, err)
+		}
 	}
 
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
+		deleteContainer(cn)
 		return err
 	}
 
 	created, err := cl.Create(slug, imageSlug, cn.Secret, config)
 	if err != nil {
-		delErr := cn.DeletePermanently(db)
-		if delErr != nil {
-			env.Logger.Errorf("Unable to delete container %d that failed on freighter: %v", cn.ID, delErr)
-		}
+		deleteContainer(cn)
 		if e, ok := err.(*freighterclient.InvalidParamError); ok {
 			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
 		}
