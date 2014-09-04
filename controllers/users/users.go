@@ -60,9 +60,9 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	env.Status = http.StatusOK
+	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"status": "ok",
+		"user": serializers.SerializeUser(u),
 	}
 	return nil
 }
@@ -120,8 +120,7 @@ func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Re
 func userResponse(env *middleware.Env, u *user.User) {
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status": "ok",
-		"user":   serializers.SerializeUser(u),
+		"user": serializers.SerializeUser(u),
 	}
 	return
 }

@@ -753,12 +753,10 @@ var _ = Describe("controllers/containers", func() {
 			Expect(res.Code).To(Equal(http.StatusCreated))
 
 			var j struct {
-				Status    string                 `json:"status"`
 				Container *serializers.Container `json:"container"`
 			}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.Status).To(Equal("created"))
 
 			c, err := container.Find(db, u, "elixir-web-1")
 			Expect(err).To(BeNil())
@@ -869,12 +867,10 @@ var _ = Describe("controllers/containers", func() {
 				Expect(res.Code).To(Equal(http.StatusCreated))
 
 				var j struct {
-					Status    string                 `json:"status"`
 					Container *serializers.Container `json:"container"`
 				}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				Expect(j.Status).To(Equal("created"))
 				Expect(j.Container.Image).To(Equal(containers.DefaultImage))
 			})
 		})

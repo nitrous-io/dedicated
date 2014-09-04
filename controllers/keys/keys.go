@@ -18,11 +18,11 @@ import (
 
 var (
 	ErrContainerBlank        = httperror.New(http.StatusBadRequest, "validation_failed", "missing container id")
-	ErrContainerNotFound     = httperror.New(http.StatusBadRequest, "validation_failed", "container does not exist")
+	ErrContainerNotFound     = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
 	ErrInvalidKey            = httperror.New(http.StatusBadRequest, "validation_failed", "invalid key")
 	ErrKeyExists             = httperror.New(http.StatusBadRequest, "validation_failed", "key already exists")
 	ErrPubKeyOpsNotSupported = httperror.New(http.StatusBadRequest, "invalid_request", "public key operations not supported on this container")
-	ErrFingerprintNotFound   = httperror.New(http.StatusNotFound, "validation_failed", "fingerprint not found")
+	ErrFingerprintNotFound   = httperror.New(http.StatusNotFound, "not_found", "fingerprint not found")
 )
 
 var (
@@ -40,8 +40,7 @@ func index(cn *container.Container, env *middleware.Env, w http.ResponseWriter, 
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status": "ok",
-		"keys":   serializers.SerializePublicKeys(keys),
+		"keys": serializers.SerializePublicKeys(keys),
 	}
 	return nil
 }

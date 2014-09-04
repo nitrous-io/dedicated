@@ -36,7 +36,6 @@ func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status":  "ok",
 		"volumes": serializers.SerializeVolumes(vols),
 	}
 	return nil
@@ -96,7 +95,6 @@ func Create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	publishVolumeEvent(env, "volume.created", vol)
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"status": "created",
 		"volume": serializers.SerializeVolume(vol),
 	}
 	return nil
@@ -131,7 +129,6 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	publishVolumeEvent(env, "volume.destroyed", vol)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status": "ok",
 		"volume": serializers.SerializeVolume(vol),
 	}
 	return nil
@@ -149,7 +146,6 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status": "ok",
 		"volume": serializers.SerializeVolume(vol),
 	}
 	return nil
@@ -177,7 +173,6 @@ func Info(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status": "ok",
 		"volume": serializers.SerializeVolumeInfo(vi),
 	}
 	return nil

@@ -16,7 +16,6 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status":  "ok",
 		"regions": serializers.SerializeRegions(rs),
 	}
 	return nil

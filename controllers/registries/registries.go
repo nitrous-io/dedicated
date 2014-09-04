@@ -159,7 +159,7 @@ func logout(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status": "OK",
+		"status": "ok",
 	}
 	return nil
 }
