@@ -53,24 +53,6 @@ var _ = Describe("controllers/keys", func() {
 		mockClient *freighterclient.MockClient
 	)
 
-	expectSuccessfulRequest := func(status string) map[string]interface{} {
-		j := map[string]interface{}{}
-		err := json.NewDecoder(res.Body).Decode(&j)
-		Expect(err).To(BeNil())
-		Expect(j["error_description"]).To(BeNil())
-		Expect(j["error"]).To(BeNil())
-		Expect(j["status"]).To(Equal(status))
-		return j
-	}
-
-	expectBadRequest := func(errMsg string) map[string]interface{} {
-		j := map[string]interface{}{}
-		err := json.NewDecoder(res.Body).Decode(&j)
-		Expect(err).To(BeNil())
-		Expect(j["error_description"]).To(Equal(errMsg))
-		return j
-	}
-
 	BeforeEach(func() {
 		var err error
 		mockClient = &freighterclient.MockClient{}
@@ -141,20 +123,15 @@ var _ = Describe("controllers/keys", func() {
 						Expect(err).To(BeNil())
 						pks = append(pks, pk)
 					}
-
-					params = &url.Values{}
-					doRequest("valid-token")
-				})
-
-				It("responds with ok", func() {
-					expectSuccessfulRequest("ok")
-					Expect(res.Code).To(Equal(http.StatusOK))
 				})
 
 				It("responds with json keys", func() {
+					params = &url.Values{}
+					doRequest("valid-token")
+
+					Expect(res.Code).To(Equal(http.StatusOK))
 					j := struct {
-						Status string                   `json:"status"`
-						Keys   []*serializers.PublicKey `json:"keys"`
+						Keys []*serializers.PublicKey `json:"keys"`
 					}{}
 					err := json.NewDecoder(res.Body).Decode(&j)
 					Expect(err).To(BeNil())
@@ -167,14 +144,17 @@ var _ = Describe("controllers/keys", func() {
 			})
 
 			Context("when user has no keys", func() {
-				BeforeEach(func() {
+				It("returns empty array", func() {
 					params = &url.Values{}
 					doRequest("valid-token")
-				})
 
-				It("returns empty array", func() {
-					j := expectSuccessfulRequest("ok")
-					Expect(j["keys"]).To(BeEmpty())
+					Expect(res.Code).To(Equal(http.StatusOK))
+					j := struct {
+						Keys []*serializers.PublicKey `json:"keys"`
+					}{}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+					Expect(j.Keys).To(BeEmpty())
 				})
 			})
 		})
@@ -189,8 +169,8 @@ var _ = Describe("controllers/keys", func() {
 		})
 	})
 
-	for _, meth := range []string{"POST", "PUT"} {
-		m := meth
+	for _, method := range []string{"POST", "PUT"} {
+		m := method
 		Describe(m+" /api/v0/containers/{container}/keys", func() {
 			doRequest := func(token, slug string) {
 				var err error
@@ -204,17 +184,23 @@ var _ = Describe("controllers/keys", func() {
 					BeforeEach(func() {
 						params = &url.Values{}
 						params.Set("key", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0Ddg2BE+XhqJHHI164Sxi7euv5bTTxdW1D/mUTd1uQruFvyyMPAVjRhR1aSgvh8DGlaj/ndV5CViR6zU9upLf9XPjCg84/4HMBpbhSA3PWRb6YMwf85HEAfiXYLmw06PD40Ts6EHbvtWfQLo06bxsnGaRaP4dJNZRkDpEuQTZNoWh0SQzG3Ww5TA7V80WCAdBnIOXymjGDm+Ri24RibmO+mp4s2dnevZOPXAOSAn5axd5X6INg+TEYFaEvFT8JnBTBvCWTTeHj+Xti9wWBcGbdFI/vAoHNrDtCav0UBe5ueItXAUklm4lo7uG+CL/33fLQ+iEC+WTTivTt9U0IORB")
-						doRequest("valid-token", c.Slug)
 						mockClient.AddPublicKeysError = nil
 					})
 
 					It("creates the key", func() {
-						expectSuccessfulRequest("created")
+						doRequest("valid-token", c.Slug)
+
+						Expect(mockClient.AddPublicKeysCalled).To(Equal(1))
+						Expect(mockClient.ReceivedID).To(Equal(c.CID))
 						pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
 						Expect(err).To(BeNil())
 						Expect(pks).To(HaveLen(1))
-						Expect(mockClient.AddPublicKeysCalled).To(Equal(1))
-						Expect(mockClient.ReceivedID).To(Equal(c.CID))
+
+						Expect(res.Code).To(Equal(http.StatusCreated))
+						j := map[string]string{}
+						err = json.NewDecoder(res.Body).Decode(&j)
+						Expect(err).To(BeNil())
+						Expect(j["status"]).To(Equal("created"))
 					})
 				})
 
@@ -227,38 +213,40 @@ var _ = Describe("controllers/keys", func() {
 						}
 						err := pk.Insert(db)
 						Expect(err).To(BeNil())
-
-						params = &url.Values{}
-						params.Set("key", validKeys[0])
-						doRequest("valid-token", c.Slug)
 					})
 
 					It("responds with bad request", func() {
-						expectBadRequest("key already exists")
+						params = &url.Values{}
+						params.Set("key", validKeys[0])
+						doRequest("valid-token", c.Slug)
+
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+						_, errDesc := ErrorSlug(res.Body)
+						Expect(errDesc).To(Equal("key already exists"))
 					})
 				})
 
 				Context("when invalid key is received", func() {
-					BeforeEach(func() {
+					It("responds with bad request", func() {
 						params = &url.Values{}
 						params.Set("key", "ssh-rsa bad key!!")
 						doRequest("valid-token", c.Slug)
-					})
 
-					It("responds with bad request", func() {
-						expectBadRequest("invalid key")
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+						_, errDesc := ErrorSlug(res.Body)
+						Expect(errDesc).To(Equal("invalid key"))
 					})
 				})
 
 				Context("when invalid container id is received", func() {
-					BeforeEach(func() {
+					It("responds with bad request", func() {
 						params = &url.Values{}
 						params.Set("key", validKeys[0])
 						doRequest("valid-token", "container-that-does-not-exist")
-					})
 
-					It("responds with bad request", func() {
-						expectBadRequest("container does not exist")
+						Expect(res.Code).To(Equal(http.StatusNotFound))
+						_, errDesc := ErrorSlug(res.Body)
+						Expect(errDesc).To(Equal("container does not exist"))
 					})
 				})
 
@@ -267,14 +255,19 @@ var _ = Describe("controllers/keys", func() {
 						mockClient.AddPublicKeysError = freighterclient.ErrPubKeyOpsNotSupported
 						params = &url.Values{}
 						params.Set("key", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0Ddg2BE+XhqJHHI164Sxi7euv5bTTxdW1D/mUTd1uQruFvyyMPAVjRhR1aSgvh8DGlaj/ndV5CViR6zU9upLf9XPjCg84/4HMBpbhSA3PWRb6YMwf85HEAfiXYLmw06PD40Ts6EHbvtWfQLo06bxsnGaRaP4dJNZRkDpEuQTZNoWh0SQzG3Ww5TA7V80WCAdBnIOXymjGDm+Ri24RibmO+mp4s2dnevZOPXAOSAn5axd5X6INg+TEYFaEvFT8JnBTBvCWTTeHj+Xti9wWBcGbdFI/vAoHNrDtCav0UBe5ueItXAUklm4lo7uG+CL/33fLQ+iEC+WTTivTt9U0IORB")
-						doRequest("valid-token", c.Slug)
 					})
 
 					It("responds with bad request", func() {
-						expectBadRequest("public key operations not supported on this container")
+						doRequest("valid-token", c.Slug)
+
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+						_, errDesc := ErrorSlug(res.Body)
+						Expect(errDesc).To(Equal("public key operations not supported on this container"))
 					})
 
 					It("should not persist the key in the database", func() {
+						doRequest("valid-token", c.Slug)
+
 						pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
 						Expect(err).To(BeNil())
 						Expect(pks).To(HaveLen(0))
@@ -322,35 +315,43 @@ var _ = Describe("controllers/keys", func() {
 				})
 
 				Context("when call to freighterclient succeeds", func() {
-					BeforeEach(func() {
+					It("removes all of them", func() {
 						mockClient.ClearPublicKeysError = nil
 						doRequest("valid-token", c.Slug)
-					})
 
-					It("removes all of them", func() {
-						expectSuccessfulRequest("ok")
-
+						Expect(mockClient.ClearPublicKeysCalled).To(Equal(1))
+						Expect(mockClient.ReceivedID).To(Equal(c.CID))
 						pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
 						Expect(err).To(BeNil())
 						Expect(pks).To(BeEmpty())
-						Expect(mockClient.ClearPublicKeysCalled).To(Equal(1))
-						Expect(mockClient.ReceivedID).To(Equal(c.CID))
+
+						Expect(res.Code).To(Equal(http.StatusOK))
+						j := map[string]string{}
+						err = json.NewDecoder(res.Body).Decode(&j)
+						Expect(err).To(BeNil())
+						Expect(j["status"]).To(Equal("ok"))
 					})
 				})
 
 				Context("when the call to freighter fails for some reason", func() {
 					BeforeEach(func() {
 						mockClient.ClearPublicKeysError = freighterclient.ErrPubKeyOpsNotSupported
-						doRequest("valid-token", c.Slug)
 					})
 
 					It("returns bad request", func() {
-						expectBadRequest("public key operations not supported on this container")
+						doRequest("valid-token", c.Slug)
+
 						Expect(mockClient.ClearPublicKeysCalled).To(Equal(1))
 						Expect(mockClient.ReceivedID).To(Equal(c.CID))
+
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+						_, errDesc := ErrorSlug(res.Body)
+						Expect(errDesc).To(Equal("public key operations not supported on this container"))
 					})
 
 					It("should not destroy the keys from the database", func() {
+						doRequest("valid-token", c.Slug)
+
 						pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
 						Expect(err).To(BeNil())
 						Expect(len(pks)).To(Equal(2))
@@ -359,16 +360,19 @@ var _ = Describe("controllers/keys", func() {
 			})
 
 			Context("when user has no keys", func() {
-				BeforeEach(func() {
+				It("returns success", func() {
 					params = &url.Values{}
 					doRequest("valid-token", c.Slug)
 					mockClient.ClearPublicKeysError = nil
-				})
 
-				It("returns success", func() {
-					expectSuccessfulRequest("ok")
 					Expect(mockClient.ClearPublicKeysCalled).To(Equal(1))
 					Expect(mockClient.ReceivedID).To(Equal(c.CID))
+
+					Expect(res.Code).To(Equal(http.StatusOK))
+					j := map[string]string{}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+					Expect(j["status"]).To(Equal("ok"))
 				})
 			})
 		})
@@ -424,15 +428,18 @@ var _ = Describe("controllers/keys", func() {
 
 		Context("with valid oauth token", func() {
 			Context("when call to freighter is successful", func() {
-				BeforeEach(func() {
-					mockClient.RemovePublicKeyError = nil
-				})
-
 				It("is successful when key is present in container", func() {
+					mockClient.RemovePublicKeyError = nil
 					doRequest("valid-token", c.Slug, fprint)
-					expectSuccessfulRequest("ok")
+
 					Expect(mockClient.RemovePublicKeyCalled).To(Equal(1))
 					Expect(mockClient.ReceivedID).To(Equal(c.CID))
+
+					Expect(res.Code).To(Equal(http.StatusOK))
+					j := map[string]string{}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+					Expect(j["status"]).To(Equal("ok"))
 				})
 			})
 
@@ -443,13 +450,18 @@ var _ = Describe("controllers/keys", func() {
 
 				It("should respond with bad request", func() {
 					doRequest("valid-token", c.Slug, fprint)
-					expectBadRequest("public key operations not supported on this container")
+
 					Expect(mockClient.RemovePublicKeyCalled).To(Equal(1))
 					Expect(mockClient.ReceivedID).To(Equal(c.CID))
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					_, errDesc := ErrorSlug(res.Body)
+					Expect(errDesc).To(Equal("public key operations not supported on this container"))
 				})
 
 				It("should not destroy the keys from the database", func() {
 					doRequest("valid-token", c.Slug, fprint)
+
 					pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
 					Expect(err).To(BeNil())
 					Expect(len(pks)).To(Equal(2))
@@ -458,8 +470,11 @@ var _ = Describe("controllers/keys", func() {
 
 			It("is unsuccessful when key is not in container", func() {
 				doRequest("valid-token", c2.Slug, fprint)
-				expectBadRequest("fingerprint not found")
 				Expect(mockClient.RemovePublicKeyCalled).To(Equal(0))
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+				_, errDesc := ErrorSlug(res.Body)
+				Expect(errDesc).To(Equal("fingerprint not found"))
 
 				pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
 				Expect(err).To(BeNil())
