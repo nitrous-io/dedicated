@@ -148,9 +148,14 @@ func dockerPortBindings(portSpecs []string) (map[dockerclient.Port][]dockerclien
 }
 
 // parsePortSpec supports any of:
-//   ip:hostPort:containerPort
-//   ip::containerPort
-//   hostPort:containerPort ... :
+//   public:hostPort:containerPort
+//   private:hostPort:containerPort
+//   public::containerPort
+//   private::containerPort
+//   hostPort:containerPort ... : (which defaults to private)
+//
+//   private means it will be bound to the defaultDockerGateway
+//   public means that will be accessible on the internet
 func parsePortSpec(portSpec string) (dockerclient.Port, dockerclient.PortBinding, error) {
 	parts := strings.Split(portSpec, ":")
 	var hostIP, hostPort, containerPort string
@@ -160,9 +165,15 @@ func parsePortSpec(portSpec string) (dockerclient.Port, dockerclient.PortBinding
 	case len(parts) == 3 && parts[1] != "": // ip:hostPort:containerPort
 		hostIP, hostPort, containerPort = parts[0], parts[1], parts[2]
 	case len(parts) == 2: // hostPort:containerPort
-		hostIP, hostPort, containerPort = "127.0.0.1", parts[0], parts[1]
+		hostIP, hostPort, containerPort = defaultDockerGateway, parts[0], parts[1]
 	default:
 		return "", dockerclient.PortBinding{}, ErrInvalidPortSpec
+	}
+
+	if hostIP == "public" {
+		hostIP = "0.0.0.0"
+	} else {
+		hostIP = defaultDockerGateway
 	}
 	return dockerclient.Port(containerPort),
 		dockerclient.PortBinding{HostIp: hostIP, HostPort: hostPort}, nil
