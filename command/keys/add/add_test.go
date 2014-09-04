@@ -34,6 +34,10 @@ var _ = Describe("keys/add", func() {
 	BeforeEach(func() {
 		ui = &command.MockUI{&cli.MockUi{}}
 		handlers = ghttp.CombineHandlers(
+			func(w http.ResponseWriter, req *http.Request) {
+				// So that server.ReceivedRequests() have params populated.
+				req.ParseForm()
+			},
 			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
 			ghttp.VerifyRequest("PUT", "/api/v0/containers/container/keys"),
 			ghttp.RespondWithPtr(&statusCode, &responseBody),
@@ -101,6 +105,10 @@ var _ = Describe("keys/add", func() {
 				code := doCmd()
 				Expect(ui.OutputWriter.String()).To(ContainSubstring("Added key"))
 				Expect(code).To(Equal(0))
+
+				reqs := srv.ReceivedRequests()
+				Expect(reqs).To(HaveLen(1))
+				Expect(reqs[0].PostFormValue("key")).To(Equal("somekey"))
 			})
 		})
 
