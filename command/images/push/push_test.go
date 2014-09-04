@@ -24,14 +24,13 @@ var _ = Describe("images/push", func() {
 		cmd          *push.Command
 		ui           *command.MockUI
 		srv          *ghttp.Server
-		handlers     http.HandlerFunc
 		statusCode   int
 		responseBody string
 	)
 
 	BeforeEach(func() {
 		ui = &command.MockUI{&cli.MockUi{}}
-		handlers = ghttp.CombineHandlers(
+		handlers := ghttp.CombineHandlers(
 			func(w http.ResponseWriter, req *http.Request) {
 				Expect(req.FormValue("destination")).To(Equal("username/myscratch"))
 			},
@@ -58,26 +57,38 @@ var _ = Describe("images/push", func() {
 			return cmd.Run([]string{"myhost", "scratch", "username/myscratch"})
 		}
 
-		Context("successful push", func() {
+		BeforeEach(func() {
+			statusCode = http.StatusOK
+			responseBody = `{"status":"OK"}`
+		})
+
+		It("prints success message", func() {
+			code := doCmd()
+			Expect(ui.OutputWriter.String()).To(ContainSubstring("Pushed image"))
+			Expect(code).To(Equal(0))
+		})
+
+		Context("when request fails with a HTTP 401 Unauthorized", func() {
 			BeforeEach(func() {
-				statusCode = http.StatusOK
-				responseBody = `{"status":"OK"}`
+				statusCode = http.StatusUnauthorized
+				responseBody = `{"error": "invalid_request", "error_description": "don't care"}`
 			})
 
-			It("outputs success message", func() {
+			It("prints failure and a hint to login", func() {
 				code := doCmd()
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Pushed image"))
-				Expect(code).To(Equal(0))
+				Expect(ui.ErrorWriter.String()).To(ContainSubstring("Failed: "))
+				Expect(ui.ErrorWriter.String()).To(ContainSubstring("nitro registry:login"))
+				Expect(code).To(Equal(1))
 			})
 		})
 
-		Context("JSON response with error", func() {
+		Context("when request fails", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusBadRequest
 				responseBody = `{"error": "validation_failed", "error_description": "image not found"}`
 			})
 
-			It("outputs error message", func() {
+			It("prints its error message", func() {
 				code := doCmd()
 				Expect(ui.ErrorWriter.String()).To(Equal("image not found\n"))
 				Expect(code).To(Equal(1))
@@ -96,7 +107,7 @@ var _ = Describe("images/push", func() {
 	})
 
 	Context("Help", func() {
-		It("outputs usage", func() {
+		It("prints usage", func() {
 			Expect(cmd.Help()).To(ContainSubstring("Usage: nitro images:push"))
 		})
 	})

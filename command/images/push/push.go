@@ -1,6 +1,7 @@
 package push
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -13,10 +14,10 @@ import (
 )
 
 const (
-	Usage = `
+	usage = `
 Usage: nitro images:push <host> <image id or repo url tag> [registry_host/]username/<repo_name:tag>
 
-  push image to a registry.  If registry host is not specified, defaults to hub.docker.com
+  Push image to a registry. If registry host is not specified, defaults to Docker Hub registry.
 `
 )
 
@@ -39,15 +40,14 @@ func NewCommand(token string) (cli.Command, error) {
 }
 
 func (c *Command) Help() string {
-	return strings.TrimSpace(Usage)
+	return strings.TrimSpace(usage)
 }
 
 func (c *Command) Run(args []string) int {
 	cmdFlags := flag.NewFlagSet("images:push", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
 
-	err := cmdFlags.Parse(args)
-	if err != nil {
+	if err := cmdFlags.Parse(args); err != nil {
 		return 1
 	}
 
@@ -58,7 +58,6 @@ func (c *Command) Run(args []string) int {
 	}
 
 	host, image, dest := args[0], args[1], args[2]
-
 	c.UI.Output(fmt.Sprintf("Pushing image '%s' on '%s' to '%s'...", image, host, dest))
 
 	if err := c.makeRequest(host, image, dest); err != nil {
@@ -82,5 +81,10 @@ func (c *Command) makeRequest(host, image, dest string) error {
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return errors.New("Failed: Login to the registry you want to push to first. See `nitro registry:login`.")
+	}
+
 	return httpclient.CheckResponse(resp, http.StatusOK)
 }
