@@ -1,6 +1,8 @@
 package publickey_test
 
 import (
+	"strconv"
+
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/publickey"
@@ -62,7 +64,7 @@ var _ = Describe("models/publickey", func() {
 		}
 	})
 
-	Describe("FindAllByUserIDAndContainerID()", func() {
+	Describe("FindAll()", func() {
 		BeforeEach(func() {
 			_, err := db.Exec("INSERT INTO public_keys (user_id, container_id, key, fingerprint) VALUES ($1, $2, $3, $4);", hs.U.ID, c.ID, validRSA, "fingerprint")
 			Expect(err).To(BeNil())
@@ -73,7 +75,7 @@ var _ = Describe("models/publickey", func() {
 
 		Context("when public_key records with a given user_id exists", func() {
 			It("finds public_keys by a given user", func() {
-				keys, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
+				keys, err := publickey.FindAll(db, hs.U.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(keys).To(HaveLen(1))
 
@@ -84,11 +86,11 @@ var _ = Describe("models/publickey", func() {
 
 		Context("when no public_key records with a given user_id and container_id exist", func() {
 			It("returns empty slice", func() {
-				keys, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, 999)
+				keys, err := publickey.FindAll(db, hs.U.ID, 999)
 				Expect(err).To(BeNil())
 				Expect(keys).To(BeEmpty())
 
-				keys, err = publickey.FindAllByUserIDAndContainerID(db, 999, c.ID)
+				keys, err = publickey.FindAll(db, 999, c.ID)
 				Expect(err).To(BeNil())
 				Expect(keys).To(BeEmpty())
 			})
@@ -99,7 +101,7 @@ var _ = Describe("models/publickey", func() {
 				db.Close()
 				u := user.User{}
 				c := container.Container{}
-				keys, err := publickey.FindAllByUserIDAndContainerID(db, u.ID, c.ID)
+				keys, err := publickey.FindAll(db, u.ID, c.ID)
 				Expect(keys).To(BeEmpty())
 				Expect(err).NotTo(BeNil())
 			})
@@ -122,7 +124,7 @@ var _ = Describe("models/publickey", func() {
 				err := pk.Insert(db)
 				Expect(err).To(BeNil())
 
-				keys, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
+				keys, err := publickey.FindAll(db, hs.U.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(keys).To(HaveLen(1))
 				Expect(keys[0].UserID).To(Equal(hs.U.ID))
@@ -140,7 +142,7 @@ var _ = Describe("models/publickey", func() {
 		})
 	})
 
-	Describe("FindByUserIDAndContainerIDAndFingerprint", func() {
+	Describe("Find", func() {
 		var (
 			u, u2 *user.User
 			// rsa1 and rsa2 belong to u, ecdsa belongs to u2
@@ -208,14 +210,24 @@ var _ = Describe("models/publickey", func() {
 			}
 		})
 
-		It("should return the right publickey object if found", func() {
-			pk, err := publickey.FindByUserIDAndContainerIDAndFingerprint(db, u.ID, c.ID, rsa1C1print)
-			Expect(err).To(BeNil())
-			Expect(pk).To(Equal(rsa1C1))
+		Context("when finding with ID", func() {
+			It("should return the right publickey object if found", func() {
+				pk, err := publickey.Find(db, u.ID, c.ID, strconv.FormatInt(rsa1C1.ID, 10))
+				Expect(err).To(BeNil())
+				Expect(pk).To(Equal(rsa1C1))
+			})
 		})
 
-		It("should return nil if it can't find a key with the given fingerprint", func() {
-			pk, err := publickey.FindByUserIDAndContainerIDAndFingerprint(db, u.ID, c.ID, "invalid fingerprint")
+		Context("when finding with fingerprint", func() {
+			It("should return the right publickey record if found", func() {
+				pk, err := publickey.Find(db, u.ID, c.ID, rsa1C1print)
+				Expect(err).To(BeNil())
+				Expect(pk).To(Equal(rsa1C1))
+			})
+		})
+
+		It("should return nil if it can't find a key with the given identifier", func() {
+			pk, err := publickey.Find(db, u.ID, c.ID, "invalid fingerprint")
 			Expect(err).To(Equal(publickey.ErrNotFound))
 			Expect(pk).To(BeNil())
 		})
@@ -276,42 +288,40 @@ var _ = Describe("models/publickey", func() {
 			}
 		})
 
-		Describe("DestroyAllByUserIDAndContainerID", func() {
+		Describe("DestroyAll", func() {
 			It("removes a user's and keys from a given container", func() {
-				pks, err := publickey.FindAllByUserIDAndContainerID(db, u.ID, c.ID)
+				pks, err := publickey.FindAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(2))
 
-				err = publickey.DestroyAllByUserIDAndContainerID(db, u.ID, c.ID)
+				err = publickey.DestroyAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 
-				pks, err = publickey.FindAllByUserIDAndContainerID(db, u.ID, c.ID)
+				pks, err = publickey.FindAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(0))
 			})
 
 			It("does not remove other users' or containers' keys", func() {
-				pks, err := publickey.FindAllByUserIDAndContainerID(db, u.ID, c2.ID)
+				pks, err := publickey.FindAll(db, u.ID, c2.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(2))
 
-				err = publickey.DestroyAllByUserIDAndContainerID(db, u.ID, c.ID)
+				err = publickey.DestroyAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 
-				pks, err = publickey.FindAllByUserIDAndContainerID(db, u.ID, c2.ID)
+				pks, err = publickey.FindAll(db, u.ID, c2.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(2))
 			})
 		})
 
-		Describe("DestroyByUserIDAndContainerIDAndFingerprint", func() {
+		Describe("Destroy", func() {
 			It("removes a key with the right fingerprint", func() {
-				rsa1print, err := rsa1C1.Md5Fingerprint()
-				Expect(err).To(BeNil())
-				err = publickey.DestroyByUserIDAndContainerIDAndFingerprint(db, u.ID, c.ID, rsa1print)
+				err := publickey.Destroy(db, u.ID, c.ID, rsa1C1.ID)
 				Expect(err).To(BeNil())
 
-				pks, err := publickey.FindAllByUserIDAndContainerID(db, u.ID, c.ID)
+				pks, err := publickey.FindAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(1))
 				Expect(pks[0].Key).To(Equal(rsa2C1.Key))

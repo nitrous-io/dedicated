@@ -2,6 +2,7 @@ package publickey
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/nitrous-io/nitrous-common/sshkey"
@@ -25,7 +26,7 @@ type PublicKey struct {
 	UpdatedAt   *time.Time `db:"updated_at"`
 }
 
-func FindAllByUserIDAndContainerID(db *db.Database, userID int64, containerID int64) ([]*PublicKey, error) {
+func FindAll(db *db.Database, userID int64, containerID int64) ([]*PublicKey, error) {
 	keys := []*PublicKey{}
 	err := db.Select(&keys, "SELECT * FROM public_keys WHERE user_id = $1 AND container_id = $2 ORDER BY created_at", userID, containerID)
 	if err != nil {
@@ -34,12 +35,20 @@ func FindAllByUserIDAndContainerID(db *db.Database, userID int64, containerID in
 	return keys, nil
 }
 
-func FindByUserIDAndContainerIDAndFingerprint(db *db.Database, userID int64, containerID int64, fprint string) (*PublicKey, error) {
+// Find queries for a Public Key scoped to a user and a container.
+// identifier can be either an ID or a fingerprint.
+func Find(db *db.Database, userID int64, containerID int64, identifier string) (*PublicKey, error) {
 	keys := []PublicKey{}
-	err := db.Select(&keys, "SELECT * FROM public_keys WHERE user_id = $1 AND container_id = $2 AND fingerprint = $3 ORDER BY created_at", userID, containerID, fprint)
+	id, err := strconv.ParseInt(identifier, 10, 64)
+
 	if err != nil {
-		return nil, err
+		err = db.Select(&keys,
+			"SELECT * FROM public_keys WHERE user_id = $1 AND container_id = $2 AND fingerprint = $3 ORDER BY created_at", userID, containerID, identifier)
+	} else {
+		err = db.Select(&keys,
+			"SELECT * FROM public_keys WHERE user_id = $1 AND container_id = $2 AND id = $3 ORDER BY created_at", userID, containerID, id)
 	}
+
 	if len(keys) == 0 {
 		return nil, ErrNotFound
 	}
@@ -49,15 +58,13 @@ func FindByUserIDAndContainerIDAndFingerprint(db *db.Database, userID int64, con
 	return &keys[0], err
 }
 
-func DestroyAllByUserIDAndContainerID(db *db.Database, userID int64, containerID int64) error {
+func DestroyAll(db *db.Database, userID int64, containerID int64) error {
 	_, err := db.Exec(`DELETE FROM public_keys WHERE user_id = $1 AND container_id = $2;`, userID, containerID)
 	return err
 }
 
-func DestroyByUserIDAndContainerIDAndFingerprint(db *db.Database, userID int64, containerID int64, fingerprint string) error {
-	_, err := db.Exec(`DELETE FROM public_keys
-		WHERE user_id = $1 AND container_id = $2 AND fingerprint = $3;`,
-		userID, containerID, fingerprint)
+func Destroy(db *db.Database, userID int64, containerID int64, id int64) error {
+	_, err := db.Exec(`DELETE FROM public_keys WHERE user_id = $1 AND container_id = $2 AND id = $3;`, userID, containerID, id)
 	return err
 }
 

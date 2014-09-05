@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 
 	"bitbucket.org/kardianos/osext"
@@ -192,7 +193,7 @@ var _ = Describe("controllers/keys", func() {
 
 						Expect(mockClient.AddPublicKeysCalled).To(Equal(1))
 						Expect(mockClient.ReceivedID).To(Equal(c.CID))
-						pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
+						pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
 						Expect(err).To(BeNil())
 						Expect(pks).To(HaveLen(1))
 
@@ -268,7 +269,7 @@ var _ = Describe("controllers/keys", func() {
 					It("should not persist the key in the database", func() {
 						doRequest("valid-token", c.Slug)
 
-						pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
+						pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
 						Expect(err).To(BeNil())
 						Expect(pks).To(HaveLen(0))
 					})
@@ -307,7 +308,7 @@ var _ = Describe("controllers/keys", func() {
 						Expect(err).To(BeNil())
 					}
 
-					pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
+					pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
 					Expect(err).To(BeNil())
 					Expect(pks).To(HaveLen(2))
 
@@ -321,7 +322,7 @@ var _ = Describe("controllers/keys", func() {
 
 						Expect(mockClient.ClearPublicKeysCalled).To(Equal(1))
 						Expect(mockClient.ReceivedID).To(Equal(c.CID))
-						pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
+						pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
 						Expect(err).To(BeNil())
 						Expect(pks).To(BeEmpty())
 
@@ -352,7 +353,7 @@ var _ = Describe("controllers/keys", func() {
 					It("should not destroy the keys from the database", func() {
 						doRequest("valid-token", c.Slug)
 
-						pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
+						pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
 						Expect(err).To(BeNil())
 						Expect(len(pks)).To(Equal(2))
 					})
@@ -387,15 +388,15 @@ var _ = Describe("controllers/keys", func() {
 		})
 	})
 
-	Describe("DELETE /api/v0/keys/<md5_fingerprint>", func() {
+	Describe("DELETE /api/v0/keys/<kslug>", func() {
 		var pks []*publickey.PublicKey
 		var c2 *container.Container
 		var fprint string
 
-		doRequest := func(token, slug, fingerprint string) {
+		doRequest := func(token, slug, identifier string) {
 			var err error
 			req, err = NewAPIRequest(token, "DELETE",
-				fmt.Sprintf("/api/v0/containers/%s/keys/%s", slug, fingerprint), params)
+				fmt.Sprintf("/api/v0/containers/%s/keys/%s", slug, identifier), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -428,7 +429,7 @@ var _ = Describe("controllers/keys", func() {
 
 		Context("with valid oauth token", func() {
 			Context("when call to freighter is successful", func() {
-				It("is successful when key is present in container", func() {
+				It("is successful when key with given fingerprint is present in container", func() {
 					mockClient.RemovePublicKeyError = nil
 					doRequest("valid-token", c.Slug, fprint)
 
@@ -440,6 +441,16 @@ var _ = Describe("controllers/keys", func() {
 					err := json.NewDecoder(res.Body).Decode(&j)
 					Expect(err).To(BeNil())
 					Expect(j["status"]).To(Equal("ok"))
+				})
+
+				It("is successful when key with given ID is present in container", func() {
+					mockClient.RemovePublicKeyError = nil
+					doRequest("valid-token", c.Slug, strconv.FormatInt(pks[1].ID, 10))
+
+					Expect(mockClient.RemovePublicKeyCalled).To(Equal(1))
+					Expect(mockClient.ReceivedID).To(Equal(c.CID))
+
+					Expect(res.Code).To(Equal(http.StatusOK))
 				})
 			})
 
@@ -462,7 +473,7 @@ var _ = Describe("controllers/keys", func() {
 				It("should not destroy the keys from the database", func() {
 					doRequest("valid-token", c.Slug, fprint)
 
-					pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
+					pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
 					Expect(err).To(BeNil())
 					Expect(len(pks)).To(Equal(2))
 				})
@@ -476,7 +487,7 @@ var _ = Describe("controllers/keys", func() {
 				_, errDesc := ErrorSlug(res.Body)
 				Expect(errDesc).To(Equal("fingerprint not found"))
 
-				pks, err := publickey.FindAllByUserIDAndContainerID(db, hs.U.ID, c.ID)
+				pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(len(pks)).To(Equal(2))
 			})
