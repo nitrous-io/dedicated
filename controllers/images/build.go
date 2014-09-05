@@ -2,6 +2,7 @@ package images
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"io"
 	"mime/multipart"
@@ -14,6 +15,7 @@ import (
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
+	"github.com/nitrous-io/nitrous/pkg/isarchive"
 	"github.com/nitrous-io/nitrous/serializers"
 )
 
@@ -86,34 +88,25 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 	slug = slugToLower(slug)
 
-	// if a file is uploaded it's preferred over
-	// code param.
 	var archive io.Reader
-	_, fh, err := r.FormFile("file")
-	switch err {
-	case nil:
+
+	code := r.FormValue("code")
+	if code != "" {
+		archive, err = makeArchive(bytes.NewBufferString(code))
+	} else {
+		_, fh, err := r.FormFile("file")
+		if err != nil {
+			return errFileRequired
+		}
+
 		f, err := fh.Open()
 		if err != nil {
 			return err
 		}
 		defer f.Close()
-		archive, err = archiveFromFile(fh, f)
-		if err != nil {
-			return err
-		}
-	case http.ErrMissingFile:
-		// if file is missing,
-		// check if a code param with a Dockerfile
-		// is provided.
-		code := r.FormValue("code")
-		if code == "" {
-			return errFileRequired
-		}
-		archive, err = archiveFromCode(code)
-		if err != nil {
-			return err
-		}
-	default:
+		archive, err = ensureArchive(f)
+	}
+	if err != nil {
 		return err
 	}
 
@@ -171,42 +164,46 @@ func mergeImage(remoteImg *freighterclient.Image, dbImg *image.Image) {
 	dbImg.VirtualSize = remoteImg.VirtualSize
 }
 
-// archiveFromFile takes a mutlipart file-header and returns a archive reader
-func archiveFromFile(fh *multipart.FileHeader, f multipart.File) (io.Reader, error) {
-	// check if given file is named Dockerfile
-	// and then attempt to create an archive
-	if fh.Filename == "Dockerfile" {
-		var b bytes.Buffer
-		_, err := b.ReadFrom(f)
+func ensureArchive(f multipart.File) (io.Reader, error) {
+	bufRdr := bufio.NewReader(f)
+
+	header, err := bufRdr.Peek(isarchive.MaxHeaderLength)
+	// Peek can return err even if header is read if read bytes is shorter than requested
+	if err != nil && header == nil {
+		return nil, err
+	}
+
+	// if not archive, make tarball
+	if !isarchive.IsArchive(header) {
+		b := &bytes.Buffer{}
+		_, err := b.ReadFrom(bufRdr)
 		if err != nil {
 			return nil, err
 		}
-		return makeDockerArchive(b.String())
+		return makeArchive(b)
 	}
 
 	// pass any other file directly to freighter
 	// archive validation will be done in freighter end.
-	return f, nil
+	return bufRdr, nil
 }
 
-// archiveFromCode takes a string which can be a Dockerfile and returns an archive reader
-func archiveFromCode(code string) (io.Reader, error) {
-	return makeDockerArchive(code)
-}
-
-// makeDockerArchive takes a Dockerfile and returns a archive reader
-func makeDockerArchive(f string) (io.Reader, error) {
+func makeArchive(dockerfileBuf *bytes.Buffer) (io.Reader, error) {
 	buf := bytes.NewBuffer(nil)
 	tw := tar.NewWriter(buf)
 
+	now := time.Now()
 	hdr := &tar.Header{
-		Name: "Dockerfile",
-		Size: int64(len(f)),
+		Name:       "Dockerfile",
+		Size:       int64(dockerfileBuf.Len()),
+		ModTime:    now,
+		AccessTime: now,
+		ChangeTime: now,
 	}
 	if err := tw.WriteHeader(hdr); err != nil {
 		return nil, err
 	}
-	if _, err := tw.Write([]byte(f)); err != nil {
+	if _, err := tw.Write(dockerfileBuf.Bytes()); err != nil {
 		return nil, err
 	}
 	if err := tw.Close(); err != nil {

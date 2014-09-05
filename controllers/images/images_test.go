@@ -27,6 +27,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/image"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/pkg/isarchive"
 	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
 	. "github.com/nitrous-io/nitrous/test"
@@ -432,7 +433,8 @@ var _ = Describe("controllers/images", func() {
 
 					sent, err := ioutil.ReadAll(mockClient.BuildImageReader)
 					Expect(err).To(BeNil())
-					Expect(string(sent)).NotTo(BeEmpty())
+					// check that sure the image sent is a tarball
+					Expect(isarchive.IsArchive(sent)).To(BeTrue())
 					Expect(mockClient.BuildImageCalled).To(Equal(1))
 
 					j := struct {
