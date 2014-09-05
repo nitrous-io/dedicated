@@ -3,7 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-	"regexp"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/provider"
@@ -19,26 +19,29 @@ var (
 type httpFunc func(w http.ResponseWriter, r *http.Request) error
 type httpFuncWithToken func(token string, w http.ResponseWriter, r *http.Request) error
 
-var tokenHeaderRe = regexp.MustCompile(`\AToken .+`)
+const authHeaderTokenPrefix = "Token "
 
 func (s *Server) withContainerToken(handler httpFuncWithToken, permissions ...string) httpFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
+		var token string
+
 		authHeader := r.Header.Get("Authorization")
-		if !tokenHeaderRe.MatchString(authHeader) {
-			w.Header().Set("WWW-Authenticate", `Token realm="freighter", error="invalid_request"`)
-			s.respondEncodeJSON(w, http.StatusBadRequest, map[string]interface{}{"error": "auth token is required"})
-			return nil
+		if authHeader != "" && strings.HasPrefix(authHeader, authHeaderTokenPrefix) {
+			token = authHeader[len(authHeaderTokenPrefix):]
+		} else {
+			token = r.FormValue("token")
 		}
 
-		token := authHeader[len("Token "):]
-		id := mux.Vars(r)["id"]
-		if err := s.provider.VerifyToken(id, token, permissions...); err != nil {
-			w.Header().Set("WWW-Authenticate", `Token realm="freighter", error="invalid_token"`)
-			s.respondEncodeJSON(w, http.StatusUnauthorized, map[string]interface{}{"error": "auth token is invalid"})
-			return nil
+		if token != "" {
+			id := mux.Vars(r)["id"]
+			if err := s.provider.VerifyToken(id, token, permissions...); err == nil {
+				return handler(token, w, r)
+			}
 		}
 
-		return handler(token, w, r)
+		w.Header().Set("WWW-Authenticate", `Token realm="freighter", error="invalid_token"`)
+		s.respondEncodeJSON(w, http.StatusUnauthorized, map[string]interface{}{"error": "auth token is invalid"})
+		return nil
 	}
 }
 

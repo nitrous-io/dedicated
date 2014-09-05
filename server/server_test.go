@@ -975,7 +975,7 @@ var _ = Describe("server", func() {
 		It("requires a container token", func() {
 			token := ""
 			doRequest("test-container", token, "false", "false", "")
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
 		})
 
 		It("requires a valid container token", func() {
@@ -1064,7 +1064,7 @@ var _ = Describe("server", func() {
 		It("requires a container token", func() {
 			token := ""
 			doRequest("test-container", token)
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
 			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 		})
 
@@ -1151,7 +1151,7 @@ var _ = Describe("server", func() {
 
 			token := ""
 			res := doRequest("test-container", shellID, token)
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
 			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 		})
 
@@ -1195,7 +1195,7 @@ var _ = Describe("server", func() {
 
 			token := ""
 			res := doRequest("test-container", shellID, token)
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
 			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 		})
 
@@ -1655,10 +1655,14 @@ var _ = Describe("server", func() {
 		doRequest := func(containerID, token string) (*websocket.Conn, error) {
 			ts := httptest.NewServer(handler)
 			defer ts.Close()
-			headers := http.Header{}
-			headers.Add("Authorization", "Token "+token)
-			wsEndpointURI := fmt.Sprintf("ws://%s/containers/%s/attach/ws", ts.Listener.Addr().String(), containerID)
-			conn, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, headers)
+			params := &url.Values{}
+			params.Set("token", token)
+			wsURL, err := url.Parse(fmt.Sprintf("ws://%s/containers/%s/attach/ws", ts.Listener.Addr().String(), containerID))
+			if err != nil {
+				return nil, err
+			}
+			wsURL.RawQuery = params.Encode()
+			conn, _, err := websocket.DefaultDialer.Dial(wsURL.String(), http.Header{})
 			return conn, err
 		}
 
