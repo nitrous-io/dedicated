@@ -1,7 +1,19 @@
 #!/bin/bash
 usage="USAGE: ./script/update-image-id IMAGE_ID DB (DB is pro-n2ostaging-com for staging and pro-nitrous-io for production)"
 
-image_id=${1:?"image_id is required. ${usage}"}
-db=${2:?"db is required. ${usage}"}
+db=${1:?"db is required. ${usage}"}
+image_id=${2:?"image_id is required. ${usage}"}
+region=${3}
 
-heroku pg:psql -a $db -c "update provider_templates set config = config || '\"image_id\"=>\"$image_id\"'::hstore where provider = 'digitalocean';"
+if [[ -z $region ]]; then
+  heroku pg:psql -a $db -c "update provider_templates set config = config || '\"image_id\"=>\"$image_id\"'::hstore where provider = 'digitalocean';"
+else
+  region_id=`heroku pg:psql -a $db -c "COPY (select id from regions where slug = '$region') TO STDOUT"`
+  if [[ -z $region_id ]]; then
+    echo "could not find region $region"
+    exit 1
+  else
+    echo "updating digitalocean provider templates for $region"
+    heroku pg:psql -a $db -c "update provider_templates set config = config || '\"image_id\"=>\"$image_id\"'::hstore where provider = 'digitalocean' AND region_id = $region_id;"
+  fi
+fi
