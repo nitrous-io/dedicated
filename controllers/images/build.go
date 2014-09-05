@@ -44,7 +44,7 @@ func (c *buildContext) build(async bool) (*image.Image, error) {
 			return
 		}
 
-		mergeImage(img, remoteImg)
+		mergeImage(remoteImg, img)
 		if err := img.Update(env.DB); err != nil { // log and continue
 			env.Logger.Errorf("images.build: successfully built image '%+v' in Freighter but failed to update database with '%+v'", remoteImg, img)
 		}
@@ -129,7 +129,7 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 // mergeImage merge changes from remoteImg ( which is returned by freighter )
 // to dbImg ( which is the record we stored in database )
-func mergeImage(dbImg *image.Image, remoteImg *freighterclient.Image) {
+func mergeImage(remoteImg *freighterclient.Image, dbImg *image.Image) {
 	tag := remoteImg.Tag
 	if tag == "" {
 		tag = image.DefaultTag
