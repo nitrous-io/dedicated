@@ -291,7 +291,7 @@ var _ = Describe("controllers/images", func() {
 				Tag:  "mytag",
 			}
 			params := &url.Values{}
-			params.Add("slug", "scratcher")
+			params.Add("slug", "scratcher:mytag")
 			params.Add("name", "scratcher v1 test")
 			res := doRequest("foo", params, map[string]string{"file": "FROM fake"})
 			Expect(res.Code).To(Equal(http.StatusOK))
@@ -315,7 +315,7 @@ var _ = Describe("controllers/images", func() {
 				Tag:  "mytag",
 			}
 			params := &url.Values{}
-			params.Add("slug", "scratcher")
+			params.Add("slug", "scratcher:mytag")
 			res := doRequest("foo", params, map[string]string{"file": "FROM fake"})
 			j := struct {
 				Image serializers.Image `json:"image"`
@@ -341,7 +341,7 @@ var _ = Describe("controllers/images", func() {
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
 			params := &url.Values{}
-			params.Add("slug", "scratcher")
+			params.Add("slug", "scratcher:mytag")
 			doRequest("foo", params, map[string]string{"file": "FROM fake"})
 
 			i, err := image.Find(db, u, hs.H, "scratcher:mytag")
@@ -394,6 +394,44 @@ var _ = Describe("controllers/images", func() {
 			Expect(mockClient.BuildImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
+		})
+
+		Context("when async param is true", func() {
+			It("returns 202 Accepted", func() {
+				mockClient.BuildImageReturn = &freighterclient.Image{
+					ID:   "cafebabe",
+					Name: "scratcher",
+					Tag:  "mytag",
+				}
+				params := &url.Values{}
+				params.Add("async", "true")
+				params.Add("slug", "scratcher:mytag")
+				params.Add("name", "scratcher v1 test")
+				res := doRequest("foo", params, map[string]string{"file": "FROM fake"})
+
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				j := struct {
+					Image serializers.Image `json:"image"`
+				}{}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Image.UserID).To(Equal(u.ID))
+				Expect(j.Image.HostID).To(Equal(hs.H.ID))
+				Expect(j.Image.Name).To(Equal("scratcher v1 test"))
+				Expect(j.Image.Slug).To(Equal("scratcher"))
+				Expect(j.Image.Tag).To(Equal("mytag"))
+				Expect(j.Image.CreatedAt).NotTo(BeNil())
+				Expect(j.Image.UpdatedAt).NotTo(BeNil())
+
+				// These fields are not yet set.
+				Expect(j.Image.ID).To(BeEmpty())
+				Expect(j.Image.BuiltAt).To(BeNil())
+
+				Eventually(func() int {
+					return mockClient.BuildImageCalled
+				}).Should(Equal(1))
+			})
 		})
 	})
 
