@@ -1031,6 +1031,25 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	itHandlesCORSPreflight := func(url string) {
+		It("handles CORS preflight", func() {
+			req, err := NewRequest("OPTIONS", url, nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Access-Control-Request-Headers", "Foo")
+			req.Header.Add("Access-Control-Request-Headers", "Bar")
+			handler.ServeHTTP(res, req)
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
+			Expect(res.Header()["Access-Control-Allow-Methods"]).To(ContainElement("*"))
+			Expect(res.Header()["Access-Control-Allow-Headers"]).To(ContainElement("Foo, Bar"))
+			Expect(res.Header()["Access-Control-Allow-Credentials"]).To(ContainElement("true"))
+		})
+	}
+
+	Describe("OPTIONS /containers/:id/shells", func() {
+		itHandlesCORSPreflight("/containers/1/shells")
+	})
+
 	Describe("POST /containers/:id/shells", func() {
 		doRequest := func(id, token string) {
 			params := &url.Values{}
@@ -1046,6 +1065,7 @@ var _ = Describe("server", func() {
 			token := ""
 			doRequest("test-container", token)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 		})
 
 		It("requires a valid container token", func() {
@@ -1053,6 +1073,7 @@ var _ = Describe("server", func() {
 			token := "some token"
 			doRequest("test-container", token)
 			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 			Expect(prov.ReceivedID).To(Equal("test-container"))
 			Expect(prov.ReceivedToken).To(Equal(token))
 			Expect(prov.ReceivedPermissions).To(Equal([]string{"shell"}))
@@ -1081,6 +1102,7 @@ var _ = Describe("server", func() {
 
 				It("responds to the request", func() {
 					Expect(res.Code).To(Equal(local.statusCode))
+					Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 					if local.statusCode == 200 {
 						var m map[string]string
 						json.Unmarshal(res.Body.Bytes(), &m)
@@ -1100,6 +1122,7 @@ var _ = Describe("server", func() {
 		res := httptest.NewRecorder()
 		handler.ServeHTTP(res, req)
 		Expect(res.Code).To(Equal(http.StatusOK))
+		Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 
 		var j map[string]string
 		json.Unmarshal(res.Body.Bytes(), &j)
@@ -1107,6 +1130,10 @@ var _ = Describe("server", func() {
 		Expect(shellID).NotTo(BeEmpty())
 		return shellID
 	}
+
+	Describe("OPTIONS /containers/:id/shells/:shellID/attach/ws", func() {
+		itHandlesCORSPreflight("/containers/1/shells/1/attach/ws")
+	})
 
 	Describe("GET /containers/:id/shells/:shellID/attach/ws", func() {
 		doRequest := func(containerID, shellID, token string) *httptest.ResponseRecorder {
@@ -1125,6 +1152,7 @@ var _ = Describe("server", func() {
 			token := ""
 			res := doRequest("test-container", shellID, token)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 		})
 
 		It("requires a valid container token", func() {
@@ -1134,6 +1162,7 @@ var _ = Describe("server", func() {
 			token := "some token"
 			res := doRequest("test-container", shellID, token)
 			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 			Expect(prov.ReceivedID).To(Equal("test-container"))
 			Expect(prov.ReceivedToken).To(Equal(token))
 			Expect(prov.ReceivedPermissions).To(Equal([]string{"shell"}))
@@ -1142,7 +1171,12 @@ var _ = Describe("server", func() {
 		It("responds with 404 not found when shell ID does not match an existing shell", func() {
 			res := doRequest("test-container", "non-existent-shell-id", "container-token")
 			Expect(res.Code).To(Equal(http.StatusNotFound))
+			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 		})
+	})
+
+	Describe("OPTIONS /containers/:id/shells/:shellID/resize", func() {
+		itHandlesCORSPreflight("/containers/1/shells/1/resize")
 	})
 
 	Describe("GET /containers/:id/shells/:shellID/resize", func() {
@@ -1162,6 +1196,7 @@ var _ = Describe("server", func() {
 			token := ""
 			res := doRequest("test-container", shellID, token)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 		})
 
 		It("requires a valid container token", func() {
@@ -1171,6 +1206,7 @@ var _ = Describe("server", func() {
 			token := "some token"
 			res := doRequest("test-container", shellID, token)
 			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 			Expect(prov.ReceivedID).To(Equal("test-container"))
 			Expect(prov.ReceivedToken).To(Equal(token))
 			Expect(prov.ReceivedPermissions).To(Equal([]string{"shell"}))
@@ -1179,6 +1215,7 @@ var _ = Describe("server", func() {
 		It("responds with 404 not found when shell ID does not match an existing shell", func() {
 			res := doRequest("test-container", "non-existent-shell-id", "container-token")
 			Expect(res.Code).To(Equal(http.StatusNotFound))
+			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 		})
 	})
 
