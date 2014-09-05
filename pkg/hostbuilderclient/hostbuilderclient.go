@@ -3,7 +3,7 @@ package hostbuilderclient
 import (
 	"crypto/tls"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -36,27 +36,27 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 	}
 	client.Client.Transport = tr
 
+	var endpoint string
+	if path == "" {
+		endpoint = hb.URL + "/hosts"
+	} else {
+		endpoint = hb.URL + "/hosts/" + path
+	}
+
 	p := url.Values{}
 	p.Set("provider", provider)
 
 	cg, err := json.Marshal(config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("hostbuilder failed to encode config: %s", err)
 	}
 	p.Set("config", string(cg))
 
 	//TODO: probably we need to timeout the request,
 	//but leaving it out for now, for the sake of simplicity.
-	var url string
-	if path == "" {
-		url = hb.URL + "/hosts"
-	} else {
-		url = hb.URL + "/hosts/" + path
-	}
-
-	response, err := client.PostForm(url, &p)
+	response, err := client.PostForm(endpoint, &p)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("hostbuilder failed to post: %s, err: %s", endpoint, err)
 	}
 	defer response.Body.Close()
 
@@ -65,15 +65,15 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 	case http.StatusOK, http.StatusCreated:
 		err = json.NewDecoder(response.Body).Decode(m)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("hostbuilder failed to decode: %s response, err: %s", endpoint, err)
 		}
 		return m, nil
 	default:
 		e, err := ioutil.ReadAll(response.Body)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("hostbuilder error response %s, err: %s", endpoint, err)
 		}
-		return nil, errors.New(string(e))
+		return nil, fmt.Errorf("hostbuilder error response %s, err: %s", endpoint, string(e))
 	}
 }
 

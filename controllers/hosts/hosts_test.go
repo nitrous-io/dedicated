@@ -888,20 +888,42 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				hb.OverrideRequestHandler(mockHostbuilderError)
-
 				hosts.HostbuilderClient = hb
-
-				doRequest(hs.H.Slug)
 			})
 
 			It("does not delete the host", func() {
+				doRequest(hs.H.Slug)
+
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h).NotTo(BeNil())
 			})
 
 			It("responds with HTTP 500 Internal Server Error", func() {
+				doRequest(hs.H.Slug)
+
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+		})
+
+		Context("when host is provider identifier is nil", func() {
+			It("should not make a request to hostbuilder", func() {
+				var hostbuilderCalled bool
+
+				hs.H.ProviderIdentifier = sql.NullString{String: "", Valid: false}
+				hs.H.Update(db)
+
+				// in this context, hostbuilder should not be called
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(func(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
+					hostbuilderCalled = true
+					return &hostbuilder.Response{}, errors.New("some error occurred")
+				})
+				hosts.HostbuilderClient = hb
+
+				doRequest(hs.H.Slug)
+				Expect(hostbuilderCalled).NotTo(BeTrue())
+				Expect(res.Code).To(Equal(http.StatusOK))
 			})
 		})
 
