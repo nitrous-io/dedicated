@@ -60,6 +60,7 @@ func (s *RemoteShell) RequestShell() error {
 		return err
 	}
 	req.Header.Set("Authorization", "Token "+token)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Host = s.host
 
 	c, err := s.getConn()
