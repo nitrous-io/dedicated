@@ -85,7 +85,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 			It("returns an error returned by hostbuilder", func() {
 				_, err := doRequest()
-				Expect(err).To(MatchError("some_error"))
+				Expect(err.Error()).To(ContainSubstring("some_error"))
 			})
 		})
 	})
@@ -119,8 +119,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 			It("returns an error returned by hostbuilder", func() {
 				_, err := doRequest()
-
-				Expect(err).To(MatchError("some_error"))
+				Expect(err.Error()).To(ContainSubstring("some_error"))
 			})
 		})
 	})
@@ -154,7 +153,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 			It("returns an error returned by hostbuilder", func() {
 				_, err := doRequest()
-				Expect(err).To(MatchError("some_error"))
+				Expect(err.Error()).To(ContainSubstring("some_error"))
 			})
 		})
 	})
@@ -186,7 +185,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 			It("returns an error returned by hostbuilder", func() {
 				_, err := doRequest()
-				Expect(err).To(MatchError("some_error"))
+				Expect(err.Error()).To(ContainSubstring("some_error"))
 			})
 		})
 	})
@@ -218,7 +217,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 			It("returns an error returned by hostbuilder", func() {
 				_, err := doRequest()
-				Expect(err).To(MatchError("some_error"))
+				Expect(err.Error()).To(ContainSubstring("some_error"))
 			})
 		})
 	})

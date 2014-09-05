@@ -907,8 +907,9 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		Context("when host is provider identifier is nil", func() {
-			var hostbuilderCalled bool
 			It("should not make a request to hostbuilder", func() {
+				var hostbuilderCalled bool
+
 				hs.H.ProviderIdentifier = sql.NullString{String: "", Valid: false}
 				hs.H.Update(db)
 
