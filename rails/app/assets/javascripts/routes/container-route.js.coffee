@@ -7,6 +7,8 @@ App.ContainerRoute = App.AuthedRoute.extend
       if jqxhr.status == 404
         Em.run.next ->
           App.snackbar.post("Container “#{params.containerSlug}” could not be found.")
+          App.get('containers')?.reload()
+      @transitionTo 'home.index'
     container
 
   renderTemplate: ->
