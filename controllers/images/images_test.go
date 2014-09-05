@@ -425,7 +425,7 @@ var _ = Describe("controllers/images", func() {
 				Expect(j.Image.UpdatedAt).NotTo(BeNil())
 
 				// These fields are not yet set.
-				Expect(j.Image.ID).To(BeEmpty())
+				Expect(j.Image.FreighterID).To(BeEmpty())
 				Expect(j.Image.BuiltAt).To(BeNil())
 
 				Eventually(func() int {
