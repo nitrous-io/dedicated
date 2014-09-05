@@ -130,10 +130,12 @@ func (p *DockerProvider) Create(name, imageName, secret, configJSON string) (*pr
 	}
 
 	cfg, err := containerConfigFromJSON(configJSON)
-	setDefaultContainerConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
+	setDefaultContainerConfig(cfg)
+	cfg.Hostname = name
+	cfg.Image = imageName
 
 	container, err := p.createContainer(imageName, name, cfg)
 	if err != nil {
@@ -197,11 +199,14 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 	}
 
 	cfg, err := containerConfigFromJSON(configJSON)
-	setDefaultContainerConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	startConfig, err := p.startConfig(container, cfg)
+	setDefaultContainerConfig(cfg)
+	cfg.Hostname = container.Config.Hostname
+	cfg.Image = container.Config.Image
+
+	startConfig, err := p.mkHostConfig(container.HostConfig, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -782,7 +787,7 @@ func (p *DockerProvider) createContainer(imageName, containerName string, config
 		return nil, err
 	}
 
-	createConfig, startConfig, err := p.createConfigs(containerName, imageName, config)
+	createConfig, err := p.mkContainerConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -794,15 +799,25 @@ func (p *DockerProvider) createContainer(imageName, containerName string, config
 	if err != nil {
 		return nil, err
 	}
+	p.logger.TimeInfo(start, "DockerProvider: created container", containerName, container.ID, "in")
 
-	id := container.ID
-	p.logger.TimeInfo(start, "DockerProvider: created container", containerName, id, "in")
+	// Get container info so we get an up-to-date HostConfig since
+	// CreateContainer() *does not* return a full container struct.
+	container, err = p.inspectContainer(container.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	startConfig, err := p.mkHostConfig(container.HostConfig, config)
+	if err != nil {
+		return nil, err
+	}
+
 	p.logger.Info("DockerProvider: starting container", containerName)
 	start = time.Now()
+	err = p.client.StartContainer(container.ID, startConfig)
+	p.logger.TimeInfo(start, "DockerProvider: started container", containerName, container.ID, "in")
 
-	err = p.client.StartContainer(id, startConfig)
-
-	p.logger.TimeInfo(start, "DockerProvider: started container", containerName, id, "in")
 	return container, err
 }
 
