@@ -24,8 +24,10 @@ var (
 	errDestRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "destination is required")
 	errTagRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "tag is required")
 	errSlugRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
-	errFileRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "file is required")
 	errImageMissing     = httperror.New(http.StatusNotFound, "not_found", "image does not exist")
+	errFileRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "an archive or a plain file is required")
+
+	errInvalidArchive = httperror.New(http.StatusBadRequest, "invalid_request", "not a valid Docker archive")
 )
 
 func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {

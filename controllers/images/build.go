@@ -1,7 +1,11 @@
 package images
 
 import (
+	"archive/tar"
+	"bufio"
+	"bytes"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,6 +15,7 @@ import (
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
+	"github.com/nitrous-io/nitrous/pkg/isarchive"
 	"github.com/nitrous-io/nitrous/serializers"
 )
 
@@ -77,21 +82,33 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	_, fh, err := r.FormFile("file")
-	if err != nil {
-		return errFileRequired
-	}
 	slug := r.FormValue("slug")
 	if slug == "" {
 		return errSlugRequired
 	}
 	slug = slugToLower(slug)
 
-	f, err := fh.Open()
+	var archive io.Reader
+
+	code := r.FormValue("code")
+	if code != "" {
+		archive, err = makeArchive(bytes.NewBufferString(code))
+	} else {
+		_, fh, err := r.FormFile("file")
+		if err != nil {
+			return errFileRequired
+		}
+
+		f, err := fh.Open()
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		archive, err = ensureArchive(f)
+	}
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
 	repo, tag := image.ParseRepoAndTag(slug)
 	if tag == "" {
@@ -109,7 +126,7 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	ctx := &buildContext{env: env, client: cl, img: img, slug: slug, input: f}
+	ctx := &buildContext{env: env, client: cl, img: img, slug: slug, input: archive}
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 	img, err = ctx.build(async)
 	if err != nil {
@@ -145,4 +162,52 @@ func mergeImage(remoteImg *freighterclient.Image, dbImg *image.Image) {
 	dbImg.Tag = tag
 	dbImg.ActualSize = remoteImg.ActualSize
 	dbImg.VirtualSize = remoteImg.VirtualSize
+}
+
+func ensureArchive(f multipart.File) (io.Reader, error) {
+	bufRdr := bufio.NewReader(f)
+
+	header, err := bufRdr.Peek(isarchive.MaxHeaderLength)
+	// Peek can return err even if header is read if read bytes is shorter than requested
+	if err != nil && header == nil {
+		return nil, err
+	}
+
+	// if not archive, make tarball
+	if !isarchive.IsArchive(header) {
+		b := &bytes.Buffer{}
+		_, err := b.ReadFrom(bufRdr)
+		if err != nil {
+			return nil, err
+		}
+		return makeArchive(b)
+	}
+
+	// pass any other file directly to freighter
+	// archive validation will be done in freighter end.
+	return bufRdr, nil
+}
+
+func makeArchive(dockerfileBuf *bytes.Buffer) (io.Reader, error) {
+	buf := bytes.NewBuffer(nil)
+	tw := tar.NewWriter(buf)
+
+	now := time.Now()
+	hdr := &tar.Header{
+		Name:       "Dockerfile",
+		Size:       int64(dockerfileBuf.Len()),
+		ModTime:    now,
+		AccessTime: now,
+		ChangeTime: now,
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		return nil, err
+	}
+	if _, err := tw.Write(dockerfileBuf.Bytes()); err != nil {
+		return nil, err
+	}
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	return buf, nil
 }
