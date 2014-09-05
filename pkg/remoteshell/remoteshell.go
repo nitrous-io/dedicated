@@ -50,8 +50,8 @@ func New(host, containerID, command string, tokenHandler TokenHandler) *RemoteSh
 func (s *RemoteShell) RequestShell() error {
 	params := url.Values{}
 	params.Set("command", s.command)
-	endpoint := fmt.Sprintf("/containers/%s/shells?%s", s.containerID, params.Encode())
-	req, err := http.NewRequest("POST", endpoint, nil)
+	endpoint := fmt.Sprintf("/containers/%s/shells", s.containerID)
+	req, err := http.NewRequest("POST", endpoint, bytes.NewBufferString(params.Encode()))
 	if err != nil {
 		return err
 	}
@@ -160,12 +160,12 @@ func (s *RemoteShell) monitorSize(fd uintptr) {
 // match the local terminal size
 func (s *RemoteShell) resize(fd uintptr) error {
 	w, h := getSize(fd)
-	values := make(url.Values)
-	values.Set("width", strconv.Itoa(w))
-	values.Set("height", strconv.Itoa(h))
+	params := url.Values{}
+	params.Set("width", strconv.Itoa(w))
+	params.Set("height", strconv.Itoa(h))
 	req, err := http.NewRequest("POST",
 		fmt.Sprintf("/containers/%s/shells/%s/resize", s.containerID, s.ID),
-		bytes.NewBufferString(values.Encode()))
+		bytes.NewBufferString(params.Encode()))
 	if err != nil {
 		return err
 	}
