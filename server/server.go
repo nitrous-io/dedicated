@@ -144,9 +144,12 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/logs", s.wrapError(s.withContainerToken(s.getContainerLogs, "logs")), "GET")
 	s.route("/containers/{id}/attach/ws", s.wrapError(s.withContainerToken(s.wsAttachToContainer, "attach")), "GET")
 
-	s.route("/containers/{id}/shells", s.wrapError(s.withContainerToken(s.createShell, "shell")), "POST")
-	s.route("/containers/{id}/shells/{shellID}/attach/ws", s.wrapError(s.withContainerToken(s.wsAttachShell, "shell")), "GET")
-	s.route("/containers/{id}/shells/{shellID}/resize", s.wrapError(s.withContainerToken(s.resizeShell, "shell")), "POST")
+	s.route("/containers/{id}/shells", s.handleCORSPreflight, "OPTIONS")
+	s.route("/containers/{id}/shells", s.wrapError(s.cors(s.withContainerToken(s.createShell, "shell"))), "POST")
+	s.route("/containers/{id}/shells/{shellID}/attach/ws", s.handleCORSPreflight, "OPTIONS")
+	s.route("/containers/{id}/shells/{shellID}/attach/ws", s.wrapError(s.cors(s.withContainerToken(s.wsAttachShell, "shell"))), "GET")
+	s.route("/containers/{id}/shells/{shellID}/resize", s.handleCORSPreflight, "OPTIONS")
+	s.route("/containers/{id}/shells/{shellID}/resize", s.wrapError(s.cors(s.withContainerToken(s.resizeShell, "shell"))), "POST")
 
 	s.route("/registry/auth", s.loginRegistry, "POST")
 	s.route("/registry/auth", s.logoutRegistry, "DELETE")

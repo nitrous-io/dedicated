@@ -33,6 +33,16 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, http.StatusOK, jsonStatusOK)
 }
 
+func (s *Server) handleCORSPreflight(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "*")
+	if h := r.Header["Access-Control-Request-Headers"]; h != nil {
+		w.Header().Set("Access-Control-Allow-Headers", strings.Join(h, ", "))
+	}
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	s.respond(w, http.StatusOK, jsonStatusOK)
+}
+
 func (s *Server) listContainers(w http.ResponseWriter, r *http.Request) {
 	list, err := s.provider.List()
 	if err != nil {
@@ -309,7 +319,6 @@ func (s *Server) createShell(token string, w http.ResponseWriter, r *http.Reques
 	}
 	shellID := randomString()
 	s.shells[shellID] = sh
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"id": shellID})
 	return nil
 }
@@ -329,7 +338,6 @@ func (s *Server) wsAttachShell(token string, w http.ResponseWriter, r *http.Requ
 	stream := wsconn.NewConnection(conn)
 	defer stream.Close()
 
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	<-sh.Attach(stream, stream)
 	return nil
 }
@@ -347,7 +355,6 @@ func (s *Server) resizeShell(token string, w http.ResponseWriter, r *http.Reques
 	if err := sh.Resize(width, height); err != nil {
 		return fmt.Errorf("Resize failed %v", err)
 	}
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
 	return nil
 }

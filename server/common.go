@@ -61,6 +61,13 @@ func (s *Server) handleError(w http.ResponseWriter, err error) {
 	}
 }
 
+func (s *Server) cors(handler httpFunc) httpFunc {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		return handler(w, r)
+	}
+}
+
 func (s *Server) respond(w http.ResponseWriter, status int, data []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
