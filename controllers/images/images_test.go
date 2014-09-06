@@ -731,6 +731,36 @@ var _ = Describe("controllers/images", func() {
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
 		})
+
+		Context("when we want to pull asynchronously", func() {
+			It("returns 202 Accepted with the image stored in db", func() {
+				mockClient.PullImageReturn = &freighterclient.Image{
+					ID:   "cafebabe",
+					Name: "scratcher",
+					Tag:  "mytag",
+				}
+				params := &url.Values{}
+				params.Set("async", "true")
+				params.Set("repository", "scratch")
+
+				res := doRequest("foo", params)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				j := struct {
+					Image serializers.Image `json:"image"`
+				}{}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				// These fields are not yet set.
+				Expect(j.Image.FreighterID).To(BeEmpty())
+				Expect(j.Image.BuiltAt).To(BeNil())
+
+				Eventually(func() int {
+					return mockClient.PullImageCalled
+				}).Should(Equal(1))
+			})
+		})
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/images/{image}/push", func() {

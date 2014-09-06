@@ -3,6 +3,7 @@ package images
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
@@ -19,7 +20,7 @@ type pullContext struct {
 }
 
 // sends the pull context to freighter in a goroutine.
-func (c *pullContext) run(isNew bool) (*image.Image, error) {
+func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 	ch := make(chan *buildResult, 1)
 	env, cl, img, repo := c.env, c.client, c.img, c.repo
 	db := env.DB
@@ -57,6 +58,11 @@ func (c *pullContext) run(isNew bool) (*image.Image, error) {
 		ch <- &buildResult{Image: img}
 	}()
 
+	// if the pull is async, we will just return the stored image immmediately
+	// without waiting for result from freighter
+	if async {
+		return img, nil
+	}
 	r := <-ch
 	if r.err != nil {
 		return nil, r.err
@@ -98,11 +104,16 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 
 	ctx := &pullContext{env: env, client: cl, img: img, repo: repo}
-	img, err = ctx.run(isNew)
+	async, _ := strconv.ParseBool(r.FormValue("async"))
+	img, err = ctx.run(async, isNew)
 	if err != nil {
 		return fmt.Errorf("images.pull %s", err)
 	}
-	env.Status = http.StatusOK
+	if async {
+		env.Status = http.StatusAccepted
+	} else {
+		env.Status = http.StatusOK
+	}
 	env.Data = map[string]interface{}{
 		"image": serializers.SerializeImage(img),
 	}
