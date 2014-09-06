@@ -11,6 +11,59 @@ import (
 	"github.com/nitrous-io/nitrous/serializers"
 )
 
+type pullContext struct {
+	env    *middleware.Env
+	client *controllers.FreighterClient
+	img    *image.Image
+	repo   string
+}
+
+// sends the pull context to freighter in a goroutine.
+func (c *pullContext) run(isNew bool) (*image.Image, error) {
+	ch := make(chan *buildResult, 1)
+	env, cl, img, repo := c.env, c.client, c.img, c.repo
+	db := env.DB
+
+	go func() {
+		remoteImg, err := cl.PullImage(repo)
+		if err != nil {
+			// if we failed to pull the image, and the image is new i.e. does not
+			// exist in db before, we delete the image from db
+			if isNew {
+				if err := img.Delete(db); err != nil {
+					ch <- &buildResult{
+						err: fmt.Errorf("rollback new image %s", err),
+					}
+					return
+				}
+			}
+			ch <- &buildResult{
+				err: fmt.Errorf("failed to pull image %s", err),
+			}
+			return
+		}
+
+		mergeImage(remoteImg, img)
+		// when the image failed to update, just log and continue as we are
+		// treating freighterd as the canonical source here
+		if err := img.InsertOrUpdate(db); err != nil {
+			env.Logger.Errorf("images.pull: successfully pulled image '%+v' in Freighter but failed to update database with '%+v'", remoteImg, img)
+		}
+
+		env.Events.Publish(
+			controllers.NewEvent("image.pulled", serializers.SerializeImage(img)),
+			env.User.Topic(),
+		)
+		ch <- &buildResult{Image: img}
+	}()
+
+	r := <-ch
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.Image, nil
+}
+
 func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	cl, err := controllers.NewFreighterClient(db, h)
@@ -44,27 +97,11 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		isNew = true
 	}
 
-	remoteImg, err := cl.PullImage(repo)
+	ctx := &pullContext{env: env, client: cl, img: img, repo: repo}
+	img, err = ctx.run(isNew)
 	if err != nil {
-		// if we failed to pull the image, and the image is new i.e. does not
-		// exist in db before, we delete the image from db
-		if isNew {
-			if err := img.Delete(db); err != nil {
-				return fmt.Errorf("images/pull rollback new image, error %s", err)
-			}
-		}
-		return fmt.Errorf("images/pull failed to pull image %s", err)
+		return fmt.Errorf("images.pull %s", err)
 	}
-
-	mergeImage(remoteImg, img)
-	if err := img.InsertOrUpdate(db); err != nil { // log and continue
-		env.Logger.Errorf("images.pull: successfully pulled image '%+v' in Freighter but failed to update database with '%+v'", remoteImg, img)
-	}
-
-	env.Events.Publish(
-		controllers.NewEvent("image.pulled", serializers.SerializeImage(img)),
-		env.User.Topic(),
-	)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"image": serializers.SerializeImage(img),
