@@ -628,6 +628,15 @@ var _ = Describe("controllers/images", func() {
 			Expect(i.UpdatedAt).NotTo(BeNil())
 		})
 
+		It("removes the image when freighter failed to pull image", func() {
+			mockClient.PullImageError = &freighterclient.StatusError{418}
+			doRequest("foo", &url.Values{"repository": []string{"scratch"}})
+			Expect(mockClient.PullImageCalled).To(Equal(1))
+
+			i, err := image.Find(db, u, hs.H, "scratch:latest")
+			Expect(err).To(Equal(sql.ErrNoRows), "expect the image to not exist in db, but got %v", i)
+		})
+
 		Context("when image already exists", func() {
 			BeforeEach(func() {
 				i := &image.Image{
@@ -653,6 +662,15 @@ var _ = Describe("controllers/images", func() {
 				i, err := image.Find(db, u, hs.H, "scratch:latest")
 				Expect(err).To(BeNil())
 				Expect(i.FreighterID).To(Equal("cafedead"))
+			})
+
+			It("does not removes the image when freighter failed to pull image", func() {
+				mockClient.PullImageError = &freighterclient.StatusError{418}
+				doRequest("foo", &url.Values{"repository": []string{"scratch"}})
+				Expect(mockClient.PullImageCalled).To(Equal(1))
+
+				_, err := image.Find(db, u, hs.H, "scratch:latest")
+				Expect(err).To(BeNil(), "expect the image to exist in db")
 			})
 		})
 
