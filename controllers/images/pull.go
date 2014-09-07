@@ -2,6 +2,7 @@ package images
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
+	"github.com/nitrous-io/nitrous/pkg/flusher"
 	"github.com/nitrous-io/nitrous/serializers"
 )
 
@@ -17,6 +19,7 @@ type pullContext struct {
 	client *controllers.FreighterClient
 	img    *image.Image
 	repo   string
+	writer io.Writer
 }
 
 // sends the pull context to freighter in a goroutine.
@@ -26,8 +29,7 @@ func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 	db := env.DB
 
 	go func() {
-		remoteImg, err := cl.PullImage(repo)
-		if err != nil {
+		if err := cl.PullImage(repo, c.writer); err != nil {
 			// if we failed to pull the image, and the image is new i.e. does not
 			// exist in db before, we delete the image from db
 			if isNew {
@@ -40,6 +42,14 @@ func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 			}
 			ch <- &buildResult{
 				err: fmt.Errorf("failed to pull image %s", err),
+			}
+			return
+		}
+
+		remoteImg, err := cl.InspectImage(repo)
+		if err != nil {
+			ch <- &buildResult{
+				err: fmt.Errorf("failed to inspect image %s, err %s", repo, err),
 			}
 			return
 		}
@@ -103,7 +113,8 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		isNew = true
 	}
 
-	ctx := &pullContext{env: env, client: cl, img: img, repo: repo}
+	f := flusher.NewWriteFlusher(w)
+	ctx := &pullContext{env: env, client: cl, img: img, repo: repo, writer: f}
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 	img, err = ctx.run(async, isNew)
 	if err != nil {
