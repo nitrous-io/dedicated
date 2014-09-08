@@ -1,6 +1,7 @@
 package attach
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -69,7 +70,13 @@ func (c *Command) Run(args []string) int {
 	}
 
 	host := fmt.Sprintf("%s:%d", cn.Host.IPAddress, cn.Host.FreighterdPort)
-	if err := c.attach(host, token, cn.CID, c.UI.Reader, c.UI.Writer); err != nil {
+	tlsConfig, err := command.ClientConfig(cn.Host.Hostname)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Error establishing secure connection to %s", host))
+		return 1
+	}
+
+	if err := c.attach(host, token, cn.CID, tlsConfig, c.UI.Reader, c.UI.Writer); err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
 	}
@@ -84,11 +91,15 @@ func (c *Command) Synopsis() string {
 	return "Attach to a running container"
 }
 
-func (c *Command) attach(host, token, containerID string, stdin io.Reader, stdout io.Writer) error {
+func (c *Command) attach(host, token, containerID string, tlsConfig *tls.Config, stdin io.Reader, stdout io.Writer) error {
 	headers := http.Header{}
 	headers.Add("Authorization", "Token "+token)
-	wsEndpointURI := fmt.Sprintf("ws://%s/containers/%s/attach/ws", host, containerID)
-	ws, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, headers)
+	wsEndpointURI := fmt.Sprintf("wss://%s/containers/%s/attach/ws", host, containerID)
+	dialer := websocket.Dialer{}
+	if tlsConfig != nil {
+		dialer.TLSClientConfig = tlsConfig
+	}
+	ws, _, err := dialer.Dial(wsEndpointURI, headers)
 	if err != nil {
 		return errors.New("Failed to attach to container.")
 	}
