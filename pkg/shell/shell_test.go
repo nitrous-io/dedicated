@@ -65,7 +65,7 @@ func TestShellOpen(t *testing.T) {
 
 	for _, tc := range testCases {
 		s := testShell()
-		if err := s.Open(tc.w, tc.h); err != nil {
+		if err := s.Open(tc.w, tc.h, []string{}); err != nil {
 			t.Fatalf("Unexpected error %v", err)
 		}
 		ws, err := term.GetWinsize(s.fd())
@@ -85,7 +85,7 @@ func TestShellOpen(t *testing.T) {
 func TestShellAttach(t *testing.T) {
 	s := testShell()
 	defer s.Close()
-	if err := s.Open(100, 80); err != nil {
+	if err := s.Open(100, 80, []string{}); err != nil {
 		t.Fatalf("Unexpected error %v", err)
 	}
 
@@ -117,7 +117,7 @@ func TestShellAttach(t *testing.T) {
 func TestShellResize(t *testing.T) {
 	s := testShell()
 	defer s.Close()
-	if err := s.Open(100, 80); err != nil {
+	if err := s.Open(100, 80, []string{}); err != nil {
 		t.Fatalf("Unexpected error %v", err)
 	}
 
