@@ -1,17 +1,19 @@
 package pull_test
 
 import (
+	"bytes"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/images/pull"
 	"github.com/nitrous-io/nitrous-common/httpclient"
+	"github.com/onsi/gomega/ghttp"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
 )
 
 func Test(t *testing.T) {
@@ -20,85 +22,67 @@ func Test(t *testing.T) {
 }
 
 var _ = Describe("images/pull", func() {
-	var (
-		cmd          *pull.Command
-		ui           *command.MockUI
-		srv          *ghttp.Server
-		handlers     http.HandlerFunc
-		statusCode   int
-		responseBody string
-	)
+	It("outputs formatted download progress", func() {
+		pullResponse := `
+		{"status":"Pulling..."}
+		{"status":"Pulling", "progress":"1 B/ 100 B", "progressDetail":{"current":1, "total":100}}
+		{"image":{"id":2,"user_id":1,"host_id":5,"freighter_id":"a9eb172552348a9","name":"","slug":"scratch","tag":"latest","repo":"scratch:latest","actual_size":0,"virtual_size":2433303,"built_at":"2014-06-05T00:05:35Z","created_at":"2014-09-08T00:57:13.088189Z","updated_at":"2014-09-08T00:57:13.088189Z"}}
+		`
+		nitrousSrv := setupNitrous("myhost", http.StatusOK, pullResponse)
+		defer nitrousSrv.Close()
 
-	BeforeEach(func() {
-		ui = &command.MockUI{&cli.MockUi{}}
-		handlers = ghttp.CombineHandlers(
-			func(w http.ResponseWriter, req *http.Request) {
-				Expect(req.FormValue("repository")).To(Equal("scratch"))
+		// create a tmp file to store pull output
+		out, err := ioutil.TempFile("/tmp", "images-pull")
+		outName := out.Name()
+		Expect(err).To(BeNil(), "failed to create tmp file for storing output")
+		defer os.RemoveAll(outName)
+
+		cmd := &pull.Command{
+			UI: &cli.BasicUi{
+				Writer:      out,
+				ErrorWriter: bytes.NewBuffer(nil),
 			},
-			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
-			ghttp.VerifyRequest("POST", "/api/v0/hosts/myhost/images/pull"),
-			ghttp.RespondWithPtr(&statusCode, &responseBody),
-		)
-		srv = ghttp.NewServer()
-		srv.AppendHandlers(handlers)
-
-		cmd = &pull.Command{
-			UI:     ui,
-			Server: srv.URL(),
+			Server: nitrousSrv.URL(),
 			Client: httpclient.New("correct_token"),
 		}
-	})
+		cmd.Run([]string{"myhost", "scratch"})
 
-	AfterEach(func() {
-		srv.Close()
-	})
+		// assert that the temp file contain parsed output, not the json stream
+		output, _ := ioutil.ReadFile(outName)
+		Expect(string(output)).To(ContainSubstring("Pulling image 'scratch' to 'myhost'..."))
+		Expect(string(output)).To(ContainSubstring("Pulling..."))
 
-	Context("nitro images:pull host image", func() {
-		doCmd := func() int {
-			return cmd.Run([]string{"myhost", "scratch"})
-		}
-
-		Context("successful pull", func() {
-			BeforeEach(func() {
-				statusCode = http.StatusOK
-				responseBody = `{"image":{"id":1, "freighter_id":"123456snip","slug":"scratch","tag":"latest","name":"scratch image","created_at":"2013-11-01T00:00:00Z","actual_size":123,"virtual_size":456},"status":"OK"}`
-			})
-
-			It("outputs image details", func() {
-				code := doCmd()
-				Expect(code).To(Equal(0))
-				Expect(ui.OutputWriter.String()).To(ContainSubstring(`
-Slug       Tag       ID            Name             Created                          Size   Virtual Size
-scratch    latest    123456snip    scratch image    2013-11-01 00:00:00 +0000 UTC    123    456
-`))
-			})
-		})
-
-		Context("JSON response with error", func() {
-			BeforeEach(func() {
-				statusCode = http.StatusBadRequest
-				responseBody = `{"error": "validation_failed", "error_description": "image not found"}`
-			})
-
-			It("outputs error message", func() {
-				code := doCmd()
-				Expect(ui.ErrorWriter.String()).To(Equal("image not found\n"))
-				Expect(code).To(Equal(1))
-			})
-		})
+		// assert that we print out image data
+		Expect(string(output)).To(ContainSubstring(`Slug`))
+		Expect(string(output)).To(ContainSubstring("a9eb172552348a9"))
 	})
 
 	Context("when given wrong arguments", func() {
 		It("prints usage and exits with error", func() {
+			stdout := bytes.NewBuffer(nil)
+			cmd := &pull.Command{UI: &cli.BasicUi{Writer: stdout}}
 			code := cmd.Run([]string{})
-			Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
+			Expect(stdout.String()).To(ContainSubstring("Usage:"))
 			Expect(code).To(Equal(1))
 		})
 	})
 
 	Context("Help", func() {
 		It("outputs usage", func() {
+			cmd := &pull.Command{}
 			Expect(cmd.Help()).To(ContainSubstring("Usage: nitro images:pull"))
 		})
 	})
 })
+
+func setupNitrous(host string, statusCode int, response string) *ghttp.Server {
+	// Setup handlers for nitrous server (hosts)
+	handler := ghttp.CombineHandlers(
+		ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
+		ghttp.VerifyRequest("POST", "/api/v0/hosts/"+host+"/images/pull"),
+		ghttp.RespondWith(statusCode, response),
+	)
+	srv := ghttp.NewServer()
+	srv.AppendHandlers(handler)
+	return srv
+}
