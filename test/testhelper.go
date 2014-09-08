@@ -2,15 +2,11 @@ package test
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
-
-	"github.com/onsi/gomega/ghttp"
 
 	"github.com/nitrous-io/nitro/command"
 )
@@ -37,10 +33,10 @@ func WriteConfig(conf *command.ConfigFile, path string) (string, error) {
 }
 
 // NewTLSServer returns a new, started httptest server with tls and the given cert
-func NewTLSServer(s *ghttp.Server, hostname string, certPEM []byte) (*httptest.Server, error) {
-	certPool := x509.NewCertPool()
-	if ok := certPool.AppendCertsFromPEM(certPEM); !ok {
-		return nil, fmt.Errorf("Unable to add cert to pool")
+func NewTLSServer(handler http.Handler, hostname string, certPEM []byte) (*httptest.Server, error) {
+	certPool, err := command.CACertPool()
+	if err != nil {
+		return nil, err
 	}
 
 	tlsCert, err := tls.X509KeyPair(SampleHostCert, SampleHostKey)
@@ -48,11 +44,12 @@ func NewTLSServer(s *ghttp.Server, hostname string, certPEM []byte) (*httptest.S
 		return nil, err
 	}
 
-	svr := httptest.NewUnstartedServer(s)
+	svr := httptest.NewUnstartedServer(handler)
 	svr.TLS = &tls.Config{
 		NextProtos:   []string{"http/1.1"},
 		Certificates: []tls.Certificate{tlsCert},
 		RootCAs:      certPool,
+		ServerName:   hostname,
 	}
 
 	svr.StartTLS()

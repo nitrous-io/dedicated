@@ -16,9 +16,11 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/kr/pty"
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/consts"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	"github.com/nitrous-io/nitrous-common/wsconn"
 
+	"github.com/nitrous-io/nitro/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -141,7 +143,7 @@ func (s *nitrousServer) getHost(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]interface{}{
 		"ip_address":      host,
 		"freighterd_port": portInt,
-		"hostname":        "example.com",
+		"hostname":        test.SampleHostname,
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"host": resp,
@@ -216,6 +218,8 @@ func newTestServer(containerID, shellID, containerToken string) *testServer {
 	r := mux.NewRouter()
 	r.HandleFunc("/containers/{id}/shell", s.newShell).Methods("GET")
 	srv := httptest.NewServer(r)
-	s.srv = srv
+	tlsSrv, err := test.NewTLSServer(srv.Config.Handler, test.SampleHostname, consts.CACert)
+	Expect(err).To(BeNil())
+	s.srv = tlsSrv
 	return s
 }

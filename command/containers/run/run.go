@@ -68,6 +68,11 @@ func (c *Command) Run(args []string) int {
 	}
 
 	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
+	tlsConfig, err := command.ClientConfig(cr.Host.Hostname)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Error establishing secure connection to %s", cr.Host.Hostname))
+		return 1
+	}
 	command := strings.Join(args[1:], " ")
 
 	stdin := c.UI.Reader

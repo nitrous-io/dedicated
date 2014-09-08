@@ -88,6 +88,12 @@ func (c *Command) Run(args []string) int {
 	}
 
 	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
+	tlsConfig, err := command.ClientConfig(cr.Host.Hostname)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Error establishing secure connection to %s", host))
+		return 1
+	}
+
 	command := getLoginCommand(username)
 	sh := protoshell.New(host, cr.CID, command, func() (string, error) {
 		return containers.GetToken(slug, c.server, []string{"shell"}, c.client)
