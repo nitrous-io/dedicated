@@ -4,8 +4,6 @@ if disabled
   li.disabled
     a.noclick href='#' Registries
   li.disabled
-    a.noclick href='#' Containers
-  li.disabled
     a.noclick href='#' Images
   li.disabled
     a.noclick href='#' Volumes
@@ -18,8 +16,6 @@ else
     link-to 'host.index' | General
   li class={registriesSelected:selected}
     link-to 'host.registries' | Registries
-  li.disabled class={containersSelected:selected}
-    a href='#' Containers
   li.disabled class={imagesSelected:selected}
     a href='#' Images
   li class={volumesSelected:selected}
