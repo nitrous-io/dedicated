@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -146,17 +147,26 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 
 	writer := &progressBroadcaster{
-		topic:      env.User.Topic(),
-		events:     env.Events,
-		imageID:    img.ID,
-		httpWriter: flusher.NewWriteFlusher(w),
+		topic:   env.User.Topic(),
+		events:  env.Events,
+		imageID: img.ID,
 	}
-	ctx := &pullContext{env: env, client: cl, img: img, repo: repo, writer: writer}
 	async, _ := strconv.ParseBool(r.FormValue("async"))
+	// if async, we will just discard the progress data from freighter. It will
+	// only be outputed into the events stream. The only output we want to
+	// include in async is the image data
+	if async {
+		writer.httpWriter = ioutil.Discard
+	} else {
+		writer.httpWriter = flusher.NewWriteFlusher(w)
+	}
+
+	ctx := &pullContext{env: env, client: cl, img: img, repo: repo, writer: writer}
 	img, err = ctx.run(async, isNew)
 	if err != nil {
 		return fmt.Errorf("images.pull %s", err)
 	}
+
 	if async {
 		env.Status = http.StatusAccepted
 	} else {
