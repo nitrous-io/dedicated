@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
+	"github.com/nitrous-io/nitrous/controllers/images"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
@@ -113,6 +114,30 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(j.Image.FreighterID).To(Equal("123asd"), "missing final image in response")
 	})
 
+	It("publishes an image.pulling event with the pulled image", func(done Done) {
+		fs := newFreighterServer("scratch", "latest")
+		defer fs.Close()
+
+		ctx := newPullTestCtx(fs, db)
+		u, h := ctx.tuser, ctx.thost
+		ch := svr.Events.Subscribe(ctx.tuser.Topic())
+		defer svr.Events.Unsubscribe(ch, ctx.tuser.Topic())
+
+		ctx.do(svr, "foo", &url.Values{"repository": []string{"scratch"}})
+
+		i, err := image.Find(db, u, h, "scratch:latest")
+		Expect(err).To(BeNil(), "failed to find image after pull")
+
+		// check if the first event we got is image.pulling event
+		e := (<-ch).(*controllers.Event)
+		data := e.Data.(*images.PullEvent)
+		Expect(e.Name).To(Equal("image.pulling"), "expect image.pulling events but got another")
+		Expect(data.ID).To(Equal(i.ID), "emitted image.pulling with invalid image")
+		Expect(data.Progress).To(Equal(`{"status":"Pulling..."}`), "failed to include progress data")
+
+		close(done)
+	})
+
 	It("publishes an image.pulled event with the pulled image", func(done Done) {
 		fs := newFreighterServer("scratch", "latest")
 		defer fs.Close()
@@ -127,8 +152,13 @@ var _ = Describe("controllers/images/pull", func() {
 		i, err := image.Find(db, u, h, "scratch:latest")
 		Expect(err).To(BeNil(), "failed to find image after pull")
 
-		e := (<-ch).(*controllers.Event)
-		Expect(e.Name).To(Equal("image.pulled"), "expect image.pulled events but got another")
+		var e *controllers.Event
+		for {
+			e = (<-ch).(*controllers.Event)
+			if e.Name == "image.pulled" {
+				break
+			}
+		}
 		img := e.Data.(*serializers.Image)
 		Expect(img.ID).To(Equal(i.ID), "failed to serialize correct image")
 		Expect(img.FreighterID).To(Equal("123asd"), "failed to serialize freighter response")
