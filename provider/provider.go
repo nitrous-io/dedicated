@@ -86,6 +86,10 @@ type ContainerInfo struct {
 	ExitCode   int            `json:"exit_code"`
 	StartedAt  time.Time      `json:"started_at"`
 	FinishedAt time.Time      `json:"finished_at"`
+	// TODO: should we serialize this?
+	// my gut says we shouldn't 't serialize this because there might be passwords etc.
+	// which we don't want it to shown in the webapp/CLI
+	Env []string `json:"-"`
 }
 
 type ContainerConfig struct {
