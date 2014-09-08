@@ -18,4 +18,4 @@ App.ContainerTerminalController = Em.ObjectController.extend
 
 getLoginCommand = (username) ->
   username ||= "root"
-  "/sbin/getty -a #{username} tty 2>/dev/null -o \"-f #{username} -p\" || /bin/login -f #{username} -p"
+  "/sbin/getty -a #{username} -8 38400 tty xterm-256color 2>/dev/null -o \"-f #{username} -p\" || /bin/login -f #{username} -p TERM=xterm-256color"

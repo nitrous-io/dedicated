@@ -53,7 +53,7 @@ window.NitrousTerminal =
     @term?.focus()
 
   open: (ev) ->
-    @term.write '\u001b[r\u001b[H\u001b[J'
+    @term.write '\x1b[r\x1b[H\x1b[J'
 
   message: (ev) ->
     @term.write(ev.data)
