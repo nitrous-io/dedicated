@@ -16,11 +16,12 @@ window.NitrousTerminal =
 
     window.onresize = =>
       return unless @term
-      return if @resizeTimeout
+      if @resizeTimeout
+        window.clearTimeout(@resizeTimeout)
       @resizeTimeout = window.setTimeout(=>
         @resizeTimeout = null
         @term.sizeToFit()
-      , 602)
+      , 50)
 
     window.onfocus = =>
       return unless @term
