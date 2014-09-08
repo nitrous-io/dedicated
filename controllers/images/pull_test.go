@@ -60,7 +60,7 @@ var _ = Describe("controllers/images/pull", func() {
 			"name":       []string{"scratcher v1 test"},
 		})
 
-		u, h := ctx.tuser, ctx.thost
+		u, h := ctx.user, ctx.host
 		i, err := image.Find(db, u, h, "scratch:latest")
 		Expect(err).To(BeNil(), "failed to store image in db")
 		Expect(i.UserID).To(Equal(u.ID))
@@ -81,7 +81,7 @@ var _ = Describe("controllers/images/pull", func() {
 		ctx := newPullTestCtx(fs, db)
 		ctx.do(svr, "foo", &url.Values{"repository": []string{"scratch"}})
 
-		u, h := ctx.tuser, ctx.thost
+		u, h := ctx.user, ctx.host
 		i, err := image.Find(db, u, h, "scratch:latest")
 		Expect(err).To(Equal(sql.ErrNoRows), "expect the image to not exist in db, but got %v", i)
 	})
@@ -119,9 +119,9 @@ var _ = Describe("controllers/images/pull", func() {
 		defer fs.Close()
 
 		ctx := newPullTestCtx(fs, db)
-		u, h := ctx.tuser, ctx.thost
-		ch := svr.Events.Subscribe(ctx.tuser.Topic())
-		defer svr.Events.Unsubscribe(ch, ctx.tuser.Topic())
+		u, h := ctx.user, ctx.host
+		ch := svr.Events.Subscribe(u.Topic())
+		defer svr.Events.Unsubscribe(ch, u.Topic())
 
 		ctx.do(svr, "foo", &url.Values{"repository": []string{"scratch"}})
 
@@ -143,9 +143,9 @@ var _ = Describe("controllers/images/pull", func() {
 		defer fs.Close()
 
 		ctx := newPullTestCtx(fs, db)
-		u, h := ctx.tuser, ctx.thost
-		ch := svr.Events.Subscribe(ctx.tuser.Topic())
-		defer svr.Events.Unsubscribe(ch, ctx.tuser.Topic())
+		u, h := ctx.user, ctx.host
+		ch := svr.Events.Subscribe(u.Topic())
+		defer svr.Events.Unsubscribe(ch, u.Topic())
 
 		ctx.do(svr, "foo", &url.Values{"repository": []string{"scratch"}})
 
@@ -195,7 +195,7 @@ var _ = Describe("controllers/images/pull", func() {
 			defer fs.Close()
 
 			ctx := newPullTestCtx(fs, db)
-			u, h := ctx.tuser, ctx.thost
+			u, h := ctx.user, ctx.host
 			i := &image.Image{
 				UserID:      u.ID,
 				HostID:      h.ID,
@@ -220,7 +220,7 @@ var _ = Describe("controllers/images/pull", func() {
 			fs.pullError = true
 
 			ctx := newPullTestCtx(fs, db)
-			u, h := ctx.tuser, ctx.thost
+			u, h := ctx.user, ctx.host
 			i := &image.Image{
 				UserID:      u.ID,
 				HostID:      h.ID,
@@ -267,13 +267,13 @@ var _ = Describe("controllers/images/pull", func() {
 })
 
 type pullTestCtx struct {
-	tuser  *user.User
-	ttoken *token.Token
-	thost  *host.Host
+	user  *user.User
+	token *token.Token
+	host  *host.Host
 }
 
 func (c *pullTestCtx) do(svr *server.Server, host string, params *url.Values) *httptest.ResponseRecorder {
-	req, err := test.NewAuthedFormRequest(c.ttoken, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/pull", host), params)
+	req, err := test.NewAuthedFormRequest(c.token, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/pull", host), params)
 	Expect(err).To(BeNil(), "failed to POST images/pull")
 	res := httptest.NewRecorder()
 	svr.Router().ServeHTTP(res, req)
@@ -311,9 +311,9 @@ func newPullTestCtx(fs *freighterServer, db *db.Database) *pullTestCtx {
 	Expect(err).To(BeNil(), "failed to prepare host stack")
 
 	return &pullTestCtx{
-		tuser:  u,
-		ttoken: t,
-		thost:  hs.H,
+		user:  u,
+		token: t,
+		host:  hs.H,
 	}
 }
 
