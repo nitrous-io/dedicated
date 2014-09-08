@@ -12,7 +12,6 @@ import (
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/images"
-	"github.com/nitrous-io/nitro/pkg/jsonstream"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
 )
@@ -100,7 +99,7 @@ func (c *Command) pullImage(host, image string, out io.Writer, termFd uintptr) e
 	}
 	defer resp.Body.Close()
 
-	err = jsonstream.DisplayJSONMessagesStream(resp.Body, out, termFd, true)
+	err = images.DisplayJSONMessagesStream(resp.Body, out, termFd, true)
 	if err != nil {
 		return fmt.Errorf("failed to display download progress: %s", err)
 	}

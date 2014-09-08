@@ -1,4 +1,10 @@
-package jsonstream
+/*
+pullstream let user parse the output of docker's json stream
+it also parse the image output from nitrous webapp
+
+Its a snapshot from docker tree at https://github.com/docker/docker/blob/77237be0e23dfaba4d4d97a525c3ecc7fb819042/utils/jsonmessage.go
+*/
+package images
 
 import (
 	"encoding/json"
@@ -82,6 +88,9 @@ type JSONMessage struct {
 	Time            int64         `json:"time,omitempty"`
 	Error           *JSONError    `json:"errorDetail,omitempty"`
 	ErrorMessage    string        `json:"error,omitempty"` //deprecated
+
+	// image output from nitrous webapp
+	Image *Image `json:"image,omitempty"`
 }
 
 func (jm *JSONMessage) Display(out io.Writer, isTerminal bool) error {
@@ -133,6 +142,13 @@ func DisplayJSONMessagesStream(in io.Reader, out io.Writer, terminalFd uintptr, 
 				break
 			}
 			return err
+		}
+
+		// assume that image is output as the final data from nitrous webapp
+		if jm.Image != nil {
+			fmt.Fprintf(out, "\n")
+			fmt.Fprintf(out, PrettyPrint(jm.Image))
+			break
 		}
 
 		if jm.Progress != nil {

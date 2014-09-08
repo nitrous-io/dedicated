@@ -26,6 +26,7 @@ var _ = Describe("images/pull", func() {
 		pullResponse := `
 		{"status":"Pulling..."}
 		{"status":"Pulling", "progress":"1 B/ 100 B", "progressDetail":{"current":1, "total":100}}
+		{"image":{"id":2,"user_id":1,"host_id":5,"freighter_id":"a9eb172552348a9","name":"","slug":"scratch","tag":"latest","repo":"scratch:latest","actual_size":0,"virtual_size":2433303,"built_at":"2014-06-05T00:05:35Z","created_at":"2014-09-08T00:57:13.088189Z","updated_at":"2014-09-08T00:57:13.088189Z"}}
 		`
 		nitrousSrv := setupNitrous("myhost", http.StatusOK, pullResponse)
 		defer nitrousSrv.Close()
@@ -50,6 +51,10 @@ var _ = Describe("images/pull", func() {
 		output, _ := ioutil.ReadFile(outName)
 		Expect(string(output)).To(ContainSubstring("Pulling image 'scratch' to 'myhost'..."))
 		Expect(string(output)).To(ContainSubstring("Pulling..."))
+
+		// assert that we print out image data
+		Expect(string(output)).To(ContainSubstring(`Slug`))
+		Expect(string(output)).To(ContainSubstring("a9eb172552348a9"))
 	})
 
 	Context("when given wrong arguments", func() {
