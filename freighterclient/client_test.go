@@ -1713,6 +1713,19 @@ var _ = Describe("client", func() {
 				st.Close()
 			})
 
+			It("returns error when docker failed to pull image", func() {
+				statusCode = http.StatusOK
+				responseBody = `
+				{"status":"Pulling..."}
+				{"status":"Pulling", "progress":"1 B/ 100 B", "progressDetail":{"current":1, "total":100}}
+				{"error":"no reason at all"}
+				`
+				stdout := bytes.NewBuffer(nil)
+				err := cl.PullImage("myimage:tag", stdout)
+				Expect(err.Error()).To(ContainSubstring("no reason at all"), "failed to return docker error msg")
+				Expect(stdout.String()).To(Equal(responseBody))
+			})
+
 			Context("Successful response", func() {
 				BeforeEach(func() {
 					statusCode = http.StatusOK

@@ -549,6 +549,7 @@ func (p *DockerProvider) PullImage(location string, output io.Writer, rawJSONStr
 	if tag == "" {
 		tag = "latest"
 	}
+
 	pullOpts := dockerclient.PullImageOptions{
 		Repository:    repository,
 		Tag:           tag,
