@@ -1,11 +1,8 @@
 package images
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -14,38 +11,8 @@ import (
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
 	"github.com/nitrous-io/nitrous/pkg/flusher"
-	"github.com/nitrous-io/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/nitrous/serializers"
 )
-
-// PullEvent represent the progress data that is emitted from freighter.
-type PullEvent struct {
-	ID       int64  `json:"id"`
-	Progress string `json:"progress"`
-}
-
-// progressBroadcaster acts like an io.Writer which writes the pull progress
-// data into http response, but also broadcast it using `image.pulling` event
-type progressBroadcaster struct {
-	httpWriter io.Writer
-	topic      pubsub.Topic
-	imageID    int64
-	events     *pubsub.Pubsub
-}
-
-func (b *progressBroadcaster) Write(p []byte) (int, error) {
-	scanner := bufio.NewScanner(bytes.NewBuffer(p))
-	for scanner.Scan() {
-		b.events.Publish(controllers.NewEvent("image.pulling", &PullEvent{
-			ID:       b.imageID,
-			Progress: scanner.Text(),
-		}), b.topic)
-	}
-	if err := scanner.Err(); err != nil {
-		return 0, err
-	}
-	return b.httpWriter.Write(p)
-}
 
 type pullContext struct {
 	env    *middleware.Env
@@ -146,21 +113,22 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		isNew = true
 	}
 
-	writer := &progressBroadcaster{
-		topic:   env.User.Topic(),
-		events:  env.Events,
-		imageID: img.ID,
-	}
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 	// if async, we will just discard the progress data from freighter. It will
 	// only be outputed into the events stream. The only output we want to
 	// include in async is the image data
-	if async {
-		writer.httpWriter = ioutil.Discard
-	} else {
-		writer.httpWriter = flusher.NewWriteFlusher(w)
+	var writer io.Writer
+	pp := &progressPublisher{
+		namespace: "image.pulling",
+		topic:     env.User.Topic(),
+		events:    env.Events,
+		imageID:   img.ID,
 	}
-
+	if async {
+		writer = pp
+	} else {
+		writer = io.MultiWriter(pp, flusher.NewWriteFlusher(w))
+	}
 	ctx := &pullContext{env: env, client: cl, img: img, repo: repo, writer: writer}
 	img, err = ctx.run(async, isNew)
 	if err != nil {
