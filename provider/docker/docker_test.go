@@ -1151,6 +1151,13 @@ var _ = Describe("provider/docker", func() {
 
 	Describe(".BuildImage()", func() {
 		It("streams output from Docker", func() {
+			prov, err := docker.NewDockerProviderWithHost(
+				&util.Logger{Level: util.LogLevelQuiet},
+				datadir,
+				"tcp://127.0.0.1:1234", // TCP address: so that go-dockerclient uses HTTP.
+			)
+			Expect(err).To(BeNil())
+
 			body := `
 				{"stream":"Step 0 : FROM ubuntu:latest\n"}
 				{"stream":" ---\u003e 4300eb9d3c8d\n"}
@@ -1164,8 +1171,7 @@ var _ = Describe("provider/docker", func() {
 				{"stream":"Successfully built 4b6188aebe39\n"}
 			`
 			// Replace dockerclient's HTTP client's RoundTripper with our fake
-			// response. Doesn't work when connecting to a Docker host over a
-			// Unix socket.
+			// response.
 			fakeRT := &FakeRoundTripper{
 				message: body,
 				status:  http.StatusOK,
@@ -1178,7 +1184,7 @@ var _ = Describe("provider/docker", func() {
 
 			in := bytes.NewBufferString(`build context tarball contents`)
 			out := bytes.NewBuffer(nil)
-			err := prov.BuildImage("myimage", in, out, true)
+			err = prov.BuildImage("myimage", in, out, true)
 			Expect(err).To(BeNil())
 			Expect(out.String()).To(Equal(body))
 
