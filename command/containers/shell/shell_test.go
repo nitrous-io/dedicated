@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"testing"
 
@@ -90,13 +91,20 @@ var _ = Describe("Command", func() {
 	Describe("getLoginCommand", func() {
 		It("returns the logins command", func() {
 			testCases := [][]string{
-				{"", "/sbin/getty -a root tty 2>/dev/null -o \"-f root -p\" || /bin/login -f root -p"},
-				{"action", "/sbin/getty -a action tty 2>/dev/null -o \"-f action -p\" || /bin/login -f action -p"},
+				{"", "xterm-256color", "/sbin/getty -a root -8 38400 tty xterm-256color 2>/dev/null -o \"-f root -p\" || /bin/login -f root -p TERM=xterm-256color"},
+				{"action", "xterm", "/sbin/getty -a action -8 38400 tty xterm 2>/dev/null -o \"-f action -p\" || /bin/login -f action -p TERM=xterm"},
 			}
 
 			for _, tc := range testCases {
-				cmd := getLoginCommand(tc[0])
-				Expect(cmd).To(Equal(tc[1]), "Incorrect login command")
+				user := tc[0]
+				term := tc[1]
+				command := tc[2]
+
+				origTerm := os.Getenv("TERM")
+				os.Setenv("TERM", term)
+				cmd := getLoginCommand(user)
+				os.Setenv("TERM", origTerm)
+				Expect(cmd).To(Equal(command), "Incorrect login command")
 			}
 		})
 	})
