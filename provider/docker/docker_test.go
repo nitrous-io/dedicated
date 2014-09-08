@@ -321,6 +321,7 @@ var _ = Describe("provider/docker", func() {
 							Expect(info.Gateway).To(Equal(""))
 							Expect(info.Ports[port]).To(Equal(22))
 							Expect(info.State).To(Equal(provider.ContainerStateStopped))
+							Expect(fmt.Sprintf("[%s]", strings.Join(info.Env, " "))).To(Equal(getEnv(id)))
 
 							c := getContainerInfo(id)
 							Expect(info.Cmd).To(Equal(c.Config.Cmd))

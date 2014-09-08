@@ -312,7 +312,7 @@ func (s *Server) createShell(token string, w http.ResponseWriter, r *http.Reques
 	width := getFormInt(r, "width")
 	height := getFormInt(r, "height")
 
-	sh, err := shell.OpenShell(containerID, command, width, height)
+	sh, err := shell.OpenShell(containerID, command, width, height, info.Env)
 	if err != nil {
 		fmt.Println(err)
 		return err

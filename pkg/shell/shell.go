@@ -2,6 +2,7 @@ package shell
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -36,12 +37,12 @@ func NewShell(id, command string) (*Shell, error) {
 	return s, nil
 }
 
-func OpenShell(id, command string, width, height int) (*Shell, error) {
+func OpenShell(id, command string, width, height int, env []string) (*Shell, error) {
 	s, err := NewShell(id, command)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.Open(width, height); err != nil {
+	if err := s.Open(width, height, env); err != nil {
 		s.Close()
 		return nil, err
 	}
@@ -64,7 +65,7 @@ func (s *Shell) Close() error {
 	return s.term.Close()
 }
 
-func (s *Shell) Open(w, h int) error {
+func (s *Shell) Open(w, h int, env []string) error {
 	if w == 0 {
 		w = defaultWidth
 	}
@@ -72,13 +73,19 @@ func (s *Shell) Open(w, h int) error {
 		h = defaultHeight
 	}
 	if s.cmd == nil {
+		lxcEnv := []string{fmt.Sprintf("-vTERM=%s", defaultTerm)}
+		for _, e := range env {
+			lxcEnv = append(lxcEnv, fmt.Sprintf("-v%s", e))
+		}
 		args := []string{
 			"--name", s.id,
 			"--clear-env",
-			"--set-var", "TERM=" + defaultTerm,
+		}
+		args = append(args, lxcEnv...)
+		args = append(args,
 			"--",
 			"sh", "-c", s.command,
-		}
+		)
 		s.cmd = exec.Command("lxc-attach", args...)
 	}
 	sh, err := pty.Start(s.cmd)

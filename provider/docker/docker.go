@@ -186,6 +186,7 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 		ExitCode:   container.State.ExitCode,
 		StartedAt:  container.State.StartedAt,
 		FinishedAt: container.State.FinishedAt,
+		Env:        container.Config.Env,
 	}, nil
 }
 
