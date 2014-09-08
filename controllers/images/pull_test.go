@@ -86,7 +86,7 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(err).To(Equal(sql.ErrNoRows), "expect the image to not exist in db, but got %v", i)
 	})
 
-	It("responds with progress data and  image data on success", func() {
+	It("responds with progress data and image data on success", func() {
 		fs := newFreighterServer("scratch", "latest")
 		defer fs.Close()
 
