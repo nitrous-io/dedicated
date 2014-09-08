@@ -91,8 +91,8 @@ var _ = Describe("Command", func() {
 	Describe("getLoginCommand", func() {
 		It("returns the logins command", func() {
 			testCases := [][]string{
-				{"", "xterm-256color", "/sbin/getty -a root -8 38400 tty xterm-256color 2>/dev/null -o \"-f root -p\" || /bin/login -f root -p TERM=xterm-256color"},
-				{"action", "xterm", "/sbin/getty -a action -8 38400 tty xterm 2>/dev/null -o \"-f action -p\" || /bin/login -f action -p TERM=xterm"},
+				{"", "xterm-256color", "/sbin/getty --noclear -i -a root -8 38400 tty xterm-256color 2>/dev/null -o \"-f root -p\" || /bin/login -f root -p TERM=xterm-256color"},
+				{"action", "xterm", "/sbin/getty --noclear -i -a action -8 38400 tty xterm 2>/dev/null -o \"-f action -p\" || /bin/login -f action -p TERM=xterm"},
 			}
 
 			for _, tc := range testCases {
