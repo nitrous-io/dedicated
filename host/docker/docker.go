@@ -81,8 +81,16 @@ func (h *Host) Start() (*host.Info, error) {
 }
 
 func (h *Host) Restart() (*host.Info, error) {
-	err := h.client.RestartContainer(h.ID, uint(5))
-	if err != nil {
+	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
+		return nil, err
+	}
+
+	hostConfig := &dockerclient.HostConfig{
+		Privileged:      true,
+		PublishAllPorts: true,
+		Binds:           []string{fmt.Sprintf("%s:/freighterd", h.FreighterdLocation)},
+	}
+	if err := h.client.StartContainer(h.ID, hostConfig); err != nil {
 		return nil, err
 	}
 
