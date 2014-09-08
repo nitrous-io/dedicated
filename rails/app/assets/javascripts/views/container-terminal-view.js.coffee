@@ -3,16 +3,49 @@ App.ContainerTerminalView = Em.View.extend
   fullscreen: false
   classNameBindings: ['fullscreen']
 
+  iframeInjected: false
+
   didInsertElement: ->
     @_super()
     $('html').addClass('fullscreen')
     $('<div>').addClass('container-terminal-placeholder').css('flex-grow': 1).hide().insertAfter(@$())
+    if @get('controller.ready')
+      @injectIframe()
 
   willDestroyElement: ->
     @_super()
+    @$('iframe')[0]?.contentWindow?.NitrousTerminal?.stop()
     $('html').removeClass('fullscreen')
     @$().nextAll('.container-terminal-placeholder').remove()
     @set 'fullscreen', false
+
+  injectIframe: (->
+    return unless @get 'controller.ready'
+    return if @get 'iframeInjected'
+    @set 'iframeInjected', true
+    Em.run.scheduleOnce 'afterRender', this, ->
+      controller = @get 'controller'
+      $iframe = $('<iframe>')
+      @$('.terminal-screen').append($iframe)
+      iframeWindow = $iframe[0].contentWindow
+      iframeDocument = iframeWindow.document
+
+      # use pure js dom api because jquery fails to use iframe's window/document obj
+      linkEl = iframeDocument.createElement('link')
+      linkEl.setAttribute('rel', 'stylesheet')
+      linkEl.setAttribute('href', App.get('terminalCssUrl'))
+      iframeDocument.head.appendChild(linkEl)
+
+      scriptEl = iframeDocument.createElement('script')
+      scriptEl.setAttribute('src', App.get('terminalJsUrl'))
+      scriptEl.onload = ->
+        scriptEl.onload = null
+        terminal = iframeWindow.NitrousTerminal
+        terminal.init()
+        controller.start(terminal)
+        terminal.focus()
+      iframeDocument.body.appendChild(scriptEl)
+  ).observes 'controller.ready'
 
   actions:
     toggleFullscreen: ->
@@ -46,5 +79,6 @@ App.ContainerTerminalView = Em.View.extend
           $this.css(top: '', left: '', width: '', height: '', position: '', 'z-index': '', 'box-shadow': '')
           $button.attr('disabled', false).css(cursor: '')
           $this.removeClass('animate')
+          @$('iframe')[0]?.contentWindow?.NitrousTerminal?.focus()
         , 601)
         $button.blur()

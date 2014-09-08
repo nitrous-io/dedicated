@@ -1,4 +1,3 @@
-#= require jquery
 #= require webfonts
 #= require md5
 #= require pointer_events_polyfill

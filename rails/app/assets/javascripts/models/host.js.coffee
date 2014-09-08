@@ -68,6 +68,15 @@ App.Host = klass = App.Model.extend
       App.get('plans').findBy('id', planId)
   ).property 'planId', 'App.plans.@each'
 
+  freighterdUrl: (->
+    ip = @get 'ipAddress'
+    port = @get 'freighterdPort'
+    if ip
+      if port
+        return "#{ip}:#{port}"
+      ip
+  ).property 'ipAddress', 'freighterdPort'
+
   selected: (->
     App.get('selectedHost') == this
   ).property 'App.selectedHost'
