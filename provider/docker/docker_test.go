@@ -1303,6 +1303,12 @@ var _ = Describe("provider/docker", func() {
 			err = tempAuthFile.Close()
 			Expect(err).To(BeNil())
 
+			// the tests uses FakeRoundTripper so we inject a random tcp address here
+			// instead of using the unix socket so go-dockerclient can inherit
+			// the FakeRoundTripper
+			logger := &util.Logger{Level: util.LogLevelQuiet}
+			prov, err = docker.NewDockerProviderWithHost(logger, datadir, "tcp://127.0.0.1:1234")
+			Expect(err).To(BeNil())
 			// FIXME: remove this stuff
 			prov.DockerConfigLocation = tempAuthFile.Name()
 		})
