@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -421,20 +420,11 @@ func (s *Server) buildImage(w http.ResponseWriter, r *http.Request) error {
 	}
 	defer f.Close()
 
-	name := r.FormValue("name")
-	var buildBuffer bytes.Buffer
-	info, err := s.provider.BuildImage(name, f, &buildBuffer)
-	if err != nil {
-		output := buildBuffer.String()
-		if output == "" {
-			return err
-		}
-		s.respondEncodeJSON(w, http.StatusBadRequest, map[string]interface{}{"error": err.Error(), "output": output})
-		return nil
+	outstream := flusher.NewWriteFlusher(w)
+	if err := s.provider.BuildImage(r.FormValue("name"), f, outstream, true); err != nil {
+		return err
 	}
-
-	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"image": info, "output": buildBuffer.String()})
-	return err
+	return nil
 }
 
 func (s *Server) removeImage(w http.ResponseWriter, r *http.Request) error {
