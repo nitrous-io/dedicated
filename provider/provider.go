@@ -57,7 +57,7 @@ type Provider interface {
 	Logout(registry string) error
 
 	ListImages() (infoList []*ImageInfo, err error)
-	BuildImage(name string, incoming io.Reader, result io.Writer) (*ImageInfo, error)
+	BuildImage(name string, input io.Reader, output io.Writer, rawJSONStream bool) error
 	RemoveImage(name string) error
 	PullImage(repository string, output io.Writer, useRaw bool) error
 	PushImage(name, destination string) error

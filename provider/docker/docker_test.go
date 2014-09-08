@@ -1,14 +1,11 @@
 package docker_test
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -1153,77 +1150,47 @@ var _ = Describe("provider/docker", func() {
 	})
 
 	Describe(".BuildImage()", func() {
-		createImageTarball := func() io.Reader {
-			buf := new(bytes.Buffer)
-			gzipWriter := gzip.NewWriter(buf)
-			tarWriter := tar.NewWriter(gzipWriter)
+		It("streams output from Docker", func() {
+			body := `
+				{"stream":"Step 0 : FROM ubuntu:latest\n"}
+				{"stream":" ---\u003e 4300eb9d3c8d\n"}
+				{"stream":"Step 1 : MAINTAINER docker <eng@docker.com>\n"}
+				{"stream":" ---\u003e Using cache\n"}
+				{"stream":" ---\u003e 3a3ed758c370\n"}
+				{"stream":"Step 2 : CMD /usr/bin/top\n"}
+				{"stream":" ---\u003e Running in 36b1479cc2e4\n"}
+				{"stream":" ---\u003e 4b6188aebe39\n"}
+				{"stream":"Removing intermediate container 36b1479cc2e4\n"}
+				{"stream":"Successfully built 4b6188aebe39\n"}
+			`
+			// Replace dockerclient's HTTP client's RoundTripper with our fake
+			// response. Doesn't work when connecting to a Docker host over a
+			// Unix socket.
+			fakeRT := &FakeRoundTripper{
+				message: body,
+				status:  http.StatusOK,
+				header: map[string]string{
+					"Content-Type": "application/json",
+				},
+			}
+			cl := prov.Client()
+			cl.HTTPClient = &http.Client{Transport: fakeRT}
 
-			dockerSource := fmt.Sprintf(`
-			FROM %s
-			MAINTAINER Nitrous.IO, hello@nitrous.io
-			ADD some_file.txt /some/file.txt
-			CMD /bin/bash -c 'cat /some/file.txt'`, image)
+			in := bytes.NewBufferString(`build context tarball contents`)
+			out := bytes.NewBuffer(nil)
+			err := prov.BuildImage("myimage", in, out, true)
+			Expect(err).To(BeNil())
+			Expect(out.String()).To(Equal(body))
 
-			err := tarWriter.WriteHeader(&tar.Header{
-				Name: "Dockerfile",
-				Size: int64(len(dockerSource)),
+			req := fakeRT.requests[0]
+			b, _ := ioutil.ReadAll(req.Body)
+			Expect(string(b)).To(Equal(`build context tarball contents`))
+			assertBuildImageOptions(req, dockerclient.BuildImageOptions{
+				Name:                "myimage",
+				RmTmpContainer:      true,
+				ForceRmTmpContainer: true,
+				RawJSONStream:       true,
 			})
-			Expect(err).To(BeNil())
-			_, err = tarWriter.Write([]byte(dockerSource))
-			Expect(err).To(BeNil())
-
-			someFile := "Hello from Docker!"
-			someFileHeader := &tar.Header{
-				Name: "some_file.txt",
-				Size: int64(len(someFile)),
-			}
-			err = tarWriter.WriteHeader(someFileHeader)
-			Expect(err).To(BeNil())
-			_, err = tarWriter.Write([]byte(someFile))
-			Expect(err).To(BeNil())
-
-			err = tarWriter.Close()
-			Expect(err).To(BeNil())
-			err = gzipWriter.Close()
-			Expect(err).To(BeNil())
-
-			return buf
-		}
-
-		It("creates an Image successfully", func() {
-			readBuf := createImageTarball()
-			outputBuffer := new(bytes.Buffer)
-			info, err := prov.BuildImage("myimage", readBuf, outputBuffer)
-			defer exec.Command("docker", "rmi", "myimage:latest").Run()
-			Expect(err).To(BeNil())
-			Expect(info).ToNot(BeNil())
-
-			Expect(outputBuffer.String()).To(ContainSubstring("Successfully built"))
-		})
-
-		It("correctly stores the additional data", func() {
-			readBuf := createImageTarball()
-			outputBuffer := new(bytes.Buffer)
-			info, err := prov.BuildImage("myimage", readBuf, outputBuffer)
-			defer exec.Command("docker", "rmi", "myimage:latest").Run()
-			Expect(err).To(BeNil())
-			Expect(info).ToNot(BeNil())
-
-			allImages, err := prov.ListImages()
-			Expect(err).To(BeNil())
-
-			var matchingImage *provider.ImageInfo
-			for _, image := range allImages {
-				if image.Name == "myimage" && image.Tag == "latest" {
-					matchingImage = image
-				}
-			}
-
-			Expect(matchingImage).ToNot(BeNil())
-
-			res, err := exec.Command("docker", "run", "--rm=true", matchingImage.ID).Output()
-			Expect(err).To(BeNil())
-			Expect(string(res)).To(Equal("Hello from Docker!"))
 		})
 	})
 
@@ -1794,4 +1761,17 @@ func assertPullOptions(r *http.Request, expected dockerclient.PullImageOptions) 
 	Expect(repo).To(Equal(expected.Repository), "invalid PullImage repository")
 	Expect(registry).To(Equal(expected.Registry), "invalid PullImage registry")
 	Expect(tag).To(Equal(expected.Tag), "invalid PullImage tag")
+}
+
+func assertBuildImageOptions(r *http.Request, expected dockerclient.BuildImageOptions) {
+	name := r.FormValue("t")
+	rm := r.FormValue("rm")
+	forcerm := r.FormValue("forcerm")
+	Expect(name).To(Equal(expected.Name))
+	if expected.RmTmpContainer {
+		Expect(rm).To(Equal("1"))
+	}
+	if expected.ForceRmTmpContainer {
+		Expect(forcerm).To(Equal("1"))
+	}
 }
