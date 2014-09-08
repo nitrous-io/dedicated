@@ -94,7 +94,7 @@ type Client interface {
 	HostInfo(period time.Duration) (*HostInfo, error)
 
 	ListImages() ([]*Image, error)
-	BuildImage(name string, in io.Reader) (*Image, error)
+	BuildImage(name string, in io.Reader, out io.Writer) error
 	RemoveImage(image string) error
 	PullImage(location string, output io.Writer) error
 	PushImage(image, destination string) error
@@ -626,50 +626,40 @@ func (c *client) ListImages() ([]*Image, error) {
 // can be either uncompressed or compressed with gzip/bzip2/xz). The archive
 // must include a file named Dockerfile at its root. Any other files are made
 // available as the build context.
-func (c *client) BuildImage(name string, in io.Reader) (*Image, error) {
+func (c *client) BuildImage(name string, in io.Reader, out io.Writer) error {
 	u := fmt.Sprintf("%s/images", c.host.BaseURL())
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	part, err := writer.CreateFormFile("file", "buildcontext.tar")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	_, err = io.Copy(part, in)
-	if err != nil {
-		return nil, err
+	if _, err := io.Copy(part, in); err != nil {
+		return err
 	}
 	_ = writer.WriteField("name", name)
-	err = writer.Close()
-	if err != nil {
-		return nil, err
+	if err := writer.Close(); err != nil {
+		return err
 	}
 
 	req, err := http.NewRequest("POST", u, body)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	resp, err := performRequest(c, req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, &StatusError{resp.StatusCode}
+		return &StatusError{resp.StatusCode}
 	}
 
-	var imageInfo struct {
-		Image  *Image `json:"image"`
-		output string `json:"output"`
-	}
-	err = json.NewDecoder(resp.Body).Decode(&imageInfo)
-	if err != nil {
-		return nil, ErrUnexpectedResponse
-	}
-
-	return imageInfo.Image, nil
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
 
 func (c *client) RemoveImage(image string) error {
