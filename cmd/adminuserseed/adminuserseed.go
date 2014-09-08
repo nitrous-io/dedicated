@@ -1,0 +1,103 @@
+package main
+
+import (
+	"os"
+
+	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/models/token"
+	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/pkg/securerandom"
+)
+
+const DBEnvVar = "NITROUS_PG_URL"
+
+var (
+	logr *logger.Logger
+)
+
+func init() {
+	logr = &logger.Logger{Level: logger.LogLevelDebug}
+}
+
+type SeedFn func(db.QueryReceiver) error
+
+func main() {
+	dbURL := os.Getenv(DBEnvVar)
+	if dbURL == "" {
+		logr.FatalExit(DBEnvVar, "is not defined")
+	}
+	dbConn, err := db.NewDatabase(dbURL)
+	if err != nil {
+		logr.FatalExit(err)
+	}
+	err = dbConn.MigrateAll()
+	if err != nil {
+		logr.Infof("Migrations failed: %v", err)
+	}
+	defer dbConn.DB.Close()
+
+	tx, err := dbConn.Beginx()
+	if err != nil {
+		logr.FatalExit(err)
+	}
+
+	err = createAdminUserAndToken(tx)
+	if err != nil {
+		tx.Rollback()
+		logr.FatalExit(err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		logr.FatalExit(err)
+	}
+}
+
+func shouldCreateAdminUser(d db.QueryReceiver) (bool, error) {
+	c := -1
+	err := d.QueryRowx("SELECT COUNT(*) FROM users WHERE username = $1", "admin").Scan(&c)
+	switch {
+	case err != nil:
+		return false, err
+	case c > 0:
+		logr.Infof("%d found, no need to create admin user", c)
+		return false, nil
+	case c == 0:
+		return true, nil
+	default: // if it's still -1
+		logr.Errorf("Unexpected count %v", c)
+		return false, err
+	}
+}
+
+func createAdminUserAndToken(d db.QueryReceiver) error {
+	ok, err := shouldCreateAdminUser(d)
+	if err != nil || !ok {
+		return err
+	}
+	pass, err := securerandom.Base64(12)
+	if err != nil {
+		return err
+	}
+
+	admin := user.User{
+		Username: "admin",
+		Email:    "admins@nitrous.io",
+		Password: pass,
+	}
+	err = admin.Insert(d)
+	if err != nil {
+		return err
+	}
+	t := token.Token{
+		UserID: admin.ID,
+	}
+	err = t.Insert(d)
+	if err != nil {
+		return err
+	}
+	logr.Infof("Added user %+v", admin)
+
+	return nil
+}
