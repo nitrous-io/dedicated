@@ -177,16 +177,40 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(errDesc).To(Equal("repository is required"))
 	})
 
-	It("returns 500 on freighterclient error", func() {
+	It("returns 500 on freighterclient error and emits image.pull_failed event", func() {
 		fs := newFreighterServer("scratch", "latest")
 		defer fs.Close()
 		fs.pullError = true
 
 		ctx := newPullTestCtx(fs, db)
+		ch := svr.Events.Subscribe(ctx.user.Topic())
+		defer svr.Events.Unsubscribe(ch, ctx.user.Topic())
+
 		res := ctx.do(svr, "foo", &url.Values{"repository": []string{"scratch"}})
 
 		errType, _ := test.ErrorSlug(res.Body)
 		Expect(errType).To(Equal("internal_server_error"))
+
+		ech := make(chan *controllers.Event, 1)
+
+		go func() {
+			var e *controllers.Event
+			for {
+				e = (<-ch).(*controllers.Event)
+				if e.Name == "image.pull_failed" {
+					ech <- e
+					break
+				}
+			}
+		}()
+
+		select {
+		case <-time.After(50 * time.Millisecond):
+			Expect(true).To(BeFalse(), "timeout while getting image.pull_failed event")
+		case e := <-ech:
+			img := e.Data.(*serializers.Image)
+			Expect(img.Slug).To(Equal("scratch"), "failed to serialize freighter response")
+		}
 	})
 
 	Context("when image already exists", func() {

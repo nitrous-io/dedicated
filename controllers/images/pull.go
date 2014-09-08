@@ -30,6 +30,11 @@ func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 
 	go func() {
 		if err := cl.PullImage(repo, c.writer); err != nil {
+			// publish image.pull_failed event with the current image data
+			env.Events.Publish(
+				controllers.NewEvent("image.pull_failed", serializers.SerializeImage(img)),
+				env.User.Topic(),
+			)
 			// if we failed to pull the image, and the image is new i.e. does not
 			// exist in db before, we delete the image from db
 			if isNew {
