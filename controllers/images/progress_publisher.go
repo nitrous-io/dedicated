@@ -36,14 +36,18 @@ func (b *progressPublisher) Write(p []byte) (int, error) {
 		// if we cant unmarshal the json output, this is a fragment message.
 		// We should cache it or append to the previous cache to get a full msg
 		if err := json.Unmarshal([]byte(line), &tmp); err != nil {
-			if b.buffer != "" {
-				line = b.buffer + line
-				b.buffer = ""
-			} else {
+			line = b.buffer + line
+			// if the line still not formed a correct json, cached it as a
+			// buffer
+			if err := json.Unmarshal([]byte(line), &tmp); err != nil {
 				b.buffer = line
 				line = ""
+			} else {
+				// we have a valid line now. zero the buffer and continue
+				b.buffer = ""
 			}
 		}
+
 		if line != "" {
 			e := controllers.NewEvent(b.namespace, &PullEvent{
 				ID:       b.imageID,

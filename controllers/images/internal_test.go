@@ -42,14 +42,16 @@ var _ = Describe("progressPublisher", func() {
 		pp.Write([]byte(`
 		{"status":"pulling"}
 		{"status":`))
-		pp.Write([]byte(`"pulling..."}
+		pp.Write([]byte(`"this is a long message about `))
+		pp.Write([]byte(`big image `))
+		pp.Write([]byte(`pulling..."}
 		{"status":"pulled"}`))
 
 		e1 := (<-ch).(*controllers.Event)
 		e2 := (<-ch).(*controllers.Event)
 		e3 := (<-ch).(*controllers.Event)
 		Expect(e1.Data.(*PullEvent).Progress).To(Equal(`{"status":"pulling"}`))
-		Expect(e2.Data.(*PullEvent).Progress).To(Equal(`{"status":"pulling..."}`))
+		Expect(e2.Data.(*PullEvent).Progress).To(Equal(`{"status":"this is a long message about big image pulling..."}`))
 		Expect(e3.Data.(*PullEvent).Progress).To(Equal(`{"status":"pulled"}`))
 	})
 })
