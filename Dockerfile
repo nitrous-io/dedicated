@@ -10,9 +10,9 @@ RUN apt-get update && apt-get install -y \
 RUN curl -s https://storage.googleapis.com/golang/go1.3.linux-amd64.tar.gz \
   | tar -v -C /usr/local -xz
 
-ENV GOPATH /opt/src/github.com/nitrous-io/nitro/.vendor:/opt
-ENV PATH /usr/local/go/bin:/opt/bin:$PATH
+ENV GOPATH /opt
 ENV GOBIN /opt/bin
+ENV PATH /usr/local/go/bin:/opt/bin:$PATH
 
 RUN go get github.com/mitchellh/gox
 RUN gox -build-toolchain
