@@ -73,17 +73,41 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(i.UpdatedAt).NotTo(BeNil())
 	})
 
-	It("removes the image when freighter failed to pull image", func() {
+	It("removes the image and emits images.removed event when freighter failed to pull image", func() {
 		fs := newFreighterServer("scratch", "latest")
 		defer fs.Close()
 		fs.pullError = true
 
 		ctx := newPullTestCtx(fs, db)
+		u, h := ctx.user, ctx.host
+		ch := svr.Events.Subscribe(u.Topic())
+		defer svr.Events.Unsubscribe(ch, u.Topic())
+
 		ctx.do(svr, "foo", &url.Values{"repository": []string{"scratch"}})
 
-		u, h := ctx.user, ctx.host
 		i, err := image.Find(db, u, h, "scratch:latest")
 		Expect(err).To(Equal(sql.ErrNoRows), "expect the image to not exist in db, but got %v", i)
+
+		ech := make(chan *controllers.Event, 1)
+
+		go func() {
+			var e *controllers.Event
+			for {
+				e = (<-ch).(*controllers.Event)
+				if e.Name == "image.removed" {
+					ech <- e
+					break
+				}
+			}
+		}()
+
+		select {
+		case <-time.After(50 * time.Millisecond):
+			Expect(true).To(BeFalse(), "timeout while getting image.removed event")
+		case e := <-ech:
+			img := e.Data.(string)
+			Expect(img).To(Equal("scratch:latest"), "failed to serialize freighter response")
+		}
 	})
 
 	It("responds with progress data and image data on success", func() {
@@ -260,6 +284,62 @@ var _ = Describe("controllers/images/pull", func() {
 
 			_, err = image.Find(db, u, h, "scratch:latest")
 			Expect(err).To(BeNil(), "expect the old image to not be deleted")
+		})
+
+		It("does not emit images.removed event", func() {
+			fs := newFreighterServer("scratch", "latest")
+			defer fs.Close()
+			fs.pullError = true
+
+			ctx := newPullTestCtx(fs, db)
+			u, h := ctx.user, ctx.host
+			i := &image.Image{
+				UserID:      u.ID,
+				HostID:      h.ID,
+				FreighterID: "cafebabe",
+				Name:        "scratch v1",
+				Slug:        "scratch",
+				Tag:         "latest",
+			}
+			err := i.Insert(db)
+			Expect(err).To(BeNil(), "failed to insert test image")
+
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			ctx.do(svr, "foo", &url.Values{"repository": []string{"scratch"}})
+			close(ch)
+
+			_, err = image.Find(db, u, h, "scratch:latest")
+			Expect(err).To(BeNil(), "expect the old image to not be deleted")
+
+			failed := make(chan *controllers.Event, 1)
+			finished := make(chan struct{}, 1)
+
+			go func() {
+				var e *controllers.Event
+				var ok bool
+				for {
+					e, ok = (<-ch).(*controllers.Event)
+					if !ok {
+						finished <- struct{}{}
+						break
+					}
+					if e.Name == "image.removed" {
+						failed <- e
+						break
+					}
+				}
+			}()
+
+			select {
+			case <-time.After(50 * time.Millisecond):
+				Expect(true).To(BeFalse(), "timeout while getting image.pull_failed event")
+			case fe := <-failed:
+				Expect(fe).To(BeNil(), "should not receive image.removed event")
+			case <-finished:
+				// finished without receiving image.removed
+			}
 		})
 	})
 

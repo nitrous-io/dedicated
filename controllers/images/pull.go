@@ -44,6 +44,12 @@ func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 					}
 					return
 				}
+				// FIXME: should this emit the full image with id rather than
+				// just the repository. This is what .Delete is doing though
+				env.Events.Publish(
+					controllers.NewEvent("image.removed", img.FullRepository()),
+					env.User.Topic(),
+				)
 			}
 			ch <- &buildResult{
 				err: fmt.Errorf("failed to pull image %s", err),
