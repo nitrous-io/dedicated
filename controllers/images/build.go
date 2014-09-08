@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
+	"github.com/nitrous-io/nitrous/pkg/flusher"
 	"github.com/nitrous-io/nitrous/pkg/isarchive"
 	"github.com/nitrous-io/nitrous/serializers"
 )
@@ -29,7 +31,8 @@ type buildContext struct {
 	client *controllers.FreighterClient
 	img    *image.Image
 	slug   string
-	input  io.Reader
+	in     io.Reader
+	out    io.Writer
 }
 
 // build sends the build context to freighter in a goroutine. If we want an
@@ -37,15 +40,22 @@ type buildContext struct {
 // otherwise, the image is updated with new data after the build is done.
 func (c *buildContext) build(async bool) (*image.Image, error) {
 	ch := make(chan *buildResult, 1)
-	env, cl, img, slug, input := c.env, c.client, c.img, c.slug, c.input
+	env, cl, img, slug := c.env, c.client, c.img, c.slug
 
 	go func() {
-		remoteImg, err := cl.BuildImage(slug, input)
-		if err != nil {
+		if err := cl.BuildImage(slug, c.in, c.out); err != nil {
 			if delErr := img.Delete(env.DB); delErr != nil {
-				env.Logger.Errorf("Unable to delete image %d that failed to build on freighter: %v", img.ID, delErr)
+				env.Logger.Errorf("images.build: unable to delete image %d that failed to build on freighter: %v", img.ID, delErr)
 			}
 			ch <- &buildResult{err: err}
+			return
+		}
+
+		remoteImg, err := cl.InspectImage(img.FullRepository())
+		if err != nil {
+			ch <- &buildResult{
+				err: fmt.Errorf("images.build: failed to inspect image %s: %s", img.FullRepository(), err),
+			}
 			return
 		}
 
@@ -54,8 +64,6 @@ func (c *buildContext) build(async bool) (*image.Image, error) {
 			env.Logger.Errorf("images.build: successfully built image '%+v' in Freighter but failed to update database with '%+v'", remoteImg, img)
 		}
 
-		// FIXME When BuildImage is changed to stream the build progress, this
-		// should be changed to publish the build progress periodically.
 		env.Events.Publish(
 			controllers.NewEvent("image.built", serializers.SerializeImage(img)),
 			env.User.Topic(),
@@ -126,12 +134,25 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	ctx := &buildContext{env: env, client: cl, img: img, slug: slug, input: archive}
 	async, _ := strconv.ParseBool(r.FormValue("async"))
+	var writer io.Writer
+	pp := &progressPublisher{
+		namespace: "image.building",
+		topic:     env.User.Topic(),
+		events:    env.Events,
+		imageID:   img.ID,
+	}
+	if async {
+		writer = pp
+	} else {
+		writer = io.MultiWriter(pp, flusher.NewWriteFlusher(w))
+	}
+	ctx := &buildContext{env: env, client: cl, img: img, slug: slug, in: archive, out: writer}
 	img, err = ctx.build(async)
 	if err != nil {
 		return err
 	}
+
 	if async {
 		env.Status = http.StatusAccepted
 	} else {
