@@ -96,7 +96,7 @@ type Client interface {
 	ListImages() ([]*Image, error)
 	BuildImage(name string, in io.Reader) (*Image, error)
 	RemoveImage(image string) error
-	PullImage(location string) (*Image, error)
+	PullImage(location string, output io.Writer) error
 	PushImage(image, destination string) error
 	TagImage(image, newName string, force bool) error
 	InspectImage(image string) (*Image, error)
@@ -693,32 +693,61 @@ func (c *client) RemoveImage(image string) error {
 	return nil
 }
 
-func (c *client) PullImage(repository string) (*Image, error) {
+type streamError struct {
+	Err string `json:"error"`
+}
+
+func (s streamError) Error() string {
+	return s.Err
+}
+
+func (c *client) PullImage(repository string, output io.Writer) error {
 	u := fmt.Sprintf("%s/images/pull", c.host.BaseURL())
 	data := &url.Values{"repository": []string{repository}}
 	req, err := http.NewRequest("POST", u, strings.NewReader(data.Encode()))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := performRequest(c, req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, &StatusError{resp.StatusCode}
-	}
-	var imageInfo struct {
-		Image *Image `json:"image"`
-	}
-	err = json.NewDecoder(resp.Body).Decode(&imageInfo)
-	if err != nil {
-		return nil, ErrUnexpectedResponse
+		return &StatusError{resp.StatusCode}
 	}
 
-	return imageInfo.Image, nil
+	pr, pw := io.Pipe()
+	writer := io.MultiWriter(output, pw)
+
+	// stream docker progress data to output
+	writeErrCh := make(chan error, 1)
+	go func() {
+		_, err := io.Copy(writer, resp.Body)
+		writeErrCh <- err
+		pw.Close()
+	}()
+
+	// check if the data contains any error. If there is, we should return an
+	// error indicates that .PullImage failed
+	decoder := json.NewDecoder(pr)
+	for {
+		var se streamError
+		err := decoder.Decode(&se)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to decode pull msg %s", err)
+		}
+		if se.Err != "" {
+			return se
+		}
+	}
+
+	return <-writeErrCh
 }
 
 func (c *client) PushImage(image, destination string) error {

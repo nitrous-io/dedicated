@@ -106,7 +106,6 @@ type MockProvider struct {
 	RemoveImageError  error
 
 	PullImageCalled    bool
-	PullImageReturn    *provider.ImageInfo
 	PullImageError     error
 	ReceivedRepository string
 
@@ -304,10 +303,10 @@ func (p *MockProvider) RemoveImage(name string) error {
 	return p.RemoveImageError
 }
 
-func (p *MockProvider) PullImage(repository string) (*provider.ImageInfo, error) {
+func (p *MockProvider) PullImage(repository string, stdout io.Writer, useRaw bool) error {
 	p.PullImageCalled = true
 	p.ReceivedRepository = repository
-	return p.PullImageReturn, p.PullImageError
+	return p.PullImageError
 }
 
 func (p *MockProvider) PushImage(name, destination string) error {

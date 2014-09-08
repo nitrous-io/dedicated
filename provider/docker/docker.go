@@ -536,35 +536,27 @@ func (p *DockerProvider) RemoveImage(imageIDOrName string) error {
 	return err
 }
 
-func (p *DockerProvider) PullImage(location string) (*provider.ImageInfo, error) {
+// PullImage pulls the image specified with `location` and writes the pull's
+// output into the provided writer
+func (p *DockerProvider) PullImage(location string, output io.Writer, rawJSONStream bool) error {
 	registry := parsers.ParseRegistry(location)
-
 	auth, err := p.fetchAuthenticationInfoBestMatch(registry)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	repository, tag := parsers.ParseRepoAndTag(location)
 	if tag == "" {
 		tag = "latest"
 	}
+
 	pullOpts := dockerclient.PullImageOptions{
-		Repository: repository,
-		Tag:        tag,
+		Repository:    repository,
+		Tag:           tag,
+		OutputStream:  output,
+		RawJSONStream: rawJSONStream,
 	}
-
-	err = p.DockerClientProxy.PullImage(pullOpts, auth)
-	if err != nil {
-		return nil, err
-	}
-
-	existingName := strings.Join([]string{repository, tag}, ":")
-	located, err := p.lookupImage(existingName)
-	if err != nil {
-		return nil, err
-	}
-
-	return located.image, nil
+	return p.client.PullImage(pullOpts, auth)
 }
 
 // PushImage pushes an image identified by its ID or name to a destination

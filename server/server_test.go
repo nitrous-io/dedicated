@@ -1384,7 +1384,7 @@ var _ = Describe("server", func() {
 
 		Context("BuildImage() returns successfully", func() {
 			BeforeEach(func() {
-				prov.PullImageReturn = &provider.ImageInfo{
+				prov.BuildImageReturn = &provider.ImageInfo{
 					ID:          "ID1",
 					Name:        "Source1",
 					Tag:         "SourceTag1",
@@ -1490,36 +1490,17 @@ var _ = Describe("server", func() {
 		})
 
 		Context("PullImage() returns successfully", func() {
-			BeforeEach(func() {
-				prov.PullImageReturn = &provider.ImageInfo{
-					ID:          "ID1",
-					Name:        "Source1",
-					Tag:         "SourceTag1",
-					CreatedAt:   1901,
-					ActualSize:  40,
-					VirtualSize: 28,
-				}
+			It("responds with 200 OK", func() {
 				doRequest()
-			})
-
-			It("responds with 200 OK with the image info", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
-
-				j, err := json.Marshal(map[string]interface{}{
-					"image": prov.PullImageReturn,
-				})
 				Expect(err).To(BeNil())
-				Expect(res.Body.String()).To(MatchJSON(string(j)))
 			})
 		})
 
 		Context("PullImage() returns an error", func() {
-			BeforeEach(func() {
+			It("responds with 500 Internal Server Error", func() {
 				prov.PullImageError = errors.New("Could not pull image.")
 				doRequest()
-			})
-
-			It("responds with 500 Internal Server Error", func() {
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not pull image."}`))
 			})
