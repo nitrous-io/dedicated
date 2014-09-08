@@ -90,8 +90,8 @@ var _ = Describe("Command", func() {
 	Describe("getLoginCommand", func() {
 		It("returns the logins command", func() {
 			testCases := [][]string{
-				{"", "/sbin/getty -a root tty 2>/dev/null || /bin/login -f root"},
-				{"action", "/sbin/getty -a action tty 2>/dev/null || /bin/login -f action"},
+				{"", "/sbin/getty -a root tty 2>/dev/null -o \"-f root -p\" || /bin/login -f root -p"},
+				{"action", "/sbin/getty -a action tty 2>/dev/null -o \"-f action -p\" || /bin/login -f action -p"},
 			}
 
 			for _, tc := range testCases {
