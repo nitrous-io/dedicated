@@ -14,6 +14,7 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/command/images"
 	"github.com/nitrous-io/nitro/pkg/randomnamegenerator"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
@@ -36,7 +37,7 @@ var (
 )
 
 type Command struct {
-	UI     command.UI
+	UI     *cli.BasicUi
 	Server string
 	Client *httpclient.Client
 }
@@ -47,7 +48,7 @@ func init() {
 
 func NewCommand(token string) (cli.Command, error) {
 	return &Command{
-		UI:     command.DefaultUI,
+		UI:     &cli.BasicUi{Reader: os.Stdin, Writer: os.Stdout},
 		Server: command.Env.APIURL,
 		Client: httpclient.New(token),
 	}, nil
@@ -63,8 +64,7 @@ func (c *Command) Run(args []string) int {
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
 	cmdFlags.StringVarP(&slug, "slug", "s", "", slugUsage)
 
-	err := cmdFlags.Parse(args)
-	if err != nil {
+	if err := cmdFlags.Parse(args); err != nil {
 		return 1
 	}
 
@@ -74,15 +74,20 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
+	stdout, ok := c.UI.Writer.(*os.File)
+	if !ok {
+		c.UI.Error("Requires a working terminal")
+		return 1
+	}
+
 	host, fpath := args[0], args[1]
 	if slug == "" {
 		slug = randomnamegenerator.Generate("image")
 	}
-
 	c.UI.Output(fmt.Sprintf("Building image on '%s' from %s ...", host, fpath))
 
-	if err := c.makeRequest(host, fpath, slug); err != nil {
-		c.UI.Error(err.Error())
+	if err := c.buildImage(host, fpath, slug, stdout, stdout.Fd()); err != nil {
+		c.UI.Error(fmt.Sprintf("images:build %s %s failed. Error: %s", host, fpath, err))
 		return 1
 	}
 
@@ -94,7 +99,7 @@ func (c *Command) Synopsis() string {
 	return "Build image on a host"
 }
 
-func (c *Command) makeRequest(host, fpath, slug string) error {
+func (c *Command) buildImage(host, fpath, slug string, out io.Writer, termFd uintptr) error {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -127,8 +132,15 @@ func (c *Command) makeRequest(host, fpath, slug string) error {
 	if err != nil {
 		return err
 	}
+	if err := httpclient.CheckResponse(resp, http.StatusOK); err != nil {
+		return err
+	}
 	defer resp.Body.Close()
-	return httpclient.CheckResponse(resp, http.StatusOK)
+
+	if err := images.DisplayJSONMessagesStream(resp.Body, out, termFd, true); err != nil {
+		return fmt.Errorf("failed to display build progress: %s", err)
+	}
+	return nil
 }
 
 // loadFile returns a reader to path if path is a tarball, and wraps path in a
