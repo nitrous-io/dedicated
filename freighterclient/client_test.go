@@ -1410,34 +1410,29 @@ var _ = Describe("client", func() {
 			st.Close()
 		})
 
-		Context("Successful Response", func() {
+		Context("when Freighter builds the image successfully", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusOK
-				responseBody = `{
-					"image": {
-						"id": "12",
-						"name": "myimage",
-						"tag": "tag",
-						"created_at": 1902,
-						"actual_size": 12,
-						"virtual_size": 39
-					},
-					"output": "image build output"
-				}`
+				responseBody = `
+					{"stream":"Step 0 : FROM ubuntu:latest\n"}
+					{"stream":" ---\u003e 4300eb9d3c8d\n"}
+					{"stream":"Step 1 : MAINTAINER docker <eng@docker.com>\n"}
+					{"stream":" ---\u003e Using cache\n"}
+					{"stream":" ---\u003e 3a3ed758c370\n"}
+					{"stream":"Step 2 : CMD /usr/bin/top\n"}
+					{"stream":" ---\u003e Running in 36b1479cc2e4\n"}
+					{"stream":" ---\u003e 4b6188aebe39\n"}
+					{"stream":"Removing intermediate container 36b1479cc2e4\n"}
+					{"stream":"Successfully built 4b6188aebe39\n"}
+			    `
 			})
 
-			It("should be capable of extracting an Image response", func() {
-				image, err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"))
+			It("should stream the response to the given writer", func() {
+				outstream := bytes.NewBuffer(nil)
+				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), outstream)
 				Expect(err).To(BeNil())
 
-				Expect(image).To(Equal(&freighterclient.Image{
-					ID:          "12",
-					Name:        "myimage",
-					Tag:         "tag",
-					CreatedAt:   1902,
-					ActualSize:  12,
-					VirtualSize: 39,
-				}))
+				Expect(outstream.String()).To(Equal(responseBody))
 
 				reqs := server.ReceivedRequests()
 				Expect(reqs).To(HaveLen(1))
@@ -1450,16 +1445,23 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("Error Response - JSON Parsing Error", func() {
+		Context("when Freighter returns an error when building the image", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusOK
-				responseBody = `<<???>>`
+				responseBody = `
+					{"stream":"Step 0 : FROM broken\n"}
+					{"stream":" ---\u003e 4300eb9d3c8d\n"}
+					{"error":"Error...", "errorDetail":{"code": 123, "message": "Error pulling 'broken'"}}
+			    `
 			})
 
-			It("should handle JSON decoding errors", func() {
-				image, err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"))
-				Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
-				Expect(image).To(BeNil())
+			It("should return the error in the stream", func() {
+				outstream := bytes.NewBuffer(nil)
+				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), outstream)
+				Expect(err).To(HaveOccurred())
+
+				Expect(err.Error()).To(Equal("Error pulling 'broken'"))
+				Expect(outstream.String()).To(Equal(responseBody))
 			})
 		})
 
@@ -1467,20 +1469,17 @@ var _ = Describe("client", func() {
 			It("should surface request failures", func() {
 				st.Close()
 
-				image, err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"))
+				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), ioutil.Discard)
 				Expect(err).NotTo(BeNil())
 				_, ok := err.(*freighterclient.RequestFailedError)
 				Expect(ok).To(BeTrue())
 				Expect(server.ReceivedRequests()).To(HaveLen(0))
-				Expect(image).To(BeNil())
 			})
 
 			It("should surface response failures in StatusErr", func() {
 				statusCode = http.StatusInternalServerError
-				image, err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"))
-
+				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), ioutil.Discard)
 				Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
-				Expect(image).To(BeNil())
 			})
 		})
 	})
@@ -1722,7 +1721,8 @@ var _ = Describe("client", func() {
 				`
 				stdout := bytes.NewBuffer(nil)
 				err := cl.PullImage("myimage:tag", stdout)
-				Expect(err.Error()).To(ContainSubstring("no reason at all"), "failed to return docker error msg")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("no reason at all"))
 				Expect(stdout.String()).To(Equal(responseBody))
 			})
 

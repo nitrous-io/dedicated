@@ -1358,18 +1358,13 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("POST /images", func() {
-		var params, files map[string]string
-
-		BeforeEach(func() {
-			params = map[string]string{
+		doRequest := func() {
+			params := map[string]string{
 				"name": "image-name",
 			}
-			files = map[string]string{
+			files := map[string]string{
 				"file": "test file",
 			}
-		})
-
-		doRequest := func() {
 			req, err = NewFileRequest("POST", "/images", params, files)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
@@ -1383,52 +1378,20 @@ var _ = Describe("server", func() {
 		})
 
 		Context("BuildImage() returns successfully", func() {
-			BeforeEach(func() {
-				prov.BuildImageReturn = &provider.ImageInfo{
-					ID:          "ID1",
-					Name:        "Source1",
-					Tag:         "SourceTag1",
-					CreatedAt:   1901,
-					ActualSize:  40,
-					VirtualSize: 28,
-				}
+			It("responds with 200 OK", func() {
 				prov.BuildImageOutput = "test output"
 				doRequest()
-			})
-
-			It("responds with 200 OK", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
-
-				j, err := json.Marshal(map[string]interface{}{
-					"image":  prov.BuildImageReturn,
-					"output": prov.BuildImageOutput,
-				})
-				Expect(err).To(BeNil())
-				Expect(res.Body.String()).To(MatchJSON(string(j)))
+				Expect(res.Body.String()).To(Equal("test output"))
 			})
 		})
 
 		Context("BuildImage() returns an error", func() {
-			BeforeEach(func() {
-				prov.BuildImageError = errors.New("Could not build image.")
-			})
-
 			It("responds with 500 Internal Server Error", func() {
+				prov.BuildImageError = errors.New("Could not build image.")
 				doRequest()
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not build image."}`))
-			})
-
-			Context("when the output buffer has contents", func() {
-				BeforeEach(func() {
-					prov.BuildImageOutput = "output error msg"
-				})
-
-				It("responds with 400 Bad Request and renders the output buffer", func() {
-					doRequest()
-					Expect(res.Code).To(Equal(http.StatusBadRequest))
-					Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not build image.", "output": "output error msg"}`))
-				})
 			})
 		})
 	})

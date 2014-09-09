@@ -494,26 +494,16 @@ func (p *DockerProvider) ListImages() ([]*provider.ImageInfo, error) {
 	return list, nil
 }
 
-func (p *DockerProvider) BuildImage(name string, incoming io.Reader, result io.Writer) (*provider.ImageInfo, error) {
-	buildOptions := dockerclient.BuildImageOptions{
+func (p *DockerProvider) BuildImage(name string, input io.Reader, output io.Writer, rawJSONStream bool) error {
+	opts := dockerclient.BuildImageOptions{
 		Name:                name,
-		InputStream:         incoming,
-		OutputStream:        result,
+		InputStream:         input,
+		OutputStream:        output,
 		RmTmpContainer:      true,
 		ForceRmTmpContainer: true,
+		RawJSONStream:       rawJSONStream,
 	}
-
-	err := p.client.BuildImage(buildOptions)
-	if err != nil {
-		return nil, err
-	}
-
-	info, err := p.lookupImage(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return info.image, nil
+	return p.client.BuildImage(opts)
 }
 
 func (p *DockerProvider) RemoveImage(imageIDOrName string) error {
