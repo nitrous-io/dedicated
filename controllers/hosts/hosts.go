@@ -484,3 +484,13 @@ func publishHostEvent(env *middleware.Env, name string, h *host.Host) {
 		env.User.Topic(),
 	)
 }
+
+// generate cert with server certificate and key. The cert will be used for
+// TLS encryption
+func generateCerts(hostname string) (*cert.Cert, error) {
+	caInfo, err := controllers.GetCAInfo(true)
+	if err != nil {
+		return nil, err
+	}
+	return cert.Generate(hostname, caInfo.X509Cert, caInfo.Key)
+}

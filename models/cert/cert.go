@@ -1,6 +1,8 @@
 package cert
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -51,4 +53,21 @@ func Find(db db.QueryReceiver, hostID int64) (*Cert, error) {
 func Delete(tx *sqlx.Tx, hostID int64) error {
 	_, err := tx.Exec("UPDATE certs SET terminated_at = now() WHERE host_id = $1", hostID)
 	return err
+}
+
+// generate cert with server certificate and key. The
+// cert will be used for TLS encryption
+func Generate(hostname string,
+	caCert *x509.Certificate,
+	caKey *rsa.PrivateKey,
+) (*Cert, error) {
+	srvCrt, srvKey, err := GenerateHostCert(hostname, caCert, caKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Cert{
+		ServerCert: string(srvCrt),
+		ServerKey:  string(srvKey),
+	}, nil
 }

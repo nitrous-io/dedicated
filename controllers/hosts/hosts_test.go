@@ -38,7 +38,7 @@ import (
 
 func init() {
 	// shorten key length so tests run faster
-	hosts.KeyLen = 512
+	cert.KeyLen = 512
 	keypairs.KeyLen = 512
 }
 
@@ -390,6 +390,8 @@ var _ = Describe("controllers/hosts", func() {
 					crt, err := cert.Find(db, hosts[0].ID)
 					Expect(err).To(BeNil())
 					Expect(crt.HostID).To(Equal(hosts[0].ID))
+					Expect(crt.ServerCert).To(ContainSubstring("BEGIN CERTIFICATE"))
+					Expect(crt.ServerKey).To(ContainSubstring("BEGIN RSA PRIVATE KEY"))
 				})
 
 				It("responds with the created host and status created", func() {

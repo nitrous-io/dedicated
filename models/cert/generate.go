@@ -1,4 +1,4 @@
-package hosts
+package cert
 
 import (
 	"crypto/rand"
@@ -8,9 +8,6 @@ import (
 	"encoding/pem"
 	"math/big"
 	"time"
-
-	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/models/cert"
 )
 
 var (
@@ -19,24 +16,6 @@ var (
 
 	KeyLen = 2048
 )
-
-// generate cert with server certificate and key. The cert will be used for
-// TLS encryption
-func generateCerts(hostname string) (*cert.Cert, error) {
-	caInfo, err := controllers.GetCAInfo(true)
-	if err != nil {
-		return nil, err
-	}
-	srvCrt, srvKey, err := GenerateHostCert(hostname, caInfo.X509Cert, caInfo.Key)
-	if err != nil {
-		return nil, err
-	}
-
-	return &cert.Cert{
-		ServerCert: string(srvCrt),
-		ServerKey:  string(srvKey),
-	}, nil
-}
 
 // GenerateHostCert takes a hostname and root CA keypair and returns a keypair
 // signed and issued by the CA

@@ -1,4 +1,4 @@
-package hosts_test
+package cert_test
 
 import (
 	"crypto/tls"
@@ -8,14 +8,14 @@ import (
 	"net/http/httptest"
 
 	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/controllers/hosts"
+	"github.com/nitrous-io/nitrous/models/cert"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 func init() {
-	hosts.KeyLen = 512 // shorten key length so tests run faster
+	cert.KeyLen = 512 // shorten key length so tests run faster
 }
 
 func startServer(certPool *x509.CertPool, hostCert tls.Certificate) *httptest.Server {
@@ -29,7 +29,7 @@ func startServer(certPool *x509.CertPool, hostCert tls.Certificate) *httptest.Se
 	return svr
 }
 
-var _ = Describe("controllers/hosts#certs", func() {
+var _ = Describe("models/cert", func() {
 	Describe("GenerateHostCert", func() {
 		It("generates a valid keypair", func() {
 			hostname := "test.n2odevpro.com" // not hardcoded, can be anything
@@ -39,7 +39,7 @@ var _ = Describe("controllers/hosts#certs", func() {
 			certPool := x509.NewCertPool()
 			certPool.AddCert(caInfo.X509Cert)
 
-			certBytes, keyBytes, err := hosts.GenerateHostCert(hostname, caInfo.X509Cert, caInfo.Key)
+			certBytes, keyBytes, err := cert.GenerateHostCert(hostname, caInfo.X509Cert, caInfo.Key)
 			hostCert, err := tls.X509KeyPair(certBytes, keyBytes)
 			Expect(err).To(BeNil())
 

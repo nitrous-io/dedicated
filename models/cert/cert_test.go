@@ -65,9 +65,10 @@ var _ = Describe("models/cert", func() {
 			_, err = cert.Find(db, 1)
 			Expect(err).ToNot(BeNil(), "should not find deleted certs")
 
-			var terminated time.Time
-			db.QueryRow("SELECT terminated_at FROM certs WHERE id = ?", crt.ID).
+			var terminated *time.Time
+			err = db.QueryRow("SELECT terminated_at FROM certs WHERE id = $1", crt.ID).
 				Scan(&terminated)
+			Expect(err).To(BeNil())
 			Expect(terminated).ToNot(BeNil(), "failed to update terminated time")
 		})
 	})
