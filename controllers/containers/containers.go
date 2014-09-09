@@ -290,7 +290,7 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return errImageNameRequired
 	}
 
-	image, err := cl.Commit(cn.CID, name)
+	created, err := cl.Commit(cn.CID, name)
 	if err == freighterclient.ErrImageExists {
 		env.Status = http.StatusBadRequest
 		env.Data = map[string]interface{}{
@@ -303,10 +303,32 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
-	env.Events.Publish(controllers.NewEvent("image.created", image), env.User.Topic())
+	var builtAt *time.Time
+	if created.CreatedAt != 0 {
+		t := time.Unix(created.CreatedAt, 0).UTC()
+		builtAt = &t
+	}
+
+	img := &image.Image{
+		UserID:      env.User.ID,
+		HostID:      h.ID,
+		FreighterID: created.ID,
+		Slug:        created.Name,
+		Tag:         created.Tag,
+		ActualSize:  created.ActualSize,
+		VirtualSize: created.VirtualSize,
+		BuiltAt:     builtAt,
+	}
+	if err := img.InsertOrUpdate(env.DB); err != nil { // log and continue
+		env.Logger.Errorf("containers.create: failed to insert or update image '%+v'", img)
+	}
+
+	sImg := serializers.SerializeImage(img)
+
+	env.Events.Publish(controllers.NewEvent("image.created", sImg), env.User.Topic())
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"image": image,
+		"image": sImg,
 	}
 	return nil
 }
