@@ -1410,7 +1410,7 @@ var _ = Describe("client", func() {
 			st.Close()
 		})
 
-		Context("Successful Response", func() {
+		Context("when Freighter builds the image successfully", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusOK
 				responseBody = `
@@ -1442,6 +1442,26 @@ var _ = Describe("client", func() {
 				b, err := ioutil.ReadAll(file)
 				Expect(err).To(BeNil())
 				Expect(b).To(Equal([]byte("dockerfile")))
+			})
+		})
+
+		Context("when Freighter returns an error when building the image", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = `
+					{"stream":"Step 0 : FROM broken\n"}
+					{"stream":" ---\u003e 4300eb9d3c8d\n"}
+					{"error":"Error...", "errorDetail":{"code": 123, "message": "Error pulling 'broken'"}}
+			    `
+			})
+
+			It("should return the error in the stream", func() {
+				outstream := bytes.NewBuffer(nil)
+				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), outstream)
+				Expect(err).To(HaveOccurred())
+
+				Expect(err.Error()).To(Equal("Error pulling 'broken'"))
+				Expect(outstream.String()).To(Equal(responseBody))
 			})
 		})
 
@@ -1701,7 +1721,8 @@ var _ = Describe("client", func() {
 				`
 				stdout := bytes.NewBuffer(nil)
 				err := cl.PullImage("myimage:tag", stdout)
-				Expect(err.Error()).To(ContainSubstring("no reason at all"), "failed to return docker error msg")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("no reason at all"))
 				Expect(stdout.String()).To(Equal(responseBody))
 			})
 

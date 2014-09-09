@@ -622,6 +622,38 @@ func (c *client) ListImages() ([]*Image, error) {
 	return images.Images, nil
 }
 
+// Structs for unmarshalling JSON stream responses of the form:
+// {"error":"Error...", "errorDetail":{"code": 123, "message": "Error..."}}
+type (
+	jsonError struct {
+		Code    int    `json:"code,omitempty"`
+		Message string `json:"message,omitempty"`
+	}
+	jsonMessage struct {
+		ErrorMessage string     `json:"error"`
+		ErrorDetail  *jsonError `json:"errorDetail,omitempty"`
+	}
+)
+
+func (e *jsonMessage) isError() bool {
+	if e.ErrorDetail != nil || e.ErrorMessage != "" {
+		return true
+	}
+	return false
+}
+
+func (e *jsonMessage) Error() string {
+	// Prefer "errorDetail" because "error" field is deprecated in Docker.
+	if e.ErrorDetail != nil {
+		return e.ErrorDetail.Error()
+	}
+	return e.ErrorMessage
+}
+
+func (e *jsonError) Error() string {
+	return e.Message
+}
+
 // BuildImage builds an image. The input stream should be a tar archive (which
 // can be either uncompressed or compressed with gzip/bzip2/xz). The archive
 // must include a file named Dockerfile at its root. Any other files are made
@@ -641,12 +673,10 @@ func (c *client) BuildImage(name string, in io.Reader, out io.Writer) error {
 	if err := writer.Close(); err != nil {
 		return err
 	}
-
 	req, err := http.NewRequest("POST", u, body)
 	if err != nil {
 		return err
 	}
-
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	resp, err := performRequest(c, req)
 	if err != nil {
@@ -658,8 +688,34 @@ func (c *client) BuildImage(name string, in io.Reader, out io.Writer) error {
 		return &StatusError{resp.StatusCode}
 	}
 
-	_, err = io.Copy(out, resp.Body)
-	return err
+	pr, pw := io.Pipe()
+	combined := io.MultiWriter(out, pw) // Tee response to output stream and pipe.
+
+	// Stream Freighter progress to output streams.
+	writeErrCh := make(chan error, 1)
+	go func() {
+		_, err = io.Copy(combined, resp.Body)
+		writeErrCh <- err
+		pw.Close()
+	}()
+
+	// Check if JSON stream contains an error and return it as an error.
+	decoder := json.NewDecoder(pr)
+	for {
+		var msg jsonMessage
+		err := decoder.Decode(&msg)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("freighter: failed to decode stream: %v", err)
+		}
+		if msg.isError() {
+			return &msg
+		}
+	}
+
+	return <-writeErrCh
 }
 
 func (c *client) RemoveImage(image string) error {
@@ -681,14 +737,6 @@ func (c *client) RemoveImage(image string) error {
 	}
 
 	return nil
-}
-
-type streamError struct {
-	Err string `json:"error"`
-}
-
-func (s streamError) Error() string {
-	return s.Err
 }
 
 func (c *client) PullImage(repository string, output io.Writer) error {
@@ -724,16 +772,16 @@ func (c *client) PullImage(repository string, output io.Writer) error {
 	// error indicates that .PullImage failed
 	decoder := json.NewDecoder(pr)
 	for {
-		var se streamError
-		err := decoder.Decode(&se)
+		var msg jsonMessage
+		err := decoder.Decode(&msg)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("failed to decode pull msg %s", err)
+			return fmt.Errorf("freighter: failed to decode stream: %v", err)
 		}
-		if se.Err != "" {
-			return se
+		if msg.isError() {
+			return &msg
 		}
 	}
 
