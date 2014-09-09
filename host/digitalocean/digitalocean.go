@@ -22,6 +22,12 @@ type HostConfig struct {
 	RegionID   string   `json:"region_id"`
 	SizeID     string   `json:"size_id"`
 	PublicKeys []string `json:"public_keys"`
+
+	// for setting up repository on the host
+	AptUsername string `json:"apt_username"` // username of nitrous.io
+	AptPassword string `json:"apt_password"` // nitrous.io access token
+	AptLocation string `json:"apt_location"` // URI of the repository
+	AptDist     string `json:"apt_dist"`     // distribution of the repo
 }
 
 type Host struct {
@@ -45,6 +51,7 @@ func (h *Host) Create() (*host.Info, error) {
 		createDroplet,
 		waitForSSH,
 		writePublicKeys,
+		writeRepository,
 	}
 	ctx := context.NewContext(h, steps)
 	if err := ctx.Execute(); err != nil {
@@ -244,5 +251,18 @@ func writePublicKeys(ctx *context.Context, hst host.Host) error {
 		return err
 	}
 	log.Printf("Uploaded authorized keys at %v", h.droplet.IpAddress)
+	return nil
+}
+
+func writeRepository(ctx *context.Context, hst host.Host) error {
+	h := hst.(*Host)
+	sourceData := bytes.NewBuffer(nil)
+	if err := host.SourceTemplate.Execute(sourceData, h.Config); err != nil {
+		return err
+	}
+	if err := h.conn.Upload(host.SourceLocation, sourceData); err != nil {
+		return err
+	}
+	log.Printf("Uploaded apt details at %v", h.droplet.IpAddress)
 	return nil
 }
