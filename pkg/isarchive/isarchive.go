@@ -16,7 +16,7 @@ const (
 	Xz
 )
 
-const MaxHeaderLength = 6
+const MaxHeaderLength = 512
 
 func IsArchive(header []byte) bool {
 	compression := DetectCompression(header)
