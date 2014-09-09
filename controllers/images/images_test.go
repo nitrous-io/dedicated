@@ -1,6 +1,7 @@
 package images_test
 
 import (
+	"bufio"
 	"bytes"
 	"database/sql"
 	"encoding/json"
@@ -22,6 +23,7 @@ import (
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
+	"github.com/nitrous-io/nitrous/controllers/images"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
@@ -300,7 +302,7 @@ var _ = Describe("controllers/images", func() {
 		})
 	})
 
-	Describe("POST /api/v0/hosts/{slug}/image", func() {
+	Describe("POST /api/v0/hosts/{slug}/images", func() {
 		doRequest := func(host string, params map[string]string, files map[string]io.Reader) *httptest.ResponseRecorder {
 			body := &bytes.Buffer{}
 			writer := multipart.NewWriter(body)
@@ -359,7 +361,7 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("converts the name portion of the 'slug' form value to lowercase", func() {
-			mockClient.BuildImageReturn = &freighterclient.Image{
+			mockClient.InspectImageReturn = &freighterclient.Image{
 				ID:   "cafebabe",
 				Name: "scratcher",
 				Tag:  "MyTag",
@@ -374,17 +376,33 @@ var _ = Describe("controllers/images", func() {
 			Expect(mockClient.BuildImageName).To(Equal("scratcher:MyTag"))
 		})
 
-		It("returns 500 on freighterclient error", func() {
+		It("returns 500 on freighterclient error and emits image.build_failed event", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
 			mockClient.BuildImageError = &freighterclient.StatusError{418}
 			params := map[string]string{
 				"slug": "scratcher",
 				"code": "FROM scratch",
 			}
-			res := doRequest("foo", params, map[string]io.Reader{})
+			res := doRequest("foo", params, nil)
 
 			Expect(mockClient.BuildImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
+
+			// Read until we get a image.build_failed event.
+			var evt *controllers.Event
+			for e := range ch {
+				evt = e.(*controllers.Event)
+				if evt.Name == "image.build_failed" {
+					break
+				}
+			}
+			Expect(evt.Name).To(Equal("image.build_failed"))
+			img := evt.Data.(*serializers.Image)
+			Expect(img.Slug).To(Equal("scratcher"))
+			close(done)
 		})
 
 		itBuildsImageSuccessfully := func(filename string, contents io.Reader, code string) {
@@ -395,7 +413,20 @@ var _ = Describe("controllers/images", func() {
 			)
 
 			BeforeEach(func() {
-				mockClient.BuildImageReturn = &freighterclient.Image{
+				responseBody := `
+					{"stream":"Step 0 : FROM ubuntu:latest\n"}
+					{"stream":" ---\u003e 4300eb9d3c8d\n"}
+					{"stream":"Step 1 : MAINTAINER docker <eng@docker.com>\n"}
+					{"stream":" ---\u003e Using cache\n"}
+					{"stream":" ---\u003e 3a3ed758c370\n"}
+					{"stream":"Step 2 : CMD /usr/bin/top\n"}
+					{"stream":" ---\u003e Running in 36b1479cc2e4\n"}
+					{"stream":" ---\u003e 4b6188aebe39\n"}
+					{"stream":"Removing intermediate container 36b1479cc2e4\n"}
+					{"stream":"Successfully built 4b6188aebe39\n"}
+			    `
+				mockClient.OutputStream = bytes.NewBufferString(responseBody)
+				mockClient.InspectImageReturn = &freighterclient.Image{
 					ID:   "cafebabe",
 					Name: "scratcher",
 					Tag:  "mytag",
@@ -414,10 +445,7 @@ var _ = Describe("controllers/images", func() {
 			})
 
 			Context("when async param is not given", func() {
-				It("creates an image record, responds with image and publishes image.built", func(done Done) {
-					ch := svr.Events.Subscribe(u.Topic())
-					defer svr.Events.Unsubscribe(ch, u.Topic())
-
+				It("creates an image record", func() {
 					res = doRequest("foo", params, file)
 					Expect(res.Code).To(Equal(http.StatusOK))
 					i, err := image.Find(db, u, hs.H, "scratcher:mytag")
@@ -430,21 +458,75 @@ var _ = Describe("controllers/images", func() {
 					Expect(i.Tag).To(Equal("mytag"))
 					Expect(i.CreatedAt).NotTo(BeNil())
 					Expect(i.UpdatedAt).NotTo(BeNil())
+				})
+
+				It("responds with build progress and image", func() {
+					res = doRequest("foo", params, file)
+					Expect(res.Code).To(Equal(http.StatusOK))
 
 					sent, err := ioutil.ReadAll(mockClient.BuildImageReader)
 					Expect(err).To(BeNil())
-					// check that sure the image sent is a tarball
 					Expect(isarchive.IsArchive(sent)).To(BeTrue())
 					Expect(mockClient.BuildImageCalled).To(Equal(1))
 
+					Expect(res.Body).To(ContainSubstring(`{"stream":"Step 0 : FROM ubuntu:latest\n"}`), "failed to include progress data")
+
+					// Keep parsing and ignore the progress data to get the
+					// final image data.
 					j := struct {
 						Image serializers.Image `json:"image"`
 					}{}
-					err = json.NewDecoder(res.Body).Decode(&j)
+					scanner := bufio.NewScanner(res.Body)
+					for scanner.Scan() {
+						json.Unmarshal(scanner.Bytes(), &j)
+						if j.Image.ID > 0 {
+							break
+						}
+					}
+					i, err := image.Find(db, u, hs.H, "scratcher:mytag")
 					Expect(err).To(BeNil())
-					Expect(j.Image.Slug).To(Equal("scratcher"))
+					serialized := *serializers.SerializeImage(i)
+					Expect(j.Image.ID).To(Equal(serialized.ID))
+					Expect(j.Image.UserID).To(Equal(serialized.UserID))
+					Expect(j.Image.HostID).To(Equal(serialized.HostID))
+					Expect(j.Image.FreighterID).To(Equal(serialized.FreighterID))
+					Expect(j.Image.Name).To(Equal(serialized.Name))
+					Expect(j.Image.Slug).To(Equal(serialized.Slug))
+					Expect(j.Image.Tag).To(Equal(serialized.Tag))
+					Expect(j.Image.Repo).To(Equal(serialized.Repo))
+					Expect(j.Image.ActualSize).To(Equal(serialized.ActualSize))
+					Expect(j.Image.VirtualSize).To(Equal(serialized.VirtualSize))
+					Expect(j.Image.BuiltAt).To(Equal(serialized.BuiltAt))
+					// Because time.Time equality sucks when timezones are involved.
+					Expect(j.Image.CreatedAt.UnixNano()).To(Equal(serialized.CreatedAt.UnixNano()))
+					Expect(j.Image.UpdatedAt.UnixNano()).To(Equal(serialized.UpdatedAt.UnixNano()))
+				})
 
-					Expect(<-ch).To(Equal(&controllers.Event{
+				It("publishes image.building events and a final image.built event", func(done Done) {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					res = doRequest("foo", params, file)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					i, err := image.Find(db, u, hs.H, "scratcher:mytag")
+					Expect(err).To(BeNil())
+
+					e := (<-ch).(*controllers.Event)
+					Expect(e.Name).To(Equal("image.building"))
+					data := e.Data.(*images.ProgressEvent)
+					Expect(data.ID).To(Equal(i.ID))
+					Expect(data.Progress).To(Equal(`{"stream":"Step 0 : FROM ubuntu:latest\n"}`))
+
+					// Read all the intermediate image.building events.
+					var evt *controllers.Event
+					for e := range ch {
+						evt = e.(*controllers.Event)
+						if evt.Name == "image.built" {
+							break
+						}
+					}
+					Expect(evt).To(Equal(&controllers.Event{
 						Name: "image.built",
 						Data: serializers.SerializeImage(i),
 					}))

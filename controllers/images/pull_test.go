@@ -138,7 +138,7 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(j.Image.FreighterID).To(Equal("123asd"), "missing final image in response")
 	})
 
-	It("publishes an image.pulling event with the pulled image", func(done Done) {
+	It("publishes an image.pulling event with progress data", func(done Done) {
 		fs := newFreighterServer("scratch", "latest")
 		defer fs.Close()
 
@@ -154,8 +154,8 @@ var _ = Describe("controllers/images/pull", func() {
 
 		// check if the first event we got is image.pulling event
 		e := (<-ch).(*controllers.Event)
-		data := e.Data.(*images.PullEvent)
-		Expect(e.Name).To(Equal("image.pulling"), "expect image.pulling events but got another")
+		data := e.Data.(*images.ProgressEvent)
+		Expect(e.Name).To(Equal("image.pulling"), "expected image.pulling event")
 		Expect(data.ID).To(Equal(i.ID), "emitted image.pulling with invalid image")
 		Expect(data.Progress).To(Equal(`{"status":"Pulling..."}`), "failed to include progress data")
 
