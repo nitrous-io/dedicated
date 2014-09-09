@@ -182,6 +182,8 @@ var _ = Describe("controllers/containers", func() {
 			c         *container.Container
 			fc        *freighterclient.Container
 			touchedAt time.Time
+
+			startedAt = time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)
 		)
 
 		doRequest := func(token, host string) {
@@ -220,7 +222,7 @@ var _ = Describe("controllers/containers", func() {
 				Cmd:        []string{"/sbin/init"},
 				Entrypoint: []string{"/bin/blah"},
 				ExitCode:   0,
-				StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+				StartedAt:  startedAt,
 				FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 			}
 			mockClient.Containers = []*freighterclient.Container{fc}
@@ -255,8 +257,8 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(j.Containers[0].Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(j.Containers[0].ExitCode).To(Equal(0))
-			Expect(j.Containers[0].StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
-			Expect(j.Containers[0].FinishedAt.IsZero()).To(BeTrue())
+			Expect(j.Containers[0].StartedAt).To(Equal(&startedAt))
+			Expect(j.Containers[0].FinishedAt).To(BeNil())
 			Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
 			Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
 			Expect(j.Containers[0].TerminatedAt).To(BeNil())
@@ -322,7 +324,7 @@ var _ = Describe("controllers/containers", func() {
 					Cmd:        []string{"/sbin/init"},
 					Entrypoint: []string{"/bin/blah"},
 					ExitCode:   0,
-					StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+					StartedAt:  startedAt,
 					FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 				}
 				mockClient.Containers = []*freighterclient.Container{fc, fc2}
@@ -353,8 +355,8 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].Cmd).To(Equal([]string{"/sbin/init"}))
 				Expect(j.Containers[0].Entrypoint).To(Equal([]string{"/bin/blah"}))
 				Expect(j.Containers[0].ExitCode).To(Equal(0))
-				Expect(j.Containers[0].StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
-				Expect(j.Containers[0].FinishedAt).To(Equal(time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC)))
+				Expect(j.Containers[0].StartedAt).To(Equal(&startedAt))
+				Expect(j.Containers[0].FinishedAt).To(BeNil())
 				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
 				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
 				Expect(j.Containers[0].TerminatedAt).To(BeNil())
@@ -372,8 +374,8 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[1].Cmd).To(Equal([]string{"/sbin/init"}))
 				Expect(j.Containers[1].Entrypoint).To(Equal([]string{"/bin/blah"}))
 				Expect(j.Containers[1].ExitCode).To(Equal(0))
-				Expect(j.Containers[1].StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
-				Expect(j.Containers[1].FinishedAt).To(Equal(time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC)))
+				Expect(j.Containers[1].StartedAt).To(Equal(&startedAt))
+				Expect(j.Containers[1].FinishedAt).To(BeNil())
 				Expect(j.Containers[1].CreatedAt).To(BeNil())
 				Expect(j.Containers[1].UpdatedAt).To(BeNil())
 				Expect(j.Containers[1].TerminatedAt).To(BeNil())
@@ -437,8 +439,8 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].Cmd).To(BeNil())
 				Expect(j.Containers[0].Entrypoint).To(BeNil())
 				Expect(j.Containers[0].ExitCode).To(Equal(0))
-				Expect(j.Containers[0].StartedAt.IsZero()).To(BeTrue())
-				Expect(j.Containers[0].FinishedAt.IsZero()).To(BeTrue())
+				Expect(j.Containers[0].StartedAt).To(BeNil())
+				Expect(j.Containers[0].FinishedAt).To(BeNil())
 			})
 		})
 
@@ -505,8 +507,8 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].Cmd).To(BeNil())
 				Expect(j.Containers[0].Entrypoint).To(BeNil())
 				Expect(j.Containers[0].ExitCode).To(Equal(0))
-				Expect(j.Containers[0].StartedAt.IsZero()).To(BeTrue())
-				Expect(j.Containers[0].FinishedAt.IsZero()).To(BeTrue())
+				Expect(j.Containers[0].StartedAt).To(BeNil())
+				Expect(j.Containers[0].FinishedAt).To(BeNil())
 			})
 		})
 
@@ -1055,10 +1057,11 @@ var _ = Describe("controllers/containers", func() {
 
 	Describe("GET /containers/{slug}", func() {
 		var (
-			c     *container.Container
-			fc    *freighterclient.Container
-			slug  = "elixir-web-1"
-			token = ""
+			c         *container.Container
+			fc        *freighterclient.Container
+			slug      = "elixir-web-1"
+			token     = ""
+			startedAt = time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)
 		)
 
 		doRequest := func() {
@@ -1094,7 +1097,7 @@ var _ = Describe("controllers/containers", func() {
 				Cmd:        []string{"/sbin/init"},
 				Entrypoint: []string{"/bin/blah"},
 				ExitCode:   0,
-				StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+				StartedAt:  startedAt,
 				FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 			}
 			mockClient.Containers = []*freighterclient.Container{fc}
@@ -1129,8 +1132,8 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(j.Container.Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(j.Container.ExitCode).To(Equal(0))
-			Expect(j.Container.StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
-			Expect(j.Container.FinishedAt).To(Equal(time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC)))
+			Expect(j.Container.StartedAt).To(Equal(&startedAt))
+			Expect(j.Container.FinishedAt).To(BeNil())
 			Expect(j.Container.CreatedAt).NotTo(BeNil())
 			Expect(j.Container.UpdatedAt).NotTo(BeNil())
 			Expect(j.Container.TerminatedAt).To(BeNil())
@@ -1184,8 +1187,8 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Container.GatewayIP).To(Equal(""))
 				Expect(j.Container.State).To(Equal(container.StateHostStopped.String()))
 				Expect(j.Container.ExitCode).To(Equal(0))
-				Expect(j.Container.StartedAt.IsZero()).To(BeTrue())
-				Expect(j.Container.FinishedAt.IsZero()).To(BeTrue())
+				Expect(j.Container.StartedAt).To(BeNil())
+				Expect(j.Container.FinishedAt).To(BeNil())
 				Expect(j.Container.CreatedAt).NotTo(BeNil())
 				Expect(j.Container.UpdatedAt).NotTo(BeNil())
 				Expect(j.Container.TerminatedAt).To(BeNil())
@@ -1221,8 +1224,8 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Container.GatewayIP).To(Equal(""))
 				Expect(j.Container.State).To(Equal(container.StateHostStopped.String()))
 				Expect(j.Container.ExitCode).To(Equal(0))
-				Expect(j.Container.StartedAt.IsZero()).To(BeTrue())
-				Expect(j.Container.FinishedAt.IsZero()).To(BeTrue())
+				Expect(j.Container.StartedAt).To(BeNil())
+				Expect(j.Container.FinishedAt).To(BeNil())
 				Expect(j.Container.CreatedAt).NotTo(BeNil())
 				Expect(j.Container.UpdatedAt).NotTo(BeNil())
 				Expect(j.Container.TerminatedAt).To(BeNil())
@@ -1252,7 +1255,9 @@ var _ = Describe("controllers/containers", func() {
 			c  *container.Container
 			fc *freighterclient.Container
 
-			slug = "elixir-web-1"
+			slug       = "elixir-web-1"
+			startedAt  = time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)
+			finishedAt = time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)
 		)
 
 		doRequest := func(slug string) {
@@ -1284,8 +1289,8 @@ var _ = Describe("controllers/containers", func() {
 				Cmd:        []string{"/sbin/init"},
 				Entrypoint: []string{"/bin/blah"},
 				ExitCode:   126,
-				StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
-				FinishedAt: time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC),
+				StartedAt:  startedAt,
+				FinishedAt: finishedAt,
 			}
 			mockClient.Containers = []*freighterclient.Container{fc}
 		})
@@ -1304,8 +1309,8 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(cn.Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(cn.ExitCode).To(Equal(126))
-			Expect(cn.StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
-			Expect(cn.FinishedAt).To(Equal(time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)))
+			Expect(cn.StartedAt).To(Equal(&startedAt))
+			Expect(cn.FinishedAt).To(Equal(&finishedAt))
 			Expect(cn.CreatedAt).NotTo(BeNil())
 			Expect(cn.UpdatedAt).NotTo(BeNil())
 			Expect(cn.TerminatedAt).To(BeNil())
@@ -1457,10 +1462,12 @@ var _ = Describe("controllers/containers", func() {
 
 	Describe("DELETE /containers/{slug}", func() {
 		var (
-			c     *container.Container
-			fc    *freighterclient.Container
-			slug  = "elixir-web-1"
-			token = ""
+			c          *container.Container
+			fc         *freighterclient.Container
+			slug       = "elixir-web-1"
+			token      = ""
+			startedAt  = time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)
+			finishedAt = time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)
 		)
 
 		BeforeEach(func() {
@@ -1487,8 +1494,8 @@ var _ = Describe("controllers/containers", func() {
 				Cmd:        []string{"/sbin/init"},
 				Entrypoint: []string{"/bin/blah"},
 				ExitCode:   126,
-				StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
-				FinishedAt: time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC),
+				StartedAt:  startedAt,
+				FinishedAt: finishedAt,
 			}
 			mockClient.Containers = []*freighterclient.Container{fc}
 		})
@@ -1515,8 +1522,8 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(cn.Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(cn.ExitCode).To(Equal(126))
-			Expect(cn.StartedAt).To(Equal(time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)))
-			Expect(cn.FinishedAt).To(Equal(time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)))
+			Expect(cn.StartedAt).To(Equal(&startedAt))
+			Expect(cn.FinishedAt).To(Equal(&finishedAt))
 			Expect(cn.CreatedAt).NotTo(BeNil())
 			Expect(cn.UpdatedAt).NotTo(BeNil())
 			Expect(cn.TerminatedAt).NotTo(BeNil())
