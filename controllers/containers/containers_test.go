@@ -992,6 +992,18 @@ var _ = Describe("controllers/containers", func() {
 			}
 		})
 
+		It("creates a new image record", func() {
+			doRequest("elixir-staging")
+
+			i, err := image.Find(db, u, hs.H, "elixir-staging:latest")
+			Expect(err).To(BeNil())
+			Expect(i.UserID).To(Equal(u.ID))
+			Expect(i.HostID).To(Equal(hs.H.ID))
+			Expect(i.FreighterID).To(Equal("1a"))
+			Expect(i.Slug).To(Equal("elixir-staging"))
+			Expect(i.Tag).To(Equal("latest"))
+		})
+
 		It("returns image on success", func() {
 			doRequest("elixir-staging")
 			Expect(res.Code).To(Equal(http.StatusOK))
@@ -999,12 +1011,12 @@ var _ = Describe("controllers/containers", func() {
 			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
 			Expect(mockClient.ReceivedName).To(Equal("elixir-staging"))
 			var j struct {
-				Image *freighterclient.Image `json:"image"`
+				Image *serializers.Image `json:"image"`
 			}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j.Image).NotTo(BeNil())
-			Expect(j.Image.Name).To(Equal("elixir-staging"))
+			Expect(j.Image.Slug).To(Equal("elixir-staging"))
 			Expect(j.Image.Tag).To(Equal("latest"))
 		})
 
@@ -1034,10 +1046,10 @@ var _ = Describe("controllers/containers", func() {
 			Expect(ok).To(BeTrue())
 			Expect(evt.Name).To(Equal("image.created"))
 
-			img, ok := evt.Data.(*freighterclient.Image)
+			img, ok := evt.Data.(*serializers.Image)
 			Expect(ok).To(BeTrue())
 			Expect(img).NotTo(BeNil())
-			Expect(img.Name).To(Equal("elixir-staging"))
+			Expect(img.Slug).To(Equal("elixir-staging"))
 			Expect(img.Tag).To(Equal("latest"))
 
 			close(done)
