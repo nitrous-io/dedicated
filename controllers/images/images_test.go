@@ -376,17 +376,33 @@ var _ = Describe("controllers/images", func() {
 			Expect(mockClient.BuildImageName).To(Equal("scratcher:MyTag"))
 		})
 
-		It("returns 500 on freighterclient error", func() {
+		It("returns 500 on freighterclient error and emits image.build_failed event", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
 			mockClient.BuildImageError = &freighterclient.StatusError{418}
 			params := map[string]string{
 				"slug": "scratcher",
 				"code": "FROM scratch",
 			}
-			res := doRequest("foo", params, map[string]io.Reader{})
+			res := doRequest("foo", params, nil)
 
 			Expect(mockClient.BuildImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
+
+			// Read until we get a image.build_failed event.
+			var evt *controllers.Event
+			for e := range ch {
+				evt = e.(*controllers.Event)
+				if evt.Name == "image.build_failed" {
+					break
+				}
+			}
+			Expect(evt.Name).To(Equal("image.build_failed"))
+			img := evt.Data.(*serializers.Image)
+			Expect(img.Slug).To(Equal("scratcher"))
+			close(done)
 		})
 
 		itBuildsImageSuccessfully := func(filename string, contents io.Reader, code string) {

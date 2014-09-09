@@ -44,6 +44,11 @@ func (c *buildContext) build(async bool) (*image.Image, error) {
 
 	go func() {
 		if err := cl.BuildImage(slug, c.in, c.out); err != nil {
+			env.Events.Publish(
+				controllers.NewEvent("image.build_failed", serializers.SerializeImage(img)),
+				env.User.Topic(),
+			)
+
 			if delErr := img.Delete(env.DB); delErr != nil {
 				env.Logger.Errorf("images.build: unable to delete image %d that failed to build on freighter: %v", img.ID, delErr)
 			}
