@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/images/ibuild"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
@@ -29,12 +28,13 @@ func Test(t *testing.T) {
 var _ = Describe("images/ibuild", func() {
 	var (
 		cmd          *ibuild.Command
-		ui           *command.MockUI
+		errorWriter  *bytes.Buffer
 		srv          *ghttp.Server
 		handlers     http.HandlerFunc
 		statusCode   int
 		responseBody string
 		tmpdir       string
+		outfile      *os.File
 		expectedSlug string
 		dfBytes      = []byte("FROM scratch")
 	)
@@ -78,7 +78,6 @@ var _ = Describe("images/ibuild", func() {
 		var err error
 		tmpdir, err = ioutil.TempDir("", "nitro-build")
 		Expect(err).To(BeNil())
-		ui = &command.MockUI{&cli.MockUi{}}
 		srv = ghttp.NewServer()
 		expectedSlug = ""
 		handlers = ghttp.CombineHandlers(
@@ -110,14 +109,25 @@ var _ = Describe("images/ibuild", func() {
 			ghttp.RespondWithPtr(&statusCode, &responseBody),
 		)
 		srv.AppendHandlers(handlers)
+
+		// Create a tmp file to store build output which normally gets written
+		// to stdout.
+		outfile, err = ioutil.TempFile(tmpdir, "output")
+		Expect(err).To(BeNil())
+
+		errorWriter = bytes.NewBuffer(nil)
 		cmd = &ibuild.Command{
-			UI:     ui,
+			UI: &cli.BasicUi{
+				Writer:      outfile,
+				ErrorWriter: errorWriter,
+			},
 			Server: srv.URL(),
 			Client: httpclient.New("correct_token"),
 		}
 	})
 
 	AfterEach(func() {
+		outfile.Close()
 		if strings.HasPrefix(tmpdir, os.TempDir()) {
 			os.RemoveAll(tmpdir)
 		}
@@ -132,70 +142,116 @@ var _ = Describe("images/ibuild", func() {
 		Context("successful build with Dockerfile", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusOK
-				responseBody = `{"status":"OK"}`
+				responseBody = `
+					{"stream":"Step 0 : FROM ubuntu:latest\n"}
+					{"stream":" ---\u003e 4300eb9d3c8d\n"}
+					{"stream":"Step 1 : MAINTAINER docker <eng@docker.com>\n"}
+					{"stream":" ---\u003e Using cache\n"}
+					{"stream":" ---\u003e 3a3ed758c370\n"}
+					{"stream":"Step 2 : CMD /usr/bin/top\n"}
+					{"stream":" ---\u003e Running in 36b1479cc2e4\n"}
+					{"stream":" ---\u003e 4b6188aebe39\n"}
+					{"stream":"Removing intermediate container 36b1479cc2e4\n"}
+					{"stream":"Successfully built 4b6188aebe39\n"}
+			    `
 			})
 
 			It("uploads Dockerfile inside tar", func() {
 				fpath := makeDockerfile("")
 				code := doCmd(fpath)
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Built image"))
 				Expect(code).To(Equal(0))
 				Expect(srv.ReceivedRequests()).To(HaveLen(1))
+				output, _ := ioutil.ReadFile(outfile.Name())
+				Expect(string(output)).To(ContainSubstring("Step 0 : FROM ubuntu:latest"))
+				Expect(string(output)).To(ContainSubstring("Step 1 : MAINTAINER docker <eng@docker.com>"))
+				Expect(string(output)).To(ContainSubstring("Successfully built 4b6188aebe39"))
+
+				Expect(string(output)).To(ContainSubstring("Built image"))
 			})
 		})
 
 		Context("successful build with tarball", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusOK
-				responseBody = `{"status":"OK"}`
+				responseBody = `
+					{"stream":"Step 0 : FROM ubuntu:latest\n"}
+					{"stream":" ---\u003e 4300eb9d3c8d\n"}
+					{"stream":"Step 1 : MAINTAINER docker <eng@docker.com>\n"}
+					{"stream":" ---\u003e Using cache\n"}
+					{"stream":" ---\u003e 3a3ed758c370\n"}
+					{"stream":"Step 2 : CMD /usr/bin/top\n"}
+					{"stream":" ---\u003e Running in 36b1479cc2e4\n"}
+					{"stream":" ---\u003e 4b6188aebe39\n"}
+					{"stream":"Removing intermediate container 36b1479cc2e4\n"}
+					{"stream":"Successfully built 4b6188aebe39\n"}
+			    `
 			})
 
 			It("uploads tarball", func() {
 				fpath := makeValidTar()
 				code := doCmd(fpath)
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Built image"))
 				Expect(code).To(Equal(0))
 				Expect(srv.ReceivedRequests()).To(HaveLen(1))
+				output, _ := ioutil.ReadFile(outfile.Name())
+				Expect(string(output)).To(ContainSubstring("Built image"))
 			})
 		})
 
 		Context("with slug specified", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusOK
-				responseBody = `{"status":"OK"}`
+				responseBody = `
+					{"stream":"Step 0 : FROM ubuntu:latest\n"}
+					{"stream":" ---\u003e 4300eb9d3c8d\n"}
+					{"stream":"Step 1 : MAINTAINER docker <eng@docker.com>\n"}
+					{"stream":" ---\u003e Using cache\n"}
+					{"stream":" ---\u003e 3a3ed758c370\n"}
+					{"stream":"Step 2 : CMD /usr/bin/top\n"}
+					{"stream":" ---\u003e Running in 36b1479cc2e4\n"}
+					{"stream":" ---\u003e 4b6188aebe39\n"}
+					{"stream":"Removing intermediate container 36b1479cc2e4\n"}
+					{"stream":"Successfully built 4b6188aebe39\n"}
+			    `
 				expectedSlug = "UseThisSlug"
 			})
 
 			It("uses slug", func() {
 				fpath := makeDockerfile("")
 				code := cmd.Run([]string{"myhost", fpath, "--slug=UseThisSlug"})
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Built image"))
 				Expect(code).To(Equal(0))
 				Expect(srv.ReceivedRequests()).To(HaveLen(1))
+				output, _ := ioutil.ReadFile(outfile.Name())
+				Expect(string(output)).To(ContainSubstring("Built image"))
 			})
 		})
 
 		Context("error on build context not existing", func() {
 			It("outputs error message", func() {
 				code := doCmd("/tmp/nosuch")
-				Expect(ui.ErrorWriter.String()).To(ContainSubstring("no such file"))
 				Expect(code).To(Equal(1))
 				Expect(srv.ReceivedRequests()).To(HaveLen(0))
+				Expect(errorWriter.String()).To(ContainSubstring("no such file or directory"))
 			})
 		})
 
 		Context("JSON response with error", func() {
 			BeforeEach(func() {
-				statusCode = http.StatusBadRequest
-				responseBody = `{"error": "validation_failed", "error_description": "image not found"}`
+				statusCode = http.StatusInternalServerError
+				responseBody = `
+					{"stream":"Step 0 : FROM broken\n"}
+					{"stream":" ---\u003e 4300eb9d3c8d\n"}
+					{"error":"Error...", "errorDetail":{"code": 123, "message": "Error pulling 'broken'"}}
+			    `
 			})
 
 			It("outputs error message", func() {
 				fpath := makeDockerfile("")
 				code := doCmd(fpath)
-				Expect(ui.ErrorWriter.String()).To(Equal("image not found\n"))
 				Expect(code).To(Equal(1))
 				Expect(srv.ReceivedRequests()).To(HaveLen(1))
+				output, _ := ioutil.ReadFile(outfile.Name())
+				Expect(string(output)).NotTo(ContainSubstring("Step 0 : FROM broken")) // Stream is not displayed
+				Expect(errorWriter.String()).NotTo(BeEmpty())
 			})
 		})
 	})
@@ -204,8 +260,9 @@ var _ = Describe("images/ibuild", func() {
 		It("prints usage and exits with error", func() {
 			for _, t := range [][]string{{}, {"hostonly"}, {"host", "buildcontext", "somerandomextrastuff"}} {
 				code := cmd.Run(t)
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
 				Expect(code).To(Equal(1))
+				output, _ := ioutil.ReadFile(outfile.Name())
+				Expect(string(output)).To(ContainSubstring("Usage:"))
 			}
 		})
 	})
