@@ -22,10 +22,10 @@ var _ = Describe("BuildImage", func() {
 		tarWriter := tar.NewWriter(gzipWriter)
 
 		dockerSource := `
-			FROM nitrousio/ubuntu-bare:trusty
-			MAINTAINER Nitrous.IO, hello@nitrous.io
+			FROM busybox:latest
+			MAINTAINER Nitrous.IO <hello@nitrous.io>
 			ADD some_file.txt /some/file.txt
-			CMD /bin/bash -c 'cat /some/file.txt'
+			CMD cat /some/file.txt
 		`
 
 		err := tarWriter.WriteHeader(&tar.Header{
@@ -93,8 +93,8 @@ var _ = Describe("BuildImage", func() {
 
 		Expect(matchingImage).ToNot(BeNil())
 
-		res, err := exec.Command("docker", "run", "--rm=true", matchingImage.ID).Output()
-		Expect(err).To(BeNil())
+		res, err := exec.Command("docker", "run", "--rm=true", matchingImage.ID).CombinedOutput()
+		Expect(err).To(BeNil(), "docker run failed with output: %s", string(res))
 		Expect(string(res)).To(Equal("Hello from Docker!"))
 	})
 })
