@@ -46,8 +46,8 @@ type Container struct {
 	Cmd        []string
 	Entrypoint []string
 	ExitCode   int
-	StartedAt  time.Time
-	FinishedAt time.Time
+	StartedAt  *time.Time
+	FinishedAt *time.Time
 }
 
 // Find queries for a container scoped to the user.

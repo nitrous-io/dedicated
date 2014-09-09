@@ -24,8 +24,8 @@ type Container struct {
 	CreatedAt    *time.Time `json:"created_at"`
 	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
 	TerminatedAt *time.Time `json:"terminated_at,omitempty"`
-	StartedAt    time.Time  `json:"started_at"`
-	FinishedAt   time.Time  `json:"finished_at"`
+	StartedAt    *time.Time `json:"started_at"`
+	FinishedAt   *time.Time `json:"finished_at"`
 }
 
 func SerializeContainer(c *container.Container) *Container {

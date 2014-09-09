@@ -232,8 +232,8 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	cn.Cmd = created.Cmd
 	cn.Entrypoint = created.Entrypoint
 	cn.ExitCode = created.ExitCode
-	cn.StartedAt = created.StartedAt
-	cn.FinishedAt = created.FinishedAt
+	cn.StartedAt = timePtr(created.StartedAt)
+	cn.FinishedAt = timePtr(created.FinishedAt)
 
 	if ok := cn.SetState(created.State); !ok { // log and continue
 		log.Errorf("containers.create: Freighter returned container with unexpected state: %v", created.State)
@@ -519,8 +519,8 @@ func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *
 	c.Cmd = fc.Cmd
 	c.Entrypoint = fc.Entrypoint
 	c.ExitCode = fc.ExitCode
-	c.StartedAt = fc.StartedAt
-	c.FinishedAt = fc.FinishedAt
+	c.StartedAt = timePtr(fc.StartedAt)
+	c.FinishedAt = timePtr(fc.FinishedAt)
 
 	return c
 }
@@ -537,8 +537,8 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 		Cmd:        fc.Cmd,
 		Entrypoint: fc.Entrypoint,
 		ExitCode:   fc.ExitCode,
-		StartedAt:  fc.StartedAt,
-		FinishedAt: fc.FinishedAt,
+		StartedAt:  timePtr(fc.StartedAt),
+		FinishedAt: timePtr(fc.FinishedAt),
 	}
 	c.SetState(fc.State)
 	return c
@@ -588,4 +588,11 @@ func hostVolumes(d db.QueryReceiver, h *host.Host) (map[string]*volume.Volume, e
 		slugsToVols[hv.Slug] = hv
 	}
 	return slugsToVols, nil
+}
+
+func timePtr(t time.Time) *time.Time {
+	if !t.IsZero() {
+		return &t
+	}
+	return nil
 }
