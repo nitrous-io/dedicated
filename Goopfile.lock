@@ -6,7 +6,7 @@ github.com/daviddengcn/go-colortext #b5c0891944c2f150ccc9d02aecf51b76c14c2948
 github.com/ddollar/dist #f559761fd36c52dc90d7d2c0bc537e6d96b0edc5
 github.com/ddollar/forego #73521422bea32cc8d14491b271bf96ebb2625a9c
 github.com/ddollar/go-update #4733469d35539f410e0e84552944fa0df7e72c98
-github.com/fsouza/go-dockerclient #e0e19dc9671bffa7426fcfdcb7eab5277a15878d !git@github.com:nitrous-io/go-dockerclient
+github.com/fsouza/go-dockerclient #46ba1ae98b013e2e338c7299a74846d4c8b3617a
 github.com/gorilla/context #14f550f51af52180c2eefed15e5fd18d63c0a64a
 github.com/gorilla/mux #14cafe28513321476c73967a5a4f3454b6129c46
 github.com/gorilla/websocket #f940e88c0e4f2f58de44dc1788e05784b91332dd
