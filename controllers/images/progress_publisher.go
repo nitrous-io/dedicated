@@ -10,8 +10,8 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/pubsub"
 )
 
-// PullEvent represent the progress data that is emitted from freighter.
-type PullEvent struct {
+// ProgressEvent represents the progress data that is emitted from freighter.
+type ProgressEvent struct {
 	ID       int64  `json:"id"`
 	Progress string `json:"progress"`
 }
@@ -49,7 +49,7 @@ func (b *progressPublisher) Write(p []byte) (int, error) {
 		}
 
 		if line != "" {
-			e := controllers.NewEvent(b.namespace, &PullEvent{
+			e := controllers.NewEvent(b.namespace, &ProgressEvent{
 				ID:       b.imageID,
 				Progress: strings.TrimSpace(line),
 			})

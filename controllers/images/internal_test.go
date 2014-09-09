@@ -24,7 +24,7 @@ var _ = Describe("progressPublisher", func() {
 
 		e := (<-ch).(*controllers.Event)
 		Expect(e.Name).To(Equal("image.pulling"))
-		data := e.Data.(*PullEvent)
+		data := e.Data.(*ProgressEvent)
 		Expect(data.Progress).To(Equal(`{"status":"pulling"}`))
 	})
 
@@ -50,8 +50,8 @@ var _ = Describe("progressPublisher", func() {
 		e1 := (<-ch).(*controllers.Event)
 		e2 := (<-ch).(*controllers.Event)
 		e3 := (<-ch).(*controllers.Event)
-		Expect(e1.Data.(*PullEvent).Progress).To(Equal(`{"status":"pulling"}`))
-		Expect(e2.Data.(*PullEvent).Progress).To(Equal(`{"status":"this is a long message about big image pulling..."}`))
-		Expect(e3.Data.(*PullEvent).Progress).To(Equal(`{"status":"pulled"}`))
+		Expect(e1.Data.(*ProgressEvent).Progress).To(Equal(`{"status":"pulling"}`))
+		Expect(e2.Data.(*ProgressEvent).Progress).To(Equal(`{"status":"this is a long message about big image pulling..."}`))
+		Expect(e3.Data.(*ProgressEvent).Progress).To(Equal(`{"status":"pulled"}`))
 	})
 })
