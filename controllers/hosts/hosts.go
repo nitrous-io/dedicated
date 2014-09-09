@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/providertemplate"
 	"github.com/nitrous-io/nitrous/models/region"
+	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 	"github.com/nitrous-io/nitrous/serializers"
@@ -46,6 +47,8 @@ var (
 var HostbuilderClient *hostbuilderclient.Hostbuilder
 var defaultProvider string
 var aesKey string
+var defaultAPTLocation string
+var defaultAPTDist string
 
 func init() {
 	hostbuilderURL := os.Getenv("HOSTBUILDER_URL")
@@ -62,6 +65,16 @@ func init() {
 	defaultProvider = os.Getenv("DEFAULT_PROVIDER")
 	if defaultProvider == "" {
 		panic("DEFAULT_PROVIDER is not set")
+	}
+
+	defaultAPTLocation = os.Getenv("DEFAULT_APT_LOCATION")
+	if defaultAPTLocation == "" {
+		panic("DEFAULT_APT_LOCATION is not set")
+	}
+
+	defaultAPTDist = os.Getenv("DEFAULT_APT_DIST")
+	if defaultAPTDist == "" {
+		panic("DEFAULT_APT_DIST is not set")
 	}
 }
 
@@ -177,9 +190,22 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			config[k] = ""
 		}
 	}
+
+	// Assuming that t is not nil cos if user gets here,
+	// that means she has a token, but return err if there's
+	// some other unexpected error
+	t, err := token.FindByUser(db, env.User.ID)
+	if err != nil {
+		return err
+	}
+
 	config["name"] = slug
 	config["public_keys"] = []string{string(pubkey)}
 	config["secret"] = h.Secret
+	config["apt_username"] = env.User.Username
+	config["apt_password"] = t.Token
+	config["apt_location"] = defaultAPTLocation
+	config["apt_dist"] = defaultAPTDist
 
 	info, err := HostbuilderClient.Create(pt.Provider, &config)
 	if err != nil {
