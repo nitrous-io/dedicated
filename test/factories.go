@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
@@ -135,7 +136,10 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 		return nil, err
 	}
 
-	// create a certificate for the host
+	// create a certificate for the host.  This
+	// certificate will not work for TLS access to the
+	// host (via freighterclient), use
+	// GenerateHostCert(db, hs) to produce a usable cert
 	crt := &cert.Cert{
 		ServerCert: localhostCert,
 		ServerKey:  localhostKey,
@@ -153,6 +157,40 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 
 	HostStackCount += 1
 
+	return hs, nil
+}
+
+// GenerateHostCert generates a certificate for the host
+// signed by CA.  This is expensive, so call explicitly
+// only when needed.  It deletes any existing cert for
+// that host.
+func GenerateHostCert(db *db.Database, hs *HostStack) (*HostStack, error) {
+	caInfo, err := controllers.GetCAInfo(true)
+	if err != nil {
+		return nil, err
+	}
+	crt, err := cert.Generate(hs.H.Hostname(), caInfo.X509Cert, caInfo.Key)
+	if err != nil {
+		return nil, err
+	}
+	tx, err := db.Beginx()
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := cert.Delete(tx, hs.H.ID); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := crt.Insert(tx, hs.H.ID); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	hs.Cert = crt
 	return hs, nil
 }
 
