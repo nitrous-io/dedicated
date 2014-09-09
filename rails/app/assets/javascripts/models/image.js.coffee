@@ -25,5 +25,5 @@ klass.reopenClass
   rootKey: 'image'
   collectionKey: 'images'
 
-  inputPattern: '[a-z0-9\._\-]{3,30}'
+  inputPattern: '[a-z0-9\\._\\-]{3,30}'
   inputTitle: 'May only contain alphanumeric characters, underscores or dashes. (3-30 characters)'

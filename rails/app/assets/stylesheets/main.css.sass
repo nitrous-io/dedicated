@@ -51,14 +51,16 @@ a
   &:active
     color: $lightBlue900
 
-html input, html textarea, html button
-  &:disabled, &[disabled]
-    cursor: not-allowed
+html
+  input, textarea, button, select
+    &:disabled, &[disabled]
+      cursor: not-allowed
 
 input, textarea
   +placeholder-color($gray500)
 
 label
+  user-select: none
   cursor: pointer
 
 hr

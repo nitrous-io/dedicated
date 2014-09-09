@@ -18,6 +18,11 @@ App.Volume = klass = App.Model.extend
       "volume-#{id}"
   ).property 'id'
 
+  defaultMountpoint: (->
+    if slug = @get 'slug'
+      "/volumes/#{slug}"
+  ).property 'slug'
+
 klass.reopenClass
   url: '/hosts/:hostId/volumes'
   primaryKey: 'slug'

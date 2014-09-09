@@ -11,32 +11,32 @@
     .indent
       margin-left: 16px + 20px + 16px
 
-  .port-bindings, .volumes
-    table
-      width: auto
-      text-align: left
-      margin-left: 8px
+  .container-config-btns
+    .ui.btn
+      margin-right: 16px
 
-    input[type=text], input[type=number], .ui.select
-      font-size: $fontSizeMedium
+  .container-config
+    .ui.card
+      width: 640px
 
-    input[type=text], .ui.select
-      width: 190px
+    .card-body
+      table
+        width: auto
+        text-align: left
+        margin-left: 8px
 
-    input[type=number]
-      width: 160px
+      input[type=text], input[type=number], .ui.select
+        font-size: $fontSizeMedium
 
-    button
-      line-height: 1
+      input[type=text], .ui.select
+        width: 190px
 
-  .port-bindings
-    td:first-of-type
-      width: 60px
+      input[type=number]
+        width: 160px
 
-  .advanced-options
-    overflow: hidden
-    max-height: 450px
-    transition: max-height .33s
+      button
+        line-height: 1
 
-    &.hidden
-      max-height: 0
+    .port-bindings
+      td:first-of-type
+        width: 60px

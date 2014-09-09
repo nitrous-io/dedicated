@@ -186,6 +186,7 @@ table.ui.table
   color: $gray800
   line-height: normal
   margin-left: 1px
+  user-select: none
 
   &:first-of-type
     margin-right: 0
@@ -327,6 +328,9 @@ table.ui.table
     &:focus
       outline: none
 
+    &:disabled
+      cursor: not-allowed
+
     + label:before, + label:after
       display: block
       content: ' '
@@ -402,12 +406,19 @@ ul.ui.checkbox-group
     padding: 0 16px
 
     > label
+      transition: color .2s
       color: $gray800
       font-size: 14px
 
   &.horizontal
     display: flex
     flex-direction: row
+
+  &.disabled
+    > li
+      > label
+        color: $gray400
+        cursor: not-allowed
 
 .ui.file-picker
   position: relative
