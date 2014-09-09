@@ -3,22 +3,66 @@ package wsconn
 import (
 	"io"
 	"log"
+	"time"
 
 	"github.com/gorilla/websocket"
+)
+
+var (
+	// Max time allowed to write a message to the client.
+	writeWait = 5 * time.Second
+
+	// Max time allowed to read the next pong message from client.
+	pongWait = 30 * time.Second
+
+	// Pings are sent to the client with this period.
+	pingPeriod = (pongWait * 9) / 10
 )
 
 // Currently the connection is only used for sending text message i.e. (utf-8
 // encoded messages)
 type Conn struct {
 	*websocket.Conn
-	reader io.Reader // cached reader, which is reset whenever the messages is EOF
+	reader     io.Reader // cached reader, which is reset whenever the messages is EOF
+	writeWait  time.Duration
+	pongWait   time.Duration
+	pingPeriod time.Duration
+
+	serverHeartbeat bool // if we sends 'h' character as heartbeat together with ping msg
 }
 
 func NewConnection(w *websocket.Conn) *Conn {
-	return &Conn{Conn: w}
+	c := &Conn{
+		Conn:       w,
+		pongWait:   pongWait,
+		pingPeriod: pingPeriod,
+		writeWait:  writeWait,
+	}
+	c.pingpong()
+	return c
+}
+
+// NewConNewConnectionHeartbeat returns a connection with serverside heartbeat
+// message support
+//
+// When serverHeartbeat is turned on, it sends 'h' frame as a standalone
+// message together with the ping message
+func NewConnectionHeartbeat(w *websocket.Conn, serverHeartbeat bool) *Conn {
+	c := &Conn{
+		Conn:            w,
+		pongWait:        pongWait,
+		pingPeriod:      pingPeriod,
+		writeWait:       writeWait,
+		serverHeartbeat: serverHeartbeat,
+	}
+	c.pingpong()
+	return c
 }
 
 func (c Conn) Write(b []byte) (int, error) {
+	if c.writeWait != 0 {
+		c.SetWriteDeadline(time.Now().Add(c.writeWait))
+	}
 	if err := c.WriteMessage(websocket.TextMessage, b); err != nil {
 		return 0, err
 	}
@@ -48,5 +92,37 @@ func (c Conn) Read(b []byte) (int, error) {
 }
 
 func (c Conn) Close() error {
+	c.SetWriteDeadline(time.Now().Add(c.writeWait))
+	c.WriteMessage(websocket.CloseMessage, []byte{})
 	return c.Conn.Close()
+}
+
+func (c Conn) pingpong() {
+	if c.pongWait != 0 {
+		c.SetReadDeadline(time.Now().Add(c.pongWait))
+		c.SetPongHandler(func(string) error {
+			c.SetReadDeadline(time.Now().Add(c.pongWait))
+			return nil
+		})
+	}
+
+	if c.pingPeriod != 0 {
+		pingTicker := time.NewTicker(c.pingPeriod)
+		go func() {
+			defer pingTicker.Stop()
+			for _ = range pingTicker.C {
+				if c.writeWait != 0 {
+					c.SetWriteDeadline(time.Now().Add(c.writeWait))
+				}
+				if err := c.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+					return
+				}
+
+				// send serverHeartbeat if enabled
+				if c.serverHeartbeat {
+					c.Write([]byte("h"))
+				}
+			}
+		}()
+	}
 }
