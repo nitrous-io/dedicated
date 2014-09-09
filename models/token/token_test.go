@@ -20,6 +20,7 @@ var _ = Describe("models/token", func() {
 	var (
 		u1 *user.User
 		u2 *user.User
+		u3 *user.User
 		db *db.Database
 	)
 
@@ -42,6 +43,14 @@ var _ = Describe("models/token", func() {
 			Password: "123456",
 		}
 		err = u2.Insert(db)
+		Expect(err).To(BeNil())
+
+		u3 = &user.User{
+			Username: "baz",
+			Email:    "baz@example.com",
+			Password: "123456",
+		}
+		err = u3.Insert(db)
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec("INSERT INTO tokens (user_id, token) values ($1, $2);", u1.ID, "foofoo")
@@ -75,7 +84,7 @@ var _ = Describe("models/token", func() {
 			})
 		})
 
-		Context("when a token record with a given token does not exist", func() {
+		Context("when a token record with a given user ID does not exist", func() {
 			It("returns nil", func() {
 				t, err := token.FindByToken(db, "batbat")
 				Expect(t).To(BeNil())
@@ -87,6 +96,43 @@ var _ = Describe("models/token", func() {
 			It("returns error", func() {
 				db.Close()
 				t, err := token.FindByToken(db, "foofoo")
+				Expect(t).To(BeNil())
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
+	Describe("FindByUser()", func() {
+		Context("when a token record with a given user id exists", func() {
+			It("returns the token record", func() {
+				t, err := token.FindByUser(db, u1.ID)
+				Expect(err).To(BeNil())
+				Expect(t).NotTo(BeNil())
+				Expect(t.ID).NotTo(BeZero())
+				Expect(t.UserID).To(Equal(u1.ID))
+				Expect(t.Token).To(Equal("foofoo"))
+
+				t, err = token.FindByUser(db, u2.ID)
+				Expect(err).To(BeNil())
+				Expect(t).NotTo(BeNil())
+				Expect(t.ID).NotTo(BeZero())
+				Expect(t.UserID).To(Equal(u2.ID))
+				Expect(t.Token).To(Equal("barbar"))
+			})
+		})
+
+		Context("when a token record with a given user id does not exist", func() {
+			It("returns nil", func() {
+				t, err := token.FindByUser(db, u3.ID)
+				Expect(t).To(BeNil())
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when some error happens", func() {
+			It("returns error", func() {
+				db.Close()
+				t, err := token.FindByUser(db, u1.ID)
 				Expect(t).To(BeNil())
 				Expect(err).NotTo(BeNil())
 			})
