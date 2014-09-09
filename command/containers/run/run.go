@@ -10,7 +10,7 @@ import (
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/containers"
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
-	"github.com/nitrous-io/nitro/pkg/remoteshell"
+	"github.com/nitrous-io/nitro/pkg/protoshell"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
 
@@ -78,7 +78,7 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	sh := remoteshell.New(host, cr.CID, command, func() (string, error) {
+	sh := protoshell.New(host, cr.CID, command, func() (string, error) {
 		return containers.GetToken(slug, c.server, []string{"shell"}, c.client)
 	})
 	if err := sh.Run(pty.Fd(), stdin, stdout); err != nil {
