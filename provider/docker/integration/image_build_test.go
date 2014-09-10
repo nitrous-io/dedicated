@@ -5,12 +5,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
+	"io/ioutil"
 	"os/exec"
 
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/provider/docker"
 	"github.com/nitrous-io/freighter/util"
-	"github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -56,7 +56,8 @@ var _ = Describe("BuildImage", func() {
 
 	It("creates an Image successfully", func() {
 		logger := &util.Logger{Level: util.LogLevelQuiet}
-		data, _ := test.TempDir()
+		data, err := ioutil.TempDir("", "freightertest")
+		Expect(err).To(BeNil(), "failed to create temp dir")
 		prov, err := docker.NewDockerProvider(logger, data)
 		Expect(err).To(BeNil(), "failed to initialize docker provider")
 
@@ -71,7 +72,8 @@ var _ = Describe("BuildImage", func() {
 
 	It("correctly stores the additional data", func() {
 		logger := &util.Logger{Level: util.LogLevelQuiet}
-		data, _ := test.TempDir()
+		data, err := ioutil.TempDir("", "freightertest")
+		Expect(err).To(BeNil(), "failed to create temp dir")
 		prov, err := docker.NewDockerProvider(logger, data)
 		Expect(err).To(BeNil(), "failed to initialize docker provider")
 
