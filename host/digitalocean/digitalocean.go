@@ -52,6 +52,7 @@ func (h *Host) Create() (*host.Info, error) {
 		waitForSSH,
 		writePublicKeys,
 		writeRepository,
+		updateSoftware,
 	}
 	ctx := context.NewContext(h, steps)
 	if err := ctx.Execute(); err != nil {
@@ -264,5 +265,17 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 		return err
 	}
 	log.Printf("Uploaded apt details at %v", h.droplet.IpAddress)
+	return nil
+}
+
+func updateSoftware(ctx *context.Context, hst host.Host) error {
+	h := hst.(*Host)
+	updateSoftwareCmd := `
+apt-get update && apt-get install -yq freighterd && service freighterd restart
+`
+	if err := h.conn.Execute(updateSoftwareCmd); err != nil {
+		return err
+	}
+	log.Printf("Updated software on %v", h.droplet.IpAddress)
 	return nil
 }

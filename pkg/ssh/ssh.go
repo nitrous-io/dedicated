@@ -25,6 +25,16 @@ func (c *Conn) Upload(path string, input io.Reader) error {
 	return c.scpSession("scp -vt "+targetDir, scpFunc)
 }
 
+func (c *Conn) Execute(cmd string) error {
+	session, err := c.newSession()
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	return session.Run(cmd)
+}
+
 func (c *Conn) newSession() (*ssh.Session, error) {
 	if c.Client == nil {
 		return nil, errors.New("client not available")
