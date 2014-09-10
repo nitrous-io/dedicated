@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -274,21 +273,20 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 }
 
 func (p *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
-	_, err := p.inspectContainer(id)
-	if err != nil {
-		return nil, err
-	}
-
 	p.logger.Info("DockerProvider: restarting container", id)
 	start := time.Now()
-
-	err = p.client.RestartContainer(id, 15)
+	// Stop and then start until https://github.com/docker/docker/issues/7693
+	// is fixed.
+	_, err := p.Stop(id)
 	if err != nil {
 		return nil, err
 	}
-
+	info, err := p.Start(id, "")
+	if err != nil {
+		return nil, err
+	}
 	p.logger.TimeInfo(start, "DockerProvider: restarted container", id, "in")
-	return p.GetInfo(id)
+	return info, nil
 }
 
 func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
@@ -318,7 +316,7 @@ func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 	info.Host = ""
 	info.Gateway = ""
 	info.State = ""
-	info.Ports = map[string]int{}
+	info.Ports = nil
 
 	p.logger.TimeInfo(terminationStart, "DockerProvider: terminated container", id, "in")
 	return info, nil
@@ -920,15 +918,42 @@ func stateFromContainer(container *dockerclient.Container) string {
 	return provider.ContainerStateStopped
 }
 
-func portsFromContainer(container *dockerclient.Container) (ports map[string]int) {
-	ports = make(map[string]int)
+// portsFromContainer returns a mapping from container port to a slice of host
+// ports. The result means different things depending on container state.
+// For running containers, the actual "live" port bindings are returned.
+// For stopped containers, the *configured* port bindings are returned and
+// will look like this: "22" -> [] to indicate that there is a port binding for
+// port 22.
+func portsFromContainer(container *dockerclient.Container) map[string][]string {
+	ports := make(map[string][]string)
+
+	// If container is running, the actual "live" port bindings are set in
+	// NetworkSettings.Ports by Docker.
+	if container.State.Running {
+		for port, bindings := range container.NetworkSettings.Ports {
+			containerPort := port.Port()
+			for _, binding := range bindings {
+				ports[containerPort] = append(ports[containerPort], binding.HostPort)
+			}
+		}
+		return ports
+	}
+
+	// Otherwise, container is stopped so we have to merge HostConfig and
+	// ExposedPorts to determine the configured port bindings.
 	for port, bindings := range container.HostConfig.PortBindings {
-		containerPort, _ := strconv.Atoi(port.Port())
+		containerPort := port.Port()
 		for _, binding := range bindings {
-			ports[string(binding.HostPort)] = containerPort
+			ports[containerPort] = append(ports[containerPort], binding.HostPort)
 		}
 	}
-	return
+	for port := range container.Config.ExposedPorts {
+		containerPort := port.Port()
+		if _, ok := ports[containerPort]; !ok {
+			ports[containerPort] = []string{}
+		}
+	}
+	return ports
 }
 
 // converts []pubkey to map[keyFingerprint]pubkey

@@ -73,23 +73,20 @@ type Provider interface {
 }
 
 type ContainerInfo struct {
-	ID         string         `json:"id"`
-	Name       string         `json:"name"`
-	Image      string         `json:"image"`
-	ImageID    string         `json:"image_id"`
-	Host       string         `json:"host"`
-	Gateway    string         `json:"gateway"`
-	State      string         `json:"state"`
-	Ports      map[string]int `json:"ports"`
-	Cmd        []string       `json:"cmd,omitempty"`
-	Entrypoint []string       `json:"entrypoint,omitempty"`
-	ExitCode   int            `json:"exit_code"`
-	StartedAt  time.Time      `json:"started_at"`
-	FinishedAt time.Time      `json:"finished_at"`
-	// TODO: should we serialize this?
-	// my gut says we shouldn't 't serialize this because there might be passwords etc.
-	// which we don't want it to shown in the webapp/CLI
-	Env []string `json:"-"`
+	ID         string              `json:"id"`
+	Name       string              `json:"name"`
+	Image      string              `json:"image"`
+	ImageID    string              `json:"image_id"`
+	Host       string              `json:"host"`
+	Gateway    string              `json:"gateway"`
+	State      string              `json:"state"`
+	Ports      map[string][]string `json:"ports"`
+	Cmd        []string            `json:"cmd,omitempty"`
+	Entrypoint []string            `json:"entrypoint,omitempty"`
+	ExitCode   int                 `json:"exit_code"`
+	StartedAt  time.Time           `json:"started_at"`
+	FinishedAt time.Time           `json:"finished_at"`
+	Env        []string            `json:"-"`
 }
 
 type ContainerConfig struct {
