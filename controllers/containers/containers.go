@@ -99,6 +99,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 					containersResp = append(containersResp, serializers.SerializeContainer(sc))
 				}
 			} else {
+				env.Logger.Errorf("freighter err is not nil: %v, for host %s", freighterErr, h.Slug)
 				return freighterErr
 			}
 		}
