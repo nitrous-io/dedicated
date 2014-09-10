@@ -4,17 +4,16 @@ import (
 	"errors"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
-
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/util"
 )
 
-func (p *DockerProvider) CreateConfigs(containerName, imageName string, cfg *provider.ContainerConfig) (*dockerclient.Config, *dockerclient.HostConfig, error) {
-	return p.createConfigs(containerName, imageName, cfg)
+func (p *DockerProvider) MkContainerConfig(cfg *provider.ContainerConfig) (*dockerclient.Config, error) {
+	return p.mkContainerConfig(cfg)
 }
 
-func (p *DockerProvider) StartConfig(container *dockerclient.Container, cfg *provider.ContainerConfig) (*dockerclient.HostConfig, error) {
-	return p.startConfig(container, cfg)
+func (p *DockerProvider) MkHostConfig(hostCfg *dockerclient.HostConfig, cfg *provider.ContainerConfig) (*dockerclient.HostConfig, error) {
+	return p.mkHostConfig(hostCfg, cfg)
 }
 
 // Client exposes private client in tests
