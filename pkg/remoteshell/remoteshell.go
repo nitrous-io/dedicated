@@ -31,6 +31,7 @@ type RemoteShell struct {
 	host         string
 	containerID  string
 	command      string
+	isTerminal   bool // this checks if current shell is a terminal
 	tokenHandler TokenHandler
 }
 
@@ -86,13 +87,17 @@ func (s *RemoteShell) RequestShell() error {
 
 // connect stdin and stdout respectively to their remote parts
 func (s *RemoteShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error {
-	// restore the terminal back to old state when we finish
-	var oldState *term.State
-	oldState, err := term.SetRawTerminal(fd)
-	if err != nil {
-		return err
+	s.isTerminal = term.IsTerminal(fd)
+
+	if s.isTerminal {
+		// restore the terminal back to old state when we finish
+		var oldState *term.State
+		oldState, err := term.SetRawTerminal(fd)
+		if err != nil {
+			return err
+		}
+		defer term.RestoreTerminal(fd, oldState)
 	}
-	defer term.RestoreTerminal(fd, oldState)
 
 	token, err := s.tokenHandler()
 	if err != nil {
@@ -125,7 +130,9 @@ func (s *RemoteShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) erro
 
 	// monitor tty size but doesnt fail when it errors because the remote end
 	// may have been terminated
-	s.monitorSize(fd)
+	if s.isTerminal {
+		s.monitorSize(fd)
+	}
 	return <-done
 }
 
