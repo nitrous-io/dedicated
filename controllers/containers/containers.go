@@ -256,7 +256,8 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 		Slug:        repo,
 		Tag:         tag,
 	}
-	if existing, err := image.Find(db, env.User, h, imageSlug); err == nil {
+	existing, err := image.Find(db, env.User, h, imageSlug)
+	if err == nil {
 		img.ID = existing.ID
 		img.Name = existing.Name
 	}
@@ -272,6 +273,15 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	publishContainerEvent(env, "container.created", cn)
+	imgEvt := "image.created"
+	if existing != nil {
+		imgEvt = "image.updated"
+	}
+	env.Events.Publish(
+		controllers.NewEvent(imgEvt, serializers.SerializeImage(img)),
+		env.User.Topic(),
+	)
+
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"container": serializers.SerializeContainer(cn),

@@ -707,7 +707,10 @@ var _ = Describe("controllers/containers", func() {
 			Expect(mockClient.ReceivedSecret).To(Equal(c.Secret))
 		})
 
-		It("creates a new image record", func() {
+		It("creates a new image record and publishes an image.created event", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
 			doRequest("valid-token", "foo", params)
 
 			i, err := image.Find(db, u, hs.H, "elixir:latest")
@@ -717,22 +720,27 @@ var _ = Describe("controllers/containers", func() {
 			Expect(i.FreighterID).To(Equal("abc123"))
 			Expect(i.Slug).To(Equal("elixir"))
 			Expect(i.Tag).To(Equal("latest"))
+
+			var evt *controllers.Event
+			for msg := range ch { // Ignore all events except image.created
+				e, ok := msg.(*controllers.Event)
+				if ok && e.Name == "image.created" {
+					evt = e
+					break
+				}
+			}
+			Expect(evt).To(Equal(&controllers.Event{
+				Name: "image.created",
+				Data: serializers.SerializeImage(i),
+			}))
+
+			close(done)
 		})
 
-		It("converts the 'slug' form value to lowercase", func() {
-			params.Del("slug")
-			params.Set("slug", "Elixir-WEB-1")
+		It("updates an existing image record if image already exists", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
 
-			doRequest("valid-token", "foo", params)
-			Expect(mockClient.CreateCalled).To(Equal(1))
-			Expect(mockClient.ReceivedName).To(Equal("elixir-web-1"))
-
-			c, err := container.Find(db, u, "elixir-web-1")
-			Expect(err).To(BeNil())
-			Expect(c.Slug).To(Equal("elixir-web-1"))
-		})
-
-		It("updates an existing image record if image already exists", func() {
 			existing := &image.Image{
 				UserID:      hs.U.ID,
 				HostID:      hs.H.ID,
@@ -758,6 +766,33 @@ var _ = Describe("controllers/containers", func() {
 			Expect(i.Slug).To(Equal("existing-image"))  // Unchanged.
 			Expect(i.Tag).To(Equal("mytag"))            // Unchanged.
 			Expect(i.Name).To(Equal("My Elixir Image")) // Unchanged.
+
+			var evt *controllers.Event
+			for msg := range ch { // Ignore all events except image.updated.
+				e, ok := msg.(*controllers.Event)
+				if ok && e.Name == "image.updated" {
+					evt = e
+					break
+				}
+			}
+			Expect(evt).To(Equal(&controllers.Event{
+				Name: "image.updated",
+				Data: serializers.SerializeImage(i),
+			}))
+			close(done)
+		})
+
+		It("converts the 'slug' form value to lowercase", func() {
+			params.Del("slug")
+			params.Set("slug", "Elixir-WEB-1")
+
+			doRequest("valid-token", "foo", params)
+			Expect(mockClient.CreateCalled).To(Equal(1))
+			Expect(mockClient.ReceivedName).To(Equal("elixir-web-1"))
+
+			c, err := container.Find(db, u, "elixir-web-1")
+			Expect(err).To(BeNil())
+			Expect(c.Slug).To(Equal("elixir-web-1"))
 		})
 
 		It("responds with HTTP 201 Created, the container and a status of created", func() {
@@ -782,11 +817,15 @@ var _ = Describe("controllers/containers", func() {
 
 			doRequest("valid-token", "foo", params)
 
-			msg := <-ch
-			evt, ok := msg.(*controllers.Event)
-			Expect(ok).To(BeTrue())
+			var evt *controllers.Event
+			for msg := range ch { // Ignore all events except container.created.
+				e, ok := msg.(*controllers.Event)
+				if ok && e.Name == "container.created" {
+					evt = e
+					break
+				}
+			}
 			Expect(evt.Name).To(Equal("container.created"))
-
 			cn, ok := evt.Data.(*serializers.Container)
 			Expect(ok).To(BeTrue())
 			c, err := container.Find(db, u, "elixir-web-1")
