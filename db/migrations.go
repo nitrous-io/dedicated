@@ -342,5 +342,19 @@ func init() {
 				CREATE INDEX index_images_on_slug_and_tag ON images USING btree (slug, tag);
 			`,
 		},
+		{
+			Version: "270",
+			Up: `
+				CREATE TABLE base_images (
+					id bigserial PRIMARY KEY NOT NULL,
+					name character varying(255) NOT NULL,
+					repo character varying(255) NOT NULL,
+					description character varying(255) NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE UNIQUE INDEX index_base_images_on_name ON base_images USING btree (name);
+			`,
+		},
 	}
 }

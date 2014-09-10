@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/nitrous-io/nitrous/controllers/baseimages"
 	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/controllers/events"
 	"github.com/nitrous-io/nitrous/controllers/home"
@@ -72,8 +73,8 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.DeleteAll), "DELETE")
 
 		s.routeJSON("/plans", plans.Index, "GET")
-
 		s.routeJSON("/regions", regions.Index, "GET")
+		s.routeJSON("/base_images", baseimages.Index, "GET")
 	})
 
 	s.static("/", "public") // catch-all, must come last

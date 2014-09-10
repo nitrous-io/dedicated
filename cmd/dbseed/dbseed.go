@@ -8,6 +8,7 @@ import (
 	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/models/baseimage"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/providertemplate"
 	"github.com/nitrous-io/nitrous/models/region"
@@ -27,7 +28,7 @@ func init() {
 
 type SeedFn func(db.QueryReceiver) error
 
-var seeds = []SeedFn{users, regions, plans, templates}
+var seeds = []SeedFn{users, regions, plans, templates, baseImages}
 
 func main() {
 	dbURL := os.Getenv(DBEnvVar)
@@ -169,6 +170,32 @@ func templates(d db.QueryReceiver) error {
 			}
 		}
 	}
+	return nil
+}
+
+func baseImages(d db.QueryReceiver) error {
+	ok, err := shouldSeed(d, "base_images")
+	if err != nil || !ok {
+		return err
+	}
+	baseImages := []baseimage.BaseImage{
+		{Name: "Go", Repo: "nitrousio/golang:latest", Description: ""},
+		{Name: "Node.js", Repo: "nitrousio/nodejs:latest", Description: ""},
+		{Name: "PHP", Repo: "nitrousio/php:latest", Description: ""},
+		{Name: "Python", Repo: "nitrousio/python:latest", Description: ""},
+		{Name: "Python with Django", Repo: "nitrousio/django:latest", Description: ""},
+		{Name: "Ruby", Repo: "nitrousio/ruby:latest", Description: ""},
+		{Name: "Ruby on Rails", Repo: "nitrousio/rails:latest", Description: ""},
+		{Name: "Ubuntu", Repo: "nitrousio/ubuntu:trusty", Description: ""},
+	}
+	for _, b := range baseImages {
+		err = b.Insert(d)
+		if err != nil {
+			return err
+		}
+		logr.Infof("Added base image %+v", b)
+	}
+
 	return nil
 }
 
