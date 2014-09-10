@@ -2,21 +2,22 @@ package ibuild
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
-	"path"
 	"strings"
+	"time"
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/images"
 	"github.com/nitrous-io/nitro/pkg/randomnamegenerator"
 	"github.com/nitrous-io/nitrous-common/httpclient"
+	"github.com/nitrous-io/nitrous-common/isarchive"
 	flag "github.com/ogier/pflag"
 )
 
@@ -143,8 +144,8 @@ func (c *Command) buildImage(host, fpath, slug string, out io.Writer, termFd uin
 	return nil
 }
 
-// loadFile returns a reader to path if path is a tarball, and wraps path in a
-// tarball if path is a Dockerfile
+// loadFile returns a reader to path if path is a tarball,
+// or wraps path in a tarball if path is a Dockerfile
 func loadFile(fpath string) (io.Reader, error) {
 	f, err := os.Open(fpath)
 	if err != nil {
@@ -152,38 +153,45 @@ func loadFile(fpath string) (io.Reader, error) {
 	}
 	defer f.Close()
 
-	// assumption: file named Dockerfile is not a tar; all other files are tars
-	if path.Base(fpath) == "Dockerfile" {
-		return dockerfileTar(f)
-	} else {
-		b, err := ioutil.ReadAll(f)
-		if err != nil {
-			return nil, err
-		}
-
-		if !isValidTar(bytes.NewBuffer(b)) {
-			return nil, errInvalidTar
-		}
-		return bytes.NewBuffer(b), nil
+	bufRdr := bufio.NewReader(f)
+	header, err := bufRdr.Peek(isarchive.MaxHeaderLength)
+	// Peek can return err even if header is read and read bytes is shorter than requested
+	if err != nil && header == nil {
+		return nil, err
 	}
-}
+	isArchive := isarchive.IsArchive(header)
 
-// takes a Dockerfile and returns a tar Reader
-func dockerfileTar(f *os.File) (io.Reader, error) {
-	fi, err := f.Stat()
+	b := &bytes.Buffer{}
+	_, err = b.ReadFrom(bufRdr)
 	if err != nil {
 		return nil, err
 	}
+
+	// if not archive, make tarball
+	if !isArchive {
+		return makeArchive(b)
+	}
+
+	return b, nil
+}
+
+// takes a buffered Dockerfile and returns a tar Reader
+func makeArchive(dockerfileBuf *bytes.Buffer) (io.Reader, error) {
 	buf := bytes.NewBuffer(nil)
 	tw := tar.NewWriter(buf)
+
+	now := time.Now()
 	hdr := &tar.Header{
-		Name: "Dockerfile",
-		Size: fi.Size(),
+		Name:       "Dockerfile",
+		Size:       int64(dockerfileBuf.Len()),
+		ModTime:    now,
+		AccessTime: now,
+		ChangeTime: now,
 	}
 	if err := tw.WriteHeader(hdr); err != nil {
 		return nil, err
 	}
-	if _, err := io.Copy(tw, f); err != nil {
+	if _, err := tw.Write(dockerfileBuf.Bytes()); err != nil {
 		return nil, err
 	}
 	if err := tw.Close(); err != nil {
