@@ -2,7 +2,7 @@
 tmp=$(mktemp -d /tmp/docker_XXXXX)
 
 cleanup() {
-  (docker stop $cid && docker rm $cid) >/dev/null
+  (docker stop $cid && docker rm --volume=true $cid) >/dev/null
 }
 
 die() {
