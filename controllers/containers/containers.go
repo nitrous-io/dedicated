@@ -656,22 +656,30 @@ func publishContainerEvent(env *middleware.Env, name controllers.EventName, c *c
 
 func prepareConfig(form url.Values, hv map[string]*volume.Volume) (*freighterclient.ContainerConfig, error) {
 	c := &freighterclient.ContainerConfig{}
-	if envs, ok := form["env[]"]; ok {
-		c.Env = envs
-	}
-	if vols, ok := form["volume[]"]; ok {
-		for _, v := range volumeSlugs(vols) {
-			if _, ok := hv[v]; !ok {
-				return nil, errVolumeNotFound
-			}
+	c.Env = readParam(form, "env[]")
+	vols := readParam(form, "volume[]")
+	for _, v := range volumeSlugs(vols) {
+		if _, ok := hv[v]; !ok {
+			return nil, errVolumeNotFound
 		}
-		c.Mounts = vols
 	}
-	if ports, ok := form["port[]"]; ok {
-		c.PortBindings = ports
-	}
+	c.Mounts = vols
+	c.PortBindings = readParam(form, "port[]")
 	c.PublishAll, _ = strconv.ParseBool(form.Get("publish_all"))
 	return c, nil
+}
+
+func readParam(form url.Values, name string) []string {
+	vals, ok := form[name]
+	switch {
+	case !ok:
+		return nil
+	case len(vals) == 1 && vals[0] == "":
+		// empty param
+		return []string{}
+	default:
+		return vals
+	}
 }
 
 func volumeSlugs(volParams []string) []string {
