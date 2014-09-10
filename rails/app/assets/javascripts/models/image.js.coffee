@@ -2,9 +2,12 @@
 attr = SM.attr
 
 App.Image = klass = App.Model.extend
-  id: attr(serialize: false)
+  id: attr('number', serialize: false)
+  userId: attr('number', as: 'user_id', serialize: false)
   hostId: attr('number', as: 'host_id', serialize: false)
+  freighterId: attr(as: 'freighter_id', serialize: false)
   name: attr()
+  repo: attr()
   slug: attr()
   tag: attr()
   actualSize: attr('number', as: 'actual_size', serialize: false)
@@ -18,6 +21,15 @@ App.Image = klass = App.Model.extend
     tag = @get 'tag'
     "#{slug}:#{tag}"
   ).property 'slug', 'tag'
+
+  displayName: (->
+    @get('name') || @get('slugAndTag')
+  ).property 'name', 'slugAndTag'
+
+  inputId: (->
+    if id = @get 'id'
+      "image-#{id}"
+  ).property 'id'
 
 klass.reopenClass
   url: '/hosts/:hostId/images'

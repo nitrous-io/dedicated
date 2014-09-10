@@ -1,0 +1,40 @@
+= host-tab-bar selected='images'
+
+.card-body
+  if records.loaded
+    if records.length
+      ul.ui.list.with-separators.item-2-line
+        each image in records
+          li.list-item
+            .left-accessory
+              .ui.checkbox
+                input.record-checkbox type='checkbox' id={image.inputId} value={image.id}
+                label
+            .lines
+              label for={image.inputId}
+                h4
+                  = image.displayName
+                p
+                  = image.slugAndTag
+                  span.sep
+                  | Created&nbsp;
+                  = ago createdAt
+    else
+      p.hint-text
+        i.fa.fa-exclamation-circle
+        | This host is not connected to any Docker registry.
+  else
+    p.hint-text
+      i.spinner
+      | Loading...
+
+.card-footer.bordered
+  .left
+    if removing
+      button.ui.btn disabled='disabled'
+        i.spinner
+        | Removing...
+    else
+      button.ui.btn click='remove' disabled=noneSelected Remove
+  .right
+    button.ui.btn.primary click='add' New Image...

@@ -22,8 +22,16 @@ App.ImagesNewView = Em.View.extend
 
   hostsDidChange: (->
     Em.run.scheduleOnce 'afterRender', this, ->
+      slug = @get('controller.hostQueryParam')
+      if slug && !@get('selectedHostSlug')
+        @set 'controller.selectedHostSlug', slug
       @$('select[name=host]')?.change()
   ).observes 'App.hosts.@each'
+
+  hostQueryParamDidChange: (->
+    if slug = @get('controller.hostQueryParam')
+      @set 'controller.selectedHostSlug', slug
+  ).observes 'controller.hostQueryParam'
 
   didInsertElement: ->
     @_super()
@@ -50,8 +58,7 @@ App.ImagesNewView = Em.View.extend
 
     App.slug.slugify(@$('#images-new-name'), @$('#images-new-slug'), false)
 
-    @$('select[name=host]').change()
-
+    @hostsDidChange()
     @$('#images-new-name').focus()
 
   willDestroyElement: ->

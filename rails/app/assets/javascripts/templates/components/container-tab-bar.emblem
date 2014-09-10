@@ -4,7 +4,7 @@ li.disabled class={logsSelected:selected}
   a href='#' Logs
 li class={keysSelected:selected}
   link-to 'container.keys' | Keys
-li.disabled class={envSelected:selected}
+li.disabled class={configSelected:selected}
   a href='#' Config
 li.disabled class={usersSelected:selected}
   a href='#' Users

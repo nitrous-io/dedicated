@@ -104,7 +104,6 @@ SM.RESTAdapter = Ember.Object.extend
     promise = new Ember.RSVP.Promise (resolve, reject) =>
       serialized = record.serialize()
       Ember.merge(serialized, params)
-      console.log serialized
 
       @ajax('POST', url, serialized).done((data, status, jqxhr) ->
         if model.rootKey

@@ -16,8 +16,8 @@ else
     link-to 'host.index' | General
   li class={registriesSelected:selected}
     link-to 'host.registries' | Registries
-  li.disabled class={imagesSelected:selected}
-    a href='#' Images
+  li class={imagesSelected:selected}
+    link-to 'host.images' | Images
   li class={volumesSelected:selected}
     link-to 'host.volumes' | Volumes
   li.disabled class={archivesSelected:selected}

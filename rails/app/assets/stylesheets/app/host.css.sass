@@ -8,6 +8,14 @@
       display: inline-block
       margin-right: 6px
 
+  .record-list-view
+    span.sep
+      color: $gray400
+      margin: 0 5px
+
+      &:before
+        content: '-'
+
 #host-index-view
   td.usage
     width: 160px
@@ -36,15 +44,6 @@
     .registry-buttons
       .btn
         margin-left: 16px
-
-#host-volumes-view
-  .lines
-    span.sep
-      color: $gray400
-      margin: 0 5px
-
-      &:before
-        content: '-'
 
 #host-volumes-new-view
   .ui.input-group

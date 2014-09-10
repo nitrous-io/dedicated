@@ -7,10 +7,9 @@ App.HostTabBarComponent = Em.Component.extend
 
   generalSelected:    Em.computed.equal 'selected', 'general'
   registriesSelected: Em.computed.equal 'selected', 'registries'
-  containersSelected: Em.computed.equal 'selected', 'containers'
   imagesSelected:     Em.computed.equal 'selected', 'images'
-  archivesSelected:   Em.computed.equal 'selected', 'archives'
   volumesSelected:    Em.computed.equal 'selected', 'volumes'
+  archivesSelected:   Em.computed.equal 'selected', 'archives'
   usersSelected:      Em.computed.equal 'selected', 'users'
 
   didInsertElement: ->

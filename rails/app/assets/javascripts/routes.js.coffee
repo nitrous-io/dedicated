@@ -18,6 +18,7 @@ App.Router.map ->
     @resource 'host', path: '/hosts/:hostSlug', ->
       @route 'registries'
       @route 'registries-new', path: '/registries/new'
+      @route 'images'
       @route 'volumes'
       @route 'volumes-new', path: '/volumes/new'
 

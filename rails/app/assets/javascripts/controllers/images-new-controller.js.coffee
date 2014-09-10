@@ -1,4 +1,8 @@
 App.ImagesNewController = Em.Controller.extend
+  queryParams:
+    hostQueryParam: 'host'
+
+  hostQueryParam: null
   selectedHostSlug: null
   name: null
   slug: null
@@ -13,7 +17,10 @@ App.ImagesNewController = Em.Controller.extend
 
   actions:
     cancel: ->
-      @transitionToRoute 'home.index'
+      if slug = @get('hostQueryParam')
+        @transitionToRoute 'host.images', slug
+      else
+        @transitionToRoute 'home.index'
 
     create: (file) ->
       @set 'saving', true

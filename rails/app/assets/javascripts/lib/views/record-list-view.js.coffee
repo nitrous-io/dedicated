@@ -1,4 +1,6 @@
 Lib.RecordListView = Em.View.extend
+  classNames: ['record-list-view']
+
   updatedSelectedIds: (->
     Em.run.scheduleOnce 'afterRender', =>
       selected = @$('input.record-checkbox:checked').map (i, el) ->
