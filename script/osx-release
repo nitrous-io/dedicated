@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -x
 set -e
 
 APP=${1:?"app name is required"}
@@ -7,75 +8,12 @@ ARTIFACT_DIR=/tmp/$APP/$VERSION/darwin/amd64
 
 # OSX package
 OSX_ARCH="darwin_amd64"
-OSX_BIN=/usr/bin
-OSX_OSX_APP_ID=io.nitrous.nitro
-OSX_OSX_APP_DESC="Nitrous.IO CLI"
-OSX_BUILD=$ARTIFACT_DIR/osx-build/
-OSX_PKG=${APP}-${VERSION}-${OSX_ARCH}.pkg
-OSX_PKG_SRC=${OSX_BUILD}${OSX_PKG}
+OSX_PKG=${APP}-${VERSION}-${OSX_ARCH}.tar.gz
 OSX_BUCKET=osx.nitrous.io
 
-function osx_package() {
+cd $ARTIFACT_DIR
+tar -zvcf ${OSX_PKG} ${APP}
 
-# remove any packaging direcories
-rm -rf $OSX_BUILD/{flat,root}
-
-# prepare build directory structure
-mkdir -p $OSX_BUILD/flat/base.pkg
-mkdir -p $OSX_BUILD/flat/Resources/en.lproj
-mkdir -p $OSX_BUILD/root/usr/bin
-
-cp $ARTIFACT_DIR/${APP} $OSX_BUILD/root/usr/bin/$APP
-( cd $OSX_BUILD/root && find . | cpio -o --format odc --owner 0:80 | gzip -c ) > $OSX_BUILD/flat/base.pkg/Payload
-
-FILE_COUNT=$(find $OSX_BUILD/root | wc -l)
-INSTALL_SIZE=$(du -k -s $OSX_BUILD/root)
-
-cat << EOF > $OSX_BUILD/flat/base.pkg/PackageInfo
-<pkg-info format-version="2" identifier="${OSX_APP_ID}.base.pkg" version="${VERSION}" install-location="/" auth="root">
-  <payload installKBytes="${INSTALL_SIZE}" numberOfFiles="${FILE_COUNT}"/>
-<bundle-version>
-  <bundle id="${OSX_APP_ID}" CFBundleIdentifier="${OSX_APP_ID}" path=".${OSX_BIN}/${APP}" CFBundleVersion="${VERSION}"/>
-</bundle-version>
-</pkg-info>
-EOF
-
-mkbom -u 0 -g 80 $OSX_BUILD/root $OSX_BUILD/flat/base.pkg/Bom
-
-cat << EOF > $OSX_BUILD/flat/Distribution
-<?xml version="1.0" encoding="utf-8"?>
-<installer-script minSpecVersion="1.000000" authoringTool="com.apple.PackageMaker" authoringToolVersion="3.0.3" authoringToolBuild="174">
-    <title>${APP} - ${OSX_APP_DESC}</title>
-    <options customize="never" allow-external-scripts="no"/>
-    <domains enable_anywhere="true"/>
-    <installation-check script="pm_install_check();"/>
-    <script>
-function pm_install_check() {
-  if (system.compareVersions(system.version.ProductVersion, "10.5") == -1) {
-    my.result.title = 'Failure';
-    my.result.message = 'You need at least Mac OS X 10.5 to install nitro.';
-    my.result.type = 'Fatal';
-    return false;
-  }
-  return true;
-}
-    </script>
-    <choices-outline>
-        <line choice="choice1"/>
-    </choices-outline>
-    <choice id="choice1" title="base">
-        <pkg-ref id="${OSX_APP_ID}.base.pkg"/>
-    </choice>
-    <pkg-ref id="${OSX_APP_ID}.base.pkg" installKBytes="${INSTALL_SIZE}" version="${VERSION}" auth="Root">#base.pkg</pkg-ref>
-</installer-script>
-EOF
-
-( cd $OSX_BUILD/flat && xar --compression none -cf "../${APP}-${VERSION}-${OSX_ARCH}.pkg" * )
-
-}
-
-echo -n "Packaging installer for darwin amd64..."; osx_package && echo " great success!"
-
-s3cmd --access_key=$ACCESS_KEY --secret_key=$SECRET_KEY --acl-public put $OSX_PKG_SRC s3://${OSX_BUCKET}/${OSX_PKG}
-s3cmd --access_key=$ACCESS_KEY --secret_key=$SECRET_KEY --acl-public put $OSX_PKG_SRC s3://${OSX_BUCKET}/${APP}-latest-${OSX_ARCH}.pkg
+s3cmd --access_key=$ACCESS_KEY --secret_key=$SECRET_KEY --acl-public put ${ARTIFACT_DIR}/${OSX_PKG} s3://${OSX_BUCKET}/${OSX_PKG}
+s3cmd --access_key=$ACCESS_KEY --secret_key=$SECRET_KEY --acl-public put ${ARTIFACT_DIR}/${OSX_PKG} s3://${OSX_BUCKET}/${APP}-latest-${OSX_ARCH}.tar.gz
 
