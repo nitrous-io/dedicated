@@ -136,7 +136,15 @@ func (p *DockerProvider) Create(name, imageName, secret, configJSON string) (*pr
 	cfg.Hostname = name
 	cfg.Image = imageName
 
-	container, err := p.createContainer(imageName, name, cfg)
+	createConfig, err := p.mkContainerConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	container, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
+		Name:   name,
+		Config: createConfig,
+	})
 	if err != nil {
 		return nil, err
 	}
