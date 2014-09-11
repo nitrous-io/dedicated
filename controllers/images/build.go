@@ -33,6 +33,7 @@ type buildContext struct {
 	slug   string
 	in     io.Reader
 	out    io.Writer
+	remote string
 }
 
 // build sends the build context to freighter in a goroutine. If we want an
@@ -43,7 +44,7 @@ func (c *buildContext) build(async bool) (*image.Image, error) {
 	env, cl, img, slug := c.env, c.client, c.img, c.slug
 
 	go func() {
-		if err := cl.BuildImage(slug, c.in, c.out); err != nil {
+		if err := cl.BuildImage(slug, c.in, c.out, c.remote); err != nil {
 			env.Events.Publish(
 				controllers.NewEvent("image.build_failed", serializers.SerializeImage(img)),
 				env.User.Topic(),
@@ -104,7 +105,10 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	var archive io.Reader
 
 	code := r.FormValue("code")
-	if code != "" {
+	remote := r.FormValue("remote")
+	if remote != "" {
+		// do nothing
+	} else if code != "" {
 		archive, err = makeArchive(bytes.NewBufferString(code))
 	} else {
 		_, fh, err := r.FormFile("file")
@@ -152,7 +156,7 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	} else {
 		writer = io.MultiWriter(pp, flusher.NewWriteFlusher(w))
 	}
-	ctx := &buildContext{env: env, client: cl, img: img, slug: slug, in: archive, out: writer}
+	ctx := &buildContext{env: env, client: cl, img: img, slug: slug, in: archive, out: writer, remote: remote}
 	img, err = ctx.build(async)
 	if err != nil {
 		return err
