@@ -19,7 +19,7 @@ github.com/lib/pq #ae7391529ced9c12f06bf01eae33dadb4c70e49f
 github.com/mitchellh/goamz #cab49b43cfd7846155d5a8dfca5136b9e0c2c6d2
 github.com/nitrous-io/freighter/freighterclient #eda7aa29f30d8f5b79ad2e0d48581e3118c5ea40 !git@github.com:nitrous-io/freighter
 github.com/nitrous-io/hostbuilder #5b04849a3c8f44de76b7c69a96c2797122eae166 !git@github.com:nitrous-io/hostbuilder
-github.com/nitrous-io/nitrous-common #f8c8c62c5bd7f742fd3e311f5546ba6c091424c1 !git@github.com:nitrous-io/nitrous-common
+github.com/nitrous-io/nitrous-common #ea273e838b1fcb84b41499a129da319b134a1109 !git@github.com:nitrous-io/nitrous-common
 github.com/onsi/ginkgo/ginkgo #12446bbcc74950944c897e32ea99cc8d058f9c92
 github.com/onsi/gomega #v1.0
 github.com/subosito/gotenv #a37a0e8fb3298354bf97daad07b38feb2d0fa263
