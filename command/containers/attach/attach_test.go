@@ -11,8 +11,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command/containers/attach"
-	"github.com/nitrous-io/nitro/pkg/wsconn"
 	"github.com/nitrous-io/nitrous-common/httpclient"
+	"github.com/nitrous-io/nitrous-common/wsconn"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
