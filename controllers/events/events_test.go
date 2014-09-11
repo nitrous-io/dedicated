@@ -2,8 +2,8 @@ package events_test
 
 import (
 	"fmt"
-	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/gorilla/websocket"
@@ -59,10 +59,12 @@ var _ = Describe("controllers/events", func() {
 			ts := httptest.NewServer(svr.Router())
 			defer ts.Close()
 
-			headers := http.Header{}
-			headers.Add("Authorization", "Bearer valid-token")
-			wsEndpointURI := "ws://" + ts.Listener.Addr().String() + "/events"
-			conn, dialResp, err := websocket.DefaultDialer.Dial(wsEndpointURI, headers)
+			params := &url.Values{}
+			params.Set("token", "valid-token")
+			wsURL, err := url.Parse(fmt.Sprintf("ws://%s/api/v0/events", ts.Listener.Addr().String()))
+			Expect(err).To(BeNil())
+			wsURL.RawQuery = params.Encode()
+			conn, dialResp, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
 			Expect(err).To(BeNil())
 			defer conn.Close()
 			Expect(dialResp.Header.Get("Sec-WebSocket-Accept")).NotTo(BeEmpty())
@@ -95,7 +97,7 @@ var _ = Describe("controllers/events", func() {
 			ts := httptest.NewServer(svr.Router())
 			defer ts.Close()
 
-			wsEndpointURI := "ws://" + ts.Listener.Addr().String() + "/events"
+			wsEndpointURI := "ws://" + ts.Listener.Addr().String() + "/api/v0/events"
 			_, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, nil)
 			Expect(err).To(Equal(websocket.ErrBadHandshake))
 		})

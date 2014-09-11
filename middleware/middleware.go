@@ -33,10 +33,33 @@ type Env struct {
 
 type Middleware func(env *Env, w http.ResponseWriter, r *http.Request) error
 
+func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	t, err := token.FindByToken(db, tok)
+	if err != nil {
+		return err
+	}
+	if t == nil {
+		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
+		return errInvalidToken
+	}
+
+	u, err := user.FindByID(db, t.UserID)
+	if err != nil {
+		return err
+	}
+	if u == nil {
+		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
+		return errInvalidToken
+	}
+
+	env.User = u
+	return mw(env, w, r)
+}
+
 func Auth(mw Middleware) Middleware {
 	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
-		db := env.DB
-
 		authHeader := r.Header.Get("Authorization")
 		prefix := "Bearer "
 		if len(authHeader) <= len(prefix) ||
@@ -47,26 +70,21 @@ func Auth(mw Middleware) Middleware {
 		}
 
 		tok := authHeader[len(prefix):]
-		t, err := token.FindByToken(db, tok)
-		if err != nil {
-			return err
-		}
-		if t == nil {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
-			return errInvalidToken
-		}
+		return authenticate(tok, mw, env, w, r)
+	}
+}
 
-		u, err := user.FindByID(db, t.UserID)
-		if err != nil {
-			return err
+func AuthQS(mw Middleware) Middleware {
+	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
+		if r.Header.Get("Authorization") != "" {
+			return Auth(mw)(env, w, r)
 		}
-		if u == nil {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
-			return errInvalidToken
+		tok := r.FormValue("token")
+		if tok == "" {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_request"`)
+			return errInvalidRequest
 		}
-
-		env.User = u
-		return mw(env, w, r)
+		return authenticate(tok, mw, env, w, r)
 	}
 }
 

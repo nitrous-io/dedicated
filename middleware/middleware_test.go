@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -54,11 +55,13 @@ var _ = Describe("middleware", func() {
 		}
 	})
 
-	Describe("Auth", func() {
+	Describe("authentication middleware", func() {
 		var (
-			u *user.User
-			t *token.Token
+			doRequest func(string)
+			u         *user.User
+			mw        func(middleware.Middleware) middleware.Middleware
 		)
+
 		BeforeEach(func() {
 			u = &user.User{
 				Username: "foo",
@@ -69,7 +72,7 @@ var _ = Describe("middleware", func() {
 			Expect(err).To(BeNil())
 			Expect(u.ID).NotTo(BeZero())
 
-			t = &token.Token{
+			t := &token.Token{
 				UserID: u.ID,
 				Token:  "foobar",
 			}
@@ -77,7 +80,7 @@ var _ = Describe("middleware", func() {
 			Expect(err).To(BeNil())
 
 			h := func(w http.ResponseWriter, r *http.Request) {
-				err := middleware.Auth(emptyMw)(env, w, r)
+				err := mw(emptyMw)(env, w, r)
 				if err != nil {
 					svr.HandleError(w, err)
 				}
@@ -85,58 +88,104 @@ var _ = Describe("middleware", func() {
 			handler.HandleFunc("/authaction", h).Methods("GET")
 		})
 
-		doRequest := func(token string) {
-			req, err := NewRequest("GET", "/authaction", nil)
-			Expect(err).To(BeNil())
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-			handler.ServeHTTP(res, req)
+		itWorks := func() {
+			Context("when a valid oauth token is given", func() {
+				BeforeEach(func() {
+					doRequest("foobar")
+				})
+
+				It("sets the User in the environment", func() {
+					Expect(env.User).To(Equal(u))
+				})
+
+				It("Responds with 200 OK", func() {
+					Expect(res.Code).To(Equal(http.StatusOK))
+				})
+			})
+
+			Context("when an invalid oauth token is given", func() {
+				BeforeEach(func() {
+					doRequest("invalidtoken")
+				})
+
+				It("responds with 401 Unauthorized", func() {
+					Expect(res.Code).To(Equal(http.StatusUnauthorized))
+					Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="invalid_token"`))
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					Expect(j["error"]).To(Equal("invalid_token"))
+					Expect(j["error_description"]).To(Equal("auth token is invalid"))
+				})
+			})
+
+			Context("when no oauth token is given", func() {
+				BeforeEach(func() {
+					doRequest("")
+				})
+
+				It("responds with 400 Bad Request", func() {
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="invalid_request"`))
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					Expect(j["error"]).To(Equal("invalid_request"))
+					Expect(j["error_description"]).To(Equal("auth token is required"))
+				})
+			})
 		}
 
-		Context("when a valid oauth token is given", func() {
+		// authenticate using Authorization header
+		Describe("Auth", func() {
 			BeforeEach(func() {
-				doRequest("foobar")
+				mw = middleware.Auth
+				doRequest = func(token string) {
+					req, err := NewRequest("GET", "/authaction", nil)
+					Expect(err).To(BeNil())
+					if token != "" {
+						req.Header.Set("Authorization", "Bearer "+token)
+					}
+					handler.ServeHTTP(res, req)
+				}
 			})
 
-			It("sets the User in the environment", func() {
-				Expect(env.User).To(Equal(u))
-			})
-
-			It("Responds with 200 OK", func() {
-				Expect(res.Code).To(Equal(http.StatusOK))
-			})
+			itWorks()
 		})
 
-		Context("when an invalid oauth token is given", func() {
+		// authenticate using Authorization header OR query string (?token=)
+		Describe("AuthQS", func() {
 			BeforeEach(func() {
-				doRequest("invalidtoken")
+				mw = middleware.AuthQS
 			})
 
-			It("responds with 401 Unauthorized", func() {
-				Expect(res.Code).To(Equal(http.StatusUnauthorized))
-				Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="invalid_token"`))
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("invalid_token"))
-				Expect(j["error_description"]).To(Equal("auth token is invalid"))
-			})
-		})
+			Context("auth using Authorization header", func() {
+				BeforeEach(func() {
+					doRequest = func(token string) {
+						req, err := NewRequest("GET", "/authaction", nil)
+						Expect(err).To(BeNil())
+						if token != "" {
+							req.Header.Set("Authorization", "Bearer "+token)
+						}
+						handler.ServeHTTP(res, req)
+					}
+				})
 
-		Context("when no oauth token is given", func() {
-			BeforeEach(func() {
-				doRequest("")
+				itWorks()
 			})
 
-			It("responds with 400 Bad Request", func() {
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="invalid_request"`))
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("invalid_request"))
-				Expect(j["error_description"]).To(Equal("auth token is required"))
+			Context("auth using token query string", func() {
+				BeforeEach(func() {
+					doRequest = func(token string) {
+						params := &url.Values{}
+						params.Set("token", token)
+						req, err := NewRequest("GET", "/authaction", params)
+						Expect(err).To(BeNil())
+						handler.ServeHTTP(res, req)
+					}
+				})
+
+				itWorks()
 			})
 		})
 	})

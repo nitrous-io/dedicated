@@ -19,9 +19,10 @@ import (
 
 func (s *Server) drawRoutes() {
 	s.route("/", home.Index, "GET")
-	s.route("/events", mw.Auth(events.Stream), "GET")
 
 	s.namespace("/api/v0", func() {
+		s.route("/events", mw.AuthQS(events.Stream), "GET")
+
 		s.routeJSON("/oauth/token", tokens.Post, "POST")
 		s.routeJSON("/users", users.Create, "POST")
 		s.routeJSON("/users", mw.Auth(users.Update), "PUT")
