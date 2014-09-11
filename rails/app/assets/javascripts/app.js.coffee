@@ -21,8 +21,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
   plans: null
   baseImages: null
 
-  terminalJsUrl: null
-  terminalCssUrl: null
+  terminalJsPath: null
+  terminalCssPath: null
 
   didChangeTitle: (->
     title = @get 'title'
