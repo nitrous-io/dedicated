@@ -16,8 +16,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/kr/pty"
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/pkg/wsconn"
 	"github.com/nitrous-io/nitrous-common/httpclient"
+	"github.com/nitrous-io/nitrous-common/wsconn"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -84,7 +84,6 @@ var _ = Describe("Command", func() {
 		<-exited
 		Expect(ew.String()).To(BeEmpty())
 
-		Eventually(ns.ts.resized).Should(Receive())
 		Eventually(ns.ts.finished).Should(BeClosed())
 	})
 
@@ -178,30 +177,16 @@ type testServer struct {
 	srv *httptest.Server
 
 	containerID    string
-	hostID         int64
-	shellID        string
 	containerToken string
 
 	stdin, stdout *bytes.Buffer
-	resized       chan struct{}
 	finished      chan struct{}
 }
 
-func (s *testServer) createShell(w http.ResponseWriter, r *http.Request) {
-	Expect(r.Header.Get("Authorization")).To(Equal("Token " + s.containerToken))
+func (s *testServer) newShell(w http.ResponseWriter, r *http.Request) {
+	Expect(r.FormValue("token")).To(Equal(s.containerToken))
 	id := mux.Vars(r)["id"]
 	Expect(id).To(Equal(s.containerID))
-	json.NewEncoder(w).Encode(map[string]string{
-		"id": s.shellID,
-	})
-}
-
-func (s *testServer) attachShell(w http.ResponseWriter, r *http.Request) {
-	Expect(r.Header.Get("Authorization")).To(Equal("Token " + s.containerToken))
-	id := mux.Vars(r)["id"]
-	Expect(id).To(Equal(s.containerID))
-	shellID := mux.Vars(r)["shellID"]
-	Expect(shellID).To(Equal(s.shellID))
 
 	upgrader := websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024}
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -215,16 +200,6 @@ func (s *testServer) attachShell(w http.ResponseWriter, r *http.Request) {
 	close(s.finished)
 }
 
-func (s *testServer) resizeShell(w http.ResponseWriter, r *http.Request) {
-	Expect(r.Header.Get("Authorization")).To(Equal("Token " + s.containerToken))
-	id := mux.Vars(r)["id"]
-	Expect(id).To(Equal(s.containerID))
-	shellID := mux.Vars(r)["shellID"]
-	Expect(shellID).To(Equal(s.shellID))
-	s.resized <- struct{}{}
-	w.WriteHeader(http.StatusAccepted)
-}
-
 func (s *testServer) Close() {
 	s.srv.CloseClientConnections()
 	s.srv.Close()
@@ -233,18 +208,13 @@ func (s *testServer) Close() {
 func newTestServer(containerID, shellID, containerToken string) *testServer {
 	s := &testServer{
 		containerID:    containerID,
-		shellID:        shellID,
 		containerToken: containerToken,
 		stdin:          bytes.NewBuffer(nil),
 		stdout:         bytes.NewBuffer(nil),
-		resized:        make(chan struct{}, 1),
 		finished:       make(chan struct{}),
 	}
 	r := mux.NewRouter()
-	r.HandleFunc("/containers/{id}/shells", s.createShell).Methods("POST")
-	r.HandleFunc("/containers/{id}/shells/{shellID}/attach/ws", s.attachShell).Methods("GET")
-	r.HandleFunc("/containers/{id}/shells/{shellID}/resize", s.resizeShell).Methods("POST")
-
+	r.HandleFunc("/containers/{id}/shell", s.newShell).Methods("GET")
 	srv := httptest.NewServer(r)
 	s.srv = srv
 	return s

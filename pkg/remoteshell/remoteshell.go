@@ -15,8 +15,8 @@ import (
 	"syscall"
 
 	"github.com/gorilla/websocket"
-	"github.com/nitrous-io/nitro/pkg/wsconn"
 	"github.com/nitrous-io/nitrous-common/term"
+	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
 const (

@@ -13,8 +13,8 @@ import (
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/containers"
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
-	"github.com/nitrous-io/nitro/pkg/wsconn"
 	"github.com/nitrous-io/nitrous-common/httpclient"
+	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
 var usage = `
