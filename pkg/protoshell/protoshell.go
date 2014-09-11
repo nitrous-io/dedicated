@@ -1,19 +1,8 @@
-// a shell with protocol
-//
-// d|action@foobar		# output from server
-// p|whoami				# input from client
-// d|action				# output from server
-// w|80 25				# resize from client
-// c|server went away	# close msg
-//
-// NOT IMPLEMENTED
-// h					# heartbeat from client
 package protoshell
 
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -27,7 +16,7 @@ import (
 
 const (
 	defaultWidth  = 80
-	defaultHeight = 24
+	defaultHeight = 25
 )
 
 type TokenHandler func() (string, error)
@@ -83,7 +72,6 @@ func (s *ProtoShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error
 	params := url.Values{}
 	params.Set("command", s.command)
 	wsEndpointURI := fmt.Sprintf("ws://%s/containers/%s/shells?%s", s.host, s.containerID, params.Encode())
-	log.Println(wsEndpointURI)
 
 	ws, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, headers)
 	if err != nil {

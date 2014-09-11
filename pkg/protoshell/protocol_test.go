@@ -12,8 +12,8 @@ func TestLocalInput(t *testing.T) {
 	out := bytes.NewBuffer(nil)
 	io.Copy(out, in)
 
-	if out.String() != "p|whoami" {
-		t.Errorf("expect %s but got %s", "p|whoami", out.String())
+	if out.String() != "d|whoami" {
+		t.Errorf("expect %s but got %s", "d|whoami", out.String())
 	}
 }
 
