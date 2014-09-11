@@ -95,7 +95,7 @@ func (c *Command) Run(args []string) int {
 	}
 
 	command := getLoginCommand(username)
-	sh := protoshell.New(host, cr.CID, command, func() (string, error) {
+	sh := protoshell.New(host, cr.CID, command, tlsConfig, func() (string, error) {
 		return containers.GetToken(slug, c.server, []string{"shell"}, c.client)
 	})
 	if err := sh.Run(pty.Fd(), stdin, stdout); err != nil {

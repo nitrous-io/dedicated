@@ -1,6 +1,7 @@
 package protoshell
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,14 +23,14 @@ const (
 type TokenHandler func() (string, error)
 
 type ProtoShell struct {
-	ID           string `json:"id"`
-	host         string
-	containerID  string
-	command      string
-	isTerminal   bool // this checks if the current shell is a terminal i.e. capable of resizing
-	tokenHandler TokenHandler
-
-	conn *wsconn.Conn
+	ID              string `json:"id"`
+	host            string
+	containerID     string
+	command         string
+	isTerminal      bool // this checks if the current shell is a terminal i.e. capable of resizing
+	tokenHandler    TokenHandler
+	tlsClientConfig *tls.Config
+	conn            *wsconn.Conn
 
 	in  io.Reader
 	out io.Writer
@@ -37,12 +38,13 @@ type ProtoShell struct {
 
 // New creates a shell that uses WebSockets.
 // FIXME Sprinkle TLS magic (i.e. https and wss://).
-func New(host, containerID, command string, tokenHandler TokenHandler) *ProtoShell {
+func New(host, containerID, command string, tlsConfig *tls.Config, tokenHandler TokenHandler) *ProtoShell {
 	return &ProtoShell{
-		host:         host,
-		containerID:  containerID,
-		command:      command,
-		tokenHandler: tokenHandler,
+		host:            host,
+		containerID:     containerID,
+		command:         command,
+		tokenHandler:    tokenHandler,
+		tlsClientConfig: tlsConfig,
 	}
 }
 
@@ -71,9 +73,14 @@ func (s *ProtoShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error
 	params.Set("command", s.command)
 	params.Set("token", token)
 	params.Set("binary", "true")
-	wsEndpointURI := fmt.Sprintf("ws://%s/containers/%s/shell?%s", s.host, s.containerID, params.Encode())
+	wsEndpointURI := fmt.Sprintf("wss://%s/containers/%s/shell?%s", s.host, s.containerID, params.Encode())
 
-	ws, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, http.Header{})
+	dialer := websocket.Dialer{}
+	if s.tlsClientConfig != nil {
+		dialer.TLSClientConfig = s.tlsClientConfig
+	}
+	ws, _, err := dialer.Dial(wsEndpointURI, http.Header{})
+
 	if err != nil {
 		return fmt.Errorf("Failed to attach to shell for container %s: %v", s.containerID, err)
 	}
