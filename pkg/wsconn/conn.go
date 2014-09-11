@@ -63,7 +63,7 @@ func (c Conn) Write(b []byte) (int, error) {
 	if c.writeWait != 0 {
 		c.SetWriteDeadline(time.Now().Add(c.writeWait))
 	}
-	if err := c.WriteMessage(websocket.TextMessage, b); err != nil {
+	if err := c.WriteMessage(websocket.BinaryMessage, b); err != nil {
 		return 0, err
 	}
 	return len(b), nil
@@ -75,8 +75,8 @@ func (c Conn) Read(b []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if t != websocket.TextMessage {
-			log.Printf("ws: ignored non-text message in stream")
+		if t != websocket.BinaryMessage {
+			log.Printf("ws: ignored non-binary message in stream")
 			return 0, nil
 		}
 		c.reader = r
