@@ -43,14 +43,17 @@ window.NitrousTerminal =
     term = @term
 
     term.on 'resize', (cols, rows)->
+      return unless conn.readyState == 1
       conn.send "r|#{cols} #{rows}"
 
     term.handler = (data) ->
+      return unless conn.readyState == 1
       conn.send "d|#{data}"
 
   stop: ->
     @term?.write('c|goodbye')
     @term?.removeAllListeners('resize')
+    @term?.handler = null
     @term?.destroy()
     @conn?.close()
 
