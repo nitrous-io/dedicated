@@ -1031,194 +1031,6 @@ var _ = Describe("server", func() {
 		})
 	})
 
-	itHandlesCORSPreflight := func(url string) {
-		It("handles CORS preflight", func() {
-			req, err := NewRequest("OPTIONS", url, nil)
-			Expect(err).To(BeNil())
-			req.Header.Set("Access-Control-Request-Headers", "Foo")
-			req.Header.Add("Access-Control-Request-Headers", "Bar")
-			handler.ServeHTTP(res, req)
-			Expect(res.Code).To(Equal(http.StatusOK))
-			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
-			Expect(res.Header()["Access-Control-Allow-Methods"]).To(ContainElement("*"))
-			Expect(res.Header()["Access-Control-Allow-Headers"]).To(ContainElement("Foo, Bar"))
-			Expect(res.Header()["Access-Control-Allow-Credentials"]).To(ContainElement("true"))
-		})
-	}
-
-	Describe("OPTIONS /containers/:id/shells", func() {
-		itHandlesCORSPreflight("/containers/1/shells")
-	})
-
-	Describe("POST /containers/:id/shells", func() {
-		doRequest := func(id, token string) {
-			params := &url.Values{}
-			params.Set("command", "/bin/bash")
-			req, _ = NewRequest("POST", fmt.Sprintf("/containers/%v/shells", id), params)
-			if token != "" {
-				req.Header.Set("Authorization", "Token "+token)
-			}
-			handler.ServeHTTP(res, req)
-		}
-
-		It("requires a container token", func() {
-			token := ""
-			doRequest("test-container", token)
-			Expect(res.Code).To(Equal(http.StatusUnauthorized))
-			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
-		})
-
-		It("requires a valid container token", func() {
-			prov.VerifyTokenError = errors.New("invalid token")
-			token := "some token"
-			doRequest("test-container", token)
-			Expect(res.Code).To(Equal(http.StatusUnauthorized))
-			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
-			Expect(prov.ReceivedID).To(Equal("test-container"))
-			Expect(prov.ReceivedToken).To(Equal(token))
-			Expect(prov.ReceivedPermissions).To(Equal([]string{"shell"}))
-		})
-
-		testCases := []struct {
-			id         string
-			container  *provider.ContainerInfo
-			statusCode int
-		}{
-			{"empty", nil, 404},
-			{"missing", &provider.ContainerInfo{ID: "aaa", State: provider.ContainerStateRunning}, 404},
-			{"stopped", &provider.ContainerInfo{ID: "stopped", State: provider.ContainerStateStopped}, 500},
-			{"running", &provider.ContainerInfo{ID: "running", State: provider.ContainerStateRunning}, 200},
-		}
-
-		for _, tc := range testCases {
-			local := tc // because scope leaks :(
-			Context(fmt.Sprintf("Create new shell for container %v", local.id), func() {
-				BeforeEach(func() {
-					if local.container != nil {
-						prov.Containers = []*provider.ContainerInfo{local.container}
-					}
-					doRequest(local.id, "container-token")
-				})
-
-				It("responds to the request", func() {
-					Expect(res.Code).To(Equal(local.statusCode))
-					Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
-					if local.statusCode == 200 {
-						var m map[string]string
-						json.Unmarshal(res.Body.Bytes(), &m)
-						Expect(m).To(HaveKey("id"))
-					}
-				})
-			})
-		}
-	})
-
-	requestShell := func(containerID string) string {
-		prov.Containers = []*provider.ContainerInfo{{ID: containerID, State: provider.ContainerStateRunning}}
-		params := &url.Values{}
-		params.Set("command", "/bin/bash")
-		req, _ := NewRequest("POST", "/containers/"+containerID+"/shells", params)
-		req.Header.Set("Authorization", "Token container-token")
-		res := httptest.NewRecorder()
-		handler.ServeHTTP(res, req)
-		Expect(res.Code).To(Equal(http.StatusOK))
-		Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
-
-		var j map[string]string
-		json.Unmarshal(res.Body.Bytes(), &j)
-		shellID := j["id"]
-		Expect(shellID).NotTo(BeEmpty())
-		return shellID
-	}
-
-	Describe("OPTIONS /containers/:id/shells/:shellID/attach/ws", func() {
-		itHandlesCORSPreflight("/containers/1/shells/1/attach/ws")
-	})
-
-	Describe("GET /containers/:id/shells/:shellID/attach/ws", func() {
-		doRequest := func(containerID, shellID, token string) *httptest.ResponseRecorder {
-			req, _ = NewRequest("GET", fmt.Sprintf("/containers/%s/shells/%s/attach/ws", containerID, shellID), nil)
-			if token != "" {
-				req.Header.Set("Authorization", "Token "+token)
-			}
-			res := httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
-			return res
-		}
-
-		It("requires a container token", func() {
-			shellID := requestShell("test-container")
-
-			token := ""
-			res := doRequest("test-container", shellID, token)
-			Expect(res.Code).To(Equal(http.StatusUnauthorized))
-			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
-		})
-
-		It("requires a valid container token", func() {
-			shellID := requestShell("test-container")
-
-			prov.VerifyTokenError = errors.New("invalid token")
-			token := "some token"
-			res := doRequest("test-container", shellID, token)
-			Expect(res.Code).To(Equal(http.StatusUnauthorized))
-			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
-			Expect(prov.ReceivedID).To(Equal("test-container"))
-			Expect(prov.ReceivedToken).To(Equal(token))
-			Expect(prov.ReceivedPermissions).To(Equal([]string{"shell"}))
-		})
-
-		It("responds with 404 not found when shell ID does not match an existing shell", func() {
-			res := doRequest("test-container", "non-existent-shell-id", "container-token")
-			Expect(res.Code).To(Equal(http.StatusNotFound))
-			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
-		})
-	})
-
-	Describe("OPTIONS /containers/:id/shells/:shellID/resize", func() {
-		itHandlesCORSPreflight("/containers/1/shells/1/resize")
-	})
-
-	Describe("GET /containers/:id/shells/:shellID/resize", func() {
-		doRequest := func(containerID, shellID, token string) *httptest.ResponseRecorder {
-			req, _ = NewRequest("POST", fmt.Sprintf("/containers/%s/shells/%s/resize", containerID, shellID), nil)
-			if token != "" {
-				req.Header.Set("Authorization", "Token "+token)
-			}
-			res := httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
-			return res
-		}
-
-		It("requires a container token", func() {
-			shellID := requestShell("test-container")
-
-			token := ""
-			res := doRequest("test-container", shellID, token)
-			Expect(res.Code).To(Equal(http.StatusUnauthorized))
-			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
-		})
-
-		It("requires a valid container token", func() {
-			shellID := requestShell("test-container")
-
-			prov.VerifyTokenError = errors.New("invalid token")
-			token := "some token"
-			res := doRequest("test-container", shellID, token)
-			Expect(res.Code).To(Equal(http.StatusUnauthorized))
-			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
-			Expect(prov.ReceivedID).To(Equal("test-container"))
-			Expect(prov.ReceivedToken).To(Equal(token))
-			Expect(prov.ReceivedPermissions).To(Equal([]string{"shell"}))
-		})
-
-		It("responds with 404 not found when shell ID does not match an existing shell", func() {
-			res := doRequest("test-container", "non-existent-shell-id", "container-token")
-			Expect(res.Code).To(Equal(http.StatusNotFound))
-			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
-		})
-	})
-
 	Describe("GET /images", func() {
 		doRequest := func() {
 			req, err = NewRequest("GET", "/images", nil)
@@ -1694,5 +1506,28 @@ var _ = Describe("server", func() {
 				}
 			})
 		})
+	})
+
+	itHandlesCORSPreflight := func(url string) {
+		It("handles CORS preflight", func() {
+			req, err := NewRequest("OPTIONS", url, nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Access-Control-Request-Headers", "Foo")
+			req.Header.Add("Access-Control-Request-Headers", "Bar")
+			handler.ServeHTTP(res, req)
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
+			Expect(res.Header()["Access-Control-Allow-Methods"]).To(ContainElement("*"))
+			Expect(res.Header()["Access-Control-Allow-Headers"]).To(ContainElement("Foo, Bar"))
+			Expect(res.Header()["Access-Control-Allow-Credentials"]).To(ContainElement("true"))
+		})
+	}
+
+	Describe("OPTIONS /containers/:id/shell", func() {
+		itHandlesCORSPreflight("/containers/1/shell")
+	})
+
+	Describe("GET /containers/:id/shell/ws", func() {
+		// FIXME : fill me in
 	})
 })

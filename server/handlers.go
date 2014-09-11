@@ -335,68 +335,6 @@ func (s *Server) wsNewShell(token string, w http.ResponseWriter, r *http.Request
 	return nil
 }
 
-func (s *Server) createShell(token string, w http.ResponseWriter, r *http.Request) error {
-	id := mux.Vars(r)["id"]
-	info, err := s.provider.GetInfo(id)
-	if err != nil {
-		return err
-	}
-	containerID := info.ID
-	if info.State != provider.ContainerStateRunning {
-		return fmt.Errorf("Cannot attach to stopped container %v", containerID)
-	}
-
-	command := r.FormValue("command")
-	width := getFormInt(r, "width")
-	height := getFormInt(r, "height")
-
-	sh, err := shell.OpenShell(containerID, command, width, height, info.Env)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	shellID := randomString()
-	s.shells[shellID] = sh
-	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"id": shellID})
-	return nil
-}
-
-func (s *Server) wsAttachShell(token string, w http.ResponseWriter, r *http.Request) error {
-	shellID := mux.Vars(r)["shellID"]
-	sh, ok := s.shells[shellID]
-	if !ok {
-		s.respondEncodeJSON(w, http.StatusNotFound, map[string]interface{}{"error": "shell does not exist"})
-		return nil
-	}
-
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return fmt.Errorf("failed to upgrade websocket: %v", err)
-	}
-	stream := wsconn.NewConnection(conn)
-	defer stream.Close()
-
-	<-sh.Attach(stream, stream)
-	return nil
-}
-
-func (s *Server) resizeShell(token string, w http.ResponseWriter, r *http.Request) error {
-	shellID := mux.Vars(r)["shellID"]
-	sh, ok := s.shells[shellID]
-	if !ok {
-		s.respondEncodeJSON(w, http.StatusNotFound, map[string]interface{}{"error": "shell does not exist"})
-		return nil
-	}
-
-	width := getFormInt(r, "width")
-	height := getFormInt(r, "height")
-	if err := sh.Resize(width, height); err != nil {
-		return fmt.Errorf("Resize failed %v", err)
-	}
-	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
-	return nil
-}
-
 func (s *Server) loginRegistry(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
