@@ -1527,7 +1527,32 @@ var _ = Describe("server", func() {
 		itHandlesCORSPreflight("/containers/1/shell")
 	})
 
-	Describe("GET /containers/:id/shell/ws", func() {
-		// FIXME : fill me in
+	Describe("GET /containers/:id/shell", func() {
+		doRequest := func(containerID, command, token string) (*websocket.Conn, error) {
+			ts := httptest.NewServer(handler)
+			defer ts.Close()
+			params := url.Values{}
+			params.Set("command", command)
+			params.Set("token", token)
+			wsURL, err := url.Parse(fmt.Sprintf("ws://%s/containers/%s/shell", ts.Listener.Addr().String(), containerID))
+			if err != nil {
+				return nil, err
+			}
+			wsURL.RawQuery = params.Encode()
+			conn, _, err := websocket.DefaultDialer.Dial(wsURL.String(), http.Header{})
+			return conn, err
+		}
+
+		It("requires a valid container token", func() {
+			_, err := doRequest("test-container", "whoami", "")
+			Expect(err).To(Equal(websocket.ErrBadHandshake))
+
+			prov.VerifyTokenError = errors.New("invalid token")
+			token := "some token"
+			_, err = doRequest("test-container", "whoami", token)
+			Expect(err).To(Equal(websocket.ErrBadHandshake))
+			Expect(prov.ReceivedToken).To(Equal(token))
+			Expect(prov.ReceivedPermissions).To(Equal([]string{"shell"}))
+		})
 	})
 })
