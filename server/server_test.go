@@ -53,7 +53,7 @@ var _ = Describe("server", func() {
 
 	Describe("GET /", func() {
 		BeforeEach(func() {
-			req, err = NewRequest(hostSecret, "GET", "/", nil)
+			req, err = NewRequestWithSecret(hostSecret, "GET", "/", nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		})
@@ -66,7 +66,7 @@ var _ = Describe("server", func() {
 
 	Describe("GET /containers", func() {
 		doRequest := func() {
-			req, err = NewRequest(hostSecret, "GET", "/containers", nil)
+			req, err = NewRequestWithSecret(hostSecret, "GET", "/containers", nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -237,7 +237,7 @@ var _ = Describe("server", func() {
 		})
 
 		doRequest := func(id string) {
-			req, err = NewRequest(hostSecret, "GET", fmt.Sprintf("/containers/%v", id), nil)
+			req, err = NewRequestWithSecret(hostSecret, "GET", fmt.Sprintf("/containers/%v", id), nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -273,7 +273,7 @@ var _ = Describe("server", func() {
 			if name != "" {
 				params.Set("name", name)
 			}
-			req, err = NewRequest(hostSecret, "POST", fmt.Sprintf("/containers/%v/commit", id), params)
+			req, err = NewRequestWithSecret(hostSecret, "POST", fmt.Sprintf("/containers/%v/commit", id), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -404,7 +404,7 @@ var _ = Describe("server", func() {
 				}`
 
 				doRequest = func(id string) {
-					req, err = NewRequest(hostSecret, "DELETE", fmt.Sprintf("/containers/%v", id), params)
+					req, err = NewRequestWithSecret(hostSecret, "DELETE", fmt.Sprintf("/containers/%v", id), params)
 					Expect(err).To(BeNil())
 					handler.ServeHTTP(res, req)
 				}
@@ -525,7 +525,7 @@ var _ = Describe("server", func() {
 		)
 
 		doRequest := func() {
-			req, err = NewRequest(hostSecret, "GET", fmt.Sprintf("/containers/%v/public_keys", id), nil)
+			req, err = NewRequestWithSecret(hostSecret, "GET", fmt.Sprintf("/containers/%v/public_keys", id), nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -725,7 +725,7 @@ var _ = Describe("server", func() {
 		)
 
 		doRequest := func() {
-			req, err = NewRequest(hostSecret, "DELETE", fmt.Sprintf("/containers/%v/public_keys", id), params)
+			req, err = NewRequestWithSecret(hostSecret, "DELETE", fmt.Sprintf("/containers/%v/public_keys", id), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -772,7 +772,7 @@ var _ = Describe("server", func() {
 		)
 
 		doRequest := func() {
-			req, err = NewRequest(hostSecret, "DELETE", fmt.Sprintf("/containers/%v/public_keys/%v", id, fingerprint), params)
+			req, err = NewRequestWithSecret(hostSecret, "DELETE", fmt.Sprintf("/containers/%v/public_keys/%v", id, fingerprint), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -862,7 +862,7 @@ var _ = Describe("server", func() {
 
 	Describe("POST /volumes", func() {
 		doRequest := func(slug string) {
-			req, _ := NewRequest(hostSecret, "POST", "/volumes", &url.Values{"slug": []string{slug}})
+			req, _ := NewRequestWithSecret(hostSecret, "POST", "/volumes", &url.Values{"slug": []string{slug}})
 			handler.ServeHTTP(res, req)
 		}
 
@@ -896,7 +896,7 @@ var _ = Describe("server", func() {
 
 	Describe("GET /volumes", func() {
 		doRequest := func() {
-			req, _ := NewRequest(hostSecret, "GET", "/volumes", nil)
+			req, _ := NewRequestWithSecret(hostSecret, "GET", "/volumes", nil)
 			handler.ServeHTTP(res, req)
 		}
 
@@ -917,7 +917,7 @@ var _ = Describe("server", func() {
 
 	Describe("DELETE /volumes/:slug", func() {
 		doRequest := func() {
-			req, _ := NewRequest(hostSecret, "DELETE", "/volumes/some-volume", nil)
+			req, _ := NewRequestWithSecret(hostSecret, "DELETE", "/volumes/some-volume", nil)
 			handler.ServeHTTP(res, req)
 		}
 
@@ -937,7 +937,7 @@ var _ = Describe("server", func() {
 
 	Describe("GET /volumes/:slug", func() {
 		doRequest := func() {
-			req, _ := NewRequest(hostSecret, "GET", "/volumes/eleven", nil)
+			req, _ := NewRequestWithSecret(hostSecret, "GET", "/volumes/eleven", nil)
 			handler.ServeHTTP(res, req)
 		}
 
@@ -966,7 +966,7 @@ var _ = Describe("server", func() {
 			params.Set("follow", follow)
 			params.Set("timestamps", timestamps)
 			params.Set("tail", tail)
-			req, err := NewRequest(hostSecret, "GET", fmt.Sprintf("/containers/%v/logs", id), params)
+			req, err := NewRequestWithSecret(hostSecret, "GET", fmt.Sprintf("/containers/%v/logs", id), params)
 			Expect(err).To(BeNil())
 			if token != "" {
 				req.Header.Set("Authorization", "Token "+token)
@@ -1035,7 +1035,7 @@ var _ = Describe("server", func() {
 
 	Describe("GET /images", func() {
 		doRequest := func() {
-			req, err = NewRequest(hostSecret, "GET", "/images", nil)
+			req, err = NewRequestWithSecret(hostSecret, "GET", "/images", nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1093,7 +1093,7 @@ var _ = Describe("server", func() {
 			if period != "" {
 				params = &url.Values{"period": []string{period}}
 			}
-			req, err = NewRequest(hostSecret, "GET", "/info", params)
+			req, err = NewRequestWithSecret(hostSecret, "GET", "/info", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1243,7 +1243,7 @@ var _ = Describe("server", func() {
 		doRequest := func() {
 			params := &url.Values{}
 			params.Set("image", "nitrousio/ubuntu:12.04")
-			req, err = NewRequest(hostSecret, "DELETE", "/images", params)
+			req, err = NewRequestWithSecret(hostSecret, "DELETE", "/images", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1283,7 +1283,7 @@ var _ = Describe("server", func() {
 		doRequest := func() {
 			params := &url.Values{}
 			params.Set("repository", "busybox")
-			req, err = NewRequest(hostSecret, "POST", "/images/pull", params)
+			req, err = NewRequestWithSecret(hostSecret, "POST", "/images/pull", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1318,7 +1318,7 @@ var _ = Describe("server", func() {
 			params := &url.Values{}
 			params.Set("image", image)
 			params.Set("destination", destination)
-			req, err = NewRequest(hostSecret, "POST", "/images/push", params)
+			req, err = NewRequestWithSecret(hostSecret, "POST", "/images/push", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1365,7 +1365,7 @@ var _ = Describe("server", func() {
 			params.Set("image", image)
 			params.Set("tag", tag)
 			params.Set("force", strconv.FormatBool(force))
-			req, err = NewRequest(hostSecret, "POST", "/images/tag", params)
+			req, err = NewRequestWithSecret(hostSecret, "POST", "/images/tag", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1404,7 +1404,7 @@ var _ = Describe("server", func() {
 		doRequest := func(image string) *httptest.ResponseRecorder {
 			params := &url.Values{}
 			params.Set("image", image)
-			req, err := NewRequest(hostSecret, "GET", "/images/inspect", params)
+			req, err := NewRequestWithSecret(hostSecret, "GET", "/images/inspect", params)
 			Expect(err).To(BeNil())
 
 			res := httptest.NewRecorder()
@@ -1541,7 +1541,7 @@ var _ = Describe("server", func() {
 
 	itHandlesCORSPreflight := func(url string) {
 		It("handles CORS preflight", func() {
-			req, err := NewRequest("", "OPTIONS", url, nil)
+			req, err := NewRequest("OPTIONS", url, nil)
 			Expect(err).To(BeNil())
 			req.Header.Set("Access-Control-Request-Headers", "Foo")
 			req.Header.Add("Access-Control-Request-Headers", "Bar")
@@ -1589,7 +1589,7 @@ var _ = Describe("server", func() {
 
 	Describe("Unauthorized requests", func() {
 		It("requires an authorization header", func() {
-			req, err := NewRequest(hostSecret, "GET", "/containers", nil)
+			req, err := NewRequestWithSecret(hostSecret, "GET", "/containers", nil)
 			Expect(err).To(BeNil())
 			req.Header.Del("X-Freighter-Secret")
 			handler.ServeHTTP(res, req)
@@ -1599,7 +1599,7 @@ var _ = Describe("server", func() {
 		})
 
 		It("requires valid token in authorization header", func() {
-			req, err := NewRequest(hostSecret, "GET", "/containers", nil)
+			req, err := NewRequestWithSecret(hostSecret, "GET", "/containers", nil)
 			Expect(err).To(BeNil())
 			req.Header.Set("X-Freighter-Secret", "secretion")
 			handler.ServeHTTP(res, req)
