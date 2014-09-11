@@ -79,6 +79,7 @@ func (s *ProtoShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error
 	}
 
 	s.conn = wsconn.NewConnection(ws)
+	s.conn.MessageType = websocket.BinaryMessage
 	defer s.conn.Close()
 
 	// wrap input/output stream with our protocol
