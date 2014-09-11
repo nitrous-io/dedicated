@@ -151,9 +151,10 @@ func (c *MockClient) Info(id string) (*Container, error) {
 	return nil, ErrContainerNotFound
 }
 
-func (c *MockClient) Start(id string) (*Container, error) {
+func (c *MockClient) Start(id string, config *ContainerConfig) (*Container, error) {
 	c.StartCalled++
 	c.ReceivedID = id
+	c.ReceivedConfig = config
 	if c.StartError != nil {
 		return nil, c.StartError
 	}

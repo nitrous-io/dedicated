@@ -77,7 +77,7 @@ type Client interface {
 	// ErrContainerNotFound.
 	Info(id string) (*Container, error)
 
-	Start(id string) (*Container, error)
+	Start(id string, config *ContainerConfig) (*Container, error)
 	Stop(id string) (*Container, error)
 	Restart(id string) (*Container, error)
 	Terminate(id string) (*Container, error)
@@ -361,27 +361,36 @@ func (c *client) Info(id string) (*Container, error) {
 	}
 	defer resp.Body.Close()
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-		// Success, do nothing.
-	case http.StatusNotFound:
-		return nil, ErrContainerNotFound
-	default:
-		return nil, &StatusError{resp.StatusCode}
-	}
-
-	containerResp, err := unmarshalContainerResponse(resp)
-	if err != nil {
-		return nil, err
-	}
-	return containerResp.Container, nil
+	return processContainerResponse(resp)
 }
 
 // Start makes an API request to a given Freighter host to start the Container
-// with the given id. The Container is returned.
+// with the given id with the given configuration. The Container is returned.
 // If the Container does not exist, ErrContainerNotFound is returned.
-func (c *client) Start(id string) (*Container, error) {
-	return c.containerControl(id, "start")
+func (c *client) Start(id string, config *ContainerConfig) (*Container, error) {
+	params := url.Values{}
+	if config != nil {
+		configJSON, err := json.Marshal(config)
+		if err != nil {
+			return nil, err
+		}
+		params.Set("config", string(configJSON))
+	}
+
+	u := fmt.Sprintf("%s/containers/%s/start", c.host.BaseURL(), id)
+	req, err := http.NewRequest("POST", u, strings.NewReader(params.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return processContainerResponse(resp)
 }
 
 // Stop makes an API request to a given Freighter host to stop the Container
@@ -415,20 +424,7 @@ func (c *client) Terminate(id string) (*Container, error) {
 	}
 	defer resp.Body.Close()
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-		// Success, do nothing.
-	case http.StatusNotFound:
-		return nil, ErrContainerNotFound
-	default:
-		return nil, &StatusError{resp.StatusCode}
-	}
-
-	containerResp, err := unmarshalContainerResponse(resp)
-	if err != nil {
-		return nil, err
-	}
-	return containerResp.Container, nil
+	return processContainerResponse(resp)
 }
 
 // Establish a streaming HTTP connection with Freighter host to pull the
@@ -1060,20 +1056,7 @@ func (c *client) containerControl(id string, action string) (*Container, error) 
 	}
 	defer resp.Body.Close()
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-		// Success, do nothing.
-	case http.StatusNotFound:
-		return nil, ErrContainerNotFound
-	default:
-		return nil, &StatusError{resp.StatusCode}
-	}
-
-	containerResp, err := unmarshalContainerResponse(resp)
-	if err != nil {
-		return nil, err
-	}
-	return containerResp.Container, nil
+	return processContainerResponse(resp)
 }
 
 func performRequest(c *client, req *http.Request) (*http.Response, error) {
@@ -1084,13 +1067,30 @@ func performRequest(c *client, req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
+func processContainerResponse(res *http.Response) (*Container, error) {
+	switch res.StatusCode {
+	case http.StatusOK:
+		// Success, do nothing.
+	case http.StatusNotFound:
+		return nil, ErrContainerNotFound
+	default:
+		return nil, &StatusError{res.StatusCode}
+	}
+
+	c, err := unmarshalContainerResponse(res)
+	if err != nil {
+		return nil, err
+	}
+	return c.Container, nil
+}
+
 func unmarshalContainerResponse(resp *http.Response) (*containerResponse, error) {
-	var cntnr containerResponse
-	err := json.NewDecoder(resp.Body).Decode(&cntnr)
+	var c containerResponse
+	err := json.NewDecoder(resp.Body).Decode(&c)
 	if err != nil {
 		return nil, ErrUnexpectedResponse
 	}
-	return &cntnr, nil
+	return &c, nil
 }
 
 func unmarshalErrorResponse(resp *http.Response) (*errorResponse, error) {
