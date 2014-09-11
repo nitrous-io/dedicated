@@ -143,6 +143,7 @@ func TestShellResize(t *testing.T) {
 
 func TestShellAttachProtocol(t *testing.T) {
 	s := testShell()
+	s.cmd = exec.Command("yes", "attach protocol")
 	defer s.Close()
 	if err := s.Open(100, 80, []string{}); err != nil {
 		t.Fatalf("Unexpected error %v", err)
@@ -150,11 +151,8 @@ func TestShellAttachProtocol(t *testing.T) {
 
 	out := bytes.NewBuffer(nil)
 	stdinR, stdinW := io.Pipe()
-	stdoutR, stdoutW := io.Pipe()
 
-	go io.Copy(out, stdoutR)
-
-	ch := s.AttachProtocol(stdinR, stdoutW)
+	ch := s.AttachProtocol(stdinR, out)
 
 	// test resize
 	fmt.Fprint(stdinW, `r|100 200`)
@@ -165,23 +163,15 @@ func TestShellAttachProtocol(t *testing.T) {
 			int(ws.Width), int(ws.Height))
 	}
 
-	// test write to term
-	time.Sleep(10 * time.Millisecond)
-	fmt.Fprint(stdinW, `d|echo "hello world"`)
-
 	// test client close
-	time.Sleep(10 * time.Millisecond)
 	fmt.Fprint(stdinW, `c|good bye`)
 
 	select {
 	case <-time.After(1000 * time.Millisecond):
 		t.Fatal("timed out")
 	case <-ch:
-		// strip the protocol prefix
-		if strings.Contains(out.String(), "d|hello world") {
-			t.Errorf("failed to print correct output, got %s", out.String())
-		}
-		if !strings.Contains(out.String(), `d|echo "hello world"`) {
+		// check output
+		if !strings.Contains(out.String(), "d|attach protocol") {
 			t.Errorf("failed to print correct output, got %s", out.String())
 		}
 	}
