@@ -104,7 +104,7 @@ Content-Type: application/json; charset=utf-8
       "name": "foobar",
       "image": "freighter.foobar",
       "host": "1.2.3.4",
-      "ssh_port": 10000,
+      "ports": {"22": ["49100"]},
       "state": "running"
     },
     {
@@ -112,7 +112,7 @@ Content-Type: application/json; charset=utf-8
       "name": "bar",
       "image": "freighter.bar",
       "host": "1.2.3.5",
-      "ssh_port": 10001,
+      "ports": {"22": []},
       "state": "stopped"
     }
   ]
@@ -123,7 +123,7 @@ Content-Type: application/json; charset=utf-8
 
 - **200**  - no error
 
-### Create a container
+### Create an unstarted container
 
 `POST /containers`
 
@@ -142,7 +142,7 @@ name=foo&image=ubuntu-upstart:trusty&config=JSON
 HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 
-{ "container" : { "id":"aaa", "name":"fragrant-wind-69", "image":"ubuntu", "host":"1.2.3.4", "ssh_port":10000, "state":"running", "ports":{"3000": ["3000", "3001"],"8080":["49123"],"22":["49273"]} }
+{ "container" : { "id":"aaa", "name":"fragrant-wind-69", "image":"ubuntu", "host":"1.2.3.4", "state":"running", "ports":{"3000": ["3000", "3001"],"8080":["49123"],"22":["49273"]} }
 ```
 
 **POST Params**:
@@ -194,7 +194,7 @@ Content-Type: application/json; charset=utf-8
     "name":"foobar",
     "image":"freighter.foobar",
     "host":"1.2.3.4",
-    "ssh_port":60003,
+    "ports": {"22": ["49100"]},
     "state":"running"
   }
 }
@@ -231,7 +231,6 @@ Content-Type: application/json; charset=utf-8
 		"name": "container-name",
 		"image": "nitrousio/ubuntu",
 		"host": "1.2.3.4",
-		"ssh_port": 1000,
 		"state": "running",
 		"ports": {"3000":["3000", "3001"],"22":["49273"]}
 	}
@@ -282,7 +281,7 @@ Content-Type: application/json; charset=utf-8
 		"name": "container-name",
 		"image": "nitrousio/ubuntu",
 		"host": "1.2.3.4",
-		"ssh_port": 1000,
+    "ports": {"22": []},
 		"state": "stopped"
 	}
 }
@@ -319,7 +318,7 @@ Content-Type: application/json; charset=utf-8
     "name": "foobar",
     "image": "freighter.foobar",
     "host": "1.2.3.4",
-    "ssh_port": 10000,
+    "ports": {"22": ["49100"]},
     "state": "running"
   }
 }
