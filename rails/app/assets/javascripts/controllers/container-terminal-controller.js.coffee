@@ -7,11 +7,14 @@ App.ContainerTerminalController = Em.ObjectController.extend
     freighterdUrl = @get 'freighterdUrl'
     term = terminal.term
 
-    container.requestShell(getLoginCommand(), term.cols, term.rows).then (shell) =>
+    container.requestToken(['shell']).then (token) =>
+      token = encodeURIComponent(token.token)
+      command = encodeURIComponent(getLoginCommand())
+
       protocol = location.protocol.replace('http', 'ws')
-      url = "#{protocol}//#{freighterdUrl}/containers/#{container.get 'cid'}/shells/#{shell.id}/attach/ws?token=#{encodeURIComponent(shell.token)}"
-      terminal.start url, (cols, rows) ->
-        container.resizeShell(shell.id, cols, rows)
+      url = "#{protocol}//#{freighterdUrl}/containers/#{container.get 'cid'}/shell?token=#{token}&command=#{command}&width=#{term.cols}&height=#{term.rows}"
+
+      terminal.start(url)
     , (jqxhr) ->
       console.log jqxhr
       App.snackbar.post('Could not request shell!')

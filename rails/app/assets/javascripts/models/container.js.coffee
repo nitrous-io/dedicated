@@ -51,44 +51,6 @@ App.Container = klass = App.Model.extend
   requestToken: (permissions) ->
     @ajax 'POST', 'token', permission: permissions
 
-  requestShell: (command, cols, rows) ->
-    freighterdUrl = @get 'host.freighterdUrl'
-    cid = @get 'cid'
-    url = "#{location.protocol}//#{freighterdUrl}/containers/#{cid}/shells"
-    new Ember.RSVP.Promise (resolve, reject) =>
-      @requestToken(['shell']).then (data) ->
-        token = data.token
-        Em.$.ajax(
-          type: 'POST'
-          url: url
-          data:
-            command: command
-            width: cols
-            height: rows
-          headers:
-            Authorization: "Token #{token}"
-        ).then (shell) ->
-          resolve(id: shell.id, token: token)
-        , (jqxhr) ->
-          reject(jqxhr)
-      , (jqxhr) ->
-        reject(jqxhr)
-
-  resizeShell: (shellId, cols, rows) ->
-    freighterdUrl = @get 'host.freighterdUrl'
-    cid = @get 'cid'
-    url = "#{location.protocol}//#{freighterdUrl}/containers/#{cid}/shells/#{shellId}/resize"
-    @requestToken(['shell']).then (data) ->
-      token = data.token
-      Em.$.ajax
-        type: 'POST'
-        url: url
-        data:
-          width: cols
-          height: rows
-        headers:
-          Authorization: "Token #{token}"
-
 klass.reopenClass
   primaryKey: 'slug'
   url: '/containers'

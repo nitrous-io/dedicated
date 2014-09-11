@@ -33,7 +33,7 @@ window.NitrousTerminal =
       Terminal.focus = null
       @term.redrawCursor()
 
-  start: (url, onResize) ->
+  start: (url) ->
     @conn = conn = new WebSocket(url)
     conn.onopen    = (ev) => @open(ev)
     conn.onmessage = (ev) => @message(ev)
@@ -41,11 +41,15 @@ window.NitrousTerminal =
     conn.onclose   = (ev) => @close(ev)
 
     term = @term
-    term.on 'resize', onResize
+
+    term.on 'resize', (cols, rows)->
+      conn.send "r|#{cols} #{rows}"
+
     term.handler = (data) ->
-      conn.send data
+      conn.send "d|#{data}"
 
   stop: ->
+    @term?.write('c|goodbye')
     @term?.removeAllListeners('resize')
     @term?.destroy()
     @conn?.close()
@@ -57,7 +61,8 @@ window.NitrousTerminal =
     @term.write '\x1b[r\x1b[H\x1b[J'
 
   message: (ev) ->
-    @term.write(ev.data)
+    if ev.data.slice(0, 2) == 'd|'
+      @term.write ev.data.slice(2)
 
   error: (ev) ->
 
