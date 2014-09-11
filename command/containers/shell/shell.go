@@ -9,7 +9,7 @@ import (
 	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/containers"
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
-	"github.com/nitrous-io/nitro/pkg/remoteshell"
+	"github.com/nitrous-io/nitro/pkg/protoshell"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
 )
@@ -89,7 +89,7 @@ func (c *Command) Run(args []string) int {
 
 	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
 	command := getLoginCommand(username)
-	sh := remoteshell.New(host, cr.CID, command, func() (string, error) {
+	sh := protoshell.New(host, cr.CID, command, func() (string, error) {
 		return containers.GetToken(slug, c.server, []string{"shell"}, c.client)
 	})
 	if err := sh.Run(pty.Fd(), stdin, stdout); err != nil {
