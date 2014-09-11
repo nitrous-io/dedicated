@@ -54,7 +54,13 @@ Content-Type: application/json; charset=utf-8
   "public_keys": [
     "ssh-rsa AAAAB3Nz me@macbook",
     "ssh-rsa AAAABBaZ me@example.com"
-  ]
+  ],
+  "secret": "base64encodedsecret",
+  "tls": {
+    "ca": "....",
+    "cert": "....",
+    "key": "...."
+  }
 }
 ```
 
@@ -73,7 +79,13 @@ Content-Type: application/json; charset=utf-8
   "public_keys": [
     "ssh-rsa AAAAB3Nz me@macbook",
     "ssh-rsa AAAABBaZ me@example.com"
-  ]
+  ],
+  "secret": "base64encodedsecret",
+  "tls": {
+    "ca": "....",
+    "cert": "....",
+    "key": "...."
+  }
 }
 ```
 
@@ -87,6 +99,12 @@ Content-Type: application/json; charset=utf-8
     "ssh-rsa AAAAB3Nz me@macbook",
     "ssh-rsa AAAABBaZ me@example.com"
   ]
+  "secret": "base64encodedsecret",
+  "tls": {
+    "ca": "....",
+    "cert": "....",
+    "key": "...."
+  }
 }
 ```
 
