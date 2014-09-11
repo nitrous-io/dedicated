@@ -91,8 +91,8 @@ var _ = Describe("images/ibuild", func() {
 				defer f.Close()
 
 				bufRdr := bufio.NewReader(f)
-				header, err := bufRdr.Peek(isarchive.MaxHeaderLength)
-				Expect(err).To(BeNil())
+				header, _ := bufRdr.Peek(isarchive.MaxHeaderLength)
+				Expect(header).NotTo(BeNil())
 				Expect(isarchive.IsArchive(header)).To(BeTrue())
 			},
 			ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
@@ -195,7 +195,6 @@ var _ = Describe("images/ibuild", func() {
 				Expect(code).To(Equal(0))
 				Expect(string(output)).To(ContainSubstring("Built image"))
 			})
-
 		})
 
 		Context("with slug specified", func() {
