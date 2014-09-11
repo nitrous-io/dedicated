@@ -65,15 +65,14 @@ func (s *ProtoShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error
 	if err != nil {
 		return err
 	}
-	headers := http.Header{}
-	headers.Add("Authorization", "Token "+token)
 
 	// construct params header that includes the wanted command
 	params := url.Values{}
 	params.Set("command", s.command)
-	wsEndpointURI := fmt.Sprintf("ws://%s/containers/%s/shells?%s", s.host, s.containerID, params.Encode())
+	params.Set("token", token)
+	wsEndpointURI := fmt.Sprintf("ws://%s/containers/%s/shell?%s", s.host, s.containerID, params.Encode())
 
-	ws, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, headers)
+	ws, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, http.Header{})
 	if err != nil {
 		return fmt.Errorf("Failed to attach to shell for container %s: %v", s.containerID, err)
 	}
