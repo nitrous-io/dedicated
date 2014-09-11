@@ -1,10 +1,20 @@
 #!/bin/bash
+set -x
+set -e
+
 APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
+ENV=${3:?"env is required"}
 
 ARTIFACT_DIR=/tmp/$APP/$VERSION/linux/amd64
 
-PACKAGE_NAME=$APP
+if [[ "$ENV" == "production" ]]; then
+  PACKAGE_NAME=$APP
+else
+  PACKAGE_NAME=${ENV}${APP}
+  mv ${ARTIFACT_DIR}/${APP} ${ARTIFACT_DIR}/${PACKAGE_NAME}
+fi
+
 PACKAGE_VERSION=$VERSION
 PACKAGE_ARCHITECTURE="$(dpkg-architecture -qDEB_HOST_ARCH)"
 PACKAGE_MAINTAINER="eng@nitrous.io"
@@ -14,7 +24,7 @@ PACKAGE_LICENSE="Private"
 PKGDIR=$ARTIFACT_DIR
 
 # install binary
-install -m 0755 -D $ARTIFACT_DIR/$APP $PKGDIR/usr/bin/$APP
+install -m 0755 -D $ARTIFACT_DIR/$PACKAGE_NAME $PKGDIR/usr/bin/$PACKAGE_NAME
 cd $PKGDIR
 
 fpm \
@@ -33,7 +43,7 @@ fpm \
 # cleanup
 rm -rf $PKGDIR/{usr,etc}
 
-DEB=${APP}_${VERSION}_amd64.deb
+DEB=${PACKAGE_NAME}_${VERSION}_amd64.deb
 
 # Release
 cd $ARTIFACT_DIR
