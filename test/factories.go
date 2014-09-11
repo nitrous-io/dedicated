@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/providertemplate"
@@ -13,11 +15,12 @@ import (
 )
 
 type HostStack struct {
-	R  *region.Region
-	P  *plan.Plan
-	PT *providertemplate.ProviderTemplate
-	H  *host.Host
-	U  *user.User
+	R    *region.Region
+	P    *plan.Plan
+	PT   *providertemplate.ProviderTemplate
+	H    *host.Host
+	U    *user.User
+	Cert *cert.Cert
 }
 
 // track number of hoststacks successfully created so we can generate unique
@@ -133,6 +136,20 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 		return nil, err
 	}
 
+	// create a certificate for the host.  This
+	// certificate will not work for TLS access to the
+	// host (via freighterclient), use
+	// GenerateHostCert(db, hs) to produce a usable cert
+	crt := &cert.Cert{
+		ServerCert: localhostCert,
+		ServerKey:  localhostKey,
+	}
+	if err := crt.Insert(tx, hs.H.ID); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	hs.Cert = crt
+
 	err = tx.Commit()
 	if err != nil {
 		return nil, err
@@ -142,3 +159,68 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 
 	return hs, nil
 }
+
+// GenerateHostCert generates a certificate for the host
+// signed by CA.  This is expensive, so call explicitly
+// only when needed.  It deletes any existing cert for
+// that host.
+func GenerateHostCert(db *db.Database, hs *HostStack) (*HostStack, error) {
+	caInfo, err := controllers.GetCAInfo(true)
+	if err != nil {
+		return nil, err
+	}
+	crt, err := cert.Generate(hs.H.Hostname(), caInfo.X509Cert, caInfo.Key)
+	if err != nil {
+		return nil, err
+	}
+	tx, err := db.Beginx()
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := cert.Delete(tx, hs.H.ID); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := crt.Insert(tx, hs.H.ID); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	hs.Cert = crt
+	return hs, nil
+}
+
+// These certs are the same as the certs embeded with net/http/httptest.
+// If there's mismatched certs error, look at net/http/httptest/server.go to
+// check if the cert has changed.
+//
+// localhostCert is a PEM-encoded TLS cert with SAN IPs
+// "127.0.0.1" and "[::1]", expiring at the last second of 2049 (the end
+// of ASN.1 time).
+// generated from src/pkg/crypto/tls:
+// go run generate_cert.go  --rsa-bits 512 --host 127.0.0.1,::1,example.com --ca --start-date "Jan 1 00:00:00 1970" --duration=1000000h
+var localhostCert = `-----BEGIN CERTIFICATE-----
+MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwEjEQMA4GA1UEChMHQWNtZSBD
+bzAeFw03MDAxMDEwMDAwMDBaFw00OTEyMzEyMzU5NTlaMBIxEDAOBgNVBAoTB0Fj
+bWUgQ28wWjALBgkqhkiG9w0BAQEDSwAwSAJBAN55NcYKZeInyTuhcCwFMhDHCmwa
+IUSdtXdcbItRB/yfXGBhiex00IaLXQnSU+QZPRZWYqeTEbFSgihqi1PUDy8CAwEA
+AaNoMGYwDgYDVR0PAQH/BAQDAgCkMBMGA1UdJQQMMAoGCCsGAQUFBwMBMA8GA1Ud
+EwEB/wQFMAMBAf8wLgYDVR0RBCcwJYILZXhhbXBsZS5jb22HBH8AAAGHEAAAAAAA
+AAAAAAAAAAAAAAEwCwYJKoZIhvcNAQEFA0EAAoQn/ytgqpiLcZu9XKbCJsJcvkgk
+Se6AbGXgSlq+ZCEVo0qIwSgeBqmsJxUu7NCSOwVJLYNEBO2DtIxoYVk+MA==
+-----END CERTIFICATE-----`
+
+// localhostKey is the private key for localhostCert.
+var localhostKey = `-----BEGIN RSA PRIVATE KEY-----
+MIIBPAIBAAJBAN55NcYKZeInyTuhcCwFMhDHCmwaIUSdtXdcbItRB/yfXGBhiex0
+0IaLXQnSU+QZPRZWYqeTEbFSgihqi1PUDy8CAwEAAQJBAQdUx66rfh8sYsgfdcvV
+NoafYpnEcB5s4m/vSVe6SU7dCK6eYec9f9wpT353ljhDUHq3EbmE4foNzJngh35d
+AekCIQDhRQG5Li0Wj8TM4obOnnXUXf1jRv0UkzE9AHWLG5q3AwIhAPzSjpYUDjVW
+MCUXgckTpKCuGwbJk7424Nb8bLzf3kllAiA5mUBgjfr/WtFSJdWcPQ4Zt9KTMNKD
+EUO0ukpTwEIl6wIhAMbGqZK3zAAFdq8DD2jPx+UJXnh0rnOkZBzDtJ6/iN69AiEA
+1Aq8MJgTaYsDQWyU/hDq5YkDJc9e9DSCvUIzqxQWMQE=
+-----END RSA PRIVATE KEY-----`

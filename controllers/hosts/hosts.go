@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
+	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/container"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/keypairs"
@@ -36,6 +37,7 @@ var (
 	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
+	errCertNotFound             = httperror.New(http.StatusNotFound, "not_found", "host certificate does not exist")
 )
 
 var (
@@ -176,6 +178,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 		return err
 	}
+	// create the cert
+	crt, err := generateCerts(h.Hostname())
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := crt.Insert(tx, h.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -206,6 +218,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	config["apt_password"] = t.Token
 	config["apt_location"] = defaultAPTLocation
 	config["apt_dist"] = defaultAPTDist
+
+	caInfo, err := controllers.GetCAInfo(false)
+	if err != nil {
+		return err
+	}
+	config["tls"] = map[string]string{
+		"ca":   string(caInfo.CertPEM),
+		"cert": crt.ServerCert,
+		"key":  crt.ServerKey,
+	}
 
 	info, err := HostbuilderClient.Create(pt.Provider, &config)
 	if err != nil {
@@ -328,6 +350,10 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 	if err = keypairs.Delete(tx, h.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := cert.Delete(tx, h.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -457,4 +483,14 @@ func publishHostEvent(env *middleware.Env, name string, h *host.Host) {
 		controllers.NewEvent(name, serializers.SerializeHost(h)),
 		env.User.Topic(),
 	)
+}
+
+// generate cert with server certificate and key. The cert will be used for
+// TLS encryption
+func generateCerts(hostname string) (*cert.Cert, error) {
+	caInfo, err := controllers.GetCAInfo(true)
+	if err != nil {
+		return nil, err
+	}
+	return cert.Generate(hostname, caInfo.X509Cert, caInfo.Key)
 }

@@ -294,7 +294,7 @@ func init() {
 			Up: `
 				ALTER TABLE tokens ALTER COLUMN token SET DEFAULT left(encode(gen_random_bytes(191), 'base64'), 255);
 				ALTER TABLE hosts ADD COLUMN secret character varying(255) NOT NULL DEFAULT left(encode(gen_random_bytes(191), 'base64'), 255);
-      `,
+			`,
 		},
 		{
 			Version: "225",
@@ -309,7 +309,7 @@ func init() {
 			Version: "230",
 			Up: `
 				ALTER TABLE containers ADD COLUMN secret character varying(255) NOT NULL DEFAULT left(encode(gen_random_bytes(191), 'base64'), 255);
-      `,
+			`,
 		},
 		{
 			Version: "240",
@@ -354,6 +354,28 @@ func init() {
 					updated_at timestamp without time zone DEFAULT now()
 				);
 				CREATE UNIQUE INDEX index_base_images_on_name ON base_images USING btree (name);
+			`,
+		},
+		{
+			Version: "280",
+			Up: `
+				CREATE TABLE certs (
+					id bigserial PRIMARY KEY NOT NULL,
+					host_id bigint,
+					ca text NOT NULL,
+					server_cert text NOT NULL,
+					server_key text NOT NULL,
+					terminated_at timestamp without time zone,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE INDEX index_certs_on_host_id ON certs USING btree (host_id);
+			`,
+		},
+		{
+			Version: "271",
+			Up: `
+				ALTER TABLE certs DROP COLUMN ca;
 			`,
 		},
 	}

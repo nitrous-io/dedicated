@@ -1,6 +1,8 @@
 package test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/token"
 )
@@ -161,4 +164,25 @@ func TempDir() (string, error) {
 
 func RandomName(name string) string {
 	return fmt.Sprintf("%v-%v-%v", name, time.Now().UnixNano(), rand.Intn(1000))
+}
+
+func TLSConfig(hostname string, certPEM []byte, keyPEM []byte) (*tls.Config, error) {
+	caInfo, err := controllers.GetCAInfo(true)
+	if err != nil {
+		return nil, err
+	}
+	certPool := x509.NewCertPool()
+	certPool.AddCert(caInfo.X509Cert)
+
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tls.Config{
+		NextProtos:   []string{"http/1.1"},
+		Certificates: []tls.Certificate{tlsCert},
+		RootCAs:      certPool,
+		ServerName:   hostname,
+	}, nil
 }
