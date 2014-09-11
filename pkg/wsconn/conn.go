@@ -59,7 +59,7 @@ func NewConnectionHeartbeat(w *websocket.Conn, serverHeartbeat bool) *Conn {
 	return c
 }
 
-func (c Conn) Write(b []byte) (int, error) {
+func (c *Conn) Write(b []byte) (int, error) {
 	if c.writeWait != 0 {
 		c.SetWriteDeadline(time.Now().Add(c.writeWait))
 	}
@@ -69,7 +69,7 @@ func (c Conn) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (c Conn) Read(b []byte) (int, error) {
+func (c *Conn) Read(b []byte) (int, error) {
 	if c.reader == nil {
 		t, r, err := c.NextReader()
 		if err != nil {
@@ -91,13 +91,13 @@ func (c Conn) Read(b []byte) (int, error) {
 	return n, nil
 }
 
-func (c Conn) Close() error {
+func (c *Conn) Close() error {
 	c.SetWriteDeadline(time.Now().Add(c.writeWait))
 	c.WriteMessage(websocket.CloseMessage, []byte{})
 	return c.Conn.Close()
 }
 
-func (c Conn) pingpong() {
+func (c *Conn) pingpong() {
 	if c.pongWait != 0 {
 		c.SetReadDeadline(time.Now().Add(c.pongWait))
 		c.SetPongHandler(func(string) error {
