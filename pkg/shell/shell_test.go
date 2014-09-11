@@ -157,7 +157,7 @@ func TestShellAttachProtocol(t *testing.T) {
 	ch := s.AttachProtocol(stdinR, stdoutW)
 
 	// test resize
-	fmt.Fprint(stdinW, `w|100 200`)
+	fmt.Fprint(stdinW, `r|100 200`)
 	time.Sleep(10 * time.Millisecond)
 	ws, err := term.GetWinsize(s.fd())
 	if err != nil || int(ws.Width) != 100 || int(ws.Height) != 200 {
@@ -167,18 +167,18 @@ func TestShellAttachProtocol(t *testing.T) {
 
 	// test write to term
 	time.Sleep(10 * time.Millisecond)
-	fmt.Fprint(stdinW, `p|echo "hello world"`)
+	fmt.Fprint(stdinW, `d|echo "hello world"`)
 
 	// test client close
 	time.Sleep(10 * time.Millisecond)
-	fmt.Fprint(stdinW, `c|gone away`)
+	fmt.Fprint(stdinW, `c|good bye`)
 
 	select {
 	case <-time.After(1000 * time.Millisecond):
 		t.Fatal("timed out")
 	case <-ch:
 		// strip the protocol prefix
-		if strings.Contains(out.String(), "p|hello world") {
+		if strings.Contains(out.String(), "d|hello world") {
 			t.Errorf("failed to print correct output, got %s", out.String())
 		}
 		if !strings.Contains(out.String(), `d|echo "hello world"`) {

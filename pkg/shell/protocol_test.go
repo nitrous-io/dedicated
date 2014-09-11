@@ -14,10 +14,10 @@ func TestNewShellReader(t *testing.T) {
 		expected    string
 		expectedMsg Message
 	}{
-		{`p|whoami`, `whoami`, nil},
-		{`p|ls`, `ls`, nil},
-		{`w|80 20`, ``, &ResizeMsg{width: 80, height: 20}},
-		{`c|gone away for good`, ``, &CloseMsg{msg: `gone away for good`}},
+		{`d|whoami`, `whoami`, nil},
+		{`d|ls`, `ls`, nil},
+		{`r|80 20`, ``, &ResizeMsg{width: 80, height: 20}},
+		{`c|good bye`, ``, &CloseMsg{msg: `good bye`}},
 	}
 
 	for _, tc := range testCases {

@@ -1,13 +1,13 @@
 // this handles our websocket protocol
-//
-// d|action@foobar    # output from server
-// p|whoami           # input from client
-// d|action           # output from server
-// w|80 25            # resize from client
-// c|server went away # close msg
+// server <--> client
+// --> d|action@foobar $ # output from server
+// <-- d|whoami          # input from client
+// --> d|action          # output from server
+// <-- r|80 25           # resize from client
+// <-- c|good bye        # close msg
 //
 // NOT IMPLEMENTED
-// h                  # heartbeat from client
+// <-- h                  # heartbeat from client
 package shell
 
 import (
@@ -18,11 +18,10 @@ import (
 )
 
 var (
-	serverOutputMsg = []byte("d|")
-	clientInputMsg  = []byte("p|")
-	resizeMsg       = []byte("w|")
-	closeMsg        = []byte("c|")
-	heartbeatMsg    = []byte("h")
+	dataMsg      = []byte("d|")
+	resizeMsg    = []byte("r|")
+	closeMsg     = []byte("c|")
+	heartbeatMsg = []byte("h")
 
 	InvalidMessage = errors.New("invalid message")
 )
@@ -95,7 +94,7 @@ func (s *ShellReader) Read(p []byte) (int, error) {
 	}
 	if n >= 2 {
 		// detect client input, copy everything back to p without the prefix
-		if bytes.Equal(buf[0:2], clientInputMsg) {
+		if bytes.Equal(buf[0:2], dataMsg) {
 			i := copy(p, buf[2:n])
 			return i, err
 		}
@@ -126,8 +125,8 @@ func NewShellWriter(w io.Writer) io.Writer {
 
 func (s *ShellWriter) Write(p []byte) (int, error) {
 	l := len(p)
-	buf := make([]byte, l+len(serverOutputMsg))
-	copy(buf[0:2], serverOutputMsg)
+	buf := make([]byte, l+len(dataMsg))
+	copy(buf[0:2], dataMsg)
 	copy(buf[2:], p)
 	_, err := s.writer.Write(buf)
 	return l, err
