@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/providertemplate"
 	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/pkg/securerandom"
 )
 
 const DBEnvVar = "NITROUS_PG_URL"
@@ -69,8 +70,12 @@ func users(d db.QueryReceiver) error {
 	if err != nil || !ok {
 		return err
 	}
+	pass, err := securerandom.Base64(12)
+	if err != nil {
+		return err
+	}
 	users := []user.User{
-		{Username: "seeduser", Email: "seeduser@example.com", Password: "123456"},
+		{Username: "admin", Email: "admins@nitrous.io", Password: pass},
 	}
 	for _, u := range users {
 		err = u.Insert(d)
