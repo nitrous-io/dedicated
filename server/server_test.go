@@ -28,6 +28,8 @@ func Test(t *testing.T) {
 	RunSpecs(t, "server")
 }
 
+var hostSecret = "sekrit"
+
 var _ = Describe("server", func() {
 	var (
 		handler *mux.Router
@@ -36,23 +38,22 @@ var _ = Describe("server", func() {
 		err     error
 		svr     *server.Server
 		prov    *MockProvider
-		config  *server.Config
 	)
 
 	configJSON := `{"HostConfig": {"PortBindings": {"3000/tcp": [{"HostPort":"1234", "HostIp": "127.0.0.1"}]}}}`
 
 	BeforeEach(func() {
 		prov = &MockProvider{}
-		config = &server.Config{}
 		logger := &util.Logger{Level: util.LogLevelQuiet}
-		svr = server.NewServer(logger, prov, config)
+		svr = server.NewServer(logger, prov, &server.Config{})
+		svr.SetSecret(hostSecret)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 	})
 
 	Describe("GET /", func() {
 		BeforeEach(func() {
-			req, err = NewRequest("GET", "/", nil)
+			req, err = NewRequestWithSecret(hostSecret, "GET", "/", nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		})
@@ -65,7 +66,7 @@ var _ = Describe("server", func() {
 
 	Describe("GET /containers", func() {
 		doRequest := func() {
-			req, err = NewRequest("GET", "/containers", nil)
+			req, err = NewRequestWithSecret(hostSecret, "GET", "/containers", nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -129,7 +130,7 @@ var _ = Describe("server", func() {
 		})
 
 		doRequest := func() {
-			req, err = NewFormRequest("POST", "/containers", params)
+			req, err = NewFormRequest(hostSecret, "POST", "/containers", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -236,7 +237,7 @@ var _ = Describe("server", func() {
 		})
 
 		doRequest := func(id string) {
-			req, err = NewRequest("GET", fmt.Sprintf("/containers/%v", id), nil)
+			req, err = NewRequestWithSecret(hostSecret, "GET", fmt.Sprintf("/containers/%v", id), nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -272,7 +273,7 @@ var _ = Describe("server", func() {
 			if name != "" {
 				params.Set("name", name)
 			}
-			req, err = NewRequest("POST", fmt.Sprintf("/containers/%v/commit", id), params)
+			req, err = NewRequestWithSecret(hostSecret, "POST", fmt.Sprintf("/containers/%v/commit", id), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -403,7 +404,7 @@ var _ = Describe("server", func() {
 				}`
 
 				doRequest = func(id string) {
-					req, err = NewRequest("DELETE", fmt.Sprintf("/containers/%v", id), params)
+					req, err = NewRequestWithSecret(hostSecret, "DELETE", fmt.Sprintf("/containers/%v", id), params)
 					Expect(err).To(BeNil())
 					handler.ServeHTTP(res, req)
 				}
@@ -434,7 +435,7 @@ var _ = Describe("server", func() {
 				}`
 
 				doRequest = func(id string) {
-					req, err = NewFormRequest("POST", fmt.Sprintf("/containers/%v/start", id), params)
+					req, err = NewFormRequest(hostSecret, "POST", fmt.Sprintf("/containers/%v/start", id), params)
 					Expect(err).To(BeNil())
 					handler.ServeHTTP(res, req)
 				}
@@ -471,7 +472,7 @@ var _ = Describe("server", func() {
 				}`
 
 				doRequest = func(id string) {
-					req, err = NewFormRequest("POST", fmt.Sprintf("/containers/%v/stop", id), params)
+					req, err = NewFormRequest(hostSecret, "POST", fmt.Sprintf("/containers/%v/stop", id), params)
 					Expect(err).To(BeNil())
 					handler.ServeHTTP(res, req)
 				}
@@ -502,7 +503,7 @@ var _ = Describe("server", func() {
 				}`
 
 				doRequest = func(id string) {
-					req, err = NewFormRequest("POST", fmt.Sprintf("/containers/%v/restart", id), params)
+					req, err = NewFormRequest(hostSecret, "POST", fmt.Sprintf("/containers/%v/restart", id), params)
 					Expect(err).To(BeNil())
 					handler.ServeHTTP(res, req)
 				}
@@ -524,7 +525,7 @@ var _ = Describe("server", func() {
 		)
 
 		doRequest := func() {
-			req, err = NewRequest("GET", fmt.Sprintf("/containers/%v/public_keys", id), nil)
+			req, err = NewRequestWithSecret(hostSecret, "GET", fmt.Sprintf("/containers/%v/public_keys", id), nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -594,7 +595,7 @@ var _ = Describe("server", func() {
 		})
 
 		doRequest := func() {
-			req, err = NewFormRequest("POST", fmt.Sprintf("/containers/%v/public_keys", id), params)
+			req, err = NewFormRequest(hostSecret, "POST", fmt.Sprintf("/containers/%v/public_keys", id), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -724,7 +725,7 @@ var _ = Describe("server", func() {
 		)
 
 		doRequest := func() {
-			req, err = NewRequest("DELETE", fmt.Sprintf("/containers/%v/public_keys", id), params)
+			req, err = NewRequestWithSecret(hostSecret, "DELETE", fmt.Sprintf("/containers/%v/public_keys", id), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -771,7 +772,7 @@ var _ = Describe("server", func() {
 		)
 
 		doRequest := func() {
-			req, err = NewRequest("DELETE", fmt.Sprintf("/containers/%v/public_keys/%v", id, fingerprint), params)
+			req, err = NewRequestWithSecret(hostSecret, "DELETE", fmt.Sprintf("/containers/%v/public_keys/%v", id, fingerprint), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -861,7 +862,7 @@ var _ = Describe("server", func() {
 
 	Describe("POST /volumes", func() {
 		doRequest := func(slug string) {
-			req, _ := NewRequest("POST", "/volumes", &url.Values{"slug": []string{slug}})
+			req, _ := NewRequestWithSecret(hostSecret, "POST", "/volumes", &url.Values{"slug": []string{slug}})
 			handler.ServeHTTP(res, req)
 		}
 
@@ -895,7 +896,7 @@ var _ = Describe("server", func() {
 
 	Describe("GET /volumes", func() {
 		doRequest := func() {
-			req, _ := NewRequest("GET", "/volumes", nil)
+			req, _ := NewRequestWithSecret(hostSecret, "GET", "/volumes", nil)
 			handler.ServeHTTP(res, req)
 		}
 
@@ -916,7 +917,7 @@ var _ = Describe("server", func() {
 
 	Describe("DELETE /volumes/:slug", func() {
 		doRequest := func() {
-			req, _ := NewRequest("DELETE", "/volumes/some-volume", nil)
+			req, _ := NewRequestWithSecret(hostSecret, "DELETE", "/volumes/some-volume", nil)
 			handler.ServeHTTP(res, req)
 		}
 
@@ -936,7 +937,7 @@ var _ = Describe("server", func() {
 
 	Describe("GET /volumes/:slug", func() {
 		doRequest := func() {
-			req, _ := NewRequest("GET", "/volumes/eleven", nil)
+			req, _ := NewRequestWithSecret(hostSecret, "GET", "/volumes/eleven", nil)
 			handler.ServeHTTP(res, req)
 		}
 
@@ -965,7 +966,8 @@ var _ = Describe("server", func() {
 			params.Set("follow", follow)
 			params.Set("timestamps", timestamps)
 			params.Set("tail", tail)
-			req, _ := NewRequest("GET", fmt.Sprintf("/containers/%v/logs", id), params)
+			req, err := NewRequestWithSecret(hostSecret, "GET", fmt.Sprintf("/containers/%v/logs", id), params)
+			Expect(err).To(BeNil())
 			if token != "" {
 				req.Header.Set("Authorization", "Token "+token)
 			}
@@ -1033,7 +1035,7 @@ var _ = Describe("server", func() {
 
 	Describe("GET /images", func() {
 		doRequest := func() {
-			req, err = NewRequest("GET", "/images", nil)
+			req, err = NewRequestWithSecret(hostSecret, "GET", "/images", nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1091,7 +1093,7 @@ var _ = Describe("server", func() {
 			if period != "" {
 				params = &url.Values{"period": []string{period}}
 			}
-			req, err = NewRequest("GET", "/info", params)
+			req, err = NewRequestWithSecret(hostSecret, "GET", "/info", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1171,7 +1173,7 @@ var _ = Describe("server", func() {
 
 	Describe("POST /images", func() {
 		doRequest := func(params map[string]string, files map[string]string) {
-			req, err = NewFileRequest("POST", "/images", params, files)
+			req, err = NewFileRequest(hostSecret, "POST", "/images", params, files)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1241,7 +1243,7 @@ var _ = Describe("server", func() {
 		doRequest := func() {
 			params := &url.Values{}
 			params.Set("image", "nitrousio/ubuntu:12.04")
-			req, err = NewRequest("DELETE", "/images", params)
+			req, err = NewRequestWithSecret(hostSecret, "DELETE", "/images", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1281,7 +1283,7 @@ var _ = Describe("server", func() {
 		doRequest := func() {
 			params := &url.Values{}
 			params.Set("repository", "busybox")
-			req, err = NewRequest("POST", "/images/pull", params)
+			req, err = NewRequestWithSecret(hostSecret, "POST", "/images/pull", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1316,7 +1318,7 @@ var _ = Describe("server", func() {
 			params := &url.Values{}
 			params.Set("image", image)
 			params.Set("destination", destination)
-			req, err = NewRequest("POST", "/images/push", params)
+			req, err = NewRequestWithSecret(hostSecret, "POST", "/images/push", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1363,7 +1365,7 @@ var _ = Describe("server", func() {
 			params.Set("image", image)
 			params.Set("tag", tag)
 			params.Set("force", strconv.FormatBool(force))
-			req, err = NewRequest("POST", "/images/tag", params)
+			req, err = NewRequestWithSecret(hostSecret, "POST", "/images/tag", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -1402,7 +1404,7 @@ var _ = Describe("server", func() {
 		doRequest := func(image string) *httptest.ResponseRecorder {
 			params := &url.Values{}
 			params.Set("image", image)
-			req, err := NewRequest("GET", "/images/inspect", params)
+			req, err := NewRequestWithSecret(hostSecret, "GET", "/images/inspect", params)
 			Expect(err).To(BeNil())
 
 			res := httptest.NewRecorder()
@@ -1582,6 +1584,27 @@ var _ = Describe("server", func() {
 			Expect(err).To(Equal(websocket.ErrBadHandshake))
 			Expect(prov.ReceivedToken).To(Equal(token))
 			Expect(prov.ReceivedPermissions).To(Equal([]string{"shell"}))
+		})
+	})
+
+	Describe("Unauthorized requests", func() {
+		It("requires an authorization header", func() {
+			req, err := NewRequestWithSecret(hostSecret, "GET", "/containers", nil)
+			Expect(err).To(BeNil())
+			req.Header.Del("X-Freighter-Secret")
+			handler.ServeHTTP(res, req)
+
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(res.Body.String()).To(ContainSubstring("missing_secret"))
+		})
+
+		It("requires valid token in authorization header", func() {
+			req, err := NewRequestWithSecret(hostSecret, "GET", "/containers", nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("X-Freighter-Secret", "secretion")
+			handler.ServeHTTP(res, req)
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(res.Body.String()).To(ContainSubstring("invalid_secret"))
 		})
 	})
 })

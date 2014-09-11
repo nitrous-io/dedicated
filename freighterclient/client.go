@@ -2,11 +2,14 @@ package freighterclient
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -41,6 +44,10 @@ var (
 	ErrUnverifiable            = provider.ErrUnverifiable
 	ErrImageExists             = provider.ErrImageExists
 	ErrImagePushAuthRequired   = provider.ErrImagePushAuthRequired
+
+	// ErrInvalidSecret is returned when freighterclient caller passed in an
+	// empty/invalid secret
+	ErrInvalidSecret = errors.New("freighter: invalid secret")
 
 	ErrEndpointNotFound  = errors.New("freighter: endpoint not found")
 	ErrContainerNotFound = errors.New("freighter: container not found")
@@ -176,14 +183,58 @@ func (e *StatusError) Error() string {
 }
 
 type client struct {
-	host *Host
+	secret string
+	host   *Host
 	*http.Client
 }
 
 // NewClient returns a new Freighter API Client that can be used to communicate
-// with a freighterd instance on a host.
-func NewClient(host *Host) Client {
-	return &client{host: host, Client: &http.Client{}}
+// with a freighterd instance on a host
+func NewClient(host *Host, secret string) (Client, error) {
+	return NewClientTransport(host, secret, nil)
+}
+
+// NewClientTransport returns a new Freighter API Client that reuses an existing
+// transport but with new TLS config so it can be used to communicate with
+// a freighterd instance
+//
+// Note: if we use this method to customize the transport, make sure that we
+// are sending the correct authentication token because we customize the token
+// using proxy
+func NewClientTransport(host *Host, secret string, tp *http.Transport) (Client, error) {
+	if secret == "" {
+		return nil, ErrInvalidSecret
+	}
+	certPool := x509.NewCertPool()
+	if ok := certPool.AppendCertsFromPEM(host.CA); !ok {
+		return nil, fmt.Errorf("Error appending cert")
+	}
+	tlsConfig := &tls.Config{
+		ServerName: host.ServerName,
+		RootCAs:    certPool,
+	}
+
+	if tp == nil {
+		tp = &http.Transport{
+			Proxy: func(req *http.Request) (*url.URL, error) {
+				req.Header.Set("X-Freighter-Secret", secret)
+				return nil, nil
+			},
+			Dial: (&net.Dialer{
+				KeepAlive: 10 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout: 10 * time.Second,
+		}
+	}
+	tp.TLSClientConfig = tlsConfig
+	cl := &http.Client{
+		Transport: tp,
+	}
+	return &client{
+		secret: secret,
+		host:   host,
+		Client: cl,
+	}, nil
 }
 
 // List makes an API request to a given Freighter Host and returns a list of

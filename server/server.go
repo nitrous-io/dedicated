@@ -1,10 +1,14 @@
 package server
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/gorilla/mux"
@@ -18,7 +22,12 @@ var DefaultConfig *Config
 
 func init() {
 	DefaultConfig = &Config{
-		DataPath: "/var/lib/freighter",
+		DataPath:  "/var/lib/freighter",
+		TLSVerify: true,
+		CA:        "/etc/freighterd/ca.crt",
+		Cert:      "/etc/freighterd/cert.crt",
+		Key:       "/etc/freighterd/key.crt",
+		Secret:    "/etc/freighterd/secret",
 
 		Listen: []HostAddress{
 			{Proto: "unix", Address: "/var/run/freighterd.sock"},
@@ -39,6 +48,12 @@ type HostAddress struct {
 type Config struct {
 	DataPath string `json:"data_path"`
 
+	TLSVerify bool   `json:"tls_verify"` // whether we want to use TLS mode for all HTTP hosts
+	CA        string `json:"tls_ca"`     // path to CA
+	Cert      string `json:"tls_cert"`   // path to cert
+	Key       string `json:"tls_key"`    // path to key
+	Secret    string `json:"secret"`     // path to secret
+
 	Listen []HostAddress `json:"listen"`
 }
 
@@ -47,6 +62,7 @@ type Server struct {
 	provider provider.Provider
 	router   *mux.Router
 	conf     *Config
+	secret   string
 	// collection of current attached shells
 	shells map[string]*shell.Shell
 }
@@ -110,6 +126,20 @@ func (s *Server) serveTCP(proto, addr string) error {
 	if err != nil {
 		return fmt.Errorf("server: cannot listen to tcp %v, %v", addr, err)
 	}
+	if s.conf.TLSVerify {
+		tlsConfig, err := getTLSConfig(s.conf.CA, s.conf.Cert, s.conf.Key)
+		if err != nil {
+			return fmt.Errorf("server: invalid tls configs %v", err)
+		}
+		l = tls.NewListener(l, tlsConfig)
+	}
+	if s.conf.Secret != "" {
+		secret, err := ioutil.ReadFile(s.conf.Secret)
+		if err != nil {
+			return fmt.Errorf("Error reading secret at %s: %s", s.conf.Secret, err)
+		}
+		s.secret = strings.TrimSpace(string(secret))
+	}
 	svr := &http.Server{Addr: addr, Handler: s.router}
 	return svr.Serve(l)
 }
@@ -118,29 +148,45 @@ func (s *Server) Router() *mux.Router {
 	return s.router
 }
 
-func (s *Server) route(route string, handler http.HandlerFunc, methods ...string) {
+func (s *Server) secretRoute(route string, handler http.HandlerFunc, methods ...string) {
 	h := func(w http.ResponseWriter, r *http.Request) {
-		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
+
+		if secret := r.Header.Get("X-Freighter-Secret"); secret != s.secret {
+			errMsg := "invalid_secret"
+			if secret == "" {
+				errMsg = "missing_secret"
+			}
+			s.respondEncodeJSON(w, http.StatusUnauthorized, map[string]interface{}{"error": errMsg})
+			return
+		}
+
+		// authentication succeed, process the middleware as normal now
 		handler(w, r)
 	}
 	s.router.HandleFunc(route, h).Methods(methods...)
 }
 
+// unauthedRoute is for routes that have no secret-based authentication (either
+// no authentication at all, or handled within the route itself)
+func (s *Server) route(route string, handler http.HandlerFunc, methods ...string) {
+	s.router.HandleFunc(route, handler).Methods(methods...)
+}
+
 func (s *Server) drawRoutes() {
 	s.route("/", s.home, "GET")
-	s.route("/containers", s.listContainers, "GET")
-	s.route("/containers", s.createContainer, "POST")
-	s.route("/containers/{id}", s.getContainerInfo, "GET")
-	s.route("/containers/{id}", s.terminateContainer, "DELETE")
-	s.route("/containers/{id}/commit", s.commitContainer, "POST")
-	s.route("/containers/{id}/start", s.startContainer, "POST")
-	s.route("/containers/{id}/stop", s.stopContainer, "POST")
-	s.route("/containers/{id}/restart", s.restartContainer, "POST")
-	s.route("/containers/{id}/export", s.exportContainer, "GET")
-	s.route("/containers/{id}/public_keys", s.listPublicKeys, "GET")
-	s.route("/containers/{id}/public_keys", s.addPublicKeys, "POST", "PUT")
-	s.route("/containers/{id}/public_keys", s.clearPublicKeys, "DELETE")
-	s.route("/containers/{id}/public_keys/{key_fingerprint}", s.removePublicKey, "DELETE")
+	s.secretRoute("/containers", s.listContainers, "GET")
+	s.secretRoute("/containers", s.createContainer, "POST")
+	s.secretRoute("/containers/{id}", s.getContainerInfo, "GET")
+	s.secretRoute("/containers/{id}", s.terminateContainer, "DELETE")
+	s.secretRoute("/containers/{id}/commit", s.commitContainer, "POST")
+	s.secretRoute("/containers/{id}/start", s.startContainer, "POST")
+	s.secretRoute("/containers/{id}/stop", s.stopContainer, "POST")
+	s.secretRoute("/containers/{id}/restart", s.restartContainer, "POST")
+	s.secretRoute("/containers/{id}/export", s.exportContainer, "GET")
+	s.secretRoute("/containers/{id}/public_keys", s.listPublicKeys, "GET")
+	s.secretRoute("/containers/{id}/public_keys", s.addPublicKeys, "POST", "PUT")
+	s.secretRoute("/containers/{id}/public_keys", s.clearPublicKeys, "DELETE")
+	s.secretRoute("/containers/{id}/public_keys/{key_fingerprint}", s.removePublicKey, "DELETE")
 	s.route("/containers/{id}/logs", s.wrapError(s.withContainerToken(s.getContainerLogs, "logs")), "GET")
 	s.route("/containers/{id}/attach/ws", s.wrapError(s.withContainerToken(s.wsAttachToContainer, "attach")), "GET")
 
@@ -148,21 +194,54 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/shell", s.handleCORSPreflight, "OPTIONS")
 	s.route("/containers/{id}/shell", s.wrapError(s.cors(s.withContainerToken(s.wsNewShell, "shell"))), "GET")
 
-	s.route("/registry/auth", s.loginRegistry, "POST")
-	s.route("/registry/auth", s.logoutRegistry, "DELETE")
+	s.secretRoute("/registry/auth", s.loginRegistry, "POST")
+	s.secretRoute("/registry/auth", s.logoutRegistry, "DELETE")
 
-	s.route("/images", s.wrapError(s.listImages), "GET")
-	s.route("/images", s.wrapError(s.buildImage), "POST")
-	s.route("/images", s.wrapError(s.removeImage), "DELETE")
-	s.route("/images/pull", s.wrapError(s.pullImage), "POST")
-	s.route("/images/push", s.wrapError(s.pushImage), "POST")
-	s.route("/images/tag", s.wrapError(s.tagImage), "POST")
-	s.route("/images/inspect", s.wrapError(s.inspectImage), "GET")
+	s.secretRoute("/images", s.wrapError(s.listImages), "GET")
+	s.secretRoute("/images", s.wrapError(s.buildImage), "POST")
+	s.secretRoute("/images", s.wrapError(s.removeImage), "DELETE")
+	s.secretRoute("/images/pull", s.wrapError(s.pullImage), "POST")
+	s.secretRoute("/images/push", s.wrapError(s.pushImage), "POST")
+	s.secretRoute("/images/tag", s.wrapError(s.tagImage), "POST")
+	s.secretRoute("/images/inspect", s.wrapError(s.inspectImage), "GET")
 
-	s.route("/volumes", s.wrapError(s.listVolumes), "GET")
-	s.route("/volumes", s.wrapError(s.createVolume), "POST")
-	s.route("/volumes/{slug}", s.wrapError(s.removeVolume), "DELETE")
-	s.route("/volumes/{slug}", s.wrapError(s.getVolumeInfo), "GET")
+	s.secretRoute("/volumes", s.wrapError(s.listVolumes), "GET")
+	s.secretRoute("/volumes", s.wrapError(s.createVolume), "POST")
+	s.secretRoute("/volumes/{slug}", s.wrapError(s.removeVolume), "DELETE")
+	s.secretRoute("/volumes/{slug}", s.wrapError(s.getVolumeInfo), "GET")
 
-	s.route("/info", s.wrapError(s.serverInfo), "GET")
+	s.secretRoute("/info", s.wrapError(s.serverInfo), "GET")
+}
+
+// given:
+// - a certificate authority
+// - a certificate signed by the CA
+// - a private key for the certificate
+// return a proper tls config that can be used with tls.NewListener to secure a
+// net.Listener
+func getTLSConfig(caPath, certPath, keyPath string) (*tls.Config, error) {
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't load X509 key pair (%s, %s): %s. Key encrypted?",
+			certPath, keyPath, err)
+	}
+	file, err := ioutil.ReadFile(caPath)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't read CA certificate %s: %s", caPath, err)
+	}
+	certPool := x509.NewCertPool()
+	if ok := certPool.AppendCertsFromPEM(file); !ok {
+		return nil, fmt.Errorf("Couldn't append CA certificate %s", caPath)
+	}
+
+	// by default, we dont require any client cert i.e. no authentication
+	// as long as the client supplies the correct CA, it's allowed to talk to
+	// the server's endpoints
+	tlsConfig := &tls.Config{
+		NextProtos:   []string{"http/1.1"},
+		Certificates: []tls.Certificate{cert},
+		ClientCAs:    certPool,
+	}
+
+	return tlsConfig, nil
 }
