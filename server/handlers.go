@@ -312,6 +312,8 @@ func (s *Server) wsNewShell(token string, w http.ResponseWriter, r *http.Request
 	command := r.FormValue("command")
 	width := getFormInt(r, "width")
 	height := getFormInt(r, "height")
+	// check if the client request to use BinaryMessage instead of TextMessage
+	binary, _ := strconv.ParseBool(r.FormValue("binary"))
 
 	sh, err := shell.OpenShell(containerID, command, width, height, info.Env)
 	if err != nil {
@@ -324,6 +326,9 @@ func (s *Server) wsNewShell(token string, w http.ResponseWriter, r *http.Request
 		return fmt.Errorf("failed to upgrade websocket: %v", err)
 	}
 	stream := wsconn.NewConnectionHeartbeat(conn, true)
+	if binary {
+		stream.MessageType = websocket.BinaryMessage
+	}
 	defer stream.Close()
 
 	// given the shell an ID so we can multiplex the shell IO later given its
