@@ -347,10 +347,11 @@ var _ = Describe("controllers/images", func() {
 			Expect(errDesc).To(Equal("slug is required"))
 		})
 
-		It("requires file param to be set if code param is empty", func() {
+		It("requires file param to be set if both remote and code params are empty", func() {
 			params := map[string]string{
-				"slug": "scratcher:mytag",
-				"code": "",
+				"slug":   "scratcher:mytag",
+				"code":   "",
+				"remote": "",
 			}
 			res := doRequest("foo", params, map[string]io.Reader{})
 
@@ -405,11 +406,23 @@ var _ = Describe("controllers/images", func() {
 			close(done)
 		})
 
-		itBuildsImageSuccessfully := func(filename string, contents io.Reader, code string) {
+		type buildImageParams struct {
+			filename string
+			contents io.Reader
+			code     string
+			remote   string
+		}
+
+		itBuildsImageSuccessfully := func(b buildImageParams) {
 			var (
 				params map[string]string
 				file   map[string]io.Reader
 				res    *httptest.ResponseRecorder
+
+				filename = b.filename
+				contents = b.contents
+				code     = b.code
+				remote   = b.remote
 			)
 
 			BeforeEach(func() {
@@ -438,9 +451,10 @@ var _ = Describe("controllers/images", func() {
 				}
 
 				params = map[string]string{
-					"slug": "scratcher:mytag",
-					"name": "scratcher v1 test",
-					"code": code,
+					"slug":   "scratcher:mytag",
+					"name":   "scratcher v1 test",
+					"code":   code,
+					"remote": remote,
 				}
 			})
 
@@ -464,9 +478,14 @@ var _ = Describe("controllers/images", func() {
 					res = doRequest("foo", params, file)
 					Expect(res.Code).To(Equal(http.StatusOK))
 
-					sent, err := ioutil.ReadAll(mockClient.BuildImageReader)
-					Expect(err).To(BeNil())
-					Expect(isarchive.IsArchive(sent)).To(BeTrue())
+					if remote != "" {
+						Expect(mockClient.BuildImageRemote).To(Equal(remote))
+					} else {
+						sent, err := ioutil.ReadAll(mockClient.BuildImageReader)
+						Expect(err).To(BeNil())
+						// check if the image sent is a tarball
+						Expect(isarchive.IsArchive(sent)).To(BeTrue())
+					}
 					Expect(mockClient.BuildImageCalled).To(Equal(1))
 
 					Expect(res.Body).To(ContainSubstring(`{"stream":"Step 0 : FROM ubuntu:latest\n"}`), "failed to include progress data")
@@ -587,7 +606,12 @@ var _ = Describe("controllers/images", func() {
 			buf, err := ioutil.ReadFile(f.Name())
 			Expect(err).To(BeNil())
 
-			itBuildsImageSuccessfully("sample.tar", bytes.NewBuffer(buf), "")
+			itBuildsImageSuccessfully(buildImageParams{
+				filename: "sample.tar",
+				contents: bytes.NewBuffer(buf),
+				code:     "",
+				remote:   "",
+			})
 		})
 
 		Context("when a plain Dockerfile is given", func() {
@@ -600,7 +624,12 @@ var _ = Describe("controllers/images", func() {
 			buf, err := ioutil.ReadFile(dfPath)
 			Expect(err).To(BeNil())
 
-			itBuildsImageSuccessfully("Dockerfile", bytes.NewBuffer(buf), "")
+			itBuildsImageSuccessfully(buildImageParams{
+				filename: "Dockerfile",
+				contents: bytes.NewBuffer(buf),
+				code:     "",
+				remote:   "",
+			})
 		})
 
 		Context("when Dockerfile is given in code parameter", func() {
@@ -613,7 +642,21 @@ var _ = Describe("controllers/images", func() {
 			buf, err := ioutil.ReadFile(dfPath)
 			Expect(err).To(BeNil())
 
-			itBuildsImageSuccessfully("", nil, string(buf))
+			itBuildsImageSuccessfully(buildImageParams{
+				filename: "",
+				contents: nil,
+				code:     string(buf),
+				remote:   "",
+			})
+		})
+
+		Context("when a remote parameter is given", func() {
+			itBuildsImageSuccessfully(buildImageParams{
+				filename: "",
+				contents: nil,
+				code:     "",
+				remote:   "git://github.com/foo/example.git",
+			})
 		})
 	})
 
