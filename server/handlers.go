@@ -15,8 +15,8 @@ import (
 	"github.com/nitrous-io/freighter/pkg/flusher"
 	"github.com/nitrous-io/freighter/pkg/shell"
 	"github.com/nitrous-io/freighter/pkg/stats"
-	"github.com/nitrous-io/freighter/pkg/wsconn"
 	"github.com/nitrous-io/freighter/provider"
+	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
 const StatusUnprocessableEntity = 422
