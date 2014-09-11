@@ -6,13 +6,16 @@ import (
 	"compress/gzip"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os/exec"
+	"strings"
 
 	"github.com/nitrous-io/freighter/provider"
 	"github.com/nitrous-io/freighter/provider/docker"
 	"github.com/nitrous-io/freighter/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 )
 
 var _ = Describe("BuildImage", func() {
@@ -54,49 +57,111 @@ var _ = Describe("BuildImage", func() {
 		return buf
 	}
 
-	It("creates an Image successfully", func() {
-		logger := &util.Logger{Level: util.LogLevelQuiet}
-		data, err := ioutil.TempDir("", "freightertest")
-		Expect(err).To(BeNil(), "failed to create temp dir")
-		prov, err := docker.NewDockerProvider(logger, data)
-		Expect(err).To(BeNil(), "failed to initialize docker provider")
-
-		in := createImageTarball()
-		out := bytes.NewBuffer(nil)
-		err = prov.BuildImage("myimage", in, out, false)
-		defer exec.Command("docker", "rmi", "myimage:latest").Run()
-		Expect(err).To(BeNil())
-
-		Expect(out.String()).To(ContainSubstring("Successfully built"))
-	})
-
-	It("correctly stores the additional data", func() {
-		logger := &util.Logger{Level: util.LogLevelQuiet}
-		data, err := ioutil.TempDir("", "freightertest")
-		Expect(err).To(BeNil(), "failed to create temp dir")
-		prov, err := docker.NewDockerProvider(logger, data)
-		Expect(err).To(BeNil(), "failed to initialize docker provider")
-
-		in := createImageTarball()
-		out := bytes.NewBuffer(nil)
-		err = prov.BuildImage("myimage", in, out, false)
-		defer exec.Command("docker", "rmi", "myimage:latest").Run()
-		Expect(err).To(BeNil())
-
+	getMatchingImage := func(prov *docker.DockerProvider) *provider.ImageInfo {
 		allImages, err := prov.ListImages()
 		Expect(err).To(BeNil())
 
-		var matchingImage *provider.ImageInfo
 		for _, image := range allImages {
 			if image.Name == "myimage" && image.Tag == "latest" {
-				matchingImage = image
+				return image
 			}
 		}
+		return nil
+	}
 
-		Expect(matchingImage).ToNot(BeNil())
+	itCanRunBuiltImage := func(id string) {
+		res, err := exec.Command("docker", "run", "--rm=true", id).Output()
+		Expect(err).To(BeNil())
+		Expect(strings.TrimSpace(string(res))).To(Equal("Hello from Docker!"))
+	}
 
-		res, err := exec.Command("docker", "run", "--rm=true", matchingImage.ID).CombinedOutput()
-		Expect(err).To(BeNil(), "docker run failed with output: %s", string(res))
-		Expect(string(res)).To(Equal("Hello from Docker!"))
+	var prov *docker.DockerProvider
+	BeforeEach(func() {
+		logger := &util.Logger{Level: util.LogLevelQuiet}
+		data, err := ioutil.TempDir("", "freightertest")
+		Expect(err).To(BeNil(), "failed to create temp dir")
+		prov, err = docker.NewDockerProvider(logger, data)
+		Expect(err).To(BeNil(), "failed to initialize docker provider")
+	})
+
+	Context("when build context is provided as a tarball", func() {
+		It("creates an Image successfully and correctly stores the additional data", func() {
+			in := createImageTarball()
+			out := bytes.NewBuffer(nil)
+			opts := provider.BuildImageOptions{
+				Name:          "myimage",
+				InputStream:   in,
+				OutputStream:  out,
+				RawJSONStream: false,
+			}
+			err := prov.BuildImage(opts)
+			defer exec.Command("docker", "rmi", "myimage:latest").Run()
+			Expect(err).To(BeNil())
+
+			Expect(out.String()).To(ContainSubstring("Successfully built"))
+
+			matchingImage := getMatchingImage(prov)
+			Expect(matchingImage).NotTo(BeNil())
+			itCanRunBuiltImage(matchingImage.ID)
+		})
+	})
+
+	Context("when a Dockerfile is provided as remote", func() {
+		It("creates an Image successfully and correctly stores the additional data", func() {
+			server := ghttp.NewServer()
+			remoteURL := server.URL()
+			defer server.Close()
+
+			dockerSource := `
+				FROM busybox:latest
+				MAINTAINER Nitrous.IO <hello@nitrous.io>
+				CMD /bin/sh -c 'printf "Hello from Docker!"'
+			`
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(ghttp.RespondWith(http.StatusOK, dockerSource)),
+			)
+
+			out := bytes.NewBuffer(nil)
+			opts := provider.BuildImageOptions{
+				Name:          "myimage",
+				InputStream:   nil,
+				OutputStream:  out,
+				RawJSONStream: false,
+				Remote:        remoteURL,
+			}
+			err := prov.BuildImage(opts)
+			defer exec.Command("docker", "rmi", "myimage:latest").Run()
+			Expect(err).To(BeNil())
+
+			Expect(out.String()).To(ContainSubstring("Successfully built"))
+
+			matchingImage := getMatchingImage(prov)
+			Expect(matchingImage).NotTo(BeNil())
+			itCanRunBuiltImage(matchingImage.ID)
+		})
+	})
+
+	Context("when a git repository is provided as remote", func() {
+		It("creates an Image successfully and correctly stores the additional data", func() {
+			remoteURL := "git://github.com/nitrous-io/docker-hello.git"
+			out := bytes.NewBuffer(nil)
+			opts := provider.BuildImageOptions{
+				Name:          "myimage",
+				InputStream:   nil,
+				OutputStream:  out,
+				RawJSONStream: false,
+				Remote:        remoteURL,
+			}
+			err := prov.BuildImage(opts)
+			defer exec.Command("docker", "rmi", "myimage:latest").Run()
+			Expect(err).To(BeNil())
+
+			Expect(out.String()).To(ContainSubstring("Successfully built"))
+
+			matchingImage := getMatchingImage(prov)
+			Expect(matchingImage).NotTo(BeNil())
+			itCanRunBuiltImage(matchingImage.ID)
+		})
 	})
 })

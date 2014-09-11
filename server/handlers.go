@@ -391,19 +391,31 @@ func (s *Server) listImages(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) buildImage(w http.ResponseWriter, r *http.Request) error {
-	_, fh, err := r.FormFile("file")
-	if err != nil {
-		return err
-	}
-
-	f, err := fh.Open()
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
 	outstream := flusher.NewWriteFlusher(w)
-	if err := s.provider.BuildImage(r.FormValue("name"), f, outstream, true); err != nil {
+	opts := provider.BuildImageOptions{
+		Name:          r.FormValue("name"),
+		OutputStream:  outstream,
+		RawJSONStream: true,
+	}
+
+	if remote := r.FormValue("remote"); remote != "" {
+		opts.Remote = remote
+	} else {
+		_, fh, err := r.FormFile("file")
+		if err != nil {
+			return err
+		}
+
+		f, err := fh.Open()
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		opts.InputStream = f
+	}
+
+	if err := s.provider.BuildImage(opts); err != nil {
 		return err
 	}
 	return nil

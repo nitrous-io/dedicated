@@ -57,7 +57,7 @@ type Provider interface {
 	Logout(registry string) error
 
 	ListImages() (infoList []*ImageInfo, err error)
-	BuildImage(name string, input io.Reader, output io.Writer, rawJSONStream bool) error
+	BuildImage(opts BuildImageOptions) error
 	RemoveImage(name string) error
 	PullImage(repository string, output io.Writer, useRaw bool) error
 	PushImage(name, destination string) error
@@ -109,6 +109,15 @@ type ImageInfo struct {
 type VolumeInfo struct {
 	Slug string `json:"slug"`
 	Size uint64 `json:"size"`
+}
+
+// duplicates dockerclient.BuildImageOptions
+type BuildImageOptions struct {
+	Name          string
+	InputStream   io.Reader
+	OutputStream  io.Writer
+	RawJSONStream bool
+	Remote        string
 }
 
 //type SnapshotInfo struct {

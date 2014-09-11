@@ -1170,29 +1170,51 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("POST /images", func() {
-		doRequest := func() {
-			params := map[string]string{
-				"name": "image-name",
-			}
-			files := map[string]string{
-				"file": "test file",
-			}
+		doRequest := func(params map[string]string, files map[string]string) {
 			req, err = NewFileRequest("POST", "/images", params, files)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
-		It("calls provider.BuildImage()", func() {
-			Expect(prov.BuildImageCalled).To(BeFalse())
-			doRequest()
-			Expect(prov.BuildImageCalled).To(BeTrue())
-			Expect(prov.ReceivedImageName).To(Equal("image-name"))
+		Context("when build context is uploaded as a file", func() {
+			It("calls provider.BuildImage() with uploaded build context", func() {
+				params := map[string]string{
+					"name": "image-name",
+				}
+				files := map[string]string{
+					"file": "test file",
+				}
+				Expect(prov.BuildImageCalled).To(BeFalse())
+				doRequest(params, files)
+				Expect(prov.BuildImageCalled).To(BeTrue())
+				Expect(prov.ReceivedImageName).To(Equal("image-name"))
+			})
+		})
+
+		Context("when build context is given as remote URL", func() {
+			It("calls provider.BuildImage() with remote URL", func() {
+				params := map[string]string{
+					"name":   "image-name",
+					"remote": "git://github.com/foo/example",
+				}
+				Expect(prov.BuildImageCalled).To(BeFalse())
+				doRequest(params, nil)
+				Expect(prov.BuildImageCalled).To(BeTrue())
+				Expect(prov.ReceivedImageName).To(Equal("image-name"))
+				Expect(prov.ReceivedImageRemote).To(Equal("git://github.com/foo/example"))
+			})
 		})
 
 		Context("BuildImage() returns successfully", func() {
 			It("responds with 200 OK", func() {
+				params := map[string]string{
+					"name": "image-name",
+				}
+				files := map[string]string{
+					"file": "test file",
+				}
 				prov.BuildImageOutput = "test output"
-				doRequest()
+				doRequest(params, files)
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(Equal("test output"))
 			})
@@ -1200,8 +1222,15 @@ var _ = Describe("server", func() {
 
 		Context("BuildImage() returns an error", func() {
 			It("responds with 500 Internal Server Error", func() {
+				params := map[string]string{
+					"name": "image-name",
+				}
+				files := map[string]string{
+					"file": "test file",
+				}
+
 				prov.BuildImageError = errors.New("Could not build image.")
-				doRequest()
+				doRequest(params, files)
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not build image."}`))
 			})

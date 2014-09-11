@@ -1434,7 +1434,7 @@ var _ = Describe("client", func() {
 
 			It("should stream the response to the given writer", func() {
 				outstream := bytes.NewBuffer(nil)
-				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), outstream)
+				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), outstream, "")
 				Expect(err).To(BeNil())
 
 				Expect(outstream.String()).To(Equal(responseBody))
@@ -1462,7 +1462,7 @@ var _ = Describe("client", func() {
 
 			It("should return the error in the stream", func() {
 				outstream := bytes.NewBuffer(nil)
-				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), outstream)
+				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), outstream, "")
 				Expect(err).To(HaveOccurred())
 
 				Expect(err.Error()).To(Equal("Error pulling 'broken'"))
@@ -1474,7 +1474,7 @@ var _ = Describe("client", func() {
 			It("should surface request failures", func() {
 				st.Close()
 
-				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), ioutil.Discard)
+				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), ioutil.Discard, "")
 				Expect(err).NotTo(BeNil())
 				_, ok := err.(*freighterclient.RequestFailedError)
 				Expect(ok).To(BeTrue())
@@ -1483,8 +1483,41 @@ var _ = Describe("client", func() {
 
 			It("should surface response failures in StatusErr", func() {
 				statusCode = http.StatusInternalServerError
-				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), ioutil.Discard)
+				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), ioutil.Discard, "")
 				Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+			})
+		})
+
+		Context("when remote URL is provided", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = `
+					{"stream":"Step 0 : FROM ubuntu:latest\n"}
+					{"stream":" ---\u003e 4300eb9d3c8d\n"}
+					{"stream":"Step 1 : MAINTAINER docker <eng@docker.com>\n"}
+					{"stream":" ---\u003e Using cache\n"}
+					{"stream":" ---\u003e 3a3ed758c370\n"}
+					{"stream":"Step 2 : CMD /usr/bin/top\n"}
+					{"stream":" ---\u003e Running in 36b1479cc2e4\n"}
+					{"stream":" ---\u003e 4b6188aebe39\n"}
+					{"stream":"Removing intermediate container 36b1479cc2e4\n"}
+					{"stream":"Successfully built 4b6188aebe39\n"}
+			    `
+			})
+
+			It("should make the request with remote param set", func() {
+				outstream := bytes.NewBuffer(nil)
+				err := cl.BuildImage("myimage:tag", nil, outstream, "git://github.com/foo/example.git")
+				Expect(err).To(BeNil())
+
+				Expect(outstream.String()).To(Equal(responseBody))
+
+				reqs := server.ReceivedRequests()
+				Expect(reqs).To(HaveLen(1))
+				Expect(reqs[0].FormValue("name")).To(Equal("myimage:tag"))
+				Expect(reqs[0].FormValue("remote")).To(Equal("git://github.com/foo/example.git"))
+				file, _, err := reqs[0].FormFile("file")
+				Expect(file).To(BeNil())
 			})
 		})
 	})

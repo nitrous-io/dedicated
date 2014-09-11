@@ -99,6 +99,7 @@ type MockProvider struct {
 	BuildImageOutput         string
 	BuildImageError          error
 	ReceivedImageName        string
+	ReceivedImageRemote      string
 	ReceivedImageDestination string
 
 	RemoveImageCalled bool
@@ -284,11 +285,12 @@ func (p *MockProvider) ListImages() ([]*provider.ImageInfo, error) {
 	return p.ListImagesContents, nil
 }
 
-func (p *MockProvider) BuildImage(name string, input io.Reader, output io.Writer, rawJSONStream bool) error {
+func (p *MockProvider) BuildImage(opts provider.BuildImageOptions) error {
 	p.BuildImageCalled = true
-	p.ReceivedImageName = name
+	p.ReceivedImageName = opts.Name
+	p.ReceivedImageRemote = opts.Remote
 	if p.BuildImageOutput != "" {
-		output.Write([]byte(p.BuildImageOutput))
+		opts.OutputStream.Write([]byte(p.BuildImageOutput))
 	}
 	return p.BuildImageError
 }

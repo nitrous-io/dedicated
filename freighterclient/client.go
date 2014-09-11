@@ -94,7 +94,7 @@ type Client interface {
 	HostInfo(period time.Duration) (*HostInfo, error)
 
 	ListImages() ([]*Image, error)
-	BuildImage(name string, in io.Reader, out io.Writer) error
+	BuildImage(name string, in io.Reader, out io.Writer, remote string) error
 	RemoveImage(image string) error
 	PullImage(location string, output io.Writer) error
 	PushImage(image, destination string) error
@@ -654,22 +654,29 @@ func (e *jsonError) Error() string {
 	return e.Message
 }
 
-// BuildImage builds an image. The input stream should be a tar archive (which
+// BuildImage builds an image. The input stream can be a tar archive (which
 // can be either uncompressed or compressed with gzip/bzip2/xz). The archive
 // must include a file named Dockerfile at its root. Any other files are made
 // available as the build context.
-func (c *client) BuildImage(name string, in io.Reader, out io.Writer) error {
+// BuildImage alternatively accepts a 'remote' argument, which can be a URL
+// pointing to a Dockerfile or a git repository which contains a Dockerfile
+// and build context.
+func (c *client) BuildImage(name string, in io.Reader, out io.Writer, remote string) error {
 	u := fmt.Sprintf("%s/images", c.host.BaseURL())
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", "buildcontext.tar")
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(part, in); err != nil {
-		return err
+
+	if in != nil {
+		part, err := writer.CreateFormFile("file", "buildcontext.tar")
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(part, in); err != nil {
+			return err
+		}
 	}
 	_ = writer.WriteField("name", name)
+	_ = writer.WriteField("remote", remote)
 	if err := writer.Close(); err != nil {
 		return err
 	}
