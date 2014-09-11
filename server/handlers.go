@@ -296,6 +296,45 @@ func (s *Server) getContainerLogs(token string, w http.ResponseWriter, r *http.R
 	return s.provider.Logs(id, outstream, follow, timestamps, tail)
 }
 
+// wsNewShell creates a new shell to a container using protocol specified in
+// pkg/shell/protocol.go
+func (s *Server) wsNewShell(token string, w http.ResponseWriter, r *http.Request) error {
+	id := mux.Vars(r)["id"]
+	info, err := s.provider.GetInfo(id)
+	if err != nil {
+		return err
+	}
+	containerID := info.ID
+	if info.State != provider.ContainerStateRunning {
+		return fmt.Errorf("Cannot attach to stopped container %v", containerID)
+	}
+
+	command := r.FormValue("command")
+	width := getFormInt(r, "width")
+	height := getFormInt(r, "height")
+
+	sh, err := shell.OpenShell(containerID, command, width, height, info.Env)
+	if err != nil {
+		fmt.Println("wsNewShell: failed to open a shell for container %v", containerID, err)
+		return err
+	}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return fmt.Errorf("failed to upgrade websocket: %v", err)
+	}
+	stream := wsconn.NewConnectionHeartbeat(conn, true)
+	defer stream.Close()
+
+	// given the shell an ID so we can multiplex the shell IO later given its
+	// id i.e. gomux style
+	shellID := randomString()
+	s.shells[shellID] = sh
+
+	<-sh.AttachProtocol(stream, stream)
+	return nil
+}
+
 func (s *Server) createShell(token string, w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	info, err := s.provider.GetInfo(id)

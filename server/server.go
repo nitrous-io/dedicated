@@ -151,6 +151,9 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/shells/{shellID}/resize", s.handleCORSPreflight, "OPTIONS")
 	s.route("/containers/{id}/shells/{shellID}/resize", s.wrapError(s.cors(s.withContainerToken(s.resizeShell, "shell"))), "POST")
 
+	// handle websocket custom protocol
+	s.route("/containers/{id}/shells", s.wrapError(s.cors(s.withContainerToken(s.wsNewShell, "shell"))), "GET")
+
 	s.route("/registry/auth", s.loginRegistry, "POST")
 	s.route("/registry/auth", s.logoutRegistry, "DELETE")
 
