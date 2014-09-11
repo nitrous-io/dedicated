@@ -420,7 +420,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(j.Host.TerminatedAt).To(BeNil())
 				})
 
-				It("publishes a host.created event with the created host", func(done Done) {
+				It("publishes a host created event with the created host", func(done Done) {
 					ch := svr.Events.Subscribe(u.Topic())
 					defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -431,7 +431,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(hosts).To(HaveLen(1))
 					h := hosts[0]
 					Expect(<-ch).To(Equal(&controllers.Event{
-						Name: "host.created",
+						Name: controllers.EventHostCreated,
 						Data: serializers.SerializeHost(&h),
 					}))
 					close(done)
@@ -660,7 +660,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 		})
 
-		It("publishes a host.updated event with the updated host", func(done Done) {
+		It("publishes a host updated event with the updated host", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -671,7 +671,7 @@ var _ = Describe("controllers/hosts", func() {
 			updated, err := host.FindByID(db, hs.H.ID)
 			Expect(err).To(BeNil())
 			Expect(<-ch).To(Equal(&controllers.Event{
-				Name: "host.updated",
+				Name: controllers.EventHostUpdated,
 				Data: serializers.SerializeHost(updated),
 			}))
 			close(done)
@@ -904,7 +904,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.TerminatedAt).NotTo(BeNil())
 			})
 
-			It("publishes a host.destroyed event with the destroyed host", func(done Done) {
+			It("publishes a host destroyed event with the destroyed host", func(done Done) {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -913,7 +913,7 @@ var _ = Describe("controllers/hosts", func() {
 				deleted, err := host.FindByID(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(<-ch).To(Equal(&controllers.Event{
-					Name: "host.destroyed",
+					Name: controllers.EventHostDestroyed,
 					Data: serializers.SerializeHost(deleted),
 				}))
 				close(done)
@@ -1051,7 +1051,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.TerminatedAt).To(BeNil())
 			})
 
-			It("publishes a host.started event with the host", func(done Done) {
+			It("publishes a host started event with the host", func(done Done) {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -1060,7 +1060,7 @@ var _ = Describe("controllers/hosts", func() {
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(<-ch).To(Equal(&controllers.Event{
-					Name: "host.started",
+					Name: controllers.EventHostStarted,
 					Data: serializers.SerializeHost(h),
 				}))
 				close(done)
@@ -1176,7 +1176,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.TerminatedAt).To(BeNil())
 			})
 
-			It("publishes a host.stopped event with the host", func(done Done) {
+			It("publishes a host stopped event with the host", func(done Done) {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -1185,7 +1185,7 @@ var _ = Describe("controllers/hosts", func() {
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(<-ch).To(Equal(&controllers.Event{
-					Name: "host.stopped",
+					Name: controllers.EventHostStopped,
 					Data: serializers.SerializeHost(h),
 				}))
 				close(done)
@@ -1301,7 +1301,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.TerminatedAt).To(BeNil())
 			})
 
-			It("publishes a host.restarted event with the host", func(done Done) {
+			It("publishes a host restarted event with the host", func(done Done) {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -1310,7 +1310,7 @@ var _ = Describe("controllers/hosts", func() {
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(<-ch).To(Equal(&controllers.Event{
-					Name: "host.restarted",
+					Name: controllers.EventHostRestarted,
 					Data: serializers.SerializeHost(h),
 				}))
 				close(done)

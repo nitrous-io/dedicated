@@ -19,7 +19,7 @@ type ProgressEvent struct {
 // progressBroadcaster acts like an io.Writer but writes the data into pubsub
 // pipe instead
 type progressPublisher struct {
-	namespace string
+	eventName controllers.EventName
 	topic     pubsub.Topic
 	imageID   int64
 	events    *pubsub.Pubsub
@@ -49,7 +49,7 @@ func (b *progressPublisher) Write(p []byte) (int, error) {
 		}
 
 		if line != "" {
-			e := controllers.NewEvent(b.namespace, &ProgressEvent{
+			e := controllers.NewEvent(b.eventName, &ProgressEvent{
 				ID:       b.imageID,
 				Progress: strings.TrimSpace(line),
 			})

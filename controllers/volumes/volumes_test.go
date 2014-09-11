@@ -193,7 +193,7 @@ var _ = Describe("controllers/volumes", func() {
 				Expect(vols[0].Name).To(Equal("some label"))
 			})
 
-			It("publishes a volume.created event with the created volume", func(done Done) {
+			It("publishes a volume created event with the created volume", func(done Done) {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -202,7 +202,7 @@ var _ = Describe("controllers/volumes", func() {
 				v, err := volume.Find(db, hs.H.ID, "metric")
 				Expect(err).To(BeNil())
 				Expect(<-ch).To(Equal(&controllers.Event{
-					Name: "volume.created",
+					Name: controllers.EventVolumeCreated,
 					Data: serializers.SerializeVolume(v),
 				}))
 				close(done)
@@ -306,7 +306,7 @@ var _ = Describe("controllers/volumes", func() {
 				Expect(v.Slug).To(Equal("conditioner"))
 			})
 
-			It("publishes a volume.destroyed event with the destroyed volume", func(done Done) {
+			It("publishes a volume destroyed event with the destroyed volume", func(done Done) {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -315,7 +315,7 @@ var _ = Describe("controllers/volumes", func() {
 				msg := <-ch
 				evt, ok := msg.(*controllers.Event)
 				Expect(ok).To(BeTrue())
-				Expect(evt.Name).To(Equal("volume.destroyed"))
+				Expect(evt.Name).To(Equal(controllers.EventVolumeDestroyed))
 
 				vol, ok := evt.Data.(*serializers.Volume)
 				Expect(ok).To(BeTrue())

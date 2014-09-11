@@ -707,7 +707,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(mockClient.ReceivedSecret).To(Equal(c.Secret))
 		})
 
-		It("creates a new image record and publishes an image.created event", func(done Done) {
+		It("creates a new image record and publishes an image created event", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -722,15 +722,15 @@ var _ = Describe("controllers/containers", func() {
 			Expect(i.Tag).To(Equal("latest"))
 
 			var evt *controllers.Event
-			for msg := range ch { // Ignore all events except image.created
+			for msg := range ch { // Ignore all events except image created
 				e, ok := msg.(*controllers.Event)
-				if ok && e.Name == "image.created" {
+				if ok && e.Name == controllers.EventImageCreated {
 					evt = e
 					break
 				}
 			}
 			Expect(evt).To(Equal(&controllers.Event{
-				Name: "image.created",
+				Name: controllers.EventImageCreated,
 				Data: serializers.SerializeImage(i),
 			}))
 
@@ -768,15 +768,15 @@ var _ = Describe("controllers/containers", func() {
 			Expect(i.Name).To(Equal("My Elixir Image")) // Unchanged.
 
 			var evt *controllers.Event
-			for msg := range ch { // Ignore all events except image.updated.
+			for msg := range ch { // Ignore all events except image updated.
 				e, ok := msg.(*controllers.Event)
-				if ok && e.Name == "image.updated" {
+				if ok && e.Name == controllers.EventImageUpdated {
 					evt = e
 					break
 				}
 			}
 			Expect(evt).To(Equal(&controllers.Event{
-				Name: "image.updated",
+				Name: controllers.EventImageUpdated,
 				Data: serializers.SerializeImage(i),
 			}))
 			close(done)
@@ -811,21 +811,21 @@ var _ = Describe("controllers/containers", func() {
 			expectSerializedContainer(j.Container, c)
 		})
 
-		It("publishes a container.created event with the created container", func(done Done) {
+		It("publishes a container created event with the created container", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
 			doRequest("valid-token", "foo", params)
 
 			var evt *controllers.Event
-			for msg := range ch { // Ignore all events except container.created.
+			for msg := range ch { // Ignore all events except container created.
 				e, ok := msg.(*controllers.Event)
-				if ok && e.Name == "container.created" {
+				if ok && e.Name == controllers.EventContainerCreated {
 					evt = e
 					break
 				}
 			}
-			Expect(evt.Name).To(Equal("container.created"))
+			Expect(evt.Name).To(Equal(controllers.EventContainerCreated))
 			cn, ok := evt.Data.(*serializers.Container)
 			Expect(ok).To(BeTrue())
 			c, err := container.Find(db, u, "elixir-web-1")
@@ -1076,7 +1076,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(errDesc).To(Equal("image already exists"))
 		})
 
-		It("publishes an image.created event with the committed image", func(done Done) {
+		It("publishes an image created event with the committed image", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -1085,7 +1085,7 @@ var _ = Describe("controllers/containers", func() {
 			msg := <-ch
 			evt, ok := msg.(*controllers.Event)
 			Expect(ok).To(BeTrue())
-			Expect(evt.Name).To(Equal("image.created"))
+			Expect(evt.Name).To(Equal(controllers.EventImageCreated))
 
 			img, ok := evt.Data.(*serializers.Image)
 			Expect(ok).To(BeTrue())
@@ -1298,7 +1298,7 @@ var _ = Describe("controllers/containers", func() {
 		actionCounter     *int
 		actionError       *error
 		expectedState     string
-		expectedEventName string
+		expectedEventName controllers.EventName
 	}
 
 	itBehavesLikeAControlAction := func(inputs *controlTestInputs) {
@@ -1477,7 +1477,7 @@ var _ = Describe("controllers/containers", func() {
 			i.actionCounter = &mockClient.StartCalled
 			i.actionError = &mockClient.StartError
 			i.expectedState = "running"
-			i.expectedEventName = "container.started"
+			i.expectedEventName = controllers.EventContainerStarted
 		})
 
 		itBehavesLikeAControlAction(i)
@@ -1491,7 +1491,7 @@ var _ = Describe("controllers/containers", func() {
 			i.actionCounter = &mockClient.StopCalled
 			i.actionError = &mockClient.StopError
 			i.expectedState = "stopped"
-			i.expectedEventName = "container.stopped"
+			i.expectedEventName = controllers.EventContainerStopped
 		})
 
 		itBehavesLikeAControlAction(i)
@@ -1505,7 +1505,7 @@ var _ = Describe("controllers/containers", func() {
 			i.actionCounter = &mockClient.RestartCalled
 			i.actionError = &mockClient.RestartError
 			i.expectedState = "running"
-			i.expectedEventName = "container.restarted"
+			i.expectedEventName = controllers.EventContainerRestarted
 		})
 
 		itBehavesLikeAControlAction(i)
@@ -1607,7 +1607,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(c).To(BeNil())
 		})
 
-		It("publishes a container.destroyed event with the destroyed container", func(done Done) {
+		It("publishes a container destroyed event with the destroyed container", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -1616,7 +1616,7 @@ var _ = Describe("controllers/containers", func() {
 			msg := <-ch
 			evt, ok := msg.(*controllers.Event)
 			Expect(ok).To(BeTrue())
-			Expect(evt.Name).To(Equal("container.destroyed"))
+			Expect(evt.Name).To(Equal(controllers.EventContainerDestroyed))
 
 			cn, ok := evt.Data.(*serializers.Container)
 			Expect(ok).To(BeTrue())

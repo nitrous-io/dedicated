@@ -273,10 +273,12 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 		}
 	}
 
-	publishContainerEvent(env, "container.created", cn)
-	imgEvt := "image.created"
-	if existing != nil {
-		imgEvt = "image.updated"
+	publishContainerEvent(env, controllers.EventContainerCreated, cn)
+	var imgEvt controllers.EventName
+	if existing == nil {
+		imgEvt = controllers.EventImageCreated
+	} else {
+		imgEvt = controllers.EventImageUpdated
 	}
 	env.Events.Publish(
 		controllers.NewEvent(imgEvt, serializers.SerializeImage(img)),
@@ -336,7 +338,7 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 
 	sImg := serializers.SerializeImage(img)
 
-	env.Events.Publish(controllers.NewEvent("image.created", sImg), env.User.Topic())
+	env.Events.Publish(controllers.NewEvent(controllers.EventImageCreated, sImg), env.User.Topic())
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"image": sImg,
@@ -380,7 +382,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Start, "container.started", cn, h, env, w, r)
+	return performControlAction(cl.Start, controllers.EventContainerStarted, cn, h, env, w, r)
 }
 
 func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -388,7 +390,7 @@ func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Stop, "container.stopped", cn, h, env, w, r)
+	return performControlAction(cl.Stop, controllers.EventContainerStopped, cn, h, env, w, r)
 }
 
 func restart(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -396,12 +398,12 @@ func restart(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Restart, "container.restarted", cn, h, env, w, r)
+	return performControlAction(cl.Restart, controllers.EventContainerRestarted, cn, h, env, w, r)
 }
 
 type actionFn func(id string) (*freighterclient.Container, error)
 
-func performControlAction(fn actionFn, eventName string, cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func performControlAction(fn actionFn, eventName controllers.EventName, cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// automatically expire all control action locks after 1 minute.
 	// TODO: test with real ops and tweak this value
 	expiresIn := 60 * time.Second
@@ -461,7 +463,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	}
 	cn = hydrateContainer(cn, liveContainer, h)
 
-	publishContainerEvent(env, "container.destroyed", cn)
+	publishContainerEvent(env, controllers.EventContainerDestroyed, cn)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"container": serializers.SerializeContainer(cn),
@@ -555,7 +557,7 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 	return c
 }
 
-func publishContainerEvent(env *middleware.Env, name string, c *container.Container) {
+func publishContainerEvent(env *middleware.Env, name controllers.EventName, c *container.Container) {
 	env.Events.Publish(
 		controllers.NewEvent(name, serializers.SerializeContainer(c)),
 		env.User.Topic(),

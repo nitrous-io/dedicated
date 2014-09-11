@@ -318,7 +318,7 @@ var _ = Describe("controllers/registries", func() {
 							Expect(r.URL).To(Equal("hub.example.com"))
 						})
 
-						It("publishes a registry.authenticated event with the registry", func(done Done) {
+						It("publishes a registry authenticated event with the registry", func(done Done) {
 							ch := svr.Events.Subscribe(u.Topic())
 							defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -330,7 +330,7 @@ var _ = Describe("controllers/registries", func() {
 							r := regs[0]
 
 							Expect(<-ch).To(Equal(&controllers.Event{
-								Name: "registry.authenticated",
+								Name: controllers.EventRegistryAuthenticated,
 								Data: serializers.SerializeRegistry(r),
 							}))
 							close(done)

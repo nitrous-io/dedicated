@@ -377,7 +377,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(mockClient.BuildImageName).To(Equal("scratcher:MyTag"))
 		})
 
-		It("returns 500 on freighterclient error and emits image.build_failed event", func(done Done) {
+		It("returns 500 on freighterclient error and emits image build failed event", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -392,15 +392,15 @@ var _ = Describe("controllers/images", func() {
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
 
-			// Read until we get a image.build_failed event.
+			// Read until we get a image build_failed event.
 			var evt *controllers.Event
 			for e := range ch {
 				evt = e.(*controllers.Event)
-				if evt.Name == "image.build_failed" {
+				if evt.Name == controllers.EventImageBuildFailed {
 					break
 				}
 			}
-			Expect(evt.Name).To(Equal("image.build_failed"))
+			Expect(evt.Name).To(Equal(controllers.EventImageBuildFailed))
 			img := evt.Data.(*serializers.Image)
 			Expect(img.Slug).To(Equal("scratcher"))
 			close(done)
@@ -521,7 +521,7 @@ var _ = Describe("controllers/images", func() {
 					Expect(j.Image.UpdatedAt.UnixNano()).To(Equal(serialized.UpdatedAt.UnixNano()))
 				})
 
-				It("publishes image.building events and a final image.built event", func(done Done) {
+				It("publishes image building events and a final image built event", func(done Done) {
 					ch := svr.Events.Subscribe(u.Topic())
 					defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -532,21 +532,21 @@ var _ = Describe("controllers/images", func() {
 					Expect(err).To(BeNil())
 
 					e := (<-ch).(*controllers.Event)
-					Expect(e.Name).To(Equal("image.building"))
+					Expect(e.Name).To(Equal(controllers.EventImageBuilding))
 					data := e.Data.(*images.ProgressEvent)
 					Expect(data.ID).To(Equal(i.ID))
 					Expect(data.Progress).To(Equal(`{"stream":"Step 0 : FROM ubuntu:latest\n"}`))
 
-					// Read all the intermediate image.building events.
+					// Read all the intermediate image building events.
 					var evt *controllers.Event
 					for e := range ch {
 						evt = e.(*controllers.Event)
-						if evt.Name == "image.built" {
+						if evt.Name == controllers.EventImageBuilt {
 							break
 						}
 					}
 					Expect(evt).To(Equal(&controllers.Event{
-						Name: "image.built",
+						Name: controllers.EventImageBuilt,
 						Data: serializers.SerializeImage(i),
 					}))
 					close(done)
@@ -697,7 +697,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(err).To(MatchError(sql.ErrNoRows))
 		})
 
-		It("publishes an image.removed event with the image ID/slug", func(done Done) {
+		It("publishes an image removed event with the image ID/slug", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -705,7 +705,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			Expect(<-ch).To(Equal(&controllers.Event{
-				Name: "image.removed",
+				Name: controllers.EventImageRemoved,
 				Data: "nitrousio/elixir:latest",
 			}))
 			close(done)
@@ -737,7 +737,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
-		It("publishes an image.pushed event with the image ID/slug and destination", func(done Done) {
+		It("publishes an image pushed event with the image ID/slug and destination", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -746,7 +746,7 @@ var _ = Describe("controllers/images", func() {
 			msg := <-ch
 			evt, ok := msg.(*controllers.Event)
 			Expect(ok).To(BeTrue())
-			Expect(evt.Name).To(Equal("image.pushed"))
+			Expect(evt.Name).To(Equal(controllers.EventImagePushed))
 			Expect(evt.Data).To(BeEquivalentTo(struct {
 				Image       string `json:"image"`
 				Destination string `json:"destination"`
@@ -863,7 +863,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
-		It("publishes an image.tagged event with the image ID/name and tag", func(done Done) {
+		It("publishes an image tagged event with the image ID/name and tag", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -872,7 +872,7 @@ var _ = Describe("controllers/images", func() {
 			msg := <-ch
 			evt, ok := msg.(*controllers.Event)
 			Expect(ok).To(BeTrue())
-			Expect(evt.Name).To(Equal("image.tagged"))
+			Expect(evt.Name).To(Equal(controllers.EventImageTagged))
 			img, ok := evt.Data.(*serializers.Image)
 			Expect(ok).To(BeTrue())
 			Expect(img.FreighterID).To(Equal("cafebabe"))

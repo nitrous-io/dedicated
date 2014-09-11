@@ -30,9 +30,9 @@ func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 
 	go func() {
 		if err := cl.PullImage(repo, c.writer); err != nil {
-			// publish image.pull_failed event with the current image data
+			// publish image pull failed event with the current image data
 			env.Events.Publish(
-				controllers.NewEvent("image.pull_failed", serializers.SerializeImage(img)),
+				controllers.NewEvent(controllers.EventImagePullFailed, serializers.SerializeImage(img)),
 				env.User.Topic(),
 			)
 			// if we failed to pull the image, and the image is new i.e. does not
@@ -47,7 +47,7 @@ func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 				// FIXME: should this emit the full image with id rather than
 				// just the repository. This is what .Delete is doing though
 				env.Events.Publish(
-					controllers.NewEvent("image.removed", img.FullRepository()),
+					controllers.NewEvent(controllers.EventImageRemoved, img.FullRepository()),
 					env.User.Topic(),
 				)
 			}
@@ -73,7 +73,7 @@ func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 		}
 
 		env.Events.Publish(
-			controllers.NewEvent("image.pulled", serializers.SerializeImage(img)),
+			controllers.NewEvent(controllers.EventImagePulled, serializers.SerializeImage(img)),
 			env.User.Topic(),
 		)
 		ch <- &buildResult{Image: img}
@@ -130,7 +130,7 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	// include in async is the image data
 	var writer io.Writer
 	pp := &progressPublisher{
-		namespace: "image.pulling",
+		eventName: controllers.EventImagePulling,
 		topic:     env.User.Topic(),
 		events:    env.Events,
 		imageID:   img.ID,

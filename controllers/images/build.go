@@ -46,7 +46,7 @@ func (c *buildContext) build(async bool) (*image.Image, error) {
 	go func() {
 		if err := cl.BuildImage(slug, c.in, c.out, c.remote); err != nil {
 			env.Events.Publish(
-				controllers.NewEvent("image.build_failed", serializers.SerializeImage(img)),
+				controllers.NewEvent(controllers.EventImageBuildFailed, serializers.SerializeImage(img)),
 				env.User.Topic(),
 			)
 
@@ -71,7 +71,7 @@ func (c *buildContext) build(async bool) (*image.Image, error) {
 		}
 
 		env.Events.Publish(
-			controllers.NewEvent("image.built", serializers.SerializeImage(img)),
+			controllers.NewEvent(controllers.EventImageBuilt, serializers.SerializeImage(img)),
 			env.User.Topic(),
 		)
 
@@ -146,7 +146,7 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 	var writer io.Writer
 	pp := &progressPublisher{
-		namespace: "image.building",
+		eventName: controllers.EventImageBuilding,
 		topic:     env.User.Topic(),
 		events:    env.Events,
 		imageID:   img.ID,

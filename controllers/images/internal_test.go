@@ -14,7 +14,7 @@ var _ = Describe("progressPublisher", func() {
 		ch := events.Subscribe("user-1")
 
 		pp := &progressPublisher{
-			namespace: "image.pulling",
+			eventName: controllers.EventImagePulling,
 			topic:     pubsub.Topic("user-1"),
 			imageID:   123,
 			events:    events,
@@ -23,7 +23,7 @@ var _ = Describe("progressPublisher", func() {
 		pp.Write([]byte(`{"status":"pulling"}`))
 
 		e := (<-ch).(*controllers.Event)
-		Expect(e.Name).To(Equal("image.pulling"))
+		Expect(e.Name).To(Equal(controllers.EventImagePulling))
 		data := e.Data.(*ProgressEvent)
 		Expect(data.Progress).To(Equal(`{"status":"pulling"}`))
 	})
@@ -33,7 +33,7 @@ var _ = Describe("progressPublisher", func() {
 		ch := events.Subscribe("user-1")
 
 		pp := &progressPublisher{
-			namespace: "image.pulling",
+			eventName: controllers.EventImagePulling,
 			topic:     pubsub.Topic("user-1"),
 			imageID:   123,
 			events:    events,

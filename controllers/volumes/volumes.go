@@ -92,7 +92,7 @@ func Create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	publishVolumeEvent(env, "volume.created", vol)
+	publishVolumeEvent(env, controllers.EventVolumeCreated, vol)
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"volume": serializers.SerializeVolume(vol),
@@ -126,7 +126,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	publishVolumeEvent(env, "volume.destroyed", vol)
+	publishVolumeEvent(env, controllers.EventVolumeDestroyed, vol)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"volume": serializers.SerializeVolume(vol),
@@ -192,7 +192,7 @@ func getVolume(db ndb.QueryReceiver, hostID int64, slug string) (*volume.Volume,
 	return vol, nil
 }
 
-func publishVolumeEvent(env *middleware.Env, name string, v *volume.Volume) {
+func publishVolumeEvent(env *middleware.Env, name controllers.EventName, v *volume.Volume) {
 	env.Events.Publish(
 		controllers.NewEvent(name, serializers.SerializeVolume(v)),
 		env.User.Topic(),

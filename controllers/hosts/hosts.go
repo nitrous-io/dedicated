@@ -261,7 +261,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	publishHostEvent(env, "host.created", h)
+	publishHostEvent(env, controllers.EventHostCreated, h)
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"host": serializers.SerializeHost(h),
@@ -290,7 +290,7 @@ func Update(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	publishHostEvent(env, "host.updated", h)
+	publishHostEvent(env, controllers.EventHostUpdated, h)
 	serializeHost(env, h)
 	return nil
 }
@@ -361,7 +361,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	publishHostEvent(env, "host.destroyed", h)
+	publishHostEvent(env, controllers.EventHostDestroyed, h)
 	serializeHost(env, h)
 	return nil
 }
@@ -377,7 +377,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	publishHostEvent(env, "host.started", h)
+	publishHostEvent(env, controllers.EventHostStarted, h)
 	serializeHost(env, h)
 	return nil
 }
@@ -393,7 +393,7 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return err
 	}
 
-	publishHostEvent(env, "host.stopped", h)
+	publishHostEvent(env, controllers.EventHostStopped, h)
 	serializeHost(env, h)
 	return nil
 }
@@ -409,7 +409,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	publishHostEvent(env, "host.restarted", h)
+	publishHostEvent(env, controllers.EventHostRestarted, h)
 	serializeHost(env, h)
 	return nil
 }
@@ -478,7 +478,7 @@ func serializeHost(env *middleware.Env, h *host.Host) {
 	}
 }
 
-func publishHostEvent(env *middleware.Env, name string, h *host.Host) {
+func publishHostEvent(env *middleware.Env, name controllers.EventName, h *host.Host) {
 	env.Events.Publish(
 		controllers.NewEvent(name, serializers.SerializeHost(h)),
 		env.User.Topic(),

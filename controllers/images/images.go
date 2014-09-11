@@ -103,7 +103,7 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	}
 
 	env.Events.Publish(
-		controllers.NewEvent("image.removed", i.FullRepository()),
+		controllers.NewEvent(controllers.EventImageRemoved, i.FullRepository()),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK
@@ -146,7 +146,7 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		Destination string `json:"destination"`
 	}
 	env.Events.Publish(
-		controllers.NewEvent("image.pushed", data{Image: image, Destination: dest}),
+		controllers.NewEvent(controllers.EventImagePushed, data{Image: image, Destination: dest}),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK
@@ -207,7 +207,7 @@ func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Reque
 	}
 
 	env.Events.Publish(
-		controllers.NewEvent("image.tagged", serializers.SerializeImage(taggedImg)),
+		controllers.NewEvent(controllers.EventImageTagged, serializers.SerializeImage(taggedImg)),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK

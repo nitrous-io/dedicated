@@ -79,10 +79,10 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(i.UpdatedAt).NotTo(BeNil())
 	})
 
-	It("removes the image and emits images.removed event when freighter failed to pull image", func() {
+	It("removes the image and emits images removed event when freighter failed to pull image", func() {
 		fs := newFreighterServer("scratch", "latest")
-		defer fs.Close()
 		fs.pullError = true
+		defer fs.Close()
 
 		ctx := newPullTestCtx(fs, db)
 		u, h := ctx.user, ctx.host
@@ -100,7 +100,7 @@ var _ = Describe("controllers/images/pull", func() {
 			var e *controllers.Event
 			for {
 				e = (<-ch).(*controllers.Event)
-				if e.Name == "image.removed" {
+				if e.Name == controllers.EventImageRemoved {
 					ech <- e
 					break
 				}
@@ -109,7 +109,7 @@ var _ = Describe("controllers/images/pull", func() {
 
 		select {
 		case <-time.After(50 * time.Millisecond):
-			Expect(true).To(BeFalse(), "timeout while getting image.removed event")
+			Expect(true).To(BeFalse(), "timeout while getting image removed event")
 		case e := <-ech:
 			img := e.Data.(string)
 			Expect(img).To(Equal("scratch:latest"), "failed to serialize freighter response")
@@ -145,7 +145,7 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(j.Image.FreighterID).To(Equal("123asd"), "missing final image in response")
 	})
 
-	It("publishes an image.pulling event with progress data", func(done Done) {
+	It("publishes an image pulling event with progress data", func(done Done) {
 		fs := newFreighterServer("scratch", "latest")
 		ctx := newPullTestCtx(fs, db)
 		fs.start(db, ctx)
@@ -160,17 +160,17 @@ var _ = Describe("controllers/images/pull", func() {
 		i, err := image.Find(db, u, h, "scratch:latest")
 		Expect(err).To(BeNil(), "failed to find image after pull")
 
-		// check if the first event we got is image.pulling event
+		// check if the first event we got is image pulling event
 		e := (<-ch).(*controllers.Event)
 		data := e.Data.(*images.ProgressEvent)
-		Expect(e.Name).To(Equal("image.pulling"), "expected image.pulling event")
-		Expect(data.ID).To(Equal(i.ID), "emitted image.pulling with invalid image")
+		Expect(e.Name).To(Equal(controllers.EventImagePulling), "expected image pulling event")
+		Expect(data.ID).To(Equal(i.ID), "emitted image pulling with invalid image")
 		Expect(data.Progress).To(Equal(`{"status":"Pulling..."}`), "failed to include progress data")
 
 		close(done)
 	})
 
-	It("publishes an image.pulled event with the pulled image", func(done Done) {
+	It("publishes an image pulled event with the pulled image", func(done Done) {
 		fs := newFreighterServer("scratch", "latest")
 		ctx := newPullTestCtx(fs, db)
 		fs.start(db, ctx)
@@ -187,7 +187,7 @@ var _ = Describe("controllers/images/pull", func() {
 		var e *controllers.Event
 		for {
 			e = (<-ch).(*controllers.Event)
-			if e.Name == "image.pulled" {
+			if e.Name == controllers.EventImagePulled {
 				break
 			}
 		}
@@ -209,7 +209,7 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(errDesc).To(Equal("repository is required"))
 	})
 
-	It("returns 500 on freighterclient error and emits image.pull_failed event", func() {
+	It("returns 500 on freighterclient error and emits image pull failed event", func() {
 		fs := newFreighterServer("scratch", "latest")
 		ctx := newPullTestCtx(fs, db)
 		fs.start(db, ctx)
@@ -230,7 +230,7 @@ var _ = Describe("controllers/images/pull", func() {
 			var e *controllers.Event
 			for {
 				e = (<-ch).(*controllers.Event)
-				if e.Name == "image.pull_failed" {
+				if e.Name == controllers.EventImagePullFailed {
 					ech <- e
 					break
 				}
@@ -239,7 +239,7 @@ var _ = Describe("controllers/images/pull", func() {
 
 		select {
 		case <-time.After(50 * time.Millisecond):
-			Expect(true).To(BeFalse(), "timeout while getting image.pull_failed event")
+			Expect(true).To(BeFalse(), "timeout while getting image pull failed event")
 		case e := <-ech:
 			img := e.Data.(*serializers.Image)
 			Expect(img.Slug).To(Equal("scratch"), "failed to serialize freighter response")
@@ -297,7 +297,7 @@ var _ = Describe("controllers/images/pull", func() {
 			Expect(err).To(BeNil(), "expect the old image to not be deleted")
 		})
 
-		It("does not emit images.removed event", func() {
+		It("does not emit images removed event", func() {
 			fs := newFreighterServer("scratch", "latest")
 			defer fs.Close()
 			fs.pullError = true
@@ -336,7 +336,7 @@ var _ = Describe("controllers/images/pull", func() {
 						finished <- struct{}{}
 						break
 					}
-					if e.Name == "image.removed" {
+					if e.Name == controllers.EventImageRemoved {
 						failed <- e
 						break
 					}
@@ -345,11 +345,11 @@ var _ = Describe("controllers/images/pull", func() {
 
 			select {
 			case <-time.After(50 * time.Millisecond):
-				Expect(true).To(BeFalse(), "timeout while getting image.pull_failed event")
+				Expect(true).To(BeFalse(), "timeout while getting image image removed event")
 			case fe := <-failed:
-				Expect(fe).To(BeNil(), "should not receive image.removed event")
+				Expect(fe).To(BeNil(), "should not receive image removed event")
 			case <-finished:
-				// finished without receiving image.removed
+				// finished without receiving image removed
 			}
 		})
 	})
