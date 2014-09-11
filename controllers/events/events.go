@@ -6,23 +6,11 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/nitrous-io/nitrous-common/wsconn"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/pkg/httperror"
-	"github.com/nitrous-io/nitrous/pkg/wsconn"
-)
-
-const (
-	// Max time allowed to write a message to the client.
-	writeWait = 5 * time.Second
-
-	// Max time allowed to read the next pong message from client.
-	pongWait = 30 * time.Second
-
-	// Pings are sent to the client with this period.
-	pingPeriod = (pongWait * 9) / 10
 )
 
 var upgrader = websocket.Upgrader{
@@ -47,7 +35,7 @@ func Stream(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	ch := env.Events.Subscribe(topic)
 	defer env.Events.Unsubscribe(ch, topic)
 
-	conn := wsconn.New(ws, pongWait, pingPeriod, writeWait)
+	conn := wsconn.NewConnection(ws)
 	defer conn.Close()
 
 	quit := make(chan struct{})
