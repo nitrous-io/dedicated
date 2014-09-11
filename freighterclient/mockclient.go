@@ -88,6 +88,7 @@ type MockClient struct {
 	BuildImageError  error
 	BuildImageName   string
 	BuildImageReader io.Reader
+	BuildImageRemote string
 
 	RemoveImageCalled int
 	RemoveImageError  error
@@ -269,10 +270,11 @@ func (c *MockClient) ListImages() ([]*Image, error) {
 	return c.ListImagesArray, c.ListImagesError
 }
 
-func (c *MockClient) BuildImage(name string, in io.Reader, out io.Writer) error {
+func (c *MockClient) BuildImage(name string, in io.Reader, out io.Writer, remote string) error {
 	c.BuildImageCalled++
 	c.BuildImageName = name
 	c.BuildImageReader = in
+	c.BuildImageRemote = remote
 	if c.OutputStream != nil {
 		io.Copy(out, c.OutputStream)
 	}

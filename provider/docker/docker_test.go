@@ -1146,7 +1146,13 @@ var _ = Describe("provider/docker", func() {
 
 			in := bytes.NewBufferString(`build context tarball contents`)
 			out := bytes.NewBuffer(nil)
-			err = prov.BuildImage("myimage", in, out, true)
+			opts := provider.BuildImageOptions{
+				Name:          "myimage",
+				InputStream:   in,
+				OutputStream:  out,
+				RawJSONStream: true,
+			}
+			err = prov.BuildImage(opts)
 			Expect(err).To(BeNil())
 			Expect(out.String()).To(Equal(body))
 

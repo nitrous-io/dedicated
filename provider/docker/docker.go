@@ -497,15 +497,17 @@ func (p *DockerProvider) ListImages() ([]*provider.ImageInfo, error) {
 	return list, nil
 }
 
-func (p *DockerProvider) BuildImage(name string, input io.Reader, output io.Writer, rawJSONStream bool) error {
+func (p *DockerProvider) BuildImage(o provider.BuildImageOptions) error {
 	opts := dockerclient.BuildImageOptions{
-		Name:                name,
-		InputStream:         input,
-		OutputStream:        output,
+		Name:                o.Name,
+		InputStream:         o.InputStream,
+		OutputStream:        o.OutputStream,
+		RawJSONStream:       o.RawJSONStream,
+		Remote:              o.Remote,
 		RmTmpContainer:      true,
 		ForceRmTmpContainer: true,
-		RawJSONStream:       rawJSONStream,
 	}
+
 	return p.client.BuildImage(opts)
 }
 
