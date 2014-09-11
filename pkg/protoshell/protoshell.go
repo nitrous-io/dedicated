@@ -70,6 +70,7 @@ func (s *ProtoShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error
 	params := url.Values{}
 	params.Set("command", s.command)
 	params.Set("token", token)
+	params.Set("binary", "true")
 	wsEndpointURI := fmt.Sprintf("ws://%s/containers/%s/shell?%s", s.host, s.containerID, params.Encode())
 
 	ws, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, http.Header{})
