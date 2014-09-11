@@ -20,6 +20,10 @@ var upgrader = websocket.Upgrader{
 		// Do nothing. This is a workaround to prevent Upgrader from writing its
 		// own plain/text HTTP response when Error is set to nil.
 	},
+	CheckOrigin: func(r *http.Request) bool {
+		// allow any origin
+		return true
+	},
 }
 
 func Stream(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {

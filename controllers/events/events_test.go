@@ -2,6 +2,7 @@ package events_test
 
 import (
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
@@ -59,12 +60,16 @@ var _ = Describe("controllers/events", func() {
 			ts := httptest.NewServer(svr.Router())
 			defer ts.Close()
 
+			// check that cross origin request works
+			header := http.Header{}
+			header.Set("Origin", "http://www.example.com")
+
 			params := &url.Values{}
 			params.Set("token", "valid-token")
 			wsURL, err := url.Parse(fmt.Sprintf("ws://%s/api/v0/events", ts.Listener.Addr().String()))
 			Expect(err).To(BeNil())
 			wsURL.RawQuery = params.Encode()
-			conn, dialResp, err := websocket.DefaultDialer.Dial(wsURL.String(), nil)
+			conn, dialResp, err := websocket.DefaultDialer.Dial(wsURL.String(), header)
 			Expect(err).To(BeNil())
 			defer conn.Close()
 			Expect(dialResp.Header.Get("Sec-WebSocket-Accept")).NotTo(BeEmpty())
