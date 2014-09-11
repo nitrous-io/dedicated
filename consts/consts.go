@@ -1,5 +1,7 @@
 package consts
 
+import "strings"
+
 const (
 	MinWidth    = 0
 	TabWidth    = 0
@@ -11,7 +13,7 @@ const (
 // replace on build for different environments.
 // Below is copy of dev/n2odevpro-ca.crt,
 // md5sum e8fc22617a15decf51825d905cb72838
-const CACertPEM = `-----BEGIN CERTIFICATE-----
+var CACertPEM string = `-----BEGIN CERTIFICATE-----
 MIIEGzCCAwOgAwIBAgIJANqH+01fBWEZMA0GCSqGSIb3DQEBBQUAMGYxCzAJBgNV
 BAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1TYW4gRnJhbmNp
 c2NvMRAwDgYDVQQKEwdOMk8gRGV2MRgwFgYDVQQDFA8qLm4yb2RldnByby5jb20w
@@ -36,4 +38,6 @@ lXRxiVT7hpKlWSMNESObtssuxFHye9qdmvVKU5DPung1thNyQe8budazH/abbrAg
 qjoI2u0oH+6w3G/EoSEH7zIiKlArbRGcR9UXEilmnUGRvTOh6yyPvm1oWD3TpnE=
 -----END CERTIFICATE-----`
 
-var CACert = []byte(CACertPEM)
+// since this is going to be loaded via an environment variable,
+// we need to replace \\n with \n
+var CACert = []byte(strings.Replace(CACertPEM, "\\n", "\n", -1))
