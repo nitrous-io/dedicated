@@ -34,10 +34,23 @@ func Test(t *testing.T) {
 	RunSpecs(t, "provider/docker")
 }
 
+const (
+	nitrousImage = "nitrousio/ubuntu-bare:trusty"
+	busyboxImage = "busybox:latest"
+)
+
+var _ = BeforeSuite(func() {
+	err := exec.Command("docker", "pull", nitrousImage).Run()
+	Expect(err).To(BeNil(), "failed to pull %s image", nitrousImage)
+	err = exec.Command("docker", "pull", busyboxImage).Run()
+	Expect(err).To(BeNil(), "failed to pull %s image", busyboxImage)
+	// We intentionally don't remove these images (in AfterSuite) because
+	// having these images already pulled greatly speeds up tests.
+})
+
 var _ = Describe("provider/docker", func() {
 	var (
 		prov    *docker.DockerProvider
-		image   = "nitrousio/ubuntu-bare:trusty"
 		secret  = "s3cr3t"
 		datadir string
 	)
@@ -134,13 +147,14 @@ var _ = Describe("provider/docker", func() {
 			RUN echo '%s' >> /tmp/info
 
 			CMD /bin/bash
-		`, image, entropy))
+		`, nitrousImage, entropy))
 		dockerFile.Close()
 
 		list := []string{}
 		for index := 1; index <= count; index++ {
 			findableName := fmt.Sprintf("%v:n%v", name, index)
-			exec.Command("docker", "build", "-t", findableName, dockerLoc).Run()
+			out, err := exec.Command("docker", "build", "-t", findableName, dockerLoc).CombinedOutput()
+			Expect(err).To(BeNil(), "Failed to build image, output: %s", string(out))
 			list = append(list, findableName)
 		}
 
@@ -174,7 +188,7 @@ var _ = Describe("provider/docker", func() {
 			var err error
 			name = RandomName("freightertest")
 
-			info, err = prov.Create(name, image, secret, "")
+			info, err = prov.Create(name, nitrousImage, secret, "")
 			Expect(err).To(BeNil())
 			id = getID(name)
 			host = getHost(id)
@@ -197,8 +211,8 @@ var _ = Describe("provider/docker", func() {
 		It("creates a stopped container", func() {
 			Expect(info.ID).To(Equal(id))
 			Expect(info.Name).To(Equal(name))
-			Expect(info.Image).To(Equal(image))
-			Expect(info.ImageID).To(Equal(getID(image)))
+			Expect(info.Image).To(Equal(nitrousImage))
+			Expect(info.ImageID).To(Equal(getID(nitrousImage)))
 			Expect(info.Host).To(Equal(host))
 			Expect(info.Gateway).To(Equal(gateway))
 			Expect(info.State).To(Equal(provider.ContainerStateStopped))
@@ -241,7 +255,7 @@ var _ = Describe("provider/docker", func() {
 				It("returns a list of all containers", func() {
 					// Create another container (but don't start it).
 					container2Name := RandomName("freightertest2")
-					container2Info, err := prov.Create(container2Name, image, secret, "")
+					container2Info, err := prov.Create(container2Name, nitrousImage, secret, "")
 					Expect(err).To(BeNil())
 					defer cleanUpContainer(container2Name)
 
@@ -258,11 +272,11 @@ var _ = Describe("provider/docker", func() {
 						}
 					}
 
-					imageID := getID(image)
+					imageID := getID(nitrousImage)
 
 					Expect(c1.ID).To(Equal(container2Info.ID))
 					Expect(c1.Name).To(Equal(container2Name))
-					Expect(c1.Image).To(Equal(image))
+					Expect(c1.Image).To(Equal(nitrousImage))
 					Expect(c1.ImageID).To(Equal(imageID))
 					Expect(c1.Host).To(Equal(""))
 					Expect(c1.Gateway).To(Equal(""))
@@ -281,7 +295,7 @@ var _ = Describe("provider/docker", func() {
 
 					Expect(c2.ID).To(Equal(id))
 					Expect(c2.Name).To(Equal(name))
-					Expect(c2.Image).To(Equal(image))
+					Expect(c2.Image).To(Equal(nitrousImage))
 					Expect(c2.ImageID).To(Equal(imageID))
 					Expect(c2.Host).To(Equal(getHost(c2.ID)))
 					Expect(c2.Gateway).To(Equal(getGateway(c2.ID)))
@@ -301,13 +315,13 @@ var _ = Describe("provider/docker", func() {
 
 			Describe(".GetInfo()", func() {
 				It("returns container info", func() {
-					imageID := getID(image)
+					imageID := getID(nitrousImage)
 
 					info, err := prov.GetInfo(id)
 					Expect(err).To(BeNil())
 					Expect(info.ID).To(Equal(id))
 					Expect(info.Name).To(Equal(name))
-					Expect(info.Image).To(Equal(image))
+					Expect(info.Image).To(Equal(nitrousImage))
 					Expect(info.ImageID).To(Equal(imageID))
 					Expect(info.Host).To(Equal(getHost(info.ID)))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
@@ -336,8 +350,8 @@ var _ = Describe("provider/docker", func() {
 					Expect(info).NotTo(BeNil())
 					Expect(info.ID).To(Equal(id))
 					Expect(info.Name).To(Equal(name))
-					Expect(info.Image).To(Equal(image))
-					Expect(info.ImageID).To(Equal(getID(image)))
+					Expect(info.Image).To(Equal(nitrousImage))
+					Expect(info.ImageID).To(Equal(getID(nitrousImage)))
 					Expect(info.Host).To(Equal(getHost(id)))
 					Expect(info.Gateway).To(Equal(getGateway(id)))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
@@ -396,8 +410,8 @@ var _ = Describe("provider/docker", func() {
 					Expect(ok).To(BeTrue())
 					Expect(hostPorts).To(HaveLen(0))
 					Expect(info.Name).To(Equal(name))
-					Expect(info.Image).To(Equal(image))
-					Expect(info.ImageID).To(Equal(getID(image)))
+					Expect(info.Image).To(Equal(nitrousImage))
+					Expect(info.ImageID).To(Equal(getID(nitrousImage)))
 
 					c := getContainerInfo(id)
 					Expect(info.Cmd).To(Equal(c.Config.Cmd))
@@ -437,8 +451,8 @@ var _ = Describe("provider/docker", func() {
 				expectContainerInfoToHaveBeenReturned := func(info *provider.ContainerInfo) {
 					Expect(info.ID).To(Equal(id))
 					Expect(info.Name).To(Equal(name))
-					Expect(info.Image).To(Equal(image))
-					Expect(info.ImageID).To(Equal(getID(image)))
+					Expect(info.Image).To(Equal(nitrousImage))
+					Expect(info.ImageID).To(Equal(getID(nitrousImage)))
 					Expect(info.Gateway).To(Equal(getGateway(id)))
 					Expect(info.Host).To(Equal(getHost(id)))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
@@ -507,8 +521,8 @@ var _ = Describe("provider/docker", func() {
 					Expect(info).NotTo(BeNil())
 					Expect(info.ID).To(Equal(id))
 					Expect(info.Name).To(Equal(name))
-					Expect(info.Image).To(Equal(image))
-					Expect(info.ImageID).To(Equal(getID(image)))
+					Expect(info.Image).To(Equal(nitrousImage))
+					Expect(info.ImageID).To(Equal(getID(nitrousImage)))
 					Expect(info.Host).To(Equal(""))
 					Expect(info.Gateway).To(Equal(""))
 					Expect(info.Ports).To(BeEmpty())
@@ -660,17 +674,12 @@ var _ = Describe("provider/docker", func() {
 
 			Context("with public keys", func() {
 				Context("with generic containers", func() {
-					var (
-						busyboxName string
-						busyboxID   string
-					)
+					var busyboxName string
 
 					BeforeEach(func() {
-						image := "jpetazzo/busybox"
 						busyboxName = RandomName("freightertest")
-						_, err := prov.Create(busyboxName, image, secret, "")
+						_, err := prov.Create(busyboxName, busyboxImage, secret, "")
 						Expect(err).To(BeNil())
-						busyboxID = getID(busyboxName)
 					})
 
 					AfterEach(func() {
@@ -679,7 +688,7 @@ var _ = Describe("provider/docker", func() {
 
 					Describe(".ListPublicKeys()", func() {
 						It("returns an error", func() {
-							pubkeys, err := prov.ListPublicKeys(busyboxID)
+							pubkeys, err := prov.ListPublicKeys(getID(busyboxName))
 							Expect(pubkeys).To(BeNil())
 							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
 						})
@@ -687,21 +696,21 @@ var _ = Describe("provider/docker", func() {
 
 					Describe(".AddPublicKeys()", func() {
 						It("returns an error", func() {
-							err := prov.AddPublicKeys(busyboxID, []string{pubkey1})
+							err := prov.AddPublicKeys(getID(busyboxName), []string{pubkey1})
 							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
 						})
 					})
 
 					Describe(".RemovePublicKey()", func() {
 						It("returns an error", func() {
-							err := prov.RemovePublicKey(busyboxID, fingerprint1)
+							err := prov.RemovePublicKey(getID(busyboxName), fingerprint1)
 							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
 						})
 					})
 
 					Describe(".ClearPublicKeys()", func() {
 						It("returns an error", func() {
-							err := prov.ClearPublicKeys(busyboxID)
+							err := prov.ClearPublicKeys(getID(busyboxName))
 							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
 						})
 					})
@@ -975,23 +984,22 @@ var _ = Describe("provider/docker", func() {
 
 		It("creates container with options", func() {
 			name := RandomName("freightertest")
-			image := "nitrousio/ubuntu-bare:trusty"
 			configJSON := `{
 			  "Env": ["LANG=C"],
 			  "Mounts": ["dotfiles:/etc/dotfiles","backups"],
 				"PortBindings": ["private:65000:3000", "public:8888:8888"]
 			}`
-			info, err := prov.Create(name, image, secret, configJSON)
+			info, err := prov.Create(name, nitrousImage, secret, configJSON)
 			Expect(err).To(BeNil())
 			defer cleanUpContainer(name)
 			info, err = prov.Start(info.ID, configJSON)
 			Expect(err).To(BeNil())
 
 			id := getID(name)
-			imageID := getID(image)
+			imageID := getID(nitrousImage)
 			Expect(info.ID).To(Equal(id))
 			Expect(info.Name).To(Equal(name))
-			Expect(info.Image).To(Equal(image))
+			Expect(info.Image).To(Equal(nitrousImage))
 			Expect(info.ImageID).To(Equal(imageID))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			Expect(doInspect(id, "{{.Config.Env}}")).To(ContainSubstring("LANG=C"))
@@ -1634,7 +1642,7 @@ var _ = Describe("provider/docker", func() {
 				)
 
 				BeforeEach(func() {
-					err := exec.Command("docker", "tag", "-f", image, existingImageName).Run()
+					err := exec.Command("docker", "tag", "-f", nitrousImage, existingImageName).Run()
 					Expect(err).To(BeNil())
 					o, err := exec.Command("docker", "inspect", "-f", "{{.Id}}", existingImageName).CombinedOutput()
 					existingImageID = strings.TrimSpace(string(o))
