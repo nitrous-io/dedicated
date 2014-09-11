@@ -437,7 +437,20 @@ func (s *Server) removeImage(w http.ResponseWriter, r *http.Request) error {
 // Refers to // https://docs.docker.com/reference/api/docker_remote_api_v1.13/#22-images
 // for more information on the output format
 func (s *Server) pullImage(w http.ResponseWriter, r *http.Request) error {
+	update, err := strconv.ParseBool(r.FormValue("update"))
+	if err != nil {
+		update = true
+	}
 	repo := r.FormValue("repository")
+
+	if !update {
+		// Don't update if image already exists.
+		if _, err := s.provider.InspectImage(repo); err == nil {
+			s.respondEncodeJSON(w, http.StatusNotModified, nil)
+			return nil
+		}
+	}
+
 	outstream := flusher.NewWriteFlusher(w)
 	// default to use raw json stream
 	if err := s.provider.PullImage(repo, outstream, true); err != nil {
