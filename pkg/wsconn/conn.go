@@ -83,8 +83,11 @@ func (c *Conn) Read(b []byte) (int, error) {
 	}
 	n, err := c.reader.Read(b)
 	if err != nil {
+		// When we have the frame EOF, treat it as no-op so we can receive the
+		// next frame normally
 		if err == io.EOF {
 			c.reader = nil
+			err = nil
 		}
 		return n, err
 	}
