@@ -373,7 +373,7 @@ func init() {
 			`,
 		},
 		{
-			Version: "271",
+			Version: "285",
 			Up: `
 				ALTER TABLE certs DROP COLUMN ca;
 			`,
