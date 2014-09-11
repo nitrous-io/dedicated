@@ -1896,6 +1896,21 @@ var _ = Describe("client", func() {
 				st.Close()
 			})
 
+			It("sends 'repository' and 'update' as POST data", func() {
+				statusCode = http.StatusOK
+				responseBody = `
+				{"status":"Pulling..."}
+				{"status":"Pulling", "progress":"1 B/ 100 B", "progressDetail":{"current":1, "total":100}}
+				`
+
+				err := cl.PullImage("myimage:tag", true, bytes.NewBuffer(nil))
+				Expect(err).To(BeNil())
+				reqs := st.server.ReceivedRequests()
+				Expect(reqs).To(HaveLen(1))
+				Expect(reqs[0].PostFormValue("repository")).To(Equal("myimage:tag"))
+				Expect(reqs[0].PostFormValue("update")).To(Equal("true"))
+			})
+
 			It("returns error when docker failed to pull image", func() {
 				statusCode = http.StatusOK
 				responseBody = `
@@ -1904,7 +1919,7 @@ var _ = Describe("client", func() {
 				{"error":"no reason at all"}
 				`
 				stdout := bytes.NewBuffer(nil)
-				err := cl.PullImage("myimage:tag", stdout)
+				err := cl.PullImage("myimage:tag", true, stdout)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("no reason at all"))
 				Expect(stdout.String()).To(Equal(responseBody))
@@ -1921,7 +1936,7 @@ var _ = Describe("client", func() {
 
 				It("should return nil error", func() {
 					stdout := bytes.NewBuffer(nil)
-					err := cl.PullImage("myimage:tag", stdout)
+					err := cl.PullImage("myimage:tag", true, stdout)
 					Expect(err).To(BeNil())
 
 					Expect(stdout.String()).To(Equal(responseBody))
@@ -1936,7 +1951,7 @@ var _ = Describe("client", func() {
 				It("should surface request failures", func() {
 					st.Close()
 
-					err := cl.PullImage("myimage:tag", ioutil.Discard)
+					err := cl.PullImage("myimage:tag", true, ioutil.Discard)
 					Expect(err).NotTo(BeNil())
 					_, ok := err.(*freighterclient.RequestFailedError)
 					Expect(ok).To(BeTrue())
@@ -1945,7 +1960,7 @@ var _ = Describe("client", func() {
 
 				It("should surface response failures in StatusErr", func() {
 					statusCode = http.StatusInternalServerError
-					err := cl.PullImage("myimage:tag", ioutil.Discard)
+					err := cl.PullImage("myimage:tag", true, ioutil.Discard)
 					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
 				})
 			})

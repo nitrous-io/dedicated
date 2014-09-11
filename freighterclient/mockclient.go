@@ -287,7 +287,7 @@ func (c *MockClient) RemoveImage(slug string) error {
 	return c.RemoveImageError
 }
 
-func (c *MockClient) PullImage(location string, stdout io.Writer) error {
+func (c *MockClient) PullImage(location string, update bool, stdout io.Writer) error {
 	c.PullImageCalled++
 	return c.PullImageError
 }
