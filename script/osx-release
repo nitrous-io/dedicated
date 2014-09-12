@@ -5,7 +5,8 @@ set -e
 APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
 ENV=${3:?"env is required"}
-ARTIFACT_DIR=/tmp/$APP/$VERSION/darwin/amd64
+
+ARTIFACT_DIR=/tmp/$APP/$VERSION/$ENV/darwin/amd64
 
 if [[ "$ENV" == "production" ]]; then
   PACKAGE_NAME=$APP

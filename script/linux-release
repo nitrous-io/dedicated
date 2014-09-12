@@ -6,7 +6,7 @@ APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
 ENV=${3:?"env is required"}
 
-ARTIFACT_DIR=/tmp/$APP/$VERSION/linux/amd64
+ARTIFACT_DIR=/tmp/$APP/$VERSION/$ENV/linux/amd64
 
 if [[ "$ENV" == "production" ]]; then
   PACKAGE_NAME=$APP

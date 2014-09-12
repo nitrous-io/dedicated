@@ -35,6 +35,6 @@ test:
 
 release: ci
 	@echo "$(OK_COLOR)==> Packaging revision $(VERSION)...$(NO_COLOR)"
-	@script/wrap-release-docker $(APP) $(VERSION)
+	@script/wrap-release-docker $(APP) $(VERSION) $(ENV)
 
 .PHONY: all build clean format test image ci release

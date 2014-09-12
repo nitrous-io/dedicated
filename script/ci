@@ -1,10 +1,11 @@
 #!/bin/bash
+set -x
 
 APP=${1:?"app name is required"}
 VERSION=${2:?"version is required"}
 NITRO_API_URL=${3:-http://127.0.0.1:3333}
 
-ARTIFACT_DIR=/tmp/$APP/$VERSION
+ARTIFACT_DIR=/tmp/$APP/$VERSION/$ENV
 rm -rf $ARTIFACT_DIR
 mkdir -p $ARTIFACT_DIR
 BIN_DIR=/opt/src/github.com/nitrous-io/$APP/build
