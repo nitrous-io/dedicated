@@ -963,7 +963,7 @@ var _ = Describe("provider/docker", func() {
 			configJSON := `{
 			  "Env": ["LANG=C"],
 			  "Mounts": ["dotfiles:/etc/dotfiles","backups"],
-			  "PortBindings": ["private:65000:3000"]
+				"PortBindings": ["private:65000:3000", "public:8888:8888"]
 			}`
 			info, err := prov.Create(name, image, secret, configJSON)
 			Expect(err).To(BeNil())
@@ -979,11 +979,15 @@ var _ = Describe("provider/docker", func() {
 			Expect(doInspect(id, "{{.Config.Env}}")).To(ContainSubstring("LANG=C"))
 			Expect(doInspect(id,
 				"{{range $p, $stub := .Config.ExposedPorts}}{{$p}} {{end}}")).
-				To(Equal("22/tcp 3000"))
+				To(Equal("22/tcp 3000 8888"))
 
 			port3000Binding := getPortBindings(id, "3000")
 			Expect(port3000Binding).To(ContainSubstring("HostIp:172.17.42.1"))
 			Expect(port3000Binding).To(ContainSubstring("HostPort:65000"))
+
+			port8888Binding := getPortBindings(id, "8888")
+			Expect(port8888Binding).To(ContainSubstring("HostIp:0.0.0.0"))
+			Expect(port8888Binding).To(ContainSubstring("HostPort:8888"))
 
 			port22Binding := getPortBindings(id, "22/tcp")
 			Expect(port22Binding).To(ContainSubstring("HostIp:0.0.0.0"))
