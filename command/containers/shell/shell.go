@@ -79,9 +79,12 @@ func (c *Command) Run(args []string) int {
 	}
 
 	// prepare the term
-	stdin := c.UI.Reader
-	stdout := c.UI.Writer
-	pty, ok := stdout.(*os.File)
+	stdin, ok := c.UI.Reader.(*os.File)
+	if !ok {
+		c.UI.Error("Requires a working terminal")
+		return 1
+	}
+	stdout, ok := c.UI.Writer.(*os.File)
 	if !ok {
 		c.UI.Error("Requires a working terminal")
 		return 1
@@ -98,7 +101,7 @@ func (c *Command) Run(args []string) int {
 	sh := protoshell.New(host, cr.CID, command, tlsConfig, func() (string, error) {
 		return containers.GetToken(slug, c.server, []string{"shell"}, c.client)
 	})
-	if err := sh.Run(pty.Fd(), stdin, stdout); err != nil {
+	if err := sh.Run(stdout.Fd(), stdin, stdout); err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
 	}

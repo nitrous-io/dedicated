@@ -49,7 +49,7 @@ func New(host, containerID, command string, tlsConfig *tls.Config, tokenHandler 
 }
 
 // connect stdin and stdout respectively to their remote parts
-func (s *ProtoShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error {
+func (s *ProtoShell) Attach(fd uintptr, stdin io.ReadCloser, stdout io.Writer) error {
 	s.isTerminal = term.IsTerminal(fd)
 
 	if s.isTerminal {
@@ -119,7 +119,7 @@ func (s *ProtoShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error
 }
 
 // Run executes a remote command inside a container in a specific host
-func (s *ProtoShell) Run(fd uintptr, stdin io.Reader, stdout io.Writer) error {
+func (s *ProtoShell) Run(fd uintptr, stdin io.ReadCloser, stdout io.Writer) error {
 	if err := s.Attach(fd, stdin, stdout); err != nil {
 		return fmt.Errorf("Shell detached %v", err)
 	}
