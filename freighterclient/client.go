@@ -812,7 +812,12 @@ func (c *client) PullImage(repository string, update bool, output io.Writer) err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// Pass.
+	case http.StatusNotModified:
+		return nil
+	default:
 		return &StatusError{resp.StatusCode}
 	}
 

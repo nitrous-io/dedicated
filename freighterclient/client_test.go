@@ -1938,7 +1938,7 @@ var _ = Describe("client", func() {
 				Expect(stdout.String()).To(Equal(responseBody))
 			})
 
-			Context("Successful response", func() {
+			Context("when response is HTTP 200 OK", func() {
 				BeforeEach(func() {
 					statusCode = http.StatusOK
 					responseBody = `
@@ -1953,6 +1953,25 @@ var _ = Describe("client", func() {
 					Expect(err).To(BeNil())
 
 					Expect(stdout.String()).To(Equal(responseBody))
+
+					reqs := server.ReceivedRequests()
+					Expect(reqs).To(HaveLen(1))
+					Expect(reqs[0].PostFormValue("repository")).To(Equal("myimage:tag"))
+				})
+			})
+
+			Context("when response is HTTP 304 Not Modified", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusNotModified
+					responseBody = ``
+				})
+
+				It("should return nil error", func() {
+					stdout := bytes.NewBuffer(nil)
+					err := cl.PullImage("myimage:tag", false, stdout)
+					Expect(err).To(BeNil())
+
+					Expect(stdout.String()).To(Equal(""))
 
 					reqs := server.ReceivedRequests()
 					Expect(reqs).To(HaveLen(1))
