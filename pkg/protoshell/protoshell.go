@@ -27,7 +27,8 @@ type ProtoShell struct {
 	host            string
 	containerID     string
 	command         string
-	isTerminal      bool // this checks if the current shell is a terminal i.e. capable of resizing
+	isTerminalOut   bool // this checks if the current shell ouput is a interactive terminal
+	isTerminalIn    bool // this checks if the current shell input is a interactive terminal
 	tokenHandler    TokenHandler
 	tlsClientConfig *tls.Config
 	conn            *wsconn.Conn
@@ -49,17 +50,18 @@ func New(host, containerID, command string, tlsConfig *tls.Config, tokenHandler 
 }
 
 // connect stdin and stdout respectively to their remote parts
-func (s *ProtoShell) Attach(fd uintptr, stdin io.ReadCloser, stdout io.Writer) error {
-	s.isTerminal = term.IsTerminal(fd)
+func (s *ProtoShell) Attach(infd uintptr, outfd uintptr, stdin io.ReadCloser, stdout io.Writer) error {
+	s.isTerminalIn = term.IsTerminal(infd)
+	s.isTerminalOut = term.IsTerminal(outfd)
 
-	if s.isTerminal {
+	if s.isTerminalOut {
 		// restore the terminal back to old state when we finish
 		var oldState *term.State
-		oldState, err := term.SetRawTerminal(fd)
+		oldState, err := term.SetRawTerminal(outfd)
 		if err != nil {
 			return err
 		}
-		defer term.RestoreTerminal(fd, oldState)
+		defer term.RestoreTerminal(outfd, oldState)
 	}
 
 	// construct token header
@@ -112,15 +114,15 @@ func (s *ProtoShell) Attach(fd uintptr, stdin io.ReadCloser, stdout io.Writer) e
 	// may have been terminated.
 	//
 	// We only monitor size when the current shell lives in a terminal
-	if s.isTerminal {
-		s.monitorSize(fd)
+	if s.isTerminalOut {
+		s.monitorSize(outfd)
 	}
 	return <-done
 }
 
 // Run executes a remote command inside a container in a specific host
-func (s *ProtoShell) Run(fd uintptr, stdin io.ReadCloser, stdout io.Writer) error {
-	if err := s.Attach(fd, stdin, stdout); err != nil {
+func (s *ProtoShell) Run(infd uintptr, outfd uintptr, stdin io.ReadCloser, stdout io.Writer) error {
+	if err := s.Attach(infd, outfd, stdin, stdout); err != nil {
 		return fmt.Errorf("Shell detached %v", err)
 	}
 	return nil

@@ -101,7 +101,7 @@ func (c *Command) Run(args []string) int {
 	sh := protoshell.New(host, cr.CID, command, tlsConfig, func() (string, error) {
 		return containers.GetToken(slug, c.server, []string{"shell"}, c.client)
 	})
-	if err := sh.Run(stdout.Fd(), stdin, stdout); err != nil {
+	if err := sh.Run(stdin.Fd(), stdout.Fd(), stdin, stdout); err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
 	}
