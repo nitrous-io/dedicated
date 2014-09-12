@@ -373,7 +373,20 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the response is not HTTP 422 Unprocessable Entity", func() {
+		Context("when the response is HTTP 404 Not Found", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusNotFound
+			})
+
+			It("returns ErrImageNotFound", func() {
+				container, err := cl.Create("yosemite", "ubuntu", "s3cr3t", nil)
+				Expect(err).To(Equal(freighterclient.ErrImageNotFound))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(container).To(BeNil())
+			})
+		})
+
+		Context("when the response is HTTP 422 Unprocessable Entity", func() {
 			BeforeEach(func() {
 				statusCode = freighterclient.StatusUnprocessableEntity
 			})
@@ -383,7 +396,7 @@ var _ = Describe("client", func() {
 					responseBody = `{ "error": "invalid name" }`
 				})
 
-				It("returns InvalidParamError", func() {
+				It("returns an InvalidParamError", func() {
 					container, err := cl.Create("yosemite", "ubuntu", "s3cr3t", nil)
 					e, ok := err.(*freighterclient.InvalidParamError)
 					Expect(ok).To(BeTrue())
@@ -407,7 +420,7 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the response is not HTTP 200 OK nor HTTP 422 Unprocessable Entity", func() {
+		Context("when the response has an unexpected status code", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusInternalServerError
 			})

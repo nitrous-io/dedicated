@@ -81,13 +81,17 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	info, err := s.provider.Create(name, image, secret, r.FormValue("config"))
-
 	if err != nil {
 		s.logger.Error(err)
-		s.respondEncodeJSON(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
-	} else {
-		s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"container": info})
+		var code = http.StatusInternalServerError
+		if err == provider.ErrImageNotFound {
+			code = http.StatusNotFound
+		}
+		s.respondEncodeJSON(w, code, map[string]interface{}{"error": err.Error()})
+		return
 	}
+
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"container": info})
 }
 
 func (s *Server) commitContainer(w http.ResponseWriter, r *http.Request) {

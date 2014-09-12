@@ -149,22 +149,34 @@ var _ = Describe("server", func() {
 				Context("returns an error", func() {
 					BeforeEach(func() {
 						prov.CreateError = errors.New("pc load letter")
-						doRequest()
 					})
 
 					It("responds with 500 Internal Server Error", func() {
+						doRequest()
 						Expect(res.Code).To(Equal(http.StatusInternalServerError))
 						Expect(res.Body.String()).To(MatchJSON(`{"error":"pc load letter"}`))
+					})
+				})
+
+				Context("when image does not exist", func() {
+					BeforeEach(func() {
+						prov.CreateError = provider.ErrImageNotFound
+					})
+
+					It("responds with 400 Not Found", func() {
+						doRequest()
+						Expect(res.Code).To(Equal(http.StatusNotFound))
+						Expect(res.Body.String()).To(MatchJSON(fmt.Sprintf(`{"error":"%s"}`, provider.ErrImageNotFound.Error())))
 					})
 				})
 
 				Context("returns a container info with no error", func() {
 					BeforeEach(func() {
 						prov.CreateContainerInfo = &provider.ContainerInfo{ID: "aaa", Name: name, Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning}
-						doRequest()
 					})
 
 					It("responds with 200 OK and container info", func() {
+						doRequest()
 						Expect(res.Code).To(Equal(http.StatusOK))
 						Expect(res.Body.String()).To(MatchJSON(`{"container":{
 							"id":"aaa","name":"fragrant-wind-69","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","gateway":"1.2.3.0","state":"running","ports": null,"exit_code":0,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"

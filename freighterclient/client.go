@@ -42,6 +42,7 @@ var (
 	ErrTokenVerificationFailed = provider.ErrTokenVerificationFailed
 	ErrTokenExpired            = provider.ErrTokenExpired
 	ErrUnverifiable            = provider.ErrUnverifiable
+	ErrImageNotFound           = provider.ErrImageNotFound
 	ErrImageExists             = provider.ErrImageExists
 	ErrImagePushAuthRequired   = provider.ErrImagePushAuthRequired
 
@@ -304,6 +305,8 @@ func (c *client) Create(name, image, secret string, config *ContainerConfig) (*C
 			return nil, ErrUnexpectedResponse
 		}
 		return nil, &InvalidParamError{errResp.Error}
+	case http.StatusNotFound:
+		return nil, ErrImageNotFound
 	default:
 		return nil, &StatusError{resp.StatusCode}
 	}
