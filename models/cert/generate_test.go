@@ -42,6 +42,12 @@ var _ = Describe("models/cert", func() {
 			certBytes, keyBytes, err := cert.GenerateHostCert(hostname, caInfo.X509Cert, caInfo.Key)
 			hostCert, err := tls.X509KeyPair(certBytes, keyBytes)
 			Expect(err).To(BeNil())
+			for _, certData := range hostCert.Certificate {
+				cert, err := x509.ParseCertificate(certData)
+				Expect(err).To(BeNil())
+				Expect(cert.PublicKeyAlgorithm).To(Equal(x509.RSA))
+				Expect(cert.SignatureAlgorithm).To(Equal(x509.SHA256WithRSA))
+			}
 
 			svr := startServer(certPool, hostCert)
 			defer svr.Close()

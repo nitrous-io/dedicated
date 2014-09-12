@@ -28,8 +28,8 @@ func GenerateHostCert(
 		Country:            []string{"US"},
 		Province:           []string{"California"},
 		Locality:           []string{"San Francisco"},
-		Organization:       []string{"NitrousIO"},
-		OrganizationalUnit: []string{"Engineering"},
+		Organization:       []string{"Nitrous.IO"},
+		OrganizationalUnit: []string{"Host Cert"},
 		CommonName:         hostname,
 	}
 
@@ -70,7 +70,10 @@ func GenerateHostCert(
 // hostCertReq populates a certificate request for a host cert, signed with
 // host's privKey
 func hostCertReq(subject pkix.Name, privKey *rsa.PrivateKey) (*x509.CertificateRequest, error) {
-	template := &x509.CertificateRequest{Subject: subject}
+	template := &x509.CertificateRequest{
+		Subject:            subject,
+		SignatureAlgorithm: x509.SHA256WithRSA,
+	}
 	csr, err := x509.CreateCertificateRequest(rand.Reader, template, privKey)
 	if err != nil {
 		return nil, err
