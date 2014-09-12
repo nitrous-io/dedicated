@@ -7,7 +7,7 @@ github.com/gorilla/mux #4b8fbc56f3b2400a7c7ea3dba9b3539787c486b6
 github.com/gorilla/websocket #4292df70df546334d4174bcd77271253c9b7835c
 github.com/kr/pty #67e2db24c831afa6c64fc17b4a143390674365ef
 github.com/mitchellh/cli #aedcd92cc52d928752e870aaf076c9b5e48994f0 !git@github.com:nitrous-io/cli
-github.com/nitrous-io/freighter/freighterclient #8f6b193133cd95f6d1bdaec3eba9a31b8edf22da !git@github.com:nitrous-io/freighter
+github.com/nitrous-io/freighter/freighterclient #4ab443f6cf1971bdd2c3611c8335cf7c90e0e8c2 !git@github.com:nitrous-io/freighter
 github.com/nitrous-io/nitrous-common #96ea72c988aef70194e43ed5e1936fb7879d96b4 !git@github.com:nitrous-io/nitrous-common
 github.com/ogier/pflag #e4f7d00f344b0954fa3791a8527d10ba7334eceb
 github.com/onsi/ginkgo/ginkgo #12446bbcc74950944c897e32ea99cc8d058f9c92
