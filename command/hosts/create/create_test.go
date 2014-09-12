@@ -24,7 +24,6 @@ var _ = Describe("hosts/create", func() {
 		cmd          *create.Command
 		ui           *cli.MockUi
 		srv          *ghttp.Server
-		handlers     http.HandlerFunc
 		statusCode   int
 		responseBody string
 	)
@@ -32,7 +31,7 @@ var _ = Describe("hosts/create", func() {
 	BeforeEach(func() {
 		ui = &cli.MockUi{}
 
-		handlers = ghttp.CombineHandlers(
+		handlers := ghttp.CombineHandlers(
 			func(w http.ResponseWriter, req *http.Request) {
 				// Call ParseForm() so that server.ReceivedRequests() have
 				// POST params populated.
@@ -63,6 +62,12 @@ var _ = Describe("hosts/create", func() {
 		Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
 	})
 
+	It("requires region as an argument", func() {
+		code := cmd.Run([]string{"512mb"})
+		Expect(code).To(Equal(1))
+		Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
+	})
+
 	Context("hitting the server", func() {
 		type createHostParams struct {
 			size   string
@@ -72,7 +77,7 @@ var _ = Describe("hosts/create", func() {
 
 		doCmd := func(params *createHostParams) int {
 			return cmd.Run([]string{params.size,
-				"-r", params.region,
+				params.region,
 				"-s", params.slug,
 			})
 		}
@@ -96,15 +101,6 @@ var _ = Describe("hosts/create", func() {
 				Expect(receivedRequests[0].PostFormValue("size")).To(Equal("micro"))
 				Expect(receivedRequests[0].PostFormValue("region")).To(Equal("apse"))
 				Expect(receivedRequests[0].PostFormValue("slug")).NotTo(Equal(""))
-			})
-		})
-
-		Context("when region is not provided", func() {
-			It("returns an error message without making a request", func() {
-				code := doCmd(&createHostParams{size: "micro"})
-				Expect(ui.ErrorWriter.String()).To(ContainSubstring("Please specify a region"))
-				Expect(code).To(Equal(1))
-				Expect(srv.ReceivedRequests()).To(HaveLen(-0))
 			})
 		})
 
