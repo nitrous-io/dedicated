@@ -78,6 +78,10 @@ var _ = Describe("images/pull", func() {
 func setupNitrous(host string, statusCode int, response string) *ghttp.Server {
 	// Setup handlers for nitrous server (hosts)
 	handler := ghttp.CombineHandlers(
+		func(w http.ResponseWriter, req *http.Request) {
+			req.ParseForm()
+			Expect(req.PostFormValue("update")).To(Equal("true"))
+		},
 		ghttp.VerifyHeaderKV("Authorization", "Bearer correct_token"),
 		ghttp.VerifyRequest("POST", "/api/v0/hosts/"+host+"/images/pull"),
 		ghttp.RespondWith(statusCode, response),
