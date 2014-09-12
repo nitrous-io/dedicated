@@ -23,10 +23,6 @@ import (
 	"github.com/nitrous-io/nitrous/serializers"
 )
 
-// DefaultImage is the default Docker image used to create containers if an
-// image isn't specified.
-const DefaultImage = "nitrousio/ubuntu:trusty"
-
 const defaultLockTime = 1 * time.Minute
 
 var (
@@ -159,7 +155,7 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	imageSlug := r.FormValue("image")
 
 	if imageSlug == "" {
-		imageSlug = DefaultImage
+		imageSlug = controllers.DefaultImage
 	}
 
 	if slug == "" {

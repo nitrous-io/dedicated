@@ -79,6 +79,21 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(i.UpdatedAt).NotTo(BeNil())
 	})
 
+	It("uses the default image if repository is not given", func() {
+		fs := newFreighterServer("nitrousio/ubuntu", "trusty")
+		ctx := newPullTestCtx(fs, db)
+		fs.start(db, ctx)
+		defer fs.Close()
+
+		ctx.do(svr, "foo", nil)
+
+		u, h := ctx.user, ctx.host
+		i, err := image.Find(db, u, h, "nitrousio/ubuntu:trusty")
+		Expect(err).To(BeNil(), "failed to store image in db")
+		Expect(i.Slug).To(Equal("nitrousio/ubuntu"))
+		Expect(i.Tag).To(Equal("trusty"))
+	})
+
 	It("removes the image and emits images removed event when freighter failed to pull image", func() {
 		fs := newFreighterServer("scratch", "latest")
 		fs.pullError = true
@@ -195,18 +210,6 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(img.ID).To(Equal(i.ID), "failed to serialize correct image")
 		Expect(img.FreighterID).To(Equal("123asd"), "failed to serialize freighter response")
 		close(done)
-	})
-
-	It("requires repository param", func() {
-		fs := newFreighterServer("scratch", "latest")
-		defer fs.Close()
-
-		ctx := newPullTestCtx(fs, db)
-		res := ctx.do(svr, "foo", nil)
-
-		errType, errDesc := test.ErrorSlug(res.Body)
-		Expect(errType).To(Equal("invalid_request"))
-		Expect(errDesc).To(Equal("repository is required"))
 	})
 
 	It("returns 500 on freighterclient error and emits image pull failed event", func() {
@@ -346,7 +349,7 @@ var _ = Describe("controllers/images/pull", func() {
 			Expect(err).To(BeNil(), "expect the old image to not be deleted")
 		})
 
-		It("does not emit images removed event", func() {
+		It("does not emit images removed event when freighter fails to pull image", func() {
 			fs := newFreighterServer("scratch", "latest")
 			fs.existingImage = &freighterclient.Image{
 				ID:   "cafebabe",
@@ -481,6 +484,7 @@ func newPullTestCtx(fs *freighterServer, db *db.Database) *pullTestCtx {
 	Expect(err).To(BeNil(), "failed to prepare host stack")
 
 	hs, err = test.GenerateHostCert(db, hs)
+	Expect(err).To(BeNil(), "failed to generate host cert")
 
 	return &pullTestCtx{
 		user:  u,

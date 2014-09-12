@@ -935,7 +935,7 @@ var _ = Describe("controllers/containers", func() {
 				}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				Expect(j.Container.Image).To(Equal(containers.DefaultImage))
+				Expect(j.Container.Image).To(Equal(controllers.DefaultImage))
 			})
 		})
 

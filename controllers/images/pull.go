@@ -101,7 +101,7 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 	repo := r.FormValue("repository")
 	if repo == "" {
-		return errRepoRequired
+		repo = controllers.DefaultImage
 	}
 	update, err := strconv.ParseBool(r.FormValue("update"))
 	if err != nil {
