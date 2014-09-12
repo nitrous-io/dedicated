@@ -11,9 +11,11 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command/containers/attach"
+	"github.com/nitrous-io/nitro/consts"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	"github.com/nitrous-io/nitrous-common/wsconn"
 
+	"github.com/nitrous-io/nitro/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -35,6 +37,9 @@ var _ = Describe("containers/attach", func() {
 	BeforeEach(func() {
 		// Setup Freighter server.
 		fsrv = ghttp.NewServer()
+		var err error
+		fsrv.HTTPTestServer, err = test.NewTLSServer(fsrv, test.SampleHostname, []byte(consts.CACert))
+		Expect(err).To(BeNil())
 		// Setup handlers: attach to container.
 		fsrv.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Token container-token"),
@@ -90,6 +95,7 @@ var _ = Describe("containers/attach", func() {
 				"host": map[string]interface{}{
 					"ip_address":      fhost,
 					"freighterd_port": fport,
+					"hostname":        test.SampleHostname,
 				},
 			}),
 		))
@@ -108,7 +114,7 @@ var _ = Describe("containers/attach", func() {
 		Expect(code).To(Equal(1))
 	})
 
-	It("attaches to the container", func() {
+	It("attaches to the container", func(done Done) {
 		stdoutReader, stdout := io.Pipe()
 		cmd := &attach.Command{
 			UI: &cli.BasicUi{
@@ -136,6 +142,7 @@ var _ = Describe("containers/attach", func() {
 		stdoutReader.Close()
 
 		<-exited
+		close(done)
 
 		Expect(nsrv.ReceivedRequests()).To(HaveLen(3))
 		Expect(fsrv.ReceivedRequests()).To(HaveLen(1))

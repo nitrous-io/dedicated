@@ -2,6 +2,7 @@ package remoteshell
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,22 +28,23 @@ const (
 type TokenHandler func() (string, error)
 
 type RemoteShell struct {
-	ID           string `json:"id"`
-	host         string
-	containerID  string
-	command      string
-	isTerminal   bool // this checks if current shell is a terminal
-	tokenHandler TokenHandler
+	ID              string `json:"id"`
+	host            string
+	containerID     string
+	command         string
+	isTerminal      bool // this checks if current shell is a terminal
+	tokenHandler    TokenHandler
+	tlsClientConfig *tls.Config
 }
 
 // New creates a shell that uses WebSockets.
-// FIXME Sprinkle TLS magic (i.e. https and wss://).
-func New(host, containerID, command string, tokenHandler TokenHandler) *RemoteShell {
+func New(host, containerID, command string, tlsConfig *tls.Config, tokenHandler TokenHandler) *RemoteShell {
 	return &RemoteShell{
-		host:         host,
-		containerID:  containerID,
-		command:      command,
-		tokenHandler: tokenHandler,
+		host:            host,
+		containerID:     containerID,
+		command:         command,
+		tokenHandler:    tokenHandler,
+		tlsClientConfig: tlsConfig,
 	}
 }
 
@@ -105,8 +107,12 @@ func (s *RemoteShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) erro
 	}
 	headers := http.Header{}
 	headers.Add("Authorization", "Token "+token)
-	wsEndpointURI := fmt.Sprintf("ws://%s/containers/%s/shells/%s/attach/ws", s.host, s.containerID, s.ID)
-	ws, _, err := websocket.DefaultDialer.Dial(wsEndpointURI, headers)
+	wsEndpointURI := fmt.Sprintf("wss://%s/containers/%s/shells/%s/attach/ws", s.host, s.containerID, s.ID)
+	dialer := websocket.Dialer{}
+	if s.tlsClientConfig != nil {
+		dialer.TLSClientConfig = s.tlsClientConfig
+	}
+	ws, _, err := dialer.Dial(wsEndpointURI, headers)
 	if err != nil {
 		return fmt.Errorf("Failed to attach to shell for container %s: %v", s.containerID, err)
 	}
@@ -207,7 +213,12 @@ func (s *RemoteShell) getConn() (*httputil.ClientConn, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Can't connect to %s", s.host)
 	}
+	if s.tlsClientConfig != nil {
+		tlsConn := tls.Client(dial, s.tlsClientConfig)
+		return httputil.NewClientConn(tlsConn, nil), nil
+	}
 	return httputil.NewClientConn(dial, nil), nil
+
 }
 
 // get current size of the client terminal

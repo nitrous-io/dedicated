@@ -28,7 +28,7 @@ type HostAPI struct {
 	Slug           string `json:"slug"`
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort int64  `json:"freighterd_port"`
-	Domain         string `json:"domain"`
+	Hostname       string `json:"hostname"`
 }
 
 type hostResp struct {

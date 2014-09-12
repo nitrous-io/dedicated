@@ -68,6 +68,11 @@ func (c *Command) Run(args []string) int {
 	}
 
 	host := fmt.Sprintf("%s:%d", cr.Host.IPAddress, cr.Host.FreighterdPort)
+	tlsConfig, err := command.ClientConfig(cr.Host.Hostname)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Error establishing secure connection to %s", cr.Host.Hostname))
+		return 1
+	}
 	command := strings.Join(args[1:], " ")
 
 	stdin := c.UI.Reader
@@ -78,7 +83,7 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	sh := protoshell.New(host, cr.CID, command, func() (string, error) {
+	sh := protoshell.New(host, cr.CID, command, tlsConfig, func() (string, error) {
 		return containers.GetToken(slug, c.server, []string{"shell"}, c.client)
 	})
 	if err := sh.Run(pty.Fd(), stdin, stdout); err != nil {
