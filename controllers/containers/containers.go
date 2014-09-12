@@ -33,6 +33,7 @@ var (
 	errHostNotFound      = middleware.ErrHostNotFound
 	errVolumeNotFound    = httperror.New(http.StatusBadRequest, "invalid_state", "volume not found")
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
+	errImageNotFound     = httperror.New(http.StatusNotFound, "not_found", "image does not exist")
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 	errContainerLocked   = httperror.New(http.StatusConflict, "container_locked", "container is locked")
 )
@@ -171,7 +172,6 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	if err != nil {
 		return err
 	}
-
 	config, err := prepareConfig(r.PostForm, hv)
 	if err != nil {
 		return err
@@ -221,6 +221,9 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 		deleteContainer(cn)
 		if e, ok := err.(*freighterclient.InvalidParamError); ok {
 			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
+		}
+		if err == freighterclient.ErrImageNotFound {
+			return errImageNotFound
 		}
 		return err
 	}

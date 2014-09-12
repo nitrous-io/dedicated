@@ -647,9 +647,9 @@ var _ = Describe("controllers/containers", func() {
 			mockClient.CreatedContainer = &freighterclient.Container{
 				ID:      "deadbeef",
 				Name:    "elixir-web-1",
-				Host:    "1.2.3.4",
-				Gateway: "1.2.3.0",
-				State:   "running",
+				Host:    "",
+				Gateway: "",
+				State:   "stopped",
 				Image:   "elixir",
 				ImageID: "abc123",
 			}
@@ -675,9 +675,9 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.HostID).To(Equal(hs.H.ID))
 			Expect(cn.Image).To(Equal("elixir"))
 			Expect(cn.Slug).To(Equal("elixir-web-1"))
-			Expect(cn.IPAddress).To(Equal("1.2.3.4"))
-			Expect(cn.GatewayIP).To(Equal("1.2.3.0"))
-			Expect(cn.State).To(Equal("running"))
+			Expect(cn.IPAddress).To(Equal(""))
+			Expect(cn.GatewayIP).To(Equal(""))
+			Expect(cn.State).To(Equal("stopped"))
 			Expect(cn.Name).To(Equal("Elixir Web Server 1"))
 		}
 
@@ -690,11 +690,8 @@ var _ = Describe("controllers/containers", func() {
 			Expect(mockClient.ReceivedName).To(Equal("elixir-web-1"))
 			Expect(mockClient.ReceivedImage).To(Equal("elixir"))
 			conf := mockClient.ReceivedConfig
-			Expect(conf.Env).To(Equal([]string{"LANG=C", "NODE=nope"}))
-			Expect(conf.PortBindings).To(HaveLen(3))
-			Expect(conf.PortBindings).To(ContainElement("3000:8080"))
-			Expect(conf.PortBindings).To(ContainElement("0.0.0.0::4552"))
-			Expect(conf.PortBindings).To(ContainElement("0.0.0.0:8081:11211"))
+			Expect(conf.Env).To(ConsistOf("LANG=C", "NODE=nope"))
+			Expect(conf.PortBindings).To(ConsistOf("3000:8080", "0.0.0.0::4552", "0.0.0.0:8081:11211"))
 		})
 
 		It("creates a new container record", func() {
@@ -866,6 +863,21 @@ var _ = Describe("controllers/containers", func() {
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
 					errType, _ := ErrorSlug(res.Body)
 					Expect(errType).To(Equal("validation_failed"))
+				})
+			})
+
+			Context("when the error is an ErrImageNotFound", func() {
+				BeforeEach(func() {
+					mockClient.CreateError = freighterclient.ErrImageNotFound
+				})
+
+				It("responds with HTTP 404 Not Found", func() {
+					doRequest("valid-token", "foo", params)
+
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+					errType, errDesc := ErrorSlug(res.Body)
+					Expect(errType).To(Equal("not_found"))
+					Expect(errDesc).To(Equal("image does not exist"))
 				})
 			})
 		})
