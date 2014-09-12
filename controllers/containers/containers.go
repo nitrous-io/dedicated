@@ -27,6 +27,8 @@ import (
 // image isn't specified.
 const DefaultImage = "nitrousio/ubuntu:trusty"
 
+const defaultLockTime = 1 * time.Minute
+
 var (
 	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errImageNameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "image name is required")
@@ -381,11 +383,42 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 }
 
 func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	hv, err := hostVolumes(env.DB, h)
+	if err != nil {
+		return err
+	}
+	r.ParseForm()
+	config, err := prepareConfig(r.PostForm, hv)
+	if err != nil {
+		return err
+	}
+
 	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Start, controllers.EventContainerStarted, cn, h, env, w, r)
+
+	if err := cn.Lock(defaultLockTime, env.DB); err != nil {
+		if err == container.ErrLocked {
+			return errContainerLocked
+		}
+		return err
+	}
+	defer cn.Unlock(env.DB)
+
+	liveContainer, err := cl.Start(cn.CID, config)
+	if err != nil {
+		return err
+	}
+
+	cn = hydrateContainer(cn, liveContainer, h)
+
+	publishContainerEvent(env, controllers.EventContainerStarted, cn)
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"container": serializers.SerializeContainer(cn),
+	}
+	return nil
 }
 
 func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -409,8 +442,7 @@ type actionFn func(id string) (*freighterclient.Container, error)
 func performControlAction(fn actionFn, eventName controllers.EventName, cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// automatically expire all control action locks after 1 minute.
 	// TODO: test with real ops and tweak this value
-	expiresIn := 60 * time.Second
-	err := cn.Lock(expiresIn, env.DB)
+	err := cn.Lock(defaultLockTime, env.DB)
 	if err != nil {
 		if err == container.ErrLocked {
 			return errContainerLocked
@@ -440,8 +472,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 
 	// automatically expire destroy action lock after 1 minute.
 	// TODO: test with real ops and tweak this value
-	expiresIn := 60 * time.Second
-	err := cn.Lock(expiresIn, db)
+	err := cn.Lock(defaultLockTime, db)
 	if err != nil {
 		if err == container.ErrLocked {
 			return errContainerLocked

@@ -1493,6 +1493,37 @@ var _ = Describe("controllers/containers", func() {
 		})
 
 		itBehavesLikeAControlAction(i)
+
+		It("calls the Freighter client to start the container", func() {
+			c := &container.Container{
+				CID:    "deadbead",
+				Slug:   "foo",
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+			mockClient.StartError = errors.New("start failed")
+
+			params := &url.Values{}
+			params.Add("env[]", "LANG=C")
+			params.Add("env[]", "NODE=nope")
+			params.Add("port[]", "3000:8080")
+			params.Add("port[]", "0.0.0.0::4552")
+
+			req, err := NewFormRequest("POST", "/api/v0/containers/foo/start", params)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+
+			Expect(mockClient.StartCalled).To(Equal(1))
+			Expect(mockClient.ReceivedID).To(Equal("deadbead"))
+			conf := mockClient.ReceivedConfig
+			Expect(conf.Env).To(ConsistOf("LANG=C", "NODE=nope"))
+			Expect(conf.PortBindings).To(ConsistOf("3000:8080", "0.0.0.0::4552"))
+		})
 	})
 
 	Describe("POST /api/v0/containers/{slug}/stop", func() {
@@ -1805,9 +1836,7 @@ var _ = Describe("controllers/containers", func() {
 			form.Add("port[]", "3030:4040")
 			form.Add("port[]", "5050:6060")
 			pbs := getConfs().PortBindings
-			Expect(pbs).To(HaveLen(2))
-			Expect(pbs).To(ContainElement("3030:4040"))
-			Expect(pbs).To(ContainElement("5050:6060"))
+			Expect(pbs).To(ConsistOf("3030:4040", "5050:6060"))
 		})
 	})
 })
