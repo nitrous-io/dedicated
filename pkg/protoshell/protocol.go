@@ -11,7 +11,6 @@ package protoshell
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 )
 
@@ -61,9 +60,19 @@ func (s *LocalOutput) Write(p []byte) (int, error) {
 	if l >= 2 {
 		// detect server output, copy everything back to p without the prefix
 		if bytes.Equal(p[0:2], dataMsg) {
-			_, err := s.writer.Write(p[2:])
-			return l, err
+			n, err := s.writer.Write(p[2:])
+			return n + 2, err
+		}
+		// ignore resize
+		if bytes.Equal(p[0:2], resizeMsg) {
+			return l, nil
+		}
+		// ignore close
+		if bytes.Equal(p[0:2], closeMsg) {
+			return l, nil
 		}
 	}
-	return 0, fmt.Errorf("invalid server output %s", string(p))
+	// otherwise, append the message from server as the message can be
+	// fragmented so we cant ignore it
+	return s.writer.Write(p)
 }

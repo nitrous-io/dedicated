@@ -18,11 +18,32 @@ func TestLocalInput(t *testing.T) {
 }
 
 func TestLocalOutput(t *testing.T) {
-	w := bytes.NewBuffer(nil)
-	out := NewLocalOutput(w)
-	io.Copy(out, bytes.NewBufferString("d|root"))
+	testCases := []struct {
+		messages []string
+		expected string
+	}{
+		{[]string{"d|root"}, "root"},
+		// ignore control messages
+		{[]string{"c|close"}, ""},
+		{[]string{"r|30 20"}, ""},
+		{[]string{"d|root", "c|close"}, "root"},
+		// handle fragmened messages
+		{[]string{"d|root", "tmp"}, "roottmp"},
+	}
 
-	if w.String() != "root" {
-		t.Errorf("expect %s but got %s", "root", w.String())
+	for _, tc := range testCases {
+		w := bytes.NewBuffer(nil)
+		out := NewLocalOutput(w)
+
+		for _, msg := range tc.messages {
+			_, err := out.Write([]byte(msg))
+			if err != nil {
+				t.Errorf("unexpected error %s", err)
+			}
+		}
+
+		if w.String() != tc.expected {
+			t.Errorf("expect %s but got %s", tc.expected, w.String())
+		}
 	}
 }
