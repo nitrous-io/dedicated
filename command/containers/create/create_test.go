@@ -1,14 +1,14 @@
 package create_test
 
 import (
+	"bytes"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/containers/create"
-	"github.com/nitrous-io/nitro/test"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"
@@ -23,58 +23,86 @@ func Test(t *testing.T) {
 
 var _ = Describe("containers/create", func() {
 	var (
-		cmd        *create.Command
-		ui         *cli.MockUi
-		configPath string
+		cmd      *create.Command
+		outfile  *os.File
+		errorBuf *bytes.Buffer
 
-		srv          *ghttp.Server
-		handlers     http.HandlerFunc
-		statusCode   int
-		responseBody string
+		slug = "foo"
+
+		srv                *ghttp.Server
+		pullStatusCode     = http.StatusOK
+		pullResponseBody   = ""
+		createStatusCode   = http.StatusCreated
+		createResponseBody = ""
+		startStatusCode    = http.StatusOK
+		startResponseBody  = ""
 	)
 
 	BeforeEach(func() {
 		var err error
+		srv = ghttp.NewServer()
 
-		handlers = ghttp.CombineHandlers(
+		// Setup handlers: pull image.
+		srv.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
+			ghttp.VerifyRequest("POST", "/api/v0/hosts/host-1/images/pull"),
 			func(w http.ResponseWriter, req *http.Request) {
-				// Call ParseForm() so that server.ReceivedRequests() have
-				// POST params populated.
-				err := req.ParseForm()
-				Expect(err).To(BeNil())
-				Expect(req.PostFormValue("host")).To(Equal("host-1"))
+				req.ParseForm()
+				Expect(req.PostFormValue("update")).To(Equal("false"))
 			},
+			ghttp.RespondWithPtr(&pullStatusCode, &pullResponseBody),
+		))
+
+		// Setup handlers: create container.
+		srv.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
 			ghttp.VerifyRequest("POST", "/api/v0/containers"),
-			ghttp.RespondWithPtr(&statusCode, &responseBody),
-		)
-		srv = ghttp.NewServer()
-		srv.AppendHandlers(handlers)
+			func(w http.ResponseWriter, req *http.Request) {
+				req.ParseForm()
+				Expect(req.PostFormValue("host")).To(Equal("host-1"))
+			},
+			ghttp.RespondWithPtr(&createStatusCode, &createResponseBody),
+		))
 
-		ui = &cli.MockUi{}
+		// Setup handlers: start container.
+		srv.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
+			ghttp.VerifyRequest("POST", "/api/v0/containers/"+slug+"/start"),
+			func(w http.ResponseWriter, req *http.Request) {
+				req.ParseForm()
+			},
+			ghttp.RespondWithPtr(&startStatusCode, &startResponseBody),
+		))
+
+		// Create a tmp file to store output.
+		outfile, err = ioutil.TempFile("/tmp", "images-pull")
+		Expect(err).To(BeNil(), "failed to create tmp file for storing output")
+
+		errorBuf = bytes.NewBuffer(nil)
 		cmd = &create.Command{
-			UI:     ui,
+			UI: &cli.BasicUi{
+				Writer:      outfile,
+				ErrorWriter: errorBuf,
+			},
 			Server: srv.URL(),
 			Client: httpclient.New("a_token"),
 		}
-		configPath, err = test.WriteConfig(&command.ConfigFile{}, "")
-		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
 		srv.Close()
-		os.Remove(configPath)
+		os.RemoveAll(outfile.Name())
 	})
 
 	Context("when not all options are specified", func() {
 		It("populates request with only given params", func() {
 			cmd.Run([]string{
 				"host-1",
-				"--slug=foo",
+				"--slug=" + slug,
 			})
-			receivedRequests := srv.ReceivedRequests()
-			Expect(receivedRequests).To(HaveLen(1))
-			Expect(receivedRequests[0].PostFormValue("slug")).To(Equal("foo"))
+			reqs := srv.ReceivedRequests()
+			Expect(reqs).To(HaveLen(2))
+			Expect(reqs[1].PostFormValue("slug")).To(Equal(slug))
 		})
 	})
 
@@ -83,24 +111,25 @@ var _ = Describe("containers/create", func() {
 			cmd.Run([]string{
 				"host-1",
 			})
-			receivedRequests := srv.ReceivedRequests()
-			Expect(receivedRequests).To(HaveLen(1))
-			Expect(receivedRequests[0].PostFormValue("slug")).NotTo(Equal(""))
+			reqs := srv.ReceivedRequests()
+			Expect(reqs).To(HaveLen(2))
+			Expect(reqs[1].PostFormValue("slug")).NotTo(Equal(""))
 		})
 	})
 
 	Context("when host is not specified", func() {
 		doCmd := func() int {
 			return cmd.Run([]string{
-				"--slug=foo",
+				"--slug=" + slug,
 				"--image=ubuntu",
 			})
 		}
 
 		It("returns an error message without making a request", func() {
 			code := doCmd()
-			Expect(ui.ErrorWriter.String()).To(ContainSubstring("Please specify a host"))
+			Expect(errorBuf.String()).To(ContainSubstring("Please specify a host"))
 			Expect(code).To(Equal(1))
+			Expect(srv.ReceivedRequests()).To(HaveLen(0))
 		})
 	})
 
@@ -108,7 +137,7 @@ var _ = Describe("containers/create", func() {
 		doCmd := func() int {
 			return cmd.Run([]string{
 				"host-1",
-				"--slug=foo",
+				"--slug=" + slug,
 				"--image=ubuntu",
 				"--env=PAGER=most",
 				"--volume=/shared", // repeat args supported
@@ -117,43 +146,79 @@ var _ = Describe("containers/create", func() {
 			})
 		}
 
-		It("populates request params", func() {
+		It("populates the create request's params", func() {
 			doCmd()
-			receivedRequests := srv.ReceivedRequests()
-			Expect(receivedRequests).To(HaveLen(1))
-			r := receivedRequests[0]
-			Expect(r.PostFormValue("slug")).To(Equal("foo"))
+			reqs := srv.ReceivedRequests()
+			Expect(reqs).To(HaveLen(2))
+			r := reqs[1]
+			Expect(r.PostFormValue("slug")).To(Equal(slug))
 			Expect(r.PostFormValue("image")).To(Equal("ubuntu"))
 			Expect(r.PostForm["env[]"]).To(Equal([]string{"PAGER=most"}))
 			Expect(r.PostForm["volume[]"]).To(Equal([]string{"/shared", "/music"}))
 			Expect(r.PostForm["port[]"]).To(Equal([]string{"8080:3000", "127.0.0.1:4242"}))
 		})
 
-		Context("when request succeeds", func() {
+		Context("when the create request succeeds", func() {
 			BeforeEach(func() {
-				statusCode = http.StatusCreated
-				responseBody = `{
+				createResponseBody = `{
 					"status": "created",
-					"container": { "slug": "wild-rocket-23", "image": "ubuntu", "state": "running" }
+					"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "stopped" }
 				}`
 			})
 
-			It("reports the container's slug", func() {
-				code := doCmd()
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("wild-rocket-23"))
-				Expect(code).To(Equal(0))
+			Context("when the start request succeeds", func() {
+				BeforeEach(func() {
+					startResponseBody = `{
+						"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "running" }
+					}`
+				})
+
+				It("populates the start request's params", func() {
+					code := doCmd()
+					Expect(code).To(Equal(0))
+
+					reqs := srv.ReceivedRequests()
+					Expect(reqs).To(HaveLen(3))
+					r := reqs[2]
+					Expect(r.PostForm["env[]"]).To(Equal([]string{"PAGER=most"}))
+					Expect(r.PostForm["volume[]"]).To(Equal([]string{"/shared", "/music"}))
+					Expect(r.PostForm["port[]"]).To(Equal([]string{"8080:3000", "127.0.0.1:4242"}))
+				})
+
+				It("prints the container's slug", func() {
+					code := doCmd()
+					Expect(code).To(Equal(0))
+
+					output, _ := ioutil.ReadFile(outfile.Name())
+					Expect(output).To(ContainSubstring("Created new container: '" + slug + "'"))
+				})
+			})
+
+			Context("when the start request fails", func() {
+				BeforeEach(func() {
+					startStatusCode = http.StatusInternalServerError
+				})
+
+				It("prints the container", func() {
+					code := doCmd()
+					Expect(code).To(Equal(1))
+
+					output, _ := ioutil.ReadFile(outfile.Name())
+					Expect(errorBuf).To(ContainSubstring("Container created but failed to start"))
+					Expect(output).To(ContainSubstring(slug))
+				})
 			})
 		})
 
-		Context("when request fails", func() {
+		Context("when the create request fails", func() {
 			BeforeEach(func() {
-				statusCode = http.StatusBadRequest
-				responseBody = `{"error":"validation_failed","error_description":"image required"}`
+				createStatusCode = http.StatusBadRequest
+				createResponseBody = `{"error":"validation_failed","error_description":"slug invalid"}`
 			})
 
 			It("displays error message", func() {
 				code := doCmd()
-				Expect(ui.ErrorWriter.String()).To(ContainSubstring("image required"))
+				Expect(errorBuf.String()).To(ContainSubstring("slug invalid"))
 				Expect(code).To(Equal(1))
 			})
 		})

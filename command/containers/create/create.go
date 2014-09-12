@@ -3,18 +3,20 @@ package create
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	flag "github.com/ogier/pflag"
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/nitro/command/containers"
+	"github.com/nitrous-io/nitro/command/images"
 	"github.com/nitrous-io/nitro/pkg/randomnamegenerator"
 	"github.com/nitrous-io/nitrous-common/httpclient"
-
-	. "github.com/nitrous-io/nitro/command/containers"
 )
 
 const (
@@ -40,7 +42,7 @@ Options:
 `
 
 type Command struct {
-	UI     cli.Ui
+	UI     *cli.BasicUi
 	Server string
 	Client *httpclient.Client
 }
@@ -60,7 +62,10 @@ func init() {
 
 func NewCommand(token string) (cli.Command, error) {
 	return &Command{
-		UI:     command.DefaultUI,
+		UI: &cli.BasicUi{
+			Reader: os.Stdin,
+			Writer: os.Stdout,
+		},
 		Server: command.Env.APIURL,
 		Client: httpclient.New(token),
 	}, nil
@@ -101,20 +106,37 @@ func (c *Command) Run(args []string) int {
 		params.slug = randomnamegenerator.Generate("container")
 	}
 
-	c.UI.Output(fmt.Sprintf("Creating container on '%s'. Please wait...", params.host))
-	cnr, err := c.createContainer(params)
-	if err != nil {
-		c.UI.Error(fmt.Sprintf("Failed to create the container - %v", err.Error()))
+	stdout, ok := c.UI.Writer.(*os.File)
+	if !ok {
+		c.UI.Error("Requires a working terminal")
 		return 1
 	}
 
-	if cnr != nil {
-		c.UI.Output(fmt.Sprintf("Created new container: '%s'", cnr.Slug))
-		t := PrettyPrint([]string{"Slug", "Image", "State"}, cnr)
-		c.UI.Output(t)
-	} else {
-		c.UI.Output("Done.")
+	// Step 1: Pull image.
+	if err := c.pullImage(params.host, params.image, stdout, stdout.Fd()); err != nil {
+		c.UI.Error(fmt.Sprintf("Failed to pull image: %s", err))
+		return 1
 	}
+
+	// Step 2: Create container.
+	c.UI.Output(fmt.Sprintf("Creating container on '%s'...", params.host))
+	created, err := c.createContainer(params)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Failed to create container: %s", err))
+		return 1
+	}
+
+	// Step 3: Start container.
+	started, err := c.start(params)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Container created but failed to start. Error: %s", err))
+		c.UI.Output(containers.PrettyPrint([]string{"Slug", "Image", "State"}, created))
+		return 1
+	}
+
+	c.UI.Output(fmt.Sprintf("Created new container: '%s'", started.Slug))
+	c.UI.Output(containers.PrettyPrint([]string{"Slug", "Image", "State"}, started))
+
 	return 0
 }
 
@@ -122,9 +144,28 @@ func (c *Command) Synopsis() string {
 	return "Create a new container"
 }
 
-func (c *Command) createContainer(cp *containerParams) (*Container, error) {
-	p := &url.Values{}
+func (c *Command) pullImage(host, image string, out io.Writer, termFd uintptr) error {
+	path := fmt.Sprintf("%s/api/v0/hosts/%s/images/pull", c.Server, host)
+	params := &url.Values{}
+	params.Set("repository", image)
+	params.Set("update", "false") // If image exists on host, don't update it.
+	resp, err := c.Client.PostFormAuthed(path, params)
+	if err != nil {
+		return fmt.Errorf("failed to pull image: %s", err)
+	}
+	if err := httpclient.CheckResponse(resp, http.StatusOK); err != nil {
+		return fmt.Errorf("unexpected response: %s", err)
+	}
+	defer resp.Body.Close()
 
+	if err := images.DisplayJSONMessagesStream(resp.Body, out, termFd, true); err != nil {
+		return fmt.Errorf("failed to display download progress: %s", err)
+	}
+	return nil
+}
+
+func (c *Command) createContainer(cp *containerParams) (*containers.Container, error) {
+	p := &url.Values{}
 	p.Set("host", cp.host)
 	if cp.slug != "" {
 		p.Set("slug", cp.slug)
@@ -142,23 +183,42 @@ func (c *Command) createContainer(cp *containerParams) (*Container, error) {
 		p.Add("port[]", pf)
 	}
 
-	resp, err := c.Client.PostFormAuthed(fmt.Sprintf("%s/api/v0/containers", c.Server), p)
+	u := fmt.Sprintf("%s/api/v0/containers", c.Server)
+	resp, err := c.Client.PostFormAuthed(u, p)
 	if err != nil {
 		return nil, err
 	}
-	err = httpclient.CheckResponse(resp, http.StatusCreated)
-	if err != nil {
+	if err := httpclient.CheckResponse(resp, http.StatusCreated); err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	j := struct {
-		Container *Container `json:"container"`
+		Container *containers.Container `json:"container"`
 	}{}
-	err = json.NewDecoder(resp.Body).Decode(&j)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&j); err != nil {
 		return nil, err
 	}
 
 	return j.Container, nil
+}
+
+func (c *Command) start(cp *containerParams) (*containers.Container, error) {
+	p := &url.Values{}
+	for _, e := range cp.envVars {
+		p.Add("env[]", e)
+	}
+	for _, v := range cp.volumes {
+		p.Add("volume[]", v)
+	}
+	for _, pf := range cp.portForwards {
+		p.Add("port[]", pf)
+	}
+
+	u := fmt.Sprintf("%s/api/v0/containers/%s/start", c.Server, cp.slug)
+	resp, err := c.Client.PostFormAuthed(u, p)
+	if err != nil {
+		return nil, err
+	}
+	return containers.ParseContainerResponse(resp)
 }
