@@ -18,6 +18,7 @@ docker run \
   --cidfile $tmp/$APP \
   -v $(readlink -f $SSH_AUTH_SOCK):/ssh-agent \
   -e SSH_AUTH_SOCK=/ssh-agent \
+  -e CA_CERT="$CA_CERT" \
   $APP:$VERSION /bin/bash -c "./script/install-deps && ./script/test && ./script/xbuild $APP $VERSION $NITRO_API_URL"
 
 cid=$(cat $tmp/$APP)
