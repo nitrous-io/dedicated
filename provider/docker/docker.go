@@ -146,6 +146,9 @@ func (p *DockerProvider) Create(name, imageName, secret, configJSON string) (*pr
 		Config: createConfig,
 	})
 	if err != nil {
+		if err == dockerclient.ErrNoSuchImage {
+			return nil, provider.ErrImageNotFound
+		}
 		return nil, err
 	}
 

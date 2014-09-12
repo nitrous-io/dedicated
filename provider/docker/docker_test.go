@@ -171,44 +171,15 @@ var _ = Describe("provider/docker", func() {
 	}
 
 	Describe(".Create()", func() {
-		var (
-			name         string
-			id           string
-			host         string
-			gateway      string
-			info         *provider.ContainerInfo
-			pubkey1      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCxCeR/jJna6xXELDV8HF51QQPbj++JNDE4W/nqLyhzRTEDDnAfyp8gXW/EXXos8w5XXLak6eUDXE/QI6o8blX39RYoT47u45v4b2scN0ZiS5McmESo193KwWH3gXHbnHWywzPy7+GrRF3nHm/uidvp0tqh4ywqIZujaMjST1sIOQ== test@example.com"
-			pubkey2      string
-			fingerprint1 = "f7:de:4d:6f:54:6b:b9:d5:78:a9:62:15:e2:ad:ec:bb"
-			fingerprint2 string
-			sshkeypath   string
-		)
-
-		BeforeEach(func() {
-			var err error
-			name = RandomName("freightertest")
-
-			info, err = prov.Create(name, nitrousImage, secret, "")
-			Expect(err).To(BeNil())
-			id = getID(name)
-			host = getHost(id)
-			gateway = getGateway(id)
-
-			userPubkey := TestSSHPubKey
-			pubkey2 = strings.TrimSpace(string(userPubkey))
-			fingerprint2, err = util.Md5Fingerprint(pubkey2)
-			Expect(err).To(BeNil())
-
-			sshkeypath = TempFile("")
-			ioutil.WriteFile(sshkeypath, []byte(TestSSHPrivKey), 0600)
-		})
-
-		AfterEach(func() {
-			cleanUpContainer(name)
-			os.Remove(sshkeypath)
-		})
-
 		It("creates a stopped container", func() {
+			name := RandomName("freightertest")
+			info, err := prov.Create(name, nitrousImage, secret, "")
+			Expect(err).To(BeNil())
+			defer cleanUpContainer(name)
+			id := getID(name)
+			host := getHost(id)
+			gateway := getGateway(id)
+
 			Expect(info.ID).To(Equal(id))
 			Expect(info.Name).To(Equal(name))
 			Expect(info.Image).To(Equal(nitrousImage))
@@ -229,7 +200,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
 
 			settingsDir := prov.ContainerSettingsDir(name)
-			_, err := os.Stat(settingsDir)
+			_, err = os.Stat(settingsDir)
 			Expect(err).To(BeNil()) // container settings dir exists
 
 			authKeysFile := path.Join(settingsDir, "ssh", "authorized_keys")
@@ -244,11 +215,34 @@ var _ = Describe("provider/docker", func() {
 			Expect(string(s)).To(Equal(secret))
 		})
 
-		Context("after container is created and started", func() {
+		It("returns an ErrImageNotFound when creating from an image that does not exist", func() {
+			name := RandomName("freightertest")
+			_, err := prov.Create(name, "non-existent-image", secret, "")
+			Expect(err).To(MatchError(provider.ErrImageNotFound))
+			defer cleanUpContainer(name)
+		})
+
+		Context("after a container is created and started", func() {
+			var (
+				name string
+				id   string
+				info *provider.ContainerInfo
+			)
+
 			BeforeEach(func() {
-				info, err := prov.Start(id, "")
+				var err error
+				name = RandomName("freightertest")
+				info, err = prov.Create(name, nitrousImage, secret, "")
+				Expect(err).To(BeNil())
+				id = getID(name)
+
+				info, err = prov.Start(id, "")
 				Expect(err).To(BeNil())
 				Expect(info.State).To(Equal(provider.ContainerStateRunning))
+			})
+
+			AfterEach(func() {
+				cleanUpContainer(name)
 			})
 
 			Describe(".List()", func() {
@@ -281,7 +275,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(c1.Host).To(Equal(""))
 					Expect(c1.Gateway).To(Equal(""))
 					Expect(c1.State).To(Equal(provider.ContainerStateStopped))
-					hostPorts, ok := info.Ports["22"]
+					hostPorts, ok := c1.Ports["22"]
 					Expect(ok).To(BeTrue())
 					Expect(hostPorts).To(HaveLen(0))
 					expectExposedPort(c1.ID, "22/tcp")
@@ -497,8 +491,6 @@ var _ = Describe("provider/docker", func() {
 					It("starts the container", func() {
 						info, err := prov.Restart(id)
 						Expect(err).To(BeNil())
-						host = getHost(id)
-						gateway = getGateway(id)
 						expectContainerInfoToHaveBeenReturned(info)
 						out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", id).CombinedOutput()
 						Expect(err).To(BeNil())
@@ -673,6 +665,28 @@ var _ = Describe("provider/docker", func() {
 			})
 
 			Context("with public keys", func() {
+				var (
+					pubkey1      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCxCeR/jJna6xXELDV8HF51QQPbj++JNDE4W/nqLyhzRTEDDnAfyp8gXW/EXXos8w5XXLak6eUDXE/QI6o8blX39RYoT47u45v4b2scN0ZiS5McmESo193KwWH3gXHbnHWywzPy7+GrRF3nHm/uidvp0tqh4ywqIZujaMjST1sIOQ== test@example.com"
+					pubkey2      string
+					fingerprint1 = "f7:de:4d:6f:54:6b:b9:d5:78:a9:62:15:e2:ad:ec:bb"
+					fingerprint2 string
+					sshkeypath   string
+				)
+
+				BeforeEach(func() {
+					var err error
+					pubkey2 = strings.TrimSpace(string(TestSSHPubKey))
+					fingerprint2, err = util.Md5Fingerprint(pubkey2)
+					Expect(err).To(BeNil())
+
+					sshkeypath = TempFile("")
+					ioutil.WriteFile(sshkeypath, []byte(TestSSHPrivKey), 0600)
+				})
+
+				AfterEach(func() {
+					os.Remove(sshkeypath)
+				})
+
 				Context("with generic containers", func() {
 					var busyboxName string
 
