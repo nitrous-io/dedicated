@@ -1,5 +1,5 @@
 #!/bin/bash
-usage="USAGE: ./script/update-image-id IMAGE_ID DB (DB is pro-n2ostaging-com for staging and pro-nitrous-io for production)"
+usage="USAGE: ./script/update-image-id DB IMAGE_ID <REGION> (DB is pro-n2ostaging-com for staging and pro-nitrous-io for production, region is optional and is one of sfo,nyc,ams,lon,sgp)"
 
 db=${1:?"db is required. ${usage}"}
 image_id=${2:?"image_id is required. ${usage}"}
