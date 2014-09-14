@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
-	"strings"
 	"testing"
 	"time"
 
@@ -137,42 +136,6 @@ func TestShellResize(t *testing.T) {
 		ws, err := term.GetWinsize(s.fd())
 		if err != nil || int(ws.Width) != tc.ew || int(ws.Height) != tc.eh {
 			t.Errorf("Unexpected size %v %v with test %+v", ws, err, tc)
-		}
-	}
-}
-
-func TestShellAttachProtocol(t *testing.T) {
-	s := testShell()
-	s.cmd = exec.Command("yes", "attach protocol")
-	defer s.Close()
-	if err := s.Open(100, 80, []string{}); err != nil {
-		t.Fatalf("Unexpected error %v", err)
-	}
-
-	out := bytes.NewBuffer(nil)
-	stdinR, stdinW := io.Pipe()
-
-	ch := s.AttachProtocol(stdinR, out)
-
-	// test resize
-	fmt.Fprint(stdinW, `r|100 200`)
-	time.Sleep(10 * time.Millisecond)
-	ws, err := term.GetWinsize(s.fd())
-	if err != nil || int(ws.Width) != 100 || int(ws.Height) != 200 {
-		t.Errorf("Expect to resize to %d:%d but got %d:%d", 100, 200,
-			int(ws.Width), int(ws.Height))
-	}
-
-	// test client close
-	fmt.Fprint(stdinW, `c|good bye`)
-
-	select {
-	case <-time.After(1000 * time.Millisecond):
-		t.Fatal("timed out")
-	case <-ch:
-		// check output
-		if !strings.Contains(out.String(), "d|attach protocol") {
-			t.Errorf("failed to print correct output, got %s", out.String())
 		}
 	}
 }

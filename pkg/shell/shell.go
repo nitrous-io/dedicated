@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"syscall"
@@ -100,18 +99,7 @@ func (s *Shell) Open(w, h int, env []string) error {
 	return s.Resize(w, h)
 }
 
-// AttachProtocol connects the shell with reader and writer using the protocol
-// specified in `protocol.go` instead of processing reader and writer as pure
-// input/output stream
-//
-// This allows us to multiplex several type of messages over a connec[tion
-func (s *Shell) AttachProtocol(r io.Reader, w io.Writer) chan error {
-	msgCh := make(chan Message)
-
-	// setups the protocol reader and writer on top of the stream reader/writer
-	stdin := NewShellReader(r, msgCh)
-	stdout := NewShellWriter(w)
-
+func (s *Shell) Attach(stdin io.Reader, stdout io.Writer) chan error {
 	// setups the pipes so we can close the copy routine properly instead of
 	// using the raw terminal
 	stdinR, stdinW := io.Pipe()
@@ -151,55 +139,7 @@ func (s *Shell) AttachProtocol(r io.Reader, w io.Writer) chan error {
 
 	return promise(func() error {
 		defer s.Close()
-		for {
-			select {
-			case msg := <-msgCh:
-				switch msg := msg.(type) {
-				case *ResizeMsg:
-					s.Resize(msg.width, msg.height)
-				case *CloseMsg:
-					// return so the caller can close the connection properly
-					return nil
-				default:
-					log.Println("shell: got unknown msg %v", msg)
-				}
-			case err := <-finishStdout:
-				return err
-			}
-		}
-		return nil
-	})
-}
-
-func (s *Shell) Attach(stdin io.Reader, stdout io.Writer) chan error {
-	errors := make(chan error, 2)
-
-	// stdin
-	go func() {
-		_, err := io.Copy(s.term, stdin)
-		if err == io.ErrClosedPipe {
-			err = nil
-		}
-		errors <- err
-	}()
-
-	// stdout
-	go func() {
-		_, err := io.Copy(stdout, s.term)
-		if err == io.ErrClosedPipe {
-			err = nil
-		}
-		errors <- err
-	}()
-
-	return promise(func() error {
-		defer s.Close()
-		for i := 0; i < 2; i += 1 {
-			if err := <-errors; err != nil {
-				return err
-			}
-		}
-		return nil
+		return <-finishStdout
 	})
 }
 

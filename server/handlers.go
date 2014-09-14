@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -336,8 +337,27 @@ func (s *Server) wsNewShell(token string, w http.ResponseWriter, r *http.Request
 	shellID := randomString()
 	s.shells[shellID] = sh
 
-	<-sh.AttachProtocol(stream, stream)
-	return nil
+	// create stdin/stdout stream with the shell protocol
+	msgCh := make(chan shell.Message, 10)
+	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
+	stdout := shell.NewShellWriter(stream)
+
+	ch := sh.Attach(stdin, stdout)
+	for {
+		select {
+		case <-ch:
+			return nil
+		case msg := <-msgCh:
+			switch msg := msg.(type) {
+			case *shell.ResizeMsg:
+				sh.Resize(msg.Width, msg.Height)
+			default:
+				log.Println("shell: got unknown msg %v", msg)
+			}
+		case <-ch:
+			return nil
+		}
+	}
 }
 
 func (s *Server) loginRegistry(w http.ResponseWriter, r *http.Request) {

@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 )
 
 var (
@@ -41,12 +42,12 @@ func (m *InvalidMsg) String() string { return m.msg }
 //
 // Refers to ShellReader for more information
 type ResizeMsg struct {
-	width  int
-	height int
+	Width  int
+	Height int
 }
 
 func (m *ResizeMsg) String() string {
-	return fmt.Sprintf("resize: w %d, h %d", m.width, m.height)
+	return fmt.Sprintf("resize: w %d, h %d", m.Width, m.Height)
 }
 
 func NewResizeMsg(msg []byte) fmt.Stringer {
@@ -56,7 +57,7 @@ func NewResizeMsg(msg []byte) fmt.Stringer {
 	if err != nil || i != 2 {
 		return &InvalidMsg{fmt.Sprintf("invalid resize msg %s", string(msg))}
 	}
-	return &ResizeMsg{width: w, height: h}
+	return &ResizeMsg{Width: w, Height: h}
 }
 
 // CloseMsg represents the close msg that client sends before closing the
@@ -69,30 +70,65 @@ func (m *CloseMsg) String() string {
 	return fmt.Sprintf("close: %s", m.msg)
 }
 
+type websocketReader interface {
+	NextReader() (messageType int, r io.Reader, err error)
+}
+
 // ShellReader handles client input which allows type:
-// - p|
-// - w|
+// - d|
+// - r|
 // - c|
 // - h
 type ShellReader struct {
+	socket websocketReader
+
+	// cached reader, which is reset whenever the messages is EOF
 	reader io.Reader
 	// for out of band input such as heartbeat / resize / close
 	msgChan chan Message
+
+	// message type for the protocol
+	MessageType int
 }
 
-func NewShellReader(r io.Reader, ch chan Message) io.Reader {
-	return &ShellReader{reader: r, msgChan: ch}
+func NewShellReader(ws websocketReader, ch chan Message, t int) io.Reader {
+	return &ShellReader{socket: ws, msgChan: ch, MessageType: t}
 }
 
 func (s *ShellReader) Read(p []byte) (int, error) {
+	var newMessage bool
+	// if we didnt have a reader, this is a new message and we should get a
+	// reader for it
+	if s.reader == nil {
+		t, r, err := s.socket.NextReader()
+		if err != nil {
+			return 0, err
+		}
+		if t != s.MessageType {
+			log.Printf("wsconn: ignored unknown message type. Got %d, wanted %d", t, s.MessageType)
+			return 0, nil
+		}
+		s.reader = r
+		newMessage = true
+	}
 	l := len(p)
 	buf := make([]byte, l)
 	n, err := s.reader.Read(buf)
-	// if we had non-eof error, fail early
-	if err != nil && err != io.EOF {
-		return 0, fmt.Errorf("ShellReader: failed to read with err %s", err)
+	if err != nil {
+		// When we have the frame EOF, treat it as no-op so we can receive the
+		// next frame normally
+		if err == io.EOF {
+			s.reader = nil
+			err = nil
+		}
+		return 0, err
 	}
-	if n >= 2 {
+	// we ignore the heartbeat msg from the client
+	if newMessage && n == 1 && bytes.Equal(buf[0:1], heartbeatMsg) {
+		return 0, nil
+	}
+	// if this is a new message, we takes out the protocol prefix
+	if newMessage && n > 2 {
 		// detect client input, copy everything back to p without the prefix
 		if bytes.Equal(buf[0:2], dataMsg) {
 			i := copy(p, buf[2:n])
@@ -111,7 +147,13 @@ func (s *ShellReader) Read(p []byte) (int, error) {
 			return 0, nil
 		}
 	}
-	return 0, err
+	// if this is not a new message, this is a fragment message and we just
+	// copy it over without caring about the prefix
+	if !newMessage {
+		copy(p, buf)
+		return n, err
+	}
+	return 0, nil
 }
 
 // ShellWriter handles server write which outputs d|server_output
