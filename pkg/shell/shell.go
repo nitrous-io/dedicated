@@ -19,7 +19,10 @@ const (
 	defaultWidth  = 80
 	defaultHeight = 60
 
-	defaultTimeout = 100 * time.Millisecond
+	// time to wait for process to close normally before we terminate it
+	defaultFinishTimeout = 1 * time.Second
+	//  time to wait for process to close before we kill it
+	defaultTermTimeout = 2 * time.Second
 )
 
 var (
@@ -61,7 +64,7 @@ type Shell struct {
 
 func (s *Shell) Close() error {
 	if s.cmd.Process != nil {
-		go closeProcess(s.cmd, defaultTimeout)
+		closeProcess(s.cmd)
 	}
 	return s.term.Close()
 }
@@ -122,7 +125,9 @@ func (s *Shell) AttachProtocol(r io.Reader, w io.Writer) chan error {
 		stdoutW.Close()
 	}()
 
-	// stdin
+	// when stdin is closed, close the stdout pipe as well. This prevent cases
+	// where we hangs the shell waiting for stdout to finished while stdin is
+	// closed
 	promise(func() error {
 		defer stdoutR.Close()
 		_, err := io.Copy(s.term, stdinR)
@@ -228,16 +233,18 @@ func promise(f func() error) chan error {
 
 // close the process by sending it SIGTERM and wait for it to complete.
 // If it cant finish after timeout, kill it
-func closeProcess(c *exec.Cmd, timeout time.Duration) error {
+func closeProcess(c *exec.Cmd) error {
 	done := make(chan error, 1)
 	go func() {
 		done <- c.Wait()
 	}()
-	c.Process.Signal(syscall.SIGTERM)
 	select {
-	case <-time.After(timeout):
+	case <-time.After(defaultFinishTimeout):
+		c.Process.Signal(syscall.SIGTERM)
+	case <-time.After(defaultTermTimeout):
 		return c.Process.Kill()
 	case err := <-done:
 		return err
 	}
+	return nil
 }
