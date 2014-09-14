@@ -103,29 +103,46 @@ func (s *Shell) Open(w, h int, env []string) error {
 //
 // This allows us to multiplex several type of messages over a connec[tion
 func (s *Shell) AttachProtocol(r io.Reader, w io.Writer) chan error {
-	errors := make(chan error, 2)
 	msgCh := make(chan Message)
 
+	// setups the protocol reader and writer on top of the stream reader/writer
 	stdin := NewShellReader(r, msgCh)
 	stdout := NewShellWriter(w)
 
-	// stdin
+	// setups the pipes so we can close the copy routine properly instead of
+	// using the raw terminal
+	stdinR, stdinW := io.Pipe()
 	go func() {
-		_, err := io.Copy(s.term, stdin)
-		if err == io.ErrClosedPipe {
-			err = nil
-		}
-		errors <- err
+		io.Copy(stdinW, stdin)
+		stdinW.Close()
+	}()
+	stdoutR, stdoutW := io.Pipe()
+	go func() {
+		io.Copy(stdoutW, s.term)
+		stdoutW.Close()
 	}()
 
+	// stdin
+	promise(func() error {
+		defer stdoutR.Close()
+		_, err := io.Copy(s.term, stdinR)
+		// if the client closed the write part of the tcp connection, we gets
+		// UnexpectedEOF from the websocket, so we ignore it here
+		if err == io.ErrClosedPipe || err == io.ErrUnexpectedEOF {
+			err = nil
+		}
+		return err
+	})
+
 	// stdout
-	go func() {
-		_, err := io.Copy(stdout, s.term)
+	finishStdout := promise(func() error {
+		defer stdinW.Close()
+		_, err := io.Copy(stdout, stdoutR)
 		if err == io.ErrClosedPipe {
 			err = nil
 		}
-		errors <- err
-	}()
+		return err
+	})
 
 	return promise(func() error {
 		defer s.Close()
@@ -141,7 +158,7 @@ func (s *Shell) AttachProtocol(r io.Reader, w io.Writer) chan error {
 				default:
 					log.Println("shell: got unknown msg %v", msg)
 				}
-			case err := <-errors:
+			case err := <-finishStdout:
 				return err
 			}
 		}
