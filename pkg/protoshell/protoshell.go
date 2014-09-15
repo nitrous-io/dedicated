@@ -57,14 +57,14 @@ func (s *ProtoShell) Attach(infd uintptr, outfd uintptr, stdin io.ReadCloser, st
 	s.isTerminalIn = term.IsTerminal(infd)
 	s.isTerminalOut = term.IsTerminal(outfd)
 
-	if s.isTerminalIn {
+	if s.isTerminalOut {
 		// restore the terminal back to old state when we finish
 		var oldState *term.State
-		oldState, err := term.SetRawTerminal(infd)
+		oldState, err := term.SetRawTerminal(outfd)
 		if err != nil {
 			return err
 		}
-		defer term.RestoreTerminal(infd, oldState)
+		defer term.RestoreTerminal(outfd, oldState)
 	}
 
 	// construct token header
