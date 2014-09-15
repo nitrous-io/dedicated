@@ -79,6 +79,21 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(i.UpdatedAt).NotTo(BeNil())
 	})
 
+	It("uses the default image if repository is not given", func() {
+		fs := newFreighterServer("nitrousio/ubuntu", "trusty")
+		ctx := newPullTestCtx(fs, db)
+		fs.start(db, ctx)
+		defer fs.Close()
+
+		ctx.do(svr, "foo", nil)
+
+		u, h := ctx.user, ctx.host
+		i, err := image.Find(db, u, h, "nitrousio/ubuntu:trusty")
+		Expect(err).To(BeNil(), "failed to store image in db")
+		Expect(i.Slug).To(Equal("nitrousio/ubuntu"))
+		Expect(i.Tag).To(Equal("trusty"))
+	})
+
 	It("removes the image and emits images removed event when freighter failed to pull image", func() {
 		fs := newFreighterServer("scratch", "latest")
 		fs.pullError = true
@@ -197,18 +212,6 @@ var _ = Describe("controllers/images/pull", func() {
 		close(done)
 	})
 
-	It("requires repository param", func() {
-		fs := newFreighterServer("scratch", "latest")
-		defer fs.Close()
-
-		ctx := newPullTestCtx(fs, db)
-		res := ctx.do(svr, "foo", nil)
-
-		errType, errDesc := test.ErrorSlug(res.Body)
-		Expect(errType).To(Equal("invalid_request"))
-		Expect(errDesc).To(Equal("repository is required"))
-	})
-
 	It("returns 500 on freighterclient error and emits image pull failed event", func() {
 		fs := newFreighterServer("scratch", "latest")
 		ctx := newPullTestCtx(fs, db)
@@ -249,6 +252,12 @@ var _ = Describe("controllers/images/pull", func() {
 	Context("when image already exists", func() {
 		It("updates the existing image record with the new info from Freighter", func() {
 			fs := newFreighterServer("scratch", "latest")
+			fs.existingImage = &freighterclient.Image{
+				ID:   "cafebabe",
+				Name: "scratch",
+				Tag:  "latest",
+			}
+			fs.imageUpdated = true
 			ctx := newPullTestCtx(fs, db)
 			fs.start(db, ctx)
 			defer fs.Close()
@@ -265,19 +274,62 @@ var _ = Describe("controllers/images/pull", func() {
 			err := i.Insert(db)
 			Expect(err).To(BeNil(), "failed to insert test image")
 
-			ctx.do(svr, "foo", &url.Values{"repository": []string{"scratch"}})
+			ctx.do(svr, "foo", &url.Values{
+				"repository": []string{"scratch"},
+				"update":     []string{"true"},
+			})
 
 			i, err = image.Find(db, u, h, "scratch:latest")
 			Expect(err).To(BeNil(), "failed to find stored image after pull")
 			Expect(i.FreighterID).To(Equal("123asd"))
 		})
 
-		It("does not removes the image when freighter failed to pull image", func() {
+		It("does not update the existing image record if update=false", func() {
 			fs := newFreighterServer("scratch", "latest")
+			fs.existingImage = &freighterclient.Image{
+				ID:   "cafebabe",
+				Name: "scratch",
+				Tag:  "latest",
+			}
+			fs.imageUpdated = false
 			ctx := newPullTestCtx(fs, db)
 			fs.start(db, ctx)
 			defer fs.Close()
+
+			u, h := ctx.user, ctx.host
+			i := &image.Image{
+				UserID:      u.ID,
+				HostID:      h.ID,
+				FreighterID: "cafebabe",
+				Name:        "scratch v1",
+				Slug:        "scratch",
+				Tag:         "latest",
+			}
+			err := i.Insert(db)
+			Expect(err).To(BeNil(), "failed to insert test image")
+
+			ctx.do(svr, "foo", &url.Values{
+				"repository": []string{"scratch"},
+				"update":     []string{"false"},
+			})
+
+			i2, err := image.Find(db, u, h, "scratch:latest")
+			Expect(err).To(BeNil())
+			Expect(i2.FreighterID).To(Equal("cafebabe"))
+		})
+
+		It("does not remove the image when freighter fails to pull image", func() {
+			fs := newFreighterServer("scratch", "latest")
+			fs.existingImage = &freighterclient.Image{
+				ID:   "cafebabe",
+				Name: "scratch",
+				Tag:  "latest",
+			}
+			fs.imageUpdated = true
 			fs.pullError = true
+			ctx := newPullTestCtx(fs, db)
+			fs.start(db, ctx)
+			defer fs.Close()
 
 			u, h := ctx.user, ctx.host
 			i := &image.Image{
@@ -297,10 +349,16 @@ var _ = Describe("controllers/images/pull", func() {
 			Expect(err).To(BeNil(), "expect the old image to not be deleted")
 		})
 
-		It("does not emit images removed event", func() {
+		It("does not emit images removed event when freighter fails to pull image", func() {
 			fs := newFreighterServer("scratch", "latest")
-			defer fs.Close()
+			fs.existingImage = &freighterclient.Image{
+				ID:   "cafebabe",
+				Name: "scratch",
+				Tag:  "latest",
+			}
+			fs.imageUpdated = true
 			fs.pullError = true
+			defer fs.Close()
 
 			ctx := newPullTestCtx(fs, db)
 			u, h := ctx.user, ctx.host
@@ -426,6 +484,7 @@ func newPullTestCtx(fs *freighterServer, db *db.Database) *pullTestCtx {
 	Expect(err).To(BeNil(), "failed to prepare host stack")
 
 	hs, err = test.GenerateHostCert(db, hs)
+	Expect(err).To(BeNil(), "failed to generate host cert")
 
 	return &pullTestCtx{
 		user:  u,
@@ -440,10 +499,19 @@ type freighterServer struct {
 	image string
 	tag   string
 
-	pullError bool
+	pullError     bool
+	existingImage *freighterclient.Image
+	imageUpdated  bool
 }
 
 func (s *freighterServer) inspectImage(w http.ResponseWriter, r *http.Request) {
+	if s.existingImage != nil && !s.imageUpdated {
+		json.NewEncoder(w).Encode(map[string]freighterclient.Image{
+			"image": *s.existingImage,
+		})
+		return
+	}
+
 	json.NewEncoder(w).Encode(map[string]freighterclient.Image{
 		"image": {
 			ID:          "123asd",
@@ -462,6 +530,13 @@ func (s *freighterServer) pullImage(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, `{"error":"internal server error. dont know why"}`)
 		return
 	}
+
+	// If image exists, return HTTP 304 Not Modified.
+	if r.PostFormValue("update") == "false" && s.existingImage != nil {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
 	stream := flusher.NewWriteFlusher(w)
 	fmt.Fprintln(stream, `{"status":"Pulling..."}`)
 	fmt.Fprintln(stream, `{"status":"Pulling","progress":"1 B/ 100 B"}`)
@@ -484,7 +559,7 @@ func (s *freighterServer) start(db *db.Database, ctx *pullTestCtx) {
 }
 
 func newFreighterServer(image, tag string) *freighterServer {
-	s := &freighterServer{image: image, tag: tag}
+	s := &freighterServer{image: image, tag: tag, imageUpdated: true}
 	r := mux.NewRouter()
 	r.HandleFunc("/images/pull", s.pullImage).Methods("POST")
 	r.HandleFunc("/images/inspect", s.inspectImage).Methods("GET")

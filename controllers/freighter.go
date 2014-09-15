@@ -19,6 +19,10 @@ import (
 	"github.com/nitrous-io/nitrous/pkg/httperror"
 )
 
+// DefaultImage is the default Docker image used to create containers if an
+// image isn't specified.
+const DefaultImage = "nitrousio/ubuntu:trusty"
+
 var (
 	// ErrHostIPUnknown results when the host's ip address is empty, hence not
 	// usable by the client

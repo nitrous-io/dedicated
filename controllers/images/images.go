@@ -20,7 +20,6 @@ import (
 
 var (
 	errIDOrSlugRequired = httperror.New(http.StatusBadRequest, "invalid_request", "id or slug is required")
-	errRepoRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "repository is required")
 	errDestRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "destination is required")
 	errTagRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "tag is required")
 	errSlugRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")

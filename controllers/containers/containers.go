@@ -23,9 +23,7 @@ import (
 	"github.com/nitrous-io/nitrous/serializers"
 )
 
-// DefaultImage is the default Docker image used to create containers if an
-// image isn't specified.
-const DefaultImage = "nitrousio/ubuntu:trusty"
+const defaultLockTime = 1 * time.Minute
 
 var (
 	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
@@ -33,6 +31,7 @@ var (
 	errHostNotFound      = middleware.ErrHostNotFound
 	errVolumeNotFound    = httperror.New(http.StatusBadRequest, "invalid_state", "volume not found")
 	errContainerNotFound = httperror.New(http.StatusNotFound, "not_found", "container does not exist")
+	errImageNotFound     = httperror.New(http.StatusNotFound, "not_found", "image does not exist")
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 	errContainerLocked   = httperror.New(http.StatusConflict, "container_locked", "container is locked")
 )
@@ -156,7 +155,7 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	imageSlug := r.FormValue("image")
 
 	if imageSlug == "" {
-		imageSlug = DefaultImage
+		imageSlug = controllers.DefaultImage
 	}
 
 	if slug == "" {
@@ -171,7 +170,6 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	if err != nil {
 		return err
 	}
-
 	config, err := prepareConfig(r.PostForm, hv)
 	if err != nil {
 		return err
@@ -221,6 +219,9 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 		deleteContainer(cn)
 		if e, ok := err.(*freighterclient.InvalidParamError); ok {
 			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
+		}
+		if err == freighterclient.ErrImageNotFound {
+			return errImageNotFound
 		}
 		return err
 	}
@@ -378,11 +379,42 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 }
 
 func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	hv, err := hostVolumes(env.DB, h)
+	if err != nil {
+		return err
+	}
+	r.ParseForm()
+	config, err := prepareConfig(r.PostForm, hv)
+	if err != nil {
+		return err
+	}
+
 	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Start, controllers.EventContainerStarted, cn, h, env, w, r)
+
+	if err := cn.Lock(defaultLockTime, env.DB); err != nil {
+		if err == container.ErrLocked {
+			return errContainerLocked
+		}
+		return err
+	}
+	defer cn.Unlock(env.DB)
+
+	liveContainer, err := cl.Start(cn.CID, config)
+	if err != nil {
+		return err
+	}
+
+	cn = hydrateContainer(cn, liveContainer, h)
+
+	publishContainerEvent(env, controllers.EventContainerStarted, cn)
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"container": serializers.SerializeContainer(cn),
+	}
+	return nil
 }
 
 func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -406,8 +438,7 @@ type actionFn func(id string) (*freighterclient.Container, error)
 func performControlAction(fn actionFn, eventName controllers.EventName, cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// automatically expire all control action locks after 1 minute.
 	// TODO: test with real ops and tweak this value
-	expiresIn := 60 * time.Second
-	err := cn.Lock(expiresIn, env.DB)
+	err := cn.Lock(defaultLockTime, env.DB)
 	if err != nil {
 		if err == container.ErrLocked {
 			return errContainerLocked
@@ -437,8 +468,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 
 	// automatically expire destroy action lock after 1 minute.
 	// TODO: test with real ops and tweak this value
-	expiresIn := 60 * time.Second
-	err := cn.Lock(expiresIn, db)
+	err := cn.Lock(defaultLockTime, db)
 	if err != nil {
 		if err == container.ErrLocked {
 			return errContainerLocked

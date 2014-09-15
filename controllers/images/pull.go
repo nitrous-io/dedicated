@@ -19,17 +19,18 @@ type pullContext struct {
 	client *controllers.FreighterClient
 	img    *image.Image
 	repo   string
+	update bool
 	writer io.Writer
 }
 
 // sends the pull context to freighter in a goroutine.
 func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 	ch := make(chan *buildResult, 1)
-	env, cl, img, repo := c.env, c.client, c.img, c.repo
+	env, cl, img, repo, update := c.env, c.client, c.img, c.repo, c.update
 	db := env.DB
 
 	go func() {
-		if err := cl.PullImage(repo, c.writer); err != nil {
+		if err := cl.PullImage(repo, update, c.writer); err != nil {
 			// publish image pull failed event with the current image data
 			env.Events.Publish(
 				controllers.NewEvent(controllers.EventImagePullFailed, serializers.SerializeImage(img)),
@@ -100,7 +101,11 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 	repo := r.FormValue("repository")
 	if repo == "" {
-		return errRepoRequired
+		repo = controllers.DefaultImage
+	}
+	update, err := strconv.ParseBool(r.FormValue("update"))
+	if err != nil {
+		update = true
 	}
 
 	var img *image.Image
@@ -140,7 +145,7 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	} else {
 		writer = io.MultiWriter(pp, flusher.NewWriteFlusher(w))
 	}
-	ctx := &pullContext{env: env, client: cl, img: img, repo: repo, writer: writer}
+	ctx := &pullContext{env: env, client: cl, img: img, repo: repo, update: update, writer: writer}
 	img, err = ctx.run(async, isNew)
 	if err != nil {
 		return fmt.Errorf("images.pull %s", err)
