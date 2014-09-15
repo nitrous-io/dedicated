@@ -89,7 +89,9 @@ func (c *Command) Synopsis() string {
 
 func (c *Command) pullImage(host, image string, out io.Writer, termFd uintptr) error {
 	path := fmt.Sprintf("%s/api/v0/hosts/%s/images/pull", c.Server, host)
-	params := &url.Values{"repository": []string{image}}
+	params := &url.Values{}
+	params.Set("repository", image)
+	params.Set("update", "true")
 	resp, err := c.Client.PostFormAuthed(path, params)
 	if err != nil {
 		return fmt.Errorf("failed to pull image: %s", err)
