@@ -149,22 +149,34 @@ var _ = Describe("server", func() {
 				Context("returns an error", func() {
 					BeforeEach(func() {
 						prov.CreateError = errors.New("pc load letter")
-						doRequest()
 					})
 
 					It("responds with 500 Internal Server Error", func() {
+						doRequest()
 						Expect(res.Code).To(Equal(http.StatusInternalServerError))
 						Expect(res.Body.String()).To(MatchJSON(`{"error":"pc load letter"}`))
+					})
+				})
+
+				Context("when image does not exist", func() {
+					BeforeEach(func() {
+						prov.CreateError = provider.ErrImageNotFound
+					})
+
+					It("responds with 400 Not Found", func() {
+						doRequest()
+						Expect(res.Code).To(Equal(http.StatusNotFound))
+						Expect(res.Body.String()).To(MatchJSON(fmt.Sprintf(`{"error":"%s"}`, provider.ErrImageNotFound.Error())))
 					})
 				})
 
 				Context("returns a container info with no error", func() {
 					BeforeEach(func() {
 						prov.CreateContainerInfo = &provider.ContainerInfo{ID: "aaa", Name: name, Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning}
-						doRequest()
 					})
 
 					It("responds with 200 OK and container info", func() {
+						doRequest()
 						Expect(res.Code).To(Equal(http.StatusOK))
 						Expect(res.Body.String()).To(MatchJSON(`{"container":{
 							"id":"aaa","name":"fragrant-wind-69","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","gateway":"1.2.3.0","state":"running","ports": null,"exit_code":0,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"
@@ -1280,35 +1292,71 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("POST /images/pull", func() {
-		doRequest := func() {
-			params := &url.Values{}
-			params.Set("repository", "busybox")
-			req, err = NewRequestWithSecret(hostSecret, "POST", "/images/pull", params)
+		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
+			req, err := NewRequestWithSecret(hostSecret, "POST", "/images/pull", params)
 			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
+			return res
 		}
 
-		It("calls provider.PullImage()", func() {
+		It("calls provider.PullImage() and responds with 200 OK", func() {
 			Expect(prov.PullImageCalled).To(BeFalse())
-			doRequest()
+			params := &url.Values{}
+			params.Set("repository", "busybox")
+			res := doRequest(params)
 			Expect(prov.PullImageCalled).To(BeTrue())
 			Expect(prov.ReceivedRepository).To(Equal("busybox"))
-		})
-
-		Context("PullImage() returns successfully", func() {
-			It("responds with 200 OK", func() {
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(err).To(BeNil())
-			})
+			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
 		Context("PullImage() returns an error", func() {
 			It("responds with 500 Internal Server Error", func() {
 				prov.PullImageError = errors.New("Could not pull image.")
-				doRequest()
+				params := &url.Values{}
+				params.Set("repository", "busybox")
+				res := doRequest(params)
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not pull image."}`))
+			})
+		})
+
+		Context("when 'update' param is false", func() {
+			Context("when image already exists", func() {
+				BeforeEach(func() {
+					prov.InspectImageReturn = &provider.ImageInfo{
+						ID:   "cafebabe",
+						Name: "busybox",
+						Tag:  "latest",
+					}
+				})
+
+				It("does not pull and responds with HTTP 304 Not Modified", func() {
+					Expect(prov.PullImageCalled).To(BeFalse())
+					params := &url.Values{}
+					params.Set("repository", "busybox")
+					params.Set("update", "false")
+					res := doRequest(params)
+					Expect(prov.PullImageCalled).To(BeFalse())
+					Expect(res.Code).To(Equal(http.StatusNotModified))
+				})
+			})
+
+			Context("when image does not exist", func() {
+				BeforeEach(func() {
+					prov.InspectImageError = errors.New("Image doesn't exist.")
+				})
+
+				It("calls provider.PullImage() and responds with 200 OK", func() {
+					Expect(prov.PullImageCalled).To(BeFalse())
+					params := &url.Values{}
+					params.Set("repository", "busybox")
+					params.Set("update", "false")
+					res := doRequest(params)
+					Expect(prov.PullImageCalled).To(BeTrue())
+					Expect(prov.ReceivedRepository).To(Equal("busybox"))
+					Expect(res.Code).To(Equal(http.StatusOK))
+				})
 			})
 		})
 	})

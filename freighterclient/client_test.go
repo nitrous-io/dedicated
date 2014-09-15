@@ -373,7 +373,20 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the response is not HTTP 422 Unprocessable Entity", func() {
+		Context("when the response is HTTP 404 Not Found", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusNotFound
+			})
+
+			It("returns ErrImageNotFound", func() {
+				container, err := cl.Create("yosemite", "ubuntu", "s3cr3t", nil)
+				Expect(err).To(Equal(freighterclient.ErrImageNotFound))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(container).To(BeNil())
+			})
+		})
+
+		Context("when the response is HTTP 422 Unprocessable Entity", func() {
 			BeforeEach(func() {
 				statusCode = freighterclient.StatusUnprocessableEntity
 			})
@@ -383,7 +396,7 @@ var _ = Describe("client", func() {
 					responseBody = `{ "error": "invalid name" }`
 				})
 
-				It("returns InvalidParamError", func() {
+				It("returns an InvalidParamError", func() {
 					container, err := cl.Create("yosemite", "ubuntu", "s3cr3t", nil)
 					e, ok := err.(*freighterclient.InvalidParamError)
 					Expect(ok).To(BeTrue())
@@ -407,7 +420,7 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the response is not HTTP 200 OK nor HTTP 422 Unprocessable Entity", func() {
+		Context("when the response has an unexpected status code", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusInternalServerError
 			})
@@ -603,6 +616,113 @@ var _ = Describe("client", func() {
 		})
 	})
 
+	Describe("Start()", func() {
+		BeforeEach(func() {
+			var err error
+			st, err = NewServerTest(ghttp.CombineHandlers(
+				func(w http.ResponseWriter, req *http.Request) {
+					req.ParseForm()
+				},
+				ghttp.VerifyRequest("POST", "/containers/deadbeef/start"),
+				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			))
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
+			statusCode = http.StatusOK
+			responseBody = `{
+				"container": {
+					"id": "deadbeef",
+					"name":"mavericks",
+					"image":"ubuntu-upstart",
+					"image_id":"abc123",
+					"host":"172.17.0.2",
+					"gateway":"172.17.0.0",
+						"ports": {"22": ["49100"]},
+					"state":"running",
+					"cmd": ["/sbin/init"],
+					"entrypoint": null,
+					"exit_code": 0,
+					"started_at": "2014-08-13T00:00:00Z",
+					"finished_at": "2014-08-10T00:00:00Z"
+				}
+			}`
+		})
+
+		AfterEach(func() {
+			st.Close()
+		})
+
+		It("returns the container", func() {
+			config := &freighterclient.ContainerConfig{}
+			config.Env = []string{"LANG=C"}
+			container, err := cl.Start("deadbeef", config)
+			Expect(err).To(BeNil())
+			Expect(container).NotTo(BeNil())
+
+			Expect(container).To(Equal(&freighterclient.Container{
+				ID:         "deadbeef",
+				Name:       "mavericks",
+				Image:      "ubuntu-upstart",
+				ImageID:    "abc123",
+				Host:       "172.17.0.2",
+				Gateway:    "172.17.0.0",
+				Ports:      map[string][]string{"22": []string{"49100"}},
+				State:      "running",
+				Cmd:        []string{"/sbin/init"},
+				Entrypoint: nil,
+				ExitCode:   0,
+				StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+				FinishedAt: time.Date(2014, time.August, 10, 0, 0, 0, 0, time.UTC),
+			}))
+
+			reqs := server.ReceivedRequests()
+			Expect(reqs).To(HaveLen(1))
+			Expect(reqs[0].PostFormValue("config")).To(Equal(
+				`{"Env":["LANG=C"],"Mounts":null,"PortBindings":null}`))
+		})
+
+		Context("when the response is empty", func() {
+			BeforeEach(func() {
+				responseBody = ``
+			})
+
+			It("returns ErrUnexpectedResponse", func() {
+				container, err := cl.Start("deadbeef", nil)
+				Expect(err).To(MatchError(freighterclient.ErrUnexpectedResponse))
+				Expect(container).To(BeNil())
+			})
+		})
+
+		Context("when the response is HTTP 404 Not Found", func() {
+			BeforeEach(func() {
+				responseBody = ``
+				statusCode = http.StatusNotFound
+			})
+
+			It("returns ErrContainerNotFound", func() {
+				container, err := cl.Start("deadbeef", nil)
+				Expect(err).To(MatchError(freighterclient.ErrContainerNotFound))
+				Expect(container).To(BeNil())
+			})
+		})
+
+		Context("when the response is not HTTP 200 OK nor HTTP 404 Not Found", func() {
+			BeforeEach(func() {
+				responseBody = ``
+				statusCode = http.StatusInternalServerError
+			})
+
+			It("returns a StatusError", func() {
+				container, err := cl.Start("deadbeef", nil)
+				Expect(err).To(MatchError(&freighterclient.StatusError{
+					Code: http.StatusInternalServerError,
+				}))
+				Expect(container).To(BeNil())
+			})
+		})
+	})
+
 	Describe("container control actions", func() {
 		var (
 			fnUnderTest func(id string) (*freighterclient.Container, error)
@@ -724,15 +844,6 @@ var _ = Describe("client", func() {
 				})
 			})
 		}
-
-		Describe("Start()", func() {
-			BeforeEach(func() {
-				fnUnderTest = cl.Start
-				path = "/containers/" + id + "/start"
-			})
-
-			itWorks()
-		})
 
 		Describe("Stop()", func() {
 			BeforeEach(func() {
@@ -1798,6 +1909,21 @@ var _ = Describe("client", func() {
 				st.Close()
 			})
 
+			It("sends 'repository' and 'update' as POST data", func() {
+				statusCode = http.StatusOK
+				responseBody = `
+				{"status":"Pulling..."}
+				{"status":"Pulling", "progress":"1 B/ 100 B", "progressDetail":{"current":1, "total":100}}
+				`
+
+				err := cl.PullImage("myimage:tag", true, bytes.NewBuffer(nil))
+				Expect(err).To(BeNil())
+				reqs := st.server.ReceivedRequests()
+				Expect(reqs).To(HaveLen(1))
+				Expect(reqs[0].PostFormValue("repository")).To(Equal("myimage:tag"))
+				Expect(reqs[0].PostFormValue("update")).To(Equal("true"))
+			})
+
 			It("returns error when docker failed to pull image", func() {
 				statusCode = http.StatusOK
 				responseBody = `
@@ -1806,13 +1932,13 @@ var _ = Describe("client", func() {
 				{"error":"no reason at all"}
 				`
 				stdout := bytes.NewBuffer(nil)
-				err := cl.PullImage("myimage:tag", stdout)
+				err := cl.PullImage("myimage:tag", true, stdout)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("no reason at all"))
 				Expect(stdout.String()).To(Equal(responseBody))
 			})
 
-			Context("Successful response", func() {
+			Context("when response is HTTP 200 OK", func() {
 				BeforeEach(func() {
 					statusCode = http.StatusOK
 					responseBody = `
@@ -1823,10 +1949,29 @@ var _ = Describe("client", func() {
 
 				It("should return nil error", func() {
 					stdout := bytes.NewBuffer(nil)
-					err := cl.PullImage("myimage:tag", stdout)
+					err := cl.PullImage("myimage:tag", true, stdout)
 					Expect(err).To(BeNil())
 
 					Expect(stdout.String()).To(Equal(responseBody))
+
+					reqs := server.ReceivedRequests()
+					Expect(reqs).To(HaveLen(1))
+					Expect(reqs[0].PostFormValue("repository")).To(Equal("myimage:tag"))
+				})
+			})
+
+			Context("when response is HTTP 304 Not Modified", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusNotModified
+					responseBody = ``
+				})
+
+				It("should return nil error", func() {
+					stdout := bytes.NewBuffer(nil)
+					err := cl.PullImage("myimage:tag", false, stdout)
+					Expect(err).To(BeNil())
+
+					Expect(stdout.String()).To(Equal(""))
 
 					reqs := server.ReceivedRequests()
 					Expect(reqs).To(HaveLen(1))
@@ -1838,7 +1983,7 @@ var _ = Describe("client", func() {
 				It("should surface request failures", func() {
 					st.Close()
 
-					err := cl.PullImage("myimage:tag", ioutil.Discard)
+					err := cl.PullImage("myimage:tag", true, ioutil.Discard)
 					Expect(err).NotTo(BeNil())
 					_, ok := err.(*freighterclient.RequestFailedError)
 					Expect(ok).To(BeTrue())
@@ -1847,7 +1992,7 @@ var _ = Describe("client", func() {
 
 				It("should surface response failures in StatusErr", func() {
 					statusCode = http.StatusInternalServerError
-					err := cl.PullImage("myimage:tag", ioutil.Discard)
+					err := cl.PullImage("myimage:tag", true, ioutil.Discard)
 					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
 				})
 			})

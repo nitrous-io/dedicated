@@ -81,13 +81,17 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	info, err := s.provider.Create(name, image, secret, r.FormValue("config"))
-
 	if err != nil {
 		s.logger.Error(err)
-		s.respondEncodeJSON(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
-	} else {
-		s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"container": info})
+		var code = http.StatusInternalServerError
+		if err == provider.ErrImageNotFound {
+			code = http.StatusNotFound
+		}
+		s.respondEncodeJSON(w, code, map[string]interface{}{"error": err.Error()})
+		return
 	}
+
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"container": info})
 }
 
 func (s *Server) commitContainer(w http.ResponseWriter, r *http.Request) {
@@ -437,7 +441,20 @@ func (s *Server) removeImage(w http.ResponseWriter, r *http.Request) error {
 // Refers to // https://docs.docker.com/reference/api/docker_remote_api_v1.13/#22-images
 // for more information on the output format
 func (s *Server) pullImage(w http.ResponseWriter, r *http.Request) error {
+	update, err := strconv.ParseBool(r.FormValue("update"))
+	if err != nil {
+		update = true
+	}
 	repo := r.FormValue("repository")
+
+	if !update {
+		// Don't update if image already exists.
+		if _, err := s.provider.InspectImage(repo); err == nil {
+			s.respondEncodeJSON(w, http.StatusNotModified, nil)
+			return nil
+		}
+	}
+
 	outstream := flusher.NewWriteFlusher(w)
 	// default to use raw json stream
 	if err := s.provider.PullImage(repo, outstream, true); err != nil {
