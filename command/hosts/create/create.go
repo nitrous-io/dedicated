@@ -16,19 +16,20 @@ import (
 )
 
 const (
-	regionUsage = "Region in which you want to create the host"
+	sizeUsage   = "Size of the host (use `nitro plans` to see available sizes)"
+	regionUsage = "A region to create the host (use `nitro regions` to see available regions)"
 	slugUsage   = "A unique slug for the host"
 )
 
 const usage = `
-Usage: nitro hosts:create <size>
+Usage: nitro hosts:create <size> <region>
 
   create a new host
 
 Options:
 
-  size
-  -r, --region=""       %s
+  size                  %s
+  region                %s
   -s, --slug=""         %s
 `
 
@@ -51,17 +52,15 @@ func NewCommand(token string) (cli.Command, error) {
 }
 
 func (c *Command) Help() string {
-	return strings.TrimSpace(fmt.Sprintf(usage, regionUsage, slugUsage))
+	return strings.TrimSpace(fmt.Sprintf(usage, sizeUsage, regionUsage, slugUsage))
 }
 
 func (c *Command) Run(args []string) int {
 	var (
-		region string
-		slug   string
+		slug string
 	)
 	cmdFlags := flag.NewFlagSet("hosts:create", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
-	cmdFlags.StringVarP(&region, "region", "r", "", regionUsage)
 	cmdFlags.StringVarP(&slug, "slug", "s", "", slugUsage)
 
 	err := cmdFlags.Parse(args)
@@ -69,15 +68,7 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 	args = cmdFlags.Args()
-	if len(args) != 1 {
-		c.UI.Output(c.Help())
-		return 1
-	}
-
-	// FIXME Region should be auto-detected (pick the closest region) in future
-	// but we'll keep this check around until that's added.
-	if region == "" {
-		c.UI.Error(fmt.Sprintf("Please specify a region."))
+	if len(args) != 2 {
 		c.UI.Output(c.Help())
 		return 1
 	}
@@ -87,6 +78,7 @@ func (c *Command) Run(args []string) int {
 	}
 
 	size := args[0]
+	region := args[1]
 
 	c.UI.Output(fmt.Sprintf("Creating new host '%s'. Please wait...", slug))
 	host, err := c.createHost(size, region, slug)
