@@ -7,7 +7,7 @@ This Rails project is used for asset compilation and client-side javascript deve
 
 In development, you'd want Rails to be serving the assets (js, css) so that you don't have to recompile between reloads.
 
-Use the following nginx config so that API and Websocket calls are proxied to the Go app, and the assets are handlded by the Rails app.
+Use the following Nginx config so that API and Websocket calls are proxied to the Go app, and the assets are handlded by the Rails app. Nginx also handles SSL termination.
 
 ```
 user www-data;
@@ -34,7 +34,13 @@ http {
   }
 
   server {
-    listen 8080;
+    listen 8080 ssl;
+
+    server_name pro.n2odev.com;
+    ssl_certificate /home/vagrant/workspace/nitrous/dev/n2odev.crt;
+    ssl_certificate_key /home/vagrant/workspace/nitrous/dev/n2odev.key;
+
+    keepalive_timeout 70;
 
     location / {
       proxy_pass http://127.0.0.1:3000;
