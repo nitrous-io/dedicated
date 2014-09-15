@@ -36,8 +36,8 @@ type ProtoShell struct {
 	conn            *wsconn.Conn
 	netConn         net.Conn
 
-	in  io.Reader
-	out io.Writer
+	serverIn  io.Writer
+	serverOut io.Reader
 }
 
 // New creates a shell that uses WebSockets.
@@ -112,14 +112,14 @@ func (s *ProtoShell) Attach(infd uintptr, outfd uintptr, stdin io.ReadCloser, st
 	}()
 
 	// wrap input/output stream with our protocol
-	s.in = NewLocalInput(stdin)
-	s.out = NewLocalOutput(stdout)
+	s.serverIn = NewShellWriter(s.conn)
+	s.serverOut = NewShellReader(ws, websocket.BinaryMessage)
 
 	finishStdout := promise(func() error {
 		defer func() {
 			stdin.Close()
 		}()
-		_, err := io.Copy(s.out, s.conn)
+		_, err := io.Copy(stdout, s.serverOut)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			return nil
 		}
@@ -127,7 +127,7 @@ func (s *ProtoShell) Attach(infd uintptr, outfd uintptr, stdin io.ReadCloser, st
 	})
 
 	finishStdin := promise(func() error {
-		io.Copy(s.conn, s.in)
+		io.Copy(s.serverIn, stdin)
 		if tcpc, ok := s.netConn.(*net.TCPConn); ok {
 			if err := tcpc.CloseWrite(); err != nil {
 				log.Printf("Couldn't send EOF: %s", err)
