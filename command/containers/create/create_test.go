@@ -146,6 +146,14 @@ var _ = Describe("containers/create", func() {
 			})
 		}
 
+		It("populates the pull image request's params", func() {
+			doCmd()
+			reqs := srv.ReceivedRequests()
+			Expect(reqs).To(HaveLen(2))
+			r := reqs[0]
+			Expect(r.PostFormValue("repository")).To(Equal("ubuntu"))
+		})
+
 		It("populates the create request's params", func() {
 			doCmd()
 			reqs := srv.ReceivedRequests()
