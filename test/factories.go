@@ -3,6 +3,7 @@ package test
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
@@ -23,9 +24,23 @@ type HostStack struct {
 	Cert *cert.Cert
 }
 
-// track number of hoststacks successfully created so we can generate unique
-// fields
-var HostStackCount int
+var (
+	// track number of hoststacks successfully created so we can generate unique
+	// fields
+	HostStackCount int
+
+	// provider templates will be created with this provider, set via env
+	// DEFAULT_PROVIDER
+	defaultProvider string
+)
+
+func init() {
+	defaultProvider = os.Getenv("DEFAULT_PROVIDER")
+	if defaultProvider == "" {
+		fmt.Fprintln(os.Stderr, "WARN: DEFAULT_PROVIDER is not set, using 'docker'")
+		defaultProvider = "docker"
+	}
+}
 
 // CreateHostStack returns a HostStack with created user,
 // region, plan, providertemplate, and host.
@@ -96,8 +111,8 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 
 	if hs.PT == nil {
 		hs.PT = &providertemplate.ProviderTemplate{
-			Name:     "docker-1",
-			Provider: "docker",
+			Name:     "default-1",
+			Provider: defaultProvider,
 		}
 	}
 	hs.PT.RegionID = hs.R.ID
