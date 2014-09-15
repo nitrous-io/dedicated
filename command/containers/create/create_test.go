@@ -30,16 +30,22 @@ var _ = Describe("containers/create", func() {
 		slug = "foo"
 
 		srv                *ghttp.Server
-		pullStatusCode     = http.StatusOK
-		pullResponseBody   = ""
-		createStatusCode   = http.StatusCreated
-		createResponseBody = ""
-		startStatusCode    = http.StatusOK
-		startResponseBody  = ""
+		pullStatusCode     int
+		pullResponseBody   string
+		createStatusCode   int
+		createResponseBody string
+		startStatusCode    int
+		startResponseBody  string
 	)
 
 	BeforeEach(func() {
 		var err error
+
+		// Setup for success.
+		pullStatusCode = http.StatusOK
+		createStatusCode = http.StatusCreated
+		startStatusCode = http.StatusOK
+
 		srv = ghttp.NewServer()
 
 		// Setup handlers: pull image.
@@ -94,6 +100,18 @@ var _ = Describe("containers/create", func() {
 		os.RemoveAll(outfile.Name())
 	})
 
+	doCmd := func() int {
+		return cmd.Run([]string{
+			"host-1",
+			"--slug=" + slug,
+			"--image=ubuntu",
+			"--env=PAGER=most",
+			"--volume=/shared", // repeat args supported
+			"--volume=/music",
+			"--port-forward=8080:3000,127.0.0.1:4242", // comma-separated supported
+		})
+	}
+
 	Context("when not all options are specified", func() {
 		It("populates request with only given params", func() {
 			cmd.Run([]string{
@@ -118,117 +136,122 @@ var _ = Describe("containers/create", func() {
 	})
 
 	Context("when host is not specified", func() {
-		doCmd := func() int {
-			return cmd.Run([]string{
+		It("returns an error message without making a request", func() {
+			code := cmd.Run([]string{
 				"--slug=" + slug,
 				"--image=ubuntu",
 			})
-		}
-
-		It("returns an error message without making a request", func() {
-			code := doCmd()
 			Expect(errorBuf.String()).To(ContainSubstring("Please specify a host"))
 			Expect(code).To(Equal(1))
 			Expect(srv.ReceivedRequests()).To(HaveLen(0))
 		})
 	})
 
-	Context("when all options are provided", func() {
-		doCmd := func() int {
-			return cmd.Run([]string{
-				"host-1",
-				"--slug=" + slug,
-				"--image=ubuntu",
-				"--env=PAGER=most",
-				"--volume=/shared", // repeat args supported
-				"--volume=/music",
-				"--port-forward=8080:3000,127.0.0.1:4242", // comma-separated supported
-			})
-		}
+	Context("when pull image request fails", func() {
+		It("does not make the subsequent create and start requests", func() {
+			pullStatusCode = http.StatusInternalServerError
 
-		It("populates the pull image request's params", func() {
-			doCmd()
+			code := doCmd()
+			Expect(code).To(Equal(1))
 			reqs := srv.ReceivedRequests()
-			Expect(reqs).To(HaveLen(2))
+			Expect(reqs).To(HaveLen(1))
 			r := reqs[0]
 			Expect(r.PostFormValue("repository")).To(Equal("ubuntu"))
 		})
+	})
 
-		It("populates the create request's params", func() {
-			doCmd()
+	Context("when pull image request succeeds", func() {
+		It("makes a create request", func() {
+			pullStatusCode = http.StatusOK
+
+			code := doCmd()
+			Expect(code).To(Equal(1))
 			reqs := srv.ReceivedRequests()
 			Expect(reqs).To(HaveLen(2))
-			r := reqs[1]
-			Expect(r.PostFormValue("slug")).To(Equal(slug))
-			Expect(r.PostFormValue("image")).To(Equal("ubuntu"))
+			pullReq, createReq := reqs[0], reqs[1]
+
+			Expect(pullReq.PostFormValue("repository")).To(Equal("ubuntu"))
+
+			Expect(createReq.PostFormValue("slug")).To(Equal(slug))
+			Expect(createReq.PostFormValue("image")).To(Equal("ubuntu"))
+			Expect(createReq.PostForm["env[]"]).To(Equal([]string{"PAGER=most"}))
+			Expect(createReq.PostForm["volume[]"]).To(Equal([]string{"/shared", "/music"}))
+			Expect(createReq.PostForm["port[]"]).To(Equal([]string{"8080:3000", "127.0.0.1:4242"}))
+		})
+	})
+
+	Context("when pull image request succeeds but create request fails", func() {
+		It("does not make the subsequent start request", func() {
+			createStatusCode = http.StatusBadRequest
+			createResponseBody = `{"error":"validation_failed","error_description":"slug invalid"}`
+
+			code := doCmd()
+			Expect(errorBuf.String()).To(ContainSubstring("slug invalid"))
+			Expect(code).To(Equal(1))
+
+			reqs := srv.ReceivedRequests()
+			Expect(reqs).To(HaveLen(2))
+		})
+	})
+
+	Context("when pull image and create requests succeed", func() {
+		It("makes a start request", func() {
+			pullStatusCode = http.StatusOK
+			createStatusCode = http.StatusCreated
+			createResponseBody = `{
+				"status": "created",
+				"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "stopped" }
+			}`
+
+			doCmd()
+
+			reqs := srv.ReceivedRequests()
+			Expect(reqs).To(HaveLen(3))
+			r := reqs[2]
 			Expect(r.PostForm["env[]"]).To(Equal([]string{"PAGER=most"}))
 			Expect(r.PostForm["volume[]"]).To(Equal([]string{"/shared", "/music"}))
 			Expect(r.PostForm["port[]"]).To(Equal([]string{"8080:3000", "127.0.0.1:4242"}))
 		})
 
-		Context("when the create request succeeds", func() {
-			BeforeEach(func() {
-				createResponseBody = `{
-					"status": "created",
-					"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "stopped" }
-				}`
-			})
+	})
 
-			Context("when the start request succeeds", func() {
-				BeforeEach(func() {
-					startResponseBody = `{
-						"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "running" }
-					}`
-				})
+	Context("when pull image and create requests succeed, but start request fails", func() {
+		It("prints a message indicating that the container was created but failed to start", func() {
+			pullStatusCode = http.StatusOK
+			createStatusCode = http.StatusCreated
+			createResponseBody = `{
+				"status": "created",
+				"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "stopped" }
+			}`
+			startStatusCode = http.StatusInternalServerError
 
-				It("populates the start request's params", func() {
-					code := doCmd()
-					Expect(code).To(Equal(0))
+			code := doCmd()
+			Expect(code).To(Equal(1))
 
-					reqs := srv.ReceivedRequests()
-					Expect(reqs).To(HaveLen(3))
-					r := reqs[2]
-					Expect(r.PostForm["env[]"]).To(Equal([]string{"PAGER=most"}))
-					Expect(r.PostForm["volume[]"]).To(Equal([]string{"/shared", "/music"}))
-					Expect(r.PostForm["port[]"]).To(Equal([]string{"8080:3000", "127.0.0.1:4242"}))
-				})
-
-				It("prints the container's slug", func() {
-					code := doCmd()
-					Expect(code).To(Equal(0))
-
-					output, _ := ioutil.ReadFile(outfile.Name())
-					Expect(output).To(ContainSubstring("Created new container: '" + slug + "'"))
-				})
-			})
-
-			Context("when the start request fails", func() {
-				BeforeEach(func() {
-					startStatusCode = http.StatusInternalServerError
-				})
-
-				It("prints the container", func() {
-					code := doCmd()
-					Expect(code).To(Equal(1))
-
-					output, _ := ioutil.ReadFile(outfile.Name())
-					Expect(errorBuf).To(ContainSubstring("Container created but failed to start"))
-					Expect(output).To(ContainSubstring(slug))
-				})
-			})
+			output, _ := ioutil.ReadFile(outfile.Name())
+			Expect(errorBuf).To(ContainSubstring("Container created but failed to start"))
+			Expect(output).To(ContainSubstring(slug))
 		})
+	})
 
-		Context("when the create request fails", func() {
-			BeforeEach(func() {
-				createStatusCode = http.StatusBadRequest
-				createResponseBody = `{"error":"validation_failed","error_description":"slug invalid"}`
-			})
+	Context("when pull image, create and start requests succeed", func() {
+		It("prints a message indicating that the container was created", func() {
+			pullStatusCode = http.StatusOK
+			createStatusCode = http.StatusCreated
+			createResponseBody = `{
+				"status": "created",
+				"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "stopped" }
+			}`
+			startStatusCode = http.StatusOK
+			startResponseBody = `{
+				"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "running" }
+			}`
 
-			It("displays error message", func() {
-				code := doCmd()
-				Expect(errorBuf.String()).To(ContainSubstring("slug invalid"))
-				Expect(code).To(Equal(1))
-			})
+			code := doCmd()
+			Expect(code).To(Equal(0))
+
+			output, _ := ioutil.ReadFile(outfile.Name())
+			Expect(output).To(ContainSubstring("Created new container: '" + slug + "'"))
 		})
 	})
 })
