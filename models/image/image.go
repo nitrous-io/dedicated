@@ -39,8 +39,14 @@ type Image struct {
 var DefaultTag = "latest"
 
 func FindAll(d db.QueryReceiver, u *user.User, h *host.Host) ([]*Image, error) {
+	var err error
 	images := []*Image{}
-	if err := d.Select(&images, `SELECT * FROM images WHERE user_id = $1 AND host_id = $2 ORDER BY id;`, u.ID, h.ID); err != nil {
+	if h == nil {
+		err = d.Select(&images, `SELECT * FROM images WHERE user_id = $1 ORDER BY id;`, u.ID)
+	} else {
+		err = d.Select(&images, `SELECT * FROM images WHERE user_id = $1 AND host_id = $2 ORDER BY id;`, u.ID, h.ID)
+	}
+	if err != nil {
 		return nil, err
 	}
 	return images, nil
