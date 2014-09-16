@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +15,8 @@ var (
 	databaseURL string
 	baseDomain  string
 	authedPort  int
+	pubCACert   string
+	pubCAKey    string
 )
 
 // Configure require settings. Required env variables are:
@@ -28,6 +31,9 @@ func init() {
 	databaseURL = envStr("DATABASE_URL")
 	authedPort = envInt("AUTHED_PORT")
 	baseDomain = envStr("BASE_DOMAIN")
+	pubCACert = envStr("PUB_CRT")
+	pubCAKey = envStr("PUB_KEY")
+
 	if baseDomain[0] != '.' {
 		panic("BASE_DOMAIN should start with .")
 	}
@@ -37,11 +43,18 @@ func init() {
 // TODO: listen to port 80
 // TODO: listen to port 443
 func main() {
+	_, err := tls.LoadX509KeyPair(pubCACert, pubCAKey)
+	if err != nil {
+		fmt.Printf("tender: Failed to load SSL certificates - %s & %s: %s", pubCACert, pubCAKey, err)
+		os.Exit(1)
+	}
+
 	s, err := tender.NewServer(baseDomain, databaseURL, authedPort)
 	if err != nil {
 		fmt.Printf("Failed to start tender server %v", err)
 		os.Exit(1)
 	}
+
 	// proxy preview requests
 	var startPort, endPort int
 	if os.Getenv("DEBUG") == "true" {
@@ -51,19 +64,21 @@ func main() {
 		startPort = 1024
 		endPort = 9999
 	}
+
 	log.Printf("listen to port from %d to %d", startPort, endPort)
 	for i := startPort; i <= endPort; i++ {
-		go http.ListenAndServe(fmt.Sprintf(":%d", i), s)
+		go http.ListenAndServeTLS(fmt.Sprintf(":%d", i), pubCACert, pubCAKey, s)
 	}
+
 	// proxy freighterd ports
 	log.Println("listen to port 65333")
-	http.ListenAndServe(":65333", s)
+	http.ListenAndServeTLS(":65333", pubCACert, pubCAKey, s)
 }
 
 func envStr(name string) string {
 	v := os.Getenv(name)
 	if v == "" {
-		panic("Missing " + name)
+		panic("Missing env var " + name)
 	}
 	return v
 }
