@@ -29,19 +29,23 @@ var (
 	ErrInvalidTerm = errors.New("Invalid term")
 )
 
-func NewShell(id, command string) (*Shell, error) {
+func NewShell(id, command string, noTTY bool) (*Shell, error) {
 	if id == "" || command == "" {
 		return nil, ErrMissingArg
 	}
 	s := &Shell{
 		id:      id,
 		command: command,
+		isTTY:   true,
+	}
+	if noTTY {
+		s.isTTY = false
 	}
 	return s, nil
 }
 
-func OpenShell(id, command string, width, height int, env []string) (*Shell, error) {
-	s, err := NewShell(id, command)
+func OpenShell(id, command string, width, height int, noTTY bool, env []string) (*Shell, error) {
+	s, err := NewShell(id, command, noTTY)
 	if err != nil {
 		return nil, err
 	}
@@ -59,13 +63,23 @@ type Shell struct {
 	// we use lxc-attach by default, but user can switch this to a more
 	// lightweight command like bash for testing purpose
 	cmd *exec.Cmd
+
+	// if the shell requires a TTY
+	isTTY bool
+
+	stdinW  io.WriteCloser
+	stdoutR io.ReadCloser
+	stdoutW io.WriteCloser
 }
 
 func (s *Shell) Close() error {
 	if s.cmd.Process != nil {
-		closeProcess(s.cmd)
+		closeProcess(s.cmd, s.isTTY)
 	}
-	return s.term.Close()
+	if s.term != nil {
+		return s.term.Close()
+	}
+	return nil
 }
 
 func (s *Shell) Open(w, h int, env []string) error {
@@ -91,46 +105,66 @@ func (s *Shell) Open(w, h int, env []string) error {
 		)
 		s.cmd = exec.Command("lxc-attach", args...)
 	}
-	sh, err := pty.Start(s.cmd)
-	if err != nil {
-		return err
+
+	s.stdoutR, s.stdoutW = io.Pipe()
+	if s.isTTY {
+		sh, err := pty.Start(s.cmd)
+		if err != nil {
+			return err
+		}
+		s.term = sh
+
+		// create stdin pipes for tty
+		stdinR, stdinW := io.Pipe()
+		s.stdinW = stdinW
+
+		// copy output from terminal to stdin out
+		go func() {
+			defer s.stdoutW.Close()
+			io.Copy(s.stdoutW, s.term)
+		}()
+
+		// when stdin is closed, close the stdout pipe as well. This prevent cases
+		// where we hangs the shell waiting for stdout to finished while stdin is
+		// closed
+		promise(func() error {
+			_, err := io.Copy(s.term, stdinR)
+			// if the client closed the write part of the tcp connection, we gets
+			// UnexpectedEOF from the websocket, so we ignore it here
+			if err == io.ErrClosedPipe || err == io.ErrUnexpectedEOF {
+				err = nil
+			}
+			return err
+		})
+	} else {
+		// setup the cmd pipes without pty
+		stdin, err := s.cmd.StdinPipe()
+		if err != nil {
+			return err
+		}
+		s.cmd.Stdout = s.stdoutW
+		s.cmd.Stderr = s.stdoutW
+		s.stdinW = stdin
+
+		if err := s.cmd.Start(); err != nil {
+			return err
+		}
 	}
-	s.term = sh
 	return s.Resize(w, h)
 }
 
 func (s *Shell) Attach(stdin io.Reader, stdout io.Writer) chan error {
 	// setups the pipes so we can close the copy routine properly instead of
 	// using the raw terminal
-	stdinR, stdinW := io.Pipe()
 	go func() {
-		io.Copy(stdinW, stdin)
-		stdinW.Close()
+		io.Copy(s.stdinW, stdin)
+		s.stdinW.Close()
+		s.stdoutR.Close()
 	}()
-	stdoutR, stdoutW := io.Pipe()
-	go func() {
-		io.Copy(stdoutW, s.term)
-		stdoutW.Close()
-	}()
-
-	// when stdin is closed, close the stdout pipe as well. This prevent cases
-	// where we hangs the shell waiting for stdout to finished while stdin is
-	// closed
-	promise(func() error {
-		defer stdoutR.Close()
-		_, err := io.Copy(s.term, stdinR)
-		// if the client closed the write part of the tcp connection, we gets
-		// UnexpectedEOF from the websocket, so we ignore it here
-		if err == io.ErrClosedPipe || err == io.ErrUnexpectedEOF {
-			err = nil
-		}
-		return err
-	})
 
 	// stdout
 	finishStdout := promise(func() error {
-		defer stdinW.Close()
-		_, err := io.Copy(stdout, stdoutR)
+		_, err := io.Copy(stdout, s.stdoutR)
 		if err == io.ErrClosedPipe {
 			err = nil
 		}
@@ -144,6 +178,10 @@ func (s *Shell) Attach(stdin io.Reader, stdout io.Writer) chan error {
 }
 
 func (s *Shell) Resize(w, h int) error {
+	// if this is not a tty we dont need to resize
+	if !s.isTTY {
+		return nil
+	}
 	if w == 0 {
 		w = defaultWidth
 	}
@@ -173,7 +211,10 @@ func promise(f func() error) chan error {
 
 // close the process by sending it SIGTERM and wait for it to complete.
 // If it cant finish after timeout, kill it
-func closeProcess(c *exec.Cmd) error {
+func closeProcess(c *exec.Cmd, wait bool) error {
+	if wait {
+		return c.Wait()
+	}
 	done := make(chan error, 1)
 	go func() {
 		done <- c.Wait()

@@ -315,8 +315,11 @@ func (s *Server) wsNewShell(token string, w http.ResponseWriter, r *http.Request
 	height := getFormInt(r, "height")
 	// check if the client request to use BinaryMessage instead of TextMessage
 	binary, _ := strconv.ParseBool(r.FormValue("binary"))
+	// check if the client wants to have a TTY. Usually the client who wants a
+	// stdin pipe will not need a TTY
+	noTTY, _ := strconv.ParseBool(r.FormValue("notty"))
 
-	sh, err := shell.OpenShell(containerID, command, width, height, info.Env)
+	sh, err := shell.OpenShell(containerID, command, width, height, noTTY, info.Env)
 	if err != nil {
 		fmt.Println("wsNewShell: failed to open a shell for container %v", containerID, err)
 		return err
