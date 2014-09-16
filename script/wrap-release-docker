@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+APP=${1:?"app name is required"}
+VERSION=${2:?"version is required"}
+
+docker run \
+  --rm=true \
+  -v /tmp/$APP/$VERSION:/tmp/$APP/$VERSION \
+  -v $(pwd):/root/app \
+  -w /root/app \
+  -e ACCESS_KEY=$ACCESS_KEY \
+  -e SECRET_KEY=$SECRET_KEY \
+  nitrousio/packager ./script/release $APP $VERSION
