@@ -302,6 +302,121 @@ var _ = Describe("controllers/images", func() {
 		})
 	})
 
+	Describe("GET /api/v0/images", func() {
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := NewAuthedRequest(t, "GET", "/api/v0/images", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		var (
+			img1 *freighterclient.Image
+			img2 *freighterclient.Image
+
+			i1 *image.Image
+			i2 *image.Image
+		)
+
+		BeforeEach(func() {
+			hs2, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:      "bar",
+					IPAddress: sql.NullString{"127.0.0.1", true},
+				},
+				U: hs.U,
+			})
+			Expect(err).To(BeNil())
+
+			img1 = &freighterclient.Image{
+				ID:          "1a",
+				Name:        "source1",
+				Tag:         "sourcetag1",
+				CreatedAt:   time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC).Unix(),
+				ActualSize:  13,
+				VirtualSize: 29,
+			}
+			img2 = &freighterclient.Image{
+				ID:          "2a",
+				Name:        "source2",
+				Tag:         "sourcetag2",
+				CreatedAt:   time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC).Unix(),
+				ActualSize:  14,
+				VirtualSize: 30,
+			}
+			mockClient.ListImagesArray = []*freighterclient.Image{img1, img2}
+
+			i1 = &image.Image{
+				UserID:      hs.U.ID,
+				HostID:      hs.H.ID,
+				FreighterID: "1a",
+				Name:        "source1 image",
+				Tag:         "sourcetag1",
+				Slug:        "source1",
+			}
+			err = i1.Insert(db)
+			Expect(err).To(BeNil())
+
+			i2 = &image.Image{
+				UserID:      hs.U.ID,
+				HostID:      hs2.H.ID,
+				FreighterID: "2a",
+				Name:        "source2 image",
+				Tag:         "sourcetag2",
+				Slug:        "source2",
+			}
+			err = i2.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("responds with images from the database augmented with data from Freighter", func() {
+			res := doRequest()
+
+			Expect(mockClient.ListImagesCalled).To(Equal(2))
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j map[string][]serializers.Image
+			data := res.Body.Bytes()
+			err := json.Unmarshal(data, &j)
+			Expect(err).To(BeNil())
+			images, ok := j["images"]
+			Expect(ok).To(BeTrue())
+			Expect(images).To(HaveLen(2))
+
+			Expect(images[0].FreighterID).To(Equal("1a"))
+			Expect(images[0].Name).To(Equal("source1 image"))
+			Expect(images[0].Slug).To(Equal("source1"))
+			Expect(images[0].Tag).To(Equal("sourcetag1"))
+			Expect(images[0].ActualSize).To(Equal(int64(13)))
+			Expect(images[0].VirtualSize).To(Equal(int64(29)))
+			builtAt := time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)
+			Expect(images[0].BuiltAt).To(Equal(&builtAt))
+			Expect(images[0].CreatedAt).NotTo(BeNil())
+			Expect(images[0].UpdatedAt).NotTo(BeNil())
+
+			Expect(images[1].FreighterID).To(Equal("2a"))
+			Expect(images[1].Name).To(Equal("source2 image"))
+			Expect(images[1].Slug).To(Equal("source2"))
+			Expect(images[1].Tag).To(Equal("sourcetag2"))
+			Expect(images[1].ActualSize).To(Equal(int64(14)))
+			Expect(images[1].VirtualSize).To(Equal(int64(30)))
+			builtAt = time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC)
+			Expect(images[1].BuiltAt).To(Equal(&builtAt))
+			Expect(images[1].CreatedAt).NotTo(BeNil())
+			Expect(images[1].UpdatedAt).NotTo(BeNil())
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/images"
+				authTokenInputs.Method = "GET"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
 	Describe("POST /api/v0/hosts/{slug}/images", func() {
 		doRequest := func(host string, params map[string]string, files map[string]io.Reader) *httptest.ResponseRecorder {
 			body := &bytes.Buffer{}
