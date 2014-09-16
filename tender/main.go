@@ -45,14 +45,12 @@ func init() {
 func main() {
 	_, err := tls.LoadX509KeyPair(pubCACert, pubCAKey)
 	if err != nil {
-		fmt.Printf("tender: Failed to load SSL certificates - %s & %s: %s", pubCACert, pubCAKey, err)
-		os.Exit(1)
+		log.Fatalf("tender: Failed to load SSL certificates- %s & %s: %s", pubCACert, pubCAKey, err)
 	}
 
 	s, err := tender.NewServer(baseDomain, databaseURL, authedPort)
 	if err != nil {
-		fmt.Printf("Failed to start tender server %v", err)
-		os.Exit(1)
+		log.Fatalf("tender: Failed to start tender server, %v", err)
 	}
 
 	// proxy preview requests

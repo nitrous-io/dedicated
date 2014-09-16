@@ -1,13 +1,44 @@
 package proxy
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"os"
 )
+
+var priCACert string
+
+func init() {
+	priCACert = envStr("PRI_CRT")
+}
+
+func envStr(name string) string {
+	v := os.Getenv(name)
+	if v == "" {
+		panic("Missing env var " + name)
+	}
+	return v
+}
+
+func tlsConfig() *tls.Config {
+	certPool := x509.NewCertPool()
+	caBytes, err := ioutil.ReadFile(priCACert)
+	if err != nil {
+		log.Fatalf("tender: Failed to read private SSL certificate %s", err)
+	}
+
+	certPool.AppendCertsFromPEM(caBytes)
+	return &tls.Config{
+		RootCAs: certPool,
+	}
+}
 
 func ProxyHTTP(addr string) http.HandlerFunc {
 	p := &httputil.ReverseProxy{
@@ -23,8 +54,9 @@ func ProxyHTTP(addr string) http.HandlerFunc {
 }
 
 func ProxyWebsocket(addr string) http.HandlerFunc {
+	t := tlsConfig()
 	return func(w http.ResponseWriter, r *http.Request) {
-		serverConn, err := net.Dial("tcp", addr)
+		serverConn, err := tls.Dial("tcp", addr, t)
 		if err != nil {
 			handleError(w, r, "websocket: could not connect to backend", err)
 			return
