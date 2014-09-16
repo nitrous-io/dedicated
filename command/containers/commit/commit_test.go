@@ -70,8 +70,8 @@ var _ = Describe("containers/commit", func() {
 				code := cmd.Run([]string{"scratchcon", "-t", "scrimage"})
 				Expect(code).To(Equal(0))
 				Expect(ui.OutputWriter.String()).To(ContainSubstring(`
-Slug        Tag       ID            Name             Created                          Size   Virtual Size
-scrimage    latest    123456snip    scratch image    2013-11-01 00:00:00 +0000 UTC    123    456
+Slug        Tag       ID   Name             Created                          Size   Virtual Size
+scrimage    latest    1    scratch image    2013-11-01 00:00:00 +0000 UTC    123    456
 `))
 			})
 		})
@@ -87,8 +87,8 @@ scrimage    latest    123456snip    scratch image    2013-11-01 00:00:00 +0000 U
 				code := cmd.Run([]string{"scratchcon"})
 				Expect(code).To(Equal(0))
 				Expect(ui.OutputWriter.String()).To(ContainSubstring(`
-Slug      Tag       ID            Name        Created                          Size   Virtual Size
-random    latest    123456snip    rand img    2013-11-01 00:00:00 +0000 UTC    123    456
+Slug      Tag       ID   Name        Created                          Size   Virtual Size
+random    latest    1    rand img    2013-11-01 00:00:00 +0000 UTC    123    456
 `))
 			})
 		})
