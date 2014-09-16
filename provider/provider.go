@@ -95,6 +95,7 @@ type ContainerConfig struct {
 	Env          []string `json:"Env"`
 	Mounts       []string `json:"Mounts"`
 	PortBindings []string `json:"PortBindings"`
+	PublishAll   bool     `json:"PublishAll"`
 }
 
 type ImageInfo struct {

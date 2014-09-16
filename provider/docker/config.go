@@ -50,7 +50,6 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 	}
 
 	// Set defaults.
-	newCfg.PublishAllPorts = true
 	if newCfg.Binds == nil {
 		newCfg.Binds = []string{}
 	}
@@ -61,6 +60,7 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 	if cfg == nil {
 		return &newCfg, nil
 	}
+	newCfg.PublishAllPorts = cfg.PublishAll
 	if cfg.PortBindings != nil {
 		bs, err := dockerPortBindings(cfg.PortBindings)
 		if err != nil {
@@ -76,6 +76,7 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 		newCfg.Binds = ms
 	}
 	if isNitrousImage(cfg.Image) {
+		newCfg.PublishAllPorts = true
 		hasSSHBind := false
 		for _, bind := range newCfg.Binds {
 			if strings.HasSuffix(bind, "/etc/ssh/freighter:ro") {

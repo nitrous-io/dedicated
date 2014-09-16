@@ -339,7 +339,7 @@ var _ = Describe("client", func() {
 					Expect(receivedRequests[0].PostFormValue("image")).To(Equal("ubuntu"))
 					Expect(receivedRequests[0].PostFormValue("secret")).To(Equal("s3cr3t"))
 					Expect(receivedRequests[0].PostFormValue("config")).To(Equal(
-						`{"Env":["LANG=C"],"Mounts":null,"PortBindings":null}`))
+						`{"Env":["LANG=C"],"Mounts":null,"PortBindings":null,"PublishAll":false}`))
 
 					Expect(container).To(Equal(&freighterclient.Container{
 						ID:         "cafebabe",
@@ -679,7 +679,7 @@ var _ = Describe("client", func() {
 			reqs := server.ReceivedRequests()
 			Expect(reqs).To(HaveLen(1))
 			Expect(reqs[0].PostFormValue("config")).To(Equal(
-				`{"Env":["LANG=C"],"Mounts":null,"PortBindings":null}`))
+				`{"Env":["LANG=C"],"Mounts":null,"PortBindings":null,"PublishAll":false}`))
 		})
 
 		Context("when the response is empty", func() {
