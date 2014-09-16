@@ -10,6 +10,7 @@ import (
 
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/controllers"
+	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
@@ -29,21 +30,48 @@ var (
 	errInvalidArchive = httperror.New(http.StatusBadRequest, "invalid_request", "not a valid Docker archive")
 )
 
-func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	hSlug := mux.Vars(r)["slug"]
+	var (
+		hosts      []host.Host
+		hostFilter *host.Host
+		db         = env.DB
+		user       = env.User
+	)
+
+	// If no host is provided, then get all hosts belonging to the user
+	// and get all images from all hosts
+	if hSlug != "" {
+		h, err := host.Find(db, user, hSlug)
+		if err != nil {
+			return err
+		}
+		if h == nil {
+			return middleware.ErrHostNotFound
+		}
+		hostFilter = h
+	}
+
+	if hostFilter == nil {
+		var err error
+		hosts, err = host.FindAllByUser(db, user)
+		if err != nil {
+			return err
+		}
+	} else {
+		hosts = []host.Host{*hostFilter}
+	}
+
+	dbImgs, err := image.FindAll(db, user, hostFilter)
 	if err != nil {
 		return err
 	}
 
-	fImgs, err := cl.ListImages()
+	fImgs, err := findImagesInHosts(db, hosts)
 	if err != nil {
 		return err
 	}
 
-	dbImgs, err := image.FindAll(env.DB, env.User, h)
-	if err != nil {
-		return err
-	}
 	for _, img := range dbImgs {
 		fImg := findMatchingFreighterImage(img, fImgs)
 		if fImg == nil { // log and continue
@@ -56,7 +84,6 @@ func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 			t := time.Unix(fImg.CreatedAt, 0).UTC()
 			img.BuiltAt = &t
 		}
-
 	}
 
 	env.Status = http.StatusOK
@@ -65,6 +92,24 @@ func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	return nil
+}
+
+func findImagesInHosts(db db.QueryReceiver, hosts []host.Host) ([]*freighterclient.Image, error) {
+	var allImgs []*freighterclient.Image
+	for _, h := range hosts {
+		cl, err := controllers.NewFreighterClient(db, &h)
+		if err != nil {
+			return nil, err
+		}
+
+		hImgs, err := cl.ListImages()
+		if err != nil {
+			return nil, err
+		}
+
+		allImgs = append(allImgs, hImgs...)
+	}
+	return allImgs, nil
 }
 
 func findMatchingFreighterImage(i *image.Image, images []*freighterclient.Image) *freighterclient.Image {
