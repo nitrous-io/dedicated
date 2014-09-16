@@ -129,6 +129,10 @@ var _ = Describe("provider/docker config", func() {
 				Expect(hostCfg.PortBindings).To(HaveLen(1))
 				Expect(hostCfg.PortBindings[dockerclient.Port("22")]).To(Equal([]dockerclient.PortBinding{}))
 			})
+
+			It("sets PublishAllPorts", func() {
+				Expect(hostCfg.PublishAllPorts).To(BeTrue())
+			})
 		})
 
 		Context("non-nitrous image", func() {
@@ -228,6 +232,24 @@ var _ = Describe("provider/docker config", func() {
 							HostIp: pb.hostIP, HostPort: pb.hostPort}))
 				}
 			})
+		})
+
+		Context("with PublishAll config", func() {
+			BeforeEach(func() {
+				var err error
+				hostCfg, err = prov.MkHostConfig(oldHostCfg,
+					&provider.ContainerConfig{
+						Hostname:   cnrName,
+						Image:      "nitrousio/php", // Nitrous image.
+						PublishAll: true,
+					})
+				Expect(err).To(BeNil())
+			})
+
+			It("sets PublishAllPorts to true", func() {
+				Expect(hostCfg.PublishAllPorts).To(BeTrue())
+			})
+
 		})
 	})
 })
