@@ -15,6 +15,7 @@ App.Image = klass = App.Model.extend
   builtAt: attr('date', as: 'created_at', serialize: false)
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'created_at', serialize: false)
+  progress: attr('json', serialize: false)
 
   slugAndTag: (->
     slug = @get 'slug'
@@ -33,9 +34,25 @@ App.Image = klass = App.Model.extend
 
 klass.reopenClass
   url: '/hosts/:hostId/images'
-  primaryKey: 'slug'
+  primaryKey: 'id'
   rootKey: 'image'
   collectionKey: 'images'
 
   inputPattern: '[a-z0-9\\._\\-]{3,30}'
   inputTitle: 'May only contain alphanumeric characters, underscores or dashes. (3-30 characters)'
+
+  pull: (host, repository, update=true) ->
+    promise = new Ember.RSVP.Promise (resolve, reject) =>
+      @adapter.ajax('POST', "/hosts/#{host.get 'slug'}/images/pull",
+        repository: repository
+        update: update
+        async: true
+      ).done((data) =>
+        attrs = data[@rootKey]
+        primaryKey = {}
+        primaryKey[@primaryKey] = attrs[@primaryKey]
+        image = App.Image.newRecord(primaryKey)
+        image.load(attrs)
+        resolve(image)
+      ).fail (jqxhr) ->
+        reject(jqxhr)

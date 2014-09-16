@@ -1,14 +1,12 @@
-Lib.Socket = klass = Em.Object.extend Em.Evented,
+Lib.Socket = Em.Object.extend Em.Evented,
   url: null
 
   connect: ->
-    url = @get 'url'
-    protocol = location.protocol.replace 'http', 'ws'
-    @_conn = conn = new WebSocket "#{protocol}//#{url}" # not using @set to reduce overhead
-    conn.onopen    = (ev) => @_didOpen(ev)
-    conn.onmessage = (ev) => @_didReceiveMessage(ev)
-    conn.onerror   = (ev) => @_didFail(ev)
-    conn.onclose   = (ev) => @_didClose(ev)
+    @_conn = conn = new WebSocket(@get 'url') # not using @set to reduce overhead
+    conn.onopen    = (ev) => @didOpen(ev)
+    conn.onmessage = (ev) => @didReceiveMessage(ev)
+    conn.onerror   = (ev) => @didFail(ev)
+    conn.onclose   = (ev) => @didClose(ev)
 
   disconnect: ->
     @_conn?.close()
@@ -17,18 +15,18 @@ Lib.Socket = klass = Em.Object.extend Em.Evented,
   send: (data) ->
     @_conn?.send(data)
 
-  _didOpen: (ev) ->
+  didOpen: (ev) ->
     console.log 'open', ev
     @trigger 'open', ev
 
-  _didReceiveMessage: (ev) ->
+  didReceiveMessage: (ev) ->
     console.log 'message', ev
     @trigger 'message', ev.data
 
-  _didFail: (ev) ->
+  didFail: (ev) ->
     console.log 'fail', ev
     @trigger 'error', ev
 
-  _didClose: (ev) ->
+  didClose: (ev) ->
     console.log 'close', ev
     @trigger 'close', ev

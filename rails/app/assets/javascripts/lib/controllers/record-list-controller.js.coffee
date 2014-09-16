@@ -23,10 +23,11 @@ Lib.RecordListController = Em.ObjectController.extend
       @set 'removing', true
       selected = @get 'selected'
       records = @get 'records'
+      console.log selected
 
-      fns = selected.map (key) ->
+      fns = selected.map (record) ->
         (cb) ->
-          key.ajax('DELETE').then ->
+          record.ajax('DELETE').then ->
             cb(null)
           , (jqxhr) ->
             if errMsg = jqxhr.responseJSON?.error_description

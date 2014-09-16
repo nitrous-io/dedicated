@@ -22,16 +22,16 @@ App.ImagesNewView = Em.View.extend
 
   hostsDidChange: (->
     Em.run.scheduleOnce 'afterRender', this, ->
-      slug = @get('controller.hostQueryParam')
+      slug = @get('controller.preselectHost')
       if slug && !@get('selectedHostSlug')
         @set 'controller.selectedHostSlug', slug
       @$('select[name=host]')?.change()
   ).observes 'App.hosts.@each'
 
-  hostQueryParamDidChange: (->
-    if slug = @get('controller.hostQueryParam')
+  preselectHostDidChange: (->
+    if slug = @get('controller.preselectHost')
       @set 'controller.selectedHostSlug', slug
-  ).observes 'controller.hostQueryParam'
+  ).observes 'controller.preselectHost'
 
   didInsertElement: ->
     @_super()

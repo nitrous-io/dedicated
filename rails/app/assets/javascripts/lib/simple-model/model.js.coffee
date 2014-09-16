@@ -11,7 +11,9 @@ SM.Model = klass = Ember.Object.extend
       if attr.options.serialize
         val = Ember.get this, key
         if val
-          if val.toJSON && typeof val.toJSON == 'function'
+          if attr.type == 'json'
+            val = JSON.stringify(val)
+          else if val.toJSON && typeof val.toJSON == 'function'
             val = val.toJSON()
           serialized[@constructor._getKey(key)] = val
     serialized
@@ -91,6 +93,8 @@ klass.reopenClass
               new Date(val)
             when 'number'
               Number(val)
+            when 'json'
+              JSON.parse(val || null)
             else
               val
         d[key] = val

@@ -1,4 +1,8 @@
 App.ContainerIndexController = Em.ObjectController.extend App.PerformActionMixin,
+  queryParams: ['newContainer']
+
+  newContainer: null
+
   actions:
     start: ->
       @performAction('POST', 'start', 'starting')

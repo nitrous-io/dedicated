@@ -24,6 +24,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
   terminalJsPath: null
   terminalCssPath: null
 
+  eventsSocket: null
+
   didChangeTitle: (->
     title = @get 'title'
     document.title = if title
@@ -44,9 +46,14 @@ window.App = Nitrous.create
 
 window.Lib = Ember.Namespace.create()
 
-App.on 'AppDidLoad', ->
+App.on 'load', ->
   App.__container__.lookup('adapter:application') # init app adapter class
   App.set 'snackbar', App.Snackbar.create()
+
+App.on 'fetchUser', (user) ->
+  App.set 'user', user
+  App.set 'eventsSocket', socket = App.EventsSocket.create()
+  socket.connect()
 
 App.didChangeTitle()
 

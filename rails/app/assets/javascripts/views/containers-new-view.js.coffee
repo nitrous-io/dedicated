@@ -36,6 +36,9 @@ App.ContainersNewView = Em.View.extend
     !(@get('controller.envKey') && @get('controller.envValue'))
   ).property 'controller.envKey', 'controller.envValue'
 
+  hideProgress: Em.computed.none('controller.image.progress')
+  indeterminateProgress: Em.computed.none('controller.image.progress.progressDetail.start')
+
   hostsDidChange: (->
     Em.run.scheduleOnce 'afterRender', this, ->
       @$('select[name=host]')?.change()

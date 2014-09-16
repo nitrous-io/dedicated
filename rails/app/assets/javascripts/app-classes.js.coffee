@@ -12,4 +12,4 @@
 #= require routes
 
 # all classes except router are loaded
-App.trigger 'AppDidLoad'
+App.trigger 'load'

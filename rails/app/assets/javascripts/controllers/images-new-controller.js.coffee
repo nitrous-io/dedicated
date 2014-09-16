@@ -1,8 +1,7 @@
 App.ImagesNewController = Em.Controller.extend
-  queryParams:
-    hostQueryParam: 'host'
+  queryParams: ['preselectHost']
+  preselectHost: null
 
-  hostQueryParam: null
   selectedHostSlug: null
   name: null
   slug: null
@@ -17,7 +16,7 @@ App.ImagesNewController = Em.Controller.extend
 
   actions:
     cancel: ->
-      if slug = @get('hostQueryParam')
+      if slug = @get('preselectHost')
         @transitionToRoute 'host.images', slug
       else
         @transitionToRoute 'home.index'

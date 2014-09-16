@@ -3,4 +3,4 @@ App.HostImagesController = Lib.RecordListController.extend
 
   actions:
     add: ->
-      @transitionToRoute 'images.new', queryParams: { host: @get('model.slug') }
+      @transitionToRoute 'images.new', queryParams: { preselectHost: @get('model.slug') }

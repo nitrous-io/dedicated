@@ -18,6 +18,7 @@ App.ContainersNewController = Em.Controller.extend
   envKey: null
   envValue: null
 
+  image: null
   saving: false
 
   clear: ->
@@ -41,6 +42,7 @@ App.ContainersNewController = Em.Controller.extend
       envKey: null
       envValue: null
 
+      image: null
       saving: false
 
   hostImagesIsEmpty: Em.computed.empty('selectedHost.images')
@@ -69,6 +71,13 @@ App.ContainersNewController = Em.Controller.extend
   didChangeSelectedHost: (->
     @set 'volumeMounts', Em.A()
   ).observes 'selectedHost'
+
+  handleErrorResponse: (jqxhr) ->
+    if errMsg = jqxhr.responseJSON?.error_description
+      @set 'error', errMsg
+      @set 'invalidField', errMsg.match(/^\w+/)[0]
+      App.snackbar.post(errMsg.capitalize())
+    @set 'saving', false
 
   actions:
     addVolumeMount: ->
@@ -119,19 +128,38 @@ App.ContainersNewController = Em.Controller.extend
     cancel: ->
       @transitionToRoute 'home.index'
 
-    create: (image) ->
+    create: (repository) ->
       @set 'saving', true
-      container = App.Container.create
-        name: @get('name')
-        slug: @get('slug')
-        image: image
-      container.save(host: @get('selectedHostSlug'), volume: @get('volumeMounts'), env: @get('envVars'), port: @get('portBindings')).then =>
-        App.get('containers').reload().then =>
-          @transitionToRoute 'container.index', container.get 'slug'
-          @set 'saving', false
+      events = App.get 'eventsSocket'
+
+      # pull image
+      App.Image.pull(@get('selectedHost'), repository, false).then (image) =>
+        @set 'image', image
+
+        events.on 'image.pull_failed', onImagePullFailed = (data) =>
+          return unless data.id == image.get('id')
+          events.off 'image.pull_failed', onImagePullFailed
+          @set 'image', null
+          if data.progress
+            progress = JSON.parse(progress)
+            if errMsg = progress.errorDetail?.hmessage
+              App.snackbar.post(errMsg.capitalize())
+
+        events.on 'image.pulled', onImagePulled = (data) =>
+          return unless data.id == image.get('id')
+          events.off 'image.pulled', onImagePulled
+
+          # create container
+          container = App.Container.create
+            name: @get('name')
+            slug: @get('slug')
+            image: repository
+          container.save(host: @get('selectedHostSlug'), volume: @get('volumeMounts'), env: @get('envVars'), port: @get('portBindings')).then =>
+            App.get('containers').reload().then =>
+              @transitionToRoute 'container.index', container.get('slug'), queryParams: { newContainer: 'true' }
+              @set 'saving', false
+
+          , (jqxhr) =>
+            @handleErrorResponse(jqxhr)
       , (jqxhr) =>
-        if errMsg = jqxhr.responseJSON?.error_description
-          @set 'error', errMsg
-          @set 'invalidField', errMsg.match(/^\w+/)[0]
-          App.snackbar.post(errMsg.capitalize())
-        @set 'saving', false
+        @handleErrorResponse(jqxhr)

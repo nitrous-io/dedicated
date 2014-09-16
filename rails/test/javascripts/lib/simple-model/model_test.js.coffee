@@ -6,6 +6,7 @@ TestModel = SM.Model.extend
   lastName: attr(as: 'last_name')
   bio: attr()
   age: attr('number')
+  data: attr('json')
   bornAt: attr('date', as: 'born_at')
   createdAt: attr('date', as: 'created_at', serialize: false)
 
@@ -25,7 +26,7 @@ describe 'SM.Model', ->
 
       it 'defines attributes', ->
         attrs = Em.get TestModel, '_attrs'
-        expect(attrs.keys.list).to.eql ['id', 'firstName', 'lastName', 'bio', 'age', 'bornAt', 'createdAt'], 'has 7 attrs'
+        expect(attrs.keys.list).to.eql ['id', 'firstName', 'lastName', 'bio', 'age', 'data', 'bornAt', 'createdAt'], 'has 7 attrs'
         expect(attrs.get('firstName').type).to.equal 'string', 'firstName is string'
         expect(attrs.get('lastName').type).to.equal 'string', 'lastName is string'
         expect(attrs.get('bio').type).to.equal 'string', 'bio is string'
@@ -218,6 +219,9 @@ describe 'SM.Model', ->
         lastName: 'cchio'
         bio: 'I wanna be a real boy.'
         age: 1
+        data:
+          foo: 'bar'
+          baz: 123
         bornAt: new Date(Date.UTC(1883, 0, 1))
         createdAt: new Date(Date.UTC(2014, 6, 28))
 
@@ -229,6 +233,7 @@ describe 'SM.Model', ->
           last_name: 'cchio'
           bio: 'I wanna be a real boy.'
           age: 1
+          data: '{"foo":"bar","baz":123}'
           born_at: '1883-01-01T00:00:00.000Z'
         , 'serialized with correct keys and value conversions')
         expect(serialized.created_at).not.to.be.defined 'created_at is not serialized (serialize: false)'
@@ -240,11 +245,13 @@ describe 'SM.Model', ->
           last_name: 'Bar'
           bio: 'foobar!!!'
           age: 20
+          data: '{"foo":"bar","baz":123}'
           born_at: '2014-07-28T00:00:00.000Z'
         expect(data.firstName).to.equal 'Foo', 'first_name is correctly deserialized'
         expect(data.lastName).to.equal 'Bar', 'last_name is correctly deserialized'
         expect(data.bio).to.equal 'foobar!!!', 'bio is correctly deserialized'
         expect(data.age).to.equal 20, 'age is correctly deserialized'
+        expect(data.data).to.eql { foo: 'bar', baz: 123 }, 'data is correctly desrialized'
         expect(data.bornAt.valueOf()).to.equal +new Date(Date.UTC(2014, 6, 28)), 'born_at is correctly deserialized'
 
       it 'deserializes other types of values correctly', ->
@@ -253,12 +260,14 @@ describe 'SM.Model', ->
           last_name: 123
           bio: null
           age: '20'
+          data: ''
           born_at: 1406505600000
           extra: 'stuff'
         expect(data.firstName).to.equal '', 'first_name is correctly deserialized (blank)'
         expect(data.lastName).to.equal '123', 'last_name is correctly deserialized (number -> string)'
         expect(data.bio).to.be.null 'bio is correctly deserialized (null)'
         expect(data.age).to.equal 20, 'age is correctly deserialized (string -> number)'
+        expect(data.data).to.be.null 'data is correctly deserialized (null)'
         expect(data.bornAt.valueOf()).to.equal +new Date(Date.UTC(2014, 6, 28)), 'born_at is correctly deserialized'
         expect(data.extra).not.to.be.defined 'extra is not deserialized'
 

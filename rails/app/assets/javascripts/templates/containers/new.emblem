@@ -64,14 +64,20 @@ form submit='create target="view"'
         a.ui.btn.raised href='#' click='openEnvVars target="view"' Environment Variables
 
   .card-footer.bordered
-    .right
-      if saving
+    if saving
+      if image.progress.status
+        .left
+          p.progress-status
+            = image.progress.status
+      .right
         button.ui.btn disabled='disabled'
           i.spinner
           | Creating...
-      else
+    else
+      .right
         a.ui.btn href='#' click='cancel' Cancel
         input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'
+  = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
 
 #volume-mounts-dialog.ui.modal.container-config
   .ui.card
