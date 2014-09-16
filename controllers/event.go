@@ -9,6 +9,7 @@ const (
 	EventContainerStopped   EventName = "container.stopped"
 	EventContainerRestarted EventName = "container.restarted"
 	EventHostCreated        EventName = "host.created"
+	EventHostCreateFailed   EventName = "host.create_failed"
 	EventHostUpdated        EventName = "host.updated"
 	EventHostDestroyed      EventName = "host.destroyed"
 	EventHostStarted        EventName = "host.started"

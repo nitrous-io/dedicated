@@ -74,7 +74,7 @@ var _ = Describe("controllers/hosts", func() {
 		hs *HostStack
 	)
 
-	unmarshalErrorResponse := func() (error, *errorResponse) {
+	unmarshalErrorResponse := func(res *httptest.ResponseRecorder) (error, *errorResponse) {
 		errRes := &errorResponse{}
 		err := json.Unmarshal(res.Body.Bytes(), errRes)
 		return err, errRes
@@ -209,6 +209,8 @@ var _ = Describe("controllers/hosts", func() {
 	})
 
 	Describe("POST /api/v0/hosts", func() {
+		var params *url.Values
+
 		BeforeEach(func() {
 			var err error
 			hs, err = CreateHostStack(db, &HostStack{
@@ -216,37 +218,22 @@ var _ = Describe("controllers/hosts", func() {
 				P: &plan.Plan{Slug: "large"},
 			})
 			Expect(err).To(BeNil())
+
+			params = &url.Values{}
+			params.Set("slug", "honeybadger")
+			params.Set("size", hs.P.Slug)
+			params.Set("region", hs.R.Slug)
+			params.Set("name", "honeybadger don't care")
 		})
 
 		type overrides map[string]string
-		doRequest := func(o overrides) {
-			var ok bool
-
-			if _, ok = o["slug"]; !ok {
-				o["slug"] = "honeybadger"
-			}
-
-			if _, ok = o["size"]; !ok {
-				o["size"] = hs.P.Slug
-			}
-
-			if _, ok = o["region"]; !ok {
-				o["region"] = hs.R.Slug
-			}
-
-			if _, ok = o["name"]; !ok {
-				o["name"] = "honeybadger don't care"
-			}
-
-			p := &url.Values{}
-			for k, v := range o {
-				p.Set(k, v)
-			}
-
+		doRequest := func(p *url.Values) *httptest.ResponseRecorder {
 			req, err := NewRequest("POST", "/api/v0/hosts", p)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
+			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
+			return res
 		}
 
 		// tests for required params
@@ -255,11 +242,12 @@ var _ = Describe("controllers/hosts", func() {
 
 			Context("when request does not specify a "+p, func() {
 				It("responds with "+p+" required", func() {
-					doRequest(overrides{p: ""})
+					params.Del(p)
+					res := doRequest(params)
 
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-					err, j := unmarshalErrorResponse()
+					err, j := unmarshalErrorResponse(res)
 					Expect(err).To(BeNil())
 
 					Expect(j.Error).To(Equal("invalid_request"))
@@ -270,11 +258,12 @@ var _ = Describe("controllers/hosts", func() {
 
 		Context("when a matching plan cannot be found for the specified size", func() {
 			It("responds with plan not found", func() {
-				doRequest(overrides{"size": "doubledouble"})
+				params.Set("size", "doubledouble")
+				res := doRequest(params)
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				err, j := unmarshalErrorResponse()
+				err, j := unmarshalErrorResponse(res)
 				Expect(err).To(BeNil())
 
 				Expect(j.Error).To(Equal("invalid_request"))
@@ -284,11 +273,12 @@ var _ = Describe("controllers/hosts", func() {
 
 		Context("when an invalid region is specified", func() {
 			It("responds with region not found", func() {
-				doRequest(overrides{"region": "antarctica"})
+				params.Set("region", "antarctica")
+				res := doRequest(params)
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				err, j := unmarshalErrorResponse()
+				err, j := unmarshalErrorResponse(res)
 				Expect(err).To(BeNil())
 
 				Expect(j.Error).To(Equal("invalid_request"))
@@ -304,11 +294,12 @@ var _ = Describe("controllers/hosts", func() {
 				err := r2.Insert(db)
 				Expect(err).To(BeNil())
 
-				doRequest(overrides{"region": r2.Slug})
+				params.Set("region", r2.Slug)
+				res := doRequest(params)
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				err, j := unmarshalErrorResponse()
+				err, j := unmarshalErrorResponse(res)
 				Expect(err).To(BeNil())
 
 				Expect(j.Error).To(Equal("invalid_request"))
@@ -338,7 +329,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("creates a host record for the user", func() {
-					doRequest(overrides{})
+					doRequest(params)
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
 					Expect(hosts).To(HaveLen(1))
@@ -348,8 +339,8 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.PlanID).To(Equal(hs.P.ID))
 					Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
 
-					Expect(h.Slug).To(Equal("honeybadger"))
-					Expect(h.Name.String).To(Equal("honeybadger don't care"))
+					Expect(h.Slug).To(Equal(params.Get("slug")))
+					Expect(h.Name.String).To(Equal(params.Get("name")))
 
 					Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
 					Expect(h.State).To(Equal(host.StateRunning))
@@ -358,11 +349,11 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
 					Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
 
-					Expect(config["name"]).To(Equal("honeybadger"))
+					Expect(config["name"]).To(Equal(params.Get("slug")))
 				})
 
 				It("creates a keypair associated with that host", func() {
-					doRequest(overrides{})
+					doRequest(params)
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
 					Expect(hosts).To(HaveLen(1))
@@ -375,7 +366,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("creates a shared secret for the host", func() {
-					doRequest(overrides{})
+					doRequest(params)
 					hosts, _ := host.FindAllByUser(db, u)
 
 					Expect(hosts[0].Secret).NotTo(BeEmpty())
@@ -383,7 +374,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("creates a cert associated with that host", func() {
-					doRequest(overrides{})
+					doRequest(params)
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
 					Expect(hosts).To(HaveLen(1))
@@ -395,7 +386,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				It("responds with the created host and status created", func() {
-					doRequest(overrides{})
+					res := doRequest(params)
 					Expect(res.Code).To(Equal(http.StatusCreated))
 
 					var j struct {
@@ -409,7 +400,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(j.Host.UserID).To(Equal(u.ID))
 					Expect(j.Host.RegionID).To(Equal(hs.R.ID))
 					Expect(j.Host.PlanID).To(Equal(hs.P.ID))
-					Expect(j.Host.Slug).To(Equal("honeybadger"))
+					Expect(j.Host.Slug).To(Equal(params.Get("slug")))
 					Expect(j.Host.IPAddress).To(Equal("0.0.0.0"))
 					Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
 					Expect(j.Host.Size).To(Equal(hs.P.Slug))
@@ -424,7 +415,7 @@ var _ = Describe("controllers/hosts", func() {
 					ch := svr.Events.Subscribe(u.Topic())
 					defer svr.Events.Unsubscribe(ch, u.Topic())
 
-					doRequest(overrides{})
+					doRequest(params)
 
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
@@ -438,7 +429,8 @@ var _ = Describe("controllers/hosts", func() {
 				}, 3) // increase timeout to allow goroutine to finish
 
 				It("converts the 'slug' form value to lowercase", func() {
-					doRequest(overrides{"slug": "HoneyBADGER"})
+					params.Set("slug", "HoneyBADGER")
+					doRequest(params)
 
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
@@ -458,17 +450,17 @@ var _ = Describe("controllers/hosts", func() {
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
 					Expect(hosts).To(HaveLen(1))
-
-					doRequest(overrides{"slug": "honeybadger"})
 				})
 
 				It("does not create a host", func() {
+					doRequest(params)
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
 					Expect(hosts).To(HaveLen(1))
 				})
 
 				It("responds with HTTP 400 Bad Request", func() {
+					res := doRequest(params)
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
 					j := map[string]interface{}{}
 					err := json.Unmarshal(res.Body.Bytes(), &j)
@@ -486,19 +478,138 @@ var _ = Describe("controllers/hosts", func() {
 					hb.OverrideRequestHandler(mockHostbuilderError)
 
 					hosts.HostbuilderClient = hb
-
-					doRequest(overrides{})
 				})
 
-				It("creates a host in the orphan state for the user", func() {
-					h, err := host.Find(db, u, "honeybadger")
+				It("creates a host in the orphan state", func() {
+					doRequest(params)
+					h, err := host.Find(db, u, params.Get("slug"))
 					Expect(err).To(BeNil())
-					Expect(h.Slug).To(Equal("honeybadger"))
+					Expect(h.Slug).To(Equal(params.Get("slug")))
 					Expect(h.State).To(Equal(host.StateOrphan))
 				})
 
 				It("responds with a internal server error", func() {
+					res := doRequest(params)
 					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				})
+			})
+		})
+
+		Context("when async param is true", func() {
+			BeforeEach(func() {
+				params.Set("async", "true")
+			})
+
+			It("returns 202 accepted and creates host asynchronously", func() {
+				res := doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Host.State).To(Equal(host.StateBorn))
+
+				// These fields are not yet set.
+				Expect(j.Host.IPAddress).To(BeEmpty())
+				Expect(j.Host.FreighterdPort).To(BeZero())
+
+				h, err := host.Find(db, u, params.Get("slug"))
+				Expect(err).To(BeNil())
+				Expect(h.Slug).To(Equal(params.Get("slug")))
+				Expect(h.State).To(Equal(host.StateBorn))
+			})
+
+			Context("when hostbuilder successfully creates a host", func() {
+				BeforeEach(func() {
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					ch := func(path string, provider string, conf *hostbuilderclient.Config) (*hostbuilder.Response, error) {
+						return &hostbuilder.Response{
+							ID:             "abcd1234",
+							IPAddress:      "0.0.0.0",
+							Provider:       hs.PT.Name,
+							FreighterdPort: uint16(65333),
+						}, nil
+					}
+					hb.OverrideRequestHandler(ch)
+
+					hosts.HostbuilderClient = hb
+				})
+
+				It("updates the host record with the info from Hostbuilder", func() {
+					doRequest(params)
+
+					Eventually(func() (string, error) {
+						h, err := host.Find(db, u, params.Get("slug"))
+						return h.State, err
+					}).Should(Equal(host.StateRunning))
+
+					Eventually(func() (string, error) {
+						h, err := host.Find(db, u, params.Get("slug"))
+						return h.ProviderIdentifier.String, err
+					}).Should(Equal("abcd1234"))
+				})
+
+				It("publishes a host created event with the created host", func(done Done) {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					doRequest(params)
+
+					msg := <-ch
+					evt, ok := msg.(*controllers.Event)
+					Expect(ok).To(BeTrue())
+					Expect(evt.Name).To(Equal(controllers.EventHostCreated))
+
+					h, ok := evt.Data.(*serializers.Host)
+					Expect(ok).To(BeTrue())
+
+					hRec, err := host.Find(db, u, params.Get("slug"))
+					Expect(err).To(BeNil())
+					Expect(h).To(Equal(serializers.SerializeHost(hRec)))
+
+					close(done)
+				})
+			})
+
+			Context("when hostbuilder fails to create the host", func() {
+				BeforeEach(func() {
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					hb.OverrideRequestHandler(mockHostbuilderError)
+
+					hosts.HostbuilderClient = hb
+				})
+
+				It("updates the host's state to orphan", func() {
+					doRequest(params)
+
+					Eventually(func() (string, error) {
+						h, err := host.Find(db, u, params.Get("slug"))
+						return h.State, err
+					}).Should(Equal(host.StateOrphan))
+				})
+
+				It("publishes a host create failed event with the host record", func(done Done) {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					doRequest(params)
+
+					msg := <-ch
+					evt, ok := msg.(*controllers.Event)
+					Expect(ok).To(BeTrue())
+					Expect(evt.Name).To(Equal(controllers.EventHostCreateFailed))
+
+					h, ok := evt.Data.(*serializers.Host)
+					Expect(ok).To(BeTrue())
+
+					hRec, err := host.Find(db, u, params.Get("slug"))
+					Expect(err).To(BeNil())
+					Expect(h).To(Equal(serializers.SerializeHost(hRec)))
+
+					close(done)
 				})
 			})
 		})
@@ -764,7 +875,7 @@ var _ = Describe("controllers/hosts", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				doRequest("")
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				err, j := unmarshalErrorResponse()
+				err, j := unmarshalErrorResponse(res)
 				Expect(err).To(BeNil())
 				Expect(j.Error).To(Equal("invalid_state"))
 				Expect(j.ErrorDescription).To(Equal("host is not running"))
@@ -782,7 +893,7 @@ var _ = Describe("controllers/hosts", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				doRequest("")
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				err, j := unmarshalErrorResponse()
+				err, j := unmarshalErrorResponse(res)
 				Expect(err).To(BeNil())
 				Expect(j.Error).To(Equal("invalid_state"))
 				Expect(j.ErrorDescription).To(Equal("host is not running"))
@@ -898,7 +1009,6 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.Hostname).To(Equal("honeybadger.nitrouspro.com"))
 				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
 				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
-				Expect(j.Host.Stats).To(BeNil())
 				Expect(j.Host.CreatedAt).NotTo(BeNil())
 				Expect(j.Host.UpdatedAt).NotTo(BeNil())
 				Expect(j.Host.TerminatedAt).NotTo(BeNil())
@@ -1004,7 +1114,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				err, j := unmarshalErrorResponse()
+				err, j := unmarshalErrorResponse(res)
 				Expect(err).To(BeNil())
 
 				Expect(j.Error).To(Equal("invalid_state"))
@@ -1045,7 +1155,6 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
 				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
 				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
-				Expect(j.Host.Stats).To(BeNil())
 				Expect(j.Host.CreatedAt).NotTo(BeNil())
 				Expect(j.Host.UpdatedAt).NotTo(BeNil())
 				Expect(j.Host.TerminatedAt).To(BeNil())
@@ -1129,7 +1238,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				err, j := unmarshalErrorResponse()
+				err, j := unmarshalErrorResponse(res)
 				Expect(err).To(BeNil())
 
 				Expect(j.Error).To(Equal("invalid_state"))
@@ -1170,7 +1279,6 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
 				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
 				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
-				Expect(j.Host.Stats).To(BeNil())
 				Expect(j.Host.CreatedAt).NotTo(BeNil())
 				Expect(j.Host.UpdatedAt).NotTo(BeNil())
 				Expect(j.Host.TerminatedAt).To(BeNil())
@@ -1254,7 +1362,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				err, j := unmarshalErrorResponse()
+				err, j := unmarshalErrorResponse(res)
 				Expect(err).To(BeNil())
 
 				Expect(j.Error).To(Equal("invalid_state"))
@@ -1295,7 +1403,6 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
 				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
 				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
-				Expect(j.Host.Stats).To(BeNil())
 				Expect(j.Host.CreatedAt).NotTo(BeNil())
 				Expect(j.Host.UpdatedAt).NotTo(BeNil())
 				Expect(j.Host.TerminatedAt).To(BeNil())
