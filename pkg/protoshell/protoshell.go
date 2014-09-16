@@ -193,7 +193,7 @@ func (s *ProtoShell) monitorSize(fd uintptr) {
 // match the local terminal size
 func (s *ProtoShell) resize(fd uintptr) {
 	w, h := getSize(fd)
-	msg := fmt.Sprintf("w|%d %d", w, h)
+	msg := fmt.Sprintf("r|%d %d", w, h)
 	s.conn.Write([]byte(msg))
 }
 
