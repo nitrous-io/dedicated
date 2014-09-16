@@ -32,7 +32,7 @@ func PrettyPrint(images ...*Image) string {
 	w.Init(b, consts.MinWidth, consts.TabWidth, consts.Padding, consts.PaddingChar, consts.Flags)
 	fmt.Fprintln(w, strings.Join([]string{"Slug", "Tag", "ID", "Name", "Created", "Size", "Virtual Size"}, "\t "))
 	for _, h := range images {
-		fmt.Fprintln(w, h.Slug, "\t", h.Tag, "\t", h.FreighterID, "\t", h.Name, "\t", h.CreatedAt, "\t", h.ActualSize, "\t", h.VirtualSize)
+		fmt.Fprintln(w, h.Slug, "\t", h.Tag, "\t", h.ID, "\t", h.Name, "\t", h.CreatedAt, "\t", h.ActualSize, "\t", h.VirtualSize)
 	}
 	w.Flush()
 	return b.String()

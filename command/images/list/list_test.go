@@ -148,9 +148,9 @@ var _ = Describe("images/list", func() {
 					It("should communicate list the images", func() {
 						code := cmd.Run([]string{host})
 						Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
-Slug       Tag           ID          Name           Created                          Size   Virtual Size
-source1    sourcetag1    cafefeed    source1 img    2013-11-01 00:00:00 +0000 UTC    12     39
-source2    sourcetag2    cafedead    source2 img    2013-11-02 00:00:00 +0000 UTC    10     48
+Slug       Tag           ID    Name           Created                          Size   Virtual Size
+source1    sourcetag1    12    source1 img    2013-11-01 00:00:00 +0000 UTC    12     39
+source2    sourcetag2    13    source2 img    2013-11-02 00:00:00 +0000 UTC    10     48
 `)))
 						Expect(code).To(Equal(0))
 					})
