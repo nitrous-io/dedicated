@@ -20,11 +20,12 @@ import (
 )
 
 const (
-	slugUsage         = "A unique slug for the container"
-	imageUsage        = "Specify an image to use to create the container"
-	envUsage          = "Set environment variables for the container in the format <key>=<value>. " + command.MultiargUsage
-	volumesUsage      = "Add data volume so other containers can mount given <path>. " + command.MultiargUsage
-	portForwardsUsage = "Forward ports from container to host.  Use one of: 'public:hostPort:containerPort', 'private:hostPort:containerPort', 'public::containerPort', or 'private::containerPort' specifications. Publicly forwarded ports will be accessible via the host. " + command.MultiargUsage
+	slugUsage           = "A unique slug for the container"
+	imageUsage          = "Specify an image to use to create the container"
+	envUsage            = "Set environment variables for the container in the format <key>=<value>. " + command.MultiargUsage
+	volumesUsage        = "Add data volume so other containers can mount given <path>. " + command.MultiargUsage
+	portForwardsUsage   = "Forward ports from container to host.  Use one of: 'public:hostPort:containerPort', 'private:hostPort:containerPort', 'public::containerPort', or 'private::containerPort' specifications. Publicly forwarded ports will be accessible via the host. " + command.MultiargUsage
+	portForwardAllUsage = "Forward all ports specified by EXPOSE command in Dockerfile"
 )
 
 const usage = `
@@ -39,6 +40,7 @@ Options:
   -e, --env=[]            %s
   -v, --volume=[]         %s
   -p, --port-forward=[]   %s
+  -P, --port-forward-all  %s
 `
 
 type Command struct {
@@ -48,12 +50,13 @@ type Command struct {
 }
 
 type containerParams struct {
-	host         string
-	slug         string
-	image        string
-	envVars      command.Multiarg
-	volumes      command.Multiarg
-	portForwards command.Multiarg
+	host           string
+	slug           string
+	image          string
+	envVars        command.Multiarg
+	volumes        command.Multiarg
+	portForwards   command.Multiarg
+	portForwardAll bool
 }
 
 func init() {
@@ -74,7 +77,7 @@ func NewCommand(token string) (cli.Command, error) {
 func (c *Command) Help() string {
 	// TODO this is getting unwieldy, maybe text/template
 	return strings.TrimSpace(fmt.Sprintf(usage, slugUsage,
-		imageUsage, envUsage, volumesUsage, portForwardsUsage))
+		imageUsage, envUsage, volumesUsage, portForwardsUsage, portForwardAllUsage))
 }
 
 func (c *Command) Run(args []string) int {
@@ -88,6 +91,7 @@ func (c *Command) Run(args []string) int {
 	cmdFlags.VarP(&params.envVars, "env", "e", envUsage)
 	cmdFlags.VarP(&params.volumes, "volume", "v", volumesUsage)
 	cmdFlags.VarP(&params.portForwards, "port-forward", "p", portForwardsUsage)
+	cmdFlags.BoolVarP(&params.portForwardAll, "port-forward-all", "P", false, portForwardAllUsage)
 
 	err := cmdFlags.Parse(args)
 	if err != nil {
@@ -213,6 +217,9 @@ func (c *Command) start(cp *containerParams) (*containers.Container, error) {
 	}
 	for _, pf := range cp.portForwards {
 		p.Add("port[]", pf)
+	}
+	if cp.portForwardAll {
+		p.Set("publish_all", "1")
 	}
 
 	u := fmt.Sprintf("%s/api/v0/containers/%s/start", c.Server, cp.slug)

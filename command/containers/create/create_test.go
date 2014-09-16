@@ -109,6 +109,7 @@ var _ = Describe("containers/create", func() {
 			"--volume=/shared", // repeat args supported
 			"--volume=/music",
 			"--port-forward=8080:3000,127.0.0.1:4242", // comma-separated supported
+			"--port-forward-all",
 		})
 	}
 
@@ -211,6 +212,7 @@ var _ = Describe("containers/create", func() {
 			Expect(r.PostForm["env[]"]).To(Equal([]string{"PAGER=most"}))
 			Expect(r.PostForm["volume[]"]).To(Equal([]string{"/shared", "/music"}))
 			Expect(r.PostForm["port[]"]).To(Equal([]string{"8080:3000", "127.0.0.1:4242"}))
+			Expect(r.PostFormValue("publish_all")).To(Equal("1"))
 		})
 
 	})
