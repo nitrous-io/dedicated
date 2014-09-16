@@ -3,6 +3,7 @@ package image_test
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/nitrous-io/freighter/provider/docker/parsers"
@@ -59,13 +60,23 @@ var _ = Describe("models/image", func() {
 	})
 
 	Describe("Find()", func() {
-		It("returns the image record when given its Freighter ID", func() {
+		It("returns the image record when given its ID", func() {
 			hs, err := test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag) values ($1, $2, $3, $4, $5, $6);", hs.U.ID, hs.H.ID, "cafebabe", "scratch image", "scratch", "latest")
-			Expect(err).To(BeNil())
 
-			img, err := image.Find(db, hs.U, hs.H, "cafebabe")
+			var id int64
+			nstmt, err := db.PrepareNamed("INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag) values (:user_id, :host_id, :freighter_id, :name, :slug, :tag) RETURNING id;")
+			Expect(err).To(BeNil())
+			nstmt.QueryRowx(&image.Image{
+				UserID:      hs.U.ID,
+				HostID:      hs.H.ID,
+				FreighterID: "cafebabe",
+				Name:        "scratch image",
+				Slug:        "scratch",
+				Tag:         "latest",
+			}).Scan(&id)
+
+			img, err := image.Find(db, hs.U, hs.H, strconv.FormatInt(id, 10))
 			Expect(err).To(BeNil())
 			Expect(img).NotTo(BeNil())
 			Expect(img.UserID).To(Equal(hs.U.ID))
@@ -148,7 +159,7 @@ var _ = Describe("models/image", func() {
 			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag) values ($1, $2, $3, $4, $5, $6);", hs.U.ID, hs.H.ID, "cafebabe", "scratch image", "scratch", "latest")
 			Expect(err).To(BeNil())
 
-			img, err := image.Find(db, hs.U, hs.H, "cafebabe")
+			img, err := image.Find(db, hs.U, hs.H, "scratch:latest")
 			Expect(err).To(BeNil())
 			Expect(img).NotTo(BeNil())
 			Expect(img.FreighterID).To(Equal("cafebabe"))
@@ -168,7 +179,7 @@ var _ = Describe("models/image", func() {
 			_, err = db.Exec("INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag) values ($1, $2, $3, $4, $5, $6);", hs.U.ID, hs.H.ID, "cafebabe", "scratch image", "scratch", "latest")
 			Expect(err).To(BeNil())
 
-			img, err := image.Find(db, hs.U, hs.H, "cafebabe")
+			img, err := image.Find(db, hs.U, hs.H, "scratch:latest")
 			Expect(err).To(BeNil())
 			Expect(img).NotTo(BeNil())
 			Expect(img.FreighterID).To(Equal("cafebabe"))
@@ -225,7 +236,7 @@ var _ = Describe("models/image", func() {
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
 
-				img, err := image.Find(db, hs.U, hs.H, "cafebabe")
+				img, err := image.Find(db, hs.U, hs.H, "scratch:latest")
 				Expect(err).To(BeNil())
 				Expect(img.FreighterID).To(Equal("cafebabe"))
 

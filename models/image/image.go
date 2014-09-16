@@ -2,8 +2,11 @@ package image
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
@@ -47,20 +50,41 @@ func FindAll(d db.QueryReceiver, u *user.User, h *host.Host) ([]*Image, error) {
 // identifier can be either a FID (Freighter ID) or slug (with optional tag,
 // i.e. slug[:tag]).
 func Find(d db.QueryReceiver, u *user.User, h *host.Host, identifier string) (*Image, error) {
-	var i Image
+	var (
+		img   Image
+		nstmt *sqlx.NamedStmt
+		err   error
+	)
 	repo, tag := ParseRepoAndTag(identifier)
 	if tag == "" {
 		tag = DefaultTag
 	}
-	err := d.Get(&i, `SELECT * FROM images
-		WHERE user_id = $1 AND host_id = $2 AND
-		(freighter_id = $3 OR (slug = $4 AND tag = $5))`,
-		u.ID, h.ID,
-		identifier, repo, tag)
+	params := map[string]interface{}{
+		"user_id": u.ID,
+		"host_id": h.ID,
+		"slug":    repo,
+		"tag":     tag,
+	}
+	// if parseInt returns an error it means
+	// given identifier is not an id.
+	id, err := strconv.ParseInt(identifier, 10, 64)
+	if err != nil {
+		nstmt, err = d.PrepareNamed(`SELECT * FROM images
+			WHERE user_id = :user_id AND host_id = :host_id
+			AND slug = :slug AND tag = :tag`)
+	} else {
+		params["id"] = id
+		nstmt, err = d.PrepareNamed(`SELECT * FROM images
+			WHERE user_id = :user_id AND host_id = :host_id
+			AND id = :id`)
+	}
 	if err != nil {
 		return nil, err
 	}
-	return &i, nil
+	if err := nstmt.Get(&img, params); err != nil {
+		return nil, err
+	}
+	return &img, nil
 }
 
 func (i *Image) Insert(d db.QueryReceiver) error {
