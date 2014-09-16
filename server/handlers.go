@@ -354,8 +354,6 @@ func (s *Server) wsNewShell(token string, w http.ResponseWriter, r *http.Request
 			default:
 				log.Println("shell: got unknown msg %v", msg)
 			}
-		case <-ch:
-			return nil
 		}
 	}
 }
