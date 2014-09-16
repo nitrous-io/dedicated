@@ -610,6 +610,7 @@ func prepareConfig(form url.Values, hv map[string]*volume.Volume) (*freightercli
 	if ports, ok := form["port[]"]; ok {
 		c.PortBindings = ports
 	}
+	c.PublishAll = form.Get("publish_all") == "1"
 	return c, nil
 }
 

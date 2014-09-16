@@ -1838,5 +1838,18 @@ var _ = Describe("controllers/containers", func() {
 			pbs := getConfs().PortBindings
 			Expect(pbs).To(ConsistOf("3030:4040", "5050:6060"))
 		})
+
+		Context("publish all option", func() {
+			It("defaults to false", func() {
+				publishAll := getConfs().PublishAll
+				Expect(publishAll).To(BeFalse())
+			})
+
+			It("can be set to true", func() {
+				form.Add("publish_all", "1")
+				publishAll := getConfs().PublishAll
+				Expect(publishAll).To(BeTrue())
+			})
+		})
 	})
 })
