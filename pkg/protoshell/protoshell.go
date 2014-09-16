@@ -38,6 +38,9 @@ type ProtoShell struct {
 
 	serverIn  io.Writer
 	serverOut io.Reader
+
+	// specify that the remote command doesnt need a tty
+	NoTTY bool
 }
 
 // New creates a shell that uses WebSockets.
@@ -78,6 +81,9 @@ func (s *ProtoShell) Attach(infd uintptr, outfd uintptr, stdin io.ReadCloser, st
 	params.Set("command", s.command)
 	params.Set("token", token)
 	params.Set("binary", "true")
+	if s.NoTTY {
+		params.Set("notty", "true")
+	}
 	wsEndpointURI := fmt.Sprintf("wss://%s/containers/%s/shell?%s", s.host, s.containerID, params.Encode())
 
 	dialer := websocket.Dialer{
@@ -142,7 +148,7 @@ func (s *ProtoShell) Attach(infd uintptr, outfd uintptr, stdin io.ReadCloser, st
 	// may have been terminated.
 	//
 	// We only monitor size when the current shell lives in a terminal
-	if s.isTerminalOut {
+	if s.isTerminalOut && !s.NoTTY {
 		s.monitorSize(outfd)
 	}
 

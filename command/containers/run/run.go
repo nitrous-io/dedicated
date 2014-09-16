@@ -1,7 +1,6 @@
 package run
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -12,13 +11,21 @@ import (
 	"github.com/nitrous-io/nitro/pkg/nitrousapi"
 	"github.com/nitrous-io/nitro/pkg/protoshell"
 	"github.com/nitrous-io/nitrous-common/httpclient"
+	flag "github.com/ogier/pflag"
 )
 
-const usage = `
-Usage: nitro run [container] [cmd]
+const (
+	nottyUsage = "do not allocate an interactive TTY for the command"
+)
+
+var usage = fmt.Sprintf(`
+Usage: nitro run [OPTIONS] [container] [cmd]
 
   run a command on a container
-`
+
+Options:
+  --notty="" %s.
+`, nottyUsage)
 
 func init() {
 	command.RegisterAuth("run", NewCommand)
@@ -42,8 +49,10 @@ func NewCommand(token string) (cli.Command, error) {
 }
 
 func (c *Command) Run(args []string) int {
+	var noTTY bool
 	cmdFlags := flag.NewFlagSet("run", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
+	cmdFlags.BoolVar(&noTTY, "notty", false, nottyUsage)
 
 	if err := cmdFlags.Parse(args); err != nil {
 		return 1
@@ -90,6 +99,7 @@ func (c *Command) Run(args []string) int {
 	sh := protoshell.New(host, cr.CID, command, tlsConfig, func() (string, error) {
 		return containers.GetToken(slug, c.server, []string{"shell"}, c.client)
 	})
+	sh.NoTTY = noTTY
 	if err := sh.Run(stdin.Fd(), stdout.Fd(), stdin, stdout); err != nil {
 		c.UI.Error(fmt.Sprintf("Exited: %v", err))
 		return 1
