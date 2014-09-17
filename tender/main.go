@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,6 +12,9 @@ import (
 
 	"github.com/nitrous-io/tender"
 )
+
+// current version of tender binary
+var version string
 
 var (
 	databaseURL    string
@@ -30,7 +34,18 @@ var (
 //
 // TODO: eventually we may look into etcd ( and co ) so we dont have to touch
 // the main database *because* latency
-func init() {
+func main() {
+	var (
+		flVersion = flag.Bool("v", false, "Display the version and exit")
+	)
+	flag.Parse()
+
+	if *flVersion {
+		fmt.Printf("tender version: %s\n", version)
+		os.Exit(0)
+	}
+
+	// setup env variables
 	databaseURL = envStr("DATABASE_URL")
 	freighterdPort = envInt("FREIGHTERD_PORT")
 	baseDomain = envStr("BASE_DOMAIN")
@@ -41,9 +56,7 @@ func init() {
 	if baseDomain[0] != '.' {
 		panic("BASE_DOMAIN should start with .")
 	}
-}
 
-func main() {
 	_, err := tls.LoadX509KeyPair(pubCACert, pubCAKey)
 	if err != nil {
 		log.Fatalf("tender: Failed to load SSL certificates- %s & %s: %s", pubCACert, pubCAKey, err)
