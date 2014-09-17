@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -17,6 +18,7 @@ var (
 	freighterdPort int
 	pubCACert      string
 	pubCAKey       string
+	privCACertPath string
 )
 
 // Configure require settings. Required env variables are:
@@ -34,6 +36,7 @@ func init() {
 	baseDomain = envStr("BASE_DOMAIN")
 	pubCACert = envStr("PUB_CRT")
 	pubCAKey = envStr("PUB_KEY")
+	privCACertPath = envStr("PRI_CRT")
 
 	if baseDomain[0] != '.' {
 		panic("BASE_DOMAIN should start with .")
@@ -45,8 +48,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("tender: Failed to load SSL certificates- %s & %s: %s", pubCACert, pubCAKey, err)
 	}
+	privCACert, err := ioutil.ReadFile(privCACertPath)
+	if err != nil {
+		log.Fatalf("tender: Failed to find private CA cert at %s", privCACertPath)
+	}
 
-	s, err := tender.NewServer(baseDomain, databaseURL, freighterdPort)
+	s, err := tender.NewServer(baseDomain, databaseURL, freighterdPort, privCACert)
 	if err != nil {
 		log.Fatalf("tender: Failed to start tender server, %v", err)
 	}

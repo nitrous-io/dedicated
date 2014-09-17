@@ -2,6 +2,8 @@ package tender
 
 import (
 	"crypto/sha1"
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"fmt"
 	"log"
@@ -29,6 +31,9 @@ type Server struct {
 	// expected DNS based domain that we want to receive requests to, i.e.
 	// `.nitrousapp.com`
 	baseDomain string
+	// default tls config to talk to remote freighterd server. whenever we
+	// proxy to a server, we have to copy this and set a server name
+	tlsConfig *tls.Config
 }
 
 // first check if the request endpoints requires authentication, then proxy it
@@ -44,7 +49,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Returns a `http.Handler` which can be used to proxy requests to a Nitrous.IO
 // host
-func NewServer(baseDomain, databaseURL string, freighterdPort int) (http.Handler, error) {
+func NewServer(baseDomain, databaseURL string, freighterdPort int, caBytes []byte) (http.Handler, error) {
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open a db connection %v", err)
@@ -52,11 +57,20 @@ func NewServer(baseDomain, databaseURL string, freighterdPort int) (http.Handler
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("Failed to get a valid db connection %v", err)
 	}
-	return &Server{
+	s := &Server{
 		db:             db,
 		freighterdPort: freighterdPort,
 		baseDomain:     baseDomain,
-	}, nil
+	}
+	// set the default tls config for proxied connections
+	if len(caBytes) > 0 {
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(caBytes)
+		s.tlsConfig = &tls.Config{
+			RootCAs: certPool,
+		}
+	}
+	return s, nil
 }
 
 // proxy the request to respected boxhost. We will switch the proxy strategy
@@ -80,11 +94,18 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 		return err
 	}
 	env.host = hostToIP(r, ip)
+	// copy tls config and set serverName
+	// serverName is the name we use to generate private certs on the host
+	// this must be the same as Hostname in
+	// https://github.com/nitrous-io/nitrous/blob/master/models/host/host.go
+	tlsConfig := &tls.Config{}
+	*tlsConfig = *s.tlsConfig
+	tlsConfig.ServerName = fmt.Sprintf("%s.nitrouspro.com", hostName)
 
 	if isWebSocket(r) {
-		proxy.ProxyWebsocket(env.host)(w, r)
+		proxy.ProxyWebsocket(env.host, tlsConfig)(w, r)
 	} else {
-		proxy.ProxyHTTP(env.host)(w, r)
+		proxy.ProxyHTTP(env.host, tlsConfig)(w, r)
 	}
 	return nil
 }
