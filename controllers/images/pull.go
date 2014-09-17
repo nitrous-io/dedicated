@@ -45,10 +45,8 @@ func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 					}
 					return
 				}
-				// FIXME: should this emit the full image with id rather than
-				// just the repository. This is what .Delete is doing though
 				env.Events.Publish(
-					controllers.NewEvent(controllers.EventImageRemoved, img.FullRepository()),
+					controllers.NewEvent(controllers.EventImageRemoved, serializers.SerializeImage(img)),
 					env.User.Topic(),
 				)
 			}
