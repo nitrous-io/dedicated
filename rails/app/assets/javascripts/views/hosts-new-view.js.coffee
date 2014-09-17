@@ -34,8 +34,6 @@ App.HostsNewView = Em.View.extend
 
     App.slug.slugify(@$('#hosts-new-name'), @$('#hosts-new-slug'))
 
-    @$('#hosts-new-name').focus()
-
   willDestroyElement: ->
     @_super()
     App.slug.unslugify(@$('#hosts-new-name'))

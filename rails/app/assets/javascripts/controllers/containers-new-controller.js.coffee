@@ -132,18 +132,23 @@ App.ContainersNewController = Em.Controller.extend
       @set 'saving', true
       events = App.get 'eventsSocket'
 
+      name = @get 'name'
+      slug = @get 'slug'
+
       # pull image
       App.Image.pull(@get('selectedHost'), repository, false).then (image) =>
         @set 'image', image
 
+        # track progress
         events.on 'image.pull_failed', onImagePullFailed = (data) =>
           return unless data.id == image.get('id')
           events.off 'image.pull_failed', onImagePullFailed
           @set 'image', null
           if data.progress
             progress = JSON.parse(progress)
-            if errMsg = progress.errorDetail?.hmessage
-              App.snackbar.post(errMsg.capitalize())
+            errMsg = progress.errorDetail?.message
+            App.snackbar.post(errMsg || 'Image pull failed!')
+          @set 'saving', false
 
         events.on 'image.pulled', onImagePulled = (data) =>
           return unless data.id == image.get('id')
@@ -151,15 +156,15 @@ App.ContainersNewController = Em.Controller.extend
 
           # create container
           container = App.Container.create
-            name: @get('name')
-            slug: @get('slug')
+            name: name
+            slug: slug
             image: repository
           container.save(host: @get('selectedHostSlug'), volume: @get('volumeMounts'), env: @get('envVars'), port: @get('portBindings')).then =>
             App.get('containers').reload().then =>
-              @transitionToRoute 'container.index', container.get('slug'), queryParams: { newContainer: 'true' }
+              @transitionToRoute 'container.index', slug, queryParams: { newContainer: 'true' }
+              App.snackbar.post("Your container “#{name}” was created successfully.")
               @set 'saving', false
-
-          , (jqxhr) =>
+          , (jqxhr) => # container.save
             @handleErrorResponse(jqxhr)
-      , (jqxhr) =>
+      , (jqxhr) => # App.Image.pull
         @handleErrorResponse(jqxhr)

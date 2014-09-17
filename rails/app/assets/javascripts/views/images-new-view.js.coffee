@@ -20,6 +20,9 @@ App.ImagesNewView = Em.View.extend
     )
   ).property 'controller.name', 'controller.slug', 'controller.selectedHostSlug', 'selectedOption', 'selectedFile', 'dockerfileCode'
 
+  hideProgress: Em.computed.not('controller.saving')
+  indeterminateProgress: Em.computed.none('controller.image.progress.progressDetail.start')
+
   hostsDidChange: (->
     Em.run.scheduleOnce 'afterRender', this, ->
       slug = @get('controller.preselectHost')
@@ -59,7 +62,6 @@ App.ImagesNewView = Em.View.extend
     App.slug.slugify(@$('#images-new-name'), @$('#images-new-slug'), false)
 
     @hostsDidChange()
-    @$('#images-new-name').focus()
 
   willDestroyElement: ->
     @_super()

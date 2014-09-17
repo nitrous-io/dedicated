@@ -36,7 +36,7 @@ App.ContainersNewView = Em.View.extend
     !(@get('controller.envKey') && @get('controller.envValue'))
   ).property 'controller.envKey', 'controller.envValue'
 
-  hideProgress: Em.computed.none('controller.image.progress')
+  hideProgress: Em.computed.not('controller.saving')
   indeterminateProgress: Em.computed.none('controller.image.progress.progressDetail.start')
 
   hostsDidChange: (->
@@ -68,8 +68,6 @@ App.ContainersNewView = Em.View.extend
     @$('.option-input').on 'click.containers-new', (ev) =>
       Em.run.next this, ->
         @$("##{$(ev.target).attr('name')}").click()
-
-    @$('#containers-new-name').focus()
 
   willDestroyElement: ->
     @_super()

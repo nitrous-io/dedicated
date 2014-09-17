@@ -48,7 +48,7 @@ form submit='create target="view"'
             .ui.checkbox
               input type='radio' id='images-new-option-file' name='option' checked='checked' value='file'
               label
-            label for='images-new-option-file' Upload Dockerfile / Tarball
+            label for='images-new-option-file' Upload Dockerfile Tarball
 
         .indent
           .ui.file-picker.btn.raised
@@ -68,11 +68,17 @@ form submit='create target="view"'
             Ember.TextArea id='dockerfile-code' name='dockerfile' rows='1' value=view.dockerfileCode
 
   .card-footer.bordered
-    .right
-      if saving
+    if saving
+      if image.progress.status
+        .left
+          p.progress-status
+            = image.progress.status
+      .right
         button.ui.btn disabled='disabled'
           i.spinner
           | Creating...
-      else
+    else
+      .right
         a.ui.btn href='#' click='cancel' Cancel
         input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'
+  = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total

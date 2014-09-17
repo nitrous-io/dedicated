@@ -7,4 +7,5 @@ App.ImagesNewRoute = App.AuthedRoute.extend
 
   setupController: (controller, model) ->
     @_super.apply this, arguments
-    controller.clear()
+    unless controller.get 'saving'
+      controller.clear()

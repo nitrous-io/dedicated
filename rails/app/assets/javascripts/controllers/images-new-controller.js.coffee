@@ -5,6 +5,7 @@ App.ImagesNewController = Em.Controller.extend
   selectedHostSlug: null
   name: null
   slug: null
+  image: null
   saving: false
 
   clear: ->
@@ -12,6 +13,7 @@ App.ImagesNewController = Em.Controller.extend
       selectedHostSlug: null
       name: null
       slug: null
+      image: null
       saving: false
 
   actions:
@@ -23,28 +25,51 @@ App.ImagesNewController = Em.Controller.extend
 
     create: (file) ->
       @set 'saving', true
-      name = @get 'slug'
+      name = @get 'name'
       slug = @get 'slug'
+      hostSlug = @get 'selectedHostSlug'
+
       data = new FormData()
       data.append 'name', name
       data.append 'slug', slug
+      data.append 'async', true
       data.append 'file', file
 
+      events = App.get 'eventsSocket'
+
       image = App.Image.create(name: name, slug: slug)
+      @set 'image', image
+
       Em.RSVP.Promise.cast(Em.$.ajax(
         type: 'POST'
-        url: "/api/v0/hosts/#{@get 'selectedHostSlug'}/images"
+        url: "/api/v0/hosts/#{hostSlug}/images"
         data: data
         cache: false
         contentType: false
         processData: false
         headers: App.Image.adapter.get('headers')
-      )).then((json) =>
+      )).then (json) =>
         image.load(json.image)
-        @transitionToRoute 'home.index'
-        App.snackbar.post("Your image “#{name}” was successfully built.")
-      , (jqxhr) ->
+
+        # track progress
+        events.on 'image.build_failed', onImageBuildFailed = (data) =>
+          return unless data.id == image.get('id')
+          events.off 'image.build_failed', onImageBuildFailed
+          @set 'image', null
+          if data.progress
+            progress = JSON.parse(progress)
+            errMsg = progress.errorDetail?.message
+            App.snackbar.post(errMsg || 'Image build failed!')
+          @set 'saving', false
+
+        events.on 'image.built', onImageBuilt = (data) =>
+          return unless data.id == image.get('id')
+          events.off 'image.built', onImageBuilt
+
+          @transitionToRoute 'host.images', hostSlug
+          App.snackbar.post("Your image “#{name}” was built successfully.")
+          @set 'saving', false
+      , (jqxhr) -> # Em.RSVP.Promise.cast
         errMsg = jqxhr.responseJSON?.error_description
         App.snackbar.post(errMsg?.capitalize() || 'Unknown Error')
-      ).finally =>
         @set 'saving', false
