@@ -53,21 +53,6 @@ func main() {
 		log.Fatalf("tender: Failed to start tender server, %v", err)
 	}
 
-	// proxy preview requests
-	var startPort, endPort int
-	if os.Getenv("DEBUG") == "true" {
-		startPort = 6666
-		endPort = 6666
-	} else {
-		startPort = 1024
-		endPort = 9999
-	}
-
-	log.Printf("listen to port from %d to %d", startPort, endPort)
-	for i := startPort; i <= endPort; i++ {
-		go http.ListenAndServeTLS(fmt.Sprintf(":%d", i), pubCACert, pubCAKey, s)
-	}
-
 	// proxy freighterd ports
 	log.Println("listen to port 65333")
 	http.ListenAndServeTLS(":65333", pubCACert, pubCAKey, s)
