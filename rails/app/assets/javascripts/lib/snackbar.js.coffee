@@ -6,7 +6,7 @@ App.Snackbar = Em.Object.extend
 
   post: (msg) ->
     items = @get('items')
-    item = items.pushObject(App.SnackbarItem.create(message: msg.toString()))
+    item = items.unshiftObject(App.SnackbarItem.create(message: msg.toString()))
 
     # fade in
     window.setTimeout(->
@@ -19,7 +19,7 @@ App.Snackbar = Em.Object.extend
     # and then kill
     window.setTimeout(->
       items.removeObject(item)
-    , 100000)
+    , 6500)
 
 App.SnackbarItem = Em.Object.extend
   message: null

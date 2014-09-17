@@ -530,39 +530,44 @@ ul.ui.chips
 
 ul.ui.snackbar
   position: fixed
-  bottom: 0
-  left: 0
+  top: 0
+  right: 0
   margin: 0
   padding: 0
   list-style: none
-  margin: 24px
+  margin: 8px 24px
   height: 0
   transition: height 1s
   pointer-events: none
+  text-align: right
 
   .snackbar-item
-    border-radius: 2px
-    background: #323232
-    min-width: 288px
-    padding: 14px 24px 15px 24px
-    height: 48px
-    margin-top: 16px
+    margin-top: -48px
     opacity: 0
-    left: 0
-    transition: opacity 1s, left 1s
+    right: 0
+    transition: opacity 1s, right 1s, margin-top 1s
 
     p
+      display: inline-block
       margin: 0
+      padding: 14px 24px 15px 24px
+      min-width: 288px
+      height: 48px
+      background: #323232
+      border-radius: 2px
+      text-align: left
       font-size: 14px
       color: white
 
     &.fadein
+      margin-top: 16px
       opacity: 1
 
     &.fadeout
+      margin-top: 16px
       position: relative
       opacity: 0
-      left: -120%
+      right: -120%
 
 .ui.modal
   position: fixed
