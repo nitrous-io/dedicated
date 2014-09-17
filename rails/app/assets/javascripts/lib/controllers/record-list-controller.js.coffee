@@ -23,7 +23,6 @@ Lib.RecordListController = Em.ObjectController.extend
       @set 'removing', true
       selected = @get 'selected'
       records = @get 'records'
-      console.log selected
 
       fns = selected.map (record) ->
         (cb) ->

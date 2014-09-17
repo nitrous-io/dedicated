@@ -16,17 +16,13 @@ Lib.Socket = Em.Object.extend Em.Evented,
     @_conn?.send(data)
 
   didOpen: (ev) ->
-    console.log 'open', ev
     @trigger 'open', ev
 
   didReceiveMessage: (ev) ->
-    console.log 'message', ev
     @trigger 'message', ev.data
 
   didFail: (ev) ->
-    console.log 'fail', ev
     @trigger 'error', ev
 
   didClose: (ev) ->
-    console.log 'close', ev
     @trigger 'close', ev
