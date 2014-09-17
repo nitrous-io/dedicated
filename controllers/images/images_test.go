@@ -776,8 +776,9 @@ var _ = Describe("controllers/images", func() {
 	})
 
 	Describe("DELETE /api/v0/hosts/{slug}/image/{image}", func() {
+		var i *image.Image
 		BeforeEach(func() {
-			i := &image.Image{
+			i = &image.Image{
 				UserID:      hs.U.ID,
 				HostID:      hs.H.ID,
 				FreighterID: "cafebabe",
@@ -812,7 +813,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(err).To(MatchError(sql.ErrNoRows))
 		})
 
-		It("publishes an image removed event with the image ID/slug", func(done Done) {
+		It("publishes an image removed event with the serialized image", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -821,7 +822,7 @@ var _ = Describe("controllers/images", func() {
 
 			Expect(<-ch).To(Equal(&controllers.Event{
 				Name: controllers.EventImageRemoved,
-				Data: "nitrousio/elixir:latest",
+				Data: serializers.SerializeImage(i),
 			}))
 			close(done)
 		})
