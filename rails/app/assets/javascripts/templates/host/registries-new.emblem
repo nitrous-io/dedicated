@@ -1,4 +1,4 @@
-= host-tab-bar selected='registries'
+= host-tab-bar selected='registries' host=model
 
 form submit='create'
   .card-body

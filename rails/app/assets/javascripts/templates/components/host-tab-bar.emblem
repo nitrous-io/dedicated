@@ -1,17 +1,4 @@
-if disabled
-  li class={generalSelected:selected}
-    link-to 'host.index' | General
-  li.disabled
-    a.noclick href='#' Registries
-  li.disabled
-    a.noclick href='#' Images
-  li.disabled
-    a.noclick href='#' Volumes
-  li.disabled
-    a.noclick href='#' Archives
-  li.disabled
-    a.noclick href='#' Users
-else
+if host.isRunning
   li class={generalSelected:selected}
     link-to 'host.index' | General
   li class={registriesSelected:selected}
@@ -21,6 +8,15 @@ else
   li class={volumesSelected:selected}
     link-to 'host.volumes' | Volumes
   li.disabled class={archivesSelected:selected}
-    a href='#' Archives
-  li.disabled class={usersSelected:selected}
-    a href='#' Users
+    a.noclick href='#' Archives
+else
+  li class={generalSelected:selected}
+    link-to 'host.index' | General
+  li.disabled class={registriesSelected:selected}
+    a.noclick href='#' Registries
+  li.disabled class={imagesSelected:selected}
+    a.noclick href='#' Images
+  li.disabled class={volumesSelected:selected}
+    a.noclick href='#' Volumes
+  li.disabled class={archivesSelected:selected}
+    a.noclick href='#' Archives
