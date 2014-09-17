@@ -39,9 +39,6 @@ func init() {
 	}
 }
 
-// TODO: accept SSL
-// TODO: listen to port 80
-// TODO: listen to port 443
 func main() {
 	_, err := tls.LoadX509KeyPair(pubCACert, pubCAKey)
 	if err != nil {
