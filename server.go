@@ -66,14 +66,11 @@ func NewServer(baseDomain, databaseURL string, freighterdPort int) (http.Handler
 // to open a bidirectional HTTP stream, use `proxyStream`
 // - if the request wants to open a websocket, use `proxyWebsocket`
 func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err error) {
-	port := parsePort(r)
-	log.Printf("Request received: %v, for port %d", r, port)
-
 	hostName, err := getHost(r.Host, s.baseDomain)
 	if err != nil {
 		return err
 	}
-	log.Printf("Got request to %s", hostName)
+	log.Printf("[INFO] request %v to %s", r, hostName)
 
 	// get host id and host ip
 	// host ip will be the new destination for current request
@@ -84,9 +81,7 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 	}
 	env.host = hostToIP(r, ip)
 
-	if r.Header.Get("X-NITROUS-STREAM") == "true" {
-		proxy.ProxyStream(env.host)(w, r)
-	} else if isWebSocket(r) {
+	if isWebSocket(r) {
 		proxy.ProxyWebsocket(env.host)(w, r)
 	} else {
 		proxy.ProxyHTTP(env.host)(w, r)
