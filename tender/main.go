@@ -55,7 +55,10 @@ func main() {
 
 	// proxy freighterd ports
 	log.Println("listen to port 65333")
-	http.ListenAndServeTLS(":65333", pubCACert, pubCAKey, s)
+	err = http.ListenAndServeTLS(":65333", pubCACert, pubCAKey, s)
+	if err != nil {
+		log.Fatalf("tender: exit with error %s", err)
+	}
 }
 
 func envStr(name string) string {
