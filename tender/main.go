@@ -12,24 +12,25 @@ import (
 )
 
 var (
-	databaseURL string
-	baseDomain  string
-	authedPort  int
-	pubCACert   string
-	pubCAKey    string
+	databaseURL    string
+	baseDomain     string
+	freighterdPort int
+	pubCACert      string
+	pubCAKey       string
 )
 
 // Configure require settings. Required env variables are:
 // - ADDR: address that tender will listen to
 // - DATABASE_URL: url of the postgresql main database
 // - BASE_DOMAIN: base domain of the tender app i.e. .nitrousapp.com
-// - AUTHED_PORT: port that requires authentication to proxy i.e public freighterd port
+// - FREIGHTERD_PORT: public freighted port. The freighterd server itself
+// handles authentication so we dont need to handle it here
 //
 // TODO: eventually we may look into etcd ( and co ) so we dont have to touch
-// the main database / calling HTTP API *because* latency
+// the main database *because* latency
 func init() {
 	databaseURL = envStr("DATABASE_URL")
-	authedPort = envInt("AUTHED_PORT")
+	freighterdPort = envInt("FREIGHTERD_PORT")
 	baseDomain = envStr("BASE_DOMAIN")
 	pubCACert = envStr("PUB_CRT")
 	pubCAKey = envStr("PUB_KEY")
@@ -45,14 +46,14 @@ func main() {
 		log.Fatalf("tender: Failed to load SSL certificates- %s & %s: %s", pubCACert, pubCAKey, err)
 	}
 
-	s, err := tender.NewServer(baseDomain, databaseURL, authedPort)
+	s, err := tender.NewServer(baseDomain, databaseURL, freighterdPort)
 	if err != nil {
 		log.Fatalf("tender: Failed to start tender server, %v", err)
 	}
 
 	// proxy freighterd ports
-	log.Println("listen to port 65333")
-	err = http.ListenAndServeTLS(":65333", pubCACert, pubCAKey, s)
+	log.Printf("listen to port %d", freighterdPort)
+	err = http.ListenAndServeTLS(fmt.Sprintf(":%d", freighterdPort), pubCACert, pubCAKey, s)
 	if err != nil {
 		log.Fatalf("tender: exit with error %s", err)
 	}
