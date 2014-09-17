@@ -1500,6 +1500,82 @@ var _ = Describe("controllers/hosts", func() {
 			})
 		})
 
+		Context("when host has running containers", func() {
+			var (
+				c1, c2     *container.Container
+				mockClient *freighterclient.MockClient
+			)
+
+			BeforeEach(func() {
+				mockClient = &freighterclient.MockClient{}
+				StubDefaultFreighterFn(mockClient)
+
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				hb.OverrideRequestHandler(mockHostbuilderOK)
+				hosts.HostbuilderClient = hb
+
+				c1 = &container.Container{
+					CID:    "beefface",
+					Slug:   "rails-box",
+					Image:  "nitrous-base",
+					UserID: u.ID,
+					HostID: hs.H.ID,
+				}
+				err := c1.Insert(db)
+				Expect(err).To(BeNil())
+				c2 = &container.Container{
+					CID:    "cafedead",
+					Slug:   "python-box",
+					Image:  "nitrous-base",
+					UserID: u.ID,
+					HostID: hs.H.ID,
+				}
+				err = c2.Insert(db)
+				Expect(err).To(BeNil())
+				mockClient.Containers = []*freighterclient.Container{
+					&freighterclient.Container{ID: "beefface"},
+					&freighterclient.Container{ID: "cafedead"},
+				}
+			})
+
+			It("calls stop on all containers", func() {
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(mockClient.StopCalled).To(Equal(2))
+			})
+
+			It("returns error if stop failed", func() {
+				mockClient.StopError = errors.New("can't stop won't stop")
+				doRequest(hs.H.Slug)
+				Expect(mockClient.StopCalled).To(Equal(2))
+				_, errDesc := ErrorSlug(res.Body)
+				Expect(errDesc).To(Equal("unable to stop containers rails-box, python-box"))
+			})
+
+			checkStoppedMsg := func(msg interface{}, slug string) {
+				evt, ok := msg.(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
+				cn, ok := evt.Data.(*serializers.Container)
+				Expect(ok).To(BeTrue())
+				Expect(cn.Slug).To(Equal(slug))
+			}
+
+			It("publishes container stopped events", func(done Done) {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(hs.H.Slug)
+
+				msg := <-ch
+				checkStoppedMsg(msg, c1.Slug)
+				msg = <-ch
+				checkStoppedMsg(msg, c2.Slug)
+
+				close(done)
+			})
+		})
+
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = "/api/v0/hosts/foo/restart"

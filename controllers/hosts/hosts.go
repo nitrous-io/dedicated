@@ -386,13 +386,12 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 }
 
 func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	err := transition(env.DB, h,
-		&stateTransition{host.StateStopped, host.StateStarting, host.StateRunning},
-		HostbuilderClient.Start)
-	if err != nil {
-		if _, ok := err.(*stateTransitionError); ok {
-			return errHostStartInvalidState
-		}
+	if h.State != host.StateStopped {
+		return errHostStartInvalidState
+	}
+	if err := transition(env.DB, h,
+		host.StateStarting, host.StateRunning,
+		HostbuilderClient.Start); err != nil {
 		return err
 	}
 
@@ -409,11 +408,8 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return err
 	}
 	if err := transition(env.DB, h,
-		&stateTransition{host.StateRunning, host.StateStopping, host.StateStopped},
+		host.StateStopping, host.StateStopped,
 		HostbuilderClient.Stop); err != nil {
-		if _, ok := err.(*stateTransitionError); ok {
-			return errHostStopInvalidState
-		}
 		return err
 	}
 
@@ -423,13 +419,16 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 }
 
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if h.State != host.StateRunning {
+		return errHostRestartInvalidState
+	}
+	if err := stopContainers(env, h); err != nil {
+		return err
+	}
 	err := transition(env.DB, h,
-		&stateTransition{host.StateRunning, host.StateRestarting, host.StateRunning},
+		host.StateRestarting, host.StateRunning,
 		HostbuilderClient.Restart)
 	if err != nil {
-		if _, ok := err.(*stateTransitionError); ok {
-			return errHostRestartInvalidState
-		}
 		return err
 	}
 
@@ -438,28 +437,8 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	return nil
 }
 
-// stateTransition reflects the transition of host states during a hostbuilder operation.
-type stateTransition struct {
-	From         string
-	Intermediate string
-	To           string
-}
-
-type stateTransitionError struct {
-	Expected string
-	Actual   string
-}
-
-func (e *stateTransitionError) Error() string {
-	return fmt.Sprintf("Expected initial state to be %s, was %s", e.Expected, e.Actual)
-}
-
-func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostbuilderclient.OperationFn) error {
-	if h.State != string(st.From) {
-		return &stateTransitionError{Expected: string(st.From), Actual: h.State}
-	}
-
-	h.State = st.Intermediate
+func transition(d ndb.QueryReceiver, h *host.Host, midState, endState string, fn hostbuilderclient.OperationFn) error {
+	h.State = midState
 	if err := h.Update(d); err != nil {
 		return err
 	}
@@ -469,7 +448,7 @@ func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostb
 		return err
 	}
 
-	h.State = st.To
+	h.State = endState
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
