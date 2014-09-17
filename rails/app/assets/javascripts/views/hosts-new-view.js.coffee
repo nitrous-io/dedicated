@@ -9,6 +9,8 @@ App.HostsNewView = Em.View.extend
     !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedRegionSlug') && @get('controller.selectedPlanSlug')) || @get('controller.saving')
   ).property 'controller.name', 'controller.slug', 'controller.selectedRegionSlug', 'controller.selectedPlanSlug', 'controller.saving'
 
+  hideProgress: Em.computed.not('controller.saving')
+
   preselectRegion: (->
     Em.run.scheduleOnce 'afterRender', this, ->
       @$('input[name=region]')?.eq(0).attr('checked', true).change()

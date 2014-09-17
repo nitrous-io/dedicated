@@ -36,10 +36,6 @@ App.EventsSocket = Lib.Socket.extend
       @on evt, (data) ->
         findHost(data)?.load(data)
 
-    ['image.created', 'image.removed', 'image.tagged'].forEach (evt) =>
-      @on evt, (data) ->
-        findAllImages(data)?.reload()
-
     ['volume.created', 'volume.destroyed'].forEach (evt) =>
       @on evt, (data) ->
         findAllVolumes(data)?.reload()
@@ -47,6 +43,10 @@ App.EventsSocket = Lib.Socket.extend
     ['registry.added', 'registry.removed'].forEach (evt) =>
       @on evt, (data) ->
         findAllRegistries(data)?.reload()
+
+    ['image.created', 'image.removed', 'image.tagged'].forEach (evt) =>
+      @on evt, (data) ->
+        findAllImages(data)?.reload()
 
     ['image.building', 'image.pulling'].forEach (evt) =>
       @on evt, (data) ->

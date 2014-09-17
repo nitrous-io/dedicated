@@ -1,1 +1,4 @@
-.bar style={cssWidth} class={indeterminate}
+if indeterminate
+  .bar.indeterminate
+else
+  .bar style={cssWidth}

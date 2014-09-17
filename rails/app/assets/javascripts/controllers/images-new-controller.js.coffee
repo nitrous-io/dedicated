@@ -40,6 +40,24 @@ App.ImagesNewController = Em.Controller.extend
       image = App.Image.create(name: name, slug: slug)
       @set 'image', image
 
+      events.on 'image.build_failed', onImageBuildFailed = (data) =>
+        return unless data.id == image.get('id')
+        events.off 'image.build_failed', onImageBuildFailed
+        @set 'image', null
+        if data.progress
+          progress = JSON.parse(progress)
+          errMsg = progress.errorDetail?.message
+          App.snackbar.post(errMsg || 'Failed to build image!')
+        @set 'saving', false
+
+      events.on 'image.built', onImageBuilt = (data) =>
+        return unless data.id == image.get('id')
+        events.off 'image.built', onImageBuilt
+
+        @transitionToRoute 'host.images', hostSlug
+        App.snackbar.post("Your image “#{name}” was built successfully.")
+        @set 'saving', false
+
       Em.RSVP.Promise.cast(Em.$.ajax(
         type: 'POST'
         url: "/api/v0/hosts/#{hostSlug}/images"
@@ -50,26 +68,7 @@ App.ImagesNewController = Em.Controller.extend
         headers: App.Image.adapter.get('headers')
       )).then (json) =>
         image.load(json.image)
-
-        # track progress
-        events.on 'image.build_failed', onImageBuildFailed = (data) =>
-          return unless data.id == image.get('id')
-          events.off 'image.build_failed', onImageBuildFailed
-          @set 'image', null
-          if data.progress
-            progress = JSON.parse(progress)
-            errMsg = progress.errorDetail?.message
-            App.snackbar.post(errMsg || 'Image build failed!')
-          @set 'saving', false
-
-        events.on 'image.built', onImageBuilt = (data) =>
-          return unless data.id == image.get('id')
-          events.off 'image.built', onImageBuilt
-
-          @transitionToRoute 'host.images', hostSlug
-          App.snackbar.post("Your image “#{name}” was built successfully.")
-          @set 'saving', false
       , (jqxhr) -> # Em.RSVP.Promise.cast
         errMsg = jqxhr.responseJSON?.error_description
-        App.snackbar.post(errMsg?.capitalize() || 'Unknown Error')
+        App.snackbar.post(errMsg?.capitalize() || 'Failed to build image!')
         @set 'saving', false

@@ -8,8 +8,8 @@ App.UiProgressComponent = Em.Component.extend
   indeterminate: false
 
   cssWidth: (->
-    value = @get 'value'
-    max = @get 'max'
-    if value && max
+    value = @get('value') || 0
+    max = @get('max') || 0
+    if value >= 0 && ax > 0
       "width: #{value / max * 100}%"
   ).property 'value', 'max'

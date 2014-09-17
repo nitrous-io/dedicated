@@ -29,18 +29,34 @@ App.HostsNewController = Em.ObjectController.extend
 
     create: ->
       @set 'saving', true
+      name = @get 'name'
+      slug = @get 'slug'
+
+      events = App.get 'eventsSocket'
+
       host = App.Host.create
         regionSlug: @get('selectedRegionSlug')
         planSlug: @get('selectedPlanSlug')
-        name: @get('name')
-        slug: @get('slug')
-      host.save().then =>
-        App.get('hosts').reload().then =>
-          @transitionToRoute 'host.index', host.get 'slug'
-          @set 'saving', false
-      , (jqxhr) =>
+        name: name
+        slug: slug
+
+      events.on 'host.create_failed', onHostCreateFailed = (data) =>
+        return unless data.id == host.get('id')
+        events.off 'host.create_failed', onHostCreateFailed
+        App.snackbar.post('Failed to create host!')
+        @set 'saving', false
+
+      events.on 'host.created', onHostCreated = (data) =>
+        return unless data.id == host.get('id')
+        events.off 'host.created', onHostCreated
+
+        @transitionToRoute 'host.index', slug
+        App.snackbar.post("Your host “#{name}” was created successfully.")
+        @set 'saving', false
+
+      host.save(async: true).catch (jqxhr) => # host.save
         if errMsg = jqxhr.responseJSON?.error_description
           @set 'error', errMsg
           @set 'invalidField', errMsg.match(/^\w+/)[0]
-          App.snackbar.post(errMsg.capitalize())
+          App.snackbar.post(errMsg?.capitalize() || 'Failed to create host!')
         @set 'saving', false

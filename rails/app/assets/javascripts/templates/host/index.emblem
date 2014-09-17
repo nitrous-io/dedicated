@@ -88,10 +88,14 @@
         .left
           button.ui.btn disabled='disabled' Terminated
       else
-        .left
-          button.ui.btn disabled='disabled'
-            i.spinner
-            | Please Wait...
+        if isOrphan
+          .right
+            button.ui.btn.primary click='showTerminateDialog target="view"' Terminate
+        else
+          .left
+            button.ui.btn disabled='disabled'
+              i.spinner
+              | Please Wait...
 
 #terminate-modal-dialog.ui.modal
   .ui.card

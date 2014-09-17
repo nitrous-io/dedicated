@@ -76,7 +76,7 @@ App.ContainersNewController = Em.Controller.extend
     if errMsg = jqxhr.responseJSON?.error_description
       @set 'error', errMsg
       @set 'invalidField', errMsg.match(/^\w+/)[0]
-      App.snackbar.post(errMsg.capitalize())
+      App.snackbar.post(errMsg?.capitalize() || 'Failed to create conatiner!')
     @set 'saving', false
 
   actions:
@@ -139,7 +139,6 @@ App.ContainersNewController = Em.Controller.extend
       App.Image.pull(@get('selectedHost'), repository, false).then (image) =>
         @set 'image', image
 
-        # track progress
         events.on 'image.pull_failed', onImagePullFailed = (data) =>
           return unless data.id == image.get('id')
           events.off 'image.pull_failed', onImagePullFailed
@@ -159,11 +158,11 @@ App.ContainersNewController = Em.Controller.extend
             name: name
             slug: slug
             image: repository
+
           container.save(host: @get('selectedHostSlug'), volume: @get('volumeMounts'), env: @get('envVars'), port: @get('portBindings')).then =>
-            App.get('containers').reload().then =>
-              @transitionToRoute 'container.index', slug, queryParams: { newContainer: 'true' }
-              App.snackbar.post("Your container “#{name}” was created successfully.")
-              @set 'saving', false
+            @transitionToRoute 'container.index', slug, queryParams: { newContainer: 'true' }
+            App.snackbar.post("Your container “#{name}” was created successfully.")
+            @set 'saving', false
           , (jqxhr) => # container.save
             @handleErrorResponse(jqxhr)
       , (jqxhr) => # App.Image.pull

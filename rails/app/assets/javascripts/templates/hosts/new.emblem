@@ -95,11 +95,13 @@ form submit='create'
       |. All sales are final.
 
   .card-footer.bordered
-    .right
-      if saving
+    if saving
+      .right
         button.ui.btn disabled='disabled'
           i.spinner
           | Creating...
-      else
+    else
+      .right
         a.ui.btn href='#' click='cancel' Cancel
         input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'
+  = ui-progress hide=view.hideProgress indeterminate=true
