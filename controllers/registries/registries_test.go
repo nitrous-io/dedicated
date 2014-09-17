@@ -318,7 +318,7 @@ var _ = Describe("controllers/registries", func() {
 							Expect(r.URL).To(Equal("hub.example.com"))
 						})
 
-						It("publishes a registry authenticated event with the registry", func(done Done) {
+						It("publishes a registry added event with the registry", func(done Done) {
 							ch := svr.Events.Subscribe(u.Topic())
 							defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -330,7 +330,7 @@ var _ = Describe("controllers/registries", func() {
 							r := regs[0]
 
 							Expect(<-ch).To(Equal(&controllers.Event{
-								Name: controllers.EventRegistryAuthenticated,
+								Name: controllers.EventRegistryAdded,
 								Data: serializers.SerializeRegistry(r),
 							}))
 							close(done)
@@ -461,22 +461,36 @@ var _ = Describe("controllers/registries", func() {
 			Context("when log out is successful", func() {
 				BeforeEach(func() {
 					mockClient.RegistryLogoutError = nil
-					doRequest(overrides{})
 				})
 
 				It("deletes the registry record", func() {
+					doRequest(overrides{})
 					rx, err := registry.FindAll(db, hs.U.ID, hs.H.ID)
 					Expect(err).To(BeNil())
 					Expect(rx).To(HaveLen(0))
 				})
 
 				It("returns HTTP 200 OK if logged out successfully", func() {
+					doRequest(overrides{})
 					Expect(res.Code).To(Equal(http.StatusOK))
 
 					var j map[string]string
 					err := json.Unmarshal(res.Body.Bytes(), &j)
 					Expect(err).To(BeNil())
 					Expect(j["status"]).To(Equal("ok"))
+				})
+
+				It("publishes a registry removed event with the registry", func(done Done) {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					doRequest(overrides{})
+
+					Expect(<-ch).To(Equal(&controllers.Event{
+						Name: controllers.EventRegistryRemoved,
+						Data: serializers.SerializeRegistry(r),
+					}))
+					close(done)
 				})
 			})
 
