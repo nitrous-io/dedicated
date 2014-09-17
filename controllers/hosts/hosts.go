@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/nitrous-io/hostbuilder"
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
@@ -105,17 +108,14 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if size == "" {
 		return errSizeRequired
 	}
-
 	slug := strings.ToLower(r.FormValue("slug"))
 	if slug == "" {
 		return errSlugRequired
 	}
-
 	regionSlug := r.FormValue("region")
 	if regionSlug == "" {
 		return errRegionRequired
 	}
-
 	name := r.FormValue("name")
 	if name == "" {
 		name = slug
@@ -168,8 +168,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	err = h.Insert(tx)
-	if err != nil {
+	if err := h.Insert(tx); err != nil {
 		tx.Rollback()
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
 			if validationErr, ok := validations[e.Constraint]; ok {
@@ -188,8 +187,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		tx.Rollback()
 		return err
 	}
-	err = tx.Commit()
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 
@@ -229,40 +227,60 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		"key":  crt.ServerKey,
 	}
 
-	info, err := HostbuilderClient.Create(pt.Provider, &config)
-	if err != nil {
-		h.State = host.StateOrphan
-		updErr := h.Update(db)
-		if updErr != nil {
-			env.Logger.Errorf("Unable to update host %d to orphan state that failed on hostbuilder: %v", h.ID, updErr)
+	createHost := func() error {
+		var err error
+		defer func() {
+			if err != nil {
+				h.State = host.StateOrphan
+				_ = h.Update(db) // Ignore error here.
+				publishHostEvent(env, controllers.EventHostCreateFailed, h)
+			}
+		}()
+
+		var info *hostbuilder.Response
+		info, err = HostbuilderClient.Create(pt.Provider, &config)
+		if err != nil {
+			return err
 		}
-		return err
+
+		h.IPAddress = sql.NullString{info.IPAddress, true}
+		h.ProviderIdentifier = sql.NullString{info.ID, true}
+		h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+		h.State = host.StateRunning
+
+		var tx *sqlx.Tx
+		tx, err = db.Beginx()
+		if err != nil {
+			return err
+		}
+		if err = h.Update(tx); err != nil {
+			tx.Rollback()
+			return err
+		}
+		if _, err = keypairs.Create(tx, priv, aesKey, h.ID); err != nil {
+			tx.Rollback()
+			return err
+		}
+		if err = tx.Commit(); err != nil {
+			return err
+		}
+
+		publishHostEvent(env, controllers.EventHostCreated, h)
+		return nil
 	}
 
-	h.IPAddress = sql.NullString{info.IPAddress, true}
-	h.ProviderIdentifier = sql.NullString{info.ID, true}
-	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
-	h.State = host.StateRunning
-
-	tx, err = db.Beginx()
-	if err != nil {
-		return err
-	}
-	err = h.Update(tx)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	if _, err = keypairs.Create(tx, priv, aesKey, h.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
+	async, _ := strconv.ParseBool(r.FormValue("async"))
+	switch async {
+	case true:
+		go createHost()
+		env.Status = http.StatusAccepted
+	default:
+		if err := createHost(); err != nil {
+			return err
+		}
+		env.Status = http.StatusCreated
 	}
 
-	publishHostEvent(env, controllers.EventHostCreated, h)
-	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"host": serializers.SerializeHost(h),
 	}
@@ -339,13 +357,11 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	if err != nil {
 		return err
 	}
-	err = h.Delete(tx)
-	if err != nil {
+	if err := h.Delete(tx); err != nil {
 		tx.Rollback()
 		return err
 	}
-	err = container.DeleteAllByHostID(tx, h.ID)
-	if err != nil {
+	if err := container.DeleteAllByHostID(tx, h.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -436,8 +452,7 @@ func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostb
 	}
 
 	h.State = st.Intermediate
-	err := h.Update(d)
-	if err != nil {
+	if err := h.Update(d); err != nil {
 		return err
 	}
 
@@ -450,8 +465,7 @@ func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostb
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
-	err = h.Update(d)
-	if err != nil {
+	if err := h.Update(d); err != nil {
 		return err
 	}
 

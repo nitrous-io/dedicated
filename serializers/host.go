@@ -19,8 +19,6 @@ type Host struct {
 	Size           string `json:"size"`
 	State          string `json:"state"`
 
-	Stats *HostInfo `json:"stats,omitempty"`
-
 	CreatedAt    *time.Time `json:"created_at"`
 	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
 	TerminatedAt *time.Time `json:"terminated_at,omitempty"`
