@@ -1,4 +1,4 @@
-github.com/onsi/ginkgo/ginkgo #12446bbcc74950944c897e32ea99cc8d058f9c92
+github.com/onsi/ginkgo/ginkgo #e8093161dcbdab0a59dfe56f3f8c867d243ac75f
 github.com/onsi/gomega #036273e6f643552b16fe7a6464afd2ae0324992e
 github.com/gorilla/mux #854d482e26505d59549690719cbc009f04042c2e
 github.com/fsouza/go-dockerclient #46ba1ae98b013e2e338c7299a74846d4c8b3617a
