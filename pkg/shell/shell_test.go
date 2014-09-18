@@ -11,6 +11,12 @@ import (
 	"github.com/nitrous-io/nitrous-common/term"
 )
 
+func init() {
+	// lower timeout to make tests faster
+	defaultFinishTimeout = 100 * time.Millisecond
+	defaultTermTimeout = 200 * time.Millisecond
+}
+
 // writer that sends all data written to it into a channel
 type chanWriter struct {
 	ch chan []byte
@@ -24,8 +30,9 @@ func (cw *chanWriter) Write(p []byte) (int, error) {
 
 func testShell() *Shell {
 	s := &Shell{
-		id:  "localbox",
-		cmd: exec.Command("bash"),
+		id:    "localbox",
+		cmd:   exec.Command("bash"),
+		isTTY: true,
 	}
 	return s
 }
@@ -41,7 +48,10 @@ func TestNewShell(t *testing.T) {
 		{id: "1234", expectedId: "1234", command: "whoami", expectedCommand: "whoami"},
 	}
 	for _, tc := range testCases {
-		s, err := NewShell(tc.id, tc.command)
+		s, err := NewShell(tc.id, tc.command, false)
+		if s != nil {
+			defer s.Close()
+		}
 		switch {
 		case tc.expectedError && err != nil:
 			continue
@@ -65,6 +75,7 @@ func TestShellOpen(t *testing.T) {
 
 	for _, tc := range testCases {
 		s := testShell()
+		defer s.Close()
 		if err := s.Open(tc.w, tc.h, []string{}); err != nil {
 			t.Fatalf("Unexpected error %v", err)
 		}
@@ -78,7 +89,6 @@ func TestShellOpen(t *testing.T) {
 		if tc.eh > 0 && tc.eh != int(ws.Height) {
 			t.Errorf("Incorrect term height %+v %+v", tc, ws)
 		}
-		s.Close()
 	}
 }
 

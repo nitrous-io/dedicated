@@ -17,16 +17,16 @@ const (
 	defaultTerm   = "xterm-256color"
 	defaultWidth  = 80
 	defaultHeight = 60
-
-	// time to wait for process to close normally before we terminate it
-	defaultFinishTimeout = 1 * time.Second
-	//  time to wait for process to close before we kill it
-	defaultTermTimeout = 2 * time.Second
 )
 
 var (
 	ErrMissingArg  = errors.New("Missing arguments: check id and command")
 	ErrInvalidTerm = errors.New("Invalid term")
+
+	// time to wait for process to close normally before we terminate it
+	defaultFinishTimeout = 1 * time.Second
+	//  time to wait for process to close before we kill it
+	defaultTermTimeout = 2 * time.Second
 )
 
 func NewShell(id, command string, noTTY bool) (*Shell, error) {
@@ -73,8 +73,12 @@ type Shell struct {
 }
 
 func (s *Shell) Close() error {
-	if s.cmd.Process != nil {
-		closeProcess(s.cmd, s.isTTY)
+	if s.cmd != nil && s.cmd.Process != nil {
+		if s.isTTY {
+			closeProcess(s.cmd)
+		} else {
+			s.cmd.Wait()
+		}
 	}
 	if s.term != nil {
 		return s.term.Close()
@@ -211,10 +215,7 @@ func promise(f func() error) chan error {
 
 // close the process by sending it SIGTERM and wait for it to complete.
 // If it cant finish after timeout, kill it
-func closeProcess(c *exec.Cmd, wait bool) error {
-	if wait {
-		return c.Wait()
-	}
+func closeProcess(c *exec.Cmd) error {
 	done := make(chan error, 1)
 	go func() {
 		done <- c.Wait()
