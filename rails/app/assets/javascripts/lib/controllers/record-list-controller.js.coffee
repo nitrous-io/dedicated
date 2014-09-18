@@ -29,8 +29,8 @@ Lib.RecordListController = Em.ObjectController.extend
           record.ajax('DELETE').then ->
             cb(null)
           , (jqxhr) ->
-            if errMsg = jqxhr.responseJSON?.error_description
-              App.snackbar.post(errMsg.capitalize())
+            errMsg = jqxhr.responseJSON?.error_description
+            App.snackbar.post(errMsg?.capitalize() || 'Unknown Error')
             cb(jqxhr)
 
       async.series fns, (err) =>

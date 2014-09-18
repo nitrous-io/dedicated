@@ -10,6 +10,7 @@ App.Host = klass = App.Model.extend
   name: attr()
   state: attr(serialize: false)
   ipAddress: attr(as: 'ip_address', serialize: false)
+  hostname: attr(serialize: false)
   freighterdPort: attr('number', as: 'freighterd_port', serialize: false)
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'updated_at', serialize: false)
@@ -70,13 +71,13 @@ App.Host = klass = App.Model.extend
   ).property 'planId', 'App.plans.@each'
 
   freighterdUrl: (->
-    ip = @get 'ipAddress'
+    hostname = @get 'hostname'
     port = @get 'freighterdPort'
-    if ip
+    if hostname
       if port
-        return "#{ip}:#{port}"
-      ip
-  ).property 'ipAddress', 'freighterdPort'
+        return "#{hostname}:#{port}"
+      hostname
+  ).property 'hostname', 'freighterdPort'
 
   selected: (->
     App.get('selectedHost') == this

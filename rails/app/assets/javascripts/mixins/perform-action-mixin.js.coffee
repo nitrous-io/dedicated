@@ -4,11 +4,12 @@ App.PerformActionMixin = Ember.Mixin.create
     prevState = record.get('state')
     record.set 'state', tempState
     rootKey = record.constructor.rootKey
-    ajax = record.ajax(method, action).then (json) ->
+    ajax = record.ajax(method, action)
+    ajax.then (json) ->
       if data = json[rootKey]
         record.load(data)
-    , (jqxhr) ->
-      if errMsg = jqxhr.responseJSON?.error_description
-        App.snackbar.post(errMsg.capitalize() || 'Unknown Error')
+    , (jqxhr) -> # record.ajax
+      errMsg = jqxhr.responseJSON?.error_description
+      App.snackbar.post(errMsg?.capitalize() || 'Unknown Error')
       record.set('state', prevState)
     ajax
