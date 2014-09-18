@@ -276,10 +276,8 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	publishContainerEvent(env, controllers.EventContainerCreated, cn)
-	var imgEvt controllers.EventName
-	if existing == nil {
-		imgEvt = controllers.EventImageCreated
-	} else {
+	imgEvt := controllers.EventImageCreated
+	if existing != nil {
 		imgEvt = controllers.EventImageUpdated
 	}
 	env.Events.Publish(

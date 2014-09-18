@@ -649,7 +649,7 @@ var _ = Describe("controllers/containers", func() {
 				Name:    "elixir-web-1",
 				Host:    "",
 				Gateway: "",
-				State:   "stopped",
+				State:   "running",
 				Image:   "elixir",
 				ImageID: "abc123",
 			}
@@ -677,7 +677,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.Slug).To(Equal("elixir-web-1"))
 			Expect(cn.IPAddress).To(Equal(""))
 			Expect(cn.GatewayIP).To(Equal(""))
-			Expect(cn.State).To(Equal("stopped"))
+			Expect(cn.State).To(Equal(container.StateRunning.String()))
 			Expect(cn.Name).To(Equal("Elixir Web Server 1"))
 		}
 
