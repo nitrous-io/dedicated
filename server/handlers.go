@@ -82,12 +82,20 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 
 	info, err := s.provider.Create(name, image, secret, r.FormValue("config"))
 	if err != nil {
-		s.logger.Error(err)
-		var code = http.StatusInternalServerError
-		if err == provider.ErrImageNotFound {
-			code = http.StatusNotFound
+		if _, ok := err.(*provider.StartFailedError); ok {
+			s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{
+				"container": info,
+				"status":    "start_failed",
+				"error":     err.Error(),
+			})
+			return
 		}
-		s.respondEncodeJSON(w, code, map[string]interface{}{"error": err.Error()})
+		if err == provider.ErrImageNotFound {
+			s.respondEncodeJSON(w, http.StatusNotFound, map[string]interface{}{"error": err.Error()})
+			return
+		}
+
+		s.respondEncodeJSON(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
 		return
 	}
 

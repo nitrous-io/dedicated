@@ -137,11 +137,9 @@ type (
 	HostInfo        Stats
 
 	containerResponse struct {
-		*Container `json:"container"`
-
-		// TODO "result" seems redundant when Container.State is set and we are
-		// getting a HTTP 200 OK response.
-		Result string `json:"result,omitempty"`
+		*Container   `json:"container"`
+		Result       string `json:"result,omitempty"`
+		ErrorMessage string `json:"error,omitempty"`
 	}
 
 	containersResponse struct {
@@ -173,6 +171,16 @@ type InvalidParamError struct {
 
 func (e *InvalidParamError) Error() string {
 	return fmt.Sprintf("freighter: invalid param: %s", e.Msg)
+}
+
+// StartFailedError is returned when a container is created successfully but
+// could not be started.
+type StartFailedError struct {
+	Msg string
+}
+
+func (e *StartFailedError) Error() string {
+	return fmt.Sprintf("freighter: container created but could not be started: %s", e.Msg)
 }
 
 type StatusError struct {
@@ -315,6 +323,11 @@ func (c *client) Create(name, image, secret string, config *ContainerConfig) (*C
 	if err != nil {
 		return nil, err
 	}
+	// Check whether there is an error starting the container.
+	if containerResp.Result == "start_failed" {
+		return containerResp.Container, &StartFailedError{Msg: containerResp.ErrorMessage}
+	}
+
 	return containerResp.Container, nil
 }
 

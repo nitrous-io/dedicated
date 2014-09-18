@@ -222,6 +222,30 @@ var _ = Describe("provider/docker", func() {
 			defer cleanUpContainer(name)
 		})
 
+		Context("when container is created but cannot be started", func() {
+			It("creates a stopped container and returns the container info and a StartFailedError", func() {
+				// Create container with config that prevents it from
+				// started.
+				name := RandomName("freightertest")
+				info, err := prov.Create(name, nitrousImage, secret,
+					`{"PortBindings": ["127.0.0.1:99999:99999"]}`) // Port out of range.
+				defer cleanUpContainer(name)
+
+				_, ok := err.(*provider.StartFailedError)
+				Expect(ok).To(BeTrue())
+				Expect(info.ID).To(Equal(getID(name)))
+				Expect(info.Name).To(Equal(name))
+				Expect(info.Image).To(Equal(nitrousImage))
+				Expect(info.ImageID).To(Equal(getID(nitrousImage)))
+				Expect(info.State).To(Equal(provider.ContainerStateStopped))
+				Expect(info.Host).To(Equal(""))
+				Expect(info.Gateway).To(Equal(""))
+				hostPorts, ok := info.Ports["22"]
+				Expect(ok).To(BeTrue())
+				Expect(hostPorts).To(HaveLen(0))
+			})
+		})
+
 		Context("after a container is created", func() {
 			var (
 				name string
