@@ -187,7 +187,6 @@ var _ = Describe("containers/create", func() {
 			pullStatusCode = http.StatusOK
 			createStatusCode = http.StatusCreated
 			createResponseBody = `{
-				"status": "created",
 				"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "running" }
 			}`
 
@@ -195,7 +194,22 @@ var _ = Describe("containers/create", func() {
 			Expect(code).To(Equal(0))
 
 			output, _ := ioutil.ReadFile(outfile.Name())
-			Expect(output).To(ContainSubstring("Created new container: '" + slug + "'"))
+			Expect(output).To(ContainSubstring("Created new container '" + slug + "'"))
+		})
+	})
+
+	Context("when pull image and create requests succeed, but create request returns an error description", func() {
+		It("prints a message indicating that the container was created but with errors", func() {
+			createResponseBody = `{
+				"error_description": "start failed: could not bind port 22",
+				"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "running" }
+			}`
+
+			code := doCmd()
+			Expect(code).To(Equal(0))
+
+			output, _ := ioutil.ReadFile(outfile.Name())
+			Expect(output).To(ContainSubstring("Created new container '" + slug + "' with errors: start failed: could not bind port 22"))
 		})
 	})
 })

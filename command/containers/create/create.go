@@ -130,8 +130,13 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	c.UI.Output(fmt.Sprintf("Created new container: '%s'", created.Slug))
-	c.UI.Output(containers.PrettyPrint([]string{"Slug", "Image", "State"}, created))
+	if created.ErrorDescription == "" {
+		c.UI.Output(fmt.Sprintf("Created new container '%s'", created.Container.Slug))
+	} else {
+		c.UI.Output(fmt.Sprintf("Created new container '%s' with errors: %s",
+			created.Container.Slug, created.ErrorDescription))
+	}
+	c.UI.Output(containers.PrettyPrint([]string{"Slug", "Image", "State"}, created.Container))
 
 	return 0
 }
@@ -160,7 +165,12 @@ func (c *Command) pullImage(host, image string, out io.Writer, termFd uintptr) e
 	return nil
 }
 
-func (c *Command) createContainer(cp *containerParams) (*containers.Container, error) {
+type createResponse struct {
+	Container        *containers.Container `json:"container"`
+	ErrorDescription string                `json:"error_description"`
+}
+
+func (c *Command) createContainer(cp *containerParams) (*createResponse, error) {
 	p := &url.Values{}
 	p.Set("host", cp.host)
 	if cp.slug != "" {
@@ -189,12 +199,10 @@ func (c *Command) createContainer(cp *containerParams) (*containers.Container, e
 	}
 	defer resp.Body.Close()
 
-	j := struct {
-		Container *containers.Container `json:"container"`
-	}{}
-	if err := json.NewDecoder(resp.Body).Decode(&j); err != nil {
+	res := createResponse{}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return nil, err
 	}
 
-	return j.Container, nil
+	return &res, nil
 }
