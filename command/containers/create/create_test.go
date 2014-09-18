@@ -34,8 +34,6 @@ var _ = Describe("containers/create", func() {
 		pullResponseBody   string
 		createStatusCode   int
 		createResponseBody string
-		startStatusCode    int
-		startResponseBody  string
 	)
 
 	BeforeEach(func() {
@@ -44,7 +42,6 @@ var _ = Describe("containers/create", func() {
 		// Setup for success.
 		pullStatusCode = http.StatusOK
 		createStatusCode = http.StatusCreated
-		startStatusCode = http.StatusOK
 
 		srv = ghttp.NewServer()
 
@@ -68,16 +65,6 @@ var _ = Describe("containers/create", func() {
 				Expect(req.PostFormValue("host")).To(Equal("host-1"))
 			},
 			ghttp.RespondWithPtr(&createStatusCode, &createResponseBody),
-		))
-
-		// Setup handlers: start container.
-		srv.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyHeaderKV("Authorization", "Bearer a_token"),
-			ghttp.VerifyRequest("POST", "/api/v0/containers/"+slug+"/start"),
-			func(w http.ResponseWriter, req *http.Request) {
-				req.ParseForm()
-			},
-			ghttp.RespondWithPtr(&startStatusCode, &startResponseBody),
 		))
 
 		// Create a tmp file to store output.
@@ -149,7 +136,7 @@ var _ = Describe("containers/create", func() {
 	})
 
 	Context("when pull image request fails", func() {
-		It("does not make the subsequent create and start requests", func() {
+		It("does not make the subsequent create request", func() {
 			pullStatusCode = http.StatusInternalServerError
 
 			code := doCmd()
@@ -196,56 +183,11 @@ var _ = Describe("containers/create", func() {
 	})
 
 	Context("when pull image and create requests succeed", func() {
-		It("makes a start request", func() {
-			pullStatusCode = http.StatusOK
-			createStatusCode = http.StatusCreated
-			createResponseBody = `{
-				"status": "created",
-				"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "stopped" }
-			}`
-
-			doCmd()
-
-			reqs := srv.ReceivedRequests()
-			Expect(reqs).To(HaveLen(3))
-			r := reqs[2]
-			Expect(r.PostForm["env[]"]).To(Equal([]string{"PAGER=most"}))
-			Expect(r.PostForm["volume[]"]).To(Equal([]string{"/shared", "/music"}))
-			Expect(r.PostForm["port[]"]).To(Equal([]string{"8080:3000", "127.0.0.1:4242"}))
-			Expect(r.PostFormValue("publish_all")).To(Equal("1"))
-		})
-
-	})
-
-	Context("when pull image and create requests succeed, but start request fails", func() {
-		It("prints a message indicating that the container was created but failed to start", func() {
-			pullStatusCode = http.StatusOK
-			createStatusCode = http.StatusCreated
-			createResponseBody = `{
-				"status": "created",
-				"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "stopped" }
-			}`
-			startStatusCode = http.StatusInternalServerError
-
-			code := doCmd()
-			Expect(code).To(Equal(1))
-
-			output, _ := ioutil.ReadFile(outfile.Name())
-			Expect(errorBuf).To(ContainSubstring("Container created but failed to start"))
-			Expect(output).To(ContainSubstring(slug))
-		})
-	})
-
-	Context("when pull image, create and start requests succeed", func() {
 		It("prints a message indicating that the container was created", func() {
 			pullStatusCode = http.StatusOK
 			createStatusCode = http.StatusCreated
 			createResponseBody = `{
 				"status": "created",
-				"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "stopped" }
-			}`
-			startStatusCode = http.StatusOK
-			startResponseBody = `{
 				"container": { "slug": "` + slug + `", "image": "ubuntu", "state": "running" }
 			}`
 

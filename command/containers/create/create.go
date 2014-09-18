@@ -130,16 +130,8 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	// Step 3: Start container.
-	started, err := c.start(params)
-	if err != nil {
-		c.UI.Error(fmt.Sprintf("Container created but failed to start. Error: %s", err))
-		c.UI.Output(containers.PrettyPrint([]string{"Slug", "Image", "State"}, created))
-		return 1
-	}
-
-	c.UI.Output(fmt.Sprintf("Created new container: '%s'", started.Slug))
-	c.UI.Output(containers.PrettyPrint([]string{"Slug", "Image", "State"}, started))
+	c.UI.Output(fmt.Sprintf("Created new container: '%s'", created.Slug))
+	c.UI.Output(containers.PrettyPrint([]string{"Slug", "Image", "State"}, created))
 
 	return 0
 }
@@ -205,27 +197,4 @@ func (c *Command) createContainer(cp *containerParams) (*containers.Container, e
 	}
 
 	return j.Container, nil
-}
-
-func (c *Command) start(cp *containerParams) (*containers.Container, error) {
-	p := &url.Values{}
-	for _, e := range cp.envVars {
-		p.Add("env[]", e)
-	}
-	for _, v := range cp.volumes {
-		p.Add("volume[]", v)
-	}
-	for _, pf := range cp.portForwards {
-		p.Add("port[]", pf)
-	}
-	if cp.portForwardAll {
-		p.Set("publish_all", "1")
-	}
-
-	u := fmt.Sprintf("%s/api/v0/containers/%s/start", c.Server, cp.slug)
-	resp, err := c.Client.PostFormAuthed(u, p)
-	if err != nil {
-		return nil, err
-	}
-	return containers.ParseContainerResponse(resp)
 }
