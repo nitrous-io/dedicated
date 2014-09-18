@@ -152,7 +152,7 @@ func (p *DockerProvider) Create(name, imageName, secret, configJSON string) (*pr
 		return nil, err
 	}
 
-	return p.GetInfo(container.ID)
+	return p.Start(container.ID, configJSON)
 }
 
 func (p *DockerProvider) Commit(id, imageName string) (*provider.ImageInfo, error) {
