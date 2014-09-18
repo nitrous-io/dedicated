@@ -126,8 +126,8 @@ var _ = Describe("controllers/images/pull", func() {
 		case <-time.After(50 * time.Millisecond):
 			Expect(true).To(BeFalse(), "timeout while getting image removed event")
 		case e := <-ech:
-			img := e.Data.(string)
-			Expect(img).To(Equal("scratch:latest"), "failed to serialize freighter response")
+			i := e.Data.(*serializers.Image)
+			Expect(i.Repo).To(Equal("scratch:latest"), "failed to serialize image response")
 		}
 	})
 

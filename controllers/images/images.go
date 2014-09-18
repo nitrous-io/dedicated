@@ -147,7 +147,7 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	}
 
 	env.Events.Publish(
-		controllers.NewEvent(controllers.EventImageRemoved, i.FullRepository()),
+		controllers.NewEvent(controllers.EventImageRemoved, serializers.SerializeImage(i)),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK
