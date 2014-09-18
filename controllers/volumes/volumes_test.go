@@ -404,7 +404,6 @@ var _ = Describe("controllers/volumes", func() {
 		Context("successful get", func() {
 			BeforeEach(func() {
 				mockClient.VolumeInfoReturn = &freighterclient.Volume{
-					Slug: "music",
 					Size: 666,
 				}
 			})
@@ -416,13 +415,11 @@ var _ = Describe("controllers/volumes", func() {
 
 				j := struct {
 					Vol struct {
-						Slug string `json:"slug"`
 						Size uint64 `json:"size"`
-					} `json:"volume"`
+					} `json:"info"`
 				}{}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-				Expect(j.Vol.Slug).To(Equal("music"))
 				Expect(j.Vol.Size).To(Equal(uint64(666)))
 			})
 		})

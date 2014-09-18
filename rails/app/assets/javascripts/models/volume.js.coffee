@@ -9,6 +9,8 @@ App.Volume = klass = App.Model.extend
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'updated_at', serialize: false)
 
+  info: null
+
   displayName: (->
     @get('name') || @get('slug')
   ).property 'name', 'slug'
@@ -22,6 +24,11 @@ App.Volume = klass = App.Model.extend
     if slug = @get 'slug'
       "/volumes/#{slug}"
   ).property 'slug'
+
+  fetchInfo: ->
+    @ajax('GET', 'info').then (data) =>
+      if info = data.info
+        @set 'info', App.VolumeInfo.create(info)
 
 klass.reopenClass
   url: '/hosts/:hostId/volumes'

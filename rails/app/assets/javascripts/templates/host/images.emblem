@@ -18,7 +18,7 @@
                   = image.slugAndTag
                   span.sep
                   | Created&nbsp;
-                  = ago createdAt
+                  = ago image.createdAt
     else
       p.hint-text
         i.fa.fa-exclamation-circle

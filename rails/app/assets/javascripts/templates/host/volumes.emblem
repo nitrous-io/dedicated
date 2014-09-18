@@ -18,9 +18,13 @@
                   = volume.slug
                   span.sep
                   | Created&nbsp;
-                  = ago createdAt
+                  = ago volume.createdAt
                   span.sep
-                  a href='#' Calculate Size
+                  a href='#' click='calculateSize volume' Calculate Size
+                  if volume.info
+                    span.sep
+                    = volume.info.size
+                    | &nbsp;bytes
 
     else
       p.hint-text

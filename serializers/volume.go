@@ -3,7 +3,6 @@ package serializers
 import (
 	"time"
 
-	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/models/volume"
 )
 
@@ -14,11 +13,6 @@ type Volume struct {
 	HostID    int64      `json:"host_id,omitempty"`
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
-}
-
-type VolumeInfo struct {
-	Slug string `json:"slug"`
-	Size uint64 `json:"size,omitempty"`
 }
 
 func SerializeVolume(v *volume.Volume) *Volume {
@@ -41,14 +35,4 @@ func SerializeVolumes(vols []*volume.Volume) []*Volume {
 		ret[i] = SerializeVolume(v)
 	}
 	return ret
-}
-
-func SerializeVolumeInfo(v *freighterclient.Volume) *VolumeInfo {
-	if v == nil {
-		return nil
-	}
-	return &VolumeInfo{
-		Slug: v.Slug,
-		Size: v.Size,
-	}
 }

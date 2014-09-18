@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous/models/volume"
 	"github.com/nitrous-io/nitrous/serializers"
 	. "github.com/onsi/ginkgo"
@@ -55,19 +54,6 @@ var _ = Describe("volume serializer", func() {
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}]`))
-		})
-	})
-
-	Describe("SerializeVolumeInfo", func() {
-		It("serializes to JSON", func() {
-			v := serializers.SerializeVolumeInfo(
-				&freighterclient.Volume{Slug: "music", Size: 123456})
-			b, err := json.Marshal(v)
-			Expect(err).To(BeNil())
-			Expect(b).To(MatchJSON(`{
-				"slug": "music",
-				"size": 123456
-			}`))
 		})
 	})
 })

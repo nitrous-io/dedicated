@@ -173,7 +173,7 @@ func Info(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"volume": serializers.SerializeVolumeInfo(vi),
+		"info": serializers.SerializeVolumeInfo(vi),
 	}
 	return nil
 }
