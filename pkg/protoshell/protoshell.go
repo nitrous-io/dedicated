@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -27,13 +29,18 @@ type ProtoShell struct {
 	host            string
 	containerID     string
 	command         string
-	isTerminal      bool // this checks if the current shell is a terminal i.e. capable of resizing
+	isTerminalOut   bool // this checks if the current shell ouput is a interactive terminal
+	isTerminalIn    bool // this checks if the current shell input is a interactive terminal
 	tokenHandler    TokenHandler
 	tlsClientConfig *tls.Config
 	conn            *wsconn.Conn
+	netConn         net.Conn
 
-	in  io.Reader
-	out io.Writer
+	serverIn  io.Writer
+	serverOut io.Reader
+
+	// specify that the remote command doesnt need a tty
+	NoTTY bool
 }
 
 // New creates a shell that uses WebSockets.
@@ -49,17 +56,18 @@ func New(host, containerID, command string, tlsConfig *tls.Config, tokenHandler 
 }
 
 // connect stdin and stdout respectively to their remote parts
-func (s *ProtoShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error {
-	s.isTerminal = term.IsTerminal(fd)
+func (s *ProtoShell) Attach(infd uintptr, outfd uintptr, stdin io.ReadCloser, stdout io.Writer) error {
+	s.isTerminalIn = term.IsTerminal(infd)
+	s.isTerminalOut = term.IsTerminal(outfd)
 
-	if s.isTerminal {
+	if s.isTerminalOut {
 		// restore the terminal back to old state when we finish
 		var oldState *term.State
-		oldState, err := term.SetRawTerminal(fd)
+		oldState, err := term.SetRawTerminal(outfd)
 		if err != nil {
 			return err
 		}
-		defer term.RestoreTerminal(fd, oldState)
+		defer term.RestoreTerminal(outfd, oldState)
 	}
 
 	// construct token header
@@ -73,54 +81,92 @@ func (s *ProtoShell) Attach(fd uintptr, stdin io.Reader, stdout io.Writer) error
 	params.Set("command", s.command)
 	params.Set("token", token)
 	params.Set("binary", "true")
+	if s.NoTTY {
+		params.Set("notty", "true")
+	}
 	wsEndpointURI := fmt.Sprintf("wss://%s/containers/%s/shell?%s", s.host, s.containerID, params.Encode())
 
-	dialer := websocket.Dialer{}
+	dialer := websocket.Dialer{
+		NetDial: func(network, address string) (net.Conn, error) {
+			c, err := net.Dial(network, address)
+			if err != nil {
+				return nil, err
+			}
+			// associate the underlying network connection with the current
+			// shell
+			s.netConn = c
+			return c, nil
+		},
+	}
 	if s.tlsClientConfig != nil {
 		dialer.TLSClientConfig = s.tlsClientConfig
 	}
 	ws, _, err := dialer.Dial(wsEndpointURI, http.Header{})
-
 	if err != nil {
 		return fmt.Errorf("Failed to attach to shell for container %s: %v", s.containerID, err)
 	}
 
 	s.conn = wsconn.NewConnection(ws)
 	s.conn.MessageType = websocket.BinaryMessage
-	defer s.conn.Close()
+	defer func() {
+		if s.netConn != nil {
+			s.netConn.Close()
+		}
+		if s.conn != nil {
+			s.conn.Close()
+		}
+	}()
 
 	// wrap input/output stream with our protocol
-	s.in = NewLocalInput(stdin)
-	s.out = NewLocalOutput(stdout)
+	s.serverIn = NewShellWriter(s.conn)
+	s.serverOut = NewShellReader(ws, websocket.BinaryMessage)
 
-	done := make(chan error)
-	go func() {
-		_, err := io.Copy(s.out, s.conn)
+	finishStdout := promise(func() error {
+		defer func() {
+			stdin.Close()
+		}()
+		_, err := io.Copy(stdout, s.serverOut)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			done <- nil
-			return
+			return nil
 		}
-		done <- err
-	}()
+		return err
+	})
 
-	go func() {
-		_, err := io.Copy(s.conn, s.in)
-		done <- err
-	}()
+	finishStdin := promise(func() error {
+		io.Copy(s.serverIn, stdin)
+		if tcpc, ok := s.netConn.(*net.TCPConn); ok {
+			if err := tcpc.CloseWrite(); err != nil {
+				log.Printf("Couldn't send EOF: %s", err)
+			}
+		} else {
+			log.Printf("Unexpected network connection: %s", s.netConn)
+		}
+		return nil
+	})
 
 	// monitor tty size but doesnt fail when it errors because the remote end
 	// may have been terminated.
 	//
 	// We only monitor size when the current shell lives in a terminal
-	if s.isTerminal {
-		s.monitorSize(fd)
+	if s.isTerminalOut && !s.NoTTY {
+		s.monitorSize(outfd)
 	}
-	return <-done
+
+	if err := <-finishStdout; err != nil {
+		return err
+	}
+
+	// we only want to wait for stdin when the terminal is not in interactive
+	// mode
+	if !s.isTerminalIn {
+		return <-finishStdin
+	}
+	return nil
 }
 
 // Run executes a remote command inside a container in a specific host
-func (s *ProtoShell) Run(fd uintptr, stdin io.Reader, stdout io.Writer) error {
-	if err := s.Attach(fd, stdin, stdout); err != nil {
+func (s *ProtoShell) Run(infd uintptr, outfd uintptr, stdin io.ReadCloser, stdout io.Writer) error {
+	if err := s.Attach(infd, outfd, stdin, stdout); err != nil {
 		return fmt.Errorf("Shell detached %v", err)
 	}
 	return nil
@@ -147,7 +193,7 @@ func (s *ProtoShell) monitorSize(fd uintptr) {
 // match the local terminal size
 func (s *ProtoShell) resize(fd uintptr) {
 	w, h := getSize(fd)
-	msg := fmt.Sprintf("w|%d %d", w, h)
+	msg := fmt.Sprintf("r|%d %d", w, h)
 	s.conn.Write([]byte(msg))
 }
 
@@ -158,4 +204,14 @@ func getSize(fd uintptr) (int, int) {
 		return defaultWidth, defaultHeight
 	}
 	return int(ws.Width), int(ws.Height)
+}
+
+// basic promise implementation: it wraps calls a function in a goroutine,
+// and returns a channel which will later return the function's return value.
+func promise(f func() error) chan error {
+	ch := make(chan error, 1)
+	go func() {
+		ch <- f()
+	}()
+	return ch
 }
