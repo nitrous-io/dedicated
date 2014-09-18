@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -51,20 +52,19 @@ type HostConfig struct {
 }
 
 type Host struct {
-	ClientV2 *godo.Client
-	Client   *do.Client
-	Config   *HostConfig
+	Client *godo.Client
+	Config *HostConfig
 
-	droplet    *do.Droplet
+	droplet    *godo.Droplet
 	privateKey *rsa.PrivateKey
 	conn       *ssh.Conn
-	sshKey     *do.SSHKey
+	sshKey     *godo.Key
 }
 
 func (h *Host) Create() (*host.Info, error) {
 	defer func() {
 		if h.sshKey != nil {
-			h.Client.DestroyKey(h.sshKey.ID)
+			h.Client.Keys.DeleteByID(h.sshKey.ID)
 		}
 	}()
 	steps := []context.Step{
@@ -81,8 +81,8 @@ func (h *Host) Create() (*host.Info, error) {
 	ctx := context.NewContext(h, steps)
 	if err := ctx.Execute(); err != nil {
 		if h.droplet != nil {
-			if derr := h.Client.DestroyDroplet(h.droplet.ID); derr != nil {
-				return nil, fmt.Errorf("Failed to destroy after create error: %v, %v", err, derr)
+			if resp, derr := h.Client.Droplets.Delete(h.droplet.ID); derr != nil {
+				return nil, fmt.Errorf("Failed to destroy after create error: %s, destroy err: %v, resp: %v", err, derr, resp)
 			}
 		}
 		return nil, err
@@ -95,7 +95,7 @@ func (h *Host) Destroy() error {
 	if err != nil {
 		return err
 	}
-	droplet, err := h.Client.DropletInfo(id)
+	dropletRoot, _, err := h.Client.Droplets.Get(id)
 	if err != nil {
 		// if the droplet does not exist, then consider that it is sucessfully
 		// destroyed
@@ -105,8 +105,8 @@ func (h *Host) Destroy() error {
 		}
 		return err
 	}
-	h.droplet = droplet
-	if err := h.Client.DestroyDroplet(id); err != nil {
+	h.droplet = dropletRoot.Droplet
+	if _, err := h.Client.Droplets.Delete(id); err != nil {
 		// if the droplet does not exist, then consider that it is sucessfully
 		// destroyed
 		// https://github.com/nitrous-io/nitro/issues/99
@@ -123,11 +123,11 @@ func (h *Host) Info() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	droplet, err := h.Client.DropletInfo(id)
+	dropletRoot, _, err := h.Client.Droplets.Get(id)
 	if err != nil {
 		return nil, err
 	}
-	h.droplet = droplet
+	h.droplet = dropletRoot.Droplet
 	return h.dropletToInfo(), nil
 }
 
@@ -135,7 +135,7 @@ func (h *Host) dropletToInfo() *host.Info {
 	return &host.Info{
 		Provider:       "digitalocean",
 		ID:             strconv.Itoa(h.droplet.ID),
-		IPAddress:      h.droplet.IpAddress,
+		IPAddress:      h.droplet.Networks.V4[0].IPAddress,
 		FreighterdPort: uint16(65333),
 	}
 }
@@ -145,7 +145,8 @@ func (h *Host) Stop() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := h.Client.PowerOffDroplet(id); err != nil {
+	// TODO: wait til action complete here
+	if _, _, err := h.Client.DropletActions.PowerOff(id); err != nil {
 		return nil, err
 	}
 	return h.Info()
@@ -156,7 +157,8 @@ func (h *Host) Start() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := h.Client.PowerOnDroplet(id); err != nil {
+	// TODO: wait til action complete here
+	if _, _, err := h.Client.DropletActions.PowerOn(id); err != nil {
 		return nil, err
 	}
 	return h.Info()
@@ -167,7 +169,8 @@ func (h *Host) Restart() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := h.Client.RebootDroplet(id); err != nil {
+	// TODO: wait til action complete here
+	if _, _, err := h.Client.DropletActions.Reboot(id); err != nil {
 		return nil, err
 	}
 	return h.Info()
@@ -181,23 +184,27 @@ func (h *Host) id() (int, error) {
 	return int(id64), nil
 }
 
+func (h *Host) ipAddress() string {
+	return h.droplet.Networks.V4[0].IPAddress
+}
+
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
 		log.Printf("digitalocean: invalid config %s", config)
 		return nil, err
 	}
+	if defaultConfig["token"] == "" {
+		return nil, errors.New("digitalocean builder requires valid access token")
+	}
+	t := &oauth.Transport{
+		Token: &oauth.Token{AccessToken: defaultConfig["token"]},
+	}
+	client := godo.NewClient(t.Client())
 	host := &Host{
 		Config: hostConfig,
+		Client: client,
 	}
-	if defaultConfig["token"] != "" {
-		t := &oauth.Transport{
-			Token: &oauth.Token{AccessToken: defaultConfig["token"]},
-		}
-
-		host.ClientV2 = godo.NewClient(t.Client())
-	}
-	host.Client = do.NewClient(defaultConfig["client_id"], defaultConfig["api_key"])
 	return host, nil
 }
 
@@ -217,7 +224,10 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 	if err != nil {
 		return err
 	}
-	sshKey, err := h.Client.CreateKey(h.Config.Name, string(pubKey))
+	sshKey, _, err := h.Client.Keys.Create(&godo.KeyCreateRequest{
+		Name:      h.Config.Name,
+		PublicKey: string(pubKey),
+	})
 	if err != nil {
 		return err
 	}
@@ -232,28 +242,36 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	var err error
 
 	// create the droplet
-	h.droplet, err = h.Client.CreateDroplet(config.Name, config.SizeID,
-		config.ImageID, config.RegionID, sshKey.ID, false)
+	dropletRoot, _, err := h.Client.Droplets.Create(&godo.DropletCreateRequest{
+		Name:   config.Name,
+		Region: config.RegionID,
+		Size:   config.SizeID,
+		Image:  config.ImageID,
+		SSHKeys: []interface{}{
+			sshKey.ID,
+		},
+	})
 	if err != nil {
 		return err
 	}
 
-	// wait for the create event to be done
-	err = do.WaitForEvent(h.droplet.EventID, h.Client, do.StateWaitTime, 10*time.Minute)
-	if err != nil {
-		log.Printf("[ERROR] timed out before create event is completed for droplet %d", h.droplet.ID)
-		return err
+	if len(dropletRoot.Links.Actions) > 0 {
+		la := dropletRoot.Links.Actions[0]
+		_, err = WaitForAction(h.Client.Actions, la.ID, do.StateWaitTime, 15*time.Minute)
+		if err != nil {
+			return err
+		}
+	} else {
+		log.Printf("[WARNING] digitalocean does not return action data for host %+v", hst)
+		return nil
 	}
 
-	// wait for the droplet to be active
-	droplet, err := do.WaitForState("active", h.droplet.ID, h.Client,
-		do.StateWaitTime, 5*time.Minute)
+	dropletRoot, _, err = h.Client.Droplets.Get(dropletRoot.Droplet.ID)
 	if err != nil {
-		log.Printf("[ERROR] timed out before droplet %d is active", h.droplet.ID)
-		return err
+		return fmt.Errorf("create: failed to get droplet after completed %s", err)
 	}
 
-	h.droplet = droplet
+	h.droplet = dropletRoot.Droplet
 	return nil
 }
 
@@ -261,7 +279,7 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
 	privateKey := h.privateKey
 	// check that we can ssh into the server
-	address := fmt.Sprintf("%s:%s", h.droplet.IpAddress, "65100")
+	address := fmt.Sprintf("%s:%s", h.ipAddress(), "65100")
 	sshConn, err := ssh.WaitForSSH(address, "root", privateKey,
 		ssh.TimeWait, make(chan struct{}))
 	if err != nil {
@@ -311,7 +329,7 @@ func writeFile(h *Host, files map[string]io.Reader) error {
 		}
 		flist = append(flist, dest)
 	}
-	log.Printf("Uploaded (%s) to %v", strings.Join(flist, " "), h.droplet.IpAddress)
+	log.Printf("Uploaded (%s) to %v", strings.Join(flist, " "), h.ipAddress())
 	return nil
 }
 
@@ -324,7 +342,7 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 	if err := h.conn.Upload(host.SourceLocation, sourceData); err != nil {
 		return err
 	}
-	log.Printf("Uploaded apt details at %v", h.droplet.IpAddress)
+	log.Printf("Uploaded apt details at %v", h.ipAddress())
 	return nil
 }
 
@@ -336,6 +354,6 @@ apt-get update && apt-get install -yq freighterd && service freighterd restart
 	if err := h.conn.Execute(updateSoftwareCmd); err != nil {
 		return err
 	}
-	log.Printf("Updated software on %v", h.droplet.IpAddress)
+	log.Printf("Updated software on %v", h.ipAddress())
 	return nil
 }
