@@ -7,6 +7,11 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"time"
+)
+
+var (
+	HTTPFlushInterval = 100 * time.Millisecond
 )
 
 func ProxyHTTP(addr string, tlsConfig *tls.Config) http.HandlerFunc {
@@ -23,6 +28,7 @@ func ProxyHTTP(addr string, tlsConfig *tls.Config) http.HandlerFunc {
 		Transport: &http.Transport{
 			TLSClientConfig: tlsConfig,
 		},
+		FlushInterval: HTTPFlushInterval,
 	}
 	return p.ServeHTTP
 }
