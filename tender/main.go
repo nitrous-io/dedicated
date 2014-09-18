@@ -59,11 +59,11 @@ func main() {
 
 	_, err := tls.LoadX509KeyPair(pubCACert, pubCAKey)
 	if err != nil {
-		log.Fatalf("tender: Failed to load SSL certificates- %s & %s: %s", pubCACert, pubCAKey, err)
+		log.Fatalf("tender: Failed to load SSL certificates: %s", err)
 	}
 	privCACert, err := ioutil.ReadFile(privCACertPath)
 	if err != nil {
-		log.Fatalf("tender: Failed to find private CA cert at %s", privCACertPath)
+		log.Fatalf("tender: Failed to find private certificate: %s", privCACertPath)
 	}
 
 	s, err := tender.NewServer(baseDomain, databaseURL, freighterdPort, privCACert)
