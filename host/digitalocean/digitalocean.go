@@ -11,6 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"code.google.com/p/goauth2/oauth"
+
+	"github.com/digitalocean/godo"
 	"github.com/nitrous-io/hostbuilder/context"
 	"github.com/nitrous-io/hostbuilder/host"
 	do "github.com/nitrous-io/hostbuilder/pkg/digitalocean"
@@ -48,8 +51,9 @@ type HostConfig struct {
 }
 
 type Host struct {
-	Client *do.Client
-	Config *HostConfig
+	ClientV2 *godo.Client
+	Client   *do.Client
+	Config   *HostConfig
 
 	droplet    *do.Droplet
 	privateKey *rsa.PrivateKey
@@ -178,7 +182,6 @@ func (h *Host) id() (int, error) {
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
-	client := do.NewClient(defaultConfig["client_id"], defaultConfig["api_key"])
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
 		log.Printf("digitalocean: invalid config %s", config)
@@ -186,8 +189,15 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	}
 	host := &Host{
 		Config: hostConfig,
-		Client: client,
 	}
+	if defaultConfig["token"] != "" {
+		t := &oauth.Transport{
+			Token: &oauth.Token{AccessToken: defaultConfig["token"]},
+		}
+
+		host.ClientV2 = godo.NewClient(t.Client())
+	}
+	host.Client = do.NewClient(defaultConfig["client_id"], defaultConfig["api_key"])
 	return host, nil
 }
 
