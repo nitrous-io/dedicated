@@ -3,6 +3,9 @@ package host
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"log"
+	"os"
 	"regexp"
 	"strconv"
 	"time"
@@ -37,6 +40,20 @@ const (
 	StateOrphan     = "orphan"
 	StateTerminated = "terminated"
 )
+
+// slug is prefixed to these as "<slug>.<rootHostname>" and "<slug>.<proxyHostname>"
+var rootHostname, proxyHostname string
+
+func init() {
+	rootHostname = os.Getenv("HOST_HOSTNAME")
+	if rootHostname == "" {
+		log.Fatalf("HOST_HOSTNAME not set")
+	}
+	proxyHostname = os.Getenv("PROXY_HOSTNAME")
+	if proxyHostname == "" {
+		log.Fatalf("PROXY_HOSTNAME not set")
+	}
+}
 
 type Host struct {
 	ID                 int64 `db:"id"`
@@ -211,5 +228,9 @@ func (h *Host) Validate(db *db.Database) error {
 // We assume that slug is vald ( its cant be empty ), therefore we wont check
 // it here
 func (h *Host) Hostname() string {
-	return h.Slug + ".nitrouspro.com" // FIXME
+	return fmt.Sprintf("%s.%s", h.Slug, rootHostname)
+}
+
+func (h *Host) ProxyHostname() string {
+	return fmt.Sprintf("%s.%s", h.Slug, proxyHostname)
 }
