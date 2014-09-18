@@ -22,6 +22,9 @@ import (
 
 const StatusUnprocessableEntity = 422
 
+// default size of the shell's message queue
+const messageQueueSize = 10
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -341,7 +344,7 @@ func (s *Server) wsNewShell(token string, w http.ResponseWriter, r *http.Request
 	s.shells[shellID] = sh
 
 	// create stdin/stdout stream with the shell protocol
-	msgCh := make(chan shell.Message, 10)
+	msgCh := make(chan shell.Message, messageQueueSize)
 	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
 	stdout := shell.NewShellWriter(stream)
 
