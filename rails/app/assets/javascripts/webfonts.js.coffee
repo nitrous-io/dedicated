@@ -1,3 +1,6 @@
+#= require_self
+#= require webfontloader
+
 window.WebFontConfig =
   google:
     families: [
@@ -5,15 +8,7 @@ window.WebFontConfig =
       'Source+Code+Pro:400,700:latin'
     ]
 
-wf = document.createElement('script')
-protocol = if 'https:' == document.location.protocol
-  'https'
-else
-  'http'
-wf.src = "#{protocol}://ajax.googleapis.com/ajax/libs/webfont/1/webfont.js"
-wf.type = 'text/javascript'
-wf.async = 'true'
-wf.onload = ->
-  window.webFontLoaded?()
-s = document.getElementsByTagName('script')[0]
-s.parentNode.insertBefore(wf, s)
+  active: ->
+    window.setTimeout(->
+      window.webFontLoaded?()
+    , 1)
