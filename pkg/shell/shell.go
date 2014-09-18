@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"syscall"
@@ -18,28 +17,35 @@ const (
 	defaultTerm   = "xterm-256color"
 	defaultWidth  = 80
 	defaultHeight = 60
-
-	defaultTimeout = 100 * time.Millisecond
 )
 
 var (
 	ErrMissingArg  = errors.New("Missing arguments: check id and command")
 	ErrInvalidTerm = errors.New("Invalid term")
+
+	// time to wait for process to close normally before we terminate it
+	defaultFinishTimeout = 1 * time.Second
+	//  time to wait for process to close before we kill it
+	defaultTermTimeout = 2 * time.Second
 )
 
-func NewShell(id, command string) (*Shell, error) {
+func NewShell(id, command string, noTTY bool) (*Shell, error) {
 	if id == "" || command == "" {
 		return nil, ErrMissingArg
 	}
 	s := &Shell{
 		id:      id,
 		command: command,
+		isTTY:   true,
+	}
+	if noTTY {
+		s.isTTY = false
 	}
 	return s, nil
 }
 
-func OpenShell(id, command string, width, height int, env []string) (*Shell, error) {
-	s, err := NewShell(id, command)
+func OpenShell(id, command string, width, height int, noTTY bool, env []string) (*Shell, error) {
+	s, err := NewShell(id, command, noTTY)
 	if err != nil {
 		return nil, err
 	}
@@ -57,13 +63,27 @@ type Shell struct {
 	// we use lxc-attach by default, but user can switch this to a more
 	// lightweight command like bash for testing purpose
 	cmd *exec.Cmd
+
+	// if the shell requires a TTY
+	isTTY bool
+
+	stdinW  io.WriteCloser
+	stdoutR io.ReadCloser
+	stdoutW io.WriteCloser
 }
 
 func (s *Shell) Close() error {
-	if s.cmd.Process != nil {
-		go closeProcess(s.cmd, defaultTimeout)
+	if s.cmd != nil && s.cmd.Process != nil {
+		if s.isTTY {
+			closeProcess(s.cmd)
+		} else {
+			s.cmd.Wait()
+		}
 	}
-	return s.term.Close()
+	if s.term != nil {
+		return s.term.Close()
+	}
+	return nil
 }
 
 func (s *Shell) Open(w, h int, env []string) error {
@@ -89,99 +109,83 @@ func (s *Shell) Open(w, h int, env []string) error {
 		)
 		s.cmd = exec.Command("lxc-attach", args...)
 	}
-	sh, err := pty.Start(s.cmd)
-	if err != nil {
-		return err
+
+	s.stdoutR, s.stdoutW = io.Pipe()
+	if s.isTTY {
+		sh, err := pty.Start(s.cmd)
+		if err != nil {
+			return err
+		}
+		s.term = sh
+
+		// create stdin pipes for tty
+		stdinR, stdinW := io.Pipe()
+		s.stdinW = stdinW
+
+		// copy output from terminal to stdin out
+		go func() {
+			defer s.stdoutW.Close()
+			io.Copy(s.stdoutW, s.term)
+		}()
+
+		// when stdin is closed, close the stdout pipe as well. This prevent cases
+		// where we hangs the shell waiting for stdout to finished while stdin is
+		// closed
+		promise(func() error {
+			_, err := io.Copy(s.term, stdinR)
+			// if the client closed the write part of the tcp connection, we gets
+			// UnexpectedEOF from the websocket, so we ignore it here
+			if err == io.ErrClosedPipe || err == io.ErrUnexpectedEOF {
+				err = nil
+			}
+			return err
+		})
+	} else {
+		// setup the cmd pipes without pty
+		stdin, err := s.cmd.StdinPipe()
+		if err != nil {
+			return err
+		}
+		s.cmd.Stdout = s.stdoutW
+		s.cmd.Stderr = s.stdoutW
+		s.stdinW = stdin
+
+		if err := s.cmd.Start(); err != nil {
+			return err
+		}
 	}
-	s.term = sh
 	return s.Resize(w, h)
 }
 
-// AttachProtocol connects the shell with reader and writer using the protocol
-// specified in `protocol.go` instead of processing reader and writer as pure
-// input/output stream
-//
-// This allows us to multiplex several type of messages over a connec[tion
-func (s *Shell) AttachProtocol(r io.Reader, w io.Writer) chan error {
-	errors := make(chan error, 2)
-	msgCh := make(chan Message)
-
-	stdin := NewShellReader(r, msgCh)
-	stdout := NewShellWriter(w)
-
-	// stdin
-	go func() {
-		_, err := io.Copy(s.term, stdin)
-		if err == io.ErrClosedPipe {
-			err = nil
-		}
-		errors <- err
-	}()
-
-	// stdout
-	go func() {
-		_, err := io.Copy(stdout, s.term)
-		if err == io.ErrClosedPipe {
-			err = nil
-		}
-		errors <- err
-	}()
-
-	return promise(func() error {
-		defer s.Close()
-		for {
-			select {
-			case msg := <-msgCh:
-				switch msg := msg.(type) {
-				case *ResizeMsg:
-					s.Resize(msg.width, msg.height)
-				case *CloseMsg:
-					// return so the caller can close the connection properly
-					return nil
-				default:
-					log.Println("shell: got unknown msg %v", msg)
-				}
-			case err := <-errors:
-				return err
-			}
-		}
-		return nil
-	})
-}
-
 func (s *Shell) Attach(stdin io.Reader, stdout io.Writer) chan error {
-	errors := make(chan error, 2)
-
-	// stdin
+	// setups the pipes so we can close the copy routine properly instead of
+	// using the raw terminal
 	go func() {
-		_, err := io.Copy(s.term, stdin)
-		if err == io.ErrClosedPipe {
-			err = nil
-		}
-		errors <- err
+		io.Copy(s.stdinW, stdin)
+		s.stdinW.Close()
+		s.stdoutR.Close()
 	}()
 
 	// stdout
-	go func() {
-		_, err := io.Copy(stdout, s.term)
+	finishStdout := promise(func() error {
+		_, err := io.Copy(stdout, s.stdoutR)
 		if err == io.ErrClosedPipe {
 			err = nil
 		}
-		errors <- err
-	}()
+		return err
+	})
 
 	return promise(func() error {
 		defer s.Close()
-		for i := 0; i < 2; i += 1 {
-			if err := <-errors; err != nil {
-				return err
-			}
-		}
-		return nil
+		return <-finishStdout
 	})
 }
 
 func (s *Shell) Resize(w, h int) error {
+	// if this is not a tty we dont need to resize
+	if !s.isTTY {
+		return nil
+	}
 	if w == 0 {
 		w = defaultWidth
 	}
@@ -211,16 +215,18 @@ func promise(f func() error) chan error {
 
 // close the process by sending it SIGTERM and wait for it to complete.
 // If it cant finish after timeout, kill it
-func closeProcess(c *exec.Cmd, timeout time.Duration) error {
+func closeProcess(c *exec.Cmd) error {
 	done := make(chan error, 1)
 	go func() {
 		done <- c.Wait()
 	}()
-	c.Process.Signal(syscall.SIGTERM)
 	select {
-	case <-time.After(timeout):
+	case <-time.After(defaultFinishTimeout):
+		c.Process.Signal(syscall.SIGTERM)
+	case <-time.After(defaultTermTimeout):
 		return c.Process.Kill()
 	case err := <-done:
 		return err
 	}
+	return nil
 }

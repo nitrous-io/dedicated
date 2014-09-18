@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,6 +21,9 @@ import (
 )
 
 const StatusUnprocessableEntity = 422
+
+// default size of the shell's message queue
+const messageQueueSize = 10
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -318,8 +322,11 @@ func (s *Server) wsNewShell(token string, w http.ResponseWriter, r *http.Request
 	height := getFormInt(r, "height")
 	// check if the client request to use BinaryMessage instead of TextMessage
 	binary, _ := strconv.ParseBool(r.FormValue("binary"))
+	// check if the client wants to have a TTY. Usually the client who wants a
+	// stdin pipe will not need a TTY
+	noTTY, _ := strconv.ParseBool(r.FormValue("notty"))
 
-	sh, err := shell.OpenShell(containerID, command, width, height, info.Env)
+	sh, err := shell.OpenShell(containerID, command, width, height, noTTY, info.Env)
 	if err != nil {
 		fmt.Println("wsNewShell: failed to open a shell for container %v", containerID, err)
 		return err
@@ -340,8 +347,25 @@ func (s *Server) wsNewShell(token string, w http.ResponseWriter, r *http.Request
 	shellID := randomString()
 	s.shells[shellID] = sh
 
-	<-sh.AttachProtocol(stream, stream)
-	return nil
+	// create stdin/stdout stream with the shell protocol
+	msgCh := make(chan shell.Message, messageQueueSize)
+	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
+	stdout := shell.NewShellWriter(stream)
+
+	ch := sh.Attach(stdin, stdout)
+	for {
+		select {
+		case <-ch:
+			return nil
+		case msg := <-msgCh:
+			switch msg := msg.(type) {
+			case *shell.ResizeMsg:
+				sh.Resize(msg.Width, msg.Height)
+			default:
+				log.Println("shell: got unknown msg %v", msg)
+			}
+		}
+	}
 }
 
 func (s *Server) loginRegistry(w http.ResponseWriter, r *http.Request) {
