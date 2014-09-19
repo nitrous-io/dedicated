@@ -47,10 +47,12 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
+	fmt.Fprintln(w, "creating boxhost image")
 	imageName, err := h.createImage()
 	if err != nil {
 		return nil, err
 	}
+	fmt.Fprintf(w, "creating boxhost container with image %s\n", imageName)
 	return h.createContainer(imageName)
 }
 
