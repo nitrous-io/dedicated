@@ -28,6 +28,15 @@ var (
 	SecretLocation  = "/etc/freighterd/secret"
 
 	StateWaitTime = 3 * time.Second
+
+	// FIXME: the map should belongs to client, not the builder
+	regionsMap = map[string]string{
+		"sgp": "sgp1",
+		"nyc": "nyc2",
+		"sfo": "sfo1",
+		"ams": "ams2",
+		"lon": "lon1",
+	}
 )
 
 type tlsConfig struct {
@@ -66,11 +75,16 @@ type Host struct {
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	defer func() {
 		if h.sshKey != nil {
-			h.Client.Keys.DeleteByID(h.sshKey.ID)
+			fmt.Fprintf(w, "starting: remove temporary ssh key")
+			_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
+			if err != nil {
+				fmt.Fprintf(w, "failed: remove temporary ssh key")
+			}
+			fmt.Fprintf(w, "finished: remove temporary ssh key")
 		}
 	}()
 	steps := []context.Step{
-		{"create ssh key", createSSHKey},
+		{"create temporary ssh key", createSSHKey},
 		{"create the droplet", createDroplet},
 		{"test droplet's connectivity", waitForSSH},
 		{"upload droplet's public keys", writePublicKeys},
@@ -261,10 +275,13 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	sshKey := h.sshKey
 	var err error
 
-	// create the droplet
+	normalizedRegion, ok := regionsMap[config.RegionID]
+	if !ok {
+		return fmt.Errorf("Invalid region or lookup failure: '%s'", config.RegionID)
+	}
 	dropletRoot, _, err := h.Client.Droplets.Create(&godo.DropletCreateRequest{
 		Name:   config.Name,
-		Region: config.RegionID,
+		Region: normalizedRegion,
 		Size:   config.SizeID,
 		Image:  config.ImageID,
 		SSHKeys: []interface{}{
