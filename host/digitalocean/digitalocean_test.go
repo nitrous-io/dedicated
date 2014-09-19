@@ -109,10 +109,11 @@ var _ = Describe("host/digitalocean", func() {
 	Describe("Start", func() {
 		BeforeEach(func() {
 			s.AddResponse("GET", "droplets/id", dotest.NewResponse(200, droplet))
-			s.AddResponse("POST", "droplets/id/actions", dotest.OkResponse)
+			s.AddResponse("POST", "droplets/id/actions", dotest.NewResponse(200, inprogressAction))
 		})
 
-		It("starts the droplet", func() {
+		It("starts the droplet and waits until the action is completed", func() {
+			s.AddResponse("GET", "actions/id", dotest.NewResponse(200, completedAction))
 			h := digitalocean.Host{Config: &digitalocean.HostConfig{ID: "1"}, Client: c}
 
 			info, err := h.Start()
@@ -126,6 +127,15 @@ var _ = Describe("host/digitalocean", func() {
 
 			request = s.Requests["GET"]["droplets/id"][0]
 			Expect(request.URL.Path).To(Equal("/v2/droplets/1"))
+
+			Expect(len(s.Requests["GET"]["actions/id"])).To(Equal(1), "expect start to waits for action to be completed")
+		})
+
+		It("returns error when the action failed to complete", func() {
+			s.AddResponse("GET", "actions/id", dotest.NewResponse(200, erroredAction))
+			h := digitalocean.Host{Config: &digitalocean.HostConfig{ID: "1"}, Client: c}
+			_, err := h.Start()
+			Expect(err).ToNot(BeNil(), "failed to return error when start failed")
 		})
 	})
 

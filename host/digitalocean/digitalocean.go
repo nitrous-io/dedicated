@@ -147,7 +147,7 @@ func (h *Host) Stop() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: wait til action complete here
+
 	action, _, err := h.Client.DropletActions.PowerOff(id)
 	if err != nil {
 		return nil, err
@@ -164,8 +164,13 @@ func (h *Host) Start() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: wait til action complete here
-	if _, _, err := h.Client.DropletActions.PowerOn(id); err != nil {
+
+	action, _, err := h.Client.DropletActions.PowerOn(id)
+	if err != nil {
+		return nil, err
+	}
+	_, err = WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 15*time.Minute)
+	if err != nil {
 		return nil, err
 	}
 	return h.Info()
