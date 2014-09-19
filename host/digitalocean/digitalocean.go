@@ -181,8 +181,12 @@ func (h *Host) Restart() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: wait til action complete here
-	if _, _, err := h.Client.DropletActions.Reboot(id); err != nil {
+	action, _, err := h.Client.DropletActions.Reboot(id)
+	if err != nil {
+		return nil, err
+	}
+	_, err = WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 15*time.Minute)
+	if err != nil {
 		return nil, err
 	}
 	return h.Info()
