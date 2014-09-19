@@ -864,11 +864,13 @@ var _ = Describe("controllers/containers", func() {
 
 					var j struct {
 						Container        *serializers.Container `json:"container"`
+						Error            string                 `json:"error"`
 						ErrorDescription string                 `json:"error_description"`
 					}
 					err := json.NewDecoder(res.Body).Decode(&j)
 					Expect(err).To(BeNil())
 
+					Expect(j.Error).To(Equal("start_failed"))
 					Expect(j.ErrorDescription).To(ContainSubstring("start failed: could not bind port 22"))
 
 					c, err := container.Find(db, u, "elixir-web-1")

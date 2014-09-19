@@ -297,6 +297,7 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 		"container": serializers.SerializeContainer(cn),
 	}
 	if startError != nil {
+		env.Data["error"] = "start_failed"
 		env.Data["error_description"] = startError.Error()
 	}
 	return nil
