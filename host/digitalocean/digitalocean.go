@@ -70,25 +70,29 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		}
 	}()
 	steps := []context.Step{
-		createSSHKey,
-		createDroplet,
-		waitForSSH,
-		writePublicKeys,
-		createEtcFreighterd,
-		writeTLSCerts,
-		writeSecret,
-		writeRepository,
-		updateSoftware,
+		{"create ssh key", createSSHKey},
+		{"create the droplet", createDroplet},
+		{"test droplet's connectivity", waitForSSH},
+		{"upload droplet's public keys", writePublicKeys},
+		{"create settings directory", createEtcFreighterd},
+		{"upload certificates", writeTLSCerts},
+		{"write authentication token", writeSecret},
+		{"setup software repository", writeRepository},
+		{"update software", updateSoftware},
 	}
-	ctx := context.NewContext(h, steps)
+	ctx := context.NewContext(h, steps, w)
 	if err := ctx.Execute(); err != nil {
 		if h.droplet != nil {
+			fmt.Fprintf(w, "starting: rollback the droplet")
 			if resp, derr := h.Client.Droplets.Delete(h.droplet.ID); derr != nil {
+				fmt.Fprintf(w, "failed: rollback the droplet")
 				return nil, fmt.Errorf("Failed to destroy after create error: %s, destroy err: %v, resp: %v", err, derr, resp)
 			}
+			fmt.Fprintf(w, "finished: rollback the droplet")
 		}
 		return nil, err
 	}
+	fmt.Fprintf(w, "finished: the droplet should be ready now")
 	return h.dropletToInfo(), nil
 }
 

@@ -2,8 +2,10 @@ package digitalocean_test
 
 import (
 	"encoding/json"
+	"io"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/digitalocean/godo"
@@ -12,6 +14,19 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+type newlineWriter struct {
+	w io.Writer
+}
+
+func (w *newlineWriter) Write(p []byte) (int, error) {
+	n, err := w.w.Write(p)
+	if err != nil {
+		return n, err
+	}
+	w.w.Write([]byte("\n"))
+	return n, nil
+}
 
 func init() {
 	digitalocean.StateWaitTime = 10 * time.Millisecond
@@ -61,7 +76,7 @@ var _ = Describe("host/digitalocean", func() {
 					Config: &digitalocean.HostConfig{ID: "1", ImageID: "1", RegionID: "nyc1", SizeID: "512mb"},
 					Client: c,
 				}
-				_, err := h.Create()
+				_, err := h.Create(&newlineWriter{os.Stdout})
 				Expect(err).NotTo(BeNil(), "expect create to fail")
 
 				request := s.Requests["DELETE"]["droplets/id/destroy"][0]

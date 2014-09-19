@@ -2,6 +2,7 @@ package context_test
 
 import (
 	"errors"
+	"io/ioutil"
 	"testing"
 
 	"github.com/nitrous-io/hostbuilder/context"
@@ -31,8 +32,11 @@ var _ = Describe("context", func() {
 				}
 				h, err := host.InitHost("dummy", map[string]string{}, "")
 				Expect(err).To(BeNil())
-				steps := []context.Step{increment, increment}
-				c := context.NewContext(h, steps)
+				steps := []context.Step{
+					{"1st increment", increment},
+					{"2nd increment", increment},
+				}
+				c := context.NewContext(h, steps, ioutil.Discard)
 				c.Execute()
 
 				Expect(i).To(Equal(len(steps)))
@@ -49,9 +53,13 @@ var _ = Describe("context", func() {
 					}
 					return nil
 				}
-				steps := []context.Step{increment, increment, increment}
+				steps := []context.Step{
+					{"1st increment", increment},
+					{"2nd increment", increment},
+					{"3rd increment", increment},
+				}
 				h, _ := host.InitHost("dummy", map[string]string{}, "")
-				c := context.NewContext(h, steps)
+				c := context.NewContext(h, steps, ioutil.Discard)
 				err := c.Execute()
 				Expect(err).ToNot(BeNil())
 				Expect(c.Error).ToNot(BeNil())
