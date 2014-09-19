@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -40,6 +41,10 @@ func init() {
 	// shorten key length so tests run faster
 	cert.KeyLen = 512
 	keypairs.KeyLen = 512
+}
+
+func hostname(slug string) string {
+	return fmt.Sprintf("%s.%s", slug, os.Getenv("HOST_HOSTNAME"))
 }
 
 func Test(t *testing.T) {
@@ -156,7 +161,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Hosts[0].FreighterdPort).To(Equal(int64(64000)))
 				Expect(j.Hosts[0].Size).To(Equal("micro"))
 				Expect(j.Hosts[0].State).To(Equal(host.StateRunning))
-				Expect(j.Hosts[0].Hostname).To(Equal("foo.nitrouspro.com"))
+				Expect(j.Hosts[0].Hostname).To(Equal(hostname("foo")))
 				Expect(j.Hosts[0].CreatedAt).NotTo(BeNil())
 
 				Expect(j.Hosts[1].ID).To(Equal(hs2.H.ID))
@@ -166,7 +171,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Hosts[1].FreighterdPort).To(Equal(int64(64001)))
 				Expect(j.Hosts[1].Size).To(Equal("large"))
 				Expect(j.Hosts[1].State).To(Equal(host.StateRunning))
-				Expect(j.Hosts[1].Hostname).To(Equal("bar.nitrouspro.com"))
+				Expect(j.Hosts[1].Hostname).To(Equal(hostname("bar")))
 				Expect(j.Hosts[1].CreatedAt).NotTo(BeNil())
 			})
 		})
@@ -384,7 +389,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
 					Expect(j.Host.Size).To(Equal(hs.P.Slug))
 					Expect(j.Host.State).To(Equal(host.StateRunning))
-					Expect(j.Host.Hostname).To(Equal("honeybadger.nitrouspro.com"))
+					Expect(j.Host.Hostname).To(Equal(hostname("honeybadger")))
 					Expect(j.Host.CreatedAt).NotTo(BeNil())
 					Expect(j.Host.UpdatedAt).NotTo(BeNil())
 					Expect(j.Host.TerminatedAt).To(BeNil())
@@ -648,7 +653,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Host.FreighterdPort).To(Equal(int64(64000)))
 			Expect(j.Host.Size).To(Equal("large"))
 			Expect(j.Host.State).To(Equal(host.StateRunning))
-			Expect(j.Host.Hostname).To(Equal("foo.nitrouspro.com"))
+			Expect(j.Host.Hostname).To(Equal(hostname("foo")))
 			Expect(j.Host.RegionID).To(Equal(hs.R.ID))
 			Expect(j.Host.PlanID).To(Equal(hs.P.ID))
 			Expect(j.Host.CreatedAt).NotTo(BeNil())
@@ -983,7 +988,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.FreighterdPort).To(Equal(int64(0)))
 				Expect(j.Host.Size).To(Equal(""))
 				Expect(j.Host.State).To(Equal(host.StateTerminated))
-				Expect(j.Host.Hostname).To(Equal("honeybadger.nitrouspro.com"))
+				Expect(j.Host.Hostname).To(Equal(fmt.Sprintf("honeybadger.%s", os.Getenv("HOST_HOSTNAME"))))
 				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
 				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
 				Expect(j.Host.CreatedAt).NotTo(BeNil())
