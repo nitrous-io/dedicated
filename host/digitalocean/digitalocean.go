@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -17,7 +18,6 @@ import (
 	"github.com/digitalocean/godo"
 	"github.com/nitrous-io/hostbuilder/context"
 	"github.com/nitrous-io/hostbuilder/host"
-	do "github.com/nitrous-io/hostbuilder/pkg/digitalocean"
 	"github.com/nitrous-io/hostbuilder/pkg/ssh"
 )
 
@@ -26,6 +26,8 @@ var (
 	TLSCertLocation = "/etc/freighterd/cert.crt"
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
 	SecretLocation  = "/etc/freighterd/secret"
+
+	StateWaitTime = 3 * time.Second
 )
 
 type tlsConfig struct {
@@ -95,22 +97,22 @@ func (h *Host) Destroy() error {
 	if err != nil {
 		return err
 	}
-	dropletRoot, _, err := h.Client.Droplets.Get(id)
+	dropletRoot, resp, err := h.Client.Droplets.Get(id)
 	if err != nil {
 		// if the droplet does not exist, then consider that it is sucessfully
 		// destroyed
 		// https://github.com/nitrous-io/nitro/issues/99
-		if err == do.ErrNotFound {
+		if resp.StatusCode == http.StatusNotFound {
 			return nil
 		}
 		return err
 	}
 	h.droplet = dropletRoot.Droplet
-	if _, err := h.Client.Droplets.Delete(id); err != nil {
+	if resp, err := h.Client.Droplets.Delete(id); err != nil {
 		// if the droplet does not exist, then consider that it is sucessfully
 		// destroyed
 		// https://github.com/nitrous-io/nitro/issues/99
-		if err == do.ErrNotFound {
+		if resp.StatusCode == http.StatusNotFound {
 			return nil
 		}
 		return err
@@ -255,9 +257,11 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 		return err
 	}
 
+	h.droplet = dropletRoot.Droplet
+
 	if len(dropletRoot.Links.Actions) > 0 {
 		la := dropletRoot.Links.Actions[0]
-		_, err = WaitForAction(h.Client.Actions, la.ID, do.StateWaitTime, 15*time.Minute)
+		_, err = WaitForAction(h.Client.Actions, la.ID, StateWaitTime, 15*time.Minute)
 		if err != nil {
 			return err
 		}
