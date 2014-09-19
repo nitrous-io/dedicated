@@ -279,10 +279,7 @@ var _ = Describe("client", func() {
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
-					// Call ParseForm() so that server.ReceivedRequests() have
-					// POST params populated.
-					err := req.ParseForm()
-					Expect(err).To(BeNil())
+					req.ParseForm()
 				},
 				ghttp.VerifyRequest("POST", "/containers"),
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
@@ -355,6 +352,64 @@ var _ = Describe("client", func() {
 						ExitCode:   0,
 						StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
 						FinishedAt: time.Date(2014, time.August, 10, 0, 0, 0, 0, time.UTC),
+					}))
+				})
+			})
+
+			Context("when the response has a result of start_failed", func() {
+				BeforeEach(func() {
+					responseBody = `{
+						"result": "start_failed",
+						"error": "start failed: could not bind port 22",
+						"container": {
+							"id":"cafebabe",
+							"name":"yosemite",
+							"image":"ubuntu",
+							"image_id":"abc123",
+							"host":"",
+							"gateway":"",
+  							"ports": null,
+							"state":"stopped",
+							"cmd": ["/sbin/init"],
+							"entrypoint": null,
+							"exit_code": 0,
+							"started_at": "2014-08-13T00:00:00Z"
+						}
+					}`
+				})
+
+				It("returns the Container and a StartFailedError", func() {
+					config := &freighterclient.ContainerConfig{}
+					config.Env = []string{"LANG=C"}
+					container, err := cl.Create("yosemite", "ubuntu", "s3cr3t", config)
+					Expect(err).NotTo(BeNil())
+					e, ok := err.(*freighterclient.StartFailedError)
+					Expect(ok).To(BeTrue())
+					Expect(e.Error()).To(ContainSubstring("start failed: could not bind port 22"))
+					Expect(container).NotTo(BeNil())
+
+					reqs := server.ReceivedRequests()
+					Expect(reqs).To(HaveLen(1))
+
+					Expect(reqs[0].PostFormValue("name")).To(Equal("yosemite"))
+					Expect(reqs[0].PostFormValue("image")).To(Equal("ubuntu"))
+					Expect(reqs[0].PostFormValue("secret")).To(Equal("s3cr3t"))
+					Expect(reqs[0].PostFormValue("config")).To(Equal(
+						`{"Env":["LANG=C"],"Mounts":null,"PortBindings":null,"PublishAll":false}`))
+
+					Expect(container).To(Equal(&freighterclient.Container{
+						ID:         "cafebabe",
+						Name:       "yosemite",
+						Image:      "ubuntu",
+						ImageID:    "abc123",
+						Host:       "",
+						Gateway:    "",
+						Ports:      nil,
+						State:      "stopped",
+						Cmd:        []string{"/sbin/init"},
+						Entrypoint: nil,
+						ExitCode:   0,
+						StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
 					}))
 				})
 			})
@@ -439,8 +494,7 @@ var _ = Describe("client", func() {
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
-					err := req.ParseForm()
-					Expect(err).To(BeNil())
+					req.ParseForm()
 				},
 				ghttp.VerifyRequest("POST", "/containers/mycon/commit"),
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
@@ -949,10 +1003,7 @@ var _ = Describe("client", func() {
 		setupServer := func(method, url string) {
 			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
-					// Call ParseForm() so that server.ReceivedRequests() have
-					// POST params populated.
-					err := req.ParseForm()
-					Expect(err).To(BeNil())
+					req.ParseForm()
 				},
 				ghttp.VerifyRequest(method, url),
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
@@ -1190,10 +1241,7 @@ var _ = Describe("client", func() {
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
-					// Call ParseForm() so that server.ReceivedRequests() have
-					// POST params populated.
-					err := req.ParseForm()
-					Expect(err).To(BeNil())
+					req.ParseForm()
 				},
 				ghttp.VerifyRequest("POST", "/volumes"),
 				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
@@ -1749,8 +1797,7 @@ var _ = Describe("client", func() {
 		setupServer := func(method, url, contentType string) {
 			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
-					err := req.ParseForm()
-					Expect(err).To(BeNil())
+					req.ParseForm()
 				},
 				ghttp.VerifyRequest(method, url),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),

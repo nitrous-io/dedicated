@@ -117,6 +117,9 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 	return list, nil
 }
 
+// Create creates and starts a container.
+// If the container cannot be started, the container info *and* a
+// provider.StartFailedError is returned.
 func (p *DockerProvider) Create(name, imageName, secret, configJSON string) (*provider.ContainerInfo, error) {
 	err := p.storeSharedSecret(name, secret)
 	if err != nil {
@@ -152,7 +155,16 @@ func (p *DockerProvider) Create(name, imageName, secret, configJSON string) (*pr
 		return nil, err
 	}
 
-	return p.GetInfo(container.ID)
+	info, err := p.Start(container.ID, configJSON)
+	if err != nil {
+		// Return container info as well if container was created but failed
+		// to start.
+		p.logger.Errorf("DockerProvider: failed to start container %s: %v", name, err)
+		info, _ := p.GetInfo(container.ID)
+		return info, &provider.StartFailedError{Err: err}
+	}
+
+	return info, nil
 }
 
 func (p *DockerProvider) Commit(id, imageName string) (*provider.ImageInfo, error) {
@@ -766,70 +778,6 @@ func (p *DockerProvider) lookupImage(imageIDOrName string) (lookupImageResult, e
 	}
 
 	return lookupImageResult{}, provider.ErrImageNotFound
-}
-
-func (p *DockerProvider) createContainer(imageName, containerName string, config *provider.ContainerConfig) (*dockerclient.Container, error) {
-	p.logger.Info("DockerProvider: creating container", containerName, "with image", imageName)
-	start := time.Now()
-
-	// if image exists locally, use it without pulling from the registry
-	_, err := p.lookupImage(imageName)
-	if err == provider.ErrImageNotFound {
-		// get authentication details first in case we want to pull a private
-		// image that requires authentication
-		registry := parsers.ParseRegistry(imageName)
-		auth, err := p.fetchAuthenticationInfoBestMatch(registry)
-		if err != nil {
-			return nil, err
-		}
-
-		repository, tag := parsers.ParseRepoAndTag(imageName)
-		if tag == "" {
-			tag = "latest"
-		}
-		err = p.client.PullImage(dockerclient.PullImageOptions{
-			Repository: repository,
-			Tag:        tag,
-		}, auth)
-		if err != nil {
-			return nil, err
-		}
-	} else if err != nil {
-		return nil, err
-	}
-
-	createConfig, err := p.mkContainerConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	container, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
-		Name:   containerName,
-		Config: createConfig,
-	})
-	if err != nil {
-		return nil, err
-	}
-	p.logger.TimeInfo(start, "DockerProvider: created container", containerName, container.ID, "in")
-
-	// Get container info so we get an up-to-date HostConfig since
-	// CreateContainer() *does not* return a full container struct.
-	container, err = p.inspectContainer(container.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	startConfig, err := p.mkHostConfig(container.HostConfig, config)
-	if err != nil {
-		return nil, err
-	}
-
-	p.logger.Info("DockerProvider: starting container", containerName)
-	start = time.Now()
-	err = p.client.StartContainer(container.ID, startConfig)
-	p.logger.TimeInfo(start, "DockerProvider: started container", containerName, container.ID, "in")
-
-	return container, err
 }
 
 func (p *DockerProvider) ContainerSettingsDir(containerName string) string {

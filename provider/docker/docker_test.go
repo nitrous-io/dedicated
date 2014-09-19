@@ -171,7 +171,7 @@ var _ = Describe("provider/docker", func() {
 	}
 
 	Describe(".Create()", func() {
-		It("creates a stopped container", func() {
+		It("creates a running container", func() {
 			name := RandomName("freightertest")
 			info, err := prov.Create(name, nitrousImage, secret, "")
 			Expect(err).To(BeNil())
@@ -186,10 +186,10 @@ var _ = Describe("provider/docker", func() {
 			Expect(info.ImageID).To(Equal(getID(nitrousImage)))
 			Expect(info.Host).To(Equal(host))
 			Expect(info.Gateway).To(Equal(gateway))
-			Expect(info.State).To(Equal(provider.ContainerStateStopped))
-			hostPorts, ok := info.Ports["22"]
-			Expect(ok).To(BeTrue())
-			Expect(hostPorts).To(HaveLen(0))
+			Expect(info.State).To(Equal(provider.ContainerStateRunning))
+			sshPort := getNetworkSettingsPort(id, "22/tcp")
+			Expect(info.Ports["22"]).To(ContainElement(sshPort))
+			expectExposedPort(info.ID, "22/tcp")
 			Expect(getEnv(id)).To(ContainSubstring("__HOST=172.17.42.1"))
 
 			c := getContainerInfo(id)
@@ -222,7 +222,31 @@ var _ = Describe("provider/docker", func() {
 			defer cleanUpContainer(name)
 		})
 
-		Context("after a container is created and started", func() {
+		Context("when container is created but cannot be started", func() {
+			It("creates a stopped container and returns the container info and a StartFailedError", func() {
+				// Create container with config that prevents it from
+				// started.
+				name := RandomName("freightertest")
+				info, err := prov.Create(name, nitrousImage, secret,
+					`{"PortBindings": ["127.0.0.1:99999:99999"]}`) // Port out of range.
+				defer cleanUpContainer(name)
+
+				_, ok := err.(*provider.StartFailedError)
+				Expect(ok).To(BeTrue())
+				Expect(info.ID).To(Equal(getID(name)))
+				Expect(info.Name).To(Equal(name))
+				Expect(info.Image).To(Equal(nitrousImage))
+				Expect(info.ImageID).To(Equal(getID(nitrousImage)))
+				Expect(info.State).To(Equal(provider.ContainerStateStopped))
+				Expect(info.Host).To(Equal(""))
+				Expect(info.Gateway).To(Equal(""))
+				hostPorts, ok := info.Ports["22"]
+				Expect(ok).To(BeTrue())
+				Expect(hostPorts).To(HaveLen(0))
+			})
+		})
+
+		Context("after a container is created", func() {
 			var (
 				name string
 				id   string
@@ -235,10 +259,6 @@ var _ = Describe("provider/docker", func() {
 				info, err = prov.Create(name, nitrousImage, secret, "")
 				Expect(err).To(BeNil())
 				id = getID(name)
-
-				info, err = prov.Start(id, "")
-				Expect(err).To(BeNil())
-				Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			})
 
 			AfterEach(func() {
@@ -247,7 +267,7 @@ var _ = Describe("provider/docker", func() {
 
 			Describe(".List()", func() {
 				It("returns a list of all containers", func() {
-					// Create another container (but don't start it).
+					// Create another container.
 					container2Name := RandomName("freightertest2")
 					container2Info, err := prov.Create(container2Name, nitrousImage, secret, "")
 					Expect(err).To(BeNil())
@@ -272,12 +292,11 @@ var _ = Describe("provider/docker", func() {
 					Expect(c1.Name).To(Equal(container2Name))
 					Expect(c1.Image).To(Equal(nitrousImage))
 					Expect(c1.ImageID).To(Equal(imageID))
-					Expect(c1.Host).To(Equal(""))
-					Expect(c1.Gateway).To(Equal(""))
-					Expect(c1.State).To(Equal(provider.ContainerStateStopped))
-					hostPorts, ok := c1.Ports["22"]
-					Expect(ok).To(BeTrue())
-					Expect(hostPorts).To(HaveLen(0))
+					Expect(c1.Host).To(Equal(getHost(container2Info.ID)))
+					Expect(c1.Gateway).To(Equal(getGateway(container2Info.ID)))
+					Expect(c1.State).To(Equal(provider.ContainerStateRunning))
+					sshPort := getNetworkSettingsPort(container2Info.ID, "22/tcp")
+					Expect(c1.Ports["22"]).To(ContainElement(sshPort))
 					expectExposedPort(c1.ID, "22/tcp")
 
 					c := getContainerInfo(container2Info.ID)
@@ -291,12 +310,12 @@ var _ = Describe("provider/docker", func() {
 					Expect(c2.Name).To(Equal(name))
 					Expect(c2.Image).To(Equal(nitrousImage))
 					Expect(c2.ImageID).To(Equal(imageID))
-					Expect(c2.Host).To(Equal(getHost(c2.ID)))
-					Expect(c2.Gateway).To(Equal(getGateway(c2.ID)))
+					Expect(c2.Host).To(Equal(getHost(id)))
+					Expect(c2.Gateway).To(Equal(getGateway(id)))
 					Expect(c2.State).To(Equal(provider.ContainerStateRunning))
-					sshPort := getNetworkSettingsPort(c2.ID, "22/tcp")
+					sshPort = getNetworkSettingsPort(id, "22/tcp")
 					Expect(c2.Ports["22"]).To(ContainElement(sshPort))
-					expectExposedPort(c2.ID, "22/tcp")
+					expectExposedPort(id, "22/tcp")
 
 					c = getContainerInfo(id)
 					Expect(c2.Cmd).To(Equal(c.Config.Cmd))
@@ -318,6 +337,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.Image).To(Equal(nitrousImage))
 					Expect(info.ImageID).To(Equal(imageID))
 					Expect(info.Host).To(Equal(getHost(info.ID)))
+					Expect(info.Gateway).To(Equal(getGateway(info.ID)))
 					Expect(info.State).To(Equal(provider.ContainerStateRunning))
 					Expect(fmt.Sprintf("[%s]", strings.Join(info.Env, " "))).To(Equal(getEnv(id)))
 					sshPort := getNetworkSettingsPort(info.ID, "22/tcp")
@@ -1006,8 +1026,6 @@ var _ = Describe("provider/docker", func() {
 			info, err := prov.Create(name, nitrousImage, secret, configJSON)
 			Expect(err).To(BeNil())
 			defer cleanUpContainer(name)
-			info, err = prov.Start(info.ID, configJSON)
-			Expect(err).To(BeNil())
 
 			id := getID(name)
 			imageID := getID(nitrousImage)

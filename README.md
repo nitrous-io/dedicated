@@ -142,8 +142,39 @@ name=foo&image=ubuntu-upstart:trusty&config=JSON
 HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 
-{ "container" : { "id":"aaa", "name":"fragrant-wind-69", "image":"ubuntu", "host":"1.2.3.4", "state":"running", "ports":{"3000": ["3000", "3001"],"8080":["49123"],"22":["49273"]} }
+{
+  "container" : {
+    "id":"aaa",
+    "name":"fragrant-wind-69",
+    "image":"ubuntu",
+    "host":"1.2.3.4",
+    "state":"stopped",
+    "ports":{"3000": ["3000", "3001"],"8080":["49123"],"22":["49273"]
+  }
+}
 ```
+
+If the container is created but couldn't be started, a "result" of
+"start_failed" is included together with an "error" field:
+
+```javascript
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+
+{
+  "container" : {
+    "id":"aaa",
+    "name":"fragrant-wind-69",
+    "image":"ubuntu",
+    "host":"1.2.3.4",
+    "state":"stopped",
+    "ports":{"3000": ["3000", "3001"],"8080":["49123"],"22":["49273"]
+  },
+  "result": "start_failed",
+  "error": "start failed: could not allocate port 3000"
+}
+```
+
 
 **POST Params**:
 
