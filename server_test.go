@@ -1,12 +1,14 @@
 package hostbuilder_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	. "github.com/nitrous-io/hostbuilder"
@@ -21,6 +23,19 @@ func TestDigitalOceanAPI(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "hostbuilder")
 }
+
+var _ = Describe("ProgressWriter", func() {
+	It("writes the stream data as newline-delimited json stream", func() {
+		buf := bytes.NewBuffer(nil)
+		w := NewProgressWriter(buf)
+		w.Write([]byte("started: creating instance"))
+		w.Write([]byte("failed: creating instance"))
+
+		lines := strings.Split(buf.String(), "\n")
+		Expect(lines[0]).To(Equal(`{"stream":"started: creating instance"}`))
+		Expect(lines[1]).To(Equal(`{"stream":"failed: creating instance"}`))
+	})
+})
 
 var _ = Describe("hostbuilder", func() {
 	var ts *httptest.Server
@@ -45,7 +60,7 @@ var _ = Describe("hostbuilder", func() {
 			form.Set("config", string(config))
 			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts"), form)
 			Expect(err).To(BeNil())
-			Expect(resp.StatusCode).To(Equal(201))
+			Expect(resp.StatusCode).To(Equal(200))
 
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).To(BeNil())
