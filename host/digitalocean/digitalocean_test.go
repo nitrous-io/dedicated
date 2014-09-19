@@ -75,11 +75,12 @@ var _ = Describe("host/digitalocean", func() {
 
 	Describe("Stop", func() {
 		BeforeEach(func() {
-			s.AddResponse("POST", "droplets/id/actions", dotest.OkResponse)
+			s.AddResponse("POST", "droplets/id/actions", dotest.NewResponse(200, inprogressAction))
 			s.AddResponse("GET", "droplets/id", dotest.NewResponse(200, droplet))
 		})
 
-		It("stops the droplet", func() {
+		It("stops the droplet and waits until the action is completed", func() {
+			s.AddResponse("GET", "actions/id", dotest.NewResponse(200, completedAction))
 			h := digitalocean.Host{Config: &digitalocean.HostConfig{ID: "1"}, Client: c}
 
 			info, err := h.Stop()
@@ -93,6 +94,15 @@ var _ = Describe("host/digitalocean", func() {
 
 			request = s.Requests["GET"]["droplets/id"][0]
 			Expect(request.URL.Path).To(Equal("/v2/droplets/1"))
+
+			Expect(len(s.Requests["GET"]["actions/id"])).To(Equal(1), "expect stop to waits for action to be completed")
+		})
+
+		It("returns error when the action failed to complete", func() {
+			s.AddResponse("GET", "actions/id", dotest.NewResponse(200, erroredAction))
+			h := digitalocean.Host{Config: &digitalocean.HostConfig{ID: "1"}, Client: c}
+			_, err := h.Stop()
+			Expect(err).ToNot(BeNil(), "failed to return error when stop failed")
 		})
 	})
 
@@ -187,29 +197,47 @@ var _ = Describe("host/digitalocean", func() {
 
 // fixtures
 var (
+	inprogressAction = `
+	{
+		"action": {
+			"id": 20,
+			"status": "in-progress",
+			"type": "create",
+			"started_at": "2014-06-10T22:25:14Z",
+			"completed_at": "2014-06-10T23:25:14Z",
+			"resource_id": 123,
+			"resource_type": "droplet",
+			"region": "nyc1"
+		}
+	}
+	`
 	completedAction = `
 	{
-		"id": 20,
-		"status": "completed",
-		"type": "create",
-		"started_at": "2014-06-10T22:25:14Z",
-		"completed_at": "2014-06-10T23:25:14Z",
-		"resource_id": 123,
-		"resource_type": "droplet",
-		"region": "nyc1"
+		"action": {
+			"id": 20,
+			"status": "completed",
+			"type": "create",
+			"started_at": "2014-06-10T22:25:14Z",
+			"completed_at": "2014-06-10T23:25:14Z",
+			"resource_id": 123,
+			"resource_type": "droplet",
+			"region": "nyc1"
+		}
 	}
 	`
 
 	erroredAction = `
 	{
-		"id": 20,
-		"status": "errored",
-		"type": "create",
-		"started_at": "2014-06-10T22:25:14Z",
-		"completed_at": "2014-06-10T23:25:14Z",
-		"resource_id": 123,
-		"resource_type": "droplet",
-		"region": "nyc1"
+		"action": {
+			"id": 20,
+			"status": "errored",
+			"type": "create",
+			"started_at": "2014-06-10T22:25:14Z",
+			"completed_at": "2014-06-10T23:25:14Z",
+			"resource_id": 123,
+			"resource_type": "droplet",
+			"region": "nyc1"
+		}
 	}
 	`
 

@@ -148,7 +148,12 @@ func (h *Host) Stop() (*host.Info, error) {
 		return nil, err
 	}
 	// TODO: wait til action complete here
-	if _, _, err := h.Client.DropletActions.PowerOff(id); err != nil {
+	action, _, err := h.Client.DropletActions.PowerOff(id)
+	if err != nil {
+		return nil, err
+	}
+	_, err = WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 15*time.Minute)
+	if err != nil {
 		return nil, err
 	}
 	return h.Info()
