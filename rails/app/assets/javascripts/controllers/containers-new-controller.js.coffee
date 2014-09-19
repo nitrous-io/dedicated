@@ -160,7 +160,7 @@ App.ContainersNewController = Em.Controller.extend
             image: repository
 
           container.save(host: @get('selectedHostSlug'), volume: @get('volumeMounts'), env: @get('envVars'), port: @get('portBindings')).then =>
-            @transitionToRoute 'container.index', slug, queryParams: { newContainer: 'true' }
+            @transitionToRoute 'container.index', slug
             App.snackbar.post("Your container “#{name}” was created successfully.")
             @set 'saving', false
           , (jqxhr) => # container.save
