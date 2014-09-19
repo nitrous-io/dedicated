@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
@@ -40,7 +41,9 @@ type Host struct {
 	client *dockerclient.Client
 }
 
-func (h *Host) Create() (*host.Info, error) {
+// Create creates the docker container which acts as a boxhost, and write the
+// progress into w
+func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}

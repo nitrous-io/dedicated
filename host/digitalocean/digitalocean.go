@@ -63,7 +63,7 @@ type Host struct {
 	sshKey     *godo.Key
 }
 
-func (h *Host) Create() (*host.Info, error) {
+func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	defer func() {
 		if h.sshKey != nil {
 			h.Client.Keys.DeleteByID(h.sshKey.ID)

@@ -1,6 +1,9 @@
 package host
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+)
 
 type Info struct {
 	Provider       string `json:"provider"`
@@ -10,12 +13,12 @@ type Info struct {
 }
 
 type Host interface {
-	Create() (*Info, error)  // create a new host
-	Destroy() error          // destroy the current host
-	Stop() (*Info, error)    // stop the current host
-	Start() (*Info, error)   // start the current host
-	Restart() (*Info, error) // reboot the current host
-	Info() (*Info, error)    // get current info of the host
+	Create(io.Writer) (*Info, error) // create a new host
+	Destroy() error                  // destroy the current host
+	Stop() (*Info, error)            // stop the current host
+	Start() (*Info, error)           // start the current host
+	Restart() (*Info, error)         // reboot the current host
+	Info() (*Info, error)            // get current info of the host
 }
 
 type NewHost func(defaultConfig map[string]string, config string) (Host, error)
