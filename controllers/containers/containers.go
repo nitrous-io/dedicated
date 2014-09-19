@@ -215,16 +215,23 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
+	var startError error
 	created, err := cl.Create(slug, imageSlug, cn.Secret, config)
 	if err != nil {
-		deleteContainer(cn)
-		if e, ok := err.(*freighterclient.InvalidParamError); ok {
+		switch e := err.(type) {
+		case *freighterclient.StartFailedError:
+			// A start failure is fine so we don't delete the container record.
+			startError = e
+		case *freighterclient.InvalidParamError:
+			deleteContainer(cn)
 			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
+		default:
+			deleteContainer(cn)
+			if err == freighterclient.ErrImageNotFound {
+				return errImageNotFound
+			}
+			return err
 		}
-		if err == freighterclient.ErrImageNotFound {
-			return errImageNotFound
-		}
-		return err
 	}
 
 	// Update existing record with new info from Freighter.
@@ -276,10 +283,8 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	publishContainerEvent(env, controllers.EventContainerCreated, cn)
-	var imgEvt controllers.EventName
-	if existing == nil {
-		imgEvt = controllers.EventImageCreated
-	} else {
+	imgEvt := controllers.EventImageCreated
+	if existing != nil {
 		imgEvt = controllers.EventImageUpdated
 	}
 	env.Events.Publish(
@@ -290,6 +295,10 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"container": serializers.SerializeContainer(cn),
+	}
+	if startError != nil {
+		env.Data["error"] = "start_failed"
+		env.Data["error_description"] = startError.Error()
 	}
 	return nil
 }

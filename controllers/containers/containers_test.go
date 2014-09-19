@@ -649,7 +649,7 @@ var _ = Describe("controllers/containers", func() {
 				Name:    "elixir-web-1",
 				Host:    "",
 				Gateway: "",
-				State:   "stopped",
+				State:   "running",
 				Image:   "elixir",
 				ImageID: "abc123",
 			}
@@ -677,7 +677,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.Slug).To(Equal("elixir-web-1"))
 			Expect(cn.IPAddress).To(Equal(""))
 			Expect(cn.GatewayIP).To(Equal(""))
-			Expect(cn.State).To(Equal("stopped"))
+			Expect(cn.State).To(Equal(container.StateRunning.String()))
 			Expect(cn.Name).To(Equal("Elixir Web Server 1"))
 		}
 
@@ -792,7 +792,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(c.Slug).To(Equal("elixir-web-1"))
 		})
 
-		It("responds with HTTP 201 Created, the container and a status of created", func() {
+		It("responds with HTTP 201 Created and the container", func() {
 			doRequest("valid-token", "foo", params)
 
 			Expect(res.Code).To(Equal(http.StatusCreated))
@@ -850,6 +850,33 @@ var _ = Describe("controllers/containers", func() {
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				errType, _ := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("internal_server_error"))
+			})
+
+			Context("when the error is a StartFailedError", func() {
+				BeforeEach(func() {
+					mockClient.CreateError = &freighterclient.StartFailedError{"start failed: could not bind port 22"}
+				})
+
+				It("responds with HTTP 201 Created with both the container and the error", func() {
+					doRequest("valid-token", "foo", params)
+
+					Expect(res.Code).To(Equal(http.StatusCreated))
+
+					var j struct {
+						Container        *serializers.Container `json:"container"`
+						Error            string                 `json:"error"`
+						ErrorDescription string                 `json:"error_description"`
+					}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+
+					Expect(j.Error).To(Equal("start_failed"))
+					Expect(j.ErrorDescription).To(ContainSubstring("start failed: could not bind port 22"))
+
+					c, err := container.Find(db, u, "elixir-web-1")
+					Expect(err).To(BeNil())
+					expectSerializedContainer(j.Container, c)
+				})
 			})
 
 			Context("when the error is an InvalidParamError", func() {
