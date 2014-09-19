@@ -52,12 +52,13 @@ var _ = Describe("host serializer", func() {
 				"ip_address": "1.2.3.4",
 				"freighterd_port": 65000,
 				"hostname": "%s",
+				"proxy_hostname": "%s",
 				"size": "micro",
 				"state": "running",
 				"terminated_at": "2013-11-03T00:00:00Z",
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
-			}`, model.Hostname())))
+			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
 		It("serializes to null JSON when host is nil", func() {

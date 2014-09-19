@@ -440,10 +440,17 @@ var _ = Describe("models/host", func() {
 
 	Describe(".Hostname", func() {
 		It("return the host DNS name", func() {
-			h := &host.Host{
-				Slug: "hello",
-			}
-			Expect(h.Hostname()).To(Equal("hello.nitrouspro.com"))
+			host.SetHostnames("n2otest.com", "n2otestproxy.com")
+			h := &host.Host{Slug: "hello"}
+			Expect(h.Hostname()).To(Equal("hello.n2otest.com"))
+		})
+	})
+
+	Describe(".ProxyHostname", func() {
+		It("return the host DNS name", func() {
+			host.SetHostnames("n2otest.com", "n2otestproxy.com")
+			h := &host.Host{Slug: "world"}
+			Expect(h.ProxyHostname()).To(Equal("world.n2otestproxy.com"))
 		})
 	})
 })

@@ -15,7 +15,8 @@ type Host struct {
 	Name           string `json:"name"`
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort int64  `json:"freighterd_port"`
-	Hostname       string `json:"hostname"` // where we can access the host i.e. slug.nitrouspro.com
+	Hostname       string `json:"hostname"`       // where we can access the host i.e. slug.nitrouspro.com
+	ProxyHostname  string `json:"proxy_hostname"` // slug.nitrousproxy.com
 	Size           string `json:"size"`
 	State          string `json:"state"`
 
@@ -40,6 +41,7 @@ func SerializeHost(h *host.Host) *Host {
 		Size:           h.Size.String,
 		State:          h.State,
 		Hostname:       h.Hostname(),
+		ProxyHostname:  h.ProxyHostname(),
 		CreatedAt:      h.CreatedAt,
 		UpdatedAt:      h.UpdatedAt,
 		TerminatedAt:   h.TerminatedAt,
