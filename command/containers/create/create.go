@@ -130,16 +130,13 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	// Step 3: Start container.
-	started, err := c.start(params)
-	if err != nil {
-		c.UI.Error(fmt.Sprintf("Container created but failed to start. Error: %s", err))
-		c.UI.Output(containers.PrettyPrint([]string{"Slug", "Image", "State"}, created))
-		return 1
+	if created.ErrorDescription == "" {
+		c.UI.Output(fmt.Sprintf("Created new container '%s'", created.Container.Slug))
+	} else {
+		c.UI.Output(fmt.Sprintf("Created new container '%s' with errors: %s",
+			created.Container.Slug, created.ErrorDescription))
 	}
-
-	c.UI.Output(fmt.Sprintf("Created new container: '%s'", started.Slug))
-	c.UI.Output(containers.PrettyPrint([]string{"Slug", "Image", "State"}, started))
+	c.UI.Output(containers.PrettyPrint([]string{"Slug", "Image", "State"}, created.Container))
 
 	return 0
 }
@@ -168,7 +165,12 @@ func (c *Command) pullImage(host, image string, out io.Writer, termFd uintptr) e
 	return nil
 }
 
-func (c *Command) createContainer(cp *containerParams) (*containers.Container, error) {
+type createResponse struct {
+	Container        *containers.Container `json:"container"`
+	ErrorDescription string                `json:"error_description"`
+}
+
+func (c *Command) createContainer(cp *containerParams) (*createResponse, error) {
 	p := &url.Values{}
 	p.Set("host", cp.host)
 	if cp.slug != "" {
@@ -197,35 +199,10 @@ func (c *Command) createContainer(cp *containerParams) (*containers.Container, e
 	}
 	defer resp.Body.Close()
 
-	j := struct {
-		Container *containers.Container `json:"container"`
-	}{}
-	if err := json.NewDecoder(resp.Body).Decode(&j); err != nil {
+	res := createResponse{}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return nil, err
 	}
 
-	return j.Container, nil
-}
-
-func (c *Command) start(cp *containerParams) (*containers.Container, error) {
-	p := &url.Values{}
-	for _, e := range cp.envVars {
-		p.Add("env[]", e)
-	}
-	for _, v := range cp.volumes {
-		p.Add("volume[]", v)
-	}
-	for _, pf := range cp.portForwards {
-		p.Add("port[]", pf)
-	}
-	if cp.portForwardAll {
-		p.Set("publish_all", "1")
-	}
-
-	u := fmt.Sprintf("%s/api/v0/containers/%s/start", c.Server, cp.slug)
-	resp, err := c.Client.PostFormAuthed(u, p)
-	if err != nil {
-		return nil, err
-	}
-	return containers.ParseContainerResponse(resp)
+	return &res, nil
 }
