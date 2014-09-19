@@ -35,6 +35,28 @@
         i.spinner
         | Removing...
     else
-      button.ui.btn click='remove' disabled=noneSelected Remove
+      button.ui.btn click='askRemove target="view"' disabled=noneSelected Remove
   .right
     button.ui.btn.primary click='add' New Image...
+
+#confirm-remove-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Are you sure?
+    .card-body
+      p
+        | Are you sure you want to remove the following image
+        if view.multipleSelected
+          | s
+        | ?
+      ul.comma-separated
+        each record in selected
+          li
+            | &ldquo;
+            = record.displayName
+            | &rdquo;
+
+    .card-footer
+      .right
+        button.ui.btn click='cancelRemove target="view"' Cancel
+        button.ui.btn.danger.terminate-btn click='confirmRemove target="view"' Remove

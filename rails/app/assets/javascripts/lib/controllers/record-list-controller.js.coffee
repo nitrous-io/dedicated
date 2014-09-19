@@ -7,8 +7,9 @@ Lib.RecordListController = Em.ObjectController.extend
     ids = @get 'selectedIds'
     records = @get 'records'
     if ids && records
-      ids.map (id) ->
+      ids.map((id) ->
         records.findBy 'id', id
+      ).compact()
   ).property 'selectedIds'
 
   noneSelected: Em.computed.empty 'selectedIds'

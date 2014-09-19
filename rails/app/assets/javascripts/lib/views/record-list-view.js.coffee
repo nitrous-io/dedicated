@@ -1,6 +1,10 @@
 Lib.RecordListView = Em.View.extend
   classNames: ['record-list-view']
 
+  multipleSelected: (->
+    @get('controller.selected.length') > 1
+  ).property 'controller.selected.length'
+
   updatedSelectedIds: (->
     Em.run.scheduleOnce 'afterRender', =>
       selected = @$('input.record-checkbox:checked').map (i, el) ->
@@ -16,3 +20,14 @@ Lib.RecordListView = Em.View.extend
   willDestroyElement: ->
     @_super()
     @$().off 'change.records'
+
+  actions:
+    askRemove: ->
+      ui.showModal(@$('#confirm-remove-modal-dialog'))
+
+    cancelRemove: ->
+      ui.hideModal(@$('#confirm-remove-modal-dialog'))
+
+    confirmRemove: ->
+      ui.hideModal(@$('#confirm-remove-modal-dialog'))
+      @get('controller').send 'remove'

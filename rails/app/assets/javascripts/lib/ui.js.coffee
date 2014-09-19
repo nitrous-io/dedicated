@@ -29,15 +29,19 @@ window.ui =
             false
       false
 
-  showModal: (selector) ->
-    $modal = $(selector).show()
+  showModal: (jq) ->
+    if !(jq instanceof jQuery)
+      jq = $(jq)
+    $modal = jq.show()
     window.setTimeout(->
       $modal.find('.focus').focus()
       $modal.addClass('show')
     , 1)
 
-  hideModal: (selector) ->
-    $modal = $(selector).removeClass('show')
+  hideModal: (jq) ->
+    if !(jq instanceof jQuery)
+      jq = $(jq)
+    $modal = jq.removeClass('show')
     window.setTimeout(->
       $modal.hide()
     , 301)
