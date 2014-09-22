@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -513,7 +515,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder successfully deletes the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderOK)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
 				hosts.HostbuilderClient = hb
 			})
 
@@ -605,7 +610,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder fails to delete the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderError)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: errorResponse,
+					status:  http.StatusBadRequest,
+				})
 				hosts.HostbuilderClient = hb
 			})
 
@@ -626,21 +634,20 @@ var _ = Describe("controllers/hosts", func() {
 
 		Context("when host is provider identifier is nil", func() {
 			It("should not make a request to hostbuilder", func() {
-				var hostbuilderCalled bool
-
 				hs.H.ProviderIdentifier = sql.NullString{String: "", Valid: false}
 				hs.H.Update(db)
 
 				// in this context, hostbuilder should not be called
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(func(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
-					hostbuilderCalled = true
-					return &hostbuilder.Response{}, errors.New("some error occurred")
-				})
+				rt := &FakeRoundTripper{
+					message: errorResponse,
+					status:  http.StatusBadRequest,
+				}
+				replaceTransport(hb, rt)
 				hosts.HostbuilderClient = hb
 
 				doRequest(hs.H.Slug)
-				Expect(hostbuilderCalled).NotTo(BeTrue())
+				Expect(len(rt.requests)).To(Equal(0), "expect to not called hostbuilder")
 				Expect(res.Code).To(Equal(http.StatusOK))
 			})
 		})
@@ -675,7 +682,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when host is not in the stopped state", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderOK)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
 
 				hosts.HostbuilderClient = hb
 
@@ -695,8 +705,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder successfully starts the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderOK)
-
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
 				hosts.HostbuilderClient = hb
 			})
 
@@ -749,10 +761,11 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder fails to start the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderError)
-
+				replaceTransport(hb, &FakeRoundTripper{
+					message: errorResponse,
+					status:  http.StatusBadRequest,
+				})
 				hosts.HostbuilderClient = hb
-
 				doRequest(hs.H.Slug)
 			})
 
@@ -800,7 +813,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when host is already stopped", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderOK)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
 
 				hosts.HostbuilderClient = hb
 
@@ -820,7 +836,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder successfully stops the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderOK)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
 
 				hosts.HostbuilderClient = hb
 			})
@@ -874,7 +893,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder fails to stop the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderError)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: errorResponse,
+					status:  http.StatusBadRequest,
+				})
 
 				hosts.HostbuilderClient = hb
 
@@ -998,7 +1020,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when host is not in the running state", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderOK)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
 
 				hosts.HostbuilderClient = hb
 
@@ -1018,7 +1043,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder successfully restarts the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderOK)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
 
 				hosts.HostbuilderClient = hb
 			})
@@ -1072,7 +1100,10 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder fails to restart the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderError)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: errorResponse,
+					status:  http.StatusBadRequest,
+				})
 
 				hosts.HostbuilderClient = hb
 
@@ -1176,3 +1207,43 @@ var _ = Describe("controllers/hosts", func() {
 		})
 	})
 })
+
+var (
+	okResponse    = `{"freighterd_port":65333,"ip_address":"127.0.0.1"}`
+	errorResponse = `{"error":"some error occurred"}`
+)
+
+// replace the transport in hostbuilder client with a new fake transport
+func replaceTransport(hb *hostbuilderclient.Hostbuilder, t http.RoundTripper) {
+	hb.Client.Client.Transport = t
+}
+
+// FakeRoundTripper implements a fake Transport layer that records the executed
+// requests and provide a fake response
+//
+// This is more lightweight than implementing a full HTTP server and should be
+// approriate for some tests
+type FakeRoundTripper struct {
+	message  string
+	status   int
+	header   map[string]string
+	requests []*http.Request
+}
+
+func (rt *FakeRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	body := strings.NewReader(rt.message)
+	rt.requests = append(rt.requests, r)
+	res := &http.Response{
+		StatusCode: rt.status,
+		Body:       ioutil.NopCloser(body),
+		Header:     make(http.Header),
+	}
+	for k, v := range rt.header {
+		res.Header.Set(k, v)
+	}
+	return res, nil
+}
+
+func (rt *FakeRoundTripper) Reset() {
+	rt.requests = nil
+}

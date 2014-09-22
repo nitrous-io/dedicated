@@ -2,12 +2,12 @@ package hosts_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/hostbuilder"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/controllers/hosts"
@@ -165,21 +165,20 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 	Context("with valid parameters", func() {
 		Context("when hostbuilder successfully creates a host", func() {
-			var config hostbuilderclient.Config
+			var rt *FakeRoundTripper
 
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				ch := func(path string, provider string, conf *hostbuilderclient.Config) (*hostbuilder.Response, error) {
-					config = *conf
-
-					return &hostbuilder.Response{
-						ID:             "abcd1234",
-						IPAddress:      "0.0.0.0",
-						Provider:       hs.PT.Name,
-						FreighterdPort: uint16(65333),
-					}, nil
+				rt = &FakeRoundTripper{
+					message: fmt.Sprintf(`{
+						"id":"abcd1234",
+						"ip_address":"0.0.0.0",
+						"provider":"%s",
+						"freighterd_port":65333
+					}`, hs.PT.Name),
+					status: http.StatusOK,
 				}
-				hb.OverrideRequestHandler(ch)
+				replaceTransport(hb, rt)
 
 				hosts.HostbuilderClient = hb
 			})
@@ -205,6 +204,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
 				Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
 
+				req := rt.requests[0]
+				var config hostbuilderclient.Config
+				json.Unmarshal([]byte(req.FormValue("config")), &config)
 				Expect(config["name"]).To(Equal(params.Get("slug")))
 			})
 
@@ -218,7 +220,11 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(kp.HostID).To(Equal(hosts[0].ID))
 
-				Expect(config["public_keys"].([]string)[0]).To(Equal(kp.PublicKey))
+				req := rt.requests[0]
+				var config hostbuilderclient.Config
+				json.Unmarshal([]byte(req.FormValue("config")), &config)
+				public_keys := config["public_keys"].([]interface{})
+				Expect(public_keys[0].(string)).To(Equal(kp.PublicKey))
 			})
 
 			It("creates a shared secret for the host", func() {
@@ -226,6 +232,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				hosts, _ := host.FindAllByUser(db, u)
 
 				Expect(hosts[0].Secret).NotTo(BeEmpty())
+				req := rt.requests[0]
+				var config hostbuilderclient.Config
+				json.Unmarshal([]byte(req.FormValue("config")), &config)
 				Expect(config["secret"]).To(Equal(hosts[0].Secret))
 			})
 
@@ -331,7 +340,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Context("when hostbuilder fails to create the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderError)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: errorResponse,
+					status:  http.StatusBadRequest,
+				})
 
 				hosts.HostbuilderClient = hb
 			})
@@ -381,15 +393,16 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Context("when hostbuilder successfully creates a host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				ch := func(path string, provider string, conf *hostbuilderclient.Config) (*hostbuilder.Response, error) {
-					return &hostbuilder.Response{
-						ID:             "abcd1234",
-						IPAddress:      "0.0.0.0",
-						Provider:       hs.PT.Name,
-						FreighterdPort: uint16(65333),
-					}, nil
+				rt := &FakeRoundTripper{
+					message: fmt.Sprintf(`{
+						"id":"abcd1234",
+						"ip_address":"0.0.0.0",
+						"provider":"%s",
+						"freighterd_port":65333
+					}`, hs.PT.Name),
+					status: http.StatusOK,
 				}
-				hb.OverrideRequestHandler(ch)
+				replaceTransport(hb, rt)
 
 				hosts.HostbuilderClient = hb
 			})
@@ -433,7 +446,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Context("when hostbuilder fails to create the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderError)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: errorResponse,
+					status:  http.StatusBadRequest,
+				})
 
 				hosts.HostbuilderClient = hb
 			})

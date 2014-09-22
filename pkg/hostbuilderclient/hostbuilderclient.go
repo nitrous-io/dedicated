@@ -16,18 +16,12 @@ import (
 
 type Config map[string]interface{}
 
-type RequestHandler func(path string, provider string, config *Config) (*hostbuilder.Response, error)
-
 type Hostbuilder struct {
-	URL            string
-	requestHandler RequestHandler
+	URL    string
+	Client *httpclient.Client
 }
 
 func NewHostbuilder(url string) *Hostbuilder {
-	return &Hostbuilder{URL: url}
-}
-
-func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config *Config) (*hostbuilder.Response, error) {
 	client := httpclient.New("")
 	// FIXME: make this a global setting
 	v, _ := strconv.ParseBool(os.Getenv("NO_SSL_VERIFY"))
@@ -35,7 +29,10 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: v},
 	}
 	client.Client.Transport = tr
+	return &Hostbuilder{URL: url, Client: client}
+}
 
+func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config *Config) (*hostbuilder.Response, error) {
 	var endpoint string
 	if path == "" {
 		endpoint = hb.URL + "/hosts"
@@ -54,7 +51,7 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 
 	//TODO: probably we need to timeout the request,
 	//but leaving it out for now, for the sake of simplicity.
-	response, err := client.PostForm(endpoint, &p)
+	response, err := hb.Client.PostForm(endpoint, &p)
 	if err != nil {
 		return nil, fmt.Errorf("hostbuilder failed to post: %s, err: %s", endpoint, err)
 	}
@@ -77,35 +74,25 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 	}
 }
 
-func (hb *Hostbuilder) OverrideRequestHandler(fn RequestHandler) {
-	hb.requestHandler = fn
-}
-
-func (hb *Hostbuilder) getRequestHandler() RequestHandler {
-	if hb.requestHandler != nil {
-		return hb.requestHandler
-	}
-	return hb.defaultRequestHandler
-}
-
+// OperationFn defines an action that can be invoked on hostbuilder
 type OperationFn func(provider string, config *Config) (*hostbuilder.Response, error)
 
 func (hb *Hostbuilder) Create(provider string, config *Config) (*hostbuilder.Response, error) {
-	return hb.getRequestHandler()("", provider, config)
+	return hb.defaultRequestHandler("", provider, config)
 }
 
 func (hb *Hostbuilder) Delete(provider string, config *Config) (*hostbuilder.Response, error) {
-	return hb.getRequestHandler()("delete", provider, config)
+	return hb.defaultRequestHandler("delete", provider, config)
 }
 
 func (hb *Hostbuilder) Start(provider string, config *Config) (*hostbuilder.Response, error) {
-	return hb.getRequestHandler()("start", provider, config)
+	return hb.defaultRequestHandler("start", provider, config)
 }
 
 func (hb *Hostbuilder) Stop(provider string, config *Config) (*hostbuilder.Response, error) {
-	return hb.getRequestHandler()("stop", provider, config)
+	return hb.defaultRequestHandler("stop", provider, config)
 }
 
 func (hb *Hostbuilder) Restart(provider string, config *Config) (*hostbuilder.Response, error) {
-	return hb.getRequestHandler()("restart", provider, config)
+	return hb.defaultRequestHandler("restart", provider, config)
 }

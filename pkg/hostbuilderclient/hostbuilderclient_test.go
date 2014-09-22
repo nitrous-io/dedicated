@@ -2,7 +2,6 @@ package hostbuilderclient_test
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"testing"
 
@@ -219,21 +218,6 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 				_, err := doRequest()
 				Expect(err.Error()).To(ContainSubstring("some_error"))
 			})
-		})
-	})
-
-	Describe("OverrideRequestHandler()", func() {
-		It("overrides the default request handler", func() {
-			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-
-			ch := func(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
-				return nil, errors.New("this is a custom handler")
-			}
-			hb.OverrideRequestHandler(ch)
-
-			o, err := hb.Create("provider", &hostbuilderclient.Config{})
-			Expect(o).To(BeNil())
-			Expect(err).To(MatchError("this is a custom handler"))
 		})
 	})
 })
