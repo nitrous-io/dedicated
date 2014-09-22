@@ -73,7 +73,7 @@ var _ = Describe("host/digitalocean", func() {
 
 			It("should clean up the droplet", func() {
 				h := digitalocean.Host{
-					Config: &digitalocean.HostConfig{ID: "1", ImageID: "1", RegionID: "nyc1", SizeID: "512mb"},
+					Config: &digitalocean.HostConfig{ID: "1", ImageID: "1", RegionID: "nyc", SizeID: "512mb"},
 					Client: c,
 				}
 				_, err := h.Create(&newlineWriter{os.Stdout})
