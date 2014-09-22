@@ -21,6 +21,8 @@ func (p *DockerProvider) Client() *dockerclient.Client {
 	return p.client
 }
 
+var IsNitrousImage = isNitrousImage
+
 // Specify another docker host instead of the default unix socket
 // This is useful when we want to inject a fake docker host or when we want to
 // use FakeRoundtripper with a dummy tcp address

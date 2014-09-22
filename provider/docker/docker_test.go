@@ -1728,6 +1728,30 @@ var _ = Describe("provider/docker", func() {
 			Expect(d).To(Equal(fmt.Sprintf("%s/containers/containername", datadir)))
 		})
 	})
+
+	Describe("IsNitrousImage()", func() {
+		cases := []struct {
+			imageName string
+			expected  bool
+		}{
+			{"nitrousio/ubuntu-bare:trusty", true},
+			{"nitrousio/ubuntu:trusty", true},
+			{"nitrousio/ruby:latest", true},
+			{"nitrousio/golang", true},
+			{"nitrousio/python:2.7.0", true},
+			{"nitrousio/php:hiphop", true},
+			{"nitrousio/ubuntu:gutsy", false},       // wrong tag
+			{"actionio/ruby:latest", false},         // wrong registry
+			{"nitrousio/visualbasic:latest", false}, // visualbasic not in whitelist
+		}
+
+		for _, c2 := range cases {
+			c := c2
+			It(fmt.Sprintf("is %v for image '%s'", c.expected, c.imageName), func() {
+				Expect(docker.IsNitrousImage(c.imageName)).To(Equal(c.expected))
+			})
+		}
+	})
 })
 
 // FakeRoundTripper implements a fake Transport layer that records the executed
