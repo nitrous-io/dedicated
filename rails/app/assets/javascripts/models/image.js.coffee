@@ -17,6 +17,8 @@ App.Image = klass = App.Model.extend
   updatedAt: attr('date', as: 'created_at', serialize: false)
   progress: attr('json', serialize: false)
 
+  updating: false
+
   slugAndTag: (->
     slug = @get 'slug'
     tag = @get 'tag'

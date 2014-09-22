@@ -8,17 +8,21 @@
           li.list-item
             .left-accessory
               .ui.checkbox
-                input.record-checkbox type='checkbox' id={image.inputId} value={image.id}
+                input.record-checkbox type='checkbox' id={image.inputId} value={image.id} disabled={image.updating}
                 label
             .lines
               label for={image.inputId}
                 h4
                   = image.displayName
                 p
-                  = image.slugAndTag
-                  span.sep
-                  | Created&nbsp;
-                  = ago image.createdAt
+                  if image.progress.status
+                    | Updating:&nbsp;
+                    = image.progress.status
+                  else
+                    = image.slugAndTag
+                    span.sep
+                    | Created&nbsp;
+                    = ago image.createdAt
     else
       p.hint-text
         i.fa.fa-exclamation-circle
@@ -35,7 +39,8 @@
         i.spinner
         | Removing...
     else
-      button.ui.btn click='askRemove target="view"' disabled=noneSelected Remove
+        button.ui.btn click='update target="view"' disabled=noneSelected Update
+        button.ui.btn click='askRemove target="view"' disabled=noneSelected Remove
   .right
     button.ui.btn.primary click='add' New Image...
 

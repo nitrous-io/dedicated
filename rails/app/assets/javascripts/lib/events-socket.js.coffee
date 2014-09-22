@@ -54,14 +54,19 @@ App.EventsSocket = Lib.Socket.extend
         if progress = parseProgress(data)
           image.set 'progress', progress
 
-    ['image.build_failed', 'image.pull_failed'].forEach (evt) =>
-      @on evt, (data) ->
-        findImage(data)?.set 'progress', null
+    @on 'image.build_failed', (data) ->
+      findImage(data)?.set 'progress', null
 
-    ['image.built', 'image.pulled'].forEach (evt) =>
+    @on 'image.built', (data) ->
+      return unless image = findImage(data)
+      image.load(data)
+      image.set 'progress', null
+
+    ['image.pulled', 'image.pull_failed'].forEach (evt) =>
       @on evt, (data) ->
         return unless image = findImage(data)
         image.load(data)
+        image.set 'updating', false
         image.set 'progress', null
 
     @on 'image.updated', (data) ->
