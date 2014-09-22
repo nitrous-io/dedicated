@@ -1,7 +1,7 @@
 code.google.com/p/go.crypto/ssh #fe6c00a82e55
 code.google.com/p/goauth2/oauth #afe77d958c701557ec5dc56f6936fcc194d15520
-github.com/digitalocean/godo #c2a4a759278d1be62232bc757fe55e982091ca5f !git@github.com:nitrous-io/godo
-github.com/digitaloceancloud/godo #ed61c087bf697ef33fc9efcfb3b458bd3d70b4c5
+github.com/digitalocean/godo #0a9eb5ac75a250383e5d6991f33da22024cf58d4
+github.com/digitaloceancloud/godo #0a9eb5ac75a250383e5d6991f33da22024cf58d4
 github.com/fsouza/go-dockerclient #6062c6b35beaffaf643b2f80f926b6337c3db63a
 github.com/google/go-querystring #30f7a39f4a218feb5325f3aebc60c32a572a8274
 github.com/gorilla/context #1be7a086a5fd6440ef16fe96baeda0c78282b980

@@ -7,5 +7,5 @@ github.com/fsouza/go-dockerclient #6062c6b35beaffaf643b2f80f926b6337c3db63a
 
 github.com/onsi/ginkgo/ginkgo #12446bbcc74950944c897e32ea99cc8d058f9c92
 github.com/onsi/gomega #036273e6f643552b16fe7a6464afd2ae0324992e
-github.com/digitalocean/godo #c2a4a759278d1be62232bc757fe55e982091ca5f !git@github.com:nitrous-io/godo
+github.com/digitalocean/godo #0a9eb5ac75a250383e5d6991f33da22024cf58d4
 code.google.com/p/goauth2/oauth #afe77d958c701557ec5dc56f6936fcc194d15520
