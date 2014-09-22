@@ -24,7 +24,6 @@ import (
 	"github.com/nitrous-io/nitrous-common/isarchive"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/controllers/images"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
@@ -652,7 +651,7 @@ var _ = Describe("controllers/images", func() {
 
 					e := (<-ch).(*controllers.Event)
 					Expect(e.Name).To(Equal(controllers.EventImageBuilding))
-					data := e.Data.(*images.ProgressEvent)
+					data := e.Data.(*controllers.ProgressEvent)
 					Expect(data.ID).To(Equal(i.ID))
 					Expect(data.Progress).To(Equal(`{"stream":"Step 0 : FROM ubuntu:latest\n"}`))
 

@@ -153,11 +153,11 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 	var writer io.Writer
-	pp := &progressPublisher{
-		eventName: controllers.EventImageBuilding,
-		topic:     env.User.Topic(),
-		events:    env.Events,
-		imageID:   img.ID,
+	pp := &controllers.ProgressPublisher{
+		EventName: controllers.EventImageBuilding,
+		Topic:     env.User.Topic(),
+		Events:    env.Events,
+		ID:        img.ID,
 	}
 	if async {
 		writer = pp

@@ -16,7 +16,6 @@ import (
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/controllers/images"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
@@ -177,7 +176,7 @@ var _ = Describe("controllers/images/pull", func() {
 
 		// check if the first event we got is image pulling event
 		e := (<-ch).(*controllers.Event)
-		data := e.Data.(*images.ProgressEvent)
+		data := e.Data.(*controllers.ProgressEvent)
 		Expect(e.Name).To(Equal(controllers.EventImagePulling), "expected image pulling event")
 		Expect(data.ID).To(Equal(i.ID), "emitted image pulling with invalid image")
 		Expect(data.Progress).To(Equal(`{"status":"Pulling..."}`), "failed to include progress data")
