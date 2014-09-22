@@ -25,6 +25,8 @@ App.ContainersNewView = Em.View.extend
         @get 'customImage'
   ).property 'selectedOption', 'selectedHostImage', 'selectedBaseImage', 'customImage', 'controller.hostImagesIsEmpty'
 
+  hostImageOptionDisabled: Em.computed.or('controller.hostImagesIsEmpty', 'controller.saving')
+
   createButtonDisabled: (->
     !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedHostSlug') && @get('image'))
   ).property 'controller.name', 'controller.slug', 'controller.selectedHostSlug', 'image'
@@ -77,12 +79,15 @@ App.ContainersNewView = Em.View.extend
 
   actions:
     openVolumeMounts: ->
+      return if @get 'controller.saving'
       ui.showModal('#volume-mounts-dialog')
 
     openPortBindings: ->
+      return if @get 'controller.saving'
       ui.showModal('#port-bindings-dialog')
 
     openEnvVars: ->
+      return if @get 'controller.saving'
       ui.showModal('#env-vars-dialog')
 
     closeVolumeMounts: ->

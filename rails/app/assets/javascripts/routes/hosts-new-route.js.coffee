@@ -7,4 +7,5 @@ App.HostsNewRoute = App.AuthedRoute.extend
 
   setupController: (controller) ->
     @_super.apply this, arguments
-    controller.clear()
+    unless controller.get 'saving'
+      controller.clear()

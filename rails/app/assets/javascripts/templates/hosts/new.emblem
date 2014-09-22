@@ -6,20 +6,20 @@ form submit='create'
     .ui.input-group
       label.field-label for='hosts-new-name'
         | Name
-      = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' value=name
+      = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' disabled=saving value=name
 
       label.field-label for='hosts-new-slug'
         | Unique Slug
-      = input type='text' id='hosts-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle value=slug
+      = input type='text' id='hosts-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
 
       label.field-label for='hosts-new-region'
         | Region
 
-      ul.ui.checkbox-group.horizontal
+      ul.ui.checkbox-group.horizontal class={saving:disabled}
         each region in App.regions
           li
             .ui.checkbox
-              = input type='radio' name='region' id=region.inputId value=region.slug
+              = input type='radio' name='region' id=region.inputId disabled=saving value=region.slug
               label
             label for={region.inputId}
               = region.name
@@ -32,10 +32,10 @@ form submit='create'
       .size-list
         ul.ui.list.item-1-line
           each plan in App.plans
-            li.list-item
+            li.list-item class={saving:disabled}
               .left-accessory
                 .ui.checkbox
-                  = input type='radio' name='size' id=plan.inputId value=plan.slug
+                  = input type='radio' name='size' id=plan.inputId disabled=saving value=plan.slug
                   label
               .lines
                 p

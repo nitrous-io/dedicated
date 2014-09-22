@@ -21,12 +21,18 @@
       height: auto
       overflow-x: hidden
       overflow-y: hidden
+      transition: color .3s
 
     .CodeMirror-scroll
       min-height: 58px
 
     .CodeMirror-sizer
       transition: min-height .3s
+
+    &.disabled
+      .CodeMirror
+        color: $gray400
+        cursor: not-allowed
 
   .progress-status
     margin: 0

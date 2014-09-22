@@ -7,15 +7,15 @@ form submit='create target="view"'
       label.field-label
         | Host
       .ui.select
-        Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' value=selectedHostSlug
+        Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' disabled=saving value=selectedHostSlug
 
       label.field-label for='containers-new-name'
         | Name
-      = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' value=name
+      = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' disabled=saving value=name
 
       label.field-label for='containers-new-slug'
         | Unique Slug
-      = input type='text' id='containers-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle value=slug
+      = input type='text' id='containers-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
 
   .card-body.bordered
     .ui.input-group
@@ -23,35 +23,35 @@ form submit='create target="view"'
         | Image
 
       .image-selection
-        ul.ui.checkbox-group class={hostImagesIsEmpty:disabled}
+        ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
           li
             .ui.checkbox
-              input type='radio' id='containers-new-option-host-image' name='option' checked='checked' value='host-image' disabled=hostImagesIsEmpty
+              input type='radio' id='containers-new-option-host-image' name='option' checked='checked' value='host-image' disabled={view.hostImageOptionDisabled}
               label
             label for='containers-new-option-host-image' Use Image On This Host
 
         .ui.select.indent
-          Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=hostImagesIsEmpty
+          Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
 
-        ul.ui.checkbox-group
+        ul.ui.checkbox-group class={saving:disabled}
           li
             .ui.checkbox
-              input type='radio' id='containers-new-option-base-image' name='option' value='base-image'
+              input type='radio' id='containers-new-option-base-image' name='option' value='base-image' disabled=saving
               label
             label for='containers-new-option-base-image' Use Nitrous.IO Base Image
 
         .ui.select.indent
-          Ember.Select class='option-input' name='containers-new-option-base-image' content=App.baseImages optionValuePath='content.repo' optionLabelPath='content.repo' value=view.selectedBaseImage
+          Ember.Select class='option-input' name='containers-new-option-base-image' content=App.baseImages optionValuePath='content.repo' optionLabelPath='content.repo' value=view.selectedBaseImage disabled=saving
 
-        ul.ui.checkbox-group
+        ul.ui.checkbox-group class={saving:disabled}
           li
             .ui.checkbox
-              input type='radio' id='containers-new-option-custom-image' name='option' value='custom-image'
+              input type='radio' id='containers-new-option-custom-image' name='option' value='custom-image' disabled=saving
               label
             label for='containers-new-option-custom-image' Specify Custom Image
 
         .indent
-          = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' value=view.customImage
+          = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' value=view.customImage disabled=saving
 
   .card-body.bordered
     .ui.input-group
@@ -59,9 +59,9 @@ form submit='create target="view"'
         | Container Configuration
 
       .container-config-btns
-        a.ui.btn.raised href='#' click='openVolumeMounts target="view"' Volume Mounts
-        a.ui.btn.raised href='#' click='openPortBindings target="view"' Port Bindings
-        a.ui.btn.raised href='#' click='openEnvVars target="view"' Environment Variables
+        a.ui.btn.raised class={saving:disabled} href='#' click='openVolumeMounts target="view"' Volume Mounts
+        a.ui.btn.raised class={saving:disabled} href='#' click='openPortBindings target="view"' Port Bindings
+        a.ui.btn.raised class={saving:disabled} href='#' click='openEnvVars target="view"' Environment Variables
 
   .card-footer.bordered
     if saving

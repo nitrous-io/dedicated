@@ -7,15 +7,15 @@ form submit='create target="view"'
       label.field-label
         | Host
       .ui.select
-        Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' value=selectedHostSlug
+        Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' disabled=saving value=selectedHostSlug
 
       label.field-label for='images-new-name'
         | Name
-      = input type='text' name='name' id='images-new-name' value=name
+      = input type='text' name='name' id='images-new-name' disabled=saving value=name
 
       label.field-label for='images-new-slug'
         | Slug
-      = input type='text' name='slug' id='images-new-slug' pattern=App.Image.inputPattern title=App.Image.inputTitle value=slug
+      = input type='text' name='slug' id='images-new-slug' pattern=App.Image.inputPattern title=App.Image.inputTitle disabled=saving value=slug
 
   .card-body.bordered
     .ui.input-group
@@ -43,29 +43,29 @@ form submit='create target="view"'
         /.indent
           /input type='text' id='images-new-url' name='url'
 
-        ul.ui.checkbox-group
+        ul.ui.checkbox-group class={saving:disabled}
           li
             .ui.checkbox
-              input type='radio' id='images-new-option-file' name='option' checked='checked' value='file'
+              input type='radio' id='images-new-option-file' name='option' checked='checked' disabled={saving} value='file'
               label
             label for='images-new-option-file' Upload Dockerfile Tarball
 
         .indent
-          .ui.file-picker.btn.raised
-            input type='file' id='images-new-file' name='file' change='didChangeFile target="view"'
+          .ui.file-picker.btn.raised class={saving:disabled}
+            input type='file' id='images-new-file' name='file' disabled={saving} change='didChangeFile target="view"'
           span.filename
             = view.selectedFileName
 
-        ul.ui.checkbox-group
+        ul.ui.checkbox-group class={saving:disabled}
           li
             .ui.checkbox
-              input type='radio' id='images-new-option-code' name='option' value='code'
+              input type='radio' id='images-new-option-code' name='option' value='code' disabled={saving}
               label
             label for='images-new-option-code' Enter Dockerfile Code
 
         .indent
-          .editor
-            Ember.TextArea id='dockerfile-code' name='dockerfile' rows='1' value=view.dockerfileCode
+          .editor class={saving:disabled}
+            Ember.TextArea id='dockerfile-code' name='dockerfile' rows='1' value=view.dockerfileCode disabled=saving
 
   .card-footer.bordered
     if saving

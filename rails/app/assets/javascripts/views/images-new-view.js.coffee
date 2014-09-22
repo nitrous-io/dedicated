@@ -36,15 +36,23 @@ App.ImagesNewView = Em.View.extend
       @set 'controller.selectedHostSlug', slug
   ).observes 'controller.preselectHost'
 
+  savingDidChange: (->
+    return unless codeMirror = @get 'codeMirror'
+    if @get 'controller.saving'
+      codeMirror.setOption('readOnly', 'nocursor')
+    else
+      codeMirror.setOption('readOnly', false)
+  ).observes 'controller.saving'
+
   didInsertElement: ->
     @_super()
-    @set 'codeMirror', codemirror = CodeMirror.fromTextArea @$('#dockerfile-code')[0],
+    @set 'codeMirror', codeMirror = CodeMirror.fromTextArea @$('#dockerfile-code')[0],
       lineNumbers: true
       viewportMargin: Infinity
 
-    codemirror.changeHandler = =>
-      @set 'dockerfileCode', codemirror.getValue()
-    codemirror.on 'change', codemirror.changeHandler
+    codeMirror.changeHandler = =>
+      @set 'dockerfileCode', codeMirror.getValue()
+    codeMirror.on 'change', codeMirror.changeHandler
 
     @$('.editor .CodeMirror').on 'click.images-new', (ev) =>
       Em.run.next this, ->

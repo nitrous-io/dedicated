@@ -182,7 +182,7 @@ table.ui.table
   background: transparent
   border: 0
   border-radius: 2px
-  transition: background-color .2s
+  transition: background-color .2s, color .3s
   color: $gray800
   line-height: normal
   margin-left: 1px
@@ -210,9 +210,10 @@ table.ui.table
   &.danger
     color: $red500
 
-  &:disabled
+  &:disabled, &[disabled], &.disabled
     color: $gray400
     background: rgba(153, 153, 153, .1)
+    cursor: not-allowed
 
   &.raised.primary
     background: $lightBlue500
@@ -224,7 +225,7 @@ table.ui.table
     &:active
       background: $lightBlue700
 
-    &:disabled
+    &:disabled, &[disabled], &.disabled
       color: $gray400
       background: rgba(204, 204, 204, .1)
 
@@ -257,12 +258,13 @@ table.ui.table
     transition: border-bottom-color .2s, background-color .2s
     outline: none
     line-height: initial
+    transition: color .3s
 
     &:focus
       outline: none
       border-bottom: 2px solid $lightBlue500
 
-    &:disabled
+    &:disabled, &[disabled], &.disabled
       color: $gray400
       border-bottom: 1px dotted $gray300
 
@@ -306,9 +308,14 @@ table.ui.table
     border-radius: 0
     padding: 8px 26px 8px 0
     outline: none
+    transition: color .3s
 
     &:focus
       outline: none
+
+    &:disabled, &[disabled], &.disabled
+      color: $gray400
+      border-bottom: 1px dotted $gray300
 
 .ui.checkbox
   position: relative
@@ -328,7 +335,7 @@ table.ui.table
     &:focus
       outline: none
 
-    &:disabled
+    &:disabled, &[disabled], &.disabled
       cursor: not-allowed
 
     + label:before, + label:after
@@ -356,8 +363,9 @@ table.ui.table
       border-color: $green300
       color: white
 
-    &:disabled + label:before
-      border-color: $gray400
+    &:disabled, &[disabled], &.disabled
+      + label:before
+        border-color: $gray400
 
   input[type=checkbox]
     + label:before
@@ -367,8 +375,9 @@ table.ui.table
       background: $green300
       content: "\f00c"
 
-    &:disabled:checked + label:before
-      background: $gray400
+    &:disabled, &[disabled], &.disabled
+      &:checked + label:before
+        background: $gray400
 
   input[type=radio]
     + label:before
@@ -387,8 +396,9 @@ table.ui.table
     &:checked + label:after
       background: $green300
 
-    &:disabled:checked + label:after
-      background: $gray400
+    &:disabled, &[disabled], &.disabled
+      &:checked + label:after
+        background: $gray400
 
 ul.ui.checkbox-group
   list-style: none
@@ -464,6 +474,7 @@ ul.ui.list
         white-space: nowrap
         overflow: hidden
         text-overflow: ellipsis
+        transition: color .3s
 
       h4
         margin-bottom: 8px
@@ -471,6 +482,10 @@ ul.ui.list
 
       p
         color: $gray800
+
+      &.disabled
+        h4, p
+          color: $gray400
 
   &.with-separators
     .list-item
