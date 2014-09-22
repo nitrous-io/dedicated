@@ -29,8 +29,11 @@ type Server struct {
 	// remote freighterd port
 	freighterdPort int
 	// expected DNS based domain that we want to receive requests to, i.e.
-	// `.nitrousapp.com`
+	// should be the proxy's domain `.nitrousproxy.com`
 	baseDomain string
+	// expected domain that is used when we create the TLS certificates in webapp
+	// `nitrouspro.com`
+	tlsDomain string
 	// default tls config to talk to remote freighterd server. whenever we
 	// proxy to a server, we have to copy this and set a server name
 	tlsConfig *tls.Config
@@ -49,7 +52,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Returns a `http.Handler` which can be used to proxy requests to a Nitrous.IO
 // host
-func NewServer(baseDomain, databaseURL string, freighterdPort int, caBytes []byte) (http.Handler, error) {
+func NewServer(baseDomain, tlsDomain, databaseURL string, freighterdPort int, caBytes []byte) (http.Handler, error) {
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open a db connection %v", err)
@@ -61,6 +64,7 @@ func NewServer(baseDomain, databaseURL string, freighterdPort int, caBytes []byt
 		db:             db,
 		freighterdPort: freighterdPort,
 		baseDomain:     baseDomain,
+		tlsDomain:      tlsDomain,
 	}
 	// set the default tls config for proxied connections
 	if len(caBytes) > 0 {
@@ -100,7 +104,7 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 	// https://github.com/nitrous-io/nitrous/blob/master/models/host/host.go
 	tlsConfig := &tls.Config{}
 	*tlsConfig = *s.tlsConfig
-	tlsConfig.ServerName = fmt.Sprintf("%s.nitrouspro.com", hostName)
+	tlsConfig.ServerName = fmt.Sprintf("%s%s", hostName, s.tlsDomain)
 
 	if isWebSocket(r) {
 		proxy.ProxyWebsocket(env.host, tlsConfig)(w, r)

@@ -19,6 +19,7 @@ var version string
 var (
 	databaseURL    string
 	baseDomain     string
+	tlsDomain      string
 	freighterdPort int
 	pubCACert      string
 	pubCAKey       string
@@ -49,6 +50,7 @@ func main() {
 	databaseURL = envStr("DATABASE_URL")
 	freighterdPort = envInt("FREIGHTERD_PORT")
 	baseDomain = envStr("BASE_DOMAIN")
+	tlsDomain = envStr("TLS_DOMAIN")
 	pubCACert = envStr("PUB_CRT")
 	pubCAKey = envStr("PUB_KEY")
 	privCACertPath = envStr("PRI_CRT")
@@ -66,7 +68,7 @@ func main() {
 		log.Fatalf("tender: Failed to find private certificate: %s", privCACertPath)
 	}
 
-	s, err := tender.NewServer(baseDomain, databaseURL, freighterdPort, privCACert)
+	s, err := tender.NewServer(baseDomain, tlsDomain, databaseURL, freighterdPort, privCACert)
 	if err != nil {
 		log.Fatalf("tender: Failed to start tender server, %v", err)
 	}
