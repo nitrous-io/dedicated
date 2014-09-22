@@ -139,9 +139,10 @@ App.ContainersNewController = Em.Controller.extend
       App.Image.pull(@get('selectedHost'), repository, false).then (image) =>
         @set 'image', image
 
-        events.on 'image.pull_failed', onImagePullFailed = (data) =>
+        onImagePullFailed = (data) =>
           return unless data.id == image.get('id')
           events.off 'image.pull_failed', onImagePullFailed
+          events.off 'image.pulled', onImagePulled
           @set 'image', null
           if data.progress
             progress = JSON.parse(progress)
@@ -149,8 +150,9 @@ App.ContainersNewController = Em.Controller.extend
             App.snackbar.post(errMsg || 'Image pull failed!')
           @set 'saving', false
 
-        events.on 'image.pulled', onImagePulled = (data) =>
+        onImagePulled = (data) =>
           return unless data.id == image.get('id')
+          events.off 'image.pull_failed', onImagePullFailed
           events.off 'image.pulled', onImagePulled
 
           # create container
@@ -165,5 +167,8 @@ App.ContainersNewController = Em.Controller.extend
             @set 'saving', false
           , (jqxhr) => # container.save
             @handleErrorResponse(jqxhr)
+
+        events.on 'image.pull_failed', onImagePullFailed
+        events.on 'image.pulled', onImagePulled
       , (jqxhr) => # App.Image.pull
         @handleErrorResponse(jqxhr)

@@ -40,19 +40,23 @@ App.HostsNewController = Em.ObjectController.extend
         name: name
         slug: slug
 
-      events.on 'host.create_failed', onHostCreateFailed = (data) =>
+      onHostCreateFailed = (data) =>
         return unless data.id == host.get('id')
         events.off 'host.create_failed', onHostCreateFailed
+        events.off 'host.created', onHostCreated
         App.snackbar.post('Failed to create host!')
         @set 'saving', false
 
-      events.on 'host.created', onHostCreated = (data) =>
+      onHostCreated = (data) =>
         return unless data.id == host.get('id')
+        events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
-
         @transitionToRoute 'host.index', slug
         App.snackbar.post("Your host “#{name}” was created successfully.")
         @set 'saving', false
+
+      events.on 'host.create_failed', onHostCreateFailed
+      events.on 'host.created', onHostCreated
 
       host.save(async: true).catch (jqxhr) => # host.save
         if errMsg = jqxhr.responseJSON?.error_description
