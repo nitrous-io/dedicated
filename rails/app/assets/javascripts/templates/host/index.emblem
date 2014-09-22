@@ -76,7 +76,8 @@
       button.ui.btn click='restart' Restart
       button.ui.btn click='stop' Stop
     .right
-      button.ui.btn.primary.refresh-btn click='refresh target="view"' Refresh
+      button.ui.btn.refresh-btn click='refresh target="view"' Refresh Stats
+      button.ui.btn.primary click='newContainer' New Container...
   else
     if isStopped
       .left

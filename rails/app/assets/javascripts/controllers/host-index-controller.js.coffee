@@ -18,3 +18,6 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
 
     refresh: ->
       @get('model').fetchStats()
+
+    newContainer: ->
+      @transitionToRoute 'containers.new', queryParams: { preselectHost: @get('model.slug') }

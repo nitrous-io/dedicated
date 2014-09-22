@@ -43,10 +43,18 @@ App.ContainersNewView = Em.View.extend
 
   hostsDidChange: (->
     Em.run.scheduleOnce 'afterRender', this, ->
+      slug = @get('controller.preselectHost')
+      if slug && !@get('selectedHostSlug')
+        @set 'controller.selectedHostSlug', slug
       @$('select[name=host]')?.change()
       @$('select[name=containers-new-option-host-image]')?.change()
       @$('select[name=containers-new-selected-volume]')?.change()
   ).observes 'App.hosts.@each'
+
+  preselectHostDidChange: (->
+    if slug = @get('controller.preselectHost')
+      @set 'controller.selectedHostSlug', slug
+  ).observes 'controller.preselectHost'
 
   hostImagesDidChange: (->
     Em.run.scheduleOnce 'afterRender', this, ->

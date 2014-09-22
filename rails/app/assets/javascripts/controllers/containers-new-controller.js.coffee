@@ -1,4 +1,7 @@
 App.ContainersNewController = Em.Controller.extend
+  queryParams: ['preselectHost']
+  preselectHost: null
+
   selectedHostSlug: null
   name: null
   slug: null
@@ -126,7 +129,10 @@ App.ContainersNewController = Em.Controller.extend
       @notifyPropertyChange 'envVarHash'
 
     cancel: ->
-      @transitionToRoute 'home.index'
+      if slug = @get('preselectHost')
+        @transitionToRoute 'host.index', slug
+      else
+        @transitionToRoute 'home.index'
 
     create: (repository) ->
       @set 'saving', true
