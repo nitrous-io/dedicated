@@ -1,25 +1,30 @@
 bitbucket.org/kardianos/osext #6836bbd915dac0c3115ca7febb32af9ce74eb1d6
 code.google.com/p/go.crypto/bcrypt #1064b89a6fb591df0dd65422295b8498916b092f
 code.google.com/p/go.crypto/ssh #fe6c00a82e55
+code.google.com/p/goauth2 #afe77d958c701557ec5dc56f6936fcc194d15520
 github.com/c9s/goprocinfo #156cebb00efa1f184ce9f021404693012046c2fe
 github.com/daviddengcn/go-colortext #b5c0891944c2f150ccc9d02aecf51b76c14c2948
 github.com/ddollar/dist #f559761fd36c52dc90d7d2c0bc537e6d96b0edc5
 github.com/ddollar/forego #73521422bea32cc8d14491b271bf96ebb2625a9c
 github.com/ddollar/go-update #4733469d35539f410e0e84552944fa0df7e72c98
-github.com/fsouza/go-dockerclient #46ba1ae98b013e2e338c7299a74846d4c8b3617a
+github.com/digitalocean/godo #0a9eb5ac75a250383e5d6991f33da22024cf58d4
+github.com/fsouza/go-dockerclient #2e21eaef5e7d46f002e259eb7cde39ed3680a7b4
+github.com/google/go-querystring #30f7a39f4a218feb5325f3aebc60c32a572a8274
 github.com/gorilla/context #14f550f51af52180c2eefed15e5fd18d63c0a64a
 github.com/gorilla/mux #14cafe28513321476c73967a5a4f3454b6129c46
 github.com/gorilla/websocket #f940e88c0e4f2f58de44dc1788e05784b91332dd
 github.com/jmoiron/sqlx #65a94448495c675514bd4eb183b94f6dea516227
 github.com/kr/binarydist #9955b0ab8708602d411341e55fffd7e0700f86bd
-github.com/kr/pretty #088c856450c08c03eb32f7a6c221e6eefaa10e6f
+github.com/kr/pretty #f31442d60e51465c69811e2107ae978868dbea5c
 github.com/kr/pty #67e2db24c831afa6c64fc17b4a143390674365ef
 github.com/kr/text #6807e777504f54ad073ecef66747de158294b639
 github.com/lib/pq #ae7391529ced9c12f06bf01eae33dadb4c70e49f
-github.com/mitchellh/goamz #cab49b43cfd7846155d5a8dfca5136b9e0c2c6d2
+github.com/mitchellh/goamz #6f49d3df51d97907329f4caa251a5c1fb324410a
 github.com/nitrous-io/freighter/freighterclient #b5f63e3eb028e196212bdb657e355f00ccd66cc5 !git@github.com:nitrous-io/freighter
-github.com/nitrous-io/hostbuilder #5b04849a3c8f44de76b7c69a96c2797122eae166 !git@github.com:nitrous-io/hostbuilder
+github.com/nitrous-io/hostbuilder #43e090ad5e160509dbf49804146926402e540da2 !git@github.com:nitrous-io/hostbuilder
 github.com/nitrous-io/nitrous-common #96ea72c988aef70194e43ed5e1936fb7879d96b4 !git@github.com:nitrous-io/nitrous-common
 github.com/onsi/ginkgo/ginkgo #12446bbcc74950944c897e32ea99cc8d058f9c92
 github.com/onsi/gomega #v1.0
-github.com/subosito/gotenv #a37a0e8fb3298354bf97daad07b38feb2d0fa263
+github.com/subosito/gotenv #d4d64e5ba2c20d2e97ef59f2f69e8644c49bd894
+github.com/tent/http-link-go #ac974c61c2f990f4115b119354b5e0b47550e888
+github.com/vaughan0/go-ini #a98ad7ee00ec53921f08832bc06ecf7fd600e6a1
