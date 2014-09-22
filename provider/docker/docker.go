@@ -354,10 +354,6 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 		return nil, err
 	}
 
-	if !usesNitrousImage(container) {
-		return nil, provider.ErrPubKeyOpsNotSupported
-	}
-
 	keys, err := p.readAuthorizedKeys(nameFromContainer(container))
 	if err != nil {
 		return nil, err
@@ -370,10 +366,6 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
-	}
-
-	if !usesNitrousImage(container) {
-		return provider.ErrPubKeyOpsNotSupported
 	}
 
 	name := nameFromContainer(container)
@@ -399,10 +391,6 @@ func (p *DockerProvider) ClearPublicKeys(id string) error {
 		return err
 	}
 
-	if !usesNitrousImage(container) {
-		return provider.ErrPubKeyOpsNotSupported
-	}
-
 	name := nameFromContainer(container)
 	return p.createAuthorizedKeys(name, []string{})
 }
@@ -411,10 +399,6 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
-	}
-
-	if !usesNitrousImage(container) {
-		return provider.ErrPubKeyOpsNotSupported
 	}
 
 	name := nameFromContainer(container)
@@ -931,10 +915,6 @@ func keysToKeyMap(keys []string) (map[string]string, error) {
 		keymap[fingerprint] = key
 	}
 	return keymap, nil
-}
-
-func usesNitrousImage(container *dockerclient.Container) bool {
-	return isNitrousImage(container.Config.Image)
 }
 
 func isNitrousImage(fullName string) bool {

@@ -707,49 +707,6 @@ var _ = Describe("provider/docker", func() {
 					os.Remove(sshkeypath)
 				})
 
-				Context("with generic containers", func() {
-					var busyboxName string
-
-					BeforeEach(func() {
-						busyboxName = RandomName("freightertest")
-						_, err := prov.Create(busyboxName, busyboxImage, secret, "")
-						Expect(err).To(BeNil())
-					})
-
-					AfterEach(func() {
-						cleanUpContainer(busyboxName)
-					})
-
-					Describe(".ListPublicKeys()", func() {
-						It("returns an error", func() {
-							pubkeys, err := prov.ListPublicKeys(getID(busyboxName))
-							Expect(pubkeys).To(BeNil())
-							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
-						})
-					})
-
-					Describe(".AddPublicKeys()", func() {
-						It("returns an error", func() {
-							err := prov.AddPublicKeys(getID(busyboxName), []string{pubkey1})
-							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
-						})
-					})
-
-					Describe(".RemovePublicKey()", func() {
-						It("returns an error", func() {
-							err := prov.RemovePublicKey(getID(busyboxName), fingerprint1)
-							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
-						})
-					})
-
-					Describe(".ClearPublicKeys()", func() {
-						It("returns an error", func() {
-							err := prov.ClearPublicKeys(getID(busyboxName))
-							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
-						})
-					})
-				})
-
 				Context("with SSH enabled containers", func() {
 					sshTarget := func() string {
 						if ip := os.Getenv("DOCKER_IP"); ip != "" {
