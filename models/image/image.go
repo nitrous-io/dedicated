@@ -106,8 +106,8 @@ func (i *Image) Insert(d db.QueryReceiver) error {
 
 func (i *Image) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE images
-		SET (user_id, host_id, freighter_id, name, slug, tag)
-		= (:user_id, :host_id, :freighter_id, :name, :slug, :tag)
+		SET (user_id, host_id, freighter_id, name, slug, tag, updated_at)
+		= (:user_id, :host_id, :freighter_id, :name, :slug, :tag, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

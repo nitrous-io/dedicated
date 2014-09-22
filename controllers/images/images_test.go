@@ -492,7 +492,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(mockClient.BuildImageName).To(Equal("scratcher:MyTag"))
 		})
 
-		It("returns 500 on freighterclient error and emits image build failed event", func(done Done) {
+		It("returns 500 on freighterclient error, removes image record and emits image build failed event", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -506,6 +506,10 @@ var _ = Describe("controllers/images", func() {
 			Expect(mockClient.BuildImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
+
+			// removes image record
+			i, err := image.Find(db, u, hs.H, "scratcher:mytag")
+			Expect(err).To(Equal(sql.ErrNoRows), "expect the image to not exist in db, but got %v", i)
 
 			// Read until we get a image build_failed event.
 			var evt *controllers.Event
@@ -771,6 +775,80 @@ var _ = Describe("controllers/images", func() {
 				contents: nil,
 				code:     "",
 				remote:   "git://github.com/foo/example.git",
+			})
+		})
+
+		Context("when there's an exisiting image with the slug", func() {
+			var i *image.Image
+
+			BeforeEach(func() {
+				i = &image.Image{
+					UserID:      u.ID,
+					HostID:      hs.H.ID,
+					FreighterID: "cafebabe",
+					Name:        "scratch v1",
+					Slug:        "scratcher",
+					Tag:         "mytag",
+				}
+				err := i.Insert(db)
+				Expect(err).To(BeNil(), "failed to insert test image")
+			})
+
+			It("updates the existing image record with the new record", func() {
+				responseBody := `
+					{"stream":"Step 0 : FROM ubuntu:latest\n"}
+					{"stream":" ---\u003e 4300eb9d3c8d\n"}
+					{"stream":"Step 1 : MAINTAINER docker <eng@docker.com>\n"}
+					{"stream":" ---\u003e Using cache\n"}
+					{"stream":" ---\u003e 3a3ed758c370\n"}
+					{"stream":"Step 2 : CMD /usr/bin/top\n"}
+					{"stream":" ---\u003e Running in 36b1479cc2e4\n"}
+					{"stream":" ---\u003e 4b6188aebe39\n"}
+					{"stream":"Removing intermediate container 36b1479cc2e4\n"}
+					{"stream":"Successfully built 4b6188aebe39\n"}
+			    `
+				mockClient.OutputStream = bytes.NewBufferString(responseBody)
+				mockClient.InspectImageReturn = &freighterclient.Image{
+					ID:   "cafebabe2",
+					Name: "scratcher",
+					Tag:  "mytag",
+				}
+
+				params := map[string]string{
+					"slug":   "scratcher:mytag",
+					"name":   "scratcher v1 test",
+					"code":   "",
+					"remote": "git://github.com/foo/example.git",
+				}
+				res := doRequest("foo", params, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				i2, err := image.Find(db, u, hs.H, "scratcher:mytag")
+				Expect(err).To(BeNil(), "failed to find stored image after build")
+				Expect(i2.ID).To(Equal(i.ID))
+				Expect(i2.FreighterID).To(Equal("cafebabe2"))
+				Expect(i2.UpdatedAt).NotTo(Equal(i.UpdatedAt))
+			})
+
+			It("does not update the existing image if build fails", func() {
+				mockClient.BuildImageError = &freighterclient.StatusError{418}
+				params := map[string]string{
+					"slug":   "scratcher:mytag",
+					"name":   "scratcher v1 test",
+					"code":   "",
+					"remote": "git://github.com/foo/example.git",
+				}
+				res := doRequest("foo", params, nil)
+
+				Expect(mockClient.BuildImageCalled).To(Equal(1))
+				errType, _ := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("internal_server_error"))
+
+				i2, err := image.Find(db, u, hs.H, "scratcher:mytag")
+				Expect(err).To(BeNil())
+				Expect(i2.ID).To(Equal(i.ID))
+				Expect(i2.FreighterID).To(Equal("cafebabe"))
+				Expect(i2.UpdatedAt).To(Equal(i.UpdatedAt))
 			})
 		})
 	})

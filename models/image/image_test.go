@@ -247,10 +247,14 @@ var _ = Describe("models/image", func() {
 			Expect(img).NotTo(BeNil())
 			Expect(img.FreighterID).To(Equal("cafebabe"))
 
+			prevUpdatedAt := img.UpdatedAt
+
 			img.FreighterID = "cafedead"
 			img.Name = "scratch image v2"
 			err = img.Update(db)
 			Expect(err).To(BeNil())
+
+			Expect(img.UpdatedAt).NotTo(Equal(prevUpdatedAt))
 
 			i2 := &image.Image{}
 			err = db.QueryRowx("SELECT * FROM images WHERE id = $1", img.ID).StructScan(i2)

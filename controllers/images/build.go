@@ -39,7 +39,7 @@ type buildContext struct {
 // build sends the build context to freighter in a goroutine. If we want an
 // async build, this returns immediately with the current stored image,
 // otherwise, the image is updated with new data after the build is done.
-func (c *buildContext) build(async bool) (*image.Image, error) {
+func (c *buildContext) build(async bool, isNew bool) (*image.Image, error) {
 	ch := make(chan *buildResult, 1)
 	env, cl, img, slug := c.env, c.client, c.img, c.slug
 
@@ -50,8 +50,10 @@ func (c *buildContext) build(async bool) (*image.Image, error) {
 				env.User.Topic(),
 			)
 
-			if delErr := img.Delete(env.DB); delErr != nil {
-				env.Logger.Errorf("images.build: unable to delete image %d that failed to build on freighter: %v", img.ID, delErr)
+			if isNew {
+				if delErr := img.Delete(env.DB); delErr != nil {
+					env.Logger.Errorf("images.build: unable to delete image %d that failed to build on freighter: %v", img.ID, delErr)
+				}
 			}
 			ch <- &buildResult{err: err}
 			return
@@ -127,20 +129,26 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	repo, tag := image.ParseRepoAndTag(slug)
-	if tag == "" {
-		tag = image.DefaultTag
-	}
+	var img *image.Image
+	var isNew bool
+	img, err = image.Find(env.DB, env.User, h, slug)
+	if err != nil {
+		repo, tag := image.ParseRepoAndTag(slug)
+		if tag == "" {
+			tag = image.DefaultTag
+		}
 
-	img := &image.Image{
-		UserID: env.User.ID,
-		HostID: h.ID,
-		Name:   r.FormValue("name"),
-		Slug:   repo,
-		Tag:    tag,
-	}
-	if err := img.Insert(env.DB); err != nil {
-		return err
+		img = &image.Image{
+			UserID: env.User.ID,
+			HostID: h.ID,
+			Name:   r.FormValue("name"),
+			Slug:   repo,
+			Tag:    tag,
+		}
+		if err := img.Insert(env.DB); err != nil {
+			return fmt.Errorf("images/build failed to insert new image %s", err)
+		}
+		isNew = true
 	}
 
 	async, _ := strconv.ParseBool(r.FormValue("async"))
@@ -157,7 +165,7 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		writer = io.MultiWriter(pp, flusher.NewWriteFlusher(w))
 	}
 	ctx := &buildContext{env: env, client: cl, img: img, slug: slug, in: archive, out: writer, remote: remote}
-	img, err = ctx.build(async)
+	img, err = ctx.build(async, isNew)
 	if err != nil {
 		return err
 	}
