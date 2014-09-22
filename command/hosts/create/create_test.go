@@ -1,11 +1,14 @@
 package create_test
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/nitro/command"
 	"github.com/nitrous-io/nitro/command/hosts/create"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
@@ -19,18 +22,44 @@ func Test(t *testing.T) {
 	RunSpecs(t, "hosts/create")
 }
 
+func getCmd(output io.Writer, server string) *create.Command {
+	ui := cli.BasicUi{Writer: output}
+	cmd := &create.Command{
+		UI:     &command.BasicUI{ui},
+		Server: server,
+		Client: httpclient.New("a_token"),
+	}
+	return cmd
+}
+
+var _ = Describe("validation", func() {
+	It("requires size as an argument", func() {
+		output := bytes.NewBuffer(nil)
+		cmd := getCmd(output, "")
+
+		code := cmd.Run([]string{})
+		Expect(code).To(Equal(1))
+		Expect(output.String()).To(ContainSubstring("Usage:"))
+	})
+
+	It("requires region as an argument", func() {
+		output := bytes.NewBuffer(nil)
+		cmd := getCmd(output, "")
+
+		code := cmd.Run([]string{"512mb"})
+		Expect(code).To(Equal(1))
+		Expect(output.String()).To(ContainSubstring("Usage:"))
+	})
+})
+
 var _ = Describe("hosts/create", func() {
 	var (
-		cmd          *create.Command
-		ui           *cli.MockUi
 		srv          *ghttp.Server
 		statusCode   int
 		responseBody string
 	)
 
 	BeforeEach(func() {
-		ui = &cli.MockUi{}
-
 		handlers := ghttp.CombineHandlers(
 			func(w http.ResponseWriter, req *http.Request) {
 				// Call ParseForm() so that server.ReceivedRequests() have
@@ -44,94 +73,83 @@ var _ = Describe("hosts/create", func() {
 		)
 		srv = ghttp.NewServer()
 		srv.AppendHandlers(handlers)
-
-		cmd = &create.Command{
-			UI:     ui,
-			Server: srv.URL(),
-			Client: httpclient.New("a_token"),
-		}
 	})
 
 	AfterEach(func() {
 		srv.Close()
 	})
 
-	It("requires size as an argument", func() {
-		code := cmd.Run([]string{})
-		Expect(code).To(Equal(1))
-		Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
+	It("populates request with provided slug", func() {
+		output := bytes.NewBuffer(nil)
+		cmd := getCmd(output, srv.URL())
+
+		cmd.Run([]string{"micro", "apse", "-s", "foo"})
+
+		receivedRequests := srv.ReceivedRequests()
+		Expect(receivedRequests).To(HaveLen(1))
+		Expect(receivedRequests[0].PostFormValue("size")).To(Equal("micro"))
+		Expect(receivedRequests[0].PostFormValue("region")).To(Equal("apse"))
+		Expect(receivedRequests[0].PostFormValue("slug")).To(Equal("foo"))
 	})
 
-	It("requires region as an argument", func() {
-		code := cmd.Run([]string{"512mb"})
-		Expect(code).To(Equal(1))
-		Expect(ui.OutputWriter.String()).To(ContainSubstring("Usage:"))
+	It("populates request with a randomly generated slug when slug is not provided", func() {
+		output := bytes.NewBuffer(nil)
+		cmd := getCmd(output, srv.URL())
+
+		cmd.Run([]string{"micro", "apse"})
+
+		receivedRequests := srv.ReceivedRequests()
+		Expect(receivedRequests).To(HaveLen(1))
+		Expect(receivedRequests[0].PostFormValue("size")).To(Equal("micro"))
+		Expect(receivedRequests[0].PostFormValue("region")).To(Equal("apse"))
+		Expect(receivedRequests[0].PostFormValue("slug")).NotTo(Equal(""))
 	})
 
-	Context("hitting the server", func() {
-		type createHostParams struct {
-			size   string
-			region string
-			slug   string
-		}
+	It("prints out stream output and host info", func() {
+		statusCode = http.StatusOK
+		responseBody = `
+		{"stream":"starting: create droplet"}
+		{"stream":"finished: create droplet"}
+		{"host":{"slug":"test","state":"created","size":"micro"}, "status":"created"}
+		`
 
-		doCmd := func(params *createHostParams) int {
-			return cmd.Run([]string{params.size,
-				params.region,
-				"-s", params.slug,
-			})
-		}
+		output := bytes.NewBuffer(nil)
+		cmd := getCmd(output, srv.URL())
 
-		Context("when slug is provided", func() {
-			It("populates request correctly", func() {
-				doCmd(&createHostParams{size: "micro", slug: "foo", region: "apse"})
-				receivedRequests := srv.ReceivedRequests()
-				Expect(receivedRequests).To(HaveLen(1))
-				Expect(receivedRequests[0].PostFormValue("size")).To(Equal("micro"))
-				Expect(receivedRequests[0].PostFormValue("region")).To(Equal("apse"))
-				Expect(receivedRequests[0].PostFormValue("slug")).To(Equal("foo"))
-			})
-		})
-
-		Context("when slug is not provided", func() {
-			It("populates request with a randomly generated slug", func() {
-				doCmd(&createHostParams{size: "micro", region: "apse"})
-				receivedRequests := srv.ReceivedRequests()
-				Expect(receivedRequests).To(HaveLen(1))
-				Expect(receivedRequests[0].PostFormValue("size")).To(Equal("micro"))
-				Expect(receivedRequests[0].PostFormValue("region")).To(Equal("apse"))
-				Expect(receivedRequests[0].PostFormValue("slug")).NotTo(Equal(""))
-			})
-		})
-
-		Context("when request succeeds", func() {
-			BeforeEach(func() {
-				statusCode = http.StatusCreated
-				responseBody = `{
-					"host":{"slug":"test","state":"created","size":"micro"},
-					"status":"created"
-				}`
-			})
-
-			It("prints the host in the response", func() {
-				code := doCmd(&createHostParams{size: "micro", slug: "test", region: "apse"})
-				Expect(ui.OutputWriter.String()).To(ContainSubstring(strings.TrimSpace(`
+		code := cmd.Run([]string{"micro", "apse", "-s", "test"})
+		Expect(code).To(Equal(0), "unexpected exit code")
+		Expect(output.String()).To(ContainSubstring(`starting: create droplet`))
+		Expect(output.String()).To(ContainSubstring(strings.TrimSpace(`
 Slug    State      Size
 test    created    micro
 `)))
-				Expect(code).To(Equal(0))
-			})
-		})
+	})
 
-		Context("when request fails", func() {
-			It("displays error message", func() {
-				statusCode = http.StatusBadRequest
-				responseBody = `{"error":"validation_failed","error_description":"region not found"}`
+	It("displays error message when the server receives a bad request", func() {
+		statusCode = http.StatusBadRequest
+		responseBody = `{"error":"validation_failed","error_description":"region not found"}`
 
-				code := doCmd(&createHostParams{size: "micro", slug: "test", region: "apse"})
-				Expect(ui.ErrorWriter.String()).To(ContainSubstring("region not found"))
-				Expect(code).To(Equal(1))
-			})
-		})
+		output := bytes.NewBuffer(nil)
+		cmd := getCmd(output, srv.URL())
+
+		code := cmd.Run([]string{"micro", "apse", "-s", "test"})
+		Expect(code).To(Equal(1), "unexpected exit code")
+		Expect(output.String()).To(ContainSubstring("region not found"), "missing error message")
+	})
+
+	It("displays error message when the build failed", func() {
+		statusCode = http.StatusOK
+		responseBody = `
+		{"error":"hostbuilder: failed to build because reasons"}
+		{"error":"internal_server_error","error_hash":"obscure error"}
+		`
+
+		output := bytes.NewBuffer(nil)
+		cmd := getCmd(output, srv.URL())
+
+		code := cmd.Run([]string{"micro", "apse", "-s", "test"})
+		Expect(code).To(Equal(1), "unexpected exit code")
+		Expect(output.String()).To(ContainSubstring("failed to build because reasons"), "missing error message")
+		Expect(output.String()).To(ContainSubstring("obscure error"), "missing error message")
 	})
 })
