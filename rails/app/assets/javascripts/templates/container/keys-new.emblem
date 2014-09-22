@@ -6,7 +6,7 @@ form submit='create'
     .ui.input-group
       label.field-label for='keys-new-key'
         | Key
-      Ember.TextArea id='keys-new-key' class='textarea-transition' name='key' rows='2' value=key
+      Ember.TextArea id='keys-new-key' class='textarea-transition' name='key' rows='2' value=key disabled=saving
 
   .card-footer.bordered
     .right

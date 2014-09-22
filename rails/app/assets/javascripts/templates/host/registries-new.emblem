@@ -7,24 +7,24 @@ form submit='create'
       label.field-label for='registries-new-url'
         | Registry URL
       .registry-url
-        = input type='text' id='registries-new-url' name='registry' value=url
+        = input type='text' id='registries-new-url' name='registry' value=url disabled=saving
         .registry-buttons
-          a.ui.btn.raised id='quay-io-btn' data-url='quay.io' href='#'
+          a.ui.btn.raised class={saving:disabled} id='quay-io-btn' data-url='quay.io' href='#'
             | Quay.io
-          a.ui.btn.raised.default id='docker-hub-btn' data-url='index.docker.io' href='#'
+          a.ui.btn.raised.default class={saving:disabled} id='docker-hub-btn' data-url='index.docker.io' href='#'
             | Docker Hub
 
       label.field-label for='registries-new-username'
         | Username
-      = input type='text' id='registries-new-username' name='username' value=username
+      = input type='text' id='registries-new-username' name='username' value=username disabled=saving
 
       label.field-label for='registries-new-email'
         | Email
-      = input type='email' id='registries-new-email' name='email' value=email
+      = input type='email' id='registries-new-email' name='email' value=email disabled=saving
 
       label.field-label for='registries-new-password'
         | Password
-      = input type='password' id='registries-new-password' name='password' value=password
+      = input type='password' id='registries-new-password' name='password' value=password disabled=saving
 
   .card-footer.bordered
     .right

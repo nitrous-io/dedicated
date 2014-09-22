@@ -9,11 +9,13 @@ App.HostRegistriesNewView = Em.View.extend
     @_super()
     $urlField = @$('#registries-new-url')
 
-    @$('.registry-buttons .btn').on 'click', ->
+    @$('.registry-buttons .btn').on 'click', (evt) ->
+      evt.preventDefault()
+      evt.stopPropagation()
       $this = $(this)
+      return if $this.hasClass('disabled')
       $urlField.val($this.data('url')).change()
       $this.blur()
-      false
 
     @$('.registry-buttons .btn.default').click()
     @$('#registries-new-username').focus()
