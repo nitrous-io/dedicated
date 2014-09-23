@@ -461,6 +461,10 @@ func (s *Server) removeImage(w http.ResponseWriter, r *http.Request) error {
 	image := r.FormValue("image")
 	err := s.provider.RemoveImage(image)
 	if err != nil {
+		if err == provider.ErrImageInUse {
+			s.respondEncodeJSON(w, http.StatusConflict, map[string]interface{}{"error": err.Error()})
+			return nil
+		}
 		return err
 	}
 	s.respond(w, http.StatusOK, jsonStatusOK)

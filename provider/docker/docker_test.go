@@ -70,8 +70,10 @@ var _ = Describe("provider/docker", func() {
 	})
 
 	cleanUpContainer := func(name string) {
-		exec.Command("docker", "stop", "--time=1", name).Run()
-		exec.Command("docker", "rm", name).Run()
+		out, err := exec.Command("docker", "stop", "--time=1", name).CombinedOutput()
+		Expect(err).To(BeNil(), "docker stop %s failed with err: %+v", name, string(out))
+		out, err = exec.Command("docker", "rm", "-f", name).CombinedOutput()
+		Expect(err).To(BeNil(), "docker rm -f %s failed with err: %+v", name, string(out))
 	}
 
 	doInspect := func(id, format string) string {
@@ -128,6 +130,13 @@ var _ = Describe("provider/docker", func() {
 		err := json.Unmarshal([]byte(out), &v)
 		Expect(err).To(BeNil())
 		return &v
+	}
+
+	createContainer := func(tag string) string {
+		out, err := exec.Command("docker", "run", "-d", tag, "/bin/bash").CombinedOutput()
+		Expect(err).To(BeNil(), "Failed to create container, output: %s", string(out))
+
+		return string(out)
 	}
 
 	createImages := func(count int, name string, noEntropy bool) []string {
@@ -219,7 +228,6 @@ var _ = Describe("provider/docker", func() {
 			name := RandomName("freightertest")
 			_, err := prov.Create(name, "non-existent-image", secret, "")
 			Expect(err).To(MatchError(provider.ErrImageNotFound))
-			defer cleanUpContainer(name)
 		})
 
 		Context("when container is created but cannot be started", func() {
@@ -251,6 +259,9 @@ var _ = Describe("provider/docker", func() {
 				name string
 				id   string
 				info *provider.ContainerInfo
+
+				// set to false for tests which handle their own termination
+				terminateAfterTest = true
 			)
 
 			BeforeEach(func() {
@@ -262,7 +273,9 @@ var _ = Describe("provider/docker", func() {
 			})
 
 			AfterEach(func() {
-				cleanUpContainer(name)
+				if terminateAfterTest {
+					cleanUpContainer(name)
+				}
 			})
 
 			Describe(".List()", func() {
@@ -545,6 +558,10 @@ var _ = Describe("provider/docker", func() {
 					Expect(info.StartedAt).To(Equal(origInfo.State.StartedAt))
 					Expect(info.FinishedAt.IsZero()).To(BeFalse())
 				}
+
+				BeforeEach(func() {
+					terminateAfterTest = false
+				})
 
 				Context("when the container is running", func() {
 					It("terminates the container", func() {
@@ -1199,6 +1216,27 @@ var _ = Describe("provider/docker", func() {
 
 				out, _ := exec.Command("docker", "inspect", "-f", "{{.Id}}", images[0]).CombinedOutput()
 				Expect(out).To(ContainSubstring("Error: No such image or container:"))
+			})
+
+			Context("with running containers using that ID", func() {
+				It("should not delete but preserve the tag of the image", func() {
+					i1 := createImages(1, "multremoveable", true)
+					defer removeImages(i1)
+
+					id1 := doInspect(i1[0], "{{.Id}}")
+					Expect(id1).ToNot(BeEmpty())
+
+					containerId := strings.TrimRight(createContainer(i1[0]), "\n")
+					Expect(containerId).ToNot(BeEmpty())
+
+					err := prov.RemoveImage(i1[0])
+					Expect(err).To(Equal(provider.ErrImageInUse))
+
+					id1 = doInspect(i1[0], "{{.Id}}")
+					Expect(id1).ToNot(BeEmpty())
+
+					cleanUpContainer(containerId)
+				})
 			})
 
 			Context("with multiple images under ID", func() {

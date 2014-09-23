@@ -44,6 +44,7 @@ var (
 	ErrUnverifiable            = provider.ErrUnverifiable
 	ErrImageNotFound           = provider.ErrImageNotFound
 	ErrImageExists             = provider.ErrImageExists
+	ErrImageInUse              = provider.ErrImageInUse
 	ErrImagePushAuthRequired   = provider.ErrImagePushAuthRequired
 
 	// ErrInvalidSecret is returned when freighterclient caller passed in an
@@ -802,7 +803,12 @@ func (c *client) RemoveImage(image string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusConflict:
+		return ErrImageInUse
+	default:
 		return &StatusError{resp.StatusCode}
 	}
 

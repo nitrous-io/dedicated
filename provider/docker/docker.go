@@ -528,15 +528,37 @@ func (p *DockerProvider) RemoveImage(imageIDOrName string) error {
 	}
 
 	image, useID := lookupResult.image, lookupResult.byID
-
+	var removeID string
 	if useID {
-		err = p.client.RemoveImage(image.ID)
+		removeID = image.ID
 	} else {
-		merged := strings.Join([]string{image.Name, image.Tag}, ":")
-		err = p.client.RemoveImage(merged)
+		removeID = strings.Join([]string{image.Name, image.Tag}, ":")
 	}
-	if err != nil && strings.Contains(err.Error(), "tagged in multiple repositories") {
+	err = p.client.RemoveImage(removeID)
+	if err == nil {
+		return nil
+	}
+
+	// TODO: This can be removed once this https://github.com/docker/docker/pull/7963/files
+	// has been released
+	if !useID {
+		_, lookupErr := p.lookupImage(imageIDOrName)
+		if lookupErr == provider.ErrImageNotFound {
+			tagErr := p.client.TagImage(image.ID, dockerclient.TagImageOptions{Repo: image.Name, Tag: image.Tag})
+			if tagErr != nil {
+				return tagErr
+			}
+		}
+	}
+
+	if strings.Contains(err.Error(), "tagged in multiple repositories") {
 		return provider.ErrImageShared
+	}
+
+	if strings.Contains(err.Error(), "Conflict, cannot delete") {
+		// TODO: this is retarded, we should patch go-dockerclient to report a proper error
+		// if status code == 409
+		return provider.ErrImageInUse
 	}
 
 	return err

@@ -1308,6 +1308,18 @@ var _ = Describe("server", func() {
 				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not remove image."}`))
 			})
 		})
+
+		Context("RemoveImage() returns ErrImageInUse", func() {
+			BeforeEach(func() {
+				prov.RemoveImageError = provider.ErrImageInUse
+				doRequest()
+			})
+
+			It("responds with 409 Conflict", func() {
+				Expect(res.Code).To(Equal(http.StatusConflict))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"Image is being used by one or more containers"}`))
+			})
+		})
 	})
 
 	Describe("POST /images/pull", func() {
