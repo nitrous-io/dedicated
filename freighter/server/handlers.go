@@ -333,7 +333,7 @@ func (s *Server) wsContainerLogs(w http.ResponseWriter, r *http.Request) error {
 	stream := wsconn.NewConnectionHeartbeat(conn, true)
 	defer stream.Close()
 
-	return s.provider.Logs(id, prefixedwriter.NewPrefixedWriter(stream, "d|"), follow, timestamps, tail)
+	return s.provider.Logs(id, prefixedwriter.New(stream, "d|"), follow, timestamps, tail)
 }
 
 // wsNewShell creates a new shell to a container using protocol specified in
@@ -580,10 +580,10 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 	if err != nil {
 		return fmt.Errorf("failed to upgrade websocket: %v", err)
 	}
-	stream := wsconn.NewConnection(conn)
+	stream := wsconn.NewConnectionHeartbeat(conn, true)
 	defer stream.Close()
 
-	if err := s.provider.AttachToContainer(id, stream, stream); err != nil {
+	if err := s.provider.AttachToContainer(id, stream, prefixedwriter.New(stream, "d|")); err != nil {
 		// Connection is already hijacked, so write to the WebSocket instead of
 		// returning the error.
 		stream.Write([]byte(err.Error()))
