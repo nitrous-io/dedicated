@@ -707,49 +707,6 @@ var _ = Describe("provider/docker", func() {
 					os.Remove(sshkeypath)
 				})
 
-				Context("with generic containers", func() {
-					var busyboxName string
-
-					BeforeEach(func() {
-						busyboxName = RandomName("freightertest")
-						_, err := prov.Create(busyboxName, busyboxImage, secret, "")
-						Expect(err).To(BeNil())
-					})
-
-					AfterEach(func() {
-						cleanUpContainer(busyboxName)
-					})
-
-					Describe(".ListPublicKeys()", func() {
-						It("returns an error", func() {
-							pubkeys, err := prov.ListPublicKeys(getID(busyboxName))
-							Expect(pubkeys).To(BeNil())
-							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
-						})
-					})
-
-					Describe(".AddPublicKeys()", func() {
-						It("returns an error", func() {
-							err := prov.AddPublicKeys(getID(busyboxName), []string{pubkey1})
-							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
-						})
-					})
-
-					Describe(".RemovePublicKey()", func() {
-						It("returns an error", func() {
-							err := prov.RemovePublicKey(getID(busyboxName), fingerprint1)
-							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
-						})
-					})
-
-					Describe(".ClearPublicKeys()", func() {
-						It("returns an error", func() {
-							err := prov.ClearPublicKeys(getID(busyboxName))
-							Expect(err).To(Equal(provider.ErrPubKeyOpsNotSupported))
-						})
-					})
-				})
-
 				Context("with SSH enabled containers", func() {
 					sshTarget := func() string {
 						if ip := os.Getenv("DOCKER_IP"); ip != "" {
@@ -1727,6 +1684,30 @@ var _ = Describe("provider/docker", func() {
 			d := prov.ContainerSettingsDir("containername")
 			Expect(d).To(Equal(fmt.Sprintf("%s/containers/containername", datadir)))
 		})
+	})
+
+	Describe("IsNitrousImage()", func() {
+		cases := []struct {
+			imageName string
+			expected  bool
+		}{
+			{"nitrousio/ubuntu-bare:trusty", true},
+			{"nitrousio/ubuntu:trusty", true},
+			{"nitrousio/ruby:latest", true},
+			{"nitrousio/golang", true},
+			{"nitrousio/python:2.7.0", true},
+			{"nitrousio/php:hiphop", true},
+			{"nitrousio/ubuntu:gutsy", false},       // wrong tag
+			{"actionio/ruby:latest", false},         // wrong registry
+			{"nitrousio/visualbasic:latest", false}, // visualbasic not in whitelist
+		}
+
+		for _, c2 := range cases {
+			c := c2
+			It(fmt.Sprintf("is %v for image '%s'", c.expected, c.imageName), func() {
+				Expect(docker.IsNitrousImage(c.imageName)).To(Equal(c.expected))
+			})
+		}
 	})
 })
 

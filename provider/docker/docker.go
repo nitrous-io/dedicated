@@ -26,7 +26,10 @@ var (
 	dockerfileUbuntu = template.Must(template.New("ubuntu").Parse(dockerfileUbuntuTmpl))
 	dockerHost       = "unix:///var/run/docker.sock"
 	registryName     = "nitrousio"
-	images           = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
+
+	// list of images 'blessed' by Nitrous. If tag is included, the specific
+	// tag is checked for, otherwise any tag is allowed
+	nitrousImages = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
 )
 
 const defaultDockerGateway = "172.17.42.1"
@@ -351,10 +354,6 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 		return nil, err
 	}
 
-	if !usesNitrousImage(container) {
-		return nil, provider.ErrPubKeyOpsNotSupported
-	}
-
 	keys, err := p.readAuthorizedKeys(nameFromContainer(container))
 	if err != nil {
 		return nil, err
@@ -367,10 +366,6 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
-	}
-
-	if !usesNitrousImage(container) {
-		return provider.ErrPubKeyOpsNotSupported
 	}
 
 	name := nameFromContainer(container)
@@ -396,10 +391,6 @@ func (p *DockerProvider) ClearPublicKeys(id string) error {
 		return err
 	}
 
-	if !usesNitrousImage(container) {
-		return provider.ErrPubKeyOpsNotSupported
-	}
-
 	name := nameFromContainer(container)
 	return p.createAuthorizedKeys(name, []string{})
 }
@@ -408,10 +399,6 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
-	}
-
-	if !usesNitrousImage(container) {
-		return provider.ErrPubKeyOpsNotSupported
 	}
 
 	name := nameFromContainer(container)
@@ -930,13 +917,21 @@ func keysToKeyMap(keys []string) (map[string]string, error) {
 	return keymap, nil
 }
 
-func usesNitrousImage(container *dockerclient.Container) bool {
-	return isNitrousImage(container.Config.Image)
-}
-
-func isNitrousImage(image string) bool {
-	for _, nitrousImage := range images {
-		if registryName+"/"+nitrousImage == image {
+func isNitrousImage(fullName string) bool {
+	parts := strings.Split(fullName, ":")
+	untagged := fullName
+	if len(parts) == 2 {
+		untagged = parts[0]
+	}
+	for _, nitrousImage := range nitrousImages {
+		var matched bool
+		current := registryName + "/" + nitrousImage
+		if strings.Index(current, ":") == -1 {
+			matched = current == untagged
+		} else {
+			matched = current == fullName
+		}
+		if matched == true {
 			return true
 		}
 	}
