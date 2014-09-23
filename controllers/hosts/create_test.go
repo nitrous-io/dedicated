@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -163,203 +164,214 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 	})
 
-	Context("with valid parameters", func() {
-		Context("when hostbuilder successfully creates a host", func() {
-			var rt *FakeRoundTripper
+	It("sends the provided slug as host's name", func() {
+		hb := hostbuilderclient.NewHostbuilder("www.example.com")
+		rt := &FakeRoundTripper{
+			message: fmt.Sprintf(`
+			{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}
+			`, hs.PT.Name),
+			status: http.StatusOK,
+		}
+		replaceTransport(hb, rt)
+		hosts.HostbuilderClient = hb
+		doRequest(params)
 
-			BeforeEach(func() {
-				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				rt = &FakeRoundTripper{
-					message: fmt.Sprintf(`{
-						"id":"abcd1234",
-						"ip_address":"0.0.0.0",
-						"provider":"%s",
-						"freighterd_port":65333
-					}`, hs.PT.Name),
-					status: http.StatusOK,
-				}
-				replaceTransport(hb, rt)
+		req := rt.requests[0]
+		var config hostbuilderclient.Config
+		json.Unmarshal([]byte(req.FormValue("config")), &config)
+		Expect(config["name"]).To(Equal(params.Get("slug")))
+	})
 
-				hosts.HostbuilderClient = hb
-			})
+	Context("when hostbuilder successfully creates a host", func() {
+		var rt *FakeRoundTripper
 
-			It("creates a host record for the user", func() {
-				doRequest(params)
-				hosts, err := host.FindAllByUser(db, u)
-				Expect(err).To(BeNil())
-				Expect(hosts).To(HaveLen(1))
+		BeforeEach(func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt = &FakeRoundTripper{
+				message: fmt.Sprintf(`
+				{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}
+				`, hs.PT.Name),
+				status: http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+		})
 
-				h := hosts[0]
-				Expect(h.RegionID).To(Equal(hs.R.ID))
-				Expect(h.PlanID).To(Equal(hs.P.ID))
-				Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
+		It("creates a host record for the user", func() {
+			doRequest(params)
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
 
-				Expect(h.Slug).To(Equal(params.Get("slug")))
-				Expect(h.Name.String).To(Equal(params.Get("name")))
+			h := hosts[0]
+			Expect(h.RegionID).To(Equal(hs.R.ID))
+			Expect(h.PlanID).To(Equal(hs.P.ID))
+			Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
 
-				Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
-				Expect(h.State).To(Equal(host.StateRunning))
-				Expect(h.MaxContainers.Int64).To(Equal(hs.P.MaxContainers))
-				Expect(h.Size.String).To(Equal(hs.P.Slug))
-				Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
-				Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
+			Expect(h.Slug).To(Equal(params.Get("slug")))
+			Expect(h.Name.String).To(Equal(params.Get("name")))
 
-				req := rt.requests[0]
-				var config hostbuilderclient.Config
-				json.Unmarshal([]byte(req.FormValue("config")), &config)
-				Expect(config["name"]).To(Equal(params.Get("slug")))
-			})
+			Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
+			Expect(h.State).To(Equal(host.StateRunning))
+			Expect(h.MaxContainers.Int64).To(Equal(hs.P.MaxContainers))
+			Expect(h.Size.String).To(Equal(hs.P.Slug))
+			Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
+			Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
+		})
 
-			It("creates a keypair associated with that host", func() {
-				doRequest(params)
-				hosts, err := host.FindAllByUser(db, u)
-				Expect(err).To(BeNil())
-				Expect(hosts).To(HaveLen(1))
+		It("creates a keypair associated with that host", func() {
+			doRequest(params)
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
 
-				kp, err := keypairs.Get(db, hosts[0].ID)
-				Expect(err).To(BeNil())
-				Expect(kp.HostID).To(Equal(hosts[0].ID))
+			kp, err := keypairs.Get(db, hosts[0].ID)
+			Expect(err).To(BeNil())
+			Expect(kp.HostID).To(Equal(hosts[0].ID))
 
-				req := rt.requests[0]
-				var config hostbuilderclient.Config
-				json.Unmarshal([]byte(req.FormValue("config")), &config)
-				public_keys := config["public_keys"].([]interface{})
-				Expect(public_keys[0].(string)).To(Equal(kp.PublicKey))
-			})
+			req := rt.requests[0]
+			var config hostbuilderclient.Config
+			json.Unmarshal([]byte(req.FormValue("config")), &config)
+			public_keys := config["public_keys"].([]interface{})
+			Expect(public_keys[0].(string)).To(Equal(kp.PublicKey))
+		})
 
-			It("creates a shared secret for the host", func() {
-				doRequest(params)
-				hosts, _ := host.FindAllByUser(db, u)
+		It("creates a shared secret for the host", func() {
+			doRequest(params)
+			hosts, _ := host.FindAllByUser(db, u)
 
-				Expect(hosts[0].Secret).NotTo(BeEmpty())
-				req := rt.requests[0]
-				var config hostbuilderclient.Config
-				json.Unmarshal([]byte(req.FormValue("config")), &config)
-				Expect(config["secret"]).To(Equal(hosts[0].Secret))
-			})
+			Expect(hosts[0].Secret).NotTo(BeEmpty())
+			req := rt.requests[0]
+			var config hostbuilderclient.Config
+			json.Unmarshal([]byte(req.FormValue("config")), &config)
+			Expect(config["secret"]).To(Equal(hosts[0].Secret))
+		})
 
-			It("creates a cert associated with that host", func() {
-				doRequest(params)
-				hosts, err := host.FindAllByUser(db, u)
-				Expect(err).To(BeNil())
-				Expect(hosts).To(HaveLen(1))
-				crt, err := cert.Find(db, hosts[0].ID)
-				Expect(err).To(BeNil())
-				Expect(crt.HostID).To(Equal(hosts[0].ID))
-				Expect(crt.ServerCert).To(ContainSubstring("BEGIN CERTIFICATE"))
-				Expect(crt.ServerKey).To(ContainSubstring("BEGIN RSA PRIVATE KEY"))
-			})
+		It("creates a cert associated with that host", func() {
+			doRequest(params)
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+			crt, err := cert.Find(db, hosts[0].ID)
+			Expect(err).To(BeNil())
+			Expect(crt.HostID).To(Equal(hosts[0].ID))
+			Expect(crt.ServerCert).To(ContainSubstring("BEGIN CERTIFICATE"))
+			Expect(crt.ServerKey).To(ContainSubstring("BEGIN RSA PRIVATE KEY"))
+		})
 
-			It("responds with the created host and status created", func() {
-				res := doRequest(params)
-				Expect(res.Code).To(Equal(http.StatusCreated))
+		It("responds with the created host and status created", func() {
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusCreated))
 
-				var j struct {
-					Host *serializers.Host `json:"host"`
-				}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
 
-				hosts, _ := host.FindAllByUser(db, u)
-				Expect(j.Host.ID).To(Equal(hosts[0].ID))
-				Expect(j.Host.UserID).To(Equal(u.ID))
-				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
-				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
-				Expect(j.Host.Slug).To(Equal(params.Get("slug")))
-				Expect(j.Host.IPAddress).To(Equal("0.0.0.0"))
-				Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
-				Expect(j.Host.Size).To(Equal(hs.P.Slug))
-				Expect(j.Host.State).To(Equal(host.StateRunning))
-				Expect(j.Host.Hostname).To(Equal(hostname("honeybadger")))
-				Expect(j.Host.CreatedAt).NotTo(BeNil())
-				Expect(j.Host.UpdatedAt).NotTo(BeNil())
-				Expect(j.Host.TerminatedAt).To(BeNil())
-			})
+			hosts, _ := host.FindAllByUser(db, u)
+			Expect(j.Host.ID).To(Equal(hosts[0].ID))
+			Expect(j.Host.UserID).To(Equal(u.ID))
+			Expect(j.Host.RegionID).To(Equal(hs.R.ID))
+			Expect(j.Host.PlanID).To(Equal(hs.P.ID))
+			Expect(j.Host.Slug).To(Equal(params.Get("slug")))
+			Expect(j.Host.IPAddress).To(Equal("0.0.0.0"))
+			Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
+			Expect(j.Host.Size).To(Equal(hs.P.Slug))
+			Expect(j.Host.State).To(Equal(host.StateRunning))
+			Expect(j.Host.Hostname).To(Equal(hostname("honeybadger")))
+			Expect(j.Host.CreatedAt).NotTo(BeNil())
+			Expect(j.Host.UpdatedAt).NotTo(BeNil())
+			Expect(j.Host.TerminatedAt).To(BeNil())
+		})
 
-			It("publishes a host created event with the created host", func(done Done) {
-				ch := svr.Events.Subscribe(u.Topic())
-				defer svr.Events.Unsubscribe(ch, u.Topic())
+		It("publishes a host created event with the created host", func() {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
 
-				doRequest(params)
+			doRequest(params)
 
-				hosts, err := host.FindAllByUser(db, u)
-				Expect(err).To(BeNil())
-				Expect(hosts).To(HaveLen(1))
-				h := hosts[0]
-				Expect(<-ch).To(Equal(&controllers.Event{
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+			h := hosts[0]
+			select {
+			case e := <-ch:
+				Expect(e).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreated,
 					Data: serializers.SerializeHost(&h),
-				}))
-				close(done)
-			}, 3) // increase timeout to allow goroutine to finish
-
-			It("converts the 'slug' form value to lowercase", func() {
-				params.Set("slug", "HoneyBADGER")
-				doRequest(params)
-
-				hosts, err := host.FindAllByUser(db, u)
-				Expect(err).To(BeNil())
-				Expect(hosts).To(HaveLen(1))
-				Expect(hosts[0].Slug).To(Equal("honeybadger"))
-			})
+				}), "unexpected event, wanted EventHostCreated")
+			case <-time.After(100 * time.Millisecond):
+				Fail("timedout while waiting for EventHostCreated")
+			}
 		})
 
-		Context("when trying to create a host with an existing slug", func() {
-			BeforeEach(func() {
-				_, err := CreateHostStack(db, &HostStack{
-					H: &host.Host{Slug: "honeybadger"},
-					U: u,
-				})
-				Expect(err).To(BeNil())
+		It("converts the 'slug' form value to lowercase", func() {
+			params.Set("slug", "HoneyBADGER")
+			doRequest(params)
 
-				hosts, err := host.FindAllByUser(db, u)
-				Expect(err).To(BeNil())
-				Expect(hosts).To(HaveLen(1))
-			})
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+			Expect(hosts[0].Slug).To(Equal("honeybadger"))
+		})
+	})
 
-			It("does not create a host", func() {
-				doRequest(params)
-				hosts, err := host.FindAllByUser(db, u)
-				Expect(err).To(BeNil())
-				Expect(hosts).To(HaveLen(1))
+	Context("when trying to create a host with an existing slug", func() {
+		BeforeEach(func() {
+			_, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{Slug: "honeybadger"},
+				U: u,
 			})
+			Expect(err).To(BeNil())
 
-			It("responds with HTTP 400 Bad Request", func() {
-				res := doRequest(params)
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				errType, _ := j["error"].(string)
-				Expect(errType).To(Equal("validation_failed"))
-				errDesc, _ := j["error_description"].(string)
-				Expect(errDesc).To(Equal("slug is taken"))
-			})
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
 		})
 
-		Context("when hostbuilder fails to create the host", func() {
-			BeforeEach(func() {
-				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
-					message: errorResponse,
-					status:  http.StatusBadRequest,
-				})
+		It("does not create a host", func() {
+			doRequest(params)
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+		})
 
-				hosts.HostbuilderClient = hb
+		It("responds with HTTP 400 Bad Request", func() {
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			j := map[string]interface{}{}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			errType, _ := j["error"].(string)
+			Expect(errType).To(Equal("validation_failed"))
+			errDesc, _ := j["error_description"].(string)
+			Expect(errDesc).To(Equal("slug is taken"))
+		})
+	})
+
+	Context("when hostbuilder fails to create the host", func() {
+		BeforeEach(func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			replaceTransport(hb, &FakeRoundTripper{
+				message: errorResponse,
+				status:  http.StatusBadRequest,
 			})
 
-			It("creates a host in the orphan state", func() {
-				doRequest(params)
-				h, err := host.Find(db, u, params.Get("slug"))
-				Expect(err).To(BeNil())
-				Expect(h.Slug).To(Equal(params.Get("slug")))
-				Expect(h.State).To(Equal(host.StateOrphan))
-			})
+			hosts.HostbuilderClient = hb
+		})
 
-			It("responds with a internal server error", func() {
-				res := doRequest(params)
-				Expect(res.Code).To(Equal(http.StatusInternalServerError))
-			})
+		It("creates a host in the orphan state", func() {
+			doRequest(params)
+			h, err := host.Find(db, u, params.Get("slug"))
+			Expect(err).To(BeNil())
+			Expect(h.Slug).To(Equal(params.Get("slug")))
+			Expect(h.State).To(Equal(host.StateOrphan))
+		})
+
+		It("responds with a internal server error", func() {
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 		})
 	})
 
@@ -421,25 +433,27 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				}).Should(Equal("abcd1234"))
 			})
 
-			It("publishes a host created event with the created host", func(done Done) {
+			It("publishes a host created event with the created host", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
 				doRequest(params)
 
-				msg := <-ch
-				evt, ok := msg.(*controllers.Event)
-				Expect(ok).To(BeTrue())
-				Expect(evt.Name).To(Equal(controllers.EventHostCreated))
+				select {
+				case msg := <-ch:
+					evt, ok := msg.(*controllers.Event)
+					Expect(ok).To(BeTrue())
+					Expect(evt.Name).To(Equal(controllers.EventHostCreated))
 
-				h, ok := evt.Data.(*serializers.Host)
-				Expect(ok).To(BeTrue())
+					h, ok := evt.Data.(*serializers.Host)
+					Expect(ok).To(BeTrue())
 
-				hRec, err := host.Find(db, u, params.Get("slug"))
-				Expect(err).To(BeNil())
-				Expect(h).To(Equal(serializers.SerializeHost(hRec)))
-
-				close(done)
+					hRec, err := host.Find(db, u, params.Get("slug"))
+					Expect(err).To(BeNil())
+					Expect(h).To(Equal(serializers.SerializeHost(hRec)))
+				case <-time.After(100 * time.Millisecond):
+					Fail("timeout while waiting for EventHostCreated")
+				}
 			})
 		})
 
@@ -463,25 +477,27 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				}).Should(Equal(host.StateOrphan))
 			})
 
-			It("publishes a host create failed event with the host record", func(done Done) {
+			It("publishes a host create failed event with the host record", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
 				doRequest(params)
 
-				msg := <-ch
-				evt, ok := msg.(*controllers.Event)
-				Expect(ok).To(BeTrue())
-				Expect(evt.Name).To(Equal(controllers.EventHostCreateFailed))
+				select {
+				case msg := <-ch:
+					evt, ok := msg.(*controllers.Event)
+					Expect(ok).To(BeTrue())
+					Expect(evt.Name).To(Equal(controllers.EventHostCreateFailed))
 
-				h, ok := evt.Data.(*serializers.Host)
-				Expect(ok).To(BeTrue())
+					h, ok := evt.Data.(*serializers.Host)
+					Expect(ok).To(BeTrue())
 
-				hRec, err := host.Find(db, u, params.Get("slug"))
-				Expect(err).To(BeNil())
-				Expect(h).To(Equal(serializers.SerializeHost(hRec)))
-
-				close(done)
+					hRec, err := host.Find(db, u, params.Get("slug"))
+					Expect(err).To(BeNil())
+					Expect(h).To(Equal(serializers.SerializeHost(hRec)))
+				case <-time.After(100 * time.Millisecond):
+					Fail("timeout while waiting for EventHostCreateFailed")
+				}
 			})
 		})
 	})
