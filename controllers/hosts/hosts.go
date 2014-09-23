@@ -12,7 +12,10 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+
+	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/hostbuilder"
+
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
@@ -383,13 +386,12 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 }
 
 func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	err := transition(env.DB, h,
-		&stateTransition{host.StateStopped, host.StateStarting, host.StateRunning},
-		HostbuilderClient.Start)
-	if err != nil {
-		if _, ok := err.(*stateTransitionError); ok {
-			return errHostStartInvalidState
-		}
+	if h.State != host.StateStopped {
+		return errHostStartInvalidState
+	}
+	if err := transition(env.DB, h,
+		host.StateStarting, host.StateRunning,
+		HostbuilderClient.Start); err != nil {
 		return err
 	}
 
@@ -399,13 +401,15 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	err := transition(env.DB, h,
-		&stateTransition{host.StateRunning, host.StateStopping, host.StateStopped},
-		HostbuilderClient.Stop)
-	if err != nil {
-		if _, ok := err.(*stateTransitionError); ok {
-			return errHostStopInvalidState
-		}
+	if h.State != host.StateRunning {
+		return errHostStopInvalidState
+	}
+	if err := stopContainers(env, h); err != nil {
+		return err
+	}
+	if err := transition(env.DB, h,
+		host.StateStopping, host.StateStopped,
+		HostbuilderClient.Stop); err != nil {
 		return err
 	}
 
@@ -415,13 +419,16 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 }
 
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if h.State != host.StateRunning {
+		return errHostRestartInvalidState
+	}
+	if err := stopContainers(env, h); err != nil {
+		return err
+	}
 	err := transition(env.DB, h,
-		&stateTransition{host.StateRunning, host.StateRestarting, host.StateRunning},
+		host.StateRestarting, host.StateRunning,
 		HostbuilderClient.Restart)
 	if err != nil {
-		if _, ok := err.(*stateTransitionError); ok {
-			return errHostRestartInvalidState
-		}
 		return err
 	}
 
@@ -430,28 +437,8 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	return nil
 }
 
-// stateTransition reflects the transition of host states during a hostbuilder operation.
-type stateTransition struct {
-	From         string
-	Intermediate string
-	To           string
-}
-
-type stateTransitionError struct {
-	Expected string
-	Actual   string
-}
-
-func (e *stateTransitionError) Error() string {
-	return fmt.Sprintf("Expected initial state to be %s, was %s", e.Expected, e.Actual)
-}
-
-func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostbuilderclient.OperationFn) error {
-	if h.State != string(st.From) {
-		return &stateTransitionError{Expected: string(st.From), Actual: h.State}
-	}
-
-	h.State = st.Intermediate
+func transition(d ndb.QueryReceiver, h *host.Host, midState, endState string, fn hostbuilderclient.OperationFn) error {
+	h.State = midState
 	if err := h.Update(d); err != nil {
 		return err
 	}
@@ -461,7 +448,7 @@ func transition(d ndb.QueryReceiver, h *host.Host, st *stateTransition, fn hostb
 		return err
 	}
 
-	h.State = st.To
+	h.State = endState
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
@@ -507,4 +494,47 @@ func generateCerts(hostname string) (*cert.Cert, error) {
 		return nil, err
 	}
 	return cert.Generate(hostname, caInfo.X509Cert, caInfo.Key)
+}
+
+func stopContainers(env *middleware.Env, h *host.Host) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
+	if err != nil {
+		return err
+	}
+	cns, err := container.FindAllByHostID(env.DB, h.ID)
+	if err != nil {
+		return err
+	}
+	unstopped := []string{}
+	for _, cn := range cns {
+		if err := stopContainer(env, cl, cn); err != nil {
+			env.Logger.Errorf("hosts.Stop: Unable to stop container %s", cn.Slug)
+			unstopped = append(unstopped, cn.Slug)
+		}
+	}
+	if len(unstopped) == 0 {
+		return nil
+	}
+	return httperror.New(http.StatusBadRequest, "invalid_request", fmt.Sprintf("unable to stop containers %s", strings.Join(unstopped, ", ")))
+}
+
+func stopContainer(env *middleware.Env, cl freighterclient.Client, cn *container.Container) error {
+	db := env.DB
+	err := cn.Lock(1*time.Minute, db)
+	if err != nil {
+		return err
+	}
+	defer cn.Unlock(db)
+
+	// it is ok to call stop on stopped container, so we don't need an extra
+	// call to freighter to check state
+	if _, err := cl.Stop(cn.CID); err != nil {
+		return err
+	}
+
+	env.Events.Publish(
+		controllers.NewEvent(controllers.EventContainerStopped, serializers.SerializeContainer(cn)),
+		env.User.Topic(),
+	)
+	return nil
 }
