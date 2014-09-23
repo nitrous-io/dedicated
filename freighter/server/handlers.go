@@ -14,9 +14,11 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/dedicated/freighter/pkg/flusher"
+	"github.com/nitrous-io/dedicated/freighter/pkg/prefixedwriter"
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
+
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
@@ -315,7 +317,7 @@ func (s *Server) exportContainer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) getContainerLogs(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) wsContainerLogs(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 
 	// convert to bool, ignore the errors as the value will be false when error
@@ -324,16 +326,21 @@ func (s *Server) getContainerLogs(w http.ResponseWriter, r *http.Request) error 
 	timestamps, _ := strconv.ParseBool(r.FormValue("timestamps"))
 	tail := r.FormValue("tail")
 
-	w.Header().Set("Content-Type", "application/vnd.docker.raw-stream")
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return fmt.Errorf("failed to upgrade websocket: %v", err)
+	}
+	stream := wsconn.NewConnectionHeartbeat(conn, true)
+	defer stream.Close()
 
-	outstream := flusher.NewWriteFlusher(w)
-	return s.provider.Logs(id, outstream, follow, timestamps, tail)
+	return s.provider.Logs(id, prefixedwriter.NewPrefixedWriter(stream, "d|"), follow, timestamps, tail)
 }
 
 // wsNewShell creates a new shell to a container using protocol specified in
 // pkg/shell/protocol.go
 func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
+
 	info, err := s.provider.GetInfo(id)
 	if err != nil {
 		return err
