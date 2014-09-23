@@ -11,7 +11,7 @@ die() {
 
 test -f /var/run/docker.pid || docker -d -e lxc >& /var/log/docker.log &
 while test ! -f /var/run/docker.pid; do sleep 1; done
-version=$(docker version | grep 'Client version' | cut -d':' -f2 | tr -d ' ')
+version='1.2.0'
 echo "checking nitrousio/dind:$version ....."
 docker images | grep nitrousio/dind | grep $version
 if [ $? -ne 0 ]; then
