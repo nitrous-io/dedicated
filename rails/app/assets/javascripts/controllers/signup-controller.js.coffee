@@ -23,6 +23,6 @@ App.SignupController = Em.Controller.extend
       , (jqxhr) =>
         if errMsg = jqxhr.responseJSON?.error_description
           @set 'invalidField', errMsg.match(/^\w+/)[0]
-          App.snackbar.post(errMsg.capitalize())
+        App.postError(jqxhr.responseJSON, 'Failed to sign up!')
       ).then =>
         @set 'signingUp', false

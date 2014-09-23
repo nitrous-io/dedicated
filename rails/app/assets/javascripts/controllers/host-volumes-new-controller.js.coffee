@@ -25,7 +25,6 @@ App.HostVolumesNewController = Em.ObjectController.extend
         @transitionToRoute 'host.volumes'
         @set 'saving', false
       , (jqxhr) =>
-        errMsg = jqxhr.responseJSON?.error_description
-        App.snackbar.post(errMsg?.capitalize() || 'Unknown Error')
+        App.postError(jqxhr.responseJSON, 'Failed to create volume!')
         @set 'saving', false
       false

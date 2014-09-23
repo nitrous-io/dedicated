@@ -44,7 +44,7 @@ App.HostsNewController = Em.ObjectController.extend
         return unless data.id == host.get('id')
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
-        App.snackbar.post('Failed to create host!')
+        App.postError(data, 'Failed to create host!')
         @set 'saving', false
 
       onHostCreated = (data) =>
@@ -62,5 +62,5 @@ App.HostsNewController = Em.ObjectController.extend
         if errMsg = jqxhr.responseJSON?.error_description
           @set 'error', errMsg
           @set 'invalidField', errMsg.match(/^\w+/)[0]
-          App.snackbar.post(errMsg?.capitalize() || 'Failed to create host!')
+        App.postError(jqxhr.responseJSON, 'Failed to create host!')
         @set 'saving', false

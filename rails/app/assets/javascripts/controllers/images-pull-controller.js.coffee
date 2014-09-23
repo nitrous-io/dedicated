@@ -43,10 +43,11 @@ App.ImagesPullController = Em.Controller.extend
           events.off 'image.pull_failed', onImagePullFailed
           events.off 'image.pulled', onImagePulled
           @set 'image', null
+          errMsg = null
           if data.progress
             progress = JSON.parse(progress)
             errMsg = progress.errorDetail?.message
-            App.snackbar.post(errMsg || 'Image pull failed!')
+          App.postError(errMsg, 'Failed to pull image!')
           @set 'saving', false
 
         onImagePulled = (data) =>

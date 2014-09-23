@@ -45,10 +45,11 @@ App.ImagesNewController = Em.Controller.extend
         events.off 'image.build_failed', onImageBuildFailed
         events.off 'image.built', onImageBuilt
         @set 'image', null
+        errMsg = null
         if data.progress
           progress = JSON.parse(progress)
           errMsg = progress.errorDetail?.message
-          App.snackbar.post(errMsg || 'Failed to build image!')
+        App.postError(errMsg, 'Failed to build image!')
         @set 'saving', false
 
       onImageBuilt = (data) =>
@@ -73,6 +74,5 @@ App.ImagesNewController = Em.Controller.extend
       )).then (json) =>
         image.load(json.image)
       , (jqxhr) -> # Em.RSVP.Promise.cast
-        errMsg = jqxhr.responseJSON?.error_description
-        App.snackbar.post(errMsg?.capitalize() || 'Failed to build image!')
+        App.postError(jqxhr.responseJSON, 'Failed to build image!')
         @set 'saving', false

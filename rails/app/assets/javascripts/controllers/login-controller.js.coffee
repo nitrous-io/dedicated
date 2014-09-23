@@ -14,7 +14,7 @@ App.LoginController = Em.Controller.extend
     , (err) =>
       if err
         @set 'error', err
-        App.snackbar.post(err.message.capitalize())
+        App.postError(err.message)
     ).then =>
       @set 'loggingIn', false
 

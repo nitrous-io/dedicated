@@ -22,7 +22,6 @@ App.ContainerKeysNewController = Em.ObjectController.extend
         @transitionToRoute 'container.keys'
         @set 'saving', false
       , (jqxhr) =>
-        errMsg = jqxhr.responseJSON?.error_description
-        App.snackbar.post(errMsg?.capitalize() || 'Unknown Error')
+        App.postError(jqxhr.responseJSON, 'Failed to add public key!')
         @set 'saving', false
       false

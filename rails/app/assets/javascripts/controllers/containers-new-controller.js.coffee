@@ -80,7 +80,7 @@ App.ContainersNewController = Em.Controller.extend
     if errMsg = jqxhr.responseJSON?.error_description
       @set 'error', errMsg
       @set 'invalidField', errMsg.match(/^\w+/)[0]
-    App.snackbar.post(errMsg?.capitalize() || 'Failed to create conatiner!')
+    App.postError(jqxhr.responseJSON, 'Failed to create conatiner!')
     @set 'saving', false
 
   actions:
@@ -155,7 +155,7 @@ App.ContainersNewController = Em.Controller.extend
           if data.progress
             progress = JSON.parse(progress)
             errMsg = progress.errorDetail?.message
-          App.snackbar.post(errMsg || 'Image pull failed!')
+          App.postError(errMsg, 'Failed to pull image!')
           @set 'saving', false
 
         onImagePulled = (data) =>

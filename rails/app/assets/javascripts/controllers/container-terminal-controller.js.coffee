@@ -16,7 +16,7 @@ App.ContainerTerminalController = Em.ObjectController.extend
 
       terminal.start(url)
     , (jqxhr) ->
-      App.snackbar.post('Could not request shell!')
+      App.postError(jqxhr.responseJSON, 'Could not connect to shell!')
 
 getLoginCommand = (username) ->
   username ||= "root"

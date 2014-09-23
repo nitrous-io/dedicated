@@ -17,8 +17,7 @@ App.HostImagesController = Lib.RecordListController.extend
           App.Image.pull host, record.get('repo'), (resp) ->
             cb(null)
           , (jqxhr) -> # record.ajax
-            errMsg = jqxhr.responseJSON?.error_description
-            App.snackbar.post(errMsg?.capitalize() || 'Unknown Error')
+            App.postError(jqxhr.responseJSON, 'Failed to update image!')
             cb(jqxhr)
 
       async.series fns

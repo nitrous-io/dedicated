@@ -31,7 +31,6 @@ App.HostRegistriesNewController = Em.ObjectController.extend
         @transitionToRoute 'host.registries'
         @set 'saving', false
       , (jqxhr) =>
-        errMsg = jqxhr.responseJSON?.error_description
-        App.snackbar.post(errMsg?.capitalize() || 'Unknown Error')
+        App.postError(jqxhr.responseJSON, 'Failed to connect!')
         @set 'saving', false
       false
