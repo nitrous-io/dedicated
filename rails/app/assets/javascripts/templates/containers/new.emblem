@@ -48,10 +48,10 @@ form submit='create target="view"'
             .ui.checkbox
               input type='radio' id='containers-new-option-custom-image' name='option' value='custom-image' disabled=saving
               label
-            label for='containers-new-option-custom-image' Specify Custom Image
+            label for='containers-new-option-custom-image' Specify Image Repository
 
         .indent
-          = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' value=view.customImage disabled=saving
+          = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle value=view.customImage disabled=saving
 
   .card-body.bordered
     .ui.input-group
@@ -67,7 +67,7 @@ form submit='create target="view"'
     if saving
       if image.progress.status
         .left
-          p.progress-status
+          p
             = image.progress.status
       .right
         button.ui.btn disabled='disabled'

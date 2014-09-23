@@ -1,0 +1,30 @@
+.card-header.bordered
+  h2 Pull Image
+
+form submit='create'
+  .card-body
+    .ui.input-group
+      label.field-label
+        | Host
+      .ui.select
+        Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' disabled=saving value=selectedHostSlug
+
+      label.field-label for='images-pull-repo'
+        | Image Repository
+      = input type='text' name='name' id='images-pull-repo' disabled=saving value=repo placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle
+
+  .card-footer.bordered
+    if saving
+      if image.progress.status
+        .left
+          p
+            = image.progress.status
+      .right
+        button.ui.btn disabled='disabled'
+          i.spinner
+          | Pulling...
+    else
+      .right
+        a.ui.btn href='#' click='cancel' Cancel
+        input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Pull'
+  = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total

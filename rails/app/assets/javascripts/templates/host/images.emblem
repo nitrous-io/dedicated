@@ -16,7 +16,6 @@
                   = image.displayName
                 p
                   if image.progress.status
-                    | Updating:&nbsp;
                     = image.progress.status
                   else
                     = image.slugAndTag
@@ -42,7 +41,8 @@
         button.ui.btn click='update target="view"' disabled=noneSelected Update
         button.ui.btn click='askRemove target="view"' disabled=noneSelected Remove
   .right
-    button.ui.btn.primary click='add' New Image...
+    button.ui.btn click='add' New Image...
+    button.ui.btn.primary click='pull' Pull Image...
 
 #confirm-remove-modal-dialog.ui.modal
   .ui.card

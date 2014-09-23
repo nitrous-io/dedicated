@@ -71,7 +71,7 @@ form submit='create target="view"'
     if saving
       if image.progress.status
         .left
-          p.progress-status
+          p
             = image.progress.status
       .right
         button.ui.btn disabled='disabled'

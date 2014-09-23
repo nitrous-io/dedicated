@@ -76,10 +76,11 @@ App.ContainersNewController = Em.Controller.extend
   ).observes 'selectedHost'
 
   handleErrorResponse: (jqxhr) ->
+    errMsg = null
     if errMsg = jqxhr.responseJSON?.error_description
       @set 'error', errMsg
       @set 'invalidField', errMsg.match(/^\w+/)[0]
-      App.snackbar.post(errMsg?.capitalize() || 'Failed to create conatiner!')
+    App.snackbar.post(errMsg?.capitalize() || 'Failed to create conatiner!')
     @set 'saving', false
 
   actions:
@@ -150,10 +151,11 @@ App.ContainersNewController = Em.Controller.extend
           events.off 'image.pull_failed', onImagePullFailed
           events.off 'image.pulled', onImagePulled
           @set 'image', null
+          errMsg = null
           if data.progress
             progress = JSON.parse(progress)
             errMsg = progress.errorDetail?.message
-            App.snackbar.post(errMsg || 'Image pull failed!')
+          App.snackbar.post(errMsg || 'Image pull failed!')
           @set 'saving', false
 
         onImagePulled = (data) =>

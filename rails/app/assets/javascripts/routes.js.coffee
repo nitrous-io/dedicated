@@ -24,3 +24,4 @@ App.Router.map ->
 
     @resource 'images', ->
       @route 'new'
+      @route 'pull'
