@@ -32,6 +32,19 @@ App.EventsSocket = Lib.Socket.extend
       @on evt, (data) ->
         findAllHosts()?.reload()
 
+    @on 'host.creating', (data) =>
+      return unless host = findHostBySlug(data)
+      if progress = parseProgress(data)
+        host.set 'progress', progress
+
+    @on 'host.create_failed', (data) ->
+      findHostBySlug(data)?.set 'progress', null
+
+    @on 'host.created', (data) =>
+      return unless host = findHostBySlug(data)
+      host.load(data)
+      host.set 'progress', null
+
     ['host.started', 'host.stopped', 'host.restarted', 'host.updated'].forEach (evt) =>
       @on evt, (data) ->
         findHost(data)?.load(data)
@@ -89,6 +102,9 @@ findAllHosts = ->
 findHost = (data) ->
   pk = App.Host.primaryKey
   findAllHosts()?.findBy(pk, data[pk])
+
+findHostBySlug = (data) ->
+  App.Host._findInCache(data.slug)
 
 findHostByHostId = (data) ->
   findAllHosts()?.findBy('id', data.host_id)

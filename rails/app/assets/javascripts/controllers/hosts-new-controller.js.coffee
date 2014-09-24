@@ -5,6 +5,7 @@ App.HostsNewController = Em.ObjectController.extend
   selectedPlanSlug: null
   error: null
   invalidField: null
+  host: null
   saving: false
 
   clear: ->
@@ -15,6 +16,7 @@ App.HostsNewController = Em.ObjectController.extend
       selectedPlanSlug: null
       error: null
       invalidField: null
+      host: null
       saving: false
 
   selectedPlan: (->
@@ -39,6 +41,7 @@ App.HostsNewController = Em.ObjectController.extend
         planSlug: @get('selectedPlanSlug')
         name: name
         slug: slug
+      @set 'host', host
 
       onHostCreateFailed = (data) =>
         return unless data.id == host.get('id')
