@@ -12,3 +12,6 @@ github.com/motain/gocheck #9beb271d26e640863a5bf4a3c5ea40ccdd466b84
 github.com/onsi/ginkgo/ginkgo #12446bbcc74950944c897e32ea99cc8d058f9c92
 github.com/onsi/gomega #036273e6f643552b16fe7a6464afd2ae0324992e
 github.com/tent/http-link-go #ac974c61c2f990f4115b119354b5e0b47550e888
+
+github.com/nitrous-io/nitrous-common #6c62cee74c19ade828a5b2470497725c661595fc !git@github.com:nitrous-io/nitrous-common
+
