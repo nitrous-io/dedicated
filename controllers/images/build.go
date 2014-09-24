@@ -158,6 +158,7 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		Topic:     env.User.Topic(),
 		Events:    env.Events,
 		ID:        img.ID,
+		Slug:      img.Slug,
 	}
 	if async {
 		writer = pp

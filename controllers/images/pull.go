@@ -137,6 +137,7 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		Topic:     env.User.Topic(),
 		Events:    env.Events,
 		ID:        img.ID,
+		Slug:      img.Slug,
 	}
 	if async {
 		writer = pp

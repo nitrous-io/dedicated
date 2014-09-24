@@ -16,6 +16,7 @@ var _ = Describe("ProgressPublisher", func() {
 			EventName: controllers.EventImagePulling,
 			Topic:     pubsub.Topic("user-1"),
 			ID:        123,
+			Slug:      "foo",
 			Events:    events,
 		}
 
@@ -35,6 +36,7 @@ var _ = Describe("ProgressPublisher", func() {
 			EventName: controllers.EventImagePulling,
 			Topic:     pubsub.Topic("user-1"),
 			ID:        123,
+			Slug:      "foo",
 			Events:    events,
 		}
 

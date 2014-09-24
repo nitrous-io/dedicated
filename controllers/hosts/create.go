@@ -60,6 +60,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		Topic:     env.User.Topic(),
 		Events:    env.Events,
 		ID:        ctx.Host.ID,
+		Slug:      ctx.Host.Slug,
 	}
 	if async {
 		writer = pp
