@@ -1,4 +1,8 @@
 App.ContainerTerminalController = Em.ObjectController.extend
+  queryParams: ['action', 'fullscreen']
+  action: null
+  fullscreen: false
+
   freighterdUrlBinding: Em.Binding.oneWay 'model.host.freighterdUrl'
   ready: Em.computed.notEmpty 'freighterdUrl'
 
@@ -7,14 +11,30 @@ App.ContainerTerminalController = Em.ObjectController.extend
     freighterdUrl = @get 'freighterdUrl'
     term = terminal.term
 
-    container.requestToken(['shell']).then (token) =>
+    action = @get('action') || 'shell'
+    if ['shell', 'attach', 'logs'].indexOf(action) == -1
+      action = 'shell'
+
+    container.requestToken([action]).then (token) =>
       token = encodeURIComponent(token.token)
-      command = encodeURIComponent(getLoginCommand())
 
       protocol = location.protocol.replace('http', 'ws')
-      url = "#{protocol}//#{freighterdUrl}/containers/#{container.get 'cid'}/shell?token=#{token}&command=#{command}&width=#{term.cols}&height=#{term.rows}"
+      url = "#{protocol}//#{freighterdUrl}/containers/#{container.get 'cid'}/#{action}?token=#{token}&width=#{term.cols}&height=#{term.rows}"
 
-      terminal.start(url)
+      readonly = false
+
+      switch action
+        when 'shell'
+          command = encodeURIComponent(getLoginCommand())
+          url += "&command=#{command}"
+        when 'logs'
+          url += "&follow=true"
+          readonly = true
+          term.convertEol = true
+        when 'attach'
+          term.convertEol = true
+
+      terminal.start(url, readonly)
     , (jqxhr) ->
       App.postError(jqxhr.responseJSON, 'Could not connect to shell!')
 

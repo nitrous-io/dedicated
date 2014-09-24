@@ -1,7 +1,6 @@
 App.ContainerTerminalView = Em.View.extend
   elementId: 'container-terminal-view'
-  fullscreen: false
-  classNameBindings: ['fullscreen']
+  classNameBindings: ['controller.fullscreen:fullscreen']
 
   iframeInjected: false
 
@@ -17,7 +16,7 @@ App.ContainerTerminalView = Em.View.extend
     @$('iframe')[0]?.contentWindow?.NitrousTerminal?.stop()
     $('html').removeClass('fullscreen')
     @$().nextAll('.container-terminal-placeholder').remove()
-    @set 'fullscreen', false
+    @set 'controller.fullscreen', false
 
   injectIframe: (->
     return unless @get 'controller.ready'
@@ -55,7 +54,7 @@ App.ContainerTerminalView = Em.View.extend
       $button = @$('.fullscreen-btn button')
       $button.attr('disabled', true).css(cursor: 'default')
 
-      if @get('fullscreen')
+      if @get('controller.fullscreen')
         offset = $placeholder.offset()
         width = $placeholder.width()
         height = $placeholder.height()
@@ -67,14 +66,14 @@ App.ContainerTerminalView = Em.View.extend
       $this.css(top: offset.top, left: offset.left, width: width, height: height)
       $this.css(position: 'fixed', 'z-index': 1, 'box-shadow': '0 1px 4px rgba(0, 0, 0, .4)')
 
-      if @get('fullscreen')
+      if @get('controller.fullscreen')
         $placeholder.hide()
       else
         $placeholder.show()
 
       window.requestAnimationFrame =>
         $this.addClass('animate')
-        @toggleProperty 'fullscreen'
+        @toggleProperty 'controller.fullscreen'
         window.setTimeout(->
           $this.css(top: '', left: '', width: '', height: '', position: '', 'z-index': '', 'box-shadow': '')
           $button.attr('disabled', false).css(cursor: '')

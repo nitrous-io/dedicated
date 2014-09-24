@@ -83,6 +83,8 @@
       button.ui.btn click='restart' Restart
       button.ui.btn click='stop' Stop
     .right
+      button.ui.btn click='openLogs' Logs
+      button.ui.btn click='openAttach' Attach
       button.ui.btn.primary click='openTerminal' Terminal
   else
     if isStopped

@@ -33,7 +33,7 @@ window.NitrousTerminal =
       Terminal.focus = null
       @term.redrawCursor()
 
-  start: (url) ->
+  start: (url, readonly=false) ->
     @conn = conn = new WebSocket(url)
     conn.onopen    = (ev) => @open(ev)
     conn.onmessage = (ev) => @message(ev)
@@ -46,9 +46,10 @@ window.NitrousTerminal =
       return unless conn.readyState == 1
       conn.send "r|#{cols} #{rows}"
 
-    term.handler = (data) ->
-      return unless conn.readyState == 1
-      conn.send "d|#{data}"
+    unless readonly
+      term.handler = (data) ->
+        return unless conn.readyState == 1
+        conn.send "d|#{data}"
 
   stop: ->
     @term?.write('c|goodbye')

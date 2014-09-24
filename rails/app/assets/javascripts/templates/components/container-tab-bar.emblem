@@ -4,5 +4,3 @@ li class={keysSelected:selected}
   link-to 'container.keys' | Keys
 li.disabled class={configSelected:selected}
   a.noclick href='#' Config
-li.disabled class={logsSelected:selected}
-  a.noclick href='#' Logs
