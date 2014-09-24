@@ -1,4 +1,4 @@
-package images
+package controllers
 
 import (
 	"bufio"
@@ -6,29 +6,30 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/pkg/pubsub"
 )
 
 // ProgressEvent represents the progress data that is emitted from freighter.
 type ProgressEvent struct {
 	ID       int64  `json:"id"`
+	Slug     string `json:"slug"`
 	Progress string `json:"progress"`
 }
 
-// progressBroadcaster acts like an io.Writer but writes the data into pubsub
+// ProgressBroadcaster acts like an io.Writer but writes the data into pubsub
 // pipe instead
-type progressPublisher struct {
-	eventName controllers.EventName
-	topic     pubsub.Topic
-	imageID   int64
-	events    *pubsub.Pubsub
+type ProgressPublisher struct {
+	EventName EventName
+	Topic     pubsub.Topic
+	ID        int64
+	Slug      string
+	Events    *pubsub.Pubsub
 
 	// handle fragments that is not newline terminated
 	buffer string
 }
 
-func (b *progressPublisher) Write(p []byte) (int, error) {
+func (b *ProgressPublisher) Write(p []byte) (int, error) {
 	scanner := bufio.NewScanner(bytes.NewBuffer(p))
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -49,11 +50,12 @@ func (b *progressPublisher) Write(p []byte) (int, error) {
 		}
 
 		if line != "" {
-			e := controllers.NewEvent(b.eventName, &ProgressEvent{
-				ID:       b.imageID,
+			e := NewEvent(b.EventName, &ProgressEvent{
+				ID:       b.ID,
+				Slug:     b.Slug,
 				Progress: strings.TrimSpace(line),
 			})
-			b.events.Publish(e, b.topic)
+			b.Events.Publish(e, b.Topic)
 		}
 	}
 	if err := scanner.Err(); err != nil {

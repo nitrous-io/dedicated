@@ -1,5 +1,4 @@
-// for internal functions that we dont want to expose to other packages
-package images
+package controllers_test
 
 import (
 	"github.com/nitrous-io/nitrous/controllers"
@@ -8,23 +7,24 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("progressPublisher", func() {
+var _ = Describe("ProgressPublisher", func() {
 	It("publishes the progress data", func() {
 		events := pubsub.New(128)
 		ch := events.Subscribe("user-1")
 
-		pp := &progressPublisher{
-			eventName: controllers.EventImagePulling,
-			topic:     pubsub.Topic("user-1"),
-			imageID:   123,
-			events:    events,
+		pp := &controllers.ProgressPublisher{
+			EventName: controllers.EventImagePulling,
+			Topic:     pubsub.Topic("user-1"),
+			ID:        123,
+			Slug:      "foo",
+			Events:    events,
 		}
 
 		pp.Write([]byte(`{"status":"pulling"}`))
 
 		e := (<-ch).(*controllers.Event)
 		Expect(e.Name).To(Equal(controllers.EventImagePulling))
-		data := e.Data.(*ProgressEvent)
+		data := e.Data.(*controllers.ProgressEvent)
 		Expect(data.Progress).To(Equal(`{"status":"pulling"}`))
 	})
 
@@ -32,11 +32,12 @@ var _ = Describe("progressPublisher", func() {
 		events := pubsub.New(128)
 		ch := events.Subscribe("user-1")
 
-		pp := &progressPublisher{
-			eventName: controllers.EventImagePulling,
-			topic:     pubsub.Topic("user-1"),
-			imageID:   123,
-			events:    events,
+		pp := &controllers.ProgressPublisher{
+			EventName: controllers.EventImagePulling,
+			Topic:     pubsub.Topic("user-1"),
+			ID:        123,
+			Slug:      "foo",
+			Events:    events,
 		}
 
 		pp.Write([]byte(`
@@ -50,8 +51,8 @@ var _ = Describe("progressPublisher", func() {
 		e1 := (<-ch).(*controllers.Event)
 		e2 := (<-ch).(*controllers.Event)
 		e3 := (<-ch).(*controllers.Event)
-		Expect(e1.Data.(*ProgressEvent).Progress).To(Equal(`{"status":"pulling"}`))
-		Expect(e2.Data.(*ProgressEvent).Progress).To(Equal(`{"status":"this is a long message about big image pulling..."}`))
-		Expect(e3.Data.(*ProgressEvent).Progress).To(Equal(`{"status":"pulled"}`))
+		Expect(e1.Data.(*controllers.ProgressEvent).Progress).To(Equal(`{"status":"pulling"}`))
+		Expect(e2.Data.(*controllers.ProgressEvent).Progress).To(Equal(`{"status":"this is a long message about big image pulling..."}`))
+		Expect(e3.Data.(*controllers.ProgressEvent).Progress).To(Equal(`{"status":"pulled"}`))
 	})
 })

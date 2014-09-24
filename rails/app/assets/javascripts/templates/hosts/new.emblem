@@ -96,6 +96,10 @@ form submit='create'
 
   .card-footer.bordered
     if saving
+      if host.progress.status
+        .left
+          p
+            = host.progress.status
       .right
         button.ui.btn disabled='disabled'
           i.spinner

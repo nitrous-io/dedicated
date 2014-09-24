@@ -24,7 +24,7 @@
       th CMD
       td colspan='3'
         if cmd
-          ul.comma-separated
+          ul.space-separated.blocks
             each cm in cmd
               li
                 span.click-highlight
@@ -36,7 +36,7 @@
       th ENTRYPOINT
       td colspan='3'
         if entrypoint
-          ul.comma-separated
+          ul.space-separated.blocks
             each ep in entrypoint
               li
                 span.click-highlight

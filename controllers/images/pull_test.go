@@ -14,16 +14,16 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/freighter/freighterclient"
+	"github.com/nitrous-io/nitrous-common/flusher"
 	"github.com/nitrous-io/nitrous-common/logger"
+
 	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/controllers/images"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
-	"github.com/nitrous-io/nitrous/pkg/flusher"
 	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
 	"github.com/nitrous-io/nitrous/test"
@@ -97,9 +97,10 @@ var _ = Describe("controllers/images/pull", func() {
 	It("removes the image and emits images removed event when freighter failed to pull image", func() {
 		fs := newFreighterServer("scratch", "latest")
 		fs.pullError = true
+		ctx := newPullTestCtx(fs, db)
+		fs.start(db, ctx)
 		defer fs.Close()
 
-		ctx := newPullTestCtx(fs, db)
 		u, h := ctx.user, ctx.host
 		ch := svr.Events.Subscribe(u.Topic())
 		defer svr.Events.Unsubscribe(ch, u.Topic())
@@ -124,7 +125,7 @@ var _ = Describe("controllers/images/pull", func() {
 
 		select {
 		case <-time.After(50 * time.Millisecond):
-			Expect(true).To(BeFalse(), "timeout while getting image removed event")
+			Fail("timeout while getting image removed event")
 		case e := <-ech:
 			i := e.Data.(*serializers.Image)
 			Expect(i.Repo).To(Equal("scratch:latest"), "failed to serialize image response")
@@ -160,7 +161,7 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(j.Image.FreighterID).To(Equal("123asd"), "missing final image in response")
 	})
 
-	It("publishes an image pulling event with progress data", func(done Done) {
+	It("publishes an image pulling event with progress data", func() {
 		fs := newFreighterServer("scratch", "latest")
 		ctx := newPullTestCtx(fs, db)
 		fs.start(db, ctx)
@@ -175,20 +176,25 @@ var _ = Describe("controllers/images/pull", func() {
 		i, err := image.Find(db, u, h, "scratch:latest")
 		Expect(err).To(BeNil(), "failed to find image after pull")
 
-		// check if the first event we got is image pulling event
-		e := (<-ch).(*controllers.Event)
-		data := e.Data.(*images.ProgressEvent)
-		Expect(e.Name).To(Equal(controllers.EventImagePulling), "expected image pulling event")
-		Expect(data.ID).To(Equal(i.ID), "emitted image pulling with invalid image")
-		Expect(data.Progress).To(Equal(`{"status":"Pulling..."}`), "failed to include progress data")
-
-		close(done)
+		timeout := time.After(100 * time.Millisecond)
+		select {
+		case ev := <-ch:
+			// check if the first event we got is image pulling event
+			e := ev.(*controllers.Event)
+			data := e.Data.(*controllers.ProgressEvent)
+			Expect(e.Name).To(Equal(controllers.EventImagePulling), "expected image pulling event")
+			Expect(data.ID).To(Equal(i.ID), "emitted image pulling with invalid image")
+			Expect(data.Progress).To(Equal(`{"status":"Pulling..."}`), "failed to include progress data")
+		case <-timeout:
+			Fail("expected EventImagePulled but timed out")
+		}
 	})
 
-	It("publishes an image pulled event with the pulled image", func(done Done) {
+	It("publishes an image pulled event with the pulled image", func() {
 		fs := newFreighterServer("scratch", "latest")
 		ctx := newPullTestCtx(fs, db)
 		fs.start(db, ctx)
+		defer fs.Close()
 
 		u, h := ctx.user, ctx.host
 		ch := svr.Events.Subscribe(u.Topic())
@@ -200,24 +206,29 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(err).To(BeNil(), "failed to find image after pull")
 
 		var e *controllers.Event
+		timeout := time.After(1000 * time.Millisecond)
 		for {
-			e = (<-ch).(*controllers.Event)
-			if e.Name == controllers.EventImagePulled {
+			if e != nil && e.Name == controllers.EventImagePulled {
 				break
+			}
+			select {
+			case ev := <-ch:
+				e = ev.(*controllers.Event)
+			case <-timeout:
+				Fail("expected EventImagePulled but timed out")
 			}
 		}
 		img := e.Data.(*serializers.Image)
 		Expect(img.ID).To(Equal(i.ID), "failed to serialize correct image")
 		Expect(img.FreighterID).To(Equal("123asd"), "failed to serialize freighter response")
-		close(done)
 	})
 
 	It("returns 500 on freighterclient error and emits image pull failed event", func() {
 		fs := newFreighterServer("scratch", "latest")
+		fs.pullError = true
 		ctx := newPullTestCtx(fs, db)
 		fs.start(db, ctx)
 		defer fs.Close()
-		fs.pullError = true
 
 		ch := svr.Events.Subscribe(ctx.user.Topic())
 		defer svr.Events.Unsubscribe(ch, ctx.user.Topic())
@@ -252,134 +263,74 @@ var _ = Describe("controllers/images/pull", func() {
 	Context("when image already exists", func() {
 		It("updates the existing image record with the new info from Freighter", func() {
 			fs := newFreighterServer("scratch", "latest")
-			fs.existingImage = &freighterclient.Image{
-				ID:   "cafebabe",
-				Name: "scratch",
-				Tag:  "latest",
-			}
-			fs.imageUpdated = true
 			ctx := newPullTestCtx(fs, db)
+			ctx.insertImage(fs, db)
+			fs.imageUpdated = true
 			fs.start(db, ctx)
 			defer fs.Close()
-
-			u, h := ctx.user, ctx.host
-			i := &image.Image{
-				UserID:      u.ID,
-				HostID:      h.ID,
-				FreighterID: "cafebabe",
-				Name:        "scratch v1",
-				Slug:        "scratch",
-				Tag:         "latest",
-			}
-			err := i.Insert(db)
-			Expect(err).To(BeNil(), "failed to insert test image")
 
 			ctx.do(svr, "foo", &url.Values{
 				"repository": []string{"scratch"},
 				"update":     []string{"true"},
 			})
 
-			i, err = image.Find(db, u, h, "scratch:latest")
+			i, err := image.Find(db, ctx.user, ctx.host, "scratch:latest")
 			Expect(err).To(BeNil(), "failed to find stored image after pull")
 			Expect(i.FreighterID).To(Equal("123asd"))
 		})
 
 		It("does not update the existing image record if update=false", func() {
 			fs := newFreighterServer("scratch", "latest")
-			fs.existingImage = &freighterclient.Image{
-				ID:   "cafebabe",
-				Name: "scratch",
-				Tag:  "latest",
-			}
-			fs.imageUpdated = false
 			ctx := newPullTestCtx(fs, db)
+			ctx.insertImage(fs, db)
+
+			fs.imageUpdated = false
 			fs.start(db, ctx)
 			defer fs.Close()
-
-			u, h := ctx.user, ctx.host
-			i := &image.Image{
-				UserID:      u.ID,
-				HostID:      h.ID,
-				FreighterID: "cafebabe",
-				Name:        "scratch v1",
-				Slug:        "scratch",
-				Tag:         "latest",
-			}
-			err := i.Insert(db)
-			Expect(err).To(BeNil(), "failed to insert test image")
 
 			ctx.do(svr, "foo", &url.Values{
 				"repository": []string{"scratch"},
 				"update":     []string{"false"},
 			})
 
-			i2, err := image.Find(db, u, h, "scratch:latest")
+			i2, err := image.Find(db, ctx.user, ctx.host, "scratch:latest")
 			Expect(err).To(BeNil())
 			Expect(i2.FreighterID).To(Equal("cafebabe"))
 		})
 
 		It("does not remove the image when freighter fails to pull image", func() {
 			fs := newFreighterServer("scratch", "latest")
-			fs.existingImage = &freighterclient.Image{
-				ID:   "cafebabe",
-				Name: "scratch",
-				Tag:  "latest",
-			}
+			ctx := newPullTestCtx(fs, db)
+			ctx.insertImage(fs, db)
+
 			fs.imageUpdated = true
 			fs.pullError = true
-			ctx := newPullTestCtx(fs, db)
 			fs.start(db, ctx)
 			defer fs.Close()
 
-			u, h := ctx.user, ctx.host
-			i := &image.Image{
-				UserID:      u.ID,
-				HostID:      h.ID,
-				FreighterID: "cafebabe",
-				Name:        "scratch v1",
-				Slug:        "scratch",
-				Tag:         "latest",
-			}
-			err := i.Insert(db)
-			Expect(err).To(BeNil(), "failed to insert test image")
-
 			ctx.do(svr, "foo", &url.Values{"repository": []string{"scratch"}})
 
-			_, err = image.Find(db, u, h, "scratch:latest")
+			_, err := image.Find(db, ctx.user, ctx.host, "scratch:latest")
 			Expect(err).To(BeNil(), "expect the old image to not be deleted")
 		})
 
 		It("does not emit images removed event when freighter fails to pull image", func() {
 			fs := newFreighterServer("scratch", "latest")
-			fs.existingImage = &freighterclient.Image{
-				ID:   "cafebabe",
-				Name: "scratch",
-				Tag:  "latest",
-			}
+			ctx := newPullTestCtx(fs, db)
+			ctx.insertImage(fs, db)
+
 			fs.imageUpdated = true
 			fs.pullError = true
+			fs.start(db, ctx)
 			defer fs.Close()
 
-			ctx := newPullTestCtx(fs, db)
-			u, h := ctx.user, ctx.host
-			i := &image.Image{
-				UserID:      u.ID,
-				HostID:      h.ID,
-				FreighterID: "cafebabe",
-				Name:        "scratch v1",
-				Slug:        "scratch",
-				Tag:         "latest",
-			}
-			err := i.Insert(db)
-			Expect(err).To(BeNil(), "failed to insert test image")
-
-			ch := svr.Events.Subscribe(u.Topic())
-			defer svr.Events.Unsubscribe(ch, u.Topic())
+			ch := svr.Events.Subscribe(ctx.user.Topic())
+			defer svr.Events.Unsubscribe(ch, ctx.user.Topic())
 
 			ctx.do(svr, "foo", &url.Values{"repository": []string{"scratch"}})
 			close(ch)
 
-			_, err = image.Find(db, u, h, "scratch:latest")
+			_, err := image.Find(db, ctx.user, ctx.host, "scratch:latest")
 			Expect(err).To(BeNil(), "expect the old image to not be deleted")
 
 			failed := make(chan *controllers.Event, 1)
@@ -391,7 +342,7 @@ var _ = Describe("controllers/images/pull", func() {
 				for {
 					e, ok = (<-ch).(*controllers.Event)
 					if !ok {
-						finished <- struct{}{}
+						close(finished)
 						break
 					}
 					if e.Name == controllers.EventImageRemoved {
@@ -403,7 +354,7 @@ var _ = Describe("controllers/images/pull", func() {
 
 			select {
 			case <-time.After(50 * time.Millisecond):
-				Expect(true).To(BeFalse(), "timeout while getting image image removed event")
+				Fail("timeout while getting image image removed event")
 			case fe := <-failed:
 				Expect(fe).To(BeNil(), "should not receive image removed event")
 			case <-finished:
@@ -451,6 +402,23 @@ func (c *pullTestCtx) do(svr *server.Server, host string, params *url.Values) *h
 	res := httptest.NewRecorder()
 	svr.Router().ServeHTTP(res, req)
 	return res
+}
+
+// insert a dummy image to be used in case the image exists in db
+func (c *pullTestCtx) insertImage(fs *freighterServer, db *db.Database) {
+	fs.existingImage = &freighterclient.Image{ID: "cafebabe", Name: "scratch", Tag: "latest"}
+
+	u, h := c.user, c.host
+	i := &image.Image{
+		UserID:      u.ID,
+		HostID:      h.ID,
+		FreighterID: "cafebabe",
+		Name:        "scratch v1",
+		Slug:        "scratch",
+		Tag:         "latest",
+	}
+	err := i.Insert(db)
+	Expect(err).To(BeNil(), "failed to insert test image")
 }
 
 func newPullTestCtx(fs *freighterServer, db *db.Database) *pullTestCtx {

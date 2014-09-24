@@ -6,11 +6,12 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/nitrous-io/nitrous-common/flusher"
+
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
-	"github.com/nitrous-io/nitrous/pkg/flusher"
 	"github.com/nitrous-io/nitrous/serializers"
 )
 
@@ -132,11 +133,12 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	// only be outputed into the events stream. The only output we want to
 	// include in async is the image data
 	var writer io.Writer
-	pp := &progressPublisher{
-		eventName: controllers.EventImagePulling,
-		topic:     env.User.Topic(),
-		events:    env.Events,
-		imageID:   img.ID,
+	pp := &controllers.ProgressPublisher{
+		EventName: controllers.EventImagePulling,
+		Topic:     env.User.Topic(),
+		Events:    env.Events,
+		ID:        img.ID,
+		Slug:      img.Slug,
 	}
 	if async {
 		writer = pp

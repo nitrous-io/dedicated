@@ -12,12 +12,13 @@ import (
 	"time"
 
 	"github.com/nitrous-io/freighter/freighterclient"
+	"github.com/nitrous-io/nitrous-common/flusher"
 	"github.com/nitrous-io/nitrous-common/isarchive"
+
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
-	"github.com/nitrous-io/nitrous/pkg/flusher"
 	"github.com/nitrous-io/nitrous/serializers"
 )
 
@@ -153,11 +154,12 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 	var writer io.Writer
-	pp := &progressPublisher{
-		eventName: controllers.EventImageBuilding,
-		topic:     env.User.Topic(),
-		events:    env.Events,
-		imageID:   img.ID,
+	pp := &controllers.ProgressPublisher{
+		EventName: controllers.EventImageBuilding,
+		Topic:     env.User.Topic(),
+		Events:    env.Events,
+		ID:        img.ID,
+		Slug:      img.Slug,
 	}
 	if async {
 		writer = pp
