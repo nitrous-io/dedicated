@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
@@ -40,15 +41,27 @@ type Host struct {
 	client *dockerclient.Client
 }
 
-func (h *Host) Create() (*host.Info, error) {
+// Create creates the docker container which acts as a container host, and write the
+// progress into w
+func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
+	fmt.Fprintf(w, "Creating host image")
 	imageName, err := h.createImage()
 	if err != nil {
+		fmt.Fprintln(w, "Failed to create host image")
 		return nil, err
 	}
-	return h.createContainer(imageName)
+	fmt.Fprintf(w, "Created host image")
+	fmt.Fprintf(w, "Creating host with image “%s”", imageName)
+	c, err := h.createContainer(imageName)
+	if err != nil {
+		fmt.Fprintf(w, "Failed to create host")
+		return nil, err
+	}
+	fmt.Fprintf(w, "Host created")
+	return c, nil
 }
 
 func (h *Host) Destroy() error {

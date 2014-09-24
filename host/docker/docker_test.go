@@ -1,6 +1,7 @@
 package docker_test
 
 import (
+	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -46,7 +47,7 @@ var _ = Describe("host/docker", func() {
 					`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 				)
 				Expect(err).To(BeNil())
-				info, err = h.Create()
+				info, err = h.Create(ioutil.Discard)
 			})
 
 			It("should successfully create the host", func() {

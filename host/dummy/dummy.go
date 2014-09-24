@@ -3,6 +3,7 @@ package dummy
 import (
 	"encoding/json"
 	"errors"
+	"io"
 
 	"github.com/nitrous-io/hostbuilder/host"
 )
@@ -17,7 +18,7 @@ type Host struct {
 	RestartSuccess bool   `json:"restart"`
 }
 
-func (h *Host) Create() (*host.Info, error) {
+func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	if !h.CreateSuccess {
 		return nil, errors.New("failed to create host")
 	}

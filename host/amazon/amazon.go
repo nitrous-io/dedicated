@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"text/template"
 
@@ -56,7 +57,7 @@ type Host struct {
 	instance *ec2.Instance
 }
 
-func (h *Host) Create() (*host.Info, error) {
+func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	// generate key pair
 	k, err := generateTempKeypair(h.provider)
 	if err != nil {

@@ -1,6 +1,9 @@
 package host
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+)
 
 type Info struct {
 	Provider       string `json:"provider"`
@@ -10,12 +13,12 @@ type Info struct {
 }
 
 type Host interface {
-	Create() (*Info, error)  // create a new host
-	Destroy() error          // destroy the current host
-	Stop() (*Info, error)    // stop the current host
-	Start() (*Info, error)   // start the current host
-	Restart() (*Info, error) // reboot the current host
-	Info() (*Info, error)    // get current info of the host
+	Create(io.Writer) (*Info, error) // create a new host
+	Destroy() error                  // destroy the current host
+	Stop() (*Info, error)            // stop the current host
+	Start() (*Info, error)           // start the current host
+	Restart() (*Info, error)         // reboot the current host
+	Info() (*Info, error)            // get current info of the host
 }
 
 type NewHost func(defaultConfig map[string]string, config string) (Host, error)
@@ -27,7 +30,7 @@ var (
 // accept:
 // - provider: amazon, digitalocean, etc...
 // - defaultConfig: key-value strings. This is typically where we set the
-// default value that we use for all boxhosts i.e access/secret key etc...
+// default value that we use for all container hosts i.e access/secret key etc...
 // - config: json string of user customization
 func InitHost(provider string, defaultConfig map[string]string, config string) (Host, error) {
 	init, ok := Hosts[provider]

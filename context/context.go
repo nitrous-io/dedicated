@@ -1,26 +1,40 @@
 package context
 
-import "github.com/nitrous-io/hostbuilder/host"
+import (
+	"fmt"
+	"io"
 
-type Step func(c *Context, h host.Host) error
+	"github.com/nitrous-io/hostbuilder/host"
+)
+
+type StepFn func(c *Context, h host.Host) error
+
+type Step struct {
+	Description string
+	Fn          StepFn
+}
 
 type Context struct {
 	steps []Step
 	host  host.Host
+	w     io.Writer
 
 	Error error // cache the error of execute
 }
 
 func (c *Context) Execute() error {
 	for _, step := range c.steps {
-		if err := step(c, c.host); err != nil {
+		fmt.Fprintf(c.w, "starting: %s", step.Description)
+		if err := step.Fn(c, c.host); err != nil {
+			fmt.Fprintf(c.w, "failed: %s", step.Description)
 			c.Error = err
 			return err
 		}
+		fmt.Fprintf(c.w, "finished: %s", step.Description)
 	}
 	return nil
 }
 
-func NewContext(h host.Host, steps []Step) *Context {
-	return &Context{host: h, steps: steps}
+func NewContext(h host.Host, steps []Step, w io.Writer) *Context {
+	return &Context{host: h, steps: steps, w: w}
 }
