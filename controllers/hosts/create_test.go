@@ -318,20 +318,23 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			case <-finished:
 				Expect(msgs[0]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreating,
-					Data: &controllers.ProgressEvent{ID: h.ID, Progress: `{"stream":"starting: create the droplet"}`},
+					Data: &controllers.ProgressEvent{ID: h.ID, Slug: h.Slug,
+						Progress: `{"stream":"starting: create the droplet"}`},
 				}), "unexpected event, wanted EventHostCreating")
 
 				Expect(msgs[1]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreating,
-					Data: &controllers.ProgressEvent{ID: h.ID, Progress: `{"stream":"finished: create the droplet"}`},
+					Data: &controllers.ProgressEvent{ID: h.ID, Slug: h.Slug,
+						Progress: `{"stream":"finished: create the droplet"}`},
 				}), "unexpected event, wanted EventHostCreating")
 
 				Expect(msgs[2]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreating,
-					Data: &controllers.ProgressEvent{ID: h.ID, Progress: fmt.Sprintf(
-						`{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}`,
-						hs.PT.Name,
-					)},
+					Data: &controllers.ProgressEvent{ID: h.ID, Slug: h.Slug,
+						Progress: fmt.Sprintf(
+							`{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}`,
+							hs.PT.Name,
+						)},
 				}), "unexpected event, wanted EventHostCreating")
 
 				Expect(msgs[3]).To(Equal(&controllers.Event{
@@ -480,8 +483,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 					Expect(msgs[0]).To(Equal(&controllers.Event{
 						Name: controllers.EventHostCreating,
-						Data: &controllers.ProgressEvent{ID: h.ID, Progress: fmt.Sprintf(
-							`{"id":"abcd1234","ip_address":"0.0.0.0","provider":"%s","freighterd_port":65333}`, hs.PT.Name),
+						Data: &controllers.ProgressEvent{ID: h.ID, Slug: h.Slug,
+							Progress: fmt.Sprintf(
+								`{"id":"abcd1234","ip_address":"0.0.0.0","provider":"%s","freighterd_port":65333}`, hs.PT.Name),
 						},
 					}), "unexpected event, wanted EventHostCreating")
 
@@ -533,7 +537,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 					Expect(msgs[0]).To(Equal(&controllers.Event{
 						Name: controllers.EventHostCreating,
-						Data: &controllers.ProgressEvent{ID: h.ID, Progress: errorResponse},
+						Data: &controllers.ProgressEvent{ID: h.ID, Slug: h.Slug,
+							Progress: errorResponse},
 					}), "unexpected event, wanted EventHostCreating")
 
 					Expect(msgs[1]).To(Equal(&controllers.Event{
