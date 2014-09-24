@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/nitrous/pkg/flusher"
+	"github.com/nitrous-io/nitrous-common/flusher"
 )
 
 var (
