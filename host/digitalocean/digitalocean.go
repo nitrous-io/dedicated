@@ -218,6 +218,20 @@ func (h *Host) id() (int, error) {
 	return int(id64), nil
 }
 
+// ipAddress get the ipv4 address of the droplet. DigitalOcean always returns
+// one IPv4 for a valid container. The format of Networks is:
+// "networks": {
+//    "v4": [
+//      {
+//        "ip_address": "127.0.0.1",
+//        "netmask": "255.255.255.0",
+//        "gateway": "127.0.0.2",
+//        "type": "public"
+//      }
+//    ],
+//  }
+//
+//  We are not allocating/using IPv6 yet so that's empty
 func (h *Host) ipAddress() string {
 	return h.droplet.Networks.V4[0].IPAddress
 }
