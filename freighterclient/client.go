@@ -516,6 +516,8 @@ func (c *client) RegistryLogin(p *RegistryAuth) error {
 	if err != nil {
 		return &RequestFailedError{Req: req, Err: err}
 	}
+	defer resp.Body.Close()
+
 	switch resp.StatusCode {
 	case http.StatusCreated:
 		// Success, do nothing.
@@ -544,6 +546,8 @@ func (c *client) RegistryLogout(registry string) error {
 	if err != nil {
 		return &RequestFailedError{Req: req, Err: err}
 	}
+	defer resp.Body.Close()
+
 	switch resp.StatusCode {
 	case http.StatusNoContent:
 		// Deleted, do nothing.
@@ -563,6 +567,7 @@ func (c *client) doPublicKeyOp(req *http.Request) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -1051,6 +1056,7 @@ func (c *client) GetVolumeInfo(slug string) (*Volume, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
 		var vol struct {
