@@ -155,7 +155,7 @@ func (h *Host) dropletToInfo() *host.Info {
 	return &host.Info{
 		Provider:       "digitalocean",
 		ID:             strconv.Itoa(h.droplet.ID),
-		IPAddress:      h.droplet.Networks.V4[0].IPAddress,
+		IPAddress:      h.ipAddress(),
 		FreighterdPort: uint16(65333),
 	}
 }
