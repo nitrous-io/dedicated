@@ -925,7 +925,10 @@ var _ = Describe("controllers/hosts", func() {
 				StubDefaultFreighterFn(mockClient)
 
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderOK)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
 				hosts.HostbuilderClient = hb
 
 				c1 = &container.Container{
@@ -1132,7 +1135,10 @@ var _ = Describe("controllers/hosts", func() {
 				StubDefaultFreighterFn(mockClient)
 
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				hb.OverrideRequestHandler(mockHostbuilderOK)
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
 				hosts.HostbuilderClient = hb
 
 				c1 = &container.Container{
