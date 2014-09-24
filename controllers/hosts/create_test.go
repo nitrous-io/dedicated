@@ -105,63 +105,55 @@ var _ = Describe("POST /api/v0/hosts", func() {
 	for _, param := range []string{"size", "region", "slug"} {
 		p := param
 
-		Context("when request does not specify a "+p, func() {
-			It("responds with "+p+" required", func() {
-				params.Del(p)
-				res := doRequest(params)
+		It("responds with "+p+" required when request does not specify a "+p, func() {
+			params.Del(p)
+			res := doRequest(params)
 
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				errType, errDesc := ErrorSlug(res.Body)
-				Expect(errType).To(Equal("invalid_request"))
-				Expect(errDesc).To(Equal(p + " is required"))
-			})
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal(p + " is required"))
 		})
 	}
 
-	Context("when a matching plan cannot be found for the specified size", func() {
-		It("responds with plan not found", func() {
-			params.Set("size", "doubledouble")
-			res := doRequest(params)
+	It("responds with plan not found when a matching plan cannot be found for the specified size", func() {
+		params.Set("size", "doubledouble")
+		res := doRequest(params)
 
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			errType, errDesc := ErrorSlug(res.Body)
-			Expect(errType).To(Equal("invalid_request"))
-			Expect(errDesc).To(Equal("no matching plan found for the given size"))
-		})
+		errType, errDesc := ErrorSlug(res.Body)
+		Expect(errType).To(Equal("invalid_request"))
+		Expect(errDesc).To(Equal("no matching plan found for the given size"))
 	})
 
-	Context("when an invalid region is specified", func() {
-		It("responds with region not found", func() {
-			params.Set("region", "antarctica")
-			res := doRequest(params)
+	It("responds with region not found when an invalid region is specified", func() {
+		params.Set("region", "antarctica")
+		res := doRequest(params)
 
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			errType, errDesc := ErrorSlug(res.Body)
-			Expect(errType).To(Equal("invalid_request"))
-			Expect(errDesc).To(Equal("no matching region found for the given name"))
-		})
+		errType, errDesc := ErrorSlug(res.Body)
+		Expect(errType).To(Equal("invalid_request"))
+		Expect(errDesc).To(Equal("no matching region found for the given name"))
 	})
 
-	Context("when no provider template found for the given plan and region", func() {
-		It("responds with provider template not found error", func() {
-			var r2 *region.Region
+	It("responds with provider template not found error when no provider template found for the given plan and region", func() {
+		var r2 *region.Region
 
-			r2 = &region.Region{Slug: "usw", Name: "US West"}
-			err := r2.Insert(db)
-			Expect(err).To(BeNil())
+		r2 = &region.Region{Slug: "usw", Name: "US West"}
+		err := r2.Insert(db)
+		Expect(err).To(BeNil())
 
-			params.Set("region", r2.Slug)
-			res := doRequest(params)
+		params.Set("region", r2.Slug)
+		res := doRequest(params)
 
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			errType, errDesc := ErrorSlug(res.Body)
-			Expect(errType).To(Equal("invalid_request"))
-			Expect(errDesc).To(Equal("no matching templates found for the given plan and regions combination"))
-		})
+		errType, errDesc := ErrorSlug(res.Body)
+		Expect(errType).To(Equal("invalid_request"))
+		Expect(errDesc).To(Equal("no matching templates found for the given plan and regions combination"))
 	})
 
 	It("sends the provided slug as host's name", func() {
