@@ -47,13 +47,21 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
-	fmt.Fprintln(w, "creating boxhost image")
+	fmt.Fprintf(w, "starting: create boxhost image")
 	imageName, err := h.createImage()
 	if err != nil {
+		fmt.Fprintln(w, "failed: create boxhost image")
 		return nil, err
 	}
-	fmt.Fprintf(w, "creating boxhost container with image %s\n", imageName)
-	return h.createContainer(imageName)
+	fmt.Fprintf(w, "finished: create boxhost image")
+	fmt.Fprintf(w, "starting: create boxhost with image '%s'", imageName)
+	c, err := h.createContainer(imageName)
+	if err != nil {
+		fmt.Fprintf(w, "failed: create boxhost with image '%s'", imageName)
+		return nil, err
+	}
+	fmt.Fprintf(w, "finished: create boxhost with image '%s'", imageName)
+	return c, nil
 }
 
 func (h *Host) Destroy() error {
