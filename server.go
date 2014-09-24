@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/nitrous/pkg/flusher"
 )
 
 var (
@@ -107,7 +108,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	pw := NewProgressWriter(w)
+	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
 	info, err := h.Create(pw)
 	log.Printf("Created: %+v\n, %v", info, err)
