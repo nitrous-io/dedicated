@@ -1,7 +1,6 @@
 package hosts
 
 import (
-	"crypto/rsa"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -264,19 +263,6 @@ func transition(d ndb.QueryReceiver, h *host.Host, midState, endState string, fn
 	return nil
 }
 
-// generateKey generates and returns a private key together with its public key.
-func generateKey() (priv *rsa.PrivateKey, pub []byte, err error) {
-	priv, err = keypairs.GenerateKey()
-	if err != nil {
-		return nil, nil, err
-	}
-	pub, err = keypairs.PublicKey(&priv.PublicKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	return priv, pub, nil
-}
-
 func serializeHost(env *middleware.Env, h *host.Host) {
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
@@ -289,16 +275,6 @@ func publishHostEvent(env *middleware.Env, name controllers.EventName, h *host.H
 		controllers.NewEvent(name, serializers.SerializeHost(h)),
 		env.User.Topic(),
 	)
-}
-
-// generate cert with server certificate and key. The cert will be used for
-// TLS encryption
-func generateCerts(hostname string) (*cert.Cert, error) {
-	caInfo, err := controllers.GetCAInfo(true)
-	if err != nil {
-		return nil, err
-	}
-	return cert.Generate(hostname, caInfo.X509Cert, caInfo.Key)
 }
 
 func stopContainers(env *middleware.Env, h *host.Host) error {

@@ -1,7 +1,10 @@
 package hosts
 
 import (
+	"crypto/rsa"
 	"database/sql"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -10,141 +13,108 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/hostbuilder"
 	"github.com/nitrous-io/nitrous/controllers"
+	ndb "github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/middleware"
+	"github.com/nitrous-io/nitrous/models/cert"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/keypairs"
 	"github.com/nitrous-io/nitrous/models/plan"
 	"github.com/nitrous-io/nitrous/models/providertemplate"
 	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/token"
+	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/serializers"
 )
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
+	var size, regionSlug, slug, name string
 
-	size := r.FormValue("size")
-	if size == "" {
+	if size = r.FormValue("size"); size == "" {
 		return errSizeRequired
 	}
-	slug := strings.ToLower(r.FormValue("slug"))
-	if slug == "" {
-		return errSlugRequired
-	}
-	regionSlug := r.FormValue("region")
-	if regionSlug == "" {
+	if regionSlug = r.FormValue("region"); regionSlug == "" {
 		return errRegionRequired
 	}
-	name := r.FormValue("name")
-	if name == "" {
+	if slug = strings.ToLower(r.FormValue("slug")); slug == "" {
+		return errSlugRequired
+	}
+	if name = r.FormValue("name"); name == "" {
 		name = slug
 	}
 
-	// TODO: check if user account is eligible to create hosts (has a credit card on file)
-	pl, err := plan.FindBySlug(db, size)
-	if err != nil {
-		return err
-	}
-	if pl == nil {
-		return errPlanNotFound
-	}
-
-	rg, err := region.FindBySlug(db, regionSlug)
-	if err != nil {
-		return err
-	}
-	if rg == nil {
-		return errRegionNotFound
-	}
-
-	pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, rg.ID, pl.ID, defaultProvider)
-	if err != nil {
-		return err
-	}
-	if pt == nil {
-		return errProvidertemplateNotFound
-	}
-
-	priv, pubkey, err := generateKey()
+	ctx, err := newCreateContext(db, env.User, size, regionSlug, slug, name)
 	if err != nil {
 		return err
 	}
 
-	h := &host.Host{
-		UserID:             env.User.ID,
-		RegionID:           rg.ID,
-		PlanID:             pl.ID,
-		ProviderTemplateID: pt.ID,
-		Slug:               slug,
-		Name:               sql.NullString{name, true},
-		MaxContainers:      sql.NullInt64{pl.MaxContainers, true},
-		Size:               sql.NullString{size, true},
-		State:              host.StateBorn,
+	async, _ := strconv.ParseBool(r.FormValue("async"))
+	h, err := ctx.run(env, w, async)
+	if err != nil {
+		return err
 	}
+	if async {
+		env.Status = http.StatusAccepted
+	} else {
+		env.Status = http.StatusCreated
+	}
+	env.Data = map[string]interface{}{
+		"host": serializers.SerializeHost(h),
+	}
+	return nil
+}
 
-	// Save record to db first to reserve slug (since it's globally unique).
-	tx, err := db.Beginx()
+// createContext handles the creation of host record and its dependencies in
+// database and propagate the changes to host builder.
+type createContext struct {
+	User     *user.User
+	Plan     *plan.Plan
+	Region   *region.Region
+	Template *providertemplate.ProviderTemplate
+	Keypair  *keypairs.Keypair
+	Cert     *cert.Cert
+	Host     *host.Host
+	Token    *token.Token
+	Pubkey   []byte
+
+	db *ndb.Database
+}
+
+// run propagates the changes to hostbuilder. If we want the creation to
+// happens asynchronously, the current host infomation will be returned
+// immediately while we build the host. Otherwise, the default is building the
+// host asynchronously
+func (ctx *createContext) run(env *middleware.Env, writer io.Writer, async bool) (*host.Host, error) {
+	h, db := ctx.Host, ctx.db
+
+	// get ca to save to the host
+	caInfo, err := controllers.GetCAInfo(false)
 	if err != nil {
-		return err
-	}
-	if err := h.Insert(tx); err != nil {
-		tx.Rollback()
-		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
-			if validationErr, ok := validations[e.Constraint]; ok {
-				return validationErr
-			}
-		}
-		return err
-	}
-	// create the cert
-	crt, err := generateCerts(h.Hostname())
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := crt.Insert(tx, h.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
+		return nil, err
 	}
 
 	// generate hostbuilder config
-	config := hostbuilderclient.Config{}
-	for k, v := range pt.Config.Map {
+	config := hostbuilderclient.Config{
+		"name":         h.Slug,
+		"secret":       h.Secret,
+		"public_keys":  []string{string(ctx.Pubkey)},
+		"apt_username": ctx.User.Username,
+		"apt_password": ctx.Token,
+		"apt_location": defaultAPTLocation,
+		"apt_dist":     defaultAPTDist,
+		"tls": map[string]string{
+			"ca":   string(caInfo.CertPEM),
+			"cert": ctx.Cert.ServerCert,
+			"key":  ctx.Cert.ServerKey,
+		},
+	}
+	for k, v := range ctx.Template.Config.Map {
 		if v.Valid {
 			config[k] = v.String
 		} else {
 			config[k] = ""
 		}
-	}
-
-	// Assuming that t is not nil cos if user gets here,
-	// that means she has a token, but return err if there's
-	// some other unexpected error
-	t, err := token.FindByUser(db, env.User.ID)
-	if err != nil {
-		return err
-	}
-
-	config["name"] = slug
-	config["public_keys"] = []string{string(pubkey)}
-	config["secret"] = h.Secret
-	config["apt_username"] = env.User.Username
-	config["apt_password"] = t.Token
-	config["apt_location"] = defaultAPTLocation
-	config["apt_dist"] = defaultAPTDist
-
-	caInfo, err := controllers.GetCAInfo(false)
-	if err != nil {
-		return err
-	}
-	config["tls"] = map[string]string{
-		"ca":   string(caInfo.CertPEM),
-		"cert": crt.ServerCert,
-		"key":  crt.ServerKey,
 	}
 
 	createHost := func() error {
@@ -158,7 +128,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}()
 
 		var info *hostbuilder.Response
-		info, err = HostbuilderClient.Create(pt.Provider, &config)
+		info, err = HostbuilderClient.Create(ctx.Template.Provider, &config)
 		if err != nil {
 			return err
 		}
@@ -177,10 +147,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			tx.Rollback()
 			return err
 		}
-		if _, err = keypairs.Create(tx, priv, aesKey, h.ID); err != nil {
-			tx.Rollback()
-			return err
-		}
 		if err = tx.Commit(); err != nil {
 			return err
 		}
@@ -189,20 +155,153 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	async, _ := strconv.ParseBool(r.FormValue("async"))
-	switch async {
-	case true:
+	if async {
 		go createHost()
-		env.Status = http.StatusAccepted
-	default:
-		if err := createHost(); err != nil {
-			return err
-		}
-		env.Status = http.StatusCreated
+		return h, nil
+	}
+	err = createHost()
+	return h, err
+}
+
+// create a new createContext with user-supplied parameters. This will tries to
+// create a host with proper plan, region, template, etc..., associate them
+// with the current context and save them to database
+//
+// TODO: check if user account is eligible to create hosts (has a credit card on file)
+func newCreateContext(db *ndb.Database, user *user.User, size, regionSlug, slug, name string) (*createContext, error) {
+	var err error
+	ctx := &createContext{
+		User: user,
+		db:   db,
 	}
 
-	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h),
+	if ctx.Plan, err = findPlan(db, size); err != nil {
+		return nil, err
 	}
-	return nil
+	if ctx.Region, err = findRegion(db, regionSlug); err != nil {
+		return nil, err
+	}
+	if ctx.Template, err = findTemplate(db, ctx.Plan, ctx.Region, defaultProvider); err != nil {
+		return nil, err
+	}
+
+	// Assuming that t is not nil cos if user gets here,
+	// that means she has a token, but return err if there's
+	// some other unexpected error
+	if ctx.Token, err = token.FindByUser(db, user.ID); err != nil {
+		return nil, err
+	}
+
+	// generate the keypair to communicate with the host
+	priv, pubkey, err := generateKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate keypairs for '%s', err %s", slug, err)
+	}
+
+	ctx.Pubkey = pubkey
+	ctx.Host = &host.Host{
+		UserID:             ctx.User.ID,
+		RegionID:           ctx.Region.ID,
+		PlanID:             ctx.Plan.ID,
+		ProviderTemplateID: ctx.Template.ID,
+		Slug:               slug,
+		Name:               sql.NullString{name, true},
+		MaxContainers:      sql.NullInt64{ctx.Plan.MaxContainers, true},
+		Size:               sql.NullString{ctx.Plan.Slug, true},
+		State:              host.StateBorn,
+	}
+
+	// Save record to db first to reserve slug (since it's globally unique).
+	tx, err := db.Beginx()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open a transaction for host %s, err: %s", slug, err)
+	}
+	if err := ctx.Host.Insert(tx); err != nil {
+		tx.Rollback()
+		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
+			if validationErr, ok := validations[e.Constraint]; ok {
+				return nil, validationErr
+			}
+		}
+		return nil, fmt.Errorf("failed to insert new host %s, err: %s", slug, err)
+	}
+
+	// create the cert
+	if ctx.Cert, err = generateCerts(ctx.Host.Hostname()); err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to generate certificates for '%s', err %s", slug, err)
+	}
+	if err := ctx.Cert.Insert(tx, ctx.Host.ID); err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to save certificates for '%s', err %s", slug, err)
+	}
+
+	// create the keypair
+	ctx.Keypair, err = keypairs.Create(tx, priv, aesKey, ctx.Host.ID)
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to save keypairs for '%s', err %s", slug, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to complete save transaction for '%s', err %s", slug, err)
+	}
+
+	return ctx, nil
+}
+
+func findPlan(db ndb.QueryReceiver, size string) (*plan.Plan, error) {
+	pl, err := plan.FindBySlug(db, size)
+	if err != nil {
+		return nil, fmt.Errorf("no matching plan for '%s', error %s", size, err)
+	}
+	if pl == nil {
+		return nil, errPlanNotFound
+	}
+	return pl, nil
+}
+
+func findRegion(db ndb.QueryReceiver, regionSlug string) (*region.Region, error) {
+	r, err := region.FindBySlug(db, regionSlug)
+	if err != nil {
+		return nil, fmt.Errorf("no matching region for '%s', error %s", regionSlug, err)
+	}
+	if r == nil {
+		return nil, errRegionNotFound
+	}
+	return r, nil
+}
+
+func findTemplate(db ndb.QueryReceiver, pl *plan.Plan, rg *region.Region, defaultProvider string) (*providertemplate.ProviderTemplate, error) {
+	pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, rg.ID, pl.ID, defaultProvider)
+	if err != nil {
+		return nil, fmt.Errorf("no matching templates found, error %s", err)
+	}
+	if pt == nil {
+		return nil, errProvidertemplateNotFound
+	}
+	return pt, nil
+}
+
+// generateKey generates and returns a private key together with its public key.
+func generateKey() (priv *rsa.PrivateKey, pub []byte, err error) {
+	priv, err = keypairs.GenerateKey()
+	if err != nil {
+		return nil, nil, err
+	}
+	pub, err = keypairs.PublicKey(&priv.PublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return priv, pub, nil
+}
+
+// generate cert with server certificate and key. The cert will be used for
+// TLS encryption
+func generateCerts(hostname string) (*cert.Cert, error) {
+	caInfo, err := controllers.GetCAInfo(true)
+	if err != nil {
+		return nil, err
+	}
+	return cert.Generate(hostname, caInfo.X509Cert, caInfo.Key)
 }
