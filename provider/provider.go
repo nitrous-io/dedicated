@@ -19,6 +19,7 @@ var (
 	ErrPubKeyOpsNotSupported   = errors.New("Public key operations are not supported on this container")
 	ErrImageNotFound           = errors.New("Image does not exist")
 	ErrImageShared             = errors.New("Image is shared across multiple tags")
+	ErrImageInUse              = errors.New("Image is being used by one or more containers")
 	ErrImageExists             = errors.New("Image with same name and tag already exists")
 	ErrImageAuthNotAllowed     = errors.New("Do not have permission to push/pull image")
 	ErrImageAuthMisconfigured  = errors.New("Image registry configuration invalid")

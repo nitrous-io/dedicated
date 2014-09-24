@@ -1836,6 +1836,13 @@ var _ = Describe("client", func() {
 			})
 
 			Context("Error Response - with failures communicating with endpoint", func() {
+				It("returns ErrImageInUse when Freighter responds with HTTP 409", func() {
+					statusCode = http.StatusConflict
+
+					err := cl.RemoveImage("imageid")
+					Expect(err).To(MatchError(freighterclient.ErrImageInUse))
+				})
+
 				It("should surface request failures", func() {
 					st.Close()
 
