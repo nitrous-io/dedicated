@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous/pkg/flusher"
@@ -60,6 +61,7 @@ type HttpHandler func(w http.ResponseWriter, r *http.Request) error
 func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := handlerFunc(w, r); err != nil {
+			log.Println("[ERROR] %s %s: %s", r.Method, r.URL, err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 	}
@@ -101,14 +103,15 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	provider := r.Form.Get("provider")
 	providerConfig := s.Config.Providers[provider]
 	configJson := r.Form.Get("config")
-	log.Printf("Creating: %s with config %s", provider, configJson)
+	log.Printf("Creating a host using provider %s", provider)
 
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return err
 	}
 
-	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
+	// write the progress into the stdout so that it will be logged
+	pw := NewProgressWriter(io.MultiWriter(os.Stdout, flusher.NewWriteFlusher(w)))
 
 	info, err := h.Create(pw)
 	log.Printf("Created: %+v\n, %v", info, err)
