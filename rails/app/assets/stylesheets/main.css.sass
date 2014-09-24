@@ -107,19 +107,36 @@ i.spinner
   i
     margin-right: 5px
 
-ul.comma-separated
+ul.comma-separated, ul.space-separated
   margin: 0
   padding: 0
   list-style: none
 
-  li
+  > li
     display: inline
-
-    &:after
-      content: ', '
 
     &:last-of-type:after
       content: ''
+
+ul.comma-separated
+  > li
+    &:after
+      content: ', '
+
+ul.space-separated
+  > li
+    &:after
+      content: ' '
+
+  &.blocks
+    > li
+      background: $gray200
+      padding: 0 5px
+      border-radius: 2px
+      margin-right: 5px
+
+      &:after
+        content: ''
 
 .ui.btn
   i.spinner
