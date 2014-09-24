@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/pkg/flusher"
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/serializers"
 )
@@ -50,7 +51,22 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	async, _ := strconv.ParseBool(r.FormValue("async"))
-	h, err := ctx.run(env, w, async)
+	// if async, we will just discard the progress data from hostbuilder. It will
+	// only be outputed into the events stream. The only output we want to
+	// include in async is the host data
+	var writer io.Writer
+	pp := &controllers.ProgressPublisher{
+		EventName: controllers.EventHostCreating,
+		Topic:     env.User.Topic(),
+		Events:    env.Events,
+		ID:        ctx.Host.ID,
+	}
+	if async {
+		writer = pp
+	} else {
+		writer = io.MultiWriter(pp, flusher.NewWriteFlusher(w))
+	}
+	h, err := ctx.run(env, writer, async)
 	if err != nil {
 		return err
 	}
@@ -128,7 +144,7 @@ func (ctx *createContext) run(env *middleware.Env, writer io.Writer, async bool)
 		}()
 
 		var info *hostbuilder.Response
-		info, err = HostbuilderClient.Create(ctx.Template.Provider, &config)
+		info, err = HostbuilderClient.Create(ctx.Template.Provider, &config, writer)
 		if err != nil {
 			return err
 		}

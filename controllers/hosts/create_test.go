@@ -1,8 +1,10 @@
 package hosts_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -21,6 +23,7 @@ import (
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
+	"github.com/nitrous-io/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/nitrous/serializers"
 	"github.com/nitrous-io/nitrous/server"
 
@@ -181,6 +184,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt = &FakeRoundTripper{
 				message: fmt.Sprintf(`
+				{"stream":"starting: create the droplet"}
+				{"stream":"finished: create the droplet"}
 				{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}
 				`, hs.PT.Name),
 				status: http.StatusOK,
@@ -251,15 +256,27 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(crt.ServerKey).To(ContainSubstring("BEGIN RSA PRIVATE KEY"))
 		})
 
-		It("responds with the created host and status created", func() {
+		It("responds with the progress data and created host", func() {
 			res := doRequest(params)
-			Expect(res.Code).To(Equal(http.StatusCreated))
+			Expect(res.Code).To(Equal(http.StatusOK))
+			buf := bytes.NewBuffer(nil)
+			io.Copy(buf, res.Body)
+
+			Expect(buf.String()).To(ContainSubstring("starting: create the droplet"), "expect response to include hostbuilder progress")
 
 			var j struct {
 				Host *serializers.Host `json:"host"`
 			}
-			err := json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
+			decoder := json.NewDecoder(buf)
+			for {
+				err := decoder.Decode(&j)
+				if j.Host != nil {
+					break
+				}
+				if err == io.EOF && j.Host == nil {
+					Fail("invalid response, missing host info")
+				}
+			}
 
 			hosts, _ := host.FindAllByUser(db, u)
 			Expect(j.Host.ID).To(Equal(hosts[0].ID))
@@ -277,7 +294,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(j.Host.TerminatedAt).To(BeNil())
 		})
 
-		It("publishes a host created event with the created host", func() {
+		It("publishes events for the created host", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -287,14 +304,40 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 			h := hosts[0]
+
+			msgs := []pubsub.Message{}
+			finished := make(chan struct{})
+			go func() {
+				msgs = append(msgs, <-ch, <-ch, <-ch, <-ch)
+				close(finished)
+			}()
+
 			select {
-			case e := <-ch:
-				Expect(e).To(Equal(&controllers.Event{
+			case <-time.After(100 * time.Millisecond):
+				Fail("timedout while waiting for events")
+			case <-finished:
+				Expect(msgs[0]).To(Equal(&controllers.Event{
+					Name: controllers.EventHostCreating,
+					Data: &controllers.ProgressEvent{ID: h.ID, Progress: `{"stream":"starting: create the droplet"}`},
+				}), "unexpected event, wanted EventHostCreating")
+
+				Expect(msgs[1]).To(Equal(&controllers.Event{
+					Name: controllers.EventHostCreating,
+					Data: &controllers.ProgressEvent{ID: h.ID, Progress: `{"stream":"finished: create the droplet"}`},
+				}), "unexpected event, wanted EventHostCreating")
+
+				Expect(msgs[2]).To(Equal(&controllers.Event{
+					Name: controllers.EventHostCreating,
+					Data: &controllers.ProgressEvent{ID: h.ID, Progress: fmt.Sprintf(
+						`{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}`,
+						hs.PT.Name,
+					)},
+				}), "unexpected event, wanted EventHostCreating")
+
+				Expect(msgs[3]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreated,
 					Data: serializers.SerializeHost(&h),
 				}), "unexpected event, wanted EventHostCreated")
-			case <-time.After(100 * time.Millisecond):
-				Fail("timedout while waiting for EventHostCreated")
 			}
 		})
 
@@ -360,11 +403,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(h.Slug).To(Equal(params.Get("slug")))
 			Expect(h.State).To(Equal(host.StateOrphan))
 		})
-
-		It("responds with a internal server error", func() {
-			res := doRequest(params)
-			Expect(res.Code).To(Equal(http.StatusInternalServerError))
-		})
 	})
 
 	Context("when async param is true", func() {
@@ -398,13 +436,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				rt := &FakeRoundTripper{
-					message: fmt.Sprintf(`{
-						"id":"abcd1234",
-						"ip_address":"0.0.0.0",
-						"provider":"%s",
-						"freighterd_port":65333
-					}`, hs.PT.Name),
-					status: http.StatusOK,
+					message: fmt.Sprintf(`{"id":"abcd1234","ip_address":"0.0.0.0","provider":"%s","freighterd_port":65333}`, hs.PT.Name),
+					status:  http.StatusOK,
 				}
 				replaceTransport(hb, rt)
 
@@ -425,26 +458,37 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				}).Should(Equal("abcd1234"))
 			})
 
-			It("publishes a host created event with the created host", func() {
+			It("publishes a host events with the created host", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
 				doRequest(params)
 
+				msgs := []pubsub.Message{}
+				finished := make(chan struct{})
+				go func() {
+					msgs = append(msgs, <-ch, <-ch)
+					close(finished)
+				}()
+
 				select {
-				case msg := <-ch:
-					evt, ok := msg.(*controllers.Event)
-					Expect(ok).To(BeTrue())
-					Expect(evt.Name).To(Equal(controllers.EventHostCreated))
-
-					h, ok := evt.Data.(*serializers.Host)
-					Expect(ok).To(BeTrue())
-
-					hRec, err := host.Find(db, u, params.Get("slug"))
-					Expect(err).To(BeNil())
-					Expect(h).To(Equal(serializers.SerializeHost(hRec)))
 				case <-time.After(100 * time.Millisecond):
 					Fail("timeout while waiting for EventHostCreated")
+				case <-finished:
+					h, err := host.Find(db, u, params.Get("slug"))
+					Expect(err).To(BeNil())
+
+					Expect(msgs[0]).To(Equal(&controllers.Event{
+						Name: controllers.EventHostCreating,
+						Data: &controllers.ProgressEvent{ID: h.ID, Progress: fmt.Sprintf(
+							`{"id":"abcd1234","ip_address":"0.0.0.0","provider":"%s","freighterd_port":65333}`, hs.PT.Name),
+						},
+					}), "unexpected event, wanted EventHostCreating")
+
+					Expect(msgs[1]).To(Equal(&controllers.Event{
+						Name: controllers.EventHostCreated,
+						Data: serializers.SerializeHost(h),
+					}), "unexpected event, wanted EventHostCreated")
 				}
 			})
 		})
@@ -475,18 +519,27 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 				doRequest(params)
 
+				msgs := []pubsub.Message{}
+				finished := make(chan struct{})
+				go func() {
+					msgs = append(msgs, <-ch, <-ch)
+					close(finished)
+				}()
+
 				select {
-				case msg := <-ch:
-					evt, ok := msg.(*controllers.Event)
-					Expect(ok).To(BeTrue())
-					Expect(evt.Name).To(Equal(controllers.EventHostCreateFailed))
-
-					h, ok := evt.Data.(*serializers.Host)
-					Expect(ok).To(BeTrue())
-
-					hRec, err := host.Find(db, u, params.Get("slug"))
+				case <-finished:
+					h, err := host.Find(db, u, params.Get("slug"))
 					Expect(err).To(BeNil())
-					Expect(h).To(Equal(serializers.SerializeHost(hRec)))
+
+					Expect(msgs[0]).To(Equal(&controllers.Event{
+						Name: controllers.EventHostCreating,
+						Data: &controllers.ProgressEvent{ID: h.ID, Progress: errorResponse},
+					}), "unexpected event, wanted EventHostCreating")
+
+					Expect(msgs[1]).To(Equal(&controllers.Event{
+						Name: controllers.EventHostCreateFailed,
+						Data: serializers.SerializeHost(h),
+					}), "unexpected event, wanted EventHostCreated")
 				case <-time.After(100 * time.Millisecond):
 					Fail("timeout while waiting for EventHostCreateFailed")
 				}

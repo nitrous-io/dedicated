@@ -1,7 +1,8 @@
 package hostbuilderclient_test
 
 import (
-	"encoding/json"
+	"bytes"
+	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -39,53 +40,49 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 	})
 
 	Describe("Create()", func() {
-		doRequest := func() (*hostbuilder.Response, error) {
-			return hb.Create("digitalocean", &hostbuilderclient.Config{
+		It("streams back build output and returns the final host info", func() {
+			response := `
+			{"stream":"starting: create ssh key"}
+			{"stream":"finished: create ssh key"}
+			{"stream":"starting: create droplet"}
+			{"stream":"finished: create droplet"}
+			{"provider":"digitalocean","id":"some_id","ip_address":"0.0.0.0","freighterd_port":65333}
+			`
+			prepareHandlers("POST", "/hosts", http.StatusOK, response)
+			hb = hostbuilderclient.NewHostbuilder(srv.URL())
+
+			out := bytes.NewBuffer(nil)
+			info, err := hb.Create("digitalocean", &hostbuilderclient.Config{
 				"name":        "doublerainbow",
 				"public_keys": []string{"value1", "value2"},
-			})
-		}
+			}, out)
 
-		Context("when hostbuilder creates a host", func() {
-			BeforeEach(func() {
-				m := struct {
-					Provider       string `json:"provider"`
-					ID             string `json:"id"`
-					IPAddress      string `json:"ip_address"`
-					FreighterdPort uint16 `json:"freighterd_port"`
-				}{
-					Provider:       "digitalocean",
-					ID:             "some_id",
-					IPAddress:      "0.0.0.0",
-					FreighterdPort: 65333,
-				}
-				payload, err := json.Marshal(m)
-				Expect(err).To(BeNil())
-				prepareHandlers("POST", "/hosts", http.StatusCreated, string(payload))
-				hb = hostbuilderclient.NewHostbuilder(srv.URL())
-			})
-
-			It("returns the info of the created host", func() {
-				info, err := doRequest()
-
-				Expect(err).To(BeNil())
-				Expect(info.Provider).To(Equal("digitalocean"))
-				Expect(info.ID).To(Equal("some_id"))
-				Expect(info.IPAddress).To(Equal("0.0.0.0"))
-				Expect(info.FreighterdPort).To(Equal(uint16(65333)))
-			})
+			Expect(out.String()).To(Equal(response), "response not the same as the hostbuilder stream")
+			Expect(err).To(BeNil(), "unexpected error for POST /hosts")
+			Expect(info).To(Equal(&hostbuilder.Response{
+				Provider:       "digitalocean",
+				ID:             "some_id",
+				IPAddress:      "0.0.0.0",
+				FreighterdPort: uint16(65333),
+			}))
 		})
 
-		Context("when hostbuilder fails to create a host", func() {
-			BeforeEach(func() {
-				prepareHandlers("POST", "/hosts", http.StatusBadRequest, "some_error")
-				hb = hostbuilderclient.NewHostbuilder(srv.URL())
-			})
+		It("returns error when the build failed", func() {
+			response := `
+			{"stream":"starting: create ssh key"}
+			{"stream":"finished: create ssh key"}
+			{"stream":"starting: create droplet"}
+			{"stream":"failed: create droplet"}
+			{"error":"failed to create droplet because of some reason"}
+			`
+			prepareHandlers("POST", "/hosts", http.StatusOK, response)
+			hb = hostbuilderclient.NewHostbuilder(srv.URL())
 
-			It("returns an error returned by hostbuilder", func() {
-				_, err := doRequest()
-				Expect(err.Error()).To(ContainSubstring("some_error"))
-			})
+			_, err := hb.Create("digitalocean", &hostbuilderclient.Config{
+				"name":        "doublerainbow",
+				"public_keys": []string{"value1", "value2"},
+			}, ioutil.Discard)
+			Expect(err).ToNot(BeNil(), "failed to return error when the build failed")
 		})
 	})
 
