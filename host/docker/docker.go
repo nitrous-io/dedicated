@@ -41,26 +41,26 @@ type Host struct {
 	client *dockerclient.Client
 }
 
-// Create creates the docker container which acts as a boxhost, and write the
+// Create creates the docker container which acts as a container host, and write the
 // progress into w
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
-	fmt.Fprintf(w, "starting: create boxhost image")
+	fmt.Fprintf(w, "Creating host image")
 	imageName, err := h.createImage()
 	if err != nil {
-		fmt.Fprintln(w, "failed: create boxhost image")
+		fmt.Fprintln(w, "Failed to create host image")
 		return nil, err
 	}
-	fmt.Fprintf(w, "finished: create boxhost image")
-	fmt.Fprintf(w, "starting: create boxhost with image '%s'", imageName)
+	fmt.Fprintf(w, "Created host image")
+	fmt.Fprintf(w, "Creating host with image “%s”", imageName)
 	c, err := h.createContainer(imageName)
 	if err != nil {
-		fmt.Fprintf(w, "failed: create boxhost with image '%s'", imageName)
+		fmt.Fprintf(w, "Failed to create host")
 		return nil, err
 	}
-	fmt.Fprintf(w, "finished: create boxhost with image '%s'", imageName)
+	fmt.Fprintf(w, "Host created")
 	return c, nil
 }
 
