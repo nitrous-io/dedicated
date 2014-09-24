@@ -30,54 +30,67 @@
   display: flex
   flex-direction: column
 
-  &.animate
-    transition: width .6s, height .6s, top .6s, left .6s
-
-  > .tab-bar
-    flex-shrink: 0
-
-  .card-body
+  .terminal-window
     flex-grow: 1
-    padding: 0
-
-
-  .terminal-screen
     display: flex
     flex-direction: column
-    padding: 0
-    background: black
 
-    iframe
+    &.animate
+      transition: width .6s, height .6s, top .6s, left .6s
+
+    > .tab-bar
+      flex-shrink: 0
+
+    .card-body
       flex-grow: 1
-      flex: 1
-      border: none
+      padding: 0
 
-  .tabs
-    display: flex
-    flex-direction: row
-    background: $gray50
 
-  .ui.tab-bar
-    flex-grow: 1
-    > li
+    .terminal-screen
+      display: flex
+      flex-direction: column
+      padding: 0
+      background: black
+
+      iframe
+        flex-grow: 1
+        flex: 1
+        border: none
+
+    .tabs
+      display: flex
+      flex-direction: row
+      background: $gray50
+
+    .ui.tab-bar
+      flex-grow: 1
+      > li
+        height: 40px
+
+        a
+          line-height: 40px
+          font-size: 13px
+          padding: 0 20px
+
+    .fullscreen-btn
+      flex-shrink: 0
+      background: $gray50
+      border-bottom: 1px solid $gray300
+      padding: 5px
       height: 40px
 
-      a
-        line-height: 40px
-        font-size: 13px
-        padding: 0 20px
-
-  .fullscreen-btn
-    flex-shrink: 0
-    background: $gray50
-    border-bottom: 1px solid $gray300
-    padding: 5px
-    height: 40px
+  .terminal-placeholder
+    flex-grow: 1
+    display: none
 
   &.fullscreen
-    position: fixed
-    top: 0 !important
-    left: 0 !important
-    width: 100% !important
-    height: 100% !important
-    z-index: 1
+    .terminal-window
+      position: fixed
+      top: 0 !important
+      left: 0 !important
+      width: 100% !important
+      height: 100% !important
+      z-index: 1
+
+    .terminal-placeholder
+      display: block

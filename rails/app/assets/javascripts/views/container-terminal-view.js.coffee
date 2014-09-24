@@ -7,7 +7,6 @@ App.ContainerTerminalView = Em.View.extend
   didInsertElement: ->
     @_super()
     $('html').addClass('fullscreen')
-    $('<div>').addClass('container-terminal-placeholder').css('flex-grow': 1).hide().insertAfter(@$())
     if @get('controller.ready')
       @injectIframe()
 
@@ -15,7 +14,6 @@ App.ContainerTerminalView = Em.View.extend
     @_super()
     @$('iframe')[0]?.contentWindow?.NitrousTerminal?.stop()
     $('html').removeClass('fullscreen')
-    @$().nextAll('.container-terminal-placeholder').remove()
     @set 'controller.fullscreen', false
 
   injectIframe: (->
@@ -49,8 +47,8 @@ App.ContainerTerminalView = Em.View.extend
   actions:
     toggleFullscreen: ->
       # animate fullscreen transition
-      $this = @$()
-      $placeholder = @$().nextAll('.container-terminal-placeholder')
+      $termWindow = @$('.terminal-window')
+      $placeholder = @$('.terminal-placeholder')
       $button = @$('.fullscreen-btn button')
       $button.attr('disabled', true).css(cursor: 'default')
 
@@ -59,25 +57,20 @@ App.ContainerTerminalView = Em.View.extend
         width = $placeholder.width()
         height = $placeholder.height()
       else
-        offset = $this.offset()
-        width = $this.width()
-        height = $this.height()
+        offset = $termWindow.offset()
+        width = $termWindow.width()
+        height = $termWindow.height()
 
-      $this.css(top: offset.top, left: offset.left, width: width, height: height)
-      $this.css(position: 'fixed', 'z-index': 1, 'box-shadow': '0 1px 4px rgba(0, 0, 0, .4)')
-
-      if @get('controller.fullscreen')
-        $placeholder.hide()
-      else
-        $placeholder.show()
+      $termWindow.css(top: offset.top, left: offset.left, width: width, height: height)
+      $termWindow.css(position: 'fixed', 'z-index': 1, 'box-shadow': '0 1px 4px rgba(0, 0, 0, .4)')
 
       window.requestAnimationFrame =>
-        $this.addClass('animate')
+        $termWindow.addClass('animate')
         @toggleProperty 'controller.fullscreen'
         window.setTimeout(->
-          $this.css(top: '', left: '', width: '', height: '', position: '', 'z-index': '', 'box-shadow': '')
+          $termWindow.css(top: '', left: '', width: '', height: '', position: '', 'z-index': '', 'box-shadow': '')
           $button.attr('disabled', false).css(cursor: '')
-          $this.removeClass('animate')
+          $termWindow.removeClass('animate')
           @$('iframe')[0]?.contentWindow?.NitrousTerminal?.focus()
         , 601)
         $button.blur()
