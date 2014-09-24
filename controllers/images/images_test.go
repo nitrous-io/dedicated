@@ -914,6 +914,20 @@ var _ = Describe("controllers/images", func() {
 				Expect(errDesc).To(Equal("image does not exist"))
 			})
 		})
+
+		Context("when image is in use", func() {
+			BeforeEach(func() {
+				mockClient.RemoveImageError = freighterclient.ErrImageInUse
+			})
+
+			It("returns HTTP 400", func() {
+				res := doRequest("foo", "nitrousio/elixir")
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_request"))
+				Expect(errDesc).To(ContainSubstring("image is being used"))
+			})
+		})
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/images/{image}/push", func() {
