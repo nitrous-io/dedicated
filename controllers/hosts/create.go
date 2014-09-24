@@ -11,6 +11,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/nitrous-io/nitrous-common/flusher"
+
 	"github.com/nitrous-io/hostbuilder"
 	"github.com/nitrous-io/nitrous/controllers"
 	ndb "github.com/nitrous-io/nitrous/db"
@@ -23,7 +25,6 @@ import (
 	"github.com/nitrous-io/nitrous/models/region"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
-	"github.com/nitrous-io/nitrous/pkg/flusher"
 	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/nitrous/serializers"
 )

@@ -6,11 +6,12 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/nitrous-io/nitrous-common/flusher"
+
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/middleware"
 	"github.com/nitrous-io/nitrous/models/host"
 	"github.com/nitrous-io/nitrous/models/image"
-	"github.com/nitrous-io/nitrous/pkg/flusher"
 	"github.com/nitrous-io/nitrous/serializers"
 )
 

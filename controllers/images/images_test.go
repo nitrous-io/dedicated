@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/isarchive"
 	"github.com/nitrous-io/nitrous-common/logger"
+
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/host"
