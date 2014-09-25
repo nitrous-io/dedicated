@@ -1,7 +1,7 @@
 From ubuntu:14.04
 MAINTAINER Nitrous.IO <eng@nitrous.io>
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y \
   build-essential \
   curl \
   git \
