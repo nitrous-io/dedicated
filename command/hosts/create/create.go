@@ -2,7 +2,9 @@ package create
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -33,8 +35,35 @@ Options:
   -s, --slug=""         %s
 `
 
+// response coming from nitrous server, we are only intested in
+// - stream: messages emitted from hostbuilder
+// - host: final host result coming from nitrous webapp
+// - error_hash + error_description: error messages coming from nitrous webapp
+type response struct {
+	Stream string      `json:"stream"`
+	Host   *hosts.Host `json:"host"`
+
+	Error            string `json:"error"`
+	ErrorHash        string `json:"error_hash"`
+	ErrorDescription string `json:"error_description"`
+}
+
+func (r *response) error() string {
+	msg := []string{}
+	if r.Error != "" {
+		msg = append(msg, fmt.Sprintf("error(%s)", r.Error))
+	}
+	if r.ErrorHash != "" {
+		msg = append(msg, fmt.Sprintf("code(%s)", r.ErrorHash))
+	}
+	if r.ErrorDescription != "" {
+		msg = append(msg, fmt.Sprintf("description(%s)", r.ErrorDescription))
+	}
+	return strings.Join(msg, " ")
+}
+
 type Command struct {
-	UI     cli.Ui
+	UI     *command.BasicUI
 	Server string
 	Client *httpclient.Client
 }
@@ -81,7 +110,8 @@ func (c *Command) Run(args []string) int {
 	region := args[1]
 
 	c.UI.Output(fmt.Sprintf("Creating new host '%s'. Please wait...", slug))
-	host, err := c.createHost(size, region, slug)
+
+	host, err := c.createHost(size, region, slug, c.UI.Writer)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Failed to create host - %v", err.Error()))
 		return 1
@@ -97,7 +127,7 @@ func (c *Command) Synopsis() string {
 	return "Create a new host"
 }
 
-func (c *Command) createHost(size, region, slug string) (*hosts.Host, error) {
+func (c *Command) createHost(size, region, slug string, out io.Writer) (*hosts.Host, error) {
 	p := &url.Values{}
 	p.Set("size", size)
 	p.Set("region", region)
@@ -107,19 +137,29 @@ func (c *Command) createHost(size, region, slug string) (*hosts.Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = httpclient.CheckResponse(resp, http.StatusCreated)
+	err = httpclient.CheckResponse(resp, http.StatusOK)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	j := struct {
-		Host *hosts.Host `json:"host"`
-	}{}
-	err = json.NewDecoder(resp.Body).Decode(&j)
-	if err != nil {
-		return nil, err
+	decoder := json.NewDecoder(resp.Body)
+	for {
+		buildOutput := &response{}
+		err = decoder.Decode(buildOutput)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("hosts/create: invalid format '%s'", err)
+		}
+		if buildOutput.Error != "" || buildOutput.ErrorDescription != "" || buildOutput.ErrorHash != "" {
+			fmt.Fprintf(out, "===> %s | failed %s\n", slug, buildOutput.error())
+		} else if buildOutput.Stream != "" {
+			fmt.Fprintf(out, "===> %s | %s\n", slug, buildOutput.Stream)
+		} else if buildOutput.Host != nil {
+			return buildOutput.Host, nil
+		}
 	}
-
-	return j.Host, nil
+	return nil, errors.New("hosts/create: failed to return a host")
 }
