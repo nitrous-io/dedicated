@@ -27,7 +27,6 @@ install -m 0644 -D $FILES/control/prerm $PKGDIR/$FILES/control/prerm
 install -m 0644 -D $FILES/control/postrm $PKGDIR/$FILES/control/postrm
 
 # install configs
-install -m 0644 -D ./sample_config.json $PKGDIR/etc/hostbuilder/config.json
 install -m 0644 -D $FILES/data/etc/init/hostbuilder.conf $PKGDIR/etc/init/hostbuilder.conf
 
 cd $PKGDIR
@@ -47,7 +46,6 @@ fpm \
   --before-remove $FILES/control/prerm \
   --after-remove $FILES/control/postrm \
   --config-files /etc/init/hostbuilder.conf \
-  --config-files /etc/hostbuilder/config.json \
   --license "$PACKAGE_LICENSE" \
   --url "$PACKAGE_URL" \
   --deb-compression gz \
