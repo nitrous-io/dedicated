@@ -1,12 +1,17 @@
 Lib.Socket = Em.Object.extend Em.Evented,
   url: null
 
-  connect: ->
-    @_conn = conn = new WebSocket(@get 'url') # not using @set to reduce overhead
+  init: ->
+    @_super.apply this, arguments
+    @_conn = conn = new SocketConnection # not using @set to reduce overhead
+    conn.onbeforeopen = (ev) => @willOpen(ev)
     conn.onopen    = (ev) => @didOpen(ev)
     conn.onmessage = (ev) => @didReceiveMessage(ev)
     conn.onerror   = (ev) => @didFail(ev)
     conn.onclose   = (ev) => @didClose(ev)
+
+  connect: ->
+    @_conn.open()
 
   disconnect: ->
     @_conn?.close()
@@ -14,6 +19,10 @@ Lib.Socket = Em.Object.extend Em.Evented,
 
   send: (data) ->
     @_conn?.send(data)
+
+  willOpen: (ev) ->
+    @_conn.url = @get('url')
+    @trigger 'beforeopen', ev
 
   didOpen: (ev) ->
     @trigger 'open', ev
