@@ -599,6 +599,20 @@ var _ = Describe("provider/docker", func() {
 				})
 
 				It("changes the container id and settings", func() {
+					defer func() { // remove image backups
+						imageList, err := prov.ListImages()
+						Expect(err).To(BeNil(), "error listing images when trying to delete backups")
+						toRemove := []string{}
+						for _, img := range imageList {
+							parts := strings.Split(img.Name, "-")
+							if len(parts) >= 3 && parts[len(parts)-2] == "backup" && len(parts[len(parts)-1]) == 19 { // 19 == length of UnixNano
+								toRemove = append(toRemove, img.Name)
+							}
+						}
+						if len(toRemove) > 0 {
+							removeImages(toRemove)
+						}
+					}()
 					configJSON := `{
 						"Env": ["LANG=C","PAGER=more"],
 						"PortBindings": ["private:65000:3000", "public:8888:8888"]

@@ -439,6 +439,12 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (*provider.ContainerInf
 	if err != nil {
 		return nil, err
 	}
+
+	imageName := fmt.Sprintf("%s-backup-%d", name, time.Now().UnixNano())
+	if _, err := p.Commit(id, imageName); err != nil {
+		return nil, err
+	}
+
 	if err := p.backup(id, name); err != nil {
 		return nil, err
 	}
@@ -460,6 +466,7 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (*provider.ContainerInf
 	if err != nil {
 		return toCnr, fmt.Errorf(errf, id, "start", err)
 	}
+
 	return startedCnr, nil
 }
 
