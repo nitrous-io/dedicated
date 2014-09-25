@@ -159,7 +159,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(errDesc).To(Equal("no matching templates found for the given plan and regions combination"))
 	})
 
-	It("sends the provided slug as host's name", func() {
+	It("sends the host configs as json params", func() {
 		hb := hostbuilderclient.NewHostbuilder("www.example.com")
 		rt := &FakeRoundTripper{
 			message: fmt.Sprintf(`
@@ -175,6 +175,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		var config hostbuilderclient.Config
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
 		Expect(config["name"]).To(Equal(params.Get("slug")))
+		Expect(config["name"]).To(Equal(params.Get("slug")), "invalid slug set in name")
+		Expect(config["apt_password"]).To(Equal(t.Token), "invalid token set in apt_password")
 	})
 
 	Context("when hostbuilder successfully creates a host", func() {

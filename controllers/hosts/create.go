@@ -118,7 +118,7 @@ func (ctx *createContext) run(env *middleware.Env, writer io.Writer, async bool)
 		"secret":       h.Secret,
 		"public_keys":  []string{string(ctx.Pubkey)},
 		"apt_username": ctx.User.Username,
-		"apt_password": ctx.Token,
+		"apt_password": ctx.Token.Token,
 		"apt_location": defaultAPTLocation,
 		"apt_dist":     defaultAPTDist,
 		"tls": map[string]string{
