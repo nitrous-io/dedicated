@@ -264,6 +264,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			buf := bytes.NewBuffer(nil)
 			io.Copy(buf, res.Body)
 
+			Expect(res.Header().Get("X-Accel-Buffering")).To(Equal("no"), "failed to disable buffering in nginx")
 			Expect(buf.String()).To(ContainSubstring("starting: create the droplet"), "expect response to include hostbuilder progress")
 
 			var j struct {

@@ -66,6 +66,9 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if async {
 		writer = pp
 	} else {
+		// turn off nginx buffer caching so that we can flush output to the
+		// clients immediately
+		w.Header().Set("X-Accel-Buffering", "no")
 		writer = io.MultiWriter(pp, flusher.NewWriteFlusher(w))
 	}
 	h, err := ctx.run(env, writer, async)
