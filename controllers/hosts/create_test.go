@@ -369,6 +369,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			hosts, err := host.FindAllByUser(db, u)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
+
+			// increase user's default hosts limit to hit the actual error
+			_, err = db.Exec(`UPDATE user_profiles SET max_hosts = 10 WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
 		})
 
 		It("does not create a host", func() {
@@ -552,6 +556,21 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Fail("timeout while waiting for EventHostCreateFailed")
 				}
 			})
+		})
+	})
+
+	Context("when user has reached the max hosts limit", func() {
+		It("responds with hosts limit reached", func() {
+			_, err := CreateHostStack(db, &HostStack{U: u})
+			Expect(err).To(BeNil())
+
+			res := doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(ContainSubstring("not allowed"))
 		})
 	})
 

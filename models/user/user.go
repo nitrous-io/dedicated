@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/models/userprofile"
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/nitrous/pkg/pubsub"
 )
@@ -87,7 +88,13 @@ func (u *User) Insert(d db.QueryReceiver) error {
 	if err != nil {
 		return err
 	}
-	return nstmt.QueryRow(u).StructScan(u)
+
+	if err = nstmt.QueryRow(u).StructScan(u); err != nil {
+		return err
+	}
+
+	// create a user profile
+	return userprofile.Create(d, u.ID)
 }
 
 func (u *User) Update(d db.QueryReceiver) error {
@@ -142,6 +149,25 @@ func (u *User) Validate() error {
 
 func (u *User) Topic() pubsub.Topic {
 	return pubsub.Topic(fmt.Sprintf("user-%d", u.ID))
+}
+
+func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
+	var b bool
+	err := d.QueryRowx(`SELECT true FROM users u
+		JOIN user_profiles up ON (up.user_id = u.id)
+		LEFT JOIN hosts h ON (h.user_id = u.id)
+		WHERE u.id = $1
+		GROUP BY up.max_hosts HAVING up.max_hosts > count(h.id);`,
+		u.ID).Scan(&b)
+
+	switch {
+	case err == sql.ErrNoRows:
+		return false, nil
+	case err != nil:
+		return false, err
+	default:
+		return true, nil
+	}
 }
 
 func (u *User) encryptPassword() error {

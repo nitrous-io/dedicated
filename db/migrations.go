@@ -378,5 +378,18 @@ func init() {
 				ALTER TABLE certs DROP COLUMN ca;
 			`,
 		},
+		{
+			Version: "300",
+			Up: `
+				CREATE TABLE user_profiles (
+					id bigserial PRIMARY KEY NOT NULL,
+					max_hosts bigint NOT NULL DEFAULT 1,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE UNIQUE INDEX index_user_profiles_on_user_id ON user_profiles USING btree (user_id);
+			`,
+		},
 	}
 }

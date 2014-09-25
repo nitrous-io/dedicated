@@ -33,6 +33,14 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	var size, regionSlug, slug, name string
 
+	canCreateHosts, err := env.User.CanCreateHosts(db)
+	if err != nil {
+		return err
+	}
+	if !canCreateHosts {
+		return errHostCreationNotAllowed
+	}
+
 	if size = r.FormValue("size"); size == "" {
 		return errSizeRequired
 	}
