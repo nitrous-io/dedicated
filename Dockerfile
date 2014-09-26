@@ -19,5 +19,5 @@ ADD ./script/createdb /createdb
 RUN /etc/init.d/postgresql start && /createdb
 
 RUN mkdir -p /opt/src/github.com/nitrous-io/tender
-WORKDIR /opt/src/github.com/nitrous-io/tender
 ADD . /opt/src/github.com/nitrous-io/tender
+WORKDIR /opt/src/github.com/nitrous-io/tender

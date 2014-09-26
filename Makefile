@@ -5,7 +5,7 @@ WARN_COLOR = \033[33;01m
 APP = tender 
 REVISION = $(shell git rev-parse --short HEAD)
 BASE_VERSION = $(shell cat VERSION)
-VERSION = $(BASE_VERSION)+$(BUILD_NUMBER)-$(REVISION)
+VERSION = $(BASE_VERSION)-$(REVISION)
 
 image:
 	@echo "$(OK_COLOR)==> Building Docker image...$(NO_COLOR)"
@@ -19,9 +19,9 @@ run: build
 	@echo "$(OK_COLOR)==> Running revision $(VERSION)...$(NO_COLOR)"
 	@goop exec forego start
 
-test: 
+test: image
 	@echo "$(OK_COLOR)==> Running tests for revision $(VERSION)...$(NO_COLOR)"
-	@./script/test
+	@./script/docker-test $(APP) $(VERSION)
 
 ci: image
 	@echo "$(OK_COLOR)==> Running ci (testing and building within Docker)...$(NO_COLOR)"
