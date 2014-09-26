@@ -1,9 +1,11 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
+
+APP=${1:?"app name is required"}
+VERSION=${2:?"version is required"}
 
 docker run \
   -v $(pwd):/opt/src/github.com/nitrous-io/tender \
   -w /opt/src/github.com/nitrous-io/tender \
   -it \
-  registry.nitrous.io/tender ./script/shell
-
+  $APP:$VERSION ./script/shell
