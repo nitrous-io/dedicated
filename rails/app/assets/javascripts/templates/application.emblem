@@ -1,2 +1,3 @@
 = outlet
+App.OfflineIndicatorView
 App.SnackbarView items=App.snackbar.items
