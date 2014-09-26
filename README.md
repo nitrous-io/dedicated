@@ -6,13 +6,13 @@ the host (which is TLS). Tender's services acts as brokers, which speak
 with Nitrous.IO public SSL certs to end-user, and speak Nitrous.IO private
 certs with each host
 
-This should be deployed once ( or many ) per region, and resolved by DNS. For
+This should be deployed once ( or many ) per region, and resolved by DNS (compass). For
 example:
 
 ```
 GET host.nitrousproxy.com/logs
-----> DNS
-----> 55.44.33.22 ( tender server)
+----> DNS (compass)
+----> host.nitrousproxy-region.com (tender server based on host's region)
 ----> Getting the address of the host
-----> proxy to the HTTP logs services on the host
+----> Proxy to the HTTP logs services on the host
 ```
