@@ -391,5 +391,16 @@ func init() {
 				CREATE UNIQUE INDEX index_user_profiles_on_user_id ON user_profiles USING btree (user_id);
 			`,
 		},
+
+		// Note: existing users will be limited to one host by default
+		// If you have a test account, change this value manually
+		{
+			Version: "310",
+			Up: `
+				INSERT INTO user_profiles (user_id) (
+					SELECT users.id FROM users WHERE NOT EXISTS (SELECT user_id FROM user_profiles)
+				);
+			`,
+		},
 	}
 }
