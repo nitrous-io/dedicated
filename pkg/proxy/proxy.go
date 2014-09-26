@@ -1,30 +1,47 @@
 package proxy
 
 import (
-	"fmt"
+	"crypto/tls"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"time"
 )
 
-func ProxyHTTP(addr string) http.HandlerFunc {
+var (
+	HTTPFlushInterval = 100 * time.Millisecond
+)
+
+func ProxyHTTP(addr string, tlsConfig *tls.Config) http.HandlerFunc {
 	p := &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
-			log.Printf("[INFO] http: proxy %s to %v", r.URL.Host, addr)
-			if r.URL.Scheme == "" {
+			log.Printf("[INFO] http: proxy %s to %s", r.URL, addr)
+			r.URL.Host = addr
+			if tlsConfig != nil {
+				r.URL.Scheme = "https"
+			} else {
 				r.URL.Scheme = "http"
 			}
 		},
-		Transport: &http.Transport{Proxy: nil},
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+		FlushInterval: HTTPFlushInterval,
 	}
 	return p.ServeHTTP
 }
 
-func ProxyWebsocket(addr string) http.HandlerFunc {
+func ProxyWebsocket(addr string, tlsConfig *tls.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		serverConn, err := net.Dial("tcp", addr)
+		var serverConn net.Conn
+		var err error
+		if tlsConfig != nil {
+			serverConn, err = tls.Dial("tcp", addr, tlsConfig)
+		} else {
+			serverConn, err = net.Dial("tcp", addr)
+		}
 		if err != nil {
 			handleError(w, r, "websocket: could not connect to backend", err)
 			return
@@ -44,41 +61,6 @@ func ProxyWebsocket(addr string) http.HandlerFunc {
 		defer clientConn.Close()
 
 		bidirectionalCopy(serverConn, clientConn)
-	}
-}
-
-func ProxyStream(addr string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// get the HTTP stream from remote server
-		dial, err := net.Dial("tcp", addr)
-		if err != nil {
-			handleError(w, r, "stream: failed to open remote server", err)
-			return
-		}
-		c := httputil.NewClientConn(dial, nil)
-		defer c.Close()
-
-		// we ignore error because the connection will be hijacked
-		resp, _ := c.Do(r)
-		if resp.StatusCode != http.StatusOK {
-			handleError(w, r, "stream: failed to open server stream", fmt.Errorf("Status: %d", resp.StatusCode))
-			return
-		}
-
-		// hijack the http . We have the stream writer and reader now
-		serverConn, _ := c.Hijack()
-		defer serverConn.Close()
-
-		// create the stream for the HTTP client
-		clientConn, err := hijackServer(w)
-		if err != nil {
-			handleError(w, r, "stream: failed to open client stream", err)
-			return
-		}
-		fmt.Fprintf(clientConn, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.proxy.raw-stream\r\n\r\n")
-		defer clientConn.Close()
-
-		bidirectionalCopy(clientConn, serverConn)
 	}
 }
 
