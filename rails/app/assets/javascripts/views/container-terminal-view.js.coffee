@@ -12,7 +12,7 @@ App.ContainerTerminalView = Em.View.extend
 
   willDestroyElement: ->
     @_super()
-    @$('iframe')[0]?.contentWindow?.NitrousTerminal?.stop()
+    @$('iframe')[0]?.contentWindow?.NitrousTerminal?.destroy()
     $('html').removeClass('fullscreen')
     @set 'controller.fullscreen', false
 
@@ -39,7 +39,9 @@ App.ContainerTerminalView = Em.View.extend
         scriptEl.onload = null
         terminal = iframeWindow.NitrousTerminal
         terminal.init()
-        controller.start(terminal)
+        terminal.willOpen = =>
+          controller.makeUrlAndConnect(terminal)
+        terminal.open()
         terminal.focus()
       iframeDocument.body.appendChild(scriptEl)
   ).observes 'controller.ready'

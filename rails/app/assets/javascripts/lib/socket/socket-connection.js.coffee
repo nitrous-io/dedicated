@@ -9,7 +9,7 @@ class window.SocketConnection
     @protocols = protocols
     @retries = 0
 
-  open: ->
+  open: (nobeforeopen) ->
     if ws = @ws
       ws.close()
       ws.onopen = null
@@ -19,7 +19,12 @@ class window.SocketConnection
       ws.removeEventListener 'open',  @_onopen,  false
       ws.removeEventListener 'close', @_onclose, false
 
-    @onbeforeopen()
+    unless nobeforeopen
+      @onbeforeopen()
+
+    unless @url
+      @ws = null
+      return
 
     @ws = ws = if @protocols
       new WebSocket(@url, @protocols)
@@ -34,7 +39,6 @@ class window.SocketConnection
       @retries = 0
 
     @_onclose ||= =>
-      @retries += 1
       if @_closeInvoked
         @_closeInvoked = false
         return
@@ -53,16 +57,24 @@ class window.SocketConnection
     window.setTimeout(=>
       @open()
     , delay)
+    @retries += 1
 
   send: ->
     @ws.send.apply(@ws, arguments)
 
   close: ->
     @_closeInvoked = true
-    @ws.close.apply(@ws, arguments)
+    @ws?.close?.apply(@ws, arguments)
 
   onbeforeopen: ->
   onopen: ->
   onclose: ->
   onmessage: ->
   onerror: ->
+
+Object.defineProperties window.SocketConnection.prototype,
+  binaryType     : { get: -> @ws?.binaryType }
+  bufferedAmount : { get: -> @ws?.bufferedAmount }
+  extensions     : { get: -> @ws?.extensions }
+  protocol       : { get: -> @ws?.protocol }
+  readyState     : { get: -> @ws?.readyState }

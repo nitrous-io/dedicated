@@ -47,32 +47,50 @@ describe 'SocketConnection', ->
     describe '#open', ->
       beforeEach ->
         sinon.stub conn, 'onbeforeopen'
-        conn.open()
 
-      it 'calls onbeforeopen', ->
-        expect(conn.onbeforeopen.called).to.be.true 'onbeforeopen is called'
+      context 'when nobeforeopen argument is not passed', ->
+        it 'calls onbeforeopen', ->
+          conn.open()
+          expect(conn.onbeforeopen.called).to.be.true 'onbeforeopen is called'
 
-      it 'initializes underlying websocket instance', ->
-        expect(conn.ws).to.be.instanceof WebSocket, 'websocket is initialized'
-        expect(WebSocket.calledWith(conn.url, conn.protocols)).to.be.true 'websocket is initialized with correct params'
+      context 'when nobeforeopen argument is true', ->
+        it 'does not call onbeforeopen', ->
+          conn.open(true)
+          expect(conn.onbeforeopen.called).to.be.false 'onbeforeopen is not called'
 
-      it "forwards underlying websocket instance's onopen, onclose, onmessage, and onerror", ->
-        evt = sinon.spy()
-        sinon.stub conn, 'onopen'
-        conn.ws.onopen(evt)
-        expect(conn.onopen.calledOnce && conn.onopen.calledWith(evt)).to.be.true 'onopen is called with correct event'
+      context 'when url is available', ->
+        it 'initializes underlying websocket instance', ->
+          conn.open()
+          expect(conn.ws).to.be.instanceof WebSocket, 'websocket is initialized'
+          expect(WebSocket.calledWith(conn.url, conn.protocols)).to.be.true 'websocket is initialized with correct params'
 
-        sinon.stub conn, 'onclose'
-        conn.ws.onclose(evt)
-        expect(conn.onclose.calledOnce && conn.onclose.calledWith(evt)).to.be.true 'onclose is called with correct event'
+        it "forwards underlying websocket instance's onopen, onclose, onmessage, and onerror", ->
+          conn.open()
 
-        sinon.stub conn, 'onmessage'
-        conn.ws.onmessage(evt)
-        expect(conn.onmessage.calledOnce && conn.onmessage.calledWith(evt)).to.be.true 'onmessage is called with correct event'
+          evt = sinon.spy()
+          sinon.stub conn, 'onopen'
+          conn.ws.onopen(evt)
+          expect(conn.onopen.calledOnce && conn.onopen.calledWith(evt)).to.be.true 'onopen is called with correct event'
 
-        sinon.stub conn, 'onerror'
-        conn.ws.onerror(evt)
-        expect(conn.onerror.calledOnce && conn.onerror.calledWith(evt)).to.be.true 'onerror is called with correct event'
+          sinon.stub conn, 'onclose'
+          conn.ws.onclose(evt)
+          expect(conn.onclose.calledOnce && conn.onclose.calledWith(evt)).to.be.true 'onclose is called with correct event'
+
+          sinon.stub conn, 'onmessage'
+          conn.ws.onmessage(evt)
+          expect(conn.onmessage.calledOnce && conn.onmessage.calledWith(evt)).to.be.true 'onmessage is called with correct event'
+
+          sinon.stub conn, 'onerror'
+          conn.ws.onerror(evt)
+          expect(conn.onerror.calledOnce && conn.onerror.calledWith(evt)).to.be.true 'onerror is called with correct event'
+
+      context 'when url is not available', ->
+        beforeEach ->
+          conn.url = null
+
+        it 'does not initialize websocket', ->
+          conn.open()
+          expect(conn.ws).to.be.null 'websocket is null'
 
     describe '#send', ->
       beforeEach ->
@@ -106,7 +124,6 @@ describe 'SocketConnection', ->
         context 'if is not invoked by user', ->
           it 'schedules auto reconnect', ->
             conn.ws.close()
-            expect(conn.retries).to.equal 1, 'increments retries'
             expect(conn.retry.called).to.be.true 'retry is called'
 
       describe '#retry', ->
@@ -116,6 +133,11 @@ describe 'SocketConnection', ->
 
         afterEach ->
           window.setTimeout.restore()
+
+        it 'increments retries', ->
+          conn.retries = 5
+          conn.retry()
+          expect(conn.retries).to.equal 6, 'retries is incremented'
 
         context 'when retries <= 5', ->
           beforeEach ->

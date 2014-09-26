@@ -6,7 +6,7 @@ App.ContainerTerminalController = Em.ObjectController.extend
   freighterdUrlBinding: Em.Binding.oneWay 'model.host.freighterdUrl'
   ready: Em.computed.notEmpty 'freighterdUrl'
 
-  start: (terminal) ->
+  makeUrlAndConnect: (terminal) ->
     container = @get 'model'
     freighterdUrl = @get 'freighterdUrl'
     term = terminal.term
@@ -21,22 +21,23 @@ App.ContainerTerminalController = Em.ObjectController.extend
       protocol = location.protocol.replace('http', 'ws')
       url = "#{protocol}//#{freighterdUrl}/containers/#{container.get 'cid'}/#{action}?token=#{token}&width=#{term.cols}&height=#{term.rows}"
 
-      readonly = false
-
       switch action
         when 'shell'
           command = encodeURIComponent(getLoginCommand())
           url += "&command=#{command}"
         when 'logs'
           url += "&follow=true"
-          readonly = true
+          terminal.readonly = true
           term.convertEol = true
         when 'attach'
           term.convertEol = true
 
-      terminal.start(url, readonly)
+      terminal.url = url
+      # url obtained, resume connecting
+      terminal.open(true)
     , (jqxhr) ->
-      App.postError(jqxhr.responseJSON, 'Could not connect to shell!')
+      terminal.retry()
+      App.postError(jqxhr.responseJSON, 'Could not connect to shell, retrying...')
 
 getLoginCommand = (username) ->
   username ||= "root"

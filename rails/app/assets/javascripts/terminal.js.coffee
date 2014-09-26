@@ -1,18 +1,37 @@
 #= require_self
+#= require lib/socket/socket-connection
 #= require webfonts
 #= require term
 
 window.NitrousTerminal =
   term: null
   conn: null
+  url: null
+  firstConnect: true
+  readonly: false
 
   resizeTimeout: null
 
   init: ->
+    @conn = conn = new SocketConnection()
+    conn.onbeforeopen   = => @willOpen()
+    conn.onopen    = (ev) => @didOpen(ev)
+    conn.onmessage = (ev) => @didReceiveMessage(ev)
+    conn.onerror   = (ev) => @didFail(ev)
+    conn.onclose   = (ev) => @didClose(ev)
+
     @term = term = new Terminal(80, 25)
     term.open(document.body)
     term.sizeToFit()
     term.write 'Connecting...'
+
+    term.on 'resize', (cols, rows) ->
+      return if conn.readyState != 1
+      conn.send "r|#{cols} #{rows}"
+
+    term.handler = (data) =>
+      return if @readonly || conn.readyState != 1
+      conn.send "d|#{data}"
 
     window.onresize = =>
       return unless @term
@@ -33,44 +52,42 @@ window.NitrousTerminal =
       Terminal.focus = null
       @term.redrawCursor()
 
-  start: (url, readonly=false) ->
-    @conn = conn = new WebSocket(url)
-    conn.onopen    = (ev) => @open(ev)
-    conn.onmessage = (ev) => @message(ev)
-    conn.onerror   = (ev) => @error(ev)
-    conn.onclose   = (ev) => @close(ev)
+  open: (nobeforeopen) ->
+    @conn.url = @url
+    @conn.open(nobeforeopen)
+    @conn.url = null
 
-    term = @term
+  retry: ->
+    @conn.retry()
 
-    term.on 'resize', (cols, rows)->
-      return unless conn.readyState == 1
-      conn.send "r|#{cols} #{rows}"
-
-    unless readonly
-      term.handler = (data) ->
-        return unless conn.readyState == 1
-        conn.send "d|#{data}"
-
-  stop: ->
+  destroy: ->
     @term?.write('c|goodbye')
     @term?.removeAllListeners('resize')
     @term?.handler = null
     @term?.destroy()
     @conn?.close()
+    @willOpen = null
 
   focus: ->
     @term?.focus()
 
-  open: (ev) ->
-    @term.write '\x1b[r\x1b[H\x1b[J'
+  willOpen: ->
+    # override me
 
-  message: (ev) ->
+  didOpen: (ev) ->
+    if @firstConnect
+      @firstConnect = false
+      @term.write '\x1b[r\x1b[H\x1b[J'
+    else
+      @term.write '\r\n'
+
+  didReceiveMessage: (ev) ->
     if ev.data.slice(0, 2) == 'd|'
       @term.write ev.data.slice(2)
 
-  error: (ev) ->
+  didFail: (ev) ->
 
-  close: (ev) ->
+  didClose: (ev) ->
 
 window.webFontLoaded = ->
   NitrousTerminal.term?.sizeToFit()
