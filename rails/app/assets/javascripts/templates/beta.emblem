@@ -1,0 +1,33 @@
+.container
+  .left
+    | Nitrous Pro Pre-Release Beta
+  .right
+    ul.space-separated
+      li
+        a href='https://nitrous-io.github.io/docs.nitrous.io/' target='_blank' Beta Docs
+      li
+        a href='#' click='sendFeedback target="view"' Send Feedback
+
+#feedback-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Send Feedback
+    form submit='send'
+      .card-body
+        .ui.input-group
+          label.field-label for='feedback-subject'
+            | Subject
+          = input type='text' id='feedback-subject' value=subject required=true
+
+          label.field-label for='feedback-message'
+            | Message
+          Ember.TextArea id='feedback-message' rows='10' value=message required=true
+      .card-footer
+        .right
+          if sending
+            button.ui.btn disabled='disabled'
+              i.spinner
+              | Sending...
+          else
+            a.ui.btn href='#' click='cancelFeedback target="view"' Cancel
+            input.ui.btn.primary type='submit' value='Send'

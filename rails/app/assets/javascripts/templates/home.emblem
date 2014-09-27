@@ -1,3 +1,4 @@
+= outlet beta
 = outlet topnav
 #body-wrapper.container
   #sidebar-wrapper
@@ -5,3 +6,5 @@
   #content-wrapper
     = outlet content
 = partial 'footer'
+App.OfflineIndicatorView
+App.SnackbarView items=App.snackbar.items

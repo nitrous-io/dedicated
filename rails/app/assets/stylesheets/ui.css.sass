@@ -265,21 +265,22 @@ table.ui.table
     border-bottom: 1px solid $gray300
     background: transparent
     border-radius: 0
-    transition: border-bottom-color .2s, background-color .2s
     outline: none
     line-height: initial
-    transition: color .3s
+    transition: color .2s, box-shadow .2s, border-bottom-color .2s, background-color .2s
 
     &:focus
       outline: none
-      border-bottom: 2px solid $lightBlue500
+      box-shadow: inset 0 -1px 0 $lightBlue500
+      border-bottom-color: $lightBlue500
 
     &:disabled, &[disabled], &.disabled
       color: $gray400
       border-bottom: 1px dotted $gray300
 
     &.error
-      border-bottom: 2px solid $red300
+      box-shadow: inset 0 -1px 0 $red300
+      border-bottom: 1px solid $red300
 
   input[type=text], input[type=password], input[type=search], input[type=email], input[type=url], input[type=number]
     height: 38px
@@ -568,7 +569,7 @@ ul.ui.snackbar
   transition: height 1s
   pointer-events: none
   text-align: right
-  z-index: 100
+  z-index: 1000
 
   .snackbar-item
     margin-top: -48px
@@ -605,6 +606,7 @@ ul.ui.snackbar
   left: 0
   width: 100%
   height: 100%
+  z-index: 100
 
   &:before
     content: ''
