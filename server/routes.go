@@ -4,6 +4,7 @@ import (
 	"github.com/nitrous-io/nitrous/controllers/baseimages"
 	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/controllers/events"
+	"github.com/nitrous-io/nitrous/controllers/feedback"
 	"github.com/nitrous-io/nitrous/controllers/home"
 	"github.com/nitrous-io/nitrous/controllers/hosts"
 	"github.com/nitrous-io/nitrous/controllers/images"
@@ -55,8 +56,8 @@ func (s *Server) drawRoutes() {
 		// Test thoroughly before adding a POST /hosts/{slug}/images/{image:.*}
 		// endpoint because that would probably match the push and tag routes.
 		s.routeJSON("/hosts/{slug}/images/{image:.*}/push", mw.Auth(mw.HostViaPath("slug", images.Push)), "POST")
-		s.routeJSON("/hosts/{slug}/images/{image:.*}", mw.Auth(mw.HostViaPath("slug", images.Remove)), "DELETE")
 		s.routeJSON("/hosts/{slug}/images/{image:.*}/tag", mw.Auth(mw.HostViaPath("slug", images.Tag)), "POST")
+		s.routeJSON("/hosts/{slug}/images/{image:.*}", mw.Auth(mw.HostViaPath("slug", images.Remove)), "DELETE")
 
 		s.routeJSON("/containers", mw.Auth(containers.Index), "GET")
 		s.routeJSON("/containers", mw.Auth(containers.Create), "POST")
@@ -73,6 +74,8 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Create), "PUT")
 		s.routeJSON("/containers/{slug}/keys/{kslug}", mw.Auth(keys.Delete), "DELETE")
 		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.DeleteAll), "DELETE")
+
+		s.routeJSON("/feedback", mw.Auth(feedback.Send), "POST")
 
 		s.routeJSON("/plans", plans.Index, "GET")
 		s.routeJSON("/regions", regions.Index, "GET")
