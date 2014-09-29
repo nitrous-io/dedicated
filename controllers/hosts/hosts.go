@@ -35,6 +35,7 @@ var (
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	errCertNotFound             = httperror.New(http.StatusNotFound, "not_found", "host certificate does not exist")
+	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another host creation request is currently processed")
 )
 
 var (

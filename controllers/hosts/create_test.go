@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -355,6 +356,32 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].Slug).To(Equal("honeybadger"))
+		})
+
+		Context("when trying to create multiple hosts concurrently", func() {
+			It("only creates one host", func() {
+				var wg sync.WaitGroup
+				var resCodes []int
+
+				for i := 0; i < 2; i++ {
+					wg.Add(1)
+					hID := i
+					go func() {
+						params.Set("slug", fmt.Sprintf("host-%d", hID))
+						res := doRequest(params)
+						resCodes = append(resCodes, res.Code)
+						defer wg.Done()
+					}()
+				}
+
+				wg.Wait()
+
+				hosts, err := host.FindAllByUser(db, u)
+				Expect(err).To(BeNil())
+				Expect(len(hosts)).To(Equal(1))
+
+				Expect(resCodes).To(ConsistOf(http.StatusOK, http.StatusConflict))
+			})
 		})
 	})
 

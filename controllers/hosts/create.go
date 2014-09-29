@@ -33,14 +33,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	var size, regionSlug, slug, name string
 
-	canCreateHosts, err := env.User.CanCreateHosts(db)
-	if err != nil {
-		return err
-	}
-	if !canCreateHosts {
-		return errHostCreationNotAllowed
-	}
-
 	if size = r.FormValue("size"); size == "" {
 		return errSizeRequired
 	}
@@ -199,6 +191,7 @@ func (ctx *createContext) run(env *middleware.Env, writer io.Writer, async bool)
 // TODO: check if user account is eligible to create hosts (has a credit card on file)
 func newCreateContext(db *ndb.Database, user *user.User, size, regionSlug, slug, name string) (*createContext, error) {
 	var err error
+
 	ctx := &createContext{
 		User: user,
 		db:   db,
@@ -245,6 +238,28 @@ func newCreateContext(db *ndb.Database, user *user.User, size, regionSlug, slug,
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a transaction for host %s, err: %s", slug, err)
 	}
+
+	// don't allow hosts to be created concurrently
+	locked, err := ndb.TransactionLock(tx, ndb.HOST_CREATE_LOCK, int(user.ID))
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if !locked {
+		tx.Rollback()
+		return nil, errMultipleRequests
+	}
+
+	canCreateHosts, err := user.CanCreateHosts(tx)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if !canCreateHosts {
+		tx.Rollback()
+		return nil, errHostCreationNotAllowed
+	}
+
 	if err := ctx.Host.Insert(tx); err != nil {
 		tx.Rollback()
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {

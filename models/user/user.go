@@ -154,21 +154,18 @@ func (u *User) Topic() pubsub.Topic {
 
 func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 	var b bool
-	err := d.QueryRowx(`SELECT true FROM users u
+	err := d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
+		FROM users u
 		JOIN user_profiles up ON (up.user_id = u.id)
 		LEFT JOIN hosts h ON (h.user_id = u.id)
-		WHERE u.id = $1
-		GROUP BY up.max_hosts HAVING up.max_hosts > count(h.id);`,
+		WHERE u.id = $1;`,
 		u.ID).Scan(&b)
 
-	switch {
-	case err == sql.ErrNoRows:
-		return false, nil
-	case err != nil:
+	if err != nil {
 		return false, err
-	default:
-		return true, nil
 	}
+
+	return b, nil
 }
 
 func (u *User) encryptPassword() error {
