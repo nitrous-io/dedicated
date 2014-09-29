@@ -297,7 +297,7 @@ func (s *Server) exportContainer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) getContainerLogs(token string, w http.ResponseWriter, r *http.Request) error {
+func (s *Server) getContainerLogs(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 
 	// convert to bool, ignore the errors as the value will be false when error
@@ -314,7 +314,7 @@ func (s *Server) getContainerLogs(token string, w http.ResponseWriter, r *http.R
 
 // wsNewShell creates a new shell to a container using protocol specified in
 // pkg/shell/protocol.go
-func (s *Server) wsNewShell(token string, w http.ResponseWriter, r *http.Request) error {
+func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	info, err := s.provider.GetInfo(id)
 	if err != nil {
@@ -542,7 +542,7 @@ func (s *Server) inspectImage(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) wsAttachToContainer(token string, w http.ResponseWriter, r *http.Request) error {
+func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	info, err := s.provider.GetInfo(id)
 	if err != nil {
