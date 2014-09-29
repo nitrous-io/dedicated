@@ -496,7 +496,7 @@ var _ = Describe("controllers/images", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
-			mockClient.BuildImageError = &freighterclient.StatusError{418}
+			mockClient.BuildImageError = &freighterclient.StatusError{Code: 418}
 			params := map[string]string{
 				"slug": "scratcher",
 				"code": "FROM scratch",
@@ -831,7 +831,7 @@ var _ = Describe("controllers/images", func() {
 			})
 
 			It("does not update the existing image if build fails", func() {
-				mockClient.BuildImageError = &freighterclient.StatusError{418}
+				mockClient.BuildImageError = &freighterclient.StatusError{Code: 418}
 				params := map[string]string{
 					"slug":   "scratcher:mytag",
 					"name":   "scratcher v1 test",
@@ -983,7 +983,7 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("returns 500 on freighterclient error", func() {
-			mockClient.PushImageError = &freighterclient.StatusError{418}
+			mockClient.PushImageError = &freighterclient.StatusError{Code: 418}
 			res := doRequest("foo", "devenv", &url.Values{"destination": []string{"scratch"}})
 			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 			Expect(mockClient.PushImageCalled).To(Equal(1))
@@ -1114,7 +1114,7 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("returns 500 on freighterclient error", func() {
-			mockClient.TagImageError = &freighterclient.StatusError{418}
+			mockClient.TagImageError = &freighterclient.StatusError{Code: 418}
 			res := doRequest("foo", "nitrousio/scratch", &url.Values{"tag": []string{"staging"}})
 			Expect(mockClient.TagImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
