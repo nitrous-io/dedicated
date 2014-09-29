@@ -1,13 +1,13 @@
 App.PerformActionMixin = Ember.Mixin.create
-  performAction: (method, action, tempState) ->
+  performAction: (method, action, tempState, data=null) ->
     record = @get('model')
     prevState = record.get('state')
     record.set 'state', tempState
     rootKey = record.constructor.rootKey
-    ajax = record.ajax(method, action)
+    ajax = record.ajax(method, action, data)
     ajax.then (json) ->
-      if data = json[rootKey]
-        record.load(data)
+      if attrs = json[rootKey]
+        record.load(attrs)
     , (jqxhr) -> # record.ajax
       App.postError(jqxhr.responseJSON, "Failed to #{action}!")
       record.set('state', prevState)

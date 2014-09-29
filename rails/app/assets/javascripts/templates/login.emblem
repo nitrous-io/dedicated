@@ -16,8 +16,13 @@
 
     .card-footer
       .right
-        button.ui.btn.primary.login-submit-btn click='login' disabled={view.disableSubmitButton}
-          | Log In
+        if loggingIn
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Logging In...
+        else
+          button.ui.btn.primary.login-submit-btn click='login' disabled={view.disableSubmitButton}
+            | Log In
 
 p.note
   | Don&rsquo;t have an account?&nbsp;

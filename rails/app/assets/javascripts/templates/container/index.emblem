@@ -83,6 +83,7 @@
       button.ui.btn click='restart' Restart
       button.ui.btn click='stop' Stop
     .right
+      button.ui.btn click='showSnapshotDialog target="view"' Snapshot
       button.ui.btn click='openLogs' Logs
       button.ui.btn click='openAttach' Attach
       button.ui.btn.primary click='openTerminal' Terminal
@@ -91,6 +92,7 @@
       .left
         button.ui.btn click='showTerminateDialog target="view"' Terminate
       .right
+        button.ui.btn click='showSnapshotDialog target="view"' Snapshot
         button.ui.btn.primary click='start' Start
     else
       if isTerminated
@@ -99,6 +101,26 @@
       else
         .left
           button.ui.btn disabled='disabled' Please Wait...
+
+#snapshot-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | New Snapshot
+    form
+      .card-body
+        .ui.input-group
+          label.field-label for='snapshot-name'
+            | Image Name/Tag
+          = input type='text' id='snapshot-name' value=snapshotImageName required=true
+    .card-footer
+      .right
+        if snapshotting
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Taking Snapshot...
+        else
+          button.ui.btn click='cancelSnapshot target="view"' Cancel
+          button.ui.btn.primary click='confirmSnapshot target="view"' disabled=view.snapshotImageNameIsEmpty Take
 
 #terminate-modal-dialog.ui.modal
   .ui.card

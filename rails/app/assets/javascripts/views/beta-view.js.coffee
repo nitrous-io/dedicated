@@ -2,7 +2,7 @@ App.BetaView = Em.View.extend
   elementId: 'beta-view'
   templateName: 'beta'
 
-  observeClose: (->
+  closeDidChange: (->
     if @get 'controller.close'
       @set 'controller.close', false
       @send 'cancelFeedback'

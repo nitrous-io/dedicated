@@ -27,7 +27,7 @@ App.BetaController = Em.Controller.extend
         body: @get 'body'
 
       App.User.adapter.ajax('POST', '/feedback', data).then =>
-        App.snackbar.post("Your feedback has been succesfully sent!")
+        App.snackbar.post("Your feedback was successfully sent!")
         @clear()
         @set 'close', true
       , (jqxhr) ->
