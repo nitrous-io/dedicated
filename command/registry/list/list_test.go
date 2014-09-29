@@ -80,7 +80,7 @@ hub1.example.com    test1      test1@example.com
 
 			It("shows not logged in to any registries", func() {
 				code := cmd.Run([]string{"foo"})
-				Expect(ui.OutputWriter.String()).To(ContainSubstring("You are not logged-in to any registries"))
+				Expect(ui.OutputWriter.String()).To(ContainSubstring("You are not logged in to any registries"))
 				Expect(code).To(Equal(0))
 			})
 		})
