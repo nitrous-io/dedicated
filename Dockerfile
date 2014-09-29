@@ -5,8 +5,9 @@ RUN apt-get update && apt-get install -y \
   build-essential \
   curl \
   git \
-  mercurial \
   ruby1.9.3
+
+RUN apt-get install -y --no-install-recommends mercurial
 
 RUN curl -s https://storage.googleapis.com/golang/go1.3.linux-amd64.tar.gz \
   | tar -v -C /usr/local -xz
