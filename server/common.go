@@ -17,11 +17,10 @@ var (
 )
 
 type httpFunc func(w http.ResponseWriter, r *http.Request) error
-type httpFuncWithToken func(token string, w http.ResponseWriter, r *http.Request) error
 
 const authHeaderTokenPrefix = "Token "
 
-func (s *Server) withContainerToken(handler httpFuncWithToken, permissions ...string) httpFunc {
+func (s *Server) withContainerToken(handler httpFunc, permissions ...string) httpFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		var token string
 
@@ -35,7 +34,7 @@ func (s *Server) withContainerToken(handler httpFuncWithToken, permissions ...st
 		if token != "" {
 			id := mux.Vars(r)["id"]
 			if err := s.provider.VerifyToken(id, token, permissions...); err == nil {
-				return handler(token, w, r)
+				return handler(w, r)
 			}
 		}
 
