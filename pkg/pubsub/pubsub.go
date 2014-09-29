@@ -8,6 +8,11 @@ type Pubsub struct {
 	capacity int
 }
 
+type Info struct {
+	Topics    int
+	Consumers int
+}
+
 type Topic string
 
 type Message interface{}
@@ -19,6 +24,17 @@ func New(capacity int) *Pubsub {
 		registry: make(map[Topic]map[chan Message]struct{}),
 		capacity: capacity,
 	}
+}
+
+// Return  number of topics and total number of consumers for the current
+// pubsub
+func (ps *Pubsub) Info() Info {
+	var nTopics, nConsumers int
+	for _, chs := range ps.registry {
+		nTopics += 1
+		nConsumers += len(chs)
+	}
+	return Info{Topics: nTopics, Consumers: nConsumers}
 }
 
 // Subscribe returns a buffered channel that receives Messages about 1 or more

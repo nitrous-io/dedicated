@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -63,6 +65,20 @@ func (s *Server) namespace(ns string, f func()) {
 	nsStack = append(nsStack, ns)
 	f()
 	nsStack = nsStack[:len(nsStack)-1]
+}
+
+// debugHandler prints out debug information in json format. This should work
+// only for admin user
+func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	psInfo := s.Events.Info()
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"num_topics":    psInfo.Topics,
+		"num_consumers": psInfo.Consumers,
+		"num_fds":       s.getNumFds(),
+		"num_goroutine": runtime.NumGoroutine(),
+	}
+	return nil
 }
 
 func (s *Server) route(route string, mw middleware.Middleware, methods ...string) {
@@ -162,4 +178,14 @@ func (s *Server) serverError(err error) error {
 	e := httperror.New(http.StatusInternalServerError, "internal_server_error", "", errHash)
 	s.logger.Error(errHash, errMsg)
 	return e
+}
+
+func (s *Server) getNumFds() int {
+	pid := os.Getpid()
+	fds, err := ioutil.ReadDir(fmt.Sprintf("/proc/%d/fd", pid))
+	if err != nil {
+		s.logger.Errorf("Error opening /proc/%d/fd: %s", pid, err)
+		return -1
+	}
+	return len(fds)
 }
