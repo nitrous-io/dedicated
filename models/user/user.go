@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/userprofile"
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
@@ -77,11 +78,11 @@ func FindByUsernameOrEmail(d db.QueryReceiver, login string) (*User, error) {
 	return user, nil
 }
 
-func (u *User) Insert(d db.QueryReceiver) error {
+func (u *User) Insert(tx *sqlx.Tx) error {
 	if err := u.encryptPassword(); err != nil {
 		return err
 	}
-	nstmt, err := d.PrepareNamed(`INSERT INTO users
+	nstmt, err := tx.PrepareNamed(`INSERT INTO users
 		(email, username, encrypted_password, name)
 		VALUES (:email, :username, :encrypted_password, :name)
 		RETURNING *;`)
@@ -94,7 +95,7 @@ func (u *User) Insert(d db.QueryReceiver) error {
 	}
 
 	// create a user profile
-	return userprofile.Create(d, u.ID)
+	return userprofile.Create(tx, u.ID)
 }
 
 func (u *User) Update(d db.QueryReceiver) error {

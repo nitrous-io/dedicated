@@ -28,6 +28,7 @@ import (
 	"github.com/nitrous-io/nitrous/server"
 	"github.com/nitrous-io/nitrous/test"
 
+	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -431,7 +432,7 @@ func newPullTestCtx(fs *freighterServer, db *db.Database) *pullTestCtx {
 		Email:    "foo@example.com",
 	}
 
-	err = u.Insert(db)
+	err = WrapInTransaction(db, u.Insert)
 	Expect(err).To(BeNil(), "failed to setup test user")
 
 	t := &token.Token{

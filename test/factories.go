@@ -79,7 +79,7 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 		}
 	}
 	if hs.U.ID == 0 {
-		err = hs.U.Insert(tx)
+		err = WrapInTransaction(db, hs.U.Insert)
 		if err != nil {
 			tx.Rollback()
 			return nil, err

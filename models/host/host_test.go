@@ -52,7 +52,7 @@ var _ = Describe("models/host", func() {
 				Email:    "foo@example.com",
 				Password: "123456",
 			}
-			err = u1.Insert(db)
+			err = WrapInTransaction(db, u1.Insert)
 			Expect(err).To(BeNil())
 
 			u2 = &user.User{
@@ -60,7 +60,7 @@ var _ = Describe("models/host", func() {
 				Email:    "bar@example.com",
 				Password: "123456",
 			}
-			err = u2.Insert(db)
+			err = WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
@@ -117,7 +117,7 @@ var _ = Describe("models/host", func() {
 					Email:    "barbaz@example.com",
 					Password: "123456",
 				}
-				err := u.Insert(db)
+				err := WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
 
 				h, err := host.Find(db, u, strconv.FormatInt(hs.H.ID, 10))
@@ -149,7 +149,7 @@ var _ = Describe("models/host", func() {
 					Email:    "barbaz@example.com",
 					Password: "123456",
 				}
-				err := u.Insert(db)
+				err := WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
 
 				h, err := host.Find(db, u, hs.H.Slug)
@@ -233,7 +233,7 @@ var _ = Describe("models/host", func() {
 				Email:    "foo@example.com",
 				Password: "123456",
 			}
-			err = u.Insert(db)
+			err = WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			h = &host.Host{

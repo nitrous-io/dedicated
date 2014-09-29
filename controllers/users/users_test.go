@@ -53,7 +53,7 @@ var _ = Describe("controllers/users", func() {
 			Password: "123456",
 			Email:    "tokenuser@example.com",
 		}
-		err = u.Insert(db)
+		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 		Expect(u.ID).NotTo(BeZero())
 
@@ -238,7 +238,8 @@ var _ = Describe("controllers/users", func() {
 					Password: "123456",
 					Email:    "taken@example.com",
 				}
-				Expect(u.Insert(db)).To(BeNil())
+				err := WrapInTransaction(db, u.Insert)
+				Expect(err).To(BeNil())
 
 				params := &url.Values{}
 				params.Set("email", "taken@example.com")

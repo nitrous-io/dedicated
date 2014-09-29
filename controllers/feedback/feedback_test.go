@@ -62,7 +62,7 @@ var _ = Describe("controllers/feedback", func() {
 			Name:     "CATS",
 			Email:    "cats@example.com",
 		}
-		err = u.Insert(db)
+		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 
 		t = &token.Token{

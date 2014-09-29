@@ -3,7 +3,7 @@ package userprofile
 import (
 	"time"
 
-	"github.com/nitrous-io/nitrous/db"
+	"github.com/jmoiron/sqlx"
 )
 
 type UserProfile struct {
@@ -15,7 +15,7 @@ type UserProfile struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
-func Create(d db.QueryReceiver, userID int64) error {
-	_, err := d.Exec(`INSERT INTO user_profiles (user_id) VALUES ($1);`, userID)
+func Create(tx *sqlx.Tx, userID int64) error {
+	_, err := tx.Exec(`INSERT INTO user_profiles (user_id) VALUES ($1);`, userID)
 	return err
 }

@@ -229,8 +229,9 @@ var _ = Describe("models/user", func() {
 			var u2 *user.User
 
 			BeforeEach(func() {
-				err := u.Insert(db)
+				err := WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
+
 				u2, err = user.FindByUsername(db, "qux")
 				Expect(err).To(BeNil())
 				Expect(u2).NotTo(BeNil())
@@ -269,10 +270,15 @@ var _ = Describe("models/user", func() {
 			})
 		})
 
-		Context("when some error happens", func() {
-			It("returns error", func() {
-				db.Close()
-				err := u.Insert(db)
+		Context("when some error occurrs during the transaction", func() {
+			It("returns an the error", func() {
+				tx, err := db.Beginx()
+				Expect(err).To(BeNil())
+
+				err = tx.Rollback()
+				Expect(err).To(BeNil())
+
+				err = u.Insert(tx)
 				Expect(err).NotTo(BeNil())
 			})
 		})
@@ -288,7 +294,8 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			Expect(u.Insert(db)).To(BeNil())
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
 		})
 
 		It("updates name, email, encrypted_password, updated_at", func() {
@@ -415,9 +422,10 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			Expect(u.Insert(db)).To(BeNil())
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
 
-			_, err := db.Exec(`UPDATE user_profiles SET max_hosts = 2 WHERE user_id = $1;`, u.ID)
+			_, err = db.Exec(`UPDATE user_profiles SET max_hosts = 2 WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 		})
 

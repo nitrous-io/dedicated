@@ -3,6 +3,7 @@ package userprofile_test
 import (
 	"testing"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/user"
 	"github.com/nitrous-io/nitrous/models/userprofile"
@@ -33,7 +34,8 @@ var _ = Describe("models/userprofile", func() {
 			Email:    "foo@example.com",
 			Password: "123456",
 		}
-		err = u.Insert(db)
+
+		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 	})
 
@@ -45,12 +47,9 @@ var _ = Describe("models/userprofile", func() {
 
 	Describe("Create()", func() {
 		It("creates a new user profile", func() {
-			tx, err := db.Beginx(db)
-			Expect(err).To(BeNil())
-			err := userprofile.Create(db, u.ID)
-			Expect(err).To(BeNil())
-			err = tx.Commit()
-			Expect(err).To(BeNil())
+			err := WrapInTransaction(db, func(tx *sqlx.Tx) error {
+				return userprofile.Create(tx, u.ID)
+			})
 
 			p := &userprofile.UserProfile{}
 			err = db.Get(p, "SELECT * FROM user_profiles WHERE user_profiles.user_id = $1;", u.ID)
