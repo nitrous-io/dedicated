@@ -771,6 +771,7 @@ var _ = Describe("client", func() {
 				container, err := cl.Start("deadbeef", nil)
 				Expect(err).To(MatchError(&freighterclient.StatusError{
 					Code: http.StatusInternalServerError,
+					Body: "",
 				}))
 				Expect(container).To(BeNil())
 			})
@@ -893,6 +894,7 @@ var _ = Describe("client", func() {
 					container, err := fnUnderTest(id)
 					Expect(err).To(MatchError(&freighterclient.StatusError{
 						Code: http.StatusInternalServerError,
+						Body: responseBody,
 					}))
 					Expect(container).To(BeNil())
 				})
@@ -992,6 +994,7 @@ var _ = Describe("client", func() {
 				container, err := cl.Terminate("cafefeed")
 				Expect(err).To(MatchError(&freighterclient.StatusError{
 					Code: http.StatusInternalServerError,
+					Body: responseBody,
 				}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(container).To(BeNil())
@@ -1071,6 +1074,7 @@ var _ = Describe("client", func() {
 					err := cl.AddPublicKeys("yosemite", []string{"key1", "key2"})
 					Expect(err).To(Equal(&freighterclient.StatusError{
 						Code: http.StatusInternalServerError,
+						Body: responseBody,
 					}))
 				})
 			})
@@ -1120,6 +1124,7 @@ var _ = Describe("client", func() {
 					err := cl.ClearPublicKeys("yosemite")
 					Expect(err).To(Equal(&freighterclient.StatusError{
 						Code: http.StatusInternalServerError,
+						Body: responseBody,
 					}))
 				})
 			})
@@ -1169,6 +1174,7 @@ var _ = Describe("client", func() {
 					err := cl.RemovePublicKey("yosemite", "fprint1")
 					Expect(err).To(Equal(&freighterclient.StatusError{
 						Code: http.StatusInternalServerError,
+						Body: responseBody,
 					}))
 				})
 			})
@@ -1444,6 +1450,7 @@ var _ = Describe("client", func() {
 				err := doRequest()
 				Expect(err).To(MatchError(&freighterclient.StatusError{
 					Code: http.StatusInternalServerError,
+					Body: responseBody,
 				}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 			})
@@ -1518,6 +1525,7 @@ var _ = Describe("client", func() {
 				err := doRequest()
 				Expect(err).To(MatchError(&freighterclient.StatusError{
 					Code: http.StatusInternalServerError,
+					Body: responseBody,
 				}))
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 			})
@@ -1691,7 +1699,10 @@ var _ = Describe("client", func() {
 			It("should surface response failures in StatusErr", func() {
 				statusCode = http.StatusInternalServerError
 				err := cl.BuildImage("myimage:tag", bytes.NewBufferString("dockerfile"), ioutil.Discard, "")
-				Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+				Expect(err).To(Equal(&freighterclient.StatusError{
+					Code: http.StatusInternalServerError,
+					Body: responseBody,
+				}))
 			})
 		})
 
@@ -1778,7 +1789,7 @@ var _ = Describe("client", func() {
 			Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
 		})
 
-		It("returns error when we cant fetch image data", func() {
+		It("returns error when we can't fetch image data", func() {
 			handlers := ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", "/images/inspect"),
 				ghttp.RespondWith(http.StatusInternalServerError, ""),
@@ -1788,7 +1799,10 @@ var _ = Describe("client", func() {
 			cl := st.client
 
 			image, err := cl.InspectImage("myimage:tag")
-			Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+			Expect(err).To(Equal(&freighterclient.StatusError{
+				Code: http.StatusInternalServerError,
+				Body: "",
+			}))
 			Expect(image).To(BeNil())
 		})
 	})
@@ -1856,7 +1870,10 @@ var _ = Describe("client", func() {
 				It("should surface response failures in StatusErr", func() {
 					statusCode = http.StatusInternalServerError
 					err := cl.RemoveImage("imageid")
-					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+						Body: responseBody,
+					}))
 				})
 			})
 		})
@@ -1903,7 +1920,10 @@ var _ = Describe("client", func() {
 					statusCode = http.StatusInternalServerError
 
 					err := cl.PushImage("imageid", "hub.docker.com/me/imageid")
-					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+						Body: responseBody,
+					}))
 				})
 			})
 		})
@@ -1949,7 +1969,10 @@ var _ = Describe("client", func() {
 					statusCode = http.StatusInternalServerError
 					err := cl.TagImage("imageid", "mytag", true)
 
-					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+						Body: responseBody,
+					}))
 				})
 			})
 		})
@@ -2047,7 +2070,10 @@ var _ = Describe("client", func() {
 				It("should surface response failures in StatusErr", func() {
 					statusCode = http.StatusInternalServerError
 					err := cl.PullImage("myimage:tag", true, ioutil.Discard)
-					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+						Body: responseBody,
+					}))
 				})
 			})
 		})
@@ -2141,7 +2167,10 @@ var _ = Describe("client", func() {
 					statusCode = http.StatusInternalServerError
 					images, err := cl.ListImages()
 
-					Expect(err).To(Equal(&freighterclient.StatusError{Code: http.StatusInternalServerError}))
+					Expect(err).To(Equal(&freighterclient.StatusError{
+						Code: http.StatusInternalServerError,
+						Body: responseBody,
+					}))
 					Expect(images).To(BeNil())
 				})
 			})

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -186,10 +187,11 @@ func (e *StartFailedError) Error() string {
 
 type StatusError struct {
 	Code int
+	Body string
 }
 
 func (e *StatusError) Error() string {
-	return fmt.Sprintf("freighter: unexpected HTTP %d", e.Code)
+	return fmt.Sprintf("freighter: unexpected HTTP %d, body: %s", e.Code, e.Body)
 }
 
 type client struct {
@@ -264,7 +266,7 @@ func (c *client) List() ([]*Container, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, &StatusError{resp.StatusCode}
+		return nil, statusError(resp)
 	}
 
 	var containers containersResponse
@@ -317,7 +319,7 @@ func (c *client) Create(name, image, secret string, config *ContainerConfig) (*C
 	case http.StatusNotFound:
 		return nil, ErrImageNotFound
 	default:
-		return nil, &StatusError{resp.StatusCode}
+		return nil, statusError(resp)
 	}
 
 	containerResp, err := unmarshalContainerResponse(resp)
@@ -347,7 +349,7 @@ func (c *client) Commit(id, imageName string) (*Image, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, &StatusError{resp.StatusCode}
+		return nil, statusError(resp)
 	}
 
 	var imageInfo struct {
@@ -487,7 +489,7 @@ func (c *client) Logs(
 		case ErrUnverifiable.Error():
 			return ErrUnverifiable
 		default:
-			return &StatusError{resp.StatusCode}
+			return statusError(resp)
 		}
 	}
 	if _, err := io.Copy(w, resp.Body); err != nil {
@@ -526,7 +528,7 @@ func (c *client) RegistryLogin(p *RegistryAuth) error {
 	case StatusUnprocessableEntity:
 		return ErrInvalidParams
 	default:
-		return &StatusError{resp.StatusCode}
+		return statusError(resp)
 	}
 
 	return nil
@@ -556,7 +558,7 @@ func (c *client) RegistryLogout(registry string) error {
 	case StatusUnprocessableEntity:
 		return ErrInvalidParams
 	default:
-		return &StatusError{resp.StatusCode}
+		return statusError(resp)
 	}
 
 	return nil
@@ -582,10 +584,9 @@ func (c *client) doPublicKeyOp(req *http.Request) error {
 		if errorResp.Error == provider.ErrPubKeyOpsNotSupported.Error() {
 			return ErrPubKeyOpsNotSupported
 		}
-		return &StatusError{resp.StatusCode}
-	default:
-		return &StatusError{resp.StatusCode}
 	}
+
+	return statusError(resp)
 }
 
 func (c *client) AddPublicKeys(id string, keys []string) error {
@@ -646,7 +647,7 @@ func (c *client) HostInfo(period time.Duration) (*HostInfo, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, &StatusError{resp.StatusCode}
+		return nil, statusError(resp)
 	}
 
 	var info struct {
@@ -677,7 +678,7 @@ func (c *client) ListImages() ([]*Image, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, &StatusError{resp.StatusCode}
+		return nil, statusError(resp)
 	}
 
 	var images struct {
@@ -761,7 +762,7 @@ func (c *client) BuildImage(name string, in io.Reader, out io.Writer, remote str
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return &StatusError{resp.StatusCode}
+		return statusError(resp)
 	}
 
 	pr, pw := io.Pipe()
@@ -814,7 +815,7 @@ func (c *client) RemoveImage(image string) error {
 	case http.StatusConflict:
 		return ErrImageInUse
 	default:
-		return &StatusError{resp.StatusCode}
+		return statusError(resp)
 	}
 
 	return nil
@@ -842,7 +843,7 @@ func (c *client) PullImage(repository string, update bool, output io.Writer) err
 	case http.StatusNotModified:
 		return nil
 	default:
-		return &StatusError{resp.StatusCode}
+		return statusError(resp)
 	}
 
 	pr, pw := io.Pipe()
@@ -899,7 +900,7 @@ func (c *client) PushImage(image, destination string) error {
 	case http.StatusUnauthorized:
 		return ErrImagePushAuthRequired
 	default:
-		return &StatusError{resp.StatusCode}
+		return statusError(resp)
 	}
 }
 
@@ -922,7 +923,7 @@ func (c *client) TagImage(image, tag string, force bool) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return &StatusError{resp.StatusCode}
+		return statusError(resp)
 	}
 
 	return nil
@@ -944,7 +945,7 @@ func (c *client) InspectImage(image string) (*Image, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, &StatusError{resp.StatusCode}
+		return nil, statusError(resp)
 	}
 
 	var imageInfo imageResponse
@@ -969,7 +970,7 @@ func (c *client) ListVolumes() ([]string, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, &StatusError{resp.StatusCode}
+		return nil, statusError(resp)
 	}
 
 	var volumes struct {
@@ -1015,7 +1016,7 @@ func (c *client) CreateVolume(slug string) (*Volume, error) {
 	case http.StatusNotFound:
 		return nil, ErrVolumeNotFound
 	default:
-		return nil, &StatusError{resp.StatusCode}
+		return nil, statusError(resp)
 	}
 }
 
@@ -1041,7 +1042,7 @@ func (c *client) RemoveVolume(slug string) error {
 	case http.StatusNotFound:
 		return ErrVolumeNotFound
 	default:
-		return &StatusError{resp.StatusCode}
+		return statusError(resp)
 	}
 }
 
@@ -1073,7 +1074,7 @@ func (c *client) GetVolumeInfo(slug string) (*Volume, error) {
 	case http.StatusNotFound:
 		return nil, ErrVolumeNotFound
 	default:
-		return nil, &StatusError{resp.StatusCode}
+		return nil, statusError(resp)
 	}
 }
 
@@ -1109,7 +1110,7 @@ func processContainerResponse(res *http.Response) (*Container, error) {
 	case http.StatusNotFound:
 		return nil, ErrContainerNotFound
 	default:
-		return nil, &StatusError{res.StatusCode}
+		return nil, statusError(res)
 	}
 
 	c, err := unmarshalContainerResponse(res)
@@ -1136,4 +1137,11 @@ func unmarshalErrorResponse(resp *http.Response) (*errorResponse, error) {
 		return nil, ErrUnexpectedResponse
 	}
 	return &errResp, nil
+}
+
+func statusError(res *http.Response) *StatusError {
+	if b, err := ioutil.ReadAll(res.Body); err == nil {
+		return &StatusError{Code: res.StatusCode, Body: string(b)}
+	}
+	return &StatusError{Code: res.StatusCode}
 }
