@@ -69,7 +69,7 @@ func (c *Command) Run(args []string) int {
 	}
 
 	if len(registries) == 0 {
-		c.UI.Output("You are not logged-in to any registries")
+		c.UI.Output("You are not logged in to any registries")
 		return 0
 	}
 
