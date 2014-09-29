@@ -34,7 +34,7 @@ func FetchToken(server, username, password string) (string, error) {
 	}
 
 	switch response.StatusCode {
-	case 401:
+	case 400, 401:
 		return "", fmt.Errorf(message.ErrorDescription)
 	case 200:
 		return message.AccessToken, nil
