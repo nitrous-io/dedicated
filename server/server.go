@@ -55,8 +55,10 @@ func (s *Server) Router() *mux.Router {
 }
 
 func (s *Server) Start(host string, port uint16) {
-	http.Handle("/", s.router)
-	svr := &http.Server{Addr: fmt.Sprintf("%s:%d", host, port)}
+	svr := &http.Server{
+		Addr:    fmt.Sprintf("%s:%d", host, port),
+		Handler: s.router,
+	}
 	err := svr.ListenAndServe()
 	s.logger.FatalExit(err)
 }
