@@ -20,12 +20,8 @@ import (
 )
 
 const (
-	slugUsage           = "A unique slug for the container"
-	imageUsage          = "Specify an image to use to create the container"
-	envUsage            = "Set environment variables for the container in the format <key>=<value>. " + command.MultiargUsage
-	volumesUsage        = "Add data volume so other containers can mount given <path>. " + command.MultiargUsage
-	portForwardsUsage   = "Forward ports from container to host.  Use one of: 'public:hostPort:containerPort', 'private:hostPort:containerPort', 'public::containerPort', or 'private::containerPort' specifications. Publicly forwarded ports will be accessible via the host. " + command.MultiargUsage
-	portForwardAllUsage = "Forward all ports specified by EXPOSE command in Dockerfile"
+	slugUsage  = "A unique slug for the container"
+	imageUsage = "Specify an image to use to create the container"
 )
 
 const usage = `
@@ -77,7 +73,7 @@ func NewCommand(token string) (cli.Command, error) {
 func (c *Command) Help() string {
 	// TODO this is getting unwieldy, maybe text/template
 	return strings.TrimSpace(fmt.Sprintf(usage, slugUsage,
-		imageUsage, envUsage, volumesUsage, portForwardsUsage, portForwardAllUsage))
+		imageUsage, containers.EnvUsage, containers.VolumesUsage, containers.PortForwardsUsage, containers.PortForwardAllUsage))
 }
 
 func (c *Command) Run(args []string) int {
@@ -88,10 +84,10 @@ func (c *Command) Run(args []string) int {
 	cmdFlags.StringVarP(&params.slug, "slug", "s", "", slugUsage)
 	cmdFlags.StringVarP(&params.image, "image", "i", "", imageUsage)
 
-	cmdFlags.VarP(&params.envVars, "env", "e", envUsage)
-	cmdFlags.VarP(&params.volumes, "volume", "v", volumesUsage)
-	cmdFlags.VarP(&params.portForwards, "port-forward", "p", portForwardsUsage)
-	cmdFlags.BoolVarP(&params.portForwardAll, "port-forward-all", "P", false, portForwardAllUsage)
+	cmdFlags.VarP(&params.envVars, "env", "e", containers.EnvUsage)
+	cmdFlags.VarP(&params.volumes, "volume", "v", containers.VolumesUsage)
+	cmdFlags.VarP(&params.portForwards, "port-forward", "p", containers.PortForwardsUsage)
+	cmdFlags.BoolVarP(&params.portForwardAll, "port-forward-all", "P", false, containers.PortForwardAllUsage)
 
 	err := cmdFlags.Parse(args)
 	if err != nil {
