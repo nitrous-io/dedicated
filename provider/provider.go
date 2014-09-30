@@ -37,17 +37,19 @@ type Provider interface {
 	VerifyToken(id, token string, permissions ...string) error
 
 	List() (infoList []*ContainerInfo, err error)
-	Create(name, image, secret, config string) (info *ContainerInfo, err error)
+	CreateStart(name, image, secret, config string) (info *ContainerInfo, err error)
 	Commit(id, imageName string) (info *ImageInfo, err error)
 	GetInfo(id string) (info *ContainerInfo, err error)
 	Start(id, config string) (info *ContainerInfo, err error)
 	Stop(id string) (info *ContainerInfo, err error)
 	Restart(id string) (info *ContainerInfo, err error)
-	Terminate(id string) (info *ContainerInfo, err error)
+	Terminate(id string, removeSettings bool) (info *ContainerInfo, err error)
 	ListPublicKeys(id string) (publicKeys map[string]string, err error)
 	AddPublicKeys(id string, publicKeys []string) (err error)
 	ClearPublicKeys(id string) (err error)
 	RemovePublicKey(id string, keyFingerprint string) (err error)
+	Reconfig(id, config string) (info *ContainerInfo, err error)
+
 	//ForwardPort(id string, hostPort uint16, containerPort uint16) (err error)
 	//TakeSnapshot(id string, tag name, description string) (info *SnapshotInfo, err error)
 	//RestoreSnapshot(id string, snapshotID string) (err error)

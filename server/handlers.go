@@ -56,6 +56,22 @@ func (s *Server) listContainers(w http.ResponseWriter, r *http.Request) {
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"containers": list})
 }
 
+func (s *Server) reconfigureContainer(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	info, err := s.provider.Reconfig(id, r.FormValue("config"))
+	if err != nil {
+		s.logger.Error(err)
+		code := http.StatusInternalServerError
+		if err == provider.ErrImageNotFound {
+			code = http.StatusNotFound
+		}
+		s.respondEncodeJSON(w, code, map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"container": info})
+}
+
 func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	image := r.FormValue("image")
@@ -84,7 +100,7 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	info, err := s.provider.Create(name, image, secret, r.FormValue("config"))
+	info, err := s.provider.CreateStart(name, image, secret, r.FormValue("config"))
 	if err != nil {
 		if _, ok := err.(*provider.StartFailedError); ok {
 			s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{
@@ -136,7 +152,11 @@ func (s *Server) getContainerInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) terminateContainer(w http.ResponseWriter, r *http.Request) {
-	s.performContainerControl(w, r, s.provider.Terminate, "terminated")
+	s.performContainerControl(w, r,
+		func(id string) (*provider.ContainerInfo, error) {
+			return s.provider.Terminate(id, true)
+		},
+		"terminated")
 }
 
 func (s *Server) startContainer(w http.ResponseWriter, r *http.Request) {

@@ -29,6 +29,10 @@ type MockProvider struct {
 	RestartCalled bool
 	RestartError  error
 
+	ReconfigCalled        bool
+	ReconfigContainerInfo *provider.ContainerInfo
+	ReconfigError         error
+
 	CommitCalled bool
 	CommitInfo   *provider.ImageInfo
 	CommitError  error
@@ -144,7 +148,7 @@ func (p *MockProvider) List() ([]*provider.ContainerInfo, error) {
 	return p.Containers, nil
 }
 
-func (p *MockProvider) Create(name, image, secret, config string) (*provider.ContainerInfo, error) {
+func (p *MockProvider) CreateStart(name, image, secret, config string) (*provider.ContainerInfo, error) {
 	p.CreateCalled = true
 	p.ReceivedName = name
 	p.ReceivedSecret = secret
@@ -202,7 +206,7 @@ func (p *MockProvider) Restart(id string) (*provider.ContainerInfo, error) {
 	return info, p.RestartError
 }
 
-func (p *MockProvider) Terminate(id string) (*provider.ContainerInfo, error) {
+func (p *MockProvider) Terminate(id string, removeSettings bool) (*provider.ContainerInfo, error) {
 	info, _ := p.GetInfo(id)
 	if info != nil {
 		info.Host = ""
@@ -212,6 +216,13 @@ func (p *MockProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 	p.TerminateCalled = true
 	p.ReceivedID = id
 	return info, p.TerminateError
+}
+
+func (p *MockProvider) Reconfig(id, config string) (*provider.ContainerInfo, error) {
+	p.ReconfigCalled = true
+	p.ReceivedID = id
+	p.ReceivedConfig = config
+	return p.ReconfigContainerInfo, p.ReconfigError
 }
 
 func (p *MockProvider) ListPublicKeys(id string) (map[string]string, error) {
