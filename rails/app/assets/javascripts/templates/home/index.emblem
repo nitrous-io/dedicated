@@ -1,4 +1,4 @@
-if view.noHost
+if App.noHost
   .no-host
     .bubble
       p

@@ -14,14 +14,14 @@
           | New
           .ui.dropdown-triangle
         ul.dropdown-menu style='display: none'
+          if App.noHost
+            li.disabled
+              a href='#' New Container...
+          else
+            li
+              link-to 'containers.new' | New Container...
           li
             link-to 'hosts.new' | New Host...
-          li
-            link-to 'images.pull' | Pull Image...
-          li
-            link-to 'images.new' | New Image...
-          li
-            link-to 'containers.new' | New Container...
       li.ui.dropdown
         a href='#'
           | Account

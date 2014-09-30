@@ -1,6 +1,6 @@
 if host.isRunning
   li class={generalSelected:selected}
-    link-to 'host.index' | General
+    link-to 'host.index' | Host
   li class={registriesSelected:selected}
     link-to 'host.registries' | Registries
   li class={imagesSelected:selected}
@@ -9,7 +9,7 @@ if host.isRunning
     link-to 'host.volumes' | Volumes
 else
   li class={generalSelected:selected}
-    link-to 'host.index' | General
+    link-to 'host.index' | Host
   li.disabled class={registriesSelected:selected}
     a.noclick href='#' Registries
   li.disabled class={imagesSelected:selected}

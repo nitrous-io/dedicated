@@ -41,6 +41,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
       window.localStorage.removeItem('token')
   ).observes 'token'
 
+  noHost: (->
+    @get('hosts.loaded') && @get('hosts.length') == 0
+  ).property 'hosts.loaded', 'hosts.length'
+
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')
 
