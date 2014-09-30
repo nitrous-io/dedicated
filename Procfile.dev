@@ -1,0 +1,2 @@
+go: build/nitrousd
+rails: FOREMAN=1 rails/run
