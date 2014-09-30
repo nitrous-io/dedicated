@@ -348,11 +348,17 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	}
 
 	sImg := serializers.SerializeImage(img)
+	liveContainer, err := cl.Info(cn.CID)
+	if err != nil {
+		return err
+	}
+	cn = hydrateContainer(cn, liveContainer, h)
 
 	env.Events.Publish(controllers.NewEvent(controllers.EventImageCreated, sImg), env.User.Topic())
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"image": sImg,
+		"image":     sImg,
+		"container": serializers.SerializeContainer(cn),
 	}
 	return nil
 }
