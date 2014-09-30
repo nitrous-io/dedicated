@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/ioutil"
 	"mime/multipart"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -232,9 +231,7 @@ func NewClientTransport(host *Host, secret string, tp *http.Transport) (Client, 
 				req.Header.Set("X-Freighter-Secret", secret)
 				return nil, nil
 			},
-			Dial: (&net.Dialer{
-				KeepAlive: 10 * time.Second,
-			}).Dial,
+			DisableKeepAlives:   true,
 			TLSHandshakeTimeout: 10 * time.Second,
 		}
 	}
