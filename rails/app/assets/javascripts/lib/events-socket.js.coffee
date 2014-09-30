@@ -87,8 +87,9 @@ App.EventsSocket = Lib.Socket.extend
       findImage(data)?.load(data)
 
     @on 'image.pushed', (data) ->
-      return unless data = data.image
-      findImage(data)?.load(data)
+      return unless (data = data.image) && (image = findImage(data))
+      image.load(data)
+      image.set 'pushing', false
 
 findAllContainers = ->
   App.get('containers')

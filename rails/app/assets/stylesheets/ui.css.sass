@@ -465,12 +465,12 @@ ul.ui.list
     display: flex
     flex-direction: row
 
-    .left-accessory
-      display: inline-block
-      margin-left: 16px
+    .left-accessory, .right-accessory
+      display: flex
+      align-items: center
+      padding: 16px
 
     .lines
-      display: inline-block
       flex-grow: 1
       color: $gray800
       font-size: $fontSizeSmall
@@ -500,12 +500,14 @@ ul.ui.list
 
   &.with-separators
     .list-item
-      .lines
-        padding-left: 0
+      .lines, .right-accessory
         border-bottom: 1px solid $gray300
 
+      .lines
+        padding-left: 0
+
       &:last-of-type
-        .lines
+        .lines, .right-accessory
           border-bottom: none
 
   &.item-1-line
@@ -516,12 +518,6 @@ ul.ui.list
   &.item-2-line
     .list-item
       height: 72px
-
-      .left-accessory
-        width: 40px
-        height: 40px
-        line-height: 40px
-        margin: 16px 0 0 16px
 
       .lines
         padding-top: 10px
@@ -620,8 +616,8 @@ ul.ui.snackbar
     transition: opacity .3s
 
   .ui.card
-    width: 500px
     position: fixed
+    width: 500px
     top: 80px
     left: 0
     right: 0

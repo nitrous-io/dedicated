@@ -22,6 +22,8 @@
                     span.sep
                     | Created&nbsp;
                     = ago image.createdAt
+            .right-accessory
+              button.ui.btn click='showPushDialog image target="view"' Push
     else
       p.hint-text
         i.fa.fa-exclamation-circle
@@ -43,6 +45,26 @@
   .right
     button.ui.btn click='add' New Image...
     button.ui.btn.primary click='pull' Pull Image...
+
+#push-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Push Image
+    form
+      .card-body
+        .ui.input-group
+          label.field-label for='push-repo'
+            | Image Repository
+          = input type='text' id='push-repo' disabled=image.pushing value=repo placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle required=true
+    .card-footer
+      .right
+        if image.pushing
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | pushing...
+        else
+          button.ui.btn click='cancelPush target="view"' Cancel
+          button.ui.btn.primary click='push' disabled=view.pushButtonDisabled Push
 
 #confirm-remove-modal-dialog.ui.modal
   .ui.card

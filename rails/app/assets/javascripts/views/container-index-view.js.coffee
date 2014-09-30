@@ -15,7 +15,6 @@ App.ContainerIndexView = Em.View.extend
       @send 'cancelSnapshot'
   ).observes 'controller.closeSnapshotDialog'
 
-
   actions:
     showSnapshotDialog: ->
       @set 'controller.snapshotImageName', makeDefaultImageName(@get 'controller.slug')

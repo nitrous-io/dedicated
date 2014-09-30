@@ -111,7 +111,7 @@
         .ui.input-group
           label.field-label for='snapshot-name'
             | Image Name/Tag
-          = input type='text' id='snapshot-name' value=snapshotImageName required=true
+          = input type='text' id='snapshot-name' value=snapshotImageName required=true disabled=snapshotting
     .card-footer
       .right
         if snapshotting

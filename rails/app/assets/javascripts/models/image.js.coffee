@@ -18,6 +18,7 @@ App.Image = klass = App.Model.extend
   progress: attr('json', serialize: false)
 
   updating: Em.computed.notEmpty 'progress'
+  pushing: false
 
   slugAndTag: (->
     slug = @get 'slug'

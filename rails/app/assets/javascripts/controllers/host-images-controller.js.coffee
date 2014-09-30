@@ -1,6 +1,18 @@
 App.HostImagesController = Lib.RecordListController.extend
   recordsBinding: Em.Binding.oneWay 'model.images'
 
+  # for push
+  image: null
+  repo: null
+  closePushDialog: false
+
+  clear: ->
+    @_super.apply this, arguments
+    @setProperties
+      imageToPush: null
+      pushRepo: null
+      closePushDialog: false
+
   actions:
     pull: ->
       @transitionToRoute 'images.pull', queryParams: { preselectHost: @get('model.slug') }
@@ -20,4 +32,16 @@ App.HostImagesController = Lib.RecordListController.extend
             App.postError(jqxhr.responseJSON, 'Failed to update image!')
             cb(jqxhr)
 
-      async.series fns
+      async.series(fns)
+
+    push: ->
+      image = @get 'image'
+      repo = @get 'repo'
+      image.set 'pushing', true
+      image.ajax('POST', 'push', destination: repo).then(=>
+        App.snackbar.post("Your image “#{image.get('displayName')}” was successfully pushed.")
+        @set 'closePushDialog', true
+      , (jqxhr) =>
+        App.postError(jqxhr.responseJSON, "Failed to push!")
+      ).finally =>
+        image.set 'pushing', false
