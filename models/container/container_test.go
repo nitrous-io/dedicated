@@ -456,18 +456,6 @@ var _ = Describe("models/container", func() {
 				})
 			})
 
-			Context("image", func() {
-				It("does not get updated", func() {
-					c.Image = "nitrous-base-v2"
-					err := c.Update(db)
-					Expect(err).To(BeNil())
-
-					cntnr, err := container.FindByCID(db, cid)
-					Expect(err).To(BeNil())
-					Expect(cntnr.Image).To(Equal("nitrous-base"))
-				})
-			})
-
 			Context("created at timestamp", func() {
 				It("does not get updated", func() {
 					origCreatedAt := c.CreatedAt

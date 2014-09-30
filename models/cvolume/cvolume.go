@@ -37,6 +37,11 @@ func Find(d db.QueryReceiver, c *container.Container, v *volume.Volume) (*Contai
 	return cv, nil
 }
 
+func DeleteContainer(d db.QueryReceiver, c *container.Container) error {
+	_, err := d.Exec(`DELETE FROM container_volumes WHERE container_id = $1`, c.ID)
+	return err
+}
+
 func (cv *ContainerVolume) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO container_volumes
 		(container_id, volume_id) VALUES

@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
+
 	"github.com/nitrous-io/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 	"github.com/nitrous-io/nitrous/controllers"
@@ -44,14 +45,15 @@ var (
 )
 
 var (
-	Create  = middleware.HostViaForm("host", requiresRunningHost(create))
-	Commit  = WithContainerAndHost(commit)
-	Show    = WithContainerAndHost(show)
-	Start   = WithContainerAndHost(start)
-	Stop    = WithContainerAndHost(stop)
-	Restart = WithContainerAndHost(restart)
-	Destroy = WithContainerAndHost(destroy)
-	Token   = WithContainerAndHost(token)
+	Create   = middleware.HostViaForm("host", requiresRunningHost(create))
+	Commit   = WithContainerAndHost(commit)
+	Show     = WithContainerAndHost(show)
+	Start    = WithContainerAndHost(start)
+	Stop     = WithContainerAndHost(stop)
+	Restart  = WithContainerAndHost(restart)
+	Destroy  = WithContainerAndHost(destroy)
+	Token    = WithContainerAndHost(token)
+	Reconfig = WithContainerAndHost(reconfig)
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -524,10 +526,52 @@ func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	if err != nil {
 		return err
 	}
-
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"token": t,
+	}
+	return nil
+}
+
+func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	log := env.Logger
+
+	cl, err := controllers.NewFreighterClient(db, h)
+	if err != nil {
+		return err
+	}
+
+	hv, err := hostVolumes(db, h)
+	if err != nil {
+		return err
+	}
+
+	r.ParseForm()
+	config, err := prepareConfig(r.PostForm, hv)
+	if err != nil {
+		return err
+	}
+
+	liveContainer, err := cl.Reconfig(cn.CID, config)
+	if err != nil {
+		return err
+	}
+
+	cn = hydrateContainer(cn, liveContainer, h)
+	if err := cn.Update(db); err != nil {
+		log.Errorf("containers.reconfig: successfully reconfigured container '%+v' in Freighter but failed to update database with '%+v', err: %v", liveContainer, cn, err)
+		return err
+	}
+
+	if err := updateVolumes(db, cn, hv, volumeSlugs(config.Mounts)); err != nil { // log and continue
+		log.Errorf("containers.reconfig: failed to update volumes on container %s, err: %v", cn.CID, err)
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status":    "ok",
+		"container": serializers.SerializeContainer(cn),
 	}
 	return nil
 }
@@ -612,22 +656,30 @@ func publishContainerEvent(env *middleware.Env, name controllers.EventName, c *c
 
 func prepareConfig(form url.Values, hv map[string]*volume.Volume) (*freighterclient.ContainerConfig, error) {
 	c := &freighterclient.ContainerConfig{}
-	if envs, ok := form["env[]"]; ok {
-		c.Env = envs
-	}
-	if vols, ok := form["volume[]"]; ok {
-		for _, v := range volumeSlugs(vols) {
-			if _, ok := hv[v]; !ok {
-				return nil, errVolumeNotFound
-			}
+	c.Env = readParam(form, "env[]")
+	vols := readParam(form, "volume[]")
+	for _, v := range volumeSlugs(vols) {
+		if _, ok := hv[v]; !ok {
+			return nil, errVolumeNotFound
 		}
-		c.Mounts = vols
 	}
-	if ports, ok := form["port[]"]; ok {
-		c.PortBindings = ports
-	}
+	c.Mounts = vols
+	c.PortBindings = readParam(form, "port[]")
 	c.PublishAll, _ = strconv.ParseBool(form.Get("publish_all"))
 	return c, nil
+}
+
+func readParam(form url.Values, name string) []string {
+	vals, ok := form[name]
+	switch {
+	case !ok:
+		return nil
+	case len(vals) == 1 && vals[0] == "":
+		// empty param
+		return []string{}
+	default:
+		return vals
+	}
 }
 
 func volumeSlugs(volParams []string) []string {
@@ -648,6 +700,25 @@ func hostVolumes(d db.QueryReceiver, h *host.Host) (map[string]*volume.Volume, e
 		slugsToVols[hv.Slug] = hv
 	}
 	return slugsToVols, nil
+}
+
+func updateVolumes(d *db.Database, cn *container.Container, hv map[string]*volume.Volume, slugs []string) error {
+	tx, err := d.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := cvolume.DeleteContainer(tx, cn); err != nil {
+		tx.Rollback()
+		return err
+	}
+	for _, v := range slugs {
+		cv := cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: hv[v].ID}
+		if err := cv.Insert(tx); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func timePtr(t time.Time) *time.Time {

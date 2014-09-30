@@ -950,6 +950,14 @@ var _ = Describe("controllers/containers", func() {
 		Context("when image param is not given", func() {
 			BeforeEach(func() {
 				params.Del("image")
+
+				mockClient.CreatedContainer = &freighterclient.Container{
+					ID:    "deadbeef",
+					Name:  "freighter.elixir-web-1",
+					Host:  "1.2.3.4",
+					State: "running",
+					Image: controllers.DefaultImage,
+				}
 			})
 
 			It("uses the default image", func() {
@@ -1903,6 +1911,144 @@ var _ = Describe("controllers/containers", func() {
 				publishAll := getConfs().PublishAll
 				Expect(publishAll).To(BeTrue())
 			})
+		})
+	})
+
+	Describe("POST /containers/{name}/reconfig", func() {
+		var (
+			containerName = "elixir-web-1"
+			c             *container.Container
+		)
+
+		doRequest := func() {
+			params := &url.Values{}
+			params.Add("env[]", "LANG=C")
+			params.Add("env[]", "NODE=nope")
+			params.Add("volume[]", "music")
+			params.Add("port[]", "3000:8080")
+			params.Add("port[]", "0.0.0.0::4552")
+			params.Add("port[]", "0.0.0.0:8081:11211")
+
+			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/containers/%s/reconfig", containerName), params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			v := &volume.Volume{HostID: hs.H.ID, Slug: "music"}
+			err := v.Insert(db)
+			Expect(err).To(BeNil())
+
+			c = &container.Container{
+				CID:    "deadbeef",
+				Slug:   containerName,
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+				Name:   sql.NullString{"Elixir server", true},
+			}
+			err = c.Insert(db)
+			Expect(err).To(BeNil())
+
+			mockClient.ReconfigContainer = &freighterclient.Container{
+				ID:    "livebeef",
+				Name:  containerName,
+				Host:  "1.2.3.4",
+				State: "running",
+				Image: "deadbeef-reconfig-image",
+			}
+		})
+
+		It("calls the Freighter client with config from params", func() {
+			doRequest()
+			Expect(mockClient.ReconfigCalled).To(Equal(1))
+			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
+			conf := mockClient.ReceivedConfig
+			Expect(conf.Env).To(Equal([]string{"LANG=C", "NODE=nope"}))
+			Expect(conf.Mounts).To(Equal([]string{"music"}))
+			Expect(conf.PortBindings).To(HaveLen(3))
+			Expect(conf.PortBindings).To(ContainElement("3000:8080"))
+			Expect(conf.PortBindings).To(ContainElement("0.0.0.0::4552"))
+			Expect(conf.PortBindings).To(ContainElement("0.0.0.0:8081:11211"))
+		})
+
+		It("responds with the container from Freighter and augments it with data from the database", func() {
+			doRequest()
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Container *serializers.Container `json:"container"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			cn := j.Container
+
+			Expect(cn.CID).To(Equal("livebeef"))
+			Expect(cn.Image).To(Equal("deadbeef-reconfig-image"))
+			Expect(cn.Slug).To(Equal(containerName))
+			Expect(cn.IPAddress).To(Equal("1.2.3.4"))
+			Expect(cn.State).To(Equal("running"))
+			Expect(cn.Name).To(Equal("Elixir server"))
+			Expect(cn.UpdatedAt).NotTo(BeNil())
+			Expect(cn.UserID).To(Equal(u.ID))
+			Expect(cn.HostID).To(Equal(hs.H.ID))
+		})
+
+		It("updates container record", func() {
+			doRequest()
+
+			c, err := container.Find(db, hs.U, containerName)
+			Expect(err).To(BeNil())
+			Expect(c.CID).To(Equal("livebeef"))
+			Expect(c.Image).To(Equal("deadbeef-reconfig-image"))
+		})
+
+		It("updates volumes", func() {
+			// create previous volume association 'dotfiles', expect it to be
+			// replaced with 'music' as provided in params
+			v := &volume.Volume{HostID: hs.H.ID, Slug: "dotfiles"}
+			err := v.Insert(db)
+			Expect(err).To(BeNil())
+			cv := &cvolume.ContainerVolume{ContainerID: c.ID, VolumeID: v.ID}
+			err = cv.Insert(db)
+			Expect(err).To(BeNil())
+			doRequest()
+			cvs := []*cvolume.ContainerVolume{}
+			err = db.Select(&cvs, `SELECT cv.id, container_id, volume_id, cv.created_at
+				FROM container_volumes cv
+				JOIN containers ON containers.id = container_id
+				WHERE container_id = $1 AND terminated_at IS NULL`,
+				c.ID)
+			Expect(err).To(BeNil())
+			music, err := volume.Find(db, hs.H.ID, "music")
+			Expect(err).To(BeNil())
+			Expect(cvs).To(HaveLen(1))
+			Expect(cvs[0].VolumeID).To(Equal(music.ID))
+		})
+
+		Context("when the Freighter client returns an error", func() {
+			BeforeEach(func() {
+				mockClient.ReconfigError = errors.New("failed to reconfigure container")
+			})
+
+			It("responds with HTTP 500 Internal Server Error", func() {
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+				errType, _ := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("internal_server_error"))
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s/reconfig", containerName)
+				authTokenInputs.Method = "POST"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 })
