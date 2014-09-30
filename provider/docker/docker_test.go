@@ -39,14 +39,19 @@ const (
 	busyboxImage = "busybox:latest"
 )
 
-var _ = BeforeSuite(func() {
-	err := exec.Command("docker", "pull", nitrousImage).Run()
-	Expect(err).To(BeNil(), "failed to pull %s image", nitrousImage)
-	err = exec.Command("docker", "pull", busyboxImage).Run()
-	Expect(err).To(BeNil(), "failed to pull %s image", busyboxImage)
-	// We intentionally don't remove these images (in AfterSuite) because
-	// having these images already pulled greatly speeds up tests.
-})
+var pulledImages = make(map[string]struct{})
+
+func pullImage(name string) {
+	if _, ok := pulledImages[name]; ok {
+		return
+	}
+	start := time.Now()
+	fmt.Printf("Pulling %s ...", name)
+	err := exec.Command("docker", "pull", name).Run()
+	fmt.Printf("Pulled after %.1fs\n", time.Since(start).Seconds())
+	Expect(err).To(BeNil(), "failed to pull %s image", name)
+	pulledImages[name] = struct{}{}
+}
 
 var _ = Describe("provider/docker", func() {
 	var (
@@ -140,6 +145,7 @@ var _ = Describe("provider/docker", func() {
 	}
 
 	createImages := func(count int, name string, noEntropy bool) []string {
+		pullImage(nitrousImage)
 		dockerLoc, err := ioutil.TempDir("", "DockerTest")
 		Expect(err).To(BeNil())
 		dockerFile, err := os.Create(filepath.Join(dockerLoc, "Dockerfile"))
@@ -180,6 +186,10 @@ var _ = Describe("provider/docker", func() {
 	}
 
 	Describe(".Create()", func() {
+		BeforeEach(func() {
+			pullImage(nitrousImage)
+		})
+
 		It("creates a running container", func() {
 			name := RandomName("freightertest")
 			info, err := prov.CreateStart(name, nitrousImage, secret, "")
@@ -1088,6 +1098,10 @@ var _ = Describe("provider/docker", func() {
 			return doInspect(id,
 				"{{range $cnrPath, $hostPath := .Volumes}}{{$cnrPath}} {{$hostPath}}\n{{end}}")
 		}
+
+		BeforeEach(func() {
+			pullImage(nitrousImage)
+		})
 
 		It("creates container with options", func() {
 			name := RandomName("freightertest")
