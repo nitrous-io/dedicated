@@ -15,6 +15,18 @@ func Test(t *testing.T) {
 }
 
 var _ = Describe("pubsub", func() {
+	Describe("Info", func() {
+		It("returns info of the current pubsub", func() {
+			ps := pubsub.New(1)
+			ps.Subscribe("topic-1")
+			ps.Subscribe("topic-1")
+			ps.Subscribe("topic-2")
+
+			info := ps.Info()
+			Expect(info).To(Equal(pubsub.Info{Topics: 2, Consumers: 3}))
+		})
+	})
+
 	Describe("Subscribe", func() {
 		It("returns a channel that receives published messages", func(done Done) {
 			ps := pubsub.New(1)

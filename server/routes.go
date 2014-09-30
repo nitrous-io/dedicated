@@ -1,6 +1,8 @@
 package server
 
 import (
+	"os"
+
 	"github.com/nitrous-io/nitrous/controllers/baseimages"
 	"github.com/nitrous-io/nitrous/controllers/containers"
 	"github.com/nitrous-io/nitrous/controllers/events"
@@ -20,6 +22,10 @@ import (
 
 func (s *Server) drawRoutes() {
 	s.route("/", home.Index, "GET")
+
+	if os.Getenv("DEBUG") == "true" {
+		s.routeJSON("/debug", s.debugHandler, "GET")
+	}
 
 	s.namespace("/api/v0", func() {
 		s.route("/events", mw.AuthQS(events.Stream), "GET")
