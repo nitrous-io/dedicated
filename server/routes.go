@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net/http/pprof"
 	"os"
 
 	"github.com/nitrous-io/nitrous/controllers/baseimages"
@@ -24,6 +25,7 @@ func (s *Server) drawRoutes() {
 	s.route("/", home.Index, "GET")
 
 	if os.Getenv("DEBUG") == "true" {
+		s.router.HandleFunc("/debug/pprof/{path:.*}", pprof.Index).Methods("GET")
 		s.routeJSON("/debug", s.debugHandler, "GET")
 	}
 
