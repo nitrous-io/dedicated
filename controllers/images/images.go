@@ -21,7 +21,7 @@ import (
 
 var (
 	errIDOrSlugRequired = httperror.New(http.StatusBadRequest, "invalid_request", "id or slug is required")
-	errDestRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "destination is required")
+	errRepoRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "repository is required")
 	errTagRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "tag is required")
 	errSlugRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errImageInUse       = httperror.New(http.StatusBadRequest, "invalid_request", "image is being used by one or more containers")
@@ -134,24 +134,24 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return errIDOrSlugRequired
 	}
 
-	i, err := image.Find(db, env.User, h, slug)
+	img, err := image.Find(db, env.User, h, slug)
 	if err != nil {
 		return errImageMissing
 	}
 
-	if err := cl.RemoveImage(i.FullRepository()); err != nil {
+	if err := cl.RemoveImage(img.FullRepository()); err != nil {
 		if err == freighterclient.ErrImageInUse {
 			return errImageInUse
 		}
 		return err
 	}
 
-	if err := i.Delete(db); err != nil {
+	if err := img.Delete(db); err != nil {
 		return err
 	}
 
 	env.Events.Publish(
-		controllers.NewEvent(controllers.EventImageRemoved, serializers.SerializeImage(i)),
+		controllers.NewEvent(controllers.EventImageRemoved, serializers.SerializeImage(img)),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK
@@ -162,22 +162,28 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 }
 
 func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	db := env.DB
+	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
 		return err
 	}
 
-	image := mux.Vars(r)["image"]
-	if image == "" {
+	slugOrId := mux.Vars(r)["image"]
+	if slugOrId == "" {
 		return errIDOrSlugRequired
 	}
 
-	dest := r.FormValue("destination")
-	if dest == "" {
-		return errDestRequired
+	repo := r.FormValue("repository")
+	if repo == "" {
+		return errRepoRequired
 	}
 
-	if err := cl.PushImage(image, dest); err != nil {
+	img, err := image.Find(db, env.User, h, slugOrId)
+	if err != nil {
+		return errImageMissing
+	}
+
+	if err := cl.PushImage(img.FullRepository(), repo); err != nil {
 		if err == freighterclient.ErrImagePushAuthRequired {
 			env.Status = http.StatusUnauthorized
 			env.Data = map[string]interface{}{
@@ -190,11 +196,11 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 
 	type data struct {
-		Image       string `json:"image"`
-		Destination string `json:"destination"`
+		Image      string `json:"image"`
+		Repository string `json:"repository"`
 	}
 	env.Events.Publish(
-		controllers.NewEvent(controllers.EventImagePushed, data{Image: image, Destination: dest}),
+		controllers.NewEvent(controllers.EventImagePushed, data{Image: img.FullRepository(), Repository: repo}),
 		env.User.Topic(),
 	)
 	env.Status = http.StatusOK

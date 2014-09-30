@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -931,6 +932,19 @@ var _ = Describe("controllers/images", func() {
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/images/{image}/push", func() {
+		var i *image.Image
+		BeforeEach(func() {
+			i = &image.Image{
+				UserID:      hs.U.ID,
+				HostID:      hs.H.ID,
+				FreighterID: "cafebabe",
+				Slug:        "nitrousio/devenv",
+				Tag:         "latest",
+			}
+			err := i.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
 		doRequest := func(host, image string, params *url.Values) *httptest.ResponseRecorder {
 			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/%s/push", host, image), params)
 			Expect(err).To(BeNil())
@@ -940,42 +954,71 @@ var _ = Describe("controllers/images", func() {
 		}
 
 		It("calls PushImage", func() {
-			res := doRequest("foo", "nitrousio/devenv:latest", &url.Values{"destination": []string{"myuser/scratch"}})
+			res := doRequest("foo", "nitrousio/devenv:latest", &url.Values{"repository": []string{"myuser/scratch"}})
 			Expect(mockClient.PushImageCalled).To(Equal(1))
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
-		It("publishes an image pushed event with the image ID/slug and destination", func(done Done) {
+		It("publishes an image pushed event with the image slug and repository", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
-			doRequest("foo", "nitrousio/devenv:latest", &url.Values{"destination": []string{"myuser/scratch"}})
+			doRequest("foo", "nitrousio/devenv:latest", &url.Values{"repository": []string{"myuser/scratch"}})
 
 			msg := <-ch
 			evt, ok := msg.(*controllers.Event)
 			Expect(ok).To(BeTrue())
 			Expect(evt.Name).To(Equal(controllers.EventImagePushed))
 			Expect(evt.Data).To(BeEquivalentTo(struct {
-				Image       string `json:"image"`
-				Destination string `json:"destination"`
+				Image      string `json:"image"`
+				Repository string `json:"repository"`
 			}{
-				Image:       "nitrousio/devenv:latest",
-				Destination: "myuser/scratch",
+				Image:      "nitrousio/devenv:latest",
+				Repository: "myuser/scratch",
 			}))
 			close(done)
 		})
 
-		It("requires destination param", func() {
+		It("publishes an image pushed event with the image ID and repository", func(done Done) {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest("foo", strconv.FormatInt(i.ID, 10), &url.Values{"repository": []string{"myuser/scratch"}})
+
+			msg := <-ch
+			evt, ok := msg.(*controllers.Event)
+			Expect(ok).To(BeTrue())
+			Expect(evt.Name).To(Equal(controllers.EventImagePushed))
+			Expect(evt.Data).To(BeEquivalentTo(struct {
+				Image      string `json:"image"`
+				Repository string `json:"repository"`
+			}{
+				Image:      "nitrousio/devenv:latest",
+				Repository: "myuser/scratch",
+			}))
+			close(done)
+		})
+
+		It("requires repository param", func() {
 			res := doRequest("foo", "devenv", nil)
 			Expect(mockClient.PushImageCalled).To(Equal(0))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
-			Expect(errDesc).To(Equal("destination is required"))
+			Expect(errDesc).To(Equal("repository is required"))
+		})
+
+		It("returns 404 if the image could not be located", func() {
+			mockClient.PushImageError = freighterclient.ErrImagePushAuthRequired
+			res := doRequest("foo", "nitrousio/devenv:1203", &url.Values{"repository": []string{"scratch"}})
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+			Expect(mockClient.PushImageCalled).To(Equal(0))
+			errType, _ := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("not_found"))
 		})
 
 		It("returns 401 if freighterclient returns an ErrImagePushAuthRequired", func() {
 			mockClient.PushImageError = freighterclient.ErrImagePushAuthRequired
-			res := doRequest("foo", "devenv", &url.Values{"destination": []string{"scratch"}})
+			res := doRequest("foo", "nitrousio/devenv:latest", &url.Values{"repository": []string{"scratch"}})
 			Expect(res.Code).To(Equal(http.StatusUnauthorized))
 			Expect(mockClient.PushImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
@@ -984,7 +1027,7 @@ var _ = Describe("controllers/images", func() {
 
 		It("returns 500 on freighterclient error", func() {
 			mockClient.PushImageError = &freighterclient.StatusError{Code: 418}
-			res := doRequest("foo", "devenv", &url.Values{"destination": []string{"scratch"}})
+			res := doRequest("foo", "nitrousio/devenv:latest", &url.Values{"repository": []string{"scratch"}})
 			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 			Expect(mockClient.PushImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
