@@ -28,7 +28,8 @@ func NewHostbuilder(url string) *Hostbuilder {
 	// FIXME: make this a global setting
 	v, _ := strconv.ParseBool(os.Getenv("NO_SSL_VERIFY"))
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: v},
+		DisableKeepAlives: true,
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: v},
 	}
 	client.Client.Transport = tr
 	return &Hostbuilder{URL: url, Client: client}
