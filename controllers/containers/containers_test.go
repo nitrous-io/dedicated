@@ -1070,6 +1070,21 @@ var _ = Describe("controllers/containers", func() {
 				ActualSize:  13,
 				VirtualSize: 29,
 			}
+
+			fc := &freighterclient.Container{
+				ID:         "deadbeef",
+				Name:       "elixir-web-1",
+				Host:       "1.2.3.4",
+				Gateway:    "1.2.3.0",
+				State:      "running",
+				Image:      "nitrous-base",
+				Cmd:        []string{"/sbin/init"},
+				Entrypoint: []string{"/bin/blah"},
+				ExitCode:   0,
+				StartedAt:  time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC),
+				FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
+			}
+			mockClient.Containers = []*freighterclient.Container{fc}
 		})
 
 		It("creates a new image record", func() {
@@ -1084,20 +1099,31 @@ var _ = Describe("controllers/containers", func() {
 			Expect(i.Tag).To(Equal("latest"))
 		})
 
-		It("returns image on success", func() {
+		It("returns image and container on success", func() {
 			doRequest("elixir-staging")
 			Expect(res.Code).To(Equal(http.StatusOK))
 			Expect(mockClient.CommitCalled).To(Equal(1))
 			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
 			Expect(mockClient.ReceivedName).To(Equal("elixir-staging"))
 			var j struct {
-				Image *serializers.Image `json:"image"`
+				Image     *serializers.Image     `json:"image"`
+				Container *serializers.Container `json:"container"`
 			}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j.Image).NotTo(BeNil())
 			Expect(j.Image.Slug).To(Equal("elixir-staging"))
 			Expect(j.Image.Tag).To(Equal("latest"))
+			Expect(j.Container).NotTo(BeNil())
+			Expect(j.Container.Slug).To(Equal("elixir-web-1"))
+			Expect(j.Container.State).To(Equal("running"))
+		})
+
+		It("returns a server error when freighter fails", func() {
+			mockClient.InfoError = errors.New("you are not Chuck Norris")
+			doRequest("elixir-staging")
+			errType, _ := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("internal_server_error"))
 		})
 
 		It("requires name parameter", func() {
