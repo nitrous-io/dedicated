@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"crypto/tls"
 	"fmt"
 	"os"
 	"strings"
@@ -37,6 +38,10 @@ type Command struct {
 	UI     *cli.BasicUi
 	client *httpclient.Client
 	server string
+
+	// Returns a tls.Config that the current command should use.
+	// this is useful in testing where we want to inject a custom TLS server
+	tlsConfig func() *tls.Config
 }
 
 func NewCommand(token string) (cli.Command, error) {
@@ -47,6 +52,9 @@ func NewCommand(token string) (cli.Command, error) {
 		},
 		server: command.Env.APIURL,
 		client: httpclient.New(token),
+		tlsConfig: func() *tls.Config {
+			return nil
+		},
 	}, nil
 }
 
@@ -92,7 +100,7 @@ func (c *Command) Run(args []string) int {
 
 	host := fmt.Sprintf("%s:%d", cr.Host.ProxyHostname, cr.Host.FreighterdPort)
 	command := getLoginCommand(username)
-	sh := protoshell.New(host, cr.CID, command, nil, func() (string, error) {
+	sh := protoshell.New(host, cr.CID, command, c.tlsConfig(), func() (string, error) {
 		return containers.GetToken(slug, c.server, []string{"shell"}, c.client)
 	})
 	if err := sh.Run(stdin.Fd(), stdout.Fd(), stdin, stdout); err != nil {
