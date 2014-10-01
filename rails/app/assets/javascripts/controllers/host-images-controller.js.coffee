@@ -38,7 +38,7 @@ App.HostImagesController = Lib.RecordListController.extend
       image = @get 'image'
       repo = @get 'repo'
       image.set 'pushing', true
-      image.ajax('POST', 'push', destination: repo).then(=>
+      image.ajax('POST', 'push', repository: repo).then(=>
         App.snackbar.post("Your image “#{image.get('displayName')}” was successfully pushed.")
         @set 'closePushDialog', true
       , (jqxhr) =>

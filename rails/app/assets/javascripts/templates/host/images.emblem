@@ -49,22 +49,24 @@
 #push-modal-dialog.ui.modal
   .ui.card
     h2.card-header
-      | Push Image
-    form
+      | Push &ldquo;
+      = image.displayName
+      | &rdquo;
+    form submit='push'
       .card-body
         .ui.input-group
           label.field-label for='push-repo'
             | Image Repository
           = input type='text' id='push-repo' disabled=image.pushing value=repo placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle required=true
-    .card-footer
-      .right
-        if image.pushing
-          button.ui.btn disabled='disabled'
-            i.spinner
-            | pushing...
-        else
-          button.ui.btn click='cancelPush target="view"' Cancel
-          button.ui.btn.primary click='push' disabled=view.pushButtonDisabled Push
+      .card-footer
+        .right
+          if image.pushing
+            button.ui.btn disabled='disabled'
+              i.spinner
+              | pushing...
+          else
+            a.ui.btn href='#' click='cancelPush target="view"' Cancel
+            input.ui.btn.primary type='submit' disabled=view.pushButtonDisabled value='Push'
 
 #confirm-remove-modal-dialog.ui.modal
   .ui.card
