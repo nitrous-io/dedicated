@@ -1016,13 +1016,13 @@ var _ = Describe("controllers/images", func() {
 			Expect(errType).To(Equal("not_found"))
 		})
 
-		It("returns 401 if freighterclient returns an ErrImagePushAuthRequired", func() {
+		It("returns HTTP 400 & registry_auth_failed if freighterclient returns an ErrImagePushAuthRequired", func() {
 			mockClient.PushImageError = freighterclient.ErrImagePushAuthRequired
 			res := doRequest("foo", "nitrousio/devenv:latest", &url.Values{"repository": []string{"scratch"}})
-			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
 			Expect(mockClient.PushImageCalled).To(Equal(1))
 			errType, _ := ErrorSlug(res.Body)
-			Expect(errType).To(Equal("invalid_request"))
+			Expect(errType).To(Equal("registry_auth_failed"))
 		})
 
 		It("returns 500 on freighterclient error", func() {
