@@ -6,5 +6,3 @@
   #content-wrapper
     = outlet content
 = partial 'footer'
-App.OfflineIndicatorView
-App.SnackbarView items=App.snackbar.items

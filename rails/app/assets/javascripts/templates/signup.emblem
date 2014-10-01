@@ -1,11 +1,15 @@
 = outlet topnav
 
 .ui.card
-  h2.card-header Sign Up
+  h2.card-header New Account
 
   form submit='signup'
     .card-body
       .ui.input-group
+        label.field-label for='signup-code'
+          | Sign Up Code
+        = input type='password' id='signup-code' classNameBindings='view.codeFieldInvalid:error' disabled=signingUp value=code
+
         label.field-label for='signup-name'
           | Name
         = input type='text' id='signup-name' classNameBindings='view.nameFieldInvalid:error' disabled=signingUp value=user.name

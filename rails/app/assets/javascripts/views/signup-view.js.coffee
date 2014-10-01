@@ -1,6 +1,7 @@
 App.SignupView = Em.View.extend
   elementId: 'signup-view'
 
+  codeFieldInvalid:     Em.computed.equal('controller.invalidField', 'code')
   nameFieldInvalid:     Em.computed.equal('controller.invalidField', 'name')
   usernameFieldInvalid: Em.computed.equal('controller.invalidField', 'username')
   emailFieldInvalid:    Em.computed.equal('controller.invalidField', 'email')

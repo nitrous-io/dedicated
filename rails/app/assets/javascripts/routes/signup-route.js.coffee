@@ -5,7 +5,7 @@ App.SignupRoute = Em.Route.extend
       @transitionTo 'home'
 
   activate: ->
-    App.set 'title', 'Sign Up'
+    App.set 'title', 'New Account'
     App.set 'user', null
     App.set 'token', null
 
@@ -14,7 +14,4 @@ App.SignupRoute = Em.Route.extend
     @render 'topnav', into: 'signup', outlet: 'topnav', controller: 'topnav'
 
   setupController: (controller) ->
-    controller.setProperties
-      user: App.User.create()
-      confirmPassword: null
-      error: null
+    controller.clear()

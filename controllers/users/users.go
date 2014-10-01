@@ -3,6 +3,7 @@ package users
 import (
 	"errors"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/lib/pq"
@@ -17,10 +18,29 @@ var (
 		"index_users_on_username": httperror.New(http.StatusBadRequest, "validation_failed", "username is taken"),
 		"index_users_on_email":    httperror.New(http.StatusBadRequest, "validation_failed", "email is taken"),
 	}
+	SignUpCode string
 )
+
+func init() {
+	SignUpCode = os.Getenv("SIGNUP_CODE")
+	if SignUpCode == "" {
+		SignUpCode = "emm@ w@tson luv"
+	}
+}
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
+
+	code := r.FormValue("code")
+	if code != SignUpCode {
+		var reason string
+		if code == "" {
+			reason = "code can't be blank"
+		} else {
+			reason = "code is incorrect"
+		}
+		return httperror.New(http.StatusBadRequest, "validation_failed", reason)
+	}
 
 	email := strings.ToLower(r.FormValue("email"))
 	username := strings.ToLower(r.FormValue("username"))

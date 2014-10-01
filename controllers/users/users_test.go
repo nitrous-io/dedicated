@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous/controllers/users"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/token"
 	"github.com/nitrous-io/nitrous/models/user"
@@ -86,6 +87,7 @@ var _ = Describe("controllers/users", func() {
 				params.Set("username", "foo")
 				params.Set("password", "123456")
 				params.Set("name", "Foo Bar")
+				params.Set("code", users.SignUpCode)
 				doRequest()
 			})
 
@@ -118,13 +120,14 @@ var _ = Describe("controllers/users", func() {
 			})
 		})
 
-		for _, v := range []string{"email", "username", "password"} {
+		for _, v := range []string{"email", "username", "password", "code"} {
 			Context(fmt.Sprintf(`when the required param "%s" is missing`, v), func() {
 				BeforeEach(func() {
 					params = &url.Values{}
 					params.Set("email", "foo@example.com")
 					params.Set("username", "foo")
 					params.Set("password", "123456")
+					params.Set("code", users.SignUpCode)
 					params.Del(v)
 					doRequest()
 				})
@@ -146,6 +149,7 @@ var _ = Describe("controllers/users", func() {
 				params.Set("email", "foobar")
 				params.Set("username", "foo")
 				params.Set("password", "123456")
+				params.Set("code", users.SignUpCode)
 				doRequest()
 			})
 
@@ -159,6 +163,26 @@ var _ = Describe("controllers/users", func() {
 			})
 		})
 
+		Context("when an incorrect sign up code is given", func() {
+			BeforeEach(func() {
+				params = &url.Values{}
+				params.Set("email", "foo@example.com")
+				params.Set("username", "foo")
+				params.Set("password", "123456")
+				params.Set("code", users.SignUpCode+"wtflolbbq")
+				doRequest()
+			})
+
+			It("responds with 400 bad request", func() {
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]string{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("validation_failed"))
+				Expect(j["error_description"]).To(Equal("code is incorrect"))
+			})
+		})
+
 		Context("with an existing user", func() {
 			BeforeEach(func() {
 				_, err := db.Exec("INSERT INTO users (username, email, encrypted_password) VALUES ('foo', 'foo@example.com', '!@#$%')")
@@ -167,6 +191,7 @@ var _ = Describe("controllers/users", func() {
 				params.Set("email", "lol@example.com")
 				params.Set("username", "bar")
 				params.Set("password", "123456")
+				params.Set("code", users.SignUpCode)
 			})
 
 			Context("when an existing username is given", func() {
