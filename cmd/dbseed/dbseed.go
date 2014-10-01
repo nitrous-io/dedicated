@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
@@ -78,7 +79,7 @@ func users(d db.QueryReceiver) error {
 		{Username: "admin", Email: "admins@nitrous.io", Password: pass},
 	}
 	for _, u := range users {
-		err = u.Insert(d)
+		err := u.Insert(d.(*sqlx.Tx))
 		if err != nil {
 			return err
 		}

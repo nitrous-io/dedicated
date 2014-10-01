@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/token"
@@ -86,7 +87,7 @@ func createAdminUserAndToken(d db.QueryReceiver) error {
 		Email:    "admins@nitrous.io",
 		Password: pass,
 	}
-	err = admin.Insert(d)
+	err = admin.Insert(d.(*sqlx.Tx))
 	if err != nil {
 		return err
 	}
