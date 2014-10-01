@@ -2,7 +2,6 @@ package shell
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -73,14 +72,13 @@ var _ = Describe("Command", func() {
 			Writer:      stdout,
 			ErrorWriter: ew,
 		}
+		tlsConf, err := command.ClientConfig(test.SampleHostname)
+		Expect(err).To(BeNil(), "failed to generate client tls config")
 		cmd := &Command{
-			UI:     ui,
-			server: ns.srv.URL,
-			client: httpclient.New("authtoken"), // FIXME This doesn't do anything.
-			tlsConfig: func() *tls.Config {
-				conf, _ := command.ClientConfig(test.SampleHostname)
-				return conf
-			},
+			UI:        ui,
+			server:    ns.srv.URL,
+			client:    httpclient.New("authtoken"), // FIXME This doesn't do anything.
+			tlsConfig: tlsConf,
 		}
 
 		exited := make(chan struct{})
