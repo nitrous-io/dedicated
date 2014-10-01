@@ -82,6 +82,12 @@ func users(d db.QueryReceiver) error {
 		if err != nil {
 			return err
 		}
+
+		// set the max hosts to a large value for seed users
+		_, err = d.Exec(`UPDATE user_profiles SET max_hosts = 9999 WHERE user_id = $1;`, u.ID)
+		if err != nil {
+			return nil
+		}
 		logr.Infof("Added user %+v", u)
 	}
 	return nil

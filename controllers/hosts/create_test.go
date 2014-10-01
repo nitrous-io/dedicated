@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -61,7 +62,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Password: "123456",
 			Email:    "foo@example.com",
 		}
-		err = u.Insert(db)
+		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 		Expect(u.ID).NotTo(BeZero())
 
@@ -356,6 +357,32 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].Slug).To(Equal("honeybadger"))
 		})
+
+		Context("when trying to create multiple hosts concurrently", func() {
+			It("only creates one host", func() {
+				var wg sync.WaitGroup
+				var resCodes []int
+
+				for i := 0; i < 2; i++ {
+					wg.Add(1)
+					hID := i
+					go func() {
+						params.Set("slug", fmt.Sprintf("host-%d", hID))
+						res := doRequest(params)
+						resCodes = append(resCodes, res.Code)
+						defer wg.Done()
+					}()
+				}
+
+				wg.Wait()
+
+				hosts, err := host.FindAllByUser(db, u)
+				Expect(err).To(BeNil())
+				Expect(len(hosts)).To(Equal(1))
+
+				Expect(resCodes).To(ConsistOf(http.StatusOK, http.StatusConflict))
+			})
+		})
 	})
 
 	Context("when trying to create a host with an existing slug", func() {
@@ -369,6 +396,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			hosts, err := host.FindAllByUser(db, u)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
+
+			// increase user's default hosts limit to hit the actual error
+			_, err = db.Exec(`UPDATE user_profiles SET max_hosts = 10 WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
 		})
 
 		It("does not create a host", func() {
@@ -552,6 +583,21 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Fail("timeout while waiting for EventHostCreateFailed")
 				}
 			})
+		})
+	})
+
+	Context("when user has reached the max hosts limit", func() {
+		It("responds with hosts limit reached", func() {
+			_, err := CreateHostStack(db, &HostStack{U: u})
+			Expect(err).To(BeNil())
+
+			res := doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(ContainSubstring("not allowed"))
 		})
 	})
 

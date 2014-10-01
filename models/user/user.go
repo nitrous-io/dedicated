@@ -7,7 +7,9 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/models/userprofile"
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/nitrous/pkg/pubsub"
 )
@@ -76,18 +78,24 @@ func FindByUsernameOrEmail(d db.QueryReceiver, login string) (*User, error) {
 	return user, nil
 }
 
-func (u *User) Insert(d db.QueryReceiver) error {
+func (u *User) Insert(tx *sqlx.Tx) error {
 	if err := u.encryptPassword(); err != nil {
 		return err
 	}
-	nstmt, err := d.PrepareNamed(`INSERT INTO users
+	nstmt, err := tx.PrepareNamed(`INSERT INTO users
 		(email, username, encrypted_password, name)
 		VALUES (:email, :username, :encrypted_password, :name)
 		RETURNING *;`)
 	if err != nil {
 		return err
 	}
-	return nstmt.QueryRow(u).StructScan(u)
+
+	if err = nstmt.QueryRow(u).StructScan(u); err != nil {
+		return err
+	}
+
+	// create a user profile
+	return userprofile.Create(tx, u.ID)
 }
 
 func (u *User) Update(d db.QueryReceiver) error {
@@ -142,6 +150,22 @@ func (u *User) Validate() error {
 
 func (u *User) Topic() pubsub.Topic {
 	return pubsub.Topic(fmt.Sprintf("user-%d", u.ID))
+}
+
+func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
+	var b bool
+	err := d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
+		FROM users u
+		JOIN user_profiles up ON (up.user_id = u.id)
+		LEFT JOIN hosts h ON (h.user_id = u.id)
+		WHERE u.id = $1;`,
+		u.ID).Scan(&b)
+
+	if err != nil {
+		return false, err
+	}
+
+	return b, nil
 }
 
 func (u *User) encryptPassword() error {

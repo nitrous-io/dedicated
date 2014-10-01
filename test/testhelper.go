@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/nitrous/controllers"
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/token"
@@ -185,4 +186,17 @@ func TLSConfig(hostname string, certPEM []byte, keyPEM []byte) (*tls.Config, err
 		RootCAs:      certPool,
 		ServerName:   hostname,
 	}, nil
+}
+
+func WrapInTransaction(db *db.Database, fn func(tx *sqlx.Tx) error) error {
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+
+	err = fn(tx)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }

@@ -93,7 +93,7 @@ var _ = Describe("controllers/images", func() {
 			Password: "123456",
 			Email:    "foo@example.com",
 		}
-		err = u.Insert(db)
+		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 
 		t = &token.Token{

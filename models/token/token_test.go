@@ -34,7 +34,7 @@ var _ = Describe("models/token", func() {
 			Email:    "foo@example.com",
 			Password: "123456",
 		}
-		err = u1.Insert(db)
+		err = WrapInTransaction(db, u1.Insert)
 		Expect(err).To(BeNil())
 
 		u2 = &user.User{
@@ -42,7 +42,7 @@ var _ = Describe("models/token", func() {
 			Email:    "bar@example.com",
 			Password: "123456",
 		}
-		err = u2.Insert(db)
+		err = WrapInTransaction(db, u2.Insert)
 		Expect(err).To(BeNil())
 
 		u3 = &user.User{
@@ -50,7 +50,7 @@ var _ = Describe("models/token", func() {
 			Email:    "baz@example.com",
 			Password: "123456",
 		}
-		err = u3.Insert(db)
+		err = WrapInTransaction(db, u3.Insert)
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec("INSERT INTO tokens (user_id, token) values ($1, $2);", u1.ID, "foofoo")

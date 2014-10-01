@@ -18,6 +18,8 @@ type Migration struct {
 	Up      string
 }
 
+const HOST_CREATE_LOCK = iota + 1
+
 func NewDatabase(conn string) (*Database, error) {
 	db, err := sqlx.Open("postgres", conn)
 	if err != nil {
@@ -108,4 +110,12 @@ func (d *Database) Migrate(migrations []*Migration) error {
 		}
 	}
 	return nil
+}
+
+// TransactionLock tries to set an advisory lock on transaction and
+// returns its result
+func TransactionLock(tx *sqlx.Tx, op, id int) (bool, error) {
+	var lockObtained bool
+	err := tx.QueryRow("SELECT pg_try_advisory_xact_lock($1, $2);", op, id).Scan(&lockObtained)
+	return lockObtained, err
 }

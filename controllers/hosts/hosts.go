@@ -28,12 +28,14 @@ var (
 	errRegionRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "region is required")
 	errPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
 	errRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
+	errHostCreationNotAllowed   = httperror.New(http.StatusBadRequest, "invalid_request", "not allowed to create more hosts")
 	errProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
 	errHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "host is not stopped")
 	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	errCertNotFound             = httperror.New(http.StatusNotFound, "not_found", "host certificate does not exist")
+	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another host creation request is currently processed")
 )
 
 var (

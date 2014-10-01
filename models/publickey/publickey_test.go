@@ -156,7 +156,7 @@ var _ = Describe("models/publickey", func() {
 				Password: "123456",
 				Email:    "foo@example.com",
 			}
-			err := u.Insert(db)
+			err := WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			u2 = &user.User{
@@ -164,7 +164,7 @@ var _ = Describe("models/publickey", func() {
 				Password: "123456",
 				Email:    "bar@example.com",
 			}
-			err = u2.Insert(db)
+			err = WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
 			rsa1C1 = &publickey.PublicKey{
@@ -246,7 +246,7 @@ var _ = Describe("models/publickey", func() {
 				Password: "123456",
 				Email:    "foo@example.com",
 			}
-			err := u.Insert(db)
+			err := WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			u2 = &user.User{
@@ -254,7 +254,7 @@ var _ = Describe("models/publickey", func() {
 				Password: "123456",
 				Email:    "bar@example.com",
 			}
-			err = u2.Insert(db)
+			err = WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
 			rsa1C1 = &publickey.PublicKey{
@@ -338,7 +338,7 @@ var _ = Describe("models/publickey", func() {
 				Password: "123456",
 				Email:    "foo@example.com",
 			}
-			err := u.Insert(db)
+			err := WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 			pk = &publickey.PublicKey{
 				UserID: u.ID,

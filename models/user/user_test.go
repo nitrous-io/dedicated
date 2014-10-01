@@ -7,6 +7,7 @@ import (
 
 	"github.com/nitrous-io/nitrous/db"
 	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/nitrous/models/userprofile"
 	"github.com/nitrous-io/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/nitrous/pkg/pubsub"
 	. "github.com/nitrous-io/nitrous/test"
@@ -228,8 +229,9 @@ var _ = Describe("models/user", func() {
 			var u2 *user.User
 
 			BeforeEach(func() {
-				err := u.Insert(db)
+				err := WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
+
 				u2, err = user.FindByUsername(db, "qux")
 				Expect(err).To(BeNil())
 				Expect(u2).NotTo(BeNil())
@@ -255,12 +257,28 @@ var _ = Describe("models/user", func() {
 				Expect(u.Password).To(BeEmpty()) // clears unencrypted password
 				Expect(u.EncryptedPassword).NotTo(BeEmpty())
 			})
+
+			It("creates a user profile record", func() {
+				up := &userprofile.UserProfile{}
+				err := db.Get(up, "SELECT * FROM user_profiles WHERE user_profiles.user_id = $1;", u.ID)
+				Expect(err).To(BeNil())
+				Expect(up.ID).NotTo(BeNil())
+				Expect(up.UserID).To(Equal(u.ID))
+				Expect(up.MaxHosts).To(Equal(int64(1)))
+				Expect(up.CreatedAt).NotTo(BeNil())
+				Expect(up.UpdatedAt).NotTo(BeNil())
+			})
 		})
 
-		Context("when some error happens", func() {
-			It("returns error", func() {
-				db.Close()
-				err := u.Insert(db)
+		Context("when some error occurrs during the transaction", func() {
+			It("returns an the error", func() {
+				tx, err := db.Beginx()
+				Expect(err).To(BeNil())
+
+				err = tx.Rollback()
+				Expect(err).To(BeNil())
+
+				err = u.Insert(tx)
 				Expect(err).NotTo(BeNil())
 			})
 		})
@@ -276,7 +294,8 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			Expect(u.Insert(db)).To(BeNil())
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
 		})
 
 		It("updates name, email, encrypted_password, updated_at", func() {
@@ -390,6 +409,64 @@ var _ = Describe("models/user", func() {
 			u := user.User{ID: 123}
 			Expect(u.Topic()).To(Equal(pubsub.Topic("user-123")))
 			Expect(u.Topic()).To(BeEquivalentTo("user-123"))
+		})
+	})
+
+	Describe("CanCreateHosts()", func() {
+		var u *user.User
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE user_profiles SET max_hosts = 2 WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+		})
+
+		Context("when hosts owned by user equal to max hosts", func() {
+			It("returns false", func() {
+				hs, err := CreateHostStack(db, &HostStack{U: u})
+				Expect(err).To(BeNil())
+
+				_, err = CreateHostStack(db, &HostStack{
+					U:  u,
+					R:  hs.R,
+					P:  hs.P,
+					PT: hs.PT,
+				})
+				Expect(err).To(BeNil())
+
+				// max hosts for the user is set to 2
+				// and user already has 2 hosts
+				b, err := u.CanCreateHosts(db)
+				Expect(err).To(BeNil())
+				Expect(b).To(BeFalse())
+			})
+		})
+
+		Context("when hosts owned by user is less than max hosts", func() {
+			It("returns true", func() {
+				_, err := CreateHostStack(db, &HostStack{U: u})
+				Expect(err).To(BeNil())
+
+				b, err := u.CanCreateHosts(db)
+				Expect(err).To(BeNil())
+				Expect(b).To(BeTrue())
+			})
+		})
+
+		Context("when user has no hosts", func() {
+			It("returns true", func() {
+				b, err := u.CanCreateHosts(db)
+				Expect(err).To(BeNil())
+				Expect(b).To(BeTrue())
+			})
 		})
 	})
 })

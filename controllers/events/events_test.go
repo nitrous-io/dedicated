@@ -41,7 +41,7 @@ var _ = Describe("controllers/events", func() {
 		svr = server.NewServer("", db, &logger.Logger{Level: logger.LogLevelQuiet})
 
 		u = &user.User{Username: "foo", Password: "123456", Email: "foo@example.com"}
-		err = u.Insert(db)
+		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 
 		t := &token.Token{UserID: u.ID, Token: "valid-token"}

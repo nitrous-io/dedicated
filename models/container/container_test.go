@@ -47,7 +47,7 @@ var _ = Describe("models/container", func() {
 			Email:    "foo@example.com",
 			Password: "123456",
 		}
-		err = u.Insert(db)
+		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 
 		r = &region.Region{Slug: "apse1", Name: "Southeast Asia"}
@@ -115,7 +115,7 @@ var _ = Describe("models/container", func() {
 					Email:    "barbaz@example.com",
 					Password: "123456",
 				}
-				err := u2.Insert(db)
+				err := WrapInTransaction(db, u2.Insert)
 				Expect(err).To(BeNil())
 
 				c, err := container.Find(db, u2, "my-1st-container")
@@ -147,7 +147,7 @@ var _ = Describe("models/container", func() {
 					Email:    "barbaz@example.com",
 					Password: "123456",
 				}
-				err := u2.Insert(db)
+				err := WrapInTransaction(db, u2.Insert)
 				Expect(err).To(BeNil())
 
 				c, err := container.Find(db, u2, strconv.FormatInt(cID, 10))
@@ -421,7 +421,7 @@ var _ = Describe("models/container", func() {
 						Email:    "bar@example.com",
 						Password: "123456",
 					}
-					err := u2.Insert(db)
+					err := WrapInTransaction(db, u2.Insert)
 					Expect(err).To(BeNil())
 
 					c.UserID = u2.ID
