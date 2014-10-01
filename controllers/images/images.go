@@ -185,9 +185,9 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 	if err := cl.PushImage(img.FullRepository(), repo); err != nil {
 		if err == freighterclient.ErrImagePushAuthRequired {
-			env.Status = http.StatusUnauthorized
+			env.Status = http.StatusBadRequest
 			env.Data = map[string]interface{}{
-				"error":             "invalid_request",
+				"error":             "registry_auth_failed",
 				"error_description": err.Error(),
 			}
 			return nil
