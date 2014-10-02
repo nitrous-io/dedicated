@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitro/command"
 	"github.com/nitrous-io/dedicated/nitro/command/containers"
 	"github.com/nitrous-io/dedicated/nitro/consts"
