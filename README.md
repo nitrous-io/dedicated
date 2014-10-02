@@ -8,3 +8,6 @@ Contain components of the nitrous-dedicated platform.
 
 This doesn't contain compass/tender because they can have their own release
 schedule.
+
+# setup
+- You will need to install latest Goop to parse Goopfile with alignment
