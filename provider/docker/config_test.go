@@ -74,9 +74,14 @@ var _ = Describe("provider/docker config", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("does not have Nitrous-related SSH and volume settings", func() {
+			It("does not have Nitrous-related port settings", func() {
 				Expect(cfg.ExposedPorts).To(HaveLen(0))
-				Expect(cfg.Volumes).To(HaveLen(0))
+			})
+
+			It("has Nitrous-related ssh volume settings", func() {
+				Expect(cfg.Volumes).To(HaveLen(1))
+				_, ok := cfg.Volumes["/etc/ssh/freighter"]
+				Expect(ok).To(BeTrue())
 			})
 		})
 
@@ -147,9 +152,12 @@ var _ = Describe("provider/docker config", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("does not have ssh-related settings", func() {
+			It("does not have Nitrous-related port settings", func() {
 				Expect(hostCfg.PortBindings).To(HaveLen(0))
-				Expect(hostCfg.Binds).To(HaveLen(0))
+			})
+
+			It("has Nitrous-related ssh volume settings", func() {
+				Expect(hostCfg.Binds).To(Equal([]string{sshBind}))
 			})
 		})
 
