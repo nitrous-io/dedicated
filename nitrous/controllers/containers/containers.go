@@ -10,10 +10,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
-	"github.com/mattn/go-shellwords"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous-common/hmactoken"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -23,7 +21,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/shellwords"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 
 const defaultLockTime = 1 * time.Minute
