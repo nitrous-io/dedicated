@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# we get primary version from `VERSION` file
+#!/usr/bin/env bash
+set -e
+export APP=${1:?"app name is required"}
+export VERSION=${2:?"version is required"}
+BUILD_DIR=./build
+
+rm -f "$BUILD_DIR/$APP"
+mkdir -p "$BUILD_DIR"
+# install only the binary
+# this prevents go from looking at test-only directory
+VERSION=$VERSION goop go install -x -ldflags "-X main.version ${VERSION}" -v github.com/nitrous-io/freighter/freighterd
+BUILD_DIR=$BUILD_DIR goop exec bash -c 'cp $GOBIN/$APP $BUILD_DIR/$APP'

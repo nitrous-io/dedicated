@@ -1,0 +1,12 @@
+{
+  "data_path": "/var/lib/freighter",
+  "tls_verify": true,
+  "tls_ca": "test1.com.ca.crt",
+  "tls_cert": "test1.com.svr.crt",
+  "tls_key": "test1.com.svr.key",
+  "secret": "secret.base64.txt",
+  "listen": [
+    { "proto": "unix", "address": "/var/run/freighterd.sock" },
+    { "proto": "tcp", "address": "0.0.0.0:65333" }
+  ]
+}

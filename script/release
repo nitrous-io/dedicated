@@ -1,0 +1,66 @@
+#!/bin/bash
+set -e
+
+APP=${1:?"app name is required"}
+VERSION=${2:?"version is required"}
+ARTIFACT_DIR=/tmp/$APP/$VERSION
+
+PACKAGE_NAME=$APP
+PACKAGE_VERSION=$VERSION
+PACKAGE_ARCHITECTURE="$(dpkg-architecture -qDEB_HOST_ARCH)"
+PACKAGE_DESCRIPTION="Nitrous.IO HTTP frontend for docker"
+PACKAGE_MAINTAINER="eng@nitrous.io"
+PACKAGE_LICENSE="All Rights Reserved - Irrational Industries d/b/a Nitrous.IO"
+PACKAGE_URL="nitrous.io"
+
+FILES=./files/$PACKAGE_NAME # where we store configuration files
+PKGDIR=$ARTIFACT_DIR
+
+rm -rf $PKGDIR/*.deb
+
+# install our control files over to $PKDIR
+install -m 0644 -D $FILES/control/preinst $PKGDIR/$FILES/control/preinst
+install -m 0644 -D $FILES/control/prerm $PKGDIR/$FILES/control/prerm
+
+# install our freighterd configuration
+install -m 0644 -D $FILES/data/etc/init/freighterd.conf $PKGDIR/etc/init/freighterd.conf
+
+# install our freighterd binary
+install -m 0755 -D $ARTIFACT_DIR/$APP $PKGDIR/usr/sbin/$APP
+
+# TODO: we wants --depends docker.io too
+
+cd $PKGDIR
+rm -f *.deb
+
+fpm \
+  -s dir \
+  --name $PACKAGE_NAME \
+  --version $PACKAGE_VERSION \
+  --architecture "$PACKAGE_ARCHITECTURE" \
+  --prefix / \
+  --description "$PACKAGE_DESCRIPTION" \
+  --maintainer "$PACKAGE_MAINTAINER" \
+  --provides $PACKAGE_NAME \
+  --replaces $PACKAGE_NAME \
+  --before-install $FILES/control/preinst \
+  --before-remove $FILES/control/prerm \
+  --config-files /etc/init/freighterd.conf \
+  --license "$PACKAGE_LICENSE" \
+  --url "$PACKAGE_URL" \
+  --deb-compression gz \
+  -t deb .
+
+# cleanup the build directory
+rm -rf $PKGDIR/{usr,etc,var,lib}
+
+DEB=${APP}_${VERSION}_amd64.deb
+
+cd $ARTIFACT_DIR
+if [[ -f $DEB ]]; then
+  echo "Adding $DEB to local repository"
+  deb-upload apt.nitrous.io $DEB public 6B19EAE0
+else
+  echo "Failed to find deb package: $DEB in $ARTIFACT_DIR directory."
+  exit 1
+fi
