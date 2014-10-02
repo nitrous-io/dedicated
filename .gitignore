@@ -1,0 +1,9 @@
+.bundle
+config.json
+tags
+.test
+.vagrant
+.vendor
+integration/vendor/bundle
+
+build/

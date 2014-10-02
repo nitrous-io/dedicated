@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if [[ -n "$(getent passwd hostbuilder)" ]]; then
+  PROCS=$(ps -U hostbuilder -u hostbuilder -o pid=)
+  if [[ -n $PROCS ]]; then
+    for P in $PROCS; do
+      kill -9 $P
+    done
+  fi
+  userdel hostbuilder
+else
+  exit 0;
+fi

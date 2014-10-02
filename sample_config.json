@@ -1,0 +1,17 @@
+{
+  "address": ":6666",
+  "providers": {
+    "amazon": {
+      "access_key": "",
+      "secret_key": ""
+    },
+    "digitalocean": {
+      "client_id": "",
+      "api_key": "",
+      "token": ""
+    },
+    "docker": {
+      "freighterd_location": "/home/vagrant/workspace/freighter/.vendor/bin/freighterd"
+    }
+  }
+}

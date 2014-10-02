@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+
+case "$1" in
+    purge|remove|deconfigure|remove-in-favour|deconfigure-in-favour)
+        if [[ -f /var/run/hostbuilder.pid ]]; then 
+                service hostbuilder stop
+        fi
+	;;
+    upgrade|failed-upgrade)
+	;;
+    *)
+	echo "prerm called with unknown argument \`$1'" >&2
+	;;
+esac
+
+exit 0
