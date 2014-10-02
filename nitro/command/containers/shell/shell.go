@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
-	"github.com/nitrous-io/nitro/command/containers"
-	"github.com/nitrous-io/nitro/pkg/nitrousapi"
-	"github.com/nitrous-io/nitro/pkg/protoshell"
+	"github.com/nitrous-io/dedicated/nitro/command"
+	"github.com/nitrous-io/dedicated/nitro/command/containers"
+	"github.com/nitrous-io/dedicated/nitro/pkg/nitrousapi"
+	"github.com/nitrous-io/dedicated/nitro/pkg/protoshell"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
 )

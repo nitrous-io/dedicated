@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
-	. "github.com/nitrous-io/nitro/command/login"
+	"github.com/nitrous-io/dedicated/nitro/command"
+	. "github.com/nitrous-io/dedicated/nitro/command/login"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

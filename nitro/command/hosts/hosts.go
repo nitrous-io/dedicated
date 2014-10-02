@@ -6,7 +6,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/nitrous-io/nitro/consts"
+	"github.com/nitrous-io/dedicated/nitro/consts"
 )
 
 type Host struct {

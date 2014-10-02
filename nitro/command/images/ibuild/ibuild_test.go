@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command/images/ibuild"
+	"github.com/nitrous-io/dedicated/nitro/command/images/ibuild"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	"github.com/nitrous-io/nitrous-common/isarchive"
 

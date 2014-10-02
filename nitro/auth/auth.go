@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/dedicated/nitro/command"
 )
 
 func FetchToken(server, username, password string) (string, error) {

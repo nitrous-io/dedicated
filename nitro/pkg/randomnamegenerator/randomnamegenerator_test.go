@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/nitrous-io/nitro/pkg/randomnamegenerator"
+	"github.com/nitrous-io/dedicated/nitro/pkg/randomnamegenerator"
 )
 
 func Test(t *testing.T) {

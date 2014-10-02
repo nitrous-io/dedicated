@@ -10,10 +10,10 @@ import (
 	flag "github.com/ogier/pflag"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/dedicated/nitro/command"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
-	"github.com/nitrous-io/nitro/command/containers"
+	"github.com/nitrous-io/dedicated/nitro/command/containers"
 )
 
 const usage = `

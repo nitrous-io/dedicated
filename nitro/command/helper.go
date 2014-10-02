@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/nitrous-io/nitro/consts"
+	"github.com/nitrous-io/dedicated/nitro/consts"
 )
 
 var (

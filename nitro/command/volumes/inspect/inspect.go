@@ -13,9 +13,9 @@ import (
 	"github.com/mitchellh/cli"
 	flag "github.com/ogier/pflag"
 
-	"github.com/nitrous-io/nitro/command"
-	"github.com/nitrous-io/nitro/command/volumes"
-	"github.com/nitrous-io/nitro/consts"
+	"github.com/nitrous-io/dedicated/nitro/command"
+	"github.com/nitrous-io/dedicated/nitro/command/volumes"
+	"github.com/nitrous-io/dedicated/nitro/consts"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
 

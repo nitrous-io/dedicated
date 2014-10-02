@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/dedicated/nitro/command"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
 
-	. "github.com/nitrous-io/nitro/command/images"
+	. "github.com/nitrous-io/dedicated/nitro/command/images"
 )
 
 const Usage = `

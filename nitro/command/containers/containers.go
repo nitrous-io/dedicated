@@ -10,8 +10,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/nitrous-io/nitro/command"
-	"github.com/nitrous-io/nitro/consts"
+	"github.com/nitrous-io/dedicated/nitro/command"
+	"github.com/nitrous-io/dedicated/nitro/consts"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
 

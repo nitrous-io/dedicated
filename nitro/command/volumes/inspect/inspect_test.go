@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
-	"github.com/nitrous-io/nitro/command/volumes/inspect"
+	"github.com/nitrous-io/dedicated/nitro/command"
+	"github.com/nitrous-io/dedicated/nitro/command/volumes/inspect"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 
 	. "github.com/onsi/ginkgo"

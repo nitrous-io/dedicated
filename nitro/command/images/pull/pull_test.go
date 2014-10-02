@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command/images/pull"
+	"github.com/nitrous-io/dedicated/nitro/command/images/pull"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	"github.com/onsi/gomega/ghttp"
 

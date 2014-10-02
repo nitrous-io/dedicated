@@ -9,8 +9,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
-	"github.com/nitrous-io/nitro/consts"
+	"github.com/nitrous-io/dedicated/nitro/command"
+	"github.com/nitrous-io/dedicated/nitro/consts"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	flag "github.com/ogier/pflag"
 )

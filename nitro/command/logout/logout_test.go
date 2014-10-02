@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
-	. "github.com/nitrous-io/nitro/command/logout"
+	"github.com/nitrous-io/dedicated/nitro/command"
+	. "github.com/nitrous-io/dedicated/nitro/command/logout"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

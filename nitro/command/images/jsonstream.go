@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nitrous-io/nitro/pkg/units"
+	"github.com/nitrous-io/dedicated/nitro/pkg/units"
 	"github.com/nitrous-io/nitrous-common/term"
 )
 

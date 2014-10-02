@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 
-	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/dedicated/nitro/command"
 )
 
 func WriteConfig(conf *command.ConfigFile, path string) (string, error) {

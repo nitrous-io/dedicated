@@ -7,8 +7,8 @@ import (
 
 	"github.com/bgentry/speakeasy"
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/auth"
-	"github.com/nitrous-io/nitro/command"
+	"github.com/nitrous-io/dedicated/nitro/auth"
+	"github.com/nitrous-io/dedicated/nitro/command"
 	flag "github.com/ogier/pflag"
 )
 

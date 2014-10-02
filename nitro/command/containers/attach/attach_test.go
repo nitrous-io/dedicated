@@ -10,12 +10,12 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command/containers/attach"
-	"github.com/nitrous-io/nitro/consts"
+	"github.com/nitrous-io/dedicated/nitro/command/containers/attach"
+	"github.com/nitrous-io/dedicated/nitro/consts"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	"github.com/nitrous-io/nitrous-common/wsconn"
 
-	"github.com/nitrous-io/nitro/test"
+	"github.com/nitrous-io/dedicated/nitro/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"

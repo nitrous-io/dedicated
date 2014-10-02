@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# we get primary version from `VERSION` file
+#!/usr/bin/env bash
+set -e
+export APP=${1:?"app name is required"}
+export BINARY=${2:?"binary is required"}
+export VERSION=${3:?"version is required"}
+BUILD_DIR=./build
+
+rm -f "$BUILD_DIR/$APP"
+mkdir -p "$BUILD_DIR"
+
+(
+# install only the binary
+# this prevents go from looking at test-only directory
+VERSION=$VERSION goop go install -x \
+  -ldflags "-X main.version ${VERSION}" \
+  github.com/nitrous-io/dedicated/$APP
+
+BUILD_DIR=$BUILD_DIR goop exec bash -c 'cp $GOBIN/$BINARY $BUILD_DIR/$BINARY'
+)

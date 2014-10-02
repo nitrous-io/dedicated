@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/nitro/command"
-	"github.com/nitrous-io/nitro/command/images"
-	"github.com/nitrous-io/nitro/pkg/randomnamegenerator"
+	"github.com/nitrous-io/dedicated/nitro/command"
+	"github.com/nitrous-io/dedicated/nitro/command/images"
+	"github.com/nitrous-io/dedicated/nitro/pkg/randomnamegenerator"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	"github.com/nitrous-io/nitrous-common/isarchive"
 	flag "github.com/ogier/pflag"
