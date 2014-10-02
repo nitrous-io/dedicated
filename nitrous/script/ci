@@ -15,5 +15,5 @@ docker run \
 cid=`cat $tmp/$APP`
 
 for C in $APP dbseed public; do
-  docker cp $cid:/opt/src/github.com/nitrous-io/nitrous/build/$C $HOST_BUILD_DIR/
+  docker cp $cid:/opt/src/github.com/nitrous-io/dedicated/nitrous/build/$C $HOST_BUILD_DIR/
 done

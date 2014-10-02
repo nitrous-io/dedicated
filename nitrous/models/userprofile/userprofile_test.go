@@ -4,11 +4,11 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/user"
-	"github.com/nitrous-io/nitrous/models/userprofile"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 
-	. "github.com/nitrous-io/nitrous/test"
+	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

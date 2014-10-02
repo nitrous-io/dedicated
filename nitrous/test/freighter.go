@@ -1,11 +1,11 @@
 package test
 
 import (
-	"github.com/nitrous-io/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/cert"
-	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/cert"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 )
 
 type freighterClientFn func(db db.QueryReceiver, h *host.Host) (*controllers.FreighterClient, error)

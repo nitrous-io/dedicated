@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nitrous-io/nitrous/models/baseimage"
-	"github.com/nitrous-io/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/nitrous/models/baseimage"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

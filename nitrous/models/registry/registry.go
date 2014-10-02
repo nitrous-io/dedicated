@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
 type Registry struct {

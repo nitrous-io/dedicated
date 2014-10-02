@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/nitrous-io/nitrous/models/volume"
-	"github.com/nitrous-io/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/nitrous/models/volume"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

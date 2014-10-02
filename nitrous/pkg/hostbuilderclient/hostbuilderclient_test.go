@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/nitrous-io/hostbuilder"
-	"github.com/nitrous-io/nitrous/pkg/hostbuilderclient"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"

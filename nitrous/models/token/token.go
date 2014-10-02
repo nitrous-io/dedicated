@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/pkg/securerandom"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
 type Token struct {

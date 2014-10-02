@@ -1,6 +1,6 @@
 package serializers
 
-import "github.com/nitrous-io/nitrous/models/region"
+import "github.com/nitrous-io/dedicated/nitrous/models/region"
 
 type Region struct {
 	ID   int64  `json:"id"`

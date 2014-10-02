@@ -1,6 +1,6 @@
 package serializers
 
-import "github.com/nitrous-io/freighter/freighterclient"
+import "github.com/nitrous-io/dedicated/freighter/freighterclient"
 
 type VolumeInfo struct {
 	Size uint64 `json:"size"`

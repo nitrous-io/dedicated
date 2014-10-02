@@ -3,7 +3,7 @@ package serializers
 import (
 	"time"
 
-	"github.com/nitrous-io/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
 )
 
 type Container struct {

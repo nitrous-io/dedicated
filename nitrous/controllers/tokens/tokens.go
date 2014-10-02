@@ -3,11 +3,11 @@ package tokens
 import (
 	"net/http"
 
-	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/models/token"
-	"github.com/nitrous-io/nitrous/models/user"
-	"github.com/nitrous-io/nitrous/pkg/bcrypt"
-	"github.com/nitrous-io/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
 
 var (

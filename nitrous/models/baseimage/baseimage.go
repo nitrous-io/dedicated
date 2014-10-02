@@ -3,7 +3,7 @@ package baseimage
 import (
 	"time"
 
-	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
 type BaseImage struct {

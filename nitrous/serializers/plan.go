@@ -1,6 +1,6 @@
 package serializers
 
-import "github.com/nitrous-io/nitrous/models/plan"
+import "github.com/nitrous-io/dedicated/nitrous/models/plan"
 
 type Plan struct {
 	ID            int64  `json:"id"`

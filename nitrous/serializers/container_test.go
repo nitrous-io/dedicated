@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nitrous-io/nitrous/models/container"
-	"github.com/nitrous-io/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

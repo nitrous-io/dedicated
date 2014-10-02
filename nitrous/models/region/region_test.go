@@ -3,9 +3,9 @@ package region_test
 import (
 	"testing"
 
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/region"
-	. "github.com/nitrous-io/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

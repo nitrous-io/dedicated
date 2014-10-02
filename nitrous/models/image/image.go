@@ -8,9 +8,9 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
 type Image struct {

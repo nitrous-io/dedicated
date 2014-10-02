@@ -3,7 +3,7 @@ package serializers
 import (
 	"time"
 
-	"github.com/nitrous-io/nitrous/models/publickey"
+	"github.com/nitrous-io/dedicated/nitrous/models/publickey"
 )
 
 type PublicKey struct {

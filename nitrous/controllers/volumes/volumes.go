@@ -7,14 +7,14 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 
-	"github.com/nitrous-io/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous/controllers"
-	ndb "github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/models/volume"
-	"github.com/nitrous-io/nitrous/pkg/httperror"
-	"github.com/nitrous-io/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/volume"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
 var (

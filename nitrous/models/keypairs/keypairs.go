@@ -11,7 +11,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/nitrous-common/cipher"
-	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
 var (

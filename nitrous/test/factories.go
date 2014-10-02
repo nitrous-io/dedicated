@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/cert"
-	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/models/plan"
-	"github.com/nitrous-io/nitrous/models/providertemplate"
-	"github.com/nitrous-io/nitrous/models/region"
-	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/cert"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
 type HostStack struct {

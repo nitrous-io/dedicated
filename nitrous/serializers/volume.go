@@ -3,7 +3,7 @@ package serializers
 import (
 	"time"
 
-	"github.com/nitrous-io/nitrous/models/volume"
+	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 )
 
 type Volume struct {

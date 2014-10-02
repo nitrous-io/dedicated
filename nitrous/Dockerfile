@@ -20,7 +20,7 @@ RUN curl -s https://storage.googleapis.com/golang/go1.3.linux-amd64.tar.gz \
 RUN curl -s https://intercityup.com/binaries/ruby/ubuntu/14.04/x86_64/ruby-2.1.2.tar.bz2 \
   | tar -v -C /usr/local/ruby -xj
 
-ENV GOPATH /opt/src/github.com/nitrous-io/nitrous/.vendor:/opt
+ENV GOPATH /opt/src/github.com/nitrous-io/dedicated/nitrous/.vendor:/opt
 ENV PATH .bundle/binstubs:/usr/local/ruby/2.1.2/bin:/usr/local/go/bin:/opt/bin:$PATH
 ENV GOBIN /opt/bin
 

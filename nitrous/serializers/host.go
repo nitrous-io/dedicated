@@ -3,7 +3,7 @@ package serializers
 import (
 	"time"
 
-	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 )
 
 type Host struct {

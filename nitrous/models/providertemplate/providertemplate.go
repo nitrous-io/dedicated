@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/lib/pq/hstore"
-	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
 type ProviderTemplate struct {

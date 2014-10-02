@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/nitrous-io/nitrous/pkg/pubsub"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

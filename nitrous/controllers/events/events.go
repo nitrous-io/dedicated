@@ -9,8 +9,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/nitrous-common/wsconn"
-	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
 
 var upgrader = websocket.Upgrader{

@@ -4,10 +4,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/models/registry"
-	. "github.com/nitrous-io/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/registry"
+	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

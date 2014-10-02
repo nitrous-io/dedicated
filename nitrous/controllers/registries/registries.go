@@ -5,13 +5,13 @@ import (
 	"net/url"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/models/registry"
-	"github.com/nitrous-io/nitrous/pkg/httperror"
-	"github.com/nitrous-io/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/registry"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
 var (

@@ -4,12 +4,12 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/nitrous-io/nitrous/models/container"
-	"github.com/nitrous-io/nitrous/models/cvolume"
-	"github.com/nitrous-io/nitrous/models/volume"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
+	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 
-	ndb "github.com/nitrous-io/nitrous/db"
-	. "github.com/nitrous-io/nitrous/test"
+	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

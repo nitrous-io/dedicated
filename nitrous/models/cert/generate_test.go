@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/models/cert"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

@@ -3,12 +3,12 @@ package publickey_test
 import (
 	"strconv"
 
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/container"
-	"github.com/nitrous-io/nitrous/models/publickey"
-	"github.com/nitrous-io/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/publickey"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 
-	. "github.com/nitrous-io/nitrous/test"
+	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 

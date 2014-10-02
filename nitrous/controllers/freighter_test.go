@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

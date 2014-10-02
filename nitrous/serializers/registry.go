@@ -3,7 +3,7 @@ package serializers
 import (
 	"time"
 
-	"github.com/nitrous-io/nitrous/models/registry"
+	"github.com/nitrous-io/dedicated/nitrous/models/registry"
 )
 
 type Registry struct {

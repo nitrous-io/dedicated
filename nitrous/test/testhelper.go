@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/token"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
 )
 
 var tables []string // retrieve list of tables once and store here

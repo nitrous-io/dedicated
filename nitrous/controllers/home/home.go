@@ -8,7 +8,7 @@ import (
 
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous-common/must"
-	"github.com/nitrous-io/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
 )
 
 var homeIndexHtml []byte

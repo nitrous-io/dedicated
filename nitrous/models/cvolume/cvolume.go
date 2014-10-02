@@ -7,9 +7,9 @@ import (
 
 	"github.com/lib/pq"
 
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/container"
-	"github.com/nitrous-io/nitrous/models/volume"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 )
 
 type ContainerVolume struct {

@@ -1,8 +1,8 @@
 package controllers_test
 
 import (
-	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/pkg/pubsub"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

@@ -3,7 +3,7 @@ package serializers
 import (
 	"time"
 
-	"github.com/nitrous-io/nitrous/models/baseimage"
+	"github.com/nitrous-io/dedicated/nitrous/models/baseimage"
 )
 
 type BaseImage struct {

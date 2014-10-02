@@ -3,9 +3,9 @@ package regions
 import (
 	"net/http"
 
-	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/models/region"
-	"github.com/nitrous-io/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {

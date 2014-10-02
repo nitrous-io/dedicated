@@ -12,11 +12,11 @@ import (
 
 	"code.google.com/p/go.crypto/ssh"
 
-	fc "github.com/nitrous-io/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/cert"
-	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/pkg/httperror"
+	fc "github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/cert"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
 
 // DefaultImage is the default Docker image used to create containers if an

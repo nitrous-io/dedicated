@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/nitrous-io/nitrous/pkg/pubsub"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 )
 
 // ProgressEvent represents the progress data that is emitted from freighter.

@@ -12,7 +12,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/nitrous-io/hostbuilder"
+	"github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
 

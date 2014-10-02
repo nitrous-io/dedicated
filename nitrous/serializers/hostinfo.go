@@ -1,6 +1,6 @@
 package serializers
 
-import "github.com/nitrous-io/freighter/freighterclient"
+import "github.com/nitrous-io/dedicated/freighter/freighterclient"
 
 type HostInfo struct {
 	Uptime       uint64    `json:"uptime"`

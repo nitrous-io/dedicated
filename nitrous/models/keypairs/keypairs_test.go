@@ -3,7 +3,7 @@ package keypairs
 import (
 	"testing"
 	"time"
-	. "github.com/nitrous-io/nitrous/test"
+	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

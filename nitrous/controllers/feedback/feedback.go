@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"net/mail"
 
-	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/pkg/mailer"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 )
 
 var Mailer mailer.Mailer = mailer.NewSendGridMailer()

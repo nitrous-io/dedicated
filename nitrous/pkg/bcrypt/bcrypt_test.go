@@ -3,7 +3,7 @@ package bcrypt_test
 import (
 	"testing"
 
-	"github.com/nitrous-io/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
