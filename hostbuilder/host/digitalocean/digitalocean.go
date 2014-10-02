@@ -16,9 +16,9 @@ import (
 	"code.google.com/p/goauth2/oauth"
 
 	"github.com/digitalocean/godo"
-	"github.com/nitrous-io/hostbuilder/context"
-	"github.com/nitrous-io/hostbuilder/host"
-	"github.com/nitrous-io/hostbuilder/pkg/ssh"
+	"github.com/nitrous-io/dedicated/hostbuilder/context"
+	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/pkg/ssh"
 )
 
 var (

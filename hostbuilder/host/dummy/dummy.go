@@ -5,7 +5,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/nitrous-io/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/host"
 )
 
 type Host struct {

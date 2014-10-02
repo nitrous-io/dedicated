@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/digitalocean/godo"
-	"github.com/nitrous-io/hostbuilder/host/digitalocean"
-	dotest "github.com/nitrous-io/hostbuilder/pkg/dotestv2"
+	"github.com/nitrous-io/dedicated/hostbuilder/host/digitalocean"
+	dotest "github.com/nitrous-io/dedicated/hostbuilder/pkg/dotestv2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

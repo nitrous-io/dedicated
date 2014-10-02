@@ -9,7 +9,7 @@ import (
 	"text/template"
 
 	"github.com/mitchellh/goamz/ec2"
-	"github.com/nitrous-io/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/host"
 )
 
 var userDataTemplate = `#cloud-config

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/nitrous-io/hostbuilder"
+	"github.com/nitrous-io/dedicated/hostbuilder"
 )
 
 var version string

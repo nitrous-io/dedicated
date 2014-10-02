@@ -13,7 +13,7 @@ import (
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
-	"github.com/nitrous-io/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/host"
 )
 
 var (

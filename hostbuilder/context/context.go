@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nitrous-io/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/host"
 )
 
 type StepFn func(c *Context, h host.Host) error

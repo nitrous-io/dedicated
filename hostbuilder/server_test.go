@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	. "github.com/nitrous-io/hostbuilder"
-	"github.com/nitrous-io/hostbuilder/host"
-	"github.com/nitrous-io/hostbuilder/host/dummy"
+	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/host/dummy"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

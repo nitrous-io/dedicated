@@ -5,10 +5,10 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/nitrous-io/hostbuilder/context"
-	"github.com/nitrous-io/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/context"
+	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	// Required since the Dummy provider needs to be init'ed in host.Hosts
-	_ "github.com/nitrous-io/hostbuilder/host/dummy"
+	_ "github.com/nitrous-io/dedicated/hostbuilder/host/dummy"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

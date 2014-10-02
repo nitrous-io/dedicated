@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/digitalocean/godo"
-	"github.com/nitrous-io/hostbuilder/host/digitalocean"
+	"github.com/nitrous-io/dedicated/hostbuilder/host/digitalocean"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

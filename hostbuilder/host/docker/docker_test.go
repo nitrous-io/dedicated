@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/nitrous-io/hostbuilder/host"
-	"github.com/nitrous-io/hostbuilder/host/docker"
+	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/host/docker"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
