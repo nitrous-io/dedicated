@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/nitrous-io/freighter/provider/docker/parsers"
+	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

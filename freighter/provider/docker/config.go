@@ -7,7 +7,7 @@ import (
 
 	dockerclient "github.com/fsouza/go-dockerclient"
 
-	"github.com/nitrous-io/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/provider"
 )
 
 var (

@@ -16,9 +16,9 @@ import (
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
-	"github.com/nitrous-io/freighter/provider"
-	"github.com/nitrous-io/freighter/provider/docker/parsers"
-	"github.com/nitrous-io/freighter/util"
+	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
+	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 

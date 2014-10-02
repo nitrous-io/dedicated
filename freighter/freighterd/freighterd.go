@@ -8,9 +8,9 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/nitrous-io/freighter/provider/docker"
-	"github.com/nitrous-io/freighter/server"
-	"github.com/nitrous-io/freighter/util"
+	"github.com/nitrous-io/dedicated/freighter/provider/docker"
+	"github.com/nitrous-io/dedicated/freighter/server"
+	"github.com/nitrous-io/dedicated/freighter/util"
 )
 
 var (

@@ -13,10 +13,10 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/nitrous-io/freighter/pkg/flusher"
-	"github.com/nitrous-io/freighter/pkg/shell"
-	"github.com/nitrous-io/freighter/pkg/stats"
-	"github.com/nitrous-io/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/pkg/flusher"
+	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
+	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
+	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 

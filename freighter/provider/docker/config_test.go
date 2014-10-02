@@ -4,10 +4,10 @@ import (
 	"path/filepath"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
-	"github.com/nitrous-io/freighter/provider"
-	"github.com/nitrous-io/freighter/provider/docker"
-	. "github.com/nitrous-io/freighter/test"
-	"github.com/nitrous-io/freighter/util"
+	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/provider/docker"
+	. "github.com/nitrous-io/dedicated/freighter/test"
+	"github.com/nitrous-io/dedicated/freighter/util"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

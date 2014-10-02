@@ -17,11 +17,11 @@ import (
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
-	"github.com/nitrous-io/freighter/provider"
-	"github.com/nitrous-io/freighter/provider/docker"
-	"github.com/nitrous-io/freighter/provider/docker/parsers"
-	. "github.com/nitrous-io/freighter/test"
-	"github.com/nitrous-io/freighter/util"
+	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/provider/docker"
+	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
+	. "github.com/nitrous-io/dedicated/freighter/test"
+	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -1919,7 +1919,7 @@ func assertRegistryAuth(r *http.Request, expected dockerclient.AuthConfiguration
 // for more documentation
 func assertPullOptions(r *http.Request, expected dockerclient.PullImageOptions) {
 	// if we dont expect any tag, by default it only pulls the latest tag
-	// https://github.com/nitrous-io/freighter/commit/f3af226068ddd6eb697a58be38b2acb521e8e0b4
+	// https://github.com/nitrous-io/dedicated/freighter/commit/f3af226068ddd6eb697a58be38b2acb521e8e0b4
 	if expected.Tag == "" {
 		expected.Tag = "latest"
 	}

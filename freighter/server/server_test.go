@@ -13,12 +13,12 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/nitrous-io/freighter/pkg/stats"
-	"github.com/nitrous-io/freighter/provider"
-	"github.com/nitrous-io/freighter/server"
-	"github.com/nitrous-io/freighter/util"
+	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
+	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/server"
+	"github.com/nitrous-io/dedicated/freighter/util"
 
-	. "github.com/nitrous-io/freighter/test"
+	. "github.com/nitrous-io/dedicated/freighter/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

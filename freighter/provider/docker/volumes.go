@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"syscall"
 
-	"github.com/nitrous-io/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/provider"
 )
 
 type VolumeError error

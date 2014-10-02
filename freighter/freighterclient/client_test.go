@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/nitrous-io/freighter/freighterclient"
-	"github.com/nitrous-io/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/onsi/gomega/ghttp"
 
 	. "github.com/onsi/ginkgo"

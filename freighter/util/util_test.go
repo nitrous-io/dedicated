@@ -1,7 +1,7 @@
 package util_test
 
 import (
-	"github.com/nitrous-io/freighter/util"
+	"github.com/nitrous-io/dedicated/freighter/util"
 
 	"testing"
 	. "github.com/onsi/ginkgo"

@@ -6,8 +6,12 @@ REVISION=$(shell git rev-parse --short HEAD)
 BASE_VERSION=$(shell cat VERSION)
 VERSION=$(BASE_VERSION)+$(BUILD_NUMBER)-$(REVISION)
 
-all: nitro
+all: nitro freighter
 
 nitro:
 	@./script/build nitro nitro $(VERSION)
 .PHONY: nitro
+
+freighter:
+	@./script/build freighter/freighterd freighterd $(VERSION)
+.PHONY: freighter

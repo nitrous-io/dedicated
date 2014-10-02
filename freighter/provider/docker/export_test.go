@@ -4,8 +4,8 @@ import (
 	"errors"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
-	"github.com/nitrous-io/freighter/provider"
-	"github.com/nitrous-io/freighter/util"
+	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/util"
 )
 
 func (p *DockerProvider) MkContainerConfig(cfg *provider.ContainerConfig) (*dockerclient.Config, error) {

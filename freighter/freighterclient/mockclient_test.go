@@ -1,7 +1,7 @@
 package freighterclient_test
 
 import (
-	"github.com/nitrous-io/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	. "github.com/onsi/ginkgo"
 )
 

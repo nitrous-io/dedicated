@@ -12,9 +12,9 @@ import (
 	"syscall"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/freighter/pkg/shell"
-	"github.com/nitrous-io/freighter/provider"
-	"github.com/nitrous-io/freighter/util"
+	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
+	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/util"
 )
 
 // default server's configuration when we dont have a valid configuration

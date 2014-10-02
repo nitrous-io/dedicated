@@ -4,7 +4,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/nitrous-io/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/provider"
 )
 
 var ErrMockProviderContainerNotFound = errors.New("no such container")

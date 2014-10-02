@@ -3,7 +3,7 @@ package stats_test
 import (
 	"runtime"
 
-	"github.com/nitrous-io/freighter/pkg/stats"
+	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 

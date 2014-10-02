@@ -15,4 +15,4 @@ docker run \
   $APP:$VERSION /bin/bash -c "./script/install-deps ./script/test && ./script/build $APP $VERSION"
 
 cid=`cat $tmp/$APP`
-docker cp $cid:/opt/src/github.com/nitrous-io/freighter/build/$APP $ARTIFACT_DIR/
+docker cp $cid:/opt/src/github.com/nitrous-io/dedicated/freighter/build/$APP $ARTIFACT_DIR/
