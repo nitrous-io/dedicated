@@ -26,3 +26,7 @@ nitrous:
 	@./script/build nitrous/cmd/... hssh $(VERSION)
 	@./script/build nitrous/cmd/... adminuserseed $(VERSION)
 .PHONY: nitrous
+
+assets:
+	@./script/build-assets
+.PHONY: assets
