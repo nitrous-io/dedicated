@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/nitrous-io/hostbuilder"
+	. "github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/host/dummy"
 

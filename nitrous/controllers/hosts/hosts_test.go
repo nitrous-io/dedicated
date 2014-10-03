@@ -16,14 +16,14 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
-	"github.com/nitrous-io/hostbuilder"
-	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
+	"github.com/nitrous-io/nitrous-common/logger"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
