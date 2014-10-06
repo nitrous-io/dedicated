@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+VERSION=${1:?"version is required"}
+
+docker build -t nitrousio/dedicated-dev:$VERSION .
+docker tag nitrousio/dedicated-dev:$VERSION nitrousio/dedicated-dev:latest

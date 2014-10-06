@@ -1,21 +1,76 @@
 #!/usr/bin/env bash
 # we get primary version from `VERSION` file
-#!/usr/bin/env bash
 set -e
 export APP=${1:?"app name is required"}
-export BINARY=${2:?"binary is required"}
-export VERSION=${3:?"version is required"}
-BUILD_DIR=./build
+export VERSION=${2:?"version is required"}
+# by default, we allow build to build without docker
+export IN_DOCKER=${3}
 
-rm -f "$BUILD_DIR/$APP"
+BUILD_DIR=$(pwd)/build
 mkdir -p "$BUILD_DIR"
 
-(
-# install only the binary
-# this prevents go from looking at test-only directory
-VERSION=$VERSION goop go install -x \
-  -ldflags "-X main.version ${VERSION}" \
-  github.com/nitrous-io/dedicated/$APP
+build() {
+  app=$1
+  rm -f "$BUILD_DIR/$app"
+  # install only the binary
+  # this prevents go from looking at test-only directory
+  GOBIN=$BUILD_DIR VERSION=$VERSION godep go install \
+    -x -ldflags "-X main.version ${VERSION}" \
+    github.com/nitrous-io/dedicated/$app
+}
 
-BUILD_DIR=$BUILD_DIR goop exec bash -c 'cp $GOBIN/$BINARY $BUILD_DIR/$BINARY'
-)
+build_assets() {
+  # compile the assets
+  (
+    cd nitrous/rails
+    rm -rf ./public/assets
+    bundle install
+    RACK_ENV=production bundle exec rake assets:clean assets:precompile
+    bundle exec rails runner -e production 'puts ActionView::Base.new(Rails::Application::Configuration.new(Rails.root).paths["app/views"]).render(template: "web_app/index")' > public/index.html
+  )
+
+  # move assets to build
+  (
+    rm -rf $BUILD_DIR/public
+    cp -dR ./nitrous/rails/public $BUILD_DIR
+    rm ./nitrous/rails/public/index.html
+  )
+}
+
+if [ "$IN_DOCKER" == "true" ]; then
+  tmp=$(mktemp -d /tmp/dedicated-build-XXXXX)
+  docker run \
+    --privileged=true \
+    --rm \
+    --cidfile $tmp/$APP \
+    -it \
+    --volume $BUILD_DIR:/opt/src/github.com/nitrous-io/dedicated/build \
+    nitrousio/dedicated-dev \
+    /bin/bash -c "./script/build $APP $VERSION false"
+
+  cid=`cat $tmp/$APP`
+  docker rm -v $cid
+else
+  if [ "$APP" == "all" ]; then
+    (build "freighter/freighterd")
+    (build "nitro")
+    (build "hostbuilder/hostbuilder")
+    (build "nitrous/nitrousd")
+    (build "nitrous/cmd/dbseed")
+    (build "nitrous/cmd/hssh")
+    (build "nitrous/cmd/adminuserseed")
+    (build_assets)
+  elif [ "$APP" == "nitro" ]; then
+    (build "nitro/nitro")
+  elif [ "$APP" == "freighter" ]; then
+    (build "freighter/freighterd")
+  elif [ "$APP" == "hostbuilder" ]; then
+    (build "hostbuilder/hostbuilder")
+  elif [ "$APP" == "nitrous" ]; then
+    (build "nitrous/nitrousd")
+    (build "nitrous/cmd/dbseed")
+    (build "nitrous/cmd/hssh")
+    (build "nitrous/cmd/adminuserseed")
+    (build_assets)
+  fi
+fi

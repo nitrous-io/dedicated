@@ -1,0 +1,5 @@
+.git
+nitrous/rails/.bundle
+build
+Godeps/_workspace/bin
+Godeps/_workspace/pkg

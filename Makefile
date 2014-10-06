@@ -5,52 +5,56 @@ WARN_COLOR=\033[33;01m
 REVISION=$(shell git rev-parse --short HEAD)
 BASE_VERSION=$(shell cat VERSION)
 VERSION=$(BASE_VERSION)+$(BUILD_NUMBER)-$(REVISION)
-PROJECTS=nitrous nitro hostbuilder freighter
 
-all: nitro freighter hostbuilder nitrous
+TESTSUITE=all
+
+all: binary
+
+binary:
+	@./script/build all $(VERSION)
+.PHONY: binary
 
 nitro:
-	@./script/build nitro nitro $(VERSION)
+	@./script/build nitro $(VERSION)
 .PHONY: nitro
 
 freighter:
-	@./script/build freighter/freighterd freighterd $(VERSION)
+	@./script/build freighter $(VERSION)
 .PHONY: freighter
 
 hostbuilder:
-	@./script/build hostbuilder/hostbuilder hostbuilder $(VERSION)
+	@./script/build hostbuilder $(VERSION)
 .PHONY: hostbuilder
 
 nitrous:
-	@./script/build nitrous/nitrousd nitrousd $(VERSION)
-	@./script/build nitrous/cmd/... dbseed $(VERSION)
-	@./script/build nitrous/cmd/... hssh $(VERSION)
-	@./script/build nitrous/cmd/... adminuserseed $(VERSION)
+	@./script/build nitrous $(VERSION)
 .PHONY: nitrous
 
-assets:
-	@./script/build-assets
-.PHONY: assets
-
-test-nitrous:
-	@echo "$(OK_COLOR)==> Running tests for nitrous revision $(VERSION)...$(NO_COLOR)"
-	$(MAKE) -C nitrous test
-.PHONY: test-nitrous
-
-test-nitro:
-	@echo "$(OK_COLOR)==> Running tests for nitro revision $(VERSION)...$(NO_COLOR)"
-	$(MAKE) -C nitro test
-.PHONY: test-nitro
-
-test-hostbuilder:
-	@echo "$(OK_COLOR)==> Running tests for hostbuilder revision $(VERSION)...$(NO_COLOR)"
-	$(MAKE) -C hostbuilder test
-.PHONY: test-hostbuilder
-
-test-freighter:
-	@echo "$(OK_COLOR)==> Running tests for freighter revision $(VERSION)...$(NO_COLOR)"
-	$(MAKE) -C freighter test
-.PHONY: test-freighter
-
-test: test-nitrous test-nitro test-hostbuilder test-freighter
+test:
+	@echo "$(OK_COLOR)==> Running tests $(VERSION)...$(NO_COLOR)"
+	@./script/test $(TESTSUITE)
 .PHONY: test
+
+ci-test: image
+	@echo "$(OK_COLOR)==> Running tests in CI mode $(VERSION)...$(NO_COLOR)"
+	@./script/ci $(TESTSUITE)
+.PHONY: ci-test
+
+ci-build: image
+	@./script/build all $(VERSION) true
+.PHONY: ci-build
+
+image:
+	@./script/image $(REVISION)
+.PHONY: image
+
+createdb:
+	createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_development || true
+	sudo su postgres -c "psql -d nitrous_development -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" || true
+	createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_test || true
+	sudo su postgres -c "psql -d nitrous_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" || true
+
+dropdb:
+	dropdb --if-exists nitrous_development
+	dropdb --if-exists nitrous_migrations_test
+	dropdb --if-exists nitrous_test

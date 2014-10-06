@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# this runs the test locally, which assumes that the setup is done correctly
+# because we are not running inside a docker container
+export APP=${1:="all"}
+export GOPATH=$(godep path):$GOPATH
+
+# install ginkgo
+godep go install github.com/onsi/ginkgo/ginkgo
+
+cleanup_container() {
+  (docker stop $1 && docker rm --volumes=true $1) >/dev/null
+}
+
+die() {
+  echo $* && exit 1
+}
+
+test_app() {
+  app=$1
+  shift
+  if [ ! -d $app ]; then
+    die "Incorrect app: $app"
+  fi
+  echo "===> Running test for $app"
+  cd $app
+
+  if [ -f .env-example ]; then
+    forego run -e .env-example ginkgo -r -trace -keepGoing $@
+  else
+    ginkgo -r -trace -keepGoing $@
+  fi
+}
+
+test_db() {
+  echo "===> Starting database dependencies"
+  sudo service postgresql restart
+  test_app $@
+}
+
+test_dind() {
+  test -f /var/run/docker.pid || docker -d -e lxc >& /var/log/docker.log &
+  while test ! -f /var/run/docker.pid; do sleep 1; done
+
+  version='1.2.0'
+  echo "checking nitrousio/dind:$version ....."
+  docker images | grep nitrousio/dind | grep $version
+  if [ $? -ne 0 ]; then
+    echo "updating nitrousio/dind:$version ....."
+    docker pull nitrousio/dind:$version >/dev/null 2>&1 || die "image nitrousio/dind:$version does not exist"
+  fi
+  echo "nitrousio/dind:$version is up to date ..."
+
+  # nitrousio/dind is built from https://github.com/nitrousio/dind
+  tmp=$(mktemp -d /tmp/docker_XXXXX)
+  cid=$(docker run --privileged --net=host -d -v $tmp:$tmp -e PORT=4444 nitrousio/dind:$version)
+  ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $cid)
+
+  trap cleanup EXIT
+
+  # run test
+  export FREIGHTERD_BASE=$tmp
+  export DOCKER_IP=$ip
+  export DOCKER_HOST=tcp://$ip:4444
+  test_app $@
+}
+
+if [ "$APP" == "all" ]; then
+  (test_app nitro)
+  (test_app hostbuilder)
+  (test_db nitrous)
+  (test_dind freighter)
+elif [ "$APP" == "freighter" ]; then
+  (test_dind freighter)
+elif [ "$APP" == "nitrous" ]; then
+  (test_db nitrous)
+else
+  (test_app $APP)
+fi

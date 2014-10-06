@@ -1,0 +1,4 @@
+---
+BUNDLE_PATH: /opt/bundle
+BUNDLE_BINSTUBS: /opt/bundle/binstubs
+

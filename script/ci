@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# script/ci run tests inside a docker container. This will not build the
+# binary. Call other jobs if you want to do that
+set -e
+export APP=${1:?"app name is required"}
+
+docker run \
+  --privileged=true \
+  --rm \
+  -it \
+  nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP"
