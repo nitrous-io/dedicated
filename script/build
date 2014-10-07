@@ -37,12 +37,52 @@ build_assets() {
   )
 }
 
+# as nitro needs to be cross-compiled, it deserves a special function
+# we will only allow cross-compiled to be run in docker environment.
+xbuild_nitro() {
+  api_url=${NITRO_API_URL:-http://127.0.0.1:3333}
+  app=nitro
+
+  if [ "$BUILD_IN_DOCKER" != "true" ]; then
+    die "cross compile nitro needs to be run inside docker environment"
+  fi
+
+  ARCHS="linux/amd64 darwin/amd64"
+
+  for arch in $ARCHS; do
+    build=$BUILD_DIR/$arch
+    rm -rf $build
+    mkdir -p $build
+
+    if [[ ! -z "$CA_CERT" ]]; then
+      CA_CERT=$CA_CERT \
+      arch=$arch \
+      gox \
+      -osarch="${arch}" \
+      -ldflags="\
+        -X main.version ${VERSION} \
+        -X github.com/nitrous-io/dedicated/nitro/command.DefaultAPIURL ${NITRO_API_URL} \
+        -X github.com/nitrous-io/dedicated/nitro/consts.CACertPEM \"${CA_CERT}\"" \
+      -output="${build}/{{.Dir}}" github.com/nitrous-io/dedicated/$app
+    else
+      arch=$arch \
+      gox \
+      -osarch="${arch}" \
+      -ldflags="\
+      -X main.version ${VERSION} \
+      -X github.com/nitrous-io/dedicated/nitro/command.DefaultAPIURL ${NITRO_API_URL}" \
+      -output="${build}/{{.Dir}}" github.com/nitrous-io/dedicated/$app
+    fi
+  done
+}
+
 if [ "$IN_DOCKER" == "true" ]; then
   tmp=$(mktemp -d /tmp/dedicated-build-XXXXX)
   docker run \
     --privileged=true \
     --volume $BUILD_DIR:/opt/src/github.com/nitrous-io/dedicated/build \
     --rm \
+    -e BUILD_IN_DOCKER=true \
     -i \
     nitrousio/dedicated-dev \
     /bin/bash -c "./script/build $APP $VERSION false"
@@ -53,6 +93,9 @@ else
   if [ "$APP" == "all" ]; then
     (build "freighter/freighterd")
     (build "nitro")
+    if [ "$BUILD_IN_DOCKER" == "true" ]; then
+      (xbuild_nitro)
+    fi
     (build "hostbuilder/hostbuilder")
     (build "nitrous/nitrousd")
     (build "nitrous/cmd/dbseed")
@@ -61,6 +104,9 @@ else
     (build_assets)
   elif [ "$APP" == "nitro" ]; then
     (build "nitro/nitro")
+    if [ "$BUILD_IN_DOCKER" == "true" ]; then
+      (xbuild_nitro)
+    fi
   elif [ "$APP" == "freighter" ]; then
     (build "freighter/freighterd")
   elif [ "$APP" == "hostbuilder" ]; then
