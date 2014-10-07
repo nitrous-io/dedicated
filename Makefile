@@ -44,6 +44,18 @@ ci-build: image
 	@./script/build all $(VERSION) true
 .PHONY: ci-build
 
+run-nitrous: nitrous
+	@forego start -f nitrous/Procfile
+.PHONY: run-nitrous
+
+run-nitrous-dev: nitrous
+	@forego start -f nitrous/Procfile.dev
+.PHONY: run-nitrous
+
+run-hostbuilder: hostbuilder
+	@./build/hostbuilder -config hostbuilder/config.json
+.PHONY: run-hostbuilder
+
 image:
 	@./script/image $(REVISION)
 .PHONY: image
