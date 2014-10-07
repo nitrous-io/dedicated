@@ -41,15 +41,14 @@ if [ "$IN_DOCKER" == "true" ]; then
   tmp=$(mktemp -d /tmp/dedicated-build-XXXXX)
   docker run \
     --privileged=true \
-    --rm \
-    --cidfile $tmp/$APP \
-    -it \
     --volume $BUILD_DIR:/opt/src/github.com/nitrous-io/dedicated/build \
+    --rm \
+    -i \
     nitrousio/dedicated-dev \
     /bin/bash -c "./script/build $APP $VERSION false"
 
-  cid=`cat $tmp/$APP`
-  docker rm -v $cid
+  user=$(whoami)
+  sudo chown -R $user:$user $BUILD_DIR
 else
   if [ "$APP" == "all" ]; then
     (build "freighter/freighterd")
