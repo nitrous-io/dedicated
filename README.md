@@ -29,13 +29,13 @@ schedule.
 From commit 6b68b5fefdc064cc9c4a9e45474f6430924c6c3d
 
 ```
-Vendoring dependencies makes the build more stable and remove a lot of
-complexities when building without git credentials.  Successfully cloning a
+Vendoring dependencies makes the build more stable and removes a lot of
+complexities when building without git credentials. Successfully cloning a
 project means that you can also build it.
 
-When comparing with other tools, Godep excels in this approach because
-it also removes the dependencies's metadata (.git, .hg). The simpler
-alternative would be to just write a shell script to clone, but lets goes
+Compared to other tools, Godep excels in this approach because
+it also removes the dependencies's metadata (.git, .hg). The simpler/more
+manual alternative would be to just write a shell script to clone, but lets go
 with this for now.
 
 Resolving dependencies now lies completely in development phase. Once the
@@ -49,5 +49,3 @@ dependencies ( AFAIK ?). A common approach when doing this in Go projects is to
 commit the change directly into the GOPATH (i.e. Godeps/_workspace) since it's
 checked in, and update the dependencies when the change is merged upstream.
 ```
-
-
