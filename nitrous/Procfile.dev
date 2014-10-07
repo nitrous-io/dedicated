@@ -1,2 +1,2 @@
 go: build/nitrousd
-rails: FOREMAN=1 rails/run
+rails: FOREMAN=1 nitrous/rails/run
