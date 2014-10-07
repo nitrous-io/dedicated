@@ -15,10 +15,12 @@ schedule.
 - make: build binaries and assets
 - make nitro/nitrous/freighter/hostbuilder: build independent binaries
 - make test: test all apps
-- make TESTSUITE=(nitro/nitrous/freighter/hostbuilder) test: test individial app
+- make APP=(nitro/nitrous/freighter/hostbuilder) test: test individial app
 - make image: make the image used for build and test
 - make ci-test: test all apps in CI mode. (i.e. run tests inside a docker container)
+- make APP=(nitro/nitrous/freighter/hostbuilder) ci-test: test individial app
 - make ci-build: build all apps in CI mode.
+- make APP=(nitro/nitrous/freighter/hostbuilder) ci-build: build individial app
 - make createdb/dropdb: prepare the DB. Useful in development
 ```
 

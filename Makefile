@@ -6,7 +6,7 @@ REVISION=$(shell git rev-parse --short HEAD)
 BASE_VERSION=$(shell cat VERSION)
 VERSION=$(BASE_VERSION)+$(BUILD_NUMBER)-$(REVISION)
 
-TESTSUITE=all
+APP=all
 
 all: binary
 
@@ -32,16 +32,16 @@ nitrous:
 
 test:
 	@echo "$(OK_COLOR)==> Running tests $(VERSION)...$(NO_COLOR)"
-	@./script/test $(TESTSUITE)
+	@./script/test $(APP)
 .PHONY: test
 
 ci-test: image
 	@echo "$(OK_COLOR)==> Running tests in CI mode $(VERSION)...$(NO_COLOR)"
-	@./script/ci $(TESTSUITE)
+	@./script/ci $(APP)
 .PHONY: ci-test
 
 ci-build: image
-	@./script/build all $(VERSION) true
+	@./script/build $(APP) $(VERSION) true
 .PHONY: ci-build
 
 run-nitrous: nitrous

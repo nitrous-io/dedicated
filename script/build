@@ -103,7 +103,7 @@ else
     (build "nitrous/cmd/adminuserseed")
     (build_assets)
   elif [ "$APP" == "nitro" ]; then
-    (build "nitro/nitro")
+    (build "nitro")
     if [ "$BUILD_IN_DOCKER" == "true" ]; then
       (xbuild_nitro)
     fi
