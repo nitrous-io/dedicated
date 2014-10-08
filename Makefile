@@ -4,6 +4,8 @@ ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
 REVISION=$(shell git rev-parse --short HEAD)
 BASE_VERSION=$(shell cat VERSION)
+
+BUILD_NUMBER ?= 0
 VERSION=$(BASE_VERSION)+$(BUILD_NUMBER)-$(REVISION)
 
 APP=all
@@ -33,6 +35,11 @@ nitrous:
 test:
 	@echo "$(OK_COLOR)==> Running tests $(VERSION)...$(NO_COLOR)"
 	@./script/test $(APP)
+.PHONY: test
+
+release: ci-build
+	@echo "$(OK_COLOR)==> Releasing $(APP) $(VERSION)...$(NO_COLOR)"
+	@./script/release $(APP) $(VERSION) true
 .PHONY: test
 
 ci-test: image

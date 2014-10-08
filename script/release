@@ -1,0 +1,258 @@
+#!/usr/bin/env bash
+# To upload the releases, the build environment needs the following ENV
+# - UPLOAD_DEB=true
+# - DEBIAN_REPO=apt.nitrous.io(default)
+# - APT_GPG_PASSPHRASE
+# - APT_GPG_PUBLIC
+# - APT_GPG_SECRET
+#
+# - UPLOAD_S3=true
+# - PUBLIC_BUCKET=get.nitrous.io(default)
+# - PRIVATE_BUCKET=nitrous-dedicated(default)
+# - ACCESS_KEY
+# - SECRET_KEY
+set -e
+die() {
+  echo $* && exit 1
+}
+RELEASE=${1:?"app name is required"}
+VERSION=${2:?"version is required"}
+# by default, we only allow release via docker
+IN_DOCKER=${3="true"}
+BUILD_DIR=/root/app
+
+PUBLIC_BUCKET=${PUBLIC_BUCKET:="get.nitrous.io"}
+PRIVATE_BUCKET=${PRIVATE_BUCKET:="nitrous-dedicated"}
+DEBIAN_REPO=${DEBIAN_REPO:="apt.nitrous.io"}
+
+# check if we should upload the artifacts to private debian repo or s3
+UPLOAD_DEB=${UPLOAD_DEB:="false"}
+UPLOAD_S3=${UPLOAD_S3:="false"}
+
+# required environment variables for uploading the artifacts
+if [[ "$UPLOAD_DEB" == "true" ]]; then
+  APT_GPG_PASSPHRASE=${APT_GPG_PASSPHRASE:?"APT_GPG_PASSPHRASE is required"}
+  APT_GPG_PUBLIC=${APT_GPG_PUBLIC:?"APT_GPG_PUBLIC is required"}
+  APT_GPG_SECRET=${APT_GPG_SECRET:?"APT_GPG_SECRET is required"}
+  ACCESS_KEY=${ACCESS_KEY:?"ACCESS_KEY is required"}
+  SECRET_KEY=${ACCESS_KEY:?"SECRET_KEY is required"}
+fi
+if [[ "$UPLOAD_S3" == "true" ]]; then
+  ACCESS_KEY=${ACCESS_KEY:?"ACCESS_KEY is required"}
+  SECRET_KEY=${ACCESS_KEY:?"SECRET_KEY is required"}
+fi
+
+
+
+hash_files() {
+  f="$1"
+  dest="$2"
+  dir="$(dirname "$f")"
+  base="$(basename "$f")"
+  for hashAlgo in md5 sha256; do
+    if command -v "${hashAlgo}sum" &> /dev/null; then
+      (
+      cd $dir
+      "${hashAlgo}sum" "$base" > "$dest.$hashAlgo"
+      )
+    fi
+  done
+}
+
+# upload a file to s3 with public permission
+upload_public_s3() {
+  if [[ "$UPLOAD_S3" == "true" ]]; then
+    s3cmd --access_key=$ACCESS_KEY --secret_key=$SECRET_KEY --acl-public \
+      put $1 s3://$PUBLIC_BUCKET/$2
+  fi
+}
+
+# upload a file to private s3
+upload_private_s3() {
+  if [[ "$UPLOAD_S3" == "true" ]]; then
+    s3cmd --access_key=$ACCESS_KEY --secret_key=$SECRET_KEY \
+      put $1 s3://$PRIVATE_BUCKET/$2
+  fi
+}
+
+# bundle only one binary and maybe the rest of the resources
+bundle_binary() {
+  BINARY=$1
+  shift
+  pkg=${BINARY}-${VERSION}.tar.gz
+  latestpkg=${BINARY}-latest.tar.gz
+
+  (
+  cd $BUILD_DIR
+  tar zvcf $pkg $BINARY $@
+
+  hash_files $pkg $BINARY
+
+  upload_private_s3 $pkg $pkg
+  upload_private_s3 ${BINARY}.md5 ${BINARY}-${VERSION}.md5
+  upload_private_s3 ${BINARY}.sha256 ${BINARY}-${VERSION}.sha256
+
+  upload_private_s3 $pkg $latestpkg
+  upload_private_s3 ${BINARY}.md5 ${BINARY}-latest.md5
+  upload_private_s3 ${BINARY}.sha256 ${BINARY}-latest.sha256
+  )
+}
+
+# nitro will be distribute as tgz together with the md5/sha256 hash
+bundle_nitro() {
+  ARCHS="linux/amd64 darwin/amd64"
+
+  for arch in $ARCHS; do
+    build=/root/app/$arch
+    os=$(dirname $arch)
+    t=$(basename $arch)
+    pkg=nitro-${VERSION}-${os}-${t}.tar.gz
+    latestpkg=nitro-latest-${os}-${t}.tar.gz
+    md5=nitro-${VERSION}.md5
+    sha256=nitro-${VERSION}.sha256
+
+    (
+    cd $build
+    tar zvcf $pkg nitro
+
+    hash_files $pkg nitro
+
+    upload_public_s3 $pkg $pkg
+    upload_public_s3 nitro.md5 nitro-${VERSION}.md5
+    upload_public_s3 nitro.sha256 nitro-${VERSION}.sha256
+
+    upload_public_s3 $pkg $latestpkg
+    upload_public_s3 nitro.md5 nitro-latest.md5
+    upload_public_s3 nitro.sha256 nitro-latest.sha256
+
+    # copy back the pkg to build root for convenience
+    cp $pkg /root/app/$pkg
+    )
+  done
+}
+
+bundle_freighter() {
+  FILES=/root/debian/freighter/files
+  PKGDIR=/root/app/freighter_deb
+  mkdir -p $PKGDIR
+
+  # default package details
+  PACKAGE_NAME=freighter
+  PACKAGE_VERSION=$VERSION
+  PACKAGE_DESCRIPTION="Nitrous.IO HTTP frontend for docker"
+  PACKAGE_ARCHITECTURE="$(dpkg-architecture -qDEB_HOST_ARCH)"
+  PACKAGE_MAINTAINER="eng@nitrous.io"
+  PACKAGE_LICENSE="All Rights Reserved - Irrational Industries d/b/a Nitrous.IO"
+  PACKAGE_URL="nitrous.io"
+  APP=$PACKAGE_NAME
+
+  rm -rf $PKGDIR/*.deb
+
+  # install our control files over to $PKDIR
+  install -m 0644 -D $FILES/control/preinst $PKGDIR/control/preinst
+  install -m 0644 -D $FILES/control/prerm $PKGDIR/control/prerm
+
+  # install our freighterd configuration
+  install -m 0644 -D $FILES/data/etc/init/freighterd.conf $PKGDIR/etc/init/freighterd.conf
+
+  # install our freighterd binary
+  install -m 0755 -D $BUILD_DIR/freighterd $PKGDIR/usr/sbin/freighterd
+
+  (
+  cd $PKGDIR
+  rm -f *.deb
+  fpm \
+    -s dir \
+    --name $PACKAGE_NAME \
+    --version $PACKAGE_VERSION \
+    --architecture "$PACKAGE_ARCHITECTURE" \
+    --prefix / \
+    --description "$PACKAGE_DESCRIPTION" \
+    --maintainer "$PACKAGE_MAINTAINER" \
+    --provides $PACKAGE_NAME \
+    --replaces $PACKAGE_NAME \
+    --before-install control/preinst \
+    --before-remove control/prerm \
+    --config-files /etc/init/freighterd.conf \
+    --license "$PACKAGE_LICENSE" \
+    --url "$PACKAGE_URL" \
+    --deb-compression gz \
+    -t deb .
+
+  # cleanup the build directory
+  rm -rf ./{usr,etc,var,lib,control}
+
+  DEB=${APP}_${VERSION}_amd64.deb
+  if [[ ! -f $DEB ]]; then
+    echo "Failed to find deb package: $DEB."
+    exit 1
+  fi
+
+  if [[ "$UPLOAD_DEB" == "true" ]]; then
+    echo "Adding $DEB to local repository"
+    deb-upload $DEBIAN_REPO $DEB public 6B19EAE0
+  fi
+
+  # copy over to build dir for convenience
+  cp $DEB $BUILD_DIR/$DEB
+  )
+}
+
+if [ "$IN_DOCKER" == "true" ]; then
+  if [[ "$UPLOAD_DEB" == "true" ]]; then
+    docker run \
+      -v $APT_GPG_PASSPHRASE:/get.nitrous.io/.gpg/nitrous.passphrase.gpg \
+      -e APT_GPG_PASSPHRASE=/get.nitrous.io/.gpg/nitrous.passphrase.gpg \
+      -v $APT_GPG_PUBLIC:/get.nitrous.io/.gpg/nitrous.pub.gpg \
+      -e APT_GPG_PUBLIC=/get.nitrous.io/.gpg/nitrous.pub.gpg \
+      -v $APT_GPG_SECRET:/get.nitrous.io/.gpg/nitrous.sec.gpg \
+      -e APT_GPG_SECRET=/get.nitrous.io/.gpg/nitrous.sec.gpg \
+      -e UPLOAD_DEB=true \
+      -e DEBIAN_REPO=apt.nitrous.io \
+      -v $(pwd)/debian:/root/debian \
+      -v $(pwd)/build:/root/app \
+      -v $(pwd)/script/release:/root/release \
+      -w /root/app \
+      --rm \
+      nitrousio/packager /bin/bash -c "/root/release $RELEASE $VERSION $ENV false"
+  elif [[ "$UPLOAD_S3" == "true" ]]; then
+    docker run \
+      -e ACCESS_KEY=$ACCESS_KEY \
+      -e SECRET_KEY=$SECRET_KEY \
+      -e UPLOAD_S3=true \
+      -e PUBLIC_BUCKET=$PUBLIC_BUCKET \
+      -e PRIVATE_BUCKET=$PRIVATE_BUCKET \
+      -v $(pwd)/build:/root/app \
+      -v $(pwd)/script/release:/root/release \
+      -w /root/app \
+      --rm \
+      nitrousio/packager /bin/bash -c "/root/release $RELEASE $VERSION false"
+  else
+    docker run \
+      -v $(pwd)/debian:/root/debian \
+      -v $(pwd)/build:/root/app \
+      -v $(pwd)/script/release:/root/release \
+      -w /root/app \
+      --rm \
+      nitrousio/packager /bin/bash -c "/root/release $RELEASE $VERSION false"
+  fi
+
+  user=$(whoami)
+  sudo chown -R $user:$user $(pwd)/build
+else
+  if [ "$RELEASE" == "all" ]; then
+    (bundle_nitro)
+    (bundle_freighter)
+    (bundle_binary hostbuilder)
+    (bundle_binary nitrousd dbseed public)
+  elif [ "$RELEASE" == "nitro" ]; then
+    (bundle_nitro)
+  elif [ "$RELEASE" == "freighter" ]; then
+    (bundle_freighter)
+  elif [ "$RELEASE" == "hostbuilder" ]; then
+    (bundle_binary hostbuilder)
+  elif [ "$RELEASE" == "nitrous" ]; then
+    (bundle_binary nitrousd dbseed public)
+    exit
+  fi
+fi

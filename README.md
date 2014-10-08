@@ -21,6 +21,8 @@ schedule.
 - make APP=(nitro/nitrous/freighter/hostbuilder) ci-test: test individual app
 - make ci-build: build all apps in CI mode.
 - make APP=(nitro/nitrous/freighter/hostbuilder) ci-build: build individual app
+- make release: release all apps
+- make APP=(nitro/nitrous/freighter/hostbuilder) release: release individial app
 - make createdb/dropdb: prepare the DB. Useful in development
 ```
 
