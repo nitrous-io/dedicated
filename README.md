@@ -15,18 +15,31 @@ schedule.
 - make: build binaries and assets
 - make nitro/nitrous/freighter/hostbuilder: build independent binaries
 - make test: test all apps
-- make APP=(nitro/nitrous/freighter/hostbuilder) test: test individial app
+- make APP=(nitro/nitrous/freighter/hostbuilder) test: test individual app
 - make image: make the image used for build and test
 - make ci-test: test all apps in CI mode. (i.e. run tests inside a docker container)
-- make APP=(nitro/nitrous/freighter/hostbuilder) ci-test: test individial app
+- make APP=(nitro/nitrous/freighter/hostbuilder) ci-test: test individual app
 - make ci-build: build all apps in CI mode.
-- make APP=(nitro/nitrous/freighter/hostbuilder) ci-build: build individial app
+- make APP=(nitro/nitrous/freighter/hostbuilder) ci-build: build individual app
 - make createdb/dropdb: prepare the DB. Useful in development
 ```
 
-# dependencies management
+# Dependency management
 
-From commit 6b68b5fefdc064cc9c4a9e45474f6430924c6c3d
+We use [Godep](https://github.com/tools/godep) and vendor dependencies (i.e.
+dependencies are checked in).
+
+## Using Godep
+
+* Install Godep: `go get github.com/tools/godep`
+* Copy the vendored dependencies in `Godeps/` to your `GOPATH`: `godep restore`
+* To add a new dependency:
+  1. `go get foo/bar`
+  * Edit your code to import `foo/bar`.
+  * `godep save ./...`
+  * Verify the changes and commit the changes in `Godeps/` in a separate commit.
+
+## Why Godep?
 
 ```
 Vendoring dependencies makes the build more stable and removes a lot of
