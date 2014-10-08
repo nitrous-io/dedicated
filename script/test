@@ -8,7 +8,9 @@ export GOPATH=$(godep path):$GOPATH
 godep go install github.com/onsi/ginkgo/ginkgo
 
 cleanup_container() {
-  (docker stop $1 && docker rm --volumes=true $1) >/dev/null
+  unset FREIGHTERD_BASE DOCKER_IP DOCKER_HOST
+  docker stop $1 >/dev/null
+  docker rm --volumes=true $cid >/dev/null
 }
 
 die() {
@@ -55,7 +57,7 @@ test_dind() {
   cid=$(docker run --privileged --net=host -d -v $tmp:$tmp -e PORT=4444 nitrousio/dind:$version)
   ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $cid)
 
-  trap cleanup EXIT
+  trap "cleanup_container $cid" EXIT
 
   # run test
   export FREIGHTERD_BASE=$tmp
