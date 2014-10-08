@@ -25,7 +25,7 @@ RUN curl -s https://intercityup.com/binaries/ruby/ubuntu/14.04/x86_64/ruby-2.1.2
   | tar -v -C /usr/local/ruby -xj
 
 # install go
-RUN curl -s https://storage.googleapis.com/golang/go1.3.linux-amd64.tar.gz \
+RUN curl -s https://storage.googleapis.com/golang/go1.3.3.linux-amd64.tar.gz \
   | tar -v -C /usr/local -xz
 
 ENV GOPATH /opt
