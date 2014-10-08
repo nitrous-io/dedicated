@@ -9,14 +9,34 @@ export IN_DOCKER=${3}
 BUILD_DIR=$(pwd)/build
 mkdir -p "$BUILD_DIR"
 
+hash_files() {
+  while [ $# -gt 0 ]; do
+    f="$1"
+    shift
+    dir="$(dirname "$f")"
+    base="$(basename "$f")"
+    for hashAlgo in md5 sha256; do
+      if command -v "${hashAlgo}sum" &> /dev/null; then
+	(
+	cd $dir
+	"${hashAlgo}sum" "$base" > "$base.$hashAlgo"
+	)
+      fi
+    done
+  done
+}
+
 build() {
   app=$1
+  binary="$(basename "$app")"
   rm -f "$BUILD_DIR/$app"
   # install only the binary
   # this prevents go from looking at test-only directory
   GOBIN=$BUILD_DIR VERSION=$VERSION godep go install \
     -x -ldflags "-X main.version ${VERSION}" \
     github.com/nitrous-io/dedicated/$app
+
+  hash_files $BUILD_DIR/$binary
 }
 
 build_assets() {
@@ -73,6 +93,8 @@ xbuild_nitro() {
       -X github.com/nitrous-io/dedicated/nitro/command.DefaultAPIURL ${NITRO_API_URL}" \
       -output="${build}/{{.Dir}}" github.com/nitrous-io/dedicated/$app
     fi
+
+    hash_files "$build/$app"
   done
 }
 
