@@ -44,16 +44,16 @@ App.HostsNewController = Em.ObjectController.extend
       @set 'host', host
 
       onHostCreateFailed = (data) =>
-	hostData = data.host
-	return unless hostData.id == host.get('id')
+        hostData = data.host
+        return unless hostData.id == host.get('id')
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
-        App.postError(data, 'Failed to create host!')
+        App.postError(data.error, 'Failed to create host!')
         @set 'saving', false
 
       onHostCreated = (data) =>
-	hostData = data.host
-	return unless hostData.id == host.get('id')
+        hostData = data.host
+        return unless hostData.id == host.get('id')
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
         @transitionToRoute 'host.index', slug
