@@ -9,13 +9,15 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/nitrous-common/flusher"
 )
+
+// form param that contains request uuid
+const UUIDParam = "hb-uuid"
 
 var (
 	okResponse = &Response{StatusCode: http.StatusOK, Status: "ok"}
@@ -78,10 +80,15 @@ func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 			panic(err)
 		}
 		requestID := hex.EncodeToString(id)
-		log.Printf("[%s] Request: %v %v\n", requestID, r.Method, r.URL.String())
+		if r.FormValue(UUIDParam) == "" {
+			r.Form.Set(UUIDParam, requestID)
+		}
+		log.Printf("uuid=%s Request: %v %v\n", requestID, r.Method, r.URL.String())
 		if err := handlerFunc(w, r); err != nil {
-			log.Printf("[%s] [ERROR] %s %s: %s\n", requestID, r.Method, r.URL, err)
+			log.Printf("uuid=%s [ERROR] %s %s: %s\n", requestID, r.Method, r.URL, err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			log.Printf("uuid=%s 200 OK %s %s\n", requestID, r.Method, r.URL.String())
 		}
 	}
 }
@@ -120,19 +127,27 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	}
 	provider := r.Form.Get("provider")
 	providerConfig := s.Config.Providers[provider]
+	if providerConfig == nil {
+		providerConfig = make(map[string]string)
+	}
+	if uuid := r.FormValue(UUIDParam); uuid != "" {
+		providerConfig["uuid"] = uuid
+	} else {
+		// shouldn't happen, use this to detect if it does
+		providerConfig["uuid"] = "NOUUID"
+	}
 	configJson := r.Form.Get("config")
-	log.Printf("Creating a host using provider %s", provider)
+	log.Printf("uuid=%s Creating a host using provider %s", providerConfig["uuid"], provider)
 
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return err
 	}
 
-	// write the progress into the stdout so that it will be logged
-	pw := NewProgressWriter(io.MultiWriter(os.Stdout, flusher.NewWriteFlusher(w)))
+	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
 	info, err := h.Create(pw)
-	log.Printf("Created: %+v\n, %v", info, err)
+	log.Printf("uuid=%s Created: %+v\n, %v", providerConfig["uuid"], info, err)
 	if err != nil {
 		pw.WriteError(fmt.Errorf("failed to create a host on %s", provider))
 		return nil
