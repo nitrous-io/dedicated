@@ -27,10 +27,10 @@ App.EventsSocket = Lib.Socket.extend
 
     ['container.started', 'container.stopped', 'container.restarted', 'container.updated'].forEach (evt) =>
       @on evt, (data) ->
-	containerData = data.container
-	findContainer(containerData)?.load(containerData)
+        containerData = data.container
+        findContainer(containerData)?.load(containerData)
 
-    ['host.created', 'host.destroyed'].forEach (evt) =>
+    ['host.created', 'host.create_failed', 'host.destroyed'].forEach (evt) =>
       @on evt, (data) ->
         findAllHosts()?.reload()
 
@@ -39,35 +39,33 @@ App.EventsSocket = Lib.Socket.extend
       if progress = parseProgress(data)
         host.set 'progress', progress
 
-    @on 'host.create_failed', (data) ->
-      findHostBySlug(data)?.set 'progress', null
-
-    @on 'host.created', (data) =>
-      hostData = data.host
-      return unless host = findHostBySlug(hostData)
-      host.load(hostData)
-      host.set 'progress', null
+    ['host.create_failed', 'host.created'].forEach (evt) =>
+      @on evt, (data) =>
+        hostData = data.host
+        return unless host = findHostBySlug(hostData)
+        host.load(hostData)
+        host.set 'progress', null
 
     ['host.started', 'host.stopped', 'host.restarted', 'host.updated',
       'host.starting', 'host.stopping', 'host.restarting'].forEach (evt) =>
       @on evt, (data) ->
-	hostData = data.host
-	findHost(hostData)?.load(hostData)
+        hostData = data.host
+        findHost(hostData)?.load(hostData)
 
     ['volume.created', 'volume.destroyed'].forEach (evt) =>
       @on evt, (data) ->
-	volumeData = data.volume
-	findAllVolumes(volumeData)?.reload()
+        volumeData = data.volume
+        findAllVolumes(volumeData)?.reload()
 
     ['registry.added', 'registry.removed'].forEach (evt) =>
       @on evt, (data) ->
-	registryData = data.registry
-	findAllRegistries(registryData)?.reload()
+        registryData = data.registry
+        findAllRegistries(registryData)?.reload()
 
     ['image.created', 'image.removed', 'image.tagged'].forEach (evt) =>
       @on evt, (data) ->
-	imageData = data.image
-	findAllImages(imageData)?.reload()
+        imageData = data.image
+        findAllImages(imageData)?.reload()
 
     ['image.building', 'image.pulling'].forEach (evt) =>
       @on evt, (data) ->
@@ -86,9 +84,9 @@ App.EventsSocket = Lib.Socket.extend
 
     ['image.pulled', 'image.pull_failed'].forEach (evt) =>
       @on evt, (data) ->
-	imageData = data.image
-	return unless image = findImage(imageData)
-	image.load(imageData)
+        imageData = data.image
+        return unless image = findImage(imageData)
+        image.load(imageData)
         image.set 'updating', false
         image.set 'progress', null
 
