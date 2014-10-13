@@ -9,6 +9,7 @@ BUILD_NUMBER ?= 0
 VERSION=$(BASE_VERSION)+$(BUILD_NUMBER)-$(REVISION)
 
 APP=all
+SUITE=
 
 all: binary
 
@@ -34,7 +35,7 @@ nitrous:
 
 test:
 	@echo "$(OK_COLOR)==> Running tests $(VERSION)...$(NO_COLOR)"
-	@./script/test $(APP)
+	@./script/test $(APP) $(SUITE)
 .PHONY: test
 
 release: ci-build

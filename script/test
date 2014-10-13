@@ -2,6 +2,7 @@
 # this runs the test locally, which assumes that the setup is done correctly
 # because we are not running inside a docker container
 export APP=${1:="all"}
+export SUITE=${2}
 export GOPATH=$(godep path):$GOPATH
 RESULT="passed"
 
@@ -83,13 +84,13 @@ if [ "$APP" == "all" ]; then
   run test_db nitrous
   run test_dind freighter
 elif [ "$APP" == "hostbuilder" ]; then
-  run test_app hostbuilder
+  run test_app hostbuilder $SUITE
 elif [ "$APP" == "freighter" ]; then
-  run test_dind freighter
+  run test_dind freighter $SUITE
 elif [ "$APP" == "nitrous" ]; then
-  run test_db nitrous
+  run test_db nitrous $SUITE
 else
-  run test_app $APP
+  run test_app $APP $SUITE
 fi
 
 if [[ "$RESULT" == "failed" ]]; then
