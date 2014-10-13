@@ -8,12 +8,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/flusher"
 
-	"github.com/nitrous-io/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/middleware"
-	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/models/image"
-	"github.com/nitrous-io/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/image"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
 type pushContext struct {

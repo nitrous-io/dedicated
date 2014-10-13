@@ -7,16 +7,16 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/nitrous-io/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/image"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/nitrous/server"
+	. "github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/flusher"
 	"github.com/nitrous-io/nitrous-common/logger"
 
-	"github.com/nitrous-io/nitrous/controllers"
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/image"
-	"github.com/nitrous-io/nitrous/serializers"
-	"github.com/nitrous-io/nitrous/server"
-	. "github.com/nitrous-io/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
