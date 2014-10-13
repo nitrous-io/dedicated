@@ -44,7 +44,7 @@ release: ci-build
 
 ci-test: image
 	@echo "$(OK_COLOR)==> Running tests in CI mode $(VERSION)...$(NO_COLOR)"
-	@./script/ci $(APP)
+	@./script/ci $(APP) $(REVISION)
 .PHONY: ci-test
 
 ci-build: image
