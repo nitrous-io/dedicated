@@ -87,7 +87,7 @@ elif [ "$APP" == "hostbuilder" ]; then
 elif [ "$APP" == "freighter" ]; then
   run test_dind freighter
 elif [ "$APP" == "nitrous" ]; then
-  run test_db freighter
+  run test_db nitrous
 else
   run test_app $APP
 fi
