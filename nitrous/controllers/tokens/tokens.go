@@ -7,6 +7,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
@@ -82,10 +83,12 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	w.Header().Set("Pragma", "no-cache")
 
 	env.Status = http.StatusOK
+	env.User = u
 	env.Data = map[string]interface{}{
 		"access_token": t.Token,
 		"token_type":   "Bearer",
 	}
+	analytics.Client.CreateProfile(u, env.Logger)
 	return nil
 }
 
