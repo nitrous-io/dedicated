@@ -41,6 +41,9 @@ dependencies are checked in).
   * `godep save ./...`
   * Verify the changes and commit the changes in `Godeps/` in a separate commit.
 
+NOTE: if you change your GOPATH to something like $GOPATH:$(godep path),
+remmeber to reset it to global GOPATH before get/update/save the dependencies
+
 ## Why Godep?
 
 ```
