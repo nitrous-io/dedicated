@@ -3,6 +3,7 @@
 # because we are not running inside a docker container
 export APP=${1:="all"}
 export GOPATH=$(godep path):$GOPATH
+RESULT="passed"
 
 # install ginkgo
 godep go install github.com/onsi/ginkgo/ginkgo
@@ -15,6 +16,16 @@ cleanup_container() {
 
 die() {
   echo $* && exit 1
+}
+
+# run spawn a function runs inside a subshell and record its error status
+run() {
+  cmd=$1
+  shift
+  ($cmd $@)
+  if [[ "$?" == "1" ]]; then
+    RESULT="failed"
+  fi
 }
 
 test_app() {
@@ -67,14 +78,20 @@ test_dind() {
 }
 
 if [ "$APP" == "all" ]; then
-  (test_app nitro)
-  (test_app hostbuilder)
-  (test_db nitrous)
-  (test_dind freighter)
+  run test_app nitro
+  run test_app hostbuilder
+  run test_db nitrous
+  run test_dind freighter
+elif [ "$APP" == "hostbuilder" ]; then
+  run test_app hostbuilder
 elif [ "$APP" == "freighter" ]; then
-  (test_dind freighter)
+  run test_dind freighter
 elif [ "$APP" == "nitrous" ]; then
-  (test_db nitrous)
+  run test_db freighter
 else
-  (test_app $APP)
+  run test_app $APP
+fi
+
+if [[ "$RESULT" == "failed" ]]; then
+  die "one or more test suites failed"
 fi
