@@ -630,19 +630,24 @@ var _ = Describe("controllers/images", func() {
 			remote   string
 		}
 
-		itBuildsImageSuccessfully := func(b buildImageParams) {
+		itBuildsImageSuccessfully := func(paramsFn func() buildImageParams) {
 			var (
 				params map[string]string
 				file   map[string]io.Reader
 				res    *httptest.ResponseRecorder
 
-				filename = b.filename
-				contents = b.contents
-				code     = b.code
-				remote   = b.remote
+				remote string
 			)
 
 			BeforeEach(func() {
+				var (
+					b        = paramsFn()
+					filename = b.filename
+					contents = b.contents
+					code     = b.code
+				)
+				remote = b.remote
+
 				responseBody := `
 					{"stream":"Step 0 : FROM ubuntu:latest\n"}
 					{"stream":" ---\u003e 4300eb9d3c8d\n"}
@@ -679,6 +684,7 @@ var _ = Describe("controllers/images", func() {
 				It("creates an image record", func() {
 					res = doRequest("foo", params, file)
 					Expect(res.Code).To(Equal(http.StatusOK))
+
 					i, err := image.Find(db, u, hs.H, "scratcher:mytag")
 					Expect(err).To(BeNil())
 					Expect(i.UserID).To(Equal(u.ID))
@@ -807,9 +813,8 @@ var _ = Describe("controllers/images", func() {
 		}
 
 		Context("when a tar archive containing a Dockerfile is given", func() {
-			var buf []byte
 
-			BeforeEach(func() {
+			var buildParams = func() buildImageParams {
 				tmpdir := makeTempDir()
 				defer os.RemoveAll(tmpdir)
 
@@ -818,78 +823,79 @@ var _ = Describe("controllers/images", func() {
 
 				// create a tmp file for the tar archive
 				f, err := ioutil.TempFile(tmpdir, "build-valid-tar")
-				Expect(err).To(BeNil())
+				Expect(err).To(BeNil(), "failed to create tmp tar file")
 				f.Close()
 
 				// create a tar archive containing Dockerfile
-				err = makeTar(tmpdir, dfPath, f.Name())
-				Expect(err).To(BeNil())
+				makeTar(tmpdir, dfPath, f.Name())
 
-				buf, err = ioutil.ReadFile(f.Name())
-				Expect(err).To(BeNil())
-			})
+				buf, err := ioutil.ReadFile(f.Name())
+				Expect(err).To(BeNil(), "failed to read tmp tar file")
 
-			itBuildsImageSuccessfully(buildImageParams{
-				filename: "sample.tar",
-				contents: bytes.NewBuffer(buf),
-				code:     "",
-				remote:   "",
-			})
+				return buildImageParams{
+					filename: "sample.tar",
+					contents: bytes.NewBuffer(buf),
+					code:     "",
+					remote:   "",
+				}
+			}
+
+			itBuildsImageSuccessfully(buildParams)
 		})
 
 		Context("when a plain Dockerfile is given", func() {
-			var buf []byte
 
-			BeforeEach(func() {
-				var err error
+			var buildParams = func() buildImageParams {
 				tmpdir := makeTempDir()
 				defer os.RemoveAll(tmpdir)
 
 				// create a sample Dockerfile
 				dfPath := makeDockerfile(tmpdir)
 
-				buf, err = ioutil.ReadFile(dfPath)
-				Expect(err).To(BeNil())
-			})
+				buf, err := ioutil.ReadFile(dfPath)
+				Expect(err).To(BeNil(), "failed to read tmp tar file")
+				return buildImageParams{
+					filename: "Dockerfile",
+					contents: bytes.NewBuffer(buf),
+					code:     "",
+					remote:   "",
+				}
+			}
 
-			itBuildsImageSuccessfully(buildImageParams{
-				filename: "Dockerfile",
-				contents: bytes.NewBuffer(buf),
-				code:     "",
-				remote:   "",
-			})
+			itBuildsImageSuccessfully(buildParams)
 		})
 
 		Context("when Dockerfile is given in code parameter", func() {
-			var buf []byte
-
-			BeforeEach(func() {
-				var err error
+			var buildParams = func() buildImageParams {
 				tmpdir := makeTempDir()
 				defer os.RemoveAll(tmpdir)
 
 				// create a sample Dockerfile
 				dfPath := makeDockerfile(tmpdir)
 
-				buf, err = ioutil.ReadFile(dfPath)
-				Expect(err).To(BeNil())
-			})
+				buf, err := ioutil.ReadFile(dfPath)
+				Expect(err).To(BeNil(), "failed to read tmp tar file")
+				return buildImageParams{
+					filename: "",
+					contents: nil,
+					code:     string(buf),
+					remote:   "",
+				}
+			}
 
-			itBuildsImageSuccessfully(buildImageParams{
-				filename: "",
-				contents: nil,
-				code:     string(buf),
-				remote:   "",
-			})
+			itBuildsImageSuccessfully(buildParams)
 		})
 
 		Context("when a remote parameter is given", func() {
-			itBuildsImageSuccessfully(buildImageParams{
-				filename: "",
-				contents: nil,
-				code:     "",
-				remote:   "git://github.com/foo/example.git",
-			})
+			var buildParams = func() buildImageParams {
+				return buildImageParams{
+					filename: "",
+					contents: nil,
+					code:     "",
+					remote:   "git://github.com/foo/example.git",
+				}
+			}
+			itBuildsImageSuccessfully(buildParams)
 		})
 
 		Context("when there's an exisiting image with the slug", func() {
