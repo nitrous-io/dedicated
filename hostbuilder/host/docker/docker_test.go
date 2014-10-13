@@ -24,7 +24,7 @@ var _ = Describe("host/docker", func() {
 	var err error
 
 	BeforeEach(func() {
-		server, err = dockertest.NewServer("127.0.0.1:0", func(r *http.Request) {
+		server, err = dockertest.NewServer("127.0.0.1:0", nil, func(r *http.Request) {
 			requests = append(requests, r)
 		})
 		Expect(err).To(BeNil())
