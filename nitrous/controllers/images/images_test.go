@@ -807,23 +807,27 @@ var _ = Describe("controllers/images", func() {
 		}
 
 		Context("when a tar archive containing a Dockerfile is given", func() {
-			tmpdir := makeTempDir()
-			defer os.RemoveAll(tmpdir)
+			var buf []byte
 
-			// create a sample Dockerfile
-			dfPath := makeDockerfile(tmpdir)
+			BeforeEach(func() {
+				tmpdir := makeTempDir()
+				defer os.RemoveAll(tmpdir)
 
-			// create a tmp file for the tar archive
-			f, err := ioutil.TempFile(tmpdir, "build-valid-tar")
-			Expect(err).To(BeNil())
-			f.Close()
+				// create a sample Dockerfile
+				dfPath := makeDockerfile(tmpdir)
 
-			// create a tar archive containing Dockerfile
-			err = makeTar(tmpdir, dfPath, f.Name())
-			Expect(err).To(BeNil())
+				// create a tmp file for the tar archive
+				f, err := ioutil.TempFile(tmpdir, "build-valid-tar")
+				Expect(err).To(BeNil())
+				f.Close()
 
-			buf, err := ioutil.ReadFile(f.Name())
-			Expect(err).To(BeNil())
+				// create a tar archive containing Dockerfile
+				err = makeTar(tmpdir, dfPath, f.Name())
+				Expect(err).To(BeNil())
+
+				buf, err = ioutil.ReadFile(f.Name())
+				Expect(err).To(BeNil())
+			})
 
 			itBuildsImageSuccessfully(buildImageParams{
 				filename: "sample.tar",
@@ -834,14 +838,19 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		Context("when a plain Dockerfile is given", func() {
-			tmpdir := makeTempDir()
-			defer os.RemoveAll(tmpdir)
+			var buf []byte
 
-			// create a sample Dockerfile
-			dfPath := makeDockerfile(tmpdir)
+			BeforeEach(func() {
+				var err error
+				tmpdir := makeTempDir()
+				defer os.RemoveAll(tmpdir)
 
-			buf, err := ioutil.ReadFile(dfPath)
-			Expect(err).To(BeNil())
+				// create a sample Dockerfile
+				dfPath := makeDockerfile(tmpdir)
+
+				buf, err = ioutil.ReadFile(dfPath)
+				Expect(err).To(BeNil())
+			})
 
 			itBuildsImageSuccessfully(buildImageParams{
 				filename: "Dockerfile",
@@ -852,14 +861,19 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		Context("when Dockerfile is given in code parameter", func() {
-			tmpdir := makeTempDir()
-			defer os.RemoveAll(tmpdir)
+			var buf []byte
 
-			// create a sample Dockerfile
-			dfPath := makeDockerfile(tmpdir)
+			BeforeEach(func() {
+				var err error
+				tmpdir := makeTempDir()
+				defer os.RemoveAll(tmpdir)
 
-			buf, err := ioutil.ReadFile(dfPath)
-			Expect(err).To(BeNil())
+				// create a sample Dockerfile
+				dfPath := makeDockerfile(tmpdir)
+
+				buf, err = ioutil.ReadFile(dfPath)
+				Expect(err).To(BeNil())
+			})
 
 			itBuildsImageSuccessfully(buildImageParams{
 				filename: "",
