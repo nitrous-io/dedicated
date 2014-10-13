@@ -14,9 +14,6 @@ import (
 var _ = Describe("base image serializer", func() {
 	Describe("SerializeBaseImage", func() {
 		now := time.Now()
-		nowJSON, err := now.MarshalJSON()
-		Expect(err).To(BeNil())
-
 		var model = &baseimage.BaseImage{
 			ID:        5,
 			Name:      "Go",
@@ -27,6 +24,9 @@ var _ = Describe("base image serializer", func() {
 		}
 
 		It("serializes to JSON", func() {
+			nowJSON, err := now.MarshalJSON()
+			Expect(err).To(BeNil())
+
 			r := serializers.SerializeBaseImage(model)
 			b, err := json.Marshal(r)
 			Expect(err).To(BeNil())
