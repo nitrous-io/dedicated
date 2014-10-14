@@ -2,26 +2,41 @@
 # we get primary version from `VERSION` file
 set -e
 export APP=${1:?"app name is required"}
-export VERSION=${2:?"version is required"}
 # by default, we allow build to build without docker
-export IN_DOCKER=${3}
+export IN_DOCKER=${2}
 
 BUILD_DIR=$(pwd)/build
+GIT_DIR=$(pwd)/.git
 mkdir -p "$BUILD_DIR"
 
 die() {
   echo $* && exit 1
 }
 
+# get version of an binary
+get_version() {
+  app=$1
+  version=$(cat $app/VERSION) # get version from version file
+  sha=$(git rev-list --max-count=1 --abbrev-commit HEAD -- $app)
+  echo "${version}-${sha}" # 1.0.1-asdf
+}
+
+# build accepts an app name and $LDFLAGS env which can be used to define
+# the app version.
+#
+# This also writes version info to $BUILD/$app-VERSION
 build() {
   app=$1
   binary="$(basename "$app")"
   rm -f "$BUILD_DIR/$app"
   # install only the binary
   # this prevents go from looking at test-only directory
-  GOBIN=$BUILD_DIR VERSION=$VERSION godep go install \
-    -x -ldflags "-X main.version ${VERSION}" \
+  GOBIN=$BUILD_DIR godep go install \
+    -x -ldflags "$LDFLAGS" \
     github.com/nitrous-io/dedicated/$app
+
+  # this file is useful for release to know the current version
+  echo $VERSION > $BUILD_DIR/${binary}-VERSION
 }
 
 build_assets() {
@@ -44,6 +59,9 @@ build_assets() {
 
 # as nitro needs to be cross-compiled, it deserves a special function
 # we will only allow cross-compiled to be run in docker environment.
+#
+# this also accepts $LDFLAGS env, which we can use to pass the
+# binary's version information
 xbuild_nitro() {
   api_url=${NITRO_API_URL:-http://127.0.0.1:3333}
   app=nitro
@@ -59,68 +77,103 @@ xbuild_nitro() {
     rm -rf $build
     mkdir -p $build
 
-    if [[ ! -z "$CA_CERT" ]]; then
-      CA_CERT=$CA_CERT \
-      arch=$arch \
-      gox \
+    arch=$arch gox \
       -osarch="${arch}" \
-      -ldflags="\
-        -X main.version ${VERSION} \
-        -X github.com/nitrous-io/dedicated/nitro/command.DefaultAPIURL ${NITRO_API_URL} \
-        -X github.com/nitrous-io/dedicated/nitro/consts.CACertPEM \"${CA_CERT}\"" \
+      -ldflags="${LDFLAGS}" \
       -output="${build}/{{.Dir}}" github.com/nitrous-io/dedicated/$app
-    else
-      arch=$arch \
-      gox \
-      -osarch="${arch}" \
-      -ldflags="\
-      -X main.version ${VERSION} \
-      -X github.com/nitrous-io/dedicated/nitro/command.DefaultAPIURL ${NITRO_API_URL}" \
-      -output="${build}/{{.Dir}}" github.com/nitrous-io/dedicated/$app
-    fi
+
+    # this file is useful for release to know the current version
+    echo $VERSION > $build/nitro-VERSION
   done
+}
+
+# shortcut for building various applications
+build_freighter() {
+  (
+  VERSION=$(get_version freighter)
+  LDFLAGS="-X main.version $VERSION"
+  build "freighter/freighterd"
+  )
+}
+
+build_nitro() {
+  (
+  VERSION=$(get_version nitro)
+  LDFLAGS="\
+    -X main.version ${VERSION} \
+    -X main.nitrousVersion $(get_version nitrous) \
+    -X main.freighterVersion $(get_version freighter) \
+    "
+  build "nitro"
+  )
+  if [ "$BUILD_IN_DOCKER" == "true" ]; then
+    (
+    VERSION=$(get_version nitro)
+    LDFLAGS="\
+      -X main.version ${VERSION} \
+      -X main.nitrousdVersion $(get_version nitrous) \
+      -X main.freighterdVersion $(get_version freighter) \
+      "
+    xbuild_nitro
+    )
+  fi
+}
+
+build_hostbuilder() {
+  (
+  VERSION=$(get_version hostbuilder)
+  LDFLAGS="-X main.version ${VERSION}"
+  build "hostbuilder/hostbuilder"
+  )
+}
+
+build_nitrous() {
+  (
+  VERSION=$(get_version nitrous)
+  LDFLAGS="\
+    -X main.version ${VERSION} \
+    -X main.nitroVersion $(get_version nitro) \
+    -X main.freighterVersion $(get_version freighter) \
+    "
+  build "nitrous/nitrousd"
+  )
+  (build "nitrous/cmd/dbseed")
+  (build "nitrous/cmd/hssh")
+  (build "nitrous/cmd/adminuserseed")
+  (build_assets)
 }
 
 if [ "$IN_DOCKER" == "true" ]; then
   tmp=$(mktemp -d /tmp/dedicated-build-XXXXX)
+  # we want to mount GIT_DIR so that the docker container has read access to
+  # git data
   docker run \
     --privileged=true \
     --volume $BUILD_DIR:/opt/src/github.com/nitrous-io/dedicated/build \
+    --volume $GIT_DIR:/opt/src/github.com/nitrous-io/dedicated/.git:ro \
     --rm \
     -e BUILD_IN_DOCKER=true \
     -i \
     nitrousio/dedicated-dev \
-    /bin/bash -c "./script/build $APP $VERSION false"
+    /bin/bash -c "./script/build $APP false"
 
   user=$(whoami)
   sudo chown -R $user:$user $BUILD_DIR
 else
   if [ "$APP" == "all" ]; then
-    (build "freighter/freighterd")
-    (build "nitro")
-    if [ "$BUILD_IN_DOCKER" == "true" ]; then
-      (xbuild_nitro)
-    fi
-    (build "hostbuilder/hostbuilder")
-    (build "nitrous/nitrousd")
-    (build "nitrous/cmd/dbseed")
-    (build "nitrous/cmd/hssh")
-    (build "nitrous/cmd/adminuserseed")
-    (build_assets)
+    build_freighter
+    build_nitro
+    build_hostbuilder
+    build_nitrous
   elif [ "$APP" == "nitro" ]; then
-    (build "nitro")
-    if [ "$BUILD_IN_DOCKER" == "true" ]; then
-      (xbuild_nitro)
-    fi
+    build_nitro
   elif [ "$APP" == "freighter" ]; then
-    (build "freighter/freighterd")
+    build_freighter
   elif [ "$APP" == "hostbuilder" ]; then
-    (build "hostbuilder/hostbuilder")
+    build_hostbuilder
   elif [ "$APP" == "nitrous" ]; then
-    (build "nitrous/nitrousd")
-    (build "nitrous/cmd/dbseed")
-    (build "nitrous/cmd/hssh")
-    (build "nitrous/cmd/adminuserseed")
-    (build_assets)
+    build_nitrous
+  else
+    die "invalid $APP"
   fi
 fi

@@ -63,7 +63,7 @@
       th Hostname
       td colspan='3'
         span.click-highlight
-	  = hostname
+          = hostname
 
     tr
       th Created At
@@ -81,7 +81,7 @@
   else
     if isStopped
       .left
-	button.ui.btn click='showTerminateDialog target="view"' Terminate...
+        button.ui.btn click='showTerminateDialog target="view"' Terminate...
       .right
         button.ui.btn.primary click='start' Start
     else

@@ -40,28 +40,28 @@ App.HostImagesController = Lib.RecordListController.extend
       repo = @get 'repo'
 
       onImagePushFailed = (data) =>
-	return unless data.image?.id == image.get('id')
-	events.off 'image.push_failed', onImagePushFailed
-	events.off 'image.pushed', onImagePushed
-	errMsg = null
-	if data.progress
-	  progress = JSON.parse(progress)
-	  errMsg = progress.errorDetail?.message
-	else if data.error
-	  errMsg = data.error
-	App.postError(errMsg, 'Failed to push image!')
-	image.set 'pushing', false
+        return unless data.image?.id == image.get('id')
+        events.off 'image.push_failed', onImagePushFailed
+        events.off 'image.pushed', onImagePushed
+        errMsg = null
+        if data.progress
+          progress = JSON.parse(progress)
+          errMsg = progress.errorDetail?.message
+        else if data.error
+          errMsg = data.error
+        App.postError(errMsg, 'Failed to push image!')
+        image.set 'pushing', false
 
       onImagePushed = (data) =>
-	return unless data.image?.id == image.get('id')
-	events.off 'image.push_failed', onImagePushFailed
-	events.off 'image.pushed', onImagePushed
-	name = image.get('displayName')
-	if name == repo
-	  App.snackbar.post("Your image “#{name}” was successfully pushed.")
-	else
-	  App.snackbar.post("Your image “#{name}” was successfully pushed to “#{repo}”.")
-	image.set 'pushing', false
+        return unless data.image?.id == image.get('id')
+        events.off 'image.push_failed', onImagePushFailed
+        events.off 'image.pushed', onImagePushed
+        name = image.get('displayName')
+        if name == repo
+          App.snackbar.post("Your image “#{name}” was successfully pushed.")
+        else
+          App.snackbar.post("Your image “#{name}” was successfully pushed to “#{repo}”.")
+        image.set 'pushing', false
         @set 'closePushDialog', true
 
       events.on 'image.push_failed', onImagePushFailed

@@ -11,14 +11,14 @@ form submit='create target="view"'
 
     .ui.flex.horizontal
       .ui.input-group
-	label.field-label for='containers-new-name'
-	  | Name
-	= input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' disabled=saving value=name
+        label.field-label for='containers-new-name'
+          | Name
+        = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' disabled=saving value=name
 
       .ui.input-group
-	label.field-label for='containers-new-slug'
-	  | Unique Slug
-	= input type='text' id='containers-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
+        label.field-label for='containers-new-slug'
+          | Unique Slug
+        = input type='text' id='containers-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
 
   .card-body.bordered
     .ui.input-group
@@ -26,26 +26,26 @@ form submit='create target="view"'
         | Image
 
       .image-selection
-	ul.ui.checkbox-group class={view.baseImageOptionDisabled:disabled}
+        ul.ui.checkbox-group class={view.baseImageOptionDisabled:disabled}
           li
             .ui.checkbox
-	      input type='radio' id='containers-new-option-base-image' name='option' checked='checked' value='base-image' disabled={view.baseImageOptionDisabled}
-	      label
-	    label for='containers-new-option-base-image' Use Nitrous.IO Base Image
-
-	ul.base-images
-	  each baseImage in App.baseImages
-	    App.ContainersNewBaseImageView baseImage=baseImage selectedBaseImage=view.selectedBaseImage disabled=view.baseImageOptionDisabled
-
-	ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
-	  li
-            .ui.checkbox
-	      input type='radio' id='containers-new-option-host-image' name='option' value='host-image' disabled={view.hostImageOptionDisabled}
+              input type='radio' id='containers-new-option-base-image' name='option' checked='checked' value='base-image' disabled={view.baseImageOptionDisabled}
               label
-	    label for='containers-new-option-host-image' Use Image On This Host
+            label for='containers-new-option-base-image' Use Nitrous.IO Base Image
+
+        ul.base-images
+          each baseImage in App.baseImages
+            App.ContainersNewBaseImageView baseImage=baseImage selectedBaseImage=view.selectedBaseImage disabled=view.baseImageOptionDisabled
+
+        ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
+          li
+            .ui.checkbox
+              input type='radio' id='containers-new-option-host-image' name='option' value='host-image' disabled={view.hostImageOptionDisabled}
+              label
+            label for='containers-new-option-host-image' Use Image On This Host
 
         .ui.select.indent
-	  Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
+          Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
 
         ul.ui.checkbox-group class={saving:disabled}
           li
@@ -63,24 +63,24 @@ form submit='create target="view"'
         | Container Configuration
 
       .container-config-btns
-	a.ui.btn.raised class={saving:disabled} href='#' click='openVolumeMounts target="view"'
-	  | Volume Mounts
-	  if volumeMounts.length
-	    |&nbsp;(
-	    = volumeMounts.length
-	    |)
-	a.ui.btn.raised class={saving:disabled} href='#' click='openPortBindings target="view"'
-	  | Port Bindings
-	  if portBindings.length
-	    |&nbsp;(
-	    = portBindings.length
-	    |)
-	a.ui.btn.raised class={saving:disabled} href='#' click='openEnvVars target="view"'
-	  | Environment Variables
-	  if envVars.length
-	    |&nbsp;(
-	    = envVars.length
-	    |)
+        a.ui.btn.raised class={saving:disabled} href='#' click='openVolumeMounts target="view"'
+          | Volume Mounts
+          if volumeMounts.length
+            |&nbsp;(
+            = volumeMounts.length
+            |)
+        a.ui.btn.raised class={saving:disabled} href='#' click='openPortBindings target="view"'
+          | Port Bindings
+          if portBindings.length
+            |&nbsp;(
+            = portBindings.length
+            |)
+        a.ui.btn.raised class={saving:disabled} href='#' click='openEnvVars target="view"'
+          | Environment Variables
+          if envVars.length
+            |&nbsp;(
+            = envVars.length
+            |)
 
   .card-footer.bordered
     if saving

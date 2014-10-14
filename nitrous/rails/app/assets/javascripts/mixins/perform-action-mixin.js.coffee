@@ -10,9 +10,9 @@ App.PerformActionMixin = Ember.Mixin.create
         record.load(attrs)
     , (jqxhr) -> # record.ajax
       defaultErrMsg = if action
-	"Failed to #{action}!"
+        "Failed to #{action}!"
       else
-	"Failed!"
+        "Failed!"
       App.postError(jqxhr.responseJSON, defaultErrMsg)
       record.set('state', prevState)
     ajax

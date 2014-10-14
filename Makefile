@@ -3,10 +3,7 @@ OK_COLOR=\033[32;01m
 ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
 REVISION=$(shell git rev-parse --short HEAD)
-BASE_VERSION=$(shell cat VERSION)
-
-BUILD_NUMBER ?= 0
-VERSION=$(BASE_VERSION)+$(BUILD_NUMBER)-$(REVISION)
+COMMIT=$(shell cat VERSION)
 
 APP=all
 SUITE=
@@ -14,42 +11,42 @@ SUITE=
 all: binary
 
 binary:
-	@./script/build all $(VERSION)
+	@./script/build all
 .PHONY: binary
 
 nitro:
-	@./script/build nitro $(VERSION)
+	@./script/build nitro
 .PHONY: nitro
 
 freighter:
-	@./script/build freighter $(VERSION)
+	@./script/build freighter
 .PHONY: freighter
 
 hostbuilder:
-	@./script/build hostbuilder $(VERSION)
+	@./script/build hostbuilder
 .PHONY: hostbuilder
 
 nitrous:
-	@./script/build nitrous $(VERSION)
+	@./script/build nitrous
 .PHONY: nitrous
 
 test:
-	@echo "$(OK_COLOR)==> Running tests $(VERSION)...$(NO_COLOR)"
+	@echo "$(OK_COLOR)==> Running tests $(COMMIT)...$(NO_COLOR)"
 	@./script/test $(APP) $(SUITE)
 .PHONY: test
 
 release: ci-build
-	@echo "$(OK_COLOR)==> Releasing $(APP) $(VERSION)...$(NO_COLOR)"
-	@./script/release $(APP) $(VERSION) true
+	@echo "$(OK_COLOR)==> Releasing $(APP) $(COMMIT)...$(NO_COLOR)"
+	@./script/release $(APP) true
 .PHONY: test
 
 ci-test: image
-	@echo "$(OK_COLOR)==> Running tests in CI mode $(VERSION)...$(NO_COLOR)"
-	@./script/ci $(APP) $(REVISION)
+	@echo "$(OK_COLOR)==> Running tests in CI mode $(COMMIT)...$(NO_COLOR)"
+	@./script/ci $(APP) $(COMMIT)
 .PHONY: ci-test
 
 ci-build: image
-	@./script/build $(APP) $(VERSION) true
+	@./script/build $(APP) true
 .PHONY: ci-build
 
 run-nitrous: nitrous
@@ -65,7 +62,7 @@ run-hostbuilder: hostbuilder
 .PHONY: run-hostbuilder
 
 image:
-	@./script/image $(REVISION)
+	@./script/image $(COMMIT)
 .PHONY: image
 
 createdb:
