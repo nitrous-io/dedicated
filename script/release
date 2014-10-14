@@ -16,9 +16,8 @@ die() {
   echo $* && exit 1
 }
 RELEASE=${1:?"app name is required"}
-VERSION=${2:?"version is required"}
 # by default, we only allow release via docker
-IN_DOCKER=${3="true"}
+IN_DOCKER=${2="true"}
 BUILD_DIR=/root/app
 
 PUBLIC_BUCKET=${PUBLIC_BUCKET:="get.nitrous.io"}
@@ -41,8 +40,6 @@ if [[ "$UPLOAD_S3" == "true" ]]; then
   ACCESS_KEY=${ACCESS_KEY:?"ACCESS_KEY is required"}
   SECRET_KEY=${ACCESS_KEY:?"SECRET_KEY is required"}
 fi
-
-
 
 hash_files() {
   f="$1"
@@ -79,6 +76,7 @@ upload_private_s3() {
 bundle_binary() {
   BINARY=$1
   shift
+  VERSION=$(cat $BUILD_DIR/${BINARY}-VERSION)
   pkg=${BINARY}-${VERSION}.tar.gz
   latestpkg=${BINARY}-latest.tar.gz
 
@@ -104,6 +102,7 @@ bundle_nitro() {
 
   for arch in $ARCHS; do
     build=/root/app/$arch
+    VERSION=$(cat $build/nitro-VERSION)
     os=$(dirname $arch)
     t=$(basename $arch)
     pkg=nitro-${VERSION}-${os}-${t}.tar.gz
@@ -134,6 +133,7 @@ bundle_nitro() {
 bundle_freighter() {
   FILES=/root/debian/freighter/files
   PKGDIR=/root/app/freighter_deb
+  VERSION=$(cat /root/app/freighterd-VERSION)
   mkdir -p $PKGDIR
 
   # default package details

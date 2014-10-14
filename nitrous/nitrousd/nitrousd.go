@@ -5,13 +5,19 @@ import (
 
 	"bitbucket.org/kardianos/osext"
 
-	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/nitrous-io/nitrous-common/must"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/server"
+	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous-common/must"
 )
 
 const DBEnvVar = "NITROUS_PG_URL"
+
+var (
+	version           string // current version of nitrousd
+	freighterdVersion string // freighterd version that works with current nitrousd
+	nitroVersion      string // nitro version that works with current nitrousd
+)
 
 func main() {
 	logr := &logger.Logger{Level: logger.LogLevelDebug}
