@@ -6,6 +6,7 @@ App.ImagesNewController = Em.Controller.extend
   name: null
   slug: null
   image: null
+  remoteURL: null
   saving: false
 
   clear: ->
@@ -34,6 +35,9 @@ App.ImagesNewController = Em.Controller.extend
       data.append 'slug', slug
       data.append 'async', true
       data.append 'file', file
+
+      if remoteURL = @get 'remoteURL'
+        data.append 'remote', remoteURL
 
       events = App.get 'eventsSocket'
 
