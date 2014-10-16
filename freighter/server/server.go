@@ -245,6 +245,7 @@ func getTLSConfig(caPath, certPath, keyPath string) (*tls.Config, error) {
 		NextProtos:   []string{"http/1.1"},
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    certPool,
+		MinVersion:   tls.VersionTLS10,
 	}
 
 	return tlsConfig, nil
