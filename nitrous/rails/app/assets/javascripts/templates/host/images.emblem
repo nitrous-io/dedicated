@@ -27,7 +27,7 @@
     else
       p.hint-text
         i.fa.fa-exclamation-circle
-        | This host is not connected to any Docker registry.
+        | This host does not contain any images.
   else
     p.hint-text
       i.spinner
