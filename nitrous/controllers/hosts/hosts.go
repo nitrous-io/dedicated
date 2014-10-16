@@ -321,7 +321,7 @@ func publishHostEvent(env *middleware.Env, name controllers.EventName, h *host.H
 }
 
 func publishContainersStopped(env *middleware.Env, h *host.Host) {
-	cns, err := container.FindAllByHostID(env.DB, h.ID)
+	cns, err := container.FindAllByHost(env.DB, h)
 	if err != nil {
 		env.Logger.Errorf("hosts.Stop: Unable to list host containers: %v", err)
 		return

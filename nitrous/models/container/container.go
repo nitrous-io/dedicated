@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
@@ -85,9 +86,10 @@ func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
 	return c, nil
 }
 
-func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
+// FindAllByHost find containers that resides in the same hosts
+func FindAllByHost(d db.QueryReceiver, h *host.Host) ([]*Container, error) {
 	containers := []*Container{}
-	err := d.Select(&containers, `SELECT * FROM containers WHERE host_id = $1 AND terminated_at IS NULL;`, hostID)
+	err := d.Select(&containers, `SELECT * FROM containers WHERE host_id = $1 AND terminated_at IS NULL;`, h.ID)
 	if err != nil {
 		return nil, err
 	}

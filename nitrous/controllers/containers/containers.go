@@ -90,7 +90,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	for _, h := range hosts {
 		liveContainers, freighterErr := freighterList(db, &h)
 
-		savedContainers, err := container.FindAllByHostID(db, h.ID)
+		savedContainers, err := container.FindAllByHost(db, &h)
 		if err != nil {
 			return err
 		}
