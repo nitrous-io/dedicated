@@ -8,8 +8,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -105,11 +105,24 @@ var _ = Describe("Command", func() {
 				term := tc[1]
 				command := tc[2]
 
-				origTerm := os.Getenv("TERM")
-				os.Setenv("TERM", term)
-				cmd := getLoginCommand(user)
-				os.Setenv("TERM", origTerm)
+				cmd, err := getLoginCommand(user, term)
+				Expect(err).To(BeNil())
 				Expect(cmd).To(Equal(command), "Incorrect login command")
+			}
+		})
+
+		It("disallows invalid usernames", func() {
+			testCases := []string{
+				"$(touch /tmp/ohnoes)root",
+				"`touch /tmp/ohnoes`action",
+				`Administrator`,
+				`mismatched double quotes"`,
+				strings.Repeat("a", 33),
+			}
+
+			for _, tc := range testCases {
+				_, err := getLoginCommand(tc, "")
+				Expect(err).To(MatchError("invalid username"))
 			}
 		})
 	})
