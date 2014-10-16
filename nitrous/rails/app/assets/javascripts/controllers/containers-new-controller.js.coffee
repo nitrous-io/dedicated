@@ -21,8 +21,8 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       image: null
       saving: false
 
-  hostImagesIsEmpty: Em.computed.empty('selectedHost.images')
-  hostVolumesIsEmpty: Em.computed.empty('selectedHost.volumes')
+  hostImagesEmpty: Em.computed.empty('selectedHost.images')
+  hostVolumesEmpty: Em.computed.empty('selectedHost.volumes')
 
   selectedHost: (->
     if slug = @get 'selectedHostSlug'

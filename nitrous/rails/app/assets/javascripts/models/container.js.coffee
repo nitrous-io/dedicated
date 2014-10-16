@@ -21,6 +21,8 @@ App.Container = klass = App.Model.extend
   finishedAt: attr('date', as: 'finished_at', serialize: false)
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
 
+  config: null
+
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
   isTerminated: Em.computed.equal 'state', 'terminated'
@@ -50,8 +52,15 @@ App.Container = klass = App.Model.extend
 
   loadConfig: ->
     new Em.RSVP.Promise (resolve, reject) =>
-      @ajax('GET', 'config').then (json) ->
-        resolve(json.config)
+      @ajax('GET', 'config').then (json) =>
+        c = json.config
+        config =
+          env: transformEnvArrayToHash(c.env)
+          port: c.port
+          volume: c.volume
+          publish_all: c.publish_all
+        @set 'config', config
+        resolve(config)
       , (jqxhr) ->
         reject(jqxhr)
 
@@ -70,3 +79,13 @@ klass.reopenClass
   url: '/containers'
   rootKey: 'container'
   collectionKey: 'containers'
+
+transformEnvArrayToHash = (envVars) ->
+  hash = {}
+  return hash unless envVars
+  for v in envVars
+    m = v.match /^([^=]+)=(.*)$/
+    key = m[1]
+    val = m[2]
+    hash[key] = val
+  hash

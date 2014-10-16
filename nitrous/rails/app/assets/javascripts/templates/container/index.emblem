@@ -120,7 +120,7 @@
             | Taking Snapshot...
         else
           button.ui.btn click='cancelSnapshot target="view"' Cancel
-          button.ui.btn.primary click='confirmSnapshot target="view"' disabled=view.snapshotImageNameIsEmpty Take
+          button.ui.btn.primary click='confirmSnapshot target="view"' disabled=view.snapshotImageNameEmpty Take
 
 #terminate-modal-dialog.ui.modal
   .ui.card

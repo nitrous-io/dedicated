@@ -14,18 +14,18 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
     option = @get 'selectedOption'
     switch option
       when 'host-image'
-        unless @get 'controller.hostImagesIsEmpty'
+        unless @get 'controller.hostImagesEmpty'
           @get 'selectedHostImage'
       when 'base-image'
         @get 'selectedBaseImage'
       else
         @get 'customImage'
-  ).property 'selectedOption', 'selectedHostImage', 'selectedBaseImage', 'customImage', 'controller.hostImagesIsEmpty'
+  ).property 'selectedOption', 'selectedHostImage', 'selectedBaseImage', 'customImage', 'controller.hostImagesEmpty'
 
   baseImageOptionDisabled: (->
     !App.get('baseImages') || @get('controller.saving')
   ).property 'App.baseImages', 'controller.saving'
-  hostImageOptionDisabled: Em.computed.or('controller.hostImagesIsEmpty', 'controller.saving')
+  hostImageOptionDisabled: Em.computed.or('controller.hostImagesEmpty', 'controller.saving')
 
   createButtonDisabled: (->
     !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedHostSlug') && @get('image'))

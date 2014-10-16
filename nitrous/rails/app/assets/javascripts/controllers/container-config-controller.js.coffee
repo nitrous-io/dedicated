@@ -9,28 +9,37 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
 
   clear: ->
     @_super.apply this, arguments
-    @set 'envVarHashRO', Em.Object.create()
-    @set 'volumeMountsRO', Em.A()
+    @setProperties
+      saving: false
+      loaded: false
+      envVarHashRO: Em.Object.create()
+      volumeMountsRO: Em.A()
 
-  hostVolumesIsEmpty: Em.computed.empty('host.volumes')
+  hostVolumesEmpty: Em.computed.empty('host.volumes')
 
   envVarsRO: (->
     @transformEnvHashToArray(@get 'envVarHashRO')
   ).property 'envVarHashRO'
 
-  loadFields: ->
+  loadConfig: ->
     container = @get 'model'
     container.loadConfig().then (config) =>
-      [mutableEnv, readOnlyEnv] = filterEnvVarHash(transformEnvArrayToHash(config.env))
-      @set 'envVarHash', mutableEnv
-      @set 'envVarHashRO', readOnlyEnv
+      if config.env
+        [mutableEnv, readOnlyEnv] = filterEnvVarHash(config.env)
+        @set 'envVarHash', mutableEnv
+        @set 'envVarHashRO', readOnlyEnv
 
-      [mutableVol, readOnlyVol] = filterVolumeMounts(config.volume)
-      @set 'volumeMounts', mutableVol
-      @set 'volumeMountsRO', readOnlyVol
+      if config.volume
+        [mutableVol, readOnlyVol] = filterVolumeMounts(config.volume)
+        @set 'volumeMounts', mutableVol
+        @set 'volumeMountsRO', readOnlyVol
 
-      @set 'portBindings', config.port
-      @set 'publishAll', config.publish_all
+      if config.port
+        @set 'portBindings', config.port
+
+      if config.publish_all
+        @set 'publishAll', config.publish_all
+
       @set 'loaded', true
     , (jqxhr) ->
       App.postError(jqxhr.responseJSON, "Failed to fetch configuration!")
@@ -51,15 +60,6 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
         App.postError(jqxhr.responseJSON, "Failed to apply new configuration!")
       ).finally =>
         @set 'saving', false
-
-transformEnvArrayToHash = (envVars) ->
-  hash = {}
-  for v in envVars
-    m = v.match /^([^=]+)=(.*)$/
-    key = m[1]
-    val = m[2]
-    hash[key] = val
-  hash
 
 filterEnvVarHash = (envVarHash) ->
   mutable = envVarHash

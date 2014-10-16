@@ -5,4 +5,4 @@ App.ContainerConfigRoute = App.AuthedRoute.extend
   setupController: (controller, model) ->
     @_super.apply this, arguments
     controller.clear()
-    controller.loadFields()
+    controller.loadConfig()

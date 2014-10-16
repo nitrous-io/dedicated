@@ -63,12 +63,6 @@ form submit='create target="view"'
         | Container Configuration
 
       .container-config-btns
-        a.ui.btn.raised class={saving:disabled} href='#' click='openVolumeMounts target="view"'
-          | Volume Mounts
-          if volumeMounts.length
-            |&nbsp;(
-            = volumeMounts.length
-            |)
         a.ui.btn.raised class={saving:disabled} href='#' click='openPortBindings target="view"'
           | Port Bindings
           if portBindings.length
@@ -80,6 +74,12 @@ form submit='create target="view"'
           if envVars.length
             |&nbsp;(
             = envVars.length
+            |)
+        a.ui.btn.raised class={saving:disabled} href='#' click='openVolumeMounts target="view"'
+          | Volume Mounts
+          if volumeMounts.length
+            |&nbsp;(
+            = volumeMounts.length
             |)
 
   .card-footer.bordered
@@ -120,7 +120,7 @@ form submit='create target="view"'
               tr
                 td
                   .ui.select
-                    Ember.Select required=true name='containers-config-selected-volume' content=selectedHost.volumes optionValuePath='content.id' optionLabelPath='content.displayName' value=selectedVolumeId disabled=hostVolumesIsEmpty
+                    Ember.Select required=true name='containers-config-selected-volume' content=selectedHost.volumes optionValuePath='content.id' optionLabelPath='content.displayName' value=selectedVolumeId disabled=view.volumeDropdownDisabled
                 td
                   = input type='text' pattern=view.volumeMountpointInputPattern title=view.volumeMountpointInputTitle placeholder=selectedVolume.defaultMountpoint value=volumeMountpoint
                 td
