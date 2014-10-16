@@ -36,6 +36,7 @@ Options:
   -c, --command=""        %s
   -e, --env=[]            %s
   -v, --volume=[]         %s
+  -l, --link=[]           %s
   -p, --port-forward=[]   %s
   -P, --port-forward-all  %s
 `
@@ -53,6 +54,7 @@ type containerParams struct {
 	cmd            string
 	envVars        command.Multiarg
 	volumes        command.Multiarg
+	links          command.Multiarg
 	portForwards   command.Multiarg
 	portForwardAll bool
 }
@@ -74,8 +76,17 @@ func NewCommand(token string) (cli.Command, error) {
 
 func (c *Command) Help() string {
 	// TODO this is getting unwieldy, maybe text/template
-	return strings.TrimSpace(fmt.Sprintf(usage, slugUsage,
-		imageUsage, containers.CmdUsage, containers.EnvUsage, containers.VolumesUsage, containers.PortForwardsUsage, containers.PortForwardAllUsage))
+	return strings.TrimSpace(fmt.Sprintf(
+		usage,
+		slugUsage,
+		imageUsage,
+		containers.CmdUsage,
+		containers.EnvUsage,
+		containers.VolumesUsage,
+		containers.LinksUsage,
+		containers.PortForwardsUsage,
+		containers.PortForwardAllUsage,
+	))
 }
 
 func (c *Command) Run(args []string) int {
@@ -89,6 +100,7 @@ func (c *Command) Run(args []string) int {
 
 	cmdFlags.VarP(&params.envVars, "env", "e", containers.EnvUsage)
 	cmdFlags.VarP(&params.volumes, "volume", "v", containers.VolumesUsage)
+	cmdFlags.VarP(&params.links, "link", "l", containers.LinksUsage)
 	cmdFlags.VarP(&params.portForwards, "port-forward", "p", containers.PortForwardsUsage)
 	cmdFlags.BoolVarP(&params.portForwardAll, "port-forward-all", "P", false, containers.PortForwardAllUsage)
 
@@ -186,6 +198,9 @@ func (c *Command) createContainer(cp *containerParams) (*createResponse, error) 
 	}
 	for _, v := range cp.volumes {
 		p.Add("volume[]", v)
+	}
+	for _, v := range cp.links {
+		p.Add("link[]", v)
 	}
 	for _, pf := range cp.portForwards {
 		p.Add("port[]", pf)
