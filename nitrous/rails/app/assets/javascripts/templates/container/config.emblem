@@ -1,4 +1,4 @@
-= container-tab-bar selected='config'
+= container-tab-bar selected='config' model=model
 
 .card-body
   .ui.input-group

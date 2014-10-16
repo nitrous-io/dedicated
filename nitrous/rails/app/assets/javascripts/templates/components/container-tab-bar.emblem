@@ -1,6 +1,7 @@
 li class={generalSelected:selected}
   link-to 'container.index' | Container
-li class={keysSelected:selected}
-  link-to 'container.keys' | Keys
 li class={configSelected:selected}
-  link-to 'container.config' | Config
+  link-to 'container.config' | Configuration
+if model.sshEnabled
+  li class={keysSelected:selected}
+    link-to 'container.keys' | SSH Keys

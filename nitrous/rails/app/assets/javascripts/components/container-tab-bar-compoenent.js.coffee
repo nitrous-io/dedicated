@@ -2,6 +2,7 @@ App.ContainerTabBarComponent = Em.Component.extend
   tagName: 'ul'
   classNames: ['ui', 'tab-bar', 'container-tab-bar']
 
+  model: null
   selected: null
 
   generalSelected: Em.computed.equal 'selected', 'general'

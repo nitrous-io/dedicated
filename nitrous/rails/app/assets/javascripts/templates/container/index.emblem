@@ -1,4 +1,4 @@
-= container-tab-bar selected='general'
+= container-tab-bar selected='general' model=model
 
 .card-body
   table.ui.table.horizontal
@@ -20,29 +20,25 @@
         span.click-highlight
           = image
 
-    tr
-      th CMD
-      td colspan='3'
-        if cmd
+    if cmd
+      tr
+        th CMD
+        td colspan='3'
           ul.space-separated.blocks
             each cm in cmd
               li
                 span.click-highlight
                   = cm
-        else
-          span.empty &ndash;
 
-    tr
-      th ENTRYPOINT
-      td colspan='3'
-        if entrypoint
+    if entrypoint
+      tr
+        th ENTRYPOINT
+        td colspan='3'
           ul.space-separated.blocks
             each ep in entrypoint
               li
                 span.click-highlight
                   = ep
-        else
-          span.empty &ndash;
 
     tr
       th Internal IP
@@ -54,6 +50,27 @@
         span.click-highlight
           = gatewayIP
 
+    tr
+      th Hostname
+      if sshEnabled
+        td
+          span.click-highlight
+            = hostname
+        th SSH Port
+        td.right
+          span.click-highlight
+            = sshPort
+      else
+        td colspan='3'
+          span.click-highlight
+            = hostname
+
+    if sshEnabled
+      tr
+        th SSH URL
+        td colspan='3'
+          a href={sshURL}
+            = sshURL
     tr
       th Created At
       td

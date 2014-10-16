@@ -1,4 +1,4 @@
-= container-tab-bar selected='keys'
+= container-tab-bar selected='keys' model=model
 
 .card-body
   if records.loaded
@@ -20,7 +20,7 @@
     else
       p.hint-text
         i.fa.fa-exclamation-circle
-        | This container does not have any public key registered.
+        | This container does not have any ssh public keys registered.
   else
     p.hint-text
       i.spinner

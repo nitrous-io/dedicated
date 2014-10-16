@@ -76,7 +76,8 @@ filterVolumeMounts = (volumeMounts) ->
   for vol, i in volumeMounts
     filtered = false
     for suffix in readOnlyVolumeSuffixes
-      if vol.indexOf(suffix) == vol.length - suffix.length
+      suffixIdx = vol.indexOf(suffix)
+      if suffixIdx != -1 && suffixIdx == (vol.length - suffix.length)
         readonly.pushObject(vol)
         filtered = true
         continue

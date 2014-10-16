@@ -27,6 +27,28 @@ App.Container = klass = App.Model.extend
   isStopped: Em.computed.equal 'state', 'stopped'
   isTerminated: Em.computed.equal 'state', 'terminated'
 
+  hostnameBinding: Em.Binding.oneWay 'host.hostname'
+  loginUsernameBinding: Em.Binding.oneWay 'config.env.NITROUS_USERNAME'
+
+  sshEnabled: Em.computed.equal 'config.env.NITROUS_SSH_ENABLED', 'true'
+
+  sshPort: (->
+    return unless portBindings = @get 'config.port'
+    for port in portBindings
+      for suffix in [':22/tcp', ':22']
+        suffixIdx = port.indexOf(suffix)
+        if port.indexOf('public:') == 0 && suffixIdx != -1 && suffixIdx == (port.length - suffix.length)
+          return port.match(/^public:(\d+):22(\/tcp)?$/)[1]
+  ).property 'config.port'
+
+  sshURL: (->
+    return unless @get 'sshEnabled'
+    user = @get 'loginUsername'
+    hostname = @get 'hostname'
+    sshPort = @get 'sshPort'
+    "ssh://#{user}@#{hostname}:#{sshPort}"
+  ).property 'sshEnabled', 'loginUsername', 'hostname', 'sshPort'
+
   displayName: (->
     @get('name') || @get('slug')
   ).property 'name', 'slug'
