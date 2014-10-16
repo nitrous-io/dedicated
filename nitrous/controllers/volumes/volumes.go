@@ -2,12 +2,9 @@ package volumes
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/lib/pq"
 
-	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -24,9 +21,7 @@ var (
 )
 
 var (
-	validations = map[string]error{
-		"index_volumes_on_host_id_and_slug": httperror.New(http.StatusBadRequest, "validation_failed", "volume already exists on this host"),
-	}
+	CreateVolumeFn = CreateVolume
 )
 
 func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -43,48 +38,19 @@ func Index(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-
-	slug := strings.ToLower(r.FormValue("slug"))
-	if slug == "" {
-		return errSlugRequired
-	}
-	name := r.FormValue("name")
-
-	cl, err := controllers.NewFreighterClient(db, h)
+	err := r.ParseForm()
 	if err != nil {
 		return err
 	}
 
-	vol := &volume.Volume{
-		HostID: h.ID,
-		Slug:   slug,
-		Name:   name,
-	}
-
-	if err := vol.Insert(db); err != nil {
-		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
-			if validationErr, ok := validations[e.Constraint]; ok {
-				return validationErr
-			}
-		}
+	vol, err := CreateVolumeFn(h, r.Form, env)
+	if err != nil {
 		return err
 	}
 
-	if _, err := cl.CreateVolume(slug); err != nil {
-		if e := vol.Delete(db); e != nil {
-			env.Logger.Errorf("Unable to delete volume %d that failed on freighter: %v", vol.ID, e)
-		}
-		if e, ok := err.(*freighterclient.InvalidParamError); ok {
-			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
-		}
-		return err
-	}
-
-	publishVolumeEvent(env, controllers.EventVolumeCreated, vol)
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"volume": serializers.SerializeVolume(vol),
+		"volume": vol,
 	}
 	return nil
 }

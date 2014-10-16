@@ -1,7 +1,6 @@
 package containers
 
 import (
-	"database/sql"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/lib/pq"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -29,7 +27,6 @@ import (
 const defaultLockTime = 1 * time.Minute
 
 var (
-	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errImageNameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "image name is required")
 	errHostNotFound      = middleware.ErrHostNotFound
 	errVolumeNotFound    = httperror.New(http.StatusBadRequest, "invalid_state", "volume not found")
@@ -57,6 +54,10 @@ var (
 	Destroy  = WithContainerAndHost(destroy)
 	Token    = WithContainerAndHost(token)
 	Reconfig = WithContainerAndHost(reconfig)
+)
+
+var (
+	PerformCreateFn = CreateContainer
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -153,126 +154,19 @@ func freighterList(db db.QueryReceiver, h *host.Host) ([]*freighterclient.Contai
 }
 
 func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-	log := env.Logger
-
-	slug := strings.ToLower(r.FormValue("slug"))
-	name := r.FormValue("name")
-	imageSlug := r.FormValue("image")
-
-	if imageSlug == "" {
-		imageSlug = controllers.DefaultImage
-	}
-
-	if slug == "" {
-		return errSlugRequired
-	}
-
-	if name == "" {
-		name = slug
-	}
-
-	hv, err := hostVolumes(db, h)
+	res, err := PerformCreateFn(h, r.PostForm, env)
 	if err != nil {
 		return err
 	}
-	config, err := prepareConfig(r.PostForm, hv)
-	if err != nil {
-		return err
-	}
-
-	cn := &container.Container{
-		UserID: env.User.ID,
-		HostID: h.ID,
-		Slug:   slug,
-		Image:  imageSlug,
-		Name:   sql.NullString{name, true},
-	}
-
-	// Save record to db first to reserve name (since it's globally unique).
-	if err := cn.Insert(db); err != nil {
-		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
-			if validationErr, ok := validations[e.Constraint]; ok {
-				return validationErr
-			}
-		}
-		return err
-	}
-
-	deleteContainer := func(cn *container.Container) {
-		err := cn.DeletePermanently(db)
-		if err != nil {
-			env.Logger.Errorf("Unable to delete container %d that failed on freighter: %v", cn.ID, err)
-		}
-	}
-
-	cl, err := controllers.NewFreighterClient(db, h)
-	if err != nil {
-		deleteContainer(cn)
-		return err
-	}
-
-	var startError error
-	created, err := cl.Create(slug, imageSlug, cn.Secret, config)
-	if err != nil {
-		switch e := err.(type) {
-		case *freighterclient.StartFailedError:
-			// A start failure is fine so we don't delete the container record.
-			startError = e
-		case *freighterclient.InvalidParamError:
-			deleteContainer(cn)
-			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
-		default:
-			deleteContainer(cn)
-			if err == freighterclient.ErrImageNotFound {
-				return errImageNotFound
-			}
-			return err
-		}
-	}
-
-	// Update existing record with new info from Freighter.
-	cn.CID = created.ID
-	cn.Image = created.Image
-	cn.IPAddress = created.Host
-	cn.GatewayIP = created.Gateway
-	cn.Cmd = created.Cmd
-	cn.Entrypoint = created.Entrypoint
-	cn.ExitCode = created.ExitCode
-	cn.StartedAt = timePtr(created.StartedAt)
-	cn.FinishedAt = timePtr(created.FinishedAt)
-
-	if ok := cn.SetState(created.State); !ok { // log and continue
-		log.Errorf("containers.create: Freighter returned container with unexpected state: %v", created.State)
-	}
-
-	if err := cn.Update(db); err != nil { // log and continue
-		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cn)
-	}
-
-	for _, v := range volumeSlugs(config.Mounts) {
-		cv := cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: hv[v].ID}
-		if err := cv.Insert(db); err != nil { // log and continue
-			log.Errorf("containers.create: failed to attach volume %s to container %s", hv[v].Slug, cn.CID)
-		}
-	}
-
-	publishContainerEvent(env, controllers.EventContainerCreated, cn)
 
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"container": serializers.SerializeContainer(cn),
+		"container": res.Container,
 	}
-	if startError != nil {
-		env.Data["error"] = "start_failed"
-		env.Data["error_description"] = startError.Error()
+	if res.ErrorMessage != "" {
+		env.Data["error"] = res.ErrorMessage
+		env.Data["error_description"] = res.ErrorDescription
 	}
-	env.AddEventData(map[string]interface{}{
-		"slug":         cn.Slug,
-		"image":        cn.Image,
-		"host_id":      cn.HostID,
-		"container_id": cn.ID,
-	})
 	return nil
 }
 

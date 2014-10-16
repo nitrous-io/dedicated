@@ -3,6 +3,7 @@ package hosts_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,8 +17,10 @@ import (
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
@@ -111,6 +114,16 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		req, err := NewRequest("POST", "/api/v0/hosts", p)
 		Expect(err).To(BeNil())
 		req.Header.Set("Authorization", "Bearer valid-token")
+		res := httptest.NewRecorder()
+		handler.ServeHTTP(res, req)
+		return res
+	}
+
+	doJsonRequest := func(jsonStr string) *httptest.ResponseRecorder {
+		req, err := NewBodyRequest("POST", "/api/v0/hosts", jsonStr)
+		Expect(err).To(BeNil())
+		req.Header.Set("Authorization", "Bearer valid-token")
+		req.Header.Set("Content-type", "application/json")
 		res := httptest.NewRecorder()
 		handler.ServeHTTP(res, req)
 		return res
@@ -211,6 +224,35 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(config["apt_password"]).To(Equal(t.Token), "invalid token set in apt_password")
 	})
 
+	It("sends the host configs as json params when JSON is sent by the client", func() {
+		jsonStr := `{
+			"host": {
+				"slug": "sLug1",
+				"name": "MyHost",
+				"region": "use",
+				"size": "large"
+			}
+		}`
+
+		hb := hostbuilderclient.NewHostbuilder("www.example.com")
+		rt := &FakeRoundTripper{
+			message: fmt.Sprintf(`
+			{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}
+			`, hs.PT.Name),
+			status: http.StatusOK,
+		}
+		replaceTransport(hb, rt)
+		hosts.HostbuilderClient = hb
+		doJsonRequest(jsonStr)
+
+		Expect(rt.requests).To(HaveLen(1))
+		req := rt.requests[0]
+		var config hostbuilderclient.Config
+		json.Unmarshal([]byte(req.FormValue("config")), &config)
+		Expect(config["name"]).To(Equal("slug1"))
+		Expect(config["apt_password"]).To(Equal(t.Token), "invalid token set in apt_password")
+	})
+
 	Context("when hostbuilder successfully creates a host", func() {
 		var rt *FakeRoundTripper
 
@@ -265,6 +307,37 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			eventJSON, err := json.Marshal(t.TrackEventProperties[u.ID])
 			Expect(err).To(BeNil())
 			Expect(eventJSON).To(MatchJSON(fmt.Sprintf(`[{"slug":"%s","host_id":%d,"plan":"%s","region":"%s"}]`, h.Slug, h.ID, hs.P.Name, hs.R.Name)))
+		})
+
+		It("creates a host record for the user when JSON is sent by the client", func() {
+			jsonStr := `{
+				"host": {
+					"slug": "sLug1",
+					"name": "MyHost",
+					"region": "use",
+					"size": "large"
+				}
+			}`
+			doJsonRequest(jsonStr)
+
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+
+			h := hosts[0]
+			Expect(h.RegionID).To(Equal(hs.R.ID))
+			Expect(h.PlanID).To(Equal(hs.P.ID))
+			Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
+
+			Expect(h.Slug).To(Equal("slug1"))
+			Expect(h.Name.String).To(Equal("MyHost"))
+
+			Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
+			Expect(h.State).To(Equal(host.StateRunning))
+			Expect(h.MaxContainers.Int64).To(Equal(hs.P.MaxContainers))
+			Expect(h.Size.String).To(Equal(hs.P.Slug))
+			Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
+			Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
 		})
 
 		It("creates a keypair associated with that host", func() {
@@ -443,6 +516,298 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].Slug).To(Equal("honeybadger"))
+		})
+
+		Context("when containers are given in JSON", func() {
+			hostJson := `{
+				"host": {
+					"slug": "sLug1",
+					"name": "MyHost",
+					"region": "use",
+					"size": "large",
+					"containers": [
+						{
+							"name": "container1",
+							"slug": "slug1",
+							"image": "image1",
+							"env": ["PATH=/sbin","PWD=/root"],
+							"volumes": ["/home/callumj:/root", "/dev:/tmp"],
+							"publish_all": false,
+							"cmd": "sudo shutdown now",
+							"ports": ["2000/tcp", "22/tcp"]
+						},
+						{
+							"name": "container2",
+							"slug": "slug2",
+							"image": "image2",
+							"env": ["PATH=/bin","PWD=/dev"],
+							"volumes": ["/home/ubuntu:/mnt"],
+							"publish_all": true,
+							"cmd": "sudo stop cron",
+							"ports": ["139/tcp", "80/udp"]
+						}
+					]
+				}
+			}`
+			var containerCreateResult *containers.CreateResult
+			var containerCreateError error
+
+			type containerCall struct {
+				Host    *host.Host
+				Options url.Values
+				Env     *middleware.Env
+			}
+			var receivedContainerCalls []containerCall
+
+			var previousCreateContainer func(*host.Host, url.Values, *middleware.Env) (*containers.CreateResult, error)
+			createContainerHook := func(h *host.Host, options url.Values, env *middleware.Env) (*containers.CreateResult, error) {
+				receivedContainerCalls = append(receivedContainerCalls, containerCall{
+					Host:    h,
+					Options: options,
+					Env:     env,
+				})
+
+				return containerCreateResult, containerCreateError
+			}
+
+			BeforeEach(func() {
+				previousCreateContainer = hosts.CreateContainer
+				receivedContainerCalls = []containerCall{}
+				hosts.CreateContainer = createContainerHook
+			})
+
+			AfterEach(func() {
+				hosts.CreateContainer = previousCreateContainer
+				containerCreateResult = nil
+				containerCreateError = nil
+			})
+
+			It("creates the containers specified", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doJsonRequest(hostJson)
+
+				hosts, err := host.FindAllByUser(db, u)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(1))
+				vol, err := volume.Find(db, hosts[0].ID, "shared")
+				Expect(err).To(BeNil())
+				Expect(vol).NotTo(BeNil())
+				Expect(vol.System).To(BeTrue())
+
+				finished := make(chan struct{})
+
+				seenMessages := []controllers.Event{}
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventContainerCreating {
+							seenMessages = append(seenMessages, *evt)
+							if len(seenMessages) == 2 {
+								close(finished)
+							}
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timeout while event container creating event")
+				case <-finished:
+					evt := seenMessages[0]
+					Expect(evt.Name).To(Equal(controllers.EventContainerCreating))
+					evtData, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(evtData["current"]).To(Equal(1))
+					Expect(evtData["total"]).To(Equal(2))
+
+					evt2 := seenMessages[1]
+					Expect(evt2.Name).To(Equal(controllers.EventContainerCreating))
+					evt2Data, ok := evt2.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(evt2Data["current"]).To(Equal(2))
+					Expect(evt2Data["total"]).To(Equal(2))
+				}
+			})
+
+			It("should request creation of containers", func() {
+				doJsonRequest(hostJson)
+
+				hosts, err := host.FindAllByUser(db, u)
+				Expect(err).To(BeNil())
+				Expect(receivedContainerCalls).To(HaveLen(2))
+				call1 := receivedContainerCalls[0]
+				Expect(call1.Host.ID).To(Equal(hosts[0].ID))
+				Expect(call1.Options).To(Equal(url.Values{
+					"name":        []string{"container1"},
+					"slug":        []string{"slug1"},
+					"image":       []string{"image1"},
+					"env[]":       []string{"PATH=/sbin", "PWD=/root"},
+					"volume[]":    []string{"/home/callumj:/root", "/dev:/tmp"},
+					"publish_all": []string{"false"},
+					"cmd":         []string{"sudo shutdown now"},
+					"port[]":      []string{"2000/tcp", "22/tcp"},
+				}))
+
+				call2 := receivedContainerCalls[1]
+				Expect(call2.Host.ID).To(Equal(hosts[0].ID))
+				Expect(call2.Options).To(Equal(url.Values{
+					"name":        []string{"container2"},
+					"slug":        []string{"slug2"},
+					"image":       []string{"image2"},
+					"env[]":       []string{"PATH=/bin", "PWD=/dev"},
+					"volume[]":    []string{"/home/ubuntu:/mnt"},
+					"publish_all": []string{"true"},
+					"cmd":         []string{"sudo stop cron"},
+					"port[]":      []string{"139/tcp", "80/udp"},
+				}))
+			})
+
+			It("should inform the client of an error", func() {
+				containerCreateError = errors.New("Sorry :(")
+				res := doJsonRequest(hostJson)
+
+				responseBody := string(res.Body.Bytes())
+				Expect(responseBody).To(ContainSubstring(`{"error":"internal_server_error","error_description":"one of the containers failed during creation"}`))
+
+				Expect(receivedContainerCalls).To(HaveLen(1))
+			})
+		})
+
+		Context("when volumes are given in JSON", func() {
+			hostJson := `{
+				"host": {
+					"slug": "sLug1",
+					"name": "MyHost",
+					"region": "use",
+					"size": "large",
+					"volumes": [
+						{
+							"name": "vol1",
+							"slug": "volslug1"
+						},
+						{
+							"name": "vol2",
+							"slug": "volslug2"
+						}
+					]
+				}
+			}`
+			var volumeCreated *serializers.Volume
+			var volumeCreateError error
+
+			type volumeCall struct {
+				Host    *host.Host
+				Options url.Values
+				Env     *middleware.Env
+			}
+			var receivedVolumeCalls []volumeCall
+
+			var previousCreateVolume func(*host.Host, url.Values, *middleware.Env) (*serializers.Volume, error)
+			createVolumeHook := func(h *host.Host, options url.Values, env *middleware.Env) (*serializers.Volume, error) {
+				receivedVolumeCalls = append(receivedVolumeCalls, volumeCall{
+					Host:    h,
+					Options: options,
+					Env:     env,
+				})
+
+				return volumeCreated, volumeCreateError
+			}
+
+			BeforeEach(func() {
+				previousCreateVolume = hosts.CreateVolumeFn
+				receivedVolumeCalls = []volumeCall{}
+				hosts.CreateVolumeFn = createVolumeHook
+			})
+
+			AfterEach(func() {
+				hosts.CreateVolumeFn = previousCreateVolume
+				volumeCreated = nil
+				volumeCreateError = nil
+			})
+
+			It("publishes the messages of volumes creating", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doJsonRequest(hostJson)
+
+				hosts, err := host.FindAllByUser(db, u)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(1))
+				vol, err := volume.Find(db, hosts[0].ID, "shared")
+				Expect(err).To(BeNil())
+				Expect(vol).NotTo(BeNil())
+				Expect(vol.System).To(BeTrue())
+
+				finished := make(chan struct{})
+
+				seenMessages := []controllers.Event{}
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventVolumeCreating {
+							seenMessages = append(seenMessages, *evt)
+							if len(seenMessages) == 2 {
+								close(finished)
+							}
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timeout while event volume creating event")
+				case <-finished:
+					evt := seenMessages[0]
+					Expect(evt.Name).To(Equal(controllers.EventVolumeCreating))
+					evtData, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(evtData["current"]).To(Equal(1))
+					Expect(evtData["total"]).To(Equal(2))
+
+					evt2 := seenMessages[1]
+					Expect(evt2.Name).To(Equal(controllers.EventVolumeCreating))
+					evt2Data, ok := evt2.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(evt2Data["current"]).To(Equal(2))
+					Expect(evt2Data["total"]).To(Equal(2))
+				}
+			})
+
+			It("should request creation of volumes", func() {
+				doJsonRequest(hostJson)
+
+				hosts, err := host.FindAllByUser(db, u)
+				Expect(err).To(BeNil())
+				Expect(receivedVolumeCalls).To(HaveLen(2))
+				call1 := receivedVolumeCalls[0]
+				Expect(call1.Host.ID).To(Equal(hosts[0].ID))
+				Expect(call1.Options).To(Equal(url.Values{
+					"name": []string{"vol1"},
+					"slug": []string{"volslug1"},
+				}))
+
+				call2 := receivedVolumeCalls[1]
+				Expect(call2.Host.ID).To(Equal(hosts[0].ID))
+				Expect(call2.Options).To(Equal(url.Values{
+					"name": []string{"vol2"},
+					"slug": []string{"volslug2"},
+				}))
+			})
+
+			It("should inform the client of an error", func() {
+				volumeCreateError = errors.New("Sorry :(")
+				res := doJsonRequest(hostJson)
+
+				responseBody := string(res.Body.Bytes())
+				Expect(responseBody).To(ContainSubstring(`{"error":"internal_server_error","error_description":"one of the volumes failed during creation"}`))
+
+				Expect(receivedVolumeCalls).To(HaveLen(1))
+			})
 		})
 
 		Context("when trying to create multiple hosts concurrently", func() {
