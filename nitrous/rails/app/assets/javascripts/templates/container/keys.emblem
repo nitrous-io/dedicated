@@ -20,7 +20,7 @@
     else
       p.hint-text
         i.fa.fa-exclamation-circle
-        | This container does not have any ssh public keys registered.
+        | This container does not have any ssh public key registered.
   else
     p.hint-text
       i.spinner

@@ -101,7 +101,7 @@
       button.ui.btn click='stop' Stop
     .right
       button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
-      button.ui.btn click='openLogs' Logs
+      button.ui.btn click='openLogs' Logs...
       button.ui.btn click='openAttach' Attach
       button.ui.btn.primary click='openTerminal' Terminal
   else
@@ -110,6 +110,7 @@
         button.ui.btn click='showTerminateDialog target="view"' Terminate...
       .right
         button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
+        button.ui.btn click='openLogs' Logs...
         button.ui.btn.primary click='start' Start
     else
       if isTerminated
