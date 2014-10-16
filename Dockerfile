@@ -48,6 +48,11 @@ RUN /etc/init.d/postgresql start &&\
   createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_test &&\
 	su postgres -c "psql -d nitrous_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'"
 
+# postgres settings for testing
+RUN echo "fsync=off" >> /etc/postgresql/9.3/main/postgresql.conf && \
+  echo "synchronous_commit=off" >> /etc/postgresql/9.3/main/postgresql.conf && \
+  echo "full_page_writes=off" >> /etc/postgresql/9.3/main/postgresql.conf
+
 # set GOPATH to include the path to dependencies
 ENV GOPATH /opt/src/github.com/nitrous-io/dedicated/Godeps/_workspace:/opt
 ADD . /opt/src/github.com/nitrous-io/dedicated
