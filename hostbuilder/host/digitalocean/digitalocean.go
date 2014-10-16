@@ -124,7 +124,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 func (h *Host) pingFreighter(dropletInfo *host.Info, w io.Writer) error {
 	contactAddr := fmt.Sprintf("https://%s:%d", dropletInfo.IPAddress, dropletInfo.FreighterdPort)
 	fmt.Fprintf(w, "Contacting freighter at %s", contactAddr)
-	if !WaitForServer(contactAddr, FreighterPingTimeout, FreighterPingAttempts) {
+	if !host.WaitForServer(contactAddr, FreighterPingTimeout, FreighterPingAttempts) {
 		fmt.Fprintf(w, "failed: freighter not available")
 		return fmt.Errorf("freighter not available")
 	}
