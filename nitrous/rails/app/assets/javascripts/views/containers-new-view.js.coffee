@@ -1,4 +1,4 @@
-App.ContainersNewView = Em.View.extend
+App.ContainersNewView = Lib.ContainerConfigView.extend
   elementId: 'containers-new-view'
   classNames: ['ui', 'card']
 
@@ -9,9 +9,6 @@ App.ContainersNewView = Em.View.extend
 
   nameFieldInvalid: Em.computed.equal('controller.invalidField', 'name')
   slugFieldInvalid: Em.computed.equal('controller.invalidField', 'slug')
-
-  volumeMountpointInputPattern: '[^\\s\\?\\\\*%:\\|"\'<>$~]+'
-  volumeMountpointInputTitle: 'Whitespace and the following characters are not allowed: \\ ? * % : | \" \' < > $ ~'
 
   image: (->
     option = @get 'selectedOption'
@@ -34,25 +31,8 @@ App.ContainersNewView = Em.View.extend
     !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedHostSlug') && @get('image'))
   ).property 'controller.name', 'controller.slug', 'controller.selectedHostSlug', 'image'
 
-  addVolumeMountButtonDisabled: Em.computed.empty('controller.selectedVolume')
-  addPortBindingButtonDisabled: Em.computed.empty('controller.containerPort')
-
-  addEnvVarButtonDisabled: (->
-    !(@get('controller.envKey') && @get('controller.envValue'))
-  ).property 'controller.envKey', 'controller.envValue'
-
   hideProgress: Em.computed.not('controller.saving')
   indeterminateProgress: Em.computed.none('controller.image.progress.progressDetail.start')
-
-  hostsDidChange: (->
-    Em.run.scheduleOnce 'afterRender', this, ->
-      slug = @get('controller.preselectHost')
-      if slug && !@get('selectedHostSlug')
-        @set 'controller.selectedHostSlug', slug
-      @$('select[name=host]')?.change()
-      @$('select[name=containers-new-option-host-image]')?.change()
-      @$('select[name=containers-new-selected-volume]')?.change()
-  ).observes 'App.hosts.@each'
 
   preselectHostDidChange: (->
     if slug = @get('controller.preselectHost')
@@ -65,15 +45,20 @@ App.ContainersNewView = Em.View.extend
       @set 'selectedBaseImage', App.get('baseImages.firstObject.repo')
   ).observes 'App.baseImages.@each'
 
+  hostsDidChange: (->
+    Em.run.scheduleOnce 'afterRender', this, ->
+      slug = @get('controller.preselectHost')
+      if slug && !@get('controller.selectedHostSlug')
+        @set 'controller.selectedHostSlug', slug
+      @$('select[name=host]')?.change()
+      @$('select[name=containers-new-option-host-image]')?.change()
+      @$('select[name=containers-config-selected-volume]')?.change()
+  ).observes 'App.hosts.@each'
+
   hostImagesDidChange: (->
     Em.run.scheduleOnce 'afterRender', this, ->
       @$('select[name=containers-new-option-host-image]')?.change()
   ).observes 'controller.selectedHost.images.@each'
-
-  hostVolumesDidChange: (->
-    Em.run.scheduleOnce 'afterRender', this, ->
-      @$('select[name=containers-new-selected-volume]')?.change()
-  ).observes 'controller.selectedHost.volumes.@each'
 
   didInsertElement: ->
     @_super()

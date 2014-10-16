@@ -10,6 +10,7 @@ App.Router.map ->
     @resource 'container', path: '/containers/:containerSlug', ->
       @route 'keys'
       @route 'keys-new', path: '/keys/new'
+      @route 'config'
       @route 'terminal'
 
     @resource 'hosts', ->

@@ -33,10 +33,10 @@ window.ui =
     if !($modal instanceof jQuery)
       $modal = $($modal)
     $modal.show()
+    $modal.find('.focus').focus()
     window.setTimeout(->
-      $modal.find('.focus').focus()
       $modal.addClass('show')
-    , 1)
+    , 10)
 
   hideModal: ($modal) ->
     if !($modal instanceof jQuery)

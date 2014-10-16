@@ -48,6 +48,20 @@ App.Container = klass = App.Model.extend
       App.PublicKey.fetch(containerId: id).value
   ).property 'id'
 
+  loadConfig: ->
+    new Em.RSVP.Promise (resolve, reject) =>
+      @ajax('GET', 'config').then (json) ->
+        resolve(json.config)
+      , (jqxhr) ->
+        reject(jqxhr)
+
+  saveConfig: (config)  ->
+    @ajax 'POST', 'reconfig',
+      env: config.env
+      volume: config.volume
+      port: config.port
+      publish_all: config.publish_all
+
   requestToken: (permissions) ->
     @ajax 'POST', 'token', permission: permissions
 

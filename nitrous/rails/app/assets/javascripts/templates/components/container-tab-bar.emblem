@@ -2,5 +2,5 @@ li class={generalSelected:selected}
   link-to 'container.index' | Container
 li class={keysSelected:selected}
   link-to 'container.keys' | Keys
-li.disabled class={configSelected:selected}
-  a.noclick href='#' Config
+li class={configSelected:selected}
+  link-to 'container.config' | Config

@@ -120,7 +120,7 @@ form submit='create target="view"'
               tr
                 td
                   .ui.select
-                    Ember.Select required=true name='containers-new-selected-volume' content=selectedHost.volumes optionValuePath='content.id' optionLabelPath='content.displayName' value=selectedVolumeId disabled=hostVolumesIsEmpty
+                    Ember.Select required=true name='containers-config-selected-volume' content=selectedHost.volumes optionValuePath='content.id' optionLabelPath='content.displayName' value=selectedVolumeId disabled=hostVolumesIsEmpty
                 td
                   = input type='text' pattern=view.volumeMountpointInputPattern title=view.volumeMountpointInputTitle placeholder=selectedVolume.defaultMountpoint value=volumeMountpoint
                 td
@@ -164,9 +164,9 @@ form submit='create target="view"'
         ul.ui.checkbox-group
           li
             .ui.checkbox
-              = input type='checkbox' id='containers-new-publish-all' checked=publishAll
+              = input type='checkbox' id='containers-config-publish-all' checked=publishAll
               label
-            label for='containers-new-publish-all' Publish All Exposed Ports
+            label for='containers-config-publish-all' Publish All Exposed Ports
     .card-footer
       .right
         button.ui.btn.primary click='closePortBindings target="view"' Done
