@@ -7,6 +7,7 @@ App.HostsNewController = Em.ObjectController.extend
   invalidField: null
   host: null
   saving: false
+  useJumpstartImage: false
 
   clear: ->
     @setProperties
@@ -18,6 +19,7 @@ App.HostsNewController = Em.ObjectController.extend
       invalidField: null
       host: null
       saving: false
+      useJumpstartImage: false
 
   selectedPlan: (->
     if slug = @get('selectedPlanSlug')
@@ -63,7 +65,24 @@ App.HostsNewController = Em.ObjectController.extend
       events.on 'host.create_failed', onHostCreateFailed
       events.on 'host.created', onHostCreated
 
-      host.save(async: true).catch (jqxhr) => # host.save
+      params =
+        async: true
+
+      if @get 'useJumpstartImage'
+        workspaceVolSlug = App.slug.toSlug('workspace', true)
+        databaseVolSlug = App.slug.toSlug('database', true)
+
+        params.volumes = [
+          { name: 'workspace', slug: workspaceVolSlug }
+          { name: 'database',  slug: databaseVolSlug }
+        ]
+
+        params.containers = [
+          { name: 'postgres', slug: App.slug.toSlug('postgres', true), image: 'postgres:9.3', volumes: ["#{databaseVolSlug}:/var/lib/postgresql/data"], ports: ["5432:5432"] }
+          { name: 'rails', slug: App.slug.toSlug('rails', true), image: 'nitrousio/rails-pg-jumpstart:latest', volumes: ["#{workspaceVolSlug}:/volumes/workspace"], ports: ["3000:3000", "2222:22"] }
+        ]
+
+      host.save(params, json: true).catch (jqxhr) => # host.save
         if errMsg = jqxhr.responseJSON?.error_description
           @set 'error', errMsg
           @set 'invalidField', errMsg.match(/^\w+/)[0]
