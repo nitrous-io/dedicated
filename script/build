@@ -5,6 +5,7 @@ export APP=${1:?"app name is required"}
 # by default, we allow build to build without docker
 export IN_DOCKER=${2}
 
+NITRO_API_URL=${NITRO_API_URL:='http://127.0.0.1:3333'}
 BUILD_DIR=$(pwd)/build
 GIT_DIR=$(pwd)/.git
 mkdir -p "$BUILD_DIR"
@@ -63,7 +64,6 @@ build_assets() {
 # this also accepts $LDFLAGS env, which we can use to pass the
 # binary's version information
 xbuild_nitro() {
-  api_url=${NITRO_API_URL:-http://127.0.0.1:3333}
   app=nitro
 
   if [ "$BUILD_IN_DOCKER" != "true" ]; then
@@ -103,6 +103,7 @@ build_nitro() {
     -X main.version ${VERSION} \
     -X main.nitrousVersion $(get_version nitrous) \
     -X main.freighterVersion $(get_version freighter) \
+    -X github.com/nitrous-io/dedicated/nitro/command.DefaultAPIURL ${NITRO_API_URL} \
     "
   build "nitro"
   )
@@ -113,6 +114,7 @@ build_nitro() {
       -X main.version ${VERSION} \
       -X main.nitrousdVersion $(get_version nitrous) \
       -X main.freighterdVersion $(get_version freighter) \
+      -X github.com/nitrous-io/dedicated/nitro/command.DefaultAPIURL ${NITRO_API_URL} \
       "
     xbuild_nitro
     )
