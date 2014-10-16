@@ -117,6 +117,7 @@ type ContainerConfig struct {
 	Env          []string `json:"Env,omitempty"`
 	Mounts       []string `json:"Mounts,omitempty"`
 	PortBindings []string `json:"PortBindings,omitempty"`
+	Links        []string `json:"Links,omitempty"`
 	PublishAll   bool     `json:"PublishAll,omitempty"`
 }
 

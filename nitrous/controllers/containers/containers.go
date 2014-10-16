@@ -656,6 +656,7 @@ func publishContainerEvent(env *middleware.Env, name controllers.EventName, c *c
 func prepareConfig(form url.Values, hv map[string]*volume.Volume) (*freighterclient.ContainerConfig, error) {
 	c := &freighterclient.ContainerConfig{}
 	c.Env = readParam(form, "env[]")
+	c.Links = readParam(form, "link[]")
 	vols := readParam(form, "volume[]")
 	for _, v := range volumeSlugs(vols) {
 		if _, ok := hv[v]; !ok {
