@@ -1,4 +1,4 @@
-= host-tab-bar selected='general' host=model
+= host-tab-bar selected='general' model=model
 
 .card-body
   table.ui.table.horizontal

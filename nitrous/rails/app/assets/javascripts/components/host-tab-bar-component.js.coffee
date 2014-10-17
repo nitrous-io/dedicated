@@ -2,8 +2,7 @@ App.HostTabBarComponent = Em.Component.extend
   tagName: 'ul'
   classNames: ['ui', 'tab-bar', 'host-tab-bar']
 
-  host: null
-
+  model: null
   selected: null
 
   generalSelected:    Em.computed.equal 'selected', 'general'

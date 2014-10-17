@@ -23,7 +23,7 @@ App.ContainerTerminalController = Em.ObjectController.extend
 
       switch action
         when 'shell'
-          command = encodeURIComponent(getLoginCommand())
+          command = encodeURIComponent(getLoginCommand(container.get 'loginUsername'))
           url += "&command=#{command}"
         when 'logs'
           url += "&follow=true"

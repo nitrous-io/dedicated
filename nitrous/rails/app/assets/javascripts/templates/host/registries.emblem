@@ -1,4 +1,4 @@
-= host-tab-bar selected='registries' host=model
+= host-tab-bar selected='registries' model=model
 
 .card-body
   if records.loaded
