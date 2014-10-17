@@ -4,6 +4,7 @@ readOnlyVolumeSuffixes = [':/nitrous/ssh:ro']
 App.ContainerConfigController = Lib.ContainerConfigController.extend
   saving: false
   loaded: false
+  closeApplyDialog: false
   envVarHashRO: null # object (hash) - readonly
   volumeMountsRO: null # array - readonly
 
@@ -12,6 +13,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
     @setProperties
       saving: false
       loaded: false
+      closeApplyDialog: false
       envVarHashRO: Em.Object.create()
       volumeMountsRO: Em.A()
 
@@ -54,8 +56,9 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
         volume: @get 'volumeMounts'
         port: @get 'portBindings'
         publish_all: @get 'publishAll'
-      ).then(->
+      ).then(=>
         App.snackbar.post 'New configuration applied!'
+        @set 'closeApplyDialog', true
       , (jqxhr) ->
         App.postError(jqxhr.responseJSON, "Failed to apply new configuration!")
       ).finally =>

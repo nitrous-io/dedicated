@@ -12,6 +12,12 @@ App.ContainerConfigView = Lib.ContainerConfigView.extend
     !@get('controller.loaded') || @get('controller.saving')
   ).property 'controller.loaded', 'controller.saving'
 
+  closeApplyDialogDidChange: (->
+    if @get 'controller.closeApplyDialog'
+      @set 'controller.closeApplyDialog', false
+      @send 'cancelApply'
+  ).observes 'controller.closeApplyDialog'
+
   actions:
     askApply: ->
       ui.showModal(@$('#confirm-apply-modal-dialog'))
@@ -20,5 +26,4 @@ App.ContainerConfigView = Lib.ContainerConfigView.extend
       ui.hideModal(@$('#confirm-apply-modal-dialog'))
 
     confirmApply: ->
-      ui.hideModal(@$('#confirm-apply-modal-dialog'))
       @get('controller').send 'apply'
