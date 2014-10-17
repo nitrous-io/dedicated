@@ -5,15 +5,15 @@
     label.field-label
       | Port Bindings
 
-    form submit='addPortBinding'
-      .ui.input-group
-        ul.ui.chips
-          each portBinding in portBindings
-            li class={view.formDisabled:disabled}
-              = portBinding
-              unless view.formDisabled
-                a.close href='#' click='removePortBinding portBinding' &times;
+    ul.ui.chips
+      each portBinding in portBindings
+        li class={view.formDisabled:disabled}
+          = portBinding
+          unless view.formDisabled
+            a.close href='#' click='removePortBinding portBinding' &times;
 
+    form.container-config submit='addPortBinding'
+      .ui.input-group.container-config-form
         table.ui.table
           thead
             tr
@@ -44,18 +44,19 @@
   .ui.input-group
     label.field-label
       | Environment Variables
-  form submit='addEnvVar'
-    .ui.input-group
-      ul.ui.chips
-        each envVar in envVars
-          li class={view.formDisabled:disabled}
-            = envVar
-            unless view.formDisabled
-              a.close href='#' click='removeEnvVar envVar' &times;
-        each envVar in envVarsRO
-          li.disabled title='This environment variable cannot be removed.'
-            = envVar
 
+  ul.ui.chips
+    each envVar in envVars
+      li class={view.formDisabled:disabled}
+        = envVar
+        unless view.formDisabled
+          a.close href='#' click='removeEnvVar envVar' &times;
+    each envVar in envVarsRO
+      li.disabled title='This environment variable cannot be removed.'
+        = envVar
+
+  form.container-config submit='addEnvVar'
+    .ui.input-group.container-config-form
       table.ui.table
         thead
           tr
@@ -75,18 +76,18 @@
     label.field-label
       | Volume Mounts
 
-  form submit='addVolumeMount'
-    .ui.input-group
-      ul.ui.chips
-        each volumeMount in volumeMounts
-          li class={view.formDisabled:disabled}
-            = volumeMount
-            unless view.formDisabled
-              a.close href='#' click='removeVolumeMount volumeMount' &times;
-        each volumeMount in volumeMountsRO
-          li.disabled title='This volume mount cannot be changed.'
-            = volumeMount
+  ul.ui.chips
+    each volumeMount in volumeMounts
+      li class={view.formDisabled:disabled}
+        = volumeMount
+        unless view.formDisabled
+          a.close href='#' click='removeVolumeMount volumeMount' &times;
+    each volumeMount in volumeMountsRO
+      li.disabled title='This volume mount cannot be changed.'
+        = volumeMount
 
+  form.container-config submit='addVolumeMount'
+    .ui.input-group.container-config-form
       table.ui.table
         thead
           tr

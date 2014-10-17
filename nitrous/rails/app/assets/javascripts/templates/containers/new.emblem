@@ -98,12 +98,12 @@ form submit='create target="view"'
         input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'
   = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
 
-#volume-mounts-dialog.ui.modal.container-config
-  .ui.card
+#volume-mounts-dialog.ui.modal
+  .ui.card.container-config
     h2.card-header
       | Volume Mounts
     form submit='addVolumeMount'
-      .card-body
+      .card-body.container-config-form
         .ui.input-group
           ul.ui.chips
             each volumeMount in volumeMounts
@@ -129,12 +129,12 @@ form submit='create target="view"'
         .right
           a.ui.btn.primary href='#' click='closeVolumeMounts target="view"' Done
 
-#port-bindings-dialog.ui.modal.container-config
-  .ui.card
+#port-bindings-dialog.ui.modal
+  .ui.card.container-config
     h2.card-header
       | Port Bindings
     form submit='addPortBinding'
-      .card-body
+      .card-body.container-config-form
         .ui.input-group
           ul.ui.chips
             each portBinding in portBindings
@@ -171,12 +171,12 @@ form submit='create target="view"'
       .right
         button.ui.btn.primary click='closePortBindings target="view"' Done
 
-#env-vars-dialog.ui.modal.container-config
-  .ui.card
+#env-vars-dialog.ui.modal
+  .ui.card.container-config
     h2.card-header
       | Environment Variables
     form submit='addEnvVar'
-      .card-body
+      .card-body.container-config-form
         .ui.input-group
           ul.ui.chips
             each envVar in envVars
