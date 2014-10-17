@@ -49,17 +49,16 @@ var _ = Describe("InspectImage", func() {
 		Expect(img.Name).To(Equal("inspect"))
 		Expect(img.Tag).To(Equal("n1"))
 		Expect(img.Config).ToNot(BeNil())
-		Expect(img.Config.Image).To(Equal(img.ID))
 		Expect(img.Config.Env).To(Equal([]string{
 			"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 			"captain=crunch",
 			"mickey=mouse",
 		}))
-		Expect(img.Config.ExposedPorts).To(HaveKey("139/tcp"))
-		Expect(img.Config.ExposedPorts).To(HaveKey("22/tcp"))
-		Expect(img.Config.ExposedPorts).To(HaveKey("20/tcp"))
-		Expect(img.Config.ExposedPorts).To(HaveKey("21/tcp"))
-		Expect(img.Config.Volumes).To(HaveKey("/mnt"))
+		Expect(img.Config.Ports).To(ContainElement("139/tcp"))
+		Expect(img.Config.Ports).To(ContainElement("22/tcp"))
+		Expect(img.Config.Ports).To(ContainElement("20/tcp"))
+		Expect(img.Config.Ports).To(ContainElement("21/tcp"))
+		Expect(img.Config.Volumes).To(Equal([]string{"/mnt"}))
 		Expect(img.Config.Cmd).To(ContainElement(`/bin/bash -c "echo hi"`))
 	})
 

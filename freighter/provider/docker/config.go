@@ -27,6 +27,29 @@ func (p *DockerProvider) configFromContainer(cnr *dockerclient.Container) *provi
 	}
 }
 
+func buildImageConfig(config *dockerclient.Config, imageId string) *provider.ImageConfig {
+	if config == nil {
+		return nil
+	}
+
+	imageConfig := &provider.ImageConfig{
+		Env:     config.Env,
+		Cmd:     config.Cmd,
+		Volumes: []string{},
+		Ports:   []string{},
+	}
+
+	for port, _ := range config.ExposedPorts {
+		imageConfig.Ports = append(imageConfig.Ports, string(port))
+	}
+
+	for volume, _ := range config.Volumes {
+		imageConfig.Volumes = append(imageConfig.Volumes, volume)
+	}
+
+	return imageConfig
+}
+
 func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrustedImage bool) (*dockerclient.Config, error) {
 	dcConfig := &dockerclient.Config{
 		Hostname:     cfg.Hostname,

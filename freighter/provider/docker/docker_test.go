@@ -1900,7 +1900,6 @@ var _ = Describe("provider/docker", func() {
 			Expect(img.ID).ToNot(BeEmpty())
 			Expect(img.Tag).To(Equal("trusty"))
 			Expect(img.Config).ToNot(BeNil())
-			Expect(img.Config.Image).To(Equal(img.ID))
 			Expect(img.Config.Env).To(HaveLen(5))
 			Expect(img.Config.Env).To(Equal([]string{
 				"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
@@ -2122,16 +2121,14 @@ var _ = Describe("provider/docker", func() {
 				Expect(img.Name).To(Equal("centos"))
 				Expect(img.Tag).To(Equal("v3"))
 				Expect(img.Config).ToNot(BeNil())
-				Expect(img.Config.Image).To(Equal(img.ID))
-				Expect(img.Config.PortSpecs).To(Equal([]string{"5432:5432"}))
-				Expect(img.Config.ExposedPorts).To(HaveKey("22/tcp"))
+				Expect(img.Config.Ports).To(Equal([]string{"22/tcp"}))
 				Expect(img.Config.Env).To(Equal([]string{
 					"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 					"container=docker",
 					"NITROUS_IMAGE_VERSION=1",
 				}))
 				Expect(img.Config.Cmd).To(Equal([]string{"/sbin/init"}))
-				Expect(img.Config.Volumes).To(HaveKey("/home:/tmp"))
+				Expect(img.Config.Volumes).To(Equal([]string{"/home:/tmp"}))
 			})
 		})
 	})

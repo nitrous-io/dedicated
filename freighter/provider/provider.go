@@ -120,6 +120,13 @@ type ContainerConfig struct {
 	PublishAll   bool     `json:"PublishAll,omitempty"`
 }
 
+type ImageConfig struct {
+	Cmd     []string `json:"cmd,omitempty"`
+	Env     []string `json:"env,omitempty"`
+	Volumes []string `json:"volume,omitempty"`
+	Ports   []string `json:"port,omitempty"`
+}
+
 // DockerConfig is fields we care about from the container's Config on Docker;
 // it is a subset of dockerclient.Config .  Note: json keys are lowercased
 // instead of camel-cased.
@@ -138,13 +145,13 @@ type PortBinding struct {
 }
 
 type ImageInfo struct {
-	ID          string        `json:"id"`
-	Name        string        `json:"name"`
-	Tag         string        `json:"tag"`
-	CreatedAt   int64         `json:"created_at"`
-	ActualSize  int64         `json:"actual_size"`
-	VirtualSize int64         `json:"virtual_size"`
-	Config      *DockerConfig `json:"config"`
+	ID          string       `json:"id"`
+	Name        string       `json:"name"`
+	Tag         string       `json:"tag"`
+	CreatedAt   int64        `json:"created_at"`
+	ActualSize  int64        `json:"actual_size"`
+	VirtualSize int64        `json:"virtual_size"`
+	Config      *ImageConfig `json:"config"`
 }
 
 type VolumeInfo struct {

@@ -887,7 +887,7 @@ func (p *DockerProvider) inspectLocalImage(location string) (*provider.ImageInfo
 		return nil, err
 	}
 
-	config := buildDockerConfig(img.Config, img.ID)
+	config := buildImageConfig(img.Config, img.ID)
 	info := &provider.ImageInfo{
 		ID:         img.ID,
 		CreatedAt:  img.Created.Unix(),
@@ -982,7 +982,7 @@ func (p *DockerProvider) inspectRemoteImage(location string) (*provider.ImageInf
 		return nil, err
 	}
 
-	imageConfig := buildDockerConfig(imageInfo.Config, imageInfo.ID)
+	imageConfig := buildImageConfig(imageInfo.Config, imageInfo.ID)
 	info := &provider.ImageInfo{
 		ID:         imageInfo.ID,
 		Name:       repo,
@@ -1136,27 +1136,6 @@ func (p *DockerProvider) isNitrousImage(fullName string) bool {
 		}
 	}
 	return false
-}
-
-func buildDockerConfig(config *dockerclient.Config, imageId string) *provider.DockerConfig {
-	if config == nil {
-		return nil
-	}
-
-	imageConfig := &provider.DockerConfig{
-		Env:          config.Env,
-		Cmd:          config.Cmd,
-		Volumes:      config.Volumes,
-		PortSpecs:    config.PortSpecs,
-		ExposedPorts: make(map[string]struct{}),
-		Image:        imageId,
-	}
-
-	for port, str := range config.ExposedPorts {
-		imageConfig.ExposedPorts[string(port)] = str
-	}
-
-	return imageConfig
 }
 
 func nameFromContainer(container *dockerclient.Container) string {

@@ -132,17 +132,17 @@ type Stats struct {
 type (
 	Container       provider.ContainerInfo
 	ContainerConfig provider.ContainerConfig
-	DockerConfig    provider.DockerConfig
+	ImageConfig     provider.ImageConfig
 	PortBinding     provider.PortBinding
-	// duplication but needed to get freighterclient.DockerConfig instead of provider.DockerConfig
+	// duplication but needed to get freighterclient.ImageConfig instead of provider.ImageConfig
 	Image struct {
-		ID          string        `json:"id"`
-		Name        string        `json:"name"`
-		Tag         string        `json:"tag"`
-		CreatedAt   int64         `json:"created_at"`
-		ActualSize  int64         `json:"actual_size"`
-		VirtualSize int64         `json:"virtual_size"`
-		Config      *DockerConfig `json:"config"`
+		ID          string       `json:"id"`
+		Name        string       `json:"name"`
+		Tag         string       `json:"tag"`
+		CreatedAt   int64        `json:"created_at"`
+		ActualSize  int64        `json:"actual_size"`
+		VirtualSize int64        `json:"virtual_size"`
+		Config      *ImageConfig `json:"config"`
 	}
 	Volume   provider.VolumeInfo
 	HostInfo Stats

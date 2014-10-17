@@ -1792,7 +1792,7 @@ var _ = Describe("client", func() {
 
 			image, err := cl.InspectImage("myimage:tag")
 			Expect(err).To(BeNil(), "failed to inspect image")
-			conf := &freighterclient.DockerConfig{Env: []string{"PATH=/sbin", "SHELLSHOCK=maybe"}}
+			conf := &freighterclient.ImageConfig{Env: []string{"PATH=/sbin", "SHELLSHOCK=maybe"}}
 			Expect(image).To(Equal(&freighterclient.Image{
 				ID:          "12",
 				Name:        "myimage",
