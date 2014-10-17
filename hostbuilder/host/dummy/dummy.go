@@ -11,6 +11,7 @@ import (
 type Host struct {
 	ID             string `json:"id"`
 	IPAddress      string `json:"ip_address"`
+	FreighterdPort int64  `json:"freighterd_port"`
 	DestroySuccess bool   `json:"destroy"`
 	CreateSuccess  bool   `json:"create"`
 	StopSuccess    bool   `json:"stop"`
@@ -33,11 +34,15 @@ func (h *Host) Destroy() error {
 }
 
 func (h *Host) Info() (*host.Info, error) {
+	if h.FreighterdPort == 0 {
+		h.FreighterdPort = 65333
+
+	}
 	info := &host.Info{
 		Provider:       "dummy",
 		ID:             h.ID,
 		IPAddress:      h.IPAddress,
-		FreighterdPort: uint16(65333),
+		FreighterdPort: uint16(h.FreighterdPort),
 	}
 	return info, nil
 }

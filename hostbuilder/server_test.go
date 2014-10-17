@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -54,7 +56,15 @@ var _ = Describe("hostbuilder", func() {
 
 	Describe("Creating a host", func() {
 		It("should successfully create a host and respond with host's info", func() {
-			config, _ := json.Marshal(dummy.Host{ID: "123", IPAddress: "10.0.0.1", CreateSuccess: true})
+			h := &dummy.Host{
+				ID:            "123",
+				CreateSuccess: true,
+			}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil(), "failed to setup a dummy host")
+			defer srv.Close()
+
+			config, _ := json.Marshal(h)
 			form := url.Values{}
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
@@ -62,14 +72,18 @@ var _ = Describe("hostbuilder", func() {
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(200))
 
-			body, err := ioutil.ReadAll(resp.Body)
-			Expect(err).To(BeNil())
-
+			decoder := json.NewDecoder(resp.Body)
 			var info host.Info
-			json.Unmarshal(body, &info)
+			for {
+				err := decoder.Decode(&info)
+				if err != nil {
+					break
+				}
+			}
+			// get the final result
 			Expect(info.ID).To(Equal("123"))
-			Expect(info.IPAddress).To(Equal("10.0.0.1"))
-			Expect(info.FreighterdPort).To(Equal(uint16(65333)))
+			Expect(info.IPAddress).To(Equal(h.IPAddress))
+			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
 		})
 	})
 
@@ -110,7 +124,12 @@ var _ = Describe("hostbuilder", func() {
 
 	Describe("Starting host", func() {
 		It("should successfully start the host", func() {
-			config, _ := json.Marshal(dummy.Host{StartSuccess: true})
+			h := &dummy.Host{StartSuccess: true}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil(), "failed to setup a dummy host")
+			defer srv.Close()
+
+			config, _ := json.Marshal(h)
 			form := url.Values{}
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
@@ -123,13 +142,18 @@ var _ = Describe("hostbuilder", func() {
 			Expect(err).To(BeNil())
 			var info host.Info
 			json.Unmarshal(body, &info)
-			Expect(info.FreighterdPort).To(Equal(uint16(65333)))
+			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
 		})
 	})
 
 	Describe("Restarting host", func() {
 		It("should successfully start the host", func() {
-			config, _ := json.Marshal(dummy.Host{RestartSuccess: true})
+			h := &dummy.Host{RestartSuccess: true}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil(), "failed to setup a dummy host")
+			defer srv.Close()
+
+			config, _ := json.Marshal(h)
 			form := url.Values{}
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
@@ -142,7 +166,33 @@ var _ = Describe("hostbuilder", func() {
 			Expect(err).To(BeNil())
 			var info host.Info
 			json.Unmarshal(body, &info)
-			Expect(info.FreighterdPort).To(Equal(uint16(65333)))
+			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
 		})
 	})
 })
+
+type closer interface {
+	Close()
+}
+
+func setupDummyHost(h *dummy.Host) (closer, error) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello")
+	}))
+	addr := ts.Listener.Addr().String()
+	fhost, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		ts.Close()
+		return nil, err
+	}
+	fport, err := strconv.ParseInt(port, 10, 64)
+	if err != nil {
+		ts.Close()
+		return nil, err
+	}
+
+	h.IPAddress = fhost
+	h.FreighterdPort = fport
+	return ts, nil
+
+}
