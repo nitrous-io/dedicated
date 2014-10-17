@@ -71,3 +71,4 @@ App.HostImagesController = Lib.RecordListController.extend
       image.ajax('POST', 'push', repository: repo, async: 'true').fail (jqxhr) ->
         App.postError(jqxhr.responseJSON, "Failed to push!")
         image.set 'pushing', false
+
