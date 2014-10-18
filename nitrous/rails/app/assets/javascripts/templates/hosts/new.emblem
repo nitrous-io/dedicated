@@ -90,6 +90,16 @@ form submit='create'
                 i.fa.fa-check
                   span Yes
 
+  .card-body.bordered
+    ul.ui.checkbox-group
+      li
+        .ui.checkbox
+          = input type='checkbox' id='hosts-new-use-jumpstart-image' checked=useJumpstartImage
+          label
+        label for='hosts-new-use-jumpstart-image' Use Jumpstart Image (Rails + PostgreSQL)
+
+  .card-body.bordered
+
     p.see-terms
       | Please review the&nbsp;
       a href='#' terms of service
