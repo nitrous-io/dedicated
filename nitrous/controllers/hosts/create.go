@@ -144,7 +144,7 @@ func buildCreateOptions(r *http.Request) (hostCreate, error) {
 	var nested struct {
 		Host hostCreate `json:"host"`
 	}
-	if r.Header.Get("Content-Type") == "application/json" {
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
 		decoder := json.NewDecoder(r.Body)
 		err := decoder.Decode(&nested)
 		if err == nil {
