@@ -15,12 +15,12 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
+	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 var jsonNotFound = []byte(`{"error":"not_found","error_description":"not found"}`)

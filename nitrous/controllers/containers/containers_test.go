@@ -13,8 +13,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous-common/hmactoken"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -29,6 +27,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/nitrous-common/hmactoken"
+	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -145,7 +145,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(err).To(BeNil())
 
 				errType, _ := j["error"].(string)
-				Expect(errType).To(Equal("not_found"))
+				Expect(errType).To(Equal("container_not_found"))
 				errDesc, _ := j["error_description"].(string)
 				Expect(errDesc).To(Equal("container does not exist"))
 			})
@@ -613,7 +613,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(err).To(BeNil())
 
 				errType, _ := j["error"].(string)
-				Expect(errType).To(Equal("not_found"))
+				Expect(errType).To(Equal("host_not_found"))
 
 				errDesc, _ := j["error_description"].(string)
 				Expect(errDesc).To(Equal("host does not exist"))
@@ -828,7 +828,7 @@ var _ = Describe("controllers/containers", func() {
 
 					Expect(res.Code).To(Equal(http.StatusNotFound))
 					errType, errDesc := ErrorSlug(res.Body)
-					Expect(errType).To(Equal("not_found"))
+					Expect(errType).To(Equal("image_not_found"))
 					Expect(errDesc).To(Equal("image does not exist"))
 				})
 			})
