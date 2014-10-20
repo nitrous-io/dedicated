@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -188,7 +189,13 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	if !ok {
 		endpoint = "unix:///var/run/docker.sock"
 	}
+
 	freighterdLocation, _ := defaultConfig["freighterd_location"]
+	_, err := exec.LookPath(freighterdLocation)
+	if err != nil {
+		return nil, fmt.Errorf("Error finding freighterd binary at %s: %v", freighterdLocation, err)
+	}
+
 	host.FreighterdLocation = freighterdLocation
 
 	client, err := dockerclient.NewClient(endpoint)

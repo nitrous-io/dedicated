@@ -43,7 +43,10 @@ var _ = Describe("host/docker", func() {
 
 			BeforeEach(func() {
 				h, err = docker.NewHost(
-					map[string]string{"endpoint": server.URL()},
+					map[string]string{
+						"endpoint":            server.URL(),
+						"freighterd_location": "/bin/true",
+					},
 					`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 				)
 				Expect(err).To(BeNil())
@@ -79,5 +82,18 @@ var _ = Describe("host/docker", func() {
 				Expect(info.IPAddress).To(Equal("127.0.0.1"))
 			})
 		})
+	})
+
+	It("fails on NewHost if freighterd_location is not a binary", func() {
+		cases := []string{"/no/such/file", "/etc/hosts"}
+		for _, loc := range cases {
+			_, err := docker.NewHost(
+				map[string]string{
+					"endpoint":            server.URL(),
+					"freighterd_location": loc,
+				}, `{}`)
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("Error finding freighterd binary"))
+		}
 	})
 })
