@@ -160,7 +160,9 @@ if [ "$IN_DOCKER" == "true" ]; then
     /bin/bash -c "./script/build $APP false"
 
   user=$(whoami)
-  sudo chown -R $user:$user $BUILD_DIR
+  if [[ "$user" != "jenkins" ]]; then
+    sudo chown -R $user:$user $BUILD_DIR
+  fi
 else
   if [ "$APP" == "all" ]; then
     build_freighter
