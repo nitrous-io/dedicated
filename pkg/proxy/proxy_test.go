@@ -1,0 +1,133 @@
+package proxy
+
+import (
+	"crypto/tls"
+	"crypto/x509"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/gorilla/websocket"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
+func Test(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "proxy")
+}
+
+var _ = Describe("ProxyHTTP", func() {
+	It("proxies HTTP request", func() {
+		s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("hello world"))
+		}))
+		defer s.Close()
+		addr := s.Listener.Addr().String()
+		hf := ProxyHTTP(addr, nil)
+
+		w := httptest.NewRecorder()
+		r, _ := http.NewRequest("GET", "/", nil)
+		hf(w, r)
+		Expect(w.Body.String()).To(Equal("hello world"), "unexpected response")
+	})
+
+	It("proxies HTTP request with SSL", func() {
+		s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("hello world"))
+		}))
+		defer s.Close()
+		addr := s.Listener.Addr().String()
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(localhostCert)
+		hf := ProxyHTTP(addr, &tls.Config{
+			ServerName: "example.com",
+			RootCAs:    certPool,
+		})
+
+		w := httptest.NewRecorder()
+		r, _ := http.NewRequest("GET", "/", nil)
+		hf(w, r)
+		Expect(w.Body.String()).To(Equal("hello world"), "unexpected response")
+	})
+})
+
+var _ = Describe("ProxyWebsocket", func() {
+	var upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin:     func(r *http.Request) bool { return true },
+	}
+
+	It("proxies websocket request", func() {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ws, err := upgrader.Upgrade(w, r, nil)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			ws.WriteMessage(websocket.TextMessage, []byte("hello world"))
+			ws.Close()
+		}))
+		defer ts.Close()
+		addr := ts.Listener.Addr().String()
+
+		s := httptest.NewServer(ProxyWebsocket(addr, nil))
+		defer s.Close()
+
+		c, _, err := websocket.DefaultDialer.Dial(strings.Replace(s.URL, "http", "ws", 1), nil)
+		Expect(err).To(BeNil(), "failed to get a websocket connection")
+
+		msgType, msg, err := c.ReadMessage()
+		Expect(err).To(BeNil(), "failed to read the msg from websocket")
+		Expect(msgType).To(Equal(websocket.TextMessage), "invalid msg type")
+		Expect(string(msg)).To(Equal("hello world"), "unexpected response")
+	})
+
+	It("proxies websocket request with SSL", func() {
+		ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ws, err := upgrader.Upgrade(w, r, nil)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			ws.WriteMessage(websocket.TextMessage, []byte("hello world"))
+			ws.Close()
+		}))
+		defer ts.Close()
+		addr := ts.Listener.Addr().String()
+
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(localhostCert)
+		s := httptest.NewServer(ProxyWebsocket(addr, &tls.Config{
+			ServerName: "example.com",
+			RootCAs:    certPool,
+		}))
+		defer s.Close()
+
+		c, _, err := websocket.DefaultDialer.Dial(strings.Replace(s.URL, "http", "ws", 1), nil)
+		Expect(err).To(BeNil(), "failed to get a websocket connection")
+
+		msgType, msg, err := c.ReadMessage()
+		Expect(err).To(BeNil(), "failed to read the msg from websocket")
+		Expect(msgType).To(Equal(websocket.TextMessage), "invalid msg type")
+		Expect(string(msg)).To(Equal("hello world"), "unexpected response")
+	})
+})
+
+// localhostCert is a PEM-encoded TLS cert with SAN IPs
+// "127.0.0.1" and "[::1]", expiring at the last second of 2049 (the end
+// of ASN.1 time).
+// generated from src/pkg/crypto/tls:
+// go run generate_cert.go  --rsa-bits 512 --host 127.0.0.1,::1,example.com --ca --start-date "Jan 1 00:00:00 1970" --duration=1000000h
+var localhostCert = []byte(`-----BEGIN CERTIFICATE-----
+MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwEjEQMA4GA1UEChMHQWNtZSBD
+bzAeFw03MDAxMDEwMDAwMDBaFw00OTEyMzEyMzU5NTlaMBIxEDAOBgNVBAoTB0Fj
+bWUgQ28wWjALBgkqhkiG9w0BAQEDSwAwSAJBAN55NcYKZeInyTuhcCwFMhDHCmwa
+IUSdtXdcbItRB/yfXGBhiex00IaLXQnSU+QZPRZWYqeTEbFSgihqi1PUDy8CAwEA
+AaNoMGYwDgYDVR0PAQH/BAQDAgCkMBMGA1UdJQQMMAoGCCsGAQUFBwMBMA8GA1Ud
+EwEB/wQFMAMBAf8wLgYDVR0RBCcwJYILZXhhbXBsZS5jb22HBH8AAAGHEAAAAAAA
+AAAAAAAAAAAAAAEwCwYJKoZIhvcNAQEFA0EAAoQn/ytgqpiLcZu9XKbCJsJcvkgk
+Se6AbGXgSlq+ZCEVo0qIwSgeBqmsJxUu7NCSOwVJLYNEBO2DtIxoYVk+MA==
+-----END CERTIFICATE-----`)
