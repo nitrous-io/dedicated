@@ -4,16 +4,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/nitrous-common/flusher"
 )
 
 var (
 	okResponse = &Response{StatusCode: http.StatusOK, Status: "ok"}
+
+	FreighterPingTimeout  = 1 * time.Second
+	FreighterPingAttempts = []time.Duration{
+		5 * time.Second,
+		30 * time.Second,
+		90 * time.Second,
+	}
 )
 
 // ProgressWriter write the stream data emitted by the host builder as new line
@@ -118,6 +128,8 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		pw.WriteError(fmt.Errorf("failed to create a host on %s", provider))
 		return nil
 	}
+	// do not remove a host if freighter is down, we keep the host for debugging
+	_ = pingHost(info, pw)
 	resp := &Response{
 		StatusCode:     http.StatusCreated,
 		Status:         "created",
@@ -194,6 +206,9 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	if err := pingHost(info, ioutil.Discard); err != nil {
+		return err
+	}
 	resp := &Response{
 		StatusCode:     http.StatusOK,
 		Status:         "started",
@@ -220,6 +235,9 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	}
 	info, err := h.Restart()
 	if err != nil {
+		return err
+	}
+	if err := pingHost(info, ioutil.Discard); err != nil {
 		return err
 	}
 	resp := &Response{
@@ -278,4 +296,15 @@ func writeResponse(w http.ResponseWriter, resp *Response) {
 		w.WriteHeader(resp.StatusCode)
 	}
 	w.Write(data)
+}
+
+// ping the host to make sure that it's up
+func pingHost(info *host.Info, w io.Writer) error {
+	contactAddr := fmt.Sprintf("https://%s:%d", info.IPAddress, info.FreighterdPort)
+	fmt.Fprintf(w, "Contacting freighter at %s", contactAddr)
+	if !host.WaitForServer(contactAddr, FreighterPingTimeout, FreighterPingAttempts) {
+		fmt.Fprintf(w, "failed: freighter not available")
+		return fmt.Errorf("freighter not available")
+	}
+	return nil
 }

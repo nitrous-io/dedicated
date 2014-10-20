@@ -30,8 +30,6 @@ func (w *newlineWriter) Write(p []byte) (int, error) {
 
 func init() {
 	digitalocean.StateWaitTime = 10 * time.Millisecond
-	// don't attempt any pings
-	digitalocean.FreighterPingAttempts = []time.Duration{}
 }
 
 var _ = Describe("host/digitalocean", func() {
