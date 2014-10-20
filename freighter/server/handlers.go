@@ -17,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/pkg/proxy"
 
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
@@ -638,6 +639,25 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 			}
 		}
 	}
+}
+
+func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
+	containerName := r.Header.Get("X-FORWARDED-HOST")
+	info, err := s.provider.GetInfo(containerName)
+	if err != nil {
+		return err
+	}
+	if info.State != provider.ContainerStateRunning {
+		return fmt.Errorf("container %s is not running", containerName)
+	}
+	addr := fmt.Sprintf("%s:%s", info.Host, r.Header.Get("X-FORWARDED-PORT"))
+
+	if proxy.IsWebsocket(r) {
+		proxy.ProxyWebsocket(addr, nil)(w, r)
+	} else {
+		proxy.ProxyHTTP(addr, nil)(w, r)
+	}
+	return nil
 }
 
 func randomString() string {

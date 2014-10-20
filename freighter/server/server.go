@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -173,6 +174,23 @@ func (s *Server) route(route string, handler http.HandlerFunc, methods ...string
 }
 
 func (s *Server) drawRoutes() {
+	// handle forwarding requests. This will only handle requests that has
+	// X-FORWARDED-PORT and X-FORWARDED-HOST
+	// FIXME: test this matcher logic
+	s.router.MatcherFunc(func(r *http.Request, rm *mux.RouteMatch) bool {
+		host := r.Header.Get("X-FORWARDED-HOST")
+		if host == "" {
+			return false
+		}
+		fp := r.Header.Get("X-FORWARDED-PORT")
+		if fp == "" {
+			return false
+		}
+		port, err := strconv.ParseInt(fp, 10, 64)
+		// only proxy valid port from 1024:9999
+		return err == nil && port >= 1024 && port <= 9999
+	}).HandlerFunc(s.wrapError(s.httpForward))
+
 	s.route("/", s.home, "GET")
 	s.secretRoute("/containers", s.listContainers, "GET")
 	s.secretRoute("/containers", s.createContainer, "POST")
