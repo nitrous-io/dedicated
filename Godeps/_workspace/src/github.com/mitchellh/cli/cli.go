@@ -132,21 +132,18 @@ func (c *CLI) init() {
 }
 
 func (c *CLI) processArgs() {
-	var shortHelp, shortVersion bool
 	for i, arg := range c.Args {
-		switch arg {
-		case "-help", "--help":
-			c.isHelp = true
-			continue
-		case "-h":
-			shortHelp = true
-			continue
-		case "-version", "--version":
-			c.isVersion = true
-			continue
-		case "-v":
-			shortVersion = true
-			continue
+
+		if c.subcommand == "" {
+			// Check for version and help flags if not in a subcommand
+			if arg == "-v" || arg == "-version" || arg == "--version" {
+				c.isVersion = true
+				continue
+			}
+			if arg == "-h" || arg == "-help" || arg == "--help" {
+				c.isHelp = true
+				continue
+			}
 		}
 
 		// If we didn't find a subcommand yet and this is the first non-flag
@@ -158,8 +155,4 @@ func (c *CLI) processArgs() {
 			c.subcommandArgs = c.Args[i+1:]
 		}
 	}
-
-	// -h or -v only count as help or version if there is no subcommand
-	c.isHelp = c.isHelp || (shortHelp && c.subcommand == "")
-	c.isVersion = c.isVersion || (shortVersion && c.subcommand == "")
 }

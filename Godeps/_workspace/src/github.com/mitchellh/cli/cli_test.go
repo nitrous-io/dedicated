@@ -11,12 +11,15 @@ func TestCLIIsHelp(t *testing.T) {
 		args   []string
 		isHelp bool
 	}{
-		{[]string{"foo", "-h"}, false},
-		{[]string{"foo", "-help"}, true},
-		{[]string{"foo", "--help"}, true},
-		{[]string{"foo", "-h", "bar"}, false},
+		{[]string{"-h"}, true},
+		{[]string{"-help"}, true},
+		{[]string{"--help"}, true},
+		{[]string{"-h", "foo"}, true},
 		{[]string{"foo", "bar"}, false},
-		{[]string{"-h", "bar"}, false},
+		{[]string{"-v", "bar"}, false},
+		{[]string{"foo", "-h"}, false},
+		{[]string{"foo", "-help"}, false},
+		{[]string{"foo", "--help"}, false},
 	}
 
 	for _, testCase := range testCases {
@@ -34,12 +37,15 @@ func TestCLIIsVersion(t *testing.T) {
 		args      []string
 		isVersion bool
 	}{
-		{[]string{"foo", "-v"}, false},
-		{[]string{"foo", "-version"}, true},
-		{[]string{"foo", "--version"}, true},
-		{[]string{"foo", "-v", "bar"}, false},
+		{[]string{"-v"}, true},
+		{[]string{"-version"}, true},
+		{[]string{"--version"}, true},
+		{[]string{"-v", "foo"}, true},
 		{[]string{"foo", "bar"}, false},
 		{[]string{"-h", "bar"}, false},
+		{[]string{"foo", "-v"}, false},
+		{[]string{"foo", "-version"}, false},
+		{[]string{"foo", "--version"}, false},
 	}
 
 	for _, testCase := range testCases {
@@ -85,7 +91,6 @@ func TestCLIRun_printHelp(t *testing.T) {
 	testCases := [][]string{
 		{},
 		{"-h"},
-		{"--help"},
 		{"i-dont-exist"},
 	}
 
@@ -120,8 +125,8 @@ func TestCLIRun_printHelp(t *testing.T) {
 
 func TestCLIRun_printCommandHelp(t *testing.T) {
 	testCases := [][]string{
-		{"foo", "--help"},
 		{"--help", "foo"},
+		{"-h", "foo"},
 	}
 
 	for _, args := range testCases {
@@ -161,7 +166,6 @@ func TestCLISubcommand(t *testing.T) {
 		subcommand string
 	}{
 		{[]string{"bar"}, "bar"},
-		{[]string{"bar", "-v"}, "bar"},
 		{[]string{"foo", "-h"}, "foo"},
 		{[]string{"-h", "bar"}, "bar"},
 	}
@@ -175,38 +179,4 @@ func TestCLISubcommand(t *testing.T) {
 				testCase.subcommand, result, testCase.args)
 		}
 	}
-}
-
-func TestCLISubcommandArgs(t *testing.T) {
-	testCases := []struct {
-		args           []string
-		subcommandArgs []string
-	}{
-		{[]string{"bar"}, []string{}},
-		{[]string{"bar", "-v"}, []string{"-v"}},
-		{[]string{"bar", "-v", "volume"}, []string{"-v", "volume"}},
-		{[]string{"foo", "-h", "hostname"}, []string{"-h", "hostname"}},
-	}
-
-	for _, testCase := range testCases {
-		cli := &CLI{Args: testCase.args}
-		result := cli.SubcommandArgs()
-
-		if !equal(result, testCase.subcommandArgs) {
-			t.Errorf("Expected %#v, got %#v. Args: %#v",
-				testCase.subcommandArgs, result, testCase.args)
-		}
-	}
-}
-
-func equal(x, y []string) bool {
-	if len(x) != len(y) {
-		return false
-	}
-	for i := range x {
-		if x[i] != y[i] {
-			return false
-		}
-	}
-	return true
 }

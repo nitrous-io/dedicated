@@ -120,7 +120,7 @@
 		},
 		{
 			"ImportPath": "github.com/mitchellh/cli",
-			"Rev": "aedcd92cc52d928752e870aaf076c9b5e48994f0"
+			"Rev": "e3c2e3d39391e9beb9660ccd6b4bd9a2f38dd8a0"
 		},
 		{
 			"ImportPath": "github.com/mitchellh/goamz/aws",
