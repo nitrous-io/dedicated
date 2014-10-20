@@ -20,9 +20,7 @@ RELEASE=${1:?"app name is required"}
 IN_DOCKER=${2="true"}
 BUILD_DIR=/root/app
 
-PUBLIC_BUCKET=${PUBLIC_BUCKET:="get.nitrous.io"}
-PRIVATE_BUCKET=${PRIVATE_BUCKET:="nitrous-dedicated"}
-DEBIAN_REPO=${DEBIAN_REPO:="apt.nitrous.io"}
+
 
 # check if we should upload the artifacts to private debian repo or s3
 UPLOAD_DEB=${UPLOAD_DEB:="false"}
@@ -35,8 +33,11 @@ if [[ "$UPLOAD_DEB" == "true" ]]; then
   APT_GPG_SECRET=${APT_GPG_SECRET:?"APT_GPG_SECRET is required"}
   ACCESS_KEY=${ACCESS_KEY:?"ACCESS_KEY is required"}
   SECRET_KEY=${ACCESS_KEY:?"SECRET_KEY is required"}
+  DEBIAN_REPO=${DEBIAN_REPO:?"DEBIAN_REPO is required"}
 fi
 if [[ "$UPLOAD_S3" == "true" ]]; then
+  PUBLIC_BUCKET=${PUBLIC_BUCKET:?"PUBLIC_BUCKET is required"}
+  PRIVATE_BUCKET=${PRIVATE_BUCKET:?"PRIVATE_BUCKET is required"}
   ACCESS_KEY=${ACCESS_KEY:?"ACCESS_KEY is required"}
   SECRET_KEY=${ACCESS_KEY:?"SECRET_KEY is required"}
 fi
@@ -208,13 +209,15 @@ if [ "$IN_DOCKER" == "true" ]; then
       -v $APT_GPG_SECRET:/get.nitrous.io/.gpg/nitrous.sec.gpg \
       -e APT_GPG_SECRET=/get.nitrous.io/.gpg/nitrous.sec.gpg \
       -e UPLOAD_DEB=true \
-      -e DEBIAN_REPO=apt.nitrous.io \
+      -e ACCESS_KEY=$ACCESS_KEY \
+      -e SECRET_KEY=$SECRET_KEY \
+      -e DEBIAN_REPO=$DEBIAN_REPO \
       -v $(pwd)/debian:/root/debian \
       -v $(pwd)/build:/root/app \
       -v $(pwd)/script/release:/root/release \
       -w /root/app \
       --rm \
-      nitrousio/packager /bin/bash -c "/root/release $RELEASE $VERSION $ENV false"
+      nitrousio/packager /bin/bash -c "/root/release $RELEASE false"
   elif [[ "$UPLOAD_S3" == "true" ]]; then
     docker run \
       -e ACCESS_KEY=$ACCESS_KEY \
@@ -226,7 +229,7 @@ if [ "$IN_DOCKER" == "true" ]; then
       -v $(pwd)/script/release:/root/release \
       -w /root/app \
       --rm \
-      nitrousio/packager /bin/bash -c "/root/release $RELEASE $VERSION false"
+      nitrousio/packager /bin/bash -c "/root/release $RELEASE false"
   else
     docker run \
       -v $(pwd)/debian:/root/debian \
@@ -234,11 +237,13 @@ if [ "$IN_DOCKER" == "true" ]; then
       -v $(pwd)/script/release:/root/release \
       -w /root/app \
       --rm \
-      nitrousio/packager /bin/bash -c "/root/release $RELEASE $VERSION false"
+      nitrousio/packager /bin/bash -c "/root/release $RELEASE false"
   fi
 
   user=$(whoami)
-  sudo chown -R $user:$user $(pwd)/build
+  if [[ "$user" != "jenkins" ]]; then
+    sudo chown -R $user:$user $(pwd)/build
+  fi
 else
   if [ "$RELEASE" == "all" ]; then
     (bundle_nitro)
