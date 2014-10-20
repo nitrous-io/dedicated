@@ -32,14 +32,14 @@ if [[ "$UPLOAD_DEB" == "true" ]]; then
   APT_GPG_PUBLIC=${APT_GPG_PUBLIC:?"APT_GPG_PUBLIC is required"}
   APT_GPG_SECRET=${APT_GPG_SECRET:?"APT_GPG_SECRET is required"}
   ACCESS_KEY=${ACCESS_KEY:?"ACCESS_KEY is required"}
-  SECRET_KEY=${ACCESS_KEY:?"SECRET_KEY is required"}
+  SECRET_KEY=${SECRET_KEY:?"SECRET_KEY is required"}
   DEBIAN_REPO=${DEBIAN_REPO:?"DEBIAN_REPO is required"}
 fi
 if [[ "$UPLOAD_S3" == "true" ]]; then
   PUBLIC_BUCKET=${PUBLIC_BUCKET:?"PUBLIC_BUCKET is required"}
   PRIVATE_BUCKET=${PRIVATE_BUCKET:?"PRIVATE_BUCKET is required"}
   ACCESS_KEY=${ACCESS_KEY:?"ACCESS_KEY is required"}
-  SECRET_KEY=${ACCESS_KEY:?"SECRET_KEY is required"}
+  SECRET_KEY=${SECRET_KEY:?"SECRET_KEY is required"}
 fi
 
 hash_files() {
