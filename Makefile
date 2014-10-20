@@ -37,7 +37,7 @@ test:
 release: ci-build
 	@echo "$(OK_COLOR)==> Releasing $(APP) $(COMMIT)...$(NO_COLOR)"
 	@./script/release $(APP) true
-.PHONY: test
+.PHONY: release
 
 ci-test: image
 	@echo "$(OK_COLOR)==> Running tests in CI mode $(COMMIT)...$(NO_COLOR)"
