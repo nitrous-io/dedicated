@@ -12,10 +12,10 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/nitrous-common/logger"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/registry"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -69,7 +69,7 @@ var _ = Describe("controllers/registries", func() {
 			err, j := unmarshalErrorResponse()
 			Expect(err).To(BeNil())
 
-			Expect(j.Error).To(Equal("not_found"))
+			Expect(j.Error).To(Equal("host_not_found"))
 			Expect(j.ErrorDescription).To(Equal("host does not exist"))
 		})
 	}

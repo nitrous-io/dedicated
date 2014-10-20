@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -15,12 +14,13 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mergemap"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
+	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 var (
 	errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request", "auth token is required")
 	errInvalidToken   = httperror.New(http.StatusUnauthorized, "invalid_token", "auth token is invalid")
-	ErrHostNotFound   = httperror.New(http.StatusNotFound, "not_found", "host does not exist")
+	ErrHostNotFound   = httperror.New(http.StatusNotFound, "host_not_found", "host does not exist")
 )
 
 type Env struct {
