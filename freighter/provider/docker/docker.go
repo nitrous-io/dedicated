@@ -162,7 +162,10 @@ func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*pr
 	if err != nil {
 		return nil, err
 	}
-	setDefaultContainerConfig(cfg)
+	err = p.setDefaultContainerConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	cfg.Hostname = name
 	cfg.Image = imageName
 
@@ -249,7 +252,10 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 	if err != nil {
 		return nil, err
 	}
-	setDefaultContainerConfig(cfg)
+	err = p.setDefaultContainerConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	cfg.Hostname = container.Config.Hostname
 	cfg.Image = container.Config.Image
 
@@ -1138,6 +1144,45 @@ func (p *DockerProvider) isNitrousImage(fullName string) bool {
 	return false
 }
 
+func (p *DockerProvider) setDefaultContainerConfig(c *provider.ContainerConfig) error {
+	if _, err := p.client.InspectImage("nitrousio/idler"); err != nil {
+		err = p.client.PullImage(dockerclient.PullImageOptions{
+			Repository: "nitrousio/idler",
+		}, dockerclient.AuthConfiguration{})
+		if err != nil {
+			return err
+		}
+	}
+	cont, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
+		Config: &dockerclient.Config{
+			Tty:   true,
+			Image: "nitrousio/idler",
+		},
+	})
+	if err != nil {
+		return err
+	}
+	cid := cont.ID
+	if err = p.client.StartContainer(cid, &dockerclient.HostConfig{}); err != nil {
+		return err
+	}
+	cont, err = p.client.InspectContainer(cid)
+	if err != nil {
+		return err
+	}
+	gateway := cont.NetworkSettings.Gateway
+	if err = p.client.StopContainer(cid, 1); err != nil {
+		return err
+	}
+	if err = p.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: cid}); err != nil {
+		return err
+	}
+	if gateway != "" {
+		c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", gateway))
+	}
+	return nil
+}
+
 func buildDockerConfig(config *dockerclient.Config, imageId string) *provider.DockerConfig {
 	if config == nil {
 		return nil
@@ -1242,10 +1287,6 @@ func containerConfigFromJSON(jsonStr string) (*provider.ContainerConfig, error) 
 		return nil, err
 	}
 	return cfg, nil
-}
-
-func setDefaultContainerConfig(c *provider.ContainerConfig) {
-	c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", defaultDockerGateway))
 }
 
 func convertConfig(dcConfig *dockerclient.Config) *provider.DockerConfig {
