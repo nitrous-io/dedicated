@@ -119,6 +119,10 @@
 			"Rev": "ae7391529ced9c12f06bf01eae33dadb4c70e49f"
 		},
 		{
+			"ImportPath": "github.com/miekg/dns",
+			"Rev": "812ab5e75584410c0c25e5a15b60d46db0f1f38e"
+		},
+		{
 			"ImportPath": "github.com/mitchellh/cli",
 			"Rev": "e3c2e3d39391e9beb9660ccd6b4bd9a2f38dd8a0"
 		},
