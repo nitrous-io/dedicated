@@ -150,7 +150,7 @@ var _ = Describe("provider/docker", func() {
 			sshPort := getNetworkSettingsPort(id, "22/tcp")
 			Expect(info.Ports["22"]).To(ContainElement(sshPort))
 			expectExposedPort(info.ID, "22/tcp")
-			Expect(getEnv(id)).To(ContainSubstring("__HOST=172.17.42.1"))
+			Expect(getEnv(id)).To(ContainSubstring(fmt.Sprintf("__HOST=%s", gateway)))
 
 			c := getContainerInfo(id)
 			Expect(info.Cmd).To(Equal(c.Config.Cmd))
@@ -321,7 +321,7 @@ var _ = Describe("provider/docker", func() {
 					// not all config checked against -- elided to avoid test
 					// fragility wrt image changes
 					Expect(config).NotTo(BeNil())
-					Expect(config.Env).To(ContainElement("__HOST=172.17.42.1"))
+					Expect(config.Env).To(ContainElement(fmt.Sprintf("__HOST=%s", getGateway(id))))
 					Expect(config.Mounts).To(HaveLen(1))
 					Expect(strings.HasSuffix(config.Mounts[0], "/nitrous/ssh:ro")).To(BeTrue())
 					Expect(config.Privileged).NotTo(BeTrue())
