@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -1145,42 +1146,22 @@ func (p *DockerProvider) isNitrousImage(fullName string) bool {
 }
 
 func (p *DockerProvider) setDefaultContainerConfig(c *provider.ContainerConfig) error {
-	if _, err := p.client.InspectImage("nitrousio/idler"); err != nil {
-		err = p.client.PullImage(dockerclient.PullImageOptions{
-			Repository: "nitrousio/idler",
-		}, dockerclient.AuthConfiguration{})
-		if err != nil {
-			return err
-		}
-	}
-	cont, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
-		Config: &dockerclient.Config{
-			Tty:   true,
-			Image: "nitrousio/idler",
-		},
-	})
+	// output looks like
+	// 2: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+	//     inet 10.1.42.1/16 scope global docker0
+	//        valid_lft forever preferred_lft forever
+	out, err := exec.Command("ip", "-family", "inet", "addr", "show", "docker0").CombinedOutput()
 	if err != nil {
 		return err
 	}
-	cid := cont.ID
-	if err = p.client.StartContainer(cid, &dockerclient.HostConfig{}); err != nil {
-		return err
+	re := regexp.MustCompile(`inet ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/`)
+	match := re.FindSubmatch(out)
+	if match == nil || len(match) != 2 {
+		return fmt.Errorf("could not determine gateway")
 	}
-	cont, err = p.client.InspectContainer(cid)
-	if err != nil {
-		return err
-	}
-	gateway := cont.NetworkSettings.Gateway
-	if err = p.client.StopContainer(cid, 1); err != nil {
-		return err
-	}
-	if err = p.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: cid}); err != nil {
-		return err
-	}
-	if gateway != "" {
-		c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", gateway))
-		c.Gateway = gateway
-	}
+
+	c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", match[1]))
+	c.Gateway = string(match[1])
 	return nil
 }
 
