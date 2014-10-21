@@ -29,6 +29,10 @@ nitrous:
 	@./script/build nitrous
 .PHONY: nitrous
 
+compass:
+	@./script/build compass
+.PHONY: compass
+
 test:
 	@echo "$(OK_COLOR)==> Running tests $(COMMIT)...$(NO_COLOR)"
 	@./script/test $(APP) $(SUITE)
