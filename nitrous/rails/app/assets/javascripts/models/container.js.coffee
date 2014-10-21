@@ -80,6 +80,7 @@ App.Container = klass = App.Model.extend
           env: transformEnvArrayToHash(c.env)
           port: c.port
           volume: c.volume
+          privileged: c.privileged
           publish_all: c.publish_all
         @set 'config', config
         resolve(config)
@@ -91,6 +92,7 @@ App.Container = klass = App.Model.extend
       env: config.env
       volume: config.volume
       port: config.port
+      privileged: config.privileged
       publish_all: config.publish_all
 
   requestToken: (permissions) ->

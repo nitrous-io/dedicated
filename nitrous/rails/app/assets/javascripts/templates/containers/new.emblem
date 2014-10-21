@@ -173,6 +173,19 @@
                 td
                   input.ui.btn.raised type='submit' disabled={view.addVolumeMountButtonDisabled} value='Add'
 
+    .card-body.bordered
+      .ui.input-group
+        label.field-label
+          | Experimental Settings
+
+      form.container-config
+        ul.ui.checkbox-group
+          li
+            .ui.checkbox
+              = input type='checkbox' id='containers-config-privileged' checked=privileged
+              label
+            label for='containers-config-privileged' Privileged Mode
+
     .card-footer.bordered
       .right
         a.ui.btn href='#' click='goBack target="view"' Back
