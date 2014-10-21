@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
-	n "github.com/nitrous-io/compass/navigator"
+	n "github.com/nitrous-io/dedicated/compass/navigator"
 )
 
 const defaultTTL = uint32(300)

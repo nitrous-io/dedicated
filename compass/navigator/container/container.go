@@ -9,7 +9,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/miekg/dns"
-	nav "github.com/nitrous-io/compass/navigator"
+	nav "github.com/nitrous-io/dedicated/compass/navigator"
 )
 
 const defaultTTL = uint32(300)

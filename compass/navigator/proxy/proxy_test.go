@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/miekg/dns"
-	n "github.com/nitrous-io/compass/navigator"
+	n "github.com/nitrous-io/dedicated/compass/navigator"
 )
 
 var dbStructure = []string{

@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/nitrous-io/compass"
+	"github.com/nitrous-io/dedicated/compass"
 )
 
 // will be injected with the build process
