@@ -19,7 +19,14 @@ get_version() {
   app=$1
   version=$(cat $app/VERSION) # get version from version file
   sha=$(git rev-list --max-count=1 --abbrev-commit HEAD -- $app)
-  echo "${version}-${sha}" # 1.0.1-asdf
+
+  if [[ "$app" == "freighter" ]]; then
+    timestamp=$(date +"%Y%d%m%H%M%S")
+    build_num=${BUILD_NUM:="0"}
+    echo "${version}+${timestamp}-${build_num}-${sha}" 
+  else
+    echo "${version}-${sha}" # 1.0.1-asdf
+  fi
 }
 
 # build accepts an app name and $LDFLAGS env which can be used to define
