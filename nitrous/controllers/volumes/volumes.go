@@ -15,7 +15,6 @@ import (
 )
 
 var (
-	errSlugRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errNotFound                 = httperror.New(http.StatusNotFound, "volume_not_found", "volume could not be found")
 	errCannotDeleteSystemVolume = httperror.New(http.StatusForbidden, "forbidden", "system volume cannot be deleted")
 )

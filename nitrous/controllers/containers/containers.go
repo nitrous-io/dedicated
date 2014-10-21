@@ -31,7 +31,6 @@ var (
 	errHostNotFound      = middleware.ErrHostNotFound
 	errVolumeNotFound    = httperror.New(http.StatusBadRequest, "invalid_state", "volume not found")
 	errContainerNotFound = httperror.New(http.StatusNotFound, "container_not_found", "container does not exist")
-	errImageNotFound     = httperror.New(http.StatusNotFound, "image_not_found", "image does not exist")
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 	errInvalidCommand    = httperror.New(http.StatusBadRequest, "invalid_request", "container cmd invalid")
 	errContainerLocked   = httperror.New(http.StatusConflict, "container_locked", "container is locked")

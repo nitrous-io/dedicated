@@ -26,7 +26,7 @@ type CreateResult struct {
 
 var (
 	errSlugRequired  = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
-	errImageNotFound = httperror.New(http.StatusNotFound, "not_found", "image does not exist")
+	errImageNotFound = httperror.New(http.StatusNotFound, "image_not_found", "image does not exist")
 )
 
 func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*CreateResult, error) {

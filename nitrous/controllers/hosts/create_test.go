@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -470,7 +471,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			msgs := []pubsub.Message{}
 			finished := make(chan struct{})
 			go func() {
-				msgs = append(msgs, <-ch, <-ch, <-ch, <-ch)
+				msgs = append(msgs, <-ch, <-ch, <-ch, <-ch, <-ch)
 				close(finished)
 			}()
 
@@ -499,7 +500,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 						)},
 				}), "unexpected event, wanted EventHostCreating")
 
-				Expect(msgs[3]).To(Equal(&controllers.Event{
+				// msg 3 will be a shared volume event
+
+				Expect(msgs[4]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreated,
 					Data: map[string]*serializers.Host{
 						"host": serializers.SerializeHost(&h),
@@ -549,6 +552,13 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					]
 				}
 			}`
+			var receivedPullImageOptions []url.Values
+			var previousPullImage func(*host.Host, url.Values, *middleware.Env, io.Writer, *controllers.ProgressPublisher, bool) (*image.Image, error)
+			previousPullImageHook := func(host *host.Host, options url.Values, env *middleware.Env, writer io.Writer, pp *controllers.ProgressPublisher, async bool) (*image.Image, error) {
+				receivedPullImageOptions = append(receivedPullImageOptions, options)
+				return nil, nil
+			}
+
 			var containerCreateResult *containers.CreateResult
 			var containerCreateError error
 
@@ -571,69 +581,28 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			}
 
 			BeforeEach(func() {
-				previousCreateContainer = hosts.CreateContainer
+				receivedPullImageOptions = []url.Values{}
+				previousPullImage = hosts.PullImageFn
+				hosts.PullImageFn = previousPullImageHook
+
+				previousCreateContainer = hosts.CreateContainerFn
 				receivedContainerCalls = []containerCall{}
-				hosts.CreateContainer = createContainerHook
+				hosts.CreateContainerFn = createContainerHook
 			})
 
 			AfterEach(func() {
-				hosts.CreateContainer = previousCreateContainer
+				hosts.PullImageFn = previousPullImage
+
+				hosts.CreateContainerFn = previousCreateContainer
 				containerCreateResult = nil
 				containerCreateError = nil
 			})
 
-			It("creates the containers specified", func() {
-				ch := svr.Events.Subscribe(u.Topic())
-				defer svr.Events.Unsubscribe(ch, u.Topic())
-
-				doJsonRequest(hostJson)
-
-				hosts, err := host.FindAllByUser(db, u)
-				Expect(err).To(BeNil())
-				Expect(hosts).To(HaveLen(1))
-				vol, err := volume.Find(db, hosts[0].ID, "shared")
-				Expect(err).To(BeNil())
-				Expect(vol).NotTo(BeNil())
-				Expect(vol.System).To(BeTrue())
-
-				finished := make(chan struct{})
-
-				seenMessages := []controllers.Event{}
-				go func() {
-					var evt *controllers.Event
-					for msg := range ch { // Ignore events we don't care about.
-						evt = msg.(*controllers.Event)
-						if evt.Name == controllers.EventContainerCreating {
-							seenMessages = append(seenMessages, *evt)
-							if len(seenMessages) == 2 {
-								close(finished)
-							}
-						}
-					}
-				}()
-
-				select {
-				case <-time.After(50 * time.Millisecond):
-					Fail("Timeout while event container creating event")
-				case <-finished:
-					evt := seenMessages[0]
-					Expect(evt.Name).To(Equal(controllers.EventContainerCreating))
-					evtData, ok := evt.Data.(map[string]interface{})
-					Expect(ok).To(BeTrue())
-					Expect(evtData["current"]).To(Equal(1))
-					Expect(evtData["total"]).To(Equal(2))
-
-					evt2 := seenMessages[1]
-					Expect(evt2.Name).To(Equal(controllers.EventContainerCreating))
-					evt2Data, ok := evt2.Data.(map[string]interface{})
-					Expect(ok).To(BeTrue())
-					Expect(evt2Data["current"]).To(Equal(2))
-					Expect(evt2Data["total"]).To(Equal(2))
-				}
-			})
-
 			It("should request creation of containers", func() {
 				doJsonRequest(hostJson)
+
+				Expect(receivedPullImageOptions).To(ContainElement(url.Values{"repository": []string{"image1"}}))
+				Expect(receivedPullImageOptions).To(ContainElement(url.Values{"repository": []string{"image2"}}))
 
 				hosts, err := host.FindAllByUser(db, u)
 				Expect(err).To(BeNil())
@@ -663,6 +632,13 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					"cmd":         []string{"sudo stop cron"},
 					"port[]":      []string{"139/tcp", "80/udp"},
 				}))
+			})
+
+			It("should request the images be pulled", func() {
+				doJsonRequest(hostJson)
+
+				Expect(receivedPullImageOptions).To(ContainElement(url.Values{"repository": []string{"image1"}}))
+				Expect(receivedPullImageOptions).To(ContainElement(url.Values{"repository": []string{"image2"}}))
 			})
 
 			It("should inform the client of an error", func() {
@@ -726,56 +702,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				hosts.CreateVolumeFn = previousCreateVolume
 				volumeCreated = nil
 				volumeCreateError = nil
-			})
-
-			It("publishes the messages of volumes creating", func() {
-				ch := svr.Events.Subscribe(u.Topic())
-				defer svr.Events.Unsubscribe(ch, u.Topic())
-
-				doJsonRequest(hostJson)
-
-				hosts, err := host.FindAllByUser(db, u)
-				Expect(err).To(BeNil())
-				Expect(hosts).To(HaveLen(1))
-				vol, err := volume.Find(db, hosts[0].ID, "shared")
-				Expect(err).To(BeNil())
-				Expect(vol).NotTo(BeNil())
-				Expect(vol.System).To(BeTrue())
-
-				finished := make(chan struct{})
-
-				seenMessages := []controllers.Event{}
-				go func() {
-					var evt *controllers.Event
-					for msg := range ch { // Ignore events we don't care about.
-						evt = msg.(*controllers.Event)
-						if evt.Name == controllers.EventVolumeCreating {
-							seenMessages = append(seenMessages, *evt)
-							if len(seenMessages) == 2 {
-								close(finished)
-							}
-						}
-					}
-				}()
-
-				select {
-				case <-time.After(50 * time.Millisecond):
-					Fail("Timeout while event volume creating event")
-				case <-finished:
-					evt := seenMessages[0]
-					Expect(evt.Name).To(Equal(controllers.EventVolumeCreating))
-					evtData, ok := evt.Data.(map[string]interface{})
-					Expect(ok).To(BeTrue())
-					Expect(evtData["current"]).To(Equal(1))
-					Expect(evtData["total"]).To(Equal(2))
-
-					evt2 := seenMessages[1]
-					Expect(evt2.Name).To(Equal(controllers.EventVolumeCreating))
-					evt2Data, ok := evt2.Data.(map[string]interface{})
-					Expect(ok).To(BeTrue())
-					Expect(evt2Data["current"]).To(Equal(2))
-					Expect(evt2Data["total"]).To(Equal(2))
-				}
 			})
 
 			It("should request creation of volumes", func() {
@@ -956,7 +882,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				msgs := []pubsub.Message{}
 				finished := make(chan struct{})
 				go func() {
-					msgs = append(msgs, <-ch, <-ch)
+					msgs = append(msgs, <-ch, <-ch, <-ch)
 					close(finished)
 				}()
 
@@ -975,7 +901,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 						},
 					}), "unexpected event, wanted EventHostCreating")
 
-					Expect(msgs[1]).To(Equal(&controllers.Event{
+					// msg 1 is a shared volume event
+
+					Expect(msgs[2]).To(Equal(&controllers.Event{
 						Name: controllers.EventHostCreated,
 						Data: map[string]*serializers.Host{
 							"host": serializers.SerializeHost(h),

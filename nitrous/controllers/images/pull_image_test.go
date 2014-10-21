@@ -1,24 +1,37 @@
 package images_test
 
 import (
-	"bufio"
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"time"
 
+	"github.com/gorilla/mux"
+
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
+	. "github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/flusher"
-	"github.com/nitrous-io/nitrous-common/logger"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -31,14 +44,19 @@ func init() {
 var _ = Describe("controllers/images/pull", func() {
 	var (
 		db  *db.Database
-		svr *server.Server
+		env *middleware.Env
 	)
 
 	BeforeEach(func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil(), "failed to setup test database")
-		svr = server.NewServer("", db, &logger.Logger{Level: logger.LogLevelQuiet})
+
+		env = &middleware.Env{
+			Events:  pubsub.New(128),
+			Tracker: analytics.NewMixpanelTracker(),
+			DB:      db,
+		}
 	})
 
 	AfterEach(func() {
@@ -53,10 +71,11 @@ var _ = Describe("controllers/images/pull", func() {
 		fs.start(db, ctx)
 		defer fs.Close()
 
-		ctx.doPull(svr, "foo", &url.Values{
+		rI, err := ctx.doPull(env, url.Values{
 			"repository": []string{"scratch"},
 			"name":       []string{"scratcher v1 test"},
-		})
+		}, false, nil)
+		Expect(err).To(BeNil())
 
 		u, h := ctx.user, ctx.host
 		i, err := image.Find(db, u, h, "scratch:latest")
@@ -69,6 +88,7 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(i.Tag).To(Equal("latest"))
 		Expect(i.CreatedAt).NotTo(BeNil())
 		Expect(i.UpdatedAt).NotTo(BeNil())
+		Expect(rI.ID).To(Equal(i.ID))
 	})
 
 	It("uses the default image if repository is not given", func() {
@@ -77,7 +97,8 @@ var _ = Describe("controllers/images/pull", func() {
 		fs.start(db, ctx)
 		defer fs.Close()
 
-		ctx.doPull(svr, "foo", nil)
+		_, err := ctx.doPull(env, url.Values{}, false, nil)
+		Expect(err).To(BeNil())
 
 		u, h := ctx.user, ctx.host
 		i, err := image.Find(db, u, h, "nitrousio/ubuntu:trusty")
@@ -94,10 +115,11 @@ var _ = Describe("controllers/images/pull", func() {
 		defer fs.Close()
 
 		u, h := ctx.user, ctx.host
-		ch := svr.Events.Subscribe(u.Topic())
-		defer svr.Events.Unsubscribe(ch, u.Topic())
+		ch := env.Events.Subscribe(u.Topic())
+		defer env.Events.Unsubscribe(ch, u.Topic())
 
-		ctx.doPull(svr, "foo", &url.Values{"repository": []string{"scratch"}})
+		_, err := ctx.doPull(env, url.Values{"repository": []string{"scratch"}}, false, nil)
+		Expect(err).ToNot(BeNil())
 
 		i, err := image.Find(db, u, h, "scratch:latest")
 		Expect(err).To(Equal(sql.ErrNoRows), "expect the image to not exist in db, but got %v", i)
@@ -125,62 +147,20 @@ var _ = Describe("controllers/images/pull", func() {
 		}
 	})
 
-	It("responds with progress data and image data on success", func() {
+	It("writes with progress data on status", func() {
 		fs := newFreighterServer("scratch", "latest")
 		ctx := newImgTestCtx(fs, db)
 		fs.start(db, ctx)
 		defer fs.Close()
 
-		res := ctx.doPull(svr, "foo", &url.Values{
+		var wr bytes.Buffer
+		_, err := ctx.doPull(env, url.Values{
 			"repository": []string{"scratch"},
 			"name":       []string{"scratcher v1 test"},
-		})
+		}, false, &wr)
+		Expect(err).To(BeNil())
 
-		j := struct {
-			Image serializers.Image `json:"image"`
-		}{}
-
-		// includes progress data
-		Expect(res.Body).To(ContainSubstring(`{"status":"Pulling..."}`), "failed to include progress data")
-
-		// keep parsing and ignore the progress data to get the final image
-		scanner := bufio.NewScanner(res.Body)
-		for scanner.Scan() {
-			json.Unmarshal(scanner.Bytes(), &j)
-			if j.Image.ID > 0 {
-				break
-			}
-		}
-		Expect(j.Image.FreighterID).To(Equal("123asd"), "missing final image in response")
-	})
-
-	It("publishes an image pulling event with progress data", func() {
-		fs := newFreighterServer("scratch", "latest")
-		ctx := newImgTestCtx(fs, db)
-		fs.start(db, ctx)
-		defer fs.Close()
-
-		u, h := ctx.user, ctx.host
-		ch := svr.Events.Subscribe(u.Topic())
-		defer svr.Events.Unsubscribe(ch, u.Topic())
-
-		ctx.doPull(svr, "foo", &url.Values{"repository": []string{"scratch"}})
-
-		i, err := image.Find(db, u, h, "scratch:latest")
-		Expect(err).To(BeNil(), "failed to find image after pull")
-
-		timeout := time.After(100 * time.Millisecond)
-		select {
-		case ev := <-ch:
-			// check if the first event we got is image pulling event
-			e := ev.(*controllers.Event)
-			data := e.Data.(*controllers.ProgressEvent)
-			Expect(e.Name).To(Equal(controllers.EventImagePulling), "expected image pulling event")
-			Expect(data.ID).To(Equal(i.ID), "emitted image pulling with invalid image")
-			Expect(data.Progress).To(Equal(`{"status":"Pulling..."}`), "failed to include progress data")
-		case <-timeout:
-			Fail("expected EventImagePulled but timed out")
-		}
+		Expect(wr.String()).To(ContainSubstring(`{"status":"Pulling..."}`), "failed to include progress data")
 	})
 
 	It("publishes an image pulled event with the pulled image", func() {
@@ -190,10 +170,12 @@ var _ = Describe("controllers/images/pull", func() {
 		defer fs.Close()
 
 		u, h := ctx.user, ctx.host
-		ch := svr.Events.Subscribe(u.Topic())
-		defer svr.Events.Unsubscribe(ch, u.Topic())
+		ch := env.Events.Subscribe(u.Topic())
+		defer env.Events.Unsubscribe(ch, u.Topic())
 
-		ctx.doPull(svr, "foo", &url.Values{"repository": []string{"scratch"}})
+		_, err := ctx.doPull(env, url.Values{
+			"repository": []string{"scratch"},
+		}, false, nil)
 
 		i, err := image.Find(db, u, h, "scratch:latest")
 		Expect(err).To(BeNil(), "failed to find image after pull")
@@ -218,20 +200,21 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(img.FreighterID).To(Equal("123asd"), "failed to serialize freighter response")
 	})
 
-	It("returns 500 on freighterclient error and emits image pull failed event", func() {
+	It("returns an error and emits image pull failed event", func() {
 		fs := newFreighterServer("scratch", "latest")
 		fs.pullError = true
 		ctx := newImgTestCtx(fs, db)
 		fs.start(db, ctx)
 		defer fs.Close()
 
-		ch := svr.Events.Subscribe(ctx.user.Topic())
-		defer svr.Events.Unsubscribe(ch, ctx.user.Topic())
+		ch := env.Events.Subscribe(ctx.user.Topic())
+		defer env.Events.Unsubscribe(ch, ctx.user.Topic())
 
-		res := ctx.doPull(svr, "foo", &url.Values{"repository": []string{"scratch"}})
+		_, err := ctx.doPull(env, url.Values{
+			"repository": []string{"scratch"},
+		}, false, nil)
 
-		errType, _ := test.ErrorSlug(res.Body)
-		Expect(errType).To(Equal("internal_server_error"))
+		Expect(err).ToNot(BeNil())
 
 		ech := make(chan *controllers.Event, 1)
 
@@ -265,10 +248,10 @@ var _ = Describe("controllers/images/pull", func() {
 			fs.start(db, ctx)
 			defer fs.Close()
 
-			ctx.doPull(svr, "foo", &url.Values{
+			_, err := ctx.doPull(env, url.Values{
 				"repository": []string{"scratch"},
 				"update":     []string{"true"},
-			})
+			}, false, nil)
 
 			i, err := image.Find(db, ctx.user, ctx.host, "scratch:latest")
 			Expect(err).To(BeNil(), "failed to find stored image after pull")
@@ -284,10 +267,10 @@ var _ = Describe("controllers/images/pull", func() {
 			fs.start(db, ctx)
 			defer fs.Close()
 
-			ctx.doPull(svr, "foo", &url.Values{
+			_, err := ctx.doPull(env, url.Values{
 				"repository": []string{"scratch"},
 				"update":     []string{"false"},
-			})
+			}, false, nil)
 
 			i2, err := image.Find(db, ctx.user, ctx.host, "scratch:latest")
 			Expect(err).To(BeNil())
@@ -304,9 +287,11 @@ var _ = Describe("controllers/images/pull", func() {
 			fs.start(db, ctx)
 			defer fs.Close()
 
-			ctx.doPull(svr, "foo", &url.Values{"repository": []string{"scratch"}})
+			_, err := ctx.doPull(env, url.Values{
+				"repository": []string{"scratch"},
+			}, false, nil)
 
-			_, err := image.Find(db, ctx.user, ctx.host, "scratch:latest")
+			_, err = image.Find(db, ctx.user, ctx.host, "scratch:latest")
 			Expect(err).To(BeNil(), "expect the old image to not be deleted")
 		})
 
@@ -320,13 +305,15 @@ var _ = Describe("controllers/images/pull", func() {
 			fs.start(db, ctx)
 			defer fs.Close()
 
-			ch := svr.Events.Subscribe(ctx.user.Topic())
-			defer svr.Events.Unsubscribe(ch, ctx.user.Topic())
+			ch := env.Events.Subscribe(ctx.user.Topic())
+			defer env.Events.Unsubscribe(ch, ctx.user.Topic())
 
-			ctx.doPull(svr, "foo", &url.Values{"repository": []string{"scratch"}})
+			_, err := ctx.doPull(env, url.Values{
+				"repository": []string{"scratch"},
+			}, false, nil)
 			close(ch)
 
-			_, err := image.Find(db, ctx.user, ctx.host, "scratch:latest")
+			_, err = image.Find(db, ctx.user, ctx.host, "scratch:latest")
 			Expect(err).To(BeNil(), "expect the old image to not be deleted")
 
 			failed := make(chan *controllers.Event, 1)
@@ -359,39 +346,160 @@ var _ = Describe("controllers/images/pull", func() {
 		})
 	})
 
-	Context("when we want to pull asynchronously", func() {
-		It("returns 202 Accepted with the image stored in db", func() {
-			fs := newFreighterServer("scratch", "latest")
-			defer fs.Close()
+	It("should update the progress publisher's ID and Slug", func() {
+		fs := newFreighterServer("scratch", "latest")
+		ctx := newImgTestCtx(fs, db)
+		fs.start(db, ctx)
+		defer fs.Close()
 
-			ctx := newImgTestCtx(fs, db)
+		ctx.pp = &controllers.ProgressPublisher{}
 
-			params := &url.Values{}
-			params.Set("async", "true")
-			params.Set("repository", "scratch")
-			res := ctx.doPull(svr, "foo", params)
+		_, err := ctx.doPull(env, url.Values{
+			"repository": []string{"scratch"},
+			"name":       []string{"scratcher v1 test"},
+		}, false, nil)
+		Expect(err).To(BeNil())
 
-			Expect(res.Code).To(Equal(http.StatusAccepted))
+		i, err := image.Find(db, ctx.user, ctx.host, "scratch:latest")
+		Expect(err).To(BeNil())
 
-			j := struct {
-				Image serializers.Image `json:"image"`
-			}{}
-			err := json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-
-			// These fields are not yet set.
-			Expect(j.Image.FreighterID).To(BeEmpty())
-			Expect(j.Image.BuiltAt).To(BeNil())
-		})
+		Expect(ctx.pp.ID).To(Equal(i.ID))
+		Expect(ctx.pp.Slug).To(Equal(i.Slug))
 	})
 })
 
-func (c *imgTestCtx) doPull(svr *server.Server, host string, params *url.Values) *httptest.ResponseRecorder {
-	req, err := test.NewAuthedFormRequest(c.token, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/pull", host), params)
-	Expect(err).To(BeNil(), "failed to POST images/pull")
-	res := httptest.NewRecorder()
-	svr.Router().ServeHTTP(res, req)
-	return res
+// freighter test server
+type freighterServer struct {
+	*httptest.Server
+	image string
+	tag   string
+
+	pullError     bool
+	existingImage *freighterclient.Image
+	imageUpdated  bool
+
+	pushError    bool
+	pushUnAuthed bool
+	pushCalled   bool
+}
+
+func (s *freighterServer) inspectImage(w http.ResponseWriter, r *http.Request) {
+	if s.existingImage != nil && !s.imageUpdated {
+		json.NewEncoder(w).Encode(map[string]freighterclient.Image{
+			"image": *s.existingImage,
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]freighterclient.Image{
+		"image": {
+			ID:          "123asd",
+			Name:        s.image,
+			Tag:         s.tag,
+			CreatedAt:   time.Now().Unix(),
+			ActualSize:  42,
+			VirtualSize: 666,
+		},
+	})
+}
+
+type imgTestCtx struct {
+	user  *user.User
+	token *token.Token
+	host  *host.Host
+	pp    *controllers.ProgressPublisher
+}
+
+func (s *freighterServer) address() (string, int64) {
+	addr := s.Listener.Addr().String()
+	host, port, _ := net.SplitHostPort(addr)
+	portInt, _ := strconv.ParseInt(port, 10, 64)
+	return host, portInt
+}
+
+func (s *freighterServer) start(db *db.Database, ctx *imgTestCtx) {
+	crt, err := cert.Find(db, ctx.host.ID)
+	Expect(err).To(BeNil(), "no cert found for host")
+	s.Server.TLS, err = TLSConfig(ctx.host.Hostname(), []byte(crt.ServerCert), []byte(crt.ServerKey))
+	Expect(err).To(BeNil(), "bad tls config")
+	s.StartTLS()
+}
+
+func newFreighterServer(image, tag string) *freighterServer {
+	s := &freighterServer{image: image, tag: tag, imageUpdated: true}
+	r := mux.NewRouter()
+	r.HandleFunc("/images/pull", s.pullImage).Methods("POST")
+	r.HandleFunc("/images/push", s.pushImage).Methods("POST")
+	r.HandleFunc("/images/inspect", s.inspectImage).Methods("GET")
+	s.Server = httptest.NewUnstartedServer(r)
+	return s
+}
+
+// insert a dummy image to be used in case the image exists in db
+func (c *imgTestCtx) insertImage(fs *freighterServer, db *db.Database) {
+	fs.existingImage = &freighterclient.Image{ID: "cafebabe", Name: "scratch", Tag: "latest"}
+
+	u, h := c.user, c.host
+	i := &image.Image{
+		UserID:      u.ID,
+		HostID:      h.ID,
+		FreighterID: "cafebabe",
+		Name:        "scratch v1",
+		Slug:        "scratch",
+		Tag:         "latest",
+	}
+	err := i.Insert(db)
+	Expect(err).To(BeNil(), "failed to insert test image")
+}
+
+func newImgTestCtx(fs *freighterServer, db *db.Database) *imgTestCtx {
+	fsHost, fsPort := fs.address()
+
+	var err error
+	u := &user.User{
+		Username: "foo",
+		Password: "123456",
+		Email:    "foo@example.com",
+	}
+
+	err = WrapInTransaction(db, u.Insert)
+	Expect(err).To(BeNil(), "failed to setup test user")
+
+	t := &token.Token{
+		UserID: u.ID,
+		Token:  "valid-token",
+	}
+	err = t.Insert(db)
+	Expect(err).To(BeNil(), "failed to setup test user's token")
+
+	hs, err := CreateHostStack(db, &HostStack{
+		H: &host.Host{
+			Slug:           "foo",
+			IPAddress:      sql.NullString{fsHost, true},
+			FreighterdPort: sql.NullInt64{fsPort, true},
+		},
+		U: u,
+	})
+	Expect(err).To(BeNil(), "failed to prepare host stack")
+
+	hs, err = GenerateHostCert(db, hs)
+	Expect(err).To(BeNil(), "failed to generate host cert")
+
+	return &imgTestCtx{
+		user:  u,
+		token: t,
+		host:  hs.H,
+	}
+}
+
+func (c *imgTestCtx) doPull(env *middleware.Env, params url.Values, async bool, writer io.Writer) (*image.Image, error) {
+	if env.User == nil {
+		env.User = c.user
+	}
+	if writer == nil {
+		writer = ioutil.Discard
+	}
+	return images.PullImage(c.host, params, env, writer, c.pp, async)
 }
 
 func (s *freighterServer) pullImage(w http.ResponseWriter, r *http.Request) {
