@@ -79,6 +79,12 @@ if [[ ! -x /usr/bin/docker ]]; then
   apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 36A1D7869245C8950F966E92D8576A8BA88D21E9
   apt-get update
   apt-get install -yy lxc-docker-1.2.0
+  sed -i '/## DOCKER DEFAULTS BEGIN/,/## DOCKER DEFAULTS END/d' /etc/default/docker
+  cat >> /etc/default/docker << EOF
+## DOCKER DEFAULTS BEGIN
+DOCKER_OPTS="-e lxc"
+## DOCKER DEFAULTS END
+EOF
 fi
 
 service docker restart
