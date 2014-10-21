@@ -15,12 +15,13 @@ var _ = Describe("base image serializer", func() {
 	Describe("SerializeBaseImage", func() {
 		now := time.Now()
 		var model = &baseimage.BaseImage{
-			ID:        5,
-			Name:      "Go",
-			Slug:      "golang",
-			Repo:      "nitrousio/golang:latest",
-			CreatedAt: &now,
-			UpdatedAt: &now,
+			ID:          5,
+			Name:        "Go",
+			Slug:        "golang",
+			Repo:        "nitrousio/golang:latest",
+			Description: "Golang image",
+			CreatedAt:   &now,
+			UpdatedAt:   &now,
 		}
 
 		It("serializes to JSON", func() {
@@ -35,7 +36,7 @@ var _ = Describe("base image serializer", func() {
 				"name": "Go",
 				"slug": "golang",
 				"repo": "nitrousio/golang:latest",
-				"description": "",
+				"description": "Golang image",
 				"created_at": %s,
 				"updated_at": %s
 			}`, nowJSON, nowJSON)))
