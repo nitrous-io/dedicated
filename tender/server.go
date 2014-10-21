@@ -11,8 +11,8 @@ import (
 	"net/http"
 
 	_ "github.com/lib/pq"
-	"github.com/nitrous-io/tender/pkg/httperror"
-	"github.com/nitrous-io/tender/pkg/proxy"
+	"github.com/nitrous-io/dedicated/tender/pkg/httperror"
+	"github.com/nitrous-io/dedicated/tender/pkg/proxy"
 )
 
 // env of the request. This should be created once for each request and valid

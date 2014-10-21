@@ -10,7 +10,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/nitrous-io/tender"
+	"github.com/nitrous-io/dedicated/tender"
 )
 
 // current version of tender binary
