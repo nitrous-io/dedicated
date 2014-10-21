@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+docker run \
+  --rm=true \
+  registry.nitrous.io/compass ./script/start-test

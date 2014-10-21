@@ -1,0 +1,20 @@
+{
+  "address": "",
+  "navigators": [
+    {
+      "name": "host",
+      "domain": "nitrouspro.com.",
+      "config": {
+        "database_url": ""
+      }
+    },
+    {
+      "name": "proxy",
+      "domain": "nitrousproxy.com.",
+      "config": {
+        "database_url": "host=/var/run/postgresql dbname=testdb sslmode=disable",
+        "sfo": "nitrousproxy-sfo.com",
+      }
+    }
+  ]
+}
