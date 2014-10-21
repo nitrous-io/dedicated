@@ -83,10 +83,13 @@ if [ "$APP" == "all" ]; then
   run test_app hostbuilder
   run test_db nitrous
   run test_dind freighter
+  run test_db tender
 elif [ "$APP" == "hostbuilder" ]; then
   run test_app hostbuilder $SUITE
 elif [ "$APP" == "freighter" ]; then
   run test_dind freighter $SUITE
+elif [ "$APP" == "tender" ]; then
+  run test_db tender $SUITE
 elif [ "$APP" == "nitrous" ]; then
   run test_db nitrous $SUITE
 else

@@ -2,8 +2,9 @@ package tender
 
 import (
 	"database/sql"
-	"os"
+	"fmt"
 	"os/exec"
+	"os/user"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -16,10 +17,12 @@ func Test(t *testing.T) {
 }
 
 func prepareDB() *sql.DB {
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		panic("Missing DATABASE_URL")
+	u, err := user.Current()
+	if err != nil {
+		panic(err)
 	}
+	dbURL := fmt.Sprintf("host=/var/run/postgresql user=%s dbname=%s sslmode=disable",
+		u.Username, "tender_test")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		panic(err)
@@ -32,7 +35,7 @@ func prepareDB() *sql.DB {
 
 func loadFixtures(db *sql.DB) {
 	args := []string{
-		"-d", "nitrous",
+		"-d", "tender_test",
 		"-f", "./testdata/fixtures.sql",
 	}
 	err := exec.Command("psql", args...).Run()

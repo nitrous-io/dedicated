@@ -33,6 +33,10 @@ compass:
 	@./script/build compass
 .PHONY: compass
 
+tender:
+	@./script/build tender
+.PHONY: tender
+
 test:
 	@echo "$(OK_COLOR)==> Running tests $(COMMIT)...$(NO_COLOR)"
 	@./script/test $(APP) $(SUITE)
@@ -73,8 +77,11 @@ createdb:
 	sudo su postgres -c "psql -d nitrous_development -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" || true
 	createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_test || true
 	sudo su postgres -c "psql -d nitrous_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" || true
+	createdb -E UTF8 -T template0 -l en_US.utf8 tender_test || true
+	sudo su postgres -c "psql -d tender_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" || true
 
 dropdb:
 	dropdb --if-exists nitrous_development
 	dropdb --if-exists nitrous_migrations_test
 	dropdb --if-exists nitrous_test
+	dropdb --if-exists tender_test
