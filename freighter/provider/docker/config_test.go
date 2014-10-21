@@ -320,6 +320,7 @@ var _ = Describe("provider/docker config", func() {
 						Hostname:     cnrName,
 						Image:        "nitrousio/php", // Nitrous image.
 						PortBindings: []string{"public::4000", "3000:8080", "private:5000:5001"},
+						Gateway:      "172.0.0.1",
 					}, true)
 				Expect(err).To(BeNil())
 			})
@@ -332,8 +333,8 @@ var _ = Describe("provider/docker config", func() {
 					hostPort string
 				}{
 					{"4000", "0.0.0.0", ""},
-					{"8080", "172.17.42.1", "3000"},
-					{"5001", "172.17.42.1", "5000"},
+					{"8080", "172.0.0.1", "3000"},
+					{"5001", "172.0.0.1", "5000"},
 				}
 				for _, pb := range portBinds {
 					pbs := hostCfg.PortBindings[dockerclient.Port(pb.conPort)]
