@@ -3,7 +3,6 @@ package controllers
 type EventName string
 
 const (
-	EventContainerCreating  EventName = "container.creating"
 	EventContainerCreated   EventName = "container.created"
 	EventContainerDestroyed EventName = "container.destroyed"
 	EventContainerStarted   EventName = "container.started"
@@ -35,7 +34,6 @@ const (
 	EventImageTagged        EventName = "image.tagged"
 	EventRegistryAdded      EventName = "registry.added"
 	EventRegistryRemoved    EventName = "registry.removed"
-	EventVolumeCreating     EventName = "volume.creating"
 	EventVolumeCreated      EventName = "volume.created"
 	EventVolumeDestroyed    EventName = "volume.destroyed"
 )

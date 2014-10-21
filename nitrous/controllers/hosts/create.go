@@ -18,6 +18,7 @@ import (
 	"github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -43,6 +44,7 @@ var (
 var (
 	CreateContainer = containers.CreateContainer
 	CreateVolumeFn  = volumes.CreateVolume
+	PullImageFn     = images.PullImage
 )
 
 type volumeCreate struct {
@@ -245,17 +247,18 @@ func (ctx *createContext) run(env *middleware.Env, writer io.Writer, async bool,
 			return err
 		}
 
-		publishHostEvent(env, controllers.EventHostCreated, h)
-
 		if err = createSharedVolume(env, db, h); err != nil {
 			return err
 		}
 
-		if err = createVolumes(volumes, env, h); err != nil {
+		if err = createVolumes(volumes, env, h, writer); err != nil {
 			return err
 		}
 
-		return createContainers(containers, env, h)
+		err = createContainers(containers, env, h, writer)
+
+		publishHostEvent(env, controllers.EventHostCreated, h)
+		return err
 	}
 
 	if async {
@@ -473,7 +476,7 @@ func createSharedVolume(env *middleware.Env, db *ndb.Database, h *host.Host) err
 	return nil
 }
 
-func createContainers(containers []containerCreate, env *middleware.Env, h *host.Host) error {
+func createContainers(containers []containerCreate, env *middleware.Env, h *host.Host, writer io.Writer) error {
 	for index, container := range containers {
 		options := url.Values{
 			"name":        []string{container.Name},
@@ -485,15 +488,14 @@ func createContainers(containers []containerCreate, env *middleware.Env, h *host
 			"cmd":         []string{container.Cmd},
 			"publish_all": []string{strconv.FormatBool(container.PublishAll)},
 		}
-		env.Events.Publish(
-			controllers.NewEvent(controllers.EventContainerCreating, map[string]interface{}{
-				"current": index + 1,
-				"total":   len(containers),
-			}),
-			env.User.Topic(),
-		)
-		_, err := CreateContainer(h, options, env)
 
+		writer.Write([]byte(fmt.Sprintf("Creating container %d of %d", index+1, len(containers))))
+		_, err := PullImageFn(h, url.Values{"repository": options["image"]}, env, writer, nil, false)
+		if err != nil {
+			return err
+		}
+
+		_, err = CreateContainer(h, options, env)
 		if err != nil {
 			return errContainerCreationFailed
 		}
@@ -501,19 +503,14 @@ func createContainers(containers []containerCreate, env *middleware.Env, h *host
 	return nil
 }
 
-func createVolumes(volumes []volumeCreate, env *middleware.Env, h *host.Host) error {
+func createVolumes(volumes []volumeCreate, env *middleware.Env, h *host.Host, writer io.Writer) error {
 	for index, volume := range volumes {
 		options := url.Values{
 			"name": []string{volume.Name},
 			"slug": []string{volume.Slug},
 		}
-		env.Events.Publish(
-			controllers.NewEvent(controllers.EventVolumeCreating, map[string]interface{}{
-				"current": index + 1,
-				"total":   len(volumes),
-			}),
-			env.User.Topic(),
-		)
+
+		writer.Write([]byte(fmt.Sprintf("Creating volume %d of %d", index+1, len(volumes))))
 		_, err := CreateVolumeFn(h, options, env)
 
 		if err != nil {
