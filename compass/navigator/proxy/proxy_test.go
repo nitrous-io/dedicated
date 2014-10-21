@@ -34,7 +34,7 @@ var fixtures = []*Host{
 
 func testNavigator(domain string) n.Navigator {
 	config := map[string]string{
-		"database_url": "host=/var/run/postgresql dbname=testdb sslmode=disable",
+		"database_url": "host=/var/run/postgresql dbname=compass_test sslmode=disable",
 		"sgp":          "exampleproxy-sgp.com",
 	}
 	b, err := New(domain, config)

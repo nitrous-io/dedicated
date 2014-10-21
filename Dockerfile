@@ -48,7 +48,9 @@ RUN /etc/init.d/postgresql start &&\
   createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_test &&\
 	su postgres -c "psql -d nitrous_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" &&\
   createdb -E UTF8 -T template0 -l en_US.utf8 tender_test &&\
-	su postgres -c "psql -d tender_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'"
+	su postgres -c "psql -d tender_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" &&\
+  createdb -E UTF8 -T template0 -l en_US.utf8 compass_test &&\
+	su postgres -c "psql -d compass_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'"
 
 # postgres settings for testing
 RUN echo "fsync=off" >> /etc/postgresql/9.3/main/postgresql.conf && \
