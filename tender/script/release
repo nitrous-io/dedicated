@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -e
+
+APP=${1:?"app name is required"}
+VERSION=${2:?"version is required"}
+ARTIFACT_DIR=/tmp/$APP/$VERSION
+
+# package
+PKGNAME=${APP}-${VERSION}.tgz
+BUCKET=nitrous-dedicated
+APPDIR=$APP
+
+cd $ARTIFACT_DIR
+if [[ -f ${APP} ]]; then 
+        tar -zcf ${PKGNAME} ${APP}
+else
+        exit 1
+fi
+s3cmd --access_key=$ACCESS_KEY --secret_key=$SECRET_KEY put ${ARTIFACT_DIR}/${PKGNAME} s3://${BUCKET}/${APPDIR}/$PKGNAME
+s3cmd --access_key=$ACCESS_KEY --secret_key=$SECRET_KEY put ${ARTIFACT_DIR}/${PKGNAME} s3://${BUCKET}/${APPDIR}/${APP}-latest.tgz

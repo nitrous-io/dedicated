@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# create the postgres user
+su postgres -c "psql -c 'CREATE ROLE "$(whoami)" NOSUPERUSER CREATEDB NOCREATEROLE INHERIT LOGIN;'" || true
+
+# create postgres database
+createdb -E UTF8 -T template0 -l en_US.utf8 nitrous || true
