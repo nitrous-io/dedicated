@@ -15,7 +15,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
-	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
@@ -44,16 +43,15 @@ var (
 )
 
 var (
-	Create   = middleware.HostViaForm("host", requiresRunningHost(create))
-	Commit   = WithContainerAndHost(commit)
-	Config   = WithContainerAndHost(config)
-	Show     = WithContainerAndHost(show)
-	Start    = WithContainerAndHost(start)
-	Stop     = WithContainerAndHost(stop)
-	Restart  = WithContainerAndHost(restart)
-	Destroy  = WithContainerAndHost(destroy)
-	Token    = WithContainerAndHost(token)
-	Reconfig = WithContainerAndHost(reconfig) // in reconfig.go
+	Create  = middleware.HostViaForm("host", requiresRunningHost(create))
+	Commit  = WithContainerAndHost(commit)
+	Config  = WithContainerAndHost(config)
+	Show    = WithContainerAndHost(show)
+	Start   = WithContainerAndHost(start)
+	Stop    = WithContainerAndHost(stop)
+	Restart = WithContainerAndHost(restart)
+	Destroy = WithContainerAndHost(destroy)
+	Token   = WithContainerAndHost(token)
 )
 
 var (
@@ -568,25 +566,6 @@ func hostVolumes(d db.QueryReceiver, h *host.Host) (map[string]*volume.Volume, e
 		slugsToVols[hv.Slug] = hv
 	}
 	return slugsToVols, nil
-}
-
-func updateVolumes(d *db.Database, cn *container.Container, hv map[string]*volume.Volume, slugs []string) error {
-	tx, err := d.Beginx()
-	if err != nil {
-		return err
-	}
-	if err := cvolume.DeleteContainer(tx, cn); err != nil {
-		tx.Rollback()
-		return err
-	}
-	for _, v := range slugs {
-		cv := cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: hv[v].ID}
-		if err := cv.Insert(tx); err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-	return tx.Commit()
 }
 
 func timePtr(t time.Time) *time.Time {
