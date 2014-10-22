@@ -1287,6 +1287,7 @@ var _ = Describe("controllers/containers", func() {
 			mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
 				PortBindings: []string{"4040:5050", "4000:3000"},
 				Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+				Mounts:       []string{"database-75:/var/lib/postgresql/data"},
 				Cmd:          []string{"/bin/yes"},
 			}
 
@@ -1302,6 +1303,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Config.Cmd).To(Equal(mockClient.ConfigContainerConfig.Cmd))
 			Expect(j.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
 			Expect(j.Config.Ports).To(Equal(mockClient.ConfigContainerConfig.PortBindings))
+			Expect(j.Config.Mounts).To(Equal(mockClient.ConfigContainerConfig.Mounts))
 		})
 
 		It("responds with 404 if container is not present", func() {

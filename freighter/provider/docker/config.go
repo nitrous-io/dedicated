@@ -142,7 +142,8 @@ func mountBindsFromDocker(dockerSpecs []string, hostVolsPath string) []string {
 		}
 
 		// nitrous volume handling
-		slug := filepath.Base(parts[1])
+		// looks like "/var/lib/freighter/volumes/database-75:/var/lib/postgresql/data"
+		slug := filepath.Base(parts[0])
 		if parts[0] == filepath.Join(hostVolsPath, slug) && parts[1] == filepath.Join("/volumes", slug) {
 			binds = append(binds, slug) // volumeSlug spec
 			continue
