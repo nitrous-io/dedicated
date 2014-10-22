@@ -24,7 +24,7 @@ var (
 func init() {
 	SignUpCode = os.Getenv("SIGNUP_CODE")
 	if SignUpCode == "" {
-		SignUpCode = "emm@ w@tson luv"
+		SignUpCode = "superc@lifr@gilistic"
 	}
 }
 
