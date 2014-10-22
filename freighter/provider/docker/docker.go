@@ -1179,6 +1179,7 @@ func (p *DockerProvider) setDefaultContainerConfig(c *provider.ContainerConfig) 
 	}
 	if gateway != "" {
 		c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", gateway))
+		c.Gateway = gateway
 	}
 	return nil
 }

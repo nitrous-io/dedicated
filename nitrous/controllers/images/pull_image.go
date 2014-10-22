@@ -3,10 +3,8 @@ package images
 import (
 	"fmt"
 	"io"
-	"net/http"
+	"net/url"
 	"strconv"
-
-	"github.com/nitrous-io/nitrous-common/flusher"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -97,25 +95,26 @@ func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 	return r.Image, nil
 }
 
-func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func PullImage(host *host.Host, options url.Values, env *middleware.Env, writer io.Writer, pp *controllers.ProgressPublisher, async bool) (*image.Image, error) {
 	db := env.DB
-	cl, err := controllers.NewFreighterClient(db, h)
+
+	cl, err := controllers.NewFreighterClient(db, host)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	repo := r.FormValue("repository")
+	repo := options.Get("repository")
 	if repo == "" {
 		repo = controllers.DefaultImage
 	}
-	update, err := strconv.ParseBool(r.FormValue("update"))
+	update, err := strconv.ParseBool(options.Get("update"))
 	if err != nil {
 		update = true
 	}
 
 	var img *image.Image
 	var isNew bool
-	img, err = image.Find(db, env.User, h, repo)
+	img, err = image.Find(db, env.User, host, repo)
 	if err != nil {
 		repo, tag := image.ParseRepoAndTag(repo)
 		if tag == "" {
@@ -123,47 +122,27 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		}
 		img = &image.Image{
 			UserID: env.User.ID,
-			HostID: h.ID,
-			Name:   r.FormValue("name"),
+			HostID: host.ID,
+			Name:   options.Get("name"),
 			Slug:   repo,
 			Tag:    tag,
 		}
 		if err := img.Insert(db); err != nil {
-			return fmt.Errorf("images/pull failed to insert new image %s", err)
+			return nil, fmt.Errorf("images/pull failed to insert new image %s", err)
 		}
 		isNew = true
+
+		if pp != nil {
+			pp.ID = img.ID
+			pp.Slug = img.Slug
+		}
 	}
 
-	async, _ := strconv.ParseBool(r.FormValue("async"))
-	// if async, we will just discard the progress data from freighter. It will
-	// only be outputed into the events stream. The only output we want to
-	// include in async is the image data
-	var writer io.Writer
-	pp := &controllers.ProgressPublisher{
-		EventName: controllers.EventImagePulling,
-		Topic:     env.User.Topic(),
-		Events:    env.Events,
-		ID:        img.ID,
-		Slug:      img.Slug,
-	}
-	if async {
-		writer = pp
-	} else {
-		writer = io.MultiWriter(pp, flusher.NewWriteFlusher(w))
-	}
 	ctx := &pullContext{env: env, client: cl, img: img, repo: repo, update: update, writer: writer}
 	img, err = ctx.run(async, isNew)
 	if err != nil {
-		return fmt.Errorf("images.pull %s", err)
+		return nil, fmt.Errorf("images.pull %s", err)
 	}
 
-	if async {
-		env.Status = http.StatusAccepted
-	} else {
-		env.Status = http.StatusOK
-	}
-	env.Data = map[string]interface{}{
-		"image": serializers.SerializeImage(img),
-	}
-	return nil
+	return img, nil
 }

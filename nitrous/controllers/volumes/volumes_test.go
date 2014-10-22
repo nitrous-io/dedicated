@@ -3,6 +3,7 @@ package volumes_test
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,15 +11,17 @@ import (
 	"testing"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
+	"github.com/nitrous-io/nitrous-common/logger"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -168,6 +171,14 @@ var _ = Describe("controllers/volumes", func() {
 	})
 
 	Describe("POST /api/v0/hosts/:slug/volumes", func() {
+		var (
+			previousCreateVolumeFn func(*host.Host, url.Values, *middleware.Env) (*serializers.Volume, error)
+			createVolumeResult     *serializers.Volume
+			createVolumeError      error
+
+			createVolumeOptions url.Values
+		)
+
 		doRequest := func(vol string) {
 			params := &url.Values{"slug": []string{vol}, "name": []string{"some label"}}
 			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%s/volumes", hs.H.Slug), params)
@@ -175,101 +186,34 @@ var _ = Describe("controllers/volumes", func() {
 			svr.Router().ServeHTTP(res, req)
 		}
 
-		Context("successful create", func() {
-			It("returns an error without calling freighterclient", func() {
-				doRequest("metric")
-				Expect(mockClient.CreateVolumeCalled).To(Equal(1))
-				Expect(res.Code).To(Equal(http.StatusCreated))
-				j := struct {
-					Volume volume.Volume
-				}{}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
+		BeforeEach(func() {
+			previousCreateVolumeFn = volumes.CreateVolumeFn
+			volumes.CreateVolumeFn = func(h *host.Host, options url.Values, env *middleware.Env) (*serializers.Volume, error) {
+				createVolumeOptions = options
 
-				vols, err := volume.FindAll(db, hs.H.ID)
-				Expect(err).To(BeNil())
-				Expect(vols).To(HaveLen(1))
-				Expect(vols[0].Slug).To(Equal("metric"))
-				Expect(vols[0].Name).To(Equal("some label"))
-			})
-
-			It("publishes a volume created event with the created volume", func(done Done) {
-				ch := svr.Events.Subscribe(u.Topic())
-				defer svr.Events.Unsubscribe(ch, u.Topic())
-
-				doRequest("metric")
-
-				v, err := volume.Find(db, hs.H.ID, "metric")
-				Expect(err).To(BeNil())
-				Expect(<-ch).To(Equal(&controllers.Event{
-					Name: controllers.EventVolumeCreated,
-					Data: map[string]*serializers.Volume{
-						"volume": serializers.SerializeVolume(v),
-					},
-				}))
-				close(done)
-			})
-
-			It("converts the 'slug' form value to lowercase", func() {
-				doRequest("TitleCaseSlug")
-				Expect(mockClient.CreateVolumeCalled).To(Equal(1))
-				Expect(mockClient.CreateVolumeSlug).To(Equal("titlecaseslug"))
-
-				vols, err := volume.FindAll(db, hs.H.ID)
-				Expect(err).To(BeNil())
-				Expect(vols).To(HaveLen(1))
-				Expect(vols[0].Slug).To(Equal("titlecaseslug"))
-			})
+				return createVolumeResult, createVolumeError
+			}
 		})
 
-		Context("when slug already exists", func() {
-			BeforeEach(func() {
-				v := &volume.Volume{HostID: hs.H.ID, Slug: "taken"}
-				err := v.Insert(db)
-				Expect(err).To(BeNil())
-				Expect(v.ID).NotTo(BeZero())
-			})
-
-			It("returns an error without calling freighterclient", func() {
-				doRequest("taken")
-				Expect(mockClient.CreateVolumeCalled).To(Equal(0))
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				_, desc := ErrorSlug(res.Body)
-				Expect(desc).To(ContainSubstring("already exists"))
-			})
+		AfterEach(func() {
+			createVolumeOptions = url.Values{}
+			createVolumeError = nil
+			createVolumeResult = nil
+			volumes.CreateVolumeFn = previousCreateVolumeFn
 		})
 
-		Context("when Freighter client returns error", func() {
-			BeforeEach(func() {
-				mockClient.CreateVolumeError = fmt.Errorf("volume too loud")
-			})
-
-			It("responds with 500 and no volume is added to db", func() {
-				doRequest("sonic-boom")
-				Expect(res.Code).To(Equal(http.StatusInternalServerError))
-				Expect(mockClient.CreateVolumeCalled).To(Equal(1))
-				vols, err := volume.FindAll(db, hs.H.ID)
-				Expect(err).To(BeNil())
-				Expect(vols).To(HaveLen(0))
-			})
+		It("send down the options", func() {
+			createVolumeResult = &serializers.Volume{
+				Name: "v1",
+			}
+			doRequest("sluge2")
+			Expect(createVolumeOptions.Get("slug")).To(Equal("sluge2"))
 		})
 
-		Context("when host is unavailable", func() {
-			BeforeEach(func() {
-				hs.H.State = host.StateStopped
-				err := hs.H.Update(db)
-				Expect(err).To(BeNil())
-				UnstubFreighterFn()
-			})
-
-			It("responds with 503 and no volume is added to db", func() {
-				doRequest("sonic-boom")
-				Expect(res.Code).To(Equal(http.StatusServiceUnavailable))
-				Expect(mockClient.CreateVolumeCalled).To(Equal(0))
-				vols, err := volume.FindAll(db, hs.H.ID)
-				Expect(err).To(BeNil())
-				Expect(vols).To(HaveLen(0))
-			})
+		It("should return an error", func() {
+			createVolumeError = errors.New("FAT32 is unavailable")
+			doRequest("sluge2")
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 		})
 	})
 

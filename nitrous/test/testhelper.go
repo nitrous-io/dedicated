@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -89,6 +90,10 @@ func getTables(db *db.Database) ([]string, error) {
 		tbls = append(tbls, tablename)
 	}
 	return tbls, nil
+}
+
+func NewBodyRequest(method, urlStr, bodyStr string) (*http.Request, error) {
+	return http.NewRequest(method, urlStr, bytes.NewBufferString(bodyStr))
 }
 
 func NewAPIRequest(token string, method string, urlStr string, params *url.Values) (*http.Request, error) {

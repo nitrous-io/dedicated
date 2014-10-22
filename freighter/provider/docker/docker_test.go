@@ -1115,7 +1115,7 @@ var _ = Describe("provider/docker", func() {
 				To(Equal("22/tcp 3000 8888"))
 
 			port3000Binding := getPortBindings(id, "3000")
-			Expect(port3000Binding).To(ContainSubstring("HostIp:172.17.42.1"))
+			Expect(port3000Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
 			Expect(port3000Binding).To(ContainSubstring("HostPort:65000"))
 
 			port8888Binding := getPortBindings(id, "8888")
@@ -1144,7 +1144,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(err).To(BeNil())
 
 			port3000Binding = getPortBindings(id, "3000")
-			Expect(port3000Binding).To(ContainSubstring("HostIp:172.17.42.1"))
+			Expect(port3000Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
 			Expect(port3000Binding).To(ContainSubstring("HostPort:65000"))
 
 			vols = getVolumes(id)
@@ -1161,7 +1161,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(err).To(BeNil())
 
 			port4242Binding := getPortBindings(id, "4242/tcp")
-			Expect(port4242Binding).To(ContainSubstring("HostIp:172.17.42.1"))
+			Expect(port4242Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
 			Expect(port4242Binding).To(ContainSubstring("HostPort:65000"))
 			Expect(getPortBindings(id, "3000/tcp")).To(Equal("<no value>"))
 

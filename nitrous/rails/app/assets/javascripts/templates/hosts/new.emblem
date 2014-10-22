@@ -90,6 +90,19 @@ form submit='create'
                 i.fa.fa-check
                   span Yes
 
+  .card-body.bordered
+    .ui.input-group
+      label.field-label
+        | Starter Templates
+      ul.ui.checkbox-group
+        li
+          .ui.checkbox
+            = input type='checkbox' id='hosts-new-use-jumpstart-image' checked=useJumpstartImage
+            label
+          label for='hosts-new-use-jumpstart-image' Ruby on Rails with PostgreSQL
+
+  .card-body.bordered
+
     p.see-terms
       | Please review the&nbsp;
       a href='#' terms of service
