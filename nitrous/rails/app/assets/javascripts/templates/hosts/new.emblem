@@ -91,12 +91,15 @@ form submit='create'
                   span Yes
 
   .card-body.bordered
-    ul.ui.checkbox-group
-      li
-        .ui.checkbox
-          = input type='checkbox' id='hosts-new-use-jumpstart-image' checked=useJumpstartImage
-          label
-        label for='hosts-new-use-jumpstart-image' Use Jumpstart Image (Rails + PostgreSQL)
+    .ui.input-group
+      label.field-label
+        | Starter Templates
+      ul.ui.checkbox-group
+        li
+          .ui.checkbox
+            = input type='checkbox' id='hosts-new-use-jumpstart-image' checked=useJumpstartImage
+            label
+          label for='hosts-new-use-jumpstart-image' Ruby on Rails with PostgreSQL
 
   .card-body.bordered
 
