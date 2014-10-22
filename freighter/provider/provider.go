@@ -118,7 +118,6 @@ type ContainerConfig struct {
 	Mounts       []string `json:"Mounts,omitempty"`
 	PortBindings []string `json:"PortBindings,omitempty"`
 	PublishAll   bool     `json:"PublishAll,omitempty"`
-	Gateway      string   `json:"-"`
 }
 
 // DockerConfig is fields we care about from the container's Config on Docker;

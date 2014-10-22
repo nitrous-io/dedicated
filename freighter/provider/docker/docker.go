@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -31,9 +32,10 @@ var (
 	nitrousImages = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
 
 	errNoCommand = errors.New("no command specified")
+
+	defaultDockerGateway string
 )
 
-const defaultDockerGateway = "172.17.42.1"
 const nitrousImageEnv = "NITROUS_IMAGE_VERSION"
 const defaultDockerRegistry = "index.docker.io"
 const dockerRegistryImageEndpoint = "registry-1.docker.io"
@@ -42,6 +44,15 @@ func init() {
 	if host := os.Getenv("DOCKER_HOST"); host != "" {
 		dockerHost = host
 	}
+	out, err := exec.Command("ip", "-family", "inet", "addr", "show", "docker0").CombinedOutput()
+	if err != nil {
+		log.Fatalf("Error determining docker gateway: %v", err)
+	}
+	dockerGateway, err := gatewayFromIPOutput(out)
+	if err != nil {
+		log.Fatalf("Error determining docker gateway: %v", err)
+	}
+	defaultDockerGateway = dockerGateway
 }
 
 type TemplateData struct {
@@ -1146,22 +1157,7 @@ func (p *DockerProvider) isNitrousImage(fullName string) bool {
 }
 
 func (p *DockerProvider) setDefaultContainerConfig(c *provider.ContainerConfig) error {
-	// output looks like
-	// 2: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
-	//     inet 10.1.42.1/16 scope global docker0
-	//        valid_lft forever preferred_lft forever
-	out, err := exec.Command("ip", "-family", "inet", "addr", "show", "docker0").CombinedOutput()
-	if err != nil {
-		return err
-	}
-	re := regexp.MustCompile(`inet ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/`)
-	match := re.FindSubmatch(out)
-	if match == nil || len(match) != 2 {
-		return fmt.Errorf("could not determine gateway")
-	}
-
-	c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", match[1]))
-	c.Gateway = string(match[1])
+	c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", defaultDockerGateway))
 	return nil
 }
 
@@ -1284,4 +1280,19 @@ func convertConfig(dcConfig *dockerclient.Config) *provider.DockerConfig {
 		cnrConfig.ExposedPorts[string(k)] = v
 	}
 	return cnrConfig
+}
+
+// gatewayFromIPOutput takes the output of `ip addr show docker0` (do not turn
+// off inet family via options) and returns the docker gateway ip
+func gatewayFromIPOutput(output []byte) (string, error) {
+	// output looks like
+	// 2: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+	//     inet 10.1.42.1/16 scope global docker0
+	//        valid_lft forever preferred_lft forever
+	re := regexp.MustCompile(`inet ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/`)
+	match := re.FindSubmatch(output)
+	if match == nil || len(match) != 2 {
+		return "", fmt.Errorf("no inet ip address found")
+	}
+	return string(match[1]), nil
 }
