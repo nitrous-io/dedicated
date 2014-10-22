@@ -1,6 +1,7 @@
 package containers
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -87,12 +88,15 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	errorMessages := []string{}
+
 	for _, h := range hosts {
 		liveContainers, freighterErr := freighterList(db, &h)
 
 		savedContainers, err := container.FindAllByHostID(db, h.ID)
 		if err != nil {
-			return err
+			env.Logger.Errorf("unable to find all containers: %v, for host %s", err, h.Slug)
+			errorMessages = append(errorMessages, fmt.Sprintf("Unable to locate containers for %s", h.Slug))
 		}
 
 		if freighterErr != nil {
@@ -105,7 +109,12 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 				}
 			} else {
 				env.Logger.Errorf("freighter err is not nil: %v, for host %s", freighterErr, h.Slug)
-				return freighterErr
+				if strings.HasPrefix(freighterErr.Error(), "freighter:") {
+					errorMessages = append(errorMessages, fmt.Sprintf("Unable to communicate with freighter for host %s", h.Slug))
+				} else {
+					errorMessages = append(errorMessages, fmt.Sprintf("Unable to locate containers for host %s", h.Slug))
+				}
+				continue
 			}
 		}
 
@@ -131,6 +140,9 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"containers": containersResp,
+	}
+	if len(errorMessages) != 0 {
+		env.Data["errors"] = errorMessages
 	}
 	return nil
 }

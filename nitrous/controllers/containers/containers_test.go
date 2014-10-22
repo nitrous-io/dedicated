@@ -266,22 +266,62 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].TerminatedAt).To(BeNil())
 		})
 
-		Context("when the Freighter client returns an error", func() {
+		Context("when the Freighter client returns a freighter error", func() {
+			BeforeEach(func() {
+				mockClient.ListError = errors.New("freighter: you are not Chuck Norris")
+			})
+
+			It("lets the request continue but returns a list of errors", func() {
+				doRequest("valid-token", "foo")
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Errors []string `json:"errors"`
+				}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Errors).To(ConsistOf("Unable to communicate with freighter for host foo"))
+			})
+		})
+
+		Context("when the Freighter client returns a generic error", func() {
 			BeforeEach(func() {
 				mockClient.ListError = errors.New("you are not Chuck Norris")
 			})
 
-			It("responds with HTTP 500 Internal Server Error", func() {
+			It("lets the request continue but returns a list of errors", func() {
 				doRequest("valid-token", "foo")
 
-				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Errors []string `json:"errors"`
+				}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Errors).To(ConsistOf("Unable to locate containers for host foo"))
+			})
+		})
+
+		Context("when the Freighter client returns no error", func() {
+			BeforeEach(func() {
+				mockClient.ListError = nil
+				mockClient.Containers = []*freighterclient.Container{}
+			})
+
+			It("it should not include the errors key in the body", func() {
+				doRequest("valid-token", "foo")
+
+				Expect(res.Code).To(Equal(http.StatusOK))
 
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 
-				errType, _ := j["error"].(string)
-				Expect(errType).To(Equal("internal_server_error"))
+				Expect(j).ToNot(HaveKey("errors"))
 			})
 		})
 
