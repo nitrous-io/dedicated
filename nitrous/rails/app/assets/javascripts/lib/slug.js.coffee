@@ -3,7 +3,7 @@ App.slug =
     if text
       slug = text.dasherize().replace(/[^A-Za-z0-9\-]/g, '-')
       if appendNumber
-        slug += '-' + util.randomInteger(10, 99).toString()
+        slug += '-' + util.randomInteger(1000, 9999).toString()
       slug.replace(/-{2,}/g, '-').replace(/^-/, '').replace(/-$/, '')
     else
       ''
