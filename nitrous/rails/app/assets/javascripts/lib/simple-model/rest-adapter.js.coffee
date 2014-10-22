@@ -95,7 +95,7 @@ SM.RESTAdapter = Ember.Object.extend
     promise.value = recordArray
     promise
 
-  createRecord: (record, params, options) ->
+  createRecord: (record, params, options={}) ->
     model = record.constructor
     url = Ember.get(model, "createURL") || Ember.get(model, "url")
 
