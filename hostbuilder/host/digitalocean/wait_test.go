@@ -22,7 +22,7 @@ var _ = Describe("WaitForAction", func() {
 			},
 		}
 
-		a, err := digitalocean.WaitForAction(service, 1, time.Millisecond, 5*time.Millisecond)
+		a, err := digitalocean.WaitForAction(service, 1, 10*time.Millisecond, 50*time.Millisecond)
 		Expect(err).To(BeNil(), "unexpected error")
 		Expect(a.Status).To(Equal("completed"))
 	})
@@ -37,7 +37,7 @@ var _ = Describe("WaitForAction", func() {
 			},
 		}
 
-		_, err := digitalocean.WaitForAction(service, 1, time.Millisecond, 5*time.Millisecond)
+		_, err := digitalocean.WaitForAction(service, 1, 10*time.Millisecond, 50*time.Millisecond)
 		Expect(err).ToNot(BeNil(), "expect error when failed to get the action")
 	})
 
@@ -51,7 +51,7 @@ var _ = Describe("WaitForAction", func() {
 			},
 		}
 
-		_, err := digitalocean.WaitForAction(service, 1, time.Millisecond, 5*time.Millisecond)
+		_, err := digitalocean.WaitForAction(service, 1, 10*time.Millisecond, 50*time.Millisecond)
 		Expect(err).ToNot(BeNil(), "expect error when action status is errored")
 	})
 
