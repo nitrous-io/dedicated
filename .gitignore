@@ -1,4 +1,5 @@
 build/
 Godeps/_workspace/pkg/*
 Godeps/_workspace/bin/*
+custom_config.rb
 .vagrant

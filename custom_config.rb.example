@@ -1,0 +1,12 @@
+config.vm.network "forwarded_port", guest: 2375,  host: 2375
+
+(49000..49999).each do |port|
+  next if [49152, 49153].include?(port)
+  config.vm.network "forwarded_port", guest: port, host: port
+end
+
+config.vm.network "forwarded_port", guest: 49153, host: 59153
+config.vm.network "forwarded_port", guest: 49152, host: 59152
+
+config.vm.network "forwarded_port", guest: 3129, host: 3129
+config.vm.network "forwarded_port", guest: 5432, host: 5432
