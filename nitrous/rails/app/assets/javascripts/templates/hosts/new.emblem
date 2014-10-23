@@ -124,4 +124,4 @@ form submit='create'
       .right
         a.ui.btn href='#' click='cancel' Cancel
         input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'
-  = ui-progress hide=view.hideProgress indeterminate=true
+  = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=host.progress.progressDetail.current max=host.progress.progressDetail.total

@@ -10,6 +10,7 @@ App.HostsNewView = Em.View.extend
   ).property 'controller.name', 'controller.slug', 'controller.selectedRegionSlug', 'controller.selectedPlanSlug', 'controller.saving'
 
   hideProgress: Em.computed.not('controller.saving')
+  indeterminateProgress: Em.computed.none('controller.host.progress.progressDetail.start')
 
   preselectRegion: (->
     Em.run.scheduleOnce 'afterRender', this, ->
