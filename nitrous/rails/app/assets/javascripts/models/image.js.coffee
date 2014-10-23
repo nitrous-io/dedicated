@@ -41,9 +41,9 @@ klass.reopenClass
   rootKey: 'image'
   collectionKey: 'images'
 
-  inputPattern: '[a-z0-9-_.]{3,30}'
-  inputTitle: 'May only contain alphanumeric characters, periods (.), underscores (_), or dashes (-). (3-30 characters)'
-  repoInputPattern: '(.*/)?[a-z0-9-_.]{3,30}(:[a-zA-Z0-9_][a-zA-Z0-9-_.]{1,29})?$'
+  inputPattern: '[a-z0-9-_.]{1,30}'
+  inputTitle: 'May only contain alphanumeric characters, periods (.), underscores (_), or dashes (-). (1-30 characters)'
+  repoInputPattern: '(.*/)?[a-z0-9-_.]{1,30}(:[a-zA-Z0-9_][a-zA-Z0-9-_.]{1,29})?$'
   repoInputTitle: "Example:\n• repo\n• repo:tag\n• registry/repo:tag"
 
   pull: (host, repository, update=true) ->
