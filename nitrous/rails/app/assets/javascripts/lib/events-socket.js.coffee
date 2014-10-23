@@ -136,6 +136,7 @@ findAllRegistries = (data) ->
 parseProgress = (data) ->
   return unless progress = data.progress
   progress = JSON.parse(progress)
+  App.trigger("progressReceived", progress)
   if progress.status
     progress.status += "..."
   if progress.stream

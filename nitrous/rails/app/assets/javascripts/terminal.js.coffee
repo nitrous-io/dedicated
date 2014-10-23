@@ -76,10 +76,13 @@ window.NitrousTerminal =
   willOpen: ->
     # override me
 
+  clear: ->
+    @term.write '\x1b[r\x1b[H\x1b[J'
+
   didOpen: (ev) ->
     if @firstConnect
       @firstConnect = false
-      @term.write '\x1b[r\x1b[H\x1b[J'
+      @clear()
     else
       @term.write '\r\n'
 

@@ -10,6 +10,7 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
   selectedHostImage: null
   selectedBaseImage: null
   customImage: null
+  terminal: null
 
   nameFieldInvalid: Em.computed.equal('controller.invalidField', 'name')
   slugFieldInvalid: Em.computed.equal('controller.invalidField', 'slug')
@@ -85,11 +86,22 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
       Em.run.next this, ->
         @$("##{$(ev.target).attr('name')}").click()
 
+    lastMsg = ""
+    App.on "progressReceived", (ev) =>
+      if ev.status && ev.status != lastMsg
+        lastMsg = ev.status
+        @get('terminal.term')?.writeln(ev.status)
+
+    Em.run.scheduleOnce 'afterRender', this, ->
+      @injectTerminalIframe()  
+        
   willDestroyElement: ->
     @_super()
     App.slug.unslugify(@$('#containers-new-name'))
     @$('.option-input').off('click.containers-new')
     @$('input[name=option]').off('change.containers-new')
+
+    App.off "progressReceived"
 
   injectTerminalIframe: ->
     Em.run.scheduleOnce 'afterRender', this, ->
@@ -107,17 +119,20 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
 
       scriptEl = iframeDocument.createElement('script')
       scriptEl.setAttribute('src', location.origin + App.get('terminalJsPath'))
-      scriptEl.onload = ->
+      
+      scriptEl.onload = =>
         scriptEl.onload = null
         terminal = iframeWindow.NitrousTerminal
         terminal.init()
         terminal.focus()
+        @set 'terminal', terminal
+        
       iframeDocument.body.appendChild(scriptEl)
 
   actions:
     create: ->
+      @get('terminal')?.clear()
       @send 'goNext'
-      @injectTerminalIframe()
       @get('controller').send 'create', @get('image')
 
     goNext: ->
