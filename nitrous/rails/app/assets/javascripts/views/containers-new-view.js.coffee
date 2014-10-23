@@ -1,5 +1,6 @@
 optionHostImage = 'host-image'
 optionBaseImage = 'base-image'
+screens = ['image', 'config', 'progress']
 
 App.ContainersNewView = Lib.ContainerConfigView.extend
   elementId: 'containers-new-view'
@@ -12,6 +13,11 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
 
   nameFieldInvalid: Em.computed.equal('controller.invalidField', 'name')
   slugFieldInvalid: Em.computed.equal('controller.invalidField', 'slug')
+
+  currentScreenIndex: 0
+  showImageScreen: Em.computed.equal('currentScreenIndex', screens.indexOf('image'))
+  showConfigScreen: Em.computed.equal('currentScreenIndex', screens.indexOf('config'))
+  showProgressScreen: Em.computed.equal('currentScreenIndex', screens.indexOf('progress'))
 
   image: (->
     option = @get 'selectedOption'
@@ -85,24 +91,42 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
     @$('.option-input').off('click.containers-new')
     @$('input[name=option]').off('change.containers-new')
 
+  injectTerminalIframe: ->
+    Em.run.scheduleOnce 'afterRender', this, ->
+      controller = @get 'controller'
+      $iframe = $('<iframe>')
+      @$('.terminal-screen').append($iframe)
+      iframeWindow = $iframe[0].contentWindow
+      iframeDocument = iframeWindow.document
+
+      # use pure js dom api because jquery fails to use iframe's window/document obj
+      linkEl = iframeDocument.createElement('link')
+      linkEl.setAttribute('rel', 'stylesheet')
+      linkEl.setAttribute('href', location.origin + App.get('terminalCssPath'))
+      iframeDocument.head.appendChild(linkEl)
+
+      scriptEl = iframeDocument.createElement('script')
+      scriptEl.setAttribute('src', location.origin + App.get('terminalJsPath'))
+      scriptEl.onload = ->
+        scriptEl.onload = null
+        terminal = iframeWindow.NitrousTerminal
+        terminal.init()
+        terminal.focus()
+      iframeDocument.body.appendChild(scriptEl)
+
   actions:
-    openVolumeMounts: ->
-      return if @get 'controller.saving'
-      ui.showModal('#volume-mounts-dialog')
+    create: ->
+      @send 'goNext'
+      @injectTerminalIframe()
+      @get('controller').send 'create', @get('image')
 
-    openPortBindings: ->
-      return if @get 'controller.saving'
-      ui.showModal('#port-bindings-dialog')
+    goNext: ->
+      i = @get 'currentScreenIndex'
+      @set 'currentScreenIndex', Math.min(++i, 2)
 
-    openEnvVars: ->
-      return if @get 'controller.saving'
-      ui.showModal('#env-vars-dialog')
-
-    closeVolumeMounts: ->
-      ui.hideModal('#volume-mounts-dialog')
-
-    closePortBindings: ->
-      ui.hideModal('#port-bindings-dialog')
+    goBack: ->
+      i = @get 'currentScreenIndex'
+      @set 'currentScreenIndex', Math.max(--i, 0)
 
     closeEnvVars: ->
       ui.hideModal('#env-vars-dialog')

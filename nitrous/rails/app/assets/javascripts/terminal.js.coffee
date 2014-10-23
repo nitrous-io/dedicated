@@ -23,7 +23,6 @@ window.NitrousTerminal =
     @term = term = new Terminal(80, 25)
     term.open(document.body)
     term.sizeToFit()
-    term.write 'Connecting...'
 
     term.on 'resize', (cols, rows) ->
       return if conn.readyState != 1
