@@ -1776,17 +1776,15 @@ var _ = Describe("controllers/containers", func() {
 		var (
 			containerName = "elixir-web-1"
 			c             *container.Container
+			testParams    = &url.Values{
+				"env[]":       []string{"LANG=C", "NODE=nope"},
+				"volume[]":    []string{"music"},
+				"port[]":      []string{"3000:8080", "public::4552", "public:8081:11211"},
+				"publish_all": []string{"0"},
+			}
 		)
 
-		doRequest := func() {
-			params := &url.Values{}
-			params.Add("env[]", "LANG=C")
-			params.Add("env[]", "NODE=nope")
-			params.Add("volume[]", "music")
-			params.Add("port[]", "3000:8080")
-			params.Add("port[]", "0.0.0.0::4552")
-			params.Add("port[]", "0.0.0.0:8081:11211")
-
+		doRequest := func(params *url.Values) {
 			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/containers/%s/reconfig", containerName), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
@@ -1815,10 +1813,11 @@ var _ = Describe("controllers/containers", func() {
 				State: "running",
 				Image: "deadbeef-reconfig-image",
 			}
+			mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{}
 		})
 
 		It("calls the Freighter client with config from params", func() {
-			doRequest()
+			doRequest(testParams)
 			Expect(mockClient.ReconfigCalled).To(Equal(1))
 			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
 			conf := mockClient.ReceivedConfig
@@ -1826,12 +1825,12 @@ var _ = Describe("controllers/containers", func() {
 			Expect(conf.Mounts).To(Equal([]string{"music"}))
 			Expect(conf.PortBindings).To(HaveLen(3))
 			Expect(conf.PortBindings).To(ContainElement("3000:8080"))
-			Expect(conf.PortBindings).To(ContainElement("0.0.0.0::4552"))
-			Expect(conf.PortBindings).To(ContainElement("0.0.0.0:8081:11211"))
+			Expect(conf.PortBindings).To(ContainElement("public::4552"))
+			Expect(conf.PortBindings).To(ContainElement("public:8081:11211"))
 		})
 
 		It("responds with the container from Freighter and augments it with data from the database", func() {
-			doRequest()
+			doRequest(testParams)
 
 			Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -1854,12 +1853,13 @@ var _ = Describe("controllers/containers", func() {
 		})
 
 		It("updates container record", func() {
-			doRequest()
+			doRequest(testParams)
 
 			c, err := container.Find(db, hs.U, containerName)
 			Expect(err).To(BeNil())
 			Expect(c.CID).To(Equal("livebeef"))
 			Expect(c.Image).To(Equal("deadbeef-reconfig-image"))
+			Expect(c.LockedAt).To(BeNil())
 		})
 
 		It("updates volumes", func() {
@@ -1871,7 +1871,7 @@ var _ = Describe("controllers/containers", func() {
 			cv := &cvolume.ContainerVolume{ContainerID: c.ID, VolumeID: v.ID}
 			err = cv.Insert(db)
 			Expect(err).To(BeNil())
-			doRequest()
+			doRequest(testParams)
 			cvs := []*cvolume.ContainerVolume{}
 			err = db.Select(&cvs, `SELECT cv.id, container_id, volume_id, cv.created_at
 				FROM container_volumes cv
@@ -1891,12 +1891,174 @@ var _ = Describe("controllers/containers", func() {
 			})
 
 			It("responds with HTTP 500 Internal Server Error", func() {
-				doRequest()
+				doRequest(testParams)
 
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
 				errType, _ := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("internal_server_error"))
+			})
+		})
+
+		Context("when called in async mode and freighter is successful", func() {
+			var asyncParams = &url.Values{
+				"async":       []string{"1"},
+				"env[]":       []string{"LANG=C"},
+				"volume[]":    []string{"music"},
+				"port[]":      []string{"3000:8080", "public::4552"},
+				"publish_all": []string{"0"},
+			}
+
+			It("responds 202 accepted and calls freighter asynchronously", func() {
+				doRequest(asyncParams)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				var j struct {
+					Container       *serializers.Container       `json:"container"`
+					ContainerConfig *serializers.ContainerConfig `json:"config"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Container.CID).To(Equal("deadbeef"), "container CID should not have changed")
+			})
+
+			It("updates the container record eventually", func() {
+				doRequest(asyncParams)
+
+				Eventually(func() (string, error) {
+					cn, err := container.Find(db, u, containerName)
+					return cn.CID, err
+				}).Should(Equal("livebeef"))
+
+				Eventually(func() (*time.Time, error) {
+					cn, err := container.Find(db, u, containerName)
+					return cn.LockedAt, err
+				}).Should(BeNil())
+			})
+
+			It("publishes success event", func() {
+				mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
+
+					PortBindings: []string{"private:3000:8080", "public:49123:4552", "public:8081:11211"},
+					Mounts:       []string{"music"},
+					Env:          []string{"LANG=C", "NODE=nope"},
+					Cmd:          []string{"/bin/yes"},
+				}
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(asyncParams)
+
+				evtCh := make(chan *controllers.Event, 1)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventContainerReconfigured {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(100 * time.Millisecond):
+					Fail("timeout while waiting for EventContainerReconfigured")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventContainerReconfigured))
+
+					data, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(data["container"]).NotTo(BeNil())
+
+					cnrData, ok := data["container"].(*serializers.Container)
+					Expect(ok).To(BeTrue())
+					Expect(cnrData.CID).To(Equal("livebeef"))
+
+					cnrConfig, ok := data["config"].(*serializers.ContainerConfig)
+					Expect(ok).To(BeTrue())
+					Expect(cnrConfig.Mounts).To(Equal([]string{"music"}))
+					Expect(cnrConfig.Ports).To(ConsistOf([]string{"private:3000:8080", "public:49123:4552", "public:8081:11211"}))
+				}
+			})
+		})
+
+		Context("when called in async mode and freighter is unsuccessful", func() {
+			var asyncParams = &url.Values{
+				"async":       []string{"1"},
+				"env[]":       []string{"LANG=C"},
+				"volume[]":    []string{"music"},
+				"port[]":      []string{"3000:8080", "public::4552"},
+				"publish_all": []string{"0"},
+			}
+
+			BeforeEach(func() {
+				mockClient.ReconfigError = errors.New("container blew up")
+			})
+
+			It("responds 202 accepted and calls freighter asynchronously", func() {
+				doRequest(asyncParams)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				var j struct {
+					Container       *serializers.Container       `json:"container"`
+					ContainerConfig *serializers.ContainerConfig `json:"config"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Container.CID).To(Equal("deadbeef"), "container CID should not have changed")
+			})
+
+			It("does not update the container record apart from unlocking", func() {
+				doRequest(asyncParams)
+
+				Eventually(func() (*time.Time, error) {
+					cn, err := container.Find(db, u, containerName)
+					return cn.LockedAt, err
+				}).Should(BeNil())
+			})
+
+			It("publishes failure event", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(asyncParams)
+
+				evtCh := make(chan *controllers.Event, 1)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventContainerReconfigureFailed {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(100 * time.Millisecond):
+					Fail("timeout while waiting for EventContainerReconfigureFailed")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventContainerReconfigureFailed))
+
+					data, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(data["container"]).NotTo(BeNil())
+					cnrData, ok := data["container"].(*serializers.Container)
+					Expect(ok).To(BeTrue())
+					Expect(cnrData.CID).To(Equal("deadbeef"))
+
+					errorMsg, ok := data["error"].(string)
+					Expect(ok).To(BeTrue())
+					Expect(errorMsg).To(Equal("container blew up"))
+				}
+
+				cn, err := container.Find(db, u, containerName)
+				Expect(err).To(BeNil())
+				Expect(cn.CID).To(Equal("deadbeef"))
 			})
 		})
 
