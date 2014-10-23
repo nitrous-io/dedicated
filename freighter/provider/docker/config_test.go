@@ -85,8 +85,8 @@ var _ = Describe("provider/docker config", func() {
 			cnr.State.Running = true
 			cnr.NetworkSettings.Ports[dockerclient.Port("9191")] = nil
 			addBinding(cnr.NetworkSettings.Ports, "0.0.0.0", "8080", "3000")
-			addBinding(cnr.NetworkSettings.Ports, docker.DefaultDockerGateway, "8000", "3000")
-			addBinding(cnr.NetworkSettings.Ports, docker.DefaultDockerGateway, "49123", "4000")
+			addBinding(cnr.NetworkSettings.Ports, docker.DefaultDockerGateway(), "8000", "3000")
+			addBinding(cnr.NetworkSettings.Ports, docker.DefaultDockerGateway(), "49123", "4000")
 			config := prov.ConfigFromContainer(cnr)
 			Expect(config.PortBindings).To(ConsistOf([]string{"public:8080:3000", "private:8000:3000", "private:49123:4000"}))
 		})
@@ -95,7 +95,7 @@ var _ = Describe("provider/docker config", func() {
 			cnr.State.Running = false
 			cnr.NetworkSettings.Ports[dockerclient.Port("9191")] = nil
 			addBinding(cnr.HostConfig.PortBindings, "0.0.0.0", "8080", "3000")
-			addBinding(cnr.HostConfig.PortBindings, docker.DefaultDockerGateway, "49123", "4000")
+			addBinding(cnr.HostConfig.PortBindings, docker.DefaultDockerGateway(), "49123", "4000")
 			config := prov.ConfigFromContainer(cnr)
 			Expect(config.PortBindings).To(ConsistOf([]string{"public:8080:3000", "private:49123:4000"}))
 		})
@@ -320,7 +320,6 @@ var _ = Describe("provider/docker config", func() {
 						Hostname:     cnrName,
 						Image:        "nitrousio/php", // Nitrous image.
 						PortBindings: []string{"public::4000", "3000:8080", "private:5000:5001"},
-						Gateway:      "172.0.0.1",
 					}, true)
 				Expect(err).To(BeNil())
 			})
@@ -333,8 +332,8 @@ var _ = Describe("provider/docker config", func() {
 					hostPort string
 				}{
 					{"4000", "0.0.0.0", ""},
-					{"8080", "172.0.0.1", "3000"},
-					{"5001", "172.0.0.1", "5000"},
+					{"8080", docker.DefaultDockerGateway(), "3000"},
+					{"5001", docker.DefaultDockerGateway(), "5000"},
 				}
 				for _, pb := range portBinds {
 					pbs := hostCfg.PortBindings[dockerclient.Port(pb.conPort)]
