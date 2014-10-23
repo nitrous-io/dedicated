@@ -301,10 +301,10 @@ func writeResponse(w http.ResponseWriter, resp *Response) {
 // ping the host to make sure that it's up
 func pingHost(info *host.Info, w io.Writer) error {
 	contactAddr := fmt.Sprintf("https://%s:%d", info.IPAddress, info.FreighterdPort)
-	fmt.Fprintf(w, "Contacting freighter at %s", contactAddr)
+	fmt.Fprintf(w, "Connecting to freighter server at %s...", contactAddr)
 	if !host.WaitForServer(contactAddr, FreighterPingTimeout, FreighterPingAttempts) {
-		fmt.Fprintf(w, "failed: freighter not available")
-		return fmt.Errorf("freighter not available")
+		fmt.Fprintf(w, "Connecting to freighter server...Failed!")
+		return fmt.Errorf("Connecting to freighter server...Done!")
 	}
 	return nil
 }

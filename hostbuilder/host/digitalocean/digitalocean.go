@@ -75,12 +75,12 @@ type Host struct {
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	defer func() {
 		if h.sshKey != nil {
-			fmt.Fprintf(w, "starting: remove temporary ssh key")
+			fmt.Fprintf(w, "Removing key...")
 			_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
 			if err != nil {
-				fmt.Fprintf(w, "failed: remove temporary ssh key")
+				fmt.Fprintf(w, "Removing key...Failed!")
 			}
-			fmt.Fprintf(w, "finished: remove temporary ssh key")
+			fmt.Fprintf(w, "Removing key...Done!")
 		}
 	}()
 	steps := []context.Step{
@@ -108,7 +108,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	}
 
 	info := h.dropletToInfo()
-	fmt.Fprintf(w, "finished: the droplet should be ready now")
+	fmt.Fprintf(w, "Provisioning host...Done!")
 	return info, nil
 }
 
