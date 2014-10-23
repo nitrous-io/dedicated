@@ -36,6 +36,7 @@ type MockClient struct {
 	TerminateError  error
 
 	ConfigCalled          int
+	ConfigID              string
 	ConfigContainerConfig *ContainerConfig
 	ConfigError           error
 
@@ -213,6 +214,8 @@ func (c *MockClient) Terminate(id string) (*Container, error) {
 
 func (c *MockClient) Config(id string) (*ContainerConfig, error) {
 	c.ConfigCalled++
+	// don't use ReceivedID here, as this may need to be tested within a reconfig call
+	c.ConfigID = id
 	return c.ConfigContainerConfig, c.ConfigError
 }
 
