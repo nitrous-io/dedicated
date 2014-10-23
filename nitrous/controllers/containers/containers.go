@@ -163,7 +163,11 @@ func freighterList(db db.QueryReceiver, h *host.Host) ([]*freighterclient.Contai
 }
 
 func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	res, err := PerformCreateFn(h, r.PostForm, env)
+	err := r.ParseForm()
+	if err != nil {
+		return err
+	}
+	res, err := PerformCreateFn(h, r.Form, env)
 	if err != nil {
 		return err
 	}
