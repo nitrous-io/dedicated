@@ -193,5 +193,7 @@ func CleanUpContainer(name string) {
 	out, err := exec.Command("docker", "stop", "--time=1", name).CombinedOutput()
 	Expect(err).To(BeNil(), "docker stop %s failed with err: %+v", name, string(out))
 	out, err = exec.Command("docker", "rm", "-f", name).CombinedOutput()
-	Expect(err).To(BeNil(), "docker rm -f %s failed with err: %+v", name, string(out))
+	if err != nil {
+		fmt.Printf("WARNING: `docker rm -f %s failed.  Please investigate and remove the container yourself.  Error: %s\n", name, out)
+	}
 }
