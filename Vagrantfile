@@ -140,9 +140,10 @@ EOF
 
 ## PATH SETUP ################################################################
 
+mkdir -p $WORKSPACE
 mkdir -p $GOPATH/src/github.com/nitrous-io
 DEDIREPO=$GOPATH/src/github.com/nitrous-io/dedicated
-ln -nfs $DEDIREPO $WORKSPACE
+ln -nfs $DEDIREPO $WORKSPACE/dedicated
 
 sed -i '/## DEV PATHS BEGIN/,/## DEV PATHS END/d' /etc/profile
 cat >> /etc/profile << EOF
