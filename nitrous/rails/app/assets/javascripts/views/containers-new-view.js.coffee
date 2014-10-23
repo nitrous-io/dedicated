@@ -86,15 +86,24 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
       Em.run.next this, ->
         @$("##{$(ev.target).attr('name')}").click()
 
-    lastMsg = ""
+    lastStatus = ""
     App.on "progressReceived", (ev) =>
-      if ev.status && ev.status != lastMsg
-        lastMsg = ev.status
-        @get('terminal.term')?.writeln(ev.status)
+      if ev.status != lastStatus && lastStatus != ""
+        @get('terminal.term')?.writeln("")
+
+      if ev.progress
+        if ev.status == lastStatus
+          @get('terminal.term')?.write("\r\x1b[K")
+          @get('terminal.term')?.write(ev.progress)
+        else
+          @get('terminal.term')?.write(ev.progress)
+      else if ev.status && ev.status != lastStatus
+        @get('terminal.term')?.write(ev.status)
+      lastStatus = ev.status
 
     Em.run.scheduleOnce 'afterRender', this, ->
-      @injectTerminalIframe()  
-        
+      @injectTerminalIframe()
+
   willDestroyElement: ->
     @_super()
     App.slug.unslugify(@$('#containers-new-name'))
@@ -119,21 +128,21 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
 
       scriptEl = iframeDocument.createElement('script')
       scriptEl.setAttribute('src', location.origin + App.get('terminalJsPath'))
-      
+
       scriptEl.onload = =>
         scriptEl.onload = null
         terminal = iframeWindow.NitrousTerminal
         terminal.init()
         terminal.focus()
         @set 'terminal', terminal
-        
+
       iframeDocument.body.appendChild(scriptEl)
 
   actions:
     create: ->
       @get('terminal')?.clear()
       @send 'goNext'
-      @get('controller').send 'create', @get('image')
+      @get('controller').send('create', @get('image'), @get('selectedOption') == optionBaseImage)
 
     goNext: ->
       i = @get 'currentScreenIndex'
@@ -145,6 +154,3 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
 
     closeEnvVars: ->
       ui.hideModal('#env-vars-dialog')
-
-    create: ->
-      @get('controller').send('create', @get('image'), @get('selectedOption') == optionBaseImage)
