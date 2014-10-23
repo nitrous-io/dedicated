@@ -81,6 +81,10 @@ if [[ ! -x /usr/bin/docker ]]; then
   apt-get install -yy lxc-docker-1.2.0
 fi
 
+cat > /etc/default/docker <<EOF
+  DOCKER_OPTS="-e lxc -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock"
+EOF
+
 service docker restart
 
 adduser vagrant docker
@@ -247,6 +251,19 @@ service nginx restart
 
 SCRIPT
 
+# allow devs to overload config
+additional_config = lambda do |config|
+  (49000..49999).each do |port|
+    config.vm.network "forwarded_port", guest: port, host: port
+  end
+end
+
+custom_file = File.join(File.dirname(__FILE__), "custom_config.rb")
+if File.exists? custom_file
+  eval_str = "additional_config = lambda do |config| #{File.read("custom_config.rb")} end"
+  eval eval_str
+end
+
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.hostname = 'dedicated-vm'
   config.vm.box = 'nitrous-io/trusty64'
@@ -269,10 +286,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   config.vm.network "forwarded_port", guest: 8080,  host: 8080
-
-  (49000..49999).each do |port|
-    config.vm.network "forwarded_port", guest: port, host: port
-  end
+  additional_config.call config
 
   config.ssh.shell = "bash -c 'BASH_ENV=/etc/profile exec bash'" # avoids 'stdin: is not a tty' error.
   config.ssh.forward_agent = true
