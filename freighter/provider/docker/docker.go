@@ -157,8 +157,7 @@ func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*pr
 	if err != nil {
 		return nil, err
 	}
-	err = p.setDefaultContainerConfig(cfg)
-	if err != nil {
+	if err := p.setDefaultContainerConfig(cfg); err != nil {
 		return nil, err
 	}
 	cfg.Hostname = name
@@ -247,8 +246,7 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 	if err != nil {
 		return nil, err
 	}
-	err = p.setDefaultContainerConfig(cfg)
-	if err != nil {
+	if err := p.setDefaultContainerConfig(cfg); err != nil {
 		return nil, err
 	}
 	cfg.Hostname = container.Config.Hostname
@@ -263,12 +261,15 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 		p.logger.Info("DockerProvider: starting container", id)
 		start := time.Now()
 
-		err = p.client.StartContainer(id, startConfig)
-		if err != nil {
+		if err := p.client.StartContainer(id, startConfig); err != nil {
 			return nil, err
 		}
 
 		p.logger.TimeInfo(start, "DockerProvider: started container", id, "in")
+
+		if err := injectHostEntry(id, cfg.Gateway); err != nil {
+			return nil, err
+		}
 	}
 	return p.GetInfo(id)
 }
@@ -1284,7 +1285,31 @@ func gatewayFromIPOutput(output []byte) (string, error) {
 	re := regexp.MustCompile(`inet ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/`)
 	match := re.FindSubmatch(output)
 	if match == nil || len(match) != 2 {
-		return "", fmt.Errorf("no inet ip address found")
+		return "", errors.New("no inet ip address found")
 	}
 	return string(match[1]), nil
+}
+
+// injectHostEntry appends "<gateway IP> host" in a container's /etc/hosts file.
+// A container's hosts file can be edited on the host by editing
+// /var/lib/docker/containers/<container ID>/hosts.
+func injectHostEntry(id, gateway string) error {
+	hostsfile := fmt.Sprintf("/var/lib/docker/containers/%s/hosts", id)
+	f, err := os.OpenFile(hostsfile, os.O_APPEND|os.O_RDWR, 0666)
+	if err != nil {
+		return fmt.Errorf("failed to open container's /etc/hosts file: %s", err)
+	}
+	defer f.Close()
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		return fmt.Errorf("failed to read container's /etc/hosts file: %s", err)
+	}
+	entry := fmt.Sprintf(`%s host`, gateway)
+	if strings.Contains(string(b), entry) {
+		return nil
+	}
+	if _, err := f.WriteString(fmt.Sprintf("\n%s\n", entry)); err != nil {
+		return errors.New("failed to write gateway IP to container's /etc/hosts file")
+	}
+	return nil
 }

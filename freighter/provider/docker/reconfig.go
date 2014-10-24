@@ -45,17 +45,14 @@ func (p *DockerProvider) restore(name, fromID, toID string) error {
 
 		// sanity: note that freighter runs as root; make sure we're deleting
 		// an expected path
-		if !strings.HasPrefix(dst, "/var/lib/docker/aufs/diff/"+toID) {
+		if !strings.HasPrefix(dst, filepath.Join(BaseAUFSDir, "diff", toID)) {
 			return fmt.Errorf("restore: unexpected path %s", dst)
 		}
 		if err := os.RemoveAll(dst); err != nil {
 			return err
 		}
 	}
-	if err := rename(src, dst); err != nil {
-		return err
-	}
-	return nil
+	return rename(src, dst)
 }
 
 // backupPaths returns (dir to backup, location to backup to)

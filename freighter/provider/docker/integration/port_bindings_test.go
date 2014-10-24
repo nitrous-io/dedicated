@@ -25,8 +25,8 @@ var _ = Describe("portBindingsFromDocker test", func() {
 			"PortBindings": ["private:1234:2345", "public:2345:3456", "public::3456", "private::8080"]
 		}`
 		info, err := prov.CreateStart(name, "tianon/true", "secret", configJSON)
-		Expect(err).To(BeNil())
 		defer test.CleanUpContainer(name)
+		Expect(err).To(BeNil())
 
 		config, err := prov.GetConfig(info.ID)
 		Expect(err).To(BeNil())
