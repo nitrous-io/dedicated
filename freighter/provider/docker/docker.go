@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -32,8 +31,6 @@ var (
 	nitrousImages = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
 
 	errNoCommand = errors.New("no command specified")
-
-	defaultDockerGateway string
 )
 
 const nitrousImageEnv = "NITROUS_IMAGE_VERSION"
@@ -44,15 +41,6 @@ func init() {
 	if host := os.Getenv("DOCKER_HOST"); host != "" {
 		dockerHost = host
 	}
-	out, err := exec.Command("ip", "-family", "inet", "addr", "show", "docker0").CombinedOutput()
-	if err != nil {
-		log.Fatalf("Error determining docker gateway: %v", err)
-	}
-	dockerGateway, err := gatewayFromIPOutput(out)
-	if err != nil {
-		log.Fatalf("Error determining docker gateway: %v", err)
-	}
-	defaultDockerGateway = dockerGateway
 }
 
 type TemplateData struct {
@@ -1157,7 +1145,16 @@ func (p *DockerProvider) isNitrousImage(fullName string) bool {
 }
 
 func (p *DockerProvider) setDefaultContainerConfig(c *provider.ContainerConfig) error {
-	c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", defaultDockerGateway))
+	out, err := exec.Command("ip", "-family", "inet", "addr", "show", "docker0").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Error determining docker gateway: %v", err)
+	}
+	dockerGateway, err := gatewayFromIPOutput(out)
+	if err != nil {
+		return fmt.Errorf("Error determining docker gateway: %v", err)
+	}
+	c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", dockerGateway))
+	c.Gateway = dockerGateway
 	return nil
 }
 
