@@ -23,7 +23,6 @@ window.NitrousTerminal =
     @term = term = new Terminal(80, 25)
     term.open(document.body)
     term.sizeToFit()
-    term.write 'Connecting...'
 
     term.on 'resize', (cols, rows) ->
       return if conn.readyState != 1
@@ -77,10 +76,13 @@ window.NitrousTerminal =
   willOpen: ->
     # override me
 
+  clear: ->
+    @term.write '\x1b[r\x1b[H\x1b[J'
+
   didOpen: (ev) ->
     if @firstConnect
       @firstConnect = false
-      @term.write '\x1b[r\x1b[H\x1b[J'
+      @clear()
     else
       @term.write '\r\n'
 

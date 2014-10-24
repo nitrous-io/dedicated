@@ -41,6 +41,7 @@ App.ContainerTerminalView = Em.View.extend
         terminal.init()
         terminal.willOpen = =>
           controller.makeUrlAndConnect(terminal)
+        terminal.term.write 'Connecting...'
         terminal.open()
         terminal.focus()
       iframeDocument.body.appendChild(scriptEl)
