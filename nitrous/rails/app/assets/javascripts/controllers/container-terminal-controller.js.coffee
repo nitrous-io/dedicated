@@ -4,7 +4,7 @@ App.ContainerTerminalController = Em.ObjectController.extend
   fullscreen: false
 
   freighterdUrlBinding: Em.Binding.oneWay 'model.host.freighterdUrl'
-  ready: Em.computed.notEmpty 'freighterdUrl'
+  ready: Em.computed.and 'freighterdUrl', 'config'
 
   makeUrlAndConnect: (terminal) ->
     container = @get 'model'
