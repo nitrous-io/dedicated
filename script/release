@@ -138,7 +138,7 @@ bundle_freighter() {
   mkdir -p $PKGDIR
 
   # default package details
-  PACKAGE_NAME=freighter
+  PACKAGE_NAME=freighterd
   PACKAGE_VERSION=$VERSION
   PACKAGE_DESCRIPTION="Nitrous.IO HTTP frontend for docker"
   PACKAGE_ARCHITECTURE="$(dpkg-architecture -qDEB_HOST_ARCH)"

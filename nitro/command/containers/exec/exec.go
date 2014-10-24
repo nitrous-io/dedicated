@@ -1,4 +1,4 @@
-package run
+package exec
 
 import (
 	"crypto/tls"
@@ -22,7 +22,7 @@ const (
 )
 
 var usage = fmt.Sprintf(`
-Usage: nitro run [OPTIONS] [container] [cmd]
+Usage: nitro exec [OPTIONS] [container] [cmd]
 
   run a command on a container
 
@@ -31,7 +31,7 @@ Options:
 `, nottyUsage)
 
 func init() {
-	command.RegisterAuth("run", NewCommand)
+	command.RegisterAuth("exec", NewCommand)
 }
 
 type Command struct {
@@ -55,7 +55,7 @@ func NewCommand(token string) (cli.Command, error) {
 
 func (c *Command) Run(args []string) int {
 	var noTTY bool
-	cmdFlags := flag.NewFlagSet("run", flag.ContinueOnError)
+	cmdFlags := flag.NewFlagSet("exec", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
 	cmdFlags.BoolVar(&noTTY, "notty", false, nottyUsage)
 

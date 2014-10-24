@@ -150,7 +150,7 @@ var _ = Describe("provider/docker", func() {
 			sshPort := getNetworkSettingsPort(id, "22/tcp")
 			Expect(info.Ports["22"]).To(ContainElement(sshPort))
 			expectExposedPort(info.ID, "22/tcp")
-			Expect(getEnv(id)).To(ContainSubstring("__HOST=172.17.42.1"))
+			Expect(getEnv(id)).To(ContainSubstring(fmt.Sprintf("__HOST=%s", gateway)))
 
 			c := getContainerInfo(id)
 			Expect(info.Cmd).To(Equal(c.Config.Cmd))
@@ -321,7 +321,7 @@ var _ = Describe("provider/docker", func() {
 					// not all config checked against -- elided to avoid test
 					// fragility wrt image changes
 					Expect(config).NotTo(BeNil())
-					Expect(config.Env).To(ContainElement("__HOST=172.17.42.1"))
+					Expect(config.Env).To(ContainElement(fmt.Sprintf("__HOST=%s", getGateway(id))))
 					Expect(config.Mounts).To(HaveLen(1))
 					Expect(strings.HasSuffix(config.Mounts[0], "/nitrous/ssh:ro")).To(BeTrue())
 					Expect(config.Privileged).NotTo(BeTrue())
@@ -1115,7 +1115,7 @@ var _ = Describe("provider/docker", func() {
 				To(Equal("22/tcp 3000 8888"))
 
 			port3000Binding := getPortBindings(id, "3000")
-			Expect(port3000Binding).To(ContainSubstring("HostIp:172.17.42.1"))
+			Expect(port3000Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
 			Expect(port3000Binding).To(ContainSubstring("HostPort:65000"))
 
 			port8888Binding := getPortBindings(id, "8888")
@@ -1144,7 +1144,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(err).To(BeNil())
 
 			port3000Binding = getPortBindings(id, "3000")
-			Expect(port3000Binding).To(ContainSubstring("HostIp:172.17.42.1"))
+			Expect(port3000Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
 			Expect(port3000Binding).To(ContainSubstring("HostPort:65000"))
 
 			vols = getVolumes(id)
@@ -1161,7 +1161,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(err).To(BeNil())
 
 			port4242Binding := getPortBindings(id, "4242/tcp")
-			Expect(port4242Binding).To(ContainSubstring("HostIp:172.17.42.1"))
+			Expect(port4242Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
 			Expect(port4242Binding).To(ContainSubstring("HostPort:65000"))
 			Expect(getPortBindings(id, "3000/tcp")).To(Equal("<no value>"))
 
@@ -2135,6 +2135,45 @@ var _ = Describe("provider/docker", func() {
 			})
 		})
 	})
+
+	Describe("gatewayFromIPOutput", func() {
+		It("returns the correct gateway", func() {
+			cases := []struct {
+				gateway string
+				output  string
+			}{
+				{"10.1.42.1", // positive example, with -family inet
+					`2: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+    inet 10.1.42.1/16 scope global docker0
+    valid_lft forever preferred_lft forever`,
+				},
+				{"172.17.42.1", // positive example, with multiple families
+					`2: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+    link/ether 56:84:7a:fe:97:99 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.42.1/16 scope global docker0
+        valid_lft forever preferred_lft forever
+    inet6 fe80::5484:7aff:fefe:9799/64 scope link
+        valid_lft forever preferred_lft forever`,
+				},
+				{"", ``},
+				{"", // no inet
+					`3: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500
+   inet6 fe80::5484:7aff:fefe:9799/64 scope link
+   valid_lft forever preferred_lft forever`,
+				},
+			}
+
+			for _, c := range cases {
+				gateway, err := docker.GatewayFromIPOutput([]byte(c.output))
+				if c.gateway == "" {
+					Expect(err).To(MatchError("no inet ip address found"))
+				} else {
+					Expect(gateway).To(Equal(c.gateway), "got wrong gateway '%s' for output %s", c.gateway, c.output)
+				}
+			}
+		})
+	})
+
 })
 
 // FakeRoundTripper implements a fake Transport layer that records the executed

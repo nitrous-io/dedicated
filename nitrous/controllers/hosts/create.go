@@ -3,9 +3,11 @@ package hosts
 import (
 	"crypto/rsa"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -15,6 +17,9 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
@@ -31,29 +36,70 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
+var (
+	errContainerCreationFailed = httperror.New(http.StatusInternalServerError, "internal_server_error", "one of the containers failed during creation")
+	errVolumeCreationFailed    = httperror.New(http.StatusInternalServerError, "internal_server_error", "one of the volumes failed during creation")
+)
+
+var (
+	CreateContainerFn = containers.CreateContainer
+	CreateVolumeFn    = volumes.CreateVolume
+	PullImageFn       = images.PullImage
+)
+
+type volumeCreate struct {
+	Slug string `json:"slug"`
+	Name string `json:"name"`
+}
+
+type containerCreate struct {
+	Slug       string   `json:"slug"`
+	Name       string   `json:"name"`
+	Image      string   `json:"image"`
+	Env        []string `json:"env"`
+	Volumes    []string `json:"volumes"`
+	Ports      []string `json:"ports"`
+	Cmd        string   `json:"cmd"`
+	PublishAll bool     `json:"publish_all"`
+}
+
+type hostCreate struct {
+	Name       string            `json:"name"`
+	Size       string            `json:"size"`
+	Region     string            `json:"region"`
+	Slug       string            `json:"slug"`
+	Async      bool              `json:"async"`
+	Containers []containerCreate `json:"containers"`
+	Volumes    []volumeCreate    `json:"volumes"`
+}
+
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
-	var size, regionSlug, slug, name string
 
-	if size = r.FormValue("size"); size == "" {
-		return errSizeRequired
-	}
-	if regionSlug = r.FormValue("region"); regionSlug == "" {
-		return errRegionRequired
-	}
-	if slug = strings.ToLower(r.FormValue("slug")); slug == "" {
-		return errSlugRequired
-	}
-	if name = r.FormValue("name"); name == "" {
-		name = slug
-	}
-
-	ctx, err := newCreateContext(db, env.User, size, regionSlug, slug, name)
+	options, err := buildCreateOptions(r)
 	if err != nil {
 		return err
 	}
 
-	async, _ := strconv.ParseBool(r.FormValue("async"))
+	if options.Size == "" {
+		return errSizeRequired
+	}
+	if options.Region == "" {
+		return errRegionRequired
+	}
+	if options.Slug == "" {
+		return errSlugRequired
+	}
+	if options.Name == "" {
+		options.Name = options.Slug
+	}
+
+	ctx, err := newCreateContext(db, env.User, options.Size, options.Region, options.Slug, options.Name)
+	if err != nil {
+		return err
+	}
+
+	async := options.Async
 	// if async, we will just discard the progress data from hostbuilder. It will
 	// only be outputed into the events stream. The only output we want to
 	// include in async is the host data
@@ -73,7 +119,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		w.Header().Set("X-Accel-Buffering", "no")
 		writer = io.MultiWriter(pp, flusher.NewWriteFlusher(w))
 	}
-	h, err := ctx.run(env, writer, async)
+	h, err := ctx.run(env, writer, async, options.Containers, options.Volumes)
 	if err != nil {
 		return err
 	}
@@ -96,6 +142,28 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func buildCreateOptions(r *http.Request) (hostCreate, error) {
+	var nested struct {
+		Host hostCreate `json:"host"`
+	}
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		decoder := json.NewDecoder(r.Body)
+		err := decoder.Decode(&nested)
+		if err == nil {
+			nested.Host.Slug = strings.ToLower(nested.Host.Slug)
+		}
+		return nested.Host, err
+	} else {
+		nested.Host.Size = r.FormValue("size")
+		nested.Host.Region = r.FormValue("region")
+		nested.Host.Slug = strings.ToLower(r.FormValue("slug"))
+		nested.Host.Name = r.FormValue("name")
+		async, _ := strconv.ParseBool(r.FormValue("async"))
+		nested.Host.Async = async
+		return nested.Host, nil
+	}
+}
+
 // createContext handles the creation of host record and its dependencies in
 // database and propagate the changes to host builder.
 type createContext struct {
@@ -116,7 +184,7 @@ type createContext struct {
 // happens asynchronously, the current host infomation will be returned
 // immediately while we build the host. Otherwise, the default is building the
 // host asynchronously
-func (ctx *createContext) run(env *middleware.Env, writer io.Writer, async bool) (*host.Host, error) {
+func (ctx *createContext) run(env *middleware.Env, writer io.Writer, async bool, containers []containerCreate, volumes []volumeCreate) (*host.Host, error) {
 	h, db := ctx.Host, ctx.db
 
 	// get ca to save to the host
@@ -179,9 +247,18 @@ func (ctx *createContext) run(env *middleware.Env, writer io.Writer, async bool)
 			return err
 		}
 
-		publishHostEvent(env, controllers.EventHostCreated, h)
+		if err = createSharedVolume(env, db, h); err != nil {
+			return err
+		}
 
-		return createSharedVolume(env, db, h)
+		if err = createVolumes(volumes, env, h, writer); err != nil {
+			return err
+		}
+
+		err = createContainers(containers, env, h, writer)
+
+		publishHostEvent(env, controllers.EventHostCreated, h)
+		return err
 	}
 
 	if async {
@@ -396,5 +473,53 @@ func createSharedVolume(env *middleware.Env, db *ndb.Database, h *host.Host) err
 		env.User.Topic(),
 	)
 
+	return nil
+}
+
+func createContainers(containers []containerCreate, env *middleware.Env, h *host.Host, writer io.Writer) error {
+	for index, container := range containers {
+		options := url.Values{
+			"name":        []string{container.Name},
+			"slug":        []string{container.Slug},
+			"image":       []string{container.Image},
+			"env[]":       container.Env,
+			"volume[]":    container.Volumes,
+			"port[]":      container.Ports,
+			"cmd":         []string{container.Cmd},
+			"publish_all": []string{strconv.FormatBool(container.PublishAll)},
+		}
+
+		state := fmt.Sprintf(`{"status": "Creating container %d of %d"}`, index+1, len(containers))
+		stream := flusher.NewWriteFlusher(writer)
+		fmt.Fprintln(stream, state)
+		_, err := PullImageFn(h, url.Values{"repository": options["image"]}, env, writer, nil, false)
+		if err != nil {
+			return err
+		}
+
+		_, err = CreateContainerFn(h, options, env)
+		if err != nil {
+			return errContainerCreationFailed
+		}
+	}
+	return nil
+}
+
+func createVolumes(volumes []volumeCreate, env *middleware.Env, h *host.Host, writer io.Writer) error {
+	for index, volume := range volumes {
+		options := url.Values{
+			"name": []string{volume.Name},
+			"slug": []string{volume.Slug},
+		}
+
+		state := fmt.Sprintf(`{"status": "Creating volume %d of %d"}`, index+1, len(volumes))
+		stream := flusher.NewWriteFlusher(writer)
+		fmt.Fprintln(stream, state)
+		_, err := CreateVolumeFn(h, options, env)
+
+		if err != nil {
+			return errVolumeCreationFailed
+		}
+	}
 	return nil
 }

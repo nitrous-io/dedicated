@@ -1,0 +1,168 @@
+package containers
+
+import (
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/volume"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
+)
+
+var (
+	Reconfig = WithContainerAndHost(reconfig)
+)
+
+func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	hv, err := hostVolumes(db, h)
+	if err != nil {
+		return err
+	}
+
+	r.ParseForm()
+	config, err := prepareConfig(r.PostForm, hv)
+	if err != nil {
+		return err
+	}
+
+	ctx := &reconfigContext{
+		db:     db,
+		cn:     cn,
+		h:      h,
+		hv:     hv,
+		config: config,
+	}
+	async, _ := strconv.ParseBool(r.FormValue("async"))
+
+	if err := cn.Lock(2*time.Minute, env.DB); err != nil {
+		if err == container.ErrLocked {
+			return errContainerLocked
+		}
+		return err
+	}
+	// unlocked in ctx.run
+
+	cn, err = ctx.run(env, async)
+	if err != nil {
+		return err
+	}
+
+	if async {
+		env.Status = http.StatusAccepted
+	} else {
+		env.Status = http.StatusOK
+	}
+
+	env.Data = map[string]interface{}{
+		"container": serializers.SerializeContainer(cn),
+	}
+	return nil
+}
+
+type reconfigContext struct {
+	config *freighterclient.ContainerConfig
+	cn     *container.Container
+	h      *host.Host
+	hv     map[string]*volume.Volume
+
+	db *ndb.Database
+}
+
+func (ctx *reconfigContext) run(env *middleware.Env, async bool) (*container.Container, error) {
+	cn, h, hv, db := ctx.cn, ctx.h, ctx.hv, ctx.db
+	config := ctx.config
+	reconfigureCnr := func() error {
+		var err error
+		defer cn.Unlock(env.DB)
+		defer func() {
+			if err != nil {
+				_ = cn.Update(db) // Ignore error here.
+				env.Events.Publish(
+					controllers.NewEvent(controllers.EventContainerReconfigureFailed, map[string]interface{}{
+						"container": serializers.SerializeContainer(cn),
+						"error":     err.Error(),
+					}),
+					env.User.Topic(),
+				)
+			}
+		}()
+
+		var cl *controllers.FreighterClient
+		cl, err = controllers.NewFreighterClient(db, h)
+		if err != nil {
+			return err
+		}
+
+		var liveContainer *freighterclient.Container
+		liveContainer, err = cl.Reconfig(cn.CID, config)
+		if err != nil {
+			return err
+		}
+		cn = hydrateContainer(cn, liveContainer, h)
+
+		var newConfig *freighterclient.ContainerConfig
+		newConfig, err = cl.Config(cn.CID)
+		if err != nil {
+			return err
+		}
+
+		err = cn.Update(db)
+		if err != nil {
+			env.Logger.Errorf("containers.reconfig: successfully reconfigured container '%+v' in Freighter but failed to update database with '%+v', err: %v", liveContainer, cn, err)
+			return err
+		}
+
+		if err := updateVolumes(db, cn, hv, volumeSlugs(config.Mounts)); err != nil { // log and continue
+			env.Logger.Errorf("containers.reconfig: failed to update volumes on container %s, err: %v", cn.CID, err)
+		}
+
+		env.Events.Publish(
+			controllers.NewEvent(controllers.EventContainerReconfigured, map[string]interface{}{
+				"container": serializers.SerializeContainer(cn),
+				"config":    serializers.SerializeContainerConfig(newConfig),
+			}),
+			env.User.Topic(),
+		)
+
+		return nil
+	}
+
+	if async {
+		go reconfigureCnr()
+		return cn, nil
+	}
+
+	err := reconfigureCnr()
+	if err != nil {
+		return nil, err
+	}
+	return cn, nil
+}
+
+func updateVolumes(d *ndb.Database, cn *container.Container, hv map[string]*volume.Volume, slugs []string) error {
+	tx, err := d.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := cvolume.DeleteContainer(tx, cn); err != nil {
+		tx.Rollback()
+		return err
+	}
+	for _, v := range slugs {
+		cv := cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: hv[v].ID}
+		if err := cv.Insert(tx); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}

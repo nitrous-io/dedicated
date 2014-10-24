@@ -95,7 +95,7 @@ SM.RESTAdapter = Ember.Object.extend
     promise.value = recordArray
     promise
 
-  createRecord: (record, params) ->
+  createRecord: (record, params, options={}) ->
     model = record.constructor
     url = Ember.get(model, "createURL") || Ember.get(model, "url")
 
@@ -105,7 +105,15 @@ SM.RESTAdapter = Ember.Object.extend
       serialized = record.serialize()
       Ember.merge(serialized, params)
 
-      @ajax('POST', url, serialized).done((data, status, jqxhr) ->
+      rootKey = Ember.get(model, 'rootKey')
+      if options.json == true && rootKey
+        json = {}
+        json[rootKey] = serialized
+        serialized = JSON.stringify(json)
+        options.contentType = 'application/json; charset=utf-8'
+        delete options.json
+
+      @ajax('POST', url, serialized, null, options).done((data, status, jqxhr) ->
         if model.rootKey
           data = data[model.rootKey] || {}
         record.load(data)

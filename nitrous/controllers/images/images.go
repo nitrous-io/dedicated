@@ -1,12 +1,15 @@
 package images
 
 import (
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
+
+	"github.com/nitrous-io/nitrous-common/flusher"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -30,6 +33,10 @@ var (
 	errImageAuthFailed  = httperror.New(http.StatusBadRequest, "invalid_request", "you do not have access to this image")
 
 	errInvalidArchive = httperror.New(http.StatusBadRequest, "invalid_request", "not a valid Docker archive")
+)
+
+var (
+	PullImageFn = PullImage
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -297,6 +304,45 @@ func convertImage(img *freighterclient.Image) *image.Image {
 		ActualSize:  img.ActualSize,
 		VirtualSize: img.VirtualSize,
 	}
+}
+
+func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	err := r.ParseForm()
+	if err != nil {
+		return err
+	}
+
+	// if async, we will just discard the progress data from freighter. It will
+	// only be outputed into the events stream. The only output we want to
+	// include in async is the image data
+	async, _ := strconv.ParseBool(r.FormValue("async"))
+
+	pp := &controllers.ProgressPublisher{
+		EventName: controllers.EventImagePulling,
+		Topic:     env.User.Topic(),
+		Events:    env.Events,
+	}
+	var writer io.Writer
+	if async {
+		writer = pp
+	} else {
+		writer = io.MultiWriter(pp, flusher.NewWriteFlusher(w))
+	}
+
+	img, err := PullImageFn(h, r.Form, env, writer, pp, async)
+	if err != nil {
+		return err
+	}
+
+	if async {
+		env.Status = http.StatusAccepted
+	} else {
+		env.Status = http.StatusOK
+	}
+	env.Data = map[string]interface{}{
+		"image": serializers.SerializeImage(img),
+	}
+	return nil
 }
 
 // slugToLower converts the name portion of an image repo to lowercase but

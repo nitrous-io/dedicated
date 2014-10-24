@@ -45,6 +45,7 @@ type Host struct {
 // Create creates the docker container which acts as a container host, and write the
 // progress into w
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
+	w = io.MultiWriter(os.Stdout, w)
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
@@ -87,9 +88,13 @@ func (h *Host) Info() (*host.Info, error) {
 }
 
 func (h *Host) Stop() (*host.Info, error) {
-	err := h.client.StopContainer(h.ID, uint(5))
-	if err != nil {
-		return nil, err
+	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
+		switch err.(type) {
+		case *dockerclient.ContainerNotRunning:
+			return h.Info()
+		default:
+			return nil, err
+		}
 	}
 
 	return h.Info()
@@ -111,7 +116,12 @@ func (h *Host) Start() (*host.Info, error) {
 
 func (h *Host) Restart() (*host.Info, error) {
 	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
-		return nil, err
+		switch err.(type) {
+		case *dockerclient.ContainerNotRunning:
+			// Continue.
+		default:
+			return nil, err
+		}
 	}
 
 	hostConfig := &dockerclient.HostConfig{

@@ -1,7 +1,7 @@
 package containers
 
 import (
-	"database/sql"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -9,14 +9,12 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/lib/pq"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
-	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
@@ -29,12 +27,10 @@ import (
 const defaultLockTime = 1 * time.Minute
 
 var (
-	errSlugRequired      = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errImageNameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "image name is required")
 	errHostNotFound      = middleware.ErrHostNotFound
 	errVolumeNotFound    = httperror.New(http.StatusBadRequest, "invalid_state", "volume not found")
 	errContainerNotFound = httperror.New(http.StatusNotFound, "container_not_found", "container does not exist")
-	errImageNotFound     = httperror.New(http.StatusNotFound, "image_not_found", "image does not exist")
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 	errInvalidCommand    = httperror.New(http.StatusBadRequest, "invalid_request", "container cmd invalid")
 	errContainerLocked   = httperror.New(http.StatusConflict, "container_locked", "container is locked")
@@ -47,16 +43,19 @@ var (
 )
 
 var (
-	Create   = middleware.HostViaForm("host", requiresRunningHost(create))
-	Commit   = WithContainerAndHost(commit)
-	Config   = WithContainerAndHost(config)
-	Show     = WithContainerAndHost(show)
-	Start    = WithContainerAndHost(start)
-	Stop     = WithContainerAndHost(stop)
-	Restart  = WithContainerAndHost(restart)
-	Destroy  = WithContainerAndHost(destroy)
-	Token    = WithContainerAndHost(token)
-	Reconfig = WithContainerAndHost(reconfig)
+	Create  = middleware.HostViaForm("host", requiresRunningHost(create))
+	Commit  = WithContainerAndHost(commit)
+	Config  = WithContainerAndHost(config)
+	Show    = WithContainerAndHost(show)
+	Start   = WithContainerAndHost(start)
+	Stop    = WithContainerAndHost(stop)
+	Restart = WithContainerAndHost(restart)
+	Destroy = WithContainerAndHost(destroy)
+	Token   = WithContainerAndHost(token)
+)
+
+var (
+	PerformCreateFn = CreateContainer
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -87,12 +86,15 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	errorMessages := []string{}
+
 	for _, h := range hosts {
 		liveContainers, freighterErr := freighterList(db, &h)
 
 		savedContainers, err := container.FindAllByHostID(db, h.ID)
 		if err != nil {
-			return err
+			env.Logger.Errorf("unable to find all containers: %v, for host %s", err, h.Slug)
+			errorMessages = append(errorMessages, fmt.Sprintf("Unable to locate containers for %s", h.Slug))
 		}
 
 		if freighterErr != nil {
@@ -105,7 +107,12 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 				}
 			} else {
 				env.Logger.Errorf("freighter err is not nil: %v, for host %s", freighterErr, h.Slug)
-				return freighterErr
+				if strings.HasPrefix(freighterErr.Error(), "freighter:") {
+					errorMessages = append(errorMessages, fmt.Sprintf("Unable to communicate with freighter for host %s", h.Slug))
+				} else {
+					errorMessages = append(errorMessages, fmt.Sprintf("Unable to locate containers for host %s", h.Slug))
+				}
+				continue
 			}
 		}
 
@@ -132,6 +139,9 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Data = map[string]interface{}{
 		"containers": containersResp,
 	}
+	if len(errorMessages) != 0 {
+		env.Data["errors"] = errorMessages
+	}
 	return nil
 }
 
@@ -153,126 +163,23 @@ func freighterList(db db.QueryReceiver, h *host.Host) ([]*freighterclient.Contai
 }
 
 func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-	log := env.Logger
-
-	slug := strings.ToLower(r.FormValue("slug"))
-	name := r.FormValue("name")
-	imageSlug := r.FormValue("image")
-
-	if imageSlug == "" {
-		imageSlug = controllers.DefaultImage
-	}
-
-	if slug == "" {
-		return errSlugRequired
-	}
-
-	if name == "" {
-		name = slug
-	}
-
-	hv, err := hostVolumes(db, h)
+	err := r.ParseForm()
 	if err != nil {
 		return err
 	}
-	config, err := prepareConfig(r.PostForm, hv)
+	res, err := PerformCreateFn(h, r.Form, env)
 	if err != nil {
 		return err
 	}
-
-	cn := &container.Container{
-		UserID: env.User.ID,
-		HostID: h.ID,
-		Slug:   slug,
-		Image:  imageSlug,
-		Name:   sql.NullString{name, true},
-	}
-
-	// Save record to db first to reserve name (since it's globally unique).
-	if err := cn.Insert(db); err != nil {
-		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
-			if validationErr, ok := validations[e.Constraint]; ok {
-				return validationErr
-			}
-		}
-		return err
-	}
-
-	deleteContainer := func(cn *container.Container) {
-		err := cn.DeletePermanently(db)
-		if err != nil {
-			env.Logger.Errorf("Unable to delete container %d that failed on freighter: %v", cn.ID, err)
-		}
-	}
-
-	cl, err := controllers.NewFreighterClient(db, h)
-	if err != nil {
-		deleteContainer(cn)
-		return err
-	}
-
-	var startError error
-	created, err := cl.Create(slug, imageSlug, cn.Secret, config)
-	if err != nil {
-		switch e := err.(type) {
-		case *freighterclient.StartFailedError:
-			// A start failure is fine so we don't delete the container record.
-			startError = e
-		case *freighterclient.InvalidParamError:
-			deleteContainer(cn)
-			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
-		default:
-			deleteContainer(cn)
-			if err == freighterclient.ErrImageNotFound {
-				return errImageNotFound
-			}
-			return err
-		}
-	}
-
-	// Update existing record with new info from Freighter.
-	cn.CID = created.ID
-	cn.Image = created.Image
-	cn.IPAddress = created.Host
-	cn.GatewayIP = created.Gateway
-	cn.Cmd = created.Cmd
-	cn.Entrypoint = created.Entrypoint
-	cn.ExitCode = created.ExitCode
-	cn.StartedAt = timePtr(created.StartedAt)
-	cn.FinishedAt = timePtr(created.FinishedAt)
-
-	if ok := cn.SetState(created.State); !ok { // log and continue
-		log.Errorf("containers.create: Freighter returned container with unexpected state: %v", created.State)
-	}
-
-	if err := cn.Update(db); err != nil { // log and continue
-		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cn)
-	}
-
-	for _, v := range volumeSlugs(config.Mounts) {
-		cv := cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: hv[v].ID}
-		if err := cv.Insert(db); err != nil { // log and continue
-			log.Errorf("containers.create: failed to attach volume %s to container %s", hv[v].Slug, cn.CID)
-		}
-	}
-
-	publishContainerEvent(env, controllers.EventContainerCreated, cn)
 
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"container": serializers.SerializeContainer(cn),
+		"container": res.Container,
 	}
-	if startError != nil {
-		env.Data["error"] = "start_failed"
-		env.Data["error_description"] = startError.Error()
+	if res.ErrorMessage != "" {
+		env.Data["error"] = res.ErrorMessage
+		env.Data["error_description"] = res.ErrorDescription
 	}
-	env.AddEventData(map[string]interface{}{
-		"slug":         cn.Slug,
-		"image":        cn.Image,
-		"host_id":      cn.HostID,
-		"container_id": cn.ID,
-	})
 	return nil
 }
 
@@ -530,49 +437,6 @@ func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	return nil
 }
 
-func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-	log := env.Logger
-
-	cl, err := controllers.NewFreighterClient(db, h)
-	if err != nil {
-		return err
-	}
-
-	hv, err := hostVolumes(db, h)
-	if err != nil {
-		return err
-	}
-
-	r.ParseForm()
-	config, err := prepareConfig(r.PostForm, hv)
-	if err != nil {
-		return err
-	}
-
-	liveContainer, err := cl.Reconfig(cn.CID, config)
-	if err != nil {
-		return err
-	}
-
-	cn = hydrateContainer(cn, liveContainer, h)
-	if err := cn.Update(db); err != nil {
-		log.Errorf("containers.reconfig: successfully reconfigured container '%+v' in Freighter but failed to update database with '%+v', err: %v", liveContainer, cn, err)
-		return err
-	}
-
-	if err := updateVolumes(db, cn, hv, volumeSlugs(config.Mounts)); err != nil { // log and continue
-		log.Errorf("containers.reconfig: failed to update volumes on container %s, err: %v", cn.CID, err)
-	}
-
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"status":    "ok",
-		"container": serializers.SerializeContainer(cn),
-	}
-	return nil
-}
-
 func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error) middleware.Middleware {
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		db := env.DB
@@ -671,6 +535,7 @@ func prepareConfig(form url.Values, hv map[string]*volume.Volume) (*freightercli
 		}
 		c.Cmd = args
 	}
+	c.Privileged, _ = strconv.ParseBool(form.Get("privileged"))
 	c.PublishAll, _ = strconv.ParseBool(form.Get("publish_all"))
 	return c, nil
 }
@@ -706,25 +571,6 @@ func hostVolumes(d db.QueryReceiver, h *host.Host) (map[string]*volume.Volume, e
 		slugsToVols[hv.Slug] = hv
 	}
 	return slugsToVols, nil
-}
-
-func updateVolumes(d *db.Database, cn *container.Container, hv map[string]*volume.Volume, slugs []string) error {
-	tx, err := d.Beginx()
-	if err != nil {
-		return err
-	}
-	if err := cvolume.DeleteContainer(tx, cn); err != nil {
-		tx.Rollback()
-		return err
-	}
-	for _, v := range slugs {
-		cv := cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: hv[v].ID}
-		if err := cv.Insert(tx); err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-	return tx.Commit()
 }
 
 func timePtr(t time.Time) *time.Time {

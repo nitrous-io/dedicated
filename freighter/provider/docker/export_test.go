@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	DefaultDockerGateway = defaultDockerGateway
+	GatewayFromIPOutput = gatewayFromIPOutput
 )
 
 func (p *DockerProvider) ConfigFromContainer(cnr *dockerclient.Container) *provider.ContainerConfig {

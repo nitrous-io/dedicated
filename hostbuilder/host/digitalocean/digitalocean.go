@@ -70,17 +70,19 @@ type Host struct {
 	privateKey *rsa.PrivateKey
 	conn       *ssh.Conn
 	sshKey     *godo.Key
+	uuid       string
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	defer func() {
 		if h.sshKey != nil {
-			fmt.Fprintf(w, "starting: remove temporary ssh key")
+			h.progressLog(w, "Removing key...")
 			_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
 			if err != nil {
-				fmt.Fprintf(w, "failed: remove temporary ssh key")
+				h.progressLog(w, "Removing key...Failed!")
+				hlog(h, "ERROR: Failed to remove key %d", h.sshKey.ID)
 			}
-			fmt.Fprintf(w, "finished: remove temporary ssh key")
+			h.progressLog(w, "Removing key...Done!")
 		}
 	}()
 	steps := []context.Step{
@@ -97,18 +99,19 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	ctx := context.NewContext(h, steps, w)
 	if err := ctx.Execute(); err != nil {
 		if h.droplet != nil {
-			fmt.Fprintf(w, "Canceling host creation...")
+			h.progressLog(w, "Canceling host creation...")
 			if resp, derr := h.Client.Droplets.Delete(h.droplet.ID); derr != nil {
-				fmt.Fprintf(w, "Canceling host creation...Failed!")
+				h.progressLog(w, "Canceling host creation...Failed!")
+				hlog(h, "ERROR: Failed to remove droplet %d", h.droplet.ID)
 				return nil, fmt.Errorf("Failed to destroy after create error: %s, destroy error: %v, resp: %v", err, derr, resp)
 			}
-			fmt.Fprintf(w, "Canceling host creation...Done!")
+			h.progressLog(w, "Canceling host creation...Done!")
 		}
 		return nil, err
 	}
 
 	info := h.dropletToInfo()
-	fmt.Fprintf(w, "finished: the droplet should be ready now")
+	h.progressLog(w, "Provisioning host...Done!")
 	return info, nil
 }
 
@@ -241,10 +244,18 @@ func (h *Host) ipAddress() string {
 	return h.droplet.Networks.V4[0].IPAddress
 }
 
+// progressLog writes the message to the given writer and logs the message,
+// prefixing host information.  It is used for user-facing messages.  Use
+// `hlog` for internal logging.
+func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
+	fmt.Fprintf(w, format, v...)
+	hlog(h, format, v...)
+}
+
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		log.Printf("digitalocean: invalid config %s", config)
+		log.Printf("uuid=%s digitalocean: invalid config %s", defaultConfig["uuid"], config)
 		return nil, err
 	}
 	if defaultConfig["token"] == "" {
@@ -257,6 +268,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	host := &Host{
 		Config: hostConfig,
 		Client: client,
+		uuid:   defaultConfig["uuid"],
 	}
 	return host, nil
 }
@@ -320,7 +332,7 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 			return err
 		}
 	} else {
-		log.Printf("[WARNING] digitalocean does not return action data for host %+v", hst)
+		hlog(h, "[WARNING] digitalocean does not return action data for host %+v", hst)
 		return nil
 	}
 
@@ -343,7 +355,7 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("SSH READY for droplet %v", h.droplet.ID)
+	hlog(h, "SSH READY for droplet %v", h.droplet.ID)
 	h.conn = sshConn
 	return nil
 }
@@ -387,7 +399,7 @@ func writeFile(h *Host, files map[string]io.Reader) error {
 		}
 		flist = append(flist, dest)
 	}
-	log.Printf("Uploaded (%s) to %v", strings.Join(flist, " "), h.ipAddress())
+	hlog(h, "Uploaded (%s) to %v", strings.Join(flist, " "), h.ipAddress())
 	return nil
 }
 
@@ -400,7 +412,7 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 	if err := h.conn.Upload(host.SourceLocation, sourceData); err != nil {
 		return err
 	}
-	log.Printf("Uploaded apt details at %v", h.ipAddress())
+	hlog(h, "Uploaded apt details at %v", h.ipAddress())
 	return nil
 }
 
@@ -411,6 +423,17 @@ func updateSoftware(ctx *context.Context, hst host.Host) error {
 	if err := h.conn.Execute(updateSoftwareCmd); err != nil {
 		return err
 	}
-	log.Printf("Updated software on %v", h.ipAddress())
+	hlog(h, "Updated software on %v", h.ipAddress())
 	return nil
+}
+
+func hlog(h *Host, format string, v ...interface{}) {
+	parts := []string{}
+	if h.uuid != "" {
+		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+	}
+	if h.droplet != nil {
+		parts = append(parts, fmt.Sprintf("droplet=%d", h.droplet.ID))
+	}
+	log.Printf(fmt.Sprintf("%s %s", strings.Join(parts, " "), format), v...)
 }

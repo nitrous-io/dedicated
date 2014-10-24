@@ -36,7 +36,7 @@ var _ = Describe("WaitForServer", func() {
 	})
 
 	It("should return false if the server times out", func(done Done) {
-		clientTimeout := 100
+		clientTimeout := 150
 
 		timeoutHandler := ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", "/"),
@@ -49,13 +49,13 @@ var _ = Describe("WaitForServer", func() {
 		defer server.Close()
 		server.AppendHandlers(timeoutHandler, timeoutHandler)
 
-		attemptTimes := []time.Duration{50 * time.Millisecond, 50 * time.Millisecond}
+		attemptTimes := []time.Duration{100 * time.Millisecond, 100 * time.Millisecond}
 
 		start := time.Now()
 		Expect(host.WaitForServer(server.URL(), time.Duration(clientTimeout)*time.Millisecond, attemptTimes)).To(BeFalse())
 		finished := time.Now()
-		Expect(finished).To(BeTemporally(">=", start.Add(time.Duration(2*clientTimeout+1*50)*time.Millisecond)))
-		Expect(finished).To(BeTemporally("<=", start.Add(time.Duration(2*clientTimeout+2*50)*time.Millisecond)))
+		Expect(finished).To(BeTemporally(">=", start.Add(time.Duration(2*clientTimeout+1*100)*time.Millisecond)))
+		Expect(finished).To(BeTemporally("<=", start.Add(time.Duration(2*clientTimeout+2*100)*time.Millisecond)))
 		Expect(server.ReceivedRequests()).To(HaveLen(2))
 		close(done)
 	})

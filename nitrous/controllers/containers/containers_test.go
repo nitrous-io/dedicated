@@ -114,6 +114,8 @@ var _ = Describe("controllers/containers", func() {
 				User: u,
 			}
 
+			handlerCalled = false
+
 			h := func(w http.ResponseWriter, r *http.Request) {
 				mw := containers.WithContainerAndHost(func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 					Expect(cn).NotTo(BeNil())
@@ -264,22 +266,62 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].TerminatedAt).To(BeNil())
 		})
 
-		Context("when the Freighter client returns an error", func() {
+		Context("when the Freighter client returns a freighter error", func() {
+			BeforeEach(func() {
+				mockClient.ListError = errors.New("freighter: you are not Chuck Norris")
+			})
+
+			It("lets the request continue but returns a list of errors", func() {
+				doRequest("valid-token", "foo")
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Errors []string `json:"errors"`
+				}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Errors).To(ConsistOf("Unable to communicate with freighter for host foo"))
+			})
+		})
+
+		Context("when the Freighter client returns a generic error", func() {
 			BeforeEach(func() {
 				mockClient.ListError = errors.New("you are not Chuck Norris")
 			})
 
-			It("responds with HTTP 500 Internal Server Error", func() {
+			It("lets the request continue but returns a list of errors", func() {
 				doRequest("valid-token", "foo")
 
-				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Errors []string `json:"errors"`
+				}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Errors).To(ConsistOf("Unable to locate containers for host foo"))
+			})
+		})
+
+		Context("when the Freighter client returns no error", func() {
+			BeforeEach(func() {
+				mockClient.ListError = nil
+				mockClient.Containers = []*freighterclient.Container{}
+			})
+
+			It("it should not include the errors key in the body", func() {
+				doRequest("valid-token", "foo")
+
+				Expect(res.Code).To(Equal(http.StatusOK))
 
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 
-				errType, _ := j["error"].(string)
-				Expect(errType).To(Equal("internal_server_error"))
+				Expect(j).ToNot(HaveKey("errors"))
 			})
 		})
 
@@ -632,6 +674,13 @@ var _ = Describe("controllers/containers", func() {
 
 	Describe("POST /api/v0/containers", func() {
 		var params *url.Values
+		var createResult *containers.CreateResult
+		var createError error
+
+		var receivedHost *host.Host
+		var receivedOptions url.Values
+
+		var previousCreateFn func(*host.Host, url.Values, *middleware.Env) (*containers.CreateResult, error)
 
 		BeforeEach(func() {
 			params = &url.Values{}
@@ -653,6 +702,12 @@ var _ = Describe("controllers/containers", func() {
 				Image:   "elixir",
 				ImageID: "abc123",
 			}
+
+			createResult = nil
+			createError = nil
+
+			receivedHost = nil
+			receivedOptions = url.Values{}
 		})
 
 		doRequest := func(token, host string, params *url.Values) {
@@ -668,305 +723,80 @@ var _ = Describe("controllers/containers", func() {
 			handler.ServeHTTP(res, req)
 		}
 
-		expectSerializedContainer := func(cn *serializers.Container, c *container.Container) {
-			Expect(cn.ID).To(Equal(c.ID))
-			Expect(cn.CID).To(Equal("deadbeef"))
-			Expect(cn.UserID).To(Equal(u.ID))
-			Expect(cn.HostID).To(Equal(hs.H.ID))
-			Expect(cn.Image).To(Equal("elixir"))
-			Expect(cn.Slug).To(Equal("elixir-web-1"))
-			Expect(cn.IPAddress).To(Equal(""))
-			Expect(cn.GatewayIP).To(Equal(""))
-			Expect(cn.State).To(Equal(container.StateRunning.String()))
-			Expect(cn.Name).To(Equal("Elixir Web Server 1"))
-		}
+		BeforeEach(func() {
+			previousCreateFn = containers.PerformCreateFn
+			containers.PerformCreateFn = func(h *host.Host, options url.Values, env *middleware.Env) (*containers.CreateResult, error) {
+				receivedHost = h
+				receivedOptions = options
 
-		It("calls the Freighter client to create a container", func() {
-			mockClient.CreateError = errors.New("create failed")
-
-			doRequest("valid-token", "foo", params)
-
-			Expect(mockClient.CreateCalled).To(Equal(1))
-			Expect(mockClient.ReceivedName).To(Equal("elixir-web-1"))
-			Expect(mockClient.ReceivedImage).To(Equal("elixir"))
-			conf := mockClient.ReceivedConfig
-			Expect(conf.Env).To(ConsistOf("LANG=C", "NODE=nope"))
-			Expect(conf.PortBindings).To(ConsistOf("3000:8080", "0.0.0.0::4552", "0.0.0.0:8081:11211"))
+				return createResult, createError
+			}
 		})
 
-		It("creates a new container record", func() {
-			doRequest("valid-token", "foo", params)
-			c, err := container.Find(db, u, "elixir-web-1")
-			Expect(err).To(BeNil())
-			Expect(c.Slug).To(Equal("elixir-web-1"))
-			Expect(c.Image).To(Equal("elixir"))
-			Expect(c.Name.String).To(Equal("Elixir Web Server 1"))
-			Expect(mockClient.ReceivedSecret).To(Equal(c.Secret))
+		AfterEach(func() {
+			containers.PerformCreateFn = previousCreateFn
+			createResult = nil
+			createError = nil
+			receivedHost = nil
+			receivedOptions = nil
 		})
 
-		It("converts the 'slug' form value to lowercase", func() {
-			params.Del("slug")
-			params.Set("slug", "Elixir-WEB-1")
+		It("should return an error if the call to Create fails", func() {
+			createError = errors.New("Unable to make TCP connection")
 
 			doRequest("valid-token", "foo", params)
-			Expect(mockClient.CreateCalled).To(Equal(1))
-			Expect(mockClient.ReceivedName).To(Equal("elixir-web-1"))
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
-			c, err := container.Find(db, u, "elixir-web-1")
-			Expect(err).To(BeNil())
-			Expect(c.Slug).To(Equal("elixir-web-1"))
+			Expect(receivedHost.ID).To(Equal(hs.H.ID))
+			Expect(receivedOptions).To(Equal(*params))
 		})
 
-		It("responds with HTTP 201 Created and the container", func() {
-			doRequest("valid-token", "foo", params)
+		It("should return a serialized form of the Container", func() {
+			createResult = &containers.CreateResult{
+				Container: &serializers.Container{
+					ID:    232,
+					CID:   "x23",
+					State: "starting",
+					Image: "img1",
+				},
+			}
 
+			doRequest("valid-token", "foo", params)
 			Expect(res.Code).To(Equal(http.StatusCreated))
 
-			var j struct {
-				Container *serializers.Container `json:"container"`
+			var des struct {
+				Container *serializers.Container
 			}
-			err := json.NewDecoder(res.Body).Decode(&j)
+			err := json.NewDecoder(res.Body).Decode(&des)
 			Expect(err).To(BeNil())
-
-			c, err := container.Find(db, u, "elixir-web-1")
-			Expect(err).To(BeNil())
-			expectSerializedContainer(j.Container, c)
+			Expect(*des.Container).To(Equal(*createResult.Container))
 		})
 
-		It("publishes a container created event with the created container", func(done Done) {
-			ch := svr.Events.Subscribe(u.Topic())
-			defer svr.Events.Unsubscribe(ch, u.Topic())
+		It("should return a error information if provided", func() {
+			createResult = &containers.CreateResult{
+				Container: &serializers.Container{
+					ID:    232,
+					CID:   "x23",
+					State: "starting",
+					Image: "img1",
+				},
+				ErrorMessage:     "validation_error",
+				ErrorDescription: "Name is empty",
+			}
 
 			doRequest("valid-token", "foo", params)
+			Expect(res.Code).To(Equal(http.StatusCreated))
 
-			var evt *controllers.Event
-			for msg := range ch { // Ignore all events except container created.
-				e, ok := msg.(*controllers.Event)
-				if ok && e.Name == controllers.EventContainerCreated {
-					evt = e
-					break
-				}
+			var des struct {
+				Container        *serializers.Container `json:"container"`
+				Error            string                 `json:"error"`
+				ErrorDescription string                 `json:"error_description"`
 			}
-			Expect(evt.Name).To(Equal(controllers.EventContainerCreated))
-			evtData, ok := evt.Data.(map[string]*serializers.Container)
-			Expect(ok).To(BeTrue())
-			c, err := container.Find(db, u, "elixir-web-1")
+			err := json.NewDecoder(res.Body).Decode(&des)
 			Expect(err).To(BeNil())
-			expectSerializedContainer(evtData["container"], c)
-
-			close(done)
-		})
-
-		Context("when the Freighter client returns an error", func() {
-			BeforeEach(func() {
-				mockClient.CreateError = errors.New("only Chuck Norris is allowed")
-			})
-
-			It("does not create a new container record", func() {
-				doRequest("valid-token", "foo", params)
-				c, err := container.Find(db, u, "elixir-web-1")
-				Expect(err).To(BeNil())
-				Expect(c).To(BeNil())
-			})
-
-			It("responds with HTTP 500 Internal Server Error", func() {
-				doRequest("valid-token", "foo", params)
-
-				Expect(res.Code).To(Equal(http.StatusInternalServerError))
-				errType, _ := ErrorSlug(res.Body)
-				Expect(errType).To(Equal("internal_server_error"))
-			})
-
-			Context("when the error is a StartFailedError", func() {
-				BeforeEach(func() {
-					mockClient.CreateError = &freighterclient.StartFailedError{"start failed: could not bind port 22"}
-				})
-
-				It("responds with HTTP 201 Created with both the container and the error", func() {
-					doRequest("valid-token", "foo", params)
-
-					Expect(res.Code).To(Equal(http.StatusCreated))
-
-					var j struct {
-						Container        *serializers.Container `json:"container"`
-						Error            string                 `json:"error"`
-						ErrorDescription string                 `json:"error_description"`
-					}
-					err := json.NewDecoder(res.Body).Decode(&j)
-					Expect(err).To(BeNil())
-
-					Expect(j.Error).To(Equal("start_failed"))
-					Expect(j.ErrorDescription).To(ContainSubstring("start failed: could not bind port 22"))
-
-					c, err := container.Find(db, u, "elixir-web-1")
-					Expect(err).To(BeNil())
-					expectSerializedContainer(j.Container, c)
-				})
-			})
-
-			Context("when the error is an InvalidParamError", func() {
-				BeforeEach(func() {
-					mockClient.CreateError = &freighterclient.InvalidParamError{"invalid name"}
-				})
-
-				It("responds with HTTP 400 Bad Request", func() {
-					doRequest("valid-token", "foo", params)
-
-					Expect(res.Code).To(Equal(http.StatusBadRequest))
-					errType, _ := ErrorSlug(res.Body)
-					Expect(errType).To(Equal("validation_failed"))
-				})
-			})
-
-			Context("when the error is an ErrImageNotFound", func() {
-				BeforeEach(func() {
-					mockClient.CreateError = freighterclient.ErrImageNotFound
-				})
-
-				It("responds with HTTP 404 Not Found", func() {
-					doRequest("valid-token", "foo", params)
-
-					Expect(res.Code).To(Equal(http.StatusNotFound))
-					errType, errDesc := ErrorSlug(res.Body)
-					Expect(errType).To(Equal("image_not_found"))
-					Expect(errDesc).To(Equal("image does not exist"))
-				})
-			})
-		})
-
-		Context("when name is already taken", func() {
-			BeforeEach(func() {
-				c := &container.Container{
-					CID:    "facecafe",
-					Slug:   "elixir-web-1",
-					Image:  "nitrous-base",
-					UserID: u.ID,
-					HostID: hs.H.ID,
-				}
-				err := c.Insert(db)
-				Expect(err).To(BeNil())
-			})
-
-			It("responds with HTTP 400 Bad Request", func() {
-				doRequest("valid-token", "foo", params)
-
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				errType, errDesc := ErrorSlug(res.Body)
-				Expect(errType).To(Equal("validation_failed"))
-				Expect(errDesc).To(Equal("slug is taken"))
-			})
-		})
-
-		Context("when slug param is not given", func() {
-			BeforeEach(func() {
-				params.Del("slug")
-			})
-
-			It("responds with HTTP 400 Bad Request", func() {
-				doRequest("valid-token", "foo", params)
-
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				errType, errDesc := ErrorSlug(res.Body)
-				Expect(errType).To(Equal("invalid_request"))
-				Expect(errDesc).To(Equal("slug is required"))
-			})
-		})
-
-		Context("when image param is not given", func() {
-			BeforeEach(func() {
-				params.Del("image")
-
-				mockClient.CreatedContainer = &freighterclient.Container{
-					ID:    "deadbeef",
-					Name:  "freighter.elixir-web-1",
-					Host:  "1.2.3.4",
-					State: "running",
-					Image: controllers.DefaultImage,
-				}
-			})
-
-			It("uses the default image", func() {
-				doRequest("valid-token", "foo", params)
-
-				Expect(res.Code).To(Equal(http.StatusCreated))
-
-				var j struct {
-					Container *serializers.Container `json:"container"`
-				}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-				Expect(j.Container.Image).To(Equal(controllers.DefaultImage))
-			})
-		})
-
-		Context("when host is not running", func() {
-			BeforeEach(func() {
-				hs.H.State = host.StateStopped
-				err := hs.H.Update(db)
-				Expect(err).To(BeNil())
-			})
-
-			It("returns HTTP 503 Service Unavailable", func() {
-				doRequest("valid-token", "foo", params)
-
-				Expect(res.Code).To(Equal(http.StatusServiceUnavailable))
-				errType, errDesc := ErrorSlug(res.Body)
-				Expect(errType).To(Equal("service_unavailable"))
-				Expect(errDesc).To(Equal("host is not running"))
-			})
-		})
-
-		Context("with volumes param", func() {
-			BeforeEach(func() {
-				params.Add("volume[]", "music:/mpd/albums")
-				params.Add("volume[]", "backups")
-			})
-
-			It("returns success if volume does exist", func() {
-				v := &volume.Volume{HostID: hs.H.ID, Slug: "music"}
-				err := v.Insert(db)
-				Expect(err).To(BeNil())
-				v2 := &volume.Volume{HostID: hs.H.ID, Slug: "backups"}
-				err = v2.Insert(db)
-				Expect(err).To(BeNil())
-				doRequest("valid-token", "foo", params)
-
-				Expect(res.Code).To(Equal(http.StatusCreated))
-				var j struct {
-					Status    string                 `json:"status"`
-					Container *serializers.Container `json:"container"`
-				}
-				err = json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-				conf := mockClient.ReceivedConfig
-				Expect(conf.Mounts).To(HaveLen(2))
-				Expect(conf.Mounts).To(ContainElement("music:/mpd/albums"))
-				Expect(conf.Mounts).To(ContainElement("backups"))
-				cv, err := cvolume.Find(db, &container.Container{ID: j.Container.ID}, v)
-				Expect(err).To(BeNil())
-				Expect(cv.VolumeID).To(Equal(v.ID))
-				cv2, err := cvolume.Find(db, &container.Container{ID: j.Container.ID}, v2)
-				Expect(err).To(BeNil())
-				Expect(cv2.VolumeID).To(Equal(v2.ID))
-			})
-
-			It("returns error if volume does not exist", func() {
-				doRequest("valid-token", "foo", params)
-
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				_, errDesc := ErrorSlug(res.Body)
-				Expect(errDesc).To(ContainSubstring("volume not found"))
-			})
-
-		})
-
-		Context("oauth token failure modes", func() {
-			BeforeEach(func() {
-				authTokenInputs.Path = "/api/v0/containers"
-				authTokenInputs.Method = "POST"
-			})
-
-			ItRequiresAuthToken(&authTokenInputs)
+			Expect(*des.Container).To(Equal(*createResult.Container))
+			Expect(des.Error).To(Equal("validation_error"))
+			Expect(des.ErrorDescription).To(Equal("Name is empty"))
 		})
 	})
 
@@ -1497,6 +1327,7 @@ var _ = Describe("controllers/containers", func() {
 			mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
 				PortBindings: []string{"4040:5050", "4000:3000"},
 				Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+				Mounts:       []string{"database-75:/var/lib/postgresql/data"},
 				Cmd:          []string{"/bin/yes"},
 			}
 
@@ -1512,6 +1343,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Config.Cmd).To(Equal(mockClient.ConfigContainerConfig.Cmd))
 			Expect(j.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
 			Expect(j.Config.Ports).To(Equal(mockClient.ConfigContainerConfig.PortBindings))
+			Expect(j.Config.Mounts).To(Equal(mockClient.ConfigContainerConfig.Mounts))
 		})
 
 		It("responds with 404 if container is not present", func() {
@@ -1888,16 +1720,25 @@ var _ = Describe("controllers/containers", func() {
 			Expect(pbs).To(ConsistOf("3030:4040", "5050:6060"))
 		})
 
+		Context("privileged option", func() {
+			It("defaults to false", func() {
+				Expect(getConfs().Privileged).To(BeFalse())
+			})
+
+			It("can be set to true", func() {
+				form.Add("privileged", "true")
+				Expect(getConfs().Privileged).To(BeTrue())
+			})
+		})
+
 		Context("publish all option", func() {
 			It("defaults to false", func() {
-				publishAll := getConfs().PublishAll
-				Expect(publishAll).To(BeFalse())
+				Expect(getConfs().PublishAll).To(BeFalse())
 			})
 
 			It("can be set to true", func() {
 				form.Add("publish_all", "1")
-				publishAll := getConfs().PublishAll
-				Expect(publishAll).To(BeTrue())
+				Expect(getConfs().PublishAll).To(BeTrue())
 			})
 		})
 
@@ -1944,17 +1785,15 @@ var _ = Describe("controllers/containers", func() {
 		var (
 			containerName = "elixir-web-1"
 			c             *container.Container
+			testParams    = &url.Values{
+				"env[]":       []string{"LANG=C", "NODE=nope"},
+				"volume[]":    []string{"music"},
+				"port[]":      []string{"3000:8080", "public::4552", "public:8081:11211"},
+				"publish_all": []string{"0"},
+			}
 		)
 
-		doRequest := func() {
-			params := &url.Values{}
-			params.Add("env[]", "LANG=C")
-			params.Add("env[]", "NODE=nope")
-			params.Add("volume[]", "music")
-			params.Add("port[]", "3000:8080")
-			params.Add("port[]", "0.0.0.0::4552")
-			params.Add("port[]", "0.0.0.0:8081:11211")
-
+		doRequest := func(params *url.Values) {
 			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/containers/%s/reconfig", containerName), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
@@ -1983,23 +1822,26 @@ var _ = Describe("controllers/containers", func() {
 				State: "running",
 				Image: "deadbeef-reconfig-image",
 			}
+			mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{}
 		})
 
 		It("calls the Freighter client with config from params", func() {
-			doRequest()
+			doRequest(testParams)
 			Expect(mockClient.ReconfigCalled).To(Equal(1))
 			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
+			Expect(mockClient.ConfigCalled).To(Equal(1))
+			Expect(mockClient.ConfigID).To(Equal("livebeef"))
 			conf := mockClient.ReceivedConfig
 			Expect(conf.Env).To(Equal([]string{"LANG=C", "NODE=nope"}))
 			Expect(conf.Mounts).To(Equal([]string{"music"}))
 			Expect(conf.PortBindings).To(HaveLen(3))
 			Expect(conf.PortBindings).To(ContainElement("3000:8080"))
-			Expect(conf.PortBindings).To(ContainElement("0.0.0.0::4552"))
-			Expect(conf.PortBindings).To(ContainElement("0.0.0.0:8081:11211"))
+			Expect(conf.PortBindings).To(ContainElement("public::4552"))
+			Expect(conf.PortBindings).To(ContainElement("public:8081:11211"))
 		})
 
 		It("responds with the container from Freighter and augments it with data from the database", func() {
-			doRequest()
+			doRequest(testParams)
 
 			Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -2022,12 +1864,13 @@ var _ = Describe("controllers/containers", func() {
 		})
 
 		It("updates container record", func() {
-			doRequest()
+			doRequest(testParams)
 
 			c, err := container.Find(db, hs.U, containerName)
 			Expect(err).To(BeNil())
 			Expect(c.CID).To(Equal("livebeef"))
 			Expect(c.Image).To(Equal("deadbeef-reconfig-image"))
+			Expect(c.LockedAt).To(BeNil())
 		})
 
 		It("updates volumes", func() {
@@ -2039,7 +1882,7 @@ var _ = Describe("controllers/containers", func() {
 			cv := &cvolume.ContainerVolume{ContainerID: c.ID, VolumeID: v.ID}
 			err = cv.Insert(db)
 			Expect(err).To(BeNil())
-			doRequest()
+			doRequest(testParams)
 			cvs := []*cvolume.ContainerVolume{}
 			err = db.Select(&cvs, `SELECT cv.id, container_id, volume_id, cv.created_at
 				FROM container_volumes cv
@@ -2059,12 +1902,174 @@ var _ = Describe("controllers/containers", func() {
 			})
 
 			It("responds with HTTP 500 Internal Server Error", func() {
-				doRequest()
+				doRequest(testParams)
 
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
 				errType, _ := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("internal_server_error"))
+			})
+		})
+
+		Context("when called in async mode and freighter is successful", func() {
+			var asyncParams = &url.Values{
+				"async":       []string{"1"},
+				"env[]":       []string{"LANG=C"},
+				"volume[]":    []string{"music"},
+				"port[]":      []string{"3000:8080", "public::4552"},
+				"publish_all": []string{"0"},
+			}
+
+			It("responds 202 accepted and calls freighter asynchronously", func() {
+				doRequest(asyncParams)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				var j struct {
+					Container       *serializers.Container       `json:"container"`
+					ContainerConfig *serializers.ContainerConfig `json:"config"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Container.CID).To(Equal("deadbeef"), "container CID should not have changed")
+			})
+
+			It("updates the container record eventually", func() {
+				doRequest(asyncParams)
+
+				Eventually(func() (string, error) {
+					cn, err := container.Find(db, u, containerName)
+					return cn.CID, err
+				}).Should(Equal("livebeef"))
+
+				Eventually(func() (*time.Time, error) {
+					cn, err := container.Find(db, u, containerName)
+					return cn.LockedAt, err
+				}).Should(BeNil())
+			})
+
+			It("publishes success event", func() {
+				mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
+
+					PortBindings: []string{"private:3000:8080", "public:49123:4552", "public:8081:11211"},
+					Mounts:       []string{"music"},
+					Env:          []string{"LANG=C", "NODE=nope"},
+					Cmd:          []string{"/bin/yes"},
+				}
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(asyncParams)
+
+				evtCh := make(chan *controllers.Event, 1)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventContainerReconfigured {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(100 * time.Millisecond):
+					Fail("timeout while waiting for EventContainerReconfigured")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventContainerReconfigured))
+
+					data, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(data["container"]).NotTo(BeNil())
+
+					cnrData, ok := data["container"].(*serializers.Container)
+					Expect(ok).To(BeTrue())
+					Expect(cnrData.CID).To(Equal("livebeef"))
+
+					cnrConfig, ok := data["config"].(*serializers.ContainerConfig)
+					Expect(ok).To(BeTrue())
+					Expect(cnrConfig.Mounts).To(Equal([]string{"music"}))
+					Expect(cnrConfig.Ports).To(ConsistOf([]string{"private:3000:8080", "public:49123:4552", "public:8081:11211"}))
+				}
+			})
+		})
+
+		Context("when called in async mode and freighter is unsuccessful", func() {
+			var asyncParams = &url.Values{
+				"async":       []string{"1"},
+				"env[]":       []string{"LANG=C"},
+				"volume[]":    []string{"music"},
+				"port[]":      []string{"3000:8080", "public::4552"},
+				"publish_all": []string{"0"},
+			}
+
+			BeforeEach(func() {
+				mockClient.ReconfigError = errors.New("container blew up")
+			})
+
+			It("responds 202 accepted and calls freighter asynchronously", func() {
+				doRequest(asyncParams)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				var j struct {
+					Container       *serializers.Container       `json:"container"`
+					ContainerConfig *serializers.ContainerConfig `json:"config"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Container.CID).To(Equal("deadbeef"), "container CID should not have changed")
+			})
+
+			It("does not update the container record apart from unlocking", func() {
+				doRequest(asyncParams)
+
+				Eventually(func() (*time.Time, error) {
+					cn, err := container.Find(db, u, containerName)
+					return cn.LockedAt, err
+				}).Should(BeNil())
+			})
+
+			It("publishes failure event", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(asyncParams)
+
+				evtCh := make(chan *controllers.Event, 1)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventContainerReconfigureFailed {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(100 * time.Millisecond):
+					Fail("timeout while waiting for EventContainerReconfigureFailed")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventContainerReconfigureFailed))
+
+					data, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(data["container"]).NotTo(BeNil())
+					cnrData, ok := data["container"].(*serializers.Container)
+					Expect(ok).To(BeTrue())
+					Expect(cnrData.CID).To(Equal("deadbeef"))
+
+					errorMsg, ok := data["error"].(string)
+					Expect(ok).To(BeTrue())
+					Expect(errorMsg).To(Equal("container blew up"))
+				}
+
+				cn, err := container.Find(db, u, containerName)
+				Expect(err).To(BeNil())
+				Expect(cn.CID).To(Equal("deadbeef"))
 			})
 		})
 

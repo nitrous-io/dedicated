@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -32,7 +33,6 @@ var (
 	errNoCommand = errors.New("no command specified")
 )
 
-const defaultDockerGateway = "172.17.42.1"
 const nitrousImageEnv = "NITROUS_IMAGE_VERSION"
 const defaultDockerRegistry = "index.docker.io"
 const dockerRegistryImageEndpoint = "registry-1.docker.io"
@@ -162,7 +162,10 @@ func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*pr
 	if err != nil {
 		return nil, err
 	}
-	setDefaultContainerConfig(cfg)
+	err = p.setDefaultContainerConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	cfg.Hostname = name
 	cfg.Image = imageName
 
@@ -249,7 +252,10 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 	if err != nil {
 		return nil, err
 	}
-	setDefaultContainerConfig(cfg)
+	err = p.setDefaultContainerConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	cfg.Hostname = container.Config.Hostname
 	cfg.Image = container.Config.Image
 
@@ -1138,6 +1144,20 @@ func (p *DockerProvider) isNitrousImage(fullName string) bool {
 	return false
 }
 
+func (p *DockerProvider) setDefaultContainerConfig(c *provider.ContainerConfig) error {
+	out, err := exec.Command("ip", "-family", "inet", "addr", "show", "docker0").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Error determining docker gateway: %v", err)
+	}
+	dockerGateway, err := gatewayFromIPOutput(out)
+	if err != nil {
+		return fmt.Errorf("Error determining docker gateway: %v", err)
+	}
+	c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", dockerGateway))
+	c.Gateway = dockerGateway
+	return nil
+}
+
 func buildDockerConfig(config *dockerclient.Config, imageId string) *provider.DockerConfig {
 	if config == nil {
 		return nil
@@ -1244,10 +1264,6 @@ func containerConfigFromJSON(jsonStr string) (*provider.ContainerConfig, error) 
 	return cfg, nil
 }
 
-func setDefaultContainerConfig(c *provider.ContainerConfig) {
-	c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", defaultDockerGateway))
-}
-
 func convertConfig(dcConfig *dockerclient.Config) *provider.DockerConfig {
 	cnrConfig := &provider.DockerConfig{
 		ExposedPorts: map[string]struct{}{},
@@ -1261,4 +1277,19 @@ func convertConfig(dcConfig *dockerclient.Config) *provider.DockerConfig {
 		cnrConfig.ExposedPorts[string(k)] = v
 	}
 	return cnrConfig
+}
+
+// gatewayFromIPOutput takes the output of `ip addr show docker0` (do not turn
+// off inet family via options) and returns the docker gateway ip
+func gatewayFromIPOutput(output []byte) (string, error) {
+	// output looks like
+	// 2: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+	//     inet 10.1.42.1/16 scope global docker0
+	//        valid_lft forever preferred_lft forever
+	re := regexp.MustCompile(`inet ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/`)
+	match := re.FindSubmatch(output)
+	if match == nil || len(match) != 2 {
+		return "", fmt.Errorf("no inet ip address found")
+	}
+	return string(match[1]), nil
 }
