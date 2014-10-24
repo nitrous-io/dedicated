@@ -179,7 +179,7 @@ func parseMountSpec(mspec string, hostVolsPath string) (string, error) {
 func portBindingsToDocker(cfg *provider.ContainerConfig) (map[dockerclient.Port][]dockerclient.PortBinding, error) {
 	bindings := map[dockerclient.Port][]dockerclient.PortBinding{}
 	for _, portSpec := range cfg.PortBindings {
-		p, pb, err := parsePortSpec(portSpec, defaultDockerGateway)
+		p, pb, err := parsePortSpec(portSpec, cfg.Gateway)
 		if err != nil {
 			return nil, err
 		}
