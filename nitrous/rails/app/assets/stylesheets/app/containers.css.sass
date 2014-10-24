@@ -2,6 +2,44 @@
 @import 'mixins'
 
 #containers-new-view
+  .card-header
+    height: auto
+
+  .steps
+    display: flex
+    flex-direction: row
+    justify-content: center
+
+    .line
+      width: 50px
+      margin-top: 25px
+      border-top: 1px solid $gray400
+
+    .step
+      width: 82px
+      text-align: center
+      line-height: normal
+      text-transform: uppercase
+      color: $gray600
+      font-size: $fontSizeSmall
+      transition: color .3s
+
+      span
+        display: block
+        margin: 0 auto 5px auto
+        width: 50px
+        height: 50px
+        line-height: 50px
+        border-radius: 25px
+        border: 1px solid $gray600
+        transition: border-color .3s
+
+      &.active
+        color: $lightBlue500
+
+        span
+          border-color: $lightBlue500
+
   .ui.flex.horizontal
     div:first-of-type
       margin-right: 8px
@@ -78,3 +116,4 @@
     iframe
       width: 100%
       border: none
+      height: 300px

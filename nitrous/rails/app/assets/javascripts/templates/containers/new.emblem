@@ -2,9 +2,23 @@
   h2 New Container
 
 .screens
+  .card-body
+    .steps
+      .step class={view.showImageScreen:active}
+        span 1
+        | Image
+      .line
+      .step class={view.showConfigScreen:active}
+        span 2
+        | Config
+      .line
+      .step class={view.showProgressScreen:active}
+        span 3
+        | Finish
+
   .screen class={view.showImageScreen::hide}
     form submit='goNext target="view"'
-      .card-body
+      .card-body.bordered
         .ui.input-group
           label.field-label
             | Host
@@ -65,7 +79,7 @@
           input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Next'
 
   .screen class={view.showConfigScreen::hide}
-    .card-body
+    .card-body.bordered
       .ui.input-group
         label.field-label
           | Port Bindings
@@ -165,7 +179,7 @@
         a.ui.btn.primary disabled={view.createButtonDisabled} click='create target="view"' Create
 
   .screen class={view.showProgressScreen::hide}
-    .card-body
+    .card-body.bordered
       .terminal-screen
     .card-footer.bordered
       if saving
