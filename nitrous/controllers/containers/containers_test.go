@@ -1820,6 +1820,8 @@ var _ = Describe("controllers/containers", func() {
 			doRequest(testParams)
 			Expect(mockClient.ReconfigCalled).To(Equal(1))
 			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
+			Expect(mockClient.ConfigCalled).To(Equal(1))
+			Expect(mockClient.ConfigID).To(Equal("livebeef"))
 			conf := mockClient.ReceivedConfig
 			Expect(conf.Env).To(Equal([]string{"LANG=C", "NODE=nope"}))
 			Expect(conf.Mounts).To(Equal([]string{"music"}))

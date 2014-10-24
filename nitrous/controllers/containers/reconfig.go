@@ -107,6 +107,7 @@ func (ctx *reconfigContext) run(env *middleware.Env, async bool) (*container.Con
 		if err != nil {
 			return err
 		}
+		cn = hydrateContainer(cn, liveContainer, h)
 
 		var newConfig *freighterclient.ContainerConfig
 		newConfig, err = cl.Config(cn.CID)
@@ -114,7 +115,6 @@ func (ctx *reconfigContext) run(env *middleware.Env, async bool) (*container.Con
 			return err
 		}
 
-		cn = hydrateContainer(cn, liveContainer, h)
 		err = cn.Update(db)
 		if err != nil {
 			env.Logger.Errorf("containers.reconfig: successfully reconfigured container '%+v' in Freighter but failed to update database with '%+v', err: %v", liveContainer, cn, err)
