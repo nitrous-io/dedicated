@@ -11,7 +11,7 @@ VAGRANTFILE_API_VERSION = '2'
 
 $script = <<SCRIPT
 
-export VAGRANT_HOME=/home/vagrant
+export VAGRANT_HOME=/home/action
 export GOPATH=$VAGRANT_HOME/go
 export GOROOT=/usr/local/opt/go
 export WORKSPACE=$VAGRANT_HOME/workspace
@@ -32,8 +32,8 @@ echo "Installing postgres..."
 
 apt-get install -yy postgresql-9.3 postgresql-contrib-9.3 libpq-dev
 
-if ! sudo su postgres -c 'psql -c "SELECT usename FROM pg_user"' | grep vagrant > /dev/null; then
-  sudo su postgres -c 'psql -c "CREATE ROLE vagrant NOSUPERUSER CREATEDB NOCREATEROLE INHERIT LOGIN;"'
+if ! sudo su postgres -c 'psql -c "SELECT usename FROM pg_user"' | grep action > /dev/null; then
+  sudo su postgres -c 'psql -c "CREATE ROLE action NOSUPERUSER CREATEDB NOCREATEROLE INHERIT LOGIN;"'
 fi
 
 ## CONFIGURE MERCURIAL #######################################################
@@ -42,8 +42,8 @@ echo "Configuring mercurial..."
 
 cat > $HOME/.hgrc <<EOF
 [trusted]
-users = vagrant
-groups = vagrant
+users = action
+groups = action
 EOF
 
 ## INSTALL GO ################################################################
@@ -87,10 +87,10 @@ EOF
 
 service docker restart
 
-adduser vagrant docker
+adduser action docker
 
 docker pull nitrousio/ubuntu-dind >/dev/null 2>&1 &
-sudo chown -R vagrant:vagrant /var/lib/docker
+sudo chown -R action:action /var/lib/docker
 
 ## INSTALL RUBY ##############################################################
 
@@ -102,7 +102,7 @@ if [[ ! -x $RUBYBIN/ruby ]]; then
     | tar -C /usr/local/ruby -xj
 fi
 
-sudo -u vagrant bash <<EOF
+sudo -u action bash <<EOF
   mkdir -p $VAGRANT_HOME/.bundle
   echo "BUNDLE_PATH: .bundle" > $VAGRANT_HOME/.bundle/config
   echo "BUNDLE_BIN: .bundle/binstubs" >> $VAGRANT_HOME/.bundle/config
@@ -124,17 +124,17 @@ upstart_component() {
   component=$1
   cat >/etc/init/$component.conf <<EOF
 
-    start on vagrant-mounted
+    start on action-mounted
     stop on runlevel [06]
 
-    setuid vagrant
-    setgid vagrant
+    setuid action
+    setgid action
 
     env GOPATH=$GOPATH
     env GOROOT=$GOROOT
-    env PATH=/home/vagrant/.bundle/binstubs:$PATH
+    env PATH=/home/action/.bundle/binstubs:$PATH
 
-    exec /bin/bash -c "cd /home/vagrant/workspace && make run-$component"
+    exec /bin/bash -c "cd /home/action/workspace && make run-$component"
 
     respawn
     respawn limit 3 60
@@ -158,7 +158,7 @@ export PATH=$DEDIREPO/Godeps/_workspace/bin:$GOPATH/bin:$GOROOT/bin:$RUBYBIN:\\$
 ## DEV PATHS END
 EOF
 
-sudo chown -R vagrant:vagrant $GOPATH
+sudo chown -R action:action $GOPATH
 
 
 ## COMPONENT SETUP ###########################################################
@@ -168,7 +168,7 @@ upstart_component hostbuilder
 
 sed -i 's/make run-nitrous\"/make run-nitrous-dev\"/' /etc/init/nitrous.conf
 
-sudo -u vagrant bash <<EOF
+sudo -u action bash <<EOF
   source /etc/profile
 
   if [[ ! -f $WORKSPACE/hostbuilder/config.json ]]; then
@@ -187,7 +187,7 @@ sudo -u vagrant bash <<EOF
   fi
 
   if ! psql nitrous_development -c 'SELECT email FROM users' | grep admins@nitrous.io; then
-    cd $DEDIREPO && make nitrous && NITROUS_PG_URL="host=/var/run/postgresql user=vagrant dbname=nitrous_development sslmode=disable" build/dbseed
+    cd $DEDIREPO && make nitrous && NITROUS_PG_URL="host=/var/run/postgresql user=action dbname=nitrous_development sslmode=disable" build/dbseed
   fi
 EOF
 
@@ -224,8 +224,8 @@ http {
     listen 8080 ssl;
 
     server_name pro.n2odev.com;
-    ssl_certificate /home/vagrant/workspace/nitrous/dev/n2odev.crt;
-    ssl_certificate_key /home/vagrant/workspace/nitrous/dev/n2odev.key;
+    ssl_certificate /home/action/workspace/nitrous/dev/n2odev.crt;
+    ssl_certificate_key /home/action/workspace/nitrous/dev/n2odev.key;
 
     keepalive_timeout 70;
 
@@ -279,6 +279,20 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     v.gui = true
     v.vmx['memsize'] = ENV['DEDICATED_VM_MEM'] || '2048'
     v.vmx['numvcpus'] = ENV['DEDICATED_VM_CPU'] || '2'
+  end
+
+  config.vm.provider :nitrousio do |provider, override|
+    override.vm.box = 'nitrousio'
+    override.vm.box_url = 'https://github.com/nitrous-io/vagrant-nitrousio/blob/new-nitrous-io/nitrousio.box'
+
+    provider.host = "aruns-host-5" # copy the host slug from Nitrous.IO web app or CLI
+    provider.username = ENV['NITROUS_USERNAME']
+    provider.password = ENV['NITROUS_PASSWORD']
+    provider.ssh_private_key_path = "~/.ssh/id_rsa"
+    provider.privileged = true
+
+    # remove this to sync your project folder on provision
+    override.vm.synced_folder '.', '/home/action/go/src/github.com/nitrous-io/dedicated'
   end
 
   if private_ip = ENV['DEDICATED_VM_INTERFACE']
