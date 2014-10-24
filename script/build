@@ -22,8 +22,7 @@ get_version() {
 
   if [[ "$app" == "freighter" ]]; then
     timestamp=$(date +"%Y%d%m%H%M%S")
-    build_num=${BUILD_NUMBER:="0"}
-    echo "${version}+${timestamp}-${build_num}-${sha}" 
+    echo "${version}+${timestamp}-${sha}"
   else
     echo "${version}-${sha}" # 1.0.1-asdf
   fi
