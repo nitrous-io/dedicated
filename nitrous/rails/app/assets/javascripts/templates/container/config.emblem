@@ -5,45 +5,55 @@
     label.field-label
       | Port Bindings
 
-    ul.ui.chips
-      each portBinding in portBindings
-        li class={view.formDisabled:disabled}
-          = portBinding
-          unless view.formDisabled
-            a.close href='#' click='removePortBinding portBinding' &times;
+  unless config
+    p.hint-text
+      i.spinner
+      | Loading...
 
-    form.container-config submit='addPortBinding'
-      .ui.input-group.container-config-form
-        table.ui.table
-          thead
-            tr
-              th Public
-              th Host Port (Optional)
-              th colspan='2' Container Port
-          tbody
-            tr
-              td
-                .ui.checkbox
-                  = input type='checkbox' checked=publicPort disabled=view.formDisabled
-                  label
-              td
-                = input type='number' min='1' max='65535' step='1' placeholder='63000' value=hostPort disabled=view.formDisabled
-              td
-                = input type='number' min='1' max='65535' step='1' placeholder='3000' required=true value=containerPort disabled=view.formDisabled
-              td
-                input.ui.btn.raised type='submit' disabled={view.addPortBindingButtonDisabled} value='Add' disabled={view.formDisabled}
+  ul.ui.chips
+    each portBinding in portBindings
+      li class={view.formDisabled:disabled}
+        = portBinding
+        unless view.formDisabled
+          a.close href='#' click='removePortBinding portBinding' &times;
 
-      ul.ui.checkbox-group
-        li
-          .ui.checkbox
-            = input type='checkbox' id='containers-config-publish-all' checked=publishAll disabled=view.formDisabled
-            label
-          label for='containers-config-publish-all' Publish All Exposed Ports
+  form.container-config submit='addPortBinding'
+    .ui.input-group.container-config-form
+      table.ui.table
+        thead
+          tr
+            th Public
+            th Host Port (Optional)
+            th colspan='2' Container Port
+        tbody
+          tr
+            td
+              .ui.checkbox
+                = input type='checkbox' checked=publicPort disabled=view.formDisabled
+                label
+            td
+              = input type='number' min='1' max='65535' step='1' placeholder='63000' value=hostPort disabled=view.formDisabled
+            td
+              = input type='number' min='1' max='65535' step='1' placeholder='3000' required=true value=containerPort disabled=view.formDisabled
+            td
+              input.ui.btn.raised type='submit' disabled={view.addPortBindingButtonDisabled} value='Add' disabled={view.formDisabled}
+
+    ul.ui.checkbox-group
+      li
+        .ui.checkbox
+          = input type='checkbox' id='containers-config-publish-all' checked=publishAll disabled=view.formDisabled
+          label
+        label for='containers-config-publish-all' Publish All Exposed Ports
 
 .card-body.bordered
   .ui.input-group
     label.field-label
       | Environment Variables
+
+  unless config
+    p.hint-text
+      i.spinner
+      | Loading...
 
   ul.ui.chips
     each envVar in envVars
@@ -75,6 +85,11 @@
   .ui.input-group
     label.field-label
       | Volume Mounts
+
+  unless config
+    p.hint-text
+      i.spinner
+      | Loading...
 
   ul.ui.chips
     each volumeMount in volumeMounts
