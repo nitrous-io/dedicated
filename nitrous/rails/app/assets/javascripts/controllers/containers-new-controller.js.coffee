@@ -50,7 +50,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       else
         @transitionToRoute 'home.index'
 
-    create: (repository) ->
+    create: (repository, isNitrousBaseImage) ->
       @set 'saving', true
       events = App.get 'eventsSocket'
 
@@ -60,7 +60,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       slug = @get 'slug'
 
       # pull image
-      App.Image.pull(@get('selectedHost'), repository, false).then (image) =>
+      App.Image.pull(@get('selectedHost'), repository, isNitrousBaseImage).then (image) =>
         @set 'image', image
 
         onImagePullFailed = (data) =>

@@ -1,3 +1,6 @@
+optionHostImage = 'host-image'
+optionBaseImage = 'base-image'
+
 App.ContainersNewView = Lib.ContainerConfigView.extend
   elementId: 'containers-new-view'
   classNames: ['ui', 'card']
@@ -13,10 +16,10 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
   image: (->
     option = @get 'selectedOption'
     switch option
-      when 'host-image'
+      when optionHostImage
         unless @get 'controller.hostImagesEmpty'
           @get 'selectedHostImage'
-      when 'base-image'
+      when optionBaseImage
         @get 'selectedBaseImage'
       else
         @get 'customImage'
@@ -105,4 +108,4 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
       ui.hideModal('#env-vars-dialog')
 
     create: ->
-      @get('controller').send 'create', @get('image')
+      @get('controller').send('create', @get('image'), @get('selectedOption') == optionBaseImage)
