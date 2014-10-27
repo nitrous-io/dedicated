@@ -134,7 +134,7 @@ upstart_component() {
     env GOROOT=$GOROOT
     env PATH=/home/vagrant/.bundle/binstubs:$PATH
 
-    exec /bin/bash -c "cd /home/vagrant/workspace && make run-$component"
+    exec /bin/bash -c "cd /home/vagrant/workspace/dedicated && make run-$component"
 
     respawn
     respawn limit 3 60
@@ -171,12 +171,12 @@ sed -i 's/make run-nitrous\"/make run-nitrous-dev\"/' /etc/init/nitrous.conf
 sudo -u vagrant bash <<EOF
   source /etc/profile
 
-  if [[ ! -f $WORKSPACE/hostbuilder/config.json ]]; then
-    cp $WORKSPACE/hostbuilder/{sample_,}config.json
+  if [[ ! -f $WORKSPACE/dedicated/hostbuilder/config.json ]]; then
+    cp $WORKSPACE/dedicated/hostbuilder/{sample_,}config.json
   fi
 
-  if [[ ! -f $WORKSPACE/nitrous/.env ]]; then
-    cp $WORKSPACE/nitrous/.env{-example,}
+  if [[ ! -f $WORKSPACE/dedicated/nitrous/.env ]]; then
+    cp $WORKSPACE/dedicated/nitrous/.env{-example,}
   fi
 
   # build ginkgo so it's available for tests w/o having to build first
@@ -224,8 +224,8 @@ http {
     listen 8080 ssl;
 
     server_name pro.n2odev.com;
-    ssl_certificate /home/vagrant/workspace/nitrous/dev/n2odev.crt;
-    ssl_certificate_key /home/vagrant/workspace/nitrous/dev/n2odev.key;
+    ssl_certificate /home/vagrant/workspace/dedicated/nitrous/dev/n2odev.crt;
+    ssl_certificate_key /home/vagrant/workspace/dedicated/nitrous/dev/n2odev.key;
 
     keepalive_timeout 70;
 
