@@ -126,7 +126,7 @@ var _ = Describe("provider/docker", func() {
 		return string(out)
 	}
 
-	Describe(".Create()", func() {
+	Describe(".CreateStart()", func() {
 		BeforeEach(func() {
 			PullImage(NitrousImage)
 		})
@@ -185,16 +185,11 @@ var _ = Describe("provider/docker", func() {
 
 				imgName := imgs[0]
 				name := RandomName("freightertest")
-				cnr, err := prov.CreateStart(name, imgName, secret, "")
-				if cnr != nil {
-					defer CleanUpContainer(name)
-				}
-				Expect(err).To(MatchError(provider.ErrCmdConfig))
 
 				configJSON := `{ "Cmd": ["yes"] }`
-				cnr, err = prov.CreateStart(name, imgName, secret, configJSON)
-				Expect(err).To(BeNil())
+				cnr, err := prov.CreateStart(name, imgName, secret, configJSON)
 				defer CleanUpContainer(name)
+				Expect(err).To(BeNil())
 				Expect(cnr.Cmd).To(Equal([]string{"yes"}))
 			})
 		})
@@ -1067,7 +1062,7 @@ var _ = Describe("provider/docker", func() {
 		})
 	})
 
-	Describe(".Create() with custom options", func() {
+	Describe(".CreateStart() with custom options", func() {
 		// getPortBindings output looks like "[map[HostIp:127.0.0.1 HostPort:1234]]"
 		// or "<no value>" if bindings for given port do not exist
 		getPortBindings := func(id, port string) string {
