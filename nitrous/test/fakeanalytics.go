@@ -10,6 +10,7 @@ type FakeTracker struct {
 	Events               map[int64][]string
 	TrackEventProperties map[int64][]map[string]interface{}
 	ProfileCreated       *user.User
+	InviteCode           string
 }
 
 func NewFakeTracker() *FakeTracker {
@@ -37,6 +38,7 @@ func (f *FakeTracker) TrackEvent(event string, u *user.User, p map[string]interf
 	}
 }
 
-func (f *FakeTracker) CreateProfile(u *user.User, logger *logger.Logger) {
+func (f *FakeTracker) CreateProfile(u *user.User, logger *logger.Logger, inviteCode string) {
 	f.ProfileCreated = u
+	f.InviteCode = inviteCode
 }

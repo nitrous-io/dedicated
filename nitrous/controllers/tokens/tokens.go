@@ -87,7 +87,7 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		"access_token": t.Token,
 		"token_type":   "Bearer",
 	}
-	env.Tracker.CreateProfile(u, env.Logger)
+	env.Tracker.CreateProfile(u, env.Logger, "")
 	return nil
 }
 

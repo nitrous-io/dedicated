@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nitrous-io/go-mixpanel"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/go-mixpanel"
+	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 const DBEnvVar = "NITROUS_PG_URL"
@@ -59,7 +59,7 @@ func main() {
 			"$created":  u.CreatedAt,
 			"user_id":   u.ID,
 		}
-		err := mc.CreateProfile(strconv.Itoa(int(u.ID)), p)
+		err := mc.CreateProfile(strconv.Itoa(int(u.ID)), p, "")
 		if err != nil {
 			logr.FatalExit(err)
 		}
