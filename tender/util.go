@@ -32,10 +32,9 @@ func parsePort(req *http.Request) int {
 // ConvertToIPBased modifies an HTTP request to use an IP address as its host.
 // The "Host" header is preserved so that receiver will correctly recognize the
 // original host instead of the ip address
-func hostToIP(req *http.Request, ip net.IP) string {
+func hostToIP(req *http.Request, ip net.IP, port int) string {
 	// Change Host to "IP:Port".
-	port := parsePort(req)
-	h := net.JoinHostPort(ip.String(), strconv.Itoa(int(port)))
+	h := net.JoinHostPort(ip.String(), strconv.Itoa(port))
 	req.URL.Host = h
 	return h
 }

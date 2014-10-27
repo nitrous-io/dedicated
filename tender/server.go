@@ -53,6 +53,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Returns a `http.Handler` which can be used to proxy requests to a Nitrous.IO
 // host
 func NewServer(baseDomain, tlsDomain, databaseURL string, freighterdPort int, caBytes []byte) (http.Handler, error) {
+	log.Printf("Connecting to database %s", databaseURL)
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open a db connection %v", err)
@@ -93,11 +94,12 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 	// get host id and host ip
 	// host ip will be the new destination for current request
 	var ip net.IP
-	ip, err = hostIP(s.db, hostName)
+	var port int
+	ip, port, err = hostIP(s.db, hostName)
 	if err != nil {
 		return err
 	}
-	env.host = hostToIP(r, ip)
+	env.host = hostToIP(r, ip, port)
 	// copy tls config and set serverName
 	// serverName is the name we use to generate private certs on the host
 	// this must be the same as Hostname in
@@ -122,7 +124,7 @@ func (s *Server) serverError(err error) error {
 	errMsg := err.Error()
 	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
 	e := httperror.New(code, "internal_server_error", "", errHash)
-	log.Printf("[ERROR] %v %v", errHash, e.Error())
+	log.Printf("[ERROR] %s %s %s", errHash, errMsg, e.Error())
 	return e
 }
 

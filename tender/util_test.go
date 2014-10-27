@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -31,11 +32,11 @@ var _ = Describe("util", func() {
 	})
 
 	Describe("hostToIP", func() {
-		It("changes the request's host to the specified IP", func() {
+		It("changes the request's host and port to the specified IP:Port", func() {
 			url, _ := url.Parse("http://google.com:8000")
 			r := &http.Request{URL: url, Host: "google.com:8000"}
-			hostToIP(r, net.ParseIP("10.0.0.2"))
-			Expect(r.URL.Host).To(Equal("10.0.0.2:8000"), "Expect the host to be changed to ip:port")
+			hostToIP(r, net.ParseIP("10.0.0.2"), 65333)
+			Expect(r.URL.Host).To(Equal("10.0.0.2:65333"), "Expect the host to be changed to ip:port")
 		})
 	})
 
