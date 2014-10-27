@@ -3,17 +3,17 @@
   "navigators": [
     {
       "name": "host",
-      "domain": "nitrouspro.com.",
+      "domain": "n2odevpro.com.",
       "config": {
-        "database_url": ""
+        "database_url": "host=/var/run/postgresql dbname=nitrous_development sslmode=disable"
       }
     },
     {
       "name": "proxy",
-      "domain": "nitrousproxy.com.",
+      "domain": "n2odevproxy.com.",
       "config": {
-        "database_url": "host=/var/run/postgresql dbname=testdb sslmode=disable",
-        "sfo": "nitrousproxy-sfo.com",
+        "database_url": "host=/var/run/postgresql dbname=nitrous_development sslmode=disable",
+        "sfo": "nitrousproxy-sfo.com"
       }
     }
   ]
