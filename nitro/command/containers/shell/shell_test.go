@@ -166,12 +166,17 @@ func (s *nitrousServer) getHost(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"host": resp,
 	})
+
+	// switch command freighterd port to the custom port for duration of
+	// the request
+	command.FreighterdPort = int(portInt)
 }
 
 func (s *nitrousServer) Close() {
 	s.ts.Close()
 	s.srv.CloseClientConnections()
 	s.srv.Close()
+	command.FreighterdPort = 65333
 }
 
 func newNitrousServer(containerID, containerToken, shellID string, hostID int64) *nitrousServer {

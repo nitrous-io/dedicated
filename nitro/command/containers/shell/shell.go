@@ -67,7 +67,7 @@ func (c *Command) Run(args []string) int {
 	cmdFlags.Usage = func() { c.UI.Output(c.Help()) }
 	cmdFlags.StringVarP(&username, "username", "u", "", usernameUsage)
 
-	command, err := getLoginCommand(username, os.Getenv("TERM"))
+	loginCmd, err := getLoginCommand(username, os.Getenv("TERM"))
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Invalid username: %s", username))
 		return 1
@@ -113,11 +113,13 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	host := fmt.Sprintf("%s:%d", cr.Host.ProxyHostname, cr.Host.FreighterdPort)
+	// always use the proxy port which is 65333 as freighterdPort in local
+	// maybe different
+	host := fmt.Sprintf("%s:%d", cr.Host.ProxyHostname, command.FreighterdPort)
 
 	// construct params header that includes the wanted command
 	params := url.Values{}
-	params.Set("command", command)
+	params.Set("command", loginCmd)
 	params.Set("token", token)
 	params.Set("binary", "true")
 	endpointURI := fmt.Sprintf("wss://%s/containers/%s/shell?%s", host, cr.CID, params.Encode())
