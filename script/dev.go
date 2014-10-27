@@ -23,6 +23,9 @@ var (
 func main() {
 	// check if we have dnsmasq to setup the internal DNS nameserver
 	checkDNS()
+	if err := copyCert(); err != nil {
+		log.Fatal(err)
+	}
 
 	stdout := os.Stdout
 
@@ -120,6 +123,21 @@ func checkDNS() error {
 	if err != nil {
 		return fmt.Errorf("dnsmasq not found. Please install it: apt-get install dnsmasq")
 	}
+	return nil
+}
+
+func copyCert() error {
+	_, err := os.Stat("/usr/local/share/ca-certificates/n2odev.crt")
+	if os.IsNotExist(err) {
+		err = exec.Command("sudo", "cp", "./script/certs/n2odev.crt",
+			"/usr/local/share/ca-certificates/n2odev.crt").Run()
+		if err != nil {
+			return err
+		}
+		log.Println("reloading certificates...")
+		return exec.Command("sudo", "update-ca-certificates").Run()
+	}
+	log.Println("n2odev certificate is installed. Skipping...")
 	return nil
 }
 
