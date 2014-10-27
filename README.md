@@ -5,9 +5,17 @@ Contain components of the nitrous-dedicated platform.
 - nitro: the CLI
 - hostbuilder: building the actual hosts
 - freighter: part that lives in the host
+- compass: the DNS
+- tender: proxy to the hosts
 
 This doesn't contain compass/tender because they can have their own release
 schedule.
+
+# Development
+- Requires DNSMASQ: install it with apt-get install dnsmasq
+- Run `make run-dev`: a program that setups various services and wires settings
+  together. Requires for proxy to works. Tested on Ubuntu server. After running
+  this, `./build/nitro` should work locally with docker hosts.
 
 # commands
 
