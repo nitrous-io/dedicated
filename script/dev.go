@@ -26,6 +26,9 @@ func main() {
 	if err := copyCert(); err != nil {
 		log.Fatal(err)
 	}
+	if err := pullImage("ubuntu"); err != nil {
+		log.Fatal(err)
+	}
 
 	stdout := os.Stdout
 
@@ -107,6 +110,16 @@ func main() {
 		log.Printf("intercept close signal")
 	}
 	return
+}
+
+func pullImage(image string) error {
+	log.Printf("Pulling %s ....", image)
+	err := exec.Command("docker", "run", "-rm", image, "true").Run()
+	if err != nil {
+		return err
+	}
+	log.Printf("Pulled %s ....", image)
+	return nil
 }
 
 func getIP(containerName string) (string, error) {
