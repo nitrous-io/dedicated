@@ -1,6 +1,7 @@
 package serializers
 
 import (
+	"sort"
 	"time"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
@@ -68,4 +69,14 @@ func SerializeContainerConfig(cfg *freighterclient.ContainerConfig) *ContainerCo
 		Mounts:     cfg.Mounts,
 		PublishAll: cfg.PublishAll,
 	}
+}
+
+type sortableContainers []*Container
+
+func (s sortableContainers) Len() int           { return len(s) }
+func (s sortableContainers) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s sortableContainers) Less(i, j int) bool { return s[i].Slug < s[j].Slug }
+
+func SortSerializedContainers(containers []*Container) {
+	sort.Sort(sortableContainers(containers))
 }
