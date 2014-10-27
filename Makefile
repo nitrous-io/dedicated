@@ -56,7 +56,7 @@ ci-build: image
 	@./script/build $(APP) true
 .PHONY: ci-build
 
-run-dev:
+run-dev: binary
 	@godep go run ./script/dev.go
 .PHONY: run-dev
 
