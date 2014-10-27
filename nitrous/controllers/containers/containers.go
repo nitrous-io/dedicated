@@ -135,6 +135,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	serializers.SortSerializedContainers(containersResp)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"containers": containersResp,

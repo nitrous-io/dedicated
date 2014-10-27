@@ -95,3 +95,27 @@ var _ = Describe("container config serializer", func() {
 		}`)))
 	})
 })
+
+var _ = Describe("SortSerializedContainers", func() {
+	It("should be able to sort serialized containers", func() {
+		s1 := &serializers.Container{
+			Slug: "AX",
+		}
+		s2 := &serializers.Container{
+			Slug: "AB",
+		}
+		s3 := &serializers.Container{
+			Slug: "Z",
+		}
+		s4 := &serializers.Container{
+			Slug: "Container",
+		}
+
+		set := []*serializers.Container{s3, s2, s1, s4}
+		serializers.SortSerializedContainers(set)
+		Expect(set[0]).To(Equal(s2))
+		Expect(set[1]).To(Equal(s1))
+		Expect(set[2]).To(Equal(s4))
+		Expect(set[3]).To(Equal(s3))
+	})
+})

@@ -46,6 +46,10 @@ App.Host = klass = App.Model.extend
       App.get('containers')?.filterBy('hostId', id)
   ).property 'id', 'App.containers.@each'
 
+  sortedContainers: (->
+    @get('containers').sortBy('slug')
+  ).property 'containers'
+
   registries: (->
     if id = @get('id')
       App.Registry.fetch(hostId: id).value

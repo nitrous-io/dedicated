@@ -266,6 +266,36 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].TerminatedAt).To(BeNil())
 		})
 
+		It("keeps the list ordered by slug", func() {
+			secondaryContainer := &freighterclient.Container{
+				ID:         "deadbeefy",
+				Name:       "dominant-intercooler-43",
+				Host:       "1.2.3.4",
+				Gateway:    "1.2.3.0",
+				State:      "running",
+				Image:      "nitrous-base",
+				Cmd:        []string{"/sbin/init"},
+				Entrypoint: []string{"/bin/blah"},
+				ExitCode:   0,
+				StartedAt:  startedAt,
+				FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
+			}
+			mockClient.Containers = []*freighterclient.Container{secondaryContainer, fc}
+
+			doRequest("valid-token", "foo")
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Containers []*serializers.Container `json:"containers"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Containers).To(HaveLen(2))
+			Expect(j.Containers[0].Slug).To(Equal("dominant-intercooler-42"))
+			Expect(j.Containers[1].Slug).To(Equal("dominant-intercooler-43"))
+		})
+
 		Context("when the Freighter client returns a freighter error", func() {
 			BeforeEach(func() {
 				mockClient.ListError = errors.New("freighter: you are not Chuck Norris")
