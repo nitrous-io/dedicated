@@ -24,7 +24,7 @@ echo "Installing basic dependencies..."
 
 apt-get update >/dev/null
 apt-get install -yy --only-upgrade libcgmanager0
-apt-get install -yy --no-install-recommends lxc build-essential curl git-core mercurial
+apt-get install -yy --no-install-recommends lxc build-essential curl git-core mercurial dnsmasq
 
 ## CONFIGURE POSTGRESQL ######################################################
 
