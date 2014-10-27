@@ -249,6 +249,8 @@ else
     (bundle_nitro)
     (bundle_freighter)
     (bundle_binary hostbuilder)
+    (bundle_binary tender)
+    (bundle_binary compass)
     (bundle_binary nitrousd dbseed public)
   elif [ "$RELEASE" == "nitro" ]; then
     (bundle_nitro)
@@ -256,6 +258,10 @@ else
     (bundle_freighter)
   elif [ "$RELEASE" == "hostbuilder" ]; then
     (bundle_binary hostbuilder)
+  elif [ "$RELEASE" == "tender" ]; then
+    (bundle_binary tender)
+  elif [ "$RELEASE" == "compass" ]; then
+    (bundle_binary compass)
   elif [ "$RELEASE" == "nitrous" ]; then
     (bundle_binary nitrousd dbseed public)
     exit
