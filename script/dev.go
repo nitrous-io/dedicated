@@ -22,7 +22,9 @@ var (
 
 func main() {
 	// check if we have dnsmasq to setup the internal DNS nameserver
-	checkDNS()
+	if err := checkDNS(); err != nil {
+		log.Fatal(err)
+	}
 	if err := copyCert(); err != nil {
 		log.Fatal(err)
 	}
