@@ -56,6 +56,10 @@ ci-build: image
 	@./script/build $(APP) true
 .PHONY: ci-build
 
+run-dev:
+	@godep go run ./script/dev.go
+.PHONY: run-dev
+
 run-nitrous: nitrous
 	@forego start -f nitrous/Procfile
 .PHONY: run-nitrous
