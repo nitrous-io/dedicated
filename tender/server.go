@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 
 	_ "github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
@@ -81,8 +82,6 @@ func NewServer(baseDomain, tlsDomain, databaseURL string, freighterdPort int, ca
 // proxy the request to respected boxhost. We will switch the proxy strategy
 // depends on the type of the request
 // - if this is a normal HTTP, use `http.ReverseProxy`
-// - if the request as `X-NITROUS-STREAM` header which indicates that it wants
-// to open a bidirectional HTTP stream, use `proxyStream`
 // - if the request wants to open a websocket, use `proxyWebsocket`
 func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err error) {
 	hostName, err := getHost(r.Host, s.baseDomain)
@@ -90,6 +89,9 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 		return err
 	}
 	log.Printf("[INFO] request %v to %s", r, hostName)
+
+	// set X-FORWARDED-PORT for the request
+	r.Header.Set("X-FORWARDED-PORT", strconv.Itoa(parsePort(r)))
 
 	// get host id and host ip
 	// host ip will be the new destination for current request
@@ -105,9 +107,13 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 	// serverName is the name we use to generate private certs on the host
 	// this must be the same as Hostname in
 	// https://github.com/nitrous-io/nitrous/blob/master/models/host/host.go
-	tlsConfig := &tls.Config{}
-	*tlsConfig = *s.tlsConfig
-	tlsConfig.ServerName = fmt.Sprintf("%s%s", hostName, s.tlsDomain)
+	var tlsConfig *tls.Config
+
+	if s.tlsConfig != nil {
+		tlsConfig = &tls.Config{}
+		*tlsConfig = *s.tlsConfig
+		tlsConfig.ServerName = fmt.Sprintf("%s%s", hostName, s.tlsDomain)
+	}
 
 	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(env.host, tlsConfig)(w, r)
