@@ -1,0 +1,28 @@
+config.json
+*.sqlite3
+
+# ssh keys
+id_rsa
+.github_rsa
+
+# Folders
+_vendor/
+build/
+release/
+.vendor/
+
+# Architecture specific extensions/prefixes
+.env
+
+# OSX
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+
+# Vim
+.*.sw[a-z]
+*.un~

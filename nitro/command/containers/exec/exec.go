@@ -87,7 +87,7 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	host := fmt.Sprintf("%s:%d", cr.Host.ProxyHostname, cr.Host.FreighterdPort)
+	host := fmt.Sprintf("%s:%d", cr.Host.ProxyHostname, command.FreighterdPort)
 	command := strings.Join(args[1:], " ")
 
 	// prepare the term

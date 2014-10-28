@@ -137,6 +137,22 @@ build_hostbuilder() {
   )
 }
 
+build_compass() {
+  (
+  VERSION=$(get_version compass)
+  LDFLAGS="-X main.version ${VERSION}"
+  build "compass/compass"
+  )
+}
+
+build_tender() {
+  (
+  VERSION=$(get_version tender)
+  LDFLAGS="-X main.version ${VERSION}"
+  build "tender/tender"
+  )
+}
+
 build_nitrous() {
   (
   VERSION=$(get_version nitrous)
@@ -178,6 +194,8 @@ else
     build_freighter
     build_nitro
     build_hostbuilder
+    build_compass
+    build_tender
     build_nitrous
   elif [ "$APP" == "nitro" ]; then
     build_nitro
@@ -185,6 +203,10 @@ else
     build_freighter
   elif [ "$APP" == "hostbuilder" ]; then
     build_hostbuilder
+  elif [ "$APP" == "compass" ]; then
+    build_compass
+  elif [ "$APP" == "tender" ]; then
+    build_tender
   elif [ "$APP" == "nitrous" ]; then
     build_nitrous
   else

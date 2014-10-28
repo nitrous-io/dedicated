@@ -1,0 +1,8 @@
+.env
+.vendor
+build/
+*~
+*#
+.#*
+\#*#
+.*.sw[a-z]

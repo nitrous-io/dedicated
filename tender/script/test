@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -e
+
+export DATABASE_URL="host=/var/run/postgresql user=root dbname=nitrous sslmode=disable"
+service postgresql start
+goop go test ./...
