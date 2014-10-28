@@ -277,8 +277,7 @@ func (c *client) List() ([]*Container, error) {
 	}
 
 	var containers containersResponse
-	err = json.NewDecoder(resp.Body).Decode(&containers)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&containers); err != nil {
 		return nil, ErrUnexpectedResponse
 	}
 
@@ -362,8 +361,7 @@ func (c *client) Commit(id, imageName string) (*Image, error) {
 	var imageInfo struct {
 		Image *Image `json:"image"`
 	}
-	err = json.NewDecoder(resp.Body).Decode(&imageInfo)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&imageInfo); err != nil {
 		return nil, ErrUnexpectedResponse
 	}
 
@@ -390,8 +388,8 @@ func (c *client) Info(id string) (*Container, error) {
 	return processContainerResponse(resp)
 }
 
-// Config makes an API Request to a given Freigher Host and returns the Config,
-// HostConfig, and image config for a container with the given id.
+// Config makes an API Request to a given Freigher Host and returns the
+// ContainerConfig for a container with the given id.
 // If the Container does not exist, ErrContainerNotFound is returned.
 func (c *client) Config(id string) (*ContainerConfig, error) {
 	u := fmt.Sprintf("%s/containers/%s/config", c.host.BaseURL(), id)
@@ -687,8 +685,7 @@ func (c *client) HostInfo(period time.Duration) (*HostInfo, error) {
 	var info struct {
 		Info *HostInfo `json:"info"`
 	}
-	err = json.NewDecoder(resp.Body).Decode(&info)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
 		return nil, ErrUnexpectedResponse
 	}
 
@@ -718,8 +715,7 @@ func (c *client) ListImages() ([]*Image, error) {
 	var images struct {
 		Images []*Image `json:"images"`
 	}
-	err = json.NewDecoder(resp.Body).Decode(&images)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&images); err != nil {
 		return nil, ErrUnexpectedResponse
 	}
 
@@ -1012,8 +1008,7 @@ func (c *client) InspectImage(image string) (*Image, error) {
 	}
 
 	var imageInfo imageResponse
-	err = json.NewDecoder(resp.Body).Decode(&imageInfo)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&imageInfo); err != nil {
 		return nil, ErrUnexpectedResponse
 	}
 	return imageInfo.Image, nil
@@ -1039,9 +1034,7 @@ func (c *client) ListVolumes() ([]string, error) {
 	var volumes struct {
 		Volumes []string `json:"volumes"`
 	}
-	err = json.NewDecoder(resp.Body).Decode(&volumes)
-
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&volumes); err != nil {
 		return nil, ErrUnexpectedResponse
 	}
 
@@ -1126,8 +1119,7 @@ func (c *client) GetVolumeInfo(slug string) (*Volume, error) {
 		var vol struct {
 			Vol *Volume `json:"volume"`
 		}
-		err = json.NewDecoder(resp.Body).Decode(&vol)
-		if err != nil {
+		if err := json.NewDecoder(resp.Body).Decode(&vol); err != nil {
 			return nil, ErrUnexpectedResponse
 		}
 		return vol.Vol, nil
@@ -1185,8 +1177,7 @@ func processContainerResponse(res *http.Response) (*Container, error) {
 
 func unmarshalContainerResponse(resp *http.Response) (*containerResponse, error) {
 	var c containerResponse
-	err := json.NewDecoder(resp.Body).Decode(&c)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&c); err != nil {
 		return nil, ErrUnexpectedResponse
 	}
 	return &c, nil

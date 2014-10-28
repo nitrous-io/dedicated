@@ -57,6 +57,7 @@ type ContainerConfig struct {
 	Env        []string `json:"env"`
 	Ports      []string `json:"port"`
 	Mounts     []string `json:"volume"`
+	Privileged bool     `json:"privileged"`
 	PublishAll bool     `json:"publish_all"`
 }
 
@@ -66,6 +67,7 @@ func SerializeContainerConfig(cfg *freighterclient.ContainerConfig) *ContainerCo
 		Env:        cfg.Env,
 		Ports:      cfg.PortBindings,
 		Mounts:     cfg.Mounts,
+		Privileged: cfg.Privileged,
 		PublishAll: cfg.PublishAll,
 	}
 }

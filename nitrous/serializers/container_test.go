@@ -82,6 +82,7 @@ var _ = Describe("container config serializer", func() {
 			Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
 			Cmd:          []string{"/bin/yes"},
 			Mounts:       []string{"db"},
+			Privileged:   true,
 			PublishAll:   true,
 		}
 		c := serializers.SerializeContainerConfig(fconfig)
@@ -92,6 +93,7 @@ var _ = Describe("container config serializer", func() {
 			"env": ["NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"],
 			"cmd": ["/bin/yes"],
 			"volume": ["db"],
+			"privileged": true,
 			"publish_all": true
 		}`)))
 	})
