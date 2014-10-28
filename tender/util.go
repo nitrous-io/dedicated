@@ -13,11 +13,6 @@ var portMap = map[string]int{
 	"https": 443,
 }
 
-func isWebSocket(r *http.Request) bool {
-	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket") &&
-		strings.EqualFold(r.Header.Get("Connection"), "upgrade")
-}
-
 // parsePort returns the port of an HTTP request. If there is no port specified
 // in the request, 80 or 443 (HTTPS) is assumed.
 func parsePort(req *http.Request) int {

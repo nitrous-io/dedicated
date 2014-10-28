@@ -11,8 +11,8 @@ import (
 	"net/http"
 
 	_ "github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/pkg/proxy"
 	"github.com/nitrous-io/dedicated/tender/pkg/httperror"
-	"github.com/nitrous-io/dedicated/tender/pkg/proxy"
 )
 
 // env of the request. This should be created once for each request and valid
@@ -100,6 +100,7 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 		return err
 	}
 	env.host = hostToIP(r, ip, port)
+
 	// copy tls config and set serverName
 	// serverName is the name we use to generate private certs on the host
 	// this must be the same as Hostname in
@@ -108,7 +109,7 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 	*tlsConfig = *s.tlsConfig
 	tlsConfig.ServerName = fmt.Sprintf("%s%s", hostName, s.tlsDomain)
 
-	if isWebSocket(r) {
+	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(env.host, tlsConfig)(w, r)
 	} else {
 		proxy.ProxyHTTP(env.host, tlsConfig)(w, r)
