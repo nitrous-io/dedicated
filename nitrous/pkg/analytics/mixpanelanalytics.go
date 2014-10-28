@@ -1,7 +1,6 @@
 package analytics
 
 import (
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -28,7 +27,6 @@ var (
 func init() {
 	mixpanelToken = os.Getenv("MIXPANEL_TOKEN")
 	if mixpanelToken == "" || strings.HasPrefix(mixpanelToken, "disable") {
-		log.Println("Info: Mixpanel token is not set. Analytics events will not be tracked.")
 		disabled = true
 	}
 }
