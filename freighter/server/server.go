@@ -8,17 +8,21 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/util"
 )
 
 // default server's configuration when we dont have a valid configuration
-var DefaultConfig *Config
+var (
+	DefaultConfig *Config
+)
 
 func init() {
 	DefaultConfig = &Config{
@@ -173,6 +177,18 @@ func (s *Server) route(route string, handler http.HandlerFunc, methods ...string
 }
 
 func (s *Server) drawRoutes() {
+	// handle forwarding requests. This will only handle requests that has
+	// X-FORWARDED-PORT
+	s.router.NewRoute().MatcherFunc(func(r *http.Request, rm *mux.RouteMatch) bool {
+		fp := r.Header.Get(config.ForwardPortHeader)
+		if fp == "" {
+			return false
+		}
+		port, err := strconv.ParseInt(fp, 10, 64)
+		// only proxy valid port within a specified range
+		return err == nil && port >= config.MinPreviewPort && port <= config.MaxPreviewPort
+	}).HandlerFunc(s.wrapError(s.httpForward))
+
 	s.route("/", s.home, "GET")
 	s.secretRoute("/containers", s.listContainers, "GET")
 	s.secretRoute("/containers", s.createContainer, "POST")
