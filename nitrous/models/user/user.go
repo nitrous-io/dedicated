@@ -43,7 +43,7 @@ type User struct {
 
 	LoginAttempts int `db:"login_attempts" json:"-"`
 
-	InviteCodeId sql.NullInt64 `db:"invite_code_id" json:"-"`
+	InviteCodeID sql.NullInt64 `db:"invite_code_id" json:"-"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {

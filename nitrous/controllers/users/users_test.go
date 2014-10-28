@@ -105,7 +105,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(u.Username).To(Equal("foo"))
 				Expect(u.Name).To(Equal("Foo Bar"))
 				Expect(u.CreatedAt).NotTo(BeNil())
-				Expect(u.InviteCodeId.Int64).To(Equal(ic.ID))
+				Expect(u.InviteCodeID.Int64).To(Equal(ic.ID))
 			})
 
 			It("marks the invite code as used", func() {

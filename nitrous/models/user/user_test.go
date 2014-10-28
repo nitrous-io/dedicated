@@ -383,7 +383,7 @@ var _ = Describe("models/user", func() {
 				Expect(u.UpdatedAt).NotTo(BeNil())
 				Expect(u.Password).To(BeEmpty()) // clears unencrypted password
 				Expect(u.EncryptedPassword).NotTo(BeEmpty())
-				Expect(u.InviteCodeId.Valid).To(BeFalse())
+				Expect(u.InviteCodeID.Valid).To(BeFalse())
 			})
 
 			It("creates a user profile record", func() {
@@ -420,7 +420,7 @@ var _ = Describe("models/user", func() {
 				ic, err = invitecode.GenerateInvite(db)
 				Expect(err).To(BeNil())
 				Expect(ic).ToNot(BeNil())
-				u.InviteCodeId = sql.NullInt64{ic.ID, true}
+				u.InviteCodeID = sql.NullInt64{ic.ID, true}
 
 				err = WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
@@ -431,7 +431,7 @@ var _ = Describe("models/user", func() {
 			})
 
 			It("should assign the invite code", func() {
-				Expect(u2.InviteCodeId.Int64).To(Equal(ic.ID))
+				Expect(u2.InviteCodeID.Int64).To(Equal(ic.ID))
 			})
 		})
 	})

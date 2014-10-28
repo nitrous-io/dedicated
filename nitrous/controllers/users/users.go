@@ -49,7 +49,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		Username:     username,
 		Name:         name,
 		Password:     password,
-		InviteCodeId: sql.NullInt64{ic.ID, true},
+		InviteCodeID: sql.NullInt64{ic.ID, true},
 	}
 
 	err = u.Validate()
