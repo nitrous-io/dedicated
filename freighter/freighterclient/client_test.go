@@ -590,13 +590,15 @@ var _ = Describe("client", func() {
 			config, err := cl.Config("deadbeef")
 			Expect(err).To(BeNil())
 			Expect(server.ReceivedRequests()).To(HaveLen(1))
+			priv := false
+			publish := true
 			Expect(config).To(Equal(&freighterclient.ContainerConfig{
-				Privileged:   false,
+				Privileged:   &priv,
 				Cmd:          []string{"/bin/yes"},
 				Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
 				PortBindings: []string{"4040:5050", "4000:3000"},
 				Mounts:       []string{"/var/lib/freighter/containers/testcon/ssh:/nitrous/ssh:ro", "music"},
-				PublishAll:   true,
+				PublishAll:   &publish,
 			}))
 		})
 

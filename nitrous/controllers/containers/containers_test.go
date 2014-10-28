@@ -1751,24 +1751,24 @@ var _ = Describe("controllers/containers", func() {
 		})
 
 		Context("privileged option", func() {
-			It("defaults to false", func() {
-				Expect(getConfs().Privileged).To(BeFalse())
+			It("defaults to nil", func() {
+				Expect(getConfs().Privileged).To(BeNil())
 			})
 
 			It("can be set to true", func() {
 				form.Add("privileged", "true")
-				Expect(getConfs().Privileged).To(BeTrue())
+				Expect(*getConfs().Privileged).To(BeTrue())
 			})
 		})
 
 		Context("publish all option", func() {
-			It("defaults to false", func() {
-				Expect(getConfs().PublishAll).To(BeFalse())
+			It("defaults to nil", func() {
+				Expect(getConfs().PublishAll).To(BeNil())
 			})
 
 			It("can be set to true", func() {
 				form.Add("publish_all", "1")
-				Expect(getConfs().PublishAll).To(BeTrue())
+				Expect(*getConfs().PublishAll).To(BeTrue())
 			})
 		})
 

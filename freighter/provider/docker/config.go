@@ -18,10 +18,10 @@ var (
 // configFromContainer populates a ContainerConfig given a container
 func (p *DockerProvider) configFromContainer(cnr *dockerclient.Container) *provider.ContainerConfig {
 	return &provider.ContainerConfig{
-		Privileged:   cnr.HostConfig.Privileged,
+		Privileged:   &cnr.HostConfig.Privileged,
 		Cmd:          cnr.Config.Cmd,
 		Env:          cnr.Config.Env,
-		PublishAll:   cnr.HostConfig.PublishAllPorts,
+		PublishAll:   &cnr.HostConfig.PublishAllPorts,
 		Mounts:       mountBindsFromDocker(cnr.HostConfig.Binds, p.VolumesDir("")),
 		PortBindings: portBindingsFromDocker(cnr),
 	}
@@ -76,8 +76,16 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 		return &newCfg, nil
 	}
 
-	newCfg.Privileged = cfg.Privileged
-	newCfg.PublishAllPorts = cfg.PublishAll
+	newCfg.Privileged = hostCfg.Privileged
+	if cfg.Privileged != nil {
+		newCfg.Privileged = *cfg.Privileged
+	}
+
+	newCfg.PublishAllPorts = hostCfg.PublishAllPorts
+	if cfg.PublishAll != nil {
+		newCfg.PublishAllPorts = *cfg.PublishAll
+	}
+
 	if cfg.PortBindings != nil {
 		bs, err := portBindingsToDocker(cfg)
 		if err != nil {

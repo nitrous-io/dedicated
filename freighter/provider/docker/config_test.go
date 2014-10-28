@@ -59,9 +59,9 @@ var _ = Describe("provider/docker config", func() {
 
 		It("returns privileged from container", func() {
 			cnr.HostConfig.Privileged = true
-			Expect(prov.ConfigFromContainer(cnr).Privileged).To(BeTrue())
+			Expect(*prov.ConfigFromContainer(cnr).Privileged).To(BeTrue())
 			cnr.HostConfig.Privileged = false
-			Expect(prov.ConfigFromContainer(cnr).Privileged).NotTo(BeTrue())
+			Expect(*prov.ConfigFromContainer(cnr).Privileged).NotTo(BeTrue())
 		})
 
 		It("returns cmd from container", func() {
@@ -76,9 +76,9 @@ var _ = Describe("provider/docker config", func() {
 
 		It("returns publish all from container", func() {
 			cnr.HostConfig.PublishAllPorts = true
-			Expect(prov.ConfigFromContainer(cnr).PublishAll).To(BeTrue())
+			Expect(*prov.ConfigFromContainer(cnr).PublishAll).To(BeTrue())
 			cnr.HostConfig.PublishAllPorts = false
-			Expect(prov.ConfigFromContainer(cnr).PublishAll).NotTo(BeTrue())
+			Expect(*prov.ConfigFromContainer(cnr).PublishAll).NotTo(BeTrue())
 		})
 
 		It("returns port bindings from network settings if running", func() {
@@ -347,17 +347,19 @@ var _ = Describe("provider/docker config", func() {
 		})
 
 		It("sets Privileged to the value of ContainerConfig.Privileged", func() {
+			priv := false
 			cnCfg := &provider.ContainerConfig{
 				Hostname:   cnrName,
 				Image:      "not/nitrous",
-				Privileged: false,
+				Privileged: &priv,
 			}
 
 			hostCfg, err := prov.MkHostConfig(oldHostCfg, cnCfg, true)
 			Expect(err).To(BeNil())
 			Expect(hostCfg.Privileged).To(BeFalse())
 
-			cnCfg.Privileged = true
+			priv = true
+			cnCfg.Privileged = &priv
 			hostCfg, err = prov.MkHostConfig(oldHostCfg, cnCfg, true)
 			Expect(err).To(BeNil())
 			Expect(hostCfg.Privileged).To(BeTrue())
@@ -366,11 +368,12 @@ var _ = Describe("provider/docker config", func() {
 		Context("with PublishAll config", func() {
 			BeforeEach(func() {
 				var err error
+				publishAll := true
 				hostCfg, err = prov.MkHostConfig(oldHostCfg,
 					&provider.ContainerConfig{
 						Hostname:   cnrName,
 						Image:      "not/nitrous",
-						PublishAll: true,
+						PublishAll: &publishAll,
 					}, true)
 				Expect(err).To(BeNil())
 			})
