@@ -42,6 +42,8 @@ type User struct {
 	EncryptedPassword string `db:"encrypted_password" json:"-"`
 
 	LoginAttempts int `db:"login_attempts" json:"-"`
+
+	InviteCodeId sql.NullInt64 `db:"invite_code_id" json:"-"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {
@@ -107,8 +109,8 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 		return err
 	}
 	nstmt, err := tx.PrepareNamed(`INSERT INTO users
-		(email, username, encrypted_password, name)
-		VALUES (:email, :username, :encrypted_password, :name)
+		(email, username, encrypted_password, name, invite_code_id)
+		VALUES (:email, :username, :encrypted_password, :name, :invite_code_id)
 		RETURNING *;`)
 	if err != nil {
 		return err

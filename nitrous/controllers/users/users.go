@@ -1,13 +1,14 @@
 package users
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -18,28 +19,24 @@ var (
 		"index_users_on_username": httperror.New(http.StatusBadRequest, "validation_failed", "username is taken"),
 		"index_users_on_email":    httperror.New(http.StatusBadRequest, "validation_failed", "email is taken"),
 	}
-	SignUpCode string
 )
-
-func init() {
-	SignUpCode = os.Getenv("SIGNUP_CODE")
-	if SignUpCode == "" {
-		SignUpCode = "superc@lifr@gilistic"
-	}
-}
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
 	code := r.FormValue("code")
-	if code != SignUpCode {
-		var reason string
-		if code == "" {
-			reason = "code can't be blank"
-		} else {
-			reason = "code is incorrect"
+	var ic *invitecode.InviteCode
+	var err error
+	if code == "" {
+		return httperror.New(http.StatusBadRequest, "validation_failed", "code can't be blank")
+	} else {
+		ic, err = invitecode.FindByCode(db, code)
+		if err != nil {
+			return err
 		}
-		return httperror.New(http.StatusBadRequest, "validation_failed", reason)
+		if ic == nil {
+			return httperror.New(http.StatusBadRequest, "validation_failed", "code does not exist")
+		}
 	}
 
 	email := strings.ToLower(r.FormValue("email"))
@@ -48,13 +45,14 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	name := r.FormValue("name")
 
 	u := &user.User{
-		Email:    email,
-		Username: username,
-		Name:     name,
-		Password: password,
+		Email:        email,
+		Username:     username,
+		Name:         name,
+		Password:     password,
+		InviteCodeId: sql.NullInt64{ic.ID, true},
 	}
 
-	err := u.Validate()
+	err = u.Validate()
 	if err != nil {
 		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
 	}
@@ -75,6 +73,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	err = invitecode.MarkAsUsed(tx, ic.Code)
+	if err != nil {
+		return err
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -86,7 +89,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	env.User = u
 
-	env.Tracker.CreateProfile(u, env.Logger)
+	env.Tracker.CreateProfile(u, env.Logger, code)
 	return nil
 }
 

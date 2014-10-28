@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/go-mixpanel"
 	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
 const (
@@ -67,7 +67,7 @@ func (m *MixpanelTracker) TrackEvent(event string, u *user.User, p map[string]in
 	}()
 }
 
-func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) {
+func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger, inviteCode string) {
 	if disabled {
 		return
 	}
@@ -78,6 +78,9 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) {
 		"$username": u.Username,
 		"$created":  u.CreatedAt,
 		"user_id":   u.ID,
+	}
+	if inviteCode != "" {
+		p["invite_code"] = inviteCode
 	}
 
 	go func() {

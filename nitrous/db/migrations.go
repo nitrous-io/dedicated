@@ -420,5 +420,22 @@ func init() {
 				ALTER TABLE users ADD COLUMN login_attempts smallint DEFAULT 0 NOT NULL ;
 			`,
 		},
+		{
+			Version: "340",
+			Up: `
+				CREATE TABLE invite_codes (
+					id bigserial PRIMARY KEY NOT NULL,
+					code character varying(32) NOT NULL,
+					used bool DEFAULT false NOT NULL
+				);
+				CREATE UNIQUE INDEX index_invite_codes_on_code ON invite_codes USING btree (code);
+			`,
+		},
+		{
+			Version: "345",
+			Up: `
+				ALTER TABLE users ADD COLUMN invite_code_id bigint REFERENCES invite_codes(id);
+			`,
+		},
 	}
 }
