@@ -12,10 +12,13 @@ This doesn't contain compass/tender because they can have their own release
 schedule.
 
 # Development
-- Requires DNSMASQ: install it with apt-get install dnsmasq
-- Run `make run-dev`: a program that setups various services and wires settings
+* Requires DNSMASQ: install it with apt-get install dnsmasq
+* Run `make run-dev`: a program that setups various services and wires settings
   together. Requires for proxy to works. Tested on Ubuntu server. After running
   this, `./build/nitro` should work locally with docker hosts.
+  * You might need to configure Postgres to allow access via Unix domain
+    sockets. Add this to `/etc/postgresql/9.3/main/pg_hba.conf`:
+    `local all all trust`
 
 # commands
 

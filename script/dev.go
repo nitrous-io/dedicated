@@ -205,7 +205,7 @@ func compassCommand(name string, stdout io.Writer, prefix string) *exec.Cmd {
 	cmd := exec.Command("docker", "run",
 		"-v", fmt.Sprintf("%s:/compass", filepath.Join(wd, "build", "compass")),
 		"-v", fmt.Sprintf("%s:/config.json", filepath.Join(wd, "compass", "config.json")),
-		"-v", "/var/run/postgresql:/var/run/postgresql",
+		"-v", "/run/postgresql:/run/postgresql",
 		"-p", "53",
 		"--rm",
 		"--name", name,
@@ -223,10 +223,10 @@ func tenderCommand(name string, stdout io.Writer, prefix string) *exec.Cmd {
 	cmd := exec.Command("docker", "run",
 		"-v", fmt.Sprintf("%s:/tender", filepath.Join(wd, "build", "tender")),
 		"-v", fmt.Sprintf("%s:/certs", filepath.Join(wd, "script", "certs")),
-		"-v", "/var/run/postgresql:/var/run/postgresql",
+		"-v", "/run/postgresql:/run/postgresql",
 		"--env-file", filepath.Join(wd, "tender", ".env"),
 		"--rm",
-		"--net", "host", // run net=host so it can interacts with other containers
+		"--net", "host", // run net=host so it can interact with other containers
 		"--name", name,
 		"-i", "ubuntu",
 		"/tender",
