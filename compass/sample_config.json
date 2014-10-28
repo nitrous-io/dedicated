@@ -5,14 +5,14 @@
       "name": "host",
       "domain": "n2odevpro.com.",
       "config": {
-        "database_url": "host=/var/run/postgresql dbname=nitrous_development sslmode=disable"
+        "database_url": "host=/var/run/postgresql user=vagrant dbname=nitrous_development sslmode=disable"
       }
     },
     {
       "name": "proxy",
       "domain": "n2odevproxy.com.",
       "config": {
-        "database_url": "host=/var/run/postgresql dbname=nitrous_development sslmode=disable",
+        "database_url": "host=/var/run/postgresql user=vagrant dbname=nitrous_development sslmode=disable",
         "sfo": "nitrousproxy-sfo.com"
       }
     }
