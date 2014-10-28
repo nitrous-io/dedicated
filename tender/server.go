@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	_ "github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 	"github.com/nitrous-io/dedicated/tender/pkg/httperror"
 )
@@ -91,7 +92,7 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 	log.Printf("[INFO] request %v to %s", r, hostName)
 
 	// set X-FORWARDED-PORT for the request
-	r.Header.Set("X-FORWARDED-PORT", strconv.Itoa(parsePort(r)))
+	r.Header.Set(config.ForwardPortHeader, strconv.Itoa(parsePort(r)))
 
 	// get host id and host ip
 	// host ip will be the new destination for current request
