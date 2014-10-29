@@ -83,12 +83,16 @@ func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 		if r.FormValue(UUIDParam) == "" {
 			r.Form.Set(UUIDParam, requestID)
 		}
+		start := time.Now()
+
 		log.Printf("uuid=%s Request: %v %v\n", requestID, r.Method, r.URL.String())
 		if err := handlerFunc(w, r); err != nil {
-			log.Printf("uuid=%s [ERROR] %s %s: %s\n", requestID, r.Method, r.URL, err)
+			duration := time.Since(start)
+			log.Printf("uuid=%s [ERROR], Completed in %s: %s %s: %s\n", requestID, duration, r.Method, r.URL, err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		} else {
-			log.Printf("uuid=%s 200 OK %s %s\n", requestID, r.Method, r.URL.String())
+			duration := time.Since(start)
+			log.Printf("uuid=%s 200 OK Completed in %s: %s %s\n", requestID, duration, r.Method, r.URL.String())
 		}
 	}
 }

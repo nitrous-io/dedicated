@@ -306,6 +306,7 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	sshKey := h.sshKey
 	var err error
 
+	log.Printf("uuid=%s digitalocean: creating droplet in region %s size: %s slug: %s", h.uuid, config.RegionID, config.SizeID, config.Name)
 	normalizedRegion, ok := regionsMap[config.RegionID]
 	if !ok {
 		return fmt.Errorf("Invalid region or lookup failure: '%s'", config.RegionID)
