@@ -22,7 +22,7 @@ var _ = Describe("user serializer", func() {
 			Password:          "doge4evar",                   // Not serialized.
 			Username:          "emmawatson",
 			Email:             "h.granger@hogwarts.edu",
-			Admin:             false,
+			Admin:             true,
 			CreatedAt:         &createdAt,
 			UpdatedAt:         &updatedAt,
 		}
@@ -36,7 +36,7 @@ var _ = Describe("user serializer", func() {
 			Expect(b).To(MatchJSON(`{
 				"username": "emmawatson",
 				"email": "h.granger@hogwarts.edu",
-				"admin": false,
+				"admin": true,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))

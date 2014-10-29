@@ -463,6 +463,18 @@ var _ = Describe("models/user", func() {
 				Expect(u2.InviteCodeID.Int64).To(Equal(ic.ID))
 			})
 		})
+
+		It("does not set the admin flag", func() {
+			u.Admin = true
+
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			u2, err := user.FindByUsername(db, "qux")
+			Expect(err).To(BeNil())
+			Expect(u2).NotTo(BeNil())
+			Expect(u2.Admin).To(BeFalse())
+		})
 	})
 
 	Describe("Update()", func() {

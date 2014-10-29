@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -70,22 +69,12 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	t := &token.Token{UserID: u.ID}
-
-	err = t.Insert(db)
+	err = env.Login(u, w)
 	if err != nil {
 		return err
 	}
 
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Pragma", "no-cache")
-
-	env.Status = http.StatusOK
 	env.User = u
-	env.Data = map[string]interface{}{
-		"access_token": t.Token,
-		"token_type":   "Bearer",
-	}
 	env.Tracker.CreateProfile(u, env.Logger, "")
 	return nil
 }
