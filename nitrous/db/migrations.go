@@ -437,5 +437,11 @@ func init() {
 				ALTER TABLE users ADD COLUMN invite_code_id bigint REFERENCES invite_codes(id);
 			`,
 		},
+		{
+			Version: "350",
+			Up: `
+				ALTER TABLE users ADD COLUMN admin boolean DEFAULT false NOT NULL;
+			`,
+		},
 	}
 }
