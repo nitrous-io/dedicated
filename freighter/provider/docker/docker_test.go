@@ -175,7 +175,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(string(s)).To(Equal(secret))
 		})
 
-		Context("when image has no CMD or ENTRYPOINT", func() {
+		FContext("when image has no CMD or ENTRYPOINT", func() {
 			It("creates and starts if CMD is given to container config", func() {
 				imgs := CreateImages(1, "nocmd", false, `
 					FROM busybox:latest
@@ -186,6 +186,7 @@ var _ = Describe("provider/docker", func() {
 				imgName := imgs[0]
 				name := RandomName("freightertest")
 				cnr, err := prov.CreateStart(name, imgName, secret, "")
+				fmt.Printf("container info ---> %+v\n", cnr)
 				if cnr != nil {
 					defer CleanUpContainer(name)
 				}

@@ -128,8 +128,11 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 // provider.StartFailedError is returned.
 func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string) (*provider.ContainerInfo, error) {
 	createdCnr, err := p.create(name, imageName, secret, configJSON)
+	fmt.Printf("error ----> %+v\n", err)
+
 	if err != nil {
 		if derr, ok := err.(*dockerclient.Error); ok {
+			fmt.Printf("error message ----> %s\n", derr.Message)
 			if strings.Contains(derr.Message, "No command specified") {
 				return nil, provider.ErrCmdConfig
 			}
@@ -141,7 +144,7 @@ func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string)
 	if err != nil {
 		// Return container info as well if container was created but failed
 		// to start.
-		p.logger.Errorf("DockerProvider: failed to start container %s: %v", name, err)
+		fmt.Printf("DockerProvider: failed to start container %s: %v", name, err)
 		info, _ := p.GetInfo(createdCnr.ID)
 		return info, &provider.StartFailedError{Err: err}
 	}
@@ -173,6 +176,8 @@ func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*pr
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("createContainerConfig ---> %+v\n", createConfig)
 
 	container, err := p.client.CreateContainer(dockerclient.CreateContainerOptions{
 		Name:   name,
