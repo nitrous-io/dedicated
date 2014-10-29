@@ -8,9 +8,6 @@ Contain components of the nitrous-dedicated platform.
 - compass: the DNS
 - tender: proxy to the hosts
 
-This doesn't contain compass/tender because they can have their own release
-schedule.
-
 # Development
 * Requires DNSMASQ: install it with apt-get install dnsmasq
 * Run `make run-dev`: a program that setups various services and wires settings
