@@ -32,9 +32,9 @@ var (
 	// FIXME: the map should belongs to client, not the builder
 	regionsMap = map[string]string{
 		"sgp": "sgp1",
-		"nyc": "nyc2",
+		"nyc": "nyc3",
 		"sfo": "sfo1",
-		"ams": "ams2",
+		"ams": "ams3",
 		"lon": "lon1",
 	}
 )
