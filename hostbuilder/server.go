@@ -328,7 +328,7 @@ func pingHost(info *host.Info, w io.Writer) error {
 	fmt.Fprintf(w, "Connecting to freighter server at %s...", contactAddr)
 	if !host.WaitForServer(contactAddr, FreighterPingTimeout, FreighterPingAttempts) {
 		fmt.Fprintf(w, "Connecting to freighter server...Failed!")
-		return fmt.Errorf("Connecting to freighter server...Done!")
+		return fmt.Errorf("Connecting to freighter server...Failed!")
 	}
 	return nil
 }
