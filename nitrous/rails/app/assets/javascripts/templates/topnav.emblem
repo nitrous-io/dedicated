@@ -32,17 +32,12 @@
           li.disabled
             a href='#' Billing
           li.separator
-
-          if App.user.admin
-            li
-              a href='#' Admin
-            li.separator
-
           li.disabled
             a href='#' Help
           li.separator
           li
             link-to 'logout' | Log Out
+
     else
       li
         a href='#' Features
