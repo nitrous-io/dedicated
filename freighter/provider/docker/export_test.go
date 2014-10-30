@@ -12,6 +12,10 @@ var (
 	GatewayFromIPOutput = gatewayFromIPOutput
 )
 
+func (p *DockerProvider) Gateway() string {
+	return p.gateway
+}
+
 func (p *DockerProvider) ConfigFromContainer(cnr *dockerclient.Container) *provider.ContainerConfig {
 	return p.configFromContainer(cnr)
 }

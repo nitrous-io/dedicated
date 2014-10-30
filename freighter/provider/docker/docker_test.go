@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -125,6 +126,22 @@ var _ = Describe("provider/docker", func() {
 
 		return string(out)
 	}
+
+	Describe(".NewDockerProvider()", func() {
+		It("populates provisioner gateway", func() {
+			// use different command so as not to test exact same codepath
+			out, err := exec.Command("ifconfig", "docker0").CombinedOutput()
+			Expect(err).To(BeNil())
+			re := regexp.MustCompile(`inet addr:([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})`)
+			match := re.FindSubmatch(out)
+			Expect(match).To(HaveLen(2), "unexpected ifconfig output: %s", out)
+
+			logger := &util.Logger{Level: util.LogLevelQuiet}
+			p, err := docker.NewDockerProvider(logger, datadir)
+			Expect(err).To(BeNil())
+			Expect(p.Gateway()).To(Equal(string(match[1])))
+		})
+	})
 
 	Describe(".CreateStart()", func() {
 		BeforeEach(func() {
