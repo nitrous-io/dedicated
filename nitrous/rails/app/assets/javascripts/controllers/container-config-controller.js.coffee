@@ -55,19 +55,24 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
     apply: ->
       return if @get 'saving'
       @set 'saving', true
+      prevState = @get 'state'
+      @set 'state', 'reconfiguring'
 
       events = App.get 'eventsSocket'
       container = @get('model')
 
-      onReconfigured = (data) =>
+      reconfigureComplete = =>
+        @set 'state', prevState
         events.off 'container.reconfigured', onReconfigured
         events.off 'container.reconfigure_failed', onReconfigureFailed
+
+      onReconfigured = (data) =>
+        reconfigureComplete()
         @updateConfigForm(container.setConfig(data.config))
         App.snackbar.post 'New configuration applied!'
 
       onReconfigureFailed = (data) =>
-        events.off 'container.reconfigured', onReconfigured
-        events.off 'container.reconfigure_failed', onReconfigureFailed
+        reconfigureComplete()
         App.postError(data.error, "Failed to apply new configuration!")
 
       events.on 'container.reconfigured', onReconfigured
