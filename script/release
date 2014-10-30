@@ -150,13 +150,15 @@ bundle_freighter() {
   rm -rf $PKGDIR/*.deb
 
   # install our control files over to $PKDIR
-  install -m 0644 -D $FILES/control/preinst $PKGDIR/control/preinst
-  install -m 0644 -D $FILES/control/prerm $PKGDIR/control/prerm
+  install -m 0755 -D $FILES/control/preinst $PKGDIR/control/preinst
+  install -m 0755 -D $FILES/control/postinst $PKGDIR/control/postinst
+  install -m 0755 -D $FILES/control/prerm $PKGDIR/control/prerm
+  install -m 0755 -D $FILES/control/postrm $PKGDIR/control/postrm
 
   # install our freighterd configuration for upstart
   install -m 0644 -D $FILES/data/etc/init/freighterd.conf $PKGDIR/etc/init/freighterd.conf
   # install our freighterd configuration for systemv-init (debian and co)
-  install -m 0644 -D $FILES/data/etc/systemv-init/freighterd $PKGDIR/etc/init.d/freighterd
+  install -m 0755 -D $FILES/data/etc/systemv-init/freighterd $PKGDIR/etc/init.d/freighterd
 
   # install our freighterd binary
   install -m 0755 -D $BUILD_DIR/freighterd $PKGDIR/usr/sbin/freighterd
@@ -175,7 +177,9 @@ bundle_freighter() {
     --provides $PACKAGE_NAME \
     --replaces $PACKAGE_NAME \
     --before-install control/preinst \
+    --after-install control/postinst \
     --before-remove control/prerm \
+    --after-remove control/postrm \
     --config-files /etc/init/freighterd.conf \
     --config-files /etc/init.d/freighterd \
     --license "$PACKAGE_LICENSE" \
