@@ -75,6 +75,9 @@ func main() {
 	pid := setPid(logger, conf.DataPath)
 	logger.Infof("freighterd (rev: %v, pid: %v) started", version, pid)
 
+	// make sure that we removed the pid file
+	defer removePid(logger, conf.DataPath)
+
 	// start the API server
 	svr := server.NewServer(logger, prov, conf)
 	svr.Start()
@@ -97,4 +100,10 @@ func setPid(logger *util.Logger, dataPath string) int {
 		logger.FatalExit(err)
 	}
 	return pid
+}
+
+func removePid(logger *util.Logger, dataPath string) {
+	if err := os.RemoveAll(path.Join(dataPath, "freighter.pid")); err != nil {
+		logger.Warnf("freighterd: failed to remove pid file %q", err)
+	}
 }
