@@ -1,0 +1,15 @@
+#!/bin/bash
+set -e
+
+SUBJ='/C=US/ST=California/L=SFO/O=DUMMYN2O/CN=*.n2ostagingpro.com/'
+TARGET_DIR=/tmp/n2o-dummy-certs
+
+[[ ! -d $TARGET_DIR ]] && mkdir -pv $TARGET_DIR
+
+DUMMY_KEY=$TARGET_DIR/dummy.key
+DUMMY_CA=$TARGET_DIR/ca-dummy.crt
+DUMMY_CERT=$TARGET_DIR/dummy.crt
+
+openssl req -subj ${SUBJ} -x509 -days 365 -batch -nodes -newkey rsa:1024 -keyout ${DUMMY_KEY} -out ${DUMMY_CERT}
+
+[[ -f ${DUMMY_CERT} ]] && cp ${DUMMY_CERT} ${DUMMY_CA}
