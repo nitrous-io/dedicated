@@ -24,9 +24,14 @@ var (
 
 	FreighterPingTimeout  = 1 * time.Second
 	FreighterPingAttempts = []time.Duration{
+		2 * time.Second, // Ping eagerly at the start because most of the time
+		2 * time.Second, // Freighter should be available pretty quickly.
+		2 * time.Second,
 		5 * time.Second,
+		10 * time.Second,
+		15 * time.Second,
+		20 * time.Second,
 		30 * time.Second,
-		90 * time.Second,
 	}
 )
 
@@ -328,9 +333,9 @@ func writeResponse(w http.ResponseWriter, resp *Response) {
 
 // ping the host to make sure that it's up
 func pingHost(info *host.Info, w io.Writer) error {
-	contactAddr := fmt.Sprintf("https://%s:%d", info.IPAddress, info.FreighterdPort)
-	fmt.Fprintf(w, "Connecting to freighter server at %s...", contactAddr)
-	if !host.WaitForServer(contactAddr, FreighterPingTimeout, FreighterPingAttempts) {
+	u := fmt.Sprintf("https://%s:%d", info.IPAddress, info.FreighterdPort)
+	fmt.Fprintf(w, "Connecting to freighter server at %s...", u)
+	if !host.WaitForServer(u, FreighterPingTimeout, FreighterPingAttempts) {
 		fmt.Fprintf(w, "Connecting to freighter server...Failed!")
 		return fmt.Errorf("Connecting to freighter server...Failed!")
 	}
