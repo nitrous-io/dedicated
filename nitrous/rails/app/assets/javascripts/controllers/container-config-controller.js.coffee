@@ -26,34 +26,53 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
   loadConfig: ->
     container = @get 'model'
     container.loadConfig().then (config) =>
-      if config.env
-        [mutableEnv, readOnlyEnv] = filterEnvVarHash(config.env)
-        @set 'envVarHash', mutableEnv
-        @set 'envVarHashRO', readOnlyEnv
-
-      if config.volume
-        [mutableVol, readOnlyVol] = filterVolumeMounts(config.volume)
-        @set 'volumeMounts', mutableVol
-        @set 'volumeMountsRO', readOnlyVol
-
-      if config.port
-        @set 'portBindings', config.port
-
-      if config.privileged
-        @set 'privileged', config.privileged
-
-      if config.publish_all
-        @set 'publishAll', config.publish_all
-
+      @updateConfigForm(config)
       @set 'loaded', true
     , (jqxhr) ->
       App.postError(jqxhr.responseJSON, "Failed to fetch configuration!")
+
+  updateConfigForm: (config) ->
+    if config.env
+      [mutableEnv, readOnlyEnv] = filterEnvVarHash(config.env)
+      @set 'envVarHash', mutableEnv
+      @set 'envVarHashRO', readOnlyEnv
+
+    if config.volume
+      [mutableVol, readOnlyVol] = filterVolumeMounts(config.volume)
+      @set 'volumeMounts', mutableVol
+      @set 'volumeMountsRO', readOnlyVol
+
+    if config.port
+      @set 'portBindings', config.port
+
+    if config.privileged
+      @set 'privileged', config.privileged
+
+    if config.publish_all
+      @set 'publishAll', config.publish_all
 
   actions:
     apply: ->
       return if @get 'saving'
       @set 'saving', true
+
+      events = App.get 'eventsSocket'
       container = @get('model')
+
+      onReconfigured = (data) =>
+        events.off 'container.reconfigured', onReconfigured
+        events.off 'container.reconfigure_failed', onReconfigureFailed
+        @updateConfigForm(container.setConfig(data.config))
+        App.snackbar.post 'New configuration applied!'
+
+      onReconfigureFailed = (data) =>
+        events.off 'container.reconfigured', onReconfigured
+        events.off 'container.reconfigure_failed', onReconfigureFailed
+        App.postError(data.error, "Failed to apply new configuration!")
+
+      events.on 'container.reconfigured', onReconfigured
+      events.on 'container.reconfigure_failed', onReconfigureFailed
+
       container.saveConfig(
         env: @get 'envVars'
         volume: @get 'volumeMounts'
@@ -61,7 +80,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
         privileged: @get 'privileged'
         publish_all: @get 'publishAll'
       ).then(=>
-        App.snackbar.post 'New configuration applied!'
+        App.snackbar.post 'Applying new configuration...'
         @set 'closeApplyDialog', true
       , (jqxhr) ->
         App.postError(jqxhr.responseJSON, "Failed to apply new configuration!")
