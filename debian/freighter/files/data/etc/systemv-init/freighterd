@@ -64,9 +64,7 @@ case "$1" in
 			--exec "$FREIGHTERD" \
 			--pidfile "$FREIGHTERD_SSD_PIDFILE" \
 			--make-pidfile \
-			-- \
-				-d -p "$FREIGHTERD_PIDFILE" \
-					>> "$FREIGHTERD_LOGFILE" 2>&1
+			-- >> "$FREIGHTERD_LOGFILE" 2>&1
 		log_end_msg $?
 		;;
 
