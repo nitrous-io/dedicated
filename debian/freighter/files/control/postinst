@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+set -u
+
+if ! { [ -x /sbin/initctl ] && /sbin/initctl version 2>/dev/null | grep -q upstart; }; then
+  # we only need to do this if upstart isn't in charge
+  update-rc.d freighterd defaults > /dev/null || true
+fi
+if [ -n "$2" ]; then
+  _dh_action=restart
+else
+  _dh_action=start
+fi
+service freighterd $_dh_action 2>/dev/null || true
