@@ -153,8 +153,10 @@ bundle_freighter() {
   install -m 0644 -D $FILES/control/preinst $PKGDIR/control/preinst
   install -m 0644 -D $FILES/control/prerm $PKGDIR/control/prerm
 
-  # install our freighterd configuration
+  # install our freighterd configuration for upstart
   install -m 0644 -D $FILES/data/etc/init/freighterd.conf $PKGDIR/etc/init/freighterd.conf
+  # install our freighterd configuration for systemv-init (debian and co)
+  install -m 0644 -D $FILES/data/etc/systemv-init/freighterd $PKGDIR/etc/init.d/freighterd
 
   # install our freighterd binary
   install -m 0755 -D $BUILD_DIR/freighterd $PKGDIR/usr/sbin/freighterd
@@ -175,6 +177,7 @@ bundle_freighter() {
     --before-install control/preinst \
     --before-remove control/prerm \
     --config-files /etc/init/freighterd.conf \
+    --config-files /etc/init.d/freighterd \
     --license "$PACKAGE_LICENSE" \
     --url "$PACKAGE_URL" \
     --deb-compression gz \
