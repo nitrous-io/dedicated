@@ -16,7 +16,6 @@ import (
 )
 
 type shellCmd struct {
-	c        conn
 	termMode string
 	db       db.QueryReceiver
 }
@@ -34,9 +33,14 @@ func (s *shellCmd) Run(args []string) int {
 		return failf("missing host slug")
 	}
 
-	session, err := newSession(args[0])
+	c, err := newConn(args[0])
 	if err != nil {
 		return failf("shell: %q", err)
+	}
+
+	session, err := c.Client.NewSession()
+	if err != nil {
+		return failf("shell: failed to create new session %q", err)
 	}
 
 	stdin, stdout, stderr := pipes(session)

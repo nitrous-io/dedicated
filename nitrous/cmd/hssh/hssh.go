@@ -5,15 +5,17 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 	"time"
+
+	"crypto/rsa"
 
 	"code.google.com/p/go.crypto/ssh"
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/gorainbow/cipher"
-	"github.com/nitrous-io/nitrous/db"
-	"github.com/nitrous-io/nitrous/models/host"
-	"github.com/nitrous-io/nitrous/models/keypairs"
+	sshutil "github.com/nitrous-io/dedicated/hostbuilder/pkg/ssh"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/nitrous-io/nitrous-common/cipher"
 )
 
 var (
@@ -25,13 +27,6 @@ var (
 	aesKey string
 	dbURL  string
 )
-
-// represent the ssh connection status. When the connection succeeds, then we
-// have the client and err should be nil
-type conn struct {
-	client *ssh.Client
-	err    error
-}
 
 type resizeRequest struct {
 	Columns uint32
@@ -58,14 +53,15 @@ func main() {
 	c := cli.NewCLI("hssh", "0.0.1-alpha")
 	c.Args = os.Args[1:]
 	c.Commands = map[string]cli.CommandFactory{
-		"shell": newShellCommand(),
+		"shell":  newShellCommand(),
+		"upload": newUploadCommand(),
 	}
 
 	exitCode, _ := c.Run()
 	os.Exit(exitCode)
 }
 
-func newSession(slug string) (*ssh.Session, error) {
+func newConn(slug string) (*sshutil.Conn, error) {
 	// get db conection
 	dbconn, err := db.NewDatabase(dbURL)
 	if err != nil {
@@ -93,56 +89,18 @@ func newSession(slug string) (*ssh.Session, error) {
 		return nil, fmt.Errorf("failed to decrypt private key for host %q, error %q", h, err)
 	}
 
+	pk, err := ssh.ParseRawPrivateKey(priv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key for host %q, error %q", h, err)
+	}
+	privKey, ok := pk.(*rsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("invalid RSA key for host %q", h)
+	}
+
 	// create the ssh client
-	signer, err := ssh.ParsePrivateKey(priv)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a signer for the private key %q", err)
-	}
-
-	// generate the ssh config
-	sshConfig := &ssh.ClientConfig{
-		User: sshUser,
-		Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)},
-	}
-
-	// starting to ssh into server
-	ch := make(chan conn)
 	address := fmt.Sprintf("%s:65100", h.IPAddress.String)
-	go func() {
-		// trying to connect to ssh here
-		attempts := 0 // number of attemps to connect to ssh
-		for {
-			sshClient, err := ssh.Dial("tcp", address, sshConfig)
-			if err == nil {
-				ch <- conn{sshClient, nil}
-				return
-			}
-			log.Printf("Waiting for ssh conn to be ready, got %v", err)
-			// rejects failed authenticate and connection refused error
-			if strings.Contains(err.Error(), "authenticate") ||
-				strings.Contains(err.Error(), "connection refused") {
-				log.Printf("Failed to authenticate with remote ssh: %v", err)
-				attempts += 1
-			}
-			if attempts < maxAttempts {
-				time.Sleep(wait)
-				continue
-			} else {
-				ch <- conn{nil, err}
-			}
-		}
-	}()
-
-	sshConn := <-ch
-	if sshConn.err != nil {
-		return nil, fmt.Errorf("failed to ssh into the host %q", sshConn.err)
-	}
-	// open a session
-	s, err := sshConn.client.NewSession()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a ssh session %q", err)
-	}
-	return s, nil
+	return sshutil.WaitForSSH(address, sshUser, privKey, 10*time.Second, make(chan struct{}))
 }
 
 // pipes returns stdin, stdout, stderr of the current ssh session
