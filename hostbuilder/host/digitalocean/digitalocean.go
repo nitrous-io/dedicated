@@ -95,6 +95,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{"Writing token", writeSecret},
 		{"Setting up repos", writeRepository},
 		{"Fetching updates", updateSoftware},
+		{"Applying settings", restartFreighterd},
 	}
 	ctx := context.NewContext(h, steps, w)
 	if err := ctx.Execute(); err != nil {
@@ -420,11 +421,20 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 func updateSoftware(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
 	updateSoftwareCmd :=
-		`apt-get update && apt-get install -yq freighterd && service freighterd restart`
+		`apt-get update && apt-get install -yq freighterd`
 	if err := h.conn.Execute(updateSoftwareCmd); err != nil {
 		return err
 	}
 	hlog(h, "Updated software on %v", h.ipAddress())
+	return nil
+}
+
+func restartFreighterd(ctx *context.Context, hst host.Host) error {
+	h := hst.(*Host)
+	if err := h.conn.Execute(`service freighterd restart`); err != nil {
+		return err
+	}
+	hlog(h, "Restarted freighterd on %v", h.ipAddress())
 	return nil
 }
 

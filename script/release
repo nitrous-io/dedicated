@@ -160,6 +160,11 @@ bundle_freighter() {
   # install our freighterd configuration for systemv-init (debian and co)
   install -m 0755 -D $FILES/data/etc/systemv-init/freighterd $PKGDIR/etc/init.d/freighterd
 
+  # install dummy certs
+  install -m 0644 -D $FILES/data/etc/freighterd/ca-dummy.crt $PKGDIR/etc/freighterd/ca.crt
+  install -m 0644 -D $FILES/data/etc/freighterd/dummy.crt $PKGDIR/etc/freighterd/cert.crt
+  install -m 0644 -D $FILES/data/etc/freighterd/dummy.key $PKGDIR/etc/freighterd/key.crt
+
   # install our freighterd binary
   install -m 0755 -D $BUILD_DIR/freighterd $PKGDIR/usr/sbin/freighterd
 
@@ -182,6 +187,9 @@ bundle_freighter() {
     --after-remove control/postrm \
     --config-files /etc/init/freighterd.conf \
     --config-files /etc/init.d/freighterd \
+    --config-files /etc/freighterd/ca.crt \
+    --config-files /etc/freighterd/cert.crt \
+    --config-files /etc/freighterd/key.crt \
     --license "$PACKAGE_LICENSE" \
     --url "$PACKAGE_URL" \
     --deb-compression gz \

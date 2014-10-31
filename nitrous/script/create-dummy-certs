@@ -1,0 +1,22 @@
+#!/bin/bash
+set -e
+
+SUBJ='/C=US/ST=California/L=SFO/O=DUMMYN2O/CN=*.n2ostagingpro.com/'
+TARGET_DIR=/tmp/n2o-dummy-certs
+
+[[ ! -d $TARGET_DIR ]] && mkdir -pv $TARGET_DIR
+
+DUMMY_KEY=$TARGET_DIR/dummy.key
+DUMMY_CA=$TARGET_DIR/ca-dummy.crt
+DUMMY_CERT=$TARGET_DIR/dummy.crt
+
+rm -f ${TARGET_DIR}/*.crt
+openssl req -subj ${SUBJ} -x509 -days 365 -batch -nodes -newkey rsa:1024 -keyout ${DUMMY_KEY} -out ${DUMMY_CERT}
+
+if [[ -f ${DUMMY_CERT} ]]; then
+        cp ${DUMMY_CERT} ${DUMMY_CA}
+        echo "Dummy certs created and can be found in ${TARGET_DIR}"
+else
+        echo "Dummy cert not found - creation failed."
+        exit 1
+fi
