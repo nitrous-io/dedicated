@@ -187,6 +187,9 @@ bundle_freighter() {
     --after-remove control/postrm \
     --config-files /etc/init/freighterd.conf \
     --config-files /etc/init.d/freighterd \
+    --config-files /etc/freighterd/ca.crt \
+    --config-files /etc/freighterd/cert.crt \
+    --config-files /etc/freighterd/key.crt \
     --license "$PACKAGE_LICENSE" \
     --url "$PACKAGE_URL" \
     --deb-compression gz \
