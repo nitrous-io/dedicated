@@ -189,18 +189,6 @@ var _ = Describe("server", func() {
 					})
 				})
 
-				Context("when Cmd config has an error", func() {
-					BeforeEach(func() {
-						prov.CreateError = provider.ErrCmdConfig
-					})
-
-					It("responds with 422 unprocessable entity", func() {
-						doRequest()
-						Expect(res.Code).To(Equal(422))
-						Expect(res.Body.String()).To(MatchJSON(fmt.Sprintf(`{"error":"%s"}`, provider.ErrCmdConfig.Error())))
-					})
-				})
-
 				Context("returns a container info with no error", func() {
 					BeforeEach(func() {
 						prov.CreateContainerInfo = &provider.ContainerInfo{ID: "aaa", Name: name, Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning}

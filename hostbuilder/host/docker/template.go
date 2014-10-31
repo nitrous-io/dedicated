@@ -25,7 +25,7 @@ RUN /bin/bash -c 'echo -e {{printf "%q" .TLS.Key}} > /etc/freighterd/key.crt'
 RUN /bin/bash -c 'echo -e {{printf "%q" .Secret}} > /etc/freighterd/secret'
 {{ end }}
 
-RUN /bin/bash -c "echo -e '#!/bin/bash\nrm /var/run/docker.pid\ndocker -d -e lxc >& /var/log/docker.log &\n/freighterd' > /start-freighterd" && chmod +x /start-freighterd
+RUN /bin/bash -c "echo -e '#!/bin/bash\nrm /var/run/docker.pid\ndocker -d >& /var/log/docker.log &\n/freighterd' > /start-freighterd" && chmod +x /start-freighterd
 
 EXPOSE 65333
 `

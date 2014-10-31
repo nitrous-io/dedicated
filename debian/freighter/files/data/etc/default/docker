@@ -1,4 +1,4 @@
-# - the container engine is lxc
+# - the container engine is native
 # - socket is /var/run/docker.sock
 # - always restart previously running container
-DOCKER_OPTS='--exec-driver=lxc --host=unix:///var/run/docker.sock --restart=true --dns 8.8.8.8 --dns 8.8.4.4'
+DOCKER_OPTS='--host=unix:///var/run/docker.sock --restart=true --dns 8.8.8.8 --dns 8.8.4.4'

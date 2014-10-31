@@ -129,11 +129,6 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string) (*provider.ContainerInfo, error) {
 	createdCnr, err := p.create(name, imageName, secret, configJSON)
 	if err != nil {
-		if derr, ok := err.(*dockerclient.Error); ok {
-			if strings.Contains(derr.Message, "No command specified") {
-				return nil, provider.ErrCmdConfig
-			}
-		}
 		return nil, err
 	}
 

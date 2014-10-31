@@ -114,8 +114,6 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 		})
 	case err == provider.ErrImageNotFound:
 		s.respondEncodeJSON(w, http.StatusNotFound, map[string]interface{}{"error": err.Error()})
-	case err == provider.ErrCmdConfig:
-		s.respondEncodeJSON(w, StatusUnprocessableEntity, map[string]interface{}{"error": err.Error()})
 	default:
 		s.respondEncodeJSON(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
 	}

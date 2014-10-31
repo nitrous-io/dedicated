@@ -93,21 +93,15 @@ func (s *Shell) Open(w, h int, env []string) error {
 	if h == 0 {
 		h = defaultHeight
 	}
+	// FIXME: maybe use the API endpoints here instead of piping to exec command
 	if s.cmd == nil {
-		lxcEnv := []string{fmt.Sprintf("-vTERM=%s", defaultTerm)}
-		for _, e := range env {
-			lxcEnv = append(lxcEnv, fmt.Sprintf("-v%s", e))
-		}
 		args := []string{
-			"--name", s.id,
-			"--clear-env",
+			"exec",
+			"-it",
+			s.id,
+			"sh", "-c", fmt.Sprintf("TERM=%s %s", defaultTerm, s.command),
 		}
-		args = append(args, lxcEnv...)
-		args = append(args,
-			"--",
-			"sh", "-c", s.command,
-		)
-		s.cmd = exec.Command("lxc-attach", args...)
+		s.cmd = exec.Command("docker", args...)
 	}
 
 	s.stdoutR, s.stdoutW = io.Pipe()
