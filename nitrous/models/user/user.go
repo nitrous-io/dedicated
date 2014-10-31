@@ -82,16 +82,40 @@ func FindByUsernameOrEmail(d db.QueryReceiver, login string) (*User, error) {
 	return user, nil
 }
 
-func GetLoginAttempts(d db.QueryReceiver, login string) (int, error) {
-	var loginAttempts int
-	err := d.QueryRowx("SELECT login_attempts FROM users WHERE username = $1 OR email = $1", login).Scan(&loginAttempts)
+// GetDelay returns a time.Duration based on no. of login attempts made on
+// given login.
+func GetDelay(d db.QueryReceiver, login string) (time.Duration, error) {
+	var attemptCount int
+
+	var (
+		attempts = []int{3, 6, 9}
+		delay    = []time.Duration{
+			time.Duration(0),
+			time.Second * 1,
+			time.Second * 3,
+		}
+		finalDelay = time.Second * 5
+		noDelay    = time.Duration(0)
+	)
+
+	err := d.QueryRowx("SELECT login_attempts FROM users WHERE username = $1 OR email = $1", login).Scan(&attemptCount)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, nil
+			return noDelay, nil
 		}
-		return 0, err
+		return noDelay, err
 	}
-	return loginAttempts, nil
+
+	if attemptCount == 0 {
+		return noDelay, nil
+	}
+
+	for i, a := range attempts {
+		if attemptCount < a {
+			return delay[i], nil
+		}
+	}
+	return finalDelay, nil
 }
 
 func IncrementLoginAttempts(d db.QueryReceiver, login string) error {

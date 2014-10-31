@@ -27,15 +27,6 @@ func Test(t *testing.T) {
 	RunSpecs(t, "controllers/tokens")
 }
 
-func init() {
-	tokens.LoginAttemptsWaitTime = map[int]time.Duration{
-		3: time.Duration(0),
-		6: time.Millisecond * 200,
-		9: time.Millisecond * 400,
-	}
-	tokens.LoginAttemptsFinalWaitTime = time.Millisecond * 600
-}
-
 var _ = Describe("controllers/tokens", func() {
 	var (
 		db      *db.Database
@@ -64,7 +55,8 @@ var _ = Describe("controllers/tokens", func() {
 
 	Describe("POST /tokens", func() {
 		var (
-			u *user.User
+			u                *user.User
+			durationReceived time.Duration
 		)
 
 		BeforeEach(func() {
@@ -76,6 +68,11 @@ var _ = Describe("controllers/tokens", func() {
 			err := WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 			Expect(u.ID).NotTo(BeZero())
+
+			tokens.TimerFunc = func(d time.Duration) *time.Timer {
+				durationReceived = d
+				return time.NewTimer(0) // set duration to 0 for faster tests
+			}
 
 			params = &url.Values{}
 			params.Set("grant_type", "password")
@@ -180,17 +177,14 @@ var _ = Describe("controllers/tokens", func() {
 
 				params.Set("password", "111111")
 
-				start := time.Now()
 				doRequest()
-				Expect(time.Now().Sub(start).Seconds()).To(BeNumerically("<", 0.2))
+				Expect(durationReceived).To(Equal(time.Duration(0)))
 
-				start = time.Now()
 				doRequest()
-				Expect(time.Now().Sub(start).Seconds()).To(BeNumerically("<", 0.2))
+				Expect(durationReceived).To(Equal(time.Duration(0)))
 
-				start = time.Now()
 				doRequest()
-				Expect(time.Now().Sub(start).Seconds()).To(BeNumerically("<", 0.2))
+				Expect(durationReceived).To(Equal(time.Duration(0)))
 			})
 
 			It("should delay correctly", func() {
@@ -199,35 +193,26 @@ var _ = Describe("controllers/tokens", func() {
 
 				params.Set("password", "111111")
 
-				start := time.Now()
 				doRequest()
-				Expect(time.Now().Sub(start).Seconds()).To(BeNumerically("<", 0.2))
+				Expect(durationReceived).To(Equal(time.Duration(0)))
 
 				_, err = db.Exec("UPDATE users SET login_attempts = 4 WHERE username = $1", u.Username)
 				Expect(err).To(BeNil())
 
-				start = time.Now()
 				doRequest()
-				diff := time.Now().Sub(start).Seconds()
-				Expect(diff).To(BeNumerically(">=", 0.2))
-				Expect(diff).To(BeNumerically("<", 0.4))
+				Expect(durationReceived).To(Equal(time.Second * 1))
 
 				_, err = db.Exec("UPDATE users SET login_attempts = 7 WHERE username = $1", u.Username)
 				Expect(err).To(BeNil())
 
-				start = time.Now()
 				doRequest()
-				diff = time.Now().Sub(start).Seconds()
-				Expect(diff).To(BeNumerically(">=", 0.4))
-				Expect(diff).To(BeNumerically("<", 0.6))
+				Expect(durationReceived).To(Equal(time.Second * 3))
 
 				_, err = db.Exec("UPDATE users SET login_attempts = 10 WHERE username = $1", u.Username)
 				Expect(err).To(BeNil())
 
-				start = time.Now()
 				doRequest()
-				diff = time.Now().Sub(start).Seconds()
-				Expect(diff).To(BeNumerically(">=", 0.6))
+				Expect(durationReceived).To(Equal(time.Second * 5))
 			})
 
 			It("should reset the delay after a successful auth", func() {
@@ -235,13 +220,11 @@ var _ = Describe("controllers/tokens", func() {
 				Expect(err).To(BeNil())
 
 				params.Set("password", "123456")
-				start := time.Now()
 				doRequest()
-				Expect(time.Now().Sub(start).Seconds()).To(BeNumerically(">=", 0.2))
+				Expect(durationReceived).To(Equal(time.Second * 1))
 
-				start = time.Now()
 				doRequest()
-				Expect(time.Now().Sub(start).Seconds()).To(BeNumerically("<", 0.2))
+				Expect(durationReceived).To(Equal(time.Duration(0)))
 			})
 
 			It("shouldn't track any events", func() {
