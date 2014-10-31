@@ -99,14 +99,9 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	}
 	ctx := context.NewContext(h, steps, w)
 	if err := ctx.Execute(); err != nil {
+		hlog(h, "ERROR: Failed in create host step: %v", err)
 		if h.droplet != nil {
-			h.progressLog(w, "Canceling host creation...")
-			if resp, derr := h.Client.Droplets.Delete(h.droplet.ID); derr != nil {
-				h.progressLog(w, "Canceling host creation...Failed!")
-				hlog(h, "ERROR: Failed to remove droplet %d", h.droplet.ID)
-				return nil, fmt.Errorf("Failed to destroy after create error: %s, destroy error: %v, resp: %v", err, derr, resp)
-			}
-			h.progressLog(w, "Canceling host creation...Done!")
+			hlog(h, "Leaving droplet for inspection: %d", h.droplet.ID)
 		}
 		return nil, err
 	}

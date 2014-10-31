@@ -78,12 +78,6 @@ var _ = Describe("host/digitalocean", func() {
 				}
 				_, err := h.Create(&newlineWriter{os.Stdout})
 				Expect(err).NotTo(BeNil(), "expect create to fail")
-
-				request := s.Requests["DELETE"]["droplets/id/destroy"][0]
-				Expect(request.URL.Path).To(Equal("/v2/droplets/25"))
-
-				request = s.Requests["DELETE"]["keys/id/destroy"][0]
-				Expect(request.URL.Path).To(Equal("/v2/account/keys/2"))
 			})
 		})
 	})
