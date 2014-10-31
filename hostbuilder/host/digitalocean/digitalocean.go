@@ -74,17 +74,6 @@ type Host struct {
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
-	defer func() {
-		if h.sshKey != nil {
-			h.progressLog(w, "Removing key...")
-			_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
-			if err != nil {
-				h.progressLog(w, "Removing key...Failed!")
-				hlog(h, "ERROR: Failed to remove key %d", h.sshKey.ID)
-			}
-			h.progressLog(w, "Removing key...Done!")
-		}
-	}()
 	steps := []context.Step{
 		{"Creating key", createSSHKey},
 		{"Creating host", createDroplet},
@@ -104,6 +93,16 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 			hlog(h, "Leaving droplet for inspection: %d", h.droplet.ID)
 		}
 		return nil, err
+	}
+
+	if h.sshKey != nil {
+		h.progressLog(w, "Removing key...")
+		_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
+		if err != nil {
+			h.progressLog(w, "Removing key...Failed!")
+			hlog(h, "ERROR: Failed to remove key %d", h.sshKey.ID)
+		}
+		h.progressLog(w, "Removing key...Done!")
 	}
 
 	info := h.dropletToInfo()
