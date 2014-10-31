@@ -5,35 +5,24 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 	"time"
 
+	"crypto/rsa"
+
 	"code.google.com/p/go.crypto/ssh"
-	"code.google.com/p/go.crypto/ssh/terminal"
-	"github.com/nitrous-io/nitrous-common/cipher"
+	"github.com/mitchellh/cli"
+	sshutil "github.com/nitrous-io/dedicated/hostbuilder/pkg/ssh"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/nitrous-io/nitrous-common/cipher"
 )
 
 var (
-	maxAttempts = 3
-	wait        = 3 * time.Second
-	termMode    = "xterm-256color"
-	sshUser     = "root"
-
-	aesKey string
-	dbURL  string
+	sshUser = "root"
+	aesKey  string
+	dbURL   string
 )
-
-// represent the ssh connection status. When the connection succeeds, then we
-// have the client and err should be nil
-type conn struct {
-	client *ssh.Client
-	err    error
-}
 
 type resizeRequest struct {
 	Columns uint32
@@ -57,171 +46,58 @@ func init() {
 }
 
 func main() {
-	// get host's slug
-	if len(os.Args) != 2 {
-		log.Fatalf("Required host's slug")
+	c := cli.NewCLI("hssh", "0.0.1-alpha")
+	c.Args = os.Args[1:]
+	c.Commands = map[string]cli.CommandFactory{
+		"shell":  newShellCommand(),
+		"upload": newUploadCommand(),
+		"run":    newRunCommand(),
 	}
-	slug := os.Args[1]
 
+	exitCode, _ := c.Run()
+	os.Exit(exitCode)
+}
+
+func newConn(slug string) (*sshutil.Conn, error) {
 	// get db conection
-	dbConn, err := db.NewDatabase(dbURL)
+	dbconn, err := db.NewDatabase(dbURL)
 	if err != nil {
-		log.Fatalf("failed to open db connection %v", dbConn)
+		return nil, fmt.Errorf("failed to open db connection %q", err)
 	}
-	log.Print("===> established db connection ...")
 
 	// get host
-	h, err := host.FindBySlug(dbConn, slug)
+	h, err := host.FindBySlug(dbconn, slug)
 	if err != nil || h == nil {
-		log.Fatalf("failed to find host with id %v", slug)
+		return nil, fmt.Errorf("failed to find host %q, error %q", slug, err)
 	}
-	log.Print("===> found host...")
 
 	// get keypair
-	kp, err := keypairs.Get(dbConn, h.ID)
+	kp, err := keypairs.Get(dbconn, h.ID)
 	if err != nil {
-		log.Fatalf("failed to find a keypair for host %v", h)
+		return nil, fmt.Errorf("failed to find a keypair for host %q, error %q", h, err)
 	}
-	log.Print("===> found keypair...")
 
 	// get the private key from keypair
-	priv, err := cipher.Decrypt([]byte(aesKey), []byte(kp.EncryptedPrivateKeyIv), []byte(kp.EncryptedPrivateKey))
+	priv, err := cipher.Decrypt(
+		[]byte(aesKey),
+		[]byte(kp.EncryptedPrivateKeyIv),
+		[]byte(kp.EncryptedPrivateKey))
 	if err != nil {
-		log.Fatalf("failed to decrypt private key %v", err)
+		return nil, fmt.Errorf("failed to decrypt private key for host %q, error %q", h, err)
 	}
-	log.Print("===> found private key...")
 
-	log.Print("===> creating ssh session...")
-	s := sshSession(h.IPAddress.String, priv)
-	log.Print("===> created ssh session...")
-	defer s.Close()
+	pk, err := ssh.ParseRawPrivateKey(priv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key for host %q, error %q", h, err)
+	}
+	privKey, ok := pk.(*rsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("invalid RSA key for host %q", h)
+	}
 
-	stdin, stdout, stderr := pipes(s)
-
-	go io.Copy(stdin, os.Stdin)
-	go io.Copy(os.Stdout, stdout)
-	go io.Copy(os.Stderr, stderr)
-
-	// get the current terminal file descriptor
-	fd := int(os.Stdin.Fd())
-
-	log.Print("===> creating ssh shell...")
-	setupShell(fd, s)
-}
-
-// returns a SSH session that can be used to open a remote shell
-func sshSession(ip string, priv []byte) *ssh.Session {
 	// create the ssh client
-	signer, err := ssh.ParsePrivateKey(priv)
-	if err != nil {
-		log.Fatalf("failed to create a signer for the private key %v", err)
-	}
-
-	// generate the ssh config
-	sshConfig := &ssh.ClientConfig{
-		User: sshUser,
-		Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)},
-	}
-
-	ch := make(chan conn)
-	address := fmt.Sprintf("%s:65100", ip)
-	go func() {
-		// trying to connect to ssh here
-		attempts := 0 // number of attemps to connect to ssh
-		for {
-			sshClient, err := ssh.Dial("tcp", address, sshConfig)
-			if err == nil {
-				ch <- conn{sshClient, nil}
-				return
-			}
-			log.Printf("Waiting for ssh conn to be ready, got %v", err)
-			// rejects failed authenticate and connection refused error
-			if strings.Contains(err.Error(), "authenticate") ||
-				strings.Contains(err.Error(), "connection refused") {
-				log.Printf("Failed to authenticate with remote ssh: %v", err)
-				attempts += 1
-			}
-			if attempts < maxAttempts {
-				time.Sleep(wait)
-				continue
-			} else {
-				ch <- conn{nil, err}
-			}
-		}
-	}()
-
-	sshConn := <-ch
-	if sshConn.err != nil {
-		log.Fatalf("failed to ssh into the host %v", sshConn.err)
-	}
-	c := sshConn.client
-
-	// open a session
-	s, err := c.NewSession()
-	if err != nil {
-		log.Fatalf("failed to create a ssh session %v", err)
-	}
-	return s
-}
-
-// monitor sizes of the current local shell and resize the remote shell as
-// necessary
-func monitorSize(fd int, s *ssh.Session) {
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, syscall.SIGWINCH)
-	go func() {
-		for _ = range sigchan {
-			w, h, err := terminal.GetSize(fd)
-			if err != nil {
-				log.Printf("failed to get terminal size %v", err)
-				w, h = 80, 24
-			}
-			req := &resizeRequest{
-				Columns: uint32(w),
-				Rows:    uint32(h),
-				Width:   uint32(w),
-				Height:  uint32(h),
-			}
-			_, err = s.SendRequest("window-change", false, ssh.Marshal(req))
-			if err != nil {
-				log.Printf("failed to send resize request %v", err)
-			}
-		}
-	}()
-}
-
-// setup a SSH shell
-func setupShell(fd int, s *ssh.Session) {
-	state, err := terminal.GetState(fd)
-	if err != nil {
-		log.Fatalf("failed to get term state %v", err)
-	}
-	if _, err = terminal.MakeRaw(fd); err != nil {
-		log.Fatalf("failed to make raw terminal %v", err)
-	}
-	defer terminal.Restore(fd, state)
-
-	// Request pseudo terminal with the current size
-	termWidth, termHeight, err := terminal.GetSize(fd)
-	if err != nil {
-		log.Fatalf("failed to get terminal size %v", err)
-	}
-	if err := s.RequestPty(termMode, termHeight, termWidth, nil); err != nil {
-		log.Fatalf("failed to request a pty via ssh %v", err)
-	}
-
-	// Start remote shell
-	if err := s.Shell(); err != nil {
-		log.Fatalf("failed to open a shell via ssh %v", err)
-	}
-
-	// setup resize hook
-	go monitorSize(fd, s)
-
-	// wait til session finished
-	if err := s.Wait(); err != nil {
-		log.Printf("session closed %v", err)
-	}
+	address := fmt.Sprintf("%s:65100", h.IPAddress.String)
+	return sshutil.WaitForSSH(address, sshUser, privKey, 10*time.Second, make(chan struct{}))
 }
 
 // pipes returns stdin, stdout, stderr of the current ssh session
@@ -239,4 +115,10 @@ func pipes(s *ssh.Session) (io.WriteCloser, io.Reader, io.Reader) {
 		log.Fatalf("failed to open stderr pipe %v", err)
 	}
 	return stdin, stdout, stderr
+}
+
+// log and return error code 1
+func failf(format string, args ...interface{}) int {
+	log.Printf(format, args)
+	return 1
 }
