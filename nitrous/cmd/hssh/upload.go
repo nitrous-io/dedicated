@@ -9,11 +9,9 @@ import (
 	"strings"
 
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
 type uploadCmd struct {
-	db db.QueryReceiver
 }
 
 func newUploadCommand() cli.CommandFactory {

@@ -10,21 +10,19 @@ import (
 
 	"code.google.com/p/go.crypto/ssh"
 	"code.google.com/p/go.crypto/ssh/terminal"
-
 	"github.com/mitchellh/cli"
-	"github.com/nitrous-io/dedicated/nitrous/db"
+)
+
+var (
+	termMode = "xterm-256color"
 )
 
 type shellCmd struct {
-	termMode string
-	db       db.QueryReceiver
 }
 
 func newShellCommand() cli.CommandFactory {
 	return func() (cli.Command, error) {
-		return &shellCmd{
-			termMode: "xterm-256color",
-		}, nil
+		return &shellCmd{}, nil
 	}
 }
 

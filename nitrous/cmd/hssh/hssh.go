@@ -19,13 +19,9 @@ import (
 )
 
 var (
-	maxAttempts = 3
-	wait        = 3 * time.Second
-	termMode    = "xterm-256color"
-	sshUser     = "root"
-
-	aesKey string
-	dbURL  string
+	sshUser = "root"
+	aesKey  string
+	dbURL   string
 )
 
 type resizeRequest struct {
