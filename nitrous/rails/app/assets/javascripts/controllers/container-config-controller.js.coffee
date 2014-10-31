@@ -39,6 +39,9 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       if config.port
         @set 'portBindings', config.port
 
+      if config.privileged
+        @set 'privileged', config.privileged
+
       if config.publish_all
         @set 'publishAll', config.publish_all
 
@@ -55,6 +58,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
         env: @get 'envVars'
         volume: @get 'volumeMounts'
         port: @get 'portBindings'
+        privileged: @get 'privileged'
         publish_all: @get 'publishAll'
       ).then(=>
         App.snackbar.post 'New configuration applied!'

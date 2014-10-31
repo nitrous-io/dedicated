@@ -112,12 +112,12 @@ type ContainerInfo struct {
 type ContainerConfig struct {
 	Hostname     string   `json:"-"`
 	Image        string   `json:"-"`
-	Privileged   bool     `json:"Privileged,omitempty"`
+	Privileged   *bool    `json:"Privileged,omitempty"`
 	Cmd          []string `json:"Cmd,omitempty"`
 	Env          []string `json:"Env,omitempty"`
 	Mounts       []string `json:"Mounts,omitempty"`
 	PortBindings []string `json:"PortBindings,omitempty"`
-	PublishAll   bool     `json:"PublishAll,omitempty"`
+	PublishAll   *bool    `json:"PublishAll,omitempty"`
 	Gateway      string   `json:"-"`
 }
 

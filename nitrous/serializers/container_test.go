@@ -77,12 +77,14 @@ var _ = Describe("container serializer", func() {
 
 var _ = Describe("container config serializer", func() {
 	It("serializes to JSON", func() {
+		priv, pub := true, true
 		fconfig := &freighterclient.ContainerConfig{
 			PortBindings: []string{"public:4040:5050", "private:4000:3000"},
 			Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
 			Cmd:          []string{"/bin/yes"},
 			Mounts:       []string{"db"},
-			PublishAll:   true,
+			Privileged:   &priv,
+			PublishAll:   &pub,
 		}
 		c := serializers.SerializeContainerConfig(fconfig)
 		j, err := json.Marshal(c)
@@ -92,6 +94,7 @@ var _ = Describe("container config serializer", func() {
 			"env": ["NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"],
 			"cmd": ["/bin/yes"],
 			"volume": ["db"],
+			"privileged": true,
 			"publish_all": true
 		}`)))
 	})

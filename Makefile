@@ -66,7 +66,7 @@ run-nitrous: nitrous
 
 run-nitrous-dev: nitrous
 	@forego start -f nitrous/Procfile.dev
-.PHONY: run-nitrous
+.PHONY: run-nitrous-dev
 
 run-hostbuilder: hostbuilder
 	@./build/hostbuilder -config hostbuilder/config.json

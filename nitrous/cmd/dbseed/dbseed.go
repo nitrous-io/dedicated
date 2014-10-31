@@ -7,7 +7,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq/hstore"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/baseimage"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -15,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
+	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 const DBEnvVar = "NITROUS_PG_URL"
@@ -197,6 +197,7 @@ func baseImages(d db.QueryReceiver) error {
 		{Name: "Python", Repo: "nitrousio/python:latest", Description: "", Slug: "python"},
 		{Name: "Ruby", Repo: "nitrousio/ruby:latest", Description: "", Slug: "ruby"},
 		{Name: "Ubuntu", Repo: "nitrousio/ubuntu:trusty", Description: "", Slug: "ubuntu"},
+		{Name: "Docker", Repo: "nitrousio/docker:latest", Description: "", Slug: "docker"},
 	}
 	for _, b := range baseImages {
 		err = b.Insert(d)

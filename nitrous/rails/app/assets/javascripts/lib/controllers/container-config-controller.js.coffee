@@ -7,6 +7,7 @@ Lib.ContainerConfigController = Em.ObjectController.extend
   publicPort: false
   hostPort: null
   containerPort: null
+  privileged: false
   publishAll: true
 
   envVarHash: null # object (hash)
@@ -23,6 +24,7 @@ Lib.ContainerConfigController = Em.ObjectController.extend
       publicPort: false
       hostPort: null
       containerPort: null
+      privileged: false
       publishAll: true
 
       envVarHash: Em.Object.create()

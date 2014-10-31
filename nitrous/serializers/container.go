@@ -57,17 +57,24 @@ type ContainerConfig struct {
 	Env        []string `json:"env"`
 	Ports      []string `json:"port"`
 	Mounts     []string `json:"volume"`
+	Privileged bool     `json:"privileged"`
 	PublishAll bool     `json:"publish_all"`
 }
 
 func SerializeContainerConfig(cfg *freighterclient.ContainerConfig) *ContainerConfig {
-	return &ContainerConfig{
-		Cmd:        cfg.Cmd,
-		Env:        cfg.Env,
-		Ports:      cfg.PortBindings,
-		Mounts:     cfg.Mounts,
-		PublishAll: cfg.PublishAll,
+	c := &ContainerConfig{
+		Cmd:    cfg.Cmd,
+		Env:    cfg.Env,
+		Ports:  cfg.PortBindings,
+		Mounts: cfg.Mounts,
 	}
+	if cfg.Privileged != nil {
+		c.Privileged = *cfg.Privileged
+	}
+	if cfg.PublishAll != nil {
+		c.PublishAll = *cfg.PublishAll
+	}
+	return c
 }
 
 type BySlug []*Container

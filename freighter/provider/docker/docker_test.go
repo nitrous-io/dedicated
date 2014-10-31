@@ -324,8 +324,8 @@ var _ = Describe("provider/docker", func() {
 					Expect(config.Env).To(ContainElement(fmt.Sprintf("__HOST=%s", getGateway(id))))
 					Expect(config.Mounts).To(HaveLen(1))
 					Expect(strings.HasSuffix(config.Mounts[0], "/nitrous/ssh:ro")).To(BeTrue())
-					Expect(config.Privileged).NotTo(BeTrue())
-					Expect(config.PublishAll).To(BeTrue())
+					Expect(*config.Privileged).NotTo(BeTrue())
+					Expect(*config.PublishAll).To(BeTrue())
 				})
 			})
 
