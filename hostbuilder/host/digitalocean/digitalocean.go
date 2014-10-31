@@ -415,7 +415,7 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 func updateSoftware(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
 	updateSoftwareCmd :=
-		`apt-get update && apt-get install -yq freighterd`
+		`apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq freighterd`
 	if err := h.conn.Execute(updateSoftwareCmd); err != nil {
 		return err
 	}
