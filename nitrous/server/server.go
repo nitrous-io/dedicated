@@ -1,7 +1,9 @@
 package server
 
 import (
+	"crypto/rand"
 	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,6 +24,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
+
+const NitrousUUIDHeader = "X-NITROUS-UUID"
 
 var jsonNotFound = []byte(`{"error":"not_found","error_description":"not found"}`)
 
@@ -109,13 +113,16 @@ func (s *Server) route(route string, mw middleware.Middleware, methods ...string
 func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...string) {
 	route = strings.Join(nsStack, "") + route
 	h := func(w http.ResponseWriter, r *http.Request) {
-		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
+		remoteAddr := getRemoteAddr(r)
+		uuid := makeUUID()
+		w.Header().Set(NitrousUUIDHeader, uuid)
+		s.logger.Infof("uuid=%s ip=%s Request: %v %v", uuid, remoteAddr, r.Method, r.URL.String())
 		env := &middleware.Env{
 			Root:       s.root,
 			Logger:     s.logger,
 			DB:         s.db,
 			Events:     s.Events,
-			RemoteAddr: getRemoteAddr(r),
+			RemoteAddr: remoteAddr,
 			Tracker:    s.Tracker,
 		}
 		if err := mw(env, w, r); err != nil {
@@ -168,7 +175,8 @@ func (s *Server) RespondJSON(w http.ResponseWriter, status int, data []byte) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(status)
 	w.Write(data)
-	s.logger.Infof("Response: %v %v", status, string(data))
+	uuid := w.Header().Get(NitrousUUIDHeader)
+	s.logger.Infof("uuid=%s Response: %v %v", uuid, status, string(data))
 }
 
 func (s *Server) RespondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{}) {
@@ -246,4 +254,12 @@ func filterIPAddresses(ipAddresses []string) []string {
 	}
 
 	return filteredIPAddresses
+}
+
+func makeUUID() string {
+	uuid := make([]byte, 4) // hex string len 8
+	if _, err := rand.Read(uuid); err != nil {
+		return "RANDBROKE" // should never happen
+	}
+	return hex.EncodeToString(uuid)
 }
