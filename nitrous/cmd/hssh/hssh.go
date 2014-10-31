@@ -5,17 +5,15 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"code.google.com/p/go.crypto/ssh"
-	"code.google.com/p/go.crypto/ssh/terminal"
-	"github.com/nitrous-io/nitrous-common/cipher"
-	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/gorainbow/cipher"
+	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/nitrous/models/host"
+	"github.com/nitrous-io/nitrous/models/keypairs"
 )
 
 var (
@@ -57,64 +55,48 @@ func init() {
 }
 
 func main() {
-	// get host's slug
-	if len(os.Args) != 2 {
-		log.Fatalf("Required host's slug")
+	c := cli.NewCLI("hssh", "0.0.1-alpha")
+	c.Args = os.Args[1:]
+	c.Commands = map[string]cli.CommandFactory{
+		"shell": newShellCommand(),
 	}
-	slug := os.Args[1]
 
-	// get db conection
-	dbConn, err := db.NewDatabase(dbURL)
-	if err != nil {
-		log.Fatalf("failed to open db connection %v", dbConn)
-	}
-	log.Print("===> established db connection ...")
-
-	// get host
-	h, err := host.FindBySlug(dbConn, slug)
-	if err != nil || h == nil {
-		log.Fatalf("failed to find host with id %v", slug)
-	}
-	log.Print("===> found host...")
-
-	// get keypair
-	kp, err := keypairs.Get(dbConn, h.ID)
-	if err != nil {
-		log.Fatalf("failed to find a keypair for host %v", h)
-	}
-	log.Print("===> found keypair...")
-
-	// get the private key from keypair
-	priv, err := cipher.Decrypt([]byte(aesKey), []byte(kp.EncryptedPrivateKeyIv), []byte(kp.EncryptedPrivateKey))
-	if err != nil {
-		log.Fatalf("failed to decrypt private key %v", err)
-	}
-	log.Print("===> found private key...")
-
-	log.Print("===> creating ssh session...")
-	s := sshSession(h.IPAddress.String, priv)
-	log.Print("===> created ssh session...")
-	defer s.Close()
-
-	stdin, stdout, stderr := pipes(s)
-
-	go io.Copy(stdin, os.Stdin)
-	go io.Copy(os.Stdout, stdout)
-	go io.Copy(os.Stderr, stderr)
-
-	// get the current terminal file descriptor
-	fd := int(os.Stdin.Fd())
-
-	log.Print("===> creating ssh shell...")
-	setupShell(fd, s)
+	exitCode, _ := c.Run()
+	os.Exit(exitCode)
 }
 
-// returns a SSH session that can be used to open a remote shell
-func sshSession(ip string, priv []byte) *ssh.Session {
+func newSession(slug string) (*ssh.Session, error) {
+	// get db conection
+	dbconn, err := db.NewDatabase(dbURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open db connection %q", err)
+	}
+
+	// get host
+	h, err := host.FindBySlug(dbconn, slug)
+	if err != nil || h == nil {
+		return nil, fmt.Errorf("failed to find host %q, error %q", slug, err)
+	}
+
+	// get keypair
+	kp, err := keypairs.Get(dbconn, h.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find a keypair for host %q, error %q", h, err)
+	}
+
+	// get the private key from keypair
+	priv, err := cipher.Decrypt(
+		[]byte(aesKey),
+		[]byte(kp.EncryptedPrivateKeyIv),
+		[]byte(kp.EncryptedPrivateKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt private key for host %q, error %q", h, err)
+	}
+
 	// create the ssh client
 	signer, err := ssh.ParsePrivateKey(priv)
 	if err != nil {
-		log.Fatalf("failed to create a signer for the private key %v", err)
+		return nil, fmt.Errorf("failed to create a signer for the private key %q", err)
 	}
 
 	// generate the ssh config
@@ -123,8 +105,9 @@ func sshSession(ip string, priv []byte) *ssh.Session {
 		Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)},
 	}
 
+	// starting to ssh into server
 	ch := make(chan conn)
-	address := fmt.Sprintf("%s:65100", ip)
+	address := fmt.Sprintf("%s:65100", h.IPAddress.String)
 	go func() {
 		// trying to connect to ssh here
 		attempts := 0 // number of attemps to connect to ssh
@@ -152,76 +135,14 @@ func sshSession(ip string, priv []byte) *ssh.Session {
 
 	sshConn := <-ch
 	if sshConn.err != nil {
-		log.Fatalf("failed to ssh into the host %v", sshConn.err)
+		return nil, fmt.Errorf("failed to ssh into the host %q", sshConn.err)
 	}
-	c := sshConn.client
-
 	// open a session
-	s, err := c.NewSession()
+	s, err := sshConn.client.NewSession()
 	if err != nil {
-		log.Fatalf("failed to create a ssh session %v", err)
+		return nil, fmt.Errorf("failed to create a ssh session %q", err)
 	}
-	return s
-}
-
-// monitor sizes of the current local shell and resize the remote shell as
-// necessary
-func monitorSize(fd int, s *ssh.Session) {
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, syscall.SIGWINCH)
-	go func() {
-		for _ = range sigchan {
-			w, h, err := terminal.GetSize(fd)
-			if err != nil {
-				log.Printf("failed to get terminal size %v", err)
-				w, h = 80, 24
-			}
-			req := &resizeRequest{
-				Columns: uint32(w),
-				Rows:    uint32(h),
-				Width:   uint32(w),
-				Height:  uint32(h),
-			}
-			_, err = s.SendRequest("window-change", false, ssh.Marshal(req))
-			if err != nil {
-				log.Printf("failed to send resize request %v", err)
-			}
-		}
-	}()
-}
-
-// setup a SSH shell
-func setupShell(fd int, s *ssh.Session) {
-	state, err := terminal.GetState(fd)
-	if err != nil {
-		log.Fatalf("failed to get term state %v", err)
-	}
-	if _, err = terminal.MakeRaw(fd); err != nil {
-		log.Fatalf("failed to make raw terminal %v", err)
-	}
-	defer terminal.Restore(fd, state)
-
-	// Request pseudo terminal with the current size
-	termWidth, termHeight, err := terminal.GetSize(fd)
-	if err != nil {
-		log.Fatalf("failed to get terminal size %v", err)
-	}
-	if err := s.RequestPty(termMode, termHeight, termWidth, nil); err != nil {
-		log.Fatalf("failed to request a pty via ssh %v", err)
-	}
-
-	// Start remote shell
-	if err := s.Shell(); err != nil {
-		log.Fatalf("failed to open a shell via ssh %v", err)
-	}
-
-	// setup resize hook
-	go monitorSize(fd, s)
-
-	// wait til session finished
-	if err := s.Wait(); err != nil {
-		log.Printf("session closed %v", err)
-	}
+	return s, nil
 }
 
 // pipes returns stdin, stdout, stderr of the current ssh session
@@ -239,4 +160,10 @@ func pipes(s *ssh.Session) (io.WriteCloser, io.Reader, io.Reader) {
 		log.Fatalf("failed to open stderr pipe %v", err)
 	}
 	return stdin, stdout, stderr
+}
+
+// log and return error code 1
+func failf(format string, args ...interface{}) int {
+	log.Printf(format, args)
+	return 1
 }
