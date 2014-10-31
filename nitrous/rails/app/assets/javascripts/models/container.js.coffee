@@ -75,17 +75,20 @@ App.Container = klass = App.Model.extend
   loadConfig: ->
     new Em.RSVP.Promise (resolve, reject) =>
       @ajax('GET', 'config').then (json) =>
-        c = json.config
-        config =
-          env: transformEnvArrayToHash(c.env)
-          port: c.port
-          volume: c.volume
-          privileged: c.privileged
-          publish_all: c.publish_all
-        @set 'config', config
+        config = @setConfig(json.config)
         resolve(config)
       , (jqxhr) ->
         reject(jqxhr)
+
+  setConfig: (jsonConfig) ->
+    config =
+      env: transformEnvArrayToHash(jsonConfig.env)
+      port: jsonConfig.port
+      volume: jsonConfig.volume
+      privileged: jsonConfig.privileged
+      publish_all: jsonConfig.publish_all
+    @set 'config', config
+    config
 
   saveConfig: (config)  ->
     @ajax 'POST', 'reconfig',
@@ -94,6 +97,7 @@ App.Container = klass = App.Model.extend
       port: config.port
       privileged: config.privileged
       publish_all: config.publish_all
+      async: true
 
   requestToken: (permissions) ->
     @ajax 'POST', 'token', permission: permissions

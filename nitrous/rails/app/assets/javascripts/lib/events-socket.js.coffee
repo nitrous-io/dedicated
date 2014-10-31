@@ -25,7 +25,7 @@ App.EventsSocket = Lib.Socket.extend
       @on evt, (data) ->
         findAllContainers()?.reload()
 
-    ['container.started', 'container.stopped', 'container.restarted', 'container.updated'].forEach (evt) =>
+    ['container.started', 'container.stopped', 'container.restarted', 'container.updated', 'container.reconfigured', 'container.reconfigure_failed'].forEach (evt) =>
       @on evt, (data) ->
         containerData = data.container
         findContainer(containerData)?.load(containerData)
