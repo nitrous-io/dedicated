@@ -39,9 +39,9 @@ test_app() {
   cd $app
 
   if [ -f .env-example ]; then
-    forego run -e .env-example ginkgo -r -trace -keepGoing $@
+    forego run -e .env-example ginkgo -r -trace $@
   else
-    ginkgo -r -trace -keepGoing $@
+    ginkgo -r -trace $@
   fi
 }
 
