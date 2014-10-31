@@ -215,41 +215,57 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
-	Describe("GetLoginAttemptsByUsername", func() {
+	Describe("GetDelay", func() {
 		Context("when a user record with a given username or email exists", func() {
-			BeforeEach(func() {
-				_, err := db.Exec("UPDATE users SET login_attempts = 0 WHERE username = $1", "foo")
-				Expect(err).To(BeNil())
-				_, err = db.Exec("UPDATE users SET login_attempts = 93 WHERE email = $1", "bar@example.com")
-				Expect(err).To(BeNil())
-			})
-
 			AfterEach(func() {
 				_, err := db.Exec("UPDATE users SET login_attempts = 0 WHERE username = $1", "foo")
 				Expect(err).To(BeNil())
-				_, err = db.Exec("UPDATE users SET login_attempts = 0 WHERE email = $1", "bar@example.com")
-				Expect(err).To(BeNil())
 			})
 
-			It("returns the initial value", func() {
-				value, err := user.GetLoginAttempts(db, "foo")
+			It("returns a 0 delay when user has 0 login attempts", func() {
+				_, err := db.Exec("UPDATE users SET login_attempts = 0 WHERE username = $1", "foo")
 				Expect(err).To(BeNil())
-				Expect(value).To(Equal(0))
 
-				value, err = user.GetLoginAttempts(db, "bar@example.com")
+				Expect(user.GetDelay(db, "foo")).To(Equal(time.Duration(0)))
+			})
+
+			It("returns a 0 delay when user has < 3 login attempts", func() {
+				_, err := db.Exec("UPDATE users SET login_attempts = 2 WHERE username = $1", "foo")
 				Expect(err).To(BeNil())
-				Expect(value).To(Equal(93))
+
+				Expect(user.GetDelay(db, "foo")).To(Equal(time.Duration(0)))
+			})
+
+			It("returns a 1 second delay when user has 3 < > 6 login attempts", func() {
+				_, err := db.Exec("UPDATE users SET login_attempts = 5 WHERE username = $1", "foo")
+				Expect(err).To(BeNil())
+
+				Expect(user.GetDelay(db, "foo")).To(Equal(time.Second * 1))
+			})
+
+			It("returns a 3 second delay when user has 6 < > 9 login attempts", func() {
+				_, err := db.Exec("UPDATE users SET login_attempts = 7 WHERE username = $1", "foo")
+				Expect(err).To(BeNil())
+
+				Expect(user.GetDelay(db, "foo")).To(Equal(time.Second * 3))
+			})
+
+			It("returns a 5 second delay when user has > 9 login attempts", func() {
+				_, err := db.Exec("UPDATE users SET login_attempts = 15 WHERE username = $1", "foo")
+				Expect(err).To(BeNil())
+
+				Expect(user.GetDelay(db, "foo")).To(Equal(time.Second * 5))
 			})
 		})
 
 		Context("when a user record with a given username does not exist", func() {
-			It("returns nil", func() {
-				value, err := user.GetLoginAttempts(db, "bat")
-				Expect(value).To(Equal(0))
+			It("returns a 0 delay ", func() {
+				value, err := user.GetDelay(db, "bat")
+				Expect(value).To(Equal(time.Duration(0)))
 				Expect(err).To(BeNil())
 
-				value, err = user.GetLoginAttempts(db, "bat@example.com")
-				Expect(value).To(Equal(0))
+				value, err = user.GetDelay(db, "bat@example.com")
+				Expect(value).To(Equal(time.Duration(0)))
 				Expect(err).To(BeNil())
 			})
 		})
@@ -257,8 +273,8 @@ var _ = Describe("models/user", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				value, err := user.GetLoginAttempts(db, "foo")
-				Expect(value).To(Equal(0))
+				v, err := user.GetDelay(db, "foo")
+				Expect(v).To(Equal(time.Duration(0)))
 				Expect(err).NotTo(BeNil())
 			})
 		})
@@ -286,13 +302,14 @@ var _ = Describe("models/user", func() {
 			err = user.IncrementLoginAttempts(db, "bar@example.com")
 			Expect(err).To(BeNil())
 
-			value, err := user.GetLoginAttempts(db, "foo")
+			var value int
+			err = db.QueryRowx("SELECT login_attempts FROM users WHERE username = 'foo'").Scan(&value)
+			Expect(err).To(BeNil())
 			Expect(value).To(Equal(1))
-			Expect(err).To(BeNil())
 
-			value, err = user.GetLoginAttempts(db, "bar@example.com")
-			Expect(value).To(Equal(94))
+			err = db.QueryRowx("SELECT login_attempts FROM users WHERE email = 'bar@example.com'").Scan(&value)
 			Expect(err).To(BeNil())
+			Expect(value).To(Equal(94))
 		})
 
 		It("should not allow for overflows on the smallint", func() {
@@ -302,9 +319,10 @@ var _ = Describe("models/user", func() {
 			err = user.IncrementLoginAttempts(db, "foo")
 			Expect(err).To(BeNil())
 
-			value, err := user.GetLoginAttempts(db, "foo")
-			Expect(value).To(Equal(32767))
+			var value int
+			err = db.QueryRowx("SELECT login_attempts FROM users WHERE username = 'foo'").Scan(&value)
 			Expect(err).To(BeNil())
+			Expect(value).To(Equal(32767))
 		})
 	})
 
@@ -330,13 +348,14 @@ var _ = Describe("models/user", func() {
 			err = user.ResetLoginAttempts(db, "bar@example.com")
 			Expect(err).To(BeNil())
 
-			value, err := user.GetLoginAttempts(db, "foo")
-			Expect(value).To(Equal(0))
+			var value int
+			err = db.QueryRowx("SELECT login_attempts FROM users WHERE username = 'foo'").Scan(&value)
 			Expect(err).To(BeNil())
+			Expect(value).To(Equal(0))
 
-			value, err = user.GetLoginAttempts(db, "bar@example.com")
-			Expect(value).To(Equal(0))
+			err = db.QueryRowx("SELECT login_attempts FROM users WHERE email = 'bar@example.com'").Scan(&value)
 			Expect(err).To(BeNil())
+			Expect(value).To(Equal(0))
 		})
 	})
 

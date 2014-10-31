@@ -18,14 +18,11 @@ var (
 	errInvalidCred = httperror.New(http.StatusBadRequest, "invalid_grant", "incorrect username or password")
 )
 
-var (
-	LoginAttemptsWaitTime = map[int]time.Duration{
-		3: time.Duration(0),
-		6: time.Second * 1,
-		9: time.Second * 3,
-	}
-	LoginAttemptsFinalWaitTime = time.Second * 5
-)
+var TimerFunc func(d time.Duration) *time.Timer
+
+func init() {
+	TimerFunc = time.NewTimer
+}
 
 func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
@@ -42,11 +39,12 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return errLogin
 	}
 
-	attemptCount, err := user.GetLoginAttempts(db, login)
+	// delay the request based on the number of login attempts
+	delay, err := user.GetDelay(env.DB, login)
 	if err != nil {
 		return err
 	}
-	sleepOnLoginAttempts(attemptCount)
+	<-TimerFunc(delay).C
 
 	if password == "" {
 		return errPassword
@@ -56,6 +54,7 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+
 	if u == nil {
 		return errInvalidCred
 	}
@@ -89,21 +88,4 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	env.Tracker.CreateProfile(u, env.Logger, "")
 	return nil
-}
-
-func sleepOnLoginAttempts(loginAttempts int) {
-	if loginAttempts == 0 {
-		return
-	}
-
-	sleepTime := LoginAttemptsFinalWaitTime
-	for attempt, waitTime := range LoginAttemptsWaitTime {
-		if loginAttempts < attempt {
-			if waitTime < sleepTime {
-				sleepTime = waitTime
-			}
-		}
-	}
-	time.Sleep(sleepTime)
-	return
 }
