@@ -55,6 +55,7 @@ func main() {
 	c.Commands = map[string]cli.CommandFactory{
 		"shell":  newShellCommand(),
 		"upload": newUploadCommand(),
+		"run":    newRunCommand(),
 	}
 
 	exitCode, _ := c.Run()
