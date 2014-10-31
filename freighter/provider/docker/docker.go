@@ -71,12 +71,22 @@ func NewDockerProvider(logger *util.Logger, dataPath string) (*DockerProvider, e
 		return nil, errors.New("docker.NewDockerProvider: invalid argument")
 	}
 
-	attempts := []time.Duration{}
-	for _, s := range []int{1, 2, 5, 10, 0} {
-		attempts = append(attempts, time.Duration(s)*time.Second)
-	}
-	if err := isDockerRunning(attempts, logger); err != nil {
+	client, err := dockerclient.NewClient(dockerHost)
+	if err != nil {
 		return nil, err
+	}
+
+	i := 0 // use counter to throttle logging
+	for {  // check every second until docker is available
+		if _, err := client.Version(); err == nil {
+			break
+		}
+		i++
+		if i%30 == 0 {
+			i = 0
+			logger.Warnf("DockerProvider: waiting for Docker to be available on %s", dockerHost)
+		}
+		time.Sleep(1 * time.Second)
 	}
 
 	out, err := exec.Command("ip", "-family", "inet", "addr", "show", "docker0").CombinedOutput()
@@ -86,11 +96,6 @@ func NewDockerProvider(logger *util.Logger, dataPath string) (*DockerProvider, e
 	dockerGateway, err := gatewayFromIPOutput(out)
 	if err != nil {
 		return nil, fmt.Errorf("Error determining docker gateway: %v", err)
-	}
-
-	client, err := dockerclient.NewClient(dockerHost)
-	if err != nil {
-		return nil, err
 	}
 
 	return &DockerProvider{
@@ -1293,29 +1298,4 @@ func gatewayFromIPOutput(output []byte) (string, error) {
 		return "", errors.New("no inet ip address found")
 	}
 	return string(match[1]), nil
-}
-
-// isDockerRunning uses `docker version` to test if docker is running (returns
-// exit code 1 if not running) and returns an error
-func isDockerRunning(attempts []time.Duration, logger *util.Logger) error {
-	return runWithBackOff(attempts, logger, "docker", "version")
-}
-
-// runWithBackOff runs cmd with args, waiting attempt[n-1] after attempt n
-func runWithBackOff(attempts []time.Duration, logger *util.Logger, cmd string, args ...string) error {
-	//attempts := []int{1, 5, 10, 30, 0} // time to sleep after attempt i+1
-	for i, dur := range attempts {
-		if exec.Command(cmd, args...).Run() == nil {
-			break
-		}
-		if i == len(attempts)-1 {
-			logger.Errorf("Docker not available after %d attempts", len(attempts))
-			return fmt.Errorf("docker not available")
-		}
-
-		logger.Warnf("Docker not available, attempt %d of %d, retrying in %0.1f seconds",
-			i+1, len(attempts), dur.Seconds())
-		time.Sleep(dur)
-	}
-	return nil
 }
