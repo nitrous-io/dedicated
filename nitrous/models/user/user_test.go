@@ -34,7 +34,8 @@ var _ = Describe("models/user", func() {
 		Expect(err).To(BeNil())
 		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password) values ($1, $2, $3, $4);", "bar", "bar@example.com", "bar baz", "barbar")
 		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password) values ($1, $2, $3, $4);", "baz", "baz@example.com", "baz qux", "bazbaz")
+		// setting admin flag to true on last user
+		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password, admin) values ($1, $2, $3, $4, $5);", "baz", "baz@example.com", "baz qux", "bazbaz", true)
 		Expect(err).To(BeNil())
 	})
 
@@ -50,7 +51,7 @@ var _ = Describe("models/user", func() {
 			d, _ := json.Marshal(u)
 			r := make(map[string]interface{})
 			json.Unmarshal(d, &r)
-			exposed := []string{"id", "name", "username", "email", "created_at", "updated_at"}
+			exposed := []string{"id", "name", "username", "email", "admin", "created_at", "updated_at"}
 			for _, p := range exposed {
 				Expect(r[p]).NotTo(BeNil(), "User JSON should contain %s", p)
 				delete(r, p)
@@ -81,6 +82,7 @@ var _ = Describe("models/user", func() {
 				Expect(u.Email).To(Equal("foo@example.com"))
 				Expect(u.Name).To(Equal("foo bar"))
 				Expect(u.EncryptedPassword).To(Equal("foofoo"))
+				Expect(u.Admin).To(BeFalse())
 
 				u, err = user.FindByID(db, barID)
 				Expect(err).To(BeNil())
@@ -90,6 +92,7 @@ var _ = Describe("models/user", func() {
 				Expect(u.Email).To(Equal("bar@example.com"))
 				Expect(u.Name).To(Equal("bar baz"))
 				Expect(u.EncryptedPassword).To(Equal("barbar"))
+				Expect(u.Admin).To(BeFalse())
 
 				u, err = user.FindByID(db, bazID)
 				Expect(err).To(BeNil())
@@ -99,6 +102,7 @@ var _ = Describe("models/user", func() {
 				Expect(u.Email).To(Equal("baz@example.com"))
 				Expect(u.Name).To(Equal("baz qux"))
 				Expect(u.EncryptedPassword).To(Equal("bazbaz"))
+				Expect(u.Admin).To(BeTrue())
 			})
 		})
 
@@ -131,6 +135,7 @@ var _ = Describe("models/user", func() {
 				Expect(u.Email).To(Equal("foo@example.com"))
 				Expect(u.Name).To(Equal("foo bar"))
 				Expect(u.EncryptedPassword).To(Equal("foofoo"))
+				Expect(u.Admin).To(BeFalse())
 
 				u, err = user.FindByUsername(db, "bar")
 				Expect(err).To(BeNil())
@@ -140,6 +145,7 @@ var _ = Describe("models/user", func() {
 				Expect(u.Email).To(Equal("bar@example.com"))
 				Expect(u.Name).To(Equal("bar baz"))
 				Expect(u.EncryptedPassword).To(Equal("barbar"))
+				Expect(u.Admin).To(BeFalse())
 
 				u, err = user.FindByUsername(db, "baz")
 				Expect(err).To(BeNil())
@@ -149,6 +155,7 @@ var _ = Describe("models/user", func() {
 				Expect(u.Email).To(Equal("baz@example.com"))
 				Expect(u.Name).To(Equal("baz qux"))
 				Expect(u.EncryptedPassword).To(Equal("bazbaz"))
+				Expect(u.Admin).To(BeTrue())
 			})
 		})
 
@@ -181,6 +188,7 @@ var _ = Describe("models/user", func() {
 				Expect(u.Email).To(Equal("foo@example.com"))
 				Expect(u.Name).To(Equal("foo bar"))
 				Expect(u.EncryptedPassword).To(Equal("foofoo"))
+				Expect(u.Admin).To(BeFalse())
 
 				u, err = user.FindByUsernameOrEmail(db, "bar@example.com")
 				Expect(err).To(BeNil())
@@ -190,6 +198,7 @@ var _ = Describe("models/user", func() {
 				Expect(u.Email).To(Equal("bar@example.com"))
 				Expect(u.Name).To(Equal("bar baz"))
 				Expect(u.EncryptedPassword).To(Equal("barbar"))
+				Expect(u.Admin).To(BeFalse())
 			})
 		})
 
@@ -398,6 +407,7 @@ var _ = Describe("models/user", func() {
 
 			It("fills up ID and other fields in original struct", func() {
 				Expect(u.ID).NotTo(BeZero())
+				Expect(u2.Admin).To(BeFalse())
 				Expect(u.CreatedAt).NotTo(BeNil())
 				Expect(u.UpdatedAt).NotTo(BeNil())
 				Expect(u.Password).To(BeEmpty()) // clears unencrypted password
@@ -453,6 +463,18 @@ var _ = Describe("models/user", func() {
 				Expect(u2.InviteCodeID.Int64).To(Equal(ic.ID))
 			})
 		})
+
+		It("does not set the admin flag", func() {
+			u.Admin = true
+
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			u2, err := user.FindByUsername(db, "qux")
+			Expect(err).To(BeNil())
+			Expect(u2).NotTo(BeNil())
+			Expect(u2.Admin).To(BeFalse())
+		})
 	})
 
 	Describe("Update()", func() {
@@ -497,6 +519,14 @@ var _ = Describe("models/user", func() {
 			updated, err := user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(bcrypt.Verify(updated.EncryptedPassword, "123456")).To(BeTrue())
+		})
+
+		It("does not set the admin flag", func() {
+			u.Admin = true
+			Expect(u.Update(db)).To(BeNil())
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(updated.Admin).To(BeFalse())
 		})
 	})
 

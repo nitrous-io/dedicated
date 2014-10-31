@@ -7,6 +7,7 @@ App.User = klass = App.Model.extend
   name: attr()
   email: attr()
   password: attr()
+  admin: attr('boolean', {defaultValue: false})
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'updated_at', serialize: false)
 

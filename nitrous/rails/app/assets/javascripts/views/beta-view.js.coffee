@@ -5,12 +5,15 @@ App.BetaView = Em.View.extend
   closeDidChange: (->
     if @get 'controller.close'
       @set 'controller.close', false
-      @send 'cancelFeedback'
+      @send 'closeModal'
   ).observes 'controller.close'
 
   actions:
     sendFeedback: ->
       ui.showModal(@$('#feedback-dialog'))
 
-    cancelFeedback: ->
-      ui.hideModal(@$('#feedback-dialog'))
+    switchUser: ->
+      ui.showModal(@$('#switch-user-dialog'))
+
+    closeModal: ->
+      ui.hideModal(@$('.ui.modal'))

@@ -37,6 +37,7 @@
           li.separator
           li
             link-to 'logout' | Log Out
+
     else
       li
         a href='#' Features

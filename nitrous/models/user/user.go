@@ -41,9 +41,9 @@ type User struct {
 	Password          string `json:"-"`
 	EncryptedPassword string `db:"encrypted_password" json:"-"`
 
-	LoginAttempts int `db:"login_attempts" json:"-"`
-
-	InviteCodeID sql.NullInt64 `db:"invite_code_id" json:"-"`
+	LoginAttempts int           `db:"login_attempts" json:"-"`
+	InviteCodeID  sql.NullInt64 `db:"invite_code_id" json:"-"`
+	Admin         bool          `db:"admin" json:"admin"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {

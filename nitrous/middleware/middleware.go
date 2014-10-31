@@ -45,6 +45,26 @@ func (env *Env) AddEventData(data map[string]interface{}) {
 	mergemap.Merge(data, env.trackEventData)
 }
 
+func (env *Env) Login(u *user.User, w http.ResponseWriter) error {
+	t := &token.Token{UserID: u.ID}
+
+	err := t.Insert(env.DB)
+	if err != nil {
+		return err
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"access_token": t.Token,
+		"token_type":   "Bearer",
+	}
+
+	return nil
+}
+
 type Middleware func(env *Env, w http.ResponseWriter, r *http.Request) error
 
 func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r *http.Request) error {
