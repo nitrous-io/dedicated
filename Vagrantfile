@@ -24,7 +24,7 @@ echo "Installing basic dependencies..."
 
 apt-get update >/dev/null
 apt-get install -yy --only-upgrade libcgmanager0
-apt-get install -yy --no-install-recommends lxc build-essential curl git-core mercurial dnsmasq
+apt-get install -yy --no-install-recommends build-essential curl git-core mercurial dnsmasq
 
 ## CONFIGURE POSTGRESQL ######################################################
 
@@ -78,11 +78,11 @@ if [[ ! -x /usr/bin/docker ]]; then
   echo deb https://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list
   apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 36A1D7869245C8950F966E92D8576A8BA88D21E9
   apt-get update
-  apt-get install -yy lxc-docker-1.2.0
+  apt-get install -yy lxc-docker-1.3.0
 fi
 
 cat > /etc/default/docker <<EOF
-  DOCKER_OPTS="-e lxc -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock"
+  DOCKER_OPTS="-H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock"
 EOF
 
 service docker restart
