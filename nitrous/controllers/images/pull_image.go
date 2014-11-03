@@ -131,11 +131,11 @@ func PullImage(host *host.Host, options url.Values, env *middleware.Env, writer 
 			return nil, fmt.Errorf("images/pull failed to insert new image %s", err)
 		}
 		isNew = true
+	}
 
-		if pp != nil {
-			pp.ID = img.ID
-			pp.Slug = img.Slug
-		}
+	if pp != nil {
+		pp.ID = img.ID
+		pp.Slug = img.Slug
 	}
 
 	ctx := &pullContext{env: env, client: cl, img: img, repo: repo, update: update, writer: writer}
