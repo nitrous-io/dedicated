@@ -11,10 +11,10 @@ import (
 
 	"code.google.com/p/go.crypto/ssh"
 	"github.com/mitchellh/cli"
-	sshutil "github.com/nitrous-io/dedicated/hostbuilder/pkg/ssh"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"github.com/nitrous-io/nitrous-common/cipher"
 )
 

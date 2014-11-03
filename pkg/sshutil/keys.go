@@ -1,5 +1,5 @@
 // convinient function to work with keypairs
-package ssh
+package sshutil
 
 import (
 	"crypto/rand"

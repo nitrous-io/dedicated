@@ -18,7 +18,7 @@ import (
 	"github.com/digitalocean/godo"
 	"github.com/nitrous-io/dedicated/hostbuilder/context"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
-	"github.com/nitrous-io/dedicated/hostbuilder/pkg/ssh"
+	"github.com/nitrous-io/dedicated/pkg/sshutil"
 )
 
 var (
@@ -68,7 +68,7 @@ type Host struct {
 
 	droplet    *godo.Droplet
 	privateKey *rsa.PrivateKey
-	conn       *ssh.Conn
+	conn       *sshutil.Conn
 	sshKey     *godo.Key
 	uuid       string
 }
@@ -275,13 +275,13 @@ func init() {
 func createSSHKey(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
 	hlog(h, "generating temporary SSH key")
-	privateKey, err := ssh.GenerateSSHKey()
+	privateKey, err := sshutil.GenerateSSHKey()
 	if err != nil {
 		return err
 	}
 	hlog(h, "generating temporary SSH key... Done")
 	h.privateKey = privateKey
-	pubKey, err := ssh.GetPubKey(privateKey)
+	pubKey, err := sshutil.GetPubKey(privateKey)
 	if err != nil {
 		return err
 	}
@@ -345,8 +345,8 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
 	hlog(h, "Waiting for SSH to be ready")
 	address := fmt.Sprintf("%s:%s", h.ipAddress(), "65100")
-	sshConn, err := ssh.WaitForSSH(address, "root", h.privateKey,
-		ssh.TimeWait, make(chan struct{}))
+	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
+		sshutil.TimeWait, make(chan struct{}))
 	if err != nil {
 		return err
 	}
