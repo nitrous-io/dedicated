@@ -214,7 +214,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			status: http.StatusOK,
 		}
 		replaceTransport(hb, rt)
-		hosts.HostbuilderClient = hb
+		hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 		doRequest(params)
 
 		req := rt.requests[0]
@@ -243,7 +243,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			status: http.StatusOK,
 		}
 		replaceTransport(hb, rt)
-		hosts.HostbuilderClient = hb
+		hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 		doJsonRequest(jsonStr)
 
 		Expect(rt.requests).To(HaveLen(1))
@@ -268,7 +268,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				status: http.StatusOK,
 			}
 			replaceTransport(hb, rt)
-			hosts.HostbuilderClient = hb
+			hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 		})
 
 		It("creates a host record for the user", func() {
@@ -808,7 +808,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				status:  http.StatusBadRequest,
 			})
 
-			hosts.HostbuilderClient = hb
+			hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 		})
 
 		It("creates a host in the orphan state", func() {
@@ -856,7 +856,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				}
 				replaceTransport(hb, rt)
 
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 			})
 
 			It("updates the host record with the info from Hostbuilder", func() {
@@ -921,7 +921,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					status:  http.StatusBadRequest,
 				})
 
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 			})
 
 			It("updates the host's state to orphan", func() {

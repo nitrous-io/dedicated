@@ -40,18 +40,21 @@ var (
 	}
 )
 
-var HostbuilderClient *hostbuilderclient.Hostbuilder
-var defaultProvider string
-var aesKey string
-var defaultAPTLocation string
-var defaultAPTDist string
+var (
+	defaultProvider    string
+	aesKey             string
+	defaultAPTLocation string
+	defaultAPTDist     string
+	hostbuilderURL     string
+
+	NewClient func(string) *hostbuilderclient.Hostbuilder
+)
 
 func init() {
-	hostbuilderURL := os.Getenv("HOSTBUILDER_URL")
+	hostbuilderURL = os.Getenv("HOSTBUILDER_URL")
 	if hostbuilderURL == "" {
 		panic("HOSTBUILDER_URL is not set")
 	}
-	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
 
 	aesKey = os.Getenv("AES_KEY")
 	if aesKey == "" {
@@ -72,6 +75,14 @@ func init() {
 	if defaultAPTDist == "" {
 		panic("DEFAULT_APT_DIST is not set")
 	}
+
+	NewClient = UUIDClient
+}
+
+func UUIDClient(uuid string) *hostbuilderclient.Hostbuilder {
+	client := hostbuilderclient.NewHostbuilder(hostbuilderURL)
+	client.Client.Header.Set(controllers.NitrousUUIDHeader, uuid)
+	return client
 }
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -152,7 +163,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	// If provider identifier is empty, don't attempt to delete the host in hostbuilder
 	// Provider identifier can be empty for hosts that are dangling in born or orphan states.
 	if h.ProviderIdentifier.String != "" {
-		_, err := HostbuilderClient.Delete(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
+		_, err := NewClient(env.UUID).Delete(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
 		if err != nil {
 			return err
 		}
@@ -200,7 +211,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 	publishHostEvent(env, controllers.EventHostStarting, h)
 
-	info, err := HostbuilderClient.Start(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
+	info, err := NewClient(env.UUID).Start(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
 	if err != nil {
 		// Rollback to previous state.
 		h.State = host.StateStopped
@@ -239,7 +250,7 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 	publishHostEvent(env, controllers.EventHostStopping, h)
 
-	info, err := HostbuilderClient.Stop(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
+	info, err := NewClient(env.UUID).Stop(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
 	if err != nil {
 		// Rollback to previous state.
 		h.State = origState
@@ -279,7 +290,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 	publishHostEvent(env, controllers.EventHostRestarting, h)
 
-	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
+	info, err := NewClient(env.UUID).Restart(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
 	if err != nil {
 		// Rollback to previous state.
 		h.State = origState

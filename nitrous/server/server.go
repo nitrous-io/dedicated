@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
@@ -24,8 +25,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
-
-const NitrousUUIDHeader = "X-NITROUS-UUID"
 
 var jsonNotFound = []byte(`{"error":"not_found","error_description":"not found"}`)
 
@@ -115,7 +114,10 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 	h := func(w http.ResponseWriter, r *http.Request) {
 		remoteAddr := getRemoteAddr(r)
 		uuid := makeUUID()
-		w.Header().Set(NitrousUUIDHeader, uuid)
+		// The UUID is set in both env and the header.  It is set in the header
+		// only so RespondJSON has access to it; all other access of UUID should
+		// be read from env
+		w.Header().Set(controllers.NitrousUUIDHeader, uuid)
 		s.logger.Infof("uuid=%s ip=%s Request: %v %v", uuid, remoteAddr, r.Method, r.URL.String())
 		env := &middleware.Env{
 			Root:       s.root,
@@ -124,6 +126,7 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 			Events:     s.Events,
 			RemoteAddr: remoteAddr,
 			Tracker:    s.Tracker,
+			UUID:       uuid,
 		}
 		if err := mw(env, w, r); err != nil {
 			s.HandleError(w, err)
@@ -175,7 +178,7 @@ func (s *Server) RespondJSON(w http.ResponseWriter, status int, data []byte) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(status)
 	w.Write(data)
-	uuid := w.Header().Get(NitrousUUIDHeader)
+	uuid := w.Header().Get(controllers.NitrousUUIDHeader)
 	s.logger.Infof("uuid=%s Response: %v %v", uuid, status, string(data))
 }
 

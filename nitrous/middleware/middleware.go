@@ -35,6 +35,7 @@ type Env struct {
 	trackEventData map[string]interface{}
 	RemoteAddr     string
 	Tracker        analytics.Tracker
+	UUID           string
 }
 
 func (env *Env) AddEventData(data map[string]interface{}) {
