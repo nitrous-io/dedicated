@@ -1897,7 +1897,7 @@ var _ = Describe("provider/docker", func() {
 		})
 	})
 
-	Describe("InspectRemoteImage()", func() {
+	FDescribe("InspectRemoteImage()", func() {
 		It("should fetch the latest image information from index.docker.io", func() {
 			img, err := prov.InspectRemoteImage(NitrousImage)
 			Expect(err).To(BeNil())
@@ -1911,7 +1911,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(img.Config.Env).To(Equal([]string{
 				"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 				"container=docker",
-				"NITROUS_IMAGE_VERSION=1",
+				"NITROUS_IMAGE_VERSION=2",
 				"NITROUS_USERNAME=action",
 				"NITROUS_SSH_ENABLED=true",
 			}))
