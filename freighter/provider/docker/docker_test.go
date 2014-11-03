@@ -1897,7 +1897,7 @@ var _ = Describe("provider/docker", func() {
 		})
 	})
 
-	FDescribe("InspectRemoteImage()", func() {
+	Describe("InspectRemoteImage()", func() {
 		It("should fetch the latest image information from index.docker.io", func() {
 			img, err := prov.InspectRemoteImage(NitrousImage)
 			Expect(err).To(BeNil())
