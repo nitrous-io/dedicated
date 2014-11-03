@@ -274,16 +274,18 @@ func init() {
 
 func createSSHKey(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	// create a tmp keypair
+	hlog(h, "generating temporary SSH key")
 	privateKey, err := ssh.GenerateSSHKey()
 	if err != nil {
 		return err
 	}
+	hlog(h, "generating temporary SSH key... Done")
 	h.privateKey = privateKey
 	pubKey, err := ssh.GetPubKey(privateKey)
 	if err != nil {
 		return err
 	}
+	hlog(h, "creating SSH keypair on digitalocean")
 	sshKey, _, err := h.Client.Keys.Create(&godo.KeyCreateRequest{
 		Name:      h.Config.Name,
 		PublicKey: string(pubKey),
@@ -291,6 +293,7 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 	if err != nil {
 		return err
 	}
+	hlog(h, "creating SSH keypair on digitalocean... Done")
 	h.sshKey = sshKey
 	return nil
 }
@@ -299,9 +302,8 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
 	config := h.Config
 	sshKey := h.sshKey
-	var err error
 
-	log.Printf("uuid=%s digitalocean: creating droplet in region %s size: %s slug: %s", h.uuid, config.RegionID, config.SizeID, config.Name)
+	hlog(h, "digitalocean: creating droplet in region %s, size: %s, slug: %s", config.RegionID, config.SizeID, config.Name)
 	normalizedRegion, ok := regionsMap[config.RegionID]
 	if !ok {
 		return fmt.Errorf("Invalid region or lookup failure: '%s'", config.RegionID)
@@ -318,23 +320,21 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	if err != nil {
 		return err
 	}
-
 	h.droplet = dropletRoot.Droplet
 
 	if len(dropletRoot.Links.Actions) > 0 {
 		la := dropletRoot.Links.Actions[0]
-		_, err = WaitForAction(h.Client.Actions, la.ID, StateWaitTime, 15*time.Minute)
-		if err != nil {
+		if _, err := WaitForAction(h.Client.Actions, la.ID, StateWaitTime, 15*time.Minute); err != nil {
 			return err
 		}
 	} else {
-		hlog(h, "[WARNING] digitalocean does not return action data for host %+v", hst)
+		hlog(h, "[WARNING] digitalocean did not return action data for host %+v", hst)
 		return nil
 	}
 
 	dropletRoot, _, err = h.Client.Droplets.Get(dropletRoot.Droplet.ID)
 	if err != nil {
-		return fmt.Errorf("create: failed to get droplet after completed %s", err)
+		return fmt.Errorf("create: failed to get droplet after it was successfully created %s", err)
 	}
 
 	h.droplet = dropletRoot.Droplet
@@ -343,10 +343,9 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 
 func waitForSSH(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	privateKey := h.privateKey
-	// check that we can ssh into the server
+	hlog(h, "Waiting for SSH to be ready")
 	address := fmt.Sprintf("%s:%s", h.ipAddress(), "65100")
-	sshConn, err := ssh.WaitForSSH(address, "root", privateKey,
+	sshConn, err := ssh.WaitForSSH(address, "root", h.privateKey,
 		ssh.TimeWait, make(chan struct{}))
 	if err != nil {
 		return err
@@ -358,13 +357,16 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 
 func writePublicKeys(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
+	hlog(h, "Writing public key")
 	pubKeyR := bytes.NewBuffer(nil)
 	for _, k := range h.Config.PublicKeys {
 		fmt.Fprintln(pubKeyR, k)
 	}
-	return writeFile(h, map[string]io.Reader{
+	err := writeFile(h, map[string]io.Reader{
 		"/root/.ssh/authorized_keys": pubKeyR,
 	})
+	hlog(h, "Wrote public key")
+	return err
 }
 
 func createEtcFreighterd(ctx *context.Context, hst host.Host) error {
@@ -373,18 +375,24 @@ func createEtcFreighterd(ctx *context.Context, hst host.Host) error {
 
 func writeTLSCerts(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	return writeFile(h, map[string]io.Reader{
+	hlog(h, "Writing TLS certs")
+	err := writeFile(h, map[string]io.Reader{
 		TLSCALocation:   bytes.NewBufferString(h.Config.TLS.CA),
 		TLSCertLocation: bytes.NewBufferString(h.Config.TLS.Cert),
 		TLSKeyLocation:  bytes.NewBufferString(h.Config.TLS.Key),
 	})
+	hlog(h, "Wrote TLS certs")
+	return err
 }
 
 func writeSecret(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	return writeFile(h, map[string]io.Reader{
+	hlog(h, "Writing host secret")
+	err := writeFile(h, map[string]io.Reader{
 		SecretLocation: bytes.NewBufferString(h.Config.Secret),
 	})
+	hlog(h, "Wrote host secret")
+	return err
 }
 
 func writeFile(h *Host, files map[string]io.Reader) error {
@@ -401,6 +409,7 @@ func writeFile(h *Host, files map[string]io.Reader) error {
 
 func writeRepository(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
+	hlog(h, "Uploading apt details")
 	sourceData := bytes.NewBuffer(nil)
 	if err := host.SourceTemplate.Execute(sourceData, h.Config); err != nil {
 		return err
@@ -414,17 +423,19 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 
 func updateSoftware(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	updateSoftwareCmd :=
+	hlog(h, "Updating freighterd package")
+	cmd :=
 		`DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" freighterd`
-	if err := h.conn.Execute(updateSoftwareCmd); err != nil {
+	if err := h.conn.Execute(cmd); err != nil {
 		return err
 	}
-	hlog(h, "Updated software on %v", h.ipAddress())
+	hlog(h, "Updated freighterd package on %v", h.ipAddress())
 	return nil
 }
 
 func restartFreighterd(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
+	hlog(h, "Restarting freighterd")
 	if err := h.conn.Execute(`service freighterd restart`); err != nil {
 		return err
 	}
