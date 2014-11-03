@@ -157,8 +157,7 @@ func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*pr
 	if err != nil {
 		return nil, err
 	}
-	err = p.setDefaultContainerConfig(cfg)
-	if err != nil {
+	if err := p.setDefaultContainerConfig(cfg); err != nil {
 		return nil, err
 	}
 	cfg.Hostname = name
@@ -247,8 +246,7 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 	if err != nil {
 		return nil, err
 	}
-	err = p.setDefaultContainerConfig(cfg)
-	if err != nil {
+	if err := p.setDefaultContainerConfig(cfg); err != nil {
 		return nil, err
 	}
 	cfg.Hostname = container.Config.Hostname
@@ -263,8 +261,7 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 		p.logger.Info("DockerProvider: starting container", id)
 		start := time.Now()
 
-		err = p.client.StartContainer(id, startConfig)
-		if err != nil {
+		if err := p.client.StartContainer(id, startConfig); err != nil {
 			return nil, err
 		}
 
@@ -1284,7 +1281,7 @@ func gatewayFromIPOutput(output []byte) (string, error) {
 	re := regexp.MustCompile(`inet ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/`)
 	match := re.FindSubmatch(output)
 	if match == nil || len(match) != 2 {
-		return "", fmt.Errorf("no inet ip address found")
+		return "", errors.New("no inet ip address found")
 	}
 	return string(match[1]), nil
 }

@@ -401,6 +401,14 @@ var _ = Describe("provider/docker", func() {
 						expectContainerInfoToHaveBeenReturned(info)
 					})
 				})
+
+				It("injects a '<gateway IP> host' entry to the container's /etc/hosts file", func() {
+					_, err := prov.Start(id, "")
+					Expect(err).To(BeNil())
+					out, err := exec.Command("docker", "exec", id, "/bin/cat", "/etc/hosts").CombinedOutput()
+					Expect(err).To(BeNil())
+					Expect(string(out)).To(ContainSubstring("172.17.42.1\thost"))
+				})
 			})
 
 			Describe(".Stop()", func() {
@@ -1130,6 +1138,8 @@ var _ = Describe("provider/docker", func() {
 				fmt.Sprintf("/etc/dotfiles %s", filepath.Join(volumeDir, "dotfiles"))))
 			Expect(vols).To(ContainSubstring(
 				fmt.Sprintf("/volumes/backups %s", filepath.Join(volumeDir, "backups"))))
+
+			Expect(doInspect(id, "{{.HostConfig.ExtraHosts}}")).To(ContainSubstring("host:172.17.42.1"))
 
 			// should be split out but kept here due to each container create taking >10s
 			// It("persists PortBindings,Binds on next start if no options given")

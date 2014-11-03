@@ -116,6 +116,9 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 			p.ContainerSettingsDir(cfg.Hostname)+"/ssh:/nitrous/ssh:ro")
 	}
 
+	// ExtraHosts is only available in Docker 1.3.0+.
+	newCfg.ExtraHosts = append(newCfg.ExtraHosts, fmt.Sprintf("host:%s", cfg.Gateway))
+
 	return &newCfg, nil
 }
 
