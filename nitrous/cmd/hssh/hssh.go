@@ -14,7 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
-	sshutil "github.com/nitrous-io/dedicated/pkg/ssh"
+	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"github.com/nitrous-io/nitrous-common/cipher"
 )
 

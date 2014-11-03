@@ -1,4 +1,4 @@
-package ssh
+package sshutil
 
 import (
 	"crypto/rsa"
