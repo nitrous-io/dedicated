@@ -56,6 +56,7 @@ func (m *MixpanelTracker) TrackEvent(event string, u *user.User, p map[string]in
 
 	p["distinct_id"] = strconv.Itoa(int(u.ID))
 	p["email"] = u.Email
+	p["admin"] = u.Admin
 
 	go func() {
 		err := m.client.Track(event, p)
@@ -76,6 +77,7 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger, inv
 		"$username": u.Username,
 		"$created":  u.CreatedAt,
 		"user_id":   u.ID,
+		"admin":     u.Admin,
 	}
 	if inviteCode != "" {
 		p["invite_code"] = inviteCode
