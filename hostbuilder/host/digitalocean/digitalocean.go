@@ -18,7 +18,7 @@ import (
 	"github.com/digitalocean/godo"
 	"github.com/nitrous-io/dedicated/hostbuilder/context"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
-	"github.com/nitrous-io/dedicated/hostbuilder/pkg/ssh"
+	"github.com/nitrous-io/dedicated/pkg/ssh"
 )
 
 var (
