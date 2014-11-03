@@ -2,6 +2,7 @@ package context_test
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -45,11 +46,12 @@ var _ = Describe("context", func() {
 
 		Context("Unsuccessful Execution", func() {
 			It("should fail and not execute all the steps", func() {
+				step2Err := errors.New("oh it failed")
 				var i int
 				increment := func(c *context.Context, h host.Host) error {
 					i += 1
 					if i == 2 {
-						return errors.New("oh it failed")
+						return step2Err
 					}
 					return nil
 				}
@@ -61,8 +63,8 @@ var _ = Describe("context", func() {
 				h, _ := host.InitHost("dummy", map[string]string{}, "")
 				c := context.NewContext(h, steps, ioutil.Discard)
 				err := c.Execute()
-				Expect(err).ToNot(BeNil())
-				Expect(c.Error).ToNot(BeNil())
+				Expect(err).To(Equal(step2Err))
+				Expect(c.Error()).To(Equal(fmt.Errorf("2nd increment: %s", step2Err)))
 				Expect(i).ToNot(Equal(len(steps)))
 			})
 		})

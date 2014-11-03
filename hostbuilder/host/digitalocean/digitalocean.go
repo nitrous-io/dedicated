@@ -88,7 +88,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	}
 	ctx := context.NewContext(h, steps, w)
 	if err := ctx.Execute(); err != nil {
-		hlog(h, "ERROR: Failed in create host step: %v", err)
+		hlog(h, "ERROR: Failed in create host step: %+v", ctx.Error())
 		if h.droplet != nil {
 			hlog(h, "Leaving droplet for inspection: %d", h.droplet.ID)
 		}
