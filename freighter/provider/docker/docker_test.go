@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -125,6 +126,22 @@ var _ = Describe("provider/docker", func() {
 
 		return string(out)
 	}
+
+	Describe(".NewDockerProvider()", func() {
+		It("populates provisioner gateway", func() {
+			// use different command so as not to test exact same codepath
+			out, err := exec.Command("ifconfig", "docker0").CombinedOutput()
+			Expect(err).To(BeNil())
+			re := regexp.MustCompile(`inet addr:([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})`)
+			match := re.FindSubmatch(out)
+			Expect(match).To(HaveLen(2), "unexpected ifconfig output: %s", out)
+
+			logger := &util.Logger{Level: util.LogLevelQuiet}
+			p, err := docker.NewDockerProvider(logger, datadir)
+			Expect(err).To(BeNil())
+			Expect(p.Gateway()).To(Equal(string(match[1])))
+		})
+	})
 
 	Describe(".CreateStart()", func() {
 		BeforeEach(func() {
@@ -1099,7 +1116,7 @@ var _ = Describe("provider/docker", func() {
 			configJSON := `{
 			  "Env": ["LANG=C"],
 			  "Mounts": ["dotfiles:/etc/dotfiles","backups"],
-				"PortBindings": ["private:65000:3000", "public:8888:8888"]
+				"PortBindings": ["private:65000:3000", "public:9999:9999"]
 			}`
 			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
 			Expect(err).To(BeNil())
@@ -1115,15 +1132,15 @@ var _ = Describe("provider/docker", func() {
 			Expect(doInspect(id, "{{.Config.Env}}")).To(ContainSubstring("LANG=C"))
 			Expect(doInspect(id,
 				"{{range $p, $stub := .Config.ExposedPorts}}{{$p}} {{end}}")).
-				To(Equal("22/tcp 3000 8888"))
+				To(Equal("22/tcp 3000 9999"))
 
 			port3000Binding := getPortBindings(id, "3000")
 			Expect(port3000Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
 			Expect(port3000Binding).To(ContainSubstring("HostPort:65000"))
 
-			port8888Binding := getPortBindings(id, "8888")
-			Expect(port8888Binding).To(ContainSubstring("HostIp:0.0.0.0"))
-			Expect(port8888Binding).To(ContainSubstring("HostPort:8888"))
+			port9999Binding := getPortBindings(id, "9999")
+			Expect(port9999Binding).To(ContainSubstring("HostIp:0.0.0.0"))
+			Expect(port9999Binding).To(ContainSubstring("HostPort:9999"))
 
 			port22Binding := getPortBindings(id, "22/tcp")
 			Expect(port22Binding).To(ContainSubstring("HostIp:0.0.0.0"))

@@ -39,7 +39,7 @@ func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrus
 	}
 
 	dcConfig.Env = cfg.Env
-	bs, err := portBindingsToDocker(cfg)
+	bs, err := portBindingsToDocker(cfg, p.gateway)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 	}
 
 	if cfg.PortBindings != nil {
-		bs, err := portBindingsToDocker(cfg)
+		bs, err := portBindingsToDocker(cfg, p.gateway)
 		if err != nil {
 			return nil, err
 		}
@@ -117,7 +117,7 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 	}
 
 	// ExtraHosts is only available in Docker 1.3.0+.
-	newCfg.ExtraHosts = append(newCfg.ExtraHosts, fmt.Sprintf("host:%s", cfg.Gateway))
+	newCfg.ExtraHosts = append(newCfg.ExtraHosts, fmt.Sprintf("host:%s", p.gateway))
 
 	return &newCfg, nil
 }
@@ -187,10 +187,10 @@ func parseMountSpec(mspec string, hostVolsPath string) (string, error) {
 	return fmt.Sprintf("%s:%s", filepath.Join(hostVolsPath, parts[0]), mountPoint), nil
 }
 
-func portBindingsToDocker(cfg *provider.ContainerConfig) (map[dockerclient.Port][]dockerclient.PortBinding, error) {
+func portBindingsToDocker(cfg *provider.ContainerConfig, gateway string) (map[dockerclient.Port][]dockerclient.PortBinding, error) {
 	bindings := map[dockerclient.Port][]dockerclient.PortBinding{}
 	for _, portSpec := range cfg.PortBindings {
-		p, pb, err := parsePortSpec(portSpec, cfg.Gateway)
+		p, pb, err := parsePortSpec(portSpec, gateway)
 		if err != nil {
 			return nil, err
 		}
