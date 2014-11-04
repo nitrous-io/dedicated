@@ -485,6 +485,24 @@ func init() {
 				ALTER TABLE users ADD COLUMN confirmed_at timestamp without time zone DEFAULT NULL;
 				CREATE UNIQUE INDEX index_users_on_confirmation_token ON users USING btree (confirmation_token);
 				UPDATE users SET confirmed_at = now();
+				`,
+		},
+		{
+			Version: "410",
+			Up: `
+				CREATE TABLE billing_profiles (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					stripe_id character varying(32),
+					last_four character varying(32),
+					card_type character varying(32),
+					exp_month integer,
+					exp_year integer,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE UNIQUE INDEX index_billing_profiles_on_user_id ON billing_profiles USING btree (user_id);
+				CREATE UNIQUE INDEX index_billing_profiles_on_stripe_id ON billing_profiles USING btree (stripe_id);
 			`,
 		},
 		{
