@@ -3,8 +3,9 @@ package config
 
 var (
 	// default ports to be considered for preview. Tender should be configured
-	// to forward those ports
-	MinPreviewPort int64 = 80
+	// to forward those ports and 80/443 as those two ports will always be
+	// listen/accepted
+	MinPreviewPort int64 = 3000
 	MaxPreviewPort int64 = 9999
 
 	// default header to read forwarded fort for preview. Tender should write

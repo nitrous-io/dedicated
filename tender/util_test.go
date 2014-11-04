@@ -21,6 +21,7 @@ var _ = Describe("util", func() {
 				{"http://google.com", "google.com", 80},
 				{"https://google.com", "google.com", 443},
 				{"http://google.com:8000", "google.com:8000", 8000},
+				{"/", "google.com", 80},
 			}
 
 			for _, tc := range testCases {
@@ -66,7 +67,7 @@ var _ = Describe("PortsRange", func() {
 	It("returns start/end ports", func() {
 		testCases := []struct {
 			start, end         string
-			startPort, endPort int
+			startPort, endPort int64
 			hasErr             bool
 		}{
 			{"", "", DefaultStartPort, DefaultEndPort, false},

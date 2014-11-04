@@ -3,16 +3,19 @@ package tender
 import (
 	"crypto/tls"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	freighterconfig "github.com/nitrous-io/dedicated/freighter/config"
 )
 
 var (
-	DefaultStartPort = 1024
-	DefaultEndPort   = 9999
+	DefaultStartPort = freighterconfig.MinPreviewPort
+	DefaultEndPort   = freighterconfig.MaxPreviewPort
 )
 
 var portMap = map[string]int{
@@ -24,11 +27,19 @@ var portMap = map[string]int{
 // in the request, 80 or 443 (HTTPS) is assumed.
 func parsePort(req *http.Request) int {
 	if _, portStr, err := net.SplitHostPort(req.Host); err == nil {
+		log.Println("got port", portStr)
 		if p, err := strconv.Atoi(portStr); err == nil {
 			return p
 		}
 	}
-	return portMap[req.URL.Scheme]
+	if req.URL.Scheme != "" {
+		return portMap[req.URL.Scheme]
+	}
+	if req.TLS != nil {
+		return 443
+	} else {
+		return 80
+	}
 }
 
 // ConvertToIPBased modifies an HTTP request to use an IP address as its host.
@@ -70,11 +81,11 @@ func getHost(url, baseDomain string) (string, error) {
 }
 
 // portsRange converts start/end port string into number with sensible default
-func PortsRange(s, e string) (start int, end int, err error) {
+func PortsRange(s, e string) (start int64, end int64, err error) {
 	if s == "" {
 		start = DefaultStartPort
 	} else {
-		sp, err := strconv.Atoi(s)
+		sp, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
 			return 0, 0, fmt.Errorf("Invalid start port %s. Error %s", s, err)
 		}
@@ -84,7 +95,7 @@ func PortsRange(s, e string) (start int, end int, err error) {
 	if e == "" {
 		end = DefaultEndPort
 	} else {
-		ep, err := strconv.Atoi(e)
+		ep, err := strconv.ParseInt(e, 10, 64)
 		if err != nil {
 			return 0, 0, fmt.Errorf("Invalid end port %s. Error %s", e, err)
 		}
@@ -94,7 +105,7 @@ func PortsRange(s, e string) (start int, end int, err error) {
 }
 
 // Spin up a HTTPS Server listening to an address
-func ServeTLS(port int, tlsConfig *tls.Config, s http.Handler) error {
+func ServeTLS(port int64, tlsConfig *tls.Config, s http.Handler) error {
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{
 		Addr:      addr,

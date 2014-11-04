@@ -20,7 +20,7 @@ var (
 	databaseURL    string
 	baseDomain     string
 	tlsDomain      string
-	freighterdPort int
+	freighterdPort int64
 	pubCACert      string
 	pubCAKey       string
 	privCACertPath string
@@ -88,7 +88,7 @@ func main() {
 		log.Fatalf("tender: invalid ports, %q", err)
 	}
 	log.Printf("listen to port from %d to %d", startPort, endPort)
-	if startPort != int(config.MinPreviewPort) || endPort != int(config.MaxPreviewPort) {
+	if startPort != config.MinPreviewPort || endPort != config.MaxPreviewPort {
 		log.Printf(
 			"tender: [warn] mismatched ports with freighter. Expect %d-%d, got %d-%d",
 			config.MinPreviewPort, config.MaxPreviewPort, startPort, endPort,
@@ -96,6 +96,14 @@ func main() {
 	}
 	for p := startPort; p <= endPort; p++ {
 		go tender.ServeTLS(p, tlsConfig, httpsProxy)
+	}
+	// listen to HTTP/HTTPS port in addition to the specified port range if
+	// necessary
+	if startPort >= 80 {
+		go tender.ServeTLS(80, tlsConfig, httpsProxy)
+	}
+	if startPort >= 443 {
+		go tender.ServeTLS(443, tlsConfig, httpsProxy)
 	}
 
 	// proxy freighterd port
@@ -111,12 +119,12 @@ func envStr(name string) string {
 	return v
 }
 
-func envInt(name string) int {
+func envInt(name string) int64 {
 	v := os.Getenv(name)
 	if v == "" {
 		panic("Missing " + name)
 	}
-	i, err := strconv.Atoi(v)
+	i, err := strconv.ParseInt(v, 10, 64)
 	if err != nil {
 		panic(fmt.Sprintf("Invalid %s. Required integer, got %s", name, v))
 	}

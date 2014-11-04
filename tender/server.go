@@ -29,7 +29,7 @@ type Server struct {
 	// - considering replace this with distributed datastore such as etcd
 	db *sql.DB
 	// remote freighterd port
-	freighterdPort int
+	freighterdPort int64
 	// expected DNS based domain that we want to receive requests to, i.e.
 	// should be the proxy's domain `.nitrousproxy.com`
 	baseDomain string
@@ -54,7 +54,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Returns a `http.Handler` which can be used to proxy requests to a Nitrous.IO
 // host
-func NewServer(baseDomain, tlsDomain, databaseURL string, freighterdPort int, caBytes []byte) (http.Handler, error) {
+func NewServer(baseDomain, tlsDomain, databaseURL string, freighterdPort int64, caBytes []byte) (http.Handler, error) {
 	log.Printf("Connecting to database %s", databaseURL)
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
@@ -92,7 +92,9 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 	log.Printf("[INFO] request %v to %s", r, hostName)
 
 	// set X-FORWARDED-PORT for the request
-	r.Header.Set(config.ForwardPortHeader, strconv.Itoa(parsePort(r)))
+	fp := strconv.Itoa(parsePort(r))
+	r.Header.Set(config.ForwardPortHeader, fp)
+	log.Printf("[INFO] set forward port to %s", fp)
 
 	// get host id and host ip
 	// host ip will be the new destination for current request

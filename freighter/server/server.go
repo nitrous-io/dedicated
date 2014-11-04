@@ -185,8 +185,16 @@ func (s *Server) drawRoutes() {
 			return false
 		}
 		port, err := strconv.ParseInt(fp, 10, 64)
-		// only proxy valid port within a specified range
-		return err == nil && port >= config.MinPreviewPort && port <= config.MaxPreviewPort
+		// only proxy valid port within a specified range or port == 80 or 443
+		accepted := err == nil && ((port >= config.MinPreviewPort && port <= config.MaxPreviewPort) ||
+			port == 80 ||
+			port == 443)
+		if accepted {
+			s.logger.Infof("accepted proxy request to %d", port)
+		} else {
+			s.logger.Infof("rejected proxy request to %d", port)
+		}
+		return accepted
 	}).HandlerFunc(s.wrapError(s.httpForward))
 
 	s.route("/", s.home, "GET")
