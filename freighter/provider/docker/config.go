@@ -117,7 +117,7 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 	}
 
 	// ExtraHosts is only available in Docker 1.3.0+.
-	newCfg.ExtraHosts = append(newCfg.ExtraHosts, fmt.Sprintf("host:%s", cfg.Gateway))
+	newCfg.ExtraHosts = append(newCfg.ExtraHosts, fmt.Sprintf("host:%s", p.gateway))
 
 	return &newCfg, nil
 }
