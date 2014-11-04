@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/server"
@@ -49,6 +51,30 @@ var _ = Describe("server", func() {
 		svr.SetSecret(hostSecret)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
+	})
+
+	It("forwards HTTP requests", func() {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("hello forwarder"))
+		}))
+		defer ts.Close()
+		defer func(oldPort int64) {
+			config.MaxPreviewPort = oldPort
+		}(config.MaxPreviewPort)
+
+		_, port, err := net.SplitHostPort(ts.Listener.Addr().String())
+		Expect(err).To(BeNil(), "failed to get test server's port")
+
+		portInt, err := strconv.ParseInt(port, 10, 64)
+		Expect(err).To(BeNil(), "failed to parse port to int64")
+		config.MaxPreviewPort = portInt
+
+		req, err := http.NewRequest("GET", "/", nil)
+		req.Header.Set(config.ForwardPortHeader, port)
+		Expect(err).To(BeNil())
+
+		handler.ServeHTTP(res, req)
+		Expect(res.Body.String()).To(Equal("hello forwarder"))
 	})
 
 	Describe("GET /", func() {

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 
+	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/tender"
 )
 
@@ -20,7 +20,7 @@ var (
 	databaseURL    string
 	baseDomain     string
 	tlsDomain      string
-	freighterdPort int
+	freighterdPort int64
 	pubCACert      string
 	pubCAKey       string
 	privCACertPath string
@@ -54,31 +54,61 @@ func main() {
 	pubCACert = envStr("PUB_CRT")
 	pubCAKey = envStr("PUB_KEY")
 	privCACertPath = envStr("PRI_CRT")
+	sp := os.Getenv("PREVIEW_START_PORT")
+	ep := os.Getenv("PREVIEW_END_PORT")
 
 	if baseDomain[0] != '.' {
 		panic("BASE_DOMAIN should start with .")
 	}
 
-	_, err := tls.LoadX509KeyPair(pubCACert, pubCAKey)
+	crt, err := tls.LoadX509KeyPair(pubCACert, pubCAKey)
 	if err != nil {
-		log.Fatalf("tender: Failed to load SSL certificates: %s", err)
+		log.Fatalf("tender: Failed to load SSL certificates: %q", err)
 	}
+
 	privCACert, err := ioutil.ReadFile(privCACertPath)
 	if err != nil {
 		log.Fatalf("tender: Failed to find private certificate: %s", privCACertPath)
 	}
 
-	s, err := tender.NewServer(baseDomain, tlsDomain, databaseURL, freighterdPort, privCACert)
+	httpsProxy, err := tender.NewServer(baseDomain, tlsDomain, databaseURL, freighterdPort, privCACert)
 	if err != nil {
-		log.Fatalf("tender: Failed to start tender server, %v", err)
+		log.Fatalf("tender: Failed to create https proxy, %q", err)
 	}
 
-	// proxy freighterd ports
-	log.Printf("listen to port %d", freighterdPort)
-	err = http.ListenAndServeTLS(fmt.Sprintf(":%d", freighterdPort), pubCACert, pubCAKey, s)
-	if err != nil {
-		log.Fatalf("tender: exit with error %s", err)
+	// create tls config
+	tlsConfig := &tls.Config{
+		NextProtos:   []string{"http/1.1"},
+		Certificates: []tls.Certificate{crt},
 	}
+
+	// proxy port range for preview
+	startPort, endPort, err := tender.PortsRange(sp, ep)
+	if err != nil {
+		log.Fatalf("tender: invalid ports, %q", err)
+	}
+	log.Printf("listen to port from %d to %d", startPort, endPort)
+	if startPort != config.MinPreviewPort || endPort != config.MaxPreviewPort {
+		log.Printf(
+			"tender: [warn] mismatched ports with freighter. Expect %d-%d, got %d-%d",
+			config.MinPreviewPort, config.MaxPreviewPort, startPort, endPort,
+		)
+	}
+	for p := startPort; p <= endPort; p++ {
+		go tender.ServeTLS(p, tlsConfig, httpsProxy)
+	}
+	// listen to HTTP/HTTPS port in addition to the specified port range if
+	// necessary
+	if startPort >= 80 {
+		go tender.ServeTLS(80, tlsConfig, httpsProxy)
+	}
+	if startPort >= 443 {
+		go tender.ServeTLS(443, tlsConfig, httpsProxy)
+	}
+
+	// proxy freighterd port
+	log.Printf("listen to port %d", freighterdPort)
+	tender.ServeTLS(freighterdPort, tlsConfig, httpsProxy)
 }
 
 func envStr(name string) string {
@@ -89,12 +119,12 @@ func envStr(name string) string {
 	return v
 }
 
-func envInt(name string) int {
+func envInt(name string) int64 {
 	v := os.Getenv(name)
 	if v == "" {
 		panic("Missing " + name)
 	}
-	i, err := strconv.Atoi(v)
+	i, err := strconv.ParseInt(v, 10, 64)
 	if err != nil {
 		panic(fmt.Sprintf("Invalid %s. Required integer, got %s", name, v))
 	}

@@ -1,6 +1,7 @@
 package tender
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -20,6 +21,7 @@ var _ = Describe("util", func() {
 				{"http://google.com", "google.com", 80},
 				{"https://google.com", "google.com", 443},
 				{"http://google.com:8000", "google.com:8000", 8000},
+				{"/", "google.com", 80},
 			}
 
 			for _, tc := range testCases {
@@ -58,5 +60,33 @@ var _ = Describe("util", func() {
 			h, _ = getHost("hello.dropbox.nitrousapp.com", ".nitrousapp.com")
 			Expect(h).To(Equal("dropbox"), "Expect to get correct host's name")
 		})
+	})
+})
+
+var _ = Describe("PortsRange", func() {
+	It("returns start/end ports", func() {
+		testCases := []struct {
+			start, end         string
+			startPort, endPort int64
+			hasErr             bool
+		}{
+			{"", "", DefaultStartPort, DefaultEndPort, false},
+			{"", "8000", DefaultStartPort, 8000, false},
+			{"2000", "", 2000, DefaultEndPort, false},
+			{"asdf", "", 0, 0, true},
+		}
+
+		for _, tc := range testCases {
+			sp, ep, err := PortsRange(tc.start, tc.end)
+			if err != nil && !tc.hasErr {
+				Fail(fmt.Sprintf("(%#v): unexpected error %s", tc, err))
+			}
+			if tc.hasErr && err == nil {
+				Fail(fmt.Sprintf("(%#v): expect err but got nothing", tc))
+			}
+			if tc.startPort != sp || tc.endPort != ep {
+				Fail(fmt.Sprintf("Expect(%d:%d) but got (%d:%d)", tc.startPort, tc.endPort, sp, ep))
+			}
+		}
 	})
 })

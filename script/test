@@ -79,6 +79,7 @@ test_dind() {
 }
 
 if [ "$APP" == "all" ]; then
+  run test_app pkg
   run test_app nitro
   run test_app hostbuilder
   run test_db nitrous
@@ -95,6 +96,8 @@ elif [ "$APP" == "compass" ]; then
   run test_db compass $SUITE
 elif [ "$APP" == "nitrous" ]; then
   run test_db nitrous $SUITE
+elif [ "$APP" == "pkg" ]; then
+  run test_app pkg
 else
   run test_app $APP $SUITE
 fi
