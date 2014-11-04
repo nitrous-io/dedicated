@@ -1012,11 +1012,18 @@ var _ = Describe("controllers/containers", func() {
 				FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 			}
 			mockClient.Containers = []*freighterclient.Container{fc}
+			mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
+				PortBindings: []string{"4040:5050", "4000:3000"},
+				Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+				Mounts:       []string{"database-75:/var/lib/postgresql/data"},
+				Cmd:          []string{"/bin/yes"},
+			}
 		})
 
-		It("calls the Freighter client to get the container's info", func() {
+		It("calls the Freighter client to get the container's info and config", func() {
 			doRequest()
 			Expect(mockClient.InfoCalled).To(Equal(1))
+			Expect(mockClient.ConfigCalled).To(Equal(1))
 			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
 		})
 
@@ -1048,6 +1055,10 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.CreatedAt).NotTo(BeNil())
 			Expect(j.Container.UpdatedAt).NotTo(BeNil())
 			Expect(j.Container.TerminatedAt).To(BeNil())
+			Expect(j.Container.Config.Cmd).To(Equal(mockClient.ConfigContainerConfig.Cmd))
+			Expect(j.Container.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
+			Expect(j.Container.Config.Ports).To(Equal(mockClient.ConfigContainerConfig.PortBindings))
+			Expect(j.Container.Config.Mounts).To(Equal(mockClient.ConfigContainerConfig.Mounts))
 		})
 
 		Context("when the Freighter client returns an error", func() {

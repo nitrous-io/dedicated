@@ -8,19 +8,20 @@ import (
 )
 
 type Container struct {
-	ID         int64    `json:"id"`
-	CID        string   `json:"cid"`
-	UserID     int64    `json:"user_id"`
-	HostID     int64    `json:"host_id"`
-	Image      string   `json:"image"`
-	Slug       string   `json:"slug"`
-	Name       string   `json:"name,omitempty"`
-	IPAddress  string   `json:"ip_address,omitempty"`
-	GatewayIP  string   `json:"gateway_ip,omitempty"`
-	State      string   `json:"state"`
-	Cmd        []string `json:"cmd,omitempty"`
-	Entrypoint []string `json:"entrypoint,omitempty"`
-	ExitCode   int      `json:"exit_code"`
+	ID         int64            `json:"id"`
+	CID        string           `json:"cid"`
+	UserID     int64            `json:"user_id"`
+	HostID     int64            `json:"host_id"`
+	Image      string           `json:"image"`
+	Slug       string           `json:"slug"`
+	Name       string           `json:"name,omitempty"`
+	IPAddress  string           `json:"ip_address,omitempty"`
+	GatewayIP  string           `json:"gateway_ip,omitempty"`
+	State      string           `json:"state"`
+	Cmd        []string         `json:"cmd,omitempty"` // TODO deprecate
+	Entrypoint []string         `json:"entrypoint,omitempty"`
+	ExitCode   int              `json:"exit_code"`
+	Config     *ContainerConfig `json:"config,omitempty"`
 
 	CreatedAt    *time.Time `json:"created_at"`
 	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
