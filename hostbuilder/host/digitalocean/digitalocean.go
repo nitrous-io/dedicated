@@ -160,42 +160,6 @@ func (h *Host) dropletToInfo() *host.Info {
 	}
 }
 
-func (h *Host) Stop() (*host.Info, error) {
-	id, err := h.id()
-	if err != nil {
-		return nil, err
-	}
-
-	action, _, err := h.Client.DropletActions.PowerOff(id)
-	if err != nil {
-		return nil, err
-	}
-	_, err = WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 15*time.Minute)
-	if err != nil {
-		return nil, err
-	}
-
-	return h.Info()
-}
-
-func (h *Host) Start() (*host.Info, error) {
-	id, err := h.id()
-	if err != nil {
-		return nil, err
-	}
-
-	action, _, err := h.Client.DropletActions.PowerOn(id)
-	if err != nil {
-		return nil, err
-	}
-	_, err = WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 15*time.Minute)
-	if err != nil {
-		return nil, err
-	}
-
-	return h.Info()
-}
-
 func (h *Host) Restart() (*host.Info, error) {
 	id, err := h.id()
 	if err != nil {

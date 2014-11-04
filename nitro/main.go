@@ -33,8 +33,6 @@ import (
 	_ "github.com/nitrous-io/dedicated/nitro/command/hosts/inspect"
 	_ "github.com/nitrous-io/dedicated/nitro/command/hosts/list"
 	_ "github.com/nitrous-io/dedicated/nitro/command/hosts/restart"
-	_ "github.com/nitrous-io/dedicated/nitro/command/hosts/start"
-	_ "github.com/nitrous-io/dedicated/nitro/command/hosts/stop"
 	_ "github.com/nitrous-io/dedicated/nitro/command/hosts/up"
 	_ "github.com/nitrous-io/dedicated/nitro/command/images/ibuild"
 	_ "github.com/nitrous-io/dedicated/nitro/command/images/list"
