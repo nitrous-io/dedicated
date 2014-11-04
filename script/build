@@ -23,7 +23,7 @@ get_version() {
   sha=$(git rev-list --max-count=1 --abbrev-commit HEAD -- $app)
 
   if [[ "$app" == "freighter" ]]; then
-    timestamp=$(date +"%Y%d%m%H%M%S")
+    timestamp=$(date +"%s")
     echo "${version}+${timestamp}-${BUILD_NUMBER}-${sha}"
   else
     echo "${version}-${sha}" # 1.0.1-asdf
