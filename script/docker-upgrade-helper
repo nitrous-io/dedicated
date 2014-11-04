@@ -8,5 +8,7 @@ done
 DEBIAN_FRONTEND=noninteractive apt-get -yy install lxc-docker-1.3.1
 DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" freighterd
 
+cp /tmp/docker-opts /etc/default/docker
+
 service docker restart
 service freighterd restart

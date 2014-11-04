@@ -7,6 +7,7 @@ UPGRADE_LOG=/tmp/hssh-docker-upgrade.log
 
 [[ ! -f $HOSTSFILE ]] && (echo "This is not a file Sir. Quit Trolling around." && exit 1)
 [[ ! -f ./script/docker-upgrade-helper ]] && (echo "Please run me from the project root as ./script/upgrade-docker" && exit 1)
+[[ ! -f ./script/docker-opts ]] && (echo "Missing docker config file." && exit 1) 
 [[ ! -x ./build/hssh && ! -f ./build/hssh ]] && (echo "You need to build the hssh tool. Try make nitrous." && exit 1)
 
 [[ -f $UPGRADE_LOG ]] && rm $UPGRADE_LOG && touch $UPGRADE_LOG 
@@ -14,5 +15,6 @@ UPGRADE_LOG=/tmp/hssh-docker-upgrade.log
 for HOST in `cat $HOSTSFILE`; do
   echo "######## ${HOST} ########" >> $UPGRADE_LOG
   ./build/hssh upload ${HOST} ./script/docker-upgrade-helper:/tmp/docker-upgrade-helper >> $UPGRADE_LOG 2>&1
+  ./build/hssh upload ${HOST} ./script/docker-opts:/tmp/docker-opts >> $UPGRADE_LOG 2>&1
   ./build/hssh run ${HOST} sh /tmp/docker-upgrade-helper >> $UPGRADE_LOG 2>&1
 done
