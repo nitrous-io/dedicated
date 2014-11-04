@@ -49,6 +49,14 @@ var _ = Describe("container serializer", func() {
 	Describe("SerializeContainer", func() {
 		It("serializes to JSON", func() {
 			c := serializers.SerializeContainer(model)
+			c.Config = &serializers.ContainerConfig{
+				Cmd:        []string{"/bin/yes"},
+				Env:        []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+				Ports:      []string{"public:4040:5050", "private:4000:3000"},
+				Mounts:     []string{"db"},
+				Privileged: true,
+				PublishAll: true,
+			}
 			b, err := json.Marshal(c)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(fmt.Sprintf(`{
@@ -69,9 +77,18 @@ var _ = Describe("container serializer", func() {
 				"finished_at": null,
 				"terminated_at": "2013-11-03T00:00:00Z",
 				"created_at": "2013-11-01T00:00:00Z",
-				"updated_at": "2013-11-02T00:00:00Z"
+				"updated_at": "2013-11-02T00:00:00Z",
+				"config": {
+					"port": ["public:4040:5050", "private:4000:3000"],
+					"env": ["NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"],
+					"cmd": ["/bin/yes"],
+					"volume": ["db"],
+					"privileged": true,
+					"publish_all": true
+				}
 			}`, model.ResolvedState())))
 		})
+
 	})
 })
 

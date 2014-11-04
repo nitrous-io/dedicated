@@ -247,6 +247,7 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	return nil
 }
 
+// TODO: deprecate eventually once webapp is updated, as `show` includes config now
 func config(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	cl, err := controllers.NewFreighterClient(env.DB, h)
 	if err != nil {
@@ -288,9 +289,17 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	}
 	cn = hydrateContainer(cn, liveContainer, h)
 
+	config, err := cl.Config(cn.CID)
+	if err != nil {
+		return err
+	}
+
+	serialized := serializers.SerializeContainer(cn)
+	serialized.Config = serializers.SerializeContainerConfig(config)
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"container": serializers.SerializeContainer(cn),
+		"container": serialized,
 	}
 
 	return nil
