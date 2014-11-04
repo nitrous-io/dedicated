@@ -233,7 +233,7 @@ func (ctx *createContext) run(env *middleware.Env, writer io.Writer, async bool,
 		}()
 
 		var info *hostbuilder.Response
-		info, err = HostbuilderClient.Create(ctx.Template.Provider, &config, writer)
+		info, err = NewClient(env.UUID).Create(ctx.Template.Provider, &config, writer)
 		if err != nil {
 			return err
 		}

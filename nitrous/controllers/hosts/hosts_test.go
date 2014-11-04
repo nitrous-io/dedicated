@@ -66,6 +66,7 @@ var _ = Describe("controllers/hosts", func() {
 		handler         *mux.Router
 		res             *httptest.ResponseRecorder
 		authTokenInputs AuthTokenInputs
+		origNewClient   func(string) *hostbuilderclient.Hostbuilder
 
 		u *user.User
 		t *token.Token
@@ -80,6 +81,7 @@ var _ = Describe("controllers/hosts", func() {
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = AuthTokenInputs{Handler: handler}
+		origNewClient = hosts.NewClient
 
 		u = &user.User{
 			Username: "foo",
@@ -99,6 +101,7 @@ var _ = Describe("controllers/hosts", func() {
 	})
 
 	AfterEach(func() {
+		hosts.NewClient = origNewClient
 		if db != nil {
 			db.Close()
 		}
@@ -527,7 +530,7 @@ var _ = Describe("controllers/hosts", func() {
 					message: okResponse,
 					status:  http.StatusOK,
 				})
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 			})
 
 			It("deletes the host record", func() {
@@ -628,7 +631,7 @@ var _ = Describe("controllers/hosts", func() {
 					message: errorResponse,
 					status:  http.StatusBadRequest,
 				})
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 			})
 
 			It("does not delete the host", func() {
@@ -658,7 +661,7 @@ var _ = Describe("controllers/hosts", func() {
 					status:  http.StatusBadRequest,
 				}
 				replaceTransport(hb, rt)
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 
 				doRequest(hs.H.Slug)
 				Expect(len(rt.requests)).To(Equal(0), "expect to not called hostbuilder")
@@ -703,7 +706,7 @@ var _ = Describe("controllers/hosts", func() {
 					status:  http.StatusOK,
 				})
 
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 
 				hs.H.State = host.StateRestarting
 				err := hs.H.Update(db)
@@ -725,7 +728,7 @@ var _ = Describe("controllers/hosts", func() {
 					message: okResponse,
 					status:  http.StatusOK,
 				})
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 			})
 
 			It("updates the host state to running", func() {
@@ -802,7 +805,7 @@ var _ = Describe("controllers/hosts", func() {
 					message: errorResponse,
 					status:  http.StatusBadRequest,
 				})
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 				doRequest(hs.H.Slug)
 			})
 
@@ -856,7 +859,7 @@ var _ = Describe("controllers/hosts", func() {
 					message: okResponse,
 					status:  http.StatusOK,
 				})
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 
 				hs.H.State = host.StateStopped
 				err := hs.H.Update(db)
@@ -877,7 +880,7 @@ var _ = Describe("controllers/hosts", func() {
 					message: okResponse,
 					status:  http.StatusOK,
 				})
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 
 				hs.H.State = host.StateStopping
 				err := hs.H.Update(db)
@@ -902,7 +905,7 @@ var _ = Describe("controllers/hosts", func() {
 					status:  http.StatusOK,
 				})
 
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 			})
 
 			It("updates the host state to stopped", func() {
@@ -980,7 +983,7 @@ var _ = Describe("controllers/hosts", func() {
 					status:  http.StatusBadRequest,
 				})
 
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 
 				doRequest(hs.H.Slug, nil)
 			})
@@ -1005,7 +1008,7 @@ var _ = Describe("controllers/hosts", func() {
 					message: okResponse,
 					status:  http.StatusOK,
 				})
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 
 				c1 = &container.Container{
 					CID:    "beefface",
@@ -1111,7 +1114,7 @@ var _ = Describe("controllers/hosts", func() {
 					status:  http.StatusOK,
 				})
 
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 
 				hs.H.State = host.StateStopped
 				err := hs.H.Update(db)
@@ -1132,7 +1135,7 @@ var _ = Describe("controllers/hosts", func() {
 					message: okResponse,
 					status:  http.StatusOK,
 				})
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 
 				hs.H.State = host.StateRestarting
 				err := hs.H.Update(db)
@@ -1157,7 +1160,7 @@ var _ = Describe("controllers/hosts", func() {
 					status:  http.StatusOK,
 				})
 
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 			})
 
 			It("updates the host state to running", func() {
@@ -1235,7 +1238,7 @@ var _ = Describe("controllers/hosts", func() {
 					status:  http.StatusBadRequest,
 				})
 
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 
 				doRequest(hs.H.Slug, nil)
 			})
@@ -1260,7 +1263,7 @@ var _ = Describe("controllers/hosts", func() {
 					message: okResponse,
 					status:  http.StatusOK,
 				})
-				hosts.HostbuilderClient = hb
+				hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
 
 				c1 = &container.Container{
 					CID:    "beefface",
@@ -1333,6 +1336,44 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("UUIDClient", func() {
+		var hs *HostStack
+
+		doRequest := func(slug string, params *url.Values) {
+			req, err := NewFormRequest("POST", "/api/v0/hosts/"+slug+"/start", params)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			var err error
+			hs, err = CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					State:     host.StateStopped,
+					IPAddress: sql.NullString{"127.0.0.1", true},
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		It("returns a client that has adds X-NITROUS-UUID header", func() {
+			hb := hosts.UUIDClient("my unique id")
+
+			rt := &FakeRoundTripper{
+				message: okResponse,
+				status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.NewClient = func(string) *hostbuilderclient.Hostbuilder { return hb }
+			doRequest(hs.H.Slug, nil)
+
+			Expect(rt.requests).To(HaveLen(1))
+			Expect(rt.requests[0].Header.Get(controllers.NitrousUUIDHeader)).To(Equal("my unique id"))
 		})
 	})
 })
