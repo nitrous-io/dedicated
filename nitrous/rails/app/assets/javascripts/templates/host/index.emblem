@@ -74,29 +74,23 @@
   if isRunning
     .left
       button.ui.btn click='restart' Restart
-      button.ui.btn click='stop' Stop
+      button.ui.btn click='showTerminateDialog target="view"' Terminate...
     .right
       button.ui.btn.refresh-btn click='refresh target="view"' Refresh Stats
       button.ui.btn.primary click='newContainer' New Container...
   else
-    if isStopped
+    if isTerminated
       .left
-        button.ui.btn click='showTerminateDialog target="view"' Terminate...
-      .right
-        button.ui.btn.primary click='start' Start
+        button.ui.btn disabled='disabled' Terminated
     else
-      if isTerminated
-        .left
-          button.ui.btn disabled='disabled' Terminated
+      if isOrphan
+        .right
+          button.ui.btn.primary click='showTerminateDialog target="view"' Terminate
       else
-        if isOrphan
-          .right
-            button.ui.btn.primary click='showTerminateDialog target="view"' Terminate
-        else
-          .left
-            button.ui.btn disabled='disabled'
-              i.spinner
-              | Please Wait...
+        .left
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Please Wait...
 
 #terminate-modal-dialog.ui.modal
   .ui.card

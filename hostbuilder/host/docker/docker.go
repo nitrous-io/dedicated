@@ -87,33 +87,6 @@ func (h *Host) Info() (*host.Info, error) {
 	}, nil
 }
 
-func (h *Host) Stop() (*host.Info, error) {
-	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
-		switch err.(type) {
-		case *dockerclient.ContainerNotRunning:
-			return h.Info()
-		default:
-			return nil, err
-		}
-	}
-
-	return h.Info()
-}
-
-func (h *Host) Start() (*host.Info, error) {
-	err := h.client.StartContainer(h.ID, &dockerclient.HostConfig{
-		Privileged:      true,
-		PublishAllPorts: true,
-		Binds:           []string{fmt.Sprintf("%s:/freighterd", h.FreighterdLocation)},
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return h.Info()
-}
-
 func (h *Host) Restart() (*host.Info, error) {
 	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
 		switch err.(type) {
@@ -182,11 +155,7 @@ func (h *Host) createContainer(imageName string) (*host.Info, error) {
 		return nil, err
 	}
 	h.ID = container.ID
-	info, err := h.Start()
-	if err != nil {
-		return nil, err
-	}
-	return info, nil
+	return h.start()
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
@@ -215,6 +184,20 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	host.client = client
 
 	return host, nil
+}
+
+func (h *Host) start() (*host.Info, error) {
+	err := h.client.StartContainer(h.ID, &dockerclient.HostConfig{
+		Privileged:      true,
+		PublishAllPorts: true,
+		Binds:           []string{fmt.Sprintf("%s:/freighterd", h.FreighterdLocation)},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return h.Info()
 }
 
 func getFreighterdPort(container *dockerclient.Container) uint16 {
