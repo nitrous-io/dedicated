@@ -455,5 +455,25 @@ func init() {
 				ALTER TABLE user_profiles ADD COLUMN advanced boolean DEFAULT false NOT NULL;
 			`,
 		},
+		{
+			Version: "380",
+			Up: `
+				CREATE TABLE preprovisioned_hosts (
+					id bigserial PRIMARY KEY NOT NULL,
+					region_id bigint REFERENCES regions(id) NOT NULL,
+					plan_id bigint REFERENCES plans(id) NOT NULL,
+					provider_template_id bigint REFERENCES provider_templates(id) NOT NULL,
+					slug character varying(63),
+					state character varying(255) NOT NULL DEFAULT 'born',
+					ip_address character varying(45),
+					freighterd_port bigint,
+					secret character varying(255) NOT NULL DEFAULT left(encode(gen_random_bytes(191), 'base64'), 255),
+					provider_identifier character varying(255),
+					terminated_at timestamp without time zone,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+			`,
+		},
 	}
 }
