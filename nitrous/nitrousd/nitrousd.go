@@ -13,8 +13,6 @@ import (
 	"github.com/nitrous-io/nitrous-common/must"
 )
 
-const DBEnvVar = "NITROUS_PG_URL"
-
 var (
 	version           string // current version of nitrousd
 	freighterdVersion string // freighterd version that works with current nitrousd
@@ -38,23 +36,21 @@ func main() {
 		}
 	}()
 
-	pid := os.Getpid()
-
-	dbURL := os.Getenv(DBEnvVar)
+	dbURL := os.Getenv("NITROUS_PG_URL")
 	if dbURL == "" {
-		logr.FatalExit(DBEnvVar, "is not defined")
+		logr.FatalExit("nitrousd: NITROUS_PG_URL is not defined")
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
 		logr.FatalExit(err)
 	}
-	err = dbConn.MigrateAll()
-	if err != nil {
-		logr.Infof("Migrations failed: %v", err)
-	}
 	defer dbConn.DB.Close()
+	if err := dbConn.MigrateAll(); err != nil {
+		logr.Infof("nitrousd: migrations failed: %v", err)
+	}
 
 	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr)
+	pid := os.Getpid()
 	host := "0.0.0.0"
 	port := uint16(3333)
 	logr.Infof("nitrousd %s (pid: %v) listening on %s:%d", version, pid, host, port)
