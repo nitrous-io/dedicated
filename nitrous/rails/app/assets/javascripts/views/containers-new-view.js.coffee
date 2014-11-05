@@ -102,7 +102,7 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
       lastStatus = ev.status
 
     Em.run.scheduleOnce 'afterRender', this, ->
-      @injectTerminalIframe()
+      App.injectTerminalIframe this
 
   willDestroyElement: ->
     @_super()
@@ -111,32 +111,6 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
     @$('input[name=option]').off('change.containers-new')
 
     App.off "progressReceived"
-
-  injectTerminalIframe: ->
-    Em.run.scheduleOnce 'afterRender', this, ->
-      controller = @get 'controller'
-      $iframe = $('<iframe>')
-      @$('.terminal-screen').append($iframe)
-      iframeWindow = $iframe[0].contentWindow
-      iframeDocument = iframeWindow.document
-
-      # use pure js dom api because jquery fails to use iframe's window/document obj
-      linkEl = iframeDocument.createElement('link')
-      linkEl.setAttribute('rel', 'stylesheet')
-      linkEl.setAttribute('href', location.origin + App.get('terminalCssPath'))
-      iframeDocument.head.appendChild(linkEl)
-
-      scriptEl = iframeDocument.createElement('script')
-      scriptEl.setAttribute('src', location.origin + App.get('terminalJsPath'))
-
-      scriptEl.onload = =>
-        scriptEl.onload = null
-        terminal = iframeWindow.NitrousTerminal
-        terminal.init()
-        terminal.focus()
-        @set 'terminal', terminal
-
-      iframeDocument.body.appendChild(scriptEl)
 
   actions:
     create: ->
