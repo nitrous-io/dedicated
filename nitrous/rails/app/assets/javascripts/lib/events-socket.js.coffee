@@ -46,8 +46,7 @@ App.EventsSocket = Lib.Socket.extend
         host.load(hostData)
         host.set 'progress', null
 
-    ['host.started', 'host.stopped', 'host.restarted', 'host.updated',
-      'host.starting', 'host.stopping', 'host.restarting'].forEach (evt) =>
+    ['host.restarted', 'host.updated', 'host.restarting'].forEach (evt) =>
       @on evt, (data) ->
         hostData = data.host
         findHost(hostData)?.load(hostData)
