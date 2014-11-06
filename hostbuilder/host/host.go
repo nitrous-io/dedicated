@@ -7,6 +7,12 @@ import (
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 )
 
+type TLSConfig struct {
+	CA   string `json:"ca"`
+	Cert string `json:"cert"`
+	Key  string `json:"key"`
+}
+
 type Info struct {
 	Provider       string      `json:"provider"`
 	ID             string      `json:"id"`
