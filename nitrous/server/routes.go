@@ -6,6 +6,7 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/baseimages"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
@@ -38,6 +39,7 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/users", mw.Track(analytics.UserSignedUp, users.Create), "POST")
 		s.routeJSON("/users", mw.Auth(users.Update), "PUT")
 		s.routeJSON("/user", mw.Auth(users.GetAuthenticatedUser), "GET")
+		s.routeJSON("/user/billing_profile", mw.Auth(billingprofiles.Create), "POST")
 
 		s.routeJSON("/hosts", mw.Auth(hosts.Index), "GET")
 		s.routeJSON("/hosts", mw.Auth(mw.Track(analytics.HostCreated, hosts.Create)), "POST")
