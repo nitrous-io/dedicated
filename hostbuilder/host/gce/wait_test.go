@@ -2,17 +2,14 @@ package gce
 
 import (
 	"fmt"
-	"testing"
+	"net/http"
 	"time"
+
+	"code.google.com/p/google-api-go-client/compute/v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-func TestGCE(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "host/gce")
-}
 
 var _ = Describe("waitForState", func() {
 	It("waits until the state transition finishes", func() {
@@ -41,5 +38,39 @@ var _ = Describe("waitForState", func() {
 			}
 		})
 		Expect(err).ToNot(BeNil(), "expected timeout error")
+	})
+})
+
+var _ = Describe("refreshOp", func() {
+	It("returns the state of operation", func() {
+		service, _ := compute.New(&http.Client{
+			Transport: &FakeRoundTripper{
+				message: getOperationResponse,
+				status:  http.StatusOK,
+			},
+		})
+		h := &Host{service: service}
+
+		state, err := h.refreshOp("asia-east1-c", &compute.Operation{
+			Name: "operation-1415261252844-5072c303d79e1-1d2317ca-32d90950",
+		})()
+		Expect(err).To(BeNil())
+		Expect(state).To(Equal("DONE"))
+	})
+})
+
+var _ = Describe("refreshInstanceState", func() {
+	It("returns the state of the instance", func() {
+		service, _ := compute.New(&http.Client{
+			Transport: &FakeRoundTripper{
+				message: getInstanceResponse,
+				status:  http.StatusOK,
+			},
+		})
+		h := &Host{service: service}
+
+		state, err := h.refreshInstanceState("asia-east1-c", "supersonic-harrenhal-host-55")()
+		Expect(err).To(BeNil())
+		Expect(state).To(Equal("RUNNING"))
 	})
 })

@@ -178,20 +178,9 @@ func (h *Host) Restart() (*host.Info, error) {
 // - client_email
 // - client_id
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
-	hostConfig := &HostConfig{}
-	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		log.Printf("gce: invalid config %s", config)
-		return nil, fmt.Errorf("invalid config %q", err)
-	}
-	// if we dont specify a disk size, use a default disk size
-	if hostConfig.DiskSizeRaw == "" {
-		hostConfig.DiskSize = defaultDiskSize
-	} else {
-		s, err := strconv.ParseInt(hostConfig.DiskSizeRaw, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid disk size %s", hostConfig.DiskSizeRaw)
-		}
-		hostConfig.DiskSize = s
+	hostConfig, err := parseHostConfig(config)
+	if err != nil {
+		return nil, err
 	}
 
 	log.Printf("requesting GCE token with email %q", defaultConfig["client_email"])
@@ -230,6 +219,25 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		service:   service,
 		Config:    hostConfig,
 	}, nil
+}
+
+func parseHostConfig(config string) (*HostConfig, error) {
+	hostConfig := &HostConfig{}
+	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
+		log.Printf("gce: invalid config %s", config)
+		return nil, fmt.Errorf("invalid config %q", err)
+	}
+	// if we dont specify a disk size, use a default disk size
+	if hostConfig.DiskSizeRaw == "" {
+		hostConfig.DiskSize = defaultDiskSize
+	} else {
+		s, err := strconv.ParseInt(hostConfig.DiskSizeRaw, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid disk size %s", hostConfig.DiskSizeRaw)
+		}
+		hostConfig.DiskSize = s
+	}
+	return hostConfig, nil
 }
 
 func init() {
@@ -379,7 +387,7 @@ func (h *Host) metadata(sshKeys []string) []*compute.MetadataItems {
 		m["sshKeys"] = sshConf
 	}
 
-	metadata := make([]*compute.MetadataItems, len(m))
+	metadata := []*compute.MetadataItems{}
 	for k, v := range m {
 		metadata = append(metadata, &compute.MetadataItems{Key: k, Value: v})
 	}
