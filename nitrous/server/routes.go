@@ -7,6 +7,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/appsettings"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/baseimages"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
@@ -113,6 +114,7 @@ func (s *Server) drawRoutes() {
 			"POST": {
 				"/user/profile":                        r("userprofiles.Update", userprofiles.Update),
 				"/hosts":                               r("hosts.Create", hosts.Create, HostCreated),
+				"/user/billing_profile":                r("billingprofiles.Create", billingprofiles.Create),
 				"/hosts/{slug}/registries":             r("registries.Login", registries.Login),
 				"/hosts/{slug}/restart":                r("hosts.Restart", mw.HostViaPath("slug", hosts.Restart)),
 				"/hosts/{slug}/volumes":                r("volumes.Create", mw.HostViaPath("slug", volumes.Create)),
