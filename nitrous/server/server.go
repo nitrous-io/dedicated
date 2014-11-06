@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
+	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
@@ -32,6 +33,7 @@ var nsStack []string = []string{}
 
 type Server struct {
 	Events      *pubsub.Pubsub
+	Provisioner *provisioner.Provisioner
 	Tracker     analytics.Tracker
 
 	router   *mux.Router
@@ -45,14 +47,16 @@ func NewServer(root string, db *db.Database, l *logger.Logger) *Server {
 	if l == nil {
 		panic("server.NewServer: invalid argument")
 	}
+	events := pubsub.New(128)
 
 	svr := &Server{
-		root:    root,
-		db:      db,
-		logger:  l,
-		router:  mux.NewRouter(),
-		Events:  pubsub.New(128),
-		Tracker: analytics.NewMixpanelTracker(),
+		Events:      events,
+		Provisioner: provisioner.NewProvisioner(db, l, events),
+		Tracker:     analytics.NewMixpanelTracker(),
+		root:        root,
+		db:          db,
+		logger:      l,
+		router:      mux.NewRouter(),
 	}
 	svr.drawRoutes()
 	return svr
@@ -63,6 +67,10 @@ func (s *Server) Router() *mux.Router {
 }
 
 func (s *Server) Start(host string, port uint16) error {
+	if err := s.Provisioner.Start(); err != nil {
+		return err
+	}
+
 	addr := fmt.Sprintf("%s:%d", host, port)
 	srv := &http.Server{
 		Addr:    addr,
@@ -80,6 +88,7 @@ func (s *Server) Start(host string, port uint16) error {
 }
 
 func (s *Server) Stop() {
+	s.Provisioner.Stop()
 	if s.listener != nil {
 		s.listener.Close()
 	}
