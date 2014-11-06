@@ -17,7 +17,6 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-const DBEnvVar = "NITROUS_PG_URL"
 const DigitalOceanImageID = "5714430"
 
 var (
@@ -33,16 +32,15 @@ type SeedFn func(db.QueryReceiver) error
 var seeds = []SeedFn{users, regions, plans, templates, baseImages}
 
 func main() {
-	dbURL := os.Getenv(DBEnvVar)
+	dbURL := os.Getenv("NITROUS_PG_URL")
 	if dbURL == "" {
-		logr.FatalExit(DBEnvVar, "is not defined")
+		logr.FatalExit("NITROUS_PG_URL is not defined")
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
 		logr.FatalExit(err)
 	}
-	err = dbConn.MigrateAll()
-	if err != nil {
+	if err := dbConn.MigrateAll(); err != nil {
 		logr.Infof("Migrations failed: %v", err)
 	}
 	defer dbConn.DB.Close()
@@ -53,15 +51,13 @@ func main() {
 	}
 
 	for _, f := range seeds {
-		err := f(tx)
-		if err != nil {
+		if err := f(tx); err != nil {
 			tx.Rollback()
 			logr.FatalExit(err)
 		}
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		logr.FatalExit(err)
 	}
 }
@@ -71,23 +67,25 @@ func users(d db.QueryReceiver) error {
 	if err != nil || !ok {
 		return err
 	}
-	pass, err := securerandom.Base64(12)
-	if err != nil {
-		return err
-	}
 	users := []user.User{
-		{Username: "admin", Email: "admins@nitrous.io", Password: pass},
+		{Username: "admin", Email: "admins@nitrous.io"},
+		{Username: "host-provisioner", Email: "eng@nitrous.io"},
 	}
 	for _, u := range users {
-		err := u.Insert(d.(*sqlx.Tx))
+		pass, err := securerandom.Base64(12)
 		if err != nil {
+			return err
+		}
+		u.Password = pass
+
+		if err := u.Insert(d.(*sqlx.Tx)); err != nil {
 			return err
 		}
 
 		// set the max hosts to a large value for seed users
-		_, err = d.Exec(`UPDATE user_profiles SET max_hosts = 9999 WHERE user_id = $1;`, u.ID)
+		_, err = d.Exec(`UPDATE user_profiles SET max_hosts = 9223372036854775807 WHERE user_id = $1;`, u.ID)
 		if err != nil {
-			return nil
+			return err
 		}
 		logr.Infof("Added user %+v", u)
 	}
@@ -107,8 +105,7 @@ func regions(d db.QueryReceiver) error {
 		{Slug: "sgp", Rank: 500, Name: "Asia (sgp)"},
 	}
 	for _, r := range regions {
-		err = r.Insert(d)
-		if err != nil {
+		if err := r.Insert(d); err != nil {
 			return err
 		}
 		logr.Infof("Added region %+v", r)
@@ -131,8 +128,7 @@ func plans(d db.QueryReceiver) error {
 		{Slug: "32gb", CPU: "12", Memory: "32 GB", Storage: "320 GB", Name: "2XLarge", MaxContainers: 128, Price: 63995},
 	}
 	for _, p := range plans {
-		err = p.Insert(d)
-		if err != nil {
+		if err := p.Insert(d); err != nil {
 			return err
 		}
 		logr.Infof("Added plan %+v", p)
@@ -200,8 +196,7 @@ func baseImages(d db.QueryReceiver) error {
 		{Name: "Docker", Repo: "nitrousio/docker:latest", Description: "", Slug: "docker"},
 	}
 	for _, b := range baseImages {
-		err = b.Insert(d)
-		if err != nil {
+		if err := b.Insert(d); err != nil {
 			return err
 		}
 		logr.Infof("Added base image %+v", b)
