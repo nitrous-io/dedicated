@@ -38,8 +38,8 @@
         ul.dropdown-menu.right style='display: none'
           li
             link-to 'account' | Account Settings
-          li.disabled
-            a href='#' Billing
+          li
+            link-to 'billing' | Billing
           li.separator
           li
             a href='/docs/' Help
@@ -55,7 +55,6 @@
             li
               a href='#' click='switchUser target="view"'
                 | Switch User
-
     else
       li
         a href='/docs/' Documentation

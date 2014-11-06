@@ -31,3 +31,4 @@ App.Router.map ->
       @route 'pull'
 
     @resource 'account'
+    @resource 'billing'
