@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -13,6 +14,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -29,12 +31,14 @@ var jsonNotFound = []byte(`{"error":"not_found","error_description":"not found"}
 var nsStack []string = []string{}
 
 type Server struct {
-	Events  *pubsub.Pubsub
-	router  *mux.Router
-	root    string
-	logger  *logger.Logger
-	db      *db.Database
-	Tracker analytics.Tracker
+	Events      *pubsub.Pubsub
+	Tracker     analytics.Tracker
+
+	router   *mux.Router
+	root     string
+	logger   *logger.Logger
+	db       *db.Database
+	listener net.Listener
 }
 
 func NewServer(root string, db *db.Database, l *logger.Logger) *Server {
@@ -58,13 +62,27 @@ func (s *Server) Router() *mux.Router {
 	return s.router
 }
 
-func (s *Server) Start(host string, port uint16) {
-	svr := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", host, port),
+func (s *Server) Start(host string, port uint16) error {
+	addr := fmt.Sprintf("%s:%d", host, port)
+	srv := &http.Server{
+		Addr:    addr,
 		Handler: s.router,
 	}
-	err := svr.ListenAndServe()
-	s.logger.FatalExit(err)
+
+	// TODO Support graceful stop/restart.
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("nitrous/server: Failed to listen on %q, error: %q", addr, err)
+	}
+	s.listener = tcpKeepAliveListener{ln.(*net.TCPListener)}
+
+	return srv.Serve(s.listener)
+}
+
+func (s *Server) Stop() {
+	if s.listener != nil {
+		s.listener.Close()
+	}
 }
 
 func (s *Server) namespace(ns string, f func()) {
@@ -252,4 +270,24 @@ func filterIPAddresses(ipAddresses []string) []string {
 	}
 
 	return filteredIPAddresses
+}
+
+// tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
+// connections. It's used by ListenAndServe and ListenAndServeTLS so
+// dead TCP connections (e.g. closing laptop mid-download) eventually
+// go away.
+//
+// Copied from the net/http package.
+type tcpKeepAliveListener struct {
+	*net.TCPListener
+}
+
+func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
+	tc, err := ln.AcceptTCP()
+	if err != nil {
+		return
+	}
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(3 * time.Minute)
+	return tc, nil
 }
