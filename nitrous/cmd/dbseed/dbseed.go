@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq/hstore"
@@ -22,7 +23,27 @@ import (
 const DigitalOceanImageID = "5714430"
 
 var (
-	logr *logger.Logger
+	DOImage  string
+	GCEImage string
+	logr     *logger.Logger
+
+	gceRegions = map[string]string{
+		"sgp": "asia-east1-c",
+		"nyc": "us-central1-b",
+		"sfo": "us-central1-f",
+		"ams": "europe-west1-b",
+		"lon": "europe-west1-c",
+	}
+
+	gceSizes = map[string]string{
+		"512mb": "f1-micro",
+		"1gb":   "g1-small",
+		"2gb":   "g1-small",
+		"4gb":   "n1-standard-1",
+		"8gb":   "n1-standard-2",
+		"16gb":  "n1-standard-4",
+		"32gb":  "n1-standard-8",
+	}
 )
 
 func init() {
@@ -38,6 +59,15 @@ func main() {
 	if dbURL == "" {
 		logr.FatalExit(envvars.DBEnvVar, "is not defined")
 	}
+	DOImage = os.Getenv("DO_IMAGE_ID")
+	if DOImage == "" {
+		logr.FatalExit("DO_IMAGE_ID is not defined")
+	}
+	GCEImage = os.Getenv("GCE_IMAGE_ID")
+	if GCEImage == "" {
+		logr.FatalExit("GCE_IMAGE_ID is not defined")
+	}
+
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
 		logr.FatalExit(err)
@@ -155,7 +185,7 @@ func providertemplates(d db.QueryReceiver) error {
 	}
 	for _, p := range plans {
 		for _, r := range regions {
-			providers := []string{"docker", "digitalocean"}
+			providers := []string{"docker", "digitalocean", "gce"}
 			for _, provider := range providers {
 				pt := &providertemplate.ProviderTemplate{
 					Name:     fmt.Sprintf("%s-%s-%s", provider, p.Slug, r.Slug),
@@ -170,7 +200,11 @@ func providertemplates(d db.QueryReceiver) error {
 					},
 				}
 				if provider == "digitalocean" {
-					pt.Config.Map["image_id"] = sql.NullString{DigitalOceanImageID, true}
+					pt.Config.Map["image_id"] = sql.NullString{DOImage, true}
+				} else if provider == "gce" {
+					pt.Config.Map["image_id"] = sql.NullString{GCEImage, true}
+					pt.Config.Map["region_id"] = sql.NullString{gceRegions[r.Slug], true}
+					pt.Config.Map["size_id"] = sql.NullString{gceSizes[p.Slug], true}
 				}
 				err := pt.Insert(d)
 				if err != nil {
