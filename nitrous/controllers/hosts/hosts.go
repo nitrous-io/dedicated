@@ -152,7 +152,10 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	// If provider identifier is empty, don't attempt to delete the host in hostbuilder
 	// Provider identifier can be empty for hosts that are dangling in born or orphan states.
 	if h.ProviderIdentifier.String != "" {
-		_, err := HostbuilderClient.Delete(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
+		_, err := HostbuilderClient.Delete(h.Provider, &hostbuilderclient.Config{
+			"id":        h.ProviderIdentifier.String,
+			"region_id": h.RegionSlug,
+		})
 		if err != nil {
 			return err
 		}
