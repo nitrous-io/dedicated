@@ -22,6 +22,11 @@ import (
 
 const DigitalOceanImageID = "5714430"
 
+type spec struct {
+	machineType string // machine type on GCE
+	diskSize    string // disk size in gb
+}
+
 var (
 	DOImage  string
 	GCEImage string
@@ -35,14 +40,14 @@ var (
 		"lon": "europe-west1-c",
 	}
 
-	gceSizes = map[string]string{
-		"512mb": "f1-micro",
-		"1gb":   "g1-small",
-		"2gb":   "g1-small",
-		"4gb":   "n1-standard-1",
-		"8gb":   "n1-standard-2",
-		"16gb":  "n1-standard-4",
-		"32gb":  "n1-standard-8",
+	gceSizes = map[string]spec{
+		"512mb": {"f1-micro", "20"},
+		"1gb":   {"g1-small", "30"},
+		"2gb":   {"g1-small", "40"},
+		"4gb":   {"n1-standard-1", "60"},
+		"8gb":   {"n1-standard-2", "80"},
+		"16gb":  {"n1-standard-4", "160"},
+		"32gb":  {"n1-standard-8", "320"},
 	}
 )
 
@@ -204,7 +209,8 @@ func providertemplates(d db.QueryReceiver) error {
 				} else if provider == "gce" {
 					pt.Config.Map["image_id"] = sql.NullString{GCEImage, true}
 					pt.Config.Map["region_id"] = sql.NullString{gceRegions[r.Slug], true}
-					pt.Config.Map["size_id"] = sql.NullString{gceSizes[p.Slug], true}
+					pt.Config.Map["size_id"] = sql.NullString{gceSizes[p.Slug].machineType, true}
+					pt.Config.Map["disk_size"] = sql.NullString{gceSizes[p.Slug].diskSize, true}
 				}
 				err := pt.Insert(d)
 				if err != nil {
