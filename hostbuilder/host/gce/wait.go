@@ -9,6 +9,38 @@ import (
 	"code.google.com/p/google-api-go-client/compute/v1"
 )
 
+// wait for op to be completed and the instance to be transitioned to a new
+// state
+func (h *Host) waitForTransition(op *compute.Operation, state, zone, name string) (*compute.Instance, error) {
+	var errCh chan error
+
+	errCh = make(chan error, 1)
+	go waitForState(errCh, "DONE", h.refreshOp(zone, op))
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return nil, err
+		}
+	case <-time.After(StateTimeout):
+		return nil, fmt.Errorf("timeout while waiting for instance %q to be created", name)
+	}
+
+	// wait for instance state to be running
+	errCh = make(chan error, 1)
+	go waitForState(errCh, state, h.refreshInstanceState(zone, name))
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return nil, err
+		}
+	case <-time.After(StateTimeout):
+		return nil, fmt.Errorf("timeout while waiting for instance %q to be running", name)
+	}
+
+	// refetch instance
+	return h.service.Instances.Get(h.projectID, zone, name).Do()
+}
+
 // stateRefreshFunc is used to refresh the state of a thing and is
 // used in conjunction with waitForState.
 type stateRefreshFunc func() (string, error)

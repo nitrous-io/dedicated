@@ -148,8 +148,20 @@ func (h *Host) instanceInfo() *host.Info {
 	}
 }
 
+// Restart does a hard-reset of a GCE instance
 func (h *Host) Restart() (*host.Info, error) {
-	return nil, fmt.Errorf("not implemented")
+	zone := h.Config.RegionID
+	name := h.Config.ID
+	op, err := h.service.Instances.Reset(h.projectID, zone, name).Do()
+	if err != nil {
+		return nil, fmt.Errorf("gce: failed to get zone=%s name=%s, %q", zone, name, err)
+	}
+	instance, err := h.waitForTransition(op, "RUNNING", zone, name)
+	if err != nil {
+		return nil, err
+	}
+	h.instance = instance
+	return h.instanceInfo(), nil
 }
 
 // defaultConfig structure
@@ -296,34 +308,7 @@ func createInstance(ctx *context.Context, hst host.Host) error {
 		return err
 	}
 
-	var errCh chan error
-
-	// wait for the create operation to be done
-	errCh = make(chan error, 1)
-	go waitForState(errCh, "DONE", h.refreshOp(zone.Name, op))
-	select {
-	case err := <-errCh:
-		if err != nil {
-			return err
-		}
-	case <-time.After(StateTimeout):
-		return fmt.Errorf("timeout while waiting for instance %q to be created", h.instance.Name)
-	}
-
-	// wait for instance state to be running
-	errCh = make(chan error, 1)
-	go waitForState(errCh, "RUNNING", h.refreshInstanceState(zone.Name, h.instance.Name))
-	select {
-	case err := <-errCh:
-		if err != nil {
-			return err
-		}
-	case <-time.After(StateTimeout):
-		return fmt.Errorf("timeout while waiting for instance %q to be running", h.instance.Name)
-	}
-
-	// refetch instance
-	instance, err := h.service.Instances.Get(h.projectID, zone.Name, h.instance.Name).Do()
+	instance, err := h.waitForTransition(op, "RUNNING", zone.Name, h.instance.Name)
 	if err != nil {
 		return err
 	}
