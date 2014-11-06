@@ -119,12 +119,13 @@ func (s *Server) route(route string, mw middleware.Middleware, methods ...string
 	h := func(w http.ResponseWriter, r *http.Request) {
 		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
 		err := mw(&middleware.Env{
-			Root:       s.root,
-			Logger:     s.logger,
-			DB:         s.db,
-			Events:     s.Events,
-			RemoteAddr: getRemoteAddr(r),
-			Tracker:    s.Tracker,
+			Root:        s.root,
+			Logger:      s.logger,
+			DB:          s.db,
+			Events:      s.Events,
+			Provisioner: s.Provisioner,
+			Tracker:     s.Tracker,
+			RemoteAddr:  getRemoteAddr(r),
 		}, w, r)
 		if err != nil {
 			s.HandleError(w, err)
@@ -138,12 +139,13 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 	h := func(w http.ResponseWriter, r *http.Request) {
 		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
 		env := &middleware.Env{
-			Root:       s.root,
-			Logger:     s.logger,
-			DB:         s.db,
-			Events:     s.Events,
-			RemoteAddr: getRemoteAddr(r),
-			Tracker:    s.Tracker,
+			Root:        s.root,
+			Logger:      s.logger,
+			DB:          s.db,
+			Events:      s.Events,
+			Provisioner: s.Provisioner,
+			Tracker:     s.Tracker,
+			RemoteAddr:  getRemoteAddr(r),
 		}
 		if err := mw(env, w, r); err != nil {
 			s.HandleError(w, err)

@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mergemap"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
+	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
@@ -28,6 +29,7 @@ type Env struct {
 	Logger         *logger.Logger
 	DB             *db.Database
 	Events         *pubsub.Pubsub
+	Provisioner    *provisioner.Provisioner
 	Status         int
 	User           *user.User
 	Data           map[string]interface{}
