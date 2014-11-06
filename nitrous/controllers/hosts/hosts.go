@@ -167,7 +167,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	if h.ProviderIdentifier.String != "" {
 		_, err := HostbuilderClient.Delete(h.Provider, &hostbuilderclient.Config{
 			"id":        h.ProviderIdentifier.String,
-			"region_id": h.RegionSlug,
+			"region_id": h.RegionSlug.String,
 		})
 		if err != nil {
 			return err
