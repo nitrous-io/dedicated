@@ -76,10 +76,11 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	if err := ctx.Execute(); err != nil {
 		if h.instance != nil {
 			h.progressLog(w, "Canceling host creation...")
-			resp, derr := h.service.Instances.Delete(h.projectID, h.instance.Zone, h.instance.Name).Do()
+			zone := h.Config.RegionID
+			resp, derr := h.service.Instances.Delete(h.projectID, zone, h.instance.Name).Do()
 			if derr != nil {
 				h.progressLog(w, "Canceling host creation...Failed!")
-				h.Logf("ERROR: Failed to remove instance zone=%s instance=%s", h.instance.Zone, h.instance.Name)
+				h.Logf("ERROR: Failed to remove instance zone=%s instance=%s", zone, h.instance.Name)
 				return nil, fmt.Errorf("Failed to destroy after create error: %s, destroy error: %v, resp: %v", err, derr, resp)
 			}
 			h.progressLog(w, "Canceling host creation...Done!")
@@ -137,6 +138,7 @@ func (h *Host) instanceInfo() *host.Info {
 		ID:             h.instance.Name,
 		IPAddress:      h.ipAddress(),
 		FreighterdPort: uint16(65333),
+		RegionID:       h.Config.RegionID,
 	}
 }
 

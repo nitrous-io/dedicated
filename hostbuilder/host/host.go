@@ -16,6 +16,7 @@ type Info struct {
 	ID             string `json:"id"`
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort uint16 `json:"freighterd_port"`
+	RegionID       string `json:"region_id"`
 }
 
 type Host interface {

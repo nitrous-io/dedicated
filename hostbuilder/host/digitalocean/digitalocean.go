@@ -145,6 +145,7 @@ func (h *Host) dropletToInfo() *host.Info {
 		ID:             strconv.Itoa(h.droplet.ID),
 		IPAddress:      h.ipAddress(),
 		FreighterdPort: uint16(65333),
+		RegionID:       h.droplet.Region.Slug,
 	}
 }
 
