@@ -38,7 +38,6 @@ var _ = Describe("models/billingprofile", func() {
 		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 
-		stripe.Key = "sk_key"
 		fakeStripe = &FakeStripe{}
 		stripe.SetBackend(fakeStripe)
 	})

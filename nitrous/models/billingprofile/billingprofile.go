@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -11,6 +12,13 @@ import (
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
 )
+
+func init() {
+	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
+	if stripe.Key == "" {
+		panic("STRIPE_SECRET_KEY environment variable not set")
+	}
+}
 
 type BillingProfile struct {
 	ID        int64      `db:"id"`
