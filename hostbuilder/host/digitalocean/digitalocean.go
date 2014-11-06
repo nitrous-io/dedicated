@@ -210,6 +210,7 @@ func (h *Host) dropletToInfo() *host.Info {
 		IPAddress:      h.ipAddress(),
 		FreighterdPort: DefaultPort,
 		State:          getState(h.droplet),
+		RegionID:       h.droplet.Region.Slug,
 	}
 }
 
