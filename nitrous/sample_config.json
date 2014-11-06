@@ -1,0 +1,31 @@
+{
+  "username": "host-provisioner",
+  "poll_interval_ms": 5000,
+  "providers": [
+    {
+      "name": "digitalocean",
+      "specs": [
+        {
+          "region": "sgp",
+          "plan": "512mb",
+          "count": 2
+        },
+        {
+          "region": "sfo",
+          "plan": "1gb",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "name": "docker",
+      "specs": [
+        {
+          "region": "sgp",
+          "plan": "512mb",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}
