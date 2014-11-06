@@ -402,6 +402,9 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 
 	km := p.containerKeyManager(nameFromContainer(container))
 	keys, err := km.Read()
+	if err != nil {
+		return nil, err
+	}
 
 	return keysToKeyMap(keys)
 }
@@ -413,19 +416,7 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 	}
 
 	km := p.containerKeyManager(nameFromContainer(container))
-	existingKeys, err := km.Read()
-	if err != nil {
-		return err
-	}
-
-	// validate pubkeys and remove duplicates
-	keymap, err := keysToKeyMap(append(publicKeys, existingKeys...))
-	if err != nil {
-		return err
-	}
-	publicKeys = keyMapToKeys(keymap)
-
-	return km.Write(publicKeys)
+	return km.Add(publicKeys)
 }
 
 func (p *DockerProvider) ClearPublicKeys(id string) error {
@@ -435,7 +426,7 @@ func (p *DockerProvider) ClearPublicKeys(id string) error {
 	}
 
 	km := p.containerKeyManager(nameFromContainer(container))
-	return km.Write([]string{})
+	return km.Clear()
 }
 
 func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
@@ -445,19 +436,7 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 	}
 
 	km := p.containerKeyManager(nameFromContainer(container))
-	keys, err := km.Read()
-	if err != nil {
-		return err
-	}
-
-	keymap, err := keysToKeyMap(keys)
-	if err != nil {
-		return err
-	}
-	delete(keymap, keyFingerprint)
-	keys = keyMapToKeys(keymap)
-
-	return km.Write(keys)
+	return km.Remove(keyFingerprint)
 }
 
 // Reconfig recreates a container from its original image with new config,
@@ -1194,30 +1173,6 @@ func portsFromContainer(container *dockerclient.Container) map[string][]string {
 		}
 	}
 	return ports
-}
-
-// converts []pubkey to map[keyFingerprint]pubkey
-func keysToKeyMap(keys []string) (map[string]string, error) {
-	keymap := map[string]string{}
-	for _, key := range keys {
-		fingerprint, err := util.Md5Fingerprint(key)
-		if err != nil {
-			return nil, err
-		}
-		keymap[fingerprint] = key
-	}
-	return keymap, nil
-}
-
-// converts map[keyFingerprint]pubkey back to []pubkey
-func keyMapToKeys(keymap map[string]string) []string {
-	keys := make([]string, len(keymap))
-	i := 0
-	for _, key := range keymap {
-		keys[i] = key
-		i++
-	}
-	return keys
 }
 
 func containerConfigFromJSON(jsonStr string) (*provider.ContainerConfig, error) {
