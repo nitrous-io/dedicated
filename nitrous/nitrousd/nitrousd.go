@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 
 	"bitbucket.org/kardianos/osext"
 
@@ -54,5 +55,12 @@ func main() {
 	host := "0.0.0.0"
 	port := uint16(3333)
 	logr.Infof("nitrousd %s (pid: %v) listening on %s:%d", version, pid, host, port)
-	svr.Start(host, port)
+	go svr.Start(host, port)
+
+	ch := make(chan os.Signal)
+	signal.Notify(ch, os.Interrupt, os.Kill)
+	s := <-ch
+	logr.Infof("nitrousd (pid: %v) got signal %v. Terminating.", pid, s)
+	svr.Stop()
+	logr.Infof("nitrousd (pid: %v) terminated.", pid)
 }
