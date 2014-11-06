@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,16 +39,21 @@ const DriverScopes string = "https://www.googleapis.com/auth/compute " +
 	"https://www.googleapis.com/auth/devstorage.full_control"
 
 type HostConfig struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Image       string            `json:"image_id"`
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Image string `json:"image_id"`
+
+	// gce specific settings. This document how an instance behaves ( machine
+	// type / memory / disk space / custom metdata etc... )
 	RegionID    string            `json:"region_id"`
-	DiskSize    int64             `json:"disk_size"`
+	DiskSizeRaw string            `json:"disk_size"`
 	MachineType string            `json:"size_id"`
-	PublicKeys  []string          `json:"public_keys"`
-	TLS         *host.TLSConfig   `json:"tls"`
-	Secret      string            `json:"secret"`
 	Metadata    map[string]string `json:"metadata"`
+	DiskSize    int64
+
+	PublicKeys []string        `json:"public_keys"`
+	TLS        *host.TLSConfig `json:"tls"`
+	Secret     string          `json:"secret"`
 
 	// for setting up repository on the host
 	AptUsername string `json:"apt_username"` // username of nitrous.io
@@ -177,8 +183,15 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		log.Printf("gce: invalid config %s", config)
 		return nil, fmt.Errorf("invalid config %q", err)
 	}
-	if hostConfig.DiskSize == 0 {
+	// if we dont specify a disk size, use a default disk size
+	if hostConfig.DiskSizeRaw == "" {
 		hostConfig.DiskSize = defaultDiskSize
+	} else {
+		s, err := strconv.ParseInt(hostConfig.DiskSizeRaw, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid disk size %s", hostConfig.DiskSizeRaw)
+		}
+		hostConfig.DiskSize = s
 	}
 
 	log.Printf("requesting GCE token with email %q", defaultConfig["client_email"])
@@ -211,7 +224,6 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		return nil, fmt.Errorf("failed to create GCE service %q", err)
 	}
 
-	log.Printf("config %#v", hostConfig)
 	return &Host{
 		uuid:      defaultConfig["uuid"],
 		projectID: defaultConfig["project_id"],
