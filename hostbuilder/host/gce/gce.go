@@ -27,15 +27,6 @@ var (
 	// default timeout when waiting for state
 	StateTimeout = 15 * time.Minute
 
-	// FIXME: the map should belongs to client, not the builder
-	regionsMap = map[string]string{
-		"sgp": "sgp1",
-		"nyc": "nyc2",
-		"sfo": "sfo1",
-		"ams": "ams2",
-		"lon": "lon1",
-	}
-
 	defaultNetwork = "default" // default network type for GCE instance
 	defaultSSHUser = "root"    // default SSH username
 
@@ -50,7 +41,7 @@ type HostConfig struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
 	Image       string            `json:"image"`
-	Zone        string            `json:"zone"`
+	RegionID    string            `json:"region_id"`
 	DiskSize    int64             `json:"disk_size"`
 	MachineType string            `json:"machine_type"`
 	PublicKeys  []string          `json:"public_keys"`
@@ -102,7 +93,9 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 }
 
 func (h *Host) Destroy() error {
-	instance, err := h.service.Instances.Get(h.projectID, h.Config.Zone, h.Config.ID).Do()
+	zone := h.Config.RegionID
+	name := h.Config.ID
+	instance, err := h.service.Instances.Get(h.projectID, zone, name).Do()
 	if err != nil {
 		// if the instance does not exist, then consider that it is sucessfully
 		// destroyed
@@ -110,12 +103,11 @@ func (h *Host) Destroy() error {
 		if ok && e.Code == http.StatusNotFound {
 			return nil
 		}
-		return fmt.Errorf("failed to get GCE %s/%s, %q", h.Config.Zone,
-			h.Config.ID, err)
+		return fmt.Errorf("gce: failed to get zone=%s name=%s, %q", zone, name, err)
 	}
 	h.instance = instance
 
-	_, err = h.service.Instances.Delete(h.projectID, h.instance.Zone, h.instance.Name).Do()
+	_, err = h.service.Instances.Delete(h.projectID, zone, name).Do()
 	if err != nil {
 		// if the instance does not exist, then consider that it is sucessfully
 		// destroyed
@@ -123,16 +115,17 @@ func (h *Host) Destroy() error {
 		if ok && e.Code == http.StatusNotFound {
 			return nil
 		}
-		return fmt.Errorf("failed to delete %s/%s, %q", h.instance.Zone, h.instance.Name)
+		return fmt.Errorf("failed to delete %s/%s, %q", zone, name)
 	}
 	return nil
 }
 
 func (h *Host) Info() (*host.Info, error) {
-	instance, err := h.service.Instances.Get(h.projectID, h.Config.Zone, h.Config.ID).Do()
+	zone := h.Config.RegionID
+	name := h.Config.ID
+	instance, err := h.service.Instances.Get(h.projectID, zone, name).Do()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get GCE %s/%s, %q", h.Config.Zone,
-			h.Config.ID, err)
+		return nil, fmt.Errorf("gce: failed to get zone=%s name=%s, %q", zone, name, err)
 	}
 	h.instance = instance
 	return h.instanceInfo(), nil
@@ -229,11 +222,12 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 
 func createInstance(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
+	zoneName := h.Config.RegionID
 	// get zone
-	zone, err := h.service.Zones.Get(h.projectID, h.Config.Zone).Do()
+	zone, err := h.service.Zones.Get(h.projectID, zoneName).Do()
 	if err != nil {
 		return fmt.Errorf("failed to get projectid=%s zone=%s, %q",
-			h.projectID, h.Config.Zone, err)
+			h.projectID, zoneName, err)
 	}
 	// get image
 	image, err := h.service.Images.Get(h.projectID, h.Config.Image).Do()
