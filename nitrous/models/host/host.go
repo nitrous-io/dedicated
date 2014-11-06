@@ -66,6 +66,7 @@ type Host struct {
 	State          string         `db:"state"`
 	IPAddress      sql.NullString `db:"ip_address"`
 	FreighterdPort sql.NullInt64  `db:"freighterd_port"`
+	RegionSlug     sql.NullString `db:"region_slug"`
 
 	// ProviderIdentifier is the identifier used by the host's provider to
 	// uniquely identify this host.

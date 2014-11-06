@@ -443,5 +443,11 @@ func init() {
 				ALTER TABLE users ADD COLUMN admin boolean DEFAULT false NOT NULL;
 			`,
 		},
+		{
+			Version: "360",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN region_slug character varying(255) DEFAULT '' NOT NULL;
+			`,
+		},
 	}
 }
