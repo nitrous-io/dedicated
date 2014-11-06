@@ -40,14 +40,20 @@ const DriverScopes string = "https://www.googleapis.com/auth/compute " +
 type HostConfig struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
-	Image       string            `json:"image"`
+	Image       string            `json:"image_id"`
 	RegionID    string            `json:"region_id"`
 	DiskSize    int64             `json:"disk_size"`
-	MachineType string            `json:"machine_type"`
+	MachineType string            `json:"size_id"`
 	PublicKeys  []string          `json:"public_keys"`
 	TLS         *host.TLSConfig   `json:"tls"`
 	Secret      string            `json:"secret"`
 	Metadata    map[string]string `json:"metadata"`
+
+	// for setting up repository on the host
+	AptUsername string `json:"apt_username"` // username of nitrous.io
+	AptPassword string `json:"apt_password"` // nitrous.io access token
+	AptLocation string `json:"apt_location"` // URI of the repository
+	AptDist     string `json:"apt_dist"`     // distribution of the repo
 }
 
 type Host struct {
@@ -419,7 +425,7 @@ func (h *Host) Logf(format string, v ...interface{}) {
 		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
 	}
 	if h.instance != nil {
-		parts = append(parts, fmt.Sprintf("zone=%s instance=%s", h.instance.Zone, h.instance.Name))
+		parts = append(parts, fmt.Sprintf("zone=%s instance=%s", h.Config.RegionID, h.instance.Name))
 	}
 	log.Printf(fmt.Sprintf("%s %s", strings.Join(parts, " "), format), v...)
 }
