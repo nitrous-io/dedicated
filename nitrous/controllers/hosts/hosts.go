@@ -205,7 +205,10 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 	publishHostEvent(env, controllers.EventHostRestarting, h)
 
-	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
+	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{
+		"id":        h.ProviderIdentifier.String,
+		"region_id": h.RegionSlug.String,
+	})
 	if err != nil {
 		// Rollback to previous state.
 		h.State = origState
