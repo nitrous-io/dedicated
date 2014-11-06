@@ -12,33 +12,25 @@ import (
 // wait for op to be completed and the instance to be transitioned to a new
 // state
 func (h *Host) waitForTransition(op *compute.Operation, state, zone, name string) (*compute.Instance, error) {
-	var errCh chan error
-
-	errCh = make(chan error, 1)
-	go waitForState(errCh, "DONE", h.refreshOp(zone, op))
-	select {
-	case err := <-errCh:
-		if err != nil {
-			return nil, err
-		}
-	case <-time.After(StateTimeout):
-		return nil, fmt.Errorf("timeout while waiting for instance %q to be created", name)
+	var err error
+	err = waitForState("DONE", StateWaitTime, StateTimeout,
+		h.refreshOp(zone, op))
+	if err != nil {
+		return nil, err
 	}
 
-	// wait for instance state to be running
-	errCh = make(chan error, 1)
-	go waitForState(errCh, state, h.refreshInstanceState(zone, name))
-	select {
-	case err := <-errCh:
-		if err != nil {
-			return nil, err
-		}
-	case <-time.After(StateTimeout):
-		return nil, fmt.Errorf("timeout while waiting for instance %q to be running", name)
+	err = waitForState(state, StateWaitTime, StateTimeout,
+		h.refreshInstanceState(zone, name))
+	if err != nil {
+		return nil, err
 	}
 
 	// refetch instance
 	return h.service.Instances.Get(h.projectID, zone, name).Do()
+}
+
+func (h *Host) WaitForInstance(state, zone, name string) error {
+	return waitForState(state, StateWaitTime, StateTimeout, h.refreshInstanceState(zone, name))
 }
 
 // stateRefreshFunc is used to refresh the state of a thing and is
@@ -69,17 +61,6 @@ func (h *Host) refreshOp(zone string, op *compute.Operation) stateRefreshFunc {
 	}
 }
 
-func (h *Host) WaitForInstance(state, zone, name string) error {
-	errCh := make(chan error, 1)
-	go waitForState(errCh, state, h.refreshInstanceState(zone, name))
-	select {
-	case err := <-errCh:
-		return err
-	case <-time.After(StateTimeout):
-		return fmt.Errorf("timeout while waiting for instance %q to be running", h.instance.Name)
-	}
-}
-
 func (h *Host) refreshInstanceState(zone, name string) stateRefreshFunc {
 	return func() (string, error) {
 		instance, err := h.service.Instances.Get(h.projectID, zone, name).Do()
@@ -92,18 +73,27 @@ func (h *Host) refreshInstanceState(zone, name string) stateRefreshFunc {
 
 // waitForState will spin in a loop forever waiting for state to
 // reach a certain target.
-func waitForState(errCh chan<- error, target string, refresh stateRefreshFunc) {
-	for {
-		state, err := refresh()
-		if err != nil {
-			errCh <- err
-			return
-		}
-		if state == target {
-			errCh <- nil
-			return
-		}
+func waitForState(target string, wait time.Duration, timeout time.Duration, refresh stateRefreshFunc) error {
+	errCh := make(chan error, 1)
+	go func() {
+		for {
+			state, err := refresh()
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if state == target {
+				errCh <- nil
+				return
+			}
 
-		time.Sleep(StateWaitTime)
+			time.Sleep(wait)
+		}
+	}()
+	select {
+	case err := <-errCh:
+		return err
+	case <-time.After(timeout):
+		return fmt.Errorf("timeout while waiting for state %s", target)
 	}
 }
