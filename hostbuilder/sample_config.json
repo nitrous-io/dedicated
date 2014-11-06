@@ -13,5 +13,9 @@
     "docker": {
       "freighterd_location": "/home/vagrant/workspace/dedicated/build/freighterd"
     }
+  },
+  "librato": {
+    "user": "rj@nitrous.io",
+    "token": "8ed9daa987f590556a80aa9595f539b3fbb561aa0a0170cbc576e662ddd6ae74"
   }
 }

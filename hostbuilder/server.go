@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/nitrous-common/flusher"
+	"github.com/rcrowley/go-librato"
 )
 
 // form param that contains request uuid
@@ -107,6 +108,10 @@ type providerConfig map[string]string
 type config struct {
 	Address   string                    `json:"address"`
 	Providers map[string]providerConfig `json:"providers"`
+
+	// librato settings
+	LibratoUser  string `json:"librato_user"`
+	LibratoToken string `json:"librato_token"`
 }
 
 type Server struct {
@@ -117,7 +122,6 @@ type Server struct {
 // createHost streams progress data to the output. For example
 //
 // In success case:
-//
 // { "stream": "Creating key..." }
 // { "stream": "Creating key...Done!" }
 // { "stream": "Creating host..." }
@@ -148,6 +152,13 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	configJson := r.Form.Get("config")
 	log.Printf("uuid=%s Creating a host using provider %s", providerConfig["uuid"], provider)
 
+	m := librato.NewSimpleMetrics(s.Config.LibratoUser, s.Config.LibratoToken,
+		fmt.Sprintf("hostbuilder_%s", provider))
+	defer func(start time.Time) {
+		g := m.GetGauge("create")
+		g <- int64(time.Since(start).Seconds() * 1000)
+	}(time.Now())
+
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return err
@@ -158,11 +169,15 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	info, err := h.Create(pw)
 	log.Printf("uuid=%s Created: %+v\n, %v", providerConfig["uuid"], info, err)
 	if err != nil {
+		c := m.GetCounter("create_error")
+		c <- 1
 		pw.WriteError(fmt.Errorf("failed to create a host on %s", provider))
 		return nil
 	}
 	// do not remove a host if freighter is down, we keep the host for debugging
-	_ = pingHost(info, pw)
+	duration(m, "create_ping", func() {
+		pingHost(info, pw)
+	})
 	resp := &Response{
 		StatusCode:     http.StatusCreated,
 		Status:         "created",
@@ -172,6 +187,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		FreighterdPort: info.FreighterdPort,
 	}
 	pw.WriteResponse(resp)
+
 	return nil
 }
 
@@ -279,4 +295,12 @@ func pingHost(info *host.Info, w io.Writer) error {
 		return fmt.Errorf("Connecting to freighter server...Failed!")
 	}
 	return nil
+}
+
+func duration(m librato.Metrics, name string, f func()) {
+	g := m.GetGauge(name)
+	defer func(start time.Time) {
+		g <- int64(time.Since(start).Seconds() * 1000)
+	}(time.Now())
+	f()
 }
