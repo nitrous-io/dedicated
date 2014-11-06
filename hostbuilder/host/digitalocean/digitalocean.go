@@ -22,11 +22,6 @@ import (
 )
 
 var (
-	TLSCALocation   = "/etc/freighterd/ca.crt"
-	TLSCertLocation = "/etc/freighterd/cert.crt"
-	TLSKeyLocation  = "/etc/freighterd/key.crt"
-	SecretLocation  = "/etc/freighterd/secret"
-
 	StateWaitTime = 3 * time.Second
 
 	// FIXME: the map should belongs to client, not the builder
@@ -39,21 +34,17 @@ var (
 	}
 )
 
-type tlsConfig struct {
-	CA   string `json:"ca"`
-	Cert string `json:"cert"`
-	Key  string `json:"key"`
-}
-
 type HostConfig struct {
-	ID         string     `json:"id"`
-	Name       string     `json:"name"`
-	ImageID    string     `json:"image_id"`
-	RegionID   string     `json:"region_id"`
-	SizeID     string     `json:"size_id"`
-	PublicKeys []string   `json:"public_keys"`
-	TLS        *tlsConfig `json:"tls"`
-	Secret     string     `json:"secret"`
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	ImageID    string   `json:"image_id"`
+	RegionID   string   `json:"region_id"`
+	SizeID     string   `json:"size_id"`
+	PublicKeys []string `json:"public_keys"`
+	Secret     string   `json:"secret"`
+
+	// tls data that needs to be saved on the host
+	TLS *host.TLSConfig `json:"tls"`
 
 	// for setting up repository on the host
 	AptUsername string `json:"apt_username"` // username of nitrous.io
@@ -78,19 +69,16 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{"Creating key", createSSHKey},
 		{"Creating host", createDroplet},
 		{"Waiting for the host to be ready", waitForSSH},
-		{"Writing key", writePublicKeys},
 		{"Creating settings", createEtcFreighterd},
-		{"Writing certificates", writeTLSCerts},
-		{"Writing token", writeSecret},
-		{"Setting up repos", writeRepository},
+		{"Writing data", writeFiles},
 		{"Fetching updates", updateSoftware},
 		{"Applying settings", restartFreighterd},
 	}
 	ctx := context.NewContext(h, steps, w)
 	if err := ctx.Execute(); err != nil {
-		hlog(h, "ERROR: Failed in create host step: %+v", ctx.Error())
+		h.Logf("ERROR: Failed in create host step: %+v", ctx.Error())
 		if h.droplet != nil {
-			hlog(h, "Leaving droplet for inspection: %d", h.droplet.ID)
+			h.Logf("Leaving droplet for inspection: %d", h.droplet.ID)
 		}
 		return nil, err
 	}
@@ -100,7 +88,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
 		if err != nil {
 			h.progressLog(w, "Removing key...Failed!")
-			hlog(h, "ERROR: Failed to remove key %d", h.sshKey.ID)
+			h.Logf("ERROR: Failed to remove key %d", h.sshKey.ID)
 		}
 		h.progressLog(w, "Removing key...Done!")
 	}
@@ -208,7 +196,7 @@ func (h *Host) ipAddress() string {
 // `hlog` for internal logging.
 func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 	fmt.Fprintf(w, format, v...)
-	hlog(h, format, v...)
+	h.Logf(format, v...)
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
@@ -238,18 +226,18 @@ func init() {
 
 func createSSHKey(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	hlog(h, "generating temporary SSH key")
+	h.Logf("generating temporary SSH key")
 	privateKey, err := sshutil.GenerateSSHKey()
 	if err != nil {
 		return err
 	}
-	hlog(h, "generating temporary SSH key... Done")
+	h.Logf("generating temporary SSH key... Done")
 	h.privateKey = privateKey
 	pubKey, err := sshutil.GetPubKey(privateKey)
 	if err != nil {
 		return err
 	}
-	hlog(h, "creating SSH keypair on digitalocean")
+	h.Logf("creating SSH keypair on digitalocean")
 	sshKey, _, err := h.Client.Keys.Create(&godo.KeyCreateRequest{
 		Name:      h.Config.Name,
 		PublicKey: string(pubKey),
@@ -257,7 +245,7 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 	if err != nil {
 		return err
 	}
-	hlog(h, "creating SSH keypair on digitalocean... Done")
+	h.Logf("creating SSH keypair on digitalocean... Done")
 	h.sshKey = sshKey
 	return nil
 }
@@ -267,7 +255,7 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	config := h.Config
 	sshKey := h.sshKey
 
-	hlog(h, "digitalocean: creating droplet in region %s, size: %s, slug: %s", config.RegionID, config.SizeID, config.Name)
+	h.Logf("digitalocean: creating droplet in region %s, size: %s, slug: %s", config.RegionID, config.SizeID, config.Name)
 	normalizedRegion, ok := regionsMap[config.RegionID]
 	if !ok {
 		return fmt.Errorf("Invalid region or lookup failure: '%s'", config.RegionID)
@@ -292,7 +280,7 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 			return err
 		}
 	} else {
-		hlog(h, "[WARNING] digitalocean did not return action data for host %+v", hst)
+		h.Logf("[WARNING] digitalocean did not return action data for host %+v", hst)
 		return nil
 	}
 
@@ -307,107 +295,54 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 
 func waitForSSH(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	hlog(h, "Waiting for SSH to be ready")
+	h.Logf("Waiting for SSH to be ready")
 	address := fmt.Sprintf("%s:%s", h.ipAddress(), "65100")
 	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
 		sshutil.TimeWait, make(chan struct{}))
 	if err != nil {
 		return err
 	}
-	hlog(h, "SSH READY for droplet %v", h.droplet.ID)
+	h.Logf("SSH READY for droplet %v", h.droplet.ID)
 	h.conn = sshConn
 	return nil
 }
 
-func writePublicKeys(ctx *context.Context, hst host.Host) error {
+func writeFiles(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	hlog(h, "Writing public key")
 	pubKeyR := bytes.NewBuffer(nil)
 	for _, k := range h.Config.PublicKeys {
 		fmt.Fprintln(pubKeyR, k)
 	}
-	err := writeFile(h, map[string]io.Reader{
+	sourceData := bytes.NewBuffer(nil)
+	if err := host.SourceTemplate.Execute(sourceData, h.Config); err != nil {
+		return err
+	}
+
+	return host.WriteFile(h, h.conn, map[string]io.Reader{
 		"/root/.ssh/authorized_keys": pubKeyR,
+		host.TLSCALocation:           bytes.NewBufferString(h.Config.TLS.CA),
+		host.TLSCertLocation:         bytes.NewBufferString(h.Config.TLS.Cert),
+		host.TLSKeyLocation:          bytes.NewBufferString(h.Config.TLS.Key),
+		host.SecretLocation:          bytes.NewBufferString(h.Config.Secret),
+		host.SourceLocation:          sourceData,
 	})
-	hlog(h, "Wrote public key")
-	return err
 }
 
 func createEtcFreighterd(ctx *context.Context, hst host.Host) error {
 	return hst.(*Host).conn.Execute("mkdir -p /etc/freighterd")
 }
 
-func writeTLSCerts(ctx *context.Context, hst host.Host) error {
-	h := hst.(*Host)
-	hlog(h, "Writing TLS certs")
-	err := writeFile(h, map[string]io.Reader{
-		TLSCALocation:   bytes.NewBufferString(h.Config.TLS.CA),
-		TLSCertLocation: bytes.NewBufferString(h.Config.TLS.Cert),
-		TLSKeyLocation:  bytes.NewBufferString(h.Config.TLS.Key),
-	})
-	hlog(h, "Wrote TLS certs")
-	return err
-}
-
-func writeSecret(ctx *context.Context, hst host.Host) error {
-	h := hst.(*Host)
-	hlog(h, "Writing host secret")
-	err := writeFile(h, map[string]io.Reader{
-		SecretLocation: bytes.NewBufferString(h.Config.Secret),
-	})
-	hlog(h, "Wrote host secret")
-	return err
-}
-
-func writeFile(h *Host, files map[string]io.Reader) error {
-	flist := []string{}
-	for dest, val := range files {
-		if err := h.conn.Upload(dest, val); err != nil {
-			return err
-		}
-		flist = append(flist, dest)
-	}
-	hlog(h, "Uploaded (%s) to %v", strings.Join(flist, " "), h.ipAddress())
-	return nil
-}
-
-func writeRepository(ctx *context.Context, hst host.Host) error {
-	h := hst.(*Host)
-	hlog(h, "Uploading apt details")
-	sourceData := bytes.NewBuffer(nil)
-	if err := host.SourceTemplate.Execute(sourceData, h.Config); err != nil {
-		return err
-	}
-	if err := h.conn.Upload(host.SourceLocation, sourceData); err != nil {
-		return err
-	}
-	hlog(h, "Uploaded apt details at %v", h.ipAddress())
-	return nil
-}
-
 func updateSoftware(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	hlog(h, "Updating freighterd package")
-	cmd :=
-		`DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" freighterd`
-	if err := h.conn.Execute(cmd); err != nil {
-		return err
-	}
-	hlog(h, "Updated freighterd package on %v", h.ipAddress())
-	return nil
+	return host.UpdateSoftware(h, h.conn)
 }
 
 func restartFreighterd(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	hlog(h, "Restarting freighterd")
-	if err := h.conn.Execute(`service freighterd restart`); err != nil {
-		return err
-	}
-	hlog(h, "Restarted freighterd on %v", h.ipAddress())
-	return nil
+	return host.RestartFreighterd(h, h.conn)
 }
 
-func hlog(h *Host, format string, v ...interface{}) {
+func (h *Host) Logf(format string, v ...interface{}) {
 	parts := []string{}
 	if h.uuid != "" {
 		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))

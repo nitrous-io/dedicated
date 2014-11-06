@@ -3,7 +3,6 @@ package gce
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -23,11 +22,6 @@ import (
 )
 
 var (
-	TLSCALocation   = "/etc/freighterd/ca.crt"
-	TLSCertLocation = "/etc/freighterd/cert.crt"
-	TLSKeyLocation  = "/etc/freighterd/key.crt"
-	SecretLocation  = "/etc/freighterd/secret"
-
 	StateWaitTime = 3 * time.Second
 
 	// default timeout when waiting for state
@@ -49,12 +43,6 @@ var (
 	defaultDiskSize int64 = 10
 )
 
-type tlsConfig struct {
-	CA   string `json:"ca"`
-	Cert string `json:"cert"`
-	Key  string `json:"key"`
-}
-
 const DriverScopes string = "https://www.googleapis.com/auth/compute " +
 	"https://www.googleapis.com/auth/devstorage.full_control"
 
@@ -66,7 +54,7 @@ type HostConfig struct {
 	DiskSize    int64             `json:"disk_size"`
 	MachineType string            `json:"machine_type"`
 	PublicKeys  []string          `json:"public_keys"`
-	TLS         *tlsConfig        `json:"tls"`
+	TLS         *host.TLSConfig   `json:"tls"`
 	Secret      string            `json:"secret"`
 	Metadata    map[string]string `json:"metadata"`
 }
@@ -76,6 +64,7 @@ type Host struct {
 	service   *compute.Service
 	projectID string
 
+	uuid       string
 	conn       *sshutil.Conn
 	privateKey *rsa.PrivateKey
 	publicKey  []byte // tmp public key for communicating with the host
@@ -88,10 +77,9 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{"Creating host", createInstance},
 		{"Waiting for the host to be ready", waitForSSH},
 		{"Creating settings", createEtcFreighterd},
-		{"Writing certificates", writeTLSCerts},
-		{"Writing token", writeSecret},
-		{"Setting up repos", writeRepository},
+		{"Writing data", writeFiles},
 		{"Fetching updates", updateSoftware},
+		{"Applying settings", restartFreighterd},
 	}
 	ctx := context.NewContext(h, steps, w)
 	if err := ctx.Execute(); err != nil {
@@ -100,7 +88,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 			resp, derr := h.service.Instances.Delete(h.projectID, h.instance.Zone, h.instance.Name).Do()
 			if derr != nil {
 				h.progressLog(w, "Canceling host creation...Failed!")
-				hlog(h, "ERROR: Failed to remove droplet %s/%s", h.instance.Zone, h.instance.Name)
+				h.Logf("ERROR: Failed to remove instance zone=%s instance=%s", h.instance.Zone, h.instance.Name)
 				return nil, fmt.Errorf("Failed to destroy after create error: %s, destroy error: %v, resp: %v", err, derr, resp)
 			}
 			h.progressLog(w, "Canceling host creation...Done!")
@@ -212,6 +200,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 
 	log.Printf("config %#v", hostConfig)
 	return &Host{
+		uuid:      defaultConfig["uuid"],
 		projectID: defaultConfig["project_id"],
 		service:   service,
 		Config:    hostConfig,
@@ -243,25 +232,25 @@ func createInstance(ctx *context.Context, hst host.Host) error {
 	// get zone
 	zone, err := h.service.Zones.Get(h.projectID, h.Config.Zone).Do()
 	if err != nil {
-		return fmt.Errorf("failed to get zone %s/zones/%s, %q",
+		return fmt.Errorf("failed to get projectid=%s zone=%s, %q",
 			h.projectID, h.Config.Zone, err)
 	}
 	// get image
 	image, err := h.service.Images.Get(h.projectID, h.Config.Image).Do()
 	if err != nil {
-		return fmt.Errorf("failed to get image %s/images/%s, %q",
+		return fmt.Errorf("failed to get projectid=%s image=%s, %q",
 			h.projectID, h.Config.Image, err)
 	}
 	// get machine type
 	machineType, err := h.service.MachineTypes.Get(h.projectID, zone.Name, h.Config.MachineType).Do()
 	if err != nil {
-		return fmt.Errorf("failed to get machine type %s/%s/%s, %q",
+		return fmt.Errorf("failed to get projectid=%s zone=%s machine=%s, %q",
 			h.projectID, zone.Name, h.Config.MachineType, err)
 	}
 	// get network
 	network, err := h.service.Networks.Get(h.projectID, defaultNetwork).Do()
 	if err != nil {
-		return fmt.Errorf("failed to get network %s/%s/%s, %q",
+		return fmt.Errorf("failed to get projectid=%s zone=%s network=%s, %q",
 			h.projectID, zone.Name, defaultNetwork, err)
 	}
 	// get medadata
@@ -342,7 +331,6 @@ func createInstance(ctx *context.Context, hst host.Host) error {
 
 func waitForSSH(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	// check that we can ssh into the server. use 22 for now
 	ip := h.ipAddress()
 	if ip == "" {
 		return fmt.Errorf("invalid ip, instance %#v %#v", h.instance, h.instance.NetworkInterfaces[0])
@@ -353,11 +341,13 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("gce: SSH READY for instance %q", h.instance.Name)
+	h.Logf("gce: SSH READY for instance %q", h.instance.Name)
 	h.conn = sshConn
 	return nil
 }
 
+// get public ip address of the instance. This is usually the first non-empty
+// NatIP in Access Config
 func (h *Host) ipAddress() string {
 	for _, ni := range h.instance.NetworkInterfaces {
 		if ni.AccessConfigs == nil {
@@ -397,134 +387,41 @@ func (h *Host) metadata(sshKeys []string) []*compute.MetadataItems {
 	return metadata
 }
 
-// stateRefreshFunc is used to refresh the state of a thing and is
-// used in conjunction with waitForState.
-type stateRefreshFunc func() (string, error)
-
-func (h *Host) refreshOp(zone string, op *compute.Operation) stateRefreshFunc {
-	return func() (string, error) {
-		newOp, err := h.service.ZoneOperations.Get(h.projectID, zone, op.Name).Do()
-		if err != nil {
-			return "", err
-		}
-
-		// If the op is done, check for errors
-		err = nil
-		if newOp.Status == "DONE" {
-			if newOp.Error != nil {
-				var errMsgs []string
-				for _, e := range newOp.Error.Errors {
-					errMsgs = append(errMsgs, e.Message)
-				}
-
-				err = errors.New(strings.Join(errMsgs, "\n"))
-			}
-		}
-
-		return newOp.Status, err
-	}
-}
-
-func (h *Host) WaitForInstance(state, zone, name string) error {
-	errCh := make(chan error, 1)
-	go waitForState(errCh, state, h.refreshInstanceState(zone, name))
-	select {
-	case err := <-errCh:
+func writeFiles(ctx *context.Context, hst host.Host) error {
+	h := hst.(*Host)
+	sourceData := bytes.NewBuffer(nil)
+	if err := host.SourceTemplate.Execute(sourceData, h.Config); err != nil {
 		return err
-	case <-time.After(StateTimeout):
-		return fmt.Errorf("timeout while waiting for instance %q to be running", h.instance.Name)
 	}
-}
 
-func (h *Host) refreshInstanceState(zone, name string) stateRefreshFunc {
-	return func() (string, error) {
-		instance, err := h.service.Instances.Get(h.projectID, zone, name).Do()
-		if err != nil {
-			return "", err
-		}
-		return instance.Status, nil
-	}
-}
-
-// waitForState will spin in a loop forever waiting for state to
-// reach a certain target.
-func waitForState(errCh chan<- error, target string, refresh stateRefreshFunc) {
-	for {
-		state, err := refresh()
-		if err != nil {
-			errCh <- err
-			return
-		}
-		if state == target {
-			errCh <- nil
-			return
-		}
-
-		time.Sleep(StateWaitTime)
-	}
+	return host.WriteFile(h, h.conn, map[string]io.Reader{
+		host.TLSCALocation:   bytes.NewBufferString(h.Config.TLS.CA),
+		host.TLSCertLocation: bytes.NewBufferString(h.Config.TLS.Cert),
+		host.TLSKeyLocation:  bytes.NewBufferString(h.Config.TLS.Key),
+		host.SecretLocation:  bytes.NewBufferString(h.Config.Secret),
+		host.SourceLocation:  sourceData,
+	})
 }
 
 func createEtcFreighterd(ctx *context.Context, hst host.Host) error {
 	return hst.(*Host).conn.Execute("mkdir -p /etc/freighterd")
 }
 
-func writeTLSCerts(ctx *context.Context, hst host.Host) error {
-	h := hst.(*Host)
-	return writeFile(h, map[string]io.Reader{
-		TLSCALocation:   bytes.NewBufferString(h.Config.TLS.CA),
-		TLSCertLocation: bytes.NewBufferString(h.Config.TLS.Cert),
-		TLSKeyLocation:  bytes.NewBufferString(h.Config.TLS.Key),
-	})
-}
-
-func writeSecret(ctx *context.Context, hst host.Host) error {
-	h := hst.(*Host)
-	return writeFile(h, map[string]io.Reader{
-		SecretLocation: bytes.NewBufferString(h.Config.Secret),
-	})
-}
-
-func writeFile(h *Host, files map[string]io.Reader) error {
-	flist := []string{}
-	for dest, val := range files {
-		if err := h.conn.Upload(dest, val); err != nil {
-			return err
-		}
-		flist = append(flist, dest)
-	}
-	log.Printf("Uploaded (%s) to %v", strings.Join(flist, " "), h.ipAddress())
-	return nil
-}
-
-func writeRepository(ctx *context.Context, hst host.Host) error {
-	h := hst.(*Host)
-	sourceData := bytes.NewBuffer(nil)
-	if err := host.SourceTemplate.Execute(sourceData, h.Config); err != nil {
-		return err
-	}
-	if err := h.conn.Upload(host.SourceLocation, sourceData); err != nil {
-		return err
-	}
-	log.Printf("Uploaded apt details at %v", h.ipAddress())
-	return nil
-}
-
 func updateSoftware(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	updateSoftwareCmd :=
-		`apt-get update && apt-get install -yq freighterd && service freighterd restart`
-	if err := h.conn.Execute(updateSoftwareCmd); err != nil {
-		return err
-	}
-	log.Printf("Updated software on %v", h.ipAddress())
-	return nil
+	return host.UpdateSoftware(h, h.conn)
 }
 
-func hlog(h *Host, format string, v ...interface{}) {
+func restartFreighterd(ctx *context.Context, hst host.Host) error {
+	h := hst.(*Host)
+	return host.RestartFreighterd(h, h.conn)
+}
+
+func (h *Host) Logf(format string, v ...interface{}) {
 	parts := []string{}
-	//if h.uuid != "" {
-	//    parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
-	//}
+	if h.uuid != "" {
+		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+	}
 	if h.instance != nil {
 		parts = append(parts, fmt.Sprintf("zone=%s instance=%s", h.instance.Zone, h.instance.Name))
 	}
@@ -536,5 +433,5 @@ func hlog(h *Host, format string, v ...interface{}) {
 // `hlog` for internal logging.
 func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 	fmt.Fprintf(w, format, v...)
-	hlog(h, format, v...)
+	h.Logf(format, v...)
 }
