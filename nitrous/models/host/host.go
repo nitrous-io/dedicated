@@ -55,6 +55,7 @@ type Host struct {
 	FreighterdPort    sql.NullInt64  `db:"freighterd_port"`
 	FreighterdVersion string         `db:"freighterd_version"`
 	DockerVersion     string         `db:"docker_version"`
+	RegionSlug        sql.NullString `db:"region_slug"`
 
 	// ProviderIdentifier is the identifier used by the host's provider to
 	// uniquely identify this host.

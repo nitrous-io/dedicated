@@ -450,6 +450,12 @@ func init() {
 			`,
 		},
 		{
+			Version: "365",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN region_slug character varying(255) DEFAULT '' NOT NULL;
+			`,
+		},
+		{
 			Version: "370",
 			Up: `
 				ALTER TABLE user_profiles ADD COLUMN advanced boolean DEFAULT false NOT NULL;

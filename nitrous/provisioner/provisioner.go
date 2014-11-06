@@ -549,6 +549,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
 	h.State = host.StateRunning
 	h.HourlyPrice = opts.Template.HourlyPrice
+	h.RegionSlug = sql.NullString{hostinfo.RegionID, true}
 
 	if err = h.Update(p.db); err != nil {
 		return nil, err
