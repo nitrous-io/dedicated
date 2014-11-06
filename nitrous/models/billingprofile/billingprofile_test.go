@@ -50,12 +50,9 @@ var _ = Describe("models/billingprofile", func() {
 
 	Describe("Create", func() {
 		It("returns an error when user is nil", func() {
-			b := &billingprofile.BillingProfile{}
-			b.UserID = 9999
-			b.Token = "token"
-
-			// return an error
-			Expect(b.Create(db)).NotTo(BeNil())
+			b, err := billingprofile.Create(db, nil, "token")
+			Expect(b).To(BeNil())
+			Expect(err).NotTo(BeNil())
 		})
 
 		It("sends a request to Stripe to create a customer", func() {
@@ -70,10 +67,7 @@ var _ = Describe("models/billingprofile", func() {
 					}
 				}`, u.Email)
 
-			b := &billingprofile.BillingProfile{}
-			b.UserID = u.ID
-			b.Token = "token"
-			err := b.Create(db)
+			_, err := billingprofile.Create(db, u, "token")
 			Expect(err).To(BeNil())
 
 			r := fakeStripe.Received
@@ -97,10 +91,7 @@ var _ = Describe("models/billingprofile", func() {
 						}
 					}`, u.Email)
 
-				b := &billingprofile.BillingProfile{}
-				b.UserID = u.ID
-				b.Token = "token"
-				err := b.Create(db)
+				b, err := billingprofile.Create(db, u, "token")
 				Expect(err).To(BeNil())
 
 				Expect(b.StripeID).To(Equal("sc_01"))
@@ -109,15 +100,15 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(b.ExpMonth).To(Equal(uint8(10)))
 				Expect(b.ExpYear).To(Equal(uint16(2018)))
 
-				b, err = billingprofile.Find(db, u)
+				b2, err := billingprofile.Find(db, u)
 				Expect(err).To(BeNil())
-				Expect(b.ID).NotTo(BeNil())
-				Expect(b.UserID).To(Equal(u.ID))
-				Expect(b.StripeID).To(Equal("sc_01"))
-				Expect(b.LastFour).To(Equal("4242"))
-				Expect(b.CardType).To(Equal("Visa"))
-				Expect(b.ExpMonth).To(Equal(uint8(10)))
-				Expect(b.ExpYear).To(Equal(uint16(2018)))
+				Expect(b2.ID).NotTo(BeNil())
+				Expect(b2.UserID).To(Equal(u.ID))
+				Expect(b2.StripeID).To(Equal("sc_01"))
+				Expect(b2.LastFour).To(Equal("4242"))
+				Expect(b2.CardType).To(Equal("Visa"))
+				Expect(b2.ExpMonth).To(Equal(uint8(10)))
+				Expect(b2.ExpYear).To(Equal(uint16(2018)))
 			})
 		})
 
@@ -129,19 +120,10 @@ var _ = Describe("models/billingprofile", func() {
 					Code: stripe.ErrorCode(stripe.ProcessingErr),
 				}
 
-				b := &billingprofile.BillingProfile{}
-				b.UserID = u.ID
-				b.Token = "token"
-				err := b.Create(db)
+				_, err := billingprofile.Create(db, u, "token")
 				Expect(err).NotTo(BeNil())
 
-				Expect(b.StripeID).To(BeEmpty())
-				Expect(b.LastFour).To(BeEmpty())
-				Expect(b.CardType).To(BeEmpty())
-				Expect(b.ExpMonth).To(BeZero())
-				Expect(b.ExpYear).To(BeZero())
-
-				b, err = billingprofile.Find(db, u)
+				b, err := billingprofile.Find(db, u)
 				Expect(err).To(BeNil())
 				Expect(b).To(BeNil())
 			})

@@ -30,8 +30,6 @@ type BillingProfile struct {
 	ExpYear   uint16     `db:"exp_year"`
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
-
-	Token string // credit card token (used by Stripe to identify customer's card)
 }
 
 func (b *BillingProfile) insert(d db.QueryReceiver) error {
@@ -57,32 +55,35 @@ func Find(d db.QueryReceiver, u *user.User) (*BillingProfile, error) {
 	return b, nil
 }
 
-func (b *BillingProfile) Create(d db.QueryReceiver) error {
-	u, err := user.FindByID(d, b.UserID)
-	if err != nil {
-		return err
-	}
+func Create(d db.QueryReceiver, u *user.User, token string) (*BillingProfile, error) {
 	if u == nil {
-		return errors.New("user not found")
+		return nil, errors.New("user not found")
 	}
 
 	params := &stripe.CustomerParams{
-		Token: b.Token,
+		Token: token,
 		Email: u.Email,
 		Desc:  fmt.Sprint(u.Name, u.Username),
 	}
 	c, err := customer.New(params)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// insert to DB
-	b.StripeID = c.ID
-
+	// persist the profile
 	crd := c.DefaultCard
-	b.LastFour = crd.LastFour
-	b.CardType = string(crd.Brand)
-	b.ExpMonth = crd.Month
-	b.ExpYear = crd.Year
-	return b.insert(d)
+	b := &BillingProfile{
+		UserID:   u.ID,
+		StripeID: c.ID,
+		LastFour: crd.LastFour,
+		CardType: string(crd.Brand),
+		ExpMonth: crd.Month,
+		ExpYear:  crd.Year,
+	}
+
+	err = b.insert(d)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
