@@ -14,7 +14,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous-common/logger"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -23,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -117,7 +117,7 @@ var _ = Describe("controllers/keys", func() {
 					for _, k := range validKeys {
 						pk := &publickey.PublicKey{
 							UserID:      hs.U.ID,
-							ContainerID: c.ID,
+							ContainerID: sql.NullInt64{c.ID, true},
 							Key:         k,
 						}
 						err := pk.Insert(db)
@@ -209,7 +209,7 @@ var _ = Describe("controllers/keys", func() {
 					BeforeEach(func() {
 						pk := &publickey.PublicKey{
 							UserID:      hs.U.ID,
-							ContainerID: c.ID,
+							ContainerID: sql.NullInt64{c.ID, true},
 							Key:         validKeys[0],
 						}
 						err := pk.Insert(db)
@@ -301,7 +301,7 @@ var _ = Describe("controllers/keys", func() {
 					for i := 0; i < 2; i++ {
 						pk := &publickey.PublicKey{
 							UserID:      hs.U.ID,
-							ContainerID: c.ID,
+							ContainerID: sql.NullInt64{c.ID, true},
 							Key:         validKeys[i],
 						}
 						err := pk.Insert(db)
@@ -406,7 +406,7 @@ var _ = Describe("controllers/keys", func() {
 			for i := 0; i < 2; i++ {
 				pk := &publickey.PublicKey{
 					UserID:      hs.U.ID,
-					ContainerID: c.ID,
+					ContainerID: sql.NullInt64{c.ID, true},
 					Key:         validKeys[i],
 				}
 				err := pk.Insert(db)

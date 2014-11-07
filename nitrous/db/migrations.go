@@ -443,5 +443,15 @@ func init() {
 				ALTER TABLE users ADD COLUMN admin boolean DEFAULT false NOT NULL;
 			`,
 		},
+		{
+			Version: "360",
+			Up: `
+				ALTER TABLE public_keys
+					ADD COLUMN host_id bigint REFERENCES hosts(id),
+					ALTER COLUMN container_id DROP DEFAULT,
+					ALTER COLUMN container_id DROP NOT NULL;
+				CREATE UNIQUE INDEX index_public_keys_on_host_id_and_key ON public_keys USING btree (host_id, key);
+			`,
+		},
 	}
 }

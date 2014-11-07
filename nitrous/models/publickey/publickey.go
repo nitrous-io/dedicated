@@ -1,12 +1,13 @@
 package publickey
 
 import (
+	"database/sql"
 	"fmt"
 	"strconv"
 	"time"
 
-	"github.com/nitrous-io/nitrous-common/sshkey"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/nitrous-common/sshkey"
 )
 
 var (
@@ -17,13 +18,14 @@ var (
 )
 
 type PublicKey struct {
-	ID          int64      `db:"id"`
-	UserID      int64      `db:"user_id"`
-	ContainerID int64      `db:"container_id"`
-	Fingerprint string     `db:"fingerprint"`
-	Key         string     `db:"key"`
-	CreatedAt   *time.Time `db:"created_at"`
-	UpdatedAt   *time.Time `db:"updated_at"`
+	ID          int64         `db:"id"`
+	UserID      int64         `db:"user_id"`
+	ContainerID sql.NullInt64 `db:"container_id"`
+	HostID      sql.NullInt64 `db:"host_id"`
+	Fingerprint string        `db:"fingerprint"`
+	Key         string        `db:"key"`
+	CreatedAt   *time.Time    `db:"created_at"`
+	UpdatedAt   *time.Time    `db:"updated_at"`
 }
 
 func FindAll(db *db.Database, userID int64, containerID int64) ([]*PublicKey, error) {

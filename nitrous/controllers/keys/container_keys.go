@@ -1,6 +1,7 @@
 package keys
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -50,7 +51,7 @@ func create(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 
 	pk := publickey.PublicKey{
 		UserID:      env.User.ID,
-		ContainerID: cn.ID,
+		ContainerID: sql.NullInt64{cn.ID, true},
 		Key:         r.FormValue("key"),
 	}
 

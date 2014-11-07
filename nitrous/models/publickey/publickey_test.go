@@ -1,6 +1,7 @@
 package publickey_test
 
 import (
+	"database/sql"
 	"strconv"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -114,7 +115,7 @@ var _ = Describe("models/publickey", func() {
 		BeforeEach(func() {
 			pk = &publickey.PublicKey{
 				UserID:      hs.U.ID,
-				ContainerID: c.ID,
+				ContainerID: sql.NullInt64{c.ID, true},
 				Key:         validRSA,
 			}
 		})
@@ -128,7 +129,7 @@ var _ = Describe("models/publickey", func() {
 				Expect(err).To(BeNil())
 				Expect(keys).To(HaveLen(1))
 				Expect(keys[0].UserID).To(Equal(hs.U.ID))
-				Expect(keys[0].ContainerID).To(Equal(c.ID))
+				Expect(keys[0].ContainerID.Int64).To(Equal(c.ID))
 				Expect(keys[0].ID).NotTo(BeZero())
 			})
 		})
@@ -169,7 +170,7 @@ var _ = Describe("models/publickey", func() {
 
 			rsa1C1 = &publickey.PublicKey{
 				UserID:      u.ID,
-				ContainerID: c.ID,
+				ContainerID: sql.NullInt64{c.ID, true},
 				Key:         validRSA,
 			}
 			rsa1C1print, err = rsa1C1.Md5Fingerprint()
@@ -177,7 +178,7 @@ var _ = Describe("models/publickey", func() {
 
 			rsa2C1 = &publickey.PublicKey{
 				UserID:      u.ID,
-				ContainerID: c.ID,
+				ContainerID: sql.NullInt64{c.ID, true},
 				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
 			}
 			rsa2C1print, err = rsa2C1.Md5Fingerprint()
@@ -185,7 +186,7 @@ var _ = Describe("models/publickey", func() {
 
 			rsa1C2 = &publickey.PublicKey{
 				UserID:      u.ID,
-				ContainerID: c2.ID,
+				ContainerID: sql.NullInt64{c2.ID, true},
 				Key:         validRSA,
 			}
 			rsa1C2print, err = rsa1C2.Md5Fingerprint()
@@ -193,7 +194,7 @@ var _ = Describe("models/publickey", func() {
 
 			rsa2C2 = &publickey.PublicKey{
 				UserID:      u.ID,
-				ContainerID: c2.ID,
+				ContainerID: sql.NullInt64{c2.ID, true},
 				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
 			}
 			rsa2C2print, err = rsa2C2.Md5Fingerprint()
@@ -201,7 +202,7 @@ var _ = Describe("models/publickey", func() {
 
 			ecdsa = &publickey.PublicKey{
 				UserID:      u2.ID,
-				ContainerID: c.ID,
+				ContainerID: sql.NullInt64{c.ID, true},
 				Key:         validECDSA,
 			}
 			for _, k := range []*publickey.PublicKey{rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa} {
@@ -259,27 +260,27 @@ var _ = Describe("models/publickey", func() {
 
 			rsa1C1 = &publickey.PublicKey{
 				UserID:      u.ID,
-				ContainerID: c.ID,
+				ContainerID: sql.NullInt64{c.ID, true},
 				Key:         validRSA,
 			}
 			rsa2C1 = &publickey.PublicKey{
 				UserID:      u.ID,
-				ContainerID: c.ID,
+				ContainerID: sql.NullInt64{c.ID, true},
 				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
 			}
 			rsa1C2 = &publickey.PublicKey{
 				UserID:      u.ID,
-				ContainerID: c2.ID,
+				ContainerID: sql.NullInt64{c2.ID, true},
 				Key:         validRSA,
 			}
 			rsa2C2 = &publickey.PublicKey{
 				UserID:      u.ID,
-				ContainerID: c2.ID,
+				ContainerID: sql.NullInt64{c2.ID, true},
 				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
 			}
 			ecdsa = &publickey.PublicKey{
 				UserID:      u2.ID,
-				ContainerID: c.ID,
+				ContainerID: sql.NullInt64{c.ID, true},
 				Key:         validECDSA,
 			}
 			for _, k := range []*publickey.PublicKey{rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa} {
