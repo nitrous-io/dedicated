@@ -9,18 +9,18 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/util"
 )
 
-// a KeyManager supports reading/writing keys from/to an authorized_keys file
+// a AuthorizedKeys supports reading/writing keys from/to an authorized_keys file
 // found at path
-type KeyManager struct {
+type AuthorizedKeys struct {
 	path string
 }
 
-func NewKeyManager(path string) *KeyManager {
-	return &KeyManager{path: path}
+func NewAuthorizedKeys(path string) *AuthorizedKeys {
+	return &AuthorizedKeys{path: path}
 }
 
-func (km *KeyManager) Read() ([]string, error) {
-	bkeys, err := ioutil.ReadFile(km.path)
+func (ak *AuthorizedKeys) Read() ([]string, error) {
+	bkeys, err := ioutil.ReadFile(ak.path)
 	if err != nil {
 		return nil, err
 	}
@@ -33,12 +33,12 @@ func (km *KeyManager) Read() ([]string, error) {
 	return keys, nil
 }
 
-func (km *KeyManager) Write(keys []string) error {
-	dir := path.Dir(km.path)
+func (ak *AuthorizedKeys) Write(keys []string) error {
+	dir := path.Dir(ak.path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	file, err := os.Create(km.path)
+	file, err := os.Create(ak.path)
 	if err != nil {
 		return err
 	}
@@ -56,8 +56,8 @@ func (km *KeyManager) Write(keys []string) error {
 
 // Add reads the existing keys at path and appends newKeys to them, removing
 // duplicates
-func (km *KeyManager) Add(newKeys []string) error {
-	existingKeys, err := km.Read()
+func (ak *AuthorizedKeys) Add(newKeys []string) error {
+	existingKeys, err := ak.Read()
 	if err != nil {
 		return err
 	}
@@ -67,19 +67,19 @@ func (km *KeyManager) Add(newKeys []string) error {
 	if err != nil {
 		return err
 	}
-	return km.Write(keyMapToKeys(keymap))
+	return ak.Write(keyMapToKeys(keymap))
 }
 
 // Clear removes all keys at path. Note: it will create the file at path if not
 // already present.
-func (km *KeyManager) Clear() error {
-	return km.Write([]string{})
+func (ak *AuthorizedKeys) Clear() error {
+	return ak.Write([]string{})
 }
 
 // Remove deletes a key given its fingerprint. It will not error if the
 // fingerprint given does not exist.
-func (km *KeyManager) Remove(fingerprint string) error {
-	keys, err := km.Read()
+func (ak *AuthorizedKeys) Remove(fingerprint string) error {
+	keys, err := ak.Read()
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (km *KeyManager) Remove(fingerprint string) error {
 		return err
 	}
 	delete(keymap, fingerprint)
-	return km.Write(keyMapToKeys(keymap))
+	return ak.Write(keyMapToKeys(keymap))
 }
 
 // converts []pubkey to map[keyFingerprint]pubkey

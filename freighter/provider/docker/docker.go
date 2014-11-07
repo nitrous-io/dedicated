@@ -175,8 +175,8 @@ func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*pr
 		return nil, err
 	}
 
-	km := p.containerKeyManager(name)
-	if err := km.Write([]string{}); err != nil {
+	ak := p.containerAuthorizedKeys(name)
+	if err := ak.Write([]string{}); err != nil {
 		return nil, err
 	}
 
@@ -400,8 +400,8 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 		return nil, err
 	}
 
-	km := p.containerKeyManager(nameFromContainer(container))
-	keys, err := km.Read()
+	ak := p.containerAuthorizedKeys(nameFromContainer(container))
+	keys, err := ak.Read()
 	if err != nil {
 		return nil, err
 	}
@@ -415,8 +415,8 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 		return err
 	}
 
-	km := p.containerKeyManager(nameFromContainer(container))
-	return km.Add(publicKeys)
+	ak := p.containerAuthorizedKeys(nameFromContainer(container))
+	return ak.Add(publicKeys)
 }
 
 func (p *DockerProvider) ClearPublicKeys(id string) error {
@@ -425,8 +425,8 @@ func (p *DockerProvider) ClearPublicKeys(id string) error {
 		return err
 	}
 
-	km := p.containerKeyManager(nameFromContainer(container))
-	return km.Clear()
+	ak := p.containerAuthorizedKeys(nameFromContainer(container))
+	return ak.Clear()
 }
 
 func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
@@ -435,8 +435,8 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 		return err
 	}
 
-	km := p.containerKeyManager(nameFromContainer(container))
-	return km.Remove(keyFingerprint)
+	ak := p.containerAuthorizedKeys(nameFromContainer(container))
+	return ak.Remove(keyFingerprint)
 }
 
 // Reconfig recreates a container from its original image with new config,
@@ -1058,8 +1058,8 @@ func (p *DockerProvider) readSharedSecret(containerName string) (string, error) 
 	return strings.TrimSpace(string(secret)), nil
 }
 
-func (p *DockerProvider) containerKeyManager(containerName string) *KeyManager {
-	return NewKeyManager(
+func (p *DockerProvider) containerAuthorizedKeys(containerName string) *AuthorizedKeys {
+	return NewAuthorizedKeys(
 		path.Join(p.ContainerSettingsDir(containerName), "ssh", "authorized_keys"),
 	)
 }
