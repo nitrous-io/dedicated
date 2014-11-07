@@ -75,12 +75,9 @@ var _ = Describe("controllers/billingprofiles", func() {
 	})
 
 	Describe("POST /api/v0/users/{id}/billing_profiles", func() {
-		doRequest := func(token string, params *url.Values) *httptest.ResponseRecorder {
-			req, err := NewFormRequest("POST", "/api/v0/user/billing_profile", params)
+		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
+			req, err := NewAuthedRequest(t, "POST", "/api/v0/user/billing_profile", params)
 			Expect(err).To(BeNil())
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
 			return res
@@ -89,7 +86,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 		It("should return an error when credit card token is not provided", func() {
 			p := &url.Values{}
 			p.Set("card_token", "")
-			res := doRequest("valid-token", p)
+			res := doRequest(p)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 			errType, errDesc := ErrorSlug(res.Body)
@@ -111,7 +108,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 			p := &url.Values{}
 			p.Set("card_token", "cc_token")
-			res := doRequest("valid-token", p)
+			res := doRequest(p)
 
 			Expect(res.Code).To(Equal(http.StatusCreated))
 
