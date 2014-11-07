@@ -105,6 +105,8 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	return info, nil
 }
 
+// Destroy deletes an instance on GCE
+// - https://cloud.google.com/compute/docs/reference/latest/instances/delete
 func (h *Host) Destroy() error {
 	zone := h.Config.RegionID
 	name := h.Config.ID
@@ -133,6 +135,8 @@ func (h *Host) Destroy() error {
 	return nil
 }
 
+// Info refetches the instance's info
+// https://cloud.google.com/compute/docs/reference/latest/instances/get
 func (h *Host) Info() (*host.Info, error) {
 	zone := h.Config.RegionID
 	name := h.Config.ID
@@ -144,6 +148,9 @@ func (h *Host) Info() (*host.Info, error) {
 	return h.instanceInfo(), nil
 }
 
+// instanceInfo returns the cached instance info. This requires
+// `Config.RegionID` to be set ( which is expected because finding an instance
+// requires us to know the RegionID first )
 func (h *Host) instanceInfo() *host.Info {
 	return &host.Info{
 		Provider:       "gce",
@@ -155,6 +162,7 @@ func (h *Host) instanceInfo() *host.Info {
 }
 
 // Restart does a hard-reset of a GCE instance
+// - https://cloud.google.com/compute/docs/reference/latest/instances/reset
 func (h *Host) Restart() (*host.Info, error) {
 	zone := h.Config.RegionID
 	name := h.Config.ID
@@ -260,6 +268,13 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 	return nil
 }
 
+// Create an GCE instance based on HostConfig. Relevant documentations can be
+// found at:
+// - https://cloud.google.com/compute/docs/reference/latest/zones
+// - https://cloud.google.com/compute/docs/reference/latest/images
+// - https://cloud.google.com/compute/docs/reference/latest/instances
+// - https://cloud.google.com/compute/docs/reference/latest/machineTypes
+// - https://cloud.google.com/compute/docs/reference/latest/zoneOperations
 func createInstance(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
 	zoneName := h.Config.RegionID
