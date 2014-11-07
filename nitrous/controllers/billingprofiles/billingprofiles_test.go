@@ -96,15 +96,15 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 		It("should return the created billing profile when valid token is provided", func() {
 			fakeStripe.Response = fmt.Sprintf(`{
-					"id": "sc_01",
-					"email": "%s",
-					"default_card": {
-						"exp_month": 10,
-						"exp_year": 2018,
-						"brand": "Visa",
-						"last4": "4242"
-					}
-				}`, u.Email)
+				"id": "sc_01",
+				"email": "%s",
+				"default_card": {
+					"exp_month": 10,
+					"exp_year": 2018,
+					"brand": "Visa",
+					"last4": "4242"
+				}
+			}`, u.Email)
 
 			p := &url.Values{}
 			p.Set("card_token", "cc_token")
