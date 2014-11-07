@@ -24,6 +24,7 @@ const (
 	StateStopped = "stopped"
 
 	StatusUnprocessableEntity = 422
+	HostKeyOperation          = provider.HostKeyOperation
 )
 
 var (

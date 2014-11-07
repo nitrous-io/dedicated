@@ -33,9 +33,11 @@ var (
 	errNoCommand = errors.New("no command specified")
 )
 
-const nitrousImageEnv = "NITROUS_IMAGE_VERSION"
-const defaultDockerRegistry = "index.docker.io"
-const dockerRegistryImageEndpoint = "registry-1.docker.io"
+const (
+	nitrousImageEnv             = "NITROUS_IMAGE_VERSION"
+	defaultDockerRegistry       = "index.docker.io"
+	dockerRegistryImageEndpoint = "registry-1.docker.io"
+)
 
 func init() {
 	if host := os.Getenv("DOCKER_HOST"); host != "" {
@@ -395,12 +397,11 @@ func (p *DockerProvider) Terminate(id string, removeSettings bool) (*provider.Co
 }
 
 func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
-	container, err := p.inspectContainer(id)
+	ak, err := p.authorizedKeysFor(id)
 	if err != nil {
 		return nil, err
 	}
 
-	ak := p.containerAuthorizedKeys(nameFromContainer(container))
 	keys, err := ak.Read()
 	if err != nil {
 		return nil, err
@@ -410,32 +411,26 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 }
 
 func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
-	container, err := p.inspectContainer(id)
+	ak, err := p.authorizedKeysFor(id)
 	if err != nil {
 		return err
 	}
-
-	ak := p.containerAuthorizedKeys(nameFromContainer(container))
 	return ak.Add(publicKeys)
 }
 
 func (p *DockerProvider) ClearPublicKeys(id string) error {
-	container, err := p.inspectContainer(id)
+	ak, err := p.authorizedKeysFor(id)
 	if err != nil {
 		return err
 	}
-
-	ak := p.containerAuthorizedKeys(nameFromContainer(container))
 	return ak.Clear()
 }
 
 func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
-	container, err := p.inspectContainer(id)
+	ak, err := p.authorizedKeysFor(id)
 	if err != nil {
 		return err
 	}
-
-	ak := p.containerAuthorizedKeys(nameFromContainer(container))
 	return ak.Remove(keyFingerprint)
 }
 
@@ -1033,6 +1028,10 @@ func (p *DockerProvider) ContainerSettingsDir(containerName string) string {
 	return path.Join(p.dataPath, "containers", containerName)
 }
 
+func (p *DockerProvider) GlobalAuthorizedKeysPath() string {
+	return path.Join(p.dataPath, "global_authorized_keys")
+}
+
 func (p *DockerProvider) storeSharedSecret(containerName string, secret string) error {
 	p.logger.Info("DockerProvider: storing shared secret for", containerName)
 	dir := p.ContainerSettingsDir(containerName)
@@ -1062,6 +1061,23 @@ func (p *DockerProvider) containerAuthorizedKeys(containerName string) *Authoriz
 	return NewAuthorizedKeys(
 		path.Join(p.ContainerSettingsDir(containerName), "ssh", "authorized_keys"),
 	)
+}
+
+func (p *DockerProvider) globalAuthorizedKeys() *AuthorizedKeys {
+	return NewAuthorizedKeys(p.GlobalAuthorizedKeysPath())
+}
+
+func (p *DockerProvider) authorizedKeysFor(id string) (*AuthorizedKeys, error) {
+	if id == provider.HostKeyOperation {
+		return p.globalAuthorizedKeys(), nil
+	}
+
+	container, err := p.inspectContainer(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.containerAuthorizedKeys(nameFromContainer(container)), nil
 }
 
 func (p *DockerProvider) inspectContainer(id string) (*dockerclient.Container, error) {
