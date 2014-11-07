@@ -2,6 +2,7 @@ package docker_test
 
 import (
 	"bytes"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -20,12 +21,15 @@ import (
 	"strings"
 	"time"
 
+	"code.google.com/p/go.crypto/ssh"
 	dockerclient "github.com/fsouza/go-dockerclient"
+
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
 	. "github.com/nitrous-io/dedicated/freighter/test"
 	"github.com/nitrous-io/dedicated/freighter/util"
+	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -815,45 +819,47 @@ var _ = Describe("provider/docker", func() {
 					pubkey1      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCxCeR/jJna6xXELDV8HF51QQPbj++JNDE4W/nqLyhzRTEDDnAfyp8gXW/EXXos8w5XXLak6eUDXE/QI6o8blX39RYoT47u45v4b2scN0ZiS5McmESo193KwWH3gXHbnHWywzPy7+GrRF3nHm/uidvp0tqh4ywqIZujaMjST1sIOQ== test@example.com"
 					pubkey2      = strings.TrimSpace(string(TestSSHPubKey))
 					fingerprint1 = "f7:de:4d:6f:54:6b:b9:d5:78:a9:62:15:e2:ad:ec:bb"
-					fingerprint2 = "9c:b5:99:82:88:b3:6a:85:5f:89:77:6a:86:46:08:8d"
+					fingerprint2 = "d7:39:a8:61:5a:fe:4f:57:48:68:18:1e:d7:a2:a6:eb"
 				)
 
 				It("allows ssh access only with keys present", func() {
-					sshPort := getNetworkSettingsPort(id, "22/tcp")
-					sshkeyPath := TempFile("")
-					ioutil.WriteFile(sshkeyPath, []byte(TestSSHPrivKey), 0600)
-					defer os.Remove(sshkeyPath)
-
-					sshTarget := "action@localhost"
+					hostname := "localhost"
 					if ip := os.Getenv("DOCKER_IP"); ip != "" {
-						sshTarget = fmt.Sprintf("action@%s", ip)
+						hostname = ip
 					}
+					address := fmt.Sprintf("%s:%s", hostname,
+						getNetworkSettingsPort(id, "22/tcp"))
+					pk, err := ssh.ParseRawPrivateKey([]byte(TestSSHPrivKey))
+					Expect(err).To(BeNil())
+					privKey, ok := pk.(*rsa.PrivateKey)
+					Expect(ok).To(BeTrue())
 
 					// without keys
-					time.Sleep(3 * time.Second)
-					args := []string{
-						sshTarget,
-						"-i", sshkeyPath,
-						"-p", sshPort,
-						"-o", "StrictHostKeyChecking=no",
-						"-o", "UserKnownHostsFile=/dev/null",
-						"-o", "PasswordAuthentication=no",
-						"echo success",
-					}
-					cmd := exec.Command("ssh", args...)
-					out, err := cmd.CombinedOutput()
-					Expect(err).ToNot(BeNil())
-					Expect(out).To(ContainSubstring("Permission denied"))
+					sshutil.MaxAttempts = 1
+					ch := make(chan struct{})
+					_, err = sshutil.WaitForSSH(
+						address,
+						"action",
+						privKey,
+						500*time.Millisecond,
+						ch,
+					)
+					Expect(err).NotTo(BeNil())
+					Expect(err.Error()).To(ContainSubstring("unable to authenticate"))
 
 					// with keys
 					err = prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
 					Expect(err).To(BeNil())
 
-					time.Sleep(3 * time.Second)
-					cmd = exec.Command("ssh", args...)
-					out, err = cmd.CombinedOutput()
+					sshutil.MaxAttempts = 10
+					_, err = sshutil.WaitForSSH(
+						address,
+						"action",
+						privKey,
+						500*time.Millisecond,
+						ch,
+					)
 					Expect(err).To(BeNil())
-					Expect(out).To(ContainSubstring("success"))
 				})
 
 				Describe(".ListPublicKeys()", func() {
