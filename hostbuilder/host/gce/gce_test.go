@@ -52,30 +52,30 @@ var _ = Describe("metadata", func() {
 	It("sets SSH keys in the metadata if provided", func() {
 		var h *Host
 		var m []*compute.MetadataItems
-		var expected []*compute.MetadataItems
 
+		// metadata will be empty by default
 		h = &Host{Config: &HostConfig{}}
 		m = h.metadata([]string{})
 		Expect(m).To(BeEmpty(), "unexpected metadata")
 
-		expected = []*compute.MetadataItems{
-			&compute.MetadataItems{Key: "hello", Value: "world"},
-		}
+		// add HostConfig.Metadata
 		h = &Host{Config: &HostConfig{
 			Metadata: map[string]string{"hello": "world"},
 		}}
 		m = h.metadata([]string{})
-		Expect(m).To(Equal(expected), "unexpected metadata")
-
-		expected = []*compute.MetadataItems{
+		Expect(m).To(ConsistOf(
 			&compute.MetadataItems{Key: "hello", Value: "world"},
-			&compute.MetadataItems{Key: "sshKeys", Value: "root:ssh-key\n"},
-		}
+		), "unexpected metadata")
+
+		// add ssh keys as additional metadata
 		h = &Host{Config: &HostConfig{
 			Metadata: map[string]string{"hello": "world"},
 		}}
 		m = h.metadata([]string{"ssh-key"})
-		Expect(m).To(Equal(expected), "unexpected metadata")
+		Expect(m).To(ConsistOf(
+			&compute.MetadataItems{Key: "hello", Value: "world"},
+			&compute.MetadataItems{Key: "sshKeys", Value: "root:ssh-key\n"},
+		), "unexpected metadata")
 	})
 })
 
