@@ -9,7 +9,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 )
 
-// ProgressEvent represents the progress data that is emitted from freighter.
+// ProgressEvent represents the progress data that is emitted.
 type ProgressEvent struct {
 	ID       int64  `json:"id"`
 	Slug     string `json:"slug"`

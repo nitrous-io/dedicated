@@ -2,7 +2,6 @@ package hosts
 
 import (
 	"crypto/rsa"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,11 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lib/pq"
 	"github.com/nitrous-io/nitrous-common/flusher"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
-	"github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
@@ -29,10 +26,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
@@ -75,6 +71,7 @@ type hostCreate struct {
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
+	u := env.User
 
 	options, err := buildCreateOptions(r)
 	if err != nil {
@@ -94,38 +91,98 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		options.Name = options.Slug
 	}
 
-	ctx, err := newCreateContext(db, env.User, options.Size, options.Region, options.Slug, options.Name)
+	region, err := findRegion(db, options.Region)
+	if err != nil {
+		return err
+	}
+	plan, err := findPlan(db, options.Size)
+	if err != nil {
+		return err
+	}
+	template, err := findTemplate(db, plan, region, defaultProvider)
+	if err != nil {
+		return err
+	}
+	t, err := token.FindByUser(db, u.ID)
 	if err != nil {
 		return err
 	}
 
-	async := options.Async
-	// if async, we will just discard the progress data from hostbuilder. It will
-	// only be outputed into the events stream. The only output we want to
-	// include in async is the host data
-	var writer io.Writer
-	pp := &controllers.ProgressPublisher{
+	// Progress data from host provisioning is written to the events stream.
+	// For synchronous requests, progress data is also written to the
+	// ResponseWriter.
+	var outstream io.Writer
+	outstream = &controllers.ProgressPublisher{
 		EventName: controllers.EventHostCreating,
-		Topic:     env.User.Topic(),
+		Topic:     u.Topic(),
 		Events:    env.Events,
-		ID:        ctx.Host.ID,
-		Slug:      ctx.Host.Slug,
+		Slug:      options.Slug,
 	}
-	if async {
-		writer = pp
-	} else {
-		// turn off nginx buffer caching so that we can flush output to the
-		// clients immediately
+	if !options.Async {
+		// Turn off nginx buffer caching to flush output to clients immediately.
 		w.Header().Set("X-Accel-Buffering", "no")
-		writer = io.MultiWriter(pp, flusher.NewWriteFlusher(w))
+		outstream = io.MultiWriter(outstream, flusher.NewWriteFlusher(w))
 	}
-	h, err := ctx.run(env, writer, async, options.Containers, options.Volumes)
+
+	prov := env.Provisioner
+	publishProvisionFailure := func(h *host.Host, err error) {
+		env.Events.Publish(
+			controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
+				"host":  serializers.SerializeHost(h),
+				"error": err.Error(),
+			}),
+			u.Topic(),
+		)
+	}
+	provisioned := make(chan *host.Host, 1)
+	h, err := prov.ProvisionHost(provisioner.ProvisionOptions{
+		Async:             options.Async,
+		OutputStream:      outstream,
+		Slug:              options.Slug,
+		Name:              options.Name,
+		User:              u,
+		Token:             t,
+		Region:            region,
+		Plan:              plan,
+		Template:          template,
+		AptLocation:       defaultAPTLocation,
+		AptDist:           defaultAPTDist,
+		ProvisionFailedFn: publishProvisionFailure,
+		ProvisionSucceededFn: func(h *host.Host) {
+			provisioned <- h
+		},
+	})
 	if err != nil {
+		if e, ok := err.(*provisioner.InvalidHostError); ok {
+			return httperror.New(http.StatusBadRequest, "invalid_request", e.Err.Error())
+		}
+		switch err {
+		case provisioner.ErrSlugIsTaken:
+			return errHostSlugTaken
+		case provisioner.ErrMultipleHostCreationNotAllowed:
+			return errMultipleRequests
+		case provisioner.ErrHostCreationNotAllowed:
+			return errHostCreationNotAllowed
+		}
 		return err
 	}
-	if async {
+
+	if options.Async {
+		go func() {
+			h := <-provisioned
+			if err := postProvision(options, env, h, outstream); err != nil {
+				publishProvisionFailure(h, err)
+				return
+			}
+			publishHostEvent(env, controllers.EventHostCreated, h)
+		}()
 		env.Status = http.StatusAccepted
 	} else {
+		if err := postProvision(options, env, h, outstream); err != nil {
+			publishProvisionFailure(h, err)
+			return err
+		}
+		publishHostEvent(env, controllers.EventHostCreated, h)
 		env.Status = http.StatusCreated
 	}
 	env.Data = map[string]interface{}{
@@ -134,253 +191,47 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	env.AddEventData(map[string]interface{}{
 		"slug":    h.Slug,
-		"plan":    ctx.Plan.Name,
-		"region":  ctx.Region.Name,
+		"plan":    plan.Name,
+		"region":  region.Name,
 		"host_id": h.ID,
 	})
 
 	return nil
 }
 
-func buildCreateOptions(r *http.Request) (hostCreate, error) {
-	var nested struct {
-		Host hostCreate `json:"host"`
-	}
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
-		decoder := json.NewDecoder(r.Body)
-		err := decoder.Decode(&nested)
-		if err == nil {
-			nested.Host.Slug = strings.ToLower(nested.Host.Slug)
-		}
-		return nested.Host, err
-	} else {
-		nested.Host.Size = r.FormValue("size")
-		nested.Host.Region = r.FormValue("region")
-		nested.Host.Slug = strings.ToLower(r.FormValue("slug"))
-		nested.Host.Name = r.FormValue("name")
-		async, _ := strconv.ParseBool(r.FormValue("async"))
-		nested.Host.Async = async
-		return nested.Host, nil
-	}
-}
-
-// createContext handles the creation of host record and its dependencies in
-// database and propagate the changes to host builder.
-type createContext struct {
-	User     *user.User
-	Plan     *plan.Plan
-	Region   *region.Region
-	Template *providertemplate.ProviderTemplate
-	Keypair  *keypairs.Keypair
-	Cert     *cert.Cert
-	Host     *host.Host
-	Token    *token.Token
-	Pubkey   []byte
-
-	db *ndb.Database
-}
-
-// run propagates the changes to hostbuilder. If we want the creation to
-// happens asynchronously, the current host infomation will be returned
-// immediately while we build the host. Otherwise, the default is building the
-// host asynchronously
-func (ctx *createContext) run(env *middleware.Env, writer io.Writer, async bool, containers []containerCreate, volumes []volumeCreate) (*host.Host, error) {
-	h, db := ctx.Host, ctx.db
-
-	// get ca to save to the host
-	caInfo, err := controllers.GetCAInfo(false)
-	if err != nil {
-		return nil, err
-	}
-
-	// generate hostbuilder config
-	config := hostbuilderclient.Config{
-		"name":         h.Slug,
-		"secret":       h.Secret,
-		"public_keys":  []string{string(ctx.Pubkey)},
-		"apt_username": ctx.User.Username,
-		"apt_password": ctx.Token.Token,
-		"apt_location": defaultAPTLocation,
-		"apt_dist":     defaultAPTDist,
-		"tls": map[string]string{
-			"ca":   string(caInfo.CertPEM),
-			"cert": ctx.Cert.ServerCert,
-			"key":  ctx.Cert.ServerKey,
-		},
-	}
-	for k, v := range ctx.Template.Config.Map {
-		if v.Valid {
-			config[k] = v.String
-		} else {
-			config[k] = ""
-		}
-	}
-
-	createHost := func() error {
-		var err error
-		defer func() {
-			if err != nil {
-				h.State = host.StateOrphan
-				_ = h.Update(db) // Ignore error here.
-				env.Events.Publish(
-					controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
-						"host":  serializers.SerializeHost(h),
-						"error": err.Error(),
-					}),
-					env.User.Topic(),
-				)
-			}
-		}()
-
-		var info *hostbuilder.Response
-		info, err = HostbuilderClient.Create(ctx.Template.Provider, &config, writer)
-		if err != nil {
-			return err
-		}
-
-		h.IPAddress = sql.NullString{info.IPAddress, true}
-		h.ProviderIdentifier = sql.NullString{info.ID, true}
-		h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
-		h.State = host.StateRunning
-
-		if err = h.Update(db); err != nil {
-			return err
-		}
-
-		if err = createSharedVolume(env, db, h); err != nil {
-			return err
-		}
-
-		if err = createVolumes(volumes, env, h, writer); err != nil {
-			return err
-		}
-
-		err = createContainers(containers, env, h, writer)
-
-		publishHostEvent(env, controllers.EventHostCreated, h)
+func postProvision(options hostCreate, env *middleware.Env, h *host.Host, outstream io.Writer) error {
+	if err := createSharedVolume(env, env.DB, h); err != nil {
 		return err
 	}
-
-	if async {
-		go createHost()
-		return h, nil
+	if err := createVolumes(options.Volumes, env, h, outstream); err != nil {
+		return err
 	}
-	err = createHost()
-	return h, err
+	if err := createContainers(options.Containers, env, h, outstream); err != nil {
+		return err
+	}
+	return nil
 }
 
-// create a new createContext with user-supplied parameters. This will tries to
-// create a host with proper plan, region, template, etc..., associate them
-// with the current context and save them to database
-//
-// TODO: check if user account is eligible to create hosts (has a credit card on file)
-func newCreateContext(db *ndb.Database, user *user.User, size, regionSlug, slug, name string) (*createContext, error) {
-	var err error
-
-	ctx := &createContext{
-		User: user,
-		db:   db,
-	}
-
-	if ctx.Plan, err = findPlan(db, size); err != nil {
-		return nil, err
-	}
-	if ctx.Region, err = findRegion(db, regionSlug); err != nil {
-		return nil, err
-	}
-	if ctx.Template, err = findTemplate(db, ctx.Plan, ctx.Region, defaultProvider); err != nil {
-		return nil, err
-	}
-
-	// Assuming that t is not nil cos if user gets here,
-	// that means she has a token, but return err if there's
-	// some other unexpected error
-	if ctx.Token, err = token.FindByUser(db, user.ID); err != nil {
-		return nil, err
-	}
-
-	// generate the keypair to communicate with the host
-	priv, pubkey, err := generateKey()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate keypairs for '%s', err %s", slug, err)
-	}
-
-	ctx.Pubkey = pubkey
-	ctx.Host = &host.Host{
-		UserID:             ctx.User.ID,
-		RegionID:           ctx.Region.ID,
-		PlanID:             ctx.Plan.ID,
-		ProviderTemplateID: ctx.Template.ID,
-		Slug:               slug,
-		Name:               sql.NullString{name, true},
-		MaxContainers:      sql.NullInt64{ctx.Plan.MaxContainers, true},
-		Size:               sql.NullString{ctx.Plan.Slug, true},
-		State:              host.StateBorn,
-	}
-
-	if err = ctx.Host.Validate(); err != nil {
-		return nil, httperror.New(http.StatusBadRequest, "invalid_request", err.Error())
-	}
-
-	// Save record to db first to reserve slug (since it's globally unique).
-	tx, err := db.Beginx()
-	if err != nil {
-		return nil, fmt.Errorf("failed to open a transaction for host %s, err: %s", slug, err)
-	}
-
-	// don't allow hosts to be created concurrently
-	locked, err := ndb.TransactionLock(tx, ndb.HOST_CREATE_LOCK, int(user.ID))
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-	if !locked {
-		tx.Rollback()
-		return nil, errMultipleRequests
-	}
-
-	canCreateHosts, err := user.CanCreateHosts(tx)
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-	if !canCreateHosts {
-		tx.Rollback()
-		return nil, errHostCreationNotAllowed
-	}
-
-	if err := ctx.Host.Insert(tx); err != nil {
-		tx.Rollback()
-		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
-			if validationErr, ok := validations[e.Constraint]; ok {
-				return nil, validationErr
-			}
+func buildCreateOptions(r *http.Request) (hostCreate, error) {
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		var nested struct {
+			Host hostCreate `json:"host"`
 		}
-		return nil, fmt.Errorf("failed to insert new host %s, err: %s", slug, err)
+		if err := json.NewDecoder(r.Body).Decode(&nested); err != nil {
+			return hostCreate{}, err
+		}
+		nested.Host.Slug = strings.ToLower(nested.Host.Slug)
+		return nested.Host, nil
 	}
 
-	// create the cert
-	if ctx.Cert, err = generateCerts(ctx.Host.Hostname()); err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("failed to generate certificates for '%s', err %s", slug, err)
+	host := hostCreate{
+		Size:   r.FormValue("size"),
+		Region: r.FormValue("region"),
+		Slug:   strings.ToLower(r.FormValue("slug")),
+		Name:   r.FormValue("name"),
 	}
-	if err := ctx.Cert.Insert(tx, ctx.Host.ID); err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("failed to save certificates for '%s', err %s", slug, err)
-	}
-
-	// create the keypair
-	ctx.Keypair, err = keypairs.Create(tx, priv, aesKey, ctx.Host.ID)
-	if err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("failed to save keypairs for '%s', err %s", slug, err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to complete save transaction for '%s', err %s", slug, err)
-	}
-
-	return ctx, nil
+	host.Async, _ = strconv.ParseBool(r.FormValue("async"))
+	return host, nil
 }
 
 func findPlan(db ndb.QueryReceiver, size string) (*plan.Plan, error) {
