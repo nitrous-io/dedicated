@@ -2,6 +2,7 @@ package docker_test
 
 import (
 	"bytes"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -20,12 +21,15 @@ import (
 	"strings"
 	"time"
 
+	"code.google.com/p/go.crypto/ssh"
 	dockerclient "github.com/fsouza/go-dockerclient"
+
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
 	. "github.com/nitrous-io/dedicated/freighter/test"
 	"github.com/nitrous-io/dedicated/freighter/util"
+	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -813,274 +817,73 @@ var _ = Describe("provider/docker", func() {
 			Context("with public keys", func() {
 				var (
 					pubkey1      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCxCeR/jJna6xXELDV8HF51QQPbj++JNDE4W/nqLyhzRTEDDnAfyp8gXW/EXXos8w5XXLak6eUDXE/QI6o8blX39RYoT47u45v4b2scN0ZiS5McmESo193KwWH3gXHbnHWywzPy7+GrRF3nHm/uidvp0tqh4ywqIZujaMjST1sIOQ== test@example.com"
-					pubkey2      string
+					pubkey2      = strings.TrimSpace(string(TestSSHPubKey))
 					fingerprint1 = "f7:de:4d:6f:54:6b:b9:d5:78:a9:62:15:e2:ad:ec:bb"
-					fingerprint2 string
-					sshkeypath   string
+					fingerprint2 = "d7:39:a8:61:5a:fe:4f:57:48:68:18:1e:d7:a2:a6:eb"
 				)
 
-				BeforeEach(func() {
-					var err error
-					pubkey2 = strings.TrimSpace(string(TestSSHPubKey))
-					fingerprint2, err = util.Md5Fingerprint(pubkey2)
+				It("allows ssh access only with keys present", func() {
+					hostname := "localhost"
+					if ip := os.Getenv("DOCKER_IP"); ip != "" {
+						hostname = ip
+					}
+					address := fmt.Sprintf("%s:%s", hostname,
+						getNetworkSettingsPort(id, "22/tcp"))
+					pk, err := ssh.ParseRawPrivateKey([]byte(TestSSHPrivKey))
+					Expect(err).To(BeNil())
+					privKey, ok := pk.(*rsa.PrivateKey)
+					Expect(ok).To(BeTrue())
+
+					// without keys
+					sshutil.MaxAttempts = 1
+					ch := make(chan struct{})
+					_, err = sshutil.WaitForSSH(
+						address,
+						"action",
+						privKey,
+						500*time.Millisecond,
+						ch,
+					)
+					Expect(err).NotTo(BeNil())
+					Expect(err.Error()).To(ContainSubstring("unable to authenticate"))
+
+					// with keys
+					err = prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
 					Expect(err).To(BeNil())
 
-					sshkeypath = TempFile("")
-					ioutil.WriteFile(sshkeypath, []byte(TestSSHPrivKey), 0600)
+					sshutil.MaxAttempts = 10
+					_, err = sshutil.WaitForSSH(
+						address,
+						"action",
+						privKey,
+						500*time.Millisecond,
+						ch,
+					)
+					Expect(err).To(BeNil())
 				})
 
-				AfterEach(func() {
-					os.Remove(sshkeypath)
-				})
-
-				Context("with SSH enabled containers", func() {
-					sshTarget := func() string {
-						if ip := os.Getenv("DOCKER_IP"); ip != "" {
-							return fmt.Sprintf("action@%s", ip)
-						} else {
-							return "action@localhost"
-						}
-					}
-
-					expectSSHToWork := func(port, sshkeypath string) {
-						time.Sleep(2 * time.Second)
-						out, err := exec.Command("ssh", sshTarget(), "-i", sshkeypath, "-p", port,
-							"-o", "StrictHostKeyChecking=no",
-							"-o", "UserKnownHostsFile=/dev/null",
-							"-o", "PasswordAuthentication=no",
-							"echo success").CombinedOutput()
-						Expect(out).To(ContainSubstring("success"))
-						Expect(err).To(BeNil())
-					}
-
-					expectSSHToNotWork := func(port, sshkeypath string) {
-						time.Sleep(2 * time.Second)
-						out, err := exec.Command("ssh", sshTarget(), "-i", sshkeypath, "-p", port,
-							"-o", "StrictHostKeyChecking=no",
-							"-o", "UserKnownHostsFile=/dev/null",
-							"-o", "PasswordAuthentication=no",
-							"echo success").CombinedOutput()
-						Expect(out).To(ContainSubstring("Permission denied"))
-						Expect(err).ToNot(BeNil())
-					}
-
-					BeforeEach(func() {
-						pubkey1 = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCxCeR/jJna6xXELDV8HF51QQPbj++JNDE4W/nqLyhzRTEDDnAfyp8gXW/EXXos8w5XXLak6eUDXE/QI6o8blX39RYoT47u45v4b2scN0ZiS5McmESo193KwWH3gXHbnHWywzPy7+GrRF3nHm/uidvp0tqh4ywqIZujaMjST1sIOQ== test@example.com"
-						fingerprint1 = "f7:de:4d:6f:54:6b:b9:d5:78:a9:62:15:e2:ad:ec:bb"
-						fingerprint2 = "9c:b5:99:82:88:b3:6a:85:5f:89:77:6a:86:46:08:8d"
+				Describe(".ListPublicKeys()", func() {
+					It("returns list of pub keys and the corresponding fingerprints", func() {
 						err := prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
 						Expect(err).To(BeNil())
-					})
 
-					Describe(".ListPublicKeys()", func() {
-						itWorks := func() {
-							It("returns list of pub keys and the corresponding fingerprints", func() {
-								pubkeys, err := prov.ListPublicKeys(id)
-								Expect(err).To(BeNil())
-								Expect(pubkeys).To(Equal(map[string]string{
-									fingerprint1: pubkey1,
-									fingerprint2: pubkey2,
-								}))
-							})
-						}
+						// when container is running
+						pubkeys, err := prov.ListPublicKeys(id)
+						Expect(err).To(BeNil())
+						Expect(pubkeys).To(Equal(map[string]string{
+							fingerprint1: pubkey1,
+							fingerprint2: pubkey2,
+						}))
 
-						Context("when the container is running", func() {
-							itWorks()
-						})
-
-						Context("when the container is stopped", func() {
-							BeforeEach(func() {
-								err := exec.Command("docker", "stop", id).Run()
-								Expect(err).To(BeNil())
-							})
-
-							itWorks()
-						})
-					})
-
-					Describe(".AddPublicKeys()", func() {
-						pubkey3 := "ssh-dss AAAAB3NzaC1kc3MAAACBAKPiMSg6vvWZAK1a+Vj+yPH0kRpCDUqhNCyPJd8yIfvs8c+uGgnXkDG6vW3gamyxkFilxgLvqW89NnvmcBRoAXkrT5e8uiciLJ2CqJuqZPHFNf3T298xFleh/43X5dxgS6CdODzrkreFe8XD1R1DozMgChU8wGVpQNQWGKU/x7xXAAAAFQCa8OP3WB4V2mNA/8cN7fj4gxDbLwAAAIEAhxHz0xu/EAWvq+nZ5CXnWZ2g++t1IEJcJWnTTIQakU+aZV0DxQ4hesrFiXllBX/oUTgr8ZlqYgqTy4+lHpXIhesNy3k9OjjU8/dYm9zZZw3TWIL64dAEp9L0xNZ7MFgOVvDwpjNqjUrbDCIujk7iZ+J/hFFoTqRxSeciX+cbusQAAACBAIcGybaGJ2Z4E21jR0iD05kNhJm97CJHavhH6fgxkeecVdXU2+k/DjLHTz7UfhbAtg6XqE0s5PVUgh0P/stQRGyosTmasYE3hTwwOXYQ2k/HLqM/ZGwEXW2kLSpi2MROowQf25wQrWmJBjTQ8mjG5jm0KOCX2jFf0QN3qTzVovSc vagrant@ubuntu-14"
-
-						Context("with valid public keys", func() {
-							var (
-								pubkey4      = "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBIC/WqXhoJC0FSaocOrx/uyneeqH32CUNbva4L6PdY7mIZ99mTTpdREowMo1T3pvY46JxwL6X3stuhZmIYNJEc0="
-								fingerprint3 = "9b:e8:01:40:ff:35:c5:12:05:dc:cd:17:3e:a9:55:53"
-								fingerprint4 = "2a:43:73:52:6c:21:b5:5f:cc:cd:73:21:2b:05:50:de"
-							)
-
-							itWorks := func() {
-								It("adds given pub keys to the authorized_keys file for the container", func() {
-									err := prov.AddPublicKeys(id, []string{pubkey3, pubkey4, pubkey1}) // dupe key should be ignored
-									Expect(err).To(BeNil())
-									pubkeys, err := prov.ListPublicKeys(id)
-									Expect(err).To(BeNil())
-									Expect(pubkeys).To(Equal(map[string]string{
-										fingerprint1: pubkey1,
-										fingerprint2: pubkey2,
-										fingerprint3: pubkey3,
-										fingerprint4: pubkey4,
-									}))
-								})
-							}
-
-							sshWorks := func() {
-								It("allows SSH access to a container", func() {
-									err := prov.AddPublicKeys(id, []string{pubkey3, pubkey4, pubkey1}) // dupe key should be ignored
-									Expect(err).To(BeNil())
-									sshPort := getNetworkSettingsPort(id, "22/tcp")
-									expectSSHToWork(sshPort, sshkeypath)
-								})
-							}
-
-							Context("when the container is running", func() {
-								itWorks()
-								sshWorks()
-							})
-
-							Context("when the container is stopped", func() {
-								BeforeEach(func() {
-									err := exec.Command("docker", "stop", id).Run()
-									Expect(err).To(BeNil())
-								})
-
-								itWorks()
-							})
-						})
-
-						Context("with an invalid public key in the mix", func() {
-							pubkey4 := "ssh-rsa S4!#AFLJKN*F@NF12f"
-
-							itDoesNotWork := func() {
-								It("does not add given pub keys to the authorized_keys file for the container", func() {
-									err := prov.AddPublicKeys(id, []string{pubkey3, pubkey4, pubkey1})
-									Expect(err).To(MatchError(util.ErrInvalidPublicKey))
-									pubkeys, err := prov.ListPublicKeys(id)
-									Expect(err).To(BeNil())
-									Expect(pubkeys).To(Equal(map[string]string{
-										fingerprint1: pubkey1,
-										fingerprint2: pubkey2,
-									}))
-								})
-							}
-
-							Context("when the container is running", func() {
-								itDoesNotWork()
-							})
-
-							Context("when the container is stopped", func() {
-								BeforeEach(func() {
-									err := exec.Command("docker", "stop", id).Run()
-									Expect(err).To(BeNil())
-								})
-
-								itDoesNotWork()
-							})
-						})
-					})
-
-					Describe(".ClearPublicKeys()", func() {
-						itWorks := func() {
-							It("removes all keys from the container", func() {
-								err := prov.ClearPublicKeys(id)
-								Expect(err).To(BeNil())
-								pubkeys, err := prov.ListPublicKeys(id)
-								Expect(err).To(BeNil())
-								Expect(pubkeys).To(Equal(map[string]string{}))
-							})
-						}
-
-						sshStopsWorking := func() {
-							It("disallows SSH access to the container", func() {
-								sshPort := getNetworkSettingsPort(id, "22/tcp")
-								expectSSHToWork(sshPort, sshkeypath)
-								err := prov.ClearPublicKeys(id)
-								Expect(err).To(BeNil())
-								expectSSHToNotWork(sshPort, sshkeypath)
-							})
-						}
-
-						Context("when the container is running", func() {
-							itWorks()
-							sshStopsWorking()
-						})
-
-						Context("when the container is stopped", func() {
-							BeforeEach(func() {
-								err := exec.Command("docker", "stop", id).Run()
-								Expect(err).To(BeNil())
-							})
-
-							itWorks()
-						})
-					})
-
-					Describe(".RemovePublicKeys()", func() {
-						Context("when a pub key with a given fingerprint is found", func() {
-
-							itWorks := func() {
-								It("removes the matching pub key from the authorized_keys file", func() {
-									err := prov.RemovePublicKey(id, fingerprint2)
-									Expect(err).To(BeNil())
-									pubkeys, err := prov.ListPublicKeys(id)
-									Expect(err).To(BeNil())
-									Expect(pubkeys).To(Equal(map[string]string{
-										fingerprint1: pubkey1,
-									}))
-								})
-							}
-
-							sshStopsWorking := func() {
-								It("disallows SSH access to the container", func() {
-									sshPort := getNetworkSettingsPort(id, "22/tcp")
-									expectSSHToWork(sshPort, sshkeypath)
-									err := prov.RemovePublicKey(id, fingerprint2)
-									Expect(err).To(BeNil())
-									expectSSHToNotWork(sshPort, sshkeypath)
-								})
-							}
-
-							Context("when the container is running", func() {
-								itWorks()
-								sshStopsWorking()
-							})
-
-							Context("when the container is stopped", func() {
-								BeforeEach(func() {
-									err := exec.Command("docker", "stop", id).Run()
-									Expect(err).To(BeNil())
-								})
-
-								itWorks()
-							})
-						})
-
-						Context("when a pub key with a given fingerprint is not found", func() {
-							itDoesNotWork := func() {
-								It("does nothing", func() {
-									err := prov.RemovePublicKey(id, "11:11:11:11:11:11:11:11:11:11:11:11:11:11:11:11")
-									Expect(err).To(BeNil())
-									pubkeys, err := prov.ListPublicKeys(id)
-									Expect(err).To(BeNil())
-									Expect(pubkeys).To(Equal(map[string]string{
-										fingerprint1: pubkey1,
-										fingerprint2: pubkey2,
-									}))
-								})
-							}
-
-							Context("when the container is running", func() {
-								itDoesNotWork()
-							})
-
-							Context("when the container is stopped", func() {
-								BeforeEach(func() {
-									err := exec.Command("docker", "stop", id).Run()
-									Expect(err).To(BeNil())
-								})
-
-								itDoesNotWork()
-							})
-						})
+						// when container is stopped
+						err = exec.Command("docker", "stop", id).Run()
+						Expect(err).To(BeNil())
+						pubkeys, err = prov.ListPublicKeys(id)
+						Expect(err).To(BeNil())
+						Expect(pubkeys).To(Equal(map[string]string{
+							fingerprint1: pubkey1,
+							fingerprint2: pubkey2,
+						}))
 					})
 				})
 			})

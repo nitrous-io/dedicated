@@ -175,7 +175,8 @@ func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*pr
 		return nil, err
 	}
 
-	if err := p.createAuthorizedKeys(name, []string{}); err != nil {
+	ak := p.containerAuthorizedKeys(name)
+	if err := ak.Write([]string{}); err != nil {
 		return nil, err
 	}
 
@@ -399,7 +400,8 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 		return nil, err
 	}
 
-	keys, err := p.readAuthorizedKeys(nameFromContainer(container))
+	ak := p.containerAuthorizedKeys(nameFromContainer(container))
+	keys, err := ak.Read()
 	if err != nil {
 		return nil, err
 	}
@@ -413,21 +415,8 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 		return err
 	}
 
-	name := nameFromContainer(container)
-
-	existingKeys, err := p.readAuthorizedKeys(name)
-	if err != nil {
-		return err
-	}
-
-	// validate pubkeys and remove duplicates
-	keymap, err := keysToKeyMap(append(publicKeys, existingKeys...))
-	if err != nil {
-		return err
-	}
-	publicKeys = keyMapToKeys(keymap)
-
-	return p.createAuthorizedKeys(name, publicKeys)
+	ak := p.containerAuthorizedKeys(nameFromContainer(container))
+	return ak.Add(publicKeys)
 }
 
 func (p *DockerProvider) ClearPublicKeys(id string) error {
@@ -436,8 +425,8 @@ func (p *DockerProvider) ClearPublicKeys(id string) error {
 		return err
 	}
 
-	name := nameFromContainer(container)
-	return p.createAuthorizedKeys(name, []string{})
+	ak := p.containerAuthorizedKeys(nameFromContainer(container))
+	return ak.Clear()
 }
 
 func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
@@ -446,21 +435,8 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 		return err
 	}
 
-	name := nameFromContainer(container)
-
-	keys, err := p.readAuthorizedKeys(name)
-	if err != nil {
-		return err
-	}
-
-	keymap, err := keysToKeyMap(keys)
-	if err != nil {
-		return err
-	}
-	delete(keymap, keyFingerprint)
-	keys = keyMapToKeys(keymap)
-
-	return p.createAuthorizedKeys(name, keys)
+	ak := p.containerAuthorizedKeys(nameFromContainer(container))
+	return ak.Remove(keyFingerprint)
 }
 
 // Reconfig recreates a container from its original image with new config,
@@ -1082,45 +1058,10 @@ func (p *DockerProvider) readSharedSecret(containerName string) (string, error) 
 	return strings.TrimSpace(string(secret)), nil
 }
 
-func (p *DockerProvider) createAuthorizedKeys(containerName string, publicKeys []string) error {
-	p.logger.Info("DockerProvider: creating SSH authorized keys file for container", containerName, "with", len(publicKeys), "entries")
-	dir := path.Join(p.ContainerSettingsDir(containerName), "ssh")
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		return err
-	}
-	filename := path.Join(dir, "authorized_keys")
-	file, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	for _, key := range publicKeys {
-		key = strings.TrimSpace(strings.Replace(key, "\n", "", -1)) + "\n"
-		_, err = file.Write([]byte(key))
-		if err != nil {
-			return err
-		}
-	}
-
-	p.logger.Info("DockerProvider: created SSH authorized keys file for container", containerName)
-	return nil
-}
-
-func (p *DockerProvider) readAuthorizedKeys(containerName string) ([]string, error) {
-	keysFile := path.Join(p.ContainerSettingsDir(containerName), "ssh", "authorized_keys")
-	bkeys, err := ioutil.ReadFile(keysFile)
-	if err != nil {
-		return nil, err
-	}
-	keys := []string{}
-	for _, key := range strings.Split(strings.TrimSpace(string(bkeys)), "\n") {
-		if key != "" {
-			keys = append(keys, key)
-		}
-	}
-	return keys, nil
+func (p *DockerProvider) containerAuthorizedKeys(containerName string) *AuthorizedKeys {
+	return NewAuthorizedKeys(
+		path.Join(p.ContainerSettingsDir(containerName), "ssh", "authorized_keys"),
+	)
 }
 
 func (p *DockerProvider) inspectContainer(id string) (*dockerclient.Container, error) {
@@ -1232,30 +1173,6 @@ func portsFromContainer(container *dockerclient.Container) map[string][]string {
 		}
 	}
 	return ports
-}
-
-// converts []pubkey to map[keyFingerprint]pubkey
-func keysToKeyMap(keys []string) (map[string]string, error) {
-	keymap := map[string]string{}
-	for _, key := range keys {
-		fingerprint, err := util.Md5Fingerprint(key)
-		if err != nil {
-			return nil, err
-		}
-		keymap[fingerprint] = key
-	}
-	return keymap, nil
-}
-
-// converts map[keyFingerprint]pubkey back to []pubkey
-func keyMapToKeys(keymap map[string]string) []string {
-	keys := make([]string, len(keymap))
-	i := 0
-	for _, key := range keymap {
-		keys[i] = key
-		i++
-	}
-	return keys
 }
 
 func containerConfigFromJSON(jsonStr string) (*provider.ContainerConfig, error) {
