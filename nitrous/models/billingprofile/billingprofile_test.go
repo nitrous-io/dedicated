@@ -56,26 +56,15 @@ var _ = Describe("models/billingprofile", func() {
 		})
 
 		It("sends a request to Stripe to create a customer", func() {
-			fakeStripe.Response = fmt.Sprintf(`{
-					"id": "sc_01",
-					"email": "%s",
-					"default_card": {
-						"exp_month": 10,
-						"exp_year": 2018,
-						"brand": "Visa",
-						"last4": "4242"
-					}
-				}`, u.Email)
+			billingprofile.Create(db, u, "token")
 
-			_, err := billingprofile.Create(db, u, "token")
-			Expect(err).To(BeNil())
-
-			r := fakeStripe.Received
-			Expect(r.Method).To(Equal("POST"))
-			Expect(r.Path).To(Equal("/customers"))
-			Expect(r.Card).To(Equal("token"))
-			Expect(r.Email).To(Equal(u.Email))
-			Expect(r.Desc).To(Equal(fmt.Sprint(u.Name, u.Username)))
+			Expect(fakeStripe.Received).To(Equal(map[string]string{
+				"method": "POST",
+				"path":   "/customers",
+				"card":   "token",
+				"email":  u.Email,
+				"desc":   fmt.Sprint(u.Name, u.Username),
+			}))
 		})
 
 		Context("when Stripe returns the created customer", func() {

@@ -7,34 +7,30 @@ import (
 	"github.com/stripe/stripe-go"
 )
 
-type receivedValues struct {
-	Method string
-	Path   string
-	Key    string
-	Card   string // stripechanges token param to card
-	Email  string
-	Desc   string
-}
-
 type FakeStripe struct {
-	Received *receivedValues
+	Received map[string]string
 	Response string
 	Error    *stripe.Error
 }
 
 func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interface{}) error {
-	s.Received = &receivedValues{
-		Method: method,
-		Path:   path,
-		Key:    key,
-		Card:   body.Get("card"),
-		Email:  body.Get("email"),
-		Desc:   body.Get("description"),
+	s.Received = map[string]string{
+		"method": method,
+		"path":   path,
+		"card":   body.Get("card"),
+		"email":  body.Get("email"),
+		"desc":   body.Get("description"),
 	}
 
 	if s.Error != nil {
 		return s.Error
-	} else {
+	}
+
+	if s.Response != "" {
 		return json.Unmarshal([]byte(s.Response), v)
+	}
+
+	return &stripe.Error{
+		Type: stripe.ErrorType("test without response or proper error"),
 	}
 }
