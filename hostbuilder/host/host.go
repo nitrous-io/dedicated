@@ -5,11 +5,18 @@ import (
 	"io"
 )
 
+type TLSConfig struct {
+	CA   string `json:"ca"`
+	Cert string `json:"cert"`
+	Key  string `json:"key"`
+}
+
 type Info struct {
 	Provider       string `json:"provider"`
 	ID             string `json:"id"`
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort uint16 `json:"freighterd_port"`
+	RegionID       string `json:"region_id"`
 }
 
 type Host interface {

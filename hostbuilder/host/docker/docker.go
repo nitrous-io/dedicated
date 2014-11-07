@@ -84,6 +84,7 @@ func (h *Host) Info() (*host.Info, error) {
 		ID:             h.ID,
 		IPAddress:      "127.0.0.1",
 		FreighterdPort: uint16(getFreighterdPort(container)),
+		RegionID:       "local",
 	}, nil
 }
 
