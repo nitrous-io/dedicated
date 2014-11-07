@@ -32,12 +32,7 @@ var (
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	errCertNotFound             = httperror.New(http.StatusNotFound, "cert_not_found", "host certificate does not exist")
 	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another host creation request is currently processed")
-)
-
-var (
-	validations = map[string]error{
-		"index_hosts_on_slug": httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken"),
-	}
+	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
 )
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
