@@ -83,21 +83,13 @@ var _ = Describe("models/billingprofile", func() {
 				b, err := billingprofile.Create(db, u, "token")
 				Expect(err).To(BeNil())
 
+				Expect(b.ID).NotTo(BeNil())
+				Expect(b.UserID).To(Equal(u.ID))
 				Expect(b.StripeID).To(Equal("sc_01"))
 				Expect(b.LastFour).To(Equal("4242"))
 				Expect(b.CardType).To(Equal("Visa"))
 				Expect(b.ExpMonth).To(Equal(uint8(10)))
 				Expect(b.ExpYear).To(Equal(uint16(2018)))
-
-				b2, err := billingprofile.Find(db, u)
-				Expect(err).To(BeNil())
-				Expect(b2.ID).NotTo(BeNil())
-				Expect(b2.UserID).To(Equal(u.ID))
-				Expect(b2.StripeID).To(Equal("sc_01"))
-				Expect(b2.LastFour).To(Equal("4242"))
-				Expect(b2.CardType).To(Equal("Visa"))
-				Expect(b2.ExpMonth).To(Equal(uint8(10)))
-				Expect(b2.ExpYear).To(Equal(uint16(2018)))
 			})
 		})
 
