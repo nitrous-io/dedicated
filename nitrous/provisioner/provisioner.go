@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -21,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -76,7 +76,7 @@ type ProvisionOptions struct {
 type preparedHost struct {
 	host   *host.Host
 	cert   *cert.Cert
-	caInfo *controllers.CAInfo
+	caInfo *certauth.CAInfo
 	pubkey []byte
 }
 
@@ -205,7 +205,7 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 	}
 
 	// Generate Certificate Authority info.
-	caInfo, err := controllers.GetCAInfo(true) // FIXME Using "controllers" package is icky.
+	caInfo, err := certauth.GetCAInfo(true)
 	if err != nil {
 		return nil, err
 	}
