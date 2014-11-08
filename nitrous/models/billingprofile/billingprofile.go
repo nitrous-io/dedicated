@@ -71,7 +71,7 @@ func Create(d db.QueryReceiver, u *user.User, token string) (*BillingProfile, er
 	}
 
 	// persist the profile
-	crd := c.DefaultCard
+	crd := c.Cards.Values[0]
 	b := &BillingProfile{
 		UserID:   u.ID,
 		StripeID: c.ID,
