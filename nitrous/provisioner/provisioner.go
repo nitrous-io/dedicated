@@ -32,6 +32,8 @@ const (
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
 var aesKey string
+var defaultAPTLocation string
+var defaultAPTDist string
 
 var (
 	ErrMultipleHostCreationNotAllowed = errors.New("only one host can be created at any time")
@@ -98,6 +100,16 @@ func init() {
 	aesKey = os.Getenv("AES_KEY")
 	if aesKey == "" {
 		panic("provisioner: AES_KEY is not set")
+	}
+
+	defaultAPTLocation = os.Getenv("DEFAULT_APT_LOCATION")
+	if defaultAPTLocation == "" {
+		panic("DEFAULT_APT_LOCATION is not set")
+	}
+
+	defaultAPTDist = os.Getenv("DEFAULT_APT_DIST")
+	if defaultAPTDist == "" {
+		panic("DEFAULT_APT_DIST is not set")
 	}
 }
 
@@ -173,6 +185,13 @@ func (p *Provisioner) setRunning(r bool) bool {
 // If the Async option is true, the current Host record is returned immediately
 // while provisioning happens asynchonously.
 func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
+	if opts.AptLocation == "" {
+		opts.AptLocation = defaultAPTLocation
+	}
+	if opts.AptDist == "" {
+		opts.AptDist = defaultAPTDist
+	}
+
 	phost, err := p.prepare(opts)
 	if err != nil {
 		return nil, err

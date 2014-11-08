@@ -146,8 +146,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		Region:            region,
 		Plan:              plan,
 		Template:          template,
-		AptLocation:       defaultAPTLocation,
-		AptDist:           defaultAPTDist,
 		ProvisionFailedFn: publishProvisionFailure,
 		ProvisionSucceededFn: func(h *host.Host) {
 			provisioned <- h
