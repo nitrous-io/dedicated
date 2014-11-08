@@ -38,8 +38,6 @@ var (
 var HostbuilderClient *hostbuilderclient.Hostbuilder
 var defaultProvider string
 var aesKey string
-var defaultAPTLocation string
-var defaultAPTDist string
 
 func init() {
 	hostbuilderURL := os.Getenv("HOSTBUILDER_URL")
@@ -56,16 +54,6 @@ func init() {
 	defaultProvider = os.Getenv("DEFAULT_PROVIDER")
 	if defaultProvider == "" {
 		panic("DEFAULT_PROVIDER is not set")
-	}
-
-	defaultAPTLocation = os.Getenv("DEFAULT_APT_LOCATION")
-	if defaultAPTLocation == "" {
-		panic("DEFAULT_APT_LOCATION is not set")
-	}
-
-	defaultAPTDist = os.Getenv("DEFAULT_APT_DIST")
-	if defaultAPTDist == "" {
-		panic("DEFAULT_APT_DIST is not set")
 	}
 }
 
