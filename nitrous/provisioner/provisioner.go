@@ -53,6 +53,9 @@ type Provisioner struct {
 	stop      chan struct{}
 	stopped   chan struct{}
 	isRunning uint32 // atomic bool, non zero if true
+
+	provisionerUser      *user.User
+	provisionerUserToken *token.Token
 }
 
 type ProvisionOptions struct {
@@ -119,13 +122,24 @@ func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub) *Provisi
 		l.Warnf("provisioner: failed to load config, disabling pre-provisioner: %s", err)
 	}
 
+	u, err := user.FindByUsername(d, cfg.Username)
+	if err != nil {
+		l.Warnf("provisioner: failed to load provisioner user %q: %s", cfg.Username, err)
+	}
+	t := &token.Token{UserID: u.ID}
+	if err := t.Insert(d); err != nil {
+		l.Warnf("provisioner: failed to create provisioner user's token: %s", err)
+	}
+
 	return &Provisioner{
-		config:  cfg,
-		db:      d,
-		logger:  l,
-		events:  e,
-		stop:    make(chan struct{}),
-		stopped: make(chan struct{}),
+		config:               cfg,
+		db:                   d,
+		logger:               l,
+		events:               e,
+		stop:                 make(chan struct{}),
+		stopped:              make(chan struct{}),
+		provisionerUser:      u,
+		provisionerUserToken: t,
 	}
 }
 
