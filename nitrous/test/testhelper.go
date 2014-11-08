@@ -17,12 +17,12 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/server"
+	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 var tables []string // retrieve list of tables once and store here
@@ -176,7 +176,7 @@ func RandomName(name string) string {
 }
 
 func TLSConfig(hostname string, certPEM []byte, keyPEM []byte) (*tls.Config, error) {
-	caInfo, err := controllers.GetCAInfo(true)
+	caInfo, err := certauth.GetCAInfo(true)
 	if err != nil {
 		return nil, err
 	}
