@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"math/rand"
 	"os"
 	"sync/atomic"
 	"time"
@@ -16,6 +18,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/preprovisionedhost"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -119,6 +122,8 @@ func init() {
 func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub) *Provisioner {
 	cfg, err := loadConfig()
 	if err != nil {
+		// FIXME Actually disable pre-provisioner using a flag or alternatively
+		// return an error.
 		l.Warnf("provisioner: failed to load config, disabling pre-provisioner: %s", err)
 	}
 
@@ -159,11 +164,8 @@ func (p *Provisioner) Start() error {
 				p.logger.Debugf("provisioner: checking pre-provisioning req against reality...")
 
 				for _, driver := range p.config.Drivers {
-					p.logger.Debugf("provisioner: provider %q config: %+v", driver.Name, driver.Specs)
+					p.comparePreprovisioned(driver)
 				}
-
-				// FIXME compare configured hosts against actually pre-provisioned hosts.
-				// Then provision hosts as necessary as jobs in goroutines.
 			case <-p.stop:
 				ticker.Stop()
 				p.logger.Info("provisioner: stopped")
@@ -199,6 +201,9 @@ func (p *Provisioner) setRunning(r bool) bool {
 // If the Async option is true, the current Host record is returned immediately
 // while provisioning happens asynchonously.
 func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
+	// FIXME Check if pre-provisioned hosts are available, and if so, assign and
+	// return one of them.
+
 	if opts.AptLocation == "" {
 		opts.AptLocation = defaultAPTLocation
 	}
@@ -354,6 +359,70 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	}
 
 	return h, nil
+}
+
+func (p *Provisioner) preprovision() {
+	// See https://github.com/docker/docker/pull/8570 for renaming of
+	// Docker container name.
+}
+
+// comparePreprovisioned compares driver specs against actually pre-provisioned
+// hosts. If any hosts are needed, they are pre-provisioned.
+func (p *Provisioner) comparePreprovisioned(driver Driver) error {
+	db := p.db
+	// FIXME We should have a lock around the comparison so that we don't
+	// pre-provision more hosts due to a race.
+	for _, spec := range driver.Specs {
+		p.logger.Debugf("provisioner: checking preprovisioning spec: %+v", spec)
+
+		r, err := region.FindBySlug(db, spec.Region)
+		if err != nil {
+			return err
+		}
+		pl, err := plan.FindBySlug(db, spec.Plan)
+		if err != nil {
+			return err
+		}
+		template, err := providertemplate.FindByRegionAndPlanAndProvider(db, r.ID, pl.ID, driver.Name)
+		if err != nil {
+			return err
+		}
+		hosts, err := preprovisionedhost.FindAll(db, r, pl)
+		if err != nil {
+			return err
+		}
+
+		needed := spec.Count - len(hosts)
+		i := 1
+		for i <= needed {
+			p.logger.Debugf("provisioner: pre-provisioning %d of %d hosts", i, needed)
+
+			// FIXME This is not call ProvisionHost because we want to save the
+			// host to the preprovisioned_hosts table.
+
+			// FIXME Do the pre-provisioning in a goroutine.
+			// FIXME Record (with a mutex) that pre-provisioning is in progress.
+			h, err := p.ProvisionHost(ProvisionOptions{
+				Async:        false,
+				OutputStream: ioutil.Discard,
+				Slug:         fmt.Sprintf("pre-provisioned-%d", rand.Int31n(2147483647)), // FIXME Generate a UUID.
+				Name:         "Pre-provisioned host",
+				User:         p.provisionerUser,
+				Token:        p.provisionerUserToken,
+				Region:       r,
+				Plan:         pl,
+				Template:     template,
+				AptLocation:  defaultAPTLocation,
+				AptDist:      defaultAPTDist,
+			})
+			fmt.Printf("! new host pre-provisioned: %+v", h)
+			if err != nil {
+				return err
+			}
+			i = i + 1
+		}
+	}
+	return nil
 }
 
 func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOptions) hostbuilderclient.Config {
