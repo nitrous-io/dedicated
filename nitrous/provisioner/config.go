@@ -13,7 +13,7 @@ import (
 // {
 //   "username": "host-provisioner",
 //   "poll_interval_ms": "5000",
-//   "providers": [
+//   "drivers": [
 //     {
 //       "name": "digitalocean",
 //       "specs": [
@@ -42,12 +42,12 @@ import (
 //   ]
 // }
 type Config struct {
-	Username       string     `json:"username"`
-	PollIntervalMS int64      `json:"poll_interval_ms"` // In milliseconds.
-	Providers      []Provider `json:"providers,omitempty"`
+	Username       string   `json:"username"`
+	PollIntervalMS int64    `json:"poll_interval_ms"` // In milliseconds.
+	Drivers        []Driver `json:"drivers,omitempty"`
 }
 
-type Provider struct {
+type Driver struct {
 	Name  string `json:"name"`
 	Specs []Spec `json:"specs,omitempty"`
 }

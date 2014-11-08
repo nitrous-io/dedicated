@@ -132,8 +132,8 @@ func (p *Provisioner) Start() error {
 			case <-ticker.C:
 				p.logger.Debugf("provisioner: checking pre-provisioning req against reality...")
 
-				for _, prov := range p.config.Providers {
-					p.logger.Debugf("provisioner: provider %q config: %+v", prov.Name, prov.Specs)
+				for _, driver := range p.config.Drivers {
+					p.logger.Debugf("provisioner: provider %q config: %+v", driver.Name, driver.Specs)
 				}
 
 				// FIXME compare configured hosts against actually pre-provisioned hosts.

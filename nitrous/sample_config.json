@@ -1,7 +1,7 @@
 {
   "username": "host-provisioner",
   "poll_interval_ms": 5000,
-  "providers": [
+  "drivers": [
     {
       "name": "digitalocean",
       "specs": [
