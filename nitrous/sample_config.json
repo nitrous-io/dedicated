@@ -1,31 +1,18 @@
 {
   "username": "host-provisioner",
-  "poll_interval_ms": 5000,
-  "drivers": [
+  "num_workers": 2,
+  "preprovision": [
     {
-      "name": "digitalocean",
-      "specs": [
-        {
-          "region": "sgp",
-          "plan": "512mb",
-          "count": 2
-        },
-        {
-          "region": "sfo",
-          "plan": "1gb",
-          "count": 2
-        }
-      ]
+      "driver": "digitalocean",
+      "region": "sgp",
+      "plan": "1gb",
+      "count": 2
     },
     {
-      "name": "docker",
-      "specs": [
-        {
-          "region": "sgp",
-          "plan": "512mb",
-          "count": 1
-        }
-      ]
-    }
+      "driver": "docker",
+      "region": "sgp",
+      "plan": "512mb",
+      "count": 1
+    },
   ]
 }
