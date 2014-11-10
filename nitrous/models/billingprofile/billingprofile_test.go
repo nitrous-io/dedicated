@@ -1,7 +1,7 @@
 package billingprofile_test
 
 import (
-	"fmt"
+	"database/sql"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -10,7 +10,6 @@ import (
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/stripe/stripe-go"
 )
 
 func Test(t *testing.T) {
@@ -20,9 +19,8 @@ func Test(t *testing.T) {
 
 var _ = Describe("models/billingprofile", func() {
 	var (
-		db         *db.Database
-		u          *user.User
-		fakeStripe *FakeStripe
+		db *db.Database
+		u  *user.User
 	)
 
 	BeforeEach(func() {
@@ -37,9 +35,6 @@ var _ = Describe("models/billingprofile", func() {
 		}
 		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
-
-		fakeStripe = &FakeStripe{}
-		stripe.SetBackend(fakeStripe)
 	})
 
 	AfterEach(func() {
@@ -48,92 +43,48 @@ var _ = Describe("models/billingprofile", func() {
 		}
 	})
 
-	Describe("Create", func() {
-		It("returns an error when user is nil", func() {
-			b, err := billingprofile.Create(db, nil, "token")
-			Expect(b).To(BeNil())
-			Expect(err).NotTo(BeNil())
+	Describe("Find()", func() {
+		It("returns the billing profile for the given user ID", func() {
+			p, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(p.ID).NotTo(BeNil())
+			Expect(p.UserID).To(Equal(u.ID))
+			Expect(p.State).To(Equal("free"))
+			Expect(p.CreatedAt).NotTo(BeNil())
+			Expect(p.UpdatedAt).NotTo(BeNil())
 		})
 
-		It("sends a request to Stripe to create a customer", func() {
-			billingprofile.Create(db, u, "token")
-
-			Expect(fakeStripe.Received).To(Equal(map[string]string{
-				"method": "POST",
-				"path":   "/customers",
-				"card":   "token",
-				"email":  u.Email,
-				"desc":   fmt.Sprint(u.Name, u.Username),
-			}))
-		})
-
-		Context("when Stripe returns the created customer", func() {
-			It("updates and persists the record", func() {
-				fakeStripe.Response = fmt.Sprintf(`{
-					"id": "sc_01",
-					"email": "%s",
-					"cards": {
-						"object": "list",
-						"total_count": 1,
-						"has_more": false,
-						"url": "/v1/customers/cus_56dgsyZAJujFFO/cards",
-						"data": [
-							{
-								"id": "card_14wQPX2CU2PklWtHi34KFonT",
-								"object": "card",
-								"last4": "4242",
-								"brand": "Visa",
-								"funding": "credit",
-								"exp_month": 10,
-								"exp_year": 2018,
-								"fingerprint": "H0SJieNrXmTdq3qs",
-								"country": "US",
-								"name": null,
-								"address_line1": null,
-								"address_line2": null,
-								"address_city": null,
-								"address_state": null,
-								"address_zip": null,
-								"address_country": null,
-								"cvc_check": "pass",
-								"address_line1_check": null,
-								"address_zip_check": null,
-								"dynamic_last4": null,
-								"customer": "cus_56dgsyZAJujFFO"
-							}
-						]
-					},
-					"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
-				}`, u.Email)
-
-				b, err := billingprofile.Create(db, u, "token")
+		Context("when there's no billing profile for the given user id", func() {
+			It("returns nil", func() {
+				p, err := billingprofile.Find(db, 9999)
+				Expect(p).To(BeNil())
 				Expect(err).To(BeNil())
-
-				Expect(b.ID).NotTo(BeNil())
-				Expect(b.UserID).To(Equal(u.ID))
-				Expect(b.StripeID).To(Equal("sc_01"))
-				Expect(b.LastFour).To(Equal("4242"))
-				Expect(b.CardType).To(Equal("Visa"))
-				Expect(b.ExpMonth).To(Equal(uint8(10)))
-				Expect(b.ExpYear).To(Equal(uint16(2018)))
 			})
 		})
 
-		Context("when Stripe returns an error", func() {
-			It("returns the error, without persisting the record", func() {
-				fakeStripe.Error = &stripe.Error{
-					Type: stripe.ErrorType(stripe.APIErr),
-					Msg:  "some error occurred",
-					Code: stripe.ErrorCode(stripe.ProcessingErr),
-				}
-
-				_, err := billingprofile.Create(db, u, "token")
+		Context("when some error happens", func() {
+			It("returns error", func() {
+				db.Close()
+				p, err := billingprofile.Find(db, u.ID)
+				Expect(p).To(BeNil())
 				Expect(err).NotTo(BeNil())
-
-				b, err := billingprofile.Find(db, u)
-				Expect(err).To(BeNil())
-				Expect(b).To(BeNil())
 			})
+		})
+	})
+
+	Describe("Update()", func() {
+		It("updates the profile with given parameters", func() {
+			bp, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			oldUpdatedAt := bp.UpdatedAt
+			bp.StripeID = sql.NullString{"sc_002", true}
+
+			err = bp.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(bp.StripeID.String).To(Equal("sc_002"))
+			Expect(bp.UpdatedAt).NotTo(Equal(oldUpdatedAt))
 		})
 	})
 })

@@ -19,6 +19,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
+	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/customer"
 )
 
 const resetPasswordWithin = 4 * time.Hour
@@ -452,4 +454,35 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 	}
 
 	return nil
+}
+
+// ActivateBillingProfile will create a new customer in Stripe and return the updated billing profile.
+func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billingprofile.BillingProfile, error) {
+	params := &stripe.CustomerParams{
+		Token: token,
+		Email: u.Email,
+		Desc:  fmt.Sprint(u.Name, u.Username),
+	}
+	c, err := customer.New(params)
+	if err != nil {
+		return nil, err
+	}
+
+	// update the profile with details returned from Stripe
+	crd := c.Cards.Values[0]
+	b := &billingprofile.BillingProfile{
+		UserID:   u.ID,
+		StripeID: sql.NullString{c.ID, true},
+		State:    "paid",
+		LastFour: sql.NullString{crd.LastFour, true},
+		CardType: sql.NullString{string(crd.Brand), true},
+		ExpMonth: sql.NullInt64{int64(crd.Month), true},
+		ExpYear:  sql.NullInt64{int64(crd.Year), true},
+	}
+
+	err = b.Update(d)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
