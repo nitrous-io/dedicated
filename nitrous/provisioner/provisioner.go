@@ -163,8 +163,10 @@ func (p *Provisioner) Start() error {
 			case <-ticker.C:
 				p.logger.Debugf("provisioner: checking pre-provisioning req against reality...")
 
-				for _, driver := range p.config.Drivers {
-					p.comparePreprovisioned(driver)
+				for _, spec := range p.config.PreprovisionSpecs {
+					if err := p.comparePreprovisioned(spec); err != nil {
+						p.logger.Errorf("provisioner: pre-provisioning failed %s", err)
+					}
 				}
 			case <-p.stop:
 				ticker.Stop()
@@ -366,61 +368,61 @@ func (p *Provisioner) preprovision() {
 	// Docker container name.
 }
 
-// comparePreprovisioned compares driver specs against actually pre-provisioned
-// hosts. If any hosts are needed, they are pre-provisioned.
-func (p *Provisioner) comparePreprovisioned(driver Driver) error {
+// comparePreprovisioned compares a PreprovisionSpec against actually
+// pre-provisioned hosts. If any hosts are needed, they are pre-provisioned.
+func (p *Provisioner) comparePreprovisioned(spec PreprovisionSpec) error {
 	db := p.db
 	// FIXME We should have a lock around the comparison so that we don't
 	// pre-provision more hosts due to a race.
-	for _, spec := range driver.Specs {
-		p.logger.Debugf("provisioner: checking preprovisioning spec: %+v", spec)
+	p.logger.Debugf("provisioner: checking preprovisioning spec: %+v", spec)
 
-		r, err := region.FindBySlug(db, spec.Region)
+	r, err := region.FindBySlug(db, spec.Region)
+	if err != nil {
+		return err
+	}
+	pl, err := plan.FindBySlug(db, spec.Plan)
+	if err != nil {
+		return err
+	}
+	template, err := providertemplate.FindByRegionAndPlanAndProvider(db, r.ID, pl.ID, spec.Driver)
+	if err != nil {
+		return err
+	}
+	hosts, err := preprovisionedhost.FindAll(db, r, pl)
+	if err != nil {
+		return err
+	}
+
+	needed := spec.Count - len(hosts)
+	i := 1
+	for i <= needed {
+		p.logger.Debugf("provisioner: pre-provisioning %d of %d hosts", i, needed)
+
+		// FIXME This should *NOT* call ProvisionHost because we want to save the
+		// host to the preprovisioned_hosts table.
+
+		// FIXME Do the pre-provisioning in a goroutine.
+		// FIXME Record (with a mutex) that pre-provisioning is in progress.
+		opts := ProvisionOptions{
+			Async:        false,
+			OutputStream: ioutil.Discard,
+			Slug:         fmt.Sprintf("pre-provisioned-%d", rand.Int31n(2147483647)), // FIXME Generate a UUID.
+			Name:         "Pre-provisioned host",
+			User:         p.preprovisionUser,
+			Token:        p.preprovisionUserToken,
+			Region:       r,
+			Plan:         pl,
+			Template:     template,
+			AptLocation:  defaultAPTLocation,
+			AptDist:      defaultAPTDist,
+		}
+		h, err := p.ProvisionHost(opts)
 		if err != nil {
+			p.logger.Errorf("provisioner: failed to pre-provision host with opts %+v, err: %s", opts, err)
 			return err
 		}
-		pl, err := plan.FindBySlug(db, spec.Plan)
-		if err != nil {
-			return err
-		}
-		template, err := providertemplate.FindByRegionAndPlanAndProvider(db, r.ID, pl.ID, driver.Name)
-		if err != nil {
-			return err
-		}
-		hosts, err := preprovisionedhost.FindAll(db, r, pl)
-		if err != nil {
-			return err
-		}
-
-		needed := spec.Count - len(hosts)
-		i := 1
-		for i <= needed {
-			p.logger.Debugf("provisioner: pre-provisioning %d of %d hosts", i, needed)
-
-			// FIXME This is not call ProvisionHost because we want to save the
-			// host to the preprovisioned_hosts table.
-
-			// FIXME Do the pre-provisioning in a goroutine.
-			// FIXME Record (with a mutex) that pre-provisioning is in progress.
-			h, err := p.ProvisionHost(ProvisionOptions{
-				Async:        false,
-				OutputStream: ioutil.Discard,
-				Slug:         fmt.Sprintf("pre-provisioned-%d", rand.Int31n(2147483647)), // FIXME Generate a UUID.
-				Name:         "Pre-provisioned host",
-				User:         p.preprovisionUser,
-				Token:        p.preprovisionUserToken,
-				Region:       r,
-				Plan:         pl,
-				Template:     template,
-				AptLocation:  defaultAPTLocation,
-				AptDist:      defaultAPTDist,
-			})
-			fmt.Printf("! new host pre-provisioned: %+v", h)
-			if err != nil {
-				return err
-			}
-			i = i + 1
-		}
+		fmt.Printf("! new host pre-provisioned: %+v", h)
+		i = i + 1
 	}
 	return nil
 }

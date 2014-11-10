@@ -13,46 +13,29 @@ import (
 // {
 //   "username": "host-provisioner",
 //   "poll_interval_ms": "5000",
-//   "drivers": [
+//   "preprovision": [
 //     {
-//       "name": "digitalocean",
-//       "specs": [
-//         {
-//           "region": "sgp",
-//           "plan": "512mb",
-//           "count": 2
-//         },
-//         {
-//           "region": "sfo",
-//           "plan": "1gb",
-//           "count": 2
-//         }
-//       ]
+//       "driver": "digitalocean",
+//       "region": "sgp",
+//       "plan": "1gb",
+//       "count": 2
 //     },
 //     {
-//       "name": "docker",
-//       "specs": [
-//         {
-//           "region": "sgp",
-//           "plan": "512mb",
-//           "count": 1
-//         }
-//       ]
-//     }
+//       "driver": "docker",
+//       "region": "sgp",
+//       "plan": "512mb",
+//       "count": 1
+//     },
 //   ]
 // }
 type Config struct {
-	Username       string   `json:"username"`
-	PollIntervalMS int64    `json:"poll_interval_ms"` // In milliseconds.
-	Drivers        []Driver `json:"drivers,omitempty"`
+	Username          string             `json:"username"`
+	PollIntervalMS    int64              `json:"poll_interval_ms"` // In milliseconds.
+	PreprovisionSpecs []PreprovisionSpec `json:"preprovision,omitempty"`
 }
 
-type Driver struct {
-	Name  string `json:"name"`
-	Specs []Spec `json:"specs,omitempty"`
-}
-
-type Spec struct {
+type PreprovisionSpec struct {
+	Driver string `json:"driver"`
 	Region string `json:"region"`
 	Plan   string `json:"plan"`
 	Count  int    `json:"count"`
