@@ -144,8 +144,8 @@ var _ = Describe("controllers/billingprofiles", func() {
 			err := json.Unmarshal(res.Body.Bytes(), &j)
 			Expect(err).To(BeNil())
 
-			Expect(j.BillingProfile.ExpMonth).To(Equal(uint8(10)))
-			Expect(j.BillingProfile.ExpYear).To(Equal(uint16(2018)))
+			Expect(j.BillingProfile.ExpMonth).To(Equal(int64(10)))
+			Expect(j.BillingProfile.ExpYear).To(Equal(int64(2018)))
 			Expect(j.BillingProfile.CardType).To(Equal("Visa"))
 			Expect(j.BillingProfile.LastFour).To(Equal("4242"))
 		})

@@ -114,7 +114,7 @@ func (s *Server) drawRoutes() {
 			"POST": {
 				"/user/profile":                        r("userprofiles.Update", userprofiles.Update),
 				"/hosts":                               r("hosts.Create", hosts.Create, HostCreated),
-				"/user/billing_profile":                r("billingprofiles.Create", billingprofiles.Create),
+				"/user/billing_profile":                r("billingprofiles.Activate", billingprofiles.Activate),
 				"/hosts/{slug}/registries":             r("registries.Login", registries.Login),
 				"/hosts/{slug}/restart":                r("hosts.Restart", mw.HostViaPath("slug", hosts.Restart)),
 				"/hosts/{slug}/volumes":                r("volumes.Create", mw.HostViaPath("slug", volumes.Create)),

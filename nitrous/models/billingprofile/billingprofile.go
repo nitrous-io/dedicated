@@ -2,15 +2,12 @@ package billingprofile
 
 import (
 	"database/sql"
-	"errors"
-	"fmt"
 	"os"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/stripe/stripe-go"
-	"github.com/stripe/stripe-go/customer"
 )
 
 func init() {
@@ -33,17 +30,6 @@ type BillingProfile struct {
 	UpdatedAt *time.Time     `db:"updated_at"`
 }
 
-func (b *BillingProfile) insert(d db.QueryReceiver) error {
-	nstmt, err := d.PrepareNamed(`INSERT INTO billing_profiles 
-		(user_id, stripe_id, last_four, card_type, exp_month, exp_year, state)
-		VALUES (:user_id, :stripe_id, :last_four, :card_type, :exp_month, :exp_year, :state)
-		RETURNING *;`)
-	if err != nil {
-		return err
-	}
-	return nstmt.QueryRowx(b).StructScan(b)
-}
-
 func Find(d db.QueryReceiver, userID int64) (*BillingProfile, error) {
 	b := &BillingProfile{}
 	err := d.Get(b, "SELECT * FROM billing_profiles WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1;", userID)
@@ -56,35 +42,19 @@ func Find(d db.QueryReceiver, userID int64) (*BillingProfile, error) {
 	return b, nil
 }
 
-func Create(d db.QueryReceiver, u *user.User, token string) (*BillingProfile, error) {
-	if u == nil {
-		return nil, errors.New("user not found")
-	}
+func Create(tx *sqlx.Tx, userID int64) error {
+	_, err := tx.Exec(`INSERT INTO billing_profiles (user_id, state) VALUES ($1, 'free');`, userID)
+	return err
+}
 
-	params := &stripe.CustomerParams{
-		Token: token,
-		Email: u.Email,
-		Desc:  fmt.Sprint(u.Name, u.Username),
-	}
-	c, err := customer.New(params)
+func (b *BillingProfile) Update(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE billing_profiles 
+		SET (stripe_id, last_four, card_type, exp_month, exp_year, state, updated_at)
+		= (:stripe_id, :last_four, :card_type, :exp_month, :exp_year, :state, now())
+		WHERE user_id = :user_id
+		RETURNING *;`)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	// persist the profile
-	crd := c.Cards.Values[0]
-	b := &BillingProfile{
-		UserID:   u.ID,
-		StripeID: c.ID,
-		LastFour: crd.LastFour,
-		CardType: string(crd.Brand),
-		ExpMonth: crd.Month,
-		ExpYear:  crd.Year,
-	}
-
-	err = b.insert(d)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
+	return nstmt.QueryRowx(b).StructScan(b)
 }
