@@ -1,6 +1,7 @@
 package keys
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -12,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/publickey"
+	"github.com/nitrous-io/dedicated/nitrous/models/publickey/ckey"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
@@ -26,14 +28,14 @@ var (
 )
 
 var (
-	Index     middleware.Middleware = withContainer(index)
-	Create    middleware.Middleware = containers.WithContainerAndHost(create)
-	DeleteAll middleware.Middleware = containers.WithContainerAndHost(deleteAll)
-	Delete    middleware.Middleware = containers.WithContainerAndHost(delete)
+	ContainerIndex     middleware.Middleware = withContainer(index)
+	ContainerCreate    middleware.Middleware = containers.WithContainerAndHost(create)
+	ContainerDeleteAll middleware.Middleware = containers.WithContainerAndHost(deleteAll)
+	ContainerDelete    middleware.Middleware = containers.WithContainerAndHost(delete)
 )
 
 func index(cn *container.Container, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	keys, err := publickey.FindAll(env.DB, env.User.ID, cn.ID)
+	keys, err := ckey.FindAll(env.DB, env.User.ID, cn.ID)
 	if err != nil {
 		return err
 	}
@@ -48,9 +50,9 @@ func index(cn *container.Container, env *middleware.Env, w http.ResponseWriter, 
 func create(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	pk := publickey.PublicKey{
+	pk := &publickey.PublicKey{
 		UserID:      env.User.ID,
-		ContainerID: cn.ID,
+		ContainerID: sql.NullInt64{cn.ID, true},
 		Key:         r.FormValue("key"),
 	}
 
@@ -63,7 +65,7 @@ func create(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
-	if err := pk.Insert(tx); err != nil {
+	if err := ckey.Insert(tx, pk); err != nil {
 		tx.Rollback()
 		if err == publickey.ErrInvalidKey {
 			return ErrInvalidKey
@@ -108,7 +110,7 @@ func deleteAll(cn *container.Container, h *host.Host, env *middleware.Env, w htt
 		return freighterError(err)
 	}
 
-	err = publickey.DestroyAll(db, u.ID, cn.ID)
+	err = ckey.DestroyAll(db, u.ID, cn.ID)
 	if err != nil {
 		return err
 	}
@@ -131,7 +133,7 @@ func delete(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 
 	slug := mux.Vars(r)["kslug"]
 
-	key, err := publickey.Find(db, u.ID, cn.ID, slug)
+	key, err := ckey.Find(db, u.ID, cn.ID, slug)
 	if err != nil {
 		if err == publickey.ErrNotFound {
 			return ErrFingerprintNotFound
@@ -143,7 +145,7 @@ func delete(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	if err != nil {
 		return freighterError(err)
 	} else {
-		err = publickey.Destroy(db, u.ID, cn.ID, key.ID)
+		err = ckey.Destroy(db, u.ID, cn.ID, key.ID)
 		if err != nil {
 			return err
 		}

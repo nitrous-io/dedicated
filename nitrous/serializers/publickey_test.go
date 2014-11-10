@@ -1,6 +1,7 @@
 package serializers_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -18,7 +19,7 @@ var _ = Describe("public key serializer", func() {
 		model = &publickey.PublicKey{
 			ID:          10,
 			UserID:      11,
-			ContainerID: 12,
+			ContainerID: sql.NullInt64{12, true},
 			Fingerprint: "bc:68:22:0a:6b:31:18:f7:52:33:fe:af:d9:ed:9f:81",
 			Key:         "ssh-rsa AAAAB3NzaC",
 			CreatedAt:   &createdAt,

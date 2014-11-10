@@ -68,6 +68,12 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/hosts/{slug}/images/{image:.*}", mw.Auth(mw.HostViaPath("slug", images.Remove)), "DELETE")
 		s.routeJSON("/hosts/{slug}/images/{image:.*}", mw.Auth(mw.HostViaPath("slug", images.Inspect)), "GET")
 
+		s.routeJSON("/hosts/{slug}/keys", mw.Auth(mw.HostViaPath("slug", keys.HostIndex)), "GET")
+		s.routeJSON("/hosts/{slug}/keys", mw.Auth(mw.HostViaPath("slug", keys.HostCreate)), "POST")
+		s.routeJSON("/hosts/{slug}/keys", mw.Auth(mw.HostViaPath("slug", keys.HostCreate)), "PUT")
+		s.routeJSON("/hosts/{slug}/keys/{kslug}", mw.Auth(mw.HostViaPath("slug", keys.HostDelete)), "DELETE")
+		s.routeJSON("/hosts/{slug}/keys", mw.Auth(mw.HostViaPath("slug", keys.HostDeleteAll)), "DELETE")
+
 		s.routeJSON("/containers", mw.Auth(containers.Index), "GET")
 		s.routeJSON("/containers", mw.Track(analytics.ContainerCreated, mw.Auth(containers.Create)), "POST")
 		s.routeJSON("/containers/{slug}", mw.Auth(containers.Show), "GET")
@@ -80,11 +86,11 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/containers/{slug}", mw.Auth(containers.Destroy), "DELETE")
 		s.routeJSON("/containers/{slug}/token", mw.Track(analytics.ContainerAccessed, mw.Auth(containers.Token)), "POST")
 
-		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Index), "GET")
-		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Create), "POST")
-		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Create), "PUT")
-		s.routeJSON("/containers/{slug}/keys/{kslug}", mw.Auth(keys.Delete), "DELETE")
-		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.DeleteAll), "DELETE")
+		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.ContainerIndex), "GET")
+		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.ContainerCreate), "POST")
+		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.ContainerCreate), "PUT")
+		s.routeJSON("/containers/{slug}/keys/{kslug}", mw.Auth(keys.ContainerDelete), "DELETE")
+		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.ContainerDeleteAll), "DELETE")
 
 		s.routeJSON("/feedback", mw.Auth(feedback.Send), "POST")
 
