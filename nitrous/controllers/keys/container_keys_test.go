@@ -18,11 +18,14 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/publickey"
+	"github.com/nitrous-io/dedicated/nitrous/models/publickey/ckey"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous-common/sshkey"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -120,7 +123,7 @@ var _ = Describe("controllers/keys", func() {
 							ContainerID: sql.NullInt64{c.ID, true},
 							Key:         k,
 						}
-						err := pk.Insert(db)
+						err := ckey.Insert(db, pk)
 						Expect(err).To(BeNil())
 						pks = append(pks, pk)
 					}
@@ -139,7 +142,7 @@ var _ = Describe("controllers/keys", func() {
 					Expect(j.Keys).To(HaveLen(2))
 					for _, k := range j.Keys {
 						Expect(validKeys).To(ContainElement(k.Key))
-						Expect(k.ContainerID).To(Equal(c.ID))
+						Expect(*k.ContainerID).To(Equal(c.ID))
 					}
 				})
 			})
@@ -193,7 +196,7 @@ var _ = Describe("controllers/keys", func() {
 
 						Expect(mockClient.AddPublicKeysCalled).To(Equal(1))
 						Expect(mockClient.ReceivedID).To(Equal(c.CID))
-						pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
+						pks, err := ckey.FindAll(db, hs.U.ID, c.ID)
 						Expect(err).To(BeNil())
 						Expect(pks).To(HaveLen(1))
 
@@ -212,7 +215,7 @@ var _ = Describe("controllers/keys", func() {
 							ContainerID: sql.NullInt64{c.ID, true},
 							Key:         validKeys[0],
 						}
-						err := pk.Insert(db)
+						err := ckey.Insert(db, pk)
 						Expect(err).To(BeNil())
 					})
 
@@ -269,7 +272,7 @@ var _ = Describe("controllers/keys", func() {
 					It("should not persist the key in the database", func() {
 						doRequest("valid-token", c.Slug)
 
-						pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
+						pks, err := ckey.FindAll(db, hs.U.ID, c.ID)
 						Expect(err).To(BeNil())
 						Expect(pks).To(HaveLen(0))
 					})
@@ -304,11 +307,11 @@ var _ = Describe("controllers/keys", func() {
 							ContainerID: sql.NullInt64{c.ID, true},
 							Key:         validKeys[i],
 						}
-						err := pk.Insert(db)
+						err := ckey.Insert(db, pk)
 						Expect(err).To(BeNil())
 					}
 
-					pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
+					pks, err := ckey.FindAll(db, hs.U.ID, c.ID)
 					Expect(err).To(BeNil())
 					Expect(pks).To(HaveLen(2))
 
@@ -322,7 +325,7 @@ var _ = Describe("controllers/keys", func() {
 
 						Expect(mockClient.ClearPublicKeysCalled).To(Equal(1))
 						Expect(mockClient.ReceivedID).To(Equal(c.CID))
-						pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
+						pks, err := ckey.FindAll(db, hs.U.ID, c.ID)
 						Expect(err).To(BeNil())
 						Expect(pks).To(BeEmpty())
 
@@ -353,7 +356,7 @@ var _ = Describe("controllers/keys", func() {
 					It("should not destroy the keys from the database", func() {
 						doRequest("valid-token", c.Slug)
 
-						pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
+						pks, err := ckey.FindAll(db, hs.U.ID, c.ID)
 						Expect(err).To(BeNil())
 						Expect(len(pks)).To(Equal(2))
 					})
@@ -409,7 +412,7 @@ var _ = Describe("controllers/keys", func() {
 					ContainerID: sql.NullInt64{c.ID, true},
 					Key:         validKeys[i],
 				}
-				err := pk.Insert(db)
+				err := ckey.Insert(db, pk)
 				Expect(err).To(BeNil())
 				pks = append(pks, pk)
 			}
@@ -422,7 +425,7 @@ var _ = Describe("controllers/keys", func() {
 			}
 			err := c2.Insert(db)
 			Expect(err).To(BeNil())
-			fprint, err = pks[1].Md5Fingerprint()
+			fprint, err = sshkey.Md5Fingerprint(pks[1].Key)
 			Expect(err).To(BeNil())
 			mockClient.RemovePublicKeyCalled = 0
 		})
@@ -473,7 +476,7 @@ var _ = Describe("controllers/keys", func() {
 				It("should not destroy the keys from the database", func() {
 					doRequest("valid-token", c.Slug, fprint)
 
-					pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
+					pks, err := ckey.FindAll(db, hs.U.ID, c.ID)
 					Expect(err).To(BeNil())
 					Expect(len(pks)).To(Equal(2))
 				})
@@ -487,7 +490,7 @@ var _ = Describe("controllers/keys", func() {
 				_, errDesc := ErrorSlug(res.Body)
 				Expect(errDesc).To(Equal("fingerprint not found"))
 
-				pks, err := publickey.FindAll(db, hs.U.ID, c.ID)
+				pks, err := ckey.FindAll(db, hs.U.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(len(pks)).To(Equal(2))
 			})

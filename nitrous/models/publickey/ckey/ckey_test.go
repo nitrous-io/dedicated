@@ -1,4 +1,4 @@
-package publickey_test
+package ckey_test
 
 import (
 	"database/sql"
@@ -7,7 +7,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/publickey"
+	"github.com/nitrous-io/dedicated/nitrous/models/publickey/ckey"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+
+	"github.com/nitrous-io/nitrous-common/sshkey"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -16,12 +19,12 @@ import (
 	"testing"
 )
 
-func TestPublicKey(t *testing.T) {
+func TestContainerKey(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "models/publickey")
+	RunSpecs(t, "models/publickey/ckey")
 }
 
-var _ = Describe("models/publickey", func() {
+var _ = Describe("models/publickey/ckey", func() {
 	var (
 		db *db.Database
 		hs *HostStack
@@ -76,7 +79,7 @@ var _ = Describe("models/publickey", func() {
 
 		Context("when public_key records with a given user_id exists", func() {
 			It("finds public_keys by a given user", func() {
-				keys, err := publickey.FindAll(db, hs.U.ID, c.ID)
+				keys, err := ckey.FindAll(db, hs.U.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(keys).To(HaveLen(1))
 
@@ -87,11 +90,11 @@ var _ = Describe("models/publickey", func() {
 
 		Context("when no public_key records with a given user_id and container_id exist", func() {
 			It("returns empty slice", func() {
-				keys, err := publickey.FindAll(db, hs.U.ID, 999)
+				keys, err := ckey.FindAll(db, hs.U.ID, 999)
 				Expect(err).To(BeNil())
 				Expect(keys).To(BeEmpty())
 
-				keys, err = publickey.FindAll(db, 999, c.ID)
+				keys, err = ckey.FindAll(db, 999, c.ID)
 				Expect(err).To(BeNil())
 				Expect(keys).To(BeEmpty())
 			})
@@ -102,7 +105,7 @@ var _ = Describe("models/publickey", func() {
 				db.Close()
 				u := user.User{}
 				c := container.Container{}
-				keys, err := publickey.FindAll(db, u.ID, c.ID)
+				keys, err := ckey.FindAll(db, u.ID, c.ID)
 				Expect(keys).To(BeEmpty())
 				Expect(err).NotTo(BeNil())
 			})
@@ -122,10 +125,10 @@ var _ = Describe("models/publickey", func() {
 
 		Context("when given params are valid", func() {
 			It("creates a public key", func() {
-				err := pk.Insert(db)
+				err := ckey.Insert(db, pk)
 				Expect(err).To(BeNil())
 
-				keys, err := publickey.FindAll(db, hs.U.ID, c.ID)
+				keys, err := ckey.FindAll(db, hs.U.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(keys).To(HaveLen(1))
 				Expect(keys[0].UserID).To(Equal(hs.U.ID))
@@ -137,7 +140,7 @@ var _ = Describe("models/publickey", func() {
 		Context("when given key is invalid", func() {
 			It("returns error", func() {
 				pk.Key = "ssh-rsa Not a key!!!"
-				err := pk.Insert(db)
+				err := ckey.Insert(db, pk)
 				Expect(err).To(Equal(publickey.ErrInvalidKey))
 			})
 		})
@@ -173,7 +176,7 @@ var _ = Describe("models/publickey", func() {
 				ContainerID: sql.NullInt64{c.ID, true},
 				Key:         validRSA,
 			}
-			rsa1C1print, err = rsa1C1.Md5Fingerprint()
+			rsa1C1print, err = sshkey.Md5Fingerprint(rsa1C1.Key)
 			Expect(err).To(BeNil())
 
 			rsa2C1 = &publickey.PublicKey{
@@ -181,7 +184,7 @@ var _ = Describe("models/publickey", func() {
 				ContainerID: sql.NullInt64{c.ID, true},
 				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
 			}
-			rsa2C1print, err = rsa2C1.Md5Fingerprint()
+			rsa2C1print, err = sshkey.Md5Fingerprint(rsa2C1.Key)
 			Expect(err).To(BeNil())
 
 			rsa1C2 = &publickey.PublicKey{
@@ -189,7 +192,7 @@ var _ = Describe("models/publickey", func() {
 				ContainerID: sql.NullInt64{c2.ID, true},
 				Key:         validRSA,
 			}
-			rsa1C2print, err = rsa1C2.Md5Fingerprint()
+			rsa1C2print, err = sshkey.Md5Fingerprint(rsa1C2.Key)
 			Expect(err).To(BeNil())
 
 			rsa2C2 = &publickey.PublicKey{
@@ -197,7 +200,7 @@ var _ = Describe("models/publickey", func() {
 				ContainerID: sql.NullInt64{c2.ID, true},
 				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
 			}
-			rsa2C2print, err = rsa2C2.Md5Fingerprint()
+			rsa2C2print, err = sshkey.Md5Fingerprint(rsa2C2.Key)
 			Expect(err).To(BeNil())
 
 			ecdsa = &publickey.PublicKey{
@@ -206,14 +209,14 @@ var _ = Describe("models/publickey", func() {
 				Key:         validECDSA,
 			}
 			for _, k := range []*publickey.PublicKey{rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa} {
-				err := k.Insert(db)
+				err := ckey.Insert(db, k)
 				Expect(err).To(BeNil())
 			}
 		})
 
 		Context("when finding with ID", func() {
 			It("should return the right publickey object if found", func() {
-				pk, err := publickey.Find(db, u.ID, c.ID, strconv.FormatInt(rsa1C1.ID, 10))
+				pk, err := ckey.Find(db, u.ID, c.ID, strconv.FormatInt(rsa1C1.ID, 10))
 				Expect(err).To(BeNil())
 				Expect(pk).To(Equal(rsa1C1))
 			})
@@ -221,14 +224,14 @@ var _ = Describe("models/publickey", func() {
 
 		Context("when finding with fingerprint", func() {
 			It("should return the right publickey record if found", func() {
-				pk, err := publickey.Find(db, u.ID, c.ID, rsa1C1print)
+				pk, err := ckey.Find(db, u.ID, c.ID, rsa1C1print)
 				Expect(err).To(BeNil())
 				Expect(pk).To(Equal(rsa1C1))
 			})
 		})
 
 		It("should return nil if it can't find a key with the given identifier", func() {
-			pk, err := publickey.Find(db, u.ID, c.ID, "invalid fingerprint")
+			pk, err := ckey.Find(db, u.ID, c.ID, "invalid fingerprint")
 			Expect(err).To(Equal(publickey.ErrNotFound))
 			Expect(pk).To(BeNil())
 		})
@@ -284,34 +287,34 @@ var _ = Describe("models/publickey", func() {
 				Key:         validECDSA,
 			}
 			for _, k := range []*publickey.PublicKey{rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa} {
-				err := k.Insert(db)
+				err := ckey.Insert(db, k)
 				Expect(err).To(BeNil())
 			}
 		})
 
 		Describe("DestroyAll", func() {
 			It("removes a user's and keys from a given container", func() {
-				pks, err := publickey.FindAll(db, u.ID, c.ID)
+				pks, err := ckey.FindAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(2))
 
-				err = publickey.DestroyAll(db, u.ID, c.ID)
+				err = ckey.DestroyAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 
-				pks, err = publickey.FindAll(db, u.ID, c.ID)
+				pks, err = ckey.FindAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(0))
 			})
 
 			It("does not remove other users' or containers' keys", func() {
-				pks, err := publickey.FindAll(db, u.ID, c2.ID)
+				pks, err := ckey.FindAll(db, u.ID, c2.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(2))
 
-				err = publickey.DestroyAll(db, u.ID, c.ID)
+				err = ckey.DestroyAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 
-				pks, err = publickey.FindAll(db, u.ID, c2.ID)
+				pks, err = ckey.FindAll(db, u.ID, c2.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(2))
 			})
@@ -319,10 +322,10 @@ var _ = Describe("models/publickey", func() {
 
 		Describe("Destroy", func() {
 			It("removes a key with the right fingerprint", func() {
-				err := publickey.Destroy(db, u.ID, c.ID, rsa1C1.ID)
+				err := ckey.Destroy(db, u.ID, c.ID, rsa1C1.ID)
 				Expect(err).To(BeNil())
 
-				pks, err := publickey.FindAll(db, u.ID, c.ID)
+				pks, err := ckey.FindAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(1))
 				Expect(pks[0].Key).To(Equal(rsa2C1.Key))
