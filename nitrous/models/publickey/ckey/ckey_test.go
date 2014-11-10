@@ -112,7 +112,7 @@ var _ = Describe("models/publickey/ckey", func() {
 		})
 	})
 
-	Describe("Insert()", func() {
+	Describe("Insert", func() {
 		var pk *publickey.PublicKey
 
 		BeforeEach(func() {
@@ -123,26 +123,33 @@ var _ = Describe("models/publickey/ckey", func() {
 			}
 		})
 
-		Context("when given params are valid", func() {
-			It("creates a public key", func() {
-				err := ckey.Insert(db, pk)
-				Expect(err).To(BeNil())
+		It("returns error if container id is not set", func() {
+			pk.ContainerID.Valid = false
+			err := ckey.Insert(db, pk)
+			Expect(err).To(MatchError(publickey.ErrInvalidKey))
 
-				keys, err := ckey.FindAll(db, hs.U.ID, c.ID)
-				Expect(err).To(BeNil())
-				Expect(keys).To(HaveLen(1))
-				Expect(keys[0].UserID).To(Equal(hs.U.ID))
-				Expect(keys[0].ContainerID.Int64).To(Equal(c.ID))
-				Expect(keys[0].ID).NotTo(BeZero())
-			})
+			pk.ContainerID.Valid = true
+			pk.ContainerID.Int64 = 0
+			err = ckey.Insert(db, pk)
+			Expect(err).To(MatchError(publickey.ErrInvalidKey))
 		})
 
-		Context("when given key is invalid", func() {
-			It("returns error", func() {
-				pk.Key = "ssh-rsa Not a key!!!"
-				err := ckey.Insert(db, pk)
-				Expect(err).To(Equal(publickey.ErrInvalidKey))
-			})
+		It("returns error if host id is set", func() {
+			pk.HostID = sql.NullInt64{3, true}
+			err := ckey.Insert(db, pk)
+			Expect(err).To(MatchError(ckey.ErrWrongKeyType))
+		})
+
+		It("inserts into db given valid fields", func() {
+			err := ckey.Insert(db, pk)
+			Expect(err).To(BeNil())
+
+			keys, err := ckey.FindAll(db, hs.U.ID, c.ID)
+			Expect(err).To(BeNil())
+			Expect(keys).To(HaveLen(1))
+			Expect(keys[0].UserID).To(Equal(hs.U.ID))
+			Expect(keys[0].ContainerID.Int64).To(Equal(c.ID))
+			Expect(keys[0].ID).NotTo(BeZero())
 		})
 	})
 
