@@ -192,8 +192,7 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	}
 
 	// create a user profile
-	err = userprofile.Create(tx, u.ID)
-	if err != nil {
+	if err := userprofile.Create(tx, u.ID); err != nil {
 		return err
 	}
 
@@ -255,9 +254,27 @@ func (u *User) Topic() pubsub.Topic {
 	return pubsub.Topic(fmt.Sprintf("user-%d", u.ID))
 }
 
+func (u *User) isPaid(d db.QueryReceiver) (bool, error) {
+	var state string
+	if err := d.QueryRowx(`SELECT state FROM billing_profiles WHERE user_id = $1;`, u.ID).Scan(&state); err != nil {
+		return false, err
+	}
+	return (state == "paid"), nil
+}
+
 func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
+	// check if the user is a paid user
+	paid, err := u.isPaid(d)
+	if err != nil {
+		return false, err
+	}
+	if paid {
+		return true, nil
+	}
+
+	// user is not a paid user, check the max hosts she can create
 	var b bool
-	err := d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
+	err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
 		FROM users u
 		JOIN user_profiles up ON (up.user_id = u.id)
 		LEFT JOIN hosts h ON (h.user_id = u.id AND h.terminated_at IS NULL)
@@ -267,7 +284,6 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
 	return b, nil
 }
 
