@@ -11,6 +11,10 @@ import (
 const (
 	ContainerStateStopped = "stopped"
 	ContainerStateRunning = "running"
+
+	// used to indicate that a public key related op is on a host, not a
+	// container
+	HostKeyOperation = "~HOST~"
 )
 
 var containerNameRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)

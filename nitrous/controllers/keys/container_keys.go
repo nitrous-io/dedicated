@@ -26,10 +26,10 @@ var (
 )
 
 var (
-	Index     middleware.Middleware = withContainer(index)
-	Create    middleware.Middleware = containers.WithContainerAndHost(create)
-	DeleteAll middleware.Middleware = containers.WithContainerAndHost(deleteAll)
-	Delete    middleware.Middleware = containers.WithContainerAndHost(delete)
+	ContainerIndex     middleware.Middleware = withContainer(index)
+	ContainerCreate    middleware.Middleware = containers.WithContainerAndHost(create)
+	ContainerDeleteAll middleware.Middleware = containers.WithContainerAndHost(deleteAll)
+	ContainerDelete    middleware.Middleware = containers.WithContainerAndHost(delete)
 )
 
 func index(cn *container.Container, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
