@@ -20,6 +20,9 @@ func NewAuthorizedKeys(path string) *AuthorizedKeys {
 }
 
 func (ak *AuthorizedKeys) Read() ([]string, error) {
+	if _, err := os.Stat(ak.path); err != nil && os.IsNotExist(err) {
+		return []string{}, nil
+	}
 	bkeys, err := ioutil.ReadFile(ak.path)
 	if err != nil {
 		return nil, err
