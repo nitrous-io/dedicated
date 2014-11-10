@@ -52,6 +52,13 @@ var _ = Describe("provider/docker keymanager", func() {
 		Expect(ks).To(ConsistOf([]string{pubkey1, pubkey2}))
 	})
 
+	It(".Read() with missing file", func() {
+		ak := docker.NewAuthorizedKeys("/tmp/nosuch")
+		ks, err := ak.Read()
+		Expect(err).To(BeNil())
+		Expect(ks).To(HaveLen(0))
+	})
+
 	It(".Write()", func() {
 		ak := docker.NewAuthorizedKeys(keysPath)
 		err := ak.Write([]string{"write", "doesn't", "validate"})
