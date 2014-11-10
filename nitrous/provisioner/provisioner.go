@@ -57,8 +57,8 @@ type Provisioner struct {
 	stopped   chan struct{}
 	isRunning uint32 // atomic bool, non zero if true
 
-	provisionerUser      *user.User
-	provisionerUserToken *token.Token
+	preprovisionUser      *user.User
+	preprovisionUserToken *token.Token
 }
 
 type ProvisionOptions struct {
@@ -129,22 +129,22 @@ func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub) *Provisi
 
 	u, err := user.FindByUsername(d, cfg.Username)
 	if err != nil {
-		l.Warnf("provisioner: failed to load provisioner user %q: %s", cfg.Username, err)
+		l.Warnf("provisioner: failed to load pre-provision user %q: %s", cfg.Username, err)
 	}
 	t := &token.Token{UserID: u.ID}
 	if err := t.Insert(d); err != nil {
-		l.Warnf("provisioner: failed to create provisioner user's token: %s", err)
+		l.Warnf("provisioner: failed to create pre-provision user's token: %s", err)
 	}
 
 	return &Provisioner{
-		config:               cfg,
-		db:                   d,
-		logger:               l,
-		events:               e,
-		stop:                 make(chan struct{}),
-		stopped:              make(chan struct{}),
-		provisionerUser:      u,
-		provisionerUserToken: t,
+		config:                cfg,
+		db:                    d,
+		logger:                l,
+		events:                e,
+		stop:                  make(chan struct{}),
+		stopped:               make(chan struct{}),
+		preprovisionUser:      u,
+		preprovisionUserToken: t,
 	}
 }
 
@@ -407,8 +407,8 @@ func (p *Provisioner) comparePreprovisioned(driver Driver) error {
 				OutputStream: ioutil.Discard,
 				Slug:         fmt.Sprintf("pre-provisioned-%d", rand.Int31n(2147483647)), // FIXME Generate a UUID.
 				Name:         "Pre-provisioned host",
-				User:         p.provisionerUser,
-				Token:        p.provisionerUserToken,
+				User:         p.preprovisionUser,
+				Token:        p.preprovisionUserToken,
 				Region:       r,
 				Plan:         pl,
 				Template:     template,
