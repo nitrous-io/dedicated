@@ -9,8 +9,8 @@ import (
 type BillingProfile struct {
 	LastFour  string     `json:"last_four"`
 	CardType  string     `json:"card_type"`
-	ExpMonth  uint8      `json:"exp_month"`
-	ExpYear   uint16     `json:"exp_year"`
+	ExpMonth  int64      `json:"exp_month"`
+	ExpYear   int64      `json:"exp_year"`
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
 }
@@ -20,10 +20,10 @@ func SerializeBillingProfile(b *billingprofile.BillingProfile) *BillingProfile {
 		return nil
 	}
 	return &BillingProfile{
-		LastFour:  b.LastFour,
-		CardType:  b.CardType,
-		ExpMonth:  b.ExpMonth,
-		ExpYear:   b.ExpYear,
+		LastFour:  b.LastFour.String,
+		CardType:  b.CardType.String,
+		ExpMonth:  b.ExpMonth.Int64,
+		ExpYear:   b.ExpYear.Int64,
 		CreatedAt: b.CreatedAt,
 		UpdatedAt: b.UpdatedAt,
 	}

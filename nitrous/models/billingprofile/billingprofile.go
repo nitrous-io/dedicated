@@ -21,21 +21,22 @@ func init() {
 }
 
 type BillingProfile struct {
-	ID        int64      `db:"id"`
-	UserID    int64      `db:"user_id"`
-	StripeID  string     `db:"stripe_id"`
-	LastFour  string     `db:"last_four"`
-	CardType  string     `db:"card_type"`
-	ExpMonth  uint8      `db:"exp_month"`
-	ExpYear   uint16     `db:"exp_year"`
-	CreatedAt *time.Time `db:"created_at"`
-	UpdatedAt *time.Time `db:"updated_at"`
+	ID        int64          `db:"id"`
+	UserID    int64          `db:"user_id"`
+	State     string         `db:"state"` // possible states: 'free', 'paid', 'payment_due', 'delinquent'
+	StripeID  sql.NullString `db:"stripe_id"`
+	LastFour  sql.NullString `db:"last_four"`
+	CardType  sql.NullString `db:"card_type"`
+	ExpMonth  sql.NullInt64  `db:"exp_month"`
+	ExpYear   sql.NullInt64  `db:"exp_year"`
+	CreatedAt *time.Time     `db:"created_at"`
+	UpdatedAt *time.Time     `db:"updated_at"`
 }
 
 func (b *BillingProfile) insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO billing_profiles 
-		(user_id, stripe_id, last_four, card_type, exp_month, exp_year)
-		VALUES (:user_id, :stripe_id, :last_four, :card_type, :exp_month, :exp_year)
+		(user_id, stripe_id, last_four, card_type, exp_month, exp_year, state)
+		VALUES (:user_id, :stripe_id, :last_four, :card_type, :exp_month, :exp_year, :state)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -43,9 +44,9 @@ func (b *BillingProfile) insert(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(b).StructScan(b)
 }
 
-func Find(d db.QueryReceiver, u *user.User) (*BillingProfile, error) {
+func Find(d db.QueryReceiver, userID int64) (*BillingProfile, error) {
 	b := &BillingProfile{}
-	err := d.Get(b, "SELECT * FROM billing_profiles WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1;", u.ID)
+	err := d.Get(b, "SELECT * FROM billing_profiles WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1;", userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

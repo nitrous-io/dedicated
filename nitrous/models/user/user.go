@@ -13,6 +13,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -191,7 +192,13 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	}
 
 	// create a user profile
-	return userprofile.Create(tx, u.ID)
+	err = userprofile.Create(tx, u.ID)
+	if err != nil {
+		return err
+	}
+
+	// create a billing profile
+	return billingprofile.Create(tx, u.ID)
 }
 
 func (u *User) Update(d db.QueryReceiver) error {

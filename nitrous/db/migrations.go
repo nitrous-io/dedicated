@@ -490,10 +490,12 @@ func init() {
 		{
 			Version: "410",
 			Up: `
+				CREATE TYPE billing_state AS ENUM ('free', 'paid', 'payment_due', 'delinquent');
 				CREATE TABLE billing_profiles (
 					id bigserial PRIMARY KEY NOT NULL,
 					user_id bigint REFERENCES users(id) NOT NULL,
 					stripe_id character varying(32),
+					state billing_state NOT NULL DEFAULT 'free',
 					last_four character varying(32),
 					card_type character varying(32),
 					exp_month integer,

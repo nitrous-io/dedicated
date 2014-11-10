@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -427,6 +428,17 @@ var _ = Describe("models/user", func() {
 				Expect(up.MaxHosts).To(Equal(int64(1)))
 				Expect(up.CreatedAt).NotTo(BeNil())
 				Expect(up.UpdatedAt).NotTo(BeNil())
+			})
+
+			It("creates a billing profile record", func() {
+				bp := &billingprofile.BillingProfile{}
+				err := db.Get(bp, "SELECT * FROM billing_profiles WHERE billing_profiles.user_id = $1;", u.ID)
+				Expect(err).To(BeNil())
+				Expect(bp.ID).NotTo(BeNil())
+				Expect(bp.UserID).To(Equal(u.ID))
+				Expect(bp.State).To(Equal("free"))
+				Expect(bp.CreatedAt).NotTo(BeNil())
+				Expect(bp.UpdatedAt).NotTo(BeNil())
 			})
 		})
 
