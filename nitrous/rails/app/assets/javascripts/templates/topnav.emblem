@@ -27,8 +27,8 @@
           | Account
           .ui.dropdown-triangle
         ul.dropdown-menu.right style='display: none'
-          li.disabled
-            a href='#' Account Settings
+          li
+            link-to 'user-settings' | Account Settings
           li.disabled
             a href='#' Billing
           li.separator

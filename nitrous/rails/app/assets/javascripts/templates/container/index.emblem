@@ -14,7 +14,7 @@
         span.click-highlight
           = slug
 
-    if App.user.advancedOptionsEnabled
+    if App.user.advanced
       tr
         th Image
         td colspan='3'
@@ -75,7 +75,7 @@
 
     tr
       th Created At
-      if App.user.advancedOptionsEnabled
+      if App.user.advanced
         td
           = dateabbr createdAt
           th Started At
@@ -88,7 +88,7 @@
         td colspan='3'
           = dateabbr createdAt
 
-    if App.user.advancedOptionsEnabled
+    if App.user.advanced
       tr
         th Exit Code
         td
@@ -107,10 +107,10 @@
       button.ui.btn click='restart' Restart
       button.ui.btn click='stop' Stop
     .right
-      if App.user.advancedOptionsEnabled
+      if App.user.advanced
         button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
       button.ui.btn click='openLogs' Logs...
-      if App.user.advancedOptionsEnabled
+      if App.user.advanced
         button.ui.btn click='openAttach' Attach
       if previewURL
         a.ui.btn href=previewURL target='_blank' Preview
