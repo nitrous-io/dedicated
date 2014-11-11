@@ -14,9 +14,10 @@ type Info struct {
 
 type Host interface {
 	Create(io.Writer) (*Info, error) // create a new host
-	Destroy() error                  // destroy the current host
-	Restart() (*Info, error)         // reboot the current host
-	Info() (*Info, error)            // get current info of the host
+	Update(io.Writer) (*Info, error)
+	Destroy() error          // destroy the current host
+	Restart() (*Info, error) // reboot the current host
+	Info() (*Info, error)    // get current info of the host
 }
 
 type NewHost func(defaultConfig map[string]string, config string) (Host, error)
