@@ -160,10 +160,8 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 
 	m := librato.NewSimpleMetrics(s.Config.LibratoUser, s.Config.LibratoToken,
 		fmt.Sprintf("hostbuilder_%s", provider))
-	defer func(start time.Time) {
-		g := m.GetGauge("create")
-		g <- int64(time.Since(start).Seconds() * 1000)
-	}(time.Now())
+
+	defer gaugeMetric(m, time.Now(), "create_host")
 
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
@@ -175,8 +173,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	info, err := h.Create(pw)
 	log.Printf("uuid=%s Created: %+v\n, %v", providerConfig["uuid"], info, err)
 	if err != nil {
-		c := m.GetCounter("create_error")
-		c <- 1
+		countMetric(m, 1, "create_host_error")
 		pw.WriteError(fmt.Errorf("failed to create a host on %s", provider))
 		return nil
 	}
@@ -205,12 +202,18 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	providerConfig := s.Config.Providers[provider]
 	configJson := r.Form.Get("config")
 
+	m := librato.NewSimpleMetrics(s.Config.LibratoUser, s.Config.LibratoToken,
+		fmt.Sprintf("hostbuilder_%s", provider))
+
+	defer gaugeMetric(m, time.Now(), "delete_host")
+
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return err
 	}
 	err = h.Destroy()
 	if err != nil {
+		countMetric(m, 1, "delete_host_error")
 		return err
 	}
 	writeResponse(w, okResponse)
@@ -225,12 +228,18 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	providerConfig := s.Config.Providers[provider]
 	configJson := r.Form.Get("config")
 
+	m := librato.NewSimpleMetrics(s.Config.LibratoUser, s.Config.LibratoToken,
+		fmt.Sprintf("hostbuilder_%s", provider))
+
+	defer gaugeMetric(m, time.Now(), "restart_host")
+
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return err
 	}
 	info, err := h.Restart()
 	if err != nil {
+		countMetric(m, 1, "restart_host_error")
 		return err
 	}
 	if err := pingHost(info, ioutil.Discard); err != nil {
@@ -309,4 +318,14 @@ func duration(m librato.Metrics, name string, f func()) {
 		g <- int64(time.Since(start).Seconds() * 1000)
 	}(time.Now())
 	f()
+}
+
+func gaugeMetric(m librato.Metrics, start time.Time, name string) {
+	g := m.GetGauge(name)
+	g <- int64(time.Since(start).Seconds() * 1000)
+}
+
+func countMetric(m librato.Metrics, count int64, name string) {
+	c := m.GetCounter(name)
+	c <- count
 }
