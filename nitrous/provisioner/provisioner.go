@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"sync"
 	"sync/atomic"
 
 	"github.com/lib/pq"
@@ -110,6 +111,14 @@ type ProvisionOptions struct {
 	ProvisionFailedFn    func(*host.Host, error)
 }
 
+// job is a request to pre-provision a single host.
+type job struct {
+	driver   string
+	region   *region.Region
+	plan     *plan.Plan
+	template *providertemplate.ProviderTemplate
+}
+
 type preparedHost struct {
 	host   *host.Host
 	cert   *cert.Cert
@@ -159,41 +168,69 @@ func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub, conf *Co
 	}
 }
 
-// Start kicks off a goroutine that compares the required number of
-// pre-provisioned hosts (specified by Provisioner.config) against reality.
-// More hosts are provisioned as necessary.
+// Start kicks off N workers that pre-provision hosts as necessary.
+// Both N and the number/kind of hosts to pre-provision is determined by
+// the provisioner's Config.
 func (p *Provisioner) Start() error {
-	p.logger.Debug("provisioner: started")
+	if p.config == nil {
+		return ErrPreprovisionerNotConfigured
+	}
+
+	if err := p.configureUser(); err != nil {
+		return nil
+	}
+
+	p.stop = make(chan struct{})
 	p.setRunning(true)
 
-	ticker := time.NewTicker(p.pollInterval())
+	p.logger.Debug("provisioner: starting")
+
+	numWorkers := p.config.NumWorkers
+	jobQueue := make(chan job, 100)
+	var wg sync.WaitGroup // Used to wait for all workers to quit.
+
+	// Create workers.
+	for i := 0; i < numWorkers; i++ {
+		p.logger.Debugf("provisioner: starting worker %d", i+1)
+		wg.Add(1)
+		go p.worker(i+1, jobQueue, &wg)
+	}
+
+	// Determine the hosts that we need to pre-provision and create jobs
+	// accordingly.
+	for _, spec := range p.config.PreprovisionSpecs {
+		jobs, err := p.createJobs(spec)
+		if err != nil {
+			// FIXME We currently ignore any errors here: should we do more?
+			p.logger.Errorf("provisioner: error creating job from spec %+v, err: %s", spec, err)
+		} else {
+			p.logger.Debugf("provisioner: created %d job(s) for spec %+v", len(jobs), spec)
+		}
+
+		for _, job := range jobs {
+			jobQueue <- job
+		}
+	}
+
 	go func() {
 		defer p.setRunning(false)
-		for {
-			select {
-			case <-ticker.C:
-				p.logger.Debugf("provisioner: checking pre-provisioning req against reality...")
+		<-p.stop
+		wg.Wait() // Wait for all workers to stop.
 
-				for _, spec := range p.config.PreprovisionSpecs {
-					if err := p.comparePreprovisioned(spec); err != nil {
-						p.logger.Errorf("provisioner: pre-provisioning failed %s", err)
-					}
-				}
-			case <-p.stop:
-				ticker.Stop()
-				p.logger.Info("provisioner: stopped")
-				p.stopped <- struct{}{}
-				return
-			}
-		}
+		p.logger.Info("provisioner: stopped")
+		p.stopped <- struct{}{}
 	}()
+
+	p.logger.Debug("provisioner: started")
 
 	return nil
 }
 
 func (p *Provisioner) Stop() {
-	p.stop <- struct{}{} // Don't close() channel so that we can start again.
-	<-p.stopped
+	if p.IsRunning() {
+		close(p.stop)
+		<-p.stopped
+	}
 }
 
 func (p *Provisioner) IsRunning() bool {
@@ -215,7 +252,8 @@ func (p *Provisioner) setRunning(r bool) bool {
 // while provisioning happens asynchonously.
 func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 	// FIXME Check if pre-provisioned hosts are available, and if so, assign and
-	// return one of them.
+	// return one of them, then add a spec back into the job queue if it exists
+	// in Config.
 
 	if opts.AptLocation == "" {
 		opts.AptLocation = defaultAPTLocation
@@ -374,9 +412,92 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	return h, nil
 }
 
-func (p *Provisioner) preprovision() {
+func (p *Provisioner) configureUser() error {
+	u, err := user.FindByUsername(p.db, p.config.Username)
+	if err != nil {
+		return err
+	}
+	t := &token.Token{UserID: u.ID}
+	if err := t.Insert(p.db); err != nil {
+		return err
+	}
+	p.preprovisionUser = u
+	p.preprovisionUserToken = t
+	return nil
+}
+
+func (p *Provisioner) createJobs(spec PreprovisionSpec) ([]job, error) {
+	db := p.db
+
+	r, err := region.FindBySlug(db, spec.Region)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, fmt.Errorf("provisioner: region not found", spec.Region)
+	}
+	pl, err := plan.FindBySlug(db, spec.Plan)
+	if err != nil {
+		return nil, err
+	}
+	if pl == nil {
+		return nil, fmt.Errorf("provisioner: plan not found", spec.Plan)
+	}
+	template, err := providertemplate.FindByRegionAndPlanAndProvider(db, r.ID, pl.ID, spec.Driver)
+	if err != nil {
+		return nil, err
+	}
+	if template == nil {
+		return nil, fmt.Errorf("provisioner: no matching provider template for %s/%s", spec.Region, spec.Plan)
+	}
+	hosts, err := host.FindAllPreprovisioned(db, r, pl)
+	if err != nil {
+		return nil, err
+	}
+
+	p.logger.Debugf("provisioner: for pre-provision spec %+v, existing hosts: %d", spec, len(hosts))
+	if len(hosts) > spec.Count {
+		p.logger.Debugf("provisioner: pre-provision spec %+v already satisfied, doing nothing", spec)
+		return nil, nil
+	}
+
+	needed := spec.Count - len(hosts)
+	jobs := make([]job, 0, needed)
+	for i := 0; i < needed; i++ {
+		jobs = append(jobs, job{
+			driver:   spec.Driver,
+			region:   r,
+			plan:     pl,
+			template: template,
+		})
+	}
+	return jobs, nil
+}
+
+// worker accepts jobs from a channel and pre-provisions hosts according to
+// the PreprovisionSpec. Note that PreprovisionSpec.Count is ignored and only
+// a single host is provisioned at any one time.
+func (p *Provisioner) worker(id int, jobQueue <-chan job, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		select {
+		case job := <-jobQueue:
+			p.logger.Debugf("provisioner: worker %d received job: %s/%s/%s",
+				id, job.driver, job.region.Slug, job.plan.Slug)
+			p.preprovision(job)
+
+		case <-p.stop:
+			p.logger.Debugf("provisioner: worker %d quitting", id)
+			return
+		}
+	}
+}
+
+func (p *Provisioner) preprovision(j job) {
 	// See https://github.com/docker/docker/pull/8570 for renaming of
 	// Docker container name.
+
+	p.logger.Debugf("provisioner: pre-provisioning complete: %+v", j)
 }
 
 // comparePreprovisioned compares a PreprovisionSpec against actually
