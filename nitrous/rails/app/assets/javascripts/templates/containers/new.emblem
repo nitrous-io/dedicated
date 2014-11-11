@@ -47,7 +47,7 @@
                 .ui.checkbox
                   input type='radio' id='containers-new-option-base-image' name='option' checked='checked' value='base-image' disabled={view.baseImageOptionDisabled}
                   label
-                label for='containers-new-option-base-image' Use Nitrous.IO Base Image
+                label for='containers-new-option-base-image' Use Nitrous Base Image
 
             ul.base-images
               each baseImage in App.baseImages

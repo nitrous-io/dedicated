@@ -199,21 +199,22 @@ table.ui.table
   margin-left: 1px
   user-select: none
 
+  &.raised
+    background: white
+    +light-shadow
+
   &:first-of-type
     margin-right: 0
 
   &:hover
-    background: rgba(153, 153, 153, .2)
+    background: #eaeaea
 
   &:focus
-    background: rgba(153, 153, 153, .3)
+    background: #d5d5d5
     outline: none
 
   &:active
-    background: rgba(153, 153, 153, .4)
-
-  &.raised
-    +light-shadow
+    background: #e0e0e0
 
   &.primary
     color: $lightBlue500
@@ -223,7 +224,7 @@ table.ui.table
 
   &:disabled, &[disabled], &.disabled
     color: $gray400
-    background: rgba(153, 153, 153, .1)
+    background: #f4f4f4
     cursor: not-allowed
 
   &.raised.primary
@@ -237,7 +238,7 @@ table.ui.table
       background: $lightBlue700
 
     &:disabled, &[disabled], &.disabled
-      color: $gray400
+      color: #f9f9f9
       background: rgba(204, 204, 204, .1)
 
   &.mini

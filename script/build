@@ -51,18 +51,21 @@ build() {
 build_assets() {
   # compile the assets
   (
+    rm -rf "$BUILD_DIR"/public
     cd nitrous/rails
     rm -rf ./public/assets
     bundle install
     RACK_ENV=production bundle exec rake assets:clean assets:precompile
-    bundle exec rails runner -e production 'puts ActionView::Base.new(Rails::Application::Configuration.new(Rails.root).paths["app/views"]).render(template: "web_app/index")' > public/index.html
+		mkdir -p "$BUILD_DIR"/public/app
+		bundle exec rails runner -e production '
+			File.write("'"$BUILD_DIR"'/public/app/index.html", ActionView::Base.new(Rails::Application::Configuration.new(Rails.root).paths["app/views"]).render(template: "web_app/index"))
+			File.write("'"$BUILD_DIR"'/public/index.html", ActionView::Base.new(Rails::Application::Configuration.new(Rails.root).paths["app/views"]).render(template: "pages/home"))
+		'
   )
 
   # move assets to build
   (
-    rm -rf $BUILD_DIR/public
-    cp -dR ./nitrous/rails/public $BUILD_DIR
-    rm ./nitrous/rails/public/index.html
+		mv ./nitrous/rails/public/assets "$BUILD_DIR"/public
   )
 }
 

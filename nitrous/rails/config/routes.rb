@@ -1,3 +1,4 @@
 Rails.application.routes.draw do
-  root 'web_app#index'
+  get '/app' => 'web_app#index'
+  root 'pages#home'
 end

@@ -29,9 +29,9 @@ window.Nitrous = Em.Application.extend Em.Evented,
   didChangeTitle: (->
     title = @get 'title'
     document.title = if title
-      "#{title} · Nitrous.IO"
+      "#{title} · Nitrous"
     else
-      "Nitrous.IO"
+      "Nitrous"
   ).observes 'title'
 
   didChangeToken: (->
