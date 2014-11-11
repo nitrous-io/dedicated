@@ -16,6 +16,13 @@ App.Plan = klass = App.Model.extend
       "plan-#{slug}"
   ).property 'slug'
 
+  displayName: (->
+    name = @get 'name'
+    memory = @get 'memory'
+    if name && memory
+      "#{name} (#{memory})"
+  ).property 'name', 'memory'
+
 klass.reopenClass
   url: '/plans'
   primaryKey: 'id'

@@ -8,6 +8,8 @@ App.HostsNewView = Em.View.extend
   terminal: null
   showProgressScreen: false
 
+  selectedTemplate: null
+
   createButtonDisabled: (->
     !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedRegionSlug') && @get('controller.selectedPlanSlug')) || @get('controller.saving')
   ).property 'controller.name', 'controller.slug', 'controller.selectedRegionSlug', 'controller.selectedPlanSlug', 'controller.saving'
@@ -17,17 +19,20 @@ App.HostsNewView = Em.View.extend
 
   preselectRegion: (->
     Em.run.scheduleOnce 'afterRender', this, ->
-      @$('input[name=region]')?.eq(0).attr('checked', true).change()
+      @$('#hosts-new-region').change()
   ).observes 'App.regions.@each'
 
   preselectPlan: (->
     Em.run.scheduleOnce 'afterRender', this, ->
-      @$('input[name=size]')?.eq(1).attr('checked', true).change()
+      @$('#hosts-new-plan').change()
   ).observes 'App.plans.@each'
 
   didInsertElement: ->
     @_super()
     controller = @get 'controller'
+
+    unless @get 'selectedTemplate'
+      @set 'selectedTemplate', 'rails'
 
     @$().on 'change.hosts-new', 'input[name=region]', =>
       controller.set 'selectedRegionSlug', @$('input[name=region]').filter(':checked').val()
@@ -70,4 +75,4 @@ App.HostsNewView = Em.View.extend
     create: ->
       @get('terminal')?.clear()
       @set 'showProgressScreen', true
-      @get('controller').send 'create'
+      @get('controller').send 'create', @get('selectedTemplate')

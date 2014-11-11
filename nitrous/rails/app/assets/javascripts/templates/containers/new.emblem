@@ -51,7 +51,7 @@
 
             ul.base-images
               each baseImage in App.baseImages
-                App.ContainersNewBaseImageView baseImage=baseImage selectedBaseImage=view.selectedBaseImage disabled=view.baseImageOptionDisabled
+                App.BaseImageView baseImage=baseImage selectedBaseImage=view.selectedBaseImage disabled=view.baseImageOptionDisabled
 
             ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
               li

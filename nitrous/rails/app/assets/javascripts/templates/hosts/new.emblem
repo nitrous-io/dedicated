@@ -4,7 +4,7 @@
 .screens
   .screen class={view.showProgressScreen:hide}
     form submit='create target="view"'
-      .card-body.bordered
+      .card-body
         .ui.flex.horizontal
           .ui.input-group
             label.field-label for='hosts-new-name'
@@ -16,94 +16,52 @@
               | Unique Slug
             = input type='text' id='hosts-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
 
-        .ui.input-group
-          label.field-label for='hosts-new-region'
-            | Region
-
-          ul.ui.checkbox-group.horizontal class={saving:disabled}
-            each region in App.regions
-              li
-                .ui.checkbox
-                  = input type='radio' name='region' id=region.inputId disabled=saving value=region.slug
-                  label
-                label for={region.inputId}
-                  = region.name
-
       .card-body.bordered
         .ui.input-group
           label.field-label
-            | Size
-          .size-selection
-            .size-list
-              ul.ui.list.item-1-line
-                each plan in App.plans
-                  li.list-item class={saving:disabled}
-                    .left-accessory
-                      .ui.checkbox
-                        = input type='radio' name='size' id=plan.inputId disabled=saving value=plan.slug
-                        label
-                    .lines
-                      p
-                        label for=plan.inputId
-                          = plan.name
-                    .lines.right
-                      p
-                        | $&nbsp;
-                        = decimal plan.price 2
-                        | &nbsp;/&nbsp;mo.
+            | Starter Template
 
-            .size-description
-              table.ui.table.horizontal
-                tr
-                  th Max. Containers
-                  td
-                    = selectedPlan.maxContainers
-
-                tr
-                  th Processor Cores
-                  td
-                    = selectedPlan.cpu
-
-                tr
-                  th Total Memory
-                  td
-                    = selectedPlan.memory
-
-                tr
-                  th Total SSD Storage
-                  td
-                    = selectedPlan.storage
-
-                tr
-                  th Container Root Access
-                  td
-                    i.fa.fa-check
-                      span Yes
-
-                tr
-                  th Vagrant Provider
-                  td
-                    i.fa.fa-check
-                      span Yes
-
-                tr
-                  th Custom Domains
-                  td
-                    i.fa.fa-check
-                      span Yes
+          ul.starter-templates
+            App.StarterTemplateView content='rails' iconUrl='https://nitrous-image-icons.s3.amazonaws.com/rails.png' selected=view.selectedTemplate name='Ruby on Rails'
+            App.StarterTemplateView content=null selected=view.selectedTemplate name='Empty'
 
       .card-body.bordered
-        .ui.input-group
-          label.field-label
-            | Starter Templates
-          ul.ui.checkbox-group
-            li
-              .ui.checkbox
-                = input type='checkbox' id='hosts-new-use-jumpstart-image' checked=useJumpstartImage
-                label
-              label for='hosts-new-use-jumpstart-image' Ruby on Rails with PostgreSQL
+        .ui.flex.horizontal.region-size
+          .ui.input-group
+            label.field-label for='hosts-new-region'
+              | Region
+            .ui.select
+              Ember.Select id='hosts-new-region' name='host' content=App.regions optionValuePath='content.slug' optionLabelPath='content.name' disabled=saving value=selectedRegionSlug
+
+          .ui.input-group
+            label.field-label for='hosts-new-plan'
+              | Size
+            .ui.select
+              Ember.Select id='hosts-new-plan' name='host' content=App.plans optionValuePath='content.slug' optionLabelPath='content.displayName' disabled=saving value=selectedPlanSlug
 
       .card-body.bordered
+        .ui.flex.horizontal
+          .spec-box
+            h4 Memory
+            p
+              = selectedPlan.memory
+
+          .spec-box
+            h4 SSD Storage
+            p
+              = selectedPlan.storage
+
+          .spec-box
+            h4 CPU Cores
+            p
+              = selectedPlan.cpu
+
+          .spec-box
+            h4 Price
+            p
+              | $&nbsp;
+              = decimal selectedPlan.price 2
+              | &nbsp;/&nbsp;mo.
 
         p.see-terms
           | Please review the&nbsp;

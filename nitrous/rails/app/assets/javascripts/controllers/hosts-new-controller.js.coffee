@@ -7,7 +7,6 @@ App.HostsNewController = Em.ObjectController.extend
   invalidField: null
   host: null
   saving: false
-  useJumpstartImage: false
 
   clear: ->
     @setProperties
@@ -19,7 +18,6 @@ App.HostsNewController = Em.ObjectController.extend
       invalidField: null
       host: null
       saving: false
-      useJumpstartImage: false
 
   selectedPlan: (->
     if slug = @get('selectedPlanSlug')
@@ -31,7 +29,7 @@ App.HostsNewController = Em.ObjectController.extend
       @transitionToRoute 'home.index'
       false
 
-    create: ->
+    create: (template) ->
       @set 'saving', true
       name = @get 'name'
       slug = @get 'slug'
@@ -68,9 +66,9 @@ App.HostsNewController = Em.ObjectController.extend
       params =
         async: true
 
-      if @get 'useJumpstartImage'
-        workspaceVolSlug = App.slug.toSlug('workspace', true)
-        databaseVolSlug = App.slug.toSlug('database', true)
+      if template == 'rails'
+        workspaceVolSlug = 'workspace'
+        databaseVolSlug = 'database'
 
         params.volumes = [
           { name: 'workspace', slug: workspaceVolSlug }
