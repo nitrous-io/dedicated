@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"os"
 	"sync/atomic"
-	"time"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -29,16 +28,13 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-const (
-	defaultPollInterval = 5 * time.Second
-)
-
 var HostbuilderClient *hostbuilderclient.Hostbuilder
 var aesKey string
 var defaultAPTLocation string
 var defaultAPTDist string
 
 var (
+	ErrPreprovisionerNotConfigured    = errors.New("pre-provisioner is not configured")
 	ErrMultipleHostCreationNotAllowed = errors.New("only one host can be created at any time")
 	ErrHostCreationNotAllowed         = errors.New("not allowed to create more hosts")
 	ErrSlugIsTaken                    = errors.New("slug is taken")
@@ -49,7 +45,6 @@ var (
 )
 
 type Provisioner struct {
-	config    *Config
 	db        *db.Database
 	logger    *logger.Logger
 	events    *pubsub.Pubsub
@@ -57,8 +52,42 @@ type Provisioner struct {
 	stopped   chan struct{}
 	isRunning uint32 // atomic bool, non zero if true
 
+	config                *Config
 	preprovisionUser      *user.User
 	preprovisionUserToken *token.Token
+}
+
+// Config is the configuration of a host provisioner.
+// It is used for unmarshalling JSON of the form:
+// {
+//   "username": "host-provisioner",
+//   "num_workers": "2",
+//   "preprovision": [
+//     {
+//       "driver": "digitalocean",
+//       "region": "sgp",
+//       "plan": "1gb",
+//       "count": 2
+//     },
+//     {
+//       "driver": "docker",
+//       "region": "sgp",
+//       "plan": "512mb",
+//       "count": 1
+//     },
+//   ]
+// }
+type Config struct {
+	Username          string             `json:"username"`
+	NumWorkers        int                `json:"num_workers"`
+	PreprovisionSpecs []PreprovisionSpec `json:"preprovision,omitempty"`
+}
+
+type PreprovisionSpec struct {
+	Driver string `json:"driver"`
+	Region string `json:"region"`
+	Plan   string `json:"plan"`
+	Count  int    `json:"count"`
 }
 
 type ProvisionOptions struct {
@@ -433,13 +462,6 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 		}
 	}
 	return config
-}
-
-func (p *Provisioner) pollInterval() time.Duration {
-	if p.config != nil && p.config.PollIntervalMS > 0 {
-		return time.Duration(p.config.PollIntervalMS) * time.Millisecond
-	}
-	return defaultPollInterval
 }
 
 // generateKey generates and returns a private key together with its public key.
