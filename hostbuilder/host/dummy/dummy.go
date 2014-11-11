@@ -14,12 +14,20 @@ type Host struct {
 	FreighterdPort int64  `json:"freighterd_port"`
 	DestroySuccess bool   `json:"destroy"`
 	CreateSuccess  bool   `json:"create"`
+	UpdateSuccess  bool   `json:"update"`
 	RestartSuccess bool   `json:"restart"`
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	if !h.CreateSuccess {
 		return nil, errors.New("failed to create host")
+	}
+	return h.Info()
+}
+
+func (h *Host) Update(w io.Writer) (*host.Info, error) {
+	if !h.UpdateSuccess {
+		return nil, errors.New("failed to update host")
 	}
 	return h.Info()
 }
@@ -34,7 +42,6 @@ func (h *Host) Destroy() error {
 func (h *Host) Info() (*host.Info, error) {
 	if h.FreighterdPort == 0 {
 		h.FreighterdPort = 65333
-
 	}
 	info := &host.Info{
 		Provider:       "dummy",

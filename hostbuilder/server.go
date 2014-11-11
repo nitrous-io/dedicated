@@ -175,6 +175,44 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return err
+	}
+	provider := r.Form.Get("provider")
+	providerConfig := s.Config.Providers[provider]
+	configJson := r.Form.Get("config")
+
+	h, err := InitHost(provider, providerConfig, configJson)
+	if err != nil {
+		return err
+	}
+
+	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
+
+	info, err := h.Update(pw)
+	if err != nil {
+		pw.WriteError(fmt.Errorf("failed to update host on %s, err: %v", provider, err))
+		return nil
+	}
+
+	if err := pingHost(info, pw); err != nil {
+		pw.WriteError(fmt.Errorf("failed to ping host on %s after updating, err: %v", provider, err))
+		return nil
+	}
+
+	resp := &Response{
+		StatusCode:     http.StatusOK,
+		Status:         "updated",
+		Provider:       info.Provider,
+		ID:             info.ID,
+		IPAddress:      info.IPAddress,
+		FreighterdPort: info.FreighterdPort,
+	}
+	pw.WriteResponse(resp)
+	return nil
+}
+
 func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return err
@@ -231,6 +269,7 @@ func (s *Server) CreateRouter() {
 	m := map[string]map[string]HttpHandler{
 		"POST": {
 			"/hosts":         s.createHost,
+			"/hosts/update":  s.updateHost,
 			"/hosts/delete":  s.deleteHost,
 			"/hosts/restart": s.restartHost,
 		},

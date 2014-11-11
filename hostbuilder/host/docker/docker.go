@@ -66,6 +66,57 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	return c, nil
 }
 
+// Update currently only supports renaming of a container.
+func (h *Host) Update(w io.Writer) (*host.Info, error) {
+	mw := io.MultiWriter(os.Stdout, w)
+
+	container, err := h.client.InspectContainer(h.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if container.Name != h.Name {
+		// See https://github.com/docker/docker/pull/8570 for native rename.
+		fmt.Fprintf(mw, "Renaming container from %q to %q\n", container.Name, h.Name)
+		fmt.Fprintln(mw, "Committing container")
+		img, err := h.client.CommitContainer(dockerclient.CommitContainerOptions{
+			Container:  container.ID,
+			Repository: fmt.Sprintf("renamed-%s", container.ID),
+			Tag:        "latest",
+		})
+		if err != nil {
+			fmt.Fprintf(mw, "Failed to commit container, err: %v\n", err)
+			return nil, err
+		}
+		fmt.Fprintf(mw, "Container committed to image %s\n", img.ID)
+
+		c, err := h.createContainer(img.ID)
+		if err != nil {
+			fmt.Fprintf(mw, "Failed to create container from committed image, err: %v\n", err)
+			return nil, err
+		}
+
+		// Remove old container.
+		if err := h.client.RemoveContainer(dockerclient.RemoveContainerOptions{
+			ID:    container.ID,
+			Force: true,
+		}); err != nil {
+			// Log and proceed anyway.
+			fmt.Fprintf(mw, "Failed to remove old container, err: %v\n", err)
+		}
+
+		fmt.Fprintf(mw, "Container renamed. New ID: %s, old ID: %s)\n", c.ID, container.ID)
+		return c, nil
+	}
+
+	return &host.Info{
+		Provider:       "docker",
+		ID:             h.ID,
+		IPAddress:      "127.0.0.1",
+		FreighterdPort: uint16(getFreighterdPort(container)),
+	}, nil
+}
+
 func (h *Host) Destroy() error {
 	return h.client.RemoveContainer(dockerclient.RemoveContainerOptions{
 		ID:    h.ID,

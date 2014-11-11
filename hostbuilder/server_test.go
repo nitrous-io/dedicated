@@ -87,6 +87,37 @@ var _ = Describe("hostbuilder", func() {
 		})
 	})
 
+	Describe("Updating a host", func() {
+		It("should successfully update the host", func() {
+			h := &dummy.Host{UpdateSuccess: true}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil(), "failed to setup a dummy host")
+			defer srv.Close()
+
+			config, err := json.Marshal(h)
+			Expect(err).To(BeNil())
+			form := url.Values{}
+			form.Set("provider", "dummy")
+			form.Set("config", string(config))
+
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/update"), form)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
+
+			decoder := json.NewDecoder(resp.Body)
+			var info host.Info
+			for {
+				err := decoder.Decode(&info)
+				if err != nil {
+					break
+				}
+			}
+			// get the final result
+			Expect(info.IPAddress).To(Equal(h.IPAddress))
+			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
+		})
+	})
+
 	Describe("Destroying a host", func() {
 		It("should successfully destroy the host", func() {
 			config, _ := json.Marshal(dummy.Host{DestroySuccess: true})

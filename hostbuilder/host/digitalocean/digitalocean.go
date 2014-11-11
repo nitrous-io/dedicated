@@ -110,6 +110,10 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	return info, nil
 }
 
+func (h *Host) Update(w io.Writer) (*host.Info, error) {
+	return nil, nil
+}
+
 func (h *Host) Destroy() error {
 	id, err := h.id()
 	if err != nil {
