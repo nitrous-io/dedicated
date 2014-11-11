@@ -18,9 +18,11 @@ import (
 	"github.com/digitalocean/godo"
 	"github.com/nitrous-io/dedicated/hostbuilder/context"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/pkg/metrics"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
-	"github.com/rcrowley/go-librato"
 )
+
+const metricSource = "hostbuilder_digitalocean"
 
 var (
 	TLSCALocation   = "/etc/freighterd/ca.crt"
@@ -241,15 +243,20 @@ func init() {
 	host.Hosts["digitalocean"] = NewHost
 }
 
-func metrics(start time.Time, hst host.Host, name string) {
+func gauge(start time.Time, hst host.Host, name string) {
 	h := hst.(*Host)
-	m := librato.NewMetrics(h.libratoUser, h.libratoToken, "hostbuilder_digitalocean")
-	g := m.GetGauge(name)
-	g <- int64(time.Since(start).Seconds() * 1000)
+	m := metrics.New(h.libratoUser, h.libratoToken, metricSource)
+	metrics.Gauge(m, start, name)
+}
+
+func count(count int64, hst host.Host, name string) {
+	h := hst.(*Host)
+	m := metrics.New(h.libratoUser, h.libratoToken, metricSource)
+	metrics.Count(m, count, name)
 }
 
 func createSSHKey(ctx *context.Context, hst host.Host) error {
-	defer metrics(time.Now(), hst, "create_ssh")
+	defer gauge(time.Now(), hst, "create_ssh_key")
 
 	h := hst.(*Host)
 	hlog(h, "generating temporary SSH key")
@@ -269,6 +276,7 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 		PublicKey: string(pubKey),
 	})
 	if err != nil {
+		count(1, hst, "create_ssh_key_error")
 		return err
 	}
 	hlog(h, "creating SSH keypair on digitalocean... Done")
@@ -277,7 +285,7 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 }
 
 func createDroplet(ctx *context.Context, hst host.Host) error {
-	defer metrics(time.Now(), hst, "create_droplet")
+	defer gauge(time.Now(), hst, "create_droplet")
 
 	h := hst.(*Host)
 	config := h.Config
@@ -298,6 +306,7 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 		},
 	})
 	if err != nil {
+		count(1, hst, "create_droplet_error")
 		return err
 	}
 	h.droplet = dropletRoot.Droplet
@@ -322,7 +331,7 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 }
 
 func waitForSSH(ctx *context.Context, hst host.Host) error {
-	defer metrics(time.Now(), hst, "ssh_wait")
+	defer gauge(time.Now(), hst, "ssh_wait")
 
 	h := hst.(*Host)
 	hlog(h, "Waiting for SSH to be ready")
@@ -330,6 +339,7 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
 		sshutil.TimeWait, make(chan struct{}))
 	if err != nil {
+		count(1, hst, "ssh_wait_error")
 		return err
 	}
 	hlog(h, "SSH READY for droplet %v", h.droplet.ID)
@@ -338,7 +348,7 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 }
 
 func writePublicKeys(ctx *context.Context, hst host.Host) error {
-	defer metrics(time.Now(), hst, "write_public_key")
+	defer gauge(time.Now(), hst, "write_public_key")
 
 	h := hst.(*Host)
 	hlog(h, "Writing public key")
@@ -354,12 +364,12 @@ func writePublicKeys(ctx *context.Context, hst host.Host) error {
 }
 
 func createEtcFreighterd(ctx *context.Context, hst host.Host) error {
-	defer metrics(time.Now(), hst, "create_freighterd_config")
+	defer gauge(time.Now(), hst, "create_freighterd_config")
 	return hst.(*Host).conn.Execute("mkdir -p /etc/freighterd")
 }
 
 func writeTLSCerts(ctx *context.Context, hst host.Host) error {
-	defer metrics(time.Now(), hst, "write_tls_certs")
+	defer gauge(time.Now(), hst, "write_tls_certs")
 
 	h := hst.(*Host)
 	hlog(h, "Writing TLS certs")
@@ -373,7 +383,7 @@ func writeTLSCerts(ctx *context.Context, hst host.Host) error {
 }
 
 func writeSecret(ctx *context.Context, hst host.Host) error {
-	defer metrics(time.Now(), hst, "write_secrets")
+	defer gauge(time.Now(), hst, "write_secrets")
 
 	h := hst.(*Host)
 	hlog(h, "Writing host secret")
@@ -397,7 +407,7 @@ func writeFile(h *Host, files map[string]io.Reader) error {
 }
 
 func writeRepository(ctx *context.Context, hst host.Host) error {
-	defer metrics(time.Now(), hst, "write_repo")
+	defer gauge(time.Now(), hst, "write_repo")
 
 	h := hst.(*Host)
 	hlog(h, "Uploading apt details")
@@ -413,13 +423,14 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 }
 
 func updateSoftware(ctx *context.Context, hst host.Host) error {
-	defer metrics(time.Now(), hst, "update_software")
+	defer gauge(time.Now(), hst, "update_software")
 
 	h := hst.(*Host)
 	hlog(h, "Updating freighterd package")
 	cmd :=
 		`DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" freighterd`
 	if err := h.conn.Execute(cmd); err != nil {
+		count(1, hst, "update_software_error")
 		return err
 	}
 	hlog(h, "Updated freighterd package on %v", h.ipAddress())
@@ -427,11 +438,12 @@ func updateSoftware(ctx *context.Context, hst host.Host) error {
 }
 
 func restartFreighterd(ctx *context.Context, hst host.Host) error {
-	defer metrics(time.Now(), hst, "restart_freighterd")
+	defer gauge(time.Now(), hst, "restart_freighterd")
 
 	h := hst.(*Host)
 	hlog(h, "Restarting freighterd")
 	if err := h.conn.Execute(`service freighterd restart`); err != nil {
+		count(1, hst, "restart_freighterd_error")
 		return err
 	}
 	hlog(h, "Restarted freighterd on %v", h.ipAddress())
