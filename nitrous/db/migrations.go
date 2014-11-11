@@ -444,7 +444,7 @@ func init() {
 			`,
 		},
 		{
-			Version: "400",
+			Version: "360",
 			Up: `
 				ALTER TABLE plans ADD COLUMN disabled boolean DEFAULT false NOT NULL;
 			`,

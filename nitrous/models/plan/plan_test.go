@@ -25,9 +25,15 @@ var _ = Describe("models/plan", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec("INSERT INTO plans (slug, name, max_containers, price, cpu, memory, storage, disabled) values ($1, $2, $3, $4, $5, $6, $7, $8);", "1gb", "Micro", 4, 1995, "2", "1 GB", "20 GB", false)
+		_, err = db.Exec(`INSERT INTO plans
+			(slug, name, max_containers, price, cpu, memory, storage, disabled)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+			"1gb", "Micro", 4, 1995, "2", "1 GB", "20 GB", false)
 		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO plans (slug, name, max_containers, price, cpu, memory, storage, disabled) values ($1, $2, $3, $4, $5, $6, $7, $8);", "2gb", "Small", 8, 3995, "4", "2 GB", "30 GB", false)
+		_, err = db.Exec(`INSERT INTO plans
+			(slug, name, max_containers, price, cpu, memory, storage, disabled)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+			"2gb", "Small", 8, 3995, "4", "2 GB", "30 GB", false)
 		Expect(err).To(BeNil())
 	})
 
@@ -67,7 +73,7 @@ var _ = Describe("models/plan", func() {
 	Describe("FindBySlug()", func() {
 		Context("when a plan record with a given slug exists", func() {
 			It("returns the plan record", func() {
-				p, err := plan.FindBySlug(db, "1gb", false)
+				p, err := plan.FindBySlug(db, "1gb")
 				Expect(err).To(BeNil())
 				Expect(p).NotTo(BeNil())
 				Expect(p.ID).NotTo(BeZero())
@@ -81,9 +87,23 @@ var _ = Describe("models/plan", func() {
 			})
 		})
 
+		Context("when a plan record with a given slug exists but is disabled", func() {
+			It("returns nil", func() {
+				_, err := db.Exec(`INSERT INTO plans
+					(slug, name, max_containers, price, cpu, memory, storage, disabled)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+					"promo", "Promotion", 4, 1995, "2", "1 GB", "20 GB", true)
+				Expect(err).To(BeNil())
+
+				p, err := plan.FindBySlug(db, "promo")
+				Expect(err).To(BeNil())
+				Expect(p).To(BeNil())
+			})
+		})
+
 		Context("when a plan record with a given slug does not exist", func() {
 			It("returns nil", func() {
-				p, err := plan.FindBySlug(db, "non-existent-slug", false)
+				p, err := plan.FindBySlug(db, "non-existent-slug")
 				Expect(err).To(BeNil())
 				Expect(p).To(BeNil())
 			})
@@ -92,33 +112,9 @@ var _ = Describe("models/plan", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				p, err := plan.FindBySlug(db, "1gb", false)
+				p, err := plan.FindBySlug(db, "1gb")
 				Expect(p).To(BeNil())
 				Expect(err).NotTo(BeNil())
-			})
-		})
-
-		Context("when querying for a disabled plan", func() {
-			BeforeEach(func() {
-				// add a disabled plan
-				p := &plan.Plan{Slug: "3gb", Name: "Medium", MaxContainers: 1, Price: 500, Disabled: true}
-				err := p.Insert(db)
-				Expect(err).To(BeNil())
-			})
-
-			It("returns nil if includeDisabled arg is false", func() {
-				p, err := plan.FindBySlug(db, "3gb", false)
-				Expect(err).To(BeNil())
-				Expect(p).To(BeNil())
-			})
-
-			It("returns the disabled plan if includeDisabled arg is true", func() {
-				p, err := plan.FindBySlug(db, "3gb", true)
-				Expect(err).To(BeNil())
-				Expect(p).NotTo(BeNil())
-				Expect(p.ID).NotTo(BeZero())
-				Expect(p.Slug).To(Equal("3gb"))
-				Expect(p.Name).To(Equal("Medium"))
 			})
 		})
 	})
@@ -136,9 +132,15 @@ var _ = Describe("models/plan", func() {
 	Describe("Enabled()", func() {
 		It("returns all enabled plans", func() {
 			// add couple of disabled plans
-			_, err := db.Exec("INSERT INTO plans (slug, name, max_containers, price, cpu, memory, storage, disabled) values ($1, $2, $3, $4, $5, $6, $7, $8);", "3gb", "Medium", 4, 4995, "6", "3 GB", "40 GB", true)
+			_, err := db.Exec(`INSERT INTO plans
+				(slug, name, max_containers, price, cpu, memory, storage, disabled)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+				"3gb", "Medium", 4, 4995, "6", "3 GB", "40 GB", true)
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO plans (slug, name, max_containers, price, cpu, memory, storage, disabled) values ($1, $2, $3, $4, $5, $6, $7, $8);", "4gb", "Large", 8, 5995, "8", "4 GB", "30 GB", true)
+			_, err = db.Exec(`INSERT INTO plans
+				(slug, name, max_containers, price, cpu, memory, storage, disabled)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+				"4gb", "Large", 8, 5995, "8", "4 GB", "30 GB", true)
 			Expect(err).To(BeNil())
 
 			pls, err := plan.Enabled(db)
@@ -170,7 +172,7 @@ var _ = Describe("models/plan", func() {
 		})
 
 		It("persists the plan in the database", func() {
-			p2, err := plan.FindBySlug(db, "512mb", false)
+			p2, err := plan.FindBySlug(db, "512mb")
 			Expect(err).To(BeNil())
 			Expect(p2).NotTo(BeNil())
 			Expect(p2.ID).NotTo(BeZero())

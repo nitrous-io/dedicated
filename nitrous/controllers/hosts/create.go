@@ -384,7 +384,7 @@ func newCreateContext(db *ndb.Database, user *user.User, size, regionSlug, slug,
 }
 
 func findPlan(db ndb.QueryReceiver, size string) (*plan.Plan, error) {
-	pl, err := plan.FindBySlug(db, size, false)
+	pl, err := plan.FindBySlug(db, size)
 	if err != nil {
 		return nil, fmt.Errorf("no matching plan for '%s', error %s", size, err)
 	}
