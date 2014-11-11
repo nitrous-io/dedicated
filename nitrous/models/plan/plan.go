@@ -53,10 +53,18 @@ func All(d db.QueryReceiver) ([]*Plan, error) {
 	return pls, nil
 }
 
+func Enabled(d db.QueryReceiver) ([]*Plan, error) {
+	pls := []*Plan{}
+	if err := d.Select(&pls, `SELECT * FROM plans WHERE disabled = false ORDER BY (price, max_containers, name);`); err != nil {
+		return nil, err
+	}
+	return pls, nil
+}
+
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, cpu, memory, storage)
-		VALUES (:slug, :name, :max_containers, :price, :cpu, :memory, :storage)
+		(slug, name, max_containers, price, cpu, memory, storage, disabled)
+		VALUES (:slug, :name, :max_containers, :price, :cpu, :memory, :storage, :disabled)
 		RETURNING *;`)
 	if err != nil {
 		return err
