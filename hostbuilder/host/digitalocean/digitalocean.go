@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/hostbuilder/context"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
+	"github.com/rcrowley/go-librato"
 )
 
 var (
@@ -66,11 +67,13 @@ type Host struct {
 	Client *godo.Client
 	Config *HostConfig
 
-	droplet    *godo.Droplet
-	privateKey *rsa.PrivateKey
-	conn       *sshutil.Conn
-	sshKey     *godo.Key
-	uuid       string
+	droplet      *godo.Droplet
+	privateKey   *rsa.PrivateKey
+	conn         *sshutil.Conn
+	sshKey       *godo.Key
+	uuid         string
+	libratoUser  string
+	libratoToken string
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -225,9 +228,11 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	}
 	client := godo.NewClient(t.Client())
 	host := &Host{
-		Config: hostConfig,
-		Client: client,
-		uuid:   defaultConfig["uuid"],
+		Config:       hostConfig,
+		Client:       client,
+		uuid:         defaultConfig["uuid"],
+		libratoUser:  defaultConfig["librato_user"],
+		libratoToken: defaultConfig["librato_token"],
 	}
 	return host, nil
 }
@@ -236,7 +241,16 @@ func init() {
 	host.Hosts["digitalocean"] = NewHost
 }
 
+func metrics(start time.Time, hst host.Host, name string) {
+	h := hst.(*Host)
+	m := librato.NewMetrics(h.libratoUser, h.libratoToken, "hostbuilder_digitalocean")
+	g := m.GetGauge(name)
+	g <- int64(time.Since(start).Seconds() * 1000)
+}
+
 func createSSHKey(ctx *context.Context, hst host.Host) error {
+	defer metrics(time.Now(), hst, "create_ssh")
+
 	h := hst.(*Host)
 	hlog(h, "generating temporary SSH key")
 	privateKey, err := sshutil.GenerateSSHKey()
@@ -263,6 +277,8 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 }
 
 func createDroplet(ctx *context.Context, hst host.Host) error {
+	defer metrics(time.Now(), hst, "create_droplet")
+
 	h := hst.(*Host)
 	config := h.Config
 	sshKey := h.sshKey
@@ -306,6 +322,8 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 }
 
 func waitForSSH(ctx *context.Context, hst host.Host) error {
+	defer metrics(time.Now(), hst, "ssh_wait")
+
 	h := hst.(*Host)
 	hlog(h, "Waiting for SSH to be ready")
 	address := fmt.Sprintf("%s:%s", h.ipAddress(), "65100")
@@ -320,6 +338,8 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 }
 
 func writePublicKeys(ctx *context.Context, hst host.Host) error {
+	defer metrics(time.Now(), hst, "write_public_key")
+
 	h := hst.(*Host)
 	hlog(h, "Writing public key")
 	pubKeyR := bytes.NewBuffer(nil)
@@ -334,10 +354,13 @@ func writePublicKeys(ctx *context.Context, hst host.Host) error {
 }
 
 func createEtcFreighterd(ctx *context.Context, hst host.Host) error {
+	defer metrics(time.Now(), hst, "create_freighterd_config")
 	return hst.(*Host).conn.Execute("mkdir -p /etc/freighterd")
 }
 
 func writeTLSCerts(ctx *context.Context, hst host.Host) error {
+	defer metrics(time.Now(), hst, "write_tls_certs")
+
 	h := hst.(*Host)
 	hlog(h, "Writing TLS certs")
 	err := writeFile(h, map[string]io.Reader{
@@ -350,6 +373,8 @@ func writeTLSCerts(ctx *context.Context, hst host.Host) error {
 }
 
 func writeSecret(ctx *context.Context, hst host.Host) error {
+	defer metrics(time.Now(), hst, "write_secrets")
+
 	h := hst.(*Host)
 	hlog(h, "Writing host secret")
 	err := writeFile(h, map[string]io.Reader{
@@ -372,6 +397,8 @@ func writeFile(h *Host, files map[string]io.Reader) error {
 }
 
 func writeRepository(ctx *context.Context, hst host.Host) error {
+	defer metrics(time.Now(), hst, "write_repo")
+
 	h := hst.(*Host)
 	hlog(h, "Uploading apt details")
 	sourceData := bytes.NewBuffer(nil)
@@ -386,6 +413,8 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 }
 
 func updateSoftware(ctx *context.Context, hst host.Host) error {
+	defer metrics(time.Now(), hst, "update_software")
+
 	h := hst.(*Host)
 	hlog(h, "Updating freighterd package")
 	cmd :=
@@ -398,6 +427,8 @@ func updateSoftware(ctx *context.Context, hst host.Host) error {
 }
 
 func restartFreighterd(ctx *context.Context, hst host.Host) error {
+	defer metrics(time.Now(), hst, "restart_freighterd")
+
 	h := hst.(*Host)
 	hlog(h, "Restarting freighterd")
 	if err := h.conn.Execute(`service freighterd restart`); err != nil {

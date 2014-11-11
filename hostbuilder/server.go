@@ -138,17 +138,23 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return err
 	}
+
 	provider := r.Form.Get("provider")
 	providerConfig := s.Config.Providers[provider]
 	if providerConfig == nil {
 		providerConfig = make(map[string]string)
 	}
+
 	if uuid := r.FormValue(UUIDParam); uuid != "" {
 		providerConfig["uuid"] = uuid
 	} else {
 		// shouldn't happen, use this to detect if it does
 		providerConfig["uuid"] = "NOUUID"
 	}
+
+	providerConfig["librato_user"] = s.Config.LibratoUser
+	providerConfig["librato_token"] = s.Config.LibratoToken
+
 	configJson := r.Form.Get("config")
 	log.Printf("uuid=%s Creating a host using provider %s", providerConfig["uuid"], provider)
 
