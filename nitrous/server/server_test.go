@@ -33,7 +33,7 @@ var _ = Describe("server", func() {
 			db, err := TestDatabase("nitrous_test")
 			Expect(err).To(BeNil())
 			logger := &logger.Logger{Level: logger.LogLevelQuiet}
-			svr := server.NewServer("", db, logger)
+			svr := server.NewServer("", db, logger, nil)
 			defer svr.Stop()
 
 			go svr.Start("127.0.0.1", uint16(0)) // port=0 assigns random port.
@@ -45,19 +45,6 @@ var _ = Describe("server", func() {
 			Expect(err).To(BeNil())
 			conn.Close()
 		})
-
-		It("starts a host provisioner", func() {
-			db, err := TestDatabase("nitrous_test")
-			Expect(err).To(BeNil())
-			logger := &logger.Logger{Level: logger.LogLevelQuiet}
-			svr := server.NewServer("", db, logger)
-			defer svr.Stop()
-
-			go svr.Start("127.0.0.1", uint16(0))
-			time.Sleep(10 * time.Millisecond)
-
-			Expect(svr.Provisioner.IsRunning()).To(BeTrue())
-		})
 	})
 
 	Describe("Stop", func() {
@@ -65,7 +52,7 @@ var _ = Describe("server", func() {
 			db, err := TestDatabase("nitrous_test")
 			Expect(err).To(BeNil())
 			logger := &logger.Logger{Level: logger.LogLevelQuiet}
-			svr := server.NewServer("", db, logger)
+			svr := server.NewServer("", db, logger, nil)
 
 			errCh := make(chan error)
 			go func() {
@@ -79,7 +66,6 @@ var _ = Describe("server", func() {
 			conn, err := net.Dial("tcp", listenAddr)
 			Expect(err).To(BeNil())
 			conn.Close()
-			Expect(svr.Provisioner.IsRunning()).To(BeTrue())
 
 			svr.Stop()
 
@@ -87,8 +73,6 @@ var _ = Describe("server", func() {
 			Expect(err).To(HaveOccurred())
 			conn, err = net.Dial("tcp", listenAddr)
 			Expect(err).To(HaveOccurred())
-
-			Expect(svr.Provisioner.IsRunning()).To(BeFalse())
 		})
 	})
 

@@ -1,14 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 
 	"bitbucket.org/kardianos/osext"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous-common/must"
@@ -50,7 +53,20 @@ func main() {
 		logr.Infof("nitrousd: migrations failed: %v", err)
 	}
 
-	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr)
+	confPath := os.Getenv("HOST_PROVISIONER_CONFIG_PATH")
+	if confPath == "" {
+		logr.FatalExit("nitrousd: HOST_PROVISIONER_CONFIG_PATH is not defined")
+	}
+	confData, err := ioutil.ReadFile(confPath)
+	if err != nil {
+		logr.FatalfExit("nitrousd: failed to read host provisioner config file at %s", confPath)
+	}
+	var conf provisioner.Config
+	if err := json.Unmarshal(confData, &conf); err != nil {
+		logr.FatalfExit("nitrousd: could not load host provisioner config file at %s: %s", confPath, err)
+	}
+
+	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr, &conf)
 	pid := os.Getpid()
 	host := "0.0.0.0"
 	port := uint16(3333)

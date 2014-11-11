@@ -210,7 +210,7 @@ func WrapInTransaction(db *db.Database, fn func(tx *sqlx.Tx) error) error {
 }
 
 func NewTestServer(root string, db *db.Database, l *logger.Logger, t analytics.Tracker) *server.Server {
-	svr := server.NewServer(root, db, l)
+	svr := server.NewServer(root, db, l, nil)
 	svr.Tracker = t
 
 	return svr

@@ -147,32 +147,14 @@ func init() {
 	}
 }
 
-func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub) *Provisioner {
-	cfg, err := loadConfig()
-	if err != nil {
-		// FIXME Actually disable pre-provisioner using a flag or alternatively
-		// return an error.
-		l.Warnf("provisioner: failed to load config, disabling pre-provisioner: %s", err)
-	}
-
-	u, err := user.FindByUsername(d, cfg.Username)
-	if err != nil {
-		l.Warnf("provisioner: failed to load pre-provision user %q: %s", cfg.Username, err)
-	}
-	t := &token.Token{UserID: u.ID}
-	if err := t.Insert(d); err != nil {
-		l.Warnf("provisioner: failed to create pre-provision user's token: %s", err)
-	}
-
+func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub, conf *Config) *Provisioner {
 	return &Provisioner{
-		config:                cfg,
-		db:                    d,
-		logger:                l,
-		events:                e,
-		stop:                  make(chan struct{}),
-		stopped:               make(chan struct{}),
-		preprovisionUser:      u,
-		preprovisionUserToken: t,
+		db:      d,
+		logger:  l,
+		events:  e,
+		stop:    make(chan struct{}),
+		stopped: make(chan struct{}),
+		config:  conf,
 	}
 }
 
