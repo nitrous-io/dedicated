@@ -67,7 +67,7 @@ var _ = Describe("models/plan", func() {
 	Describe("FindBySlug()", func() {
 		Context("when a plan record with a given slug exists", func() {
 			It("returns the plan record", func() {
-				p, err := plan.FindBySlug(db, "1gb")
+				p, err := plan.FindBySlug(db, "1gb", false)
 				Expect(err).To(BeNil())
 				Expect(p).NotTo(BeNil())
 				Expect(p.ID).NotTo(BeZero())
@@ -83,7 +83,7 @@ var _ = Describe("models/plan", func() {
 
 		Context("when a plan record with a given slug does not exist", func() {
 			It("returns nil", func() {
-				p, err := plan.FindBySlug(db, "non-existent-slug")
+				p, err := plan.FindBySlug(db, "non-existent-slug", false)
 				Expect(err).To(BeNil())
 				Expect(p).To(BeNil())
 			})
@@ -92,9 +92,33 @@ var _ = Describe("models/plan", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				p, err := plan.FindBySlug(db, "1gb")
+				p, err := plan.FindBySlug(db, "1gb", false)
 				Expect(p).To(BeNil())
 				Expect(err).NotTo(BeNil())
+			})
+		})
+
+		Context("when querying for a disabled plan", func() {
+			BeforeEach(func() {
+				// add a disabled plan
+				p := &plan.Plan{Slug: "3gb", Name: "Medium", MaxContainers: 1, Price: 500, Disabled: true}
+				err := p.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns nil if includeDisabled arg is false", func() {
+				p, err := plan.FindBySlug(db, "3gb", false)
+				Expect(err).To(BeNil())
+				Expect(p).To(BeNil())
+			})
+
+			It("returns the disabled plan if includeDisabled arg is true", func() {
+				p, err := plan.FindBySlug(db, "3gb", true)
+				Expect(err).To(BeNil())
+				Expect(p).NotTo(BeNil())
+				Expect(p.ID).NotTo(BeZero())
+				Expect(p.Slug).To(Equal("3gb"))
+				Expect(p.Name).To(Equal("Medium"))
 			})
 		})
 	})
@@ -146,7 +170,7 @@ var _ = Describe("models/plan", func() {
 		})
 
 		It("persists the plan in the database", func() {
-			p2, err := plan.FindBySlug(db, "512mb")
+			p2, err := plan.FindBySlug(db, "512mb", false)
 			Expect(err).To(BeNil())
 			Expect(p2).NotTo(BeNil())
 			Expect(p2.ID).NotTo(BeZero())

@@ -177,6 +177,22 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(errDesc).To(Equal("no matching plan found for the given size"))
 	})
 
+	It("responds with plan not found when a matching plan is disabled", func() {
+		// add a disabled plan
+		p := &plan.Plan{Slug: "3gb", Name: "3gb", MaxContainers: 1, Price: 500, Disabled: true}
+		err := p.Insert(db)
+		Expect(err).To(BeNil())
+
+		params.Set("size", "3gb")
+		res := doRequest(params)
+
+		Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+		errType, errDesc := ErrorSlug(res.Body)
+		Expect(errType).To(Equal("invalid_request"))
+		Expect(errDesc).To(Equal("no matching plan found for the given size"))
+	})
+
 	It("responds with region not found when an invalid region is specified", func() {
 		params.Set("region", "antarctica")
 		res := doRequest(params)

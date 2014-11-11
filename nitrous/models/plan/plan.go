@@ -33,9 +33,9 @@ func FindByID(d db.QueryReceiver, id int64) (*Plan, error) {
 	return plan, nil
 }
 
-func FindBySlug(d db.QueryReceiver, slug string) (*Plan, error) {
+func FindBySlug(d db.QueryReceiver, slug string, includeDisabled bool) (*Plan, error) {
 	plan := &Plan{}
-	err := d.Get(plan, `SELECT * FROM plans WHERE slug = $1`, slug)
+	err := d.Get(plan, `SELECT * FROM plans WHERE slug = $1 AND disabled = $2`, slug, includeDisabled)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
