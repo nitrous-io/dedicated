@@ -7,12 +7,18 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 	"time"
 )
 
 var (
 	HTTPFlushInterval = 100 * time.Millisecond
 )
+
+func IsWebsocket(r *http.Request) bool {
+	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket") &&
+		strings.EqualFold(r.Header.Get("Connection"), "upgrade")
+}
 
 func ProxyHTTP(addr string, tlsConfig *tls.Config) http.HandlerFunc {
 	p := &httputil.ReverseProxy{

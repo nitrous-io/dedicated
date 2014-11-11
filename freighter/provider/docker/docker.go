@@ -51,6 +51,7 @@ type TemplateData struct {
 type DockerProvider struct {
 	client   *dockerclient.Client
 	dataPath string
+	gateway  string
 	logger   *util.Logger
 
 	DockerClientProxy interface {
@@ -69,12 +70,37 @@ func NewDockerProvider(logger *util.Logger, dataPath string) (*DockerProvider, e
 	if logger == nil || dataPath == "" {
 		return nil, errors.New("docker.NewDockerProvider: invalid argument")
 	}
+
 	client, err := dockerclient.NewClient(dockerHost)
 	if err != nil {
 		return nil, err
 	}
+
+	i := 0 // use counter to throttle logging
+	for {  // check every second until docker is available
+		if _, err := client.Version(); err == nil {
+			break
+		}
+		i++
+		if i%30 == 0 {
+			i = 0
+			logger.Warnf("DockerProvider: waiting for Docker to be available on %s", dockerHost)
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	out, err := exec.Command("ip", "-family", "inet", "addr", "show", "docker0").CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("Error determining docker gateway %v", err)
+	}
+	dockerGateway, err := gatewayFromIPOutput(out)
+	if err != nil {
+		return nil, fmt.Errorf("Error determining docker gateway: %v", err)
+	}
+
 	return &DockerProvider{
 		client:            client,
+		gateway:           dockerGateway,
 		dataPath:          dataPath,
 		logger:            logger,
 		DockerClientProxy: client,
@@ -157,9 +183,8 @@ func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*pr
 	if err != nil {
 		return nil, err
 	}
-	if err := p.setDefaultContainerConfig(cfg); err != nil {
-		return nil, err
-	}
+
+	p.setDefaultContainerConfig(cfg)
 	cfg.Hostname = name
 	cfg.Image = imageName
 
@@ -246,9 +271,8 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 	if err != nil {
 		return nil, err
 	}
-	if err := p.setDefaultContainerConfig(cfg); err != nil {
-		return nil, err
-	}
+
+	p.setDefaultContainerConfig(cfg)
 	cfg.Hostname = container.Config.Hostname
 	cfg.Image = container.Config.Image
 
@@ -1136,18 +1160,8 @@ func (p *DockerProvider) isNitrousImage(fullName string) bool {
 	return false
 }
 
-func (p *DockerProvider) setDefaultContainerConfig(c *provider.ContainerConfig) error {
-	out, err := exec.Command("ip", "-family", "inet", "addr", "show", "docker0").CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("Error determining docker gateway: %v", err)
-	}
-	dockerGateway, err := gatewayFromIPOutput(out)
-	if err != nil {
-		return fmt.Errorf("Error determining docker gateway: %v", err)
-	}
-	c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", dockerGateway))
-	c.Gateway = dockerGateway
-	return nil
+func (p *DockerProvider) setDefaultContainerConfig(c *provider.ContainerConfig) {
+	c.Env = append(c.Env, fmt.Sprintf("__HOST=%s", p.gateway))
 }
 
 func buildDockerConfig(config *dockerclient.Config, imageId string) *provider.DockerConfig {

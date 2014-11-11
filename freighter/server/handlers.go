@@ -13,10 +13,12 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/freighter/pkg/flusher"
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/pkg/proxy"
 
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
@@ -636,6 +638,16 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 			}
 		}
 	}
+}
+
+func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
+	addr := fmt.Sprintf("%s:%s", "0.0.0.0", r.Header.Get(config.ForwardPortHeader))
+	if proxy.IsWebsocket(r) {
+		proxy.ProxyWebsocket(addr, nil)(w, r)
+	} else {
+		proxy.ProxyHTTP(addr, nil)(w, r)
+	}
+	return nil
 }
 
 func randomString() string {

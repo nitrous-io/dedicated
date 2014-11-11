@@ -1,11 +1,21 @@
 package tender
 
 import (
+	"crypto/tls"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	freighterconfig "github.com/nitrous-io/dedicated/freighter/config"
+)
+
+var (
+	DefaultStartPort = freighterconfig.MinPreviewPort
+	DefaultEndPort   = freighterconfig.MaxPreviewPort
 )
 
 var portMap = map[string]int{
@@ -13,20 +23,23 @@ var portMap = map[string]int{
 	"https": 443,
 }
 
-func isWebSocket(r *http.Request) bool {
-	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket") &&
-		strings.EqualFold(r.Header.Get("Connection"), "upgrade")
-}
-
 // parsePort returns the port of an HTTP request. If there is no port specified
 // in the request, 80 or 443 (HTTPS) is assumed.
 func parsePort(req *http.Request) int {
 	if _, portStr, err := net.SplitHostPort(req.Host); err == nil {
+		log.Println("got port", portStr)
 		if p, err := strconv.Atoi(portStr); err == nil {
 			return p
 		}
 	}
-	return portMap[req.URL.Scheme]
+	if req.URL.Scheme != "" {
+		return portMap[req.URL.Scheme]
+	}
+	if req.TLS != nil {
+		return 443
+	} else {
+		return 80
+	}
 }
 
 // ConvertToIPBased modifies an HTTP request to use an IP address as its host.
@@ -65,4 +78,68 @@ func getHost(url, baseDomain string) (string, error) {
 		return splits[1], nil
 	}
 	return "", fmt.Errorf("Invalid format %s", url)
+}
+
+// portsRange converts start/end port string into number with sensible default
+func PortsRange(s, e string) (start int64, end int64, err error) {
+	if s == "" {
+		start = DefaultStartPort
+	} else {
+		sp, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return 0, 0, fmt.Errorf("Invalid start port %s. Error %s", s, err)
+		}
+		start = sp
+	}
+
+	if e == "" {
+		end = DefaultEndPort
+	} else {
+		ep, err := strconv.ParseInt(e, 10, 64)
+		if err != nil {
+			return 0, 0, fmt.Errorf("Invalid end port %s. Error %s", e, err)
+		}
+		end = ep
+	}
+	return start, end, nil
+}
+
+// Spin up a HTTPS Server listening to an address
+func ServeTLS(port int64, tlsConfig *tls.Config, s http.Handler) error {
+	addr := fmt.Sprintf(":%d", port)
+	srv := &http.Server{
+		Addr:      addr,
+		Handler:   s,
+		TLSConfig: tlsConfig,
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("tender: Failed to listen to %q, error: %q", addr, err)
+	}
+	ln = tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
+	err = srv.Serve(ln)
+	if err != nil {
+		return fmt.Errorf("tender: Failed to serve %q, error: %q", addr, err)
+	}
+	return nil
+}
+
+// tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
+// connections. It's used by ListenAndServe and ListenAndServeTLS so
+// dead TCP connections (e.g. closing laptop mid-download) eventually
+// go away.
+//
+// This is copied from net/http package
+type tcpKeepAliveListener struct {
+	*net.TCPListener
+}
+
+func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
+	tc, err := ln.AcceptTCP()
+	if err != nil {
+		return
+	}
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(3 * time.Minute)
+	return tc, nil
 }

@@ -9,10 +9,12 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 
 	_ "github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/pkg/proxy"
 	"github.com/nitrous-io/dedicated/tender/pkg/httperror"
-	"github.com/nitrous-io/dedicated/tender/pkg/proxy"
 )
 
 // env of the request. This should be created once for each request and valid
@@ -27,7 +29,7 @@ type Server struct {
 	// - considering replace this with distributed datastore such as etcd
 	db *sql.DB
 	// remote freighterd port
-	freighterdPort int
+	freighterdPort int64
 	// expected DNS based domain that we want to receive requests to, i.e.
 	// should be the proxy's domain `.nitrousproxy.com`
 	baseDomain string
@@ -52,7 +54,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Returns a `http.Handler` which can be used to proxy requests to a Nitrous.IO
 // host
-func NewServer(baseDomain, tlsDomain, databaseURL string, freighterdPort int, caBytes []byte) (http.Handler, error) {
+func NewServer(baseDomain, tlsDomain, databaseURL string, freighterdPort int64, caBytes []byte) (http.Handler, error) {
 	log.Printf("Connecting to database %s", databaseURL)
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
@@ -81,8 +83,6 @@ func NewServer(baseDomain, tlsDomain, databaseURL string, freighterdPort int, ca
 // proxy the request to respected boxhost. We will switch the proxy strategy
 // depends on the type of the request
 // - if this is a normal HTTP, use `http.ReverseProxy`
-// - if the request as `X-NITROUS-STREAM` header which indicates that it wants
-// to open a bidirectional HTTP stream, use `proxyStream`
 // - if the request wants to open a websocket, use `proxyWebsocket`
 func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err error) {
 	hostName, err := getHost(r.Host, s.baseDomain)
@@ -90,6 +90,11 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 		return err
 	}
 	log.Printf("[INFO] request %v to %s", r, hostName)
+
+	// set X-FORWARDED-PORT for the request
+	fp := strconv.Itoa(parsePort(r))
+	r.Header.Set(config.ForwardPortHeader, fp)
+	log.Printf("[INFO] set forward port to %s", fp)
 
 	// get host id and host ip
 	// host ip will be the new destination for current request
@@ -100,15 +105,20 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 		return err
 	}
 	env.host = hostToIP(r, ip, port)
+
 	// copy tls config and set serverName
 	// serverName is the name we use to generate private certs on the host
 	// this must be the same as Hostname in
 	// https://github.com/nitrous-io/nitrous/blob/master/models/host/host.go
-	tlsConfig := &tls.Config{}
-	*tlsConfig = *s.tlsConfig
-	tlsConfig.ServerName = fmt.Sprintf("%s%s", hostName, s.tlsDomain)
+	var tlsConfig *tls.Config
 
-	if isWebSocket(r) {
+	if s.tlsConfig != nil {
+		tlsConfig = &tls.Config{}
+		*tlsConfig = *s.tlsConfig
+		tlsConfig.ServerName = fmt.Sprintf("%s%s", hostName, s.tlsDomain)
+	}
+
+	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(env.host, tlsConfig)(w, r)
 	} else {
 		proxy.ProxyHTTP(env.host, tlsConfig)(w, r)
