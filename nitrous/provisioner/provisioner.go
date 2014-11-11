@@ -250,9 +250,15 @@ func (p *Provisioner) setRunning(r bool) bool {
 // If the Async option is true, the current Host record is returned immediately
 // while provisioning happens asynchonously.
 func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
-	// FIXME Check if pre-provisioned hosts are available, and if so, assign and
-	// return one of them, then add a spec back into the job queue if it exists
-	// in Config.
+	// Assign a pre-provisioned host if one is available.
+	h, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
+	if err == nil {
+		if assignedHost, err := p.assignHost(h, opts); err == nil {
+			return assignedHost, nil
+		}
+		// Provision from scratch if the assignment fails.
+		p.logger.Warnf("provisioner: could not assign pre-provision host %+v, err: %s", h, err)
+	}
 
 	if opts.AptLocation == "" {
 		opts.AptLocation = defaultAPTLocation
@@ -274,6 +280,45 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 	return p.provision(phost, opts)
 }
 
+var (
+	assignments = make(map[int64]bool)
+	mutex       = &sync.Mutex{}
+)
+
+// markAssignment records that a pre-provisioned host is in the process of being
+// assigned to a real user and returns true if successful. A mutex is used so
+// that we can safely assign hosts across multiple worker goroutines.
+func markAssignment(h *host.Host) bool {
+	mutex.Lock()
+	defer mutex.Unlock()
+	if assignments[h.ID] {
+		return false
+	}
+	assignments[h.ID] = true
+	return true
+}
+
+func unmarkAssignment(h *host.Host) {
+	mutex.Lock()
+	assignments[h.ID] = false
+	mutex.Unlock()
+}
+
+func (p *Provisioner) assignHost(h *host.Host, opts ProvisionOptions) (*host.Host, error) {
+	if !markAssignment(h) {
+		return nil, fmt.Errorf("provisioner: host %d became assigned while we weren't looking", h.ID)
+	}
+	defer unmarkAssignment(h)
+
+	// FIXME Rename host, make the host the new user's.
+	// See https://github.com/docker/docker/pull/8570 for renaming of
+	// Docker container name.
+
+	// After successful assignment, add a spec back into the job queue, if it
+	// exists in Config.
+	return nil, nil
+}
+
 // prepare creates a new Host and its associated certificates and keys in
 // preparation for actual provisioning.
 func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
@@ -287,6 +332,7 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		MaxContainers:      sql.NullInt64{opts.Plan.MaxContainers, true},
 		Size:               sql.NullString{opts.Plan.Slug, true},
 		State:              host.StateBorn,
+		Preprovisioned:     opts.Preprovision,
 	}
 	if err := h.Validate(); err != nil {
 		return nil, &InvalidHostError{Err: err}
@@ -304,15 +350,17 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		return nil, fmt.Errorf("provisioner: failed to begin db transaction for host %s, err: %s", h.Slug, err)
 	}
 
-	// Don't allow hosts to be created concurrently.
-	locked, err := db.TransactionLock(tx, db.HOST_CREATE_LOCK, int(opts.User.ID))
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-	if !locked {
-		tx.Rollback()
-		return nil, ErrMultipleHostCreationNotAllowed
+	if !opts.Preprovision {
+		// Don't allow hosts to be created concurrently.
+		locked, err := db.TransactionLock(tx, db.HOST_CREATE_LOCK, int(opts.User.ID))
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+		if !locked {
+			tx.Rollback()
+			return nil, ErrMultipleHostCreationNotAllowed
+		}
 	}
 
 	// Make sure user is allowed to create more hosts.
@@ -476,15 +524,23 @@ func (p *Provisioner) createJobs(spec PreprovisionSpec) ([]job, error) {
 // worker accepts jobs from a channel and pre-provisions hosts according to
 // the PreprovisionSpec. Note that PreprovisionSpec.Count is ignored and only
 // a single host is provisioned at any one time.
-func (p *Provisioner) worker(id int, jobQueue <-chan job, wg *sync.WaitGroup) {
+func (p *Provisioner) worker(id int, jobQueue chan job, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		select {
 		case job := <-jobQueue:
 			p.logger.Debugf("provisioner: worker %d received job: %s/%s/%s",
 				id, job.driver, job.region.Slug, job.plan.Slug)
-			p.preprovision(job)
-
+			h, err := p.preprovision(job)
+			if err != nil {
+				// Put job back in queue.
+				p.logger.Errorf("provisioner: worker %d job %s/%s/%s failed, err: %s",
+					id, job.driver, job.region.Slug, job.plan.Slug, err)
+				jobQueue <- job
+			} else {
+				p.logger.Infof("provisioner: worker %d job %s/%s/%s successfully pre-provisioned host: %+v",
+					id, job.driver, job.region.Slug, job.plan.Slug, h)
+			}
 		case <-p.stop:
 			p.logger.Debugf("provisioner: worker %d quitting", id)
 			return
@@ -492,70 +548,29 @@ func (p *Provisioner) worker(id int, jobQueue <-chan job, wg *sync.WaitGroup) {
 	}
 }
 
-func (p *Provisioner) preprovision(j job) {
-	// See https://github.com/docker/docker/pull/8570 for renaming of
-	// Docker container name.
+func (p *Provisioner) preprovision(j job) (*host.Host, error) {
+	rand := rand.Int31n(2147483647) // FIXME Generate a UUID or something.
+	opts := ProvisionOptions{
+		Async:        false,
+		Preprovision: true,
+		OutputStream: ioutil.Discard,
+		Slug:         fmt.Sprintf("pre-provisioned-%d", rand),
+		Name:         "Pre-provisioned host",
+		User:         p.preprovisionUser,
+		Token:        p.preprovisionUserToken,
+		Region:       j.region,
+		Plan:         j.plan,
+		Template:     j.template,
+		AptLocation:  defaultAPTLocation,
+		AptDist:      defaultAPTDist,
+	}
 
-	p.logger.Debugf("provisioner: pre-provisioning complete: %+v", j)
-}
-
-// comparePreprovisioned compares a PreprovisionSpec against actually
-// pre-provisioned hosts. If any hosts are needed, they are pre-provisioned.
-func (p *Provisioner) comparePreprovisioned(spec PreprovisionSpec) error {
-	db := p.db
-	// FIXME We should have a lock around the comparison so that we don't
-	// pre-provision more hosts due to a race.
-	p.logger.Debugf("provisioner: checking preprovisioning spec: %+v", spec)
-
-	r, err := region.FindBySlug(db, spec.Region)
+	phost, err := p.prepare(opts)
 	if err != nil {
-		return err
-	}
-	pl, err := plan.FindBySlug(db, spec.Plan)
-	if err != nil {
-		return err
-	}
-	template, err := providertemplate.FindByRegionAndPlanAndProvider(db, r.ID, pl.ID, spec.Driver)
-	if err != nil {
-		return err
-	}
-	hosts, err := host.FindAllPreprovisioned(db, r, pl)
-	if err != nil {
-		return err
+		return nil, err
 	}
 
-	needed := spec.Count - len(hosts)
-	i := 1
-	for i <= needed {
-		p.logger.Debugf("provisioner: pre-provisioning %d of %d hosts", i, needed)
-
-		// FIXME This should *NOT* call ProvisionHost because we want to save the
-		// host to the preprovisioned_hosts table.
-
-		// FIXME Do the pre-provisioning in a goroutine.
-		// FIXME Record (with a mutex) that pre-provisioning is in progress.
-		opts := ProvisionOptions{
-			Async:        false,
-			OutputStream: ioutil.Discard,
-			Slug:         fmt.Sprintf("pre-provisioned-%d", rand.Int31n(2147483647)), // FIXME Generate a UUID.
-			Name:         "Pre-provisioned host",
-			User:         p.preprovisionUser,
-			Token:        p.preprovisionUserToken,
-			Region:       r,
-			Plan:         pl,
-			Template:     template,
-			AptLocation:  defaultAPTLocation,
-			AptDist:      defaultAPTDist,
-		}
-		h, err := p.ProvisionHost(opts)
-		if err != nil {
-			p.logger.Errorf("provisioner: failed to pre-provision host with opts %+v, err: %s", opts, err)
-			return err
-		}
-		fmt.Printf("! new host pre-provisioned: %+v", h)
-		i = i + 1
-	}
-	return nil
+	return p.provision(phost, opts)
 }
 
 func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOptions) hostbuilderclient.Config {
