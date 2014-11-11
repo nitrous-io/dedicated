@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -55,6 +55,7 @@ type Provisioner struct {
 	config                *Config
 	preprovisionUser      *user.User
 	preprovisionUserToken *token.Token
+	jobQueue              chan job
 }
 
 // Config is the configuration of a host provisioner.
@@ -185,14 +186,14 @@ func (p *Provisioner) Start() error {
 	p.logger.Debug("provisioner: starting")
 
 	numWorkers := p.config.NumWorkers
-	jobQueue := make(chan job, 100)
+	p.jobQueue = make(chan job, 100)
 	var wg sync.WaitGroup // Used to wait for all workers to quit.
 
 	// Create workers.
 	for i := 0; i < numWorkers; i++ {
 		p.logger.Debugf("provisioner: starting worker %d", i+1)
 		wg.Add(1)
-		go p.worker(i+1, jobQueue, &wg)
+		go p.worker(i+1, p.jobQueue, &wg)
 	}
 
 	// Determine the hosts that we need to pre-provision and create jobs
@@ -201,13 +202,13 @@ func (p *Provisioner) Start() error {
 		jobs, err := p.createJobs(spec)
 		if err != nil {
 			// FIXME We currently ignore any errors here: should we do more?
-			p.logger.Errorf("provisioner: error creating job from spec %+v, err: %s", spec, err)
+			p.logger.Errorf("provisioner: error creating job from spec %+v, err: %v", spec, err)
 		} else {
 			p.logger.Debugf("provisioner: created %d job(s) for spec %+v", len(jobs), spec)
 		}
 
 		for _, job := range jobs {
-			jobQueue <- job
+			p.jobQueue <- job
 		}
 	}
 
@@ -250,16 +251,6 @@ func (p *Provisioner) setRunning(r bool) bool {
 // If the Async option is true, the current Host record is returned immediately
 // while provisioning happens asynchonously.
 func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
-	// Assign a pre-provisioned host if one is available.
-	h, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
-	if err == nil {
-		if assignedHost, err := p.assignHost(h, opts); err == nil {
-			return assignedHost, nil
-		}
-		// Provision from scratch if the assignment fails.
-		p.logger.Warnf("provisioner: could not assign pre-provision host %+v, err: %s", h, err)
-	}
-
 	if opts.AptLocation == "" {
 		opts.AptLocation = defaultAPTLocation
 	}
@@ -267,17 +258,13 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 		opts.AptDist = defaultAPTDist
 	}
 
-	phost, err := p.prepare(opts)
-	if err != nil {
-		return nil, err
+	// Assign a pre-provisioned host if one is available.
+	preprovisioned, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
+	if err == nil {
+		return p.usePreprovisionedHost(preprovisioned, opts)
 	}
 
-	if opts.Async {
-		go p.provision(phost, opts)
-		return phost.host, nil
-	}
-
-	return p.provision(phost, opts)
+	return p.provisionNewHost(opts)
 }
 
 var (
@@ -304,19 +291,82 @@ func unmarkAssignment(h *host.Host) {
 	mutex.Unlock()
 }
 
-func (p *Provisioner) assignHost(h *host.Host, opts ProvisionOptions) (*host.Host, error) {
-	if !markAssignment(h) {
-		return nil, fmt.Errorf("provisioner: host %d became assigned while we weren't looking", h.ID)
+func (p *Provisioner) usePreprovisionedHost(h *host.Host, opts ProvisionOptions) (*host.Host, error) {
+	assignedHost, err := p.assignHost(h, opts)
+	if err != nil {
+		p.logger.Warnf("provisioner: could not assign pre-provisioned host %d, err: %v", h.ID, err)
+		return p.provisionNewHost(opts)
 	}
-	defer unmarkAssignment(h)
+	return assignedHost, nil
+}
 
-	// FIXME Rename host, make the host the new user's.
-	// See https://github.com/docker/docker/pull/8570 for renaming of
-	// Docker container name.
+func (p *Provisioner) provisionNewHost(opts ProvisionOptions) (*host.Host, error) {
+	phost, err := p.prepare(opts)
+	if err != nil {
+		return nil, err
+	}
 
-	// After successful assignment, add a spec back into the job queue, if it
-	// exists in Config.
-	return nil, nil
+	if opts.Async {
+		go p.provision(phost, opts)
+		return phost.host, nil
+	}
+
+	return p.provision(phost, opts)
+}
+
+func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOptions) (h *host.Host, err error) {
+	if !markAssignment(preprovisionedHost) {
+		return nil, fmt.Errorf("provisioner: host %d became assigned while we weren't looking", preprovisionedHost.ID)
+	}
+	defer unmarkAssignment(preprovisionedHost)
+
+	cp := *preprovisionedHost // Copy of function arg.
+	h = &cp
+
+	defer func() {
+		if err == nil {
+			if opts.ProvisionSucceededFn != nil {
+				opts.ProvisionSucceededFn(h)
+			}
+		} else {
+			if opts.ProvisionFailedFn != nil {
+				opts.ProvisionFailedFn(h, err)
+			}
+		}
+	}()
+
+	// Update host record with new info.
+	h.Slug = opts.Slug
+	h.Name = sql.NullString{opts.Name, true}
+	h.Preprovisioned = false
+	if err = h.Update(p.db); err != nil {
+		err = fmt.Errorf("provisioner: failed to update pre-provisioned host record, err: %v", err)
+		return
+	}
+
+	if err = h.ReassignUser(p.db, opts.User); err != nil {
+		err = fmt.Errorf("provisioner: failed to assign pre-provisioned host %d to real user, err: %v", h.ID, err)
+		return
+	}
+
+	// After successful assignment, add a job with the same specs to the job
+	// queue, if it exists in Config (i.e. we only re-pre-provision hosts that
+	// are configured).
+	driver := opts.Template.Provider
+	r := opts.Region
+	pl := opts.Plan
+	for _, spec := range p.config.PreprovisionSpecs {
+		if spec.Driver == driver && spec.Region == r.Slug && spec.Plan == pl.Slug {
+			p.jobQueue <- job{
+				driver:   driver,
+				region:   r,
+				plan:     pl,
+				template: opts.Template,
+			}
+			break
+		}
+	}
+	return
 }
 
 // prepare creates a new Host and its associated certificates and keys in
@@ -347,7 +397,7 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 	// Save record to db first to reserve slug (since it's globally unique).
 	tx, err := p.db.Beginx()
 	if err != nil {
-		return nil, fmt.Errorf("provisioner: failed to begin db transaction for host %s, err: %s", h.Slug, err)
+		return nil, fmt.Errorf("provisioner: failed to begin db transaction for host %s, err: %v", h.Slug, err)
 	}
 
 	if !opts.Preprovision {
@@ -381,7 +431,7 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 				return nil, ne
 			}
 		}
-		return nil, fmt.Errorf("provisioner: failed to save new host record %s, err: %s", h.Slug, err)
+		return nil, fmt.Errorf("provisioner: failed to save new host record %s, err: %v", h.Slug, err)
 	}
 
 	// Create host certificate and key. The cert will be used for TLS encryption
@@ -389,25 +439,25 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 	cert, err := cert.Generate(h.CertHostname(), caInfo.X509Cert, caInfo.Key)
 	if err != nil {
 		tx.Rollback()
-		return nil, fmt.Errorf("provisioner: failed to generate certificates for '%s', err %s", h.Slug, err)
+		return nil, fmt.Errorf("provisioner: failed to generate certificates for '%s', err: %v", h.Slug, err)
 	}
 	if err := cert.Insert(tx, h.ID); err != nil {
 		tx.Rollback()
-		return nil, fmt.Errorf("provisioner: failed to save certificates for '%s', err %s", h.Slug, err)
+		return nil, fmt.Errorf("provisioner: failed to save certificates for '%s', err: %v", h.Slug, err)
 	}
 
 	// Create a keypair so nitrousd can communicate with the host.
 	privKey, pubKey, err := generateKey()
 	if err != nil {
-		return nil, fmt.Errorf("provisioner: failed to generate keypair for '%s', err: %s", h.Slug, err)
+		return nil, fmt.Errorf("provisioner: failed to generate keypair for '%s', err: %v", h.Slug, err)
 	}
 	if _, err := keypairs.Create(tx, privKey, aesKey, h.ID); err != nil {
 		tx.Rollback()
-		return nil, fmt.Errorf("provisioner: failed to save keypair for '%s', err %s", h.Slug, err)
+		return nil, fmt.Errorf("provisioner: failed to save keypair for '%s', err: %v", h.Slug, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("provisioner: failed to complete save transaction for '%s', err %s", h.Slug, err)
+		return nil, fmt.Errorf("provisioner: failed to complete save transaction for '%s', err: %v", h.Slug, err)
 	}
 
 	return &preparedHost{
@@ -427,13 +477,15 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	// If an error occurs at any point, mark host as orphan.
 	defer func() {
 		if err == nil {
-			return
-		}
-		h.State = host.StateOrphan
-		_ = h.Update(p.db) // Ignore error here.
-
-		if opts.ProvisionFailedFn != nil {
-			opts.ProvisionFailedFn(h, err)
+			if opts.ProvisionSucceededFn != nil {
+				opts.ProvisionSucceededFn(h)
+			}
+		} else {
+			h.State = host.StateOrphan
+			_ = h.Update(p.db) // Ignore error here.
+			if opts.ProvisionFailedFn != nil {
+				opts.ProvisionFailedFn(h, err)
+			}
 		}
 	}()
 
@@ -451,11 +503,6 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	if err = h.Update(p.db); err != nil {
 		return nil, err
 	}
-
-	if opts.ProvisionSucceededFn != nil {
-		opts.ProvisionSucceededFn(h)
-	}
-
 	return h, nil
 }
 
@@ -534,7 +581,7 @@ func (p *Provisioner) worker(id int, jobQueue chan job, wg *sync.WaitGroup) {
 			h, err := p.preprovision(job)
 			if err != nil {
 				// Put job back in queue.
-				p.logger.Errorf("provisioner: worker %d job %s/%s/%s failed, err: %s",
+				p.logger.Errorf("provisioner: worker %d job %s/%s/%s failed, err: %v",
 					id, job.driver, job.region.Slug, job.plan.Slug, err)
 				jobQueue <- job
 			} else {
@@ -549,12 +596,12 @@ func (p *Provisioner) worker(id int, jobQueue chan job, wg *sync.WaitGroup) {
 }
 
 func (p *Provisioner) preprovision(j job) (*host.Host, error) {
-	rand := rand.Int31n(2147483647) // FIXME Generate a UUID or something.
+	slug := fmt.Sprintf("pre-provisioned-%d", time.Now().UnixNano())
 	opts := ProvisionOptions{
 		Async:        false,
 		Preprovision: true,
 		OutputStream: ioutil.Discard,
-		Slug:         fmt.Sprintf("pre-provisioned-%d", rand),
+		Slug:         slug,
 		Name:         "Pre-provisioned host",
 		User:         p.preprovisionUser,
 		Token:        p.preprovisionUserToken,
