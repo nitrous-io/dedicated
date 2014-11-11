@@ -5,7 +5,7 @@ TestModel = SM.Model.extend
   firstName: attr(as: 'first_name')
   lastName: attr(as: 'last_name')
   bio: attr()
-  age: attr('number')
+  age: attr('number', default: 12)
   data: attr('json')
   bornAt: attr('date', as: 'born_at')
   createdAt: attr('date', as: 'created_at', serialize: false)
@@ -23,7 +23,6 @@ describe 'SM.Model', ->
 
   describe 'attributes', ->
     describe 'MO.attr', ->
-
       it 'defines attributes', ->
         attrs = Em.get TestModel, '_attrs'
         expect(attrs.keys.list).to.eql ['id', 'firstName', 'lastName', 'bio', 'age', 'data', 'bornAt', 'createdAt'], 'has 7 attrs'
@@ -50,6 +49,7 @@ describe 'SM.Model', ->
         expect(model.get 'firstName').to.equal 'Pete', 'setting a property works'
         expect(model.get 'lastName').to.equal 'Kim', 'setting another property works'
         expect(model.get 'fullName').to.equal 'Pete Kim', 'a computed property works'
+        expect(model.get 'age').to.equal 12, 'default value is set'
 
   describe 'cache', ->
     model2 = null
