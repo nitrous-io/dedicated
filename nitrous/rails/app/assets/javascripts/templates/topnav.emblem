@@ -14,14 +14,14 @@
           | New
           .ui.dropdown-triangle
         ul.dropdown-menu style='display: none'
+          li
+            link-to 'hosts.new' | New Application...
           if App.noHost
             li.disabled
               a href='#' New Container...
           else
             li
               link-to 'containers.new' | New Container...
-          li
-            link-to 'hosts.new' | New Host...
       li.ui.dropdown
         a href='#'
           | Account

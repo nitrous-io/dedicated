@@ -5,4 +5,5 @@ App.ContainerConfigRoute = App.AuthedRoute.extend
   setupController: (controller, model) ->
     @_super.apply this, arguments
     controller.clear()
+    App.set 'title', model.get('displayName') + ' › Configuration'
     controller.loadConfig()

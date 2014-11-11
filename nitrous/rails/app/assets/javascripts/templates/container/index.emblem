@@ -150,14 +150,14 @@
         strong CANNOT
         | &nbsp;be undone!
       p
-        | This will permanently delete the&nbsp;
+        | This will permanently delete the container&nbsp;
         strong
           | &ldquo;
           = displayName
           | &rdquo;
-        | &nbsp;container and all data stored within the container.
+        | &nbsp; and all data stored within the container.
       p
-        | Please type in the slug of the host&nbsp;
+        | Please type in the slug of the container&nbsp;
         strong
           |(
           span.click-highlight

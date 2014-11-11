@@ -1,5 +1,5 @@
 .card-header.bordered
-  h2 New Host
+  h2 New Application
 
 .screens
   .screen class={view.showProgressScreen:hide}

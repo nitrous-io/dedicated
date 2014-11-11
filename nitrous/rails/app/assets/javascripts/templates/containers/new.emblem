@@ -21,7 +21,7 @@
       .card-body.bordered
         .ui.input-group
           label.field-label
-            | Host
+            | Application
           .ui.select
             Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' disabled=saving value=selectedHostSlug
 

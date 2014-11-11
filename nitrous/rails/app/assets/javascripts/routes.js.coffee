@@ -4,7 +4,7 @@ App.Router.map ->
   @route 'logout'
 
   @resource 'home', path: '/', ->
-    @resource 'containers', ->
+    @resource 'containers', path: '/containers', ->
       @route 'new'
 
     @resource 'container', path: '/containers/:containerSlug', ->
@@ -13,10 +13,10 @@ App.Router.map ->
       @route 'config'
       @route 'terminal'
 
-    @resource 'hosts', ->
+    @resource 'hosts', path: '/applications', ->
       @route 'new'
 
-    @resource 'host', path: '/hosts/:hostSlug', ->
+    @resource 'host', path: '/applications/:hostSlug', ->
       @route 'registries'
       @route 'registries-new', path: '/registries/new'
       @route 'images'
