@@ -1,7 +1,8 @@
 li class={generalSelected:selected}
   link-to 'container.index' | Container
-li class={configSelected:selected}
-  link-to 'container.config' | Configuration
 if model.sshEnabled
   li class={keysSelected:selected}
     link-to 'container.keys' | SSH Keys
+if App.user.advancedOptionsEnabled
+  li class={configSelected:selected}
+    link-to 'container.config' | Configuration

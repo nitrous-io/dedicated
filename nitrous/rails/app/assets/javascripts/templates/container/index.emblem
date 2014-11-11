@@ -14,31 +14,32 @@
         span.click-highlight
           = slug
 
-    tr
-      th Image
-      td colspan='3'
-        span.click-highlight
-          = image
-
-    if cmd
+    if App.user.advancedOptionsEnabled
       tr
-        th CMD
+        th Image
         td colspan='3'
-          ul.space-separated.blocks
-            each cm in cmd
-              li
-                span.click-highlight
-                  = cm
+          span.click-highlight
+            = image
 
-    if entrypoint
-      tr
-        th ENTRYPOINT
-        td colspan='3'
-          ul.space-separated.blocks
-            each ep in entrypoint
-              li
-                span.click-highlight
-                  = ep
+      if cmd
+        tr
+          th CMD
+          td colspan='3'
+            ul.space-separated.blocks
+              each cm in cmd
+                li
+                  span.click-highlight
+                    = cm
+
+      if entrypoint
+        tr
+          th ENTRYPOINT
+          td colspan='3'
+            ul.space-separated.blocks
+              each ep in entrypoint
+                li
+                  span.click-highlight
+                    = ep
 
     tr
       th Internal IP
@@ -71,28 +72,34 @@
         td colspan='3'
           a href={sshURL}
             = sshURL
-    tr
-      th Created At
-      td
-        = dateabbr createdAt
-      th Started At
-      td
-        if startedAt
-          = dateabbr startedAt
-        else
-          span.empty &ndash;
 
     tr
-      th Exit Code
-      td
-        span.click-highlight
-          = exitCodeString
-      th Finished At
-      td.right
-        if finishedAt
-          = dateabbr finishedAt
-        else
-          span.empty &ndash;
+      th Created At
+      if App.user.advancedOptionsEnabled
+        td
+          = dateabbr createdAt
+          th Started At
+        td
+          if startedAt
+            = dateabbr startedAt
+          else
+            span.empty &ndash;
+      else
+        td colspan='3'
+          = dateabbr createdAt
+
+    if App.user.advancedOptionsEnabled
+      tr
+        th Exit Code
+        td
+          span.click-highlight
+            = exitCodeString
+        th Finished At
+        td.right
+          if finishedAt
+            = dateabbr finishedAt
+          else
+            span.empty &ndash;
 
 .card-footer.bordered
   if isRunning
@@ -100,9 +107,11 @@
       button.ui.btn click='restart' Restart
       button.ui.btn click='stop' Stop
     .right
-      button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
+      if App.user.advancedOptionsEnabled
+        button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
       button.ui.btn click='openLogs' Logs...
-      button.ui.btn click='openAttach' Attach
+      if App.user.advancedOptionsEnabled
+        button.ui.btn click='openAttach' Attach
       button.ui.btn.primary click='openTerminal' Terminal
   else
     if isStopped
