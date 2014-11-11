@@ -16,6 +16,7 @@ type Plan struct {
 	CPU           string     `db:"cpu"`
 	Memory        string     `db:"memory"`
 	Storage       string     `db:"storage"`
+	Disabled      bool       `db:"disabled"`
 	CreatedAt     *time.Time `db:"created_at"`
 	UpdatedAt     *time.Time `db:"updated_at"`
 }
