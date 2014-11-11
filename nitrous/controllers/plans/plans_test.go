@@ -6,11 +6,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
+	"github.com/nitrous-io/nitrous-common/logger"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -60,9 +60,13 @@ var _ = Describe("controllers/plans", func() {
 					pl := plan.Plan{Slug: n}
 					Expect(pl.Insert(db)).To(BeNil())
 				}
+
+				// add a disabled plan
+				pl := plan.Plan{Slug: "super-turbo", Disabled: true}
+				Expect(pl.Insert(db)).To(BeNil())
 			})
 
-			It("returns serialized plans in json", func() {
+			It("returns enabled plans serialized in json", func() {
 				doRequest()
 				Expect(res.Code).To(Equal(http.StatusOK))
 
