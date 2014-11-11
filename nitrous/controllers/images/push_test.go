@@ -32,7 +32,7 @@ var _ = Describe("controllers/images", func() {
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", db, &logger.Logger{Level: logger.LogLevelQuiet})
+		svr = server.NewServer("", db, &logger.Logger{Level: logger.LogLevelQuiet}, nil)
 	})
 
 	AfterEach(func() {

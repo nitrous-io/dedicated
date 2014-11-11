@@ -43,15 +43,14 @@ type Server struct {
 	listener net.Listener
 }
 
-func NewServer(root string, db *db.Database, l *logger.Logger) *Server {
+func NewServer(root string, db *db.Database, l *logger.Logger, conf *provisioner.Config) *Server {
 	if l == nil {
 		panic("server.NewServer: invalid argument")
 	}
 	events := pubsub.New(128)
-
 	svr := &Server{
 		Events:      events,
-		Provisioner: provisioner.NewProvisioner(db, l, events),
+		Provisioner: provisioner.NewProvisioner(db, l, events, conf),
 		Tracker:     analytics.NewMixpanelTracker(),
 		root:        root,
 		db:          db,
@@ -68,7 +67,12 @@ func (s *Server) Router() *mux.Router {
 
 func (s *Server) Start(host string, port uint16) error {
 	if err := s.Provisioner.Start(); err != nil {
-		return err
+		switch err {
+		case provisioner.ErrPreprovisionerNotConfigured:
+			s.logger.Warn("nitrous/server: Pre-provisioner not configured")
+		default:
+			return err
+		}
 	}
 
 	addr := fmt.Sprintf("%s:%d", host, port)
