@@ -408,6 +408,7 @@ var _ = Describe("models/host", func() {
 				ProviderTemplateID: hs.PT.ID,
 				State:              host.StateRunning,
 				TerminatedAt:       nil,
+				Preprovisioned:     false,
 			}
 			err = h.Insert(db)
 			Expect(err).To(BeNil())
@@ -420,6 +421,7 @@ var _ = Describe("models/host", func() {
 			h.ProviderIdentifier = sql.NullString{"digitalocean", true}
 			h.MaxContainers = sql.NullInt64{2, true}
 			h.FreighterdPort = sql.NullInt64{60000, true}
+			h.Preprovisioned = true
 			err := h.Update(db)
 			Expect(err).To(BeNil())
 
@@ -435,6 +437,7 @@ var _ = Describe("models/host", func() {
 			Expect(h2.ProviderIdentifier.String).To(Equal("digitalocean"))
 			Expect(h2.MaxContainers.Int64).To(Equal(int64(2)))
 			Expect(h2.FreighterdPort.Int64).To(Equal(int64(60000)))
+			Expect(h2.Preprovisioned).To(BeTrue())
 
 			// Unchanged fields.
 			Expect(h2.UserID).To(Equal(hs.U.ID))
@@ -463,13 +466,34 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("Delete()", func() {
-		var (
-			h *host.Host
-		)
+	Describe("ReassignUser()", func() {
+		It("updates the host's user_id to the given user's ID", func() {
+			h := &host.Host{
+				Slug:               "foo",
+				UserID:             hs.U.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+			}
+			err := h.Insert(db)
+			Expect(err).To(BeNil())
+			u := &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err = WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
 
-		BeforeEach(func() {
-			h = &host.Host{
+			err = h.ReassignUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(h.UserID).To(Equal(u.ID))
+		})
+	})
+
+	Describe("Delete()", func() {
+		It("sets terminated_at instead of removing the host from the database", func() {
+			h := &host.Host{
 				Slug:               "foo",
 				UserID:             hs.U.ID,
 				RegionID:           hs.R.ID,
@@ -480,10 +504,8 @@ var _ = Describe("models/host", func() {
 			}
 			err := h.Insert(db)
 			Expect(err).To(BeNil())
-		})
 
-		It("sets terminated_at instead of removing the host from the database", func() {
-			err := h.Delete(db)
+			err = h.Delete(db)
 			Expect(err).To(BeNil())
 			Expect(h.TerminatedAt).NotTo(BeNil())
 			Expect(h.State).To(Equal(host.StateTerminated))

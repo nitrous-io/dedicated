@@ -200,10 +200,12 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
 		(user_id, region_id, plan_id, provider_template_id, slug, name, secret,
-			state, ip_address, provider_identifier, max_containers, size, freighterd_port)
+			state, ip_address, provider_identifier, max_containers, size, freighterd_port,
+			preprovisioned)
 		VALUES
 		(:user_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
-		:state, :ip_address, :provider_identifier, :max_containers, :size, :freighterd_port)
+		:state, :ip_address, :provider_identifier, :max_containers, :size, :freighterd_port,
+		:preprovisioned)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -213,14 +215,18 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (name, state, ip_address, provider_identifier, max_containers, freighterd_port, updated_at)
-		= (:name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port, now())
+		SET (name, state, ip_address, provider_identifier, max_containers, freighterd_port, preprovisioned, updated_at)
+		= (:name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port, :preprovisioned, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
 		return err
 	}
 	return nstmt.QueryRowx(h).StructScan(h)
+}
+
+func (h *Host) ReassignUser(d db.QueryReceiver, u *user.User) error {
+	return d.QueryRowx(`UPDATE hosts SET user_id = $1 WHERE id = $2 RETURNING *`, u.ID, h.ID).StructScan(h)
 }
 
 func (h *Host) Delete(d db.QueryReceiver) error {
