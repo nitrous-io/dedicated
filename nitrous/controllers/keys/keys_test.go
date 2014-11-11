@@ -14,7 +14,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
-	"github.com/nitrous-io/nitrous-common/logger"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -23,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -64,7 +64,7 @@ var _ = Describe("controllers/keys", func() {
 		root, err := osext.ExecutableFolder()
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer(root, db, logger)
+		svr = server.NewServer(root, db, logger, nil)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = AuthTokenInputs{Handler: handler}
