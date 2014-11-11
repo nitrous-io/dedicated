@@ -104,7 +104,11 @@ func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
 
 func FindAllPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) ([]*Host, error) {
 	hosts := []*Host{}
-	if err := db.Select(&hosts, `SELECT * FROM hosts WHERE region_id = $1 AND plan_id = $2 AND preprovisioned = TRUE AND terminated_at IS NULL ORDER BY id;`, r.ID, p.ID); err != nil {
+	if err := db.Select(&hosts,
+		`SELECT * FROM hosts
+		WHERE region_id = $1 AND plan_id = $2 AND state = $3
+		AND preprovisioned = TRUE AND terminated_at IS NULL ORDER BY id;`,
+		r.ID, p.ID, StateRunning); err != nil {
 		return nil, err
 	}
 	return hosts, nil
@@ -169,6 +173,18 @@ func FindBySlug(db *db.Database, slug string) (*Host, error) {
 	}
 
 	return host, err
+}
+
+func FindPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) (*Host, error) {
+	host := &Host{}
+	if err := db.Get(host,
+		`SELECT * FROM hosts
+		WHERE region_id = $1 AND plan_id = $2 AND state = $3
+		AND preprovisioned = TRUE AND terminated_at IS NULL ORDER BY id;`,
+		r.ID, p.ID, StateRunning); err != nil {
+		return nil, err
+	}
+	return host, nil
 }
 
 func (h *Host) Insert(d db.QueryReceiver) error {

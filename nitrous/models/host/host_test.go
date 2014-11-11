@@ -119,9 +119,9 @@ var _ = Describe("models/host", func() {
 				u.ID, "preprovisioned-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, true)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned)
-				VALUES ($1, $2, $3, $4, $5, $6);`,
-				u.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, true)
+				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+				u.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, true, host.StateRunning)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned, terminated_at)
@@ -141,15 +141,9 @@ var _ = Describe("models/host", func() {
 		It("returns non-terminated pre-provisioned hosts in the given region and plan", func() {
 			hosts, err := host.FindAllPreprovisioned(db, hs.R, hs.P)
 			Expect(err).To(BeNil())
-			Expect(hosts).To(HaveLen(2))
+			Expect(hosts).To(HaveLen(1))
 
 			h := hosts[0]
-			Expect(h.RegionID).To(Equal(hs.R.ID))
-			Expect(h.PlanID).To(Equal(hs.P.ID))
-			Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
-			Expect(h.Slug).To(Equal("preprovisioned-host-1"))
-
-			h = hosts[1]
 			Expect(h.RegionID).To(Equal(hs.R.ID))
 			Expect(h.PlanID).To(Equal(hs.P.ID))
 			Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
@@ -281,6 +275,53 @@ var _ = Describe("models/host", func() {
 				Expect(err).To(BeNil())
 				Expect(h).To(BeNil())
 			})
+		})
+	})
+
+	Describe("FindPreprovisioned()", func() {
+		BeforeEach(func() {
+			var err error
+			u := &user.User{
+				Username: "pre-provisioner",
+				Email:    "pp@example.com",
+				Password: "pp1234",
+			}
+			err = WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				u.ID, "preprovisioned-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, true)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+				u.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, true, host.StateRunning)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+				u.ID, "preprovisioned-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, true, time.Now())
+			Expect(err).To(BeNil())
+		})
+
+		It("returns a non-terminated pre-provisioned host in the given region and plan", func() {
+			h, err := host.FindPreprovisioned(db, hs.R, hs.P)
+			Expect(err).To(BeNil())
+			Expect(h.RegionID).To(Equal(hs.R.ID))
+			Expect(h.PlanID).To(Equal(hs.P.ID))
+			Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
+			Expect(h.Slug).To(Equal("preprovisioned-host-2"))
+		})
+
+		It("returns an empty slice if there are no pre-provisioned hosts in the given region and plan", func() {
+			hs2, err := CreateHostStack(db, nil)
+			Expect(err).To(BeNil())
+
+			h, err := host.FindPreprovisioned(db, hs2.R, hs2.P)
+			Expect(err).NotTo(BeNil())
+			Expect(h).To(BeNil())
 		})
 	})
 
