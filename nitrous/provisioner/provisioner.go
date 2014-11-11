@@ -18,7 +18,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
-	"github.com/nitrous-io/dedicated/nitrous/models/preprovisionedhost"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -520,7 +519,7 @@ func (p *Provisioner) comparePreprovisioned(spec PreprovisionSpec) error {
 	if err != nil {
 		return err
 	}
-	hosts, err := preprovisionedhost.FindAll(db, r, pl)
+	hosts, err := host.FindAllPreprovisioned(db, r, pl)
 	if err != nil {
 		return err
 	}

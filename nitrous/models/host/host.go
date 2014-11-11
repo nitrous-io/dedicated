@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
@@ -80,6 +82,8 @@ type Host struct {
 	// from the associated Plan since size is often read.
 	Size sql.NullString `db:"size"`
 
+	Preprovisioned bool `db:"preprovisioned"`
+
 	TerminatedAt *time.Time `db:"terminated_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
@@ -93,6 +97,14 @@ func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
 	hosts := []Host{}
 	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL ORDER BY id;", user.ID)
 	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
+func FindAllPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) ([]*Host, error) {
+	hosts := []*Host{}
+	if err := db.Select(&hosts, `SELECT * FROM hosts WHERE region_id = $1 AND plan_id = $2 AND preprovisioned = TRUE AND terminated_at IS NULL ORDER BY id;`, r.ID, p.ID); err != nil {
 		return nil, err
 	}
 	return hosts, nil
