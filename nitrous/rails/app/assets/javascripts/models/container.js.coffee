@@ -29,6 +29,7 @@ App.Container = klass = App.Model.extend
 
   hostnameBinding: Em.Binding.oneWay 'host.hostname'
   loginUsernameBinding: Em.Binding.oneWay 'config.env.NITROUS_USERNAME'
+  previewPortBinding: Em.Binding.oneWay 'config.env.NITROUS_PREVIEW_PORT'
 
   sshEnabled: Em.computed.equal 'config.env.NITROUS_SSH_ENABLED', 'true'
 
@@ -48,6 +49,13 @@ App.Container = klass = App.Model.extend
     sshPort = @get 'sshPort'
     "ssh://#{user}@#{hostname}:#{sshPort}"
   ).property 'sshEnabled', 'loginUsername', 'hostname', 'sshPort'
+
+  previewURL: (->
+    hostname = @get 'hostname'
+    previewPort = @get 'previewPort'
+    if hostname && previewPort
+      "http://#{hostname}:#{previewPort}/"
+  ).property 'hostname', 'previewPort'
 
   displayName: (->
     @get('name') || @get('slug')
