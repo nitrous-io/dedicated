@@ -15,7 +15,8 @@ export VAGRANT_HOME=/home/vagrant
 export GOPATH=$VAGRANT_HOME/go
 export GOROOT=/usr/local/opt/go
 export WORKSPACE=$VAGRANT_HOME/workspace
-export RUBYBIN=/usr/local/ruby/2.1.2/bin
+export RUBYVERSION=2.1.4
+export RUBYBIN=/usr/local/ruby/$RUBYVERSION/bin
 export PATH=$GOPATH/bin:$GOROOT/bin:$RUBYBIN:$PATH
 
 ## BASIC APT DEPENDENCIES ####################################################
@@ -97,9 +98,10 @@ sudo chown -R vagrant:vagrant /var/lib/docker
 if [[ ! -x $RUBYBIN/ruby ]]; then
   echo "Installing ruby..."
 
-  mkdir -p /usr/local/ruby
-  curl -s https://intercityup.com/binaries/ruby/ubuntu/14.04/x86_64/ruby-2.1.2.tar.bz2 \
-    | tar -C /usr/local/ruby -xj
+  mkdir -p /usr/local/ruby/$RUBYVERSION
+  # from http://blog.packager.io/post/101342252191/one-liner-to-get-a-precompiled-ruby-on-your-own-servers
+  curl -s https://s3.amazonaws.com/pkgr-buildpack-ruby/current/ubuntu-14.04/ruby-$RUBYVERSION.tgz \
+    | tar -C /usr/local/ruby/$RUBYVERSION -xz
 fi
 
 sudo -u vagrant bash <<EOF
