@@ -3,7 +3,6 @@ package userprofile_test
 import (
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -28,15 +27,6 @@ var _ = Describe("models/userprofile", func() {
 		var err error
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-
-		u = &user.User{
-			Username: "foo",
-			Email:    "foo@example.com",
-			Password: "123456",
-		}
-
-		err = WrapInTransaction(db, u.Insert)
-		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -45,11 +35,16 @@ var _ = Describe("models/userprofile", func() {
 		}
 	})
 
-	Describe("Create()", func() {
-		It("creates a new user profile", func() {
-			err := WrapInTransaction(db, func(tx *sqlx.Tx) error {
-				return userprofile.Create(tx, u.ID)
-			})
+	Describe("UserProfile", func() {
+		It("created as part of user creation", func() {
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
 
 			p := &userprofile.UserProfile{}
 			err = db.Get(p, "SELECT * FROM user_profiles WHERE user_profiles.user_id = $1;", u.ID)
@@ -57,8 +52,86 @@ var _ = Describe("models/userprofile", func() {
 			Expect(p.ID).NotTo(BeNil())
 			Expect(p.UserID).To(Equal(u.ID))
 			Expect(p.MaxHosts).To(Equal(int64(1)))
+			Expect(p.Advanced).To(Equal(false))
 			Expect(p.CreatedAt).NotTo(BeNil())
 			Expect(p.UpdatedAt).NotTo(BeNil())
+		})
+	})
+
+	Describe("Find()", func() {
+		var u *user.User
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		Context("when a valid user id is given", func() {
+			It("returns the user profile record", func() {
+				p, err := userprofile.Find(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(p).NotTo(BeNil())
+				Expect(p.UserID).To(Equal(u.ID))
+			})
+		})
+
+		Context("when a user profile for given user id does not exist", func() {
+			It("returns nil", func() {
+				p, err := userprofile.Find(db, 9001)
+				Expect(err).To(BeNil())
+				Expect(p).To(BeNil())
+			})
+		})
+	})
+
+	Describe("Update()", func() {
+		var u *user.User
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		It("updates the user profile record", func() {
+			p, err := userprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(p).NotTo(BeNil())
+
+			oldUpdatedAt := p.UpdatedAt
+			p.Advanced = true
+
+			err = p.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(p.Advanced).To(BeTrue())
+			Expect(p.UpdatedAt).NotTo(Equal(oldUpdatedAt))
+		})
+
+		It("does not allow to update the max_hosts field", func() {
+			p, err := userprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(p).NotTo(BeNil())
+
+			oldMaxHosts := p.MaxHosts
+			p.MaxHosts = 9999
+
+			err = p.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(p.MaxHosts).NotTo(Equal(9999))
+			Expect(p.MaxHosts).To(Equal(oldMaxHosts))
 		})
 	})
 })

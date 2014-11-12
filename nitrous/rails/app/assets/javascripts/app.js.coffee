@@ -13,6 +13,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   token: null
   user: null
+  userProfile: null
   hosts: null
   containers: null
   selectedHost: null
@@ -57,6 +58,8 @@ App.on 'load', ->
 App.on 'fetchUser', (user) ->
   App.set 'user', user
   App.set 'eventsSocket', socket = App.EventsSocket.create()
+  App.UserProfile.fetch().then (userProfile) ->
+    App.set 'userProfile', userProfile
   socket.connect()
 
 App.didChangeTitle()

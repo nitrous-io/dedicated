@@ -449,5 +449,11 @@ func init() {
 				ALTER TABLE plans ADD COLUMN disabled boolean DEFAULT false NOT NULL;
 			`,
 		},
+		{
+			Version: "370",
+			Up: `
+				ALTER TABLE user_profiles ADD COLUMN advanced boolean DEFAULT false NOT NULL;
+			`,
+		},
 	}
 }

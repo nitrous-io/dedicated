@@ -10,7 +10,10 @@ App.User = klass = App.Model.extend
   admin: attr('boolean', default: false)
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'updated_at', serialize: false)
-  advancedOptionsEnabled: attr('boolean', default: false)
+
+  advanced: (->
+    App.get('userProfile').get 'advanced'
+  ).property 'App.userProfile.advanced'
 
   gravatar: (->
     "https://gravatar.com/avatar/#{md5(@get 'email')}?s=48"

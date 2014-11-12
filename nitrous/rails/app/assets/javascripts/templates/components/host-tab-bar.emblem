@@ -1,7 +1,7 @@
 if model.isRunning
   li class={generalSelected:selected}
     link-to 'host.index' | Application
-  if App.user.advancedOptionsEnabled
+  if App.user.advanced
     li class={registriesSelected:selected}
       link-to 'host.registries' | Registries
     li class={imagesSelected:selected}
@@ -11,7 +11,7 @@ if model.isRunning
 else
   li class={generalSelected:selected}
     link-to 'host.index' | Application
-  if App.user.advancedOptionsEnabled
+  if App.user.advanced
     li.disabled class={registriesSelected:selected}
       a.noclick href='#' Registries
     li.disabled class={imagesSelected:selected}

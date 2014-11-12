@@ -1,0 +1,38 @@
+package serializers_test
+
+import (
+	"encoding/json"
+	"time"
+
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("userprofile serializer", func() {
+	var (
+		createdAt = time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
+		updatedAt = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
+
+		model = &userprofile.UserProfile{
+			ID:        10, // Not serialized.
+			UserID:    10, // Not serialized.
+			MaxHosts:  15, // Not serialized.
+			Advanced:  false,
+			CreatedAt: &createdAt,
+			UpdatedAt: &updatedAt,
+		}
+	)
+
+	Describe("SerializeUserProfile", func() {
+		It("serializes to JSON", func() {
+			p := serializers.SerializeUserProfile(model)
+			b, err := json.Marshal(p)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`{
+				"advanced": false
+			}`))
+		})
+	})
+})
