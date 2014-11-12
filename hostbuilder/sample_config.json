@@ -1,7 +1,7 @@
 {
   "address": ":6666",
-  "librato_user": "rj@nitrous.io",
-  "librato_token": "8ed9daa987f590556a80aa9595f539b3fbb561aa0a0170cbc576e662ddd6ae74",
+  "librato_user": "<email@here.com>",
+  "librato_token": "<token_here>"
   "providers": {
     "amazon": {
       "access_key": "",
@@ -15,5 +15,5 @@
     "docker": {
       "freighterd_location": "/home/vagrant/workspace/dedicated/build/freighterd"
     }
-  },
+  }
 }
