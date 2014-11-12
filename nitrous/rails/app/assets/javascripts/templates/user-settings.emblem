@@ -27,7 +27,9 @@ form submit='save'
       | Warning!
     .card-body
       p
-        | This will expose more information and options.
+        | Changing advanced settings may affect the stability, security, and performance of your applications and containers.
+      p
+        | Only enable this if you are confident in what you are doing.
     .card-footer
       .right
         button.ui.btn.danger.terminate-btn click='hideModal target="view"' OK
