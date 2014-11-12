@@ -348,32 +348,6 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		}
 	}()
 
-	// Replace host certificate and key because the old certs can no longer be
-	// used once the host's slug has changed.
-	caInfo, err := certauth.GetCAInfo(true)
-	if err != nil {
-		return nil, err
-	}
-	crt, err := cert.Generate(h.Hostname(), caInfo.X509Cert, caInfo.Key)
-	if err != nil {
-		return nil, fmt.Errorf("provisioner: failed to generate certificates for '%s', err: %v", h.Slug, err)
-	}
-	tx, err := p.db.Beginx()
-	if err != nil {
-		return nil, err
-	}
-	if err = cert.Delete(tx, h.ID); err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("provisioner: failed to delete old certificates for '%s', err: %v", h.Slug, err)
-	}
-	if err = crt.Insert(tx, h.ID); err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("provisioner: failed to save certificates for '%s', err: %v", h.Slug, err)
-	}
-	if err = tx.Commit(); err != nil {
-		return nil, err
-	}
-
 	// Rename host, etc to make it the real user's.
 	config := hostbuilderclient.Config{
 		"id":           preprovisionedHost.ProviderIdentifier.String,
@@ -382,11 +356,6 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		"apt_password": opts.Token.Token,
 		"apt_location": opts.AptLocation,
 		"apt_dist":     opts.AptDist,
-		"tls": map[string]string{
-			"ca":   string(caInfo.CertPEM),
-			"cert": crt.ServerCert,
-			"key":  crt.ServerKey,
-		},
 	}
 	for k, v := range opts.Template.Config.Map {
 		if v.Valid {
