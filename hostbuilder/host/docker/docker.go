@@ -118,44 +118,6 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 		hostinfo.FreighterdPort = c.FreighterdPort
 	}
 
-	if h.TLS != nil {
-		fmt.Fprintln(mw, "Updating TLS configuration")
-
-		// We can assume `sh` and `echo` are available for the Docker driver
-		// since we use a Ubuntu-derived image.
-		// docker exec is not the most reliable though (e.g. some errors are
-		// not returned), so a better alternative is welcome (maybe docker)
-		// volumes).
-		subcmd := fmt.Sprintf(`echo %q > %s`, h.TLS.CA, TLSCALocation)
-		cmd := exec.Command("docker", "exec", h.ID, "sh", "-c", subcmd)
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintf(mw, "Failed to update TLS CA, err: %v\n", err)
-			return nil, err
-		}
-		subcmd = fmt.Sprintf(`echo %q > %s`, h.TLS.Cert, TLSCertLocation)
-		cmd = exec.Command("docker", "exec", h.ID, "sh", "-c", subcmd)
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintf(mw, "Failed to update TLS cert, err: %v\n", err)
-			return nil, err
-		}
-		subcmd = fmt.Sprintf(`echo %q > %s`, h.TLS.Key, TLSKeyLocation)
-		cmd = exec.Command("docker", "exec", h.ID, "sh", "-c", subcmd)
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintf(mw, "Failed to update TLS key, err: %v\n", err)
-			return nil, err
-		}
-
-		c, err := h.Restart()
-		if err != nil {
-			fmt.Fprintf(mw, "Failed to restart container after updating TLS configuration, err: %v\n", err)
-			return nil, err
-		}
-		hostinfo.IPAddress = c.IPAddress
-		hostinfo.FreighterdPort = c.FreighterdPort
-
-		fmt.Fprintln(mw, "TLS configuration updated")
-	}
-
 	return hostinfo, nil
 }
 
