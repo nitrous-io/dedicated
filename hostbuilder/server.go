@@ -13,7 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
-	"github.com/nitrous-io/dedicated/hostbuilder/pkg/metrics"
+	"github.com/nitrous-io/dedicated/pkg/metrics"
 	"github.com/nitrous-io/nitrous-common/flusher"
 )
 

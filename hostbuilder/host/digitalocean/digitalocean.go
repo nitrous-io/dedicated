@@ -18,7 +18,7 @@ import (
 	"github.com/digitalocean/godo"
 	"github.com/nitrous-io/dedicated/hostbuilder/context"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
-	"github.com/nitrous-io/dedicated/hostbuilder/pkg/metrics"
+	"github.com/nitrous-io/dedicated/pkg/metrics"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"github.com/rcrowley/go-librato"
 )
