@@ -249,7 +249,7 @@ func gauge(start time.Time, hst host.Host, name string) {
 	metrics.Gauge(m, start, name)
 }
 
-func count(count int64, hst host.Host, name string) {
+func increment(count int64, hst host.Host, name string) {
 	h := hst.(*Host)
 	m := metrics.New(h.libratoUser, h.libratoToken, metricSource)
 	metrics.Count(m, count, name)
@@ -276,7 +276,7 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 		PublicKey: string(pubKey),
 	})
 	if err != nil {
-		count(1, hst, "create_ssh_key_error")
+		increment(1, hst, "create_ssh_key_error")
 		return err
 	}
 	hlog(h, "creating SSH keypair on digitalocean... Done")
@@ -306,7 +306,7 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 		},
 	})
 	if err != nil {
-		count(1, hst, "create_droplet_error")
+		increment(1, hst, "create_droplet_error")
 		return err
 	}
 	h.droplet = dropletRoot.Droplet
@@ -339,7 +339,7 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
 		sshutil.TimeWait, make(chan struct{}))
 	if err != nil {
-		count(1, hst, "ssh_wait_error")
+		increment(1, hst, "ssh_wait_error")
 		return err
 	}
 	hlog(h, "SSH READY for droplet %v", h.droplet.ID)
@@ -430,7 +430,7 @@ func updateSoftware(ctx *context.Context, hst host.Host) error {
 	cmd :=
 		`DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" freighterd`
 	if err := h.conn.Execute(cmd); err != nil {
-		count(1, hst, "update_software_error")
+		increment(1, hst, "update_software_error")
 		return err
 	}
 	hlog(h, "Updated freighterd package on %v", h.ipAddress())
@@ -443,7 +443,7 @@ func restartFreighterd(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
 	hlog(h, "Restarting freighterd")
 	if err := h.conn.Execute(`service freighterd restart`); err != nil {
-		count(1, hst, "restart_freighterd_error")
+		increment(1, hst, "restart_freighterd_error")
 		return err
 	}
 	hlog(h, "Restarted freighterd on %v", h.ipAddress())
