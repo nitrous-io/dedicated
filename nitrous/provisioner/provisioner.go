@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -601,12 +601,12 @@ func (p *Provisioner) worker(id int, jobQueue chan job, wg *sync.WaitGroup) {
 }
 
 func (p *Provisioner) preprovision(j job) (*host.Host, error) {
-	rand := rand.Int31n(2147483647) // FIXME Generate a UUID or something.
+	slug := fmt.Sprintf("pre-provisioned-%d", time.Now().UnixNano())
 	opts := ProvisionOptions{
 		Async:        false,
 		Preprovision: true,
 		OutputStream: ioutil.Discard,
-		Slug:         fmt.Sprintf("pre-provisioned-%d", rand),
+		Slug:         slug,
 		Name:         "Pre-provisioned host",
 		User:         p.preprovisionUser,
 		Token:        p.preprovisionUserToken,
