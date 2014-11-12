@@ -26,7 +26,6 @@ App.BaseImageView = Em.View.extend
 
   click: ->
     return if @get 'disabled'
-    console.log 'selecting'
     @set('selectedBaseImage', @get('baseImage.repo'))
 
 makeBackgroundImageCss = (url) ->

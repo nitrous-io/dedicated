@@ -19,7 +19,7 @@
       .card-body.bordered
         .ui.input-group
           label.field-label
-            | Starter Template
+            | Template
 
           ul.starter-templates
             App.StarterTemplateView content='rails' iconUrl='https://nitrous-image-icons.s3.amazonaws.com/rails.png' selected=view.selectedTemplate name='Ruby on Rails'
@@ -84,9 +84,18 @@
           .right
             a.ui.btn href='#' click='cancel' Cancel
             input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'
+    = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=host.progress.progressDetail.current max=host.progress.progressDetail.total
 
   .screen class={view.showProgressScreen::hide}
-    .card-body
+    .card-body.download-app
+      h3
+        | Your application &ldquo;
+        = name
+        | &rdquo; is being created
+        = ui-ellipsis
+      p In the meantime, download and install the Nitrous desktop application so you can start developing right away once the application is created.
+      a.ui.btn.raised.primary href='/desktop' target='_blank' Download Desktop App
+    .card-body.bordered
       .terminal-screen
     .card-footer.bordered
       if saving

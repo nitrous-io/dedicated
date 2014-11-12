@@ -190,9 +190,10 @@
       .right
         a.ui.btn href='#' click='goBack target="view"' Back
         a.ui.btn.primary disabled={view.createButtonDisabled} click='create target="view"' Create
+    = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
 
   .screen class={view.showProgressScreen::hide}
-    .card-body.bordered
+    .card-body
       .terminal-screen
     .card-footer.bordered
       if saving
