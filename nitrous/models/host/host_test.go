@@ -576,6 +576,14 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe(".CertHostname", func() {
+		It("return the wildcard DNS name", func() {
+			host.SetHostnames("n2otest.com", "n2otestproxy.com")
+			h := &host.Host{Slug: "hello"}
+			Expect(h.CertHostname()).To(Equal("*.n2otest.com"))
+		})
+	})
+
 	Describe(".ProxyHostname", func() {
 		It("return the host DNS name", func() {
 			host.SetHostnames("n2otest.com", "n2otestproxy.com")
