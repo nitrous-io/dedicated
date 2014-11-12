@@ -851,16 +851,15 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
-			Expect(j.Host.State).To(Equal(host.StateBorn))
+			Expect(j.Host.State).To(Equal(host.StateBorn), "unexpected host state")
 
 			// These fields are not yet set.
-			Expect(j.Host.IPAddress).To(BeEmpty())
-			Expect(j.Host.FreighterdPort).To(BeZero())
+			Expect(j.Host.IPAddress).To(BeEmpty(), "unexpected ip address")
+			Expect(j.Host.FreighterdPort).To(BeZero(), "unexpected freighterd port")
 
-			h, err := host.Find(db, u, params.Get("slug"))
-			Expect(err).To(BeNil())
-			Expect(h.Slug).To(Equal(params.Get("slug")))
-			Expect(h.State).To(Equal(host.StateBorn))
+			h, err := host.Find(db, u, j.Host.Slug)
+			Expect(err).To(BeNil(), "failed to find host in db")
+			Expect(j.Host.ID).To(Equal(h.ID), "unexpected id in response")
 		})
 
 		Context("when hostbuilder successfully creates a host", func() {
