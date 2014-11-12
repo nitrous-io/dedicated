@@ -74,6 +74,12 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
+	hostinfo := &host.Info{
+		Provider:       "docker",
+		ID:             h.ID,
+		IPAddress:      "127.0.0.1",
+		FreighterdPort: uint16(getFreighterdPort(container)),
+	}
 
 	if container.Name != h.Name {
 		// See https://github.com/docker/docker/pull/8570 for native rename.
@@ -106,15 +112,51 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 		}
 
 		fmt.Fprintf(mw, "Container renamed. New ID: %s, old ID: %s)\n", c.ID, container.ID)
-		return c, nil
+		h.ID = c.ID // FIXME Ugh, it's awkward that we need to do this.
+		hostinfo.ID = c.ID
+		hostinfo.IPAddress = c.IPAddress
+		hostinfo.FreighterdPort = c.FreighterdPort
 	}
 
-	return &host.Info{
-		Provider:       "docker",
-		ID:             h.ID,
-		IPAddress:      "127.0.0.1",
-		FreighterdPort: uint16(getFreighterdPort(container)),
-	}, nil
+	if h.TLS != nil {
+		fmt.Fprintln(mw, "Updating TLS configuration")
+
+		// We can assume `sh` and `echo` are available for the Docker driver
+		// since we use a Ubuntu-derived image.
+		// docker exec is not the most reliable though (e.g. some errors are
+		// not returned), so a better alternative is welcome (maybe docker)
+		// volumes).
+		subcmd := fmt.Sprintf(`echo %q > %s`, h.TLS.CA, TLSCALocation)
+		cmd := exec.Command("docker", "exec", h.ID, "sh", "-c", subcmd)
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintf(mw, "Failed to update TLS CA, err: %v\n", err)
+			return nil, err
+		}
+		subcmd = fmt.Sprintf(`echo %q > %s`, h.TLS.Cert, TLSCertLocation)
+		cmd = exec.Command("docker", "exec", h.ID, "sh", "-c", subcmd)
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintf(mw, "Failed to update TLS cert, err: %v\n", err)
+			return nil, err
+		}
+		subcmd = fmt.Sprintf(`echo %q > %s`, h.TLS.Key, TLSKeyLocation)
+		cmd = exec.Command("docker", "exec", h.ID, "sh", "-c", subcmd)
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintf(mw, "Failed to update TLS key, err: %v\n", err)
+			return nil, err
+		}
+
+		c, err := h.Restart()
+		if err != nil {
+			fmt.Fprintf(mw, "Failed to restart container after updating TLS configuration, err: %v\n", err)
+			return nil, err
+		}
+		hostinfo.IPAddress = c.IPAddress
+		hostinfo.FreighterdPort = c.FreighterdPort
+
+		fmt.Fprintln(mw, "TLS configuration updated")
+	}
+
+	return hostinfo, nil
 }
 
 func (h *Host) Destroy() error {
