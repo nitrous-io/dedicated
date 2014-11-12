@@ -458,7 +458,7 @@ func init() {
 		{
 			Version: "380",
 			Up: `
-				ALTER TABLE users ADD COLUMN reset_password_token varying(255);
+				ALTER TABLE users ADD COLUMN reset_password_token character varying(255);
 				ALTER TABLE users ADD COLUMN reset_password_sent_at timestamp without time zone;
 			`,
 		},

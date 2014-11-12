@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/keys"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/regions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
@@ -41,6 +42,9 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/user", mw.Auth(users.GetAuthenticatedUser), "GET")
 		s.routeJSON("/user/profile", mw.Auth(userprofiles.Show), "GET")
 		s.routeJSON("/user/profile", mw.Auth(userprofiles.Update), "POST")
+
+		s.routeJSON("/send_reset_password_token", passwords.SendResetPasswordToken, "POST")
+		s.routeJSON("/reset_password", passwords.ResetPassword, "POST")
 
 		s.routeJSON("/hosts", mw.Auth(hosts.Index), "GET")
 		s.routeJSON("/hosts", mw.Auth(mw.Track(analytics.HostCreated, hosts.Create)), "POST")
