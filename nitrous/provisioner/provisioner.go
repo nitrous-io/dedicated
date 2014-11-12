@@ -251,6 +251,13 @@ func (p *Provisioner) setRunning(r bool) bool {
 // If the Async option is true, the current Host record is returned immediately
 // while provisioning happens asynchonously.
 func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
+	if opts.AptLocation == "" {
+		opts.AptLocation = defaultAPTLocation
+	}
+	if opts.AptDist == "" {
+		opts.AptDist = defaultAPTDist
+	}
+
 	// Assign a pre-provisioned host if one is available.
 	h, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
 	if err == nil {
@@ -260,13 +267,6 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 		}
 		// Provision from scratch if the assignment fails.
 		p.logger.Warnf("provisioner: could not assign pre-provisioned host %d, err: %v", h.ID, err)
-	}
-
-	if opts.AptLocation == "" {
-		opts.AptLocation = defaultAPTLocation
-	}
-	if opts.AptDist == "" {
-		opts.AptDist = defaultAPTDist
 	}
 
 	phost, err := p.prepare(opts)
@@ -312,7 +312,36 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	}
 	defer unmarkAssignment(preprovisionedHost)
 
-	// Rename host and make it the real user's.
+	h := *preprovisionedHost // Copy of function arg.
+	h.Slug = opts.Slug
+
+	// Replace host certificate and key because the old certs can no longer be
+	// used once the host's slug has changed.
+	caInfo, err := certauth.GetCAInfo(true)
+	if err != nil {
+		return nil, err
+	}
+	crt, err := cert.Generate(h.Hostname(), caInfo.X509Cert, caInfo.Key)
+	if err != nil {
+		return nil, fmt.Errorf("provisioner: failed to generate certificates for '%s', err: %v", h.Slug, err)
+	}
+	tx, err := p.db.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	if err := cert.Delete(tx, h.ID); err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("provisioner: failed to delete old certificates for '%s', err: %v", h.Slug, err)
+	}
+	if err := crt.Insert(tx, h.ID); err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("provisioner: failed to save certificates for '%s', err: %v", h.Slug, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	// Rename host, etc to make it the real user's.
 	config := hostbuilderclient.Config{
 		"id":           preprovisionedHost.ProviderIdentifier.String,
 		"name":         opts.Slug,
@@ -320,6 +349,11 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		"apt_password": opts.Token.Token,
 		"apt_location": opts.AptLocation,
 		"apt_dist":     opts.AptDist,
+		"tls": map[string]string{
+			"ca":   string(caInfo.CertPEM),
+			"cert": crt.ServerCert,
+			"key":  crt.ServerKey,
+		},
 	}
 	for k, v := range opts.Template.Config.Map {
 		if v.Valid {
@@ -335,8 +369,6 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	}
 
 	// Update host record with new info.
-	h := *preprovisionedHost // Copy of function arg.
-	h.Slug = opts.Slug
 	h.Name = sql.NullString{opts.Name, true}
 	h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
