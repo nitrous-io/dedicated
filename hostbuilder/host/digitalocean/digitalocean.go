@@ -111,7 +111,23 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 }
 
 func (h *Host) Update(w io.Writer) (*host.Info, error) {
-	return nil, nil
+	id, err := h.id()
+	if err != nil {
+		return nil, err
+	}
+
+	hlog(h, "Renaming droplet %d to %s", id, h.Config.Name)
+	action, _, err := h.Client.DropletActions.Rename(id, h.Config.Name)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 30*time.Second); err != nil {
+		return nil, err
+	}
+	hlog(h, "Renamed droplet")
+
+	h.progressLog(w, "Updating host...Done!")
+	return h.Info()
 }
 
 func (h *Host) Destroy() error {
@@ -173,8 +189,7 @@ func (h *Host) Restart() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 15*time.Minute)
-	if err != nil {
+	if _, err = WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 15*time.Minute); err != nil {
 		return nil, err
 	}
 
