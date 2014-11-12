@@ -415,6 +415,7 @@ var _ = Describe("models/host", func() {
 		})
 
 		It("updates the host in the database", func() {
+			h.Slug = "new-slug"
 			h.Name = sql.NullString{"foo host", true}
 			h.State = host.StateRestarting
 			h.IPAddress = sql.NullString{"1.2.3.4", true}
@@ -425,12 +426,12 @@ var _ = Describe("models/host", func() {
 			err := h.Update(db)
 			Expect(err).To(BeNil())
 
-			h2, err := host.Find(db, hs.U, slug)
+			h2, err := host.FindByID(db, h.ID)
 			Expect(err).To(BeNil())
 			Expect(h2).NotTo(BeNil())
-			Expect(h2.Slug).To(Equal(slug))
 
 			// Updated fields.
+			Expect(h2.Slug).To(Equal("new-slug"))
 			Expect(h2.Name.String).To(Equal("foo host"))
 			Expect(h2.State).To(Equal(host.StateRestarting))
 			Expect(h2.IPAddress.String).To(Equal("1.2.3.4"))
