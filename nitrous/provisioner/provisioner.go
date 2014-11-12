@@ -261,6 +261,29 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 	// Assign a pre-provisioned host if one is available.
 	h, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
 	if err == nil {
+		if opts.Async {
+			go func() {
+				_, err := p.assignHost(h, opts)
+				if err == nil {
+					return
+				}
+				// Provision from scratch if the assignment fails.
+				p.logger.Warnf("provisioner: could not assign pre-provisioned host %d, err: %v", h.ID, err)
+				phost, err := p.prepare(opts)
+				if err != nil {
+					return
+				}
+				p.provision(phost, opts)
+			}()
+
+			tmpHost := *h // Make a copy.
+			tmpHost.UserID = opts.User.ID
+			tmpHost.Slug = opts.Slug
+			tmpHost.Name = sql.NullString{opts.Name, true}
+
+			return &tmpHost, nil
+		}
+
 		assignedHost, err := p.assignHost(h, opts)
 		if err == nil {
 			return assignedHost, nil
@@ -315,6 +338,16 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	h := *preprovisionedHost // Copy of function arg.
 	h.Slug = opts.Slug
 
+	var err error
+	defer func() {
+		if err == nil {
+			return
+		}
+		if opts.ProvisionFailedFn != nil {
+			opts.ProvisionFailedFn(&h, err)
+		}
+	}()
+
 	// Replace host certificate and key because the old certs can no longer be
 	// used once the host's slug has changed.
 	caInfo, err := certauth.GetCAInfo(true)
@@ -329,15 +362,15 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	if err != nil {
 		return nil, err
 	}
-	if err := cert.Delete(tx, h.ID); err != nil {
+	if err = cert.Delete(tx, h.ID); err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("provisioner: failed to delete old certificates for '%s', err: %v", h.Slug, err)
 	}
-	if err := crt.Insert(tx, h.ID); err != nil {
+	if err = crt.Insert(tx, h.ID); err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("provisioner: failed to save certificates for '%s', err: %v", h.Slug, err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -374,12 +407,16 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
 	h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
 	h.Preprovisioned = false
-	if err := h.Update(p.db); err != nil {
+	if err = h.Update(p.db); err != nil {
 		return nil, fmt.Errorf("provisioner: failed to update pre-provisioned host record, err: %v", err)
 	}
 
-	if err := h.ReassignUser(p.db, opts.User); err != nil {
+	if err = h.ReassignUser(p.db, opts.User); err != nil {
 		return nil, fmt.Errorf("provisioner: failed to assign pre-provisioned host %d to real user, err: %v", h.ID, err)
+	}
+
+	if opts.ProvisionSucceededFn != nil {
+		opts.ProvisionSucceededFn(&h)
 	}
 
 	// After successful assignment, add a job with the same specs to the job
