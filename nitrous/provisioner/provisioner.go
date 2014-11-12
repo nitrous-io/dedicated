@@ -507,7 +507,7 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 
 	// Create host certificate and key. The cert will be used for TLS encryption
 	// when communicating with the host.
-	cert, err := cert.Generate(h.Hostname(), caInfo.X509Cert, caInfo.Key)
+	cert, err := cert.Generate(h.CertHostname(), caInfo.X509Cert, caInfo.Key)
 	if err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("provisioner: failed to generate certificates for '%s', err: %v", h.Slug, err)
