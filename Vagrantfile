@@ -31,6 +31,7 @@ apt-get install -yy --no-install-recommends build-essential curl git-core mercur
 
 echo "Installing postgres..."
 
+apt-get update
 apt-get install -yy postgresql-9.3 postgresql-contrib-9.3 libpq-dev
 
 if ! sudo su postgres -c 'psql -c "SELECT usename FROM pg_user"' | grep vagrant > /dev/null; then
