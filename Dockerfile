@@ -9,24 +9,37 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   postgresql-9.3 \
   postgresql-contrib-9.3 \
   libpq-dev \
-  nodejs
+  nodejs \
+  wget
 
 RUN locale-gen en_US.utf8
 
 # set paths
 ENV HOME /root
 ENV GOBIN /opt/bin
-ENV PATH /opt/bundle/binstubs:/usr/local/ruby/2.1.2/bin:/usr/local/go/bin:/opt/bin:$PATH
+ENV PATH /opt/bundle/binstubs:/usr/local/go/bin:/opt/bin:$PATH
 WORKDIR /opt/src/github.com/nitrous-io/dedicated
 
-# install ruby
-RUN mkdir -p /usr/local/ruby
-RUN curl -s https://intercityup.com/binaries/ruby/ubuntu/14.04/x86_64/ruby-2.1.2.tar.bz2 \
-  | tar -v -C /usr/local/ruby -xj
+# install ruby from source
+ENV RUBY_MAJOR 2.1
+ENV RUBY_VERSION 2.1.4
+RUN apt-get update \
+  && apt-get install -y bison ruby autoconf \
+  && rm -rf /var/lib/apt/lists/* \
+  && mkdir -p /usr/src/ruby \
+  && curl -SL "http://cache.ruby-lang.org/pub/ruby/$RUBY_MAJOR/ruby-$RUBY_VERSION.tar.bz2" \
+    | tar -xjC /usr/src/ruby --strip-components=1 \
+  && cd /usr/src/ruby \
+  && autoconf \
+  && ./configure --disable-install-doc \
+  && make -j"$(nproc)" \
+  && apt-get purge -y --auto-remove bison ruby autoconf \
+  && make install \
+  && rm -r /usr/src/ruby
 
 # install go
 RUN curl -s https://storage.googleapis.com/golang/go1.3.3.linux-amd64.tar.gz \
-  | tar -v -C /usr/local -xz
+  | tar -C /usr/local -xz
 
 ENV GOPATH /opt
 RUN go get github.com/mitchellh/gox
@@ -38,10 +51,10 @@ RUN go get github.com/ddollar/forego
 
 # load bundle to speed up Gem installs
 ADD script/bundle_config /root/.bundle/config
-RUN /usr/local/ruby/2.1.2/bin/gem install bundle
+RUN gem install bundler
 ADD ./nitrous/rails/Gemfile /opt/src/github.com/nitrous-io/dedicated/nitrous/rails/Gemfile
 ADD ./nitrous/rails/Gemfile.lock /opt/src/github.com/nitrous-io/dedicated/nitrous/rails/Gemfile.lock
-RUN cd ./nitrous/rails && /usr/local/ruby/2.1.2/bin/bundle install
+RUN cd ./nitrous/rails && bundle install
 
 RUN /etc/init.d/postgresql start &&\
   su postgres -c "psql -c 'CREATE ROLE root NOSUPERUSER CREATEDB NOCREATEROLE INHERIT LOGIN;'" &&\
