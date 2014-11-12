@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/pkg/metrics"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
+	"github.com/rcrowley/go-librato"
 )
 
 const metricSource = "hostbuilder_digitalocean"
@@ -69,13 +70,12 @@ type Host struct {
 	Client *godo.Client
 	Config *HostConfig
 
-	droplet      *godo.Droplet
-	privateKey   *rsa.PrivateKey
-	conn         *sshutil.Conn
-	sshKey       *godo.Key
-	uuid         string
-	libratoUser  string
-	libratoToken string
+	droplet    *godo.Droplet
+	privateKey *rsa.PrivateKey
+	conn       *sshutil.Conn
+	sshKey     *godo.Key
+	uuid       string
+	metric     librato.Metrics
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -230,11 +230,11 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	}
 	client := godo.NewClient(t.Client())
 	host := &Host{
-		Config:       hostConfig,
-		Client:       client,
-		uuid:         defaultConfig["uuid"],
-		libratoUser:  defaultConfig["librato_user"],
-		libratoToken: defaultConfig["librato_token"],
+		Config: hostConfig,
+		Client: client,
+		uuid:   defaultConfig["uuid"],
+		metric: metrics.New(defaultConfig["librato_user"], defaultConfig["librato_token"],
+			metricSource),
 	}
 	return host, nil
 }
@@ -243,22 +243,18 @@ func init() {
 	host.Hosts["digitalocean"] = NewHost
 }
 
-func gauge(start time.Time, hst host.Host, name string) {
-	h := hst.(*Host)
-	m := metrics.New(h.libratoUser, h.libratoToken, metricSource)
-	metrics.Gauge(m, start, name)
+func (h *Host) gauge(start time.Time, name string) {
+	metrics.Gauge(h.metric, start, name)
 }
 
-func increment(count int64, hst host.Host, name string) {
-	h := hst.(*Host)
-	m := metrics.New(h.libratoUser, h.libratoToken, metricSource)
-	metrics.Count(m, count, name)
+func (h *Host) increment(count int64, name string) {
+	metrics.Count(h.metric, count, name)
 }
 
 func createSSHKey(ctx *context.Context, hst host.Host) error {
-	defer gauge(time.Now(), hst, "create_ssh_key")
-
 	h := hst.(*Host)
+	defer h.gauge(time.Now(), "create_ssh_key")
+
 	hlog(h, "generating temporary SSH key")
 	privateKey, err := sshutil.GenerateSSHKey()
 	if err != nil {
@@ -276,7 +272,7 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 		PublicKey: string(pubKey),
 	})
 	if err != nil {
-		increment(1, hst, "create_ssh_key_error")
+		h.increment(1, "create_ssh_key_error")
 		return err
 	}
 	hlog(h, "creating SSH keypair on digitalocean... Done")
@@ -285,9 +281,9 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 }
 
 func createDroplet(ctx *context.Context, hst host.Host) error {
-	defer gauge(time.Now(), hst, "create_droplet")
-
 	h := hst.(*Host)
+	defer h.gauge(time.Now(), "create_droplet")
+
 	config := h.Config
 	sshKey := h.sshKey
 
@@ -306,7 +302,7 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 		},
 	})
 	if err != nil {
-		increment(1, hst, "create_droplet_error")
+		h.increment(1, "create_droplet_error")
 		return err
 	}
 	h.droplet = dropletRoot.Droplet
@@ -331,15 +327,15 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 }
 
 func waitForSSH(ctx *context.Context, hst host.Host) error {
-	defer gauge(time.Now(), hst, "ssh_wait")
-
 	h := hst.(*Host)
+	defer h.gauge(time.Now(), "ssh_wait")
+
 	hlog(h, "Waiting for SSH to be ready")
 	address := fmt.Sprintf("%s:%s", h.ipAddress(), "65100")
 	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
 		sshutil.TimeWait, make(chan struct{}))
 	if err != nil {
-		increment(1, hst, "ssh_wait_error")
+		h.increment(1, "ssh_wait_error")
 		return err
 	}
 	hlog(h, "SSH READY for droplet %v", h.droplet.ID)
@@ -348,9 +344,9 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 }
 
 func writePublicKeys(ctx *context.Context, hst host.Host) error {
-	defer gauge(time.Now(), hst, "write_public_key")
-
 	h := hst.(*Host)
+	defer h.gauge(time.Now(), "write_public_key")
+
 	hlog(h, "Writing public key")
 	pubKeyR := bytes.NewBuffer(nil)
 	for _, k := range h.Config.PublicKeys {
@@ -364,14 +360,16 @@ func writePublicKeys(ctx *context.Context, hst host.Host) error {
 }
 
 func createEtcFreighterd(ctx *context.Context, hst host.Host) error {
-	defer gauge(time.Now(), hst, "create_freighterd_config")
-	return hst.(*Host).conn.Execute("mkdir -p /etc/freighterd")
+	h := hst.(*Host)
+	defer h.gauge(time.Now(), "create_freighterd_config")
+
+	return h.conn.Execute("mkdir -p /etc/freighterd")
 }
 
 func writeTLSCerts(ctx *context.Context, hst host.Host) error {
-	defer gauge(time.Now(), hst, "write_tls_certs")
-
 	h := hst.(*Host)
+	defer h.gauge(time.Now(), "write_tls_certs")
+
 	hlog(h, "Writing TLS certs")
 	err := writeFile(h, map[string]io.Reader{
 		TLSCALocation:   bytes.NewBufferString(h.Config.TLS.CA),
@@ -383,9 +381,9 @@ func writeTLSCerts(ctx *context.Context, hst host.Host) error {
 }
 
 func writeSecret(ctx *context.Context, hst host.Host) error {
-	defer gauge(time.Now(), hst, "write_secrets")
-
 	h := hst.(*Host)
+	defer h.gauge(time.Now(), "write_secrets")
+
 	hlog(h, "Writing host secret")
 	err := writeFile(h, map[string]io.Reader{
 		SecretLocation: bytes.NewBufferString(h.Config.Secret),
@@ -407,9 +405,9 @@ func writeFile(h *Host, files map[string]io.Reader) error {
 }
 
 func writeRepository(ctx *context.Context, hst host.Host) error {
-	defer gauge(time.Now(), hst, "write_repo")
-
 	h := hst.(*Host)
+	defer h.gauge(time.Now(), "write_repo")
+
 	hlog(h, "Uploading apt details")
 	sourceData := bytes.NewBuffer(nil)
 	if err := host.SourceTemplate.Execute(sourceData, h.Config); err != nil {
@@ -423,14 +421,14 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 }
 
 func updateSoftware(ctx *context.Context, hst host.Host) error {
-	defer gauge(time.Now(), hst, "update_software")
-
 	h := hst.(*Host)
+	defer h.gauge(time.Now(), "update_software")
+
 	hlog(h, "Updating freighterd package")
 	cmd :=
 		`DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" freighterd`
 	if err := h.conn.Execute(cmd); err != nil {
-		increment(1, hst, "update_software_error")
+		h.increment(1, "update_software_error")
 		return err
 	}
 	hlog(h, "Updated freighterd package on %v", h.ipAddress())
@@ -438,12 +436,12 @@ func updateSoftware(ctx *context.Context, hst host.Host) error {
 }
 
 func restartFreighterd(ctx *context.Context, hst host.Host) error {
-	defer gauge(time.Now(), hst, "restart_freighterd")
-
 	h := hst.(*Host)
+	defer h.gauge(time.Now(), "restart_freighterd")
+
 	hlog(h, "Restarting freighterd")
 	if err := h.conn.Execute(`service freighterd restart`); err != nil {
-		increment(1, hst, "restart_freighterd_error")
+		h.increment(1, "restart_freighterd_error")
 		return err
 	}
 	hlog(h, "Restarted freighterd on %v", h.ipAddress())
