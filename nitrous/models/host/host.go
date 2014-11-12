@@ -261,6 +261,10 @@ func (h *Host) Hostname() string {
 	return fmt.Sprintf("%s.%s", h.Slug, rootHostname)
 }
 
+func (h *Host) CertHostname() string {
+	return fmt.Sprintf("*.%s", rootHostname)
+}
+
 func (h *Host) ProxyHostname() string {
 	return fmt.Sprintf("%s.%s", h.Slug, proxyHostname)
 }
