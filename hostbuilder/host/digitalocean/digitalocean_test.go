@@ -3,6 +3,7 @@ package digitalocean_test
 import (
 	"encoding/json"
 	"io"
+	"io/ioutil"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -104,7 +105,8 @@ var _ = Describe("host/digitalocean", func() {
 			request = s.Requests["GET"]["droplets/id"][0]
 			Expect(request.URL.Path).To(Equal("/v2/droplets/1"))
 
-			Expect(len(s.Requests["GET"]["actions/id"])).To(Equal(1), "expect restart to waits for action to be completed")
+			Expect(len(s.Requests["GET"]["actions/id"])).To(Equal(1),
+				"expected restart to waits for action to be completed")
 		})
 
 		It("returns error when the action failed to complete", func() {
@@ -124,11 +126,43 @@ var _ = Describe("host/digitalocean", func() {
 			h := digitalocean.Host{Config: &digitalocean.HostConfig{ID: "1"}, Client: c}
 
 			info, err := h.Info()
-			Expect(info).ToNot(BeNil())
 			Expect(err).To(BeNil())
+			Expect(info).ToNot(BeNil())
 
 			request := s.Requests["GET"]["droplets/id"][0]
 			Expect(request.URL.Path).To(Equal("/v2/droplets/1"))
+		})
+	})
+
+	Describe("Update", func() {
+		It("renames the droplet and waits until the action is completed", func() {
+			s.AddResponse("GET", "droplets/id", dotest.NewResponse(200, droplet))
+			s.AddResponse("POST", "droplets/id/actions", dotest.NewResponse(200, inprogressAction))
+			s.AddResponse("GET", "actions/id", dotest.NewResponse(200, completedAction))
+
+			h := digitalocean.Host{Config: &digitalocean.HostConfig{ID: "1", Name: "new-name"}, Client: c}
+			info, err := h.Update(ioutil.Discard)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(info).ToNot(BeNil())
+
+			req := s.Requests["POST"]["droplets/id/actions"][0]
+			var m map[string]string
+			err = json.NewDecoder(req.Body).Decode(&m)
+			Expect(m["type"]).To(Equal("rename"))
+			Expect(m["name"]).To(Equal("new-name"))
+
+			req = s.Requests["GET"]["droplets/id"][0]
+			Expect(req.URL.Path).To(Equal("/v2/droplets/1"))
+
+			Expect(len(s.Requests["GET"]["actions/id"])).To(Equal(1),
+				"expected update to wait for rename action to be completed")
+		})
+
+		It("fails when droplet is not found", func() {
+			s.AddResponse("GET", "droplets/id", dotest.NotfoundResponse)
+			h := digitalocean.Host{Config: &digitalocean.HostConfig{ID: "1"}, Client: c}
+			_, err := h.Update(ioutil.Discard)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
