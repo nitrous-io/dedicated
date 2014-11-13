@@ -342,10 +342,13 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 
 	defer func() {
 		if err == nil {
-			return
-		}
-		if opts.ProvisionFailedFn != nil {
-			opts.ProvisionFailedFn(h, err)
+			if opts.ProvisionSucceededFn != nil {
+				opts.ProvisionSucceededFn(h)
+			}
+		} else {
+			if opts.ProvisionFailedFn != nil {
+				opts.ProvisionFailedFn(h, err)
+			}
 		}
 	}()
 
@@ -361,10 +364,6 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	if err = h.ReassignUser(p.db, opts.User); err != nil {
 		err = fmt.Errorf("provisioner: failed to assign pre-provisioned host %d to real user, err: %v", h.ID, err)
 		return
-	}
-
-	if opts.ProvisionSucceededFn != nil {
-		opts.ProvisionSucceededFn(h)
 	}
 
 	// After successful assignment, add a job with the same specs to the job
@@ -495,13 +494,15 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	// If an error occurs at any point, mark host as orphan.
 	defer func() {
 		if err == nil {
-			return
-		}
-		h.State = host.StateOrphan
-		_ = h.Update(p.db) // Ignore error here.
-
-		if opts.ProvisionFailedFn != nil {
-			opts.ProvisionFailedFn(h, err)
+			if opts.ProvisionSucceededFn != nil {
+				opts.ProvisionSucceededFn(h)
+			}
+		} else {
+			h.State = host.StateOrphan
+			_ = h.Update(p.db) // Ignore error here.
+			if opts.ProvisionFailedFn != nil {
+				opts.ProvisionFailedFn(h, err)
+			}
 		}
 	}()
 
@@ -519,11 +520,6 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	if err = h.Update(p.db); err != nil {
 		return nil, err
 	}
-
-	if opts.ProvisionSucceededFn != nil {
-		opts.ProvisionSucceededFn(h)
-	}
-
 	return h, nil
 }
 
