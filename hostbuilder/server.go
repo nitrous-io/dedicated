@@ -292,13 +292,13 @@ func New(configData []byte) (*Server, error) {
 
 	// configure metrics output. if we do not have librato user/token i.e.
 	// development environment, output the metrics to stderr
+	// by default we flush metrics every 10s
 	if config.LibratoUser == "" || config.LibratoToken == "" {
 		log.Printf("hostbuilder: missing librato config. fall back to stderr")
-		// by default we flush metrics every 1s
-		go metrics.Log(metrics.DefaultRegistry, 1e9,
+		// in dev, we flush metrics every 60s
+		go metrics.Log(metrics.DefaultRegistry, 60e9,
 			log.New(os.Stderr, "hostbuilder: metrics: ", log.Lmicroseconds))
 	} else {
-		// by default we flush metrics every 10s
 		go librato.Librato(metrics.DefaultRegistry,
 			10e9,                // interval
 			config.LibratoUser,  // account owner email address
