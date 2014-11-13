@@ -164,19 +164,20 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// record total time taken for this function
-	defer mh.UpdateSince(fmt.Sprintf("create.%s", provider), time.Now())
+	label := fmt.Sprintf("create.%s", provider)
+	defer mh.UpdateSince(label, time.Now())
 
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
 	info, err := h.Create(pw)
 	log.Printf("uuid=%s Created: %+v\n, %v", providerConfig["uuid"], info, err)
 	if err != nil {
-		mh.Error(err, fmt.Sprintf("create.%s", provider))
+		mh.Error(err, label)
 		pw.WriteError(fmt.Errorf("failed to create a host on %s", provider))
 		return nil
 	}
 
-	mh.Time(fmt.Sprintf("ping.create.%s", provider), func() {
+	mh.Time(fmt.Sprintf("ping.%s", label), func() {
 		// do not remove a host if freighter is down, we keep the host for debugging
 		pingHost(info, pw)
 	})
@@ -203,15 +204,16 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	configJson := r.Form.Get("config")
 
 	// record total time taken for this function
-	defer mh.UpdateSince(fmt.Sprintf("delete.%s", provider), time.Now())
+	label := fmt.Sprintf("delete.%s", provider)
+	defer mh.UpdateSince(label, time.Now())
 
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
-		return mh.Error(err, fmt.Sprintf("delete.%s", provider))
+		return mh.Error(err, label)
 	}
 	err = h.Destroy()
 	if err != nil {
-		return mh.Error(err, fmt.Sprintf("delete.%s", provider))
+		return mh.Error(err, label)
 	}
 	writeResponse(w, okResponse)
 	return nil
@@ -226,22 +228,23 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	configJson := r.Form.Get("config")
 
 	// record total time taken for this function
-	defer mh.UpdateSince(fmt.Sprintf("restart.%s", provider), time.Now())
+	label := fmt.Sprintf("restart.%s", provider)
+	defer mh.UpdateSince(label, time.Now())
 
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
-		return mh.Error(err, fmt.Sprintf("restart.%s", provider))
+		return mh.Error(err, label)
 	}
 	info, err := h.Restart()
 	if err != nil {
-		return mh.Error(err, fmt.Sprintf("restart.%s", provider))
+		return mh.Error(err, label)
 	}
 
 	// ping the host to make sure that it's up
-	t := mh.Timer(fmt.Sprintf("ping.restart.%s", provider))
+	t := mh.Timer(fmt.Sprintf("ping.%s", label))
 	pingStart := time.Now()
 	if err := pingHost(info, ioutil.Discard); err != nil {
-		return mh.Error(err, fmt.Sprintf("ping.restart.%s", provider))
+		return mh.Error(err, fmt.Sprintf("ping.s", label))
 	}
 	t.UpdateSince(pingStart)
 
