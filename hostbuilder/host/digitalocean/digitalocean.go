@@ -18,12 +18,9 @@ import (
 	"github.com/digitalocean/godo"
 	"github.com/nitrous-io/dedicated/hostbuilder/context"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
-	"github.com/nitrous-io/dedicated/pkg/metrics"
+	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
-	"github.com/rcrowley/go-librato"
 )
-
-const metricSource = "hostbuilder_digitalocean"
 
 var (
 	TLSCALocation   = "/etc/freighterd/ca.crt"
@@ -75,7 +72,6 @@ type Host struct {
 	conn       *sshutil.Conn
 	sshKey     *godo.Key
 	uuid       string
-	metric     librato.Metrics
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -233,8 +229,6 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		Config: hostConfig,
 		Client: client,
 		uuid:   defaultConfig["uuid"],
-		metric: metrics.New(defaultConfig["librato_user"], defaultConfig["librato_token"],
-			metricSource),
 	}
 	return host, nil
 }
@@ -243,28 +237,20 @@ func init() {
 	host.Hosts["digitalocean"] = NewHost
 }
 
-func (h *Host) gauge(start time.Time, name string) {
-	metrics.Gauge(h.metric, start, name)
-}
-
-func (h *Host) increment(count int64, name string) {
-	metrics.Count(h.metric, count, name)
-}
-
 func createSSHKey(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer h.gauge(time.Now(), "create_ssh_key")
+	defer mh.UpdateSince(fmt.Sprintf("create_key.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
 
 	hlog(h, "generating temporary SSH key")
 	privateKey, err := sshutil.GenerateSSHKey()
 	if err != nil {
-		return err
+		return mh.Error(err, "error.create_key.digitalocean")
 	}
 	hlog(h, "generating temporary SSH key... Done")
 	h.privateKey = privateKey
 	pubKey, err := sshutil.GetPubKey(privateKey)
 	if err != nil {
-		return err
+		return mh.Error(err, "error.create_key.digitalocean")
 	}
 	hlog(h, "creating SSH keypair on digitalocean")
 	sshKey, _, err := h.Client.Keys.Create(&godo.KeyCreateRequest{
@@ -272,8 +258,7 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 		PublicKey: string(pubKey),
 	})
 	if err != nil {
-		h.increment(1, "create_ssh_key_error")
-		return err
+		return mh.Error(err, "error.create_key.digitalocean.api")
 	}
 	hlog(h, "creating SSH keypair on digitalocean... Done")
 	h.sshKey = sshKey
@@ -282,7 +267,7 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 
 func createDroplet(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer h.gauge(time.Now(), "create_droplet")
+	defer mh.UpdateSince(fmt.Sprintf("create_host.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
 
 	config := h.Config
 	sshKey := h.sshKey
@@ -290,7 +275,8 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	hlog(h, "digitalocean: creating droplet in region %s, size: %s, slug: %s", config.RegionID, config.SizeID, config.Name)
 	normalizedRegion, ok := regionsMap[config.RegionID]
 	if !ok {
-		return fmt.Errorf("Invalid region or lookup failure: '%s'", config.RegionID)
+		err := fmt.Errorf("Invalid region or lookup failure: '%s'", config.RegionID)
+		return mh.Error(err, "error.create_host.digitalocean")
 	}
 	dropletRoot, _, err := h.Client.Droplets.Create(&godo.DropletCreateRequest{
 		Name:   config.Name,
@@ -302,15 +288,14 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 		},
 	})
 	if err != nil {
-		h.increment(1, "create_droplet_error")
-		return err
+		return mh.Error(err, "error.create_host.digitalocean")
 	}
 	h.droplet = dropletRoot.Droplet
 
 	if len(dropletRoot.Links.Actions) > 0 {
 		la := dropletRoot.Links.Actions[0]
 		if _, err := WaitForAction(h.Client.Actions, la.ID, StateWaitTime, 15*time.Minute); err != nil {
-			return err
+			return mh.Error(err, "error.create_host.digitalocean")
 		}
 	} else {
 		hlog(h, "[WARNING] digitalocean did not return action data for host %+v", hst)
@@ -319,7 +304,8 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 
 	dropletRoot, _, err = h.Client.Droplets.Get(dropletRoot.Droplet.ID)
 	if err != nil {
-		return fmt.Errorf("create: failed to get droplet after it was successfully created %s", err)
+		err = fmt.Errorf("create: failed to get droplet after it was successfully created %s", err)
+		return mh.Error(err, "error.create_host.digitalocean")
 	}
 
 	h.droplet = dropletRoot.Droplet
@@ -328,15 +314,14 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 
 func waitForSSH(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer h.gauge(time.Now(), "ssh_wait")
+	defer mh.UpdateSince(fmt.Sprintf("ssh_wait.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
 
 	hlog(h, "Waiting for SSH to be ready")
 	address := fmt.Sprintf("%s:%s", h.ipAddress(), "65100")
 	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
 		sshutil.TimeWait, make(chan struct{}))
 	if err != nil {
-		h.increment(1, "ssh_wait_error")
-		return err
+		return mh.Error(err, "error.ssh_wait.digitalocean")
 	}
 	hlog(h, "SSH READY for droplet %v", h.droplet.ID)
 	h.conn = sshConn
@@ -345,8 +330,6 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 
 func writePublicKeys(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer h.gauge(time.Now(), "write_public_key")
-
 	hlog(h, "Writing public key")
 	pubKeyR := bytes.NewBuffer(nil)
 	for _, k := range h.Config.PublicKeys {
@@ -361,15 +344,13 @@ func writePublicKeys(ctx *context.Context, hst host.Host) error {
 
 func createEtcFreighterd(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer h.gauge(time.Now(), "create_freighterd_config")
+	defer mh.UpdateSince(fmt.Sprintf("create_config.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
 
 	return h.conn.Execute("mkdir -p /etc/freighterd")
 }
 
 func writeTLSCerts(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer h.gauge(time.Now(), "write_tls_certs")
-
 	hlog(h, "Writing TLS certs")
 	err := writeFile(h, map[string]io.Reader{
 		TLSCALocation:   bytes.NewBufferString(h.Config.TLS.CA),
@@ -382,8 +363,6 @@ func writeTLSCerts(ctx *context.Context, hst host.Host) error {
 
 func writeSecret(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer h.gauge(time.Now(), "write_secrets")
-
 	hlog(h, "Writing host secret")
 	err := writeFile(h, map[string]io.Reader{
 		SecretLocation: bytes.NewBufferString(h.Config.Secret),
@@ -393,10 +372,11 @@ func writeSecret(ctx *context.Context, hst host.Host) error {
 }
 
 func writeFile(h *Host, files map[string]io.Reader) error {
+	defer mh.UpdateSince(fmt.Sprintf("write_file.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
 	flist := []string{}
 	for dest, val := range files {
 		if err := h.conn.Upload(dest, val); err != nil {
-			return err
+			return mh.Error(err, "error.write_file.digitalocean")
 		}
 		flist = append(flist, dest)
 	}
@@ -406,8 +386,6 @@ func writeFile(h *Host, files map[string]io.Reader) error {
 
 func writeRepository(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer h.gauge(time.Now(), "write_repo")
-
 	hlog(h, "Uploading apt details")
 	sourceData := bytes.NewBuffer(nil)
 	if err := host.SourceTemplate.Execute(sourceData, h.Config); err != nil {
@@ -422,14 +400,13 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 
 func updateSoftware(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer h.gauge(time.Now(), "update_software")
+	defer mh.UpdateSince(fmt.Sprintf("update_software.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
 
 	hlog(h, "Updating freighterd package")
 	cmd :=
 		`DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" freighterd`
 	if err := h.conn.Execute(cmd); err != nil {
-		h.increment(1, "update_software_error")
-		return err
+		return mh.Error(err, "error.update_software.digitalocean")
 	}
 	hlog(h, "Updated freighterd package on %v", h.ipAddress())
 	return nil
@@ -437,12 +414,11 @@ func updateSoftware(ctx *context.Context, hst host.Host) error {
 
 func restartFreighterd(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer h.gauge(time.Now(), "restart_freighterd")
+	defer mh.UpdateSince(fmt.Sprintf("restart_software.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
 
 	hlog(h, "Restarting freighterd")
 	if err := h.conn.Execute(`service freighterd restart`); err != nil {
-		h.increment(1, "restart_freighterd_error")
-		return err
+		return mh.Error(err, "error.restart_software.digitalocean")
 	}
 	hlog(h, "Restarted freighterd on %v", h.ipAddress())
 	return nil
