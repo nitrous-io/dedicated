@@ -27,7 +27,7 @@
     else
       p.hint-text
         i.fa.fa-exclamation-circle
-        | This host does not contain any images.
+        | This application does not contain any images.
   else
     p.hint-text
       i.spinner

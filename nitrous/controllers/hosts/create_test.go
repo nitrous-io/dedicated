@@ -177,6 +177,22 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(errDesc).To(Equal("no matching plan found for the given size"))
 	})
 
+	It("responds with plan not found when a matching plan is disabled", func() {
+		// add a disabled plan
+		p := &plan.Plan{Slug: "3gb", Name: "3gb", MaxContainers: 1, Price: 500, Disabled: true}
+		err := p.Insert(db)
+		Expect(err).To(BeNil())
+
+		params.Set("size", "3gb")
+		res := doRequest(params)
+
+		Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+		errType, errDesc := ErrorSlug(res.Body)
+		Expect(errType).To(Equal("invalid_request"))
+		Expect(errDesc).To(Equal("no matching plan found for the given size"))
+	})
+
 	It("responds with region not found when an invalid region is specified", func() {
 		params.Set("region", "antarctica")
 		res := doRequest(params)
@@ -835,16 +851,15 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
-			Expect(j.Host.State).To(Equal(host.StateBorn))
+			Expect(j.Host.State).To(Equal(host.StateBorn), "unexpected host state")
 
 			// These fields are not yet set.
-			Expect(j.Host.IPAddress).To(BeEmpty())
-			Expect(j.Host.FreighterdPort).To(BeZero())
+			Expect(j.Host.IPAddress).To(BeEmpty(), "unexpected ip address")
+			Expect(j.Host.FreighterdPort).To(BeZero(), "unexpected freighterd port")
 
-			h, err := host.Find(db, u, params.Get("slug"))
-			Expect(err).To(BeNil())
-			Expect(h.Slug).To(Equal(params.Get("slug")))
-			Expect(h.State).To(Equal(host.StateBorn))
+			h, err := host.Find(db, u, j.Host.Slug)
+			Expect(err).To(BeNil(), "failed to find host in db")
+			Expect(j.Host.ID).To(Equal(h.ID), "unexpected id in response")
 		})
 
 		Context("when hostbuilder successfully creates a host", func() {

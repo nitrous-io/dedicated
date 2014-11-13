@@ -1,21 +1,26 @@
-App.ContainersNewBaseImageView = Em.View.extend
-  templateName: 'containers/new-base-image'
+App.BaseImageView = Em.View.extend
+  templateName: 'base-image'
   tagName: 'li'
-  classNames: 'containers-new-base-image-view'
-  classNameBindings: ['selected', 'disabled']
+  classNames: ['base-image-view']
+  classNameBindings: ['isSelected:selected', 'disabled']
+
+  disabled: false
 
   baseImage: null
   selectedBaseImage: null
 
-  selected: (->
+  nameBinding: Em.Binding.oneWay 'baseImage.name'
+
+  isSelected: (->
     @get('selectedBaseImage') == @get('baseImage.repo')
   ).property 'selectedBaseImage', 'baseImage.repo'
 
-  baseImageIconCss: (->
-    makeBackgroundImageCss(@get 'baseImage.iconUrl')
+  iconCss: (->
+    return unless iconUrl = @get 'baseImage.iconUrl'
+    makeBackgroundImageCss(iconUrl)
   ).property 'baseImage.iconUrl'
 
-  baseImageDefaultIconCss: (->
+  defaultIconCss: (->
     makeBackgroundImageCss(App.BaseImage.defaultIconUrl)
   ).property 'App.BaseImage.defaultIconUrl'
 

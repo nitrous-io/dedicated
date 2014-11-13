@@ -23,7 +23,7 @@
     else
       p.hint-text
         i.fa.fa-exclamation-circle
-        | This host is not connected to any Docker registry.
+        | This application is not connected to any Docker registry.
   else
     p.hint-text
       i.spinner

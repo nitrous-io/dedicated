@@ -1,4 +1,0 @@
-.bg style=view.baseImageDefaultIconCss
-  .icon style=view.baseImageIconCss
-label
-  = view.baseImage.name

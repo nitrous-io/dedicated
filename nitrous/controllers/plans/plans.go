@@ -9,7 +9,7 @@ import (
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	pls, err := plan.All(env.DB)
+	pls, err := plan.Enabled(env.DB)
 	if err != nil {
 		return err
 	}

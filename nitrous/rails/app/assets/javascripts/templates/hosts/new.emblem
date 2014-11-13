@@ -1,127 +1,113 @@
 .card-header.bordered
-  h2 New Host
+  h2 New Application
 
-form submit='create'
-  .card-body
-    .ui.flex.horizontal
-      .ui.input-group
-        label.field-label for='hosts-new-name'
-          | Name
-        = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' disabled=saving value=name
+.screens
+  .screen class={view.showProgressScreen:hide}
+    form submit='create target="view"'
+      .card-body
+        .ui.flex.horizontal
+          .ui.input-group
+            label.field-label for='hosts-new-name'
+              | Name
+            = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' disabled=saving value=name
 
-      .ui.input-group
-        label.field-label for='hosts-new-slug'
-          | Unique Slug
-        = input type='text' id='hosts-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
+          .ui.input-group
+            label.field-label for='hosts-new-slug'
+              | Unique Slug
+            = input type='text' id='hosts-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
 
-    .ui.input-group
-      label.field-label for='hosts-new-region'
-        | Region
+      .card-body.bordered
+        .ui.input-group
+          label.field-label
+            | Template
 
-      ul.ui.checkbox-group.horizontal class={saving:disabled}
-        each region in App.regions
-          li
-            .ui.checkbox
-              = input type='radio' name='region' id=region.inputId disabled=saving value=region.slug
-              label
-            label for={region.inputId}
-              = region.name
+          ul.starter-templates
+            App.StarterTemplateView content='rails' iconUrl='https://nitrous-image-icons.s3.amazonaws.com/rails.png' selected=view.selectedTemplate name='Ruby on Rails'
+            App.StarterTemplateView content=null selected=view.selectedTemplate name='Empty'
 
-  .card-body.bordered
-    .ui.input-group
-      label.field-label
-        | Size
-      .size-selection
-        .size-list
-          ul.ui.list.item-1-line
-            each plan in App.plans
-              li.list-item class={saving:disabled}
-                .left-accessory
-                  .ui.checkbox
-                    = input type='radio' name='size' id=plan.inputId disabled=saving value=plan.slug
-                    label
-                .lines
-                  p
-                    label for=plan.inputId
-                      = plan.name
-                .lines.right
-                  p
-                    | $&nbsp;
-                    = decimal plan.price 2
-                    | &nbsp;/&nbsp;mo.
+      .card-body.bordered
+        .ui.flex.horizontal.region-size
+          .ui.input-group
+            label.field-label for='hosts-new-region'
+              | Region
+            .ui.select
+              Ember.Select id='hosts-new-region' name='host' content=App.regions optionValuePath='content.slug' optionLabelPath='content.name' disabled=saving value=selectedRegionSlug
 
-        .size-description
-          table.ui.table.horizontal
-            tr
-              th Max. Containers
-              td
-                = selectedPlan.maxContainers
+          .ui.input-group
+            label.field-label for='hosts-new-plan'
+              | Size
+            .ui.select
+              Ember.Select id='hosts-new-plan' name='host' content=App.plans optionValuePath='content.slug' optionLabelPath='content.displayName' disabled=saving value=selectedPlanSlug
 
-            tr
-              th Processor Cores
-              td
-                = selectedPlan.cpu
+      .card-body.bordered
+        .ui.flex.horizontal
+          .spec-box
+            h4 Memory
+            p
+              = selectedPlan.memory
 
-            tr
-              th Total Memory
-              td
-                = selectedPlan.memory
+          .spec-box
+            h4 SSD Storage
+            p
+              = selectedPlan.storage
 
-            tr
-              th Total SSD Storage
-              td
-                = selectedPlan.storage
+          .spec-box
+            h4 CPU Cores
+            p
+              = selectedPlan.cpu
 
-            tr
-              th Container Root Access
-              td
-                i.fa.fa-check
-                  span Yes
+          .spec-box
+            h4 Price
+            p
+              | $&nbsp;
+              = decimal selectedPlan.price 2
+              | &nbsp;/&nbsp;mo.
 
-            tr
-              th Vagrant Provider
-              td
-                i.fa.fa-check
-                  span Yes
+        p.see-terms
+          | Please review the&nbsp;
+          a href='#' terms of service
+          |, and&nbsp;
+          a href='#' privacy policy
+          |. All sales are final.
 
-            tr
-              th Custom Domains
-              td
-                i.fa.fa-check
-                  span Yes
+      .card-footer.bordered
+        if saving
+          if host.progress.status
+            .left
+              p
+                = host.progress.status
+          .right
+            button.ui.btn disabled='disabled'
+              i.spinner
+              | Creating...
+        else
+          .right
+            a.ui.btn href='#' click='cancel' Cancel
+            input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'
+    = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=host.progress.progressDetail.current max=host.progress.progressDetail.total
 
-  .card-body.bordered
-    .ui.input-group
-      label.field-label
-        | Starter Templates
-      ul.ui.checkbox-group
-        li
-          .ui.checkbox
-            = input type='checkbox' id='hosts-new-use-jumpstart-image' checked=useJumpstartImage
-            label
-          label for='hosts-new-use-jumpstart-image' Ruby on Rails with PostgreSQL
-
-  .card-body.bordered
-
-    p.see-terms
-      | Please review the&nbsp;
-      a href='#' terms of service
-      |, and&nbsp;
-      a href='#' privacy policy
-      |. All sales are final.
-
-  .card-footer.bordered
-    if saving
-      if host.progress.status
-        .left
-          p
-            = host.progress.status
-      .right
-        button.ui.btn disabled='disabled'
-          i.spinner
-          | Creating...
-    else
-      .right
-        a.ui.btn href='#' click='cancel' Cancel
-        input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'
-  = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=host.progress.progressDetail.current max=host.progress.progressDetail.total
+  .screen class={view.showProgressScreen::hide}
+    .card-body.download-app
+      h3
+        | Your application &ldquo;
+        = name
+        | &rdquo; is being created
+        = ui-ellipsis
+      p In the meantime, download and install the Nitrous desktop application so you can start developing right away once the application is created.
+      a.ui.btn.raised.primary href='/desktop' target='_blank' Download Desktop App
+    .card-body.bordered
+      .terminal-screen
+    .card-footer.bordered
+      if saving
+        if host.progress.status
+          .left
+            p
+              = host.progress.status
+        .right
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Creating...
+      else
+        .right
+          a.ui.btn.primary disabled={view.createButtonDisabled} click='create target="view"' Create
+    = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=host.progress.progressDetail.current max=host.progress.progressDetail.total

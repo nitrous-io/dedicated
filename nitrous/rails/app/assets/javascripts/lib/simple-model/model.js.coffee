@@ -4,6 +4,14 @@ SM.Model = klass = Ember.Object.extend
   _data: null
   loaded: false
 
+  init: ->
+    @_super.apply this, arguments
+    attrs = Ember.get @constructor, '_attrs'
+    attrs.forEach (key, attr) =>
+      defaultVal = attr.options.default
+      if defaultVal != undefined
+        @set key, defaultVal
+
   serialize: ->
     attrs = Ember.get @constructor, '_attrs'
     serialized = {}

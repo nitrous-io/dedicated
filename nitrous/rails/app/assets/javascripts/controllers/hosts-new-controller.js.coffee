@@ -7,7 +7,6 @@ App.HostsNewController = Em.ObjectController.extend
   invalidField: null
   host: null
   saving: false
-  useJumpstartImage: false
 
   clear: ->
     @setProperties
@@ -19,7 +18,6 @@ App.HostsNewController = Em.ObjectController.extend
       invalidField: null
       host: null
       saving: false
-      useJumpstartImage: false
 
   selectedPlan: (->
     if slug = @get('selectedPlanSlug')
@@ -31,7 +29,7 @@ App.HostsNewController = Em.ObjectController.extend
       @transitionToRoute 'home.index'
       false
 
-    create: ->
+    create: (template) ->
       @set 'saving', true
       name = @get 'name'
       slug = @get 'slug'
@@ -50,7 +48,7 @@ App.HostsNewController = Em.ObjectController.extend
         return unless hostData.id == host.get('id')
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
-        App.postError(data.error, 'Failed to create host!')
+        App.postError(data.error, 'Failed to create application!')
         @set 'saving', false
 
       onHostCreated = (data) =>
@@ -59,7 +57,7 @@ App.HostsNewController = Em.ObjectController.extend
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
         @transitionToRoute 'host.index', slug
-        App.snackbar.post("Your host “#{name}” was created successfully.")
+        App.snackbar.post("Your application “#{name}” was created successfully.")
         @set 'saving', false
 
       events.on 'host.create_failed', onHostCreateFailed
@@ -68,9 +66,9 @@ App.HostsNewController = Em.ObjectController.extend
       params =
         async: true
 
-      if @get 'useJumpstartImage'
-        workspaceVolSlug = App.slug.toSlug('workspace', true)
-        databaseVolSlug = App.slug.toSlug('database', true)
+      if template == 'rails'
+        workspaceVolSlug = 'workspace'
+        databaseVolSlug = 'database'
 
         params.volumes = [
           { name: 'workspace', slug: workspaceVolSlug }
@@ -86,5 +84,5 @@ App.HostsNewController = Em.ObjectController.extend
         if errMsg = jqxhr.responseJSON?.error_description
           @set 'error', errMsg
           @set 'invalidField', errMsg.match(/^\w+/)[0]
-        App.postError(jqxhr.responseJSON, 'Failed to create host!')
+        App.postError(jqxhr.responseJSON, 'Failed to create application!')
         @set 'saving', false

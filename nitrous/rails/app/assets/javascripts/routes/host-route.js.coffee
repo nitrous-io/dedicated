@@ -6,7 +6,7 @@ App.HostRoute = App.AuthedRoute.extend
     fetch.catch (jqxhr) =>
       if jqxhr.status == 404
         Em.run.next ->
-          App.snackbar.post("Host “#{params.hostSlug}” could not be found.")
+          App.snackbar.post("Application “#{params.hostSlug}” could not be found.")
           App.get('hosts')?.reload()
       @transitionTo 'home.index'
     host

@@ -134,11 +134,17 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 
 func (s *Server) static(prefix string, dir string) {
 	s.router.PathPrefix(prefix).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/") {
-			s.RespondJSON(w, http.StatusNotFound, jsonNotFound)
-			return
+		rpath := r.URL.Path
+		if strings.HasSuffix(rpath, "/") {
+			// in dev, nginx will not proxy to Go server unless path prefix is /api/v0
+			// in production, assets are compiled and will be in public dir
+
+			// Default nginx setup has `index index.html index.htm` which
+			// redirects `/foo/index.html` to `/foo/` .
+			// To support webapp's /app/index.html in production, we append back the index.html here
+			rpath += "index.html"
 		}
-		_, err := os.Stat(path.Join(s.root, dir, r.URL.Path))
+		_, err := os.Stat(path.Join(s.root, dir, rpath))
 		if os.IsNotExist(err) {
 			s.RespondJSON(w, http.StatusNotFound, jsonNotFound)
 			return

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"os"
 
 	"bitbucket.org/kardianos/osext"
@@ -20,6 +22,14 @@ var (
 )
 
 func main() {
+	flVersion := flag.Bool("v", false, "Display the version and exit")
+	flag.Parse()
+
+	if *flVersion {
+		fmt.Printf("nitrousd version %v\n", version)
+		os.Exit(0)
+	}
+
 	logr := &logger.Logger{Level: logger.LogLevelDebug}
 
 	defer func() {
@@ -47,6 +57,6 @@ func main() {
 	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr)
 	host := "0.0.0.0"
 	port := uint16(3333)
-	logr.Infof("nitrousd (pid: %v) listening on %s:%d", pid, host, port)
+	logr.Infof("nitrousd %s (pid: %v) listening on %s:%d", version, pid, host, port)
 	svr.Start(host, port)
 }

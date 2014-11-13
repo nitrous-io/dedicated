@@ -1,22 +1,23 @@
 source 'https://rubygems.org'
 
-ruby '2.1.2'
+ruby '2.1.4'
 
-gem 'rails', '4.1.5'
+gem 'rails', '4.1.7'
 
 gem 'spring', group: :development
-gem 'bcrypt', '~> 3.1.7'
+gem 'bcrypt', '~> 3.1.9'
 
-gem 'thin', '~> 1.6.2'
-gem 'rack-proxy', '~> 0.5.15'
+gem 'thin', '~> 1.6.3'
+gem 'rack-proxy', '~> 0.5.17'
 
 gem 'jquery-rails', '~> 3.1.2'
-gem 'sass-rails', '~> 4.0.3'
+gem 'slim-rails', '~> 2.1.5'
+gem 'sass-rails', '~> 4.0.4'
 gem 'uglifier', '>= 2.5.3'
-gem 'coffee-rails', '~> 4.0.1'
+gem 'coffee-rails', '~> 4.1.0'
 gem 'ember-rails', '0.15.0'
-gem 'ember-source', '1.7.0'
+gem 'ember-source', '1.7.1'
 gem 'emblem-rails', '~> 0.2.1'
 gem 'font-awesome-rails', '~> 4.2.0.0'
-gem 'autoprefixer-rails', '~> 3.0.1'
+gem 'autoprefixer-rails', '~> 3.1.2'
 gem 'qunit-rails', '~> 0.0.7'

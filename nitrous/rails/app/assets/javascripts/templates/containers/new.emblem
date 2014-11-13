@@ -21,7 +21,7 @@
       .card-body.bordered
         .ui.input-group
           label.field-label
-            | Host
+            | Application
           .ui.select
             Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' disabled=saving value=selectedHostSlug
 
@@ -47,11 +47,11 @@
                 .ui.checkbox
                   input type='radio' id='containers-new-option-base-image' name='option' checked='checked' value='base-image' disabled={view.baseImageOptionDisabled}
                   label
-                label for='containers-new-option-base-image' Use Nitrous.IO Base Image
+                label for='containers-new-option-base-image' Use Nitrous Base Image
 
             ul.base-images
               each baseImage in App.baseImages
-                App.ContainersNewBaseImageView baseImage=baseImage selectedBaseImage=view.selectedBaseImage disabled=view.baseImageOptionDisabled
+                App.BaseImageView baseImage=baseImage selectedBaseImage=view.selectedBaseImage disabled=view.baseImageOptionDisabled
 
             ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
               li
@@ -190,9 +190,10 @@
       .right
         a.ui.btn href='#' click='goBack target="view"' Back
         a.ui.btn.primary disabled={view.createButtonDisabled} click='create target="view"' Create
+    = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
 
   .screen class={view.showProgressScreen::hide}
-    .card-body.bordered
+    .card-body
       .terminal-screen
     .card-footer.bordered
       if saving
