@@ -165,14 +165,28 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	// record total time taken for this function
+	t := metrics.GetOrRegister(fmt.Sprintf("create.%s", provider), metrics.NewTimer()).(metrics.Timer)
+	defer t.UpdateSince(time.Now())
+
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
 	info, err := h.Create(pw)
 	log.Printf("uuid=%s Created: %+v\n, %v", providerConfig["uuid"], info, err)
 	if err != nil {
+		// record this as number of error
+		c := metrics.GetOrRegister(fmt.Sprintf("error.create.%s", provider), metrics.NewCounter()).(metrics.Counter)
+		c.Inc(1)
 		pw.WriteError(fmt.Errorf("failed to create a host on %s", provider))
 		return nil
 	}
+
+	t = metrics.GetOrRegister(fmt.Sprintf("ping.create.%s", provider), metrics.NewTimer()).(metrics.Timer)
+	t.Time(func() {
+		// do not remove a host if freighter is down, we keep the host for debugging
+		pingHost(info, pw)
+	})
+
 	resp := &Response{
 		StatusCode:     http.StatusCreated,
 		Status:         "created",
@@ -194,12 +208,19 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	providerConfig := s.Config.Providers[provider]
 	configJson := r.Form.Get("config")
 
+	t := metrics.GetOrRegister(fmt.Sprintf("delete.%s", provider), metrics.NewTimer()).(metrics.Timer)
+	defer t.UpdateSince(time.Now())
+
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
+		c := metrics.GetOrRegister(fmt.Sprintf("error.delete.%s", provider), metrics.NewCounter()).(metrics.Counter)
+		c.Inc(1)
 		return err
 	}
 	err = h.Destroy()
 	if err != nil {
+		c := metrics.GetOrRegister(fmt.Sprintf("error.delete.%s", provider), metrics.NewCounter()).(metrics.Counter)
+		c.Inc(1)
 		return err
 	}
 	writeResponse(w, okResponse)
@@ -214,17 +235,29 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	providerConfig := s.Config.Providers[provider]
 	configJson := r.Form.Get("config")
 
+	t := metrics.GetOrRegister(fmt.Sprintf("restart.%s", provider), metrics.NewTimer()).(metrics.Timer)
+	defer t.UpdateSince(time.Now())
+
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
+		c := metrics.GetOrRegister(fmt.Sprintf("error.restart.%s", provider), metrics.NewCounter()).(metrics.Counter)
+		c.Inc(1)
 		return err
 	}
 	info, err := h.Restart()
 	if err != nil {
+		c := metrics.GetOrRegister(fmt.Sprintf("error.restart.%s", provider), metrics.NewCounter()).(metrics.Counter)
+		c.Inc(1)
 		return err
 	}
+	t = metrics.GetOrRegister(fmt.Sprintf("ping.restart.%s", provider), metrics.NewTimer()).(metrics.Timer)
+	pingStart := time.Now()
 	if err := pingHost(info, ioutil.Discard); err != nil {
+		c := metrics.GetOrRegister(fmt.Sprintf("error.ping.%s", provider), metrics.NewCounter()).(metrics.Counter)
+		c.Inc(1)
 		return err
 	}
+	t.UpdateSince(pingStart)
 	resp := &Response{
 		StatusCode:     http.StatusOK,
 		Status:         "restarted",
