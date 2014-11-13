@@ -9,12 +9,14 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
-	"github.com/nitrous-io/dedicated/pkg/metrics"
 	"github.com/nitrous-io/nitrous-common/flusher"
+	"github.com/rcrowley/go-metrics"
+	"github.com/rcrowley/go-metrics/librato"
 )
 
 // form param that contains request uuid
@@ -158,11 +160,6 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	configJson := r.Form.Get("config")
 	log.Printf("uuid=%s Creating a host using provider %s", providerConfig["uuid"], provider)
 
-	m := metrics.New(s.Config.LibratoUser, s.Config.LibratoToken,
-		fmt.Sprintf("hostbuilder_%s", provider))
-
-	defer metrics.Gauge(m, time.Now(), "create_host")
-
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return err
@@ -173,14 +170,9 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	info, err := h.Create(pw)
 	log.Printf("uuid=%s Created: %+v\n, %v", providerConfig["uuid"], info, err)
 	if err != nil {
-		metrics.Count(m, 1, "create_host_error")
 		pw.WriteError(fmt.Errorf("failed to create a host on %s", provider))
 		return nil
 	}
-	// do not remove a host if freighter is down, we keep the host for debugging
-	metrics.Duration(m, "create_ping", func() {
-		pingHost(info, pw)
-	})
 	resp := &Response{
 		StatusCode:     http.StatusCreated,
 		Status:         "created",
@@ -202,18 +194,12 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	providerConfig := s.Config.Providers[provider]
 	configJson := r.Form.Get("config")
 
-	m := metrics.New(s.Config.LibratoUser, s.Config.LibratoToken,
-		fmt.Sprintf("hostbuilder_%s", provider))
-
-	defer metrics.Gauge(m, time.Now(), "delete_host")
-
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return err
 	}
 	err = h.Destroy()
 	if err != nil {
-		metrics.Count(m, 1, "delete_host_error")
 		return err
 	}
 	writeResponse(w, okResponse)
@@ -228,18 +214,12 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	providerConfig := s.Config.Providers[provider]
 	configJson := r.Form.Get("config")
 
-	m := metrics.New(s.Config.LibratoUser, s.Config.LibratoToken,
-		fmt.Sprintf("hostbuilder_%s", provider))
-
-	defer metrics.Gauge(m, time.Now(), "restart_host")
-
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return err
 	}
 	info, err := h.Restart()
 	if err != nil {
-		metrics.Count(m, 1, "restart_host_error")
 		return err
 	}
 	if err := pingHost(info, ioutil.Discard); err != nil {
@@ -286,6 +266,26 @@ func New(configData []byte) (*Server, error) {
 	}
 	server := &Server{Config: config}
 	server.CreateRouter()
+
+	// configure metrics output. if we do not have librato user/token i.e.
+	// development environment, output the metrics to stderr
+	if config.LibratoUser == "" || config.LibratoToken == "" {
+		log.Printf("hostbuilder: missing librato config. fall back to stderr")
+		// by default we flush metrics every 1s
+		go metrics.Log(metrics.DefaultRegistry, 1e9,
+			log.New(os.Stderr, "hostbuilder: metrics: ", log.Lmicroseconds))
+	} else {
+		// by default we flush metrics every 10s
+		go librato.Librato(metrics.DefaultRegistry,
+			10e9,                // interval
+			config.LibratoUser,  // account owner email address
+			config.LibratoToken, // Librato API token
+			"hostbuilder",       // source
+			[]float64{0.95},     // precentiles to send
+			time.Millisecond,    // time unit
+		)
+	}
+
 	return server, nil
 }
 
