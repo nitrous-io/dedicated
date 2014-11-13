@@ -292,23 +292,6 @@ func unmarkAssignment(h *host.Host) {
 }
 
 func (p *Provisioner) usePreprovisionedHost(h *host.Host, opts ProvisionOptions) (*host.Host, error) {
-	if opts.Async {
-		go func() {
-			_, err := p.assignHost(h, opts)
-			if err != nil {
-				p.logger.Warnf("provisioner: could not assign pre-provisioned host %d, err: %v", h.ID, err)
-				p.provisionNewHost(opts)
-			}
-		}()
-
-		tmpHost := *h // Make a copy.
-		tmpHost.UserID = opts.User.ID
-		tmpHost.Slug = opts.Slug
-		tmpHost.Name = sql.NullString{opts.Name, true}
-
-		return &tmpHost, nil
-	}
-
 	assignedHost, err := p.assignHost(h, opts)
 	if err != nil {
 		p.logger.Warnf("provisioner: could not assign pre-provisioned host %d, err: %v", h.ID, err)
