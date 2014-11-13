@@ -112,19 +112,38 @@ var _ = Describe("controllers/userprofiles", func() {
 			return res
 		}
 
-		It("responds with updated user profile serialized as JSON'", func() {
-			params := &url.Values{}
-			params.Set("advanced", "true")
+		Context("when advanced param is set to true", func() {
+			It("responds with updated user profile serialized as JSON'", func() {
+				params := &url.Values{}
+				params.Set("advanced", "true")
 
-			res := doRequest(params)
-			Expect(res.Code).To(Equal(http.StatusOK))
+				res := doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusOK))
 
-			j := struct {
-				UserProfile serializers.UserProfile `json:"user_profile"`
-			}{}
-			err := json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.UserProfile.Advanced).To(Equal(true))
+				j := struct {
+					UserProfile serializers.UserProfile `json:"user_profile"`
+				}{}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.UserProfile.Advanced).To(Equal(true))
+			})
+		})
+
+		Context("when advanced param is set to false", func() {
+			It("responds with updated user profile serialized as JSON'", func() {
+				params := &url.Values{}
+				params.Set("advanced", "false")
+
+				res := doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j := struct {
+					UserProfile serializers.UserProfile `json:"user_profile"`
+				}{}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.UserProfile.Advanced).To(Equal(false))
+			})
 		})
 
 		Context("oauth token failure modes", func() {

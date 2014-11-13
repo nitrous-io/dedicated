@@ -18,7 +18,7 @@ SM.Model = klass = Ember.Object.extend
     attrs.forEach (key, attr) =>
       if attr.options.serialize
         val = Ember.get this, key
-        if val
+        if val != null && val != undefined
           if attr.type == 'json'
             val = JSON.stringify(val)
           else if val.toJSON && typeof val.toJSON == 'function'

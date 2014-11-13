@@ -30,7 +30,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if v, _ := strconv.ParseBool(r.FormValue("advanced")); v {
+	if v, err := strconv.ParseBool(r.FormValue("advanced")); err == nil {
 		p.Advanced = v
 
 		err = p.Update(db)
