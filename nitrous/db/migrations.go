@@ -462,5 +462,11 @@ func init() {
 				ALTER TABLE users ADD COLUMN reset_password_sent_at timestamp without time zone;
 			`,
 		},
+		{
+			Version: "390",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN preprovisioned boolean DEFAULT false NOT NULL;
+			`,
+		},
 	}
 }
