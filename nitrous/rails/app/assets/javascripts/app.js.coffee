@@ -55,11 +55,10 @@ App.on 'load', ->
   App.__container__.lookup('adapter:application') # init app adapter class
   App.set 'snackbar', App.Snackbar.create()
 
-App.on 'fetchUser', (user) ->
+App.on 'fetchUser', (user, profile) ->
   App.set 'user', user
+  App.set 'userProfile', profile
   App.set 'eventsSocket', socket = App.EventsSocket.create()
-  App.UserProfile.fetch().then (userProfile) ->
-    App.set 'userProfile', userProfile
   socket.connect()
 
 App.didChangeTitle()

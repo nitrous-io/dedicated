@@ -3,7 +3,10 @@ App.AuthedRoute = Em.Route.extend
     @_super.apply this, arguments
     if App.get 'token'
       unless App.get 'user'
-        App.User.fetch().then (user) ->
-          App.trigger 'fetchUser', user
+        Ember.RSVP.Promise.all([
+          App.User.fetch(),
+          App.UserProfile.fetch()
+        ]).then (userAndProfile) ->
+          App.trigger 'fetchUser', userAndProfile[0], userAndProfile[1]
     else
       @transitionTo 'login'
