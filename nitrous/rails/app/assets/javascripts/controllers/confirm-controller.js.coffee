@@ -1,0 +1,41 @@
+App.ConfirmController = Em.Controller.extend
+  queryParams: ['id', 'token']
+  id: null
+  token: null
+
+  alreadyConfirmed: false
+  confirmLapsed: false
+  confirming: false
+  generalError: false
+
+  actions:
+    resendConfirmationEmail: ->
+      console.log 'Resend'
+
+  startConfirm: ->
+    @set 'confirming', true
+    @set 'alreadyConfirmed', false
+    @set 'confirmLapsed', false
+    @set 'generalError', false
+
+    Em.RSVP.Promise.cast(Em.$.ajax(
+      type: 'POST'
+      url: "/api/v0/user/confirm?id=#{@get('id')}&token=#{@get('token')}"
+      cache: false
+      contentType: false
+    )).then (json) =>
+      @set 'confirming', false
+      App.postError('Your account has been confirmed', null)
+      Em.run.next =>
+        @transitionToRoute 'home.index'
+    , (jqxhr) =>
+      @set 'confirming', false
+      if jqxhr.responseJSON.error == "confirmation_expired"
+        @set 'confirmLapsed', true
+      else if jqxhr.responseJSON.error == "already_confirmed"
+        @set 'alreadyConfirmed', true
+        App.postError('Your account is already confirmed', null)
+        Em.run.next =>
+          @transitionToRoute 'home.index'
+      else
+        @set 'generalError', true

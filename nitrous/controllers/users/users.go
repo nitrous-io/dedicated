@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/lib/pq"
@@ -83,6 +84,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	err = u.SendConfirmationEmail(db)
+	if err != nil {
+		return err
+	}
+
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"user": serializers.SerializeUser(u),
@@ -139,6 +145,50 @@ func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Re
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"user": serializers.SerializeUser(u),
+	}
+	return nil
+}
+
+func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	userIdStr := r.FormValue("id")
+	if userIdStr == "" {
+		return httperror.New(http.StatusBadRequest, "validation_failed", "`id` must be provided")
+	}
+
+	token := r.FormValue("token")
+	if token == "" {
+		return httperror.New(http.StatusBadRequest, "validation_failed", "`token` must be provided")
+	}
+
+	userId, err := strconv.ParseInt(userIdStr, 10, 64)
+	if err != nil {
+		return err
+	}
+
+	u, err := user.FindByID(db, userId)
+	if err != nil {
+		return err
+	}
+
+	if u == nil || token != u.ConfirmationToken.String && u.ConfirmationToken.Valid {
+		return httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
+	}
+
+	err = u.ConfirmEmail(db)
+	if err != nil {
+		if err == user.ErrConfirmationLapsed {
+			return httperror.New(http.StatusBadRequest, "confirmation_expired", err.Error())
+		} else if err == user.ErrConfirmationAlreadyCompleted {
+			return httperror.New(http.StatusBadRequest, "already_confirmed", err.Error())
+		}
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"confirmed": true,
 	}
 	return nil
 }

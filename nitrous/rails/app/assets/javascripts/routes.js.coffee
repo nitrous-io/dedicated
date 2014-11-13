@@ -4,6 +4,7 @@ App.Router.map ->
   @route 'logout'
   @route 'forgot-password'
   @route 'reset-password'
+  @route 'confirm'
 
   @resource 'home', path: '/', ->
     @resource 'containers', path: '/containers', ->

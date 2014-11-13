@@ -1,0 +1,32 @@
+= outlet topnav
+
+.ui.card
+  if alreadyConfirmed
+    h2.card-header
+      | You have already confirmed your email.
+
+  if confirmLapsed
+    h2.card-header
+      | Your confirmation email has expired.
+
+    .ui
+      .card-body
+        p
+          | Please resend your confirmation email to try again.
+        p
+          a.ui.btn click='resendConfirmationEmail' Resend confirmation email
+
+  if confirming
+    h2.card-header
+      | Confirming your Email
+
+  if generalError
+    h2.card-header
+      | A general error has occurred confirming your account
+
+    .ui
+      .card-body
+        p
+          | Please try again or contact support if the error persists.
+
+= partial 'footer'
