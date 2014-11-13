@@ -41,15 +41,15 @@
                   span.click-highlight
                     = ep
 
-    tr
-      th Internal IP
-      td
-        span.click-highlight
-          = ipAddress
-      th Gateway IP
-      td.right
-        span.click-highlight
-          = gatewayIP
+      tr
+        th Internal IP
+        td
+          span.click-highlight
+            = ipAddress
+        th Gateway IP
+        td.right
+          span.click-highlight
+            = gatewayIP
 
     tr
       th Hostname
