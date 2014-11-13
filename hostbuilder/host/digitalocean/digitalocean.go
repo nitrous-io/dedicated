@@ -212,6 +212,21 @@ func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 	hlog(h, format, v...)
 }
 
+// mlabel returns provider.region which is probably helpful if we ever want to
+// differentiate between regions.
+//
+// The result will have a form of prefix.digitalocean<.region>
+func (h *Host) metricsLabel(prefix string) string {
+	var region string
+	if h.droplet != nil && h.droplet.Region != nil {
+		region = h.droplet.Region.Slug
+	}
+	if region != "" {
+		return fmt.Sprintf("%s.digitalocean.%s", prefix, region)
+	}
+	return fmt.Sprintf("%s.digitalocean", prefix)
+}
+
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
@@ -239,18 +254,19 @@ func init() {
 
 func createSSHKey(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer mh.UpdateSince(fmt.Sprintf("create_key.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
+	label := h.metricsLabel("create_key")
+	defer mh.UpdateSince(label, time.Now())
 
 	hlog(h, "generating temporary SSH key")
 	privateKey, err := sshutil.GenerateSSHKey()
 	if err != nil {
-		return mh.Error(err, "error.create_key.digitalocean")
+		return mh.Error(err, label)
 	}
 	hlog(h, "generating temporary SSH key... Done")
 	h.privateKey = privateKey
 	pubKey, err := sshutil.GetPubKey(privateKey)
 	if err != nil {
-		return mh.Error(err, "error.create_key.digitalocean")
+		return mh.Error(err, label)
 	}
 	hlog(h, "creating SSH keypair on digitalocean")
 	sshKey, _, err := h.Client.Keys.Create(&godo.KeyCreateRequest{
@@ -258,7 +274,7 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 		PublicKey: string(pubKey),
 	})
 	if err != nil {
-		return mh.Error(err, "error.create_key.digitalocean.api")
+		return mh.Error(err, label+".api")
 	}
 	hlog(h, "creating SSH keypair on digitalocean... Done")
 	h.sshKey = sshKey
@@ -267,8 +283,12 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 
 func createDroplet(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer mh.UpdateSince(fmt.Sprintf("create_host.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
-
+	defer func(start time.Time) {
+		// we are interested in the final context of `h` so label is generated
+		// inside defer block
+		mh.UpdateSince(h.metricsLabel("create_host"), start)
+	}(time.Now())
+	label := h.metricsLabel("create_host")
 	config := h.Config
 	sshKey := h.sshKey
 
@@ -276,7 +296,7 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	normalizedRegion, ok := regionsMap[config.RegionID]
 	if !ok {
 		err := fmt.Errorf("Invalid region or lookup failure: '%s'", config.RegionID)
-		return mh.Error(err, "error.create_host.digitalocean")
+		return mh.Error(err, label)
 	}
 	dropletRoot, _, err := h.Client.Droplets.Create(&godo.DropletCreateRequest{
 		Name:   config.Name,
@@ -288,14 +308,14 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 		},
 	})
 	if err != nil {
-		return mh.Error(err, "error.create_host.digitalocean")
+		return mh.Error(err, label)
 	}
 	h.droplet = dropletRoot.Droplet
 
 	if len(dropletRoot.Links.Actions) > 0 {
 		la := dropletRoot.Links.Actions[0]
 		if _, err := WaitForAction(h.Client.Actions, la.ID, StateWaitTime, 15*time.Minute); err != nil {
-			return mh.Error(err, "error.create_host.digitalocean")
+			return mh.Error(err, label)
 		}
 	} else {
 		hlog(h, "[WARNING] digitalocean did not return action data for host %+v", hst)
@@ -305,7 +325,7 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	dropletRoot, _, err = h.Client.Droplets.Get(dropletRoot.Droplet.ID)
 	if err != nil {
 		err = fmt.Errorf("create: failed to get droplet after it was successfully created %s", err)
-		return mh.Error(err, "error.create_host.digitalocean")
+		return mh.Error(err, label)
 	}
 
 	h.droplet = dropletRoot.Droplet
@@ -314,14 +334,15 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 
 func waitForSSH(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer mh.UpdateSince(fmt.Sprintf("ssh_wait.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
+	label := h.metricsLabel("ssh_wait")
+	defer mh.UpdateSince(label, time.Now())
 
 	hlog(h, "Waiting for SSH to be ready")
 	address := fmt.Sprintf("%s:%s", h.ipAddress(), "65100")
 	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
 		sshutil.TimeWait, make(chan struct{}))
 	if err != nil {
-		return mh.Error(err, "error.ssh_wait.digitalocean")
+		return mh.Error(err, label)
 	}
 	hlog(h, "SSH READY for droplet %v", h.droplet.ID)
 	h.conn = sshConn
@@ -344,8 +365,7 @@ func writePublicKeys(ctx *context.Context, hst host.Host) error {
 
 func createEtcFreighterd(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer mh.UpdateSince(fmt.Sprintf("create_config.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
-
+	defer mh.UpdateSince(h.metricsLabel("create_config"), time.Now())
 	return h.conn.Execute("mkdir -p /etc/freighterd")
 }
 
@@ -372,11 +392,12 @@ func writeSecret(ctx *context.Context, hst host.Host) error {
 }
 
 func writeFile(h *Host, files map[string]io.Reader) error {
-	defer mh.UpdateSince(fmt.Sprintf("write_file.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
+	label := h.metricsLabel("write_file")
+	defer mh.UpdateSince(label, time.Now())
 	flist := []string{}
 	for dest, val := range files {
 		if err := h.conn.Upload(dest, val); err != nil {
-			return mh.Error(err, "error.write_file.digitalocean")
+			return mh.Error(err, label)
 		}
 		flist = append(flist, dest)
 	}
@@ -400,13 +421,14 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 
 func updateSoftware(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer mh.UpdateSince(fmt.Sprintf("update_software.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
+	label := h.metricsLabel("update_software")
+	defer mh.UpdateSince(label, time.Now())
 
 	hlog(h, "Updating freighterd package")
 	cmd :=
 		`DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" freighterd`
 	if err := h.conn.Execute(cmd); err != nil {
-		return mh.Error(err, "error.update_software.digitalocean")
+		return mh.Error(err, label)
 	}
 	hlog(h, "Updated freighterd package on %v", h.ipAddress())
 	return nil
@@ -414,11 +436,12 @@ func updateSoftware(ctx *context.Context, hst host.Host) error {
 
 func restartFreighterd(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
-	defer mh.UpdateSince(fmt.Sprintf("restart_software.%s.%s", "digitalocean", h.Config.RegionID), time.Now())
+	label := h.metricsLabel("restart_software")
+	defer mh.UpdateSince(label, time.Now())
 
 	hlog(h, "Restarting freighterd")
 	if err := h.conn.Execute(`service freighterd restart`); err != nil {
-		return mh.Error(err, "error.restart_software.digitalocean")
+		return mh.Error(err, label)
 	}
 	hlog(h, "Restarted freighterd on %v", h.ipAddress())
 	return nil
