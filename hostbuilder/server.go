@@ -9,11 +9,15 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/nitrous-common/flusher"
+	"github.com/rcrowley/go-metrics"
+	"github.com/rcrowley/go-metrics/librato"
 )
 
 // form param that contains request uuid
@@ -107,6 +111,10 @@ type providerConfig map[string]string
 type config struct {
 	Address   string                    `json:"address"`
 	Providers map[string]providerConfig `json:"providers"`
+
+	// librato settings
+	LibratoUser  string `json:"librato_user"`
+	LibratoToken string `json:"librato_token"`
 }
 
 type Server struct {
@@ -117,7 +125,6 @@ type Server struct {
 // createHost streams progress data to the output. For example
 //
 // In success case:
-//
 // { "stream": "Creating key..." }
 // { "stream": "Creating key...Done!" }
 // { "stream": "Creating host..." }
@@ -134,35 +141,47 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return err
 	}
+
 	provider := r.Form.Get("provider")
 	providerConfig := s.Config.Providers[provider]
 	if providerConfig == nil {
 		providerConfig = make(map[string]string)
 	}
+
 	if uuid := r.FormValue(UUIDParam); uuid != "" {
 		providerConfig["uuid"] = uuid
 	} else {
 		// shouldn't happen, use this to detect if it does
 		providerConfig["uuid"] = "NOUUID"
 	}
+
 	configJson := r.Form.Get("config")
 	log.Printf("uuid=%s Creating a host using provider %s", providerConfig["uuid"], provider)
 
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
-		return err
+		return mh.Error(err, fmt.Sprintf("create.%s", provider))
 	}
+
+	// record total time taken for this function
+	label := fmt.Sprintf("create.%s", provider)
+	defer mh.UpdateSince(label, time.Now())
 
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
 	info, err := h.Create(pw)
 	log.Printf("uuid=%s Created: %+v\n, %v", providerConfig["uuid"], info, err)
 	if err != nil {
+		mh.Error(err, label)
 		pw.WriteError(fmt.Errorf("failed to create a host on %s", provider))
 		return nil
 	}
-	// do not remove a host if freighter is down, we keep the host for debugging
-	_ = pingHost(info, pw)
+
+	mh.Time(fmt.Sprintf("ping.%s", label), func() {
+		// do not remove a host if freighter is down, we keep the host for debugging
+		pingHost(info, pw)
+	})
+
 	resp := &Response{
 		StatusCode:     http.StatusCreated,
 		Status:         "created",
@@ -172,6 +191,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		FreighterdPort: info.FreighterdPort,
 	}
 	pw.WriteResponse(resp)
+
 	return nil
 }
 
@@ -183,13 +203,17 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	providerConfig := s.Config.Providers[provider]
 	configJson := r.Form.Get("config")
 
+	// record total time taken for this function
+	label := fmt.Sprintf("delete.%s", provider)
+	defer mh.UpdateSince(label, time.Now())
+
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
-		return err
+		return mh.Error(err, label)
 	}
 	err = h.Destroy()
 	if err != nil {
-		return err
+		return mh.Error(err, label)
 	}
 	writeResponse(w, okResponse)
 	return nil
@@ -203,17 +227,27 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	providerConfig := s.Config.Providers[provider]
 	configJson := r.Form.Get("config")
 
+	// record total time taken for this function
+	label := fmt.Sprintf("restart.%s", provider)
+	defer mh.UpdateSince(label, time.Now())
+
 	h, err := InitHost(provider, providerConfig, configJson)
 	if err != nil {
-		return err
+		return mh.Error(err, label)
 	}
 	info, err := h.Restart()
 	if err != nil {
-		return err
+		return mh.Error(err, label)
 	}
+
+	// ping the host to make sure that it's up
+	t := mh.Timer(fmt.Sprintf("ping.%s", label))
+	pingStart := time.Now()
 	if err := pingHost(info, ioutil.Discard); err != nil {
-		return err
+		return mh.Error(err, fmt.Sprintf("ping.s", label))
 	}
+	t.UpdateSince(pingStart)
+
 	resp := &Response{
 		StatusCode:     http.StatusOK,
 		Status:         "restarted",
@@ -255,6 +289,26 @@ func New(configData []byte) (*Server, error) {
 	}
 	server := &Server{Config: config}
 	server.CreateRouter()
+
+	// configure metrics output. if we do not have librato user/token i.e.
+	// development environment, output the metrics to stderr
+	// by default we flush metrics every 10s
+	if config.LibratoUser == "" || config.LibratoToken == "" {
+		log.Printf("hostbuilder: missing librato config. fall back to stderr")
+		// in dev, we flush metrics every 60s
+		go metrics.Log(metrics.DefaultRegistry, 60e9,
+			log.New(os.Stderr, "hostbuilder: metrics: ", log.Lmicroseconds))
+	} else {
+		go librato.Librato(metrics.DefaultRegistry,
+			10e9,                        // interval
+			config.LibratoUser,          // account owner email address
+			config.LibratoToken,         // Librato API token
+			"hostbuilder",               // source
+			[]float64{0.75, 0.95, 0.99}, // precentiles to send
+			time.Millisecond,            // time unit
+		)
+	}
+
 	return server, nil
 }
 

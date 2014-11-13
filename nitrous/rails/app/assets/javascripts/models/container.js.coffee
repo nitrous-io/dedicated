@@ -43,7 +43,7 @@ App.Container = klass = App.Model.extend
   ).property 'config.port'
 
   sshURL: (->
-    return unless @get 'sshEnabled'
+    return unless @get('sshEnabled') && @get('sshPort')
     user = @get 'loginUsername'
     hostname = @get 'hostname'
     sshPort = @get 'sshPort'
