@@ -300,12 +300,12 @@ func New(configData []byte) (*Server, error) {
 			log.New(os.Stderr, "hostbuilder: metrics: ", log.Lmicroseconds))
 	} else {
 		go librato.Librato(metrics.DefaultRegistry,
-			10e9,                // interval
-			config.LibratoUser,  // account owner email address
-			config.LibratoToken, // Librato API token
-			"hostbuilder",       // source
-			[]float64{0.95},     // precentiles to send
-			time.Millisecond,    // time unit
+			10e9,                        // interval
+			config.LibratoUser,          // account owner email address
+			config.LibratoToken,         // Librato API token
+			"hostbuilder",               // source
+			[]float64{0.75, 0.95, 0.99}, // precentiles to send
+			time.Millisecond,            // time unit
 		)
 	}
 
