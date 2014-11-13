@@ -155,9 +155,6 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		providerConfig["uuid"] = "NOUUID"
 	}
 
-	providerConfig["librato_user"] = s.Config.LibratoUser
-	providerConfig["librato_token"] = s.Config.LibratoToken
-
 	configJson := r.Form.Get("config")
 	log.Printf("uuid=%s Creating a host using provider %s", providerConfig["uuid"], provider)
 
