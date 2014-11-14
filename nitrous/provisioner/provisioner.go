@@ -353,17 +353,25 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	driver := opts.Template.Provider
 	r := opts.Region
 	pl := opts.Plan
-	for _, spec := range p.config.PreprovisionSpecs {
-		if spec.Driver == driver && spec.Region == r.Slug && spec.Plan == pl.Slug {
-			p.jobQueue <- job{
-				driver:   driver,
-				region:   r,
-				plan:     pl,
-				template: opts.Template,
-			}
-			break
-		}
+
+	pt, err := providertemplate.FindByRegionAndPlanAndProvider(p.db, r.ID, pl.ID, driver)
+	if err != nil {
+		// handle error by skipping reprovisioning
+		p.logger.Errorf("provisioner: error searching for provider template (%s, %s, %s)", driver, pl.Name, r.Name)
+		return h, nil
 	}
+	if pt == nil {
+		return h, nil
+	}
+
+	// FIXME would feel more comfortable checking against len of hosts here
+	p.jobQueue <- job{
+		driver:   driver,
+		region:   r,
+		plan:     pl,
+		template: opts.Template,
+	}
+
 	return
 }
 
