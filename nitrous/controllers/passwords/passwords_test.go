@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -78,6 +79,8 @@ var _ = Describe("controllers/passwords", func() {
 
 		Describe("when a user exist for the given login", func() {
 			It("sends the user an email with password reset instructions", func() {
+				os.Setenv("WEB_HOSTNAME", "nitrous.example")
+
 				res := doRequest(u.Email)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -90,7 +93,7 @@ var _ = Describe("controllers/passwords", func() {
 				Expect(fakeMailer.Subject).To(Equal("[nitrous-pro] Reset password instructions"))
 				Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("Hello %s", u.Name)))
 				Expect(fakeMailer.HTML).To(ContainSubstring("Change my password"))
-				Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("/app#/reset-password?token=%s", u.ResetPasswordToken.String)))
+				Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app#/reset-password?token=%s", u.ResetPasswordToken.String)))
 			})
 		})
 
