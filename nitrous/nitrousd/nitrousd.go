@@ -1,10 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 
@@ -21,6 +19,12 @@ var (
 	version           string // current version of nitrousd
 	freighterdVersion string // freighterd version that works with current nitrousd
 	nitroVersion      string // nitro version that works with current nitrousd
+
+	// TODO: use some other mechanism for populating preprovisioner config
+	provisionerConfig = &provisioner.Config{
+		Username:   "host-provisioner",
+		NumWorkers: 2,
+	}
 )
 
 func main() {
@@ -53,20 +57,8 @@ func main() {
 		logr.Infof("nitrousd: migrations failed: %v", err)
 	}
 
-	confPath := os.Getenv("HOST_PROVISIONER_CONFIG_PATH")
-	if confPath == "" {
-		logr.FatalExit("nitrousd: HOST_PROVISIONER_CONFIG_PATH is not defined")
-	}
-	confData, err := ioutil.ReadFile(confPath)
-	if err != nil {
-		logr.FatalfExit("nitrousd: failed to read host provisioner config file at %s", confPath)
-	}
-	var conf provisioner.Config
-	if err := json.Unmarshal(confData, &conf); err != nil {
-		logr.FatalfExit("nitrousd: could not load host provisioner config file at %s: %s", confPath, err)
-	}
-
-	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr, &conf)
+	svr := server.NewServer(must.String(osext.ExecutableFolder()),
+		dbConn, logr, provisionerConfig)
 	pid := os.Getpid()
 	host := "0.0.0.0"
 	port := uint16(3333)

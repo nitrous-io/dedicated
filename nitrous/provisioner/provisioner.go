@@ -63,32 +63,10 @@ type Provisioner struct {
 // {
 //   "username": "host-provisioner",
 //   "num_workers": "2",
-//   "preprovision": [
-//     {
-//       "driver": "digitalocean",
-//       "region": "sgp",
-//       "plan": "1gb",
-//       "count": 2
-//     },
-//     {
-//       "driver": "docker",
-//       "region": "sgp",
-//       "plan": "512mb",
-//       "count": 1
-//     },
-//   ]
 // }
 type Config struct {
-	Username          string             `json:"username"`
-	NumWorkers        int                `json:"num_workers"`
-	PreprovisionSpecs []PreprovisionSpec `json:"preprovision,omitempty"`
-}
-
-type PreprovisionSpec struct {
-	Driver string `json:"driver"`
-	Region string `json:"region"`
-	Plan   string `json:"plan"`
-	Count  int    `json:"count"`
+	Username   string `json:"username"`
+	NumWorkers int    `json:"num_workers"`
 }
 
 type ProvisionOptions struct {
@@ -582,8 +560,8 @@ func (p *Provisioner) createJobs() ([]job, error) {
 }
 
 // worker accepts jobs from a channel and pre-provisions hosts according to
-// the PreprovisionSpec. Note that PreprovisionSpec.Count is ignored and only
-// a single host is provisioned at any one time.
+// provider templates.  Note that ProviderTemplate.PreprovisionMax is ignored
+// and only a single host is provisioned at any one time.
 func (p *Provisioner) worker(id int, jobQueue chan job, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
