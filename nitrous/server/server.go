@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -13,6 +14,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -20,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
+	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
@@ -29,26 +32,30 @@ var jsonNotFound = []byte(`{"error":"not_found","error_description":"not found"}
 var nsStack []string = []string{}
 
 type Server struct {
-	Events  *pubsub.Pubsub
-	router  *mux.Router
-	root    string
-	logger  *logger.Logger
-	db      *db.Database
-	Tracker analytics.Tracker
+	Events      *pubsub.Pubsub
+	Provisioner *provisioner.Provisioner
+	Tracker     analytics.Tracker
+
+	router   *mux.Router
+	root     string
+	logger   *logger.Logger
+	db       *db.Database
+	listener net.Listener
 }
 
-func NewServer(root string, db *db.Database, l *logger.Logger) *Server {
+func NewServer(root string, db *db.Database, l *logger.Logger, conf *provisioner.Config) *Server {
 	if l == nil {
 		panic("server.NewServer: invalid argument")
 	}
-
+	events := pubsub.New(128)
 	svr := &Server{
-		root:    root,
-		db:      db,
-		logger:  l,
-		router:  mux.NewRouter(),
-		Events:  pubsub.New(128),
-		Tracker: analytics.NewMixpanelTracker(),
+		Events:      events,
+		Provisioner: provisioner.NewProvisioner(db, l, events, conf),
+		Tracker:     analytics.NewMixpanelTracker(),
+		root:        root,
+		db:          db,
+		logger:      l,
+		router:      mux.NewRouter(),
 	}
 	svr.drawRoutes()
 	return svr
@@ -58,13 +65,37 @@ func (s *Server) Router() *mux.Router {
 	return s.router
 }
 
-func (s *Server) Start(host string, port uint16) {
-	svr := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", host, port),
+func (s *Server) Start(host string, port uint16) error {
+	if err := s.Provisioner.Start(); err != nil {
+		switch err {
+		case provisioner.ErrPreprovisionerNotConfigured:
+			s.logger.Warn("nitrous/server: Pre-provisioner not configured")
+		default:
+			return err
+		}
+	}
+
+	addr := fmt.Sprintf("%s:%d", host, port)
+	srv := &http.Server{
+		Addr:    addr,
 		Handler: s.router,
 	}
-	err := svr.ListenAndServe()
-	s.logger.FatalExit(err)
+
+	// TODO Support graceful stop/restart.
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("nitrous/server: Failed to listen on %q, error: %q", addr, err)
+	}
+	s.listener = tcpKeepAliveListener{ln.(*net.TCPListener)}
+
+	return srv.Serve(s.listener)
+}
+
+func (s *Server) Stop() {
+	s.Provisioner.Stop()
+	if s.listener != nil {
+		s.listener.Close()
+	}
 }
 
 func (s *Server) namespace(ns string, f func()) {
@@ -92,12 +123,13 @@ func (s *Server) route(route string, mw middleware.Middleware, methods ...string
 	h := func(w http.ResponseWriter, r *http.Request) {
 		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
 		err := mw(&middleware.Env{
-			Root:       s.root,
-			Logger:     s.logger,
-			DB:         s.db,
-			Events:     s.Events,
-			RemoteAddr: getRemoteAddr(r),
-			Tracker:    s.Tracker,
+			Root:        s.root,
+			Logger:      s.logger,
+			DB:          s.db,
+			Events:      s.Events,
+			Provisioner: s.Provisioner,
+			Tracker:     s.Tracker,
+			RemoteAddr:  getRemoteAddr(r),
 		}, w, r)
 		if err != nil {
 			s.HandleError(w, err)
@@ -111,12 +143,13 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 	h := func(w http.ResponseWriter, r *http.Request) {
 		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
 		env := &middleware.Env{
-			Root:       s.root,
-			Logger:     s.logger,
-			DB:         s.db,
-			Events:     s.Events,
-			RemoteAddr: getRemoteAddr(r),
-			Tracker:    s.Tracker,
+			Root:        s.root,
+			Logger:      s.logger,
+			DB:          s.db,
+			Events:      s.Events,
+			Provisioner: s.Provisioner,
+			Tracker:     s.Tracker,
+			RemoteAddr:  getRemoteAddr(r),
 		}
 		if err := mw(env, w, r); err != nil {
 			s.HandleError(w, err)
@@ -252,4 +285,24 @@ func filterIPAddresses(ipAddresses []string) []string {
 	}
 
 	return filteredIPAddresses
+}
+
+// tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
+// connections. It's used by ListenAndServe and ListenAndServeTLS so
+// dead TCP connections (e.g. closing laptop mid-download) eventually
+// go away.
+//
+// Copied from the net/http package.
+type tcpKeepAliveListener struct {
+	*net.TCPListener
+}
+
+func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
+	tc, err := ln.AcceptTCP()
+	if err != nil {
+		return
+	}
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(3 * time.Minute)
+	return tc, nil
 }

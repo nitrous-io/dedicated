@@ -455,5 +455,11 @@ func init() {
 				ALTER TABLE user_profiles ADD COLUMN advanced boolean DEFAULT false NOT NULL;
 			`,
 		},
+		{
+			Version: "380",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN preprovisioned boolean DEFAULT false NOT NULL;
+			`,
+		},
 	}
 }

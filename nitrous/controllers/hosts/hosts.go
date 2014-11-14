@@ -32,19 +32,12 @@ var (
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "host is not running")
 	errCertNotFound             = httperror.New(http.StatusNotFound, "cert_not_found", "host certificate does not exist")
 	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another host creation request is currently processed")
-)
-
-var (
-	validations = map[string]error{
-		"index_hosts_on_slug": httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken"),
-	}
+	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
 )
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
 var defaultProvider string
 var aesKey string
-var defaultAPTLocation string
-var defaultAPTDist string
 
 func init() {
 	hostbuilderURL := os.Getenv("HOSTBUILDER_URL")
@@ -61,16 +54,6 @@ func init() {
 	defaultProvider = os.Getenv("DEFAULT_PROVIDER")
 	if defaultProvider == "" {
 		panic("DEFAULT_PROVIDER is not set")
-	}
-
-	defaultAPTLocation = os.Getenv("DEFAULT_APT_LOCATION")
-	if defaultAPTLocation == "" {
-		panic("DEFAULT_APT_LOCATION is not set")
-	}
-
-	defaultAPTDist = os.Getenv("DEFAULT_APT_DIST")
-	if defaultAPTDist == "" {
-		panic("DEFAULT_APT_DIST is not set")
 	}
 }
 

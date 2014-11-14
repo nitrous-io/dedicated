@@ -1,19 +1,21 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"os/signal"
 
 	"bitbucket.org/kardianos/osext"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous-common/must"
 )
-
-const DBEnvVar = "NITROUS_PG_URL"
 
 var (
 	version           string // current version of nitrousd
@@ -38,25 +40,43 @@ func main() {
 		}
 	}()
 
-	pid := os.Getpid()
-
-	dbURL := os.Getenv(DBEnvVar)
+	dbURL := os.Getenv("NITROUS_PG_URL")
 	if dbURL == "" {
-		logr.FatalExit(DBEnvVar, "is not defined")
+		logr.FatalExit("nitrousd: NITROUS_PG_URL is not defined")
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
 		logr.FatalExit(err)
 	}
-	err = dbConn.MigrateAll()
-	if err != nil {
-		logr.Infof("Migrations failed: %v", err)
-	}
 	defer dbConn.DB.Close()
+	if err := dbConn.MigrateAll(); err != nil {
+		logr.Infof("nitrousd: migrations failed: %v", err)
+	}
 
-	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr)
+	confPath := os.Getenv("HOST_PROVISIONER_CONFIG_PATH")
+	if confPath == "" {
+		logr.FatalExit("nitrousd: HOST_PROVISIONER_CONFIG_PATH is not defined")
+	}
+	confData, err := ioutil.ReadFile(confPath)
+	if err != nil {
+		logr.FatalfExit("nitrousd: failed to read host provisioner config file at %s", confPath)
+	}
+	var conf provisioner.Config
+	if err := json.Unmarshal(confData, &conf); err != nil {
+		logr.FatalfExit("nitrousd: could not load host provisioner config file at %s: %s", confPath, err)
+	}
+
+	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr, &conf)
+	pid := os.Getpid()
 	host := "0.0.0.0"
 	port := uint16(3333)
 	logr.Infof("nitrousd %s (pid: %v) listening on %s:%d", version, pid, host, port)
-	svr.Start(host, port)
+	go svr.Start(host, port)
+
+	ch := make(chan os.Signal)
+	signal.Notify(ch, os.Interrupt, os.Kill)
+	s := <-ch
+	logr.Infof("nitrousd (pid: %v) got signal %v. Terminating.", pid, s)
+	svr.Stop()
+	logr.Infof("nitrousd (pid: %v) terminated.", pid)
 }
