@@ -32,3 +32,34 @@ form submit='save'
     .card-footer
       .right
         button.ui.btn.primary click='hideModal target="view"' OK
+
+.card-header.bordered
+  h2 Account Details
+
+form submit='updateDetails'
+
+  .card-body
+    .ui.input-group
+      label.field-label for='email'
+        | Email
+      = input type='email' id='email' classNameBindings='view.emailFieldInvalid:error' value=controller.email
+
+    .ui.input-group
+      label.field-label for='password'
+        | Password
+      = input type='password' id='password' classNameBindings='view.passwordFieldInvalid:error' value=controller.password placeholder="Update password"
+
+    if view.showConfirmPassword
+      .ui.input-group
+        label.field-label for='confirmPassword'
+          | Confirm your Password
+        = input type='password' id='confirmPassword' classNameBindings='view.passwordFieldInvalid:error' value=controller.confirmPassword
+
+    .card-footer
+      .right
+        if updatingDetails
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Updating...
+        else
+          input.ui.btn.primary type='submit' disabled={updatingDetails} value='Update'
