@@ -455,5 +455,27 @@ func init() {
 				ALTER TABLE user_profiles ADD COLUMN advanced boolean DEFAULT false NOT NULL;
 			`,
 		},
+		{
+			Version: "380",
+			Up: `
+				ALTER TABLE users ADD COLUMN reset_password_token character varying(255);
+				ALTER TABLE users ADD COLUMN reset_password_sent_at timestamp without time zone;
+			`,
+		},
+		{
+			Version: "390",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN preprovisioned boolean DEFAULT false NOT NULL;
+			`,
+		},
+		{
+			Version: "395",
+			Up: `
+				ALTER TABLE provider_templates
+				  ADD COLUMN preprovision_max smallint
+				    CONSTRAINT cost_control CHECK (preprovision_max < 10)
+				    DEFAULT 0 NOT NULL;
+			`,
+		},
 	}
 }

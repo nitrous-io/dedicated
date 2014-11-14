@@ -12,7 +12,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
+
+const resetPasswordWithin = 4 * time.Hour
 
 var (
 	usernameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
@@ -44,6 +47,9 @@ type User struct {
 	LoginAttempts int           `db:"login_attempts" json:"-"`
 	InviteCodeID  sql.NullInt64 `db:"invite_code_id" json:"-"`
 	Admin         bool          `db:"admin" json:"admin"`
+
+	ResetPasswordToken  sql.NullString `db:"reset_password_token" json:"-"`
+	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at" json:"-"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {
@@ -73,6 +79,19 @@ func FindByUsername(d db.QueryReceiver, username string) (*User, error) {
 func FindByUsernameOrEmail(d db.QueryReceiver, login string) (*User, error) {
 	user := &User{}
 	err := d.Get(user, "SELECT * FROM users WHERE username = $1 OR email = $1", login)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return user, nil
+}
+
+func FindByResetPasswordToken(d db.QueryReceiver, token string) (*User, error) {
+	user := &User{}
+	lastValidSentAt := time.Now().Add(-resetPasswordWithin)
+	err := d.Get(user, "SELECT * FROM users WHERE reset_password_token = $1 AND reset_password_sent_at > $2", token, lastValidSentAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -216,6 +235,24 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 	}
 
 	return b, nil
+}
+
+func (u *User) SetResetPasswordToken(d db.QueryReceiver) error {
+	t, err := securerandom.Base64(191)
+	if err != nil {
+		return err
+	}
+	u.ResetPasswordToken = sql.NullString{t[:255], true}
+
+	nstmt, err := d.PrepareNamed("UPDATE users SET (reset_password_token, reset_password_sent_at) = (:reset_password_token, now()) WHERE id = :id RETURNING *;")
+	if err != nil {
+		return err
+	}
+	err = nstmt.QueryRowx(u).StructScan(u)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (u *User) encryptPassword() error {

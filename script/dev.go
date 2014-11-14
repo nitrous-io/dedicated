@@ -101,13 +101,13 @@ func main() {
 	log.Println(".....READY!!")
 	select {
 	case err := <-compassErr:
-		log.Printf("compass: FAILED %q", err)
+		log.Printf("compass: FAILED %v", err)
 	case err := <-tenderErr:
-		log.Printf("tender: FAILED %q", err)
+		log.Printf("tender: FAILED %v", err)
 	case err := <-nitrousErr:
-		log.Printf("nitrous: FAILED %q", err)
+		log.Printf("nitrous: FAILED %v", err)
 	case err := <-hostbuilderErr:
-		log.Printf("nitrous: FAILED %q", err)
+		log.Printf("hostbuilder: FAILED %v", err)
 	case <-c:
 		log.Printf("intercept close signal")
 	}

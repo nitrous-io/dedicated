@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -16,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -50,7 +50,7 @@ var _ = Describe("controllers/feedback", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer("", db, logger)
+		svr = server.NewServer("", db, logger, nil)
 		authTokenInputs = AuthTokenInputs{Handler: svr.Router()}
 
 		handler = svr.Router()
@@ -145,28 +145,3 @@ var _ = Describe("controllers/feedback", func() {
 		})
 	})
 })
-
-type FakeMailer struct {
-	SendMailCalled bool
-	From           string
-	Tos            []string
-	Ccs            []string
-	Bccs           []string
-	ReplyTo        string
-	Subject        string
-	Body           string
-	HTML           string
-}
-
-func (s *FakeMailer) SendMail(from string, tos []string, ccs []string, bccs []string, replyTo, subject, body, htmltext string) error {
-	s.SendMailCalled = true
-	s.From = from
-	s.Tos = tos
-	s.Ccs = ccs
-	s.Bccs = bccs
-	s.ReplyTo = replyTo
-	s.Subject = subject
-	s.Body = body
-	s.HTML = htmltext
-	return nil
-}

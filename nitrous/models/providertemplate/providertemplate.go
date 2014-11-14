@@ -9,14 +9,23 @@ import (
 )
 
 type ProviderTemplate struct {
-	ID        int64         `db:"id"`
-	RegionID  int64         `db:"region_id"`
-	PlanID    int64         `db:"plan_id"`
-	Name      string        `db:"name"`
-	Provider  string        `db:"provider"`
-	Config    hstore.Hstore `db:"config"`
-	CreatedAt *time.Time    `db:"created_at"`
-	UpdatedAt *time.Time    `db:"updated_at"`
+	ID              int64         `db:"id"`
+	RegionID        int64         `db:"region_id"`
+	PlanID          int64         `db:"plan_id"`
+	Name            string        `db:"name"`
+	Provider        string        `db:"provider"`
+	Config          hstore.Hstore `db:"config"`
+	PreprovisionMax int           `db:"preprovision_max"`
+	CreatedAt       *time.Time    `db:"created_at"`
+	UpdatedAt       *time.Time    `db:"updated_at"`
+}
+
+func Preprovisioned(d db.QueryReceiver) ([]ProviderTemplate, error) {
+	pts := []ProviderTemplate{}
+	if err := d.Select(&pts, `SELECT * FROM provider_templates WHERE preprovision_max > 0`); err != nil {
+		return nil, err
+	}
+	return pts, nil
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*ProviderTemplate, error) {

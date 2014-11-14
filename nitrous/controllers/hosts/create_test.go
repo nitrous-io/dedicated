@@ -104,10 +104,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(err).To(BeNil())
 
 		params = &url.Values{}
-		params.Set("slug", "honeybadger")
+		params.Set("slug", "rails-host")
 		params.Set("size", hs.P.Slug)
 		params.Set("region", hs.R.Slug)
-		params.Set("name", "honeybadger don't care")
+		params.Set("name", "Rails project host")
 	})
 
 	type overrides map[string]string
@@ -467,7 +467,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
 			Expect(j.Host.Size).To(Equal(hs.P.Slug))
 			Expect(j.Host.State).To(Equal(host.StateRunning))
-			Expect(j.Host.Hostname).To(Equal(hostname("honeybadger")))
+			Expect(j.Host.Hostname).To(Equal(hostname("rails-host")))
 			Expect(j.Host.CreatedAt).NotTo(BeNil())
 			Expect(j.Host.UpdatedAt).NotTo(BeNil())
 			Expect(j.Host.TerminatedAt).To(BeNil())
@@ -497,19 +497,19 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			case <-finished:
 				Expect(msgs[0]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreating,
-					Data: &controllers.ProgressEvent{ID: h.ID, Slug: h.Slug,
+					Data: &controllers.ProgressEvent{Slug: h.Slug,
 						Progress: `{"stream":"starting: create the droplet"}`},
 				}), "unexpected event, wanted EventHostCreating")
 
 				Expect(msgs[1]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreating,
-					Data: &controllers.ProgressEvent{ID: h.ID, Slug: h.Slug,
+					Data: &controllers.ProgressEvent{Slug: h.Slug,
 						Progress: `{"stream":"finished: create the droplet"}`},
 				}), "unexpected event, wanted EventHostCreating")
 
 				Expect(msgs[2]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreating,
-					Data: &controllers.ProgressEvent{ID: h.ID, Slug: h.Slug,
+					Data: &controllers.ProgressEvent{Slug: h.Slug,
 						Progress: fmt.Sprintf(
 							`{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}`,
 							hs.PT.Name,
@@ -528,13 +528,13 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 
 		It("converts the 'slug' form value to lowercase", func() {
-			params.Set("slug", "HoneyBADGER")
+			params.Set("slug", "Rails-Host")
 			doRequest(params)
 
 			hosts, err := host.FindAllByUser(db, u)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
-			Expect(hosts[0].Slug).To(Equal("honeybadger"))
+			Expect(hosts[0].Slug).To(Equal("rails-host"))
 		})
 
 		Context("when containers are given in JSON", func() {
@@ -782,7 +782,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 	Context("when trying to create a host with an existing slug", func() {
 		BeforeEach(func() {
 			_, err := CreateHostStack(db, &HostStack{
-				H: &host.Host{Slug: "honeybadger"},
+				H: &host.Host{Slug: "rails-host"},
 				U: u,
 			})
 			Expect(err).To(BeNil())
@@ -888,7 +888,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				}).Should(Equal("abcd1234"))
 			})
 
-			It("publishes a host events with the created host", func() {
+			It("publishes host events with the created host", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -910,7 +910,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 					Expect(msgs[0]).To(Equal(&controllers.Event{
 						Name: controllers.EventHostCreating,
-						Data: &controllers.ProgressEvent{ID: h.ID, Slug: h.Slug,
+						Data: &controllers.ProgressEvent{
+							Slug: h.Slug,
 							Progress: fmt.Sprintf(
 								`{"id":"abcd1234","ip_address":"0.0.0.0","provider":"%s","freighterd_port":65333}`, hs.PT.Name),
 						},
@@ -968,7 +969,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 					Expect(msgs[0]).To(Equal(&controllers.Event{
 						Name: controllers.EventHostCreating,
-						Data: &controllers.ProgressEvent{ID: h.ID, Slug: h.Slug,
+						Data: &controllers.ProgressEvent{Slug: h.Slug,
 							Progress: `{"error":"some error occurred"}`},
 					}))
 
