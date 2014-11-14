@@ -90,17 +90,14 @@ var _ = Describe("controllers/passwords", func() {
 				Expect(fakeMailer.Subject).To(Equal("[nitrous-pro] Reset password instructions"))
 				Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("Hello %s", u.Name)))
 				Expect(fakeMailer.HTML).To(ContainSubstring("Change my password"))
-				Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("/app#reset_password?token=%s", u.ResetPasswordToken.String)))
+				Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("/app#/reset-password?token=%s", u.ResetPasswordToken.String)))
 			})
 		})
 
 		Describe("when an invalid login is given", func() {
-			It("responds with 400 Bad Request and dont send an email", func() {
+			It("responds with 200 OK, but dont send an email", func() {
 				res := doRequest("fake@example.com")
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				err, errDesc := ErrorSlug(res.Body)
-				Expect(err).To(Equal("invalid_login"))
-				Expect(errDesc).To(Equal("username or email is required"))
+				Expect(res.Code).To(Equal(http.StatusOK))
 
 				Expect(fakeMailer.SendMailCalled).To(BeFalse())
 			})

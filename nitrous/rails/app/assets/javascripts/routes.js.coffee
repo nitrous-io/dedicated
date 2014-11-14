@@ -2,6 +2,8 @@ App.Router.map ->
   @route 'signup'
   @route 'login'
   @route 'logout'
+  @route 'forgot-password'
+  @route 'reset-password'
 
   @resource 'home', path: '/', ->
     @resource 'containers', path: '/containers', ->
