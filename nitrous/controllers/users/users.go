@@ -83,6 +83,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	err = u.SendConfirmationEmail(db)
+	if err != nil {
+		return err
+	}
+
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"user": serializers.SerializeUser(u),
@@ -139,6 +144,72 @@ func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Re
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"user": serializers.SerializeUser(u),
+	}
+	return nil
+}
+
+func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	token := r.FormValue("token")
+	if token == "" {
+		return httperror.New(http.StatusBadRequest, "validation_failed", "`token` must be provided")
+	}
+
+	u, err := user.FindByConfirmationToken(db, token)
+	if err != nil {
+		return err
+	}
+
+	if u == nil || token != u.ConfirmationToken.String {
+		return httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
+	}
+
+	err = u.ConfirmEmail(db)
+	if err != nil {
+		if err == user.ErrConfirmationLapsed {
+			return httperror.New(http.StatusBadRequest, "confirmation_expired", err.Error())
+		} else if err == user.ErrConfirmationAlreadyCompleted {
+			return httperror.New(http.StatusBadRequest, "already_confirmed", err.Error())
+		}
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"confirmed": true,
+	}
+	return nil
+}
+
+func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	token := r.FormValue("token")
+	if token == "" {
+		return httperror.New(http.StatusBadRequest, "validation_failed", "`token` must be provided")
+	}
+
+	u, err := user.FindByConfirmationToken(db, token)
+	if err != nil {
+		return err
+	}
+
+	if u == nil || token != u.ConfirmationToken.String {
+		return httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
+	}
+
+	err = u.SendConfirmationEmail(db)
+	if err != nil {
+		if err == user.ErrConfirmationAlreadyCompleted {
+			return httperror.New(http.StatusBadRequest, "already_confirmed", err.Error())
+		}
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"confirmation_sent": true,
 	}
 	return nil
 }

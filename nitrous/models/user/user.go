@@ -1,9 +1,13 @@
 package user
 
 import (
+	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/mail"
+	"net/url"
+	"os"
 	"regexp"
 	"time"
 
@@ -11,15 +15,18 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
 const resetPasswordWithin = 4 * time.Hour
+const maxConfirmationHours = 72 * time.Hour
 
 var (
-	usernameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
-	emailRe    = regexp.MustCompile(`\A[^@\s]+@([^@\s]+\.)+[^@\s]+\z`)
+	usernameRe               = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
+	emailRe                  = regexp.MustCompile(`\A[^@\s]+@([^@\s]+\.)+[^@\s]+\z`)
+	Mailer     mailer.Mailer = mailer.NewSendGridMailer()
 )
 
 var (
@@ -31,6 +38,9 @@ var (
 	ErrPasswordBlank    = errors.New("password can't be blank")
 	ErrPasswordTooShort = errors.New("password is too short (minimum is 6 characters)")
 	ErrPasswordTooLong  = errors.New("password is too long (maximum is 30 characters)")
+
+	ErrConfirmationLapsed           = errors.New("confirmation has expired")
+	ErrConfirmationAlreadyCompleted = errors.New("email has already been confirmed")
 )
 
 type User struct {
@@ -50,6 +60,10 @@ type User struct {
 
 	ResetPasswordToken  sql.NullString `db:"reset_password_token" json:"-"`
 	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at" json:"-"`
+
+	ConfirmationToken  sql.NullString `db:"confirmation_token" json:"-"`
+	ConfirmationSentAt *time.Time     `db:"confirmation_sent_at" json:"-"`
+	ConfirmedAt        *time.Time     `db:"confirmed_at" json:"-"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {
@@ -92,6 +106,18 @@ func FindByResetPasswordToken(d db.QueryReceiver, token string) (*User, error) {
 	user := &User{}
 	lastValidSentAt := time.Now().Add(-resetPasswordWithin)
 	err := d.Get(user, "SELECT * FROM users WHERE reset_password_token = $1 AND reset_password_sent_at > $2", token, lastValidSentAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return user, nil
+}
+
+func FindByConfirmationToken(d db.QueryReceiver, token string) (*User, error) {
+	user := &User{}
+	err := d.Get(user, "SELECT * FROM users WHERE confirmation_token = $1", token)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -266,4 +292,81 @@ func (u *User) encryptPassword() error {
 	u.EncryptedPassword = encrypted
 	u.Password = ""
 	return nil
+}
+
+func (u *User) SendConfirmationEmail(d db.QueryReceiver) error {
+	if u.ConfirmedAt != nil {
+		return ErrConfirmationAlreadyCompleted
+	}
+
+	t, err := securerandom.Base64(191)
+	if err != nil {
+		return err
+	}
+	u.ConfirmationToken = sql.NullString{t[:255], true}
+
+	// FIXME: ensure confirmation_token is unique and retry, do not surface error
+	nstmt, err := d.PrepareNamed("UPDATE users SET (confirmation_token, confirmation_sent_at) = (:confirmation_token, now()) WHERE id = :id RETURNING *;")
+	if err != nil {
+		return err
+	}
+	err = nstmt.QueryRowx(u).StructScan(u)
+	if err != nil {
+		return err
+	}
+
+	host := os.Getenv("WEB_HOSTNAME")
+	if host == "" {
+		host = "pro.nitrous.io"
+	}
+	resetURL := &url.URL{
+		Scheme:   "https",
+		Host:     host,
+		Path:     "/app",
+		Fragment: fmt.Sprintf("confirm-email?token=%s", u.ConfirmationToken.String),
+	}
+
+	tmplData := struct {
+		Name       string
+		ConfirmUrl string
+	}{
+		u.Name,
+		resetURL.String(),
+	}
+
+	// send email
+	htmlBuf := bytes.NewBuffer(nil)
+	if err := confirmEmailHtmlTemplate.Execute(htmlBuf, tmplData); err != nil {
+		return err
+	}
+	txtBuf := bytes.NewBuffer(nil)
+	if err := confirmEmailTxtTemplate.Execute(txtBuf, tmplData); err != nil {
+		return err
+	}
+
+	from := (&mail.Address{Name: "Nitrous Mailer", Address: "mailer@nitrous.io"}).String()
+	to := (&mail.Address{Name: u.Name, Address: u.Email}).String()
+
+	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, "Nitrous - confirm your email", txtBuf.String(), htmlBuf.String())
+}
+
+func (u *User) ConfirmEmail(d db.QueryReceiver) error {
+	if u.ConfirmedAt != nil {
+		return ErrConfirmationAlreadyCompleted
+	}
+
+	maxExpiry := u.ConfirmationSentAt.Add(maxConfirmationHours)
+	if time.Now().After(maxExpiry) {
+		return ErrConfirmationLapsed
+	}
+
+	nstmt, err := d.PrepareNamed(`UPDATE users
+		SET (confirmation_token, confirmed_at)
+		= (NULL, now())
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(u).StructScan(u)
 }
