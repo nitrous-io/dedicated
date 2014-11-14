@@ -477,5 +477,14 @@ func init() {
 				    DEFAULT 0 NOT NULL;
 			`,
 		},
+		{
+			Version: "400",
+			Up: `
+				ALTER TABLE users ADD COLUMN confirmation_token character varying(255) DEFAULT NULL;
+				ALTER TABLE users ADD COLUMN confirmation_sent_at timestamp without time zone DEFAULT NULL;
+				ALTER TABLE users ADD COLUMN confirmed_at timestamp without time zone DEFAULT NULL;
+				UPDATE users SET confirmed_at = now();
+			`,
+		},
 	}
 }
