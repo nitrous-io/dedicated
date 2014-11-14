@@ -59,11 +59,11 @@ func main() {
 	}
 	pw := os.Getenv("PROVISIONER_WORKERS")
 	if pw == "" {
-		logr.FatalExit("nitrousd: PROVISIONER_WORKER is not defined")
+		logr.FatalExit("nitrousd: PROVISIONER_WORKERS is not defined")
 	}
 	workers, err := strconv.Atoi(pw)
 	if err != nil {
-		logr.FatalExit("nitrousd: PROVISIONER_WORKER invalid:", err.Error())
+		logr.FatalExit("nitrousd: PROVISIONER_WORKERS invalid:", err.Error())
 	}
 	conf := &provisioner.Config{
 		Username:   pu,
