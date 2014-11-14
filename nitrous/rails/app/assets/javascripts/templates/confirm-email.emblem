@@ -14,10 +14,6 @@
         p
           | Your confirmation email has been resent, please check your email.
 
-  if alreadyConfirmed
-    h2.card-header
-      | You have already confirmed your email.
-
   if confirmLapsed
     h2.card-header
       | Your confirmation email has expired.
@@ -39,6 +35,8 @@
 
     .ui
       .card-body.clear-top
+        p
+          | You may have already confirmed your account or been provided with a broken link.
         p
           | Please try again or contact support if the error persists.
 

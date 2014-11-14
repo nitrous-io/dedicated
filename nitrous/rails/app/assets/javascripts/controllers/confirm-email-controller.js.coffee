@@ -1,5 +1,5 @@
 App.ConfirmEmailController = Em.Controller.extend
-  queryParams: ['id', 'token']
+  queryParams: ['token']
   id: null
   token: null
 
@@ -21,7 +21,7 @@ App.ConfirmEmailController = Em.Controller.extend
 
       Em.RSVP.Promise.cast(Em.$.ajax(
         type: 'POST'
-        url: "/api/v0/user/resend_confirm?id=#{@get('id')}&token=#{@get('token')}"
+        url: "/api/v0/user/resend_confirm?token=#{@get('token')}"
         cache: false
         contentType: false
       )).then (json) =>
@@ -39,7 +39,7 @@ App.ConfirmEmailController = Em.Controller.extend
 
     Em.RSVP.Promise.cast(Em.$.ajax(
       type: 'POST'
-      url: "/api/v0/user/confirm?id=#{@get('id')}&token=#{@get('token')}"
+      url: "/api/v0/user/confirm?token=#{@get('token')}"
       cache: false
       contentType: false
     )).then (json) =>
@@ -51,10 +51,5 @@ App.ConfirmEmailController = Em.Controller.extend
       @set 'confirming', false
       if jqxhr.responseJSON.error == "confirmation_expired"
         @set 'confirmLapsed', true
-      else if jqxhr.responseJSON.error == "already_confirmed"
-        @set 'alreadyConfirmed', true
-        App.postError('Your email has already been confirmed', null)
-        Em.run.next =>
-          @transitionToRoute 'home.index'
       else
         @set 'generalError', true

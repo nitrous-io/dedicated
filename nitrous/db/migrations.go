@@ -483,6 +483,7 @@ func init() {
 				ALTER TABLE users ADD COLUMN confirmation_token character varying(255) DEFAULT NULL;
 				ALTER TABLE users ADD COLUMN confirmation_sent_at timestamp without time zone DEFAULT NULL;
 				ALTER TABLE users ADD COLUMN confirmed_at timestamp without time zone DEFAULT NULL;
+				CREATE UNIQUE INDEX index_users_on_confirmation_token ON users USING btree (confirmation_token);
 				UPDATE users SET confirmed_at = now();
 			`,
 		},

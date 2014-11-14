@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/lib/pq"
@@ -152,27 +151,17 @@ func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Re
 func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	userIdStr := r.FormValue("id")
-	if userIdStr == "" {
-		return httperror.New(http.StatusBadRequest, "validation_failed", "`id` must be provided")
-	}
-
 	token := r.FormValue("token")
 	if token == "" {
 		return httperror.New(http.StatusBadRequest, "validation_failed", "`token` must be provided")
 	}
 
-	userId, err := strconv.ParseInt(userIdStr, 10, 64)
+	u, err := user.FindByConfirmationToken(db, token)
 	if err != nil {
 		return err
 	}
 
-	u, err := user.FindByID(db, userId)
-	if err != nil {
-		return err
-	}
-
-	if u == nil || token != u.ConfirmationToken.String && u.ConfirmationToken.Valid {
+	if u == nil || token != u.ConfirmationToken.String {
 		return httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 	}
 
@@ -196,27 +185,17 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	userIdStr := r.FormValue("id")
-	if userIdStr == "" {
-		return httperror.New(http.StatusBadRequest, "validation_failed", "`id` must be provided")
-	}
-
 	token := r.FormValue("token")
 	if token == "" {
 		return httperror.New(http.StatusBadRequest, "validation_failed", "`token` must be provided")
 	}
 
-	userId, err := strconv.ParseInt(userIdStr, 10, 64)
+	u, err := user.FindByConfirmationToken(db, token)
 	if err != nil {
 		return err
 	}
 
-	u, err := user.FindByID(db, userId)
-	if err != nil {
-		return err
-	}
-
-	if u == nil || token != u.ConfirmationToken.String && u.ConfirmationToken.Valid {
+	if u == nil || token != u.ConfirmationToken.String {
 		return httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 	}
 

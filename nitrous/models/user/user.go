@@ -115,6 +115,18 @@ func FindByResetPasswordToken(d db.QueryReceiver, token string) (*User, error) {
 	return user, nil
 }
 
+func FindByConfirmationToken(d db.QueryReceiver, token string) (*User, error) {
+	user := &User{}
+	err := d.Get(user, "SELECT * FROM users WHERE confirmation_token = $1", token)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return user, nil
+}
+
 // GetDelay returns a time.Duration based on no. of login attempts made on
 // given login.
 func GetDelay(d db.QueryReceiver, login string) (time.Duration, error) {
@@ -293,6 +305,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver) error {
 	}
 	u.ConfirmationToken = sql.NullString{t[:255], true}
 
+	// FIXME: ensure confirmation_token is unique and retry, do not surface error
 	nstmt, err := d.PrepareNamed("UPDATE users SET (confirmation_token, confirmation_sent_at) = (:confirmation_token, now()) WHERE id = :id RETURNING *;")
 	if err != nil {
 		return err
@@ -310,7 +323,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver) error {
 		Scheme:   "https",
 		Host:     host,
 		Path:     "/app",
-		Fragment: fmt.Sprintf("confirm-email?id=%d&token=%s", u.ID, u.ConfirmationToken.String),
+		Fragment: fmt.Sprintf("confirm-email?token=%s", u.ConfirmationToken.String),
 	}
 
 	tmplData := struct {
