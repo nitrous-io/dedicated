@@ -51,6 +51,10 @@ SM.Model = klass = Ember.Object.extend
     else
       adapter.createRecord(this, params, options)
 
+  forceUpdate: (params, options) ->
+    adapter = Ember.get(@constructor, 'adapter')
+    adapter.updateRecord(this, params, options)
+
 klass.reopenClass
   primaryKey: 'id'
   singular: false
