@@ -35,7 +35,7 @@
 
   if generalError
     h2.card-header
-      | A general error has occurred confirming your account
+      | A general error has occurred confirming your email
 
     .ui
       .card-body.clear-top

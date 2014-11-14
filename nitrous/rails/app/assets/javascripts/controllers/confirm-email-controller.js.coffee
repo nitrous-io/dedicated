@@ -44,7 +44,7 @@ App.ConfirmEmailController = Em.Controller.extend
       contentType: false
     )).then (json) =>
       @set 'confirming', false
-      App.postError('Your account has been confirmed', null)
+      App.postError('Your email has been confirmed', null)
       Em.run.next =>
         @transitionToRoute 'home.index'
     , (jqxhr) =>
@@ -53,7 +53,7 @@ App.ConfirmEmailController = Em.Controller.extend
         @set 'confirmLapsed', true
       else if jqxhr.responseJSON.error == "already_confirmed"
         @set 'alreadyConfirmed', true
-        App.postError('Your account is already confirmed', null)
+        App.postError('Your email has already been confirmed', null)
         Em.run.next =>
           @transitionToRoute 'home.index'
       else

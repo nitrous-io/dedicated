@@ -334,7 +334,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver) error {
 	from := (&mail.Address{Name: "Nitrous Mailer", Address: "mailer@nitrous.io"}).String()
 	to := (&mail.Address{Name: u.Name, Address: u.Email}).String()
 
-	err = Mailer.SendMail(from, []string{to}, []string{from}, nil, from, "Welcome to Nitrous!", txtBuf.String(), htmlBuf.String())
+	err = Mailer.SendMail(from, []string{to}, []string{from}, nil, from, "Nitrous - confirm your email", txtBuf.String(), htmlBuf.String())
 	if err != nil {
 		return err
 	}
