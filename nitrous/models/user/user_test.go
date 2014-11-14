@@ -685,4 +685,53 @@ var _ = Describe("models/user", func() {
 			Expect(b).To(BeTrue())
 		})
 	})
+
+	Describe("FindByResetPasswordToken()", func() {
+		var u *user.User
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE user_profiles SET max_hosts = 2 WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+		})
+
+		Context("when a reset password token exist and it is not expired", func() {
+			It("returns the matching user", func() {
+				err := u.SetResetPasswordToken(db)
+				Expect(err).To(BeNil())
+
+				Expect(u.ResetPasswordToken.String).NotTo(BeEmpty())
+				Expect(u.ResetPasswordSentAt).NotTo(BeNil())
+
+				u1, err := user.FindByResetPasswordToken(db, u.ResetPasswordToken.String)
+				Expect(err).To(BeNil())
+				Expect(u1.ID).To(Equal(u.ID))
+			})
+		})
+
+		Context("when a reset password token is expired", func() {
+			It("returns nil", func() {
+				err := u.SetResetPasswordToken(db)
+				Expect(err).To(BeNil())
+
+				Expect(u.ResetPasswordToken.String).NotTo(BeEmpty())
+				Expect(u.ResetPasswordSentAt).NotTo(BeNil())
+
+				_, err = db.Exec("UPDATE users SET reset_password_sent_at = now() - interval '23 hours' WHERE id = $1", u.ID)
+				Expect(err).To(BeNil())
+
+				u1, err := user.FindByResetPasswordToken(db, u.ResetPasswordToken.String)
+				Expect(err).To(BeNil())
+				Expect(u1).To(BeNil())
+			})
+		})
+	})
 })

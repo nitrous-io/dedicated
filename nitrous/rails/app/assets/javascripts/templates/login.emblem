@@ -26,8 +26,9 @@
             | Log In
 
 p.note
-  | Don&rsquo;t have an account?&nbsp;
   link-to 'signup' | Sign up
-  | .
+  | &nbsp;|&nbsp;
+  link-to 'forgot-password' | Forgot Password?
+
 
 = partial 'footer'
