@@ -842,10 +842,10 @@ var _ = Describe("models/user", func() {
 			Expect(fakeMailer.Tos).To(Equal([]string{"\"quxboy\" <qux@example.com>"}))
 			Expect(fakeMailer.ReplyTo).To(Equal("\"Nitrous Mailer\" <mailer@nitrous.io>"))
 			Expect(fakeMailer.Subject).To(Equal("Welcome to Nitrous!"))
-			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy,"))
-			Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app#confirm?id=%d&token=%s", u.ID, u.ConfirmationToken.String)))
-			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello quxboy,</h3>"))
-			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("<a href=\"https://nitrous.example/app#confirm?id=%d&token=%s\" target=\"_blank\"", u.ID, u.ConfirmationToken.String)))
+			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy!"))
+			Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app#confirm-email?id=%d&token=%s", u.ID, u.ConfirmationToken.String)))
+			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello quxboy!</h3>"))
+			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("<a href=\"https://nitrous.example/app#confirm-email?id=%d&token=%s\" target=\"_blank\"", u.ID, u.ConfirmationToken.String)))
 		})
 
 		It("should return an error if already confirmed", func() {
@@ -860,28 +860,3 @@ var _ = Describe("models/user", func() {
 		})
 	})
 })
-
-type FakeMailer struct {
-	SendMailCalled bool
-	From           string
-	Tos            []string
-	Ccs            []string
-	Bccs           []string
-	ReplyTo        string
-	Subject        string
-	Body           string
-	HTML           string
-}
-
-func (s *FakeMailer) SendMail(from string, tos []string, ccs []string, bccs []string, replyTo, subject, body, htmltext string) error {
-	s.SendMailCalled = true
-	s.From = from
-	s.Tos = tos
-	s.Ccs = ccs
-	s.Bccs = bccs
-	s.ReplyTo = replyTo
-	s.Subject = subject
-	s.Body = body
-	s.HTML = htmltext
-	return nil
-}

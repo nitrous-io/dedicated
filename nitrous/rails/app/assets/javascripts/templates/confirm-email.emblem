@@ -10,7 +10,7 @@
       | Resending confirmation email
 
     .ui
-      .card-body
+      .card-body.clear-top
         p
           | Your confirmation email has been resent, please check your email.
 
@@ -23,7 +23,7 @@
       | Your confirmation email has expired.
 
     .ui
-      .card-body
+      .card-body.clear-top
         p
           | Please resend your confirmation email to try again.
         p
@@ -38,7 +38,7 @@
       | A general error has occurred confirming your account
 
     .ui
-      .card-body
+      .card-body.clear-top
         p
           | Please try again or contact support if the error persists.
 

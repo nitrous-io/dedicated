@@ -1,4 +1,4 @@
-App.ConfirmController = Em.Controller.extend
+App.ConfirmEmailController = Em.Controller.extend
   queryParams: ['id', 'token']
   id: null
   token: null

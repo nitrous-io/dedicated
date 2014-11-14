@@ -310,7 +310,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver) error {
 		Scheme:   "https",
 		Host:     host,
 		Path:     "/app",
-		Fragment: fmt.Sprintf("confirm?id=%d&token=%s", u.ID, u.ConfirmationToken.String),
+		Fragment: fmt.Sprintf("confirm-email?id=%d&token=%s", u.ID, u.ConfirmationToken.String),
 	}
 
 	tmplData := struct {

@@ -1,4 +1,4 @@
-App.ConfirmRoute = Em.Route.extend
+App.ConfirmEmailRoute = Em.Route.extend
   beforeModel: ->
     @_super.apply this, arguments
 
@@ -7,7 +7,7 @@ App.ConfirmRoute = Em.Route.extend
 
   renderTemplate: ->
     @_super()
-    @render 'topnav', into: 'confirm', outlet: 'topnav', controller: 'topnav'
+    @render 'topnav', into: 'confirm-email', outlet: 'topnav', controller: 'topnav'
 
   setupController: (controller) ->
     controller.startConfirm()

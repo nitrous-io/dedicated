@@ -10,7 +10,7 @@ const confirmEmailHtmlTmpl = `
     <title>Confirm your email</title>
   </head>
   <body>
-    <h3>Hello {{ .Name }},</h3>
+    <h3>Hello {{ .Name }}!</h3>
     <p>Welcome to Nitrous, we're excited to have you on board.</p>
     <p>To complete the registration process we will need to you to confirm your account, all you have to do is click the link below.</p>
     <p><a href="{{ .ConfirmUrl }}" target="_blank">Confirm account</a></p>
@@ -22,7 +22,7 @@ const confirmEmailHtmlTmpl = `
 `
 
 const confirmEmailTxtTmpl = `
-Hello {{ .Name }},
+Hello {{ .Name }}!
 Welcome to Nitrous, we're excited to have you on board.
 To complete the registration process we will need to you to confirm your account, all you have to do is click the link below.
 {{ .ConfirmUrl }}

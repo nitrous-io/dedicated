@@ -544,7 +544,7 @@ var _ = Describe("controllers/users", func() {
 		})
 	})
 
-	FDescribe("POST /api/v0/user/resend_confirm", func() {
+	Describe("POST /api/v0/user/resend_confirm", func() {
 		doRequest := func(id, token string) {
 			var err error
 			params := &url.Values{}
