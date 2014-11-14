@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -13,6 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 )
 
 type HostStack struct {
@@ -180,7 +180,7 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 // only when needed.  It deletes any existing cert for
 // that host.
 func GenerateHostCert(db *db.Database, hs *HostStack) (*HostStack, error) {
-	caInfo, err := controllers.GetCAInfo(true)
+	caInfo, err := certauth.GetCAInfo(true)
 	if err != nil {
 		return nil, err
 	}

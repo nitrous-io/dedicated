@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
@@ -80,6 +82,8 @@ type Host struct {
 	// from the associated Plan since size is often read.
 	Size sql.NullString `db:"size"`
 
+	Preprovisioned bool `db:"preprovisioned"`
+
 	TerminatedAt *time.Time `db:"terminated_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
@@ -91,8 +95,20 @@ type Host struct {
 
 func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
 	hosts := []Host{}
-	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL ORDER BY id;", user.ID)
+	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE ORDER BY id;", user.ID)
 	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
+func FindAllPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) ([]*Host, error) {
+	hosts := []*Host{}
+	if err := db.Select(&hosts,
+		`SELECT * FROM hosts
+		WHERE region_id = $1 AND plan_id = $2 AND state = $3
+		AND preprovisioned = TRUE AND terminated_at IS NULL ORDER BY id;`,
+		r.ID, p.ID, StateRunning); err != nil {
 		return nil, err
 	}
 	return hosts, nil
@@ -111,13 +127,15 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 			`SELECT hosts.*, provider_templates.provider
 			FROM hosts
 			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
-			WHERE hosts.user_id = $1 AND hosts.slug = $2 AND terminated_at IS NULL;`, user.ID, identifier)
+			WHERE hosts.user_id = $1 AND hosts.slug = $2
+			AND terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, identifier)
 	} else {
 		err = db.Get(host,
 			`SELECT hosts.*, provider_templates.provider
 			FROM hosts
 			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
-			WHERE hosts.user_id = $1 AND hosts.id = $2 AND terminated_at IS NULL;`, user.ID, id)
+			WHERE hosts.user_id = $1 AND hosts.id = $2
+			AND terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, id)
 	}
 
 	if err != nil {
@@ -147,7 +165,7 @@ func FindBySlug(db *db.Database, slug string) (*Host, error) {
 	q := `SELECT hosts.*, provider_templates.provider
 				FROM hosts
 				INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
-				WHERE hosts.slug = $1 AND terminated_at IS NULL;`
+				WHERE hosts.slug = $1 AND terminated_at IS NULL AND preprovisioned = FALSE;`
 	err := db.Get(host, q, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -157,6 +175,18 @@ func FindBySlug(db *db.Database, slug string) (*Host, error) {
 	}
 
 	return host, err
+}
+
+func FindPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) (*Host, error) {
+	host := &Host{}
+	if err := db.Get(host,
+		`SELECT * FROM hosts
+		WHERE region_id = $1 AND plan_id = $2 AND state = $3
+		AND preprovisioned = TRUE AND terminated_at IS NULL ORDER BY id;`,
+		r.ID, p.ID, StateRunning); err != nil {
+		return nil, err
+	}
+	return host, nil
 }
 
 func (h *Host) Insert(d db.QueryReceiver) error {
@@ -172,10 +202,12 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
 		(user_id, region_id, plan_id, provider_template_id, slug, name, secret,
-			state, ip_address, provider_identifier, max_containers, size, freighterd_port)
+			state, ip_address, provider_identifier, max_containers, size, freighterd_port,
+			preprovisioned)
 		VALUES
 		(:user_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
-		:state, :ip_address, :provider_identifier, :max_containers, :size, :freighterd_port)
+		:state, :ip_address, :provider_identifier, :max_containers, :size, :freighterd_port,
+		:preprovisioned)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -185,14 +217,18 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (name, state, ip_address, provider_identifier, max_containers, freighterd_port, updated_at)
-		= (:name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port, now())
+		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port, preprovisioned, updated_at)
+		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port, :preprovisioned, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
 		return err
 	}
 	return nstmt.QueryRowx(h).StructScan(h)
+}
+
+func (h *Host) ReassignUser(d db.QueryReceiver, u *user.User) error {
+	return d.QueryRowx(`UPDATE hosts SET user_id = $1 WHERE id = $2 RETURNING *`, u.ID, h.ID).StructScan(h)
 }
 
 func (h *Host) Delete(d db.QueryReceiver) error {
@@ -223,6 +259,10 @@ func (h *Host) Validate() error {
 // it here
 func (h *Host) Hostname() string {
 	return fmt.Sprintf("%s.%s", h.Slug, rootHostname)
+}
+
+func (h *Host) CertHostname() string {
+	return fmt.Sprintf("*.%s", rootHostname)
 }
 
 func (h *Host) ProxyHostname() string {
