@@ -864,7 +864,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("should send the email", func() {
-			os.Setenv("HOST_HOSTNAME", "nitrous.example")
+			os.Setenv("WEB_HOSTNAME", "nitrous.example")
 			err := u.SendConfirmationEmail(db)
 			Expect(err).To(BeNil())
 

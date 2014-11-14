@@ -315,7 +315,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver) error {
 		return err
 	}
 
-	host := os.Getenv("HOST_HOSTNAME")
+	host := os.Getenv("WEB_HOSTNAME")
 	if host == "" {
 		host = "pro.nitrous.io"
 	}
@@ -347,12 +347,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver) error {
 	from := (&mail.Address{Name: "Nitrous Mailer", Address: "mailer@nitrous.io"}).String()
 	to := (&mail.Address{Name: u.Name, Address: u.Email}).String()
 
-	err = Mailer.SendMail(from, []string{to}, []string{from}, nil, from, "Nitrous - confirm your email", txtBuf.String(), htmlBuf.String())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, "Nitrous - confirm your email", txtBuf.String(), htmlBuf.String())
 }
 
 func (u *User) ConfirmEmail(d db.QueryReceiver) error {
