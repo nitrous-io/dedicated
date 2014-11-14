@@ -198,18 +198,16 @@ func (p *Provisioner) Start() error {
 
 	// Determine the hosts that we need to pre-provision and create jobs
 	// accordingly.
-	for _, spec := range p.config.PreprovisionSpecs {
-		jobs, err := p.createJobs(spec)
-		if err != nil {
-			// FIXME We currently ignore any errors here: should we do more?
-			p.logger.Errorf("provisioner: error creating job from spec %+v, err: %v", spec, err)
-		} else {
-			p.logger.Debugf("provisioner: created %d job(s) for spec %+v", len(jobs), spec)
-		}
+	jobs, err := p.createJobs()
+	if err != nil {
+		// FIXME We currently ignore any errors here: should we do more?
+		p.logger.Errorf("provisioner: error creating jobs, err: %v", err)
+	} else {
+		p.logger.Debugf("provisioner: created %d job(s)", len(jobs))
+	}
 
-		for _, job := range jobs {
-			p.jobQueue <- job
-		}
+	for _, job := range jobs {
+		p.jobQueue <- job
 	}
 
 	go func() {
@@ -520,51 +518,58 @@ func (p *Provisioner) configureUser() error {
 	return nil
 }
 
-func (p *Provisioner) createJobs(spec PreprovisionSpec) ([]job, error) {
+func (p *Provisioner) createJobs() ([]job, error) {
 	db := p.db
 
-	r, err := region.FindBySlug(db, spec.Region)
-	if err != nil {
-		return nil, err
-	}
-	if r == nil {
-		return nil, fmt.Errorf("provisioner: region not found", spec.Region)
-	}
-	pl, err := plan.FindBySlug(db, spec.Plan)
-	if err != nil {
-		return nil, err
-	}
-	if pl == nil {
-		return nil, fmt.Errorf("provisioner: plan not found", spec.Plan)
-	}
-	template, err := providertemplate.FindByRegionAndPlanAndProvider(db, r.ID, pl.ID, spec.Driver)
-	if err != nil {
-		return nil, err
-	}
-	if template == nil {
-		return nil, fmt.Errorf("provisioner: no matching provider template for %s/%s", spec.Region, spec.Plan)
-	}
-	hosts, err := host.FindAllPreprovisioned(db, r, pl)
+	pts, err := providertemplate.Preprovisioned(db)
 	if err != nil {
 		return nil, err
 	}
 
-	p.logger.Debugf("provisioner: for pre-provision spec %+v, existing hosts: %d", spec, len(hosts))
-	if len(hosts) > spec.Count {
-		p.logger.Debugf("provisioner: pre-provision spec %+v already satisfied, doing nothing", spec)
-		return nil, nil
+	jobs := []job{}
+	for _, pt := range pts {
+		// TODO: lots of queries in loop, optimize
+		// TODO: using region ID and plan ID for jobs would save a lot of
+		// queries and finder boilerplate
+
+		r, err := region.FindByID(db, pt.RegionID)
+		if err != nil {
+			return nil, err
+		}
+		if r == nil {
+			return nil, fmt.Errorf("provisioner: region not found", pt.RegionID)
+		}
+
+		pl, err := plan.FindByID(db, pt.PlanID)
+		if err != nil {
+			return nil, err
+		}
+		if pl == nil {
+			return nil, fmt.Errorf("provisioner: plan not found", pt.PlanID)
+		}
+
+		hosts, err := host.FindAllPreprovisioned(db, r, pl)
+		if err != nil {
+			return nil, err
+		}
+		logPrefix := fmt.Sprintf("provisioner: host count for (template,region,plan) (%d,%s,%s) is %d, max is %d: ",
+			pt.ID, r.Name, pl.Name, len(hosts), pt.PreprovisionMax)
+		needed := pt.PreprovisionMax - len(hosts)
+		if needed <= 0 {
+			p.logger.Debugf("%s skipping", logPrefix)
+			continue
+		}
+		p.logger.Debugf("%s creating jobs", logPrefix)
+		for i := 0; i < needed; i++ {
+			jobs = append(jobs, job{
+				driver:   pt.Provider,
+				region:   r,
+				plan:     pl,
+				template: &pt,
+			})
+		}
 	}
 
-	needed := spec.Count - len(hosts)
-	jobs := make([]job, 0, needed)
-	for i := 0; i < needed; i++ {
-		jobs = append(jobs, job{
-			driver:   spec.Driver,
-			region:   r,
-			plan:     pl,
-			template: template,
-		})
-	}
 	return jobs, nil
 }
 
