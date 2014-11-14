@@ -2,4 +2,4 @@
   .card-body.download-app
     h3 Get Nitrous Sync
     p Install the Nitrous desktop application to work on your application using your favorite editor
-    a.ui.btn.raised.primary href='/desktop' target='_blank' Download Desktop App
+    a.ui.btn.raised.primary href={App.desktopDownloadUrl} target='_blank' Download Desktop App
