@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 
 	"bitbucket.org/kardianos/osext"
 
@@ -19,12 +20,6 @@ var (
 	version           string // current version of nitrousd
 	freighterdVersion string // freighterd version that works with current nitrousd
 	nitroVersion      string // nitro version that works with current nitrousd
-
-	// TODO: use some other mechanism for populating preprovisioner config
-	provisionerConfig = &provisioner.Config{
-		Username:   "host-provisioner",
-		NumWorkers: 2,
-	}
 )
 
 func main() {
@@ -57,8 +52,26 @@ func main() {
 		logr.Infof("nitrousd: migrations failed: %v", err)
 	}
 
+	// TODO: use some other mechanism for populating preprovisioner config
+	pu := os.Getenv("PROVISIONER_USER")
+	if pu == "" {
+		logr.FatalExit("nitrousd: PROVISIONER_USER is not defined")
+	}
+	pw := os.Getenv("PROVISIONER_WORKERS")
+	if pw == "" {
+		logr.FatalExit("nitrousd: PROVISIONER_WORKER is not defined")
+	}
+	workers, err := strconv.Atoi(pw)
+	if err != nil {
+		logr.FatalExit("nitrousd: PROVISIONER_WORKER invalid:", err.Error())
+	}
+	conf := &provisioner.Config{
+		Username:   pu,
+		NumWorkers: workers,
+	}
+
 	svr := server.NewServer(must.String(osext.ExecutableFolder()),
-		dbConn, logr, provisionerConfig)
+		dbConn, logr, conf)
 	pid := os.Getpid()
 	host := "0.0.0.0"
 	port := uint16(3333)

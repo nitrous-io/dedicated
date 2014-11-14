@@ -161,7 +161,7 @@ func (p *Provisioner) Start() error {
 	p.stop = make(chan struct{})
 	p.setRunning(true)
 
-	p.logger.Debug("provisioner: starting")
+	p.logger.Debugf("provisioner: starting with config %+v", p.config)
 
 	numWorkers := p.config.NumWorkers
 	p.jobQueue = make(chan job, 100)
