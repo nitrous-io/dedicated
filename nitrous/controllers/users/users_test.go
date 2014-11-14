@@ -542,6 +542,111 @@ var _ = Describe("controllers/users", func() {
 			})
 
 		})
+	})
 
+	FDescribe("POST /api/v0/user/resend_confirm", func() {
+		doRequest := func(id, token string) {
+			var err error
+			params := &url.Values{}
+			params.Set("id", id)
+			params.Set("token", token)
+			req, err = NewRequest("POST", "/api/v0/user/resend_confirm", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("should return a bad request when the id is not provided", func() {
+			doRequest("", "")
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			j := map[string]interface{}{}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["error"]).To(Equal("validation_failed"))
+			Expect(j["error_description"]).To(Equal("`id` must be provided"))
+		})
+
+		It("should return a bad request when the token is not provided", func() {
+			doRequest("12", "")
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			j := map[string]interface{}{}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["error"]).To(Equal("validation_failed"))
+			Expect(j["error_description"]).To(Equal("`token` must be provided"))
+		})
+
+		It("should error out if the user does not exist", func() {
+			doRequest("-19", "sdas")
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			j := map[string]interface{}{}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["error"]).To(Equal("validation_failed"))
+			Expect(j["error_description"]).To(Equal("specified user does not exist"))
+		})
+
+		Context("with correct user", func() {
+
+			var u *user.User
+			curTime := time.Now()
+
+			BeforeEach(func() {
+				u = &user.User{
+					Username: "qux",
+					Name:     "quxboy",
+					Password: "123456",
+					Email:    "qux@example.com",
+				}
+				err := WrapInTransaction(db, u.Insert)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE users SET confirmation_sent_at = $1, confirmation_token = 'ABCD' WHERE id = $2;`, curTime.Add(-48*time.Hour), u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("should error out if the token is incorrect", func() {
+				doRequest(fmt.Sprintf("%d", u.ID), "sdas")
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("validation_failed"))
+				Expect(j["error_description"]).To(Equal("specified user does not exist"))
+			})
+
+			It("should confirm the account if the token matches", func() {
+				now := time.Now()
+				doRequest(fmt.Sprintf("%d", u.ID), "ABCD")
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(BeNil())
+				Expect(j["confirmation_sent"]).To(BeTrue())
+
+				u, err = user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(u.ConfirmationToken.String).ToNot(BeEmpty())
+				Expect(u.ConfirmationToken.String).ToNot(Equal("ABCD"))
+				Expect(*u.ConfirmationSentAt).To(BeTemporally(">=", now))
+			})
+
+			It("should communicate if the confirmation has already been confirmed", func() {
+				_, err := db.Exec(`UPDATE users SET confirmed_at = $1 WHERE id = $2;`, curTime.Add(-73*time.Hour), u.ID)
+				Expect(err).To(BeNil())
+
+				doRequest(fmt.Sprintf("%d", u.ID), "ABCD")
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]interface{}{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("already_confirmed"))
+				Expect(j["error_description"]).To(Equal(user.ErrConfirmationAlreadyCompleted.Error()))
+				Expect(j["confirmation_sent"]).To(BeNil())
+			})
+
+		})
 	})
 })

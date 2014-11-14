@@ -1,6 +1,19 @@
 = outlet topnav
 
 .ui.card
+  if resendingConfirm
+    h2.card-header
+      | Resending confirmation email
+
+  if resentConfirm
+    h2.card-header
+      | Resending confirmation email
+
+    .ui
+      .card-body
+        p
+          | Your confirmation email has been resent, please check your email.
+
   if alreadyConfirmed
     h2.card-header
       | You have already confirmed your email.

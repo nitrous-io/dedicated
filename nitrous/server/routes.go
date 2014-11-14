@@ -43,6 +43,7 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/user/profile", mw.Auth(userprofiles.Show), "GET")
 		s.routeJSON("/user/profile", mw.Auth(userprofiles.Update), "POST")
 		s.routeJSON("/user/confirm", users.Confirm, "POST")
+		s.routeJSON("/user/resend_confirm", users.ResendConfirmation, "POST")
 
 		s.routeJSON("/send_reset_password_token", passwords.SendResetPasswordToken, "POST")
 		s.routeJSON("/reset_password", passwords.ResetPassword, "POST")

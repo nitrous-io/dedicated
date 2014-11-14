@@ -7,10 +7,29 @@ App.ConfirmController = Em.Controller.extend
   confirmLapsed: false
   confirming: false
   generalError: false
+  resendingConfirm: false
+  resentConfirm: false
 
   actions:
     resendConfirmationEmail: ->
-      console.log 'Resend'
+      @set 'confirming', false
+      @set 'alreadyConfirmed', false
+      @set 'confirmLapsed', false
+      @set 'generalError', false
+      @set 'resendingConfirm', true
+      @set 'resentConfirm', false
+
+      Em.RSVP.Promise.cast(Em.$.ajax(
+        type: 'POST'
+        url: "/api/v0/user/resend_confirm?id=#{@get('id')}&token=#{@get('token')}"
+        cache: false
+        contentType: false
+      )).then (json) =>
+        @set 'resendingConfirm', false
+        @set 'resentConfirm', true
+      , (jqxhr) =>
+        @set 'resendingConfirm', false
+        @set 'generalError', true
 
   startConfirm: ->
     @set 'confirming', true
