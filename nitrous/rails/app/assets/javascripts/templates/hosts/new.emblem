@@ -59,9 +59,11 @@
           .spec-box
             h4 Price
             p
-              | $&nbsp;
-              = decimal selectedPlan.price 2
-              | &nbsp;/&nbsp;mo.
+              span.strike-price
+                | $&nbsp;
+                = decimal selectedPlan.price 2
+                | &nbsp;/&nbsp;mo.
+              span.question title="Free during beta!" ?
 
         p.see-terms
           | Please review the&nbsp;
