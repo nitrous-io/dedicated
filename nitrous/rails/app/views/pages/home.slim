@@ -1,63 +1,32 @@
-- @html_class = 'pages-home'
-- @title = 'Nitrous'
+- @title = 'Nitrous Pro'
 
-#masthead
-  .container
-    h2 Containerized Development That Just Works
-    h3 Create and Run Applications in the Cloud, instantly.
+.pc
+  .cc
+    .logo
+      | Nitrous
+      span
+        | Pro
 
-    a.ui.btn.raised.sign-up-btn href='/app#/signup' Start Now
+    .email-form
+      erb:
+        <!-- Begin MailChimp Signup Form -->
+        <div id="mc_embed_signup">
+        <form action="//nitrous.us4.list-manage.com/subscribe/post?u=40aef44b6df80a146dc4163c7&amp;id=3a715be40a" method="post" id="mc-embedded-subscribe-form" name="mc-embedded-subscribe-form" class="validate" target="_blank" novalidate>
+            <div id="mc_embed_signup_scroll">
 
-#features
-  .center
-    h3 Still building Environments By Hand?
+          <input type="email" value="" name="EMAIL" class="email" id="mce-EMAIL" placeholder="email address" required>
+            <!-- real people should not fill this in and expect good things - do not remove this or risk form bot signups-->
+            <div style="position: absolute; left: -5000px;"><input type="text" name="b_40aef44b6df80a146dc4163c7_3a715be40a" tabindex="-1" value=""></div>
+            <input type="submit" value="Go" name="subscribe" id="mc-embedded-subscribe" class="button">
+            </div>
+        </form>
+        </div>
 
-  .container
-    .left
-      .text
-        h3 Clone Environments Instantly
-        p
-          | Maintaining infrastructure is a chore for every developer team. Replace shell scripts, READMEs, and Chef / Puppet scripts with containerized environments that are available instantly.
-      .image
+        <!--End mc_embed_signup-->
 
-    .right
-      .text
-        h3 Automate Testing and Deployment
-        p
-          | Easily setup your development environment to match CI and production. Reap the benefits of service-oriented architecture in Development and enable Developers to independently test any part of the application stack without waiting for staging.
-      .image
+    .etl
+      | Enter your email to join the waitlist. No spam, promise.
 
-    .left
-      .text
-        h3 Don&rsquo;t Repeat Yourself
-        p
-          | Build a Docker File once enable your Front End team in Bangalore or Bangor to work with the latest code. Made changes to your stack? Easily make and distribute incremental builds to anyone using your stack without having to repeat the same steps for each developer.
-      .image
 
-  .center
-    h3 Built For Developers and Developer Teams
-
-  .container
-    .right
-      .text
-        h3 Microservices, Environment Isolation and Control.
-        p
-          | Create microservices using any application, libraries and tools that you need against your cloud environment in standard or privileged modes. Built-in data isolation allows you to upgrade any component in your stack without having to reset state.
-      .image
-
-    .left
-      .text
-        h3 Integration with Existing Workflows and Systems
-        p
-          | Well defined API access means you can simply integrate Containerization into your existing Dev Tools like issue tracking or CI. IT provisioned you a Windows system but you ship to linux? No problem. Write your code on windows with the tools you love and use the Nitrous Desktop App to automatically mount the files onto your cloud instance.
-      .image
-
-= content_for :body_head
-  javascript:
-    if(localStorage.getItem('token')) {
-      window.location.replace('/app#/signup');
-    }
-
-= content_for :body_tail
-  javascript:
-    pages.Home.init()
+    .login
+      a href="/app#/login" Private Beta login &raquo;
