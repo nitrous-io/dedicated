@@ -5,4 +5,5 @@
     = outlet sidebar
   #content-wrapper
     = outlet content
+    = partial 'desktop-card'
 = partial 'footer'

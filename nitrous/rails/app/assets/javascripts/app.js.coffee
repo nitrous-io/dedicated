@@ -5,6 +5,13 @@
 window.Nitrous = Em.Application.extend Em.Evented,
   rootElement: '#app'
 
+  platform:
+    if navigator.platform.indexOf('Linux') != -1 
+      'linux'
+    else if navigator.platform.indexOf('Windows') != -1
+      'windows'
+    else 'mac'
+
   online: if !Em.isNone(window.navigator.onLine) then window.navigator.onLine else true
   offline: Em.computed.not 'online'
 
@@ -27,6 +34,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   eventsSocket: null
 
+  desktopDownloadUrl: (->
+    "http://nitrous-pro-app.s3-website-us-east-1.amazonaws.com/#{@get('platform')}/download.html"
+  ).property 'platform'
+
   didChangeTitle: (->
     title = @get 'title'
     document.title = if title
@@ -45,6 +56,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   noHost: (->
     @get('hosts.loaded') && @get('hosts.length') == 0
   ).property 'hosts.loaded', 'hosts.length'
+
 
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')
