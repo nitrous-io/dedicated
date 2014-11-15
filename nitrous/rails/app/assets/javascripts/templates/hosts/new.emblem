@@ -59,9 +59,11 @@
           .spec-box
             h4 Price
             p
-              | $&nbsp;
-              = decimal selectedPlan.price 2
-              | &nbsp;/&nbsp;mo.
+              span.strike-price
+                | $&nbsp;
+                = decimal selectedPlan.price 2
+                | &nbsp;/&nbsp;mo.
+              span.question title="Free during beta!" ?
 
         p.see-terms
           | Please review the&nbsp;
@@ -94,7 +96,7 @@
         | &rdquo; is being created
         = ui-ellipsis
       p In the meantime, download and install the Nitrous desktop application so you can start developing right away once the application is created.
-      a.ui.btn.raised.primary href='/desktop' target='_blank' Download Desktop App
+      a.ui.btn.raised.primary href={App.desktopDownloadUrl} target='_blank' Download Desktop App
     .card-body.bordered
       .terminal-screen
     .card-footer.bordered
