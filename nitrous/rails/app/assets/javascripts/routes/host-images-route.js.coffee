@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.HostImagesRoute = App.AuthedRoute.extend
   renderTemplate: ->
     @render 'host/images', into: 'host'

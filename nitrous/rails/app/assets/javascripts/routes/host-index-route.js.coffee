@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.HostIndexRoute = App.AuthedRoute.extend
   renderTemplate: ->
     @render 'host/index', into: 'host'

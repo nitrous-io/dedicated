@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.ContainersIndexRoute = App.AuthedRoute.extend
   beforeModel: ->
     @_super.apply this, arguments

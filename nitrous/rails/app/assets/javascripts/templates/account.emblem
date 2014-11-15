@@ -7,19 +7,18 @@ form submit='save'
       ul.ui.checkbox-group
         li
           .ui.checkbox
-            = input type='checkbox' id='user-settings-advanced' checked=App.userProfile.advanced
+            = input type='checkbox' id='account-advanced' checked=advanced
             label
-          label for='user-settings-advanced' Show Advanced Options
+          label for='account-advanced' Show Advanced Options
 
-    .card-footer.bordered
-      .right
-        if saving
-          button.ui.btn disabled='disabled'
-            i.spinner
-            | Saving...
-        else
-          a.ui.btn href='#' click='cancel' Cancel
-          input.ui.btn.primary type='submit' disabled={saving} value='Save'
+  .card-footer.bordered
+    .right
+      if saving
+        button.ui.btn disabled='disabled'
+          i.spinner
+          | Saving...
+      else
+        input.ui.btn.primary type='submit' disabled={saving} value='Save'
 
 #confirm-advanced-modal-dialog.ui.modal
   .ui.card

@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.ContainerIndexRoute = App.AuthedRoute.extend
   renderTemplate: ->
     @render 'container/index', into: 'container'

@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.HostVolumesNewRoute = App.AuthedRoute.extend
   renderTemplate: ->
     @render 'host/volumes-new', into: 'host'

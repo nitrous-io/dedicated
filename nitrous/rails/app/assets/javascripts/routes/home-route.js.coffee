@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.HomeRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', null

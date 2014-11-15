@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.ContainersNewRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'New Container'
