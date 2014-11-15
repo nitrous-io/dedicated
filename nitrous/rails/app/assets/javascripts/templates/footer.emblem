@@ -5,20 +5,20 @@
         | &copy; 2012-2014 Nitrous, Inc.
       ul
         li
-          a href='#' Terms
+          a href='/docs/admin-terms' Terms
         li
-          a href='#' Privacy
+          a href='/docs/admin-privacy' Privacy
         li
-          a href='#' Security
+          a href='/docs/admin-security' Security
     .right
       ul
         li
-          a href='#' Status
+          a href='http://status.nitrous.io' Status
         li
-          a href='#' Support
+          a href='mailto:support@nitrous.io' Support
         li
-          a href='#' Blog
+          a href='http://blog.nitrous.io' Blog
         li
-          a href='#' Updates
+          a href='http://updates.nitrous.io' Updates
         li
-          a href='#' About
+          a href='/docs' About

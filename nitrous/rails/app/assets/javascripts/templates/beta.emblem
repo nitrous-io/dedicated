@@ -4,7 +4,7 @@
   .right
     ul.space-separated
       li
-        a href='https://nitrous-io.github.io/docs.nitrous.io/' target='_blank' Beta Docs
+        a href='/docs' target='_blank' Beta Docs
       li
         a href='#' click='sendFeedback target="view"' Send Feedback
       if App.user.admin
