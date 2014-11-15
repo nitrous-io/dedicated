@@ -1,0 +1,10 @@
+doctype 5
+html lang='en' class=@html_class
+  head
+    meta charset='utf-8'
+    title
+      = @title
+    link rel='shortcut icon' href='/favicon.ico'
+    = stylesheet_link_tag 'homepage', media: 'all'
+  body
+    = yield
