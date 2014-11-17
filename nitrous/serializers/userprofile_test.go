@@ -18,7 +18,7 @@ var _ = Describe("userprofile serializer", func() {
 		model = &userprofile.UserProfile{
 			ID:        10, // Not serialized.
 			UserID:    10, // Not serialized.
-			MaxHosts:  15, // Not serialized.
+			MaxHosts:  15,
 			Advanced:  false,
 			CreatedAt: &createdAt,
 			UpdatedAt: &updatedAt,
@@ -31,6 +31,7 @@ var _ = Describe("userprofile serializer", func() {
 			b, err := json.Marshal(p)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
+				"max_hosts": 15,
 				"advanced": false
 			}`))
 		})
