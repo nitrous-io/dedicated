@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -17,6 +18,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mergemap"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
+	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
@@ -72,6 +74,8 @@ func (env *Env) Login(u *user.User, w http.ResponseWriter) error {
 type Middleware func(env *Env, w http.ResponseWriter, r *http.Request) error
 
 func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r *http.Request) error {
+	label := "nitrousd.authenticate"
+	start := time.Now()
 	db := env.DB
 
 	t, err := token.FindByToken(db, tok)
@@ -80,18 +84,19 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 	}
 	if t == nil {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
-		return errInvalidToken
+		return mh.Error(errInvalidToken, label)
 	}
 
 	u, err := user.FindByID(db, t.UserID)
 	if err != nil {
-		return err
+		return mh.Error(err, label)
 	}
 	if u == nil {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
-		return errInvalidToken
+		return mh.Error(err, label)
 	}
 
+	mh.UpdateSince(label, start)
 	env.User = u
 	return mw(env, w, r)
 }
