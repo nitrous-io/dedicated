@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -294,10 +293,11 @@ func New(configData []byte) (*Server, error) {
 	// development environment, output the metrics to stderr
 	// by default we flush metrics every 10s
 	if config.LibratoUser == "" || config.LibratoToken == "" {
-		log.Printf("hostbuilder: missing librato config. fall back to stderr")
-		// in dev, we flush metrics every 60s
+		log.Printf("missing librato config. Metrics logging is disabled")
+		// in dev, we flush metrics every 60s into devNull
+		// because we are not interested in them
 		go metrics.Log(metrics.DefaultRegistry, 60e9,
-			log.New(os.Stderr, "hostbuilder: metrics: ", log.Lmicroseconds))
+			log.New(ioutil.Discard, "hostbuilder: metrics: ", log.Lmicroseconds))
 	} else {
 		go librato.Librato(metrics.DefaultRegistry,
 			10e9,                        // interval
