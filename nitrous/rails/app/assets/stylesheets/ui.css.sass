@@ -7,21 +7,23 @@
   .card-header
     height: $barHeight
     line-height: $barHeight
-    color: $gray800
+    color: $n2oGray300
     margin: 0
     padding: 0 $containerPadding
     font-size: 18px
     font-weight: 400
+    border-radius: 2px 2px 0 0
     +truncate
 
     &.bordered
-      background: $gray50
-      border-bottom: 1px solid $gray300
+      background: $n2oGray700
+      border-bottom: 1px solid $n2oGray900
 
     h2
       font-size: $fontSizeLarge
       font-weight: 500
       margin: 0
+      color: $n2oGray100
 
   .card-body
     padding: $containerPadding
@@ -45,14 +47,14 @@
       width: 570px
       font-size: 12px
       line-height: 43px
-      color: $gray500
+      color: $n2oGray500
       white-space: nowrap
       overflow: hidden
       text-overflow: ellipsis
 
   .card-body, .card-footer
     &.bordered
-      border-top: 1px solid $gray300
+      border-top: 1px solid $n2oGray900
 
 .ui.dropdown-triangle
   display: inline-block
@@ -76,7 +78,6 @@
     position: absolute
     left: 0
     right: auto
-    margin-top: 1px
     padding: 8px 0
     list-style: none
     white-space: nowrap
@@ -84,8 +85,10 @@
     transition: opacity .2s
     opacity: 0
     +card
+    +light-shadow
     border-radius: 0 0 2px 2px
     $dropdownMenuItemHeight: 32px
+    background: $n2oGray700
 
     &.right
       left: auto
@@ -94,7 +97,7 @@
     > li
       &.separator
         height: 0
-        border-top: 1px solid $gray300
+        border-top: 1px solid $n2oGray500
         margin: 8px 0
 
       > a
@@ -102,36 +105,35 @@
         height: $dropdownMenuItemHeight
         line-height: $dropdownMenuItemHeight
         padding: 0 24px
-        color: $gray800
+        color: $n2oGray100
         transition: background-color .2s
 
         &:hover
-          background: $gray200
+          background: $n2oGray500
 
       &.disabled
         > a
-          color: $gray400
+          color: $n2oGray400
           cursor: not-allowed
 
           &:hover
             background: transparent
 
 ul.ui.tab-bar
-  background: $gray50
+  background: $n2oGray700
   list-style: none
   margin: 0
   padding: 0
-  border-bottom: 1px solid $gray300
+  border-bottom: 1px solid $n2oGray900
 
   > li
     display: inline-block
     height: $barHeight
-    margin-bottom: -1px
 
     a
       display: inline-block
       line-height: $barHeight
-      color: $gray600
+      color: $n2oGray400
       text-transform: uppercase
       font-size: $fontSizeSmall
       padding: 0 24px
@@ -140,15 +142,18 @@ ul.ui.tab-bar
         color: $lightBlue500
 
     &.selected
-      border-bottom: 2px solid $lightBlue500
+      box-shadow: inset 0 -2px 0 $lightBlue500
 
       a
         color: $lightBlue500
 
     &.disabled
       a
-        color: $gray400
+        opacity: 0.4
         cursor: not-allowed
+
+        &:hover
+          color: inherit
 
 table.ui.table
   width: 100%
@@ -164,11 +169,10 @@ table.ui.table
         border-bottom: none
 
   th, td
-    border-bottom: 1px solid $gray300
     padding: 0 8px
 
   th
-    color: $gray600
+    color: $n2oGray400
     font-size: 12px
     font-weight: 500
     text-transform: uppercase
@@ -196,28 +200,24 @@ table.ui.table
   background: transparent
   border: 0
   border-radius: 2px
-  transition: background-color .2s, color .3s
-  color: $gray800
+  transition: background-color .2s, color .3s, opacity .3s
+  color: $n2oGray300
   line-height: normal
   margin-left: 1px
   user-select: none
-
-  &.raised
-    background: white
-    +light-shadow
 
   &:first-of-type
     margin-right: 0
 
   &:hover
-    background: #eaeaea
+    background: rgba($n2oGray400, .2)
 
   &:focus
-    background: #d5d5d5
+    background: rgba($n2oGray400, .2)
     outline: none
 
   &:active
-    background: #e0e0e0
+    background: rgba($n2oGray400, .4)
 
   &.primary
     color: $lightBlue500
@@ -225,16 +225,35 @@ table.ui.table
   &.danger
     color: $red500
 
+  &.raised
+    background: rgba($n2oGray400, .2)
+
+    &:hover
+      background: rgba($n2oGray400, .4)
+
+    &:focus
+      background: rgba($n2oGray400, .4)
+      outline: none
+
+    &:active
+      background: rgba($n2oGray400, .6)
+
   &:disabled, &[disabled], &.disabled
-    color: $gray400
-    background: #f4f4f4
+    color: $n2oGray300
+    opacity: .26
     cursor: not-allowed
 
+    &:hover, &:focus
+      background: none
+
   &.raised.primary
-    background: $lightBlue500
+    background: $lightBlue800
     color: white
 
     &:hover
+      background: $lightBlue600
+
+    &:focus
       background: $lightBlue600
 
     &:active
@@ -261,7 +280,7 @@ table.ui.table
   label.field-label
     display: block
     margin: 0 0 8px 0
-    color: $gray500
+    color: $n2oGray400
     font-size: 13px
 
     &:first-of-type
@@ -271,34 +290,30 @@ table.ui.table
     +appearance(none)
     display: block
     width: 100%
-    border: none
-    border-bottom: 1px solid $gray300
-    background: transparent
-    border-radius: 0
+    border: 1px solid transparent
+    background: $n2oGray850
+    border-radius: 2px
     outline: none
     line-height: initial
-    transition: color .2s, box-shadow .2s, border-bottom-color .2s, background-color .2s
+    transition: color .2s, border-color .2s, background-color .2s
 
     &:focus
       outline: none
-      box-shadow: inset 0 -1px 0 $lightBlue500
-      border-bottom-color: $lightBlue500
+      border: 1px solid $lightBlue800
 
     &:disabled, &[disabled], &.disabled
-      color: $gray400
-      border-bottom: 1px dotted $gray300
+      opacity: 0.4
 
     &.error
-      box-shadow: inset 0 -1px 0 $red300
-      border-bottom: 1px solid $red300
+      border: 1px solid $red300
 
   input[type=text], input[type=password], input[type=search], input[type=email], input[type=url], input[type=number]
     height: 38px
-    padding: 8px 0
+    padding: 8px
 
   textarea
     transition: height .2s
-    padding: 8px 0
+    padding: 8px
 
 .ui.select
   position: relative
@@ -306,12 +321,12 @@ table.ui.table
   overflow: hidden
   line-height: initial
 
-  &:before
+  &:after
     content: ' '
     position: absolute
-    top: 19px
+    top: 18px
     right: 8px
-    border: 5px solid $gray400
+    border: 5px solid $n2oGray500
     border-left-color: transparent
     border-right-color: transparent
     border-bottom: none
@@ -321,13 +336,11 @@ table.ui.table
     +appearance(none)
     display: block
     width: 100%
-    width: calc(100% + 15px)
     height: 38px
-    background: transparent
+    background: $n2oGray850
     border: none
-    border-bottom: 1px solid $gray300
-    border-radius: 0
-    padding: 8px 26px 8px 0
+    border-radius: 2px
+    padding: 8px 26px 8px 8px
     outline: none
     transition: color .3s
 
@@ -335,8 +348,7 @@ table.ui.table
       outline: none
 
     &:disabled, &[disabled], &.disabled
-      color: $gray400
-      border-bottom: 1px dotted $gray300
+      opacity: 0.4
 
 .ui.checkbox
   position: relative
@@ -372,7 +384,8 @@ table.ui.table
 
     + label:before
       transition: background-color .2s, border-color .2s, color .2s
-      border: 2px solid $gray600
+      background: $n2oGray850
+      border: 2px solid $n2oGray500
       text-align: center
       font-family: FontAwesome
       font-size: $fontSizeSmall
@@ -386,7 +399,7 @@ table.ui.table
 
     &:disabled, &[disabled], &.disabled
       + label:before
-        border-color: $gray400
+        opacity: 0.4
 
   input[type=checkbox]
     + label:before
@@ -398,7 +411,7 @@ table.ui.table
 
     &:disabled, &[disabled], &.disabled
       &:checked + label:before
-        background: $gray400
+        opacity: 0.4
 
   input[type=radio]
     + label:before
@@ -419,7 +432,7 @@ table.ui.table
 
     &:disabled, &[disabled], &.disabled
       &:checked + label:after
-        background: $gray400
+        opacity: 0.4
 
 ul.ui.checkbox-group
   list-style: none
@@ -438,7 +451,7 @@ ul.ui.checkbox-group
 
     > label
       transition: color .2s
-      color: $gray800
+      color: $n2oGray200
       font-size: 14px
 
   &.horizontal
@@ -513,7 +526,7 @@ ul.ui.list
   &.with-separators
     .list-item
       .lines, .right-accessory
-        border-bottom: 1px solid $gray300
+        border-bottom: 1px solid $n2oGray900
 
       .lines
         padding-left: 0
@@ -536,7 +549,7 @@ ul.ui.list
         padding-bottom: 10px
 
         p
-          color: $gray600
+          color: $n2oGray400
 
 ul.ui.chips
   margin: 12px 0
@@ -548,7 +561,7 @@ ul.ui.chips
     padding: 8px 12px
     margin: 4px 8px 4px 0
     font-size: $fontSizeSmall
-    background: $gray200
+    background: $n2oGray700
     border-radius: 16px
     line-height: 16px
 
@@ -559,12 +572,12 @@ ul.ui.chips
       margin-right: -4px
       text-align: center
       font-style: normal
-      color: black
+      color: $n2oGray400
       border-radius: 8px
       transition: background-color .2s
 
       &:hover
-        background: $gray400
+        background: $n2oGray800
 
     &.disabled
       opacity: 0.6
@@ -651,14 +664,14 @@ ul.ui.snackbar
       height: auto
       line-height: normal
       font-weight: 500
-      color: $gray800
+      color: $n2oGray50
 
     .card-body
       padding: 24px
 
       p
         margin: 0 0 16px 0
-        color: $gray700
+        color: $n2oGray200
         line-height: 1.5
 
     .card-footer
@@ -676,7 +689,7 @@ ul.ui.snackbar
 
 .ui.progress
   width: 100%
-  background: $lightBlue100
+  background: $n2oGray1000
   height: 4px
   opacity: 1
   transition: height .3s, opacity .3s
@@ -687,11 +700,11 @@ ul.ui.snackbar
 
   .bar
     height: 100%
-    background: $lightBlue600
+    background: $lightBlue800
     transition: width 2s
 
     &.indeterminate
-      background-image: linear-gradient(90deg, $lightBlue100 90%, $lightBlue600 90%)
+      background-image: linear-gradient(90deg, $n2oGray1000 90%, $lightBlue800 90%)
       background-size: 800px 4px
       animation: ui-progress-indeterminate 1s linear infinite
 

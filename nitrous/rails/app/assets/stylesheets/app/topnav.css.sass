@@ -4,9 +4,8 @@
 #topnav-view
   $topnavHeight: $barHeight
 
-  height: $topnavHeight + 1px
-  background: white
-  border-bottom: 1px solid $gray300
+  height: $topnavHeight
+  background: $n2oGray700
   font-size: $fontSizeSmall
 
   h1.logo
@@ -14,7 +13,7 @@
     font-size: 18px
     font-family: 'EurostileLTPro-BoldEx2'
     text-transform: uppercase
-    color: $gray900
+    color: white
     +grayscale-font-smoothing
 
   ul.nav
@@ -33,16 +32,16 @@
       > a
         display: inline-block
         padding: 0 12px
-        color: $gray700
+        color: $n2oGray100
         line-height: $topnavHeight
-        transition: background-color .2s
+        transition: background-color .1s
 
         &:hover
-          background: $gray200
+          background: $n2oGray500
 
       &.open
         > a
-          background: $gray200
+          background: $n2oGray500
 
       &.primary
         > a

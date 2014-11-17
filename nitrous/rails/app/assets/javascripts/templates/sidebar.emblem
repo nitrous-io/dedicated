@@ -17,7 +17,7 @@ ul.hosts
           if host.isRunning
             if host.sortedContainers.length
               = each container in host.sortedContainers
-                li class={container.selected}
+                li class={container.selected container.isTerminated:disabled}
                   if container.isTerminated
                     a.noclick href='#'
                       h4

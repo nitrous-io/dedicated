@@ -3,7 +3,7 @@
 .card-body
   if records.loaded
     if records.length
-      ul.ui.list.with-separators.item-2-line
+      ul.ui.list.item-2-line
         each image in records
           li.list-item
             .left-accessory

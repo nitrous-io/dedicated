@@ -5,6 +5,15 @@
   .screen class={view.showProgressScreen:hide}
     form submit='create target="view"'
       .card-body
+        .ui.input-group
+          label.field-label
+            | Template
+
+          ul.starter-templates
+            App.StarterTemplateView content='rails' iconUrl='https://nitrous-image-icons.s3.amazonaws.com/rails.png' selected=view.selectedTemplate name='Ruby on Rails'
+            App.StarterTemplateView content=null selected=view.selectedTemplate name='Empty'
+
+      .card-body.bordered
         .ui.flex.horizontal
           .ui.input-group
             label.field-label for='hosts-new-name'
@@ -16,16 +25,6 @@
               | Unique Slug
             = input type='text' id='hosts-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
 
-      .card-body.bordered
-        .ui.input-group
-          label.field-label
-            | Template
-
-          ul.starter-templates
-            App.StarterTemplateView content='rails' iconUrl='https://nitrous-image-icons.s3.amazonaws.com/rails.png' selected=view.selectedTemplate name='Ruby on Rails'
-            App.StarterTemplateView content=null selected=view.selectedTemplate name='Empty'
-
-      .card-body.bordered
         .ui.flex.horizontal.region-size
           .ui.input-group
             label.field-label for='hosts-new-region'

@@ -1,7 +1,8 @@
 = outlet topnav
 
 .ui.card class={error:shake}
-  h2.card-header Log In
+  .card-header.bordered
+    h2 Log In
 
   form
     .card-body
@@ -26,9 +27,13 @@
             | Log In
 
 p.note
+  | Don't have an account?&nbsp;
   link-to 'signup' | Sign up
-  | &nbsp;|&nbsp;
-  link-to 'forgot-password' | Forgot Password?
-
+  | .
+  br
+  br
+  | Can't remember password?&nbsp;
+  link-to 'signup' | Reset password
+  | .
 
 = partial 'footer'

@@ -15,22 +15,30 @@
     line-height: $lineItemHeight
 
   ul.hosts, ul.containers
-    > li > a
-      display: block
-      border-radius: 2px
-      transition: background-color .2s
-      color: black
+    > li
+      > a
+        display: block
+        border-radius: 2px
+        transition: background-color .2s
 
-      &:hover
-        background: $gray100
+        &:hover
+          background: $n2oGray700
 
-    > li.selected > a
-      background: $gray200
+      &.selected > a
+        background: $n2oGray800
+
+      &.disabled
+        opacity: 0.4
+
+        > a
+          cursor: not-allowed
+
+          &:hover
+            background: transparent
 
   ul.hosts
     > li
       padding-bottom: 8px
-      border-bottom: 1px solid $gray300
       margin-bottom: 8px
 
       &:last-of-type
@@ -38,28 +46,17 @@
         border-bottom: 0
         margin-bottom: 0
 
-      &.disabled
-        h3
-          color: $gray400
-          cursor: not-allowed
-
-        > a:hover
-          background: transparent
-
   h3, h4
+    color: $n2oGray300
     margin: 0
     padding: 0 34px 0 14px
     font-size: $fontSizeSmall
     font-weight: 500
     +truncate
 
-  h3
-    color: black
-
   h4
     font-weight: 400
     padding: 0 34px 0 30px
-    color: $gray800
 
   .state-indicator
     position: absolute

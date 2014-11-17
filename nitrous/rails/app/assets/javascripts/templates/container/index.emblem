@@ -121,7 +121,9 @@
           button.ui.btn disabled='disabled' Terminated
       else
         .left
-          button.ui.btn disabled='disabled' Please Wait...
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Please Wait...
 
 #snapshot-modal-dialog.ui.modal
   .ui.card

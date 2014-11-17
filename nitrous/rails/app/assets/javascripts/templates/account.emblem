@@ -26,9 +26,9 @@ form submit='save'
       | Warning!
     .card-body
       p
-        | Changing advanced settings may affect the stability, security, and performance of your applications and containers.
+        | Changing advanced settings may affect the stability, security, and performance of your applications and containers, or even render them unusable.
       p
-        | Only enable this if you are confident in what you are doing.
+        | Only enable this if you know what you are doing.
     .card-footer
       .right
-        button.ui.btn.danger.terminate-btn click='hideModal target="view"' OK
+        button.ui.btn.primary click='hideModal target="view"' OK
