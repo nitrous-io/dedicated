@@ -41,8 +41,8 @@
           li.disabled
             a href='#' Billing
           li.separator
-          li.disabled
-            a href='#' Help
+          li
+            a href='/docs/' Help
           li.separator
           li
             link-to 'logout' | Log Out
@@ -58,7 +58,7 @@
 
     else
       li
-        a href='/docs' Documentation
+        a href='/docs/' Documentation
       li.primary
         link-to 'signup' | Sign Up
       li.primary
