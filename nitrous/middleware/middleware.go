@@ -164,6 +164,8 @@ func HostViaPath(srcVar string, fn hostHandlerFn) Middleware {
 // for to retrieve host slug.
 func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
+		label := "nitrousd.withHost"
+		start := time.Now()
 		var param string
 		var h *host.Host
 
@@ -179,12 +181,13 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 		// param can either be a slug or an ID
 		h, err := host.Find(env.DB, env.User, param)
 		if err != nil {
-			return err
+			return mh.Error(err, label)
 		}
 		if h == nil {
-			return ErrHostNotFound
+			return mh.Error(ErrHostNotFound, label)
 		}
 
+		mh.UpdateSince(label, start)
 		return fn(h, env, w, r)
 	}
 }
