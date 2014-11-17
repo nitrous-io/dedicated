@@ -234,6 +234,12 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 		opts.AptDist = defaultAPTDist
 	}
 
+	// Make sure user is allowed to create more hosts.
+	canCreateHosts, err := opts.User.CanCreateHosts(p.db)
+	if !canCreateHosts {
+		return nil, ErrHostCreationNotAllowed
+	}
+
 	// Assign a pre-provisioned host if one is available.
 	preprovisioned, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
 	if err == nil {
