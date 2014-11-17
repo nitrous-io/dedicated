@@ -4,7 +4,6 @@ App.BetaView = Em.View.extend
 
   closeFeedbackDidChange: (->
     if @get 'controller.closeFeedback'
-      console.log 'can feedback yo'
       @set 'controller.closeFeedback', false
       @send 'cancelFeedback'
   ).observes 'controller.closeFeedback'

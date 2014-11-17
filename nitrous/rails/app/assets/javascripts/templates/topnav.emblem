@@ -19,8 +19,12 @@
           | New
           .ui.dropdown-triangle
         ul.dropdown-menu style='display: none'
-          li
-            link-to 'hosts.new' | New Application...
+          if App.canCreateHosts
+            li
+              link-to 'hosts.new'| New Application...
+          else
+            li.disabled
+              a href='#' title=view.newApplicationTitle New Application...
           if App.noHost
             li.disabled
               a href='#' New Container...
@@ -37,8 +41,8 @@
           li.disabled
             a href='#' Billing
           li.separator
-          li.disabled
-            a href='#' Help
+          li
+            a href='/docs/' Help
           li.separator
           li
             link-to 'logout' | Log Out
@@ -54,7 +58,7 @@
 
     else
       li
-        a href='/docs' Documentation
+        a href='/docs/' Documentation
       li.primary
         link-to 'signup' | Sign Up
       li.primary
