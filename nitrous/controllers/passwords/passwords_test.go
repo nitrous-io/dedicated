@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -44,9 +43,9 @@ var _ = Describe("controllers/passwords", func() {
 		svr = server.NewServer("", db, logger, nil)
 		handler = svr.Router()
 
-		origMailer = passwords.Mailer
+		origMailer = user.Mailer
 		fakeMailer = &FakeMailer{}
-		passwords.Mailer = fakeMailer
+		user.Mailer = fakeMailer
 
 		u = &user.User{
 			Username: "foo",
@@ -59,7 +58,7 @@ var _ = Describe("controllers/passwords", func() {
 	})
 
 	AfterEach(func() {
-		passwords.Mailer = origMailer
+		user.Mailer = origMailer
 		if db != nil {
 			db.Close()
 		}
@@ -94,6 +93,8 @@ var _ = Describe("controllers/passwords", func() {
 				Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("Hello %s", u.Name)))
 				Expect(fakeMailer.HTML).To(ContainSubstring("Change my password"))
 				Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app#/reset-password?token=%s", u.ResetPasswordToken.String)))
+				Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("Hello %s", u.Name)))
+				Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app#/reset-password?token=%s", u.ResetPasswordToken.String)))
 			})
 		})
 
