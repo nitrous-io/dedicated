@@ -3,6 +3,8 @@ package middleware
 import (
 	"errors"
 	"net/http"
+	"reflect"
+	"runtime"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -180,4 +182,17 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 
 		return fn(h, env, w, r)
 	}
+}
+
+var (
+	// strip these prefix from the middleware string representation
+	fnPrefix = "github.com/nitrous-io/dedicated/nitrous/"
+)
+
+// get string representation of the middleware function
+func getName(mw Middleware) string {
+	name := runtime.FuncForPC(reflect.ValueOf(mw).Pointer()).Name()
+	name = strings.TrimPrefix(name, fnPrefix)
+	name = strings.Replace(name, "/", ".", -1)
+	return name
 }
