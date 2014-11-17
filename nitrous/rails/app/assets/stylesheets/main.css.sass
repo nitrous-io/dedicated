@@ -2,7 +2,8 @@
 @import 'mixins'
 
 html
-  background: $gray50
+  background: $n2oGray900
+  color: $n2oGray100
   overflow-y: scroll
 
 *, *:before, *:after
@@ -19,7 +20,7 @@ html.wf-active .monospace
 
 h1, h2, h3, h4
   margin: 8px 0
-  color: $gray800
+  color: $n2oGray200
 
 h1
   font-size: $fontSize2XLarge
@@ -39,18 +40,18 @@ h4
 
 a
   text-decoration: none
-  color: $lightBlue700
+  color: $lightBlue300
   transition: color .2s
   outline: none
 
   &:link
-    color: $lightBlue700
+    color: $lightBlue300
   &:visited
-    color: $lightBlue700
+    color: $lightBlue300
   &:hover
-    color: $lightBlue900
+    color: $lightBlue200
   &:active
-    color: $lightBlue900
+    color: $lightBlue200
 
 html
   input, textarea, button, select
@@ -58,7 +59,7 @@ html
       cursor: not-allowed
 
 input, textarea
-  +placeholder-color($gray500)
+  +placeholder-color($n2oGray400)
 
 label
   user-select: none
@@ -70,7 +71,7 @@ hr
   margin: 16px 0
 
 abbr[title]
-  border-bottom: 1px dotted $gray300
+  border-bottom: 1px dotted $n2oGray500
 
 .container
   width: 1000px
@@ -99,7 +100,7 @@ i.spinner
     content: "\f1ce"
 
 .hint-text
-  color: $gray600
+  color: $n2oGray400
   font-size: 12px
   font-weight: 500
   text-transform: uppercase
@@ -107,7 +108,7 @@ i.spinner
   i
     margin-right: 5px
 
-ul.comma-separated, ul.space-separated
+ul.comma-separated, ul.space-separated, ul.dash-separated, ul.pipe-separated
   margin: 0
   padding: 0
   list-style: none
@@ -117,6 +118,22 @@ ul.comma-separated, ul.space-separated
 
     &:last-of-type:after
       content: ''
+
+ul.pipe-separated
+  > li
+    &:after
+      content: ''
+      border-right: 1px solid $n2oGray600
+      margin: 0 8px
+
+    &:last-of-type:after
+      border-right: none
+
+ul.dash-separated
+  > li
+    &:after
+      content: ' - '
+      margin: 0 4px
 
 ul.comma-separated
   > li
@@ -130,7 +147,7 @@ ul.space-separated
 
   &.blocks
     > li
-      background: $gray200
+      background: $n2oGray700
       padding: 0 5px
       border-radius: 2px
       margin-right: 5px

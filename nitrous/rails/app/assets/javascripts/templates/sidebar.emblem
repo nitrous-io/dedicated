@@ -17,7 +17,7 @@ ul.hosts
           if host.isRunning
             if host.sortedContainers.length
               = each container in host.sortedContainers
-                li class={container.selected}
+                li class={container.selected container.isTerminated:disabled}
                   if container.isTerminated
                     a.noclick href='#'
                       h4
@@ -30,3 +30,12 @@ ul.hosts
                       .state-indicator class={container.state} title={container.state}
                         span
                           = container.state
+
+.app-download
+  h3 Get Desktop Sync
+
+  p Install Nitrous desktop app to work on your code using your favorite editor.
+
+  a.ui.btn.raised href={App.desktopDownloadUrl} target='_blank'
+    i.fa.fa-download
+    | &nbsp; Free Download

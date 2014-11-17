@@ -51,7 +51,7 @@ func SendResetPasswordToken(env *middleware.Env, w http.ResponseWriter, r *http.
 	subject := fmt.Sprintf("[nitrous-pro] Reset password instructions")
 
 	var body bytes.Buffer
-	host := os.Getenv("HOST_HOSTNAME")
+	host := os.Getenv("WEB_HOSTNAME")
 	if host == "" {
 		host = "pro.nitrous.io"
 	}

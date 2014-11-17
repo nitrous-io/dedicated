@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.HostsNewRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'New Application'

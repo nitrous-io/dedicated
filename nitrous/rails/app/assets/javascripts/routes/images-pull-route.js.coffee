@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.ImagesPullRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'Pull Image'

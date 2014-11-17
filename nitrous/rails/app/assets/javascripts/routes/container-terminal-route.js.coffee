@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.ContainerTerminalRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'Terminal'

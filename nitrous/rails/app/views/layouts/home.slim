@@ -7,4 +7,7 @@ html lang='en' class=@html_class
     link rel='shortcut icon' href='/favicon.ico'
     = stylesheet_link_tag 'homepage', media: 'all'
   body
+    = yield :body_head
     = yield
+    = javascript_include_tag 'pages'
+    = yield :body_tail

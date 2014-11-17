@@ -1,7 +1,8 @@
 = outlet topnav
 
 .ui.card
-  h2.card-header New Account
+  .card-header.bordered
+    h2 New Account
 
   form submit='signup'
     .card-body

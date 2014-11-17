@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.HostRoute = App.AuthedRoute.extend
   model: (params) ->
     fetch = App.Host.fetch(params.hostSlug)

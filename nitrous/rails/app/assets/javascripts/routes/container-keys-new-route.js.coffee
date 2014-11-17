@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.ContainerKeysNewRoute = App.AuthedRoute.extend
   renderTemplate: ->
     @render 'container/keys-new', into: 'container'

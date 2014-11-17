@@ -7,7 +7,7 @@ App.Router.map ->
   @route 'confirm-email'
 
   @resource 'home', path: '/', ->
-    @resource 'containers', path: '/containers', ->
+    @resource 'containers', ->
       @route 'new'
 
     @resource 'container', path: '/containers/:containerSlug', ->
@@ -30,4 +30,4 @@ App.Router.map ->
       @route 'new'
       @route 'pull'
 
-    @resource 'user-settings'
+    @resource 'account'

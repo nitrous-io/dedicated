@@ -1,4 +1,5 @@
 @import 'variables'
+@import 'mixins'
 
 #hosts-new-view
   .ui.flex.horizontal
@@ -22,7 +23,7 @@
     text-align: center
 
     h4
-      color: $gray600
+      color: $n2oGray400
       font-size: 12px
       font-weight: 500
       text-transform: uppercase
@@ -30,18 +31,38 @@
     .strike-price
       text-decoration: line-through
       color: $red700
+      opacity: 0.8
 
     .question
-      line-height: 12px
-      vertical-align: super
-      color: $blue600
+      display: inline-block
+      width: 20px
+      height: 20px
+      line-height: 20px
+      border-radius: 10px
+      color: $n2oGray100
+      background: $n2oGray600
+      vertical-align: middle
+      font-size: 14px
+      margin-left: 8px
+      transition: background-color .2s, color .2s
+      cursor: default
+      +grayscale-font-smoothing
+
+      &:hover
+        color: $n2oGray50
+        background: $n2oGray500
 
   .see-terms
     font-size: 14px
+    text-align: center
     margin-bottom: 0
 
   .download-app
     h3
+      font-size: 14px
       font-weight: 400
-      color: $gray600
       margin-top: 0
+
+    p
+      font-size: 14px
+      line-height: 1.5

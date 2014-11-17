@@ -2,31 +2,42 @@
 
 .pc
   .cc
-    .logo
-      | Nitrous
-      span
-        | Pro
+    .section
+      .logo
+        | Nitrous
+        span
+          | Pro
 
-    .email-form
-      erb:
-        <!-- Begin MailChimp Signup Form -->
-        <div id="mc_embed_signup">
-        <form action="//nitrous.us4.list-manage.com/subscribe/post?u=40aef44b6df80a146dc4163c7&amp;id=3a715be40a" method="post" id="mc-embedded-subscribe-form" name="mc-embedded-subscribe-form" class="validate" target="_blank" novalidate>
-            <div id="mc_embed_signup_scroll">
+      .etl
+        | Enter your email to join the waitlist. No spam, promise.
 
-          <input type="email" value="" name="EMAIL" class="email" id="mce-EMAIL" placeholder="email address" required>
-            <!-- real people should not fill this in and expect good things - do not remove this or risk form bot signups-->
-            <div style="position: absolute; left: -5000px;"><input type="text" name="b_40aef44b6df80a146dc4163c7_3a715be40a" tabindex="-1" value=""></div>
-            <input type="submit" value="Go" name="subscribe" id="mc-embedded-subscribe" class="button">
-            </div>
-        </form>
-        </div>
+      .email-form
+        erb:
+          <!-- Begin MailChimp Signup Form -->
+          <div id="mc_embed_signup">
+            <form action="//nitrous.us4.list-manage.com/subscribe/post?u=40aef44b6df80a146dc4163c7&amp;id=3a715be40a" method="post" id="mc-embedded-subscribe-form" name="mc-embedded-subscribe-form" class="validate" target="_blank" novalidate>
+              <div id="mc_embed_signup_scroll">
 
-        <!--End mc_embed_signup-->
+              <input type="email" value="" name="EMAIL" class="email" id="mce-EMAIL" placeholder="email address" required>
+              <!-- real people should not fill this in and expect good things - do not remove this or risk form bot signups-->
+              <div style="position: absolute; left: -5000px;"><input type="text" name="b_40aef44b6df80a146dc4163c7_3a715be40a" tabindex="-1" value=""></div>
+                <input class="btn raised" type="submit" value="Go" name="subscribe" id="mc-embedded-subscribe" class="button">
+              </div>
+            </form>
+          </div>
 
-    .etl
-      | Enter your email to join the waitlist. No spam, promise.
+          <!--End mc_embed_signup-->
 
+    .section
+      .login
+        a.btn href="/app#/login" Private Beta Login
 
-    .login
-      a href="/app#/login" Private Beta login &raquo;
+= content_for :body_head
+  javascript:
+    if(localStorage.getItem('token')) {
+       window.location.replace('/app')
+    }
+
+= content_for :body_tail
+  javascript:
+    pages.Home.init()

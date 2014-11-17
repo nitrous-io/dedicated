@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.ContainerRoute = App.AuthedRoute.extend
   model: (params) ->
     fetch = App.Container.fetch(params.containerSlug)

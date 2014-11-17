@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.HostRegistriesNewRoute = App.AuthedRoute.extend
   renderTemplate: ->
     @render 'host/registries-new', into: 'host'

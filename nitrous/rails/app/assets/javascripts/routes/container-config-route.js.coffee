@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.ContainerConfigRoute = App.AuthedRoute.extend
   renderTemplate: ->
     @render 'container/config', into: 'container'

@@ -4,7 +4,8 @@ App.BetaController = Em.Controller.extend
   sending: false
   login: null
   switching: false
-  close: false
+  closeFeedback: false
+  closeSwitchUser: false
 
   clear: ->
     @setProperties
@@ -13,7 +14,8 @@ App.BetaController = Em.Controller.extend
       login: null
       switching: false
       sending: false
-      close: false
+      closeFeedback: false
+      closeSwitchUser: false
 
   body: (->
     message = @get 'message'
@@ -33,7 +35,7 @@ App.BetaController = Em.Controller.extend
       App.User.adapter.ajax('POST', '/feedback', data).then =>
         App.snackbar.post("Your feedback was successfully sent!")
         @clear()
-        @set 'close', true
+        @set 'closeFeedback', true
       , (jqxhr) ->
         App.postError(jqxhr.responseJSON, "Failed to send feedback!")
         @set 'sending', false
@@ -46,7 +48,7 @@ App.BetaController = Em.Controller.extend
 
       App.User.adapter.ajax('POST', '/admin/switch_user', data).done((d) =>
         App.set 'token', d.access_token
-        @set 'close', true
+        @set 'closeSwitchUser', true
         App.snackbar.post("Successfully logged in as #{@get('login')}")
 
         Em.run.next ->
