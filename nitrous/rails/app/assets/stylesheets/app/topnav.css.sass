@@ -9,12 +9,25 @@
   font-size: $fontSizeSmall
 
   h1.logo
+    height: $topnavHeight
     margin: 0
     font-size: 18px
-    font-family: 'EurostileLTPro-BoldEx2'
     text-transform: uppercase
-    color: white
-    +grayscale-font-smoothing
+
+    span
+      font-family: 'EurostileLTPro-BoldEx2'
+      color: white
+      +grayscale-font-smoothing
+
+    small
+      vertical-align: top
+      font-family: $mainFont
+      font-size: 9px
+      font-weight: 400
+      position: relative
+      top: -3px
+      margin-left: 2px
+      color: $n2oGray300
 
   ul.nav
     display: inline-block

@@ -2,18 +2,35 @@ App.BetaView = Em.View.extend
   elementId: 'beta-view'
   templateName: 'beta'
 
-  closeDidChange: (->
-    if @get 'controller.close'
-      @set 'controller.close', false
-      @send 'closeModal'
-  ).observes 'controller.close'
+  closeFeedbackDidChange: (->
+    if @get 'controller.closeFeedback'
+      console.log 'can feedback yo'
+      @set 'controller.closeFeedback', false
+      @send 'cancelFeedback'
+  ).observes 'controller.closeFeedback'
 
-  actions:
-    sendFeedback: ->
+  closeSwitchUserDidChange: (->
+    if @get 'controller.closeSwitchUser'
+      @set 'controller.closeSwitchUser', false
+      @send 'cancelSwitchUser'
+  ).observes 'controller.closeSwitchUser'
+
+  didInsertElement: ->
+    @_super()
+    App.on 'open-feedback-dialog', ->
       ui.showModal(@$('#feedback-dialog'))
 
-    switchUser: ->
+    App.on 'open-switch-user-dialog', ->
       ui.showModal(@$('#switch-user-dialog'))
 
-    closeModal: ->
-      ui.hideModal(@$('.ui.modal'))
+  willDestroyElement: ->
+    @_super()
+    App.off 'open-feedback-dialog'
+    App.off 'open-switch-user-dialog'
+
+  actions:
+    cancelFeedback: ->
+      ui.hideModal(@$('#feedback-dialog'))
+
+    cancelSwitchUser: ->
+      ui.hideModal(@$('#switch-user-dialog'))

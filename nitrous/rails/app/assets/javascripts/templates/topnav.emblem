@@ -2,13 +2,18 @@
   ul.nav.left
     li
       link-to 'home.index'
-        h1.logo Nitrous
+        h1.logo
+          span Nitrous
+          small Beta
   ul.nav.right
     if App.user
       li
         a href='#'
           img.gravatar src={App.user.gravatar}
           = App.user.username
+      li
+        a href='#' click='sendFeedback target="view"'
+          | Send Feedback
       li.ui.dropdown
         a href='#'
           | New
@@ -37,6 +42,15 @@
           li.separator
           li
             link-to 'logout' | Log Out
+      if App.user.admin
+        li.ui.dropdown
+          a href='#'
+            | Admin
+            .ui.dropdown-triangle
+          ul.dropdown-menu.right style='display: none'
+            li
+              a href='#' click='switchUser target="view"'
+                | Switch User
 
     else
       li
