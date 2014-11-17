@@ -46,17 +46,18 @@
         border-bottom: 0
         margin-bottom: 0
 
-  h3, h4
-    color: $n2oGray300
-    margin: 0
-    padding: 0 34px 0 14px
-    font-size: $fontSizeSmall
-    font-weight: 500
-    +truncate
+  ul.hosts
+    h3, h4
+      color: $n2oGray300
+      margin: 0
+      padding: 0 34px 0 14px
+      font-size: $fontSizeSmall
+      font-weight: 500
+      +truncate
 
-  h4
-    font-weight: 400
-    padding: 0 34px 0 30px
+    h4
+      font-weight: 400
+      padding: 0 34px 0 30px
 
   .state-indicator
     position: absolute
@@ -65,3 +66,21 @@
     top: ($lineItemHeight - 10px) / 2
     width: 10px
     height: 10px
+
+  .app-download
+    background: $n2oGray1000
+    border-radius: 2px
+    margin-top: 16px
+    padding: 10px
+    text-align: center
+
+    h3
+      margin-top: 4px
+      font-size: 16px
+
+    p
+      font-size: 14px
+      color: $n2oGray400
+
+    .btn
+      width: 100%
