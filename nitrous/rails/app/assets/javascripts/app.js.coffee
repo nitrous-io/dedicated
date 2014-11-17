@@ -57,6 +57,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
     @get('hosts.loaded') && @get('hosts.length') == 0
   ).property 'hosts.loaded', 'hosts.length'
 
+  canCreateHosts: (->
+    if maxHosts = @get('userProfile.maxHosts')
+      @get('hosts.loaded') && @get('hosts.length') < maxHosts
+  ).property 'userProfile.maxHosts', 'hosts.loaded', 'hosts.length'
 
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')

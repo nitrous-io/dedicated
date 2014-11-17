@@ -4,6 +4,7 @@ attr = SM.attr
 App.UserProfile = klass = App.Model.extend
   id: attr('number', serialize: false)
   advanced: attr('boolean', default: false)
+  maxHosts: attr('number', as: 'max_hosts', serialize: false)
 
 klass.reopenClass
   url: '/user/profile'

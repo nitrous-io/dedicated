@@ -19,8 +19,12 @@
           | New
           .ui.dropdown-triangle
         ul.dropdown-menu style='display: none'
-          li
-            link-to 'hosts.new' | New Application...
+          if App.canCreateHosts
+            li
+              link-to 'hosts.new'| New Application...
+          else
+            li.disabled
+              a href='#' title=view.newApplicationTitle New Application...
           if App.noHost
             li.disabled
               a href='#' New Container...
