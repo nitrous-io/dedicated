@@ -33,7 +33,7 @@ p.note
   br
   br
   | Can't remember password?&nbsp;
-  link-to 'signup' | Reset password
+  link-to 'forgot-password' | Reset password
   | .
 
 = partial 'footer'
