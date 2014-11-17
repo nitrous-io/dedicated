@@ -6,7 +6,6 @@ App.HostsNewView = Em.View.extend
   slugFieldInvalid: Em.computed.equal('controller.invalidField', 'slug')
 
   terminal: null
-  showProgressScreen: false
 
   selectedTemplate: null
 
@@ -74,5 +73,4 @@ App.HostsNewView = Em.View.extend
   actions:
     create: ->
       @get('terminal')?.clear()
-      @set 'showProgressScreen', true
       @get('controller').send 'create', @get('selectedTemplate')
