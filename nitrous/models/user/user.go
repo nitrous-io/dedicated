@@ -370,3 +370,48 @@ func (u *User) ConfirmEmail(d db.QueryReceiver) error {
 	}
 	return nstmt.QueryRowx(u).StructScan(u)
 }
+
+func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
+	err := u.SetResetPasswordToken(d)
+	if err != nil {
+		return err
+	}
+
+	from := (&mail.Address{Name: "Nitrous", Address: "support@nitrous.io"}).String()
+	to := (&mail.Address{Name: u.Name, Address: u.Email}).String()
+	replyTo := from
+	subject := fmt.Sprintf("[nitrous-pro] Reset password instructions")
+
+	host := os.Getenv("WEB_HOSTNAME")
+	if host == "" {
+		host = "pro.nitrous.io"
+	}
+	resetURL := &url.URL{
+		Scheme:   "https",
+		Host:     host,
+		Path:     "/app",
+		Fragment: fmt.Sprintf("/reset-password?token=%s", u.ResetPasswordToken.String),
+	}
+	name := u.Username
+	if u.Name != "" {
+		name = u.Name
+	}
+	params := map[string]string{"Name": name, "URL": resetURL.String()}
+
+	var htmlBuf, txtBuf bytes.Buffer
+	err = resetPasswordEmailHtmlTemplate.Execute(&htmlBuf, params)
+	if err != nil {
+		return err
+	}
+	err = resetPasswordEmailTxtTemplate.Execute(&txtBuf, params)
+	if err != nil {
+		return err
+	}
+
+	err = Mailer.SendMail(from, []string{to}, nil, nil, replyTo, subject, txtBuf.String(), htmlBuf.String())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
