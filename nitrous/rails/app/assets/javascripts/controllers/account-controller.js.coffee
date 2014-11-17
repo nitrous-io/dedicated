@@ -1,5 +1,5 @@
 App.AccountController = Em.ObjectController.extend
-  saving: false
+  updatingSettings: false
   updatingDetails: false
 
   advanced: false
@@ -14,7 +14,7 @@ App.AccountController = Em.ObjectController.extend
   clear: ->
     @_super.apply this, arguments
     @setProperties
-      saving: false
+      updatingSettings: false
       advanced: App.get('userProfile.advanced')
       updatingDetails: false
       email: App.get('user.email')
@@ -22,18 +22,18 @@ App.AccountController = Em.ObjectController.extend
       confirmPassword: null
 
   actions:
-    save: ->
-      @set 'saving', true
+    updateSettings: ->
+      @set 'updatingSettings', true
       userProfile = App.get 'userProfile'
       userProfile.ajax('POST', null,
         advanced: @get 'advanced'
       ).then (data) =>
         App.snackbar.post("Account settings saved.")
         userProfile.setProperties(data.user_profile)
-        @set 'saving', false
+        @set 'updatingSettings', false
       , (jqxhr) =>
         App.postError(jqxhr.responseJSON, 'Failed to connect!')
-        @set 'saving', false
+        @set 'updatingSettings', false
 
     updateDetails: ->
       email = @get 'email'
