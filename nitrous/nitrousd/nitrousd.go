@@ -86,12 +86,12 @@ func main() {
 			log.New(ioutil.Discard, "metrics: ", log.Lmicroseconds))
 	} else {
 		go librato.Librato(metrics.DefaultRegistry,
-			10e9,                        // interval
-			libratoUser,                 // account owner email address
-			libratoToken,                // Librato API token
-			"nitrousd",                  // source
-			[]float64{0.75, 0.95, 0.99}, // precentiles to send
-			time.Millisecond,            // time unit
+			30e9,             // interval
+			libratoUser,      // account owner email address
+			libratoToken,     // Librato API token
+			"nitrousd",       // source
+			[]float64{0.99},  // precentiles to send
+			time.Millisecond, // time unit
 		)
 	}
 
