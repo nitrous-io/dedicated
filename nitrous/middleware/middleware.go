@@ -3,8 +3,6 @@ package middleware
 import (
 	"errors"
 	"net/http"
-	"reflect"
-	"runtime"
 	"strings"
 	"time"
 
@@ -74,7 +72,7 @@ func (env *Env) Login(u *user.User, w http.ResponseWriter) error {
 type Middleware func(env *Env, w http.ResponseWriter, r *http.Request) error
 
 func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r *http.Request) error {
-	label := "nitrousd.authenticate"
+	label := "nitrous.authenticate"
 	start := time.Now()
 	db := env.DB
 
@@ -164,7 +162,7 @@ func HostViaPath(srcVar string, fn hostHandlerFn) Middleware {
 // for to retrieve host slug.
 func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
-		label := "nitrousd.withHost"
+		label := "nitrous.withHost"
 		start := time.Now()
 		var param string
 		var h *host.Host
@@ -193,8 +191,7 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 }
 
 // Call is a helper that execute the middleware and also records its metrics.
-func Call(mw Middleware) Middleware {
-	label := getName(mw)
+func Call(label string, mw Middleware) Middleware {
 	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
 		defer mh.UpdateSince(label, time.Now())
 		err := mw(env, w, r)
@@ -203,17 +200,4 @@ func Call(mw Middleware) Middleware {
 		}
 		return nil
 	}
-}
-
-var (
-	// strip these prefix from the middleware string representation
-	fnPrefix = "github.com/nitrous-io/dedicated/nitrous/"
-)
-
-// get string representation of the middleware function
-func getName(mw Middleware) string {
-	name := runtime.FuncForPC(reflect.ValueOf(mw).Pointer()).Name()
-	name = strings.TrimPrefix(name, fnPrefix)
-	name = strings.Replace(name, "/", ".", -1)
-	return name
 }

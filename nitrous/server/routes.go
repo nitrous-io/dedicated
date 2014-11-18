@@ -29,15 +29,17 @@ import (
 type routeData struct {
 	mw    mw.Middleware
 	track string
+	label string
 }
 
-// r is a helper that returns routeData
-func r(mw mw.Middleware, args ...string) routeData {
+// r is a helper that returns routeData. A route should always have label which
+// acts as a metric label for that route
+func r(label string, mw mw.Middleware, args ...string) routeData {
 	var track string
 	if len(args) > 0 {
 		track = args[0]
 	}
-	return routeData{mw: mw, track: track}
+	return routeData{mw: mw, track: track, label: label}
 }
 
 // drawRouteData draw the route with `routeJSON`.
@@ -46,7 +48,8 @@ func r(mw mw.Middleware, args ...string) routeData {
 func (s *Server) drawRouteData(method string, auth bool, routes map[string]routeData) {
 	for path, r := range routes {
 		var final mw.Middleware
-		final = mw.Call(r.mw)
+		// prefix all label with `nitrous.`
+		final = mw.Call("nitrous."+r.label, r.mw)
 		if r.track != "" {
 			final = mw.Track(r.track, final)
 		}
@@ -58,7 +61,7 @@ func (s *Server) drawRouteData(method string, auth bool, routes map[string]route
 }
 
 func (s *Server) drawRoutes() {
-	s.route("/", mw.Call(home.Index), "GET")
+	s.route("/", mw.Call("home.Index", home.Index), "GET")
 
 	if os.Getenv("DEBUG") == "true" {
 		s.router.HandleFunc("/debug/pprof/{path:.*}", pprof.Index).Methods("GET")
@@ -66,22 +69,22 @@ func (s *Server) drawRoutes() {
 	}
 
 	s.namespace("/api/v0", func() {
-		s.route("/events", mw.AuthQS(mw.Call(events.Stream)), "GET")
+		s.route("/events", mw.AuthQS(mw.Call("events.Stream", events.Stream)), "GET")
 
 		nonAuth := map[string]map[string]routeData{
 			"GET": {
-				"/plans":        r(plans.Index),
-				"/regions":      r(regions.Index),
-				"/base_images":  r(baseimages.Index),
-				"/app_settings": r(appsettings.Index),
+				"/plans":        r("plans.Index", plans.Index),
+				"/regions":      r("regions.Index", regions.Index),
+				"/base_images":  r("baseimages.Index", baseimages.Index),
+				"/app_settings": r("appsettings.Index", appsettings.Index),
 			},
 			"POST": {
-				"/oauth/token":               r(tokens.Post, analytics.UserSignedIn),
-				"/users":                     r(users.Create, analytics.UserSignedUp),
-				"/users/confirm":             r(users.Confirm),
-				"/users/resend_confirmation": r(users.ResendConfirmation),
-				"/send_reset_password_token": r(passwords.SendResetPasswordToken),
-				"/reset_password":            r(passwords.ResetPassword),
+				"/oauth/token":               r("tokens.Post", tokens.Post, analytics.UserSignedIn),
+				"/users":                     r("users.Create", users.Create, analytics.UserSignedUp),
+				"/users/confirm":             r("users.Confirm", users.Confirm),
+				"/users/resend_confirmation": r("users.ResendConfirmation", users.ResendConfirmation),
+				"/send_reset_password_token": r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
+				"/reset_password":            r("passwords.ResetPassword", passwords.ResetPassword),
 			},
 		}
 
@@ -91,56 +94,56 @@ func (s *Server) drawRoutes() {
 
 		authed := map[string]map[string]routeData{
 			"GET": {
-				"/user":                              r(users.GetAuthenticatedUser),
-				"/user/profile":                      r(userprofiles.Show),
-				"/hosts":                             r(hosts.Index),
-				"/images":                            r(images.Index),
-				"/hosts/{slug}/images":               r(images.Index),
-				"/hosts/{slug}":                      r(mw.HostViaPath("slug", hosts.Show)),
-				"/hosts/{slug}/stats":                r(mw.HostViaPath("slug", hosts.Stats)),
-				"/hosts/{slug}/volumes":              r(mw.HostViaPath("slug", volumes.Index)),
-				"/hosts/{slug}/volumes/{vslug}":      r(mw.HostViaPath("slug", volumes.Show)),
-				"/hosts/{slug}/volumes/{vslug}/info": r(mw.HostViaPath("slug", volumes.Info)),
-				"/hosts/{slug}/images/{image:.*}":    r(mw.HostViaPath("slug", images.Inspect)),
-				"/containers":                        r(containers.Index),
-				"/containers/{slug}":                 r(containers.Show),
-				"/containers/{slug}/config":          r(containers.Config),
-				"/containers/{slug}/keys":            r(keys.Index),
+				"/user":                              r("users.GetAuthenticatedUser", users.GetAuthenticatedUser),
+				"/user/profile":                      r("userprofiles.Show", userprofiles.Show),
+				"/hosts":                             r("hosts.Index", hosts.Index),
+				"/images":                            r("images.IndexAll", images.Index),
+				"/hosts/{slug}/images":               r("images.Index", images.Index),
+				"/hosts/{slug}":                      r("hosts.Show", mw.HostViaPath("slug", hosts.Show)),
+				"/hosts/{slug}/stats":                r("hosts.Stats", mw.HostViaPath("slug", hosts.Stats)),
+				"/hosts/{slug}/volumes":              r("volumes.Index", mw.HostViaPath("slug", volumes.Index)),
+				"/hosts/{slug}/volumes/{vslug}":      r("volumes.Show", mw.HostViaPath("slug", volumes.Show)),
+				"/hosts/{slug}/volumes/{vslug}/info": r("volumes.Info", mw.HostViaPath("slug", volumes.Info)),
+				"/hosts/{slug}/images/{image:.*}":    r("images.Inspect", mw.HostViaPath("slug", images.Inspect)),
+				"/containers":                        r("containers.Index", containers.Index),
+				"/containers/{slug}":                 r("containers.Show", containers.Show),
+				"/containers/{slug}/config":          r("containers.Config", containers.Config),
+				"/containers/{slug}/keys":            r("keys.Index", keys.Index),
 			},
 			"POST": {
-				"/user/profile":                        r(userprofiles.Update),
-				"/hosts":                               r(hosts.Create, analytics.HostCreated),
-				"/hosts/{slug}/registries":             r(registries.Login),
-				"/hosts/{slug}/restart":                r(mw.HostViaPath("slug", hosts.Restart)),
-				"/hosts/{slug}/volumes":                r(mw.HostViaPath("slug", volumes.Create)),
-				"/hosts/{slug}/images":                 r(mw.HostViaPath("slug", images.Build)),
-				"/hosts/{slug}/images/pull":            r(mw.HostViaPath("slug", images.Pull)),
-				"/hosts/{slug}/images/{image:.*}/push": r(mw.HostViaPath("slug", images.Push)),
-				"/hosts/{slug}/images/{image:.*}/tag":  r(mw.HostViaPath("slug", images.Tag)),
-				"/containers":                          r(containers.Create, analytics.ContainerCreated),
-				"/containers/{slug}/commit":            r(containers.Commit),
-				"/containers/{slug}/start":             r(containers.Start),
-				"/containers/{slug}/stop":              r(containers.Stop),
-				"/containers/{slug}/restart":           r(containers.Restart),
-				"/containers/{slug}/reconfig":          r(containers.Reconfig),
-				"/containers/{slug}/token":             r(containers.Token, analytics.ContainerAccessed),
-				"/containers/{slug}/keys":              r(keys.Create),
-				"/feedback":                            r(feedback.Send),
-				"/admin/switch_user":                   r(admin.SwitchUser),
+				"/user/profile":                        r("userprofiles.Update", userprofiles.Update),
+				"/hosts":                               r("hosts.Create", hosts.Create, analytics.HostCreated),
+				"/hosts/{slug}/registries":             r("registries.Login", registries.Login),
+				"/hosts/{slug}/restart":                r("hosts.Restart", mw.HostViaPath("slug", hosts.Restart)),
+				"/hosts/{slug}/volumes":                r("volumes.Create", mw.HostViaPath("slug", volumes.Create)),
+				"/hosts/{slug}/images":                 r("images.Build", mw.HostViaPath("slug", images.Build)),
+				"/hosts/{slug}/images/pull":            r("images.Pull", mw.HostViaPath("slug", images.Pull)),
+				"/hosts/{slug}/images/{image:.*}/push": r("images.Push", mw.HostViaPath("slug", images.Push)),
+				"/hosts/{slug}/images/{image:.*}/tag":  r("images.Tag", mw.HostViaPath("slug", images.Tag)),
+				"/containers":                          r("containers.Create", containers.Create, analytics.ContainerCreated),
+				"/containers/{slug}/commit":            r("containers.Commit", containers.Commit),
+				"/containers/{slug}/start":             r("containers.Start", containers.Start),
+				"/containers/{slug}/stop":              r("containers.Stop", containers.Stop),
+				"/containers/{slug}/restart":           r("containers.Restart", containers.Restart),
+				"/containers/{slug}/reconfig":          r("containers.Reconfig", containers.Reconfig),
+				"/containers/{slug}/token":             r("containers.Token", containers.Token, analytics.ContainerAccessed),
+				"/containers/{slug}/keys":              r("keys.Create", keys.Create),
+				"/feedback":                            r("feedback.Send", feedback.Send),
+				"/admin/switch_user":                   r("admin.SwitchUser", admin.SwitchUser),
 			},
 			"PUT": {
-				"/users":                  r(users.Update),
-				"/hosts/{slug}":           r(mw.HostViaPath("slug", hosts.Update)),
-				"/containers/{slug}/keys": r(keys.Create),
+				"/users":                  r("users.Update", users.Update),
+				"/hosts/{slug}":           r("hosts.Update", mw.HostViaPath("slug", hosts.Update)),
+				"/containers/{slug}/keys": r("keys.Create", keys.Create),
 			},
 			"DELETE": {
-				"/hosts/{slug}":                    r(mw.HostViaPath("slug", hosts.Destroy)),
-				"/hosts/{slug}/registries/{rslug}": r(registries.Logout),
-				"/hosts/{slug}/volumes/{vslug}":    r(mw.HostViaPath("slug", volumes.Destroy)),
-				"/hosts/{slug}/images/{image:.*}":  r(mw.HostViaPath("slug", images.Remove)),
-				"/containers/{slug}":               r(containers.Destroy),
-				"/containers/{slug}/keys/{kslug}":  r(keys.Delete),
-				"/containers/{slug}/keys":          r(keys.DeleteAll),
+				"/hosts/{slug}":                    r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy)),
+				"/hosts/{slug}/registries/{rslug}": r("registries.Logout", registries.Logout),
+				"/hosts/{slug}/volumes/{vslug}":    r("volumes.Destroy", mw.HostViaPath("slug", volumes.Destroy)),
+				"/hosts/{slug}/images/{image:.*}":  r("images.Remove", mw.HostViaPath("slug", images.Remove)),
+				"/containers/{slug}":               r("containers.Destroy", containers.Destroy),
+				"/containers/{slug}/keys/{kslug}":  r("keys.Delete", keys.Delete),
+				"/containers/{slug}/keys":          r("keys.DeleteAll", keys.DeleteAll),
 			},
 		}
 

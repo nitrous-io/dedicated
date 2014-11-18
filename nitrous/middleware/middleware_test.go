@@ -8,14 +8,12 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/home"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/server"
-	"github.com/nitrous-io/nitrous-common/logger"
-
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/server"
+	"github.com/nitrous-io/nitrous-common/logger"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -237,26 +235,5 @@ var _ = Describe("middleware", func() {
 		It("Responds with 200 OK", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
-	})
-})
-
-func testMiddleware(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	return nil
-}
-
-var _ = Describe("getName", func() {
-	It("returns name of the middleware", func() {
-		testCase := []struct {
-			mw       middleware.Middleware
-			expected string
-		}{
-			{testMiddleware, "middleware_test.testMiddleware"},
-			{home.Index, "controllers.home.Index"},
-		}
-
-		for _, tc := range testCase {
-			name := middleware.GetName(tc.mw)
-			Expect(name).To(Equal(tc.expected), "unexpected middleware name")
-		}
 	})
 })
