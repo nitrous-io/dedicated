@@ -81,8 +81,8 @@ func (s *Server) drawRoutes() {
 			"POST": {
 				"/oauth/token":               r("tokens.Post", tokens.Post, analytics.UserSignedIn),
 				"/users":                     r("users.Create", users.Create, analytics.UserSignedUp),
-				"/users/confirm":             r("users.Confirm", users.Confirm),
-				"/users/resend_confirmation": r("users.ResendConfirmation", users.ResendConfirmation),
+				"/user/confirm":              r("users.Confirm", users.Confirm),
+				"/user/resend_confirm":       r("users.ResendConfirmation", users.ResendConfirmation),
 				"/send_reset_password_token": r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
 				"/reset_password":            r("passwords.ResetPassword", passwords.ResetPassword),
 			},
