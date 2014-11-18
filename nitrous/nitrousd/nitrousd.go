@@ -75,9 +75,6 @@ func main() {
 		logr.Infof("nitrousd: migrations failed: %v", err)
 	}
 
-	// configure metrics output. if we do not have librato user/token i.e.
-	// development environment, output the metrics to stderr
-	// by default we flush metrics every 10s
 	if disableLibrato {
 		logr.Warnf("missing librato config. Metrics logging is disabled")
 		// in dev, we flush metrics every 60s into devNull
