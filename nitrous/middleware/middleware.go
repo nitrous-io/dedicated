@@ -192,6 +192,19 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 	}
 }
 
+// Call is a helper that execute the middleware and also records its metrics.
+func Call(mw Middleware) Middleware {
+	label := getName(mw)
+	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
+		defer mh.UpdateSince(label, time.Now())
+		err := mw(env, w, r)
+		if err != nil {
+			return mh.Error(err, label)
+		}
+		return nil
+	}
+}
+
 var (
 	// strip these prefix from the middleware string representation
 	fnPrefix = "github.com/nitrous-io/dedicated/nitrous/"
