@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/appsettings"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/baseimages"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
@@ -102,6 +103,7 @@ func (s *Server) drawRoutes() {
 		s.routeJSON("/base_images", baseimages.Index, "GET")
 
 		s.routeJSON("/admin/switch_user", mw.Auth(admin.SwitchUser), "POST")
+		s.routeJSON("/app_settings", appsettings.Index, "GET")
 	})
 
 	s.static("/", "public") // catch-all, must come last

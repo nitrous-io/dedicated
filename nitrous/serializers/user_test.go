@@ -16,7 +16,7 @@ var _ = Describe("user serializer", func() {
 		updatedAt = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
 
 		model = &user.User{
-			ID:                10,                            // Not serialized.
+			ID:                10,
 			Name:              "Emma Watson",                 // Not serialized.
 			EncryptedPassword: "!!11such!11!secure!!11wow!!", // Not serialized.
 			Password:          "doge4evar",                   // Not serialized.
@@ -34,6 +34,7 @@ var _ = Describe("user serializer", func() {
 			b, err := json.Marshal(u)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
+				"id": 10,
 				"username": "emmawatson",
 				"email": "h.granger@hogwarts.edu",
 				"admin": true,
