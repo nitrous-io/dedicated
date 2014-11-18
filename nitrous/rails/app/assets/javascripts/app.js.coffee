@@ -77,6 +77,11 @@ App.on 'fetchUser', (user, profile) ->
   App.set 'eventsSocket', socket = App.EventsSocket.create()
   socket.connect()
 
+App.on 'settings', (settings) ->
+  # init Mixpanel
+  if settings.mixpanel_token != '' && settings.mixpanel_token != 'disable'
+    window.mixpanel?.init settings.mixpanel_token
+
 App.didChangeTitle()
 
 # prevent file drops on the document causing browser to navigate away
@@ -103,6 +108,9 @@ $(document).on 'click', '.click-highlight', (e) ->
   range.selectNodeContents(e.target)
   sel.removeAllRanges()
   sel.addRange(range)
+
+$.ajax("/api/v0/app_settings").done (settings) ->
+  App.trigger 'settings', settings
 
 Em.Route.reopen
   activate: ->
