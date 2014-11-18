@@ -6,7 +6,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   rootElement: '#app'
 
   platform:
-    if navigator.platform.indexOf('Linux') != -1 
+    if navigator.platform.indexOf('Linux') != -1
       'linux'
     else if navigator.platform.indexOf('Windows') != -1
       'windows'
@@ -35,7 +35,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   eventsSocket: null
 
   desktopDownloadUrl: (->
-    "http://nitrous-pro-app.s3-website-us-east-1.amazonaws.com/#{@get('platform')}/download.html"
+    "http://getpro.nitrous.io/#{@get('platform')}/download.html"
   ).property 'platform'
 
   didChangeTitle: (->
