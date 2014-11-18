@@ -14,3 +14,14 @@ App.HomeRoute = App.AuthedRoute.extend
     @render 'beta', into: 'home', outlet: 'beta', controller: 'beta'
     @render 'topnav', into: 'home', outlet: 'topnav',  controller: 'topnav'
     @render 'sidebar', into: 'home', outlet: 'sidebar', controller: 'sidebar'
+
+  actions:
+    downloadDesktopApp: (source) ->
+      if mixpanel? && !App.get('user.admin')
+        mixpanel.track 'Desktop App Downloaded', {
+          distinct_id: App.get('user.id'),
+          email: App.get('user.email'),
+          platform: App.get('platform'),
+          source: source
+        }
+      window.open App.get('desktopDownloadUrl'), '_blank'
