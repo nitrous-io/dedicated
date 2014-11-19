@@ -475,7 +475,7 @@ var _ = Describe("controllers/users", func() {
 			})
 
 			It("should confirm the account if the token matches", func() {
-				now := time.Now()
+				Expect(u.ConfirmedAt).To(BeNil(), "expect user to not confirmed yet")
 				doRequest("ABCD")
 
 				Expect(res.Code).To(Equal(http.StatusOK))
@@ -488,7 +488,7 @@ var _ = Describe("controllers/users", func() {
 				u, err = user.FindByID(db, u.ID)
 				Expect(err).To(BeNil())
 				Expect(u.ConfirmationToken.String).To(BeEmpty())
-				Expect(*u.ConfirmedAt).To(BeTemporally(">=", now))
+				Expect(u.ConfirmedAt).ToNot(BeNil(), "expect user to confirm")
 			})
 
 			It("should communicate if the confirmation has lapsed", func() {
@@ -530,7 +530,6 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		Context("with correct user", func() {
-
 			var u *user.User
 			curTime := time.Now()
 
@@ -558,8 +557,8 @@ var _ = Describe("controllers/users", func() {
 				Expect(j["error_description"]).To(Equal("specified user does not exist"))
 			})
 
-			It("should confirm the account if the token matches", func() {
-				now := time.Now()
+			It("should send the confirmation token if the token matches", func() {
+				Expect(u.ConfirmationSentAt).To(BeNil(), "expect confirmation to not be sent")
 				doRequest("ABCD")
 
 				Expect(res.Code).To(Equal(http.StatusOK))
@@ -573,9 +572,8 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 				Expect(u.ConfirmationToken.String).ToNot(BeEmpty())
 				Expect(u.ConfirmationToken.String).ToNot(Equal("ABCD"))
-				Expect(*u.ConfirmationSentAt).To(BeTemporally(">=", now))
+				Expect(u.ConfirmationSentAt).ToNot(BeNil(), "expect confirmation to be sent")
 			})
-
 		})
 	})
 })
