@@ -23,7 +23,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	mw "github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 )
 
 type routeData struct {
@@ -79,8 +78,8 @@ func (s *Server) drawRoutes() {
 				"/app_settings": r("appsettings.Index", appsettings.Index),
 			},
 			"POST": {
-				"/oauth/token":               r("tokens.Post", tokens.Post, analytics.UserSignedIn),
-				"/users":                     r("users.Create", users.Create, analytics.UserSignedUp),
+				"/oauth/token":               r("tokens.Post", tokens.Post, UserSignedIn),
+				"/users":                     r("users.Create", users.Create, UserSignedUp),
 				"/user/confirm":              r("users.Confirm", users.Confirm),
 				"/user/resend_confirm":       r("users.ResendConfirmation", users.ResendConfirmation),
 				"/send_reset_password_token": r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
@@ -113,7 +112,7 @@ func (s *Server) drawRoutes() {
 			},
 			"POST": {
 				"/user/profile":                        r("userprofiles.Update", userprofiles.Update),
-				"/hosts":                               r("hosts.Create", hosts.Create, analytics.HostCreated),
+				"/hosts":                               r("hosts.Create", hosts.Create, HostCreated),
 				"/hosts/{slug}/registries":             r("registries.Login", registries.Login),
 				"/hosts/{slug}/restart":                r("hosts.Restart", mw.HostViaPath("slug", hosts.Restart)),
 				"/hosts/{slug}/volumes":                r("volumes.Create", mw.HostViaPath("slug", volumes.Create)),
@@ -121,14 +120,14 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/images/pull":            r("images.Pull", mw.HostViaPath("slug", images.Pull)),
 				"/hosts/{slug}/images/{image:.*}/push": r("images.Push", mw.HostViaPath("slug", images.Push)),
 				"/hosts/{slug}/images/{image:.*}/tag":  r("images.Tag", mw.HostViaPath("slug", images.Tag)),
-				"/containers":                          r("containers.Create", containers.Create, analytics.ContainerCreated),
+				"/containers":                          r("containers.Create", containers.Create, ContainerCreated),
 				"/containers/{slug}/commit":            r("containers.Commit", containers.Commit),
 				"/containers/{slug}/start":             r("containers.Start", containers.Start),
 				"/containers/{slug}/stop":              r("containers.Stop", containers.Stop),
 				"/containers/{slug}/restart":           r("containers.Restart", containers.Restart),
-				"/containers/{slug}/reconfig":          r("containers.Reconfig", containers.Reconfig),
-				"/containers/{slug}/token":             r("containers.Token", containers.Token, analytics.ContainerAccessed),
-				"/containers/{slug}/keys":              r("keys.Create", keys.Create),
+				"/containers/{slug}/reconfig":          r("containers.Reconfig", containers.Reconfig, ContainerReconfigured),
+				"/containers/{slug}/token":             r("containers.Token", containers.Token, ContainerAccessed),
+				"/containers/{slug}/keys":              r("keys.Create", keys.Create, ContainerKeyAdded),
 				"/feedback":                            r("feedback.Send", feedback.Send),
 				"/admin/switch_user":                   r("admin.SwitchUser", admin.SwitchUser),
 			},
@@ -138,11 +137,11 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys": r("keys.Create", keys.Create),
 			},
 			"DELETE": {
-				"/hosts/{slug}":                    r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy)),
+				"/hosts/{slug}":                    r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), HostDestroyed),
 				"/hosts/{slug}/registries/{rslug}": r("registries.Logout", registries.Logout),
 				"/hosts/{slug}/volumes/{vslug}":    r("volumes.Destroy", mw.HostViaPath("slug", volumes.Destroy)),
 				"/hosts/{slug}/images/{image:.*}":  r("images.Remove", mw.HostViaPath("slug", images.Remove)),
-				"/containers/{slug}":               r("containers.Destroy", containers.Destroy),
+				"/containers/{slug}":               r("containers.Destroy", containers.Destroy, ContainerDestroyed),
 				"/containers/{slug}/keys/{kslug}":  r("keys.Delete", keys.Delete),
 				"/containers/{slug}/keys":          r("keys.DeleteAll", keys.DeleteAll),
 			},

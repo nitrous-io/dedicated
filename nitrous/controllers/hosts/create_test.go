@@ -30,7 +30,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -314,7 +313,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			t, ok := svr.Tracker.(*FakeTracker)
 			Expect(ok).To(BeTrue())
 
-			Expect(t.Events[u.ID]).To(Equal([]string{analytics.HostCreated}))
+			Expect(t.Events[u.ID]).To(Equal([]string{server.HostCreated}))
 			hosts, err := host.FindAllByUser(db, u)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))

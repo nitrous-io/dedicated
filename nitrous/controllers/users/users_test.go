@@ -14,7 +14,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -139,7 +138,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 				t, ok := svr.Tracker.(*FakeTracker)
 				Expect(ok).To(BeTrue())
-				Expect(t.Events[u.ID]).To(Equal([]string{analytics.UserSignedUp}))
+				Expect(t.Events[u.ID]).To(Equal([]string{server.UserSignedUp}))
 			})
 
 			It("tracks the user as a new analytics profile", func() {
