@@ -95,10 +95,18 @@ SM.RESTAdapter = Ember.Object.extend
     promise.value = recordArray
     promise
 
+  updateRecord: (record, params, options={}) ->
+    model = record.constructor
+    url = Ember.get(model, "updateURL") || Ember.get(model, "url")
+    @_performResourceAction url, 'PUT', record, params, options
+
   createRecord: (record, params, options={}) ->
     model = record.constructor
     url = Ember.get(model, "createURL") || Ember.get(model, "url")
+    @_performResourceAction url, 'POST', record, params, options
 
+  _performResourceAction: (url, method, record, params, options={}) ->
+    model = record.constructor
     url = @_fillDynamicSegments(url, record)
 
     promise = new Ember.RSVP.Promise (resolve, reject) =>
@@ -113,7 +121,7 @@ SM.RESTAdapter = Ember.Object.extend
         options.contentType = 'application/json; charset=utf-8'
         delete options.json
 
-      @ajax('POST', url, serialized, null, options).done((data, status, jqxhr) ->
+      @ajax(method, url, serialized, null, options).done((data, status, jqxhr) ->
         if model.rootKey
           data = data[model.rootKey] || {}
         record.load(data)

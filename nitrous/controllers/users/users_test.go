@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
@@ -377,6 +378,33 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 				Expect(usr.Username).To(Equal("tokenuser"))
 				Expect(usr.UpdatedAt).To(Equal(u.UpdatedAt))
+			})
+		})
+
+		Context("when an email is changed", func() {
+			var (
+				fakeMailer *FakeMailer
+				origMailer mailer.Mailer
+			)
+
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				origMailer = user.Mailer
+				fakeMailer = &FakeMailer{}
+				user.Mailer = fakeMailer
+
+				params := &url.Values{}
+				params.Set("email", "att@example.com")
+				doRequest(params)
+			})
+
+			It("fires off an email confirmation", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Expect(fakeMailer.SendMailCalled).To(BeTrue())
+				Expect(fakeMailer.Tos).To(Equal([]string{"<att@example.com>"}))
 			})
 		})
 	})

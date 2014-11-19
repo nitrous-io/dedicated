@@ -109,7 +109,9 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
+	emailChanged := false
 	if email != "" {
+		emailChanged = u.Email != email
 		u.Email = email
 	}
 	if password != "" {
@@ -130,6 +132,13 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			}
 		}
 		return err
+	}
+
+	if emailChanged {
+		u.ConfirmedAt = nil
+		if err := u.SendConfirmationEmail(db); err != nil {
+			return err
+		}
 	}
 
 	userResponse(env, u)
