@@ -289,9 +289,6 @@ func New(configData []byte) (*Server, error) {
 	server := &Server{Config: config}
 	server.CreateRouter()
 
-	// configure metrics output. if we do not have librato user/token i.e.
-	// development environment, output the metrics to stderr
-	// by default we flush metrics every 10s
 	if config.LibratoUser == "" || config.LibratoToken == "" {
 		log.Printf("missing librato config. Metrics logging is disabled")
 		// in dev, we flush metrics every 60s into devNull
@@ -300,12 +297,12 @@ func New(configData []byte) (*Server, error) {
 			log.New(ioutil.Discard, "hostbuilder: metrics: ", log.Lmicroseconds))
 	} else {
 		go librato.Librato(metrics.DefaultRegistry,
-			10e9,                        // interval
-			config.LibratoUser,          // account owner email address
-			config.LibratoToken,         // Librato API token
-			"hostbuilder",               // source
-			[]float64{0.75, 0.95, 0.99}, // precentiles to send
-			time.Millisecond,            // time unit
+			30e9,                // interval
+			config.LibratoUser,  // account owner email address
+			config.LibratoToken, // Librato API token
+			"hostbuilder",       // source
+			[]float64{0.99},     // precentiles to send
+			time.Millisecond,    // time unit
 		)
 	}
 
