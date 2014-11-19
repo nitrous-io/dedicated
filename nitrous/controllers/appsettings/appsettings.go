@@ -11,6 +11,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"mixpanel_token": os.Getenv("MIXPANEL_TOKEN"),
+		"stripe_key":     os.Getenv("STRIPE_PUBLIC_KEY"),
 	}
 	return nil
 }
