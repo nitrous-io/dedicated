@@ -78,9 +78,10 @@ App.on 'fetchUser', (user, profile) ->
   socket.connect()
 
 App.on 'settings', (settings) ->
-  # init Mixpanel
   if settings.mixpanel_token != '' && settings.mixpanel_token != 'disable'
     window.mixpanel?.init settings.mixpanel_token
+  if settings.stripe_key != '' && settings.stripe_key != 'disable'
+    window.Stripe.setPublishableKey(settings.stripe_key);
 
 App.didChangeTitle()
 
