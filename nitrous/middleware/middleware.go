@@ -192,7 +192,9 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 
 // Call is a helper that execute the middleware and also records its metrics.
 func Call(label string, mw Middleware) Middleware {
+	rlabel := "requests." + label
 	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
+		mh.Meter(rlabel).Mark(1)
 		defer mh.UpdateSince(label, time.Now())
 		err := mw(env, w, r)
 		if err != nil {
