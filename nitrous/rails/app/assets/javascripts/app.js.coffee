@@ -72,9 +72,17 @@ App.on 'load', ->
   App.__container__.lookup('adapter:application') # init app adapter class
   App.set 'snackbar', App.Snackbar.create()
 
-App.on 'fetchUser', (user, profile) ->
+App.on 'fetchUser', (user) ->
   App.set 'user', user
-  App.set 'userProfile', profile
+
+  userProfile = App.UserProfile.create()
+  userProfile.load user.get('_userProfile')
+  App.set 'userProfile', userProfile
+
+  billingProfile = App.BillingProfile.create()
+  billingProfile.load user.get('_billingProfile')
+  App.set 'billingProfile', billingProfile
+
   App.set 'eventsSocket', socket = App.EventsSocket.create()
   socket.connect()
 
