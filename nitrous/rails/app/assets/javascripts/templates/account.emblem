@@ -33,10 +33,12 @@ form submit='updateSettings'
       .right
         button.ui.btn.primary click='hideModal target="view"' OK
 
-.card-header.bordered
+/ FIXME restore once e-mail reconfirmation working as intended
+.card-header.bordered.hide
   h2 Account Details
 
-form submit='updateDetails'
+/ FIXME restore once e-mail reconfirmation working as intended
+form submit='updateDetails' class='hide'
 
   .card-body
     .ui.input-group
