@@ -38,7 +38,7 @@
         ul.dropdown-menu.right style='display: none'
           li
             link-to 'account' | Account Settings
-          li
+          li class={App.user.admin::disabled}
             link-to 'billing' | Billing
           li.separator
           li
