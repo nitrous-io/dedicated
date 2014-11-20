@@ -11,6 +11,7 @@ type BillingProfile struct {
 	CardType  string     `json:"card_type"`
 	ExpMonth  int64      `json:"exp_month"`
 	ExpYear   int64      `json:"exp_year"`
+	State     string     `json:"state"`
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
 }
@@ -24,6 +25,7 @@ func SerializeBillingProfile(b *billingprofile.BillingProfile) *BillingProfile {
 		CardType:  b.CardType.String,
 		ExpMonth:  b.ExpMonth.Int64,
 		ExpYear:   b.ExpYear.Int64,
+		State:     b.State,
 		CreatedAt: b.CreatedAt,
 		UpdatedAt: b.UpdatedAt,
 	}
