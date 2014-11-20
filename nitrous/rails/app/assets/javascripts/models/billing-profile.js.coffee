@@ -3,6 +3,7 @@ attr = SM.attr
 
 App.BillingProfile = klass = App.Model.extend
   id: attr('number', serialize: false)
+  state: attr()
   userId: attr('number', as: 'user_id', serialize: false)
   lastFour: attr(as: 'last_four', serialize: false)
   cardType: attr(as: 'card_type', serialize: false)
@@ -12,6 +13,14 @@ App.BillingProfile = klass = App.Model.extend
   updatedAt: attr('date', as: 'created_at', serialize: false)
 
   cardToken: attr(as: 'card_token')
+
+  paid: (->
+    @get('state') == 'paid' 
+  ).property 'state'
+
+  expiry: (->
+    "#{@get 'expMonth'}/#{@get 'expYear'}"
+  ).property 'expMonth', 'expYear'
 
 klass.reopenClass
   url: '/user/billing_profile'
