@@ -134,6 +134,24 @@ var _ = Describe("middleware", func() {
 					Expect(j["error_description"]).To(Equal("auth token is required"))
 				})
 			})
+
+			Context("when the ouath token's owner has lapsed confirmation", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE users SET confirmation_sent_at = now() - interval '26 hours' WHERE id = $1;`, u.ID)
+					Expect(err).To(BeNil())
+					doRequest("foobar")
+				})
+
+				It("responds with 400 Bad Request", func() {
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="confirmation_lapsed"`))
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					Expect(j["error"]).To(Equal("confirmation_lapsed"))
+					Expect(j["error_description"]).To(Equal("confirmation token has lapsed"))
+				})
+			})
 		}
 
 		// authenticate using Authorization header

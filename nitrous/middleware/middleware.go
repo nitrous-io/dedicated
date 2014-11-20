@@ -94,6 +94,11 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 		return mh.Error(err, label)
 	}
 
+	if u.ConfirmationLapsed() {
+		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="confirmation_lapsed"`)
+		return mh.Error(httperror.New(http.StatusBadRequest, "confirmation_lapsed", "confirmation token has lapsed"), label)
+	}
+
 	mh.UpdateSince(label, start)
 	env.User = u
 	return mw(env, w, r)
