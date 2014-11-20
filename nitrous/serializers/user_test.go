@@ -1,10 +1,13 @@
 package serializers_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"time"
 
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -38,6 +41,57 @@ var _ = Describe("user serializer", func() {
 				"username": "emmawatson",
 				"email": "h.granger@hogwarts.edu",
 				"admin": true,
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
+			}`))
+		})
+	})
+
+	Describe("SerializeUserWithProfiles", func() {
+		It("serializes to JSON", func() {
+			up := &userprofile.UserProfile{
+				ID:        10,
+				UserID:    10,
+				MaxHosts:  2,
+				Advanced:  false,
+				CreatedAt: &createdAt,
+				UpdatedAt: &updatedAt,
+			}
+
+			bp := &billingprofile.BillingProfile{
+				ID:        10,
+				UserID:    10,
+				State:     "paid",
+				StripeID:  sql.NullString{"sk_0001", true},
+				LastFour:  sql.NullString{"1234", true},
+				CardType:  sql.NullString{"Visa", true},
+				ExpMonth:  sql.NullInt64{4, true},
+				ExpYear:   sql.NullInt64{2014, true},
+				CreatedAt: &createdAt,
+				UpdatedAt: &updatedAt,
+			}
+
+			u := serializers.SerializeUserWithProfiles(model, up, bp)
+			b, err := json.Marshal(u)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`{
+				"id": 10,
+				"username": "emmawatson",
+				"email": "h.granger@hogwarts.edu",
+				"admin": true,
+				"user_profile": {
+					"max_hosts": 2,
+					"advanced": false
+				},
+				"billing_profile": {
+					"state": "paid",
+					"last_four": "1234",
+					"card_type": "Visa",
+					"exp_month": 4,
+					"exp_year": 2014,
+					"created_at": "2013-11-01T00:00:00Z",
+					"updated_at": "2013-11-02T00:00:00Z"
+				},
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))

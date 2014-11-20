@@ -420,11 +420,9 @@ var _ = Describe("controllers/users", func() {
 		}
 
 		Context("when a valid oauth token is given", func() {
-			BeforeEach(func() {
-				doRequest("foobarbazqux")
-			})
-
 			It("responds with the authenticated user's details", func() {
+				doRequest("foobarbazqux")
+
 				Expect(res.Code).To(Equal(http.StatusOK))
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
@@ -438,6 +436,14 @@ var _ = Describe("controllers/users", func() {
 				Expect(userinfo["updated_at"]).NotTo(BeNil())
 				Expect(userinfo["password"]).To(BeNil())
 				Expect(userinfo["encrypted_password"]).To(BeNil())
+
+				userprofile, ok := userinfo["user_profile"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(userprofile["advanced"]).NotTo(BeTrue())
+
+				billingprofile, ok := userinfo["billing_profile"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(billingprofile["state"]).To(Equal("free"))
 			})
 		})
 
