@@ -843,6 +843,7 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 			Expect(u.ConfirmationToken.String).To(BeEmpty())
 			Expect(*u.ConfirmedAt).To(BeTemporally(">=", now))
+			Expect(u.ConfirmationSentAt).To(BeNil())
 		})
 
 		It("should return an error if the user has already confirmed", func() {
@@ -865,6 +866,7 @@ var _ = Describe("models/user", func() {
 
 			err = u.ConfirmEmail(db)
 			Expect(err).To(Equal(user.ErrConfirmationLapsed))
+			Expect(u.ConfirmationSentAt).ToNot(BeNil())
 		})
 	})
 
@@ -895,7 +897,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("should generate a confirmation token", func() {
-			err := u.SendConfirmationEmail(db)
+			err := u.SendConfirmationEmail(db, true)
 			Expect(err).To(BeNil())
 
 			u, err := user.FindByID(db, u.ID)
@@ -907,7 +909,7 @@ var _ = Describe("models/user", func() {
 
 		It("should send the email", func() {
 			os.Setenv("WEB_HOSTNAME", "nitrous.example")
-			err := u.SendConfirmationEmail(db)
+			err := u.SendConfirmationEmail(db, true)
 			Expect(err).To(BeNil())
 
 			u, err = user.FindByID(db, u.ID)
@@ -931,8 +933,24 @@ var _ = Describe("models/user", func() {
 			u, err = user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
 
-			err = u.SendConfirmationEmail(db)
+			err = u.SendConfirmationEmail(db, true)
 			Expect(err).To(Equal(user.ErrConfirmationAlreadyCompleted))
+		})
+
+		It("should not reset the confirmation_sent_at if specified", func() {
+			_, err := db.Exec(`UPDATE users SET confirmation_sent_at = now() - interval '26 hours' WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			err = u.SendConfirmationEmail(db, false)
+			Expect(err).To(BeNil())
+
+			u, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(u.ConfirmationLapsed()).To(BeTrue())
 		})
 	})
 })
