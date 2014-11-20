@@ -20,6 +20,7 @@ App.User = klass = App.Model.extend
 klass.reopenClass
   url: '/user'
   createURL: '/users'
+  updateURL: '/users'
   primaryKey: 'id'
   singular: true
   rootKey: 'user'

@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
+	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
@@ -121,6 +122,7 @@ func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *htt
 func (s *Server) route(route string, mw middleware.Middleware, methods ...string) {
 	route = strings.Join(nsStack, "") + route
 	h := func(w http.ResponseWriter, r *http.Request) {
+		mh.Meter("requests.nitrous").Mark(1)
 		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
 		err := mw(&middleware.Env{
 			Root:        s.root,
@@ -141,6 +143,7 @@ func (s *Server) route(route string, mw middleware.Middleware, methods ...string
 func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...string) {
 	route = strings.Join(nsStack, "") + route
 	h := func(w http.ResponseWriter, r *http.Request) {
+		mh.Meter("requests.nitrous").Mark(1)
 		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
 		env := &middleware.Env{
 			Root:        s.root,

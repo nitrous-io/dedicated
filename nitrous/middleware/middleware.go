@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -15,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mergemap"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
+	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
@@ -70,6 +72,8 @@ func (env *Env) Login(u *user.User, w http.ResponseWriter) error {
 type Middleware func(env *Env, w http.ResponseWriter, r *http.Request) error
 
 func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r *http.Request) error {
+	label := "nitrous.authenticate"
+	start := time.Now()
 	db := env.DB
 
 	t, err := token.FindByToken(db, tok)
@@ -78,18 +82,19 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 	}
 	if t == nil {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
-		return errInvalidToken
+		return mh.Error(errInvalidToken, label)
 	}
 
 	u, err := user.FindByID(db, t.UserID)
 	if err != nil {
-		return err
+		return mh.Error(err, label)
 	}
 	if u == nil {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
-		return errInvalidToken
+		return mh.Error(err, label)
 	}
 
+	mh.UpdateSince(label, start)
 	env.User = u
 	return mw(env, w, r)
 }
@@ -157,6 +162,8 @@ func HostViaPath(srcVar string, fn hostHandlerFn) Middleware {
 // for to retrieve host slug.
 func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
+		label := "nitrous.withHost"
+		start := time.Now()
 		var param string
 		var h *host.Host
 
@@ -172,12 +179,27 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 		// param can either be a slug or an ID
 		h, err := host.Find(env.DB, env.User, param)
 		if err != nil {
-			return err
+			return mh.Error(err, label)
 		}
 		if h == nil {
-			return ErrHostNotFound
+			return mh.Error(ErrHostNotFound, label)
 		}
 
+		mh.UpdateSince(label, start)
 		return fn(h, env, w, r)
+	}
+}
+
+// Call is a helper that execute the middleware and also records its metrics.
+func Call(label string, mw Middleware) Middleware {
+	rlabel := "requests." + label
+	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
+		mh.Meter(rlabel).Mark(1)
+		defer mh.UpdateSince(label, time.Now())
+		err := mw(env, w, r)
+		if err != nil {
+			return mh.Error(err, label)
+		}
+		return nil
 	}
 }

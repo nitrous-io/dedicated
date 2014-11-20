@@ -667,6 +667,9 @@ var _ = Describe("provider/docker", func() {
 					Expect(err).To(BeNil(), "old container data not migrated")
 					Expect(string(bs)).To(Equal("set nocompatible"))
 
+					err = prov.AddPublicKeys(reconfig1.ID, []string{strings.TrimSpace(string(TestSSHPubKey))})
+					Expect(err).To(BeNil(), "public key adding failed")
+
 					newConfigJSON := `{
 						"Env": ["PAGER=less"],
 						"PortBindings": ["public:4000:4000"]
@@ -684,6 +687,10 @@ var _ = Describe("provider/docker", func() {
 					Expect(doInspect(reconfig2.ID,
 						"{{range $p, $stub := .Config.ExposedPorts}}{{$p}} {{end}}")).
 						To(Equal("22/tcp 4000"))
+
+					pubKeys, err := prov.ListPublicKeys(reconfig2.ID)
+					Expect(err).To(BeNil())
+					Expect(pubKeys["d7:39:a8:61:5a:fe:4f:57:48:68:18:1e:d7:a2:a6:eb"]).To(Equal(strings.TrimSpace(string(TestSSHPubKey))))
 				})
 
 				It("returns detailed error on failure to complete", func() {

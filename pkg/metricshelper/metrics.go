@@ -24,6 +24,13 @@ func Counter(name string) metrics.Counter {
 	return c
 }
 
+// Meter returns a meter that we can use to measure the rate of actions (for
+// example number of requests per minute etc...)
+func Meter(name string) metrics.Meter {
+	m := metrics.GetOrRegister(name, metrics.NewMeter()).(metrics.Meter)
+	return m
+}
+
 // Error increment the error count and return that error. It's a helpful
 // replacement for `return err`
 func Error(err error, name string) error {

@@ -547,3 +547,38 @@ describe 'SM.RESTAdapter', ->
         expect(data).to.contain 'age=15', 'age is in params'
         expect(data).to.contain 'foo=lol', 'foo is in params'
         expect(data).to.contain 'bar=123', 'bar is in params'
+
+  describe 'forceUpdate record', ->
+    record = null
+
+    beforeEach ->
+      record = TestModel.create(slug: 'foo', name: 'Foo', age: 15)
+
+    context 'when the model provides a url', ->
+      it 'performs a PUT request', ->
+        record.setProperties
+          fooId: 'abc'
+          barId: 3
+        promise = record.forceUpdate()
+        debugger
+        expect(server.requests.length).to.equal 1, '1 request is made'
+        expect(server.requests[0].method).to.equal 'PUT', 'PUT method is sent'
+        expect(server.requests[0].url).to.equal '/foo', 'url is sent correctly'
+
+    context 'when the model provides updateURL', ->
+      beforeEach ->
+        klass.reopenClass
+          updateURL: '/bar'
+
+      afterEach ->
+        klass.reopenClass
+          updateURL: '/foo'
+
+      it 'performs a PUT request', ->
+        record.setProperties
+          fooId: 'abc'
+          barId: 3
+        promise = record.forceUpdate()
+        expect(server.requests.length).to.equal 1, '1 request is made'
+        expect(server.requests[0].method).to.equal 'PUT', 'PUT method is sent'
+        expect(server.requests[0].url).to.equal '/bar', 'updateURL is used correctly'

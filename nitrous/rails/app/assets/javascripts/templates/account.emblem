@@ -1,7 +1,7 @@
 .card-header.bordered
   h2 Account Settings
 
-form submit='save'
+form submit='updateSettings'
   .card-body
     .ui.input-group
       ul.ui.checkbox-group
@@ -13,12 +13,12 @@ form submit='save'
 
   .card-footer.bordered
     .right
-      if saving
+      if updatingSettings
         button.ui.btn disabled='disabled'
           i.spinner
           | Saving...
       else
-        input.ui.btn.primary type='submit' disabled={saving} value='Save'
+        input.ui.btn.primary type='submit' disabled={updatingSettings} value='Save'
 
 #confirm-advanced-modal-dialog.ui.modal
   .ui.card
@@ -32,3 +32,36 @@ form submit='save'
     .card-footer
       .right
         button.ui.btn.primary click='hideModal target="view"' OK
+
+/ FIXME restore once e-mail reconfirmation working as intended
+.card-header.bordered.hide
+  h2 Account Details
+
+/ FIXME restore once e-mail reconfirmation working as intended
+form submit='updateDetails' class='hide'
+
+  .card-body
+    .ui.input-group
+      label.field-label for='email'
+        | Email
+      = input type='email' id='email' classNameBindings='view.emailFieldInvalid:error' value=controller.email
+
+    .ui.input-group
+      label.field-label for='password'
+        | Password
+      = input type='password' id='password' classNameBindings='view.passwordFieldInvalid:error' value=controller.password placeholder="Update password"
+
+    if view.showConfirmPassword
+      .ui.input-group
+        label.field-label for='confirmPassword'
+          | Confirm your Password
+        = input type='password' id='confirmPassword' classNameBindings='view.passwordFieldInvalid:error' value=controller.confirmPassword
+
+    .card-footer
+      .right
+        if updatingDetails
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Updating...
+        else
+          input.ui.btn.primary type='submit' disabled={updatingDetails} value='Update'

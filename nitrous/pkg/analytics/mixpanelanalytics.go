@@ -10,14 +10,6 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-const (
-	UserSignedUp      = "User Signed Up"
-	UserSignedIn      = "User Signed In"
-	HostCreated       = "Host Created"
-	ContainerCreated  = "Container Created"
-	ContainerAccessed = "Container Token Requested"
-)
-
 var (
 	mixpanelToken string
 

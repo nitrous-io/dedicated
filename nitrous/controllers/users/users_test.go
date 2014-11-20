@@ -14,8 +14,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
@@ -138,7 +138,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 				t, ok := svr.Tracker.(*FakeTracker)
 				Expect(ok).To(BeTrue())
-				Expect(t.Events[u.ID]).To(Equal([]string{analytics.UserSignedUp}))
+				Expect(t.Events[u.ID]).To(Equal([]string{server.UserSignedUp}))
 			})
 
 			It("tracks the user as a new analytics profile", func() {
@@ -379,6 +379,33 @@ var _ = Describe("controllers/users", func() {
 				Expect(usr.UpdatedAt).To(Equal(u.UpdatedAt))
 			})
 		})
+
+		Context("when an email is changed", func() {
+			var (
+				fakeMailer *FakeMailer
+				origMailer mailer.Mailer
+			)
+
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				origMailer = user.Mailer
+				fakeMailer = &FakeMailer{}
+				user.Mailer = fakeMailer
+
+				params := &url.Values{}
+				params.Set("email", "att@example.com")
+				doRequest(params)
+			})
+
+			It("fires off an email confirmation", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Expect(fakeMailer.SendMailCalled).To(BeTrue())
+				Expect(fakeMailer.Tos).To(Equal([]string{"<att@example.com>"}))
+			})
+		})
 	})
 
 	Describe("GET /api/v0/user", func() {
@@ -475,7 +502,7 @@ var _ = Describe("controllers/users", func() {
 			})
 
 			It("should confirm the account if the token matches", func() {
-				now := time.Now()
+				Expect(u.ConfirmedAt).To(BeNil(), "expect user to not confirmed yet")
 				doRequest("ABCD")
 
 				Expect(res.Code).To(Equal(http.StatusOK))
@@ -488,7 +515,7 @@ var _ = Describe("controllers/users", func() {
 				u, err = user.FindByID(db, u.ID)
 				Expect(err).To(BeNil())
 				Expect(u.ConfirmationToken.String).To(BeEmpty())
-				Expect(*u.ConfirmedAt).To(BeTemporally(">=", now))
+				Expect(u.ConfirmedAt).ToNot(BeNil(), "expect user to confirm")
 			})
 
 			It("should communicate if the confirmation has lapsed", func() {
@@ -530,7 +557,6 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		Context("with correct user", func() {
-
 			var u *user.User
 			curTime := time.Now()
 
@@ -558,8 +584,8 @@ var _ = Describe("controllers/users", func() {
 				Expect(j["error_description"]).To(Equal("specified user does not exist"))
 			})
 
-			It("should confirm the account if the token matches", func() {
-				now := time.Now()
+			It("should send the confirmation token if the token matches", func() {
+				Expect(u.ConfirmationSentAt).To(BeNil(), "expect confirmation to not be sent")
 				doRequest("ABCD")
 
 				Expect(res.Code).To(Equal(http.StatusOK))
@@ -573,9 +599,8 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 				Expect(u.ConfirmationToken.String).ToNot(BeEmpty())
 				Expect(u.ConfirmationToken.String).ToNot(Equal("ABCD"))
-				Expect(*u.ConfirmationSentAt).To(BeTemporally(">=", now))
+				Expect(u.ConfirmationSentAt).ToNot(BeNil(), "expect confirmation to be sent")
 			})
-
 		})
 	})
 })

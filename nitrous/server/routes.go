@@ -23,11 +23,44 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	mw "github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 )
 
+type routeData struct {
+	mw    mw.Middleware
+	track string
+	label string
+}
+
+// r is a helper that returns routeData. A route should always have label which
+// acts as a metric label for that route
+func r(label string, mw mw.Middleware, args ...string) routeData {
+	var track string
+	if len(args) > 0 {
+		track = args[0]
+	}
+	return routeData{mw: mw, track: track, label: label}
+}
+
+// drawRouteData draw the route with `routeJSON`.
+// if `auth` is set then we setup the auth middleware for it
+// if `track` for a route is set then we setup the track middleware for it
+func (s *Server) drawRouteData(method string, auth bool, routes map[string]routeData) {
+	for path, r := range routes {
+		var final mw.Middleware
+		// prefix all label with `nitrous.`
+		final = mw.Call("nitrous."+r.label, r.mw)
+		if r.track != "" {
+			final = mw.Track(r.track, final)
+		}
+		if auth {
+			final = mw.Auth(final)
+		}
+		s.routeJSON(path, final, method)
+	}
+}
+
 func (s *Server) drawRoutes() {
-	s.route("/", home.Index, "GET")
+	s.route("/", mw.Call("home.Index", home.Index), "GET")
 
 	if os.Getenv("DEBUG") == "true" {
 		s.router.HandleFunc("/debug/pprof/{path:.*}", pprof.Index).Methods("GET")
@@ -35,75 +68,88 @@ func (s *Server) drawRoutes() {
 	}
 
 	s.namespace("/api/v0", func() {
-		s.route("/events", mw.AuthQS(events.Stream), "GET")
+		s.route("/events", mw.AuthQS(mw.Call("events.Stream", events.Stream)), "GET")
 
-		s.routeJSON("/oauth/token", mw.Track(analytics.UserSignedIn, tokens.Post), "POST")
-		s.routeJSON("/users", mw.Track(analytics.UserSignedUp, users.Create), "POST")
-		s.routeJSON("/users", mw.Auth(users.Update), "PUT")
-		s.routeJSON("/user", mw.Auth(users.GetAuthenticatedUser), "GET")
-		s.routeJSON("/user/profile", mw.Auth(userprofiles.Show), "GET")
-		s.routeJSON("/user/profile", mw.Auth(userprofiles.Update), "POST")
-		s.routeJSON("/user/confirm", users.Confirm, "POST")
-		s.routeJSON("/user/resend_confirm", users.ResendConfirmation, "POST")
+		nonAuth := map[string]map[string]routeData{
+			"GET": {
+				"/plans":        r("plans.Index", plans.Index),
+				"/regions":      r("regions.Index", regions.Index),
+				"/base_images":  r("baseimages.Index", baseimages.Index),
+				"/app_settings": r("appsettings.Index", appsettings.Index),
+			},
+			"POST": {
+				"/oauth/token":               r("tokens.Post", tokens.Post, UserSignedIn),
+				"/users":                     r("users.Create", users.Create, UserSignedUp),
+				"/user/confirm":              r("users.Confirm", users.Confirm),
+				"/user/resend_confirm":       r("users.ResendConfirmation", users.ResendConfirmation),
+				"/send_reset_password_token": r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
+				"/reset_password":            r("passwords.ResetPassword", passwords.ResetPassword),
+			},
+		}
 
-		s.routeJSON("/send_reset_password_token", passwords.SendResetPasswordToken, "POST")
-		s.routeJSON("/reset_password", passwords.ResetPassword, "POST")
+		for method, routes := range nonAuth {
+			s.drawRouteData(method, false, routes)
+		}
 
-		s.routeJSON("/hosts", mw.Auth(hosts.Index), "GET")
-		s.routeJSON("/hosts", mw.Auth(mw.Track(analytics.HostCreated, hosts.Create)), "POST")
-		s.routeJSON("/hosts/{slug}", mw.Auth(mw.HostViaPath("slug", hosts.Show)), "GET")
-		s.routeJSON("/hosts/{slug}/stats", mw.Auth(mw.HostViaPath("slug", hosts.Stats)), "GET")
-		s.routeJSON("/hosts/{slug}", mw.Auth(mw.HostViaPath("slug", hosts.Update)), "PUT")
-		s.routeJSON("/hosts/{slug}", mw.Auth(mw.HostViaPath("slug", hosts.Destroy)), "DELETE")
-		s.routeJSON("/hosts/{slug}/restart", mw.Auth(mw.HostViaPath("slug", hosts.Restart)), "POST")
+		authed := map[string]map[string]routeData{
+			"GET": {
+				"/user":                              r("users.GetAuthenticatedUser", users.GetAuthenticatedUser),
+				"/user/profile":                      r("userprofiles.Show", userprofiles.Show),
+				"/hosts":                             r("hosts.Index", hosts.Index),
+				"/images":                            r("images.IndexAll", images.Index),
+				"/hosts/{slug}/images":               r("images.Index", images.Index),
+				"/hosts/{slug}":                      r("hosts.Show", mw.HostViaPath("slug", hosts.Show)),
+				"/hosts/{slug}/stats":                r("hosts.Stats", mw.HostViaPath("slug", hosts.Stats)),
+				"/hosts/{slug}/volumes":              r("volumes.Index", mw.HostViaPath("slug", volumes.Index)),
+				"/hosts/{slug}/volumes/{vslug}":      r("volumes.Show", mw.HostViaPath("slug", volumes.Show)),
+				"/hosts/{slug}/volumes/{vslug}/info": r("volumes.Info", mw.HostViaPath("slug", volumes.Info)),
+				"/hosts/{slug}/images/{image:.*}":    r("images.Inspect", mw.HostViaPath("slug", images.Inspect)),
+				"/hosts/{slug}/registries":           r("registries.Index", registries.Index),
+				"/containers":                        r("containers.Index", containers.Index),
+				"/containers/{slug}":                 r("containers.Show", containers.Show),
+				"/containers/{slug}/config":          r("containers.Config", containers.Config),
+				"/containers/{slug}/keys":            r("keys.Index", keys.Index),
+			},
+			"POST": {
+				"/user/profile":                        r("userprofiles.Update", userprofiles.Update),
+				"/hosts":                               r("hosts.Create", hosts.Create, HostCreated),
+				"/hosts/{slug}/registries":             r("registries.Login", registries.Login),
+				"/hosts/{slug}/restart":                r("hosts.Restart", mw.HostViaPath("slug", hosts.Restart)),
+				"/hosts/{slug}/volumes":                r("volumes.Create", mw.HostViaPath("slug", volumes.Create)),
+				"/hosts/{slug}/images":                 r("images.Build", mw.HostViaPath("slug", images.Build)),
+				"/hosts/{slug}/images/pull":            r("images.Pull", mw.HostViaPath("slug", images.Pull)),
+				"/hosts/{slug}/images/{image:.*}/push": r("images.Push", mw.HostViaPath("slug", images.Push)),
+				"/hosts/{slug}/images/{image:.*}/tag":  r("images.Tag", mw.HostViaPath("slug", images.Tag)),
+				"/containers":                          r("containers.Create", containers.Create, ContainerCreated),
+				"/containers/{slug}/commit":            r("containers.Commit", containers.Commit),
+				"/containers/{slug}/start":             r("containers.Start", containers.Start),
+				"/containers/{slug}/stop":              r("containers.Stop", containers.Stop),
+				"/containers/{slug}/restart":           r("containers.Restart", containers.Restart),
+				"/containers/{slug}/reconfig":          r("containers.Reconfig", containers.Reconfig, ContainerReconfigured),
+				"/containers/{slug}/token":             r("containers.Token", containers.Token, ContainerAccessed),
+				"/containers/{slug}/keys":              r("keys.Create", keys.Create, ContainerKeyAdded),
+				"/feedback":                            r("feedback.Send", feedback.Send),
+				"/admin/switch_user":                   r("admin.SwitchUser", admin.SwitchUser),
+			},
+			"PUT": {
+				"/users":                  r("users.Update", users.Update),
+				"/hosts/{slug}":           r("hosts.Update", mw.HostViaPath("slug", hosts.Update)),
+				"/containers/{slug}/keys": r("keys.Create", keys.Create),
+			},
+			"DELETE": {
+				"/hosts/{slug}":                    r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), HostDestroyed),
+				"/hosts/{slug}/registries/{rslug}": r("registries.Logout", registries.Logout),
+				"/hosts/{slug}/volumes/{vslug}":    r("volumes.Destroy", mw.HostViaPath("slug", volumes.Destroy)),
+				"/hosts/{slug}/images/{image:.*}":  r("images.Remove", mw.HostViaPath("slug", images.Remove)),
+				"/containers/{slug}":               r("containers.Destroy", containers.Destroy, ContainerDestroyed),
+				"/containers/{slug}/keys/{kslug}":  r("keys.Delete", keys.Delete),
+				"/containers/{slug}/keys":          r("keys.DeleteAll", keys.DeleteAll),
+			},
+		}
 
-		s.routeJSON("/hosts/{slug}/registries", mw.Auth(registries.Index), "GET")
-		s.routeJSON("/hosts/{slug}/registries", mw.Auth(registries.Login), "POST")
-		s.routeJSON("/hosts/{slug}/registries/{rslug}", mw.Auth(registries.Logout), "DELETE")
-
-		s.routeJSON("/hosts/{slug}/volumes", mw.Auth(mw.HostViaPath("slug", volumes.Index)), "GET")
-		s.routeJSON("/hosts/{slug}/volumes", mw.Auth(mw.HostViaPath("slug", volumes.Create)), "POST")
-		s.routeJSON("/hosts/{slug}/volumes/{vslug}", mw.Auth(mw.HostViaPath("slug", volumes.Destroy)), "DELETE")
-		s.routeJSON("/hosts/{slug}/volumes/{vslug}", mw.Auth(mw.HostViaPath("slug", volumes.Show)), "GET")
-		s.routeJSON("/hosts/{slug}/volumes/{vslug}/info", mw.Auth(mw.HostViaPath("slug", volumes.Info)), "GET")
-
-		s.routeJSON("/images", mw.Auth(images.Index), "GET")
-		s.routeJSON("/hosts/{slug}/images", mw.Auth(images.Index), "GET")
-		s.routeJSON("/hosts/{slug}/images", mw.Auth(mw.HostViaPath("slug", images.Build)), "POST")
-		s.routeJSON("/hosts/{slug}/images/pull", mw.Auth(mw.HostViaPath("slug", images.Pull)), "POST")
-		// Test thoroughly before adding a POST /hosts/{slug}/images/{image:.*}
-		// endpoint because that would probably match the push and tag routes.
-		s.routeJSON("/hosts/{slug}/images/{image:.*}/push", mw.Auth(mw.HostViaPath("slug", images.Push)), "POST")
-		s.routeJSON("/hosts/{slug}/images/{image:.*}/tag", mw.Auth(mw.HostViaPath("slug", images.Tag)), "POST")
-		s.routeJSON("/hosts/{slug}/images/{image:.*}", mw.Auth(mw.HostViaPath("slug", images.Remove)), "DELETE")
-		s.routeJSON("/hosts/{slug}/images/{image:.*}", mw.Auth(mw.HostViaPath("slug", images.Inspect)), "GET")
-
-		s.routeJSON("/containers", mw.Auth(containers.Index), "GET")
-		s.routeJSON("/containers", mw.Track(analytics.ContainerCreated, mw.Auth(containers.Create)), "POST")
-		s.routeJSON("/containers/{slug}", mw.Auth(containers.Show), "GET")
-		s.routeJSON("/containers/{slug}/commit", mw.Auth(containers.Commit), "POST")
-		s.routeJSON("/containers/{slug}/config", mw.Auth(containers.Config), "GET")
-		s.routeJSON("/containers/{slug}/start", mw.Auth(containers.Start), "POST")
-		s.routeJSON("/containers/{slug}/stop", mw.Auth(containers.Stop), "POST")
-		s.routeJSON("/containers/{slug}/restart", mw.Auth(containers.Restart), "POST")
-		s.routeJSON("/containers/{slug}/reconfig", mw.Auth(containers.Reconfig), "POST")
-		s.routeJSON("/containers/{slug}", mw.Auth(containers.Destroy), "DELETE")
-		s.routeJSON("/containers/{slug}/token", mw.Track(analytics.ContainerAccessed, mw.Auth(containers.Token)), "POST")
-
-		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Index), "GET")
-		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Create), "POST")
-		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.Create), "PUT")
-		s.routeJSON("/containers/{slug}/keys/{kslug}", mw.Auth(keys.Delete), "DELETE")
-		s.routeJSON("/containers/{slug}/keys", mw.Auth(keys.DeleteAll), "DELETE")
-
-		s.routeJSON("/feedback", mw.Auth(feedback.Send), "POST")
-
-		s.routeJSON("/plans", plans.Index, "GET")
-		s.routeJSON("/regions", regions.Index, "GET")
-		s.routeJSON("/base_images", baseimages.Index, "GET")
-
-		s.routeJSON("/admin/switch_user", mw.Auth(admin.SwitchUser), "POST")
-		s.routeJSON("/app_settings", appsettings.Index, "GET")
+		for method, routes := range authed {
+			s.drawRouteData(method, true, routes)
+		}
 	})
 
 	s.static("/", "public") // catch-all, must come last

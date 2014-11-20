@@ -452,6 +452,12 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (*provider.ContainerInf
 		return nil, err
 	}
 
+	ak := p.containerAuthorizedKeys(name)
+	existingKeys, err := ak.Read()
+	if err != nil {
+		return nil, err
+	}
+
 	imageName := fmt.Sprintf("%s-backup-%d", name, time.Now().UnixNano())
 	if _, err := p.Commit(id, imageName); err != nil {
 		return nil, err
@@ -472,6 +478,10 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (*provider.ContainerInf
 
 	if err := p.restore(name, fromCnr.ID, toCnr.ID); err != nil {
 		return toCnr, fmt.Errorf(errf, id, "restore", err)
+	}
+
+	if err := p.AddPublicKeys(toCnr.ID, existingKeys); err != nil {
+		return toCnr, fmt.Errorf(errf, id, "public_keys", err)
 	}
 
 	startedCnr, err := p.Start(toCnr.ID, configJSON)

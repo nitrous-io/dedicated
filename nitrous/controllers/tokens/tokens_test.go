@@ -14,7 +14,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -130,7 +129,7 @@ var _ = Describe("controllers/tokens", func() {
 				It("tracks the 'User Signed In' event", func() {
 					t, ok := svr.Tracker.(*FakeTracker)
 					Expect(ok).To(BeTrue())
-					Expect(t.Events[u.ID]).To(Equal([]string{analytics.UserSignedIn}))
+					Expect(t.Events[u.ID]).To(Equal([]string{server.UserSignedIn}))
 				})
 
 				It("tracks the user as a new analytics profile", func() {
