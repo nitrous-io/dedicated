@@ -1,47 +1,21 @@
 .card-header.bordered
-  h2 Add Credit Card
+  h2 Billing
 
 .card-body
-  form autocomplete='on' submit='save'
-    .ui.input-group
-      label.field-label for='card-name'
-        | Cardholder's Name
-      = input type='text' id='card-name' name='name' disabled=saving value=name
+  table.ui.table.horizontal
+    tr
+      th Card Type
+      td
+        = App.billingProfile.cardType 
+    tr
+      th Last Four Digits
+      td
+        = App.billingProfile.lastFour
+    tr
+      th Expiry
+      td
+        = App.billingProfile.expiry
 
-    .ui.input-group
-      label.field-label for='card-number'
-        | Credit Card Number
-      = input type='text' id='card-number' name='number' classNameBindings='view.numberFieldInvalid:error :cc-number' pattern='\d*' autocomplete='cc-number' disabled=saving value=number required=true
-
-    .ui.input-group
-      label.field-label for='card-expiration'
-        | Expiration
-      = input type='text' id='card-expiration' name='expiration' placeholder='MM/YYYY' classNameBindings='view.expirationFieldInvalid:error' disabled=saving value=expiration
-
-    .ui.input-group
-      label.field-label for='card-cvc'
-        | CVC
-      = input type='text' id='card-cvc' name='cvc' classNameBindings='view.cvcFieldInvalid:error :cc-cvc' disabled=saving value=cvc autocomplete='off'
-
-    .ui.input-group
-      label.field-label for='card-zip-code'
-        | Zip / Postal Code
-      = input type='text' id='card-zipcode' name='zipcode' disabled=saving value=zipcode
-
-    p.see-terms
-      | Please review the&nbsp;
-      a href='#' terms of service
-      |, and&nbsp;
-      a href='#' privacy policy
-      |. All sales are final.
-
-    .card-footer.bordered
-      if saving
-        .right
-          button.ui.btn disabled='disabled'
-            i.spinner
-            | Saving...
-      else
-        .right
-          a.ui.btn href='#' click='cancel' Cancel
-          input.ui.btn.primary type='submit' disabled={view.saveButtonDisabled} value='Save'
+.card-footer.bordered
+    .right
+      button.ui.btn click='changeCard' Change Card
