@@ -1,5 +1,7 @@
 {
   "address": "",
+  "librato_user": "",
+  "librato_token": "",
   "navigators": [
     {
       "name": "host",
