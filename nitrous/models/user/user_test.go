@@ -689,6 +689,48 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
+	Describe("ConfirmationLapsed()", func() {
+		var u *user.User
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		It("should be false when the confirmation_sent_at is null", func() {
+			fU, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(fU.ConfirmationLapsed()).To(BeFalse())
+		})
+
+		It("should be false when the confirmation_sent_at is recent", func() {
+			_, err := db.Exec(`UPDATE users SET confirmation_sent_at = now() WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			fU, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(fU.ConfirmationLapsed()).To(BeFalse())
+		})
+
+		It("should be true when the confirmation_sent_at is later than allowed", func() {
+			_, err := db.Exec(`UPDATE users SET confirmation_sent_at = now() - interval '26 hours' WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			fU, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(fU.ConfirmationLapsed()).To(BeTrue())
+		})
+	})
+
 	Describe("FindByResetPasswordToken()", func() {
 		var u *user.User
 

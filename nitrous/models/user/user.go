@@ -22,6 +22,7 @@ import (
 
 const resetPasswordWithin = 4 * time.Hour
 const maxConfirmationHours = 72 * time.Hour
+const maxUnconfirmedDuration = 24 * time.Hour
 
 var (
 	usernameRe               = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
@@ -261,6 +262,13 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 	}
 
 	return b, nil
+}
+
+func (u *User) ConfirmationLapsed() bool {
+	if u.ConfirmationSentAt == nil {
+		return false
+	}
+	return u.ConfirmationSentAt.Add(maxUnconfirmedDuration).Before(time.Now())
 }
 
 func (u *User) SetResetPasswordToken(d db.QueryReceiver) error {
