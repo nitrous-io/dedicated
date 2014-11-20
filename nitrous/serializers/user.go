@@ -13,6 +13,7 @@ type User struct {
 	Username       string          `json:"username"`
 	Email          string          `json:"email"`
 	Admin          bool            `json:"admin"`
+	BillingEnabled bool            `json:"billing_enabled"`
 	UserProfile    *UserProfile    `json:"user_profile,omitempty"`
 	BillingProfile *BillingProfile `json:"billing_profile,omitempty"`
 
@@ -25,10 +26,11 @@ func SerializeUser(u *user.User) *User {
 		return nil
 	}
 	return &User{
-		ID:       u.ID,
-		Username: u.Username,
-		Email:    u.Email,
-		Admin:    u.Admin,
+		ID:             u.ID,
+		Username:       u.Username,
+		Email:          u.Email,
+		Admin:          u.Admin,
+		BillingEnabled: u.BillingEnabled,
 
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,

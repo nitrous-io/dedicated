@@ -38,8 +38,14 @@
         ul.dropdown-menu.right style='display: none'
           li
             link-to 'account' | Account Settings
-          li
-            link-to 'billing' | Billing
+          / TODO: FFLAG payments
+          if App.user.billingEnabled
+            li
+              link-to 'billing' | Billing
+          else
+            li.disabled
+              a href='#' Billing
+          else
           li.separator
           li
             a href='/docs/' Help

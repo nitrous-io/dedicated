@@ -8,6 +8,7 @@ App.User = klass = App.Model.extend
   email: attr()
   password: attr()
   admin: attr('boolean', default: false)
+  billingEnabled: attr('boolean', as: 'billing_enabled', default: false)
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'updated_at', serialize: false)
 

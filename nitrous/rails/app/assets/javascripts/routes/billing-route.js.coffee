@@ -1,8 +1,11 @@
 App.BillingRoute = App.AuthedRoute.extend
   beforeModel: ->
     @_super.apply this, arguments
+    # TODO: FFLAG payments
+    if !App.get('user.billingEnabled')
+      @transitionTo '/'
     if !App.get('billingProfile.paid')
-      @transitionTo 'addCard'
+      @transitionTo 'add-card'
 
   activate: ->
     App.set 'title', 'Billing'

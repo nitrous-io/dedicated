@@ -58,9 +58,10 @@ type User struct {
 	Password          string `json:"-"`
 	EncryptedPassword string `db:"encrypted_password" json:"-"`
 
-	LoginAttempts int           `db:"login_attempts" json:"-"`
-	InviteCodeID  sql.NullInt64 `db:"invite_code_id" json:"-"`
-	Admin         bool          `db:"admin" json:"admin"`
+	LoginAttempts  int           `db:"login_attempts" json:"-"`
+	InviteCodeID   sql.NullInt64 `db:"invite_code_id" json:"-"`
+	Admin          bool          `db:"admin" json:"admin"`
+	BillingEnabled bool          `db:"billing_enabled" json:"billing_enabled"`
 
 	ResetPasswordToken  sql.NullString `db:"reset_password_token" json:"-"`
 	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at" json:"-"`
@@ -458,6 +459,10 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 
 // ActivateBillingProfile will create a new customer in Stripe and return the updated billing profile.
 func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billingprofile.BillingProfile, error) {
+	if !u.BillingEnabled {
+		return nil, fmt.Errorf("Billing not enabled for the given user - %s", u.Username)
+	}
+
 	params := &stripe.CustomerParams{
 		Token: token,
 		Email: u.Email,
