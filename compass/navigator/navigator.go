@@ -7,6 +7,7 @@ import (
 )
 
 type Navigator interface {
+	Name() string // tell us what type of navigator you are.
 	Lookup(name string) ([]dns.RR, error)
 	NewSOA() []dns.RR
 }
