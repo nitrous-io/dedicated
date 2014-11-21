@@ -27,7 +27,7 @@ klass.reopenClass
   singluar: true
   rootKey: 'billing_profile'
 
-  createWithStripeToken: (params) ->
+  addCard: (params) ->
     new Ember.RSVP.Promise (resolve, reject) =>
       Stripe.card.createToken {
         number: params.number,

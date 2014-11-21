@@ -46,7 +46,7 @@ App.AddCardController = Em.ObjectController.extend
       if !@valid()
         @set 'saving', false
       else
-        App.BillingProfile.createWithStripeToken(
+        App.BillingProfile.addCard(
           number: @get('number'),
           exp_month: @get('expMonth'),
           exp_year: @get('expYear'),
