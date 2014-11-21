@@ -4,6 +4,25 @@
   .card-header.bordered
     h2 Log In
 
+  if controller.confirmationLapsed
+    .message
+      if resentConfirm
+        p
+          | Confirmation resent!
+        p
+          | Please check your email to confirm your email.
+      else
+        if resendingConfirm
+          p
+            | Resending confirmation.....
+        else
+          p
+            | Your confirmation email has lapsed.
+          if controller.confirmationLapsedResendable
+            p
+              | Didn't receive a confirmation email?
+              a.ui.btn click='resendConfirmationEmail' Resend confirmation email
+
   form
     .card-body
       .ui.input-group

@@ -22,6 +22,7 @@ import (
 
 const resetPasswordWithin = 4 * time.Hour
 const maxConfirmationHours = 72 * time.Hour
+const maxUnconfirmedDuration = 24 * time.Hour
 
 var (
 	usernameRe               = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
@@ -263,6 +264,13 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 	return b, nil
 }
 
+func (u *User) ConfirmationLapsed() bool {
+	if u.ConfirmationSentAt == nil {
+		return false
+	}
+	return u.ConfirmationSentAt.Add(maxUnconfirmedDuration).Before(time.Now())
+}
+
 func (u *User) SetResetPasswordToken(d db.QueryReceiver) error {
 	t, err := securerandom.Base64(191)
 	if err != nil {
@@ -294,7 +302,7 @@ func (u *User) encryptPassword() error {
 	return nil
 }
 
-func (u *User) SendConfirmationEmail(d db.QueryReceiver) error {
+func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt bool) error {
 	if u.ConfirmedAt != nil {
 		return ErrConfirmationAlreadyCompleted
 	}
@@ -305,8 +313,15 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver) error {
 	}
 	u.ConfirmationToken = sql.NullString{t[:255], true}
 
+	var stmt string
+	if setConfirmationSentAt || u.ConfirmationSentAt == nil {
+		stmt = "UPDATE users SET (confirmation_token, confirmation_sent_at) = (:confirmation_token, now()) WHERE id = :id RETURNING *;"
+	} else {
+		stmt = "UPDATE users SET (confirmation_token) = (:confirmation_token) WHERE id = :id RETURNING *;"
+	}
+
 	// FIXME: ensure confirmation_token is unique and retry, do not surface error
-	nstmt, err := d.PrepareNamed("UPDATE users SET (confirmation_token, confirmation_sent_at) = (:confirmation_token, now()) WHERE id = :id RETURNING *;")
+	nstmt, err := d.PrepareNamed(stmt)
 	if err != nil {
 		return err
 	}
@@ -361,8 +376,8 @@ func (u *User) ConfirmEmail(d db.QueryReceiver) error {
 	}
 
 	nstmt, err := d.PrepareNamed(`UPDATE users
-		SET (confirmation_token, confirmed_at)
-		= (NULL, now())
+		SET (confirmation_token, confirmed_at, confirmation_sent_at)
+		= (NULL, now(), NULL)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
