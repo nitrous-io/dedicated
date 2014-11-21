@@ -4,7 +4,13 @@ App.Snackbar = Em.Object.extend
   init: ->
     @set 'items', Em.A()
 
+  containsMessage: (msg) ->
+    items = @get('items')
+    items.any (item)->
+      item.message == msg
+
   post: (msg, duration=5500) ->
+    return if @containsMessage msg
     items = @get('items')
     item = items.unshiftObject(App.SnackbarItem.create(message: msg.toString()))
 

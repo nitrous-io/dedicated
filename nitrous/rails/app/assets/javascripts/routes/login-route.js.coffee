@@ -18,3 +18,4 @@ App.LoginRoute = Em.Route.extend
       login: null
       password: null
       error: null
+      loggingIn: false
