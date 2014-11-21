@@ -43,8 +43,9 @@ App.ConfirmEmailController = Em.Controller.extend
       cache: false
       contentType: false
     )).then (json) =>
+      App.set 'token', json.access_token
       @set 'confirming', false
-      App.postError('Your email has been confirmed', null)
+      App.snackbar.post 'Your email has been confirmed'
       Em.run.next =>
         @transitionToRoute 'home.index'
     , (jqxhr) =>

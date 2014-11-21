@@ -501,7 +501,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(j["error_description"]).To(Equal("specified user does not exist"))
 			})
 
-			It("should confirm the account if the token matches", func() {
+			It("should successfully return a token for the user", func() {
 				Expect(u.ConfirmedAt).To(BeNil(), "expect user to not confirmed yet")
 				doRequest("ABCD")
 
@@ -509,13 +509,13 @@ var _ = Describe("controllers/users", func() {
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
-				Expect(j["error"]).To(BeNil())
-				Expect(j["confirmed"]).To(BeTrue())
+				Expect(j["access_token"]).ToNot(BeNil())
+				Expect(j["token_type"]).ToNot(BeNil())
 
-				u, err = user.FindByID(db, u.ID)
+				t, err := token.FindByToken(db, j["access_token"].(string))
 				Expect(err).To(BeNil())
-				Expect(u.ConfirmationToken.String).To(BeEmpty())
-				Expect(u.ConfirmedAt).ToNot(BeNil(), "expect user to confirm")
+				Expect(t).ToNot(BeNil())
+				Expect(t.UserID).To(Equal(u.ID))
 			})
 
 			It("should communicate if the confirmation has lapsed", func() {
