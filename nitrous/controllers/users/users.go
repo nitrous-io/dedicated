@@ -186,11 +186,7 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	err = env.Login(u, w)
-	if err != nil {
-		return err
-	}
-	return nil
+	return env.Login(u, w)
 }
 
 func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
