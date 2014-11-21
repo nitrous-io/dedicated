@@ -16,6 +16,10 @@ type Dummy struct {
 	data   map[string]string
 }
 
+func (d *Dummy) Name() string {
+	return "dummy"
+}
+
 func (d *Dummy) Lookup(name string) ([]dns.RR, error) {
 	ip, ok := d.data[name]
 	if !ok {

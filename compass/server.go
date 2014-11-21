@@ -3,6 +3,7 @@ package compass
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"strings"
 	"sync"
@@ -10,6 +11,9 @@ import (
 
 	"github.com/miekg/dns"
 	n "github.com/nitrous-io/dedicated/compass/navigator"
+	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/rcrowley/go-metrics"
+	"github.com/rcrowley/go-metrics/librato"
 )
 
 type NavigatorConfig struct {
@@ -20,6 +24,8 @@ type NavigatorConfig struct {
 
 type Config struct {
 	Addr             string            `json:"address"` // host:port
+	LibratoUser      string            `json:"librato_user"`
+	LibratoToken     string            `json:"librato_token"`
 	NavigatorConfigs []NavigatorConfig `json:"navigators"`
 }
 
@@ -81,13 +87,17 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	// handle DNS requests
 	switch q.Qtype {
 	case dns.TypeA:
+		start := time.Now()
 		for domain, navigator := range s.navigators {
+			label := fmt.Sprintf("compass.%s.lookup", navigator.Name())
 			// if the navigator handles this domain
 			if strings.HasSuffix(q.Name, domain) {
 				r, err := navigator.Lookup(q.Name)
 				if err == nil {
 					m.Answer = r
+					mh.UpdateSince(label, start)
 				} else {
+					mh.Error(err, label)
 					log.Printf("navigator %s failed to resolve %s, err %s", domain, q.Name, err)
 				}
 			}
@@ -141,5 +151,26 @@ func NewServer(config *Config) (*Server, error) {
 		wg:         new(sync.WaitGroup),
 		navigators: navigators,
 	}
+
+	// configure metrics output. if we do not have librato user/token i.e.
+	// development environment, output the metrics to stderr
+	// by default we flush metrics every 10s
+	if config.LibratoUser == "" || config.LibratoToken == "" {
+		log.Printf("missing librato config. Metrics logging is disabled")
+		// in dev, we flush metrics every 60s into devNull
+		// because we are not interested in them
+		go metrics.Log(metrics.DefaultRegistry, 60e9,
+			log.New(ioutil.Discard, "compass: metrics: ", log.Lmicroseconds))
+	} else {
+		go librato.Librato(metrics.DefaultRegistry,
+			30e9,                // interval
+			config.LibratoUser,  // account owner email address
+			config.LibratoToken, // Librato API token
+			"compass",           // source
+			[]float64{0.99},     // precentiles to send
+			time.Millisecond,    // time unit
+		)
+	}
+
 	return server, nil
 }
