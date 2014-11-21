@@ -321,7 +321,6 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 				Expect(bcrypt.Verify(updated.EncryptedPassword, "abcdef")).To(BeTrue())
 				Expect(updated.Name).To(Equal("Token Update"))
-				Expect(updated.Email).To(Equal("tupdate@example.com"))
 				Expect(*updated.UpdatedAt).To(BeTemporally(">", *u.UpdatedAt))
 			})
 		})
@@ -380,7 +379,7 @@ var _ = Describe("controllers/users", func() {
 			})
 		})
 
-		Context("when an email is changed", func() {
+		Context("when an email is sent in the request", func() {
 			var (
 				fakeMailer *FakeMailer
 				origMailer mailer.Mailer
@@ -393,17 +392,71 @@ var _ = Describe("controllers/users", func() {
 				origMailer = user.Mailer
 				fakeMailer = &FakeMailer{}
 				user.Mailer = fakeMailer
+			})
+
+			It("should not fire off an email if the email is the same", func() {
+				params := &url.Values{}
+				params.Set("email", u.Email)
+				doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				usr, err := user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(usr.UnconfirmedEmail.String).To(BeEmpty())
+
+				Expect(fakeMailer.SendMailCalled).To(BeFalse())
+			})
+
+			It("should fire off an email if the email differs from the current value", func() {
+				params := &url.Values{}
+				params.Set("email", "att@example.com")
+				doRequest(params)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				usr, err := user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(usr.UnconfirmedEmail.String).To(Equal("att@example.com"))
+
+				Expect(fakeMailer.SendMailCalled).To(BeTrue())
+				Expect(fakeMailer.Tos).To(Equal([]string{"<att@example.com>"}))
+			})
+
+			It("should not fire off an email if the email is the same as the unconfirmed email", func() {
+				_, err := db.Exec(`UPDATE users SET unconfirmed_email = 'att@example.com' WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
 
 				params := &url.Values{}
 				params.Set("email", "att@example.com")
 				doRequest(params)
-			})
 
-			It("fires off an email confirmation", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				Expect(fakeMailer.SendMailCalled).To(BeTrue())
-				Expect(fakeMailer.Tos).To(Equal([]string{"<att@example.com>"}))
+				usr, err := user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(usr.UnconfirmedEmail.String).To(Equal("att@example.com"))
+
+				Expect(fakeMailer.SendMailCalled).To(BeFalse())
+			})
+
+			It("should revert to the original email if provided while unconfirmed is different", func() {
+				_, err := db.Exec(`UPDATE users SET confirmed_at = now(), unconfirmed_email = 'att@example.com' WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				params := &url.Values{}
+				params.Set("email", u.Email)
+				doRequest(params)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				usr, err := user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(usr.UnconfirmedEmail.String).To(BeEmpty())
+				Expect(usr.ConfirmedAt).ToNot(BeNil())
+				Expect(usr.ConfirmationSentAt).To(BeNil())
+				Expect(usr.ConfirmationToken.String).To(BeEmpty())
+
+				Expect(fakeMailer.SendMailCalled).To(BeFalse())
 			})
 		})
 	})

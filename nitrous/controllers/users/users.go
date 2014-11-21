@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -87,7 +88,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	err = u.SendConfirmationEmail(db, true)
+	err = u.SendConfirmationEmail(db, true, false)
 	if err != nil {
 		return err
 	}
@@ -114,9 +115,27 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	emailChanged := false
-	if email != "" {
-		emailChanged = u.Email != email
-		u.Email = email
+	forceConfirm := false
+	noUnconfirmedWithSameEmail := !(u.UnconfirmedEmail.String == "" && email == u.Email)
+	noSameUnconfirmedEmail := email != u.UnconfirmedEmail.String
+	if email != "" && noUnconfirmedWithSameEmail && noSameUnconfirmedEmail {
+		if email == u.Email && u.UnconfirmedEmail.String != "" {
+			u.UnconfirmedEmail.String = ""
+			forceConfirm = true
+		} else {
+			// verify email
+			oU, err := user.FindByUsernameOrEmail(db, email)
+			if err != nil {
+				return err
+			}
+			if oU != nil && oU.ID != u.ID {
+				return validations["index_users_on_email"]
+			}
+
+			emailChanged = true
+			u.UnconfirmedEmail.String = email
+			u.UnconfirmedEmail.Valid = true
+		}
 	}
 	if password != "" {
 		u.Password = password
@@ -139,8 +158,16 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if emailChanged {
+		if err := u.SendConfirmationEmail(db, true, true); err != nil {
+			return err
+		}
+	}
+
+	if forceConfirm && u.ConfirmationSentAt != nil {
+		t := time.Now()
 		u.ConfirmedAt = nil
-		if err := u.SendConfirmationEmail(db, true); err != nil {
+		u.ConfirmationSentAt = &t
+		if err := u.ConfirmEmail(db); err != nil {
 			return err
 		}
 	}
@@ -242,7 +269,7 @@ func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return reconfirmInvalidUser
 	}
 
-	err = u.SendConfirmationEmail(db, false)
+	err = u.SendConfirmationEmail(db, false, false)
 	if err != nil {
 		if err == user.ErrConfirmationAlreadyCompleted {
 			return httperror.New(http.StatusBadRequest, "already_confirmed", err.Error())
