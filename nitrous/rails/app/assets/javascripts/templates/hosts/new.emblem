@@ -58,10 +58,9 @@
           .spec-box
             h4 Price
             p
-              span.strike-price
-                | $&nbsp;
-                = decimal selectedPlan.price 2
-                | &nbsp;/&nbsp;mo.
+              / FIXME restore once initial pricing has been decided
+              / = decimal selectedPlan.price 2
+              | TBD
               span.question title="Free during beta!" ?
 
         p.see-terms
