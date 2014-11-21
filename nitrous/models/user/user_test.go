@@ -56,7 +56,7 @@ var _ = Describe("models/user", func() {
 			d, _ := json.Marshal(u)
 			r := make(map[string]interface{})
 			json.Unmarshal(d, &r)
-			exposed := []string{"id", "name", "username", "email", "admin", "billing_enabled", "created_at", "updated_at"}
+			exposed := []string{"id", "name", "username", "email", "admin", "billing_enabled", "created_at", "updated_at", "unconfirmed_email"}
 			for _, p := range exposed {
 				Expect(r[p]).NotTo(BeNil(), "User JSON should contain %s", p)
 				delete(r, p)
@@ -507,11 +507,12 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("updates name, email, encrypted_password, updated_at", func() {
+		It("updates name, email, unconfirmed_email, encrypted_password, updated_at", func() {
 			u.Username = "nochange"
 			u.Name = "qux jr"
 			u.Password = "abcdef"
 			u.Email = "quxjr@example.com"
+			u.UnconfirmedEmail = sql.NullString{String: "un@example.com", Valid: true}
 			oldCreated, oldUpdated := u.CreatedAt, u.UpdatedAt
 			t := time.Now()
 			u.CreatedAt = &t
@@ -522,6 +523,7 @@ var _ = Describe("models/user", func() {
 			Expect(updated.Username).To(Equal("qux"))
 			Expect(updated.Name).To(Equal("qux jr"))
 			Expect(updated.Email).To(Equal("quxjr@example.com"))
+			Expect(updated.UnconfirmedEmail.String).To(Equal("un@example.com"))
 			Expect(updated.Password).To(BeEmpty())
 			Expect(bcrypt.Verify(updated.EncryptedPassword, "abcdef")).To(BeTrue())
 			Expect(updated.CreatedAt).To(Equal(oldCreated))

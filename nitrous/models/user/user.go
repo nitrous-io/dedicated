@@ -69,6 +69,7 @@ type User struct {
 	ConfirmationToken  sql.NullString `db:"confirmation_token" json:"-"`
 	ConfirmationSentAt *time.Time     `db:"confirmation_sent_at" json:"-"`
 	ConfirmedAt        *time.Time     `db:"confirmed_at" json:"-"`
+	UnconfirmedEmail   sql.NullString `db:"unconfirmed_email" json:"unconfirmed_email,omitempty"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {
@@ -208,8 +209,8 @@ func (u *User) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE users
-		SET (name, email, encrypted_password, updated_at)
-		= (:name, :email, :encrypted_password, now())
+		SET (name, email, encrypted_password, unconfirmed_email, updated_at)
+		= (:name, :email, :encrypted_password, :unconfirmed_email, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
