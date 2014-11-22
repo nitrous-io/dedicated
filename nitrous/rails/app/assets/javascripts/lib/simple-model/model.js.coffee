@@ -96,7 +96,7 @@ klass.reopenClass
     d = {}
     Ember.get(this, '_attrs').forEach (key, attr) =>
       k = @_getKey(key)
-      if data.hasOwnProperty(k)
+      if data.hasOwnProperty(k) || attr.options?.overwrite
         if (val = data[k])?
           val = switch attr.type
             when 'string'
