@@ -34,17 +34,24 @@ form submit='updateSettings'
         button.ui.btn.primary click='hideModal target="view"' OK
 
 / FIXME restore once e-mail reconfirmation working as intended
-.card-header.bordered.hide
+.card-header.bordered
   h2 Account Details
 
 / FIXME restore once e-mail reconfirmation working as intended
-form submit='updateDetails' class='hide'
+form submit='updateDetails'
 
   .card-body
     .ui.input-group
       label.field-label for='email'
         | Email
       = input type='email' id='email' classNameBindings='view.emailFieldInvalid:error' value=controller.email
+      .note
+        if controller.unconfirmedEmail
+          p
+            ' An email confirmation is pending, emails will be sent to
+            = controller.originalEmail
+            '
+            | until confirmed
 
     .ui.input-group
       label.field-label for='password'
