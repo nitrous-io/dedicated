@@ -91,9 +91,6 @@ type ProvisionOptions struct {
 
 // job is a request to pre-provision a single host.
 type job struct {
-	driver   string
-	region   *region.Region
-	plan     *plan.Plan
 	template *providertemplate.ProviderTemplate
 }
 
@@ -343,12 +340,7 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	}
 
 	// FIXME would feel more comfortable checking against len of hosts here
-	p.jobQueue <- job{
-		driver:   driver,
-		region:   r,
-		plan:     pl,
-		template: opts.Template,
-	}
+	p.jobQueue <- job{template: opts.Template}
 
 	return
 }
@@ -514,32 +506,12 @@ func (p *Provisioner) createJobs() ([]job, error) {
 
 	jobs := []job{}
 	for _, pt := range pts {
-		// TODO: lots of queries in loop, optimize
-		// TODO: using region ID and plan ID for jobs would save a lot of
-		// queries and finder boilerplate
-
-		r, err := region.FindByID(db, pt.RegionID)
+		hosts, err := host.FindAllPreprovisioned(db, &region.Region{ID: pt.RegionID}, &plan.Plan{ID: pt.PlanID})
 		if err != nil {
 			return nil, err
 		}
-		if r == nil {
-			return nil, fmt.Errorf("provisioner: region not found", pt.RegionID)
-		}
-
-		pl, err := plan.FindByID(db, pt.PlanID)
-		if err != nil {
-			return nil, err
-		}
-		if pl == nil {
-			return nil, fmt.Errorf("provisioner: plan not found", pt.PlanID)
-		}
-
-		hosts, err := host.FindAllPreprovisioned(db, r, pl)
-		if err != nil {
-			return nil, err
-		}
-		logPrefix := fmt.Sprintf("provisioner: host count for (template,region,plan) (%d,%s,%s) is %d, max is %d: ",
-			pt.ID, r.Name, pl.Name, len(hosts), pt.PreprovisionMax)
+		logPrefix := fmt.Sprintf("provisioner: host count for (template,region,plan) (%d,%d,%d) is %d, max is %d: ",
+			pt.ID, pt.RegionID, pt.PlanID, len(hosts), pt.PreprovisionMax)
 		needed := pt.PreprovisionMax - len(hosts)
 		if needed <= 0 {
 			p.logger.Debugf("%s skipping", logPrefix)
@@ -547,12 +519,7 @@ func (p *Provisioner) createJobs() ([]job, error) {
 		}
 		p.logger.Debugf("%s creating jobs", logPrefix)
 		for i := 0; i < needed; i++ {
-			jobs = append(jobs, job{
-				driver:   pt.Provider,
-				region:   r,
-				plan:     pl,
-				template: &pt,
-			})
+			jobs = append(jobs, job{template: &pt})
 		}
 	}
 
@@ -567,17 +534,17 @@ func (p *Provisioner) worker(id int, jobQueue chan job, wg *sync.WaitGroup) {
 	for {
 		select {
 		case job := <-jobQueue:
-			p.logger.Debugf("provisioner: worker %d received job: %s/%s/%s",
-				id, job.driver, job.region.Slug, job.plan.Slug)
+			p.logger.Debugf("provisioner: worker %d received job: %s/%d/%d",
+				id, job.template.Provider, job.template.RegionID, job.template.PlanID)
 			h, err := p.preprovision(job)
 			if err != nil {
 				// Put job back in queue.
-				p.logger.Errorf("provisioner: worker %d job %s/%s/%s failed, err: %v",
-					id, job.driver, job.region.Slug, job.plan.Slug, err)
+				p.logger.Errorf("provisioner: worker %d job %s/%d/%d failed, err: %v",
+					id, job.template.Provider, job.template.RegionID, job.template.PlanID, err)
 				jobQueue <- job
 			} else {
-				p.logger.Infof("provisioner: worker %d job %s/%s/%s successfully pre-provisioned host: %+v",
-					id, job.driver, job.region.Slug, job.plan.Slug, h)
+				p.logger.Infof("provisioner: worker %d job %s/%d/%d successfully pre-provisioned host: %+v",
+					id, job.template.Provider, job.template.RegionID, job.template.PlanID, h)
 			}
 		case <-p.stop:
 			p.logger.Debugf("provisioner: worker %d quitting", id)
@@ -587,6 +554,15 @@ func (p *Provisioner) worker(id int, jobQueue chan job, wg *sync.WaitGroup) {
 }
 
 func (p *Provisioner) preprovision(j job) (*host.Host, error) {
+	r, err := region.FindByID(p.db, j.template.RegionID)
+	if err != nil {
+		return nil, err
+	}
+	pl, err := plan.FindByID(p.db, j.template.PlanID)
+	if err != nil {
+		return nil, err
+	}
+
 	slug := fmt.Sprintf("pre-provisioned-%d", time.Now().UnixNano())
 	opts := ProvisionOptions{
 		Async:        false,
@@ -596,8 +572,8 @@ func (p *Provisioner) preprovision(j job) (*host.Host, error) {
 		Name:         "Pre-provisioned host",
 		User:         p.preprovisionUser,
 		Token:        p.preprovisionUserToken,
-		Region:       j.region,
-		Plan:         j.plan,
+		Region:       r,
+		Plan:         pl,
 		Template:     j.template,
 		AptLocation:  defaultAPTLocation,
 		AptDist:      defaultAPTDist,
