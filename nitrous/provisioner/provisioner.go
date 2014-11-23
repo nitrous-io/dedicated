@@ -337,12 +337,8 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	pl := opts.Plan
 
 	pt, err := providertemplate.FindByRegionAndPlanAndProvider(p.db, r.ID, pl.ID, driver)
-	if err != nil {
-		// handle error by skipping reprovisioning
-		p.logger.Errorf("provisioner: error searching for provider template (%s, %s, %s)", driver, pl.Name, r.Name)
-		return h, nil
-	}
-	if pt == nil {
+	if err != nil || pt == nil {
+		p.logger.Errorf("provisioner: can't find provider template (%s, %s, %s)", driver, pl.Name, r.Name)
 		return h, nil
 	}
 

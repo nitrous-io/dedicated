@@ -92,7 +92,6 @@ func main() {
 		)
 	}
 
-	// TODO: use some other mechanism for populating preprovisioner config
 	pu := os.Getenv("PROVISIONER_USER")
 	if pu == "" {
 		logr.FatalExit("nitrousd: PROVISIONER_USER is not defined")
