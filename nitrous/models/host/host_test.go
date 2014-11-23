@@ -467,8 +467,8 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("ReassignUser()", func() {
-		It("updates the host's user_id to the given user's ID", func() {
+	Describe("Reassign()", func() {
+		It("updates the host's user_id to the given user's ID and the assigned_at timestamp", func() {
 			h := &host.Host{
 				Slug:               "foo",
 				UserID:             hs.U.ID,
@@ -486,9 +486,10 @@ var _ = Describe("models/host", func() {
 			err = WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
-			err = h.ReassignUser(db, u)
+			err = h.Reassign(db, u)
 			Expect(err).To(BeNil())
 			Expect(h.UserID).To(Equal(u.ID))
+			Expect(h.AssignedAt).NotTo(BeNil())
 		})
 	})
 

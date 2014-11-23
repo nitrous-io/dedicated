@@ -146,9 +146,7 @@ func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub, conf *Co
 	}
 }
 
-// Start kicks off N workers that pre-provision hosts as necessary.
-// Both N and the number/kind of hosts to pre-provision is determined by
-// the provisioner's Config.
+// Start kicks off Config.NumWorkers workers that pre-provision hosts.
 func (p *Provisioner) Start() error {
 	if p.config == nil {
 		return ErrPreprovisionerNotConfigured
@@ -326,7 +324,7 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		return
 	}
 
-	if err = h.ReassignUser(p.db, opts.User); err != nil {
+	if err = h.Reassign(p.db, opts.User); err != nil {
 		err = fmt.Errorf("provisioner: failed to assign pre-provisioned host %d to real user, err: %v", h.ID, err)
 		return
 	}
