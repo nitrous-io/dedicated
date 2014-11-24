@@ -17,6 +17,13 @@ func init() {
 	}
 }
 
+const (
+	StateFree       = "free"
+	StatePaid       = "paid"
+	StatePaymentDue = "payment_due"
+	StateDelinquent = "delinquent"
+)
+
 type BillingProfile struct {
 	ID        int64          `db:"id"`
 	UserID    int64          `db:"user_id"`
@@ -43,7 +50,7 @@ func Find(d db.QueryReceiver, userID int64) (*BillingProfile, error) {
 }
 
 func Create(tx *sqlx.Tx, userID int64) error {
-	_, err := tx.Exec(`INSERT INTO billing_profiles (user_id, state) VALUES ($1, 'free');`, userID)
+	_, err := tx.Exec(`INSERT INTO billing_profiles (user_id, state) VALUES ($1, $2);`, userID, StateFree)
 	return err
 }
 
