@@ -46,16 +46,17 @@ App.AddCardController = Em.ObjectController.extend
       if !@valid()
         @set 'saving', false
       else
-        App.BillingProfile.addCard(
+        App.get('billingProfile').addCard(
           number: @get('number'),
           exp_month: @get('expMonth'),
           exp_year: @get('expYear'),
           cvc: @get('cvc')
         ).then =>
+          @set 'saving', false
           @transitionToRoute '/'
         , (errorMsg) =>
-          App.postError(errorMsg, 'Failed to create billing profile!')
           @set 'saving', false
+          App.postError(errorMsg, 'Failed to create billing profile!')
 
     cancel: ->
       @transitionToRoute 'billing'
