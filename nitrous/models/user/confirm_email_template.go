@@ -11,8 +11,7 @@ const confirmEmailHtmlTmpl = `
   </head>
   <body>
     <h3>Hello {{ .Name }}!</h3>
-    <p>Welcome to Nitrous, we're excited to have you on board.</p>
-    <p>To complete the registration process we will need to you to confirm your email, all you have to do is click the link below.</p>
+    <p>To continue using Nitrous we need you to confirm your email address using the link below.</p>
     <p><a href="{{ .ConfirmUrl }}" target="_blank">Confirm email</a></p>
     <br />
     <p>Thanks,</p>
@@ -23,8 +22,7 @@ const confirmEmailHtmlTmpl = `
 
 const confirmEmailTxtTmpl = `
 Hello {{ .Name }}!
-Welcome to Nitrous, we're excited to have you on board.
-To complete the registration process we will need to you to confirm your email, all you have to do is click the link below.
+To continue using Nitrous we need you to confirm your email address using the link below.
 {{ .ConfirmUrl }}
 
 Thanks,
