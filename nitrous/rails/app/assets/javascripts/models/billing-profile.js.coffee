@@ -22,6 +22,18 @@ App.BillingProfile = klass = App.Model.extend
     "#{@get 'expMonth'}/#{@get 'expYear'}"
   ).property 'expMonth', 'expYear'
 
+  hasCard: (->
+    @get('state') != 'free' && @get('lastFour').length > 0
+  ).property 'state', 'lastFour'
+
+  # override the default save method
+  save: (params, options) ->
+    adapter = Ember.get(@constructor, 'adapter')
+    if @get('hasCard')
+      adapter.updateRecord(this, params, options)
+    else
+      adapter.createRecord(this, params, options)
+
   addCard: (params) ->
     new Ember.RSVP.Promise (resolve, reject) =>
       Stripe.card.createToken {
@@ -41,5 +53,5 @@ App.BillingProfile = klass = App.Model.extend
 
 klass.reopenClass
   url: '/user/billing_profile'
-  singluar: true
+  singular: true
   rootKey: 'billing_profile'
