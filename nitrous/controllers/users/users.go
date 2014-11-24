@@ -167,13 +167,9 @@ func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	serialized := serializers.SerializeUser(u)
-	serialized.UserProfile = serializers.SerializeUserProfile(up)
-	serialized.BillingProfile = serializers.SerializeBillingProfile(bp)
-
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"user": serialized,
+		"user": serializers.SerializeUserWithProfiles(u, up, bp),
 	}
 	return nil
 }

@@ -3,7 +3,9 @@ package serializers
 import (
 	"time"
 
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 )
 
 type User struct {
@@ -31,4 +33,14 @@ func SerializeUser(u *user.User) *User {
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,
 	}
+}
+
+func SerializeUserWithProfiles(u *user.User, up *userprofile.UserProfile, bp *billingprofile.BillingProfile) *User {
+	serialized := SerializeUser(u)
+	if serialized == nil {
+		return nil
+	}
+	serialized.UserProfile = SerializeUserProfile(up)
+	serialized.BillingProfile = SerializeBillingProfile(bp)
+	return serialized
 }
