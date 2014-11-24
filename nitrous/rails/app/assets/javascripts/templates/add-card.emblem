@@ -1,5 +1,9 @@
 .card-header.bordered
-  h2 Add Credit Card
+  h2
+    if App.billingProfile.hasCard
+      | Change Credit Card
+    else
+      | Add Credit Card
 
 .card-body
   form autocomplete='on' submit='save'

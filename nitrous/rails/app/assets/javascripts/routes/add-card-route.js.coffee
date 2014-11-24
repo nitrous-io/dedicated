@@ -6,7 +6,7 @@ App.AddCardRoute = App.AuthedRoute.extend
       @transitionTo '/'
 
   activate: ->
-    App.set 'title', 'Add Credit Card'
+    App.set 'title', 'Billing'
 
   renderTemplate: ->
     @render 'add-card', outlet: 'content'

@@ -3,4 +3,4 @@
 App.BillingController = Em.ObjectController.extend
   actions:
     changeCard: ->
-      # TODO
+      @transitionTo 'add-card'
