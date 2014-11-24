@@ -179,11 +179,12 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	host.FreighterdLocation = freighterdLocation
 
 	dockerLocation, _ := defaultConfig["docker_location"]
-	if _, err := exec.LookPath(dockerLocation); err != nil {
-		return nil, fmt.Errorf("Error finding docker binary at %q: %s", dockerLocation, err)
+	if dockerLocation != "" {
+		if _, err := exec.LookPath(dockerLocation); err != nil {
+			return nil, fmt.Errorf("Error finding docker binary at %q: %s", dockerLocation, err)
+		}
+		host.DockerLocation = dockerLocation
 	}
-
-	host.DockerLocation = dockerLocation
 
 	client, err := dockerclient.NewClient(endpoint)
 	if err != nil {
@@ -195,13 +196,16 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 }
 
 func (h *Host) start() (*host.Info, error) {
+	binds := []string{
+		fmt.Sprintf("%s:/freighterd", h.FreighterdLocation),
+	}
+	if h.DockerLocation != "" {
+		binds = append(binds, fmt.Sprintf("%s:/usr/bin/docker", h.DockerLocation))
+	}
 	err := h.client.StartContainer(h.ID, &dockerclient.HostConfig{
 		Privileged:      true,
 		PublishAllPorts: true,
-		Binds: []string{
-			fmt.Sprintf("%s:/freighterd", h.FreighterdLocation),
-			fmt.Sprintf("%s:/usr/bin/docker", h.DockerLocation),
-		},
+		Binds:           binds,
 	})
 
 	if err != nil {
