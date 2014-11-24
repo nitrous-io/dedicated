@@ -487,5 +487,11 @@ func init() {
 				UPDATE users SET confirmed_at = now();
 			`,
 		},
+		{
+			Version: "410",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN assigned_at timestamp without time zone;
+			`,
+		},
 	}
 }

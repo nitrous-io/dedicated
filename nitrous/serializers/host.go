@@ -29,7 +29,7 @@ func SerializeHost(h *host.Host) *Host {
 	if h == nil {
 		return nil
 	}
-	return &Host{
+	serialized := &Host{
 		ID:             h.ID,
 		UserID:         h.UserID,
 		RegionID:       h.RegionID,
@@ -46,4 +46,8 @@ func SerializeHost(h *host.Host) *Host {
 		UpdatedAt:      h.UpdatedAt,
 		TerminatedAt:   h.TerminatedAt,
 	}
+	if h.AssignedAt != nil {
+		serialized.CreatedAt = h.AssignedAt
+	}
+	return serialized
 }
