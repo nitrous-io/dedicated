@@ -115,3 +115,8 @@ $.ajax("/api/v0/app_settings").done (settings) ->
 Em.Route.reopen
   activate: ->
     App.set 'title', null
+
+App.Router.reopen
+  notifyGoogleAnalytics: (->
+    ga 'send', 'pageview', 'page': @get('url'), 'title': App.get('title')
+  ).on 'didTransition'
