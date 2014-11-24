@@ -137,6 +137,7 @@ func (s *Server) drawRoutes() {
 				"/users":                  r("users.Update", users.Update),
 				"/hosts/{slug}":           r("hosts.Update", mw.HostViaPath("slug", hosts.Update)),
 				"/containers/{slug}/keys": r("keys.Create", keys.Create),
+				"/user/billing_profile":   r("billingprofiles.Update", billingprofiles.Update),
 			},
 			"DELETE": {
 				"/hosts/{slug}":                    r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), HostDestroyed),
