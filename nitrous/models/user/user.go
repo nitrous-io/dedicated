@@ -58,9 +58,10 @@ type User struct {
 	Password          string `json:"-"`
 	EncryptedPassword string `db:"encrypted_password" json:"-"`
 
-	LoginAttempts int           `db:"login_attempts" json:"-"`
-	InviteCodeID  sql.NullInt64 `db:"invite_code_id" json:"-"`
-	Admin         bool          `db:"admin" json:"admin"`
+	LoginAttempts  int           `db:"login_attempts" json:"-"`
+	InviteCodeID   sql.NullInt64 `db:"invite_code_id" json:"-"`
+	Admin          bool          `db:"admin" json:"admin"`
+	BillingEnabled bool          `db:"billing_enabled" json:"billing_enabled"`
 
 	ResetPasswordToken  sql.NullString `db:"reset_password_token" json:"-"`
 	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at" json:"-"`

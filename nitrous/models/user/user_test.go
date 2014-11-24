@@ -56,7 +56,7 @@ var _ = Describe("models/user", func() {
 			d, _ := json.Marshal(u)
 			r := make(map[string]interface{})
 			json.Unmarshal(d, &r)
-			exposed := []string{"id", "name", "username", "email", "admin", "created_at", "updated_at"}
+			exposed := []string{"id", "name", "username", "email", "admin", "billing_enabled", "created_at", "updated_at"}
 			for _, p := range exposed {
 				Expect(r[p]).NotTo(BeNil(), "User JSON should contain %s", p)
 				delete(r, p)

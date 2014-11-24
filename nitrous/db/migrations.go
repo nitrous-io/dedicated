@@ -513,5 +513,12 @@ func init() {
 				ALTER TABLE hosts ADD COLUMN assigned_at timestamp without time zone;
 			`,
 		},
+		{
+			Version: "420",
+			Up: `
+				ALTER TABLE users ADD COLUMN billing_enabled boolean DEFAULT false NOT NULL;
+				UPDATE users SET billing_enabled = admin;
+			`,
+		},
 	}
 }
