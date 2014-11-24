@@ -258,11 +258,11 @@ func (u *User) Topic() pubsub.Topic {
 }
 
 func (u *User) isPaid(d db.QueryReceiver) (bool, error) {
-	var state string
-	if err := d.QueryRowx(`SELECT state FROM billing_profiles WHERE user_id = $1;`, u.ID).Scan(&state); err != nil {
+	var b bool
+	if err := d.QueryRowx(`SELECT state = $1 FROM billing_profiles WHERE user_id = $2;`, billingprofile.StatePaid, u.ID).Scan(&b); err != nil {
 		return false, err
 	}
-	return (state == "paid"), nil
+	return b, nil
 }
 
 func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
