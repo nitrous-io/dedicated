@@ -8,18 +8,16 @@ import (
 )
 
 type FakeStripe struct {
-	Received map[string]string
+	Received map[string]interface{}
 	Response string
 	Error    *stripe.Error
 }
 
 func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interface{}) error {
-	s.Received = map[string]string{
+	s.Received = map[string]interface{}{
 		"method": method,
 		"path":   path,
-		"card":   body.Get("card"),
-		"email":  body.Get("email"),
-		"desc":   body.Get("description"),
+		"body":   body,
 	}
 
 	if s.Error != nil {

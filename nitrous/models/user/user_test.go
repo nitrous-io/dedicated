@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -1071,12 +1072,11 @@ var _ = Describe("models/user", func() {
 		It("sends a request to Stripe to create a customer", func() {
 			u.ActivateBillingProfile(db, "token")
 
-			Expect(fakeStripe.Received).To(Equal(map[string]string{
-				"method": "POST",
-				"path":   "/customers",
-				"card":   "token",
-				"email":  u.Email,
-				"desc":   fmt.Sprint(u.Name, u.Username),
+			b := fakeStripe.Received["body"]
+			Expect(b).To(Equal(&url.Values{
+				"card":        {"token"},
+				"email":       {u.Email},
+				"description": {fmt.Sprintf("%s %s", u.Name, u.Username)},
 			}))
 		})
 

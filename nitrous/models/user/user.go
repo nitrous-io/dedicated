@@ -485,7 +485,7 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 	params := &stripe.CustomerParams{
 		Token: token,
 		Email: u.Email,
-		Desc:  fmt.Sprint(u.Name, u.Username),
+		Desc:  fmt.Sprintf("%s %s", u.Name, u.Username),
 	}
 	c, err := customer.New(params)
 	if err != nil {
