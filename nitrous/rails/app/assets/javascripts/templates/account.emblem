@@ -33,11 +33,9 @@ form submit='updateSettings'
       .right
         button.ui.btn.primary click='hideModal target="view"' OK
 
-/ FIXME restore once e-mail reconfirmation working as intended
 .card-header.bordered
   h2 Account Details
 
-/ FIXME restore once e-mail reconfirmation working as intended
 form submit='updateDetails'
 
   .card-body
