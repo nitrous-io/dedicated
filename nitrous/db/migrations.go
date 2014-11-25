@@ -520,5 +520,13 @@ func init() {
 				UPDATE users SET billing_enabled = admin;
 			`,
 		},
+		{
+			Version: "430",
+			Up: `
+				INSERT INTO billing_profiles (user_id) (
+					SELECT users.id FROM users WHERE NOT EXISTS (SELECT user_id FROM billing_profiles)
+				);
+			`,
+		},
 	}
 }
