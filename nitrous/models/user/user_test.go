@@ -1009,6 +1009,18 @@ var _ = Describe("models/user", func() {
 
 			fakeStripe = &FakeStripe{}
 			stripe.SetBackend(fakeStripe)
+
+			// TODO - FFLAG payments
+			u.BillingEnabled = true
+		})
+
+		// TODO - FFLAG payments
+		It("returns an error if the billing is not enabled", func() {
+			// Disable billing for the user
+			u.BillingEnabled = false
+
+			_, err := u.ActivateBillingProfile(db, "token")
+			Expect(err.Error()).To(Equal(fmt.Sprintf("Billing not enabled for the given user - %s", u.Username)))
 		})
 
 		It("sends a request to Stripe to create a customer", func() {

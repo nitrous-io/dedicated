@@ -459,6 +459,10 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 
 // ActivateBillingProfile will create a new customer in Stripe and return the updated billing profile.
 func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billingprofile.BillingProfile, error) {
+	if !u.BillingEnabled {
+		return nil, fmt.Errorf("Billing not enabled for the given user - %s", u.Username)
+	}
+
 	params := &stripe.CustomerParams{
 		Token: token,
 		Email: u.Email,
