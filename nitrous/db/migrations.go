@@ -532,6 +532,24 @@ func init() {
 			Version: "440",
 			Up: `
 				ALTER TABLE users ADD COLUMN unconfirmed_email character varying(255) DEFAULT NULL
+				`,
+		},
+		{
+			Version: "450",
+			Up: `
+				CREATE TABLE subscriptions (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					host_id bigint REFERENCES hosts(id) NOT NULL,
+					plan_id bigint REFERENCES plans(id) NOT NULL,
+					stripe_id character varying(32),
+					disabled_at timestamp without time zone,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE INDEX index_subscriptions_on_user_id ON subscriptions USING btree (user_id);
+				CREATE UNIQUE INDEX index_subscriptions_on_host_id ON subscriptions USING btree (host_id);
+				CREATE INDEX index_subscriptions_on_plan_id ON subscriptions USING btree (plan_id);
 			`,
 		},
 	}
