@@ -36,6 +36,7 @@ type Host struct {
 	PublicKeys         []string   `json:"public_keys"`
 	IpAddress          string     `json:"ip_address"`
 	FreighterdLocation string     `json:"freighterd_location"`
+	DockerLocation     string     `json:"docker_location"`
 	TLS                *tlsConfig `json:"tls"`
 	Secret             string     `json:"secret"`
 
@@ -177,6 +178,14 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 
 	host.FreighterdLocation = freighterdLocation
 
+	dockerLocation, _ := defaultConfig["docker_location"]
+	if dockerLocation != "" {
+		if _, err := exec.LookPath(dockerLocation); err != nil {
+			return nil, fmt.Errorf("Error finding docker binary at %q: %s", dockerLocation, err)
+		}
+		host.DockerLocation = dockerLocation
+	}
+
 	client, err := dockerclient.NewClient(endpoint)
 	if err != nil {
 		return nil, err
@@ -187,10 +196,16 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 }
 
 func (h *Host) start() (*host.Info, error) {
+	binds := []string{
+		fmt.Sprintf("%s:/freighterd", h.FreighterdLocation),
+	}
+	if h.DockerLocation != "" {
+		binds = append(binds, fmt.Sprintf("%s:/usr/bin/docker", h.DockerLocation))
+	}
 	err := h.client.StartContainer(h.ID, &dockerclient.HostConfig{
 		Privileged:      true,
 		PublishAllPorts: true,
-		Binds:           []string{fmt.Sprintf("%s:/freighterd", h.FreighterdLocation)},
+		Binds:           binds,
 	})
 
 	if err != nil {
