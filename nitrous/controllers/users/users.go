@@ -8,9 +8,11 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
@@ -148,13 +150,26 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
 	u := env.User
 	if u == nil {
 		return errors.New("user is nil")
 	}
+
+	up, err := userprofile.Find(db, u.ID)
+	if err != nil {
+		return err
+	}
+
+	bp, err := billingprofile.Find(db, u.ID)
+	if err != nil {
+		return err
+	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"user": serializers.SerializeUser(u),
+		"user": serializers.SerializeUserWithProfiles(u, up, bp),
 	}
 	return nil
 }

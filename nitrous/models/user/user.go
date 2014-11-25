@@ -13,11 +13,14 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
+	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/customer"
 )
 
 const resetPasswordWithin = 4 * time.Hour
@@ -55,9 +58,10 @@ type User struct {
 	Password          string `json:"-"`
 	EncryptedPassword string `db:"encrypted_password" json:"-"`
 
-	LoginAttempts int           `db:"login_attempts" json:"-"`
-	InviteCodeID  sql.NullInt64 `db:"invite_code_id" json:"-"`
-	Admin         bool          `db:"admin" json:"admin"`
+	LoginAttempts  int           `db:"login_attempts" json:"-"`
+	InviteCodeID   sql.NullInt64 `db:"invite_code_id" json:"-"`
+	Admin          bool          `db:"admin" json:"admin"`
+	BillingEnabled bool          `db:"billing_enabled" json:"billing_enabled"`
 
 	ResetPasswordToken  sql.NullString `db:"reset_password_token" json:"-"`
 	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at" json:"-"`
@@ -191,7 +195,12 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	}
 
 	// create a user profile
-	return userprofile.Create(tx, u.ID)
+	if err := userprofile.Create(tx, u.ID); err != nil {
+		return err
+	}
+
+	// create a billing profile
+	return billingprofile.Create(tx, u.ID)
 }
 
 func (u *User) Update(d db.QueryReceiver) error {
@@ -248,9 +257,27 @@ func (u *User) Topic() pubsub.Topic {
 	return pubsub.Topic(fmt.Sprintf("user-%d", u.ID))
 }
 
-func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
+func (u *User) isPaid(d db.QueryReceiver) (bool, error) {
 	var b bool
-	err := d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
+	if err := d.QueryRowx(`SELECT state = $1 FROM billing_profiles WHERE user_id = $2;`, billingprofile.StatePaid, u.ID).Scan(&b); err != nil {
+		return false, err
+	}
+	return b, nil
+}
+
+func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
+	// check if the user is a paid user
+	paid, err := u.isPaid(d)
+	if err != nil {
+		return false, err
+	}
+	if paid {
+		return true, nil
+	}
+
+	// user is not a paid user, check the max hosts she can create
+	var b bool
+	err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
 		FROM users u
 		JOIN user_profiles up ON (up.user_id = u.id)
 		LEFT JOIN hosts h ON (h.user_id = u.id AND h.terminated_at IS NULL)
@@ -260,7 +287,6 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
 	return b, nil
 }
 
@@ -429,4 +455,39 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 	}
 
 	return nil
+}
+
+// ActivateBillingProfile will create a new customer in Stripe and return the updated billing profile.
+func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billingprofile.BillingProfile, error) {
+	if !u.BillingEnabled {
+		return nil, fmt.Errorf("Billing not enabled for the given user - %s", u.Username)
+	}
+
+	params := &stripe.CustomerParams{
+		Token: token,
+		Email: u.Email,
+		Desc:  fmt.Sprint(u.Name, u.Username),
+	}
+	c, err := customer.New(params)
+	if err != nil {
+		return nil, fmt.Errorf("Stripe couldn't create a customer for %s. Reason - %s", u.Username, err)
+	}
+
+	// update the profile with details returned from Stripe
+	crd := c.Cards.Values[0]
+	b := &billingprofile.BillingProfile{
+		UserID:   u.ID,
+		StripeID: sql.NullString{c.ID, true},
+		State:    "paid",
+		LastFour: sql.NullString{crd.LastFour, true},
+		CardType: sql.NullString{string(crd.Brand), true},
+		ExpMonth: sql.NullInt64{int64(crd.Month), true},
+		ExpYear:  sql.NullInt64{int64(crd.Year), true},
+	}
+
+	err = b.Update(d)
+	if err != nil {
+		return nil, fmt.Errorf("Billing profile update failed for user %s. Reason - %s", u.Username, err)
+	}
+	return b, nil
 }

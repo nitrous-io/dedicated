@@ -56,6 +56,10 @@ var _ = Describe("controllers/appsettings", func() {
 			os.Setenv("MIXPANEL_TOKEN", "Track Me")
 			defer os.Setenv("MIXPANEL_TOKEN", oldMT)
 
+			oldSK := os.Getenv("STRIPE_PUBLIC_KEY")
+			os.Setenv("STRIPE_PUBLIC_KEY", "st-001")
+			defer os.Setenv("STRIPE_PUBLIC_KEY", oldSK)
+
 			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -63,6 +67,7 @@ var _ = Describe("controllers/appsettings", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j["mixpanel_token"]).To(Equal("Track Me"))
+			Expect(j["stripe_key"]).To(Equal("st-001"))
 		})
 	})
 })

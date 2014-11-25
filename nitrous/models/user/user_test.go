@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -18,6 +19,7 @@ import (
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/stripe/stripe-go"
 )
 
 func Test(t *testing.T) {
@@ -54,7 +56,7 @@ var _ = Describe("models/user", func() {
 			d, _ := json.Marshal(u)
 			r := make(map[string]interface{})
 			json.Unmarshal(d, &r)
-			exposed := []string{"id", "name", "username", "email", "admin", "created_at", "updated_at"}
+			exposed := []string{"id", "name", "username", "email", "admin", "billing_enabled", "created_at", "updated_at"}
 			for _, p := range exposed {
 				Expect(r[p]).NotTo(BeNil(), "User JSON should contain %s", p)
 				delete(r, p)
@@ -428,6 +430,17 @@ var _ = Describe("models/user", func() {
 				Expect(up.CreatedAt).NotTo(BeNil())
 				Expect(up.UpdatedAt).NotTo(BeNil())
 			})
+
+			It("creates a billing profile record", func() {
+				bp := &billingprofile.BillingProfile{}
+				err := db.Get(bp, "SELECT * FROM billing_profiles WHERE billing_profiles.user_id = $1;", u.ID)
+				Expect(err).To(BeNil())
+				Expect(bp.ID).NotTo(BeNil())
+				Expect(bp.UserID).To(Equal(u.ID))
+				Expect(bp.State).To(Equal("free"))
+				Expect(bp.CreatedAt).NotTo(BeNil())
+				Expect(bp.UpdatedAt).NotTo(BeNil())
+			})
 		})
 
 		Context("when some error occurrs during the transaction", func() {
@@ -633,7 +646,12 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("returns false, when owned hosts == max hosts", func() {
+		It("returns true, for paid users", func() {
+			// Set user's billing profile to paid
+			_, err := db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			// add 2 hosts, so we know it's not the MAX_HOSTS check lets him in.
 			hs, err := CreateHostStack(db, &HostStack{U: u})
 			Expect(err).To(BeNil())
 
@@ -645,47 +663,66 @@ var _ = Describe("models/user", func() {
 			})
 			Expect(err).To(BeNil())
 
-			// max hosts for the user is set to 2
-			// and user already has 2 hosts
-			b, err := u.CanCreateHosts(db)
-			Expect(err).To(BeNil())
-			Expect(b).To(BeFalse())
-		})
-
-		It("returns true, when owned hosts < max hosts", func() {
-			_, err := CreateHostStack(db, &HostStack{U: u})
-			Expect(err).To(BeNil())
-
 			b, err := u.CanCreateHosts(db)
 			Expect(err).To(BeNil())
 			Expect(b).To(BeTrue())
 		})
 
-		It("returns true, when user has no hosts", func() {
-			b, err := u.CanCreateHosts(db)
-			Expect(err).To(BeNil())
-			Expect(b).To(BeTrue())
-		})
+		Context("for a free account", func() {
+			It("returns false, when owned hosts == max hosts", func() {
+				hs, err := CreateHostStack(db, &HostStack{U: u})
+				Expect(err).To(BeNil())
 
-		It("ignores terminated hosts", func() {
-			hs, err := CreateHostStack(db, &HostStack{U: u})
-			Expect(err).To(BeNil())
-			err = hs.H.Delete(db)
-			Expect(err).To(BeNil())
+				_, err = CreateHostStack(db, &HostStack{
+					U:  u,
+					R:  hs.R,
+					P:  hs.P,
+					PT: hs.PT,
+				})
+				Expect(err).To(BeNil())
 
-			hs2, err := CreateHostStack(db, &HostStack{
-				U:  u,
-				R:  hs.R,
-				P:  hs.P,
-				PT: hs.PT,
+				// max hosts for the user is set to 2
+				// and user already has 2 hosts
+				b, err := u.CanCreateHosts(db)
+				Expect(err).To(BeNil())
+				Expect(b).To(BeFalse())
 			})
-			Expect(err).To(BeNil())
-			err = hs2.H.Delete(db)
-			Expect(err).To(BeNil())
 
-			b, err := u.CanCreateHosts(db)
-			Expect(err).To(BeNil())
-			Expect(b).To(BeTrue())
+			It("returns true, when owned hosts < max hosts", func() {
+				_, err := CreateHostStack(db, &HostStack{U: u})
+				Expect(err).To(BeNil())
+
+				b, err := u.CanCreateHosts(db)
+				Expect(err).To(BeNil())
+				Expect(b).To(BeTrue())
+			})
+
+			It("returns true, when user has no hosts", func() {
+				b, err := u.CanCreateHosts(db)
+				Expect(err).To(BeNil())
+				Expect(b).To(BeTrue())
+			})
+
+			It("ignores terminated hosts", func() {
+				hs, err := CreateHostStack(db, &HostStack{U: u})
+				Expect(err).To(BeNil())
+				err = hs.H.Delete(db)
+				Expect(err).To(BeNil())
+
+				hs2, err := CreateHostStack(db, &HostStack{
+					U:  u,
+					R:  hs.R,
+					P:  hs.P,
+					PT: hs.PT,
+				})
+				Expect(err).To(BeNil())
+				err = hs2.H.Delete(db)
+				Expect(err).To(BeNil())
+
+				b, err := u.CanCreateHosts(db)
+				Expect(err).To(BeNil())
+				Expect(b).To(BeTrue())
+			})
 		})
 	})
 
@@ -951,6 +988,120 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 
 			Expect(u.ConfirmationLapsed()).To(BeTrue())
+		})
+	})
+
+	Describe("ActivateBillingProfile", func() {
+		var (
+			u          *user.User
+			fakeStripe *FakeStripe
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			fakeStripe = &FakeStripe{}
+			stripe.SetBackend(fakeStripe)
+
+			// TODO - FFLAG payments
+			u.BillingEnabled = true
+		})
+
+		// TODO - FFLAG payments
+		It("returns an error if the billing is not enabled", func() {
+			// Disable billing for the user
+			u.BillingEnabled = false
+
+			_, err := u.ActivateBillingProfile(db, "token")
+			Expect(err.Error()).To(Equal(fmt.Sprintf("Billing not enabled for the given user - %s", u.Username)))
+		})
+
+		It("sends a request to Stripe to create a customer", func() {
+			u.ActivateBillingProfile(db, "token")
+
+			Expect(fakeStripe.Received).To(Equal(map[string]string{
+				"method": "POST",
+				"path":   "/customers",
+				"card":   "token",
+				"email":  u.Email,
+				"desc":   fmt.Sprint(u.Name, u.Username),
+			}))
+		})
+
+		Context("when Stripe returns the created customer", func() {
+			It("updates and persists the record", func() {
+				fakeStripe.Response = fmt.Sprintf(`{
+					"id": "sc_01",
+					"email": "%s",
+					"cards": {
+						"object": "list",
+						"total_count": 1,
+						"has_more": false,
+						"url": "/v1/customers/cus_56dgsyZAJujFFO/cards",
+						"data": [
+							{
+								"id": "card_14wQPX2CU2PklWtHi34KFonT",
+								"object": "card",
+								"last4": "4242",
+								"brand": "Visa",
+								"funding": "credit",
+								"exp_month": 10,
+								"exp_year": 2018,
+								"fingerprint": "H0SJieNrXmTdq3qs",
+								"country": "US",
+								"name": null,
+								"address_line1": null,
+								"address_line2": null,
+								"address_city": null,
+								"address_state": null,
+								"address_zip": null,
+								"address_country": null,
+								"cvc_check": "pass",
+								"address_line1_check": null,
+								"address_zip_check": null,
+								"dynamic_last4": null,
+								"customer": "cus_56dgsyZAJujFFO"
+							}
+						]
+					},
+					"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
+				}`, u.Email)
+
+				b, err := u.ActivateBillingProfile(db, "token")
+				Expect(err).To(BeNil())
+
+				Expect(b.ID).NotTo(BeNil())
+				Expect(b.UserID).To(Equal(u.ID))
+				Expect(b.StripeID.String).To(Equal("sc_01"))
+				Expect(b.LastFour.String).To(Equal("4242"))
+				Expect(b.CardType.String).To(Equal("Visa"))
+				Expect(b.ExpMonth.Int64).To(Equal(int64(10)))
+				Expect(b.ExpYear.Int64).To(Equal(int64(2018)))
+			})
+		})
+
+		Context("when Stripe returns an error", func() {
+			It("returns the error, without updating the record", func() {
+				fakeStripe.Error = &stripe.Error{
+					Type: stripe.ErrorType(stripe.APIErr),
+					Msg:  "some error occurred",
+					Code: stripe.ErrorCode(stripe.ProcessingErr),
+				}
+
+				_, err := u.ActivateBillingProfile(db, "token")
+				Expect(err).NotTo(BeNil())
+
+				b, err := billingprofile.Find(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(b.State).To(Equal("free"))
+			})
 		})
 	})
 })

@@ -1,0 +1,21 @@
+.card-header.bordered
+  h2 Billing
+
+.card-body
+  table.ui.table.horizontal
+    tr
+      th Card Type
+      td
+        = App.billingProfile.cardType 
+    tr
+      th Last Four Digits
+      td
+        = App.billingProfile.lastFour
+    tr
+      th Expiry
+      td
+        = App.billingProfile.expiry
+
+.card-footer.bordered
+    .right
+      button.ui.btn.disabled click='changeCard' Change Card
