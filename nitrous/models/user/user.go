@@ -470,7 +470,12 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 	}
 	c, err := customer.New(params)
 	if err != nil {
-		return nil, fmt.Errorf("Stripe couldn't create a customer for %s. Reason - %s", u.Username, err)
+		if e, ok := err.(*stripe.Error); ok {
+			if e.Code == stripe.CardDeclined {
+				return nil, billingprofile.CardDeclinedError
+			}
+		}
+		return nil, err
 	}
 
 	// update the profile with details returned from Stripe

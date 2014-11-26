@@ -2,12 +2,15 @@ package billingprofile
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/customer"
 )
 
 func init() {
@@ -16,6 +19,9 @@ func init() {
 		panic("STRIPE_SECRET_KEY environment variable not set")
 	}
 }
+
+var StripeProfileRequiredError = errors.New("billingprofile: requires an existing Stripe profile")
+var CardDeclinedError = errors.New("billingprofile: card declined")
 
 const (
 	StateFree       = "free"
@@ -54,6 +60,8 @@ func Create(tx *sqlx.Tx, userID int64) error {
 	return err
 }
 
+// Update changes the persisted billing profile record.
+// To update the card or email in Stripe, use UpdateCard or UpdateEmail.
 func (b *BillingProfile) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE billing_profiles 
 		SET (stripe_id, last_four, card_type, exp_month, exp_year, state, updated_at)
@@ -64,4 +72,50 @@ func (b *BillingProfile) Update(d db.QueryReceiver) error {
 		return err
 	}
 	return nstmt.QueryRowx(b).StructScan(b)
+}
+
+func (b *BillingProfile) UpdateCard(d db.QueryReceiver, token string) error {
+	if !b.StripeID.Valid {
+		return StripeProfileRequiredError
+	}
+
+	params := &stripe.CustomerParams{
+		Token: token,
+	}
+	c, err := customer.Update(b.StripeID.String, params)
+	if err != nil {
+		if e, ok := err.(*stripe.Error); ok {
+			if e.Code == stripe.CardDeclined {
+				return CardDeclinedError
+			}
+		}
+		return err
+	}
+
+	crd := c.Cards.Values[0]
+	b.StripeID = sql.NullString{c.ID, true}
+	b.LastFour = sql.NullString{crd.LastFour, true}
+	b.CardType = sql.NullString{string(crd.Brand), true}
+	b.ExpMonth = sql.NullInt64{int64(crd.Month), true}
+	b.ExpYear = sql.NullInt64{int64(crd.Year), true}
+
+	if err := b.Update(d); err != nil {
+		return fmt.Errorf("Billing profile update failed. Reason - %s", err)
+	}
+	return nil
+}
+
+func (b *BillingProfile) UpdateEmail(d db.QueryReceiver, email string) error {
+	if !b.StripeID.Valid {
+		return StripeProfileRequiredError
+	}
+
+	params := &stripe.CustomerParams{
+		Email: email,
+	}
+	if _, err := customer.Update(b.StripeID.String, params); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -18,4 +18,4 @@
 
 .card-footer.bordered
     .right
-      button.ui.btn.disabled click='changeCard' Change Card
+      button.ui.btn click='changeCard' Change Card
