@@ -508,7 +508,7 @@ func init() {
 			`,
 		},
 		{
-			Version: "410",
+			Version: "415",
 			Up: `
 				ALTER TABLE hosts ADD COLUMN assigned_at timestamp without time zone;
 			`,
