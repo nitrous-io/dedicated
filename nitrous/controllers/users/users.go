@@ -8,8 +8,11 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
@@ -19,6 +22,7 @@ var (
 		"index_users_on_username": httperror.New(http.StatusBadRequest, "validation_failed", "username is taken"),
 		"index_users_on_email":    httperror.New(http.StatusBadRequest, "validation_failed", "email is taken"),
 	}
+	reconfirmInvalidUser = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 )
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -83,7 +87,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	err = u.SendConfirmationEmail(db)
+	err = u.SendConfirmationEmail(db, true)
 	if err != nil {
 		return err
 	}
@@ -136,7 +140,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	if emailChanged {
 		u.ConfirmedAt = nil
-		if err := u.SendConfirmationEmail(db); err != nil {
+		if err := u.SendConfirmationEmail(db, true); err != nil {
 			return err
 		}
 	}
@@ -146,13 +150,26 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
 	u := env.User
 	if u == nil {
 		return errors.New("user is nil")
 	}
+
+	up, err := userprofile.Find(db, u.ID)
+	if err != nil {
+		return err
+	}
+
+	bp, err := billingprofile.Find(db, u.ID)
+	if err != nil {
+		return err
+	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"user": serializers.SerializeUser(u),
+		"user": serializers.SerializeUserWithProfiles(u, up, bp),
 	}
 	return nil
 }
@@ -184,31 +201,48 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"confirmed": true,
-	}
-	return nil
+	return env.Login(u, w)
 }
 
 func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	token := r.FormValue("token")
-	if token == "" {
+	cToken := r.FormValue("token")
+	appToken := r.FormValue("app_token")
+	if cToken == "" && appToken == "" {
 		return httperror.New(http.StatusBadRequest, "validation_failed", "`token` must be provided")
 	}
 
-	u, err := user.FindByConfirmationToken(db, token)
-	if err != nil {
-		return err
+	var u *user.User
+	var err error
+
+	if cToken != "" {
+		u, err = user.FindByConfirmationToken(db, cToken)
+		if err != nil {
+			return err
+		}
 	}
 
-	if u == nil || token != u.ConfirmationToken.String {
-		return httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
+	if appToken != "" {
+		t, err := token.FindByToken(db, appToken)
+		if err != nil {
+			return err
+		}
+		if t == nil {
+			return reconfirmInvalidUser
+		}
+
+		u, err = user.FindByID(db, t.UserID)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = u.SendConfirmationEmail(db)
+	if u == nil {
+		return reconfirmInvalidUser
+	}
+
+	err = u.SendConfirmationEmail(db, false)
 	if err != nil {
 		if err == user.ErrConfirmationAlreadyCompleted {
 			return httperror.New(http.StatusBadRequest, "already_confirmed", err.Error())

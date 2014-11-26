@@ -31,6 +31,10 @@ type Navigator struct {
 	config map[string]string
 }
 
+func (n *Navigator) Name() string {
+	return "proxy"
+}
+
 func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
 	if !nav.SameRootDomain(name, n.domain) {
 		return nil, fmt.Errorf("Cant handle domain %v", name)

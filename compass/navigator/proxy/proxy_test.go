@@ -68,6 +68,13 @@ func insertHost(db *sql.DB, values []*Host) error {
 	return nil
 }
 
+func TestName(t *testing.T) {
+	n := testNavigator("nitrousbox.com.").(*Navigator)
+	if n.Name() != "proxy" {
+		t.Fatal("a navigator should have a name.")
+	}
+}
+
 func TestFind(t *testing.T) {
 	nav := testNavigator("exampleproxy.com.").(*Navigator)
 	bh := fixtures[0]

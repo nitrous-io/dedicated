@@ -7,6 +7,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/appsettings"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/baseimages"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
@@ -113,6 +114,7 @@ func (s *Server) drawRoutes() {
 			"POST": {
 				"/user/profile":                        r("userprofiles.Update", userprofiles.Update),
 				"/hosts":                               r("hosts.Create", hosts.Create, HostCreated),
+				"/user/billing_profile":                r("billingprofiles.Activate", billingprofiles.Activate),
 				"/hosts/{slug}/registries":             r("registries.Login", registries.Login),
 				"/hosts/{slug}/restart":                r("hosts.Restart", mw.HostViaPath("slug", hosts.Restart)),
 				"/hosts/{slug}/volumes":                r("volumes.Create", mw.HostViaPath("slug", volumes.Create)),
@@ -135,6 +137,7 @@ func (s *Server) drawRoutes() {
 				"/users":                  r("users.Update", users.Update),
 				"/hosts/{slug}":           r("hosts.Update", mw.HostViaPath("slug", hosts.Update)),
 				"/containers/{slug}/keys": r("keys.Create", keys.Create),
+				"/user/billing_profile":   r("billingprofiles.Update", billingprofiles.Update),
 			},
 			"DELETE": {
 				"/hosts/{slug}":                    r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), HostDestroyed),

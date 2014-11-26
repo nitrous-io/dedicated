@@ -29,6 +29,10 @@ type Navigator struct {
 	db     *sql.DB
 }
 
+func (n *Navigator) Name() string {
+	return "container"
+}
+
 func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
 	if !nav.SameRootDomain(name, n.domain) {
 		return nil, fmt.Errorf("cant handle domain %v", name)

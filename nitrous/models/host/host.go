@@ -84,6 +84,7 @@ type Host struct {
 
 	Preprovisioned bool `db:"preprovisioned"`
 
+	AssignedAt   *time.Time `db:"assigned_at"`
 	TerminatedAt *time.Time `db:"terminated_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
@@ -227,8 +228,8 @@ func (h *Host) Update(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(h).StructScan(h)
 }
 
-func (h *Host) ReassignUser(d db.QueryReceiver, u *user.User) error {
-	return d.QueryRowx(`UPDATE hosts SET user_id = $1 WHERE id = $2 RETURNING *`, u.ID, h.ID).StructScan(h)
+func (h *Host) Reassign(d db.QueryReceiver, u *user.User) error {
+	return d.QueryRowx(`UPDATE hosts SET user_id = $1, assigned_at = now() WHERE id = $2 RETURNING *`, u.ID, h.ID).StructScan(h)
 }
 
 func (h *Host) Delete(d db.QueryReceiver) error {

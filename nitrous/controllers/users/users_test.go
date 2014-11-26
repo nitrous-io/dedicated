@@ -420,11 +420,9 @@ var _ = Describe("controllers/users", func() {
 		}
 
 		Context("when a valid oauth token is given", func() {
-			BeforeEach(func() {
-				doRequest("foobarbazqux")
-			})
-
 			It("responds with the authenticated user's details", func() {
+				doRequest("foobarbazqux")
+
 				Expect(res.Code).To(Equal(http.StatusOK))
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
@@ -438,6 +436,14 @@ var _ = Describe("controllers/users", func() {
 				Expect(userinfo["updated_at"]).NotTo(BeNil())
 				Expect(userinfo["password"]).To(BeNil())
 				Expect(userinfo["encrypted_password"]).To(BeNil())
+
+				userprofile, ok := userinfo["user_profile"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(userprofile["advanced"]).NotTo(BeTrue())
+
+				billingprofile, ok := userinfo["billing_profile"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(billingprofile["state"]).To(Equal("free"))
 			})
 		})
 
@@ -501,7 +507,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(j["error_description"]).To(Equal("specified user does not exist"))
 			})
 
-			It("should confirm the account if the token matches", func() {
+			It("should successfully return a token for the user", func() {
 				Expect(u.ConfirmedAt).To(BeNil(), "expect user to not confirmed yet")
 				doRequest("ABCD")
 
@@ -509,13 +515,13 @@ var _ = Describe("controllers/users", func() {
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
-				Expect(j["error"]).To(BeNil())
-				Expect(j["confirmed"]).To(BeTrue())
+				Expect(j["access_token"]).ToNot(BeNil())
+				Expect(j["token_type"]).ToNot(BeNil())
 
-				u, err = user.FindByID(db, u.ID)
+				t, err := token.FindByToken(db, j["access_token"].(string))
 				Expect(err).To(BeNil())
-				Expect(u.ConfirmationToken.String).To(BeEmpty())
-				Expect(u.ConfirmedAt).ToNot(BeNil(), "expect user to confirm")
+				Expect(t).ToNot(BeNil())
+				Expect(t.UserID).To(Equal(u.ID))
 			})
 
 			It("should communicate if the confirmation has lapsed", func() {
@@ -537,17 +543,18 @@ var _ = Describe("controllers/users", func() {
 	})
 
 	Describe("POST /api/v0/user/resend_confirm", func() {
-		doRequest := func(token string) {
+		doRequest := func(token, appToken string) {
 			var err error
 			params := &url.Values{}
 			params.Set("token", token)
+			params.Set("app_token", appToken)
 			req, err = NewRequest("POST", "/api/v0/user/resend_confirm", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
 		It("should return a bad request when the token is not provided", func() {
-			doRequest("")
+			doRequest("", "")
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 			j := map[string]interface{}{}
 			err := json.Unmarshal(res.Body.Bytes(), &j)
@@ -556,7 +563,7 @@ var _ = Describe("controllers/users", func() {
 			Expect(j["error_description"]).To(Equal("`token` must be provided"))
 		})
 
-		Context("with correct user", func() {
+		Context("with remaining confirmation token", func() {
 			var u *user.User
 			curTime := time.Now()
 
@@ -575,7 +582,7 @@ var _ = Describe("controllers/users", func() {
 			})
 
 			It("should error out if the token is incorrect", func() {
-				doRequest("sdas")
+				doRequest("sdas", "")
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
@@ -586,7 +593,59 @@ var _ = Describe("controllers/users", func() {
 
 			It("should send the confirmation token if the token matches", func() {
 				Expect(u.ConfirmationSentAt).To(BeNil(), "expect confirmation to not be sent")
-				doRequest("ABCD")
+				doRequest("ABCD", "")
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(BeNil())
+				Expect(j["confirmation_sent"]).To(BeTrue())
+
+				u, err = user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(u.ConfirmationToken.String).ToNot(BeEmpty())
+				Expect(u.ConfirmationToken.String).ToNot(Equal("ABCD"))
+				Expect(u.ConfirmationSentAt).ToNot(BeNil(), "expect confirmation to be sent")
+			})
+		})
+
+		Context("with user's app token", func() {
+			var u *user.User
+			var t *token.Token
+
+			BeforeEach(func() {
+				u = &user.User{
+					Username: "qux",
+					Name:     "quxboy",
+					Password: "123456",
+					Email:    "qux@example.com",
+				}
+				err := WrapInTransaction(db, u.Insert)
+				Expect(err).To(BeNil())
+
+				t = &token.Token{
+					UserID: u.ID,
+					Token:  "toke",
+				}
+
+				err = t.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("should error out if the token is incorrect", func() {
+				doRequest("", "tokey")
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("validation_failed"))
+				Expect(j["error_description"]).To(Equal("specified user does not exist"))
+			})
+
+			It("should send the confirmation token if the token matches", func() {
+				Expect(u.ConfirmationSentAt).To(BeNil(), "expect confirmation to not be sent")
+				doRequest("", "toke")
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 				j := map[string]interface{}{}

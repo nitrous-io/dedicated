@@ -211,6 +211,11 @@
 			"Rev": "cd6d9cc0c9aa4b8c892e2f8e84579505c4cc96f3"
 		},
 		{
+			"ImportPath": "github.com/stripe/stripe-go",
+			"Comment": "v1.0.3",
+			"Rev": "fdd4865a8a8eb649d9cb5b1370e3a12e7f75b5de"
+		},
+		{
 			"ImportPath": "github.com/tent/http-link-go",
 			"Rev": "ac974c61c2f990f4115b119354b5e0b47550e888"
 		}

@@ -57,10 +57,12 @@ window.Nitrous = Em.Application.extend Em.Evented,
     @get('hosts.loaded') && @get('hosts.length') == 0
   ).property 'hosts.loaded', 'hosts.length'
 
+  # TODO: Get this logic from server
   canCreateHosts: (->
+    return true if @get('billingProfile.paid')
     if maxHosts = @get('userProfile.maxHosts')
       @get('hosts.loaded') && @get('hosts.length') < maxHosts
-  ).property 'userProfile.maxHosts', 'hosts.loaded', 'hosts.length'
+  ).property 'billingProfile.paid', 'userProfile.maxHosts', 'hosts.loaded', 'hosts.length'
 
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')
@@ -71,16 +73,25 @@ App.on 'load', ->
   App.__container__.lookup('adapter:application') # init app adapter class
   App.set 'snackbar', App.Snackbar.create()
 
-App.on 'fetchUser', (user, profile) ->
+App.on 'fetchUser', (user) ->
   App.set 'user', user
-  App.set 'userProfile', profile
+
+  userProfile = App.UserProfile.create()
+  userProfile.load user.get('_userProfile')
+  App.set 'userProfile', userProfile
+
+  billingProfile = App.BillingProfile.create()
+  billingProfile.load user.get('_billingProfile')
+  App.set 'billingProfile', billingProfile
+
   App.set 'eventsSocket', socket = App.EventsSocket.create()
   socket.connect()
 
 App.on 'settings', (settings) ->
-  # init Mixpanel
   if settings.mixpanel_token != '' && settings.mixpanel_token != 'disable'
     window.mixpanel?.init settings.mixpanel_token
+  if settings.stripe_key != '' && settings.stripe_key != 'disable'
+    window.Stripe.setPublishableKey(settings.stripe_key);
 
 App.didChangeTitle()
 
@@ -115,3 +126,8 @@ $.ajax("/api/v0/app_settings").done (settings) ->
 Em.Route.reopen
   activate: ->
     App.set 'title', null
+
+App.Router.reopen
+  notifyGoogleAnalytics: (->
+    ga 'send', 'pageview', 'page': @get('url'), 'title': App.get('title')
+  ).on 'didTransition'

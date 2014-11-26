@@ -68,6 +68,13 @@ func insertContainer(db *sql.DB, containers []*Container) error {
 	return nil
 }
 
+func TestName(t *testing.T) {
+	n := testNavigator("nitrousbox.com.").(*Navigator)
+	if n.Name() != "container" {
+		t.Fatal("a navigator should have a name.")
+	}
+}
+
 func TestFind(t *testing.T) {
 	n := testNavigator("nitrousbox.com.").(*Navigator)
 	c, err := n.find(fixtures[0].Slug)
