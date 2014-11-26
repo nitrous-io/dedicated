@@ -123,7 +123,7 @@ var _ = Describe("models/billingprofile", func() {
 		Context("when called on a profile with a StripeID", func() {
 			BeforeEach(func() {
 				bp.State = "paid"
-				bp.StripeID = sql.NullString{"sc0001", true}
+				bp.StripeID = sql.NullString{"sc_01", true}
 				bp.LastFour = sql.NullString{"1212", true}
 				bp.CardType = sql.NullString{"MasterCard", true}
 				bp.ExpMonth = sql.NullInt64{10, true}
@@ -134,47 +134,12 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("updates the record in database, if the Stripe call was successful", func() {
-				fakeStripe.Response = fmt.Sprintf(`{
-						"id": "sc0001",
-						"email": "user@example.com",
-						"cards": {
-							"object": "list",
-							"total_count": 1,
-							"has_more": false,
-							"url": "/v1/customers/cus_56dgsyZAJujFFO/cards",
-							"data": [
-								{
-									"id": "card_14wQPX2CU2PklWtHi34KFonT",
-									"object": "card",
-									"last4": "4242",
-									"brand": "Visa",
-									"funding": "credit",
-									"exp_month": 10,
-									"exp_year": 2018,
-									"fingerprint": "H0SJieNrXmTdq3qs",
-									"country": "US",
-									"name": null,
-									"address_line1": null,
-									"address_line2": null,
-									"address_city": null,
-									"address_state": null,
-									"address_zip": null,
-									"address_country": null,
-									"cvc_check": "pass",
-									"address_line1_check": null,
-									"address_zip_check": null,
-									"dynamic_last4": null,
-									"customer": "cus_56dgsyZAJujFFO"
-								}
-							]
-						},
-						"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
-					}`)
+				fakeStripe.Response = StripeCustomerResponse
 
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(BeNil())
 
-				Expect(bp.StripeID.String).To(Equal("sc0001"))
+				Expect(bp.StripeID.String).To(Equal("sc_01"))
 				Expect(bp.LastFour.String).To(Equal("4242"))
 				Expect(bp.CardType.String).To(Equal("Visa"))
 				Expect(bp.ExpMonth.Int64).To(Equal(int64(10)))
@@ -192,7 +157,7 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(err).NotTo(BeNil())
 
 				// should not change existing values
-				Expect(bp.StripeID.String).To(Equal("sc0001"))
+				Expect(bp.StripeID.String).To(Equal("sc_01"))
 				Expect(bp.LastFour.String).To(Equal("1212"))
 				Expect(bp.CardType.String).To(Equal("MasterCard"))
 				Expect(bp.ExpMonth.Int64).To(Equal(int64(10)))
