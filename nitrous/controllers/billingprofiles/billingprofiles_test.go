@@ -119,6 +119,19 @@ var _ = Describe("controllers/billingprofiles", func() {
 			Expect(j.BillingProfile.CardType).To(Equal("Visa"))
 			Expect(j.BillingProfile.LastFour).To(Equal("4242"))
 		})
+
+		It("should return a card declined error when user's card is declined'", func() {
+			fakeStripe.Error = StripeCardDeclined
+
+			p := &url.Values{}
+			p.Set("card_token", "cc_token")
+			res := doRequest(p)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("card_declined"))
+			Expect(errDesc).To(Equal("Your Credit Card was declined. Try contacting the bank directly for assistance."))
+		})
 	})
 
 	Describe("PUT /api/v0/user/billing_profiles", func() {
@@ -149,41 +162,58 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("billing_profile_not_active"))
-			Expect(errDesc).To(Equal("there's no existing card associated to this account"))
+			Expect(errDesc).To(Equal("There's no existing card associated to this account."))
 		})
 
-		It("should return the created billing profile when valid token is provided", func() {
-			bp, err := billingprofile.Find(db, u.ID)
-			Expect(err).To(BeNil())
+		Context("when billing profile is active", func() {
+			BeforeEach(func() {
+				bp, err := billingprofile.Find(db, u.ID)
+				Expect(err).To(BeNil())
 
-			bp.State = "paid"
-			bp.StripeID = sql.NullString{"sc0001", true}
-			bp.LastFour = sql.NullString{"1212", true}
-			bp.CardType = sql.NullString{"MasterCard", true}
-			bp.ExpMonth = sql.NullInt64{10, true}
-			bp.ExpYear = sql.NullInt64{2014, true}
+				bp.State = "paid"
+				bp.StripeID = sql.NullString{"sc0001", true}
+				bp.LastFour = sql.NullString{"1212", true}
+				bp.CardType = sql.NullString{"MasterCard", true}
+				bp.ExpMonth = sql.NullInt64{10, true}
+				bp.ExpYear = sql.NullInt64{2014, true}
 
-			err = bp.Update(db)
-			Expect(err).To(BeNil())
+				err = bp.Update(db)
+				Expect(err).To(BeNil())
+			})
 
-			fakeStripe.Response = StripeCustomerResponse
+			It("should return a card declined error when user's card is declined'", func() {
+				fakeStripe.Error = StripeCardDeclined
 
-			p := &url.Values{}
-			p.Set("card_token", "cc_token")
-			res := doRequest(p)
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			Expect(res.Code).To(Equal(http.StatusOK))
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("card_declined"))
+				Expect(errDesc).To(Equal("Your Credit Card was declined. Try contacting the bank directly for assistance."))
+			})
 
-			var j struct {
-				BillingProfile *serializers.BillingProfile `json:"billing_profile"`
-			}
-			err = json.Unmarshal(res.Body.Bytes(), &j)
-			Expect(err).To(BeNil())
+			It("should return the created billing profile when valid token is provided", func() {
+				fakeStripe.Response = StripeCustomerResponse
 
-			Expect(j.BillingProfile.ExpMonth).To(Equal(int64(10)))
-			Expect(j.BillingProfile.ExpYear).To(Equal(int64(2018)))
-			Expect(j.BillingProfile.CardType).To(Equal("Visa"))
-			Expect(j.BillingProfile.LastFour).To(Equal("4242"))
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					BillingProfile *serializers.BillingProfile `json:"billing_profile"`
+				}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				Expect(j.BillingProfile.ExpMonth).To(Equal(int64(10)))
+				Expect(j.BillingProfile.ExpYear).To(Equal(int64(2018)))
+				Expect(j.BillingProfile.CardType).To(Equal("Visa"))
+				Expect(j.BillingProfile.LastFour).To(Equal("4242"))
+			})
 		})
 	})
 })

@@ -71,3 +71,9 @@ var StripeCustomerResponse = `{
 		},
 		"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
 	}`
+
+var StripeCardDeclined = &stripe.Error{
+	Type: stripe.ErrorType(stripe.CardErr),
+	Msg:  "card declined",
+	Code: stripe.ErrorCode(stripe.CardDeclined),
+}

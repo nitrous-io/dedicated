@@ -2,6 +2,7 @@ package billingprofile
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -18,6 +19,9 @@ func init() {
 		panic("STRIPE_SECRET_KEY environment variable not set")
 	}
 }
+
+var StripeProfileRequiredError = errors.New("billingprofile: requires an existing Stripe profile")
+var CardDeclinedError = errors.New("billingprofile: card declined")
 
 const (
 	StateFree       = "free"
@@ -72,7 +76,7 @@ func (b *BillingProfile) Update(d db.QueryReceiver) error {
 
 func (b *BillingProfile) UpdateCard(d db.QueryReceiver, token string) error {
 	if !b.StripeID.Valid {
-		return fmt.Errorf("UpdateCard: requires an existing Stripe profile")
+		return StripeProfileRequiredError
 	}
 
 	params := &stripe.CustomerParams{
@@ -80,7 +84,12 @@ func (b *BillingProfile) UpdateCard(d db.QueryReceiver, token string) error {
 	}
 	c, err := customer.Update(b.StripeID.String, params)
 	if err != nil {
-		return fmt.Errorf("Stripe couldn't update the card of profile %s. Reason - %s", b.StripeID, err)
+		if e, ok := err.(*stripe.Error); ok {
+			if e.Code == stripe.CardDeclined {
+				return CardDeclinedError
+			}
+		}
+		return err
 	}
 
 	crd := c.Cards.Values[0]
@@ -98,14 +107,14 @@ func (b *BillingProfile) UpdateCard(d db.QueryReceiver, token string) error {
 
 func (b *BillingProfile) UpdateEmail(d db.QueryReceiver, email string) error {
 	if !b.StripeID.Valid {
-		return fmt.Errorf("UpdateEmail: requires an existing Stripe profile")
+		return StripeProfileRequiredError
 	}
 
 	params := &stripe.CustomerParams{
 		Email: email,
 	}
 	if _, err := customer.Update(b.StripeID.String, params); err != nil {
-		return fmt.Errorf("Stripe couldn't update the card of profile %s. Reason - %s", b.StripeID, err)
+		return err
 	}
 
 	return nil

@@ -9,6 +9,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
+var errStripeProfileRequired = httperror.New(http.StatusBadRequest, "billing_profile_not_active", "There's no existing card associated to this account.")
+var errCardDeclined = httperror.New(http.StatusBadRequest, "card_declined", "Your Credit Card was declined. Try contacting the bank directly for assistance.")
+
 func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	cardToken := r.FormValue("card_token")
 	if cardToken == "" {
@@ -17,6 +20,9 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 
 	bp, err := env.User.ActivateBillingProfile(env.DB, cardToken)
 	if err != nil {
+		if err == billingprofile.CardDeclinedError {
+			return errCardDeclined
+		}
 		return err
 	}
 
@@ -40,12 +46,15 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if !bp.StripeID.Valid {
-		return httperror.New(http.StatusBadRequest, "billing_profile_not_active", "there's no existing card associated to this account")
-	}
-
 	if err := bp.UpdateCard(db, cardToken); err != nil {
-		return err
+		switch err {
+		case billingprofile.StripeProfileRequiredError:
+			return errStripeProfileRequired
+		case billingprofile.CardDeclinedError:
+			return errCardDeclined
+		default:
+			return err
+		}
 	}
 
 	env.Status = http.StatusOK
