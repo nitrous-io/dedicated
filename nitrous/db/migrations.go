@@ -528,5 +528,11 @@ func init() {
 				);
 			`,
 		},
+		{
+			Version: "440",
+			Up: `
+				ALTER TABLE users ADD COLUMN unconfirmed_email character varying(255) DEFAULT NULL
+			`,
+		},
 	}
 }

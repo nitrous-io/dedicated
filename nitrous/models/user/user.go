@@ -69,6 +69,7 @@ type User struct {
 	ConfirmationToken  sql.NullString `db:"confirmation_token" json:"-"`
 	ConfirmationSentAt *time.Time     `db:"confirmation_sent_at" json:"-"`
 	ConfirmedAt        *time.Time     `db:"confirmed_at" json:"-"`
+	UnconfirmedEmail   sql.NullString `db:"unconfirmed_email" json:"unconfirmed_email,omitempty"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {
@@ -208,8 +209,8 @@ func (u *User) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE users
-		SET (name, email, encrypted_password, updated_at)
-		= (:name, :email, :encrypted_password, now())
+		SET (name, email, encrypted_password, unconfirmed_email, updated_at)
+		= (:name, :email, :encrypted_password, :unconfirmed_email, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -328,7 +329,13 @@ func (u *User) encryptPassword() error {
 	return nil
 }
 
-func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt bool) error {
+func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, flushConfirmedAt bool) error {
+	confirmedAtOp := "confirmed_at"
+	if flushConfirmedAt {
+		u.ConfirmedAt = nil
+		confirmedAtOp = "NULL"
+	}
+
 	if u.ConfirmedAt != nil {
 		return ErrConfirmationAlreadyCompleted
 	}
@@ -341,13 +348,13 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt b
 
 	var stmt string
 	if setConfirmationSentAt || u.ConfirmationSentAt == nil {
-		stmt = "UPDATE users SET (confirmation_token, confirmation_sent_at) = (:confirmation_token, now()) WHERE id = :id RETURNING *;"
+		stmt = "UPDATE users SET (confirmation_token, confirmation_sent_at, confirmed_at) = (:confirmation_token, now(), %s) WHERE id = :id RETURNING *;"
 	} else {
-		stmt = "UPDATE users SET (confirmation_token) = (:confirmation_token) WHERE id = :id RETURNING *;"
+		stmt = "UPDATE users SET (confirmation_token, confirmed_at) = (:confirmation_token, %s) WHERE id = :id RETURNING *;"
 	}
 
 	// FIXME: ensure confirmation_token is unique and retry, do not surface error
-	nstmt, err := d.PrepareNamed(stmt)
+	nstmt, err := d.PrepareNamed(fmt.Sprintf(stmt, confirmedAtOp))
 	if err != nil {
 		return err
 	}
@@ -385,8 +392,15 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt b
 		return err
 	}
 
+	var targetEmail string
+	if u.UnconfirmedEmail.String != "" {
+		targetEmail = u.UnconfirmedEmail.String
+	} else {
+		targetEmail = u.Email
+	}
+
 	from := (&mail.Address{Name: "Nitrous Mailer", Address: "mailer@nitrous.io"}).String()
-	to := (&mail.Address{Name: u.Name, Address: u.Email}).String()
+	to := (&mail.Address{Name: u.Name, Address: targetEmail}).String()
 
 	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, "Nitrous - confirm your email", txtBuf.String(), htmlBuf.String())
 }
@@ -401,9 +415,14 @@ func (u *User) ConfirmEmail(d db.QueryReceiver) error {
 		return ErrConfirmationLapsed
 	}
 
+	if u.UnconfirmedEmail.String != "" {
+		u.Email = u.UnconfirmedEmail.String
+		u.UnconfirmedEmail.String = ""
+	}
+
 	nstmt, err := d.PrepareNamed(`UPDATE users
-		SET (confirmation_token, confirmed_at, confirmation_sent_at)
-		= (NULL, now(), NULL)
+		SET (email, unconfirmed_email,confirmation_token, confirmed_at, confirmation_sent_at)
+		= (:email, NULL, NULL, now(), NULL)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

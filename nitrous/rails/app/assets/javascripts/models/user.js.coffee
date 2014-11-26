@@ -11,6 +11,7 @@ App.User = klass = App.Model.extend
   billingEnabled: attr('boolean', as: 'billing_enabled', default: false)
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'updated_at', serialize: false)
+  unconfirmedEmail: attr(as: 'unconfirmed_email', default: null, overwrite: true)
 
   # used for sideloading the records, should not access directly
   # instead use `App.userProfile` and `App.billingProfile`.

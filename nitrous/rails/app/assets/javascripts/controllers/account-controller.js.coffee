@@ -5,6 +5,8 @@ App.AccountController = Em.ObjectController.extend
   advanced: false
 
   email: null
+  originalEmail: null
+  unconfirmedEmail: null
   password: null
   confirmPassword: null
 
@@ -17,7 +19,9 @@ App.AccountController = Em.ObjectController.extend
       updatingSettings: false
       advanced: App.get('userProfile.advanced')
       updatingDetails: false
-      email: App.get('user.email')
+      email: App.get('user.unconfirmedEmail') || App.get('user.email')
+      originalEmail: App.get('user.email')
+      unconfirmedEmail: App.get('user.unconfirmedEmail')
       password: null
       confirmPassword: null
 
