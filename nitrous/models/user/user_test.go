@@ -56,7 +56,7 @@ var _ = Describe("models/user", func() {
 			d, _ := json.Marshal(u)
 			r := make(map[string]interface{})
 			json.Unmarshal(d, &r)
-			exposed := []string{"id", "name", "username", "email", "admin", "billing_enabled", "created_at", "updated_at"}
+			exposed := []string{"id", "name", "username", "email", "admin", "billing_enabled", "created_at", "updated_at", "unconfirmed_email"}
 			for _, p := range exposed {
 				Expect(r[p]).NotTo(BeNil(), "User JSON should contain %s", p)
 				delete(r, p)
@@ -507,11 +507,12 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("updates name, email, encrypted_password, updated_at", func() {
+		It("updates name, email, unconfirmed_email, encrypted_password, updated_at", func() {
 			u.Username = "nochange"
 			u.Name = "qux jr"
 			u.Password = "abcdef"
 			u.Email = "quxjr@example.com"
+			u.UnconfirmedEmail = sql.NullString{String: "un@example.com", Valid: true}
 			oldCreated, oldUpdated := u.CreatedAt, u.UpdatedAt
 			t := time.Now()
 			u.CreatedAt = &t
@@ -522,6 +523,7 @@ var _ = Describe("models/user", func() {
 			Expect(updated.Username).To(Equal("qux"))
 			Expect(updated.Name).To(Equal("qux jr"))
 			Expect(updated.Email).To(Equal("quxjr@example.com"))
+			Expect(updated.UnconfirmedEmail.String).To(Equal("un@example.com"))
 			Expect(updated.Password).To(BeEmpty())
 			Expect(bcrypt.Verify(updated.EncryptedPassword, "abcdef")).To(BeTrue())
 			Expect(updated.CreatedAt).To(Equal(oldCreated))
@@ -881,6 +883,7 @@ var _ = Describe("models/user", func() {
 			Expect(u.ConfirmationToken.String).To(BeEmpty())
 			Expect(*u.ConfirmedAt).To(BeTemporally(">=", now))
 			Expect(u.ConfirmationSentAt).To(BeNil())
+			Expect(u.Email).To(Equal("qux@example.com"))
 		})
 
 		It("should return an error if the user has already confirmed", func() {
@@ -904,6 +907,22 @@ var _ = Describe("models/user", func() {
 			err = u.ConfirmEmail(db)
 			Expect(err).To(Equal(user.ErrConfirmationLapsed))
 			Expect(u.ConfirmationSentAt).ToNot(BeNil())
+		})
+
+		It("should move the user's unconfirmed email into email", func() {
+			_, err := db.Exec(`UPDATE users SET unconfirmed_email = 'buddy@hotmail.com', confirmation_sent_at = $1 WHERE id = $2;`, curTime.Add(-48*time.Hour), u.ID)
+			Expect(err).To(BeNil())
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			err = u.ConfirmEmail(db)
+			Expect(err).To(BeNil())
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(u.Email).To(Equal("buddy@hotmail.com"))
+			Expect(u.UnconfirmedEmail.String).To(BeEmpty())
 		})
 	})
 
@@ -934,7 +953,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("should generate a confirmation token", func() {
-			err := u.SendConfirmationEmail(db, true)
+			err := u.SendConfirmationEmail(db, true, false)
 			Expect(err).To(BeNil())
 
 			u, err := user.FindByID(db, u.ID)
@@ -946,7 +965,7 @@ var _ = Describe("models/user", func() {
 
 		It("should send the email", func() {
 			os.Setenv("WEB_HOSTNAME", "nitrous.example")
-			err := u.SendConfirmationEmail(db, true)
+			err := u.SendConfirmationEmail(db, true, false)
 			Expect(err).To(BeNil())
 
 			u, err = user.FindByID(db, u.ID)
@@ -963,6 +982,16 @@ var _ = Describe("models/user", func() {
 			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("<a href=\"https://nitrous.example/app#confirm-email?token=%s\" target=\"_blank\"", u.ConfirmationToken.String)))
 		})
 
+		It("should send the email to UnconfirmedEmail if available", func() {
+			_, err := db.Exec(`UPDATE users SET unconfirmed_email = 'buddy@nitrous.io' WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			err = u.SendConfirmationEmail(db, true, false)
+			Expect(err).To(BeNil())
+
+			Expect(fakeMailer.Tos).To(Equal([]string{"\"quxboy\" <buddy@nitrous.io>"}))
+		})
+
 		It("should return an error if already confirmed", func() {
 			_, err := db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
@@ -970,7 +999,7 @@ var _ = Describe("models/user", func() {
 			u, err = user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
 
-			err = u.SendConfirmationEmail(db, true)
+			err = u.SendConfirmationEmail(db, true, false)
 			Expect(err).To(Equal(user.ErrConfirmationAlreadyCompleted))
 		})
 
@@ -981,13 +1010,29 @@ var _ = Describe("models/user", func() {
 			u, err = user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
 
-			err = u.SendConfirmationEmail(db, false)
+			err = u.SendConfirmationEmail(db, false, false)
 			Expect(err).To(BeNil())
 
 			u, err := user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
 
 			Expect(u.ConfirmationLapsed()).To(BeTrue())
+		})
+
+		It("should allow flushing of the confirmed_at", func() {
+			_, err := db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			err = u.SendConfirmationEmail(db, true, true)
+			Expect(err).To(BeNil())
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(u.ConfirmedAt).To(BeNil())
 		})
 	})
 

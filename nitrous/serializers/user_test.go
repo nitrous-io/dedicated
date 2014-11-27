@@ -29,6 +29,7 @@ var _ = Describe("user serializer", func() {
 			BillingEnabled:    true,
 			CreatedAt:         &createdAt,
 			UpdatedAt:         &updatedAt,
+			UnconfirmedEmail:  sql.NullString{String: "h.granger+nospam@hogwarts.edu"},
 		}
 	)
 
@@ -43,6 +44,22 @@ var _ = Describe("user serializer", func() {
 				"email": "h.granger@hogwarts.edu",
 				"admin": true,
 				"billing_enabled": true,
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z",
+				"unconfirmed_email": "h.granger+nospam@hogwarts.edu"
+			}`))
+		})
+
+		It("should omit an empty UnconfirmedEmail", func() {
+			model.UnconfirmedEmail = sql.NullString{}
+			u := serializers.SerializeUser(model)
+			b, err := json.Marshal(u)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`{
+				"id": 10,
+				"username": "emmawatson",
+				"email": "h.granger@hogwarts.edu",
+				"admin": true,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
