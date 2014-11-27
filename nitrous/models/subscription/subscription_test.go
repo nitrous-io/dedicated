@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -97,6 +98,50 @@ var _ = Describe("models/subscription", func() {
 
 			Expect(s.HostID).To(Equal(int64(15)))
 			Expect(s.UpdatedAt).NotTo(Equal(oUpdatedAt))
+		})
+	})
+
+	Describe("Find()", func() {
+		var h *host.Host
+
+		BeforeEach(func() {
+			hs := &HostStack{}
+			hs, err := CreateHostStack(db, hs)
+			Expect(err).To(BeNil())
+			h = hs.H
+
+			s := &subscription.Subscription{
+				UserID:   u.ID,
+				PlanID:   p.ID,
+				StripeID: "sub_001",
+				HostID:   h.ID,
+			}
+			err = s.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("returns the subscription for the given host ID", func() {
+			s, err := subscription.Find(db, h.ID)
+			Expect(err).To(BeNil())
+			Expect(s.ID).NotTo(BeNil())
+			Expect(s.HostID).To(Equal(h.ID))
+		})
+
+		Context("when there's no subscription for the given host id", func() {
+			It("returns nil", func() {
+				s, err := subscription.Find(db, 9999)
+				Expect(s).To(BeNil())
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when some error happens", func() {
+			It("returns error", func() {
+				db.Close()
+				s, err := subscription.Find(db, h.ID)
+				Expect(s).To(BeNil())
+				Expect(err).NotTo(BeNil())
+			})
 		})
 	})
 })
