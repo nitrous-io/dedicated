@@ -1,6 +1,7 @@
 package subscription
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -38,4 +39,16 @@ func (s *Subscription) Update(d db.QueryReceiver) error {
 		return err
 	}
 	return nstmt.QueryRowx(s).StructScan(s)
+}
+
+func Find(d db.QueryReceiver, hostID int64) (*Subscription, error) {
+	s := &Subscription{}
+	err := d.Get(s, "SELECT * FROM subscriptions WHERE host_id = $1 ORDER BY created_at DESC LIMIT 1;", hostID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return s, nil
 }

@@ -2,6 +2,7 @@ package billingprofile_test
 
 import (
 	"database/sql"
+	"fmt"
 	"net/url"
 	"testing"
 
@@ -374,7 +375,7 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("subscribes customer to given Plan in Stripe and returns the ID", func() {
-				fakeStripe.Response = fmt.Sptrintf(StripeSubscriptionResponse, "sub_001")
+				fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001")
 				sID, err := bp.CreateSubscription("plan-1")
 				Expect(err).To(BeNil())
 				Expect(sID).To(Equal("sub_001"))

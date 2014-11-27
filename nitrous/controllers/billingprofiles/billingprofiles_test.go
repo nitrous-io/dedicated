@@ -64,7 +64,6 @@ var _ = Describe("controllers/billingprofiles", func() {
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
 
-		stripe.Key = "sk_key"
 		fakeStripe = &FakeStripe{}
 		stripe.SetBackend(fakeStripe)
 
@@ -161,8 +160,8 @@ var _ = Describe("controllers/billingprofiles", func() {
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 			errType, errDesc := ErrorSlug(res.Body)
-			Expect(errType).To(Equal("billing_profile_not_active"))
-			Expect(errDesc).To(Equal("There's no existing card associated to this account."))
+			Expect(errType).To(Equal("credit_card_required"))
+			Expect(errDesc).To(Equal("You need to add a credit card to create an application."))
 		})
 
 		Context("when billing profile is active", func() {

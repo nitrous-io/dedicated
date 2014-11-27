@@ -2,6 +2,7 @@ package hosts_test
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/stripe/stripe-go"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -21,12 +23,14 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
@@ -51,9 +55,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		mockClient *freighterclient.MockClient
 
-		u  *user.User
-		t  *token.Token
-		hs *HostStack
+		u          *user.User
+		t          *token.Token
+		hs         *HostStack
+		fakeStripe *FakeStripe
 	)
 
 	BeforeEach(func() {
@@ -85,6 +90,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		}
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
+
+		fakeStripe = &FakeStripe{}
+		stripe.SetBackend(fakeStripe)
 	})
 
 	AfterEach(func() {
@@ -218,6 +226,47 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		errType, errDesc := ErrorSlug(res.Body)
 		Expect(errType).To(Equal("invalid_request"))
 		Expect(errDesc).To(Equal("no matching templates found for the given plan and regions combination"))
+	})
+
+	Context("when user has billing enabled", func() {
+		BeforeEach(func() {
+			// TODO - FFLAG payments
+			_, err := db.Exec("UPDATE users SET billing_enabled = true WHERE id = $1", u.ID)
+			Expect(err).To(BeNil())
+		})
+
+		It("responds with a card required if user hasn't set a card on profile", func() {
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("credit_card_required"))
+			Expect(errDesc).To(Equal("You need to add a credit card to create an application."))
+		})
+
+		It("responds with a card declined if card fails", func() {
+			bp, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			bp.State = "paid"
+			bp.StripeID = sql.NullString{"sc0001", true}
+			bp.LastFour = sql.NullString{"1212", true}
+			bp.CardType = sql.NullString{"MasterCard", true}
+			bp.ExpMonth = sql.NullInt64{10, true}
+			bp.ExpYear = sql.NullInt64{2014, true}
+
+			err = bp.Update(db)
+			Expect(err).To(BeNil())
+
+			fakeStripe.Error = StripeCardDeclined
+
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("card_declined"))
+			Expect(errDesc).To(Equal("Your Credit Card was declined. Try contacting the bank directly for assistance."))
+		})
 	})
 
 	It("sends the host configs as json params", func() {
@@ -431,6 +480,35 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				Expect(ok).To(BeTrue())
 				Expect(evtData["volume"]).To(Equal(serializers.SerializeVolume(vol)))
 			}
+		})
+
+		It("creates a subscription for the host (when billing is enabled)", func() {
+			// TODO - FFLAG payments
+			_, err := db.Exec("UPDATE users SET billing_enabled = true WHERE id = $1", u.ID)
+			Expect(err).To(BeNil())
+
+			bp, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			bp.State = "paid"
+			bp.StripeID = sql.NullString{"sc0001", true}
+			bp.LastFour = sql.NullString{"1212", true}
+			bp.CardType = sql.NullString{"MasterCard", true}
+			bp.ExpMonth = sql.NullInt64{10, true}
+			bp.ExpYear = sql.NullInt64{2014, true}
+			err = bp.Update(db)
+			Expect(err).To(BeNil())
+
+			fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001")
+			doRequest(params)
+
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+
+			sub, err := subscription.Find(db, hosts[0].ID)
+			Expect(err).To(BeNil())
+			Expect(sub).NotTo(BeNil())
+			Expect(sub.StripeID).To(Equal("sub_001"))
 		})
 
 		It("responds with the progress data and created host", func() {

@@ -551,8 +551,7 @@ func (u *User) SubscribeToPlan(d db.QueryReceiver, p *plan.Plan) (*subscription.
 		PlanID:   p.ID,
 		StripeID: sID,
 	}
-	err = s.Insert(d)
-	if err != nil {
+	if err := s.Insert(d); err != nil {
 		return nil, err
 	}
 	return s, nil
