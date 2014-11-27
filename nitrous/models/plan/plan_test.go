@@ -2,6 +2,7 @@ package plan_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -191,6 +192,38 @@ var _ = Describe("models/plan", func() {
 			Expect(p.ID).NotTo(BeZero())
 			Expect(p.CreatedAt).NotTo(BeNil())
 			Expect(p.UpdatedAt).NotTo(BeNil())
+		})
+	})
+
+	Describe("ChargeForPeriod()", func() {
+		var p *plan.Plan
+		var err error
+
+		BeforeEach(func() {
+			p, err = plan.FindBySlug(db, "1gb")
+			Expect(err).To(BeNil())
+			Expect(p).NotTo(BeNil())
+		})
+
+		It("least charge is for a day", func() {
+			// p.Price = 1995
+			t1 := time.Date(2014, 11, 30, 23, 59, 59, 0, time.UTC)
+			t2 := time.Date(2014, 12, 1, 0, 0, 0, 0, time.UTC)
+			Expect(p.ChargeForPeriod(t1, t2)).To(Equal(uint64(72)))
+		})
+
+		It("maximum charge does not exceed monthly charge", func() {
+			// p.Price = 1995
+			t1 := time.Date(2014, 12, 1, 0, 0, 0, 0, time.UTC)
+			t2 := time.Date(2015, 1, 1, 0, 0, 0, 0, time.UTC)
+			Expect(p.ChargeForPeriod(t1, t2)).To(Equal(uint64(1995)))
+		})
+
+		It("charges for the period correctly", func() {
+			// p.Price = 1995
+			t1 := time.Date(2014, 12, 1, 0, 0, 0, 0, time.UTC)
+			t2 := time.Date(2014, 12, 14, 23, 59, 59, 0, time.UTC)
+			Expect(p.ChargeForPeriod(t1, t2)).To(Equal(uint64(998)))
 		})
 	})
 })

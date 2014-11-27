@@ -2,6 +2,7 @@ package plan
 
 import (
 	"database/sql"
+	"math"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -70,4 +71,20 @@ func (p *Plan) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	return nstmt.QueryRowx(p).StructScan(p)
+}
+
+// Following the same pricing calculation as Digital Ocean.
+// A Month will have 28 days (672 hours)
+// https://www.digitalocean.com/help/pricing-and-billing/
+func (p *Plan) ChargeForPeriod(t1 time.Time, t2 time.Time) uint64 {
+	hours := t2.Sub(t1).Hours()
+	if hours > 672.0 {
+		hours = 672.0
+	}
+	// charge atleast for a day
+	if hours < 24.0 {
+		hours = 24.0
+	}
+	i := math.Ceil(hours * float64(p.Price) / 672.0)
+	return uint64(i)
 }

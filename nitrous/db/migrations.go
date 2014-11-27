@@ -540,8 +540,8 @@ func init() {
 				CREATE TABLE subscriptions (
 					id bigserial PRIMARY KEY NOT NULL,
 					user_id bigint REFERENCES users(id) NOT NULL,
-					host_id bigint REFERENCES hosts(id) NOT NULL,
 					plan_id bigint REFERENCES plans(id) NOT NULL,
+					host_id bigint,
 					stripe_id character varying(32),
 					disabled_at timestamp without time zone,
 					created_at timestamp without time zone DEFAULT now(),

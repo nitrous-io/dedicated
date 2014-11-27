@@ -374,17 +374,7 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("subscribes customer to given Plan in Stripe and returns the ID", func() {
-				fakeStripe.Response = `{
-					"id": "sub_001",
-					"object": "charge",
-					"created": 1416549703,
-					"livemode": false,
-					"paid": true,
-					"amount": 5000,
-					"currency": "usd",
-					"captured": true
-				}`
-
+				fakeStripe.Response = fmt.Sptrintf(StripeSubscriptionResponse, "sub_001")
 				sID, err := bp.CreateSubscription("plan-1")
 				Expect(err).To(BeNil())
 				Expect(sID).To(Equal("sub_001"))
