@@ -10,6 +10,10 @@ form submit='updateSettings'
             = input type='checkbox' id='account-advanced' checked=advanced
             label
           label for='account-advanced' Show Advanced Options
+          p.note
+            strong Warning:
+            |  Changing advanced settings may affect the stability, security, and performance of your applications and containers, or even render them unusable.
+            |  Only enable this if you know what you are doing.
 
   .card-footer.bordered
     .right
@@ -19,19 +23,6 @@ form submit='updateSettings'
           | Saving...
       else
         input.ui.btn.primary type='submit' disabled={updatingSettings} value='Save'
-
-#confirm-advanced-modal-dialog.ui.modal
-  .ui.card
-    h2.card-header
-      | Warning!
-    .card-body
-      p
-        | Changing advanced settings may affect the stability, security, and performance of your applications and containers, or even render them unusable.
-      p
-        | Only enable this if you know what you are doing.
-    .card-footer
-      .right
-        button.ui.btn.primary click='hideModal target="view"' OK
 
 .card-header.bordered
   h2 Account Details
