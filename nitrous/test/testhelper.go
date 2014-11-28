@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
@@ -214,4 +216,15 @@ func NewTestServer(root string, db *db.Database, l *logger.Logger, t analytics.T
 	svr.Tracker = t
 
 	return svr
+}
+
+func ActivateBillingProfile(db *db.Database, bp *billingprofile.BillingProfile) error {
+	bp.State = "paid"
+	bp.StripeID = sql.NullString{"sc_01", true}
+	bp.LastFour = sql.NullString{"1212", true}
+	bp.CardType = sql.NullString{"MasterCard", true}
+	bp.ExpMonth = sql.NullInt64{10, true}
+	bp.ExpYear = sql.NullInt64{2014, true}
+
+	return bp.Update(db)
 }

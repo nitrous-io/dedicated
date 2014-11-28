@@ -581,8 +581,7 @@ var _ = Describe("controllers/hosts", func() {
 			It("disables the subscription associated to the host", func() {
 				bp, err := billingprofile.Find(db, hs.U.ID)
 				Expect(err).To(BeNil())
-				bp.StripeID = sql.NullString{"sc0001", true}
-				err = bp.Update(db)
+				err = ActivateBillingProfile(db, bp)
 				Expect(err).To(BeNil())
 
 				s := &subscription.Subscription{
