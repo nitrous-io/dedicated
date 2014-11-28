@@ -375,7 +375,7 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("subscribes customer to given Plan in Stripe and returns the ID", func() {
-				fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001")
+				fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001", "active")
 				sID, err := bp.CreateSubscription("plan-1")
 				Expect(err).To(BeNil())
 				Expect(sID).To(Equal("sub_001"))
@@ -400,6 +400,62 @@ var _ = Describe("models/billingprofile", func() {
 				}
 
 				_, err := bp.CreateSubscription("plan-1")
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
+	Describe("CancelSubscription()", func() {
+		var (
+			bp         *billingprofile.BillingProfile
+			fakeStripe *FakeStripe
+		)
+
+		BeforeEach(func() {
+			u := &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			bp, err = billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			fakeStripe = &FakeStripe{}
+			stripe.SetBackend(fakeStripe)
+		})
+
+		Context("when called on a profile with an empty StripeID", func() {
+			It("returns StripeProfileRequiredError", func() {
+				err := bp.CancelSubscription("sub_001")
+				Expect(err).To(Equal(billingprofile.StripeProfileRequiredError))
+			})
+		})
+
+		Context("when called on a profile with a StripeID", func() {
+			BeforeEach(func() {
+				bp.StripeID = sql.NullString{"sc0001", true}
+				err := bp.Update(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("cancels the given subscription", func() {
+				fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001", "canceled")
+				err := bp.CancelSubscription("sub_001")
+				Expect(err).To(BeNil())
+			})
+
+			It("returns an error when cancelation fails", func() {
+				fakeStripe.Error = &stripe.Error{
+					Type: stripe.ErrorType(stripe.APIErr),
+					Msg:  "some error occurred",
+					Code: stripe.ErrorCode(stripe.ProcessingErr),
+				}
+
+				err := bp.CancelSubscription("sub_001")
 				Expect(err).NotTo(BeNil())
 			})
 		})
