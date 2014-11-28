@@ -4,14 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
 )
 
 const (
-	// FIXME: make this customizable
-	dockerHost    = "unix:///var/run/docker.sock"
 	defaultTerm   = "xterm-256color"
 	defaultWidth  = 80
 	defaultHeight = 60
@@ -21,11 +20,18 @@ var (
 	ErrMissingArg  = errors.New("Missing arguments: check id and command")
 	ErrInvalidTerm = errors.New("Invalid term")
 
+	dockerHost = "unix:///var/run/docker.sock"
 	// time to wait for process to close normally before we terminate it
 	defaultFinishTimeout = 1 * time.Second
 	//  time to wait for process to close before we kill it
 	defaultTermTimeout = 2 * time.Second
 )
+
+func init() {
+	if host := os.Getenv("DOCKER_HOST"); host != "" {
+		dockerHost = host
+	}
+}
 
 func NewShell(containerID, command string, noTTY bool) (*Shell, error) {
 	if containerID == "" || command == "" {
