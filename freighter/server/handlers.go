@@ -372,7 +372,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	// stdin pipe will not need a TTY
 	noTTY, _ := strconv.ParseBool(r.FormValue("notty"))
 
-	sh, err := shell.OpenShell(containerID, command, width, height, noTTY, info.Env)
+	sh, err := shell.OpenShell(containerID, command, noTTY)
 	if err != nil {
 		fmt.Println("wsNewShell: failed to open a shell for container %v", containerID, err)
 		return err
@@ -398,12 +398,19 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
 	stdout := shell.NewShellWriter(stream)
 
-	ch := sh.Attach(stdin, stdout)
+	attached := make(chan struct{}, 1)
+	ch := sh.Attach(stdin, stdout, attached)
+
 	for {
 		select {
-		case <-ch:
+		case err := <-ch:
+			log.Printf("exited with err %s", err)
 			stdout.Close() // Inform client that server has closed connection.
 			return nil
+		case <-attached:
+			// when the client first attached, resize immediately with the
+			// current width and height
+			sh.Resize(width, height)
 		case msg := <-msgCh:
 			switch msg := msg.(type) {
 			case *shell.ResizeMsg:
