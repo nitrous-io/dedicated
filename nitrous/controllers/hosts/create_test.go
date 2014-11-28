@@ -2,7 +2,6 @@ package hosts_test
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -248,14 +247,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			bp, err := billingprofile.Find(db, u.ID)
 			Expect(err).To(BeNil())
 
-			bp.State = "paid"
-			bp.StripeID = sql.NullString{"sc0001", true}
-			bp.LastFour = sql.NullString{"1212", true}
-			bp.CardType = sql.NullString{"MasterCard", true}
-			bp.ExpMonth = sql.NullInt64{10, true}
-			bp.ExpYear = sql.NullInt64{2014, true}
-
-			err = bp.Update(db)
+			err = ActivateBillingProfile(db, bp)
 			Expect(err).To(BeNil())
 
 			fakeStripe.Error = StripeCardDeclined
@@ -489,13 +481,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			bp, err := billingprofile.Find(db, u.ID)
 			Expect(err).To(BeNil())
-			bp.State = "paid"
-			bp.StripeID = sql.NullString{"sc0001", true}
-			bp.LastFour = sql.NullString{"1212", true}
-			bp.CardType = sql.NullString{"MasterCard", true}
-			bp.ExpMonth = sql.NullInt64{10, true}
-			bp.ExpYear = sql.NullInt64{2014, true}
-			err = bp.Update(db)
+			err = ActivateBillingProfile(db, bp)
 			Expect(err).To(BeNil())
 
 			fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001", "active")

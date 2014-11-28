@@ -1168,14 +1168,7 @@ var _ = Describe("models/user", func() {
 				bp, err := billingprofile.Find(db, u.ID)
 				Expect(err).To(BeNil())
 
-				bp.State = "paid"
-				bp.StripeID = sql.NullString{"sc0001", true}
-				bp.LastFour = sql.NullString{"1212", true}
-				bp.CardType = sql.NullString{"MasterCard", true}
-				bp.ExpMonth = sql.NullInt64{10, true}
-				bp.ExpYear = sql.NullInt64{2014, true}
-
-				err = bp.Update(db)
+				err = ActivateBillingProfile(db, bp)
 				Expect(err).To(BeNil())
 			})
 
@@ -1236,8 +1229,8 @@ var _ = Describe("models/user", func() {
 			BeforeEach(func() {
 				bp, err := billingprofile.Find(db, u.ID)
 				Expect(err).To(BeNil())
-				bp.StripeID = sql.NullString{"sc0001", true}
-				err = bp.Update(db)
+
+				err = ActivateBillingProfile(db, bp)
 				Expect(err).To(BeNil())
 			})
 

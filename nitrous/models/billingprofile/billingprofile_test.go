@@ -123,14 +123,7 @@ var _ = Describe("models/billingprofile", func() {
 
 		Context("when called on a profile with a StripeID", func() {
 			BeforeEach(func() {
-				bp.State = "paid"
-				bp.StripeID = sql.NullString{"sc_01", true}
-				bp.LastFour = sql.NullString{"1212", true}
-				bp.CardType = sql.NullString{"MasterCard", true}
-				bp.ExpMonth = sql.NullInt64{10, true}
-				bp.ExpYear = sql.NullInt64{2014, true}
-
-				err := bp.Update(db)
+				err := ActivateBillingProfile(db, bp)
 				Expect(err).To(BeNil())
 			})
 
@@ -205,14 +198,7 @@ var _ = Describe("models/billingprofile", func() {
 
 		Context("when called on a profile with a StripeID", func() {
 			BeforeEach(func() {
-				bp.State = "paid"
-				bp.StripeID = sql.NullString{"sc_01", true}
-				bp.LastFour = sql.NullString{"1212", true}
-				bp.CardType = sql.NullString{"MasterCard", true}
-				bp.ExpMonth = sql.NullInt64{10, true}
-				bp.ExpYear = sql.NullInt64{2014, true}
-
-				err := bp.Update(db)
+				err := ActivateBillingProfile(db, bp)
 				Expect(err).To(BeNil())
 			})
 
@@ -271,14 +257,7 @@ var _ = Describe("models/billingprofile", func() {
 
 		Context("when called on a profile with a StripeID", func() {
 			BeforeEach(func() {
-				bp.State = "paid"
-				bp.StripeID = sql.NullString{"sc_01", true}
-				bp.LastFour = sql.NullString{"1212", true}
-				bp.CardType = sql.NullString{"MasterCard", true}
-				bp.ExpMonth = sql.NullInt64{10, true}
-				bp.ExpYear = sql.NullInt64{2014, true}
-
-				err := bp.Update(db)
+				err := ActivateBillingProfile(db, bp)
 				Expect(err).To(BeNil())
 			})
 
@@ -363,14 +342,7 @@ var _ = Describe("models/billingprofile", func() {
 
 		Context("when called on a profile with a StripeID", func() {
 			BeforeEach(func() {
-				bp.State = "paid"
-				bp.StripeID = sql.NullString{"sc0001", true}
-				bp.LastFour = sql.NullString{"1212", true}
-				bp.CardType = sql.NullString{"MasterCard", true}
-				bp.ExpMonth = sql.NullInt64{10, true}
-				bp.ExpYear = sql.NullInt64{2014, true}
-
-				err := bp.Update(db)
+				err := ActivateBillingProfile(db, bp)
 				Expect(err).To(BeNil())
 			})
 
@@ -437,8 +409,7 @@ var _ = Describe("models/billingprofile", func() {
 
 		Context("when called on a profile with a StripeID", func() {
 			BeforeEach(func() {
-				bp.StripeID = sql.NullString{"sc0001", true}
-				err := bp.Update(db)
+				err := ActivateBillingProfile(db, bp)
 				Expect(err).To(BeNil())
 			})
 
