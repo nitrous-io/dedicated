@@ -556,3 +556,20 @@ func (u *User) SubscribeToPlan(d db.QueryReceiver, p *plan.Plan) (*subscription.
 	}
 	return s, nil
 }
+
+func (u *User) CancelSubscription(d db.QueryReceiver, sub *subscription.Subscription) error {
+	bp, err := billingprofile.Find(d, u.ID)
+	if err != nil {
+		return err
+	}
+
+	if err := bp.CancelSubscription(sub.StripeID); err != nil {
+		return err
+	}
+
+	// TODO: Refund charge for the unused period
+
+	t := time.Now()
+	sub.DisabledAt = &t
+	return sub.Update(d)
+}

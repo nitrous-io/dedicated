@@ -498,7 +498,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			err = bp.Update(db)
 			Expect(err).To(BeNil())
 
-			fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001")
+			fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001", "active")
 			doRequest(params)
 
 			hosts, err := host.FindAllByUser(db, u)

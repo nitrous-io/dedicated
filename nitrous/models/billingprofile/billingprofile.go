@@ -178,3 +178,16 @@ func (b *BillingProfile) CreateSubscription(plan string) (string, error) {
 	}
 	return s.ID, nil
 }
+
+// CancelSubscription takes a Stripe subscription ID and cancels associated subscription.
+func (b *BillingProfile) CancelSubscription(sID string) error {
+	if !b.StripeID.Valid {
+		return StripeProfileRequiredError
+	}
+
+	params := &stripe.SubParams{
+		Customer: b.StripeID.String,
+	}
+
+	return sub.Cancel(sID, params)
+}

@@ -24,6 +24,10 @@ func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interfac
 		return s.Error
 	}
 
+	if v == nil {
+		return nil
+	}
+
 	if s.Response != "" {
 		return json.Unmarshal([]byte(s.Response), v)
 	}
@@ -78,6 +82,7 @@ var StripeSubscriptionResponse = `{
 		"paid": true,
 		"amount": 5000,
 		"currency": "usd",
+		"status": %q,
 		"captured": true
 	}`
 
