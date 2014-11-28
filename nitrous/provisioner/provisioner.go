@@ -59,14 +59,9 @@ type Provisioner struct {
 }
 
 // Config is the configuration of a host provisioner.
-// It is used for unmarshalling JSON of the form:
-// {
-//   "username": "host-provisioner",
-//   "num_workers": "2",
-// }
 type Config struct {
-	Username   string `json:"username"`
-	NumWorkers int    `json:"num_workers"`
+	Username   string
+	NumWorkers int
 }
 
 type ProvisionOptions struct {
