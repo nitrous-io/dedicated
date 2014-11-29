@@ -103,16 +103,15 @@ func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
 	return hosts, nil
 }
 
-func FindAllPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) ([]*Host, error) {
-	hosts := []*Host{}
-	if err := db.Select(&hosts,
-		`SELECT * FROM hosts
+func CountPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) (int, error) {
+	var count int
+	if err := db.QueryRow(`SELECT count(*) FROM hosts
 		WHERE region_id = $1 AND plan_id = $2 AND state = $3
-		AND preprovisioned = TRUE AND terminated_at IS NULL ORDER BY id;`,
-		r.ID, p.ID, StateRunning); err != nil {
-		return nil, err
+		AND preprovisioned = TRUE AND terminated_at IS NULL;`,
+		r.ID, p.ID, StateRunning).Scan(&count); err != nil {
+		return 0, err
 	}
-	return hosts, nil
+	return count, nil
 }
 
 // Find will return a Host scoped by User.

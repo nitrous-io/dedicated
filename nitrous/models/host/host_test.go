@@ -100,7 +100,7 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("FindAllPreprovisioned()", func() {
+	Describe("CountPreprovisioned()", func() {
 		var hs2 *HostStack
 
 		BeforeEach(func() {
@@ -138,22 +138,16 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("returns non-terminated pre-provisioned hosts in the given region and plan", func() {
-			hosts, err := host.FindAllPreprovisioned(db, hs.R, hs.P)
+		It("returns the count of non-terminated pre-provisioned hosts in the given region and plan", func() {
+			count, err := host.CountPreprovisioned(db, hs.R, hs.P)
 			Expect(err).To(BeNil())
-			Expect(hosts).To(HaveLen(1))
-
-			h := hosts[0]
-			Expect(h.RegionID).To(Equal(hs.R.ID))
-			Expect(h.PlanID).To(Equal(hs.P.ID))
-			Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
-			Expect(h.Slug).To(Equal("preprovisioned-host-2"))
+			Expect(count).To(Equal(1))
 		})
 
-		It("returns an empty slice if there are no pre-provisioned hosts in the given region and plan", func() {
-			hosts, err := host.FindAllPreprovisioned(db, hs.R, hs2.P)
+		It("returns 0 if there are no pre-provisioned hosts in the given region and plan", func() {
+			count, err := host.CountPreprovisioned(db, hs.R, hs2.P)
 			Expect(err).To(BeNil())
-			Expect(hosts).To(HaveLen(0))
+			Expect(count).To(Equal(0))
 		})
 	})
 
