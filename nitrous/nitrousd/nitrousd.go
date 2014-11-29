@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"time"
 
@@ -96,17 +95,14 @@ func main() {
 	if pu == "" {
 		logr.FatalExit("nitrousd: PROVISIONER_USER is not defined")
 	}
-	pw := os.Getenv("PROVISIONER_WORKERS")
-	if pw == "" {
-		logr.FatalExit("nitrousd: PROVISIONER_WORKERS is not defined")
-	}
-	workers, err := strconv.Atoi(pw)
+	pi := os.Getenv("PROVISIONER_INTERVAL")
+	interval, err := time.ParseDuration(pi)
 	if err != nil {
-		logr.FatalExit("nitrousd: PROVISIONER_WORKERS invalid:", err.Error())
+		logr.FatalExit("nitrousd: PROVISIONER_INTERVAL invalid:", err.Error())
 	}
 	conf := &provisioner.Config{
-		Username:   pu,
-		NumWorkers: workers,
+		Username: pu,
+		Interval: interval,
 	}
 
 	svr := server.NewServer(must.String(osext.ExecutableFolder()),
