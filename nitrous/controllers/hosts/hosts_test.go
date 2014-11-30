@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -524,8 +522,8 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: okResponse,
-					status:  http.StatusOK,
+					Message: okResponse,
+					Status:  http.StatusOK,
 				})
 				hosts.HostbuilderClient = hb
 			})
@@ -625,8 +623,8 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: errorResponse,
-					status:  http.StatusBadRequest,
+					Message: errorResponse,
+					Status:  http.StatusBadRequest,
 				})
 				hosts.HostbuilderClient = hb
 			})
@@ -654,14 +652,14 @@ var _ = Describe("controllers/hosts", func() {
 				// in this context, hostbuilder should not be called
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				rt := &FakeRoundTripper{
-					message: errorResponse,
-					status:  http.StatusBadRequest,
+					Message: errorResponse,
+					Status:  http.StatusBadRequest,
 				}
 				replaceTransport(hb, rt)
 				hosts.HostbuilderClient = hb
 
 				doRequest(hs.H.Slug)
-				Expect(len(rt.requests)).To(Equal(0), "expect to not called hostbuilder")
+				Expect(len(rt.Requests)).To(Equal(0), "expect to not called hostbuilder")
 				Expect(res.Code).To(Equal(http.StatusOK))
 			})
 		})
@@ -702,8 +700,8 @@ var _ = Describe("controllers/hosts", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: okResponse,
-					status:  http.StatusOK,
+					Message: okResponse,
+					Status:  http.StatusOK,
 				})
 
 				hosts.HostbuilderClient = hb
@@ -724,8 +722,8 @@ var _ = Describe("controllers/hosts", func() {
 			It("allows host to be restarted if force=true", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: okResponse,
-					status:  http.StatusOK,
+					Message: okResponse,
+					Status:  http.StatusOK,
 				})
 				hosts.HostbuilderClient = hb
 
@@ -748,8 +746,8 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: okResponse,
-					status:  http.StatusOK,
+					Message: okResponse,
+					Status:  http.StatusOK,
 				})
 
 				hosts.HostbuilderClient = hb
@@ -826,8 +824,8 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: errorResponse,
-					status:  http.StatusBadRequest,
+					Message: errorResponse,
+					Status:  http.StatusBadRequest,
 				})
 
 				hosts.HostbuilderClient = hb
@@ -852,8 +850,8 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: okResponse,
-					status:  http.StatusOK,
+					Message: okResponse,
+					Status:  http.StatusOK,
 				})
 				hosts.HostbuilderClient = hb
 
@@ -940,34 +938,4 @@ var (
 // replace the transport in hostbuilder client with a new fake transport
 func replaceTransport(hb *hostbuilderclient.Hostbuilder, t http.RoundTripper) {
 	hb.Client.Client.Transport = t
-}
-
-// FakeRoundTripper implements a fake Transport layer that records the executed
-// requests and provide a fake response
-//
-// This is more lightweight than implementing a full HTTP server and should be
-// approriate for some tests
-type FakeRoundTripper struct {
-	message  string
-	status   int
-	header   map[string]string
-	requests []*http.Request
-}
-
-func (rt *FakeRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	body := strings.NewReader(rt.message)
-	rt.requests = append(rt.requests, r)
-	res := &http.Response{
-		StatusCode: rt.status,
-		Body:       ioutil.NopCloser(body),
-		Header:     make(http.Header),
-	}
-	for k, v := range rt.header {
-		res.Header.Set(k, v)
-	}
-	return res, nil
-}
-
-func (rt *FakeRoundTripper) Reset() {
-	rt.requests = nil
 }
