@@ -34,9 +34,9 @@
 
     p.see-terms
       | Please review the&nbsp;
-      a href='#' terms of service
+      a href='/docs/admin-terms' terms of service
       |, and&nbsp;
-      a href='#' privacy policy
+      a href='/docs/admin-privacy' privacy policy
       |. All sales are final.
 
     .card-footer.bordered

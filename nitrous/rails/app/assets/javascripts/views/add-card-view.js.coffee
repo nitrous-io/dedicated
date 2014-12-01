@@ -2,7 +2,7 @@ App.AddCardView = Em.View.extend
   elementId: 'add-card-view'
   classNames: ['ui', 'card']
 
-  numberFieldInvalid: Em.computed.equal('controller.invalidField', 'number')
+  numberFieldInvalid: Em.computed.equal('controller.invalidField', 'credit card number')
   expirationFieldInvalid: Em.computed.equal('controller.invalidField', 'expiration')
   cvcFieldInvalid: Em.computed.equal('controller.invalidField', 'cvc')
 
