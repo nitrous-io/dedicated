@@ -2,6 +2,7 @@ package provisioner_test
 
 import (
 	"net/http"
+	"syscall"
 	"testing"
 	"time"
 
@@ -100,6 +101,25 @@ var _ = Describe("provisioner", func() {
 
 			prov.Stop()
 			Expect(prov.IsRunning()).To(BeFalse())
+		})
+
+		It("allows pre-provisioner to be restarted with SIGUSR2", func() {
+			cfg := &provisioner.Config{
+				Username: provisionerUser.Username,
+				Interval: 50 * time.Millisecond,
+			}
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			err := prov.Start()
+			Expect(err).To(BeNil())
+
+			prov.Stop()
+			Expect(prov.IsRunning()).To(BeFalse())
+
+			syscall.Kill(syscall.Getpid(), syscall.SIGUSR2)
+
+			Eventually(func() bool {
+				return prov.IsRunning()
+			}).Should(BeTrue())
 		})
 	})
 })

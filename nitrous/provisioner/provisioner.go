@@ -8,8 +8,10 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/lib/pq"
@@ -200,16 +202,19 @@ func (p *Provisioner) Start() error {
 		}
 	}()
 
+	// Stop pre-provisioner goroutine on any errors.
 	go func() {
-		select {
-		case err := <-errCh:
-			p.logger.Errorf("provisioner: job creator encountered error: %s", err)
-			p.Stop()
-		case <-p.stop:
-			p.setRunning(false)
-			p.logger.Info("provisioner: stopped")
-			p.stopped <- struct{}{}
-		}
+		err := <-errCh
+		p.logger.Errorf("provisioner: job creator encountered error: %s", err)
+		p.Stop()
+	}()
+
+	// Process stop signal.
+	go func() {
+		<-p.stop
+		p.setRunning(false)
+		p.logger.Info("provisioner: stopped")
+		p.stopped <- struct{}{}
 	}()
 
 	p.logger.Debug("provisioner: started")
@@ -222,6 +227,15 @@ func (p *Provisioner) Stop() {
 		close(p.stop)
 		<-p.stopped
 	}
+
+	// Allow pre-provisioner to be started again with SIGUSR2.
+	go func() {
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGUSR2)
+		<-ch
+		p.logger.Infof("provisioner: SIGUSR2 received, re-starting")
+		p.Start()
+	}()
 }
 
 func (p *Provisioner) IsRunning() bool {
