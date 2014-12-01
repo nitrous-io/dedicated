@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
@@ -1071,12 +1074,11 @@ var _ = Describe("models/user", func() {
 		It("sends a request to Stripe to create a customer", func() {
 			u.ActivateBillingProfile(db, "token")
 
-			Expect(fakeStripe.Received).To(Equal(map[string]string{
-				"method": "POST",
-				"path":   "/customers",
-				"card":   "token",
-				"email":  u.Email,
-				"desc":   fmt.Sprint(u.Name, u.Username),
+			b := fakeStripe.Received["body"]
+			Expect(b).To(Equal(&url.Values{
+				"card":        {"token"},
+				"email":       {u.Email},
+				"description": {fmt.Sprintf("%s %s", u.Name, u.Username)},
 			}))
 		})
 
@@ -1124,6 +1126,119 @@ var _ = Describe("models/user", func() {
 				b, err := billingprofile.Find(db, u.ID)
 				Expect(err).To(BeNil())
 				Expect(b.State).To(Equal("free"))
+			})
+		})
+	})
+
+	Describe("SubscribeToPlan", func() {
+		var (
+			u          *user.User
+			p          *plan.Plan
+			fakeStripe *FakeStripe
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			p = &plan.Plan{
+				Slug:          "512mb",
+				Name:          "Nano",
+				MaxContainers: 2,
+				Price:         995,
+				CPU:           "1",
+				Memory:        "512 MB",
+				Storage:       "20 GB",
+			}
+			err = p.Insert(db)
+			Expect(err).To(BeNil())
+
+			fakeStripe = &FakeStripe{}
+			stripe.SetBackend(fakeStripe)
+		})
+
+		Context("when billing profile is active", func() {
+			BeforeEach(func() {
+				bp, err := billingprofile.Find(db, u.ID)
+				Expect(err).To(BeNil())
+
+				err = ActivateBillingProfile(db, bp)
+				Expect(err).To(BeNil())
+			})
+
+			It("creates a subscription with returned stripe ID", func() {
+				fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001", "active")
+				sub, err := u.SubscribeToPlan(db, p)
+				Expect(err).To(BeNil())
+
+				Expect(sub.UserID).To(Equal(u.ID))
+				Expect(sub.PlanID).To(Equal(p.ID))
+				Expect(sub.StripeID).To(Equal("sub_001"))
+			})
+		})
+	})
+
+	Describe("CancelSubscription", func() {
+		var (
+			u          *user.User
+			s          *subscription.Subscription
+			fakeStripe *FakeStripe
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			p := &plan.Plan{
+				Slug:          "512mb",
+				Name:          "Nano",
+				MaxContainers: 2,
+				Price:         995,
+				CPU:           "1",
+				Memory:        "512 MB",
+				Storage:       "20 GB",
+			}
+			err = p.Insert(db)
+			Expect(err).To(BeNil())
+
+			s = &subscription.Subscription{
+				UserID:   u.ID,
+				PlanID:   p.ID,
+				StripeID: "sub_001",
+			}
+			err = s.Insert(db)
+			Expect(err).To(BeNil())
+
+			fakeStripe = &FakeStripe{}
+			stripe.SetBackend(fakeStripe)
+		})
+
+		Context("when billing profile has a StripeID", func() {
+			BeforeEach(func() {
+				bp, err := billingprofile.Find(db, u.ID)
+				Expect(err).To(BeNil())
+
+				err = ActivateBillingProfile(db, bp)
+				Expect(err).To(BeNil())
+			})
+
+			It("sets the subscription as disabled", func() {
+				fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001", "canceled")
+				err := u.CancelSubscription(db, s)
+				Expect(err).To(BeNil())
+				Expect(s.DisabledAt).NotTo(BeNil())
 			})
 		})
 	})

@@ -20,10 +20,12 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
@@ -574,6 +576,27 @@ var _ = Describe("controllers/hosts", func() {
 				doRequest(hs.H.Slug)
 				_, err := cert.Find(db, hs.H.ID)
 				Expect(err).ToNot(BeNil(), "failed to remove host's certificates")
+			})
+
+			It("disables the subscription associated to the host", func() {
+				bp, err := billingprofile.Find(db, hs.U.ID)
+				Expect(err).To(BeNil())
+				err = ActivateBillingProfile(db, bp)
+				Expect(err).To(BeNil())
+
+				s := &subscription.Subscription{
+					UserID:   hs.U.ID,
+					PlanID:   hs.P.ID,
+					HostID:   hs.H.ID,
+					StripeID: "sub_001",
+				}
+				err = s.Insert(db)
+				Expect(err).To(BeNil())
+
+				doRequest(hs.H.Slug)
+				sub, err := subscription.Find(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(sub.DisabledAt).NotTo(BeNil())
 			})
 
 			It("responds with status OK", func() {

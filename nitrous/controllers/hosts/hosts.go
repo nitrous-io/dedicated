@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -161,6 +162,19 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		tx.Rollback()
 		return err
 	}
+
+	sub, err := subscription.Find(tx, h.ID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if sub != nil {
+		if err := env.User.CancelSubscription(tx, sub); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
 	if err := tx.Commit(); err != nil {
 		return err
 	}

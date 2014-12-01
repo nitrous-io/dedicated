@@ -14,17 +14,20 @@ import (
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
@@ -109,6 +112,22 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	var sub *subscription.Subscription
+	//TODO: FFLAG payments
+	if env.User.BillingEnabled {
+		sub, err = env.User.SubscribeToPlan(db, plan)
+		if err != nil {
+			switch err {
+			case billingprofile.StripeProfileRequiredError:
+				return billingprofiles.ErrStripeProfileRequired
+			case billingprofile.CardDeclinedError:
+				return billingprofiles.ErrCardDeclined
+			default:
+				return err
+			}
+		}
+	}
+
 	// Progress data from host provisioning is written to the events stream.
 	// For synchronous requests, progress data is also written to the
 	// ResponseWriter.
@@ -169,15 +188,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if options.Async {
 		go func() {
 			h := <-provisioned
-			if err := postProvision(options, env, h, outstream); err != nil {
+			if err := postProvision(options, env, h, sub, outstream); err != nil {
 				publishProvisionFailure(h, err)
 				return
 			}
+
 			publishHostEvent(env, controllers.EventHostCreated, h)
 		}()
 		env.Status = http.StatusAccepted
 	} else {
-		if err := postProvision(options, env, h, outstream); err != nil {
+		if err := postProvision(options, env, h, sub, outstream); err != nil {
 			publishProvisionFailure(h, err)
 			return err
 		}
@@ -198,7 +218,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func postProvision(options hostCreate, env *middleware.Env, h *host.Host, outstream io.Writer) error {
+func postProvision(options hostCreate, env *middleware.Env, h *host.Host, sub *subscription.Subscription, outstream io.Writer) error {
 	if err := createSharedVolume(env, env.DB, h); err != nil {
 		return err
 	}
@@ -207,6 +227,13 @@ func postProvision(options hostCreate, env *middleware.Env, h *host.Host, outstr
 	}
 	if err := createContainers(options.Containers, env, h, outstream); err != nil {
 		return err
+	}
+
+	if sub != nil {
+		sub.HostID = h.ID
+		if err := sub.Update(env.DB); err != nil {
+			return err
+		}
 	}
 	return nil
 }

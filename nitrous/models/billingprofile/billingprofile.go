@@ -9,8 +9,11 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/timeutils"
 	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/charge"
 	"github.com/stripe/stripe-go/customer"
+	"github.com/stripe/stripe-go/sub"
 )
 
 func init() {
@@ -74,6 +77,7 @@ func (b *BillingProfile) Update(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(b).StructScan(b)
 }
 
+// UpdateCard will change the card details of receiver's Stripe profile.
 func (b *BillingProfile) UpdateCard(d db.QueryReceiver, token string) error {
 	if !b.StripeID.Valid {
 		return StripeProfileRequiredError
@@ -105,6 +109,7 @@ func (b *BillingProfile) UpdateCard(d db.QueryReceiver, token string) error {
 	return nil
 }
 
+// UpdateEmail will change the email of receiver's Stripe profile.
 func (b *BillingProfile) UpdateEmail(d db.QueryReceiver, email string) error {
 	if !b.StripeID.Valid {
 		return StripeProfileRequiredError
@@ -117,5 +122,76 @@ func (b *BillingProfile) UpdateEmail(d db.QueryReceiver, email string) error {
 		return err
 	}
 
+	return nil
+}
+
+// ChargeAmount will charge a one-time fee from receiver's Stripe profile.
+func (b *BillingProfile) ChargeAmount(amt uint64, desc string) error {
+	if !b.StripeID.Valid {
+		return StripeProfileRequiredError
+	}
+
+	params := &stripe.ChargeParams{
+		Amount:   amt,
+		Currency: "usd",
+		Desc:     desc,
+		Customer: b.StripeID.String,
+	}
+
+	if _, err := charge.New(params); err != nil {
+		if e, ok := err.(*stripe.Error); ok {
+			if e.Code == stripe.CardDeclined {
+				return CardDeclinedError
+			}
+		}
+		return err
+	}
+
+	return nil
+}
+
+// CreateSubscription will subscribe receiver to the given Stripe Plan ID
+// Returns  the ID of the created subscription.
+func (b *BillingProfile) CreateSubscription(plan string) (string, error) {
+	if !b.StripeID.Valid {
+		return "", StripeProfileRequiredError
+	}
+
+	params := &stripe.SubParams{
+		Plan:     plan,
+		Customer: b.StripeID.String,
+
+		// As per the current policy, we charge for a prorated amount till 1st of next month immediately.
+		// Actual subscription pricing will only be affective from the 1st of next month.
+		// Hence subscription will be trailing till then.
+		TrialEnd: timeutils.FirstOfNextMonth().Unix(),
+	}
+
+	s, err := sub.New(params)
+	if err != nil {
+		if e, ok := err.(*stripe.Error); ok {
+			if e.Code == stripe.CardDeclined {
+				return "", CardDeclinedError
+			}
+		}
+		return "", err
+	}
+	return s.ID, nil
+}
+
+// CancelSubscription takes a Stripe subscription ID and cancels associated subscription.
+func (b *BillingProfile) CancelSubscription(sID string) error {
+	if !b.StripeID.Valid {
+		return StripeProfileRequiredError
+	}
+
+	params := &stripe.SubParams{
+		Customer: b.StripeID.String,
+	}
+
+	err := sub.Cancel(sID, params)
+	if err != nil {
+		return err
+	}
 	return nil
 }

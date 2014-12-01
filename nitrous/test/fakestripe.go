@@ -8,22 +8,24 @@ import (
 )
 
 type FakeStripe struct {
-	Received map[string]string
+	Received map[string]interface{}
 	Response string
 	Error    *stripe.Error
 }
 
 func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interface{}) error {
-	s.Received = map[string]string{
+	s.Received = map[string]interface{}{
 		"method": method,
 		"path":   path,
-		"card":   body.Get("card"),
-		"email":  body.Get("email"),
-		"desc":   body.Get("description"),
+		"body":   body,
 	}
 
 	if s.Error != nil {
 		return s.Error
+	}
+
+	if v == nil {
+		return nil
 	}
 
 	if s.Response != "" {
@@ -70,6 +72,18 @@ var StripeCustomerResponse = `{
 			]
 		},
 		"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
+	}`
+
+var StripeSubscriptionResponse = `{
+		"id": %q,
+		"object": "subscription",
+		"created": 1416549703,
+		"livemode": false,
+		"paid": true,
+		"amount": 5000,
+		"currency": "usd",
+		"status": %q,
+		"captured": true
 	}`
 
 var StripeCardDeclined = &stripe.Error{

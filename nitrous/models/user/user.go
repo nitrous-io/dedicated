@@ -14,11 +14,14 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/timeutils"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
 )
@@ -485,7 +488,7 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 	params := &stripe.CustomerParams{
 		Token: token,
 		Email: u.Email,
-		Desc:  fmt.Sprint(u.Name, u.Username),
+		Desc:  fmt.Sprintf("%s %s", u.Name, u.Username),
 	}
 	c, err := customer.New(params)
 	if err != nil {
@@ -514,4 +517,63 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 		return nil, fmt.Errorf("Billing profile update failed for user %s. Reason - %s", u.Username, err)
 	}
 	return b, nil
+}
+
+// SubscribeToPlan will subscribe the user to given plan and return subscription record.
+func (u *User) SubscribeToPlan(d db.QueryReceiver, p *plan.Plan) (*subscription.Subscription, error) {
+	bp, err := billingprofile.Find(d, u.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// charge the prorated amount first (no. of hours till 1st of next month)
+	now := time.Now()
+	nbd := timeutils.FirstOfNextMonth()
+
+	const shortDate = "Jan 02, 2006"
+	desc := fmt.Sprintf("prorated charge for period %s - %s", now.Format(shortDate), nbd.Format(shortDate))
+	amt := p.ChargeForPeriod(now, nbd)
+
+	err = bp.ChargeAmount(amt, desc)
+	if err != nil {
+		return nil, err
+	}
+
+	// subscribe to a plan
+	sID, err := bp.CreateSubscription(p.Slug)
+	if err != nil {
+		return nil, err
+	}
+
+	// create subscription record
+	s := &subscription.Subscription{
+		UserID:   u.ID,
+		PlanID:   p.ID,
+		StripeID: sID,
+	}
+	err = s.Insert(d)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+func (u *User) CancelSubscription(d db.QueryReceiver, sub *subscription.Subscription) error {
+	bp, err := billingprofile.Find(d, u.ID)
+	if err != nil {
+		return err
+	}
+
+	if err := bp.CancelSubscription(sub.StripeID); err != nil {
+		return err
+	}
+
+	// TODO: Refund charge for the unused period
+
+	t := time.Now()
+	sub.DisabledAt = &t
+	if err := sub.Update(d); err != nil {
+		return err
+	}
+	return nil
 }

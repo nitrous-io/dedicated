@@ -9,8 +9,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
-var errStripeProfileRequired = httperror.New(http.StatusBadRequest, "billing_profile_not_active", "There's no existing card associated to this account.")
-var errCardDeclined = httperror.New(http.StatusBadRequest, "card_declined", "Your Credit Card was declined. Try contacting the bank directly for assistance.")
+var (
+	ErrStripeProfileRequired = httperror.New(http.StatusBadRequest, "credit_card_required", "You need to add a credit card to create an application.")
+	ErrCardDeclined          = httperror.New(http.StatusBadRequest, "card_declined", "Your Credit Card was declined. Try contacting the bank directly for assistance.")
+)
 
 func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	cardToken := r.FormValue("card_token")
@@ -21,7 +23,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	bp, err := env.User.ActivateBillingProfile(env.DB, cardToken)
 	if err != nil {
 		if err == billingprofile.CardDeclinedError {
-			return errCardDeclined
+			return ErrCardDeclined
 		}
 		return err
 	}
@@ -49,9 +51,9 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if err := bp.UpdateCard(db, cardToken); err != nil {
 		switch err {
 		case billingprofile.StripeProfileRequiredError:
-			return errStripeProfileRequired
+			return ErrStripeProfileRequired
 		case billingprofile.CardDeclinedError:
-			return errCardDeclined
+			return ErrCardDeclined
 		default:
 			return err
 		}
