@@ -53,6 +53,7 @@ App.AddCardController = Em.ObjectController.extend
           cvc: @get('cvc')
         ).then =>
           @set 'saving', false
+          App.snackbar.post "Credit card added."
           @transitionToRoute '/'
         , (errorMsg) =>
           @set 'saving', false
