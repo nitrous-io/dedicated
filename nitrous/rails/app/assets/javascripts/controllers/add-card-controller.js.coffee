@@ -39,6 +39,7 @@ App.AddCardController = Em.ObjectController.extend
 
   actions:
     save: ->
+      @set 'invalidField', null
       @set 'saving', true
       exp = $.payment.cardExpiryVal @get('expiration')
       @set 'expMonth', exp.month
