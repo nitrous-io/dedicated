@@ -534,7 +534,7 @@ func (u *User) SubscribeToPlan(d db.QueryReceiver, p *plan.Plan) (*subscription.
 	desc := fmt.Sprintf("prorated charge for period %s - %s", now.Format(shortDate), nbd.Format(shortDate))
 	amt := p.ChargeForPeriod(now, nbd)
 
-	err = bp.ChargeAmount(amt, desc)
+	err = bp.Charge(amt, desc)
 	if err != nil {
 		return nil, err
 	}

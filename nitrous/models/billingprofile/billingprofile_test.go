@@ -225,7 +225,7 @@ var _ = Describe("models/billingprofile", func() {
 		})
 	})
 
-	Describe("ChargeAmount()", func() {
+	Describe("Charge()", func() {
 		var (
 			bp         *billingprofile.BillingProfile
 			fakeStripe *FakeStripe
@@ -250,7 +250,7 @@ var _ = Describe("models/billingprofile", func() {
 
 		Context("when called on a profile with an empty StripeID", func() {
 			It("returns StripeProfileRequiredError", func() {
-				err := bp.ChargeAmount(5000, "prorated charge")
+				err := bp.Charge(5000, "prorated charge")
 				Expect(err).To(Equal(billingprofile.StripeProfileRequiredError))
 			})
 		})
@@ -273,7 +273,7 @@ var _ = Describe("models/billingprofile", func() {
 					"captured": true
 				}`
 
-				err := bp.ChargeAmount(5000, "prorated charge")
+				err := bp.Charge(5000, "prorated charge")
 				Expect(err).To(BeNil())
 
 				b := fakeStripe.Received["body"]
@@ -293,7 +293,7 @@ var _ = Describe("models/billingprofile", func() {
 					Code: stripe.ErrorCode(stripe.CardDeclined),
 				}
 
-				err := bp.ChargeAmount(5000, "prorated charge")
+				err := bp.Charge(5000, "prorated charge")
 				Expect(err).To(Equal(billingprofile.CardDeclinedError))
 			})
 
@@ -304,7 +304,7 @@ var _ = Describe("models/billingprofile", func() {
 					Code: stripe.ErrorCode(stripe.ProcessingErr),
 				}
 
-				err := bp.ChargeAmount(5000, "prorated charge")
+				err := bp.Charge(5000, "prorated charge")
 				Expect(err).NotTo(BeNil())
 			})
 		})

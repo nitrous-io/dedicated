@@ -125,8 +125,8 @@ func (b *BillingProfile) UpdateEmail(d db.QueryReceiver, email string) error {
 	return nil
 }
 
-// ChargeAmount will charge a one-time fee from receiver's Stripe profile.
-func (b *BillingProfile) ChargeAmount(amt uint64, desc string) error {
+// Charge will charge a one-time fee from receiver's Stripe profile.
+func (b *BillingProfile) Charge(amt uint64, desc string) error {
 	if !b.StripeID.Valid {
 		return StripeProfileRequiredError
 	}
