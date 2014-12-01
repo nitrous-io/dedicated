@@ -27,7 +27,7 @@ App.AddCardController = Em.ObjectController.extend
 
   valid: ->
     if !$.payment.validateCardNumber @get('number')
-      @set 'invalidField', 'number'
+      @set 'invalidField', 'credit card number'
       return false
     if !$.payment.validateCardExpiry @get('expMonth'), @get('expYear')
       @set 'invalidField', 'expiration'
@@ -44,6 +44,7 @@ App.AddCardController = Em.ObjectController.extend
       @set 'expMonth', exp.month
       @set 'expYear', exp.year
       if !@valid()
+        App.postError "Invalid #{@get 'invalidField'}"
         @set 'saving', false
       else
         App.get('billingProfile').addCard(
