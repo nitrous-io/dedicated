@@ -164,7 +164,7 @@ func (b *BillingProfile) CreateSubscription(plan string) (string, error) {
 		// As per the current policy, we charge for a prorated amount till 1st of next month immediately.
 		// Full subscription pricing will only be affective from the 1st of next month.
 		// Hence subscription will be trialing till then.
-		TrialEnd: timeutils.FirstOfNextMonth().Unix(),
+		TrialEnd: timeutils.FirstOfNextMonth(time.Now()).Unix(),
 	}
 
 	s, err := sub.New(params)

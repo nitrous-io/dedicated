@@ -528,7 +528,7 @@ func (u *User) SubscribeToPlan(d db.QueryReceiver, p *plan.Plan) (*subscription.
 
 	// charge the prorated amount first (no. of hours till 1st of next month)
 	now := time.Now()
-	nbd := timeutils.FirstOfNextMonth()
+	nbd := timeutils.FirstOfNextMonth(now)
 
 	const shortDate = "Jan 02, 2006"
 	desc := fmt.Sprintf("prorated charge for period %s - %s", now.Format(shortDate), nbd.Format(shortDate))

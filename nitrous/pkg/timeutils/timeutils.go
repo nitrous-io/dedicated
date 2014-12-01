@@ -2,9 +2,9 @@ package timeutils
 
 import "time"
 
-func FirstOfNextMonth() time.Time {
-	y := time.Now().Year()
-	m := time.Now().Month()
+func FirstOfNextMonth(curTime time.Time) time.Time {
+	y := curTime.Year()
+	m := curTime.Month()
 	nm := m + 1
 	if nm%12 == 1 {
 		y = y + 1
