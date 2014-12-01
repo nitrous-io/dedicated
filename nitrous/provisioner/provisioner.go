@@ -8,8 +8,10 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/lib/pq"
@@ -55,18 +57,12 @@ type Provisioner struct {
 	config                *Config
 	preprovisionUser      *user.User
 	preprovisionUserToken *token.Token
-	jobQueue              chan job
 }
 
 // Config is the configuration of a host provisioner.
-// It is used for unmarshalling JSON of the form:
-// {
-//   "username": "host-provisioner",
-//   "num_workers": "2",
-// }
 type Config struct {
-	Username   string `json:"username"`
-	NumWorkers int    `json:"num_workers"`
+	Username string
+	Interval time.Duration
 }
 
 type ProvisionOptions struct {
@@ -143,14 +139,19 @@ func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub, conf *Co
 	}
 }
 
-// Start kicks off Config.NumWorkers workers that pre-provision hosts.
+// Start kicks off a goroutine that pre-provisions hosts.
 func (p *Provisioner) Start() error {
+	if p.IsRunning() {
+		p.logger.Info("provisioner: Start() called but already started")
+		return nil
+	}
+
 	if p.config == nil {
 		return ErrPreprovisionerNotConfigured
 	}
 
 	if err := p.configureUser(); err != nil {
-		return nil
+		return err
 	}
 
 	p.stop = make(chan struct{})
@@ -158,36 +159,65 @@ func (p *Provisioner) Start() error {
 
 	p.logger.Debugf("provisioner: starting with config %+v", p.config)
 
-	numWorkers := p.config.NumWorkers
-	p.jobQueue = make(chan job, 100)
-	var wg sync.WaitGroup // Used to wait for all workers to quit.
-
-	// Create workers.
-	for i := 0; i < numWorkers; i++ {
-		p.logger.Debugf("provisioner: starting worker %d", i+1)
-		wg.Add(1)
-		go p.worker(i+1, p.jobQueue, &wg)
-	}
-
-	// Determine the hosts that we need to pre-provision and create jobs
-	// accordingly.
-	jobs, err := p.createJobs()
-	if err != nil {
-		// FIXME We currently ignore any errors here: should we do more?
-		p.logger.Errorf("provisioner: error creating jobs, err: %v", err)
-	} else {
-		p.logger.Debugf("provisioner: created %d job(s)", len(jobs))
-	}
-
-	for _, job := range jobs {
-		p.jobQueue <- job
-	}
-
+	// Periodically determine if we need to pre-provision any hosts.
+	errCh := make(chan error)
 	go func() {
-		defer p.setRunning(false)
-		<-p.stop
-		wg.Wait() // Wait for all workers to stop.
+		db := p.db
+		ticker := time.NewTicker(p.config.Interval)
+		for {
+			select {
+			case <-ticker.C:
+				pts, err := providertemplate.Preprovisioned(db)
+				if err != nil {
+					errCh <- err
+					return
+				}
 
+				for _, pt := range pts {
+					numHosts, err := host.CountPreprovisioned(db, &region.Region{ID: pt.RegionID}, &plan.Plan{ID: pt.PlanID})
+					if err != nil {
+						errCh <- err
+						return
+					}
+					logPrefix := fmt.Sprintf("provisioner: host count for (template,region,plan) (%d,%d,%d) is %d, max is %d: ",
+						pt.ID, pt.RegionID, pt.PlanID, numHosts, pt.PreprovisionMax)
+					needed := pt.PreprovisionMax - numHosts
+					if needed <= 0 {
+						p.logger.Debugf("%s skipping", logPrefix)
+						continue
+					}
+					p.logger.Debugf("%s creating job", logPrefix)
+
+					j := job{template: &pt}
+					h, err := p.preprovision(j)
+					if err != nil {
+						p.logger.Errorf("provisioner: job %s/%d/%d failed, err: %v",
+							j.template.Provider, j.template.RegionID, j.template.PlanID, err)
+						continue
+					}
+
+					p.logger.Infof("provisioner: job %s/%d/%d successfully pre-provisioned host ID: %d",
+						j.template.Provider, j.template.RegionID, j.template.PlanID, h.ID)
+				}
+			case <-p.stop:
+				p.logger.Debug("provisioner: job creator quitting")
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+
+	// Stop pre-provisioner goroutine on any errors.
+	go func() {
+		err := <-errCh
+		p.logger.Errorf("provisioner: job creator encountered error: %s", err)
+		p.Stop()
+	}()
+
+	// Process stop signal.
+	go func() {
+		<-p.stop
+		p.setRunning(false)
 		p.logger.Info("provisioner: stopped")
 		p.stopped <- struct{}{}
 	}()
@@ -202,6 +232,15 @@ func (p *Provisioner) Stop() {
 		close(p.stop)
 		<-p.stopped
 	}
+
+	// Allow pre-provisioner to be started again with SIGUSR2.
+	go func() {
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGUSR2)
+		<-ch
+		p.logger.Infof("provisioner: SIGUSR2 received, re-starting")
+		p.Start()
+	}()
 }
 
 func (p *Provisioner) IsRunning() bool {
@@ -251,7 +290,7 @@ var (
 
 // markAssignment records that a pre-provisioned host is in the process of being
 // assigned to a real user and returns true if successful. A mutex is used so
-// that we can safely assign hosts across multiple worker goroutines.
+// that we can safely assign hosts across multiple goroutines.
 func markAssignment(h *host.Host) bool {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -325,22 +364,6 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		err = fmt.Errorf("provisioner: failed to assign pre-provisioned host %d to real user, err: %v", h.ID, err)
 		return
 	}
-
-	// After successful assignment, add a job with the same specs to the job
-	// queue, if it exists in Config (i.e. we only re-pre-provision hosts that
-	// are configured).
-	driver := opts.Template.Provider
-	r := opts.Region
-	pl := opts.Plan
-
-	pt, err := providertemplate.FindByRegionAndPlanAndProvider(p.db, r.ID, pl.ID, driver)
-	if err != nil || pt == nil {
-		p.logger.Errorf("provisioner: can't find provider template (%s, %s, %s)", driver, pl.Name, r.Name)
-		return h, nil
-	}
-
-	// FIXME would feel more comfortable checking against len of hosts here
-	p.jobQueue <- job{template: opts.Template}
 
 	return
 }
@@ -494,63 +517,6 @@ func (p *Provisioner) configureUser() error {
 	p.preprovisionUser = u
 	p.preprovisionUserToken = t
 	return nil
-}
-
-func (p *Provisioner) createJobs() ([]job, error) {
-	db := p.db
-
-	pts, err := providertemplate.Preprovisioned(db)
-	if err != nil {
-		return nil, err
-	}
-
-	jobs := []job{}
-	for _, pt := range pts {
-		hosts, err := host.FindAllPreprovisioned(db, &region.Region{ID: pt.RegionID}, &plan.Plan{ID: pt.PlanID})
-		if err != nil {
-			return nil, err
-		}
-		logPrefix := fmt.Sprintf("provisioner: host count for (template,region,plan) (%d,%d,%d) is %d, max is %d: ",
-			pt.ID, pt.RegionID, pt.PlanID, len(hosts), pt.PreprovisionMax)
-		needed := pt.PreprovisionMax - len(hosts)
-		if needed <= 0 {
-			p.logger.Debugf("%s skipping", logPrefix)
-			continue
-		}
-		p.logger.Debugf("%s creating jobs", logPrefix)
-		for i := 0; i < needed; i++ {
-			jobs = append(jobs, job{template: &pt})
-		}
-	}
-
-	return jobs, nil
-}
-
-// worker accepts jobs from a channel and pre-provisions hosts according to
-// provider templates.  Note that ProviderTemplate.PreprovisionMax is ignored
-// and only a single host is provisioned at any one time.
-func (p *Provisioner) worker(id int, jobQueue chan job, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for {
-		select {
-		case job := <-jobQueue:
-			p.logger.Debugf("provisioner: worker %d received job: %s/%d/%d",
-				id, job.template.Provider, job.template.RegionID, job.template.PlanID)
-			h, err := p.preprovision(job)
-			if err != nil {
-				// Put job back in queue.
-				p.logger.Errorf("provisioner: worker %d job %s/%d/%d failed, err: %v",
-					id, job.template.Provider, job.template.RegionID, job.template.PlanID, err)
-				jobQueue <- job
-			} else {
-				p.logger.Infof("provisioner: worker %d job %s/%d/%d successfully pre-provisioned host: %+v",
-					id, job.template.Provider, job.template.RegionID, job.template.PlanID, h)
-			}
-		case <-p.stop:
-			p.logger.Debugf("provisioner: worker %d quitting", id)
-			return
-		}
-	}
 }
 
 func (p *Provisioner) preprovision(j job) (*host.Host, error) {

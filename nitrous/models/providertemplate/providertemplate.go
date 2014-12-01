@@ -54,8 +54,20 @@ func FindByRegionAndPlanAndProvider(d db.QueryReceiver, regionID, planID int64, 
 
 func (pt *ProviderTemplate) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO provider_templates
-		(region_id, plan_id, name, provider, config)
-		VALUES (:region_id, :plan_id, :name, :provider, :config)
+		(region_id, plan_id, name, provider, config, preprovision_max)
+		VALUES (:region_id, :plan_id, :name, :provider, :config, :preprovision_max)
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(pt).StructScan(pt)
+}
+
+func (pt *ProviderTemplate) Update(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE provider_templates
+		SET (name, provider, config, preprovision_max, updated_at)
+		= (:name, :provider, :config, :preprovision_max, now())
+		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
 		return err
