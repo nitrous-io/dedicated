@@ -141,6 +141,11 @@ func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub, conf *Co
 
 // Start kicks off a goroutine that pre-provisions hosts.
 func (p *Provisioner) Start() error {
+	if p.IsRunning() {
+		p.logger.Info("provisioner: Start() called but already started")
+		return nil
+	}
+
 	if p.config == nil {
 		return ErrPreprovisionerNotConfigured
 	}
