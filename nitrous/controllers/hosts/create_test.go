@@ -250,7 +250,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			err = ActivateBillingProfile(db, bp)
 			Expect(err).To(BeNil())
 
-			fakeStripe.Error = StripeCardDeclined
+			fakeStripe.SetCardDeclinedError()
 
 			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
@@ -484,7 +484,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			err = ActivateBillingProfile(db, bp)
 			Expect(err).To(BeNil())
 
-			fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001", "active")
+			fakeStripe.SetSubscriptionResponse("sub_001", "active")
 			doRequest(params)
 
 			hosts, err := host.FindAllByUser(db, u)

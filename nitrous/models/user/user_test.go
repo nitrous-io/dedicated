@@ -1084,7 +1084,7 @@ var _ = Describe("models/user", func() {
 
 		Context("when Stripe returns the created customer", func() {
 			It("updates and persists the record", func() {
-				fakeStripe.Response = StripeCustomerResponse
+				fakeStripe.SetCustomerResponse()
 
 				b, err := u.ActivateBillingProfile(db, "token")
 				Expect(err).To(BeNil())
@@ -1101,7 +1101,7 @@ var _ = Describe("models/user", func() {
 
 		Context("when Stripe returns a card declined error", func() {
 			It("returns the error, without updating the record", func() {
-				fakeStripe.Error = StripeCardDeclined
+				fakeStripe.SetCardDeclinedError()
 
 				_, err := u.ActivateBillingProfile(db, "token")
 				Expect(err).To(Equal(billingprofile.CardDeclinedError))
@@ -1173,7 +1173,7 @@ var _ = Describe("models/user", func() {
 			})
 
 			It("creates a subscription with returned stripe ID", func() {
-				fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001", "active")
+				fakeStripe.SetSubscriptionResponse("sub_001", "active")
 				sub, err := u.SubscribeToPlan(db, p)
 				Expect(err).To(BeNil())
 
@@ -1235,7 +1235,7 @@ var _ = Describe("models/user", func() {
 			})
 
 			It("sets the subscription as disabled", func() {
-				fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001", "canceled")
+				fakeStripe.SetSubscriptionResponse("sub_001", "canceled")
 				err := u.CancelSubscription(db, s)
 				Expect(err).To(BeNil())
 				Expect(s.DisabledAt).NotTo(BeNil())

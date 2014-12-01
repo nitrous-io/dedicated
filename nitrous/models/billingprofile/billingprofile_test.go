@@ -2,7 +2,6 @@ package billingprofile_test
 
 import (
 	"database/sql"
-	"fmt"
 	"net/url"
 	"testing"
 
@@ -128,7 +127,7 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("updates the record in database, if the Stripe call was successful", func() {
-				fakeStripe.Response = StripeCustomerResponse
+				fakeStripe.SetCustomerResponse()
 
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(BeNil())
@@ -141,7 +140,7 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("returns CardDeclined error, if Stripe returns a card declined error", func() {
-				fakeStripe.Error = StripeCardDeclined
+				fakeStripe.SetCardDeclinedError()
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.CardDeclinedError))
 			})
@@ -287,11 +286,7 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("returns CardDeclined error when charge fails because of a card declined error", func() {
-				fakeStripe.Error = &stripe.Error{
-					Type: stripe.ErrorType(stripe.CardErr),
-					Msg:  "card declined",
-					Code: stripe.ErrorCode(stripe.CardDeclined),
-				}
+				fakeStripe.SetCardDeclinedError()
 
 				err := bp.Charge(5000, "prorated charge")
 				Expect(err).To(Equal(billingprofile.CardDeclinedError))
@@ -347,18 +342,14 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("subscribes customer to given Plan in Stripe and returns the ID", func() {
-				fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001", "active")
+				fakeStripe.SetSubscriptionResponse("sub_001", "active")
 				sID, err := bp.CreateSubscription("plan-1")
 				Expect(err).To(BeNil())
 				Expect(sID).To(Equal("sub_001"))
 			})
 
 			It("returns CardDeclined error when Stripe returns a card declined error", func() {
-				fakeStripe.Error = &stripe.Error{
-					Type: stripe.ErrorType(stripe.CardErr),
-					Msg:  "card declined",
-					Code: stripe.ErrorCode(stripe.CardDeclined),
-				}
+				fakeStripe.SetCardDeclinedError()
 
 				_, err := bp.CreateSubscription("plan-1")
 				Expect(err).To(Equal(billingprofile.CardDeclinedError))
@@ -414,7 +405,7 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("cancels the given subscription", func() {
-				fakeStripe.Response = fmt.Sprintf(StripeSubscriptionResponse, "sub_001", "canceled")
+				fakeStripe.SetSubscriptionResponse("sub_001", "canceled")
 				err := bp.CancelSubscription("sub_001")
 				Expect(err).To(BeNil())
 			})

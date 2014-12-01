@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 
 	"github.com/stripe/stripe-go"
@@ -37,7 +38,8 @@ func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interfac
 	}
 }
 
-var StripeCustomerResponse = `{
+func (s *FakeStripe) SetCustomerResponse() {
+	s.Response = `{
 		"id": "sc_01",
 		"email": "user@example.com",
 		"cards": {
@@ -73,8 +75,10 @@ var StripeCustomerResponse = `{
 		},
 		"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
 	}`
+}
 
-var StripeSubscriptionResponse = `{
+func (s *FakeStripe) SetSubscriptionResponse(id, status string) {
+	s.Response = fmt.Sprintf(`{
 		"id": %q,
 		"object": "subscription",
 		"created": 1416549703,
@@ -84,10 +88,13 @@ var StripeSubscriptionResponse = `{
 		"currency": "usd",
 		"status": %q,
 		"captured": true
-	}`
+	}`, id, status)
+}
 
-var StripeCardDeclined = &stripe.Error{
-	Type: stripe.ErrorType(stripe.CardErr),
-	Msg:  "card declined",
-	Code: stripe.ErrorCode(stripe.CardDeclined),
+func (s *FakeStripe) SetCardDeclinedError() {
+	s.Error = &stripe.Error{
+		Type: stripe.ErrorType(stripe.CardErr),
+		Msg:  "card declined",
+		Code: stripe.ErrorCode(stripe.CardDeclined),
+	}
 }
