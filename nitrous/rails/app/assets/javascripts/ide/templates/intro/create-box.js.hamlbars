@@ -1,0 +1,25 @@
+.container
+  {{view App.HeaderView noMenu=true}}
+
+  .intro-content
+    .info-container
+      %h2
+        Create Your First Box
+
+      =hb 'if view.creatingFirstBox' do
+        %p
+          Use the form below to select a language / framework, give your box a name, and click "Create Box" to start coding!
+
+        .action-container
+          {{view App.BoxesNewFormView}}
+
+        .panel.clearfix
+          %button.btn(_action='didClickSkipIntro target="view"') Skip Intro
+          %button.btn.btn-primary.pull-right(_action='didClickNextScreen target="view"'){ bind: { disabled: 'view.createBoxButtonDisabled' } }
+            Create Box
+
+        =hb 'else'
+        .alert.alert-error
+          %i.fa.fa-warning-sign
+          It looks like you've already created a box.
+          %button.btn(_action='didClickSkipIntro target="view"') Take me to my Boxes

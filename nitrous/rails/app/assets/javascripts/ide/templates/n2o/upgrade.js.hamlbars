@@ -1,0 +1,134 @@
+.container
+  {{view App.HeaderView}}
+
+  =hb 'unless App.currentUser.aws_activate_plans_enabled' do
+    %h2.title Upgrade your account
+    =hb 'if App.currentUser.team_plans_enabled' do
+      %h3 Personal Plans
+
+      %p For developers looking to work on open source / side projects
+
+    {{view App.PlanSelectionView plansBinding='App.Plan.personalPlans'}}
+
+    =hb 'if App.currentUser.team_plans_enabled' do
+      %h3 Team Plans
+
+      %p For teams that have many team members with varying permissions
+
+      {{view App.PlanSelectionView plansBinding='App.Plan.teamPlans' showCommonFeatures=true}}
+
+    .common-paid-features
+      %h4 All Paid Plans Come With:
+      .row
+        %ul.span6
+          %li
+            %i.fa.fa-check
+            No Automatic Shut Downs
+          %li
+            %i.fa.fa-check
+            Direct SSH Access
+        %ul.span5
+          %li
+            %i.fa.fa-check
+            SSL Protection (US and Europe regions only)
+          %li
+            %i.fa.fa-check
+            Premium Support
+
+    %p.free-text
+      Free plans start with 200 N2O, with the ability to
+      %a.link(href='#/n2o/bonus') earn additional resources.
+      &nbsp;Each box is limited to {{App.config.maxMemoryGB}}GB of Memory and {{App.config.maxStorageGB}}GB of Storage.
+
+    =hb 'else' # below is for AWS Activate members only
+    %h2.title Begin your free trial
+    %h3 Welcome to Nitrous, AWS Activate members!
+
+    .common-paid-features
+      %h4 Your {{selectedPlan.name}} plan comes with:
+      .row
+        %ul
+          %li
+            %i.fa.fa-check
+            No Automatic Shut Downs
+          %li
+            %i.fa.fa-check
+            Direct SSH Access
+          %li
+            %i.fa.fa-check
+            SSL Protection (US and Europe regions only)
+          %li
+            %i.fa.fa-check
+            Premium Support
+
+    %p.complete-form Please complete the form below to start your {{ selectedPlan.trial_months }}-month free trial of Nitrous.
+
+  %hr
+  .row.paymentInfo
+    .billingInfoContainer.span8
+      #addCreditCard
+        =hb 'if processingErrorMessage' do
+          %p.alert.alert-error {{ processingErrorMessage }}
+
+        {{view App.CreditCardView cardBinding=card}}
+        %p.note.small.muted
+          Please review the
+          %a.link(href="http://help.nitrous.io/admin-terms/" target="_blank") terms of service,
+          and
+          %a.link(href="http://help.nitrous.io/admin-privacy/" target="_blank") privacy policy.
+          All sales are final — no refunds.
+
+      %div{ bind: { class: ':control-group :submitBlock' } }
+        %button.btn.btn-success(_action='didClickUpgrade target="view"'){ bind: { disabled: 'processing' } }
+          Upgrade Account
+
+    .planInfoContainer.span4
+      .planInfo
+        .planInfoHeader
+          %h3 {{selectedPlan.name}}
+          .subheader
+            {{App.currentUser.email}}
+
+        =hb 'if App.currentUser.coupon' do
+          .lineItem
+            .lineItemName
+              Regular price
+            .lineItemValue
+              {{selectedPlan.formattedPrice}}
+
+          .lineItem
+            .lineItemName
+              Discount
+            .lineItemValue
+              {{view.formattedDiscount}}
+
+        =hb 'if selectedPlan.trial_months' do
+          .lineItem
+            .lineItemName
+              Total
+            .lineItemValue
+              %span.strikethrough {{view.formattedTotal}}
+              &nbsp;$0.00
+
+          %p.note.small.muted.right
+            (Free for {{selectedPlan.trialMonthsWithUnit}})
+
+          =hb 'else'
+          .lineItem
+            .lineItemName
+              Total
+            .lineItemValue
+              {{view.formattedTotal}}
+
+        =hb 'if App.currentUser.coupon' do
+          %p.note.small.muted
+            Coupon applied:
+            {{App.currentUser.coupon.code}}
+            %br
+              ({{App.currentUser.coupon.description}})
+
+  =hb 'unless App.currentUser.aws_activate_plans_enabled' do
+    %hr
+    {{view App.PricingFaqView}}
+
+{{view App.ConfirmUpgradeDialogView}}

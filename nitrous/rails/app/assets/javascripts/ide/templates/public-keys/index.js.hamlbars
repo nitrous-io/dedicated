@@ -1,0 +1,31 @@
+.container
+  {{view App.HeaderView}}
+
+  %h2 SSH Public Keys
+
+  {{view App.DelinquentMessageView}}
+
+  %ul.public_keys.dark-list
+    =hb 'each arrangedContent' do
+      %li
+        .title
+          %h3.name {{ name }}
+          %p ({{ md5_fingerprint }})
+          %button.btn.btn-danger(_action='didClickDelete this target="view"') Delete
+
+  =hb 'unless length' do
+    .dark-list
+      .title
+        %p You have not added any public keys.
+        %p
+          Read this
+          %a(href="http://help.nitrous.io/ssh-add/")
+            help article
+          to learn how to add public keys.
+
+  .panel
+    %button.btn.btn-primary(_action='didClickAddKey target="view"')
+      Add Public Key
+    %button.btn(_action='didClickRefresh target="view"')
+      Refresh
+

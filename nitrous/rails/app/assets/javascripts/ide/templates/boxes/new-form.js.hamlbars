@@ -1,0 +1,83 @@
+%h3 Pick a template
+%ul.stacks
+  =hb 'each boxTemplate in App.boxTemplates' do
+    {{view App.BoxesNewFormBoxTemplateView boxTemplateBinding="boxTemplate" boxBinding="this"}}
+
+=hb 'unless isIntro' do
+  =hb 'if App.currentUser.box_snapshots_allowed' do
+    =hb 'if view.snapshots.length' do
+      .snapshots
+        %h3
+          %span.or OR
+          Create from a snapshot
+
+        %form.form-horizontal
+          %div{ bind: { class: ':control-group errors.source_snapshot_id:error' } }
+            %label.control-label(for='box_snapshot_id') Snapshot
+            .controls
+              {{view Ember.Select
+              id="box_snapshot_id"
+              contentBinding="view.snapshots"
+              optionLabelPath="content.description"
+              optionValuePath="content.id"
+              valueBinding="source_snapshot_id" prompt="Select a Snapshot"
+              disabledBinding="saving"
+              }}
+              %span.help-inline {{ firstErrors.source_snapshot_id }}
+
+%form.form-horizontal
+  %div{ bind: { class: ':control-group errors.name:error' } }
+    %label.control-label(for='box_name') Name
+    .controls
+      {{view App.BoxNameTextField id="box_name" placeholderBinding="boxNamePlaceholder" valueBinding="name" disabledBinding="saving"}}
+      %button.btn(_action='didClickRandom target="view"' title="Give Me a Random Name")
+        %i.fa.fa-magic
+      %span.help-inline {{ firstErrors.name }}
+  %div{ bind: { class: ':control-group errors.region_id:error' } }
+    %label.control-label(for='box_region_id') Region
+    .controls
+      {{view Ember.Select id="box_region_id" contentBinding="App.regions" optionLabelPath="content.description" optionValuePath="content.id" valueBinding="region_id" prompt="Select Your Region" disabledBinding="saving"}}
+      %span.help-inline {{ firstErrors.region_id }}
+
+  %div{ bind: { class: ':control-group isIntro:hide' } }
+    %label.control-label Memory
+    .controls
+      {{view App.SliderView valueBinding="memory" minBinding="App.config.minMemoryMB" maxBinding="App.config.maxMemoryMB" step=128 unit=" MB"}}
+      .n2o-cost
+        %i.fa.fa-bolt
+        {{ view.memoryCost }}
+
+  %div{ bind: { class: ':control-group isIntro:hide' } }
+    %label.control-label Storage
+    .controls
+      {{view App.SliderView valueBinding="storage" minBinding="App.config.minStorageMB" maxBinding="App.config.maxStorageMB" step=250 unit=" MB"}}
+      .n2o-cost
+        %i.fa.fa-bolt
+        {{ view.storageCost }}
+
+  %div{ bind: { class: ':control-group isIntro:hide' } }
+    %label.control-label Remaining N2O
+    .controls.remaining-n2o-slider
+      {{view App.SliderView valueBinding="view.remainingN2O" min=0 maxBinding="view.freeN2O" step=1 readOnly=true}}
+      .n2o-cost
+        %i.fa.fa-bolt
+        {{ view.totalCost }}
+
+  %div.control-block.clone
+    %div{ bind: { class: ':control-group errors.repository_clone_url:error' } }
+      %label.control-label(for='box_repository_clone_url') Download a Github repo
+      .controls
+        {{view Ember.TextField id="box_repository_clone_url" valueBinding="repository_clone_url" placeholder="Optional, e.g. https://github.com/rails/rails" disabledBinding="saving"}}
+        %span.help-inline {{ firstErrors.repository_clone_url }}
+
+  %div{ bind: { class: ':control-group errors.base:error view.insufficientN2O:error isIntro:squash' } }
+    .controls
+      %button.btn.btn-primary(_action='didClickCreateBox target="view"'){ bind: { disabled: 'view.createBoxButtonDisabled' } }
+        Create Box
+      %button(_action='didClickCancel target="view"'){ bind: { disabled: 'saving', class: ':btn isIntro:hide' } }
+        Cancel
+      %span.help-inline
+        {{ firstErrors.base }}
+        =hb 'if view.insufficientN2O' do
+          You do not have enough N2O to create this box.
+          %a.link(href="/app#n2o/upgrade") Get More

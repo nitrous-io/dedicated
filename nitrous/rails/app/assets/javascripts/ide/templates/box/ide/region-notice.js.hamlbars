@@ -1,0 +1,9 @@
+.modal-header
+  %h3
+    Please Note...
+.modal-body
+  %p
+    {{ view.content.message }}
+.modal-footer
+  %button.btn.btn-primary{ data: { dismiss: 'modal' } }
+    Okay

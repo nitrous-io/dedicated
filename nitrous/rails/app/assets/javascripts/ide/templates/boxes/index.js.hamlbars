@@ -1,0 +1,43 @@
+.container
+  {{view App.HeaderView}}
+
+  =hb 'unless App.currentUser.isConfirmed' do
+    .alert.alert-error.confirm-email-reminder
+      %button.close(data-dismiss='alert')
+      %strong Important:
+      %a(href='/users/confirmation/new')
+        Please take a moment to confirm your email address and
+        %strong
+          earn
+          {{ App.router.n2oBonusController.bonusInfo.sign_up }}
+          units of N2O.
+
+  %h2 Boxes
+
+  {{view App.DelinquentMessageView}}
+
+  =hb 'if hasForceShutdownBoxes' do
+    .alert.alert-info
+      %i.fa.fa-warning-sign
+      Looks like your box was shutdown due to inactivity. If you want your boxes to never shutdown, please
+      %a(href="#/n2o/upgrade")
+        upgrade your plan
+
+  %ul.boxes.dark-list
+    =hb 'each arrangedContent' do
+      {{ view App.BoxesIndexBoxView boxBinding="this" }}
+
+  =hb 'unless length' do
+    .dark-list
+      .title
+        %p You have not created any boxes.
+
+  .panel
+    =hb 'unless App.currentUser.isDelinquent' do
+      %button.btn.btn-primary(_action='didClickNewBox target="view"')
+        New Box
+    %button.btn(_action='didClickRefresh target="view"')
+      Refresh
+
+{{view App.BoxesIndexConfirmTerminateDialogView}}
+{{view App.BoxesIndexConfirmLeaveDialogView}}

@@ -1,0 +1,11 @@
+.modal-header
+  %h3
+    Are you sure you want to leave this box?
+.modal-body
+  %p
+    You will no longer be able to access or collaborate on files available in this box.
+.modal-footer
+  %button.btn(_action='didClickCancel target="view"')
+    Cancel
+  %button.btn.btn-danger(_action='didClickLeave target="view"')
+    Leave

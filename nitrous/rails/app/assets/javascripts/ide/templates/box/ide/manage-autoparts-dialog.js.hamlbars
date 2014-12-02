@@ -1,0 +1,44 @@
+.modal-header
+  %h3 Manage Packages
+  {{view Em.TextField placeholder="Filter Packages" valueBinding="view.searchTerm"}}
+
+  %ul{ bind: { class: 'view.hidePager:hide:parts-pager' } }
+    %li
+      %button.btn(_action='didClickPrevious target="view"'){ bind: { disabled: 'view.inFirstPage' } }
+        %i.fa.fa-chevron-left
+    %li
+      %button.btn(_action='didClickNext target="view"'){ bind: { disabled: 'view.inLastPage' } }
+        %i.fa.fa-chevron-right
+
+  %label.checkbox(for="filter_installed_packages")
+    {{view Ember.Checkbox id="filter_installed_packages" checkedBinding="view.showInstalled"}}
+    Show only installed packages
+
+.modal-body
+  =hb 'if view.loading' do
+    %p
+      Loading packages, please wait...
+    =hb 'else'
+    =hb 'if view.processingView' do
+      {{view App.IdePartProcessingView contentBinding="controller.processingPart"}}
+      =hb 'else'
+      %ul.parts-list
+        =hb 'if view.visibleParts' do
+          =hb 'each view.visibleParts' do
+            {{view App.IdePartListingView contentBinding="this"}}
+          =hb 'else'
+          %p
+          =hb 'if view.showInstalled' do
+            No installed packages matching "{{view.searchTerm}}".
+            =hb 'else'
+            Hmm.. We don't have that one yet.
+            %a.link(href="mailto:support@nitrous.io" target="_blank")Send us a note
+            or
+            %a.link(href="http://github.com/nitrous-io/autoparts" target="_blank")a pull request
+
+.modal-footer
+  =hb 'if view.showDoneButton' do
+    %button.btn.btn-primary(_action='didClickDone target="view"')
+      Done
+  %button.btn(_action='didClickCancel target="view"')
+    Close

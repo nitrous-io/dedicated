@@ -1,0 +1,11 @@
+.container
+  {{view App.HeaderView}}
+
+  %h2 New Box
+
+  {{view App.BoxesNewFormView}}
+
+#preload-gauge
+  .gauge-center
+  .gauge-needle-shadow
+  .gauge-needle

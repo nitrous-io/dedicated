@@ -1,0 +1,24 @@
+.container
+  {{view App.HeaderView}}
+
+  %h2 Add a Public Key
+
+  %form.form-horizontal
+    %div{ bind: { class: ':control-group errors.name:error' } }
+      %label.control-label(for='public_key_name') Name
+      .controls
+        {{view Ember.TextField id="public_key_name" placeholder="Optional" valueBinding="name" disabledBinding="saving"}}
+        %span.help-inline {{ firstErrors.name }}
+    %div{ bind: { class: ':control-group errors.key:error' } }
+      %label.control-label(for='public_key_key') Key
+      .controls
+        {{view Ember.TextArea id="public_key_key" rows="5" valueBinding="key" disabledBinding="saving"}}
+        %span.help-inline {{ firstErrors.key }}
+    %div{ bind: { class: ':control-group errors.base:error' } }
+      .controls
+        %button.btn.btn-primary(_action='didClickAddKey target="view"'){ bind: { disabled: 'saving' } }
+          Add Key
+        %button.btn(_action='didClickCancel target="view"'){ bind: { disabled: 'saving' } }
+          Cancel
+        %span.help-inline {{ firstErrors.base }}
+

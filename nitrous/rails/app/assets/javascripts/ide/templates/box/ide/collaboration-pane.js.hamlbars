@@ -1,0 +1,31 @@
+#collaboration_pane.side_pane
+  {{view App.IdeCollaborationPaneBorderView}}
+  .top.toolbar.btn-toolbar
+    %span Chat
+    .btn-group
+      =hb 'view App.IdeCollaborationPaneOnlineUsersButton title="Online Users"' do
+        %i.fa.fa-group
+
+      %button.btn(title='Hide Chat' _action='didClickHideChat target="view"')
+        %i.fa.fa-times
+
+  =hb 'if controller.users.length' do
+    .users.popover.bottom
+      .arrow
+      .popover-content
+        %ul
+          =hb 'each user in controller.users' do
+            %li
+              =hb 'view App.IdeCollaborationPaneOnlineUserColorView colorBinding="user.color"'
+              %span.user-name {{ user.name }}
+
+  .chat
+    %ul
+      =hb 'each controller.messages' do
+        {{view App.IdeCollabMessageView contentBinding="this"}}
+
+  .bottom.toolbar.btn-toolbar
+    .chat-input
+      {{view App.IdeCollaborationPaneTextField valueBinding="view.chatFieldText"}}
+      %button.btn(_action='didClickSend target="view"'){ bind: { disabled: 'App.offline' } }
+        Send

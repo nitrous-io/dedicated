@@ -1,0 +1,45 @@
+.container
+  {{view App.HeaderView}}
+
+  %h2 Settings for {{ name }}
+
+  {{view App.SettingsTabsView boxBinding="content" activeTab="domain"}}
+
+  .settings-pane
+    =hb 'if controller.content.custom_domains_allowed' do
+      %p Enter the domain you wish to use for previewing box '{{ name }}'
+
+      .info
+        %p
+          Notes:
+          %ul
+            %li You will need to add a CNAME or ALIAS record with your DNS provider.
+            %li
+              Point your domain, e.g.
+              = succeed ',' do
+                %code your.domain.com
+              to the domain
+              %code {{ host }}
+            %li Note that DNS changes made with your provider may take up to 24 hours to propagate.
+            %li
+              Enter your domain below
+            - # TODO add a link here to a help.nitrous.io page with more comprehensive details a la https://help.github.com/articles/setting-up-a-custom-domain-with-pages
+
+      %form.form-horizontal
+        %div{ bind: { class: ':control-group errors.custom_domain:error' } }
+          %label.control-label(for='box_custom_domain') Domain Name
+          .controls
+            {{view Ember.TextField id="box_custom_domain" placeholderBinding="boxCustomDomainPlaceholder" valueBinding="custom_domain" disabledBinding="loading"}}
+            %span.help-inline {{ firstErrors.custom_domain }}
+
+        %div{ bind: { class: ':control-group errors.base:error' } }
+          .controls
+            %button.btn.btn-primary(_action='didClickSave target="view"'){ bind: { disabled: 'box.loading' } }
+              Save
+            %button.btn(_action='didClickCancel target="view"'){ bind: { disabled: 'box.loading' } }
+              Cancel
+      =hb 'else'
+      You need to upgrade your
+      %a.link(href='#/n2o/upgrade') plan
+      to use custom domains with your box.
+

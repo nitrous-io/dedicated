@@ -1,0 +1,61 @@
+.container
+  {{view App.HeaderView}}
+
+  %h2 Settings for {{ box.name }}
+
+  {{view App.SettingsTabsView boxBinding="box" activeTab="snapshots"}}
+
+  .settings-pane
+    %p
+      A snapshot is a backup of the files on this box. Use snapshots to clone or backup a box.
+
+    .info
+      %p
+        Note:
+        %ul
+          %li Your box will be inaccessible until the snapshot operation completes.
+          %li
+            Only the
+            %code /home/action
+            directory will be backed up.
+          %li
+            Any secrets (like private keys) in your
+            %code /home/action
+            directory will be included in the snapshot.
+
+    %form.form-horizontal
+      %div{ bind: { class: ':control-group errors.name:error' } }
+        %label.control-label(for='snapshot_name') Snapshot Name
+        .controls
+          {{view Ember.TextField id="snapshot_name" valueBinding="name" disabledBinding="isSaving"}}
+          %span.help-inline {{ firstErrors.name }}
+
+      %div{ bind: { class: ':control-group view.hasBoxError:error' }}
+        %label.control-label Box
+        .controls
+          #box-state
+            %div{ bind: { class: ':stateOrb content.box.state' } }
+            %span {{ content.box.name }}
+          {{view Ember.TextField type="hidden" id="box_id" valueBinding="content.box.id"}}
+          =hb 'if content.box.running' do
+            %span.help-inline
+              Box needs to be shut down before a snapshot can be taken.
+          =hb 'if view.hasExistingSnapshot' do
+            %span.help-inline
+              A snapshot is currently in progress.
+
+      %div{ bind: { class: ':control-group errors.base:error' } }
+        .controls
+          =hb 'if content.box.snapshottable' do
+            %button.btn.btn-primary(_action='didClickSnapshot target="view"'){ bind: { disabled: 'saving' } }
+              Take Snapshot
+            =hb 'else'
+            =hb 'if content.box.running' do
+              %button.btn.btn-danger(_action='didClickShutDownBox this target="view"'){ bind: { disabled: 'content.box.loading' } }
+                Shut Down Box
+              =hb 'else'
+              %button.btn.btn-primary(disabled=true)
+                Take Snapshot
+          %a.btn(_action='didClickCancel target="view"'){ bind: { disabled: 'saving' } }
+            Cancel
+          %span.help-inline {{ firstErrors.base }}

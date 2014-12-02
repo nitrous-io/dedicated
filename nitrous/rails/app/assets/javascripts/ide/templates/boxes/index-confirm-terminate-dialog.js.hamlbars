@@ -1,0 +1,35 @@
+.modal-header
+  %h3
+    Are you
+    %strong ABSOLUTELY
+    sure?
+.modal-body
+  %p
+    This action
+    %strong CANNOT
+    be undone! This will delete all files and settings in
+    &ldquo;{{ view.content.box.name }}&rdquo;
+    permanently.
+  %p
+    Please type in the name of the box to confirm.
+  .form-horizontal
+    %div
+      {{view App.BoxesConfirmTerminateDialogTextField id="box_name" valueBinding="view.enteredName"}}
+  =hb 'if App.currentUser.box_snapshots_allowed' do
+    %p
+      .form-horizontal
+        %label.checkbox(for="box_snapshot")
+          {{view Ember.Checkbox id="box_snapshot" checkedBinding="view.snapshot"}}
+          Snapshot this box before termination
+  =hb 'unless App.currentUser.box_snapshots_allowed' do
+    %p
+      .form-horizontal(title="You must be on a paid plan to create snapshots")
+        %label.checkbox(for="box_snapshot")
+          {{view Ember.Checkbox id="box_snapshot" checkedBinding="view.snapshot" disabled="true"}}
+          Snapshot this box before termination
+
+.modal-footer
+  %button.btn(_action='didClickCancel target="view"')
+    Cancel
+  %button.btn.btn-danger(_action='didClickTerminate target="view"'){ bind: { disabled: 'view.nameMismatch' } }
+    Terminate

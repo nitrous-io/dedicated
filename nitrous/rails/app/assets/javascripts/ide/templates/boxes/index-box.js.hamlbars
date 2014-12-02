@@ -1,0 +1,186 @@
+.title.expandable(_action='didClickBoxTitle this target="view"')
+  %div{ bind: { class: ':stateOrb stateForOrb' } }
+  %h3.name
+    {{ name }}
+    .pull-right
+      =hb 'if ownBox' do
+        .cost.explain(title='Amount of N2O used by this box.')
+          %i.fa.fa-bolt
+          {{ n2o_cost }}
+        =hb 'else'
+        %i.fa.fa-group.explain(title='Shared Box')
+
+.details
+  =hb 'unless underMaintenance' do
+    %table
+      %tr
+        %th State
+        %td
+          {{ stateForDisplay }}
+          =hb 'if terminated' do
+            %a.explain.fa.fa-question-circle(title="Terminated boxes will be removed automatically after a few minutes" href="#")
+          =hb 'if force_shutdown' do
+            %a.explain.fa.fa-question-circle(_action='didClickBoxShutdownUpgrade this target="view"' title="You can prevent your box from being shutdown by upgrading")
+      %tr
+        %th Memory
+        %td
+          {{ memory }} MB
+      %tr
+        %th Storage
+        %td
+          {{ storage }} MB
+      %tr
+        %th CPU Share
+        %td
+          {{ cpu_multiplier }}x
+          =hb 'if ownBox' do
+            =hb 'if requiresCPUShareUpgrade' do
+              %i.fa.fa-long-arrow-right
+              {{ expected_cpu_multiplier }}x
+              .explanatory-text
+                %i.fa.fa-bolt
+                %span You'll enjoy {{ expected_cpu_multiplier }}x CPU share when you restart this box.
+                =hb 'if running' do
+                  %a(_action='didClickRestart this target="view"'){ bind: { class: 'loading:hide :link' } }
+                    Restart Now
+            =hb 'if requiresCPUShareDowngrade' do
+              %i.fa.fa-long-arrow-right
+              {{ expected_cpu_multiplier }}x
+              =hb 'if running' do
+                .explanatory-text
+                  %i.fa.fa-warning
+                  %span We'll downgrade this box to {{ expected_cpu_multiplier }}x CPU share by restarting it soon.
+                  %a(_action='didClickRestart this target="view"'){ bind: { class: 'loading:hide :link' } }
+                    Restart Now
+            =hb 'if App.config.paymentsEnabled' do
+              =hb 'unless requiresCPUShareDowngrade' do
+                =hb 'unless requiresCPUShareUpgrade' do
+                  =hb 'if hasBaseCPUShare' do
+                    %a.explain.fa.fa-question-circle(_action='didClickCPUShareUpgrade this target="view"' title="You can get a bigger share of the CPU by upgrading your plan")
+      %tr
+        %th SSH URI
+        %td
+          =hb 'unless terminated' do
+            %a.link{ bind: { href: 'sshURI' } } {{ sshURI }}
+      %tr
+        %th Region
+        %td {{ region.description }}
+      %tr
+        %th Stack
+        %td {{ version }} - {{ boxTemplate.name }}
+      =hb 'if sourceSnapshot' do
+        %tr
+          %th Snapshot
+          %td Created from snapshot "{{ sourceSnapshot.name }}"
+      %tr
+        %th Preview URI
+        %td
+          =hb 'unless terminated' do
+            = hb 'if customDomainPreviewable' do
+              http://{{ custom_domain }}:&lt;port 1024-9999&gt;
+              %small -OR-
+            http://{{ boxHost }}:&lt;port 1024-9999&gt;
+      %tr
+        %th Public Key
+        %td
+          =hb 'if running' do
+            =hb 'unless public_key' do
+              =hb 'unless loadingPublicKey' do
+                %a.link(_action='didClickRevealPublicKey this target="view"')
+                  Reveal Public Key
+                =hb 'else' # if loadingPublicKey
+                %span.loading Fetching Public Key...
+              =hb 'else' # if public_key
+              {{view App.SelectableTextField class="box_text_field" valueBinding="public_key"}}
+              {{view App.CopyButtonView dataClipboardTextBinding="public_key"}}
+
+              =hb 'if App.currentUser.isGithubAuthenticated' do
+                =hb 'unless addingPublicKeyToGitHub' do
+                  %a.link(_action='didClickAddToGitHub this target="view"') Add to GitHub
+                  =hb 'else' # if addingPublicKeyToGitHub
+                  %span.loading Adding Public Key to GitHub...
+                =hb 'else'
+                %a.link(href='/app#/n2o/bonus') Add to GitHub
+            {{ publicKeyInfo }}
+
+    .details-actions
+      =hb 'if underMaintenance' do
+        %button.btn(disabled=true)
+          Under Maintenance!
+
+      =hb 'if stopped' do
+        =hb 'if ownBox' do
+          =hb 'unless App.currentUser.isDelinquent' do
+            %button.btn.btn-primary(_action='didClickStart this target="view"'){ bind: { disabled: 'loading' } }
+              Start
+            =hb 'if App.currentUser.box_snapshots_allowed' do
+              %button.btn(_action='didClickViewSnapshots this target="view"'){ bind: { disabled: 'loading' } }
+                Snapshots
+            %button.btn(_action='didClickSettings this target="view"'){ bind: { disabled: 'loading' } }
+              Settings
+          %span.help-inline
+            {{ firstErrors.base }}
+          .pull-right
+            %button.btn.btn-danger(_action='didClickTerminate this target="view"'){ bind: { disabled: 'loading' } }
+              Terminate
+
+      =hb 'if failed' do
+        =hb 'if ownBox' do
+          %button.btn.btn-primary(_action='didClickRetryProvisioning this target="view"'){ bind: { disabled: 'loading' } }
+            Retry
+
+      =hb 'if running' do
+        =hb 'if App.util.IsMobile' do
+          %button.btn.btn-primary(_action='didClickTerminal this target="view"'){ bind: { disabled: 'loading' } }
+            Terminal
+          =hb 'else'
+          %button.btn.btn-primary(_action='didClickIDE this target="view"'){ bind: { disabled: 'loading' } }
+            IDE
+          %button.btn(_action='didClickTerminal this target="view"'){ bind: { disabled: 'loading' } }
+            Terminal
+          =hb 'if App.currentUser.box_snapshots_allowed' do
+            %button.btn(_action='didClickViewSnapshots this target="view"'){ bind: { disabled: 'loading' } }
+              Snapshots
+          =hb 'if ownBox' do
+            %button.btn(_action='didClickSettings this target="view"'){ bind: { disabled: 'loading' } }
+              Settings
+          %span.help-inline
+            {{ firstErrors.base }}
+      =hb 'if running' do
+        =hb 'if ownBox' do
+          .pull-right
+            %button.btn(_action='didClickRestart this target="view"'){ bind: { disabled: 'loading' } }
+              Restart
+            %button.btn(_action='didClickShutDown this target="view"'){ bind: { disabled: 'loading' } }
+              Shut Down
+
+      =hb 'if notOwnBox' do
+        .pull-right
+          %button.btn(_action='didClickLeave this target="view"'){ bind: { disabled: 'loading' } }
+            Leave
+
+      =hb 'if terminated' do
+        %button.btn(disabled=true)
+          Terminated!
+
+      =hb "if 'under maintenance'" do
+        %button.btn(disabled=true)
+          Under Maintenance!
+
+      =hb 'if provisioning' do
+        %button.btn(_action='didClickProvisioning this target="view"')
+          Provisioning...
+
+      =hb 'if snapshotting' do
+        %button.btn(_action='didClickViewSnapshots this target="view"')
+          Snapshot in progress...
+        =hb 'else'
+        =hb 'if working' do
+          %button.btn(disabled=true)
+            Please wait...
+
+    =hb 'else' # if underMaintenance
+    %table
+      %tr
+        %th State
+        %td Under Maintenance

@@ -1,0 +1,14 @@
+%form.form-horizontal(autocomplete="on" method="post")
+  #plansContainer
+    %ul.plans
+      =hb 'each view.plans.arrangedContent' do
+        {{view App.PlanView planBinding="this"}}
+    =hb 'if displayN2OInfo' do
+      .n2oInfoContainer
+        .icon
+          %i.fa.fa-question-circle
+        .meta
+          %h4 What is N2O?
+          %p
+            You can use N2O to create additional boxes, or to increase the memory or storage capacity on your boxes.
+            %a(href="http://help.nitrous.io/N2O/") Read more

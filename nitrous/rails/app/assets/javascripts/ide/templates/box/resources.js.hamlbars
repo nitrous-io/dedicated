@@ -1,0 +1,64 @@
+.container
+  {{view App.HeaderView}}
+
+  %h2 Settings for {{ view.name }}
+
+  {{view App.SettingsTabsView boxBinding="view.controller.content" activeTab="resources"}}
+
+  .settings-pane
+    .info
+      %p
+        Note:
+        =hb 'if running' do
+          Changes will take effect shortly after saving. A restart will not be necessary.
+          =hb 'else'
+          Changes will take place the next time your box is started.
+
+    %form.form-horizontal
+      %div.control-group
+        %label.control-label Memory
+        .controls
+          {{view App.SliderView valueBinding="memory" minBinding="App.config.minMemoryMB" maxBinding="App.config.maxMemoryMB" step=128 unit=" MB"}}
+          .usage-details
+            =hb 'if view.memoryUsageDetails' do
+              {{view.memoryUsageDetails}}
+              =hb 'else'
+              fetching current memory usage
+          .n2o-cost
+            %i.fa.fa-bolt
+            {{ view.memoryCostChange }}
+
+      %div.control-group
+        %label.control-label Storage
+        .controls
+          {{view App.SliderView valueBinding="storage" minBinding="App.config.minStorageMB" maxBinding="App.config.maxStorageMB" step=250 unit=" MB"}}
+          %div{ bind: { class: ':usage-details view.insufficientStorage:error' } }
+            =hb 'if view.storageUsageDetails' do
+              {{view.storageUsageDetails}}
+              =hb 'else'
+              fetching current storage
+          .n2o-cost
+            %i.fa.fa-bolt
+            {{ view.storageCostChange }}
+
+      %div.control-group
+        %label.control-label Remaining N2O
+        .controls.remaining-n2o-slider
+          {{view App.SliderView valueBinding="view.remainingN2O" min=0 maxBinding="view.maxN2O" step=1 readOnly=true}}
+          .n2o-cost
+            %i.fa.fa-bolt
+            {{ view.totalCostChange }}
+
+      %div{ bind: { class: ':control-group errors.base:error view.insufficientN2O:error' } }
+        .controls
+          %button.btn.btn-primary(_action='didClickChangeBox target="view"'){ bind: { disabled: 'view.saveChangesButtonDisabled' } }
+            Save Changes
+          %button.btn(_action='didClickCancel target="view"'){ bind: { disabled: 'saving' } }
+            Cancel
+          %span.help-inline
+            {{ firstErrors.base }}
+            =hb 'if view.insufficientN2O' do
+              You do not have enough N2O to reconfigure your box.
+              %a.link(href="/app#n2o/bonus") Get More
+            =hb 'if view.insufficientStorage' do
+              You are using more storage than the requested amount.

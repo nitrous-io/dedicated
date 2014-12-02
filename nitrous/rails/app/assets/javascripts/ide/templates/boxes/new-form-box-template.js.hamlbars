@@ -1,0 +1,5 @@
+%div
+  =hb 'with view.boxTemplate' do
+    %div{ bind: { class: ':image runtime' } }
+    %a.stack-label(href='#') {{ name }}
+

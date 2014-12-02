@@ -1,0 +1,28 @@
+.modal-header
+  %h3 Set password for &ldquo;{{ view.content.box.name }}&rdquo; preview
+.modal-body
+  %form.form-horizontal
+    %div{bind: { class: ':control-group view.content.box.errors.auth_username:error view.content.box.errors.base.error' }}
+      %label.control-label(for='box_auth_username') Username
+      .controls
+        {{view Ember.TextField id="box_auth_username" placeholder="box-username" valueBinding="view.content.box.auth_username" disabledBinding="saving"}}
+        %span.help-inline {{ firstErrors.auth_username }}
+    %div{bind: { class: ':control-group view.content.box.errors.auth_password:error view.content.box.errors.base.error' }}
+      %label.control-label(for='box_auth_password') Password
+      .controls
+        {{view Ember.TextField id="box_auth_password" placeholder="box-password" type="password" valueBinding="view.content.box.auth_password" disabledBinding="saving"}}
+        %span.help-inline {{ firstErrors.auth_password }}
+
+    =hb 'if App.router.boxIdeController.content.region.ssl_enabled' do
+      %p.note
+        %strong: Warning:
+        passwords will be sent in clear text over HTTP unless you use the
+        %a.link(href='http://help.nitrous.io/ssl/' target='_blank') SSL preview
+        option.
+
+.modal-footer
+  %span.help-inline {{ firstErrors.base }}
+  %button.btn(_action='didClickCancel target="view"'){ bind: { disabled: 'saving' } }
+    Cancel
+  %button.btn.btn-primary(_action='didClickUpdate target="view"'){ bind: { disabled: 'saving' } }
+    Update

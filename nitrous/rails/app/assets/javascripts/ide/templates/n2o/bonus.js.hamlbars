@@ -1,0 +1,14 @@
+=hb 'if isIntro' do
+  {{partial 'templates/n2o/bonus-list'}}
+  =hb 'else'
+  .container
+    {{view App.HeaderView}}
+
+    %h2 Get More N2O
+
+    .info
+      %p You can earn more N2O by completing the following goals.
+
+    {{partial 'templates/n2o/bonus-list'}}
+
+{{view App.ComposeTweetDialogView}}

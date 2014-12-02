@@ -1,0 +1,97 @@
+.container
+  {{view App.HeaderView}}
+
+  %h2 Account Settings
+
+  {{view App.DelinquentMessageView}}
+
+  %form.form-horizontal.simple_form
+    #user_details.darker-panel
+      .control-group
+        .controls
+          .avatar-block
+            .image
+              %img{ bind: { src: 'gravatarUrl' }}
+            .meta
+              %h6
+                =hb 'if full_name' do
+                  {{ full_name }} ({{ email }})
+                  =hb 'else'
+                  {{ email }}
+              %a.link(href="https://gravatar.com/" target="_blank")
+                Update Gravatar
+                %i.fa.fa-external-link-square
+      %div{ bind: { class: ':control-group errors.email:error' } }
+        %label.control-label(for='email')
+          %abbr(title="required") *
+          Email
+        .controls
+          {{view Ember.TextField id="email" valueBinding="email" disabledBinding="saving"}}
+          %span.help-inline {{ firstErrors.email }}
+      %div{ bind: { class: ':control-group errors.full_name:error' } }
+        %label.control-label(for='full_name') Full Name
+        .controls
+          {{view Ember.TextField id="full_name" valueBinding="full_name" disabledBinding="saving"}}
+          %span.help-inline {{ firstErrors.full_name }}
+      %div
+        %label.control-label(for='password_reset_btn') Password
+        .controls
+          %button#password_reset_btn.btn(_action='didClickPasswordReset target="view"'){ bind: { disabled: 'resettingPassword' } }
+            Send Password Reset Email
+        .controls
+          %button.btn.btn-primary(_action='didClickUpdate target="view"'){ bind: { disabled: 'saving' } }
+            Update
+          %span.help-inline
+            {{ firstErrors.base }}
+          .delete-account
+            %a.cancel-link(_action='didClickDeleteAccount target="view"') Delete Account
+
+    #email_subscriptions.darker-panel
+      %div{ bind: { class: ':control-group' } }
+        %label.control-label(for='subscribed_to_monthly_newsletter')
+          Email Subscriptions
+        .controls
+          %label.checkbox(for="subscribed_to_monthly_newsletter")
+            {{view Ember.Checkbox id="subscribed_to_monthly_newsletter" valueBinding="user_profile.subscribed_to_monthly_newsletter"  checkedBinding="user_profile.subscribed_to_monthly_newsletter" disabledBinding="saving"}}
+            Subscribe to Monthly Newsletter
+          %label.checkbox(for="subscribed_to_product_announcements")
+            {{view Ember.Checkbox id="subscribed_to_product_announcements" valueBinding="user_profile.subscribed_to_product_announcements" checkedBinding="user_profile.subscribed_to_product_announcements" disabledBinding="saving"}}
+            Subscribe to Product Announcements
+        .controls
+          %button.btn.btn-primary(_action='didClickUpdate target="view"'){ bind: { disabled: 'saving' } }
+            Save
+          %span.help-inline
+            {{ firstErrors.base }}
+
+    =hb 'if hasActiveOrDelinquentSubscription' do
+      #billing.darker-panel
+        %div{ bind: { class: ':control-group' } }
+          %label.control-label
+            Billing
+          .controls.billing-info
+            .current-plan
+              .icon
+                %i.fa.fa-archive
+              .meta
+                Current Plan: {{currentPlan}}
+                %a.link(_action='didClickChangePlan target="view"') Change Plan
+            .card-details
+              .icon
+                %i.fa.fa-credit-card
+              .meta
+                Card: {{currentCardDetails}}
+                %a.link(_action='didClickChangeCreditCard target="view"') Change Credit Card
+            .cancel-subscription
+              %a.cancel-link(_action='didClickCancelSubscription target="view"') Cancel Subscription
+              =hb 'if cancelingSubscription' do
+                %span (Please wait...)
+
+        %div{ bind: { class: ':control-group' } }
+          %label.control-label
+            Past Invoices
+          .controls.receipts
+            {{view App.ReceiptsView}}
+
+{{view App.ChangeCreditCardDialogView}}
+{{view App.ConfirmCancelSubscriptionDialogView}}
+{{view App.ConfirmDeleteAccountDialogView}}

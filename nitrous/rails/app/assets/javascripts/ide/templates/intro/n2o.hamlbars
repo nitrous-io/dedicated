@@ -1,0 +1,25 @@
+.container
+  {{view App.HeaderView noMenu=true}}
+
+  .intro-content
+    .info-container
+      %h2
+        Get More N2O
+
+      %p We start you off with a basic box for free. Upgrading it or creating a new box requires N2O &mdash; it's easy to earn more!
+
+      .action-container
+        .bonus-n2o
+          {{outlet n2oBonus}}
+
+      #box-state
+        %div{ bind: { class: ':stateOrb state' } }
+        %span {{ name }}
+        is
+        %span{ bind: { class: ':state state' } } {{ stateForDisplay }}
+        %span.meter.pull-right
+          {{view App.N2OView}}
+
+      .panel.clearfix
+        %button.btn.btn-primary.pull-right(_action='didClickNextScreen target="view"')
+          Next

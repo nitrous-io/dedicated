@@ -1,0 +1,18 @@
+.modal-header
+  %h3
+    Are you
+    %strong ABSOLUTELY
+    sure?
+.modal-body
+  %p
+    This will delete your account and all the data associated with it.
+  %p
+    This action is permanent and
+    %strong CANNOT
+    be undone!
+
+.modal-footer
+  %button.btn(_action='didClickCancel target="view"')
+    No, Take me back
+  %a.btn.btn-danger(href='/users' data-method='delete' rel='nofollow')
+    Yes, Delete my account

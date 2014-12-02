@@ -1,0 +1,13 @@
+.modal-body
+  %form.form-horizontal
+    {{view Ember.TextField id="file_finder_pattern" placeholderBinding="view.content.placeholder" valueBinding="view.content.pattern"}}
+
+  .results
+    =hb 'if view.content.showStatus' do
+      %p.status
+        {{ view.content.humanStatus }}
+      =hb 'else'
+      =hb 'each view.content.currentResults' do
+        %a(_action='didClickResult filename target="view"'){bind: { class: ':file-result selected' } }
+          {{ filename }}
+

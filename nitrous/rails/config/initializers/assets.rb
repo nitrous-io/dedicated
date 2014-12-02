@@ -1,1 +1,1 @@
-Rails.application.config.assets.precompile += %w(jquery.js terminal.js terminal.css homepage.css pages.js ide.js)
+Rails.application.config.assets.precompile += %w(jquery.js terminal.js terminal.css homepage.css pages.js ide/app.js)

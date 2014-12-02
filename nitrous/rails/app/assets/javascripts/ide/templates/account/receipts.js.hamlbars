@@ -1,0 +1,14 @@
+%table.table
+  =hb 'if receipts' do
+    %tbody
+      =hb 'each receipts' do
+        %tr
+          %td {{ date }}
+          %td {{ formattedTotal }}
+          %td
+            %a(target="_blank"){ bind: { href: 'receiptPath' } } Print
+    =hb 'else'
+    %tbody
+      %tr
+        %td No past invoices
+

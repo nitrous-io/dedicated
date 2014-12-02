@@ -1,0 +1,30 @@
+%header
+  .tabs
+    %ul
+      =hb 'each content' do
+        {{view App.IdeTabView contentBinding="this"}}
+    .new_tab_button.small_button.btn.fa.fa-plus(_action='didClickNew target="view"' title='New Tab')
+    .fullscreen_button.small_button.btn.fa.fa-arrows-alt(_action='didClickFullScreen target="view"' title='Toggle Full Screen')
+    =hb 'if App.router.ideLayoutController.collaborationPaneHidden' do
+      .chat_button.small_button.btn.fa.fa-comments(_action='didClickChat target="view"' title='Show Chat')
+      .chat_notification.popover.bottom
+        .arrow
+        .popover-content
+          .message
+            =hb 'with controller.chatNotification' do
+              %strong {{username}}
+              %span mentioned you in chat.
+
+.ide_document_views
+  =hb 'each content' do
+    =hb 'if isImageTab' do
+      {{view App.IdeImageView documentBinding="this" classBinding="active"}}
+      =hb 'else'
+      =hb 'if isSearchTab' do
+        {{view App.IdeSearchView documentBinding="this" classBinding="active"}}
+        =hb 'else'
+        {{view App.IdeDocumentView documentBinding="this" classBinding="active"}}
+
+{{view App.IdeSaveDialogView}}
+{{view App.IdeConfirmCloseDialogView}}
+

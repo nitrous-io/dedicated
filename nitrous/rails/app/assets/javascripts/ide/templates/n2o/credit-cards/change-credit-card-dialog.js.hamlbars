@@ -1,0 +1,13 @@
+.modal-header
+  %h3
+    Change Credit Card
+.modal-body
+  %form(autocomplete="on" method="post")
+    {{view App.CreditCardView cardBinding="card" class="span8"}}
+
+.modal-footer
+  %p {{view.content.errorMessage}}
+  %button.btn(_action='didClickCancel target="view"')
+    Cancel
+  %button.btn.btn-primary(_action='didClickChange target="view"'){ bind: { disabled: 'view.changing' } }
+    Change

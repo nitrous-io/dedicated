@@ -15,5 +15,8 @@ html lang='en'
   body
     #app
     = javascript_include_tag 'jquery'
-    = javascript_include_tag 'ide'
+    = javascript_include_tag 'ide/application'
+    = javascript_include_tag 'ide/app'
+    javascript:
+      App.bootstrap()
     = render 'web_app/livechat'

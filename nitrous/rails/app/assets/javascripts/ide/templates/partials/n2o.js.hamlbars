@@ -1,0 +1,4 @@
+.bar{ bind: { style: 'view.barWidthStyle' } }
+.text(title='N2O')
+  %i.fa.fa-bolt
+  {{ view.freeN2O }} / {{ view.maxN2O }}
