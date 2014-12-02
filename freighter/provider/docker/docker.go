@@ -23,14 +23,7 @@ import (
 )
 
 var (
-	dockerHost   = "unix:///var/run/docker.sock"
-	registryName = "nitrousio"
-
-	// list of images 'blessed' by Nitrous. If tag is included, the specific
-	// tag is checked for, otherwise any tag is allowed
-	nitrousImages = []string{"ubuntu-bare:trusty", "ubuntu:trusty", "ruby", "python", "nodejs", "golang", "php"}
-
-	errNoCommand = errors.New("no command specified")
+	dockerHost = "unix:///var/run/docker.sock"
 )
 
 const nitrousImageEnv = "NITROUS_IMAGE_VERSION"
