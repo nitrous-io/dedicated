@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -214,4 +215,34 @@ func NewTestServer(root string, db *db.Database, l *logger.Logger, t analytics.T
 	svr.Tracker = t
 
 	return svr
+}
+
+// FakeRoundTripper implements a fake Transport layer that records the executed
+// requests and provides a fake response.
+//
+// This is more lightweight than implementing a full HTTP server and should be
+// appropriate for some tests.
+type FakeRoundTripper struct {
+	Message  string
+	Status   int
+	Header   map[string]string
+	Requests []*http.Request
+}
+
+func (rt *FakeRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	body := strings.NewReader(rt.Message)
+	rt.Requests = append(rt.Requests, r)
+	res := &http.Response{
+		StatusCode: rt.Status,
+		Body:       ioutil.NopCloser(body),
+		Header:     make(http.Header),
+	}
+	for k, v := range rt.Header {
+		res.Header.Set(k, v)
+	}
+	return res, nil
+}
+
+func (rt *FakeRoundTripper) Reset() {
+	rt.Requests = nil
 }

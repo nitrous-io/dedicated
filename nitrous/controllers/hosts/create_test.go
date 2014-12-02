@@ -223,16 +223,16 @@ var _ = Describe("POST /api/v0/hosts", func() {
 	It("sends the host configs as json params", func() {
 		hb := hostbuilderclient.NewHostbuilder("www.example.com")
 		rt := &FakeRoundTripper{
-			message: fmt.Sprintf(`
+			Message: fmt.Sprintf(`
 			{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}
 			`, hs.PT.Name),
-			status: http.StatusOK,
+			Status: http.StatusOK,
 		}
 		replaceTransport(hb, rt)
 		hosts.HostbuilderClient = hb
 		doRequest(params)
 
-		req := rt.requests[0]
+		req := rt.Requests[0]
 		var config hostbuilderclient.Config
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
 		Expect(config["name"]).To(Equal(params.Get("slug")))
@@ -252,17 +252,17 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		hb := hostbuilderclient.NewHostbuilder("www.example.com")
 		rt := &FakeRoundTripper{
-			message: fmt.Sprintf(`
+			Message: fmt.Sprintf(`
 			{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}
 			`, hs.PT.Name),
-			status: http.StatusOK,
+			Status: http.StatusOK,
 		}
 		replaceTransport(hb, rt)
 		hosts.HostbuilderClient = hb
 		doJsonRequest(jsonStr)
 
-		Expect(rt.requests).To(HaveLen(1))
-		req := rt.requests[0]
+		Expect(rt.Requests).To(HaveLen(1))
+		req := rt.Requests[0]
 		var config hostbuilderclient.Config
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
 		Expect(config["name"]).To(Equal("slug1"))
@@ -275,12 +275,12 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		BeforeEach(func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt = &FakeRoundTripper{
-				message: fmt.Sprintf(`
+				Message: fmt.Sprintf(`
 				{"stream":"starting: create the droplet"}
 				{"stream":"finished: create the droplet"}
 				{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}
 				`, hs.PT.Name),
-				status: http.StatusOK,
+				Status: http.StatusOK,
 			}
 			replaceTransport(hb, rt)
 			hosts.HostbuilderClient = hb
@@ -366,7 +366,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(err).To(BeNil())
 			Expect(kp.HostID).To(Equal(hosts[0].ID))
 
-			req := rt.requests[0]
+			req := rt.Requests[0]
 			var config hostbuilderclient.Config
 			json.Unmarshal([]byte(req.FormValue("config")), &config)
 			public_keys := config["public_keys"].([]interface{})
@@ -378,7 +378,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			hosts, _ := host.FindAllByUser(db, u)
 
 			Expect(hosts[0].Secret).NotTo(BeEmpty())
-			req := rt.requests[0]
+			req := rt.Requests[0]
 			var config hostbuilderclient.Config
 			json.Unmarshal([]byte(req.FormValue("config")), &config)
 			Expect(config["secret"]).To(Equal(hosts[0].Secret))
@@ -819,8 +819,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		BeforeEach(func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			replaceTransport(hb, &FakeRoundTripper{
-				message: errorResponse,
-				status:  http.StatusBadRequest,
+				Message: errorResponse,
+				Status:  http.StatusBadRequest,
 			})
 
 			hosts.HostbuilderClient = hb
@@ -865,8 +865,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				rt := &FakeRoundTripper{
-					message: fmt.Sprintf(`{"id":"abcd1234","ip_address":"0.0.0.0","provider":"%s","freighterd_port":65333}`, hs.PT.Name),
-					status:  http.StatusOK,
+					Message: fmt.Sprintf(`{"id":"abcd1234","ip_address":"0.0.0.0","provider":"%s","freighterd_port":65333}`, hs.PT.Name),
+					Status:  http.StatusOK,
 				}
 				replaceTransport(hb, rt)
 
@@ -932,8 +932,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: `{"error":"some error occurred"}`,
-					status:  http.StatusBadRequest,
+					Message: `{"error":"some error occurred"}`,
+					Status:  http.StatusBadRequest,
 				})
 
 				hosts.HostbuilderClient = hb

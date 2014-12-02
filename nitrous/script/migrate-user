@@ -24,5 +24,6 @@ pass=`echo ${user[2]} | sed -e 's#\\$#\\\\$#g'`
 name=${user[3]}
 
 # Put into the new database
-heroku pg:psql -a $db -c "insert into users(username, email, encrypted_password, name) values('$uname','$email','$pass','$name');"
+heroku pg:psql -a $db -c "insert into users(username, email, encrypted_password, name, confirmed_at) values('$uname','$email','$pass','$name', now());"
 heroku pg:psql -a $db -c "insert into user_profiles(max_hosts, user_id) values(1,(select id from users where username = '$uname'));"
+heroku pg:psql -a $db -c "insert into billing_profiles(user_id) values((select id from users where username = '$uname'));"
