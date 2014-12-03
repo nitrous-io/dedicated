@@ -1005,6 +1005,20 @@ var _ = Describe("provider/docker", func() {
 			Expect(doInspect(id, fmt.Sprintf(
 				`{{.HostConfig.Binds}}`))).NotTo(ContainSubstring("backups"))
 		})
+
+		It("runs the command specified by the NITROUS_CMD env var inside the container", func() {
+			name := RandomName("freightertest")
+			configJSON := `{
+				"Env": ["NITROUS_CMD=while true; do echo hello world >> /log; sleep 1; done"]
+			}`
+			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
+			Expect(err).To(BeNil())
+			defer CleanUpContainer(name)
+
+			out, err := exec.Command("docker", "exec", info.ID, "/bin/cat", "/log").CombinedOutput()
+			Expect(err).To(BeNil())
+			Expect(string(out)).To(ContainSubstring(`hello world`))
+		})
 	})
 
 	Describe(".ListImages()", func() {

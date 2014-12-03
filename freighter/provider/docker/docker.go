@@ -26,7 +26,11 @@ var (
 	dockerHost = "unix:///var/run/docker.sock"
 )
 
-const nitrousImageEnv = "NITROUS_IMAGE_VERSION"
+const (
+	nitrousImageEnv = "NITROUS_IMAGE_VERSION"
+	nitrousCmdEnv   = "NITROUS_CMD"
+)
+
 const defaultDockerRegistry = "index.docker.io"
 const dockerRegistryImageEndpoint = "registry-1.docker.io"
 
@@ -142,7 +146,7 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 	return list, nil
 }
 
-// Create creates and starts a container.
+// CreateStart creates and starts a container.
 // If the container cannot be started, the container info *and* a
 // provider.StartFailedError is returned.
 func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string) (*provider.ContainerInfo, error) {
@@ -285,6 +289,11 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 
 		p.logger.TimeInfo(start, "DockerProvider: started container", id, "in")
 	}
+
+	if err := p.StartApp(id); err != nil {
+		return nil, err
+	}
+
 	return p.GetInfo(id)
 }
 
@@ -351,6 +360,41 @@ func (p *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
 	}
 	p.logger.TimeInfo(start, "DockerProvider: restarted container", id, "in")
 	return info, nil
+}
+
+func (p *DockerProvider) StartApp(id string) error {
+	container, err := p.inspectContainer(id)
+	if err != nil {
+		return err
+	}
+
+	cmd, ok := p.appCmd(container)
+	if !ok {
+		// Do nothing if container does not specify an app command.
+		return nil
+	}
+
+	exec, err := p.client.CreateExec(dockerclient.CreateExecOptions{
+		Cmd:       []string{"/bin/sh", "-c", cmd},
+		Container: id,
+		Tty:       false,
+	})
+	if err != nil {
+		return err
+	}
+
+	return p.client.StartExec(exec.Id, dockerclient.StartExecOptions{
+		Detach: true,
+		Tty:    false,
+	})
+}
+
+func (p *DockerProvider) StopApp(id string) error {
+	// FIXME Figure out:
+	// 1. How to kill a docker exec process (we should probably wait for https://github.com/docker/docker/pull/9167),
+	// 2. Where to store the ID of the exec process (so that we can use it to
+	//    kill the process).
+	return nil
 }
 
 func (p *DockerProvider) Terminate(id string, removeSettings bool) (*provider.ContainerInfo, error) {
@@ -1090,9 +1134,28 @@ func (p *DockerProvider) isNitrousImage(fullName string) bool {
 		return false
 	}
 
-	for _, val := range imageInfo.Config.Env {
+	_, ok := envValue(imageInfo.Config.Env, nitrousImageEnv)
+	return ok
+}
+
+func (p *DockerProvider) appCmd(container *dockerclient.Container) (string, bool) {
+	return envValue(container.Config.Env, nitrousCmdEnv)
+}
+
+func envValue(env []string, envVar string) (string, bool) {
+	for _, val := range env {
 		split := strings.SplitN(val, "=", 2)
-		if len(split) == 2 && split[0] == nitrousImageEnv {
+		if len(split) == 2 && split[0] == envVar {
+			return split[1], true
+		}
+	}
+	return "", false
+}
+
+func containsEnvVar(env []string, envVar string) bool {
+	for _, val := range env {
+		split := strings.SplitN(val, "=", 2)
+		if len(split) == 2 && split[0] == envVar {
 			return true
 		}
 	}
