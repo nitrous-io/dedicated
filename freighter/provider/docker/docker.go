@@ -1068,12 +1068,7 @@ func (p *DockerProvider) containerAuthorizedKeys(containerName string) *Authoriz
 }
 
 func (p *DockerProvider) inspectContainer(id string) (*dockerclient.Container, error) {
-	// returns container only if container is created by freighter
-	container, err := p.client.InspectContainer(id)
-	if err != nil {
-		return nil, err
-	}
-	return container, nil
+	return p.client.InspectContainer(id)
 }
 
 func (p *DockerProvider) dockerTag(image string, newName string, force bool) error {
