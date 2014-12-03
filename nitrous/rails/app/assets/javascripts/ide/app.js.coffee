@@ -5,7 +5,8 @@
 #= require ./vendor/jquery.ui.widget
 #= require ./vendor/jquery.fileupload
 #= require ./vendor/ua-parser
-#= require ./ember-bootstrap
+#= require emberjs
+#= require ./vendor/ember/ember-model
 #= require_self
 #= require ./app-classes
 
@@ -31,7 +32,6 @@ window.NitrousIO = Em.Application.extend Em.Evented,
     #   @set 'currentUser', currentUser = App.CurrentUser.create()
 
 window.App = NitrousIO.create()
-cosole.log window.App
 
 Em.TextSupport.reopen
   attributeBindings: ['readonly']

@@ -1,0 +1,20 @@
+.modal-header
+  %h3 Save File
+.modal-body
+  .form-horizontal
+    %div{ bind: { class: ':control-group view.content.errors.path:error view.content.errors.base:error' } }
+      %label.control-label(for='save_path')
+        Path:
+      .controls
+        %span.help-inline \~/
+        {{view App.IdeSaveDialogTextField id="save_path" placeholder="foo/bar.rb" valueBinding="view.content.path" disabledBinding="view.content.saving"}}
+        %span{ bind: { class: ':help-inline :throbber :darkbg view.content.saving:visible' } }
+        %span.help-inline
+          {{ view.content.firstErrors.path }}
+          {{ view.content.firstErrors.base }}
+.modal-footer
+  %button.btn(_action='didClickCancel target="view"'){ bind: { disabled: 'view.content.saving' } }
+    Cancel
+  %button.btn(_action='didClickSave target="view"'){ bind: { disabled: 'view.content.saving' } }
+    Save
+

@@ -1,0 +1,35 @@
+.modal-header
+  %h3 Collaborators for &ldquo;{{ App.router.boxIdeController.content.name }}&rdquo;
+.modal-body
+  %p
+    This feature is
+    = succeed '.' do
+      %ins experimental
+    Please report any bugs that you encounter.
+  %ul.modal-list
+    =hb 'each view.collaborators' do
+      %li
+        %p
+          %img{ bind: { src: 'gravatarUrl' } }
+          {{ username }}
+        .pull-right
+          %button.btn.btn-danger(_action='didClickRemove this target="view"'){ bind: { disabled: 'removing' }}
+            Remove
+    =hb 'each view.invites' do
+      %li
+        %p {{ email }} has been invited
+
+  %ul.modal-list
+    %li{ bind: { class: ':control-group view.content.errorMessage:error' } }
+      {{view App.IdeManageCollaboratorsDialogTextField placeholder="username/email" valueBinding="view.content.newCollaboratorIdentifier"}}
+      %button.btn(_action='didClickAdd target="view"'){ bind: { disabled: 'view.content.saving' }}
+        Add
+      %span.help-inline {{ view.content.errorMessage }}
+  %p
+    Please add only those that you absolutely trust as collaborators.
+    Collaborators can access and edit any file present in your box
+    including your private keys and saved credentials.
+
+.modal-footer
+  %button.btn(_action='didClickDone target="view"')
+    Done

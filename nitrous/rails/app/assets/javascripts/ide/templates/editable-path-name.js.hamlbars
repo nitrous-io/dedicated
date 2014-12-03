@@ -1,0 +1,9 @@
+=hb 'with view.path' do
+  =hb 'if directory' do
+    =hb 'if expanded' do
+      %i.fa.fa-caret-down
+      =hb 'else'
+      %i.fa.fa-caret-right
+    =hb 'else'
+    %i.icon-
+{{view App.IdeEditablePathNameTextField placeholder="Untitled" spellcheck="false" valueBinding="view.newPathName"}}

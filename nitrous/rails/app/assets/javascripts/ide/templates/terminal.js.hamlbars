@@ -1,0 +1,21 @@
+=hb 'if content.region.enabled' do
+  =hb 'if content.region.goingDown' do
+    #ide_going_down
+      Nitrous is going into maintenance mode soon. Please save your work now and come back later.
+
+  {{view App.IdeMainMenuView controllerBinding="App.router.ideMainMenuController" hideMainMenu=true}}
+
+  #ide_body
+    {{view App.IdeConsoleView controllerBinding="App.router.ideConsoleController" alwaysFullScreen=true}}
+    {{view App.IdeManageAuthDialogView controllerBinding="App.router.ideBasicAuthController"}}
+
+  {{view App.IdeRegionNoticeView}}
+
+{{view App.IdeMaintenanceNoticeView}}
+
+=hb 'unless controller.sftpSocketReady' do
+  =hb 'if controller.sftpConnectionLost' do
+    {{view App.IdeConnectionLostView}}
+    =hb 'else'
+    #ide_connecting
+      Connecting...

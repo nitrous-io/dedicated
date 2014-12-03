@@ -19,19 +19,20 @@ App.util =
     App.get('router').transitionTo route
 
   mixpanel: (eventName, properties = {}) ->
-    currentUser = App.get 'currentUser'
-    if mixpanel? && !currentUser.get('admin')
-      p =
-        username:         currentUser.get('username')
-        email:            currentUser.get('email')
-        distinct_id:      currentUser.get('email')
-        os_name:          @UserAgent.os.name
-        os_version:       @UserAgent.os.version
-        browser_name:     @UserAgent.browser.name
-        browser_version:  @UserAgent.browser.version
-        browser_major:    @UserAgent.browser.major
+    return false
+    # currentUser = App.get 'currentUser'
+    # if mixpanel? && !currentUser.get('admin')
+    #   p =
+    #     username:         currentUser.get('username')
+    #     email:            currentUser.get('email')
+    #     distinct_id:      currentUser.get('email')
+    #     os_name:          @UserAgent.os.name
+    #     os_version:       @UserAgent.os.version
+    #     browser_name:     @UserAgent.browser.name
+    #     browser_version:  @UserAgent.browser.version
+    #     browser_major:    @UserAgent.browser.major
 
-      mixpanel.track eventName, _.defaults(properties, p)
+    #   mixpanel.track eventName, _.defaults(properties, p)
 
   mixpanelIdentifyUser: ->
     if mixpanel?

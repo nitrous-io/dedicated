@@ -1,0 +1,1 @@
+%iframe{ bind: { src: 'App.router.boxIdeController.content.webTerminalPath' } }

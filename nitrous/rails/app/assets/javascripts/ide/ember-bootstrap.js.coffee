@@ -1,6 +1,5 @@
 #= require_self
-#= require handlebars
-#= require ember
+#= require emberjs
 #= require ./vendor/ember/ember-model
 
 window.EmberENV =

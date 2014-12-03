@@ -1,5 +1,5 @@
 App.FlashMessageView = Em.View.extend
-  templateName: 'templates/partials/flash-message'
+  templateName: 'ide/templates/partials/flash-message'
   elementId: 'flash_messages'
   messageBinding: 'App.flashMessage'
 
