@@ -11,14 +11,6 @@
 =hb 'unless view.noSecondaryMenu' do
   .secondary-nav
     %ul.nav
-      %li
-        %a(href='#/invites') Invites
-      %li
-        %a(href='#/boxes')
-          Boxes
-      %li
-        %a(href='#/public_keys')
-          Public Keys
       %li.dropdown
         %a.dropdown-toggle(data-toggle='dropdown')
           %span {{ App.currentUser.username }}

@@ -1,5 +1,5 @@
 App.IdeEditorView = Em.View.extend App.IdeTabViewMixin,
-  templateName: 'templates/box/ide/editor'
+  templateName: 'ide/templates/editor'
   elementId: 'ide_editor_view'
   classNameBindings: ['controller.fullscreen:fullscreen']
 

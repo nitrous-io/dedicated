@@ -1,5 +1,5 @@
 App.IdeSaveDialogView = App.IdeModalDialogView.extend
-  templateName: 'templates/box/ide/save-dialog'
+  templateName: 'ide/templates/save-dialog'
   elementId: 'ide_save_dialog_view'
   contentBinding: 'controller.saveDialog' # ideEditorController
 

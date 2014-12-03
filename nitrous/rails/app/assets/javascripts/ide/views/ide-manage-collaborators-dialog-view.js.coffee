@@ -1,5 +1,5 @@
 App.IdeManageCollaboratorsDialogView = App.IdeModalDialogView.extend
-  templateName: 'templates/box/ide/manage-collaborators-dialog'
+  templateName: 'ide/templates/manage-collaborators-dialog'
   elementId: 'ide_manage_collaborators_dialog_view'
   contentBinding: 'controller.manageCollaboratorsDialog'
   collaboratorsBinding: 'controller.manageCollaboratorsDialog.collaborators' # controller = ideCollaborationPaneController

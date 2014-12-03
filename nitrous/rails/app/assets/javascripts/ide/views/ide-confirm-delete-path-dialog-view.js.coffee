@@ -1,5 +1,5 @@
 App.IdeConfirmDeletePathDialogView = App.IdeModalDialogView.extend
-  templateName: 'templates/box/ide/confirm-delete-path-dialog'
+  templateName: 'ide/templates/confirm-delete-path-dialog'
   elementId: 'confirm_delete_path_dialog_view'
   contentBinding: 'controller.confirmDeletePathDialog' # IdeSidebarController
 

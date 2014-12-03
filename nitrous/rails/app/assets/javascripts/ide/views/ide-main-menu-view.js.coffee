@@ -106,7 +106,7 @@ themesMenu = menu 'Themes', _.map [
       ).property 'App.router.ideEditorController.theme'
 
 App.IdeMainMenuView = Em.View.extend
-  templateName: 'templates/box/ide/main-menu'
+  templateName: 'ide/templates/main-menu'
   elementId: 'ide_main_menu_view'
   heightBinding: 'App.router.ideLayoutController.mainMenuViewHeight'
   hideMainMenu: false
@@ -258,24 +258,6 @@ App.IdeMainMenuView = Em.View.extend
           true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.wrapLines')
       menuItem 'Ruler', submenu: rulerMenu
-    ]
-    menu 'Collaborate', [
-      menuItem 'Manage Collaborators...',
-        disabledBinding: Em.Binding.oneWay('App.router.boxIdeController.content.notOwnBox')
-        callback: (controller) ->
-          controller.collaborateManageCollaborators()
-      separator
-      menuItem 'Toggle Chat', callback: (controller) ->
-        controller.collaborateToggleChat()
-    ]
-    menu 'Autoparts', [
-      menuItem 'Manage Packages...',
-        callback: (controller) ->
-          controller.manageAutoparts()
-      separator
-      menuItem 'Autoparts Help',
-        url: 'http://help.nitrous.io/autoparts/'
-        target: '_blank'
     ]
     previewMenu
     helpMenu

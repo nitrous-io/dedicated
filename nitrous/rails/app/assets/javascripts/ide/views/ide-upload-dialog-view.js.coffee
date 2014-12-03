@@ -1,5 +1,5 @@
 App.IdeUploadDialogView = App.IdeModalDialogView.extend
-  templateName: 'templates/box/ide/upload-dialog'
+  templateName: 'ide/templates/upload-dialog'
   elementId: 'ide_upload_dialog_view'
   contentBinding: 'controller.uploadDialog' # controler = ideSidebarController
   classNameBindings: ['content.uploading:uploading']

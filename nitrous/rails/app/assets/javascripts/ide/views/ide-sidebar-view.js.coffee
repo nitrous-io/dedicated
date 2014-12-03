@@ -1,5 +1,5 @@
 App.IdeSidebarView = Em.View.extend
-  templateName: 'templates/box/ide/sidebar'
+  templateName: 'ide/templates/sidebar'
   elementId: 'ide_sidebar_view'
 
   didClickSetHomeAsRoot: ->

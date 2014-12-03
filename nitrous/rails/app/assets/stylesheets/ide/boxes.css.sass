@@ -1,0 +1,365 @@
+@import variables
+@import mixins
+
++keyframes(animatedGaugeReset)
+  0%
+    +transform(rotate(-113deg) scale(-1,1))
+  50%
+    +transform(rotate(21deg) scale(-1,1))
+  50.0001%
+    +transform(rotate(-22deg) scale(1,1))
+  100%
+    +transform(rotate(113deg) scale(1,1))
+
++keyframes(animatedGaugeCharging)
+  0%
+    +transform(rotate(-113deg) scale(-1,1))
+  20%
+    +transform(rotate(-113deg) scale(-1,1))
+  88.7178%
+    +transform(rotate(21deg) scale(-1,1))
+  88.7179%
+    +transform(rotate(-22deg) scale(1,1))
+  100%
+    +transform(rotate(0deg) scale(1,1))
+
++keyframes(animatedGaugeShaking)
+  0%
+    +transform(rotate(-0.3deg) scale(1,1))
+  100%
+    +transform(rotate(0.3deg) scale(1,1))
+
+#app
+  #boxes_index_view
+    .box_text_field
+      width: 300px
+      padding: 2px 4px 1px 4px
+      margin: 0 5px 0 0
+
+    .dark-list
+      .title
+        h3
+          display: block
+          margin-left: 26px
+
+        .explain
+          font-size: inherit
+
+        .cost
+          font-size: 13px
+          min-width: 45px
+          text-align: right
+          i.fa-bolt
+            color: $nitrousBlue
+
+        .tooltip-inner
+          min-width: 100px
+          width: auto
+
+      > li
+        margin-bottom: 24px
+
+      .help-inline
+        color: #ff9999
+        margin: 0 30px
+
+    .stateOrb
+      position: absolute
+      left: 12px
+      top: 12px
+      +state-orb
+
+    .details
+      .explanatory-text
+        display: inline
+        margin-left: 12px
+
+    .confirm-email-reminder
+      display: none
+      margin-top: 10px
+      font-size: 16px
+      +border-radius(2px)
+
+  #boxes_form_view,
+  #box-resources-view
+    .snapshots
+      margin: 30px 0
+
+      h3
+        .or
+          color: #9498a0
+          font-family: $openSansFontFamily
+          font-size: 16px
+          margin-right: 3px
+
+      form
+        margin: 0
+
+        select
+          width: auto
+
+    .slider_view
+      display: inline-block
+      width: 640px
+
+    .help-inline
+      color: #ff9999
+
+    .n2o-cost
+      display: inline-block
+      width: 70px
+      height: 28px
+      line-height: 28px
+      font-size: 20px
+      background: $appBackgroundColor
+      +border-radius(4px)
+      text-align: center
+      white-space: nowrap
+
+      i
+        color: #18caf9
+
+    .remaining-n2o-slider
+      .bar
+        background: #62c042
+        border-right-color: darken(#62c042, 10%)
+
+      .below50 .bar
+        background: #ff8a00
+        border-right-color: darken(#ff8a00, 10%)
+
+      .below25 .bar
+        background: #911200
+        border-right-color: darken(#911200, 10%)
+
+      .below0 .bar
+        border-right-color: darken(#911200, 10%)
+
+        span
+          color: red
+
+    .control-block.clone
+      margin-bottom: 15px
+
+      .controls
+        input
+          font-family: $monospaceFontFamily
+          font-size: 12px
+          width: 500px
+
+      .repo-identifying
+        margin-left: 10px
+
+    .stacks
+      width: 100%
+      +clearfix
+      margin: 0 auto
+      list-style: none
+      +darkerPanel
+
+      li
+        float: left
+        margin: 0 0 0
+        color: #bcc8d8
+
+        > div
+          position: relative
+          display: block
+          width: 125px
+          padding: 20px 27px
+          padding-right: 0
+          text-align: center
+          font-size: 14px
+          cursor: pointer
+
+
+          .image
+            +border-radius(5px)
+            display: block
+            width: 125px
+            height: 125px
+            margin-bottom: 12px
+            background-image: image_url('platform-sprite.png')
+            background-size: 200% auto
+
+            &.rails
+              background-position: 125px 0
+            &.nodejs
+              background-position: 125px -125px
+            &.django
+              background-position: 125px -250px
+            &.go
+              background-position: 125px -375px
+            &.php
+              background-position: 125px -500px
+            &.meteor
+              background-position: 125px -625px
+
+        &.selected
+          font-weight: bold
+          color: #fff
+          > div
+            .image
+              &.rails
+                background-position: 0 0
+              &.nodejs
+                background-position: 0 -125px
+              &.django
+                background-position: 0 -250px
+              &.go
+                background-position: 0 -375px
+              &.php
+                background-position: 0 -500px
+              &.meteor
+                background-position: 0 -625px
+
+        &.coming_soon
+          > div
+            cursor: not-allowed
+
+          > div:before
+            position: absolute
+            top: 100px
+            left: 30px
+            display: block
+            padding: 10px 30px
+            content: 'COMING SOON!'
+            color: black
+            font-family: $openSansFontFamily
+            font-size: 16px
+            text-align: center
+            text-shadow: none
+            +gradient-vertical(#fff, #eee)
+            +border-radius(5px)
+            +box-shadow(0 2px 10px rgba(0, 0, 0, .5))
+            +rotate(-45deg)
+
+        a.stack-label
+          color: #bcc8d8
+          &:hover
+          text-decoration: none
+
+    #preload-gauge
+      position: relative
+      width: 1px
+      height: 1px
+      background: image_url('ide/gauge-bg.png') no-repeat
+      overflow: hidden
+
+      > div
+        position: absolute
+        top: 0
+        left: 0
+        width: 1px
+        height: 1px
+
+      .gauge-center
+        background: image_url('ide/gauge-center.png') no-repeat
+
+      .gauge-needle-shadow
+        background: image_url('ide/gauge-needle-shadow.png') no-repeat
+
+      .gauge-needle
+        background: image_url('ide/gauge-needle.png') no-repeat
+
+    .disclaimer
+      color: #ff9999
+      .footnote
+        font-size: 11px
+        vertical-align: super
+
+    .usage-details
+      float: left
+      margin: 5px 0 0 0
+      min-width: 200px
+
+      &.error
+        color: #ff9999
+
+
+  #box_provisioning_view
+    #animated-gauge
+      $gaugeWidth: 400px
+      position: relative
+      width: $gaugeWidth
+      height: $gaugeWidth
+      margin: 0 auto 36px auto
+      background: image_url('ide/gauge-bg.png')
+
+      > div
+        position: absolute
+
+      =gaugePart($width, $image)
+        width: $width
+        height: $width
+        top: ($gaugeWidth - $width) / 2
+        left: ($gaugeWidth - $width) / 2
+        background: image_url($image)
+
+      .gauge-center
+        +gaugePart(31px, 'ide/gauge-center.png')
+
+      .gauge-needle-shadow
+        margin-top: 9px
+        +gaugePart(242px, 'ide/gauge-needle-shadow.png')
+
+      .gauge-needle
+        +gaugePart(212px, 'ide/gauge-needle.png')
+
+      .gauge-needle, .gauge-needle-shadow
+        +transform(rotate(-113deg) scale(-1,1))
+
+      &.reset
+        .gauge-needle, .gauge-needle-shadow
+          +animation-duration(1s)
+          +animation-name(animatedGaugeReset)
+          +animation-timing-function(linear)
+          +animation-iteration-count(2)
+          +animation-direction(alternate)
+
+      &.charging
+        .gauge-needle, .gauge-needle-shadow
+          +animation-duration(8s)
+          +animation-name(animatedGaugeCharging)
+          +animation-timing-function(linear)
+
+      &.shaking
+        .gauge-needle, .gauge-needle-shadow
+          +animation-duration(0.1s)
+          +animation-name(animatedGaugeShaking)
+          +animation-timing-function(linear)
+          +animation-iteration-count(infinite)
+          +animation-direction(alternate)
+
+    #box-state, #repository-state
+      position: relative
+      padding: 22px 24px
+      +darkerPanel
+
+      h3
+        line-height: 22px
+        font-family: $openSansFontFamily
+        font-size: 21px
+        font-weight: 300
+
+      .state
+        color: #a6b3bd
+
+      .stateOrb
+        display: inline-block
+        position: relative
+        top: 2px
+        margin-right: 10px
+        +state-orb(10px)
+
+      code
+        background-color: inherit
+        border: 0
+        color: #fff
+        font-family: $monospaceFontFamily
+        font-size: 18px
+        text-shadow: none
+
+    #repository-state
+      margin-bottom: 20px
+

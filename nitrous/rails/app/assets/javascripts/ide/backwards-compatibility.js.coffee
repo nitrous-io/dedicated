@@ -5,16 +5,12 @@ App.BackwardsCompatibleRouter = Em.Object.extend
     router = App.Router.router
     router.transitionTo.apply(router, arguments)
 
-  n2oBonusController: (->
-    @getController 'n2oBonus'
-  ).property()
-
-  accountController: (->
-    @getController 'account'
+  ideController: (->
+    @getController 'ide'
   ).property()
 
   boxIdeController: (->
-    @getController 'boxIde'
+    @getController 'ide'
   ).property()
 
   ideLayoutController: (->

@@ -1,0 +1,190 @@
+@import 'variables'
+@import 'mixins'
+
+#app
+  .intro
+    .intro-content
+      width: 600px
+      margin: 20px auto
+      +clearfix
+
+    .info-container
+      margin: 0 auto 10px auto
+
+      .hlinks
+        margin: 15px 0 0 0
+
+      .buttons
+        margin: 25px 0 0 0
+
+      .highlight
+        +darkModule
+        padding: 10px
+
+        p
+          line-height: 16px
+          margin-bottom: 10px
+
+          &:last-child
+            margin-bottom: 0
+
+      h2
+        margin-top: 0
+
+      p
+        font-size: 13px
+        line-height: 1.5
+        color: #e8eaef
+        text-shadow: 0 -1px 0 rgba(0,0,0,0.8)
+        margin-bottom: 15px
+
+        a
+          color: #9ac4e2
+
+    .action-container
+      margin: 0 auto 10px auto
+
+    .section
+      margin: 0 0 20px
+
+      .screenshot
+        text-align: center
+
+    #boxes_form_view
+      .stacks
+        width: 600px
+        margin: 0 auto
+        +panel
+
+        li
+
+          > div
+            width: 80px
+            padding: 14px 17px
+            padding-right: 0
+
+            .image
+              width: 80px
+              height: 80px
+              &.rails
+                background-position: 80px 0
+              &.nodejs
+                background-position: 80px -80px
+              &.django
+                background-position: 80px -160px
+              &.go
+                background-position: 80px -240px
+              &.php
+                background-position: 80px -320px
+              &.meteor
+                background-position: 80px -400px
+
+          &.selected
+            > div
+              .image
+                &.rails
+                  background-position: 0 0
+                &.nodejs
+                  background-position: 0 -80px
+                &.django
+                  background-position: 0 -160px
+                &.go
+                  background-position: 0 -240px
+                &.php
+                  background-position: 0 -320px
+                &.meteor
+                  background-position: 0 -400px
+
+      .form-horizontal
+        width: 600px
+        margin: 10px auto
+        padding: 10px 0
+
+        .control-group
+          margin-bottom: 0
+          padding: 5px
+          &.squash
+            visibility: hidden
+            height: 0
+            padding: 0
+
+        .control-label
+          width: 150px
+
+        .controls
+          margin-left: 162px
+
+      .control-block.clone
+        .controls
+          input
+            font-family: $monospaceFontFamily
+            font-size: 12px
+            width: 360px
+
+    #box-state
+      +darkModule
+      margin: 10px 0
+      padding: 6px 8px
+      height: 23px
+      line-height: 23px
+      .stateOrb
+        display: inline-block
+        position: relative
+        top: 2px
+        margin-right: 6px
+        +state-orb
+      .state
+        +state-text
+
+    .bonus-n2o
+      ul.dark-list
+        > li
+          margin: 0 0 12px
+
+    .n2o-status
+      > *
+        display: inline-block
+        height: 23px
+        line-height: 23px
+        vertical-align: middle
+
+      .meter
+        margin: 0 0 0 2px
+
+    .guide-content
+      margin: 20px 0
+      +clearfix
+
+      .info-container
+        padding-right: 48px
+
+      .iright
+        float: right
+        width: 54%
+        display: inline-block
+
+      .ileft
+        float: left
+        width: 46%
+
+      .screenshot-container
+        border: 5px solid lighten($appBackgroundColor, 3%)
+
+        div
+          width: 500px
+          height: 300px
+
+        .intro-welcome
+          background-image: image-url('assets/intro/intro-welcome.png')
+
+        .intro-new-box
+          background-image: image-url('assets/intro/intro-new-box.png')
+
+        .intro-ide
+          background-image: image-url('assets/intro/intro-ide.png')
+
+        .intro-collaboration
+          background-image: image-url('assets/intro/intro-collaboration.png')
+
+        .intro-n2o
+          background-image: image-url('assets/intro/intro-n2o.png')
