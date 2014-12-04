@@ -6,8 +6,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   fullscreen: false
   chatNotification: null
 
-  sftpSocketBinding: Em.Binding.oneWay 'App.router.boxIdeController.sftpSocket'
-  sftpSocketReadyBinding: Em.Binding.oneWay 'App.router.boxIdeController.sftpSocketReady'
+  sftpSocketBinding: Em.Binding.oneWay 'App.router.ideController.sftpSocket'
+  sftpSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.sftpSocketReady'
 
   softTabs: true
   tabSize: 2
@@ -54,7 +54,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @set(k, editorSettings[k]) if editorSettings[k]?
 
   localStorageEditorSettings: ->
-    if boxId = App.get 'router.boxIdeController.content.id'
+    if boxId = App.get 'router.ideController.content.id'
       App.localStorage.delete("box:#{boxId}:editorSettings") || App.localStorage.delete("box:#{boxId}:lastTabSettings")
 
   observeEditorSettings: ->
@@ -72,7 +72,6 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     App.util.mixpanel 'IDE New Document Tab'
     App.util.mixpanelIncrement 'ide_new_document_tab_count'
     tab = @_super(attrs, modelClass)
-    this._notifyFileOpened()
     tab
 
   removeTab: (tab, forceRemove = false) ->
@@ -132,10 +131,3 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       App.util.mixpanel 'IDE New Document Saved'
       App.util.mixpanelIncrement 'ide_new_document_saved_count'
     saveDialog.set 'saving', false
-
-  _notifyFileOpened: ->
-    tab = @get 'activeTab'
-    collaborationPaneController = App.get 'router.ideCollaborationPaneController'
-    if tab && collaborationPaneController
-      if absolutePath = tab.get 'path.absolutePath'
-        collaborationPaneController.sendMessage absolutePath, App.CollabMessage.TypeFileOpen

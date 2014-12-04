@@ -1,7 +1,7 @@
 #sidebar.side_pane
   {{view App.IdeSidebarBorderView}}
   .top.toolbar.btn-toolbar
-    %span {{ App.router.boxIdeController.content.name }}
+    %span {{ App.router.ideController.content.name }}
     .btn-group
       %button.btn(title='Set Home Folder As Root' _action='didClickSetHomeAsRoot target="view"'){ bind: { disabled: 'sftpSocketNotReady' } }
         %i.fa.fa-home

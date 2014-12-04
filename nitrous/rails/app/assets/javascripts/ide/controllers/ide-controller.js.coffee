@@ -2,7 +2,6 @@ App.IdeController = Em.ObjectController.extend
   needs: ['ideFindInProject', 'ideFileFinder']
 
   sftpSocket: null
-  partsSocket: null
   commandSocket: null
   sftpSocketReady: null
   sftpTimeoutAlert: null
@@ -16,7 +15,6 @@ App.IdeController = Em.ObjectController.extend
   initialize: ->
     if content = @get 'content'
       @set 'sftpSocket', sftpSocket = App.SftpSocket.create box: content
-      @set 'partsSocket', partsSocket = App.PartsSocket.create box: content
       @set 'commandSocket', commandSocket = App.CommandSocket.create box: content
 
       router = App.get 'router'
@@ -25,8 +23,6 @@ App.IdeController = Em.ObjectController.extend
       router.get('ideSidebarController').initialize()
       router.get('ideEditorController').initialize()
       router.get('ideConsoleController').initialize()
-      router.get('ideCollaborationPaneController').initialize()
-      router.get('ideAutopartsController').initialize()
       sftpSocket.connect()
       partsSocket.connect()
       commandSocket.connect()
@@ -35,15 +31,10 @@ App.IdeController = Em.ObjectController.extend
     if sftpSocket = @get 'sftpSocket'
       sftpSocket.disconnect()
 
-    if partsSocket = @get 'partsSocket'
-      partsSocket.disconnect()
-
     if commandSocket = @get 'commandSocket'
       commandSocket.disconnect()
 
     router = App.get 'router'
-    router.get('ideAutopartsController').reset()
-    router.get('ideCollaborationPaneController').reset()
     router.get('ideConsoleController').reset()
     router.get('ideEditorController').reset()
     router.get('ideSidebarController').reset()

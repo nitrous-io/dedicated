@@ -1,5 +1,5 @@
 App.IdeFindInProjectDialogView = App.IdeModalDialogView.extend
-  templateName: 'templates/box/ide/find-in-project-dialog'
+  templateName: 'ide/templates/find-in-project-dialog'
   elementId: 'ide_find_in_project_dialog_view'
   contentBinding: 'controller.findInProjectDialog'
 

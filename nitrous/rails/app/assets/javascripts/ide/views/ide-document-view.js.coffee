@@ -1,15 +1,11 @@
 TAB_SIZES = [2, 3, 4, 8]
 
 App.IdeDocumentView = Em.View.extend
-  templateName: 'templates/box/ide/document'
+  templateName: 'ide/templates/document'
   classNames: ['ide_document_view']
 
   document: null
   editor: null
-  firepad: null
-  firebase: null
-  collabMode: false
-  firepadEnabling: false
 
   mode: 'text/plain'
   softTabsBinding: 'controller.softTabs'
@@ -38,17 +34,11 @@ App.IdeDocumentView = Em.View.extend
 
   willDestroyElement: ->
     @_super()
-    @set 'collabMode', false
     this.destroyEditor()
 
   modeName: (->
     CodeMirror.MODES[@get('mode')]
   ).property 'mode'
-
-  collabModeDisabled: (->
-    return false if @get('collabMode')
-    !@get('document.path.absolutePath') || !@get('document.clean') || @get('firepadEnabling')
-  ).property 'collabMode', 'document.path.absolutePath', 'document.clean', 'firepadEnabling'
 
   availableModes: (->
     mode = @get 'mode'
@@ -237,8 +227,6 @@ App.IdeDocumentView = Em.View.extend
 
       if editor.isClean() != documentIsClean
         editor.markClean()
-      if documentIsClean && @get('collabMode')
-        this._setCollabSavedState()
   ).observes 'document.clean'
 
   consoleHeightDidChange: (->
@@ -251,8 +239,6 @@ App.IdeDocumentView = Em.View.extend
       editor.refresh()
   ).observes(
     'App.router.ideLayoutController.sidebarWidth',
-    'App.router.ideLayoutController.collaborationPaneWidth',
-    'App.router.ideLayoutController.collaborationPaneHidden'
   )
 
   editorFullscreenToggled: (->
@@ -274,13 +260,6 @@ App.IdeDocumentView = Em.View.extend
       @set 'mode', App.FileTypeDetect.detect fileName
   ).observes 'document.path.name'
 
-  collabModeDidChange: (->
-    if @get 'collabMode'
-      this._enableFirepad()
-    else
-      this._destroyFirepad()
-  ).observes 'collabMode'
-
   didClickSave: ->
     @get('controller').saveDocument @get('document')
 
@@ -296,88 +275,3 @@ App.IdeDocumentView = Em.View.extend
 
   didClickSoftTabToggle: ->
     @set 'softTabs', !@get('softTabs')
-
-  didClickCollabToggle: ->
-    this.toggleProperty 'collabMode'
-
-  _generateFirepadURL: ->
-    firebaseHost = App.get 'config.firebaseHost'
-    boxId = App.get 'router.boxIdeController.content.id'
-    documentPath = @get 'document.path'
-
-    if documentPath && (absoluteDocumentPath = documentPath.get('absolutePath'))
-      pathToken = window.btoa window.unescape(window.encodeURIComponent(absoluteDocumentPath)) # escape unicode and then base64ize it
-      "#{firebaseHost}/box/#{boxId}/pad/#{pathToken}"
-
-  _enableFirepad: ->
-    editor = @get 'editor'
-    cm = editor.get 'codeMirror'
-    documentPath = @get 'document.path'
-    firepadURL = this._generateFirepadURL documentPath
-    firebaseAuthenticated = App.get 'router.ideCollaborationPaneController.firebaseAuthenticated'
-
-    @set 'firepadEnabling', true
-
-    if firebaseAuthenticated && firepadURL
-      firebase = new Firebase firepadURL
-      @set 'firebase', firebase
-
-      # check if there are any active users for the pad
-      # if not start it as a new session
-      this._hasActivePadUsers firebase, (usersPresent) =>
-        currentUserName = App.get 'currentUser.username'
-        currentUserColor = App.get 'router.ideCollaborationPaneController.userColor'
-        content = @get 'document.content'
-
-        cm.setValue ''
-        cm.setOption 'readOnly', 'nocursor'
-
-        firepad = Firepad.fromCodeMirror firebase, cm, userId: currentUserName, userColor: currentUserColor
-        @set 'firepad', firepad
-
-        firepad.on 'ready', =>
-          if firepad.isHistoryEmpty() || !usersPresent
-            firepad.setText content
-          cm.setOption 'readOnly', false
-          cm.refresh()
-          this._resetDirtyBitIfContentNotModified content
-          this._syncSavedState firebase
-          this._notifyCollabEvent()
-          @set 'collabMode', true
-          @set 'firepadEnabling', false
-          App.util.mixpanel 'IDE Collab Mode'
-          App.util.mixpanelIncrement 'ide_collab_mode_count'
-
-  _destroyFirepad: ->
-    if firepad = @get 'firepad'
-      firepad.dispose()
-    @set 'firepad', null
-
-  _hasActivePadUsers: (firebase, callback)->
-    firebase.child('users').once 'value', (usersSnapshot) ->
-      callback usersSnapshot.hasChildren()
-
-  _syncSavedState: (firebase) ->
-    document = @get 'document'
-    firebase.child('saved').on 'value', (savedSnapshot) ->
-      saved = savedSnapshot.val()
-      if saved
-        document.set 'clean', true
-        firebase.child('saved').set null
-
-  _setCollabSavedState: ->
-    if firebase = @get 'firebase'
-      firebase.child('saved').set true
-
-  _resetDirtyBitIfContentNotModified: (originalContent) ->
-    editor = @get 'editor'
-    if editor.get('text') == originalContent
-      editor.markClean()
-      @set 'document.clean', true
-
-  _notifyCollabEvent: ->
-    path = @get 'document.path'
-    collaborationPaneController = App.get 'router.ideCollaborationPaneController'
-    if path && collaborationPaneController
-      if absolutePath = path.get 'absolutePath'
-        collaborationPaneController.sendMessage absolutePath, App.CollabMessage.TypeCollabMode

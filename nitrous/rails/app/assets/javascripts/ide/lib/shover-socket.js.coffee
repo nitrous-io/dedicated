@@ -104,7 +104,7 @@ App.ShoverSocket = App.BaseSocket.extend
 
     socket.on 'aio:parts_changed', (json) ->
       boxId = json.box_id
-      if boxId == App.get('router.boxIdeController.content.id')
+      if boxId == App.get('router.ideController.content.id')
         # ideAutopartsController will observe changes for this property and refresh
         App.set 'partsChanged', +new Date()
 

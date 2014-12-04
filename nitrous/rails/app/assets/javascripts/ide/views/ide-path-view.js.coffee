@@ -1,5 +1,5 @@
 App.IdePathView = Em.View.extend App.IdeDragDropViewMixin,
-  templateName: 'templates/box/ide/path'
+  templateName: 'ide/templates/path'
   tagName: 'li'
   path: null
   droppable: false
@@ -22,8 +22,7 @@ App.IdePathView = Em.View.extend App.IdeDragDropViewMixin,
     sidebarView.showContextMenu event, path
 
   draggable: (->
-    path = @get 'path'
-    if path.get 'rootPath'
+    if @get('path')?.get 'rootPath'
       'false'
     else
       'true'

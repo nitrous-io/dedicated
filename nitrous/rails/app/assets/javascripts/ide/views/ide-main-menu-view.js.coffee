@@ -6,7 +6,7 @@ separator = App.MenuItem.create(separator: true)
 
 previewMenu = menu 'Preview',
   [ menuItem 'Port 3000 (SSL)',
-      boxBinding: Em.Binding.oneWay('App.router.boxIdeController.content')
+      boxBinding: Em.Binding.oneWay('App.router.ideController.content')
       target: '_blank'
       hide: (->
         !@get('box.region.ssl_enabled') # FIXME Use Em.Binding.not() when we upgrade Ember.
@@ -16,7 +16,7 @@ previewMenu = menu 'Preview',
       ).property 'box.boxHost'
   ].concat _.map([3000, 4000, 8080, 8888], (port) ->
     menuItem "Port #{port}",
-      boxHostBinding: Em.Binding.oneWay('App.router.boxIdeController.content.boxHost')
+      boxHostBinding: Em.Binding.oneWay('App.router.ideController.content.boxHost')
       target: '_blank'
       url: (->
         if boxHost = @get 'boxHost'

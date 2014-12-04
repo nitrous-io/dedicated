@@ -1,5 +1,5 @@
 App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
-  templateName: 'templates/box/ide/file-finder-dialog'
+  templateName: 'ide/templates/file-finder-dialog'
   elementId: 'ide_file_finder_dialog_view'
   contentBinding: 'controller.fileFinderDialog'
 

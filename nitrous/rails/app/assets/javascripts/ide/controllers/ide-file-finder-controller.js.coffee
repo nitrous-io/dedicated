@@ -1,5 +1,5 @@
 App.IdeFileFinderController = Em.Controller.extend
-  needs: ['boxIde', 'ideEditor', 'ideSidebar']
+  needs: ['ide', 'ideEditor', 'ideSidebar']
 
   fileFinderDialog: null
 
@@ -7,7 +7,7 @@ App.IdeFileFinderController = Em.Controller.extend
     @set 'fileFinderDialog', null
 
   showFindDialog: (path) ->
-    if !@get('controllers.boxIde.commandSocket.started')
+    if !@get('controllers.ide.commandSocket.started')
       App.util.connectionError()
       return
 
@@ -19,7 +19,7 @@ App.IdeFileFinderController = Em.Controller.extend
 
   startFind: (pattern, path) ->
     dialog = @get 'fileFinderDialog'
-    socket = @get 'controllers.boxIde.commandSocket'
+    socket = @get 'controllers.ide.commandSocket'
     return if !dialog || !socket
 
     path = '.' if not path?.length
@@ -31,7 +31,7 @@ App.IdeFileFinderController = Em.Controller.extend
 
   socketFind: ->
     dialog = @get 'fileFinderDialog'
-    socket = @get 'controllers.boxIde.commandSocket'
+    socket = @get 'controllers.ide.commandSocket'
     pattern = @get 'findPattern'
     path = @get 'findPath'
     if dialog && socket && pattern && path

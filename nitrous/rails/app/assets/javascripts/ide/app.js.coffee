@@ -5,8 +5,7 @@
 #= require ./vendor/jquery.ui.widget
 #= require ./vendor/jquery.fileupload
 #= require ./vendor/ua-parser
-#= require emberjs
-#= require ./vendor/ember/ember-model
+#= require ./ember-bootstrap
 #= require_self
 #= require ./app-classes
 

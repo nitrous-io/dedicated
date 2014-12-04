@@ -99,22 +99,6 @@ App.IdeMainMenuController = Em.Controller.extend
     @_toggleEditorProperty 'fullscreen'
     this.viewFocusEditor()
 
-  collaborateManageCollaborators: ->
-    if collaborationPaneController = App.get 'router.ideCollaborationPaneController'
-      collaborationPaneController.showManageCollaboratorsDialog()
-
-  collaborateToggleChat: ->
-    if layoutController = App.get 'router.ideLayoutController'
-      layoutController.toggleProperty 'collaborationPaneHidden'
-
-  manageAutoparts: ->
-    if autopartsController = App.get 'router.ideAutopartsController'
-      autopartsController.showManageDialog()
-
-  manageBasicAuth: ->
-    if basicAuthController = App.get 'router.ideBasicAuthController'
-      basicAuthController.showAuthDialog()
-
   viewSelectTheme: (theme) ->
     if editorController = @get 'controllers.ideEditor'
       editorController.set 'theme', theme

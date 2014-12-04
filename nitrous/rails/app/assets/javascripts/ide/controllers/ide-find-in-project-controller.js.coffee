@@ -1,5 +1,5 @@
 App.IdeFindInProjectController = Em.Controller.extend
-  needs: ['boxIde', 'ideEditor']
+  needs: ['ide', 'ideEditor']
 
   findInProjectDialog: null
 
@@ -7,7 +7,7 @@ App.IdeFindInProjectController = Em.Controller.extend
     @set 'findInProjectDialog', null
 
   showFindDialog: (location) ->
-    if !@get('controllers.boxIde.commandSocket.started')
+    if !@get('controllers.ide.commandSocket.started')
       App.util.connectionError()
       return
 
@@ -20,7 +20,7 @@ App.IdeFindInProjectController = Em.Controller.extend
     App.util.mixpanel 'Started Find in Project',
       location: location
       options: options
-    if socket = @get('controllers.boxIde.commandSocket')
+    if socket = @get('controllers.ide.commandSocket')
       socket.search term, location, options, (command, tabId) =>
         editorController = @get('controllers.ideEditor')
         doc = editorController.createTab({ term: term, path: location }, App.SearchResults)
