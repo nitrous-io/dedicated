@@ -214,6 +214,9 @@ func (s *Server) drawRoutes() {
 	s.secretRoute("/containers/{id}/public_keys/{key_fingerprint}", s.removePublicKey, "DELETE")
 	s.secretRoute("/containers/{id}/reconfig", s.reconfigureContainer, "POST")
 
+	s.secretRoute("/containers/{id}/app/start", s.appStartContainer, "POST")
+	s.secretRoute("/containers/{id}/app/stop", s.appStopContainer, "POST")
+
 	// handle websocket custom protocol
 	s.route("/containers/{id}/shell", s.handleCORSPreflight, "OPTIONS")
 	s.route("/containers/{id}/shell", s.wrapError(s.cors(s.withContainerToken(s.wsNewShell, "shell"))), "GET")

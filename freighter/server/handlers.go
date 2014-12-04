@@ -189,6 +189,26 @@ func (s *Server) restartContainer(w http.ResponseWriter, r *http.Request) {
 	s.performContainerControl(w, r, s.provider.Restart, "restarted")
 }
 
+func (s *Server) appStartContainer(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	err := s.provider.StartApp(id)
+	if err != nil {
+		s.handleError(w, err)
+		return
+	}
+	s.respond(w, http.StatusOK, jsonStatusOK)
+}
+
+func (s *Server) appStopContainer(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	err := s.provider.StopApp(id)
+	if err != nil {
+		s.handleError(w, err)
+		return
+	}
+	s.respond(w, http.StatusOK, jsonStatusOK)
+}
+
 func (s *Server) listPublicKeys(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	allPubKeys, err := s.provider.ListPublicKeys(id)
