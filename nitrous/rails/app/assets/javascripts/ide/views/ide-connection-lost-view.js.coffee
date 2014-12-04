@@ -1,5 +1,5 @@
 App.IdeConnectionLostView = Em.View.extend
-  templateName: 'templates/box/ide/connection-lost'
+  templateName: 'ide/templates/connection-lost'
   elementId: 'ide_connection_lost'
 
   didClickRetry: ->

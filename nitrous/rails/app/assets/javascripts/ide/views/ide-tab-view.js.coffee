@@ -1,5 +1,5 @@
 App.IdeTabView = Em.View.extend App.IdeTabViewMixin, App.IdeDragDropViewMixin,
-  templateName: 'templates/box/ide/tab'
+  templateName: 'ide/templates/tab'
   classNames: ['ide_tab_view']
   classNameBindings: ['content.active']
   attributeBindings: 'draggable'

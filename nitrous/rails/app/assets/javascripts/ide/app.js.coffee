@@ -1,5 +1,5 @@
 #= require ./vendor/mousetrap
-#= require codemirror
+#= require ./codemirror
 #= require ./vendor/base64
 #= require ./vendor/strftime
 #= require ./vendor/jquery.ui.widget
@@ -20,6 +20,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   flashMessage: null
 
   currentUser: null
+  box: null
 
   bootstrap: ->
     @set 'LOG_RESOLVER', true
@@ -27,8 +28,9 @@ window.NitrousIO = Em.Application.extend Em.Evented,
     @set 'LOG_TRANSITIONS_INTERNAL', true
     @set 'LOG_VIEW_LOOKUPS', true
 
-    # if currentUserHash = data.currentUser
-    #   @set 'currentUser', currentUser = App.CurrentUser.create()
+    @set 'currentUser', App.CurrentUser.create(username: 'test', email: 'test@example.com')
+    # FIXME: temp
+    @set 'box', App.Box.create(id: 42, state: 'running')
 
 window.App = NitrousIO.create()
 

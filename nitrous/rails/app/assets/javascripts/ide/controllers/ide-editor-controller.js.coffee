@@ -66,7 +66,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     userSettings = currentUser.get('user_settings') || {}
     _.each App.Editor.SETTINGS, (k) =>
       userSettings[k.underscore()] = @get(k)
-    currentUser.updateSettings()
+    # FIXME Enable user settings when backend supports it
+    # currentUser.updateSettings()
 
   createTab: (attrs={}, modelClass=null) ->
     App.util.mixpanel 'IDE New Document Tab'

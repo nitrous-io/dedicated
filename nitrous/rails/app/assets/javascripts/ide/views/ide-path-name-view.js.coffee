@@ -1,5 +1,5 @@
 App.IdePathNameView = Em.View.extend
-  templateName: 'templates/box/ide/path-name'
+  templateName: 'ide/templates/path-name'
   tagName: 'a'
   classNameBindings: ['path.loading:loading', 'path.beingDeleted:deleted']
 

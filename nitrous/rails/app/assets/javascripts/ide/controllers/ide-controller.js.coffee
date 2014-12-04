@@ -14,8 +14,8 @@ App.IdeController = Em.ObjectController.extend
 
   initialize: ->
     if content = @get 'content'
-      @set 'sftpSocket', sftpSocket = App.SftpSocket.create box: content
-      @set 'commandSocket', commandSocket = App.CommandSocket.create box: content
+      #@set 'sftpSocket', sftpSocket = App.SftpSocket.create()
+      #@set 'commandSocket', commandSocket = App.CommandSocket.create box: content
 
       router = App.get 'router'
       router.get('ideLayoutController').initialize()
@@ -23,9 +23,8 @@ App.IdeController = Em.ObjectController.extend
       router.get('ideSidebarController').initialize()
       router.get('ideEditorController').initialize()
       router.get('ideConsoleController').initialize()
-      sftpSocket.connect()
-      partsSocket.connect()
-      commandSocket.connect()
+      #sftpSocket.connect()
+      #commandSocket.connect()
 
   reset: ->
     if sftpSocket = @get 'sftpSocket'
@@ -66,13 +65,6 @@ App.IdeController = Em.ObjectController.extend
             App.set 'flashMessage', { type: 'error', text: "Cloning the repository failed: #{repo.get('failure_reason')}" }
             App.localStorage.set(cacheKey, true)
   ).observes 'sftpSocketReady'
-
-  redirectToIndexWhenNotRunning: (->
-    if content = @get 'content'
-      unless content.get('state') == 'running'
-        Em.run.next ->
-          App.get('router').transitionTo 'boxes.index'
-  ).observes 'content.state'
 
   warnWhenOffline: (->
     if App.get 'offline'

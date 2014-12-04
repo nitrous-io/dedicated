@@ -2,7 +2,7 @@ App.IdeTabControllerMixin = Em.Mixin.create
   modelClass: Em.required()
 
   tabCount: (->
-    @get('content').length
+    @get('content')?.length
   ).property 'content.length'
 
   activeTab: (->
@@ -11,7 +11,9 @@ App.IdeTabControllerMixin = Em.Mixin.create
   ).property 'content.@each.active'
 
   activeTabIndex: (->
-    if content = @get('content') && activeTab = @get('activeTab')
+    content = @get 'content'
+    activeTab = @get 'activeTab'
+    if content && activeTab
       content.indexOf activeTab
   ).property 'activeTab'
 

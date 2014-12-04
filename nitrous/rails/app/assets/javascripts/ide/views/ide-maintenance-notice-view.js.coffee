@@ -5,13 +5,6 @@ App.IdeMaintenanceNoticeView = App.IdeModalDialogView.extend
 
   didInsertElement: ->
     @_super()
-    this.showDialogIfRegionIsDisabled()
-
-  showDialogIfRegionIsDisabled: (->
-    content = @get('controller.content')
-    if content && !content.get('region.enabled')
-      this.show()
-  ).observes 'controller.content.region.enabled'
 
   didClickCloseIde: ->
     @set 'shouldCloseDialog', true
