@@ -534,5 +534,20 @@ func init() {
 				ALTER TABLE users ADD COLUMN unconfirmed_email character varying(255) DEFAULT NULL
 			`,
 		},
+		{
+			Version: "450",
+			Up: `
+				CREATE TABLE templates (
+					id bigserial PRIMARY KEY NOT NULL,
+					slug character varying(255) NOT NULL,
+					name character varying(255),
+					description character varying,
+					config character varying NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE UNIQUE INDEX index_templates_on_slug ON templates USING btree (slug);
+			`,
+		},
 	}
 }
