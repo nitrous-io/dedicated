@@ -26,11 +26,6 @@ previewMenu = menu 'Preview',
             "http://#{boxHost}:#{port}"
       ).property 'boxHost').concat [
     separator
-    menuItem 'Set Password...',
-      disabledBinding: Em.Binding.oneWay('App.router.boxIdeController.content.notOwnBox')
-      callback: (controller) ->
-        controller.manageBasicAuth()
-    separator
     menuItem 'Preview Help',
       url: 'http://help.nitrous.io/categories/previewing/'
       target: '_blank'
