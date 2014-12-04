@@ -28,6 +28,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   regions: null
   plans: null
   baseImages: null
+  templates: null
 
   terminalJsPath: null
   terminalCssPath: null
