@@ -8,6 +8,7 @@ App.HomeRoute = App.AuthedRoute.extend
     App.set 'regions', App.Region.fetch().value
     App.set 'plans', App.Plan.fetch().value
     App.set 'baseImages', App.BaseImage.fetch().value
+    App.set 'templates', App.Template.fetch().value
 
   renderTemplate: ->
     @_super()
