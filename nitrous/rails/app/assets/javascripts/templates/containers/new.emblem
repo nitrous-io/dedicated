@@ -50,7 +50,7 @@
                   label
                 label for='containers-new-option-base-image' Use Nitrous Base Image
 
-            ul.base-images class={App.uer.advanced::basic}
+            ul.base-images class={App.user.advanced::basic}
               each baseImage in App.baseImages
                 App.BaseImageView baseImage=baseImage selectedBaseImage=view.selectedBaseImage disabled=view.baseImageOptionDisabled
 
