@@ -14,7 +14,7 @@ App.IdeController = Em.ObjectController.extend
 
   initialize: ->
     if content = @get 'content'
-      #@set 'sftpSocket', sftpSocket = App.SftpSocket.create()
+      @set 'sftpSocket', sftpSocket = App.DummySocket.create()
       #@set 'commandSocket', commandSocket = App.CommandSocket.create box: content
 
       router = App.get 'router'
@@ -23,7 +23,7 @@ App.IdeController = Em.ObjectController.extend
       router.get('ideSidebarController').initialize()
       router.get('ideEditorController').initialize()
       router.get('ideConsoleController').initialize()
-      #sftpSocket.connect()
+      sftpSocket.connect()
       #commandSocket.connect()
 
   reset: ->

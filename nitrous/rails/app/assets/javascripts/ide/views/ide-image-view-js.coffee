@@ -1,5 +1,5 @@
 App.IdeImageView = Em.View.extend
-  templateName: 'templates/box/ide/image'
+  templateName: 'ide/templates/image'
   classNames: ['ide_image_view']
 
   imageDataURI: (->

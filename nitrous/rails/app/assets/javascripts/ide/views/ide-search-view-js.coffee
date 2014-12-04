@@ -1,5 +1,5 @@
 App.IdeSearchView = Em.View.extend
-  templateName: 'templates/box/ide/search'
+  templateName: 'ide/templates/search'
   classNames: ['ide_search_view']
 
   document: null

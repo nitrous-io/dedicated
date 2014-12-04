@@ -1,5 +1,5 @@
 App.IdeEditablePathNameView = Em.View.extend
-  templateName: 'templates/box/ide/editable-path-name'
+  templateName: 'ide/templates/editable-path-name'
   classNames: ['ide_editable_path_name_view']
 
   path: null
