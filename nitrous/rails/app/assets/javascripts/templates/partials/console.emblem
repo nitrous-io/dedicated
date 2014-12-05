@@ -2,7 +2,7 @@
   .tabs
     ul.ui.tab-bar.terminal-tab-bar
       li.selected
-        a.noclick href='#' Terminal
+        a.noclick href='#' Console
 
     .fullscreen-btn
       button.ui.btn.mini title='Toggle Full Screen' click='toggleFullscreen target="view"'

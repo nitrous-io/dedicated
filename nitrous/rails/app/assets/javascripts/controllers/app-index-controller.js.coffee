@@ -28,3 +28,9 @@ App.AppIndexController = Em.ObjectController.extend App.PerformActionMixin,
 
     refresh: ->
       @get('model').fetchStats()
+
+    openLogs: ->
+      @transitionToRoute 'app.console', queryParams: { action: 'logs' }
+
+    openTerminal: ->
+      @transitionToRoute 'app.console', queryParams: { action: null }
