@@ -366,6 +366,11 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		return
 	}
 
+	if err = hosttransition.Record(p.db, h, "", *h.AssignedAt); err != nil {
+		err = fmt.Errorf("provisioner: failed to record host transition for '%d', err: %v", h.ID, err)
+		return
+	}
+
 	return
 }
 
