@@ -12,7 +12,9 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
@@ -375,7 +377,7 @@ func (p *DockerProvider) StartApp(id string) error {
 	}
 
 	exec, err := p.client.CreateExec(dockerclient.CreateExecOptions{
-		Cmd:       []string{"/bin/sh", "-c", cmd},
+		Cmd:       execForm(cmd),
 		Container: id,
 		Tty:       false,
 	})
@@ -390,11 +392,48 @@ func (p *DockerProvider) StartApp(id string) error {
 }
 
 func (p *DockerProvider) StopApp(id string) error {
-	// FIXME Figure out:
-	// 1. How to kill a docker exec process (we should probably wait for https://github.com/docker/docker/pull/9167),
-	// 2. Where to store the ID of the exec process (so that we can use it to
-	//    kill the process).
-	return nil
+	container, err := p.inspectContainer(id)
+	if err != nil {
+		return err
+	}
+
+	cmd, ok := p.appCmd(container)
+	if !ok {
+		// Do nothing if container does not specify an app command.
+		return nil
+	}
+
+	// FIXME We should kill the docker exec process via Docker's remote API (see
+	// https://github.com/docker/docker/pull/9167) instead of relying on pgrep.
+	fullCmd := strings.Join(execForm(cmd), " ")
+	nsenterCmd := fmt.Sprintf(`nsenter-exec --nspid %d -- %s`, container.State.Pid, fullCmd)
+
+	pgrepCmd := exec.Command("pgrep", "--full", "--exact", "--newest", nsenterCmd)
+	out, err := pgrepCmd.CombinedOutput()
+	if err != nil {
+		p.logger.Errorf("StopApp: pgrep for nsenter process failed, err: %v, output: %s", err, out)
+		return err
+	}
+
+	pid, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		p.logger.Errorf("StopApp: pgrep did not return a proper pid, err: %v, output: %s", err, out)
+		return err
+	}
+
+	// We have to kill the entire process group so that the children of the
+	// nsenter-exec process are definitively killed as well.
+	pgid, err := syscall.Getpgid(pid)
+	if err != nil {
+		p.logger.Errorf("StopApp: cannot get process group ID, err: %v", err)
+	}
+
+	// `kill -123` kills process group id 123.
+	return syscall.Kill(-pgid, syscall.SIGTERM)
+}
+
+func execForm(cmd string) []string {
+	return []string{"/bin/sh", "-c", cmd}
 }
 
 func (p *DockerProvider) Terminate(id string, removeSettings bool) (*provider.ContainerInfo, error) {

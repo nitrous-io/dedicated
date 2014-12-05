@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -924,8 +925,8 @@ var _ = Describe("provider/docker", func() {
 		It("creates container with options", func() {
 			name := RandomName("freightertest")
 			configJSON := `{
-			  "Env": ["LANG=C"],
-			  "Mounts": ["dotfiles:/etc/dotfiles","backups"],
+				"Env": ["LANG=C"],
+				"Mounts": ["dotfiles:/etc/dotfiles","backups"],
 				"PortBindings": ["private:65000:3000", "public:9999:9999"]
 			}`
 			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
@@ -1018,6 +1019,53 @@ var _ = Describe("provider/docker", func() {
 			out, err := exec.Command("docker", "exec", info.ID, "/bin/cat", "/log").CombinedOutput()
 			Expect(err).To(BeNil())
 			Expect(string(out)).To(ContainSubstring(`hello world`))
+		})
+	})
+
+	Describe(".StopApp()", func() {
+		BeforeEach(func() {
+			PullImage(NitrousImage)
+		})
+
+		It("kills the NITROUS_CMD process that's running inside the container", func() {
+			name := RandomName("freightertest")
+			configJSON := `{
+				"Env": ["NITROUS_CMD=python -m SimpleHTTPServer 8080"]
+			}`
+			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
+			Expect(err).To(BeNil())
+			defer CleanUpContainer(name)
+
+			// Give the HTTP server some time to get started.
+			time.Sleep(500 * time.Millisecond)
+
+			// Make sure we can connect to the HTTP server in the container.
+			ip := getHost(info.ID)
+			_, err = net.Dial("tcp", fmt.Sprintf("%s:8080", ip))
+			Expect(err).To(BeNil())
+
+			err = prov.StopApp(info.ID)
+			Expect(err).To(BeNil())
+
+			// FIXME We have to give the StopApp() some time to kill the process
+			// because of the current pgrep + kill process group implementation.
+			// We should not need this and should be able to wait() or something
+			// with non-hackish implementation.
+			time.Sleep(500 * time.Millisecond)
+
+			_, err = net.Dial("tcp", fmt.Sprintf("%s:8080", ip))
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("does not return an error if NITROUS_CMD is not specified", func() {
+			name := RandomName("freightertest")
+			configJSON := ""
+			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
+			Expect(err).To(BeNil())
+			defer CleanUpContainer(name)
+
+			err = prov.StopApp(info.ID)
+			Expect(err).To(BeNil())
 		})
 	})
 
