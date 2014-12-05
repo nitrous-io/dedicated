@@ -21,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
@@ -208,7 +209,18 @@ func postProvision(options hostCreate, env *middleware.Env, h *host.Host, outstr
 	if err := createContainers(options.Containers, env, h, outstream); err != nil {
 		return err
 	}
+	if err := recordTransition(env, h); err != nil {
+		env.Logger.Errorf("Unable to record transition for host %d: %v", h.ID, err)
+	}
 	return nil
+}
+
+func recordTransition(env *middleware.Env, h *host.Host) error {
+	timing := h.AssignedAt
+	if timing == nil {
+		timing = h.CreatedAt
+	}
+	return hosttransition.Record(env.DB, h, host.StateBorn, *timing)
 }
 
 func buildCreateOptions(r *http.Request) (hostCreate, error) {
