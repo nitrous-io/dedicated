@@ -1,4 +1,12 @@
-Rails.application.config.assets.precompile += %w(jquery.js terminal.js terminal.css homepage.css pages.js ide/app.js glyphicons-halflings.png glyphicons-halflings-white.png)
+Rails.application.config.assets.precompile += %w(jquery.js
+                                                 terminal.js
+                                                 terminal.css
+                                                 homepage.css
+                                                 pages.js
+                                                 ide/app.js
+                                                 glyphicons-halflings.png
+                                                 glyphicons-halflings-white.png
+                                                 ide.css)
 
 # FIXME: Added to get IDE to work
 # All Hamlbars templates must be ported to emblem.
