@@ -18,34 +18,18 @@
     margin: 16px 0 0 0
     padding: 0
 
-  .spec-box
-    width: 188px
-    text-align: center
+  .description
+    background: $n2oGray850
+    margin: 16px 0 0 0
+    padding: 14px 16px
+    transition: height .3s
+    overflow: hidden
+    box-sizing: content-box
 
-    h4
-      color: $n2oGray400
-      font-size: 12px
-      font-weight: 500
-      text-transform: uppercase
-
-    .question
-      display: inline-block
-      margin-left: 8px
-      margin-top: -4px
-      width: 20px
-      height: 20px
-      line-height: 20px
-      border-radius: 10px
-      color: $n2oGray100
-      background: $n2oGray600
-      font-size: 14px
-      transition: background-color .2s, color .2s
-      cursor: default
-      +grayscale-font-smoothing
-
-      &:hover
-        color: $n2oGray50
-        background: $n2oGray500
+    p
+      margin: 0
+      white-space: pre-wrap
+      line-height: 1.5
 
   .see-terms
     font-size: 14px
@@ -54,10 +38,22 @@
 
   .download-app
     h3
-      font-size: 14px
-      font-weight: 400
+      font-size: 22px
+      font-weight: 300
       margin-top: 0
 
     p
       font-size: 14px
       line-height: 1.5
+
+  .log
+    overflow: hidden
+    max-height: 0
+    transition: max-height .3s
+
+    &.show
+      max-height: 340px
+
+  .card-footer
+    p
+      width: 500px
