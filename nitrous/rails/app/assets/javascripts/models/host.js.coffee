@@ -20,6 +20,7 @@ App.Host = klass = App.Model.extend
   # only used in create
   planSlug: attr(as: 'size')
   regionSlug: attr(as: 'region')
+  templateSlug: attr(as: 'template')
 
   stats: null
 
