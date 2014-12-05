@@ -1,7 +1,7 @@
 {
   "address": ":6666",
-  "librato_user": "eng+libratodev@nitrous.io"
-  "librato_token": "<token-goes-here>"
+  "librato_user": "eng+libratodev@nitrous.io",
+  "librato_token": "<token-goes-here>",
   "providers": {
     "amazon": {
       "access_key": "",
