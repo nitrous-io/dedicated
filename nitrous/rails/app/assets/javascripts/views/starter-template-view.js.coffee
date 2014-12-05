@@ -8,15 +8,15 @@ App.StarterTemplateView = Em.View.extend
 
   content: null
   selected: null
-  iconUrl: null
-  name: null
+
+  nameBinding: Em.Binding.oneWay 'content.name'
 
   isSelected: (->
     @get('selected') == @get('content')
   ).property 'selected', 'content'
 
   iconCss: (->
-    return unless iconUrl = @get 'iconUrl'
+    return unless iconUrl = @get 'content.iconUrl'
     makeBackgroundImageCss(iconUrl)
   ).property 'iconUrl'
 
