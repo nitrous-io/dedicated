@@ -29,7 +29,7 @@ App.HostsNewController = Em.ObjectController.extend
       @transitionToRoute 'home.index'
       false
 
-    create: (template) ->
+    create: (templateSlug) ->
       @set 'saving', true
       name = @get 'name'
       slug = @get 'slug'
@@ -39,7 +39,7 @@ App.HostsNewController = Em.ObjectController.extend
       host = App.Host.create
         regionSlug: @get('selectedRegionSlug')
         planSlug: @get('selectedPlanSlug')
-        templateSlug: template
+        templateSlug: templateSlug
         name: name
         slug: slug
       @set 'host', host

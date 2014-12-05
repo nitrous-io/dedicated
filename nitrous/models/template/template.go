@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/nitrous-io/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
 var ErrConfigInvalid = errors.New("template: .Config is invalid")

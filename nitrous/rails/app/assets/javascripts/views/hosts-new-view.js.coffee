@@ -31,7 +31,7 @@ App.HostsNewView = Em.View.extend
   templatesDidChange: (->
     return unless App.get('templates.length') > 0
     unless @get 'selectedTemplate'
-      @set 'selectedTemplate', App.get('templates.firstObject.slug')
+      @set 'selectedTemplate', App.get('templates.firstObject')
   ).observes 'App.templates.@each'
 
   selectedTemplateDidChange: (->
