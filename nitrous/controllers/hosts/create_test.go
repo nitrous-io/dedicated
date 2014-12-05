@@ -526,6 +526,22 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			}
 		})
 
+		It("logs transitions for the host", func() {
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+
+			var count int
+			err = db.QueryRowx(
+				"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+				hosts[0].ID, host.StateRunning, host.StateBorn).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+		})
+
 		It("converts the 'slug' form value to lowercase", func() {
 			params.Set("slug", "Rails-Host")
 			doRequest(params)

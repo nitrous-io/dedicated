@@ -617,6 +617,19 @@ var _ = Describe("controllers/hosts", func() {
 					}))
 				}
 			})
+
+			It("logs transitions for the host", func() {
+				origState := hs.H.State
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var count int
+				err := db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, host.StateTerminated, origState).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+			})
 		})
 
 		Context("when hostbuilder fails to delete the host", func() {
@@ -818,9 +831,29 @@ var _ = Describe("controllers/hosts", func() {
 					}))
 				}
 			})
+
+			It("logs transitions for the host", func() {
+				origState := hs.H.State
+				doRequest(hs.H.Slug, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var count int
+				err := db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, host.StateRestarting, origState).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, host.StateRunning, host.StateRestarting).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+			})
 		})
 
 		Context("when hostbuilder fails to restart the host", func() {
+			var origState string
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
@@ -830,6 +863,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				hosts.HostbuilderClient = hb
 
+				origState = hs.H.State
 				doRequest(hs.H.Slug, nil)
 			})
 
@@ -841,6 +875,21 @@ var _ = Describe("controllers/hosts", func() {
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateRunning))
+			})
+
+			It("logs transitions back for the host", func() {
+				var count int
+				err := db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, host.StateRestarting, origState).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, origState, host.StateRestarting).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
 			})
 		})
 
