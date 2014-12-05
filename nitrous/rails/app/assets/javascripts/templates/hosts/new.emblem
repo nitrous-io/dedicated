@@ -5,16 +5,6 @@
   .screen class={view.hideProgress::hide}
     form submit='create target="view"'
       .card-body
-        .ui.input-group
-          label.field-label
-            | Template
-
-          ul.starter-templates
-            each template in App.templates
-              App.StarterTemplateView content=template selected=view.selectedTemplate
-            App.StarterTemplateView content=null selected=view.selectedTemplate
-
-      .card-body.bordered
         .ui.flex.horizontal
           .ui.input-group
             label.field-label for='hosts-new-name'
@@ -35,41 +25,31 @@
 
           .ui.input-group
             label.field-label for='hosts-new-plan'
-              | Size
+              | VM Size
             .ui.select
               Ember.Select id='hosts-new-plan' name='host' content=App.plans optionValuePath='content.slug' optionLabelPath='content.displayName' disabled=saving value=selectedPlanSlug
 
       .card-body.bordered
-        .ui.flex.horizontal
-          .spec-box
-            h4 Memory
-            p
-              = selectedPlan.memory
+        .ui.input-group
+          label.field-label
+            | Template
 
-          .spec-box
-            h4 SSD Storage
-            p
-              = selectedPlan.storage
+        ul.starter-templates
+          each template in templates
+            App.StarterTemplateView content=template selected=view.selectedTemplate
 
-          .spec-box
-            h4 CPU Cores
-            p
-              = selectedPlan.cpu
-
-          .spec-box
-            h4 Price
-            p
-              / FIXME restore once initial pricing has been decided
-              / = decimal selectedPlan.price 2
-              | TBD
-              span.question title="Free during beta!" ?
+        .description
+          p
+            = view.selectedTemplate.description
 
         p.see-terms
           | Please review the&nbsp;
           a href='#' terms of service
           |, and&nbsp;
           a href='#' privacy policy
-          |. All sales are final.
+          |.
+          / All sales are final.
+
 
       .card-footer.bordered
         if saving
@@ -96,8 +76,11 @@
         = ui-ellipsis
       p In the meantime, download and install the Nitrous desktop application so you can start developing right away once the application is created.
       a.ui.btn.raised.primary click='downloadDesktopApp "hosts-new"' Download Desktop App
-    .card-body.bordered
-      .terminal-screen
+
+    .log class={view.showLog:show}
+      .card-body.bordered
+        .terminal-screen
+
     .card-footer.bordered
       if saving
         if host.progress.status
@@ -108,6 +91,11 @@
           button.ui.btn disabled='disabled'
             i.spinner
             | Creating...
+          button.ui.btn click='toggleLog target="view"'
+            if view.showLog
+              | Hide Log
+            else
+              | Show Log
       else
         .right
           a.ui.btn.primary disabled={view.createButtonDisabled} click='create target="view"' Create

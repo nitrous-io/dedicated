@@ -9,6 +9,8 @@ App.HostsNewView = Em.View.extend
 
   selectedTemplate: null
 
+  showLog: false
+
   createButtonDisabled: (->
     !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedRegionSlug') && @get('controller.selectedPlanSlug')) || @get('controller.saving')
   ).property 'controller.name', 'controller.slug', 'controller.selectedRegionSlug', 'controller.selectedPlanSlug', 'controller.saving'
@@ -31,6 +33,12 @@ App.HostsNewView = Em.View.extend
     unless @get 'selectedTemplate'
       @set 'selectedTemplate', App.get('templates.firstObject.slug')
   ).observes 'App.templates.@each'
+
+  selectedTemplateDidChange: (->
+    Em.run.scheduleOnce 'afterRender', this, ->
+      Em.run.next this, ->
+        @$('.description').css 'height', @$('.description p').height()
+  ).observes 'selectedTemplate'
 
   didInsertElement: ->
     @_super()
@@ -78,4 +86,7 @@ App.HostsNewView = Em.View.extend
   actions:
     create: ->
       @get('terminal')?.clear()
-      @get('controller').send 'create', @get('selectedTemplate')
+      @get('controller').send 'create', @get('selectedTemplate.slug')
+
+    toggleLog: ->
+      @toggleProperty 'showLog'
