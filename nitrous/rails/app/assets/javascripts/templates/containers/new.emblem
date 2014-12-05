@@ -17,7 +17,7 @@
         | Finish
 
   .screen class={view.showImageScreen::hide}
-    form submit='next target="view"'
+    form submit='goNext target="view"'
       .card-body.bordered
         .ui.input-group
           label.field-label
