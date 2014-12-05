@@ -45,4 +45,4 @@ p.note
   link-to 'login' | Log in
   | .
 
-= partial 'footer'
+= partial 'partials/footer'

@@ -21,7 +21,11 @@ App.Container = klass = App.Model.extend
   finishedAt: attr('date', as: 'finished_at', serialize: false)
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
 
-  config: null
+  config: (->
+    config = Em.ObjectProxy.create()
+    @loadConfig()
+    config
+  ).property 'slug'
 
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
@@ -95,7 +99,7 @@ App.Container = klass = App.Model.extend
       volume: jsonConfig.volume
       privileged: jsonConfig.privileged
       publish_all: jsonConfig.publish_all
-    @set 'config', config
+    @set 'config.content', config
     config
 
   saveConfig: (config)  ->

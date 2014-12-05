@@ -2,24 +2,23 @@
   h2 New Container
 
 .screens
-  if App.user.advanced
-    .card-body
-      .steps
-        .step class={view.showImageScreen:active}
-          span 1
-          | Image
-        .line
-        .step class={view.showConfigScreen:active}
-          span 2
-          | Config
-        .line
-        .step class={view.showProgressScreen:active}
-          span 3
-          | Finish
+  .card-body
+    .steps
+      .step class={view.showImageScreen:active}
+        span 1
+        | Image
+      .line
+      .step class={view.showConfigScreen:active}
+        span 2
+        | Config
+      .line
+      .step class={view.showProgressScreen:active}
+        span 3
+        | Finish
 
   .screen class={view.showImageScreen::hide}
-    form submit='nextOrCreate target="view"'
-      .card-body class={App.user.advanced:bordered}
+    form submit='next target="view"'
+      .card-body.bordered
         .ui.input-group
           label.field-label
             | Application
@@ -43,7 +42,7 @@
             | Image
 
           .image-selection
-            ul.ui.checkbox-group class={view.baseImageOptionDisabled:disabled App.user.advanced::hide}
+            ul.ui.checkbox-group class={view.baseImageOptionDisabled:disabled}
               li
                 .ui.checkbox
                   input type='radio' id='containers-new-option-base-image' name='option' checked='checked' value='base-image' disabled={view.baseImageOptionDisabled}
@@ -54,31 +53,30 @@
               each baseImage in App.baseImages
                 App.BaseImageView baseImage=baseImage selectedBaseImage=view.selectedBaseImage disabled=view.baseImageOptionDisabled
 
-            if App.user.advanced
-              ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
-                li
-                  .ui.checkbox
-                    input type='radio' id='containers-new-option-host-image' name='option' value='host-image' disabled={view.hostImageOptionDisabled}
-                    label
-                  label for='containers-new-option-host-image' Use Image On This Host
+            ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
+              li
+                .ui.checkbox
+                  input type='radio' id='containers-new-option-host-image' name='option' value='host-image' disabled={view.hostImageOptionDisabled}
+                  label
+                label for='containers-new-option-host-image' Use Image On This Host
 
-              .ui.select.indent
-                Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
+            .ui.select.indent
+              Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
 
-              ul.ui.checkbox-group class={saving:disabled}
-                li
-                  .ui.checkbox
-                    input type='radio' id='containers-new-option-custom-image' name='option' value='custom-image' disabled=saving
-                    label
-                  label for='containers-new-option-custom-image' Specify Image Repository
+            ul.ui.checkbox-group class={saving:disabled}
+              li
+                .ui.checkbox
+                  input type='radio' id='containers-new-option-custom-image' name='option' value='custom-image' disabled=saving
+                  label
+                label for='containers-new-option-custom-image' Specify Image Repository
 
-              .indent
-                = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle value=view.customImage disabled=saving
+            .indent
+              = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle value=view.customImage disabled=saving
 
       .card-footer.bordered
         .right
           a.ui.btn href='#' click='cancel' Cancel
-          input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value={view.firstScreenButtonValue}
+          input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Next'
 
   .screen class={view.showConfigScreen::hide}
     .card-body.bordered

@@ -19,21 +19,6 @@ App.HostsNewController = Em.ObjectController.extend
       host: null
       saving: false
 
-  templates: [
-    {
-      slug: 'rails'
-      iconUrl: 'https://nitrous-image-icons.s3.amazonaws.com/rails.png'
-      name: 'Ruby on Rails'
-      description: 'A baseline Ruby on Rails application that uses PostgreSQL as the database backend.\n\nThis template contains:\n  •  Ubuntu 14.04\n  •  Ruby 2.1\n  •  Rails 4.1\n  •  PostgreSQL 9.3'
-    }
-    {
-      slug: 'vanilla'
-      iconUrl: 'https://nitrous-image-icons.s3.amazonaws.com/vanilla.png'
-      name: 'Vanilla'
-      description: 'A vanilla development environment.\n\nThis template contains Ubuntu 14.04 with useful developer tools preinstalled.'
-    }
-  ]
-
   selectedPlan: (->
     if slug = @get('selectedPlanSlug')
       App.get('plans').findBy('slug', slug)

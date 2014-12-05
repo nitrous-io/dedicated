@@ -41,6 +41,8 @@
           = mebibytes stats.memoryUsage
           | &nbsp;/&nbsp;
           = mebibytes stats.memoryTotal
+          ' &nbsp;
+          a.ui.icon-btn.fa.fa-refresh href='#' click='refresh target="view"'
         else
           span.empty &ndash;
 
@@ -56,6 +58,8 @@
           = gibibytes stats.storageUsage
           | &nbsp;/&nbsp;
           = gibibytes stats.storageTotal
+          ' &nbsp;
+          a.ui.icon-btn.fa.fa-refresh href='#' click='refresh target="view"'
         else
           span.empty &ndash;
 
@@ -76,7 +80,6 @@
       button.ui.btn click='restart' Restart
       button.ui.btn click='showTerminateDialog target="view"' Terminate...
     .right
-      button.ui.btn.refresh-btn click='refresh target="view"' Refresh Stats
       button.ui.btn.primary click='newContainer' New Container...
   else
     if isTerminated

@@ -5,9 +5,7 @@ App.ContainerRoute = App.AuthedRoute.extend
     fetch = App.Container.fetch(params.containerSlug)
     container = fetch.value
     App.set 'selectedContainer', container
-    fetch.then =>
-      container.loadConfig()
-    , (jqxhr) =>
+    fetch.catch (jqxhr) =>
       if jqxhr.status == 404
         Em.run.next ->
           App.snackbar.post("Container “#{params.containerSlug}” could not be found.")

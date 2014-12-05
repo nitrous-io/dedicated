@@ -25,12 +25,13 @@
           else
             li.disabled
               a href='#' title=view.newApplicationTitle New Application...
-          if App.noHost
-            li.disabled
-              a href='#' New Container...
-          else
-            li
-              link-to 'containers.new' | New Container...
+          if App.user.advanced
+            if App.noHost
+              li.disabled
+                a href='#' New Container...
+            else
+              li
+                link-to 'containers.new' | New Container...
       li.ui.dropdown
         a href='#'
           | Account
