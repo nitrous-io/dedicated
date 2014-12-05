@@ -12,6 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -141,11 +142,17 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		}
 	}
 
+	origState := h.State
 	tx, err := env.DB.Beginx()
 	if err != nil {
 		return err
 	}
 	if err := h.Delete(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	err = hosttransition.Record(tx, h, origState, *h.TerminatedAt)
+	if err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -185,6 +192,11 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 	publishHostEvent(env, controllers.EventHostRestarting, h)
 
+	err := hosttransition.Record(db, h, origState, *h.UpdatedAt)
+	if err != nil {
+		return err
+	}
+
 	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
 	if err != nil {
 		// Rollback to previous state.
@@ -193,6 +205,12 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 			env.Logger.Errorf("hosts.Restart: Unable to reset host state: %v", err)
 		}
 		publishHostEvent(env, controllers.EventHostUpdated, h)
+
+		err := hosttransition.Record(db, h, host.StateRestarting, *h.UpdatedAt)
+		if err != nil {
+			env.Logger.Errorf("hosts.Restart: Unable to record transition: %v", err)
+		}
+
 		return err
 	}
 
@@ -206,6 +224,12 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 	publishContainersStopped(env, h)
 	publishHostEvent(env, controllers.EventHostRestarted, h)
+
+	err = hosttransition.Record(db, h, host.StateRestarting, *h.UpdatedAt)
+	if err != nil {
+		return err
+	}
+
 	serializeHost(env, h)
 	return nil
 }

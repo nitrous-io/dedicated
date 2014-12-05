@@ -1,0 +1,68 @@
+package main
+
+import (
+	"database/sql"
+	"os"
+
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
+	"github.com/nitrous-io/nitrous-common/logger"
+)
+
+const DBEnvVar = "NITROUS_PG_URL"
+
+var (
+	logr *logger.Logger
+)
+
+func init() {
+	logr = &logger.Logger{Level: logger.LogLevelDebug}
+}
+
+func main() {
+	dbURL := os.Getenv(DBEnvVar)
+	if dbURL == "" {
+		logr.FatalExit(DBEnvVar, "is not defined")
+	}
+	dbConn, err := db.NewDatabase(dbURL)
+	if err != nil {
+		logr.FatalExit(err)
+	}
+
+	lastId := int64(-1)
+	hostsExhausted := false
+
+	// page through the hosts in the DB, 100 at a time
+	for !hostsExhausted {
+		hosts := []host.Host{}
+		err := dbConn.Select(&hosts, `SELECT * FROM hosts h WHERE NOT EXISTS (SELECT t.id FROM host_transitions t WHERE t.host_id = h.id)
+			AND h.id > $1 AND h.preprovisioned = FALSE ORDER BY id ASC LIMIT 100;`, lastId)
+		if err != nil && err != sql.ErrNoRows {
+			logr.FatalExit(err)
+		}
+
+		if err == sql.ErrNoRows {
+			hostsExhausted = true
+			break
+		}
+
+		if len(hosts) == 0 {
+			hostsExhausted = true
+			break
+		}
+
+		for _, host := range hosts {
+			if host.ID > lastId {
+				lastId = host.ID
+			}
+			time := host.AssignedAt
+			if time == nil {
+				time = host.CreatedAt
+			}
+
+			logr.Infof("Creating host transition '%s' for %s", host.State, host.Slug)
+			hosttransition.Record(dbConn, &host, "", *time)
+		}
+	}
+}
