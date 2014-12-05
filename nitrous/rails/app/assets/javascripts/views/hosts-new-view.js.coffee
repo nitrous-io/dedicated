@@ -26,12 +26,18 @@ App.HostsNewView = Em.View.extend
       @$('#hosts-new-plan').change()
   ).observes 'App.plans.@each'
 
+  templatesDidChange: (->
+    return unless App.get('templates.length') > 0
+    unless @get 'selectedTemplate'
+      @set 'selectedTemplate', App.get('templates.firstObject.slug')
+  ).observes 'App.templates.@each'
+
   didInsertElement: ->
     @_super()
     controller = @get 'controller'
 
-    unless @get 'selectedTemplate'
-      @set 'selectedTemplate', 'rails'
+    if App.get('templates.length') > 0 && !@get('selectedTemplate')
+      @set 'selectedTemplate', App.get('templates.firstObject.slug')
 
     @$().on 'change.hosts-new', 'input[name=region]', =>
       controller.set 'selectedRegionSlug', @$('input[name=region]').filter(':checked').val()
