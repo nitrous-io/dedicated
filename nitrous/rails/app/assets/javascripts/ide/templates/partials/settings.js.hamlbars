@@ -1,0 +1,14 @@
+%ul.nav.nav-tabs.dark
+  %li{ bind: { class: 'view.resourcesTabActive:active' } }
+    %a(_action='didClickResources target="view"')
+      %i.icon.fa.fa-desktop
+      Resources
+  %li{ bind: { class: 'view.domainTabActive:active' } }
+    %a(_action='didClickDomain target="view"')
+      %i.icon.fa.fa-link
+      Custom Domain
+  =hb 'if App.currentUser.box_snapshots_allowed' do
+    %li{ bind: { class: 'view.snapshotsTabActive:active' } }
+      %a(_action='didClickSnapshots target="view"')
+        %i.icon.fa.fa-camera-retro
+        Snapshots

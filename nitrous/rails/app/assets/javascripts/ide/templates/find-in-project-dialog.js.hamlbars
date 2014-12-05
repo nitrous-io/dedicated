@@ -1,0 +1,40 @@
+.modal-header
+  %h3 Find in Project
+.modal-body
+  %form.form-horizontal
+    %div{bind: { class: ':control-group view.content.errors.term:error' }}
+      .controls
+        %label.control-label(for='search_term') Find
+        {{view Ember.TextField id="search_term" placeholder="Search term" valueBinding="view.content.term"}}
+        %span.help-inline {{ view.content.errors.term }}
+    %div{bind: { class: ':control-group' }}
+      .controls
+        %label.control-label(for='search_location') Where
+        {{view Ember.TextField id="search_location" placeholder="All files and folders" valueBinding="view.content.location"}}
+        %p.help-block
+          Paths entered must be relative to your home directory
+
+    %div{bind: { class: ':control-group :search-options' }}
+      %label.control-label(for='option_case_sensitive')
+        Options
+      .controls
+        %label.checkbox(for='option_case_sensitive')
+          {{view Ember.Checkbox id="option_case_sensitive" checkedBinding="view.content.optionCaseSensitive"}} Case-sensitive
+        %label.checkbox(for='option_regex')
+          {{view Ember.Checkbox id="option_regex" checkedBinding="view.content.optionRegex"}} Regular expression
+
+    %p.note
+      You can specify directories or wildcards in the
+      %strong Where
+      field to narrow down your search.
+
+      For example,
+      %code workspace/*py
+      or
+      %code workspace/myproject/*_test.rb
+
+.modal-footer
+  %button.btn(_action='didClickCancel target="view"')
+    Cancel
+  %button.btn.btn-primary(_action='didClickFind target="view"'){ bind: { disabled: 'saving' } }
+    Find

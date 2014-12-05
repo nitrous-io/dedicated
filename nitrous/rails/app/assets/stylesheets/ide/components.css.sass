@@ -1,0 +1,49 @@
+@import variables
+@import mixins
+
+#app
+  .info
+    +darkModule
+    padding: 10px
+    margin-bottom: 20px
+
+    p
+      margin: 0
+
+  .slider_view
+    $sliderHeight: 28px
+    height: $sliderHeight
+    background: $appBackgroundColor
+    +border-radius(4px)
+    cursor: ew-resize
+
+    &.read-only
+      cursor: auto
+
+      .indicator
+        display: none
+
+    .bar
+      position: relative
+      +box-sizing(border-box)
+      width: 0
+      height: 100%
+      background: #18caf9
+      border-right: 5px #0099d5 solid
+      text-align: right
+      +border-radius(4px 0 0 4px)
+
+      span
+        text-shadow: 0 1px 0 rgba(0,0,0,0.5)
+        line-height: $sliderHeight
+        font-size: 20px
+        white-space: nowrap
+        padding: 0 4px
+
+      .indicator
+        position: absolute
+        border: 5px solid transparent
+        border-top: none
+        border-bottom-color: #ddd
+        right: -8px
+        bottom: -7px

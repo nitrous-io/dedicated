@@ -1,0 +1,9 @@
+=hb 'if App.currentUser.isDelinquent' do
+  .alert.alert-error
+    %i.fa.fa-warning-sign
+    %strong Important:
+    Your account has an overdue payment. You will need to settle the payment to access your boxes again.
+    %a(_action='didClickChangeCreditCard target="view"')
+      Update your Credit Card details
+
+

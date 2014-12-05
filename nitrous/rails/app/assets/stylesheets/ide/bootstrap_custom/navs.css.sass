@@ -1,0 +1,41 @@
+@import ../variables
+@import ../mixins
+
+ul.nav.nav-pills.dark
+  li
+    font-family: $openSansFontFamily
+    font-size: 1.2em
+    a
+      color: #889
+      &:hover
+        background: none
+        color: #fff
+    &:first-child
+      a
+        padding-left: 2px
+    &.active
+      > a, > a:hover
+        background: none
+        color: #0AA5ED
+
+ul.nav.nav-tabs.dark
+  border: 0
+  margin: 0 0 0 12px
+  li
+    a
+      margin-right: 5px
+      background-color: transparent
+      border: 0
+      color: #ccc
+      font-size: 14px
+      text-align: center
+      &:hover
+        background-color: lighten($appBackgroundColor, 2%)
+        color: #fff
+    &.active
+      a
+        background-color: lighten($appBackgroundColor, 2%)
+        color: #fff
+
+    a .icon
+      margin: 0 2px 0 0

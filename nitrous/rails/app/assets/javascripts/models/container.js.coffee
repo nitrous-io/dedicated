@@ -57,6 +57,10 @@ App.Container = klass = App.Model.extend
       "http://#{hostname}:#{previewPort}/"
   ).property 'hostname', 'previewPort'
 
+  ideURL: (->
+    location.href.replace(location.pathname+location.hash, '/ide')
+  ).property()
+
   displayName: (->
     @get('name') || @get('slug')
   ).property 'name', 'slug'

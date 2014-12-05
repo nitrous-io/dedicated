@@ -1,0 +1,60 @@
+@import '../mixins'
+@import '../variables'
+
+.CodeMirror
+  .cm-matchhighlight
+    border-radius: 3px
+    border-style: solid
+    border-width: 1px
+    margin: -1px
+    &.CodeMirror-selectedtext
+      border: 0
+      margin: 0
+
+  .cm-trailingspace
+    background-color: #d47f6f
+
+/* Autocompletion hint addon */
+.CodeMirror-hints
+  +box-shadow(none)
+  border-radius: 0
+  font-family: $monospaceFontFamily
+  font-size: 13px
+  padding: 0
+
+.CodeMirror-hint
+  border-radius: 0
+  color: #666
+
+.CodeMirror-hint-active
+  background: #d6cdd0
+  color: #840
+
+/* Code folding addon */
+.CodeMirror-foldmarker
+  color: white
+  text-shadow: #f3cf83 1px 1px 2px, #f3cf83 -1px -1px 2px, #f3cf83 1px -1px 2px, #f3cf83 -1px 1px 2px
+
+/* Linting addon */
+.CodeMirror-lint-tooltip
+  color: #666
+  border-color: #666
+  border-radius: 0
+  font-family: $monospaceFontFamily
+  font-size: 13px
+  padding: 0
+
+.CodeMirror-lint-message-error, .CodeMirror-lint-message-warning
+  padding: 2px 4px
+
+.CodeMirror-lint-message-error
+  background-image: none
+  background-color: $errorBackground
+  border-color: $errorBorder
+  color: $errorText
+
+.CodeMirror-lint-message-warning
+  background-image: none
+  background-color: $infoBackground
+  border-color: $infoBorder
+  color: $infoText

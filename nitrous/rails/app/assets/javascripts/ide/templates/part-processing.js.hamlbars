@@ -1,0 +1,5 @@
+%h3 {{view.title}}
+
+%pre.autoparts-output
+  =hb 'each controller.partsSocket.outputStream.content' do
+    {{this}}

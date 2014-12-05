@@ -1,0 +1,58 @@
+.dropdown-toggle(data-toggle='dropdown')
+%ul.dropdown-menu
+  =hb 'with view.path' do
+    =hb 'if file' do
+      %li
+        %a(_action='didClickOpen target="view"')
+          Open &ldquo;{{ name }}&rdquo;
+      %li.divider
+      =hb 'if rootPath' do
+        %li.disabled
+          %a
+            Delete &ldquo;{{ name }}&rdquo;
+        =hb 'else'
+        %li
+          %a(_action='didClickRename target="view"')
+            Rename
+        %li
+          %a(_action='didClickDelete target="view"')
+            Delete &ldquo;{{ name }}&rdquo;
+        %li.divider
+        %li
+          %a(_action='didClickDownloadFile target="view"')
+            Download &ldquo;{{ name }}&rdquo;
+    =hb 'if directory' do
+      %li
+        %a(_action='didClickRefresh target="view"')
+          Refresh &ldquo;{{ name }}&rdquo;
+      %li.divider
+      %li
+        %a(_action='didClickFindInFolder target="view"')
+          Find in &ldquo;{{ name }}&rdquo;...
+      %li.divider
+      %li
+        %a(_action='didClickNewFile target="view"')
+          New File
+      %li
+        %a(_action='didClickNewFolder target="view"')
+          New Folder
+      %li.divider
+      =hb 'if rootPath' do
+        %li.disabled
+          %a
+            Delete &ldquo;{{ name }}&rdquo;
+        =hb 'else'
+        %li
+          %a(_action='didClickRename target="view"')
+            Rename
+        %li
+          %a(_action='didClickDelete target="view"')
+            Delete &ldquo;{{ name }}&rdquo;
+      %li.divider
+      %li
+        %a(_action='didClickUploadFiles target="view"')
+          Upload Files to &ldquo;{{ name }}&rdquo;...
+      %li.divider
+      %li
+        %a(_action='didClickSetFolderAsRoot target="view"')
+          Set &ldquo;{{ name }}&rdquo; As Root

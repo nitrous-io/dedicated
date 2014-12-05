@@ -105,7 +105,8 @@
         button.ui.btn click='openAttach' Attach
       if previewURL
         a.ui.btn href=previewURL target='_blank' Preview
-      button.ui.btn.primary click='openTerminal' Terminal
+      button.ui.btn click='openTerminal' Terminal
+      a.ui.btn.primary href=ideURL target='_blank' IDE
   else
     if isStopped
       .left

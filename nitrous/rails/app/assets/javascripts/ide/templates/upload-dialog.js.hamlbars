@@ -1,0 +1,35 @@
+.modal-header
+  %h3 Upload Files to &ldquo;{{ view.content.path.name }}&rdquo;
+.modal-body
+  =hb 'if view.dragAndDropCapable' do
+    =hb 'view App.IdeUploadDialogDropZoneView' do
+      %p
+        Drop files here or
+        %span.btn{ bind: { disabled: 'view.parentView.content.uploading' } }
+          Browse...
+          %input.file_input(type='file' name='files[]' multiple){ bind: { disabled: 'view.parentView.content.uploading' } }
+        %small (max 20MB/file)
+    =hb 'else'
+    %p
+      %span.btn
+        Add Files...
+        %input.file_input(type='file' name='files[]' multiple){ bind: { disabled: 'view.content.uploading' } }
+        %small (max 20MB/file)
+  %ul.modal-list
+    =hb 'each view.content' do
+      %li
+        %p {{ fileName }}
+        .pull-right
+          =hb 'if view.content.uploading' do
+            %div{ bind: { class: ':progress failed:progress-danger' }}
+              .bar{ bind: { style: 'widthStyle' }}
+            =hb 'else'
+            %button.btn.btn-danger(_action='didClickRemoveUpload this target="view"')
+              Remove
+
+.modal-footer
+  %button.btn(_action='didClickCancel target="view"'){ bind: { disabled: 'view.content.uploading' } }
+    Cancel
+  %button.btn(_action='didClickUpload target="view"'){ bind: { disabled: 'view.content.uploading' } }
+    Upload
+
