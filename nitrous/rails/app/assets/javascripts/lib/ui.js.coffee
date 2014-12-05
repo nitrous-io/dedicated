@@ -13,9 +13,10 @@ window.ui =
       ,200))
 
   handleDropdowns: ->
-    $('body').on 'click.ui.dropdown', '.ui.dropdown', (e) ->
+    $('body').on 'click.ui-dropdown', '.ui.dropdown', (e) ->
       $dropdown = $(this)
       if $dropdown.hasClass('open')
+        $('body').off 'click.ui-dropdown-bg'
         ui.clearDropdowns()
       else
         ui.clearDropdowns(except: $dropdown)
@@ -23,7 +24,7 @@ window.ui =
         window.clearTimeout($menu.data('timeout'))
         $dropdown.addClass('open')
 
-        $('body').one 'click.ui.dropdown', (e) ->
+        $('body').one 'click.ui-dropdown-bg', (e) ->
           if $(e.target).closest('.dropdown').length == 0
             ui.clearDropdowns()
             false

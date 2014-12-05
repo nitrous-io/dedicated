@@ -1,35 +1,36 @@
-ul.hosts
-  = each host in model
-    li class={host.selected host.isTerminated:disabled}
-      if host.isTerminated
-        a.noclick href='#'
-          h3
-            = host.displayName
-          .state-indicator.terminated title='terminated'
-      else
-        link-to 'host.index' host.slug
-          h3
-            = host.displayName
-          .state-indicator class={host.state} title={host.state}
-            span
-              = host.state
-        ul.containers
-          if host.isRunning
-            if host.sortedContainers.length
-              = each container in host.sortedContainers
-                li class={container.selected container.isTerminated:disabled}
-                  if container.isTerminated
-                    a.noclick href='#'
-                      h4
-                        = container.displayName
-                      .state-indicator.terminated title='terminated'
-                  else
-                    link-to 'container.index' container.slug
-                      h4
-                        = container.displayName
-                      .state-indicator class={container.state} title={container.state}
-                        span
-                          = container.state
+if model
+  ul.hosts
+    = each host in model
+      li class={host.selected host.isTerminated:disabled}
+        if host.isTerminated
+          a.noclick href='#'
+            h3
+              = host.displayName
+            .state-indicator.terminated title='terminated'
+        else
+          link-to 'host.index' host.slug
+            h3
+              = host.displayName
+            .state-indicator class={host.state} title={host.state}
+              span
+                = host.state
+          ul.containers
+            if host.isRunning
+              if host.sortedContainers.length
+                = each container in host.sortedContainers
+                  li class={container.selected container.isTerminated:disabled}
+                    if container.isTerminated
+                      a.noclick href='#'
+                        h4
+                          = container.displayName
+                        .state-indicator.terminated title='terminated'
+                    else
+                      link-to 'container.index' container.slug
+                        h4
+                          = container.displayName
+                        .state-indicator class={container.state} title={container.state}
+                          span
+                            = container.state
 
 .app-download
   h3 Get Desktop Sync

@@ -94,6 +94,7 @@ klass.reopenClass
 
   deserialize: (data) ->
     d = {}
+    return d unless data
     Ember.get(this, '_attrs').forEach (key, attr) =>
       k = @_getKey(key)
       if data.hasOwnProperty(k) || attr.options?.overwrite
