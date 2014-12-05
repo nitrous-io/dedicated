@@ -1,0 +1,8 @@
+li class={generalSelected:selected}
+  link-to 'app.index' | Application
+li class={metricsSelected:selected}
+  link-to 'app.metrics' | Metrics
+li class={keysSelected:selected}
+  link-to 'app.keys' | SSH Keys
+li class={snapshotsSelected:selected}
+  link-to 'app.snapshots' | Snapshots

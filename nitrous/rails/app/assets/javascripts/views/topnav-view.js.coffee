@@ -5,9 +5,9 @@ App.TopnavView = Em.View.extend
     if !App.get('canCreateHosts')
       maxHosts = App.get('userProfile.maxHosts')
       if maxHosts == 1
-        "You can only create 1 application"
+        "You can only create 1 application."
       else
-        "You can only create #{maxHosts} applications"
+        "You can only create #{maxHosts} applications."
   ).property 'App.canCreateHosts', 'userProfile.maxHosts'
 
   actions:

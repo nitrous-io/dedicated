@@ -1,2 +1,1 @@
-App.SidebarController = Em.Controller.extend
-  modelBinding: 'App.hosts'
+App.SidebarController = Em.Controller.extend()

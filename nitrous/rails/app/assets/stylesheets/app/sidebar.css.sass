@@ -5,7 +5,14 @@
   width: 200px
   $lineItemHeight: 32px
 
-  ul.hosts, ul.containers
+  h2
+    margin: 0 0 4px 0
+    font-size: 14px
+    font-weight: 500
+    text-transform: uppercase
+    color: $n2oGray500
+
+  ul.hosts, ul.containers, ul.apps
     list-style: none
     padding: 0
     margin: 0
@@ -14,7 +21,7 @@
     position: relative
     line-height: $lineItemHeight
 
-  ul.hosts, ul.containers
+  ul.hosts, ul.containers, ul.apps
     > li
       > a
         display: block
@@ -45,10 +52,12 @@
 
       &:last-of-type
         padding-bottom: 0
-        border-bottom: 0
         margin-bottom: 0
 
-  ul.hosts
+  ul.apps
+    margin-bottom: 16px
+
+  ul.hosts, ul.apps
     h3, h4
       color: $n2oGray300
       margin: 0
@@ -57,6 +66,7 @@
       font-weight: 500
       +truncate
 
+  ul.containers
     h4
       font-weight: 400
       padding: 0 34px 0 30px

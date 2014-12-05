@@ -777,6 +777,27 @@ ul.ui.snackbar
   > *
     flex-grow: 1
 
+.ui.icon-btn
+  display: inline-block
+  font-size: 12px
+  background: rgba($n2oGray400, .2)
+  border-radius: 9px
+  width: 18px
+  height: 18px
+  line-height: 18px
+  transition: background-color .2s, color .3s
+  color: $n2oGray300
+  text-align: center
+  user-select: none
+
+  &:hover
+    color: $n2oGray200
+    background: rgba($n2oGray400, .4)
+
+  &:active
+    color: $n2oGray100
+    background: rgba($n2oGray400, .6)
+
 @keyframes ui-progress-indeterminate
   from
     background-position: 0 0
