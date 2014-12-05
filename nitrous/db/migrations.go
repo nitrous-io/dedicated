@@ -534,5 +534,19 @@ func init() {
 				ALTER TABLE users ADD COLUMN unconfirmed_email character varying(255) DEFAULT NULL
 			`,
 		},
+		{
+			Version: "450",
+			Up: `
+				CREATE TABLE host_transitions (
+					id bigserial PRIMARY KEY NOT NULL,
+					host_id bigint REFERENCES hosts(id) NOT NULL,
+					previous_state character varying(255),
+					state character varying(255) NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					ended_at timestamp without time zone DEFAULT NULL
+				);
+				CREATE INDEX index_host_transitions_on_host_id ON host_transitions USING btree (host_id);
+			`,
+		},
 	}
 }
