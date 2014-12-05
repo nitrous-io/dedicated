@@ -37,10 +37,10 @@ App.ContainerIndexController = Em.ObjectController.extend App.PerformActionMixin
         App.snackbar.post("Your container “#{name}” was successfully terminated.")
 
     openLogs: ->
-      @transitionToRoute 'container.terminal', queryParams: { action: 'logs' }
+      @transitionToRoute 'container.console', queryParams: { action: 'logs' }
 
     openAttach: ->
-      @transitionToRoute 'container.terminal', queryParams: { action: 'attach' }
+      @transitionToRoute 'container.console', queryParams: { action: 'attach' }
 
     openTerminal: ->
-      @transitionToRoute 'container.terminal', queryParams: { action: null }
+      @transitionToRoute 'container.console', queryParams: { action: null }
