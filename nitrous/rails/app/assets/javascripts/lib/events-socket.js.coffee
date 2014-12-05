@@ -21,7 +21,7 @@ App.EventsSocket = Lib.Socket.extend
     @_super.apply this, arguments
 
   _addEventHandlers: ->
-    ['container.created', 'container.destroyed'].forEach (evt) =>
+    ['container.created', 'container.destroyed', 'host.restarted'].forEach (evt) =>
       @on evt, (data) ->
         findAllContainers()?.reload()
 
