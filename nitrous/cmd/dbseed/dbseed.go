@@ -226,8 +226,8 @@ func templates(d db.QueryReceiver) error {
 				Volumes:    []string{"database:/var/lib/postgresql/data"},
 			},
 			{
-				Name:       "rails",
-				Slug:       "rails",
+				Name:       "app",
+				Slug:       "app",
 				Image:      "nitrousio/rails-pg-jumpstart:latest",
 				Privileged: false,
 				PublishAll: true,
@@ -246,12 +246,39 @@ func templates(d db.QueryReceiver) error {
 		return err
 	}
 
+	vanillaConfig := &template.TemplateConfig{
+		Containers: []template.Container{
+			{
+				Name:       "app",
+				Slug:       "app",
+				Image:      "nitrousio/ubuntu:trusty",
+				Privileged: false,
+				PublishAll: true,
+				Env:        nil,
+				Ports:      []string{"public:2222:22"},
+				Volumes:    []string{},
+			},
+		},
+		Volumes: []template.Volume{},
+	}
+	vanillaConfigJSON, err := json.Marshal(vanillaConfig)
+	if err != nil {
+		return err
+	}
+
 	templates := []template.Template{
 		{
 			Slug:        "rails",
 			Name:        sql.NullString{"Ruby on Rails", true},
 			Description: sql.NullString{"A baseline Ruby on Rails application that uses PostgreSQL as the database backend.\n\nThis template contains:\n  •  Ubuntu 14.04\n  •  Ruby 2.1\n  •  Rails 4.1\n  •  PostgreSQL 9.3", true},
-			Config:      string(railsConfigJSON)},
+			Config:      string(railsConfigJSON),
+		},
+		{
+			Slug:        "vanilla",
+			Name:        sql.NullString{"Vanilla", true},
+			Description: sql.NullString{"A vanilla development environment.\n\nThis template contains Ubuntu 14.04 with useful developer tools preinstalled.", true},
+			Config:      string(vanillaConfigJSON),
+		},
 	}
 	for _, t := range templates {
 		if err := t.Insert(d); err != nil {
