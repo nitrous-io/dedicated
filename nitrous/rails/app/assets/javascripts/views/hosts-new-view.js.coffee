@@ -36,8 +36,7 @@ App.HostsNewView = Em.View.extend
     @_super()
     controller = @get 'controller'
 
-    if App.get('templates.length') > 0 && !@get('selectedTemplate')
-      @set 'selectedTemplate', App.get('templates.firstObject.slug')
+    @templatesDidChange()
 
     @$().on 'change.hosts-new', 'input[name=region]', =>
       controller.set 'selectedRegionSlug', @$('input[name=region]').filter(':checked').val()
