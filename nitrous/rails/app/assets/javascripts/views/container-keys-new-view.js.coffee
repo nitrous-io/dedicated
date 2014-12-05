@@ -1,5 +1,6 @@
 App.ContainerKeysNewView = Em.View.extend
   elementId: 'container-keys-new-view'
+  classNames: ['keys-new-view']
 
   createButtonDisabled: Em.computed.empty 'controller.key'
 

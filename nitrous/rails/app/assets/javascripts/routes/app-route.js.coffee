@@ -1,0 +1,21 @@
+#= require ./authed-route
+
+App.AppRoute = App.AuthedRoute.extend
+  model: (params) ->
+    fetch = App.Host.fetch(params.hostSlug)
+    host = fetch.value
+    App.set 'selectedAppHost', host
+    fetch.catch (jqxhr) =>
+      if jqxhr.status == 404
+        Em.run.next ->
+          App.snackbar.post("Host “#{params.hostSlug}” could not be found.")
+          App.get('hosts')?.reload()
+      @transitionTo 'home.index'
+    host
+
+  renderTemplate: ->
+    @render 'app', outlet: 'content'
+
+  deactivate: ->
+    App.set 'selectedAppHost', null
+    @_super.apply this, arguments

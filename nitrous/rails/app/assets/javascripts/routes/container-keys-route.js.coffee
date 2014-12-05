@@ -9,4 +9,4 @@ App.ContainerKeysRoute = App.AuthedRoute.extend
     controller.clear()
     if (keys = model.get 'keys') && keys.get('loaded')
       keys.reload()
-    App.set 'title', model.get('displayName') + ' › Keys'
+    App.set 'title', model.get('displayName') + ' › SSH Keys'

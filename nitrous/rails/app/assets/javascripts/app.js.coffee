@@ -25,6 +25,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   containers: null
   selectedHost: null
   selectedContainer: null
+  selectedAppHost: null
   regions: null
   plans: null
   baseImages: null

@@ -93,11 +93,11 @@ App.HostsNewController = Em.ObjectController.extend
 
           params.containers = [
             { name: 'postgres', slug: App.slug.toSlug('postgres', true), image: 'postgres:9.3', volumes: ["#{databaseVolSlug}:/var/lib/postgresql/data"], ports: ["private:5432:5432"] }
-            { name: 'rails', slug: App.slug.toSlug('rails', true), image: 'nitrousio/rails-pg-jumpstart:latest', volumes: ["#{workspaceVolSlug}:/volumes/workspace"], ports: ["public:3000:3000", "public:2222:22"] }
+            { name: 'app', slug: App.slug.toSlug('app', true), image: 'nitrousio/rails-pg-jumpstart:latest', volumes: ["#{workspaceVolSlug}:/volumes/workspace"], ports: ["public:3000:3000", "public:2222:22"] }
           ]
         when 'vanilla'
           params.containers = [
-            { name: 'ubuntu', slug: App.slug.toSlug('ubuntu', true), image: 'nitrousio/ubuntu:trusty', volumes: [], ports: ["public:2222:22"] }
+            { name: 'app', slug: App.slug.toSlug('app', true), image: 'nitrousio/ubuntu:trusty', volumes: [], ports: ["public:2222:22"] }
           ]
 
       host.save(params, json: true).catch (jqxhr) => # host.save

@@ -1,20 +1,18 @@
 if model.isRunning
   li class={generalSelected:selected}
-    link-to 'host.index' | Application
-  if App.user.advanced
-    li class={registriesSelected:selected}
-      link-to 'host.registries' | Registries
-    li class={imagesSelected:selected}
-      link-to 'host.images' | Images
-    li class={volumesSelected:selected}
-      link-to 'host.volumes' | Volumes
+    link-to 'host.index' | Host
+  li class={registriesSelected:selected}
+    link-to 'host.registries' | Registries
+  li class={imagesSelected:selected}
+    link-to 'host.images' | Images
+  li class={volumesSelected:selected}
+    link-to 'host.volumes' | Volumes
 else
   li class={generalSelected:selected}
-    link-to 'host.index' | Application
-  if App.user.advanced
-    li.disabled class={registriesSelected:selected}
-      a.noclick href='#' Registries
-    li.disabled class={imagesSelected:selected}
-      a.noclick href='#' Images
-    li.disabled class={volumesSelected:selected}
-      a.noclick href='#' Volumes
+    link-to 'host.index' | Host
+  li.disabled class={registriesSelected:selected}
+    a.noclick href='#' Registries
+  li.disabled class={imagesSelected:selected}
+    a.noclick href='#' Images
+  li.disabled class={volumesSelected:selected}
+    a.noclick href='#' Volumes
