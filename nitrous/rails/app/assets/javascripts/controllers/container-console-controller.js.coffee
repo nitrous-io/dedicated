@@ -1,13 +1,14 @@
-App.ContainerTerminalController = Em.ObjectController.extend
+App.ContainerConsoleController = Em.ObjectController.extend
   queryParams: ['action', 'fullscreen']
   action: null
   fullscreen: false
 
-  freighterdUrlBinding: Em.Binding.oneWay 'model.host.freighterdUrl'
-  ready: Em.computed.and 'freighterdUrl', 'config'
+  freighterdUrl: Em.computed.alias 'model.host.freighterdUrl'
+  record: Em.computed.alias 'model'
+  ready: Em.computed.and 'freighterdUrl', 'record.config'
 
   makeUrlAndConnect: (terminal) ->
-    container = @get 'model'
+    container = @get 'record'
     freighterdUrl = @get 'freighterdUrl'
     term = terminal.term
 

@@ -1,6 +1,7 @@
-App.ContainerTerminalView = Em.View.extend
-  elementId: 'container-terminal-view'
+App.ContainerConsoleView = Em.View.extend
+  elementId: 'container-console-view'
   classNameBindings: ['controller.fullscreen:fullscreen']
+  classNames: ['console-view']
 
   iframeInjected: false
 
