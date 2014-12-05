@@ -1,34 +1,7 @@
 .card-header.bordered
-  h2 Account Settings
-
-form submit='updateSettings'
-  .card-body
-    .ui.input-group
-      ul.ui.checkbox-group
-        li
-          .ui.checkbox
-            = input type='checkbox' id='account-advanced' checked=advanced
-            label
-          label for='account-advanced' Show Advanced Options
-          p.note
-            strong Warning:
-            |  Changing advanced settings may affect the stability, security, and performance of your applications and containers, or even render them unusable.
-            |  Only enable this if you know what you are doing.
-
-  .card-footer.bordered
-    .right
-      if updatingSettings
-        button.ui.btn disabled='disabled'
-          i.spinner
-          | Saving...
-      else
-        input.ui.btn.primary type='submit' disabled={updatingSettings} value='Save'
-
-.card-header.bordered
-  h2 Account Details
+  h2 Account
 
 form submit='updateDetails'
-
   .card-body
     .ui.input-group
       label.field-label for='email'
@@ -45,19 +18,45 @@ form submit='updateDetails'
     .ui.input-group
       label.field-label for='password'
         | Password
-      = input type='password' id='password' classNameBindings='view.passwordFieldInvalid:error' value=controller.password placeholder="Update password"
+      = input type='password' id='password' classNameBindings='view.passwordFieldInvalid:error' value=controller.password placeholder="New Password"
 
-    if view.showConfirmPassword
-      .ui.input-group
-        label.field-label for='confirmPassword'
-          | Confirm your Password
-        = input type='password' id='confirmPassword' classNameBindings='view.passwordFieldInvalid:error' value=controller.confirmPassword
+    .ui.input-group
+      label.field-label for='confirmPassword'
+        | Confirm Password
+      = input type='password' id='confirmPassword' classNameBindings='view.passwordFieldInvalid:error' value=controller.confirmPassword
 
-    .card-footer
-      .right
-        if updatingDetails
-          button.ui.btn disabled='disabled'
-            i.spinner
-            | Updating...
-        else
-          input.ui.btn.primary type='submit' disabled={updatingDetails} value='Update'
+  .card-footer.bordered
+    .right
+      if updatingDetails
+        button.ui.btn disabled='disabled'
+          i.spinner
+          | Saving...
+      else
+        input.ui.btn.primary type='submit' disabled={updatingDetails} value='Save'
+
+.card-header.bordered
+  h2 Settings
+
+form submit='updateSettings'
+  .card-body
+    .ui.input-group
+      ul.ui.checkbox-group
+        li
+          .ui.checkbox
+            = input type='checkbox' id='account-advanced' checked=advanced
+            label
+          label for='account-advanced' Show Advanced Settings
+          p.note
+            strong
+              ' Warning:
+            ' Changing advanced settings may affect the stability, security, and performance of your applications and containers, or even render them unusable.
+            | Only enable this if you know what you are doing.
+
+  .card-footer.bordered
+    .right
+      if updatingSettings
+        button.ui.btn disabled='disabled'
+          i.spinner
+          | Applying...
+      else
+        input.ui.btn.primary type='submit' disabled={updatingSettings} value='Apply'
