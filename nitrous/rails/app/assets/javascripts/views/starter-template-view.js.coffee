@@ -1,7 +1,7 @@
 App.StarterTemplateView = Em.View.extend
   templateName: 'base-image'
   tagName: 'li'
-  classNames: ['starter-template-view', 'base-image-view']
+  classNames: ['ui', 'icon-picker']
   classNameBindings: ['isSelected:selected']
 
   content: null
