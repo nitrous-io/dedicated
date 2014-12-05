@@ -47,7 +47,7 @@ if App.user.admin
 
 #beta-warning-view
   p
-    strong WARNING: All existing hosts and containers will be erased on December 18, 2014 1700 PST.
+    strong WARNING: All existing applications and containers will be erased on December 18, 2014 1700 PST.
     br
     | Please backup your data before then. If you need assistance, please contact 
     a href='mailto:support@nitrous.io' support@nitrous.io
