@@ -1,32 +1,31 @@
 App.StarterTemplateView = Em.View.extend
   templateName: 'base-image'
   tagName: 'li'
-  classNames: ['starter-template-view', 'base-image-view']
-  classNameBindings: ['isSelected:selected', 'disabled']
-
-  disabled: false
+  classNames: ['ui', 'icon-picker']
+  classNameBindings: ['isSelected:selected']
 
   content: null
   selected: null
-  iconUrl: null
-  name: null
+
+  name: (->
+    @getWithDefault('content.name', 'Empty')
+  ).property 'content.name'
 
   isSelected: (->
-    @get('selected') == @get('content')
-  ).property 'selected', 'content'
+    @get('selected') == @get('content.slug')
+  ).property 'selected', 'content.slug'
 
   iconCss: (->
-    return unless iconUrl = @get 'iconUrl'
+    return unless iconUrl = @get 'content.iconUrl'
     makeBackgroundImageCss(iconUrl)
-  ).property 'iconUrl'
+  ).property 'content.iconUrl'
 
   defaultIconCss: (->
-    makeBackgroundImageCss(App.BaseImage.defaultIconUrl)
-  ).property 'App.BaseImage.defaultIconUrl'
+    makeBackgroundImageCss(App.Template.defaultIconUrl)
+  ).property 'App.Template.defaultIconUrl'
 
   click: ->
-    return if @get 'disabled'
-    @set('selected', @get('content'))
+    @set('selected', @get('content.slug'))
 
 makeBackgroundImageCss = (url) ->
   return unless url

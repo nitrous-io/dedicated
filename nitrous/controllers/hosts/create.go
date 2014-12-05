@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
@@ -44,30 +45,15 @@ var (
 	PullImageFn       = images.PullImage
 )
 
-type volumeCreate struct {
-	Slug string `json:"slug"`
-	Name string `json:"name"`
-}
-
-type containerCreate struct {
-	Slug       string   `json:"slug"`
-	Name       string   `json:"name"`
-	Image      string   `json:"image"`
-	Env        []string `json:"env"`
-	Volumes    []string `json:"volumes"`
-	Ports      []string `json:"ports"`
-	Cmd        string   `json:"cmd"`
-	PublishAll bool     `json:"publish_all"`
-}
-
-type hostCreate struct {
-	Name       string            `json:"name"`
-	Size       string            `json:"size"`
-	Region     string            `json:"region"`
-	Slug       string            `json:"slug"`
-	Async      bool              `json:"async"`
-	Containers []containerCreate `json:"containers"`
-	Volumes    []volumeCreate    `json:"volumes"`
+type createOpts struct {
+	Name       string               `json:"name"`
+	Size       string               `json:"size"`
+	Region     string               `json:"region"`
+	Template   string               `json:"template"`
+	Slug       string               `json:"slug"`
+	Async      bool                 `json:"async"`
+	Containers []template.Container `json:"containers"`
+	Volumes    []template.Volume    `json:"volumes"`
 }
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -198,10 +184,18 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func postProvision(options hostCreate, env *middleware.Env, h *host.Host, outstream io.Writer) error {
+func postProvision(options *createOpts, env *middleware.Env, h *host.Host, outstream io.Writer) error {
 	if err := createSharedVolume(env, env.DB, h); err != nil {
 		return err
 	}
+
+	// Setup host according to given template, if required.
+	// We might want to consider moving this into the provisioner and also
+	// removing support for the volumes and containers options.
+	if err := setupFromTemplate(options.Template, env, h, outstream); err != nil {
+		return err
+	}
+
 	if err := createVolumes(options.Volumes, env, h, outstream); err != nil {
 		return err
 	}
@@ -211,26 +205,27 @@ func postProvision(options hostCreate, env *middleware.Env, h *host.Host, outstr
 	return nil
 }
 
-func buildCreateOptions(r *http.Request) (hostCreate, error) {
+func buildCreateOptions(r *http.Request) (*createOpts, error) {
 	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
-		var nested struct {
-			Host hostCreate `json:"host"`
+		var j struct {
+			Opts createOpts `json:"host"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&nested); err != nil {
-			return hostCreate{}, err
+		if err := json.NewDecoder(r.Body).Decode(&j); err != nil {
+			return nil, err
 		}
-		nested.Host.Slug = strings.ToLower(nested.Host.Slug)
-		return nested.Host, nil
+		j.Opts.Slug = strings.ToLower(j.Opts.Slug)
+		return &j.Opts, nil
 	}
 
-	host := hostCreate{
-		Size:   r.FormValue("size"),
-		Region: r.FormValue("region"),
-		Slug:   strings.ToLower(r.FormValue("slug")),
-		Name:   r.FormValue("name"),
+	opts := &createOpts{
+		Size:     r.FormValue("size"),
+		Region:   r.FormValue("region"),
+		Template: r.FormValue("template"),
+		Slug:     strings.ToLower(r.FormValue("slug")),
+		Name:     r.FormValue("name"),
 	}
-	host.Async, _ = strconv.ParseBool(r.FormValue("async"))
-	return host, nil
+	opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
+	return opts, nil
 }
 
 func findPlan(db ndb.QueryReceiver, size string) (*plan.Plan, error) {
@@ -289,6 +284,32 @@ func generateCerts(hostname string) (*cert.Cert, error) {
 	return cert.Generate(hostname, caInfo.X509Cert, caInfo.Key)
 }
 
+func setupFromTemplate(slug string, env *middleware.Env, h *host.Host, w io.Writer) error {
+	if slug == "" {
+		return nil // Ignore if slug is blank.
+	}
+
+	tmpl, err := template.Find(env.DB, slug)
+	if err != nil {
+		return err
+	}
+
+	cfg, err := tmpl.ParsedConfig()
+	if err != nil {
+		return err
+	}
+
+	if err := createVolumes(cfg.Volumes, env, h, w); err != nil {
+		return err
+	}
+
+	if err := createContainers(cfg.Containers, env, h, w); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func createSharedVolume(env *middleware.Env, db *ndb.Database, h *host.Host) error {
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
@@ -326,27 +347,30 @@ func createSharedVolume(env *middleware.Env, db *ndb.Database, h *host.Host) err
 	return nil
 }
 
-func createContainers(containers []containerCreate, env *middleware.Env, h *host.Host, writer io.Writer) error {
-	for index, container := range containers {
+func createContainers(containers []template.Container, env *middleware.Env, h *host.Host, w io.Writer) error {
+	for i, c := range containers {
 		options := url.Values{
-			"name":        []string{container.Name},
-			"slug":        []string{container.Slug},
-			"image":       []string{container.Image},
-			"env[]":       container.Env,
-			"volume[]":    container.Volumes,
-			"port[]":      container.Ports,
-			"cmd":         []string{container.Cmd},
-			"publish_all": []string{strconv.FormatBool(container.PublishAll)},
+			"name":        []string{c.Name},
+			"slug":        []string{c.Slug},
+			"image":       []string{c.Image},
+			"env[]":       c.Env,
+			"volume[]":    c.Volumes,
+			"port[]":      c.Ports,
+			"cmd":         []string{c.Cmd},
+			"publish_all": []string{strconv.FormatBool(c.PublishAll)},
 		}
 
-		state := fmt.Sprintf(`{"status": "Creating container %d of %d"}`, index+1, len(containers))
-		stream := flusher.NewWriteFlusher(writer)
+		state := fmt.Sprintf(`{"status": "Creating container %d of %d"}`, i+1, len(containers))
+		stream := flusher.NewWriteFlusher(w)
 		fmt.Fprintln(stream, state)
-		_, err := PullImageFn(h, url.Values{"repository": options["image"]}, env, writer, nil, false)
+
+		// FIXME Get rid of this awkward func that we introduced for tests.
+		_, err := PullImageFn(h, url.Values{"repository": options["image"]}, env, w, nil, false)
 		if err != nil {
 			return err
 		}
 
+		// FIXME Get rid of this awkward func that we introduced for tests.
 		_, err = CreateContainerFn(h, options, env)
 		if err != nil {
 			return errContainerCreationFailed
@@ -355,18 +379,19 @@ func createContainers(containers []containerCreate, env *middleware.Env, h *host
 	return nil
 }
 
-func createVolumes(volumes []volumeCreate, env *middleware.Env, h *host.Host, writer io.Writer) error {
-	for index, volume := range volumes {
+func createVolumes(volumes []template.Volume, env *middleware.Env, h *host.Host, w io.Writer) error {
+	for i, v := range volumes {
 		options := url.Values{
-			"name": []string{volume.Name},
-			"slug": []string{volume.Slug},
+			"name": []string{v.Name},
+			"slug": []string{v.Slug},
 		}
 
-		state := fmt.Sprintf(`{"status": "Creating volume %d of %d"}`, index+1, len(volumes))
-		stream := flusher.NewWriteFlusher(writer)
+		state := fmt.Sprintf(`{"status": "Creating volume %d of %d"}`, i+1, len(volumes))
+		stream := flusher.NewWriteFlusher(w)
 		fmt.Fprintln(stream, state)
-		_, err := CreateVolumeFn(h, options, env)
 
+		// FIXME Get rid of this awkward func that we introduced for tests.
+		_, err := CreateVolumeFn(h, options, env)
 		if err != nil {
 			return errVolumeCreationFailed
 		}

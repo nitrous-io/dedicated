@@ -39,6 +39,7 @@ App.HostsNewController = Em.ObjectController.extend
       host = App.Host.create
         regionSlug: @get('selectedRegionSlug')
         planSlug: @get('selectedPlanSlug')
+        templateSlug: template
         name: name
         slug: slug
       @set 'host', host
@@ -65,20 +66,6 @@ App.HostsNewController = Em.ObjectController.extend
 
       params =
         async: true
-
-      if template == 'rails'
-        workspaceVolSlug = 'workspace'
-        databaseVolSlug = 'database'
-
-        params.volumes = [
-          { name: 'workspace', slug: workspaceVolSlug }
-          { name: 'database',  slug: databaseVolSlug }
-        ]
-
-        params.containers = [
-          { name: 'postgres', slug: App.slug.toSlug('postgres', true), image: 'postgres:9.3', volumes: ["#{databaseVolSlug}:/var/lib/postgresql/data"], ports: ["private:5432:5432"] }
-          { name: 'rails', slug: App.slug.toSlug('rails', true), image: 'nitrousio/rails-pg-jumpstart:latest', volumes: ["#{workspaceVolSlug}:/volumes/workspace"], ports: ["public:3000:3000", "public:2222:22"] }
-        ]
 
       host.save(params, json: true).catch (jqxhr) => # host.save
         if errMsg = jqxhr.responseJSON?.error_description

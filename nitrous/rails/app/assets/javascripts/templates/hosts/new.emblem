@@ -10,8 +10,9 @@
             | Template
 
           ul.starter-templates
-            App.StarterTemplateView content='rails' iconUrl='https://nitrous-image-icons.s3.amazonaws.com/rails.png' selected=view.selectedTemplate name='Ruby on Rails'
-            App.StarterTemplateView content=null selected=view.selectedTemplate name='Empty'
+            each template in App.templates
+              App.StarterTemplateView content=template selected=view.selectedTemplate
+            App.StarterTemplateView content=null selected=view.selectedTemplate
 
       .card-body.bordered
         .ui.flex.horizontal
