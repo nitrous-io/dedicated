@@ -1,5 +1,3 @@
-#= require ./base-model
-
 App.CurrentUser = klass = Em.Object.extend
   username: null
   email: null

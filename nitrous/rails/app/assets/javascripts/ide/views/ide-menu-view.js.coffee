@@ -3,4 +3,3 @@ App.IdeMenuView = Em.View.extend
   tagName: 'ul'
   classNames: ['dropdown-menu']
   content: null
-  logo: false

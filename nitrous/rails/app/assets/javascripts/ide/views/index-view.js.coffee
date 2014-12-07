@@ -1,12 +1,6 @@
 App.IndexView = Em.View.extend
-  templateName: 'ide/templates/index'
-  elementId: 'ide_view'
-  classNames: 'ide_view'
-
-  didClickMacAnnouncement: ->
-    App.localStorage.set('clickedMacAnnouncement', true)
-    $('.top-announcement').remove()
-    window.open("/mac", "_blank")
+  templateName: 'ide/index'
+  elementId: 'ide-view'
 
   willInsertElement: ->
     @_super()

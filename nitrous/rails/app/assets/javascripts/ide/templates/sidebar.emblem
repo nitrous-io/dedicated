@@ -1,0 +1,27 @@
+.sidebar-body
+  .ide-toolbar.top
+    h2
+      = App.router.indexController.content.name
+    .btn-group
+      button.btn title='Set Home Folder As Root' click='didClickSetHomeAsRoot target="view"' disabled=opsSocketNotReady
+        i.fa.fa-home
+      button.btn title='Refresh Tree' click='didClickRefresh target="view"' disabled=opsSocketNotReady
+        i.fa.fa-refresh
+  .tree contextMenu='didRightClickBackground target="view"'
+    ul
+      App.IdePathView path=rootPath
+  .ide-toolbar.bottom
+    button.btn click='didClickUpload target="view"' disabled=opsSocketNotReady
+      i.fa.fa-upload
+      | Upload Files
+    button.btn click='didClickShowHidden target="view"' disabled=opsSocketNotReady
+      i.fa.fa-eye
+      if hiddenFilesVisible
+        | Hide Hidden
+      else
+        | Show Hidden
+  App.IdeSidebarBorderView
+
+App.IdePathContextMenuView viewName="contextMenuView"
+App.IdeUploadDialogView
+App.IdeConfirmDeletePathDialogView

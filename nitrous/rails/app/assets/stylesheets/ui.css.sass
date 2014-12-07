@@ -79,12 +79,13 @@
 .ui.dropdown
   &.open
     ul.dropdown-menu
-      z-index: 10
+      z-index: 11
       transition: opacity 0
       opacity: 1
 
   ul.dropdown-menu
     position: absolute
+    z-index: 10
     left: 0
     right: auto
     padding: 8px 0
@@ -98,6 +99,7 @@
     border-radius: 0 0 2px 2px
     $dropdownMenuItemHeight: 32px
     background: $n2oGray700
+    display: none
 
     > li
       &.separator

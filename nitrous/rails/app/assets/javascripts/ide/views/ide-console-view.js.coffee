@@ -1,6 +1,6 @@
 App.IdeConsoleView = Em.View.extend App.IdeTabViewMixin,
-  templateName: 'ide/templates/console'
-  elementId: 'ide_console_view'
+  templateName: 'ide/console'
+  elementId: 'ide-console-view'
   classNameBindings: ['controller.fullscreen:fullscreen', 'alwaysFullScreen:fullscreen']
 
   alwaysFullScreen: false

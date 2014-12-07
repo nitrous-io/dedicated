@@ -1,5 +1,3 @@
-#= require ./base-model
-
 App.Container = klass = Em.Object.extend
   id: null
   user_id: null
@@ -13,12 +11,12 @@ App.Container = klass = Em.Object.extend
   token: null
 
   env: (->
-    transformEnvArrayToHash @get('config').env 
+    transformEnvArrayToHash @get('config').env
   ).property 'config'
 
   loginUsername: (->
     @get('env')["NITROUS_USERNAME"]
-  ).property 'env' 
+  ).property 'env'
 
   previewPort: (->
     @get('env')["NITROUS_PREVIEW_PORT"]

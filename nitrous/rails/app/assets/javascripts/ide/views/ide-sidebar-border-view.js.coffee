@@ -1,35 +1,37 @@
 App.IdeSidebarBorderView = Em.View.extend
-  elementId: 'ide_sidebar_border_view'
-  classNames: ['ide_side_pane_border_view']
-  widthBinding: 'App.router.ideLayoutController.sidebarWidth'
-  minPaneWidth: 240
+  elementId: 'ide-sidebar-border-view'
+  classNames: ['ide-side-pane-border']
+  width: 240
+  minWidth: 240
 
   mouseDown: (event) ->
     event.preventDefault()
 
-    $pane = $('#ide_sidebar_view')
+    $pane = $('#ide-sidebar-view')
     $body = $('body')
 
-    minPaneWidth = @get 'minPaneWidth'
+    minWidth = @get 'minWidth'
     id = @get 'elementId'
 
     $body.on "mousemove.#{id}", (event) =>
-      newWidth = event.pageX - $pane.offset().left
-      if newWidth < minPaneWidth
-        newWidth = minPaneWidth
+      newWidth = Math.max(event.pageX - $pane.offset().left, minWidth)
 
-      $pane.css 'width', newWidth
+      $pane.css(width: "#{newWidth}px")
       @set 'width', newWidth
 
     $body.on "mouseup.#{id}", (event) =>
-      this.turnOffResizeEvents()
+      @turnOffResizeEvents()
+
+    $(window).on "mouseup.#{id}", (event) =>
+      @turnOffResizeEvents()
 
   turnOffResizeEvents: ->
     id = @get 'elementId'
     $body = $('body')
     $body.off "mousemove.#{id}"
     $body.off "mouseup.#{id}"
+    $(window).off "mouseup.#{id}"
 
   willDestroyElement: ->
     @_super()
-    this.turnOffResizeEvents()
+    @turnOffResizeEvents()

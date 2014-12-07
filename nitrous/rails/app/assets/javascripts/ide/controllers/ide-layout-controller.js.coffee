@@ -1,8 +1,4 @@
 App.IdeLayoutController = Em.Controller.extend
-  mainMenuViewHeight: 0
-  consoleHeight: 180
-  sidebarWidth: 240
-  collaborationPaneWidth: 240
   collaborationPaneHidden: false
 
   initialize: ->

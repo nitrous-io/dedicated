@@ -12,23 +12,25 @@ window.ui =
         $menu.hide()
       ,200))
 
+  openDropdown: ($dropdown) ->
+    if $dropdown.hasClass('open')
+      $('body').off 'click.ui-dropdown-bg'
+      ui.clearDropdowns()
+    else
+      ui.clearDropdowns(except: $dropdown)
+      $menu = $dropdown.find('> ul.dropdown-menu').show()
+      window.clearTimeout($menu.data('timeout'))
+      $dropdown.addClass('open')
+
+      $('body').one 'click.ui-dropdown-bg', (e) ->
+        if $(e.target).closest('.dropdown').length == 0
+          ui.clearDropdowns()
+          false
+    false
+
   handleDropdowns: ->
     $('body').on 'click.ui-dropdown', '.ui.dropdown', (e) ->
-      $dropdown = $(this)
-      if $dropdown.hasClass('open')
-        $('body').off 'click.ui-dropdown-bg'
-        ui.clearDropdowns()
-      else
-        ui.clearDropdowns(except: $dropdown)
-        $menu = $dropdown.find('> ul.dropdown-menu').show()
-        window.clearTimeout($menu.data('timeout'))
-        $dropdown.addClass('open')
-
-        $('body').one 'click.ui-dropdown-bg', (e) ->
-          if $(e.target).closest('.dropdown').length == 0
-            ui.clearDropdowns()
-            false
-      false
+      ui.openDropdown($(this))
 
   showModal: ($modal) ->
     if !($modal instanceof jQuery)
