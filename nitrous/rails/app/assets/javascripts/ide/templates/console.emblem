@@ -1,0 +1,17 @@
+App.IdeConsoleBorderView
+
+.ide-toolbar
+  .ide-tabs
+    ul
+      each content
+        li class={active}
+          a href='#' click='didClickTab this target="view"'
+            button.close_tab_button.fa.fa-times click='didClickClose this target="view"' title='Close Tab'
+            span Console
+    button.new_tab_button.small_button.btn.fa.fa-plus click='didClickNew target="view"' title='New Tab'
+    unless view.alwaysFullScreen
+      button.fullscreen_button.small_button.btn.fa.fa-arrows-alt click='didClickFullScreen target="view"' title='Toggle Full Screen'
+
+.console_sessions
+  each content
+    App.IdeConsoleSessionView consoleSession=this

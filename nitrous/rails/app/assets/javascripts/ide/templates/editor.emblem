@@ -1,0 +1,21 @@
+.ide-toolbar
+  .ide-tabs
+    ul
+      each content
+        App.IdeTabView content=this
+
+    button.new_tab_button.small_button.btn.fa.fa-plus click='didClickNew target="view"' title='New Tab'
+    button.fullscreen_button.small_button.btn.fa.fa-arrows-alt click='didClickFullScreen target="view"' title='Toggle Full Screen'
+
+.ide-document-views
+  each content
+    if isImageTab
+      App.IdeImageView document=this classNameBindings='active'
+    else
+      if isSearchTab
+        App.IdeSearchView document=this classNameBindings='active'
+      else
+        App.IdeDocumentView document=this classNameBindings='active'
+
+App.IdeSaveDialogView
+App.IdeConfirmCloseDialogView

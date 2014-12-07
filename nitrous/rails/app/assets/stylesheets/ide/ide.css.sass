@@ -1,0 +1,39 @@
+@import 'variables'
+
+html.ide
+  //overflow: hidden
+
+  &, body, #app, #application-view, #ide-view, .ide-body
+    height: 100%
+
+#ide-view
+  .ide-body
+    display: flex
+    flex-direction: column
+
+    .ide-body-editor
+      display: flex
+      flex-direction: row
+      flex-grow: 1
+
+  .ide-toolbar
+    background: $n2oGray700
+    border-top: 1px solid $n2oGray900
+    border-bottom: 1px solid $n2oGray900
+
+  .ide-side-pane-border
+    position: absolute
+    top: 0
+    left: auto
+    right: -3px
+    width: 6px
+    height: 100%
+    cursor: ew-resize
+
+    &.horizontal
+      top: -3px
+      left: 0
+      right: auto
+      width: 100%
+      height: 6px
+      cursor: ns-resize

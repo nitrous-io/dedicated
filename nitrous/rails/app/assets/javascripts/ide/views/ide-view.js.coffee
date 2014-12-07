@@ -1,7 +1,6 @@
 App.IdeView = Em.View.extend
-  templateName: 'ide/templates/ide'
-  elementId: 'ide_view'
-  classNames: 'ide_view'
+  templateName: 'ide/ide'
+  elementId: 'ide-view'
 
   didClickMacAnnouncement: ->
     App.localStorage.set('clickedMacAnnouncement', true)

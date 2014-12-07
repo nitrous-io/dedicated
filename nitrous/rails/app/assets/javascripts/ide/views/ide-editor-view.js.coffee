@@ -1,8 +1,9 @@
 App.IdeEditorView = Em.View.extend App.IdeTabViewMixin,
-  templateName: 'ide/templates/editor'
-  elementId: 'ide_editor_view'
+  templateName: 'ide/editor'
+  elementId: 'ide-editor-view'
   classNameBindings: ['controller.fullscreen:fullscreen']
 
-  didClickFullScreen: ->
-    if mainMenuController = App.get 'router.ideMainMenuController'
-      mainMenuController.viewToggleFullScreenEditor()
+  actions:
+    didClickFullScreen: ->
+      if mainMenuController = App.get 'router.ideMainMenuController'
+        mainMenuController.viewToggleFullScreenEditor()

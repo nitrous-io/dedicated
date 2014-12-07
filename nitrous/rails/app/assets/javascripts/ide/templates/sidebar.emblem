@@ -1,0 +1,28 @@
+.sidebar-body
+  .ide-toolbar.top
+    h2
+      | my-box
+      /= App.router.ideController.content.name
+    .btn-group
+      button.btn title='Set Home Folder As Root' click='didClickSetHomeAsRoot target="view"' disabled=sftpSocketNotReady
+        i.fa.fa-home
+      button.btn title='Refresh Tree' click='didClickRefresh target="view"' disabled=sftpSocketNotReady
+        i.fa.fa-refresh
+  .tree contextMenu='didRightClickBackground target="view"'
+    ul
+      App.IdePathView path=rootPath
+  .ide-toolbar.bottom
+    button.btn click='didClickUpload target="view"' disabled=sftpSocketNotReady
+      i.fa.fa-upload
+      | Upload Files
+    button.btn click='didClickShowHidden target="view"' disabled=sftpSocketNotReady
+      i.fa.fa-eye
+      if hiddenFilesVisible
+        | Hide Hidden
+      else
+        | Show Hidden
+  App.IdeSidebarBorderView
+
+App.IdePathContextMenuView viewName="contextMenuView"
+App.IdeUploadDialogView
+App.IdeConfirmDeletePathDialogView
