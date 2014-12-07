@@ -7,7 +7,7 @@ window.ui =
       $dropdowns = $dropdowns.not(options.except)
     $dropdowns.each (i, el) ->
       $el = $(el).removeClass('open')
-      $menu = $el.find('ul.dropdown-menu')
+      $menu = $el.find('> ul.dropdown-menu')
       $menu.data('timeout', window.setTimeout(->
         $menu.hide()
       ,200))
@@ -20,7 +20,7 @@ window.ui =
         ui.clearDropdowns()
       else
         ui.clearDropdowns(except: $dropdown)
-        $menu = $dropdown.find('ul.dropdown-menu').show()
+        $menu = $dropdown.find('> ul.dropdown-menu').show()
         window.clearTimeout($menu.data('timeout'))
         $dropdown.addClass('open')
 

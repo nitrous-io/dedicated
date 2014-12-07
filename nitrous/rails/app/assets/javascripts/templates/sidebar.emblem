@@ -1,7 +1,7 @@
 if App.hosts.length
   h2 Applications
   ul.apps
-    = each host in App.hosts
+    each host in App.hosts
       li class={host.selectedAsApp:selected host.appContainer.isTerminated:disabled}
         if host.appContainer.isTerminated
           a.noclick href='#'
@@ -19,7 +19,7 @@ if App.hosts.length
   if App.user.advanced
     h2 Hosts
     ul.hosts
-      = each host in App.hosts
+      each host in App.hosts
         li class={host.selected:selected host.isTerminated:disabled}
           if host.isTerminated
             a.noclick href='#'
@@ -36,7 +36,7 @@ if App.hosts.length
             ul.containers
               if host.isRunning
                 if host.sortedContainers.length
-                  = each container in host.sortedContainers
+                  each container in host.sortedContainers
                     li class={container.selected container.isTerminated:disabled}
                       if container.isTerminated
                         a.noclick href='#'

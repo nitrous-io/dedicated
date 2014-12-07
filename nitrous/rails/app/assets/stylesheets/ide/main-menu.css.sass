@@ -1,0 +1,46 @@
+@import 'mixins'
+
+#ide-main-menu-view
+  .ui.topnav
+    $topnavHeight: 32px
+
+    display: flex
+    flex-direction: row
+    flex-wrap: wrap
+    height: auto
+
+    ul.nav
+      > li
+        > a
+          line-height: $topnavHeight
+
+    .primary-nav
+      flex-grow: 1
+
+      ul.nav
+        > li:first-of-type > a
+          padding-top: 2px
+          line-height: $topnavHeight - 2px
+          font-family: 'EurostileLTPro-BoldEx2'
+          color: white
+          font-size: 15px
+          +grayscale-font-smoothing
+
+      ul.dropdown-menu
+        > li > a
+          padding-left: 0
+
+          .fa
+            display: table-cell
+            min-width: 24px
+            text-align: right
+            padding-right: 5px
+
+          .menu-label
+            display: table-cell
+
+            &.name
+              width: 200px
+
+            &.key
+              padding-left: 24px
