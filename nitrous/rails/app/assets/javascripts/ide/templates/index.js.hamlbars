@@ -9,9 +9,6 @@
   {{view App.IdeFindInProjectDialogView controllerBinding="controllers.ideFindInProject"}}
   {{view App.IdeFileFinderDialogView controllerBinding="controllers.ideFileFinder"}}
 
-{{view App.IdeMaintenanceNoticeView}}
-{{view App.FlashMessageView}}
-
 =hb 'unless controller.opsSocketReady' do
   =hb 'if controller.sftpConnectionLost' do
     {{view App.IdeConnectionLostView}}
