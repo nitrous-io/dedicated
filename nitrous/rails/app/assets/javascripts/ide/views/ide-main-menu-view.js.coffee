@@ -92,17 +92,13 @@ themesMenu = menu 'Themes', _.map [
       ).property 'App.router.ideEditorController.theme'
 
 App.IdeMainMenuView = Em.View.extend
-  templateName: 'ide/templates/main-menu'
-  elementId: 'ide_main_menu_view'
-  heightBinding: 'App.router.ideLayoutController.mainMenuViewHeight'
-  hideMainMenu: false
-
-  noSecondaryMenuBinding: Em.Binding.oneWay 'App.isChromeWebView'
+  templateName: 'ide/main-menu'
+  elementId: 'ide-main-menu-view'
 
   previewPortBinding: Em.Binding.oneWay 'App.container.previewPort'
 
   menu: [
-    menu 'Nitrous', [
+    menu 'N', [
       menuItem 'About Nitrous', callback: ->
         $('#about_nitrousio').modal 'show'
     ]
@@ -252,18 +248,6 @@ App.IdeMainMenuView = Em.View.extend
     previewMenu
     helpMenu
   ]
-
-  didInsertElement: ->
-    @_super()
-    $(window).bind 'resize.ideMainMenuView', _.bind(@onResize, this)
-    this.onResize()
-
-  willDestroyElement: ->
-    @_super()
-    $(window).unbind 'resize.ideMainMenuView'
-
-  onResize: ->
-    @set 'height', @$().outerHeight()
 
   currentYear: (->
     new Date().getFullYear()

@@ -5,7 +5,8 @@ App.IdeUploadDialogView = App.IdeModalDialogView.extend
   classNameBindings: ['content.uploading:uploading']
 
   dragAndDropCapable: (->
-    Modernizr.draganddrop
+    div = document.createElement('div')
+    div.draggable? || (div.ondragstart != undefined && div.ondrop != undefined)
   ).property()
 
   uploadURI: (->

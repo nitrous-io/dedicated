@@ -29,9 +29,3 @@ App.IndexView = Em.View.extend
     $('html').removeClass 'ide'
     $(window).unbind 'focus.ideView'
     $(window).unbind 'keydown.ideView'
-
-  adjustTopPaddingForMainMenu: (->
-    mainMenuViewHeight = App.get 'router.ideLayoutController.mainMenuViewHeight'
-    @$().css 'padding-top', mainMenuViewHeight
-  ).observes 'App.router.ideLayoutController.mainMenuViewHeight'
-

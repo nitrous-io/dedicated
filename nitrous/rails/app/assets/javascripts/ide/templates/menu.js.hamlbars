@@ -1,3 +1,0 @@
-=hb 'with view.content' do
-  =hb 'each items' do
-    {{view App.IdeMenuItemView contentBinding="this"}}

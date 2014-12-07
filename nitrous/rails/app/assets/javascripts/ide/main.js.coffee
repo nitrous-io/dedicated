@@ -1,3 +1,4 @@
+#= require ./vendor/underscore
 #= require ./vendor/mousetrap
 #= require ./codemirror
 #= require ./vendor/base64

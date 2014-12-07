@@ -1,3 +1,5 @@
+message = 'You will lose unsaved work if you close the IDE.'
+
 App.IndexRoute = Em.Route.extend
   beforeModel: ->
     if App.get 'token'
