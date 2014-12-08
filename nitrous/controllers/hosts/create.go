@@ -379,12 +379,14 @@ func createContainers(containers []template.Container, env *middleware.Env, h *h
 		// FIXME Get rid of this awkward func that we introduced for tests.
 		_, err := PullImageFn(h, url.Values{"repository": options["image"]}, env, w, nil, false)
 		if err != nil {
+			env.Logger.Errorf("host.Create: error pulling container image: %v", err)
 			return err
 		}
 
 		// FIXME Get rid of this awkward func that we introduced for tests.
 		_, err = CreateContainerFn(h, options, env)
 		if err != nil {
+			env.Logger.Errorf("host.Create: error creating container: %v", err)
 			return errContainerCreationFailed
 		}
 	}
@@ -405,6 +407,7 @@ func createVolumes(volumes []template.Volume, env *middleware.Env, h *host.Host,
 		// FIXME Get rid of this awkward func that we introduced for tests.
 		_, err := CreateVolumeFn(h, options, env)
 		if err != nil {
+			env.Logger.Errorf("host.Create: error creating volume: %v", err)
 			return errVolumeCreationFailed
 		}
 	}
