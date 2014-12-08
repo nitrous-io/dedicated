@@ -6,7 +6,8 @@ App.IndexRoute = Em.Route.extend
         App.CurrentUser.fetch().then (user) ->
           App.trigger 'fetchUser', user
     else
-      @transitionTo 'login'
+      # redirect to login screen if user hasn't logged in
+      window.location = window.location.href.replace('/ide', '/app#login')
 
-  redirect: ->
+  afterModel: ->
     @transitionTo 'ide'
