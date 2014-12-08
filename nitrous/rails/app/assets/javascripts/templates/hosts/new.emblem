@@ -35,7 +35,7 @@
             | Template
 
         ul.starter-templates
-          each template in templates
+          each template in App.templates
             App.StarterTemplateView content=template selected=view.selectedTemplate
 
         .description

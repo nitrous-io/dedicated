@@ -12,8 +12,8 @@ App.StarterTemplateView = Em.View.extend
   ).property 'content.name'
 
   isSelected: (->
-    @get('selected') == @get('content.slug')
-  ).property 'selected', 'content.slug'
+    @get('selected') == @get('content')
+  ).property 'selected', 'content'
 
   iconCss: (->
     return unless iconUrl = @get 'content.iconUrl'
@@ -25,7 +25,7 @@ App.StarterTemplateView = Em.View.extend
   ).property 'App.Template.defaultIconUrl'
 
   click: ->
-    @set('selected', @get('content.slug'))
+    @set('selected', @get('content'))
 
 makeBackgroundImageCss = (url) ->
   return unless url
