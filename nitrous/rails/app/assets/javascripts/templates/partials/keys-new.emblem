@@ -1,0 +1,17 @@
+form submit='create'
+  .card-body
+    h3 Register Public Key
+    .ui.input-group
+      label.field-label for='keys-new-key'
+        | Key
+      Ember.TextArea id='keys-new-key' class='textarea-transition' name='key' rows='2' value=key disabled=saving
+
+  .card-footer.bordered
+    .right
+      if saving
+        button.ui.btn disabled='disabled'
+          i.spinner
+          | Creating...
+      else
+        a.ui.btn href='#' click='cancel' Cancel
+        input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Register Key'

@@ -14,12 +14,19 @@ App.Router.map ->
       @route 'keys'
       @route 'keys-new', path: '/keys/new'
       @route 'config'
-      @route 'terminal'
+      @route 'console'
 
     @resource 'hosts', path: '/applications', ->
       @route 'new'
 
-    @resource 'host', path: '/applications/:hostSlug', ->
+    @resource 'app', path: '/applications/:hostSlug', ->
+      @route 'metrics'
+      @route 'keys'
+      @route 'keys-new', path: '/keys/new'
+      @route 'snapshots'
+      @route 'console'
+
+    @resource 'host', path: '/hosts/:hostSlug', ->
       @route 'registries'
       @route 'registries-new', path: '/registries/new'
       @route 'images'

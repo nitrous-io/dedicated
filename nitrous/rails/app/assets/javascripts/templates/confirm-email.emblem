@@ -40,4 +40,4 @@
         p
           | Please try again or contact support if the error persists.
 
-= partial 'footer'
+= partial 'partials/footer'

@@ -1,6 +1,9 @@
 App.PerformActionMixin = Ember.Mixin.create
   performAction: (method, action, tempState, data=null) ->
     record = @get('model')
+    @performActionOnRecord(record, method, action, tempState, data)
+
+  performActionOnRecord: (record, method, action, tempState, data=null) ->
     prevState = record.get('state')
     record.set 'state', tempState
     rootKey = record.constructor.rootKey

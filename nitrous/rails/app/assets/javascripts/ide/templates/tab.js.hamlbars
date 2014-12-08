@@ -1,0 +1,4 @@
+%a(_action='didClickTab this target="view"'){ bind: { title: 'view.content.tooltip' } }
+  %div(_action='didClickClose this target="view"' title='Close Tab'){ bind: { class: ':close_tab_button :fa view.content.clean:fa-times:fa-asterisk' }}
+  %span {{ view.content.title }}
+

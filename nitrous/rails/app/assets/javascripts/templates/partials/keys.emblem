@@ -1,0 +1,58 @@
+.card-body
+  if records.loaded
+    if records.length
+      ul.ui.list.item-2-line
+        each key in records
+          li.list-item
+            .left-accessory
+              .ui.checkbox
+                input.record-checkbox type='checkbox' id={key.inputId} value={key.id}
+                label
+            .lines
+              label for={key.inputId}
+                h4
+                  = key.name
+                p
+                  | Added &nbsp;
+                  = dateabbr key.createdAt
+    else
+      p.hint-text
+        i.fa.fa-exclamation-circle
+        | There aren't any SSH public keys registered.
+  else
+    p.hint-text
+      i.spinner
+      | Loading...
+
+.card-footer.bordered
+  .left
+    if removing
+      button.ui.btn disabled='disabled'
+        i.spinner
+        | Removing...
+    else
+      button.ui.btn click='askRemove target="view"' disabled=noneSelected Remove
+  .right
+    button.ui.btn.primary click='add' Register Key...
+
+#confirm-remove-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Are you sure?
+    .card-body
+      p
+        | Are you sure you want to remove the following public key
+        if view.multipleSelected
+          | s
+        | ?
+      ul.comma-separated
+        each record in selected
+          li
+            | &ldquo;
+            = record.name
+            | &rdquo;
+
+    .card-footer
+      .right
+        button.ui.btn click='cancelRemove target="view"' Cancel
+        button.ui.btn.danger.terminate-btn click='confirmRemove target="view"' Remove

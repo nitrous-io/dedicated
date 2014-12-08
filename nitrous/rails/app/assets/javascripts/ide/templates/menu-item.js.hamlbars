@@ -1,0 +1,13 @@
+=hb 'with view.content' do
+  =hb 'unless separator' do
+    %a{ bind: { href: 'url', target: 'target' } }
+      =hb 'if checked' do
+        %i.fa.fa-check
+        =hb 'else'
+        %i.fa
+      %span.menu-label.name {{ name }}
+      =hb 'unless submenu' do
+        %span.menu-label.key {{ keyLabel }}
+  =hb 'if submenu' do
+    {{view App.IdeMenuView contentBinding="submenu"}}
+

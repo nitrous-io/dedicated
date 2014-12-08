@@ -6,6 +6,7 @@ html lang='en' class=@html_class
       = @title
     link rel='shortcut icon' href='/favicon.ico'
     = stylesheet_link_tag 'application', media: 'all'
+    = render 'layouts/google_analytics'
   body
     = yield :body_head
     = render 'layouts/topnav'

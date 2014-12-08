@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/regions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/templates"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/tokens"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
@@ -76,6 +77,7 @@ func (s *Server) drawRoutes() {
 				"/plans":        r("plans.Index", plans.Index),
 				"/regions":      r("regions.Index", regions.Index),
 				"/base_images":  r("baseimages.Index", baseimages.Index),
+				"/templates":    r("templates.Index", templates.Index),
 				"/app_settings": r("appsettings.Index", appsettings.Index),
 			},
 			"POST": {

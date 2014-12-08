@@ -1,0 +1,11 @@
+.modal-header
+  %h3 Are you sure you want to delete "{{view.content.path.name}}"?
+.modal-body
+  %p You can't undo this action.
+.modal-footer
+  %button.btn(_action='didClickCancel target="view"')
+    Cancel
+  %button.btn.btn-danger(_action='didClickDelete target="view"')
+    Delete
+
+

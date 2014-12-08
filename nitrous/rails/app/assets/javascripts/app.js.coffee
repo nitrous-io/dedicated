@@ -25,9 +25,11 @@ window.Nitrous = Em.Application.extend Em.Evented,
   containers: null
   selectedHost: null
   selectedContainer: null
+  selectedAppHost: null
   regions: null
   plans: null
   baseImages: null
+  templates: null
 
   terminalJsPath: null
   terminalCssPath: null
@@ -91,7 +93,7 @@ App.on 'settings', (settings) ->
   if settings.mixpanel_token != '' && settings.mixpanel_token != 'disable'
     window.mixpanel?.init settings.mixpanel_token
   if settings.stripe_key != '' && settings.stripe_key != 'disable'
-    window.Stripe.setPublishableKey(settings.stripe_key);
+    window.Stripe.setPublishableKey(settings.stripe_key)
 
 App.didChangeTitle()
 

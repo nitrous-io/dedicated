@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -29,7 +31,7 @@ func init() {
 
 type SeedFn func(db.QueryReceiver) error
 
-var seeds = []SeedFn{users, regions, plans, templates, baseImages}
+var seeds = []SeedFn{users, regions, plans, providertemplates, baseImages, templates}
 
 func main() {
 	dbURL := os.Getenv("NITROUS_PG_URL")
@@ -136,7 +138,7 @@ func plans(d db.QueryReceiver) error {
 	return nil
 }
 
-func templates(d db.QueryReceiver) error {
+func providertemplates(d db.QueryReceiver) error {
 	ok, err := shouldSeed(d, "provider_templates")
 	if err != nil || !ok {
 		return err
@@ -200,6 +202,89 @@ func baseImages(d db.QueryReceiver) error {
 			return err
 		}
 		logr.Infof("Added base image %+v", b)
+	}
+
+	return nil
+}
+
+func templates(d db.QueryReceiver) error {
+	ok, err := shouldSeed(d, "templates")
+	if err != nil || !ok {
+		return err
+	}
+
+	railsConfig := &template.TemplateConfig{
+		Containers: []template.Container{
+			{
+				Name:       "postgres",
+				Slug:       "postgres",
+				Image:      "postgres:9.3",
+				Privileged: false,
+				PublishAll: false,
+				Env:        nil,
+				Ports:      []string{"private:5432:5432"},
+				Volumes:    []string{"database:/var/lib/postgresql/data"},
+			},
+			{
+				Name:       "app",
+				Slug:       "app",
+				Image:      "nitrousio/rails-pg-jumpstart:latest",
+				Privileged: false,
+				PublishAll: true,
+				Env:        nil,
+				Ports:      []string{"public:3000:3000", "public:2222:22"},
+				Volumes:    []string{"workspace:/volumes/workspace"},
+			},
+		},
+		Volumes: []template.Volume{
+			{Name: "workspace", Slug: "workspace"},
+			{Name: "database", Slug: "database"},
+		},
+	}
+	railsConfigJSON, err := json.Marshal(railsConfig)
+	if err != nil {
+		return err
+	}
+
+	vanillaConfig := &template.TemplateConfig{
+		Containers: []template.Container{
+			{
+				Name:       "app",
+				Slug:       "app",
+				Image:      "nitrousio/ubuntu:trusty",
+				Privileged: false,
+				PublishAll: true,
+				Env:        nil,
+				Ports:      []string{"public:2222:22"},
+				Volumes:    []string{},
+			},
+		},
+		Volumes: []template.Volume{},
+	}
+	vanillaConfigJSON, err := json.Marshal(vanillaConfig)
+	if err != nil {
+		return err
+	}
+
+	templates := []template.Template{
+		{
+			Slug:        "rails",
+			Name:        sql.NullString{"Ruby on Rails", true},
+			Description: sql.NullString{"A baseline Ruby on Rails application that uses PostgreSQL as the database backend.\n\nThis template contains:\n  •  Ubuntu 14.04\n  •  Ruby 2.1\n  •  Rails 4.1\n  •  PostgreSQL 9.3", true},
+			Config:      string(railsConfigJSON),
+		},
+		{
+			Slug:        "vanilla",
+			Name:        sql.NullString{"Vanilla", true},
+			Description: sql.NullString{"A vanilla development environment.\n\nThis template contains Ubuntu 14.04 with useful developer tools preinstalled.", true},
+			Config:      string(vanillaConfigJSON),
+		},
+	}
+	for _, t := range templates {
+		if err := t.Insert(d); err != nil {
+			return err
+		}
+		logr.Infof("Added template %+v", t)
 	}
 
 	return nil

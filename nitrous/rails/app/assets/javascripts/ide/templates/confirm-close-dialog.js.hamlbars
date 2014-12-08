@@ -1,0 +1,14 @@
+.modal-header
+  %h3 Close Without Saving?
+.modal-body
+  %p Do you want to save the changes you made in the file &ldquo;{{ view.content.document.title }}&rdquo;?
+  %p Your changes will be lost if you don&rsquo;t save them.
+.modal-footer
+  %button.btn.left(_action='didClickDontSave target="view"')
+    Don&rsquo;t Save
+  %button.btn(_action='didClickCancel target="view"')
+    Cancel
+  %button.btn.save(_action='didClickSave target="view"')
+    {{ view.content.saveButtonTitle }}
+
+
