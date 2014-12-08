@@ -20,7 +20,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   flashMessage: null
 
   currentUser: null
-  box: null
+  slug: null
   token: null
 
   didChangeToken: (->
@@ -30,19 +30,21 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       window.localStorage.removeItem('token')
   ).observes 'token'
 
-  bootstrap: ->
+  bootstrap: (slug) ->
     @set 'LOG_RESOLVER', true
     @set 'LOG_TRANSITIONS', true
     @set 'LOG_TRANSITIONS_INTERNAL', true
     @set 'LOG_VIEW_LOOKUPS', true
 
-    @set 'box', App.Box.create(id: 42, state: 'running')
+    @set 'slug', slug
 
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
 
 App.on 'fetchUser', (user) ->
   App.set 'currentUser', user
+  App.Container.fetch(App.get 'slug').then (container) ->
+    App.set 'box', container
 
 Em.TextSupport.reopen
   attributeBindings: ['readonly']
