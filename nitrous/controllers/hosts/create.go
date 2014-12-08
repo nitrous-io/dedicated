@@ -316,7 +316,26 @@ func setupFromTemplate(slug string, env *middleware.Env, h *host.Host, w io.Writ
 		return err
 	}
 
-	if err := createContainers(cfg.Containers, env, h, w); err != nil {
+	containers := []template.Container{}
+	for _, c := range cfg.Containers {
+		suffix, err := securerandom.Base64(6)
+		if err != nil {
+			return err
+		}
+		containers = append(containers, template.Container{
+			Name:       c.Name,
+			Slug:       fmt.Sprintf("%s-%s", c.Slug, suffix),
+			Image:      c.Image,
+			Cmd:        c.Cmd,
+			Privileged: c.Privileged,
+			PublishAll: c.PublishAll,
+			Env:        c.Env,
+			Ports:      c.Ports,
+			Volumes:    c.Volumes,
+		})
+	}
+
+	if err := createContainers(containers, env, h, w); err != nil {
 		return err
 	}
 
@@ -362,14 +381,9 @@ func createSharedVolume(env *middleware.Env, db *ndb.Database, h *host.Host) err
 
 func createContainers(containers []template.Container, env *middleware.Env, h *host.Host, w io.Writer) error {
 	for i, c := range containers {
-		suffix, err := securerandom.Base64(6)
-		if err != nil {
-			return err
-		}
-
 		options := url.Values{
 			"name":        []string{c.Name},
-			"slug":        []string{fmt.Sprintf("%s-%s", c.Slug, suffix)},
+			"slug":        []string{c.Slug},
 			"image":       []string{c.Image},
 			"env[]":       c.Env,
 			"volume[]":    c.Volumes,
@@ -389,7 +403,7 @@ func createContainers(containers []template.Container, env *middleware.Env, h *h
 		}
 
 		// FIXME Get rid of this awkward func that we introduced for tests.
-		if _, err = CreateContainerFn(h, options, env); err != nil {
+		if _, err := CreateContainerFn(h, options, env); err != nil {
 			env.Logger.Errorf("host.Create: error creating container: %v", err)
 			return errContainerCreationFailed
 		}
