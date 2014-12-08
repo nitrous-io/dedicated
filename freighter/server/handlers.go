@@ -35,6 +35,16 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
+const utilizationInterval = 5 * time.Second
+const utilizationSize = 360 // 30min
+
+var Utilization *stats.Utilization
+
+func init() {
+	Utilization = stats.NewUtilization(utilizationSize)
+	go Utilization.Record(utilizationInterval)
+}
+
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, http.StatusOK, jsonStatusOK)
 }
@@ -479,6 +489,12 @@ func (s *Server) serverInfo(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"info": stats})
+	return nil
+}
+
+func (s *Server) serverUtilization(w http.ResponseWriter, r *http.Request) error {
+	utilization := Utilization.Fetch()
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"utilization": utilization})
 	return nil
 }
 

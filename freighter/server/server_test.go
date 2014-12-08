@@ -1223,6 +1223,43 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("GET /utilization", func() {
+		doRequest := func(period string) {
+			req, err = NewRequestWithSecret(hostSecret, "GET", "/utilization", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("responds with 200 OK and utilization info", func() {
+			now, _ := time.Parse("2006-01-02", "2014-12-31")
+			st := &stats.Stats{
+				Uptime:       30,
+				MemoryUsage:  12345678,
+				MemoryTotal:  17179869184,
+				StorageUsage: 2000000000,
+				StorageTotal: 1000000000000,
+				NumCPU:       2,
+				PerCPUUsage:  []float64{0.5, 30},
+			}
+			server.Utilization.Buffer[0] = stats.UtilizationItem{Time: now, Stats: st}
+			server.Utilization.Index = 1
+			doRequest("")
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Body.String()).To(MatchJSON(`{"utilization":[{
+				"time": "2014-12-31T00:00:00Z",
+				"stats": {
+					"uptime": 30,
+					"memory_usage": 12345678,
+					"memory_total": 17179869184,
+					"storage_usage": 2000000000,
+					"storage_total": 1000000000000,
+					"num_cpu": 2,
+					"per_cpu_usage": [0.5, 30]
+				}
+			}]}`))
+		})
+	})
+
 	Describe("POST /images", func() {
 		doRequest := func(params map[string]string, files map[string]string) {
 			req, err = NewFileRequest(hostSecret, "POST", "/images", params, files)

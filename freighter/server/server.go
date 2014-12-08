@@ -242,6 +242,7 @@ func (s *Server) drawRoutes() {
 	s.secretRoute("/volumes/{slug}", s.wrapError(s.getVolumeInfo), "GET")
 
 	s.secretRoute("/info", s.wrapError(s.serverInfo), "GET")
+	s.secretRoute("/utilization", s.wrapError(s.serverUtilization), "GET")
 }
 
 // given:
