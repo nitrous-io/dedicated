@@ -15,11 +15,43 @@ html.ide
       display: flex
       flex-direction: row
       flex-grow: 1
+      margin-bottom: 1px
 
   .ide-toolbar
     background: $n2oGray700
     border-top: 1px solid $n2oGray900
     border-bottom: 1px solid $n2oGray900
+    flex-shrink: 0
+
+    &.top
+      border-top: none
+
+    &.bottom
+      border-bottom: none
+
+  .ide-toolbar-btns
+    flex-shrink: 0
+    padding: 0 6px
+    text-align: center
+
+    .ui.btn
+      height: 32px
+      border-radius: 0
+      padding: 0 10px
+      color: $n2oGray200
+
+      &:first-of-type
+        margin-left: 0
+
+      &.icon
+        width: 32px
+        padding: 0
+
+      &:focus:not(:hover)
+        background: none
+
+  .ide-tabs
+    margin: 0
 
   .ide-side-pane-border
     position: absolute

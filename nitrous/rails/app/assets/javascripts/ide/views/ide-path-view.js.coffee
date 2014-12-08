@@ -1,9 +1,9 @@
 App.IdePathView = Em.View.extend App.IdeDragDropViewMixin,
-  templateName: 'ide/templates/path'
+  templateName: 'ide/path'
   tagName: 'li'
   path: null
   droppable: false
-  classNameBindings: ['path.selected', 'droppable']
+  classNameBindings: ['path.selected', 'path.expanded', 'droppable']
   attributeBindings: 'draggable'
 
   click: (event) ->
@@ -65,13 +65,13 @@ App.IdePathView = Em.View.extend App.IdeDragDropViewMixin,
   _getDroppable: ->
     parentView = null
     path = @get 'path'
-    draggedPath = @get('controller').get 'currentlyDraggedPath'
-    # if current path is not a directory
-    # choose its parent (directory) as the drop target
-    unless path.get 'directory'
-      parentView = this.nearestOfType App.IdePathView
-      path = parentView.get 'path'
-    # should not drop to dragged path or its parent itself
-    absolutePath = path.get 'absolutePath'
-    unless (absolutePath == draggedPath.get('absolutePath')) || (absolutePath == draggedPath.get('parentAbsolutePath'))
-      parentView || this
+    if draggedPath = @get('controller').get 'currentlyDraggedPath'
+      # if current path is not a directory
+      # choose its parent (directory) as the drop target
+      unless path.get 'directory'
+        parentView = this.nearestOfType App.IdePathView
+        path = parentView.get 'path'
+      # should not drop to dragged path or its parent itself
+      absolutePath = path.get 'absolutePath'
+      unless (absolutePath == draggedPath.get('absolutePath')) || (absolutePath == draggedPath.get('parentAbsolutePath'))
+        parentView || this

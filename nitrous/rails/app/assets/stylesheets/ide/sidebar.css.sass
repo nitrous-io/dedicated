@@ -1,0 +1,95 @@
+@import 'variables'
+
+#ide-sidebar-view
+  display: flex
+  flex-shrink: 0
+  width: 250px
+  margin-right: 1px
+
+  .sidebar-body
+    position: relative
+    background: $n2oGray800
+    display: flex
+    flex-grow: 1
+    flex-direction: column
+
+    .ide-toolbar
+      &.top
+        display: flex
+        flex-direction: row
+
+        h2, .ui.btn
+          line-height: 32px
+
+        h2
+          flex-grow: 1
+          margin: 0
+          padding-left: 16px
+          font-size: 14px
+          font-weight: 500
+          text-transform: uppercase
+          color: $n2oGray300
+
+    .tree
+      $itemHeight: 24px
+
+      position: relative
+      flex-grow: 1
+      overflow: auto
+      font-size: 14px
+      line-height: $itemHeight
+
+      ul.root
+        margin: 0
+        padding: 8px 0 0 32px
+
+      ul
+        list-style: none
+        padding: 0 0 0 16px
+
+      .fa
+        margin-left: -16px
+        width: 8px
+        margin-right: 8px
+        text-align: center
+        color: $n2oGray400
+
+      a
+        color: $n2oGray200
+        transition: color .2s
+
+        &:before
+          content: ''
+          position: absolute
+          display: block
+          left: 0
+          width: 100%
+          height: $itemHeight
+          transition: background-color .2s
+          background: transparent
+
+        &:hover
+          &:before
+            background: rgba($n2oGray400, .2)
+
+        &.loading
+          color: $n2oGray100
+
+      li.selected
+        a
+          &:before
+            background: rgba($n2oGray400, .4)
+
+          span
+            position: relative
+
+      .ide-editable-path-name-view
+        padding-right: 2px
+
+        input
+          position: relative
+          display: inline-block
+          left: -9px
+          height: 24px
+          line-height: 24px
+          padding: 0 8px

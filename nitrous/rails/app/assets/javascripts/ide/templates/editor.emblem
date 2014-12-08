@@ -1,10 +1,10 @@
-.ide-toolbar
-  .ide-tabs
-    ul
-      each content
-        App.IdeTabView content=this
-
+.ide-toolbar.top
+  ul.ide-tabs
+    each content
+      App.IdeTabView content=this
+  .ide-toolbar-btns.ide-new-tab
     button.new_tab_button.small_button.btn.fa.fa-plus click='didClickNew target="view"' title='New Tab'
+  .ide-toolbar-btns
     button.fullscreen_button.small_button.btn.fa.fa-arrows-alt click='didClickFullScreen target="view"' title='Toggle Full Screen'
 
 .ide-document-views

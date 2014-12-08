@@ -1,26 +1,24 @@
 .sidebar-body
   .ide-toolbar.top
     h2
-      | my-box
-      /= App.router.ideController.content.name
-    .btn-group
-      button.btn title='Set Home Folder As Root' click='didClickSetHomeAsRoot target="view"' disabled=sftpSocketNotReady
+      = App.router.ideController.content.name
+    .ide-toolbar-btns
+      button.ui.btn.icon title='Set Home Folder As Root' click='didClickSetHomeAsRoot target="view"' disabled=sftpSocketNotReady
         i.fa.fa-home
-      button.btn title='Refresh Tree' click='didClickRefresh target="view"' disabled=sftpSocketNotReady
+      button.ui.btn.icon title='Refresh Tree' click='didClickRefresh target="view"' disabled=sftpSocketNotReady
         i.fa.fa-refresh
   .tree contextMenu='didRightClickBackground target="view"'
-    ul
+    ul.root
       App.IdePathView path=rootPath
   .ide-toolbar.bottom
-    button.btn click='didClickUpload target="view"' disabled=sftpSocketNotReady
-      i.fa.fa-upload
-      | Upload Files
-    button.btn click='didClickShowHidden target="view"' disabled=sftpSocketNotReady
-      i.fa.fa-eye
-      if hiddenFilesVisible
-        | Hide Hidden
-      else
-        | Show Hidden
+    .ide-toolbar-btns
+      button.ui.btn click='didClickUpload target="view"' disabled=sftpSocketNotReady
+        | Upload Files
+      button.ui.btn click='didClickShowHidden target="view"' disabled=sftpSocketNotReady
+        if hiddenFilesVisible
+          | Hide Hidden
+        else
+          | Show Hidden
   App.IdeSidebarBorderView
 
 App.IdePathContextMenuView viewName="contextMenuView"
