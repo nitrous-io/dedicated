@@ -15,12 +15,11 @@ set -e
 die() {
   echo $* && exit 1
 }
+
 RELEASE=${1:?"app name is required"}
 # by default, we only allow release via docker
 IN_DOCKER=${2="true"}
 BUILD_DIR=/root/app
-
-
 
 # check if we should upload the artifacts to private debian repo or s3
 UPLOAD_DEB=${UPLOAD_DEB:="false"}
@@ -132,6 +131,7 @@ bundle_nitro() {
 }
 
 bundle_freighter() {
+  REGIONS="sfo nyc ams sgp"
   FILES=/root/debian/freighter/files
   PKGDIR=/root/app/freighter_deb
   VERSION=$(cat /root/app/freighterd-VERSION)
@@ -212,6 +212,12 @@ bundle_freighter() {
   # copy over to build dir for convenience
   cp $DEB $BUILD_DIR/$DEB
   )
+
+  # upload version file to public s3
+  upload_public_s3 $BUILD_DIR/freighterd-VERSION freighterd-version
+  for REGION in $REGIONS; do
+    upload_public_s3 $BUILD_DIR/freighterd-VERSION $REGION
+  done
 }
 
 if [ "$IN_DOCKER" == "true" ]; then
