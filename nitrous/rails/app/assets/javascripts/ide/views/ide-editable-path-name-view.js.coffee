@@ -1,6 +1,6 @@
 App.IdeEditablePathNameView = Em.View.extend
-  templateName: 'ide/templates/editable-path-name'
-  classNames: ['ide_editable_path_name_view']
+  templateName: 'ide/editable-path-name'
+  classNames: ['ide-editable-path-name-view']
 
   path: null
   newPathName: ''
@@ -60,4 +60,3 @@ App.IdeEditablePathNameTextField = Em.TextField.extend
       @set 'finished', true
       @set 'disabled', true
       @get('parentView').didCancelEditing()
-

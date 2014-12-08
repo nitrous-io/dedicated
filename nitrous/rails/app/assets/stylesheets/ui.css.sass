@@ -112,7 +112,7 @@
         height: $dropdownMenuItemHeight
         line-height: $dropdownMenuItemHeight
         padding: 0 24px
-        color: $n2oGray100
+        color: $n2oGray200
         transition: background-color .2s
 
         &:hover
@@ -265,15 +265,15 @@ table.ui.table
   &.raised
     background: rgba($n2oGray400, .2)
 
-    &:hover
-      background: rgba($n2oGray400, .4)
-
     &:focus
       background: rgba($n2oGray400, .4)
       outline: none
 
     &:active
       background: rgba($n2oGray400, .6)
+
+    &:hover
+      background: rgba($n2oGray400, .4)
 
   &:disabled, &[disabled], &.disabled
     color: $n2oGray300
@@ -287,14 +287,14 @@ table.ui.table
     background: $lightBlue800
     color: white
 
-    &:hover
-      background: $lightBlue600
-
     &:focus
       background: $lightBlue600
 
     &:active
       background: $lightBlue700
+
+    &:hover
+      background: $lightBlue600
 
     &:disabled, &[disabled], &.disabled
       color: #f9f9f9
@@ -871,9 +871,9 @@ ul.ui.snackbar
       > a
         display: inline-block
         padding: 0 12px
-        color: $n2oGray100
+        color: $n2oGray200
         line-height: $topnavHeight
-        transition: background-color .1s
+        transition: background-color .2s
 
         &:hover
           background: $n2oGray500

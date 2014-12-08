@@ -2,24 +2,23 @@
   .ide-toolbar.top
     h2
       = App.router.indexController.content.name
-    .btn-group
-      button.btn title='Set Home Folder As Root' click='didClickSetHomeAsRoot target="view"' disabled=opsSocketNotReady
+    .ide-toolbar-btns
+      button.ui.btn.icon title='Set Home Folder As Root' click='didClickSetHomeAsRoot target="view"' disabled=opsSocketNotReady
         i.fa.fa-home
-      button.btn title='Refresh Tree' click='didClickRefresh target="view"' disabled=opsSocketNotReady
+      button.ui.btn.icon title='Refresh Tree' click='didClickRefresh target="view"' disabled=opsSocketNotReady
         i.fa.fa-refresh
   .tree contextMenu='didRightClickBackground target="view"'
-    ul
+    ul.root
       App.IdePathView path=rootPath
   .ide-toolbar.bottom
-    button.btn click='didClickUpload target="view"' disabled=opsSocketNotReady
-      i.fa.fa-upload
-      | Upload Files
-    button.btn click='didClickShowHidden target="view"' disabled=opsSocketNotReady
-      i.fa.fa-eye
-      if hiddenFilesVisible
-        | Hide Hidden
-      else
-        | Show Hidden
+    .ide-toolbar-btns
+      button.ui.btn click='didClickUpload target="view"' disabled=opsSocketNotReady
+        | Upload Files
+      button.ui.btn click='didClickShowHidden target="view"' disabled=opsSocketNotReady
+        if hiddenFilesVisible
+          | Hide Hidden
+        else
+          | Show Hidden
   App.IdeSidebarBorderView
 
 App.IdePathContextMenuView viewName="contextMenuView"

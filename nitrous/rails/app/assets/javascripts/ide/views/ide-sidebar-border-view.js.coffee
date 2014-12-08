@@ -1,8 +1,8 @@
 App.IdeSidebarBorderView = Em.View.extend
   elementId: 'ide-sidebar-border-view'
   classNames: ['ide-side-pane-border']
-  width: 240
-  minWidth: 240
+  width: 250
+  minWidth: 250
 
   mouseDown: (event) ->
     event.preventDefault()
