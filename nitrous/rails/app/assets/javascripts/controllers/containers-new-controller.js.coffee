@@ -5,6 +5,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
   selectedHostSlug: null
   name: null
   slug: null
+  error: null
   invalidField: null
 
   image: null
@@ -16,6 +17,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       selectedHostSlug: null
       name: null
       slug: null
+      error: null
       invalidField: null
 
       image: null
