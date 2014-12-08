@@ -1,16 +1,19 @@
 App.IdeConsoleBorderView
 
-.ide-toolbar.top
-  ul.ide-tabs
+.ide-toolbar.ide-tab-bar.top
+  ul.ui.tab-bar.ide-tabs
     each content
-      li class={active}
+      li class={active:selected}
         a href='#' click='didClickTab this target="view"'
-          button.close_tab_button.fa.fa-times click='didClickClose this target="view"' title='Close Tab'
+          button.close title='Close Tab' click='didClickClose this target="view"'
+            i.fa.fa-times
           span Console
   .ide-toolbar-btns.ide-new-tab
-    button.new_tab_button.small_button.btn.fa.fa-plus click='didClickNew target="view"' title='New Tab'
+    button.ui.btn.icon title='New Tab' click='didClickNew target="view"'
+      i.fa.fa-plus
   .ide-toolbar-btns
-    button.fullscreen_button.small_button.btn.fa.fa-arrows-alt click='didClickFullScreen target="view"' title='Toggle Full Screen'
+    button.ui.btn.icon title='Toggle Full Screen' click='didClickFullScreen target="view"'
+      i.fa.fa-arrows-alt
 
 .console_sessions
   each content

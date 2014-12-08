@@ -50,8 +50,50 @@ html.ide
       &:focus:not(:hover)
         background: none
 
-  .ide-tabs
-    margin: 0
+  .ide-tab-bar
+    display: flex
+
+    .ide-new-tab
+      flex-grow: 1
+      text-align: left
+
+  ul.ide-tabs
+    background: transparent
+    border-bottom: none
+
+    > li
+      height: 32px
+
+      a
+        text-transform: none
+        line-height: 32px
+        padding: 0 16px
+
+      .close
+        width: 20px
+        height: 20px
+        border-radius: 10px
+        margin: 0
+        padding: 0
+        line-height: 20px
+        margin-left: -8px
+        margin-right: 4px
+        background: none
+        border: none
+        transition: background-color .2s
+
+        &:hover
+          background: rgba($n2oGray400, .2)
+
+        &:focus
+          outline: none
+
+        &:active
+          background: rgba($n2oGray400, .4)
+
+      &.selected
+        .ui.btn.close
+          color: $lightBlue500
 
   .ide-side-pane-border
     position: absolute
