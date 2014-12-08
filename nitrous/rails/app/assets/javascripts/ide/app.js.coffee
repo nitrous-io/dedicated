@@ -21,6 +21,14 @@ window.NitrousIO = Em.Application.extend Em.Evented,
 
   currentUser: null
   box: null
+  token: null
+
+  didChangeToken: (->
+    if token = @get('token')
+      window.localStorage.setItem('token', token)
+    else
+      window.localStorage.removeItem('token')
+  ).observes 'token'
 
   bootstrap: ->
     @set 'LOG_RESOLVER', true
@@ -28,11 +36,13 @@ window.NitrousIO = Em.Application.extend Em.Evented,
     @set 'LOG_TRANSITIONS_INTERNAL', true
     @set 'LOG_VIEW_LOOKUPS', true
 
-    @set 'currentUser', App.CurrentUser.create(username: 'test', email: 'test@example.com')
-    # FIXME: temp
     @set 'box', App.Box.create(id: 42, state: 'running')
 
-window.App = NitrousIO.create()
+window.App = NitrousIO.create
+  token: window.localStorage.getItem('token')
+
+App.on 'fetchUser', (user) ->
+  App.set 'currentUser', user
 
 Em.TextSupport.reopen
   attributeBindings: ['readonly']
