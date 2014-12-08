@@ -14,42 +14,41 @@
         span.click-highlight
           = slug
 
-    if App.user.advanced
+    tr
+      th Image
+      td colspan='3'
+        span.click-highlight
+          = image
+
+    if cmd
       tr
-        th Image
+        th CMD
         td colspan='3'
-          span.click-highlight
-            = image
+          ul.space-separated.blocks
+            each cm in cmd
+              li
+                span.click-highlight
+                  = cm
 
-      if cmd
-        tr
-          th CMD
-          td colspan='3'
-            ul.space-separated.blocks
-              each cm in cmd
-                li
-                  span.click-highlight
-                    = cm
-
-      if entrypoint
-        tr
-          th ENTRYPOINT
-          td colspan='3'
-            ul.space-separated.blocks
-              each ep in entrypoint
-                li
-                  span.click-highlight
-                    = ep
-
+    if entrypoint
       tr
-        th Internal IP
-        td
-          span.click-highlight
-            = ipAddress
-        th Gateway IP
-        td.right
-          span.click-highlight
-            = gatewayIP
+        th ENTRYPOINT
+        td colspan='3'
+          ul.space-separated.blocks
+            each ep in entrypoint
+              li
+                span.click-highlight
+                  = ep
+
+    tr
+      th Internal IP
+      td
+        span.click-highlight
+          = ipAddress
+      th Gateway IP
+      td.right
+        span.click-highlight
+          = gatewayIP
 
     tr
       th Hostname
@@ -66,31 +65,26 @@
 
     tr
       th Created At
-      if App.user.advanced
-        td
-          = dateabbr createdAt
-          th Started At
-        td
-          if startedAt
-            = dateabbr startedAt
-          else
-            span.empty &ndash;
-      else
-        td colspan='3'
-          = dateabbr createdAt
+      td
+        = dateabbr createdAt
+        th Started At
+      td
+        if startedAt
+          = dateabbr startedAt
+        else
+          span.empty &ndash;
 
-    if App.user.advanced
-      tr
-        th Exit Code
-        td
-          span.click-highlight
-            = exitCodeString
-        th Finished At
-        td.right
-          if finishedAt
-            = dateabbr finishedAt
-          else
-            span.empty &ndash;
+    tr
+      th Exit Code
+      td
+        span.click-highlight
+          = exitCodeString
+      th Finished At
+      td.right
+        if finishedAt
+          = dateabbr finishedAt
+        else
+          span.empty &ndash;
 
 .card-footer.bordered
   if isRunning
@@ -98,11 +92,9 @@
       button.ui.btn click='restart' Restart
       button.ui.btn click='stop' Stop
     .right
-      if App.user.advanced
-        button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
-      button.ui.btn click='openLogs' Logs...
-      if App.user.advanced
-        button.ui.btn click='openAttach' Attach
+      button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
+      button.ui.btn click='openLogs' Logs
+      button.ui.btn click='openAttach' Attach
       if previewURL
         a.ui.btn href=previewURL target='_blank' Preview
       button.ui.btn click='openTerminal' Terminal
@@ -112,9 +104,8 @@
       .left
         button.ui.btn click='showTerminateDialog target="view"' Terminate...
       .right
-        if App.user.advancedOptionsEnabled
-          button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
-        button.ui.btn click='openLogs' Logs...
+        button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
+        button.ui.btn click='openLogs' Logs
         button.ui.btn.primary click='start' Start
     else
       if isTerminated

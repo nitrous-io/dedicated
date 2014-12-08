@@ -1,7 +1,7 @@
 App.BaseImageView = Em.View.extend
   templateName: 'base-image'
   tagName: 'li'
-  classNames: ['base-image-view']
+  classNames: ['ui', 'icon-picker']
   classNameBindings: ['isSelected:selected', 'disabled']
 
   disabled: false

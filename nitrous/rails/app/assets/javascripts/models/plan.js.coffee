@@ -18,10 +18,13 @@ App.Plan = klass = App.Model.extend
 
   displayName: (->
     name = @get 'name'
+    price = @get 'price'
+    cpu = @get 'cpu'
     memory = @get 'memory'
+    storage = @get 'storage'
     if name && memory
-      "#{name} (#{memory})"
-  ).property 'name', 'memory'
+      "#{name} - #{memory} ram / #{storage} ssd / #{cpu} cpu"
+  ).property 'name', 'price', 'cpu', 'memory', 'storage'
 
 klass.reopenClass
   url: '/plans'

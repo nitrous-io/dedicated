@@ -45,12 +45,12 @@ form submit='updateSettings'
           .ui.checkbox
             = input type='checkbox' id='account-advanced' checked=advanced
             label
-          label for='account-advanced' Show Advanced Settings
+          label for='account-advanced' Show Advanced Container Management Options
           p.note
             strong
               ' Warning:
-            ' Changing advanced settings may affect the stability, security, and performance of your applications and containers, or even render them unusable.
-            | Only enable this if you know what you are doing.
+            ' Using advanced container management features may affect the stability, security, and performance of your applications, or may even render them unusable.
+            | Use at your own risk. Enable this option only if you know what you are doing.
 
   .card-footer.bordered
     .right

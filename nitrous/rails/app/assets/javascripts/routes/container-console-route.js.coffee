@@ -1,16 +1,13 @@
 #= require ./authed-route
 
-App.ContainerTerminalRoute = App.AuthedRoute.extend
-  activate: ->
-    App.set 'title', 'Terminal'
-
+App.ContainerConsoleRoute = App.AuthedRoute.extend
   deactivate: ->
     @get('controller.socket')?.disconnect()
     @set 'controller.model', null
 
   renderTemplate: ->
-    @render 'container/terminal', into: 'container'
+    @render 'container/console', into: 'container'
 
   setupController: (controller, model) ->
     @_super.apply this, arguments
-    App.set 'title', model.get('displayName') + ' › Terminal'
+    App.set 'title', model.get('displayName') + ' › Console'

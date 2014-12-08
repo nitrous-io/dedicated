@@ -548,5 +548,20 @@ func init() {
 				CREATE INDEX index_host_transitions_on_host_id ON host_transitions USING btree (host_id);
 			`,
 		},
+		{
+			Version: "460",
+			Up: `
+				CREATE TABLE templates (
+					id bigserial PRIMARY KEY NOT NULL,
+					slug character varying(255) NOT NULL,
+					name character varying(255),
+					description character varying,
+					config character varying NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE UNIQUE INDEX index_templates_on_slug ON templates USING btree (slug);
+			`,
+		},
 	}
 }
