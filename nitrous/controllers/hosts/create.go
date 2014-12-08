@@ -31,6 +31,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
@@ -361,9 +362,14 @@ func createSharedVolume(env *middleware.Env, db *ndb.Database, h *host.Host) err
 
 func createContainers(containers []template.Container, env *middleware.Env, h *host.Host, w io.Writer) error {
 	for i, c := range containers {
+		suffix, err := securerandom.Base64(6)
+		if err != nil {
+			return err
+		}
+
 		options := url.Values{
 			"name":        []string{c.Name},
-			"slug":        []string{c.Slug},
+			"slug":        []string{fmt.Sprintf("%s-%s", c.Slug, suffix)},
 			"image":       []string{c.Image},
 			"env[]":       c.Env,
 			"volume[]":    c.Volumes,
@@ -377,15 +383,13 @@ func createContainers(containers []template.Container, env *middleware.Env, h *h
 		fmt.Fprintln(stream, state)
 
 		// FIXME Get rid of this awkward func that we introduced for tests.
-		_, err := PullImageFn(h, url.Values{"repository": options["image"]}, env, w, nil, false)
-		if err != nil {
+		if _, err := PullImageFn(h, url.Values{"repository": options["image"]}, env, w, nil, false); err != nil {
 			env.Logger.Errorf("host.Create: error pulling container image: %v", err)
 			return err
 		}
 
 		// FIXME Get rid of this awkward func that we introduced for tests.
-		_, err = CreateContainerFn(h, options, env)
-		if err != nil {
+		if _, err = CreateContainerFn(h, options, env); err != nil {
 			env.Logger.Errorf("host.Create: error creating container: %v", err)
 			return errContainerCreationFailed
 		}
