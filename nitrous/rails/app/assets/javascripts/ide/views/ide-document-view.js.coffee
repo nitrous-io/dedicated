@@ -1,8 +1,8 @@
 TAB_SIZES = [2, 3, 4, 8]
 
 App.IdeDocumentView = Em.View.extend
-  templateName: 'ide/templates/document'
-  classNames: ['ide_document_view']
+  templateName: 'ide/document'
+  classNames: ['ide-document-view']
 
   document: null
   editor: null
@@ -133,7 +133,7 @@ App.IdeDocumentView = Em.View.extend
   ).observes 'document.splitSelectionIntoLinesTrigger'
 
   insertEditor: ->
-    $codeEditor = @$('.code_editor')
+    $codeEditor = @$('.code-editor')
     return if $codeEditor.length == 0
 
     settings = @getProperties(App.Editor.SETTINGS)

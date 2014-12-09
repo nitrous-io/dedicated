@@ -18,6 +18,9 @@ html.wf-active body
 html.wf-active .monospace
   font-family: $monospaceFont
 
+code, kbd, pre, samp
+  font-family: $monospaceFont
+
 h1, h2, h3, h4
   margin: 8px 0
   color: $n2oGray200
@@ -159,15 +162,6 @@ ul.space-separated
   i.spinner
     margin: 0 8px 0 0
 
-.CodeMirror
-  border: 1px solid $gray300
-  margin-bottom: 1px
-  transition: border-bottom-color .2s
-
-  &.CodeMirror-focused
-    border-bottom: 2px solid $lightBlue500
-    margin-bottom: 0
-
 .page-footer
   .container
     display: flex
@@ -193,3 +187,7 @@ ul.space-separated
 
     .right
       text-align: right
+
+.CodeMirror
+  font-family: $monospaceFont !important
+  font-size: 14px

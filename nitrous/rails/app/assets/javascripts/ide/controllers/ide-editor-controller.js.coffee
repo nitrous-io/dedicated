@@ -11,7 +11,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
   softTabs: true
   tabSize: 2
-  theme: 'vibrant-ink'
+  theme: 'solarized dark'
   wrapLines: true
   highlightLine: true
   showLineNumbers: true
