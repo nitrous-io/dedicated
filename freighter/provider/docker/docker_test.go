@@ -1010,15 +1010,19 @@ var _ = Describe("provider/docker", func() {
 		It("runs the command specified by the NITROUS_CMD env var inside the container", func() {
 			name := RandomName("freightertest")
 			configJSON := `{
-				"Env": ["NITROUS_CMD=while true; do echo hello world >> /log; sleep 1; done"]
+				"Env": ["NITROUS_CMD=python -m SimpleHTTPServer 8080"]
 			}`
 			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
 			Expect(err).To(BeNil())
 			defer CleanUpContainer(name)
 
-			out, err := exec.Command("docker", "exec", info.ID, "/bin/cat", "/log").CombinedOutput()
+			// Give the HTTP server some time to get started.
+			time.Sleep(500 * time.Millisecond)
+
+			// Make sure we can connect to the HTTP server in the container.
+			ip := getHost(info.ID)
+			_, err = net.Dial("tcp", fmt.Sprintf("%s:8080", ip))
 			Expect(err).To(BeNil())
-			Expect(string(out)).To(ContainSubstring(`hello world`))
 		})
 	})
 
