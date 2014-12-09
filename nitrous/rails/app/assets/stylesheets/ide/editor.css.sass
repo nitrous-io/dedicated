@@ -1,4 +1,46 @@
 @import 'variables'
 
 #ide-editor-view
+  display: flex
+  flex-direction: column
   flex-grow: 1
+
+  .ide-document-views
+    display: flex
+    flex-grow: 1
+
+  .ide-document-view
+    flex-grow: 1
+    display: none
+
+    &.active
+      display: flex
+      flex-direction: column
+
+    .ide-toolbar
+      .ui.btn.dropdown
+        position: relative
+
+        &.open
+          background: rgba($n2oGray400, .4) !important
+
+      ul.dropdown-menu
+        margin-top: 6px
+        text-transform: none
+
+        &.modes
+          height: 376px
+          overflow-y: auto
+
+  .code-editor
+    display: flex
+    flex-grow: 1
+    flex-direction: column
+
+  .CodeMirror
+    display: flex
+    flex-grow: 1
+    flex-direction: column
+
+  .CodeMirror-scroll
+    flex-grow: 1

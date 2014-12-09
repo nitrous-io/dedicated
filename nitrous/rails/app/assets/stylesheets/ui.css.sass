@@ -88,6 +88,7 @@
     z-index: 10
     left: 0
     right: auto
+    margin: 0
     padding: 8px 0
     list-style: none
     white-space: nowrap
@@ -100,6 +101,7 @@
     $dropdownMenuItemHeight: 32px
     background: $n2oGray700
     display: none
+    text-align: left
 
     > li
       &.separator
@@ -114,6 +116,11 @@
         padding: 0 24px
         color: $n2oGray200
         transition: background-color .2s
+
+        .fa
+          width: 24px
+          margin-left: -24px
+          text-align: center
 
         &:hover
           background: $n2oGray500
