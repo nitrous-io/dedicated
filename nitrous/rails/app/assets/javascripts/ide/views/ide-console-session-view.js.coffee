@@ -1,10 +1,13 @@
 consoleSessionViewNextId = 0
 
 App.IdeConsoleSessionView = Em.View.extend
-  templateName: 'ide/templates/console-session'
+  tagName: 'iframe'
   consoleSessionViewId: null
   consoleSession: null
+  classNames: ['ide-console-session-view']
   classNameBindings: ['consoleSession.active:active']
+  attributeBindings: ['src']
+  srcBinding: 'App.router.ideController.content.webTerminalPath'
 
   init: ->
     @set 'consoleSessionViewId', ++consoleSessionViewNextId

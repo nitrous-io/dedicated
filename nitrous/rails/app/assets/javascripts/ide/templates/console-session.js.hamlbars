@@ -1,1 +1,0 @@
-%iframe{ bind: { src: 'App.router.ideController.content.webTerminalPath' } }
