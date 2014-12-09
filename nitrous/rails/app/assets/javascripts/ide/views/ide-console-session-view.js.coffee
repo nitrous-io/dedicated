@@ -1,16 +1,17 @@
 consoleSessionViewNextId = 0
 
 App.IdeConsoleSessionView = Em.View.extend
-  templateName: 'ide/templates/console-session'
+  templateName: 'ide/console-session'
   consoleSessionViewId: null
   consoleSession: null
-  classNameBindings: [':console_session', 'consoleSession.active:active']
+  classNames: ['ide-console-session-view']
+  classNameBindings: ['consoleSession.active:active']
+
+  iframeInjected: false
 
   init: ->
     @set 'consoleSessionViewId', ++consoleSessionViewNextId
     @_super.apply this, arguments
-
-  iframeInjected: false
 
   didInsertElement: ->
     @_super()
@@ -41,8 +42,7 @@ App.IdeConsoleSessionView = Em.View.extend
         , 10)
     , 800)
 
-  injectIframe: (->
-    #return unless @get 'controller.ready'
+  injectIframe: ->
     return if @get 'iframeInjected'
     @set 'iframeInjected', true
     Em.run.scheduleOnce 'afterRender', this, ->
@@ -72,4 +72,3 @@ App.IdeConsoleSessionView = Em.View.extend
         # openTerminal will call terminal.open again after setting the URL.
         terminal.open()
       iframeDocument.body.appendChild(scriptEl)
-  )

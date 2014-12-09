@@ -7,7 +7,7 @@ App.IdeConsoleBorderView
         a href='#' click='didClickTab this target="view"'
           button.close title='Close Tab' click='didClickClose this target="view"'
             i.fa.fa-times
-          span Console
+          span Terminal
   .ide-toolbar-btns.ide-new-tab
     button.ui.btn.icon title='New Tab' click='didClickNew target="view"'
       i.fa.fa-plus
@@ -15,6 +15,6 @@ App.IdeConsoleBorderView
     button.ui.btn.icon title='Toggle Full Screen' click='didClickFullScreen target="view"'
       i.fa.fa-arrows-alt
 
-.console_sessions
+.console-sessions
   each content
     App.IdeConsoleSessionView consoleSession=this
