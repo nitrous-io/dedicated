@@ -31,6 +31,7 @@ var (
 const (
 	nitrousImageEnv = "NITROUS_IMAGE_VERSION"
 	nitrousCmdEnv   = "NITROUS_CMD"
+	nitrousUserEnv  = "NITROUS_USERNAME"
 )
 
 const defaultDockerRegistry = "index.docker.io"
@@ -376,8 +377,9 @@ func (p *DockerProvider) StartApp(id string) error {
 		return nil
 	}
 
+	usr, _ := p.appUser(container)
 	exec, err := p.client.CreateExec(dockerclient.CreateExecOptions{
-		Cmd:       execForm(cmd),
+		Cmd:       execForm(cmd, usr),
 		Container: id,
 		Tty:       false,
 	})
@@ -405,7 +407,8 @@ func (p *DockerProvider) StopApp(id string) error {
 
 	// FIXME We should kill the docker exec process via Docker's remote API (see
 	// https://github.com/docker/docker/pull/9167) instead of relying on pgrep.
-	fullCmd := strings.Join(execForm(cmd), " ")
+	usr, _ := p.appUser(container)
+	fullCmd := strings.Join(execForm(cmd, usr), " ")
 	nsenterCmd := fmt.Sprintf(`nsenter-exec --nspid %d -- %s`, container.State.Pid, fullCmd)
 
 	pgrepCmd := exec.Command("pgrep", "--full", "--exact", "--newest", nsenterCmd)
@@ -432,7 +435,18 @@ func (p *DockerProvider) StopApp(id string) error {
 	return syscall.Kill(-pgid, syscall.SIGTERM)
 }
 
-func execForm(cmd string) []string {
+func execForm(cmd, usr string) []string {
+	if usr != "" {
+		// When running command as a different user, we need:
+		// 1. a login shell (so that /etc/profile, etc. are read)
+		// 2. to preserve Docker env vars.
+		return []string{
+			"su", usr,
+			"-c", cmd,
+			"--login",                // Use a login shell so that /etc/profile, etc. are loaded.
+			"--preserve-environment", // To preserve Docker env vars.
+		}
+	}
 	return []string{"/bin/sh", "-c", cmd}
 }
 
@@ -1179,6 +1193,10 @@ func (p *DockerProvider) isNitrousImage(fullName string) bool {
 
 func (p *DockerProvider) appCmd(container *dockerclient.Container) (string, bool) {
 	return envValue(container.Config.Env, nitrousCmdEnv)
+}
+
+func (p *DockerProvider) appUser(container *dockerclient.Container) (string, bool) {
+	return envValue(container.Config.Env, nitrousUserEnv)
 }
 
 func envValue(env []string, envVar string) (string, bool) {
