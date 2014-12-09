@@ -1022,12 +1022,13 @@ var _ = Describe("provider/docker", func() {
 		})
 	})
 
-	Describe(".StopApp()", func() {
+	FDescribe(".StopApp()", func() {
 		BeforeEach(func() {
 			PullImage(NitrousImage)
 		})
 
 		It("kills the NITROUS_CMD process that's running inside the container", func() {
+			println("kills the NITROUS_CMD process")
 			name := RandomName("freightertest")
 			configJSON := `{
 				"Env": ["NITROUS_CMD=python -m SimpleHTTPServer 8080"]
@@ -1058,6 +1059,7 @@ var _ = Describe("provider/docker", func() {
 		})
 
 		It("does not return an error if NITROUS_CMD is not specified", func() {
+			println("does not return an error...")
 			name := RandomName("freightertest")
 			configJSON := ""
 			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
