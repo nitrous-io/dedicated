@@ -7,15 +7,22 @@ html.ide
     height: 100%
 
 #ide-view
-  .ide-body
+  .ide-window
     display: flex
     flex-direction: column
+    height: 100%
+
+  .ide-body
+    position: relative
+    display: flex
+    flex-direction: column
+    flex-grow: 1
+    border-top: 1px solid $n2oGray900
 
     .ide-body-editor
       display: flex
       flex-direction: row
       flex-grow: 1
-      border-top: 1px solid $n2oGray900
 
   .ide-toolbar
     background: $n2oGray700
