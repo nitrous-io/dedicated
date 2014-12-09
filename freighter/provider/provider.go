@@ -52,6 +52,9 @@ type Provider interface {
 	RemovePublicKey(id string, keyFingerprint string) (err error)
 	Reconfig(id, config string) (info *ContainerInfo, err error)
 
+	StartApp(id string) error
+	StopApp(id string) error
+
 	//ForwardPort(id string, hostPort uint16, containerPort uint16) (err error)
 	//TakeSnapshot(id string, tag name, description string) (info *SnapshotInfo, err error)
 	//RestoreSnapshot(id string, snapshotID string) (err error)

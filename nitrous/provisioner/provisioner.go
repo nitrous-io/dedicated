@@ -179,7 +179,7 @@ func (p *Provisioner) Start() error {
 						errCh <- err
 						return
 					}
-					logPrefix := fmt.Sprintf("provisioner: host count for (template,region,plan) (%d,%d,%d) is %d, max is %d: ",
+					logPrefix := fmt.Sprintf("provisioner: host count for (template,region,plan) (%d,%d,%d) is %d, max is %d:",
 						pt.ID, pt.RegionID, pt.PlanID, numHosts, pt.PreprovisionMax)
 					needed := pt.PreprovisionMax - numHosts
 					if needed <= 0 {

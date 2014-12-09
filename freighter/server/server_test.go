@@ -576,6 +576,68 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("POST /containers/:container_id/app/start", func() {
+		var id = "deadbeef"
+
+		doRequest := func() {
+			req, err = NewRequestWithSecret(hostSecret, "POST", fmt.Sprintf("/containers/%v/app/start", id), nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.StartApp()", func() {
+			Expect(prov.StartAppCalled).To(BeFalse())
+			doRequest()
+			Expect(prov.StartAppCalled).To(BeTrue())
+			Expect(prov.ReceivedID).To(Equal(id))
+		})
+
+		It("responds with 200 OK", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Body.String()).To(MatchJSON(`{"status": "ok"}`))
+		})
+
+		It("responds with 500 Internal Server Error when an error occurs", func() {
+			prov.StartAppError = errors.New("can't start app")
+			doRequest()
+			Expect(prov.ReceivedID).To(Equal(id))
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			Expect(res.Body.String()).To(MatchJSON(`{"error": "can't start app"}`))
+		})
+	})
+
+	Describe("POST /containers/:container_id/app/stop", func() {
+		var id = "deadbeef"
+
+		doRequest := func() {
+			req, err = NewRequestWithSecret(hostSecret, "POST", fmt.Sprintf("/containers/%v/app/stop", id), nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.StopApp()", func() {
+			Expect(prov.StopAppCalled).To(BeFalse())
+			doRequest()
+			Expect(prov.StopAppCalled).To(BeTrue())
+			Expect(prov.ReceivedID).To(Equal(id))
+		})
+
+		It("responds with 200 OK", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Body.String()).To(MatchJSON(`{"status": "ok"}`))
+		})
+
+		It("responds with 500 Internal Server Error when an error occurs", func() {
+			prov.StopAppError = errors.New("can't stop, won't stop")
+			doRequest()
+			Expect(prov.ReceivedID).To(Equal(id))
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			Expect(res.Body.String()).To(MatchJSON(`{"error": "can't stop, won't stop"}`))
+		})
+	})
+
 	Describe("GET /containers/:container_id/public_keys", func() {
 		var (
 			id           = "cafebabe"

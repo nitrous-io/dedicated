@@ -1053,6 +1053,82 @@ var _ = Describe("client", func() {
 		})
 	})
 
+	Describe("StartApp()", func() {
+		BeforeEach(func() {
+			var err error
+			st, err = NewServerTest(ghttp.CombineHandlers(
+				ghttp.VerifyRequest("POST", "/containers/yosemite/app/start"),
+				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			))
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
+		})
+
+		AfterEach(func() {
+			st.Close()
+		})
+
+		It("doesn't return an error when response is HTTP 200 OK", func() {
+			statusCode = http.StatusOK
+
+			err := cl.StartApp("yosemite")
+			Expect(err).To(BeNil())
+
+			reqs := server.ReceivedRequests()
+			Expect(reqs).To(HaveLen(1))
+		})
+
+		It("returns a StatusErr when response is not HTTP 200 OK", func() {
+			statusCode = http.StatusInternalServerError
+
+			err := cl.StartApp("yosemite")
+
+			Expect(err).To(Equal(&freighterclient.StatusError{
+				Code: http.StatusInternalServerError,
+				Body: "",
+			}))
+		})
+	})
+
+	Describe("StopApp()", func() {
+		BeforeEach(func() {
+			var err error
+			st, err = NewServerTest(ghttp.CombineHandlers(
+				ghttp.VerifyRequest("POST", "/containers/yosemite/app/stop"),
+				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			))
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
+		})
+
+		AfterEach(func() {
+			st.Close()
+		})
+
+		It("doesn't return an error when response is HTTP 200 OK", func() {
+			statusCode = http.StatusOK
+
+			err := cl.StopApp("yosemite")
+			Expect(err).To(BeNil())
+
+			reqs := server.ReceivedRequests()
+			Expect(reqs).To(HaveLen(1))
+		})
+
+		It("returns a StatusErr when response is not HTTP 200 OK", func() {
+			statusCode = http.StatusInternalServerError
+
+			err := cl.StopApp("yosemite")
+
+			Expect(err).To(Equal(&freighterclient.StatusError{
+				Code: http.StatusInternalServerError,
+				Body: "",
+			}))
+		})
+	})
+
 	Describe("Public Key Operations", func() {
 		setupServer := func(method, url string) {
 			handlers := ghttp.CombineHandlers(
