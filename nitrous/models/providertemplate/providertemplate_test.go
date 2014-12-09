@@ -131,6 +131,7 @@ var _ = Describe("models/providertemplate", func() {
 				Name:            "ec2-micro-apse1",
 				Provider:        "ec2",
 				PreprovisionMax: 2,
+				HourlyPrice:     int64(937),
 			}
 			err = pt.Insert(db)
 			Expect(err).To(BeNil())
@@ -146,6 +147,7 @@ var _ = Describe("models/providertemplate", func() {
 			Expect(pt2.Name).To(Equal("ec2-micro-apse1"))
 			Expect(pt2.Provider).To(Equal("ec2"))
 			Expect(pt2.PreprovisionMax).To(Equal(2))
+			Expect(pt2.HourlyPrice).To(Equal(int64(937)))
 		})
 
 		It("fills up ID and other fields in original struct", func() {
@@ -175,6 +177,7 @@ var _ = Describe("models/providertemplate", func() {
 			pt.Name = "do-sgp-512mb"
 			pt.Provider = "digitalocean"
 			pt.PreprovisionMax = 1
+			pt.HourlyPrice = int64(320)
 
 			err := pt.Update(db)
 			Expect(err).To(BeNil())
@@ -186,6 +189,7 @@ var _ = Describe("models/providertemplate", func() {
 			Expect(pt2.Name).To(Equal("do-sgp-512mb"))
 			Expect(pt2.Provider).To(Equal("digitalocean"))
 			Expect(pt2.PreprovisionMax).To(Equal(1))
+			Expect(pt2.HourlyPrice).To(Equal(int64(320)))
 
 			// Unchanged fields.
 			Expect(pt2.RegionID).To(Equal(r.ID))

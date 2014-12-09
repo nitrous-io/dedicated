@@ -91,6 +91,9 @@ type Host struct {
 
 	Secret string `db:"secret"`
 
+	// HourlyPrice unit is milli-cents (x1000)
+	HourlyPrice int64 `db:"hourly_price"`
+
 	*ProviderTemplate
 }
 
@@ -203,11 +206,11 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
 		(user_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, provider_identifier, max_containers, size, freighterd_port,
-			preprovisioned)
+			hourly_price, preprovisioned)
 		VALUES
 		(:user_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 		:state, :ip_address, :provider_identifier, :max_containers, :size, :freighterd_port,
-		:preprovisioned)
+		:hourly_price, :preprovisioned)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -217,8 +220,8 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port, preprovisioned, updated_at)
-		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port, :preprovisioned, now())
+		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port, preprovisioned, hourly_price, updated_at)
+		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port, :preprovisioned, :hourly_price, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
