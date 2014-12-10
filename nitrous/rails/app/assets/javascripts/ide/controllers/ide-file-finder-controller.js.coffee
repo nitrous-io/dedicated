@@ -1,5 +1,5 @@
 App.IdeFileFinderController = Em.Controller.extend
-  needs: ['ide', 'ideEditor', 'ideSidebar']
+  needs: ['index', 'ideEditor', 'ideSidebar']
 
   fileFinderDialog: null
 

@@ -12,8 +12,6 @@
 window.NitrousIO = Em.Application.extend Em.Evented,
   rootElement: '#app'
 
-  config: null
-
   online: if !Em.isNone(window.navigator.onLine) then window.navigator.onLine else true
   offline: Em.computed.not 'online'
 
@@ -40,11 +38,6 @@ window.NitrousIO = Em.Application.extend Em.Evented,
 
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
-
-App.on 'fetchUser', (user) ->
-  App.set 'currentUser', user
-  App.Container.fetch(App.get 'slug').then (container) ->
-    App.set 'box', container
 
 Em.TextSupport.reopen
   attributeBindings: ['readonly']
