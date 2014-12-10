@@ -69,7 +69,8 @@
         if appContainer.previewURL
           a.ui.btn href=appContainer.previewURL target='_blank' Preview
         button.ui.btn click='openTerminal' Terminal
-        a.ui.btn.primary href=appContainer.ideURL target='_blank' IDE
+        if App.user.ideEnabled
+          a.ui.btn.primary href=appContainer.ideURL target='_blank' IDE
     else
       if appContainer.isStopped
         .left
