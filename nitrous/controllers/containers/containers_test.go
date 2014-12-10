@@ -1701,9 +1701,9 @@ var _ = Describe("controllers/containers", func() {
 		})
 	})
 
-	Describe("POST /containers/{slug}/app/start", func() {
+	Describe("POST /containers/{slug}/start_app", func() {
 		doRequest := func() *httptest.ResponseRecorder {
-			req, err := NewFormRequest("POST", "/api/v0/containers/foo/app/start", nil)
+			req, err := NewFormRequest("POST", "/api/v0/containers/foo/start_app", nil)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
 			res := httptest.NewRecorder()
@@ -1749,9 +1749,9 @@ var _ = Describe("controllers/containers", func() {
 		})
 	})
 
-	Describe("POST /containers/{slug}/app/stop", func() {
+	Describe("POST /containers/{slug}/stop_app", func() {
 		doRequest := func() *httptest.ResponseRecorder {
-			req, err := NewFormRequest("POST", "/api/v0/containers/foo/app/stop", nil)
+			req, err := NewFormRequest("POST", "/api/v0/containers/foo/stop_app", nil)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
 			res := httptest.NewRecorder()
