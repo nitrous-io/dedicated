@@ -27,7 +27,6 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
     container.requestToken(['shell']).then (token) =>
       token = encodeURIComponent(token.token)
-      console.log token
 
       protocol = location.protocol.replace('http', 'ws')
       url = "#{protocol}//#{freighterdUrl}/containers/#{container.get 'cid'}/shell?token=#{token}&width=#{term.cols}&height=#{term.rows}"
@@ -45,4 +44,4 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin,
 getLoginCommand = (username) ->
   username ||= "root"
   loginCmd = "/bin/login -f #{username} -p TERM=xterm-256color"
-  "script -q -c '#{loginCmd}' /dev/null || #{loginCmd}"     #
+  "script -q -c '#{loginCmd}' /dev/null || #{loginCmd}"

@@ -4,7 +4,7 @@ App.IdeConsoleSessionView = Em.View.extend
   templateName: 'ide/templates/console-session'
   consoleSessionViewId: null
   consoleSession: null
-  classNameBindings: ['consoleSession.active:active']
+  classNameBindings: [':console_session', 'consoleSession.active:active']
 
   init: ->
     @set 'consoleSessionViewId', ++consoleSessionViewNextId
