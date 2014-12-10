@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -1011,7 +1010,7 @@ var _ = Describe("provider/docker", func() {
 			name := RandomName("freightertest")
 			configJSON := `{
 				"Env": [
-					"NITROUS_CMD=python -m SimpleHTTPServer 8080",
+					"NITROUS_CMD=echo hello world > /test-output",
 					"NITROUS_USERNAME="
 				]
 			}` // Explicitly unset NITROUS_USERNAME.
@@ -1019,13 +1018,11 @@ var _ = Describe("provider/docker", func() {
 			Expect(err).To(BeNil())
 			defer CleanUpContainer(name)
 
-			// Give the HTTP server some time to get started.
-			time.Sleep(500 * time.Millisecond)
+			// Give the docker exec command some time to run.
+			time.Sleep(50 * time.Millisecond)
 
-			// Make sure we can connect to the HTTP server in the container.
-			ip := getHost(info.ID)
-			_, err = net.Dial("tcp", fmt.Sprintf("%s:8080", ip))
-			Expect(err).To(BeNil())
+			out, err := exec.Command("docker", "exec", info.ID, "cat", "/test-output").CombinedOutput()
+			Expect(string(out)).To(ContainSubstring(`hello world`))
 		})
 
 		It("runs the command specified by the NITROUS_CMD env var as the NITROUS_USERNAME user", func() {
@@ -1099,33 +1096,23 @@ var _ = Describe("provider/docker", func() {
 		})
 
 		It("kills the NITROUS_CMD process that's running inside the container", func() {
+			cmd := "python -m SimpleHTTPServer 8080"
 			name := RandomName("freightertest")
-			configJSON := `{
-				"Env": ["NITROUS_CMD=python -m SimpleHTTPServer 8080"]
-			}`
+			configJSON := fmt.Sprintf(`{ "Env": ["NITROUS_CMD=%s"] }`, cmd)
 			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
 			Expect(err).To(BeNil())
 			defer CleanUpContainer(name)
 
-			// Give the HTTP server some time to get started.
-			time.Sleep(500 * time.Millisecond)
-
-			// Make sure we can connect to the HTTP server in the container.
-			ip := getHost(info.ID)
-			_, err = net.Dial("tcp", fmt.Sprintf("%s:8080", ip))
-			Expect(err).To(BeNil())
+			// Make sure the process is running inside the container.
+			out, err := exec.Command("docker", "top", info.ID).CombinedOutput()
+			Expect(string(out)).To(ContainSubstring(cmd))
 
 			err = prov.StopApp(info.ID)
 			Expect(err).To(BeNil())
 
-			// FIXME We have to give the StopApp() some time to kill the process
-			// because of the current pgrep + kill process group implementation.
-			// We should not need this and should be able to wait() or something
-			// with non-hackish implementation.
-			time.Sleep(500 * time.Millisecond)
-
-			_, err = net.Dial("tcp", fmt.Sprintf("%s:8080", ip))
-			Expect(err).To(HaveOccurred())
+			// Process should no longer be running.
+			out, err = exec.Command("docker", "top", info.ID).CombinedOutput()
+			Expect(string(out)).NotTo(ContainSubstring(cmd))
 		})
 
 		It("does not return an error if NITROUS_CMD is not specified", func() {
