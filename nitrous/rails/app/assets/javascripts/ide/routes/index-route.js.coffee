@@ -11,7 +11,9 @@ App.IndexRoute = Em.Route.extend
     @_super.apply this, arguments
     notFoundPath = window.location.href.replace(window.location.pathname, '/404')
     if slug = App.get('slug')
-      App.Container.fetch(slug).then null, (e) ->
+      App.Container.fetch(slug).then (container) ->
+        App.set 'container', container
+      , -> # failure
         window.location.href = notFoundPath
     else
       window.location.href = notFoundPath

@@ -19,3 +19,30 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
   reset: ->
     @set 'content', null
+
+  makeUrlAndConnect: (terminal) ->
+    container = App.get 'container'
+    freighterdUrl = container.get 'freighterdUrl'
+    term = terminal.term
+
+    container.requestToken(['shell']).then (token) =>
+      token = encodeURIComponent(token.token)
+      console.log token
+
+      protocol = location.protocol.replace('http', 'ws')
+      url = "#{protocol}//#{freighterdUrl}/containers/#{container.get 'cid'}/shell?token=#{token}&width=#{term.cols}&height=#{term.rows}"
+
+      command = encodeURIComponent(getLoginCommand(container.get 'loginUsername'))
+      url += "&command=#{command}"
+
+      terminal.url = url
+      # url obtained, resume connecting
+      terminal.open(true)
+    , (jqxhr) ->
+      terminal.retry()
+      # TODO post retrying message
+
+getLoginCommand = (username) ->
+  username ||= "root"
+  loginCmd = "/bin/login -f #{username} -p TERM=xterm-256color"
+  "script -q -c '#{loginCmd}' /dev/null || #{loginCmd}"     #

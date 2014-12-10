@@ -17,9 +17,14 @@ window.NitrousIO = Em.Application.extend Em.Evented,
 
   flashMessage: null
 
-  currentUser: null
   slug: null
   token: null
+
+  currentUser: null
+  container: null
+
+  terminalJsPath: null
+  terminalCssPath: null
 
   didChangeToken: (->
     if token = @get('token')
@@ -28,13 +33,15 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       window.localStorage.removeItem('token')
   ).observes 'token'
 
-  bootstrap: (slug) ->
+  bootstrap: (opts={}) ->
     @set 'LOG_RESOLVER', true
     @set 'LOG_TRANSITIONS', true
     @set 'LOG_TRANSITIONS_INTERNAL', true
     @set 'LOG_VIEW_LOOKUPS', true
 
-    @set 'slug', slug
+    @set 'slug', opts.slug
+    @set 'terminalJsPath', opts.terminalJsPath
+    @set 'terminalCssPath', opts.terminalCssPath
 
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
