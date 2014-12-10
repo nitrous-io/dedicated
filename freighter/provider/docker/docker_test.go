@@ -1007,19 +1007,23 @@ var _ = Describe("provider/docker", func() {
 				`{{.HostConfig.Binds}}`))).NotTo(ContainSubstring("backups"))
 		})
 
-		It("runs the command specified by the NITROUS_CMD env var inside the container", func() {
-			name := RandomName("freightertest")
-			configJSON := `{
-				"Env": ["NITROUS_CMD=while true; do echo hello world >> /log; sleep 1; done"]
-			}`
-			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
+		for i := 0; i < 10; i++ {
+			j := i
+			It("runs the command specified by the NITROUS_CMD env var inside the container", func() {
+				println("Rep ", j)
+				name := RandomName("freightertest")
+				configJSON := `{
+					"Env": ["NITROUS_CMD=while true; do echo hello world >> /log; sleep 1; done"]
+				}`
+				info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
+				Expect(err).To(BeNil())
+				defer CleanUpContainer(name)
 
-			out, err := exec.Command("docker", "exec", info.ID, "/bin/cat", "/log").CombinedOutput()
-			Expect(err).To(BeNil())
-			Expect(string(out)).To(ContainSubstring(`hello world`))
-		})
+				out, err := exec.Command("docker", "exec", info.ID, "/bin/cat", "/log").CombinedOutput()
+				Expect(err).To(BeNil())
+				Expect(string(out)).To(ContainSubstring(`hello world`))
+			})
+		}
 	})
 
 	Describe(".StopApp()", func() {
@@ -1027,35 +1031,40 @@ var _ = Describe("provider/docker", func() {
 			PullImage(NitrousImage)
 		})
 
-		It("kills the NITROUS_CMD process that's running inside the container", func() {
-			name := RandomName("freightertest")
-			configJSON := `{
-				"Env": ["NITROUS_CMD=python -m SimpleHTTPServer 8080"]
-			}`
-			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
+		for i := 0; i < 10; i++ {
+			j := i + 1
 
-			// Give the HTTP server some time to get started.
-			time.Sleep(500 * time.Millisecond)
+			It("kills the NITROUS_CMD process that's running inside the container", func() {
+				println("Rep", j)
+				name := RandomName("freightertest")
+				configJSON := `{
+					"Env": ["NITROUS_CMD=python -m SimpleHTTPServer 8080"]
+				}`
+				info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
+				Expect(err).To(BeNil())
+				defer CleanUpContainer(name)
 
-			// Make sure we can connect to the HTTP server in the container.
-			ip := getHost(info.ID)
-			_, err = net.Dial("tcp", fmt.Sprintf("%s:8080", ip))
-			Expect(err).To(BeNil())
+				// Give the HTTP server some time to get started.
+				time.Sleep(500 * time.Millisecond)
 
-			err = prov.StopApp(info.ID)
-			Expect(err).To(BeNil())
+				// Make sure we can connect to the HTTP server in the container.
+				ip := getHost(info.ID)
+				_, err = net.Dial("tcp", fmt.Sprintf("%s:8080", ip))
+				Expect(err).To(BeNil())
 
-			// FIXME We have to give the StopApp() some time to kill the process
-			// because of the current pgrep + kill process group implementation.
-			// We should not need this and should be able to wait() or something
-			// with non-hackish implementation.
-			time.Sleep(500 * time.Millisecond)
+				err = prov.StopApp(info.ID)
+				Expect(err).To(BeNil())
 
-			_, err = net.Dial("tcp", fmt.Sprintf("%s:8080", ip))
-			Expect(err).To(HaveOccurred())
-		})
+				// FIXME We have to give the StopApp() some time to kill the process
+				// because of the current pgrep + kill process group implementation.
+				// We should not need this and should be able to wait() or something
+				// with non-hackish implementation.
+				time.Sleep(500 * time.Millisecond)
+
+				_, err = net.Dial("tcp", fmt.Sprintf("%s:8080", ip))
+				Expect(err).To(HaveOccurred())
+			})
+		}
 
 		It("does not return an error if NITROUS_CMD is not specified", func() {
 			name := RandomName("freightertest")
