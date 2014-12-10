@@ -1,0 +1,336 @@
+package biller
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/jinzhu/now"
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
+	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
+	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/stripe/stripe-go"
+	strinv "github.com/stripe/stripe-go/invoice"
+	striitem "github.com/stripe/stripe-go/invoiceitem"
+)
+
+type Biller struct {
+	db     *db.Database
+	logger *logger.Logger
+	user   *user.User
+
+	periodStart *time.Time
+	periodEnd   *time.Time
+}
+
+type InvoiceResult struct {
+	Invoice *invoice.Invoice
+	Items   []invoiceitem.InvoiceItem
+}
+
+func New(d *db.Database, l *logger.Logger, u *user.User, periodStart, periodEnd *time.Time) (*Biller, error) {
+	if d == nil {
+		return nil, errors.New("Database must be provided")
+	}
+	if l == nil {
+		return nil, errors.New("Logger must be provided")
+	}
+	if u == nil {
+		return nil, errors.New("User must be provided")
+	}
+	return &Biller{
+		db:          d,
+		logger:      l,
+		user:        u,
+		periodStart: periodStart,
+		periodEnd:   periodEnd,
+	}, nil
+}
+
+func (b *Biller) Process() error {
+	i, err := b.createOrUpdateInvoice()
+	if err != nil {
+		return err
+	}
+
+	return b.processStripe(i)
+}
+
+func (b *Biller) createOrUpdateInvoice() (*InvoiceResult, error) {
+	usages, err := hosttransition.BillableHostHours(b.db, b.user.ID, *b.periodStart, *b.periodEnd)
+	if err != nil {
+		return nil, fmt.Errorf("biller: failed retrieving billable host hours for user %d, err: %v", b.user.ID, err)
+	}
+	totalCharge, items := InvoiceItemsForUsages(usages)
+	i, err := invoice.ForPeriod(b.db, b.user.ID, *b.periodStart, *b.periodEnd)
+	if err != nil {
+		return nil, fmt.Errorf("biller: encountered error when try to find existing invoice for user %d, err: %v", b.user.ID, err)
+	}
+
+	if len(items) == 0 {
+		return nil, fmt.Errorf("biller: no usage from user %d", b.user.ID)
+	}
+
+	op := i.Update
+	isNew := false
+	if i == nil {
+		isNew = true
+		i = &invoice.Invoice{
+			UserID:      b.user.ID,
+			PeriodStart: b.periodStart,
+			PeriodEnd:   b.periodEnd,
+			Attempts:    0,
+		}
+		op = i.Insert
+	} else {
+		if i.SuccessfulCharge {
+			return nil, fmt.Errorf("biller: cannot touch invoice %d, already paid", i.ID)
+		}
+	}
+	i.TotalCharge = totalCharge
+	i.SuccessfulCharge = false
+
+	if err := op(b.db); err != nil {
+		return nil, fmt.Errorf("biller: failure inserting/updating invoice %d for user %d, err: %v", i.ID, i.UserID, err)
+	} else {
+		b.logger.Infof("biller: created/updated invoice %d for user %d", i.ID, i.UserID)
+	}
+
+	items, err = b.applyInvoiceItems(i, isNew, items)
+	if err != nil {
+		return nil, fmt.Errorf("biller: failure inserting/updating invoice %d items for %d, err: %v", i.ID, i.UserID, err)
+	}
+
+	return &InvoiceResult{Invoice: i, Items: items}, nil
+}
+
+func (b *Biller) processStripe(i *InvoiceResult) error {
+	inv := i.Invoice
+	items := i.Items
+	if !b.user.BillingEnabled {
+		b.logger.Warnf("biller: billing disabled for user %d", b.user.ID)
+		return nil
+	}
+
+	if inv.TotalCharge == 0 {
+		b.logger.Infof("biller: not contacting stripe as charge for invoice %d == 0", inv.ID)
+		return nil
+	}
+
+	bp, err := billingprofile.Find(b.db, b.user.ID)
+	if err != nil || bp == nil || bp.StripeID.String == "" {
+		return fmt.Errorf("biller: failure obtaining billing profile for user %d, err: %v", b.user.ID, err)
+	}
+	b.logger.Infof("biller: contacting stripe for invoice %d", inv.ID)
+	if err := b.billStripeInvoiceItems(bp, inv, items); err != nil {
+		return fmt.Errorf("biller: failure billing stripe for invoice %d, err: %v", inv.ID, err)
+	}
+
+	if err := b.billStripeInvoice(bp, inv); err != nil {
+		return fmt.Errorf("biller: failure creating invoice for %d, err: %v", inv.ID, err)
+	}
+	return nil
+}
+
+func (b *Biller) billStripeInvoice(bp *billingprofile.BillingProfile, i *invoice.Invoice) error {
+	if i.StripeID.String == "" {
+		inv, err := strinv.New(&stripe.InvoiceParams{Customer: bp.StripeID.String})
+		if err != nil {
+			return err
+		}
+		i.StripeID = sql.NullString{inv.ID, true}
+		return i.Update(b.db)
+	}
+	return nil
+}
+
+func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, i *invoice.Invoice, items []invoiceitem.InvoiceItem) error {
+	hosts, err := b.allHostsForUser()
+	if err != nil {
+		return err
+	}
+	tx, err := b.db.Beginx()
+	if err != nil {
+		return err
+	}
+	for _, invI := range items {
+		var matchingHost *host.Host
+		for indx, hst := range hosts {
+			if hst.ID == invI.HostID {
+				matchingHost = &hosts[indx]
+				break
+			}
+		}
+		if matchingHost == nil {
+			return fmt.Errorf("Could not locate host %d for invoice %d", invI.HostID, invI.ID)
+		}
+
+		desc := fmt.Sprintf("Host '%s' %d hours at %.2fc/hour", matchingHost.Slug, invI.Hours, invI.HourlyCents())
+		if invI.StripeID.String == "" {
+			ii, err := striitem.New(&stripe.InvoiceItemParams{
+				Customer: bp.StripeID.String,
+				Amount:   invI.TotalCharge(),
+				Currency: "usd",
+				Desc:     desc,
+			})
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+			invI.StripeID = sql.NullString{ii.ID, true}
+			err = invI.Update(tx)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+		} else {
+			_, err := striitem.Update(
+				invI.StripeID.String,
+				&stripe.InvoiceItemParams{
+					Amount: invI.TotalCharge(),
+					Desc:   desc,
+				})
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+		b.logger.Infof("biller: submitted invoice item %d", invI.ID)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b *Biller) applyInvoiceItems(i *invoice.Invoice, isNew bool, items []invoiceitem.InvoiceItem) ([]invoiceitem.InvoiceItem, error) {
+	existing := []invoiceitem.InvoiceItem{}
+	var err error
+	if !isNew {
+		existing, err = invoiceitem.FindAllForInvoice(b.db, i.ID)
+		if err != nil {
+			return nil, err
+		}
+		isNew = len(existing) == 0
+	}
+
+	tx, err := b.db.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	for indx, inv := range items {
+		// perform an update if have existing items
+		if !isNew {
+			for _, ex := range existing {
+				if inv.HostID == ex.HostID {
+					inv.ID = ex.ID
+					inv.StripeID = ex.StripeID
+				}
+			}
+		}
+
+		inv.InvoiceID = i.ID
+		op := inv.Insert
+		if inv.ID > 0 {
+			op = inv.Update
+		}
+		err = op(tx)
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+		items[indx] = inv
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+	return items, err
+}
+
+func (b *Biller) allHostsForUser() ([]host.Host, error) {
+	hosts := []host.Host{}
+	err := b.db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND preprovisioned = FALSE ORDER BY id;", b.user.ID)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
+func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd *time.Time) {
+	var pS time.Time
+	var pE time.Time
+
+	if periodStart == nil {
+		base := now.BeginningOfMonth().Add(-1 * time.Nanosecond)
+		pS = now.New(base).BeginningOfMonth()
+	} else {
+		pS = *periodStart
+	}
+
+	if periodEnd == nil {
+		pE = now.New(pS).EndOfMonth()
+	} else {
+		pE = *periodEnd
+	}
+
+	l.Debugf("biller: Processing period %v to %v", pS, pE)
+
+	lastId := int64(-1)
+	usersExhausted := false
+
+	// page through the hosts in the DB, 100 at a time
+	for !usersExhausted {
+		users := []user.User{}
+		err := d.Select(&users, `SELECT * FROM users WHERE id > $1 ORDER BY id ASC LIMIT 100;`, lastId)
+		if err != nil && err != sql.ErrNoRows {
+			l.FatalExit(err)
+		}
+
+		if err == sql.ErrNoRows {
+			usersExhausted = true
+			break
+		}
+
+		if len(users) == 0 {
+			usersExhausted = true
+			break
+		}
+
+		for _, user := range users {
+			if user.ID > lastId {
+				lastId = user.ID
+			}
+			inst, err := New(d, l, &user, &pS, &pE)
+			if err != nil {
+				l.FatalExit(err)
+			}
+			err = inst.Process()
+			if err != nil {
+				l.Error(err)
+			}
+		}
+	}
+}
+
+func InvoiceItemsForUsages(usages []hosttransition.HostHourUsage) (int64, []invoiceitem.InvoiceItem) {
+	totalCharge := int64(0)
+	items := make([]invoiceitem.InvoiceItem, len(usages))
+	for indx, usage := range usages {
+		i := invoiceitem.InvoiceItem{
+			Hours:       usage.Hours(),
+			HourlyPrice: usage.HourlyPrice,
+			HostID:      usage.HostID,
+		}
+		items[indx] = i
+		totalCharge += i.TotalCharge()
+	}
+	return totalCharge, items
+}
