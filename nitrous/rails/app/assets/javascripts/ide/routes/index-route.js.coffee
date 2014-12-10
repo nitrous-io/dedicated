@@ -13,6 +13,7 @@ App.IndexRoute = Em.Route.extend
     if slug = App.get('slug')
       App.Container.fetch(slug).then (container) ->
         App.set 'container', container
+        container
       , -> # failure
         window.location.href = notFoundPath
     else

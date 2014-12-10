@@ -1,5 +1,5 @@
 =hb 'if view.hideMainMenu' do
-  %h2 {{ App.router.ideController.content.name }}
+  %h2 {{ App.router.indexController.content.name }}
   =hb 'else'
   .primary-nav
     %ul.nav

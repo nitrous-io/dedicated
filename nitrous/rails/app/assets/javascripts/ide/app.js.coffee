@@ -39,12 +39,17 @@ window.NitrousIO = Em.Application.extend Em.Evented,
     @set 'LOG_TRANSITIONS_INTERNAL', true
     @set 'LOG_VIEW_LOOKUPS', true
 
-    @set 'slug', opts.slug
     @set 'terminalJsPath', opts.terminalJsPath
     @set 'terminalCssPath', opts.terminalCssPath
 
+pathname = window.location.pathname.split("/")
+slug = pathname.pop()
+if slug == ""
+  slug = pathname.pop()
+
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
+  slug: slug
 
 Em.TextSupport.reopen
   attributeBindings: ['readonly']

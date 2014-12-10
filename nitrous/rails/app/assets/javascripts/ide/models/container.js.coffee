@@ -10,7 +10,7 @@ App.Container = klass = Em.Object.extend
 
   # FIXME this should be serialized in model
   freighterdUrl: (->
-    "test-4771.n2odev.com:49159"
+    "test-4061.n2odev.com:49161"
   ).property 'slug'
 
   # FIXME load config and get this from env
@@ -39,7 +39,8 @@ klass.reopenClass
         url: "/api/v0/containers/#{slug}",
         headers: { Authorization: "Bearer #{App.get 'token'}" }
       ).done((data, status, jqxhr) ->
-        resolve(App.Container.create(data.container))
+        container = App.Container.create(data.container)
+        resolve(container)
       ).fail (jqxhr) ->
         reject(jqxhr)
     promise

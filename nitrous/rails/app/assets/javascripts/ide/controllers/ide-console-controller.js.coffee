@@ -25,6 +25,7 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin,
     freighterdUrl = container.get 'freighterdUrl'
     term = terminal.term
 
+    # TODO prefetch the token for both shell and ops
     container.requestToken(['shell']).then (token) =>
       token = encodeURIComponent(token.token)
 

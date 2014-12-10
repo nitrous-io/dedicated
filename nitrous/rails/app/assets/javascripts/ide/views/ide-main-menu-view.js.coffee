@@ -6,7 +6,7 @@ separator = App.MenuItem.create(separator: true)
 
 previewMenu = menu 'Preview',
   [ menuItem 'Port 3000 (SSL)',
-      boxBinding: Em.Binding.oneWay('App.router.ideController.content')
+      boxBinding: Em.Binding.oneWay('App.router.indexController.content')
       target: '_blank'
       hide: (->
         !@get('box.region.ssl_enabled') # FIXME Use Em.Binding.not() when we upgrade Ember.
@@ -16,7 +16,7 @@ previewMenu = menu 'Preview',
       ).property 'box.boxHost'
   ].concat _.map([3000, 4000, 8080, 8888], (port) ->
     menuItem "Port #{port}",
-      boxHostBinding: Em.Binding.oneWay('App.router.ideController.content.boxHost')
+      boxHostBinding: Em.Binding.oneWay('App.router.indexController.content.boxHost')
       target: '_blank'
       url: (->
         if boxHost = @get 'boxHost'
@@ -124,7 +124,7 @@ App.IdeMainMenuView = Em.View.extend
       separator
       menuItem 'Refresh Tree',
         macKey: ['shift+ctrl+r'], pcKey: ['ctrl+alt+r']
-        disabledBinding: Em.Binding.oneWay('App.router.ideSidebarController.sftpSocketNotReady')
+        disabledBinding: Em.Binding.oneWay('App.router.ideSidebarController.opsSocketNotReady')
         callback: (controller) ->
           controller.fileRefreshTree()
       separator

@@ -12,7 +12,7 @@
 {{view App.IdeMaintenanceNoticeView}}
 {{view App.FlashMessageView}}
 
-=hb 'unless controller.sftpSocketReady' do
+=hb 'unless controller.opsSocketReady' do
   =hb 'if controller.sftpConnectionLost' do
     {{view App.IdeConnectionLostView}}
     =hb 'else'

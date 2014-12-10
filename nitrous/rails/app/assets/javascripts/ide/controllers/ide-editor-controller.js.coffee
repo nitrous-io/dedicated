@@ -6,8 +6,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   fullscreen: false
   chatNotification: null
 
-  sftpSocketBinding: Em.Binding.oneWay 'App.router.ideController.sftpSocket'
-  sftpSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.sftpSocketReady'
+  opsSocketBinding: Em.Binding.oneWay 'App.router.indexController.opsSocket'
+  opsSocketReadyBinding: Em.Binding.oneWay 'App.router.indexController.opsSocketReady'
 
   softTabs: true
   tabSize: 2
@@ -54,7 +54,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @set(k, editorSettings[k]) if editorSettings[k]?
 
   localStorageEditorSettings: ->
-    if boxId = App.get 'router.ideController.content.id'
+    if boxId = App.get 'router.indexController.content.id'
       App.localStorage.delete("box:#{boxId}:editorSettings") || App.localStorage.delete("box:#{boxId}:lastTabSettings")
 
   observeEditorSettings: ->
@@ -83,13 +83,13 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @set 'confirmCloseDialog', App.ConfirmCloseDialog.create document: tab
 
   saveDocument: (document) ->
-    return unless @get 'sftpSocketReady'
+    return unless @get 'opsSocketReady'
     return if document.get('isImageFile')
 
     if path = document.get 'path'
-      if sftpSocket = @get 'sftpSocket'
+      if opsSocket = @get 'opsSocket'
         path.incrementProperty 'loadCount'
-        sftpSocket.writeFile path.get('absolutePath'), document.get('content'), (err, absolutePath) ->
+        opsSocket.writeFile path.get('absolutePath'), document.get('content'), (err, absolutePath) ->
           path.decrementProperty 'loadCount'
           if err
             App.set 'flashMessage', { type: 'alert-error', text: "Error saving file '#{path.get('absolutePath')}'" }
@@ -103,14 +103,14 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @set 'saveDialog', App.SaveDialog.create document: document
 
   saveNewDocument: ->
-    return unless @get 'sftpSocketReady'
+    return unless @get 'opsSocketReady'
     saveDialog = @get 'saveDialog'
     unless saveDialog.validate()
       saveDialog.set 'saving', true
       documentContent = saveDialog.get 'document.content'
       path = saveDialog.get 'path'
-      if sftpSocket = @get 'sftpSocket'
-        sftpSocket.writeNewFile path, documentContent, _.bind(@didWriteNewFileContent, this)
+      if opsSocket = @get 'opsSocket'
+        opsSocket.writeNewFile path, documentContent, _.bind(@didWriteNewFileContent, this)
 
   didWriteNewFileContent: (err, absolutePath) ->
     saveDialog = @get 'saveDialog'

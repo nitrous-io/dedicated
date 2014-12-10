@@ -5,10 +5,16 @@ App.BackwardsCompatibleRouter = Em.Object.extend
     router = App.Router.router
     router.transitionTo.apply(router, arguments)
 
+  # TODO remove this
   ideController: (->
-    @getController 'ide'
+    @getController 'index'
   ).property()
 
+  indexController: (->
+    @getController 'index'
+  ).property()
+
+  # TODO remove this
   boxIdeController: (->
     @getController 'ide'
   ).property()
