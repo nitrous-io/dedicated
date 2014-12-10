@@ -29,9 +29,9 @@ var (
 )
 
 const (
-	nitrousImageEnv = "NITROUS_IMAGE_VERSION"
-	nitrousCmdEnv   = "NITROUS_CMD"
-	nitrousUserEnv  = "NITROUS_USERNAME"
+	nitrousEnvImage = "NITROUS_IMAGE_VERSION"
+	nitrousEnvCmd   = "NITROUS_CMD"
+	nitrousEnvUser  = "NITROUS_USERNAME"
 )
 
 const defaultDockerRegistry = "index.docker.io"
@@ -1187,16 +1187,16 @@ func (p *DockerProvider) isNitrousImage(fullName string) bool {
 		return false
 	}
 
-	_, ok := envValue(imageInfo.Config.Env, nitrousImageEnv)
+	_, ok := envValue(imageInfo.Config.Env, nitrousEnvImage)
 	return ok
 }
 
 func (p *DockerProvider) appCmd(container *dockerclient.Container) (string, bool) {
-	return envValue(container.Config.Env, nitrousCmdEnv)
+	return envValue(container.Config.Env, nitrousEnvCmd)
 }
 
 func (p *DockerProvider) appUser(container *dockerclient.Container) (string, bool) {
-	return envValue(container.Config.Env, nitrousUserEnv)
+	return envValue(container.Config.Env, nitrousEnvUser)
 }
 
 func envValue(env []string, envVar string) (string, bool) {
