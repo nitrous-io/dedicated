@@ -563,5 +563,12 @@ func init() {
 				CREATE UNIQUE INDEX index_templates_on_slug ON templates USING btree (slug);
 			`,
 		},
+		{
+			Version: "480",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN hourly_price bigint NOT NULL DEFAULT 1;
+				ALTER TABLE provider_templates ADD COLUMN hourly_price bigint NOT NULL DEFAULT 1;
+			`,
+		},
 	}
 }
