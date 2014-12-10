@@ -285,6 +285,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   if private_ip = ENV['DEDICATED_VM_INTERFACE']
     config.vm.network :private_network, ip: private_ip
+  else
+    config.vm.network :private_network, type: "dhcp"
   end
 
   config.vm.network "forwarded_port", guest: 8080,  host: 8080
