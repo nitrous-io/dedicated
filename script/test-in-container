@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Runs tests inside a docker container. This will not build the
+# binary. Call other jobs if you want to do that.
+set -e
+APP=${1:?"app name is required"}
+VERSION=${2="latest"}
+SUITE=${3}
+
+docker run \
+  --privileged=true \
+  --rm \
+  nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP $SUITE"

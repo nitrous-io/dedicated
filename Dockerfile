@@ -2,6 +2,7 @@ From nitrousio/ubuntu-dind:14.04
 MAINTAINER Nitrous.IO <eng@nitrous.io>
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+  apparmor \
   build-essential \
   curl \
   git-core \
@@ -51,7 +52,7 @@ RUN go get github.com/ddollar/forego
 
 # load bundle to speed up Gem installs
 ADD script/bundle_config /root/.bundle/config
-RUN gem install bundler
+RUN gem install --no-ri --no-rdoc bundler
 ADD ./nitrous/rails/Gemfile /opt/src/github.com/nitrous-io/dedicated/nitrous/rails/Gemfile
 ADD ./nitrous/rails/Gemfile.lock /opt/src/github.com/nitrous-io/dedicated/nitrous/rails/Gemfile.lock
 RUN cd ./nitrous/rails && bundle install
