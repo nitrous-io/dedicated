@@ -42,14 +42,9 @@ window.NitrousIO = Em.Application.extend Em.Evented,
     @set 'terminalJsPath', opts.terminalJsPath
     @set 'terminalCssPath', opts.terminalCssPath
 
-pathname = window.location.pathname.split("/")
-slug = pathname.pop()
-if slug == ""
-  slug = pathname.pop()
-
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
-  slug: slug
+  slug: window.location.search.slice('1')
 
 Em.TextSupport.reopen
   attributeBindings: ['readonly']
