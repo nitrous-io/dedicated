@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/msgproto"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 
+	_ "github.com/nitrous-io/dedicated/freighter/cops/fs"
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 

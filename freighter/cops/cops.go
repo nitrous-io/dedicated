@@ -23,7 +23,7 @@ type Handler interface {
 
 type NewHandler func(id string) (Handler, error)
 
-var Handlers map[string]NewHandler
+var Handlers = map[string]NewHandler{}
 
 // Start listening to messages meant for container with `id` and delivers them to
 // correct handlers
