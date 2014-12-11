@@ -53,7 +53,7 @@ func (c *FS) Handle(msg *cops.Message) *cops.Message {
 		for i, f := range entries {
 			files[i] = fileInfoArgs(f)
 		}
-		return makeReply(msg, files)
+		return makeReply(msg, []interface{}{dir, files})
 	case "read":
 		fileName := msg.Args[0].(string)
 		info, err := c.read(fileName)
