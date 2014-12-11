@@ -108,18 +108,19 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     unless saveDialog.validate()
       saveDialog.set 'saving', true
       documentContent = saveDialog.get 'document.content'
+      # FIXME probably not the best way to scope to home path
       path = saveDialog.get 'path'
+      homePath = App.get('container.homePath')
+      absolutePath = "#{homePath}/#{path}"
       if opsSocket = @get 'opsSocket'
-        opsSocket.writeNewFile path, documentContent, _.bind(@didWriteNewFileContent, this)
+        opsSocket.writeNewFile absolutePath, documentContent, _.bind(@didWriteNewFileContent, this)
 
   didWriteNewFileContent: (err, absolutePath) ->
     saveDialog = @get 'saveDialog'
     if err
-      errors = {}
-      if err.indexOf('aio:file_exists') != -1
-        errors.path = ['A file already exists in the path.']
-      else
-        errors.base = [err]
+      # FIXME current errors returned by freighter is cryptic.
+      # showing a generic message for now
+      errors = {base: ["Error occurred while trying to save the file."]}
       saveDialog.set 'errors', errors
     else
       path = App.Path.create absolutePath: absolutePath

@@ -24,8 +24,7 @@ App.IdeSidebarController = Em.ArrayController.extend
   currentDroppable: null
 
   initialize: ->
-    # FIXME: set the homepath with correct username
-    @set 'homePath', homePath = App.Path.create absolutePath: '/home/action', directory: true
+    @set 'homePath', homePath = App.Path.create absolutePath: App.get('container.homePath'), directory: true
     @set 'rootPath', homePath
     @set 'content', Em.A([homePath])
 

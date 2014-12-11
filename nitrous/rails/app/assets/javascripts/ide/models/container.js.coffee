@@ -16,6 +16,10 @@ App.Container = klass = Em.Object.extend
   # FIXME load config and get this from env
   loginUsername: 'action'
 
+  homePath: (->
+    "/home/#{@get 'loginUsername'}"
+  ).property 'loginUsername'
+
   requestToken: (permissions) ->
     promise = new Ember.RSVP.Promise (resolve, reject) =>
       Em.$.ajax(
