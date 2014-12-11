@@ -45,18 +45,24 @@ test_db() {
   test_app $@
 }
 
+test_with_docker() {
+  echo "===> Starting Docker daemon"
+  sudo service docker restart
+  test_app $@
+}
+
 if [ "$APP" == "all" ]; then
   run test_app pkg
   run test_app nitro
   run test_app hostbuilder
   run test_db nitrous
-  run test_app freighter
+  run test_with_docker freighter
   run test_db tender
   run test_db compass
 elif [ "$APP" == "hostbuilder" ]; then
   run test_app hostbuilder $SUITE
 elif [ "$APP" == "freighter" ]; then
-  run test_app freighter $SUITE
+  run test_with_docker freighter $SUITE
 elif [ "$APP" == "tender" ]; then
   run test_db tender $SUITE
 elif [ "$APP" == "compass" ]; then
