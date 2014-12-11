@@ -19,6 +19,16 @@ App.IndexRoute = Em.Route.extend
     else
       window.location.href = notFoundPath
 
+  afterModel: (container, transition)->
+    Em.RSVP.Promise.all([
+      container.loadHost(),
+      container.requestToken(['shell', 'ops'])
+    ]).then (data) ->
+      container.set 'host', data[0].host
+      container.set 'token', data[1].token
+    , -> # failure
+      transition.abort()
+
   activate: ->
     # warn the user before actually unload the window. This is helpful to
     # prevent mis-click close tab / cmd + w

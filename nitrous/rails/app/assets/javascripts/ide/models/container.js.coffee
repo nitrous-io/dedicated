@@ -2,26 +2,50 @@
 
 App.Container = klass = Em.Object.extend
   id: null
-  userId: null
-  hostId: null
+  user_id: null
+  host_id: null
   slug: null
   name: null
   state: null
 
-  # FIXME this should be serialized in model
-  freighterdUrl: (->
-    "test-4061.n2odev.com:49161"
-  ).property 'slug'
+  config: null
+  host: null
+  token: null
 
-  # FIXME load config and get this from env
-  loginUsername: 'action'
+  env: (->
+    transformEnvArrayToHash @get('config').env 
+  ).property 'config'
+
+  loginUsername: (->
+    @get('env')["NITROUS_USERNAME"]
+  ).property 'env' 
+
+  previewPort: (->
+    @get('env')["NITROUS_PREVIEW_PORT"]
+  ).property 'env'
+
+  previewURL: (->
+    hostname = @get 'hostname'
+    previewPort = @get 'previewPort'
+    if hostname && previewPort
+      "http://#{hostname}:#{previewPort}/"
+  ).property 'hostname', 'previewPort'
+
+  freighterdUrl: (->
+    hostname = @get('host')?.proxy_hostname
+    port = @get('host')?.freighterd_port
+    if hostname
+      if port
+        return "#{hostname}:#{port}"
+      hostname
+  ).property 'host'
 
   homePath: (->
     "/home/#{@get 'loginUsername'}"
   ).property 'loginUsername'
 
   requestToken: (permissions) ->
-    promise = new Ember.RSVP.Promise (resolve, reject) =>
+    promise = new Em.RSVP.Promise (resolve, reject) =>
       Em.$.ajax(
         type: 'POST',
         url: "/api/v0/containers/#{@get 'slug'}/token",
@@ -35,9 +59,21 @@ App.Container = klass = Em.Object.extend
         reject(jqxhr)
     promise
 
+  loadHost: ->
+    promise = new Em.RSVP.Promise (resolve, reject) =>
+      Em.$.ajax(
+        type: 'GET',
+        url: "/api/v0/hosts/#{@get 'host_id'}",
+        headers: { Authorization: "Bearer #{App.get 'token'}" }
+      ).done((data, status, jqxhr) ->
+        resolve(data)
+      ).fail (jqxhr) ->
+        reject(jqxhr)
+    promise
+
 klass.reopenClass
   fetch: (slug) ->
-    promise = new Ember.RSVP.Promise (resolve, reject) =>
+    promise = new Em.RSVP.Promise (resolve, reject) =>
       Em.$.ajax(
         type: 'GET',
         url: "/api/v0/containers/#{slug}",
@@ -48,3 +84,13 @@ klass.reopenClass
       ).fail (jqxhr) ->
         reject(jqxhr)
     promise
+
+transformEnvArrayToHash = (envVars) ->
+  hash = {}
+  return hash unless envVars
+  for v in envVars
+    m = v.match /^([^=]+)=(.*)$/
+    key = m[1]
+    val = m[2]
+    hash[key] = val
+  hash

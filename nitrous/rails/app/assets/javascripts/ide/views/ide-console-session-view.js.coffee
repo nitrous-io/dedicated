@@ -64,8 +64,7 @@ App.IdeConsoleSessionView = Em.View.extend
         scriptEl.onload = null
         terminal = iframeWindow.NitrousTerminal
         terminal.init()
-        terminal.willOpen = =>
-          controller.makeUrlAndConnect(terminal)
+        terminal.url = controller.getTerminalURL(terminal)
         terminal.term.write 'Connecting...'
         terminal.open()
         terminal.focus()

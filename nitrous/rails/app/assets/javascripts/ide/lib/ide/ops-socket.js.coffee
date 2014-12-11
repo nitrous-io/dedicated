@@ -33,16 +33,16 @@ App.OpsSocket = Em.Object.extend
       callbacks.insertAt(callbackId, null)
       callback args...
 
-  fetchTokenAndOpen: ->
-    if container = @get 'container'
-      container.requestToken(['ops']).then (data) =>
-        protocol = location.protocol.replace('http', 'ws')
-        freighterdUrl = container.get 'freighterdUrl'
-        @get('conn').url = "#{protocol}//#{freighterdUrl}/containers/#{container.get 'cid'}/ops?token=#{data.token}"
-        @open()
-
   open: ->
-    if conn = @get('conn')
+    container = @get 'container'
+    conn = @get('conn')
+    if container && conn
+      protocol = location.protocol.replace('http', 'ws')
+      freighterdUrl = container.get 'freighterdUrl'
+      cid = container.get 'cid'
+      token = container.get 'token'
+
+      conn.url = "#{protocol}//#{freighterdUrl}/containers/#{cid}/ops?token=#{token}"
       conn.open(true)
       @set 'startedAt', Date.now()
 
