@@ -134,7 +134,7 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("updates the record in database, if the Stripe call was successful", func() {
-				fakeStripe.Response = StripeCustomerResponse
+				fakeStripe.Responses = []string{StripeCustomerResponse}
 
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(BeNil())
@@ -216,10 +216,11 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("does not return an error, if the Stripe call was successful", func() {
-				fakeStripe.Response = fmt.Sprintf(`{
+				s := fmt.Sprintf(`{
 						"id": "sc0001",
 						"email": "new-email@example.com"
 					}`)
+				fakeStripe.Responses = []string{s}
 
 				err := bp.UpdateEmail(db, "new-email@example.com")
 				Expect(err).To(BeNil())

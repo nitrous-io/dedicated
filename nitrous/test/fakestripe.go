@@ -8,26 +8,36 @@ import (
 )
 
 type FakeStripe struct {
-	Received map[string]string
-	Response string
-	Error    *stripe.Error
+	ReceivedRequests []map[string]string
+	Responses        []string
+	ResponseIndex    int
+	Error            *stripe.Error
 }
 
 func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interface{}) error {
-	s.Received = map[string]string{
+	m := map[string]string{
 		"method": method,
 		"path":   path,
 		"card":   body.Get("card"),
 		"email":  body.Get("email"),
 		"desc":   body.Get("description"),
 	}
+	if s := body.Get("amount"); s != "" {
+		m["amount"] = s
+	}
+	if s := body.Get("customer"); s != "" {
+		m["customer"] = s
+	}
+	s.ReceivedRequests = append(s.ReceivedRequests, m)
 
 	if s.Error != nil {
 		return s.Error
 	}
 
-	if s.Response != "" {
-		return json.Unmarshal([]byte(s.Response), v)
+	if len(s.Responses) > s.ResponseIndex && s.Responses[s.ResponseIndex] != "" {
+		res := json.Unmarshal([]byte(s.Responses[s.ResponseIndex]), v)
+		s.ResponseIndex += 1
+		return res
 	}
 
 	return &stripe.Error{
