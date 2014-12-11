@@ -16,6 +16,9 @@ Contain components of the nitrous-dedicated platform.
   * You might need to configure Postgres to allow access via Unix domain
     sockets. Add this to `/etc/postgresql/9.3/main/pg_hba.conf`:
     `local all all trust`
+* To get the browser-based terminal to work, you need to add an entry
+  in your host machine's `/etc/hosts`, mapping `<app-slug>.n2odev.com` to your VM's IP.
+  eg: `33.33.33.10  test-app.n2odev.com`
 
 # commands
 

@@ -35,6 +35,16 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
+const utilizationInterval = 5 * time.Second
+const utilizationSize = 360 // 30min
+
+var Utilization *stats.Utilization
+
+func init() {
+	Utilization = stats.NewUtilization(utilizationSize)
+	go Utilization.Record(utilizationInterval)
+}
+
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, http.StatusOK, jsonStatusOK)
 }
@@ -187,6 +197,26 @@ func (s *Server) stopContainer(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) restartContainer(w http.ResponseWriter, r *http.Request) {
 	s.performContainerControl(w, r, s.provider.Restart, "restarted")
+}
+
+func (s *Server) appStartContainer(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	err := s.provider.StartApp(id)
+	if err != nil {
+		s.handleError(w, err)
+		return
+	}
+	s.respond(w, http.StatusOK, jsonStatusOK)
+}
+
+func (s *Server) appStopContainer(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	err := s.provider.StopApp(id)
+	if err != nil {
+		s.handleError(w, err)
+		return
+	}
+	s.respond(w, http.StatusOK, jsonStatusOK)
 }
 
 func (s *Server) listPublicKeys(w http.ResponseWriter, r *http.Request) {
@@ -459,6 +489,12 @@ func (s *Server) serverInfo(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"info": stats})
+	return nil
+}
+
+func (s *Server) serverUtilization(w http.ResponseWriter, r *http.Request) error {
+	utilization := Utilization.Fetch()
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"utilization": utilization})
 	return nil
 }
 

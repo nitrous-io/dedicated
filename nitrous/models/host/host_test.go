@@ -341,6 +341,7 @@ var _ = Describe("models/host", func() {
 				RegionID:           hs.R.ID,
 				PlanID:             hs.P.ID,
 				ProviderTemplateID: hs.PT.ID,
+				HourlyPrice:        int64(634),
 			}
 			err = h.Insert(db)
 			Expect(err).To(BeNil())
@@ -353,6 +354,7 @@ var _ = Describe("models/host", func() {
 			Expect(hosts[0].ID).NotTo(BeZero())
 			Expect(hosts[0].UserID).To(Equal(u.ID))
 			Expect(hosts[0].Slug).To(Equal("my-host-1"))
+			Expect(hosts[0].HourlyPrice).To(Equal(int64(634)))
 			Expect(hosts[0].CreatedAt).NotTo(BeNil())
 			Expect(hosts[0].UpdatedAt).NotTo(BeNil())
 		})

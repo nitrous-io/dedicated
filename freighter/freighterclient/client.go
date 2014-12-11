@@ -87,6 +87,9 @@ type Client interface {
 	Config(id string) (config *ContainerConfig, err error)
 	Reconfig(id string, config *ContainerConfig) (*Container, error)
 
+	StartApp(id string) error
+	StopApp(id string) error
+
 	AddPublicKeys(id string, keys []string) error
 	ClearPublicKeys(id string) error
 	RemovePublicKey(id string, fingerprint string) error
@@ -100,6 +103,7 @@ type Client interface {
 	RegistryLogout(registry string) error
 
 	HostInfo(period time.Duration) (*HostInfo, error)
+	HostUtilization() ([]HostUtilization, error)
 
 	ListImages() ([]*Image, error)
 	BuildImage(name string, in io.Reader, out io.Writer, remote string) error
@@ -146,6 +150,11 @@ type (
 	}
 	Volume   provider.VolumeInfo
 	HostInfo Stats
+
+	HostUtilization struct {
+		Time  time.Time `json:"time"`
+		Stats Stats     `json:"stats"`
+	}
 
 	containerResponse struct {
 		*Container   `json:"container"`
@@ -663,6 +672,48 @@ func (c *client) Reconfig(id string, config *ContainerConfig) (*Container, error
 	return containerResp.Container, nil
 }
 
+func (c *client) StartApp(id string) error {
+	u := fmt.Sprintf("%s/containers/%s/app/start", c.host.BaseURL(), id)
+	req, err := http.NewRequest("POST", u, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return statusError(resp)
+	}
+
+	return nil
+}
+
+func (c *client) StopApp(id string) error {
+	u := fmt.Sprintf("%s/containers/%s/app/stop", c.host.BaseURL(), id)
+	req, err := http.NewRequest("POST", u, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return statusError(resp)
+	}
+
+	return nil
+}
+
 func (c *client) HostInfo(period time.Duration) (*HostInfo, error) {
 	data := url.Values{"period": []string{period.String()}}
 	u := fmt.Sprintf("%s/info?%s", c.host.BaseURL(), data.Encode())
@@ -690,6 +741,34 @@ func (c *client) HostInfo(period time.Duration) (*HostInfo, error) {
 	}
 
 	return info.Info, nil
+}
+
+func (c *client) HostUtilization() ([]HostUtilization, error) {
+	u := fmt.Sprintf("%s/utilization", c.host.BaseURL())
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, statusError(resp)
+	}
+
+	var utilization struct {
+		Utilization []HostUtilization `json:"utilization"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&utilization); err != nil {
+		return nil, ErrUnexpectedResponse
+	}
+
+	return utilization.Utilization, nil
 }
 
 // ListImages makes an API request to a given Freighter Host and returns a list of

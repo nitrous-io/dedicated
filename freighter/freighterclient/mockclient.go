@@ -44,6 +44,12 @@ type MockClient struct {
 	ReconfigContainer *Container
 	ReconfigError     error
 
+	StartAppCalled int
+	StartAppError  error
+
+	StopAppCalled int
+	StopAppError  error
+
 	AddPublicKeysCalled int
 	AddPublicKeysError  error
 
@@ -76,6 +82,10 @@ type MockClient struct {
 	HostInfoPeriod time.Duration
 	HostInfoError  error
 	HostInfoReturn *HostInfo
+
+	HostUtilizationCalled int
+	HostUtilizationError  error
+	HostUtilizationReturn []HostUtilization
 
 	ReceivedID     string
 	ReceivedName   string
@@ -226,6 +236,18 @@ func (c *MockClient) Reconfig(id string, config *ContainerConfig) (*Container, e
 	return c.ReconfigContainer, c.ReconfigError
 }
 
+func (c *MockClient) StartApp(id string) error {
+	c.StartAppCalled++
+	c.ReceivedID = id
+	return c.StartAppError
+}
+
+func (c *MockClient) StopApp(id string) error {
+	c.StopAppCalled++
+	c.ReceivedID = id
+	return c.StopAppError
+}
+
 func (c *MockClient) AddPublicKeys(id string, pubkeys []string) error {
 	c.AddPublicKeysCalled++
 	c.ReceivedID = id
@@ -284,6 +306,11 @@ func (c *MockClient) HostInfo(period time.Duration) (*HostInfo, error) {
 	c.HostInfoCalled++
 	c.HostInfoPeriod = period
 	return c.HostInfoReturn, c.HostInfoError
+}
+
+func (c *MockClient) HostUtilization() ([]HostUtilization, error) {
+	c.HostUtilizationCalled++
+	return c.HostUtilizationReturn, c.HostUtilizationError
 }
 
 func (c *MockClient) ListImages() ([]*Image, error) {

@@ -1053,6 +1053,82 @@ var _ = Describe("client", func() {
 		})
 	})
 
+	Describe("StartApp()", func() {
+		BeforeEach(func() {
+			var err error
+			st, err = NewServerTest(ghttp.CombineHandlers(
+				ghttp.VerifyRequest("POST", "/containers/yosemite/app/start"),
+				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			))
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
+		})
+
+		AfterEach(func() {
+			st.Close()
+		})
+
+		It("doesn't return an error when response is HTTP 200 OK", func() {
+			statusCode = http.StatusOK
+
+			err := cl.StartApp("yosemite")
+			Expect(err).To(BeNil())
+
+			reqs := server.ReceivedRequests()
+			Expect(reqs).To(HaveLen(1))
+		})
+
+		It("returns a StatusErr when response is not HTTP 200 OK", func() {
+			statusCode = http.StatusInternalServerError
+
+			err := cl.StartApp("yosemite")
+
+			Expect(err).To(Equal(&freighterclient.StatusError{
+				Code: http.StatusInternalServerError,
+				Body: "",
+			}))
+		})
+	})
+
+	Describe("StopApp()", func() {
+		BeforeEach(func() {
+			var err error
+			st, err = NewServerTest(ghttp.CombineHandlers(
+				ghttp.VerifyRequest("POST", "/containers/yosemite/app/stop"),
+				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			))
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
+		})
+
+		AfterEach(func() {
+			st.Close()
+		})
+
+		It("doesn't return an error when response is HTTP 200 OK", func() {
+			statusCode = http.StatusOK
+
+			err := cl.StopApp("yosemite")
+			Expect(err).To(BeNil())
+
+			reqs := server.ReceivedRequests()
+			Expect(reqs).To(HaveLen(1))
+		})
+
+		It("returns a StatusErr when response is not HTTP 200 OK", func() {
+			statusCode = http.StatusInternalServerError
+
+			err := cl.StopApp("yosemite")
+
+			Expect(err).To(Equal(&freighterclient.StatusError{
+				Code: http.StatusInternalServerError,
+				Body: "",
+			}))
+		})
+	})
+
 	Describe("Public Key Operations", func() {
 		setupServer := func(method, url string) {
 			handlers := ghttp.CombineHandlers(
@@ -1634,6 +1710,88 @@ var _ = Describe("client", func() {
 				Expect(ok).To(BeTrue())
 				Expect(server.ReceivedRequests()).To(HaveLen(1))
 				Expect(info).To(BeNil())
+			})
+		})
+	})
+
+	Describe("HostUtilization()", func() {
+		BeforeEach(func() {
+			handlers := ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/utilization"),
+				ghttp.VerifyContentType("application/json"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
+			st, _ = NewServerTest(handlers)
+			cl, host, server = st.client, st.host, st.server
+		})
+
+		AfterEach(func() {
+			st.Close()
+		})
+
+		Context("when the response is HTTP 200 OK", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+				responseBody = `{"utilization":[{
+					"time": "2014-12-31T00:00:00Z",
+					"stats": {
+						"uptime": 30,
+						"memory_usage": 12345678,
+						"memory_total": 17179869184,
+						"storage_usage": 2000000000,
+						"storage_total": 1000000000000,
+						"num_cpu": 2,
+						"per_cpu_usage": [0.5, 30]
+					}
+				}]}`
+			})
+
+			It("returns the HostUtilization", func() {
+				utilization, err := cl.HostUtilization()
+				Expect(err).To(BeNil())
+				time, _ := time.Parse("2006-01-02", "2014-12-31")
+				Expect(utilization).To(HaveLen(1))
+				Expect(utilization[0]).To(Equal(freighterclient.HostUtilization{
+					Time: time,
+					Stats: freighterclient.Stats{
+						Uptime:       30,
+						MemoryUsage:  12345678,
+						MemoryTotal:  17179869184,
+						StorageUsage: 2000000000,
+						StorageTotal: 1000000000000,
+						NumCPU:       2,
+						PerCPUUsage:  []float64{0.5, 30},
+					},
+				}))
+
+			})
+		})
+
+		Context("when the response is empty", func() {
+			BeforeEach(func() {
+				responseBody = ``
+			})
+
+			It("returns ErrUnexpectedResponse", func() {
+				utilization, err := cl.HostUtilization()
+				Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(utilization).To(BeNil())
+			})
+		})
+
+		Context("when the response is not HTTP 200 OK", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusInternalServerError
+			})
+
+			It("returns a StatusError", func() {
+				utilization, err := cl.HostUtilization()
+				Expect(err).NotTo(BeNil())
+				_, ok := err.(*freighterclient.StatusError)
+				Expect(ok).To(BeTrue())
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(utilization).To(BeNil())
 			})
 		})
 	})
