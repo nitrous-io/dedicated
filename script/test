@@ -47,7 +47,7 @@ test_db() {
 
 test_with_docker() {
   echo "===> Starting Docker daemon"
-  sudo service docker restart
+  sudo service docker start
   test_app $@
 }
 
