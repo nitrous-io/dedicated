@@ -2,7 +2,7 @@ NO_COLOR=\033[0m
 OK_COLOR=\033[32;01m
 ERROR_COLOR=\033[31;01m
 WARN_COLOR=\033[33;01m
-COMMIT=$(shell git rev-parse --short HEAD)
+VERSION=$(shell git rev-parse --short HEAD)
 
 APP=all
 SUITE=
@@ -37,20 +37,15 @@ tender:
 	@./script/build tender
 .PHONY: tender
 
-test:
-	@echo "$(OK_COLOR)==> Running tests $(COMMIT)...$(NO_COLOR)"
-	@./script/test $(APP) $(SUITE)
+test: image
+	@echo "$(OK_COLOR)==> Running tests $(VERSION)...$(NO_COLOR)"
+	@./script/test-in-container $(APP) $(VERSION) $(SUITE)
 .PHONY: test
 
 release: ci-build
-	@echo "$(OK_COLOR)==> Releasing $(APP) $(COMMIT)...$(NO_COLOR)"
+	@echo "$(OK_COLOR)==> Releasing $(APP) $(VERSION)...$(NO_COLOR)"
 	@./script/release $(APP) true
 .PHONY: release
-
-ci-test: image
-	@echo "$(OK_COLOR)==> Running tests in CI mode $(COMMIT)...$(NO_COLOR)"
-	@./script/ci $(APP) $(COMMIT)
-.PHONY: ci-test
 
 ci-build: image
 	@./script/build $(APP) true
@@ -73,7 +68,7 @@ run-hostbuilder: hostbuilder
 .PHONY: run-hostbuilder
 
 image:
-	@./script/image $(COMMIT)
+	@./script/image $(VERSION)
 .PHONY: image
 
 createdb:
