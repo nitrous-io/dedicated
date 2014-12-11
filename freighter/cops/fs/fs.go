@@ -51,7 +51,7 @@ func (c *FS) Handle(msg *cops.Message) *cops.Message {
 		}
 		files := make([]interface{}, len(entries))
 		for i, f := range entries {
-			files[i] = f
+			files[i] = fileInfoArgs(f)
 		}
 		return makeReply(msg, files)
 	case "read":
