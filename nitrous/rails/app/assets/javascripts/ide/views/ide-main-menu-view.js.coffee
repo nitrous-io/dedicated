@@ -132,6 +132,7 @@ App.IdeMainMenuView = Em.View.extend
         macKey: ['shift+ctrl+p'], pcKey: ['shift+ctrl+p']
         callback: (controller) ->
           controller.fileFinder()
+        disabled: true # TODO Enable with file browser
       separator
       menuItem 'Close',
         macKey: ['shift+ctrl+w', 'ctrl+w'], pcKey: 'ctrl+alt+w'
@@ -164,6 +165,7 @@ App.IdeMainMenuView = Em.View.extend
         macKey: ['shift+command+f'], pcKey: ['shift+ctrl+f']
         callback: (controller) ->
           controller.editFindInProject()
+        disabled: true # TODO Enable with find in project
       separator
       menuItem 'Replace',
         macKey: ['command+option+f'], pcKey: ['shift+ctrl+h']
