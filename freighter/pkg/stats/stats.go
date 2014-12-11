@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"sync"
 	"syscall"
 	"time"
 
@@ -107,4 +108,60 @@ func cpuUsage(period time.Duration) ([]float64, error) {
 		usage[i] = (totalTicks - idleTicks) * 100 / totalTicks
 	}
 	return usage, nil
+}
+
+type UtilizationItem struct {
+	Time  time.Time `json:"time"`
+	Stats *Stats    `json:"stats"`
+}
+
+type Utilization struct {
+	Buffer []UtilizationItem
+	Index  int
+
+	mutex sync.Mutex
+}
+
+func NewUtilization(size int) *Utilization {
+	return &Utilization{
+		Buffer: make([]UtilizationItem, size),
+		Index:  0,
+	}
+}
+
+func (u *Utilization) Record(interval time.Duration) {
+	for now := range time.Tick(interval) {
+		sample, _ := Sample(1 * time.Second)
+		u.RecordSample(now, sample)
+	}
+}
+
+func (u *Utilization) RecordSample(now time.Time, sample *Stats) {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+	u.Buffer[u.Index] = UtilizationItem{now, sample}
+	u.Index++
+	if u.Index >= len(u.Buffer) {
+		u.Index = 0
+	}
+}
+
+func (u *Utilization) Fetch() []UtilizationItem {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+	ordered := make([]UtilizationItem, len(u.Buffer))
+	idx := 0
+	for i := u.Index; i < len(u.Buffer); i++ {
+		if !u.Buffer[i].Time.IsZero() {
+			ordered[idx] = u.Buffer[i]
+			idx += 1
+		}
+	}
+	for i := 0; i < u.Index; i++ {
+		if !u.Buffer[i].Time.IsZero() {
+			ordered[idx] = u.Buffer[i]
+			idx += 1
+		}
+	}
+	return ordered[0:idx]
 }
