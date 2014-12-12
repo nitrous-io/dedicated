@@ -33,6 +33,7 @@ var _ = Describe("models/invoice", func() {
 			Username: "foo",
 			Email:    "foo@example.com",
 			Password: "123456",
+			Name:     "Steve",
 		}
 		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
@@ -71,6 +72,30 @@ var _ = Describe("models/invoice", func() {
 			Expect(err).To(BeNil())
 
 			inv, err := invoice.ForPeriod(db, u.ID, start, end)
+			Expect(inv).To(Equal(i))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Describe(".FindByStripeID()", func() {
+		It("should return nothing if the record does not exist", func() {
+			inv, err := invoice.FindByStripeID(db, "Ok23x")
+			Expect(inv).To(BeNil())
+			Expect(err).To(BeNil())
+		})
+
+		It("should return the invoice for the stripe ID", func() {
+			i := &invoice.Invoice{
+				UserID:           u.ID,
+				TotalCharge:      900,
+				SuccessfulCharge: true,
+				Attempts:         23,
+				StripeID:         sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(BeNil())
+
+			inv, err := invoice.FindByStripeID(db, "Xcccs")
 			Expect(inv).To(Equal(i))
 			Expect(err).To(BeNil())
 		})
@@ -151,6 +176,126 @@ var _ = Describe("models/invoice", func() {
 			Expect(i3.SuccessfulCharge).To(BeTrue())
 			Expect(i3.TotalCharge).To(Equal(int64(93)))
 			Expect(i3.StripeID.String).To(Equal("Ok"))
+		})
+	})
+
+	Describe("PaymentSucceeded", func() {
+		var i *invoice.Invoice
+		BeforeEach(func() {
+			i = &invoice.Invoice{
+				UserID:           u.ID,
+				TotalCharge:      900,
+				SuccessfulCharge: false,
+				Attempts:         23,
+				StripeID:         sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("should set SuccessfulCharge as true", func() {
+			err := i.PaymentSucceeded(db)
+			Expect(err).To(BeNil())
+
+			Expect(i.SuccessfulCharge).To(BeTrue())
+			Expect(i.FirstAttemptAt).ToNot(BeNil())
+			Expect(i.LastAttemptAt).ToNot(BeNil())
+			Expect(i.FirstAttemptAt.Unix()).To(Equal(i.LastAttemptAt.Unix()))
+		})
+
+		It("should not set FirstAttemptAt if it is not nil", func() {
+			t := time.Unix(20, 0)
+			i.FirstAttemptAt = &t
+			err := i.PaymentSucceeded(db)
+			Expect(err).To(BeNil())
+
+			i2 := &invoice.Invoice{}
+			err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", i.ID).StructScan(i2)
+			Expect(err).To(BeNil())
+			Expect(i2.SuccessfulCharge).To(BeTrue())
+			Expect(i2.FirstAttemptAt.Unix()).To(Equal(t.Unix()))
+			Expect(i2.LastAttemptAt).ToNot(BeNil())
+			Expect(i2.FirstAttemptAt).ToNot(Equal(i2.LastAttemptAt))
+		})
+	})
+
+	Describe("PaymentFailed", func() {
+		var i *invoice.Invoice
+		BeforeEach(func() {
+			i = &invoice.Invoice{
+				UserID:           u.ID,
+				TotalCharge:      900,
+				SuccessfulCharge: false,
+				Attempts:         23,
+				StripeID:         sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("should pass through the attemptCount", func() {
+			err := i.PaymentFailed(db, 2, true)
+			Expect(err).To(BeNil())
+
+			i2 := &invoice.Invoice{}
+			err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", i.ID).StructScan(i2)
+			Expect(err).To(BeNil())
+			Expect(i2.SuccessfulCharge).To(BeFalse())
+			Expect(i2.FirstAttemptAt).ToNot(BeNil())
+			Expect(i2.LastAttemptAt).ToNot(BeNil())
+			Expect(i2.FirstAttemptAt.Unix()).To(Equal(i2.LastAttemptAt.Unix()))
+			Expect(i2.SuccessfulCharge).To(BeFalse())
+			Expect(i2.Attempts).To(Equal(2))
+			Expect(i2.Failed).To(BeFalse())
+		})
+
+		It("should not set FirstAttemptAt if it is not nil", func() {
+			t := time.Unix(20, 0)
+			i.FirstAttemptAt = &t
+			err := i.PaymentFailed(db, 2, false)
+			Expect(err).To(BeNil())
+
+			i2 := &invoice.Invoice{}
+			err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", i.ID).StructScan(i2)
+			Expect(err).To(BeNil())
+			Expect(i2.FirstAttemptAt.Unix()).To(Equal(t.Unix()))
+			Expect(i2.LastAttemptAt).ToNot(BeNil())
+			Expect(i2.FirstAttemptAt).ToNot(Equal(i2.LastAttemptAt))
+		})
+
+		It("should set Failed and fire an email if closed out", func() {
+			origMailer := invoice.Mailer
+			fakeMailer := &FakeMailer{}
+			invoice.Mailer = fakeMailer
+			defer func() { invoice.Mailer = origMailer }()
+
+			_, err := db.Exec("UPDATE billing_profiles SET last_four = '1901' WHERE user_id = $1;", u.ID)
+			Expect(err).To(BeNil())
+
+			t := time.Unix(20, 0)
+			i.FirstAttemptAt = &t
+			err = i.PaymentFailed(db, 2, false)
+			Expect(err).To(BeNil())
+
+			i2 := &invoice.Invoice{}
+			err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", i.ID).StructScan(i2)
+			Expect(err).To(BeNil())
+			Expect(i2.FirstAttemptAt.Unix()).To(Equal(t.Unix()))
+			Expect(i2.LastAttemptAt).ToNot(BeNil())
+			Expect(i2.FirstAttemptAt).ToNot(Equal(i2.LastAttemptAt))
+			Expect(i2.Failed).To(BeTrue())
+
+			Expect(fakeMailer.SendMailCalled).To(BeTrue())
+			Expect(fakeMailer.From).To(Equal(`"Nitrous" <support@nitrous.io>`))
+			Expect(fakeMailer.Tos).To(Equal([]string{`"Steve" <foo@example.com>`}))
+			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous" <support@nitrous.io>`))
+			Expect(fakeMailer.Subject).To(Equal("Nitrous - payment unsuccessful"))
+			Expect(fakeMailer.Body).To(ContainSubstring("Hello Steve,"))
+			Expect(fakeMailer.Body).To(ContainSubstring("Unfortunately, we have been unable to successfully bill your provided credit card ending in 1901 to the value of $9.00."))
+			Expect(fakeMailer.Body).To(ContainSubstring("To rectify this issue please contact our support team at support@nitrous.io."))
+			Expect(fakeMailer.HTML).To(ContainSubstring("Hello Steve,"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("Unfortunately, we have been unable to successfully bill your provided credit card ending in 1901 to the value of $9.00."))
+			Expect(fakeMailer.HTML).To(ContainSubstring(`To rectify this issue please contact our support team at <a href="mailto:support@nitrous.io">support@nitrous.io</a>.`))
 		})
 	})
 
