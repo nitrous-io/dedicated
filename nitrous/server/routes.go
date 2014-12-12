@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/regions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/stripehooks"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/templates"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/tokens"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
@@ -87,6 +88,7 @@ func (s *Server) drawRoutes() {
 				"/user/resend_confirm":       r("users.ResendConfirmation", users.ResendConfirmation),
 				"/send_reset_password_token": r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
 				"/reset_password":            r("passwords.ResetPassword", passwords.ResetPassword),
+				"/stripe_hook":               r("stripehooks.ReceiveHook", stripehooks.ReceiveHook),
 			},
 		}
 
