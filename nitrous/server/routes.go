@@ -146,6 +146,7 @@ func (s *Server) drawRoutes() {
 			"PUT": {
 				"/users":                  r("users.Update", users.Update),
 				"/hosts/{slug}":           r("hosts.Update", mw.HostViaPath("slug", hosts.Update)),
+				"/hosts/{slug}/versions":  r("hosts.UpdateVersions", mw.HostViaPath("slug", hosts.UpdateVersions)),
 				"/containers/{slug}/keys": r("keys.Create", keys.Create),
 				"/user/billing_profile":   r("billingprofiles.Update", billingprofiles.Update),
 			},
