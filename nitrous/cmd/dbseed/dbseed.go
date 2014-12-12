@@ -223,13 +223,10 @@ func templates(d db.QueryReceiver) error {
 				PublishAll: false,
 				Env:        nil,
 				Ports:      []string{"public:3000:3000", "public:2222:22"},
-				Volumes:    []string{"workspace:/volumes/workspace"},
+				Volumes:    nil,
 			},
 		},
-		Volumes: []template.Volume{
-			{Name: "workspace", Slug: "workspace"},
-			{Name: "database", Slug: "database"},
-		},
+		Volumes: nil,
 	}
 	railsConfigJSON, err := json.Marshal(railsConfig)
 	if err != nil {
