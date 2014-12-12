@@ -18,15 +18,17 @@ func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interfac
 	m := map[string]string{
 		"method": method,
 		"path":   path,
-		"card":   body.Get("card"),
-		"email":  body.Get("email"),
-		"desc":   body.Get("description"),
 	}
-	if s := body.Get("amount"); s != "" {
-		m["amount"] = s
-	}
-	if s := body.Get("customer"); s != "" {
-		m["customer"] = s
+	if body != nil {
+		m["card"] = body.Get("card")
+		m["email"] = body.Get("email")
+		m["desc"] = body.Get("description")
+		if s := body.Get("amount"); s != "" {
+			m["amount"] = s
+		}
+		if s := body.Get("customer"); s != "" {
+			m["customer"] = s
+		}
 	}
 	s.ReceivedRequests = append(s.ReceivedRequests, m)
 
