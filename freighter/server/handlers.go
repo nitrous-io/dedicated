@@ -353,6 +353,15 @@ func (s *Server) removeVolume(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) error {
+	snapshot, err := s.provider.CreateSnapshot()
+	if err != nil {
+		return err
+	}
+	s.respondEncodeJSON(w, http.StatusCreated, map[string]interface{}{"snapshot": snapshot})
+	return nil
+}
+
 // export content of the container as a .tar stream
 func (s *Server) exportContainer(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]

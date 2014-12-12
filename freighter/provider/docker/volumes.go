@@ -2,7 +2,9 @@ package docker
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"syscall"
@@ -104,6 +106,22 @@ func (p *DockerProvider) GetVolumeInfo(slug string) (*provider.VolumeInfo, error
 	}
 
 	return vi, nil
+}
+
+func (p *DockerProvider) ExportVolume(slug string, output io.WriteCloser) error {
+	path := p.VolumesDir(slug)
+
+	_, err := os.Stat(path)
+	if err != nil && os.IsNotExist(err) {
+		return ErrVolumeNotFound
+	}
+
+	cmd := exec.Command("tar", "-C", path, "-c", ".")
+	rd, _ := cmd.StdoutPipe()
+
+	cmd.Start()
+	go io.Copy(output, rd)
+	return cmd.Wait()
 }
 
 // VolumesDir returns the path on the host for a volume of the given slug.  If

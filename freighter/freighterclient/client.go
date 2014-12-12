@@ -55,6 +55,7 @@ var (
 	ErrEndpointNotFound  = errors.New("freighter: endpoint not found")
 	ErrContainerNotFound = errors.New("freighter: container not found")
 	ErrVolumeNotFound    = errors.New("freighter: volume not found")
+	ErrSnapshotNotFound  = errors.New("freighter: snapshot not found")
 	ErrHostNotFound      = errors.New("freighter: host not found")
 )
 
@@ -98,6 +99,8 @@ type Client interface {
 	CreateVolume(slug string) (*Volume, error)
 	RemoveVolume(slug string) error
 	GetVolumeInfo(slug string) (*Volume, error)
+
+	CreateSnapshot() (*Snapshot, error)
 
 	RegistryLogin(params *RegistryAuth) error
 	RegistryLogout(registry string) error
@@ -149,6 +152,7 @@ type (
 		Config      *DockerConfig `json:"config"`
 	}
 	Volume   provider.VolumeInfo
+	Snapshot provider.SnapshotInfo
 	HostInfo Stats
 
 	HostUtilization struct {
@@ -1207,6 +1211,40 @@ func (c *client) GetVolumeInfo(slug string) (*Volume, error) {
 	switch resp.StatusCode {
 	case http.StatusNotFound:
 		return nil, ErrVolumeNotFound
+	default:
+		return nil, statusError(resp)
+	}
+}
+
+func (c *client) CreateSnapshot() (*Snapshot, error) {
+	u := fmt.Sprintf("%s/snapshots", c.host.BaseURL())
+	req, err := http.NewRequest("POST", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusCreated {
+		var snapshot struct {
+			Snapshot *Snapshot `json:"snapshot"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&snapshot); err != nil {
+			return nil, ErrUnexpectedResponse
+		}
+		return snapshot.Snapshot, nil
+	}
+
+	switch resp.StatusCode {
+	case StatusUnprocessableEntity:
+		return nil, ErrInvalidParams
+	case http.StatusNotFound:
+		return nil, ErrSnapshotNotFound
 	default:
 		return nil, statusError(resp)
 	}

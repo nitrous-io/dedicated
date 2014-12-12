@@ -58,6 +58,7 @@ type Provider interface {
 	//ForwardPort(id string, hostPort uint16, containerPort uint16) (err error)
 	//TakeSnapshot(id string, tag name, description string) (info *SnapshotInfo, err error)
 	//RestoreSnapshot(id string, snapshotID string) (err error)
+
 	IsNotFoundError(err error) bool
 	Export(id string, output io.Writer) error
 	Logs(id string, w io.Writer, follow, timestamps bool, tail string) error
@@ -77,6 +78,9 @@ type Provider interface {
 	ListVolumes() ([]string, error)
 	RemoveVolume(slug string) error
 	GetVolumeInfo(slug string) (*VolumeInfo, error)
+	ExportVolume(slug string, output io.Writer) error
+
+	CreateSnapshot() (*SnapshotInfo, error)
 
 	AttachToContainer(id string, in io.Reader, out io.Writer, noStdin bool) error
 	ResizeContainerTTY(id string, height, width int) error
@@ -165,11 +169,10 @@ type BuildImageOptions struct {
 	Remote        string
 }
 
-//type SnapshotInfo struct {
-//	ID          string `json:"id"`
-//	Tag         string `json:"tag"`
-//	Description string `json:"description"`
-//}
+type SnapshotInfo struct {
+	Size int64  `json:"size"`
+	Url  string `json:"url"`
+}
 
 func IsValidName(name string) bool {
 	return containerNameRe.Match([]byte(name))

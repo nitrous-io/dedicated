@@ -1,6 +1,8 @@
 package docker_test
 
 import (
+	"archive/tar"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -179,6 +181,42 @@ var _ = Describe("provider/docker volumes", func() {
 		It("returns err if volume doesn't exist", func() {
 			vi, err := prov.GetVolumeInfo("nosuch")
 			Expect(vi).To(BeNil())
+			Expect(err).To(MatchError(docker.ErrVolumeNotFound))
+		})
+	})
+
+	Describe(".ExportVolume()", func() {
+		BeforeEach(func() {
+			base := prov.VolumesDir("")
+			err := os.MkdirAll(filepath.Join(base, "exported"), 0755)
+			Expect(err).To(BeNil())
+			ioutil.WriteFile(filepath.Join(base, "exported", "file.txt"), []byte("data"), 0644)
+		})
+
+		It("exports the volume as a .tar", func() {
+			rd, wr := io.Pipe()
+			err := prov.ExportVolume("exported", wr)
+			Expect(err).To(BeNil())
+
+			tr := tar.NewReader(rd)
+
+			hdr, err := tr.Next()
+			Expect(err).To(BeNil())
+			Expect(hdr.Name).To(Equal("./"))
+
+			hdr, err = tr.Next()
+			Expect(err).To(BeNil())
+			Expect(hdr.Name).To(Equal("./file.txt"))
+			data := make([]byte, 4)
+			n, err := tr.Read(data)
+			Expect(err).To(BeNil())
+			Expect(n).To(Equal(4))
+			Expect(data).To(Equal([]byte("data")))
+		})
+
+		It("returns error when slug is not found", func() {
+			_, wr := io.Pipe()
+			err := prov.ExportVolume("nosuch", wr)
 			Expect(err).To(MatchError(docker.ErrVolumeNotFound))
 		})
 	})

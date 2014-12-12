@@ -78,6 +78,10 @@ type MockClient struct {
 	VolumeInfoReturn   *Volume
 	VolumeInfoError    error
 
+	CreateSnapshotCalled int
+	CreateSnapshotReturn *Snapshot
+	CreateSnapshotError  error
+
 	HostInfoCalled int
 	HostInfoPeriod time.Duration
 	HostInfoError  error
@@ -285,6 +289,11 @@ func (c *MockClient) RemoveVolume(slug string) error {
 func (c *MockClient) GetVolumeInfo(slug string) (*Volume, error) {
 	c.VolumeInfoCalled += 1
 	return c.VolumeInfoReturn, c.VolumeInfoError
+}
+
+func (c *MockClient) CreateSnapshot() (*Snapshot, error) {
+	c.CreateSnapshotCalled += 1
+	return c.CreateSnapshotReturn, c.CreateSnapshotError
 }
 
 func (c *MockClient) RegistryLogin(p *RegistryAuth) error {

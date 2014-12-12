@@ -1484,6 +1484,54 @@ var _ = Describe("client", func() {
 		})
 	})
 
+	Describe("CreateSnapshot()", func() {
+		BeforeEach(func() {
+			handlers := ghttp.CombineHandlers(
+				func(w http.ResponseWriter, req *http.Request) {
+					req.ParseForm()
+				},
+				ghttp.VerifyRequest("POST", "/snapshots"),
+				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
+		})
+
+		Context("on success", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusCreated
+				responseBody = `{"snapshot":{"url":"test","size":5}}`
+			})
+
+			It("returns nil", func() {
+				snap, err := cl.CreateSnapshot()
+				Expect(err).To(BeNil())
+				receivedRequests := server.ReceivedRequests()
+				Expect(receivedRequests).To(HaveLen(1))
+				Expect(snap.Size).To(Equal(int64(5)))
+				Expect(snap.Url).To(Equal("test"))
+			})
+		})
+
+		Context("on error", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusNotFound
+				responseBody = ""
+			})
+
+			It("returns error", func() {
+				snap, err := cl.CreateSnapshot()
+				Expect(snap).To(BeNil())
+				Expect(err).To(MatchError(freighterclient.ErrSnapshotNotFound))
+				receivedRequests := server.ReceivedRequests()
+				Expect(receivedRequests).To(HaveLen(1))
+			})
+		})
+	})
+
 	Describe("RegistryLogin()", func() {
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
