@@ -115,12 +115,12 @@ func main() {
 }
 
 func pullImage(image string) error {
-	log.Printf("Pulling %s ....", image)
+	log.Printf("Pulling %s...", image)
 	err := exec.Command("docker", "run", "-rm", image, "true").Run()
 	if err != nil {
 		return err
 	}
-	log.Printf("Pulled %s ....", image)
+	log.Printf("Pulled %s", image)
 	return nil
 }
 
