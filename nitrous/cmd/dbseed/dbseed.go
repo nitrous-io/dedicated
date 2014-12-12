@@ -216,21 +216,11 @@ func templates(d db.QueryReceiver) error {
 	railsConfig := &template.TemplateConfig{
 		Containers: []template.Container{
 			{
-				Name:       "postgres",
-				Slug:       "postgres",
-				Image:      "postgres:9.3",
-				Privileged: false,
-				PublishAll: false,
-				Env:        nil,
-				Ports:      []string{"private:5432:5432"},
-				Volumes:    []string{"database:/var/lib/postgresql/data"},
-			},
-			{
 				Name:       "app",
 				Slug:       "app",
-				Image:      "nitrousio/rails-pg-jumpstart:latest",
+				Image:      "nitrousio/starter-rails:latest",
 				Privileged: false,
-				PublishAll: true,
+				PublishAll: false,
 				Env:        nil,
 				Ports:      []string{"public:3000:3000", "public:2222:22"},
 				Volumes:    []string{"workspace:/volumes/workspace"},
