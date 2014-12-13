@@ -12,10 +12,10 @@ App.AppIndexController = Em.ObjectController.extend App.PerformActionMixin,
         @performActionOnRecord(container, 'POST', 'start', 'starting')
 
     restart: ->
-      container = @get 'model.appContainer'
-
-      if container
+      if container = @get 'model.appContainer'
         @performActionOnRecord(container, 'POST', 'restart', 'restarting')
+      else
+        @performAction('POST', 'restart', 'restarting')
 
     stop: ->
       if container = @get 'model.appContainer'

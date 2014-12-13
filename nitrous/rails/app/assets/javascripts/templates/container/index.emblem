@@ -102,9 +102,11 @@
         button.ui.btn click='startApp' Start App
       if previewURL
         a.ui.btn href=previewURL target='_blank' Preview
-      button.ui.btn.primary click='openTerminal' Terminal
       if App.user.ideEnabled
+        button.ui.btn click='openTerminal' Terminal
         a.ui.btn.primary href=ideURL target='_blank' IDE
+      else
+        button.ui.btn.primary click='openTerminal' Terminal
   else
     if isStopped
       .left
