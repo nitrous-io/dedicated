@@ -1,3 +1,4 @@
+.vagrant
 .git
 nitrous/rails/.bundle
 nitrous/rails/tmp
