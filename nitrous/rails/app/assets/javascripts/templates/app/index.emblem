@@ -60,31 +60,39 @@
 .card-footer.bordered
   // if host is running
   if isRunning
-    if appContainer.isRunning
-      .left
-        button.ui.btn click='restart' Restart
-        button.ui.btn click='stop' Stop
-      .right
-        button.ui.btn click='openLogs' Logs
-        if appContainer.previewURL
-          a.ui.btn href=appContainer.previewURL target='_blank' Preview
-        button.ui.btn.primary click='openTerminal' Terminal
-    else
-      if appContainer.isStopped
+    if appContainer
+      if appContainer.isRunning
         .left
-          button.ui.btn click='showTerminateDialog target="view"' Terminate...
+          button.ui.btn click='restart' Restart
+          button.ui.btn click='stop' Stop
         .right
           button.ui.btn click='openLogs' Logs
-          button.ui.btn.primary click='start' Start
+          if appContainer.previewURL
+            a.ui.btn href=appContainer.previewURL target='_blank' Preview
+          button.ui.btn.primary click='openTerminal' Terminal
       else
-        if appContainer.isTerminated
+        if appContainer.isStopped
           .left
-            button.ui.btn disabled='disabled' Terminated
+            button.ui.btn click='showTerminateDialog target="view"' Terminate...
+          .right
+            button.ui.btn click='openLogs' Logs
+            button.ui.btn.primary click='start' Start
         else
-          .left
-            button.ui.btn disabled='disabled'
-              i.spinner
-              | Please Wait...
+          if appContainer.isTerminated
+            .left
+              button.ui.btn disabled='disabled' Terminated
+          else
+            .left
+              button.ui.btn disabled='disabled'
+                i.spinner
+                | Please Wait...
+    else
+      // if appContainer is not found
+      .left
+        button.ui.btn click='showTerminateDialog target="view"' Terminate...
+      .right
+        button.ui.btn.primary click='restart' Restart
+
   else
     // if host is terminated
     if isTerminated
