@@ -68,6 +68,31 @@ var _ = Describe("models/invoiceitem", func() {
 		}
 	})
 
+	Describe("ItemDescription", func() {
+		var (
+			hst *host.Host
+			inv *invoiceitem.InvoiceItem
+		)
+		BeforeEach(func() {
+			hst = &host.Host{
+				Slug: "ABCDEF",
+			}
+			inv = &invoiceitem.InvoiceItem{
+				Hours:       900,
+				HourlyPrice: 1231,
+			}
+		})
+
+		It("should describe the host usage", func() {
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' 900 hours at 1.23c/hour"))
+		})
+
+		It("should be able to display terminated state", func() {
+			hst.State = host.StateTerminated
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' (terminated) 900 hours at 1.23c/hour"))
+		})
+	})
+
 	Describe(".FindAllForInvoice", func() {
 		It("should return empty set if none was find", func() {
 			res, err := invoiceitem.FindAllForInvoice(db, 902378)

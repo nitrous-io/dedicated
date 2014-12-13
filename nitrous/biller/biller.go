@@ -171,7 +171,7 @@ func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, i *in
 			return fmt.Errorf("Could not locate host %d for invoice %d", invI.HostID, invI.ID)
 		}
 
-		desc := fmt.Sprintf("Host '%s' %d hours at %.2fc/hour", matchingHost.Slug, invI.Hours, invI.HourlyCents())
+		desc := invoiceitem.ItemDescription(&invI, matchingHost)
 		if invI.StripeID.String == "" {
 			ii, err := striitem.New(&stripe.InvoiceItemParams{
 				Customer: bp.StripeID.String,
