@@ -6,7 +6,7 @@
     tr
       th Card Type
       td
-        = App.billingProfile.cardType 
+        = App.billingProfile.cardType
     tr
       th Last Four Digits
       td
@@ -19,3 +19,58 @@
 .card-footer.bordered
     .right
       button.ui.btn click='changeCard' Change Card
+
+if App.billingUsage
+  .card-header.bordered
+    h2 Current Usage
+
+  .card-body
+    .invoice-item
+      table.ui.table.horizontal
+        tbody
+          = each item in App.billingUsage.items
+            tr
+              td
+                = item.description
+              td
+                | $
+                = item.totalChargeDollars
+        tr.total-charge
+          td
+            | Total Charge
+          td
+            | $
+            = App.billingUsage.totalChargeDollars
+
+
+.card-header.bordered
+  h2 Invoices
+
+.card-body
+  = each invoice in model
+    .invoice-item
+      .heading
+        h4
+          = simpledate invoice.periodStart
+          '  -
+          = simpledate invoice.periodEnd
+        .payment-status class={invoice.unpaid:unpaid}
+          if invoice.successfulCharge
+            | Paid
+          else
+            | Unpaid
+      table.ui.table.horizontal
+        tbody
+          = each item in invoice.items
+            tr
+              td
+                = item.description
+              td
+                | $
+                = item.totalChargeDollars
+        tr.total-charge
+          td
+            | Total Charge
+          td
+            | $
+            = invoice.totalChargeDollars
