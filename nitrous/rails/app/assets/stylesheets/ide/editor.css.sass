@@ -1,4 +1,5 @@
 @import 'variables'
+@import 'mixins'
 
 #ide-editor-view
   display: flex
@@ -34,7 +35,7 @@
           background: rgba($n2oGray400, .4) !important
 
       ul.dropdown-menu
-        margin-top: 6px
+        margin-top: 9px
         text-transform: none
 
         &.modes
@@ -53,3 +54,58 @@
 
   .CodeMirror-scroll
     flex-grow: 1
+
+  .CodeMirror-dialog
+    display: flex
+    flex-shrink: 0
+    z-index: 4
+    border-top: 1px solid $n2oGray900
+    background: $n2oGray700
+    color: $n2oGray200
+    line-height: 32px
+    font-family: $mainFont
+    padding: 0 16px
+    text-shadow: none
+    font-size: 14px
+
+    input[type=text]
+      flex-grow: 1
+      margin: 2px 8px 0 8px
+      +appearance(none)
+      border: 1px solid transparent
+      background: $n2oGray850
+      border-radius: 2px
+      outline: none
+      line-height: 28px
+      height: 28px
+      transition: color .2s, border-color .2s, background-color .2s
+      padding: 0 8px
+
+      &:focus
+        outline: none
+        border: 1px solid $lightBlue800
+
+    button
+      padding: 0 10px
+      text-transform: uppercase
+      font-weight: 500
+      background: transparent
+      border: 0
+      border-radius: 0
+      transition: background-color .2s, color .3s, opacity .3s
+      color: $n2oGray200
+      line-height: 1
+      margin-left: 1px
+
+      &:first-of-type
+        margin-left: 16px
+
+      &:focus
+        background: rgba($n2oGray400, .2)
+        outline: none
+
+      &:hover
+        background: rgba($n2oGray400, .2)
+
+      &:active
+        background: rgba($n2oGray400, .4)
