@@ -129,7 +129,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       saveDialog.set 'document.focused', true
       sidebarController = App.get 'router.ideSidebarController'
       sidebarController.refreshPath path.get('parentAbsolutePath')
-      @set 'saveDialog', null
+      @set 'saveDialog.hide', true
       App.util.mixpanel 'IDE New Document Saved'
       App.util.mixpanelIncrement 'ide_new_document_saved_count'
     saveDialog.set 'saving', false

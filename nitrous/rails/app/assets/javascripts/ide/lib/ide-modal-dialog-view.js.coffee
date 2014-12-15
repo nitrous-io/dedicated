@@ -2,20 +2,18 @@ App.IdeModalDialogView = Em.View.extend
   classNames: ['ui', 'modal']
 
   showOrHide: (->
-    if @get 'content'
-      @show()
-    else
+    if @get 'content.hide'
       @hide()
-  ).observes 'content'
+    else if @get 'content'
+      @show()
+  ).observes 'content', 'content.hide'
 
   show: ->
-    ui.showModal(@$())
-    Em.run.scheduleOnce 'afterRender', this, ->
+    ui.showModal @$(), =>
       @viewDidAppear()
 
   hide: ->
-    ui.hideModal(@$())
-    Em.run.scheduleOnce 'afterRender', this, ->
+    ui.hideModal @$(), =>
       @viewDidDisappear()
 
   viewDidAppear: ->
@@ -24,6 +22,8 @@ App.IdeModalDialogView = Em.View.extend
     @$(selector).focus()
 
   viewDidDisappear: ->
+    @set 'content', null
 
-  didClickCancel: ->
-    @hide()
+  actions:
+    didClickCancel: ->
+      @hide()

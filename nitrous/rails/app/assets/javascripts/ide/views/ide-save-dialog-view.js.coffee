@@ -1,15 +1,18 @@
 App.IdeSaveDialogView = App.IdeModalDialogView.extend
-  templateName: 'ide/templates/save-dialog'
-  elementId: 'ide_save_dialog_view'
+  templateName: 'ide/save-dialog'
+  elementId: 'ide-save-dialog-view'
   contentBinding: 'controller.saveDialog' # ideEditorController
 
-  viewDidAppear: ->
-    @$('#save_path').focus()
+  disableSaveButton: Em.computed.empty 'content.path'
 
-  didClickSave: ->
-    @get('controller').saveNewDocument()
+  didReceiveError: (->
+    path = @get 'content.path'
+    error = @get('content.firstErrors.path') || @get('content.firstErrors.base')
+    if error
+      error = "“#{path || '(empty)'}” #{error}"
+      App.snackbar.post(error)
+  ).observes 'content.firstErrors'
 
-App.IdeSaveDialogTextField = Em.TextField.extend
-  insertNewline: ->
-    @get('parentView').didClickSave()
-
+  actions:
+    didClickSave: ->
+      @get('controller').saveNewDocument()
