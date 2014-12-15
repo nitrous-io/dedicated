@@ -259,6 +259,7 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 		Cmd:        container.Config.Cmd,
 		Entrypoint: container.Config.Entrypoint,
 		ExitCode:   container.State.ExitCode,
+		AppState:   p.appState(container),
 		StartedAt:  container.State.StartedAt,
 		FinishedAt: container.State.FinishedAt,
 	}, nil
@@ -1289,6 +1290,17 @@ func (p *DockerProvider) appPID(container *dockerclient.Container, cmd string) (
 	}
 
 	return pid, nil
+}
+
+func (p *DockerProvider) appState(container *dockerclient.Container) string {
+	cmd, ok := p.appCmd(container)
+	if !ok {
+		return provider.ContainerAppNone
+	}
+	if _, err := p.appPID(container, cmd); err != nil {
+		return provider.ContainerAppStopped
+	}
+	return provider.ContainerAppRunning
 }
 
 func envValue(env []string, envVar string) (string, bool) {

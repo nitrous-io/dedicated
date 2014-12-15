@@ -344,31 +344,6 @@ var _ = Describe("provider/docker", func() {
 				})
 			})
 
-			Describe(".GetInfo()", func() {
-				It("returns container info", func() {
-					info, err := prov.GetInfo(id)
-					Expect(err).To(BeNil())
-					Expect(info.ID).To(Equal(id))
-					Expect(info.Name).To(Equal(name))
-					Expect(info.Image).To(Equal(NitrousImage))
-					Expect(info.ImageID).To(Equal(inspectID(NitrousImage)))
-					Expect(info.Host).To(Equal(inspectIP(info.ID)))
-					Expect(info.Gateway).To(Equal(inspectGateway(info.ID)))
-					Expect(info.State).To(Equal(provider.ContainerStateRunning))
-					Expect(fmt.Sprintf("[%s]", strings.Join(info.Env, " "))).To(Equal(inspectEnv(id)))
-					sshPort := inspectNetworkSettingsPort(info.ID, "22/tcp")
-					Expect(info.Ports["22"]).To(ContainElement(sshPort))
-					expectExposedPort(info.ID, "22/tcp")
-
-					c := inspectContainerInfo(id)
-					Expect(info.Cmd).To(Equal(c.Config.Cmd))
-					Expect(info.Entrypoint).To(Equal(c.Config.Entrypoint))
-					Expect(info.ExitCode).To(Equal(c.State.ExitCode))
-					Expect(info.StartedAt).To(Equal(c.State.StartedAt))
-					Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
-				})
-			})
-
 			Describe(".Start()", func() {
 				expectContainerToBeRunning := func() {
 					out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", id).CombinedOutput()
@@ -1118,6 +1093,68 @@ var _ = Describe("provider/docker", func() {
 
 			err = prov.StopApp(info.ID)
 			Expect(err).To(BeNil())
+		})
+	})
+
+	Describe(".GetInfo()", func() {
+		BeforeEach(func() {
+			PullImage(NitrousImage)
+		})
+
+		It("returns container info", func() {
+			name := RandomName("freightertest")
+			configJSON := ""
+			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
+			Expect(err).To(BeNil())
+			defer CleanUpContainer(name)
+
+			id := info.ID
+
+			info, err = prov.GetInfo(id)
+			Expect(err).To(BeNil())
+			Expect(info.ID).To(Equal(id))
+			Expect(info.Name).To(Equal(name))
+			Expect(info.Image).To(Equal(NitrousImage))
+			Expect(info.ImageID).To(Equal(inspectID(NitrousImage)))
+			Expect(info.Host).To(Equal(inspectIP(id)))
+			Expect(info.Gateway).To(Equal(inspectGateway(id)))
+			Expect(info.State).To(Equal(provider.ContainerStateRunning))
+			Expect(info.AppState).To(Equal(provider.ContainerAppNone))
+			Expect(fmt.Sprintf("[%s]", strings.Join(info.Env, " "))).To(Equal(inspectEnv(id)))
+			sshPort := inspectNetworkSettingsPort(id, "22/tcp")
+			Expect(info.Ports["22"]).To(ContainElement(sshPort))
+			expectExposedPort(id, "22/tcp")
+
+			c := inspectContainerInfo(id)
+			Expect(info.Cmd).To(Equal(c.Config.Cmd))
+			Expect(info.Entrypoint).To(Equal(c.Config.Entrypoint))
+			Expect(info.ExitCode).To(Equal(c.State.ExitCode))
+			Expect(info.StartedAt).To(Equal(c.State.StartedAt))
+			Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
+		})
+
+		It("returns an AppState that indicates whether the NITROUS_CMD process is running", func() {
+			cmd := "python -m SimpleHTTPServer 8080"
+			name := RandomName("freightertest")
+			configJSON := fmt.Sprintf(`{ "Env": ["NITROUS_CMD=%s"] }`, cmd)
+			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
+			Expect(err).To(BeNil())
+			defer CleanUpContainer(name)
+
+			info, err = prov.GetInfo(info.ID)
+			Expect(err).To(BeNil())
+			Expect(info.AppState).To(Equal(provider.ContainerAppRunning))
+
+			err = prov.StopApp(info.ID)
+			Expect(err).To(BeNil())
+
+			// Process should no longer be running.
+			out, err := exec.Command("docker", "top", info.ID).CombinedOutput()
+			Expect(string(out)).NotTo(ContainSubstring(cmd))
+
+			info, err = prov.GetInfo(info.ID)
+			Expect(err).To(BeNil())
+			Expect(info.AppState).To(Equal(provider.ContainerAppStopped))
 		})
 	})
 
