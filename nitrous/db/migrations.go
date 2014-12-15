@@ -570,5 +570,18 @@ func init() {
 				ALTER TABLE provider_templates ADD COLUMN hourly_price bigint NOT NULL DEFAULT 1;
 			`,
 		},
+		{
+			Version: "490",
+			Up: `
+				CREATE TABLE snapshots (
+					id bigserial PRIMARY KEY NOT NULL,
+					host_id bigint REFERENCES hosts(id) NOT NULL,
+					size bigint NOT NULL,
+					url character varying NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+			`,
+		},
 	}
 }

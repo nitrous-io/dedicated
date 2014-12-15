@@ -89,6 +89,13 @@ type MockProvider struct {
 	VolumeInfoReturn *provider.VolumeInfo
 	VolumeInfoError  error
 
+	ExportVolumeCalled bool
+	ExportVolumeError  error
+
+	CreateSnapshotCalled bool
+	CreateSnapshotReturn *provider.SnapshotInfo
+	CreateSnapshotError  error
+
 	LogsCalled         bool
 	LogsError          error
 	ReceivedFollow     bool
@@ -394,6 +401,16 @@ func (p *MockProvider) RemoveVolume(slug string) error {
 func (p *MockProvider) GetVolumeInfo(slug string) (*provider.VolumeInfo, error) {
 	p.VolumeInfoCalled = true
 	return p.VolumeInfoReturn, p.VolumeInfoError
+}
+
+func (p *MockProvider) ExportVolume(slug string, output io.Writer) error {
+	p.ExportVolumeCalled = true
+	return p.ExportVolumeError
+}
+
+func (p *MockProvider) CreateSnapshot() (*provider.SnapshotInfo, error) {
+	p.CreateSnapshotCalled = true
+	return p.CreateSnapshotReturn, p.CreateSnapshotError
 }
 
 func (p *MockProvider) AttachToContainer(id string, stdin io.Reader, stdout io.Writer, noStdin bool) error {

@@ -1085,6 +1085,32 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("POST /snapshots", func() {
+		doRequest := func() {
+			req, _ := NewRequestWithSecret(hostSecret, "POST", "/snapshots", nil)
+			handler.ServeHTTP(res, req)
+		}
+
+		It("is Created when provider.CreateVolumes() succeeds", func() {
+			prov.CreateSnapshotReturn = &provider.SnapshotInfo{
+				Size: 5,
+				Url:  "file://test.tgz",
+			}
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusCreated))
+			Expect(res.Body.String()).To(MatchJSON(`{"snapshot":{"size":5,"url":"file://test.tgz"}}`))
+		})
+
+		Context("when provider.CreateVolumes() fails", func() {
+			It("with an unexpected error", func() {
+				prov.CreateSnapshotError = fmt.Errorf("mkdir failed")
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"mkdir failed"}`))
+			})
+		})
+	})
+
 	Describe("GET /images", func() {
 		doRequest := func() {
 			req, err = NewRequestWithSecret(hostSecret, "GET", "/images", nil)
