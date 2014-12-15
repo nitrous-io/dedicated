@@ -17,9 +17,7 @@ App.IdeMenuItemView = Em.View.extend
   click: ->
     content = @get 'content'
     unless content.get('separator') || content.get('disabled')
-      if url = content.get 'url'
-        App.util.mixpanel 'IDE Clicked Out', uri: url
-      else
+      unless content.get 'url'
         content.get('callback').call(content, @get 'controller')
 
   bindMousetrapKey: ->

@@ -25,11 +25,11 @@ App.Container = klass = Em.Object.extend
   ).property 'env'
 
   previewURL: (->
-    hostname = @get 'hostname'
+    hostname = @get('host')?.hostname
     previewPort = @get 'previewPort'
     if hostname && previewPort
       "http://#{hostname}:#{previewPort}/"
-  ).property 'hostname', 'previewPort'
+  ).property 'host', 'previewPort'
 
   freighterdUrl: (->
     hostname = @get('host')?.proxy_hostname

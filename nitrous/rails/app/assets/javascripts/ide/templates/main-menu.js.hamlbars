@@ -9,17 +9,6 @@
             %span {{ name }}
           {{view App.IdeMenuView contentBinding="this"}}
 
-=hb 'if view.hideMainMenu' do
-  .alt-nav
-    %ul.nav
-      =hb 'each view.altMenu' do
-        %li.dropdown
-          %a.dropdown-toggle(data-toggle='dropdown')
-            %span {{ name }}
-          %ul.dropdown-menu
-            =hb 'each items' do
-              {{view App.IdeMenuItemView contentBinding="this"}}
-
 #about_nitrousio.modal.hide.fade
   .modal-header
     %h3 About Nitrous

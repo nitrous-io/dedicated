@@ -4,32 +4,23 @@ menuItem = (name, attrs={}) ->
   App.MenuItem.createWithMixins(attrs)
 separator = App.MenuItem.create(separator: true)
 
-previewMenu = menu 'Preview',
-  [ menuItem 'Port 3000 (SSL)',
-      boxBinding: Em.Binding.oneWay('App.router.indexController.content')
-      target: '_blank'
-      hide: (->
-        !@get('box.region.ssl_enabled') # FIXME Use Em.Binding.not() when we upgrade Ember.
-      ).property 'box.region.ssl_enabled'
-      url: (->
-        "https://#{@get 'box.boxHost'}"
-      ).property 'box.boxHost'
-  ].concat _.map([3000, 4000, 8080, 8888], (port) ->
-    menuItem "Port #{port}",
-      boxHostBinding: Em.Binding.oneWay('App.router.indexController.content.boxHost')
-      target: '_blank'
-      url: (->
-        if boxHost = @get 'boxHost'
-          if port == 3000
-            "http://#{boxHost}"
-          else
-            "http://#{boxHost}:#{port}"
-      ).property 'boxHost').concat [
-    separator
-    menuItem 'Preview Help',
-      url: 'http://help.nitrous.io/categories/previewing/'
-      target: '_blank'
-  ]
+previewMenu = menu 'Preview', [
+  App.MenuItem.createWithMixins
+    previewPortBinding: Em.Binding.oneWay 'App.container.previewPort'
+    name: (->
+      if previewPort = @get 'previewPort'
+        "Port #{@get 'previewPort'}"
+      else
+        "Not available"
+    ).property 'previewPort'
+    disabled: Em.computed.not 'previewPort'
+    urlBinding: Em.Binding.oneWay 'App.container.previewURL'
+    target: '_blank'
+  separator
+  menuItem 'Preview Help',
+    url: 'http://help.nitrous.io/categories/previewing/'
+    target: '_blank'
+]
 
 helpMenu = menu 'Help', [
   menuItem 'Help Center',
@@ -107,6 +98,8 @@ App.IdeMainMenuView = Em.View.extend
   hideMainMenu: false
 
   noSecondaryMenuBinding: Em.Binding.oneWay 'App.isChromeWebView'
+
+  previewPortBinding: Em.Binding.oneWay 'App.container.previewPort'
 
   menu: [
     menu 'Nitrous', [
@@ -257,11 +250,6 @@ App.IdeMainMenuView = Em.View.extend
       menuItem 'Ruler', submenu: rulerMenu
     ]
     previewMenu
-    helpMenu
-  ]
-
-  altMenu: [
-    previewMenu,
     helpMenu
   ]
 
