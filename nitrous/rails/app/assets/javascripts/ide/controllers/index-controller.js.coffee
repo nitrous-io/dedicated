@@ -1,34 +1,34 @@
-App.IdeController = Em.ObjectController.extend
+App.IndexController = Em.ObjectController.extend
   needs: ['ideFindInProject', 'ideFileFinder']
 
-  sftpSocket: null
+  opsSocket: null
   commandSocket: null
-  sftpSocketReady: null
-  sftpTimeoutAlert: null
+  opsSocketReady: null
+  opsTimeoutAlert: null
   repository: null
 
-  sftpConnectionGracePeriod: 15 * 1000 # TODO: This should come from a KeyValue object from the server-side
-  sftpConnectionLost: false
+  opsConnectionGracePeriod: 15 * 1000 # TODO: This should come from a KeyValue object from the server-side
+  opsConnectionLost: false
 
-  sftpSocketReadyBinding: Em.Binding.oneWay 'sftpSocket.started'
+  opsSocketReadyBinding: Em.Binding.oneWay 'opsSocket.started'
 
   initialize: ->
     if content = @get 'content'
-      @set 'sftpSocket', sftpSocket = App.DummySocket.create()
       #@set 'commandSocket', commandSocket = App.CommandSocket.create box: content
-
       router = App.get 'router'
       router.get('ideLayoutController').initialize()
       router.get('ideMainMenuController').initialize()
       router.get('ideSidebarController').initialize()
       router.get('ideEditorController').initialize()
       router.get('ideConsoleController').initialize()
-      sftpSocket.connect()
+
+      @set 'opsSocket', opsSocket = App.OpsSocket.create(container: content)
+      opsSocket.open()
       #commandSocket.connect()
 
   reset: ->
-    if sftpSocket = @get 'sftpSocket'
-      sftpSocket.disconnect()
+    if opsSocket = @get 'opsSocket'
+      opsSocket.close()
 
     if commandSocket = @get 'commandSocket'
       commandSocket.disconnect()
@@ -40,23 +40,23 @@ App.IdeController = Em.ObjectController.extend
     router.get('ideMainMenuController').reset()
     router.get('ideLayoutController').reset()
 
-    @set 'sftpSocket', null
+    @set 'opsSocket', null
     @set 'repository', null
     @set 'content', null
 
-  sftpSocketDisconnected: (->
-    unless @get('sftpSocketReady')
-      sftpTimeoutAlert = Em.run.later this, (->
-        @set 'sftpConnectionLost', true
-      ), @get('sftpConnectionGracePeriod')
+  opsSocketDisconnected: (->
+    unless @get('opsSocketReady')
+      opsTimeoutAlert = Em.run.later this, (->
+        @set 'opsConnectionLost', true
+      ), @get('opsConnectionGracePeriod')
 
-      @set 'sftpTimeoutAlert', sftpTimeoutAlert
-  ).observes 'sftpSocketReady'
+      @set 'opsTimeoutAlert', opsTimeoutAlert
+  ).observes 'opsSocketReady'
 
-  sftpSocketConnected: (->
-    if @get('sftpSocketReady') && (sftpTimeoutAlert = @get('sftpTimeoutAlert'))
-      Em.run.cancel sftpTimeoutAlert
-      @set 'sftpConnectionLost', false
+  opsSocketConnected: (->
+    if @get('opsSocketReady') && (opsTimeoutAlert = @get('opsTimeoutAlert'))
+      Em.run.cancel opsTimeoutAlert
+      @set 'opsConnectionLost', false
 
       if repo = @get 'repository'
         if repo.get('state') == 'failed'
@@ -64,7 +64,7 @@ App.IdeController = Em.ObjectController.extend
           if !App.localStorage.get(cacheKey)
             App.set 'flashMessage', { type: 'error', text: "Cloning the repository failed: #{repo.get('failure_reason')}" }
             App.localStorage.set(cacheKey, true)
-  ).observes 'sftpSocketReady'
+  ).observes 'opsSocketReady'
 
   warnWhenOffline: (->
     if App.get 'offline'

@@ -14,12 +14,15 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/freighter/cops"
 	"github.com/nitrous-io/dedicated/freighter/pkg/flusher"
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/pkg/msgproto"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 
+	_ "github.com/nitrous-io/dedicated/freighter/cops/fs"
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
@@ -445,6 +448,51 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 			switch msg := msg.(type) {
 			case *shell.ResizeMsg:
 				sh.Resize(msg.Width, msg.Height)
+			default:
+				log.Println("shell: got unknown msg %v", msg)
+			}
+		}
+	}
+}
+
+func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
+	id := mux.Vars(r)["id"]
+	// check if the client request to use BinaryMessage instead of TextMessage
+	binary, _ := strconv.ParseBool(r.FormValue("binary"))
+
+	info, err := s.provider.GetInfo(id)
+	if err != nil {
+		return err
+	}
+	containerID := info.ID
+	if info.State != provider.ContainerStateRunning {
+		return fmt.Errorf("Cannot attach to stopped container %v", containerID)
+	}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return fmt.Errorf("failed to upgrade websocket: %v", err)
+	}
+	stream := wsconn.NewConnectionHeartbeat(conn, true)
+	if binary {
+		stream.MessageType = websocket.BinaryMessage
+	}
+	defer stream.Close()
+
+	// create stdin/stdout stream with the shell protocol
+	msgCh := make(chan msgproto.Message, messageQueueSize)
+	stdin := msgproto.NewReader(conn, msgCh, stream.MessageType)
+	stdout := msgproto.NewWriter(stream)
+
+	ch := cops.Start(id, stdin, stdout)
+	for {
+		select {
+		case err := <-ch:
+			log.Printf("exited with err %s", err)
+			stdout.Close() // Inform client that server has closed connection.
+			return nil
+		case msg := <-msgCh:
+			switch msg := msg.(type) {
 			default:
 				log.Println("shell: got unknown msg %v", msg)
 			}

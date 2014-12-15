@@ -13,5 +13,8 @@ html lang='en'
     = javascript_include_tag 'ide/application'
     = javascript_include_tag 'ide/app'
     javascript:
-      App.bootstrap()
+      App.bootstrap({
+        terminalJsPath: '#{javascript_path "terminal"}',
+        terminalCssPath: '#{stylesheet_path "terminal"}',
+      })
     = render 'web_app/livechat'

@@ -56,8 +56,10 @@ klass = App.Path = Em.ArrayProxy.extend Em.SortableMixin,
 
   findByRelativePath: (path) ->
     if _.isString path
-      if path.length == 0 || path == '/'
+      if path.length == 0 || path == '/' || path == @get('absolutePath')
         return this
+      # convert the given path to relative path
+      path = path.replace @get('absolutePath')+'/', ''
       path = @constructor.pathToComponents(path)
     content = @get 'content'
     if found = content.findProperty 'name', path[0]

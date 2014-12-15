@@ -7,13 +7,13 @@ App.IdeSidebarController = Em.ArrayController.extend
   uploadDialog: null
   confirmDeletePathDialog: null
 
-  sftpSocketBinding: Em.Binding.oneWay 'App.router.ideController.sftpSocket'
-  sftpSocketReadyBinding: Em.Binding.oneWay 'sftpSocket.started'
-  sftpSocketNotReady: (->
-    !@get 'sftpSocketReady'
-  ).property 'sftpSocketReady'
+  opsSocketBinding: Em.Binding.oneWay 'App.router.indexController.opsSocket'
+  opsSocketReadyBinding: Em.Binding.oneWay 'opsSocket.started'
+  opsSocketNotReady: (->
+    !@get 'opsSocketReady'
+  ).property 'opsSocketReady'
 
-  repositoryBinding: Em.Binding.oneWay 'App.router.ideController.repository'
+  repositoryBinding: Em.Binding.oneWay 'App.router.indexontroller.repository'
 
   hiddenFilesVisible: false
 
@@ -24,7 +24,7 @@ App.IdeSidebarController = Em.ArrayController.extend
   currentDroppable: null
 
   initialize: ->
-    @set 'homePath', homePath = App.Path.create absolutePath: '', directory: true
+    @set 'homePath', homePath = App.Path.create absolutePath: App.get('container.homePath'), directory: true
     @set 'rootPath', homePath
     @set 'content', Em.A([homePath])
 
@@ -38,21 +38,18 @@ App.IdeSidebarController = Em.ArrayController.extend
     @set 'currentlyDraggedPath', null
     @set 'currentDroppable', null
 
-  sftpSocketDidStartForTheFirstTime: (->
-    if @get 'sftpSocket.startedFirstTime'
+  opsSocketDidStartForTheFirstTime: (->
+    if @get 'opsSocket.startedFirstTime'
       Em.run.next =>
         this.openPath @get('rootPath')
-        if repo = @get('repository')
-          this.openRepoDir()
-          this.openRepoReadme()
-        else
-          # Open README.md, if it's not present, then don't show an error
-          if boxId = App.get 'router.ideController.content.id'
-            cacheKey = "box:#{boxId}:shownReadme"
-            if !App.localStorage.get(cacheKey)
-              this.openPath @get('readmePath'), error: false
-              App.localStorage.set(cacheKey, true)
-  ).observes 'sftpSocket.startedFirstTime'
+        # TODO re-enable opening README
+        # Open README.md, if it's not present, then don't show an error
+        # if boxId = App.get 'router.indexController.content.id'
+        #   cacheKey = "box:#{boxId}:shownReadme"
+        #   if !App.localStorage.get(cacheKey)
+        #     this.openPath @get('readmePath'), error: false
+        #     App.localStorage.set(cacheKey, true)
+  ).observes 'opsSocket.startedFirstTime'
 
   openRepoDir: ->
     workspacePath = App.Path.create absolutePath: 'workspace', directory: true
@@ -76,7 +73,7 @@ App.IdeSidebarController = Em.ArrayController.extend
     if settings.error != false
       settings.error = (message) -> # default error handler
         App.set 'flashMessage', { type: 'error', text: 'Cannot open the selected file.' }
-    if !path.get('loading') && @get('sftpSocketReady')
+    if !path.get('loading') && @get('opsSocketReady')
       if path.get 'directory'
         path.set 'expanded', !path.get('expanded')
         if path.get 'expanded'
@@ -94,17 +91,17 @@ App.IdeSidebarController = Em.ArrayController.extend
 
 
   downloadPath: (path) ->
-    if !path.get('loading') && @get('sftpSocketReady')
+    if !path.get('loading') && @get('opsSocketReady')
       if path.get 'file'
-        sftpSocket = @get 'sftpSocket'
+        opsSocket = @get 'opsSocket'
 
-        sftpSocket.downloadFile path.get('absolutePath'), (err, path) ->
+        opsSocket.downloadFile path.get('absolutePath'), (err, path) ->
           if err
             App.set 'flashMessage', { type: 'error', text: "Cannot download the selected file." }
             return
 
-          boxServerURI = App.get 'router.ideController.content.box_server_uri'
-          boxId = App.get 'router.ideController.content.id'
+          boxServerURI = App.get 'router.indexontroller.content.box_server_uri'
+          boxId = App.get 'router.indexController.content.id'
 
           if boxServerURI && boxId
             App.authToken.obtain 'rainbow', (err, authToken) ->
@@ -118,17 +115,17 @@ App.IdeSidebarController = Em.ArrayController.extend
               , 5000)
 
   fetchFileList: (path) ->
-    sftpSocket = @get 'sftpSocket'
+    opsSocket = @get 'opsSocket'
     path.incrementProperty 'loadCount'
-    sftpSocket.fetchFileList path.get('absolutePath'), (err, absolutePath, content) ->
+    opsSocket.fetchFileList path.get('absolutePath'), (err, absolutePath, content) ->
       path.decrementProperty 'loadCount'
       unless err
         path.updateContent content
 
   fetchFileContent: (path, settings = {}) ->
-    sftpSocket = @get 'sftpSocket'
+    opsSocket = @get 'opsSocket'
     path.incrementProperty 'loadCount'
-    sftpSocket.fetchFileContent path.get('absolutePath'), (err, absolutePath, contentType, content) ->
+    opsSocket.fetchFileContent path.get('absolutePath'), (err, absolutePath, contentType, content) ->
       path.decrementProperty 'loadCount'
       if err
         if settings.error
@@ -193,7 +190,7 @@ App.IdeSidebarController = Em.ArrayController.extend
     homePath = @get 'homePath'
     parentAbsolutePath = path.get 'parentAbsolutePath'
     if parentPath = homePath.findByRelativePath parentAbsolutePath
-      sftpSocket = @get 'sftpSocket'
+      opsSocket = @get 'opsSocket'
       absolutePath = _.chain([parentAbsolutePath, name]).compact().join('/').value()
 
       callback = =>
@@ -201,9 +198,9 @@ App.IdeSidebarController = Em.ArrayController.extend
         this.refresh parentPath
 
       if path.get 'directory'
-        sftpSocket.makeDirectory absolutePath, callback
+        opsSocket.makeDirectory absolutePath, callback
       else
-        sftpSocket.writeNewFile absolutePath, '', callback
+        opsSocket.writeNewFile absolutePath, '', callback
 
   cancelNewPath: (path) ->
     homePath = @get 'homePath'
@@ -232,7 +229,7 @@ App.IdeSidebarController = Em.ArrayController.extend
     parentPath = homePath.findByRelativePath parentAbsolutePath
     return unless parentPath
 
-    sftpSocket = @get 'sftpSocket'
+    opsSocket = @get 'opsSocket'
     currentPathName = path.get 'name'
 
     if isDrag
@@ -250,7 +247,7 @@ App.IdeSidebarController = Em.ArrayController.extend
     newAbsolutePath = this._makeAbsolutePath newParentPath, newPathName
 
     path.incrementProperty 'loadCount'
-    sftpSocket.rename currentAbsolutePath, newAbsolutePath, (err) =>
+    opsSocket.rename currentAbsolutePath, newAbsolutePath, (err) =>
       if err
         if err == 'aio:name_taken'
           App.set 'flashMessage', { type: 'error', text: "The name “#{newPathName}” is already taken. Please choose a different name." }
@@ -286,8 +283,8 @@ App.IdeSidebarController = Em.ArrayController.extend
       @set 'uploadDialog', null
 
   sendUploadToken: (path, token) ->
-    sftpSocket = @get 'sftpSocket'
-    sftpSocket.sendUploadToken path, token, _.bind(@didSendUploadToken, this)
+    opsSocket = @get 'opsSocket'
+    opsSocket.sendUploadToken path, token, _.bind(@didSendUploadToken, this)
 
   didSendUploadToken: (err, absolutePath) ->
     path = App.Path.create absolutePath: absolutePath
@@ -306,13 +303,13 @@ App.IdeSidebarController = Em.ArrayController.extend
   delete: (path) ->
     return if path == @get 'rootPath'
     deleteMethod = if path.get('directory') then 'deleteDir' else 'deleteFile'
-    sftpSocket = @get 'sftpSocket'
+    opsSocket = @get 'opsSocket'
     homePath = @get 'homePath'
     parentPath = homePath.findByRelativePath path.get('parentAbsolutePath')
     path.set 'beingDeleted', true
     path.incrementProperty 'loadCount'
 
-    sftpSocket[deleteMethod] path.get('absolutePath'), (err) =>
+    opsSocket[deleteMethod] path.get('absolutePath'), (err) =>
       if err
         path.decrementProperty 'loadCount'
         path.set 'beingDeleted', false

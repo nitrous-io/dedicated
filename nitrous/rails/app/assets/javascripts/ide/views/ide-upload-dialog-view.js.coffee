@@ -9,9 +9,9 @@ App.IdeUploadDialogView = App.IdeModalDialogView.extend
   ).property()
 
   uploadURI: (->
-    if boxServerURI = App.get 'router.ideController.content.box_server_uri'
+    if boxServerURI = App.get 'router.indexController.content.box_server_uri'
       "#{boxServerURI}/upload"
-  ).property 'App.router.ideController.content.box_server_uri'
+  ).property 'App.router.indexontroller.content.box_server_uri'
 
   didInsertElement: ->
     @_super()

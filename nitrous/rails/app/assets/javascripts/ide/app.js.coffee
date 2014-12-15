@@ -12,27 +12,39 @@
 window.NitrousIO = Em.Application.extend Em.Evented,
   rootElement: '#app'
 
-  config: null
-
   online: if !Em.isNone(window.navigator.onLine) then window.navigator.onLine else true
   offline: Em.computed.not 'online'
 
   flashMessage: null
 
-  currentUser: null
-  box: null
+  slug: null
+  token: null
 
-  bootstrap: ->
+  currentUser: null
+  container: null
+
+  terminalJsPath: null
+  terminalCssPath: null
+
+  didChangeToken: (->
+    if token = @get('token')
+      window.localStorage.setItem('token', token)
+    else
+      window.localStorage.removeItem('token')
+  ).observes 'token'
+
+  bootstrap: (opts={}) ->
     @set 'LOG_RESOLVER', true
     @set 'LOG_TRANSITIONS', true
     @set 'LOG_TRANSITIONS_INTERNAL', true
     @set 'LOG_VIEW_LOOKUPS', true
 
-    @set 'currentUser', App.CurrentUser.create(username: 'test', email: 'test@example.com')
-    # FIXME: temp
-    @set 'box', App.Box.create(id: 42, state: 'running')
+    @set 'terminalJsPath', opts.terminalJsPath
+    @set 'terminalCssPath', opts.terminalCssPath
 
-window.App = NitrousIO.create()
+window.App = NitrousIO.create
+  token: window.localStorage.getItem('token')
+  slug: window.location.search.slice('1')
 
 Em.TextSupport.reopen
   attributeBindings: ['readonly']

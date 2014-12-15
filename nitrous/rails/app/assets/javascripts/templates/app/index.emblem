@@ -68,7 +68,9 @@
         button.ui.btn click='openLogs' Logs
         if appContainer.previewURL
           a.ui.btn href=appContainer.previewURL target='_blank' Preview
-        button.ui.btn.primary click='openTerminal' Terminal
+        button.ui.btn click='openTerminal' Terminal
+        if App.user.ideEnabled
+          a.ui.btn.primary href=appContainer.ideURL target='_blank' IDE
     else
       if appContainer.isStopped
         .left

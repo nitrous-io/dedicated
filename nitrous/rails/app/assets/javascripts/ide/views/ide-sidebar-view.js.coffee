@@ -18,7 +18,7 @@ App.IdeSidebarView = Em.View.extend
     event.preventDefault()
 
   showContextMenu: (event, path) ->
-    return if @get('controller.sftpSocketNotReady') || path.get('loading')
+    return if @get('controller.opsSocketNotReady') || path.get('loading')
     contextMenuView = @get 'contextMenuView'
     contextMenuView.show event, path
 

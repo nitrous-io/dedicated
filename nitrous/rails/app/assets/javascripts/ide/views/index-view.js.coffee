@@ -1,5 +1,5 @@
-App.IdeView = Em.View.extend
-  templateName: 'ide/templates/ide'
+App.IndexView = Em.View.extend
+  templateName: 'ide/templates/index'
   elementId: 'ide_view'
   classNames: 'ide_view'
 
