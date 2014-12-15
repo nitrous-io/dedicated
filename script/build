@@ -168,6 +168,7 @@ build_nitrous() {
   (build "nitrous/cmd/createinvitecodes")
   (build "nitrous/cmd/populatehosttransitions")
   (build "nitrous/cmd/biller")
+  (build "nitrous/cmd/hostusage")
   (build_assets)
 }
 

@@ -564,6 +564,21 @@ func init() {
 			`,
 		},
 		{
+			Version: "470",
+			Up: `
+				CREATE TABLE host_usages (
+					id bigserial PRIMARY KEY NOT NULL,
+					host_id bigint REFERENCES hosts(id) NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					hours int NOT NULL,
+					day date NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE INDEX index_host_usages_on_user_id_and_day ON host_usages USING btree (user_id, day);
+			`,
+		},
+		{
 			Version: "480",
 			Up: `
 				ALTER TABLE hosts ADD COLUMN hourly_price bigint NOT NULL DEFAULT 1;
