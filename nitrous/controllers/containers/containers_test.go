@@ -220,6 +220,7 @@ var _ = Describe("controllers/containers", func() {
 				Host:       "1.2.3.4",
 				Gateway:    "1.2.3.0",
 				State:      "running",
+				AppState:   "none",
 				Image:      "nitrous-base",
 				Cmd:        []string{"/sbin/init"},
 				Entrypoint: []string{"/bin/blah"},
@@ -254,6 +255,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].IPAddress).To(Equal("1.2.3.4"))
 			Expect(j.Containers[0].GatewayIP).To(Equal("1.2.3.0"))
 			Expect(j.Containers[0].State).To(Equal("running"))
+			Expect(j.Containers[0].AppState).To(Equal("none"))
 			Expect(j.Containers[0].Name).To(Equal("Rails app server"))
 			Expect(j.Containers[0].HostID).To(Equal(hs.H.ID))
 			Expect(j.Containers[0].Cmd).To(Equal([]string{"/sbin/init"}))
@@ -1004,6 +1006,7 @@ var _ = Describe("controllers/containers", func() {
 				Host:       "1.2.3.4",
 				Gateway:    "1.2.3.0",
 				State:      "running",
+				AppState:   "stopped",
 				Image:      "nitrous-base",
 				Cmd:        []string{"/sbin/init"},
 				Entrypoint: []string{"/bin/blah"},
@@ -1047,6 +1050,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.IPAddress).To(Equal("1.2.3.4"))
 			Expect(j.Container.GatewayIP).To(Equal("1.2.3.0"))
 			Expect(j.Container.State).To(Equal("running"))
+			Expect(j.Container.AppState).To(Equal("stopped"))
 			Expect(j.Container.Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(j.Container.Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(j.Container.ExitCode).To(Equal(0))

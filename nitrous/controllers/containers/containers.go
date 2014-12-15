@@ -532,6 +532,7 @@ func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, w ht
 
 func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) *container.Container {
 	c.SetState(fc.State)
+	c.AppState = fc.AppState
 	c.CID = fc.ID
 	c.Image = fc.Image
 	c.Slug = fc.Name
