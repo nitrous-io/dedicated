@@ -464,6 +464,13 @@ func startApp(cn *container.Container, h *host.Host, env *middleware.Env, w http
 		)
 	}
 
+	liveContainer, err := cl.Info(cn.CID)
+	if err != nil {
+		return err
+	}
+
+	cn = hydrateContainer(cn, liveContainer, h)
+
 	publishContainerEvent(env, controllers.EventContainerAppStarted, cn)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
@@ -485,6 +492,13 @@ func stopApp(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 			fmt.Sprintf("failed to stop app: %v", err),
 		)
 	}
+
+	liveContainer, err := cl.Info(cn.CID)
+	if err != nil {
+		return err
+	}
+
+	cn = hydrateContainer(cn, liveContainer, h)
 
 	publishContainerEvent(env, controllers.EventContainerAppStopped, cn)
 	env.Status = http.StatusOK

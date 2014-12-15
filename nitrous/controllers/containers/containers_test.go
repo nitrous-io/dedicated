@@ -1726,11 +1726,33 @@ var _ = Describe("controllers/containers", func() {
 			err := c.Insert(db)
 			Expect(err).To(BeNil())
 
+			mockClient.Containers = []*freighterclient.Container{{
+				ID:       "deadbead",
+				Name:     "foo",
+				State:    "running",
+				AppState: "running",
+				Image:    "nitrous-base",
+			}}
+
 			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			Expect(mockClient.StartAppCalled).To(Equal(1))
 			Expect(mockClient.ReceivedID).To(Equal("deadbead"))
+
+			var j struct {
+				Container *serializers.Container `json:"container"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			cn := j.Container
+			Expect(cn.ID).To(Equal(c.ID))
+			Expect(cn.CID).To(Equal("deadbead"))
+			Expect(cn.UserID).To(Equal(u.ID))
+			Expect(cn.Image).To(Equal("nitrous-base"))
+			Expect(cn.Slug).To(Equal("foo"))
+			Expect(cn.State).To(Equal(container.StateRunning.String()))
+			Expect(cn.AppState).To(Equal("running"))
 		})
 
 		It("responds with HTTP 500 Internal Server Error when the Freighter client returns an error", func() {
@@ -1774,11 +1796,33 @@ var _ = Describe("controllers/containers", func() {
 			err := c.Insert(db)
 			Expect(err).To(BeNil())
 
+			mockClient.Containers = []*freighterclient.Container{{
+				ID:       "deadbead",
+				Name:     "foo",
+				State:    "running",
+				AppState: "stopped",
+				Image:    "nitrous-base",
+			}}
+
 			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			Expect(mockClient.StopAppCalled).To(Equal(1))
 			Expect(mockClient.ReceivedID).To(Equal("deadbead"))
+
+			var j struct {
+				Container *serializers.Container `json:"container"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			cn := j.Container
+			Expect(cn.ID).To(Equal(c.ID))
+			Expect(cn.CID).To(Equal("deadbead"))
+			Expect(cn.UserID).To(Equal(u.ID))
+			Expect(cn.Image).To(Equal("nitrous-base"))
+			Expect(cn.Slug).To(Equal("foo"))
+			Expect(cn.State).To(Equal(container.StateRunning.String()))
+			Expect(cn.AppState).To(Equal("stopped"))
 		})
 
 		It("responds with HTTP 500 Internal Server Error when the Freighter client returns an error", func() {
