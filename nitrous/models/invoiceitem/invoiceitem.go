@@ -3,6 +3,7 @@ package invoiceitem
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -47,7 +48,8 @@ func (i *InvoiceItem) HourlyCents() float64 {
 }
 
 func (i *InvoiceItem) TotalCharge() int64 {
-	return (int64(i.Hours) * i.HourlyPrice) / 1000
+	totalCents := float64(int64(i.Hours)*i.HourlyPrice) / 1000.0
+	return int64(math.Ceil(totalCents))
 }
 
 func (i *InvoiceItem) Insert(d db.QueryReceiver) error {
