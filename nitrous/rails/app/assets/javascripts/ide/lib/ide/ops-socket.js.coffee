@@ -8,7 +8,7 @@ App.OpsSocket = Em.Object.extend
   startedAt: null
 
   nextCallbackId: 0
-  callbacks: Em.ArrayProxy.create(content: Em.A())
+  callbacks: []
 
   init: ->
     if container = @get 'container'
@@ -23,14 +23,14 @@ App.OpsSocket = Em.Object.extend
 
   registerCallback: (callback) ->
     callbackId = @get 'nextCallbackId'
-    @get('callbacks').insertAt(callbackId, callback)
+    @get('callbacks')[callbackId] = callback
     @incrementProperty('nextCallbackId')
     callbackId
 
   invokeCallback: (callbackId, args) ->
     callbacks = @get('callbacks')
-    if callback = callbacks.objectAt(callbackId)
-      callbacks.insertAt(callbackId, null)
+    if callback = callbacks[callbackId]
+      callbacks[callbackId] = null
       callback args...
 
   open: ->
