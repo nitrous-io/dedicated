@@ -1071,7 +1071,7 @@ var _ = Describe("models/user", func() {
 		It("sends a request to Stripe to create a customer", func() {
 			u.ActivateBillingProfile(db, "token")
 
-			Expect(fakeStripe.Received).To(Equal(map[string]string{
+			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
 				"method": "POST",
 				"path":   "/customers",
 				"card":   "token",
@@ -1082,7 +1082,7 @@ var _ = Describe("models/user", func() {
 
 		Context("when Stripe returns the created customer", func() {
 			It("updates and persists the record", func() {
-				fakeStripe.Response = StripeCustomerResponse
+				fakeStripe.Responses = []string{StripeCustomerResponse}
 
 				b, err := u.ActivateBillingProfile(db, "token")
 				Expect(err).To(BeNil())

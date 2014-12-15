@@ -100,7 +100,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 		})
 
 		It("should return the created billing profile when valid token is provided", func() {
-			fakeStripe.Response = StripeCustomerResponse
+			fakeStripe.Responses = []string{StripeCustomerResponse}
 
 			p := &url.Values{}
 			p.Set("card_token", "cc_token")
@@ -195,7 +195,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			})
 
 			It("should return the created billing profile when valid token is provided", func() {
-				fakeStripe.Response = StripeCustomerResponse
+				fakeStripe.Responses = []string{StripeCustomerResponse}
 
 				p := &url.Values{}
 				p.Set("card_token", "cc_token")

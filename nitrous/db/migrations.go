@@ -570,5 +570,37 @@ func init() {
 				ALTER TABLE provider_templates ADD COLUMN hourly_price bigint NOT NULL DEFAULT 1;
 			`,
 		},
+		{
+			Version: "490",
+			Up: `
+				CREATE TABLE invoices (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					total_charge bigint NOT NULL DEFAULT 0,
+					period_start timestamp without time zone NOT NULL,
+					period_end timestamp without time zone NOT NULL,
+					successful_charge boolean DEFAULT FALSE,
+					last_attempt_at timestamp without time zone DEFAULT NULL,
+					first_attempt_at timestamp without time zone DEFAULT NULL,
+					attempts int DEFAULT 0,
+					stripe_id character varying(255) DEFAULT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE INDEX index_invoices_on_user_id ON invoices USING btree (user_id);
+
+				CREATE TABLE invoice_items (
+					id bigserial PRIMARY KEY NOT NULL,
+					invoice_id bigint REFERENCES invoices(id) NOT NULL,
+					host_id bigint REFERENCES hosts(id) NOT NULL,
+					hours int NOT NULL,
+					hourly_price bigint NOT NULL,
+					stripe_id character varying(255) DEFAULT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+ 				);
+				CREATE INDEX index_invoice_items_on_invoice_id ON invoice_items USING btree (invoice_id);
+			`,
+		},
 	}
 }
