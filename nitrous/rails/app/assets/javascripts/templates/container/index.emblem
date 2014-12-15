@@ -95,6 +95,10 @@
       button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
       button.ui.btn click='openLogs' Logs
       button.ui.btn click='openAttach' Attach
+      if isAppRunning
+        button.ui.btn click='stopApp' Stop App
+      if isAppStopped
+        button.ui.btn click='startApp' Start App
       if previewURL
         a.ui.btn href=previewURL target='_blank' Preview
       button.ui.btn.primary click='openTerminal' Terminal

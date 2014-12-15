@@ -19,6 +19,12 @@ App.ContainerIndexController = Em.ObjectController.extend App.PerformActionMixin
     stop: ->
       @performAction('POST', 'stop', 'stopping')
 
+    startApp: ->
+      @performAction('POST', 'start_app')
+
+    stopApp: ->
+      @performAction('POST', 'stop_app')
+
     snapshot: ->
       name = @get 'snapshotImageName'
       record = @get 'model'
