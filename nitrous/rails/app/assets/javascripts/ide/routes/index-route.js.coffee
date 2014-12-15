@@ -22,7 +22,7 @@ App.IndexRoute = Em.Route.extend
   afterModel: (container, transition)->
     Em.RSVP.Promise.all([
       container.loadHost(),
-      container.requestToken(['shell', 'ops'])
+      container.requestToken(['ops'])
     ]).then (data) ->
       container.set 'host', data[0].host
       container.set 'token', data[1].token

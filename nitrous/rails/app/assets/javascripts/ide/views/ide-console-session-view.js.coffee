@@ -64,9 +64,12 @@ App.IdeConsoleSessionView = Em.View.extend
         scriptEl.onload = null
         terminal = iframeWindow.NitrousTerminal
         terminal.init()
-        terminal.url = controller.getTerminalURL(terminal)
         terminal.term.write 'Connecting...'
+        terminal.willOpen = =>
+          controller.openTerminal(terminal)
+        # the following terminal.open() call is only to invoke willOpen()
+        # it will be no-op since no URL is set
+        # openTerminal will call terminal.open again after setting the URL.
         terminal.open()
-        terminal.focus()
       iframeDocument.body.appendChild(scriptEl)
   )

@@ -20,17 +20,26 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin,
   reset: ->
     @set 'content', null
 
-  getTerminalURL: (terminal) ->
+  openTerminal: (terminal) ->
     if container = App.get 'container'
       protocol = location.protocol.replace('http', 'ws')
       freighterdUrl = container.get 'freighterdUrl'
       cid = container.get 'cid'
-      token = encodeURIComponent(container.get 'token')
       term = terminal.term
 
-      url = "#{protocol}//#{freighterdUrl}/containers/#{cid}/shell?token=#{token}&width=#{term.cols}&height=#{term.rows}"
-      command = encodeURIComponent(getLoginCommand(container.get 'loginUsername'))
-      url += "&command=#{command}"
+      container.requestToken(["shell"]).then (token) =>
+        token = encodeURIComponent(token.token)
+
+        url = "#{protocol}//#{freighterdUrl}/containers/#{cid}/shell?token=#{token}&width=#{term.cols}&height=#{term.rows}"
+        command = encodeURIComponent(getLoginCommand(container.get 'loginUsername'))
+        url += "&command=#{command}"
+
+        # continue to load the terminal
+        terminal.url = url
+        terminal.open(true)
+        terminal.focus()
+      , (jqxhr) ->
+        terminal.retry()
 
 getLoginCommand = (username) ->
   username ||= "root"
