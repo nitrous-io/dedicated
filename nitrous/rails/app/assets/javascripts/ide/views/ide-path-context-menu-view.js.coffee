@@ -11,9 +11,10 @@ App.IdePathContextMenuView = Em.View.extend
 
   show: (event, path) ->
     @set 'path', path
-    offset = 5
-    top = event.clientY - offset
-    left = event.clientX - offset
+    offsetX = 0
+    offsetY = -32
+    left = event.clientX + offsetX
+    top = event.clientY + offsetY
 
     @$('.dropdown-menu').css
       top: if top > 0 then top else 0

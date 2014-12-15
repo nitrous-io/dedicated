@@ -32,21 +32,23 @@ window.ui =
     $('body').on 'click.ui-dropdown', '.ui.dropdown', (e) ->
       ui.openDropdown($(this))
 
-  showModal: ($modal) ->
+  showModal: ($modal, cb) ->
     if !($modal instanceof jQuery)
       $modal = $($modal)
     $modal.show()
     $modal.find('.focus').focus()
     window.setTimeout(->
       $modal.addClass('show')
-    , 10)
+      cb?()
+    , 50)
 
-  hideModal: ($modal) ->
+  hideModal: ($modal, cb) ->
     if !($modal instanceof jQuery)
       $modal = $($modal)
     $modal.removeClass('show')
     window.setTimeout(->
       $modal.hide()
+      cb?()
     , 301)
 
 $ ->

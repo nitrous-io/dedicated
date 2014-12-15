@@ -13,10 +13,17 @@
 window.NitrousIO = Em.Application.extend Em.Evented,
   rootElement: '#app'
 
-  config: null
+  platform:
+    if navigator.platform.indexOf('Linux') != -1
+      'linux'
+    else if navigator.platform.indexOf('Windows') != -1
+      'windows'
+    else 'mac'
 
   online: if !Em.isNone(window.navigator.onLine) then window.navigator.onLine else true
   offline: Em.computed.not 'online'
+
+  config: null
 
   flashMessage: null
 
@@ -34,6 +41,9 @@ window.NitrousIO = Em.Application.extend Em.Evented,
     @set 'box', App.Box.create(id: 42, state: 'running')
 
 window.App = NitrousIO.create()
+
+App.on 'load', ->
+  App.set 'snackbar', App.Snackbar.create()
 
 Em.TextSupport.reopen
   attributeBindings: ['readonly']
