@@ -617,5 +617,12 @@ func init() {
 				CREATE INDEX index_invoice_items_on_invoice_id ON invoice_items USING btree (invoice_id);
 			`,
 		},
+		{
+			Version: "500",
+			Up: `
+				ALTER TABLE invoices ADD COLUMN failed boolean DEFAULT FALSE;
+				CREATE UNIQUE INDEX index_invoices_on_stripe_id ON invoices USING btree (stripe_id);
+			`,
+		},
 	}
 }
