@@ -1103,6 +1103,10 @@ var _ = Describe("provider/docker", func() {
 			// Process should no longer be running.
 			out, err = exec.Command("docker", "top", info.ID).CombinedOutput()
 			Expect(string(out)).NotTo(ContainSubstring(cmd))
+
+			// Stopping when process is not running should not return an error.
+			err = prov.StopApp(info.ID)
+			Expect(err).To(BeNil())
 		})
 
 		It("does not return an error if NITROUS_CMD is not specified", func() {
