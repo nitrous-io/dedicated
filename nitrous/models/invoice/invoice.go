@@ -31,6 +31,8 @@ type Invoice struct {
 	SuccessfulCharge bool `db:"successful_charge"`
 
 	// indicates Stripe failed (and gave up) charging the user
+	Failed bool `db:"failed"`
+
 	FirstAttemptAt *time.Time `db:"first_attempt_at"`
 
 	LastAttemptAt *time.Time     `db:"last_attempt_at"`
