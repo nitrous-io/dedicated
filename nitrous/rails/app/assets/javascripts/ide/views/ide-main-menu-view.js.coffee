@@ -194,7 +194,6 @@ App.IdeMainMenuView = Em.View.extend
       menuItem 'Auto-close Brackets & Quotes',
         callback: (controller) ->
           controller.toggleAutoCloseBrackets()
-          true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.autoCloseBrackets')
       separator
       menuItem 'Use Vim Key Bindings',
@@ -225,27 +224,22 @@ App.IdeMainMenuView = Em.View.extend
       menuItem 'Show Trailing Whitespace',
         callback: (controller) ->
           controller.viewToggleTrailingSpace()
-          true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.showTrailingSpace')
       menuItem 'Show Line Numbers',
         callback: (controller) ->
           controller.viewToggleLineNumbers()
-          true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.showLineNumbers')
       menuItem 'Highlight Line',
         callback: (controller) ->
           controller.viewToggleHighlightLine()
-          true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.highlightLine')
       menuItem 'Highlight Matching Brackets',
         callback: (controller) ->
           controller.viewToggleMatchBrackets()
-          true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.matchBrackets')
       menuItem 'Wrap Long Lines',
         callback: (controller) ->
           controller.viewToggleWrapLines()
-          true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.wrapLines')
       menuItem 'Ruler', submenu: rulerMenu
     ]

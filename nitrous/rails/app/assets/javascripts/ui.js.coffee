@@ -2,6 +2,7 @@ $ = window.jQuery
 
 window.ui =
   clearDropdowns: (options) ->
+    $('body').off 'click.ui-dropdown-bg'
     $dropdowns = $('.ui.dropdown')
     if options?.except?
       $dropdowns = $dropdowns.not(options.except)
@@ -12,9 +13,8 @@ window.ui =
         $menu.hide()
       ,200))
 
-  openDropdown: ($dropdown) ->
+  openDropdown: (evt, $dropdown) ->
     if $dropdown.hasClass('open')
-      $('body').off 'click.ui-dropdown-bg'
       ui.clearDropdowns()
     else
       ui.clearDropdowns(except: $dropdown)
@@ -26,11 +26,19 @@ window.ui =
         if $(e.target).closest('.dropdown').length == 0
           ui.clearDropdowns()
           false
-    false
+    evt?.stopPropagation()
+    evt?.preventDefault()
 
   handleDropdowns: ->
-    $('body').on 'click.ui-dropdown', '.ui.dropdown', (e) ->
-      ui.openDropdown($(this))
+    $('body').on 'click.ui-dropdown-menuitem', '.ui.dropdown ul.dropdown-menu > li a', (evt) ->
+      ui.clearDropdowns()
+      evt.stopPropagation()
+      href = $(this).attr('href')
+      if !href || href == '#'
+        evt.preventDefault()
+
+    $('body').on 'click.ui-dropdown', '.ui.dropdown', (evt) ->
+      ui.openDropdown(evt, $(this))
 
   showModal: ($modal, cb) ->
     if !($modal instanceof jQuery)

@@ -20,7 +20,7 @@ App.IdePathContextMenuView = Em.View.extend
       top: if top > 0 then top else 0
       left: if left > 0 then left else 0
 
-    ui.openDropdown(@$())
+    ui.openDropdown(event, @$())
 
   hide: ->
     ui.clearDropdowns()

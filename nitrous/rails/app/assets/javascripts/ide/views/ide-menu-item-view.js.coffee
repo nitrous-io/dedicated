@@ -19,6 +19,7 @@ App.IdeMenuItemView = Em.View.extend
     unless content.get('separator') || content.get('disabled')
       unless content.get 'url'
         content.get('callback').call(content, @get 'controller')
+        true
 
   bindMousetrapKey: ->
     if key = @get 'content.key'
