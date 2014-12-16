@@ -116,12 +116,12 @@ App.IdeMainMenuView = Em.View.extend
         disabledBinding: Em.Binding.oneWay('App.router.ideSidebarController.opsSocketNotReady')
         callback: (controller) ->
           controller.fileRefreshTree()
-      separator
-      menuItem 'Go to File...',
-        macKey: ['shift+ctrl+p'], pcKey: ['shift+ctrl+p']
-        disabledBinding: Em.Binding.oneWay('App.router.ideController.commandSocketNotReady')
-        callback: (controller) ->
-          controller.fileGoToFile()
+      #separator
+      #menuItem 'Go to File...',
+        #macKey: ['shift+ctrl+p'], pcKey: ['shift+ctrl+p']
+        #disabledBinding: Em.Binding.oneWay('App.router.ideController.commandSocketNotReady')
+        #callback: (controller) ->
+          #controller.fileGoToFile()
       separator
       menuItem 'Close',
         macKey: ['shift+ctrl+w', 'ctrl+w'], pcKey: 'ctrl+alt+w'
@@ -150,11 +150,11 @@ App.IdeMainMenuView = Em.View.extend
         disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
         callback: (controller) ->
           controller.editFindPrevious()
-      menuItem 'Find in Project...',
-        macKey: ['shift+command+f'], pcKey: ['shift+ctrl+f']
-        disabledBinding: Em.Binding.oneWay('App.router.ideController.commandSocketNotReady')
-        callback: (controller) ->
-          controller.editFindInProject()
+      #menuItem 'Find in Project...',
+        #macKey: ['shift+command+f'], pcKey: ['shift+ctrl+f']
+        #disabledBinding: Em.Binding.oneWay('App.router.ideController.commandSocketNotReady')
+        #callback: (controller) ->
+          #controller.editFindInProject()
       separator
       menuItem 'Replace',
         macKey: ['command+option+f'], pcKey: ['shift+ctrl+h']
