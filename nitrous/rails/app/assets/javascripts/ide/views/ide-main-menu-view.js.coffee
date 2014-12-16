@@ -107,7 +107,9 @@ App.IdeMainMenuView = Em.View.extend
         controller.fileNew()
       menuItem 'Save',
         macKey: ['command+s', 'ctrl+s', 'shift+ctrl+s'], pcKey: ['ctrl+s', 'ctrl+alt+s']
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+        disabled: (->
+          App.get('router.ideEditorController.hasNoTab') || App.get('router.indexController.opsSocketNotReady')
+        ).property 'App.router.ideEditorController.hasNoTab', 'App.router.indexController.opsSocketNotReady'
         callback: (controller) ->
           controller.fileSave()
       separator
