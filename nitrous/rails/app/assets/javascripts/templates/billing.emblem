@@ -1,24 +1,36 @@
-.card-header.bordered
-  h2 Billing
+if App.user.billingEnabled
+  .card-header.bordered
+    h2 Billing
 
-.card-body
-  table.ui.table.horizontal
-    tr
-      th Card Type
-      td
-        = App.billingProfile.cardType
-    tr
-      th Last Four Digits
-      td
-        = App.billingProfile.lastFour
-    tr
-      th Expiry
-      td
-        = App.billingProfile.expiry
+  .card-body
+    table.ui.table.horizontal
+      tr
+        th Card Type
+        td
+          = App.billingProfile.cardType
+      tr
+        th Last Four Digits
+        td
+          = App.billingProfile.lastFour
+      tr
+        th Expiry
+        td
+          = App.billingProfile.expiry
 
-.card-footer.bordered
-    .right
-      button.ui.btn click='changeCard' Change Card
+  .card-footer.bordered
+      .right
+        button.ui.btn click='changeCard' Change Card
+else
+  .card-header.bordered
+    h2 Billing
+
+  .card-body
+    p
+      | Billing has not been enabled for your account, please contact
+      '
+      a href="mailto:support@nitrous.io"
+        | support@nitrous.io
+      | .
 
 if App.billingUsage
   .card-header.bordered

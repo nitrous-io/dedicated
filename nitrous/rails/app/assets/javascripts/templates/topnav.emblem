@@ -46,7 +46,6 @@
           else
             li.disabled
               a href='#' Billing
-          else
           li.separator
           li
             a href='/docs/' Help
