@@ -11,6 +11,10 @@ App.IndexController = Em.ObjectController.extend
   opsConnectionLost: false
 
   opsSocketReadyBinding: Em.Binding.oneWay 'opsSocket.started'
+  commandSocketReadyBinding: Em.Binding.oneWay 'commandSocket.started'
+
+  opsSocketNotReady: Em.computed.not 'opsSocketReady'
+  commandSocketNotReady: Em.computed.not 'commandSocketReady'
 
   initialize: ->
     if content = @get 'content'

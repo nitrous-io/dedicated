@@ -1,14 +1,9 @@
 App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
-  templateName: 'ide/templates/file-finder-dialog'
-  elementId: 'ide_file_finder_dialog_view'
+  templateName: 'ide/file-finder-dialog'
+  elementId: 'ide-file-finder-dialog-view'
   contentBinding: 'controller.fileFinderDialog'
 
   pollerKey: null
-
-  init: ->
-    @_super.apply this, arguments
-    @set 'data-backdrop', 'true'
-    @set 'focusSelector', '#file_finder_pattern'
 
   viewDidAppear: ->
     @_super()
@@ -19,12 +14,18 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
     if pollerKey = @get('pollerKey')
       Ember.run.cancel(pollerKey)
 
+  click: (e) ->
+    if $(e.target).is(@$())
+      @hide()
+    e.stopPropagation()
+
   keyDown: (e) ->
     suppress = ->
       e.preventDefault()
       e.stopPropagation()
-
     switch e.which
+      when 27 # escape
+        @hide()
       when 38 # up
         suppress()
         @get('content')?.decrementIndex()
@@ -56,4 +57,3 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
         done: =>
           this.hide()
         source: 'filefinder'
-

@@ -100,7 +100,7 @@ App.IdeMainMenuView = Em.View.extend
   menu: [
     menu 'N', [
       menuItem 'About Nitrous', callback: ->
-        $('#about_nitrousio').modal 'show'
+        ui.showModal($('#about-nitrous'))
     ]
     menu 'File', [
       menuItem 'New', macKey: 'shift+ctrl+n', pcKey: 'ctrl+alt+n', callback: (controller) ->
@@ -119,9 +119,9 @@ App.IdeMainMenuView = Em.View.extend
       separator
       menuItem 'Go to File...',
         macKey: ['shift+ctrl+p'], pcKey: ['shift+ctrl+p']
+        disabledBinding: Em.Binding.oneWay('App.router.ideController.commandSocketNotReady')
         callback: (controller) ->
-          controller.fileFinder()
-        disabled: true # TODO Enable with file browser
+          controller.fileGoToFile()
       separator
       menuItem 'Close',
         macKey: ['shift+ctrl+w', 'ctrl+w'], pcKey: 'ctrl+alt+w'
@@ -152,9 +152,9 @@ App.IdeMainMenuView = Em.View.extend
           controller.editFindPrevious()
       menuItem 'Find in Project...',
         macKey: ['shift+command+f'], pcKey: ['shift+ctrl+f']
+        disabledBinding: Em.Binding.oneWay('App.router.ideController.commandSocketNotReady')
         callback: (controller) ->
           controller.editFindInProject()
-        disabled: true # TODO Enable with find in project
       separator
       menuItem 'Replace',
         macKey: ['command+option+f'], pcKey: ['shift+ctrl+h']
@@ -252,3 +252,7 @@ App.IdeMainMenuView = Em.View.extend
   currentYear: (->
     new Date().getFullYear()
   ).property()
+
+  actions:
+    closeAboutDialog: ->
+      ui.hideModal(@$('#about-nitrous'))
