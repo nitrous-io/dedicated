@@ -27,12 +27,15 @@ type Invoice struct {
 	PeriodStart *time.Time `db:"period_start"`
 	PeriodEnd   *time.Time `db:"period_end"`
 
-	SuccessfulCharge bool           `db:"successful_charge"`
-	Failed           bool           `db:"failed"`
-	FirstAttemptAt   *time.Time     `db:"first_attempt_at"`
-	LastAttemptAt    *time.Time     `db:"last_attempt_at"`
-	Attempts         int            `db:"attempts"`
-	StripeID         sql.NullString `db:"stripe_id"`
+	// indicates Stripe was able to charge the user
+	SuccessfulCharge bool `db:"successful_charge"`
+
+	// indicates Stripe failed (and gave up) charging the user
+	FirstAttemptAt *time.Time `db:"first_attempt_at"`
+
+	LastAttemptAt *time.Time     `db:"last_attempt_at"`
+	Attempts      int            `db:"attempts"`
+	StripeID      sql.NullString `db:"stripe_id"`
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
