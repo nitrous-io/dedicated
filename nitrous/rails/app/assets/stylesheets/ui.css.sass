@@ -729,6 +729,8 @@ ul.ui.snackbar
   width: 100%
   height: 100%
   z-index: 100
+  justify-content: center
+  flex-direction: column
 
   &:before
     content: ''
@@ -742,9 +744,9 @@ ul.ui.snackbar
     transition: opacity .3s
 
   .ui.card
-    position: fixed
     width: 500px
-    top: 80px
+    max-height: 100%
+    overflow: auto
     left: 0
     right: 0
     margin: 0 auto
@@ -772,7 +774,7 @@ ul.ui.snackbar
       padding: 0 16px 16px 16px
 
   &.show
-    display: block
+    display: flex
 
     &:before
       opacity: 1
@@ -801,6 +803,13 @@ ul.ui.snackbar
       background-image: linear-gradient(90deg, $n2oGray1000 90%, $lightBlue800 90%)
       background-size: 800px 4px
       animation: ui-progress-indeterminate 1s linear infinite
+
+  &.danger
+    .bar
+      background: $red800
+
+      &.indeterminate
+        background-image: linear-gradient(90deg, $n2oGray1000 90%, $red800 90%)
 
 .ui.flex
   display: flex
