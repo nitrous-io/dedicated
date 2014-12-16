@@ -98,10 +98,10 @@
       if isAppRunning
         button.ui.btn click='restartApp' Restart App
         button.ui.btn click='stopApp' Stop App
+        if previewURL
+          a.ui.btn href=previewURL target='_blank' Preview
       if isAppStopped
         button.ui.btn click='startApp' Start App
-      if previewURL
-        a.ui.btn href=previewURL target='_blank' Preview
       if App.user.ideEnabled
         button.ui.btn click='openTerminal' Terminal
         a.ui.btn.primary href=ideURL target='_blank' IDE
