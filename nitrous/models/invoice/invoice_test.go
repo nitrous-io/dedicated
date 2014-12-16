@@ -233,6 +233,26 @@ var _ = Describe("models/invoice", func() {
 			Expect(i.LastAttemptAt).ToNot(BeNil())
 			Expect(i.FirstAttemptAt.Unix()).To(Equal(i.LastAttemptAt.Unix()))
 		})
+
+		It("should update others covered by this invoice", func() {
+			other := &invoice.Invoice{
+				UserID:           u.ID,
+				TotalCharge:      900,
+				SuccessfulCharge: false,
+				Attempts:         23,
+				CoveredBy:        sql.NullInt64{i.ID, true},
+			}
+			err := other.Insert(db)
+			Expect(err).To(BeNil())
+
+			err = i.PaymentSucceeded(db)
+			Expect(err).To(BeNil())
+
+			other2 := &invoice.Invoice{}
+			err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", other.ID).StructScan(other2)
+			Expect(err).To(BeNil())
+			Expect(other2.SuccessfulCharge).To(BeTrue())
+		})
 	})
 
 	Describe("PaymentFailed", func() {

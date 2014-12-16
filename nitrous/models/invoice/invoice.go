@@ -112,7 +112,11 @@ func (i *Invoice) PaymentSucceeded(d db.QueryReceiver) error {
 		i.FirstAttemptAt = &t
 	}
 	i.LastAttemptAt = &t
-	return i.Update(d)
+	if err := i.Update(d); err != nil {
+		return err
+	}
+	_, err := d.Exec("UPDATE invoices SET successful_charge = TRUE, failed = FALSE, last_attempt_at = now() WHERE covered_by = $1;", i.ID)
+	return err
 }
 
 func (i *Invoice) PaymentFailed(d db.QueryReceiver, attemptCount int, moreAttempts bool) error {
