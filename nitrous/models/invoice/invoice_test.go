@@ -116,6 +116,7 @@ var _ = Describe("models/invoice", func() {
 				FirstAttemptAt:   &attempt,
 				LastAttemptAt:    &lAttempt,
 				Attempts:         23,
+				Deferred:         true,
 				StripeID:         sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
@@ -148,6 +149,7 @@ var _ = Describe("models/invoice", func() {
 				FirstAttemptAt:   &attempt,
 				LastAttemptAt:    &lAttempt,
 				Attempts:         23,
+				Deferred:         false,
 				StripeID:         sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
@@ -159,12 +161,14 @@ var _ = Describe("models/invoice", func() {
 			err := db.QueryRowx("SELECT * FROM invoices WHERE id = $1", i.ID).StructScan(i2)
 			Expect(err).To(BeNil())
 
+			Expect(i2.Deferred).To(BeFalse())
 			Expect(i2.SuccessfulCharge).To(BeFalse())
 			Expect(i2.TotalCharge).To(Equal(int64(900)))
 			Expect(i2.StripeID.String).To(Equal("Xcccs"))
 			i2.SuccessfulCharge = true
 			i2.TotalCharge = 93
 			i2.StripeID.String = "Ok"
+			i2.Deferred = true
 
 			err = i2.Update(db)
 			Expect(err).To(BeNil())
