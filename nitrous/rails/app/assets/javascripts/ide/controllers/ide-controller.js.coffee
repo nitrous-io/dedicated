@@ -11,6 +11,10 @@ App.IdeController = Em.ObjectController.extend
   sftpConnectionLost: false
 
   sftpSocketReadyBinding: Em.Binding.oneWay 'sftpSocket.started'
+  commandSocketReadyBinding: Em.Binding.oneWay 'commandSocket.started'
+
+  sftpSocketNotReady: Em.computed.not 'sftpSocketReady'
+  commandSocketNotReady: Em.computed.not 'commandSocketReady'
 
   initialize: ->
     if content = @get 'content'
