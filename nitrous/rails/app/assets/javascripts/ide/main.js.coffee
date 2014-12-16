@@ -44,11 +44,6 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   ).observes 'token'
 
   bootstrap: (opts={}) ->
-    @set 'LOG_RESOLVER', true
-    @set 'LOG_TRANSITIONS', true
-    @set 'LOG_TRANSITIONS_INTERNAL', true
-    @set 'LOG_VIEW_LOOKUPS', true
-
     @set 'terminalJsPath', opts.terminalJsPath
     @set 'terminalCssPath', opts.terminalCssPath
 
