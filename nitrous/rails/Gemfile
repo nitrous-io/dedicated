@@ -23,6 +23,3 @@ gem 'emblem-rails', '~> 0.2.1'
 gem 'font-awesome-rails', '~> 4.2.0.0'
 gem 'autoprefixer-rails', '~> 3.1.2'
 gem 'qunit-rails', '~> 0.0.7'
-
-# Dependencies for IDE
-gem 'hamlbars', '~> 1.1.0'

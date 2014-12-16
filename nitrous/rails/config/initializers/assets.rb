@@ -8,5 +8,3 @@ Rails.application.config.assets.precompile += %w(
   ide.css
   ide/main.js
 )
-
-Hamlbars::Template.render_templates_for :ember
