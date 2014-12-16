@@ -1,2 +1,1 @@
-.image_container
-  img src=view.imageDataURI
+img src=view.imageDataURI
