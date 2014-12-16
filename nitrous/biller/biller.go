@@ -25,6 +25,10 @@ import (
 // otherwise it will rollover to the next invoice
 const MinimumInvoiceAmount = 100
 
+var (
+	ErrNoUsage = errors.New("biller: no usage from user")
+)
+
 type Biller struct {
 	db     *db.Database
 	logger *logger.Logger
@@ -61,6 +65,11 @@ func New(d *db.Database, l *logger.Logger, u *user.User, periodStart, periodEnd 
 func (b *Biller) Process() error {
 	i, err := b.createOrUpdateInvoice()
 	if err != nil {
+		if err == ErrNoUsage {
+			if err := b.submitRecentlyDeferred(); err != nil {
+				return err
+			}
+		}
 		return err
 	}
 
@@ -79,7 +88,7 @@ func (b *Biller) createOrUpdateInvoice() (*InvoiceResult, error) {
 	}
 
 	if len(items) == 0 {
-		return nil, fmt.Errorf("biller: no usage from user %d", b.user.ID)
+		return nil, ErrNoUsage
 	}
 
 	op := i.Update
@@ -115,6 +124,31 @@ func (b *Biller) createOrUpdateInvoice() (*InvoiceResult, error) {
 	return &InvoiceResult{Invoice: i, Items: items}, nil
 }
 
+func (b *Biller) submitRecentlyDeferred() error {
+	b.logger.Warnf("biller: looking for deferred invoices to submit for user %d", b.user.ID)
+
+	inv := &invoice.Invoice{}
+	err := b.db.Get(inv, `SELECT * FROM invoices WHERE user_id = $1 AND deferred = TRUE ORDER BY id DESC LIMIT 1`,
+		b.user.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		return err
+	}
+
+	items, err := invoiceitem.FindAllForInvoice(b.db, inv.ID)
+	if err != nil {
+		return err
+	}
+
+	res := &InvoiceResult{
+		Invoice: inv,
+		Items:   items,
+	}
+	return b.processStripe(res)
+}
+
 func (b *Biller) processStripe(i *InvoiceResult) error {
 	inv := i.Invoice
 	items := i.Items
@@ -141,8 +175,8 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 
 	var upI *stripe.Invoice
 	if !sendInvoice {
-		// query stripe for pending invoices
-		upI, err = b.upcomingInvoiceTotal(bp)
+		// query stripe for the upcoming invoice preview (invoice has not been committed)
+		upI, err = b.upcomingInvoicePreview(bp)
 		if err != nil {
 			return fmt.Errorf("biller: failure obtaining upcoming invoice total for user %d, err: %v", b.user.ID, err)
 		}
@@ -173,15 +207,8 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 	return nil
 }
 
-func (b *Biller) upcomingInvoiceTotal(bp *billingprofile.BillingProfile) (*stripe.Invoice, error) {
-	i, err := strinv.GetNext(&stripe.InvoiceParams{Customer: bp.StripeID.String})
-	if err != nil {
-		return nil, err
-	}
-	if i == nil {
-		return nil, nil
-	}
-	return i, nil
+func (b *Biller) upcomingInvoicePreview(bp *billingprofile.BillingProfile) (*stripe.Invoice, error) {
+	return strinv.GetNext(&stripe.InvoiceParams{Customer: bp.StripeID.String})
 }
 
 func (b *Biller) billStripeInvoice(bp *billingprofile.BillingProfile, i *invoice.Invoice) (*stripe.Invoice, error) {

@@ -2,7 +2,6 @@ package biller_test
 
 import (
 	"database/sql"
-	"fmt"
 	"testing"
 	"time"
 
@@ -74,7 +73,7 @@ var _ = Describe("biller", func() {
 		It("should not do anything if there are not transitions for processing", func() {
 			i, err := b.CreateOrUpdateInvoice()
 			Expect(err).ToNot(BeNil())
-			Expect(err.Error()).To(Equal(fmt.Sprintf("biller: no usage from user %d", u.ID)))
+			Expect(err).To(Equal(biller.ErrNoUsage))
 			Expect(i).To(BeNil())
 
 			var count int
