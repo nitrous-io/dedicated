@@ -10,6 +10,7 @@ App.Container = klass = App.Model.extend
   slug: attr()
   name: attr()
   state: attr(serialize: false)
+  appState: attr(as: 'app_state', serialize: false)
   cmd: attr('array', serialize: false)
   entrypoint: attr('array', serialize: false)
   exitCode: attr('number', as: 'exit_code', serialize: false)
@@ -30,6 +31,9 @@ App.Container = klass = App.Model.extend
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
   isTerminated: Em.computed.equal 'state', 'terminated'
+
+  isAppRunning: Em.computed.equal 'appState', 'running'
+  isAppStopped: Em.computed.equal 'appState', 'stopped'
 
   hostnameBinding: Em.Binding.oneWay 'host.hostname'
   loginUsernameBinding: Em.Binding.oneWay 'config.env.NITROUS_USERNAME'

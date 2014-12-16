@@ -18,6 +18,7 @@ type Container struct {
 	IPAddress  string           `json:"ip_address,omitempty"`
 	GatewayIP  string           `json:"gateway_ip,omitempty"`
 	State      string           `json:"state"`
+	AppState   string           `json:"app_state"`
 	Cmd        []string         `json:"cmd,omitempty"` // TODO deprecate
 	Entrypoint []string         `json:"entrypoint,omitempty"`
 	ExitCode   int              `json:"exit_code"`
@@ -42,6 +43,7 @@ func SerializeContainer(c *container.Container) *Container {
 		IPAddress:    c.IPAddress,
 		GatewayIP:    c.GatewayIP,
 		State:        c.ResolvedState().String(),
+		AppState:     c.AppState,
 		Cmd:          c.Cmd,
 		Entrypoint:   c.Entrypoint,
 		ExitCode:     c.ExitCode,

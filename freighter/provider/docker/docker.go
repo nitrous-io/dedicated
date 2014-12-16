@@ -259,6 +259,7 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 		Cmd:        container.Config.Cmd,
 		Entrypoint: container.Config.Entrypoint,
 		ExitCode:   container.State.ExitCode,
+		AppState:   p.appState(container),
 		StartedAt:  container.State.StartedAt,
 		FinishedAt: container.State.FinishedAt,
 	}, nil
@@ -409,21 +410,11 @@ func (p *DockerProvider) StopApp(id string) error {
 
 	// FIXME We should kill the docker exec process via Docker's remote API (see
 	// https://github.com/docker/docker/pull/9167) instead of relying on pgrep.
-	usr, _ := p.appUser(container)
-	fullCmd := strings.Join(execForm(cmd, usr), " ")
-	nsenterCmd := fmt.Sprintf(`nsenter-exec --nspid %d -- %s`, container.State.Pid, fullCmd)
-
-	pgrepCmd := exec.Command("pgrep", "--full", "--exact", "--newest", nsenterCmd)
-	out, err := pgrepCmd.CombinedOutput()
+	pid, err := p.appPID(container, cmd)
 	if err != nil {
-		p.logger.Errorf("StopApp: pgrep for nsenter process failed, err: %v, output: %s", err, out)
-		return err
-	}
-
-	pid, err := strconv.Atoi(strings.TrimSpace(string(out)))
-	if err != nil {
-		p.logger.Errorf("StopApp: pgrep did not return a proper pid, err: %v, output: %s", err, out)
-		return err
+		// Do nothing if we can't find the pid of the process - we assume it's
+		// not running.
+		return nil
 	}
 
 	// We have to kill the entire process group so that the children of the
@@ -431,6 +422,7 @@ func (p *DockerProvider) StopApp(id string) error {
 	pgid, err := syscall.Getpgid(pid)
 	if err != nil {
 		p.logger.Errorf("StopApp: cannot get process group ID, err: %v", err)
+		return err
 	}
 
 	// `kill -123` kills process group id 123.
@@ -1277,6 +1269,38 @@ func (p *DockerProvider) appCmd(container *dockerclient.Container) (string, bool
 
 func (p *DockerProvider) appUser(container *dockerclient.Container) (string, bool) {
 	return envValue(container.Config.Env, nitrousEnvUser)
+}
+
+func (p *DockerProvider) appPID(container *dockerclient.Container, cmd string) (int, error) {
+	usr, _ := p.appUser(container)
+	fullCmd := strings.Join(execForm(cmd, usr), " ")
+	nsenterCmd := fmt.Sprintf(`nsenter-exec --nspid %d -- %s`, container.State.Pid, fullCmd)
+
+	pgrepCmd := exec.Command("pgrep", "--full", "--exact", "--newest", nsenterCmd)
+	out, err := pgrepCmd.CombinedOutput()
+	if err != nil {
+		p.logger.Errorf("pgrep for nsenter process failed, err: %v, output: %s", err, out)
+		return 0, err
+	}
+
+	pid, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		p.logger.Errorf("pgrep did not return a proper pid, err: %v, output: %s", err, out)
+		return 0, err
+	}
+
+	return pid, nil
+}
+
+func (p *DockerProvider) appState(container *dockerclient.Container) string {
+	cmd, ok := p.appCmd(container)
+	if !ok {
+		return provider.ContainerAppNone
+	}
+	if _, err := p.appPID(container, cmd); err != nil {
+		return provider.ContainerAppStopped
+	}
+	return provider.ContainerAppRunning
 }
 
 func envValue(env []string, envVar string) (string, bool) {
