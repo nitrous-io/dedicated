@@ -35,7 +35,7 @@ window.ui =
   showModal: ($modal, cb) ->
     if !($modal instanceof jQuery)
       $modal = $($modal)
-    $modal.show()
+    $modal.css(display: 'flex')
     $modal.find('.focus').focus()
     window.setTimeout(->
       $modal.addClass('show')
@@ -47,7 +47,7 @@ window.ui =
       $modal = $($modal)
     $modal.removeClass('show')
     window.setTimeout(->
-      $modal.hide()
+      $modal.css(display: 'none')
       cb?()
     , 301)
 
