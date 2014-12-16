@@ -15,8 +15,8 @@ type IncomingStripeWebHook struct {
 }
 
 var (
-	HandlePaymentSucceededFn = handlePaymentSucceeded
-	HandlePaymentFailedFn    = handlePaymentFailed
+	HandlePaymentSucceededFn func(*middleware.Env, *invoice.Invoice)            = handlePaymentSucceeded
+	HandlePaymentFailedFn    func(*middleware.Env, *invoice.Invoice, int, bool) = handlePaymentFailed
 )
 
 func ReceiveHook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {

@@ -43,18 +43,6 @@ var _ = Describe("controllers/stripehooks", func() {
 		inv *invoice.Invoice
 	)
 
-	var paymentSucceedHandler = func(env *middleware.Env, inv *invoice.Invoice) {
-		receivedSucceedInvoice = inv
-		succeedFnCalled = true
-	}
-
-	var paymentFailedHandler = func(env *middleware.Env, inv *invoice.Invoice, attemptCount int, closed bool) {
-		receivedFailedInvoice = inv
-		receivedFailedAttemptCount = attemptCount
-		receivedFailedMoreAttempts = closed
-		failedFnCalled = true
-	}
-
 	BeforeEach(func() {
 		var err error
 
@@ -66,8 +54,16 @@ var _ = Describe("controllers/stripehooks", func() {
 		fakeStripe = &FakeStripe{}
 		stripe.SetBackend(fakeStripe)
 
-		stripehooks.HandlePaymentSucceededFn = paymentSucceedHandler
-		stripehooks.HandlePaymentFailedFn = paymentFailedHandler
+		stripehooks.HandlePaymentSucceededFn = func(env *middleware.Env, inv *invoice.Invoice) {
+			receivedSucceedInvoice = inv
+			succeedFnCalled = true
+		}
+		stripehooks.HandlePaymentFailedFn = func(env *middleware.Env, inv *invoice.Invoice, attemptCount int, moreAttempts bool) {
+			receivedFailedInvoice = inv
+			receivedFailedAttemptCount = attemptCount
+			receivedFailedMoreAttempts = moreAttempts
+			failedFnCalled = true
+		}
 
 		u = &user.User{
 			Username: "foo",
