@@ -245,6 +245,8 @@ var _ = Describe("biller", func() {
 				Invoice: inv,
 				Items:   []invoiceitem.InvoiceItem{item1, item2},
 			}
+
+			u.BillingEnabled = true
 		})
 
 		It("should not continue if billing is not enabled", func() {
@@ -255,178 +257,211 @@ var _ = Describe("biller", func() {
 			Expect(fakeStripe.ReceivedRequests).To(BeEmpty())
 		})
 
-		It("should not continue if billing is enabled but total charge is 0", func() {
-			u.BillingEnabled = true
-
-			i.Invoice.TotalCharge = 0
+		It("should return an error if the billing profile does not exist", func() {
 			err := b.ProcessStripe(i)
-			Expect(err).To(BeNil())
-			Expect(fakeStripe.ReceivedRequests).To(BeEmpty())
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("biller: failure obtaining billing profile for user"))
 		})
 
-		Context("with a total charge", func() {
+		It("should throw and error if the billing profile exists but without a StripeID", func() {
+			_, err := db.Exec("UPDATE billing_profiles SET stripe_id = '' WHERE user_id = $1;", u.ID)
+			Expect(err).To(BeNil())
+
+			err = b.ProcessStripe(i)
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("biller: failure obtaining billing profile for user"))
+		})
+
+		Context("with a valid billing profile", func() {
 			BeforeEach(func() {
-				u.BillingEnabled = true
-				i.Invoice.TotalCharge = 19
-			})
-
-			It("should return an error if the billing profile does not exist", func() {
-				err := b.ProcessStripe(i)
-				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(ContainSubstring("biller: failure obtaining billing profile for user"))
-			})
-
-			It("should throw and error if the billing profile exists but without a StripeID", func() {
-				_, err := db.Exec("UPDATE billing_profiles SET stripe_id = '' WHERE user_id = $1;", u.ID)
+				_, err := db.Exec("UPDATE billing_profiles SET stripe_id = 'St17' WHERE user_id = $1;", u.ID)
 				Expect(err).To(BeNil())
 
-				err = b.ProcessStripe(i)
-				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(ContainSubstring("biller: failure obtaining billing profile for user"))
+				i.Invoice.TotalCharge = biller.MinimumInvoiceAmount - 1
 			})
 
-			Context("with a valid billing profile", func() {
+			It("should not create invoice items but check on outstanding invoice if charge is 0", func() {
+				fakeStripe.Responses = []string{
+					`{"object": "invoice", "id": null}`,
+				}
+
+				i.Invoice.TotalCharge = 0
+				err := b.ProcessStripe(i)
+				Expect(err).To(BeNil())
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				Expect(fakeStripe.ReceivedRequests[0]["path"]).To(Equal("/invoices"))
+			})
+
+			It("should return an error if the host in the usage cannot be matched", func() {
+				i.Items[0].HostID = 995
+				i.Items[1].HostID = 9991
+
+				err := b.ProcessStripe(i)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("Could not locate host 995"))
+			})
+
+			Context("with hosts", func() {
+				var (
+					hs1 *HostStack
+					hs2 *HostStack
+					h1  *host.Host
+					h2  *host.Host
+				)
+
 				BeforeEach(func() {
-					_, err := db.Exec("UPDATE billing_profiles SET stripe_id = 'St17' WHERE user_id = $1;", u.ID)
+					err := i.Invoice.Insert(db)
+					Expect(err).To(BeNil())
+					i.Items[0].InvoiceID = i.Invoice.ID
+					i.Items[1].InvoiceID = i.Invoice.ID
+
+					hs1, err = CreateHostStack(db, &HostStack{
+						H: &host.Host{
+							Slug:        "my-host-1",
+							HourlyPrice: 2000,
+						},
+						U: u,
+					})
+					Expect(err).To(BeNil())
+					h1 = hs1.H
+					i.Items[0].HostID = h1.ID
+					err = i.Items[0].Insert(db)
+					Expect(err).To(BeNil())
+
+					hs2, err = CreateHostStack(db, &HostStack{
+						H: &host.Host{
+							Slug:        "my-host-2",
+							HourlyPrice: 500,
+						},
+						U: u,
+					})
+					Expect(err).To(BeNil())
+					h2 = hs2.H
+					i.Items[1].HostID = h2.ID
+					err = i.Items[1].Insert(db)
 					Expect(err).To(BeNil())
 				})
 
-				It("should return an error if the host in the usage cannot be matched", func() {
-					i.Items[0].HostID = 995
-					i.Items[1].HostID = 9991
+				It("should submit the invoice items to Stripe", func() {
+					fakeStripe.Responses = []string{
+						`{"object": "invoiceitem", "id": "ID1"}`,
+						`{"object": "invoiceitem", "id": "ID2"}`,
+						`{"object": "invoice", "id": "ID0"}`,
+					}
+
+					err := b.ProcessStripe(i)
+					Expect(err).To(BeNil())
+					rr := fakeStripe.ReceivedRequests
+					Expect(rr).To(HaveLen(3))
+
+					Expect(rr[0]["amount"]).To(Equal("92"))
+					Expect(rr[0]["customer"]).To(Equal("St17"))
+					Expect(rr[0]["desc"]).To(Equal("Application 'my-host-1' 92 hours at 1.00c/hour"))
+
+					Expect(rr[1]["amount"]).To(Equal("10"))
+					Expect(rr[1]["customer"]).To(Equal("St17"))
+					Expect(rr[1]["desc"]).To(Equal("Application 'my-host-2' 20 hours at 0.50c/hour"))
+
+					type s struct {
+						ID string `db:"stripe_id"`
+					}
+					sIDs := []s{}
+					err = db.Select(&sIDs, "SELECT stripe_id FROM invoice_items WHERE id IN ($1, $2) ORDER BY stripe_id;", i.Items[0].ID, i.Items[1].ID)
+					Expect(err).To(BeNil())
+					Expect(sIDs).To(Equal([]s{{ID: "ID1"}, {ID: "ID2"}}))
+				})
+
+				It("should rollback on any failure", func() {
+					fakeStripe.Responses = []string{
+						`{"object": "invoiceitem", "id": "ID1"}`,
+					}
 
 					err := b.ProcessStripe(i)
 					Expect(err).ToNot(BeNil())
-					Expect(err.Error()).To(ContainSubstring("Could not locate host 995"))
+					Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
+
+					var count int
+					err = db.QueryRowx("SELECT COUNT(*) FROM invoice_items WHERE id IN ($1, $2) AND stripe_id != ''", i.Items[0].ID, i.Items[1].ID).Scan(&count)
+					Expect(err).To(BeNil())
+					Expect(count).To(Equal(0))
 				})
 
-				Context("with hosts", func() {
-					var (
-						hs1 *HostStack
-						hs2 *HostStack
-						h1  *host.Host
-						h2  *host.Host
-					)
+				It("should perform an invoice update if one of the invoice items has a Stripe ID", func() {
+					i.Items[1].StripeID = sql.NullString{"XcV", true}
+					fakeStripe.Responses = []string{
+						`{"object": "invoiceitem", "id": "ID1"}`,
+						`{"object": "invoiceitem", "id": "ID2"}`,
+						`{"object": "invoice", "id": "ID0"}`,
+					}
 
+					err := b.ProcessStripe(i)
+					Expect(err).To(BeNil())
+					Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
+					gotUpdate := false
+					for _, r := range fakeStripe.ReceivedRequests {
+						if r["path"] == "/invoiceitems/XcV" {
+							gotUpdate = true
+						}
+					}
+					Expect(gotUpdate).To(BeTrue())
+				})
+
+				It("should rollback on a update failure", func() {
+					i.Items[1].StripeID = sql.NullString{"XcV", true}
+					fakeStripe.Responses = []string{
+						`{"object": "invoiceitem", "id": "ID1"}`,
+					}
+
+					err := b.ProcessStripe(i)
+					Expect(err).ToNot(BeNil())
+					Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
+
+					var count int
+					err = db.QueryRowx("SELECT COUNT(*) FROM invoice_items WHERE id IN ($1, $2) AND stripe_id != ''", i.Items[0].ID, i.Items[1].ID).Scan(&count)
+					Expect(err).To(BeNil())
+					Expect(count).To(Equal(0))
+				})
+
+				It("should query for upcoming invoice amount when the invoice amount is under the threshold", func() {
+					fakeStripe.Responses = []string{
+						`{"object": "invoiceitem", "id": "ID1"}`,
+						`{"object": "invoiceitem", "id": "ID2"}`,
+						`{"object": "invoice", "id": "ID0", "amount_due": 0}`,
+					}
+
+					err := b.ProcessStripe(i)
+					Expect(err).To(BeNil())
+					Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
+					r := fakeStripe.ReceivedRequests[2]
+					Expect(r["path"]).To(Equal("/invoices"))
+					Expect(r["customer"]).To(Equal("St17"))
+
+					Expect(i.Invoice.StripeID.String).To(BeEmpty())
+					Expect(i.Invoice.Deferred).To(BeTrue())
+				})
+
+				It("should continue to submit an invoice if the pending amount is greater", func() {
+					fakeStripe.Responses = []string{
+						`{"object": "invoiceitem", "id": "ID1"}`,
+						`{"object": "invoiceitem", "id": "ID2"}`,
+						`{"object": "invoice", "id": "ID0", "amount_due": 1}`,
+						`{"object": "invoice", "id": "ID1"}`,
+					}
+
+					err := b.ProcessStripe(i)
+					Expect(err).To(BeNil())
+					Expect(fakeStripe.ReceivedRequests).To(HaveLen(4))
+					r := fakeStripe.ReceivedRequests[3]
+					Expect(r["path"]).To(Equal("/invoices"))
+					Expect(r["customer"]).To(Equal("St17"))
+
+					Expect(i.Invoice.StripeID.String).To(Equal("ID1"))
+					Expect(i.Invoice.Deferred).To(BeFalse())
+				})
+
+				Context("invoice is over threshold", func() {
 					BeforeEach(func() {
-						err := i.Invoice.Insert(db)
-						Expect(err).To(BeNil())
-						i.Items[0].InvoiceID = i.Invoice.ID
-						i.Items[1].InvoiceID = i.Invoice.ID
-
-						hs1, err = CreateHostStack(db, &HostStack{
-							H: &host.Host{
-								Slug:        "my-host-1",
-								HourlyPrice: 2000,
-							},
-							U: u,
-						})
-						Expect(err).To(BeNil())
-						h1 = hs1.H
-						i.Items[0].HostID = h1.ID
-						err = i.Items[0].Insert(db)
-						Expect(err).To(BeNil())
-
-						hs2, err = CreateHostStack(db, &HostStack{
-							H: &host.Host{
-								Slug:        "my-host-2",
-								HourlyPrice: 500,
-							},
-							U: u,
-						})
-						Expect(err).To(BeNil())
-						h2 = hs2.H
-						i.Items[1].HostID = h2.ID
-						err = i.Items[1].Insert(db)
-						Expect(err).To(BeNil())
-					})
-
-					It("should submit the invoice items to Stripe", func() {
-						fakeStripe.Responses = []string{
-							`{"object": "invoiceitem", "id": "ID1"}`,
-							`{"object": "invoiceitem", "id": "ID2"}`,
-							`{"object": "invoice", "id": "ID0"}`,
-						}
-
-						err := b.ProcessStripe(i)
-						Expect(err).To(BeNil())
-						Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
-						var r1 map[string]string
-						var r2 map[string]string
-						for _, r := range fakeStripe.ReceivedRequests {
-							if r["path"] != "/invoiceitems" {
-								continue
-							}
-							if r["amount"] == "92" {
-								r1 = r
-							} else if r["amount"] == "10" {
-								r2 = r
-							}
-						}
-						Expect(r1["customer"]).To(Equal("St17"))
-						Expect(r1["desc"]).To(Equal("Application 'my-host-1' 92 hours at 1.00c/hour"))
-
-						Expect(r2["customer"]).To(Equal("St17"))
-						Expect(r2["desc"]).To(Equal("Application 'my-host-2' 20 hours at 0.50c/hour"))
-
-						type s struct {
-							ID string `db:"stripe_id"`
-						}
-						sIDs := []s{}
-						err = db.Select(&sIDs, "SELECT stripe_id FROM invoice_items WHERE id IN ($1, $2) ORDER BY stripe_id;", i.Items[0].ID, i.Items[1].ID)
-						Expect(err).To(BeNil())
-						Expect(sIDs).To(Equal([]s{{ID: "ID1"}, {ID: "ID2"}}))
-					})
-
-					It("should rollback on any failure", func() {
-						fakeStripe.Responses = []string{
-							`{"object": "invoiceitem", "id": "ID1"}`,
-						}
-
-						err := b.ProcessStripe(i)
-						Expect(err).ToNot(BeNil())
-						Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
-
-						var count int
-						err = db.QueryRowx("SELECT COUNT(*) FROM invoice_items WHERE id IN ($1, $2) AND stripe_id != ''", i.Items[0].ID, i.Items[1].ID).Scan(&count)
-						Expect(err).To(BeNil())
-						Expect(count).To(Equal(0))
-					})
-
-					It("should perform an invoice update if one of the invoice items has a Stripe ID", func() {
-						i.Items[1].StripeID = sql.NullString{"XcV", true}
-						fakeStripe.Responses = []string{
-							`{"object": "invoiceitem", "id": "ID1"}`,
-							`{"object": "invoiceitem", "id": "ID2"}`,
-							`{"object": "invoice", "id": "ID0"}`,
-						}
-
-						err := b.ProcessStripe(i)
-						Expect(err).To(BeNil())
-						Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
-						gotUpdate := false
-						for _, r := range fakeStripe.ReceivedRequests {
-							if r["path"] == "/invoiceitems/XcV" {
-								gotUpdate = true
-							}
-						}
-						Expect(gotUpdate).To(BeTrue())
-					})
-
-					It("should rollback on a update failure", func() {
-						i.Items[1].StripeID = sql.NullString{"XcV", true}
-						fakeStripe.Responses = []string{
-							`{"object": "invoiceitem", "id": "ID1"}`,
-						}
-
-						err := b.ProcessStripe(i)
-						Expect(err).ToNot(BeNil())
-						Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
-
-						var count int
-						err = db.QueryRowx("SELECT COUNT(*) FROM invoice_items WHERE id IN ($1, $2) AND stripe_id != ''", i.Items[0].ID, i.Items[1].ID).Scan(&count)
-						Expect(err).To(BeNil())
-						Expect(count).To(Equal(0))
+						i.Invoice.TotalCharge = biller.MinimumInvoiceAmount
 					})
 
 					It("should submit the invoice", func() {
@@ -461,13 +496,116 @@ var _ = Describe("biller", func() {
 						fakeStripe.Responses = []string{
 							`{"object": "invoiceitem", "id": "ID1"}`,
 							`{"object": "invoiceitem", "id": "ID2"}`,
+							`{"object": "inoice", "id": "Sv"}`,
 						}
 
 						err := b.ProcessStripe(i)
 						Expect(err).To(BeNil())
-						Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
-						r := fakeStripe.ReceivedRequests[1]
-						Expect(r["path"]).ToNot(Equal("/invoices"))
+						Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
+						r := fakeStripe.ReceivedRequests[2]
+						Expect(r["path"]).To(Equal("/invoices/Sv"))
+					})
+
+					Context("other invoices that are deferred", func() {
+						var (
+							oInv1 *invoice.Invoice
+							oInv2 *invoice.Invoice
+						)
+						BeforeEach(func() {
+							s1 := time.Now().Add(-900 * time.Hour)
+							e1 := s1.Add(30 * time.Hour)
+							s2 := time.Now().Add(-300 * time.Hour)
+							e2 := s2.Add(30 * time.Hour)
+							oInv1 = &invoice.Invoice{
+								UserID:      u.ID,
+								PeriodStart: &s1,
+								PeriodEnd:   &e1,
+							}
+							Expect(oInv1.Insert(db)).To(BeNil())
+							_, err := db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id) values ($1, $2, $3, $4, $5);",
+								oInv1.ID, h1.ID, 90, 1500, "INV1")
+							Expect(err).To(BeNil())
+							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id) values ($1, $2, $3, $4, $5);",
+								oInv1.ID, h2.ID, 20, 1000, "INV2")
+							Expect(err).To(BeNil())
+
+							oInv2 = &invoice.Invoice{
+								UserID:      u.ID,
+								PeriodStart: &s2,
+								PeriodEnd:   &e2,
+								StripeID:    sql.NullString{"oInv2", true},
+							}
+							Expect(oInv2.Insert(db)).To(BeNil())
+							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id) values ($1, $2, $3, $4, $5);",
+								oInv2.ID, h1.ID, 90, 1500, "INV3")
+							Expect(err).To(BeNil())
+							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id) values ($1, $2, $3, $4, $5);",
+								oInv2.ID, h2.ID, 20, 1000, "INV4")
+							Expect(err).To(BeNil())
+						})
+
+						It("should mark invoices as covered by the invoice that contains line items from other invoices", func() {
+							fakeStripe.Responses = []string{
+								`{"object": "invoiceitem", "id": "ID1"}`,
+								`{"object": "invoiceitem", "id": "ID2"}`,
+								`{"object": "invoice", "id": "ID0", "lines": {"data": [{"id": "INV1"},{"id": "INV2"},{"id": "INV3"},{"id": "INV4"}]}}`,
+							}
+
+							err := b.ProcessStripe(i)
+							Expect(err).To(BeNil())
+							Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
+							r := fakeStripe.ReceivedRequests[2]
+							Expect(r["path"]).To(Equal("/invoices"))
+							Expect(r["customer"]).To(Equal("St17"))
+
+							oInv1X := &invoice.Invoice{}
+							err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", oInv1.ID).StructScan(oInv1X)
+							Expect(err).To(BeNil())
+
+							oInv2X := &invoice.Invoice{}
+							err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", oInv2.ID).StructScan(oInv2X)
+							Expect(err).To(BeNil())
+
+							Expect(oInv1X.CoveredBy.Int64).To(Equal(i.Invoice.ID))
+							Expect(oInv2X.CoveredBy.Int64).To(Equal(i.Invoice.ID))
+						})
+
+						It("should not touch invoices that are already covered", func() {
+							s3 := time.Now().Add(-100 * time.Hour)
+							e3 := s3.Add(30 * time.Hour)
+							oInv3 := &invoice.Invoice{
+								UserID:      u.ID,
+								PeriodStart: &s3,
+								PeriodEnd:   &e3,
+							}
+							Expect(oInv3.Insert(db)).To(BeNil())
+							oInv1.CoveredBy = sql.NullInt64{oInv3.ID, true}
+							Expect(oInv1.Update(db)).To(BeNil())
+
+							fakeStripe.Responses = []string{
+								`{"object": "invoiceitem", "id": "ID1"}`,
+								`{"object": "invoiceitem", "id": "ID2"}`,
+								`{"object": "invoice", "id": "ID0", "lines": {"data": [{"id": "INV1"},{"id": "INV2"},{"id": "INV3"},{"id": "INV4"}]}}`,
+							}
+
+							err := b.ProcessStripe(i)
+							Expect(err).To(BeNil())
+							Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
+							r := fakeStripe.ReceivedRequests[2]
+							Expect(r["path"]).To(Equal("/invoices"))
+							Expect(r["customer"]).To(Equal("St17"))
+
+							oInv1X := &invoice.Invoice{}
+							err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", oInv1.ID).StructScan(oInv1X)
+							Expect(err).To(BeNil())
+
+							oInv2X := &invoice.Invoice{}
+							err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", oInv2.ID).StructScan(oInv2X)
+							Expect(err).To(BeNil())
+
+							Expect(oInv1X.CoveredBy.Int64).To(Equal(oInv3.ID))
+							Expect(oInv2X.CoveredBy.Int64).To(Equal(i.Invoice.ID))
+						})
 					})
 				})
 			})

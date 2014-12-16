@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jinzhu/now"
@@ -19,6 +20,10 @@ import (
 	strinv "github.com/stripe/stripe-go/invoice"
 	striitem "github.com/stripe/stripe-go/invoiceitem"
 )
+
+// the minimum value (in cents) a invoice must equal to send off to Stripe
+// otherwise it will rollover to the next invoice
+const MinimumInvoiceAmount = 100
 
 type Biller struct {
 	db     *db.Database
@@ -118,36 +123,78 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 		return nil
 	}
 
-	if inv.TotalCharge == 0 {
-		b.logger.Infof("biller: not contacting stripe as charge for invoice %d == 0", inv.ID)
-		return nil
-	}
-
 	bp, err := billingprofile.Find(b.db, b.user.ID)
 	if err != nil || bp == nil || bp.StripeID.String == "" {
 		return fmt.Errorf("biller: failure obtaining billing profile for user %d, err: %v", b.user.ID, err)
 	}
-	b.logger.Infof("biller: contacting stripe for invoice %d", inv.ID)
-	if err := b.billStripeInvoiceItems(bp, inv, items); err != nil {
-		return fmt.Errorf("biller: failure billing stripe for invoice %d, err: %v", inv.ID, err)
+
+	if inv.TotalCharge == 0 {
+		b.logger.Infof("biller: charge 0, not contacting stripe to charge for items in invoice %d", inv.ID)
+	} else {
+		b.logger.Infof("biller: contacting stripe for invoice %d", inv.ID)
+		if err := b.billStripeInvoiceItems(bp, inv, items); err != nil {
+			return fmt.Errorf("biller: failure billing stripe for invoice %d, err: %v", inv.ID, err)
+		}
 	}
 
-	if err := b.billStripeInvoice(bp, inv); err != nil {
-		return fmt.Errorf("biller: failure creating invoice for %d, err: %v", inv.ID, err)
+	sendInvoice := inv.TotalCharge >= MinimumInvoiceAmount
+
+	var upI *stripe.Invoice
+	if !sendInvoice {
+		// query stripe for pending invoices
+		upI, err = b.upcomingInvoiceTotal(bp)
+		if err != nil {
+			return fmt.Errorf("biller: failure obtaining upcoming invoice total for user %d, err: %v", b.user.ID, err)
+		}
+		if upI == nil {
+			sendInvoice = false
+		} else {
+			sendInvoice = upI.Amount != 0
+		}
+	}
+
+	if sendInvoice {
+		upI, err = b.billStripeInvoice(bp, inv)
+		if err != nil {
+			return fmt.Errorf("biller: failure creating invoice for %d, err: %v", inv.ID, err)
+		}
+		if upI != nil {
+			// associate other invoices with this invoice
+			return b.associateDeferredInvoices(upI, inv)
+		}
+	} else {
+		if inv.TotalCharge != 0 {
+			inv.Deferred = true
+			if err := inv.Update(b.db); err != nil {
+				return fmt.Errorf("biller: failure updating invoice %d as deferred, err: %v", inv.ID, err)
+			}
+		}
 	}
 	return nil
 }
 
-func (b *Biller) billStripeInvoice(bp *billingprofile.BillingProfile, i *invoice.Invoice) error {
+func (b *Biller) upcomingInvoiceTotal(bp *billingprofile.BillingProfile) (*stripe.Invoice, error) {
+	i, err := strinv.GetNext(&stripe.InvoiceParams{Customer: bp.StripeID.String})
+	if err != nil {
+		return nil, err
+	}
+	if i == nil {
+		return nil, nil
+	}
+	return i, nil
+}
+
+func (b *Biller) billStripeInvoice(bp *billingprofile.BillingProfile, i *invoice.Invoice) (*stripe.Invoice, error) {
 	if i.StripeID.String == "" {
 		inv, err := strinv.New(&stripe.InvoiceParams{Customer: bp.StripeID.String})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		i.StripeID = sql.NullString{inv.ID, true}
-		return i.Update(b.db)
+		return inv, i.Update(b.db)
+	} else {
+		return strinv.Get(i.StripeID.String, nil)
 	}
-	return nil
 }
 
 func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, i *invoice.Invoice, items []invoiceitem.InvoiceItem) error {
@@ -253,6 +300,49 @@ func (b *Biller) applyInvoiceItems(i *invoice.Invoice, isNew bool, items []invoi
 		return nil, err
 	}
 	return items, err
+}
+
+func (b *Biller) associateDeferredInvoices(upI *stripe.Invoice, i *invoice.Invoice) error {
+	if upI.Lines == nil {
+		return nil
+	}
+
+	if len(upI.Lines.Values) == 0 {
+		return nil
+	}
+
+	var itemIDs []string
+	for _, item := range upI.Lines.Values {
+		itemIDs = append(itemIDs, fmt.Sprintf("invoice_items.stripe_id = '%s'", item.ID))
+	}
+
+	stmt := fmt.Sprintf("SELECT DISTINCT ON (invoices.id) invoices.* FROM invoices INNER JOIN invoice_items ON (invoices.id = invoice_items.invoice_id) WHERE invoices.id != $1 AND %s;", strings.Join(itemIDs, " OR "))
+	otherInvs := []invoice.Invoice{}
+	err := b.db.Select(&otherInvs, stmt, i.ID)
+	if err != nil {
+		return err
+	}
+	if len(otherInvs) == 0 {
+		return nil
+	}
+
+	tx, err := b.db.Beginx()
+	if err != nil {
+		return err
+	}
+
+	for _, dInv := range otherInvs {
+		if dInv.CoveredBy.Valid && dInv.CoveredBy.Int64 != 0 {
+			b.logger.Warnf("biller: Invoice %d cannot be associated with %d, as it is already associated with %d", dInv.ID, i.ID, dInv.CoveredBy.Int64)
+			continue
+		}
+		dInv.CoveredBy = sql.NullInt64{i.ID, true}
+		if err := dInv.Update(tx); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd *time.Time) {
