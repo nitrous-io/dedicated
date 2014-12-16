@@ -17,9 +17,6 @@ App.IdeModalDialogView = Em.View.extend
       @viewDidDisappear()
 
   viewDidAppear: ->
-    selector = @get('focusSelector')
-    return if !selector
-    @$(selector).focus()
 
   viewDidDisappear: ->
     @set 'content', null
