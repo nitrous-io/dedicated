@@ -217,6 +217,18 @@ var _ = Describe("models/invoice", func() {
 			Expect(i2.LastAttemptAt).ToNot(BeNil())
 			Expect(i2.FirstAttemptAt).ToNot(Equal(i2.LastAttemptAt))
 		})
+
+		It("should clear Failed state", func() {
+			i.Failed = true
+			err := i.PaymentSucceeded(db)
+			Expect(err).To(BeNil())
+
+			Expect(i.SuccessfulCharge).To(BeTrue())
+			Expect(i.Failed).To(BeFalse())
+			Expect(i.FirstAttemptAt).ToNot(BeNil())
+			Expect(i.LastAttemptAt).ToNot(BeNil())
+			Expect(i.FirstAttemptAt.Unix()).To(Equal(i.LastAttemptAt.Unix()))
+		})
 	})
 
 	Describe("PaymentFailed", func() {

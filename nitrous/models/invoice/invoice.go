@@ -92,6 +92,7 @@ func (i *Invoice) Update(d db.QueryReceiver) error {
 
 func (i *Invoice) PaymentSucceeded(d db.QueryReceiver) error {
 	i.SuccessfulCharge = true
+	i.Failed = false
 	t := time.Now()
 	if i.FirstAttemptAt == nil || i.FirstAttemptAt.IsZero() {
 		i.FirstAttemptAt = &t

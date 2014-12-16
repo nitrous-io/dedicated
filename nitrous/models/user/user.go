@@ -291,6 +291,17 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 	return b, nil
 }
 
+func (u *User) HasFailedPayments(d db.QueryReceiver) (bool, error) {
+	var b bool
+	if err := d.QueryRowx(`SELECT failed FROM invoices WHERE user_id = $1 AND failed = TRUE LIMIT 1;`, u.ID).Scan(&b); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return b, nil
+}
+
 func (u *User) ConfirmationLapsed() bool {
 	if u.ConfirmationSentAt == nil {
 		return false
