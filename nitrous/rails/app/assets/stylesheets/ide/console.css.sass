@@ -20,7 +20,15 @@
       background: black
 
       &.active
-        display: block
+        display: flex
+
+      .terminal-screen
+        display: flex
+        flex-grow: 1
+
+        iframe
+          height: auto
+          flex-grow: 1
 
   &.fullscreen
     height: 100% !important

@@ -83,6 +83,7 @@ window.NitrousTerminal =
     if @firstConnect
       @firstConnect = false
       @clear()
+      @term.sizeToFit()
     else
       @term.write '\r\n'
 
