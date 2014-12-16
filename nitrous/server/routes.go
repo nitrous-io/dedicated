@@ -136,6 +136,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys":              r("keys.Create", keys.Create, ContainerKeyAdded),
 				"/containers/{slug}/start_app":         r("containers.StartApp", containers.StartApp),
 				"/containers/{slug}/stop_app":          r("containers.StopApp", containers.StopApp),
+				"/containers/{slug}/restart_app":       r("containers.RestartApp", containers.RestartApp),
 				"/feedback":                            r("feedback.Send", feedback.Send),
 				"/admin/switch_user":                   r("admin.SwitchUser", admin.SwitchUser),
 			},

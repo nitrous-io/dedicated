@@ -1845,6 +1845,77 @@ var _ = Describe("controllers/containers", func() {
 		})
 	})
 
+	Describe("POST /containers/{slug}/restart_app", func() {
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := NewFormRequest("POST", "/api/v0/containers/foo/restart_app", nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		It("calls the Freighter client to stop and start the container's app", func() {
+			c := &container.Container{
+				CID:    "deadbead",
+				Slug:   "foo",
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+
+			mockClient.Containers = []*freighterclient.Container{{
+				ID:       "deadbead",
+				Name:     "foo",
+				State:    "running",
+				AppState: "running",
+				Image:    "nitrous-base",
+			}}
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(mockClient.StopAppCalled).To(Equal(1))
+			Expect(mockClient.StartAppCalled).To(Equal(1))
+			Expect(mockClient.ReceivedID).To(Equal("deadbead"))
+
+			var j struct {
+				Container *serializers.Container `json:"container"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			cn := j.Container
+			Expect(cn.ID).To(Equal(c.ID))
+			Expect(cn.CID).To(Equal("deadbead"))
+			Expect(cn.UserID).To(Equal(u.ID))
+			Expect(cn.Image).To(Equal("nitrous-base"))
+			Expect(cn.Slug).To(Equal("foo"))
+			Expect(cn.State).To(Equal(container.StateRunning.String()))
+			Expect(cn.AppState).To(Equal("running"))
+		})
+
+		It("responds with HTTP 500 Internal Server Error when the Freighter client returns an error", func() {
+			mockClient.StopAppError = errors.New("app failed to stop")
+			c := &container.Container{
+				CID:    "deadbead",
+				Slug:   "foo",
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("internal_server_error"))
+			Expect(errDesc).To(ContainSubstring("app failed to stop"))
+		})
+	})
+
 	Describe("prepareConfig()", func() {
 		var (
 			form url.Values
