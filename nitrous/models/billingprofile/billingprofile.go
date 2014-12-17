@@ -20,8 +20,14 @@ func init() {
 	}
 }
 
-var StripeProfileRequiredError = errors.New("billingprofile: requires an existing Stripe profile")
-var CardDeclinedError = errors.New("billingprofile: card declined")
+var (
+	StripeProfileRequiredError = errors.New("billingprofile: requires an existing Stripe profile")
+
+	CardExpiredError  = errors.New("billingprofile: card expired")
+	CardDeclinedError = errors.New("billingprofile: card declined")
+	IncorrectCvcError = errors.New("billingprofile: cvc is incorrect")
+	IncorrectZipError = errors.New("billingprofile: zip code is incorrect")
+)
 
 const (
 	StateFree       = "free"
@@ -63,7 +69,7 @@ func Create(tx *sqlx.Tx, userID int64) error {
 // Update changes the persisted billing profile record.
 // To update the card or email in Stripe, use UpdateCard or UpdateEmail.
 func (b *BillingProfile) Update(d db.QueryReceiver) error {
-	nstmt, err := d.PrepareNamed(`UPDATE billing_profiles 
+	nstmt, err := d.PrepareNamed(`UPDATE billing_profiles
 		SET (stripe_id, last_four, card_type, exp_month, exp_year, state, updated_at)
 		= (:stripe_id, :last_four, :card_type, :exp_month, :exp_year, :state, now())
 		WHERE user_id = :user_id
@@ -84,12 +90,7 @@ func (b *BillingProfile) UpdateCard(d db.QueryReceiver, token string) error {
 	}
 	c, err := customer.Update(b.StripeID.String, params)
 	if err != nil {
-		if e, ok := err.(*stripe.Error); ok {
-			if e.Code == stripe.CardDeclined {
-				return CardDeclinedError
-			}
-		}
-		return err
+		return HandleStripeError(err)
 	}
 
 	crd := c.Cards.Values[0]
@@ -118,4 +119,19 @@ func (b *BillingProfile) UpdateEmail(d db.QueryReceiver, email string) error {
 	}
 
 	return nil
+}
+
+func HandleStripeError(err error) error {
+	if e, ok := err.(*stripe.Error); ok {
+		if e.Code == stripe.CardDeclined {
+			return CardDeclinedError
+		} else if e.Code == stripe.ExpiredCard {
+			return CardExpiredError
+		} else if e.Code == stripe.IncorrectCvc {
+			return IncorrectCvcError
+		} else if e.Code == stripe.IncorrectZip {
+			return IncorrectZipError
+		}
+	}
+	return err
 }

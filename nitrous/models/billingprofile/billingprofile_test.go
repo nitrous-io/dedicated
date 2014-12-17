@@ -152,6 +152,24 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(err).To(Equal(billingprofile.CardDeclinedError))
 			})
 
+			It("returns CardExpiredError error, if Stripe returns a card expired error", func() {
+				fakeStripe.Error = StripeCardExpired
+				err := bp.UpdateCard(db, "token")
+				Expect(err).To(Equal(billingprofile.CardExpiredError))
+			})
+
+			It("returns IncorrectCvcError error, if Stripe returns a card expired error", func() {
+				fakeStripe.Error = StripeIncorrectCvc
+				err := bp.UpdateCard(db, "token")
+				Expect(err).To(Equal(billingprofile.IncorrectCvcError))
+			})
+
+			It("returns IncorrectZipError error, if Stripe returns a card expired error", func() {
+				fakeStripe.Error = StripeIncorrectZip
+				err := bp.UpdateCard(db, "token")
+				Expect(err).To(Equal(billingprofile.IncorrectZipError))
+			})
+
 			It("does not update the record, when Stripe returns an error", func() {
 				fakeStripe.Error = &stripe.Error{
 					Type: stripe.ErrorType(stripe.APIErr),

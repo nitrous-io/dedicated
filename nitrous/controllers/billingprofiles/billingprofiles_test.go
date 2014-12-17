@@ -120,7 +120,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			Expect(j.BillingProfile.LastFour).To(Equal("4242"))
 		})
 
-		It("should return a card declined error when user's card is declined'", func() {
+		It("should return a card declined error when user's card is declined", func() {
 			fakeStripe.Error = StripeCardDeclined
 
 			p := &url.Values{}
@@ -131,6 +131,45 @@ var _ = Describe("controllers/billingprofiles", func() {
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("card_declined"))
 			Expect(errDesc).To(Equal("Your Credit Card was declined. Try contacting the bank directly for assistance."))
+		})
+
+		It("should return a card expired error when user's card is expired", func() {
+			fakeStripe.Error = StripeCardExpired
+
+			p := &url.Values{}
+			p.Set("card_token", "cc_token")
+			res := doRequest(p)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("card_expired"))
+			Expect(errDesc).To(Equal("Your Credit Card has expired. Please try again with a recent card."))
+		})
+
+		It("should return a incorrect cvc error when the supplied cvc is incorrect", func() {
+			fakeStripe.Error = StripeIncorrectCvc
+
+			p := &url.Values{}
+			p.Set("card_token", "cc_token")
+			res := doRequest(p)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("incorrect_cvc"))
+			Expect(errDesc).To(Equal("Your CVC is incorrect. Please try again."))
+		})
+
+		It("should return a incorrect zip error when the supplied zip is incorrect", func() {
+			fakeStripe.Error = StripeIncorrectZip
+
+			p := &url.Values{}
+			p.Set("card_token", "cc_token")
+			res := doRequest(p)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("incorrect_zip"))
+			Expect(errDesc).To(Equal("Your Zip code is incorrect. Please try again."))
 		})
 	})
 
@@ -192,6 +231,45 @@ var _ = Describe("controllers/billingprofiles", func() {
 				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("card_declined"))
 				Expect(errDesc).To(Equal("Your Credit Card was declined. Try contacting the bank directly for assistance."))
+			})
+
+			It("should return a card expired error when user's card is expired", func() {
+				fakeStripe.Error = StripeCardExpired
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("card_expired"))
+				Expect(errDesc).To(Equal("Your Credit Card has expired. Please try again with a recent card."))
+			})
+
+			It("should return a incorrect cvc error when the supplied cvc is incorrect", func() {
+				fakeStripe.Error = StripeIncorrectCvc
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("incorrect_cvc"))
+				Expect(errDesc).To(Equal("Your CVC is incorrect. Please try again."))
+			})
+
+			It("should return a incorrect zip error when the supplied zip is incorrect", func() {
+				fakeStripe.Error = StripeIncorrectZip
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("incorrect_zip"))
+				Expect(errDesc).To(Equal("Your Zip code is incorrect. Please try again."))
 			})
 
 			It("should return the created billing profile when valid token is provided", func() {
