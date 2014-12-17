@@ -1,0 +1,18 @@
+@import 'variables'
+
+.invoice-item
+  .heading
+    display: table
+    width: 100%
+
+    h4, .payment-status
+      display: table-cell
+
+    .payment-status
+      text-align: right
+
+      &.unpaid
+        color: $red400
+
+  tr.total-charge
+    font-weight: bold

@@ -68,6 +68,58 @@ var _ = Describe("models/invoiceitem", func() {
 		}
 	})
 
+	Describe("ItemDescription", func() {
+		var (
+			hst *host.Host
+			inv *invoiceitem.InvoiceItem
+		)
+		BeforeEach(func() {
+			hst = &host.Host{
+				Slug: "ABCDEF",
+			}
+			inv = &invoiceitem.InvoiceItem{
+				Hours:       900,
+				HourlyPrice: 1231,
+			}
+		})
+
+		It("should describe the host usage", func() {
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' 900 hours at 1.23c/hour"))
+		})
+
+		It("should be able to display terminated state", func() {
+			hst.State = host.StateTerminated
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' (terminated) 900 hours at 1.23c/hour"))
+		})
+	})
+
+	Describe("HourlyCents()", func() {
+		It("should convert milli-cents to cents", func() {
+			i := invoiceitem.InvoiceItem{
+				HourlyPrice: 500,
+			}
+			Expect(i.HourlyCents()).To(Equal(0.5))
+		})
+	})
+
+	Describe("TotalCharge", func() {
+		It("should multiply and convert to cents", func() {
+			inv := &invoiceitem.InvoiceItem{
+				Hours:       2,
+				HourlyPrice: 2000,
+			}
+			Expect(inv.TotalCharge()).To(Equal(int64(4)))
+		})
+
+		It("should round up to the nearest cent", func() {
+			inv := &invoiceitem.InvoiceItem{
+				Hours:       1,
+				HourlyPrice: 500,
+			}
+			Expect(inv.TotalCharge()).To(Equal(int64(1)))
+		})
+	})
+
 	Describe(".FindAllForInvoice", func() {
 		It("should return empty set if none was find", func() {
 			res, err := invoiceitem.FindAllForInvoice(db, 902378)
@@ -114,15 +166,6 @@ var _ = Describe("models/invoiceitem", func() {
 			res, err := invoiceitem.FindAllForInvoice(db, in.ID)
 			Expect(err).To(BeNil())
 			Expect(res).To(Equal([]invoiceitem.InvoiceItem{*i1, *i2}))
-		})
-	})
-
-	Describe("HourlyCents()", func() {
-		It("should convert milli-cents to cents", func() {
-			i := invoiceitem.InvoiceItem{
-				HourlyPrice: 500,
-			}
-			Expect(i.HourlyCents()).To(Equal(0.5))
 		})
 	})
 

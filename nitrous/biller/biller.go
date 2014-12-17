@@ -151,7 +151,7 @@ func (b *Biller) billStripeInvoice(bp *billingprofile.BillingProfile, i *invoice
 }
 
 func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, i *invoice.Invoice, items []invoiceitem.InvoiceItem) error {
-	hosts, err := b.allHostsForUser()
+	hosts, err := host.FindAllWithTerminated(b.db, b.user)
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, i *in
 			return fmt.Errorf("Could not locate host %d for invoice %d", invI.HostID, invI.ID)
 		}
 
-		desc := fmt.Sprintf("Host '%s' %d hours at %.2fc/hour", matchingHost.Slug, invI.Hours, invI.HourlyCents())
+		desc := invoiceitem.ItemDescription(&invI, matchingHost)
 		if invI.StripeID.String == "" {
 			ii, err := striitem.New(&stripe.InvoiceItemParams{
 				Customer: bp.StripeID.String,
@@ -253,15 +253,6 @@ func (b *Biller) applyInvoiceItems(i *invoice.Invoice, isNew bool, items []invoi
 		return nil, err
 	}
 	return items, err
-}
-
-func (b *Biller) allHostsForUser() ([]host.Host, error) {
-	hosts := []host.Host{}
-	err := b.db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND preprovisioned = FALSE ORDER BY id;", b.user.ID)
-	if err != nil {
-		return nil, err
-	}
-	return hosts, nil
 }
 
 func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd *time.Time) {

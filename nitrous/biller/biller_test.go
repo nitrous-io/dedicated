@@ -364,10 +364,10 @@ var _ = Describe("biller", func() {
 							}
 						}
 						Expect(r1["customer"]).To(Equal("St17"))
-						Expect(r1["desc"]).To(Equal("Host 'my-host-1' 92 hours at 1.00c/hour"))
+						Expect(r1["desc"]).To(Equal("Application 'my-host-1' 92 hours at 1.00c/hour"))
 
 						Expect(r2["customer"]).To(Equal("St17"))
-						Expect(r2["desc"]).To(Equal("Host 'my-host-2' 20 hours at 0.50c/hour"))
+						Expect(r2["desc"]).To(Equal("Application 'my-host-2' 20 hours at 0.50c/hour"))
 
 						type s struct {
 							ID string `db:"stripe_id"`

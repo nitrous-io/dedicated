@@ -2,9 +2,12 @@ package invoiceitem
 
 import (
 	"database/sql"
+	"fmt"
+	"math"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 )
 
 type InvoiceItem struct {
@@ -22,12 +25,13 @@ type InvoiceItem struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
-func (i *InvoiceItem) HourlyCents() float64 {
-	return float64(i.HourlyPrice) / float64(1000)
-}
-
-func (i *InvoiceItem) TotalCharge() int64 {
-	return (int64(i.Hours) * i.HourlyPrice) / 1000
+func ItemDescription(i *InvoiceItem, hst *host.Host) string {
+	state := ""
+	// FIXME: handle future states such as suspended (snapshot/resume)
+	if hst.State == host.StateTerminated {
+		state = " (terminated)"
+	}
+	return fmt.Sprintf("Application '%s'%s %d hours at %.2fc/hour", hst.Slug, state, i.Hours, i.HourlyCents())
 }
 
 func FindAllForInvoice(d db.QueryReceiver, iID int64) ([]InvoiceItem, error) {
@@ -37,6 +41,15 @@ func FindAllForInvoice(d db.QueryReceiver, iID int64) ([]InvoiceItem, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+func (i *InvoiceItem) HourlyCents() float64 {
+	return float64(i.HourlyPrice) / float64(1000)
+}
+
+func (i *InvoiceItem) TotalCharge() int64 {
+	totalCents := float64(int64(i.Hours)*i.HourlyPrice) / 1000.0
+	return int64(math.Ceil(totalCents))
 }
 
 func (i *InvoiceItem) Insert(d db.QueryReceiver) error {
