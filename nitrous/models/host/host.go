@@ -106,6 +106,15 @@ func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
 	return hosts, nil
 }
 
+func FindAllWithTerminated(db *db.Database, user *user.User) ([]Host, error) {
+	hosts := []Host{}
+	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND preprovisioned = FALSE ORDER BY id;", user.ID)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
 func CountPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) (int, error) {
 	var count int
 	if err := db.QueryRow(`SELECT count(*) FROM hosts

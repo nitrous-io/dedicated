@@ -69,8 +69,9 @@ var _ = Describe("models/host", func() {
 				VALUES ($1, $2, $3, $4, $5);`,
 				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID)
 			Expect(err).To(BeNil())
-			_, err = db.Exec(`INSERT INTO hosts (user_id, slug, region_id, plan_id, provider_template_id)
-				VALUES ($1, $2, $3, $4, $5);`,
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, now());`,
 				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID)
 			Expect(err).To(BeNil())
 		})
@@ -78,6 +79,63 @@ var _ = Describe("models/host", func() {
 		Context("when the given user has host records", func() {
 			It("returns the host records", func() {
 				hosts, err := host.FindAllByUser(db, u1)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(1))
+
+				Expect(hosts[0].ID).NotTo(BeZero())
+				Expect(hosts[0].UserID).To(Equal(u1.ID))
+				Expect(hosts[0].Slug).To(Equal("my-host-1"))
+			})
+		})
+
+		Context("when the given user does not have any host records", func() {
+			It("returns an empty slice", func() {
+				hosts, err := host.FindAllByUser(db, u2)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(0))
+			})
+		})
+	})
+
+	Describe("FindAllWithTerminated()", func() {
+		var (
+			u1 *user.User
+			u2 *user.User
+		)
+
+		BeforeEach(func() {
+			var err error
+			u1 = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err = WrapInTransaction(db, u1.Insert)
+			Expect(err).To(BeNil())
+
+			u2 = &user.User{
+				Username: "bar",
+				Email:    "bar@example.com",
+				Password: "123456",
+			}
+			err = WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id)
+				VALUES ($1, $2, $3, $4, $5);`,
+				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, now());`,
+				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID)
+			Expect(err).To(BeNil())
+		})
+
+		Context("when the given user has host records", func() {
+			It("returns the host records", func() {
+				hosts, err := host.FindAllWithTerminated(db, u1)
 				Expect(err).To(BeNil())
 				Expect(hosts).To(HaveLen(2))
 
@@ -93,7 +151,7 @@ var _ = Describe("models/host", func() {
 
 		Context("when the given user does not have any host records", func() {
 			It("returns an empty slice", func() {
-				hosts, err := host.FindAllByUser(db, u2)
+				hosts, err := host.FindAllWithTerminated(db, u2)
 				Expect(err).To(BeNil())
 				Expect(hosts).To(HaveLen(0))
 			})
