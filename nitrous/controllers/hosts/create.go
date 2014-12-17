@@ -215,7 +215,15 @@ func recordTransition(env *middleware.Env, h *host.Host) error {
 	if timing == nil {
 		timing = h.CreatedAt
 	}
-	return hosttransition.Record(env.DB, h, host.StateBorn, *timing)
+	tx, err := env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := hosttransition.Record(tx, h, host.StateBorn, *timing); err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }
 
 func buildCreateOptions(r *http.Request) (*createOpts, error) {
