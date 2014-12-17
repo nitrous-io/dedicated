@@ -23,10 +23,11 @@ App.Container = klass = App.Model.extend
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
 
   config: (->
+    return unless @get('id') # Load config only after container is saved.
     config = Em.ObjectProxy.create()
     @loadConfig()
     config
-  ).property 'slug'
+  ).property 'id', 'slug'
 
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
