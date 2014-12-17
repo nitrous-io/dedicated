@@ -500,12 +500,7 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 	}
 	c, err := customer.New(params)
 	if err != nil {
-		if e, ok := err.(*stripe.Error); ok {
-			if e.Code == stripe.CardDeclined {
-				return nil, billingprofile.CardDeclinedError
-			}
-		}
-		return nil, err
+		return nil, billingprofile.HandleStripeError(err)
 	}
 
 	// update the profile with details returned from Stripe

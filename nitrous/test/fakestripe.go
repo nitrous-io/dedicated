@@ -89,3 +89,21 @@ var StripeCardDeclined = &stripe.Error{
 	Msg:  "card declined",
 	Code: stripe.ErrorCode(stripe.CardDeclined),
 }
+
+var StripeCardExpired = &stripe.Error{
+	Type: stripe.ErrorType(stripe.CardErr),
+	Msg:  "card expired",
+	Code: stripe.ErrorCode(stripe.ExpiredCard),
+}
+
+var StripeIncorrectCvc = &stripe.Error{
+	Type: stripe.ErrorType(stripe.CardErr),
+	Msg:  "incorrect cvc",
+	Code: stripe.ErrorCode(stripe.IncorrectCvc),
+}
+
+var StripeIncorrectZip = &stripe.Error{
+	Type: stripe.ErrorType(stripe.CardErr),
+	Msg:  "incorrect zip",
+	Code: stripe.ErrorCode(stripe.IncorrectZip),
+}
