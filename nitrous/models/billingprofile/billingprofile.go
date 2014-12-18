@@ -37,16 +37,17 @@ const (
 )
 
 type BillingProfile struct {
-	ID        int64          `db:"id"`
-	UserID    int64          `db:"user_id"`
-	State     string         `db:"state"` // possible states: 'free', 'paid', 'payment_due', 'delinquent'
-	StripeID  sql.NullString `db:"stripe_id"`
-	LastFour  sql.NullString `db:"last_four"`
-	CardType  sql.NullString `db:"card_type"`
-	ExpMonth  sql.NullInt64  `db:"exp_month"`
-	ExpYear   sql.NullInt64  `db:"exp_year"`
-	CreatedAt *time.Time     `db:"created_at"`
-	UpdatedAt *time.Time     `db:"updated_at"`
+	ID                int64          `db:"id"`
+	UserID            int64          `db:"user_id"`
+	State             string         `db:"state"` // possible states: 'free', 'paid', 'payment_due', 'delinquent'
+	StripeID          sql.NullString `db:"stripe_id"`
+	StripeFingerprint sql.NullString `db:"stripe_fingerprint"`
+	LastFour          sql.NullString `db:"last_four"`
+	CardType          sql.NullString `db:"card_type"`
+	ExpMonth          sql.NullInt64  `db:"exp_month"`
+	ExpYear           sql.NullInt64  `db:"exp_year"`
+	CreatedAt         *time.Time     `db:"created_at"`
+	UpdatedAt         *time.Time     `db:"updated_at"`
 }
 
 func Find(d db.QueryReceiver, userID int64) (*BillingProfile, error) {
@@ -70,8 +71,8 @@ func Create(tx *sqlx.Tx, userID int64) error {
 // To update the card or email in Stripe, use UpdateCard or UpdateEmail.
 func (b *BillingProfile) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE billing_profiles
-		SET (stripe_id, last_four, card_type, exp_month, exp_year, state, updated_at)
-		= (:stripe_id, :last_four, :card_type, :exp_month, :exp_year, :state, now())
+		SET (stripe_id, stripe_fingerprint, last_four, card_type, exp_month, exp_year, state, updated_at)
+		= (:stripe_id, :stripe_fingerprint, :last_four, :card_type, :exp_month, :exp_year, :state, now())
 		WHERE user_id = :user_id
 		RETURNING *;`)
 	if err != nil {
@@ -95,6 +96,7 @@ func (b *BillingProfile) UpdateCard(d db.QueryReceiver, token string) error {
 
 	crd := c.Cards.Values[0]
 	b.StripeID = sql.NullString{c.ID, true}
+	b.StripeFingerprint = sql.NullString{crd.Fingerprint, true}
 	b.LastFour = sql.NullString{crd.LastFour, true}
 	b.CardType = sql.NullString{string(crd.Brand), true}
 	b.ExpMonth = sql.NullInt64{int64(crd.Month), true}
