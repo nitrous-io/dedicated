@@ -64,7 +64,8 @@ func main() {
 			logr.Infof("Creating host transition '%s' for %s", host.State, host.Slug)
 			tx, err := dbConn.Beginx()
 			if err != nil {
-				return err
+				logr.Infof("Failed starting transaction for for %d '%s'", host.ID, host.Slug)
+				continue
 			}
 			if err := hosttransition.Record(tx, &host, "", *time); err != nil {
 				tx.Rollback()
