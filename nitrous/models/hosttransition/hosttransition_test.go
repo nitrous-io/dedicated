@@ -238,10 +238,14 @@ var _ = Describe("models/hosttransition", func() {
 			})
 
 			It("should insert without touching other transitions", func() {
+				tx, err := db.Beginx()
+				Expect(err).To(BeNil())
+
 				t := time.Now()
 				h.State = "terminated"
-				err := hosttransition.Record(db, h, "running", t)
+				err = hosttransition.Record(tx, h, "running", t)
 				Expect(err).To(BeNil())
+				Expect(tx.Commit()).To(BeNil())
 
 				preEx, err := hosttransition.FindByID(db, exId)
 				Expect(err).To(BeNil())
@@ -274,9 +278,13 @@ var _ = Describe("models/hosttransition", func() {
 			})
 
 			It("should update existing transition's ended_at for host", func() {
-				t := time.Now()
-				err := hosttransition.Record(db, h, "running", t)
+				tx, err := db.Beginx()
 				Expect(err).To(BeNil())
+
+				t := time.Now()
+				err = hosttransition.Record(tx, h, "running", t)
+				Expect(err).To(BeNil())
+				Expect(tx.Commit()).To(BeNil())
 
 				preEx, err := hosttransition.FindByID(db, exId)
 				Expect(err).To(BeNil())

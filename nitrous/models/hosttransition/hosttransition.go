@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 )
@@ -77,8 +78,7 @@ func BillableHostHours(db *db.Database, userId int64, start, end time.Time) ([]H
 	return hostHours, err
 }
 
-// FIXME: move to enforcing tx *sqlx.Tx in place of d db.QueryReceiver
-func Record(d db.QueryReceiver, host *host.Host, previousState string, enactedAt time.Time) error {
+func Record(tx *sqlx.Tx, host *host.Host, previousState string, enactedAt time.Time) error {
 	hT := &HostTransition{
 		HostID:    host.ID,
 		State:     host.State,
@@ -90,7 +90,7 @@ func Record(d db.QueryReceiver, host *host.Host, previousState string, enactedAt
 	}
 
 	var prevId int64
-	err := d.QueryRowx(
+	err := tx.QueryRowx(
 		`SELECT id FROM host_transitions WHERE host_transitions.host_id = $1 ORDER BY created_at DESC LIMIT 1`,
 		host.ID).Scan(&prevId)
 
@@ -99,13 +99,13 @@ func Record(d db.QueryReceiver, host *host.Host, previousState string, enactedAt
 	}
 	if err != sql.ErrNoRows {
 		// set previous
-		_, err := d.Exec(`UPDATE host_transitions SET ended_at = $1 WHERE id = $2;`, hT.CreatedAt, prevId)
+		_, err := tx.Exec(`UPDATE host_transitions SET ended_at = $1 WHERE id = $2;`, hT.CreatedAt, prevId)
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err = d.NamedExec(
+	_, err = tx.NamedExec(
 		`INSERT INTO host_transitions (host_id, previous_state, state, created_at)
       VALUES (:host_id, :previous_state, :state, :created_at)`,
 		hT)
