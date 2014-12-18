@@ -74,6 +74,17 @@ func main() {
 		logr.Infof("nitrousd: migrations failed: %v", err)
 	}
 
+	var libratoInterval time.Duration
+	li := os.Getenv("LIBRATO_INTERVAL")
+	if li == "" {
+		libratoInterval = 120 * time.Second
+	} else {
+		libratoInterval, err = time.ParseDuration(li)
+		if err != nil {
+			logr.FatalExit("nitrousd: LIBRATO_INTERVAL invalid:", err.Error())
+		}
+	}
+
 	if disableLibrato {
 		logr.Warnf("missing librato config. Metrics logging is disabled")
 		// in dev, we flush metrics every 60s into devNull
@@ -81,8 +92,9 @@ func main() {
 		go metrics.Log(metrics.DefaultRegistry, 60e9,
 			log.New(ioutil.Discard, "metrics: ", log.Lmicroseconds))
 	} else {
+
 		go librato.Librato(metrics.DefaultRegistry,
-			30e9,             // interval
+			libratoInterval,  // interval
 			libratoUser,      // account owner email address
 			libratoToken,     // Librato API token
 			"nitrousd",       // source
