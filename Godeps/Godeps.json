@@ -144,47 +144,47 @@
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/cipher",
-			"Rev": "6c62cee74c19ade828a5b2470497725c661595fc"
+			"Rev": "337a2bfa5fa5dc929ac52abf576959e5aa83afa6"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/flusher",
-			"Rev": "6c62cee74c19ade828a5b2470497725c661595fc"
+			"Rev": "337a2bfa5fa5dc929ac52abf576959e5aa83afa6"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/hmactoken",
-			"Rev": "6c62cee74c19ade828a5b2470497725c661595fc"
+			"Rev": "337a2bfa5fa5dc929ac52abf576959e5aa83afa6"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/httpclient",
-			"Rev": "6c62cee74c19ade828a5b2470497725c661595fc"
+			"Rev": "337a2bfa5fa5dc929ac52abf576959e5aa83afa6"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/isarchive",
-			"Rev": "6c62cee74c19ade828a5b2470497725c661595fc"
+			"Rev": "337a2bfa5fa5dc929ac52abf576959e5aa83afa6"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/logger",
-			"Rev": "6c62cee74c19ade828a5b2470497725c661595fc"
+			"Rev": "337a2bfa5fa5dc929ac52abf576959e5aa83afa6"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/msgverifier",
-			"Rev": "6c62cee74c19ade828a5b2470497725c661595fc"
+			"Rev": "337a2bfa5fa5dc929ac52abf576959e5aa83afa6"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/must",
-			"Rev": "6c62cee74c19ade828a5b2470497725c661595fc"
+			"Rev": "337a2bfa5fa5dc929ac52abf576959e5aa83afa6"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/sshkey",
-			"Rev": "6c62cee74c19ade828a5b2470497725c661595fc"
+			"Rev": "337a2bfa5fa5dc929ac52abf576959e5aa83afa6"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/term",
-			"Rev": "6c62cee74c19ade828a5b2470497725c661595fc"
+			"Rev": "337a2bfa5fa5dc929ac52abf576959e5aa83afa6"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/wsconn",
-			"Rev": "6c62cee74c19ade828a5b2470497725c661595fc"
+			"Rev": "337a2bfa5fa5dc929ac52abf576959e5aa83afa6"
 		},
 		{
 			"ImportPath": "github.com/ogier/pflag",
