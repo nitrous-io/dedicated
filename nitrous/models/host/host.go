@@ -63,11 +63,13 @@ type Host struct {
 	ProviderTemplateID int64 `db:"provider_template_id"`
 
 	// Slug is used as a DNS label in the host's FQDN (thus limited to 63 chars).
-	Slug           string         `db:"slug"`
-	Name           sql.NullString `db:"name"`
-	State          string         `db:"state"`
-	IPAddress      sql.NullString `db:"ip_address"`
-	FreighterdPort sql.NullInt64  `db:"freighterd_port"`
+	Slug              string         `db:"slug"`
+	Name              sql.NullString `db:"name"`
+	State             string         `db:"state"`
+	IPAddress         sql.NullString `db:"ip_address"`
+	FreighterdPort    sql.NullInt64  `db:"freighterd_port"`
+	FreighterdVersion string         `db:"freighterd_version"`
+	DockerVersion     string         `db:"docker_version"`
 
 	// ProviderIdentifier is the identifier used by the host's provider to
 	// uniquely identify this host.
@@ -226,11 +228,11 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
 		(user_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, provider_identifier, max_containers, size, freighterd_port,
-			hourly_price, preprovisioned)
+			hourly_price, preprovisioned, freighterd_version, docker_version)
 		VALUES
 		(:user_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 		:state, :ip_address, :provider_identifier, :max_containers, :size, :freighterd_port,
-		:hourly_price, :preprovisioned)
+		:hourly_price, :preprovisioned, :freighterd_version, :docker_version)
 		RETURNING *;`)
 	if err != nil {
 		return err

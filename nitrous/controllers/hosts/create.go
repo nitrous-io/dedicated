@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
+	"github.com/nitrous-io/dedicated/nitrous/models/version"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -56,6 +58,20 @@ type createOpts struct {
 	Async      bool                 `json:"async"`
 	Containers []template.Container `json:"containers"`
 	Volumes    []template.Volume    `json:"volumes"`
+}
+
+var fv, dv string
+
+func init() {
+	fv := os.Getenv("FREIGHTERD_VERSION")
+	if fv == "" {
+		panic("FREIGHTERD_VERSION is not set")
+	}
+
+	dv := os.Getenv("DOCKER_VERSION")
+	if dv == "" {
+		panic("DOCKER_VERSION is not set")
+	}
 }
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
