@@ -39,6 +39,7 @@ var (
 var HostbuilderClient *hostbuilderclient.Hostbuilder
 var defaultProvider string
 var aesKey string
+var fv, dv string
 
 func init() {
 	hostbuilderURL := os.Getenv("HOSTBUILDER_URL")
@@ -55,6 +56,16 @@ func init() {
 	defaultProvider = os.Getenv("DEFAULT_PROVIDER")
 	if defaultProvider == "" {
 		panic("DEFAULT_PROVIDER is not set")
+	}
+
+	fv := os.Getenv("FREIGHTERD_VERSION")
+	if fv == "" {
+		panic("FREIGHTERD_VERSION is not set")
+	}
+
+	dv := os.Getenv("DOCKER_VERSION")
+	if dv == "" {
+		panic("DOCKER_VERSION is not set")
 	}
 }
 
