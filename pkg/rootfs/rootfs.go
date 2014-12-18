@@ -3,10 +3,10 @@ package rootfs
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 )
@@ -74,12 +74,33 @@ func (r *Rootfs) Remove(name string) error {
 	return os.RemoveAll(p)
 }
 
-func (r *Rootfs) ReadDir(name string) ([]os.FileInfo, error) {
+func (r *Rootfs) ReadDir(name string) (fi []os.FileInfo, err error) {
 	p, err := r.path(name)
 	if err != nil {
 		return nil, err
 	}
-	return ioutil.ReadDir(p)
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	names, err := f.Readdirnames(-1)
+	fi = make([]os.FileInfo, 0, len(names))
+	for _, filename := range names {
+		// use stat to read symlink as well
+		fip, lerr := os.Stat(filepath.Join(p, filename))
+		if os.IsNotExist(lerr) {
+			// File disappeared between readdir + stat.
+			// Just treat it as if it didn't exist.
+			continue
+		}
+		if lerr != nil {
+			return fi, lerr
+		}
+		fi = append(fi, fip)
+	}
+	sort.Sort(byName(fi))
+	return fi, err
 }
 
 func (r *Rootfs) Stat(name string) (os.FileInfo, error) {
@@ -132,3 +153,10 @@ func owner(stat os.FileInfo) (int, int, error) {
 	}
 	return int(s.Uid), int(s.Gid), nil
 }
+
+// byName implements sort.Interface.
+type byName []os.FileInfo
+
+func (f byName) Len() int           { return len(f) }
+func (f byName) Less(i, j int) bool { return f[i].Name() < f[j].Name() }
+func (f byName) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
