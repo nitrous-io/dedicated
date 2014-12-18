@@ -408,11 +408,11 @@ func writeFile(h *Host, files map[string]io.Reader) error {
 func writeRepository(ctx *context.Context, hst host.Host) error {
 	h := hst.(*Host)
 	hlog(h, "Uploading apt details")
-	sourceData := bytes.NewBuffer(nil)
-	if err := host.SourceTemplate.Execute(sourceData, h.Config); err != nil {
+	buf := bytes.NewBuffer(nil)
+	if err := host.SourceTemplate.Execute(buf, h.Config); err != nil {
 		return err
 	}
-	if err := h.conn.Upload(host.SourceLocation, sourceData); err != nil {
+	if err := writeFile(h, map[string]io.Reader{host.SourceLocation: buf}); err != nil {
 		return err
 	}
 	hlog(h, "Uploaded apt details at %v", h.ipAddress())
