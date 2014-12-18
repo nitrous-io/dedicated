@@ -10,6 +10,7 @@ App.Container = klass = App.Model.extend
   slug: attr()
   name: attr()
   state: attr(serialize: false)
+  appState: attr(as: 'app_state', serialize: false)
   cmd: attr('array', serialize: false)
   entrypoint: attr('array', serialize: false)
   exitCode: attr('number', as: 'exit_code', serialize: false)
@@ -22,14 +23,18 @@ App.Container = klass = App.Model.extend
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
 
   config: (->
+    return unless @get('id') # Load config only after container is saved.
     config = Em.ObjectProxy.create()
     @loadConfig()
     config
-  ).property 'slug'
+  ).property 'id', 'slug'
 
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
   isTerminated: Em.computed.equal 'state', 'terminated'
+
+  isAppRunning: Em.computed.equal 'appState', 'running'
+  isAppStopped: Em.computed.equal 'appState', 'stopped'
 
   hostnameBinding: Em.Binding.oneWay 'host.hostname'
   loginUsernameBinding: Em.Binding.oneWay 'config.env.NITROUS_USERNAME'
@@ -62,7 +67,7 @@ App.Container = klass = App.Model.extend
   ).property 'hostname', 'previewPort'
 
   ideURL: (->
-    location.href.replace(location.pathname+location.hash, '/ide')
+    location.href.replace(location.pathname+location.hash, "/ide?#{@get 'slug'}")
   ).property()
 
   displayName: (->

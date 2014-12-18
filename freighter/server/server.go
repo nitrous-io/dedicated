@@ -224,6 +224,9 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/logs", s.wrapError(s.cors(s.withContainerToken(s.wsContainerLogs, "logs"))), "GET")
 	s.route("/containers/{id}/attach", s.handleCORSPreflight, "OPTIONS")
 	s.route("/containers/{id}/attach", s.wrapError(s.cors(s.withContainerToken(s.wsAttachToContainer, "attach"))), "GET")
+	// handle container operations
+	s.route("/containers/{id}/ops", s.handleCORSPreflight, "OPTIONS")
+	s.route("/containers/{id}/ops", s.wrapError(s.cors(s.withContainerToken(s.wsContainerOps, "ops"))), "GET")
 
 	s.secretRoute("/registry/auth", s.loginRegistry, "POST")
 	s.secretRoute("/registry/auth", s.logoutRegistry, "DELETE")

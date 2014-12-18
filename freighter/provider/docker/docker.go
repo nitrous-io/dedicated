@@ -34,6 +34,8 @@ const (
 	nitrousEnvUser  = "NITROUS_USERNAME"
 )
 
+var preservedEnvVars = []string{nitrousEnvImage, nitrousEnvCmd, nitrousEnvUser}
+
 const defaultDockerRegistry = "index.docker.io"
 const dockerRegistryImageEndpoint = "registry-1.docker.io"
 
@@ -257,6 +259,7 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 		Cmd:        container.Config.Cmd,
 		Entrypoint: container.Config.Entrypoint,
 		ExitCode:   container.State.ExitCode,
+		AppState:   p.appState(container),
 		StartedAt:  container.State.StartedAt,
 		FinishedAt: container.State.FinishedAt,
 	}, nil
@@ -407,21 +410,11 @@ func (p *DockerProvider) StopApp(id string) error {
 
 	// FIXME We should kill the docker exec process via Docker's remote API (see
 	// https://github.com/docker/docker/pull/9167) instead of relying on pgrep.
-	usr, _ := p.appUser(container)
-	fullCmd := strings.Join(execForm(cmd, usr), " ")
-	nsenterCmd := fmt.Sprintf(`nsenter-exec --nspid %d -- %s`, container.State.Pid, fullCmd)
-
-	pgrepCmd := exec.Command("pgrep", "--full", "--exact", "--newest", nsenterCmd)
-	out, err := pgrepCmd.CombinedOutput()
+	pid, err := p.appPID(container, cmd)
 	if err != nil {
-		p.logger.Errorf("StopApp: pgrep for nsenter process failed, err: %v, output: %s", err, out)
-		return err
-	}
-
-	pid, err := strconv.Atoi(strings.TrimSpace(string(out)))
-	if err != nil {
-		p.logger.Errorf("StopApp: pgrep did not return a proper pid, err: %v, output: %s", err, out)
-		return err
+		// Do nothing if we can't find the pid of the process - we assume it's
+		// not running.
+		return nil
 	}
 
 	// We have to kill the entire process group so that the children of the
@@ -429,6 +422,7 @@ func (p *DockerProvider) StopApp(id string) error {
 	pgid, err := syscall.Getpgid(pid)
 	if err != nil {
 		p.logger.Errorf("StopApp: cannot get process group ID, err: %v", err)
+		return err
 	}
 
 	// `kill -123` kills process group id 123.
@@ -529,57 +523,135 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 	return ak.Remove(keyFingerprint)
 }
 
+// This is a copy of the Image struct in docker/image for unmarshalling JSON in
+// /var/lib/docker/graph/<imageid>/json.
+// FIXME This is fucking ugly though. But I don't know of a better way to edit
+// only specific fields in /var/lib/docker/graph/<imageid>/json other than
+// regexes and string replacement shenanigans.
+type dockerImage struct {
+	ID              string              `json:"id"`
+	Parent          string              `json:"parent,omitempty"`
+	Comment         string              `json:"comment,omitempty"`
+	Created         time.Time           `json:"created"`
+	Container       string              `json:"container,omitempty"`
+	ContainerConfig dockerclient.Config `json:"container_config,omitempty"`
+	DockerVersion   string              `json:"docker_version,omitempty"`
+	Author          string              `json:"author,omitempty"`
+	Config          dockerclient.Config `json:"config,omitempty"`
+	Architecture    string              `json:"architecture,omitempty"`
+	OS              string              `json:"os,omitempty"`
+	Checksum        string              `json:"checksum"`
+	Size            int64
+}
+
 // Reconfig recreates a container from its original image with new config,
 // since at this time docker container configs are frozen once set.
+// This is the current implementation:
+//   1. Stop container.
+//   2. Commit container to image.
+//   3. Rewrite /var/lib/docker/graph/<imageid>/json with configJSON (leaving fields we don't care about unchanged).
+//   4. Create a new container from that image.
 func (p *DockerProvider) Reconfig(id, configJSON string) (*provider.ContainerInfo, error) {
-	fromCnr, err := p.Stop(id)
+	cn, err := p.Stop(id)
 	if err != nil {
 		return nil, err
 	}
-	name := fromCnr.Name
-	secret, err := p.readSharedSecret(name)
+	cnName := cn.Name
+
+	secret, err := p.readSharedSecret(cnName)
 	if err != nil {
 		return nil, err
 	}
 
-	ak := p.containerAuthorizedKeys(name)
+	ak := p.containerAuthorizedKeys(cnName)
 	existingKeys, err := ak.Read()
 	if err != nil {
 		return nil, err
 	}
 
-	imageName := fmt.Sprintf("%s-backup-%d", name, time.Now().UnixNano())
-	if _, err := p.Commit(id, imageName); err != nil {
+	backupImageName := fmt.Sprintf("%s-backup-%d", cnName, time.Now().UnixNano())
+	_, err = p.Commit(id, backupImageName)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := p.backup(id, name); err != nil {
+	imageName := fmt.Sprintf("%s-reconfig-%d", cnName, time.Now().UnixNano())
+	img, err := p.Commit(id, imageName)
+	if err != nil {
 		return nil, err
 	}
+
+	// Unmarshal /var/lib/docker/graph/<imageid>/json.
+	// This assumes the docker daemon we're interacting with is running locally.
+	jsonPath := fmt.Sprintf("/var/lib/docker/graph/%s/json", img.ID)
+	b, err := ioutil.ReadFile(jsonPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var graph dockerImage
+	if err := json.Unmarshal(b, &graph); err != nil {
+		return nil, err
+	}
+
+	// Reset configs that are additive so that we can replace them when creating
+	// a container from this image.
+	graph.Config.Volumes = nil
+	graph.Config.PortSpecs = nil
+	graph.Config.ExposedPorts = nil
+
+	// Env is a special case because we rely on it to apply some defaults to
+	// Nitrous-blessed images based on Nitrous-specific env vars.
+	// FIXME This sucks because maintaining a list of env vars to preserve is
+	// pretty fragile.
+	newEnv := []string{}
+	// Preserve Nitrous-specific env vars.
+	for _, envKey := range preservedEnvVars {
+		if val, ok := envValue(graph.Config.Env, envKey); ok {
+			newEnv = append(newEnv, fmt.Sprintf("%s=%s", envKey, val))
+		}
+	}
+	// Copy over all env vars from new config.
+	cfg, err := containerConfigFromJSON(configJSON)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range cfg.Env {
+		newEnv = append(newEnv, v)
+	}
+	graph.Config.Env = newEnv
+
+	// Write new config back to /var/lib/docker/graph/<imageid>/json.
+	f, err := os.OpenFile(jsonPath, os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	if err := json.NewEncoder(f).Encode(graph); err != nil {
+		return nil, err
+	}
+
+	// Terminate the existing container.
 	if _, err := p.Terminate(id, false); err != nil {
 		return nil, err
 	}
 
 	errf := "reconfig failed on %s during %s after termination: %s" // (id, step, error)
-	toCnr, err := p.create(name, fromCnr.Image, secret, configJSON)
+	newCn, err := p.create(cnName, img.Name, secret, configJSON)
 	if err != nil {
 		return nil, fmt.Errorf(errf, id, "create", err)
 	}
 
-	if err := p.restore(name, fromCnr.ID, toCnr.ID); err != nil {
-		return toCnr, fmt.Errorf(errf, id, "restore", err)
+	if err := p.AddPublicKeys(newCn.ID, existingKeys); err != nil {
+		return newCn, fmt.Errorf(errf, id, "public_keys", err)
 	}
 
-	if err := p.AddPublicKeys(toCnr.ID, existingKeys); err != nil {
-		return toCnr, fmt.Errorf(errf, id, "public_keys", err)
-	}
-
-	startedCnr, err := p.Start(toCnr.ID, configJSON)
+	startedCn, err := p.Start(newCn.ID, configJSON)
 	if err != nil {
-		return toCnr, fmt.Errorf(errf, id, "start", err)
+		return newCn, &provider.StartFailedError{Err: err}
 	}
 
-	return startedCnr, nil
+	return startedCn, nil
 }
 
 // Logs gets stdout and stderr logs from a container. If successful, the logs
@@ -1197,6 +1269,38 @@ func (p *DockerProvider) appCmd(container *dockerclient.Container) (string, bool
 
 func (p *DockerProvider) appUser(container *dockerclient.Container) (string, bool) {
 	return envValue(container.Config.Env, nitrousEnvUser)
+}
+
+func (p *DockerProvider) appPID(container *dockerclient.Container, cmd string) (int, error) {
+	usr, _ := p.appUser(container)
+	fullCmd := strings.Join(execForm(cmd, usr), " ")
+	nsenterCmd := fmt.Sprintf(`nsenter-exec --nspid %d -- %s`, container.State.Pid, fullCmd)
+
+	pgrepCmd := exec.Command("pgrep", "--full", "--exact", "--newest", nsenterCmd)
+	out, err := pgrepCmd.CombinedOutput()
+	if err != nil {
+		p.logger.Errorf("pgrep for nsenter process failed, err: %v, output: %s", err, out)
+		return 0, err
+	}
+
+	pid, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		p.logger.Errorf("pgrep did not return a proper pid, err: %v, output: %s", err, out)
+		return 0, err
+	}
+
+	return pid, nil
+}
+
+func (p *DockerProvider) appState(container *dockerclient.Container) string {
+	cmd, ok := p.appCmd(container)
+	if !ok {
+		return provider.ContainerAppNone
+	}
+	if _, err := p.appPID(container, cmd); err != nil {
+		return provider.ContainerAppStopped
+	}
+	return provider.ContainerAppRunning
 }
 
 func envValue(env []string, envVar string) (string, bool) {

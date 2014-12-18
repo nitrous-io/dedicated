@@ -92,14 +92,21 @@
       button.ui.btn click='restart' Restart
       button.ui.btn click='stop' Stop
     .right
-      button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
+      / button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
       button.ui.btn click='openLogs' Logs
       button.ui.btn click='openAttach' Attach
-      if previewURL
-        a.ui.btn href=previewURL target='_blank' Preview
-      button.ui.btn.primary click='openTerminal' Terminal
+      if isAppRunning
+        button.ui.btn click='restartApp' Restart App
+        button.ui.btn click='stopApp' Stop App
+        if previewURL
+          a.ui.btn href=previewURL target='_blank' Preview
+      if isAppStopped
+        button.ui.btn click='startApp' Start App
       if App.user.ideEnabled
+        button.ui.btn click='openTerminal' Terminal
         a.ui.btn.primary href=ideURL target='_blank' IDE
+      else
+        button.ui.btn.primary click='openTerminal' Terminal
   else
     if isStopped
       .left

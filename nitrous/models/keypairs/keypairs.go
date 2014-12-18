@@ -7,11 +7,10 @@ import (
 	"encoding/pem"
 	"time"
 
-	"code.google.com/p/go.crypto/ssh"
-
 	"github.com/jmoiron/sqlx"
-	"github.com/nitrous-io/nitrous-common/cipher"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/nitrous-common/cipher"
+	"golang.org/x/crypto/ssh"
 )
 
 var (

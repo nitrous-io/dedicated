@@ -728,6 +728,51 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
+	Describe("HasFailedPayments()", func() {
+		var u *user.User
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		It("should be false when no invoices exist", func() {
+			state, err := u.HasFailedPayments(db)
+			Expect(err).To(BeNil())
+			Expect(state).To(BeFalse())
+		})
+
+		It("should be false if no invoices have failed", func() {
+			_, err := db.Exec("INSERT INTO invoices (user_id, failed, period_start, period_end) values ($1, FALSE, now() - interval '2 hours', now());", u.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO invoices (user_id, failed, period_start, period_end) values ($1, FALSE, now() - interval '4 hours', now() - interval '3 hours');", u.ID)
+			Expect(err).To(BeNil())
+
+			state, err := u.HasFailedPayments(db)
+			Expect(err).To(BeNil())
+			Expect(state).To(BeFalse())
+		})
+
+		It("should be true if any invoices have failed", func() {
+			_, err := db.Exec("INSERT INTO invoices (user_id, failed, period_start, period_end) values ($1, TRUE, now() - interval '2 hours', now());", u.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO invoices (user_id, failed, period_start, period_end) values ($1, FALSE, now() - interval '4 hours', now() - interval '3 hours');", u.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO invoices (user_id, failed, period_start, period_end) values ($1, FALSE, now() - interval '8 hours', now() - interval '6 hours');", u.ID)
+			Expect(err).To(BeNil())
+
+			state, err := u.HasFailedPayments(db)
+			Expect(err).To(BeNil())
+			Expect(state).To(BeTrue())
+		})
+	})
+
 	Describe("ConfirmationLapsed()", func() {
 		var u *user.User
 
@@ -1071,7 +1116,7 @@ var _ = Describe("models/user", func() {
 		It("sends a request to Stripe to create a customer", func() {
 			u.ActivateBillingProfile(db, "token")
 
-			Expect(fakeStripe.Received).To(Equal(map[string]string{
+			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
 				"method": "POST",
 				"path":   "/customers",
 				"card":   "token",
@@ -1082,7 +1127,7 @@ var _ = Describe("models/user", func() {
 
 		Context("when Stripe returns the created customer", func() {
 			It("updates and persists the record", func() {
-				fakeStripe.Response = StripeCustomerResponse
+				fakeStripe.Responses = []string{StripeCustomerResponse}
 
 				b, err := u.ActivateBillingProfile(db, "token")
 				Expect(err).To(BeNil())

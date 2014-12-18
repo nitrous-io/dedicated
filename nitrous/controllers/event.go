@@ -12,6 +12,7 @@ const (
 	EventContainerReconfigureFailed EventName = "container.reconfigure_failed"
 	EventContainerAppStarted        EventName = "container.app_started"
 	EventContainerAppStopped        EventName = "container.app_stopped"
+	EventContainerAppRestarted      EventName = "container.app_restarted"
 	EventHostCreating               EventName = "host.creating"
 	EventHostCreated                EventName = "host.created"
 	EventHostCreateFailed           EventName = "host.create_failed"

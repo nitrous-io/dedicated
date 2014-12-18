@@ -1,0 +1,38 @@
+@import 'variables'
+
+#ide-console-view
+  display: flex
+  flex-shrink: 0
+  flex-direction: column
+  position: relative
+  height: 180px
+  border-top: 1px solid $n2oGray900
+
+  .console-sessions
+    display: flex
+    flex-grow: 1
+
+    .ide-console-session-view
+      display: none
+      flex-grow: 1
+      border: 0
+      margin: 0
+      background: black
+
+      &.active
+        display: flex
+
+      .terminal-screen
+        display: flex
+        flex-grow: 1
+
+        iframe
+          height: auto
+          flex-grow: 1
+
+  &.fullscreen
+    height: 100% !important
+    border-top: none
+
+    .ide-side-pane-border
+      display: none

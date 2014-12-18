@@ -149,7 +149,7 @@ func PullImage(name string) {
 		return
 	}
 	start := time.Now()
-	fmt.Printf("Pulling %s ...", name)
+	fmt.Printf("Pulling %s... ", name)
 	err := exec.Command("docker", "pull", name).Run()
 	fmt.Printf("Pulled after %.1fs\n", time.Since(start).Seconds())
 	Expect(err).To(BeNil(), "failed to pull %s image", name)

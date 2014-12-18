@@ -1,0 +1,122 @@
+@import 'variables'
+@import 'mixins'
+
+#ide-editor-view
+  display: flex
+  flex-direction: column
+  flex-grow: 1
+  background: $n2oGray900
+
+  &.fullscreen
+    position: absolute
+    top: 0
+    left: 0
+    width: 100%
+    height: 100%
+    z-index: 1
+
+  .ide-document-views
+    display: flex
+    flex-grow: 1
+
+  .ide-document-view
+    flex-grow: 1
+    display: none
+
+    &.active
+      display: flex
+      flex-direction: column
+
+    .ide-toolbar
+      .ui.btn.dropdown
+        position: relative
+
+        &.open
+          background: rgba($n2oGray400, .4) !important
+
+      ul.dropdown-menu
+        margin-top: 9px
+        text-transform: none
+
+        &.modes
+          height: 376px
+          overflow-y: auto
+
+  .code-editor
+    display: flex
+    flex-grow: 1
+    flex-direction: column
+
+  .CodeMirror
+    display: flex
+    flex-grow: 1
+    flex-direction: column
+
+  .CodeMirror-scroll
+    flex-grow: 1
+
+  .CodeMirror-dialog
+    display: flex
+    flex-shrink: 0
+    z-index: 4
+    border-top: 1px solid $n2oGray900
+    background: $n2oGray700
+    color: $n2oGray200
+    line-height: 32px
+    font-family: $mainFont
+    padding: 0 16px
+    text-shadow: none
+    font-size: 14px
+
+    input[type=text]
+      flex-grow: 1
+      margin: 2px 8px 0 8px
+      +appearance(none)
+      border: 1px solid transparent
+      background: $n2oGray850
+      border-radius: 2px
+      outline: none
+      line-height: 28px
+      height: 28px
+      transition: color .2s, border-color .2s, background-color .2s
+      padding: 0 8px
+
+      &:focus
+        outline: none
+        border: 1px solid $lightBlue800
+
+    button
+      padding: 0 10px
+      text-transform: uppercase
+      font-weight: 500
+      background: transparent
+      border: 0
+      border-radius: 0
+      transition: background-color .2s, color .3s, opacity .3s
+      color: $n2oGray200
+      line-height: 1
+      margin-left: 1px
+
+      &:first-of-type
+        margin-left: 16px
+
+      &:focus
+        background: rgba($n2oGray400, .2)
+        outline: none
+
+      &:hover
+        background: rgba($n2oGray400, .2)
+
+      &:active
+        background: rgba($n2oGray400, .4)
+
+  .ide-image-view
+    flex-grow: 1
+    display: none
+    background: $n2oGray1000
+    justify-content: center
+    align-items: center
+    overflow: auto
+
+    &.active
+      display: flex

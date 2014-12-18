@@ -213,55 +213,32 @@ func templates(d db.QueryReceiver) error {
 		return err
 	}
 
-	railsConfig := &template.TemplateConfig{
-		Containers: []template.Container{
-			{
-				Name:       "postgres",
-				Slug:       "postgres",
-				Image:      "postgres:9.3",
-				Privileged: false,
-				PublishAll: false,
-				Env:        nil,
-				Ports:      []string{"private:5432:5432"},
-				Volumes:    []string{"database:/var/lib/postgresql/data"},
-			},
-			{
-				Name:       "app",
-				Slug:       "app",
-				Image:      "nitrousio/rails-pg-jumpstart:latest",
-				Privileged: false,
-				PublishAll: true,
-				Env:        nil,
-				Ports:      []string{"public:3000:3000", "public:2222:22"},
-				Volumes:    []string{"workspace:/volumes/workspace"},
-			},
-		},
-		Volumes: []template.Volume{
-			{Name: "workspace", Slug: "workspace"},
-			{Name: "database", Slug: "database"},
-		},
-	}
-	railsConfigJSON, err := json.Marshal(railsConfig)
+	railsCn := defaultContainer()
+	railsCn.Image = "nitrousio/starter-rails:latest"
+	railsConfigJSON, err := templateCnCfgJSON(railsCn)
 	if err != nil {
 		return err
 	}
 
-	vanillaConfig := &template.TemplateConfig{
-		Containers: []template.Container{
-			{
-				Name:       "app",
-				Slug:       "app",
-				Image:      "nitrousio/ubuntu:trusty",
-				Privileged: false,
-				PublishAll: true,
-				Env:        nil,
-				Ports:      []string{"public:2222:22"},
-				Volumes:    []string{},
-			},
-		},
-		Volumes: []template.Volume{},
+	meanCn := defaultContainer()
+	meanCn.Image = "nitrousio/starter-mean:latest"
+	meanConfigJSON, err := templateCnCfgJSON(meanCn)
+	if err != nil {
+		return err
 	}
-	vanillaConfigJSON, err := json.Marshal(vanillaConfig)
+
+	meteorCn := defaultContainer()
+	meteorCn.Image = "nitrousio/starter-meteor:latest"
+	meteorConfigJSON, err := templateCnCfgJSON(meteorCn)
+	if err != nil {
+		return err
+	}
+
+	vanillaCn := defaultContainer()
+	vanillaCn.Image = "nitrousio/ubuntu:trusty"
+	vanillaCn.PublishAll = true
+	vanillaCn.Ports = []string{"public:2222:22"}
+	vanillaConfigJSON, err := templateCnCfgJSON(vanillaCn)
 	if err != nil {
 		return err
 	}
@@ -270,14 +247,26 @@ func templates(d db.QueryReceiver) error {
 		{
 			Slug:        "rails",
 			Name:        sql.NullString{"Ruby on Rails", true},
-			Description: sql.NullString{"A baseline Ruby on Rails application that uses PostgreSQL as the database backend.\n\nThis template contains:\n  •  Ubuntu 14.04\n  •  Ruby 2.1\n  •  Rails 4.1\n  •  PostgreSQL 9.3", true},
+			Description: sql.NullString{railsDesc, true},
 			Config:      string(railsConfigJSON),
+		},
+		{
+			Slug:        "mean",
+			Name:        sql.NullString{"MEAN", true},
+			Config:      string(meanConfigJSON),
+			Description: sql.NullString{meanDesc, true},
+		},
+		{
+			Slug:        "meteor",
+			Name:        sql.NullString{"Meteor", true},
+			Config:      string(meteorConfigJSON),
+			Description: sql.NullString{meteorDesc, true},
 		},
 		{
 			Slug:        "vanilla",
 			Name:        sql.NullString{"Vanilla", true},
-			Description: sql.NullString{"A vanilla development environment.\n\nThis template contains Ubuntu 14.04 with useful developer tools preinstalled.", true},
 			Config:      string(vanillaConfigJSON),
+			Description: sql.NullString{vanillaDesc, true},
 		},
 	}
 	for _, t := range templates {
@@ -288,6 +277,26 @@ func templates(d db.QueryReceiver) error {
 	}
 
 	return nil
+}
+
+func templateCnCfgJSON(cn template.Container) ([]byte, error) {
+	cfg := template.TemplateConfig{
+		Containers: []template.Container{cn},
+		Volumes:    nil,
+	}
+	return json.Marshal(cfg)
+}
+
+func defaultContainer() template.Container {
+	return template.Container{
+		Name:       "app",
+		Slug:       "app",
+		Privileged: false,
+		PublishAll: false,
+		Env:        nil,
+		Ports:      []string{"public:3000:3000", "public:2222:22"},
+		Volumes:    nil,
+	}
 }
 
 // shouldSeed takes a tableName and returns true if it has zero rows
@@ -308,3 +317,32 @@ func shouldSeed(d db.QueryReceiver, tableName string) (bool, error) {
 		return false, err
 	}
 }
+
+// Template descriptions
+const (
+	railsDesc = `A baseline Ruby on Rails application that uses PostgreSQL as the database backend.
+
+This template contains:
+•  Ubuntu 14.04
+•  Ruby 2.1
+•  Rails 4.1
+•  PostgreSQL 9.3`
+
+	meanDesc = `An application using the MEAN stack: MongoDB, Express, AngularJS, and Node.js.
+
+This template contains:
+•  Ubuntu 14.04
+•  Node.js 0.10.33
+•  MEAN 0.4.1
+•  MongoDB 2.6.6`
+
+	meteorDesc = `A Meteor application.
+
+This template contains:
+•  Ubuntu 14.04
+•  Meteor 1.0.1`
+
+	vanillaDesc = `A vanilla development environment.
+
+This template contains Ubuntu 14.04 with useful developer tools preinstalled.`
+)

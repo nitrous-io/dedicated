@@ -134,7 +134,7 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("updates the record in database, if the Stripe call was successful", func() {
-				fakeStripe.Response = StripeCustomerResponse
+				fakeStripe.Responses = []string{StripeCustomerResponse}
 
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(BeNil())
@@ -150,6 +150,24 @@ var _ = Describe("models/billingprofile", func() {
 				fakeStripe.Error = StripeCardDeclined
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.CardDeclinedError))
+			})
+
+			It("returns CardExpiredError error, if Stripe returns a card expired error", func() {
+				fakeStripe.Error = StripeCardExpired
+				err := bp.UpdateCard(db, "token")
+				Expect(err).To(Equal(billingprofile.CardExpiredError))
+			})
+
+			It("returns IncorrectCvcError error, if Stripe returns a card expired error", func() {
+				fakeStripe.Error = StripeIncorrectCvc
+				err := bp.UpdateCard(db, "token")
+				Expect(err).To(Equal(billingprofile.IncorrectCvcError))
+			})
+
+			It("returns IncorrectZipError error, if Stripe returns a card expired error", func() {
+				fakeStripe.Error = StripeIncorrectZip
+				err := bp.UpdateCard(db, "token")
+				Expect(err).To(Equal(billingprofile.IncorrectZipError))
 			})
 
 			It("does not update the record, when Stripe returns an error", func() {
@@ -216,10 +234,11 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("does not return an error, if the Stripe call was successful", func() {
-				fakeStripe.Response = fmt.Sprintf(`{
+				s := fmt.Sprintf(`{
 						"id": "sc0001",
 						"email": "new-email@example.com"
 					}`)
+				fakeStripe.Responses = []string{s}
 
 				err := bp.UpdateEmail(db, "new-email@example.com")
 				Expect(err).To(BeNil())

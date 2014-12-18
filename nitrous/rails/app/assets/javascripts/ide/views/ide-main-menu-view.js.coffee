@@ -4,32 +4,23 @@ menuItem = (name, attrs={}) ->
   App.MenuItem.createWithMixins(attrs)
 separator = App.MenuItem.create(separator: true)
 
-previewMenu = menu 'Preview',
-  [ menuItem 'Port 3000 (SSL)',
-      boxBinding: Em.Binding.oneWay('App.router.ideController.content')
-      target: '_blank'
-      hide: (->
-        !@get('box.region.ssl_enabled') # FIXME Use Em.Binding.not() when we upgrade Ember.
-      ).property 'box.region.ssl_enabled'
-      url: (->
-        "https://#{@get 'box.boxHost'}"
-      ).property 'box.boxHost'
-  ].concat _.map([3000, 4000, 8080, 8888], (port) ->
-    menuItem "Port #{port}",
-      boxHostBinding: Em.Binding.oneWay('App.router.ideController.content.boxHost')
-      target: '_blank'
-      url: (->
-        if boxHost = @get 'boxHost'
-          if port == 3000
-            "http://#{boxHost}"
-          else
-            "http://#{boxHost}:#{port}"
-      ).property 'boxHost').concat [
-    separator
-    menuItem 'Preview Help',
-      url: 'http://help.nitrous.io/categories/previewing/'
-      target: '_blank'
-  ]
+previewMenu = menu 'Preview', [
+  App.MenuItem.createWithMixins
+    previewPortBinding: Em.Binding.oneWay 'App.container.previewPort'
+    name: (->
+      if previewPort = @get 'previewPort'
+        "Port #{@get 'previewPort'}"
+      else
+        "Not available"
+    ).property 'previewPort'
+    disabled: Em.computed.not 'previewPort'
+    urlBinding: Em.Binding.oneWay 'App.container.previewURL'
+    target: '_blank'
+  separator
+  menuItem 'Preview Help',
+    url: 'http://help.nitrous.io/categories/previewing/'
+    target: '_blank'
+]
 
 helpMenu = menu 'Help', [
   menuItem 'Help Center',
@@ -77,17 +68,17 @@ rulerMenu = menu 'Ruler', [
 
 themesMenu = menu 'Themes', _.map [
   # NOTE: keep these menu items sorted alphabetically within dark/light categories
-  { name: 'base16-dark', label: 'Base16 Dark' }
   { name: 'solarized dark', label: 'Solarized Dark' }
-  { name: 'tomorrow-night-eighties', label: 'Tomorrow Night Eighties' }
   { name: 'vibrant-ink', label: 'Vibrant Ink' }
-  { name: 'divider', label: 'separator' }
-  { name: 'base16-light', label: 'Base16 Light' }
-  { name: 'paraiso-light', label: 'Paraiso Light' }
+  { name: 'base16-dark', label: 'Base16 Dark' }
+  { name: 'tomorrow-night-eighties', label: 'Tomorrow Night Eighties' }
+  { name: '---' }
   { name: 'solarized light', label: 'Solarized Light' }
+  { name: 'base16-light', label: 'Base16 Light' }
   { name: '3024-day', label: '3024 Day' }
+  { name: 'paraiso-light', label: 'Paraiso Light' }
 ], (theme) ->
-  if theme.label == 'separator'
+  if theme.name == '---'
     separator
   else
     menuItem theme.label,
@@ -101,37 +92,39 @@ themesMenu = menu 'Themes', _.map [
       ).property 'App.router.ideEditorController.theme'
 
 App.IdeMainMenuView = Em.View.extend
-  templateName: 'ide/templates/main-menu'
-  elementId: 'ide_main_menu_view'
-  heightBinding: 'App.router.ideLayoutController.mainMenuViewHeight'
-  hideMainMenu: false
+  templateName: 'ide/main-menu'
+  elementId: 'ide-main-menu-view'
 
-  noSecondaryMenuBinding: Em.Binding.oneWay 'App.isChromeWebView'
+  previewPortBinding: Em.Binding.oneWay 'App.container.previewPort'
 
   menu: [
-    menu 'Nitrous', [
+    menu 'N', [
       menuItem 'About Nitrous', callback: ->
-        $('#about_nitrousio').modal 'show'
+        ui.showModal($('#about-nitrous'))
     ]
     menu 'File', [
       menuItem 'New', macKey: 'shift+ctrl+n', pcKey: 'ctrl+alt+n', callback: (controller) ->
         controller.fileNew()
       menuItem 'Save',
         macKey: ['command+s', 'ctrl+s', 'shift+ctrl+s'], pcKey: ['ctrl+s', 'ctrl+alt+s']
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+        disabled: (->
+          App.get('router.ideEditorController.hasNoTab') || App.get('router.indexController.opsSocketNotReady')
+        ).property 'App.router.ideEditorController.hasNoTab', 'App.router.indexController.opsSocketNotReady'
         callback: (controller) ->
           controller.fileSave()
       separator
       menuItem 'Refresh Tree',
         macKey: ['shift+ctrl+r'], pcKey: ['ctrl+alt+r']
-        disabledBinding: Em.Binding.oneWay('App.router.ideSidebarController.sftpSocketNotReady')
+        disabledBinding: Em.Binding.oneWay('App.router.ideSidebarController.opsSocketNotReady')
         callback: (controller) ->
           controller.fileRefreshTree()
       separator
       menuItem 'Go to File...',
         macKey: ['shift+ctrl+p'], pcKey: ['shift+ctrl+p']
+        #disabledBinding: Em.Binding.oneWay('App.router.ideController.commandSocketNotReady')
+        disabled: true
         callback: (controller) ->
-          controller.fileFinder()
+          controller.fileGoToFile()
       separator
       menuItem 'Close',
         macKey: ['shift+ctrl+w', 'ctrl+w'], pcKey: 'ctrl+alt+w'
@@ -162,6 +155,8 @@ App.IdeMainMenuView = Em.View.extend
           controller.editFindPrevious()
       menuItem 'Find in Project...',
         macKey: ['shift+command+f'], pcKey: ['shift+ctrl+f']
+        #disabledBinding: Em.Binding.oneWay('App.router.ideController.commandSocketNotReady')
+        disabled: true
         callback: (controller) ->
           controller.editFindInProject()
       separator
@@ -199,7 +194,6 @@ App.IdeMainMenuView = Em.View.extend
       menuItem 'Auto-close Brackets & Quotes',
         callback: (controller) ->
           controller.toggleAutoCloseBrackets()
-          true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.autoCloseBrackets')
       separator
       menuItem 'Use Vim Key Bindings',
@@ -230,27 +224,22 @@ App.IdeMainMenuView = Em.View.extend
       menuItem 'Show Trailing Whitespace',
         callback: (controller) ->
           controller.viewToggleTrailingSpace()
-          true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.showTrailingSpace')
       menuItem 'Show Line Numbers',
         callback: (controller) ->
           controller.viewToggleLineNumbers()
-          true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.showLineNumbers')
       menuItem 'Highlight Line',
         callback: (controller) ->
           controller.viewToggleHighlightLine()
-          true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.highlightLine')
       menuItem 'Highlight Matching Brackets',
         callback: (controller) ->
           controller.viewToggleMatchBrackets()
-          true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.matchBrackets')
       menuItem 'Wrap Long Lines',
         callback: (controller) ->
           controller.viewToggleWrapLines()
-          true
         checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.wrapLines')
       menuItem 'Ruler', submenu: rulerMenu
     ]
@@ -258,23 +247,10 @@ App.IdeMainMenuView = Em.View.extend
     helpMenu
   ]
 
-  altMenu: [
-    previewMenu,
-    helpMenu
-  ]
-
-  didInsertElement: ->
-    @_super()
-    $(window).bind 'resize.ideMainMenuView', _.bind(@onResize, this)
-    this.onResize()
-
-  willDestroyElement: ->
-    @_super()
-    $(window).unbind 'resize.ideMainMenuView'
-
-  onResize: ->
-    @set 'height', @$().outerHeight()
-
   currentYear: (->
     new Date().getFullYear()
   ).property()
+
+  actions:
+    closeAboutDialog: ->
+      ui.hideModal(@$('#about-nitrous'))

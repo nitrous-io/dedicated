@@ -7,6 +7,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/appsettings"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/baseimages"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/billing"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
@@ -19,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/regions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/stripehooks"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/templates"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/tokens"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
@@ -87,6 +89,7 @@ func (s *Server) drawRoutes() {
 				"/user/resend_confirm":       r("users.ResendConfirmation", users.ResendConfirmation),
 				"/send_reset_password_token": r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
 				"/reset_password":            r("passwords.ResetPassword", passwords.ResetPassword),
+				"/stripe_hook":               r("stripehooks.ReceiveHook", stripehooks.ReceiveHook),
 			},
 		}
 
@@ -112,6 +115,8 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}":                 r("containers.Show", containers.Show),
 				"/containers/{slug}/config":          r("containers.Config", containers.Config),
 				"/containers/{slug}/keys":            r("keys.Index", keys.Index),
+				"/billing/invoices":                  r("billing.Invoices", billing.Invoices),
+				"/billing/current_usage":             r("billing.CurrentUsage", billing.CurrentUsage),
 			},
 			"POST": {
 				"/user/profile":                        r("userprofiles.Update", userprofiles.Update),
@@ -134,6 +139,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys":              r("keys.Create", keys.Create, ContainerKeyAdded),
 				"/containers/{slug}/start_app":         r("containers.StartApp", containers.StartApp),
 				"/containers/{slug}/stop_app":          r("containers.StopApp", containers.StopApp),
+				"/containers/{slug}/restart_app":       r("containers.RestartApp", containers.RestartApp),
 				"/feedback":                            r("feedback.Send", feedback.Send),
 				"/admin/switch_user":                   r("admin.SwitchUser", admin.SwitchUser),
 			},

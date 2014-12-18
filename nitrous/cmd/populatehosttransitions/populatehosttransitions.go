@@ -62,7 +62,18 @@ func main() {
 			}
 
 			logr.Infof("Creating host transition '%s' for %s", host.State, host.Slug)
-			hosttransition.Record(dbConn, &host, "", *time)
+			tx, err := dbConn.Beginx()
+			if err != nil {
+				return err
+			}
+			if err := hosttransition.Record(tx, &host, "", *time); err != nil {
+				tx.Rollback()
+				logr.Infof("Failed to populate host transition for %d '%s'", host.ID, host.Slug)
+				continue
+			}
+			if err := tx.Commit(); err != nil {
+				logr.Infof("Failed to commit host transition for %d '%s'", host.ID, host.Slug)
+			}
 		}
 	}
 }

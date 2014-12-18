@@ -8,26 +8,38 @@ import (
 )
 
 type FakeStripe struct {
-	Received map[string]string
-	Response string
-	Error    *stripe.Error
+	ReceivedRequests []map[string]string
+	Responses        []string
+	ResponseIndex    int
+	Error            *stripe.Error
 }
 
 func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interface{}) error {
-	s.Received = map[string]string{
+	m := map[string]string{
 		"method": method,
 		"path":   path,
-		"card":   body.Get("card"),
-		"email":  body.Get("email"),
-		"desc":   body.Get("description"),
 	}
+	if body != nil {
+		m["card"] = body.Get("card")
+		m["email"] = body.Get("email")
+		m["desc"] = body.Get("description")
+		if s := body.Get("amount"); s != "" {
+			m["amount"] = s
+		}
+		if s := body.Get("customer"); s != "" {
+			m["customer"] = s
+		}
+	}
+	s.ReceivedRequests = append(s.ReceivedRequests, m)
 
 	if s.Error != nil {
 		return s.Error
 	}
 
-	if s.Response != "" {
-		return json.Unmarshal([]byte(s.Response), v)
+	if len(s.Responses) > s.ResponseIndex && s.Responses[s.ResponseIndex] != "" {
+		res := json.Unmarshal([]byte(s.Responses[s.ResponseIndex]), v)
+		s.ResponseIndex += 1
+		return res
 	}
 
 	return &stripe.Error{
@@ -76,4 +88,22 @@ var StripeCardDeclined = &stripe.Error{
 	Type: stripe.ErrorType(stripe.CardErr),
 	Msg:  "card declined",
 	Code: stripe.ErrorCode(stripe.CardDeclined),
+}
+
+var StripeCardExpired = &stripe.Error{
+	Type: stripe.ErrorType(stripe.CardErr),
+	Msg:  "card expired",
+	Code: stripe.ErrorCode(stripe.ExpiredCard),
+}
+
+var StripeIncorrectCvc = &stripe.Error{
+	Type: stripe.ErrorType(stripe.CardErr),
+	Msg:  "incorrect cvc",
+	Code: stripe.ErrorCode(stripe.IncorrectCvc),
+}
+
+var StripeIncorrectZip = &stripe.Error{
+	Type: stripe.ErrorType(stripe.CardErr),
+	Msg:  "incorrect zip",
+	Code: stripe.ErrorCode(stripe.IncorrectZip),
 }

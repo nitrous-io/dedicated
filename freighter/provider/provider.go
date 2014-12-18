@@ -13,6 +13,12 @@ const (
 	ContainerStateRunning = "running"
 )
 
+const (
+	ContainerAppNone    = "none"
+	ContainerAppStopped = "stopped"
+	ContainerAppRunning = "running"
+)
+
 var containerNameRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
 var (
 	ErrTimeout                 = errors.New("Operation timed out")
@@ -104,6 +110,7 @@ type ContainerInfo struct {
 	Cmd        []string            `json:"cmd,omitempty"`
 	Entrypoint []string            `json:"entrypoint,omitempty"`
 	ExitCode   int                 `json:"exit_code"`
+	AppState   string              `json:"app_state"`
 	StartedAt  time.Time           `json:"started_at"`
 	FinishedAt time.Time           `json:"finished_at"`
 	Env        []string            `json:"-"`

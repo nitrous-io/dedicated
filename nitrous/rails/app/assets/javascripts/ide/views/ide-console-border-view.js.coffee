@@ -1,52 +1,37 @@
 App.IdeConsoleBorderView = Em.View.extend
-  elementId: 'ide_console_border_view'
-  minConsoleHeight: null
-  heightBinding: 'App.router.ideLayoutController.consoleHeight'
+  elementId: 'ide-console-border-view'
+  classNames: ['ide-side-pane-border', 'horizontal']
+  minHeight: 180
+  height: 180
 
-  mouseDown: (event)->
+  mouseDown: (event) ->
     event.preventDefault()
 
-    $consoleView = $('#ide_console_view')
+    $pane = $('#ide-console-view')
     $body = $('body')
-    $ideBody = $('#ide_body')
 
-    minConsoleHeight = 180
+    minHeight = @get 'minHeight'
+    id = @get 'elementId'
 
-    doResize = (pageY) =>
-      maxConsoleHeight = $ideBody.innerHeight() - 4 # leave some room to resize back
-      newHeight = ( $consoleView.offset().top + $consoleView.innerHeight() ) - pageY
+    $body.on "mousemove.#{id}", (event) =>
+      newHeight = Math.max(($pane.offset().top + $pane.innerHeight()) - event.pageY, minHeight)
 
-      if newHeight < minConsoleHeight
-        newHeight = minConsoleHeight
-
-      if newHeight > maxConsoleHeight
-        newHeight = maxConsoleHeight
-
-      $consoleView.css 'height', newHeight
+      $pane.css(height: "#{newHeight}px")
       @set 'height', newHeight
 
-    $body.on
-      'mousemove.ideConsoleResize': (event, frameY) ->
-        # for the bubbled up events we have to calcultate the pageY
-        doResize (event.pageY || $consoleView.offset().top + frameY)
+    $body.on "mouseup.#{id}", (event) =>
+      @turnOffResizeEvents()
 
-      'mouseup.ideConsoleResize': (event) =>
-        this.turnOffResizeEvents()
-
-    # bubble-up the events to main body from iframe
-    $('#ide_console_view iframe').contents().find('body').on
-      'mousemove.ideConsoleResize': (event) ->
-        $body.trigger 'mousemove.ideConsoleResize', [ event.pageY ]
-
-      'mouseup.ideConsoleResize': (event) ->
-        $body.trigger 'mouseup.ideConsoleResize'
+    $(window).on "mouseup.#{id}", (event) =>
+      @turnOffResizeEvents()
 
   turnOffResizeEvents: ->
-    $('body').off 'mousemove.ideConsoleResize'
-    $('body').off 'mouseup.ideConsoleResize'
-    $('#ide_console_view iframe').contents().find('body').off 'mouseup.ideConsoleResize'
-    $('#ide_console_view iframe').contents().find('body').off 'mousemove.ideConsoleResize'
+    id = @get 'elementId'
+    $body = $('body')
+    $body.off "mousemove.#{id}"
+    $body.off "mouseup.#{id}"
+    $(window).off "mouseup.#{id}"
 
   willDestroyElement: ->
     @_super()
-    this.turnOffResizeEvents()
+    @turnOffResizeEvents()

@@ -2,6 +2,7 @@ App.SaveDialog = Em.Object.extend App.Validatable,
   path: ''
   saving: false
   document: null
+  hide: false
 
   validations:
     path: (v) ->

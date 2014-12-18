@@ -1,24 +1,9 @@
 App.IdeSidebarView = Em.View.extend
-  templateName: 'ide/templates/sidebar'
-  elementId: 'ide_sidebar_view'
-
-  didClickSetHomeAsRoot: ->
-    @get('controller').setHomeAsRoot()
-
-  didClickRefresh: ->
-    @get('controller').refreshAll()
-
-  didClickUpload: ->
-    @get('controller').showUploadDialog()
-
-  didClickShowHidden: ->
-    @get('controller').toggleProperty 'hiddenFilesVisible'
-
-  didRightClickBackground: (event) ->
-    event.preventDefault()
+  templateName: 'ide/sidebar'
+  elementId: 'ide-sidebar-view'
 
   showContextMenu: (event, path) ->
-    return if @get('controller.sftpSocketNotReady') || path.get('loading')
+    return if @get('controller.opsSocketNotReady') || path.get('loading')
     contextMenuView = @get 'contextMenuView'
     contextMenuView.show event, path
 
@@ -31,3 +16,18 @@ App.IdeSidebarView = Em.View.extend
     @$().css 'paddingBottom', (consoleHeight + 4)
   ).observes 'App.router.ideLayoutController.consoleHeight'
 
+  actions:
+    didClickSetHomeAsRoot: ->
+      @get('controller').setHomeAsRoot()
+
+    didClickRefresh: ->
+      @get('controller').refreshAll()
+
+    didClickUpload: ->
+      @get('controller').showUploadDialog()
+
+    didClickShowHidden: ->
+      @get('controller').toggleProperty 'hiddenFilesVisible'
+
+    didRightClickBackground: ->
+      false

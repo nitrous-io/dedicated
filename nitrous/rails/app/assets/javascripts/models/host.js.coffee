@@ -58,9 +58,13 @@ App.Host = klass = App.Model.extend
 
   appState: (->
     hostState = @get 'state'
-    containerState = @get 'appContainer.state'
+    appContainer = @get 'appContainer'
+
     if hostState == 'running'
-      containerState
+      if appContainer
+        appContainer.get('state')
+      else
+        'unknown'
     else
       hostState
   ).property 'state', 'appContainer.state'

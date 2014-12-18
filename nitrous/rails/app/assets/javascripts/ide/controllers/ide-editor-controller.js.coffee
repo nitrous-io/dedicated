@@ -6,12 +6,12 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   fullscreen: false
   chatNotification: null
 
-  sftpSocketBinding: Em.Binding.oneWay 'App.router.ideController.sftpSocket'
-  sftpSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.sftpSocketReady'
+  opsSocketBinding: Em.Binding.oneWay 'App.router.indexController.opsSocket'
+  opsSocketReadyBinding: Em.Binding.oneWay 'App.router.indexController.opsSocketReady'
 
   softTabs: true
   tabSize: 2
-  theme: 'vibrant-ink'
+  theme: 'solarized dark'
   wrapLines: true
   highlightLine: true
   showLineNumbers: true
@@ -54,7 +54,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @set(k, editorSettings[k]) if editorSettings[k]?
 
   localStorageEditorSettings: ->
-    if boxId = App.get 'router.ideController.content.id'
+    if boxId = App.get 'router.indexController.content.id'
       App.localStorage.delete("box:#{boxId}:editorSettings") || App.localStorage.delete("box:#{boxId}:lastTabSettings")
 
   observeEditorSettings: ->
@@ -83,13 +83,13 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @set 'confirmCloseDialog', App.ConfirmCloseDialog.create document: tab
 
   saveDocument: (document) ->
-    return unless @get 'sftpSocketReady'
+    return unless @get 'opsSocketReady'
     return if document.get('isImageFile')
 
     if path = document.get 'path'
-      if sftpSocket = @get 'sftpSocket'
+      if opsSocket = @get 'opsSocket'
         path.incrementProperty 'loadCount'
-        sftpSocket.writeFile path.get('absolutePath'), document.get('content'), (err, absolutePath) ->
+        opsSocket.writeFile path.get('absolutePath'), document.get('content'), (err, absolutePath) ->
           path.decrementProperty 'loadCount'
           if err
             App.set 'flashMessage', { type: 'alert-error', text: "Error saving file '#{path.get('absolutePath')}'" }
@@ -103,23 +103,24 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @set 'saveDialog', App.SaveDialog.create document: document
 
   saveNewDocument: ->
-    return unless @get 'sftpSocketReady'
+    return unless @get 'opsSocketReady'
     saveDialog = @get 'saveDialog'
     unless saveDialog.validate()
       saveDialog.set 'saving', true
       documentContent = saveDialog.get 'document.content'
+      # FIXME probably not the best way to scope to home path
       path = saveDialog.get 'path'
-      if sftpSocket = @get 'sftpSocket'
-        sftpSocket.writeNewFile path, documentContent, _.bind(@didWriteNewFileContent, this)
+      homePath = App.get('container.homePath')
+      absolutePath = "#{homePath}/#{path}"
+      if opsSocket = @get 'opsSocket'
+        opsSocket.writeNewFile absolutePath, documentContent, _.bind(@didWriteNewFileContent, this)
 
   didWriteNewFileContent: (err, absolutePath) ->
     saveDialog = @get 'saveDialog'
     if err
-      errors = {}
-      if err.indexOf('aio:file_exists') != -1
-        errors.path = ['A file already exists in the path.']
-      else
-        errors.base = [err]
+      # FIXME current errors returned by freighter is cryptic.
+      # showing a generic message for now
+      errors = {base: ["Error occurred while trying to save the file."]}
       saveDialog.set 'errors', errors
     else
       path = App.Path.create absolutePath: absolutePath
@@ -128,7 +129,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       saveDialog.set 'document.focused', true
       sidebarController = App.get 'router.ideSidebarController'
       sidebarController.refreshPath path.get('parentAbsolutePath')
-      @set 'saveDialog', null
+      @set 'saveDialog.hide', true
       App.util.mixpanel 'IDE New Document Saved'
       App.util.mixpanelIncrement 'ide_new_document_saved_count'
     saveDialog.set 'saving', false

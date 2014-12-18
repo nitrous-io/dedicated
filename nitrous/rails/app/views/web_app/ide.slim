@@ -2,16 +2,20 @@ doctype 5
 html lang='en'
   head
     meta charset='utf-8'
-    title Nitrous IDE
+    title Nitrous
     link rel='shortcut icon' href='/favicon.ico'
+    = stylesheet_link_tag 'application', media: 'all'
     = stylesheet_link_tag 'ide', media: 'all'
 
     = render 'layouts/google_analytics'
   body
     #app
     = javascript_include_tag 'jquery'
-    = javascript_include_tag 'ide/application'
-    = javascript_include_tag 'ide/app'
+    = javascript_include_tag 'application'
+    = javascript_include_tag 'ide/main'
     javascript:
-      App.bootstrap()
+      App.bootstrap({
+        terminalJsPath: '#{javascript_path "terminal"}',
+        terminalCssPath: '#{stylesheet_path "terminal"}',
+      })
     = render 'web_app/livechat'

@@ -1,22 +1,23 @@
 App.IdeUploadDialogView = App.IdeModalDialogView.extend
-  templateName: 'ide/templates/upload-dialog'
-  elementId: 'ide_upload_dialog_view'
+  templateName: 'ide/upload-dialog'
+  elementId: 'ide-upload-dialog-view'
   contentBinding: 'controller.uploadDialog' # controler = ideSidebarController
   classNameBindings: ['content.uploading:uploading']
 
   dragAndDropCapable: (->
-    Modernizr.draganddrop
+    div = document.createElement('div')
+    div.draggable? || (div.ondragstart != undefined && div.ondrop != undefined)
   ).property()
 
   uploadURI: (->
-    if boxServerURI = App.get 'router.ideController.content.box_server_uri'
+    if boxServerURI = App.get 'router.indexController.content.box_server_uri'
       "#{boxServerURI}/upload"
-  ).property 'App.router.ideController.content.box_server_uri'
+  ).property 'App.router.indexontroller.content.box_server_uri'
 
   didInsertElement: ->
     @_super()
     $files = @$ '.files'
-    @$('.file_input').fileupload
+    @$('.file-input').fileupload
       url: @get('uploadURI')
       formData: =>
         [{ name: "auth_token", value: @get('content.authToken') }]
@@ -24,7 +25,7 @@ App.IdeUploadDialogView = App.IdeModalDialogView.extend
       maxFileSize: 20 * 1000 * 1000
       singleFileUploads: true
       sequentialUploads: true
-      dropZone: @$('.drop_zone')
+      dropZone: @$('.drop-zone')
       add: _.bind(@didAddUpload, this)
       progress: _.bind(@progressDidChange, this)
       done: _.bind(@uploadDidSucceed, this)
@@ -71,8 +72,8 @@ App.IdeUploadDialogView = App.IdeModalDialogView.extend
     @get('controller').beginUpload()
 
 App.IdeUploadDialogDropZoneView = Em.View.extend
-  classNames: ['drop_zone']
-  classNameBindings: ['draggingOver:dragging_over']
+  classNames: ['drop-zone']
+  classNameBindings: ['draggingOver:dragging-over']
   draggingOver: false
 
   dragOver: (event) ->
@@ -83,4 +84,3 @@ App.IdeUploadDialogDropZoneView = Em.View.extend
 
   drop: (event) ->
     @set 'draggingOver', false
-

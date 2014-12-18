@@ -1,8 +1,8 @@
 TAB_SIZES = [2, 3, 4, 8]
 
 App.IdeDocumentView = Em.View.extend
-  templateName: 'ide/templates/document'
-  classNames: ['ide_document_view']
+  templateName: 'ide/document'
+  classNames: ['ide-document-view']
 
   document: null
   editor: null
@@ -58,8 +58,8 @@ App.IdeDocumentView = Em.View.extend
   ).property 'document.path.loadCount'
 
   savingDisabled: (->
-    @get('saving') || App.get('offline')
-  ).property 'saving', 'App.offline'
+    @get('saving') || App.get('offline') || App.get('router.indexController.opsSocketNotReady')
+  ).property 'saving', 'App.offline', 'App.router.indexController.opsSocketNotReady'
 
   triggerFind: (->
     if @get('document.findTrigger') && (editor = @get 'editor')
@@ -133,7 +133,7 @@ App.IdeDocumentView = Em.View.extend
   ).observes 'document.splitSelectionIntoLinesTrigger'
 
   insertEditor: ->
-    $codeEditor = @$('.code_editor')
+    $codeEditor = @$('.code-editor')
     return if $codeEditor.length == 0
 
     settings = @getProperties(App.Editor.SETTINGS)
@@ -260,18 +260,19 @@ App.IdeDocumentView = Em.View.extend
       @set 'mode', App.FileTypeDetect.detect fileName
   ).observes 'document.path.name'
 
-  didClickSave: ->
-    @get('controller').saveDocument @get('document')
+  actions:
+    didClickSave: ->
+      @get('controller').saveDocument @get('document')
 
-  didClickFind: ->
-    if document = @get('document')
-      document.set 'findTrigger', true
+    didClickFind: ->
+      if document = @get('document')
+        document.set 'findTrigger', true
 
-  didSelectMode: (selectedMode) ->
-    @set 'mode', selectedMode
+    didSelectMode: (selectedMode) ->
+      @set 'mode', selectedMode
 
-  didSelectTabSize: (selectedTabSize) ->
-    @set 'tabSize', selectedTabSize
+    didSelectTabSize: (selectedTabSize) ->
+      @set 'tabSize', selectedTabSize
 
-  didClickSoftTabToggle: ->
-    @set 'softTabs', !@get('softTabs')
+    didClickSoftTabToggle: ->
+      @set 'softTabs', !@get('softTabs')

@@ -183,32 +183,54 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return errHostRestartInvalidState
 	}
 
-	db := env.DB
 	origState := h.State
-
 	h.State = host.StateRestarting
-	if err := h.Update(db); err != nil {
+
+	tx, err := env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := h.Update(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	err = hosttransition.Record(tx, h, origState, *h.UpdatedAt)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 	publishHostEvent(env, controllers.EventHostRestarting, h)
 
-	err := hosttransition.Record(db, h, origState, *h.UpdatedAt)
-	if err != nil {
-		return err
-	}
-
 	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
 	if err != nil {
 		// Rollback to previous state.
+		rollbackCalled := false
 		h.State = origState
-		if err := h.Update(db); err != nil { // Log and continue, don't mask hostbuilder error.
+
+		tx, err := env.DB.Beginx()
+		if err != nil {
+			return err
+		}
+		if err := h.Update(tx); err != nil { // Log and continue, don't mask hostbuilder error.
+			tx.Rollback()
+			rollbackCalled = true
 			env.Logger.Errorf("hosts.Restart: Unable to reset host state: %v", err)
 		}
 		publishHostEvent(env, controllers.EventHostUpdated, h)
 
-		err := hosttransition.Record(db, h, host.StateRestarting, *h.UpdatedAt)
+		rollbackCalled = false
+		err = hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt)
 		if err != nil {
+			tx.Rollback()
+			rollbackCalled = true
 			env.Logger.Errorf("hosts.Restart: Unable to record transition: %v", err)
+		}
+
+		if !rollbackCalled {
+			tx.Commit()
 		}
 
 		return err
@@ -218,15 +240,25 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
-	if err := h.Update(db); err != nil {
+	tx, err = env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := h.Update(tx); err != nil {
+		tx.Rollback()
 		return err
 	}
 
 	publishContainersStopped(env, h)
 	publishHostEvent(env, controllers.EventHostRestarted, h)
 
-	err = hosttransition.Record(db, h, host.StateRestarting, *h.UpdatedAt)
+	err = hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt)
 	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 

@@ -1,7 +1,7 @@
 App.IdeMenuItemView = Em.View.extend
-  templateName: 'ide/templates/menu-item'
+  templateName: 'ide/menu-item'
   tagName: 'li'
-  classNameBindings: ['content.separator:divider', 'content.disabled:disabled', 'content.hide:hide', 'content.submenu:dropdown-submenu']
+  classNameBindings: ['content.separator:separator', 'content.disabled:disabled', 'content.hide:hide', 'content.submenu:dropdown-submenu']
   content: null
 
   didInsertElement: ->
@@ -17,10 +17,9 @@ App.IdeMenuItemView = Em.View.extend
   click: ->
     content = @get 'content'
     unless content.get('separator') || content.get('disabled')
-      if url = content.get 'url'
-        App.util.mixpanel 'IDE Clicked Out', uri: url
-      else
+      unless content.get 'url'
         content.get('callback').call(content, @get 'controller')
+        true
 
   bindMousetrapKey: ->
     if key = @get 'content.key'

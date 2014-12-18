@@ -44,17 +44,18 @@ var (
 )
 
 var (
-	Create   = middleware.HostViaForm("host", requiresRunningHost(create))
-	Commit   = WithContainerAndHost(commit)
-	Config   = WithContainerAndHost(config)
-	Show     = WithContainerAndHost(show)
-	Start    = WithContainerAndHost(start)
-	Stop     = WithContainerAndHost(stop)
-	Restart  = WithContainerAndHost(restart)
-	Destroy  = WithContainerAndHost(destroy)
-	Token    = WithContainerAndHost(token)
-	StartApp = WithContainerAndHost(startApp)
-	StopApp  = WithContainerAndHost(stopApp)
+	Create     = middleware.HostViaForm("host", requiresRunningHost(create))
+	Commit     = WithContainerAndHost(commit)
+	Config     = WithContainerAndHost(config)
+	Show       = WithContainerAndHost(show)
+	Start      = WithContainerAndHost(start)
+	Stop       = WithContainerAndHost(stop)
+	Restart    = WithContainerAndHost(restart)
+	Destroy    = WithContainerAndHost(destroy)
+	Token      = WithContainerAndHost(token)
+	StartApp   = WithContainerAndHost(startApp)
+	StopApp    = WithContainerAndHost(stopApp)
+	RestartApp = WithContainerAndHost(restartApp)
 )
 
 var (
@@ -464,6 +465,13 @@ func startApp(cn *container.Container, h *host.Host, env *middleware.Env, w http
 		)
 	}
 
+	liveContainer, err := cl.Info(cn.CID)
+	if err != nil {
+		return err
+	}
+
+	cn = hydrateContainer(cn, liveContainer, h)
+
 	publishContainerEvent(env, controllers.EventContainerAppStarted, cn)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
@@ -486,7 +494,51 @@ func stopApp(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 		)
 	}
 
+	liveContainer, err := cl.Info(cn.CID)
+	if err != nil {
+		return err
+	}
+
+	cn = hydrateContainer(cn, liveContainer, h)
+
 	publishContainerEvent(env, controllers.EventContainerAppStopped, cn)
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"container": serializers.SerializeContainer(cn),
+	}
+	return nil
+}
+
+func restartApp(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h)
+	if err != nil {
+		return err
+	}
+
+	if err := cl.StopApp(cn.CID); err != nil {
+		return httperror.New(
+			http.StatusInternalServerError,
+			"internal_server_error",
+			fmt.Sprintf("failed to stop app: %v", err),
+		)
+	}
+
+	if err := cl.StartApp(cn.CID); err != nil {
+		return httperror.New(
+			http.StatusInternalServerError,
+			"internal_server_error",
+			fmt.Sprintf("failed to start app: %v", err),
+		)
+	}
+
+	liveContainer, err := cl.Info(cn.CID)
+	if err != nil {
+		return err
+	}
+
+	cn = hydrateContainer(cn, liveContainer, h)
+
+	publishContainerEvent(env, controllers.EventContainerAppRestarted, cn)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"container": serializers.SerializeContainer(cn),
@@ -532,6 +584,7 @@ func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, w ht
 
 func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) *container.Container {
 	c.SetState(fc.State)
+	c.AppState = fc.AppState
 	c.CID = fc.ID
 	c.Image = fc.Image
 	c.Slug = fc.Name

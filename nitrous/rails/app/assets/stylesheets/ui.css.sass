@@ -77,16 +77,20 @@
   border-bottom: none
 
 .ui.dropdown
+  user-select: none
+
   &.open
     ul.dropdown-menu
-      z-index: 10
+      z-index: 11
       transition: opacity 0
       opacity: 1
 
   ul.dropdown-menu
     position: absolute
+    z-index: 10
     left: 0
     right: auto
+    margin: 0
     padding: 8px 0
     list-style: none
     white-space: nowrap
@@ -98,10 +102,8 @@
     border-radius: 0 0 2px 2px
     $dropdownMenuItemHeight: 32px
     background: $n2oGray700
-
-    &.right
-      left: auto
-      right: 0
+    display: none
+    text-align: left
 
     > li
       &.separator
@@ -114,8 +116,13 @@
         height: $dropdownMenuItemHeight
         line-height: $dropdownMenuItemHeight
         padding: 0 24px
-        color: $n2oGray100
+        color: $n2oGray200
         transition: background-color .2s
+
+        .fa
+          width: 24px
+          margin-left: -24px
+          text-align: center
 
         &:hover
           background: $n2oGray500
@@ -127,6 +134,36 @@
 
           &:hover
             background: transparent
+
+      &.dropdown-submenu
+        position: relative
+
+        > a:after
+          content: ' '
+          position: absolute
+          top: 11px
+          right: 19px
+          border: 5px solid
+          border-top-color: transparent
+          border-right-color: transparent
+          border-bottom-color: transparent
+
+        ul.dropdown-menu
+          display: none
+
+        &:hover
+          > a
+            background: $n2oGray500
+
+          ul.dropdown-menu
+            display: block
+            top: -8px
+            left: 100%
+            border-radius: 0 2px 2px 2px
+
+    &.right
+      left: auto
+      right: 0
 
 ul.ui.tab-bar
   background: $n2oGray700
@@ -211,12 +248,12 @@ table.ui.table
   border-radius: 2px
   transition: background-color .2s, color .3s, opacity .3s
   color: $n2oGray300
-  line-height: normal
+  line-height: 1
   margin-left: 1px
   user-select: none
 
   &:first-of-type
-    margin-right: 0
+    margin-left: 0
 
   &:hover
     background: rgba($n2oGray400, .2)
@@ -237,15 +274,15 @@ table.ui.table
   &.raised
     background: rgba($n2oGray400, .2)
 
-    &:hover
-      background: rgba($n2oGray400, .4)
-
     &:focus
       background: rgba($n2oGray400, .4)
       outline: none
 
     &:active
       background: rgba($n2oGray400, .6)
+
+    &:hover
+      background: rgba($n2oGray400, .4)
 
   &:disabled, &[disabled], &.disabled
     color: $n2oGray300
@@ -259,14 +296,14 @@ table.ui.table
     background: $lightBlue800
     color: white
 
-    &:hover
-      background: $lightBlue600
-
     &:focus
       background: $lightBlue600
 
     &:active
       background: $lightBlue700
+
+    &:hover
+      background: $lightBlue600
 
     &:disabled, &[disabled], &.disabled
       color: #f9f9f9
@@ -692,6 +729,8 @@ ul.ui.snackbar
   width: 100%
   height: 100%
   z-index: 100
+  justify-content: center
+  flex-direction: column
 
   &:before
     content: ''
@@ -705,12 +744,12 @@ ul.ui.snackbar
     transition: opacity .3s
 
   .ui.card
-    position: fixed
     width: 500px
-    top: 80px
+    max-height: 100%
+    overflow: auto
     left: 0
     right: 0
-    margin: 0 auto
+    margin: 32px auto
     box-shadow: 0 15px 30px rgba(0, 0, 0, .5)
     opacity: 0
     transform: scale3d(0.7, 0.7, 1)
@@ -735,7 +774,7 @@ ul.ui.snackbar
       padding: 0 16px 16px 16px
 
   &.show
-    display: block
+    display: flex
 
     &:before
       opacity: 1
@@ -764,6 +803,13 @@ ul.ui.snackbar
       background-image: linear-gradient(90deg, $n2oGray1000 90%, $lightBlue800 90%)
       background-size: 800px 4px
       animation: ui-progress-indeterminate 1s linear infinite
+
+  &.danger
+    .bar
+      background: $red800
+
+      &.indeterminate
+        background-image: linear-gradient(90deg, $n2oGray1000 90%, $red800 90%)
 
 .ui.flex
   display: flex
@@ -797,6 +843,76 @@ ul.ui.snackbar
   &:active
     color: $n2oGray100
     background: rgba($n2oGray400, .6)
+
+.ui.topnav
+  $topnavHeight: $barHeight
+
+  height: $topnavHeight
+  background: $n2oGray700
+  font-size: $fontSizeSmall
+  user-select: none
+
+  h1.logo
+    height: $topnavHeight
+    margin: 0
+    font-size: 18px
+    text-transform: uppercase
+
+    span
+      font-family: 'EurostileLTPro-BoldEx2'
+      color: white
+      +grayscale-font-smoothing
+
+    small
+      vertical-align: top
+      font-family: $mainFont
+      font-size: 9px
+      font-weight: 400
+      position: relative
+      top: -3px
+      margin-left: 2px
+      color: $n2oGray300
+
+  ul.nav
+    display: inline-block
+    margin: 0
+    padding: 0 4px
+    list-style: none
+
+    &.right
+      float: right
+
+    > li
+      position: relative
+      display: inline-block
+      vertical-align: bottom
+
+      > a
+        display: inline-block
+        padding: 0 12px
+        color: $n2oGray200
+        line-height: $topnavHeight
+        transition: background-color .2s
+
+        &:hover
+          background: $n2oGray500
+
+      &.open
+        > a
+          background: $n2oGray500
+
+      &.primary
+        > a
+          color: $lightBlue500
+          font-weight: 500
+
+  .gravatar
+    width: 24px
+    height: 24px
+    vertical-align: middle
+    border-radius: 12px
+    margin-right: 7px
+    background: $gray200
 
 @keyframes ui-progress-indeterminate
   from

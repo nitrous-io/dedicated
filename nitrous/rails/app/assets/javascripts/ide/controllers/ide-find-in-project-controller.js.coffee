@@ -1,5 +1,5 @@
 App.IdeFindInProjectController = Em.Controller.extend
-  needs: ['ide', 'ideEditor']
+  needs: ['index', 'ideEditor']
 
   findInProjectDialog: null
 
@@ -7,10 +7,6 @@ App.IdeFindInProjectController = Em.Controller.extend
     @set 'findInProjectDialog', null
 
   showFindDialog: (location) ->
-    if !@get('controllers.ide.commandSocket.started')
-      App.util.connectionError()
-      return
-
     if !location?
       location = this.guessLocation(@get('controllers.ideEditor.activeTab.path.absolutePath'))
     @set 'findInProjectDialog', App.FindInProjectDialog.create location: location

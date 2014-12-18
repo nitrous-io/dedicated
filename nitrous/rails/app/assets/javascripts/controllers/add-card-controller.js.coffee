@@ -37,6 +37,15 @@ App.AddCardController = Em.ObjectController.extend
       return false
     true
 
+  processErrorMessage: (error)->
+    switch error.error
+      when 'incorrect_cvc'
+        @set 'invalidField', 'cvc'
+      when 'incorrect_zip'
+        @set 'invalidField', 'zipcode'
+      when 'card_declined', 'card_expired'
+        @set 'invalidField', 'credit card number'
+
   actions:
     save: ->
       @set 'invalidField', null
@@ -59,6 +68,7 @@ App.AddCardController = Em.ObjectController.extend
           @transitionToRoute '/'
         , (errorMsg) =>
           @set 'saving', false
+          @processErrorMessage(errorMsg)
           App.postError(errorMsg, 'Failed to create billing profile!')
 
     cancel: ->

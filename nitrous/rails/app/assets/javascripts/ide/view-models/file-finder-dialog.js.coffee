@@ -83,7 +83,7 @@ App.FileFinderDialog = klass = Em.Object.extend
       when 'zero'
         'No results found'
       when 'started'
-        'Finding...'
+        'Searching...'
       else
         null
   ).property 'currentStatus'

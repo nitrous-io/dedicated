@@ -1,0 +1,168 @@
+package invoice
+
+import (
+	"bytes"
+	"database/sql"
+	"fmt"
+	"net/mail"
+	"time"
+
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
+)
+
+var (
+	Mailer mailer.Mailer = mailer.NewSendGridMailer()
+)
+
+type Invoice struct {
+	ID     int64 `db:"id"`
+	UserID int64 `db:"user_id"`
+
+	// TotalCharge is measured in cents (unlike HourlyPrice it derives from)
+	TotalCharge int64 `db:"total_charge"`
+
+	PeriodStart *time.Time `db:"period_start"`
+	PeriodEnd   *time.Time `db:"period_end"`
+
+	// indicates Stripe was able to charge the user
+	SuccessfulCharge bool `db:"successful_charge"`
+
+	// indicates Stripe failed (and gave up) charging the user
+	Failed bool `db:"failed"`
+
+	FirstAttemptAt *time.Time `db:"first_attempt_at"`
+
+	LastAttemptAt *time.Time     `db:"last_attempt_at"`
+	Attempts      int            `db:"attempts"`
+	StripeID      sql.NullString `db:"stripe_id"`
+
+	CreatedAt *time.Time `db:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at"`
+}
+
+func ForPeriod(d db.QueryReceiver, userID int64, periodStart, periodEnd time.Time) (*Invoice, error) {
+	inv := &Invoice{}
+	err := d.Get(inv, `SELECT * FROM invoices WHERE user_id = $1 AND period_start = $2 AND period_end = $3`,
+		userID, periodStart, periodEnd)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return inv, err
+}
+
+func FindByStripeID(d db.QueryReceiver, stripeID string) (*Invoice, error) {
+	inv := &Invoice{}
+	err := d.Get(inv, `SELECT * FROM invoices WHERE stripe_id = $1`, stripeID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return inv, err
+}
+
+func (i *Invoice) Insert(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`INSERT INTO invoices
+    (user_id, total_charge, period_start, period_end, successful_charge,
+      first_attempt_at, last_attempt_at, attempts, stripe_id, failed)
+    VALUES (:user_id, :total_charge, :period_start, :period_end, :successful_charge,
+      :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :failed)
+    RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(i).StructScan(i)
+}
+
+func (i *Invoice) Update(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE invoices
+    SET (user_id, total_charge, period_start, period_end, successful_charge,
+      first_attempt_at, last_attempt_at, attempts, stripe_id, failed, updated_at)
+    = (:user_id, :total_charge, :period_start, :period_end, :successful_charge,
+      :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :failed, now())
+    WHERE id = :id
+    RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(i).StructScan(i)
+}
+
+func (i *Invoice) PaymentSucceeded(d db.QueryReceiver) error {
+	i.SuccessfulCharge = true
+	i.Failed = false
+	t := time.Now()
+	if i.FirstAttemptAt == nil || i.FirstAttemptAt.IsZero() {
+		i.FirstAttemptAt = &t
+	}
+	i.LastAttemptAt = &t
+	return i.Update(d)
+}
+
+func (i *Invoice) PaymentFailed(d db.QueryReceiver, attemptCount int, moreAttempts bool) error {
+	i.SuccessfulCharge = false
+	t := time.Now()
+	if i.FirstAttemptAt == nil || i.FirstAttemptAt.IsZero() {
+		i.FirstAttemptAt = &t
+	}
+	i.LastAttemptAt = &t
+	i.Attempts = attemptCount
+	i.Failed = !moreAttempts
+	err := i.Update(d)
+	if err != nil {
+		return err
+	}
+	if i.Failed {
+		return i.fireFinalPaymentFailedEmail(d)
+	}
+	return nil
+}
+
+func (i *Invoice) fireFinalPaymentFailedEmail(d db.QueryReceiver) error {
+	user, err := user.FindByID(d, i.UserID)
+	if err != nil {
+		return err
+	}
+
+	from := &mail.Address{Name: "Nitrous", Address: "support@nitrous.io"}
+	to := &mail.Address{Name: user.Name, Address: user.Email}
+
+	tmplData := struct {
+		Name          string
+		LastFour      string
+		InvoiceAmount string
+		SupportEmail  string
+	}{
+		user.Name,
+		"unspecified",
+		fmt.Sprintf("$%.2f", float64(i.TotalCharge)/100.0),
+		from.Address,
+	}
+
+	bp, err := billingprofile.Find(d, user.ID)
+	if err != nil {
+		return err
+	}
+	if bp != nil && bp.LastFour.String != "" {
+		tmplData.LastFour = bp.LastFour.String
+	}
+
+	// send email
+	htmlBuf := bytes.NewBuffer(nil)
+	if err := finalPaymentFailedHtmlTemplate.Execute(htmlBuf, tmplData); err != nil {
+		return err
+	}
+	txtBuf := bytes.NewBuffer(nil)
+	if err := finalPaymentFailedTxtTemplate.Execute(txtBuf, tmplData); err != nil {
+		return err
+	}
+
+	return Mailer.SendMail(from.String(), []string{to.String()}, []string{from.String()}, nil, from.String(), "Nitrous - payment unsuccessful", txtBuf.String(), htmlBuf.String())
+}

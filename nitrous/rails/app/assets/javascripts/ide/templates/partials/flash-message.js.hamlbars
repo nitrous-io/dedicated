@@ -1,4 +1,0 @@
-.div{ bind: { class: ':alert :slide view.message.type' }}(_action='didClickClose target="view"')
-  %a(href="#" _action='didClickClose target="view"'){ bind: { class: ':close view.message.sticky:hide' } }
-    &times;
-  %span {{ view.message.text }}

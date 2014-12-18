@@ -1,14 +1,7 @@
 App.IdeFindInProjectDialogView = App.IdeModalDialogView.extend
-  templateName: 'ide/templates/find-in-project-dialog'
-  elementId: 'ide_find_in_project_dialog_view'
+  templateName: 'ide/find-in-project-dialog'
+  elementId: 'ide-find-in-project-dialog-view'
   contentBinding: 'controller.findInProjectDialog'
-
-  init: ->
-    @_super.apply this, arguments
-    @set 'focusSelector', '#search_term'
-
-  viewDidAppear: ->
-    @_super()
 
   keyPress: (e) ->
     if e.which == 13
@@ -19,4 +12,4 @@ App.IdeFindInProjectDialogView = App.IdeModalDialogView.extend
       @get('controller').startFind @get('content.term'),
         @get('content.location'), @get('content.optionsString')
     else
-      return false
+      false

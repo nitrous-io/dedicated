@@ -1,5 +1,5 @@
-@import '../mixins'
-@import '../variables'
+@import 'mixins'
+@import 'variables'
 
 .CodeMirror
   .cm-matchhighlight
@@ -16,9 +16,9 @@
 
 /* Autocompletion hint addon */
 .CodeMirror-hints
-  +box-shadow(none)
+  box-shadow: none
   border-radius: 0
-  font-family: $monospaceFontFamily
+  font-family: $monospaceFont
   font-size: 13px
   padding: 0
 
@@ -40,7 +40,7 @@
   color: #666
   border-color: #666
   border-radius: 0
-  font-family: $monospaceFontFamily
+  font-family: $monospaceFont
   font-size: 13px
   padding: 0
 
@@ -49,12 +49,10 @@
 
 .CodeMirror-lint-message-error
   background-image: none
-  background-color: $errorBackground
-  border-color: $errorBorder
-  color: $errorText
+  background-color: $red600
+  color: white
 
 .CodeMirror-lint-message-warning
   background-image: none
-  background-color: $infoBackground
-  border-color: $infoBorder
-  color: $infoText
+  background-color: $yellow600
+  color: black

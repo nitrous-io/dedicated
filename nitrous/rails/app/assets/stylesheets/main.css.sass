@@ -18,6 +18,9 @@ html.wf-active body
 html.wf-active .monospace
   font-family: $monospaceFont
 
+code, kbd, pre, samp
+  font-family: $monospaceFont
+
 h1, h2, h3, h4
   margin: 8px 0
   color: $n2oGray200
@@ -67,11 +70,26 @@ label
 
 hr
   border: none
-  border-bottom: 1px solid $gray300
+  border-bottom: 1px solid $n2oGray300
   margin: 16px 0
 
 abbr[title]
   border-bottom: 1px dotted $n2oGray500
+
+::-webkit-scrollbar
+  width: 8px
+  height: 8px
+
+::-webkit-scrollbar-corner
+  background: $n2oGray700
+
+::-webkit-scrollbar-track
+  background: $n2oGray700
+
+::-webkit-scrollbar-thumb
+  border: 1px solid $n2oGray700
+  border-radius: 4px
+  background-color: $n2oGray400
 
 .container
   width: 1000px
@@ -159,15 +177,6 @@ ul.space-separated
   i.spinner
     margin: 0 8px 0 0
 
-.CodeMirror
-  border: 1px solid $gray300
-  margin-bottom: 1px
-  transition: border-bottom-color .2s
-
-  &.CodeMirror-focused
-    border-bottom: 2px solid $lightBlue500
-    margin-bottom: 0
-
 .page-footer
   .container
     display: flex
@@ -193,3 +202,7 @@ ul.space-separated
 
     .right
       text-align: right
+
+.CodeMirror
+  font-family: $monospaceFont !important
+  font-size: 14px
