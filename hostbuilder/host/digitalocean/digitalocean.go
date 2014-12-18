@@ -427,8 +427,9 @@ func updateSoftware(ctx *context.Context, hst host.Host) error {
 	hlog(h, "Updating freighterd package")
 	cmd :=
 		`DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" freighterd`
-	if err := h.conn.Execute(cmd); err != nil {
-		return mh.Error(err, label)
+	if out, err := h.conn.CombinedOutput(cmd); err != nil {
+		e := fmt.Errorf("update sofware failed with '%s', output: %s", err, out)
+		return mh.Error(e, label)
 	}
 	hlog(h, "Updated freighterd package on %v", h.ipAddress())
 	return nil
@@ -440,8 +441,9 @@ func restartFreighterd(ctx *context.Context, hst host.Host) error {
 	defer mh.UpdateSince(label, time.Now())
 
 	hlog(h, "Restarting freighterd")
-	if err := h.conn.Execute(`service freighterd restart`); err != nil {
-		return mh.Error(err, label)
+	if out, err := h.conn.CombinedOutput(`service freighterd restart`); err != nil {
+		e := fmt.Errorf("restart freighterd failed with '%s', output: %s", err, out)
+		return mh.Error(e, label)
 	}
 	hlog(h, "Restarted freighterd on %v", h.ipAddress())
 	return nil
