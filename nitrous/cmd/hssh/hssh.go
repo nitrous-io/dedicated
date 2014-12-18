@@ -9,13 +9,13 @@ import (
 
 	"crypto/rsa"
 
-	"code.google.com/p/go.crypto/ssh"
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"github.com/nitrous-io/nitrous-common/cipher"
+	"golang.org/x/crypto/ssh"
 )
 
 var (

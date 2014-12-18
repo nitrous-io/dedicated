@@ -8,9 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"code.google.com/p/go.crypto/ssh"
-	"code.google.com/p/go.crypto/ssh/terminal"
 	"github.com/mitchellh/cli"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var (
