@@ -1,9 +1,0 @@
-github.com/c9s/goprocinfo/linux #4aacc5a471d5027aeebf371f0acf7b38f276a77d
-github.com/fsouza/go-dockerclient #824457e46721e26272997388bbecdbc4047da31e
-github.com/gorilla/context #14f550f51af52180c2eefed15e5fd18d63c0a64a
-github.com/gorilla/mux #854d482e26505d59549690719cbc009f04042c2e
-github.com/gorilla/websocket #f940e88c0e4f2f58de44dc1788e05784b91332dd
-github.com/kr/pty #67e2db24c831afa6c64fc17b4a143390674365ef
-github.com/nitrous-io/nitrous-common #96ea72c988aef70194e43ed5e1936fb7879d96b4 !git@github.com:nitrous-io/nitrous-common
-github.com/onsi/ginkgo/ginkgo #v1.0.0
-github.com/onsi/gomega #v1.0

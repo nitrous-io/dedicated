@@ -19,23 +19,22 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
-	"code.google.com/p/go.crypto/ssh"
 	dockerclient "github.com/fsouza/go-dockerclient"
-
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
-	. "github.com/nitrous-io/dedicated/freighter/test"
 	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
+	"github.com/onsi/gomega/ghttp"
+	"golang.org/x/crypto/ssh"
+
+	. "github.com/nitrous-io/dedicated/freighter/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
-
-	"testing"
 )
 
 func Test(t *testing.T) {

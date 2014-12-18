@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/nitrous-io/nitrous-common/sshkey"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/nitrous-common/sshkey"
 )
 
 var (
@@ -93,7 +93,7 @@ func (pk *PublicKey) Validate() error {
 		return ErrKeyBlank
 	}
 	// We can do more checks with
-	// https://godoc.org/code.google.com/p/go.crypto/ssh#ParsePublicKey but
+	// https://godoc.org/golang.org/x/crypto/ssh#ParsePublicKey but
 	// seems overkill for now
 	return nil
 }
