@@ -4,4 +4,4 @@ App.HomeIndexController = Em.Controller.extend
       @transitionToRoute 'hosts.new'
 
     redirectToFirstHost: ->
-      @transitionToRoute 'host.index', App.get('hosts').findBy('state', 'running')
+      @transitionToRoute 'app.index', App.get('hosts').findBy('state', 'running')?.get('slug')
