@@ -3,7 +3,7 @@ package docker
 import "text/template"
 
 const dockerfileTmpl = `
-FROM nitrousio/ubuntu-dind:14.04
+FROM nitrousio/ubuntu-dind:14.10
 
 ENV HOME /root
 
