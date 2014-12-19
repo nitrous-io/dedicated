@@ -9,9 +9,9 @@ App.RESTAdapter = SM.RESTAdapter.extend
 
   ajax: ->
     ajax = @_super.apply(this, arguments)
-    ajax.fail (jqxhr) ->
+    ajax.fail (jqxhr) =>
       if jqxhr.status == 401
-        App.__container__.lookup('router:main').transitionTo 'logout'
+        @logout()
       else if jqxhr.responseJSON && jqxhr.responseJSON.error == 'confirmation_lapsed'
         if App.get('token') && App.get('token').length > 0
           App.set 'resendConfirmationAppToken', App.get 'token'
@@ -19,3 +19,6 @@ App.RESTAdapter = SM.RESTAdapter.extend
         if jqxhr.responseJSON.error_description
           App.snackbar.post(jqxhr.responseJSON.error_description)
     ajax
+
+  logout: ->
+    App.set 'token', null
