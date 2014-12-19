@@ -220,6 +220,13 @@ func templates(d db.QueryReceiver) error {
 		return err
 	}
 
+	laravelCn := defaultContainer()
+	laravelCn.Image = "nitrousio/starter-laravel:latest"
+	laravelConfigJSON, err := templateCnCfgJSON(laravelCn)
+	if err != nil {
+		return err
+	}
+
 	meanCn := defaultContainer()
 	meanCn.Image = "nitrousio/starter-mean:latest"
 	meanConfigJSON, err := templateCnCfgJSON(meanCn)
@@ -230,6 +237,13 @@ func templates(d db.QueryReceiver) error {
 	meteorCn := defaultContainer()
 	meteorCn.Image = "nitrousio/starter-meteor:latest"
 	meteorConfigJSON, err := templateCnCfgJSON(meteorCn)
+	if err != nil {
+		return err
+	}
+
+	djangoCn := defaultContainer()
+	djangoCn.Image = "nitrousio/starter-django:latest"
+	djangoConfigJSON, err := templateCnCfgJSON(djangoCn)
 	if err != nil {
 		return err
 	}
@@ -251,6 +265,12 @@ func templates(d db.QueryReceiver) error {
 			Config:      string(railsConfigJSON),
 		},
 		{
+			Slug:        "laravel",
+			Name:        sql.NullString{"Laravel", true},
+			Config:      string(laravelConfigJSON),
+			Description: sql.NullString{laravelDesc, true},
+		},
+		{
 			Slug:        "mean",
 			Name:        sql.NullString{"MEAN", true},
 			Config:      string(meanConfigJSON),
@@ -261,6 +281,12 @@ func templates(d db.QueryReceiver) error {
 			Name:        sql.NullString{"Meteor", true},
 			Config:      string(meteorConfigJSON),
 			Description: sql.NullString{meteorDesc, true},
+		},
+		{
+			Slug:        "django",
+			Name:        sql.NullString{"Django", true},
+			Config:      string(djangoConfigJSON),
+			Description: sql.NullString{djangoDesc, true},
 		},
 		{
 			Slug:        "vanilla",
@@ -323,24 +349,41 @@ const (
 	railsDesc = `A baseline Ruby on Rails application that uses PostgreSQL as the database backend.
 
 This template contains:
-•  Ubuntu 14.04
-•  Ruby 2.1
 •  Rails 4.1
-•  PostgreSQL 9.3`
+•  Ruby 2.1
+•  PostgreSQL 9.3
+•  Ubuntu 14.04`
+
+	laravelDesc = `An application on Laravel, the PHP framework for web artisans.
+
+This template contains:
+•  Laravel 4.2.12
+•  PHP 5.5.9
+•  PostgreSQL 9.3
+•  Ubuntu 14.04`
 
 	meanDesc = `An application using the MEAN stack: MongoDB, Express, AngularJS, and Node.js.
 
 This template contains:
-•  Ubuntu 14.04
-•  Node.js 0.10.33
 •  MEAN 0.4.1
-•  MongoDB 2.6.6`
+•  Node.js 0.10.33
+•  MongoDB 2.6.6
+•  Ubuntu 14.04`
 
 	meteorDesc = `A Meteor application.
 
 This template contains:
-•  Ubuntu 14.04
-•  Meteor 1.0.1`
+•  Meteor 1.0.1
+•  Ubuntu 14.04`
+
+	djangoDesc = `
+
+This template contains:
+•  Django 1.7.1
+•  IPython 2.3.1
+•  Gunicorn 19.1.1
+•  Python 3.4.0
+•  Ubuntu 14.04`
 
 	vanillaDesc = `A vanilla development environment.
 

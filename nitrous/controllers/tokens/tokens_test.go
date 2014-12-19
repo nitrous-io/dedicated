@@ -68,6 +68,10 @@ var _ = Describe("controllers/tokens", func() {
 			Expect(err).To(BeNil())
 			Expect(u.ID).NotTo(BeZero())
 
+			// FIXME ADMINONLY
+			_, err = db.Exec("UPDATE users SET admin = true WHERE id = $1", u.ID)
+			Expect(err).To(BeNil())
+
 			tokens.TimerFunc = func(d time.Duration) *time.Timer {
 				durationReceived = d
 				return time.NewTimer(0) // set duration to 0 for faster tests
@@ -251,6 +255,23 @@ var _ = Describe("controllers/tokens", func() {
 				t, ok := svr.Tracker.(*FakeTracker)
 				Expect(ok).To(BeTrue())
 				Expect(t.Events[u.ID]).To(BeEmpty())
+			})
+		})
+
+		// FIXME ADMINONLY
+		Context("when user is not admin", func() {
+			BeforeEach(func() {
+				_, err := db.Exec("UPDATE users SET admin = false WHERE id = $1", u.ID)
+				Expect(err).To(BeNil())
+				doRequest()
+			})
+
+			It("responds with 400 bad request", func() {
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("beta_closed"))
 			})
 		})
 
