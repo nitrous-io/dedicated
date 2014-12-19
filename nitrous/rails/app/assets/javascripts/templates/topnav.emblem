@@ -8,7 +8,7 @@
   ul.nav.right
     if App.user
       li
-        a href='#'
+        link-to 'account'
           img.gravatar src={App.user.gravatar}
           = App.user.username
       li
