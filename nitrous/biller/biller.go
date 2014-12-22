@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jinzhu/now"
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -91,6 +92,11 @@ func (b *Biller) createOrUpdateInvoice() (*InvoiceResult, error) {
 		return nil, ErrNoUsage
 	}
 
+	tx, err := b.db.Beginx()
+	if err != nil {
+		return nil, err
+	}
+
 	op := i.Update
 	isNew := false
 	if i == nil {
@@ -110,10 +116,29 @@ func (b *Biller) createOrUpdateInvoice() (*InvoiceResult, error) {
 	i.TotalCharge = totalCharge
 	i.SuccessfulCharge = false
 
-	if err := op(b.db); err != nil {
+	if err := op(tx); err != nil {
+		tx.Rollback()
 		return nil, fmt.Errorf("biller: failure inserting/updating invoice %d for user %d, err: %v", i.ID, i.UserID, err)
 	} else {
 		b.logger.Infof("biller: created/updated invoice %d for user %d", i.ID, i.UserID)
+	}
+
+	deductionCredits, err := takeAvailableCredits(tx, i.UserID, i.ID, i.TotalCharge)
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("biller: failure acquiring credits for invoice %d for user %d, err: %v", i.ID, i.UserID, err)
+	}
+
+	if deductionCredits < 0 {
+		i.TotalCharge += deductionCredits
+		i.CreditAmount += (-1 * deductionCredits)
+		if err := i.Update(tx); err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("biller: failure deducting %d credits from invoice %d for user %d, err: %v", deductionCredits, i.ID, i.UserID, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("biller: failure committing invoice %d for user %d, err: %v", i.ID, i.UserID, err)
 	}
 
 	items, err = b.applyInvoiceItems(i, isNew, items)
@@ -241,7 +266,10 @@ func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, i *in
 				break
 			}
 		}
-		if matchingHost == nil {
+
+		// if this invoice item references a missing host and it is not a credit, raise an error
+		if matchingHost == nil && invI.Credit == 0 {
+			tx.Rollback()
 			return fmt.Errorf("Could not locate host %d for invoice %d", invI.HostID, invI.ID)
 		}
 
@@ -322,6 +350,27 @@ func (b *Biller) applyInvoiceItems(i *invoice.Invoice, isNew bool, items []invoi
 		}
 		items[indx] = inv
 	}
+
+	// apply any credits that may be needed
+	totalAmountCredited := int64(0)
+	for _, itm := range existing {
+		if itm.Credit != 0 {
+			totalAmountCredited += itm.Credit
+		}
+	}
+	if totalAmountCredited != i.CreditAmount {
+		// need to create invoice item to cover difference
+		itm := &invoiceitem.InvoiceItem{
+			InvoiceID: i.ID,
+			Credit:    i.CreditAmount - totalAmountCredited,
+		}
+		if err := itm.Insert(tx); err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+		items = append(items, *itm)
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return nil, err
@@ -370,6 +419,23 @@ func (b *Biller) associateDeferredInvoices(upI *stripe.Invoice, i *invoice.Invoi
 		}
 	}
 	return tx.Commit()
+}
+
+func takeAvailableCredits(tx *sqlx.Tx, userID int64, invID int64, amount int64) (int64, error) {
+	// insert into credits ONLY if the number of available of credits is greater than 0
+	// using FOR UPDATE to ensure the rows are locked from other queries modifying
+	appliedCredits := int64(0)
+	err := tx.QueryRowx(`INSERT INTO credits(user_id, invoice_id, amount)
+                  SELECT $1, $2, (-1 * LEAST((SELECT SUM(amount) t FROM (SELECT amount FROM credits WHERE user_id = $1 FOR UPDATE) AS x), $3))
+                  WHERE EXISTS (
+                    SELECT * FROM (SELECT SUM(amount) t FROM (SELECT amount FROM credits WHERE user_id = $1 FOR UPDATE) AS x) AS x WHERE t > 0
+                  )
+                  RETURNING amount;`,
+		userID, invID, amount).Scan(&appliedCredits)
+	if err != nil && err != sql.ErrNoRows {
+		return int64(0), err
+	}
+	return appliedCredits, nil
 }
 
 func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd *time.Time) {
