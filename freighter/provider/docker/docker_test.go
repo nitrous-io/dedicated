@@ -225,7 +225,7 @@ var _ = Describe("provider/docker", func() {
 				// started.
 				name := RandomName("freightertest")
 				info, err := prov.CreateStart(name, NitrousImage, secret,
-					`{"PortBindings": ["127.0.0.1:99999:99999"]}`) // Port out of range.
+					`{ "Cmd": ["invalid-cmd"] }`)
 				defer CleanUpContainer(name)
 
 				_, ok := err.(*provider.StartFailedError)
@@ -237,9 +237,6 @@ var _ = Describe("provider/docker", func() {
 				Expect(info.State).To(Equal(provider.ContainerStateStopped))
 				Expect(info.Host).To(Equal(""))
 				Expect(info.Gateway).To(Equal(""))
-				hostPorts, ok := info.Ports["22"]
-				Expect(ok).To(BeTrue())
-				Expect(hostPorts).To(HaveLen(0))
 			})
 		})
 
@@ -661,19 +658,10 @@ var _ = Describe("provider/docker", func() {
 				})
 
 				It("returns error on failure to complete", func() {
-					configJSON := `{
-						"PortBindings": ["public::123456789"]
-					}` // Container won't be able to start because of new port.
-
-					info, err := prov.Reconfig(id, configJSON)
-					if info != nil { // id will change, default cleanup won't catch
-						defer CleanUpContainer(info.ID)
-					}
-					Expect(err).NotTo(BeNil())
-					_, ok := err.(*provider.StartFailedError)
-					Expect(ok).To(BeTrue(), "expected error to be provider.StartFailedError but it was not")
-					Expect(info).NotTo(BeNil(), "created container not returned")
-					Expect(info.ID).NotTo(Equal(id))
+					terminateAfterTest = true
+					configJSON := `{invalid json}`
+					_, err := prov.Reconfig(id, configJSON)
+					Expect(err).To(HaveOccurred())
 				})
 			})
 
