@@ -11,6 +11,16 @@
 			"Rev": "6836bbd915dac0c3115ca7febb32af9ce74eb1d6"
 		},
 		{
+			"ImportPath": "code.google.com/p/go.text/encoding/japanese",
+			"Comment": "null-116",
+			"Rev": "5b2527008a4c8988ca9dc6f010ebfb9dae67150b"
+		},
+		{
+			"ImportPath": "code.google.com/p/go.text/transform",
+			"Comment": "null-116",
+			"Rev": "5b2527008a4c8988ca9dc6f010ebfb9dae67150b"
+		},
+		{
 			"ImportPath": "code.google.com/p/goauth2/oauth",
 			"Comment": "weekly-56",
 			"Rev": "afe77d958c701557ec5dc56f6936fcc194d15520"
@@ -134,6 +144,11 @@
 			"Rev": "a229e58f69971f5e1a31d6870734d2abaa4468e1"
 		},
 		{
+			"ImportPath": "github.com/monochromegane/the_platinum_searcher",
+			"Comment": "v1.7.5",
+			"Rev": "2d6d6b795e0d98b45e8a7fe967c85684ba0c5ceb"
+		},
+		{
 			"ImportPath": "github.com/nitrous-io/go-mixpanel",
 			"Rev": "5258575f8e3a6aee706c7f62e9ff05548fefaf7a"
 		},
@@ -210,6 +225,10 @@
 			"Rev": "cd6d9cc0c9aa4b8c892e2f8e84579505c4cc96f3"
 		},
 		{
+			"ImportPath": "github.com/shiena/ansicolor",
+			"Rev": "691ac7d4ac14053de3cbe16e07b79246300db97d"
+		},
+		{
 			"ImportPath": "github.com/stripe/stripe-go",
 			"Comment": "v1.0.3",
 			"Rev": "fdd4865a8a8eb649d9cb5b1370e3a12e7f75b5de"
@@ -229,6 +248,14 @@
 		{
 			"ImportPath": "golang.org/x/crypto/ssh",
 			"Rev": "1fbbd62cfec66bd39d91e97749579579d4d3037e"
+		},
+		{
+			"ImportPath": "golang.org/x/text/encoding",
+			"Rev": "ef0bf1da95d2b971524f971801f2a4c2d0b4841f"
+		},
+		{
+			"ImportPath": "golang.org/x/text/transform",
+			"Rev": "ef0bf1da95d2b971524f971801f2a4c2d0b4841f"
 		}
 	]
 }
