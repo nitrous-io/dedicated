@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/multipartsio"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 
+	_ "github.com/nitrous-io/dedicated/freighter/cops/cfinder"
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
