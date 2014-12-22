@@ -223,22 +223,37 @@ var _ = Describe("provider/docker config", func() {
 		})
 
 		Context("nitrous image", func() {
-			BeforeEach(func() {
-				var err error
-				hostCfg, err = prov.MkHostConfig(oldHostCfg, &provider.ContainerConfig{
+			It("preserves existing port bindings", func() {
+				hostCfg, err := prov.MkHostConfig(oldHostCfg, &provider.ContainerConfig{
 					Hostname: cnrName,
-					Image:    "nitrousio/php", // Nitrous image.
+					Image:    "nitrousio/php",
 				}, true)
 				Expect(err).To(BeNil())
-			})
 
-			It("preserves existing port bindings", func() {
 				Expect(hostCfg.PortBindings).To(HaveLen(1))
 				Expect(hostCfg.PortBindings[dockerclient.Port("22")]).To(Equal([]dockerclient.PortBinding{}))
 			})
 
-			It("sets PublishAllPorts", func() {
+			It("defaults PublishAllPorts to true", func() {
+				hostCfg, err := prov.MkHostConfig(oldHostCfg, &provider.ContainerConfig{
+					Hostname: cnrName,
+					Image:    "nitrousio/php",
+				}, true)
+				Expect(err).To(BeNil())
+
 				Expect(hostCfg.PublishAllPorts).To(BeTrue())
+			})
+
+			It("allows PublishAllPorts to be set to false", func() {
+				publishAll := false
+				hostCfg, err := prov.MkHostConfig(oldHostCfg, &provider.ContainerConfig{
+					Hostname:   cnrName,
+					Image:      "nitrousio/php",
+					PublishAll: &publishAll,
+				}, true)
+				Expect(err).To(BeNil())
+
+				Expect(hostCfg.PublishAllPorts).To(BeFalse())
 			})
 		})
 

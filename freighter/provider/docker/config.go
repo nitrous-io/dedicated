@@ -90,12 +90,12 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 	}
 
 	newCfg.PublishAllPorts = hostCfg.PublishAllPorts
-	if cfg.PublishAll != nil {
-		newCfg.PublishAllPorts = *cfg.PublishAll
-	}
 	if isTrustedImage {
 		// Publish all exposed ports so that port 22 is published.
 		newCfg.PublishAllPorts = true
+	}
+	if cfg.PublishAll != nil {
+		newCfg.PublishAllPorts = *cfg.PublishAll
 	}
 
 	if cfg.PortBindings != nil {
