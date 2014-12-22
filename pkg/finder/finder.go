@@ -83,7 +83,6 @@ func (f *Finder) FindFiles(term string) (chan string, error) {
 	}
 	option := defaultOption()
 
-	//out := make(chan *pt.GrepParams, chanSize)
 	out := make(chan *pt.GrepParams, chanSize)
 	results := make(chan string, chanSize)
 	go func() {
