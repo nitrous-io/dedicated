@@ -1409,21 +1409,6 @@ func containerConfigFromJSON(jsonStr string) (*provider.ContainerConfig, error) 
 	return cfg, nil
 }
 
-func convertConfig(dcConfig *dockerclient.Config) *provider.DockerConfig {
-	cnrConfig := &provider.DockerConfig{
-		ExposedPorts: map[string]struct{}{},
-		PortSpecs:    dcConfig.PortSpecs,
-		Env:          dcConfig.Env,
-		Cmd:          dcConfig.Cmd,
-		Image:        dcConfig.Image,
-		Volumes:      dcConfig.Volumes,
-	}
-	for k, v := range dcConfig.ExposedPorts {
-		cnrConfig.ExposedPorts[string(k)] = v
-	}
-	return cnrConfig
-}
-
 // gatewayFromIPOutput takes the output of `ip addr show docker0` (do not turn
 // off inet family via options) and returns the docker gateway ip
 func gatewayFromIPOutput(output []byte) (string, error) {
