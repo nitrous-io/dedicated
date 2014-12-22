@@ -124,6 +124,7 @@ var _ = Describe("models/billingprofile", func() {
 			BeforeEach(func() {
 				bp.State = "paid"
 				bp.StripeID = sql.NullString{"sc_01", true}
+				bp.StripeFingerprint = sql.NullString{"PRINT", true}
 				bp.LastFour = sql.NullString{"1212", true}
 				bp.CardType = sql.NullString{"MasterCard", true}
 				bp.ExpMonth = sql.NullInt64{10, true}
@@ -140,6 +141,7 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(err).To(BeNil())
 
 				Expect(bp.StripeID.String).To(Equal("sc_01"))
+				Expect(bp.StripeFingerprint.String).To(Equal("H0SJieNrXmTdq3qs"))
 				Expect(bp.LastFour.String).To(Equal("4242"))
 				Expect(bp.CardType.String).To(Equal("Visa"))
 				Expect(bp.ExpMonth.Int64).To(Equal(int64(10)))
@@ -182,6 +184,7 @@ var _ = Describe("models/billingprofile", func() {
 
 				// should not change existing values
 				Expect(bp.StripeID.String).To(Equal("sc_01"))
+				Expect(bp.StripeFingerprint.String).To(Equal("PRINT"))
 				Expect(bp.LastFour.String).To(Equal("1212"))
 				Expect(bp.CardType.String).To(Equal("MasterCard"))
 				Expect(bp.ExpMonth.Int64).To(Equal(int64(10)))

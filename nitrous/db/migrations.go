@@ -624,5 +624,12 @@ func init() {
 				CREATE UNIQUE INDEX index_invoices_on_stripe_id ON invoices USING btree (stripe_id);
 			`,
 		},
+		{
+			Version: "510",
+			Up: `
+				ALTER TABLE billing_profiles ADD COLUMN stripe_fingerprint character varying(255);
+				CREATE INDEX index_billing_profiles_on_stripe_fingerprint ON billing_profiles USING btree (stripe_fingerprint);
+			`,
+		},
 	}
 }
