@@ -113,6 +113,20 @@ func Update(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	return nil
 }
 
+func UpdateVersions(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	fv := r.FormValue("freighterd_version")
+	dv := r.FormValue("docker_version")
+
+	err := h.UpdateVersions(env.DB, fv, dv)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	serializeHost(env, h)
+	return nil
+}
+
 var defaultPeriod = 100 * time.Millisecond
 
 func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
