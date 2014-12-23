@@ -1871,6 +1871,48 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("GET /containers/:id/download", func() {
+		doRequest := func(containerID, token, path string) *httptest.ResponseRecorder {
+			ts := httptest.NewServer(handler)
+			defer ts.Close()
+			params := &url.Values{}
+			params.Set("token", token)
+			params.Set("path", path)
+
+			req, err := NewRequestWithSecret(hostSecret, "GET",
+				fmt.Sprintf("/containers/%s/download", containerID), params)
+			Expect(err).To(BeNil())
+
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		It("requires a valid container token", func() {
+			prov.VerifyTokenError = errors.New("invalid token")
+			token := "some token"
+			res := doRequest("test-container", token, "/home/action/workspace")
+
+			Expect(prov.ReceivedID).To(Equal("test-container"))
+			Expect(prov.ReceivedToken).To(Equal(token))
+			Expect(prov.ReceivedPermissions).To(Equal([]string{"download"}))
+			Expect(res.Code).To(Equal(http.StatusUnauthorized), "invalid token")
+		})
+
+		It("downloads the specified path in the container", func() {
+			prov.Containers = []*provider.ContainerInfo{
+				{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning},
+				{ID: "bbb", Name: "bar", Image: "centos", ImageID: "def456", Host: "1.2.3.5", Gateway: "1.2.3.0", State: provider.ContainerStateStopped},
+			}
+			res := doRequest("aaa", "valid-token", "/home/action/workspace")
+
+			contentDisposition := "attachment; filename='workspace.tar'; filename*=UTF-8''workspace.tar"
+			Expect(res.Header().Get("Content-Disposition")).To(Equal(contentDisposition))
+			Expect(res.Header().Get("Content-Type")).To(Equal("application/x-tar"))
+			Expect(prov.CopyFilePath).To(Equal("/home/action/workspace"))
+		})
+	})
+
 	Describe("Unauthorized requests", func() {
 		It("requires an authorization header", func() {
 			req, err := NewRequestWithSecret(hostSecret, "GET", "/containers", nil)
