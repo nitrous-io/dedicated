@@ -351,9 +351,26 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		}
 	}()
 
+	// Update host in hostbuilder (e.g. rename host).
+	config := &hostbuilderclient.Config{
+		"id":           preprovisionedHost.ProviderIdentifier.String,
+		"name":         opts.Slug,
+		"apt_username": opts.User.Username,
+		"apt_password": opts.Token.Token,
+		"apt_location": opts.AptLocation,
+		"apt_dist":     opts.AptDist,
+	}
+	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream)
+	if err != nil {
+		err = fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
+		return
+	}
+
 	// Update host record with new info.
 	h.Slug = opts.Slug
 	h.Name = sql.NullString{opts.Name, true}
+	h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
+	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
 	h.HourlyPrice = opts.Template.HourlyPrice
 	h.Preprovisioned = false
 	if err = h.Update(p.db); err != nil {

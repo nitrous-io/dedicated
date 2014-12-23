@@ -1,6 +1,9 @@
 package provisioner_test
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"syscall"
 	"testing"
@@ -9,6 +12,7 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
@@ -131,6 +135,119 @@ var _ = Describe("provisioner", func() {
 			Eventually(func() bool {
 				return prov.IsRunning()
 			}).Should(BeTrue())
+		})
+	})
+
+	Describe("assigning a pre-provisioned host to user", func() {
+		It("updates the host in Hostbuilder and the host record with info from Hostbuilder", func() {
+			// Replace provisioner's hostbuilder client with a fake version.
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: `
+				{"stream":"starting: creating host"}
+				{"stream":"finished: creating host"}
+				{"id":"abcd1234", "ip_address":"1.2.3.4", "provider":"dummy", "freighterd_port":65333}`,
+				Status: http.StatusOK,
+			}
+			hb.Client.Client.Transport = rt
+			provisioner.HostbuilderClient = hb
+
+			// Setup provisioner so that we have a pre-provisioned host.
+			hs, err := test.CreateHostStack(db, &test.HostStack{
+				PT: &providertemplate.ProviderTemplate{PreprovisionMax: 1},
+			})
+			Expect(err).To(BeNil())
+			cfg := &provisioner.Config{
+				Username: provisionerUser.Username,
+				Interval: 50 * time.Millisecond,
+			}
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			err = prov.Start()
+			Expect(err).To(BeNil())
+
+			// Wait for host to be pre-provisioned.
+			provisioned := make(chan struct{})
+			errCh := make(chan error)
+			go func() {
+				ticker := time.NewTicker(50 * time.Millisecond)
+				for _ = range ticker.C {
+					count, err := host.CountPreprovisioned(db, hs.R, hs.P)
+					if err != nil {
+						errCh <- err
+						return
+					}
+					if count > 0 {
+						provisioned <- struct{}{}
+						return
+					}
+				}
+			}()
+
+			select {
+			case <-provisioned:
+				break
+			case err := <-errCh:
+				Fail(fmt.Sprintf("Error waiting for host to be pre-provisioned: %v", err))
+			case <-time.After(8 * time.Second):
+				Fail("Timed out waiting for host to be pre-provisioned")
+			}
+
+			u := &user.User{
+				Username: "foo",
+				Password: "123456",
+				Email:    "foo@example.com",
+			}
+			err = test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+			t := &token.Token{
+				UserID: u.ID,
+				Token:  "valid-token",
+			}
+			err = t.Insert(db)
+			Expect(err).To(BeNil())
+
+			// Fake update response from Hostbuilder.
+			rt = &test.FakeRoundTripper{
+				Message: `
+					{"stream":"starting: updating host"}
+					{"stream":"finished: updating host"}
+					{"id":"abcd1234", "ip_address":"1.2.3.4", "provider":"dummy", "freighterd_port":65333}`,
+				Status: http.StatusOK,
+			}
+			hb.Client.Client.Transport = rt
+
+			preprovisionedHost, err := host.FindPreprovisioned(db, hs.R, hs.P)
+			Expect(err).To(BeNil())
+
+			// Actually provision the host so that it tries to assign the
+			// pre-provisioned host to the user.
+			_, err = prov.ProvisionHost(provisioner.ProvisionOptions{
+				OutputStream: ioutil.Discard,
+				Slug:         "new-slug",
+				Name:         "new-name",
+				User:         u,
+				Token:        t,
+				Region:       hs.R,
+				Plan:         hs.P,
+				Template:     hs.PT,
+			})
+			Expect(err).To(BeNil())
+
+			Expect(rt.Requests).To(HaveLen(1))
+			req := rt.Requests[0]
+			var hcfg hostbuilderclient.Config
+			json.Unmarshal([]byte(req.FormValue("config")), &hcfg)
+			Expect(hcfg["name"]).To(Equal("new-slug"))
+
+			h, err := host.Find(db, u, "new-slug")
+			Expect(err).To(BeNil())
+			Expect(h.Name.String).To(Equal("new-name"))
+			Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
+			Expect(h.IPAddress.String).To(Equal("1.2.3.4"))
+			Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
+
+			// The user's host should be the same as the pre-provisioned host.
+			Expect(h.ID).To(Equal(preprovisionedHost.ID))
 		})
 	})
 })
