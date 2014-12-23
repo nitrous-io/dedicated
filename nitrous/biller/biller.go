@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jinzhu/now"
@@ -18,6 +19,14 @@ import (
 	"github.com/stripe/stripe-go"
 	strinv "github.com/stripe/stripe-go/invoice"
 	striitem "github.com/stripe/stripe-go/invoiceitem"
+)
+
+// the minimum value (in cents) a invoice must equal to send off to Stripe
+// otherwise it will rollover to the next invoice
+const MinimumInvoiceAmount = 100
+
+var (
+	ErrNoUsage = errors.New("biller: no usage from user")
 )
 
 type Biller struct {
@@ -56,6 +65,11 @@ func New(d *db.Database, l *logger.Logger, u *user.User, periodStart, periodEnd 
 func (b *Biller) Process() error {
 	i, err := b.createOrUpdateInvoice()
 	if err != nil {
+		if err == ErrNoUsage {
+			if err := b.submitRecentlyDeferred(); err != nil {
+				return err
+			}
+		}
 		return err
 	}
 
@@ -74,7 +88,7 @@ func (b *Biller) createOrUpdateInvoice() (*InvoiceResult, error) {
 	}
 
 	if len(items) == 0 {
-		return nil, fmt.Errorf("biller: no usage from user %d", b.user.ID)
+		return nil, ErrNoUsage
 	}
 
 	op := i.Update
@@ -110,6 +124,31 @@ func (b *Biller) createOrUpdateInvoice() (*InvoiceResult, error) {
 	return &InvoiceResult{Invoice: i, Items: items}, nil
 }
 
+func (b *Biller) submitRecentlyDeferred() error {
+	b.logger.Warnf("biller: looking for deferred invoices to submit for user %d", b.user.ID)
+
+	inv := &invoice.Invoice{}
+	err := b.db.Get(inv, `SELECT * FROM invoices WHERE user_id = $1 AND deferred = TRUE ORDER BY id DESC LIMIT 1`,
+		b.user.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		return err
+	}
+
+	items, err := invoiceitem.FindAllForInvoice(b.db, inv.ID)
+	if err != nil {
+		return err
+	}
+
+	res := &InvoiceResult{
+		Invoice: inv,
+		Items:   items,
+	}
+	return b.processStripe(res)
+}
+
 func (b *Biller) processStripe(i *InvoiceResult) error {
 	inv := i.Invoice
 	items := i.Items
@@ -118,36 +157,71 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 		return nil
 	}
 
-	if inv.TotalCharge == 0 {
-		b.logger.Infof("biller: not contacting stripe as charge for invoice %d == 0", inv.ID)
-		return nil
-	}
-
 	bp, err := billingprofile.Find(b.db, b.user.ID)
 	if err != nil || bp == nil || bp.StripeID.String == "" {
 		return fmt.Errorf("biller: failure obtaining billing profile for user %d, err: %v", b.user.ID, err)
 	}
-	b.logger.Infof("biller: contacting stripe for invoice %d", inv.ID)
-	if err := b.billStripeInvoiceItems(bp, inv, items); err != nil {
-		return fmt.Errorf("biller: failure billing stripe for invoice %d, err: %v", inv.ID, err)
+
+	if inv.TotalCharge == 0 {
+		b.logger.Infof("biller: charge 0, not contacting stripe to charge for items in invoice %d", inv.ID)
+	} else {
+		b.logger.Infof("biller: contacting stripe for invoice %d", inv.ID)
+		if err := b.billStripeInvoiceItems(bp, inv, items); err != nil {
+			return fmt.Errorf("biller: failure billing stripe for invoice %d, err: %v", inv.ID, err)
+		}
 	}
 
-	if err := b.billStripeInvoice(bp, inv); err != nil {
-		return fmt.Errorf("biller: failure creating invoice for %d, err: %v", inv.ID, err)
+	sendInvoice := inv.TotalCharge >= MinimumInvoiceAmount
+
+	var upI *stripe.Invoice
+	if !sendInvoice {
+		// query stripe for the upcoming invoice preview (invoice has not been committed)
+		upI, err = b.upcomingInvoicePreview(bp)
+		if err != nil {
+			return fmt.Errorf("biller: failure obtaining upcoming invoice total for user %d, err: %v", b.user.ID, err)
+		}
+		if upI == nil {
+			sendInvoice = false
+		} else {
+			sendInvoice = upI.Amount != 0
+		}
+	}
+
+	if sendInvoice {
+		upI, err = b.billStripeInvoice(bp, inv)
+		if err != nil {
+			return fmt.Errorf("biller: failure creating invoice for %d, err: %v", inv.ID, err)
+		}
+		if upI != nil {
+			// associate other invoices with this invoice
+			return b.associateDeferredInvoices(upI, inv)
+		}
+	} else {
+		if inv.TotalCharge != 0 {
+			inv.Deferred = true
+			if err := inv.Update(b.db); err != nil {
+				return fmt.Errorf("biller: failure updating invoice %d as deferred, err: %v", inv.ID, err)
+			}
+		}
 	}
 	return nil
 }
 
-func (b *Biller) billStripeInvoice(bp *billingprofile.BillingProfile, i *invoice.Invoice) error {
+func (b *Biller) upcomingInvoicePreview(bp *billingprofile.BillingProfile) (*stripe.Invoice, error) {
+	return strinv.GetNext(&stripe.InvoiceParams{Customer: bp.StripeID.String})
+}
+
+func (b *Biller) billStripeInvoice(bp *billingprofile.BillingProfile, i *invoice.Invoice) (*stripe.Invoice, error) {
 	if i.StripeID.String == "" {
 		inv, err := strinv.New(&stripe.InvoiceParams{Customer: bp.StripeID.String})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		i.StripeID = sql.NullString{inv.ID, true}
-		return i.Update(b.db)
+		return inv, i.Update(b.db)
+	} else {
+		return strinv.Get(i.StripeID.String, nil)
 	}
-	return nil
 }
 
 func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, i *invoice.Invoice, items []invoiceitem.InvoiceItem) error {
@@ -253,6 +327,49 @@ func (b *Biller) applyInvoiceItems(i *invoice.Invoice, isNew bool, items []invoi
 		return nil, err
 	}
 	return items, err
+}
+
+func (b *Biller) associateDeferredInvoices(upI *stripe.Invoice, i *invoice.Invoice) error {
+	if upI.Lines == nil {
+		return nil
+	}
+
+	if len(upI.Lines.Values) == 0 {
+		return nil
+	}
+
+	var itemIDs []string
+	for _, item := range upI.Lines.Values {
+		itemIDs = append(itemIDs, fmt.Sprintf("invoice_items.stripe_id = '%s'", item.ID))
+	}
+
+	stmt := fmt.Sprintf("SELECT DISTINCT ON (invoices.id) invoices.* FROM invoices INNER JOIN invoice_items ON (invoices.id = invoice_items.invoice_id) WHERE invoices.id != $1 AND %s;", strings.Join(itemIDs, " OR "))
+	otherInvs := []invoice.Invoice{}
+	err := b.db.Select(&otherInvs, stmt, i.ID)
+	if err != nil {
+		return err
+	}
+	if len(otherInvs) == 0 {
+		return nil
+	}
+
+	tx, err := b.db.Beginx()
+	if err != nil {
+		return err
+	}
+
+	for _, dInv := range otherInvs {
+		if dInv.CoveredBy.Valid && dInv.CoveredBy.Int64 != 0 {
+			b.logger.Warnf("biller: Invoice %d cannot be associated with %d, as it is already associated with %d", dInv.ID, i.ID, dInv.CoveredBy.Int64)
+			continue
+		}
+		dInv.CoveredBy = sql.NullInt64{i.ID, true}
+		if err := dInv.Update(tx); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd *time.Time) {

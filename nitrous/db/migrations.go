@@ -631,5 +631,15 @@ func init() {
 				CREATE INDEX index_billing_profiles_on_stripe_fingerprint ON billing_profiles USING btree (stripe_fingerprint);
 			`,
 		},
+		{
+			Version: "520",
+			Up: `
+				ALTER TABLE invoices ADD COLUMN deferred boolean DEFAULT FALSE;
+				ALTER TABLE invoices ADD COLUMN covered_by bigint REFERENCES invoices(id);
+				CREATE INDEX index_invoices_on_deferred ON invoices USING btree (deferred);
+				CREATE INDEX index_invoices_on_covered_by ON invoices USING btree (covered_by);
+				CREATE UNIQUE INDEX index_invoice_items_on_stripe_id ON invoice_items USING btree (stripe_id);
+			`,
+		},
 	}
 }

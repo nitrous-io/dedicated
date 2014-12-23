@@ -116,6 +116,7 @@ var _ = Describe("models/invoice", func() {
 				FirstAttemptAt:   &attempt,
 				LastAttemptAt:    &lAttempt,
 				Attempts:         23,
+				Deferred:         true,
 				StripeID:         sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
@@ -148,6 +149,7 @@ var _ = Describe("models/invoice", func() {
 				FirstAttemptAt:   &attempt,
 				LastAttemptAt:    &lAttempt,
 				Attempts:         23,
+				Deferred:         false,
 				StripeID:         sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
@@ -159,12 +161,14 @@ var _ = Describe("models/invoice", func() {
 			err := db.QueryRowx("SELECT * FROM invoices WHERE id = $1", i.ID).StructScan(i2)
 			Expect(err).To(BeNil())
 
+			Expect(i2.Deferred).To(BeFalse())
 			Expect(i2.SuccessfulCharge).To(BeFalse())
 			Expect(i2.TotalCharge).To(Equal(int64(900)))
 			Expect(i2.StripeID.String).To(Equal("Xcccs"))
 			i2.SuccessfulCharge = true
 			i2.TotalCharge = 93
 			i2.StripeID.String = "Ok"
+			i2.Deferred = true
 
 			err = i2.Update(db)
 			Expect(err).To(BeNil())
@@ -228,6 +232,26 @@ var _ = Describe("models/invoice", func() {
 			Expect(i.FirstAttemptAt).ToNot(BeNil())
 			Expect(i.LastAttemptAt).ToNot(BeNil())
 			Expect(i.FirstAttemptAt.Unix()).To(Equal(i.LastAttemptAt.Unix()))
+		})
+
+		It("should update others covered by this invoice", func() {
+			other := &invoice.Invoice{
+				UserID:           u.ID,
+				TotalCharge:      900,
+				SuccessfulCharge: false,
+				Attempts:         23,
+				CoveredBy:        sql.NullInt64{i.ID, true},
+			}
+			err := other.Insert(db)
+			Expect(err).To(BeNil())
+
+			err = i.PaymentSucceeded(db)
+			Expect(err).To(BeNil())
+
+			other2 := &invoice.Invoice{}
+			err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", other.ID).StructScan(other2)
+			Expect(err).To(BeNil())
+			Expect(other2.SuccessfulCharge).To(BeTrue())
 		})
 	})
 
