@@ -85,6 +85,17 @@ var _ = Describe("provisioner", func() {
 				return count
 			}, 5*time.Second).Should(Equal(1))
 		})
+
+		It("returns error on failure to find provisioner user", func() {
+			cfg := &provisioner.Config{
+				Username: "no such user",
+				Interval: 50 * time.Millisecond,
+			}
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+
+			err := prov.Start()
+			Expect(err).To(MatchError("User 'no such user' could not be found"))
+		})
 	})
 
 	Describe("Stop()", func() {
