@@ -35,6 +35,16 @@ func (c *Conn) Execute(cmd string) error {
 	return session.Run(cmd)
 }
 
+func (c *Conn) CombinedOutput(cmd string) ([]byte, error) {
+	session, err := c.newSession()
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	return session.CombinedOutput(cmd)
+}
+
 func (c *Conn) newSession() (*ssh.Session, error) {
 	if c.Client == nil {
 		return nil, errors.New("client not available")

@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -145,6 +146,9 @@ func RandomName(name string) string {
 var pulledImages = make(map[string]struct{})
 
 func PullImage(name string) {
+	if v, _ := strconv.ParseBool(os.Getenv("TEST_SKIP_PULL_IMAGES")); v {
+		return
+	}
 	if _, ok := pulledImages[name]; ok {
 		return
 	}

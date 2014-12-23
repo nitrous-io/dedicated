@@ -23,7 +23,7 @@ App.User = klass = App.Model.extend
   ideEnabledBinding: 'admin'
 
   gravatar: (->
-    "https://gravatar.com/avatar/#{md5(@get 'email')}?s=48"
+    "https://secure.gravatar.com/avatar/#{md5(@get 'email')}?default=retro&secure=true&size=48"
   ).property 'email'
 
 klass.reopenClass

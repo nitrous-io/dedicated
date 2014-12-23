@@ -17,10 +17,11 @@ func Test(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	test.PullImage("tianon/true")
+	test.PullImage("tianon/true:latest")
+	test.PullImage("busybox:latest")
 })
 
 var _ = AfterSuite(func() {
-	err := exec.Command("docker", "rmi", "tianon/true").Run()
-	Expect(err).To(BeNil(), "failed to remove tianon/true:latest image")
+	out, err := exec.Command("docker", "rmi", "tianon/true:latest", "busybox:latest").CombinedOutput()
+	Expect(err).To(BeNil(), "failed to remove docker images, output: %s", out)
 })

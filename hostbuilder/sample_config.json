@@ -13,7 +13,8 @@
       "token": ""
     },
     "docker": {
-      "freighterd_location": "/home/vagrant/workspace/dedicated/build/freighterd"
+      "freighterd_location": "/home/vagrant/workspace/dedicated/build/freighterd",
+      "docker_location": "/path/to/docker-binary"
     }
   }
 }
