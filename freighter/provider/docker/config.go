@@ -29,31 +29,39 @@ func (p *DockerProvider) configFromContainer(cnr *dockerclient.Container) *provi
 
 func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrustedImage bool) (*dockerclient.Config, error) {
 	dcConfig := &dockerclient.Config{
-		Hostname:     cfg.Hostname,
-		Image:        cfg.Image,
-		Volumes:      map[string]struct{}{},
+		Hostname: cfg.Hostname,
+		Image:    cfg.Image,
+		Volumes: map[string]struct{}{
+			"/nitrous/ssh": struct{}{},
+		},
 		ExposedPorts: map[dockerclient.Port]struct{}{},
-		Env:          []string{},
 		OpenStdin:    true,
 		Tty:          true,
 	}
 
-	dcConfig.Env = cfg.Env
-	bs, err := portBindingsToDocker(cfg, p.gateway)
-	if err != nil {
-		return nil, err
-	}
-	for port, _ := range bs {
-		dcConfig.ExposedPorts[dockerclient.Port(port)] = struct{}{}
-	}
+	dcConfig.Env = make([]string, len(cfg.Env))
+	copy(dcConfig.Env, cfg.Env)
 
 	dcConfig.Cmd = make([]string, len(cfg.Cmd))
 	copy(dcConfig.Cmd, cfg.Cmd)
 
+	// Expose ports that are not explicitly mapped to a host port.
+	bs, err := portBindingsToDocker(cfg, p.gateway)
+	if err != nil {
+		return nil, err
+	}
+	for port, bindings := range bs {
+		for _, binding := range bindings {
+			if binding.HostPort == "" {
+				dcConfig.ExposedPorts[dockerclient.Port(port)] = struct{}{}
+				break
+			}
+		}
+	}
+
 	if isTrustedImage {
 		dcConfig.ExposedPorts[dockerclient.Port("22/tcp")] = struct{}{}
 	}
-	dcConfig.Volumes["/nitrous/ssh"] = struct{}{}
 
 	return dcConfig, nil
 }
@@ -82,6 +90,10 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 	}
 
 	newCfg.PublishAllPorts = hostCfg.PublishAllPorts
+	if isTrustedImage {
+		// Publish all exposed ports so that port 22 is published.
+		newCfg.PublishAllPorts = true
+	}
 	if cfg.PublishAll != nil {
 		newCfg.PublishAllPorts = *cfg.PublishAll
 	}
@@ -93,15 +105,13 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 		}
 		newCfg.PortBindings = bs
 	}
+
 	if cfg.Mounts != nil {
 		ms, err := mountBindsToDocker(cfg.Mounts, p.VolumesDir(""))
 		if err != nil {
 			return nil, err
 		}
 		newCfg.Binds = ms
-	}
-	if isTrustedImage {
-		newCfg.PublishAllPorts = true
 	}
 
 	hasSSHBind := false

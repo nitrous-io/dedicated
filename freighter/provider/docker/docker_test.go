@@ -81,6 +81,13 @@ var _ = Describe("provider/docker", func() {
 		return doInspect(id, fmt.Sprintf(`{{(index (index .NetworkSettings.Ports "%s") 0).HostPort}}`, port))
 	}
 
+	// inspectPortBindings output looks like "[map[HostIp:127.0.0.1 HostPort:1234]]"
+	// or "<no value>" if bindings for given port do not exist
+	inspectPortBindings := func(id, port string) string {
+		return doInspect(id, fmt.Sprintf(
+			`{{index .NetworkSettings.Ports "%s"}}`, port))
+	}
+
 	inspectIP := func(id string) string {
 		return doInspect(id, "{{.NetworkSettings.IPAddress}}")
 	}
@@ -225,7 +232,7 @@ var _ = Describe("provider/docker", func() {
 				// started.
 				name := RandomName("freightertest")
 				info, err := prov.CreateStart(name, NitrousImage, secret,
-					`{"PortBindings": ["127.0.0.1:99999:99999"]}`) // Port out of range.
+					`{ "Cmd": ["invalid-cmd"] }`)
 				defer CleanUpContainer(name)
 
 				_, ok := err.(*provider.StartFailedError)
@@ -237,9 +244,6 @@ var _ = Describe("provider/docker", func() {
 				Expect(info.State).To(Equal(provider.ContainerStateStopped))
 				Expect(info.Host).To(Equal(""))
 				Expect(info.Gateway).To(Equal(""))
-				hostPorts, ok := info.Ports["22"]
-				Expect(ok).To(BeTrue())
-				Expect(hostPorts).To(HaveLen(0))
 			})
 		})
 
@@ -317,7 +321,7 @@ var _ = Describe("provider/docker", func() {
 					Expect(c2.State).To(Equal(provider.ContainerStateRunning))
 					sshPort = inspectNetworkSettingsPort(id, "22/tcp")
 					Expect(c2.Ports["22"]).To(ContainElement(sshPort))
-					expectExposedPort(id, "22/tcp")
+					expectExposedPort(c2.ID, "22/tcp")
 
 					c = inspectContainerInfo(id)
 					Expect(c2.Cmd).To(Equal(c.Config.Cmd))
@@ -338,8 +342,8 @@ var _ = Describe("provider/docker", func() {
 					Expect(config.Env).To(ContainElement(fmt.Sprintf("__HOST=%s", inspectGateway(id))))
 					Expect(config.Mounts).To(HaveLen(1))
 					Expect(strings.HasSuffix(config.Mounts[0], "/nitrous/ssh:ro")).To(BeTrue())
-					Expect(*config.Privileged).NotTo(BeTrue())
-					Expect(*config.PublishAll).To(BeTrue())
+					Expect(*config.Privileged).To(BeFalse())
+					Expect(*config.PublishAll).To(BeTrue()) // Defaults to true for Nitrous-blessed images.
 				})
 			})
 
@@ -625,9 +629,20 @@ var _ = Describe("provider/docker", func() {
 					Expect(newEnv).To(ContainSubstring("LANG=C"))
 					Expect(newEnv).To(ContainSubstring("PAGER=more"))
 					Expect(newEnv).To(ContainSubstring("NITROUS_USERNAME=doofus"))
-					Expect(doInspect(reconfig1.ID,
-						"{{range $p, $stub := .Config.ExposedPorts}}{{$p}} {{end}}")).
-						To(Equal("22/tcp 3000 9999"))
+
+					port3000Binding := inspectPortBindings(reconfig1.ID, "3000")
+					Expect(port3000Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
+					Expect(port3000Binding).To(ContainSubstring("HostPort:65000"))
+					Expect(reconfig1.Ports["3000"]).To(ConsistOf([]string{"65000"}))
+
+					port9999Binding := inspectPortBindings(reconfig1.ID, "9999")
+					Expect(port9999Binding).To(ContainSubstring("HostIp:0.0.0.0"))
+					Expect(port9999Binding).To(ContainSubstring("HostPort:9999"))
+					Expect(reconfig1.Ports["9999"]).To(ConsistOf([]string{"9999"}))
+
+					sshPort := inspectNetworkSettingsPort(reconfig1.ID, "22/tcp")
+					Expect(reconfig1.Ports["22"]).To(ContainElement(sshPort))
+					expectExposedPort(reconfig1.ID, "22/tcp")
 
 					out, err = exec.Command("docker", "exec", reconfig1.ID, "cat", "/root/.vimrc").CombinedOutput()
 					Expect(err).To(BeNil(), "docker exec failed, output: %s", out)
@@ -651,9 +666,18 @@ var _ = Describe("provider/docker", func() {
 					newEnv = doInspect(reconfig2.ID, "{{.Config.Env}}")
 					Expect(newEnv).To(ContainSubstring("PAGER=less"))
 					Expect(newEnv).NotTo(ContainSubstring("LANG=C"))
-					Expect(doInspect(reconfig2.ID,
-						"{{range $p, $stub := .Config.ExposedPorts}}{{$p}} {{end}}")).
-						To(Equal("22/tcp 4000"))
+
+					port4000Binding := inspectPortBindings(reconfig2.ID, "4000")
+					Expect(port4000Binding).To(ContainSubstring("HostIp:0.0.0.0"))
+					Expect(port4000Binding).To(ContainSubstring("HostPort:4000"))
+					Expect(reconfig2.Ports["4000"]).To(ConsistOf([]string{"4000"}))
+
+					sshPort = inspectNetworkSettingsPort(reconfig2.ID, "22/tcp")
+					Expect(reconfig2.Ports["22"]).To(ContainElement(sshPort))
+					expectExposedPort(reconfig2.ID, "22/tcp")
+
+					Expect(inspectPortBindings(reconfig2.ID, "3000")).To(Equal("<no value>"))
+					Expect(inspectPortBindings(reconfig2.ID, "9999")).To(Equal("<no value>"))
 
 					pubKeys, err := prov.ListPublicKeys(reconfig2.ID)
 					Expect(err).To(BeNil())
@@ -661,19 +685,10 @@ var _ = Describe("provider/docker", func() {
 				})
 
 				It("returns error on failure to complete", func() {
-					configJSON := `{
-						"PortBindings": ["public::123456789"]
-					}` // Container won't be able to start because of new port.
-
-					info, err := prov.Reconfig(id, configJSON)
-					if info != nil { // id will change, default cleanup won't catch
-						defer CleanUpContainer(info.ID)
-					}
-					Expect(err).NotTo(BeNil())
-					_, ok := err.(*provider.StartFailedError)
-					Expect(ok).To(BeTrue(), "expected error to be provider.StartFailedError but it was not")
-					Expect(info).NotTo(BeNil(), "created container not returned")
-					Expect(info.ID).NotTo(Equal(id))
+					terminateAfterTest = true
+					configJSON := `{invalid json}`
+					_, err := prov.Reconfig(id, configJSON)
+					Expect(err).To(HaveOccurred())
 				})
 			})
 
@@ -862,13 +877,6 @@ var _ = Describe("provider/docker", func() {
 	})
 
 	Describe(".CreateStart() with custom options", func() {
-		// getPortBindings output looks like "[map[HostIp:127.0.0.1 HostPort:1234]]"
-		// or "<no value>" if bindings for given port do not exist
-		getPortBindings := func(id, port string) string {
-			return doInspect(id, fmt.Sprintf(
-				`{{index .NetworkSettings.Ports "%s"}}`, port))
-		}
-
 		// given docker inspect output "Volumes": {
 		//   "/etc/dotfiles": "/var/lib/freighter/volumes/dotfiles",
 		//   "/volumes/backups": "/var/lib/freighter/volumes/backups"
@@ -904,19 +912,16 @@ var _ = Describe("provider/docker", func() {
 			Expect(info.ImageID).To(Equal(imageID))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			Expect(doInspect(id, "{{.Config.Env}}")).To(ContainSubstring("LANG=C"))
-			Expect(doInspect(id,
-				"{{range $p, $stub := .Config.ExposedPorts}}{{$p}} {{end}}")).
-				To(Equal("22/tcp 3000 9999"))
 
-			port3000Binding := getPortBindings(id, "3000")
+			port3000Binding := inspectPortBindings(id, "3000")
 			Expect(port3000Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
 			Expect(port3000Binding).To(ContainSubstring("HostPort:65000"))
 
-			port9999Binding := getPortBindings(id, "9999")
+			port9999Binding := inspectPortBindings(id, "9999")
 			Expect(port9999Binding).To(ContainSubstring("HostIp:0.0.0.0"))
 			Expect(port9999Binding).To(ContainSubstring("HostPort:9999"))
 
-			port22Binding := getPortBindings(id, "22/tcp")
+			port22Binding := inspectPortBindings(id, "22/tcp")
 			Expect(port22Binding).To(ContainSubstring("HostIp:0.0.0.0"))
 			Expect(port22Binding).To(MatchRegexp(`HostPort:49[0-9][0-9][0-9]`)) // Docker will use 49000-49900
 
@@ -940,7 +945,7 @@ var _ = Describe("provider/docker", func() {
 			_, err = prov.Start(id, "")
 			Expect(err).To(BeNil())
 
-			port3000Binding = getPortBindings(id, "3000")
+			port3000Binding = inspectPortBindings(id, "3000")
 			Expect(port3000Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
 			Expect(port3000Binding).To(ContainSubstring("HostPort:65000"))
 
@@ -957,10 +962,10 @@ var _ = Describe("provider/docker", func() {
 			_, err = prov.Start(id, newConfig)
 			Expect(err).To(BeNil())
 
-			port4242Binding := getPortBindings(id, "4242/tcp")
+			port4242Binding := inspectPortBindings(id, "4242/tcp")
 			Expect(port4242Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
 			Expect(port4242Binding).To(ContainSubstring("HostPort:65000"))
-			Expect(getPortBindings(id, "3000/tcp")).To(Equal("<no value>"))
+			Expect(inspectPortBindings(id, "3000/tcp")).To(Equal("<no value>"))
 
 			vols = getVolumes(id)
 			Expect(vols).To(ContainSubstring("/nitrous/ssh"))
@@ -1122,7 +1127,6 @@ var _ = Describe("provider/docker", func() {
 			Expect(fmt.Sprintf("[%s]", strings.Join(info.Env, " "))).To(Equal(inspectEnv(id)))
 			sshPort := inspectNetworkSettingsPort(id, "22/tcp")
 			Expect(info.Ports["22"]).To(ContainElement(sshPort))
-			expectExposedPort(id, "22/tcp")
 
 			c := inspectContainerInfo(id)
 			Expect(info.Cmd).To(Equal(c.Config.Cmd))
