@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -731,6 +733,29 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 	}
 }
 
+func (s *Server) downloadContainerFile(w http.ResponseWriter, r *http.Request) error {
+	id := mux.Vars(r)["id"]
+	info, err := s.provider.GetInfo(id)
+	if err != nil {
+		return err
+	}
+	if info.State != provider.ContainerStateRunning {
+		return fmt.Errorf("Cannot attach to stopped container %v", info.ID)
+	}
+
+	localPath := r.FormValue("path")
+	fileName := filepath.Base(localPath) + ".tar"
+	w.Header().Set("Content-Disposition", contentDisposition(fileName))
+	w.Header().Set("Content-Type", "application/x-tar")
+	return s.provider.CopyFile(id, localPath, w)
+}
+
+// TODO: since docker doesnt have a way to modify container filesystem yet, use
+// cops/fs here to put the file into the correct place.
+func (s *Server) uploadContainerFile(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
+
 func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 	addr := fmt.Sprintf("%s:%s", "0.0.0.0", r.Header.Get(config.ForwardPortHeader))
 	if proxy.IsWebsocket(r) {
@@ -756,4 +781,14 @@ func getFormInt(r *http.Request, k string) int {
 		return 0
 	}
 	return v
+}
+
+func contentDisposition(filename string) string {
+	res := "attachment"
+	if filename != "" {
+		uriName := url.QueryEscape(filename)
+		res = fmt.Sprintf("attachment; filename='%s'; filename*=UTF-8''%s",
+			uriName, uriName)
+	}
+	return res
 }

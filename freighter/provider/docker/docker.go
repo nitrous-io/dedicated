@@ -953,6 +953,21 @@ func (p *DockerProvider) ResizeContainerTTY(id string, height, width int) error 
 	return p.client.ResizeContainerTTY(container.ID, height, width)
 }
 
+// CopyFile copies file/directory from a docker container. The output is
+// written into the provided io.Writer as a tar stream.
+func (p *DockerProvider) CopyFile(id string, path string, out io.Writer) error {
+	container, err := p.inspectContainer(id)
+	if err != nil {
+		return err
+	}
+
+	return p.client.CopyFromContainer(dockerclient.CopyFromContainerOptions{
+		OutputStream: out,
+		Container:    container.ID,
+		Resource:     path,
+	})
+}
+
 type authconfig struct {
 	Auth  string `json:"auth"`
 	Email string `json:"email"`

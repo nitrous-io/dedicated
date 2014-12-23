@@ -228,6 +228,10 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/ops", s.handleCORSPreflight, "OPTIONS")
 	s.route("/containers/{id}/ops", s.wrapError(s.cors(s.withContainerToken(s.wsContainerOps, "ops"))), "GET")
 
+	// handle download/upload files to a container
+	s.route("/containers/{id}/download", s.wrapError(s.withContainerToken(s.downloadContainerFile, "download")), "GET")
+	s.route("/containers/{id}/upload", s.wrapError(s.withContainerToken(s.uploadContainerFile, "upload")), "POST")
+
 	s.secretRoute("/registry/auth", s.loginRegistry, "POST")
 	s.secretRoute("/registry/auth", s.logoutRegistry, "DELETE")
 
