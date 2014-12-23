@@ -81,7 +81,7 @@ type ProvisionOptions struct {
 	AptLocation string
 	AptDist     string
 
-	ProvisionSucceededFn func(*host.Host) // FIXME Better way to do this? Better names?
+	ProvisionSucceededFn func(*host.Host)
 	ProvisionFailedFn    func(*host.Host, error)
 }
 
@@ -175,7 +175,20 @@ func (p *Provisioner) Start() error {
 				}
 
 				for _, pt := range pts {
-					numHosts, err := host.CountPreprovisioned(db, &region.Region{ID: pt.RegionID}, &plan.Plan{ID: pt.PlanID})
+					r := &region.Region{ID: pt.RegionID}
+					// Skip if there are pre-provisioned orphan hosts in this region.
+					numOrphans, err := host.CountPreprovisionedOrphans(db, r)
+					if err != nil {
+						errCh <- err
+						return
+					}
+					if numOrphans > 0 {
+						p.logger.Warnf("provisioner: %d orphan(s) in region %d, skipping job",
+							numOrphans, pt.RegionID)
+						continue
+					}
+
+					numHosts, err := host.CountPreprovisioned(db, r, &plan.Plan{ID: pt.PlanID})
 					if err != nil {
 						errCh <- err
 						return
