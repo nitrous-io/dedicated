@@ -11,6 +11,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/biller"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
@@ -28,12 +29,19 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
+	availableCredits, err := credit.AvailableCredits(env.DB, env.User.ID)
+	if err != nil {
+		return err
+	}
+	availableCreditsDollars := float64(availableCredits) / 100.0
+
 	if len(hours) == 0 {
 		env.Status = http.StatusOK
 		env.Data = map[string]interface{}{
-			"items":                []interface{}{},
-			"total_charge":         0,
-			"total_charge_dollars": 0.0,
+			"items":                     []interface{}{},
+			"total_charge":              0,
+			"total_charge_dollars":      0.0,
+			"available_credits_dollars": availableCreditsDollars,
 		}
 		return nil
 	}
@@ -54,9 +62,10 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"items":                sItems,
-		"total_charge":         total,
-		"total_charge_dollars": (float64(total) / 100.0),
+		"items":                     sItems,
+		"total_charge":              total,
+		"total_charge_dollars":      (float64(total) / 100.0),
+		"available_credits_dollars": availableCreditsDollars,
 	}
 
 	return nil

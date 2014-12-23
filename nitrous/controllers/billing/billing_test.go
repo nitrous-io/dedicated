@@ -82,6 +82,19 @@ var _ = Describe("controllers/billing", func() {
 			Expect(j["items"]).To(BeEmpty())
 		})
 
+		It("should display the available credits", func() {
+			_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 850);", u.ID)
+			Expect(err).To(BeNil())
+
+			var j struct {
+				AvailableCreditsDollars float64 `json:"available_credits_dollars"`
+			}
+			res := doRequest()
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.AvailableCreditsDollars).To(Equal(8.50))
+		})
+
 		It("should transform this month's transition info into invoice items", func() {
 			startTime := time.Now().Add(-2 * time.Second)
 			hs1, err := CreateHostStack(db, &HostStack{
