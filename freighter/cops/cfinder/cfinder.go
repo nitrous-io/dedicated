@@ -101,9 +101,10 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 			}
 			close(resp)
 		}()
+		// reply the original message to signal that we are processsing it
+		resp <- msg
+		return resp
 	}
-	// reply the original message to signal that we are processsing it
-	resp <- msg
 	return resp
 }
 
