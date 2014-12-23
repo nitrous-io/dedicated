@@ -465,6 +465,8 @@ var _ = Describe("models/host", func() {
 			Expect(hosts[0].HourlyPrice).To(Equal(int64(634)))
 			Expect(hosts[0].CreatedAt).NotTo(BeNil())
 			Expect(hosts[0].UpdatedAt).NotTo(BeNil())
+			Expect(hosts[0].FreighterdVersion).To(Equal("1.0.69-deadbeef-88"))
+			Expect(hosts[0].DockerVersion).To(Equal("1.4.1-nitrous"))
 		})
 
 		It("fills up ID and other fields in original struct", func() {
