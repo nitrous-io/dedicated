@@ -23,6 +23,7 @@ var (
 type FileFindResponse struct {
 	Term  string   `json:"term"`
 	Root  string   `json:"root"`
+	Error error    `json:"error"`
 	Paths []string `json:"paths"`
 }
 
@@ -30,6 +31,7 @@ type SearchResponse struct {
 	ID      string                 `json:"id"`
 	Term    string                 `json:"term"`
 	Root    string                 `json:"root"`
+	Error   error                  `json:"error"`
 	Results []*finder.SearchResult `json:"results"`
 }
 
@@ -61,15 +63,24 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 	case "file_find":
 		term := msg.Args[0].(string)
 		root := msg.Args[1].(string)
-		ch, err := c.fileFind(term, root)
+		ch, errch, err := c.fileFind(term, root)
 		if err != nil {
 			resp <- makeErr(msg, err)
 			close(resp)
 			return resp
 		}
 		go func() {
+			for err := range errch {
+				resp <- makeMessage("file_find.error", &FileFindResponse{
+					Term:  term,
+					Root:  root,
+					Error: err,
+				})
+			}
+		}()
+		go func() {
 			for r := range ch {
-				resp <- makeFileFindMessage(&FileFindResponse{
+				resp <- makeMessage("file_find.output", &FileFindResponse{
 					Term:  term,
 					Root:  root,
 					Paths: []string{r},
@@ -84,15 +95,25 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 		id := msg.Args[0].(string)
 		term := msg.Args[1].(string)
 		root := msg.Args[2].(string)
-		ch, err := c.search(term, root)
+		ch, errch, err := c.search(term, root)
 		if err != nil {
 			resp <- makeErr(msg, err)
 			close(resp)
 			return resp
 		}
 		go func() {
+			for err := range errch {
+				resp <- makeMessage("search.error", &SearchResponse{
+					ID:    id,
+					Term:  term,
+					Root:  root,
+					Error: err,
+				})
+			}
+		}()
+		go func() {
 			for r := range ch {
-				resp <- makeSearchMessage(&SearchResponse{
+				resp <- makeMessage("search.output", &SearchResponse{
 					ID:      id,
 					Term:    term,
 					Root:    root,
@@ -111,47 +132,77 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 // fileFind returns a channel that will be populated with matched paths
 // it will not return more results when we counted at least
 // `fileFindLimit` matched files
-func (c *Finder) fileFind(term, root string) (chan string, error) {
+//
+// this returns
+// - a channel for reading search results
+// - a channel for reading potential errors happen in searching
+// - an error when we failed to perform the search at all
+func (c *Finder) fileFind(term, root string) (chan string, chan error, error) {
+	var errSent bool // we only want to send error once
+	errch := make(chan error, 1)
 	ch := make(chan string, chanSize)
+
 	f := finder.NewFinder(root)
 	results, err := f.FindFiles(term)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
 	var counter int
 	go func() {
 		for r := range results {
 			if counter < fileFindLimit {
 				ch <- r
 				counter++
+			} else {
+				if !errSent {
+					errch <- fmt.Errorf("term(%s) has more than %d results", term, fileFindLimit)
+					errSent = true
+					close(errch)
+				}
 			}
 		}
 		close(ch)
 	}()
-	return ch, nil
+	return ch, errch, nil
 }
 
 // search returns a channel that will be populated with matched contents
 // it will not return more results when we counted at least
 // `contentSearchLimit` matched lines
-func (c *Finder) search(term, root string) (chan *finder.SearchResult, error) {
+//
+// this returns
+// - a channel for reading search results
+// - a channel for reading potential errors happen in searching
+// - an error when we failed to perform the search at all
+func (c *Finder) search(term, root string) (chan *finder.SearchResult, chan error, error) {
+	var errSent bool // we only want to send error once
+	errch := make(chan error, 1)
 	ch := make(chan *finder.SearchResult, chanSize)
+
 	f := finder.NewFinder(root)
 	results, err := f.FindContent(term)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
 	var counter int
 	go func() {
 		for r := range results {
 			if counter < contentSearchLimit {
 				ch <- r
 				counter += len(r.Matches)
+			} else {
+				if !errSent {
+					errch <- fmt.Errorf("term(%s) has more than %d results", term, contentSearchLimit)
+					errSent = true
+					close(errch)
+				}
 			}
 		}
 		close(ch)
 	}()
-	return ch, nil
+	return ch, errch, nil
 }
 
 func NewFinder(id string) (cops.Handler, error) {
@@ -178,18 +229,10 @@ func makeErr(orig *cops.Message, err error) *cops.Message {
 	}
 }
 
-func makeFileFindMessage(r *FileFindResponse) *cops.Message {
+func makeMessage(event string, args ...interface{}) *cops.Message {
 	return &cops.Message{
 		Namespace: "finder",
-		Event:     "file_find.output",
-		Args:      []interface{}{r},
-	}
-}
-
-func makeSearchMessage(r *SearchResponse) *cops.Message {
-	return &cops.Message{
-		Namespace: "finder",
-		Event:     "search.output",
-		Args:      []interface{}{r},
+		Event:     event,
+		Args:      args,
 	}
 }
