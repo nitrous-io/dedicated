@@ -50,6 +50,12 @@ var _ = Describe("provisioner", func() {
 		Expect(err).To(BeNil())
 	})
 
+	AfterEach(func() {
+		if db != nil {
+			db.Close()
+		}
+	})
+
 	Describe("Start()", func() {
 		BeforeEach(func() {
 			// Replace provisioner's hostbuilder client with a fake version.
@@ -67,7 +73,7 @@ var _ = Describe("provisioner", func() {
 
 		It("pre-provisions hosts when required", func() {
 			hs, err := test.CreateHostStack(db, &test.HostStack{
-				PT: &providertemplate.ProviderTemplate{PreprovisionMax: 1},
+				PT: &providertemplate.ProviderTemplate{PreprovisionMax: 1, Provider: "dummy"},
 			})
 			Expect(err).To(BeNil())
 			count, err := host.CountPreprovisioned(db, hs.R, hs.P)
@@ -154,12 +160,12 @@ var _ = Describe("provisioner", func() {
 
 			// Setup provisioner so that we have a pre-provisioned host.
 			hs, err := test.CreateHostStack(db, &test.HostStack{
-				PT: &providertemplate.ProviderTemplate{PreprovisionMax: 1},
+				PT: &providertemplate.ProviderTemplate{PreprovisionMax: 1, Provider: "dummy"},
 			})
 			Expect(err).To(BeNil())
 			cfg := &provisioner.Config{
 				Username: provisionerUser.Username,
-				Interval: 50 * time.Millisecond,
+				Interval: 10 * time.Millisecond,
 			}
 			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
 			err = prov.Start()
@@ -169,7 +175,7 @@ var _ = Describe("provisioner", func() {
 			provisioned := make(chan struct{})
 			errCh := make(chan error)
 			go func() {
-				ticker := time.NewTicker(50 * time.Millisecond)
+				ticker := time.NewTicker(10 * time.Millisecond)
 				for _ = range ticker.C {
 					count, err := host.CountPreprovisioned(db, hs.R, hs.P)
 					if err != nil {
@@ -188,7 +194,7 @@ var _ = Describe("provisioner", func() {
 				break
 			case err := <-errCh:
 				Fail(fmt.Sprintf("Error waiting for host to be pre-provisioned: %v", err))
-			case <-time.After(8 * time.Second):
+			case <-time.After(5 * time.Second):
 				Fail("Timed out waiting for host to be pre-provisioned")
 			}
 

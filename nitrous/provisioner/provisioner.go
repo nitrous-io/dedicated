@@ -167,6 +167,7 @@ func (p *Provisioner) Start() error {
 		for {
 			select {
 			case <-ticker.C:
+				ticker.Stop()
 				pts, err := providertemplate.Preprovisioned(db)
 				if err != nil {
 					errCh <- err
@@ -199,6 +200,9 @@ func (p *Provisioner) Start() error {
 					p.logger.Infof("provisioner: job %s/%d/%d successfully pre-provisioned host ID: %d",
 						j.template.Provider, j.template.RegionID, j.template.PlanID, h.ID)
 				}
+
+				// Reset ticker.
+				ticker = time.NewTicker(p.config.Interval)
 			case <-p.stop:
 				p.logger.Debug("provisioner: job creator quitting")
 				ticker.Stop()
