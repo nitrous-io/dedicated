@@ -86,6 +86,48 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 		})
 	})
 
+	Describe("Update()", func() {
+		It("streams back update output and returns the final host info", func() {
+			response := `
+			{"stream":"starting: renaming host"}
+			{"stream":"finished: renaming host"}
+			{"provider":"digitalocean","id":"some_id","ip_address":"0.0.0.0","freighterd_port":65333}
+			`
+			prepareHandlers("POST", "/hosts/update", http.StatusOK, response)
+			hb = hostbuilderclient.NewHostbuilder(srv.URL())
+
+			out := bytes.NewBuffer(nil)
+			info, err := hb.Update("digitalocean", &hostbuilderclient.Config{
+				"name": "doublerainbow",
+			}, out)
+
+			Expect(out.String()).To(Equal(response), "response not the same as the hostbuilder stream")
+			Expect(err).To(BeNil())
+			Expect(info).To(Equal(&hostbuilder.Response{
+				Provider:       "digitalocean",
+				ID:             "some_id",
+				IPAddress:      "0.0.0.0",
+				FreighterdPort: uint16(65333),
+			}))
+		})
+
+		It("returns error when the update fails", func() {
+			response := `
+			{"stream":"starting: renaming host"}
+			{"stream":"failed: renaming host"}
+			{"stream":"failed: renaming host"}
+			{"error":"failed to rename host because reasons"}
+			`
+			prepareHandlers("POST", "/hosts/update", http.StatusOK, response)
+			hb = hostbuilderclient.NewHostbuilder(srv.URL())
+
+			_, err := hb.Update("digitalocean", &hostbuilderclient.Config{
+				"name": "doublerainbow",
+			}, ioutil.Discard)
+			Expect(err).ToNot(BeNil())
+		})
+	})
+
 	Describe("Delete()", func() {
 		var hb *hostbuilderclient.Hostbuilder
 

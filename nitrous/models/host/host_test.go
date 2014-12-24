@@ -367,7 +367,7 @@ var _ = Describe("models/host", func() {
 			Expect(h.Slug).To(Equal("preprovisioned-host-2"))
 		})
 
-		It("returns an empty slice if there are no pre-provisioned hosts in the given region and plan", func() {
+		It("returns nil if there are no pre-provisioned hosts in the given region and plan", func() {
 			hs2, err := CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 

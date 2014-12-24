@@ -167,6 +167,7 @@ func (p *Provisioner) Start() error {
 		for {
 			select {
 			case <-ticker.C:
+				ticker.Stop()
 				pts, err := providertemplate.Preprovisioned(db)
 				if err != nil {
 					errCh <- err
@@ -199,6 +200,9 @@ func (p *Provisioner) Start() error {
 					p.logger.Infof("provisioner: job %s/%d/%d successfully pre-provisioned host ID: %d",
 						j.template.Provider, j.template.RegionID, j.template.PlanID, h.ID)
 				}
+
+				// Reset ticker.
+				ticker = time.NewTicker(p.config.Interval)
 			case <-p.stop:
 				p.logger.Debug("provisioner: job creator quitting")
 				ticker.Stop()
@@ -351,9 +355,26 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		}
 	}()
 
+	// Update host in hostbuilder (e.g. rename host).
+	config := &hostbuilderclient.Config{
+		"id":           preprovisionedHost.ProviderIdentifier.String,
+		"name":         opts.Slug,
+		"apt_username": opts.User.Username,
+		"apt_password": opts.Token.Token,
+		"apt_location": opts.AptLocation,
+		"apt_dist":     opts.AptDist,
+	}
+	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream)
+	if err != nil {
+		err = fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
+		return
+	}
+
 	// Update host record with new info.
 	h.Slug = opts.Slug
 	h.Name = sql.NullString{opts.Name, true}
+	h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
+	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
 	h.HourlyPrice = opts.Template.HourlyPrice
 	h.Preprovisioned = false
 	if err = h.Update(p.db); err != nil {
