@@ -24,8 +24,11 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/msgproto"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 
-	_ "github.com/nitrous-io/dedicated/freighter/cops/fs"
 	"github.com/nitrous-io/nitrous-common/wsconn"
+)
+
+var (
+	defaultUploadMemory int64 = 20 << 20 // 20MB
 )
 
 const StatusUnprocessableEntity = 422
@@ -750,10 +753,30 @@ func (s *Server) downloadContainerFile(w http.ResponseWriter, r *http.Request) e
 	return s.provider.CopyFile(id, localPath, w)
 }
 
-// TODO: since docker doesnt have a way to modify container filesystem yet, use
-// cops/fs here to put the file into the correct place.
 func (s *Server) uploadContainerFile(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	id := mux.Vars(r)["id"]
+	info, err := s.provider.GetInfo(id)
+	if err != nil {
+		return err
+	}
+	if info.State != provider.ContainerStateRunning {
+		return fmt.Errorf("Cannot attach to stopped container %v", info.ID)
+	}
+	if err := r.ParseMultipartForm(defaultUploadMemory); err != nil {
+		return err
+	}
+	defer r.MultipartForm.RemoveAll()
+
+	location := r.FormValue("location")
+	input := make(map[string][]provider.UploadHeader)
+	for name, fhs := range r.MultipartForm.File {
+		uh := make([]provider.UploadHeader, len(fhs))
+		for i, f := range fhs {
+			uh[i] = provider.UploadHeader(f)
+		}
+		input[name] = uh
+	}
+	return s.provider.CopyFromHost(info.ID, location, input)
 }
 
 func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {

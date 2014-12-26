@@ -1913,6 +1913,42 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("POST /containers/:id/upload", func() {
+		doRequest := func(containerID string, token, location string, files map[string]string) *httptest.ResponseRecorder {
+			params := map[string]string{
+				"token":    token,
+				"location": location,
+			}
+			req, err = NewFileRequest(hostSecret, "POST",
+				fmt.Sprintf("/containers/%s/upload", containerID), params, files)
+			Expect(err).To(BeNil())
+
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		It("requires a valid container token", func() {
+			prov.VerifyTokenError = errors.New("invalid token")
+			token := "some token"
+			res := doRequest("test-container", token, "/home/action/workspace", nil)
+
+			Expect(prov.ReceivedID).To(Equal("test-container"))
+			Expect(prov.ReceivedToken).To(Equal(token))
+			Expect(prov.ReceivedPermissions).To(Equal([]string{"upload"}))
+			Expect(res.Code).To(Equal(http.StatusUnauthorized), "invalid token")
+		})
+
+		It("uploads to the specified path in the container", func() {
+			prov.Containers = []*provider.ContainerInfo{
+				{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning},
+				{ID: "bbb", Name: "bar", Image: "centos", ImageID: "def456", Host: "1.2.3.5", Gateway: "1.2.3.0", State: provider.ContainerStateStopped},
+			}
+			doRequest("aaa", "valid-token", "/home/action/workspace", map[string]string{"hello": "world"})
+			Expect(prov.CopyFromHostLocation).To(Equal("/home/action/workspace"))
+		})
+	})
+
 	Describe("Unauthorized requests", func() {
 		It("requires an authorization header", func() {
 			req, err := NewRequestWithSecret(hostSecret, "GET", "/containers", nil)

@@ -19,9 +19,11 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/util"
 )
 
-// default server's configuration when we dont have a valid configuration
 var (
+	// default server's configuration when we dont have a valid configuration
 	DefaultConfig *Config
+
+	MaxRequestSize int64 = 20 << 20 // 20 MB
 )
 
 func init() {
@@ -230,7 +232,9 @@ func (s *Server) drawRoutes() {
 
 	// handle download/upload files to a container
 	s.route("/containers/{id}/download", s.wrapError(s.withContainerToken(s.downloadContainerFile, "download")), "GET")
-	s.route("/containers/{id}/upload", s.wrapError(s.withContainerToken(s.uploadContainerFile, "upload")), "POST")
+	s.route("/containers/{id}/upload", limitRequestSize(
+		s.wrapError(s.withContainerToken(s.uploadContainerFile, "upload")),
+		MaxRequestSize), "POST")
 
 	s.secretRoute("/registry/auth", s.loginRegistry, "POST")
 	s.secretRoute("/registry/auth", s.logoutRegistry, "DELETE")
@@ -284,4 +288,17 @@ func getTLSConfig(caPath, certPath, keyPath string) (*tls.Config, error) {
 	}
 
 	return tlsConfig, nil
+}
+
+func limitRequestSize(h http.HandlerFunc, limit int64) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if limit > 0 && r.ContentLength > limit {
+			http.Error(w, "request body too large", 413)
+			return
+		}
+		// limit the size of request body. if request is too large,
+		// reading r.Body will fail ( such as ParseMultipartForm )
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
+		h(w, r)
+	}
 }
