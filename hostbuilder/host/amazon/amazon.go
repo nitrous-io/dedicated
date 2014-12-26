@@ -106,6 +106,10 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
+func (h *Host) Update(w io.Writer) (*host.Info, error) {
+	return nil, errors.New("amazon: Update() not implemented because we don't care")
+}
+
 func (h *Host) Destroy() error {
 	var instancesResp *ec2.InstancesResp
 	var err error

@@ -33,11 +33,16 @@ type Invoice struct {
 	// indicates Stripe failed (and gave up) charging the user
 	Failed bool `db:"failed"`
 
-	FirstAttemptAt *time.Time `db:"first_attempt_at"`
+	// indicates we didn't charge for this invoice and rolled into a following month's invoice
+	Deferred bool `db:"deferred"`
 
-	LastAttemptAt *time.Time     `db:"last_attempt_at"`
-	Attempts      int            `db:"attempts"`
-	StripeID      sql.NullString `db:"stripe_id"`
+	// indicates another invoice included the total for this invoice
+	CoveredBy sql.NullInt64 `db:"covered_by"`
+
+	FirstAttemptAt *time.Time     `db:"first_attempt_at"`
+	LastAttemptAt  *time.Time     `db:"last_attempt_at"`
+	Attempts       int            `db:"attempts"`
+	StripeID       sql.NullString `db:"stripe_id"`
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
@@ -71,9 +76,11 @@ func FindByStripeID(d db.QueryReceiver, stripeID string) (*Invoice, error) {
 func (i *Invoice) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoices
     (user_id, total_charge, period_start, period_end, successful_charge,
-      first_attempt_at, last_attempt_at, attempts, stripe_id, failed)
+      first_attempt_at, last_attempt_at, attempts, stripe_id, failed,
+      deferred, covered_by)
     VALUES (:user_id, :total_charge, :period_start, :period_end, :successful_charge,
-      :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :failed)
+      :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :failed,
+      :deferred, :covered_by)
     RETURNING *;`)
 	if err != nil {
 		return err
@@ -84,9 +91,11 @@ func (i *Invoice) Insert(d db.QueryReceiver) error {
 func (i *Invoice) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE invoices
     SET (user_id, total_charge, period_start, period_end, successful_charge,
-      first_attempt_at, last_attempt_at, attempts, stripe_id, failed, updated_at)
+      first_attempt_at, last_attempt_at, attempts, stripe_id, failed,
+      deferred, covered_by, updated_at)
     = (:user_id, :total_charge, :period_start, :period_end, :successful_charge,
-      :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :failed, now())
+      :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :failed,
+      :deferred, :covered_by, now())
     WHERE id = :id
     RETURNING *;`)
 	if err != nil {
@@ -103,7 +112,11 @@ func (i *Invoice) PaymentSucceeded(d db.QueryReceiver) error {
 		i.FirstAttemptAt = &t
 	}
 	i.LastAttemptAt = &t
-	return i.Update(d)
+	if err := i.Update(d); err != nil {
+		return err
+	}
+	_, err := d.Exec("UPDATE invoices SET successful_charge = TRUE, failed = FALSE, last_attempt_at = now() WHERE covered_by = $1;", i.ID)
+	return err
 }
 
 func (i *Invoice) PaymentFailed(d db.QueryReceiver, attemptCount int, moreAttempts bool) error {

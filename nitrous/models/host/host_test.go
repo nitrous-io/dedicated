@@ -209,6 +209,56 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("CountPreprovisionedOrphans()", func() {
+		var hs2 *HostStack
+
+		BeforeEach(func() {
+			var err error
+			u := &user.User{
+				Username: "pre-provisioner",
+				Email:    "pp@example.com",
+				Password: "pp1234",
+			}
+			err = WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+				u.ID, "preprovisioned-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, true, host.StateRunning)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+				u.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, true, host.StateRunning)
+			Expect(err).To(BeNil())
+
+			hs2, err = CreateHostStack(db, nil)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+				u.ID, "preprovisioned-host-3", hs2.R.ID, hs2.P.ID, hs2.PT.ID, true, host.StateOrphan)
+			Expect(err).To(BeNil())
+		})
+
+		It("returns the count of orphan pre-provisioned hosts in the given region", func() {
+			count, err := host.CountPreprovisionedOrphans(db, hs.R)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0))
+
+			count, err = host.CountPreprovisionedOrphans(db, hs2.R)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+		})
+
+		It("returns 0 if there are no orphan pre-provisioned hosts in the given region", func() {
+			count, err := host.CountPreprovisionedOrphans(db, hs.R)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0))
+		})
+	})
+
 	Describe("Find()", func() {
 		Context("when given param is an ID", func() {
 			It("returns the matching record belongs to the user", func() {
@@ -367,7 +417,7 @@ var _ = Describe("models/host", func() {
 			Expect(h.Slug).To(Equal("preprovisioned-host-2"))
 		})
 
-		It("returns an empty slice if there are no pre-provisioned hosts in the given region and plan", func() {
+		It("returns nil if there are no pre-provisioned hosts in the given region and plan", func() {
 			hs2, err := CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 

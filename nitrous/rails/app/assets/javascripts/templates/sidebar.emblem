@@ -1,20 +1,21 @@
 if App.hosts.length
-  h2 Applications
-  ul.apps
-    each host in App.hosts
-      li class={host.selectedAsApp:selected host.appContainer.isTerminated:disabled}
-        if host.appContainer.isTerminated
-          a.noclick href='#'
-            h3
-              = host.displayName
-            .state-indicator.terminated title='terminated'
-        else
-          link-to 'app.index' host.slug
-            h3
-              = host.displayName
-            .state-indicator class={host.appState} title={host.appState}
-              span
-                = host.appState
+  unless App.user.advanced
+    h2 Applications
+    ul.apps
+      each host in App.hosts
+        li class={host.selectedAsApp:selected host.appContainer.isTerminated:disabled}
+          if host.appContainer.isTerminated
+            a.noclick href='#'
+              h3
+                = host.displayName
+              .state-indicator.terminated title='terminated'
+          else
+            link-to 'app.index' host.slug
+              h3
+                = host.displayName
+              .state-indicator class={host.appState} title={host.appState}
+                span
+                  = host.appState
 
   if App.user.advanced
     h2 Hosts

@@ -81,7 +81,7 @@ type ProvisionOptions struct {
 	AptLocation string
 	AptDist     string
 
-	ProvisionSucceededFn func(*host.Host) // FIXME Better way to do this? Better names?
+	ProvisionSucceededFn func(*host.Host)
 	ProvisionFailedFn    func(*host.Host, error)
 }
 
@@ -167,6 +167,7 @@ func (p *Provisioner) Start() error {
 		for {
 			select {
 			case <-ticker.C:
+				ticker.Stop()
 				pts, err := providertemplate.Preprovisioned(db)
 				if err != nil {
 					errCh <- err
@@ -174,7 +175,20 @@ func (p *Provisioner) Start() error {
 				}
 
 				for _, pt := range pts {
-					numHosts, err := host.CountPreprovisioned(db, &region.Region{ID: pt.RegionID}, &plan.Plan{ID: pt.PlanID})
+					r := &region.Region{ID: pt.RegionID}
+					// Skip if there are pre-provisioned orphan hosts in this region.
+					numOrphans, err := host.CountPreprovisionedOrphans(db, r)
+					if err != nil {
+						errCh <- err
+						return
+					}
+					if numOrphans > 0 {
+						p.logger.Warnf("provisioner: %d orphan(s) in region %d, skipping job",
+							numOrphans, pt.RegionID)
+						continue
+					}
+
+					numHosts, err := host.CountPreprovisioned(db, r, &plan.Plan{ID: pt.PlanID})
 					if err != nil {
 						errCh <- err
 						return
@@ -199,6 +213,9 @@ func (p *Provisioner) Start() error {
 					p.logger.Infof("provisioner: job %s/%d/%d successfully pre-provisioned host ID: %d",
 						j.template.Provider, j.template.RegionID, j.template.PlanID, h.ID)
 				}
+
+				// Reset ticker.
+				ticker = time.NewTicker(p.config.Interval)
 			case <-p.stop:
 				p.logger.Debug("provisioner: job creator quitting")
 				ticker.Stop()
@@ -351,9 +368,26 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		}
 	}()
 
+	// Update host in hostbuilder (e.g. rename host).
+	config := &hostbuilderclient.Config{
+		"id":           preprovisionedHost.ProviderIdentifier.String,
+		"name":         opts.Slug,
+		"apt_username": opts.User.Username,
+		"apt_password": opts.Token.Token,
+		"apt_location": opts.AptLocation,
+		"apt_dist":     opts.AptDist,
+	}
+	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream)
+	if err != nil {
+		err = fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
+		return
+	}
+
 	// Update host record with new info.
 	h.Slug = opts.Slug
 	h.Name = sql.NullString{opts.Name, true}
+	h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
+	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
 	h.HourlyPrice = opts.Template.HourlyPrice
 	h.Preprovisioned = false
 	if err = h.Update(p.db); err != nil {
@@ -511,6 +545,9 @@ func (p *Provisioner) configureUser() error {
 	u, err := user.FindByUsername(p.db, p.config.Username)
 	if err != nil {
 		return err
+	}
+	if u == nil {
+		return fmt.Errorf("User '%s' could not be found", p.config.Username)
 	}
 	t := &token.Token{UserID: u.ID}
 	if err := t.Insert(p.db); err != nil {

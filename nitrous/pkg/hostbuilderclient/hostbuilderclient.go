@@ -84,7 +84,31 @@ type OperationFn func(provider string, config *Config) (*hostbuilder.Response, e
 // the provided writer
 func (hb *Hostbuilder) Create(provider string, config *Config, out io.Writer) (*hostbuilder.Response, error) {
 	endpoint := hb.URL + "/hosts"
+	return hb.stream(endpoint, provider, config, out)
+}
 
+func (hb *Hostbuilder) Update(provider string, config *Config, out io.Writer) (*hostbuilder.Response, error) {
+	endpoint := hb.URL + "/hosts/update"
+	return hb.stream(endpoint, provider, config, out)
+}
+
+func (hb *Hostbuilder) Delete(provider string, config *Config) (*hostbuilder.Response, error) {
+	return hb.defaultRequestHandler("delete", provider, config)
+}
+
+func (hb *Hostbuilder) Start(provider string, config *Config) (*hostbuilder.Response, error) {
+	return hb.defaultRequestHandler("start", provider, config)
+}
+
+func (hb *Hostbuilder) Stop(provider string, config *Config) (*hostbuilder.Response, error) {
+	return hb.defaultRequestHandler("stop", provider, config)
+}
+
+func (hb *Hostbuilder) Restart(provider string, config *Config) (*hostbuilder.Response, error) {
+	return hb.defaultRequestHandler("restart", provider, config)
+}
+
+func (hb *Hostbuilder) stream(endpoint, provider string, config *Config, out io.Writer) (*hostbuilder.Response, error) {
 	p := url.Values{}
 	p.Set("provider", provider)
 
@@ -125,28 +149,11 @@ func (hb *Hostbuilder) Create(provider string, config *Config, out io.Writer) (*
 			return nil, fmt.Errorf("hostbuilder: failed to decode stream: %s", err)
 		}
 		if msg.Error != "" {
-			return nil, fmt.Errorf("hostbuilder: create failed with error: %s", msg.Error)
+			return nil, fmt.Errorf("hostbuilder: failed with error: %s", msg.Error)
 		}
-
 		if msg.ID != "" {
 			return msg, nil
 		}
 	}
 	return nil, errors.New("hostbuilder: failed to return a proper host")
-}
-
-func (hb *Hostbuilder) Delete(provider string, config *Config) (*hostbuilder.Response, error) {
-	return hb.defaultRequestHandler("delete", provider, config)
-}
-
-func (hb *Hostbuilder) Start(provider string, config *Config) (*hostbuilder.Response, error) {
-	return hb.defaultRequestHandler("start", provider, config)
-}
-
-func (hb *Hostbuilder) Stop(provider string, config *Config) (*hostbuilder.Response, error) {
-	return hb.defaultRequestHandler("stop", provider, config)
-}
-
-func (hb *Hostbuilder) Restart(provider string, config *Config) (*hostbuilder.Response, error) {
-	return hb.defaultRequestHandler("restart", provider, config)
 }
