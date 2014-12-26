@@ -126,6 +126,17 @@ func CountPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) (int, 
 	return count, nil
 }
 
+func CountPreprovisionedOrphans(db *db.Database, r *region.Region) (int, error) {
+	var count int
+	if err := db.QueryRow(`SELECT count(*) FROM hosts
+		WHERE region_id = $1 AND state = $2
+		AND preprovisioned = TRUE AND terminated_at IS NULL;`,
+		r.ID, StateOrphan).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 // Find will return a Host scoped by User.
 // identifier can be either an ID or a slug.
 func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {

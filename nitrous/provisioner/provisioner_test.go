@@ -96,6 +96,31 @@ var _ = Describe("provisioner", func() {
 			}, 5*time.Second).Should(Equal(1))
 		})
 
+		It("does not pre-provision hosts in a region that has orphan pre-provisioned hosts", func() {
+			hs, err := test.CreateHostStack(db, &test.HostStack{
+				H:  &host.Host{State: host.StateOrphan, Preprovisioned: true},
+				PT: &providertemplate.ProviderTemplate{PreprovisionMax: 1},
+			})
+			count, err := host.CountPreprovisionedOrphans(db, hs.R)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1)) // Pre-condition: > 0 orphan pre-provisioned hosts.
+
+			cfg := &provisioner.Config{
+				Username: provisionerUser.Username,
+				Interval: 50 * time.Millisecond,
+			}
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+
+			err = prov.Start()
+			Expect(err).To(BeNil())
+
+			Consistently(func() int {
+				count, err := host.CountPreprovisioned(db, hs.R, hs.P)
+				Expect(err).To(BeNil())
+				return count
+			}, 1*time.Second).Should(Equal(0))
+		})
+
 		It("returns error on failure to find provisioner user", func() {
 			cfg := &provisioner.Config{
 				Username: "no such user",
