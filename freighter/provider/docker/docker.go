@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,9 +19,11 @@ import (
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
+	cfs "github.com/nitrous-io/dedicated/freighter/cops/fs"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
 	"github.com/nitrous-io/dedicated/freighter/util"
+	"github.com/nitrous-io/dedicated/pkg/rootfs"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 
@@ -968,6 +971,38 @@ func (p *DockerProvider) CopyFile(id string, path string, out io.Writer) error {
 	})
 }
 
+// CopyFromHost copies files from host into a container
+// TODO: docker should also provide this fucntionality so we dont have to
+// relies on cops/cfs for this
+func (p *DockerProvider) CopyFromHost(id string, location string, input map[string][]provider.UploadHeader) error {
+	container, err := p.inspectContainer(id)
+	if err != nil {
+		return err
+	}
+	containerRoot := path.Join(cfs.RootPrefix, container.ID)
+	if _, err := os.Stat(containerRoot); os.IsNotExist(err) {
+		return fmt.Errorf("failed to find rootfs for %s, %s", id, err)
+	}
+	rfs := rootfs.NewRootfs(filepath.Join(containerRoot, location))
+
+	// for each uploaded file, create a new file in the specified location
+	// and copy the parts over
+	for filename, fhs := range input {
+		f, err := rfs.Create(filename)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		for _, ph := range fhs {
+			if err := copyPart(f, ph); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 type authconfig struct {
 	Auth  string `json:"auth"`
 	Email string `json:"email"`
@@ -1437,4 +1472,14 @@ func gatewayFromIPOutput(output []byte) (string, error) {
 		return "", errors.New("no inet ip address found")
 	}
 	return string(match[1]), nil
+}
+
+func copyPart(f *os.File, ph provider.UploadHeader) error {
+	pf, err := ph.Open()
+	if err != nil {
+		return err
+	}
+	defer pf.Close()
+	_, err = io.Copy(f, pf)
+	return err
 }
