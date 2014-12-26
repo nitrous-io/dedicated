@@ -1,5 +1,22 @@
 /*
 cfinder is an cops interface to finder
+
+This supported quick-open file and search in a directory.
+
+Quick open message format is:
+
+--> h|{"term":"asd", "root":"/home/action", "namespace":"finder", "event: "find_file", "cid": 42}
+<-- h|{"term":"asd", "root":"/home/action", "namespace":"finder", "event: "find_file", "cid": 42} # signal that we received the message
+<-- h|{"term":"asd", "root":"/home/action", "namespace":"finder", "event: "find_file.output",
+	"paths": ["workspace/asd"]}
+<-- h|{"term":"asd", "root":"/home/action", "error": "failed to find file", "namespace":"finder", "event: "find_file.error"}
+
+Search message format is:
+
+--> h|{"id": "123", "term":"asd", "root":"/home/action", "namespace":"finder", "event: "search", "cid": 42}
+<-- h|{"id": "123", "term":"asd", "root":"/home/action", "namespace":"finder", "event: "search", "cid": 42}
+<-- h|{"id": "123", "term":"asd", "root":"/home/action", "namespace":"finder", "event: "search.output",
+	"results": {"file":"filename", "matches": [{"row": 12, "content": "line asd"]}}
 */
 package cfinder
 
