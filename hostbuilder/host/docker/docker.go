@@ -15,6 +15,7 @@ import (
 
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
 )
 
 var (
@@ -115,6 +116,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 		ID:             h.ID,
 		IPAddress:      "127.0.0.1",
 		FreighterdPort: uint16(getFreighterdPort(container)),
+		State:          getState(container),
 	}, nil
 }
 
@@ -136,6 +138,7 @@ func (h *Host) Info() (*host.Info, error) {
 		ID:             h.ID,
 		IPAddress:      "127.0.0.1",
 		FreighterdPort: uint16(getFreighterdPort(container)),
+		State:          getState(container),
 	}, nil
 }
 
@@ -280,6 +283,13 @@ func getFreighterdPort(container *dockerclient.Container) uint16 {
 		return uint16(0)
 	}
 	return uint16(freighterdPort)
+}
+
+func getState(container *dockerclient.Container) state.State {
+	if container.State.Running {
+		return state.Running
+	}
+	return state.Stopped
 }
 
 func init() {

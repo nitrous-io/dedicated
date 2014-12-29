@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
 )
 
 type Host struct {
@@ -43,13 +44,13 @@ func (h *Host) Info() (*host.Info, error) {
 	if h.FreighterdPort == 0 {
 		h.FreighterdPort = 65333
 	}
-	info := &host.Info{
+	return &host.Info{
 		Provider:       h.DriverName(),
 		ID:             h.ID,
 		IPAddress:      h.IPAddress,
 		FreighterdPort: uint16(h.FreighterdPort),
-	}
-	return info, nil
+		State:          state.Running,
+	}, nil
 }
 
 func (h *Host) Restart() (*host.Info, error) {

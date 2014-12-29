@@ -18,6 +18,7 @@ import (
 	"github.com/digitalocean/godo"
 	"github.com/nitrous-io/dedicated/hostbuilder/context"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 )
@@ -178,7 +179,23 @@ func (h *Host) dropletToInfo() *host.Info {
 		ID:             strconv.Itoa(h.droplet.ID),
 		IPAddress:      h.ipAddress(),
 		FreighterdPort: uint16(65333),
+		State:          h.getState(),
 	}
+}
+
+func (h *Host) getState() state.State {
+	// TODO DigitalOcean's API only returns "new", "active", "off" or "archive".
+	// If we need "stopping", we will probably need to retrieve the actions for
+	// the droplet.
+	switch h.droplet.Status {
+	case "new":
+		return state.Starting
+	case "active":
+		return state.Running
+	case "off":
+		return state.Stopped
+	}
+	return state.Unknown
 }
 
 func (h *Host) Restart() (*host.Info, error) {
