@@ -388,6 +388,7 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	h.Name = sql.NullString{opts.Name, true}
 	h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
+	h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
 	h.HourlyPrice = opts.Template.HourlyPrice
 	h.Preprovisioned = false
 	if err = h.Update(p.db); err != nil {
