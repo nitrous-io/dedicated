@@ -142,6 +142,30 @@ func (h *Host) Info() (*host.Info, error) {
 	}, nil
 }
 
+func (h *Host) List() ([]*host.Info, error) {
+	list, err := h.client.ListContainers(dockerclient.ListContainersOptions{All: true, Size: false})
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*host.Info, 0, len(list))
+	for _, cn := range list {
+		container, err := h.client.InspectContainer(cn.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		ret = append(ret, &host.Info{
+			Provider:       h.DriverName(),
+			ID:             cn.ID,
+			IPAddress:      "127.0.0.1",
+			FreighterdPort: uint16(getFreighterdPort(container)),
+			State:          getState(container),
+		})
+	}
+	return ret, nil
+}
+
 func (h *Host) Restart() (*host.Info, error) {
 	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
 		switch err.(type) {

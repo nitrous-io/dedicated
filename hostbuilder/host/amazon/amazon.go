@@ -149,6 +149,10 @@ func (h *Host) Restart() (*host.Info, error) {
 	panic("amazon provider does not support Restart yet")
 }
 
+func (h *Host) List() ([]*host.Info, error) {
+	panic("amazon provider does not support List yet")
+}
+
 func (h *Host) DriverName() string {
 	return "amazon"
 }

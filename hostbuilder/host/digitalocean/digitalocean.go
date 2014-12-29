@@ -23,6 +23,8 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 )
 
+const DefaultPort uint16 = 65333
+
 var (
 	TLSCALocation   = "/etc/freighterd/ca.crt"
 	TLSCertLocation = "/etc/freighterd/cert.crt"
@@ -173,21 +175,61 @@ func (h *Host) Info() (*host.Info, error) {
 	return h.dropletToInfo(), nil
 }
 
+func (h *Host) List() ([]*host.Info, error) {
+	allDroplets := []godo.Droplet{}
+	opt := &godo.ListOptions{}
+
+	// Collect all droplets, taking pagination into account.
+	for {
+		droplets, resp, err := h.Client.Droplets.List(opt)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, d := range droplets {
+			allDroplets = append(allDroplets, d)
+		}
+
+		if resp.Links.IsLastPage() {
+			break
+		}
+
+		page, err := resp.Links.CurrentPage()
+		if err != nil {
+			return nil, err
+		}
+
+		opt.Page = page + 1
+	}
+
+	list := make([]*host.Info, 0, len(allDroplets))
+	for _, droplet := range allDroplets {
+		list = append(list, &host.Info{
+			Provider:       h.DriverName(),
+			ID:             strconv.Itoa(droplet.ID),
+			IPAddress:      droplet.Networks.V4[0].IPAddress,
+			FreighterdPort: DefaultPort,
+			State:          getState(&droplet),
+		})
+	}
+	return list, nil
+}
+
 func (h *Host) dropletToInfo() *host.Info {
 	return &host.Info{
 		Provider:       h.DriverName(),
 		ID:             strconv.Itoa(h.droplet.ID),
 		IPAddress:      h.ipAddress(),
-		FreighterdPort: uint16(65333),
-		State:          h.getState(),
+		FreighterdPort: DefaultPort,
+		State:          getState(h.droplet),
 	}
 }
 
-func (h *Host) getState() state.State {
+func getState(droplet *godo.Droplet) state.State {
 	// TODO DigitalOcean's API only returns "new", "active", "off" or "archive".
 	// If we need "stopping", we will probably need to retrieve the actions for
 	// the droplet.
-	switch h.droplet.Status {
+	switch droplet.Status {
 	case "new":
 		return state.Starting
 	case "active":

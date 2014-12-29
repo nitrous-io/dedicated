@@ -21,6 +21,7 @@ type Host interface {
 	Destroy() error          // destroy the current host
 	Restart() (*Info, error) // reboot the current host
 	Info() (*Info, error)    // get current info of the host
+	List() ([]*Info, error)
 
 	DriverName() string
 }
