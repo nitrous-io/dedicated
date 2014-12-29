@@ -267,17 +267,13 @@ func (h *Host) start() (*host.Info, error) {
 }
 
 func getFreighterdPort(container *dockerclient.Container) uint16 {
-	var freighterdPort int = 0
-	var err error
-
 	freighterdPortMappings := container.NetworkSettings.Ports["65333/tcp"]
-	if len(freighterdPortMappings) == 1 {
-		freighterdPort, err = strconv.Atoi(freighterdPortMappings[0].HostPort)
-		if err != nil {
-			freighterdPort = 0
-		}
-	} else {
-		freighterdPort = 0
+	if len(freighterdPortMappings) != 1 {
+		return uint16(0)
+	}
+	freighterdPort, err := strconv.Atoi(freighterdPortMappings[0].HostPort)
+	if err != nil {
+		return uint16(0)
 	}
 	return uint16(freighterdPort)
 }
