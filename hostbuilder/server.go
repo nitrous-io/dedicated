@@ -287,6 +287,48 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
+	// TODO This is independent of any particular host so we don't need to use
+	// host-specific form data.
+	h, err := s.hostFromRequest(r)
+	if err != nil {
+		label := fmt.Sprintf("list.%s", r.Form.Get("provider"))
+		return mh.Error(err, label)
+	}
+
+	label := fmt.Sprintf("list.%s", h.DriverName())
+	defer mh.UpdateSince(label, time.Now())
+
+	hosts, err := h.List()
+	if err != nil {
+		return mh.Error(err, label)
+	}
+
+	responses := make([]Response, 0, len(hosts))
+	for _, hst := range hosts {
+		responses = append(responses, Response{
+			Provider:       hst.Provider,
+			ID:             hst.ID,
+			IPAddress:      hst.IPAddress,
+			FreighterdPort: hst.FreighterdPort,
+			State:          hst.State.String(),
+		})
+	}
+
+	data, err := json.Marshal(map[string]interface{}{
+		"hosts": responses,
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		data = []byte(`{"status":"error"}`)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
+	return nil
+}
+
 func (s *Server) hostFromRequest(r *http.Request) (host.Host, error) {
 	if err := r.ParseForm(); err != nil {
 		return nil, err
@@ -294,12 +336,18 @@ func (s *Server) hostFromRequest(r *http.Request) (host.Host, error) {
 	provider := r.Form.Get("provider")
 	providerConfig := s.Config.Providers[provider]
 	configJSON := r.Form.Get("config")
+	if configJSON == "" {
+		configJSON = "{}"
+	}
 	return InitHost(provider, providerConfig, configJSON)
 }
 
 func (s *Server) CreateRouter() {
 	r := mux.NewRouter()
 	m := map[string]map[string]HttpHandler{
+		"GET": {
+			"/hosts": s.listHosts,
+		},
 		"POST": {
 			"/hosts":         s.createHost,
 			"/hosts/update":  s.updateHost,

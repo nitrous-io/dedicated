@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	. "github.com/nitrous-io/dedicated/hostbuilder"
-	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/host/dummy"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 
@@ -160,6 +159,35 @@ var _ = Describe("hostbuilder", func() {
 			Expect(info.IPAddress).To(Equal(h.IPAddress))
 			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
 			Expect(info.State).To(Equal(state.Running.String()))
+		})
+	})
+
+	Describe("Listing hosts", func() {
+		It("should successfully return all hosts", func() {
+			h := &dummy.Host{ListSuccess: true}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil(), "failed to setup a dummy host")
+			defer srv.Close()
+
+			config, _ := json.Marshal(h)
+			form := url.Values{}
+			form.Set("provider", "dummy")
+			form.Set("config", string(config))
+
+			resp, err := http.Get(fmt.Sprintf("%s/%s?%s", ts.URL, "hosts", form.Encode()))
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
+
+			body, err := ioutil.ReadAll(resp.Body)
+			Expect(err).To(BeNil())
+			var j struct {
+				Hosts []Response `json:"hosts"`
+			}
+			json.Unmarshal(body, &j)
+			Expect(j.Hosts).To(HaveLen(2)) // See hostbuilder's dummy host.
+
+			h1 := j.Hosts[0]
+			Expect(h1.State).To(Equal(state.Running.String()))
 		})
 	})
 })
