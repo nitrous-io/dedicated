@@ -981,6 +981,7 @@ var _ = Describe("controllers/hosts", func() {
 	Describe("PUT /api/v0/hosts/:slug/versions", func() {
 		var hs *HostStack
 		var params *url.Values
+		var err error
 
 		doRequest := func() {
 			req, err := NewAuthedRequest(t, "PUT", fmt.Sprintf("/api/v0/hosts/%s/versions", hs.H.Slug), params)
@@ -991,15 +992,32 @@ var _ = Describe("controllers/hosts", func() {
 			handler.ServeHTTP(res, req)
 		}
 
-		Context("when valid params are received", func() {
+		Context("when the user is not an admin", func() {
+			It("responds with 404 Not Found", func() {
+				hs, err = CreateHostStack(db, &HostStack{U: u})
+				Expect(err).To(BeNil())
+
+				params := &url.Values{}
+				params.Set("freighterd_version", "1.0.88-acecafe-42")
+				params.Set("docker_version", "1.2.3-nitrous")
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+
+		Context("when valid params are received and user is an admin", func() {
 			BeforeEach(func() {
-				var err error
+				_, err = db.Exec("UPDATE users SET admin = true WHERE id = $1", u.ID)
+				Expect(err).To(BeNil())
+
 				hs, err = CreateHostStack(db, &HostStack{U: u})
 				Expect(err).To(BeNil())
 
 				params = &url.Values{}
 				params.Set("freighterd_version", "1.0.88-acecafe-42")
 				params.Set("docker_version", "1.2.3-nitrous")
+
 				doRequest()
 			})
 
