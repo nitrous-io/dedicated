@@ -672,5 +672,16 @@ func init() {
 				CREATE INDEX index_credits_on_user_id ON credits USING btree (user_id);
 			`,
 		},
+		{
+			Version: "550",
+			Up: `
+				ALTER TABLE invoices ADD COLUMN credit_amount bigint DEFAULT 0;
+				ALTER TABLE invoice_items ADD COLUMN credit bigint DEFAULT 0;
+				ALTER TABLE invoice_items ALTER COLUMN hours DROP NOT NULL;
+				ALTER TABLE invoice_items ALTER COLUMN hourly_price DROP NOT NULL;
+				ALTER TABLE invoice_items ALTER COLUMN host_id SET DEFAULT NULL;
+				ALTER TABLE invoice_items DROP CONSTRAINT invoice_items_host_id_fkey;
+				`,
+		},
 	}
 }

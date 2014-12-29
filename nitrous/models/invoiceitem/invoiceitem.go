@@ -20,6 +20,8 @@ type InvoiceItem struct {
 	// HourlyPrice unit is milli-cents (x1000)
 	HourlyPrice int64 `db:"hourly_price"`
 
+	Credit int64 `db:"credit"`
+
 	StripeID sql.NullString `db:"stripe_id"`
 
 	CreatedAt *time.Time `db:"created_at"`
@@ -27,6 +29,9 @@ type InvoiceItem struct {
 }
 
 func ItemDescription(i *InvoiceItem, hst *host.Host) string {
+	if i.Credit != 0 {
+		return fmt.Sprintf("Credit of $%.2f", float64(i.Credit)/100.0)
+	}
 	state := ""
 	// FIXME: handle future states such as suspended (snapshot/resume)
 	if hst.State == host.StateTerminated {
@@ -50,14 +55,17 @@ func (i *InvoiceItem) HourlyCents() float64 {
 }
 
 func (i *InvoiceItem) TotalCharge() int64 {
+	if i.Credit != 0 {
+		return -1 * i.Credit
+	}
 	totalCents := float64(int64(i.Hours)*i.HourlyPrice) / 1000.0
 	return int64(math.Ceil(totalCents))
 }
 
 func (i *InvoiceItem) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoice_items
-    (invoice_id, host_id, hours, hourly_price, stripe_id)
-    VALUES (:invoice_id, :host_id, :hours, :hourly_price, :stripe_id)
+    (invoice_id, host_id, hours, hourly_price, credit, stripe_id)
+    VALUES (:invoice_id, :host_id, :hours, :hourly_price, :credit, :stripe_id)
     RETURNING *;`)
 	if err != nil {
 		return err
@@ -67,8 +75,8 @@ func (i *InvoiceItem) Insert(d db.QueryReceiver) error {
 
 func (i *InvoiceItem) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE invoice_items
-    SET (invoice_id, host_id, hours, hourly_price, stripe_id, updated_at)
-    = (:invoice_id, :host_id, :hours, :hourly_price, :stripe_id, now())
+    SET (invoice_id, host_id, hours, hourly_price, credit, stripe_id, updated_at)
+    = (:invoice_id, :host_id, :hours, :hourly_price, :credit, :stripe_id, now())
     WHERE id = :id
     RETURNING *;`)
 	if err != nil {

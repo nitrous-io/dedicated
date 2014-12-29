@@ -98,7 +98,9 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 			if item.InvoiceID == inv.ID {
 				ser := serializers.SerializeInvoiceItem(&item)
 				ser.Description = invoiceitem.ItemDescription(&item, hMap[ser.HostID])
-				ser.HostSlug = hMap[ser.HostID].Slug
+				if hst, ok := hMap[ser.HostID]; ok {
+					ser.HostSlug = hst.Slug
+				}
 				inv.Items = append(inv.Items, *ser)
 			}
 		}
