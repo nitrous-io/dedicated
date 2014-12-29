@@ -84,12 +84,22 @@ var _ = Describe("models/invoiceitem", func() {
 		})
 
 		It("should describe the host usage", func() {
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' 900 hours at 1.23c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' 900 hours at 1.231c/hour"))
 		})
 
 		It("should be able to display terminated state", func() {
 			hst.State = host.StateTerminated
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' (terminated) 900 hours at 1.23c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' (terminated) 900 hours at 1.231c/hour"))
+		})
+
+		It("should handle up to 3 decimal places precision", func() {
+			inv.HourlyPrice = 1
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' 900 hours at 0.001c/hour"))
+		})
+
+		It("should trim to 2 decimal points if needed", func() {
+			inv.HourlyPrice = 100
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' 900 hours at 0.10c/hour"))
 		})
 	})
 
