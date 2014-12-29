@@ -7,6 +7,16 @@ App.AddCardView = Em.View.extend
   cvcFieldInvalid: Em.computed.equal('controller.invalidField', 'cvc')
   zipFieldInvalid: Em.computed.equal('controller.invalidField', 'zip')
 
+  didInsertElement: ->
+    $('#card-number').payment 'formatCardNumber'
+    $('#card-expiration').payment 'formatCardExpiry'
+    $('#card-cvc').payment 'formatCardCVC'
+
   saveButtonDisabled: (->
     !(@get('controller.name') && @get('controller.number') && @get('controller.expiration') && @get('controller.cvc')) || @get('controller.saving')
   ).property 'controller.name', 'controller.number', 'controller.expiration', 'controller.cvc', 'controller.saving'
+
+  showCardIcon: (->
+    if cardType = $.payment.cardType @get('controller.number')
+      $('#card-number').css 'background-image', "url(assets/cards/#{cardType}_32.png)"
+  ).observes 'controller.number'

@@ -65,7 +65,7 @@ App.AddCardController = Em.ObjectController.extend
         ).then =>
           @set 'saving', false
           App.snackbar.post "Credit card added."
-          @transitionToRoute '/'
+          @transitionToRoute 'billing'
         , (errorMsg) =>
           @set 'saving', false
           @processErrorMessage(errorMsg)
