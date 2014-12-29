@@ -60,9 +60,9 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 	}
 	defer response.Body.Close()
 
-	m := &hostbuilder.Response{}
 	switch response.StatusCode {
 	case http.StatusOK, http.StatusCreated:
+		m := &hostbuilder.Response{}
 		err = json.NewDecoder(response.Body).Decode(m)
 		if err != nil {
 			return nil, fmt.Errorf("hostbuilder failed to decode: %s response, err: %s", endpoint, err)
@@ -106,6 +106,34 @@ func (hb *Hostbuilder) Stop(provider string, config *Config) (*hostbuilder.Respo
 
 func (hb *Hostbuilder) Restart(provider string, config *Config) (*hostbuilder.Response, error) {
 	return hb.defaultRequestHandler("restart", provider, config)
+}
+
+func (hb *Hostbuilder) List(provider string) ([]*hostbuilder.Response, error) {
+	endpoint := hb.URL + "/hosts"
+	p := &url.Values{}
+	p.Set("provider", provider)
+
+	response, err := hb.Client.Get(endpoint, p)
+	if err != nil {
+		return nil, fmt.Errorf("hostbuilder failed to list hosts, err: %s", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		e, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("hostbuilder error response %s, err: %s", endpoint, err)
+		}
+		return nil, fmt.Errorf("hostbuilder error response %s, err: %s", endpoint, string(e))
+	}
+
+	var j struct {
+		Hosts []*hostbuilder.Response `json:"hosts"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&j); err != nil {
+		return nil, fmt.Errorf("hostbuilder failed to decode: %s response, err: %s", endpoint, err)
+	}
+	return j.Hosts, nil
 }
 
 func (hb *Hostbuilder) stream(endpoint, provider string, config *Config, out io.Writer) (*hostbuilder.Response, error) {
