@@ -8,19 +8,28 @@
       &:last-of-type
         margin-left: 8px
 
-.invoice-item
-  .heading
-    display: table
-    width: 100%
+  #card-number
+    background-repeat: no-repeat
+    background-position: 99%
 
-    h4, .payment-status
-      display: table-cell
+#billing-view
+  #card-type
+    background-repeat: no-repeat
+    padding-left: 36px
 
-    .payment-status
-      text-align: right
+  .invoice-item
+    .heading
+      display: table
+      width: 100%
 
-      &.unpaid
-        color: $red400
+      h4, .payment-status
+        display: table-cell
 
-  tr.total-charge
-    font-weight: bold
+      .payment-status
+        text-align: right
+
+        &.unpaid
+          color: $red400
+
+    tr.total-charge
+      font-weight: bold

@@ -15,3 +15,8 @@ App.AddCardView = Em.View.extend
   saveButtonDisabled: (->
     !(@get('controller.name') && @get('controller.number') && @get('controller.expiration') && @get('controller.cvc')) || @get('controller.saving')
   ).property 'controller.name', 'controller.number', 'controller.expiration', 'controller.cvc', 'controller.saving'
+
+  showCardIcon: (->
+    if cardType = $.payment.cardType @get('controller.number')
+      $('#card-number').css 'background-image', "url(assets/cards/#{cardType}_32.png)"
+  ).observes 'controller.number'

@@ -3,10 +3,10 @@ if App.user.billingEnabled
     h2 Billing
 
   .card-body
-    table.ui.table.horizontal
+    table.ui.table.horizontal.credit-card-info
       tr
         th Card Type
-        td
+        td#card-type
           = App.billingProfile.cardType
       tr
         th Last Four Digits
