@@ -111,7 +111,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	}
 
 	return &host.Info{
-		Provider:       "docker",
+		Provider:       h.DriverName(),
 		ID:             h.ID,
 		IPAddress:      "127.0.0.1",
 		FreighterdPort: uint16(getFreighterdPort(container)),
@@ -132,7 +132,7 @@ func (h *Host) Info() (*host.Info, error) {
 	}
 
 	return &host.Info{
-		Provider:       "docker",
+		Provider:       h.DriverName(),
 		ID:             h.ID,
 		IPAddress:      "127.0.0.1",
 		FreighterdPort: uint16(getFreighterdPort(container)),
@@ -159,6 +159,10 @@ func (h *Host) Restart() (*host.Info, error) {
 	}
 
 	return h.Info()
+}
+
+func (h *Host) DriverName() string {
+	return "docker"
 }
 
 func (h *Host) createImage() (string, error) {

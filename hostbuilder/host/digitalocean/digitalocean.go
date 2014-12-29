@@ -174,7 +174,7 @@ func (h *Host) Info() (*host.Info, error) {
 
 func (h *Host) dropletToInfo() *host.Info {
 	return &host.Info{
-		Provider:       "digitalocean",
+		Provider:       h.DriverName(),
 		ID:             strconv.Itoa(h.droplet.ID),
 		IPAddress:      h.ipAddress(),
 		FreighterdPort: uint16(65333),
@@ -195,6 +195,10 @@ func (h *Host) Restart() (*host.Info, error) {
 	}
 
 	return h.Info()
+}
+
+func (h *Host) DriverName() string {
+	return "digitalocean"
 }
 
 func (h *Host) id() (int, error) {

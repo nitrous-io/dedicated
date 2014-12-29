@@ -44,7 +44,7 @@ func (h *Host) Info() (*host.Info, error) {
 		h.FreighterdPort = 65333
 	}
 	info := &host.Info{
-		Provider:       "dummy",
+		Provider:       h.DriverName(),
 		ID:             h.ID,
 		IPAddress:      h.IPAddress,
 		FreighterdPort: uint16(h.FreighterdPort),
@@ -57,6 +57,10 @@ func (h *Host) Restart() (*host.Info, error) {
 		return h.Info()
 	}
 	return nil, errors.New("Failed to restart host")
+}
+
+func (h *Host) DriverName() string {
+	return "dummy"
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {

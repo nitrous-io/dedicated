@@ -195,28 +195,25 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
-		return err
-	}
-	provider := r.Form.Get("provider")
-	providerConfig := s.Config.Providers[provider]
-	configJson := r.Form.Get("config")
-
-	h, err := InitHost(provider, providerConfig, configJson)
+	h, err := s.hostFromRequest(r)
 	if err != nil {
-		return err
+		label := fmt.Sprintf("update.%s", r.Form.Get("provider"))
+		return mh.Error(err, label)
 	}
+
+	label := fmt.Sprintf("update.%s", h.DriverName())
+	defer mh.UpdateSince(label, time.Now())
 
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
 	info, err := h.Update(pw)
 	if err != nil {
-		pw.WriteError(fmt.Errorf("failed to update host on %s, err: %v", provider, err))
+		pw.WriteError(fmt.Errorf("failed to update host on %s, err: %v", h.DriverName(), err))
 		return nil
 	}
 
 	if err := pingHost(info, pw); err != nil {
-		pw.WriteError(fmt.Errorf("failed to ping host on %s after updating, err: %v", provider, err))
+		pw.WriteError(fmt.Errorf("failed to ping host on %s after updating, err: %v", h.DriverName(), err))
 		return nil
 	}
 
@@ -233,23 +230,17 @@ func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
-		return err
-	}
-	provider := r.Form.Get("provider")
-	providerConfig := s.Config.Providers[provider]
-	configJson := r.Form.Get("config")
-
-	// record total time taken for this function
-	label := fmt.Sprintf("delete.%s", provider)
-	defer mh.UpdateSince(label, time.Now())
-
-	h, err := InitHost(provider, providerConfig, configJson)
+	h, err := s.hostFromRequest(r)
 	if err != nil {
+		label := fmt.Sprintf("delete.%s", r.Form.Get("provider"))
 		return mh.Error(err, label)
 	}
-	err = h.Destroy()
-	if err != nil {
+
+	// record total time taken for this function
+	label := fmt.Sprintf("delete.%s", h.DriverName())
+	defer mh.UpdateSince(label, time.Now())
+
+	if err := h.Destroy(); err != nil {
 		return mh.Error(err, label)
 	}
 	writeResponse(w, okResponse)
@@ -257,21 +248,16 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
-		return err
-	}
-	provider := r.Form.Get("provider")
-	providerConfig := s.Config.Providers[provider]
-	configJson := r.Form.Get("config")
-
-	// record total time taken for this function
-	label := fmt.Sprintf("restart.%s", provider)
-	defer mh.UpdateSince(label, time.Now())
-
-	h, err := InitHost(provider, providerConfig, configJson)
+	h, err := s.hostFromRequest(r)
 	if err != nil {
+		label := fmt.Sprintf("restart.%s", r.Form.Get("provider"))
 		return mh.Error(err, label)
 	}
+
+	// record total time taken for this function
+	label := fmt.Sprintf("restart.%s", h.DriverName())
+	defer mh.UpdateSince(label, time.Now())
+
 	info, err := h.Restart()
 	if err != nil {
 		return mh.Error(err, label)
@@ -295,6 +281,16 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	}
 	writeResponse(w, resp)
 	return nil
+}
+
+func (s *Server) hostFromRequest(r *http.Request) (host.Host, error) {
+	if err := r.ParseForm(); err != nil {
+		return nil, err
+	}
+	provider := r.Form.Get("provider")
+	providerConfig := s.Config.Providers[provider]
+	configJSON := r.Form.Get("config")
+	return InitHost(provider, providerConfig, configJSON)
 }
 
 func (s *Server) CreateRouter() {
