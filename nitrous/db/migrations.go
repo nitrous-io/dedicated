@@ -648,5 +648,29 @@ func init() {
 				ALTER TABLE hosts ADD COLUMN docker_version character varying(255) DEFAULT '' NOT NULL;
 			`,
 		},
+		{
+			Version: "540",
+			Up: `
+				CREATE TABLE credit_types (
+					id bigserial PRIMARY KEY NOT NULL,
+					name character varying(255),
+					description character varying,
+					active boolean DEFAULT FALSE,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+
+				CREATE TABLE credits (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					invoice_id bigint REFERENCES invoices(id) DEFAULT NULL,
+					credit_type_id bigint REFERENCES credit_types(id) DEFAULT NULL,
+					amount bigint NOT NULL DEFAULT 0,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE INDEX index_credits_on_user_id ON credits USING btree (user_id);
+			`,
+		},
 	}
 }
