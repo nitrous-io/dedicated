@@ -219,6 +219,8 @@ var _ = Describe("models/host", func() {
 
 	Describe("CountPreprovisionedOrphans()", func() {
 		var hs2 *HostStack
+		fv := "1.0.69-deadbeef-88"
+		dv := "1.4.1-nitrous"
 
 		BeforeEach(func() {
 			var err error
@@ -231,22 +233,22 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned, state)
-				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
-				u.ID, "preprovisioned-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, true, host.StateRunning)
+				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				u.ID, "preprovisioned-host-1", hs.R.ID, hs.P.ID, fv, dv, hs.PT.ID, true, host.StateRunning)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned, state)
-				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
-				u.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, true, host.StateRunning)
+				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				u.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, fv, dv, hs.PT.ID, true, host.StateRunning)
 			Expect(err).To(BeNil())
 
 			hs2, err = CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned, state)
-				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
-				u.ID, "preprovisioned-host-3", hs2.R.ID, hs2.P.ID, hs2.PT.ID, true, host.StateOrphan)
+				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				u.ID, "preprovisioned-host-3", hs2.R.ID, hs2.P.ID, fv, dv, hs2.PT.ID, true, host.StateOrphan)
 			Expect(err).To(BeNil())
 		})
 
