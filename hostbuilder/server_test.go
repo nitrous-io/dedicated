@@ -16,6 +16,7 @@ import (
 	. "github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/host/dummy"
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -73,7 +74,7 @@ var _ = Describe("hostbuilder", func() {
 			Expect(resp.StatusCode).To(Equal(200))
 
 			decoder := json.NewDecoder(resp.Body)
-			var info host.Info
+			var info Response
 			for {
 				err := decoder.Decode(&info)
 				if err != nil {
@@ -84,6 +85,7 @@ var _ = Describe("hostbuilder", func() {
 			Expect(info.ID).To(Equal("123"))
 			Expect(info.IPAddress).To(Equal(h.IPAddress))
 			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
+			Expect(info.State).To(Equal(state.Running.String()))
 		})
 	})
 
@@ -105,16 +107,16 @@ var _ = Describe("hostbuilder", func() {
 			Expect(resp.StatusCode).To(Equal(200))
 
 			decoder := json.NewDecoder(resp.Body)
-			var info host.Info
+			var info Response
 			for {
 				err := decoder.Decode(&info)
 				if err != nil {
 					break
 				}
 			}
-			// get the final result
 			Expect(info.IPAddress).To(Equal(h.IPAddress))
 			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
+			Expect(info.State).To(Equal(state.Running.String()))
 		})
 	})
 
@@ -153,9 +155,11 @@ var _ = Describe("hostbuilder", func() {
 
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).To(BeNil())
-			var info host.Info
+			var info Response
 			json.Unmarshal(body, &info)
+			Expect(info.IPAddress).To(Equal(h.IPAddress))
 			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
+			Expect(info.State).To(Equal(state.Running.String()))
 		})
 	})
 })

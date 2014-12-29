@@ -74,6 +74,7 @@ type Response struct {
 	ID             string `json:"id,omitempty"`
 	IPAddress      string `json:"ip_address,omitempty"`
 	FreighterdPort uint16 `json:"freighterd_port,omitempty"`
+	State          string `json:"state,omitempty"`
 	Stream         string `json:"stream,omitempty"`
 	Error          string `json:"error,omitempty"`
 }
@@ -188,6 +189,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		ID:             info.ID,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		State:          info.State.String(),
 	}
 	pw.WriteResponse(resp)
 
@@ -224,6 +226,7 @@ func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
 		ID:             info.ID,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		State:          info.State.String(),
 	}
 	pw.WriteResponse(resp)
 	return nil
@@ -278,6 +281,7 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 		ID:             info.ID,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		State:          info.State.String(),
 	}
 	writeResponse(w, resp)
 	return nil
