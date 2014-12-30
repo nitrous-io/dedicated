@@ -266,28 +266,25 @@ App.IdeSidebarController = Em.ArrayController.extend
   beginUpload: ->
     uploadDialog = @get 'uploadDialog'
     if uploadDialog && uploadDialog.get('length')
-      App.authToken.obtain 'rainbow', (err, authToken) ->
-        return if err
+      container = App.get('container')
+      container.requestToken(["upload"]).then (tokenResp) =>
         uploadDialog.set 'uploading', true
-        uploadDialog.set 'authToken', authToken
+        uploadDialog.set 'authToken', tokenResp.token
         uploadDialog.forEach (upload) ->
           upload.submit()
+      , (jqxhr) ->
+          App.postError(jqxhr.responseJSON, 'Could not upload files, please try again.')
     else
       @set 'uploadDialog', null
 
-  sendUploadToken: (path, token) ->
-    opsSocket = @get 'opsSocket'
-    opsSocket.sendUploadToken path, token, _.bind(@didSendUploadToken, this)
-
-  didSendUploadToken: (err, absolutePath) ->
-    path = App.Path.create absolutePath: absolutePath
-    this.refreshPath path.get('parentAbsolutePath')
-    this.didFinishAnUpload()
-
-  didFinishAnUpload: ->
+  didFinishAnUpload: (path) ->
+    if path
+      path = App.Path.create absolutePath: path
+      this.refreshPath path.get('parentAbsolutePath')
     uploadDialog = @get 'uploadDialog'
     if uploadDialog && uploadDialog.get 'completed'
       App.util.mixpanel 'Uploaded File'
+      uploadDialog.set('hide', true)
       @set 'uploadDialog', null
 
   confirmDelete: (path) ->

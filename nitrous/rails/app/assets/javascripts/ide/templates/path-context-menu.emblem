@@ -51,12 +51,9 @@ ul.dropdown-menu
       li
         a href='#' click='didClickDownloadFile target="view"'
           | Download &ldquo;#{name}&rdquo;
-      li.disabled
-        a.noclick href='#'
+      li
+        a href='#' click='didClickUploadFiles target="view"'
           | Upload Files to &ldquo;#{name}&rdquo;...
-      /li
-        /a href='#' click='didClickUploadFiles target="view"'
-          /| Upload Files to &ldquo;#{name}&rdquo;...
       li.separator
       li
         a href='#' click='didClickSetFolderAsRoot target="view"'
