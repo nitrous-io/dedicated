@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -31,7 +32,8 @@ func ItemDescription(i *InvoiceItem, hst *host.Host) string {
 	if hst.State == host.StateTerminated {
 		state = " (terminated)"
 	}
-	return fmt.Sprintf("Application '%s'%s %d hours at %.2fc/hour", hst.Slug, state, i.Hours, i.HourlyCents())
+	prcnt := strings.TrimSuffix(fmt.Sprintf("%.3f", i.HourlyCents()), "0")
+	return fmt.Sprintf("Application '%s'%s %d hours at %sc/hour", hst.Slug, state, i.Hours, prcnt)
 }
 
 func FindAllForInvoice(d db.QueryReceiver, iID int64) ([]InvoiceItem, error) {
