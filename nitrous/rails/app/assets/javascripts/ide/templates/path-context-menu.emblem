@@ -17,12 +17,9 @@ ul.dropdown-menu
           a href='#' click='didClickDelete target="view"'
             | Delete &ldquo;#{name}&rdquo;
         li.separator
-        li.disabled
-          a.noclick href='#'
+        li
+          a href='#' click='didClickDownloadFile target="view"'
             | Download &ldquo;#{name}&rdquo;
-        /li
-          /a href='#' click='didClickDownloadFile target="view"'
-            /| Download &ldquo;#{name}&rdquo;
     if directory
       li
         a href='#' click='didClickRefresh target="view"'
@@ -51,6 +48,9 @@ ul.dropdown-menu
           a href='#' click='didClickDelete target="view"'
             | Delete &ldquo;#{name}&rdquo;
       li.separator
+      li
+        a href='#' click='didClickDownloadFile target="view"'
+          | Download &ldquo;#{name}&rdquo;
       li.disabled
         a.noclick href='#'
           | Upload Files to &ldquo;#{name}&rdquo;...
