@@ -749,7 +749,6 @@ func (s *Server) downloadContainerFile(w http.ResponseWriter, r *http.Request) e
 	localPath := r.FormValue("path")
 	fileName := filepath.Base(localPath) + ".tar"
 	w.Header().Set("Content-Disposition", contentDisposition(fileName))
-	w.Header().Set("Content-Type", "application/x-tar")
 	return s.provider.CopyFile(id, localPath, w)
 }
 
