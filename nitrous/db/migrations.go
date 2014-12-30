@@ -641,5 +641,12 @@ func init() {
 				CREATE UNIQUE INDEX index_invoice_items_on_stripe_id ON invoice_items USING btree (stripe_id);
 			`,
 		},
+		{
+			Version: "530",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN freighterd_version character varying(255) DEFAULT '' NOT NULL;
+				ALTER TABLE hosts ADD COLUMN docker_version character varying(255) DEFAULT '' NOT NULL;
+			`,
+		},
 	}
 }

@@ -34,6 +34,7 @@ var HostbuilderClient *hostbuilderclient.Hostbuilder
 var aesKey string
 var defaultAPTLocation string
 var defaultAPTDist string
+var fv, dv string
 
 var (
 	ErrPreprovisionerNotConfigured    = errors.New("pre-provisioner is not configured")
@@ -125,6 +126,16 @@ func init() {
 	defaultAPTDist = os.Getenv("DEFAULT_APT_DIST")
 	if defaultAPTDist == "" {
 		panic("DEFAULT_APT_DIST is not set")
+	}
+
+	fv = os.Getenv("FREIGHTERD_VERSION")
+	if fv == "" {
+		panic("provisioner: FREIGHTERD_VERSION is not set")
+	}
+
+	dv = os.Getenv("DOCKER_VERSION")
+	if dv == "" {
+		panic("provisioner: DOCKER_VERSION is not set")
 	}
 }
 
@@ -418,6 +429,8 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		Size:               sql.NullString{opts.Plan.Slug, true},
 		State:              host.StateBorn,
 		Preprovisioned:     opts.Preprovision,
+		FreighterdVersion:  fv,
+		DockerVersion:      dv,
 	}
 	if err := h.Validate(); err != nil {
 		return nil, &InvalidHostError{Err: err}

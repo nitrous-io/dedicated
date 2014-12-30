@@ -977,6 +977,69 @@ var _ = Describe("controllers/hosts", func() {
 			ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
+
+	Describe("PUT /api/v0/hosts/:slug/versions", func() {
+		var hs *HostStack
+		var params *url.Values
+		var err error
+
+		doRequest := func() {
+			req, err := NewAuthedRequest(t, "PUT", fmt.Sprintf("/api/v0/hosts/%s/versions", hs.H.Slug), params)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+
+			handler = svr.Router()
+			handler.ServeHTTP(res, req)
+		}
+
+		Context("when the user is not an admin", func() {
+			It("responds with 404 Not Found", func() {
+				hs, err = CreateHostStack(db, &HostStack{U: u})
+				Expect(err).To(BeNil())
+
+				params := &url.Values{}
+				params.Set("freighterd_version", "1.0.88-acecafe-42")
+				params.Set("docker_version", "1.2.3-nitrous")
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+
+		Context("when valid params are received and user is an admin", func() {
+			BeforeEach(func() {
+				_, err = db.Exec("UPDATE users SET admin = true WHERE id = $1", u.ID)
+				Expect(err).To(BeNil())
+
+				hs, err = CreateHostStack(db, &HostStack{U: u})
+				Expect(err).To(BeNil())
+
+				params = &url.Values{}
+				params.Set("freighterd_version", "1.0.88-acecafe-42")
+				params.Set("docker_version", "1.2.3-nitrous")
+
+				doRequest()
+			})
+
+			It("updates a host's versions record in the db", func() {
+				h, err := host.FindByID(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(h.FreighterdVersion).To(Equal("1.0.88-acecafe-42"))
+				Expect(h.DockerVersion).To(Equal("1.2.3-nitrous"))
+			})
+
+			It("responds with created and serialized host versions", func() {
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.FreighterdVersion).To(Equal("1.0.88-acecafe-42"))
+				Expect(j.Host.DockerVersion).To(Equal("1.2.3-nitrous"))
+			})
+		})
+
+	})
 })
 
 var (
