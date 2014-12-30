@@ -1893,7 +1893,7 @@ var _ = Describe("server", func() {
 		It("requires a valid container token", func() {
 			prov.VerifyTokenError = errors.New("invalid token")
 			token := "some token"
-			res := doRequest("test-container", token, "/home/action/workspace")
+			res := doRequest("test-container", token, "/home/nitrous/workspace")
 
 			Expect(prov.ReceivedID).To(Equal("test-container"))
 			Expect(prov.ReceivedToken).To(Equal(token))
@@ -1924,11 +1924,11 @@ var _ = Describe("server", func() {
 				{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning},
 				{ID: "bbb", Name: "bar", Image: "centos", ImageID: "def456", Host: "1.2.3.5", Gateway: "1.2.3.0", State: provider.ContainerStateStopped},
 			}
-			res := doRequest("aaa", "valid-token", "/home/action/workspace")
+			res := doRequest("aaa", "valid-token", "/home/nitrous/workspace")
 
 			contentDisposition := "attachment; filename='workspace.tar'; filename*=UTF-8''workspace.tar"
 			Expect(res.Header().Get("Content-Disposition")).To(Equal(contentDisposition))
-			Expect(prov.CopyFilePath).To(Equal("/home/action/workspace"))
+			Expect(prov.CopyFilePath).To(Equal("/home/nitrous/workspace"))
 		})
 	})
 
@@ -1950,7 +1950,7 @@ var _ = Describe("server", func() {
 		It("requires a valid container token", func() {
 			prov.VerifyTokenError = errors.New("invalid token")
 			token := "some token"
-			res := doRequest("test-container", token, "/home/action/workspace", nil)
+			res := doRequest("test-container", token, "/home/nitrous/workspace", nil)
 
 			Expect(prov.ReceivedID).To(Equal("test-container"))
 			Expect(prov.ReceivedToken).To(Equal(token))
@@ -1963,10 +1963,10 @@ var _ = Describe("server", func() {
 				{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning},
 				{ID: "bbb", Name: "bar", Image: "centos", ImageID: "def456", Host: "1.2.3.5", Gateway: "1.2.3.0", State: provider.ContainerStateStopped},
 			}
-			res := doRequest("aaa", "valid-token", "/home/action/workspace", map[string]string{"hello": "world"})
+			res := doRequest("aaa", "valid-token", "/home/nitrous/workspace", map[string]string{"hello": "world"})
 			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
 
-			Expect(prov.CopyFromHostLocation).To(Equal("/home/action/workspace"))
+			Expect(prov.CopyFromHostLocation).To(Equal("/home/nitrous/workspace"))
 			input := prov.CopyFromHostInput
 			output := bytes.NewBuffer(nil)
 			io.Copy(output, input["hello.txt"])

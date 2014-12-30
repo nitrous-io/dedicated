@@ -707,7 +707,7 @@ var _ = Describe("provider/docker", func() {
 					ch := make(chan struct{})
 					_, err = sshutil.WaitForSSH(
 						address,
-						"action",
+						"nitrous",
 						privKey,
 						500*time.Millisecond,
 						ch,
@@ -722,7 +722,7 @@ var _ = Describe("provider/docker", func() {
 					sshutil.MaxAttempts = 10
 					_, err = sshutil.WaitForSSH(
 						address,
-						"action",
+						"nitrous",
 						privKey,
 						500*time.Millisecond,
 						ch,
@@ -787,7 +787,7 @@ var _ = Describe("provider/docker", func() {
 			configJSON := `{
 				"Env": [
 					"NITROUS_CMD=echo hello world > $HOME/test-output",
-					"NITROUS_USER=action"
+					"NITROUS_USER=nitrous"
 				]
 			}`
 			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
@@ -797,7 +797,7 @@ var _ = Describe("provider/docker", func() {
 			// Give the docker exec command some time to run.
 			time.Sleep(50 * time.Millisecond)
 
-			out, err := exec.Command("docker", "exec", info.ID, "cat", "/home/action/test-output").CombinedOutput()
+			out, err := exec.Command("docker", "exec", info.ID, "cat", "/home/nitrous/test-output").CombinedOutput()
 			Expect(string(out)).To(ContainSubstring(`hello world`))
 		})
 
@@ -806,7 +806,7 @@ var _ = Describe("provider/docker", func() {
 			configJSON := `{
 				"Env": [
 					"NITROUS_CMD=echo $TEST_ENV > $HOME/test-output",
-					"NITROUS_USER=action",
+					"NITROUS_USER=nitrous",
 					"TEST_ENV=it works"
 				]
 			}`
@@ -817,7 +817,7 @@ var _ = Describe("provider/docker", func() {
 			// Give the docker exec command some time to run.
 			time.Sleep(50 * time.Millisecond)
 
-			out, err := exec.Command("docker", "exec", info.ID, "cat", "/home/action/test-output").CombinedOutput()
+			out, err := exec.Command("docker", "exec", info.ID, "cat", "/home/nitrous/test-output").CombinedOutput()
 			Expect(string(out)).To(Equal("it works\n"))
 		})
 
@@ -832,7 +832,7 @@ var _ = Describe("provider/docker", func() {
 			configJSON := `{
 				"Env": [
 					"NITROUS_CMD=echo $ETC_PROFILE_VAR > $HOME/test-output",
-					"NITROUS_USER=action"
+					"NITROUS_USER=nitrous"
 				]
 			}`
 			info, err := prov.CreateStart(name, img[0], secret, configJSON)
@@ -842,7 +842,7 @@ var _ = Describe("provider/docker", func() {
 			// Give the docker exec command some time to run.
 			time.Sleep(50 * time.Millisecond)
 
-			out, err := exec.Command("docker", "exec", info.ID, "cat", "/home/action/test-output").CombinedOutput()
+			out, err := exec.Command("docker", "exec", info.ID, "cat", "/home/nitrous/test-output").CombinedOutput()
 			Expect(string(out)).To(Equal("works\n"))
 		})
 	})
@@ -1678,7 +1678,7 @@ var _ = Describe("provider/docker", func() {
 				"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 				"container=docker",
 				"NITROUS_IMAGE_VERSION=2",
-				"NITROUS_USERNAME=action",
+				"NITROUS_USERNAME=nitrous",
 				"NITROUS_SSH_ENABLED=true",
 			}))
 			Expect(img.Config.Cmd).To(Equal([]string{"/sbin/init", "--default-console", "none"}))
