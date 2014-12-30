@@ -138,7 +138,7 @@ func (h *Host) Info() (*host.Info, error) {
 		return nil, errors.New("Invalid ec2 instance")
 	}
 	info := &host.Info{
-		Provider:  "amazon",
+		Provider:  h.DriverName(),
 		ID:        h.instance.InstanceId,
 		IPAddress: h.instance.PublicIpAddress,
 	}
@@ -146,7 +146,15 @@ func (h *Host) Info() (*host.Info, error) {
 }
 
 func (h *Host) Restart() (*host.Info, error) {
-	panic("amazon provider does not support restart yet")
+	panic("amazon provider does not support Restart yet")
+}
+
+func (h *Host) List() ([]*host.Info, error) {
+	panic("amazon provider does not support List yet")
+}
+
+func (h *Host) DriverName() string {
+	return "amazon"
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {

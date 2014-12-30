@@ -12,6 +12,7 @@ import (
 	"github.com/digitalocean/godo"
 	"github.com/nitrous-io/dedicated/hostbuilder/host/digitalocean"
 	dotest "github.com/nitrous-io/dedicated/hostbuilder/pkg/dotestv2"
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -190,6 +191,28 @@ var _ = Describe("host/digitalocean", func() {
 			Expect(err).ToNot(BeNil(), "expect error when DO failed to process request")
 		})
 	})
+
+	Describe("List", func() {
+		It("returns all droplets", func() {
+			s.AddResponse("GET", "droplets", dotest.NewResponse(200, allDroplets))
+
+			h := digitalocean.Host{Config: nil, Client: c}
+
+			hosts, err := h.List()
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(2))
+
+			h1, h2 := hosts[0], hosts[1]
+			Expect(h1.ID).To(Equal("20"))
+			Expect(h1.IPAddress).To(Equal("127.0.0.20"))
+			Expect(h1.State).To(Equal(state.Running))
+			Expect(h2.ID).To(Equal("21"))
+			Expect(h2.IPAddress).To(Equal("127.0.0.22"))
+			Expect(h2.State).To(Equal(state.Running))
+
+			Expect(len(s.Requests["GET"]["droplets"])).To(Equal(1))
+		})
+	})
 })
 
 // fixtures
@@ -336,6 +359,101 @@ var (
 			"backup_ids": [ ],
 			"snapshot_ids": [ ]
 		}
+	}
+	`
+
+	allDroplets = `
+	{
+		"droplets": [
+			{
+				"id": 20,
+				"name": "test.example.com",
+				"memory": 512,
+				"vcpus": 1,
+				"disk": 20,
+				"region": {
+					"slug": "nyc1",
+					"name": "New York",
+					"sizes": [ "1gb", "512mb" ],
+					"available": true,
+					"features": [ "virtio", "private_networking", "backups", "ipv6" ]
+				},
+				"image": {
+					"id": 119192817,
+					"name": "Ubuntu 13.04",
+					"distribution": "ubuntu",
+					"slug": "ubuntu1304",
+					"public": true,
+					"regions": [ "nyc1" ],
+					"created_at": "2014-09-05T02:02:05Z"
+				},
+				"size": {
+					"slug": "512mb",
+					"transfer": 1,
+					"price_monthly": 5.0,
+					"price_hourly": 0.00744
+				},
+				"locked": false,
+				"status": "active",
+				"networks": {
+					"v4": [ { "ip_address": "127.0.0.20", "netmask": "255.255.255.0", "gateway": "127.0.0.21", "type": "public" } ],
+					"v6": [ { "ip_address": "2001::14", "cidr": 124, "gateway": "2400:6180:0000:00D0:0000:0000:0009:7000", "type": "public" } ]
+				},
+				"kernel": {
+					"id": 485432986,
+					"name": "DO-recovery-static-fsck",
+					"version": "3.8.0-25-generic"
+				},
+				"created_at": "2014-09-05T02:02:05Z",
+				"features": [ "ipv6" ],
+				"backup_ids": [ ],
+				"snapshot_ids": [ ]
+			},
+			{
+				"id": 21,
+				"name": "test2.example.com",
+				"memory": 512,
+				"vcpus": 1,
+				"disk": 20,
+				"region": {
+					"slug": "nyc1",
+					"name": "New York",
+					"sizes": [ "1gb", "512mb" ],
+					"available": true,
+					"features": [ "virtio", "private_networking", "backups", "ipv6" ]
+				},
+				"image": {
+					"id": 119192818,
+					"name": "Ubuntu 13.04",
+					"distribution": "ubuntu",
+					"slug": "ubuntu1304",
+					"public": true,
+					"regions": [ "nyc1" ],
+					"created_at": "2014-09-05T02:04:05Z"
+				},
+				"size": {
+					"slug": "512mb",
+					"transfer": 1,
+					"price_monthly": 5.0,
+					"price_hourly": 0.00744
+				},
+				"locked": false,
+				"status": "active",
+				"networks": {
+					"v4": [ { "ip_address": "127.0.0.22", "netmask": "255.255.255.0", "gateway": "127.0.0.21", "type": "public" } ],
+					"v6": [ { "ip_address": "2001::15", "cidr": 124, "gateway": "2400:6180:0000:00D0:0000:0000:0009:7000", "type": "public" } ]
+				},
+				"kernel": {
+					"id": 485432986,
+					"name": "DO-recovery-static-fsck",
+					"version": "3.8.0-25-generic"
+				},
+				"created_at": "2014-09-05T02:04:05Z",
+				"features": [ "ipv6" ],
+				"backup_ids": [ ],
+				"snapshot_ids": [ ]
+			}
+		]
 	}
 	`
 
