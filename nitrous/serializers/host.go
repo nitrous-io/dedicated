@@ -55,3 +55,11 @@ func SerializeHost(h *host.Host) *Host {
 	}
 	return serialized
 }
+
+func SerializeHosts(hosts []host.Host) []*Host {
+	ret := make([]*Host, len(hosts))
+	for i, h := range hosts {
+		ret[i] = SerializeHost(&h)
+	}
+	return ret
+}
