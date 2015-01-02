@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"testing"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -78,7 +78,7 @@ var _ = Describe("controllers/passwords", func() {
 
 		Describe("when a user exist for the given login", func() {
 			It("sends the user an email with password reset instructions", func() {
-				os.Setenv("WEB_HOSTNAME", "nitrous.example")
+				envvars.WebHostname = "nitrous.example"
 
 				res := doRequest(u.Email)
 				Expect(res.Code).To(Equal(http.StatusOK))

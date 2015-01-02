@@ -1,10 +1,10 @@
 package analytics
 
 import (
-	"os"
 	"strconv"
 	"strings"
 
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/go-mixpanel"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -17,7 +17,7 @@ var (
 )
 
 func init() {
-	mixpanelToken = os.Getenv("MIXPANEL_TOKEN")
+	mixpanelToken = envvars.MixpanelToken
 	if mixpanelToken == "" || strings.HasPrefix(mixpanelToken, "disable") {
 		disabled = true
 	}

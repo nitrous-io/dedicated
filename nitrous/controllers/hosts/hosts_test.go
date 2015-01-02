@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"testing"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -42,7 +42,7 @@ func init() {
 }
 
 func hostname(slug string) string {
-	return fmt.Sprintf("%s.%s", slug, os.Getenv("HOST_HOSTNAME"))
+	return fmt.Sprintf("%s.%s", slug, envvars.HostHostname)
 }
 
 func Test(t *testing.T) {
@@ -589,7 +589,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.FreighterdPort).To(Equal(int64(0)))
 				Expect(j.Host.Size).To(Equal(""))
 				Expect(j.Host.State).To(Equal(host.StateTerminated))
-				Expect(j.Host.Hostname).To(Equal(fmt.Sprintf("honeybadger.%s", os.Getenv("HOST_HOSTNAME"))))
+				Expect(j.Host.Hostname).To(Equal(hostname("honeybadger")))
 				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
 				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
 				Expect(j.Host.CreatedAt).NotTo(BeNil())

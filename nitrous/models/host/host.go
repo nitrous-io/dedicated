@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -45,11 +45,11 @@ const (
 var rootHostname, proxyHostname string
 
 func init() {
-	rootHostname = os.Getenv("HOST_HOSTNAME")
+	rootHostname = envvars.HostHostname
 	if rootHostname == "" {
 		log.Fatalf("HOST_HOSTNAME not set")
 	}
-	proxyHostname = os.Getenv("PROXY_HOSTNAME")
+	proxyHostname = envvars.ProxyHostname
 	if proxyHostname == "" {
 		log.Fatalf("PROXY_HOSTNAME not set")
 	}

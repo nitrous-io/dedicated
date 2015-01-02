@@ -7,7 +7,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"os"
+
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -17,11 +18,11 @@ var caCertPath, caKeyPath string
 // FIXME Move the env var assumptions and panics to callers where necessary.
 // These don't belong in a library.
 func init() {
-	caKeyPath = os.Getenv("CA_KEY_PATH")
+	caKeyPath = envvars.CAKeyPath
 	if caKeyPath == "" {
 		panic("CA_KEY_PATH is not set")
 	}
-	caCertPath = os.Getenv("CA_CERT_PATH")
+	caCertPath = envvars.CACertPath
 	if caCertPath == "" {
 		panic("CA_CERT_PATH is not set")
 	}

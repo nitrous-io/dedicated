@@ -2,7 +2,6 @@ package server
 
 import (
 	"net/http/pprof"
-	"os"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/appsettings"
@@ -26,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	mw "github.com/nitrous-io/dedicated/nitrous/middleware"
 )
 
@@ -66,7 +66,7 @@ func (s *Server) drawRouteData(method string, auth bool, routes map[string]route
 func (s *Server) drawRoutes() {
 	s.route("/", mw.Call("home.Index", home.Index), "GET")
 
-	if os.Getenv("DEBUG") == "true" {
+	if envvars.Debug == "true" {
 		s.router.HandleFunc("/debug/pprof/{path:.*}", pprof.Index).Methods("GET")
 		s.routeJSON("/debug", s.debugHandler, "GET")
 	}

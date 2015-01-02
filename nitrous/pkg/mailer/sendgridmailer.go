@@ -3,9 +3,9 @@ package mailer
 import (
 	"html"
 	"log"
-	"os"
 	"strings"
 
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/sendgrid/sendgrid-go"
 )
 
@@ -17,7 +17,7 @@ var (
 )
 
 func init() {
-	sendgridUsername = os.Getenv("SENDGRID_USERNAME")
+	sendgridUsername = envvars.SendgridUsername
 	if sendgridUsername == "" {
 		log.Fatalln("SENDGRID_USERNAME not set")
 	} else if strings.HasPrefix(sendgridUsername, "disable") {
@@ -25,7 +25,7 @@ func init() {
 		disabled = true
 		return
 	}
-	sendgridPassword = os.Getenv("SENDGRID_PASSWORD")
+	sendgridPassword = envvars.SendgridPassword
 	if sendgridPassword == "" {
 		log.Fatalln("SENDGRID_PASSWORD not set")
 	}

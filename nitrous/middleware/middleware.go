@@ -3,12 +3,12 @@ package middleware
 import (
 	"errors"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -97,7 +97,7 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 
 	// FIXME ADMINONLY
 	// hacky WEB_HOSTNAME workaround but would have to fix all tests otherwise
-	if os.Getenv("WEB_HOSTNAME") == "pro.nitrous.io" && !u.Admin {
+	if envvars.WebHostname == "pro.nitrous.io" && !u.Admin {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="beta_closed"`)
 		return mh.Error(httperror.New(http.StatusBadRequest, "beta_closed", "The current private beta phase has ended.  The next beta phase will open in Jan 2015."), label)
 	}
