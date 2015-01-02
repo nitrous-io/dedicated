@@ -683,5 +683,12 @@ func init() {
 				ALTER TABLE invoice_items DROP CONSTRAINT invoice_items_host_id_fkey;
 				`,
 		},
+		{
+			Version: "560",
+			Up: `
+				ALTER TABLE hosts ALTER COLUMN freighterd_version DROP DEFAULT;
+				ALTER TABLE hosts ALTER COLUMN docker_version DROP DEFAULT;
+			`,
+		},
 	}
 }
