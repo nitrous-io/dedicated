@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/pkg/msgproto"
+	"github.com/nitrous-io/dedicated/pkg/multipartsio"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 
 	"github.com/nitrous-io/nitrous-common/wsconn"
@@ -767,13 +768,17 @@ func (s *Server) uploadContainerFile(w http.ResponseWriter, r *http.Request) err
 	defer r.MultipartForm.RemoveAll()
 
 	location := r.FormValue("location")
-	input := make(map[string][]provider.UploadHeader)
+	input := make(map[string]io.Reader)
 	for name, fhs := range r.MultipartForm.File {
-		uh := make([]provider.UploadHeader, len(fhs))
-		for i, f := range fhs {
-			uh[i] = provider.UploadHeader(f)
+		// we only fetch the fisrt file for each key similar to how FormFile
+		// works
+		if len(fhs) > 0 {
+			part := fhs[0]
+			if part.Filename != "" {
+				name = part.Filename
+			}
+			input[name] = multipartsio.NewPartsReader(part)
 		}
-		input[name] = uh
 	}
 	return s.provider.CopyFromHost(info.ID, location, input)
 }

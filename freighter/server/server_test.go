@@ -1,9 +1,11 @@
 package server_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -1908,7 +1910,6 @@ var _ = Describe("server", func() {
 
 			contentDisposition := "attachment; filename='workspace.tar'; filename*=UTF-8''workspace.tar"
 			Expect(res.Header().Get("Content-Disposition")).To(Equal(contentDisposition))
-			Expect(res.Header().Get("Content-Type")).To(Equal("application/x-tar"))
 			Expect(prov.CopyFilePath).To(Equal("/home/action/workspace"))
 		})
 	})
@@ -1946,6 +1947,10 @@ var _ = Describe("server", func() {
 			}
 			doRequest("aaa", "valid-token", "/home/action/workspace", map[string]string{"hello": "world"})
 			Expect(prov.CopyFromHostLocation).To(Equal("/home/action/workspace"))
+			input := prov.CopyFromHostInput
+			output := bytes.NewBuffer(nil)
+			io.Copy(output, input["hello.txt"])
+			Expect(output.String()).To(Equal("world"), "expect input to have file contents")
 		})
 	})
 
