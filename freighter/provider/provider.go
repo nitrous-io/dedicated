@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"regexp"
 	"time"
 )
@@ -36,11 +35,6 @@ var (
 	ErrTokenExpired            = errors.New("Verification expired, please re-try your request")
 	ErrUnverifiable            = errors.New("Container not configured for verification")
 )
-
-// UploadHeader describes part of an uploaded file stored in memory or on disk
-type UploadHeader interface {
-	Open() (multipart.File, error)
-}
 
 type Provider interface {
 	// VerifyToken verifies that the given token has the required permissions
@@ -98,7 +92,7 @@ type Provider interface {
 	CopyFile(id string, path string, out io.Writer) error
 	// Copy files from host to container. input is a map of filename to its
 	// parts (which interface can be satisfied by multipart.FileHeader)
-	CopyFromHost(id string, location string, input map[string][]UploadHeader) error
+	CopyFromHost(id string, location string, input map[string]io.Reader) error
 }
 
 // StartFailedError is returned when a container is created successfully but

@@ -994,7 +994,7 @@ func (p *DockerProvider) CopyFile(id string, location string, out io.Writer) err
 // CopyFromHost copies files from host into a container
 // TODO: docker should also provide this fucntionality so we dont have to
 // relies on cops/cfs for this
-func (p *DockerProvider) CopyFromHost(id string, location string, input map[string][]provider.UploadHeader) error {
+func (p *DockerProvider) CopyFromHost(id string, location string, input map[string]io.Reader) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
@@ -1007,19 +1007,18 @@ func (p *DockerProvider) CopyFromHost(id string, location string, input map[stri
 
 	// for each uploaded file, create a new file in the specified location
 	// and copy the parts over
-	for filename, fhs := range input {
+	for filename, w := range input {
 		f, err := rfs.Create(filename)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
-		for _, ph := range fhs {
-			if err := copyPart(f, ph); err != nil {
-				return err
-			}
+		_, err = io.Copy(f, w)
+		if err != nil {
+			f.Close()
+			return err
 		}
+		f.Close()
 	}
-
 	return nil
 }
 
@@ -1492,14 +1491,4 @@ func gatewayFromIPOutput(output []byte) (string, error) {
 		return "", errors.New("no inet ip address found")
 	}
 	return string(match[1]), nil
-}
-
-func copyPart(f *os.File, ph provider.UploadHeader) error {
-	pf, err := ph.Open()
-	if err != nil {
-		return err
-	}
-	defer pf.Close()
-	_, err = io.Copy(f, pf)
-	return err
 }

@@ -154,7 +154,7 @@ type MockProvider struct {
 	CopyFromHostCalled   bool
 	CopyFromHostError    error
 	CopyFromHostLocation string
-	CopyFromHostInput    map[string][]provider.UploadHeader
+	CopyFromHostInput    map[string]io.Reader
 
 	Containers []*provider.ContainerInfo
 	PublicKeys map[string]string
@@ -429,7 +429,7 @@ func (p *MockProvider) CopyFile(id string, path string, output io.Writer) error 
 	return p.CopyFileError
 }
 
-func (p *MockProvider) CopyFromHost(id string, location string, input map[string][]provider.UploadHeader) error {
+func (p *MockProvider) CopyFromHost(id string, location string, input map[string]io.Reader) error {
 	p.ReceivedID = id
 	p.CopyFromHostCalled = true
 	p.CopyFromHostLocation = location
