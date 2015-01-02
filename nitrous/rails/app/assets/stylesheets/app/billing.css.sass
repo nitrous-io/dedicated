@@ -1,18 +1,35 @@
 @import 'variables'
 
-.invoice-item
-  .heading
-    display: table
-    width: 100%
+#add-card-view
+  .ui.flex.horizontal
+    .ui.input-group
+      &:first-of-type
+        margin-right: 8px
+      &:last-of-type
+        margin-left: 8px
 
-    h4, .payment-status
-      display: table-cell
+  #card-number
+    background-repeat: no-repeat
+    background-position: 99%
 
-    .payment-status
-      text-align: right
+#billing-view
+  #card-type
+    background-repeat: no-repeat
+    padding-left: 36px
 
-      &.unpaid
-        color: $red400
+  .invoice-item
+    .heading
+      display: table
+      width: 100%
 
-  tr.total-charge
-    font-weight: bold
+      h4, .payment-status
+        display: table-cell
+
+      .payment-status
+        text-align: right
+
+        &.unpaid
+          color: $red400
+
+    tr.total-charge
+      font-weight: bold

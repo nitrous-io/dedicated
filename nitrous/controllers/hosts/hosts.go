@@ -39,6 +39,7 @@ var (
 var HostbuilderClient *hostbuilderclient.Hostbuilder
 var defaultProvider string
 var aesKey string
+var fv, dv string
 
 func init() {
 	hostbuilderURL := os.Getenv("HOSTBUILDER_URL")
@@ -55,6 +56,16 @@ func init() {
 	defaultProvider = os.Getenv("DEFAULT_PROVIDER")
 	if defaultProvider == "" {
 		panic("DEFAULT_PROVIDER is not set")
+	}
+
+	fv := os.Getenv("FREIGHTERD_VERSION")
+	if fv == "" {
+		panic("FREIGHTERD_VERSION is not set")
+	}
+
+	dv := os.Getenv("DOCKER_VERSION")
+	if dv == "" {
+		panic("DOCKER_VERSION is not set")
 	}
 }
 
@@ -98,6 +109,24 @@ func Update(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	}
 
 	publishHostEvent(env, controllers.EventHostUpdated, h)
+	serializeHost(env, h)
+	return nil
+}
+
+func UpdateVersions(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if !env.User.Admin {
+		return httperror.New(http.StatusNotFound, "not_found", "not found")
+	}
+
+	fv := r.FormValue("freighterd_version")
+	dv := r.FormValue("docker_version")
+
+	err := h.UpdateVersions(env.DB, fv, dv)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
 	serializeHost(env, h)
 	return nil
 }

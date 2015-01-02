@@ -259,4 +259,43 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 			})
 		})
 	})
+
+	Describe("List()", func() {
+		It("returns a slice of hosts", func() {
+			prepareHandlers("GET", "/hosts", http.StatusOK, `{
+				"hosts": [
+					{
+						"provider": "digitalocean",
+						"id": "abcd",
+						"ip_address": "1.2.3.4",
+						"freighterd_port": 65333,
+						"state": "Running"
+					},
+					{
+						"provider": "digitalocean",
+						"id": "bcde",
+						"ip_address": "1.2.3.5",
+						"freighterd_port": 65333,
+						"state": "Running"
+					}
+				]
+			}`)
+			hb = hostbuilderclient.NewHostbuilder(srv.URL())
+
+			hosts, err := hb.List("digitalocean")
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(2))
+
+			h1, h2 := hosts[0], hosts[1]
+			Expect(h1.ID).To(Equal("abcd"))
+			Expect(h1.IPAddress).To(Equal("1.2.3.4"))
+			Expect(h1.FreighterdPort).To(Equal(uint16(65333)))
+			Expect(h1.State).To(Equal("Running"))
+
+			Expect(h2.ID).To(Equal("bcde"))
+			Expect(h2.IPAddress).To(Equal("1.2.3.5"))
+			Expect(h2.FreighterdPort).To(Equal(uint16(65333)))
+			Expect(h2.State).To(Equal("Running"))
+		})
+	})
 })

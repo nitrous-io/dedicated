@@ -15,6 +15,7 @@ import (
 
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
 )
 
 var (
@@ -111,10 +112,11 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	}
 
 	return &host.Info{
-		Provider:       "docker",
+		Provider:       h.DriverName(),
 		ID:             h.ID,
 		IPAddress:      "127.0.0.1",
 		FreighterdPort: uint16(getFreighterdPort(container)),
+		State:          getState(container),
 	}, nil
 }
 
@@ -132,11 +134,36 @@ func (h *Host) Info() (*host.Info, error) {
 	}
 
 	return &host.Info{
-		Provider:       "docker",
+		Provider:       h.DriverName(),
 		ID:             h.ID,
 		IPAddress:      "127.0.0.1",
 		FreighterdPort: uint16(getFreighterdPort(container)),
+		State:          getState(container),
 	}, nil
+}
+
+func (h *Host) List() ([]*host.Info, error) {
+	list, err := h.client.ListContainers(dockerclient.ListContainersOptions{All: true, Size: false})
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*host.Info, 0, len(list))
+	for _, cn := range list {
+		container, err := h.client.InspectContainer(cn.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		ret = append(ret, &host.Info{
+			Provider:       h.DriverName(),
+			ID:             cn.ID,
+			IPAddress:      "127.0.0.1",
+			FreighterdPort: uint16(getFreighterdPort(container)),
+			State:          getState(container),
+		})
+	}
+	return ret, nil
 }
 
 func (h *Host) Restart() (*host.Info, error) {
@@ -159,6 +186,10 @@ func (h *Host) Restart() (*host.Info, error) {
 	}
 
 	return h.Info()
+}
+
+func (h *Host) DriverName() string {
+	return "docker"
 }
 
 func (h *Host) createImage() (string, error) {
@@ -267,19 +298,22 @@ func (h *Host) start() (*host.Info, error) {
 }
 
 func getFreighterdPort(container *dockerclient.Container) uint16 {
-	var freighterdPort int = 0
-	var err error
-
 	freighterdPortMappings := container.NetworkSettings.Ports["65333/tcp"]
-	if len(freighterdPortMappings) == 1 {
-		freighterdPort, err = strconv.Atoi(freighterdPortMappings[0].HostPort)
-		if err != nil {
-			freighterdPort = 0
-		}
-	} else {
-		freighterdPort = 0
+	if len(freighterdPortMappings) != 1 {
+		return uint16(0)
+	}
+	freighterdPort, err := strconv.Atoi(freighterdPortMappings[0].HostPort)
+	if err != nil {
+		return uint16(0)
 	}
 	return uint16(freighterdPort)
+}
+
+func getState(container *dockerclient.Container) state.State {
+	if container.State.Running {
+		return state.Running
+	}
+	return state.Stopped
 }
 
 func init() {

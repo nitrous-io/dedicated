@@ -3,13 +3,16 @@ package host
 import (
 	"fmt"
 	"io"
+
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
 )
 
 type Info struct {
-	Provider       string `json:"provider"`
-	ID             string `json:"id"`
-	IPAddress      string `json:"ip_address"`
-	FreighterdPort uint16 `json:"freighterd_port"`
+	Provider       string      `json:"provider"`
+	ID             string      `json:"id"`
+	IPAddress      string      `json:"ip_address"`
+	FreighterdPort uint16      `json:"freighterd_port"`
+	State          state.State `json:"state"`
 }
 
 type Host interface {
@@ -18,6 +21,9 @@ type Host interface {
 	Destroy() error          // destroy the current host
 	Restart() (*Info, error) // reboot the current host
 	Info() (*Info, error)    // get current info of the host
+	List() ([]*Info, error)
+
+	DriverName() string
 }
 
 type NewHost func(defaultConfig map[string]string, config string) (Host, error)
