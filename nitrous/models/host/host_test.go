@@ -9,6 +9,7 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -39,6 +40,71 @@ var _ = Describe("models/host", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("FindAllByProvider()", func() {
+		var (
+			fv = "1.0.69-deadbeef-88"
+			dv = "1.4.1-nitrous"
+		)
+
+		It("returns all (unterminated) hosts of the given provider", func() {
+			// Terminate the host created with the shared host stack so we don't
+			// have to account for it.
+			err := hs.H.Delete(db)
+			Expect(err).To(BeNil())
+
+			u1 := &user.User{
+				Username: "arunthampi",
+				Email:    "arunthampi@gmail.com",
+				Password: "teh interview is osom",
+			}
+			err = WrapInTransaction(db, u1.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version)
+				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+				u1.ID, "aruns-second-host", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`, // Terminated host.
+				u1.ID, "aruns-first-host", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, time.Now())
+			Expect(err).To(BeNil())
+
+			// Create some pre-provisioned hosts.
+			u2 := &user.User{
+				Username: "pre-provisioner",
+				Email:    "pp@example.com",
+				Password: "pp1234",
+			}
+			err = WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				u2.ID, "preprovisioned-host-1", hs.R.ID, hs.P.ID, fv, dv, hs.PT.ID, true, host.StateRunning)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id,preprovisioned, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`, // Terminated host.
+				u2.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, fv, dv, hs.PT.ID, true, time.Now())
+			Expect(err).To(BeNil())
+
+			// Create a host belonging to a different provider.
+			_, err = CreateHostStack(db, &HostStack{
+				H:  &host.Host{Slug: "other-1"},
+				PT: &providertemplate.ProviderTemplate{Provider: "some-other-provider"},
+			})
+			Expect(err).To(BeNil())
+
+			hosts, err := host.FindAllByProvider(db, hs.PT.Provider)
+			Expect(err).To(BeNil())
+
+			Expect(hosts).To(HaveLen(2))
+			Expect(hosts[0].Slug).To(Equal("aruns-second-host"))
+			Expect(hosts[1].Slug).To(Equal("preprovisioned-host-1"))
+		})
 	})
 
 	Describe("FindAllByUser()", func() {
@@ -181,18 +247,18 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, preprovisioned)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+			(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, preprovisioned)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
 				u.ID, "preprovisioned-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, true)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned, state)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+			(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned, state)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
 				u.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, fv, dv, hs.PT.ID, true, host.StateRunning)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id,preprovisioned, terminated_at)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+			(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id,preprovisioned, terminated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
 				u.ID, "preprovisioned-host-3", hs.R.ID, hs.P.ID, fv, dv, hs.PT.ID, true, time.Now())
 			Expect(err).To(BeNil())
 

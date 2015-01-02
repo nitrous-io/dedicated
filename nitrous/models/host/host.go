@@ -84,6 +84,19 @@ type Host struct {
 	*ProviderTemplate
 }
 
+func FindAllByProvider(db *db.Database, provider string) ([]Host, error) {
+	hosts := []Host{}
+	err := db.Select(&hosts, `SELECT hosts.* FROM hosts
+		INNER JOIN provider_templates pt
+		  ON hosts.provider_template_id = pt.id
+		WHERE hosts.terminated_at IS NULL AND pt.provider = $1
+		ORDER BY id;`, provider)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
 func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
 	hosts := []Host{}
 	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE ORDER BY id;", user.ID)
