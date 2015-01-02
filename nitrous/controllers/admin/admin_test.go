@@ -1,16 +1,23 @@
 package admin_test
 
 import (
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -152,6 +159,245 @@ var _ = Describe("controllers/admin", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = "/api/v0/admin/switch_user"
 				authTokenInputs.Method = "POST"
+			})
+
+			test.ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("GET /api/v0/admin/hosts", func() {
+		doRequest := func(t *token.Token, params *url.Values) *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/admin/hosts", params)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		Context("when the requester is not an admin", func() {
+			It("responds with 404 Not Found", func() {
+				res := doRequest(t, nil)
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+
+		Context("when the requester is an admin", func() {
+			var (
+				hs1, hs2, hs3, hs4, hs5 *test.HostStack
+				provider                = "digitalocean"
+			)
+
+			BeforeEach(func() {
+				var err error
+
+				_, err = db.Exec(`UPDATE users SET admin=true WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				hs1, err = test.CreateHostStack(db, &test.HostStack{
+					H: &host.Host{
+						ProviderIdentifier: sql.NullString{String: "digitalocean-1", Valid: true},
+						State:              host.StateRunning,
+						Slug:               "ok-host-1",
+					},
+					PT: &providertemplate.ProviderTemplate{
+						Provider: provider,
+						Name:     "do-sgp-512mb",
+					},
+					U: u,
+				})
+				Expect(err).To(BeNil())
+
+				hs2, err = test.CreateHostStack(db, &test.HostStack{
+					H: &host.Host{
+						ProviderIdentifier: sql.NullString{String: "digitalocean-2", Valid: true},
+						State:              host.StateOrphan,
+						Slug:               "non-running-host-1",
+					},
+					U:  u,
+					PT: hs1.PT,
+					P:  hs1.P,
+					R:  hs1.R,
+				})
+				Expect(err).To(BeNil())
+
+				hs3, err = test.CreateHostStack(db, &test.HostStack{
+					H: &host.Host{
+						ProviderIdentifier: sql.NullString{String: "digitalocean-3", Valid: true},
+						State:              host.StateRunning,
+						Slug:               "dangling-host-1",
+					},
+					U:  u,
+					PT: hs1.PT,
+					P:  hs1.P,
+					R:  hs1.R,
+				})
+				Expect(err).To(BeNil())
+
+				// Create some pre-provisioned hosts.
+				u2 := &user.User{
+					Username: "pre-provisioner",
+					Email:    "pp@example.com",
+					Password: "pp1234",
+				}
+				hs4, err = test.CreateHostStack(db, &test.HostStack{
+					H: &host.Host{
+						ProviderIdentifier: sql.NullString{String: "digitalocean-4", Valid: true},
+						Slug:               "ok-host-2",
+						Preprovisioned:     true,
+						State:              host.StateRunning,
+					},
+					U:  u2,
+					PT: hs1.PT,
+					P:  hs1.P,
+					R:  hs1.R,
+				})
+				Expect(err).To(BeNil())
+				hs5, err = test.CreateHostStack(db, &test.HostStack{
+					H: &host.Host{
+						ProviderIdentifier: sql.NullString{String: "digitalocean-5", Valid: true},
+						Slug:               "terminated-host-1",
+						Preprovisioned:     true,
+						State:              host.StateRunning,
+					},
+					U:  u2,
+					PT: hs1.PT,
+					P:  hs1.P,
+					R:  hs1.R,
+				})
+				Expect(err).To(BeNil())
+				err = hs5.H.Delete(db) // Terminate this host.
+				Expect(err).To(BeNil())
+
+				// Fake hostbuilderclient response.
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				rt := &test.FakeRoundTripper{
+					Message: fmt.Sprintf(`{
+						"hosts": [
+							{
+								"provider": "%s",
+								"id": "digitalocean-1",
+								"ip_address": "1.2.3.4",
+								"freighterd_port": 65333,
+								"state": "Running"
+							},
+							{
+								"provider": "%s",
+								"id": "digitalocean-2",
+								"ip_address": "1.2.3.5",
+								"freighterd_port": 65333,
+								"state": "Starting"
+							},
+							{
+								"provider": "%s",
+								"id": "digitalocean-4",
+								"ip_address": "1.2.3.6",
+								"freighterd_port": 65333,
+								"state": "Running"
+							},
+							{
+								"provider": "%s",
+								"id": "digitalocean-666",
+								"ip_address": "1.6.6.6",
+								"freighterd_port": 65333,
+								"state": "Running"
+							}
+						]
+					}`, provider, provider, provider, provider),
+					Status: http.StatusOK,
+				}
+				hb.Client.Client.Transport = rt
+				admin.HostbuilderClient = hb
+			})
+
+			It("responds with hosts that are in Hostbuilder but not in the database", func() {
+				p := &url.Values{}
+				p.Set("provider", provider)
+				res := doRequest(t, p)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				var j struct {
+					UnaccountedHosts []struct {
+						Provider       string `json:"provider"`
+						ID             string `json:"id"`
+						IPAddress      string `json:"ip_address"`
+						FreighterdPort uint16 `json:"freighterd_port"`
+						State          string `json:"state"`
+					} `json:"unaccounted"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.UnaccountedHosts).To(HaveLen(1))
+				Expect(j.UnaccountedHosts[0].Provider).To(Equal(provider))
+				Expect(j.UnaccountedHosts[0].ID).To(Equal("digitalocean-666"))
+				Expect(j.UnaccountedHosts[0].IPAddress).To(Equal("1.6.6.6"))
+				Expect(j.UnaccountedHosts[0].FreighterdPort).To(Equal(uint16(65333)))
+				Expect(j.UnaccountedHosts[0].State).To(Equal("Running"))
+			})
+
+			It("responds with hosts that are not running in either the database or in Hostbuilder", func() {
+				p := &url.Values{}
+				p.Set("provider", provider)
+				res := doRequest(t, p)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				var j struct {
+					NonRunningHosts []*serializers.Host `json:"non_running"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.NonRunningHosts).To(HaveLen(1))
+				Expect(j.NonRunningHosts[0].ID).To(Equal(hs2.H.ID))
+			})
+
+			It("responds with hosts that are in the database and but not in Hostbuilder", func() {
+				p := &url.Values{}
+				p.Set("provider", provider)
+				res := doRequest(t, p)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				var j struct {
+					DanglingHosts []*serializers.Host `json:"dangling"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.DanglingHosts).To(HaveLen(1))
+				Expect(j.DanglingHosts[0].ID).To(Equal(hs3.H.ID))
+			})
+
+			It("responds with hosts that are ok", func() {
+				p := &url.Values{}
+				p.Set("provider", provider)
+				res := doRequest(t, p)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				var j struct {
+					OkHosts []*serializers.Host `json:"ok"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.OkHosts).To(HaveLen(2))
+				Expect(j.OkHosts[0].ID).To(Equal(hs1.H.ID))
+				Expect(j.OkHosts[1].ID).To(Equal(hs4.H.ID))
+			})
+
+			It("responds with HTTP 400 Bad Request when provider is not given", func() {
+				res := doRequest(t, nil)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_request"))
+				Expect(errDesc).To(Equal("provider is required"))
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/admin/hosts"
+				authTokenInputs.Method = "GET"
 			})
 
 			test.ItRequiresAuthToken(&authTokenInputs)
