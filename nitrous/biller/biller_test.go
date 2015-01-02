@@ -7,6 +7,7 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/biller"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
@@ -139,6 +140,23 @@ var _ = Describe("biller", func() {
 				Expect(i.Invoice.TotalCharge).To(Equal(int64(9)))
 			})
 
+			It("should discount the total cost of the invoice if there are credits available", func() {
+				_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 8);", u.ID)
+				Expect(err).To(BeNil())
+
+				i, err := b.CreateOrUpdateInvoice()
+				Expect(err).To(BeNil())
+				Expect(i).ToNot(BeNil())
+
+				Expect(i.Invoice.CreditAmount).To(Equal(int64(8)))
+				Expect(i.Invoice.TotalCharge).To(Equal(int64(1)))
+
+				c := &credit.Credit{}
+				err = db.QueryRowx("SELECT * FROM credits WHERE user_id = $1 AND invoice_id = $2", u.ID, i.Invoice.ID).StructScan(c)
+				Expect(err).To(BeNil())
+				Expect(c.Amount).To(Equal(int64(-8)))
+			})
+
 			It("should create invoice items for each host", func() {
 				i, err := b.CreateOrUpdateInvoice()
 				Expect(err).To(BeNil())
@@ -160,6 +178,24 @@ var _ = Describe("biller", func() {
 				Expect(item2.HourlyPrice).To(Equal(int64(500)))
 			})
 
+			It("should create credit invoice items for the invoice if a credit is applied", func() {
+				_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 8);", u.ID)
+				Expect(err).To(BeNil())
+
+				i, err := b.CreateOrUpdateInvoice()
+				Expect(err).To(BeNil())
+				Expect(i).ToNot(BeNil())
+				Expect(i.Items).To(HaveLen(3))
+
+				var credit invoiceitem.InvoiceItem
+				for _, it := range i.Items {
+					if it.Credit != 0 {
+						credit = it
+					}
+				}
+				Expect(credit.Credit).To(Equal(int64(8)))
+			})
+
 			It("should update an invoice if it exists for the same period", func() {
 				inv := &invoice.Invoice{
 					UserID:           u.ID,
@@ -177,6 +213,30 @@ var _ = Describe("biller", func() {
 				Expect(i.Invoice.ID).To(Equal(inv.ID))
 				Expect(i.Invoice.SuccessfulCharge).To(BeFalse())
 				Expect(i.Invoice.TotalCharge).To(Equal(int64(9)))
+			})
+
+			It("should cover additional credits if the total has increased", func() {
+				_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 8);", u.ID)
+				Expect(err).To(BeNil())
+
+				inv := &invoice.Invoice{
+					UserID:           u.ID,
+					TotalCharge:      0,
+					CreditAmount:     2,
+					PeriodStart:      &startTime,
+					PeriodEnd:        &endTime,
+					SuccessfulCharge: false,
+				}
+				err = inv.Insert(db)
+				Expect(err).To(BeNil())
+
+				i, err := b.CreateOrUpdateInvoice()
+				Expect(err).To(BeNil())
+				Expect(i).ToNot(BeNil())
+				Expect(i.Invoice.ID).To(Equal(inv.ID))
+				Expect(i.Invoice.SuccessfulCharge).To(BeFalse())
+				Expect(i.Invoice.TotalCharge).To(Equal(int64(1)))
+				Expect(i.Invoice.CreditAmount).To(Equal(int64(10)))
 			})
 
 			It("should update an invoice item if it exists", func() {
@@ -214,6 +274,42 @@ var _ = Describe("biller", func() {
 
 				Expect(invItem2.Hours).To(Equal(2))
 				Expect(invItem2.HourlyPrice).To(Equal(int64(2000)))
+			})
+
+			It("should insert additional credit invoice items to cover new credit", func() {
+				_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 8);", u.ID)
+				Expect(err).To(BeNil())
+
+				inv := &invoice.Invoice{
+					UserID:           u.ID,
+					TotalCharge:      0,
+					CreditAmount:     2,
+					PeriodStart:      &startTime,
+					PeriodEnd:        &endTime,
+					SuccessfulCharge: false,
+				}
+				err = inv.Insert(db)
+				Expect(err).To(BeNil())
+
+				invItem := &invoiceitem.InvoiceItem{
+					InvoiceID: inv.ID,
+					Credit:    2,
+				}
+
+				err = invItem.Insert(db)
+				Expect(err).To(BeNil())
+
+				i, err := b.CreateOrUpdateInvoice()
+				Expect(err).To(BeNil())
+				Expect(i).ToNot(BeNil())
+
+				var credit invoiceitem.InvoiceItem
+				for _, it := range i.Items {
+					if it.Credit > 2 {
+						credit = it
+					}
+				}
+				Expect(credit.Credit).To(Equal(int64(8)))
 			})
 		})
 	})
@@ -383,6 +479,36 @@ var _ = Describe("biller", func() {
 					err = db.QueryRowx("SELECT COUNT(*) FROM invoice_items WHERE id IN ($1, $2) AND stripe_id != ''", i.Items[0].ID, i.Items[1].ID).Scan(&count)
 					Expect(err).To(BeNil())
 					Expect(count).To(Equal(0))
+				})
+
+				It("should submit any invoice credit items", func() {
+					itm3 := invoiceitem.InvoiceItem{
+						InvoiceID: i.Invoice.ID,
+						Credit:    20,
+					}
+					Expect(itm3.Insert(db)).To(BeNil())
+					i.Items = append(i.Items, itm3)
+
+					fakeStripe.Responses = []string{
+						`{"object": "invoiceitem", "id": "ID1"}`,
+						`{"object": "invoiceitem", "id": "ID2"}`,
+						`{"object": "invoiceitem", "id": "ID3"}`,
+						`{"object": "invoice", "id": "ID0"}`,
+					}
+
+					err := b.ProcessStripe(i)
+					Expect(err).To(BeNil())
+					rr := fakeStripe.ReceivedRequests
+					Expect(rr).To(HaveLen(4))
+
+					Expect(rr[2]["amount"]).To(Equal("-20"))
+					Expect(rr[2]["customer"]).To(Equal("St17"))
+					Expect(rr[2]["desc"]).To(Equal("Credit of $0.20"))
+
+					var stripeID string
+					err = db.QueryRow(`SELECT stripe_id FROM invoice_items WHERE id = $1`, itm3.ID).Scan(&stripeID)
+					Expect(err).To(BeNil())
+					Expect(stripeID).To(Equal("ID3"))
 				})
 
 				It("should perform an invoice update if one of the invoice items has a Stripe ID", func() {

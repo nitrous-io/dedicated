@@ -101,6 +101,11 @@ var _ = Describe("models/invoiceitem", func() {
 			inv.HourlyPrice = 100
 			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' 900 hours at 0.10c/hour"))
 		})
+
+		It("should be a credit description when the item is a Credit", func() {
+			inv.Credit = 900
+			Expect(invoiceitem.ItemDescription(inv, nil)).To(Equal("Credit of $9.00"))
+		})
 	})
 
 	Describe("HourlyCents()", func() {
@@ -127,6 +132,13 @@ var _ = Describe("models/invoiceitem", func() {
 				HourlyPrice: 500,
 			}
 			Expect(inv.TotalCharge()).To(Equal(int64(1)))
+		})
+
+		It("should be negative form of the Credit value", func() {
+			inv := &invoiceitem.InvoiceItem{
+				Credit: 900,
+			}
+			Expect(inv.TotalCharge()).To(Equal(int64(-900)))
 		})
 	})
 
@@ -185,6 +197,7 @@ var _ = Describe("models/invoiceitem", func() {
 				InvoiceID:   in.ID,
 				HostID:      h.ID,
 				Hours:       24,
+				Credit:      20,
 				HourlyPrice: h.HourlyPrice,
 				StripeID:    sql.NullString{"Xcccs", true},
 			}
@@ -209,6 +222,7 @@ var _ = Describe("models/invoiceitem", func() {
 				InvoiceID:   in.ID,
 				HostID:      h.ID,
 				Hours:       24,
+				Credit:      20,
 				HourlyPrice: h.HourlyPrice,
 				StripeID:    sql.NullString{"Xcccs", true},
 			}
@@ -226,6 +240,7 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(i2.StripeID.String).To(Equal("Xcccs"))
 			i2.Hours = 95
 			i2.HourlyPrice = 5000
+			i2.Credit = 10
 			i2.StripeID.String = "Ok"
 
 			err = i2.Update(db)
@@ -237,6 +252,7 @@ var _ = Describe("models/invoiceitem", func() {
 
 			Expect(i3.Hours).To(Equal(95))
 			Expect(i3.HourlyPrice).To(Equal(int64(5000)))
+			Expect(i3.Credit).To(Equal(int64(10)))
 			Expect(i3.StripeID.String).To(Equal("Ok"))
 		})
 	})

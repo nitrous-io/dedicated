@@ -4,6 +4,7 @@ attr = SM.attr
 App.BillingUsage = klass = App.Model.extend
   totalCharge: attr('number', as: 'total_charge')
   totalChargeDollars: attr('number', as: 'total_charge_dollars')
+  availableCreditsDollars: attr('number', as: 'available_credits_dollars')
 
   _items: attr('object', as: 'items')
 
