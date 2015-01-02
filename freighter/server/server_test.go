@@ -1945,7 +1945,9 @@ var _ = Describe("server", func() {
 				{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning},
 				{ID: "bbb", Name: "bar", Image: "centos", ImageID: "def456", Host: "1.2.3.5", Gateway: "1.2.3.0", State: provider.ContainerStateStopped},
 			}
-			doRequest("aaa", "valid-token", "/home/action/workspace", map[string]string{"hello": "world"})
+			res := doRequest("aaa", "valid-token", "/home/action/workspace", map[string]string{"hello": "world"})
+			Expect(res.Header()["Access-Control-Allow-Origin"]).To(ContainElement("*"))
+
 			Expect(prov.CopyFromHostLocation).To(Equal("/home/action/workspace"))
 			input := prov.CopyFromHostInput
 			output := bytes.NewBuffer(nil)
