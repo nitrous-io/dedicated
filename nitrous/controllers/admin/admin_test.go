@@ -12,7 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/server"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -23,14 +23,12 @@ func Test(t *testing.T) {
 	RunSpecs(t, "controllers/admin")
 }
 
-var _ = Describe("controllers/", func() {
+var _ = Describe("controllers/admin", func() {
 	var (
 		db      *db.Database
-		svr     *server.Server
 		handler *mux.Router
-		res     *httptest.ResponseRecorder
 
-		authTokenInputs AuthTokenInputs
+		authTokenInputs test.AuthTokenInputs
 
 		u *user.User
 		t *token.Token
@@ -39,14 +37,13 @@ var _ = Describe("controllers/", func() {
 	BeforeEach(func() {
 		var err error
 
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer("", db, logger, nil)
-		authTokenInputs = AuthTokenInputs{Handler: svr.Router()}
+		svr := server.NewServer("", db, logger, nil)
+		authTokenInputs = test.AuthTokenInputs{Handler: svr.Router()}
 
 		handler = svr.Router()
-		res = httptest.NewRecorder()
 
 		u = &user.User{
 			Username: "foo",
@@ -54,7 +51,7 @@ var _ = Describe("controllers/", func() {
 			Name:     "foo",
 			Email:    "foo@example.com",
 		}
-		err = WrapInTransaction(db, u.Insert)
+		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 
 		t = &token.Token{
@@ -72,13 +69,12 @@ var _ = Describe("controllers/", func() {
 	})
 
 	Describe("POST /api/v0/admin/switch_user", func() {
-		doRequest := func(token string, params *url.Values) {
-			req, err := NewFormRequest("POST", "/api/v0/admin/switch_user", params)
+		doRequest := func(t *token.Token, params *url.Values) *httptest.ResponseRecorder {
+			req, err := test.NewAuthedFormRequest(t, "POST", "/api/v0/admin/switch_user", params)
 			Expect(err).To(BeNil())
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
+			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
+			return res
 		}
 
 		Context("when the requester is not an admin", func() {
@@ -86,51 +82,45 @@ var _ = Describe("controllers/", func() {
 				params := &url.Values{}
 				params.Set("login", "bar")
 
-				doRequest("valid-token", params)
+				res := doRequest(t, params)
 				Expect(res.Code).To(Equal(http.StatusNotFound))
 			})
 		})
 
 		Context("when the requester is an admin", func() {
 			BeforeEach(func() {
-				db.Exec(`UPDATE users SET admin=true WHERE id = $1;`, u.ID)
+				_, err := db.Exec(`UPDATE users SET admin=true WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
 			})
 
 			It("responds with a 400 Bad Request, if there's no matching user for the given login'", func() {
 				params := &url.Values{}
 				params.Set("login", "bar")
 
-				doRequest("valid-token", params)
+				res := doRequest(t, params)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 			})
 
 			Context("when there's a matching user for the given login", func() {
-				var (
-					u2 *user.User
-					j  map[string]interface{}
-				)
+				var u2 *user.User
 
 				BeforeEach(func() {
-					// create a user with username 'bar'
+					// Create a different user that we'll try to switch to.
 					u2 = &user.User{
 						Username: "bar",
 						Password: "123456",
 						Name:     "bar",
 						Email:    "bar@example.com",
 					}
-					err := WrapInTransaction(db, u2.Insert)
-					Expect(err).To(BeNil())
-
-					params := &url.Values{}
-					params.Set("login", "bar")
-					doRequest("valid-token", params)
-
-					j = map[string]interface{}{}
-					err = json.Unmarshal(res.Body.Bytes(), &j)
+					err := test.WrapInTransaction(db, u2.Insert)
 					Expect(err).To(BeNil())
 				})
 
 				It("adds a new token for the matching user", func() {
+					params := &url.Values{}
+					params.Set("login", "bar")
+					doRequest(t, params)
+
 					t, err := token.FindByUser(db, u2.ID)
 					Expect(err).To(BeNil())
 					Expect(t).NotTo(BeNil())
@@ -140,11 +130,18 @@ var _ = Describe("controllers/", func() {
 				})
 
 				It("responds with the token added for the matching user", func() {
-					t, err := token.FindByUser(db, u2.ID)
-					Expect(err).To(BeNil())
-					Expect(t).NotTo(BeNil())
+					params := &url.Values{}
+					params.Set("login", "bar")
+					res := doRequest(t, params)
 
 					Expect(res.Code).To(Equal(http.StatusOK))
+
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+
+					t, err := token.FindByUser(db, u2.ID)
+					Expect(err).To(BeNil())
 					Expect(j["token_type"]).To(Equal("Bearer"))
 					Expect(j["access_token"]).To(Equal(t.Token))
 				})
@@ -157,7 +154,7 @@ var _ = Describe("controllers/", func() {
 				authTokenInputs.Method = "POST"
 			})
 
-			ItRequiresAuthToken(&authTokenInputs)
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 })
