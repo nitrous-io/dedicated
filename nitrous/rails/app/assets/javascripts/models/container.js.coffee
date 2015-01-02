@@ -93,6 +93,25 @@ App.Container = klass = App.Model.extend
       App.PublicKey.fetch(containerId: id).value
   ).property 'id'
 
+  publicPorts: (->
+    return unless ports = @get 'config.port'
+    publicPorts = []
+
+    for port in ports
+      regex = ///
+        ^public:  # should be a public port binding
+        (\d+):    # host port
+        (\d+)     # container port
+        (\/tcp)?  # can be followed by tcp
+        $         # end of string
+      ///
+      # Only return ports exposed by user.
+      # ie. filter out default port redirections such as SSH
+      if (m = port.match(regex)) && m[1] == m[2]
+        publicPorts.push m[1]
+    publicPorts
+  ).property 'config.port.@each'
+
   loadConfig: ->
     new Em.RSVP.Promise (resolve, reject) =>
       @ajax('GET', 'config').then (json) =>

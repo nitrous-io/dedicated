@@ -9,6 +9,7 @@ App.AppTabBarComponent = Em.Component.extend
   metricsSelected:   Em.computed.equal 'selected', 'metrics'
   keysSelected:      Em.computed.equal 'selected', 'keys'
   snapshotsSelected: Em.computed.equal 'selected', 'snapshots'
+  portsSelected:     Em.computed.equal 'selected', 'ports'
 
   didInsertElement: ->
     @_super()

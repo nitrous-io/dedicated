@@ -5,5 +5,7 @@ li class={generalSelected:selected}
 if model.appContainer
   li class={keysSelected:selected}
     link-to 'app.keys' | SSH Keys
+  li class={portsSelected:selected}
+    link-to 'app.ports' | Ports
 /li class={snapshotsSelected:selected}
   /link-to 'app.snapshots' | Snapshots
