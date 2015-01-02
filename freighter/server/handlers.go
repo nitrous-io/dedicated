@@ -770,8 +770,7 @@ func (s *Server) uploadContainerFile(w http.ResponseWriter, r *http.Request) err
 	location := r.FormValue("location")
 	input := make(map[string]io.Reader)
 	for name, fhs := range r.MultipartForm.File {
-		// we only fetch the fisrt file for each key similar to how FormFile
-		// works
+		// we only fetch the fisrt file for each key similar to how FormFile works
 		if len(fhs) > 0 {
 			part := fhs[0]
 			if part.Filename != "" {

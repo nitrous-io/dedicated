@@ -233,7 +233,7 @@ func (s *Server) drawRoutes() {
 	// handle download/upload files to a container
 	s.route("/containers/{id}/download", s.wrapError(s.withContainerToken(s.downloadContainerFile, "download")), "GET")
 	s.route("/containers/{id}/upload", limitRequestSize(
-		s.wrapError(s.withContainerToken(s.uploadContainerFile, "upload")),
+		s.wrapError(s.cors(s.withContainerToken(s.uploadContainerFile, "upload"))),
 		MaxRequestSize), "POST")
 
 	s.secretRoute("/registry/auth", s.loginRegistry, "POST")
