@@ -263,16 +263,16 @@ func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, i *in
 	for _, invI := range items {
 		var matchingHost *host.Host
 		for indx, hst := range hosts {
-			if hst.ID == invI.HostID {
+			if hst.ID == invI.HostID.Int64 {
 				matchingHost = &hosts[indx]
 				break
 			}
 		}
 
 		// if this invoice item references a missing host and it is not a credit, raise an error
-		if matchingHost == nil && invI.Credit == 0 {
+		if matchingHost == nil && !invI.Credit.Valid {
 			tx.Rollback()
-			return fmt.Errorf("Could not locate host %d for invoice %d", invI.HostID, invI.ID)
+			return fmt.Errorf("Could not locate host %d for invoice %d", invI.HostID.Int64, invI.ID)
 		}
 
 		desc := invoiceitem.ItemDescription(&invI, matchingHost)
@@ -356,15 +356,15 @@ func (b *Biller) applyInvoiceItems(i *invoice.Invoice, isNew bool, items []invoi
 	// apply any credits that may be needed
 	totalAmountCredited := int64(0)
 	for _, itm := range existing {
-		if itm.Credit != 0 {
-			totalAmountCredited += itm.Credit
+		if itm.Credit.Valid {
+			totalAmountCredited += itm.Credit.Int64
 		}
 	}
 	if totalAmountCredited != i.CreditAmount {
 		// need to create invoice item to cover difference
 		itm := &invoiceitem.InvoiceItem{
 			InvoiceID: i.ID,
-			Credit:    i.CreditAmount - totalAmountCredited,
+			Credit:    sql.NullInt64{i.CreditAmount - totalAmountCredited, true},
 		}
 		if err := itm.Insert(tx); err != nil {
 			tx.Rollback()
@@ -501,9 +501,9 @@ func InvoiceItemsForUsages(usages []hosttransition.HostHourUsage) (int64, []invo
 	items := make([]invoiceitem.InvoiceItem, len(usages))
 	for indx, usage := range usages {
 		i := invoiceitem.InvoiceItem{
-			Hours:       usage.Hours(),
-			HourlyPrice: usage.HourlyPrice,
-			HostID:      usage.HostID,
+			Hours:       sql.NullInt64{int64(usage.Hours()), true},
+			HourlyPrice: sql.NullInt64{usage.HourlyPrice, true},
+			HostID:      sql.NullInt64{usage.HostID, true},
 		}
 		items[indx] = i
 		totalCharge += i.TotalCharge()

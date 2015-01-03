@@ -78,8 +78,8 @@ var _ = Describe("models/invoiceitem", func() {
 				Slug: "ABCDEF",
 			}
 			inv = &invoiceitem.InvoiceItem{
-				Hours:       900,
-				HourlyPrice: 1231,
+				Hours:       sql.NullInt64{900, true},
+				HourlyPrice: sql.NullInt64{1231, true},
 			}
 		})
 
@@ -93,17 +93,17 @@ var _ = Describe("models/invoiceitem", func() {
 		})
 
 		It("should handle up to 3 decimal places precision", func() {
-			inv.HourlyPrice = 1
+			inv.HourlyPrice = sql.NullInt64{1, true}
 			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' 900 hours at 0.001c/hour"))
 		})
 
 		It("should trim to 2 decimal points if needed", func() {
-			inv.HourlyPrice = 100
+			inv.HourlyPrice = sql.NullInt64{100, true}
 			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' 900 hours at 0.10c/hour"))
 		})
 
 		It("should be a credit description when the item is a Credit", func() {
-			inv.Credit = 900
+			inv.Credit = sql.NullInt64{900, true}
 			Expect(invoiceitem.ItemDescription(inv, nil)).To(Equal("Credit of $9.00"))
 		})
 	})
@@ -111,7 +111,7 @@ var _ = Describe("models/invoiceitem", func() {
 	Describe("HourlyCents()", func() {
 		It("should convert milli-cents to cents", func() {
 			i := invoiceitem.InvoiceItem{
-				HourlyPrice: 500,
+				HourlyPrice: sql.NullInt64{500, true},
 			}
 			Expect(i.HourlyCents()).To(Equal(0.5))
 		})
@@ -120,23 +120,23 @@ var _ = Describe("models/invoiceitem", func() {
 	Describe("TotalCharge", func() {
 		It("should multiply and convert to cents", func() {
 			inv := &invoiceitem.InvoiceItem{
-				Hours:       2,
-				HourlyPrice: 2000,
+				Hours:       sql.NullInt64{2, true},
+				HourlyPrice: sql.NullInt64{2000, true},
 			}
 			Expect(inv.TotalCharge()).To(Equal(int64(4)))
 		})
 
 		It("should round up to the nearest cent", func() {
 			inv := &invoiceitem.InvoiceItem{
-				Hours:       1,
-				HourlyPrice: 500,
+				Hours:       sql.NullInt64{1, true},
+				HourlyPrice: sql.NullInt64{500, true},
 			}
 			Expect(inv.TotalCharge()).To(Equal(int64(1)))
 		})
 
 		It("should be negative form of the Credit value", func() {
 			inv := &invoiceitem.InvoiceItem{
-				Credit: 900,
+				Credit: sql.NullInt64{900, true},
 			}
 			Expect(inv.TotalCharge()).To(Equal(int64(-900)))
 		})
@@ -152,18 +152,18 @@ var _ = Describe("models/invoiceitem", func() {
 		It("should find all invoice items for the specified ID", func() {
 			i1 := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
-				HostID:      h.ID,
-				Hours:       24,
-				HourlyPrice: h.HourlyPrice,
+				HostID:      sql.NullInt64{h.ID, true},
+				Hours:       sql.NullInt64{24, true},
+				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 			}
 			err := i1.Insert(db)
 			Expect(err).To(BeNil())
 
 			i2 := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
-				HostID:      h.ID,
-				Hours:       24,
-				HourlyPrice: h.HourlyPrice,
+				HostID:      sql.NullInt64{h.ID, true},
+				Hours:       sql.NullInt64{24, true},
+				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 			}
 			err = i2.Insert(db)
 			Expect(err).To(BeNil())
@@ -178,9 +178,9 @@ var _ = Describe("models/invoiceitem", func() {
 
 			n1 := &invoiceitem.InvoiceItem{
 				InvoiceID:   in2.ID,
-				HostID:      h.ID,
-				Hours:       24,
-				HourlyPrice: h.HourlyPrice,
+				HostID:      sql.NullInt64{h.ID, true},
+				Hours:       sql.NullInt64{24, true},
+				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 			}
 			err = n1.Insert(db)
 			Expect(err).To(BeNil())
@@ -195,10 +195,10 @@ var _ = Describe("models/invoiceitem", func() {
 		It("persists the invoice item in the database", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
-				HostID:      h.ID,
-				Hours:       24,
-				Credit:      20,
-				HourlyPrice: h.HourlyPrice,
+				HostID:      sql.NullInt64{h.ID, true},
+				Hours:       sql.NullInt64{24, true},
+				Credit:      sql.NullInt64{20, true},
+				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				StripeID:    sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
@@ -220,10 +220,10 @@ var _ = Describe("models/invoiceitem", func() {
 		BeforeEach(func() {
 			i = &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
-				HostID:      h.ID,
-				Hours:       24,
-				Credit:      20,
-				HourlyPrice: h.HourlyPrice,
+				HostID:      sql.NullInt64{h.ID, true},
+				Hours:       sql.NullInt64{24, true},
+				Credit:      sql.NullInt64{20, true},
+				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				StripeID:    sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
@@ -235,12 +235,12 @@ var _ = Describe("models/invoiceitem", func() {
 			err := db.QueryRowx("SELECT * FROM invoice_items WHERE id = $1", i.ID).StructScan(i2)
 			Expect(err).To(BeNil())
 
-			Expect(i2.Hours).To(Equal(24))
-			Expect(i2.HourlyPrice).To(Equal(h.HourlyPrice))
+			Expect(i2.Hours.Int64).To(Equal(int64(24)))
+			Expect(i2.HourlyPrice.Int64).To(Equal(h.HourlyPrice))
 			Expect(i2.StripeID.String).To(Equal("Xcccs"))
-			i2.Hours = 95
-			i2.HourlyPrice = 5000
-			i2.Credit = 10
+			i2.Hours = sql.NullInt64{95, true}
+			i2.HourlyPrice = sql.NullInt64{5000, true}
+			i2.Credit = sql.NullInt64{10, true}
 			i2.StripeID.String = "Ok"
 
 			err = i2.Update(db)
@@ -250,9 +250,9 @@ var _ = Describe("models/invoiceitem", func() {
 			err = db.QueryRowx("SELECT * FROM invoice_items WHERE id = $1", i.ID).StructScan(i3)
 			Expect(err).To(BeNil())
 
-			Expect(i3.Hours).To(Equal(95))
-			Expect(i3.HourlyPrice).To(Equal(int64(5000)))
-			Expect(i3.Credit).To(Equal(int64(10)))
+			Expect(i3.Hours.Int64).To(Equal(int64(95)))
+			Expect(i3.HourlyPrice.Int64).To(Equal(int64(5000)))
+			Expect(i3.Credit.Int64).To(Equal(int64(10)))
 			Expect(i3.StripeID.String).To(Equal("Ok"))
 		})
 	})

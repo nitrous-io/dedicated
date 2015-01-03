@@ -9,7 +9,7 @@ type InvoiceItem struct {
 	InvoiceID          int64   `json:"invoice_id"`
 	HostID             int64   `json:"host_id"`
 	HostSlug           string  `json:"host_slug"`
-	Hours              int     `json:"hours"`
+	Hours              int64   `json:"hours"`
 	HourlyCents        float64 `json:"hourly_cents"`
 	TotalCharge        int64   `json:"total_charge"`
 	TotalChargeDollars float64 `json:"total_charge_dollars"`
@@ -23,8 +23,8 @@ func SerializeInvoiceItem(i *invoiceitem.InvoiceItem) *InvoiceItem {
 	return &InvoiceItem{
 		ID:                 i.ID,
 		InvoiceID:          i.InvoiceID,
-		HostID:             i.HostID,
-		Hours:              i.Hours,
+		HostID:             i.HostID.Int64,
+		Hours:              i.Hours.Int64,
 		HourlyCents:        i.HourlyCents(),
 		TotalCharge:        i.TotalCharge(),
 		TotalChargeDollars: float64(i.TotalCharge()) / 100.0,

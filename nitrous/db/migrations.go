@@ -690,5 +690,13 @@ func init() {
 				ALTER TABLE hosts ALTER COLUMN docker_version DROP DEFAULT;
 			`,
 		},
+		{
+			Version: "570",
+			Up: `
+				ALTER TABLE invoice_items ALTER COLUMN host_id DROP NOT NULL;
+				ALTER TABLE invoice_items ALTER COLUMN credit SET DEFAULT NULL;
+				ALTER TABLE invoice_items ALTER COLUMN hours TYPE bigint;
+				`,
+		},
 	}
 }

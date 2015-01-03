@@ -12,15 +12,15 @@ import (
 )
 
 type InvoiceItem struct {
-	ID        int64 `db:"id"`
-	InvoiceID int64 `db:"invoice_id"`
-	HostID    int64 `db:"host_id"`
+	ID        int64         `db:"id"`
+	InvoiceID int64         `db:"invoice_id"`
+	HostID    sql.NullInt64 `db:"host_id"`
 
-	Hours int `db:"hours"`
+	Hours sql.NullInt64 `db:"hours"`
 	// HourlyPrice unit is milli-cents (x1000)
-	HourlyPrice int64 `db:"hourly_price"`
+	HourlyPrice sql.NullInt64 `db:"hourly_price"`
 
-	Credit int64 `db:"credit"`
+	Credit sql.NullInt64 `db:"credit"`
 
 	StripeID sql.NullString `db:"stripe_id"`
 
@@ -28,9 +28,14 @@ type InvoiceItem struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
+var (
+	ErrMissingHostIDCredit = errors.New("Host ID or Credit value != 0 must be provided")
+	ErrCreditInvalid       = errors.New("Credit value must be > 0")
+)
+
 func ItemDescription(i *InvoiceItem, hst *host.Host) string {
-	if i.Credit != 0 {
-		return fmt.Sprintf("Credit of $%.2f", float64(i.Credit)/100.0)
+	if i.Credit.Valid && i.Credit.Int64 != 0 {
+		return fmt.Sprintf("Credit of $%.2f", float64(i.Credit.Int64)/100.0)
 	}
 	state := ""
 	// FIXME: handle future states such as suspended (snapshot/resume)
@@ -38,7 +43,7 @@ func ItemDescription(i *InvoiceItem, hst *host.Host) string {
 		state = " (terminated)"
 	}
 	prcnt := strings.TrimSuffix(fmt.Sprintf("%.3f", i.HourlyCents()), "0")
-	return fmt.Sprintf("Application '%s'%s %d hours at %sc/hour", hst.Slug, state, i.Hours, prcnt)
+	return fmt.Sprintf("Application '%s'%s %d hours at %sc/hour", hst.Slug, state, i.Hours.Int64, prcnt)
 }
 
 func FindAllForInvoice(d db.QueryReceiver, iID int64) ([]InvoiceItem, error) {
@@ -51,14 +56,14 @@ func FindAllForInvoice(d db.QueryReceiver, iID int64) ([]InvoiceItem, error) {
 }
 
 func (i *InvoiceItem) HourlyCents() float64 {
-	return float64(i.HourlyPrice) / float64(1000)
+	return float64(i.HourlyPrice.Int64) / float64(1000)
 }
 
 func (i *InvoiceItem) TotalCharge() int64 {
-	if i.Credit != 0 {
-		return -1 * i.Credit
+	if i.Credit.Valid && i.Credit.Int64 != 0 {
+		return -1 * i.Credit.Int64
 	}
-	totalCents := float64(int64(i.Hours)*i.HourlyPrice) / 1000.0
+	totalCents := float64(i.Hours.Int64*i.HourlyPrice.Int64) / 1000.0
 	return int64(math.Ceil(totalCents))
 }
 
