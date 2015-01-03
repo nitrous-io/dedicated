@@ -1,24 +1,39 @@
 = app-tab-bar selected='ports' model=model
 
 .card-body
-  p.hint-text
-    | Manage exposed ports for this application.
-
   ul.ui.chips
-    each port in publicPorts
-      li
-        = port
-        unless saving
-          a.close href='#' click='remove port' &times;
+    if publicPorts
+      each port in publicPorts
+        li
+          = port.value
+          |&nbsp;
+          if port.preview
+            i.fa.fa-globe
+          unless saving
+            a.close href='#' click='remove port.value' &times;
+
+      p.hint-text
+        i.fa.fa-globe
+        | denotes the preview port
+    else
+      p.hint-text
+        i.fa.fa-exclamation-circle
+        | There aren't any exposed ports for this application.
 
   form submit='add'
     .ui.input-group
       table.ui.table
         thead
           tr
-            th colspan='2' Port
+            th
+              abbr title='Enable to use this port as the preview port' Preview
+            th colspan='2'  Port
         tbody
           tr
+            td
+              .ui.checkbox
+                = input type='checkbox' checked=previewPort disabled=saving
+                label
             td
               = input type='number' min='1' max='65535' step='1' placeholder='8080' value=port disabled=saving
             td

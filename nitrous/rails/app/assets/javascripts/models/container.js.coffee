@@ -29,6 +29,8 @@ App.Container = klass = App.Model.extend
     config
   ).property 'id', 'slug'
 
+  newPreviewPort: null
+
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
   isTerminated: Em.computed.equal 'state', 'terminated'
@@ -96,6 +98,7 @@ App.Container = klass = App.Model.extend
   publicPorts: (->
     return unless ports = @get 'config.port'
     publicPorts = []
+    previewPort = @get('newPreviewPort') || @get('previewPort')
 
     for port in ports
       regex = ///
@@ -108,9 +111,9 @@ App.Container = klass = App.Model.extend
       # Only return ports exposed by user.
       # ie. filter out default port redirections such as SSH
       if (m = port.match(regex)) && m[1] == m[2]
-        publicPorts.push m[1]
+        publicPorts.push { value: m[1], preview: m[1] == previewPort }
     publicPorts
-  ).property 'config.port.@each'
+  ).property 'config.port.@each', 'previewPort', 'newPreviewPort'
 
   loadConfig: ->
     new Em.RSVP.Promise (resolve, reject) =>
