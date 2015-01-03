@@ -184,7 +184,7 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 // only when needed.  It deletes any existing cert for
 // that host.
 func GenerateHostCert(db *db.Database, hs *HostStack) (*HostStack, error) {
-	caInfo, err := certauth.GetCAInfo(true)
+	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
 	if err != nil {
 		return nil, err
 	}

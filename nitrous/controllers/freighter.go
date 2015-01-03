@@ -5,6 +5,7 @@ import (
 
 	fc "github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
@@ -43,7 +44,7 @@ var NewFreighterClient = func(db db.QueryReceiver, h *host.Host) (*FreighterClie
 	if err != nil {
 		return nil, err
 	}
-	caInfo, err := certauth.GetCAInfo(false)
+	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, "")
 	if err != nil {
 		return nil, err
 	}

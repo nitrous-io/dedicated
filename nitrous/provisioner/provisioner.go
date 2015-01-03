@@ -438,7 +438,7 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 	}
 
 	// Generate Certificate Authority info.
-	caInfo, err := certauth.GetCAInfo(true)
+	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
 	if err != nil {
 		return nil, err
 	}

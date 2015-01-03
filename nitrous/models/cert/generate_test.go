@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 
@@ -67,7 +68,7 @@ type testContext struct {
 func newTestContext(hostname string) *testContext {
 	tc := &testContext{hostname: hostname}
 
-	caInfo, err := certauth.GetCAInfo(true)
+	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
 	Expect(err).To(BeNil())
 
 	tc.certPool = x509.NewCertPool()
