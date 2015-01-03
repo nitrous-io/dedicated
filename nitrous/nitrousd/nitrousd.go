@@ -14,12 +14,14 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous-common/must"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
+	"github.com/stripe/stripe-go"
 )
 
 var (
@@ -41,6 +43,20 @@ func init() {
 		strings.HasPrefix(libratoUser, "disable") ||
 		strings.HasPrefix(libratoToken, "disable") {
 		disableLibrato = true
+	}
+
+	// check CA
+	envvars.CheckCAVariables()
+	if _, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath); err != nil {
+		panic(fmt.Errorf("Error with keypair (%s,%s): %s", envvars.CACertPath, envvars.CAKeyPath, err))
+	}
+
+	envvars.CheckSendgridVariables()
+	envvars.CheckHostnames()
+
+	stripe.Key = envvars.StripeSecretKey
+	if stripe.Key == "" {
+		panic("STRIPE_SECRET_KEY environment variable not set")
 	}
 }
 

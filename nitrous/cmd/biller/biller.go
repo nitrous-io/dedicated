@@ -9,6 +9,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/stripe/stripe-go"
 )
 
 var (
@@ -17,6 +18,13 @@ var (
 
 func init() {
 	logr = &logger.Logger{Level: logger.LogLevelDebug}
+
+	envvars.CheckSendgridVariables()
+
+	stripe.Key = envvars.StripeSecretKey
+	if stripe.Key == "" {
+		panic("STRIPE_SECRET_KEY environment variable not set")
+	}
 }
 
 func main() {

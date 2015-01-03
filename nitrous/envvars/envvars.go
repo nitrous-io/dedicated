@@ -1,7 +1,9 @@
 package envvars
 
 import (
+	"log"
 	"os"
+	"strings"
 )
 
 var (
@@ -72,4 +74,34 @@ func init() {
 
 	ProvisionerUser = os.Getenv("PROVISIONER_USER")
 	ProvisionerInterval = os.Getenv("PROVISIONER_INTERVAL")
+}
+
+func CheckCAVariables() {
+	if CAKeyPath == "" {
+		log.Fatalf("CA_KEY_PATH is not set")
+	}
+	if CACertPath == "" {
+		log.Fatalf("CA_CERT_PATH is not set")
+	}
+}
+
+func CheckSendgridVariables() {
+	if SendgridUsername == "" {
+		log.Fatalf("SENDGRID_USERNAME not set")
+	} else if strings.HasPrefix(SendgridUsername, "disable") {
+		log.Println("Warning: Sendgrid mailer disabled.")
+		return
+	}
+	if SendgridPassword == "" {
+		log.Fatalf("SENDGRID_PASSWORD not set")
+	}
+}
+
+func CheckHostnames() {
+	if HostHostname == "" {
+		log.Fatalf("HOST_HOSTNAME not set")
+	}
+	if ProxyHostname == "" {
+		log.Fatalf("PROXY_HOSTNAME not set")
+	}
 }

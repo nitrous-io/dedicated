@@ -8,17 +8,9 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
 )
-
-func init() {
-	stripe.Key = envvars.StripeSecretKey
-	if stripe.Key == "" {
-		panic("STRIPE_SECRET_KEY environment variable not set")
-	}
-}
 
 var (
 	StripeProfileRequiredError = errors.New("billingprofile: requires an existing Stripe profile")
