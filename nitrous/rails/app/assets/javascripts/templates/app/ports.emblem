@@ -10,7 +10,7 @@
           if port.preview
             i.fa.fa-globe
           unless saving
-            a.close href='#' click='remove port.value' &times;
+            a.close href='#' click='remove port' &times;
 
       p.hint-text
         i.fa.fa-globe
@@ -41,4 +41,4 @@
 
 .card-footer.bordered
   .right
-    button.ui.btn.primary click='apply' Apply
+    button.ui.btn.primary click='apply' disabled={saving} Apply

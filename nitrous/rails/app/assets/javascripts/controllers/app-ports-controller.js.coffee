@@ -13,6 +13,7 @@ App.AppPortsController = Em.ObjectController.extend
   saving: false
   port: null
   previewPort: false
+  removePreviewPort: false
 
   clear: ->
     @_super.apply this, arguments
@@ -20,6 +21,7 @@ App.AppPortsController = Em.ObjectController.extend
       saving: false
       port: null
       previewPort: false
+      removePreviewPort: false
 
   actions:
     add: ->
@@ -35,9 +37,11 @@ App.AppPortsController = Em.ObjectController.extend
       @set 'previewPort', false
 
     remove: (port) ->
-      pb = portMap port
+      pb = portMap port.value
       container = @get('model.appContainer')
       container.get('config.port').removeObject pb
+      if port.preview
+        @set 'removePreviewPort', true
 
     apply: ->
       return if @get 'saving'
@@ -48,6 +52,7 @@ App.AppPortsController = Em.ObjectController.extend
 
       reconfigureComplete = =>
         @set 'saving', false
+        @set 'removePreviewPort', false
         container.set 'newPreviewPort', null
         events.off 'container.reconfigured', onReconfigured
         events.off 'container.reconfigure_failed', onReconfigureFailed
@@ -67,6 +72,8 @@ App.AppPortsController = Em.ObjectController.extend
       env = Em.copy container.get('config.env')
       if newPreviewPort = container.get('newPreviewPort')
         env["NITROUS_PREVIEW_PORT"] = newPreviewPort
+      if @get 'removePreviewPort'
+        delete env["NITROUS_PREVIEW_PORT"]
 
       container.saveConfig(
         port: container.get('config.port')
@@ -74,4 +81,5 @@ App.AppPortsController = Em.ObjectController.extend
       ).then =>
         App.snackbar.post 'Applying port changes...'
       , (jqxhr) ->
+        reconfigureComplete()
         App.postError(jqxhr.responseJSON, "Failed to apply port changes!")
