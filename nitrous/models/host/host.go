@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"regexp"
 	"strconv"
 	"time"
@@ -40,20 +39,6 @@ const (
 	StateOrphan     = "orphan"
 	StateTerminated = "terminated"
 )
-
-// slug is prefixed to these as "<slug>.<rootHostname>" and "<slug>.<proxyHostname>"
-var rootHostname, proxyHostname string
-
-func init() {
-	rootHostname = envvars.HostHostname
-	if rootHostname == "" {
-		log.Fatalf("HOST_HOSTNAME not set")
-	}
-	proxyHostname = envvars.ProxyHostname
-	if proxyHostname == "" {
-		log.Fatalf("PROXY_HOSTNAME not set")
-	}
-}
 
 type Host struct {
 	ID                 int64 `db:"id"`
@@ -287,13 +272,13 @@ func (h *Host) Validate() error {
 // We assume that slug is vald ( its cant be empty ), therefore we wont check
 // it here
 func (h *Host) Hostname() string {
-	return fmt.Sprintf("%s.%s", h.Slug, rootHostname)
+	return fmt.Sprintf("%s.%s", h.Slug, envvars.HostHostname)
 }
 
 func (h *Host) CertHostname() string {
-	return fmt.Sprintf("*.%s", rootHostname)
+	return fmt.Sprintf("*.%s", envvars.HostHostname)
 }
 
 func (h *Host) ProxyHostname() string {
-	return fmt.Sprintf("%s.%s", h.Slug, proxyHostname)
+	return fmt.Sprintf("%s.%s", h.Slug, envvars.ProxyHostname)
 }
