@@ -28,9 +28,9 @@ const maxConfirmationHours = 72 * time.Hour
 const maxUnconfirmedDuration = 24 * time.Hour
 
 var (
-	usernameRe               = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
-	emailRe                  = regexp.MustCompile(`\A[^@\s]+@([^@\s]+\.)+[^@\s]+\z`)
-	Mailer     mailer.Mailer = mailer.NewSendGridMailer()
+	usernameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
+	emailRe    = regexp.MustCompile(`\A[^@\s]+@([^@\s]+\.)+[^@\s]+\z`)
+	Mailer     mailer.Mailer
 )
 
 var (
@@ -46,6 +46,10 @@ var (
 	ErrConfirmationLapsed           = errors.New("confirmation has expired")
 	ErrConfirmationAlreadyCompleted = errors.New("email has already been confirmed")
 )
+
+func init() {
+	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
+}
 
 type User struct {
 	ID        int64      `db:"id" json:"id"`

@@ -2,43 +2,19 @@ package mailer
 
 import (
 	"html"
-	"log"
 	"strings"
 
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/sendgrid/sendgrid-go"
 )
-
-var (
-	sendgridUsername string
-	sendgridPassword string
-
-	disabled = false
-)
-
-func init() {
-	sendgridUsername = envvars.SendgridUsername
-	if sendgridUsername == "" {
-		log.Fatalln("SENDGRID_USERNAME not set")
-	} else if strings.HasPrefix(sendgridUsername, "disable") {
-		log.Println("Warning: Sendgrid mailer disabled.")
-		disabled = true
-		return
-	}
-	sendgridPassword = envvars.SendgridPassword
-	if sendgridPassword == "" {
-		log.Fatalln("SENDGRID_PASSWORD not set")
-	}
-}
 
 type SendGridMailer struct {
 	client *sendgrid.SGClient
 }
 
-func NewSendGridMailer() *SendGridMailer {
+func NewSendGridMailer(username, password string) *SendGridMailer {
 	var cl *sendgrid.SGClient = nil
-	if !disabled {
-		cl = sendgrid.NewSendGridClient(sendgridUsername, sendgridPassword)
+	if username != "disable" {
+		cl = sendgrid.NewSendGridClient(username, password)
 	}
 	return &SendGridMailer{client: cl}
 }
