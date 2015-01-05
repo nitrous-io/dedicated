@@ -1,0 +1,22 @@
+.card-body.bordered
+  = if content.length
+    table.ui.table
+      tbody
+        tr
+          th ID
+          th Slug
+          th State
+          th Region
+          th Plan
+          th User
+
+        = each
+          tr
+            td.id = id
+            td.slug = slug
+            td.state = state
+            td.region = region.slug
+            td.plan = plan.slug
+            td.id = userId
+  = else
+    p.note No hosts.

@@ -1,0 +1,36 @@
+.card-header.bordered
+  h2 Admin &mdash; Hosts
+
+.card-body
+
+  h3 Unaccounted
+  .card-body.bordered
+    = if model.unaccounted.length
+      table.ui.table
+        tbody
+          tr
+            th ID
+            th State
+            th IP Address
+            th Freighterd Port
+
+          = each model.unaccounted
+            tr
+              td = id
+              td = state
+              td = ipAddress
+              td = freighterdPort
+    = else
+      p.note No hosts.
+
+  h3 Non-running
+  = render 'admin/host' model.nonRunning
+
+  h3 Dangling
+  = render 'admin/host' model.dangling
+
+  h3 OK
+  = render 'admin/host' model.ok
+
+.card-footer.bordered
+  link-to 'home' | Back to home
