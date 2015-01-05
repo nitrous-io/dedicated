@@ -144,8 +144,7 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 
 	id, err := strconv.ParseInt(identifier, 10, 64)
 	if err != nil {
-		// Parsing resulted in an error.
-		// That means identifier is a slug
+		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
 			`SELECT hosts.*, provider_templates.provider
 			FROM hosts
@@ -171,25 +170,29 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	return host, err
 }
 
-func FindByID(db *db.Database, id int64) (*Host, error) {
+// FindByIdentifier returns a host identified by its ID or slug.
+// It does not scope to a user and includes pre-provisioned hosts.
+func FindByIdentifier(db *db.Database, identifier string) (*Host, error) {
 	host := &Host{}
-	err := db.Get(host, `SELECT * FROM hosts WHERE id = $1`, id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return host, err
-}
 
-func FindBySlug(db *db.Database, slug string) (*Host, error) {
-	host := &Host{}
-	q := `SELECT hosts.*, provider_templates.provider
-				FROM hosts
-				INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
-				WHERE hosts.slug = $1 AND terminated_at IS NULL AND preprovisioned = FALSE;`
-	err := db.Get(host, q, slug)
+	id, err := strconv.ParseInt(identifier, 10, 64)
+	if err != nil {
+		// If we can't parse an int, identifier is a slug.
+		err = db.Get(host,
+			`SELECT hosts.*, provider_templates.provider
+			FROM hosts
+			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
+			WHERE hosts.slug = $1
+			AND terminated_at IS NULL;`, identifier)
+	} else {
+		err = db.Get(host,
+			`SELECT hosts.*, provider_templates.provider
+			FROM hosts
+			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
+			WHERE hosts.id = $1
+			AND terminated_at IS NULL;`, id)
+	}
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

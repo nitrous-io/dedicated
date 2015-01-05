@@ -305,7 +305,8 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("updates name", func() {
-				updated, err := host.FindByID(db, hs.H.ID)
+				updated := &host.Host{}
+				err := db.Get(updated, `SELECT * FROM hosts WHERE id = $1`, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(updated.Name.String).To(Equal("GhostHost"))
 				Expect(*updated.UpdatedAt).To(BeTemporally(">", *hs.H.UpdatedAt))
@@ -320,7 +321,8 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("nullifies name", func() {
-				updated, err := host.FindByID(db, hs.H.ID)
+				updated := &host.Host{}
+				err := db.Get(updated, `SELECT * FROM hosts WHERE id = $1`, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(updated.Name.String).To(Equal(""))
 				Expect(updated.Name.Valid).To(BeFalse())
@@ -336,7 +338,8 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("does not update fields", func() {
-				updated, err := host.FindByID(db, hs.H.ID)
+				updated := &host.Host{}
+				err := db.Get(updated, `SELECT * FROM hosts WHERE id = $1`, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(updated.Name.String).To(Equal("foohost"))
 				Expect(updated.Slug).To(Equal("foo"))
@@ -356,7 +359,8 @@ var _ = Describe("controllers/hosts", func() {
 			case <-time.After(50 * time.Millisecond):
 				Fail("Timed out waiting for host updated event")
 			case msg := <-ch:
-				updated, err := host.FindByID(db, hs.H.ID)
+				updated := &host.Host{}
+				err := db.Get(updated, `SELECT * FROM hosts WHERE id = $1`, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(msg).To(Equal(&controllers.Event{
 					Name: controllers.EventHostUpdated,
@@ -607,7 +611,8 @@ var _ = Describe("controllers/hosts", func() {
 				case <-time.After(50 * time.Millisecond):
 					Fail("Timed out waiting for host destroyed event")
 				case msg := <-ch:
-					deleted, err := host.FindByID(db, hs.H.ID)
+					deleted := &host.Host{}
+					err := db.Get(deleted, `SELECT * FROM hosts WHERE id = $1`, hs.H.ID)
 					Expect(err).To(BeNil())
 					Expect(msg).To(Equal(&controllers.Event{
 						Name: controllers.EventHostDestroyed,
@@ -1022,7 +1027,8 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("updates a host's versions record in the db", func() {
-				h, err := host.FindByID(db, hs.H.ID)
+				h := &host.Host{}
+				err := db.Get(h, `SELECT * FROM hosts WHERE id = $1`, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(h.FreighterdVersion).To(Equal("1.0.88-acecafe-42"))
 				Expect(h.DockerVersion).To(Equal("1.2.3-nitrous"))

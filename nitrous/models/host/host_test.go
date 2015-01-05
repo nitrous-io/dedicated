@@ -338,7 +338,7 @@ var _ = Describe("models/host", func() {
 
 	Describe("Find()", func() {
 		Context("when given param is an ID", func() {
-			It("returns the matching record belongs to the user", func() {
+			It("returns the matching record that belongs to the user", func() {
 				h, err := host.Find(db, hs.U, strconv.FormatInt(hs.H.ID, 10))
 				Expect(err).To(BeNil())
 				Expect(h).NotTo(BeNil())
@@ -370,7 +370,7 @@ var _ = Describe("models/host", func() {
 		})
 
 		Context("when given param is a slug", func() {
-			It("returns the mathching host record belongs to the user", func() {
+			It("returns the matching host record that belongs to the user", func() {
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h).NotTo(BeNil())
@@ -411,46 +411,56 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("FindByID()", func() {
-		var id int64
-
-		BeforeEach(func() {
-			err := db.QueryRow("SELECT id FROM hosts WHERE slug = $1;", hs.H.Slug).Scan(&id)
-			Expect(err).To(BeNil())
-			Expect(id).NotTo(BeZero())
-		})
-
-		Context("when a host record with a given id exists", func() {
-			It("returns the host record", func() {
-				h, err := host.FindByID(db, id)
-				Expect(err).To(BeNil())
-				Expect(h).NotTo(BeNil())
-				Expect(h.ID).To(Equal(id))
-			})
-		})
-
-		Context("when a host record with a given id does not exist", func() {
-			It("returns nil", func() {
-				h, err := host.FindByID(db, 9001)
-				Expect(err).To(BeNil())
-				Expect(h).To(BeNil())
-			})
-		})
-	})
-
-	Describe("FindBySlug()", func() {
-		Context("when a host record with a given slug exists", func() {
-			It("returns the host record", func() {
-				h, err := host.FindBySlug(db, hs.H.Slug)
+	Describe("FindByIdentifier()", func() {
+		Context("when given identifier is an ID", func() {
+			It("returns the host with the given ID", func() {
+				h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
 				Expect(err).To(BeNil())
 				Expect(h).NotTo(BeNil())
 				Expect(h.ID).To(Equal(hs.H.ID))
 			})
+
+			It("returns pre-provisioned host with the given ID", func() {
+				hs.H.Preprovisioned = true
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
+
+				h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+				Expect(err).To(BeNil())
+				Expect(h).NotTo(BeNil())
+				Expect(h.ID).To(Equal(hs.H.ID))
+				Expect(h.Preprovisioned).To(BeTrue())
+			})
+
+			It("returns nil without an error when there's no matching record", func() {
+				h, err := host.FindByIdentifier(db, "10001")
+				Expect(err).To(BeNil())
+				Expect(h).To(BeNil())
+			})
 		})
 
-		Context("when a host record with a given slug oes not exist", func() {
-			It("returns nil", func() {
-				h, err := host.FindBySlug(db, "deadbeefhost")
+		Context("when given identifier is a slug", func() {
+			It("returns the host with the given slug", func() {
+				h, err := host.FindByIdentifier(db, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h).NotTo(BeNil())
+				Expect(h.Slug).To(Equal(hs.H.Slug))
+			})
+
+			It("returns pre-provisioned host with the given slug", func() {
+				hs.H.Preprovisioned = true
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
+
+				h, err := host.FindByIdentifier(db, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h).NotTo(BeNil())
+				Expect(h.Slug).To(Equal(hs.H.Slug))
+				Expect(h.Preprovisioned).To(BeTrue())
+			})
+
+			It("returns nil without an error when there's no matching record'", func() {
+				h, err := host.FindByIdentifier(db, "vivabrazil")
 				Expect(err).To(BeNil())
 				Expect(h).To(BeNil())
 			})
@@ -617,7 +627,8 @@ var _ = Describe("models/host", func() {
 			err := h.Update(db)
 			Expect(err).To(BeNil())
 
-			h2, err := host.FindByID(db, h.ID)
+			h2 := &host.Host{}
+			err = db.Get(h2, `SELECT * FROM hosts WHERE id = $1`, h.ID)
 			Expect(err).To(BeNil())
 			Expect(h2).NotTo(BeNil())
 
@@ -686,7 +697,8 @@ var _ = Describe("models/host", func() {
 			err := h.UpdateVersions(db, fv, dv)
 			Expect(err).To(BeNil())
 
-			h2, err := host.FindByID(db, h.ID)
+			h2 := &host.Host{}
+			err = db.Get(h2, `SELECT * FROM hosts WHERE id = $1`, h.ID)
 			Expect(err).To(BeNil())
 			Expect(h2).NotTo(BeNil())
 
