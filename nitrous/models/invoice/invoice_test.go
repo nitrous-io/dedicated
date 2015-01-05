@@ -132,6 +132,27 @@ var _ = Describe("models/invoice", func() {
 			Expect(err).To(BeNil())
 			Expect(i).To(Equal(i2))
 		})
+
+		It("should not allow a negative total charge", func() {
+			start := time.Now()
+			end := start.Add(2 * time.Hour)
+			attempt := start.Add(1 * time.Minute)
+			lAttempt := attempt.Add(2 * time.Minute)
+			i := &invoice.Invoice{
+				UserID:           u.ID,
+				TotalCharge:      -1,
+				PeriodStart:      &start,
+				PeriodEnd:        &end,
+				SuccessfulCharge: true,
+				FirstAttemptAt:   &attempt,
+				LastAttemptAt:    &lAttempt,
+				Attempts:         23,
+				Deferred:         true,
+				StripeID:         sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(Equal(invoice.ErrNegativeTotalCharge))
+		})
 	})
 
 	Describe("Update()", func() {
@@ -181,6 +202,13 @@ var _ = Describe("models/invoice", func() {
 			Expect(i3.SuccessfulCharge).To(BeTrue())
 			Expect(i3.TotalCharge).To(Equal(int64(93)))
 			Expect(i3.StripeID.String).To(Equal("Ok"))
+		})
+
+		It("should not allow a negative total charge", func() {
+			i.TotalCharge = -93
+
+			err := i.Update(db)
+			Expect(err).To(Equal(invoice.ErrNegativeTotalCharge))
 		})
 	})
 

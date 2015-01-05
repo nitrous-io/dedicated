@@ -213,6 +213,75 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(err).To(BeNil())
 			Expect(i).To(Equal(i2))
 		})
+
+		It("should expect a HostID or Credit is provided", func() {
+			i := &invoiceitem.InvoiceItem{
+				InvoiceID:   in.ID,
+				Hours:       sql.NullInt64{24, true},
+				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				StripeID:    sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(Equal(invoiceitem.ErrMissingHostIDCredit))
+		})
+
+		It("should expect a Credit be greater than 0", func() {
+			i := &invoiceitem.InvoiceItem{
+				InvoiceID:   in.ID,
+				Hours:       sql.NullInt64{24, true},
+				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				Credit:      sql.NullInt64{-20, true},
+				StripeID:    sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(Equal(invoiceitem.ErrCreditInvalid))
+		})
+
+		It("should expect Hours to be valid if HostID is valid", func() {
+			i := &invoiceitem.InvoiceItem{
+				InvoiceID:   in.ID,
+				HostID:      sql.NullInt64{h.ID, true},
+				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				StripeID:    sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(Equal(invoiceitem.ErrHoursInvalid))
+		})
+
+		It("should expect HourlyPrice to be valid if HostID is valid", func() {
+			i := &invoiceitem.InvoiceItem{
+				InvoiceID: in.ID,
+				HostID:    sql.NullInt64{h.ID, true},
+				Hours:     sql.NullInt64{24, true},
+				StripeID:  sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceInvalid))
+		})
+
+		It("should expect Hours to be greater than zero", func() {
+			i := &invoiceitem.InvoiceItem{
+				InvoiceID:   in.ID,
+				HostID:      sql.NullInt64{h.ID, true},
+				Hours:       sql.NullInt64{-1, true},
+				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				StripeID:    sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(Equal(invoiceitem.ErrHoursNotPositive))
+		})
+
+		It("should expect Hours to be not negative", func() {
+			i := &invoiceitem.InvoiceItem{
+				InvoiceID:   in.ID,
+				HostID:      sql.NullInt64{h.ID, true},
+				Hours:       sql.NullInt64{24, true},
+				HourlyPrice: sql.NullInt64{-1, true},
+				StripeID:    sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceNegative))
+		})
 	})
 
 	Describe("Update()", func() {
@@ -254,6 +323,44 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(i3.HourlyPrice.Int64).To(Equal(int64(5000)))
 			Expect(i3.Credit.Int64).To(Equal(int64(10)))
 			Expect(i3.StripeID.String).To(Equal("Ok"))
+		})
+
+		It("should expect a HostID or Credit is provided", func() {
+			i.HostID = sql.NullInt64{}
+			i.Credit = sql.NullInt64{}
+			err := i.Update(db)
+			Expect(err).To(Equal(invoiceitem.ErrMissingHostIDCredit))
+		})
+
+		It("should expect a Credit be greater than 0", func() {
+			i.HostID = sql.NullInt64{}
+			i.Credit = sql.NullInt64{-8, true}
+			err := i.Update(db)
+			Expect(err).To(Equal(invoiceitem.ErrCreditInvalid))
+		})
+
+		It("should expect Hours to be valid if HostID is valid", func() {
+			i.Hours = sql.NullInt64{}
+			err := i.Update(db)
+			Expect(err).To(Equal(invoiceitem.ErrHoursInvalid))
+		})
+
+		It("should expect HourlyPrice to be valid if HostID is valid", func() {
+			i.HourlyPrice = sql.NullInt64{}
+			err := i.Update(db)
+			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceInvalid))
+		})
+
+		It("should expect Hours to be greater than zero", func() {
+			i.Hours = sql.NullInt64{-1, true}
+			err := i.Update(db)
+			Expect(err).To(Equal(invoiceitem.ErrHoursNotPositive))
+		})
+
+		It("should expect Hours to be not negative", func() {
+			i.HourlyPrice = sql.NullInt64{-1, true}
+			err := i.Update(db)
+			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceNegative))
 		})
 	})
 

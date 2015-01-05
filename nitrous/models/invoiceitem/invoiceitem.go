@@ -2,6 +2,7 @@ package invoiceitem
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -31,6 +32,10 @@ type InvoiceItem struct {
 var (
 	ErrMissingHostIDCredit = errors.New("Host ID or Credit value != 0 must be provided")
 	ErrCreditInvalid       = errors.New("Credit value must be > 0")
+	ErrHoursInvalid        = errors.New("Hours must not be NULL")
+	ErrHourlyPriceInvalid  = errors.New("Hourly Price must not be NULL")
+	ErrHoursNotPositive    = errors.New("Hours must be greater than 0")
+	ErrHourlyPriceNegative = errors.New("HourlyPrice must not be a negative")
 )
 
 func ItemDescription(i *InvoiceItem, hst *host.Host) string {
@@ -68,6 +73,9 @@ func (i *InvoiceItem) TotalCharge() int64 {
 }
 
 func (i *InvoiceItem) Insert(d db.QueryReceiver) error {
+	if err := i.validate(); err != nil {
+		return err
+	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoice_items
     (invoice_id, host_id, hours, hourly_price, credit, stripe_id)
     VALUES (:invoice_id, :host_id, :hours, :hourly_price, :credit, :stripe_id)
@@ -79,6 +87,9 @@ func (i *InvoiceItem) Insert(d db.QueryReceiver) error {
 }
 
 func (i *InvoiceItem) Update(d db.QueryReceiver) error {
+	if err := i.validate(); err != nil {
+		return err
+	}
 	nstmt, err := d.PrepareNamed(`UPDATE invoice_items
     SET (invoice_id, host_id, hours, hourly_price, credit, stripe_id, updated_at)
     = (:invoice_id, :host_id, :hours, :hourly_price, :credit, :stripe_id, now())
@@ -88,4 +99,28 @@ func (i *InvoiceItem) Update(d db.QueryReceiver) error {
 		return err
 	}
 	return nstmt.QueryRowx(i).StructScan(i)
+}
+
+func (i *InvoiceItem) validate() error {
+	if !i.HostID.Valid && !i.Credit.Valid {
+		return ErrMissingHostIDCredit
+	}
+	if !i.HostID.Valid && i.Credit.Int64 <= 0 {
+		return ErrCreditInvalid
+	}
+	if i.HostID.Valid {
+		if !i.Hours.Valid {
+			return ErrHoursInvalid
+		}
+		if i.Hours.Int64 <= 0 {
+			return ErrHoursNotPositive
+		}
+		if !i.HourlyPrice.Valid {
+			return ErrHourlyPriceInvalid
+		}
+		if i.HourlyPrice.Int64 < 0 {
+			return ErrHourlyPriceNegative
+		}
+	}
+	return nil
 }
