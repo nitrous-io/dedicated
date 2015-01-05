@@ -19,7 +19,7 @@ func TestDropletActions_Shutdown(t *testing.T) {
 	defer teardown()
 
 	request := &ActionRequest{
-		"type": "shutdown",
+		Type: "shutdown",
 	}
 
 	mux.HandleFunc("/v2/droplets/1/actions", func(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +50,7 @@ func TestDropletAction_PowerOff(t *testing.T) {
 	defer teardown()
 
 	request := &ActionRequest{
-		"type": "power_off",
+		Type: "power_off",
 	}
 
 	mux.HandleFunc("/v2/droplets/1/actions", func(w http.ResponseWriter, r *http.Request) {
@@ -67,12 +67,12 @@ func TestDropletAction_PowerOff(t *testing.T) {
 
 	action, _, err := client.DropletActions.PowerOff(1)
 	if err != nil {
-		t.Errorf("DropletActions.PowerOff returned error: %v", err)
+		t.Errorf("DropletActions.Shutdown returned error: %v", err)
 	}
 
 	expected := &Action{Status: "in-progress"}
 	if !reflect.DeepEqual(action, expected) {
-		t.Errorf("DropletActions.Poweroff returned %+v, expected %+v", action, expected)
+		t.Errorf("DropletActions.Shutdown returned %+v, expected %+v", action, expected)
 	}
 }
 
@@ -81,7 +81,7 @@ func TestDropletAction_PowerOn(t *testing.T) {
 	defer teardown()
 
 	request := &ActionRequest{
-		"type": "power_on",
+		Type: "power_on",
 	}
 
 	mux.HandleFunc("/v2/droplets/1/actions", func(w http.ResponseWriter, r *http.Request) {
@@ -112,7 +112,7 @@ func TestDropletAction_Reboot(t *testing.T) {
 	defer teardown()
 
 	request := &ActionRequest{
-		"type": "reboot",
+		Type: "reboot",
 	}
 
 	mux.HandleFunc("/v2/droplets/1/actions", func(w http.ResponseWriter, r *http.Request) {
@@ -130,12 +130,12 @@ func TestDropletAction_Reboot(t *testing.T) {
 
 	action, _, err := client.DropletActions.Reboot(1)
 	if err != nil {
-		t.Errorf("DropletActions.Reboot returned error: %v", err)
+		t.Errorf("DropletActions.Shutdown returned error: %v", err)
 	}
 
 	expected := &Action{Status: "in-progress"}
 	if !reflect.DeepEqual(action, expected) {
-		t.Errorf("DropletActions.Reboot returned %+v, expected %+v", action, expected)
+		t.Errorf("DropletActions.Shutdown returned %+v, expected %+v", action, expected)
 	}
 }
 
@@ -143,9 +143,13 @@ func TestDropletAction_Restore(t *testing.T) {
 	setup()
 	defer teardown()
 
-	request := &ActionRequest{
-		"type":  "restore",
+	options := map[string]interface{}{
 		"image": float64(1),
+	}
+
+	request := &ActionRequest{
+		Type:   "restore",
+		Params: options,
 	}
 
 	mux.HandleFunc("/v2/droplets/1/actions", func(w http.ResponseWriter, r *http.Request) {
@@ -164,12 +168,12 @@ func TestDropletAction_Restore(t *testing.T) {
 
 	action, _, err := client.DropletActions.Restore(1, 1)
 	if err != nil {
-		t.Errorf("DropletActions.Restore returned error: %v", err)
+		t.Errorf("DropletActions.Shutdown returned error: %v", err)
 	}
 
 	expected := &Action{Status: "in-progress"}
 	if !reflect.DeepEqual(action, expected) {
-		t.Errorf("DropletActions.Restore returned %+v, expected %+v", action, expected)
+		t.Errorf("DropletActions.Shutdown returned %+v, expected %+v", action, expected)
 	}
 }
 
@@ -177,9 +181,13 @@ func TestDropletAction_Resize(t *testing.T) {
 	setup()
 	defer teardown()
 
-	request := &ActionRequest{
-		"type": "resize",
+	options := map[string]interface{}{
 		"size": "1024mb",
+	}
+
+	request := &ActionRequest{
+		Type:   "resize",
+		Params: options,
 	}
 
 	mux.HandleFunc("/v2/droplets/1/actions", func(w http.ResponseWriter, r *http.Request) {
@@ -198,12 +206,12 @@ func TestDropletAction_Resize(t *testing.T) {
 
 	action, _, err := client.DropletActions.Resize(1, "1024mb")
 	if err != nil {
-		t.Errorf("DropletActions.Resize returned error: %v", err)
+		t.Errorf("DropletActions.Shutdown returned error: %v", err)
 	}
 
 	expected := &Action{Status: "in-progress"}
 	if !reflect.DeepEqual(action, expected) {
-		t.Errorf("DropletActions.Resize returned %+v, expected %+v", action, expected)
+		t.Errorf("DropletActions.Shutdown returned %+v, expected %+v", action, expected)
 	}
 }
 
@@ -211,9 +219,13 @@ func TestDropletAction_Rename(t *testing.T) {
 	setup()
 	defer teardown()
 
-	request := &ActionRequest{
-		"type": "rename",
+	options := map[string]interface{}{
 		"name": "Droplet-Name",
+	}
+
+	request := &ActionRequest{
+		Type:   "rename",
+		Params: options,
 	}
 
 	mux.HandleFunc("/v2/droplets/1/actions", func(w http.ResponseWriter, r *http.Request) {
@@ -231,12 +243,12 @@ func TestDropletAction_Rename(t *testing.T) {
 
 	action, _, err := client.DropletActions.Rename(1, "Droplet-Name")
 	if err != nil {
-		t.Errorf("DropletActions.Rename returned error: %v", err)
+		t.Errorf("DropletActions.Shutdown returned error: %v", err)
 	}
 
 	expected := &Action{Status: "in-progress"}
 	if !reflect.DeepEqual(action, expected) {
-		t.Errorf("DropletActions.Rename returned %+v, expected %+v", action, expected)
+		t.Errorf("DropletActions.Shutdown returned %+v, expected %+v", action, expected)
 	}
 }
 
@@ -245,7 +257,7 @@ func TestDropletAction_PowerCycle(t *testing.T) {
 	defer teardown()
 
 	request := &ActionRequest{
-		"type": "power_cycle",
+		Type: "power_cycle",
 	}
 
 	mux.HandleFunc("/v2/droplets/1/actions", func(w http.ResponseWriter, r *http.Request) {
@@ -263,12 +275,12 @@ func TestDropletAction_PowerCycle(t *testing.T) {
 
 	action, _, err := client.DropletActions.PowerCycle(1)
 	if err != nil {
-		t.Errorf("DropletActions.PowerCycle returned error: %v", err)
+		t.Errorf("DropletActions.Shutdown returned error: %v", err)
 	}
 
 	expected := &Action{Status: "in-progress"}
 	if !reflect.DeepEqual(action, expected) {
-		t.Errorf("DropletActions.PowerCycle returned %+v, expected %+v", action, expected)
+		t.Errorf("DropletActions.Shutdown returned %+v, expected %+v", action, expected)
 	}
 }
 

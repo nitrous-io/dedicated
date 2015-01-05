@@ -5,9 +5,6 @@ import (
 	"net/url"
 )
 
-// ActionRequest reprents DigitalOcean Action Request
-type ActionRequest map[string]interface{}
-
 // DropletActionsService is an interface for interfacing with the droplet actions
 // endpoints of the Digital Ocean API
 // See: https://developers.digitalocean.com/#droplet-actions
@@ -33,60 +30,72 @@ type DropletActionsServiceOp struct {
 
 // Shutdown a Droplet
 func (s *DropletActionsServiceOp) Shutdown(id int) (*Action, *Response, error) {
-	request := &ActionRequest{"type": "shutdown"}
+	request := &ActionRequest{Type: "shutdown"}
 	return s.doAction(id, request)
 }
 
 // PowerOff a Droplet
 func (s *DropletActionsServiceOp) PowerOff(id int) (*Action, *Response, error) {
-	request := &ActionRequest{"type": "power_off"}
+	request := &ActionRequest{Type: "power_off"}
 	return s.doAction(id, request)
 }
 
 // PowerOn a Droplet
 func (s *DropletActionsServiceOp) PowerOn(id int) (*Action, *Response, error) {
-	request := &ActionRequest{"type": "power_on"}
+	request := &ActionRequest{Type: "power_on"}
 	return s.doAction(id, request)
 }
 
 // PowerCycle a Droplet
 func (s *DropletActionsServiceOp) PowerCycle(id int) (*Action, *Response, error) {
-	request := &ActionRequest{"type": "power_cycle"}
+	request := &ActionRequest{Type: "power_cycle"}
 	return s.doAction(id, request)
 }
 
 // Reboot a Droplet
 func (s *DropletActionsServiceOp) Reboot(id int) (*Action, *Response, error) {
-	request := &ActionRequest{"type": "reboot"}
+	request := &ActionRequest{Type: "reboot"}
 	return s.doAction(id, request)
 }
 
 // Restore an image to a Droplet
 func (s *DropletActionsServiceOp) Restore(id, imageID int) (*Action, *Response, error) {
+	options := map[string]interface{}{
+		"image": float64(imageID),
+	}
+
 	requestType := "restore"
 	request := &ActionRequest{
-		"type":  requestType,
-		"image": float64(imageID),
+		Type:   requestType,
+		Params: options,
 	}
 	return s.doAction(id, request)
 }
 
 // Resize a Droplet
 func (s *DropletActionsServiceOp) Resize(id int, sizeSlug string) (*Action, *Response, error) {
+	options := map[string]interface{}{
+		"size": sizeSlug,
+	}
+
 	requestType := "resize"
 	request := &ActionRequest{
-		"type": requestType,
-		"size": sizeSlug,
+		Type:   requestType,
+		Params: options,
 	}
 	return s.doAction(id, request)
 }
 
 // Rename a Droplet
 func (s *DropletActionsServiceOp) Rename(id int, name string) (*Action, *Response, error) {
+	options := map[string]interface{}{
+		"name": name,
+	}
+
 	requestType := "rename"
 	request := &ActionRequest{
-		"type": requestType,
-		"name": name,
+		Type:   requestType,
+		Params: options,
 	}
 	return s.doAction(id, request)
 }
