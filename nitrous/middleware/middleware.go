@@ -177,9 +177,8 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
 		label := "nitrous.withHost"
 		start := time.Now()
-		var param string
-		var h *host.Host
 
+		var param string
 		switch src {
 		case "form":
 			param = r.FormValue(srcVar)
@@ -190,7 +189,13 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 		}
 
 		// param can either be a slug or an ID
-		h, err := host.Find(env.DB, env.User, param)
+		var h *host.Host
+		var err error
+		if env.User.Admin {
+			h, err = host.FindByIdentifier(env.DB, param)
+		} else {
+			h, err = host.Find(env.DB, env.User, param)
+		}
 		if err != nil {
 			return mh.Error(err, label)
 		}
