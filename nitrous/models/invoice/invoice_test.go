@@ -60,6 +60,7 @@ var _ = Describe("models/invoice", func() {
 			i := &invoice.Invoice{
 				UserID:           u.ID,
 				TotalCharge:      900,
+				CreditAmount:     120,
 				PeriodStart:      &start,
 				PeriodEnd:        &end,
 				SuccessfulCharge: true,
