@@ -4,41 +4,27 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/go-mixpanel"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-var (
-	mixpanelToken string
-
-	disabled = false
-)
-
-func init() {
-	mixpanelToken = envvars.MixpanelToken
-	if mixpanelToken == "" || strings.HasPrefix(mixpanelToken, "disable") {
-		disabled = true
-	}
-}
-
 type MixpanelTracker struct {
 	client *mixpanel.Mixpanel
 }
 
-func NewMixpanelTracker() *MixpanelTracker {
+func NewMixpanelTracker(token string) *MixpanelTracker {
 	var mc *mixpanel.Mixpanel = nil
 
-	if !disabled {
-		mc = mixpanel.NewMixpanelClient(mixpanelToken)
+	if !(token == "" || strings.HasPrefix(token, "disable")) {
+		mc = mixpanel.NewMixpanelClient(token)
 	}
 
 	return &MixpanelTracker{client: mc}
 }
 
 func (m *MixpanelTracker) TrackEvent(event string, u *user.User, p map[string]interface{}, logger *logger.Logger) {
-	if disabled {
+	if m.client == nil {
 		return
 	}
 
@@ -59,7 +45,7 @@ func (m *MixpanelTracker) TrackEvent(event string, u *user.User, p map[string]in
 }
 
 func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger, inviteCode string) {
-	if disabled {
+	if m.client == nil {
 		return
 	}
 
