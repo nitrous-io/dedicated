@@ -11,6 +11,7 @@ import (
 
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
@@ -33,15 +34,15 @@ type resizeRequest struct {
 
 func init() {
 	// get AES_Key
-	aesKey = os.Getenv("AES_KEY")
+	aesKey = envvars.AESKey
 	if aesKey == "" {
 		log.Fatal("AES_KEY is not defined")
 	}
 
 	// get db connection
-	dbURL = os.Getenv("NITROUS_PG_URL")
+	dbURL = envvars.NitrousPgUrl
 	if dbURL == "" {
-		log.Fatal("NITROUS_PG_URL is not defined")
+		log.Fatal(envvars.DBEnvVar, "is not defined")
 	}
 }
 

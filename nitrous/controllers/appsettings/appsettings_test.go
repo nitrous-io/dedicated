@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
 
@@ -52,13 +52,13 @@ var _ = Describe("controllers/appsettings", func() {
 		}
 
 		It("returns serialized settings in json", func() {
-			oldMT := os.Getenv("MIXPANEL_TOKEN")
-			os.Setenv("MIXPANEL_TOKEN", "Track Me")
-			defer os.Setenv("MIXPANEL_TOKEN", oldMT)
+			oldMT := envvars.MixpanelToken
+			envvars.MixpanelToken = "Track Me"
+			defer func() { envvars.MixpanelToken = oldMT }()
 
-			oldSK := os.Getenv("STRIPE_PUBLIC_KEY")
-			os.Setenv("STRIPE_PUBLIC_KEY", "st-001")
-			defer os.Setenv("STRIPE_PUBLIC_KEY", oldSK)
+			oldSK := envvars.StripePublicKey
+			envvars.StripePublicKey = "st-001"
+			defer func() { envvars.StripePublicKey = oldSK }()
 
 			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))

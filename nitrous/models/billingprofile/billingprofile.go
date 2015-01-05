@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -12,13 +11,6 @@ import (
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
 )
-
-func init() {
-	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
-	if stripe.Key == "" {
-		panic("STRIPE_SECRET_KEY environment variable not set")
-	}
-}
 
 var (
 	StripeProfileRequiredError = errors.New("billingprofile: requires an existing Stripe profile")

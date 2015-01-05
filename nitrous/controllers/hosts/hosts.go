@@ -3,11 +3,11 @@ package hosts
 import (
 	"database/sql"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
@@ -42,28 +42,28 @@ var aesKey string
 var fv, dv string
 
 func init() {
-	hostbuilderURL := os.Getenv("HOSTBUILDER_URL")
+	hostbuilderURL := envvars.HostBuilderURL
 	if hostbuilderURL == "" {
 		panic("HOSTBUILDER_URL is not set")
 	}
 	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
 
-	aesKey = os.Getenv("AES_KEY")
+	aesKey = envvars.AESKey
 	if aesKey == "" {
-		panic("AES_KEY is not set")
+		panic("AES_KEY is not defined")
 	}
 
-	defaultProvider = os.Getenv("DEFAULT_PROVIDER")
+	defaultProvider = envvars.DefaultProvider
 	if defaultProvider == "" {
 		panic("DEFAULT_PROVIDER is not set")
 	}
 
-	fv := os.Getenv("FREIGHTERD_VERSION")
+	fv := envvars.FreighterdVersion
 	if fv == "" {
 		panic("FREIGHTERD_VERSION is not set")
 	}
 
-	dv := os.Getenv("DOCKER_VERSION")
+	dv := envvars.DockerVersion
 	if dv == "" {
 		panic("DOCKER_VERSION is not set")
 	}

@@ -4,11 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/baseimage"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
@@ -34,9 +34,9 @@ type SeedFn func(db.QueryReceiver) error
 var seeds = []SeedFn{users, regions, plans, providertemplates, baseImages, templates}
 
 func main() {
-	dbURL := os.Getenv("NITROUS_PG_URL")
+	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit("NITROUS_PG_URL is not defined")
+		logr.FatalExit(envvars.DBEnvVar, "is not defined")
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {

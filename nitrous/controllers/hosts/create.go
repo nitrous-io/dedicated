@@ -18,6 +18,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -298,7 +299,7 @@ func generateKey() (priv *rsa.PrivateKey, pub []byte, err error) {
 // generate cert with server certificate and key. The cert will be used for
 // TLS encryption
 func generateCerts(hostname string) (*cert.Cert, error) {
-	caInfo, err := certauth.GetCAInfo(true)
+	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
 	if err != nil {
 		return nil, err
 	}

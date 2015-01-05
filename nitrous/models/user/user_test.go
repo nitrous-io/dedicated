@@ -4,11 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -1009,7 +1009,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("should send the email", func() {
-			os.Setenv("WEB_HOSTNAME", "nitrous.example")
+			envvars.WebHostname = "nitrous.example"
 			err := u.SendConfirmationEmail(db, true, false)
 			Expect(err).To(BeNil())
 
