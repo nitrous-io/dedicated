@@ -3,7 +3,11 @@
 
 .card-body
 
-  h3 Unaccounted
+  h3
+    ' Unaccounted
+    i.fa.fa-question-circle title="in Hostbuilder but not in DB"
+    ' :
+    = model.unaccounted.length
   .card-body.bordered
     = if model.unaccounted.length
       table.ui.table
@@ -16,20 +20,31 @@
 
           = each model.unaccounted
             tr
-              td = id
+              td title=id
+                = truncate id 12
               td = state
               td = ipAddress
               td = freighterdPort
     = else
       p.note No hosts.
 
-  h3 Non-running
+  h3
+    ' Non-running
+    i.fa.fa-question-circle title="not running (according to DB or Hostbuilder)"
+    ' :
+    = model.nonRunning.length
   = render 'admin/host' model.nonRunning
 
-  h3 Dangling
+  h3
+    ' Dangling
+    i.fa.fa-question-circle title="in DB but not in Hostbuilder"
+    ' :
+    = model.dangling.length
   = render 'admin/host' model.dangling
 
-  h3 OK
+  h3
+    ' OK:
+    = model.ok.length
   = render 'admin/host' model.ok
 
 .card-footer.bordered
