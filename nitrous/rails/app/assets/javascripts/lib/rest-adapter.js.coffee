@@ -13,6 +13,7 @@ App.RESTAdapter = SM.RESTAdapter.extend
       if jqxhr.status == 401
         @logout()
       else if jqxhr.responseJSON && jqxhr.responseJSON.error == 'confirmation_lapsed'
+        jqxhr.redirectionInProgress = true
         if App.get('token') && App.get('token').length > 0
           App.set 'resendConfirmationAppToken', App.get 'token'
         App.__container__.lookup('router:main').transitionTo 'logout', queryParams: { confirmationLapsed: true }

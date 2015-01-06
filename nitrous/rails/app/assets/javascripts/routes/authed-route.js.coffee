@@ -12,7 +12,7 @@ App.AuthedRoute = Em.Route.extend
               window.location.href = "https://www.nitrous.io"
             else
               @transitionTo 'login'
-          else
+          else if !jqxhr.redirectionInProgress
             @transitionTo 'login'
     else
       @transitionTo 'login'
