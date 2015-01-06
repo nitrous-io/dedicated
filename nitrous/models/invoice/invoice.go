@@ -3,6 +3,7 @@ package invoice
 import (
 	"bytes"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/mail"
 	"time"
@@ -14,7 +15,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 )
 
-var Mailer mailer.Mailer
+var (
+	Mailer                 mailer.Mailer
+	ErrNegativeTotalCharge = errors.New("Negative TotalCharge")
+)
 
 func init() {
 	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
@@ -78,6 +82,9 @@ func FindByStripeID(d db.QueryReceiver, stripeID string) (*Invoice, error) {
 }
 
 func (i *Invoice) Insert(d db.QueryReceiver) error {
+	if err := i.validate(); err != nil {
+		return err
+	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoices
     (user_id, total_charge, credit_amount, period_start, period_end, successful_charge,
       first_attempt_at, last_attempt_at, attempts, stripe_id, failed,
@@ -93,6 +100,9 @@ func (i *Invoice) Insert(d db.QueryReceiver) error {
 }
 
 func (i *Invoice) Update(d db.QueryReceiver) error {
+	if err := i.validate(); err != nil {
+		return err
+	}
 	nstmt, err := d.PrepareNamed(`UPDATE invoices
     SET (user_id, total_charge, credit_amount, period_start, period_end, successful_charge,
       first_attempt_at, last_attempt_at, attempts, stripe_id, failed,
@@ -106,6 +116,13 @@ func (i *Invoice) Update(d db.QueryReceiver) error {
 		return err
 	}
 	return nstmt.QueryRowx(i).StructScan(i)
+}
+
+func (i *Invoice) validate() error {
+	if i.TotalCharge < 0 {
+		return ErrNegativeTotalCharge
+	}
+	return nil
 }
 
 func (i *Invoice) PaymentSucceeded(d db.QueryReceiver) error {

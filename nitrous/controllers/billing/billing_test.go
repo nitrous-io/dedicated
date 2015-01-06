@@ -1,6 +1,7 @@
 package billing_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
@@ -151,10 +152,10 @@ var _ = Describe("controllers/billing", func() {
 			}
 
 			Expect(itm1.HourlyCents).To(Equal(2.0))
-			Expect(itm1.Hours).To(Equal(1))
+			Expect(itm1.Hours).To(Equal(int64(1)))
 
 			Expect(itm2.HourlyCents).To(Equal(0.5))
-			Expect(itm2.Hours).To(Equal(1))
+			Expect(itm2.Hours).To(Equal(int64(1)))
 		})
 	})
 
@@ -284,46 +285,46 @@ var _ = Describe("controllers/billing", func() {
 			It("should be able to list the invoice items", func() {
 				itm1 := invoiceitem.InvoiceItem{
 					InvoiceID:   i1.ID,
-					HostID:      h1.ID,
-					Hours:       24,
-					HourlyPrice: 2000,
+					HostID:      sql.NullInt64{h1.ID, true},
+					Hours:       sql.NullInt64{24, true},
+					HourlyPrice: sql.NullInt64{2000, true},
 				}
 				Expect(itm1.Insert(db)).To(BeNil())
 				itm2 := invoiceitem.InvoiceItem{
 					InvoiceID:   i1.ID,
-					HostID:      h2.ID,
-					Hours:       48,
-					HourlyPrice: 1000,
+					HostID:      sql.NullInt64{h2.ID, true},
+					Hours:       sql.NullInt64{48, true},
+					HourlyPrice: sql.NullInt64{1000, true},
 				}
 				Expect(itm2.Insert(db)).To(BeNil())
 
 				itm3 := invoiceitem.InvoiceItem{
 					InvoiceID:   i2.ID,
-					HostID:      h2.ID,
-					Hours:       10,
-					HourlyPrice: 3000,
+					HostID:      sql.NullInt64{h2.ID, true},
+					Hours:       sql.NullInt64{10, true},
+					HourlyPrice: sql.NullInt64{3000, true},
 				}
 				Expect(itm3.Insert(db)).To(BeNil())
 
 				itm4 := invoiceitem.InvoiceItem{
 					InvoiceID:   i3.ID,
-					HostID:      h1.ID,
-					Hours:       8,
-					HourlyPrice: 1000,
+					HostID:      sql.NullInt64{h1.ID, true},
+					Hours:       sql.NullInt64{8, true},
+					HourlyPrice: sql.NullInt64{1000, true},
 				}
 				Expect(itm4.Insert(db)).To(BeNil())
 				itm5 := invoiceitem.InvoiceItem{
 					InvoiceID:   i3.ID,
-					HostID:      h2.ID,
-					Hours:       12,
-					HourlyPrice: 500,
+					HostID:      sql.NullInt64{h2.ID, true},
+					Hours:       sql.NullInt64{12, true},
+					HourlyPrice: sql.NullInt64{500, true},
 				}
 				Expect(itm5.Insert(db)).To(BeNil())
 				itm6 := invoiceitem.InvoiceItem{
 					InvoiceID:   i3.ID,
-					HostID:      h3.ID,
-					Hours:       6,
-					HourlyPrice: 2000,
+					HostID:      sql.NullInt64{h3.ID, true},
+					Hours:       sql.NullInt64{6, true},
+					HourlyPrice: sql.NullInt64{2000, true},
 				}
 				Expect(itm6.Insert(db)).To(BeNil())
 
@@ -337,19 +338,19 @@ var _ = Describe("controllers/billing", func() {
 				Expect(invoices[0].Items).To(HaveLen(3))
 				Expect(invoices[0].Items[0].InvoiceID).To(Equal(i3.ID))
 				Expect(invoices[0].Items[0].HostID).To(Equal(h3.ID))
-				Expect(invoices[0].Items[0].Hours).To(Equal(6))
+				Expect(invoices[0].Items[0].Hours).To(Equal(int64(6)))
 				Expect(invoices[0].Items[0].HourlyCents).To(Equal(2.00))
 				Expect(invoices[0].Items[0].TotalCharge).To(Equal(int64(12)))
 				Expect(invoices[0].Items[0].HostSlug).To(Equal("my-host-3"))
 				Expect(invoices[0].Items[1].InvoiceID).To(Equal(i3.ID))
 				Expect(invoices[0].Items[1].HostID).To(Equal(h2.ID))
-				Expect(invoices[0].Items[1].Hours).To(Equal(12))
+				Expect(invoices[0].Items[1].Hours).To(Equal(int64(12)))
 				Expect(invoices[0].Items[1].HourlyCents).To(Equal(0.50))
 				Expect(invoices[0].Items[1].TotalCharge).To(Equal(int64(6)))
 				Expect(invoices[0].Items[1].HostSlug).To(Equal("my-host-2"))
 				Expect(invoices[0].Items[2].InvoiceID).To(Equal(i3.ID))
 				Expect(invoices[0].Items[2].HostID).To(Equal(h1.ID))
-				Expect(invoices[0].Items[2].Hours).To(Equal(8))
+				Expect(invoices[0].Items[2].Hours).To(Equal(int64(8)))
 				Expect(invoices[0].Items[2].HourlyCents).To(Equal(1.00))
 				Expect(invoices[0].Items[2].TotalCharge).To(Equal(int64(8)))
 				Expect(invoices[0].Items[2].HostSlug).To(Equal("my-host-1"))
@@ -357,7 +358,7 @@ var _ = Describe("controllers/billing", func() {
 				Expect(invoices[1].Items).To(HaveLen(1))
 				Expect(invoices[1].Items[0].InvoiceID).To(Equal(i2.ID))
 				Expect(invoices[1].Items[0].HostID).To(Equal(h2.ID))
-				Expect(invoices[1].Items[0].Hours).To(Equal(10))
+				Expect(invoices[1].Items[0].Hours).To(Equal(int64(10)))
 				Expect(invoices[1].Items[0].HourlyCents).To(Equal(3.00))
 				Expect(invoices[1].Items[0].TotalCharge).To(Equal(int64(30)))
 				Expect(invoices[1].Items[0].HostSlug).To(Equal("my-host-2"))
@@ -365,13 +366,13 @@ var _ = Describe("controllers/billing", func() {
 				Expect(invoices[2].Items).To(HaveLen(2))
 				Expect(invoices[2].Items[0].InvoiceID).To(Equal(i1.ID))
 				Expect(invoices[2].Items[0].HostID).To(Equal(h2.ID))
-				Expect(invoices[2].Items[0].Hours).To(Equal(48))
+				Expect(invoices[2].Items[0].Hours).To(Equal(int64(48)))
 				Expect(invoices[2].Items[0].HourlyCents).To(Equal(1.00))
 				Expect(invoices[2].Items[0].TotalCharge).To(Equal(int64(48)))
 				Expect(invoices[2].Items[0].HostSlug).To(Equal("my-host-2"))
 				Expect(invoices[2].Items[1].InvoiceID).To(Equal(i1.ID))
 				Expect(invoices[2].Items[1].HostID).To(Equal(h1.ID))
-				Expect(invoices[2].Items[1].Hours).To(Equal(24))
+				Expect(invoices[2].Items[1].Hours).To(Equal(int64(24)))
 				Expect(invoices[2].Items[1].HourlyCents).To(Equal(2.00))
 				Expect(invoices[2].Items[1].TotalCharge).To(Equal(int64(48)))
 				Expect(invoices[2].Items[1].HostSlug).To(Equal("my-host-1"))
