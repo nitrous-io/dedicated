@@ -3,7 +3,6 @@ package hosts_test
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
-	"github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -49,13 +47,6 @@ func hostname(slug string) string {
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "controllers/hosts")
-}
-
-func mockHostbuilderOK(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
-	return &hostbuilder.Response{Status: "ok", IPAddress: "127.0.0.1", FreighterdPort: 65333}, nil
-}
-func mockHostbuilderError(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
-	return &hostbuilder.Response{}, errors.New("some error occurred")
 }
 
 var _ = Describe("controllers/hosts", func() {
