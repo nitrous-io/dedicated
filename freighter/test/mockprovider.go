@@ -147,6 +147,15 @@ type MockProvider struct {
 	ResizeContainerTTYHeight int
 	ResizeContainerTTYWidth  int
 
+	CopyFileCalled bool
+	CopyFileError  error
+	CopyFilePath   string
+
+	CopyFromHostCalled   bool
+	CopyFromHostError    error
+	CopyFromHostLocation string
+	CopyFromHostInput    map[string]io.Reader
+
 	Containers []*provider.ContainerInfo
 	PublicKeys map[string]string
 }
@@ -410,6 +419,22 @@ func (p *MockProvider) ResizeContainerTTY(id string, height, width int) error {
 	p.ResizeContainerTTYHeight = height
 	p.ResizeContainerTTYWidth = width
 	return p.ResizeContainerTTYError
+}
+
+func (p *MockProvider) CopyFile(id string, path string, output io.Writer) error {
+	p.ReceivedID = id
+	p.ReceivedIOWriter = output
+	p.CopyFileCalled = true
+	p.CopyFilePath = path
+	return p.CopyFileError
+}
+
+func (p *MockProvider) CopyFromHost(id string, location string, input map[string]io.Reader) error {
+	p.ReceivedID = id
+	p.CopyFromHostCalled = true
+	p.CopyFromHostLocation = location
+	p.CopyFromHostInput = input
+	return p.CopyFromHostError
 }
 
 func (p *MockProvider) IsNotFoundError(err error) bool {
