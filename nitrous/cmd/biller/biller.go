@@ -23,7 +23,7 @@ func init() {
 
 	stripe.Key = envvars.StripeSecretKey
 	if stripe.Key == "" {
-		panic("STRIPE_SECRET_KEY environment variable not set")
+		logr.FatalExit("STRIPE_SECRET_KEY environment variable not set")
 	}
 }
 
