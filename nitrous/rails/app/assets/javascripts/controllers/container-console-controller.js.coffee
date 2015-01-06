@@ -1,46 +1,21 @@
-App.ContainerConsoleController = Em.ObjectController.extend
+#= require ../mixins/terminal-connection-mixin
+
+App.ContainerConsoleController = Em.ObjectController.extend App.TerminalConnectionMixin,
   queryParams: ['action', 'fullscreen']
   action: null
   fullscreen: false
 
-  freighterdUrl: Em.computed.alias 'model.host.freighterdUrl'
   record: Em.computed.alias 'model'
   ready: Em.computed.and 'freighterdUrl', 'record.config'
 
   makeUrlAndConnect: (terminal) ->
-    container = @get 'record'
-    freighterdUrl = @get 'freighterdUrl'
-    term = terminal.term
+    return unless container = @get 'record'
+    action = @get('action')
 
-    action = @get('action') || 'shell'
-    if ['shell', 'attach', 'logs'].indexOf(action) == -1
-      action = 'shell'
-
-    container.requestToken([action]).then (token) =>
-      token = encodeURIComponent(token.token)
-
-      protocol = location.protocol.replace('http', 'ws')
-      url = "#{protocol}//#{freighterdUrl}/containers/#{container.get 'cid'}/#{action}?token=#{token}&width=#{term.cols}&height=#{term.rows}"
-
-      switch action
-        when 'shell'
-          command = encodeURIComponent(getLoginCommand(container.get 'loginUsername'))
-          url += "&command=#{command}"
-        when 'logs'
-          url += "&follow=true"
-          terminal.readonly = true
-          term.convertEol = true
-        when 'attach'
-          term.convertEol = true
-
+    @makeUrl(container, terminal, action).then (url) ->
       terminal.url = url
-      # url obtained, resume connecting
       terminal.open(true)
+      terminal.focus()
     , (jqxhr) ->
       terminal.retry()
       App.postError(jqxhr.responseJSON, 'Could not connect to shell, retrying...')
-
-getLoginCommand = (username) ->
-  username ||= "root"
-  loginCmd = "/bin/login -f #{username} -p TERM=xterm-256color"
-  "script -q -c '#{loginCmd}' /dev/null || #{loginCmd}"

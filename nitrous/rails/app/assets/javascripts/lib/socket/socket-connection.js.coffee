@@ -2,6 +2,7 @@ class window.SocketConnection
   ws: null
   url: undefined
   protocols: undefined
+  shouldRetry: true
   retries: 0
   retryTimeout: null
 
@@ -36,7 +37,7 @@ class window.SocketConnection
     ws._onclose = =>
       ws.removeEventListener 'open',  ws._onopen,  false
       ws.removeEventListener 'close', ws._onclose, false
-      @retry() if !ws._noRetry
+      @retry() if @shouldRetry && !ws._noRetry
 
     ws.addEventListener 'open',  ws._onopen,  false
     ws.addEventListener 'close', ws._onclose, false

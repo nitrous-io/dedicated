@@ -41,6 +41,7 @@ App.Container = klass = App.Model.extend
   hostnameBinding: Em.Binding.oneWay 'host.hostname'
   loginUsernameBinding: Em.Binding.oneWay 'config.env.NITROUS_USERNAME'
   previewPortBinding: Em.Binding.oneWay 'config.env.NITROUS_PREVIEW_PORT'
+  freighterdUrlBinding: Em.Binding.oneWay 'host.freighterdUrl'
 
   sshEnabled: Em.computed.equal 'config.env.NITROUS_SSH_ENABLED', 'true'
 
