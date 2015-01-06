@@ -453,7 +453,11 @@ var (
 				"backup_ids": [ ],
 				"snapshot_ids": [ ]
 			}
-		]
+		],
+		"links": {},
+		"meta": {
+    		"total": 2
+  		}
 	}
 	`
 
