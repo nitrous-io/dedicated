@@ -25,6 +25,7 @@ App.Router.map ->
       @route 'keys-new', path: '/keys/new'
       @route 'snapshots'
       @route 'console'
+      @route 'ports'
 
     @resource 'host', path: '/hosts/:hostSlug', ->
       @route 'registries'
