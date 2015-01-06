@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"net/mail"
 	"net/url"
-	"os"
 	"regexp"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
@@ -28,9 +28,9 @@ const maxConfirmationHours = 72 * time.Hour
 const maxUnconfirmedDuration = 24 * time.Hour
 
 var (
-	usernameRe               = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
-	emailRe                  = regexp.MustCompile(`\A[^@\s]+@([^@\s]+\.)+[^@\s]+\z`)
-	Mailer     mailer.Mailer = mailer.NewSendGridMailer()
+	usernameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
+	emailRe    = regexp.MustCompile(`\A[^@\s]+@([^@\s]+\.)+[^@\s]+\z`)
+	Mailer     mailer.Mailer
 )
 
 var (
@@ -46,6 +46,10 @@ var (
 	ErrConfirmationLapsed           = errors.New("confirmation has expired")
 	ErrConfirmationAlreadyCompleted = errors.New("email has already been confirmed")
 )
+
+func init() {
+	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
+}
 
 type User struct {
 	ID        int64      `db:"id" json:"id"`
@@ -374,7 +378,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, 
 		return err
 	}
 
-	host := os.Getenv("WEB_HOSTNAME")
+	host := envvars.WebHostname
 	if host == "" {
 		host = "pro.nitrous.io"
 	}
@@ -453,7 +457,7 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 	replyTo := from
 	subject := fmt.Sprintf("[nitrous-pro] Reset password instructions")
 
-	host := os.Getenv("WEB_HOSTNAME")
+	host := envvars.WebHostname
 	if host == "" {
 		host = "pro.nitrous.io"
 	}

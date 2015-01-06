@@ -16,6 +16,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
@@ -107,33 +108,33 @@ func (e *InvalidHostError) Error() string {
 }
 
 func init() {
-	hostbuilderURL := os.Getenv("HOSTBUILDER_URL")
+	hostbuilderURL := envvars.HostBuilderURL
 	if hostbuilderURL == "" {
 		panic("provisioner: HOSTBUILDER_URL is not set")
 	}
 	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
 
-	aesKey = os.Getenv("AES_KEY")
+	aesKey = envvars.AESKey
 	if aesKey == "" {
 		panic("provisioner: AES_KEY is not set")
 	}
 
-	defaultAPTLocation = os.Getenv("DEFAULT_APT_LOCATION")
+	defaultAPTLocation = envvars.DefaultAptLocation
 	if defaultAPTLocation == "" {
 		panic("DEFAULT_APT_LOCATION is not set")
 	}
 
-	defaultAPTDist = os.Getenv("DEFAULT_APT_DIST")
+	defaultAPTDist = envvars.DefaultAptDist
 	if defaultAPTDist == "" {
 		panic("DEFAULT_APT_DIST is not set")
 	}
 
-	fv = os.Getenv("FREIGHTERD_VERSION")
+	fv = envvars.FreighterdVersion
 	if fv == "" {
 		panic("provisioner: FREIGHTERD_VERSION is not set")
 	}
 
-	dv = os.Getenv("DOCKER_VERSION")
+	dv = envvars.DockerVersion
 	if dv == "" {
 		panic("provisioner: DOCKER_VERSION is not set")
 	}
@@ -437,7 +438,7 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 	}
 
 	// Generate Certificate Authority info.
-	caInfo, err := certauth.GetCAInfo(true)
+	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
 	if err != nil {
 		return nil, err
 	}

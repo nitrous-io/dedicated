@@ -8,14 +8,17 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 )
 
-var (
-	Mailer mailer.Mailer = mailer.NewSendGridMailer()
-)
+var Mailer mailer.Mailer
+
+func init() {
+	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
+}
 
 type Invoice struct {
 	ID     int64 `db:"id"`

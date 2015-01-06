@@ -4,13 +4,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
-	"os"
 	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -40,20 +39,6 @@ const (
 	StateOrphan     = "orphan"
 	StateTerminated = "terminated"
 )
-
-// slug is prefixed to these as "<slug>.<rootHostname>" and "<slug>.<proxyHostname>"
-var rootHostname, proxyHostname string
-
-func init() {
-	rootHostname = os.Getenv("HOST_HOSTNAME")
-	if rootHostname == "" {
-		log.Fatalf("HOST_HOSTNAME not set")
-	}
-	proxyHostname = os.Getenv("PROXY_HOSTNAME")
-	if proxyHostname == "" {
-		log.Fatalf("PROXY_HOSTNAME not set")
-	}
-}
 
 type Host struct {
 	ID                 int64 `db:"id"`
@@ -287,13 +272,13 @@ func (h *Host) Validate() error {
 // We assume that slug is vald ( its cant be empty ), therefore we wont check
 // it here
 func (h *Host) Hostname() string {
-	return fmt.Sprintf("%s.%s", h.Slug, rootHostname)
+	return fmt.Sprintf("%s.%s", h.Slug, envvars.HostHostname)
 }
 
 func (h *Host) CertHostname() string {
-	return fmt.Sprintf("*.%s", rootHostname)
+	return fmt.Sprintf("*.%s", envvars.HostHostname)
 }
 
 func (h *Host) ProxyHostname() string {
-	return fmt.Sprintf("%s.%s", h.Slug, proxyHostname)
+	return fmt.Sprintf("%s.%s", h.Slug, envvars.ProxyHostname)
 }

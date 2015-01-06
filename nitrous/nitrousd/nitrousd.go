@@ -13,12 +13,15 @@ import (
 	"bitbucket.org/kardianos/osext"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous-common/must"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
+	"github.com/stripe/stripe-go"
 )
 
 var (
@@ -32,14 +35,28 @@ var (
 )
 
 func init() {
-	libratoUser = os.Getenv("LIBRATO_USER")
-	libratoToken = os.Getenv("LIBRATO_TOKEN")
+	libratoUser = envvars.LibratoUser
+	libratoToken = envvars.LibratoToken
 
 	if libratoUser == "" ||
 		libratoToken == "" ||
 		strings.HasPrefix(libratoUser, "disable") ||
 		strings.HasPrefix(libratoToken, "disable") {
 		disableLibrato = true
+	}
+
+	// check CA
+	envvars.CheckCAVariables()
+	if _, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath); err != nil {
+		panic(fmt.Errorf("Error with keypair (%s,%s): %s", envvars.CACertPath, envvars.CAKeyPath, err))
+	}
+
+	envvars.CheckSendgridVariables()
+	envvars.CheckHostnames()
+
+	stripe.Key = envvars.StripeSecretKey
+	if stripe.Key == "" {
+		panic("STRIPE_SECRET_KEY environment variable not set")
 	}
 }
 
@@ -61,9 +78,9 @@ func main() {
 	}()
 
 	// setup database
-	dbURL := os.Getenv("NITROUS_PG_URL")
+	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit("nitrousd: NITROUS_PG_URL is not defined")
+		logr.FatalfExit("nitrousd: %s is not defined", envvars.DBEnvVar)
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
@@ -75,7 +92,7 @@ func main() {
 	}
 
 	var libratoInterval time.Duration
-	li := os.Getenv("LIBRATO_INTERVAL")
+	li := envvars.LibratoInterval
 	if li == "" {
 		libratoInterval = 120 * time.Second
 	} else {
@@ -103,11 +120,11 @@ func main() {
 		)
 	}
 
-	pu := os.Getenv("PROVISIONER_USER")
+	pu := envvars.ProvisionerUser
 	if pu == "" {
 		logr.FatalExit("nitrousd: PROVISIONER_USER is not defined")
 	}
-	pi := os.Getenv("PROVISIONER_INTERVAL")
+	pi := envvars.ProvisionerInterval
 	interval, err := time.ParseDuration(pi)
 	if err != nil {
 		logr.FatalExit("nitrousd: PROVISIONER_INTERVAL invalid:", err.Error())

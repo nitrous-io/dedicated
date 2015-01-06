@@ -5,11 +5,16 @@ import (
 	"net/http"
 	"net/mail"
 
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 )
 
-var Mailer mailer.Mailer = mailer.NewSendGridMailer()
+var Mailer mailer.Mailer
+
+func init() {
+	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
+}
 
 func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	subject := r.FormValue("subject")

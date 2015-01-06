@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -35,7 +36,7 @@ var (
 )
 
 func init() {
-	defaultProvider = os.Getenv("DEFAULT_PROVIDER")
+	defaultProvider = envvars.DefaultProvider
 	if defaultProvider == "" {
 		fmt.Fprintln(os.Stderr, "WARN: DEFAULT_PROVIDER is not set, using 'docker'")
 		defaultProvider = "docker"
@@ -183,7 +184,7 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 // only when needed.  It deletes any existing cert for
 // that host.
 func GenerateHostCert(db *db.Database, hs *HostStack) (*HostStack, error) {
-	caInfo, err := certauth.GetCAInfo(true)
+	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
 	if err != nil {
 		return nil, err
 	}

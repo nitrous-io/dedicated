@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -78,7 +79,7 @@ var _ = Describe("CreateVolume", func() {
 		env = &middleware.Env{
 			DB:      db,
 			Events:  pubsub.New(128),
-			Tracker: analytics.NewMixpanelTracker(),
+			Tracker: analytics.NewMixpanelTracker(envvars.MixpanelToken),
 			Logger:  logger,
 			User:    u,
 		}
