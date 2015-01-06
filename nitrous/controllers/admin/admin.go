@@ -20,9 +20,9 @@ var (
 )
 
 var (
-	SwitchUser               = verifyAdmin(switchUser)
-	Hosts                    = verifyAdmin(hosts)
-	TerminateUnaccountedHost = verifyAdmin(terminateUnaccountedHost)
+	SwitchUser               = VerifyAdmin(switchUser)
+	Hosts                    = VerifyAdmin(hosts)
+	TerminateUnaccountedHost = VerifyAdmin(terminateUnaccountedHost)
 )
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
@@ -134,7 +134,7 @@ func terminateUnaccountedHost(env *middleware.Env, w http.ResponseWriter, r *htt
 	return nil
 }
 
-func verifyAdmin(fn middleware.Middleware) middleware.Middleware {
+func VerifyAdmin(fn middleware.Middleware) middleware.Middleware {
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if !env.User.Admin {
 			return httperror.New(http.StatusNotFound, "not_found", "not found")

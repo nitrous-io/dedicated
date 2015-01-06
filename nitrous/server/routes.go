@@ -17,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/keys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/providertemplates"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/regions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/stripehooks"
@@ -119,6 +120,8 @@ func (s *Server) drawRoutes() {
 				"/billing/invoices":                  r("billing.Invoices", billing.Invoices),
 				"/billing/current_usage":             r("billing.CurrentUsage", billing.CurrentUsage),
 				"/admin/hosts":                       r("admin.Hosts", admin.Hosts),
+				"/admin/provider_templates":          r("providertemplates.Index", providertemplates.Index),
+				"/admin/provider_templates/{ptid}":   r("providertemplates.Show", providertemplates.Show),
 			},
 			"POST": {
 				"/user/profile":                        r("userprofiles.Update", userprofiles.Update),
@@ -144,6 +147,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/restart_app":       r("containers.RestartApp", containers.RestartApp),
 				"/feedback":                            r("feedback.Send", feedback.Send),
 				"/admin/switch_user":                   r("admin.SwitchUser", admin.SwitchUser),
+				"/admin/provider_templates/{ptid}":     r("providertemplates.Update", providertemplates.Update),
 			},
 			"PUT": {
 				"/users":                  r("users.Update", users.Update),

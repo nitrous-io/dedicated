@@ -36,6 +36,8 @@ App.Router.map ->
     @resource 'account'
     @resource 'billing'
     @resource 'add-card'
+    @resource 'provider-templates', path: '/provider-templates'
+    @resource 'provider-template', path: '/provider-templates/:ptid'
 
   @resource 'admin', ->
     @route 'hosts', path: 'hosts/:provider'

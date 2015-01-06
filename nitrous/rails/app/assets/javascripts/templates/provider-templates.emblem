@@ -1,0 +1,29 @@
+.ui.card
+  .card-header.bordered
+    h2 Provider templates list
+
+  .card-body
+    table.ui.table
+      tbody
+        tr
+          th ID
+          th Name
+          th Region
+          th Plan
+          th Provider
+          th Provision
+          th Price
+          th Updated
+          th Edit
+
+        each pt in content
+          tr
+            td = pt.id
+            td = pt.name
+            td = pt.regionId
+            td = pt.planId
+            td = pt.provider
+            td = pt.preprovisionMax
+            td = pt.hourlyPrice
+            td = dateabbr pt.updatedAt
+            td = link-to 'provider-template' pt.id | Edit
