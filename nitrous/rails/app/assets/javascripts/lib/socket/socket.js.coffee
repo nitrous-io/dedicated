@@ -1,27 +1,36 @@
+#= require ./socket-connection
+
 Lib.Socket = Em.Object.extend Em.Evented,
   url: null
 
   init: ->
     @_super.apply this, arguments
     @_conn = conn = new SocketConnection # not using @set to reduce overhead
+
     conn.onbeforeopen   = => @willOpen()
     conn.onopen    = (ev) => @didOpen(ev)
     conn.onmessage = (ev) => @didReceiveMessage(ev)
     conn.onerror   = (ev) => @didFail(ev)
     conn.onclose   = (ev) => @didClose(ev)
 
-  connect: ->
-    @_conn.open()
+  connect: (nobeforeopen) ->
+    @_conn.url = @get 'url'
+    @_conn.open(nobeforeopen)
 
   disconnect: ->
     @_conn?.close()
+
+  retry: ->
+    @_conn?.retry()
+
+  destroy: ->
     @_conn = undefined
 
   send: (data) ->
     @_conn?.send(data)
 
   willOpen: (ev) ->
-    @_conn.url = @get('url')
+    @_conn.url = @get 'url'
     @trigger 'beforeopen', ev
 
   didOpen: (ev) ->
@@ -34,4 +43,5 @@ Lib.Socket = Em.Object.extend Em.Evented,
     @trigger 'error', ev
 
   didClose: (ev) ->
+    @_conn.url = null
     @trigger 'close', ev

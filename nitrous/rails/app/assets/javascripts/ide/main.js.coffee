@@ -51,6 +51,8 @@ window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
   slug: window.location.search.slice('1')
 
+window.Lib = Ember.Namespace.create()
+
 App.on 'load', ->
   App.set 'snackbar', App.Snackbar.create()
 

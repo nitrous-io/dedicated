@@ -131,5 +131,5 @@ Em.Route.reopen
 
 App.Router.reopen
   notifyGoogleAnalytics: (->
-    ga 'send', 'pageview', 'page': @get('url'), 'title': App.get('title')
+    ga? 'send', 'pageview', 'page': @get('url'), 'title': App.get('title')
   ).on 'didTransition'

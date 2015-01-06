@@ -144,9 +144,9 @@ describe 'SocketConnection', ->
             conn.retries = 5
             conn.retry()
 
-          it 'attempts to reopen connection after 1 second', ->
+          it 'attempts to reopen connection after 2 seconds', ->
             expect(conn.open.called).to.be.false 'open is not yet called'
-            expect(window.setTimeout.calledOnce && window.setTimeout.calledWith(sinon.match.func, 1000)).to.be.true 'timeout after 1s'
+            expect(window.setTimeout.calledOnce && window.setTimeout.calledWith(sinon.match.func, 2000)).to.be.true 'timeout after 2s'
             window.setTimeout.args[0][0]()
             expect(conn.open.called).to.be.true 'open is called'
 
@@ -155,9 +155,9 @@ describe 'SocketConnection', ->
             conn.retries = 6
             conn.retry()
 
-          it 'attempts to reopen connection after 2.5 seconds', ->
+          it 'attempts to reopen connection after 5 seconds', ->
             expect(conn.open.called).to.be.false 'open is not yet called'
-            expect(window.setTimeout.calledOnce && window.setTimeout.calledWith(sinon.match.func, 2500)).to.be.true 'timeout after 2.5s'
+            expect(window.setTimeout.calledOnce && window.setTimeout.calledWith(sinon.match.func, 5000)).to.be.true 'timeout after 5s'
             window.setTimeout.args[0][0]()
             expect(conn.open.called).to.be.true 'open is called'
 
@@ -166,9 +166,9 @@ describe 'SocketConnection', ->
             conn.retries = 11
             conn.retry()
 
-          it 'attempts to reopen connection after 5 seconds', ->
+          it 'attempts to reopen connection after 10 seconds', ->
             expect(conn.open.called).to.be.false 'open is not yet called'
-            expect(window.setTimeout.calledOnce && window.setTimeout.calledWith(sinon.match.func, 5000)).to.be.true 'timeout after 5s'
+            expect(window.setTimeout.calledOnce && window.setTimeout.calledWith(sinon.match.func, 10000)).to.be.true 'timeout after 10s'
             window.setTimeout.args[0][0]()
             expect(conn.open.called).to.be.true 'open is called'
 

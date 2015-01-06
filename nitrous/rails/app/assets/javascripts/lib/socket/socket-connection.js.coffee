@@ -3,6 +3,7 @@ class window.SocketConnection
   url: undefined
   protocols: undefined
   retries: 0
+  retryTimeout: null
 
   constructor: (url, protocols) ->
     @url = url
@@ -10,23 +11,17 @@ class window.SocketConnection
     @retries = 0
 
   open: (nobeforeopen) ->
-    if ws = @ws
-      ws.close()
-      ws.onopen = null
-      ws.onclose = null
-      ws.onerror = null
-      ws.onmessage = null
-      ws.removeEventListener 'open',  @_onopen,  false
-      ws.removeEventListener 'close', @_onclose, false
+    if @ws
+      @close()
 
     unless nobeforeopen
       @onbeforeopen()
 
-    unless @url
+    if !@url
       @ws = null
       return
 
-    @ws = ws = if @protocols
+    ws = @ws = if @protocols
       new WebSocket(@url, @protocols)
     else
       new WebSocket(@url)
@@ -35,26 +30,26 @@ class window.SocketConnection
     ws.onerror   = (evt) => @onerror(evt)
     ws.onmessage = (evt) => @onmessage(evt)
 
-    @_onopen ||= =>
+    ws._onopen = =>
       @retries = 0
 
-    @_onclose ||= =>
-      if @_closeInvoked
-        @_closeInvoked = false
-        return
-      @retry()
+    ws._onclose = =>
+      ws.removeEventListener 'open',  ws._onopen,  false
+      ws.removeEventListener 'close', ws._onclose, false
+      @retry() if !ws._noRetry
 
-    ws.addEventListener 'open',  @_onopen,  false
-    ws.addEventListener 'close', @_onclose, false
+    ws.addEventListener 'open',  ws._onopen,  false
+    ws.addEventListener 'close', ws._onclose, false
 
   retry: ->
     delay = if @retries <= 5
-      1000
+      2000
     else if @retries <= 10
-      2500
-    else if @retries > 10
       5000
-    window.setTimeout(=>
+    else if @retries > 10
+      10000
+    window.clearTimeout(@retryTimeout)
+    @retryTimeout = window.setTimeout(=>
       @open()
     , delay)
     @retries += 1
@@ -63,8 +58,9 @@ class window.SocketConnection
     @ws.send.apply(@ws, arguments)
 
   close: ->
-    @_closeInvoked = true
-    @ws?.close?.apply(@ws, arguments)
+    if ws = @ws
+      ws._noRetry = true
+      ws.close?.apply(ws, arguments)
 
   onbeforeopen: ->
   onopen: ->

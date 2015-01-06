@@ -8,7 +8,6 @@ App.Container = klass = Em.Object.extend
 
   config: null
   host: null
-  token: null
 
   env: (->
     transformEnvArrayToHash @get('config').env
