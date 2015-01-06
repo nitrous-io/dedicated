@@ -786,7 +786,13 @@ func (s *Server) uploadContainerFile(w http.ResponseWriter, r *http.Request) err
 			input[name] = multipartsio.NewPartsReader(part)
 		}
 	}
-	return s.provider.CopyFromHost(info.ID, location, input)
+
+	if err := s.provider.CopyFromHost(info.ID, location, input); err != nil {
+		return err
+	}
+
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"status": "ok"})
+	return nil
 }
 
 func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {

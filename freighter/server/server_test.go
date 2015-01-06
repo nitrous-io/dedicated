@@ -1971,6 +1971,9 @@ var _ = Describe("server", func() {
 			output := bytes.NewBuffer(nil)
 			io.Copy(output, input["hello.txt"])
 			Expect(output.String()).To(Equal("world"), "expect input to have file contents")
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Body.String()).To(Equal(`{"status":"ok"}`))
 		})
 	})
 

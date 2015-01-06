@@ -232,6 +232,7 @@ func (s *Server) drawRoutes() {
 
 	// handle download/upload files to a container
 	s.route("/containers/{id}/download", s.wrapError(s.withContainerToken(s.downloadContainerFile, "download")), "GET")
+	s.route("/containers/{id}/upload", s.handleCORSPreflight, "OPTIONS")
 	s.route("/containers/{id}/upload", limitRequestSize(
 		s.wrapError(s.cors(s.withContainerToken(s.uploadContainerFile, "upload"))),
 		MaxRequestSize), "POST")
