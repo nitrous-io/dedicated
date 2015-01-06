@@ -183,8 +183,8 @@ var _ = Describe("controllers/admin", func() {
 
 		Context("when the requester is an admin", func() {
 			var (
-				hs1, hs2, hs3, hs4, hs5 *test.HostStack
-				provider                = "digitalocean"
+				hs1, hs2, hs3, hs4 *test.HostStack
+				provider           = "digitalocean"
 			)
 
 			BeforeEach(func() {
@@ -220,26 +220,13 @@ var _ = Describe("controllers/admin", func() {
 				})
 				Expect(err).To(BeNil())
 
-				hs3, err = test.CreateHostStack(db, &test.HostStack{
-					H: &host.Host{
-						ProviderIdentifier: sql.NullString{String: "digitalocean-3", Valid: true},
-						State:              host.StateRunning,
-						Slug:               "dangling-host-1",
-					},
-					U:  u,
-					PT: hs1.PT,
-					P:  hs1.P,
-					R:  hs1.R,
-				})
-				Expect(err).To(BeNil())
-
 				// Create some pre-provisioned hosts.
 				u2 := &user.User{
 					Username: "pre-provisioner",
 					Email:    "pp@example.com",
 					Password: "pp1234",
 				}
-				hs4, err = test.CreateHostStack(db, &test.HostStack{
+				hs3, err = test.CreateHostStack(db, &test.HostStack{
 					H: &host.Host{
 						ProviderIdentifier: sql.NullString{String: "digitalocean-4", Valid: true},
 						Slug:               "ok-host-2",
@@ -252,7 +239,7 @@ var _ = Describe("controllers/admin", func() {
 					R:  hs1.R,
 				})
 				Expect(err).To(BeNil())
-				hs5, err = test.CreateHostStack(db, &test.HostStack{
+				hs4, err = test.CreateHostStack(db, &test.HostStack{
 					H: &host.Host{
 						ProviderIdentifier: sql.NullString{String: "digitalocean-5", Valid: true},
 						Slug:               "terminated-host-1",
@@ -265,7 +252,7 @@ var _ = Describe("controllers/admin", func() {
 					R:  hs1.R,
 				})
 				Expect(err).To(BeNil())
-				err = hs5.H.Delete(db) // Terminate this host.
+				err = hs4.H.Delete(db) // Terminate this host.
 				Expect(err).To(BeNil())
 
 				// Fake hostbuilderclient response.
@@ -282,24 +269,10 @@ var _ = Describe("controllers/admin", func() {
 							},
 							{
 								"provider": "%s",
-								"id": "digitalocean-2",
-								"ip_address": "1.2.3.5",
-								"freighterd_port": 65333,
-								"state": "Starting"
-							},
-							{
-								"provider": "%s",
-								"id": "digitalocean-4",
-								"ip_address": "1.2.3.6",
-								"freighterd_port": 65333,
-								"state": "Running"
-							},
-							{
-								"provider": "%s",
 								"id": "digitalocean-666",
 								"ip_address": "1.6.6.6",
-								"freighterd_port": 65333,
-								"state": "Running"
+								"freighterd_port": 65334,
+								"state": "Stopped"
 							}
 						]
 					}`, provider, provider, provider, provider),
@@ -309,79 +282,44 @@ var _ = Describe("controllers/admin", func() {
 				admin.HostbuilderClient = hb
 			})
 
-			It("responds with hosts that are in Hostbuilder but not in the database", func() {
+			It("responds with hosts that are in the database and in Hostbuilder", func() {
 				p := &url.Values{}
 				p.Set("provider", provider)
 				res := doRequest(t, p)
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 				var j struct {
-					UnaccountedHosts []struct {
+					DBHosts   []serializers.Host `json:"db_hosts"`
+					LiveHosts []struct {
 						Provider       string `json:"provider"`
 						ID             string `json:"id"`
 						IPAddress      string `json:"ip_address"`
 						FreighterdPort uint16 `json:"freighterd_port"`
 						State          string `json:"state"`
-					} `json:"unaccounted"`
+					} `json:"live_hosts"`
 				}
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 
-				Expect(j.UnaccountedHosts).To(HaveLen(1))
-				Expect(j.UnaccountedHosts[0].Provider).To(Equal(provider))
-				Expect(j.UnaccountedHosts[0].ID).To(Equal("digitalocean-666"))
-				Expect(j.UnaccountedHosts[0].IPAddress).To(Equal("1.6.6.6"))
-				Expect(j.UnaccountedHosts[0].FreighterdPort).To(Equal(uint16(65333)))
-				Expect(j.UnaccountedHosts[0].State).To(Equal("Running"))
-			})
+				Expect(j.DBHosts).To(HaveLen(3))
 
-			It("responds with hosts that are not running in either the database or in Hostbuilder", func() {
-				p := &url.Values{}
-				p.Set("provider", provider)
-				res := doRequest(t, p)
+				Expect(j.DBHosts[0].ID).To(Equal(hs1.H.ID))
+				Expect(j.DBHosts[1].ID).To(Equal(hs2.H.ID))
+				Expect(j.DBHosts[2].ID).To(Equal(hs3.H.ID))
 
-				Expect(res.Code).To(Equal(http.StatusOK))
-				var j struct {
-					NonRunningHosts []*serializers.Host `json:"non_running"`
-				}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
+				Expect(j.LiveHosts).To(HaveLen(2))
 
-				Expect(j.NonRunningHosts).To(HaveLen(1))
-				Expect(j.NonRunningHosts[0].ID).To(Equal(hs2.H.ID))
-			})
+				Expect(j.LiveHosts[0].Provider).To(Equal(provider))
+				Expect(j.LiveHosts[0].ID).To(Equal("digitalocean-1"))
+				Expect(j.LiveHosts[0].IPAddress).To(Equal("1.2.3.4"))
+				Expect(j.LiveHosts[0].FreighterdPort).To(Equal(uint16(65333)))
+				Expect(j.LiveHosts[0].State).To(Equal("Running"))
 
-			It("responds with hosts that are in the database and but not in Hostbuilder", func() {
-				p := &url.Values{}
-				p.Set("provider", provider)
-				res := doRequest(t, p)
-
-				Expect(res.Code).To(Equal(http.StatusOK))
-				var j struct {
-					DanglingHosts []*serializers.Host `json:"dangling"`
-				}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-
-				Expect(j.DanglingHosts).To(HaveLen(1))
-				Expect(j.DanglingHosts[0].ID).To(Equal(hs3.H.ID))
-			})
-
-			It("responds with hosts that are ok", func() {
-				p := &url.Values{}
-				p.Set("provider", provider)
-				res := doRequest(t, p)
-
-				Expect(res.Code).To(Equal(http.StatusOK))
-				var j struct {
-					OkHosts []*serializers.Host `json:"ok"`
-				}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-
-				Expect(j.OkHosts).To(HaveLen(2))
-				Expect(j.OkHosts[0].ID).To(Equal(hs1.H.ID))
-				Expect(j.OkHosts[1].ID).To(Equal(hs4.H.ID))
+				Expect(j.LiveHosts[1].Provider).To(Equal(provider))
+				Expect(j.LiveHosts[1].ID).To(Equal("digitalocean-666"))
+				Expect(j.LiveHosts[1].IPAddress).To(Equal("1.6.6.6"))
+				Expect(j.LiveHosts[1].FreighterdPort).To(Equal(uint16(65334)))
+				Expect(j.LiveHosts[1].State).To(Equal("Stopped"))
 			})
 
 			It("responds with HTTP 400 Bad Request when provider is not given", func() {
