@@ -57,7 +57,10 @@ App.HostsNewController = Em.ObjectController.extend
         return unless hostData.id == host.get('id')
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
-        @transitionToRoute 'host.index', slug
+        redirectRoute = 'app.index'
+        if App.user.advanced
+          redirectRoute = 'host.index'
+        @transitionToRoute redirectRoute, slug
         App.snackbar.post("Your application “#{name}” was created successfully.")
         @set 'saving', false
 
