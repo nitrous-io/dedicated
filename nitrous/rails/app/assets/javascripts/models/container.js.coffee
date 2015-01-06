@@ -31,6 +31,8 @@ App.Container = klass = App.Model.extend
     config
   ).property 'id', 'slug'
 
+  underReconfig: attr('boolean', serialize: false)
+
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
   isTerminated: Em.computed.equal 'state', 'terminated'
@@ -109,6 +111,10 @@ App.Container = klass = App.Model.extend
       App.PublicKey.fetch(containerId: id).value
   ).property 'id'
 
+  eventOccurred: (evt) ->
+    if evt in ['container.started', 'container.stopped', 'container.restarted', 'container.updated', 'container.reconfigured', 'container.reconfigure_failed']
+      @set 'underReconfig', false
+
   loadConfig: ->
     new Em.RSVP.Promise (resolve, reject) =>
       @ajax('GET', 'config').then (json) =>
@@ -128,6 +134,7 @@ App.Container = klass = App.Model.extend
     config
 
   saveConfig: (config)  ->
+    @set 'underReconfig', true
     @ajax 'POST', 'reconfig',
       env: config.env
       volume: config.volume

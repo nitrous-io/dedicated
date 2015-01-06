@@ -13,6 +13,7 @@ App.EventMessageHandler = App.EventsSocket.extend
     ['container.started', 'container.stopped', 'container.restarted', 'container.updated', 'container.reconfigured', 'container.reconfigure_failed'].forEach (evt) =>
       @on evt, (data) ->
         containerData = data.container
+        findContainer(containerData)?.eventOccurred(evt)
         findContainer(containerData)?.load(containerData)
 
     ['host.created', 'host.create_failed', 'host.destroyed'].forEach (evt) =>
