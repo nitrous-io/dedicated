@@ -17,6 +17,8 @@ App.AddCardView = Em.View.extend
   ).property 'controller.name', 'controller.number', 'controller.expiration', 'controller.cvc', 'controller.saving'
 
   showCardIcon: (->
+    backgroundImageURL = "none"
     if cardType = $.payment.cardType @get('controller.number')
-      $('#card-number').css 'background-image', "url(#{location.protocol}//nitrous-image-icons.s3.amazonaws.com/cc-cards/#{cardType}.png)"
+      backgroundImageURL = "url(#{location.protocol}//nitrous-image-icons.s3.amazonaws.com/cc-cards/#{cardType}.png)"
+    $('#card-number').css 'background-image', backgroundImageURL
   ).observes 'controller.number'
