@@ -14,11 +14,11 @@
 
       p.hint-text
         i.fa.fa-globe
-        | denotes the preview port
+        | preview port
     else
       p.hint-text
         i.fa.fa-exclamation-circle
-        | There aren't any exposed ports for this application.
+        | No exposed ports
 
   form submit='add'
     .ui.input-group
@@ -26,7 +26,7 @@
         thead
           tr
             th
-              abbr title='Enable to use this port as the preview port' Preview
+              abbr title='Use this port as the preview port' Preview
             th colspan='2'  Port
         tbody
           tr
