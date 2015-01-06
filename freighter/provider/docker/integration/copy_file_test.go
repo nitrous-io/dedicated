@@ -9,9 +9,7 @@ import (
 	"os/exec"
 
 	"github.com/nitrous-io/dedicated/freighter/provider"
-	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/test"
-	"github.com/nitrous-io/dedicated/freighter/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -22,36 +20,6 @@ var _ = Describe("CopyFile", func() {
 	RUN mkdir /copydir && echo -n world > /copydir/hello
 	RUN echo -n hello > /copyfile
 	`
-
-	createImageTarball := func(df string) (io.Reader, error) {
-		buf := new(bytes.Buffer)
-		tarWriter := tar.NewWriter(buf)
-		if err := tarWriter.WriteHeader(&tar.Header{
-			Name: "Dockerfile", Size: int64(len(df))}); err != nil {
-			return nil, err
-		}
-		if _, err := tarWriter.Write([]byte(df)); err != nil {
-			return nil, err
-		}
-		if err := tarWriter.Close(); err != nil {
-			return nil, err
-		}
-		return buf, nil
-	}
-
-	createNewProvider := func() (*docker.DockerProvider, string, error) {
-		logger := &util.Logger{Level: util.LogLevelQuiet}
-		data, err := ioutil.TempDir("", "freightertest")
-		if err != nil {
-			return nil, "", err
-		}
-		prov, err := docker.NewDockerProvider(logger, data)
-		if err != nil {
-			os.RemoveAll(data)
-			return nil, "", err
-		}
-		return prov, data, nil
-	}
 
 	It("copies the path as tar archive when it's a directory", func() {
 		prov, dataPath, err := createNewProvider()

@@ -956,6 +956,27 @@ func (p *DockerProvider) ResizeContainerTTY(id string, height, width int) error 
 	return p.client.ResizeContainerTTY(container.ID, height, width)
 }
 
+func (p *DockerProvider) FileInfo(id string, location string) (provider.FileInfo, error) {
+	container, err := p.inspectContainer(id)
+	if err != nil {
+		return provider.FileInfo{}, err
+	}
+	containerRoot := path.Join(cfs.RootPrefix, container.ID)
+	if _, err := os.Stat(containerRoot); os.IsNotExist(err) {
+		return provider.FileInfo{}, fmt.Errorf("failed to find rootfs for %s, %s", id, err)
+	}
+	rfs := rootfs.NewRootfs(containerRoot)
+
+	stat, err := rfs.Stat(location)
+	if err != nil {
+		return provider.FileInfo{}, err
+	}
+
+	return provider.FileInfo{
+		IsDir: stat.IsDir(),
+	}, nil
+}
+
 // CopyFile copies file/directory from a docker container. The output is
 // written into the provided io.Writer as a tar stream for a directory and
 // file content for a file.
