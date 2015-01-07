@@ -1,6 +1,7 @@
 package serializers_test
 
 import (
+	"database/sql"
 	"encoding/json"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
@@ -14,9 +15,9 @@ var _ = Describe("invoice item serializer", func() {
 		var model = &invoiceitem.InvoiceItem{
 			ID:          23,
 			InvoiceID:   28,
-			HostID:      39,
-			Hours:       12,
-			HourlyPrice: 1000,
+			HostID:      sql.NullInt64{39, true},
+			Hours:       sql.NullInt64{12, true},
+			HourlyPrice: sql.NullInt64{1000, true},
 		}
 
 		It("serializes to JSON", func() {
