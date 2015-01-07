@@ -15,7 +15,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -79,13 +78,6 @@ var _ = Describe("provider/docker", func() {
 
 	inspectNetworkSettingsPort := func(id, port string) string {
 		return doInspect(id, fmt.Sprintf(`{{(index (index .NetworkSettings.Ports "%s") 0).HostPort}}`, port))
-	}
-
-	// inspectPortBindings output looks like "[map[HostIp:127.0.0.1 HostPort:1234]]"
-	// or "<no value>" if bindings for given port do not exist
-	inspectPortBindings := func(id, port string) string {
-		return doInspect(id, fmt.Sprintf(
-			`{{index .NetworkSettings.Ports "%s"}}`, port))
 	}
 
 	inspectIP := func(id string) string {
@@ -767,102 +759,8 @@ var _ = Describe("provider/docker", func() {
 	})
 
 	Describe(".CreateStart() with custom options", func() {
-		// given docker inspect output "Volumes": {
-		//   "/etc/dotfiles": "/var/lib/freighter/volumes/dotfiles",
-		//   "/volumes/backups": "/var/lib/freighter/volumes/backups"
-		// }
-		// returns
-		//   /etc/dotfiles /var/lib/freighter/volumes/dotfiles\n
-		//   /volumes/backups /var/lib/freighter/volumes/backups\n
-		getVolumes := func(id string) string {
-			return doInspect(id,
-				"{{range $cnrPath, $hostPath := .Volumes}}{{$cnrPath}} {{$hostPath}}\n{{end}}")
-		}
-
 		BeforeEach(func() {
 			PullImage(NitrousImage)
-		})
-
-		It("creates container with options", func() {
-			name := RandomName("freightertest")
-			configJSON := `{
-				"Env": ["LANG=C"],
-				"Mounts": ["dotfiles:/etc/dotfiles","backups"],
-				"PortBindings": ["private:65000:3000", "public:9999:9999"]
-			}`
-			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
-
-			id := inspectID(name)
-			imageID := inspectID(NitrousImage)
-			Expect(info.ID).To(Equal(id))
-			Expect(info.Name).To(Equal(name))
-			Expect(info.Image).To(Equal(NitrousImage))
-			Expect(info.ImageID).To(Equal(imageID))
-			Expect(info.State).To(Equal(provider.ContainerStateRunning))
-			Expect(doInspect(id, "{{.Config.Env}}")).To(ContainSubstring("LANG=C"))
-
-			port3000Binding := inspectPortBindings(id, "3000")
-			Expect(port3000Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
-			Expect(port3000Binding).To(ContainSubstring("HostPort:65000"))
-
-			port9999Binding := inspectPortBindings(id, "9999")
-			Expect(port9999Binding).To(ContainSubstring("HostIp:0.0.0.0"))
-			Expect(port9999Binding).To(ContainSubstring("HostPort:9999"))
-
-			port22Binding := inspectPortBindings(id, "22/tcp")
-			Expect(port22Binding).To(ContainSubstring("HostIp:0.0.0.0"))
-			Expect(port22Binding).To(MatchRegexp(`HostPort:49[0-9][0-9][0-9]`)) // Docker will use 49000-49900
-
-			containerDir := filepath.Join(datadir, "containers")
-			volumeDir := filepath.Join(datadir, "volumes")
-			vols := getVolumes(id)
-			Expect(vols).To(ContainSubstring(
-				fmt.Sprintf("/nitrous/ssh %s/%s/ssh", containerDir, name)))
-			Expect(vols).To(ContainSubstring(
-				fmt.Sprintf("/etc/dotfiles %s", filepath.Join(volumeDir, "dotfiles"))))
-			Expect(vols).To(ContainSubstring(
-				fmt.Sprintf("/volumes/backups %s", filepath.Join(volumeDir, "backups"))))
-
-			Expect(doInspect(id, "{{.HostConfig.ExtraHosts}}")).To(
-				ContainSubstring(fmt.Sprintf("host:%s", inspectGateway(id))))
-
-			// should be split out but kept here due to each container create taking >10s
-			// It("persists PortBindings,Binds on next start if no options given")
-			_, err = prov.Stop(id)
-			Expect(err).To(BeNil())
-			_, err = prov.Start(id, "")
-			Expect(err).To(BeNil())
-
-			port3000Binding = inspectPortBindings(id, "3000")
-			Expect(port3000Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
-			Expect(port3000Binding).To(ContainSubstring("HostPort:65000"))
-
-			vols = getVolumes(id)
-			Expect(vols).To(ContainSubstring("/nitrous/ssh"))
-			Expect(vols).To(ContainSubstring("dotfiles"))
-			Expect(vols).To(ContainSubstring("backups"))
-
-			// It("overrides existing PortBindings,Binds on next start if options given")
-			_, err = prov.Stop(id)
-			Expect(err).To(BeNil())
-			newConfig := strings.Replace(configJSON, "3000", "4242/tcp", 1)
-			newConfig = strings.Replace(newConfig, "backups", "restores", 1)
-			_, err = prov.Start(id, newConfig)
-			Expect(err).To(BeNil())
-
-			port4242Binding := inspectPortBindings(id, "4242/tcp")
-			Expect(port4242Binding).NotTo(ContainSubstring("HostIp:0.0.0.0"))
-			Expect(port4242Binding).To(ContainSubstring("HostPort:65000"))
-			Expect(inspectPortBindings(id, "3000/tcp")).To(Equal("<no value>"))
-
-			vols = getVolumes(id)
-			Expect(vols).To(ContainSubstring("/nitrous/ssh"))
-			Expect(vols).To(ContainSubstring("dotfiles"))
-			Expect(vols).To(ContainSubstring("restores"))
-			Expect(doInspect(id, fmt.Sprintf(
-				`{{.HostConfig.Binds}}`))).NotTo(ContainSubstring("backups"))
 		})
 
 		It("runs the command specified by the NITROUS_CMD env var inside the container", func() {
