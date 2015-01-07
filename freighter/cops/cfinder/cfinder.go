@@ -1,26 +1,35 @@
 /*
-cfinder is an cops interface to finder
+cfinder is an cops interface to finder.
 
-This supported quick-open file and search in a directory.
+This supports file-find and search in a directory.
 
-Quick open message format is:
+File-find returns a list of file paths that match the given term. Its message
+format is:
 
---> h|{"term":"asd", "root":"/home/action", "namespace":"finder", "event: "find_file", "cid": 42}
-<-- h|{"term":"asd", "root":"/home/action", "namespace":"finder", "event: "find_file", "cid": 42} # signal that we received the message
-<-- h|{"term":"asd", "root":"/home/action", "namespace":"finder", "event: "find_file.output",
-	"paths": ["workspace/asd"]}
-<-- h|{"term":"asd", "root":"/home/action", "error": "failed to find file", "namespace":"finder", "event: "find_file.error"}
+--> h|{ "namespace":"finder", "event: "file_find", "cid": 42, "args": {"term":"asd", "root":"/home/action"} }
+<-- h|{ "namespace":"finder", "event: "file_find", "cid": 42, "args": {"term":"asd", "root":"/home/action"} } # signal that we received the message
+<-- h|{ "namespace":"finder", "event: "file_find.output", "args": {"term":"asd", "root":"/home/action", "paths": ["workspace/asd"]} }
+<-- h|{ "namespace":"finder", "event: "file_find.error", "args": {"term":"asd", "root":"/home/action", "error": "some error"}} # error occurs in the middle of file-find op
 
-Search message format is:
+--> h|{ "namespace":"finder", "event: "file_find", "cid": 43, "args": {"term":"another", "root":"/home/action"} } # another request
+<-- h|{ "namespace":"finder", "event: "file_find", "cid": 43, "error": "failed to find file" } # if an error occurs before the file-find op starts
 
---> h|{"id": "123", "term":"asd", "root":"/home/action", "namespace":"finder", "event: "search", "cid": 42}
-<-- h|{"id": "123", "term":"asd", "root":"/home/action", "namespace":"finder", "event: "search", "cid": 42}
-<-- h|{"id": "123", "term":"asd", "root":"/home/action", "namespace":"finder", "event: "search.output",
-	"results": {"file":"filename", "matches": [{"row": 12, "content": "line asd"]}}
+Search returns a list of files that contain the given term. Each file includes
+metadata that indicates where the given term was matched (i.e. line number and
+surrounding content). Its message format is:
+
+--> h|{ "namespace":"finder", "event: "search", "cid": 44, "args": ["123", "asd", "/home/action"] } # args is [id, term, root]
+<-- h|{ "namespace":"finder", "event: "search", "cid": 44, "args": ["123", "asd", "/home/action"] }
+<-- h|{ "namespace":"finder", "event: "search.output", "args": {"id": "123", "term":"asd", "root":"/home/action", "results": {"file":"filename", "matches": [{"row": 12, "content": "line asd"]}} }
+<-- h|{ "namespace":"finder", "event: "search.error", "args": {"id": "123", "term":"asd", "root":"/home/action", "error": "some error"} } # error occurs in the middle of search op
+
+--> h|{ "namespace":"finder", "event: "search", "cid": 45, "args": ["123", "another", "/home/action"] }
+<-- h|{ "namespace":"finder", "event: "search", "cid": 45, "error": "filesystem disappeared" } # if an error occurs before the search op starts
 */
 package cfinder
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
