@@ -91,28 +91,21 @@ App.IdeSidebarController = Em.ArrayController.extend
 
 
   downloadPath: (path) ->
-    if !path.get('loading') && @get('opsSocketReady')
-      if path.get 'file'
-        opsSocket = @get 'opsSocket'
+    if !path.get('loading')
+      container = App.get('container')
+      container.requestToken(["download"]).then (tokenResp) =>
+        freighterdUrl = container.get 'freighterdUrl'
+        cid = container.get 'cid'
 
-        opsSocket.downloadFile path.get('absolutePath'), (err, path) ->
-          if err
-            App.set 'flashMessage', { type: 'error', text: "Cannot download the selected file." }
-            return
-
-          boxServerURI = App.get 'router.indexontroller.content.box_server_uri'
-          boxId = App.get 'router.indexController.content.id'
-
-          if boxServerURI && boxId
-            App.authToken.obtain 'rainbow', (err, authToken) ->
-              return if err
-              downloadFrame = $('<iframe></iframe>')
-              downloadFrame.css 'display', 'none'
-              downloadFrame.attr 'src', "#{boxServerURI}/download?id=#{boxId}&path=#{path}&auth_token=#{authToken}"
-              $('body').append downloadFrame
-              window.setTimeout(->
-                downloadFrame.remove()
-              , 5000)
+        downloadFrame = $('<iframe></iframe>')
+        downloadFrame.css 'display', 'none'
+        downloadFrame.attr 'src', "https://#{freighterdUrl}/containers/#{cid}/download?path=#{path.get('absolutePath')}&token=#{tokenResp.token}"
+        $('body').append downloadFrame
+        window.setTimeout(->
+          downloadFrame.remove()
+        , 5000)
+      , (jqxhr) ->
+        App.postError(jqxhr.responseJSON, 'Could not download file, please try again.')
 
   fetchFileList: (path) ->
     opsSocket = @get 'opsSocket'
@@ -273,28 +266,25 @@ App.IdeSidebarController = Em.ArrayController.extend
   beginUpload: ->
     uploadDialog = @get 'uploadDialog'
     if uploadDialog && uploadDialog.get('length')
-      App.authToken.obtain 'rainbow', (err, authToken) ->
-        return if err
+      container = App.get('container')
+      container.requestToken(["upload"]).then (tokenResp) =>
         uploadDialog.set 'uploading', true
-        uploadDialog.set 'authToken', authToken
+        uploadDialog.set 'authToken', tokenResp.token
         uploadDialog.forEach (upload) ->
           upload.submit()
+      , (jqxhr) ->
+          App.postError(jqxhr.responseJSON, 'Could not upload files, please try again.')
     else
       @set 'uploadDialog', null
 
-  sendUploadToken: (path, token) ->
-    opsSocket = @get 'opsSocket'
-    opsSocket.sendUploadToken path, token, _.bind(@didSendUploadToken, this)
-
-  didSendUploadToken: (err, absolutePath) ->
-    path = App.Path.create absolutePath: absolutePath
-    this.refreshPath path.get('parentAbsolutePath')
-    this.didFinishAnUpload()
-
-  didFinishAnUpload: ->
+  didFinishAnUpload: (path) ->
+    if path
+      path = App.Path.create absolutePath: path
+      this.refreshPath path.get('parentAbsolutePath')
     uploadDialog = @get 'uploadDialog'
     if uploadDialog && uploadDialog.get 'completed'
       App.util.mixpanel 'Uploaded File'
+      uploadDialog.set('hide', true)
       @set 'uploadDialog', null
 
   confirmDelete: (path) ->

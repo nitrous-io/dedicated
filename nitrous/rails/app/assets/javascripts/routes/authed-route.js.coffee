@@ -1,18 +1,31 @@
 App.AuthedRoute = Em.Route.extend
-  beforeModel: ->
+  beforeModel: (transition) ->
     @_super.apply this, arguments
-    if App.get 'token'
-      unless App.get 'user'
+    if !App.get('settings')
+      transition.abort()
+      App.loadSettings().then ->
+        transition.retry()
+      , (jqxhr) ->
+        # retry in 5 seconds
+        Em.run.later(this, ->
+          transition.retry()
+        , 5000)
+      return
+
+    if App.get('token')
+      if !App.get('user')
         App.User.fetch().then (user) ->
           App.trigger 'fetchUser', user
         # FIXME ADMINONLY failure handler below
         , (jqxhr) =>
           if jqxhr?.responseJSON?.error == 'beta_closed'
-            if window.confirm("#{jqxhr.responseJSON.error_description}\n\nGo to Nitrous.IO?")
-              window.location.href = "https://www.nitrous.io"
-            else
-              @transitionTo 'login'
-          else
+            App.set 'token', null
             @transitionTo 'login'
+          else
+            transition.abort()
+            # retry in 5 seconds
+            Em.run.later(this, ->
+              transition.retry()
+            , 5000)
     else
       @transitionTo 'login'

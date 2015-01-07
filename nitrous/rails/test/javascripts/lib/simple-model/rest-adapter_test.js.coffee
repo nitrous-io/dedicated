@@ -560,7 +560,6 @@ describe 'SM.RESTAdapter', ->
           fooId: 'abc'
           barId: 3
         promise = record.forceUpdate()
-        debugger
         expect(server.requests.length).to.equal 1, '1 request is made'
         expect(server.requests[0].method).to.equal 'PUT', 'PUT method is sent'
         expect(server.requests[0].url).to.equal '/foo', 'url is sent correctly'

@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
-
 	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
 )
 
 var (
@@ -23,7 +23,7 @@ func (p *DockerProvider) configFromContainer(cnr *dockerclient.Container) *provi
 		Env:          cnr.Config.Env,
 		PublishAll:   &cnr.HostConfig.PublishAllPorts,
 		Mounts:       mountBindsFromDocker(cnr.HostConfig.Binds, p.VolumesDir("")),
-		PortBindings: portBindingsFromDocker(cnr),
+		PortBindings: parsers.ParsePortsFromDocker(cnr),
 	}
 }
 
@@ -46,7 +46,7 @@ func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrus
 	copy(dcConfig.Cmd, cfg.Cmd)
 
 	// Expose ports that are not explicitly mapped to a host port.
-	bs, err := portBindingsToDocker(cfg, p.gateway)
+	bs, err := parsers.ParsePortBindings(cfg.PortBindings, p.gateway)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 	}
 
 	if cfg.PortBindings != nil {
-		bs, err := portBindingsToDocker(cfg, p.gateway)
+		bs, err := parsers.ParsePortBindings(cfg.PortBindings, p.gateway)
 		if err != nil {
 			return nil, err
 		}
@@ -195,83 +195,4 @@ func parseMountSpec(mspec string, hostVolsPath string) (string, error) {
 		return "", ErrInvalidMountSpec
 	}
 	return fmt.Sprintf("%s:%s", filepath.Join(hostVolsPath, parts[0]), mountPoint), nil
-}
-
-func portBindingsToDocker(cfg *provider.ContainerConfig, gateway string) (map[dockerclient.Port][]dockerclient.PortBinding, error) {
-	bindings := map[dockerclient.Port][]dockerclient.PortBinding{}
-	for _, portSpec := range cfg.PortBindings {
-		p, pb, err := parsePortSpec(portSpec, gateway)
-		if err != nil {
-			return nil, err
-		}
-		if _, ok := bindings[p]; ok {
-			bindings[p] = append(bindings[p], pb)
-		} else {
-			bindings[p] = []dockerclient.PortBinding{pb}
-		}
-	}
-	return bindings, nil
-}
-
-// parsePortSpec supports any of:
-//   public:hostPort:containerPort
-//   private:hostPort:containerPort
-//   public::containerPort
-//   private::containerPort
-//   hostPort:containerPort ... : (which defaults to private)
-//
-//   private means it will be bound to the gateway argument
-//   public means that will be accessible on the internet
-func parsePortSpec(portSpec, gateway string) (dockerclient.Port, dockerclient.PortBinding, error) {
-	parts := strings.Split(portSpec, ":")
-	var hostIP, hostPort, containerPort string
-	switch { // TODO more stringent checking
-	case len(parts) == 3 && parts[1] == "": // ip::containerPort
-		hostIP, hostPort, containerPort = parts[0], "", parts[2]
-	case len(parts) == 3 && parts[1] != "": // ip:hostPort:containerPort
-		hostIP, hostPort, containerPort = parts[0], parts[1], parts[2]
-	case len(parts) == 2: // hostPort:containerPort
-		hostIP, hostPort, containerPort = gateway, parts[0], parts[1]
-	default:
-		return "", dockerclient.PortBinding{}, ErrInvalidPortSpec
-	}
-
-	if hostIP == "public" {
-		hostIP = "0.0.0.0"
-	} else {
-		hostIP = gateway
-	}
-	return dockerclient.Port(containerPort),
-		dockerclient.PortBinding{HostIp: hostIP, HostPort: hostPort}, nil
-}
-
-// portBindingsFromDocker converts docker portbindings back to
-// provider.ContainerConfig's format.
-// For running containers, the docker-assigned host port will be filled in, so
-// returned portspecs are limited to:
-//   public:hostPort:containerPort
-//   private:hostPort:containerPort
-func portBindingsFromDocker(cnr *dockerclient.Container) []string {
-	portsSource := cnr.HostConfig.PortBindings
-	if cnr.State.Running {
-		portsSource = cnr.NetworkSettings.Ports
-	}
-	bindings := []string{}
-	for containerPort, portBindings := range portsSource {
-		if portBindings == nil {
-			// this happens when: port is exposed with no
-			// HostConfig.PortBinding and HostConfig.PublishAllPorts is false
-			// TODO investigate how else to resolve
-			continue
-		}
-		for _, pb := range portBindings {
-			access := "private"
-			if pb.HostIp == "0.0.0.0" {
-				access = "public"
-			}
-			bindings = append(bindings, fmt.Sprintf("%s:%s:%s", access, pb.HostPort, containerPort))
-		}
-	}
-
-	return bindings
 }

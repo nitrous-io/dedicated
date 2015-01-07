@@ -42,6 +42,10 @@ test: image
 	@./script/test-in-container $(APP) $(VERSION) $(SUITE)
 .PHONY: test
 
+shell: image
+	@./script/test-in-container shell
+.PHONY: shell
+
 release: ci-build
 	@echo "$(OK_COLOR)==> Releasing $(APP) $(VERSION)...$(NO_COLOR)"
 	@./script/release $(APP) true

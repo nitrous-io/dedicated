@@ -1,4 +1,6 @@
-App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin,
+#= require ../../mixins/terminal-connection-mixin
+
+App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, App.TerminalConnectionMixin,
   needs: ['ideFileFinder']
 
   modelClass: App.ConsoleSession
@@ -20,28 +22,12 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin,
   reset: ->
     @set 'content', null
 
-  openTerminal: (terminal) ->
-    if container = App.get 'container'
-      protocol = location.protocol.replace('http', 'ws')
-      freighterdUrl = container.get 'freighterdUrl'
-      cid = container.get 'cid'
-      term = terminal.term
-
-      container.requestToken(["shell"]).then (token) =>
-        token = encodeURIComponent(token.token)
-
-        url = "#{protocol}//#{freighterdUrl}/containers/#{cid}/shell?token=#{token}&width=#{term.cols}&height=#{term.rows}"
-        command = encodeURIComponent(getLoginCommand(container.get 'loginUsername'))
-        url += "&command=#{command}"
-
-        # continue to load the terminal
-        terminal.url = url
-        terminal.open(true)
-        terminal.focus()
-      , (jqxhr) ->
-        terminal.retry()
-
-getLoginCommand = (username) ->
-  username ||= "root"
-  loginCmd = "/bin/login -f #{username} -p TERM=xterm-256color"
-  "script -q -c '#{loginCmd}' /dev/null || #{loginCmd}"
+  makeUrlAndConnect: (terminal) ->
+    return unless container = App.get('container')
+    @makeUrl(container, terminal, 'shell').then (url) ->
+      # continue to load the terminal
+      terminal.url = url
+      terminal.open(true)
+      terminal.focus()
+    , (jqxhr) ->
+      terminal.retry()

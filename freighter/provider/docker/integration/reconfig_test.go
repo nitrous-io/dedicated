@@ -1,0 +1,86 @@
+package integration
+
+import (
+	"fmt"
+	"os/exec"
+	"strings"
+
+	"github.com/nitrous-io/dedicated/freighter/test"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("Reconfig", func() {
+	It("changes the container id and settings", func() {
+		var configJSON string
+
+		configJSON = `{
+			"PortBindings": ["private:1234:2345", "public:2345:3456"],
+			"Cmd": ["/bin/sh", "-c", "while true; do sleep 1; echo hello; done"]
+		}`
+		prov, info, cleanupFn, err := startContainer(configJSON)
+		defer cleanupFn()
+		defer removeBackupImages(prov)
+		Expect(err).To(BeNil())
+
+		// Create some data in existing container so that we can
+		// check whether reconfig preserves the data.
+		out, err := exec.Command("docker", "exec", info.ID, "bin/sh", "-c", "echo set nocompatible > /root/.vimrc").CombinedOutput()
+		Expect(err).To(BeNil(), "docker exec failed, output: %s", out)
+
+		configJSON = `{
+			"Env": ["LANG=C","PAGER=more","NITROUS_USERNAME=doofus"],
+			"PortBindings": ["private:65000:3000", "public:9999:9999"]
+		}`
+		reconfig1, err := prov.Reconfig(info.ID, configJSON)
+		if reconfig1 != nil {
+			// id will change, default cleanup won't catch
+			// if the second reconfig succeeds, cleanUp of the
+			// first container not necessary
+			defer func() {
+				out, _ := exec.Command("docker", "inspect", reconfig1.ID).CombinedOutput()
+				if !strings.Contains(string(out), "No such image or container") {
+					test.CleanUpContainer(reconfig1.ID)
+				}
+			}()
+		}
+		Expect(err).To(BeNil())
+		Expect(reconfig1.ID).NotTo(Equal(info.ID), "container ID should be changed after reconfig")
+		assertEnv(reconfig1.ID, []string{"LANG=C", "PAGER=more", "NITROUS_USERNAME=doofus"}, nil)
+		assertPort(reconfig1.ID, []interface{}{
+			fmt.Sprintf("3000/tcp -> %s:65000", reconfig1.Gateway),
+			"9999/tcp -> 0.0.0.0:9999",
+		})
+
+		out, err = exec.Command("docker", "exec", reconfig1.ID, "cat", "/root/.vimrc").CombinedOutput()
+		Expect(err).To(BeNil(), "docker exec failed, output: %s", out)
+		Expect(string(out)).To(Equal("set nocompatible\n"), "old container data not migrated")
+
+		configJSON = `{
+			"Env": ["PAGER=less"],
+			"PortBindings": ["public:4000:4000"]
+		}`
+		reconfig2, err := prov.Reconfig(reconfig1.ID, configJSON)
+		if reconfig2 != nil {
+			defer test.CleanUpContainer(reconfig2.ID)
+		}
+		Expect(err).To(BeNil())
+		assertEnv(reconfig2.ID, []string{"PAGER=less"}, []string{"LANG"})
+		assertPort(reconfig2.ID, []interface{}{
+			"4000/tcp -> 0.0.0.0:4000",
+		})
+	})
+
+	It("returns error on failure to complete", func() {
+		configJSON := `{
+			"PortBindings": ["private:1234:2345", "public:2345:3456"],
+			"Cmd": ["/bin/sh", "-c", "while true; do sleep 1; echo hello; done"]
+		}`
+		prov, info, cleanupFn, err := startContainer(configJSON)
+		defer cleanupFn()
+		Expect(err).To(BeNil())
+
+		_, err = prov.Reconfig(info.ID, `{invalid json}`)
+		Expect(err).To(HaveOccurred())
+	})
+})

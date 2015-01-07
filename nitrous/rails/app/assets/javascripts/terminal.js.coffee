@@ -14,6 +14,7 @@ window.NitrousTerminal =
 
   init: ->
     @conn = conn = new SocketConnection()
+    conn.shouldRetry = false
     conn.onbeforeopen   = => @willOpen()
     conn.onopen    = (ev) => @didOpen(ev)
     conn.onmessage = (ev) => @didReceiveMessage(ev)
@@ -64,9 +65,6 @@ window.NitrousTerminal =
     @term?.destroy()
 
   close: ->
-    @term?.write("\r\n[Session closed]")
-    @term?.removeAllListeners('resize')
-    @term?.handler = ->
     @conn?.close()
     @willOpen = null
 
@@ -98,6 +96,9 @@ window.NitrousTerminal =
   didFail: (ev) ->
 
   didClose: (ev) ->
+    @term?.removeAllListeners('resize')
+    @term?.handler = ->
+    @term?.write("\r\n[Session closed]")
 
 window.webFontLoaded = ->
   NitrousTerminal.term?.sizeToFit()
