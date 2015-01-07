@@ -40,5 +40,5 @@
           i.spinner
           | Uploading...
       else
-        button.ui.btn click='didClickCancel target="view"' Cancel
+        button.ui.btn click='didClickCancel target="view"' Close
         button.ui.btn.primary click='didClickUpload target="view"' Upload

@@ -10,9 +10,11 @@ App.IdeUploadDialogView = App.IdeModalDialogView.extend
   ).property()
 
   uploadURI: (->
-    if boxServerURI = App.get 'router.indexController.content.box_server_uri'
-      "#{boxServerURI}/upload"
-  ).property 'App.router.indexontroller.content.box_server_uri'
+    if container = App.get('container')
+      freighterdUrl = container.get 'freighterdUrl'
+      cid = container.get 'cid'
+      "https://#{freighterdUrl}/containers/#{cid}/upload"
+  ).property 'App.container'
 
   didInsertElement: ->
     @_super()
@@ -20,7 +22,10 @@ App.IdeUploadDialogView = App.IdeModalDialogView.extend
     @$('.file-input').fileupload
       url: @get('uploadURI')
       formData: =>
-        [{ name: "auth_token", value: @get('content.authToken') }]
+        [
+          { name: "token", value: @get('content.authToken') },
+          { name: "location", value: @get('content.path.absolutePath') }
+        ]
       dataType: 'json'
       maxFileSize: 20 * 1000 * 1000
       singleFileUploads: true
@@ -48,13 +53,12 @@ App.IdeUploadDialogView = App.IdeModalDialogView.extend
       fileName = data.files[0].name
       upload = content.findProperty 'fileName', fileName
       upload.set 'completed', true
-      token = data.result.tokens[0]
       path = content.get 'path.absolutePath'
       filePath = if path.length > 0
         "#{path}/#{fileName}"
       else
         fileName
-      @get('controller').sendUploadToken filePath, token
+      @get('controller').didFinishAnUpload filePath
 
   uploadDidFail: (event, data) ->
     if content = @get 'content'

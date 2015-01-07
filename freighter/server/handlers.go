@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -20,10 +22,14 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/pkg/msgproto"
+	"github.com/nitrous-io/dedicated/pkg/multipartsio"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 
-	_ "github.com/nitrous-io/dedicated/freighter/cops/fs"
 	"github.com/nitrous-io/nitrous-common/wsconn"
+)
+
+var (
+	defaultUploadMemory int64 = 20 << 20 // 20MB
 )
 
 const StatusUnprocessableEntity = 422
@@ -731,6 +737,64 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 	}
 }
 
+func (s *Server) downloadContainerFile(w http.ResponseWriter, r *http.Request) error {
+	id := mux.Vars(r)["id"]
+	info, err := s.provider.GetInfo(id)
+	if err != nil {
+		return err
+	}
+	if info.State != provider.ContainerStateRunning {
+		return fmt.Errorf("Cannot attach to stopped container %v", info.ID)
+	}
+
+	localPath := r.FormValue("path")
+	fileName := filepath.Base(localPath)
+	stat, err := s.provider.FileInfo(id, localPath)
+	if err != nil {
+		return err
+	}
+	if stat.IsDir {
+		fileName = fileName + ".tar"
+	}
+	w.Header().Set("Content-Disposition", contentDisposition(fileName))
+	return s.provider.CopyFile(id, localPath, w)
+}
+
+func (s *Server) uploadContainerFile(w http.ResponseWriter, r *http.Request) error {
+	id := mux.Vars(r)["id"]
+	info, err := s.provider.GetInfo(id)
+	if err != nil {
+		return err
+	}
+	if info.State != provider.ContainerStateRunning {
+		return fmt.Errorf("Cannot attach to stopped container %v", info.ID)
+	}
+	if err := r.ParseMultipartForm(defaultUploadMemory); err != nil {
+		return err
+	}
+	defer r.MultipartForm.RemoveAll()
+
+	location := r.FormValue("location")
+	input := make(map[string]io.Reader)
+	for name, fhs := range r.MultipartForm.File {
+		// we only fetch the fisrt file for each key similar to how FormFile works
+		if len(fhs) > 0 {
+			part := fhs[0]
+			if part.Filename != "" {
+				name = part.Filename
+			}
+			input[name] = multipartsio.NewPartsReader(part)
+		}
+	}
+
+	if err := s.provider.CopyFromHost(info.ID, location, input); err != nil {
+		return err
+	}
+
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"status": "ok"})
+	return nil
+}
+
 func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 	addr := fmt.Sprintf("%s:%s", "0.0.0.0", r.Header.Get(config.ForwardPortHeader))
 	if proxy.IsWebsocket(r) {
@@ -756,4 +820,14 @@ func getFormInt(r *http.Request, k string) int {
 		return 0
 	}
 	return v
+}
+
+func contentDisposition(filename string) string {
+	res := "attachment"
+	if filename != "" {
+		uriName := url.QueryEscape(filename)
+		res = fmt.Sprintf("attachment; filename='%s'; filename*=UTF-8''%s",
+			uriName, uriName)
+	}
+	return res
 }
