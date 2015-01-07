@@ -742,6 +742,19 @@ var _ = Describe("controllers/users", func() {
 				Expect(j["error_description"]).To(Equal("specified user does not exist"))
 			})
 
+			It("should error out if the token is invalid", func() {
+				_, err := db.Exec(`UPDATE tokens SET last_seen_at = now() - interval '14 days' WHERE token = 'toke';`)
+				Expect(err).To(BeNil())
+
+				doRequest("", "toke")
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]interface{}{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("validation_failed"))
+				Expect(j["error_description"]).To(Equal("specified user does not exist"))
+			})
+
 			It("should send the confirmation token if the token matches", func() {
 				Expect(u.ConfirmationSentAt).To(BeNil(), "expect confirmation to not be sent")
 				doRequest("", "toke")

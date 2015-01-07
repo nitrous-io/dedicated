@@ -145,7 +145,7 @@ var _ = Describe("models/token", func() {
 		var t *token.Token
 
 		BeforeEach(func() {
-			t = &token.Token{UserID: u1.ID}
+			t = &token.Token{UserID: u1.ID, Type: token.TypeLogin, LastIP: sql.NullString{"127.0.0.1", true}}
 		})
 
 		Context("when no error happens", func() {

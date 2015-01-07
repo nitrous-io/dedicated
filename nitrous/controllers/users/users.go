@@ -284,7 +284,7 @@ func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		if err != nil {
 			return err
 		}
-		if t == nil {
+		if !t.IsValid() {
 			return reconfirmInvalidUser
 		}
 

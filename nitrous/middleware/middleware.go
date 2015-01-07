@@ -80,7 +80,7 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 	if err != nil {
 		return err
 	}
-	if t == nil {
+	if !t.IsValid() {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
 		return mh.Error(errInvalidToken, label)
 	}
@@ -92,6 +92,10 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 	if u == nil {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
 		return mh.Error(err, label)
+	}
+
+	if err := t.Touch(db, GetRemoteAddr(r)); err != nil {
+		env.Logger.Error("Unable to touch token %d, err: %v", t.ID, err)
 	}
 
 	if u.ConfirmationLapsed() {

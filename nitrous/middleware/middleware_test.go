@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -101,11 +102,38 @@ var _ = Describe("middleware", func() {
 				It("Responds with 200 OK", func() {
 					Expect(res.Code).To(Equal(http.StatusOK))
 				})
+
+				It("updates the token's last_seen_at", func() {
+					now := time.Now()
+					t2, err := token.FindByToken(db, "foobar")
+					Expect(err).To(BeNil())
+					Expect(t2).NotTo(BeNil())
+					Expect(t2.LastSeenAt.Unix()).To(BeNumerically("<=", now.Unix()))
+					Expect(t2.LastIP.String).To(Equal("1.2.3.4"))
+				})
 			})
 
 			Context("when an invalid oauth token is given", func() {
 				BeforeEach(func() {
 					doRequest("invalidtoken")
+				})
+
+				It("responds with 401 Unauthorized", func() {
+					Expect(res.Code).To(Equal(http.StatusUnauthorized))
+					Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="invalid_token"`))
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					Expect(j["error"]).To(Equal("invalid_token"))
+					Expect(j["error_description"]).To(Equal("auth token is invalid"))
+				})
+			})
+
+			Context("when an token has not been used for a while", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE tokens SET last_seen_at = now() - interval '14 days' WHERE token = 'foobar';`)
+					Expect(err).To(BeNil())
+					doRequest("foobar")
 				})
 
 				It("responds with 401 Unauthorized", func() {
@@ -160,6 +188,7 @@ var _ = Describe("middleware", func() {
 				mw = middleware.Auth
 				doRequest = func(token string) {
 					req, err := NewRequest("GET", "/authaction", nil)
+					req.RemoteAddr = "1.2.3.4"
 					Expect(err).To(BeNil())
 					if token != "" {
 						req.Header.Set("Authorization", "Bearer "+token)
@@ -181,6 +210,7 @@ var _ = Describe("middleware", func() {
 				BeforeEach(func() {
 					doRequest = func(token string) {
 						req, err := NewRequest("GET", "/authaction", nil)
+						req.RemoteAddr = "1.2.3.4:32"
 						Expect(err).To(BeNil())
 						if token != "" {
 							req.Header.Set("Authorization", "Bearer "+token)
@@ -198,6 +228,7 @@ var _ = Describe("middleware", func() {
 						params := &url.Values{}
 						params.Set("token", token)
 						req, err := NewRequest("GET", "/authaction", params)
+						req.RemoteAddr = "1.2.3.4 127.0.0.1"
 						Expect(err).To(BeNil())
 						handler.ServeHTTP(res, req)
 					}
