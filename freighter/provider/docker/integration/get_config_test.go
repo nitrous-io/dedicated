@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("portBindingsFromDocker test", func() {
+var _ = Describe("GetConfig", func() {
 	It("retrieves port bindings for running and stopped containers", func() {
 		datadir, err := ioutil.TempDir("", "freightertest")
 		Expect(err).To(BeNil())
