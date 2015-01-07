@@ -185,7 +185,7 @@ var _ = Describe("provider/docker config", func() {
 
 			It("exposes container ports that are not mapped to a host port, including port 22", func() {
 				Expect(cfg.ExposedPorts).To(HaveLen(2))
-				Expect(cfg.ExposedPorts["4000"]).To(Equal(struct{}{}))
+				Expect(cfg.ExposedPorts["4000/tcp"]).To(Equal(struct{}{}))
 				Expect(cfg.ExposedPorts["22/tcp"]).To(Equal(struct{}{}))
 			})
 		})
@@ -216,7 +216,7 @@ var _ = Describe("provider/docker config", func() {
 		BeforeEach(func() {
 			oldHostCfg = &dockerclient.HostConfig{
 				PortBindings: map[dockerclient.Port][]dockerclient.PortBinding{
-					dockerclient.Port("22"): []dockerclient.PortBinding{},
+					dockerclient.Port("22/tcp"): []dockerclient.PortBinding{},
 				},
 				Binds: []string{sshBind},
 			}
@@ -231,7 +231,7 @@ var _ = Describe("provider/docker config", func() {
 				Expect(err).To(BeNil())
 
 				Expect(hostCfg.PortBindings).To(HaveLen(1))
-				Expect(hostCfg.PortBindings[dockerclient.Port("22")]).To(Equal([]dockerclient.PortBinding{}))
+				Expect(hostCfg.PortBindings[dockerclient.Port("22/tcp")]).To(Equal([]dockerclient.PortBinding{}))
 			})
 
 			It("defaults PublishAllPorts to true", func() {
@@ -345,9 +345,9 @@ var _ = Describe("provider/docker config", func() {
 					hostIP   string
 					hostPort string
 				}{
-					{"4000", "0.0.0.0", ""},
-					{"8080", prov.Gateway(), "3000"},
-					{"5001", prov.Gateway(), "5000"},
+					{"4000/tcp", "0.0.0.0", ""},
+					{"8080/tcp", prov.Gateway(), "3000"},
+					{"5001/tcp", prov.Gateway(), "5000"},
 				}
 				for _, pb := range portBinds {
 					pbs := hostCfg.PortBindings[dockerclient.Port(pb.conPort)]
