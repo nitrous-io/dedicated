@@ -61,15 +61,15 @@ App.OpsSocket = Em.Object.extend
       startedAt: null
       container: null
 
-  send: (event, args...) ->
+  send: (namespace, event, args...) ->
     if conn = @get('conn')
       if _.isFunction(_.last args)
         callback = args.pop()
         callbackId = @registerCallback callback
-        msg = { namespace: "fs", event: event, cid: callbackId, args: args }
+        msg = { namespace: namespace, event: event, cid: callbackId, args: args }
         conn.send "d|#{JSON.stringify(msg)}"
       else
-        msg = { namespace: "fs", event: event, args: args }
+        msg = { namespace: namespace, event: event, args: args }
         conn.send "d|#{JSON.stringify(msg)}"
 
   didReceiveMessage: (event) ->
@@ -99,31 +99,31 @@ App.OpsSocket = Em.Object.extend
     @set 'started', false
 
   fetchFileList: (absolutePath, callback) ->
-    @send 'list', absolutePath, callback
+    @send 'fs', 'list', absolutePath, callback
 
   fetchFileContent: (absolutePath, callback) ->
-    @send 'read', absolutePath, callback
+    @send 'fs', 'read', absolutePath, callback
 
   downloadFile: (absolutePath, callback) ->
-    @send 'download', absolutePath, callback
+    @send 'fs', 'download', absolutePath, callback
 
   writeFile: (absolutePath, content, callback) ->
-    @send 'write', absolutePath, content, callback
+    @send 'fs', 'write', absolutePath, content, callback
 
   writeNewFile: (absolutePath, content, callback) ->
-    @send 'writeNew', absolutePath, content, callback
+    @send 'fs', 'writeNew', absolutePath, content, callback
 
   makeDirectory: (absolutePath, callback) ->
-    @send 'makeDir', absolutePath, callback
+    @send 'fs', 'makeDir', absolutePath, callback
 
   sendUploadToken: (absolutePath, token, callback) ->
-    @send 'upload', absolutePath, token, callback
+    @send 'fs', 'upload', absolutePath, token, callback
 
   deleteFile: (absolutePath, callback) ->
-    @send 'deleteFile', absolutePath, callback
+    @send 'fs', 'deleteFile', absolutePath, callback
 
   deleteDir: (absolutePath, callback) ->
-    @send 'deleteDir', absolutePath, callback
+    @send 'fs', 'deleteDir', absolutePath, callback
 
   rename: (currentPath, newPath, callback) ->
-    @send 'rename', currentPath, newPath, callback
+    @send 'fs', 'rename', currentPath, newPath, callback
