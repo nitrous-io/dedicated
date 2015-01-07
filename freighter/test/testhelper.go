@@ -208,11 +208,9 @@ func RemoveImages(names []string) {
 	Expect(err).To(BeNil(), "Failed to remove images, output: %v", string(out))
 }
 
+// CleanUpContainer removes the container in a best effort way. It does not
+// fail when the container cant be removed
 func CleanUpContainer(name string) {
-	out, err := exec.Command("docker", "stop", "--time=1", name).CombinedOutput()
-	Expect(err).To(BeNil(), "docker stop %s failed with err: %+v", name, string(out))
-	out, err = exec.Command("docker", "rm", "-f", name).CombinedOutput()
-	if err != nil {
-		fmt.Printf("WARNING: `docker rm -f %s failed.  Please investigate and remove the container yourself.  Error: %s\n", name, out)
-	}
+	exec.Command("docker", "stop", "--time=1", name).Run()
+	exec.Command("docker", "rm", "-f", name).Run()
 }

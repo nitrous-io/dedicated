@@ -71,6 +71,13 @@ elif [ "$APP" == "nitrous" ]; then
   run test_db nitrous $SUITE
 elif [ "$APP" == "pkg" ]; then
   run test_app pkg
+elif [ "$APP" == "shell" ]; then
+  # start necessary service and launch the shell
+  echo "===> Starting Docker daemon"
+  sudo service docker start
+  echo "===> Starting database dependencies"
+  sudo service postgresql restart
+  exec /bin/bash
 else
   run test_app $APP $SUITE
 fi

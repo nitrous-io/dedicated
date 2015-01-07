@@ -29,6 +29,11 @@
 			"Rev": "0a9eb5ac75a250383e5d6991f33da22024cf58d4"
 		},
 		{
+			"ImportPath": "github.com/docker/docker/nat",
+			"Comment": "v1.2.0-854-g7fa7c42",
+			"Rev": "7fa7c42ce2f151d438ad83fd2dcd5a0679015618"
+		},
+		{
 			"ImportPath": "github.com/docker/docker/pkg/archive",
 			"Comment": "v1.2.0-854-g7fa7c42",
 			"Rev": "7fa7c42ce2f151d438ad83fd2dcd5a0679015618"
@@ -45,6 +50,11 @@
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/log",
+			"Comment": "v1.2.0-854-g7fa7c42",
+			"Rev": "7fa7c42ce2f151d438ad83fd2dcd5a0679015618"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/parsers",
 			"Comment": "v1.2.0-854-g7fa7c42",
 			"Rev": "7fa7c42ce2f151d438ad83fd2dcd5a0679015618"
 		},
