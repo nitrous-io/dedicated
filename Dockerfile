@@ -71,6 +71,9 @@ RUN echo "fsync=off" >> /etc/postgresql/9.3/main/postgresql.conf && \
   echo "synchronous_commit=off" >> /etc/postgresql/9.3/main/postgresql.conf && \
   echo "full_page_writes=off" >> /etc/postgresql/9.3/main/postgresql.conf
 
+# Get the "busybox" image source so we can build locally instead of pulling
+RUN git clone -b buildroot-2014.02 https://github.com/jpetazzo/docker-busybox.git /docker-busybox
+
 # set GOPATH to include the path to dependencies
 ENV GOPATH /opt/src/github.com/nitrous-io/dedicated/Godeps/_workspace:/opt
 ADD . /opt/src/github.com/nitrous-io/dedicated

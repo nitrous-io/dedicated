@@ -17,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/util"
 
 	"testing"
+	"time"
 )
 
 func Test(t *testing.T) {
@@ -25,30 +26,38 @@ func Test(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	test.PullImage("tianon/true:latest")
-	test.PullImage("busybox:latest")
+	start := time.Now()
+	fmt.Print("build busybox:latest...")
+	cmd := exec.Command("docker", "build", "-t", "busybox:latest", ".")
+	cmd.Dir = "/docker-busybox"
+	cmd.Run()
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
 })
 
 var _ = AfterSuite(func() {
-	out, err := exec.Command("docker", "rmi", "tianon/true:latest", "busybox:latest").CombinedOutput()
+	out, err := exec.Command("docker", "rmi", "busybox:latest").CombinedOutput()
 	Expect(err).To(BeNil(), "failed to remove docker images, output: %s", out)
 })
 
-// startContainer returns a running container based on busybox:latest
-// with random name, and the provider used to run the container
+// startContainer behaves similarly to startContainerWithData except that it
+// pre-creates a tmpdir for you
 func startContainer(config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
 	datadir, err := ioutil.TempDir("", "freightertest")
 	if err != nil {
 		return nil, nil, func() {}, err
 	}
+	return startContainerWithData(datadir, config)
+}
 
+// startContainerWithData returns a running container based on busybox:latest
+// with random name, and the provider used to run the container
+func startContainerWithData(datadir, config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
 	prov, err := docker.NewDockerProvider(&util.Logger{Level: util.LogLevelQuiet}, datadir)
 	if err != nil {
 		return nil, nil, func() {
 			os.RemoveAll(datadir)
 		}, err
 	}
-
 	name := test.RandomName("freightertest")
 	info, err := prov.CreateStart(name, "busybox:latest", "secret", config)
 	if err != nil {
@@ -81,6 +90,18 @@ func removeBackupImages(prov *docker.DockerProvider) error {
 	return nil
 }
 
+// inspect a field of the container/image in string format
+func inspectField(name, field string) (string, error) {
+	format := fmt.Sprintf("{{.%s}}", field)
+	inspectCmd := exec.Command("docker", "inspect", "-f", format, name)
+	b, err := inspectCmd.CombinedOutput()
+	out := string(b)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect %s: %s", name, out)
+	}
+	return strings.TrimSpace(out), nil
+}
+
 // inspect a field of the container/image
 func inspectFieldJSON(name, field string) (string, error) {
 	format := fmt.Sprintf("{{json .%s}}", field)
@@ -109,7 +130,7 @@ func assertEnv(name string, expected []string, unexpected []string) {
 	}
 }
 
-// assert if the containers containers the port specified in expected PortMap
+// assert if the container contains the port specified in expected PortMap
 func assertPort(name string, expected []interface{}) {
 	portCmd := exec.Command("docker", "port", name)
 	b, err := portCmd.CombinedOutput()
@@ -118,4 +139,20 @@ func assertPort(name string, expected []interface{}) {
 
 	ports := strings.Split(strings.Trim(out, "\n "), "\n")
 	Expect(ports).To(ConsistOf(expected...), "invalid ports %s", name)
+}
+
+// assert if the container contains the expected volumes
+func assertVolumes(name string, expected map[string]string, unexpected []string) {
+	vstr, err := inspectFieldJSON(name, "Volumes")
+	Expect(err).To(BeNil())
+
+	var volumes map[string]string
+	err = json.Unmarshal([]byte(vstr), &volumes)
+	Expect(err).To(BeNil())
+	for k, v := range expected {
+		Expect(volumes).To(HaveKeyWithValue(k, v))
+	}
+	for _, k := range unexpected {
+		Expect(volumes).NotTo(HaveKey(k))
+	}
 }
