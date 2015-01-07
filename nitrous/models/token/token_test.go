@@ -1,7 +1,9 @@
 package token_test
 
 import (
+	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -163,6 +165,9 @@ var _ = Describe("models/token", func() {
 					Expect(t2.ID).NotTo(BeZero())
 					Expect(t2.UserID).To(Equal(u1.ID))
 					Expect(t2.Token).To(Equal("foobar"))
+					Expect(t2.Type).To(Equal(token.TypeLogin))
+					Expect(t2.LastIP.Valid).To(BeTrue())
+					Expect(t2.LastIP.String).To(Equal("127.0.0.1"))
 					Expect(t2.CreatedAt).NotTo(BeNil())
 				})
 
@@ -215,6 +220,61 @@ var _ = Describe("models/token", func() {
 				err := t.Insert(db)
 				Expect(err).NotTo(BeNil())
 			})
+		})
+	})
+
+	Describe("Touch()", func() {
+		It("should bump the last_seen_at", func() {
+			t := &token.Token{UserID: u1.ID, Token: "foobar"}
+			err := t.Insert(db)
+			Expect(err).To(BeNil())
+
+			Expect(t.Touch(db, "")).To(BeNil())
+			now := time.Now()
+			t2, err := token.FindByToken(db, "foobar")
+			Expect(err).To(BeNil())
+			Expect(t2).NotTo(BeNil())
+			Expect(t2.LastSeenAt.Unix()).To(BeNumerically(">=", now.Unix()))
+		})
+
+		It("should bump the last_seen_at and set an IP if provided", func() {
+			t := &token.Token{UserID: u1.ID, Token: "foobar"}
+			err := t.Insert(db)
+			Expect(err).To(BeNil())
+
+			Expect(t.Touch(db, "192.168.1.254")).To(BeNil())
+			now := time.Now()
+			t2, err := token.FindByToken(db, "foobar")
+			Expect(err).To(BeNil())
+			Expect(t2).NotTo(BeNil())
+			Expect(t2.LastSeenAt.Unix()).To(BeNumerically(">=", now.Unix()))
+			Expect(t2.LastIP.Valid).To(BeTrue())
+			Expect(t2.LastIP.String).To(Equal("192.168.1.254"))
+		})
+	})
+
+	Describe("IsValid()", func() {
+		var t *token.Token
+
+		BeforeEach(func() {
+			t = &token.Token{UserID: u1.ID}
+		})
+
+		It("should be false if token is nil", func() {
+			var t2 *token.Token
+			Expect(t2.IsValid()).To(BeFalse())
+		})
+
+		It("should be true if the LastSeenAt is recent", func() {
+			ti := time.Now()
+			t.LastSeenAt = &ti
+			Expect(t.IsValid()).To(BeTrue())
+		})
+
+		It("should be false if the LastSeenAt is not recent", func() {
+			ti := time.Now().Add(token.MaxLastUsedDuration * -1)
+			t.LastSeenAt = &ti
+			Expect(t.IsValid()).To(BeFalse())
 		})
 	})
 })

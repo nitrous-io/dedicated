@@ -746,5 +746,13 @@ func init() {
 				ALTER TABLE containers ALTER COLUMN slug TYPE character varying(63) USING substr(slug, 1, 63);
 			`,
 		},
+		{
+			Version: "640",
+			Up: `
+				ALTER TABLE tokens ADD COLUMN last_seen_at timestamp without time zone DEFAULT now();
+				ALTER TABLE tokens ADD COLUMN last_ip character varying(255) DEFAULT NULL;
+				ALTER TABLE tokens ADD COLUMN type character varying(255) DEFAULT 'login' NOT NULL;
+			`,
+		},
 	}
 }

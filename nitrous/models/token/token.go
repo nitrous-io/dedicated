@@ -8,11 +8,21 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
+const (
+	TypeLogin           = "login"
+	TypeHost            = "host"
+	TypeProvisioner     = "provisioner"
+	MaxLastUsedDuration = (24 * 7) * time.Hour
+)
+
 type Token struct {
-	ID        int64      `db:"id"`
-	UserID    int64      `db:"user_id"`
-	Token     string     `db:"token"`
-	CreatedAt *time.Time `db:"created_at"`
+	ID         int64          `db:"id"`
+	UserID     int64          `db:"user_id"`
+	Token      string         `db:"token"`
+	Type       string         `db:"type"`
+	LastIP     sql.NullString `db:"last_ip"`
+	CreatedAt  *time.Time     `db:"created_at"`
+	LastSeenAt *time.Time     `db:"last_seen_at"`
 }
 
 func FindByUser(d db.QueryReceiver, userID int64) (*Token, error) {
@@ -48,9 +58,33 @@ func (t *Token) Insert(d db.QueryReceiver) error {
 		t.Token = tok[:255]
 	}
 
-	nstmt, err := d.PrepareNamed(`INSERT INTO tokens (user_id, token) VALUES (:user_id, :token) RETURNING *;`)
+	nstmt, err := d.PrepareNamed(`INSERT INTO tokens (user_id, token, type, last_ip) VALUES (:user_id, :token, :type, :last_ip) RETURNING *;`)
 	if err != nil {
 		return err
 	}
 	return nstmt.QueryRowx(t).StructScan(t)
+}
+
+func (t *Token) Touch(d db.QueryReceiver, ip string) error {
+	var err error
+	if ip != "" {
+		_, err = d.Exec(`UPDATE tokens SET last_seen_at = now(), last_ip = $1 WHERE id = $2;`, ip, t.ID)
+	} else {
+		_, err = d.Exec(`UPDATE tokens SET last_seen_at = now() WHERE id = $1;`, t.ID)
+	}
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *Token) IsValid() bool {
+	if t == nil {
+		return false
+	}
+	maxLastUsed := t.LastSeenAt.Add(MaxLastUsedDuration)
+	if time.Now().After(maxLastUsed) {
+		return false
+	}
+	return true
 }
