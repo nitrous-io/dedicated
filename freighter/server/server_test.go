@@ -1901,7 +1901,25 @@ var _ = Describe("server", func() {
 			Expect(res.Code).To(Equal(http.StatusUnauthorized), "invalid token")
 		})
 
+		It("downloads the specified file in the container", func() {
+			prov.FileInfoReturn = provider.FileInfo{
+				IsDir: false,
+			}
+			prov.Containers = []*provider.ContainerInfo{
+				{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning},
+				{ID: "bbb", Name: "bar", Image: "centos", ImageID: "def456", Host: "1.2.3.5", Gateway: "1.2.3.0", State: provider.ContainerStateStopped},
+			}
+			res := doRequest("aaa", "valid-token", "/app/stuff")
+
+			contentDisposition := "attachment; filename='stuff'; filename*=UTF-8''stuff"
+			Expect(res.Header().Get("Content-Disposition")).To(Equal(contentDisposition))
+			Expect(prov.CopyFilePath).To(Equal("/app/stuff"))
+		})
+
 		It("downloads the specified path in the container", func() {
+			prov.FileInfoReturn = provider.FileInfo{
+				IsDir: true,
+			}
 			prov.Containers = []*provider.ContainerInfo{
 				{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning},
 				{ID: "bbb", Name: "bar", Image: "centos", ImageID: "def456", Host: "1.2.3.5", Gateway: "1.2.3.0", State: provider.ContainerStateStopped},
