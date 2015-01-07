@@ -2,6 +2,7 @@ package token
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -47,6 +48,15 @@ func FindByToken(d db.QueryReceiver, token string) (*Token, error) {
 		return nil, err
 	}
 	return t, nil
+}
+
+func DeleteExpiredTokens(d db.QueryReceiver) error {
+	stmt := fmt.Sprintf(`DELETE FROM tokens WHERE type = '%s' AND last_seen_at <= now() - interval '%d milliseconds';`, TypeLogin, MaxLastUsedDuration/time.Millisecond)
+	_, err := d.Exec(stmt)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (t *Token) Insert(d db.QueryReceiver) error {

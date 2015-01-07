@@ -141,6 +141,34 @@ var _ = Describe("models/token", func() {
 		})
 	})
 
+	Describe("DeleteExpiredTokens()", func() {
+		It("should delete outdated login tokens", func() {
+			_, err := db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '2 days');", u2.ID, "ABC2")
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '20 days');", u2.ID, "ABC3")
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO tokens (user_id, token, type, last_seen_at) values ($1, $2, $3, now() - interval '20 days');", u2.ID, "H1", token.TypeHost)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '7 days');", u2.ID, "ABC4")
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '6 days');", u2.ID, "ABC5")
+			Expect(err).To(BeNil())
+
+			Expect(token.DeleteExpiredTokens(db)).To(BeNil())
+
+			type con struct {
+				Token string `db:"token"`
+			}
+			tokens := []con{}
+			err = db.Select(&tokens, `SELECT token FROM tokens`)
+			Expect(err).To(BeNil())
+
+			Expect(tokens).NotTo(ContainElement(con{Token: "ABC3"}))
+			Expect(tokens).NotTo(ContainElement(con{Token: "ABC4"}))
+			Expect(tokens).To(ContainElement(con{Token: "H1"}))
+		})
+	})
+
 	Describe("Insert()", func() {
 		var t *token.Token
 
