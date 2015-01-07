@@ -34,6 +34,7 @@ type Env struct {
 	Provisioner    *provisioner.Provisioner
 	Status         int
 	User           *user.User
+	Token          *token.Token
 	Data           map[string]interface{}
 	TrackEventName string
 	trackEventData map[string]interface{}
@@ -105,6 +106,7 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 
 	mh.UpdateSince(label, start)
 	env.User = u
+	env.Token = t
 	return mw(env, w, r)
 }
 

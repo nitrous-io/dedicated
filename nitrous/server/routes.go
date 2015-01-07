@@ -163,6 +163,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys/{kslug}":   r("keys.Delete", keys.Delete),
 				"/containers/{slug}/keys":           r("keys.DeleteAll", keys.DeleteAll),
 				"/admin/terminate_unaccounted_host": r("admin.TerminateUnaccountedHost", admin.TerminateUnaccountedHost),
+				"/logout":                           r("tokens.Logout", tokens.Logout),
 			},
 		}
 

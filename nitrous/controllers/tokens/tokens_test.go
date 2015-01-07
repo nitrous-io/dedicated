@@ -282,4 +282,52 @@ var _ = Describe("controllers/tokens", func() {
 			})
 		}
 	})
+
+	Describe("POST /logout", func() {
+		var (
+			u *user.User
+			t *token.Token
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Password: "123456",
+				Name:     "foo",
+				Email:    "foo@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			t = &token.Token{
+				UserID: u.ID,
+				Token:  "valid-token",
+			}
+			err = t.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("should delete the token", func() {
+			req, err := NewAuthedRequest(t, "DELETE", "/api/v0/logout", &url.Values{})
+			Expect(err).To(BeNil())
+
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			toke, err := token.FindByToken(db, "valid-token")
+			Expect(err).To(BeNil())
+			Expect(toke).To(BeNil())
+
+			req, err = NewAuthedRequest(t, "GET", "/api/v0/user", &url.Values{})
+			Expect(err).To(BeNil())
+
+			res = httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+		})
+
+	})
 })
