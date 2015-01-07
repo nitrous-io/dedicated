@@ -23,7 +23,7 @@ func (p *DockerProvider) configFromContainer(cnr *dockerclient.Container) *provi
 		Env:          cnr.Config.Env,
 		PublishAll:   &cnr.HostConfig.PublishAllPorts,
 		Mounts:       mountBindsFromDocker(cnr.HostConfig.Binds, p.VolumesDir("")),
-		PortBindings: portBindingsFromDocker(cnr),
+		PortBindings: parsers.ParsePortsFromDocker(cnr),
 	}
 }
 
@@ -195,35 +195,4 @@ func parseMountSpec(mspec string, hostVolsPath string) (string, error) {
 		return "", ErrInvalidMountSpec
 	}
 	return fmt.Sprintf("%s:%s", filepath.Join(hostVolsPath, parts[0]), mountPoint), nil
-}
-
-// portBindingsFromDocker converts docker portbindings back to
-// provider.ContainerConfig's format.
-// For running containers, the docker-assigned host port will be filled in, so
-// returned portspecs are limited to:
-//   public:hostPort:containerPort
-//   private:hostPort:containerPort
-func portBindingsFromDocker(cnr *dockerclient.Container) []string {
-	portsSource := cnr.HostConfig.PortBindings
-	if cnr.State.Running {
-		portsSource = cnr.NetworkSettings.Ports
-	}
-	bindings := []string{}
-	for containerPort, portBindings := range portsSource {
-		if portBindings == nil {
-			// this happens when: port is exposed with no
-			// HostConfig.PortBinding and HostConfig.PublishAllPorts is false
-			// TODO investigate how else to resolve
-			continue
-		}
-		for _, pb := range portBindings {
-			access := "private"
-			if pb.HostIp == "0.0.0.0" {
-				access = "public"
-			}
-			bindings = append(bindings, fmt.Sprintf("%s:%s:%s", access, pb.HostPort, containerPort))
-		}
-	}
-
-	return bindings
 }
