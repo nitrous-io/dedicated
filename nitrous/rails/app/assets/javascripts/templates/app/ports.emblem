@@ -41,4 +41,22 @@
 
 .card-footer.bordered
   .right
-    button.ui.btn.primary click='apply' disabled={saving} Apply
+    button.ui.btn.primary  click='askApply target="view"' disabled={saving} Apply
+
+#confirm-apply-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Are you sure?
+    .card-body
+      p Application will be restarted when applying these changes.
+      p Are you sure you want to apply changes?
+
+    .card-footer
+      .right
+        if saving
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Applying Changes...
+        else
+          button.ui.btn click='cancelApply target="view"' Cancel
+          button.ui.btn.primary click='confirmApply target="view"' Apply
