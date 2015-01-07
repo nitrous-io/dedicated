@@ -57,20 +57,15 @@ func ParsePortBindings(specs []string, gateway string) (map[docker.Port][]docker
 func parsePortSpec(portSpec, gateway string) (string, error) {
 	parts := strings.Split(portSpec, ":")
 
-	var hostIP string
-	switch parts[0] {
-	case "public":
-		hostIP = "0.0.0.0"
-	case "private":
-		hostIP = gateway
-	}
 	switch {
-	case len(parts) == 3 && parts[1] == "": // type::containerPort
-		if hostIP == "" {
-			return "", ErrInvalidPortSpec
+	case len(parts) == 3: // type:hostPort:containerPort
+		hostIP := parts[0]
+		switch parts[0] {
+		case "public":
+			hostIP = "0.0.0.0"
+		case "private":
+			hostIP = gateway
 		}
-		return hostIP + "::" + parts[2], nil
-	case len(parts) == 3 && parts[1] != "": // type:hostPort:containerPort
 		if hostIP == "" {
 			return "", ErrInvalidPortSpec
 		}
