@@ -18,6 +18,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
   title: null
   snackbar: null
 
+  settings: null
+
   token: null
   user: null
   userProfile: null
@@ -55,6 +57,14 @@ window.Nitrous = Em.Application.extend Em.Evented,
       window.localStorage.removeItem('token')
   ).observes 'token'
 
+  didLoadSettings: (->
+    if settings = @get('settings')
+      if settings.mixpanel_token != '' && settings.mixpanel_token != 'disable'
+        window.mixpanel?.init settings.mixpanel_token
+      if settings.stripe_key != '' && settings.stripe_key != 'disable'
+        window.Stripe?.setPublishableKey(settings.stripe_key)
+  ).observes 'settings'
+
   noHost: (->
     @get('hosts.loaded') && @get('hosts.length') == 0
   ).property 'hosts.loaded', 'hosts.length'
@@ -89,11 +99,11 @@ App.on 'fetchUser', (user) ->
   App.set 'eventsSocket', socket = App.EventsSocket.create()
   socket.connect()
 
-App.on 'settings', (settings) ->
-  if settings.mixpanel_token != '' && settings.mixpanel_token != 'disable'
-    window.mixpanel?.init settings.mixpanel_token
-  if settings.stripe_key != '' && settings.stripe_key != 'disable'
-    window.Stripe.setPublishableKey(settings.stripe_key)
+App.loadSettings = ->
+  promise = Em.RSVP.Promise.cast(Em.$.ajax("/api/v0/app_settings"))
+  promise.then (settings) ->
+    App.set 'settings', settings
+  promise
 
 App.didChangeTitle()
 
@@ -122,14 +132,11 @@ $(document).on 'click', '.click-highlight', (e) ->
   sel.removeAllRanges()
   sel.addRange(range)
 
-$.ajax("/api/v0/app_settings").done (settings) ->
-  App.trigger 'settings', settings
-
 Em.Route.reopen
   activate: ->
     App.set 'title', null
 
 App.Router.reopen
   notifyGoogleAnalytics: (->
-    ga 'send', 'pageview', 'page': @get('url'), 'title': App.get('title')
+    ga? 'send', 'pageview', 'page': @get('url'), 'title': App.get('title')
   ).on 'didTransition'

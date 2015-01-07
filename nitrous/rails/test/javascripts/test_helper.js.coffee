@@ -2,8 +2,7 @@
 #= require application
 #= require qunit-bdd-0.6.1
 #= require sinon-1.10.3
-#= require emberjs
-#= require app
+#= require main
 #= require_self
 #= require_tree .
 

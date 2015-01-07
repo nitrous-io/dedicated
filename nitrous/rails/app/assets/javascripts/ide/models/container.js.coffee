@@ -8,7 +8,6 @@ App.Container = klass = Em.Object.extend
 
   config: null
   host: null
-  token: null
 
   env: (->
     transformEnvArrayToHash @get('config').env
@@ -58,16 +57,16 @@ App.Container = klass = Em.Object.extend
     promise
 
   loadHost: ->
-    promise = new Em.RSVP.Promise (resolve, reject) =>
+    new Em.RSVP.Promise (resolve, reject) =>
       Em.$.ajax(
         type: 'GET',
         url: "/api/v0/hosts/#{@get 'host_id'}",
         headers: { Authorization: "Bearer #{App.get 'token'}" }
-      ).done((data, status, jqxhr) ->
+      ).done((data, status, jqxhr) =>
+        @set 'host', data.host
         resolve(data)
       ).fail (jqxhr) ->
         reject(jqxhr)
-    promise
 
 klass.reopenClass
   fetch: (slug) ->

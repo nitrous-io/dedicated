@@ -66,9 +66,9 @@ App.IdeConsoleSessionView = Em.View.extend
         terminal.init()
         terminal.term.write 'Connecting...'
         terminal.willOpen = =>
-          controller.openTerminal(terminal)
+          controller.makeUrlAndConnect(terminal)
         # the following terminal.open() call is only to invoke willOpen()
         # it will be no-op since no URL is set
-        # openTerminal will call terminal.open again after setting the URL.
+        # makeUrlConnect will then call terminal.open again after setting the URL.
         terminal.open()
       iframeDocument.body.appendChild(scriptEl)

@@ -27,15 +27,16 @@ App.IndexController = Em.ObjectController.extend
       router.get('ideConsoleController').initialize()
 
       @set 'opsSocket', opsSocket = App.OpsSocket.create(container: content)
-      opsSocket.open()
+      opsSocket.connect()
       #commandSocket.connect()
 
   reset: ->
     if opsSocket = @get 'opsSocket'
-      opsSocket.close()
+      opsSocket.disconnect()
+      opsSocket.destroy()
 
-    if commandSocket = @get 'commandSocket'
-      commandSocket.disconnect()
+    #if commandSocket = @get 'commandSocket'
+      #commandSocket.disconnect()
 
     router = App.get 'router'
     router.get('ideConsoleController').reset()

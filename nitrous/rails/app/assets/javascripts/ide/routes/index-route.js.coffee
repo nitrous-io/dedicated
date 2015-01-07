@@ -22,13 +22,7 @@ App.IndexRoute = Em.Route.extend
       window.location.href = notFoundPath
 
   afterModel: (container, transition)->
-    Em.RSVP.Promise.all([
-      container.loadHost(),
-      container.requestToken(['ops'])
-    ]).then (data) ->
-      container.set 'host', data[0].host
-      container.set 'token', data[1].token
-    , -> # failure
+    container.loadHost().catch ->
       transition.abort()
 
   activate: ->
