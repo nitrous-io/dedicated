@@ -6,9 +6,8 @@ import (
 	"strings"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
-
 	"github.com/nitrous-io/dedicated/freighter/provider"
-	"github.com/nitrous-io/dedicated/freighter/provider/docker/utils"
+	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
 )
 
 var (
@@ -47,7 +46,7 @@ func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrus
 	copy(dcConfig.Cmd, cfg.Cmd)
 
 	// Expose ports that are not explicitly mapped to a host port.
-	bs, err := utils.ParsePortBindings(cfg.PortBindings, p.gateway)
+	bs, err := parsers.ParsePortBindings(cfg.PortBindings, p.gateway)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +99,7 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 	}
 
 	if cfg.PortBindings != nil {
-		bs, err := utils.ParsePortBindings(cfg.PortBindings, p.gateway)
+		bs, err := parsers.ParsePortBindings(cfg.PortBindings, p.gateway)
 		if err != nil {
 			return nil, err
 		}
