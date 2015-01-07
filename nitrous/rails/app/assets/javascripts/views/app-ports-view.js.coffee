@@ -1,4 +1,4 @@
-App.AppPortsView = Em.View.extend
+App.AppPortsView = Em.View.extend App.ApplyDialogMixin,
   elementId: 'app-ports-view'
 
   addDisabled: (->

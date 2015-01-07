@@ -14,6 +14,7 @@ App.AppPortsController = Em.ObjectController.extend
   port: null
   previewPort: false
   removePreviewPort: false
+  closeApplyDialog: false
 
   clear: ->
     @_super.apply this, arguments
@@ -22,6 +23,7 @@ App.AppPortsController = Em.ObjectController.extend
       port: null
       previewPort: false
       removePreviewPort: false
+      closeApplyDialog: false
 
   actions:
     add: ->
@@ -80,6 +82,7 @@ App.AppPortsController = Em.ObjectController.extend
         env: transformEnvHashToArray env
       ).then =>
         App.snackbar.post 'Applying port changes...'
+        @set 'closeApplyDialog', true
       , (jqxhr) ->
         reconfigureComplete()
         App.postError(jqxhr.responseJSON, "Failed to apply port changes!")
