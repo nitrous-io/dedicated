@@ -3,13 +3,24 @@ App.IdeFindInProjectDialogView = App.IdeModalDialogView.extend
   elementId: 'ide-find-in-project-dialog-view'
   contentBinding: 'controller.findInProjectDialog'
 
-  keyPress: (e) ->
-    if e.which == 13
-      this.didClickFind()
+  keyDown: (e) ->
+    switch e.which
+      when 13 # Enter
+        e.preventDefault()
+        e.stopPropagation()
+        @find()
+      when 27 # Escape
+        @hide()
 
-  didClickFind: ->
+  find: ->
     if @get('content').valid()
-      @get('controller').startFind @get('content.term'),
-        @get('content.location'), @get('content.optionsString')
-    else
+      @get('controller').startFind(
+        @get('content.term'),
+        @get('content.location'),
+        @get('content.optionsString')
+      )
+
+  actions:
+    didClickFind: ->
+      @find()
       false
