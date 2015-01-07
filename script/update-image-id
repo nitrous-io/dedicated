@@ -1,9 +1,15 @@
 #!/bin/bash
-usage="USAGE: ./script/update-image-id DB IMAGE_ID <REGION> (DB is pro-n2ostaging-com for staging and pro-nitrous-io for production, region is optional and is one of sfo,nyc,ams,lon,sgp)"
+usage="USAGE: ./script/update-image-id ENV IMAGE_ID <REGION> (ENV is either staging or production, region is optional and is one of sfo,nyc,ams,lon,sgp)"
 
-db=${1:?"db is required. ${usage}"}
+env=${1:?"env is required. ${usage}"}
 image_id=${2:?"image_id is required. ${usage}"}
 region=${3}
+
+if [[ "$env" == "staging" ]]; then
+        db = "pro-n2ostaging-com HEROKU_POSTGRESQL_BLUE"
+elif [[ "$env" == "production" ]]; then
+        db = "pro-nitrous-io HEROKU_POSTGRESQL_PURPLE"
+fi
 
 if [[ -z $region ]]; then
   heroku pg:psql -a $db -c "update provider_templates set config = config || '\"image_id\"=>\"$image_id\"'::hstore where provider = 'digitalocean';"
