@@ -78,6 +78,11 @@ func (t *Token) Touch(d db.QueryReceiver, ip string) error {
 	return nil
 }
 
+func (t *Token) Delete(d db.QueryReceiver) error {
+	_, err := d.Exec(`DELETE FROM tokens WHERE id = $1`, t.ID)
+	return err
+}
+
 func (t *Token) IsValid() bool {
 	if t == nil {
 		return false

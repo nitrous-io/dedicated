@@ -253,6 +253,23 @@ var _ = Describe("models/token", func() {
 		})
 	})
 
+	Describe("Delete()", func() {
+		It("should delete the target token", func() {
+			t := &token.Token{UserID: u1.ID, Token: "foobar"}
+			err := t.Insert(db)
+			Expect(err).To(BeNil())
+
+			t2, err := token.FindByToken(db, "foobar")
+			Expect(err).To(BeNil())
+			Expect(t2).NotTo(BeNil())
+
+			Expect(t2.Delete(db)).To(BeNil())
+			t2, err = token.FindByToken(db, "foobar")
+			Expect(err).To(BeNil())
+			Expect(t2).To(BeNil())
+		})
+	})
+
 	Describe("IsValid()", func() {
 		var t *token.Token
 
