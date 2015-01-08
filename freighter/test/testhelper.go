@@ -52,6 +52,12 @@ const TestSSHPubKey = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD0KAa12lCteaBVPniCg
 
 const NitrousImage = "nitrousio/ubuntu-bare:trusty"
 
+// dependent on ENV declarations in nitrousio/ubuntu-bare Dockerfile
+const (
+	DfileEnvUser     = "nitrous"                         // NITROUS_USERNAME
+	DfileEnvWorkPath = "/home/" + DfileEnvUser + "/code" // NITROUS_APP_PATH parent
+)
+
 func NewRequestWithSecret(secret string, method string, urlStr string, params *url.Values) (*http.Request, error) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
