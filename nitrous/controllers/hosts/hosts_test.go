@@ -3,17 +3,16 @@ package hosts_test
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
-	"github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -41,6 +40,14 @@ func init() {
 	keypairs.KeyLen = 512
 }
 
+func queryHost(db *db.Database, id int64) (*host.Host, error) {
+	h := &host.Host{}
+	if err := db.Get(h, `SELECT * FROM hosts WHERE id = $1`, id); err != nil {
+		return nil, err
+	}
+	return h, nil
+}
+
 func hostname(slug string) string {
 	return fmt.Sprintf("%s.%s", slug, envvars.HostHostname)
 }
@@ -48,13 +55,6 @@ func hostname(slug string) string {
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "controllers/hosts")
-}
-
-func mockHostbuilderOK(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
-	return &hostbuilder.Response{Status: "ok", IPAddress: "127.0.0.1", FreighterdPort: 65333}, nil
-}
-func mockHostbuilderError(path string, provider string, config *hostbuilderclient.Config) (*hostbuilder.Response, error) {
-	return &hostbuilder.Response{}, errors.New("some error occurred")
 }
 
 var _ = Describe("controllers/hosts", func() {
@@ -200,10 +200,10 @@ var _ = Describe("controllers/hosts", func() {
 	Describe("GET /api/v0/hosts/{slug}", func() {
 		var hs *HostStack
 
-		doRequest := func(slug string) {
+		doRequest := func(slug, token string) {
 			req, err := NewRequest("GET", "/api/v0/hosts/"+slug, nil)
 			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", "Bearer valid-token")
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 			handler.ServeHTTP(res, req)
 		}
 
@@ -227,7 +227,7 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		It("responds with host info from the database", func() {
-			doRequest("foo")
+			doRequest(hs.H.Slug, t.Token)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
@@ -251,7 +251,7 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		It("responds with host info even when called with the host ID", func() {
-			doRequest(fmt.Sprintf("%d", hs.H.ID))
+			doRequest(strconv.FormatInt(hs.H.ID, 10), t.Token)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
@@ -260,6 +260,51 @@ var _ = Describe("controllers/hosts", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j.Host.ID).To(Equal(hs.H.ID))
+		})
+
+		Context("when the host does not belong to the user", func() {
+			var (
+				anotherUser  *user.User
+				anotherToken *token.Token
+			)
+
+			BeforeEach(func() {
+				anotherUser = &user.User{
+					Username: "the-others",
+					Password: "winter iz coming",
+					Email:    "the-others@the-north.gov",
+				}
+				err := WrapInTransaction(db, anotherUser.Insert)
+				Expect(err).To(BeNil())
+
+				anotherToken = &token.Token{
+					UserID: anotherUser.ID,
+					Token:  "another-users-token",
+				}
+				err = anotherToken.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with 404", func() {
+				doRequest(hs.H.Slug, anotherToken.Token)
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+
+			It("responds with the host record when user is an admin", func() {
+				_, err := db.Exec("UPDATE users SET admin = true WHERE id = $1", anotherUser.ID)
+				Expect(err).To(BeNil())
+
+				doRequest(hs.H.Slug, anotherToken.Token)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.ID).To(Equal(hs.H.ID))
+			})
 		})
 
 		Context("oauth token failure modes", func() {
@@ -305,7 +350,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("updates name", func() {
-				updated, err := host.FindByID(db, hs.H.ID)
+				updated, err := queryHost(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(updated.Name.String).To(Equal("GhostHost"))
 				Expect(*updated.UpdatedAt).To(BeTemporally(">", *hs.H.UpdatedAt))
@@ -320,7 +365,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("nullifies name", func() {
-				updated, err := host.FindByID(db, hs.H.ID)
+				updated, err := queryHost(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(updated.Name.String).To(Equal(""))
 				Expect(updated.Name.Valid).To(BeFalse())
@@ -336,7 +381,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("does not update fields", func() {
-				updated, err := host.FindByID(db, hs.H.ID)
+				updated, err := queryHost(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(updated.Name.String).To(Equal("foohost"))
 				Expect(updated.Slug).To(Equal("foo"))
@@ -356,7 +401,7 @@ var _ = Describe("controllers/hosts", func() {
 			case <-time.After(50 * time.Millisecond):
 				Fail("Timed out waiting for host updated event")
 			case msg := <-ch:
-				updated, err := host.FindByID(db, hs.H.ID)
+				updated, err := queryHost(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(msg).To(Equal(&controllers.Event{
 					Name: controllers.EventHostUpdated,
@@ -493,10 +538,10 @@ var _ = Describe("controllers/hosts", func() {
 			c  *container.Container
 		)
 
-		doRequest := func(slug string) {
+		doRequest := func(slug, token string) {
 			req, err := NewRequest("DELETE", "/api/v0/hosts/"+slug, nil)
 			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", "Bearer valid-token")
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 			handler.ServeHTTP(res, req)
 		}
 
@@ -529,7 +574,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("deletes the host record", func() {
-				doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug, t.Token)
 
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
@@ -541,7 +586,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(c2).To(Equal(c))
 
-				doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug, t.Token)
 
 				c2, err = container.Find(db, hs.U, c.Slug)
 				Expect(err).To(BeNil())
@@ -554,7 +599,7 @@ var _ = Describe("controllers/hosts", func() {
 				keypairs.Create(tx, priv, "aes_key", hs.H.ID)
 				tx.Commit()
 
-				doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug, t.Token)
 
 				_, err := keypairs.Get(db, hs.H.ID)
 				Expect(err).ToNot(BeNil(), "host's keypairs should be removed")
@@ -569,13 +614,13 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(crt.Insert(tx, hs.H.ID)).To(BeNil())
 				tx.Commit()
 
-				doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug, t.Token)
 				_, err := cert.Find(db, hs.H.ID)
 				Expect(err).ToNot(BeNil(), "failed to remove host's certificates")
 			})
 
 			It("responds with status OK", func() {
-				doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug, t.Token)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var j struct {
@@ -601,13 +646,13 @@ var _ = Describe("controllers/hosts", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
-				doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug, t.Token)
 
 				select {
 				case <-time.After(50 * time.Millisecond):
 					Fail("Timed out waiting for host destroyed event")
 				case msg := <-ch:
-					deleted, err := host.FindByID(db, hs.H.ID)
+					deleted, err := queryHost(db, hs.H.ID)
 					Expect(err).To(BeNil())
 					Expect(msg).To(Equal(&controllers.Event{
 						Name: controllers.EventHostDestroyed,
@@ -620,7 +665,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			It("logs transitions for the host", func() {
 				origState := hs.H.State
-				doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug, t.Token)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var count int
@@ -643,7 +688,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("does not delete the host", func() {
-				doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug, t.Token)
 
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
@@ -651,9 +696,58 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("responds with HTTP 500 Internal Server Error", func() {
-				doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug, t.Token)
 
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+		})
+
+		Context("when the host does not belong to the user", func() {
+			var (
+				anotherUser  *user.User
+				anotherToken *token.Token
+			)
+
+			BeforeEach(func() {
+				anotherUser = &user.User{
+					Username: "the-others",
+					Password: "winter iz coming",
+					Email:    "the-others@the-north.gov",
+				}
+				err := WrapInTransaction(db, anotherUser.Insert)
+				Expect(err).To(BeNil())
+
+				anotherToken = &token.Token{
+					UserID: anotherUser.ID,
+					Token:  "another-users-token",
+				}
+				err = anotherToken.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with 404", func() {
+				doRequest(hs.H.Slug, anotherToken.Token)
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+
+			It("deletes the host record when user is an admin", func() {
+				_, err := db.Exec("UPDATE users SET admin = true WHERE id = $1", anotherUser.ID)
+				Expect(err).To(BeNil())
+
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &FakeRoundTripper{
+					Message: okResponse,
+					Status:  http.StatusOK,
+				})
+				hosts.HostbuilderClient = hb
+
+				doRequest(hs.H.Slug, anotherToken.Token)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h).To(BeNil())
 			})
 		})
 
@@ -671,7 +765,7 @@ var _ = Describe("controllers/hosts", func() {
 				replaceTransport(hb, rt)
 				hosts.HostbuilderClient = hb
 
-				doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug, t.Token)
 				Expect(len(rt.Requests)).To(Equal(0), "expect to not called hostbuilder")
 				Expect(res.Code).To(Equal(http.StatusOK))
 			})
@@ -690,10 +784,10 @@ var _ = Describe("controllers/hosts", func() {
 	Describe("POST /api/v0/hosts/{slug}/restart", func() {
 		var hs *HostStack
 
-		doRequest := func(slug string, params *url.Values) {
+		doRequest := func(slug, token string, params *url.Values) {
 			req, err := NewFormRequest("POST", "/api/v0/hosts/"+slug+"/restart", params)
 			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", "Bearer valid-token")
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 			handler.ServeHTTP(res, req)
 		}
 
@@ -723,7 +817,7 @@ var _ = Describe("controllers/hosts", func() {
 				err := hs.H.Update(db)
 				Expect(err).To(BeNil())
 
-				doRequest(hs.H.Slug, nil)
+				doRequest(hs.H.Slug, t.Token, nil)
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
@@ -746,7 +840,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				params := &url.Values{}
 				params.Set("force", "true")
-				doRequest(hs.H.Slug, params)
+				doRequest(hs.H.Slug, t.Token, params)
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 				h, err := host.Find(db, hs.U, hs.H.Slug)
@@ -762,19 +856,18 @@ var _ = Describe("controllers/hosts", func() {
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
-
 				hosts.HostbuilderClient = hb
 			})
 
 			It("updates the host state to running", func() {
-				doRequest(hs.H.Slug, nil)
+				doRequest(hs.H.Slug, t.Token, nil)
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateRunning))
 			})
 
 			It("responds with the host and status OK", func() {
-				doRequest(hs.H.Slug, nil)
+				doRequest(hs.H.Slug, t.Token, nil)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var j struct {
@@ -800,7 +893,7 @@ var _ = Describe("controllers/hosts", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
-				doRequest(hs.H.Slug, nil)
+				doRequest(hs.H.Slug, t.Token, nil)
 
 				msgs := []pubsub.Message{}
 				finished := make(chan struct{})
@@ -834,7 +927,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			It("logs transitions for the host", func() {
 				origState := hs.H.State
-				doRequest(hs.H.Slug, nil)
+				doRequest(hs.H.Slug, t.Token, nil)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var count int
@@ -852,6 +945,59 @@ var _ = Describe("controllers/hosts", func() {
 			})
 		})
 
+		Context("when the host does not belong to the user", func() {
+			var (
+				anotherUser  *user.User
+				anotherToken *token.Token
+			)
+
+			BeforeEach(func() {
+				anotherUser = &user.User{
+					Username: "the-others",
+					Password: "winter iz coming",
+					Email:    "the-others@the-north.gov",
+				}
+				err := WrapInTransaction(db, anotherUser.Insert)
+				Expect(err).To(BeNil())
+
+				anotherToken = &token.Token{
+					UserID: anotherUser.ID,
+					Token:  "another-users-token",
+				}
+				err = anotherToken.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with 404", func() {
+				doRequest(hs.H.Slug, anotherToken.Token, nil)
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+
+			It("restarts the host when user is an admin", func() {
+				_, err := db.Exec("UPDATE users SET admin = true WHERE id = $1", anotherUser.ID)
+				Expect(err).To(BeNil())
+
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &FakeRoundTripper{
+					Message: okResponse,
+					Status:  http.StatusOK,
+				})
+				hosts.HostbuilderClient = hb
+
+				doRequest(hs.H.Slug, anotherToken.Token, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.ID).To(Equal(hs.H.ID))
+				Expect(j.Host.State).To(Equal(host.StateRunning))
+			})
+		})
+
 		Context("when hostbuilder fails to restart the host", func() {
 			var origState string
 			BeforeEach(func() {
@@ -864,7 +1010,7 @@ var _ = Describe("controllers/hosts", func() {
 				hosts.HostbuilderClient = hb
 
 				origState = hs.H.State
-				doRequest(hs.H.Slug, nil)
+				doRequest(hs.H.Slug, t.Token, nil)
 			})
 
 			It("responds with HTTP 500 Internal Server Error", func() {
@@ -941,7 +1087,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(c1.State).To(Equal(container.StateRunning))
 				Expect(c2.State).To(Equal(container.StateRunning))
 
-				doRequest(hs.H.Slug, nil)
+				doRequest(hs.H.Slug, t.Token, nil)
 
 				// Collect the 2 expected container stop events.
 				stopEvents := []*controllers.Event{}
@@ -993,7 +1139,7 @@ var _ = Describe("controllers/hosts", func() {
 		}
 
 		Context("when the user is not an admin", func() {
-			It("responds with 404 Not Found", func() {
+			It("responds with 404", func() {
 				hs, err = CreateHostStack(db, &HostStack{U: u})
 				Expect(err).To(BeNil())
 
@@ -1022,7 +1168,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("updates a host's versions record in the db", func() {
-				h, err := host.FindByID(db, hs.H.ID)
+				h, err := queryHost(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(h.FreighterdVersion).To(Equal("1.0.88-acecafe-42"))
 				Expect(h.DockerVersion).To(Equal("1.2.3-nitrous"))

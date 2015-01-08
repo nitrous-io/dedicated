@@ -1,3 +1,5 @@
+#= require ./authed-route
+
 App.BillingRoute = App.AuthedRoute.extend
   model: (params) ->
     invoices = App.Invoice.fetch().value

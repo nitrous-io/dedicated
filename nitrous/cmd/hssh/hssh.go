@@ -67,7 +67,7 @@ func newConn(slug string) (*sshutil.Conn, error) {
 	}
 
 	// get host
-	h, err := host.FindBySlug(dbconn, slug)
+	h, err := host.FindByIdentifier(dbconn, slug)
 	if err != nil || h == nil {
 		return nil, fmt.Errorf("failed to find host %q, error %q", slug, err)
 	}

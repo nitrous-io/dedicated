@@ -13,6 +13,7 @@ App.Host = klass = App.Model.extend
   hostname: attr(serialize: false)
   proxyHostname: attr(as: 'proxy_hostname', serialize: false)
   freighterdPort: attr('number', as: 'freighterd_port', serialize: false)
+  providerIdentifier: attr(as: 'provider_identifier', serialize: false)
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'updated_at', serialize: false)
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
@@ -23,6 +24,7 @@ App.Host = klass = App.Model.extend
   templateSlug: attr(as: 'template')
 
   stats: null
+  liveHost: null
 
   isRunning: Em.computed.equal 'state', 'running'
   isTerminated: Em.computed.equal 'state', 'terminated'

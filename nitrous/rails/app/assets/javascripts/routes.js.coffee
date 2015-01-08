@@ -41,3 +41,6 @@ App.Router.map ->
     @resource 'account'
     @resource 'billing'
     @resource 'add-card'
+
+  @resource 'admin', ->
+    @route 'hosts', path: 'hosts/:provider'

@@ -13,34 +13,34 @@ import (
 )
 
 var _ = Describe("host serializer", func() {
+	var (
+		terminatedAt = time.Date(2013, time.November, 3, 0, 0, 0, 0, time.UTC)
+		createdAt    = time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
+		updatedAt    = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
+
+		model = &host.Host{
+			ID:                 10,
+			UserID:             11,
+			RegionID:           12,
+			PlanID:             13,
+			ProviderTemplateID: 14, // Not serialized.
+			Slug:               "wild-rocket-23",
+			Name:               sql.NullString{"wildrocket.xxx", true},
+			State:              "running",
+			IPAddress:          sql.NullString{"1.2.3.4", true},
+			FreighterdPort:     sql.NullInt64{65000, true},
+			FreighterdVersion:  "1.0.69-bed0c-88",
+			DockerVersion:      "1.4.1-nitrous",
+			ProviderIdentifier: sql.NullString{"digitalocean", true},
+			MaxContainers:      sql.NullInt64{3, true},
+			Size:               sql.NullString{"micro", true},
+			TerminatedAt:       &terminatedAt,
+			CreatedAt:          &createdAt,
+			UpdatedAt:          &updatedAt,
+		}
+	)
+
 	Describe("SerializeHost", func() {
-		var (
-			terminatedAt = time.Date(2013, time.November, 3, 0, 0, 0, 0, time.UTC)
-			createdAt    = time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
-			updatedAt    = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
-
-			model = &host.Host{
-				ID:                 10,
-				UserID:             11,
-				RegionID:           12,
-				PlanID:             13,
-				ProviderTemplateID: 14, // Not serialized.
-				Slug:               "wild-rocket-23",
-				Name:               sql.NullString{"wildrocket.xxx", true},
-				State:              "running",
-				IPAddress:          sql.NullString{"1.2.3.4", true},
-				FreighterdPort:     sql.NullInt64{65000, true},
-				FreighterdVersion:  "1.0.69-bed0c-88",
-				DockerVersion:      "1.4.1-nitrous",
-				ProviderIdentifier: sql.NullString{"digitalocean", true},
-				MaxContainers:      sql.NullInt64{3, true},
-				Size:               sql.NullString{"micro", true},
-				TerminatedAt:       &terminatedAt,
-				CreatedAt:          &createdAt,
-				UpdatedAt:          &updatedAt,
-			}
-		)
-
 		It("serializes to JSON", func() {
 			b, err := json.Marshal(serializers.SerializeHost(model))
 			Expect(err).To(BeNil())
@@ -55,6 +55,7 @@ var _ = Describe("host serializer", func() {
 				"freighterd_port": 65000,
 				"freighterd_version": "1.0.69-bed0c-88",
 				"docker_version": "1.4.1-nitrous",
+				"provider_identifier": "digitalocean",
 				"hostname": "%s",
 				"proxy_hostname": "%s",
 				"size": "micro",
@@ -82,6 +83,7 @@ var _ = Describe("host serializer", func() {
 				"freighterd_port": 65000,
 				"freighterd_version": "1.0.69-bed0c-88",
 				"docker_version": "1.4.1-nitrous",
+				"provider_identifier": "digitalocean",
 				"hostname": "%s",
 				"proxy_hostname": "%s",
 				"size": "micro",
@@ -96,6 +98,34 @@ var _ = Describe("host serializer", func() {
 			b, err := json.Marshal(serializers.SerializeHost(nil))
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`null`))
+		})
+	})
+
+	Describe("SerializeHosts", func() {
+		It("serializes to JSON", func() {
+			hosts := serializers.SerializeHosts([]host.Host{*model})
+			b, err := json.Marshal(hosts)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(fmt.Sprintf(`[{
+				"id": 10,
+				"user_id": 11,
+				"region_id": 12,
+				"plan_id": 13,
+				"slug": "wild-rocket-23",
+				"name": "wildrocket.xxx",
+				"ip_address": "1.2.3.4",
+				"freighterd_port": 65000,
+				"freighterd_version": "1.0.69-bed0c-88",
+				"docker_version": "1.4.1-nitrous",
+				"provider_identifier": "digitalocean",
+				"hostname": "%s",
+				"proxy_hostname": "%s",
+				"size": "micro",
+				"state": "running",
+				"terminated_at": "2013-11-03T00:00:00Z",
+				"created_at": "2013-11-04T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
+			}]`, model.Hostname(), model.ProxyHostname())))
 		})
 	})
 })

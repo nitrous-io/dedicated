@@ -9,7 +9,7 @@ App.IndexRoute = Em.Route.extend
       # redirect to login screen if user hasn't logged in
       window.location.href = window.location.href.replace(window.location.pathname, '/app#login')
 
-  model: (params, transition)->
+  model: (params)->
     @_super.apply this, arguments
     notFoundPath = window.location.href.replace(window.location.pathname, '/404')
     if slug = App.get('slug')
