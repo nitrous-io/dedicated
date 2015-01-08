@@ -28,7 +28,7 @@ func (r *Rootfs) CreateNew(p string) (*os.File, error) {
 }
 
 func (r *Rootfs) Open(p string) (*os.File, error) {
-	p, err := r.path(p)
+	p, err := r.Path(p)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (r *Rootfs) Open(p string) (*os.File, error) {
 }
 
 func (r *Rootfs) Mkdir(p string) error {
-	p, err := r.path(p)
+	p, err := r.Path(p)
 	if err != nil {
 		return err
 	}
@@ -55,11 +55,11 @@ func (r *Rootfs) Mkdir(p string) error {
 }
 
 func (r *Rootfs) Rename(oldName, newName string) (err error) {
-	oldName, err = r.path(oldName)
+	oldName, err = r.Path(oldName)
 	if err != nil {
 		return err
 	}
-	newName, err = r.path(newName)
+	newName, err = r.Path(newName)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func (r *Rootfs) Rename(oldName, newName string) (err error) {
 }
 
 func (r *Rootfs) Remove(name string) error {
-	p, err := r.path(name)
+	p, err := r.Path(name)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func (r *Rootfs) Remove(name string) error {
 }
 
 func (r *Rootfs) ReadDir(name string) (fi []os.FileInfo, err error) {
-	p, err := r.path(name)
+	p, err := r.Path(name)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (r *Rootfs) ReadDir(name string) (fi []os.FileInfo, err error) {
 }
 
 func (r *Rootfs) Stat(name string) (os.FileInfo, error) {
-	p, err := r.path(name)
+	p, err := r.Path(name)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (r *Rootfs) Stat(name string) (os.FileInfo, error) {
 }
 
 func (r *Rootfs) openFile(p string, flag int) (*os.File, error) {
-	p, err := r.path(p)
+	p, err := r.Path(p)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (r *Rootfs) openFile(p string, flag int) (*os.File, error) {
 	return f, nil
 }
 
-func (r *Rootfs) path(p string) (string, error) {
+func (r *Rootfs) Path(p string) (string, error) {
 	cp := filepath.Clean(path.Join(r.root, p))
 	if strings.HasPrefix(cp, filepath.Clean(r.root+"/")) {
 		return cp, nil

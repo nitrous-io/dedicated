@@ -38,16 +38,14 @@ func NewFinder(root string) *Finder {
 
 // FindPattern finds files which content has the pattern
 //
-// chan *ContentResults has to be fully read even if we dont consume it
+// chan *SearchResult has to be fully read even if we dont consume it
 // completely
 func (f *Finder) FindContent(term string) (chan *SearchResult, error) {
 	pattern, err := pt.NewPattern(term, "", true, false, true)
 	if err != nil {
 		return nil, err
 	}
-	option := defaultOption()
 
-	fch := make(chan *pt.GrepParams, chanSize)
 	out := make(chan *pt.PrintParams, chanSize)
 	results := make(chan *SearchResult, chanSize)
 	go func() {
@@ -65,6 +63,8 @@ func (f *Finder) FindContent(term string) (chan *SearchResult, error) {
 		close(results)
 	}()
 
+	fch := make(chan *pt.GrepParams, chanSize)
+	option := defaultOption()
 	go pt.Find(f.root, pattern, fch, option)
 	go pt.Grep(fch, out, option)
 
