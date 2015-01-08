@@ -122,3 +122,76 @@
 
     &.active
       display: flex
+
+  .ide-search-view
+    display: flex
+    flex-grow: 1
+    flex-direction: column
+    overflow: auto
+
+    .errors
+      background-color: $red400
+      border-bottom: 1px solid $n2oGray900
+      color: $gray100
+      padding: 8px 8px 8px 22px
+      p
+        font-size: 13px
+        margin: 0
+
+    .summary
+      background-color: $n2oGray700
+      border-bottom: 1px solid $n2oGray900
+      padding: 8px 8px 8px 22px
+      h4
+        color: $n2oGray100
+        font-size: 14px
+        font-weight: normal
+        margin: 0
+        text-shadow: 0 -1px 1px rgba(10, 20, 50, 0.8)
+
+    .search-results
+      h4.result-title
+        color: $n2oGray50
+        font-family: $monospaceFont
+        font-size: 14px
+
+        i.fa
+          padding: 0 4px 0 8px
+
+        span.match-count
+          color: $n2oGray500
+          font-size: 12px
+          line-height: 14px
+
+      a.search-line
+        display: block
+        white-space: nowrap
+        font-family: $monospaceFont
+        font-size: 14px
+        padding: 2px 4px 2px 22px
+
+        &:hover
+          background-color: #555
+          span.line-number
+            color: white
+        text-decoration: none
+
+        // TODO Ideally line numbers should be right-aligned.
+        span.line-number
+          color: $n2oGray500
+          margin-right: 12px
+
+        span.line-text
+          white-space: pre
+          color: $n2oGray100
+
+          span.search-match
+            border: 1px solid $n2oGray500
+            border-radius: 2px
+            color: $n2oGray50
+
+    p.completed
+      font-family: $monospaceFont
+      font-size: 14px
+      margin: 28px 0 0 22px
+
