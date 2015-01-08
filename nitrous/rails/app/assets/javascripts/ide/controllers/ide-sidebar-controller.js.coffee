@@ -1,5 +1,5 @@
 App.IdeSidebarController = Em.ArrayController.extend
-  needs: ['ideFindInProject']
+  needs: ['ideFindInProject', 'ideEditor']
 
   homePath: null # home (~/) path
   rootPath: null # current root path in the sidebar
@@ -79,7 +79,7 @@ App.IdeSidebarController = Em.ArrayController.extend
         if path.get 'expanded'
           this.fetchFileList path
       else
-        editorController = App.get 'router.ideEditorController'
+        editorController = @get('controllers.ideEditor')
         if document = editorController.findProperty 'path', path
           editorController.makeTabActive document
           if settings.done
@@ -118,6 +118,8 @@ App.IdeSidebarController = Em.ArrayController.extend
   fetchFileContent: (path, settings = {}) ->
     opsSocket = @get 'opsSocket'
     path.incrementProperty 'loadCount'
+    editorController = @get('controllers.ideEditor')
+
     opsSocket.fetchFileContent path.get('absolutePath'), (err, absolutePath, contentType, content) ->
       path.decrementProperty 'loadCount'
       if err
@@ -125,7 +127,6 @@ App.IdeSidebarController = Em.ArrayController.extend
           settings.error("Cannot open the selected file")
         return
 
-      editorController = App.get 'router.ideEditorController'
       tabClass = if contentType?.match /^image/ then App.Image else App.Document
       tab = editorController.createTab(
         content: content
