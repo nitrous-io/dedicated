@@ -21,14 +21,6 @@ App.Router.map ->
     @resource 'hosts', path: '/workspaces', ->
       @route 'new'
 
-    @resource 'app', path: '/apps/:hostSlug', ->
-      @route 'metrics'
-      @route 'keys'
-      @route 'keys-new', path: '/keys/new'
-      @route 'snapshots'
-      @route 'console'
-      @route 'ports'
-
     @resource 'host', path: '/workspaces/:hostSlug', ->
       @route 'registries'
       @route 'registries-new', path: '/registries/new'
