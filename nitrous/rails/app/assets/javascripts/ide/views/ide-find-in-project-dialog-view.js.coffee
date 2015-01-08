@@ -3,6 +3,8 @@ App.IdeFindInProjectDialogView = App.IdeModalDialogView.extend
   elementId: 'ide-find-in-project-dialog-view'
   contentBinding: 'controller.findInProjectDialog'
 
+  termFieldInvalid: Em.computed.equal('controller.invalidField', 'term')
+
   keyDown: (e) ->
     suppress = ->
       e.preventDefault()
@@ -15,12 +17,7 @@ App.IdeFindInProjectDialogView = App.IdeModalDialogView.extend
         @hide()
 
   find: ->
-    if @get('content').valid()
-      @get('controller').startFind(
-        @get('content.term'),
-        @get('content.location'),
-        @get('content.optionsString')
-      )
+    @get('controller').send 'find'
 
   actions:
     didClickFind: ->
