@@ -744,6 +744,8 @@ ul.ui.snackbar
     transition: opacity .3s
 
   .ui.card
+    flex-grow: 0
+    flex-shrink: 0
     width: 500px
     max-height: 100%
     overflow: auto
@@ -773,9 +775,13 @@ ul.ui.snackbar
     .card-footer
       padding: 0 16px 16px 16px
 
-  &.show
+  &.hide
+    display: none
+
+  &.flex
     display: flex
 
+  &.show
     &:before
       opacity: 1
 
