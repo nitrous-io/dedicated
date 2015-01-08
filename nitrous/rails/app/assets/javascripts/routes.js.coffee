@@ -7,19 +7,20 @@ App.Router.map ->
   @route 'confirm-email'
 
   @resource 'home', path: '/', ->
-    @resource 'containers', ->
+    @resource 'containers', path: '/applications', ->
       @route 'new'
 
-    @resource 'container', path: '/containers/:containerSlug', ->
+    @resource 'container', path: '/applications/:containerSlug', ->
+      @route 'system'
       @route 'keys'
       @route 'keys-new', path: '/keys/new'
       @route 'config'
       @route 'console'
 
-    @resource 'hosts', path: '/applications', ->
+    @resource 'hosts', path: '/workspaces', ->
       @route 'new'
 
-    @resource 'app', path: '/applications/:hostSlug', ->
+    @resource 'app', path: '/apps/:hostSlug', ->
       @route 'metrics'
       @route 'keys'
       @route 'keys-new', path: '/keys/new'
@@ -27,7 +28,7 @@ App.Router.map ->
       @route 'console'
       @route 'ports'
 
-    @resource 'host', path: '/hosts/:hostSlug', ->
+    @resource 'host', path: '/workspaces/:hostSlug', ->
       @route 'registries'
       @route 'registries-new', path: '/registries/new'
       @route 'images'

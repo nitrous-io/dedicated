@@ -24,7 +24,7 @@ App.AppIndexController = Em.ObjectController.extend App.PerformActionMixin,
     terminate: ->
       name = @get('model.displayName')
       @performAction('DELETE', null, 'terminating').then ->
-        App.snackbar.post("Your application “#{name}” was successfully terminated.")
+        App.snackbar.post("Your workspace “#{name}” was successfully terminated.")
 
     refresh: ->
       @get('model').fetchStats()

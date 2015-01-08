@@ -16,14 +16,15 @@
                   = registry.url
                 p
                   = registry.username
+                  '
                   if registry.email
-                    | &nbsp;(
+                    | (
                     = registry.email
                     | )
     else
       p.hint-text
         i.fa.fa-exclamation-circle
-        | This application is not connected to any Docker registry.
+        | This workspace is not connected to any Docker registry.
   else
     p.hint-text
       i.spinner

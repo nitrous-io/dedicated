@@ -5,7 +5,7 @@ form submit='create'
   .card-body
     .ui.input-group
       label.field-label
-        | Host
+        | Workspace
       .ui.select
         Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' disabled=saving value=selectedHostSlug
 

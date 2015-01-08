@@ -23,8 +23,8 @@
         thead
           tr
             th Public
-            th Host Port (Optional)
-            th colspan='2' Container Port
+            th Workspace Port
+            th colspan='2' Application Port
         tbody
           tr
             td
@@ -32,9 +32,9 @@
                 = input type='checkbox' checked=publicPort disabled=view.formDisabled
                 label
             td
-              = input type='number' min='1' max='65535' step='1' placeholder='63000' value=hostPort disabled=view.formDisabled
+              = input type='number' min='1' max='65535' step='1' placeholder='e.g., 63000 (optional)' value=hostPort disabled=view.formDisabled
             td
-              = input type='number' min='1' max='65535' step='1' placeholder='3000' required=true value=containerPort disabled=view.formDisabled
+              = input type='number' min='1' max='65535' step='1' placeholder='e.g., 3000' required=true value=containerPort disabled=view.formDisabled
             td
               input.ui.btn.raised type='submit' disabled={view.addPortBindingButtonDisabled} value='Add' disabled={view.formDisabled}
 
@@ -75,9 +75,9 @@
         tbody
           tr
             td
-              = input type='text' placeholder='KEY' required=true value=envKey disabled=view.formDisabled
+              = input type='text' placeholder='e.g., FOO' required=true value=envKey disabled=view.formDisabled
             td
-              = input type='text' placeholder='value' required=true value=envValue disabled=view.formDisabled
+              = input type='text' placeholder='e.g., bar' required=true value=envValue disabled=view.formDisabled
             td
               input.ui.btn.raised type='submit' disabled={view.addEnvVarButtonDisabled} value='Add' disabled={view.formDisabled}
 
@@ -139,7 +139,7 @@
     h2.card-header
       | Are you sure?
     .card-body
-      p Changing container configuration may render your container unusable. Proceed with caution.
+      p Changing application configuration may render your application unusable. Proceed with caution.
       p Are you sure you want to apply changes?
 
     .card-footer

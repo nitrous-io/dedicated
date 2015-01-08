@@ -118,20 +118,20 @@
         strong CANNOT
         | &nbsp;be undone!
       p
-        | This will permanently delete the application&nbsp;
+        ' This will permanently delete the workspace
         strong
           | &ldquo;
           = displayName
-          | &rdquo;
-        | &nbsp;.
+          ' &rdquo;
+        | .
       p
-        | Please type in the slug of the application&nbsp;
+        ' Please type in the slug of the workspace&nbsp;
         strong
-          |(
+          | (
           span.click-highlight
             = slug
-          |)
-        | &nbsp;to confirm:
+          ' )
+        | to confirm:
       .ui.input-group
         Em.TextField class='focus' placeholder=slug value=view.terminateSlugConfirmation insertNewline=view.clickTerminate
     .card-footer

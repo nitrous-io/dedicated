@@ -35,8 +35,11 @@ App.Container = klass = App.Model.extend
   isStopped: Em.computed.equal 'state', 'stopped'
   isTerminated: Em.computed.equal 'state', 'terminated'
 
+  hasNoApp: Em.computed.equal 'appState', 'none'
+  hasApp: Em.computed.not 'hasNoApp'
   isAppRunning: Em.computed.equal 'appState', 'running'
   isAppStopped: Em.computed.equal 'appState', 'stopped'
+  isNitrousImage: Em.computed.notEmpty 'config.env.NITROUS_IMAGE_VERSION'
 
   hostnameBinding: Em.Binding.oneWay 'host.hostname'
   loginUsernameBinding: Em.Binding.oneWay 'config.env.NITROUS_USERNAME'

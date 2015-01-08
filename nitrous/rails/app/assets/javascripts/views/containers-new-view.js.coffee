@@ -37,6 +37,13 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
   ).property 'App.baseImages', 'controller.saving'
   hostImageOptionDisabled: Em.computed.or('controller.hostImagesEmpty', 'controller.saving')
 
+  firstScreenButtonLabel: (->
+    if App.get('user.advanced')
+      'Next'
+    else
+      'Create'
+  ).property 'App.user.advanced'
+
   createButtonDisabled: (->
     !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedHostSlug') && @get('image'))
   ).property 'controller.name', 'controller.slug', 'controller.selectedHostSlug', 'image'
@@ -126,5 +133,12 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
       i = @get 'currentScreenIndex'
       @set 'currentScreenIndex', Math.max(--i, 0)
 
-    closeEnvVars: ->
+    goNextOrCreate: ->
+      if App.get 'user.advanced'
+        @send 'goNext'
+      else
+        @set 'currentScreenIndex', 1 # skip the config screen
+        @send 'create'
+
+    closeEnvVar: ->
       ui.hideModal('#env-vars-dialog')

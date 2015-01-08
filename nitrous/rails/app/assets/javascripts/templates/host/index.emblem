@@ -64,7 +64,7 @@
           span.empty &ndash;
 
     tr
-      th Hostname
+      th Host
       td colspan='3'
         span.click-highlight
           = hostname
@@ -80,7 +80,7 @@
       button.ui.btn click='restart' Restart
       button.ui.btn click='showTerminateDialog target="view"' Terminate...
     .right
-      button.ui.btn.primary click='newContainer' New Container...
+      button.ui.btn.primary click='newContainer' New Application...
   else
     if isTerminated
       .left
@@ -101,24 +101,25 @@
       | Are you ABSOLUTELY sure?
     .card-body
       p
-        | This action&nbsp;
-        strong CANNOT
-        | &nbsp;be undone!
+        ' This action
+        strong
+          ' CANNOT
+        | be undone!
       p
-        | This will permanently delete the application&nbsp;
+        ' This will permanently delete the workspace
         strong
           | &ldquo;
           = displayName
-          | &rdquo;
-        | &nbsp; and all services, images, volumes, and archives within the application.
+          ' &rdquo;
+        | and all applications, images, volumes, and archives within the workspace.
       p
-        | Please type in the slug of the application&nbsp;
+        ' Please type in the slug of the workspace
         strong
-          |(
+          | (
           span.click-highlight
             = slug
-          |)
-        | &nbsp;to confirm:
+          ' )
+        | to confirm:
       .ui.input-group
         Em.TextField class='focus' placeholder=slug value=view.terminateSlugConfirmation insertNewline=view.clickTerminate
     .card-footer

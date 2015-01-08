@@ -2,7 +2,7 @@
 
 App.ContainersNewRoute = App.AuthedRoute.extend
   activate: ->
-    App.set 'title', 'New Container'
+    App.set 'title', 'New Application'
 
   renderTemplate: ->
     @render 'containers/new', outlet: 'content'
