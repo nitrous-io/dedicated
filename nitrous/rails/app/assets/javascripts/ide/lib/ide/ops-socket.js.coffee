@@ -128,3 +128,6 @@ App.OpsSocket = Lib.Socket.extend Ember.Evented,
 
   rename: (currentPath, newPath, callback) ->
     @send 'fs', 'rename', currentPath, newPath, callback
+
+  fileFind: (term, root, callback) ->
+    @send 'finder', 'file_find', term, root, callback

@@ -11,7 +11,7 @@ App.FileFindCommand = klass = Em.Object.extend
 
   send: (socket, dialog, pattern, path, callback) ->
     @set 'dialog', dialog
-    socket.sendAs 'filefind', 'filefind', pattern, path, =>
+    socket.send 'finder', 'file_find', pattern, path, =>
       callback(this, klass.keyFor(pattern, path))
 
   onOutput: (data) ->

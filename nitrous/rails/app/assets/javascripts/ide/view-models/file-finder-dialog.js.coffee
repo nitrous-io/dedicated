@@ -112,7 +112,7 @@ App.FileFinderDialog = klass = Em.Object.extend
 
   addResults: (pattern, path, newResults) ->
     results = @get this.resultsKey(pattern, path)
-    _.each newResults.trim().split("\n"), (result) =>
+    _.each newResults, (result) =>
       results.pushObject Em.Object.create(filename: result)
     @set 'newResults', Date.now()
 
@@ -155,7 +155,16 @@ App.FileFinderDialog = klass = Em.Object.extend
   ).observes 'newResults'
 
   resultsKey: (pattern, path) ->
-    "results.#{App.FileFindCommand.keyFor(pattern, path)}"
+    "results.#{klass.keyFor(pattern, path)}"
 
 klass.reopenClass
   maxResults: 10
+
+  # separator between file pattern and path so that (pattern1, path1) and
+  # (pattern2, path2) do not overlap
+  searchKeyDelimiter: "\\\\"
+
+  keyFor: (pattern, path) ->
+    # pattern cannot have dots as it will cause issues when setting
+    # "results.#{key}"
+    [pattern, path].join(this.searchKeyDelimiter).replace(/\./g, "~")

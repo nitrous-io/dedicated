@@ -1,10 +1,33 @@
 App.IdeFileFinderController = Em.Controller.extend
   needs: ['index', 'ideEditor', 'ideSidebar']
 
+  opsSocketBinding: Em.Binding.oneWay 'controllers.index.opsSocket'
   fileFinderDialog: null
+
+  initialize: ->
+    socket = @get 'opsSocket'
+
+    socket.on 'file_find.output', (error, data) =>
+      @get('fileFinderDialog').addResults(data.term, data.root, data.paths)
+
+    socket.on 'file_find.error', (error, data) ->
+      dialog = @get 'fileFinderDialog'
+      return unless dialog?
+
+      # handle errors occurr before search begins
+      if error
+        dialog.set 'error', error
+
+      # when a mid-stream error occurrs,
+      # show current results and mark the search as complete
+      if data.error
+        dialog.searchComplete(data.term, data.root)
 
   reset: ->
     @set 'fileFinderDialog', null
+    socket = @get 'opsSocket'
+    socket.off 'file_find.output'
+    socket.off 'file_find.error'
 
   showFindDialog: (path) ->
     if !path?
@@ -15,10 +38,10 @@ App.IdeFileFinderController = Em.Controller.extend
 
   startFind: (pattern, path) ->
     dialog = @get 'fileFinderDialog'
-    socket = @get 'controllers.ide.commandSocket'
+    socket = @get 'opsSocket'
     return if !dialog || !socket
 
-    path = '.' if not path?.length
+    path = App.get('container.homePath') if not path?.length
 
     dialog.find pattern, path, =>
       @set 'findPattern', pattern
@@ -27,19 +50,19 @@ App.IdeFileFinderController = Em.Controller.extend
 
   socketFind: ->
     dialog = @get 'fileFinderDialog'
-    socket = @get 'controllers.ide.commandSocket'
+    socket = @get 'opsSocket'
     pattern = @get 'findPattern'
     path = @get 'findPath'
     if dialog && socket && pattern && path
       dialog.searchStart(pattern, path)
-      socket.filefind dialog, pattern, path, -> {}
+      socket.fileFind pattern, path, -> {}
 
   closeFindDialog: ->
     this.reset()
 
   # try to pick a sensible default search root
   guessPath: (path) ->
-    homedir = '.'
+    homedir = App.get('container.homePath')
 
     return homedir if not path?.length
     parts = path.split('/')
