@@ -43,7 +43,10 @@ window.ui =
   showModal: ($modal, cb) ->
     if !($modal instanceof jQuery)
       $modal = $($modal)
-    $modal.css(display: 'flex')
+    if App.util.IsSafari
+      $modal.css(display: '-webkit-flex')
+    else
+      $modal.css(display: 'flex')
     $modal.find('.focus').focus()
     window.setTimeout(->
       $modal.addClass('show')
