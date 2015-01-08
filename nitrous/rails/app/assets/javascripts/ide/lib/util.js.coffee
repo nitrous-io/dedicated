@@ -7,9 +7,6 @@ App.util =
   IsMobile:
     navigator.userAgent.match(/(Android|iPad|iPhone)/) != null
 
-  IsSafari:
-    navigator.userAgent.indexOf("Safari") != -1 && navigator.userAgent.indexOf("Chrome") == -1
-
   # TODO determine the present location without it being passed
   saveReturnTo: (route)->
     App.set('returnTo', route)

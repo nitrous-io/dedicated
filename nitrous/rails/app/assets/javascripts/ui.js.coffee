@@ -43,7 +43,7 @@ window.ui =
   showModal: ($modal, cb) ->
     if !($modal instanceof jQuery)
       $modal = $($modal)
-    if App.util.IsSafari
+    if window.util.IsSafari
       $modal.css(display: '-webkit-flex')
     else
       $modal.css(display: 'flex')
