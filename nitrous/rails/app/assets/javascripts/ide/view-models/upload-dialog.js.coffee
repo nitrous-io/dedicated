@@ -1,8 +1,10 @@
-App.UploadDialog = Em.ArrayProxy.extend
+App.UploadDialog = Em.ArrayProxy.extend Em.SortableMixin,
   path: null
   content: null # array of App.Upload
   uploading: false
   authToken: null
+  sortProperties: ['fileName']
+
   completed: (->
     if content = @get 'content'
       content.everyProperty 'completed'
