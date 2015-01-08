@@ -5,6 +5,8 @@ li class={systemSelected:selected}
 if model.sshEnabled
   li class={keysSelected:selected}
     link-to 'container.keys' | SSH Keys
+li class={portsSelected:selected}
+  link-to 'container.ports' | Ports
 if App.user.advanced
   li class={configSelected:selected}
-    link-to 'container.config' | Configuration
+    link-to 'container.config' | Config

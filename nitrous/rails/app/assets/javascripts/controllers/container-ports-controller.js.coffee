@@ -1,0 +1,104 @@
+transformEnvHashToArray = (hash) ->
+  envVars = []
+  if hash
+    for own key, value of hash
+      envVars.push("#{key}=#{value}") if value
+  envVars
+
+App.ContainerPortsController = Em.ObjectController.extend
+  saving: false
+  port: null
+  newPreviewPort: null
+  setPreviewPort: false
+  removePreviewPort: false
+
+  publicPorts: (->
+    publicPorts = Em.A()
+    return publicPorts unless ports = @get 'model.config.port'
+
+    previewPort = @get('newPreviewPort') || @get('model.previewPort')
+
+    for port in ports
+      regex = ///
+        ^public:  # should be a public port binding
+        (\d*):    # host port
+        (\d*)     # container port
+        (\/tcp)?  # can be followed by tcp
+        $         # end of string
+      ///
+      if m = port.match(regex)
+        hostPort = m[1] || 'To be assigned'
+        containerPort = m[2]
+        publicPorts.push { port: port, hostPort: hostPort, containerPort: containerPort, preview: m[1] == previewPort }
+    publicPorts
+  ).property 'model.config.port.@each', 'model.previewPort', 'newPreviewPort'
+
+  clear: ->
+    @_super.apply this, arguments
+    @setProperties
+      saving: false
+      port: null
+      newPreviewPort: null
+      setPreviewPort: false
+      removePreviewPort: false
+
+  actions:
+    add: ->
+      port = @get 'port'
+      container = @get 'model'
+      portBindings = container.get('config.port')
+      if @get('setPreviewPort')
+        @set 'newPreviewPort', port
+      pb = "public::#{port}"
+      unless portBindings.contains(pb)
+        portBindings.pushObject(pb)
+      @set 'port', null
+      @set 'setPreviewPort', false
+
+    remove: (port) ->
+      pb = port.port
+      container = @get 'model'
+      container.get('config.port').removeObject pb
+      if port.preview
+        @set 'removePreviewPort', true
+
+    apply: ->
+      return if @get 'saving'
+      container = @get 'model'
+      @set 'saving', true
+
+      events = App.get 'eventsSocket'
+
+      reconfigureComplete = =>
+        @set 'saving', false
+        @set 'removePreviewPort', false
+        @set 'newPreviewPort', null
+        events.off 'container.reconfigured', onReconfigured
+        events.off 'container.reconfigure_failed', onReconfigureFailed
+
+      onReconfigured = (data) =>
+        reconfigureComplete()
+        container.setConfig(data.config)
+        App.snackbar.post 'Port changes applied!'
+
+      onReconfigureFailed = (data) =>
+        reconfigureComplete()
+        App.postError(data.error, "Failed to apply port changes!")
+
+      events.on 'container.reconfigured', onReconfigured
+      events.on 'container.reconfigure_failed', onReconfigureFailed
+
+      env = Em.copy container.get('config.env')
+      if newPreviewPort = @get('newPreviewPort')
+        env["NITROUS_PREVIEW_PORT"] = newPreviewPort
+      if @get 'removePreviewPort'
+        delete env["NITROUS_PREVIEW_PORT"]
+
+      container.saveConfig(
+        port: container.get('config.port')
+        env: transformEnvHashToArray env
+      ).then =>
+        App.snackbar.post 'Applying port changes...'
+      , (jqxhr) ->
+        reconfigureComplete()
+        App.postError(jqxhr.responseJSON, "Failed to apply port changes!")

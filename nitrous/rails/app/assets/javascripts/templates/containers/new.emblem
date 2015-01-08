@@ -84,7 +84,7 @@
     .card-body.bordered
       .ui.input-group
         label.field-label
-          | Port Bindings
+          | Custom Port Bindings
 
       ul.ui.chips
         each portBinding in portBindings

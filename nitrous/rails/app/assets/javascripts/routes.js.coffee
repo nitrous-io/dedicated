@@ -15,6 +15,7 @@ App.Router.map ->
       @route 'keys'
       @route 'keys-new', path: '/keys/new'
       @route 'config'
+      @route 'ports'
       @route 'console'
 
     @resource 'hosts', path: '/workspaces', ->
