@@ -57,7 +57,7 @@ type SearchResponse struct {
 	ID      string                 `json:"id"`
 	Term    string                 `json:"term"`
 	Root    string                 `json:"root"`
-	Error   error                  `json:"error"`
+	Error   string                 `json:"error"`
 	Results []*finder.SearchResult `json:"results"`
 }
 
@@ -71,9 +71,8 @@ type SearchResponse struct {
 // the client should catch `{{event}}.output` content and pring output
 // accordingly
 type Finder struct {
-	id     string
-	fs     *rootfs.Rootfs
-	finder *finder.Finder
+	id string
+	fs *rootfs.Rootfs
 }
 
 // Handler interface is not supported by Finder. Caller should upgrade it to
@@ -97,7 +96,7 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 		}
 		go func() {
 			for err := range errch {
-				resp <- makeMessage("file_find.error", &FileFindResponse{
+				resp <- makeMessage("file_find.error", FileFindResponse{
 					Term:  term,
 					Root:  root,
 					Error: err,
@@ -106,7 +105,7 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 		}()
 		go func() {
 			for r := range ch {
-				resp <- makeMessage("file_find.output", &FileFindResponse{
+				resp <- makeMessage("file_find.output", FileFindResponse{
 					Term:  term,
 					Root:  root,
 					Paths: []string{r},
@@ -118,9 +117,19 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 		resp <- msg
 		return resp
 	case "search":
-		id := msg.Args[0].(string)
-		term := msg.Args[1].(string)
-		root := msg.Args[2].(string)
+		id, _ := msg.Args[0].(string) // It's ok if we don't get an id.
+		term, ok := msg.Args[1].(string)
+		if !ok {
+			resp <- makeErr(msg, errors.New("term argument is required"))
+			close(resp)
+			return resp
+		}
+		root, ok := msg.Args[2].(string)
+		if !ok {
+			resp <- makeErr(msg, errors.New("root argument is required"))
+			close(resp)
+			return resp
+		}
 		ch, errch, err := c.search(term, root)
 		if err != nil {
 			resp <- makeErr(msg, err)
@@ -129,17 +138,17 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 		}
 		go func() {
 			for err := range errch {
-				resp <- makeMessage("search.error", &SearchResponse{
+				resp <- makeMessage("search.error", SearchResponse{
 					ID:    id,
 					Term:  term,
 					Root:  root,
-					Error: err,
+					Error: err.Error(),
 				})
 			}
 		}()
 		go func() {
 			for r := range ch {
-				resp <- makeMessage("search.output", &SearchResponse{
+				resp <- makeMessage("search.output", SearchResponse{
 					ID:      id,
 					Term:    term,
 					Root:    root,
@@ -231,7 +240,7 @@ func (c *Finder) search(term, root string) (chan *finder.SearchResult, chan erro
 	return ch, errch, nil
 }
 
-func NewFinder(id string) (cops.Handler, error) {
+func New(id string) (cops.Handler, error) {
 	root := path.Join(RootPrefix, id)
 	if _, err := os.Stat(root); os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to find rootfs for %s, %s", id, err)
@@ -243,7 +252,7 @@ func NewFinder(id string) (cops.Handler, error) {
 }
 
 func init() {
-	cops.RegisterHandler("finder", NewFinder)
+	cops.RegisterHandler("finder", New)
 }
 
 func makeErr(orig *cops.Message, err error) *cops.Message {

@@ -192,7 +192,7 @@ func (c *FS) read(path string) ([]interface{}, error) {
 	return []interface{}{path, contentType, content}, nil
 }
 
-func NewFS(id string) (cops.Handler, error) {
+func New(id string) (cops.Handler, error) {
 	root := path.Join(RootPrefix, id)
 	if _, err := os.Stat(root); os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to find rootfs for %s, %s", id, err)
@@ -204,7 +204,7 @@ func NewFS(id string) (cops.Handler, error) {
 }
 
 func init() {
-	cops.RegisterHandler("fs", NewFS)
+	cops.RegisterHandler("fs", New)
 }
 
 func makeErr(orig *cops.Message, err error) *cops.Message {
