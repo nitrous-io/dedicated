@@ -177,7 +177,11 @@ func (c *Finder) fileFind(term, root string) (chan string, chan error, error) {
 	errch := make(chan error, 1)
 	ch := make(chan string, chanSize)
 
-	f := finder.NewFinder(root)
+	fullpath, err := c.fs.Path(root)
+	if err != nil {
+		return nil, nil, err
+	}
+	f := finder.NewFinder(fullpath)
 	results, err := f.FindFiles(term)
 	if err != nil {
 		return nil, nil, err
@@ -215,7 +219,11 @@ func (c *Finder) search(term, root string) (chan *finder.SearchResult, chan erro
 	errch := make(chan error, 1)
 	ch := make(chan *finder.SearchResult, chanSize)
 
-	f := finder.NewFinder(root)
+	fullpath, err := c.fs.Path(root)
+	if err != nil {
+		return nil, nil, err
+	}
+	f := finder.NewFinder(fullpath)
 	results, err := f.FindContent(term)
 	if err != nil {
 		return nil, nil, err
