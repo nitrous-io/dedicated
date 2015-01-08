@@ -558,7 +558,7 @@ func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *mi
 			return errContainerNotFound
 		}
 
-		h, err := host.FindByID(db, cn.HostID)
+		h, err := host.Find(db, env.User, strconv.FormatInt(cn.HostID, 10))
 		if err != nil {
 			return err
 		}

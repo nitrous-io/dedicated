@@ -1,0 +1,36 @@
+.card-body.bordered
+  = if content.length
+    table.ui.table
+      tbody
+        tr
+          th ID
+          th Slug
+          th State
+          th Provider State
+          th Provider Identifier
+          th Region
+          th Plan
+          th Actions
+
+        = each
+          tr
+            td.id = id
+            td.slug = slug
+            td.state = state
+            td
+              = if liveHost.state
+                = liveHost.state
+              = else
+                | -
+            td title=liveHost.id
+              = if liveHost.id
+                = truncate liveHost.id 12
+              = else
+                | -
+            td.region = region.slug
+            td.plan = plan.slug
+            td.actions
+              button.ui.btn.raised click='restart this' Restart
+              button.ui.btn.raised click='terminate this' Terminate
+  = else
+    p.note No hosts.

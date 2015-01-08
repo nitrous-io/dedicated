@@ -117,6 +117,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys":            r("keys.Index", keys.Index),
 				"/billing/invoices":                  r("billing.Invoices", billing.Invoices),
 				"/billing/current_usage":             r("billing.CurrentUsage", billing.CurrentUsage),
+				"/admin/hosts":                       r("admin.Hosts", admin.Hosts),
 			},
 			"POST": {
 				"/user/profile":                        r("userprofiles.Update", userprofiles.Update),
