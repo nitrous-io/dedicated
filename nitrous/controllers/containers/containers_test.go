@@ -298,6 +298,22 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[1].Slug).To(Equal("dominant-intercooler-43"))
 		})
 
+		It("should replace the image name if it is not a reconfig", func() {
+			fc.Image = "a-new-image"
+
+			doRequest("valid-token", "foo")
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Containers []*serializers.Container `json:"containers"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Containers).To(HaveLen(1))
+			Expect(j.Containers[0].Image).To(Equal("a-new-image"))
+		})
+
 		Context("when the Freighter client returns a freighter error", func() {
 			BeforeEach(func() {
 				mockClient.ListError = errors.New("freighter: you are not Chuck Norris")
@@ -2076,7 +2092,7 @@ var _ = Describe("controllers/containers", func() {
 				Name:  containerName,
 				Host:  "1.2.3.4",
 				State: "running",
-				Image: "deadbeef-reconfig-image",
+				Image: "deadbeef-reconfig-1420683989905982895",
 			}
 			mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{}
 		})
@@ -2109,7 +2125,7 @@ var _ = Describe("controllers/containers", func() {
 			cn := j.Container
 
 			Expect(cn.CID).To(Equal("livebeef"))
-			Expect(cn.Image).To(Equal("deadbeef-reconfig-image"))
+			Expect(cn.Image).To(Equal("nitrous-base"))
 			Expect(cn.Slug).To(Equal(containerName))
 			Expect(cn.IPAddress).To(Equal("1.2.3.4"))
 			Expect(cn.State).To(Equal("running"))
@@ -2125,7 +2141,7 @@ var _ = Describe("controllers/containers", func() {
 			c, err := container.Find(db, hs.U, containerName)
 			Expect(err).To(BeNil())
 			Expect(c.CID).To(Equal("livebeef"))
-			Expect(c.Image).To(Equal("deadbeef-reconfig-image"))
+			Expect(c.Image).To(Equal("nitrous-base"))
 			Expect(c.LockedAt).To(BeNil())
 		})
 

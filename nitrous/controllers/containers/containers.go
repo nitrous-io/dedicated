@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,6 +27,10 @@ import (
 )
 
 const defaultLockTime = 1 * time.Minute
+
+var (
+	ignoredImageNames = regexp.MustCompile(`-reconfig-\d{19}\z`) // reconfig names include Unix epoch (nano) stamp
+)
 
 var (
 	errImageNameRequired = httperror.New(http.StatusBadRequest, "invalid_request", "image name is required")
@@ -586,7 +591,9 @@ func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *
 	c.SetState(fc.State)
 	c.AppState = fc.AppState
 	c.CID = fc.ID
-	c.Image = fc.Image
+	if c.Image == "" || !ignoredImageNames.MatchString(fc.Image) {
+		c.Image = fc.Image
+	}
 	c.Slug = fc.Name
 	c.IPAddress = fc.Host
 	c.GatewayIP = fc.Gateway
