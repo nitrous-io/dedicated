@@ -6,7 +6,7 @@
       .ui.input-group
         label.field-label for='ide-find-in-project-search-term'
           | Find:
-        = input type='text' id='ide-find-in-project-search-term' class='focus' value=view.content.term
+        = input type='text' id='ide-find-in-project-search-term' classNameBindings=':focus view.termFieldInvalid:error' value=view.content.term
 
       .ui.input-group
         label.field-label for='ide-find-in-project-search-location'
