@@ -25,6 +25,9 @@
           li
             p.left
               = fileName
+              if tooLarge
+                p.info
+                  | File Too Large
             .right
               if view.content.uploading
                 .ui.progress class={failed failed:danger}
