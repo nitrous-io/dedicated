@@ -1,2 +1,76 @@
 @import 'variables'
 
+html.home
+  &, body, #home, .page
+    height: 100%
+    min-height: 320px
+
+#home
+  h4
+    text-transform: uppercase
+    text-align: center
+    font-weight: 300
+    font-size: 14px
+    letter-spacing: 2px
+    margin: 0
+    padding: 32px 0
+
+  .page
+    display: flex
+    flex-direction: column
+    margin-top: -48px
+
+  .masthead
+    display: flex
+    flex-grow: 1
+    flex-shrink: 0
+    text-align: center
+    align-items: center
+    padding-top: 48px
+    background: $n2oGray700
+
+    .content
+      width: 100%
+      padding: 32px 0
+
+    .home-copy
+      margin-bottom: 48px
+
+      h2
+        font-size: 40px
+        font-weight: 300
+        color: white
+        margin-bottom: 16px
+
+      h3
+        font-size: 28px
+        font-weight: 100
+        color: $n2oGray200
+
+    .get-started
+      .email-field
+        display: inline-block
+        width: 300px
+        margin-right: 8px
+        vertical-align: bottom
+
+  .companies
+    flex-shrink: 0
+
+    .logos
+      padding: 16px 16px 48px 16px
+      display: flex
+      align-items: center
+      justify-content: space-between
+
+      img
+        width: 160px
+
+      .tilde
+        width: auto
+        height: 42px
+
+  .page-footer
+    .container
+      margin: 0 auto
+      padding: 16px

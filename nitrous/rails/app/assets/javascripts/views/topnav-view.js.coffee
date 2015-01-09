@@ -1,6 +1,6 @@
 App.TopnavView = Em.View.extend
   elementId: 'topnav-view'
-  classNames: ['ui', 'topnav']
+  classNames: ['ui', 'topnav', 'page-header']
 
   newHostTitle: (->
     if !App.get('canCreateHosts')

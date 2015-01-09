@@ -185,11 +185,19 @@ ul.space-separated
   i.spinner
     margin: 0 8px 0 0
 
+.page-header, .page-footer
+  flex-shrink: 0
+
+.page-header
+
 .page-footer
   .container
     display: flex
     font-size: $fontSizeSmall
     margin-top: $containerPadding + 10px
+    padding: $containerPadding
+    padding-top: 0
+    color: $n2oGray600
 
     p, ul, li
       display: inline
@@ -210,3 +218,10 @@ ul.space-separated
 
     .right
       text-align: right
+
+    a
+      color: $n2oGray400
+
+      &:hover
+        color: $n2oGray200
+
