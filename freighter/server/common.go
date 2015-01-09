@@ -63,10 +63,10 @@ func (s *Server) handleError(w http.ResponseWriter, err error) {
 	}
 }
 
-func (s *Server) cors(handler httpFunc) httpFunc {
-	return func(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) cors(handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		return handler(w, r)
+		handler(w, r)
 	}
 }
 

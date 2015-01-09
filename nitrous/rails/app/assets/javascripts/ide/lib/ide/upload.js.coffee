@@ -3,6 +3,11 @@ App.Upload = Em.Object.extend
   progressInterval: 0
   completed: false
   failed: false
+  tooLarge: false
+
+  success: (->
+    @get('completed') && !@get('failed')
+  ).property 'failed', 'completed'
 
   file: (->
     if data = @get 'data'
