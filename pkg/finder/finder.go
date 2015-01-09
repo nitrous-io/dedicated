@@ -49,13 +49,16 @@ func (f *Finder) FindContent(term string) (chan *SearchResult, error) {
 	out := make(chan *pt.PrintParams, chanSize)
 	results := make(chan *SearchResult, chanSize)
 	go func() {
-		for val := range out {
-			rel, err := filepath.Rel(f.root, val.Path)
+		for pp := range out {
+			if len(pp.Matches) == 0 {
+				continue
+			}
+			rel, err := filepath.Rel(f.root, pp.Path)
 			if err != nil {
 				continue
 			}
 			r := &SearchResult{File: rel}
-			for _, m := range val.Matches {
+			for _, m := range pp.Matches {
 				r.Matches = append(r.Matches, &Line{Row: m.Num, Content: m.Str})
 			}
 			results <- r
