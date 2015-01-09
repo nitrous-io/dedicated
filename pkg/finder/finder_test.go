@@ -16,7 +16,7 @@ func TestFindContent(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	if err := ioutil.WriteFile(filepath.Join(root, "container.go"),
-		[]byte("hello world\nhello container"), 0755); err != nil {
+		[]byte("hello world\nhehehe"), 0755); err != nil {
 		t.Errorf("failed to prepare context %s", err)
 	}
 
@@ -31,8 +31,8 @@ func TestFindContent(t *testing.T) {
 		match1 := r1.Matches[0]
 		match2 := r1.Matches[1]
 		if r1.File != "container.go" ||
-			!(match1.Row == 1 && match1.Content == "hello world") ||
-			!(match2.Row == 2 && match2.Content == "hello container") {
+			!(match1.Row == 1 && match1.Content == "\x1b[30;43mhe\x1b[0m\x1b[Kllo world" && match1.Count == 1) ||
+			!(match2.Row == 2 && match2.Content == "\x1b[30;43mhe\x1b[0m\x1b[K\x1b[30;43mhe\x1b[0m\x1b[K\x1b[30;43mhe\x1b[0m\x1b[K" && match2.Count == 3) {
 			t.Errorf("unexpected results(%s %#v %#v)", r1.File, match1, match2)
 		}
 	case <-time.After(1 * time.Second):
