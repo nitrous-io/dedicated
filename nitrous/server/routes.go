@@ -152,13 +152,14 @@ func (s *Server) drawRoutes() {
 				"/user/billing_profile":   r("billingprofiles.Update", billingprofiles.Update),
 			},
 			"DELETE": {
-				"/hosts/{slug}":                    r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), HostDestroyed),
-				"/hosts/{slug}/registries/{rslug}": r("registries.Logout", registries.Logout),
-				"/hosts/{slug}/volumes/{vslug}":    r("volumes.Destroy", mw.HostViaPath("slug", volumes.Destroy)),
-				"/hosts/{slug}/images/{image:.*}":  r("images.Remove", mw.HostViaPath("slug", images.Remove)),
-				"/containers/{slug}":               r("containers.Destroy", containers.Destroy, ContainerDestroyed),
-				"/containers/{slug}/keys/{kslug}":  r("keys.Delete", keys.Delete),
-				"/containers/{slug}/keys":          r("keys.DeleteAll", keys.DeleteAll),
+				"/hosts/{slug}":                     r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), HostDestroyed),
+				"/hosts/{slug}/registries/{rslug}":  r("registries.Logout", registries.Logout),
+				"/hosts/{slug}/volumes/{vslug}":     r("volumes.Destroy", mw.HostViaPath("slug", volumes.Destroy)),
+				"/hosts/{slug}/images/{image:.*}":   r("images.Remove", mw.HostViaPath("slug", images.Remove)),
+				"/containers/{slug}":                r("containers.Destroy", containers.Destroy, ContainerDestroyed),
+				"/containers/{slug}/keys/{kslug}":   r("keys.Delete", keys.Delete),
+				"/containers/{slug}/keys":           r("keys.DeleteAll", keys.DeleteAll),
+				"/admin/terminate_unaccounted_host": r("admin.TerminateUnaccountedHost", admin.TerminateUnaccountedHost),
 			},
 		}
 
