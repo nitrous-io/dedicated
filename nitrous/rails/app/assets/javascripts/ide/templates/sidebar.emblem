@@ -12,7 +12,7 @@
       App.IdePathView path=rootPath
   .ide-toolbar.bottom
     .ide-toolbar-btns
-      button.ui.btn click='didClickUpload target="view"' disabled='disabled'
+      button.ui.btn click='didClickUpload target="view"'
         | Upload Files
       button.ui.btn click='didClickShowHidden target="view"' disabled=opsSocketNotReady
         if hiddenFilesVisible
