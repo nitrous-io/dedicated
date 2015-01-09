@@ -5,12 +5,16 @@ html lang='en' class=@html_class
     title
       = @title
     link rel='shortcut icon' href='/favicon.ico'
+    = yield :head_before
     = stylesheet_link_tag 'application', media: 'all'
+    = yield :head_stylesheet
     = render 'layouts/google_analytics'
+    = render 'layouts/mixpanel'
+    = yield :head_after
   body
-    = yield :body_head
+    = yield :body_before
     = render 'layouts/topnav'
     = yield
     = render 'layouts/footer'
     = javascript_include_tag 'pages'
-    = yield :body_tail
+    = yield :body_after

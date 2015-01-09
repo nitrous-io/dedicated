@@ -1,0 +1,26 @@
+doctype 5
+html lang='en'
+  head
+    meta charset='utf-8'
+    title Nitrous
+    link rel='shortcut icon' href='/favicon.ico'
+    = yield :head_before
+    = stylesheet_link_tag 'application', media: 'all'
+    = stylesheet_link_tag 'web_app', media: 'all'
+    = yield :head_stylesheet
+    = render 'layouts/google_analytics'
+    = render 'layouts/mixpanel'
+    = yield :head_after
+  body
+    = yield :body_before
+    = yield
+    = javascript_include_tag 'jquery'
+    = javascript_include_tag 'application'
+    = yield :body_script
+    javascript:
+      App.setProperties({
+        terminalJsPath: '#{javascript_path "terminal"}',
+        terminalCssPath: '#{stylesheet_path "terminal"}',
+      });
+    = yield :body_after
+    = render 'web_app/livechat'

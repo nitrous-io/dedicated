@@ -43,10 +43,6 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       window.localStorage.removeItem('token')
   ).observes 'token'
 
-  bootstrap: (opts={}) ->
-    @set 'terminalJsPath', opts.terminalJsPath
-    @set 'terminalCssPath', opts.terminalCssPath
-
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
   slug: window.location.search.slice('1')

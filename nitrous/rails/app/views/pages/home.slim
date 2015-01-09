@@ -1,4 +1,11 @@
 - @title = 'Nitrous Pro'
+- @html_class
+
+- content_for :body_before
+  javascript:
+    if(localStorage.getItem('token')) {
+       window.location.replace('/app')
+    }
 
 .pc
   .cc
@@ -32,12 +39,6 @@
       .login
         a.btn href="/app#/login" Private Beta Login
 
-= content_for :body_head
-  javascript:
-    if(localStorage.getItem('token')) {
-       window.location.replace('/app')
-    }
-
-= content_for :body_tail
+- content_for :body_after
   javascript:
     pages.Home.init()
