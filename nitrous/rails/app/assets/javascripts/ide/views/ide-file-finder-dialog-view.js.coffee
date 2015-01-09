@@ -54,7 +54,7 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
 
   didClickResult: (filename) ->
     # filename will be relative to home directory
-    path = App.Path.create absolutePath: [ App.get('container.homePath'), filename ].join('/')
+    path = App.Path.create absolutePath: filename
     if sidebar = @get 'controller.controllers.ideSidebar'
       sidebar.openPath path,
         done: =>

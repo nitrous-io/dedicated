@@ -11,5 +11,5 @@
         ul.results
           each view.content.currentResults
             li class={selected}
-              a href='#' click='didClickResult filename target="view"'
+              a href='#' click='didClickResult absolutePath target="view"'
                 = filename
