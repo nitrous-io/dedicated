@@ -44,8 +44,9 @@ func TestWaitForSSH(t *testing.T) {
 			go ssh.DiscardRequests(reqs)
 		}
 	}()
+	info := map[string]interface{}{}
 	_, err := WaitForSSH(listener.Addr().String(), "root", priv,
-		10*time.Millisecond, make(chan struct{}))
+		10*time.Millisecond, make(chan struct{}), info)
 	if err != nil {
 		t.Fatal("failed to wait for ssh connection")
 	}
