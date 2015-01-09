@@ -1,9 +1,0 @@
-.card-header.bordered
-  h2
-    link-to 'app.index' slug
-      = displayName
-
-  /button.ui.btn.mini.rename-btn
-    /i.fa.fa-pencil
-
-= outlet

@@ -1,5 +1,5 @@
-App.AppPortsView = Em.View.extend
-  elementId: 'app-ports-view'
+App.ContainerPortsView = Em.View.extend
+  elementId: 'container-ports-view'
 
   addDisabled: (->
     controller = @get('controller')

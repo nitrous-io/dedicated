@@ -49,7 +49,7 @@ App.HostsNewController = Em.ObjectController.extend
         return unless hostData.id == host.get('id')
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
-        App.postError(data.error, 'Failed to create application!')
+        App.postError(data.error, 'Failed to create workspace!')
         @set 'saving', false
 
       onHostCreated = (data) =>
@@ -57,11 +57,8 @@ App.HostsNewController = Em.ObjectController.extend
         return unless hostData.id == host.get('id')
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
-        redirectRoute = 'app.index'
-        if App.user.advanced
-          redirectRoute = 'host.index'
-        @transitionToRoute redirectRoute, slug
-        App.snackbar.post("Your application “#{name}” was created successfully.")
+        @transitionToRoute 'host.index', slug
+        App.snackbar.post("Your new workspace “#{name}” was created successfully.")
         @set 'saving', false
 
       events.on 'host.create_failed', onHostCreateFailed
@@ -74,5 +71,5 @@ App.HostsNewController = Em.ObjectController.extend
         if errMsg = jqxhr.responseJSON?.error_description
           @set 'error', errMsg
           @set 'invalidField', errMsg.match(/^\w+/)[0]
-        App.postError(jqxhr.responseJSON, 'Failed to create application!')
+        App.postError(jqxhr.responseJSON, 'Failed to create workspace!')
         @set 'saving', false

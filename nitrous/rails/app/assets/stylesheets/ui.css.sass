@@ -48,12 +48,18 @@
     > .left, > .right
       flex-grow: 1
 
+    > .left
+      display: flex
+      align-items: center
+
     > .right
       text-align: right
+      flex-shrink: 0
+      white-space: nowrap
 
     p
       margin: 0
-      width: 570px
+      width: 100%
       font-size: 12px
       line-height: 43px
       color: $n2oGray500

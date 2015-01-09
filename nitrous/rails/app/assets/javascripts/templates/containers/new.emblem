@@ -1,27 +1,28 @@
 .card-header.bordered
-  h2 New Container
+  h2 New Application
 
 .screens
-  .card-body
-    .steps
-      .step class={view.showImageScreen:active}
-        span 1
-        | Image
-      .line
-      .step class={view.showConfigScreen:active}
-        span 2
-        | Config
-      .line
-      .step class={view.showProgressScreen:active}
-        span 3
-        | Finish
+  if App.user.advanced
+    .card-body
+      .steps
+        .step class={view.showImageScreen:active}
+          span 1
+          | Image
+        .line
+        .step class={view.showConfigScreen:active}
+          span 2
+          | Config
+        .line
+        .step class={view.showProgressScreen:active}
+          span 3
+          | Finish
 
   .screen class={view.showImageScreen::hide}
-    form submit='goNext target="view"'
-      .card-body.bordered
+    form submit='goNextOrCreate target="view"'
+      .card-body class={App.user.advanced:bordered}
         .ui.input-group
           label.field-label
-            | Application
+            | Workspace
           .ui.select
             Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' disabled=saving value=selectedHostSlug
 
@@ -42,7 +43,7 @@
             | Image
 
           .image-selection
-            ul.ui.checkbox-group class={view.baseImageOptionDisabled:disabled}
+            ul.ui.checkbox-group class={view.baseImageOptionDisabled:disabled App.user.advanced::hide}
               li
                 .ui.checkbox
                   input type='radio' id='containers-new-option-base-image' name='option' checked='checked' value='base-image' disabled={view.baseImageOptionDisabled}
@@ -53,36 +54,37 @@
               each baseImage in App.baseImages
                 App.BaseImageView baseImage=baseImage selectedBaseImage=view.selectedBaseImage disabled=view.baseImageOptionDisabled
 
-            ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
-              li
-                .ui.checkbox
-                  input type='radio' id='containers-new-option-host-image' name='option' value='host-image' disabled={view.hostImageOptionDisabled}
-                  label
-                label for='containers-new-option-host-image' Use Image On This Host
+            if App.user.advanced
+              ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
+                li
+                  .ui.checkbox
+                    input type='radio' id='containers-new-option-host-image' name='option' value='host-image' disabled={view.hostImageOptionDisabled}
+                    label
+                  label for='containers-new-option-host-image' Use Image On This Workspace
 
-            .ui.select.indent
-              Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
+              .ui.select.indent
+                Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
 
-            ul.ui.checkbox-group class={saving:disabled}
-              li
-                .ui.checkbox
-                  input type='radio' id='containers-new-option-custom-image' name='option' value='custom-image' disabled=saving
-                  label
-                label for='containers-new-option-custom-image' Specify Image Repository
+              ul.ui.checkbox-group class={saving:disabled}
+                li
+                  .ui.checkbox
+                    input type='radio' id='containers-new-option-custom-image' name='option' value='custom-image' disabled=saving
+                    label
+                  label for='containers-new-option-custom-image' Specify Image Repository
 
-            .indent
-              = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle value=view.customImage disabled=saving
+              .indent
+                = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle value=view.customImage disabled=saving
 
       .card-footer.bordered
         .right
           a.ui.btn href='#' click='cancel' Cancel
-          input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Next'
+          input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value={view.firstScreenButtonLabel}
 
   .screen class={view.showConfigScreen::hide}
     .card-body.bordered
       .ui.input-group
         label.field-label
-          | Port Bindings
+          | Custom Port Bindings
 
       ul.ui.chips
         each portBinding in portBindings
@@ -96,8 +98,8 @@
             thead
               tr
                 th Public
-                th Host Port (Optional)
-                th colspan='2' Container Port
+                th Workspace Port
+                th colspan='2' Application Port
             tbody
               tr
                 td
@@ -105,9 +107,9 @@
                     = input type='checkbox' checked=publicPort
                     label
                 td
-                  = input type='number' min='1' max='65535' step='1' placeholder='63000' value=hostPort
+                  = input type='number' min='1' max='65535' step='1' placeholder='e.g., 63000 (optional)' value=hostPort
                 td
-                  = input type='number' min='1' max='65535' step='1' placeholder='3000' required=true value=containerPort
+                  = input type='number' min='1' max='65535' step='1' placeholder='e.g., 3000' required=true value=containerPort
                 td
                   input.ui.btn.raised type='submit' disabled={view.addPortBindingButtonDisabled} value='Add'
 
@@ -139,9 +141,9 @@
             tbody
               tr
                 td
-                  = input type='text' placeholder='KEY' required=true value=envKey
+                  = input type='text' placeholder='e.g., FOO' required=true value=envKey
                 td
-                  = input type='text' placeholder='value' required=true value=envValue
+                  = input type='text' placeholder='e.g., bar' required=true value=envValue
                 td
                   input.ui.btn.raised type='submit' disabled={view.addEnvVarButtonDisabled} value='Add'
 

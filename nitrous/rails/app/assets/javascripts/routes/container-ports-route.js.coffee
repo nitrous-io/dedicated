@@ -1,8 +1,8 @@
 #= require ./authed-route
 
-App.AppPortsRoute = App.AuthedRoute.extend
+App.ContainerPortsRoute = App.AuthedRoute.extend
   renderTemplate: ->
-    @render 'app/ports', into: 'app'
+    @render 'container/ports', into: 'container'
 
   setupController: (controller, model) ->
     @_super.apply this, arguments

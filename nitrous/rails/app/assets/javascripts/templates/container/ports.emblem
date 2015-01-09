@@ -1,0 +1,53 @@
+= container-tab-bar selected='ports' model=model
+
+.card-body
+  .ui.input-group
+    label.field-label
+      | Exposed Ports
+
+  ul.ui.chips
+    if publicPorts
+      each port in publicPorts
+        li
+          = port.containerPort
+          '
+          ' &rarr;
+          = port.hostPort
+          if port.preview
+            '
+            ' (Preview)
+          unless saving
+            a.close href='#' click='remove port' &times;
+
+    else
+      p.hint-text
+        i.fa.fa-exclamation-circle
+        | No exposed ports
+
+  form.container-config submit='add'
+    .ui.input-group.container-config-form
+      table.ui.table
+        thead
+          tr
+            th
+              abbr title='Use this port as the preview port' Preview
+            th colspan='2' Application Port
+        tbody
+          tr
+            td
+              .ui.checkbox
+                = input type='checkbox' checked=setPreviewPort disabled=saving
+                label
+            td
+              = input type='number' min='1' max='65535' step='1' placeholder='e.g., 1337' value=port disabled=saving
+            td
+              input.ui.btn.raised type='submit' value='Add' disabled={view.addDisabled}
+
+.card-footer.bordered
+  .right
+    if saving
+      button.ui.btn disabled='disabled'
+        i.spinner
+        | Applying Changes...
+    else
+      button.ui.btn.primary click='apply' disabled={saving} Apply

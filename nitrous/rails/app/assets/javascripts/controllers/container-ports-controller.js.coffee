@@ -5,47 +5,66 @@ transformEnvHashToArray = (hash) ->
       envVars.push("#{key}=#{value}") if value
   envVars
 
-portMap = (port) ->
-    ['public', port, port].join(':')
-
-App.AppPortsController = Em.ObjectController.extend
-  publicPorts: Em.computed.alias 'model.appContainer.publicPorts'
+App.ContainerPortsController = Em.ObjectController.extend
   saving: false
   port: null
-  previewPort: false
+  newPreviewPort: null
+  setPreviewPort: false
   removePreviewPort: false
+
+  publicPorts: (->
+    publicPorts = Em.A()
+    return publicPorts unless ports = @get 'model.config.port'
+
+    previewPort = @get('newPreviewPort') || @get('model.previewPort')
+
+    for port in ports
+      regex = ///
+        ^public:  # should be a public port binding
+        (\d*):    # host port
+        (\d*)     # container port
+        (\/tcp)?  # can be followed by tcp
+        $         # end of string
+      ///
+      if m = port.match(regex)
+        hostPort = m[1] || 'To be assigned'
+        containerPort = m[2]
+        publicPorts.push { port: port, hostPort: hostPort, containerPort: containerPort, preview: m[1] == previewPort }
+    publicPorts
+  ).property 'model.config.port.@each', 'model.previewPort', 'newPreviewPort'
 
   clear: ->
     @_super.apply this, arguments
     @setProperties
       saving: false
       port: null
-      previewPort: false
+      newPreviewPort: null
+      setPreviewPort: false
       removePreviewPort: false
 
   actions:
     add: ->
       port = @get 'port'
-      container = @get('model.appContainer')
+      container = @get 'model'
       portBindings = container.get('config.port')
-      if @get('previewPort')
-        container.set 'newPreviewPort', port
-      pb = portMap port
+      if @get('setPreviewPort')
+        @set 'newPreviewPort', port
+      pb = "public::#{port}"
       unless portBindings.contains(pb)
         portBindings.pushObject(pb)
       @set 'port', null
-      @set 'previewPort', false
+      @set 'setPreviewPort', false
 
     remove: (port) ->
-      pb = portMap port.value
-      container = @get('model.appContainer')
+      pb = port.port
+      container = @get 'model'
       container.get('config.port').removeObject pb
       if port.preview
         @set 'removePreviewPort', true
 
     apply: ->
       return if @get 'saving'
-      container = @get 'model.appContainer'
+      container = @get 'model'
       @set 'saving', true
 
       events = App.get 'eventsSocket'
@@ -53,7 +72,7 @@ App.AppPortsController = Em.ObjectController.extend
       reconfigureComplete = =>
         @set 'saving', false
         @set 'removePreviewPort', false
-        container.set 'newPreviewPort', null
+        @set 'newPreviewPort', null
         events.off 'container.reconfigured', onReconfigured
         events.off 'container.reconfigure_failed', onReconfigureFailed
 
@@ -70,7 +89,7 @@ App.AppPortsController = Em.ObjectController.extend
       events.on 'container.reconfigure_failed', onReconfigureFailed
 
       env = Em.copy container.get('config.env')
-      if newPreviewPort = container.get('newPreviewPort')
+      if newPreviewPort = @get('newPreviewPort')
         env["NITROUS_PREVIEW_PORT"] = newPreviewPort
       if @get 'removePreviewPort'
         delete env["NITROUS_PREVIEW_PORT"]
