@@ -37,8 +37,8 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
         @get('content')?.incrementIndex()
       when 10, 13
         suppress()
-        if filename = @get('content.selectedFile.filename')
-          this.didClickResult(filename)
+        if path = @get('content.selectedFile.absolutePath')
+          this.didClickResult(path)
 
   setupPoller: ->
     @set 'pollerKey', Ember.run.later(this, (=>
