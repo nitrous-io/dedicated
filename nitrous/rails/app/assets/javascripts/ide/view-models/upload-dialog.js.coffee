@@ -7,8 +7,8 @@ App.UploadDialog = Em.ArrayProxy.extend Em.SortableMixin,
 
   completed: (->
     if content = @get 'content'
-      content.everyProperty 'completed'
-  ).property 'content.@each.completed'
+      content.everyProperty 'success'
+  ).property 'content.@each.success'
 
   init: ->
     @set 'content', Em.A()

@@ -1,5 +1,5 @@
 .card-header.bordered
-  h2 New Application
+  h2 New Workspace
 
 .screens
   .screen class={view.hideProgress::hide}
@@ -70,7 +70,7 @@
   .screen class={view.hideProgress:hide}
     .card-body.download-app
       h3
-        | Your application &ldquo;
+        | Your new workspace &ldquo;
         = name
         | &rdquo; is being created
         = ui-ellipsis

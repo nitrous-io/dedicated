@@ -1,3 +1,0 @@
-= app-tab-bar selected='keys' model=model
-
-= partial 'partials/keys-new'

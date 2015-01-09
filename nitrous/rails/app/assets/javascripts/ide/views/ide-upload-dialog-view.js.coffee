@@ -66,6 +66,8 @@ App.IdeUploadDialogView = App.IdeModalDialogView.extend
       upload = content.findProperty 'fileName', fileName
       upload.set 'completed', true
       upload.set 'failed', true
+      if data.errorThrown && data.errorThrown.indexOf("Too Large") != -1
+        upload.set 'tooLarge', true
       @get('controller').didFinishAnUpload()
 
   didClickRemoveUpload: (upload) ->

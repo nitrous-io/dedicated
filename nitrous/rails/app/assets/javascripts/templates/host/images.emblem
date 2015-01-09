@@ -27,7 +27,7 @@
     else
       p.hint-text
         i.fa.fa-exclamation-circle
-        | This application does not contain any images.
+        | This workspace does not have any images.
   else
     p.hint-text
       i.spinner

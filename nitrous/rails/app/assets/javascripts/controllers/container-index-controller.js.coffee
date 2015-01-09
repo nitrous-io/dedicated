@@ -13,12 +13,6 @@ App.ContainerIndexController = Em.ObjectController.extend App.PerformActionMixin
     start: ->
       @performAction('POST', 'start', 'starting')
 
-    restart: ->
-      @performAction('POST', 'restart', 'restarting')
-
-    stop: ->
-      @performAction('POST', 'stop', 'stopping')
-
     startApp: ->
       @performAction('POST', 'start_app')
 
@@ -39,11 +33,6 @@ App.ContainerIndexController = Em.ObjectController.extend App.PerformActionMixin
         App.postError(jqxhr.responseJSON, "Failed to snapshot!")
       ).finally =>
         @set 'snapshotting', false
-
-    terminate: ->
-      name = @get 'model.displayName'
-      @performAction('DELETE', null, 'terminating').then ->
-        App.snackbar.post("Your container “#{name}” was successfully terminated.")
 
     openLogs: ->
       @transitionToRoute 'container.console', queryParams: { action: 'logs' }

@@ -221,21 +221,21 @@ func (s *Server) drawRoutes() {
 
 	// handle websocket custom protocol
 	s.route("/containers/{id}/shell", s.handleCORSPreflight, "OPTIONS")
-	s.route("/containers/{id}/shell", s.wrapError(s.cors(s.withContainerToken(s.wsNewShell, "shell"))), "GET")
+	s.route("/containers/{id}/shell", s.cors(s.wrapError(s.withContainerToken(s.wsNewShell, "shell"))), "GET")
 	s.route("/containers/{id}/logs", s.handleCORSPreflight, "OPTIONS")
-	s.route("/containers/{id}/logs", s.wrapError(s.cors(s.withContainerToken(s.wsContainerLogs, "logs"))), "GET")
+	s.route("/containers/{id}/logs", s.cors(s.wrapError(s.withContainerToken(s.wsContainerLogs, "logs"))), "GET")
 	s.route("/containers/{id}/attach", s.handleCORSPreflight, "OPTIONS")
-	s.route("/containers/{id}/attach", s.wrapError(s.cors(s.withContainerToken(s.wsAttachToContainer, "attach"))), "GET")
+	s.route("/containers/{id}/attach", s.cors(s.wrapError(s.withContainerToken(s.wsAttachToContainer, "attach"))), "GET")
 	// handle container operations
 	s.route("/containers/{id}/ops", s.handleCORSPreflight, "OPTIONS")
-	s.route("/containers/{id}/ops", s.wrapError(s.cors(s.withContainerToken(s.wsContainerOps, "ops"))), "GET")
+	s.route("/containers/{id}/ops", s.cors(s.wrapError(s.withContainerToken(s.wsContainerOps, "ops"))), "GET")
 
 	// handle download/upload files to a container
 	s.route("/containers/{id}/download", s.wrapError(s.withContainerToken(s.downloadContainerFile, "download")), "GET")
 	s.route("/containers/{id}/upload", s.handleCORSPreflight, "OPTIONS")
-	s.route("/containers/{id}/upload", limitRequestSize(
-		s.wrapError(s.cors(s.withContainerToken(s.uploadContainerFile, "upload"))),
-		MaxRequestSize), "POST")
+	s.route("/containers/{id}/upload", s.cors(limitRequestSize(
+		s.wrapError(s.withContainerToken(s.uploadContainerFile, "upload")),
+		MaxRequestSize)), "POST")
 
 	s.secretRoute("/registry/auth", s.loginRegistry, "POST")
 	s.secretRoute("/registry/auth", s.logoutRegistry, "DELETE")

@@ -49,7 +49,7 @@ form submit='updateSettings'
           p.note
             strong
               ' Warning:
-            ' Using advanced container management features may affect the stability, security, and performance of your applications, or may even render them unusable.
+            ' Using advanced container management features may affect the stability, security, and performance of your workspaces, or may even render them unusable.
             | Use at your own risk. Enable this option only if you know what you are doing.
 
   .card-footer.bordered

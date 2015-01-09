@@ -19,19 +19,15 @@
           | New
           .ui.dropdown-triangle
         ul.dropdown-menu
+          unless App.noHost
+            li
+              link-to 'containers.new' | New Application...
           if App.canCreateHosts
             li
-              link-to 'hosts.new'| New Application...
+              link-to 'hosts.new'| New Workspace...
           else
             li.disabled
-              a href='#' title=view.newApplicationTitle New Application...
-          if App.user.advanced
-            if App.noHost
-              li.disabled
-                a href='#' New Container...
-            else
-              li
-                link-to 'containers.new' | New Container...
+              a href='#' title=view.newHostTitle New Workspace...
       li.ui.dropdown
         a href='#'
           | Account
