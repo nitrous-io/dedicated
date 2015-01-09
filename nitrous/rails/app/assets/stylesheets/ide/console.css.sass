@@ -5,7 +5,7 @@
   flex-shrink: 0
   flex-direction: column
   position: relative
-  height: 180px
+  height: 165px
   border-top: 1px solid $n2oGray900
 
   .console-sessions
@@ -30,7 +30,14 @@
           height: auto
           flex-grow: 1
 
+  &.hide
+    display: none
+
   &.fullscreen
+    position: absolute
+    top: 0
+    left: 0
+    width: 100% !important
     height: 100% !important
     border-top: none
 

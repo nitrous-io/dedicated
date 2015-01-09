@@ -36,6 +36,9 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   terminalJsPath: null
   terminalCssPath: null
 
+  editorFullscreen: false
+  consoleFullscreen: false
+
   didChangeToken: (->
     if token = @get('token')
       window.localStorage.setItem('token', token)

@@ -1,7 +1,7 @@
 App.IdeEditorView = Em.View.extend App.IdeTabViewMixin,
   templateName: 'ide/editor'
   elementId: 'ide-editor-view'
-  classNameBindings: ['controller.fullscreen:fullscreen']
+  classNameBindings: ['controller.fullscreen:fullscreen', 'App.consoleFullscreen:hide']
 
   actions:
     didClickFullScreen: ->

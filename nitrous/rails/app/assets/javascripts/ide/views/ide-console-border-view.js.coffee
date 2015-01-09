@@ -1,8 +1,8 @@
 App.IdeConsoleBorderView = Em.View.extend
   elementId: 'ide-console-border-view'
   classNames: ['ide-side-pane-border', 'horizontal']
-  minHeight: 180
-  height: 180
+  minHeight: 165
+  height: 165
 
   mouseDown: (event) ->
     event.preventDefault()
