@@ -444,7 +444,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	for {
 		select {
 		case err := <-ch:
-			log.Printf("exited with err %s", err)
+			log.Printf("exited with err %v", err)
 			stdout.Close() // Inform client that server has closed connection.
 			return nil
 		case <-attached:
@@ -494,7 +494,7 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	for {
 		select {
 		case err := <-ch:
-			log.Printf("container ops: exited with err %s", err)
+			log.Printf("container ops: exited with err %v", err)
 			stdout.Close() // Inform client that server has closed connection.
 			return nil
 		case msg := <-msgCh:

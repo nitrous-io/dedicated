@@ -155,6 +155,11 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 					Results: []*finder.SearchResult{r},
 				})
 			}
+			resp <- makeMessage("search.completed", SearchResponse{
+				ID:   id,
+				Term: term,
+				Root: root,
+			})
 			close(resp)
 		}()
 		// reply the original message to signal that we are processsing it
