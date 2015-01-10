@@ -85,7 +85,7 @@ func TestNewShellWriter(t *testing.T) {
 		msg      string
 		expected string
 	}{
-		{`action@foobar`, `d|action@foobar`},
+		{`nitrous@foobar`, `d|nitrous@foobar`},
 	}
 
 	for _, tc := range testCases {

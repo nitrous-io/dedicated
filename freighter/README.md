@@ -555,7 +555,7 @@ Content-Type: application/vnd.docker.raw-stream
  POST /containers/2cf1503ed6a0/run HTTP/1.1
 Content-Type: application/x-www-form-urlencoded
 
-command="whoami"&username=action
+command="whoami"&username=nitrous
 ```
 
 **Example response**:

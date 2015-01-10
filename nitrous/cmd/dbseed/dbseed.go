@@ -249,7 +249,7 @@ func templates(d db.QueryReceiver) error {
 	}
 
 	vanillaCn := defaultContainer()
-	vanillaCn.Image = "nitrousio/ubuntu:trusty"
+	vanillaCn.Image = "nitrousio/ubuntu:latest"
 	vanillaCn.PublishAll = true
 	vanillaCn.Ports = []string{"public:2222:22"}
 	vanillaConfigJSON, err := templateCnCfgJSON(vanillaCn)

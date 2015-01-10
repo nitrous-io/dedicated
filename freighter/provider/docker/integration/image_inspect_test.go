@@ -75,13 +75,13 @@ var _ = Describe("InspectImage", func() {
 		Expect(err).To(BeNil())
 		Expect(img.ID).ToNot(BeEmpty())
 		Expect(img.Name).To(Equal("nitrousio/ubuntu-bare"))
-		Expect(img.Tag).To(Equal("trusty"))
+		Expect(img.Tag).To(Equal("latest"))
 		Expect(img.Config).ToNot(BeNil())
 		Expect(img.Config.Env).To(Equal([]string{
 			"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 			"container=docker",
 			"NITROUS_IMAGE_VERSION=2",
-			"NITROUS_USERNAME=action",
+			"NITROUS_USERNAME=nitrous",
 			"NITROUS_SSH_ENABLED=true",
 		}))
 	})
