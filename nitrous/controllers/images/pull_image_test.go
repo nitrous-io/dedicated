@@ -93,7 +93,7 @@ var _ = Describe("controllers/images/pull", func() {
 	})
 
 	It("uses the default image if repository is not given", func() {
-		fs := newFreighterServer("nitrousio/ubuntu", "trusty")
+		fs := newFreighterServer("nitrousio/ubuntu", "latest")
 		ctx := newImgTestCtx(fs, db)
 		fs.start(db, ctx)
 		defer fs.Close()
@@ -102,10 +102,10 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(err).To(BeNil())
 
 		u, h := ctx.user, ctx.host
-		i, err := image.Find(db, u, h, "nitrousio/ubuntu:trusty")
+		i, err := image.Find(db, u, h, "nitrousio/ubuntu:latest")
 		Expect(err).To(BeNil(), "failed to store image in db")
 		Expect(i.Slug).To(Equal("nitrousio/ubuntu"))
-		Expect(i.Tag).To(Equal("trusty"))
+		Expect(i.Tag).To(Equal("latest"))
 	})
 
 	It("removes the image and emits images removed event when freighter failed to pull image", func() {

@@ -1673,7 +1673,7 @@ var _ = Describe("provider/docker", func() {
 
 			Expect(img).ToNot(BeNil())
 			Expect(img.ID).ToNot(BeEmpty())
-			Expect(img.Tag).To(Equal("trusty"))
+			Expect(img.Tag).To(Equal("latest"))
 			Expect(img.Config).ToNot(BeNil())
 			Expect(img.Config.Image).To(Equal(img.ID))
 			Expect(img.Config.Env).To(HaveLen(5))
