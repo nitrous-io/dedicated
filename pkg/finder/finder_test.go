@@ -1,6 +1,7 @@
 package finder
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -16,24 +17,106 @@ func TestFindContent(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	if err := ioutil.WriteFile(filepath.Join(root, "container.go"),
-		[]byte("hello world\nhehehe"), 0755); err != nil {
+		[]byte("hello world\nhehe"), 0755); err != nil {
 		t.Errorf("failed to prepare context %s", err)
 	}
 
 	f := NewFinder(root)
-	results, err := f.FindContent("he*")
+	results, err := f.FindContent("he", false, false)
 	if err != nil {
 		t.Fatalf("failed to find content %s", err)
 	}
 
 	select {
-	case r1 := <-results:
-		match1 := r1.Matches[0]
-		match2 := r1.Matches[1]
-		if r1.File != "container.go" ||
-			!(match1.Row == 1 && match1.Content == "\x1b[30;43mhe\x1b[0m\x1b[Kllo world" && match1.Count == 1) ||
-			!(match2.Row == 2 && match2.Content == "\x1b[30;43mhe\x1b[0m\x1b[K\x1b[30;43mhe\x1b[0m\x1b[K\x1b[30;43mhe\x1b[0m\x1b[K" && match2.Count == 3) {
-			t.Errorf("unexpected results(%s %#v %#v)", r1.File, match1, match2)
+	case r := <-results:
+		if r.File != "container.go" {
+			t.Errorf("expected .File to be container.go but got %v", r.File)
+		}
+
+		match1 := r.Matches[0]
+		match2 := r.Matches[1]
+		if match1.Row != 1 ||
+			match1.Count != 1 ||
+			match1.Content != fmt.Sprintf("%she%sllo world", delimStart, delimEnd) {
+			t.Errorf("unexpected results(%#v)", match1)
+		}
+
+		if match2.Row != 2 ||
+			match2.Count != 2 ||
+			match2.Content != fmt.Sprintf("%she%s%she%s", delimStart, delimEnd, delimStart, delimEnd) {
+			t.Errorf("unexpected results(%#v)", match2)
+		}
+	case <-time.After(1 * time.Second):
+		t.Errorf("timed out")
+	}
+}
+
+func TestFindContentIgnoreCase(t *testing.T) {
+	root, err := ioutil.TempDir("/tmp", "test-find-content")
+	if err != nil {
+		t.Errorf("failed to create temp dir %s", err)
+	}
+	defer os.RemoveAll(root)
+
+	if err := ioutil.WriteFile(filepath.Join(root, "container.go"),
+		[]byte("Hello WORLD"), 0755); err != nil {
+		t.Errorf("failed to prepare context %s", err)
+	}
+
+	f := NewFinder(root)
+	ignoreCase := true
+	results, err := f.FindContent("hello world", ignoreCase, false)
+	if err != nil {
+		t.Fatalf("failed to find content %s", err)
+	}
+
+	select {
+	case r := <-results:
+		if r.File != "container.go" {
+			t.Errorf("expected .File to be container.go but got %v", r.File)
+		}
+
+		match1 := r.Matches[0]
+		if match1.Row != 1 ||
+			match1.Count != 1 ||
+			match1.Content != fmt.Sprintf("%sHello WORLD%s", delimStart, delimEnd) {
+			t.Errorf("unexpected results(%#v)", match1)
+		}
+	case <-time.After(1 * time.Second):
+		t.Errorf("timed out")
+	}
+}
+
+func TestFindContentUseRegexp(t *testing.T) {
+	root, err := ioutil.TempDir("/tmp", "test-find-content")
+	if err != nil {
+		t.Errorf("failed to create temp dir %s", err)
+	}
+	defer os.RemoveAll(root)
+
+	if err := ioutil.WriteFile(filepath.Join(root, "container.go"),
+		[]byte("hello x 2"), 0755); err != nil {
+		t.Errorf("failed to prepare context %s", err)
+	}
+
+	f := NewFinder(root)
+	useRegexp := true
+	results, err := f.FindContent(`x\s\d+`, false, useRegexp)
+	if err != nil {
+		t.Fatalf("failed to find content %s", err)
+	}
+
+	select {
+	case r := <-results:
+		if r.File != "container.go" {
+			t.Errorf("expected .File to be container.go but got %v", r.File)
+		}
+
+		match1 := r.Matches[0]
+		if match1.Row != 1 ||
+			match1.Count != 1 ||
+			match1.Content != fmt.Sprintf("hello %sx 2%s", delimStart, delimEnd) {
+			t.Errorf("unexpected results(%#v)", match1)
 		}
 	case <-time.After(1 * time.Second):
 		t.Errorf("timed out")

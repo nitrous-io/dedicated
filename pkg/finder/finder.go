@@ -37,12 +37,17 @@ func NewFinder(root string) *Finder {
 	return &Finder{root}
 }
 
-// FindPattern finds files which content has the pattern
+// FindContent finds files which content has the pattern
 //
 // chan *SearchResult has to be fully read even if we dont consume it
 // completely
-func (f *Finder) FindContent(term string) (chan *SearchResult, error) {
-	pattern, err := pt.NewPattern(term, "", true, false, true)
+func (f *Finder) FindContent(term string, ignoreCase, useRegexp bool) (chan *SearchResult, error) {
+	smartCase := true
+	if ignoreCase {
+		smartCase = false
+	}
+
+	pattern, err := pt.NewPattern(term, "", smartCase, ignoreCase, useRegexp)
 	if err != nil {
 		return nil, err
 	}
