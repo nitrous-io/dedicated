@@ -27,11 +27,11 @@
             | Create Powerful Web Applications in Record Time
 
         .get-started
-          .ui.input-group
-            input.email-field type='text' placeholder='Email Address'
+          form id="getstarted" action='/app#/signup' method="GET"
+            .ui.input-group
+              input.email-field type='text' placeholder='Email Address' name='incomingEmail'
 
-            a.ui.btn.primary.raised href='/app'
-              | Get Started
+              input.ui.btn.primary.raised type='submit' value='Get Started'
 
         .overviews
           .overview.ide.fadeout

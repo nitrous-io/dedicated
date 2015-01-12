@@ -27,6 +27,12 @@
         label.field-label for='signup-email'
           | Email
         = input type='email' id='signup-email' classNameBindings='view.emailFieldInvalid:error' disabled=signingUp value=user.email placeholder='e.g. jcitizen91@gmail.com'
+        if suggestedEmail
+          .suggestedEmail click="acceptSuggestedEmail"
+            | Did you mean
+            '
+            = suggestedEmail
+            | ?
 
       .ui.input-group
         label.field-label for='signup-password'

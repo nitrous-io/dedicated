@@ -5,6 +5,7 @@ App.SignupController = Em.Controller.extend
   signingUp: false
   error: null
   invalidField: null
+  suggestedEmail: null
 
   clear: ->
     @setProperties
@@ -22,6 +23,10 @@ App.SignupController = Em.Controller.extend
       App.User.adapter.ajax('POST', '/users/email_signup', data)
 
   actions:
+    acceptSuggestedEmail: ->
+      if @get('suggestedEmail')
+        @set('user.email', @get('suggestedEmail'))
+
     signup: ->
       @set 'error', null
       @set 'invalidField', null

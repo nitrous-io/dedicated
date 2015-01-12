@@ -1,3 +1,5 @@
+#= require mailcheck
+
 App.SignupView = Em.View.extend
   elementId: 'signup-view'
 
@@ -14,3 +16,13 @@ App.SignupView = Em.View.extend
     if field = @get 'controller.invalidField'
       @$("#signup-#{field}").focus()
   ).observes('controller.invalidField')
+
+  checkEmail: (->
+    Mailcheck.run(
+      email: @get('controller.user.email'),
+      suggested: (s)=>
+        @set('controller.suggestedEmail', s.full)
+      empty: (s)=>
+        @set('controller.suggestedEmail', null)
+    )
+  ).observes('controller.user.email')
