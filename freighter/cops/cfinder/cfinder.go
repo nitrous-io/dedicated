@@ -112,7 +112,7 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 					Paths: []string{r},
 				})
 			}
-			resp <- makeMessage("file_find.completed", SearchResponse{
+			resp <- makeMessage("file_find.completed", FileFindResponse{
 				Term: term,
 				Root: root,
 			})
