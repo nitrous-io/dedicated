@@ -17,7 +17,9 @@
   = render 'layouts/topnav'
   .page
     .masthead
-      .content
+      .bg
+
+      .container
         .home-copy
           h2
             | Set Up Development Environments Painlessly
@@ -30,6 +32,108 @@
 
             a.ui.btn.primary.raised href='/app'
               | Get Started
+
+        .overviews
+          .overview.ide.fadeout
+            .screen.first
+              .titlebar
+                .button.close
+                .button.minimize
+                .button.zoom
+                | Nitrous - Web Browser
+              .screenshot
+            .annotations.right
+              .annotation.first
+                p
+                  | Runs entirely in the cloud;
+                  br
+                  | no installation required
+
+              .annotation.second
+                p
+                  | Powerful code-editor
+                  br
+                  | in the browser, with
+                  br
+                  | rich language support
+
+              .annotation.third
+                p
+                  | Dedicated Linux VMs
+                  br
+                  | with full root-enabled
+                  br
+                  | shell access
+
+          .overview.main.fadeout
+            .screen.first
+              .titlebar
+                .button.close
+                .button.minimize
+                .button.zoom
+                | Nitrous - Web Browser
+              .screenshot
+            .annotations.left
+              .annotation.first
+                p
+                  | Create &amp; manage
+                  br
+                  | multiple applications
+                  br
+                  | in a workspace
+
+              .annotation.second
+                p
+                  | Create custom environments
+                  br
+                  | with Docker images
+                  br
+                  | (Advanced Option)
+
+          .overview.desktop.fadeout
+            .screen.first
+              .titlebar
+                .button.close
+                .button.minimize
+                .button.zoom
+                | Nitrous Sync
+              .screenshot
+            .screen.second
+              .titlebar
+                .button.close
+                .button.minimize
+                .button.zoom
+                | Finder
+              .screenshot
+            .screen.third
+              .titlebar
+                .button.close
+                .button.minimize
+                .button.zoom
+                | SSH
+              .screenshot
+            .annotations.right
+              .annotation.first
+                p
+                  | Synchronize your codebase
+                  br
+                  | between Nitrous Cloud and
+                  br
+                  | your local file system.
+
+              .annotation.second
+                p
+                  | View and edit your
+                  br
+                  | code using your favorite
+                  br
+                  | desktop text editor.
+
+              .annotation.third
+                p
+                  | Access your development environments
+                  br
+                  | directly with SSH
 
     .companies
       .container
