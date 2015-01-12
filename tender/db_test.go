@@ -27,4 +27,15 @@ var _ = Describe("db", func() {
 			Expect(err).ToNot(BeNil(), "Expect to get err when name is invalid")
 		})
 	})
+
+	Describe("containerIP", func() {
+		It("return the container's host IP and freighterd port", func() {
+			ip, port, _ := containerIP(db, "rails-app")
+			Expect(ip.String()).To(Equal("10.0.0.1"), "Expect to get host ip given a valid name")
+			Expect(port).To(Equal(10001), "Expect to get port given a valid name")
+
+			_, _, err := hostIP(db, "invalid name")
+			Expect(err).ToNot(BeNil(), "Expect to get err when name is invalid")
+		})
+	})
 })
