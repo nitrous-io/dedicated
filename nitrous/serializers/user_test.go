@@ -111,7 +111,8 @@ var _ = Describe("user serializer", func() {
 					"exp_month": 4,
 					"exp_year": 2014,
 					"created_at": "2013-11-01T00:00:00Z",
-					"updated_at": "2013-11-02T00:00:00Z"
+					"updated_at": "2013-11-02T00:00:00Z",
+					"card_required": false
 				},
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"

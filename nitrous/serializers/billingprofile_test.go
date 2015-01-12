@@ -41,7 +41,8 @@ var _ = Describe("billingprofile serializer", func() {
 				"exp_year": 2018,
 				"state": "free",
 				"created_at": "2014-11-01T00:00:00Z",
-				"updated_at": "2014-11-01T00:00:00Z"
+				"updated_at": "2014-11-01T00:00:00Z",
+				"card_required": true
 			}`))
 		})
 	})

@@ -38,6 +38,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   eventsSocket: null
 
+  newUser: (->
+    @get('billingProfile') && @get('billingProfile.cardRequired')
+  ).property 'billingProfile', 'billingProfile.cardRequired'
+
   desktopDownloadUrl: (->
     "http://getpro.nitrous.io/#{@get('platform')}/download.html"
   ).property 'platform'

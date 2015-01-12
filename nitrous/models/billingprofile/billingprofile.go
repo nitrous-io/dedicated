@@ -115,6 +115,10 @@ func (b *BillingProfile) UpdateEmail(d db.QueryReceiver, email string) error {
 	return nil
 }
 
+func (p *BillingProfile) IsCardRequired() bool {
+	return p.State == StateFree
+}
+
 func HandleStripeError(err error) error {
 	if e, ok := err.(*stripe.Error); ok {
 		if e.Code == stripe.CardDeclined {
