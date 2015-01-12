@@ -17,6 +17,7 @@
             th State
             th IP Address
             th Freighterd Port
+            th Actions
 
           = each model.unaccounted
             tr
@@ -25,6 +26,8 @@
               td = state
               td = ipAddress
               td = freighterdPort
+              td.actions
+                button.ui.btn.raised click='showTerminateUnaccountedDialog this' Terminate
     = else
       p.note No hosts.
 
@@ -63,7 +66,10 @@
         | This will permanently delete the host&nbsp;
         strong
           | &ldquo;
-          = terminateTargetHost.slug
+          if terminateTargetHost.slug
+            = terminateTargetHost.slug
+          if terminateTargetHost.id
+            = truncate terminateTargetHost.id 12
           | &rdquo;
         | &nbsp; and all services, images, volumes, and archives within the host.
     .card-footer

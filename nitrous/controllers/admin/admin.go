@@ -13,13 +13,16 @@ import (
 )
 
 var (
-	errUserNotFound     = httperror.New(http.StatusBadRequest, "user_not_found", "cannot find a user for the given email or username")
-	errProviderRequired = httperror.New(http.StatusBadRequest, "invalid_request", "provider is required")
+	errUserNotFound               = httperror.New(http.StatusBadRequest, "user_not_found", "cannot find a user for the given email or username")
+	errProviderRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "provider is required")
+	errProviderIdentifierRequired = httperror.New(http.StatusBadRequest, "invalid_request", "provider_identifier is required")
+	errHostIsNotUnaccounted       = httperror.New(http.StatusBadRequest, "invalid_request", "host is known in DB, cannot terminate directly")
 )
 
 var (
-	SwitchUser = verifyAdmin(switchUser)
-	Hosts      = verifyAdmin(hosts)
+	SwitchUser               = verifyAdmin(switchUser)
+	Hosts                    = verifyAdmin(hosts)
+	TerminateUnaccountedHost = verifyAdmin(terminateUnaccountedHost)
 )
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
@@ -89,6 +92,45 @@ func hosts(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		"live_hosts": liveHosts,
 	}
 
+	return nil
+}
+
+func terminateUnaccountedHost(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	provider := r.FormValue("provider")
+	if provider == "" {
+		return errProviderRequired
+	}
+	provID := r.FormValue("provider_identifier")
+	if provID == "" {
+		return errProviderIdentifierRequired
+	}
+
+	var count int
+	err := env.DB.QueryRow(`
+		SELECT COUNT(*) FROM hosts
+		INNER JOIN provider_templates pt
+			ON hosts.provider_template_id = pt.id
+		WHERE
+			hosts.provider_identifier = $1 AND hosts.terminated_at IS NULL
+			AND pt.provider = $2`,
+		provID, provider).Scan(&count)
+	if err != nil {
+		return err
+	}
+
+	if count > 0 {
+		return errHostIsNotUnaccounted
+	}
+
+	resp, err := HostbuilderClient.Delete(provider, &hostbuilderclient.Config{"id": provID})
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": resp.Status,
+	}
 	return nil
 }
 
