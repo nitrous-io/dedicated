@@ -5,7 +5,8 @@ App.IdeFindInProjectController = Em.Controller.extend
   findInProjectDialog: null
   termBinding: Ember.Binding.oneWay('findInProjectDialog.term')
   locationBinding: Ember.Binding.oneWay('findInProjectDialog.location')
-  optionsBinding: Ember.Binding.oneWay('findInProjectDialog.optionsString')
+  caseSensitiveBinding: Ember.Binding.oneWay('findInProjectDialog.caseSensitive')
+  useRegexpBinding: Ember.Binding.oneWay('findInProjectDialog.useRegexp')
 
   invalidField: null
 
@@ -31,7 +32,8 @@ App.IdeFindInProjectController = Em.Controller.extend
 
       term = @get('term')
       location = @get('location') || App.get('container.homePath')
-      options = @get('options')
+      ignoreCase = !@get('caseSensitive')
+      useRegexp = @get('useRegexp')
 
       socket = @get('opsSocket')
       editorController = @get('controllers.ideEditor')
@@ -41,7 +43,7 @@ App.IdeFindInProjectController = Em.Controller.extend
       searchId = Date.now().toString()
 
       onOutput = (err, data) ->
-        return unless data?.id == searchId
+        return unless data?.request?.id == searchId
         if err
           removeHandlers()
           return
@@ -49,12 +51,12 @@ App.IdeFindInProjectController = Em.Controller.extend
           tab.addSearchResults(data.results)
 
       onError = (err, data) ->
-        return unless data?.id == searchId
+        return unless data?.request?.id == searchId
         removeHandlers()
         tab.addError(err || data.error)
 
       onCompleted = (err, data) ->
-        return unless data?.id == searchId
+        return unless data?.request?.id == searchId
         removeHandlers()
         tab.doComplete()
 
@@ -67,7 +69,7 @@ App.IdeFindInProjectController = Em.Controller.extend
       socket.on 'search.error', onError
       socket.on 'search.completed', onCompleted
 
-      socket.search searchId, term, location, options, (err) =>
+      socket.search searchId, term, location, ignoreCase, useRegexp, (err) =>
         if err
           App.postError err
           return
@@ -75,4 +77,5 @@ App.IdeFindInProjectController = Em.Controller.extend
 
       App.util.mixpanel 'Started Find in Project',
         location: location
-        options: options
+        ignoreCase: ignoreCase
+        useRegexp: useRegexp
