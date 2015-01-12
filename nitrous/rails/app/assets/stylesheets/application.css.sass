@@ -1,9 +1,223 @@
+// global
 //= require normalize
 //= require eurostile-font
 //= require codemirror
 //= require font-awesome
-//= require main
-//= require ui
-//= require_tree ./app
-//= require_tree ./pages
 //= require_self
+//= require ui
+
+@import 'variables'
+@import 'mixins'
+
+html
+  background: $n2oGray900
+  color: $n2oGray100
+  overflow-y: scroll
+
+*, *:before, *:after
+  box-sizing: border-box
+
+body
+  font-size: $fontSizeMedium
+
+html.wf-active body
+  font-family: $mainFont
+
+html.wf-active .monospace
+  font-family: $monospaceFont
+
+code, kbd, pre, samp
+  font-family: $monospaceFont
+
+h1, h2, h3, h4
+  margin: 8px 0
+  color: $n2oGray200
+
+h1
+  font-size: $fontSize2XLarge
+  font-weight: 300
+
+h2
+  font-size: $fontSizeXLarge
+  font-weight: 300
+
+h3
+  font-size: $fontSizeLarge
+  font-weight: 500
+
+h4
+  font-size: $fontSizeMedium
+  font-weight: 400
+
+a
+  text-decoration: none
+  color: $lightBlue300
+  transition: color .2s
+  outline: none
+
+  &:link
+    color: $lightBlue300
+  &:visited
+    color: $lightBlue300
+  &:hover
+    color: $lightBlue200
+  &:active
+    color: $lightBlue200
+
+html
+  input, textarea, button, select
+    &:disabled, &[disabled]
+      cursor: not-allowed
+
+input, textarea
+  +placeholder-color($n2oGray600)
+
+label
+  user-select: none
+  cursor: pointer
+
+hr
+  border: none
+  border-bottom: 1px solid $n2oGray300
+  margin: 16px 0
+
+abbr[title]
+  border-bottom: 1px dotted $n2oGray500
+
+::-webkit-scrollbar
+  width: 8px
+  height: 8px
+
+::-webkit-scrollbar-corner
+  background: $n2oGray700
+
+::-webkit-scrollbar-track
+  background: $n2oGray700
+
+::-webkit-scrollbar-thumb
+  border: 1px solid $n2oGray700
+  border-radius: 4px
+  background-color: $n2oGray400
+
+.container
+  width: 1000px
+  margin: 0 auto
+
+.truncate
+  white-space: nowrap
+  overflow: hidden
+  text-overflow: ellipsis
+
+.no-text-transform
+  text-transform: none
+
+i.spinner
+  margin: 0 16px
+  display: inline-block
+  line-height: 1
+  animation: fa-spin 2s infinite linear
+  font-family: FontAwesome
+  font-weight: normal
+  font-style: normal
+  text-decoration: none
+  +grayscale-font-smoothing
+
+  &:before
+    content: "\f1ce"
+
+.hint-text
+  color: $n2oGray400
+  font-size: 12px
+  font-weight: 500
+  text-transform: uppercase
+
+  i
+    margin-right: 5px
+
+ul.comma-separated, ul.space-separated, ul.dash-separated, ul.pipe-separated
+  margin: 0
+  padding: 0
+  list-style: none
+
+  > li
+    display: inline
+
+    &:last-of-type:after
+      content: ''
+
+ul.pipe-separated
+  > li
+    &:after
+      content: ''
+      border-right: 1px solid $n2oGray600
+      margin: 0 8px
+
+    &:last-of-type:after
+      border-right: none
+
+ul.dash-separated
+  > li
+    &:after
+      content: ' - '
+      margin: 0 4px
+
+ul.comma-separated
+  > li
+    &:after
+      content: ', '
+
+ul.space-separated
+  > li
+    &:after
+      content: ' '
+
+  &.blocks
+    > li
+      background: $n2oGray700
+      padding: 0 5px
+      border-radius: 2px
+      margin-right: 5px
+
+      &:after
+        content: ''
+
+.page-header, .page-footer
+  flex-shrink: 0
+
+.page-header
+
+.page-footer
+  .container
+    display: flex
+    font-size: $fontSizeSmall
+    margin-top: $containerPadding + 10px
+    padding: $containerPadding
+    padding-top: 0
+    color: $n2oGray600
+
+    p, ul, li
+      display: inline
+      padding: 0
+      margin: 0
+
+    p
+      padding-right: 6px
+
+    ul
+      list-style: none
+
+      li
+        padding-left: 16px
+
+    .left, .right
+      flex-grow: 1
+
+    .right
+      text-align: right
+
+    a
+      color: $n2oGray400
+
+      &:hover
+        color: $n2oGray200
+

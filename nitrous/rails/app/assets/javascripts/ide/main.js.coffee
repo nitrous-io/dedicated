@@ -36,16 +36,15 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   terminalJsPath: null
   terminalCssPath: null
 
+  editorFullscreen: false
+  consoleFullscreen: false
+
   didChangeToken: (->
     if token = @get('token')
       window.localStorage.setItem('token', token)
     else
       window.localStorage.removeItem('token')
   ).observes 'token'
-
-  bootstrap: (opts={}) ->
-    @set 'terminalJsPath', opts.terminalJsPath
-    @set 'terminalCssPath', opts.terminalCssPath
 
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')

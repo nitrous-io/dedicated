@@ -3,7 +3,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   content: null
   saveDialog: null
   confirmCloseDialog: null
-  fullscreen: false
+  fullscreenBinding: 'App.editorFullscreen'
   chatNotification: null
 
   opsSocketBinding: Em.Binding.oneWay 'App.router.indexController.opsSocket'
