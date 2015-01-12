@@ -49,3 +49,41 @@
 
 .card-footer.bordered
   link-to 'home' | Back to home
+
+#terminate-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Are you ABSOLUTELY sure?
+    .card-body
+      p
+        | This action&nbsp;
+        strong CANNOT
+        | &nbsp;be undone!
+      p
+        | This will permanently delete the host&nbsp;
+        strong
+          | &ldquo;
+          = terminateTargetHost.slug
+          | &rdquo;
+        | &nbsp; and all services, images, volumes, and archives within the host.
+    .card-footer
+      .right
+        button.ui.btn click='cancelTerminate' Cancel
+        button.ui.btn.danger.terminate-btn click='confirmTerminate' Terminate
+
+#restart-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Are you ABSOLUTELY sure?
+    .card-body
+      p
+        | This will restart the host&nbsp;
+        strong
+          | &ldquo;
+          = restartTargetHost.slug
+          | &rdquo;
+          | .
+    .card-footer
+      .right
+        button.ui.btn click='cancelRestart' Cancel
+        button.ui.btn.danger.terminate-btn click='confirmRestart' Restart
