@@ -1,4 +1,5 @@
 App.SignupController = Em.Controller.extend
+  queryParams: ['incomingEmail']
   code: null
   user: null
   confirmPassword: null
@@ -14,6 +15,13 @@ App.SignupController = Em.Controller.extend
       signingUp: false
       error: null
       invalidField: null
+
+  submitEmail: ->
+    if @get("incomingEmail") && @get("incomingEmail").length > 0
+      @get('user').set('email', @get('incomingEmail'))
+      data =
+        email: @get('incomingEmail')
+      App.User.adapter.ajax('POST', '/users/email_signup', data)
 
   actions:
     signup: ->

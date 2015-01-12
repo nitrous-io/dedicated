@@ -15,3 +15,4 @@ App.SignupRoute = Em.Route.extend
 
   setupController: (controller) ->
     controller.clear()
+    controller.submitEmail()
