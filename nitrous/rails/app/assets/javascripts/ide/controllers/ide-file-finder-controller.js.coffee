@@ -17,7 +17,7 @@ App.IdeFileFinderController = Em.Controller.extend
     socket.off 'file_find.error'
 
   onOutput: (error, data) ->
-    @get('fileFinderDialog').addResults(data.term, data.root, data.paths)
+    @get('fileFinderDialog')?.addResults(data.term, data.root, data.paths)
 
   onError: (error, data) ->
     dialog = @get 'fileFinderDialog'
@@ -33,7 +33,7 @@ App.IdeFileFinderController = Em.Controller.extend
       dialog.searchComplete(data.term, data.root)
 
   onCompleted: (error, data) ->
-    @get('fileFinderDialog').searchComplete(data.term, data.root)
+    @get('fileFinderDialog')?.searchComplete(data.term, data.root)
 
   showFindDialog: (path) ->
     if !path?
