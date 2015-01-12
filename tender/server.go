@@ -30,11 +30,16 @@ type Server struct {
 	db *sql.DB
 	// remote freighterd port
 	freighterdPort int64
-	// expected DNS based domain that we want to receive requests to, i.e.
-	// should be the proxy's domain `.nitrousproxy.com`
-	baseDomain string
+	// expected DNS based domain for host's request. Request coming from this
+	// domain will be proxied to freighterd server on that host.
+	hostBaseDomain string
+	// expected DNS based doamin for container's preview request. Request
+	// coming from this domain will be proxied to the container's host
+	// directly.
+	containerBaseDomain string
 	// expected domain that is used when we create the TLS certificates in webapp
-	// `nitrouspro.com`
+	// `nitrouspro.com`. This is used when communicating with the freighterd
+	// server on the host.
 	tlsDomain string
 	// default tls config to talk to remote freighterd server. whenever we
 	// proxy to a server, we have to copy this and set a server name
@@ -54,7 +59,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Returns a `http.Handler` which can be used to proxy requests to a Nitrous.IO
 // host
-func NewServer(baseDomain, tlsDomain, databaseURL string, freighterdPort int64, caBytes []byte) (http.Handler, error) {
+func NewServer(hostBaseDomain, containerBaseDomain, tlsDomain,
+	databaseURL string, freighterdPort int64, caBytes []byte) (http.Handler, error) {
 	log.Printf("Connecting to database %s", databaseURL)
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
@@ -64,10 +70,11 @@ func NewServer(baseDomain, tlsDomain, databaseURL string, freighterdPort int64, 
 		return nil, fmt.Errorf("Failed to get a valid db connection %v", err)
 	}
 	s := &Server{
-		db:             db,
-		freighterdPort: freighterdPort,
-		baseDomain:     baseDomain,
-		tlsDomain:      tlsDomain,
+		db:                  db,
+		freighterdPort:      freighterdPort,
+		hostBaseDomain:      hostBaseDomain,
+		containerBaseDomain: containerBaseDomain,
+		tlsDomain:           tlsDomain,
 	}
 	// set the default tls config for proxied connections
 	if len(caBytes) > 0 {
@@ -85,7 +92,7 @@ func NewServer(baseDomain, tlsDomain, databaseURL string, freighterdPort int64, 
 // - if this is a normal HTTP, use `http.ReverseProxy`
 // - if the request wants to open a websocket, use `proxyWebsocket`
 func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err error) {
-	hostName, err := getHost(r.Host, s.baseDomain)
+	hostName, err := getHost(r.Host, s.hostBaseDomain)
 	if err != nil {
 		return err
 	}

@@ -18,12 +18,14 @@ var version string
 
 var (
 	databaseURL    string
-	baseDomain     string
 	tlsDomain      string
 	freighterdPort int64
 	pubCACert      string
 	pubCAKey       string
 	privCACertPath string
+
+	hostBaseDomain      string
+	containerBaseDomain string
 )
 
 // Configure require settings. Required env variables are:
@@ -49,7 +51,8 @@ func main() {
 	// setup env variables
 	databaseURL = envStr("DATABASE_URL")
 	freighterdPort = envInt("FREIGHTERD_PORT")
-	baseDomain = envStr("BASE_DOMAIN")
+	hostBaseDomain = envStr("HOST_BASE_DOMAIN")
+	containerBaseDomain = envStr("CONTAINER_BASE_DOMAIN")
 	tlsDomain = envStr("TLS_DOMAIN")
 	pubCACert = envStr("PUB_CRT")
 	pubCAKey = envStr("PUB_KEY")
@@ -57,8 +60,11 @@ func main() {
 	sp := os.Getenv("PREVIEW_START_PORT")
 	ep := os.Getenv("PREVIEW_END_PORT")
 
-	if baseDomain[0] != '.' {
-		panic("BASE_DOMAIN should start with .")
+	if hostBaseDomain[0] != '.' {
+		panic("HOST_BASE_DOMAIN should start with .")
+	}
+	if containerBaseDomain[0] != '.' {
+		panic("CONTAINER_BASE_DOMAIN should start with .")
 	}
 
 	crt, err := tls.LoadX509KeyPair(pubCACert, pubCAKey)
@@ -71,7 +77,8 @@ func main() {
 		log.Fatalf("tender: Failed to find private certificate: %s", privCACertPath)
 	}
 
-	httpsProxy, err := tender.NewServer(baseDomain, tlsDomain, databaseURL, freighterdPort, privCACert)
+	httpsProxy, err := tender.NewServer(hostBaseDomain, containerBaseDomain,
+		tlsDomain, databaseURL, freighterdPort, privCACert)
 	if err != nil {
 		log.Fatalf("tender: Failed to create https proxy, %q", err)
 	}
