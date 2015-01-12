@@ -2,7 +2,6 @@ App.SignupController = Em.Controller.extend
   queryParams: ['incomingEmail']
   code: null
   user: null
-  confirmPassword: null
   signingUp: false
   error: null
   invalidField: null
@@ -11,7 +10,6 @@ App.SignupController = Em.Controller.extend
     @setProperties
       code: null
       user: App.User.create()
-      confirmPassword: null
       signingUp: false
       error: null
       invalidField: null
@@ -27,11 +25,6 @@ App.SignupController = Em.Controller.extend
     signup: ->
       @set 'error', null
       @set 'invalidField', null
-
-      if @get('user.password') != @get('confirmPassword')
-        App.snackbar.post("Password doesn't match the confirmation.")
-        return
-
       @set 'signingUp', true
       code = @get 'code'
       user = @get 'user'
