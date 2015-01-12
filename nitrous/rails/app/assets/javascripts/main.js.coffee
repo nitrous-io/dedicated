@@ -136,6 +136,19 @@ Em.Route.reopen
   activate: ->
     App.set 'title', null
 
+  beforeModel: (transition) ->
+    @_super.apply this, arguments
+    if !App.get('settings')
+      transition.abort()
+      App.loadSettings().then ->
+        transition.retry()
+      , (jqxhr) ->
+        # retry in 5 seconds
+        Em.run.later(this, ->
+          transition.retry()
+        , 5000)
+      return
+
 App.Router.reopen
   notifyGoogleAnalytics: (->
     ga? 'send', 'pageview', 'page': @get('url'), 'title': App.get('title')

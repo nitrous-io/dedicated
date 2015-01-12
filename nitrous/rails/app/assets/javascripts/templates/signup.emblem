@@ -8,7 +8,12 @@
     | New users receive
     '
     .important
-      | FREE $ credit
+      | $
+      if App.settings.new_user_credit
+        = App.settings.new_user_credit
+      else
+        | 5
+      '  Free Credit
     | .
 
   form submit='signup'
