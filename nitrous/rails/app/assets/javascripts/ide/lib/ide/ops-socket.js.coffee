@@ -1,6 +1,6 @@
 #= require ../../../lib/socket/socket
 
-App.OpsSocket = Lib.Socket.extend
+App.OpsSocket = Lib.Socket.extend Ember.Evented,
   container: null
   started: false
   startedFirstTime: false
@@ -88,11 +88,16 @@ App.OpsSocket = Lib.Socket.extend
   handleMessage: (message) ->
     try
       message = JSON.parse message
-    if !message.error
-      @invokeCallback message.cid, [null].concat(message.args)
+    # check if there are any registered handlers
+    # for the incoming event
+    # otherwise, try to find corresponding callback
+    if this.has(message.event)
+      this.trigger message.event, [message.error].concat(message.args)...
     else
-      # TODO test error handling
-      @invokeCallback message.cid, [message.error]
+      if message.error
+        @invokeCallback message.cid, [message.error]
+      else
+        @invokeCallback message.cid, [null].concat(message.args)
 
   fetchFileList: (absolutePath, callback) ->
     @send 'fs', 'list', absolutePath, callback
@@ -123,3 +128,6 @@ App.OpsSocket = Lib.Socket.extend
 
   rename: (currentPath, newPath, callback) ->
     @send 'fs', 'rename', currentPath, newPath, callback
+
+  fileFind: (term, root, callback) ->
+    @send 'finder', 'file_find', term, root, callback

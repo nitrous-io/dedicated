@@ -16,6 +16,8 @@ App.IndexController = Em.ObjectController.extend
   opsSocketNotReady: Em.computed.not 'opsSocketReady'
   commandSocketNotReady: Em.computed.not 'commandSocketReady'
 
+  workspaceDir: 'code'
+
   initialize: ->
     if content = @get 'content'
       #@set 'commandSocket', commandSocket = App.CommandSocket.create box: content
@@ -28,15 +30,11 @@ App.IndexController = Em.ObjectController.extend
 
       @set 'opsSocket', opsSocket = App.OpsSocket.create(container: content)
       opsSocket.connect()
-      #commandSocket.connect()
 
   reset: ->
     if opsSocket = @get 'opsSocket'
       opsSocket.disconnect()
       opsSocket.destroy()
-
-    #if commandSocket = @get 'commandSocket'
-      #commandSocket.disconnect()
 
     router = App.get 'router'
     router.get('ideConsoleController').reset()

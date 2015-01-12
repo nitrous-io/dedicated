@@ -10,6 +10,7 @@ format is:
 <-- h|{ "namespace":"finder", "event: "file_find", "cid": 42, "args": {"term":"asd", "root":"/home/action"} } # signal that we received the message
 <-- h|{ "namespace":"finder", "event: "file_find.output", "args": {"term":"asd", "root":"/home/action", "paths": ["workspace/asd"]} }
 <-- h|{ "namespace":"finder", "event: "file_find.error", "args": {"term":"asd", "root":"/home/action", "error": "some error"}} # error occurs in the middle of file-find op
+<-- h|{ "namespace":"finder", "event: "file_find.completed", "args": {"term":"asd", "root":"/home/action"}} # file find completed
 
 --> h|{ "namespace":"finder", "event: "file_find", "cid": 43, "args": {"term":"another", "root":"/home/action"} } # another request
 <-- h|{ "namespace":"finder", "event: "file_find", "cid": 43, "error": "failed to find file" } # if an error occurs before the file-find op starts
@@ -22,7 +23,7 @@ surrounding content). Its message format is:
 <-- h|{ "namespace":"finder", "event: "search", "cid": 44, "args": ["123", "asd", "/home/action"] }
 <-- h|{ "namespace":"finder", "event: "search.output", "args": {"id": "123", "term":"asd", "root":"/home/action", "results": {"file":"filename", "matches": [{"row": 12, "content": "line asd"]}} }
 <-- h|{ "namespace":"finder", "event: "search.error", "args": {"id": "123", "term":"asd", "root":"/home/action", "error": "some error"} } # error occurs in the middle of search op
-
+<-- h|{ "namespace":"finder", "event: "search.completed", "args": {"id": "123", "term":"asd", "root":"/home/action"} } # search completed
 --> h|{ "namespace":"finder", "event: "search", "cid": 45, "args": ["123", "another", "/home/action"] }
 <-- h|{ "namespace":"finder", "event: "search", "cid": 45, "error": "filesystem disappeared" } # if an error occurs before the search op starts
 */
@@ -111,6 +112,10 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 					Paths: []string{r},
 				})
 			}
+			resp <- makeMessage("file_find.completed", SearchResponse{
+				Term: term,
+				Root: root,
+			})
 			close(resp)
 		}()
 		// reply the original message to signal that we are processsing it

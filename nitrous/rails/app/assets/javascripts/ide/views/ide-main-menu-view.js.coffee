@@ -121,8 +121,7 @@ App.IdeMainMenuView = Em.View.extend
       separator
       menuItem 'Go to File...',
         macKey: ['shift+ctrl+p'], pcKey: ['shift+ctrl+p']
-        #disabledBinding: Em.Binding.oneWay('App.router.ideController.commandSocketNotReady')
-        disabled: true
+        disabledBinding: Em.Binding.oneWay('App.router.ideController.opsSocketNotReady')
         callback: (controller) ->
           controller.fileGoToFile()
       separator
