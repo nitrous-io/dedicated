@@ -1,10 +1,11 @@
 namespace :build do
+  desc 'generate views'
   task generate_views: :environment do
     # map of desired html output path to render options
     locations = {
-      '/public/app/index.html' => {template: 'web_app/index'},
-      '/public/ide/index.html' => {template: 'web_app/ide'},
-      '/public/index.html' => {layout: 'layouts/home', template: 'pages/home'},
+      '/public/app/index.html' => {layout: 'layouts/web_app', template: 'web_app/index'},
+      '/public/ide/index.html' => {layout: 'layouts/web_app', template: 'web_app/ide'},
+      '/public/index.html' => {layout: 'layouts/pages', template: 'pages/home'},
     }
 
     build_dir = ENV['BUILD_DIR']
