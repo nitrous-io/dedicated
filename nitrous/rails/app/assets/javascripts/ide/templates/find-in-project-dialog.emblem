@@ -17,13 +17,13 @@
         ul.ui.checkbox-group
           li
             .ui.checkbox
-              = input type='checkbox' id='ide-find-in-project-case-sensitive' checked=view.content.optionCaseSensitive
+              = input type='checkbox' id='ide-find-in-project-case-sensitive' checked=view.content.caseSensitive
               label
             label for='ide-find-in-project-case-sensitive' Case-sensitive
 
           li
             .ui.checkbox
-              = input type='checkbox' id='ide-find-in-project-regex' checked=view.content.optionRegex
+              = input type='checkbox' id='ide-find-in-project-regex' checked=view.content.useRegexp
               label
             label for='ide-find-in-project-regex' Regular expression
 
