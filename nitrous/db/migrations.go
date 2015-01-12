@@ -698,5 +698,15 @@ func init() {
 				ALTER TABLE invoice_items ALTER COLUMN hours TYPE bigint;
 				`,
 		},
+		{
+			Version: "580",
+			Up: `
+				CREATE TABLE email_captures (
+					id bigserial PRIMARY KEY NOT NULL,
+					email_address character varying,
+					created_at timestamp without time zone DEFAULT now()
+				);
+			`,
+		},
 	}
 }
