@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -19,14 +19,16 @@ var (
 )
 
 type Container struct {
-	Id     int
-	Slug   string
-	HostIP string
+	Id         int
+	Slug       string
+	RegionID   int
+	RegionSlug string
 }
 
 type Navigator struct {
 	domain string
 	db     *sql.DB
+	config map[string]string
 }
 
 func (n *Navigator) Name() string {
@@ -47,24 +49,36 @@ func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Invalid boxname from domain %v", name)
 	}
+
+	domain := n.config[c.RegionSlug]
+	if len(domain) == 0 {
+		return nil, fmt.Errorf("Empty proxy for region '%s', please check the config.", c.RegionSlug)
+	}
+	domain = endsWithDot(domain)
+
+	cname := fmt.Sprintf("%s.%s", c.Slug, domain)
 	return []dns.RR{
-		&dns.A{
+		&dns.CNAME{
 			Hdr: dns.RR_Header{
 				Name:   name,
-				Rrtype: dns.TypeA,
+				Rrtype: dns.TypeCNAME,
 				Class:  dns.ClassINET,
 				Ttl:    defaultTTL,
 			},
-			A: net.ParseIP(c.HostIP),
+			Target: cname,
 		},
 	}, nil
 }
 
 func (n *Navigator) find(slug string) (*Container, error) {
 	c := new(Container)
-	err := n.db.QueryRow(`SELECT containers.id, containers.slug, hosts.ip_address
-	FROM containers INNER JOIN hosts ON containers.host_id = hosts.id
-	WHERE containers.slug = $1 LIMIT 1`, slug).Scan(&c.Id, &c.Slug, &c.HostIP)
+	err := n.db.QueryRow(
+		`SELECT containers.id, containers.slug, regions.id, regions.slug
+		FROM containers
+		INNER JOIN hosts ON containers.host_id = hosts.id
+		INNER JOIN regions ON hosts.region_id = regions.id
+		WHERE containers.slug = $1 LIMIT 1`, slug).
+		Scan(&c.Id, &c.Slug, &c.RegionID, &c.RegionSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +111,16 @@ func New(domain string, config map[string]string) (nav.Navigator, error) {
 	return &Navigator{
 		domain: domain,
 		db:     db,
+		config: config,
 	}, nil
+}
+
+func endsWithDot(domain string) string {
+	if strings.HasSuffix(domain, ".") {
+		return domain
+	} else {
+		return fmt.Sprintf("%s.", domain)
+	}
 }
 
 func init() {
