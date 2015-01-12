@@ -177,7 +177,7 @@ func TestPath(t *testing.T) {
 	r := NewRootfs("/root")
 
 	for _, c := range cases {
-		p, err := r.path(c.name)
+		p, err := r.Path(c.name)
 		if p != c.expected || err != c.err {
 			t.Fatalf("Given (%s), got Path(%s) with err(%s), expected path(%s) with err(%s)",
 				c.name, p, err, c.expected, c.err)

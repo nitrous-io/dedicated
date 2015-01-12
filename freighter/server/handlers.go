@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/multipartsio"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 
+	_ "github.com/nitrous-io/dedicated/freighter/cops/cfinder"
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
@@ -443,7 +444,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	for {
 		select {
 		case err := <-ch:
-			log.Printf("exited with err %s", err)
+			log.Printf("exited with err %v", err)
 			stdout.Close() // Inform client that server has closed connection.
 			return nil
 		case <-attached:
@@ -470,14 +471,13 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	containerID := info.ID
 	if info.State != provider.ContainerStateRunning {
-		return fmt.Errorf("Cannot attach to stopped container %v", containerID)
+		return fmt.Errorf("container ops: cannot perform container ops on stopped container %v", info.ID)
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		return fmt.Errorf("failed to upgrade websocket: %v", err)
+		return fmt.Errorf("container ops: failed to upgrade websocket: %v", err)
 	}
 	stream := wsconn.NewConnectionHeartbeat(conn, true)
 	if binary {
@@ -494,13 +494,13 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	for {
 		select {
 		case err := <-ch:
-			log.Printf("exited with err %s", err)
+			log.Printf("container ops: exited with err %v", err)
 			stdout.Close() // Inform client that server has closed connection.
 			return nil
 		case msg := <-msgCh:
 			switch msg := msg.(type) {
 			default:
-				log.Println("shell: got unknown msg %v", msg)
+				log.Println("container ops: got unknown msg %v", msg)
 			}
 		}
 	}

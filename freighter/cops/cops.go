@@ -17,8 +17,15 @@ type Message struct {
 }
 
 // Handler is the actual operation that operates on the container `id`
+// TODO: deprecate this interface and upgrades implementation to AsyncHandler
+// i.e cops/fs
 type Handler interface {
 	Handle(msg *Message) *Message
+}
+
+// this will be used when handler supports this interface
+type AsyncHandler interface {
+	HandleAsync(msg *Message) chan *Message
 }
 
 type NewHandler func(id string) (Handler, error)
@@ -65,10 +72,21 @@ func Start(id string, r io.Reader, w io.Writer) chan error {
 			// handle the operation in a separate goroutine to not block the
 			// message pipeline
 			go func() {
-				reply := h.Handle(msg)
-				if err := encoder.Encode(reply); err != nil {
-					errCh <- fmt.Errorf("failed to encode %v, %s", reply, err)
-					return
+				uh, ok := h.(AsyncHandler)
+				if ok {
+					ch := uh.HandleAsync(msg)
+					for reply := range ch {
+						if err := encoder.Encode(reply); err != nil {
+							errCh <- fmt.Errorf("failed to encode %v, %s", reply, err)
+							return
+						}
+					}
+				} else {
+					reply := h.Handle(msg)
+					if err := encoder.Encode(reply); err != nil {
+						errCh <- fmt.Errorf("failed to encode %v, %s", reply, err)
+						return
+					}
 				}
 			}()
 		}
