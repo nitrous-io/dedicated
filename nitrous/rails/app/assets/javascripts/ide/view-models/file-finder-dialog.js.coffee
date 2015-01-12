@@ -120,8 +120,6 @@ App.FileFinderDialog = klass = Em.Object.extend
     switch @get('error')
       when 'NOPATH'
         "Could not find path #{@get 'basePath'}.  Please check if it exists"
-      when 'NOBINARY'
-        'Please restart your box to enable this feature'
       else
         null
   ).property 'error', 'basePath'
