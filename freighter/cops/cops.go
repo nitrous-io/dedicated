@@ -6,8 +6,8 @@ import (
 	"io"
 )
 
-// Message will be serialized over the transport. It is used to represent the
-// operation and its result
+// Message will be serialized over the transport. It is used to represent both
+// the operation and its result.
 type Message struct {
 	Namespace string        `json:"namespace"`
 	Event     string        `json:"event"`
@@ -16,9 +16,9 @@ type Message struct {
 	Error     error         `json:"error"`
 }
 
-// Handler is the actual operation that operates on the container `id`
-// TODO: deprecate this interface and upgrades implementation to AsyncHandler
-// i.e cops/fs
+// Handler is the actual operation that operates on the container `id`.
+// TODO: deprecate this interface and upgrade implementation to AsyncHandler
+// e.g. cops/fs
 type Handler interface {
 	Handle(msg *Message) *Message
 }
@@ -32,14 +32,14 @@ type NewHandler func(id string) (Handler, error)
 
 var Handlers = map[string]NewHandler{}
 
-// Start listening to messages meant for container with `id` and delivers them to
-// correct handlers
+// Start listening to messages meant for container with `id` and deliver them to
+// correct handlers.
 func Start(id string, r io.Reader, w io.Writer) chan error {
 	decoder := json.NewDecoder(r)
 	encoder := json.NewEncoder(w)
 	errCh := make(chan error, 1)
 
-	// collection of handlers for this containers
+	// collection of handlers for this container.
 	handlers := map[string]Handler{}
 
 	go func() {
@@ -95,6 +95,6 @@ func Start(id string, r io.Reader, w io.Writer) chan error {
 	return errCh
 }
 
-func RegisterHandler(t string, h NewHandler) {
-	Handlers[t] = h
+func RegisterHandler(namespace string, h NewHandler) {
+	Handlers[namespace] = h
 }
