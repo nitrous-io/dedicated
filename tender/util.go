@@ -2,6 +2,7 @@ package tender
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -16,6 +17,8 @@ import (
 var (
 	DefaultStartPort = freighterconfig.MinPreviewPort
 	DefaultEndPort   = freighterconfig.MaxPreviewPort
+
+	ErrDomainMismatched = errors.New("mismatched domain")
 )
 
 var portMap = map[string]int{
@@ -65,6 +68,10 @@ func getHost(url, baseDomain string) (string, error) {
 		}
 	} else {
 		domain = url
+	}
+
+	if domain[len(domain)-len(baseDomain):] != baseDomain {
+		return "", ErrDomainMismatched
 	}
 
 	prefix := domain[:len(domain)-len(baseDomain)]

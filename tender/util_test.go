@@ -59,6 +59,12 @@ var _ = Describe("getHost", func() {
 		h, _ = getHost("hello.dropbox.nitrousapp.com", ".nitrousapp.com")
 		Expect(h).To(Equal("dropbox"), "Expect to get correct host's name")
 	})
+
+	It("returns error when the domains do not match", func() {
+		var err error
+		_, err = getHost("yammer.nitrousapp.com:3000", ".nitrousdev.com")
+		Expect(err).ToNot(BeNil())
+	})
 })
 
 var _ = Describe("PortsRange", func() {
