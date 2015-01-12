@@ -10,12 +10,14 @@ Contain components of the nitrous-dedicated platform.
 
 # Development
 * Requires DNSMASQ: install it with apt-get install dnsmasq
+* Create local configuration files from provided example files. i.e. `hostbuilder/sample_config.json` -> `hostbuilder/config.json`, `nitrous/.env-example` -> `nitrous/.env`, etc.
 * Run `make run-dev`: a program that setups various services and wires settings
   together. Requires for proxy to works. Tested on Ubuntu server. After running
   this, `./build/nitro` should work locally with docker hosts.
   * You might need to configure Postgres to allow access via Unix domain
     sockets. Add this to `/etc/postgresql/9.3/main/pg_hba.conf`:
     `local all all trust`
+* `make run-dev` requires the `nitrous` and `hostbuilder` services to be stopped first. Example stop command: `sudo service nitrous stop`. To disable the two services running on system start up, add files `/etc/init/{service}.override` with the line `manual` inside.
 * To get the browser-based terminal to work, you need to add an entry
   in your host machine's `/etc/hosts`, mapping `<app-slug>.n2odev.com` to your VM's IP.
   eg: `33.33.33.10  test-app.n2odev.com`
