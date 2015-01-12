@@ -87,15 +87,20 @@ func NewServer(hostBaseDomain, containerBaseDomain, tlsDomain,
 	return s, nil
 }
 
-// proxy the request to respected boxhost. We will switch the proxy strategy
-// depends on the type of the request
-// - if this is a normal HTTP, use `http.ReverseProxy`
-// - if the request wants to open a websocket, use `proxyWebsocket`
 func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err error) {
 	hostName, err := getHost(r.Host, s.hostBaseDomain)
 	if err != nil {
 		return err
 	}
+
+	return s.proxyHostRequest(hostName, w, r)
+}
+
+// proxy the request to respected boxhost. We will switch the proxy strategy
+// depends on the type of the request
+// - if this is a normal HTTP, use `http.ReverseProxy`
+// - if the request wants to open a websocket, use `proxyWebsocket`
+func (s *Server) proxyHostRequest(hostName string, w http.ResponseWriter, r *http.Request) (err error) {
 	log.Printf("[INFO] request %v to %s", r, hostName)
 
 	// set X-FORWARDED-PORT for the request
@@ -111,7 +116,7 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 	if err != nil {
 		return err
 	}
-	env.host = hostToIP(r, ip, port)
+	host := hostToIP(r, ip, port)
 
 	// copy tls config and set serverName
 	// serverName is the name we use to generate private certs on the host
@@ -126,9 +131,9 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 	}
 
 	if proxy.IsWebsocket(r) {
-		proxy.ProxyWebsocket(env.host, tlsConfig)(w, r)
+		proxy.ProxyWebsocket(host, tlsConfig)(w, r)
 	} else {
-		proxy.ProxyHTTP(env.host, tlsConfig)(w, r)
+		proxy.ProxyHTTP(host, tlsConfig)(w, r)
 	}
 	return nil
 }
