@@ -30,7 +30,7 @@
             td.region = region.slug
             td.plan = plan.slug
             td.actions
-              button.ui.btn.raised click='restart this' Restart
-              button.ui.btn.raised click='terminate this' Terminate
+              button.ui.btn.raised click='showRestartDialog this' Restart
+              button.ui.btn.raised click='showTerminateDialog this' Terminate
   = else
     p.note No hosts.
