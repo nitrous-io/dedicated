@@ -16,6 +16,8 @@ App.IndexController = Em.ObjectController.extend
   opsSocketNotReady: Em.computed.not 'opsSocketReady'
   commandSocketNotReady: Em.computed.not 'commandSocketReady'
 
+  workspaceDir: 'code'
+
   initialize: ->
     if content = @get 'content'
       #@set 'commandSocket', commandSocket = App.CommandSocket.create box: content

@@ -3,7 +3,6 @@ App.IdeFileFinderController = Em.Controller.extend
 
   opsSocketBinding: Em.Binding.oneWay 'controllers.index.opsSocket'
   fileFinderDialog: null
-  workspaceDir: 'workspace'
 
   initialize: ->
     socket = @get 'opsSocket'
@@ -69,15 +68,16 @@ App.IdeFileFinderController = Em.Controller.extend
 
   # try to pick a sensible default search root
   guessPath: (path) ->
-    homedir = App.get('container.homePath')
-    return homedir if not path?.length
+    homeDir = App.get('container.homePath')
+    workspaceDir = @get('controllers.index.workspaceDir')
+    return homeDir if not path?.length
 
-    path = path.replace(new RegExp("^#{homedir}\/"), '')
+    path = path.replace(new RegExp("^#{homeDir}\/"), '')
     parts = path.split('/')
-    in_workspace = parts[0] == @get('workspaceDir')
+    in_workspace = parts[0] == workspaceDir
     path = switch
       when parts.length == 1
-        if in_workspace then @get('workspaceDir') else homedir
+        if in_workspace then workspaceDir else homeDir
       when parts.length == 2
         parts[0]
       else
@@ -85,4 +85,4 @@ App.IdeFileFinderController = Em.Controller.extend
           [parts[0], parts[1]].join('/')
         else
           parts[0]
-    [homedir, path].join("/")
+    [homeDir, path].join("/")
