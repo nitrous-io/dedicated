@@ -11,7 +11,7 @@ App.BillingRoute = App.AuthedRoute.extend
     # TODO: FFLAG payments
     if App.get('user.billingEnabled') && !App.get('billingProfile.paid')
       @transitionTo 'add-card'
-    App.BillingUsage.fetchCurrentUsage()
+    App.refreshUsage()
 
   activate: ->
     App.set 'title', 'Billing'

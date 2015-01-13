@@ -32,11 +32,33 @@ window.Nitrous = Em.Application.extend Em.Evented,
   plans: null
   baseImages: null
   templates: null
+  billingUsage: null
 
   terminalJsPath: null
   terminalCssPath: null
 
   eventsSocket: null
+
+  pendingHost: null
+
+  availableCredit: (->
+    if @get('newUser')
+      if @get('settings.new_user_credit')
+        return @get('settings.new_user_credit')
+      else
+        return 5
+    else if @get('billingUsage')
+      return @get('billingUsage.availableCreditsDollars')
+
+    return 0
+  ).property 'newUser', 'billingUsage'
+
+  availableCreditClass: (->
+    if @get('availableCredit') <= 0
+      return 'no-credit'
+    else
+      return 'good-credit'
+  ).property 'availableCredit'
 
   newUser: (->
     @get('billingProfile') && @get('billingProfile.cardRequired')
@@ -100,6 +122,8 @@ App.on 'fetchUser', (user) ->
   billingProfile.load user.get('_billingProfile')
   App.set 'billingProfile', billingProfile
 
+  App.refreshUsage()
+
   App.set 'eventsSocket', socket = App.EventsSocket.create()
   socket.connect()
 
@@ -108,6 +132,9 @@ App.loadSettings = ->
   promise.then (settings) ->
     App.set 'settings', settings
   promise
+
+App.refreshUsage = ->
+  App.BillingUsage.fetchCurrentUsage()
 
 App.didChangeTitle()
 

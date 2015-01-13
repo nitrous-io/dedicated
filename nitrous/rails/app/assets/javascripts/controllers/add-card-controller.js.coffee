@@ -65,11 +65,19 @@ App.AddCardController = Em.ObjectController.extend
         ).then =>
           @set 'saving', false
           App.snackbar.post "Credit card added."
-          @transitionToRoute 'billing'
+          App.refreshUsage()
+          if App.get('pendingHost')
+            @transitionToRoute 'hosts.new'
+          else
+            @transitionToRoute 'billing'
         , (errorMsg) =>
           @set 'saving', false
           @processErrorMessage(errorMsg)
           App.postError(errorMsg, 'Failed to create billing profile!')
 
     cancel: ->
+      if App.get('pendingHost')
+        App.set('pendingHost', null)
+        @transitionToRoute 'hosts.new'
+        return
       @transitionToRoute 'billing'
