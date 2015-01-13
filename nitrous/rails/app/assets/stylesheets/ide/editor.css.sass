@@ -127,7 +127,6 @@
     display: none
     flex-grow: 1
     flex-direction: column
-    overflow: auto
 
     &.active
       display: flex
@@ -142,6 +141,7 @@
         margin: 0
 
     .summary
+      flex-shrink: 0
       background-color: $n2oGray700
       border-bottom: 1px solid $n2oGray900
       padding: 8px 8px 8px 22px
@@ -153,6 +153,8 @@
         text-shadow: 0 -1px 1px rgba(10, 20, 50, 0.8)
 
     .search-results
+      overflow: auto
+
       h4.result-title
         color: $n2oGray50
         font-family: $monospaceFont
