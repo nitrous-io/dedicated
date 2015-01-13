@@ -1150,6 +1150,7 @@ var _ = Describe("models/user", func() {
 				Expect(b.CardType.String).To(Equal("Visa"))
 				Expect(b.ExpMonth.Int64).To(Equal(int64(10)))
 				Expect(b.ExpYear.Int64).To(Equal(int64(2018)))
+				Expect(b.PendingActivation).To(BeFalse())
 			})
 		})
 

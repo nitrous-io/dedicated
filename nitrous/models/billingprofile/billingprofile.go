@@ -38,6 +38,7 @@ type BillingProfile struct {
 	CardType          sql.NullString `db:"card_type"`
 	ExpMonth          sql.NullInt64  `db:"exp_month"`
 	ExpYear           sql.NullInt64  `db:"exp_year"`
+	PendingActivation bool           `db:"pending_activation"` // not activated yet
 	CreatedAt         *time.Time     `db:"created_at"`
 	UpdatedAt         *time.Time     `db:"updated_at"`
 }
@@ -63,8 +64,8 @@ func Create(tx *sqlx.Tx, userID int64) error {
 // To update the card or email in Stripe, use UpdateCard or UpdateEmail.
 func (b *BillingProfile) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE billing_profiles
-		SET (stripe_id, stripe_fingerprint, last_four, card_type, exp_month, exp_year, state, updated_at)
-		= (:stripe_id, :stripe_fingerprint, :last_four, :card_type, :exp_month, :exp_year, :state, now())
+		SET (stripe_id, stripe_fingerprint, last_four, card_type, exp_month, exp_year, state, pending_activation, updated_at)
+		= (:stripe_id, :stripe_fingerprint, :last_four, :card_type, :exp_month, :exp_year, :state, :pending_activation, now())
 		WHERE user_id = :user_id
 		RETURNING *;`)
 	if err != nil {
@@ -93,6 +94,7 @@ func (b *BillingProfile) UpdateCard(d db.QueryReceiver, token string) error {
 	b.CardType = sql.NullString{string(crd.Brand), true}
 	b.ExpMonth = sql.NullInt64{int64(crd.Month), true}
 	b.ExpYear = sql.NullInt64{int64(crd.Year), true}
+	b.PendingActivation = false
 
 	if err := b.Update(d); err != nil {
 		return fmt.Errorf("Billing profile update failed. Reason - %s", err)

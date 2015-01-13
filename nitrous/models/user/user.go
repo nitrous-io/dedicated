@@ -515,13 +515,14 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 	// update the profile with details returned from Stripe
 	crd := c.Cards.Values[0]
 	b := &billingprofile.BillingProfile{
-		UserID:   u.ID,
-		StripeID: sql.NullString{c.ID, true},
-		State:    "paid",
-		LastFour: sql.NullString{crd.LastFour, true},
-		CardType: sql.NullString{string(crd.Brand), true},
-		ExpMonth: sql.NullInt64{int64(crd.Month), true},
-		ExpYear:  sql.NullInt64{int64(crd.Year), true},
+		UserID:            u.ID,
+		StripeID:          sql.NullString{c.ID, true},
+		State:             "paid",
+		LastFour:          sql.NullString{crd.LastFour, true},
+		CardType:          sql.NullString{string(crd.Brand), true},
+		ExpMonth:          sql.NullInt64{int64(crd.Month), true},
+		ExpYear:           sql.NullInt64{int64(crd.Year), true},
+		PendingActivation: false,
 	}
 
 	err = b.Update(d)

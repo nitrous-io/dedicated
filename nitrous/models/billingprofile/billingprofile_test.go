@@ -52,6 +52,7 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(p.ID).NotTo(BeNil())
 			Expect(p.UserID).To(Equal(u.ID))
 			Expect(p.State).To(Equal("free"))
+			Expect(p.PendingActivation).To(BeTrue())
 			Expect(p.CreatedAt).NotTo(BeNil())
 			Expect(p.UpdatedAt).NotTo(BeNil())
 		})
@@ -146,6 +147,7 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(bp.CardType.String).To(Equal("Visa"))
 				Expect(bp.ExpMonth.Int64).To(Equal(int64(10)))
 				Expect(bp.ExpYear.Int64).To(Equal(int64(2018)))
+				Expect(bp.PendingActivation).To(BeFalse())
 			})
 
 			It("returns CardDeclined error, if Stripe returns a card declined error", func() {
