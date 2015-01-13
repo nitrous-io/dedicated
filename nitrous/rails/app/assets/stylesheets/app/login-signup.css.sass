@@ -12,22 +12,32 @@
     color: $n2oGray400
     margin: 32px 0 $containerPadding*5 0
 
-  .intro
+  .notice-text
     text-align: center
-    margin: 7px 0 0 0
-    font-size: 16px
 
-    .important
-      color: $green300
-      display: inline-block
+    span
+      font-weight: 500
+      color: $lightBlue800
 
-  .suggestedEmail
-    text-align: right
-    font-size: 13px
-    margin: 4px 0 0 0
+  .suggested-email
+    overflow: none
+    text-align: center
+    transition: height .3s, opacity .3s
+    height: 0
+    opacity: 0
 
-    &:hover
+    &.show
+      height: 16px
+      opacity: 1
+
+    p
       cursor: pointer
+      text-transform: none
+
+      span
+        color: $n2oGray200
+
+    &:hover span
       text-decoration: underline
 
 #login-view
