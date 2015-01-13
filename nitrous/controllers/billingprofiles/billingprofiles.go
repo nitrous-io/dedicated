@@ -18,15 +18,39 @@ var (
 	errIncorrectZip = httperror.New(http.StatusBadRequest, "incorrect_zip", "Your Zip code is incorrect. Please try again.")
 )
 
+var (
+	FreeCreditName = "Signup_Credit"
+)
+
 func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
 	cardToken := r.FormValue("card_token")
 	if cardToken == "" {
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
 	}
 
-	bp, err := env.User.ActivateBillingProfile(env.DB, cardToken)
+	existing, err := billingprofile.Find(db, env.User.ID)
+	if err != nil {
+		return err
+	}
+
+	bp, err := env.User.ActivateBillingProfile(db, cardToken)
 	if err != nil {
 		return handleBillingError(err)
+	}
+
+	// determine if this user gets a credit
+	if existing.PendingActivation && !bp.PendingActivation && bp.StripeFingerprint.String != "" {
+		var count int
+		err = db.QueryRow("SELECT COUNT(*) FROM billing_profiles WHERE stripe_fingerprint = $1;", bp.StripeFingerprint).Scan(&count)
+		if err != nil {
+			env.Logger.Errorf("Error locating similar Stripe fingerprints, err: %+v", err)
+		} else if count <= 1 {
+			_, err = db.Exec(`INSERT INTO credits(user_id, credit_type_id, amount) SELECT $1, id, default_value FROM credit_types WHERE active = true AND name = $2;`, env.User.ID, FreeCreditName)
+			if err != nil {
+				env.Logger.Errorf("Error awarding credits, err: %+v", err)
+			}
+		}
 	}
 
 	env.Status = http.StatusCreated

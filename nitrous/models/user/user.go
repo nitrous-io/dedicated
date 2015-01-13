@@ -522,6 +522,7 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 		CardType:          sql.NullString{string(crd.Brand), true},
 		ExpMonth:          sql.NullInt64{int64(crd.Month), true},
 		ExpYear:           sql.NullInt64{int64(crd.Year), true},
+		StripeFingerprint: sql.NullString{crd.Fingerprint, true},
 		PendingActivation: false,
 	}
 
