@@ -17,26 +17,17 @@ import (
 	"github.com/nitrous-io/dedicated/tender/pkg/httperror"
 )
 
-// env of the request. This should be created once for each request and valid
-// during the request duration
-type env struct {
-	host string
-}
-
-type Server struct {
+// FreighterProxyServer let user proxy requests to the freighterd host. This is
+// useful when the client want to access the freighterd's API without having to
+// instal its SSL certificates for example.
+type FreighterProxyServer struct {
 	// direct access to database so we can fetch stuffs as fast as possible
 	// FIXME:
 	// - considering replace this with distributed datastore such as etcd
 	db *sql.DB
-	// remote freighterd port
-	freighterdPort int64
 	// expected DNS based domain for host's request. Request coming from this
 	// domain will be proxied to freighterd server on that host.
-	hostBaseDomain string
-	// expected DNS based doamin for container's preview request. Request
-	// coming from this domain will be proxied to the container's host
-	// directly.
-	containerBaseDomain string
+	domain string
 	// expected domain that is used when we create the TLS certificates in webapp
 	// `nitrouspro.com`. This is used when communicating with the freighterd
 	// server on the host.
@@ -44,40 +35,16 @@ type Server struct {
 	// default tls config to talk to remote freighterd server. whenever we
 	// proxy to a server, we have to copy this and set a server name
 	tlsConfig *tls.Config
-	// store the CA so we can build freighterclient
-	ca []byte
 }
 
-// first check if the request endpoints requires authentication, then proxy it
-// to the respected host
-// This enable *Server to act as a http.Handler
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	env := &env{}
-	if err := s.proxy(env, w, r); err != nil {
-		s.handleError(w, err)
-		return
-	}
-}
-
-// Returns a `http.Handler` which can be used to proxy requests to a Nitrous.IO
-// host
-func NewServer(hostBaseDomain, containerBaseDomain, tlsDomain,
-	databaseURL string, freighterdPort int64, caBytes []byte) (http.Handler, error) {
-	log.Printf("Connecting to database %s", databaseURL)
-	db, err := sql.Open("postgres", databaseURL)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to open a db connection %v", err)
-	}
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("Failed to get a valid db connection %v", err)
-	}
-	s := &Server{
-		db:                  db,
-		freighterdPort:      freighterdPort,
-		hostBaseDomain:      hostBaseDomain,
-		containerBaseDomain: containerBaseDomain,
-		tlsDomain:           tlsDomain,
-		ca:                  caBytes,
+// Returns a `http.Handler` which can be used to proxy requests to a freighterd
+// server on a Nitrous.IO host
+func NewFreighterProxyServer(baseDomain, tlsDomain string,
+	db *sql.DB, caBytes []byte) (http.Handler, error) {
+	s := &FreighterProxyServer{
+		db:        db,
+		domain:    baseDomain,
+		tlsDomain: tlsDomain,
 	}
 	// set the default tls config for proxied connections
 	if len(caBytes) > 0 {
@@ -90,16 +57,11 @@ func NewServer(hostBaseDomain, containerBaseDomain, tlsDomain,
 	return s, nil
 }
 
-func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err error) {
-	name, domainType, err := getHostOrContainer(r.Host, s.hostBaseDomain, s.containerBaseDomain)
-	if err != nil {
-		return err
-	}
-
-	if domainType == HostDomain {
-		return s.proxyHostRequest(name, w, r)
-	} else {
-		return s.proxyContainerRequest(name, w, r)
+// ServerHTTP lets FreighterProxyServer acts as a http handler
+func (s *FreighterProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := s.proxy(w, r); err != nil {
+		handleError(w, err)
+		return
 	}
 }
 
@@ -107,7 +69,11 @@ func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err er
 // depends on the type of the request
 // - if this is a normal HTTP, use `http.ReverseProxy`
 // - if the request wants to open a websocket, use `proxyWebsocket`
-func (s *Server) proxyHostRequest(name string, w http.ResponseWriter, r *http.Request) (err error) {
+func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err error) {
+	name, err := getHost(r.Host, s.domain)
+	if err != nil {
+		return err
+	}
 	log.Printf("[INFO] request %v to %s", r, name)
 
 	// set X-FORWARDED-PORT for the request
@@ -145,11 +111,50 @@ func (s *Server) proxyHostRequest(name string, w http.ResponseWriter, r *http.Re
 	return nil
 }
 
-// proxy the request to respected boxhost. We will switch the proxy strategy
-// depends on the type of the request
-// - if this is a normal HTTP, use `http.ReverseProxy`
-// - if the request wants to open a websocket, use `proxyWebsocket`
-func (s *Server) proxyContainerRequest(name string, w http.ResponseWriter, r *http.Request) (err error) {
+// PreviewProxyServer let user proxy preview requests to the host.
+// The server is awared of the exposed ports on the host and proxy requests
+// accordingly
+type PreviewProxyServer struct {
+	// direct access to database so we can fetch stuffs as fast as possible
+	// FIXME:
+	// - considering replace this with distributed datastore such as etcd
+	db *sql.DB
+	// expected DNS based domain for host's request. Request coming from this
+	// domain will be proxied to freighterd server on that host.
+	domain string
+	// expected domain that is used when we create the TLS certificates in webapp
+	// `nitrouspro.com`. This is used when communicating with the freighterd
+	// server on the host.
+	tlsDomain string
+	// store the CA so we can build freighterclient
+	ca []byte
+}
+
+// Returns a `http.Handler` which can be used to proxy preview request to
+// a Nitrous.IO host
+func NewPreviewProxyServer(baseDomain, tlsDomain string,
+	db *sql.DB, caBytes []byte) (http.Handler, error) {
+	s := &PreviewProxyServer{
+		db:        db,
+		domain:    baseDomain,
+		tlsDomain: tlsDomain,
+		ca:        caBytes,
+	}
+	return s, nil
+}
+
+func (s *PreviewProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := s.proxy(w, r); err != nil {
+		handleError(w, err)
+		return
+	}
+}
+
+func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err error) {
+	name, err := getHost(r.Host, s.domain)
+	if err != nil {
+		return err
+	}
 	log.Printf("[INFO] request %v to %s", r, name)
 
 	// TODO: since this will likely never change, cache this here for
@@ -157,18 +162,6 @@ func (s *Server) proxyContainerRequest(name string, w http.ResponseWriter, r *ht
 	container, err := findContainer(s.db, name)
 	if err != nil {
 		return err
-	}
-
-	// copy tls config and set serverName
-	// serverName is the name we use to generate private certs on the host
-	// this must be the same as Hostname in
-	// https://github.com/nitrous-io/nitrous/blob/master/models/host/host.go
-	var tlsConfig *tls.Config
-
-	if s.tlsConfig != nil {
-		tlsConfig = &tls.Config{}
-		*tlsConfig = *s.tlsConfig
-		tlsConfig.ServerName = fmt.Sprintf("%s%s", name, s.tlsDomain)
 	}
 
 	// TODO: cache this data so we dont have to make so many roundtrips
@@ -208,7 +201,7 @@ func (s *Server) proxyContainerRequest(name string, w http.ResponseWriter, r *ht
 // This is called when the error is not a *httperror.Error*, i.e. there's
 // something wrong with the controller. We transform that error into a
 // httperror.Error and log it.
-func (s *Server) serverError(err error) error {
+func serverError(err error) error {
 	code := http.StatusInternalServerError
 	errMsg := err.Error()
 	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
@@ -218,10 +211,10 @@ func (s *Server) serverError(err error) error {
 }
 
 // handle error returned by the server HTTP Handler
-func (s *Server) handleError(w http.ResponseWriter, err error) {
+func handleError(w http.ResponseWriter, err error) {
 	e, ok := err.(*httperror.Error)
 	if !ok {
-		e = s.serverError(err).(*httperror.Error)
+		e = serverError(err).(*httperror.Error)
 	}
 	j, err := e.JSON()
 	if err != nil {

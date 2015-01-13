@@ -86,18 +86,6 @@ func setRequestHost(r *http.Request, ip net.IP, port string) string {
 	return h
 }
 
-// getHostOrContainer parse the request's domain and return the host subdomain
-// with host type when it matches the hostDomain, or the container subdomain
-// with container type when it matched the containerDomain
-func getHostOrContainer(url, hostDomain, containerDomain string) (name string, hostType int, err error) {
-	sub, err := getHost(url, hostDomain)
-	if err == ErrDomainMismatched {
-		sub, err = getHost(url, containerDomain)
-		return sub, ContainerDomain, err
-	}
-	return sub, HostDomain, err
-}
-
 // Given a request with host:
 // winterfell.yammer.nitrousapp.com:8000, it will return host name as "yammer"
 // yammer.nitrousapp.com:65333, it will return host name as "yammer"
@@ -164,14 +152,11 @@ func ServeTLS(port int64, tlsConfig *tls.Config, s http.Handler) error {
 	}
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("tender: Failed to listen to %q, error: %q", addr, err)
+		return fmt.Errorf("failed to listen to %q, error: %q", addr, err)
 	}
+
 	ln = tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
-	err = srv.Serve(ln)
-	if err != nil {
-		return fmt.Errorf("tender: Failed to serve %q, error: %q", addr, err)
-	}
-	return nil
+	return srv.Serve(ln)
 }
 
 // tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
