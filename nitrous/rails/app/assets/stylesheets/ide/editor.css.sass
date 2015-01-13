@@ -124,10 +124,13 @@
       display: flex
 
   .ide-search-view
-    display: flex
+    display: none
     flex-grow: 1
     flex-direction: column
     overflow: auto
+
+    &.active
+      display: flex
 
     .errors
       background-color: $red400
