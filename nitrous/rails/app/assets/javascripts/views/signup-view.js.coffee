@@ -1,5 +1,48 @@
 #= require mailcheck
 
+`
+var domains = [
+  /* Default domains included */
+  "aol.com", "att.net", "comcast.net", "facebook.com", "gmail.com", "gmx.com", "googlemail.com",
+  "google.com", "hotmail.com", "hotmail.co.uk", "mac.com", "me.com", "mail.com", "msn.com",
+  "live.com", "sbcglobal.net", "verizon.net", "yahoo.com", "yahoo.co.uk",
+
+  /* Other global domains */
+  "email.com", "games.com" /* AOL */, "gmx.net", "hush.com", "hushmail.com", "inbox.com",
+  "lavabit.com", "love.com" /* AOL */, "pobox.com", "rocketmail.com" /* Yahoo */,
+  "safe-mail.net", "wow.com" /* AOL */, "ygm.com" /* AOL */, "ymail.com" /* Yahoo */, "zoho.com", "fastmail.fm",
+
+  /* United States ISP domains */
+  "bellsouth.net", "charter.net", "cox.net", "earthlink.net", "juno.com",
+
+  /* British ISP domains */
+  "btinternet.com", "virginmedia.com", "blueyonder.co.uk", "freeserve.co.uk", "live.co.uk",
+  "ntlworld.com", "o2.co.uk", "orange.net", "sky.com", "talktalk.co.uk", "tiscali.co.uk",
+  "virgin.net", "wanadoo.co.uk", "bt.com",
+
+  /* Domains used in Asia */
+  "sina.com", "qq.com", "naver.com", "hanmail.net", "daum.net", "nate.com", "yahoo.co.jp", "yahoo.co.kr", "yahoo.co.id", "yahoo.co.in", "yahoo.com.sg",
+
+  /* French ISP domains */
+  "hotmail.fr", "live.fr", "laposte.net", "yahoo.fr", "wanadoo.fr", "orange.fr", "gmx.fr", "sfr.fr", "neuf.fr", "free.fr",
+
+  /* German ISP domains */
+  "gmx.de", "hotmail.de", "live.de", "online.de", "t-online.de" /* T-Mobile */, "web.de", "yahoo.de",
+
+  /* Russian ISP domains */
+  "mail.ru", "rambler.ru", "yandex.ru",
+
+  /* Belgian ISP domains */
+  "hotmail.be", "live.be", "skynet.be", "voo.be", "tvcablenet.be",
+
+  /* Argentinian ISP domains */
+  "hotmail.com.ar", "live.com.ar", "yahoo.com.ar", "fibertel.com.ar", "speedy.com.ar", "arnet.com.ar",
+
+  /* Domains used in Mexico */
+  "hotmail.com", "gmail.com", "yahoo.com.mx", "live.com.mx", "yahoo.com", "hotmail.es", "live.com", "hotmail.com.mx", "prodigy.net.mx", "msn.com"
+]
+`
+
 App.SignupView = Em.View.extend
   elementId: 'signup-view'
 
@@ -19,13 +62,14 @@ App.SignupView = Em.View.extend
 
   checkEmail: (->
     Mailcheck.run(
-      domains: ["gmail.com", "googlemail.com", "yahoo.com", "yahoomail.com", "ymail.com", "yahoo.ca", "yahoo.cn", "yahoo.co.id", "yahoo.co.in", "yahoo.co.jp", "yahoo.co.kr", "yahoo.co.nz", "yahoo.co.uk", "yahoo.de", "yahoo.dk", "yahoo.es", "yahoo.fr", "yahoo.gr", "yahoo.ie", "yahoo.in", "yahoo.it", "yahoo.pl", "yahoo.ro", "yahoo.ru", "yahoo.se", "yahoo.com.ar", "yahoo.com.au", "yahoo.com.br", "yahoo.com.cn", "yahoo.com.hk", "yahoo.com.mx", "yahoo.com.my", "yahoo.com.ph", "yahoo.com.sg", "yahoo.com.tw", "yahoo.com.vn", "hotmail.com", "live.com", "hotmail.co.uk", "hotmail.co.jp", "msn.com", "me.com", "mac.com", "icloud.com", "naver.com", "hanmail.net", "daum.net", "aol.com", "comcast.net", "facebook.com", "verizon.net", "gmx.com", "gmx.net", "gmx.de", "mail.com", "fastmail.fm", "yandex.com", "yandex.com.tr", "yandex.by", "yandex.ru", "yandex.ua"]
-      topLevelDomains: ["co.jp", "co.uk", "com", "net", "org", "info", "edu", "gov", "mil", "ru", "de", "dk", "es", "fr", "gr", "ie", "in", "pl", "ro", "se", "ca", "cn", "co.id", "co.in", "co.kr", "co.nz", "fm", "io", "ua", "com.tr"]
+      domains: domains
+      topLevelDomains: ["co.jp", "co.uk", "com", "net", "org", "info", "edu", "gov", "mil", "ru", "de", "dk", "es", "fr", "gr", "ie", "in", "pl", "ro", "se", "ca", "cn", "co.id", "co.in", "co.kr", "co.nz", "fm", "io", "ua", "com.tr", "com.sg"]
 
       email: @get('controller.user.email')
 
       suggested: (s) =>
-        @set('controller.suggestedEmail', s.full)
+        if s.full.match(/^[^@]+@[^\.]+\.[^\.]+/)
+          @set('controller.suggestedEmail', s.full)
 
       empty: (s) =>
         @set('controller.suggestedEmail', null)
