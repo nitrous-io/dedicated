@@ -5,7 +5,8 @@ namespace :build do
     locations = {
       '/public/app/index.html' => {layout: 'layouts/web_app', template: 'web_app/index'},
       '/public/ide/index.html' => {layout: 'layouts/web_app', template: 'web_app/ide'},
-      '/public/index.html' => {layout: 'layouts/pages', template: 'pages/home'},
+      '/public/index.html'     => {layout: 'layouts/pages', template: 'pages/home'},
+      '/public/pricing.html'   => {layout: 'layouts/pages', template: 'pages/pricing'},
     }
 
     build_dir = ENV['BUILD_DIR']
