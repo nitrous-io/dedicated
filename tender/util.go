@@ -1,6 +1,7 @@
 package tender
 
 import (
+	"crypto/sha1"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	freighterconfig "github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/tender/pkg/httperror"
 )
 
 const (
@@ -24,11 +26,37 @@ var (
 	DefaultEndPort   = freighterconfig.MaxPreviewPort
 
 	ErrDomainMismatched = errors.New("mismatched domain")
+
+	portMap = map[string]int{
+		"http":  80,
+		"https": 443,
+	}
 )
 
-var portMap = map[string]int{
-	"http":  80,
-	"https": 443,
+// This is called when the error is not a *httperror.Error*, i.e. there's
+// something wrong with the controller. We transform that error into a
+// httperror.Error and log it.
+func serverError(err error) error {
+	code := http.StatusInternalServerError
+	errMsg := err.Error()
+	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
+	e := httperror.New(code, "internal_server_error", "", errHash)
+	log.Printf("[ERROR] %s %s %s", errHash, errMsg, e.Error())
+	return e
+}
+
+// handle error returned by the server HTTP Handler
+func handleError(w http.ResponseWriter, err error) {
+	e, ok := err.(*httperror.Error)
+	if !ok {
+		e = serverError(err).(*httperror.Error)
+	}
+	j, err := e.JSON()
+	if err != nil {
+		j = []byte(`{"error":"internal_server_error"}`)
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	http.Error(w, string(j), e.Code)
 }
 
 // getPublicFreighterdPort parses the output of freighterd's port list for a
