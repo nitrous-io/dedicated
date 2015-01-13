@@ -11,3 +11,8 @@ pages.Home =
 
       window.setInterval(transition, 6000)
       transition()
+
+      $("form#getstarted").submit (event)->
+        email = $(event.target).find("[name='incomingEmail']").val()
+        event.preventDefault()
+        window.location.replace('/app#/signup?incomingEmail=' + email)

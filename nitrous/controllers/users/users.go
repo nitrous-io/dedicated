@@ -10,6 +10,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/emailcapture"
 	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -25,6 +26,34 @@ var (
 	}
 	reconfirmInvalidUser = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 )
+
+func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	// success no matter what
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+	}
+
+	email := r.FormValue("email")
+	// mock user to make use of simulated Email checks
+	u := &user.User{
+		Email: email,
+	}
+	validation := u.Validate()
+	if validation == user.ErrEmailBlank || validation == user.ErrEmailInvalid {
+		return nil
+	}
+
+	rec := &emailcapture.EmailCapture{
+		Email: email,
+	}
+	err := rec.Insert(env.DB)
+	if err != nil {
+		env.Logger.Errorf("Error recording '%s', err: %v", email, err)
+	}
+
+	return nil
+}
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB

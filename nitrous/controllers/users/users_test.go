@@ -78,6 +78,52 @@ var _ = Describe("controllers/users", func() {
 		}
 	})
 
+	Describe("POST /api/v0/users/email_signup", func() {
+		doRequest := func() {
+			var err error
+			req, err = NewFormRequest("POST", "/api/v0/users/email_signup", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("should respond OK if no email is provided", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			j := map[string]string{}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["status"]).To(Equal("ok"))
+		})
+
+		It("should respond OK if the email is invalid", func() {
+			params = &url.Values{}
+			params.Set("email", "foo.com")
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			j := map[string]string{}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["status"]).To(Equal("ok"))
+		})
+
+		It("should create an email record if the email is fine", func() {
+			params = &url.Values{}
+			params.Set("email", "bar@foo.com")
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			j := map[string]string{}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["status"]).To(Equal("ok"))
+
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM email_captures WHERE email_address = $1;`, "bar@foo.com").Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+		})
+
+	})
+
 	Describe("POST /api/v0/users", func() {
 		doRequest := func() {
 			var err error

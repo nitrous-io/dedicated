@@ -12,6 +12,34 @@
     color: $n2oGray400
     margin: 32px 0 $containerPadding*5 0
 
+  .notice-text
+    text-align: center
+
+    span
+      font-weight: 500
+      color: $lightBlue800
+
+  .suggested-email
+    overflow: none
+    text-align: center
+    transition: height .3s, opacity .3s
+    height: 0
+    opacity: 0
+
+    &.show
+      height: 16px
+      opacity: 1
+
+    p
+      cursor: pointer
+      text-transform: none
+
+      span
+        color: $n2oGray200
+
+    &:hover span
+      text-decoration: underline
+
 #login-view
   .shake
     position: relative

@@ -17,6 +17,7 @@ var (
 	HostBuilderURL     string
 	HostHostname       string
 	MixpanelToken      string
+	NewUserCredit      string
 	NitrousPgUrl       string
 	NoSSLVerify        string
 	ProxyHostname      string
