@@ -65,6 +65,7 @@ type User struct {
 	LoginAttempts  int           `db:"login_attempts" json:"-"`
 	InviteCodeID   sql.NullInt64 `db:"invite_code_id" json:"-"`
 	Admin          bool          `db:"admin" json:"admin"`
+	ServiceAccount bool          `db:"service_account" json:"-"`
 	BillingEnabled bool          `db:"billing_enabled" json:"billing_enabled"`
 
 	ResetPasswordToken  sql.NullString `db:"reset_password_token" json:"-"`
@@ -272,7 +273,7 @@ func (u *User) isPaid(d db.QueryReceiver) (bool, error) {
 
 func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 	// admins have free reign
-	if u.Admin {
+	if u.Admin || u.ServiceAccount {
 		return true, nil
 	}
 

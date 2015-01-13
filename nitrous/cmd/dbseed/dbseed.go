@@ -72,7 +72,7 @@ func users(d db.QueryReceiver) error {
 	}
 	users := []user.User{
 		{Username: "admin", Email: "admins@nitrous.io", Admin: true},
-		{Username: "host-provisioner", Email: "eng@nitrous.io", Admin: true},
+		{Username: "host-provisioner", Email: "eng@nitrous.io", Admin: false, ServiceAccount: true},
 	}
 	for _, u := range users {
 		pass, err := securerandom.Base64(12)

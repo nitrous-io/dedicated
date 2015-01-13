@@ -722,5 +722,11 @@ func init() {
 				ALTER TABLE credit_types ADD COLUMN default_value bigint NOT NULL DEFAULT 0;
 			`,
 		},
+		{
+			Version: "610",
+			Up: `
+				ALTER TABLE users ADD COLUMN service_account bool DEFAULT FALSE;
+			`,
+		},
 	}
 }
