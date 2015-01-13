@@ -241,6 +241,7 @@ func (ctx *createContext) run(env *middleware.Env, writer io.Writer, async bool,
 		h.IPAddress = sql.NullString{info.IPAddress, true}
 		h.ProviderIdentifier = sql.NullString{info.ID, true}
 		h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+		h.RegionSlug = sql.NullString{info.RegionID, true}
 		h.State = host.StateRunning
 
 		if err = h.Update(db); err != nil {

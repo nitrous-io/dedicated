@@ -10,6 +10,14 @@
       "api_key": "",
       "token": ""
     },
+    "gce": {
+      "private_key": "",
+      "client_email": "",
+      "client_id": "",
+      "auth_uri": "",
+      "token_uri": "",
+      "project_id": ""
+    },
     "docker": {
       "freighterd_location": "/home/vagrant/workspace/dedicated/build/freighterd"
     }

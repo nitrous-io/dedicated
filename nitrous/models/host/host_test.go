@@ -315,6 +315,7 @@ var _ = Describe("models/host", func() {
 			h.ProviderIdentifier = sql.NullString{"digitalocean", true}
 			h.MaxContainers = sql.NullInt64{2, true}
 			h.FreighterdPort = sql.NullInt64{60000, true}
+			h.RegionSlug = sql.NullString{"asia-east1-c", true}
 			err := h.Update(db)
 			Expect(err).To(BeNil())
 
@@ -330,6 +331,7 @@ var _ = Describe("models/host", func() {
 			Expect(h2.ProviderIdentifier.String).To(Equal("digitalocean"))
 			Expect(h2.MaxContainers.Int64).To(Equal(int64(2)))
 			Expect(h2.FreighterdPort.Int64).To(Equal(int64(60000)))
+			Expect(h2.RegionSlug.String).To(Equal("asia-east1-c"))
 
 			// Unchanged fields.
 			Expect(h2.UserID).To(Equal(hs.U.ID))
