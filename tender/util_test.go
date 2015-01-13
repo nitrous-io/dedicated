@@ -41,6 +41,22 @@ var _ = Describe("hostToIP", func() {
 	})
 })
 
+var _ = Describe("getPublicFreighterdPort", func() {
+	It("gets the first public port mapped to the wanted port", func() {
+		ports := map[string][]string{
+			"4000": {"private:8080:4000"},
+			"3000": {"public:46521:3000", "public:8080:3000", "private:1000:3000"},
+			"5000": {"public:40000:5000", "private:1000:3000"},
+		}
+
+		p, _ := getPublicFreighterdPort(ports, "3000")
+		Expect(p).To(Equal("46521"), "expect the first public port")
+
+		_, err := getPublicFreighterdPort(ports, "4000")
+		Expect(err).To(HaveOccurred(), "expect to return error for only private port")
+	})
+})
+
 var _ = Describe("getHost", func() {
 	It("returns the host's name when domain contains only host", func() {
 		var h string

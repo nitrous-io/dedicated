@@ -26,6 +26,29 @@ var portMap = map[string]int{
 	"https": 443,
 }
 
+// getPublicFreighterdPort parses the output of freighterd's port list for a
+// container, looking for the wanted port. If the wanted port does have a
+// mapped public port then returns the public port, otherwise returns an error
+func getPublicFreighterdPort(ports map[string][]string, wantedPort string) (string, error) {
+	exposedPorts, ok := ports[wantedPort]
+	if !ok {
+		return "", fmt.Errorf("port %s is not exposed", wantedPort)
+	}
+	for _, portString := range exposedPorts {
+		parts := strings.Split(portString, ":")
+		if len(parts) != 3 {
+			return "", fmt.Errorf("exposed ports %s is invalid", portString)
+		}
+		if parts[1] == "" {
+			return "", fmt.Errorf("exposed ports %s is invalid", portString)
+		}
+		if parts[0] == "public" {
+			return parts[1], nil
+		}
+	}
+	return "", fmt.Errorf("port %s is not exposed publicly", wantedPort)
+}
+
 // parsePort returns the port of an HTTP request. If there is no port specified
 // in the request, 80 or 443 (HTTPS) is assumed.
 func parsePort(req *http.Request) int {
