@@ -14,6 +14,11 @@ import (
 	freighterconfig "github.com/nitrous-io/dedicated/freighter/config"
 )
 
+const (
+	HostDomain = iota
+	ContainerDomain
+)
+
 var (
 	DefaultStartPort = freighterconfig.MinPreviewPort
 	DefaultEndPort   = freighterconfig.MaxPreviewPort
@@ -72,10 +77,25 @@ func parsePort(req *http.Request) int {
 // The "Host" header is preserved so that receiver will correctly recognize the
 // original host instead of the ip address
 func hostToIP(req *http.Request, ip net.IP, port int) string {
-	// Change Host to "IP:Port".
-	h := net.JoinHostPort(ip.String(), strconv.Itoa(port))
-	req.URL.Host = h
+	return setRequestHost(req, ip, strconv.Itoa(port))
+}
+
+func setRequestHost(r *http.Request, ip net.IP, port string) string {
+	h := net.JoinHostPort(ip.String(), port)
+	r.URL.Host = h
 	return h
+}
+
+// getHostOrContainer parse the request's domain and return the host subdomain
+// with host type when it matches the hostDomain, or the container subdomain
+// with container type when it matched the containerDomain
+func getHostOrContainer(url, hostDomain, containerDomain string) (name string, hostType int, err error) {
+	sub, err := getHost(url, hostDomain)
+	if err == ErrDomainMismatched {
+		sub, err = getHost(url, containerDomain)
+		return sub, ContainerDomain, err
+	}
+	return sub, HostDomain, err
 }
 
 // Given a request with host:

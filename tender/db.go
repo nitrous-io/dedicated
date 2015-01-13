@@ -14,31 +14,56 @@ const (
 	`
 
 	containerQuery = `
-	SELECT hosts.ip_address, hosts.freighterd_port
-	FROM hosts INNER JOIN containers ON containers.host_id = hosts.id
+	SELECT containers.cid, hosts.slug, hosts.ip_address, hosts.freighterd_port, hosts.secret
+	FROM containers INNER JOIN hosts ON containers.host_id = hosts.id
 	WHERE containers.slug = $1
 	`
 )
 
-// hostIP returns ip address and port number of a host given its unique slug
-func hostIP(db *sql.DB, slug string) (net.IP, int, error) {
+type Host struct {
+	IP   net.IP
+	Port int
+	Slug string
+}
+
+// findHost returns the host data given its unique slug
+func findHost(db *sql.DB, slug string) (*Host, error) {
 	var ip string
 	var port int
 	err := db.QueryRow(hostQuery, slug).Scan(&ip, &port)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	return net.ParseIP(ip), port, nil
+	return &Host{
+		Slug: slug,
+		IP:   net.ParseIP(ip),
+		Port: port,
+	}, nil
 }
 
-// containerIP returns ip address and freighterd port number of its host given
-// its unique slug
-func containerIP(db *sql.DB, slug string) (net.IP, int, error) {
-	var ip string
+type Container struct {
+	CID        string
+	Slug       string
+	HostSlug   string
+	HostIP     net.IP
+	HostPort   int
+	HostSecret string
+}
+
+// findContainer returns the container data given its unique slug
+func findContainer(db *sql.DB, slug string) (*Container, error) {
+	var cid, ip, hostSlug, secret string
 	var port int
-	err := db.QueryRow(containerQuery, slug).Scan(&ip, &port)
+	err := db.QueryRow(containerQuery, slug).Scan(&cid, &hostSlug, &ip, &port, &secret)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	return net.ParseIP(ip), port, nil
+	return &Container{
+		CID:        cid,
+		Slug:       slug,
+		HostSlug:   hostSlug,
+		HostIP:     net.ParseIP(ip),
+		HostPort:   port,
+		HostSecret: secret,
+	}, nil
 }

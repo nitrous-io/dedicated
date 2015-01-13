@@ -17,24 +17,27 @@ var _ = Describe("db", func() {
 		loadFixtures(db)
 	})
 
-	Describe("hostIP", func() {
-		It("returns hosts with the provided name", func() {
-			ip, port, _ := hostIP(db, "oldapp")
-			Expect(ip.String()).To(Equal("10.0.0.1"), "Expect to get host ip given a valid name")
-			Expect(port).To(Equal(10001), "Expect to get port given a valid name")
+	Describe("findHost", func() {
+		It("returns the host with the provided name", func() {
+			host, _ := findHost(db, "oldapp")
+			Expect(host.IP.String()).To(Equal("10.0.0.1"), "Expect to get host ip given a valid name")
+			Expect(host.Port).To(Equal(10001), "Expect to get port given a valid name")
 
-			_, _, err := hostIP(db, "invalid name")
+			_, err := findHost(db, "invalid name")
 			Expect(err).ToNot(BeNil(), "Expect to get err when name is invalid")
 		})
 	})
 
-	Describe("containerIP", func() {
-		It("return the container's host IP and freighterd port", func() {
-			ip, port, _ := containerIP(db, "rails-app")
-			Expect(ip.String()).To(Equal("10.0.0.1"), "Expect to get host ip given a valid name")
-			Expect(port).To(Equal(10001), "Expect to get port given a valid name")
+	Describe("findContainer", func() {
+		It("return the container with the provided name", func() {
+			container, _ := findContainer(db, "rails-app")
+			Expect(container.Slug).To(Equal("rails-app"), "Expect to get correct container")
+			Expect(container.HostSlug).ToNot(BeEmpty(), "Expect to get the host slug")
+			Expect(container.HostIP.String()).To(Equal("10.0.0.1"), "Expect to get host ip given a valid name")
+			Expect(container.HostPort).To(Equal(10001), "Expect to get port given a valid name")
+			Expect(container.HostSecret).ToNot(BeEmpty(), "Expect to get host secret")
 
-			_, _, err := hostIP(db, "invalid name")
+			_, err := findContainer(db, "invalid name")
 			Expect(err).ToNot(BeNil(), "Expect to get err when name is invalid")
 		})
 	})

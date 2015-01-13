@@ -7,12 +7,12 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"strconv"
 
 	_ "github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 	"github.com/nitrous-io/dedicated/tender/pkg/httperror"
 )
@@ -44,6 +44,8 @@ type Server struct {
 	// default tls config to talk to remote freighterd server. whenever we
 	// proxy to a server, we have to copy this and set a server name
 	tlsConfig *tls.Config
+	// store the CA so we can build freighterclient
+	ca []byte
 }
 
 // first check if the request endpoints requires authentication, then proxy it
@@ -75,6 +77,7 @@ func NewServer(hostBaseDomain, containerBaseDomain, tlsDomain,
 		hostBaseDomain:      hostBaseDomain,
 		containerBaseDomain: containerBaseDomain,
 		tlsDomain:           tlsDomain,
+		ca:                  caBytes,
 	}
 	// set the default tls config for proxied connections
 	if len(caBytes) > 0 {
@@ -88,20 +91,24 @@ func NewServer(hostBaseDomain, containerBaseDomain, tlsDomain,
 }
 
 func (s *Server) proxy(env *env, w http.ResponseWriter, r *http.Request) (err error) {
-	hostName, err := getHost(r.Host, s.hostBaseDomain)
+	name, domainType, err := getHostOrContainer(r.Host, s.hostBaseDomain, s.containerBaseDomain)
 	if err != nil {
 		return err
 	}
 
-	return s.proxyHostRequest(hostName, w, r)
+	if domainType == HostDomain {
+		return s.proxyHostRequest(name, w, r)
+	} else {
+		return s.proxyContainerRequest(name, w, r)
+	}
 }
 
 // proxy the request to respected boxhost. We will switch the proxy strategy
 // depends on the type of the request
 // - if this is a normal HTTP, use `http.ReverseProxy`
 // - if the request wants to open a websocket, use `proxyWebsocket`
-func (s *Server) proxyHostRequest(hostName string, w http.ResponseWriter, r *http.Request) (err error) {
-	log.Printf("[INFO] request %v to %s", r, hostName)
+func (s *Server) proxyHostRequest(name string, w http.ResponseWriter, r *http.Request) (err error) {
+	log.Printf("[INFO] request %v to %s", r, name)
 
 	// set X-FORWARDED-PORT for the request
 	fp := strconv.Itoa(parsePort(r))
@@ -110,13 +117,13 @@ func (s *Server) proxyHostRequest(hostName string, w http.ResponseWriter, r *htt
 
 	// get host id and host ip
 	// host ip will be the new destination for current request
-	var ip net.IP
-	var port int
-	ip, port, err = hostIP(s.db, hostName)
+	// TODO: since this will never change, cache this here for the duration of
+	// the server
+	host, err := findHost(s.db, name)
 	if err != nil {
 		return err
 	}
-	host := hostToIP(r, ip, port)
+	dest := hostToIP(r, host.IP, host.Port)
 
 	// copy tls config and set serverName
 	// serverName is the name we use to generate private certs on the host
@@ -127,13 +134,73 @@ func (s *Server) proxyHostRequest(hostName string, w http.ResponseWriter, r *htt
 	if s.tlsConfig != nil {
 		tlsConfig = &tls.Config{}
 		*tlsConfig = *s.tlsConfig
-		tlsConfig.ServerName = fmt.Sprintf("%s%s", hostName, s.tlsDomain)
+		tlsConfig.ServerName = fmt.Sprintf("%s%s", name, s.tlsDomain)
 	}
 
 	if proxy.IsWebsocket(r) {
-		proxy.ProxyWebsocket(host, tlsConfig)(w, r)
+		proxy.ProxyWebsocket(dest, tlsConfig)(w, r)
 	} else {
-		proxy.ProxyHTTP(host, tlsConfig)(w, r)
+		proxy.ProxyHTTP(dest, tlsConfig)(w, r)
+	}
+	return nil
+}
+
+// proxy the request to respected boxhost. We will switch the proxy strategy
+// depends on the type of the request
+// - if this is a normal HTTP, use `http.ReverseProxy`
+// - if the request wants to open a websocket, use `proxyWebsocket`
+func (s *Server) proxyContainerRequest(name string, w http.ResponseWriter, r *http.Request) (err error) {
+	log.Printf("[INFO] request %v to %s", r, name)
+
+	// TODO: since this will likely never change, cache this here for
+	// a long time i.e. (server duration ?)
+	container, err := findContainer(s.db, name)
+	if err != nil {
+		return err
+	}
+
+	// copy tls config and set serverName
+	// serverName is the name we use to generate private certs on the host
+	// this must be the same as Hostname in
+	// https://github.com/nitrous-io/nitrous/blob/master/models/host/host.go
+	var tlsConfig *tls.Config
+
+	if s.tlsConfig != nil {
+		tlsConfig = &tls.Config{}
+		*tlsConfig = *s.tlsConfig
+		tlsConfig.ServerName = fmt.Sprintf("%s%s", name, s.tlsDomain)
+	}
+
+	// TODO: cache this data so we dont have to make so many roundtrips
+	fhost := freighterclient.NewHost(
+		container.HostIP.String(),
+		container.HostPort,
+		fmt.Sprintf("%s%s", container.HostSlug, s.tlsDomain),
+		s.ca,
+	)
+	fclient, err := freighterclient.NewClient(fhost, container.HostSecret)
+	if err != nil {
+		return fmt.Errorf("failed to initialize freighter client for %s: %v", container.Slug, err)
+	}
+	info, err := fclient.Info(container.CID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch container info %s: %v", container.Slug, err)
+	}
+
+	// set X-FORWARDED-PORT for the request
+	fp := strconv.Itoa(parsePort(r))
+	r.Header.Set(config.ForwardPortHeader, fp)
+	publicPort, err := getPublicFreighterdPort(info.Ports, fp)
+	if err != nil {
+		return err
+	}
+
+	dest := setRequestHost(r, container.HostIP, publicPort)
+
+	if proxy.IsWebsocket(r) {
+		proxy.ProxyWebsocket(dest, nil)(w, r)
+	} else {
+		proxy.ProxyHTTP(dest, nil)(w, r)
 	}
 	return nil
 }

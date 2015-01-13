@@ -57,6 +57,32 @@ var _ = Describe("getPublicFreighterdPort", func() {
 	})
 })
 
+var _ = Describe("getHostOrContainer", func() {
+	It("returns the host's name when receives a host domain", func() {
+		var sub string
+		var t int
+		sub, t, _ = getHostOrContainer("yammer.n2oproxy.com:65333", ".n2oproxy.com", ".n2oapp.com")
+		Expect(sub).To(Equal("yammer"), "Expect to get correct host's name")
+		Expect(t).To(Equal(HostDomain), "Expect type to be host domain")
+
+		sub, t, _ = getHostOrContainer("dropbox.n2oproxy.com", ".n2oproxy.com", ".n2oapp.com")
+		Expect(sub).To(Equal("dropbox"), "Expect to get correct host's name")
+		Expect(t).To(Equal(HostDomain), "Expect type to be host domain")
+	})
+
+	It("returns the container's name when receives a container domain", func() {
+		var sub string
+		var t int
+		sub, t, _ = getHostOrContainer("yammer.n2oapp.com:65333", ".n2oproxy.com", ".n2oapp.com")
+		Expect(sub).To(Equal("yammer"), "Expect to get correct host's name")
+		Expect(t).To(Equal(ContainerDomain), "Expect type to be host domain")
+
+		sub, t, _ = getHostOrContainer("dropbox.n2oapp.com", ".n2oproxy.com", ".n2oapp.com")
+		Expect(sub).To(Equal("dropbox"), "Expect to get correct host's name")
+		Expect(t).To(Equal(ContainerDomain), "Expect type to be host domain")
+	})
+})
+
 var _ = Describe("getHost", func() {
 	It("returns the host's name when domain contains only host", func() {
 		var h string
@@ -67,7 +93,7 @@ var _ = Describe("getHost", func() {
 		Expect(h).To(Equal("dropbox"), "Expect to get correct host's name")
 	})
 
-	It("returns the host's name when domain contains container name", func() {
+	It("returns the host's name when domain contains several subdomains", func() {
 		var h string
 		h, _ = getHost("hello.yammer.nitrousapp.com:65333", ".nitrousapp.com")
 		Expect(h).To(Equal("yammer"), "Expect to get correct host's name")
