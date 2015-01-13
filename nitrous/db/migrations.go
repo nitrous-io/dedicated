@@ -708,5 +708,12 @@ func init() {
 				);
 			`,
 		},
+		{
+			Version: "590",
+			Up: `
+				ALTER TABLE users ALTER COLUMN billing_enabled SET DEFAULT TRUE;
+				ALTER TABLE user_profiles ALTER COLUMN max_hosts SET DEFAULT 3;
+			`,
+		},
 	}
 }

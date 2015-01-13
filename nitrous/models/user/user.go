@@ -271,16 +271,21 @@ func (u *User) isPaid(d db.QueryReceiver) (bool, error) {
 }
 
 func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
+	// admins have free reign
+	if u.Admin {
+		return true, nil
+	}
+
 	// check if the user is a paid user
 	paid, err := u.isPaid(d)
 	if err != nil {
 		return false, err
 	}
-	if paid {
-		return true, nil
+	if !paid {
+		return false, nil
 	}
 
-	// user is not a paid user, check the max hosts she can create
+	// user is a paid user, ensure max_hosts limit has not been reached
 	var b bool
 	err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
 		FROM users u

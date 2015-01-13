@@ -426,7 +426,7 @@ var _ = Describe("models/user", func() {
 				Expect(err).To(BeNil())
 				Expect(up.ID).NotTo(BeNil())
 				Expect(up.UserID).To(Equal(u.ID))
-				Expect(up.MaxHosts).To(Equal(int64(1)))
+				Expect(up.MaxHosts).To(Equal(int64(3)))
 				Expect(up.CreatedAt).NotTo(BeNil())
 				Expect(up.UpdatedAt).NotTo(BeNil())
 			})
@@ -648,9 +648,15 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("returns true, for paid users", func() {
-			// Set user's billing profile to paid
-			_, err := db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
+		It("returns true, for admin users", func() {
+			u.Admin = true
+			b, err := u.CanCreateHosts(db)
+			Expect(err).To(BeNil())
+			Expect(b).To(BeTrue())
+		})
+
+		It("returns false, for non paid users", func() {
+			_, err := db.Exec(`UPDATE billing_profiles SET state = 'free' WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
 			// add 2 hosts, so we know it's not the MAX_HOSTS check lets him in.
@@ -667,10 +673,15 @@ var _ = Describe("models/user", func() {
 
 			b, err := u.CanCreateHosts(db)
 			Expect(err).To(BeNil())
-			Expect(b).To(BeTrue())
+			Expect(b).To(BeFalse())
 		})
 
-		Context("for a free account", func() {
+		Context("for a paid user account", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+			})
+
 			It("returns false, when owned hosts == max hosts", func() {
 				hs, err := CreateHostStack(db, &HostStack{U: u})
 				Expect(err).To(BeNil())

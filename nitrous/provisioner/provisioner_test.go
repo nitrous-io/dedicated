@@ -237,6 +237,9 @@ var _ = Describe("provisioner", func() {
 			err = t.Insert(db)
 			Expect(err).To(BeNil())
 
+			_, err = db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
 			// Fake update response from Hostbuilder.
 			rt = &test.FakeRoundTripper{
 				Message: `
