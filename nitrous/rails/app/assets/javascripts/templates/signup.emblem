@@ -46,7 +46,7 @@
       .ui.input-group
         label.field-label for='signup-password'
           | Password
-        = input type='password' id='signup-password' classNameBindings='view.passwordFieldInvalid:error' disabled=signingUp value=user.password
+        = input type='password' id='signup-password' classNameBindings='view.passwordFieldInvalid:error' title=view.passwordInputTitle pattern=view.passwordInputPattern disabled=signingUp value=user.password
 
     .card-footer
       .right

@@ -12,7 +12,10 @@ pages.Home =
       window.setInterval(transition, 6000)
       transition()
 
-      $("form#getstarted").submit (event)->
-        email = $(event.target).find("[name='incomingEmail']").val()
-        event.preventDefault()
-        window.location.replace('/app#/signup?incomingEmail=' + email)
+    $("#get-started").submit (event) ->
+      event.preventDefault()
+      url = '/app#/signup'
+      if email = $(event.target).find("[name='email']").val()
+        url += "?email=#{encodeURIComponent(email)}"
+      # set href instead of replace to preserve history (navigate instead of redirect)
+      window.location.href = url

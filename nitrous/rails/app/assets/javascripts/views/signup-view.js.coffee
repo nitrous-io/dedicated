@@ -46,6 +46,9 @@ var domains = [
 App.SignupView = Em.View.extend
   elementId: 'signup-view'
 
+  passwordInputPattern: '.{6,}'
+  passwordInputTitle: 'Minimum 6 characters'
+
   codeFieldInvalid:     Em.computed.equal('controller.invalidField', 'code')
   usernameFieldInvalid: Em.computed.equal('controller.invalidField', 'username')
   emailFieldInvalid:    Em.computed.equal('controller.invalidField', 'email')
@@ -57,7 +60,8 @@ App.SignupView = Em.View.extend
 
   focusInvalidField: (->
     if field = @get 'controller.invalidField'
-      @$("#signup-#{field}").focus()
+      Em.run.schedule 'afterRender', this, ->
+        @$("#signup-#{field}").select().focus()
   ).observes('controller.invalidField')
 
   checkEmail: (->
@@ -75,3 +79,8 @@ App.SignupView = Em.View.extend
         @set('controller.suggestedEmail', null)
     )
   ).observes('controller.user.email')
+
+  didInsertElement: ->
+    @_super.apply this, arguments
+    Em.run.schedule 'afterRender', this, ->
+      @$('#signup-username').select().focus()

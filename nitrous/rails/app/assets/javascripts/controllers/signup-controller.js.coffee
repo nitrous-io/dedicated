@@ -1,5 +1,5 @@
 App.SignupController = Em.Controller.extend
-  queryParams: ['incomingEmail']
+  queryParams: [{ incomingEmail: 'email' }]
   code: null
   user: null
   signingUp: false
@@ -15,12 +15,12 @@ App.SignupController = Em.Controller.extend
       error: null
       invalidField: null
 
-  submitEmail: ->
-    if @get("incomingEmail") && @get("incomingEmail").length > 0
-      @get('user').set('email', @get('incomingEmail'))
-      data =
-        email: @get('incomingEmail')
-      App.User.adapter.ajax('POST', '/users/email_signup', data)
+  handleIncomingEmail: ->
+    return unless email = @get("incomingEmail")
+    @get('user').setProperties
+      email: email
+      username: email.match(/^([^@]+)@/)?[1]
+    App.User.adapter.ajax('POST', '/users/email_signup', email: email)
 
   actions:
     acceptSuggestedEmail: ->
