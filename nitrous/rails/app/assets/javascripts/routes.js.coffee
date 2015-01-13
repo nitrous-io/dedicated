@@ -5,6 +5,7 @@ App.Router.map ->
   @route 'forgot-password'
   @route 'reset-password'
   @route 'confirm-email'
+  @route 'pricing'
 
   @resource 'home', path: '/', ->
     @resource 'containers', path: '/applications', ->

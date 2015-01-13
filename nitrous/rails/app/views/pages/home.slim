@@ -5,12 +5,12 @@
   javascript:
     // redirect to web app if logged in
     if(localStorage.getItem('token')) {
-       window.location.replace('/app')
+       window.location.replace('/app');
     }
 
 - content_for :body_after
   javascript:
-    pages.Home.init()
+    pages.Home.init();
 
 
 #home

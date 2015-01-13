@@ -1,0 +1,127 @@
+@import 'variables'
+
+#pricing-view
+  .wrapper.container
+    margin: 16px auto
+
+  .ui.card
+    .card-body.bordered:first-of-type
+      border-top: none
+
+.pricing-table
+  .narrow-body
+    max-width: 784px
+    margin: 0 auto
+
+  ul.plans
+    display: flex
+    flex-direction: row
+    justify-content: space-between
+    margin: 16px 0
+    padding: 0
+    list-style: none
+
+    > li
+      position: relative
+      width: 240px
+      text-align: center
+      background: $n2oGray200
+      color: black
+      border-radius: 2px
+      box-shadow: 0 1px 0 $n2oGray850
+
+      h4
+        margin: 0
+        color: $n2oGray800
+        text-transform: uppercase
+        font-size: 14px
+        letter-spacing: 1px
+        font-weight: 500
+        padding: 12px
+        line-height: 1
+
+      h3
+        font-size: 30px
+        color: $lightBlue900
+        background: $n2oGray100
+        font-weight: 300
+        padding: 16px
+        margin: 0
+        line-height: 1
+
+        span
+          font-size: 18px
+          color: $n2oGray900
+
+      .content
+        padding: 16px
+
+      ul.features
+        margin: 0
+        padding: 0
+        list-style: none
+        margin-bottom: 16px
+
+        > li
+          margin-bottom: 8px
+
+          &.max-containers
+            margin-bottom: 20px
+
+            span
+              font-weight: bold
+
+      button
+        width: 100%
+
+      .ribbon
+        position: absolute
+        top: -1px
+        right: -1px
+        overflow: hidden
+        height: 86px
+        pointer-events: none
+
+        p
+          margin: 0
+          transform: rotateZ(45deg) translateX(47px) translateY(-16px)
+          text-transform: uppercase
+          font-size: 10px
+          font-weight: 600
+          line-height: 1
+          background: $lightBlue400
+          padding: 8px 40px 6px 40px
+          box-shadow: 1px 1px 0 rgba(0, 0, 0, .15)
+
+  .description
+    padding: 16px
+
+    h4
+      text-transform: uppercase
+      text-align: center
+      font-weight: 300
+      font-size: 14px
+      letter-spacing: 2px
+      margin: 0 0 24px 0
+
+    .features
+      display: flex
+      flex-direction: row
+
+      ul
+        flex-grow: 1
+        margin: 0
+        padding-left: 24px
+        list-style: none
+
+        > li
+          margin-bottom: 8px
+          font-size: 14px
+
+          &:before
+            position: absolute
+            content: '\f00c'
+            font-family: 'FontAwesome'
+            margin-left: -24px
+            margin-top: 3px
+            color: $green300
