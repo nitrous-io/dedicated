@@ -51,16 +51,6 @@ App.SearchResults = App.TabContent.extend
       ].join(' ')
   ).property 'fileCount', 'matchCount', 'completed', 'term'
 
-  completedStatus: (->
-    return unless @get('completed')
-    [
-        'Search completed:'
-        App.util.pluralize @get('matchCount'), 'match', 'matches'
-        'in'
-        App.util.pluralize @get('fileCount'), 'file', 'files'
-    ].join(' ')
-  ).property 'fileCount', 'matchCount', 'completed'
-
   addSearchResults: (newResults) ->
     _.each newResults, (res) =>
       # file: "test.rb", matches: [content: "import foofoo", row: 1, count: 2]
