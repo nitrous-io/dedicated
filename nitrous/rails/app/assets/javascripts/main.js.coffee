@@ -110,6 +110,10 @@ window.Lib = Ember.Namespace.create()
 App.on 'load', ->
   App.__container__.lookup('adapter:application') # init app adapter class
   App.set 'snackbar', App.Snackbar.create()
+  App.set 'regions', App.Region.fetch().value
+  App.set 'plans', App.Plan.fetch().value
+  App.set 'baseImages', App.BaseImage.fetch().value
+  App.set 'templates', App.Template.fetch().value
 
 App.on 'fetchUser', (user) ->
   App.set 'user', user
@@ -166,14 +170,6 @@ $(document).on 'click', '.click-highlight', (e) ->
 Em.Route.reopen
   activate: ->
     App.set 'title', null
-    if !App.get('regions')
-      App.set 'regions', App.Region.fetch().value
-    if !App.get('plans')
-      App.set 'plans', App.Plan.fetch().value
-    if !App.get('baseImages')
-      App.set 'baseImages', App.BaseImage.fetch().value
-    if !App.get('templates')
-      App.set 'templates', App.Template.fetch().value
 
   beforeModel: (transition) ->
     @_super.apply this, arguments

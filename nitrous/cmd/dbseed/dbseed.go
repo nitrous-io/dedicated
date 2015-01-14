@@ -9,7 +9,6 @@ import (
 	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
-	"github.com/nitrous-io/dedicated/nitrous/models/baseimage"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
@@ -32,7 +31,7 @@ func init() {
 
 type SeedFn func(db.QueryReceiver) error
 
-var seeds = []SeedFn{users, regions, plans, providertemplates, baseImages, templates, creditTypes}
+var seeds = []SeedFn{users, regions, plans, providertemplates, templates}
 
 func main() {
 	dbURL := envvars.NitrousPgUrl
@@ -180,7 +179,7 @@ func providertemplates(d db.QueryReceiver) error {
 	return nil
 }
 
-func baseImages(d db.QueryReceiver) error {
+/*func baseImages(d db.QueryReceiver) error {
 	ok, err := shouldSeed(d, "base_images")
 	if err != nil || !ok {
 		return err
@@ -202,7 +201,7 @@ func baseImages(d db.QueryReceiver) error {
 	}
 
 	return nil
-}
+}*/
 
 func templates(d db.QueryReceiver) error {
 	ok, err := shouldSeed(d, "templates")
