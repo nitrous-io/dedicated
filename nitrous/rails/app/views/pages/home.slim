@@ -136,13 +136,23 @@
 
     .companies
       .container
-        h4 Trusted By Developers At These Amazing Companies
+        h4 Trusted By Developers At These Amazing Organizations
 
         .logos
-          = image_tag 'home/heroku.svg',     class: 'heroku'
-          = image_tag 'home/balanced.png',   class: 'balanced'
-          = image_tag 'home/thoughtbot.svg', class: 'thoughtbot'
-          = image_tag 'home/tilde.png',      class: 'tilde'
-          = image_tag 'home/zendesk.svg',    class: 'zendesk'
+          .row
+            = image_tag 'home/sendgrid.svg',   class: 'sendgrid',   alt: 'Sendgrid'
+            = image_tag 'home/shopify.svg',    class: 'shopify',    alt: 'Shopify'
+            = image_tag 'home/thoughtbot.svg', class: 'thoughtbot', alt: 'thoughtbot'
+            = image_tag 'home/balanced.png',   class: 'balanced',   alt: 'Balanced'
+            = image_tag 'home/zendesk.svg',    class: 'zendesk',    alt: 'Zendesk'
+            = image_tag 'home/harvard.png',    class: 'harvard',    alt: 'Harvard University'
+          .row
+            = image_tag 'home/heroku.svg',     class: 'heroku',     alt: 'Heroku'
+            = image_tag 'home/visa.svg',       class: 'visa',       alt: 'Visa'
+            = image_tag 'home/tilde.png',      class: 'tilde',      alt: 'Tilde'
+            = image_tag 'home/ibm.svg',        class: 'ibm',        alt: 'IBM'
+            = image_tag 'home/tencent.svg',    class: 'tencent',    alt: 'Tencent'
+            = image_tag 'home/emc.svg',        class: 'emc',        alt: 'EMC'
+            = image_tag 'home/mit.png',        class: 'mit',        alt: 'MIT'
 
   = render 'layouts/footer'
