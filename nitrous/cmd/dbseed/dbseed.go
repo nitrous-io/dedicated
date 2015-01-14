@@ -290,7 +290,7 @@ func templates(d db.QueryReceiver) error {
 			Type:        template.StarterType,
 		},
 		{
-			Slug:        "vanilla",
+			Slug:        "ubuntu",
 			Name:        sql.NullString{"Vanilla", true},
 			Config:      string(vanillaConfigJSON),
 			Description: sql.NullString{vanillaDesc, true},
