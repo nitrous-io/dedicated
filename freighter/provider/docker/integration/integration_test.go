@@ -130,7 +130,7 @@ func assertEnv(name string, expected []string, unexpected []string) {
 	}
 }
 
-// assert if the container contains the port specified in expected PortMap
+// assert if the container when running exposed the ports specified in expected PortMap
 func assertPort(name string, expected []interface{}) {
 	portCmd := exec.Command("docker", "port", name)
 	b, err := portCmd.CombinedOutput()
@@ -139,6 +139,20 @@ func assertPort(name string, expected []interface{}) {
 
 	ports := strings.Split(strings.Trim(out, "\n "), "\n")
 	Expect(ports).To(ConsistOf(expected...), "invalid ports %s", name)
+
+	// assert that exposed ports also contains the ports in test
+	exposedStr, err := inspectFieldJSON(name, "Config.ExposedPorts")
+	Expect(err).To(BeNil())
+	var exposedPorts map[string]struct{}
+	err = json.Unmarshal([]byte(exposedStr), &exposedPorts)
+	Expect(err).To(BeNil())
+
+	// assert exposed ports
+	for _, e := range expected {
+		parts := strings.Split(e.(string), "->")
+		port := strings.TrimSpace(parts[0])
+		Expect(exposedPorts).To(HaveKey(port))
+	}
 }
 
 // assert if the container contains the expected volumes

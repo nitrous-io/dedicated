@@ -47,7 +47,7 @@ var _ = Describe("Start", func() {
 		Expect(extraHosts).To(ContainSubstring(fmt.Sprintf("host:%s", info.Gateway)), "invalid extra host")
 	})
 
-	It("overrides existing Ports and Binds if options are given", func() {
+	It("sets existing ports' bindings if options are given", func() {
 		var err error
 		datadir := os.Getenv("FREIGHTERD_BASE")
 		if datadir == "" {
@@ -68,14 +68,14 @@ var _ = Describe("Start", func() {
 
 		config = `{
 			"Mounts": ["dotfiles:/etc/dotfiles","restores"],
-			"PortBindings": ["private:65000:4242", "public:9999:9999"]
+			"PortBindings": ["private:6000:3000", "public:65000:9999"]
 		}`
 		_, err = prov.Start(info.ID, config)
 		Expect(err).To(BeNil(), "failed to start %s", info.ID)
 
 		assertPort(info.ID, []interface{}{
-			fmt.Sprintf("4242/tcp -> %s:65000", info.Gateway),
-			"9999/tcp -> 0.0.0.0:9999",
+			fmt.Sprintf("3000/tcp -> %s:6000", info.Gateway),
+			"9999/tcp -> 0.0.0.0:65000",
 		})
 		assertVolumes(info.ID, map[string]string{
 			"/etc/dotfiles":     filepath.Join(datadir, "volumes", "dotfiles"),
