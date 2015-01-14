@@ -179,30 +179,6 @@ func providertemplates(d db.QueryReceiver) error {
 	return nil
 }
 
-/*func baseImages(d db.QueryReceiver) error {
-	ok, err := shouldSeed(d, "base_images")
-	if err != nil || !ok {
-		return err
-	}
-	baseImages := []baseimage.BaseImage{
-		{Name: "Go", Repo: "nitrousio/golang:latest", Description: "", Slug: "golang"},
-		{Name: "Node.js", Repo: "nitrousio/nodejs:latest", Description: "", Slug: "nodejs"},
-		{Name: "PHP", Repo: "nitrousio/php:latest", Description: "", Slug: "php"},
-		{Name: "Python", Repo: "nitrousio/python:latest", Description: "", Slug: "python"},
-		{Name: "Ruby", Repo: "nitrousio/ruby:latest", Description: "", Slug: "ruby"},
-		{Name: "Ubuntu", Repo: "nitrousio/ubuntu:trusty", Description: "", Slug: "ubuntu"},
-		{Name: "Docker", Repo: "nitrousio/docker:latest", Description: "", Slug: "docker"},
-	}
-	for _, b := range baseImages {
-		if err := b.Insert(d); err != nil {
-			return err
-		}
-		logr.Infof("Added base image %+v", b)
-	}
-
-	return nil
-}*/
-
 func templates(d db.QueryReceiver) error {
 	ok, err := shouldSeed(d, "templates")
 	if err != nil || !ok {
@@ -304,7 +280,60 @@ func templates(d db.QueryReceiver) error {
 		logr.Infof("Added template %+v", t)
 	}
 
+	goCfgJSON, err := baseTemplateConfigJSON("nitrousio/golang:latest")
+	if err != nil {
+		return err
+	}
+	nodeCfgJSON, err := baseTemplateConfigJSON("nitrousio/nodejs:latest")
+	if err != nil {
+		return err
+	}
+	phpCfgJSON, err := baseTemplateConfigJSON("nitrousio/php:latest")
+	if err != nil {
+		return err
+	}
+	pythonCfgJSON, err := baseTemplateConfigJSON("nitrousio/python:latest")
+	if err != nil {
+		return err
+	}
+	rubyCfgJSON, err := baseTemplateConfigJSON("nitrousio/ruby:latest")
+	if err != nil {
+		return err
+	}
+	dindCfgJSON, err := baseTemplateConfigJSON("nitrousio/docker:latest")
+	if err != nil {
+		return err
+	}
+
+	baseTemplates := []template.Template{
+		{Name: sql.NullString{"Go", true}, Config: string(goCfgJSON), Slug: "golang", Type: template.LanguageType},
+		{Name: sql.NullString{"Node.js", true}, Config: string(nodeCfgJSON), Slug: "nodejs", Type: template.LanguageType},
+		{Name: sql.NullString{"PHP", true}, Config: string(phpCfgJSON), Slug: "php", Type: template.LanguageType},
+		{Name: sql.NullString{"Python", true}, Config: string(pythonCfgJSON), Slug: "python", Type: template.LanguageType},
+		{Name: sql.NullString{"Ruby", true}, Config: string(rubyCfgJSON), Slug: "ruby", Type: template.LanguageType},
+		{Name: sql.NullString{"Docker", true}, Config: string(dindCfgJSON), Slug: "docker", Type: template.MiscType},
+	}
+	for _, t := range baseTemplates {
+		if err := t.Insert(d); err != nil {
+			return err
+		}
+		logr.Infof("Added base image %+v", t)
+	}
+
 	return nil
+}
+
+func baseTemplateConfigJSON(repo string) ([]byte, error) {
+	c := template.Container{
+		Privileged: false,
+		PublishAll: false,
+		Env:        nil,
+		Image:      repo,
+		Ports:      []string{},
+		Volumes:    nil,
+	}
+
+	return templateCnCfgJSON(c)
 }
 
 func templateCnCfgJSON(cn template.Container) ([]byte, error) {

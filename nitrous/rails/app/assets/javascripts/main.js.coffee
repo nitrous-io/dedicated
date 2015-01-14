@@ -30,7 +30,6 @@ window.Nitrous = Em.Application.extend Em.Evented,
   selectedAppHost: null
   regions: null
   plans: null
-  baseImages: null
   templates: null
   billingUsage: null
 
@@ -112,7 +111,6 @@ App.on 'load', ->
   App.set 'snackbar', App.Snackbar.create()
   App.set 'regions', App.Region.fetch().value
   App.set 'plans', App.Plan.fetch().value
-  App.set 'baseImages', App.BaseImage.fetch().value
   App.set 'templates', App.Template.fetch().value
 
 App.on 'fetchUser', (user) ->
