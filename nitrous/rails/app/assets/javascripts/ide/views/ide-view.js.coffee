@@ -1,5 +1,5 @@
-App.IndexView = Em.View.extend
-  templateName: 'ide/index'
+App.IdeView = Em.View.extend
+  templateName: 'ide/ide'
   elementId: 'ide-view'
 
   willInsertElement: ->

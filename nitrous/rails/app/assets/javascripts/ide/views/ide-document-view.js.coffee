@@ -58,8 +58,8 @@ App.IdeDocumentView = Em.View.extend
   ).property 'document.path.loadCount'
 
   savingDisabled: (->
-    @get('saving') || App.get('offline') || App.get('router.indexController.opsSocketNotReady')
-  ).property 'saving', 'App.offline', 'App.router.indexController.opsSocketNotReady'
+    @get('saving') || App.get('offline') || App.get('router.ideController.opsSocketNotReady')
+  ).property 'saving', 'App.offline', 'App.router.ideController.opsSocketNotReady'
 
   triggerFind: (->
     if @get('document.findTrigger') && (editor = @get 'editor')

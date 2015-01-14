@@ -1,5 +1,5 @@
 App.IdeFindInProjectController = Em.Controller.extend
-  needs: ['index', 'ideEditor']
+  needs: ['ide', 'ideEditor']
 
   findInProjectDialog: null
 

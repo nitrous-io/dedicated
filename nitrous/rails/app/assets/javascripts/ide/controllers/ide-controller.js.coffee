@@ -1,4 +1,4 @@
-App.IndexController = Em.ObjectController.extend
+App.IdeController = Em.ObjectController.extend
   needs: ['ideFindInProject', 'ideFileFinder']
 
   opsSocket: null

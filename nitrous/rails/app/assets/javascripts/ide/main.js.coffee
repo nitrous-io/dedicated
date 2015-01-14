@@ -48,7 +48,6 @@ window.NitrousIO = Em.Application.extend Em.Evented,
 
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
-  slug: window.location.search.slice('1')
 
 window.Lib = Ember.Namespace.create()
 

@@ -6,8 +6,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   fullscreenBinding: 'App.editorFullscreen'
   chatNotification: null
 
-  opsSocketBinding: Em.Binding.oneWay 'App.router.indexController.opsSocket'
-  opsSocketReadyBinding: Em.Binding.oneWay 'App.router.indexController.opsSocketReady'
+  opsSocketBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket'
+  opsSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.opsSocketReady'
 
   softTabs: true
   tabSize: 2
@@ -54,7 +54,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @set(k, editorSettings[k]) if editorSettings[k]?
 
   localStorageEditorSettings: ->
-    if boxId = App.get 'router.indexController.content.id'
+    if boxId = App.get 'router.ideController.content.id'
       App.localStorage.delete("box:#{boxId}:editorSettings") || App.localStorage.delete("box:#{boxId}:lastTabSettings")
 
   observeEditorSettings: ->

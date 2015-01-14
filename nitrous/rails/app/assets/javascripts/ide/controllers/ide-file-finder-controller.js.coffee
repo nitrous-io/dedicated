@@ -1,7 +1,7 @@
 App.IdeFileFinderController = Em.Controller.extend
-  needs: ['index', 'ideEditor', 'ideSidebar']
+  needs: ['ide', 'ideEditor', 'ideSidebar']
 
-  opsSocketBinding: Em.Binding.oneWay 'controllers.index.opsSocket'
+  opsSocketBinding: Em.Binding.oneWay 'controllers.ide.opsSocket'
   fileFinderDialog: null
 
   initialize: ->
@@ -69,7 +69,7 @@ App.IdeFileFinderController = Em.Controller.extend
   # try to pick a sensible default search root
   guessPath: (path) ->
     homeDir = App.get('container.homePath')
-    workspaceDir = @get('controllers.index.workspaceDir')
+    workspaceDir = @get('controllers.ide.workspaceDir')
     return homeDir if not path?.length
 
     path = path.replace(new RegExp("^#{homeDir}\/"), '')

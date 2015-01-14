@@ -7,7 +7,7 @@ App.IdeSidebarController = Em.ArrayController.extend
   uploadDialog: null
   confirmDeletePathDialog: null
 
-  opsSocketBinding: Em.Binding.oneWay 'App.router.indexController.opsSocket'
+  opsSocketBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket'
   opsSocketReadyBinding: Em.Binding.oneWay 'opsSocket.started'
   opsSocketNotReady: (->
     !@get 'opsSocketReady'
@@ -44,7 +44,7 @@ App.IdeSidebarController = Em.ArrayController.extend
         this.openPath @get('rootPath')
         # TODO re-enable opening README
         # Open README.md, if it's not present, then don't show an error
-        # if boxId = App.get 'router.indexController.content.id'
+        # if boxId = App.get 'router.ideController.content.id'
         #   cacheKey = "box:#{boxId}:shownReadme"
         #   if !App.localStorage.get(cacheKey)
         #     this.openPath @get('readmePath'), error: false

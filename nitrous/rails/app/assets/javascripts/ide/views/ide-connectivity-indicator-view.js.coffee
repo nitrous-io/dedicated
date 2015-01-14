@@ -5,5 +5,5 @@ App.IdeConnectivityIndicatorView = Em.View.extend
   classNameBindings: ['show']
 
   show: (->
-    App.get('online') && App.get('router.indexController.opsSocketNotReady')
-  ).property 'App.online', 'App.router.indexController.opsSocketNotReady'
+    App.get('online') && App.get('router.ideController.opsSocketNotReady')
+  ).property 'App.online', 'App.router.ideController.opsSocketNotReady'
