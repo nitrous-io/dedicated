@@ -321,7 +321,7 @@ func defaultContainer() template.Container {
 		Privileged: false,
 		PublishAll: false,
 		Env:        nil,
-		Ports:      []string{"public:3000:3000", "public:2222:22"},
+		Ports:      []string{"public::3000", "public::2222"},
 		Volumes:    nil,
 	}
 }
