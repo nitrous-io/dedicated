@@ -65,6 +65,16 @@ App.Container = klass = App.Model.extend
     "ssh://#{user}@#{hostname}:#{sshPort}"
   ).property 'sshEnabled', 'loginUsername', 'hostname', 'sshPort'
 
+  supportsPreview: (->
+    unless @get('previewURL')
+      return false
+
+    unless @get('hasApp')
+      return true
+
+    @get('hasApp') && @get('isAppRunning')
+  ).property 'hasApp', 'isAppRunning', 'previewURL'
+
   previewURL: (->
     hostname = @get 'hostname'
     previewPort = @get 'previewPort'

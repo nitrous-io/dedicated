@@ -38,10 +38,8 @@
             button.ui.btn click='startApp' Start App
       button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
     .right
-      if hasApp
-        if isAppRunning
-          if previewURL
-            a.ui.btn href=previewURL target='_blank' Preview
+      if supportsPreview
+        a.ui.btn href=previewURL target='_blank' Preview
       if App.user.ideEnabled
         button.ui.btn click='openTerminal' Terminal
         a.ui.btn.primary href=ideURL target='_blank' IDE
