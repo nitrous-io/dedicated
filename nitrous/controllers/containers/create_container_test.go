@@ -218,6 +218,7 @@ var _ = Describe("CreateContainer", func() {
 					"env": ["SHELL=powershell"]
 				}]
 			}`,
+			Type: template.StarterType,
 		}
 		err := t1.Insert(db)
 		Expect(err).To(BeNil())

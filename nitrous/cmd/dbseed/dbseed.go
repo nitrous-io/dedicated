@@ -259,36 +259,42 @@ func templates(d db.QueryReceiver) error {
 			Name:        sql.NullString{"Ruby on Rails", true},
 			Description: sql.NullString{railsDesc, true},
 			Config:      string(railsConfigJSON),
+			Type:        template.StarterType,
 		},
 		{
 			Slug:        "laravel",
 			Name:        sql.NullString{"Laravel", true},
 			Config:      string(laravelConfigJSON),
 			Description: sql.NullString{laravelDesc, true},
+			Type:        template.StarterType,
 		},
 		{
 			Slug:        "mean",
 			Name:        sql.NullString{"MEAN", true},
 			Config:      string(meanConfigJSON),
 			Description: sql.NullString{meanDesc, true},
+			Type:        template.StarterType,
 		},
 		{
 			Slug:        "meteor",
 			Name:        sql.NullString{"Meteor", true},
 			Config:      string(meteorConfigJSON),
 			Description: sql.NullString{meteorDesc, true},
+			Type:        template.StarterType,
 		},
 		{
 			Slug:        "django",
 			Name:        sql.NullString{"Django", true},
 			Config:      string(djangoConfigJSON),
 			Description: sql.NullString{djangoDesc, true},
+			Type:        template.StarterType,
 		},
 		{
 			Slug:        "vanilla",
 			Name:        sql.NullString{"Vanilla", true},
 			Config:      string(vanillaConfigJSON),
 			Description: sql.NullString{vanillaDesc, true},
+			Type:        template.StarterType,
 		},
 	}
 	for _, t := range templates {

@@ -117,6 +117,7 @@ var _ = Describe("models/template", func() {
 				Name:        sql.NullString{"Ruby on Rails", true},
 				Description: sql.NullString{"A Rails starter template", true},
 				Config:      `{ "containers": [ { "name": "Rails", "slug": "rails", "image": "rails:4.2" } ] }`,
+				Type:        template.StarterType,
 			}
 			err := tmpl.Insert(db)
 			Expect(err).To(BeNil())
@@ -128,6 +129,7 @@ var _ = Describe("models/template", func() {
 			Expect(tmpl2.Name).To(Equal(sql.NullString{"Ruby on Rails", true}))
 			Expect(tmpl2.Description).To(Equal(sql.NullString{"A Rails starter template", true}))
 			Expect(tmpl2.Config).To(Equal(`{ "containers": [ { "name": "Rails", "slug": "rails", "image": "rails:4.2" } ] }`))
+			Expect(tmpl2.Type).To(Equal(template.StarterType))
 			Expect(tmpl2.CreatedAt).NotTo(BeNil())
 			Expect(tmpl2.UpdatedAt).NotTo(BeNil())
 		})

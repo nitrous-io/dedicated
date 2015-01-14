@@ -20,6 +20,7 @@ var _ = Describe("base image serializer", func() {
 		Name:        sql.NullString{"Rails Starter", true},
 		Description: sql.NullString{"A Rails starter template", true},
 		Config:      `{ "does": "not get serialized" }`,
+		Type:        template.StarterType,
 		CreatedAt:   &now,
 		UpdatedAt:   &now,
 	}
@@ -37,10 +38,11 @@ var _ = Describe("base image serializer", func() {
 				"slug": "rails-starter",
 				"name": "Rails Starter",
 				"description": "A Rails starter template",
+				"type": "%s",
 				"created_at": %s,
 				"updated_at": %s,
 				"images": []
-			}`, nowJSON, nowJSON)))
+			}`, template.StarterType, nowJSON, nowJSON)))
 		})
 
 		It("should expose images if present in config", func() {
@@ -68,10 +70,11 @@ var _ = Describe("base image serializer", func() {
 				"slug": "rails-starter",
 				"name": "Rails Starter",
 				"description": "A Rails starter template",
+				"type": "%s",
 				"created_at": %s,
 				"updated_at": %s,
 				"images": ["img1"]
-			}`, nowJSON, nowJSON)))
+			}`, template.StarterType, nowJSON, nowJSON)))
 		})
 	})
 
@@ -87,10 +90,11 @@ var _ = Describe("base image serializer", func() {
 				"slug": "rails-starter",
 				"name": "Rails Starter",
 				"description": "A Rails starter template",
+				"type": "%s",
 				"created_at": %s,
 				"updated_at": %s,
 				"images": []
-			}]`, nowJSON, nowJSON)))
+			}]`, template.StarterType, nowJSON, nowJSON)))
 		})
 	})
 })

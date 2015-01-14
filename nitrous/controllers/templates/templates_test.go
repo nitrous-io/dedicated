@@ -57,6 +57,7 @@ var _ = Describe("controllers/templates", func() {
 				Name:        sql.NullString{"Ruby on Rails", true},
 				Description: sql.NullString{"A Rails starter template", true},
 				Config:      `{ "containers": [ { "name": "Rails", "slug": "rails", "image": "rails:4.2" } ] }`,
+				Type:        template.StarterType,
 			}
 			err := t1.Insert(db)
 			Expect(err).To(BeNil())
@@ -65,6 +66,7 @@ var _ = Describe("controllers/templates", func() {
 				Name:        sql.NullString{"PHP", true},
 				Description: sql.NullString{"A PHP starter template", true},
 				Config:      `{ "containers": [ { "name": "php", "slug": "php", "image": "php:latest" } ] }`,
+				Type:        template.StarterType,
 			}
 			err = t2.Insert(db)
 			Expect(err).To(BeNil())

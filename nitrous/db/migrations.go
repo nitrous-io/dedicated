@@ -734,5 +734,11 @@ func init() {
 				ALTER TABLE plans ADD COLUMN most_popular bool DEFAULT FALSE;
 			`,
 		},
+		{
+			Version: "625",
+			Up: `
+				ALTER TABLE templates ADD COLUMN type character varying(255) DEFAULT '' NOT NULL;
+			`,
+		},
 	}
 }
