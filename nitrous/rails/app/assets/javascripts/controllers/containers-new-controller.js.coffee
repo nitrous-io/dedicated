@@ -14,6 +14,18 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
   selectedOption: null
   selectedTemplate: null
 
+  starterTemplates: (->
+    App.get('templates')?.filterBy('type', 'starter')
+  ).property 'App.templates.@each'
+
+  languageTemplates: (->
+    App.get('templates')?.filterBy('type', 'language')
+  ).property 'App.templates.@each'
+
+  miscTemplates: (->
+    App.get('templates')?.filterBy('type', 'misc')
+  ).property 'App.templates.@each'
+
   clear: ->
     @_super.apply this, arguments
     @setProperties
@@ -25,6 +37,9 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
       image: null
       saving: false
+
+      selectedTemplate: App.get('templates.firstObject')
+      selectedOption: null
 
   hostImagesEmpty: Em.computed.empty('selectedHost.images')
   hostVolumesEmpty: Em.computed.empty('selectedHost.volumes')

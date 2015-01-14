@@ -70,12 +70,32 @@
 
           .image-selection
             ul.starter-templates
-              each template in App.templates
+              each template in starterTemplates
                 App.StarterTemplateView content=template selected=view.selectedTemplate
 
-            .description
-              p
-                = view.selectedTemplate.description
+        .ui.input-group
+          label.field-label
+            | Language
+
+          .image-selection
+            ul.starter-templates
+              each template in languageTemplates
+                App.StarterTemplateView content=template selected=view.selectedTemplate
+
+        if App.user.advanced
+          .ui.input-group
+            label.field-label
+              | Miscellaneous
+
+            .image-selection
+              ul.starter-templates
+                each template in miscTemplates
+                  App.StarterTemplateView content=template selected=view.selectedTemplate
+
+        .ui.input-group
+          .description
+            p
+              = view.selectedTemplate.description
 
       .card-footer.bordered
         .right
