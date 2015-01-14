@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/nitrous-io/dedicated/freighter/cops"
@@ -50,8 +51,11 @@ func (c *FS) Handle(msg *cops.Message) *cops.Message {
 			return makeErr(msg, err)
 		}
 		files := make([]interface{}, len(entries))
+		if err != nil {
+			return makeErr(msg, err)
+		}
 		for i, f := range entries {
-			files[i] = fileInfoArgs(f)
+			files[i] = fileInfoArgs(f, c, dir)
 		}
 		return makeReply(msg, []interface{}{dir, files})
 	case "read":
@@ -159,9 +163,6 @@ func (c *FS) read(path string) ([]interface{}, error) {
 	defer f.Close()
 	// get stat of the file
 	stat, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
 	// check if the size is too large
 	if stat.Size() > sizeLimit {
 		return nil, ErrFileTooLarge
@@ -225,12 +226,49 @@ func makeReply(orig *cops.Message, args []interface{}) *cops.Message {
 	}
 }
 
-func fileInfoArgs(info os.FileInfo) []interface{} {
+func fileInfoArgs(info os.FileInfo, c *FS, dir string) []interface{} {
 	return []interface{}{
 		info.Name(),
-		info.IsDir(),
+		isDir(info, c, dir),
 		info.Size(),
 	}
+}
+
+func isSymlink(info os.FileInfo) bool {
+	return info.Mode()&os.ModeSymlink == os.ModeSymlink
+}
+
+func isSymlinkToDir(info os.FileInfo, c *FS, dir string) bool {
+	f, err := os.Readlink(filepath.Join(RootPrefix, c.id, dir, info.Name()))
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	fPath := filepath.Join(RootPrefix, c.id, f)
+	fi, err := os.Lstat(fPath)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	if fi.IsDir() {
+		return true
+	}
+	if isSymlink(fi) {
+		return isSymlinkToDir(fi, c, filepath.Dir(fPath))
+	}
+	return false
+}
+
+func isDir(info os.FileInfo, c *FS, dir string) bool {
+	if info.IsDir() {
+		return true
+	}
+
+	// if it's a symlink, try reading the symlink
+	if isSymlink(info) {
+		return isSymlinkToDir(info, c, dir)
+	}
+	return false
 }
 
 func getContent(data []byte) (string, error) {

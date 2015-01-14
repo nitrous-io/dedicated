@@ -32,6 +32,17 @@ func (r *Rootfs) Open(p string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fi, err := os.Lstat(p)
+	if err != nil {
+		return nil, err
+	}
+	if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+		p, err = os.Readlink(p)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return os.Open(p)
 }
 
@@ -79,16 +90,18 @@ func (r *Rootfs) ReadDir(name string) (fi []os.FileInfo, err error) {
 	if err != nil {
 		return nil, err
 	}
-	f, err := os.Open(p)
+
+	f, err := r.Open(name)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
+
 	names, err := f.Readdirnames(-1)
 	fi = make([]os.FileInfo, 0, len(names))
 	for _, filename := range names {
 		// use stat to read symlink as well
-		fip, lerr := os.Stat(filepath.Join(p, filename))
+		fip, lerr := os.Lstat(filepath.Join(p, filename))
 		if os.IsNotExist(lerr) {
 			// File disappeared between readdir + stat.
 			// Just treat it as if it didn't exist.

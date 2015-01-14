@@ -146,7 +146,8 @@ func TestReadDirSymlink(t *testing.T) {
 	if infos[0].Name() != "orig" || !infos[0].IsDir() {
 		t.Errorf("invalid entry %s, isdir %v", infos[0].Name(), infos[0].IsDir())
 	}
-	if infos[1].Name() != "sl" || !infos[1].IsDir() {
+	// should not follow the symlink
+	if infos[1].Name() != "sl" || infos[1].IsDir() {
 		t.Errorf("invalid entry %s, isdir %v", infos[1].Name(), infos[1].IsDir())
 	}
 }
