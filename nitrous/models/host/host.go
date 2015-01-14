@@ -55,6 +55,7 @@ type Host struct {
 	FreighterdPort    sql.NullInt64  `db:"freighterd_port"`
 	FreighterdVersion string         `db:"freighterd_version"`
 	DockerVersion     string         `db:"docker_version"`
+	RegionSlug        sql.NullString `db:"region_slug"`
 
 	// ProviderIdentifier is the identifier used by the host's provider to
 	// uniquely identify this host.
@@ -243,8 +244,8 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port, preprovisioned, hourly_price, updated_at)
-		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port, :preprovisioned, :hourly_price, now())
+		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port, region_slug, preprovisioned, hourly_price, updated_at)
+		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port, :region_slug, :preprovisioned, :hourly_price, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
