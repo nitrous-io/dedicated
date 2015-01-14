@@ -24,5 +24,3 @@ with view.document
             = line.lineNumber
           span.line-text
             = formatMatchedLine line.text
-
-  p.completed = completedStatus

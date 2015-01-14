@@ -41,25 +41,21 @@ App.SearchResults = App.TabContent.extend
   status: (->
     termText = "'#{@get('term')}'"
     if @get('matchCount') == 0 && @get('fileCount') == 0
-      if @get('completed') then "No results found searching for #{termText} in #{@get('path')}" else 'Searching...'
+      if @get('completed')
+        "No results found searching for #{termText} in #{@get('path')}"
+      else
+        'Searching...'
     else
-      [
+      parts = [
         App.util.pluralize @get('matchCount'), 'match', 'matches'
         'in'
         App.util.pluralize @get('fileCount'), 'file', 'files'
         "searching for #{termText} in #{@get('path')}"
-      ].join(' ')
+      ]
+      if @get('completed')
+        parts.unshift('Completed:')
+      parts.join(' ')
   ).property 'fileCount', 'matchCount', 'completed', 'term'
-
-  completedStatus: (->
-    return unless @get('completed')
-    [
-        'Search completed:'
-        App.util.pluralize @get('matchCount'), 'match', 'matches'
-        'in'
-        App.util.pluralize @get('fileCount'), 'file', 'files'
-    ].join(' ')
-  ).property 'fileCount', 'matchCount', 'completed'
 
   addSearchResults: (newResults) ->
     _.each newResults, (res) =>
