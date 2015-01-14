@@ -38,23 +38,12 @@
             = input type='text' id='containers-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
 
       .card-body.bordered
-        .ui.input-group
-          label.field-label
-            | Image
+        if App.user.advanced
+          .ui.input-group
+            label.field-label
+              | Advanced
 
-          .image-selection
-            ul.ui.checkbox-group class={view.baseImageOptionDisabled:disabled App.user.advanced::hide}
-              li
-                .ui.checkbox
-                  input type='radio' id='containers-new-option-base-image' name='option' checked='checked' value='base-image' disabled={view.baseImageOptionDisabled}
-                  label
-                label for='containers-new-option-base-image' Use Nitrous Base Image
-
-            ul.base-images class={App.user.advanced::basic}
-              each baseImage in App.baseImages
-                App.BaseImageView baseImage=baseImage selectedBaseImage=view.selectedBaseImage disabled=view.baseImageOptionDisabled
-
-            if App.user.advanced
+            .image-selection
               ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
                 li
                   .ui.checkbox
@@ -74,6 +63,19 @@
 
               .indent
                 = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle value=view.customImage disabled=saving
+
+        .ui.input-group
+          label.field-label
+            | Template
+
+          .image-selection
+            ul.starter-templates
+              each template in App.templates
+                App.StarterTemplateView content=template selected=view.selectedTemplate
+
+            .description
+              p
+                = view.selectedTemplate.description
 
       .card-footer.bordered
         .right

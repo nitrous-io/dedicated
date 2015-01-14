@@ -2,6 +2,7 @@ package containers
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
@@ -36,6 +38,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 	slug := strings.ToLower(options.Get("slug"))
 	name := options.Get("name")
 	imageSlug := options.Get("image")
+	starterSlug := options.Get("starter_slug")
 
 	if imageSlug == "" {
 		imageSlug = controllers.DefaultImage
@@ -64,6 +67,44 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 		Slug:   slug,
 		Image:  imageSlug,
 		Name:   sql.NullString{name, true},
+	}
+
+	if starterSlug != "" {
+		tmpl, err := template.Find(env.DB, starterSlug)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg, err := tmpl.ParsedConfig()
+		if err != nil {
+			return nil, err
+		}
+
+		if len(cfg.Containers) == 0 {
+			return nil, fmt.Errorf("Supplied starter `%s` is missing containers", starterSlug)
+		}
+
+		primary := cfg.Containers[0]
+		cn.Image = primary.Image
+		config.Image = cn.Image
+		imageSlug = config.Image
+		priv := primary.Privileged
+		config.Privileged = &priv
+		if primary.Cmd != "" {
+			config.Cmd = []string{primary.Cmd}
+		}
+		for _, e := range primary.Env {
+			config.Env = append(config.Env, e)
+		}
+		for _, p := range primary.Ports {
+			config.PortBindings = append(config.PortBindings, p)
+		}
+		pubAll := primary.PublishAll
+		config.PublishAll = &pubAll
+
+		if len(cfg.Containers) > 1 {
+			env.Logger.Warnf("Started `%s` has multiple containers, unsupported.", starterSlug)
+		}
 	}
 
 	// Save record to db first to reserve name (since it's globally unique).

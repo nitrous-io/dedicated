@@ -8,6 +8,7 @@ App.Template = klass = App.Model.extend
   slug: attr()
   name: attr()
   description: attr()
+  images: attr('array')
 
   iconUrl: (->
     return unless slug = @get('slug')
