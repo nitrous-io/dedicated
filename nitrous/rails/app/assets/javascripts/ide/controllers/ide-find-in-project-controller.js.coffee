@@ -31,7 +31,7 @@ App.IdeFindInProjectController = Em.Controller.extend
         return
 
       term = @get('term')
-      location = @get('location') || App.get('container.homePath')
+      location = @guessPath(@get('location'))
       ignoreCase = !@get('caseSensitive')
       useRegexp = @get('useRegexp')
 
@@ -79,3 +79,12 @@ App.IdeFindInProjectController = Em.Controller.extend
         location: location
         ignoreCase: ignoreCase
         useRegexp: useRegexp
+
+  guessPath: (path) ->
+    homeDir = App.get('container.homePath')
+    return homeDir if not path?.length || path == homeDir
+
+    # Leave paths within home dir unchanged.
+    return path if path.match(new RegExp("^#{homeDir}\/"))
+
+    [homeDir, path].join('/')
