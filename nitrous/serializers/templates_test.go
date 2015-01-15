@@ -38,7 +38,39 @@ var _ = Describe("base image serializer", func() {
 				"name": "Rails Starter",
 				"description": "A Rails starter template",
 				"created_at": %s,
-				"updated_at": %s
+				"updated_at": %s,
+				"images": []
+			}`, nowJSON, nowJSON)))
+		})
+
+		It("should expose images if present in config", func() {
+			prevConf := model.Config
+			model.Config = `
+				{
+					"containers": [
+						{
+							"image": "img1"
+						}
+					]
+				}
+			`
+
+			defer func() { model.Config = prevConf }()
+
+			nowJSON, err := now.MarshalJSON()
+			Expect(err).To(BeNil())
+
+			r := serializers.SerializeTemplate(model)
+			b, err := json.Marshal(r)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(fmt.Sprintf(`{
+				"id": 5,
+				"slug": "rails-starter",
+				"name": "Rails Starter",
+				"description": "A Rails starter template",
+				"created_at": %s,
+				"updated_at": %s,
+				"images": ["img1"]
 			}`, nowJSON, nowJSON)))
 		})
 	})
@@ -56,7 +88,8 @@ var _ = Describe("base image serializer", func() {
 				"name": "Rails Starter",
 				"description": "A Rails starter template",
 				"created_at": %s,
-				"updated_at": %s
+				"updated_at": %s,
+				"images": []
 			}]`, nowJSON, nowJSON)))
 		})
 	})

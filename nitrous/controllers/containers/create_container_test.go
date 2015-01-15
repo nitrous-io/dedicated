@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
@@ -200,6 +201,40 @@ var _ = Describe("CreateContainer", func() {
 		expectSerializedContainer(evtData["container"], c)
 
 		close(done)
+	})
+
+	It("should allow for creating a container from a template", func() {
+		t1 := &template.Template{
+			Slug:        "my-template",
+			Name:        sql.NullString{"Ruby on Rails", true},
+			Description: sql.NullString{"A Rails starter template", true},
+			Config: `{
+				"containers": [
+				{
+					"name": "Rails",
+					"slug": "rails",
+					"image": "rails:4.2",
+					"ports": ["public::2341", "public::8931"],
+					"env": ["SHELL=powershell"]
+				}]
+			}`,
+		}
+		err := t1.Insert(db)
+		Expect(err).To(BeNil())
+
+		params.Set("starter_slug", "my-template")
+		res, err := containers.CreateContainer(h, params, env)
+		Expect(err).To(BeNil())
+
+		Expect(mockClient.CreateCalled).To(Equal(1))
+		Expect(mockClient.ReceivedImage).To(Equal("rails:4.2"))
+		Expect(mockClient.ReceivedConfig.Image).To(Equal("rails:4.2"))
+		Expect(mockClient.ReceivedConfig.PortBindings).To(Equal([]string{"3000:8080", "0.0.0.0::4552", "0.0.0.0:8081:11211", "public::2341", "public::8931"}))
+		Expect(mockClient.ReceivedConfig.Env).To(Equal([]string{"LANG=C", "NODE=nope", "SHELL=powershell"}))
+
+		c, err := container.Find(db, u, "elixir-web-1")
+		Expect(err).To(BeNil())
+		expectSerializedContainer(res.Container, c)
 	})
 
 	Context("when the Freighter client returns an error", func() {

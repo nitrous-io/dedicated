@@ -22,6 +22,8 @@ App.Container = klass = App.Model.extend
   finishedAt: attr('date', as: 'finished_at', serialize: false)
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
 
+  starterSlug: attr(as: 'starter_slug')
+
   config: (->
     return unless @get('id') # Load config only after container is saved.
     config = Em.ObjectProxy.create()
