@@ -20,6 +20,7 @@ var _ = Describe("plan serializer", func() {
 			CPU:           "2",
 			Memory:        "1 GB",
 			Storage:       "20 GB",
+			MostPopular:   true,
 		}
 
 		It("serializes to JSON", func() {
@@ -34,7 +35,8 @@ var _ = Describe("plan serializer", func() {
 				"price": 1000,
 				"cpu": "2",
 				"memory": "1 GB",
-				"storage": "20 GB"
+				"storage": "20 GB",
+				"most_popular": true
 			}`))
 		})
 	})
