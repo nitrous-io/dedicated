@@ -78,4 +78,14 @@ App.SearchResults = App.TabContent.extend
       @incrementProperty 'fileCount'
 
   addError: (error) ->
-    @get('errors').pushObject(error)
+    if errorMsg = @friendlyError(error)
+      @get('errors').pushObject(errorMsg)
+
+  friendlyError: (error) ->
+    switch
+      when error.match /has more than \d+ results/
+        "Search returned too many results. Some results have been omitted. Please try a more specific search."
+      else
+        # Don't display error messages in their raw form because there're not
+        # helpful to end users.
+        null

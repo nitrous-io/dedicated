@@ -217,7 +217,7 @@ func (c *Finder) fileFind(term, root string) (chan string, chan error, error) {
 				counter++
 			} else {
 				if !errSent {
-					errch <- fmt.Errorf("term(%s) has more than %d results", term, fileFindLimit)
+					errch <- fmt.Errorf("term %q has more than %d results", term, fileFindLimit)
 					errSent = true
 					close(errch)
 				}
@@ -259,7 +259,7 @@ func (c *Finder) search(term, root string, ignoreCase, useRegexp bool) (chan *fi
 				counter += len(r.Matches)
 			} else {
 				if !errSent {
-					errch <- fmt.Errorf("term(%s) has more than %d results", term, contentSearchLimit)
+					errch <- fmt.Errorf("term %q has more than %d results", term, contentSearchLimit)
 					errSent = true
 					close(errch)
 				}
