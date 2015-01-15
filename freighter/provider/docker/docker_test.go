@@ -702,6 +702,8 @@ var _ = Describe("provider/docker", func() {
 					privKey, ok := pk.(*rsa.PrivateKey)
 					Expect(ok).To(BeTrue())
 
+					info := map[string]interface{}{}
+
 					// without keys
 					sshutil.MaxAttempts = 1
 					ch := make(chan struct{})
@@ -711,6 +713,7 @@ var _ = Describe("provider/docker", func() {
 						privKey,
 						500*time.Millisecond,
 						ch,
+						info,
 					)
 					Expect(err).NotTo(BeNil())
 					Expect(err.Error()).To(ContainSubstring("unable to authenticate"))
@@ -726,6 +729,7 @@ var _ = Describe("provider/docker", func() {
 						privKey,
 						500*time.Millisecond,
 						ch,
+						info,
 					)
 					Expect(err).To(BeNil())
 				})

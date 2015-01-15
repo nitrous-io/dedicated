@@ -15,10 +15,15 @@ const (
 )
 
 // WaitForActions waits until the action is completed
-func WaitForAction(service godo.ActionsService, id int, wait, timeout time.Duration) (*godo.Action, error) {
+func WaitForAction(service godo.ActionsService, id int, wait, timeout time.Duration, cxt map[string]interface{}) (*godo.Action, error) {
 	// control channel to make sure that we can exit goroutine properly
 	done := make(chan struct{})
 	defer close(done)
+
+	baseString := ""
+	for k, v := range cxt {
+		baseString += fmt.Sprintf("%s=%v ", k, v)
+	}
 
 	result := make(chan error, 1)
 	var finalAction *godo.Action
@@ -34,9 +39,9 @@ func WaitForAction(service godo.ActionsService, id int, wait, timeout time.Durat
 					result <- err
 					return
 				}
-				log.Printf("Waiting for event %d to complete, got status %s", id, tmp.Status)
+				log.Printf("%sWaiting for event %d to complete, got status %s", baseString, id, tmp.Status)
 				if tmp.Status == erroredStatus {
-					result <- fmt.Errorf("action %v failed", tmp)
+					result <- fmt.Errorf("%saction %v failed", baseString, tmp)
 					return
 				} else if tmp.Status == completedStatus {
 					finalAction = tmp
@@ -54,6 +59,6 @@ func WaitForAction(service godo.ActionsService, id int, wait, timeout time.Durat
 		}
 		return finalAction, nil
 	case <-time.After(timeout):
-		return nil, fmt.Errorf("timeout while waiting to for event %d to complete", id)
+		return nil, fmt.Errorf("%stimeout while waiting to for event %d to complete", baseString, id)
 	}
 }

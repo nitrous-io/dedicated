@@ -12,6 +12,11 @@ import (
 )
 
 var _ = Describe("WaitForAction", func() {
+
+	var (
+		info = map[string]interface{}{}
+	)
+
 	It("waits until the action is completed", func() {
 		var service godo.ActionsService = testActionService{
 			1: {
@@ -22,7 +27,7 @@ var _ = Describe("WaitForAction", func() {
 			},
 		}
 
-		a, err := digitalocean.WaitForAction(service, 1, 10*time.Millisecond, 50*time.Millisecond)
+		a, err := digitalocean.WaitForAction(service, 1, 10*time.Millisecond, 50*time.Millisecond, info)
 		Expect(err).To(BeNil(), "unexpected error")
 		Expect(a.Status).To(Equal("completed"))
 	})
@@ -37,7 +42,7 @@ var _ = Describe("WaitForAction", func() {
 			},
 		}
 
-		_, err := digitalocean.WaitForAction(service, 1, 10*time.Millisecond, 50*time.Millisecond)
+		_, err := digitalocean.WaitForAction(service, 1, 10*time.Millisecond, 50*time.Millisecond, info)
 		Expect(err).ToNot(BeNil(), "expect error when failed to get the action")
 	})
 
@@ -51,7 +56,7 @@ var _ = Describe("WaitForAction", func() {
 			},
 		}
 
-		_, err := digitalocean.WaitForAction(service, 1, 10*time.Millisecond, 50*time.Millisecond)
+		_, err := digitalocean.WaitForAction(service, 1, 10*time.Millisecond, 50*time.Millisecond, info)
 		Expect(err).ToNot(BeNil(), "expect error when action status is errored")
 	})
 
@@ -66,7 +71,7 @@ var _ = Describe("WaitForAction", func() {
 			},
 		}
 
-		_, err := digitalocean.WaitForAction(service, 1, time.Millisecond, 2*time.Millisecond)
+		_, err := digitalocean.WaitForAction(service, 1, time.Millisecond, 2*time.Millisecond, info)
 		Expect(err).ToNot(BeNil(), "expect error timed out")
 	})
 })
