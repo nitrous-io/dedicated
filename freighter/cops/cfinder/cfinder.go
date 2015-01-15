@@ -35,11 +35,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
 
 	"github.com/nitrous-io/dedicated/freighter/cops"
 	"github.com/nitrous-io/dedicated/pkg/finder"
-	"github.com/nitrous-io/dedicated/pkg/rootfs"
 )
 
 var (
@@ -82,7 +80,6 @@ type SearchResponse struct {
 // accordingly
 type Finder struct {
 	id string
-	fs *rootfs.Rootfs
 }
 
 // Handler interface is not supported by Finder. Caller should upgrade it to
@@ -199,11 +196,7 @@ func (c *Finder) fileFind(term, root string) (chan string, chan error, error) {
 	errch := make(chan error, 1)
 	ch := make(chan string, chanSize)
 
-	fullpath, err := c.fs.Path(root)
-	if err != nil {
-		return nil, nil, err
-	}
-	fileinfo, err := os.Stat(fullpath)
+	fileinfo, err := os.Stat(root)
 	if os.IsNotExist(err) {
 		return nil, nil, fmt.Errorf("%q does not exist", root)
 	}
@@ -211,7 +204,7 @@ func (c *Finder) fileFind(term, root string) (chan string, chan error, error) {
 		return nil, nil, fmt.Errorf("%q is not a directory", root)
 	}
 
-	f := finder.NewFinder(fullpath)
+	f := finder.NewFinder(root)
 	results, err := f.FindFiles(term)
 	if err != nil {
 		return nil, nil, err
@@ -249,11 +242,7 @@ func (c *Finder) search(term, root string, ignoreCase, useRegexp bool) (chan *fi
 	errch := make(chan error, 1)
 	ch := make(chan *finder.SearchResult, chanSize)
 
-	fullpath, err := c.fs.Path(root)
-	if err != nil {
-		return nil, nil, err
-	}
-	fileinfo, err := os.Stat(fullpath)
+	fileinfo, err := os.Stat(root)
 	if os.IsNotExist(err) {
 		return nil, nil, fmt.Errorf("%q does not exist", root)
 	}
@@ -261,7 +250,7 @@ func (c *Finder) search(term, root string, ignoreCase, useRegexp bool) (chan *fi
 		return nil, nil, fmt.Errorf("%q is not a directory", root)
 	}
 
-	f := finder.NewFinder(fullpath)
+	f := finder.NewFinder(root)
 	results, err := f.FindContent(term, ignoreCase, useRegexp)
 	if err != nil {
 		return nil, nil, err
@@ -287,13 +276,8 @@ func (c *Finder) search(term, root string, ignoreCase, useRegexp bool) (chan *fi
 }
 
 func New(id string) (cops.Handler, error) {
-	root := path.Join(RootPrefix, id)
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		return nil, fmt.Errorf("failed to find rootfs for %s, %s", id, err)
-	}
 	return &Finder{
 		id: id,
-		fs: rootfs.NewRootfs(root),
 	}, nil
 }
 

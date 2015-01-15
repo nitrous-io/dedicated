@@ -10,13 +10,15 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
+	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/nitrous-io/dedicated/freighter/cops"
-	"github.com/nitrous-io/dedicated/pkg/rootfs"
 )
 
 const (
@@ -35,13 +37,10 @@ var (
 	ErrFileTooLarge   = errors.New("aio:file_too_large")
 	ErrNotTextFile    = errors.New("aio:not_text_file")
 	ErrOversizedImage = errors.New("aio:file_is_oversized_image")
-
-	RootPrefix = "/var/lib/docker/aufs/mnt"
 )
 
 type FS struct {
 	id string
-	fs *rootfs.Rootfs
 }
 
 func (c *FS) Handle(msg *cops.Message) *cops.Message {
@@ -114,23 +113,23 @@ func (c *FS) Handle(msg *cops.Message) *cops.Message {
 }
 
 func (c *FS) rmdir(dirName string) error {
-	return c.fs.Remove(cops.GetPath(dirName))
+	return os.RemoveAll(dirName)
 }
 
 func (c *FS) rename(oldPath, newPath string) error {
-	return c.fs.Rename(cops.GetPath(oldPath), cops.GetPath(newPath))
+	return os.Rename(oldPath, newPath)
 }
 
 func (c *FS) deleteFile(fileName string) error {
-	return c.fs.Remove(cops.GetPath(fileName))
+	return os.Remove(fileName)
 }
 
 func (c *FS) mkdir(dir string) error {
-	return c.fs.Mkdir(cops.GetPath(dir))
+	return os.Mkdir(dir, 755)
 }
 
 func (c *FS) write(path, content string) error {
-	f, err := c.fs.Create(cops.GetPath(path))
+	f, err := openFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
 		return err
 	}
@@ -140,7 +139,7 @@ func (c *FS) write(path, content string) error {
 }
 
 func (c *FS) writeNew(path, content string) error {
-	f, err := c.fs.CreateNew(cops.GetPath(path))
+	f, err := openFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL)
 	if err != nil {
 		return err
 	}
@@ -150,12 +149,12 @@ func (c *FS) writeNew(path, content string) error {
 }
 
 func (c *FS) list(dir string) ([]os.FileInfo, error) {
-	return c.fs.ReadDir(dir)
+	return readDir(dir)
 }
 
 func (c *FS) read(path string) ([]interface{}, error) {
 	// open the file
-	f, err := c.fs.Open(cops.GetPath(path))
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -199,13 +198,8 @@ func (c *FS) read(path string) ([]interface{}, error) {
 }
 
 func New(id string) (cops.Handler, error) {
-	root := path.Join(RootPrefix, id)
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		return nil, fmt.Errorf("failed to find rootfs for %s, %s", id, err)
-	}
 	return &FS{
 		id: id,
-		fs: rootfs.NewRootfs(root),
 	}, nil
 }
 
@@ -259,3 +253,65 @@ func detectContentType(data []byte) (string, error) {
 	}
 	return contentType, nil
 }
+
+func openFile(p string, flag int) (*os.File, error) {
+	stat, err := os.Stat(filepath.Dir(p))
+	if err != nil {
+		return nil, err
+	}
+	uid, gid, err := owner(stat)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(p, flag, 0755)
+	if err != nil {
+		return nil, err
+	}
+	if err := f.Chown(uid, gid); err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func owner(stat os.FileInfo) (int, int, error) {
+	s, ok := stat.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, 0, fmt.Errorf("failed to get system file stat")
+	}
+	return int(s.Uid), int(s.Gid), nil
+}
+
+func readDir(name string) (fi []os.FileInfo, err error) {
+	log.Println("readding dir", name)
+	f, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	names, err := f.Readdirnames(-1)
+	log.Println("readding dir", name, names, err)
+	fi = make([]os.FileInfo, 0, len(names))
+	for _, filename := range names {
+		// use stat to read symlink as well
+		fp := filepath.Clean(filepath.Join(name, filename))
+		fip, lerr := os.Stat(fp)
+		if os.IsNotExist(lerr) {
+			// File disappeared between readdir + stat.
+			// Just treat it as if it didn't exist.
+			continue
+		}
+		if lerr != nil {
+			return fi, lerr
+		}
+		fi = append(fi, fip)
+	}
+	sort.Sort(byName(fi))
+	return fi, err
+}
+
+// byName implements sort.Interface.
+type byName []os.FileInfo
+
+func (f byName) Len() int           { return len(f) }
+func (f byName) Less(i, j int) bool { return f[i].Name() < f[j].Name() }
+func (f byName) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
