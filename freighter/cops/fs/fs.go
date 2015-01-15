@@ -212,7 +212,7 @@ func makeErr(orig *cops.Message, err error) *cops.Message {
 		Namespace: orig.Namespace,
 		Event:     orig.Event,
 		CID:       orig.CID,
-		Error:     err,
+		Error:     err.Error(),
 	}
 }
 

@@ -13,7 +13,7 @@ type Message struct {
 	Event     string        `json:"event"`
 	CID       int64         `json:"cid"`
 	Args      []interface{} `json:"args"`
-	Error     error         `json:"error"`
+	Error     string        `json:"error"`
 }
 
 // Handler is the actual operation that operates on the container `id`.
