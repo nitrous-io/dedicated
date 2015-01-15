@@ -79,6 +79,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(err).To(BeNil())
 		Expect(u.ID).NotTo(BeZero())
 
+		_, err = db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
+		Expect(err).To(BeNil())
+
 		t = &token.Token{
 			UserID: u.ID,
 			Token:  "valid-token",
@@ -1005,7 +1008,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 	Context("when user has reached the max hosts limit", func() {
 		It("responds with hosts limit reached", func() {
-			_, err := CreateHostStack(db, &HostStack{U: u})
+			_, err := db.Exec(`UPDATE user_profiles SET max_hosts = 1 WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			_, err = CreateHostStack(db, &HostStack{U: u})
 			Expect(err).To(BeNil())
 
 			res := doRequest(params)

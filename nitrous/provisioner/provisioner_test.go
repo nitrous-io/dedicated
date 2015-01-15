@@ -48,6 +48,10 @@ var _ = Describe("provisioner", func() {
 		}
 		err = test.WrapInTransaction(db, provisionerUser.Insert)
 		Expect(err).To(BeNil())
+
+		provisionerUser.ServiceAccount = true
+		_, err = db.Exec("UPDATE users SET service_account = true WHERE id = $1;", provisionerUser.ID)
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -235,6 +239,9 @@ var _ = Describe("provisioner", func() {
 				Token:  "valid-token",
 			}
 			err = t.Insert(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
 			// Fake update response from Hostbuilder.

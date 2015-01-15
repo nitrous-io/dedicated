@@ -7,8 +7,6 @@ App.HostsNewView = Em.View.extend
 
   terminal: null
 
-  selectedTemplate: null
-
   showLog: false
 
   createButtonDisabled: (->
@@ -28,23 +26,9 @@ App.HostsNewView = Em.View.extend
       @$('#hosts-new-plan').change()
   ).observes 'App.plans.@each'
 
-  templatesDidChange: (->
-    return unless App.get('templates.length') > 0
-    unless @get 'selectedTemplate'
-      @set 'selectedTemplate', App.get('templates.firstObject')
-  ).observes 'App.templates.@each'
-
-  selectedTemplateDidChange: (->
-    Em.run.scheduleOnce 'afterRender', this, ->
-      Em.run.next this, ->
-        @$('.description').css 'height', @$('.description p').height()
-  ).observes 'selectedTemplate'
-
   didInsertElement: ->
     @_super()
     controller = @get 'controller'
-
-    @templatesDidChange()
 
     @$().on 'change.hosts-new', 'input[name=region]', =>
       controller.set 'selectedRegionSlug', @$('input[name=region]').filter(':checked').val()
@@ -86,7 +70,7 @@ App.HostsNewView = Em.View.extend
   actions:
     create: ->
       @get('terminal')?.clear()
-      @get('controller').send 'create', @get('selectedTemplate.slug')
+      @get('controller').send 'create'
 
     toggleLog: ->
       @toggleProperty 'showLog'

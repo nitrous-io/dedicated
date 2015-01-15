@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/baseimage"
+	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -31,7 +32,7 @@ func init() {
 
 type SeedFn func(db.QueryReceiver) error
 
-var seeds = []SeedFn{users, regions, plans, providertemplates, baseImages, templates}
+var seeds = []SeedFn{users, regions, plans, providertemplates, baseImages, templates, creditTypes}
 
 func main() {
 	dbURL := envvars.NitrousPgUrl
@@ -71,7 +72,7 @@ func users(d db.QueryReceiver) error {
 	}
 	users := []user.User{
 		{Username: "admin", Email: "admins@nitrous.io", Admin: true},
-		{Username: "host-provisioner", Email: "eng@nitrous.io", Admin: true},
+		{Username: "host-provisioner", Email: "eng@nitrous.io", Admin: false, ServiceAccount: true},
 	}
 	for _, u := range users {
 		pass, err := securerandom.Base64(12)
@@ -323,6 +324,24 @@ func defaultContainer() template.Container {
 		Ports:      []string{"public:3000:3000", "public:2222:22"},
 		Volumes:    nil,
 	}
+}
+
+func creditTypes(d db.QueryReceiver) error {
+	ok, err := shouldSeed(d, "credit_types")
+	if err != nil || !ok {
+		return err
+	}
+
+	cType := &credittype.CreditType{
+		Name:         "Signup_Credit",
+		Description:  "Awarded to users for signing up",
+		Active:       true,
+		DefaultValue: 500, // $5
+	}
+	if err := cType.Insert(d); err != nil {
+		return err
+	}
+	return nil
 }
 
 // shouldSeed takes a tableName and returns true if it has zero rows

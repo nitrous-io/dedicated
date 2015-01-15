@@ -708,5 +708,25 @@ func init() {
 				);
 			`,
 		},
+		{
+			Version: "590",
+			Up: `
+				ALTER TABLE users ALTER COLUMN billing_enabled SET DEFAULT TRUE;
+				ALTER TABLE user_profiles ALTER COLUMN max_hosts SET DEFAULT 3;
+			`,
+		},
+		{
+			Version: "600",
+			Up: `
+				ALTER TABLE billing_profiles ADD COLUMN pending_activation boolean DEFAULT TRUE;
+				ALTER TABLE credit_types ADD COLUMN default_value bigint NOT NULL DEFAULT 0;
+			`,
+		},
+		{
+			Version: "610",
+			Up: `
+				ALTER TABLE users ADD COLUMN service_account bool DEFAULT FALSE;
+			`,
+		},
 	}
 }

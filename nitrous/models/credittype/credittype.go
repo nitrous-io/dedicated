@@ -7,10 +7,11 @@ import (
 )
 
 type CreditType struct {
-	ID          int64  `db:"id"`
-	Name        string `db:"name"`
-	Description string `db:"description"`
-	Active      bool   `db:"active"`
+	ID           int64  `db:"id"`
+	Name         string `db:"name"`
+	Description  string `db:"description"`
+	Active       bool   `db:"active"`
+	DefaultValue int64  `db:"default_value"` // stored as cents
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
@@ -18,8 +19,8 @@ type CreditType struct {
 
 func (i *CreditType) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO credit_types
-    (name, description, active)
-    VALUES (:name, :description, :active)
+    (name, description, active, default_value)
+    VALUES (:name, :description, :active, :default_value)
     RETURNING *;`)
 	if err != nil {
 		return err
