@@ -203,6 +203,14 @@ func (c *Finder) fileFind(term, root string) (chan string, chan error, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	fileinfo, err := os.Stat(fullpath)
+	if os.IsNotExist(err) {
+		return nil, nil, fmt.Errorf("%q does not exist", root)
+	}
+	if !fileinfo.IsDir() {
+		return nil, nil, fmt.Errorf("%q is not a directory", root)
+	}
+
 	f := finder.NewFinder(fullpath)
 	results, err := f.FindFiles(term)
 	if err != nil {
@@ -245,6 +253,14 @@ func (c *Finder) search(term, root string, ignoreCase, useRegexp bool) (chan *fi
 	if err != nil {
 		return nil, nil, err
 	}
+	fileinfo, err := os.Stat(fullpath)
+	if os.IsNotExist(err) {
+		return nil, nil, fmt.Errorf("%q does not exist", root)
+	}
+	if !fileinfo.IsDir() {
+		return nil, nil, fmt.Errorf("%q is not a directory", root)
+	}
+
 	f := finder.NewFinder(fullpath)
 	results, err := f.FindContent(term, ignoreCase, useRegexp)
 	if err != nil {
