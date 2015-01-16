@@ -492,14 +492,11 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	stdin := msgproto.NewReader(conn, msgCh, stream.MessageType)
 	stdout := msgproto.NewWriter(stream)
 
-	quit, done, err := cops.Start(id, stdin, stdout)
+	done, err := cops.Start(id, stdin, stdout)
 	if err != nil {
 		stdout.Close()
 		return err
 	}
-	defer func() {
-		close(quit)
-	}()
 	for {
 		select {
 		case err := <-done:
