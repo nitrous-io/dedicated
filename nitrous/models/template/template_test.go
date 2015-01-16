@@ -43,7 +43,7 @@ var _ = Describe("models/template", func() {
 				],
 				"volumes": [ { "name": "database", "slug": "database" } ]
 			}`
-			_, err = db.Exec(`INSERT INTO templates (slug, name, description, config) VALUES ($1, $2, $3, $4);`, "rails-starter", "Ruby on Rails", "RoR template", config)
+			_, err = db.Exec(`INSERT INTO templates (slug, name, description, config) VALUES ($1, $2, $3, $4);`, "rails-stack", "Ruby on Rails", "RoR template", config)
 			Expect(err).To(BeNil())
 
 			config = `{
@@ -59,7 +59,7 @@ var _ = Describe("models/template", func() {
 			tmpls, err := template.All(db)
 			Expect(err).To(BeNil())
 			Expect(tmpls).To(HaveLen(2))
-			Expect([]string{tmpls[0].Slug, tmpls[1].Slug}).To(ConsistOf([]string{"rails-starter", "php"}))
+			Expect([]string{tmpls[0].Slug, tmpls[1].Slug}).To(ConsistOf([]string{"rails-stack", "php"}))
 		})
 	})
 
@@ -72,10 +72,10 @@ var _ = Describe("models/template", func() {
 				],
 				"volumes": [ { "name": "database", "slug": "database" } ]
 			}`
-			_, err := db.Exec(`INSERT INTO templates (slug, name, description, config) VALUES ($1, $2, $3, $4);`, "rails-starter", "Ruby on Rails", "RoR template", config)
+			_, err := db.Exec(`INSERT INTO templates (slug, name, description, config) VALUES ($1, $2, $3, $4);`, "rails-stack", "Ruby on Rails", "RoR template", config)
 			Expect(err).To(BeNil())
 
-			tmpl, err := template.Find(db, "rails-starter")
+			tmpl, err := template.Find(db, "rails-stack")
 			Expect(err).To(BeNil())
 
 			cfg, err := tmpl.ParsedConfig()
@@ -113,32 +113,32 @@ var _ = Describe("models/template", func() {
 	Describe("Insert()", func() {
 		It("persists the template in the database", func() {
 			tmpl := &template.Template{
-				Slug:        "rails-starter",
+				Slug:        "rails-stack",
 				Name:        sql.NullString{"Ruby on Rails", true},
-				Description: sql.NullString{"A Rails starter template", true},
+				Description: sql.NullString{"A Rails stack template", true},
 				Config:      `{ "containers": [ { "name": "Rails", "slug": "rails", "image": "rails:4.2" } ] }`,
-				Type:        template.StarterType,
+				Type:        template.TypeStack,
 			}
 			err := tmpl.Insert(db)
 			Expect(err).To(BeNil())
 
-			tmpl2, err := template.Find(db, "rails-starter")
+			tmpl2, err := template.Find(db, "rails-stack")
 			Expect(err).To(BeNil())
 
-			Expect(tmpl2.Slug).To(Equal("rails-starter"))
+			Expect(tmpl2.Slug).To(Equal("rails-stack"))
 			Expect(tmpl2.Name).To(Equal(sql.NullString{"Ruby on Rails", true}))
-			Expect(tmpl2.Description).To(Equal(sql.NullString{"A Rails starter template", true}))
+			Expect(tmpl2.Description).To(Equal(sql.NullString{"A Rails stack template", true}))
 			Expect(tmpl2.Config).To(Equal(`{ "containers": [ { "name": "Rails", "slug": "rails", "image": "rails:4.2" } ] }`))
-			Expect(tmpl2.Type).To(Equal(template.StarterType))
+			Expect(tmpl2.Type).To(Equal(template.TypeStack))
 			Expect(tmpl2.CreatedAt).NotTo(BeNil())
 			Expect(tmpl2.UpdatedAt).NotTo(BeNil())
 		})
 
 		It("returns ErrConfigInvalid when .Config is invalid JSON", func() {
 			tmpl := &template.Template{
-				Slug:        "rails-starter",
+				Slug:        "rails-stack",
 				Name:        sql.NullString{"Ruby on Rails", true},
-				Description: sql.NullString{"A Rails starter template", true},
+				Description: sql.NullString{"A Rails stack template", true},
 				Config:      `{ invalid: "JSON" }`,
 			}
 			err := tmpl.Insert(db)

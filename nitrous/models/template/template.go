@@ -10,13 +10,13 @@ import (
 )
 
 const (
-	LanguageType = "language"
-	StarterType  = "starter"
-	MiscType     = "misc"
+	TypeBasic    = "basic"
+	TypeStack    = "stack"
+	TypeAdvanced = "advanced"
 )
 
 var (
-	AllowedTypes = []string{LanguageType, StarterType, MiscType}
+	AllowedTypes = []string{TypeBasic, TypeStack, TypeAdvanced}
 )
 
 var (

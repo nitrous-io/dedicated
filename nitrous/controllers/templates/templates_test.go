@@ -53,20 +53,20 @@ var _ = Describe("controllers/templates", func() {
 
 		It("responds with all templates", func() {
 			t1 := &template.Template{
-				Slug:        "rails-starter",
+				Slug:        "rails-stack",
 				Name:        sql.NullString{"Ruby on Rails", true},
-				Description: sql.NullString{"A Rails starter template", true},
+				Description: sql.NullString{"A Rails stack template", true},
 				Config:      `{ "containers": [ { "name": "Rails", "slug": "rails", "image": "rails:4.2" } ] }`,
-				Type:        template.StarterType,
+				Type:        template.TypeStack,
 			}
 			err := t1.Insert(db)
 			Expect(err).To(BeNil())
 			t2 := &template.Template{
-				Slug:        "php-starter",
+				Slug:        "php-stack",
 				Name:        sql.NullString{"PHP", true},
-				Description: sql.NullString{"A PHP starter template", true},
+				Description: sql.NullString{"A PHP stack template", true},
 				Config:      `{ "containers": [ { "name": "php", "slug": "php", "image": "php:latest" } ] }`,
-				Type:        template.StarterType,
+				Type:        template.TypeStack,
 			}
 			err = t2.Insert(db)
 			Expect(err).To(BeNil())
@@ -81,8 +81,8 @@ var _ = Describe("controllers/templates", func() {
 			Expect(err).To(BeNil())
 			Expect(j.Templates).To(HaveLen(2))
 
-			Expect(j.Templates[0].Slug).To(Equal("rails-starter"))
-			Expect(j.Templates[1].Slug).To(Equal("php-starter"))
+			Expect(j.Templates[0].Slug).To(Equal("rails-stack"))
+			Expect(j.Templates[1].Slug).To(Equal("php-stack"))
 		})
 
 		Context("when there are no templates", func() {

@@ -220,57 +220,41 @@ func templates(d db.QueryReceiver) error {
 		return err
 	}
 
-	vanillaCn := defaultContainer()
-	vanillaCn.Image = "nitrousio/ubuntu:latest"
-	vanillaCn.PublishAll = true
-	vanillaCn.Ports = []string{"public:2222:22"}
-	vanillaConfigJSON, err := templateCnCfgJSON(vanillaCn)
-	if err != nil {
-		return err
-	}
-
 	templates := []template.Template{
 		{
 			Slug:        "rails",
 			Name:        sql.NullString{"Ruby on Rails", true},
 			Description: sql.NullString{railsDesc, true},
 			Config:      string(railsConfigJSON),
-			Type:        template.StarterType,
+			Type:        template.TypeStack,
 		},
 		{
 			Slug:        "laravel",
 			Name:        sql.NullString{"Laravel", true},
 			Config:      string(laravelConfigJSON),
 			Description: sql.NullString{laravelDesc, true},
-			Type:        template.StarterType,
+			Type:        template.TypeStack,
 		},
 		{
 			Slug:        "mean",
 			Name:        sql.NullString{"MEAN", true},
 			Config:      string(meanConfigJSON),
 			Description: sql.NullString{meanDesc, true},
-			Type:        template.StarterType,
+			Type:        template.TypeStack,
 		},
 		{
 			Slug:        "meteor",
 			Name:        sql.NullString{"Meteor", true},
 			Config:      string(meteorConfigJSON),
 			Description: sql.NullString{meteorDesc, true},
-			Type:        template.StarterType,
+			Type:        template.TypeStack,
 		},
 		{
 			Slug:        "django",
 			Name:        sql.NullString{"Django", true},
 			Config:      string(djangoConfigJSON),
 			Description: sql.NullString{djangoDesc, true},
-			Type:        template.StarterType,
-		},
-		{
-			Slug:        "ubuntu",
-			Name:        sql.NullString{"Vanilla", true},
-			Config:      string(vanillaConfigJSON),
-			Description: sql.NullString{vanillaDesc, true},
-			Type:        template.StarterType,
+			Type:        template.TypeStack,
 		},
 	}
 	for _, t := range templates {
@@ -300,18 +284,23 @@ func templates(d db.QueryReceiver) error {
 	if err != nil {
 		return err
 	}
-	dindCfgJSON, err := baseTemplateConfigJSON("nitrousio/docker:latest")
+	dindCfgJSON, err := privilegedBaseTemplateConfigJSON("nitrousio/docker:latest")
+	if err != nil {
+		return err
+	}
+	vanillaCfgJSON, err := baseTemplateConfigJSON("nitrousio/ubuntu:latest")
 	if err != nil {
 		return err
 	}
 
 	baseTemplates := []template.Template{
-		{Name: sql.NullString{"Go", true}, Config: string(goCfgJSON), Slug: "golang", Type: template.LanguageType},
-		{Name: sql.NullString{"Node.js", true}, Config: string(nodeCfgJSON), Slug: "nodejs", Type: template.LanguageType},
-		{Name: sql.NullString{"PHP", true}, Config: string(phpCfgJSON), Slug: "php", Type: template.LanguageType},
-		{Name: sql.NullString{"Python", true}, Config: string(pythonCfgJSON), Slug: "python", Type: template.LanguageType},
-		{Name: sql.NullString{"Ruby", true}, Config: string(rubyCfgJSON), Slug: "ruby", Type: template.LanguageType},
-		{Name: sql.NullString{"Docker", true}, Config: string(dindCfgJSON), Slug: "docker", Type: template.MiscType},
+		{Name: sql.NullString{"Go", true}, Config: string(goCfgJSON), Slug: "golang", Type: template.TypeBasic},
+		{Name: sql.NullString{"Node.js", true}, Config: string(nodeCfgJSON), Slug: "nodejs", Type: template.TypeBasic},
+		{Name: sql.NullString{"PHP", true}, Config: string(phpCfgJSON), Slug: "php", Type: template.TypeBasic},
+		{Name: sql.NullString{"Python", true}, Config: string(pythonCfgJSON), Slug: "python", Type: template.TypeBasic},
+		{Name: sql.NullString{"Ruby", true}, Config: string(rubyCfgJSON), Slug: "ruby", Type: template.TypeBasic},
+		{Name: sql.NullString{"Ubuntu", true}, Config: string(vanillaCfgJSON), Slug: "ubuntu", Type: template.TypeBasic},
+		{Name: sql.NullString{"Docker", true}, Config: string(dindCfgJSON), Slug: "docker", Type: template.TypeAdvanced},
 	}
 	for _, t := range baseTemplates {
 		if err := t.Insert(d); err != nil {
@@ -326,6 +315,19 @@ func templates(d db.QueryReceiver) error {
 func baseTemplateConfigJSON(repo string) ([]byte, error) {
 	c := template.Container{
 		Privileged: false,
+		PublishAll: false,
+		Env:        nil,
+		Image:      repo,
+		Ports:      []string{},
+		Volumes:    nil,
+	}
+
+	return templateCnCfgJSON(c)
+}
+
+func privilegedBaseTemplateConfigJSON(repo string) ([]byte, error) {
+	c := template.Container{
+		Privileged: true,
 		PublishAll: false,
 		Env:        nil,
 		Image:      repo,
@@ -351,7 +353,7 @@ func defaultContainer() template.Container {
 		Privileged: false,
 		PublishAll: false,
 		Env:        nil,
-		Ports:      []string{"public::3000", "public::2222"},
+		Ports:      []string{"public::3000"},
 		Volumes:    nil,
 	}
 }
@@ -395,7 +397,7 @@ func shouldSeed(d db.QueryReceiver, tableName string) (bool, error) {
 
 // Template descriptions
 const (
-	railsDesc = `A baseline Ruby on Rails application that uses PostgreSQL as the database backend.
+	railsDesc = `A baseline Ruby on Rails stack that uses PostgreSQL as the database backend.
 
 This template contains:
 •  Rails 4.1
@@ -403,7 +405,7 @@ This template contains:
 •  PostgreSQL 9.3
 •  Ubuntu 14.04`
 
-	laravelDesc = `An application on Laravel, the PHP framework for web artisans.
+	laravelDesc = `A PHP stack using Laravel, the PHP framework for web artisans.
 
 This template contains:
 •  Laravel 4.2.12
@@ -411,7 +413,7 @@ This template contains:
 •  PostgreSQL 9.3
 •  Ubuntu 14.04`
 
-	meanDesc = `An application using the MEAN stack: MongoDB, Express, AngularJS, and Node.js.
+	meanDesc = `A MEAN Javascript stack: MongoDB, Express, AngularJS, and Node.js.
 
 This template contains:
 •  MEAN 0.4.1
@@ -419,19 +421,19 @@ This template contains:
 •  MongoDB 2.6.6
 •  Ubuntu 14.04`
 
-	meteorDesc = `A Meteor application.
+	meteorDesc = `A Meteor stack.
 
 This template contains:
 •  Meteor 1.0.1
 •  Ubuntu 14.04`
 
-	djangoDesc = `
+	djangoDesc = `A Django application.
 
 This template contains:
 •  Django 1.7.1
+•  Python 3.4.0
 •  IPython 2.3.1
 •  Gunicorn 19.1.1
-•  Python 3.4.0
 •  Ubuntu 14.04`
 
 	vanillaDesc = `A vanilla development environment.

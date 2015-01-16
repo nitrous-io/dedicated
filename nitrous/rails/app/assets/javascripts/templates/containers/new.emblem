@@ -38,10 +38,43 @@
             = input type='text' id='containers-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
 
       .card-body.bordered
+        .ui.input-group
+          label.field-label
+            | Stack Templates
+
+          .image-selection
+            ul.templates
+              each template in stackTemplates
+                App.StarterTemplateView content=template selected=view.selectedTemplate
+
+        .ui.input-group
+          label.field-label
+            | Basic Templates
+
+          .image-selection
+            ul.templates
+              each template in basicTemplates
+                App.StarterTemplateView content=template selected=view.selectedTemplate
+
         if App.user.advanced
           .ui.input-group
             label.field-label
-              | Advanced
+              | Advanced Templates
+
+            .image-selection
+              ul.templates
+                each template in advancedTemplates
+                  App.StarterTemplateView content=template selected=view.selectedTemplate
+
+        .ui.input-group
+          .description
+            p
+              = view.selectedTemplate.description
+
+        if App.user.advanced
+          .ui.input-group
+            label.field-label
+              | Custom Image
 
             .image-selection
               ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
@@ -64,38 +97,6 @@
               .indent
                 = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle value=view.customImage disabled=saving
 
-        .ui.input-group
-          label.field-label
-            | Template
-
-          .image-selection
-            ul.starter-templates
-              each template in starterTemplates
-                App.StarterTemplateView content=template selected=view.selectedTemplate
-
-        .ui.input-group
-          label.field-label
-            | Language
-
-          .image-selection
-            ul.starter-templates
-              each template in languageTemplates
-                App.StarterTemplateView content=template selected=view.selectedTemplate
-
-        if App.user.advanced
-          .ui.input-group
-            label.field-label
-              | Miscellaneous
-
-            .image-selection
-              ul.starter-templates
-                each template in miscTemplates
-                  App.StarterTemplateView content=template selected=view.selectedTemplate
-
-        .ui.input-group
-          .description
-            p
-              = view.selectedTemplate.description
 
       .card-footer.bordered
         .right
