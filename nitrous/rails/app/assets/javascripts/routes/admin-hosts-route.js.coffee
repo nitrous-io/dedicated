@@ -4,9 +4,6 @@
 App.AdminHostsRoute = App.AdminRoute.extend App.PerformActionMixin,
   provider: null
   activate: ->
-    App.set 'regions', App.Region.fetch().value
-    App.set 'plans', App.Plan.fetch().value
-
     App.set 'title', 'Admin - Hosts'
 
   model: (params) ->

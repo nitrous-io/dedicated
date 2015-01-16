@@ -122,13 +122,9 @@ func plans(d db.QueryReceiver) error {
 		return err
 	}
 	plans := []plan.Plan{
-		{Slug: "512mb", CPU: "1", Memory: "512 MB", Storage: "20 GB", Name: "Nano", MaxContainers: 2, Price: 995},
-		{Slug: "1gb", CPU: "1", Memory: "1 GB", Storage: "30 GB", Name: "Micro", MaxContainers: 4, Price: 1995},
-		{Slug: "2gb", CPU: "2", Memory: "2 GB", Storage: "40 GB", Name: "Small", MaxContainers: 8, Price: 3995},
-		{Slug: "4gb", CPU: "2", Memory: "4 GB", Storage: "60 GB", Name: "Medium", MaxContainers: 16, Price: 7995},
-		{Slug: "8gb", CPU: "4", Memory: "8 GB", Storage: "80 GB", Name: "Large", MaxContainers: 32, Price: 15995},
-		{Slug: "16gb", CPU: "8", Memory: "16 GB", Storage: "160 GB", Name: "XLarge", MaxContainers: 64, Price: 31995},
-		{Slug: "32gb", CPU: "12", Memory: "32 GB", Storage: "320 GB", Name: "2XLarge", MaxContainers: 128, Price: 63995},
+		{Slug: "shift", Name: "Shift", MaxContainers: 2, Price: 2500, CPU: "1", Memory: "1 GB", Storage: "20 GB"},
+		{Slug: "turbo", Name: "Turbo", MaxContainers: 5, Price: 5000, CPU: "2", Memory: "2 GB", Storage: "30 GB", MostPopular: true},
+		{Slug: "nitro", Name: "Nitro", MaxContainers: 10, Price: 8000, CPU: "2", Memory: "4 GB", Storage: "50 GB"},
 	}
 	for _, p := range plans {
 		if err := p.Insert(d); err != nil {

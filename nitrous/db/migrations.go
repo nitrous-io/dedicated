@@ -728,5 +728,11 @@ func init() {
 				ALTER TABLE users ADD COLUMN service_account bool DEFAULT FALSE;
 			`,
 		},
+		{
+			Version: "620",
+			Up: `
+				ALTER TABLE plans ADD COLUMN most_popular bool DEFAULT FALSE;
+			`,
+		},
 	}
 }

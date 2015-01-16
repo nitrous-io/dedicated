@@ -26,9 +26,9 @@ var _ = Describe("models/plan", func() {
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`INSERT INTO plans
-			(slug, name, max_containers, price, cpu, memory, storage, disabled)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-			"1gb", "Micro", 4, 1995, "2", "1 GB", "20 GB", false)
+			(slug, name, max_containers, price, cpu, memory, storage, disabled, most_popular)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+			"1gb", "Micro", 4, 1995, "2", "1 GB", "20 GB", false, true)
 		Expect(err).To(BeNil())
 		_, err = db.Exec(`INSERT INTO plans
 			(slug, name, max_containers, price, cpu, memory, storage, disabled)
@@ -84,6 +84,7 @@ var _ = Describe("models/plan", func() {
 				Expect(p.CPU).To(Equal("2"))
 				Expect(p.Memory).To(Equal("1 GB"))
 				Expect(p.Storage).To(Equal("20 GB"))
+				Expect(p.MostPopular).To(BeTrue())
 			})
 		})
 
@@ -166,6 +167,7 @@ var _ = Describe("models/plan", func() {
 				CPU:           "1",
 				Memory:        "512 MB",
 				Storage:       "20 GB",
+				MostPopular:   true,
 			}
 			err = p.Insert(db)
 			Expect(err).To(BeNil())
@@ -183,6 +185,7 @@ var _ = Describe("models/plan", func() {
 			Expect(p2.CPU).To(Equal("1"))
 			Expect(p2.Memory).To(Equal("512 MB"))
 			Expect(p2.Storage).To(Equal("20 GB"))
+			Expect(p2.MostPopular).To(BeTrue())
 			Expect(p2.CreatedAt).NotTo(BeNil())
 			Expect(p2.UpdatedAt).NotTo(BeNil())
 		})

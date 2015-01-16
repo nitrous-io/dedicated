@@ -166,6 +166,14 @@ $(document).on 'click', '.click-highlight', (e) ->
 Em.Route.reopen
   activate: ->
     App.set 'title', null
+    if !App.get('regions')
+      App.set 'regions', App.Region.fetch().value
+    if !App.get('plans')
+      App.set 'plans', App.Plan.fetch().value
+    if !App.get('baseImages')
+      App.set 'baseImages', App.BaseImage.fetch().value
+    if !App.get('templates')
+      App.set 'templates', App.Template.fetch().value
 
   beforeModel: (transition) ->
     @_super.apply this, arguments
