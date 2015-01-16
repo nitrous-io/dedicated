@@ -51,13 +51,11 @@ var (
 	RootPrefix = "/var/lib/docker/aufs/mnt"
 
 	// list of commands
-	execCommandName     = "cops-exec"
-	readFileCommandName = "cops-readfile"
+	execCommandName = "cops-exec"
 )
 
 func init() {
 	reexec.Register(execCommandName, copsInit)
-	reexec.Register(readFileCommandName, readFileInit)
 }
 
 // copyInit chroot itself inside the container diretory, and process cops
@@ -83,32 +81,6 @@ func copsInit() {
 	if err := <-errCh; err != nil {
 		log.Fatalf("failed to serve cops websocket %v", err)
 	}
-	os.Exit(0)
-}
-
-// infoInit chroot itself inside the container diretory, and write contents of
-// the local file to stdout
-func readFileInit() {
-	runtime.LockOSThread()
-	flag.Parse()
-	// id is arg 0th
-	path := flag.Arg(1)
-	localPath := flag.Arg(2)
-
-	// chroot the current process into path
-	if err := syscall.Chroot(path); err != nil {
-		log.Fatalf("copsInit failed to chroot to %s : %v", path, err)
-	}
-	if err := syscall.Chdir("/"); err != nil {
-		log.Fatalf("copsInit failed to change dir to / : %v", err)
-	}
-
-	f, err := os.Open(localPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-	io.Copy(os.Stdout, f)
 	os.Exit(0)
 }
 
@@ -228,21 +200,6 @@ func Start(id string, r io.Reader, w io.Writer) (quit chan struct{}, done chan e
 	go io.Copy(w, parent)
 
 	return quit, done, nil
-}
-
-// Write contents of a path inside container to the writer.
-// This should be used only for file. For directory, it's best to use docker's
-// built-in copy
-func ReadFromContainer(id string, localPath string, w io.Writer) error {
-	root := filepath.Join(RootPrefix, id)
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		return fmt.Errorf("failed to find rootfs for %s, %s", id, err)
-	}
-	// create the command, pass the child as fd3 of the command
-	cmd := reexec.Command(readFileCommandName, id, root, localPath)
-	cmd.Stdout = w
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
 }
 
 func RegisterHandler(namespace string, h NewHandler) {
