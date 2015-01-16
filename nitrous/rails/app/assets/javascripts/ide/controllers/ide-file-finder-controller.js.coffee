@@ -61,7 +61,10 @@ App.IdeFileFinderController = Em.Controller.extend
     path = @get 'findPath'
     if dialog && socket && pattern && path
       dialog.searchStart(pattern, path)
-      socket.fileFind pattern, path, -> {}
+      socket.fileFind pattern, path, (err) ->
+        if err
+          dialog.set 'error', err
+          return
 
   closeFindDialog: ->
     this.reset()

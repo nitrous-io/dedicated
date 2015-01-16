@@ -55,7 +55,7 @@ App.FileFinderDialog = klass = Em.Object.extend
 
   currentStatus: (->
     this.searchStatus(@get('currentSearch'), @get('basePath'))
-  ).property 'currentResults'
+  ).property 'currentResults', 'error'
 
   showStatus: (->
     return false if @get('currentSearch')?.length == 0
@@ -79,7 +79,7 @@ App.FileFinderDialog = klass = Em.Object.extend
   humanStatus: (->
     switch @get 'currentStatus'
       when 'error'
-        if error = @get('errorMessage') then error else 'Error finding'
+        if error = @get('error') then error else 'Error finding'
       when 'zero'
         'No results found'
       when 'started'
@@ -115,14 +115,6 @@ App.FileFinderDialog = klass = Em.Object.extend
     _.each newResults, (result) =>
       results.pushObject Em.Object.create(filename: result, absolutePath: [path, result].join('/') )
     @set 'newResults', Date.now()
-
-  errorMessage: (->
-    switch @get('error')
-      when 'NOPATH'
-        "Could not find path #{@get 'basePath'}.  Please check if it exists"
-      else
-        null
-  ).property 'error', 'basePath'
 
   incrementIndex: ->
     index = @get 'selectedIndex'
