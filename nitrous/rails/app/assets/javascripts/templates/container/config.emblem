@@ -150,4 +150,4 @@
             | Applying Changes...
         else
           button.ui.btn click='cancelApply target="view"' Cancel
-          button.ui.btn.primary click='confirmApply target="view"' Apply
+          button.ui.btn.primary click='confirmApply target="view"' disabled={view.formDisabled} Apply

@@ -63,6 +63,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
 
       reconfigureComplete = =>
         @set 'state', prevState
+        @set 'saving', false
         events.off 'container.reconfigured', onReconfigured
         events.off 'container.reconfigure_failed', onReconfigureFailed
 
@@ -89,8 +90,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
         @set 'closeApplyDialog', true
       , (jqxhr) ->
         App.postError(jqxhr.responseJSON, "Failed to apply new configuration!")
-      ).finally =>
-        @set 'saving', false
+      )
 
 filterEnvVarHash = (envVarHash) ->
   mutable = envVarHash
