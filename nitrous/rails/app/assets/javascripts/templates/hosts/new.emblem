@@ -27,14 +27,25 @@
             .ui.select
               Ember.Select id='hosts-new-region' name='host' content=App.regions optionValuePath='content.slug' optionLabelPath='content.name' disabled=saving value=selectedRegionSlug
 
-          .ui.input-group
-            label.field-label for='hosts-new-plan'
-              | VM Size
-            .ui.select
-              Ember.Select id='hosts-new-plan' name='host' content=App.plans optionValuePath='content.slug' optionLabelPath='content.displayName' disabled=saving value=selectedPlanSlug
+      .pricing-table
+        .card-body.bordered
+          = partial 'partials/plans'
 
       .card-body.bordered
+        if saving
+          if host.progress.status
+            .left
+              p
+                = host.progress.status
+          .right
+            button.ui.btn disabled='disabled'
+              i.spinner
+              | Creating...
+        else
+          .right
+            input.ui.btn.primary.raised.full type='submit' disabled={view.createButtonDisabled} value='Create Workspace'
 
+      .card-body.bordered
         .credit-message
           | You have
           '
@@ -55,22 +66,9 @@
           |.
           / All sales are final.
 
+      .card-body.bordered
+        = partial 'partials/pricing-description'
 
-      .card-footer.bordered
-        if saving
-          if host.progress.status
-            .left
-              p
-                = host.progress.status
-          .right
-            button.ui.btn disabled='disabled'
-              i.spinner
-              | Creating...
-        else
-          .right
-            if canCancel
-              a.ui.btn href='#' click='cancel' Cancel
-            input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=host.progress.progressDetail.current max=host.progress.progressDetail.total
 
   .screen class={view.hideProgress:hide}
