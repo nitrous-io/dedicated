@@ -256,7 +256,7 @@ var _ = Describe("server", func() {
 			})
 		})
 
-		for _, param := range []string{"name", "image"} {
+		for _, param := range []string{"name", "image", "secret"} {
 			func(param string) {
 				Context(fmt.Sprintf("when param '%v' is missing", param), func() {
 					BeforeEach(func() {
@@ -266,7 +266,7 @@ var _ = Describe("server", func() {
 
 					It("responds with 422 unprocessable entity", func() {
 						Expect(res.Code).To(Equal(422))
-						Expect(res.Body.String()).To(MatchJSON(fmt.Sprintf(`{"error":"%v is not valid"}`, param)))
+						Expect(res.Body.String()).To(MatchJSON(fmt.Sprintf(`{"error":"%v is required"}`, param)))
 					})
 
 					It("does not call provider.Create()", func() {
@@ -284,7 +284,7 @@ var _ = Describe("server", func() {
 
 			It("responds with 422 unprocessable entity", func() {
 				Expect(res.Code).To(Equal(422))
-				Expect(res.Body.String()).To(MatchJSON(`{"error":"name is not valid"}`))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"name \"-foobar\" is not valid"}`))
 			})
 
 			It("does not call provider.Create()", func() {

@@ -100,14 +100,18 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	image := r.FormValue("image")
 	secret := r.FormValue("secret")
 
-	if name == "" || !provider.IsValidName(name) {
-		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"name is not valid"}`))
+	if name == "" {
+		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"name is required"}`))
+		return
+	} else if !provider.IsValidName(name) {
+		s.respondEncodeJSON(w, StatusUnprocessableEntity,
+			map[string]interface{}{"error": fmt.Sprintf("name %q is not valid", name)})
 		return
 	} else if image == "" {
-		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"image is not valid"}`))
+		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"image is required"}`))
 		return
 	} else if secret == "" {
-		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"secret is not valid"}`))
+		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"secret is required"}`))
 		return
 	}
 
