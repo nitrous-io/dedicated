@@ -9,6 +9,11 @@ App.CurrentUser = klass = Em.Object.extend
   init: ->
     @_super.apply this, arguments
 
+  gravatar: (->
+    "https://secure.gravatar.com/avatar/#{md5(@get 'email')}?default=retro&secure=true&size=48"
+  ).property 'email'
+
+
 klass.reopenClass
   fetch: ->
     promise = new Ember.RSVP.Promise (resolve, reject) =>
