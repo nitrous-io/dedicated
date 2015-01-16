@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strconv"
@@ -32,7 +31,6 @@ func init() {
 func main() {
 	// return if running in reexec mode, and the reexec func has already finished
 	if reexec.Init() {
-		log.Println("reexec finished.")
 		return
 	}
 

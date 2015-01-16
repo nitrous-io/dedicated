@@ -15,10 +15,23 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/test"
 	"github.com/nitrous-io/dedicated/freighter/util"
+	"github.com/nitrous-io/dedicated/pkg/reexec"
+
+	// load required init for reexec commands
+	_ "github.com/nitrous-io/dedicated/freighter/cops"
+	_ "github.com/nitrous-io/dedicated/freighter/cops/cfinder"
+	_ "github.com/nitrous-io/dedicated/freighter/cops/fs"
 
 	"testing"
 	"time"
 )
+
+func init() {
+	// return if running in reexec mode, and the reexec func has already finished
+	if reexec.Init() {
+		return
+	}
+}
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
