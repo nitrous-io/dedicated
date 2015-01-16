@@ -59,7 +59,6 @@ var (
 
 func init() {
 	reexec.Register(execCommandName, copsInit)
-	reexec.Register(copyCommandName, copyInit)
 	reexec.Register(infoCommandName, infoInit)
 	reexec.Register(readFileCommandName, readFileInit)
 }
@@ -86,36 +85,6 @@ func copsInit() {
 	errCh := ListenAndServe(id, os.Stdin, pipe)
 	if err := <-errCh; err != nil {
 		log.Fatalf("failed to serve cops websocket %v", err)
-	}
-	os.Exit(0)
-}
-
-// copyInit chroot itself inside the container diretory, and copy its stdin
-// into the specific path
-func copyInit() {
-	runtime.LockOSThread()
-	flag.Parse()
-	// id is the 0th argument
-	path := flag.Arg(1)
-	localPath := flag.Arg(2)
-
-	// chroot the current process into path
-	if err := syscall.Chroot(path); err != nil {
-		log.Fatalf("copsInit failed to chroot to %s : %v", path, err)
-	}
-	if err := syscall.Chdir("/"); err != nil {
-		log.Fatalf("copsInit failed to change dir to / : %v", err)
-	}
-
-	// create the file if not exists and truncate it if exists
-	f, err := os.Create(localPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	if _, err := io.Copy(f, os.Stdin); err != nil {
-		log.Fatal(err)
 	}
 	os.Exit(0)
 }
@@ -308,21 +277,6 @@ func ReadFromContainer(id string, localPath string, w io.Writer) error {
 	// create the command, pass the child as fd3 of the command
 	cmd := reexec.Command(readFileCommandName, id, root, localPath)
 	cmd.Stdout = w
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
-// Copy contents of the reader into the path inside container
-func CopyToContainer(id string, localPath string, r io.Reader) error {
-	root := filepath.Join(RootPrefix, id)
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		return fmt.Errorf("failed to find rootfs for %s, %s", id, err)
-	}
-	// create the command, pass the child as fd3 of the command
-	cmd := reexec.Command(copyCommandName, id, root, localPath)
-	cmd.Stdin = r
-	// pipe the output/errors to os stdout/stderr
-	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
