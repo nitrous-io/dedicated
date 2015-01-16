@@ -49,6 +49,7 @@ window.NitrousTerminal =
 
     window.onblur = =>
       return unless @term
+      @didBlur()
       Terminal.focus = null
       @term.redrawCursor()
 
@@ -72,6 +73,9 @@ window.NitrousTerminal =
     @term?.focus()
 
   willOpen: ->
+    # override me
+
+  didBlur: ->
     # override me
 
   clear: ->

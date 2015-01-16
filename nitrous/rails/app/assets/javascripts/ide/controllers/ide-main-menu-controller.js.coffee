@@ -3,7 +3,7 @@ activeDocumentSet = (attr, val) ->
     tab.set attr, val
 
 App.IdeMainMenuController = Em.Controller.extend
-  needs: ['ideEditor', 'ideFindInProject', 'ideFileFinder']
+  needs: ['ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder']
   initialize: ->
   reset: ->
 
@@ -68,17 +68,17 @@ App.IdeMainMenuController = Em.Controller.extend
     activeDocumentSet 'splitSelectionIntoLinesTrigger', true
 
   viewFocusConsole: ->
-    if document = App.get 'router.ideEditorController.activeTab'
-      document.set 'focused', false
-    if consoleSession = App.get 'router.ideConsoleController.activeTab'
+    if doc = @get 'controllers.ideEditor.activeTab'
+      doc.set 'focused', false
+    if consoleSession = @get 'controllers.ideConsole.activeTab'
       consoleSession.set 'focused', true
 
     App.util.mixpanelIncrement 'ide_focused_console_count'
 
   viewFocusEditor: ->
-    if document = App.get 'router.ideEditorController.activeTab'
-      document.set 'focused', true
-    if consoleSession = App.get 'router.ideConsoleController.activeTab'
+    if doc = @get 'controllers.ideEditor.activeTab'
+      doc.set 'focused', true
+    if consoleSession = @get 'controllers.ideConsole.activeTab'
       consoleSession.set 'focused', false
 
   viewSelectNextTab: ->
@@ -90,7 +90,7 @@ App.IdeMainMenuController = Em.Controller.extend
       editorController.makePreviousTabActive()
 
   viewToggleFullScreenConsole: ->
-    if consoleController = App.get 'router.ideConsoleController'
+    if consoleController = @get 'controllers.ideConsole'
       consoleController.toggleProperty 'fullscreen'
       App.util.mixpanelIncrement 'ide_toggled_console_fullscreen_count'
     this.viewFocusConsole()
