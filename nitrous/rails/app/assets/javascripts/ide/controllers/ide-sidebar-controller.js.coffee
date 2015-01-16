@@ -70,42 +70,50 @@ App.IdeSidebarController = Em.ArrayController.extend
   #   done: callback (document)
   #   error: callback (errorMessage)
   openPath: (path, settings = {}) ->
-    if settings.error != false
-      settings.error = (message) -> # default error handler
-        App.set 'flashMessage', { type: 'error', text: 'Cannot open the selected file.' }
-    if !path.get('loading') && @get('opsSocketReady')
-      if path.get 'directory'
-        path.set 'expanded', !path.get('expanded')
-        if path.get 'expanded'
-          this.fetchFileList path
-      else
-        editorController = @get('controllers.ideEditor')
-        if document = editorController.findProperty 'path', path
-          editorController.makeTabActive document
-          if settings.done
-            settings.done(document)
-        else
-          this.fetchFileContent path, settings
-        if settings.source
-          App.util.mixpanel 'Opened File Tab', source: settings.source
+    return if path.get('loading') || !@get('opsSocketReady')
 
+    if settings.error != false
+      settings.error = (err) ->
+        message = switch err
+          when 'aio:file_too_large'
+            'Cannot open the selected file because it is too large.'
+          else
+            'Cannot open the selected file.'
+        App.postError message
+
+    if path.get 'directory'
+      path.set 'expanded', !path.get('expanded')
+      if path.get 'expanded'
+        this.fetchFileList path
+    else
+      editorController = @get('controllers.ideEditor')
+      if doc = editorController.findProperty 'path', path
+        editorController.makeTabActive doc
+        if settings.done
+          settings.done(doc)
+      else
+        this.fetchFileContent path, settings
+      if settings.source
+        App.util.mixpanel 'Opened File Tab', source: settings.source
 
   downloadPath: (path) ->
     if !path.get('loading')
       container = App.get('container')
       container.requestToken(["download"]).then (tokenResp) =>
-        freighterdUrl = container.get 'freighterdUrl'
-        cid = container.get 'cid'
-
         downloadFrame = $('<iframe></iframe>')
         downloadFrame.css 'display', 'none'
-        downloadFrame.attr 'src', "https://#{freighterdUrl}/containers/#{cid}/download?path=#{path.get('absolutePath')}&token=#{tokenResp.token}"
+        downloadFrame.attr 'src', @downloadURL(container, path.get('absolutePath'), tokenResp.token)
         $('body').append downloadFrame
         window.setTimeout(->
           downloadFrame.remove()
         , 5000)
       , (jqxhr) ->
         App.postError(jqxhr.responseJSON, 'Could not download file, please try again.')
+
+  downloadURL: (container, path, token) ->
+    freighterdUrl = container.get 'freighterdUrl'
+    cid = container.get 'cid'
+    "https://#{freighterdUrl}/containers/#{cid}/download?path=#{path}&token=#{token}"
 
   fetchFileList: (path) ->
     opsSocket = @get 'opsSocket'
@@ -120,11 +128,22 @@ App.IdeSidebarController = Em.ArrayController.extend
     path.incrementProperty 'loadCount'
     editorController = @get('controllers.ideEditor')
 
-    opsSocket.fetchFileContent path.get('absolutePath'), (err, absolutePath, contentType, content) ->
+    opsSocket.fetchFileContent path.get('absolutePath'), (err, absolutePath, contentType, content) =>
       path.decrementProperty 'loadCount'
       if err
+        if err == 'aio:file_is_oversized_image'
+          container = App.get('container')
+          container.requestToken(['download']).then (tokenResp) =>
+            tab = editorController.createTab(
+              content: @downloadURL(container, path.get('absolutePath'), tokenResp.token)
+              path: path
+            , App.ImageURL)
+            if settings.done
+              settings.done(tab)
+          return
+
         if settings.error
-          settings.error("Cannot open the selected file")
+          settings.error(err)
         return
 
       tabClass = if contentType?.match /^image/ then App.Image else App.Document
