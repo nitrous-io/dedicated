@@ -1,2 +1,2 @@
-App.PricingController = Em.ArrayController.extend
-  sortProperties: ['price']
+App.PricingController = Em.ObjectController.extend
+  canSelectPlan: false

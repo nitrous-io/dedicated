@@ -1,0 +1,14 @@
+.narrow-body
+  .pricing-description
+    h4 All plans also come with
+    .features
+      ul
+        li Always On
+        li SSH Access
+        li Desktop Sync (Mac/Windows/Linux)
+        li Custom Domains
+      ul
+        li SSL Protection
+        li Web IDE
+        li Snapshots
+        li Custom Container Management

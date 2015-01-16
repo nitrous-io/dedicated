@@ -1,0 +1,7 @@
+.narrow-body
+  .ui.input-group
+    label.field-label
+      | Workspace Size
+  ul.plans
+    each plan in App.plans
+      App.PlanView plan=plan selectedPlan=selectedPlan
