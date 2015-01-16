@@ -154,7 +154,7 @@ App.IdeMainMenuView = Em.View.extend
           controller.editFindPrevious()
       menuItem 'Find in Project...',
         macKey: ['shift+command+f'], pcKey: ['shift+ctrl+f']
-        #disabledBinding: Em.Binding.oneWay('App.router.ideController.commandSocketNotReady')
+        disabledBinding: Em.Binding.oneWay('App.router.ideController.opsSocketNotReady')
         disabled: true
         callback: (controller) ->
           controller.editFindInProject()

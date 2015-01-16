@@ -21,8 +21,10 @@ type Finder struct {
 
 // Line represents a matched line in search response
 type Line struct {
-	Row     int    `json:"row"`
-	Content string `json:"content"`
+	Row                int    `json:"row"`
+	Content            string `json:"content"`
+	HighlightedContent string `json:"highlighted_content"`
+	Count              int    `json:"count"` // Number of matches on this line
 }
 
 // SearchResults represent the full results for a single file
@@ -36,12 +38,17 @@ func NewFinder(root string) *Finder {
 	return &Finder{root}
 }
 
-// FindPattern finds files which content has the pattern
+// FindContent finds files which content has the pattern
 //
 // chan *SearchResult has to be fully read even if we dont consume it
 // completely
-func (f *Finder) FindContent(term string) (chan *SearchResult, error) {
-	pattern, err := pt.NewPattern(term, "", true, false, true)
+func (f *Finder) FindContent(term string, ignoreCase, useRegexp bool) (chan *SearchResult, error) {
+	smartCase := true
+	if ignoreCase {
+		smartCase = false
+	}
+
+	pattern, err := pt.NewPattern(term, "", smartCase, ignoreCase, useRegexp)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +66,13 @@ func (f *Finder) FindContent(term string) (chan *SearchResult, error) {
 			}
 			r := &SearchResult{File: rel}
 			for _, m := range pp.Matches {
-				r.Matches = append(r.Matches, &Line{Row: m.Num, Content: m.Str})
+				line := &Line{
+					Row:                m.Num,
+					Content:            m.Str,
+					HighlightedContent: highlightMatches(pattern, m.Str),
+					Count:              countMatches(pattern, m.Str),
+				}
+				r.Matches = append(r.Matches, line)
 			}
 			results <- r
 		}
@@ -74,6 +87,26 @@ func (f *Finder) FindContent(term string) (chan *SearchResult, error) {
 	return results, nil
 }
 
+const (
+	delimStart = "\x1b[30;43m"
+	delimEnd   = "\x1b[0m\x1b[K"
+)
+
+// We should probably return the delimiters used or let the caller specify them.
+func highlightMatches(pattern *pt.Pattern, str string) string {
+	if pattern.UseRegexp || pattern.IgnoreCase {
+		return pattern.Regexp.ReplaceAllString(str, delimStart+"${1}"+delimEnd)
+	}
+	return strings.Replace(str, pattern.Pattern, delimStart+pattern.Pattern+delimEnd, -1)
+}
+
+func countMatches(pattern *pt.Pattern, str string) int {
+	if pattern.UseRegexp || pattern.IgnoreCase {
+		return len(pattern.Regexp.FindAllString(str, -1))
+	}
+	return strings.Count(str, pattern.Pattern)
+}
+
 // FindFiles finds files which name has the pattern
 //
 // the response channel has to be fully read even if we dont consume it
@@ -84,7 +117,6 @@ func (f *Finder) FindFiles(term string) (chan string, error) {
 	if err != nil {
 		return nil, err
 	}
-	option := defaultOption()
 
 	out := make(chan *pt.GrepParams, chanSize)
 	results := make(chan string, chanSize)
@@ -101,7 +133,10 @@ func (f *Finder) FindFiles(term string) (chan string, error) {
 		}
 		close(results)
 	}()
+
+	option := defaultOption()
 	go pt.Find(f.root, pattern, out, option)
+
 	return results, nil
 }
 

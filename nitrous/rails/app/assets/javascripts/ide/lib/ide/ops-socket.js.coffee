@@ -131,3 +131,12 @@ App.OpsSocket = Lib.Socket.extend Ember.Evented,
 
   fileFind: (term, root, callback) ->
     @send 'finder', 'file_find', term, root, callback
+
+  search: (id, term, location, ignoreCase, useRegexp, callback) ->
+    request =
+      id: id
+      term: term
+      root: location
+      ignore_case: ignoreCase
+      use_regexp: useRegexp
+    @send 'finder', 'search', request, callback

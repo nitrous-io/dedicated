@@ -6,30 +6,32 @@ This supports file-find and search in a directory.
 File-find returns a list of file paths that match the given term. Its message
 format is:
 
---> h|{ "namespace":"finder", "event: "file_find", "cid": 42, "args": {"term":"asd", "root":"/home/action"} }
-<-- h|{ "namespace":"finder", "event: "file_find", "cid": 42, "args": {"term":"asd", "root":"/home/action"} } # signal that we received the message
-<-- h|{ "namespace":"finder", "event: "file_find.output", "args": {"term":"asd", "root":"/home/action", "paths": ["workspace/asd"]} }
-<-- h|{ "namespace":"finder", "event: "file_find.error", "args": {"term":"asd", "root":"/home/action", "error": "some error"}} # error occurs in the middle of file-find op
-<-- h|{ "namespace":"finder", "event: "file_find.completed", "args": {"term":"asd", "root":"/home/action"}} # file find completed
+--> d|{ "namespace":"finder", "event: "file_find", "cid": 42, "args": {"term":"asd", "root":"/home/action"} }
+<-- d|{ "namespace":"finder", "event: "file_find", "cid": 42, "args": {"term":"asd", "root":"/home/action"} } # signal that we received the message
+<-- d|{ "namespace":"finder", "event: "file_find.output", "args": {"term":"asd", "root":"/home/action", "paths": ["workspace/asd"]} }
+<-- d|{ "namespace":"finder", "event: "file_find.error", "args": {"term":"asd", "root":"/home/action", "error": "some error"}} # error occurs in the middle of file-find op
+<-- d|{ "namespace":"finder", "event: "file_find.completed", "args": {"term":"asd", "root":"/home/action"}} # file find completed
 
---> h|{ "namespace":"finder", "event: "file_find", "cid": 43, "args": {"term":"another", "root":"/home/action"} } # another request
-<-- h|{ "namespace":"finder", "event: "file_find", "cid": 43, "error": "failed to find file" } # if an error occurs before the file-find op starts
+--> d|{ "namespace":"finder", "event: "file_find", "cid": 43, "args": {"term":"another", "root":"/home/action"} } # another request
+<-- d|{ "namespace":"finder", "event: "file_find", "cid": 43, "error": "failed to find file" } # if an error occurs before the file-find op starts
 
 Search returns a list of files that contain the given term. Each file includes
 metadata that indicates where the given term was matched (i.e. line number and
 surrounding content). Its message format is:
 
---> h|{ "namespace":"finder", "event: "search", "cid": 44, "args": ["123", "asd", "/home/action"] } # args is [id, term, root]
-<-- h|{ "namespace":"finder", "event: "search", "cid": 44, "args": ["123", "asd", "/home/action"] }
-<-- h|{ "namespace":"finder", "event: "search.output", "args": {"id": "123", "term":"asd", "root":"/home/action", "results": {"file":"filename", "matches": [{"row": 12, "content": "line asd"]}} }
-<-- h|{ "namespace":"finder", "event: "search.error", "args": {"id": "123", "term":"asd", "root":"/home/action", "error": "some error"} } # error occurs in the middle of search op
-<-- h|{ "namespace":"finder", "event: "search.completed", "args": {"id": "123", "term":"asd", "root":"/home/action"} } # search completed
---> h|{ "namespace":"finder", "event: "search", "cid": 45, "args": ["123", "another", "/home/action"] }
-<-- h|{ "namespace":"finder", "event: "search", "cid": 45, "error": "filesystem disappeared" } # if an error occurs before the search op starts
+--> d|{ "namespace":"finder", "event: "search", "cid": 44, "args": [{ "id": "123", "term": "asd", "root": "/home/action/workspace", "ignore_case": true, "use_regexp": false }] } # args is a single item array of a hash with keys: id, term, root, ignore_case, use_regexp
+<-- d|{ "namespace":"finder", "event: "search", "cid": 44, "args": [{ "id": "123", "term": "asd", "root": "/home/action/workspace", "ignore_case": true, "use_regexp": false }] }
+<-- d|{ "namespace":"finder", "event: "search.output", "args": [{ "request": {"id": "123", "term":"asd", "root":"/home/action", "ignore_case": true, "use_regexp": false, "results": { "file":"filename", "matches": [{"row": 12, "content": "line asd"}] } }] }
+<-- d|{ "namespace":"finder", "event: "search.error", "args": [{ "request": { "id": "123", "term": "asd", "root": "/home/action/workspace", "ignore_case": true, "use_regexp": false }, "error": "some error"}] } # error occurs in the middle of search op
+<-- d|{ "namespace":"finder", "event: "search.completed", "args": [{ "request": { "id": "123", "term": "asd", "root": "/home/action/workspace", "ignore_case": true, "use_regexp": false }}] } # search completed
+
+--> d|{ "namespace":"finder", "event: "search", "cid": 45, "args": [{ "id": "123", "term": "another", "root": "/home/action"] }
+<-- d|{ "namespace":"finder", "event: "search", "cid": 45, "error": "filesystem disappeared" } # if an error occurs before the search op starts
 */
 package cfinder
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -54,10 +56,17 @@ type FileFindResponse struct {
 	Paths []string `json:"paths"`
 }
 
+type SearchRequest struct {
+	ID         string `json:"id"`
+	Term       string `json:"term"`
+	Root       string `json:"root"`
+	IgnoreCase bool   `json:"ignore_case"`
+	UseRegexp  bool   `json:"use_regexp"`
+}
+
 type SearchResponse struct {
-	ID      string                 `json:"id"`
-	Term    string                 `json:"term"`
-	Root    string                 `json:"root"`
+	SearchRequest `json:"request"`
+
 	Error   string                 `json:"error"`
 	Results []*finder.SearchResult `json:"results"`
 }
@@ -65,9 +74,9 @@ type SearchResponse struct {
 // Finder implements AsyncHandler and not Handler because we want to return
 // response to the user asynchronously. The flow of response is
 //
-// --> h|{"event": "file_find", "cid": 1, ...}
-// <-- h|{"event": "file_find", "cid": 1, ...} // this signal that we are processing it
-// <-- h|{"event": "file_find.output", args: [{"paths": ["container.go"], ..}], ...}
+// --> d|{"event": "file_find", "cid": 1, ...}
+// <-- d|{"event": "file_find", "cid": 1, ...} // this signal that we are processing it
+// <-- d|{"event": "file_find.output", args: [{"paths": ["container.go"], ..}], ...}
 //
 // the client should catch `{{event}}.output` content and pring output
 // accordingly
@@ -122,51 +131,54 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 		resp <- msg
 		return resp
 	case "search":
-		id, _ := msg.Args[0].(string) // It's ok if we don't get an id.
-		term, ok := msg.Args[1].(string)
-		if !ok {
-			resp <- makeErr(msg, errors.New("term argument is required"))
+		if len(msg.Args) < 1 {
+			resp <- makeErr(msg, errors.New("request argument is required"))
 			close(resp)
 			return resp
 		}
-		root, ok := msg.Args[2].(string)
+		arg, ok := msg.Args[0].(map[string]interface{})
 		if !ok {
-			resp <- makeErr(msg, errors.New("root argument is required"))
+			resp <- makeErr(msg, fmt.Errorf("request argument %+v is in invalid format", msg.Args[0]))
 			close(resp)
 			return resp
 		}
-		ch, errch, err := c.search(term, root)
+
+		var req SearchRequest
+		err := mapToStruct(arg, &req)
+		if err != nil {
+			resp <- makeErr(msg, fmt.Errorf("request argument %+v is in invalid format", arg))
+			close(resp)
+			return resp
+		}
+
+		ch, errch, err := c.search(req.Term, req.Root, req.IgnoreCase, req.UseRegexp)
 		if err != nil {
 			resp <- makeErr(msg, err)
 			close(resp)
 			return resp
 		}
+
 		go func() {
 			for err := range errch {
 				resp <- makeMessage("search.error", SearchResponse{
-					ID:    id,
-					Term:  term,
-					Root:  root,
-					Error: err.Error(),
+					SearchRequest: req,
+					Error:         err.Error(),
 				})
 			}
 		}()
 		go func() {
 			for r := range ch {
 				resp <- makeMessage("search.output", SearchResponse{
-					ID:      id,
-					Term:    term,
-					Root:    root,
-					Results: []*finder.SearchResult{r},
+					SearchRequest: req,
+					Results:       []*finder.SearchResult{r},
 				})
 			}
 			resp <- makeMessage("search.completed", SearchResponse{
-				ID:   id,
-				Term: term,
-				Root: root,
+				SearchRequest: req,
 			})
 			close(resp)
 		}()
+
 		// reply the original message to signal that we are processsing it
 		resp <- msg
 		return resp
@@ -191,6 +203,14 @@ func (c *Finder) fileFind(term, root string) (chan string, chan error, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	fileinfo, err := os.Stat(fullpath)
+	if os.IsNotExist(err) {
+		return nil, nil, fmt.Errorf("%q does not exist", root)
+	}
+	if !fileinfo.IsDir() {
+		return nil, nil, fmt.Errorf("%q is not a directory", root)
+	}
+
 	f := finder.NewFinder(fullpath)
 	results, err := f.FindFiles(term)
 	if err != nil {
@@ -205,7 +225,7 @@ func (c *Finder) fileFind(term, root string) (chan string, chan error, error) {
 				counter++
 			} else {
 				if !errSent {
-					errch <- fmt.Errorf("term(%s) has more than %d results", term, fileFindLimit)
+					errch <- fmt.Errorf("term %q has more than %d results", term, fileFindLimit)
 					errSent = true
 					close(errch)
 				}
@@ -222,9 +242,9 @@ func (c *Finder) fileFind(term, root string) (chan string, chan error, error) {
 //
 // this returns
 // - a channel for reading search results
-// - a channel for reading potential errors happen in searching
-// - an error when we failed to perform the search at all
-func (c *Finder) search(term, root string) (chan *finder.SearchResult, chan error, error) {
+// - a channel for reading potential errors that happen during searching
+// - an error when we fail to perform the search at all
+func (c *Finder) search(term, root string, ignoreCase, useRegexp bool) (chan *finder.SearchResult, chan error, error) {
 	var errSent bool // we only want to send error once
 	errch := make(chan error, 1)
 	ch := make(chan *finder.SearchResult, chanSize)
@@ -233,8 +253,16 @@ func (c *Finder) search(term, root string) (chan *finder.SearchResult, chan erro
 	if err != nil {
 		return nil, nil, err
 	}
+	fileinfo, err := os.Stat(fullpath)
+	if os.IsNotExist(err) {
+		return nil, nil, fmt.Errorf("%q does not exist", root)
+	}
+	if !fileinfo.IsDir() {
+		return nil, nil, fmt.Errorf("%q is not a directory", root)
+	}
+
 	f := finder.NewFinder(fullpath)
-	results, err := f.FindContent(term)
+	results, err := f.FindContent(term, ignoreCase, useRegexp)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -247,7 +275,7 @@ func (c *Finder) search(term, root string) (chan *finder.SearchResult, chan erro
 				counter += len(r.Matches)
 			} else {
 				if !errSent {
-					errch <- fmt.Errorf("term(%s) has more than %d results", term, contentSearchLimit)
+					errch <- fmt.Errorf("term %q has more than %d results", term, contentSearchLimit)
 					errSent = true
 					close(errch)
 				}
@@ -288,4 +316,16 @@ func makeMessage(event string, args ...interface{}) *cops.Message {
 		Event:     event,
 		Args:      args,
 	}
+}
+
+// mapToStruct converts a map[string]interface{} to a struct. The given struct
+// value must be a pointer to a struct.
+// This is a wasteful conversion (but an acknowledged trade-off for ease of
+// use).
+func mapToStruct(m map[string]interface{}, val interface{}) error {
+	tmp, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(tmp, val)
 }
