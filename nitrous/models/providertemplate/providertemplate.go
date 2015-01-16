@@ -43,6 +43,15 @@ func FindByID(d db.QueryReceiver, id int64) (*ProviderTemplate, error) {
 	return pt, nil
 }
 
+func All(d db.QueryReceiver) ([]*ProviderTemplate, error) {
+	pts := []*ProviderTemplate{}
+	err := d.Select(&pts, "SELECT * FROM provider_templates ORDER BY id")
+	if err != nil {
+		return nil, err
+	}
+	return pts, nil
+}
+
 func FindByRegionAndPlanAndProvider(d db.QueryReceiver, regionID, planID int64, provider string) (*ProviderTemplate, error) {
 	pt := &ProviderTemplate{}
 	err := d.Get(pt, "SELECT * FROM provider_templates WHERE region_id = $1 AND plan_id = $2 AND provider = $3", regionID, planID, provider)

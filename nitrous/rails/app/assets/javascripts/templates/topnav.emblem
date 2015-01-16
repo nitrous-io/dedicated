@@ -57,6 +57,9 @@
             li
               a href='#' click='switchUser target="view"'
                 | Switch User
+            li
+              = link-to 'provider-templates' 
+                | Provider Templates
     else
       li
         a href='/docs/' Documentation

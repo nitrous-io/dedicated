@@ -53,6 +53,25 @@ var _ = Describe("models/providertemplate", func() {
 		}
 	})
 
+	Describe("All()", func() {
+		It("returns all", func() {
+			pts, err := providertemplate.All(db)
+			Expect(err).To(BeNil())
+
+			Expect(pts).To(HaveLen(2))
+
+			pt1, pt2 := pts[0], pts[1]
+
+			Expect([]string{
+				pt1.Name, pt1.Provider,
+				pt2.Name, pt2.Provider,
+			}).To(ConsistOf([]string{
+				"do-512MB", "digitalocean",
+				"do-1GB", "digitalocean",
+			}))
+		})
+	})
+
 	Describe("FindByID()", func() {
 		var ptID int64
 
