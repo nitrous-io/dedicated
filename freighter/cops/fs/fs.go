@@ -25,13 +25,16 @@ const (
 	jpgContent  = "image/jpg"
 	gifContent  = "image/gif"
 	iconContent = "image/x-icon"
-	sizeLimit   = 2 * 1024 * 1024 // 2 megabytes
+
+	softSizeLimit = 2 * 1024 * 1024  // 2 megabytes
+	hardSizeLimit = 20 * 1024 * 1024 // 20 megabytes
 )
 
 var (
-	ErrFileExist    = errors.New("aio:file_exists")
-	ErrFileTooLarge = errors.New("aio:file_too_large")
-	ErrNotTextFile  = errors.New("aio:not_text_file")
+	ErrFileExist      = errors.New("aio:file_exists")
+	ErrFileTooLarge   = errors.New("aio:file_too_large")
+	ErrNotTextFile    = errors.New("aio:not_text_file")
+	ErrOversizedImage = errors.New("aio:file_is_oversized_image")
 
 	RootPrefix = "/var/lib/docker/aufs/mnt"
 )
@@ -163,7 +166,7 @@ func (c *FS) read(path string) ([]interface{}, error) {
 		return nil, err
 	}
 	// check if the size is too large
-	if stat.Size() > sizeLimit {
+	if stat.Size() > hardSizeLimit {
 		return nil, ErrFileTooLarge
 	}
 	// get content of the file
@@ -176,7 +179,7 @@ func (c *FS) read(path string) ([]interface{}, error) {
 	if stat.Size() == 0 {
 		contentType = textContent
 	} else {
-		contentType, err = getContent(data)
+		contentType, err = detectContentType(data)
 		if err != nil {
 			return nil, err
 		}
@@ -187,6 +190,9 @@ func (c *FS) read(path string) ([]interface{}, error) {
 	case textContent:
 		content = string(data)
 	case pngContent, gifContent, jpgContent, iconContent:
+		if stat.Size() > softSizeLimit {
+			return nil, ErrOversizedImage
+		}
 		content = base64.StdEncoding.EncodeToString(data)
 	}
 	return []interface{}{path, contentType, content}, nil
@@ -233,7 +239,7 @@ func fileInfoArgs(info os.FileInfo) []interface{} {
 	}
 }
 
-func getContent(data []byte) (string, error) {
+func detectContentType(data []byte) (string, error) {
 	var contentType string
 	detectedContent := http.DetectContentType(data)
 	// if the file is a text file or empty
