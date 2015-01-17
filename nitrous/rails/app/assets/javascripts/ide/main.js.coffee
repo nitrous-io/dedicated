@@ -53,6 +53,8 @@ window.Lib = Ember.Namespace.create()
 
 App.on 'load', ->
   App.set 'snackbar', App.Snackbar.create()
+  Em.run.scheduleOnce 'afterRender', ->
+    webapp.loading.stop()
 
 Em.TextSupport.reopen
   attributeBindings: ['readonly']
