@@ -53,7 +53,7 @@ App.HostsNewController = Em.ObjectController.extend
 
         @set 'host', host
 
-      if App.get('newUser') && App.get('billingEnabled')
+      if App.get('newUser') && App.get('user.billingEnabled')
         App.set('pendingHost', host)
         @transitionToRoute 'add-card'
         return
