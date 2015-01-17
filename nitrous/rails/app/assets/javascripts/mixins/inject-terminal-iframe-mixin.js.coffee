@@ -1,7 +1,9 @@
-window.App.reopen
-  injectTerminalIframe: (context)->
+App.InjectTerminalIframeMixin = Em.Mixin.create
+  terminal: null
+
+  injectTerminalIframe: (callback) ->
     $iframe = $('<iframe>')
-    context.$('.terminal-screen').append($iframe)
+    @$('.terminal-screen').append($iframe)
     iframeWindow = $iframe[0].contentWindow
     iframeDocument = iframeWindow.document
 
@@ -19,6 +21,7 @@ window.App.reopen
       terminal = iframeWindow.NitrousTerminal
       terminal.init()
       terminal.focus()
-      context.set 'terminal', terminal
+      @set 'terminal', terminal
+      callback?()
 
     iframeDocument.body.appendChild(scriptEl)

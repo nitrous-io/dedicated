@@ -1,11 +1,9 @@
-App.HostsNewView = Em.View.extend
+App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
   elementId: 'hosts-new-view'
   classNames: ['ui', 'card']
 
   nameFieldInvalid: Em.computed.equal('controller.invalidField', 'name')
   slugFieldInvalid: Em.computed.equal('controller.invalidField', 'slug')
-
-  terminal: null
 
   showLog: false
 
@@ -51,7 +49,7 @@ App.HostsNewView = Em.View.extend
       lastStatus = ev.status
 
     Em.run.scheduleOnce 'afterRender', this, ->
-      App.injectTerminalIframe this
+      @injectTerminalIframe()
 
   willDestroyElement: ->
     @_super()
