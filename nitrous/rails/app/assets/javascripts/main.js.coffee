@@ -130,7 +130,7 @@ App.on 'fetchUser', (user) ->
 
   App.refreshUsage()
 
-  App.set 'eventsSocket', socket = App.EventsSocket.create()
+  App.set 'eventsSocket', socket = App.EventMessageHandler.create()
   socket.connect()
 
 App.loadSettings = ->
