@@ -16,11 +16,7 @@ App.IdeRoute = Em.Route.extend
 
     errorPath = '/app#/'
     if slug
-      App.Container.fetch(slug).then (container) ->
-        App.set 'container', container
-        container
-      , -> # failure
-        window.location.href = errorPath
+      App.loadContainer()
     else
       window.location.href = errorPath
 
