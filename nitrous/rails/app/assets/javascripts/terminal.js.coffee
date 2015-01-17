@@ -7,7 +7,9 @@ window.NitrousTerminal =
   term: null
   conn: null
   url: null
+  closed: false
   firstConnect: true
+  afterOpen: null
   readonly: false
 
   resizeTimeout: null
@@ -24,14 +26,7 @@ window.NitrousTerminal =
     @term = term = new Terminal(80, 25)
     term.open(document.body)
     term.sizeToFit()
-
-    term.on 'resize', (cols, rows) ->
-      return if conn.readyState != 1
-      conn.send "r|#{cols} #{rows}"
-
-    term.handler = (data) =>
-      return if @readonly || conn.readyState != 1
-      conn.send "d|#{data}"
+    @attachHandlers()
 
     window.onresize = =>
       return unless @term
@@ -53,7 +48,17 @@ window.NitrousTerminal =
       Terminal.focus = null
       @term.redrawCursor()
 
+  attachHandlers: ->
+    @term.on 'resize', (cols, rows) =>
+      return if @conn.readyState != 1
+      @conn.send "r|#{cols} #{rows}"
+
+    @term.handler = (data) =>
+      return if @readonly || @conn.readyState != 1
+      @conn.send "d|#{data}"
+
   open: (nobeforeopen) ->
+    @closed = false
     @conn.url = @url
     @conn.open(nobeforeopen)
     @conn.url = null
@@ -88,6 +93,8 @@ window.NitrousTerminal =
       @term.sizeToFit()
     else
       @term.write '\r\n'
+    @afterOpen?()
+    @afterOpen = null
 
   didReceiveMessage: (ev) ->
     type = ev.data.slice(0, 2)
@@ -100,6 +107,7 @@ window.NitrousTerminal =
   didFail: (ev) ->
 
   didClose: (ev) ->
+    @closed = true
     @term?.removeAllListeners('resize')
     @term?.handler = ->
     @term?.write("\r\n[Session closed]")
