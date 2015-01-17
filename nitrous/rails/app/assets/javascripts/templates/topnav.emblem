@@ -8,10 +8,6 @@
   ul.nav.right
     if App.user
       li
-        link-to 'account'
-          img.gravatar src={App.user.gravatar}
-          = App.user.username
-      li
         a href='#' click='sendFeedback target="view"'
           | Send Feedback
       li.ui.dropdown
@@ -28,14 +24,26 @@
           else
             li.disabled
               a href='#' title=view.newHostTitle New Workspace...
+      if App.user.admin
+        li.ui.dropdown
+          a href='#'
+            | Admin
+            .ui.dropdown-triangle
+          ul.dropdown-menu
+            li
+              a href='#' click='switchUser target="view"'
+                | Switch User
+            li
+              = link-to 'provider-templates'
+                | Provider Templates
       li.ui.dropdown
         a href='#'
-          | Account
+          img.gravatar src={App.user.gravatar}
+          = App.user.username
           .ui.dropdown-triangle
         ul.dropdown-menu.right
           li
             link-to 'account' | Account Settings
-          / TODO: FFLAG payments
           if App.user.billingEnabled
             li
               link-to 'billing' | Billing
@@ -48,18 +56,6 @@
           li.separator
           li
             link-to 'logout' | Log Out
-      if App.user.admin
-        li.ui.dropdown
-          a href='#'
-            | Admin
-            .ui.dropdown-triangle
-          ul.dropdown-menu.right
-            li
-              a href='#' click='switchUser target="view"'
-                | Switch User
-            li
-              = link-to 'provider-templates' 
-                | Provider Templates
     else
       li
         a href='/docs/' Documentation
