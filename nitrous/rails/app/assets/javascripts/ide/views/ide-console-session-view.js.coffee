@@ -10,6 +10,13 @@ App.IdeConsoleSessionView = Em.View.extend
 
   iframeInjected: false
 
+  opsSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket.started'
+
+  opsSocketChanged: (->
+    if @get('opsSocketReady') && @get('terminalSession') && @get('terminalSession.closed')
+      @reattachTerminal()
+  ).observes 'opsSocketReady'
+
   init: ->
     @set 'consoleSessionViewId', ++consoleSessionViewNextId
     @_super.apply this, arguments

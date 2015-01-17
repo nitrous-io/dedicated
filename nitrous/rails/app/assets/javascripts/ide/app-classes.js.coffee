@@ -12,6 +12,7 @@
 #= require_tree ./templates
 #= require ../templates/snackbar
 #= require ../templates/offline-indicator
+#= require ../lib/event-message-handler
 #= require_tree ./routes
 #= require_self
 #= require ./routes

@@ -1,6 +1,7 @@
 App.IdeController = Em.ObjectController.extend
   needs: ['ideFindInProject', 'ideFileFinder']
 
+  eventsSocket: null
   opsSocket: null
   commandSocket: null
   opsSocketReady: null
@@ -31,6 +32,12 @@ App.IdeController = Em.ObjectController.extend
       @set 'opsSocket', opsSocket = App.OpsSocket.create(container: content)
       opsSocket.connect()
 
+      App.set 'eventsSocket', evSocket = App.EventsSocket.create()
+      evSocket.connect()
+      evSocket.on 'container.reconfigured', (data)=>
+        if App.get('container.id') == data?.container?.id
+          @handleContainerReconfigured()
+
   reset: ->
     if opsSocket = @get 'opsSocket'
       opsSocket.disconnect()
@@ -46,6 +53,16 @@ App.IdeController = Em.ObjectController.extend
     @set 'opsSocket', null
     @set 'repository', null
     @set 'content', null
+
+  handleContainerReconfigured: ->
+    App.snackbar.post "Container reconfigured, reconnecting...."
+    App.reloadContainer().then (v)=>
+      ops = @get 'opsSocket'
+      ops.disconnect()
+      ops.set 'container', App.get 'container'
+      ops.connect()
+    , (err)->
+      App.snackbar.post "Error reconnecting to container after reconfig!"
 
   opsSocketDisconnected: (->
     unless @get('opsSocketReady')
