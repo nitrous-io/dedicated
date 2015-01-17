@@ -20,18 +20,39 @@
               | Unique Slug
             = input type='text' id='hosts-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
 
-        .ui.flex.horizontal.region-size
-          .ui.input-group
-            label.field-label for='hosts-new-region'
-              | Region
-            .ui.select
-              Ember.Select id='hosts-new-region' name='host' content=App.regions optionValuePath='content.slug' optionLabelPath='content.name' disabled=saving value=selectedRegionSlug
+        .ui.input-group
+          label.field-label for='hosts-new-region'
+            | Region
+          .ui.select
+            Ember.Select id='hosts-new-region' name='host' content=App.regions optionValuePath='content.slug' optionLabelPath='content.name' disabled=saving value=selectedRegionSlug
 
-      .pricing-table
-        .card-body.bordered
-          = partial 'partials/plans'
+        .ui.input-group
+          label.field-label
+            | Workspace Size
+
+          ul.ui.selectable-list.plans
+            each plan in App.plans
+              App.PlanListItemView content=plan selected=selectedPlan
 
       .card-body.bordered
+        p.credit-message
+          ' You have
+          span class=App.availableCreditClass
+            ' $#{App.availableCredit}
+            if App.newUser
+              ' Free
+            ' Credit
+          '
+          | available.
+
+        p.see-terms
+          | Please review the&nbsp;
+          a href='#' terms of service
+          |, and&nbsp;
+          a href='#' privacy policy
+          |. All sales are final.
+
+      .card-footer.bordered
         if saving
           if host.progress.status
             .left
@@ -43,31 +64,7 @@
               | Creating...
         else
           .right
-            input.ui.btn.primary.raised.full type='submit' disabled={view.createButtonDisabled} value='Create Workspace'
-
-      .card-body.bordered
-        .credit-message
-          | You have
-          '
-          .important class=App.availableCreditClass
-            if App.newUser
-              | FREE
-              '
-            | $
-            = App.availableCredit
-            '  credit
-          '  available.
-
-        p.see-terms
-          | Please review the&nbsp;
-          a href='#' terms of service
-          |, and&nbsp;
-          a href='#' privacy policy
-          |.
-          / All sales are final.
-
-      .card-body.bordered
-        = partial 'partials/pricing-description'
+            input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'
 
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=host.progress.progressDetail.current max=host.progress.progressDetail.total
 

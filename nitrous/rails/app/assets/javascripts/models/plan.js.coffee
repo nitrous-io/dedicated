@@ -29,7 +29,10 @@ App.Plan = klass = App.Model.extend
 
   priceInDollars: (->
     if price = @get 'price'
-      "$ #{(price/100).toFixed(2)}"
+      priceDollars = price / 100
+      if priceDollars != Math.floor(priceDollars)
+        priceDollars = priceDollars.toFixed(2)
+      priceDollars.toString()
   ).property 'price'
 
 klass.reopenClass

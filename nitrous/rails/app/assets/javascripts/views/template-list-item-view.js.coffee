@@ -1,7 +1,7 @@
 App.TemplateListItemView = Em.View.extend
   templateName: 'template-list-item'
   tagName: 'li'
-  classNames: ['ui', 'template-list-item-view']
+  classNames: ['template-list-item-view']
   classNameBindings: ['isSelected:selected']
 
   content: null

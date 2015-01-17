@@ -1,8 +1,8 @@
-.button
+.content
   .icon style=view.defaultIconCss
     div style=view.iconCss
   .label
     = view.name
 if view.description
-  .description
+  .hover-info
     = view.description

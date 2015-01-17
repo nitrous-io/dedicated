@@ -933,6 +933,63 @@ ul.ui.snackbar
     margin-right: 7px
     background: $gray200
 
+.ui.selectable-list
+  display: flex
+  flex-direction: row
+  flex-wrap: wrap
+  margin: 0 -16px -16px 0
+  padding: 0
+  list-style: none
+
+  > li
+    position: relative
+
+    .content
+      user-select: none
+      background: $n2oGray850
+      margin: 0 16px 16px 0
+      padding: 8px
+      border-radius: 2px
+      border: 1px solid transparent
+      color: $n2oGray500
+      transition: border-color .3s, color .3s
+      cursor: pointer
+
+    .hover-info
+      pointer-events: none
+      position: absolute
+      margin-top: -7px
+      left: 0
+      top: 100%
+      width: 176px
+      z-index: 1
+      font-size: 12px
+      background: $n2oGray1000
+      padding: 10px
+      line-height: 1.5
+      white-space: pre-wrap
+      border-radius: 2px
+      transition: opacity .3s
+      transition-delay: 0
+      opacity: 0
+
+      &:before
+        position: absolute
+        left: 76px
+        bottom: 100%
+        content: ''
+        border: 8px solid transparent
+        border-bottom-color: $n2oGray1000
+
+    &.selected
+      .content
+        border: 1px solid $lightBlue800
+        color: $n2oGray100
+
+    .content:hover ~ .hover-info
+      opacity: 1
+      transition-delay: .5s
+
 @keyframes ui-progress-indeterminate
   from
     background-position: 0 0

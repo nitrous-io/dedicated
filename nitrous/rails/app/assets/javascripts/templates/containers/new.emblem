@@ -42,7 +42,7 @@
           label.field-label
             | Stack Templates
 
-          ul.templates
+          ul.ui.selectable-list.templates
             each template in stackTemplates
               App.TemplateListItemView content=template selected=view.selectedTemplate
 
@@ -50,7 +50,7 @@
           label.field-label
             | Basic Templates
 
-          ul.templates
+          ul.ui.selectable-list.templates
             each template in basicTemplates
               App.TemplateListItemView content=template selected=view.selectedTemplate
 
@@ -59,7 +59,7 @@
             label.field-label
               | Advanced Templates
 
-            ul.templates
+            ul.ui.selectable-list.templates
               each template in advancedTemplates
                 App.TemplateListItemView content=template selected=view.selectedTemplate
 

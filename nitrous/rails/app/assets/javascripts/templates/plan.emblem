@@ -1,6 +1,7 @@
 h4
   = plan.name
 h3
+  ' $
   = plan.priceInDollars
   '
   span
