@@ -11,6 +11,7 @@ type Template struct {
 	Slug        string     `json:"slug"`
 	Name        string     `json:"name"`
 	Description string     `json:"description"`
+	Type        string     `json:"type"`
 	CreatedAt   *time.Time `json:"created_at"`
 	UpdatedAt   *time.Time `json:"updated_at"`
 
@@ -26,6 +27,7 @@ func SerializeTemplate(t *template.Template) *Template {
 		Slug:        t.Slug,
 		Name:        t.Name.String,
 		Description: t.Description.String,
+		Type:        t.Type,
 		CreatedAt:   t.CreatedAt,
 		UpdatedAt:   t.UpdatedAt,
 		Images:      []string{},

@@ -3,13 +3,12 @@ optionBaseImage = 'base-image'
 heightPadding = 16
 screens = ['image', 'config', 'progress']
 
-App.ContainersNewView = Lib.ContainerConfigView.extend
+App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeMixin,
   elementId: 'containers-new-view'
   classNames: ['ui', 'card']
 
   selectedHostImage: null
   customImage: null
-  terminal: null
 
   selectedOptionBinding: "controller.selectedOption"
   selectedTemplateBinding: "controller.selectedTemplate"
@@ -31,11 +30,6 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
       else
         @get 'customImage'
   ).property 'selectedOption', 'selectedHostImage', 'customImage', 'controller.hostImagesEmpty'
-
-  baseImageOptionDisabled: (->
-    !App.get('baseImages') || @get('controller.saving')
-  ).property 'App.baseImages', 'controller.saving'
-  hostImageOptionDisabled: Em.computed.or('controller.hostImagesEmpty', 'controller.saving')
 
   firstScreenButtonLabel: (->
     if App.get('user.advanced')
@@ -71,13 +65,6 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
     if @get 'selectedTemplate'
       @set 'selectedOption', null
       $('input[name=option]').removeAttr('checked')
-
-    Em.run.scheduleOnce 'afterRender', this, ->
-      Em.run.next this, ->
-        base = @$('.description p').height()
-        if base > 0
-          base += (heightPadding * 2)
-        @$('.description').css 'height', base
   ).observes 'selectedTemplate'
 
   hostsDidChange: (->
@@ -98,9 +85,6 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
   didInsertElement: ->
     @_super()
     App.slug.slugify(@$('#containers-new-name'), @$('#containers-new-slug'))
-
-    if App.get('baseImages.length') > 0 && !@get('selectedBaseImage')
-      @set 'selectedBaseImage', App.get('baseImages.firstObject.repo')
 
     @$('input[name=option]').on('change.containers-new', (ev) =>
       if $(ev.target).is(':checked')
@@ -127,7 +111,8 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
       lastStatus = ev.status
 
     Em.run.scheduleOnce 'afterRender', this, ->
-      App.injectTerminalIframe this
+      @injectTerminalIframe =>
+        @$('#containers-new-name').focus()
 
   willDestroyElement: ->
     @_super()

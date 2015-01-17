@@ -9,7 +9,20 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
-var ErrConfigInvalid = errors.New("template: .Config is invalid")
+const (
+	TypeBasic    = "basic"
+	TypeStack    = "stack"
+	TypeAdvanced = "advanced"
+)
+
+var (
+	AllowedTypes = []string{TypeBasic, TypeStack, TypeAdvanced}
+)
+
+var (
+	ErrInvalidType   = errors.New("`type` not known")
+	ErrConfigInvalid = errors.New("template: .Config is invalid")
+)
 
 type Template struct {
 	ID          int64          `db:"id"`
@@ -17,6 +30,7 @@ type Template struct {
 	Name        sql.NullString `db:"name"`
 	Description sql.NullString `db:"description"`
 	Config      string         `db:"config"`
+	Type        string         `db:"type"`
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
@@ -75,10 +89,20 @@ func (t *Template) Insert(d db.QueryReceiver) error {
 	if _, err := t.ParsedConfig(); err != nil {
 		return ErrConfigInvalid
 	}
+	ok := false
+	for _, ty := range AllowedTypes {
+		if t.Type == ty {
+			ok = true
+			break
+		}
+	}
+	if !ok {
+		return ErrInvalidType
+	}
 
 	nstmt, err := d.PrepareNamed(`INSERT INTO templates
-		(slug, name, description, config)
-		VALUES (:slug, :name, :description, :config) RETURNING *;`)
+		(slug, name, description, config, type)
+		VALUES (:slug, :name, :description, :config, :type) RETURNING *;`)
 	if err != nil {
 		return err
 	}

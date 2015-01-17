@@ -14,6 +14,18 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
   selectedOption: null
   selectedTemplate: null
 
+  stackTemplates: (->
+    App.get('templates')?.filterBy('type', 'stack')
+  ).property 'App.templates.@each'
+
+  basicTemplates: (->
+    App.get('templates')?.filterBy('type', 'basic')
+  ).property 'App.templates.@each'
+
+  advancedTemplates: (->
+    App.get('templates')?.filterBy('type', 'advanced')
+  ).property 'App.templates.@each'
+
   clear: ->
     @_super.apply this, arguments
     @setProperties
@@ -25,6 +37,9 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
       image: null
       saving: false
+
+      selectedTemplate: App.get('templates.firstObject')
+      selectedOption: null
 
   hostImagesEmpty: Em.computed.empty('selectedHost.images')
   hostVolumesEmpty: Em.computed.empty('selectedHost.volumes')
@@ -48,13 +63,13 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
     App.postError(jqxhr.responseJSON, 'Failed to create application!')
     @set 'saving', false
 
-  createContainer: (name, slug, repository, starterSlug) ->
+  createContainer: (name, slug, repository, template) ->
     # create container
     container = App.Container.create
       name: name
       slug: slug
       image: repository
-      starterSlug: starterSlug
+      template: template
 
     container.save(
       host: @get 'selectedHostSlug'
@@ -116,13 +131,13 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
       if @get('selectedTemplate') && !@get('selectedOption')
         img = @get('selectedTemplate.images.firstObject')
-        @pullImage img, isNitrousBaseImage, ()=>
-          @createContainer(name, slug, img, @get('selectedTemplate.slug'))
+        template = @get('selectedTemplate.slug')
+        @pullImage img, isNitrousBaseImage, =>
+          @createContainer(name, slug, img, template)
         return
 
       # pull regular image
       unless repository.match /^.*:.+$/
         repository = repository.replace /:?$/, ':latest'
-      @pullImage repository, isNitrousBaseImage, ()=>
+      @pullImage repository, isNitrousBaseImage, =>
         @createContainer(name, slug, repository)
-

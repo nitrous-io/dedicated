@@ -7,6 +7,7 @@ App.Container = klass = App.Model.extend
   userId: attr('number', as: 'user_id', serialize: false)
   hostId: attr('number', as: 'host_id', serialize: false)
   image: attr()
+  template: attr()
   slug: attr()
   name: attr()
   state: attr(serialize: false)
@@ -21,8 +22,6 @@ App.Container = klass = App.Model.extend
   startedAt: attr('date', as: 'started_at', serialize: false)
   finishedAt: attr('date', as: 'finished_at', serialize: false)
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
-
-  starterSlug: attr(as: 'starter_slug')
 
   config: (->
     return unless @get('id') # Load config only after container is saved.
@@ -64,6 +63,16 @@ App.Container = klass = App.Model.extend
     sshPort = @get 'sshPort'
     "ssh://#{user}@#{hostname}:#{sshPort}"
   ).property 'sshEnabled', 'loginUsername', 'hostname', 'sshPort'
+
+  supportsPreview: (->
+    unless @get('previewURL')
+      return false
+
+    unless @get('hasApp')
+      return true
+
+    @get('hasApp') && @get('isAppRunning')
+  ).property 'hasApp', 'isAppRunning', 'previewURL'
 
   previewURL: (->
     hostname = @get 'hostname'

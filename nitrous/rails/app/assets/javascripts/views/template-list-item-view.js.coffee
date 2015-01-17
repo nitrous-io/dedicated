@@ -1,14 +1,16 @@
-App.StarterTemplateView = Em.View.extend
-  templateName: 'base-image'
+App.TemplateListItemView = Em.View.extend
+  templateName: 'template-list-item'
   tagName: 'li'
-  classNames: ['ui', 'icon-picker']
+  classNames: ['ui', 'template-list-item-view']
   classNameBindings: ['isSelected:selected']
 
   content: null
   selected: null
 
+  description: Em.computed.alias 'content.description'
+
   name: (->
-    @getWithDefault('content.name', 'Empty')
+    @getWithDefault('content.name', 'Unnamed')
   ).property 'content.name'
 
   isSelected: (->

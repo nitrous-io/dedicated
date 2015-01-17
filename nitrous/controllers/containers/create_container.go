@@ -38,7 +38,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 	slug := strings.ToLower(options.Get("slug"))
 	name := options.Get("name")
 	imageSlug := options.Get("image")
-	starterSlug := options.Get("starter_slug")
+	templateSlug := options.Get("template")
 
 	if imageSlug == "" {
 		imageSlug = controllers.DefaultImage
@@ -69,8 +69,8 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 		Name:   sql.NullString{name, true},
 	}
 
-	if starterSlug != "" {
-		tmpl, err := template.Find(env.DB, starterSlug)
+	if templateSlug != "" {
+		tmpl, err := template.Find(env.DB, templateSlug)
 		if err != nil {
 			return nil, err
 		}
@@ -81,7 +81,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 		}
 
 		if len(cfg.Containers) == 0 {
-			return nil, fmt.Errorf("Supplied starter `%s` is missing containers", starterSlug)
+			return nil, fmt.Errorf("Supplied template `%s` is missing containers", templateSlug)
 		}
 
 		primary := cfg.Containers[0]
@@ -103,7 +103,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 		config.PublishAll = &pubAll
 
 		if len(cfg.Containers) > 1 {
-			env.Logger.Warnf("Started `%s` has multiple containers, unsupported.", starterSlug)
+			env.Logger.Warnf("Started `%s` has multiple containers, unsupported.", templateSlug)
 		}
 	}
 

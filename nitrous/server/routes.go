@@ -5,7 +5,6 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/appsettings"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/baseimages"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billing"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -79,7 +78,6 @@ func (s *Server) drawRoutes() {
 			"GET": {
 				"/plans":        r("plans.Index", plans.Index),
 				"/regions":      r("regions.Index", regions.Index),
-				"/base_images":  r("baseimages.Index", baseimages.Index),
 				"/templates":    r("templates.Index", templates.Index),
 				"/app_settings": r("appsettings.Index", appsettings.Index),
 			},

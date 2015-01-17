@@ -207,7 +207,7 @@ var _ = Describe("CreateContainer", func() {
 		t1 := &template.Template{
 			Slug:        "my-template",
 			Name:        sql.NullString{"Ruby on Rails", true},
-			Description: sql.NullString{"A Rails starter template", true},
+			Description: sql.NullString{"A Rails stack template", true},
 			Config: `{
 				"containers": [
 				{
@@ -218,11 +218,12 @@ var _ = Describe("CreateContainer", func() {
 					"env": ["SHELL=powershell"]
 				}]
 			}`,
+			Type: template.TypeStack,
 		}
 		err := t1.Insert(db)
 		Expect(err).To(BeNil())
 
-		params.Set("starter_slug", "my-template")
+		params.Set("template", "my-template")
 		res, err := containers.CreateContainer(h, params, env)
 		Expect(err).To(BeNil())
 

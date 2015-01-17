@@ -46,24 +46,7 @@
     div:last-of-type
       margin-left: 8px
 
-  .image-selection
-    ul.starter-templates
-      margin: 16px 0 0 0
-      padding: 0
-
-    .description
-      background: $n2oGray850
-      margin: 16px 0 0 0
-      transition: height .3s
-      overflow: hidden
-      box-sizing: content-box
-
-      p
-        padding: 14px 16px
-        margin: 0
-        white-space: pre-wrap
-        line-height: 1.5
-
+  .custom-image
     .checkbox-group
       margin-bottom: 0
 
@@ -76,3 +59,79 @@
   .container-config-btns
     .ui.btn
       margin-right: 16px
+
+  ul.templates
+    display: flex
+    flex-direction: row
+    flex-wrap: wrap
+    margin: 0 -16px -16px 0
+    padding: 0
+    list-style: none
+
+    > li
+      position: relative
+
+      .button
+        user-select: none
+        display: flex
+        flex-direction: row
+        align-items: center
+        width: 176px
+        background: $n2oGray850
+        margin: 0 16px 16px 0
+        padding: 8px
+        border-radius: 2px
+        border: 1px solid transparent
+        transition: border-color .3s
+        cursor: pointer
+
+      .icon, .icon > div
+        flex-shrink: 0
+        width: 50px
+        height: 50px
+        background-size: 50px 50px
+        background-repeat: none
+        border-radius: 2px
+
+      .label
+        font-size: 14px
+        margin-left: 8px
+        color: $n2oGray500
+        transition: color .3s
+
+      .description
+        pointer-events: none
+        position: absolute
+        margin-top: -7px
+        left: 0
+        top: 100%
+        width: 176px
+        z-index: 1
+        font-size: 12px
+        background: $n2oGray1000
+        padding: 10px
+        line-height: 1.5
+        white-space: pre-wrap
+        border-radius: 2px
+        transition: opacity .3s
+        transition-delay: 0
+        opacity: 0
+
+        &:before
+          position: absolute
+          left: 76px
+          bottom: 100%
+          content: ''
+          border: 8px solid transparent
+          border-bottom-color: $n2oGray1000
+
+      &.selected
+        .button
+          border: 1px solid $lightBlue800
+
+        .label
+          color: $n2oGray100
+
+      .button:hover ~ .description
+        opacity: 1
+        transition-delay: .5s
