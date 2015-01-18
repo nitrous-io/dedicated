@@ -10,7 +10,7 @@ webapp.loading =
     el.className = 'loaded'
     window.setTimeout(->
       el.parentElement.removeChild(el)
-    , 500)
+    , 600)
 
 window.setTimeout(->
   webapp.loading.start()

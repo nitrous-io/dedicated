@@ -9,24 +9,21 @@
 
   .secondary-nav
     ul.nav
-      li.ui
-        a href="/app#/account"
-          img.gravatar src={App.currentUser.gravatar}
-          = App.currentUser.username
       li.ui.dropdown
         a href='#'
-          | Account
+          img.gravatar src={App.currentUser.gravatar}
+          = App.currentUser.username
           .ui.dropdown-triangle
         ul.dropdown-menu.right
           li
-            a href=view.dashboardURL
+            a href=view.dashboardURL target='_blank'
               | Dashboard
           li
-            a href='/app#/account'
+            a href='/app#/account' target='_blank'
               | Account Settings
           li.separator
           li
-            a href='/app#/logout' data-method='delete' rel='nofollow'
+            a href='/app#/logout'
               | Log Out
 
 #about-nitrous.ui.modal

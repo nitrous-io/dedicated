@@ -14,15 +14,15 @@ App.IdeRoute = Em.Route.extend
     slug = params.containerSlug
     App.set 'slug', slug
 
-    notFoundPath = window.location.href.replace(window.location.pathname, '/404')
+    errorPath = '/app#/'
     if slug
       App.Container.fetch(slug).then (container) ->
         App.set 'container', container
         container
       , -> # failure
-        window.location.href = notFoundPath
+        window.location.href = errorPath
     else
-      window.location.href = notFoundPath
+      window.location.href = errorPath
 
   afterModel: (container, transition)->
     container?.loadHost().catch ->

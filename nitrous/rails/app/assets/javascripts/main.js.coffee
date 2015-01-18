@@ -112,8 +112,10 @@ App.on 'load', ->
   App.set 'regions', App.Region.fetch().value
   App.set 'plans', App.Plan.fetch().value
   App.set 'templates', App.Template.fetch().value
-  Em.run.scheduleOnce 'afterRender', ->
-    webapp.loading.stop()
+  Em.run.later(->
+    Em.run.scheduleOnce 'afterRender', ->
+      webapp.loading.stop()
+  , 100)
 
 App.on 'fetchUser', (user) ->
   App.set 'user', user
