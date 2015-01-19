@@ -150,49 +150,6 @@ var _ = Describe("provider/docker", func() {
 			PullImage(NitrousImage)
 		})
 
-		It("creates a running container", func() {
-			name := RandomName("freightertest")
-			info, err := prov.CreateStart(name, NitrousImage, secret, "")
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
-			id := inspectID(name)
-			gateway := inspectGateway(id)
-
-			Expect(info.ID).To(Equal(id))
-			Expect(info.Name).To(Equal(name))
-			Expect(info.Image).To(Equal(NitrousImage))
-			Expect(info.ImageID).To(Equal(inspectID(NitrousImage)))
-			Expect(info.Host).To(Equal(inspectIP(id)))
-			Expect(info.Gateway).To(Equal(gateway))
-			Expect(info.State).To(Equal(provider.ContainerStateRunning))
-			sshPort := inspectNetworkSettingsPort(id, "22/tcp")
-			Expect(info.Ports["22"]).To(ContainElement(sshPort))
-			expectExposedPort(info.ID, "22/tcp")
-			Expect(inspectEnv(id)).To(ContainSubstring(fmt.Sprintf("__HOST=%s", gateway)))
-
-			c := inspectContainerInfo(id)
-			Expect(info.Cmd).To(Equal(c.Config.Cmd))
-			Expect(info.Entrypoint).To(Equal(c.Config.Entrypoint))
-			Expect(info.ExitCode).To(Equal(c.State.ExitCode))
-			Expect(info.StartedAt).To(Equal(c.State.StartedAt))
-			Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
-
-			settingsDir := prov.ContainerSettingsDir(name)
-			_, err = os.Stat(settingsDir)
-			Expect(err).To(BeNil()) // container settings dir exists
-
-			authKeysFile := path.Join(settingsDir, "ssh", "authorized_keys")
-			_, err = os.Stat(authKeysFile)
-			Expect(err).To(BeNil()) // authorized_keys file exists
-
-			sharedSecretFile := path.Join(settingsDir, "secret")
-			fi, err := os.Stat(sharedSecretFile)
-			Expect(err).To(BeNil())                        // shared secret file exists
-			Expect(fi.Mode()).To(Equal(os.FileMode(0600))) // shared secret file has perm 0600
-			s, err := ioutil.ReadFile(sharedSecretFile)
-			Expect(string(s)).To(Equal(secret))
-		})
-
 		Context("when image has no CMD or ENTRYPOINT", func() {
 			It("creates and starts if CMD is given to container config", func() {
 				imgs := CreateImages(1, "nocmd", false, `

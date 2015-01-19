@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -39,11 +40,30 @@ func Test(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	start := time.Now()
+	var err error
+	var start time.Time
+	var cmd *exec.Cmd
+	var out []byte
+
+	start = time.Now()
 	fmt.Print("build busybox:latest...")
-	cmd := exec.Command("docker", "build", "-t", "busybox:latest", ".")
+	cmd = exec.Command("docker", "build", "-t", "busybox:latest", ".")
 	cmd.Dir = "/docker-busybox"
-	cmd.Run()
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build busybox, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	start = time.Now()
+	fmt.Print("build nitrous/busybox:latest...")
+	cmd = exec.Command("docker", "build", "-t", "nitrous/busybox:latest", "-")
+	cmd.Stdin = bytes.NewBufferString(`
+	FROM busybox:latest
+	ENV NITROUS_IMAGE_VERSION 2
+	ENV NITROUS_USERNAME nitrous
+	ENV NITROUS_SSH_ENABLED true
+	`)
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build nitrous/busybox, output: %s", string(out))
 	fmt.Printf(" took %s\n", time.Now().Sub(start))
 })
 
@@ -54,17 +74,17 @@ var _ = AfterSuite(func() {
 
 // startContainer behaves similarly to startContainerWithData except that it
 // pre-creates a tmpdir for you
-func startContainer(config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
+func startContainer(image, config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
 	datadir, err := ioutil.TempDir("", "freightertest")
 	if err != nil {
 		return nil, nil, func() {}, err
 	}
-	return startContainerWithData(datadir, config)
+	return startContainerWithData(image, datadir, config)
 }
 
 // startContainerWithData returns a running container based on busybox:latest
 // with random name, and the provider used to run the container
-func startContainerWithData(datadir, config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
+func startContainerWithData(image, datadir, config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
 	prov, err := docker.NewDockerProvider(&util.Logger{Level: util.LogLevelQuiet}, datadir)
 	if err != nil {
 		return nil, nil, func() {
@@ -72,7 +92,7 @@ func startContainerWithData(datadir, config string) (*docker.DockerProvider, *pr
 		}, err
 	}
 	name := test.RandomName("freightertest")
-	info, err := prov.CreateStart(name, "busybox:latest", "secret", config)
+	info, err := prov.CreateStart(name, image, "secret", config)
 	if err != nil {
 		return nil, nil, func() {
 			os.RemoveAll(datadir)
