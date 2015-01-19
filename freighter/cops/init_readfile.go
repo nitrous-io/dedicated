@@ -1,0 +1,60 @@
+package cops
+
+import (
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
+	"runtime"
+	"syscall"
+
+	"github.com/nitrous-io/dedicated/pkg/reexec"
+)
+
+const readFileCommandName = "cops-readfile"
+
+func init() {
+	reexec.Register(readFileCommandName, readFileInit)
+}
+
+// infoInit runs inside the container chroot, and write contents of the local file to stdout
+func readFileInit() {
+	runtime.LockOSThread()
+	flag.Parse()
+	// id is arg 0th
+	path := flag.Arg(1)
+	localPath := flag.Arg(2)
+
+	// chroot the current process into path
+	if err := syscall.Chroot(path); err != nil {
+		log.Fatalf("readFileInit failed to chroot to %s : %v", path, err)
+	}
+	if err := syscall.Chdir("/"); err != nil {
+		log.Fatalf("readFileInit failed to change dir to / : %v", err)
+	}
+
+	f, err := os.Open(localPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+	io.Copy(os.Stdout, f)
+	os.Exit(0)
+}
+
+// Write contents of a path inside container to the writer.
+// This should be used only for file. For directory, it's best to use docker's
+// built-in copy
+func ReadFromContainer(id string, localPath string, w io.Writer) error {
+	root := filepath.Join(RootPrefix, id)
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		return fmt.Errorf("failed to find rootfs for %s, %s", id, err)
+	}
+	// create the command, pass the child as fd3 of the command
+	cmd := reexec.Command(readFileCommandName, id, root, localPath)
+	cmd.Stdout = w
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}

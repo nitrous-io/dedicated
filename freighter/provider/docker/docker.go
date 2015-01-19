@@ -19,11 +19,10 @@ import (
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
-	cfs "github.com/nitrous-io/dedicated/freighter/cops/fs"
+	"github.com/nitrous-io/dedicated/freighter/cops"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
 	"github.com/nitrous-io/dedicated/freighter/util"
-	"github.com/nitrous-io/dedicated/pkg/rootfs"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 
@@ -961,19 +960,12 @@ func (p *DockerProvider) FileInfo(id string, location string) (provider.FileInfo
 	if err != nil {
 		return provider.FileInfo{}, err
 	}
-	containerRoot := path.Join(cfs.RootPrefix, container.ID)
-	if _, err := os.Stat(containerRoot); os.IsNotExist(err) {
-		return provider.FileInfo{}, fmt.Errorf("failed to find rootfs for %s, %s", id, err)
-	}
-	rfs := rootfs.NewRootfs(containerRoot)
-
-	stat, err := rfs.Stat(location)
+	info, err := cops.GetFileInfo(container.ID, location)
 	if err != nil {
 		return provider.FileInfo{}, err
 	}
-
 	return provider.FileInfo{
-		IsDir: stat.IsDir(),
+		IsDir: info.IsDir,
 	}, nil
 }
 
@@ -985,25 +977,12 @@ func (p *DockerProvider) CopyFile(id string, location string, out io.Writer) err
 	if err != nil {
 		return err
 	}
-	containerRoot := path.Join(cfs.RootPrefix, container.ID)
-	if _, err := os.Stat(containerRoot); os.IsNotExist(err) {
-		return fmt.Errorf("failed to find rootfs for %s, %s", id, err)
-	}
-	rfs := rootfs.NewRootfs(containerRoot)
-
-	stat, err := rfs.Stat(location)
+	info, err := cops.GetFileInfo(id, location)
 	if err != nil {
 		return err
 	}
-
-	if !stat.IsDir() {
-		f, err := rfs.Open(location)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		_, err = io.Copy(out, f)
-		return err
+	if !info.IsDir {
+		return cops.ReadFromContainer(id, location, out)
 	}
 	return p.client.CopyFromContainer(dockerclient.CopyFromContainerOptions{
 		OutputStream: out,
@@ -1020,25 +999,14 @@ func (p *DockerProvider) CopyFromHost(id string, location string, input map[stri
 	if err != nil {
 		return err
 	}
-	containerRoot := path.Join(cfs.RootPrefix, container.ID)
-	if _, err := os.Stat(containerRoot); os.IsNotExist(err) {
-		return fmt.Errorf("failed to find rootfs for %s, %s", id, err)
-	}
-	rfs := rootfs.NewRootfs(filepath.Join(containerRoot, location))
 
 	// for each uploaded file, create a new file in the specified location
 	// and copy the parts over
-	for filename, w := range input {
-		f, err := rfs.Create(filename)
-		if err != nil {
+	for filename, r := range input {
+		dest := filepath.Join(location, filename)
+		if err := cops.CopyToContainer(container.ID, dest, r); err != nil {
 			return err
 		}
-		_, err = io.Copy(f, w)
-		if err != nil {
-			f.Close()
-			return err
-		}
-		f.Close()
 	}
 	return nil
 }

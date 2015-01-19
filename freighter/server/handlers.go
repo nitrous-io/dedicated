@@ -24,8 +24,6 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/msgproto"
 	"github.com/nitrous-io/dedicated/pkg/multipartsio"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
-
-	_ "github.com/nitrous-io/dedicated/freighter/cops/cfinder"
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
@@ -494,10 +492,14 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	stdin := msgproto.NewReader(conn, msgCh, stream.MessageType)
 	stdout := msgproto.NewWriter(stream)
 
-	ch := cops.Start(id, stdin, stdout)
+	done, err := cops.Start(id, stdin, stdout)
+	if err != nil {
+		stdout.Close()
+		return err
+	}
 	for {
 		select {
-		case err := <-ch:
+		case err := <-done:
 			log.Printf("container ops: exited with err %v", err)
 			stdout.Close() // Inform client that server has closed connection.
 			return nil
