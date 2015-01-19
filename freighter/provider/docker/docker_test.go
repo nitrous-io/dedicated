@@ -16,7 +16,6 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -737,80 +736,6 @@ var _ = Describe("provider/docker", func() {
 			out, err := exec.Command("docker", "exec", info.ID, "cat",
 				fmt.Sprintf("/home/%s/test-output", DfileEnvUser)).CombinedOutput()
 			Expect(string(out)).To(Equal("works\n"))
-		})
-	})
-
-	Describe(".ListImages()", func() {
-		imageSize := func(id string) int64 {
-			sizeInspect := doInspect(id, "{{.Size}}")
-			parsedSize, err := strconv.ParseInt(sizeInspect, 10, 64)
-			Expect(err).To(BeNil())
-			return parsedSize
-		}
-
-		Context("with one image", func() {
-			var (
-				publicImages []string
-			)
-
-			BeforeEach(func() {
-				publicImages = CreateImages(1, "basic", false, "")
-			})
-
-			AfterEach(func() {
-				RemoveImages(publicImages)
-			})
-
-			It("should fetch basic info about an Image", func() {
-				imageList, err := prov.ListImages()
-				Expect(err).To(BeNil())
-
-				i1 := imageList[0]
-
-				Expect(i1.Name).To(Equal("basic"))
-				Expect(i1.Tag).To(Equal("n1"))
-
-				Expect(i1.ActualSize).To(Equal(imageSize(i1.ID)))
-
-				timeStr := doInspect(i1.ID, "{{.Created}}")
-				expectingTime, err := time.Parse(time.RFC3339, timeStr)
-				Expect(err).To(BeNil())
-				expectingUTime := expectingTime.Unix()
-				Expect(i1.CreatedAt).To(Equal(expectingUTime))
-			})
-		})
-
-		Context("when the same image is under multiple repositories", func() {
-			var (
-				createdImages []string
-			)
-
-			BeforeEach(func() {
-				createdImages = CreateImages(2, "multiple", true, "")
-			})
-
-			AfterEach(func() {
-				RemoveImages(createdImages)
-			})
-
-			It("should break them out into separate entries", func() {
-				images, err := prov.ListImages()
-				Expect(err).To(BeNil())
-
-				var i1, i2 *provider.ImageInfo
-				for _, i := range images {
-					if i.Name == "multiple" && i.Tag == "n1" {
-						i1 = i
-					}
-					if i.Name == "multiple" && i.Tag == "n2" {
-						i2 = i
-					}
-				}
-
-				Expect(i1).NotTo(BeNil())
-				Expect(i2).NotTo(BeNil())
-				Expect(i1.ID).To(Equal(i2.ID))
-			})
 		})
 	})
 
