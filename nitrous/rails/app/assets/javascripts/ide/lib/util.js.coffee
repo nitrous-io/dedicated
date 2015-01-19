@@ -18,25 +18,29 @@ App.util =
       defaultRoute
     App.get('router').transitionTo route
 
-  mixpanel: (eventName, properties = {}) ->
-    return false
-    # currentUser = App.get 'currentUser'
-    # if mixpanel? && !currentUser.get('admin')
-    #   p =
-    #     username:         currentUser.get('username')
-    #     email:            currentUser.get('email')
-    #     distinct_id:      currentUser.get('email')
-    #     os_name:          @UserAgent.os.name
-    #     os_version:       @UserAgent.os.version
-    #     browser_name:     @UserAgent.browser.name
-    #     browser_version:  @UserAgent.browser.version
-    #     browser_major:    @UserAgent.browser.major
+  mixpanelAvailable: ->
+    mixpanel? && typeof(mixpanel.identify) == "function"
 
-    #   mixpanel.track eventName, _.defaults(properties, p)
+  mixpanel: (eventName, properties = {}) ->
+    return false unless @mixpanelAvailable()
+    currentUser = App.get 'currentUser'
+    if mixpanel? && !currentUser.get('admin')
+     p =
+       username:         currentUser.get('username')
+       email:            currentUser.get('email')
+       distinct_id:      currentUser.get('email')
+       os_name:          @UserAgent.os.name
+       os_version:       @UserAgent.os.version
+       browser_name:     @UserAgent.browser.name
+       browser_version:  @UserAgent.browser.version
+       browser_major:    @UserAgent.browser.major
+
+     mixpanel.track eventName, _.defaults(properties, p)
 
   mixpanelIdentifyUser: ->
-    if mixpanel?
+    if @mixpanelAvailable()
       currentUser = App.get 'currentUser'
+      return false unless currentUser
       currentUserFullName = currentUser.get('full_name')
 
       # alias should only be used when the user signed up
@@ -49,6 +53,7 @@ App.util =
         $created: currentUser.get('created_at')
         $name: currentUserFullName
         is_github_authenticated: currentUser.get('isGithubAuthenticated')
+        user_id: currentUser.get('id')
 
       if currentUserFullName?
         splitName = currentUserFullName.split(' ')
@@ -58,15 +63,15 @@ App.util =
       mixpanel.people.set personHash
 
   mixpanelIncrement: (property, value=1) ->
-    if mixpanel? && !App.get('currentUser.admin')
+    if @mixpanelAvailable() && !App.get('currentUser.admin')
       mixpanel.people.increment(property, value)
 
   mixpanelUpdateUser: (properties) ->
-    return if !mixpanel?
+    return if !@mixpanelAvailable()
     mixpanel.people.set properties
 
   mixpanelAppendUser: (properties) ->
-    return if !mixpanel?
+    return if !@mixpanelAvailable()
     mixpanel.people.append properties
 
   # Algo stolen from http://ejohn.org/files/pretty.js

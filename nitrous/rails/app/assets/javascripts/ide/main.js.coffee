@@ -23,6 +23,8 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   online: if !Em.isNone(window.navigator.onLine) then window.navigator.onLine else true
   offline: Em.computed.not 'online'
 
+  settings: null
+
   config: null
 
   flashMessage: null
@@ -46,6 +48,13 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       window.localStorage.removeItem('token')
   ).observes 'token'
 
+  activateMixpanel: (->
+    if @get('currentUser') && settings = @get('settings')
+      if settings.mixpanel_token != '' && settings.mixpanel_token != 'disable'
+        window.mixpanel?.init settings.mixpanel_token
+        App.util.mixpanelIdentifyUser()
+  ).observes 'currentUser', 'settings'
+
   reloadContainer: ->
     new Em.RSVP.Promise (resolve, reject) =>
       @loadContainer ()->
@@ -61,6 +70,12 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       container
     , -> # failure
       window.location.href = notFoundPath
+
+  loadSettings: ->
+    promise = Em.RSVP.Promise.cast(Em.$.ajax("/api/v0/app_settings"))
+    promise.then (settings) ->
+      App.set 'settings', settings
+    promise
 
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
