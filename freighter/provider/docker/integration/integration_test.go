@@ -45,22 +45,39 @@ var _ = BeforeSuite(func() {
 	var cmd *exec.Cmd
 	var out []byte
 
+	// build a base from busybox image. User should not use this image because
+	// its command (sh) doesnt respond to SIGTERM i.e. taken at least a few
+	// seconds to be stopped
+	start = time.Now()
+	fmt.Print("build base:latest...")
+	cmd = exec.Command("docker", "build", "-t", "base:latest", ".")
+	cmd.Dir = "/docker-busybox"
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build base, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// build image using base but with an easy to stop cmd
 	start = time.Now()
 	fmt.Print("build busybox:latest...")
-	cmd = exec.Command("docker", "build", "-t", "busybox:latest", ".")
-	cmd.Dir = "/docker-busybox"
+	cmd = exec.Command("docker", "build", "-t", "busybox:latest", "-")
+	cmd.Stdin = bytes.NewBufferString(`
+	FROM base:latest
+	CMD ["top"]
+	`)
 	out, err = cmd.CombinedOutput()
 	Expect(err).To(BeNil(), "failed to build busybox, output: %s", string(out))
 	fmt.Printf(" took %s\n", time.Now().Sub(start))
 
+	// build image with some special env variables
 	start = time.Now()
 	fmt.Print("build nitrous/busybox:latest...")
 	cmd = exec.Command("docker", "build", "-t", "nitrous/busybox:latest", "-")
 	cmd.Stdin = bytes.NewBufferString(`
-	FROM busybox:latest
+	FROM base:latest
 	ENV NITROUS_IMAGE_VERSION 2
 	ENV NITROUS_USERNAME nitrous
 	ENV NITROUS_SSH_ENABLED true
+	CMD ["top"]
 	`)
 	out, err = cmd.CombinedOutput()
 	Expect(err).To(BeNil(), "failed to build nitrous/busybox, output: %s", string(out))
