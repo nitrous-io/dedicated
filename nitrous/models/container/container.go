@@ -12,11 +12,12 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
-var slugRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*[a-z0-9]\z`)
+// must match freighter/provider.containerNameRe
+var slugRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
 
 var (
 	ErrSlugBlank    = errors.New("slug can't be blank")
-	ErrSlugInvalid  = errors.New("slug may only contain alphanumeric characters or dashes and cannot begin or end with a dash")
+	ErrSlugInvalid  = errors.New("slug may only contain alphanumeric characters or dashes and must begin with a letter")
 	ErrSlugTooShort = errors.New("slug is too short (minimum is 2 characters)")
 	ErrSlugTooLong  = errors.New("slug is too long (maximum is 63 characters)")
 	ErrImageBlank   = errors.New("image can't be blank")
