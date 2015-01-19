@@ -120,4 +120,22 @@ var _ = Describe("CreateStart", func() {
 		_, _, _, err := startContainer("non-existent-image", "")
 		Expect(err).To(MatchError(provider.ErrImageNotFound))
 	})
+
+	Context("when container is created but cannot be started", func() {
+		It("creates a stopped container and returns the container info and a StartFailedError", func() {
+			_, info, cleanupFn, err := startContainer("busybox:latest", `{ "Cmd": ["invalid-cmd"] }`)
+			defer cleanupFn()
+			_, ok := err.(*provider.StartFailedError)
+			Expect(ok).To(BeTrue(), "error should be a StartfailedError")
+
+			client, _ := dockerclient.NewClient("unix:///var/run/docker.sock")
+			container, _ := client.InspectContainer(info.ID)
+
+			Expect(info.ID).To(Equal(container.ID), "unexpected container's id")
+			Expect("/"+info.Name).To(Equal(container.Name), "unexpected container's name")
+			Expect(info.Image).To(Equal("busybox:latest"), "unexpected base image")
+			Expect(info.ImageID).To(Equal(container.Image), "unexpected image id")
+			Expect(info.State).To(Equal(provider.ContainerStateStopped), "expect a stopped container")
+		})
+	})
 })

@@ -150,27 +150,6 @@ var _ = Describe("provider/docker", func() {
 			PullImage(NitrousImage)
 		})
 
-		Context("when container is created but cannot be started", func() {
-			It("creates a stopped container and returns the container info and a StartFailedError", func() {
-				// Create container with config that prevents it from
-				// started.
-				name := RandomName("freightertest")
-				info, err := prov.CreateStart(name, NitrousImage, secret,
-					`{ "Cmd": ["invalid-cmd"] }`)
-				defer CleanUpContainer(name)
-
-				_, ok := err.(*provider.StartFailedError)
-				Expect(ok).To(BeTrue())
-				Expect(info.ID).To(Equal(inspectID(name)))
-				Expect(info.Name).To(Equal(name))
-				Expect(info.Image).To(Equal(NitrousImage))
-				Expect(info.ImageID).To(Equal(inspectID(NitrousImage)))
-				Expect(info.State).To(Equal(provider.ContainerStateStopped))
-				Expect(info.Host).To(Equal(""))
-				Expect(info.Gateway).To(Equal(""))
-			})
-		})
-
 		Context("after a container is created", func() {
 			var (
 				name string
