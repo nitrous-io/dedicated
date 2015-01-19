@@ -19,7 +19,8 @@ CREATE TABLE containers (
   id bigserial PRIMARY KEY NOT NULL,
   cid character varying(255) NOT NULL,
   slug character varying(63) NOT NULL, -- Used as DNS label, see http://tools.ietf.org/html/rfc1034#section-3.1.
-  host_id bigint REFERENCES hosts(id) NOT NULL
+  host_id bigint REFERENCES hosts(id) NOT NULL,
+  terminated_at timestamp without time zone
 );
 
 --
