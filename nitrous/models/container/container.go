@@ -18,7 +18,7 @@ var (
 	ErrSlugBlank    = errors.New("slug can't be blank")
 	ErrSlugInvalid  = errors.New("slug may only contain alphanumeric characters or dashes and cannot begin or end with a dash")
 	ErrSlugTooShort = errors.New("slug is too short (minimum is 2 characters)")
-	ErrSlugTooLong  = errors.New("slug is too long (maximum is 255 characters)")
+	ErrSlugTooLong  = errors.New("slug is too long (maximum is 63 characters)")
 	ErrImageBlank   = errors.New("image can't be blank")
 	ErrLocked       = errors.New("container is locked")
 )
@@ -154,7 +154,7 @@ func (c *Container) Validate() error {
 	if nameLen < 2 {
 		return ErrSlugTooShort
 	}
-	if nameLen > 255 {
+	if nameLen > 63 {
 		return ErrSlugTooLong
 	}
 	if !slugRe.MatchString(c.Slug) {

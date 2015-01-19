@@ -107,6 +107,10 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 		}
 	}
 
+	if err := cn.Validate(); err != nil {
+		return nil, httperror.New(http.StatusBadRequest, "invalid_request", err.Error())
+	}
+
 	// Save record to db first to reserve name (since it's globally unique).
 	if err := cn.Insert(db); err != nil {
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {

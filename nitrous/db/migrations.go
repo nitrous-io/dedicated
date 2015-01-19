@@ -740,5 +740,11 @@ func init() {
 				ALTER TABLE templates ADD COLUMN type character varying(255) DEFAULT '' NOT NULL;
 			`,
 		},
+		{
+			Version: "630",
+			Up: `
+				ALTER TABLE containers ALTER COLUMN slug TYPE character varying(63) USING substr(slug, 1, 63);
+			`,
+		},
 	}
 }

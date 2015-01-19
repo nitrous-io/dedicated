@@ -566,11 +566,11 @@ var _ = Describe("models/container", func() {
 		})
 
 		It("validates name", func() {
-			buf := make([]byte, 256)
+			buf := make([]byte, 64)
 			for i := range buf {
 				buf[i] = 'f'
 			}
-			s := string(buf) // "f" * 256.
+			s := string(buf) // "f" * 64.
 
 			tests := []struct {
 				input string
@@ -584,7 +584,7 @@ var _ = Describe("models/container", func() {
 				{"f", container.ErrSlugTooShort},
 				{"ffffffffffffffffffffffffffffff", nil},
 				{s, container.ErrSlugTooLong},
-				{s[:255], nil},
+				{s[:63], nil},
 				{"foo-", container.ErrSlugInvalid},
 				{"f-o-0-", container.ErrSlugInvalid},
 				{"-foo", container.ErrSlugInvalid},
