@@ -206,7 +206,15 @@ App.IdeSidebarController = Em.ArrayController.extend
       opsSocket = @get 'opsSocket'
       absolutePath = _.chain([parentAbsolutePath, name]).compact().join('/').value()
 
-      callback = =>
+      callback = (err) =>
+        if err
+          # TODO: Freighter should be returning a proper error code for file exists.
+          # Revisit after #381 is merged.
+          errMsg = if err.match /file exists/
+            "\"#{name}\" already exists. Please enter a different filename."
+          else
+            "Error occurred while trying to save the file."
+          App.postError errMsg
         path.set 'new', false # temp paths with 'new: false' get removed on refresh
         this.refresh parentPath
 

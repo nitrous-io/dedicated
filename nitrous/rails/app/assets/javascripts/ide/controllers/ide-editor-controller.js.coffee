@@ -118,9 +118,12 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   didWriteNewFileContent: (err, absolutePath) ->
     saveDialog = @get 'saveDialog'
     if err
-      # FIXME current errors returned by freighter is cryptic.
-      # showing a generic message for now
-      errors = {base: ["Error occurred while trying to save the file."]}
+      # TODO: Freighter should be returning a proper error code for file exists.
+      # Revisit after #381 is merged.
+      errors = if err.match /file exists/
+        {base: ["already exists. Please enter a different filename."]}
+      else
+        {base: ["Error occurred while trying to save the file."]}
       saveDialog.set 'errors', errors
     else
       path = App.Path.create absolutePath: absolutePath
