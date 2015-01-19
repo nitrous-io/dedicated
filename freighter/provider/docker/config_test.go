@@ -118,92 +118,58 @@ var _ = Describe("provider/docker config", func() {
 	})
 
 	Describe("mkContainerConfig", func() {
-		var cfg *dockerclient.Config
+		It("sets specific nitrous settings for nitrous image", func() {
+			cfg, err := prov.MkContainerConfig(&provider.ContainerConfig{
+				Hostname: cnrName,
+				Image:    "nitrousio/php", // Nitrous image.
+			}, true)
+			Expect(err).To(BeNil())
 
-		Context("nitrous image", func() {
-			BeforeEach(func() {
-				var err error
-				cfg, err = prov.MkContainerConfig(&provider.ContainerConfig{
-					Hostname: cnrName,
-					Image:    "nitrousio/php", // Nitrous image.
-				}, true)
-				Expect(err).To(BeNil())
-			})
+			Expect(cfg.Hostname).To(Equal(cnrName), "expect hostname")
+			Expect(cfg.Image).To(Equal("nitrousio/php"), "expect imagename")
 
-			It("has hostname and image", func() {
-				Expect(cfg.Hostname).To(Equal(cnrName))
-				Expect(cfg.Image).To(Equal("nitrousio/php"))
-			})
-
-			It("has ssh volume and bind", func() {
-				Expect(cfg.Volumes).To(HaveLen(1))
-				_, ok := cfg.Volumes["/nitrous/ssh"]
-				Expect(ok).To(BeTrue())
-			})
-
-			It("has no env", func() {
-				Expect(cfg.Env).To(BeEmpty())
-			})
-
-			It("exposes 22/tcp", func() {
-				_, ok := cfg.ExposedPorts["22/tcp"]
-				Expect(ok).To(BeTrue())
-			})
+			Expect(cfg.Volumes).To(HaveKey("/nitrous/ssh"), "expect ssh volumes")
+			Expect(cfg.Env).To(BeEmpty(), "expect empty preset env")
+			Expect(cfg.ExposedPorts).To(HaveKey(dockerclient.Port("22/tcp")), "expect ssh port to be exposed")
 		})
 
-		Context("non-nitrous image", func() {
-			BeforeEach(func() {
-				var err error
-				cfg, err = prov.MkContainerConfig(&provider.ContainerConfig{
-					Hostname: cnrName,
-					Image:    "custom-image",
-				}, false)
-				Expect(err).To(BeNil())
-			})
+		It("does not set specific nitrous settings for non-nitrous image", func() {
+			cfg, err := prov.MkContainerConfig(&provider.ContainerConfig{
+				Hostname: cnrName,
+				Image:    "custom-image",
+			}, false)
+			Expect(err).To(BeNil())
 
-			It("does not have Nitrous-related port settings", func() {
-				Expect(cfg.ExposedPorts).To(HaveLen(0))
-			})
-
-			It("has Nitrous-related ssh volume settings", func() {
-				Expect(cfg.Volumes).To(HaveLen(1))
-				_, ok := cfg.Volumes["/nitrous/ssh"]
-				Expect(ok).To(BeTrue())
-			})
+			Expect(cfg.ExposedPorts).To(HaveLen(0), "expect empty preset exposed ports")
+			Expect(cfg.Volumes).To(HaveKey("/nitrous/ssh"), "expect ssh volumes")
 		})
 
-		Context("with PortBindings config", func() {
-			BeforeEach(func() {
-				var err error
-				cfg, err = prov.MkContainerConfig(&provider.ContainerConfig{
-					Hostname:     cnrName,
-					Image:        "nitrousio/php",
-					PortBindings: []string{"public::4000", "3000:8080", "private:5000:5001", "127.0.0.1:5002:5002"},
-				}, true)
-				Expect(err).To(BeNil())
-			})
+		It("configured all exposed ports", func() {
+			cfg, err := prov.MkContainerConfig(&provider.ContainerConfig{
+				Hostname: cnrName,
+				Image:    "nitrousio/php",
+				PortBindings: []string{"public::4000", "3000:8080",
+					"private:5000:5001", "127.0.0.1:5002:5002"},
+			}, true)
 
-			It("exposes container ports that are not mapped to a host port, including port 22", func() {
-				Expect(cfg.ExposedPorts).To(HaveLen(2))
-				Expect(cfg.ExposedPorts["4000/tcp"]).To(Equal(struct{}{}))
-				Expect(cfg.ExposedPorts["22/tcp"]).To(Equal(struct{}{}))
-			})
+			Expect(err).To(BeNil())
+			// add 1 ssh port because nitrous image
+			Expect(cfg.ExposedPorts).To(HaveLen(5))
+			Expect(cfg.ExposedPorts).To(HaveKey(dockerclient.Port("4000/tcp")))
+			Expect(cfg.ExposedPorts).To(HaveKey(dockerclient.Port("8080/tcp")))
+			Expect(cfg.ExposedPorts).To(HaveKey(dockerclient.Port("5001/tcp")))
+			Expect(cfg.ExposedPorts).To(HaveKey(dockerclient.Port("5002/tcp")))
+			Expect(cfg.ExposedPorts).To(HaveKey(dockerclient.Port("22/tcp")))
 		})
 
-		Context("with Cmd config", func() {
-			BeforeEach(func() {
-				var err error
-				cfg, err = prov.MkContainerConfig(&provider.ContainerConfig{
-					Hostname: cnrName,
-					Image:    "nitrousio/php",
-					Cmd:      []string{"/bin/bash", "-c", "laravel"},
-				}, true)
-				Expect(err).To(BeNil())
-			})
-
-			It("populates Cmd", func() {
-				Expect(cfg.Cmd).To(Equal([]string{"/bin/bash", "-c", "laravel"}))
-			})
+		It("populates custom cmd", func() {
+			cfg, err := prov.MkContainerConfig(&provider.ContainerConfig{
+				Hostname: cnrName,
+				Image:    "custom-image",
+				Cmd:      []string{"/bin/bash", "-c", "laravel"},
+			}, true)
+			Expect(err).To(BeNil())
+			Expect(cfg.Cmd).To(Equal([]string{"/bin/bash", "-c", "laravel"}))
 		})
 	})
 

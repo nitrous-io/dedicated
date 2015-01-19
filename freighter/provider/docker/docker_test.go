@@ -806,27 +806,6 @@ var _ = Describe("provider/docker", func() {
 			Expect(string(out)).To(ContainSubstring(`hello world`))
 		})
 
-		It("runs the command specified by the NITROUS_CMD env var while preserving Docker env vars", func() {
-			name := RandomName("freightertest")
-			configJSON := fmt.Sprintf(`{
-				"Env": [
-					"NITROUS_CMD=echo $TEST_ENV > $HOME/test-output",
-					"NITROUS_USER=%s",
-					"TEST_ENV=it works"
-				]
-			}`, DfileEnvUser)
-			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
-
-			// Give the docker exec command some time to run.
-			time.Sleep(50 * time.Millisecond)
-
-			out, err := exec.Command("docker", "exec", info.ID, "cat",
-				fmt.Sprintf("/home/%s/test-output", DfileEnvUser)).CombinedOutput()
-			Expect(string(out)).To(Equal("it works\n"))
-		})
-
 		It("runs the command specified by the NITROUS_CMD env var and sources /etc/profile", func() {
 			// Modify image to contain an /etc/profile with an exported env var.
 			dockerfile := fmt.Sprintf(`FROM %s
