@@ -137,7 +137,7 @@ App.IdeSidebarController = Em.ArrayController.extend
             tab = editorController.createTab(
               content: @downloadURL(container, path.get('absolutePath'), tokenResp.token)
               path: path
-            , App.ImageURL)
+            , App.Image)
             if settings.done
               settings.done(tab)
           return

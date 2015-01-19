@@ -14,13 +14,10 @@
     if isImageTab
       App.IdeImageView document=this classNameBindings='active'
     else
-      if isImageURLTab
-        App.IdeImageURLView document=this classNameBindings='active'
+      if isSearchTab
+        App.IdeSearchView document=this classNameBindings='active'
       else
-        if isSearchTab
-          App.IdeSearchView document=this classNameBindings='active'
-        else
-          App.IdeDocumentView document=this classNameBindings='active'
+        App.IdeDocumentView document=this classNameBindings='active'
 
 App.IdeSaveDialogView
 App.IdeConfirmCloseDialogView
