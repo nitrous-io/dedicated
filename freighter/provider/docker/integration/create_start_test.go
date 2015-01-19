@@ -115,4 +115,9 @@ var _ = Describe("CreateStart", func() {
 		out, _ := exec.Command("docker", "exec", info.ID, "cat", "/test-output").CombinedOutput()
 		Expect(string(out)).To(Equal("it works\n"))
 	})
+
+	It("returns an ErrImageNotFound when creating from an image that does not exist", func() {
+		_, _, _, err := startContainer("non-existent-image", "")
+		Expect(err).To(MatchError(provider.ErrImageNotFound))
+	})
 })

@@ -150,12 +150,6 @@ var _ = Describe("provider/docker", func() {
 			PullImage(NitrousImage)
 		})
 
-		It("returns an ErrImageNotFound when creating from an image that does not exist", func() {
-			name := RandomName("freightertest")
-			_, err := prov.CreateStart(name, "non-existent-image", secret, "")
-			Expect(err).To(MatchError(provider.ErrImageNotFound))
-		})
-
 		Context("when container is created but cannot be started", func() {
 			It("creates a stopped container and returns the container info and a StartFailedError", func() {
 				// Create container with config that prevents it from
