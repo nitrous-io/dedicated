@@ -744,47 +744,6 @@ var _ = Describe("provider/docker", func() {
 		})
 	})
 
-	Describe(".StopApp()", func() {
-		BeforeEach(func() {
-			PullImage(NitrousImage)
-		})
-
-		It("kills the NITROUS_CMD process that's running inside the container", func() {
-			cmd := "python -m SimpleHTTPServer 8080"
-			name := RandomName("freightertest")
-			configJSON := fmt.Sprintf(`{ "Env": ["NITROUS_CMD=%s"] }`, cmd)
-			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
-
-			// Make sure the process is running inside the container.
-			out, err := exec.Command("docker", "top", info.ID).CombinedOutput()
-			Expect(string(out)).To(ContainSubstring(cmd))
-
-			err = prov.StopApp(info.ID)
-			Expect(err).To(BeNil())
-
-			// Process should no longer be running.
-			out, err = exec.Command("docker", "top", info.ID).CombinedOutput()
-			Expect(string(out)).NotTo(ContainSubstring(cmd))
-
-			// Stopping when process is not running should not return an error.
-			err = prov.StopApp(info.ID)
-			Expect(err).To(BeNil())
-		})
-
-		It("does not return an error if NITROUS_CMD is not specified", func() {
-			name := RandomName("freightertest")
-			configJSON := ""
-			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
-
-			err = prov.StopApp(info.ID)
-			Expect(err).To(BeNil())
-		})
-	})
-
 	Describe(".GetInfo()", func() {
 		BeforeEach(func() {
 			PullImage(NitrousImage)
