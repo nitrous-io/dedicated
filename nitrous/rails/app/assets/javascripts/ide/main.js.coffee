@@ -90,3 +90,8 @@ $(window).on 'offline', ->
 
 $(window).on 'online', ->
   window.App?.set? 'online', true
+
+$(window).on 'storage', (e) ->
+  origEvent = e.originalEvent
+  if origEvent.key == "token" && origEvent.newValue == null
+    window.location.href = "/app#logout"
