@@ -47,8 +47,8 @@ func init() {
 	// credentials to serve HTTPS for host-slug.nitrousproxy.com
 	// which is the proxy to freighter remote api on each host
 	hostBaseDomain = envStr("HOST_BASE_DOMAIN")
-	hostCACert = envStr("HOST_PUB_CRT")
-	hostCAKey = envStr("HOST_PUB_KEY")
+	hostCACert = envStr("HOST_CA_CRT")
+	hostCAKey = envStr("HOST_CA_KEY")
 
 	// this is the host domain that we should forward request to
 	// this is used to talk to freighted on the host
@@ -57,7 +57,7 @@ func init() {
 	privCACertPath = envStr("PRI_CRT")
 
 	containerBaseDomain = envStr("CONTAINER_BASE_DOMAIN")
-	containerCACert = envStr("CONTAINER_PUB_CRT")
+	containerCACert = envStr("CONTAINER_CA_CRT")
 	containerCAKey = envStr("CONTAINER_CA_KEY")
 	previewStartPort = os.Getenv("PREVIEW_START_PORT")
 	previewEndPort = os.Getenv("PREVIEW_END_PORT")
