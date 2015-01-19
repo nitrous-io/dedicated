@@ -150,25 +150,6 @@ var _ = Describe("provider/docker", func() {
 			PullImage(NitrousImage)
 		})
 
-		Context("when image has no CMD or ENTRYPOINT", func() {
-			It("creates and starts if CMD is given to container config", func() {
-				imgs := CreateImages(1, "nocmd", false, `
-					FROM busybox:latest
-					CMD []
-				`)
-				defer RemoveImages(imgs)
-
-				imgName := imgs[0]
-				name := RandomName("freightertest")
-
-				configJSON := `{ "Cmd": ["yes"] }`
-				cnr, err := prov.CreateStart(name, imgName, secret, configJSON)
-				defer CleanUpContainer(name)
-				Expect(err).To(BeNil())
-				Expect(cnr.Cmd).To(Equal([]string{"yes"}))
-			})
-		})
-
 		It("returns an ErrImageNotFound when creating from an image that does not exist", func() {
 			name := RandomName("freightertest")
 			_, err := prov.CreateStart(name, "non-existent-image", secret, "")

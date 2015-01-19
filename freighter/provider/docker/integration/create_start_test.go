@@ -73,17 +73,23 @@ var _ = Describe("CreateStart", func() {
 		config := `{
 			"Env": ["LANG=C"],
 			"Mounts": ["dotfiles:/etc/dotfiles","backups"],
-			"PortBindings": ["private:65000:3000", "public:9999:9999"]
+			"PortBindings": ["private:65000:3000", "public:9999:9999"],
+			"Cmd": ["yes"]
 		}`
 		_, info, cleanupFn, err := startContainerWithData("busybox:latest", datadir, config)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
+		// override the cmd in base image
+		Expect(info.Cmd).To(Equal([]string{"yes"}), "unexpected cmd")
+		// override envs
 		assertEnv(info.ID, []string{"LANG=C"}, nil)
+		// override ports
 		assertPort(info.ID, []interface{}{
 			fmt.Sprintf("3000/tcp -> %s:65000", info.Gateway),
 			"9999/tcp -> 0.0.0.0:9999",
 		})
+		// override volumes
 		assertVolumes(info.ID, map[string]string{
 			"/etc/dotfiles":    filepath.Join(datadir, "volumes", "dotfiles"),
 			"/volumes/backups": filepath.Join(datadir, "volumes", "backups"),
