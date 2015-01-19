@@ -86,6 +86,11 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
     @_super()
     App.slug.slugify(@$('#containers-new-name'), @$('#containers-new-slug'))
 
+    # if a new app creation is already in progress,
+    # directly go to that screen.
+    if @get('controller.saving')
+      @set 'currentScreenIndex', screens.indexOf('progress')
+
     @$('input[name=option]').on('change.containers-new', (ev) =>
       if $(ev.target).is(':checked')
         @set 'selectedOption', ev.target.value
