@@ -44,9 +44,9 @@ var _ = Describe("hostToIP", func() {
 var _ = Describe("getPublicFreighterdPort", func() {
 	It("gets the first public port mapped to the wanted port", func() {
 		ports := map[string][]string{
-			"4000": {"private:8080:4000"},
-			"3000": {"public:46521:3000", "public:8080:3000", "private:1000:3000"},
-			"5000": {"public:40000:5000", "private:1000:3000"},
+			"4000": []string{},
+			"3000": []string{"46521", "8080", "1000"},
+			"5000": []string{"40000"},
 		}
 
 		p, _ := getPublicFreighterdPort(ports, "3000")
