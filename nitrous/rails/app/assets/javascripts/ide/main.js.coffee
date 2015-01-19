@@ -46,6 +46,22 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       window.localStorage.removeItem('token')
   ).observes 'token'
 
+  reloadContainer: ->
+    new Em.RSVP.Promise (resolve, reject) =>
+      @loadContainer ()->
+        App.get('container')?.loadHost().then (v)->
+          resolve(v)
+        , (err) ->
+          reject(err)
+
+  loadContainer: (cb)->
+    App.Container.fetch(@get('slug')).then (container) ->
+      App.set 'container', container
+      cb?()
+      container
+    , -> # failure
+      window.location.href = notFoundPath
+
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
 

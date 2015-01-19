@@ -4,10 +4,18 @@ App.IdeConsoleSessionView = Em.View.extend
   templateName: 'ide/console-session'
   consoleSessionViewId: null
   consoleSession: null
+  terminalSession: null
   classNames: ['ide-console-session-view']
   classNameBindings: ['consoleSession.active:active']
 
   iframeInjected: false
+
+  opsSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket.started'
+
+  opsSocketChanged: (->
+    if @get('opsSocketReady') && @get('terminalSession') && @get('terminalSession.closed')
+      @reattachTerminal()
+  ).observes 'opsSocketReady'
 
   init: ->
     @set 'consoleSessionViewId', ++consoleSessionViewNextId
@@ -42,6 +50,15 @@ App.IdeConsoleSessionView = Em.View.extend
         , 10)
     , 800)
 
+  reattachTerminal: ->
+    terminal = @get 'terminalSession'
+    controller = @get 'controller'
+    terminal.willOpen = =>
+      controller.makeUrlAndConnect(terminal)
+    terminal.afterOpen = =>
+      terminal.attachHandlers()
+    terminal.open()
+
   injectIframe: ->
     return if @get 'iframeInjected'
     @set 'iframeInjected', true
@@ -61,10 +78,11 @@ App.IdeConsoleSessionView = Em.View.extend
 
       scriptEl = iframeDocument.createElement('script')
       scriptEl.setAttribute('src', location.origin + App.get('terminalJsPath'))
-      scriptEl.onload = ->
+      scriptEl.onload = =>
         scriptEl.onload = null
         terminal = iframeWindow.NitrousTerminal
         terminal.init()
+        @set 'terminalSession', terminal
         terminal.term.write 'Connecting...'
         terminal.willOpen = =>
           controller.makeUrlAndConnect(terminal)
