@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -118,8 +117,6 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 			return err
 		}
 		hCache.Set(slug, host)
-	} else {
-		fmt.Printf("! using host from cache: %+v\n\n", host)
 	}
 
 	dest := hostToIP(r, host.IP, host.Port)
