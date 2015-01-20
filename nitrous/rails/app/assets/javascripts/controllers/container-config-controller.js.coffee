@@ -7,6 +7,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
   closeApplyDialog: false
   envVarHashRO: null # object (hash) - readonly
   volumeMountsRO: null # array - readonly
+  portBindings: []
 
   clear: ->
     @_super.apply this, arguments
