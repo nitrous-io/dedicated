@@ -78,8 +78,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	t, err := token.FindByUser(db, u.ID)
-	if err != nil {
+	t := &token.Token{UserID: u.ID, Type: token.TypeHost}
+	if err := t.Insert(db); err != nil {
 		return err
 	}
 

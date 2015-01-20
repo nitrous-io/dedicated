@@ -564,7 +564,7 @@ func (p *Provisioner) configureUser() error {
 	if u == nil {
 		return fmt.Errorf("User '%s' could not be found", p.config.Username)
 	}
-	t := &token.Token{UserID: u.ID}
+	t := &token.Token{UserID: u.ID, Type: token.TypeProvisioner}
 	if err := t.Insert(p.db); err != nil {
 		return err
 	}
