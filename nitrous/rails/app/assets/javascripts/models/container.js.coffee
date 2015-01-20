@@ -15,6 +15,7 @@ App.Container = klass = App.Model.extend
   cmd: attr('array', serialize: false)
   entrypoint: attr('array', serialize: false)
   exitCode: attr('number', as: 'exit_code', serialize: false)
+  previewHostname: attr(as: 'preview_hostname', serialize: false)
   ipAddress: attr(as: 'ip_address', serialize: false)
   gatewayIP: attr(as: 'gateway_ip', serialize: false)
   createdAt: attr('date', as: 'created_at', serialize: false)
@@ -75,11 +76,11 @@ App.Container = klass = App.Model.extend
   ).property 'hasApp', 'isAppRunning', 'previewURL'
 
   previewURL: (->
-    hostname = @get 'hostname'
+    previewHostname = @get 'previewHostname'
     previewPort = @get 'previewPort'
-    if hostname && previewPort
-      "http://#{hostname}:#{previewPort}/"
-  ).property 'hostname', 'previewPort'
+    if previewHostname && previewPort
+      "https://#{previewHostname}:#{previewPort}/"
+  ).property 'previewHostname', 'previewPort'
 
   ideURL: (->
     location.href.replace(location.pathname+location.hash, "/ide#/#{@get 'slug'}")
