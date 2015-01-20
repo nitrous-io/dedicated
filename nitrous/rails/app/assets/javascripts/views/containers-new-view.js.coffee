@@ -21,6 +21,8 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
   showConfigScreen: Em.computed.equal('currentScreenIndex', screens.indexOf('config'))
   showProgressScreen: Em.computed.equal('currentScreenIndex', screens.indexOf('progress'))
 
+  showLog: false
+
   image: (->
     option = @get 'selectedOption'
     switch option
@@ -150,3 +152,6 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
 
     closeEnvVar: ->
       ui.hideModal('#env-vars-dialog')
+
+    toggleLog: ->
+      @toggleProperty 'showLog'
