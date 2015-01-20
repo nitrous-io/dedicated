@@ -2,10 +2,12 @@ package main
 
 import (
 	"crypto/tls"
+	"database/sql"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 
@@ -17,53 +19,67 @@ import (
 var version string
 
 var (
+	// TODO: eventually we may look into etcd ( and co ) so we dont have to touch
+	// the main database *because* latency
 	databaseURL    string
-	baseDomain     string
-	tlsDomain      string
 	freighterdPort int64
-	pubCACert      string
-	pubCAKey       string
+
+	hostBaseDomain string
+	hostCACert     string
+	hostCAKey      string
+
+	containerBaseDomain string
+	containerCACert     string
+	containerCAKey      string
+	previewStartPort    string
+	previewEndPort      string
+
+	tlsDomain      string
 	privCACertPath string
+
+	flVersion = flag.Bool("v", false, "Display the version and exit")
 )
 
-// Configure require settings. Required env variables are:
-// - ADDR: address that tender will listen to
-// - DATABASE_URL: url of the postgresql main database
-// - BASE_DOMAIN: base domain of the tender app i.e. .nitrousapp.com
-// - FREIGHTERD_PORT: public freighted port. The freighterd server itself
-// handles authentication so we dont need to handle it here
-//
-// TODO: eventually we may look into etcd ( and co ) so we dont have to touch
-// the main database *because* latency
-func main() {
-	var (
-		flVersion = flag.Bool("v", false, "Display the version and exit")
-	)
-	flag.Parse()
+func init() {
+	databaseURL = envStr("DATABASE_URL")
+	freighterdPort = envInt("FREIGHTERD_PORT")
 
+	// credentials to serve HTTPS for host-slug.nitrousproxy.com
+	// which is the proxy to freighter remote api on each host
+	hostBaseDomain = envStr("HOST_BASE_DOMAIN")
+	hostCACert = envStr("HOST_CA_CRT")
+	hostCAKey = envStr("HOST_CA_KEY")
+
+	// this is the host domain that we should forward request to
+	// this is used to talk to freighted on the host
+	// this is the ca for TLS_DOMAIN
+	tlsDomain = envStr("TLS_DOMAIN")
+	privCACertPath = envStr("PRI_CRT")
+
+	containerBaseDomain = envStr("CONTAINER_BASE_DOMAIN")
+	containerCACert = envStr("CONTAINER_CA_CRT")
+	containerCAKey = envStr("CONTAINER_CA_KEY")
+	previewStartPort = os.Getenv("PREVIEW_START_PORT")
+	previewEndPort = os.Getenv("PREVIEW_END_PORT")
+
+	if hostBaseDomain[0] != '.' {
+		log.Fatalf("HOST_BASE_DOMAIN should start with .")
+	}
+	if containerBaseDomain[0] != '.' {
+		log.Fatalf("CONTAINER_BASE_DOMAIN should start with .")
+	}
+}
+
+func main() {
+	flag.Parse()
 	if *flVersion {
 		fmt.Printf("tender version: %s\n", version)
 		os.Exit(0)
 	}
 
-	// setup env variables
-	databaseURL = envStr("DATABASE_URL")
-	freighterdPort = envInt("FREIGHTERD_PORT")
-	baseDomain = envStr("BASE_DOMAIN")
-	tlsDomain = envStr("TLS_DOMAIN")
-	pubCACert = envStr("PUB_CRT")
-	pubCAKey = envStr("PUB_KEY")
-	privCACertPath = envStr("PRI_CRT")
-	sp := os.Getenv("PREVIEW_START_PORT")
-	ep := os.Getenv("PREVIEW_END_PORT")
-
-	if baseDomain[0] != '.' {
-		panic("BASE_DOMAIN should start with .")
-	}
-
-	crt, err := tls.LoadX509KeyPair(pubCACert, pubCAKey)
+	db, err := connectDB(databaseURL)
 	if err != nil {
-		log.Fatalf("tender: Failed to load SSL certificates: %q", err)
+		log.Fatalf("connectDB: %v", err)
 	}
 
 	privCACert, err := ioutil.ReadFile(privCACertPath)
@@ -71,19 +87,39 @@ func main() {
 		log.Fatalf("tender: Failed to find private certificate: %s", privCACertPath)
 	}
 
-	httpsProxy, err := tender.NewServer(baseDomain, tlsDomain, databaseURL, freighterdPort, privCACert)
+	freighterProxy, err := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, db, privCACert)
 	if err != nil {
-		log.Fatalf("tender: Failed to create https proxy, %q", err)
+		log.Fatalf("failed to create https freighter proxy, %v", err)
 	}
 
+	previewProxy, err := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, db, privCACert)
+	if err != nil {
+		log.Fatalf("failed to create https preview proxy, %v", err)
+	}
+
+	servePreviewProxy(previewProxy)
+	serveFreighterdProxy(freighterProxy)
+}
+
+// this runs in foreground and should be called after servePreviewProxy
+func serveFreighterdProxy(s http.Handler) {
 	// create tls config
+	crt, err := tls.LoadX509KeyPair(hostCACert, hostCAKey)
+	if err != nil {
+		log.Fatalf("tender: Failed to load freighter's SSL certificates: %q", err)
+	}
 	tlsConfig := &tls.Config{
 		NextProtos:   []string{"http/1.1"},
 		Certificates: []tls.Certificate{crt},
 	}
 
-	// proxy port range for preview
-	startPort, endPort, err := tender.PortsRange(sp, ep)
+	log.Printf("listenning to port %d", freighterdPort)
+	log.Fatal(tender.ServeTLS(freighterdPort, tlsConfig, s))
+}
+
+// this runs in background, and should be called before serveFreighterdProxy
+func servePreviewProxy(s http.Handler) {
+	startPort, endPort, err := tender.PortsRange(previewStartPort, previewEndPort)
 	if err != nil {
 		log.Fatalf("tender: invalid ports, %q", err)
 	}
@@ -94,21 +130,29 @@ func main() {
 			config.MinPreviewPort, config.MaxPreviewPort, startPort, endPort,
 		)
 	}
+
+	// create tls config
+	crt, err := tls.LoadX509KeyPair(containerCACert, containerCAKey)
+	if err != nil {
+		log.Fatalf("failed to load container's SSL certificates: %q", err)
+	}
+	tlsConfig := &tls.Config{
+		NextProtos:   []string{"http/1.1"},
+		Certificates: []tls.Certificate{crt},
+	}
+
+	// proxy port range for preview
 	for p := startPort; p <= endPort; p++ {
-		go tender.ServeTLS(p, tlsConfig, httpsProxy)
+		go log.Fatal(tender.ServeTLS(p, tlsConfig, s))
 	}
 	// listen to HTTP/HTTPS port in addition to the specified port range if
 	// necessary
-	if startPort >= 80 {
-		go tender.ServeTLS(80, tlsConfig, httpsProxy)
+	if startPort > 80 {
+		go log.Fatal(tender.ServeTLS(80, tlsConfig, s))
 	}
-	if startPort >= 443 {
-		go tender.ServeTLS(443, tlsConfig, httpsProxy)
+	if startPort > 443 {
+		go log.Fatal(tender.ServeTLS(443, tlsConfig, s))
 	}
-
-	// proxy freighterd port
-	log.Printf("listen to port %d", freighterdPort)
-	tender.ServeTLS(freighterdPort, tlsConfig, httpsProxy)
 }
 
 func envStr(name string) string {
@@ -129,4 +173,16 @@ func envInt(name string) int64 {
 		panic(fmt.Sprintf("Invalid %s. Required integer, got %s", name, v))
 	}
 	return i
+}
+
+// connectDB establish a valid connection with our postgresql database
+func connectDB(databaseURL string) (*sql.DB, error) {
+	db, err := sql.Open("postgres", databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open a db connection %v", err)
+	}
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to get a valid db connection %v", err)
+	}
+	return db, nil
 }

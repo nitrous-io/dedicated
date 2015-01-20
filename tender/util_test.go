@@ -10,56 +10,76 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("util", func() {
-	Describe("parsePort", func() {
-		It("returns port of the request", func() {
-			testCases := []struct {
-				url  string
-				host string
-				port int
-			}{
-				{"http://google.com", "google.com", 80},
-				{"https://google.com", "google.com", 443},
-				{"http://google.com:8000", "google.com:8000", 8000},
-				{"/", "google.com", 80},
-			}
+var _ = Describe("parsePort", func() {
+	It("returns port of the request", func() {
+		testCases := []struct {
+			url  string
+			host string
+			port int
+		}{
+			{"http://google.com", "google.com", 80},
+			{"https://google.com", "google.com", 443},
+			{"http://google.com:8000", "google.com:8000", 8000},
+			{"/", "google.com", 80},
+		}
 
-			for _, tc := range testCases {
-				url, err := url.Parse(tc.url)
-				Expect(err).To(BeNil(), "test case should be a valid url")
-				p := parsePort(&http.Request{Host: tc.host, URL: url})
-				Expect(p).To(Equal(tc.port), "Expect correct port to be returned")
-			}
-		})
+		for _, tc := range testCases {
+			url, err := url.Parse(tc.url)
+			Expect(err).To(BeNil(), "test case should be a valid url")
+			p := parsePort(&http.Request{Host: tc.host, URL: url})
+			Expect(p).To(Equal(tc.port), "Expect correct port to be returned")
+		}
+	})
+})
+
+var _ = Describe("hostToIP", func() {
+	It("changes the request's host and port to the specified IP:Port", func() {
+		url, _ := url.Parse("http://google.com:8000")
+		r := &http.Request{URL: url, Host: "google.com:8000"}
+		hostToIP(r, net.ParseIP("10.0.0.2"), 65333)
+		Expect(r.URL.Host).To(Equal("10.0.0.2:65333"), "Expect the host to be changed to ip:port")
+	})
+})
+
+var _ = Describe("getPublicFreighterdPort", func() {
+	It("gets the first public port mapped to the wanted port", func() {
+		ports := map[string][]string{
+			"4000": []string{},
+			"3000": []string{"46521", "8080", "1000"},
+			"5000": []string{"40000"},
+		}
+
+		p, _ := getPublicFreighterdPort(ports, "3000")
+		Expect(p).To(Equal("46521"), "expect the first public port")
+
+		_, err := getPublicFreighterdPort(ports, "4000")
+		Expect(err).To(HaveOccurred(), "expect to return error for only private port")
+	})
+})
+
+var _ = Describe("getHost", func() {
+	It("returns the host's name when domain contains only host", func() {
+		var h string
+		h, _ = getHostname("yammer.nitrousapp.com:65333", ".nitrousapp.com")
+		Expect(h).To(Equal("yammer"), "Expect to get correct host's name")
+
+		h, _ = getHostname("dropbox.nitrousapp.com", ".nitrousapp.com")
+		Expect(h).To(Equal("dropbox"), "Expect to get correct host's name")
 	})
 
-	Describe("hostToIP", func() {
-		It("changes the request's host and port to the specified IP:Port", func() {
-			url, _ := url.Parse("http://google.com:8000")
-			r := &http.Request{URL: url, Host: "google.com:8000"}
-			hostToIP(r, net.ParseIP("10.0.0.2"), 65333)
-			Expect(r.URL.Host).To(Equal("10.0.0.2:65333"), "Expect the host to be changed to ip:port")
-		})
+	It("returns the host's name when domain contains several subdomains", func() {
+		var h string
+		h, _ = getHostname("hello.yammer.nitrousapp.com:65333", ".nitrousapp.com")
+		Expect(h).To(Equal("yammer"), "Expect to get correct host's name")
+
+		h, _ = getHostname("hello.dropbox.nitrousapp.com", ".nitrousapp.com")
+		Expect(h).To(Equal("dropbox"), "Expect to get correct host's name")
 	})
 
-	Describe("getHost", func() {
-		It("returns the host's name when domain contains only host", func() {
-			var h string
-			h, _ = getHost("yammer.nitrousapp.com:65333", ".nitrousapp.com")
-			Expect(h).To(Equal("yammer"), "Expect to get correct host's name")
-
-			h, _ = getHost("dropbox.nitrousapp.com", ".nitrousapp.com")
-			Expect(h).To(Equal("dropbox"), "Expect to get correct host's name")
-		})
-
-		It("returns the host's name when domain contains container name", func() {
-			var h string
-			h, _ = getHost("hello.yammer.nitrousapp.com:65333", ".nitrousapp.com")
-			Expect(h).To(Equal("yammer"), "Expect to get correct host's name")
-
-			h, _ = getHost("hello.dropbox.nitrousapp.com", ".nitrousapp.com")
-			Expect(h).To(Equal("dropbox"), "Expect to get correct host's name")
-		})
+	It("returns error when the domains do not match", func() {
+		var err error
+		_, err = getHostname("yammer.nitrousapp.com:3000", ".nitrousdev.com")
+		Expect(err).ToNot(BeNil())
 	})
 })
 

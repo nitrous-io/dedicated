@@ -3,11 +3,13 @@ package container
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
@@ -209,4 +211,8 @@ func (c *Container) Unlock(d db.QueryReceiver) error {
 	_, err := d.Exec(`UPDATE containers SET locked_at = null WHERE id = $1;`, c.ID)
 	c.LockedAt = nil
 	return err
+}
+
+func (c *Container) PreviewHostname() string {
+	return fmt.Sprintf("%s.%s", c.Slug, envvars.PreviewHostname)
 }

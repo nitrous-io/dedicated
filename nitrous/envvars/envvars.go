@@ -21,6 +21,7 @@ var (
 	NitrousPgUrl       string
 	NoSSLVerify        string
 	ProxyHostname      string
+	PreviewHostname    string
 	WebHostname        string
 
 	CAKeyPath  string
@@ -58,6 +59,7 @@ func init() {
 	MixpanelToken = os.Getenv(MixpanelEnvVar)
 	NitrousPgUrl = os.Getenv(DBEnvVar)
 	ProxyHostname = os.Getenv("PROXY_HOSTNAME")
+	PreviewHostname = os.Getenv("PREVIEW_HOSTNAME")
 	WebHostname = os.Getenv("WEB_HOSTNAME")
 
 	CAKeyPath = os.Getenv("CA_KEY_PATH")
@@ -100,9 +102,12 @@ func CheckSendgridVariables() {
 
 func CheckHostnames() {
 	if HostHostname == "" {
-		log.Fatalf("HOST_HOSTNAME not set")
+		log.Fatal("HOST_HOSTNAME not set")
 	}
 	if ProxyHostname == "" {
-		log.Fatalf("PROXY_HOSTNAME not set")
+		log.Fatal("PROXY_HOSTNAME not set")
+	}
+	if PreviewHostname == "" {
+		log.Fatal("PREVIEW_HOSTNAME not set")
 	}
 }
