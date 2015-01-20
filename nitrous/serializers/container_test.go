@@ -75,6 +75,7 @@ var _ = Describe("container serializer", func() {
 				"cmd": ["/sbin/init"],
 				"entrypoint": ["/bin/blah"],
 				"exit_code": 0,
+				"preview_hostname": "%s",
 				"started_at": "2014-08-13T00:00:00Z",
 				"finished_at": null,
 				"terminated_at": "2013-11-03T00:00:00Z",
@@ -88,7 +89,7 @@ var _ = Describe("container serializer", func() {
 					"privileged": true,
 					"publish_all": true
 				}
-			}`, model.ResolvedState())))
+			}`, model.ResolvedState(), model.PreviewHostname())))
 		})
 
 	})
