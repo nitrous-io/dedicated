@@ -18,26 +18,26 @@ previewMenu = menu 'Preview', [
     target: '_blank'
   separator
   menuItem 'Preview Help',
-    url: 'http://help.nitrous.io/categories/previewing/'
+    url: 'http://docs.nitrous.io/v1.0/docs/preview'
     target: '_blank'
 ]
 
 helpMenu = menu 'Help', [
   menuItem 'Help Center',
-    url: 'http://help.nitrous.io/'
+    url: 'http://docs.nitrous.io/'
     target: '_blank'
   menuItem 'Web IDE Overview',
     url: 'http://help.nitrous.io/ide-general'
     target: '_blank'
   menuItem 'Frequently Asked Questions',
-    url: 'http://help.nitrous.io/categories/faq'
+    url: 'http://docs.nitrous.io/v1.0/docs/billing--pricing-faq'
     target: '_blank'
   separator
   menuItem 'Blog',
     url: 'http://blog.nitrous.io/'
     target: '_blank'
   menuItem 'Updates',
-    url: 'http://updates.nitrous.io/'
+    url: 'http://docs.nitrous.io/v1.0/blog'
     target: '_blank'
   separator
   menuItem 'Report an Issue...',
