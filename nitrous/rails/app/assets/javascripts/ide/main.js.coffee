@@ -5,7 +5,6 @@
 #= require ./vendor/strftime
 #= require ./vendor/jquery.ui.widget
 #= require ./vendor/jquery.fileupload
-#= require ./vendor/ua-parser
 #= require ./ember-bootstrap
 #= require ../lib/mp
 #= require_self

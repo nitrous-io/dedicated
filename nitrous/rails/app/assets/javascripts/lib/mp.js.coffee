@@ -1,4 +1,8 @@
+#= require ua-parser
+
 window.mp =
+  UserAgent: new UAParser().getResult()
+
   initialized: false
 
   init: (token) ->

@@ -1,6 +1,4 @@
 App.util =
-  UserAgent: new UAParser().getResult()
-
   IsMac:
     navigator.userAgent.indexOf("Macintosh") != -1
 
