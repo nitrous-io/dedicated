@@ -18,7 +18,7 @@ func findHost(db *sql.DB, slug string) (*Host, error) {
 	err := db.QueryRow(`
 		SELECT hosts.ip_address, hosts.freighterd_port
 		FROM hosts
-		WHERE hosts.slug = $1
+		WHERE hosts.slug = $1 AND hosts.terminated_at IS NULL
 	`, slug).Scan(&ip, &port)
 	if err != nil {
 		return nil, err

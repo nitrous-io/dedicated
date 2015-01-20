@@ -12,7 +12,8 @@ CREATE TABLE hosts (
   slug character varying(63) NOT NULL, -- Used as DNS label, see http://tools.ietf.org/html/rfc1034#section-3.1.
   ip_address character varying(45), -- See http://tools.ietf.org/html/rfc4291.
   secret character varying(255) NOT NULL DEFAULT left(encode(gen_random_bytes(191), 'base64'), 255),
-  freighterd_port bigint
+  freighterd_port bigint,
+  terminated_at timestamp without time zone
 );
 
 CREATE TABLE containers (
