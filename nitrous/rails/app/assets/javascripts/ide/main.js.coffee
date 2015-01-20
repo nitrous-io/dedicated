@@ -7,6 +7,7 @@
 #= require ./vendor/jquery.fileupload
 #= require ./vendor/ua-parser
 #= require ./ember-bootstrap
+#= require ../lib/mp
 #= require_self
 #= require ./app-classes
 
@@ -23,6 +24,8 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   online: if !Em.isNone(window.navigator.onLine) then window.navigator.onLine else true
   offline: Em.computed.not 'online'
 
+  settings: null
+
   config: null
 
   flashMessage: null
@@ -30,7 +33,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   slug: null
   token: null
 
-  currentUser: null
+  user: null
   container: null
 
   terminalJsPath: null
@@ -45,6 +48,11 @@ window.NitrousIO = Em.Application.extend Em.Evented,
     else
       window.localStorage.removeItem('token')
   ).observes 'token'
+
+  activateMixpanel: (->
+    if @get('user') && settings = @get('settings')
+      mp.init(settings.mixpanel_token)
+  ).observes 'user', 'settings'
 
   reloadContainer: ->
     new Em.RSVP.Promise (resolve, reject) =>
@@ -61,6 +69,12 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       container
     , -> # failure
       window.location.href = notFoundPath
+
+  loadSettings: ->
+    promise = Em.RSVP.Promise.cast(Em.$.ajax("/api/v0/app_settings"))
+    promise.then (settings) ->
+      App.set 'settings', settings
+    promise
 
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')

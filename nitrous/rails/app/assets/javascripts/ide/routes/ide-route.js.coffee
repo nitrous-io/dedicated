@@ -3,8 +3,9 @@ message = 'You will lose unsaved work if you close the IDE.'
 App.IdeRoute = Em.Route.extend
   beforeModel: ->
     if App.get 'token'
-      App.CurrentUser.fetch().then (user) ->
-        App.set 'currentUser', user
+      App.loadSettings()
+      App.User.fetch().then (user) ->
+        App.set 'user', user
     else
       # redirect to login screen if user hasn't logged in
       window.location.href = '/app#login'

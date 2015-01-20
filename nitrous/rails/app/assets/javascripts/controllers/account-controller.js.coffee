@@ -4,6 +4,7 @@ App.AccountController = Em.ObjectController.extend
 
   advanced: false
 
+  name: null
   email: null
   originalEmail: null
   unconfirmedEmail: null
@@ -19,6 +20,7 @@ App.AccountController = Em.ObjectController.extend
       updatingSettings: false
       advanced: App.get('userProfile.advanced')
       updatingDetails: false
+      name: App.get('user.name')
       email: App.get('user.unconfirmedEmail') || App.get('user.email')
       originalEmail: App.get('user.email')
       unconfirmedEmail: App.get('user.unconfirmedEmail')
@@ -60,6 +62,7 @@ App.AccountController = Em.ObjectController.extend
         return
 
       curUser = App.get('user')
+      curUser.set('name', @get('name'))
       curUser.set('email', @get('email'))
 
       if @get('password')?.length > 0

@@ -15,8 +15,8 @@ App.IdeView = Em.View.extend
 
   didInsertElement: ->
     @_super()
-    App.util.mixpanel 'IDE Session Started', box_id: @get 'controller.id'
-    App.util.mixpanelIncrement 'ide_session_started_count'
+    mp.track 'IDE Session Started', container_id: @get 'controller.id'
+    mp.increment 'ide_session_started_count'
     Em.run.scheduleOnce 'afterRender', ->
       webapp.loading.stop()
 

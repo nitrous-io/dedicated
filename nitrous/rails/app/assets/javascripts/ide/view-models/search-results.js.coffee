@@ -21,10 +21,6 @@ App.SearchResults = App.TabContent.extend
 
   doComplete: ->
     @set 'completed', true
-    App.util.mixpanel 'Viewed Find in Project Result',
-      matches: @get('matchCount')
-      files: @get('fileCount')
-      success: (@get('errors') || []).length == 0
 
   title: (->
     if term = @get('term')

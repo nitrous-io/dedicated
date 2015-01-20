@@ -4,26 +4,31 @@
 form submit='updateDetails'
   .card-body
     .ui.input-group
-      label.field-label for='email'
+      label.field-label for='account-name'
+        | Full Name
+      = input type='text' id='account-name' value=controller.name
+
+    .ui.input-group
+      label.field-label for='account-email'
         | Email
-      = input type='email' id='email' classNameBindings='view.emailFieldInvalid:error' value=controller.email
+      = input type='email' id='account-email' classNameBindings='view.emailFieldInvalid:error' value=controller.email
       .note
         if controller.unconfirmedEmail
           p
             ' An email confirmation is pending, emails will be sent to
             = controller.originalEmail
             '
-            | until confirmed
+            | until confirmed.
 
     .ui.input-group
-      label.field-label for='password'
+      label.field-label for='account-password'
         | Password
-      = input type='password' id='password' classNameBindings='view.passwordFieldInvalid:error' value=controller.password placeholder="New Password"
+      = input type='password' id='account-password' classNameBindings='view.passwordFieldInvalid:error' value=controller.password placeholder="New Password"
 
     .ui.input-group
-      label.field-label for='confirmPassword'
+      label.field-label for='account-confirm-password'
         | Confirm Password
-      = input type='password' id='confirmPassword' classNameBindings='view.passwordFieldInvalid:error' value=controller.confirmPassword
+      = input type='password' id='account-confirm-password' classNameBindings='view.passwordFieldInvalid:error' value=controller.confirmPassword
 
   .card-footer.bordered
     .right

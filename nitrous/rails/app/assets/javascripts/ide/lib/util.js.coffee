@@ -7,68 +7,6 @@ App.util =
   IsMobile:
     navigator.userAgent.match(/(Android|iPad|iPhone)/) != null
 
-  # TODO determine the present location without it being passed
-  saveReturnTo: (route)->
-    App.set('returnTo', route)
-
-  returnToSaved: (defaultRoute) ->
-    route = if App.get('returnTo')?
-      App.get('returnTo')
-    else
-      defaultRoute
-    App.get('router').transitionTo route
-
-  mixpanel: (eventName, properties = {}) ->
-    return false
-    # currentUser = App.get 'currentUser'
-    # if mixpanel? && !currentUser.get('admin')
-    #   p =
-    #     username:         currentUser.get('username')
-    #     email:            currentUser.get('email')
-    #     distinct_id:      currentUser.get('email')
-    #     os_name:          @UserAgent.os.name
-    #     os_version:       @UserAgent.os.version
-    #     browser_name:     @UserAgent.browser.name
-    #     browser_version:  @UserAgent.browser.version
-    #     browser_major:    @UserAgent.browser.major
-
-    #   mixpanel.track eventName, _.defaults(properties, p)
-
-  mixpanelIdentifyUser: ->
-    if mixpanel?
-      currentUser = App.get 'currentUser'
-      currentUserFullName = currentUser.get('full_name')
-
-      # alias should only be used when the user signed up
-      # https://mixpanel.com/docs/integration-libraries/using-mixpanel-alias
-      mixpanel.identify currentUser.get('email')
-
-      personHash =
-        $email: currentUser.get('email')
-        $username: currentUser.get('username')
-        $created: currentUser.get('created_at')
-        $name: currentUserFullName
-        is_github_authenticated: currentUser.get('isGithubAuthenticated')
-
-      if currentUserFullName?
-        splitName = currentUserFullName.split(' ')
-        personHash.$first_name = splitName[0]
-        personHash.$last_name  = splitName.slice(-1)[0]
-
-      mixpanel.people.set personHash
-
-  mixpanelIncrement: (property, value=1) ->
-    if mixpanel? && !App.get('currentUser.admin')
-      mixpanel.people.increment(property, value)
-
-  mixpanelUpdateUser: (properties) ->
-    return if !mixpanel?
-    mixpanel.people.set properties
-
-  mixpanelAppendUser: (properties) ->
-    return if !mixpanel?
-    mixpanel.people.append properties
-
   # Algo stolen from http://ejohn.org/files/pretty.js
   humanizedTimeProperty: (property) ->
     return (->
@@ -120,9 +58,6 @@ App.util =
                       link = "<a href='#{url}' target='_blank'>#{url}</a>"
                       "#{space}#{link}"
                     ).htmlSafe()
-
-  asCurrency: (value) ->
-    "$#{value.toFixed(2)}"
 
   pluralize: (count, singularForm, pluralForm) ->
     term = if count == 1 then singularForm else pluralForm
