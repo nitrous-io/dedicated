@@ -177,7 +177,6 @@ func envInt(name string) int64 {
 
 // connectDB establish a valid connection with our postgresql database
 func connectDB(databaseURL string) (*sql.DB, error) {
-	log.Printf("[INFO] connecting to database %s", databaseURL)
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a db connection %v", err)
