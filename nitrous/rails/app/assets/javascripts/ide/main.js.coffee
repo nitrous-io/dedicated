@@ -7,6 +7,7 @@
 #= require ./vendor/jquery.fileupload
 #= require ./vendor/ua-parser
 #= require ./ember-bootstrap
+#= require ../lib/mp
 #= require_self
 #= require ./app-classes
 
@@ -32,7 +33,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   slug: null
   token: null
 
-  currentUser: null
+  user: null
   container: null
 
   terminalJsPath: null
@@ -49,11 +50,9 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   ).observes 'token'
 
   activateMixpanel: (->
-    if @get('currentUser') && settings = @get('settings')
-      if settings.mixpanel_token != '' && settings.mixpanel_token != 'disable'
-        window.mixpanel?.init settings.mixpanel_token
-        App.util.mixpanelIdentifyUser()
-  ).observes 'currentUser', 'settings'
+    if @get('user') && settings = @get('settings')
+      mp.init(settings.mixpanel_token)
+  ).observes 'user', 'settings'
 
   reloadContainer: ->
     new Em.RSVP.Promise (resolve, reject) =>

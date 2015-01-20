@@ -75,11 +75,6 @@ App.IdeFindInProjectController = Em.Controller.extend
           return
         this.reset()
 
-      App.util.mixpanel 'Started Find in Project',
-        location: location
-        ignoreCase: ignoreCase
-        useRegexp: useRegexp
-
   guessPath: (path) ->
     homeDir = App.get('container.homePath')
     return homeDir if not path?.length || path == homeDir

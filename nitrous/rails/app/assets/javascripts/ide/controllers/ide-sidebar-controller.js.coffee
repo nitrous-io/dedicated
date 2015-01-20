@@ -93,8 +93,6 @@ App.IdeSidebarController = Em.ArrayController.extend
           settings.done(doc)
       else
         this.fetchFileContent path, settings
-      if settings.source
-        App.util.mixpanel 'Opened File Tab', source: settings.source
 
   downloadPath: (path) ->
     if !path.get('loading')
@@ -288,7 +286,6 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   showUploadDialog: (path) ->
     path ?= @get 'rootPath'
-    App.util.mixpanel 'Opened File Upload Dialog'
     @set 'uploadDialog', App.UploadDialog.create path: path
 
   beginUpload: ->
@@ -311,7 +308,7 @@ App.IdeSidebarController = Em.ArrayController.extend
       this.refreshPath path.get('parentAbsolutePath')
     uploadDialog = @get 'uploadDialog'
     if uploadDialog && uploadDialog.get 'completed'
-      App.util.mixpanel 'Uploaded File'
+      mp.track 'Uploaded File'
       uploadDialog.set('hide', true)
       @set 'uploadDialog', null
 

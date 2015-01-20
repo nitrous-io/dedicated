@@ -18,7 +18,6 @@ App.IdeMainMenuController = Em.Controller.extend
   fileGoToFile: ->
     if controller = @get 'controllers.ideFileFinder'
       controller.showFindDialog()
-      App.util.mixpanelIncrement 'ide_opened_file_finder_dialog_count'
 
   fileClose: ->
     if editorController = @get 'controllers.ideEditor'
@@ -43,7 +42,6 @@ App.IdeMainMenuController = Em.Controller.extend
   editFindInProject: ->
     if controller = @get 'controllers.ideFindInProject'
       controller.showFindDialog()
-      App.util.mixpanelIncrement 'ide_opened_find_in_project_dialog_count'
 
   editReplace: ->
     activeDocumentSet 'replaceTrigger', true
@@ -73,8 +71,6 @@ App.IdeMainMenuController = Em.Controller.extend
     if consoleSession = @get 'controllers.ideConsole.activeTab'
       consoleSession.set 'focused', true
 
-    App.util.mixpanelIncrement 'ide_focused_console_count'
-
   viewFocusEditor: ->
     if doc = @get 'controllers.ideEditor.activeTab'
       doc.set 'focused', true
@@ -92,7 +88,6 @@ App.IdeMainMenuController = Em.Controller.extend
   viewToggleFullScreenConsole: ->
     if consoleController = @get 'controllers.ideConsole'
       consoleController.toggleProperty 'fullscreen'
-      App.util.mixpanelIncrement 'ide_toggled_console_fullscreen_count'
     this.viewFocusConsole()
 
   viewToggleFullScreenEditor: ->

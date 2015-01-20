@@ -1,10 +1,11 @@
-App.CurrentUser = klass = Em.Object.extend
+App.User = klass = Em.Object.extend
+  id: null
   username: null
+  name: null
   email: null
-  full_name: null
-  created_at: null
   admin: null
-  confirmed_at: null
+  created_at: null
+  updated_at: null
 
   init: ->
     @_super.apply this, arguments
@@ -22,7 +23,7 @@ klass.reopenClass
         url: '/api/v0/user',
         headers: { Authorization: "Bearer #{App.get 'token'}" }
       ).done((data, status, jqxhr) ->
-        resolve(App.CurrentUser.create(data.user))
+        resolve(App.User.create(data.user))
       ).fail (jqxhr) ->
         reject(jqxhr)
     promise

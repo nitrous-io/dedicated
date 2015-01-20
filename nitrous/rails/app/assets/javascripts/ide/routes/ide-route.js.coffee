@@ -4,8 +4,8 @@ App.IdeRoute = Em.Route.extend
   beforeModel: ->
     if App.get 'token'
       App.loadSettings()
-      App.CurrentUser.fetch().then (user) ->
-        App.set 'currentUser', user
+      App.User.fetch().then (user) ->
+        App.set 'user', user
     else
       # redirect to login screen if user hasn't logged in
       window.location.href = '/app#login'

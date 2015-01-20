@@ -39,8 +39,6 @@ App.IdeFileFinderController = Em.Controller.extend
     if !path?
       path = this.guessPath(@get('controllers.ideEditor.activeTab.path.absolutePath'))
     @set 'fileFinderDialog', App.FileFinderDialog.create basePath: path
-    App.util.mixpanel 'Started FileFinder',
-      basePath: path
 
   startFind: (pattern, path) ->
     dialog = @get 'fileFinderDialog'

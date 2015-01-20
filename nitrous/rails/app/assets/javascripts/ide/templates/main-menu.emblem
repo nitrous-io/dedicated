@@ -11,8 +11,8 @@
     ul.nav
       li.ui.dropdown
         a href='#'
-          img.gravatar src={App.currentUser.gravatar}
-          = App.currentUser.username
+          img.gravatar src={App.user.gravatar}
+          = App.user.username
           .ui.dropdown-triangle
         ul.dropdown-menu.right
           li

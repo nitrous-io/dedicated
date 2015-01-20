@@ -15,10 +15,6 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, 
     App.localStorage.set 'fullscreenConsole', @get('fullscreen')
   ).observes 'fullscreen'
 
-  createTab: (attrs={}) ->
-    App.util.mixpanelIncrement 'ide_new_console_tab_count'
-    @_super(attrs)
-
   reset: ->
     @set 'content', null
 

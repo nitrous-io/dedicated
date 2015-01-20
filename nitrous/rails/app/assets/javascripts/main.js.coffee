@@ -1,4 +1,5 @@
 #= require emberjs
+#= require ./lib/mp
 #= require_self
 #= require app-classes
 
@@ -89,6 +90,11 @@ window.Nitrous = Em.Application.extend Em.Evented,
       if settings.stripe_key != '' && settings.stripe_key != 'disable'
         window.Stripe?.setPublishableKey(settings.stripe_key)
   ).observes 'settings'
+
+  activateMixpanel: (->
+    if @get('user') && settings = @get('settings')
+      mp.init(settings.mixpanel_token)
+  ).observes 'user', 'settings'
 
   noHost: (->
     @get('hosts.loaded') && @get('hosts.length') == 0

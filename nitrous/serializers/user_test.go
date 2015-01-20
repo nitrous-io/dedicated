@@ -40,6 +40,7 @@ var _ = Describe("user serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
 				"id": 10,
+				"name": "Emma Watson",
 				"username": "emmawatson",
 				"email": "h.granger@hogwarts.edu",
 				"admin": true,
@@ -57,6 +58,7 @@ var _ = Describe("user serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
 				"id": 10,
+				"name": "Emma Watson",
 				"username": "emmawatson",
 				"email": "h.granger@hogwarts.edu",
 				"admin": true,
@@ -96,6 +98,7 @@ var _ = Describe("user serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
 				"id": 10,
+				"name": "Emma Watson",
 				"username": "emmawatson",
 				"email": "h.granger@hogwarts.edu",
 				"admin": true,
