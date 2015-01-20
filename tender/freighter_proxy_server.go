@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
@@ -61,16 +62,44 @@ func (s *FreighterProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// Naïve cache - replace with something like groupcache.
+type hostCache struct {
+	lock sync.RWMutex
+	data map[string]*Host
+}
+
+func newHostCache() *hostCache {
+	return &hostCache{
+		lock: sync.RWMutex{},
+		data: make(map[string]*Host),
+	}
+}
+
+func (h *hostCache) Get(slug string) (*Host, bool) {
+	h.lock.RLock()
+	defer h.lock.RUnlock()
+	host, ok := h.data[slug]
+	return host, ok
+}
+
+func (h *hostCache) Set(slug string, host *Host) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	h.data[slug] = host
+}
+
+var hCache = newHostCache()
+
 // proxy the request to respected boxhost. We will switch the proxy strategy
 // depends on the type of the request
 // - if this is a normal HTTP, use `http.ReverseProxy`
 // - if the request wants to open a websocket, use `proxyWebsocket`
 func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err error) {
-	name, err := getHostname(r.Host, s.domain)
+	slug, err := getHostname(r.Host, s.domain)
 	if err != nil {
 		return err
 	}
-	log.Printf("[INFO] request %v to %s", r, name)
+	log.Printf("[INFO] request %v to %s", r, slug)
 
 	// set X-FORWARDED-PORT for the request
 	fp := strconv.Itoa(parsePort(r))
@@ -79,12 +108,20 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 
 	// get host id and host ip
 	// host ip will be the new destination for current request
-	// TODO: since this will never change, cache this here for the duration of
-	// the server
-	host, err := findHost(s.db, name)
-	if err != nil {
-		return err
+	var host *Host
+	// FIXME Evict host from cache when host is terminated.
+	host, ok := hCache.Get(slug)
+	if !ok {
+		var err error
+		host, err = findHost(s.db, slug)
+		if err != nil {
+			return err
+		}
+		hCache.Set(slug, host)
+	} else {
+		fmt.Printf("! using host from cache: %+v\n\n", host)
 	}
+
 	dest := hostToIP(r, host.IP, host.Port)
 
 	// copy tls config and set serverName
@@ -92,11 +129,10 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 	// this must be the same as Hostname in
 	// https://github.com/nitrous-io/nitrous/blob/master/models/host/host.go
 	var tlsConfig *tls.Config
-
 	if s.tlsConfig != nil {
 		tlsConfig = &tls.Config{}
 		*tlsConfig = *s.tlsConfig
-		tlsConfig.ServerName = fmt.Sprintf("%s%s", name, s.tlsDomain)
+		tlsConfig.ServerName = slug + s.tlsDomain
 	}
 
 	if proxy.IsWebsocket(r) {
