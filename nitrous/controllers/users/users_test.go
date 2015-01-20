@@ -371,6 +371,27 @@ var _ = Describe("controllers/users", func() {
 			})
 		})
 
+		It("should remove all other login tokens on password change", func() {
+			_, err := db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke1", token.TypeLogin)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke2", token.TypeHost)
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("password", "abcdef")
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			type con struct {
+				Token string `db:"token"`
+			}
+			tokens := []con{}
+			err = db.Select(&tokens, `SELECT token FROM tokens WHERE user_id = $1`, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(tokens).To(Equal([]con{con{Token: "toke2"}, con{Token: t.Token}}))
+		})
+
 		Context("when an existing email is given", func() {
 			BeforeEach(func() {
 				u = &user.User{

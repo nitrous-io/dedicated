@@ -186,6 +186,13 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	if password != "" {
+		_, err := db.Exec(`DELETE FROM tokens WHERE user_id = $1 AND id != $2 AND type = $3;`, u.ID, env.Token.ID, token.TypeLogin)
+		if err != nil {
+			return err
+		}
+	}
+
 	if emailChanged {
 		if err := u.SendConfirmationEmail(db, true, true); err != nil {
 			return err
