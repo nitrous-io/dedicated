@@ -24,7 +24,10 @@ import (
 
 // the minimum value (in cents) a invoice must equal to send off to Stripe
 // otherwise it will rollover to the next invoice
-const MinimumInvoiceAmount = 100
+const (
+	MinPriceDiffRatio    = 1.5
+	MinimumInvoiceAmount = 100
+)
 
 var (
 	ErrNoUsage = errors.New("biller: no usage from user")
@@ -84,7 +87,12 @@ func (b *Biller) createOrUpdateInvoice() (*InvoiceResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("biller: failed retrieving billable host hours for user %d, err: %v", b.user.ID, err)
 	}
-	totalCharge, items := InvoiceItemsForUsages(usages)
+	totalCharge, items := InvoiceItemsForUsages(usages, b.logger)
+
+	if err := b.sanityCheckInvoiceItems(items); err != nil {
+		return nil, err
+	}
+
 	i, err := invoice.ForPeriod(b.db, b.user.ID, *b.periodStart, *b.periodEnd)
 	if err != nil {
 		return nil, fmt.Errorf("biller: encountered error when try to find existing invoice for user %d, err: %v", b.user.ID, err)
@@ -423,6 +431,39 @@ func (b *Biller) associateDeferredInvoices(upI *stripe.Invoice, i *invoice.Invoi
 	return tx.Commit()
 }
 
+func (b *Biller) sanityCheckInvoiceItems(items []invoiceitem.InvoiceItem) error {
+	type planHost struct {
+		HostID int64 `db:"host_id"`
+		Price  int64 `db:"price"`
+	}
+	pHs := []*planHost{}
+	if err := b.db.Select(&pHs, `SELECT hosts.id AS host_id, plans.price FROM hosts INNER JOIN plans ON hosts.plan_id = plans.id WHERE hosts.user_id = $1`, b.user.ID); err != nil {
+		return err
+	}
+
+	mapping := make(map[int64]int64)
+	for _, pH := range pHs {
+		mapping[pH.HostID] = pH.Price
+	}
+
+	for _, item := range items {
+		hostPrice, ok := mapping[item.HostID.Int64]
+		if !ok {
+			return fmt.Errorf("biller: Could not locate plan for user %d host %d", b.user.ID, item.HostID)
+		}
+		if item.TotalCharge() > hostPrice {
+			return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds plan price %d", item.TotalCharge(), b.user.ID, item.HostID, hostPrice)
+		}
+		if item.Hours.Int64 == invoiceitem.MaxHours {
+			priceRatio := float64(hostPrice) / float64(item.TotalCharge())
+			if priceRatio >= MinPriceDiffRatio {
+				return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds ratio %f with %f", item.TotalCharge(), b.user.ID, item.HostID, MinPriceDiffRatio, priceRatio)
+			}
+		}
+	}
+	return nil
+}
+
 func takeAvailableCredits(tx *sqlx.Tx, userID int64, invID int64, amount int64) (int64, error) {
 	// insert into credits ONLY if the number of available of credits is greater than 0
 	// using FOR UPDATE to ensure the rows are locked from other queries modifying
@@ -496,12 +537,19 @@ func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd
 	}
 }
 
-func InvoiceItemsForUsages(usages []hosttransition.HostHourUsage) (int64, []invoiceitem.InvoiceItem) {
+func InvoiceItemsForUsages(usages []hosttransition.HostHourUsage, logger *logger.Logger) (int64, []invoiceitem.InvoiceItem) {
 	totalCharge := int64(0)
 	items := make([]invoiceitem.InvoiceItem, len(usages))
 	for indx, usage := range usages {
+		hrs := usage.Hours()
+		if hrs > invoiceitem.MaxHours {
+			hrs = invoiceitem.MaxHours
+			if logger != nil {
+				logger.Infof("Invoice for host %d, capping to %d hrs. original = %d hrs", usage.HostID, hrs, usage.Hours())
+			}
+		}
 		i := invoiceitem.InvoiceItem{
-			Hours:       sql.NullInt64{int64(usage.Hours()), true},
+			Hours:       sql.NullInt64{int64(hrs), true},
 			HourlyPrice: sql.NullInt64{usage.HourlyPrice, true},
 			HostID:      sql.NullInt64{usage.HostID, true},
 		}

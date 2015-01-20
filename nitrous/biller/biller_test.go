@@ -57,8 +57,8 @@ var _ = Describe("biller", func() {
 		fakeStripe = &FakeStripe{}
 		stripe.SetBackend(fakeStripe)
 
-		startTime = time.Now().Add(-48 * time.Hour)
-		endTime = startTime.Add(12 * time.Hour)
+		startTime = time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
+		endTime = time.Date(2014, 1, 31, 24, 59, 59, 1000000000, time.Local)
 
 		b, err = biller.New(db, lgr, u, &startTime, &endTime)
 		Expect(err).To(BeNil())
@@ -129,15 +129,47 @@ var _ = Describe("biller", func() {
 				Expect(err).To(BeNil())
 			})
 
+			It("should error out if the final price is less than the monthly price", func() {
+				var prevPrice int
+				Expect(db.QueryRow("SELECT price FROM plans WHERE id = $1", h1.PlanID).Scan(&prevPrice)).To(BeNil())
+
+				_, err := db.Exec("UPDATE plans SET price = 1 WHERE id = $1", h1.PlanID)
+				Expect(err).To(BeNil())
+
+				defer func() {
+					_, err = db.Exec("UPDATE plans SET price = $1 WHERE id = $2", prevPrice, h1.PlanID)
+					Expect(err).To(BeNil())
+				}()
+
+				_, err = b.CreateOrUpdateInvoice()
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("exceeds plan price"))
+			})
+
+			It("should not perform anything if the monthly price of a plan is out of sync with a host pricing", func() {
+				prevPrice := h2.HourlyPrice
+				h2.HourlyPrice = 200
+				Expect(h2.Update(db)).To(BeNil())
+
+				defer func() {
+					h2.HourlyPrice = prevPrice
+					Expect(h2.Update(db)).To(BeNil())
+				}()
+
+				_, err := b.CreateOrUpdateInvoice()
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("exceeds ratio"))
+			})
+
 			It("should create an invoice for the hosts", func() {
 				i, err := b.CreateOrUpdateInvoice()
 				Expect(err).To(BeNil())
 				Expect(i).ToNot(BeNil())
 
 				// h1 running for 2hrs = 4c
-				// h2 running for 10hrs = 5c
-				// total = 9c
-				Expect(i.Invoice.TotalCharge).To(Equal(int64(9)))
+				// h2 running for full month - 2hrs = 744 - 2 = capped to 672 = 336c
+				// total = 340c
+				Expect(i.Invoice.TotalCharge).To(Equal(int64(340)))
 			})
 
 			It("should discount the total cost of the invoice if there are credits available", func() {
@@ -149,7 +181,7 @@ var _ = Describe("biller", func() {
 				Expect(i).ToNot(BeNil())
 
 				Expect(i.Invoice.CreditAmount).To(Equal(int64(8)))
-				Expect(i.Invoice.TotalCharge).To(Equal(int64(1)))
+				Expect(i.Invoice.TotalCharge).To(Equal(int64(332)))
 
 				c := &credit.Credit{}
 				err = db.QueryRowx("SELECT * FROM credits WHERE user_id = $1 AND invoice_id = $2", u.ID, i.Invoice.ID).StructScan(c)
@@ -174,7 +206,7 @@ var _ = Describe("biller", func() {
 				}
 				Expect(item1.Hours.Int64).To(Equal(int64(2)))
 				Expect(item1.HourlyPrice.Int64).To(Equal(int64(2000)))
-				Expect(item2.Hours.Int64).To(Equal(int64(10)))
+				Expect(item2.Hours.Int64).To(Equal(int64(672)))
 				Expect(item2.HourlyPrice.Int64).To(Equal(int64(500)))
 			})
 
@@ -213,7 +245,7 @@ var _ = Describe("biller", func() {
 				Expect(i).ToNot(BeNil())
 				Expect(i.Invoice.ID).To(Equal(inv.ID))
 				Expect(i.Invoice.SuccessfulCharge).To(BeFalse())
-				Expect(i.Invoice.TotalCharge).To(Equal(int64(9)))
+				Expect(i.Invoice.TotalCharge).To(Equal(int64(340)))
 			})
 
 			It("should cover additional credits if the total has increased", func() {
@@ -236,7 +268,7 @@ var _ = Describe("biller", func() {
 				Expect(i).ToNot(BeNil())
 				Expect(i.Invoice.ID).To(Equal(inv.ID))
 				Expect(i.Invoice.SuccessfulCharge).To(BeFalse())
-				Expect(i.Invoice.TotalCharge).To(Equal(int64(1)))
+				Expect(i.Invoice.TotalCharge).To(Equal(int64(332)))
 				Expect(i.Invoice.CreditAmount).To(Equal(int64(10)))
 			})
 
@@ -758,9 +790,15 @@ var _ = Describe("biller", func() {
 				HourlyPrice: 0,      // 0cent/hr
 				Seconds:     172800, // 48hrs
 			} // total should be 0 cents
+			usage4 := hosttransition.HostHourUsage{
+				HostID:      55,
+				UserID:      98,
+				HourlyPrice: 2000,                                 // 2cent/hr
+				Seconds:     60 * 60 * (invoiceitem.MaxHours + 1), // MaxHours + 1hr
+			} // total should be 2c * MaxHours cents
 
-			charge, items := biller.InvoiceItemsForUsages([]hosttransition.HostHourUsage{usage1, usage2, usage3})
-			Expect(charge).To(Equal(int64(108)))
+			charge, items := biller.InvoiceItemsForUsages([]hosttransition.HostHourUsage{usage1, usage2, usage3, usage4}, nil)
+			Expect(charge).To(Equal(int64(108 + (invoiceitem.MaxHours * 2))))
 
 			eX1 := invoiceitem.InvoiceItem{
 				HostID:      sql.NullInt64{56, true},
@@ -777,7 +815,12 @@ var _ = Describe("biller", func() {
 				HourlyPrice: sql.NullInt64{0, true},
 				Hours:       sql.NullInt64{48, true},
 			}
-			Expect(items).To(Equal([]invoiceitem.InvoiceItem{eX1, eX2, eX3}))
+			eX4 := invoiceitem.InvoiceItem{
+				HostID:      sql.NullInt64{55, true},
+				HourlyPrice: sql.NullInt64{2000, true},
+				Hours:       sql.NullInt64{invoiceitem.MaxHours, true},
+			}
+			Expect(items).To(Equal([]invoiceitem.InvoiceItem{eX1, eX2, eX3, eX4}))
 		})
 	})
 
