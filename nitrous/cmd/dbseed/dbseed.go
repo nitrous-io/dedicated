@@ -397,46 +397,41 @@ func shouldSeed(d db.QueryReceiver, tableName string) (bool, error) {
 
 // Template descriptions
 const (
-	railsDesc = `A baseline Ruby on Rails stack that uses PostgreSQL as the database backend.
+	railsDesc = `Ruby on Rails: an open-source framework optimized for programmer happiness and sustainable productivity
 
-This template contains:
 •  Rails 4.1
 •  Ruby 2.1
 •  PostgreSQL 9.3
 •  Ubuntu 14.04`
 
-	laravelDesc = `A PHP stack using Laravel, the PHP framework for web artisans.
+	laravelDesc = `Laravel, the PHP framework for web artisans
 
-This template contains:
 •  Laravel 4.2.12
 •  PHP 5.5.9
 •  PostgreSQL 9.3
 •  Ubuntu 14.04`
 
-	meanDesc = `A MEAN Javascript stack: MongoDB, Express, AngularJS, and Node.js.
+	meanDesc = `MEAN: an opinionated full-stack JavaScript framework
 
-This template contains:
 •  MEAN 0.4.1
 •  Node.js 0.10.33
 •  MongoDB 2.6.6
 •  Ubuntu 14.04`
 
-	meteorDesc = `A Meteor stack.
+	meteorDesc = `Meteor: build web and mobile apps in pure JavaScript
 
-This template contains:
 •  Meteor 1.0.1
 •  Ubuntu 14.04`
 
-	djangoDesc = `A Django stack.
+	djangoDesc = `Django: the web framework for perfectionists with deadlines
 
-This template contains:
 •  Django 1.7.1
 •  Python 3.4.0
 •  IPython 2.3.1
 •  Gunicorn 19.1.1
 •  Ubuntu 14.04`
 
-	vanillaDesc = `A vanilla development environment.
+	vanillaDesc = `A minimalist development environment
 
 This template contains Ubuntu 14.04 with useful developer tools preinstalled.`
 )
