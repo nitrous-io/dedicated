@@ -66,11 +66,14 @@ App.ContainerPortsController = Em.ObjectController.extend
       return if @get 'saving'
       container = @get 'model'
       @set 'saving', true
+      prevState = @get 'state'
+      @set 'state', 'reconfiguring'
 
       events = App.get 'eventsSocket'
 
       reconfigureComplete = =>
         @set 'saving', false
+        @set 'state', prevState
         @set 'removePreviewPort', false
         @set 'newPreviewPort', null
         events.off 'container.reconfigured', onReconfigured
