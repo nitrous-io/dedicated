@@ -60,25 +60,25 @@ var _ = Describe("getPublicFreighterdPort", func() {
 var _ = Describe("getHost", func() {
 	It("returns the host's name when domain contains only host", func() {
 		var h string
-		h, _ = getHost("yammer.nitrousapp.com:65333", ".nitrousapp.com")
+		h, _ = getHostname("yammer.nitrousapp.com:65333", ".nitrousapp.com")
 		Expect(h).To(Equal("yammer"), "Expect to get correct host's name")
 
-		h, _ = getHost("dropbox.nitrousapp.com", ".nitrousapp.com")
+		h, _ = getHostname("dropbox.nitrousapp.com", ".nitrousapp.com")
 		Expect(h).To(Equal("dropbox"), "Expect to get correct host's name")
 	})
 
 	It("returns the host's name when domain contains several subdomains", func() {
 		var h string
-		h, _ = getHost("hello.yammer.nitrousapp.com:65333", ".nitrousapp.com")
+		h, _ = getHostname("hello.yammer.nitrousapp.com:65333", ".nitrousapp.com")
 		Expect(h).To(Equal("yammer"), "Expect to get correct host's name")
 
-		h, _ = getHost("hello.dropbox.nitrousapp.com", ".nitrousapp.com")
+		h, _ = getHostname("hello.dropbox.nitrousapp.com", ".nitrousapp.com")
 		Expect(h).To(Equal("dropbox"), "Expect to get correct host's name")
 	})
 
 	It("returns error when the domains do not match", func() {
 		var err error
-		_, err = getHost("yammer.nitrousapp.com:3000", ".nitrousdev.com")
+		_, err = getHostname("yammer.nitrousapp.com:3000", ".nitrousdev.com")
 		Expect(err).ToNot(BeNil())
 	})
 })

@@ -73,7 +73,6 @@ func getPublicFreighterdPort(ports map[string][]string, wantedPort string) (stri
 // in the request, 80 or 443 (HTTPS) is assumed.
 func parsePort(req *http.Request) int {
 	if _, portStr, err := net.SplitHostPort(req.Host); err == nil {
-		log.Println("got port", portStr)
 		if p, err := strconv.Atoi(portStr); err == nil {
 			return p
 		}
@@ -104,7 +103,7 @@ func setRequestHost(r *http.Request, ip net.IP, port string) string {
 // Given a request with host:
 // winterfell.yammer.nitrousapp.com:8000, it will return host name as "yammer"
 // yammer.nitrousapp.com:65333, it will return host name as "yammer"
-func getHost(url, baseDomain string) (string, error) {
+func getHostname(url, baseDomain string) (string, error) {
 	var domain string
 	var err error
 	if strings.Contains(url, ":") {

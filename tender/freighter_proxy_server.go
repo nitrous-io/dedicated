@@ -66,7 +66,7 @@ func (s *FreighterProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 // - if this is a normal HTTP, use `http.ReverseProxy`
 // - if the request wants to open a websocket, use `proxyWebsocket`
 func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err error) {
-	name, err := getHost(r.Host, s.domain)
+	name, err := getHostname(r.Host, s.domain)
 	if err != nil {
 		return err
 	}
