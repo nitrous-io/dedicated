@@ -14,6 +14,10 @@ type UserProfile struct {
 	MaxHosts int64 `db:"max_hosts"`
 	Advanced bool  `db:"advanced"`
 
+	ActivationEmailSentAt        *time.Time `db:"activation_email_sent_at"`
+	StarterCreditEmailSendCount  int        `db:"starter_credit_email_send_count"`
+	StarterCreditEmailLastSentAt *time.Time `db:"starter_credit_email_last_sent_at"`
+
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
 }
