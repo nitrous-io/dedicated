@@ -85,14 +85,22 @@ App.IdeMainMenuController = Em.Controller.extend
     if editorController = @get 'controllers.ideEditor'
       editorController.makePreviousTabActive()
 
+  viewMinimizeConsole: ->
+    App.set 'consoleMinimized', true
+    App.set 'consoleFullscreen', false
+
+  viewMaximizeConsole: ->
+    App.set 'consoleMinimized', false
+    @viewFocusConsole()
+
   viewToggleFullScreenConsole: ->
-    if consoleController = @get 'controllers.ideConsole'
-      consoleController.toggleProperty 'fullscreen'
-    this.viewFocusConsole()
+    App.toggleProperty 'consoleFullscreen'
+    App.set('consoleMinimized', false) if App.get('consoleFullscreen')
+    @viewFocusConsole()
 
   viewToggleFullScreenEditor: ->
-    @_toggleEditorProperty 'fullscreen'
-    this.viewFocusEditor()
+    App.toggleProperty 'editorFullscreen'
+    @viewFocusEditor()
 
   viewSelectTheme: (theme) ->
     if editorController = @get 'controllers.ideEditor'
