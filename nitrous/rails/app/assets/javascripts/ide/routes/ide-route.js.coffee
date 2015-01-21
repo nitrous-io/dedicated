@@ -26,7 +26,8 @@ App.IdeRoute = Em.Route.extend
       transition.abort()
 
   activate: ->
-    App.set 'title', 'IDE'
+    slug = App.get 'slug'
+    App.set 'title', "#{slug} · IDE"
     # warn the user before actually unload the window. This is helpful to
     # prevent mis-click close tab / cmd + w
     $(window).bind 'beforeunload.ide', -> message
