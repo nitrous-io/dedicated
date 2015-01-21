@@ -7,11 +7,17 @@ App.IdeConsoleBorderView
         a href='#' click='didClickTab this target="view"'
           button.close title='Close Tab' click='didClickClose this target="view"'
             i.fa.fa-times
-          span Terminal
+          span Console
   .ide-toolbar-btns.ide-new-tab
     button.ui.btn.icon title='New Tab' click='didClickNew target="view"'
       i.fa.fa-plus
   .ide-toolbar-btns
+    if minimized
+      button.ui.btn.icon title='Maximize' click='didClickMaximizeConsole target="view"'
+        i.fa.fa-caret-up
+    else
+      button.ui.btn.icon title='Minimize' click='didClickMinimizeConsole target="view"'
+        i.fa.fa-minus
     button.ui.btn.icon title='Toggle Full Screen' click='didClickFullScreen target="view"'
       i.fa.fa-arrows-alt
 

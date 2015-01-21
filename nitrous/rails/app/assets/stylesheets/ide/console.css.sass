@@ -11,6 +11,7 @@
   .console-sessions
     display: flex
     flex-grow: 1
+    background: $n2oGray900
 
     .ide-console-session-view
       display: none
@@ -43,4 +44,13 @@
     border-top: none
 
     .ide-side-pane-border
+      display: none
+
+  &.minimized
+    height: auto !important
+
+    .ide-toolbar
+      border-bottom: 0
+
+    .console-sessions
       display: none

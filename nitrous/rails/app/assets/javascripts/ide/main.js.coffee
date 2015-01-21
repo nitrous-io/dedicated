@@ -40,6 +40,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
 
   editorFullscreen: false
   consoleFullscreen: false
+  consoleMinimized: false
 
   didChangeToken: (->
     if token = @get('token')

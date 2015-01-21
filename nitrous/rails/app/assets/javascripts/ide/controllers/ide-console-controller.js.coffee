@@ -6,6 +6,7 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, 
   modelClass: App.ConsoleSession
   content: null
   fullscreenBinding: 'App.consoleFullscreen'
+  minimizedBinding: 'App.consoleMinimized'
 
   initialize: ->
     @set 'content', []

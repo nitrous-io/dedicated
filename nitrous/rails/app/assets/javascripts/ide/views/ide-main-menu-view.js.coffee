@@ -231,6 +231,16 @@ App.IdeMainMenuView = Em.View.extend
         separator
         menuItem 'Focus Console', macKey: 'shift+ctrl+c', pcKey: 'ctrl+alt+c', callback: (controller) ->
           controller.viewFocusConsole()
+        menuItem 'Minimize Console',
+          hideBinding: Em.Binding.oneWay('App.consoleMinimized')
+          callback: (controller) ->
+            controller.viewMinimizeConsole()
+        menuItem 'Maximize Console',
+          hide: (->
+            !App.get('consoleMinimized')
+          ).property('App.consoleMinimized')
+          callback: (controller) ->
+            controller.viewMaximizeConsole()
         menuItem 'Toggle Full Screen Console', macKey: 'shift+ctrl+f', pcKey: 'ctrl+alt+f', callback: (controller) ->
           controller.viewToggleFullScreenConsole()
         menuItem 'Toggle Full Screen Editor', macKey: 'shift+ctrl+e', pcKey: 'ctrl+alt+e', callback: (controller) ->
