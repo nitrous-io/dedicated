@@ -187,75 +187,45 @@ func templates(d db.QueryReceiver) error {
 
 	railsCn := defaultContainer()
 	railsCn.Image = "nitrousio/starter-rails:latest"
-	railsConfigJSON, err := templateCnCfgJSON(railsCn)
+	railsCfgJSON, err := templateCnCfgJSON(railsCn)
 	if err != nil {
 		return err
 	}
 
 	laravelCn := defaultContainer()
 	laravelCn.Image = "nitrousio/starter-laravel:latest"
-	laravelConfigJSON, err := templateCnCfgJSON(laravelCn)
+	laravelCfgJSON, err := templateCnCfgJSON(laravelCn)
 	if err != nil {
 		return err
 	}
 
 	meanCn := defaultContainer()
 	meanCn.Image = "nitrousio/starter-mean:latest"
-	meanConfigJSON, err := templateCnCfgJSON(meanCn)
+	meanCfgJSON, err := templateCnCfgJSON(meanCn)
 	if err != nil {
 		return err
 	}
 
 	meteorCn := defaultContainer()
 	meteorCn.Image = "nitrousio/starter-meteor:latest"
-	meteorConfigJSON, err := templateCnCfgJSON(meteorCn)
+	meteorCfgJSON, err := templateCnCfgJSON(meteorCn)
 	if err != nil {
 		return err
 	}
 
 	djangoCn := defaultContainer()
 	djangoCn.Image = "nitrousio/starter-django:latest"
-	djangoConfigJSON, err := templateCnCfgJSON(djangoCn)
+	djangoCfgJSON, err := templateCnCfgJSON(djangoCn)
 	if err != nil {
 		return err
 	}
 
 	templates := []template.Template{
-		{
-			Slug:        "rails",
-			Name:        sql.NullString{"Ruby on Rails", true},
-			Description: sql.NullString{railsDesc, true},
-			Config:      string(railsConfigJSON),
-			Type:        template.TypeStack,
-		},
-		{
-			Slug:        "laravel",
-			Name:        sql.NullString{"Laravel", true},
-			Config:      string(laravelConfigJSON),
-			Description: sql.NullString{laravelDesc, true},
-			Type:        template.TypeStack,
-		},
-		{
-			Slug:        "mean",
-			Name:        sql.NullString{"MEAN", true},
-			Config:      string(meanConfigJSON),
-			Description: sql.NullString{meanDesc, true},
-			Type:        template.TypeStack,
-		},
-		{
-			Slug:        "meteor",
-			Name:        sql.NullString{"Meteor", true},
-			Config:      string(meteorConfigJSON),
-			Description: sql.NullString{meteorDesc, true},
-			Type:        template.TypeStack,
-		},
-		{
-			Slug:        "django",
-			Name:        sql.NullString{"Django", true},
-			Config:      string(djangoConfigJSON),
-			Description: sql.NullString{djangoDesc, true},
-			Type:        template.TypeStack,
-		},
+		newTemplate("Ruby on Rails", "rails", railsCfgJSON, template.TypeStack, railsDesc),
+		newTemplate("Laravel", "laravel", laravelCfgJSON, template.TypeStack, laravelDesc),
+		newTemplate("MEAN", "mean", meanCfgJSON, template.TypeStack, laravelDesc),
+		newTemplate("Meteor", "meteor", meteorCfgJSON, template.TypeStack, meteorDesc),
+		newTemplate("Django", "django", djangoCfgJSON, template.TypeStack, djangoDesc),
 	}
 	for _, t := range templates {
 		if err := t.Insert(d); err != nil {
@@ -264,43 +234,43 @@ func templates(d db.QueryReceiver) error {
 		logr.Infof("Added template %+v", t)
 	}
 
-	goCfgJSON, err := baseTemplateConfigJSON("nitrousio/golang:latest")
+	goCfgJSON, err := baseTemplateCfgJSON("nitrousio/golang:latest")
 	if err != nil {
 		return err
 	}
-	nodeCfgJSON, err := baseTemplateConfigJSON("nitrousio/nodejs:latest")
+	nodeCfgJSON, err := baseTemplateCfgJSON("nitrousio/nodejs:latest")
 	if err != nil {
 		return err
 	}
-	phpCfgJSON, err := baseTemplateConfigJSON("nitrousio/php:latest")
+	phpCfgJSON, err := baseTemplateCfgJSON("nitrousio/php:latest")
 	if err != nil {
 		return err
 	}
-	pythonCfgJSON, err := baseTemplateConfigJSON("nitrousio/python:latest")
+	pythonCfgJSON, err := baseTemplateCfgJSON("nitrousio/python:latest")
 	if err != nil {
 		return err
 	}
-	rubyCfgJSON, err := baseTemplateConfigJSON("nitrousio/ruby:latest")
+	rubyCfgJSON, err := baseTemplateCfgJSON("nitrousio/ruby:latest")
 	if err != nil {
 		return err
 	}
-	dindCfgJSON, err := privilegedBaseTemplateConfigJSON("nitrousio/docker:latest")
+	dindCfgJSON, err := privilegedBaseTemplateCfgJSON("nitrousio/docker:latest")
 	if err != nil {
 		return err
 	}
-	vanillaCfgJSON, err := baseTemplateConfigJSON("nitrousio/ubuntu:latest")
+	vanillaCfgJSON, err := baseTemplateCfgJSON("nitrousio/ubuntu:latest")
 	if err != nil {
 		return err
 	}
 
 	baseTemplates := []template.Template{
-		{Name: sql.NullString{"Go", true}, Config: string(goCfgJSON), Slug: "golang", Type: template.TypeBasic},
-		{Name: sql.NullString{"Node.js", true}, Config: string(nodeCfgJSON), Slug: "nodejs", Type: template.TypeBasic},
-		{Name: sql.NullString{"PHP", true}, Config: string(phpCfgJSON), Slug: "php", Type: template.TypeBasic},
-		{Name: sql.NullString{"Python", true}, Config: string(pythonCfgJSON), Slug: "python", Type: template.TypeBasic},
-		{Name: sql.NullString{"Ruby", true}, Config: string(rubyCfgJSON), Slug: "ruby", Type: template.TypeBasic},
-		{Name: sql.NullString{"Ubuntu", true}, Config: string(vanillaCfgJSON), Slug: "ubuntu", Type: template.TypeBasic},
-		{Name: sql.NullString{"Docker", true}, Config: string(dindCfgJSON), Slug: "docker", Type: template.TypeAdvanced},
+		newTemplate("Go", "golang", goCfgJSON, template.TypeBasic, goDesc),
+		newTemplate("Node.js", "nodejs", nodeCfgJSON, template.TypeBasic, nodejsDesc),
+		newTemplate("PHP", "php", phpCfgJSON, template.TypeBasic, phpDesc),
+		newTemplate("Python", "python", pythonCfgJSON, template.TypeBasic, pythonDesc),
+		newTemplate("Ruby", "ruby", rubyCfgJSON, template.TypeBasic, rubyDesc),
+		newTemplate("Ubuntu", "ubuntu", vanillaCfgJSON, template.TypeBasic, vanillaDesc),
+		newTemplate("Docker", "docker", dindCfgJSON, template.TypeAdvanced, dockerDesc),
 	}
 	for _, t := range baseTemplates {
 		if err := t.Insert(d); err != nil {
@@ -312,7 +282,7 @@ func templates(d db.QueryReceiver) error {
 	return nil
 }
 
-func baseTemplateConfigJSON(repo string) ([]byte, error) {
+func baseTemplateCfgJSON(repo string) ([]byte, error) {
 	c := template.Container{
 		Privileged: false,
 		PublishAll: false,
@@ -325,7 +295,7 @@ func baseTemplateConfigJSON(repo string) ([]byte, error) {
 	return templateCnCfgJSON(c)
 }
 
-func privilegedBaseTemplateConfigJSON(repo string) ([]byte, error) {
+func privilegedBaseTemplateCfgJSON(repo string) ([]byte, error) {
 	c := template.Container{
 		Privileged: true,
 		PublishAll: false,
@@ -395,12 +365,57 @@ func shouldSeed(d db.QueryReceiver, tableName string) (bool, error) {
 	}
 }
 
+func newTemplate(name, slug string, cfgJSON []byte, tempType, desc string) template.Template {
+	return template.Template{
+		Name:        sql.NullString{name, true},
+		Config:      string(cfgJSON),
+		Slug:        slug,
+		Type:        tempType,
+		Description: sql.NullString{desc, true},
+	}
+}
+
 // Template descriptions
 const (
+	goDesc = `Go: an open source programming language that makes it easy to build simple, reliable, and efficient software
+
+•  Go 1.4
+•  Ubuntu 14.04`
+
+	phpDesc = `PHP: a popular general-purpose scripting language that is especially suited to web development
+
+•  Composer 1.0.0-alpha9
+•  PHP 5.5.9
+•  Ubuntu 14.04`
+
+	nodejsDesc = `Node.js: a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications
+
+•  nvm 0.22.0
+•  Node.js 0.10.35
+•  Ubuntu 14.04`
+
+	pythonDesc = `Python: a programming language that lets you work quickly and integrate systems more effectively
+
+•  virtualenv 1.11.4
+•  python 3.4.0
+•  python 2.7.6
+•  Ubuntu 14.04`
+
+	rubyDesc = `Ruby: a dynamic, open source programming language with a focus on simplicity and productivity.
+
+•  bundler 1.7.9
+•  ruby 2.1.5
+•  Ubuntu 14.04`
+
+	dockerDesc = `A development environment with Docker set up.
+
+•  Docker 1.4.1
+•  Ubuntu 14.04`
+
 	railsDesc = `Ruby on Rails: an open-source framework optimized for programmer happiness and sustainable productivity
 
 •  Rails 4.1
-•  Ruby 2.1
+•  Ruby 2.1.5
 •  PostgreSQL 9.3
 •  Ubuntu 14.04`
 
