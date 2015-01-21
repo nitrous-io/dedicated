@@ -14,7 +14,7 @@ App.IdeConsoleBorderView = Em.View.extend
     id = @get 'elementId'
 
     $body.on "mousemove.#{id}", (event) =>
-      newHeight = Math.max(($pane.offset().top + $pane.innerHeight()) - event.pageY, minHeight)
+      newHeight = Math.floor(Math.max(($pane.offset().top + $pane.innerHeight()) - event.pageY, minHeight))
 
       $pane.css(height: "#{newHeight}px")
       @set 'height', newHeight

@@ -14,7 +14,7 @@ App.IdeSidebarBorderView = Em.View.extend
     id = @get 'elementId'
 
     $body.on "mousemove.#{id}", (event) =>
-      newWidth = Math.max(event.pageX - $pane.offset().left, minWidth)
+      newWidth = Math.floor(Math.max(event.pageX - $pane.offset().left, minWidth))
       @setPaneWidth(newWidth)
 
     $body.on "mouseup.#{id}", (event) =>
