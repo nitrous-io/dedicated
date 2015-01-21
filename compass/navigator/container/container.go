@@ -85,7 +85,10 @@ func (n *Navigator) find(slug string) (*Container, error) {
 	return c, nil
 }
 
-func (n *Navigator) NewSOA() []dns.RR {
+func (n *Navigator) SOA(domain string) ([]dns.RR, error) {
+	if domain != "" && n.domain != domain {
+		return nil, nav.ErrDomainMismatch
+	}
 	return []dns.RR{
 		&dns.SOA{
 			Hdr:     dns.RR_Header{Name: n.domain, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: defaultTTL},
@@ -97,7 +100,7 @@ func (n *Navigator) NewSOA() []dns.RR {
 			Expire:  604800,
 			Minttl:  defaultTTL,
 		},
-	}
+	}, nil
 }
 
 func New(domain string, config map[string]string) (nav.Navigator, error) {
