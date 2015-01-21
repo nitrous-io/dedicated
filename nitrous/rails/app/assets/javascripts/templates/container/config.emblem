@@ -132,7 +132,12 @@
 
 .card-footer.bordered
   .right
-    button.ui.btn.primary click='askApply target="view"' disabled={view.formDisabled} Apply Changes
+    if saving
+      button.ui.btn disabled='disabled'
+        i.spinner
+        | Applying Changes...
+    else
+      button.ui.btn.primary click='askApply target="view"' disabled={view.formDisabled} Apply Changes
 
 #confirm-apply-modal-dialog.ui.modal
   .ui.card
