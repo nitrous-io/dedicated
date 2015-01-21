@@ -60,7 +60,7 @@ func (s *Server) Stop() {
 
 func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	q := r.Question[0]
-	log.Printf("Question: %s", q)
+	log.Printf("Question: %s", q.String())
 
 	m := new(dns.Msg)
 	m.SetReply(r)
@@ -94,18 +94,18 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				if err == nil {
 					m.Answer = r
 					mh.UpdateSince(label, start)
-					log.Printf("Navigator %s/%s: resolved %s to %+v", navigator.Name(), domain, q, r)
+					log.Printf("Navigator %s/%s: resolved %s to %+v", navigator.Name(), domain, q.String(), r)
 				} else {
 					mh.Error(err, label)
-					log.Printf("Navigator %s/%s: failed to resolve %s, err: %s", navigator.Name(), domain, q, err)
+					log.Printf("Navigator %s/%s: failed to resolve %s, err: %s", navigator.Name(), domain, q.String(), err)
 				}
 			}
 		}
-		log.Printf("No answer for question %s", q)
 	}
 
 	// if we cant handle the request, just return all our SOA as NS
 	if len(m.Answer) == 0 {
+		log.Printf("No answer for question %s", q.String())
 		m.Ns = s.allSOA()
 		m.Ns[0].Header().Ttl = defaultTTL
 	}
