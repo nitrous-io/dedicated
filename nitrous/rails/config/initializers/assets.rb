@@ -1,4 +1,5 @@
 Rails.application.config.assets.precompile += %w(
+  compat.js
   loading.js
   jquery.js
   web_app.css

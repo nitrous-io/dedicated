@@ -15,6 +15,7 @@ html lang='en' class=@html_class
   body
     = yield :body_before
     = yield
+    = javascript_include_tag 'compat'
     = javascript_include_tag 'jquery'
     = javascript_include_tag 'pages'
     = yield :body_after
