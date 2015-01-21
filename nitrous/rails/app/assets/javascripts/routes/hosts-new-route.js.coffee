@@ -11,7 +11,7 @@ App.HostsNewRoute = App.AuthedRoute.extend
     @_super.apply this, arguments
     unless controller.get 'saving'
       controller.clear()
-    if App.get('pendingHost')
+    if App.get('pendingHost') && !(App.get('newUser') && App.get('user.billingEnabled'))
       controller.set('host', App.get('pendingHost'))
       App.set('pendingHost', null)
       controller.send 'create'
