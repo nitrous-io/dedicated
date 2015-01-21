@@ -210,8 +210,10 @@
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
 
   .screen class={view.showProgressScreen::hide}
-    .card-body
-      .terminal-screen
+    .log class={view.showLog::hide}
+      .card-body.bordered
+        .terminal-screen
+
     .card-footer.bordered
       if saving
         if image.progress.status
@@ -222,6 +224,11 @@
           button.ui.btn disabled='disabled'
             i.spinner
             | Creating...
+          button.ui.btn click='toggleLog target="view"'
+            if view.showLog
+              | Hide Log
+            else
+              | Show Log
       else
         .right
           a.ui.btn href='#' click='goBack target="view"' Back
