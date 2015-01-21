@@ -105,6 +105,9 @@ func (ctx *reconfigContext) run(env *middleware.Env, async bool) (*container.Con
 		var liveContainer *freighterclient.Container
 		liveContainer, err = cl.Reconfig(cn.CID, config)
 		if err != nil {
+			if liveContainer != nil {
+				cn = hydrateContainer(cn, liveContainer, h)
+			}
 			return err
 		}
 		cn = hydrateContainer(cn, liveContainer, h)

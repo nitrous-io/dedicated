@@ -2181,6 +2181,16 @@ var _ = Describe("controllers/containers", func() {
 				errType, _ := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("internal_server_error"))
 			})
+
+			It("updates the container record if Freighter responds with a container", func() {
+				doRequest(testParams)
+
+				c, err := container.Find(db, hs.U, containerName)
+				Expect(err).To(BeNil())
+				Expect(c.CID).To(Equal("livebeef"))
+				Expect(c.Image).To(Equal("nitrous-base"))
+				Expect(c.LockedAt).To(BeNil())
+			})
 		})
 
 		Context("when called in async mode and freighter is successful", func() {
@@ -2332,7 +2342,7 @@ var _ = Describe("controllers/containers", func() {
 					Expect(data["container"]).NotTo(BeNil())
 					cnrData, ok := data["container"].(*serializers.Container)
 					Expect(ok).To(BeTrue())
-					Expect(cnrData.CID).To(Equal("deadbeef"))
+					Expect(cnrData.CID).To(Equal("livebeef")) // This should be updated from Freighter.
 
 					errorMsg, ok := data["error"].(string)
 					Expect(ok).To(BeTrue())
@@ -2341,7 +2351,7 @@ var _ = Describe("controllers/containers", func() {
 
 				cn, err := container.Find(db, u, containerName)
 				Expect(err).To(BeNil())
-				Expect(cn.CID).To(Equal("deadbeef"))
+				Expect(cn.CID).To(Equal("livebeef"))
 			})
 		})
 
