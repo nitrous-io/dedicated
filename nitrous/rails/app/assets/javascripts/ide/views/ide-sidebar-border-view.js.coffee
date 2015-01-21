@@ -15,9 +15,7 @@ App.IdeSidebarBorderView = Em.View.extend
 
     $body.on "mousemove.#{id}", (event) =>
       newWidth = Math.max(event.pageX - $pane.offset().left, minWidth)
-
-      $pane.css(width: "#{newWidth}px")
-      @set 'width', newWidth
+      @setPaneWidth(newWidth)
 
     $body.on "mouseup.#{id}", (event) =>
       @turnOffResizeEvents()
@@ -31,6 +29,16 @@ App.IdeSidebarBorderView = Em.View.extend
     $body.off "mousemove.#{id}"
     $body.off "mouseup.#{id}"
     $(window).off "mouseup.#{id}"
+
+  setPaneWidth: (width) ->
+    $pane = $('#ide-sidebar-view')
+    $pane.css(width: "#{width}px")
+    $pane.find('.tree').css(width: "#{width}px")
+    @set 'width', width
+
+  didInsertElement: ->
+    Em.run.scheduleOnce 'afterRender', this, ->
+      @setPaneWidth(@get('width'))
 
   willDestroyElement: ->
     @_super()
