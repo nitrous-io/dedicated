@@ -87,7 +87,7 @@ App.IdeMainMenuView = Em.View.extend
       if port.preview
         txt = "#{txt} (Default)"
       item = menuItem txt,
-        url: App.get('container').portAddress(port.hostPort)
+        url: "https://#{App.get 'container.preview_hostname'}:#{port.containerPort}"
         target: '_blank'
 
       if port.preview
