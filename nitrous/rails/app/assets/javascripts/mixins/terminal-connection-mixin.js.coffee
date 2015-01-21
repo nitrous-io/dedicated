@@ -27,7 +27,6 @@ App.TerminalConnectionMixin = Ember.Mixin.create
           when 'attach'
             term.convertEol = true
 
-        url += "&command=#{command}"
         resolve(url)
       , (jqxhr) ->
         reject(jqxhr)
