@@ -170,6 +170,7 @@ build_nitrous() {
   (build "nitrous/cmd/biller")
   (build "nitrous/cmd/hostusage")
   (build "nitrous/cmd/removeexpiredtokens")
+  (build "nitrous/cmd/engagement")
   (build_assets)
 }
 
