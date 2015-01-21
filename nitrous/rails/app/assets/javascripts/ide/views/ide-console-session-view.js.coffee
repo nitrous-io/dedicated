@@ -1,10 +1,11 @@
+#= require ../../mixins/inject-terminal-iframe-mixin
+
 consoleSessionViewNextId = 0
 
-App.IdeConsoleSessionView = Em.View.extend
+App.IdeConsoleSessionView = Em.View.extend App.InjectTerminalIframeMixin,
   templateName: 'ide/console-session'
   consoleSessionViewId: null
   consoleSession: null
-  terminalSession: null
   classNames: ['ide-console-session-view']
   classNameBindings: ['consoleSession.active:active']
 
@@ -13,7 +14,7 @@ App.IdeConsoleSessionView = Em.View.extend
   opsSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket.started'
 
   opsSocketChanged: (->
-    if @get('opsSocketReady') && @get('terminalSession') && @get('terminalSession.closed')
+    if @get('opsSocketReady') && @get('terminal') && @get('terminal.closed')
       @reattachTerminal()
   ).observes 'opsSocketReady'
 
@@ -51,7 +52,7 @@ App.IdeConsoleSessionView = Em.View.extend
     , 800)
 
   reattachTerminal: ->
-    terminal = @get 'terminalSession'
+    terminal = @get 'terminal'
     controller = @get 'controller'
     terminal.willOpen = =>
       controller.makeUrlAndConnect(terminal)
@@ -65,24 +66,8 @@ App.IdeConsoleSessionView = Em.View.extend
     Em.run.scheduleOnce 'afterRender', this, ->
       controller = @get 'controller'
       consoleSession = @get 'consoleSession'
-      $iframe = $('<iframe>')
-      @$('.terminal-screen').append($iframe)
-      iframeWindow = $iframe[0].contentWindow
-      iframeDocument = iframeWindow.document
 
-      # use pure js dom api because jquery fails to use iframe's window/document obj
-      linkEl = iframeDocument.createElement('link')
-      linkEl.setAttribute('rel', 'stylesheet')
-      linkEl.setAttribute('href', location.origin + App.get('terminalCssPath'))
-      iframeDocument.head.appendChild(linkEl)
-
-      scriptEl = iframeDocument.createElement('script')
-      scriptEl.setAttribute('src', location.origin + App.get('terminalJsPath'))
-      scriptEl.onload = =>
-        scriptEl.onload = null
-        terminal = iframeWindow.NitrousTerminal
-        terminal.init()
-        @set 'terminalSession', terminal
+      @injectTerminalIframe (terminal) =>
         terminal.term.write 'Connecting...'
         terminal.willOpen = =>
           controller.makeUrlAndConnect(terminal)
@@ -92,4 +77,3 @@ App.IdeConsoleSessionView = Em.View.extend
         # it will be no-op since no URL is set
         # makeUrlConnect will then call terminal.open again after setting the URL.
         terminal.open()
-      iframeDocument.body.appendChild(scriptEl)

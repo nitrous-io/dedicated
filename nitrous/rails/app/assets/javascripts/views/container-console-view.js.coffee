@@ -1,4 +1,6 @@
-App.ContainerConsoleView = Em.View.extend
+#= require ../mixins/inject-terminal-iframe-mixin
+
+App.ContainerConsoleView = Em.View.extend App.InjectTerminalIframeMixin,
   elementId: 'container-console-view'
   classNameBindings: ['controller.fullscreen:fullscreen']
   classNames: ['console-view']
@@ -23,29 +25,12 @@ App.ContainerConsoleView = Em.View.extend
     @set 'iframeInjected', true
     Em.run.scheduleOnce 'afterRender', this, ->
       controller = @get 'controller'
-      $iframe = $('<iframe>')
-      @$('.terminal-screen').append($iframe)
-      iframeWindow = $iframe[0].contentWindow
-      iframeDocument = iframeWindow.document
 
-      # use pure js dom api because jquery fails to use iframe's window/document obj
-      linkEl = iframeDocument.createElement('link')
-      linkEl.setAttribute('rel', 'stylesheet')
-      linkEl.setAttribute('href', location.origin + App.get('terminalCssPath'))
-      iframeDocument.head.appendChild(linkEl)
-
-      scriptEl = iframeDocument.createElement('script')
-      scriptEl.setAttribute('src', location.origin + App.get('terminalJsPath'))
-      scriptEl.onload = ->
-        scriptEl.onload = null
-        terminal = iframeWindow.NitrousTerminal
-        terminal.init()
+      @injectTerminalIframe (terminal) =>
+        terminal.term.write 'Connecting...'
         terminal.willOpen = =>
           controller.makeUrlAndConnect(terminal)
-        terminal.term.write 'Connecting...'
         terminal.open()
-        terminal.focus()
-      iframeDocument.body.appendChild(scriptEl)
   ).observes 'controller.ready'
 
   actions:

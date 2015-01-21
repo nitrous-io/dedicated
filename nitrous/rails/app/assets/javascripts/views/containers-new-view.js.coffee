@@ -1,3 +1,5 @@
+#= require ../mixins/inject-terminal-iframe-mixin
+
 optionHostImage = 'host-image'
 optionBaseImage = 'base-image'
 heightPadding = 16

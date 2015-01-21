@@ -7,6 +7,10 @@ App.InjectTerminalIframeMixin = Em.Mixin.create
     iframeWindow = $iframe[0].contentWindow
     iframeDocument = iframeWindow.document
 
+    # hack to make iframe ready for injection in firefox
+    iframeDocument.open()
+    iframeDocument.close()
+
     # use pure js dom api because jquery fails to use iframe's window/document obj
     linkEl = iframeDocument.createElement('link')
     linkEl.setAttribute('rel', 'stylesheet')
@@ -22,6 +26,6 @@ App.InjectTerminalIframeMixin = Em.Mixin.create
       terminal.init()
       terminal.focus()
       @set 'terminal', terminal
-      callback?()
+      callback?(terminal)
 
     iframeDocument.body.appendChild(scriptEl)

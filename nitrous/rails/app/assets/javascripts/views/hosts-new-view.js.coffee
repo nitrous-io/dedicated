@@ -1,3 +1,5 @@
+#= require ../mixins/inject-terminal-iframe-mixin
+
 App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
   elementId: 'hosts-new-view'
   classNames: ['ui', 'card']
