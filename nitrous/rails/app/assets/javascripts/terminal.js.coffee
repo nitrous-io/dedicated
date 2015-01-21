@@ -28,7 +28,8 @@ window.NitrousTerminal =
     term.sizeToFit()
     @attachHandlers()
 
-    window.onresize = =>
+    onresize = =>
+      window.onresize = null
       return unless @term
       if @resizeTimeout
         window.clearTimeout(@resizeTimeout)
@@ -36,6 +37,8 @@ window.NitrousTerminal =
         @resizeTimeout = null
         @term.sizeToFit()
       , 50)
+      window.onresize = onresize
+    onresize()
 
     window.onfocus = =>
       return unless @term
