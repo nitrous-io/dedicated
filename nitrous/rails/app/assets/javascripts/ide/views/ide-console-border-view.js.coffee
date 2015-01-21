@@ -25,12 +25,17 @@ App.IdeConsoleBorderView = Em.View.extend
     $(window).on "mouseup.#{id}", (event) =>
       @turnOffResizeEvents()
 
+    # place a transparent layer on top of terminal screen
+    # to prevent it from blocking mouse events
+    $('<div class="iframe-cover" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; background: transparent">').appendTo($pane.find('.console-sessions'))
+
   turnOffResizeEvents: ->
     id = @get 'elementId'
     $body = $('body')
     $body.off "mousemove.#{id}"
     $body.off "mouseup.#{id}"
     $(window).off "mouseup.#{id}"
+    $('#ide-console-view .iframe-cover').remove()
 
   willDestroyElement: ->
     @_super()
