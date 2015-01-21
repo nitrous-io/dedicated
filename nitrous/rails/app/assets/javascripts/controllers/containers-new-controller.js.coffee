@@ -10,6 +10,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
   image: null
   saving: false
+  pullingImage: false
 
   selectedOption: null
   selectedTemplate: null
@@ -37,6 +38,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
       image: null
       saving: false
+      pullingImage: false
 
       selectedTemplate: App.get('templates.firstObject')
       selectedOption: null
@@ -129,10 +131,13 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       name = @get 'name'
       slug = @get 'slug'
 
+      @set 'pullingImage', true
+
       if @get('selectedTemplate') && !@get('selectedOption')
         img = @get('selectedTemplate.images.firstObject')
         template = @get('selectedTemplate.slug')
         @pullImage img, isNitrousBaseImage, =>
+          @set 'pullingImage', false
           @createContainer(name, slug, img, template)
         return
 
@@ -140,4 +145,5 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       unless repository.match /^.*:.+$/
         repository = repository.replace /:?$/, ':latest'
       @pullImage repository, isNitrousBaseImage, =>
+        @set 'pullingImage', false
         @createContainer(name, slug, repository)

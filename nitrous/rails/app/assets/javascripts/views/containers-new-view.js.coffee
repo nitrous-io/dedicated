@@ -3,6 +3,8 @@ optionBaseImage = 'base-image'
 heightPadding = 16
 screens = ['image', 'config', 'progress']
 
+unloadMessage = "WARNING: Leaving the app will cancel container creation."
+
 App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeMixin,
   elementId: 'containers-new-view'
   classNames: ['ui', 'card']
@@ -93,6 +95,11 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
     if @get('controller.saving')
       @set 'currentScreenIndex', screens.indexOf('progress')
 
+    # warn user not to close the browser tab while pulling image
+    $(window).bind 'beforeunload.new-container', =>
+      if @get('controller.pullingImage')
+        unloadMessage
+
     @$('input[name=option]').on('change.containers-new', (ev) =>
       if $(ev.target).is(':checked')
         @set 'selectedOption', ev.target.value
@@ -128,6 +135,7 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
     @$('input[name=option]').off('change.containers-new')
 
     App.off "progressReceived"
+    $(window).unbind 'beforeunload.new-container'
 
   actions:
     create: ->
