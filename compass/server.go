@@ -142,6 +142,7 @@ func NewServer(config *Config) (*Server, error) {
 				c, err)
 		}
 		navigators[c.Domain] = n
+		log.Printf("Registered navigator %s for domain %s", n.Name(), c.Domain)
 	}
 	if len(navigators) == 0 {
 		return nil, fmt.Errorf("ERROR: empty navigators %v", config)
