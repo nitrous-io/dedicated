@@ -60,7 +60,7 @@ func (s *Server) Stop() {
 
 func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	q := r.Question[0]
-	log.Println("Question", q, q.Qtype, q.Name)
+	log.Printf("Question: %s", q)
 
 	m := new(dns.Msg)
 	m.SetReply(r)
@@ -77,15 +77,13 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		w.WriteMsg(m)
 	}()
 
-	// handle SOA
-	navigator, ok := s.navigators[q.Name]
-	if ok && q.Qtype == dns.TypeSOA {
-		m.Answer = navigator.NewSOA()
-		return
-	}
-
-	// handle DNS requests
 	switch q.Qtype {
+	case dns.TypeSOA:
+		navigator, ok := s.navigators[q.Name]
+		if ok {
+			m.Answer = navigator.NewSOA()
+			return
+		}
 	case dns.TypeA:
 		start := time.Now()
 		for domain, navigator := range s.navigators {
@@ -96,12 +94,14 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				if err == nil {
 					m.Answer = r
 					mh.UpdateSince(label, start)
+					log.Printf("Navigator %s/%s: resolved %s to %+v", navigator.Name(), domain, q, r)
 				} else {
 					mh.Error(err, label)
-					log.Printf("navigator %s failed to resolve %s, err %s", domain, q.Name, err)
+					log.Printf("Navigator %s/%s: failed to resolve %s, err: %s", navigator.Name(), domain, q, err)
 				}
 			}
 		}
+		log.Printf("No answer for question %s", q)
 	}
 
 	// if we cant handle the request, just return all our SOA as NS
