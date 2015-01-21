@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -34,7 +33,7 @@ type Server struct {
 	db         *sql.DB
 	mux        *dns.ServeMux
 	wg         *sync.WaitGroup
-	navigators map[string]n.Navigator
+	navigators []n.Navigator
 }
 
 const (
@@ -79,26 +78,24 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	switch q.Qtype {
 	case dns.TypeSOA:
-		navigator, ok := s.navigators[q.Name]
-		if ok {
-			m.Answer = navigator.NewSOA()
-			return
+		for _, navigator := range s.navigators {
+			if records, err := navigator.SOA(q.Name); err == nil {
+				m.Answer = records
+				return
+			}
 		}
 	case dns.TypeA:
 		start := time.Now()
-		for domain, navigator := range s.navigators {
+		for _, navigator := range s.navigators {
 			label := fmt.Sprintf("compass.%s.lookup", navigator.Name())
-			// if the navigator handles this domain
-			if strings.HasSuffix(q.Name, domain) {
-				r, err := navigator.Lookup(q.Name)
-				if err == nil {
-					m.Answer = r
-					mh.UpdateSince(label, start)
-					log.Printf("Navigator %s/%s: resolved %s to %+v", navigator.Name(), domain, q.String(), r)
-				} else {
-					mh.Error(err, label)
-					log.Printf("Navigator %s/%s: failed to resolve %s, err: %s", navigator.Name(), domain, q.String(), err)
-				}
+			r, err := navigator.Lookup(q.Name)
+			if err == nil {
+				m.Answer = r
+				mh.UpdateSince(label, start)
+				log.Printf("Navigator %s: resolved %s to %+v", navigator.Name(), q.String(), r)
+			} else {
+				mh.Error(err, label)
+				log.Printf("Navigator %s: failed to resolve %s, err: %s", navigator.Name(), q.String(), err)
 			}
 		}
 	}
@@ -128,20 +125,23 @@ func (s *Server) createServer(net, addr string) {
 func (s *Server) allSOA() []dns.RR {
 	records := []dns.RR{}
 	for _, n := range s.navigators {
-		records = append(records, n.NewSOA()...)
+		rrs, err := n.SOA("")
+		if err == nil {
+			records = append(records, rrs...)
+		}
 	}
 	return records
 }
 
 func NewServer(config *Config) (*Server, error) {
-	navigators := map[string]n.Navigator{}
+	navigators := []n.Navigator{}
 	for _, c := range config.NavigatorConfigs {
 		n, err := NewNavigator(c.Name, c.Domain, c.Config)
 		if err != nil {
 			return nil, fmt.Errorf("ERROR: invalid navigator %v with err: %v",
 				c, err)
 		}
-		navigators[c.Domain] = n
+		navigators = append(navigators, n)
 		log.Printf("Registered navigator %s for domain %s", n.Name(), c.Domain)
 	}
 	if len(navigators) == 0 {
