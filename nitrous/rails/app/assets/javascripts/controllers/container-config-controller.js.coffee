@@ -10,7 +10,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
   closeApplyDialog: false
   envVarHashRO: null # object (hash) - readonly
   volumeMountsRO: null # array - readonly
-  portBindings: []
+  portBindings: null
 
   clear: ->
     @_super.apply this, arguments
@@ -18,6 +18,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       loaded: false
       closeApplyDialog: false
       envVarHashRO: Em.Object.create()
+      portBindings: Em.A()
       volumeMountsRO: Em.A()
 
   hostVolumesEmpty: Em.computed.empty('host.volumes')
