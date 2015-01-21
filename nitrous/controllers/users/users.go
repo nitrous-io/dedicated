@@ -94,7 +94,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	err = u.SendConfirmationEmail(db, true, false)
+	err = u.SendConfirmationEmail(db, true, false, true)
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if emailChanged {
-		if err := u.SendConfirmationEmail(db, true, true); err != nil {
+		if err := u.SendConfirmationEmail(db, true, true, false); err != nil {
 			return err
 		}
 	}
@@ -282,7 +282,7 @@ func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return reconfirmInvalidUser
 	}
 
-	err = u.SendConfirmationEmail(db, false, false)
+	err = u.SendConfirmationEmail(db, false, false, false)
 	if err != nil {
 		if err == user.ErrConfirmationAlreadyCompleted {
 			return httperror.New(http.StatusBadRequest, "already_confirmed", err.Error())

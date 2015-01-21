@@ -1009,7 +1009,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("should generate a confirmation token", func() {
-			err := u.SendConfirmationEmail(db, true, false)
+			err := u.SendConfirmationEmail(db, true, false, false)
 			Expect(err).To(BeNil())
 
 			u, err := user.FindByID(db, u.ID)
@@ -1021,7 +1021,7 @@ var _ = Describe("models/user", func() {
 
 		It("should send the email", func() {
 			envvars.WebHostname = "nitrous.example"
-			err := u.SendConfirmationEmail(db, true, false)
+			err := u.SendConfirmationEmail(db, true, false, false)
 			Expect(err).To(BeNil())
 
 			u, err = user.FindByID(db, u.ID)
@@ -1038,11 +1038,32 @@ var _ = Describe("models/user", func() {
 			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("<a href=\"https://nitrous.example/app#confirm-email?token=%s\" target=\"_blank\"", u.ConfirmationToken.String)))
 		})
 
+		It("should send the new user email if the user is new ", func() {
+			envvars.WebHostname = "nitrous.example"
+			err := u.SendConfirmationEmail(db, true, false, true)
+			Expect(err).To(BeNil())
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(fakeMailer.SendMailCalled).To(BeTrue())
+			Expect(fakeMailer.From).To(Equal("\"Nitrous Mailer\" <mailer@nitrous.io>"))
+			Expect(fakeMailer.Tos).To(Equal([]string{"\"quxboy\" <qux@example.com>"}))
+			Expect(fakeMailer.ReplyTo).To(Equal("\"Nitrous Mailer\" <mailer@nitrous.io>"))
+			Expect(fakeMailer.Subject).To(Equal("Welcome to Nitrous!"))
+			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy!"))
+			Expect(fakeMailer.Body).To(ContainSubstring("Thanks for signing up for Nitrous!"))
+			Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app#confirm-email?token=%s", u.ConfirmationToken.String)))
+			Expect(fakeMailer.HTML).To(ContainSubstring("Thanks for signing up for Nitrous!"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello quxboy!</h3>"))
+			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("<a href=\"https://nitrous.example/app#confirm-email?token=%s\" target=\"_blank\"", u.ConfirmationToken.String)))
+		})
+
 		It("should send the email to UnconfirmedEmail if available", func() {
 			_, err := db.Exec(`UPDATE users SET unconfirmed_email = 'buddy@nitrous.io' WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
-			err = u.SendConfirmationEmail(db, true, false)
+			err = u.SendConfirmationEmail(db, true, false, false)
 			Expect(err).To(BeNil())
 
 			Expect(fakeMailer.Tos).To(Equal([]string{"\"quxboy\" <buddy@nitrous.io>"}))
@@ -1055,7 +1076,7 @@ var _ = Describe("models/user", func() {
 			u, err = user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
 
-			err = u.SendConfirmationEmail(db, true, false)
+			err = u.SendConfirmationEmail(db, true, false, false)
 			Expect(err).To(Equal(user.ErrConfirmationAlreadyCompleted))
 		})
 
@@ -1066,7 +1087,7 @@ var _ = Describe("models/user", func() {
 			u, err = user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
 
-			err = u.SendConfirmationEmail(db, false, false)
+			err = u.SendConfirmationEmail(db, false, false, false)
 			Expect(err).To(BeNil())
 
 			u, err := user.FindByID(db, u.ID)
@@ -1082,7 +1103,7 @@ var _ = Describe("models/user", func() {
 			u, err = user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
 
-			err = u.SendConfirmationEmail(db, true, true)
+			err = u.SendConfirmationEmail(db, true, true, false)
 			Expect(err).To(BeNil())
 
 			u, err = user.FindByID(db, u.ID)

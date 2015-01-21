@@ -350,7 +350,7 @@ func (u *User) encryptPassword() error {
 	return nil
 }
 
-func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, flushConfirmedAt bool) error {
+func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, flushConfirmedAt, newUser bool) error {
 	confirmedAtOp := "confirmed_at"
 	if flushConfirmedAt {
 		u.ConfirmedAt = nil
@@ -403,13 +403,27 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, 
 		resetURL.String(),
 	}
 
+	if tmplData.Name == "" {
+		tmplData.Name = u.Username
+	}
+
+	htmlTmpl := confirmEmailHtmlTemplate
+	txtTmpl := confirmEmailTxtTemplate
+	subject := "Nitrous - confirm your email"
+
+	if newUser {
+		htmlTmpl = confirmEmailNewUserHtmlTemplate
+		txtTmpl = confirmEmailNewUserTxtTemplate
+		subject = "Welcome to Nitrous!"
+	}
+
 	// send email
 	htmlBuf := bytes.NewBuffer(nil)
-	if err := confirmEmailHtmlTemplate.Execute(htmlBuf, tmplData); err != nil {
+	if err := htmlTmpl.Execute(htmlBuf, tmplData); err != nil {
 		return err
 	}
 	txtBuf := bytes.NewBuffer(nil)
-	if err := confirmEmailTxtTemplate.Execute(txtBuf, tmplData); err != nil {
+	if err := txtTmpl.Execute(txtBuf, tmplData); err != nil {
 		return err
 	}
 
@@ -423,7 +437,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, 
 	from := (&mail.Address{Name: "Nitrous Mailer", Address: "mailer@nitrous.io"}).String()
 	to := (&mail.Address{Name: u.Name, Address: targetEmail}).String()
 
-	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, "Nitrous - confirm your email", txtBuf.String(), htmlBuf.String())
+	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, subject, txtBuf.String(), htmlBuf.String())
 }
 
 func (u *User) ConfirmEmail(d db.QueryReceiver) error {
