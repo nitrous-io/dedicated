@@ -231,12 +231,16 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		hosts.HostbuilderClient = hb
 		doRequest(params)
 
+		var ht string
+		err := db.QueryRow(`SELECT token FROM tokens WHERE user_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1;`, u.ID, token.TypeHost).Scan(&ht)
+		Expect(err).To(BeNil())
+
 		req := rt.Requests[0]
 		var config hostbuilderclient.Config
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
 		Expect(config["name"]).To(Equal(params.Get("slug")))
 		Expect(config["name"]).To(Equal(params.Get("slug")), "invalid slug set in name")
-		Expect(config["apt_password"]).To(Equal(t.Token), "invalid token set in apt_password")
+		Expect(config["apt_password"]).To(Equal(ht), "invalid token set in apt_password")
 	})
 
 	It("sends the host configs as json params when JSON is sent by the client", func() {
@@ -260,12 +264,16 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		hosts.HostbuilderClient = hb
 		doJsonRequest(jsonStr)
 
+		var ht string
+		err := db.QueryRow(`SELECT token FROM tokens WHERE user_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1;`, u.ID, token.TypeHost).Scan(&ht)
+		Expect(err).To(BeNil())
+
 		Expect(rt.Requests).To(HaveLen(1))
 		req := rt.Requests[0]
 		var config hostbuilderclient.Config
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
 		Expect(config["name"]).To(Equal("slug1"))
-		Expect(config["apt_password"]).To(Equal(t.Token), "invalid token set in apt_password")
+		Expect(config["apt_password"]).To(Equal(ht), "invalid token set in apt_password")
 	})
 
 	Context("when hostbuilder successfully creates a host", func() {

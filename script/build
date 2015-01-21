@@ -169,6 +169,7 @@ build_nitrous() {
   (build "nitrous/cmd/populatehosttransitions")
   (build "nitrous/cmd/biller")
   (build "nitrous/cmd/hostusage")
+  (build "nitrous/cmd/removeexpiredtokens")
   (build_assets)
 }
 

@@ -3,6 +3,7 @@ package middleware
 import (
 	"errors"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -24,6 +25,9 @@ var (
 	errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request", "auth token is required")
 	errInvalidToken   = httperror.New(http.StatusUnauthorized, "invalid_token", "auth token is invalid")
 	ErrHostNotFound   = httperror.New(http.StatusNotFound, "host_not_found", "host does not exist")
+
+	splitIPRe   = regexp.MustCompile(`[,\s]+`)
+	trustedIPRe = regexp.MustCompile(`\A127\.0\.0\.1\z|\A(10|172\.(1[6-9]|2[0-9]|30|31)|192\.168)\.|\A::1\z|\Afd[0-9a-f]{2}:.+|\Alocalhost\z|\Aunix\z|\Aunix:`)
 )
 
 type Env struct {
@@ -34,6 +38,7 @@ type Env struct {
 	Provisioner    *provisioner.Provisioner
 	Status         int
 	User           *user.User
+	Token          *token.Token
 	Data           map[string]interface{}
 	TrackEventName string
 	trackEventData map[string]interface{}
@@ -80,7 +85,7 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 	if err != nil {
 		return err
 	}
-	if t == nil {
+	if !t.IsValid() {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
 		return mh.Error(errInvalidToken, label)
 	}
@@ -94,6 +99,10 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 		return mh.Error(err, label)
 	}
 
+	if err := t.Touch(db, GetRemoteAddr(r)); err != nil {
+		env.Logger.Error("Unable to touch token %d, err: %v", t.ID, err)
+	}
+
 	if u.ConfirmationLapsed() {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="confirmation_lapsed"`)
 		return mh.Error(httperror.New(http.StatusBadRequest, "confirmation_lapsed", "confirmation token has lapsed"), label)
@@ -101,6 +110,7 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 
 	mh.UpdateSince(label, start)
 	env.User = u
+	env.Token = t
 	return mw(env, w, r)
 }
 
@@ -161,6 +171,50 @@ func HostViaForm(srcVar string, fn hostHandlerFn) Middleware {
 
 func HostViaPath(srcVar string, fn hostHandlerFn) Middleware {
 	return withHost("path", srcVar, fn)
+}
+
+// Stolen from Rack:
+// https://github.com/rack/rack/blob/dc53a8c26dc55d21240233b3d83d36efdef6e924/lib/rack/request.rb#L348-L357
+func GetRemoteAddr(r *http.Request) string {
+	remoteAddr := ""
+
+	ipAddresses := filterIPAddresses(splitIPAddresses(r.RemoteAddr))
+	if len(ipAddresses) > 0 {
+		remoteAddr = ipAddresses[0]
+	}
+
+	if remoteAddr == "" {
+		ipAddresses = filterIPAddresses(splitIPAddresses(r.Header.Get("X-Forwarded-For")))
+		if len(ipAddresses) > 0 {
+			remoteAddr = ipAddresses[0]
+		}
+	}
+
+	return remoteAddr
+}
+
+func splitIPAddresses(ip string) []string {
+	ipAddresses := splitIPRe.Split(ip, -1)
+	sanitizedIPAddresses := make([]string, len(ipAddresses))
+
+	for i, ip := range ipAddresses {
+		splitIP := strings.Split(ip, ":")[0]
+		sanitizedIPAddresses[i] = splitIP
+	}
+
+	return sanitizedIPAddresses
+}
+
+func filterIPAddresses(ipAddresses []string) []string {
+	filteredIPAddresses := []string{}
+
+	for _, ip := range ipAddresses {
+		if !trustedIPRe.MatchString(ip) {
+			filteredIPAddresses = append(filteredIPAddresses, ip)
+		}
+	}
+
+	return filteredIPAddresses
 }
 
 // withHost takes a src ("form" or "path") and the formvalue/pattern to look

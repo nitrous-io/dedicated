@@ -78,3 +78,18 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Tracker.CreateProfile(u, env.Logger, "")
 	return nil
 }
+
+func Logout(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	tk := env.Token
+
+	if err := tk.Delete(db); err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+	}
+	return nil
+}

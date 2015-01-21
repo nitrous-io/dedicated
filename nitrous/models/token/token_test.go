@@ -1,7 +1,9 @@
 package token_test
 
 import (
+	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -139,11 +141,39 @@ var _ = Describe("models/token", func() {
 		})
 	})
 
+	Describe("DeleteExpiredTokens()", func() {
+		It("should delete outdated login tokens", func() {
+			_, err := db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '2 days');", u2.ID, "ABC2")
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '20 days');", u2.ID, "ABC3")
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO tokens (user_id, token, type, last_seen_at) values ($1, $2, $3, now() - interval '20 days');", u2.ID, "H1", token.TypeHost)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '7 days');", u2.ID, "ABC4")
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '6 days');", u2.ID, "ABC5")
+			Expect(err).To(BeNil())
+
+			Expect(token.DeleteExpiredTokens(db)).To(BeNil())
+
+			type con struct {
+				Token string `db:"token"`
+			}
+			tokens := []con{}
+			err = db.Select(&tokens, `SELECT token FROM tokens`)
+			Expect(err).To(BeNil())
+
+			Expect(tokens).NotTo(ContainElement(con{Token: "ABC3"}))
+			Expect(tokens).NotTo(ContainElement(con{Token: "ABC4"}))
+			Expect(tokens).To(ContainElement(con{Token: "H1"}))
+		})
+	})
+
 	Describe("Insert()", func() {
 		var t *token.Token
 
 		BeforeEach(func() {
-			t = &token.Token{UserID: u1.ID}
+			t = &token.Token{UserID: u1.ID, Type: token.TypeLogin, LastIP: sql.NullString{"127.0.0.1", true}}
 		})
 
 		Context("when no error happens", func() {
@@ -163,6 +193,9 @@ var _ = Describe("models/token", func() {
 					Expect(t2.ID).NotTo(BeZero())
 					Expect(t2.UserID).To(Equal(u1.ID))
 					Expect(t2.Token).To(Equal("foobar"))
+					Expect(t2.Type).To(Equal(token.TypeLogin))
+					Expect(t2.LastIP.Valid).To(BeTrue())
+					Expect(t2.LastIP.String).To(Equal("127.0.0.1"))
 					Expect(t2.CreatedAt).NotTo(BeNil())
 				})
 
@@ -215,6 +248,78 @@ var _ = Describe("models/token", func() {
 				err := t.Insert(db)
 				Expect(err).NotTo(BeNil())
 			})
+		})
+	})
+
+	Describe("Touch()", func() {
+		It("should bump the last_seen_at", func() {
+			t := &token.Token{UserID: u1.ID, Token: "foobar"}
+			err := t.Insert(db)
+			Expect(err).To(BeNil())
+
+			Expect(t.Touch(db, "")).To(BeNil())
+			now := time.Now()
+			t2, err := token.FindByToken(db, "foobar")
+			Expect(err).To(BeNil())
+			Expect(t2).NotTo(BeNil())
+			Expect(t2.LastSeenAt.Unix()).To(BeNumerically(">=", now.Unix()))
+		})
+
+		It("should bump the last_seen_at and set an IP if provided", func() {
+			t := &token.Token{UserID: u1.ID, Token: "foobar"}
+			err := t.Insert(db)
+			Expect(err).To(BeNil())
+
+			Expect(t.Touch(db, "192.168.1.254")).To(BeNil())
+			now := time.Now()
+			t2, err := token.FindByToken(db, "foobar")
+			Expect(err).To(BeNil())
+			Expect(t2).NotTo(BeNil())
+			Expect(t2.LastSeenAt.Unix()).To(BeNumerically(">=", now.Unix()))
+			Expect(t2.LastIP.Valid).To(BeTrue())
+			Expect(t2.LastIP.String).To(Equal("192.168.1.254"))
+		})
+	})
+
+	Describe("Delete()", func() {
+		It("should delete the target token", func() {
+			t := &token.Token{UserID: u1.ID, Token: "foobar"}
+			err := t.Insert(db)
+			Expect(err).To(BeNil())
+
+			t2, err := token.FindByToken(db, "foobar")
+			Expect(err).To(BeNil())
+			Expect(t2).NotTo(BeNil())
+
+			Expect(t2.Delete(db)).To(BeNil())
+			t2, err = token.FindByToken(db, "foobar")
+			Expect(err).To(BeNil())
+			Expect(t2).To(BeNil())
+		})
+	})
+
+	Describe("IsValid()", func() {
+		var t *token.Token
+
+		BeforeEach(func() {
+			t = &token.Token{UserID: u1.ID}
+		})
+
+		It("should be false if token is nil", func() {
+			var t2 *token.Token
+			Expect(t2.IsValid()).To(BeFalse())
+		})
+
+		It("should be true if the LastSeenAt is recent", func() {
+			ti := time.Now()
+			t.LastSeenAt = &ti
+			Expect(t.IsValid()).To(BeTrue())
+		})
+
+		It("should be false if the LastSeenAt is not recent", func() {
+			ti := time.Now().Add(token.MaxLastUsedDuration * -1)
+			t.LastSeenAt = &ti
+			Expect(t.IsValid()).To(BeFalse())
 		})
 	})
 })
