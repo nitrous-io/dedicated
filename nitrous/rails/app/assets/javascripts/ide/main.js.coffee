@@ -76,6 +76,14 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       App.set 'settings', settings
     promise
 
+  didChangeTitle: (->
+    title = @get 'title'
+    document.title = if title
+      "#{title} · Nitrous"
+    else
+      "Nitrous"
+  ).observes 'title'
+
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
 
