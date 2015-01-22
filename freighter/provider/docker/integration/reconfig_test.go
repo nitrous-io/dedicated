@@ -74,8 +74,7 @@ var _ = Describe("Reconfig", func() {
 
 	It("returns error on failure to complete", func() {
 		configJSON := `{
-			"PortBindings": ["private:1234:2345", "public:2345:3456"],
-			"Cmd": ["/bin/sh", "-c", "while true; do sleep 1; echo hello; done"]
+			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
 		prov, info, cleanupFn, err := startContainer(configJSON)
 		defer cleanupFn()
@@ -87,8 +86,7 @@ var _ = Describe("Reconfig", func() {
 
 	It("starts back the original container when it fails after stopping but before terminating the original container", func() {
 		configJSON := `{
-			"PortBindings": ["private:1234:2345", "public:2345:3456"],
-			"Cmd": ["/bin/sh", "-c", "while true; do sleep 1; echo hello; done"]
+			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
 		prov, info, cleanupFn, err := startContainer(configJSON)
 		defer cleanupFn()
@@ -113,8 +111,7 @@ var _ = Describe("Reconfig", func() {
 
 	It("creates a new container from the original container's image when it fails after terminating the original container", func() {
 		configJSON := `{
-			"PortBindings": ["private:1234:2345", "public:2345:3456"],
-			"Cmd": ["/bin/sh", "-c", "while true; do sleep 1; echo hello; done"]
+			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
 		prov, info, cleanupFn, err := startContainer(configJSON)
 		defer cleanupFn()
@@ -142,8 +139,7 @@ var _ = Describe("Reconfig", func() {
 
 	It("creates a new container but cannot start it when given a config that prevents it from starting", func() {
 		configJSON := `{
-			"PortBindings": ["private:1234:2345", "public:2345:3456"],
-			"Cmd": ["/bin/sh", "-c", "while true; do sleep 1; echo hello; done"]
+			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
 		prov, info, cleanupFn, err := startContainer(configJSON)
 		defer cleanupFn()

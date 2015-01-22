@@ -604,32 +604,32 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 		if cn, e := p.GetInfo(id); e == nil {
 			ret = cn
 		}
-		return
+		return ret, err
 	}
 	state = stopped
 	cnName = ret.Name
 
 	secret, err = p.readSharedSecret(cnName)
 	if err != nil {
-		return
+		return ret, err
 	}
 
 	ak := p.containerAuthorizedKeys(cnName)
 	existingKeys, err := ak.Read()
 	if err != nil {
-		return
+		return ret, err
 	}
 
 	backupImageName = fmt.Sprintf("%s-backup-%d", cnName, time.Now().UnixNano())
 	_, err = p.Commit(id, backupImageName)
 	if err != nil {
-		return
+		return ret, err
 	}
 
 	imageName := fmt.Sprintf("%s-reconfig-%d", cnName, time.Now().UnixNano())
 	img, err := p.Commit(id, imageName)
 	if err != nil {
-		return
+		return ret, err
 	}
 
 	// Unmarshal /var/lib/docker/graph/<imageid>/json.
@@ -637,13 +637,13 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	jsonPath := fmt.Sprintf("/var/lib/docker/graph/%s/json", img.ID)
 	b, err := ioutil.ReadFile(jsonPath)
 	if err != nil {
-		return
+		return ret, err
 	}
 
 	var graph dockerImage
 	err = json.Unmarshal(b, &graph)
 	if err != nil {
-		return
+		return ret, err
 	}
 
 	// Reset configs that are additive so that we can replace them when creating
@@ -666,7 +666,7 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	// Copy over all env vars from new config.
 	cfg, err := containerConfigFromJSON(configJSON)
 	if err != nil {
-		return
+		return ret, err
 	}
 	for _, v := range cfg.Env {
 		newEnv = append(newEnv, v)
@@ -676,44 +676,40 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	// Write new config back to /var/lib/docker/graph/<imageid>/json.
 	f, err := os.OpenFile(jsonPath, os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
-		return
+		return ret, err
 	}
 	defer f.Close()
 	err = json.NewEncoder(f).Encode(graph)
 	if err != nil {
-		return
+		return ret, err
 	}
 
 	// Terminate the existing container.
 	_, err = p.Terminate(id, false)
 	if err != nil {
-		return
+		return ret, err
 	}
 	state = terminated
 
 	errf := "reconfig failed on %s during %s after termination: %s" // (id, step, error)
 	newCn, err := p.create(cnName, img.Name, secret, configJSON)
 	if err != nil {
-		err = fmt.Errorf(errf, id, "create", err)
-		return
+		return ret, fmt.Errorf(errf, id, "create", err)
 	}
 	ret = newCn
 	state = created
 
 	err = p.AddPublicKeys(newCn.ID, existingKeys)
 	if err != nil {
-		err = fmt.Errorf(errf, id, "public_keys", err)
-		return
+		return ret, fmt.Errorf(errf, id, "public_keys", err)
 	}
 
 	startedCn, err := p.Start(newCn.ID, configJSON)
 	if err != nil {
-		err = &provider.StartFailedError{Err: err}
-		return
+		return ret, &provider.StartFailedError{Err: err}
 	}
 
-	ret = startedCn
-	return
+	return startedCn, nil
 }
 
 // Logs gets stdout and stderr logs from a container. If successful, the logs
