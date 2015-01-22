@@ -77,16 +77,23 @@ func (s *Server) listContainers(w http.ResponseWriter, r *http.Request) {
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"containers": list})
 }
 
+// FIXME This handler has no existing test :"(
 func (s *Server) reconfigureContainer(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	info, err := s.provider.Reconfig(id, r.FormValue("config"))
 	if err != nil {
 		s.logger.Error(err)
-		code := http.StatusInternalServerError
-		if err == provider.ErrImageNotFound {
-			code = http.StatusNotFound
+
+		if info != nil {
+			s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{
+				"container": info,
+				"status":    "reconfig_failed",
+				"error":     err.Error(),
+			})
+			return
 		}
-		s.respondEncodeJSON(w, code, map[string]interface{}{"error": err.Error()})
+
+		s.respondEncodeJSON(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
 		return
 	}
 
