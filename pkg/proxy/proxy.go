@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -15,9 +16,16 @@ var (
 	HTTPFlushInterval = 100 * time.Millisecond
 )
 
+var connRegexp *regexp.Regexp
+
+func init() {
+	// Firefox connection header contains mutliple values (ie. Connection: keep-alive, Upgrade)
+	connRegexp = regexp.MustCompile(`(?i)\bupgrade\b`)
+}
+
 func IsWebsocket(r *http.Request) bool {
 	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket") &&
-		strings.EqualFold(r.Header.Get("Connection"), "upgrade")
+		connRegexp.MatchString(r.Header.Get("Connection"))
 }
 
 func ProxyHTTP(addr string, tlsConfig *tls.Config) http.HandlerFunc {

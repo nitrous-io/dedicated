@@ -116,6 +116,40 @@ var _ = Describe("ProxyWebsocket", func() {
 	})
 })
 
+var _ = Describe("IsWebsocket", func() {
+	It("should return false if request header Upgrade is not set to websocket", func() {
+		r, err := http.NewRequest("GET", "ws://example.com", nil)
+		Expect(err).To(BeNil())
+		r.Header.Set("Upgrade", "flash")
+		r.Header.Set("Connection", "upgrade")
+		Expect(IsWebsocket(r)).To(BeFalse())
+	})
+
+	It("should return false if request header Connection does not contain upgrade", func() {
+		r, err := http.NewRequest("GET", "ws://example.com", nil)
+		Expect(err).To(BeNil())
+		r.Header.Set("Upgrade", "websocket")
+		r.Header.Set("Connection", "lolupgrade")
+		Expect(IsWebsocket(r)).To(BeFalse())
+	})
+
+	It("should return true if request header Connection contains only upgrade", func() {
+		r, err := http.NewRequest("GET", "ws://example.com", nil)
+		Expect(err).To(BeNil())
+		r.Header.Set("Upgrade", "websocket")
+		r.Header.Set("Connection", "upgrade")
+		Expect(IsWebsocket(r)).To(BeTrue())
+	})
+
+	It("should return true if request header Connection contains upgrade and other values", func() {
+		r, err := http.NewRequest("GET", "ws://example.com", nil)
+		Expect(err).To(BeNil())
+		r.Header.Set("Upgrade", "websocket")
+		r.Header.Set("Connection", "Upgrade, keep-alive")
+		Expect(IsWebsocket(r)).To(BeTrue())
+	})
+})
+
 // localhostCert is a PEM-encoded TLS cert with SAN IPs
 // "127.0.0.1" and "[::1]", expiring at the last second of 2049 (the end
 // of ASN.1 time).
