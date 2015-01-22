@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
@@ -2369,6 +2370,86 @@ var _ = Describe("controllers/containers", func() {
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("PUT /containers/{name}/metadata", func() {
+		var (
+			containerName = "elixir-web-1"
+			c             *container.Container
+		)
+
+		doRequest := func(params *url.Values) {
+			req, err := NewAuthedFormRequest(t, "PUT", fmt.Sprintf("/api/v0/containers/%s/metadata", containerName), params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			v := &volume.Volume{HostID: hs.H.ID, Slug: "music"}
+			err := v.Insert(db)
+			Expect(err).To(BeNil())
+
+			c = &container.Container{
+				CID:    "deadbeef",
+				Slug:   containerName,
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+				Name:   sql.NullString{"Elixir server", true},
+				Metadata: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"Original": {"Val", true},
+					},
+				},
+			}
+			err = c.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("should allow for setting metadata, keeping existing", func() {
+			doRequest(&url.Values{"k": []string{"v"}, "1": []string{"2345"}})
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			c2, err := container.FindByCID(db, c.CID)
+			Expect(err).To(BeNil())
+
+			Expect(c2.Metadata.Map["k"].Valid).To(BeTrue())
+			Expect(c2.Metadata.Map["k"].String).To(Equal("v"))
+			Expect(c2.Metadata.Map["1"].Valid).To(BeTrue())
+			Expect(c2.Metadata.Map["1"].String).To(Equal("2345"))
+			Expect(c2.Metadata.Map["Original"].String).To(Equal("Val"))
+		})
+
+		It("should allow for deleting metadata", func() {
+			_, err := db.Exec(`UPDATE containers SET metadata = hstore('key','value') WHERE cid = $1;`, c.CID)
+			Expect(err).To(BeNil())
+
+			doRequest(&url.Values{"key": []string{""}, "1": []string{"2345"}})
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			c2, err := container.FindByCID(db, c.CID)
+			Expect(err).To(BeNil())
+
+			Expect(c2.Metadata.Map).ToNot(HaveKey("key"))
+			Expect(c2.Metadata.Map["1"].Valid).To(BeTrue())
+			Expect(c2.Metadata.Map["1"].String).To(Equal("2345"))
+		})
+
+		It("should not insert keys longer 255chars", func() {
+			t, err := securerandom.Base64(200)
+			Expect(err).To(BeNil())
+			str := t[:256]
+
+			doRequest(&url.Values{str: []string{"2"}, "allgood": []string{str}})
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			c2, err := container.FindByCID(db, c.CID)
+			Expect(err).To(BeNil())
+
+			Expect(c2.Metadata.Map).ToNot(HaveKey(str))
+			Expect(c2.Metadata.Map["allgood"].Valid).To(BeTrue())
+			Expect(c2.Metadata.Map["allgood"].String).To(Equal(str))
 		})
 	})
 })
