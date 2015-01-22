@@ -110,6 +110,10 @@
 			"Rev": "a6f041ac33b84488bb44137d6866cd3c8706d792"
 		},
 		{
+			"ImportPath": "github.com/inconshreveable/go-vhost",
+			"Rev": "8cbc5089df5ba3e44644d39e8d1ec375d6d842f9"
+		},
+		{
 			"ImportPath": "github.com/jinzhu/now",
 			"Rev": "caef738a54cb159a5fe083e01609bc6873a84501"
 		},
