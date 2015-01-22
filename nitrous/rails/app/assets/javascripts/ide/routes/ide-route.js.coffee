@@ -13,13 +13,12 @@ App.IdeRoute = Em.Route.extend
   model: (params) ->
     @_super.apply this, arguments
     slug = params.containerSlug
-    App.set 'slug', slug
 
-    errorPath = '/app/#/'
-    if slug
-      App.loadContainer()
+    if !slug
+      window.location.href = '/404.html'
     else
-      window.location.href = errorPath
+      App.loadContainer(slug).catch ->
+        window.location.href = '/404.html'
 
   afterModel: (container, transition)->
     container?.loadHost().catch ->

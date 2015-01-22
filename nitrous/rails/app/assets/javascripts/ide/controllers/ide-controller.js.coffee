@@ -1,3 +1,5 @@
+containerStoppedMessage = 'Container is not running. Please start your container first.'
+
 App.IdeController = Em.ObjectController.extend
   needs: ['ideFindInProject', 'ideFileFinder']
 
@@ -7,6 +9,7 @@ App.IdeController = Em.ObjectController.extend
   opsSocketReady: null
   opsTimeoutAlert: null
   repository: null
+  errorDialog: null
 
   opsConnectionGracePeriod: 15 * 1000 # TODO: This should come from a KeyValue object from the server-side
   opsConnectionLost: false
@@ -20,8 +23,7 @@ App.IdeController = Em.ObjectController.extend
   workspaceDir: 'code'
 
   initialize: ->
-    if content = @get 'content'
-      #@set 'commandSocket', commandSocket = App.CommandSocket.create box: content
+    if container = @get 'content'
       router = App.get 'router'
       router.get('ideLayoutController').initialize()
       router.get('ideMainMenuController').initialize()
@@ -29,13 +31,18 @@ App.IdeController = Em.ObjectController.extend
       router.get('ideEditorController').initialize()
       router.get('ideConsoleController').initialize()
 
-      @set 'opsSocket', opsSocket = App.OpsSocket.create(container: content)
+      @set 'opsSocket', opsSocket = App.OpsSocket.create(container: container)
       opsSocket.connect()
 
       App.set 'eventsSocket', evSocket = App.EventsSocket.create()
       evSocket.connect()
+
+      evSocket.on 'container.stopped', (data)=>
+        if @get('content.id') == data?.container?.id
+          @handleContainerStopped()
+
       evSocket.on 'container.reconfigured', (data)=>
-        if App.get('container.id') == data?.container?.id
+        if @get('content.id') == data?.container?.id
           @handleContainerReconfigured()
 
   reset: ->
@@ -53,6 +60,7 @@ App.IdeController = Em.ObjectController.extend
     @set 'opsSocket', null
     @set 'repository', null
     @set 'content', null
+    @set 'errorDialog', null
 
   handleContainerReconfigured: ->
     App.snackbar.post "Container reconfigured, reconnecting...."
@@ -63,6 +71,21 @@ App.IdeController = Em.ObjectController.extend
       ops.connect()
     , (err)->
       App.snackbar.post "Error reconnecting to container after reconfig!"
+
+  handleContainerStopped: ->
+    slug = App.get 'slug'
+    dialog = App.ErrorDialog.create
+      errorMessage: containerStoppedMessage
+      redirectUrl: "/app#/containers/#{slug}"
+      okButtonText: 'Back to Dashboard'
+
+    @set('errorDialog', dialog)
+
+  validateContainerState: ->
+    container = @get 'content'
+
+    if container.state != 'running'
+      @handleContainerStopped()
 
   opsSocketDisconnected: (->
     unless @get('opsSocketReady')
