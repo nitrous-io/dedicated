@@ -84,6 +84,11 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       "Nitrous"
   ).observes 'title'
 
+  didChangeSlug: (->
+    slug = App.get 'slug'
+    App.set 'title', "#{slug} · IDE"
+  ).observes 'slug'
+
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
 
