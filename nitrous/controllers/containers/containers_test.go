@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -205,6 +206,11 @@ var _ = Describe("controllers/containers", func() {
 				UserID: u.ID,
 				HostID: hs.H.ID,
 				Name:   sql.NullString{"Rails app server", true},
+				Metadata: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"C": {"1", true},
+					},
+				},
 			}
 			err := c.Insert(db)
 			Expect(err).To(BeNil())
@@ -261,6 +267,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(j.Containers[0].Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(j.Containers[0].ExitCode).To(Equal(0))
+			Expect(j.Containers[0].Metadata["C"]).To(Equal("1"))
 			Expect(j.Containers[0].StartedAt).To(Equal(&startedAt))
 			Expect(j.Containers[0].FinishedAt).To(BeNil())
 			Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
