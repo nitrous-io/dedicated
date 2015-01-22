@@ -192,35 +192,35 @@ func templates(d db.QueryReceiver) error {
 	}
 
 	railsCn := defaultContainer()
-	railsCn.Image = "nitrousio/starter-rails:latest"
+	railsCn.Image = "quay.io/nitrous/rails:latest"
 	railsCfgJSON, err := templateCnCfgJSON(railsCn)
 	if err != nil {
 		return err
 	}
 
 	laravelCn := defaultContainer()
-	laravelCn.Image = "nitrousio/starter-laravel:latest"
+	laravelCn.Image = "quay.io/nitrous/laravel:latest"
 	laravelCfgJSON, err := templateCnCfgJSON(laravelCn)
 	if err != nil {
 		return err
 	}
 
 	meanCn := defaultContainer()
-	meanCn.Image = "nitrousio/starter-mean:latest"
+	meanCn.Image = "quay.io/nitrous/mean:latest"
 	meanCfgJSON, err := templateCnCfgJSON(meanCn)
 	if err != nil {
 		return err
 	}
 
 	meteorCn := defaultContainer()
-	meteorCn.Image = "nitrousio/starter-meteor:latest"
+	meteorCn.Image = "quay.io/nitrous/meteor:latest"
 	meteorCfgJSON, err := templateCnCfgJSON(meteorCn)
 	if err != nil {
 		return err
 	}
 
 	djangoCn := defaultContainer()
-	djangoCn.Image = "nitrousio/starter-django:latest"
+	djangoCn.Image = "quay.io/nitrous/django:latest"
 	djangoCfgJSON, err := templateCnCfgJSON(djangoCn)
 	if err != nil {
 		return err
@@ -240,31 +240,31 @@ func templates(d db.QueryReceiver) error {
 		logr.Infof("Added template %+v", t)
 	}
 
-	goCfgJSON, err := baseTemplateCfgJSON("nitrousio/golang:latest")
+	goCfgJSON, err := baseTemplateCfgJSON("quay.io/nitrous/golang:latest")
 	if err != nil {
 		return err
 	}
-	nodeCfgJSON, err := baseTemplateCfgJSON("nitrousio/nodejs:latest")
+	nodeCfgJSON, err := baseTemplateCfgJSON("quay.io/nitrous/nodejs:latest")
 	if err != nil {
 		return err
 	}
-	phpCfgJSON, err := baseTemplateCfgJSON("nitrousio/php:latest")
+	phpCfgJSON, err := baseTemplateCfgJSON("quay.io/nitrous/php:latest")
 	if err != nil {
 		return err
 	}
-	pythonCfgJSON, err := baseTemplateCfgJSON("nitrousio/python:latest")
+	pythonCfgJSON, err := baseTemplateCfgJSON("quay.io/nitrous/python:latest")
 	if err != nil {
 		return err
 	}
-	rubyCfgJSON, err := baseTemplateCfgJSON("nitrousio/ruby:latest")
+	rubyCfgJSON, err := baseTemplateCfgJSON("quay.io/nitrous/ruby:latest")
 	if err != nil {
 		return err
 	}
-	dindCfgJSON, err := privilegedBaseTemplateCfgJSON("nitrousio/docker:latest")
+	dindCfgJSON, err := privilegedBaseTemplateCfgJSON("quay.io/nitrous/docker:latest")
 	if err != nil {
 		return err
 	}
-	vanillaCfgJSON, err := baseTemplateCfgJSON("nitrousio/ubuntu:latest")
+	vanillaCfgJSON, err := baseTemplateCfgJSON("quay.io/nitrous/ubuntu:latest")
 	if err != nil {
 		return err
 	}
