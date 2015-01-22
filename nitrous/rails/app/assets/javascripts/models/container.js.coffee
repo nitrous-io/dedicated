@@ -126,7 +126,7 @@ App.Container = klass = App.Model.extend
   setConfig: (jsonConfig) ->
     config =
       env: transformEnvArrayToHash(jsonConfig.env)
-      port: jsonConfig.port
+      port: jsonConfig.port || []
       volume: jsonConfig.volume
       privileged: jsonConfig.privileged
       publish_all: jsonConfig.publish_all
@@ -138,7 +138,7 @@ App.Container = klass = App.Model.extend
     @ajax 'POST', 'reconfig',
       env: config.env
       volume: config.volume
-      port: config.port
+      port: config.port || []
       privileged: config.privileged
       publish_all: config.publish_all
       async: true
