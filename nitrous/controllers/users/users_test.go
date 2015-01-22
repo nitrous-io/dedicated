@@ -78,6 +78,52 @@ var _ = Describe("controllers/users", func() {
 		}
 	})
 
+	Describe("POST /api/v0/users/email_signup", func() {
+		doRequest := func() {
+			var err error
+			req, err = NewFormRequest("POST", "/api/v0/users/email_signup", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("should respond OK if no email is provided", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			j := map[string]string{}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["status"]).To(Equal("ok"))
+		})
+
+		It("should respond OK if the email is invalid", func() {
+			params = &url.Values{}
+			params.Set("email", "foo.com")
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			j := map[string]string{}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["status"]).To(Equal("ok"))
+		})
+
+		It("should create an email record if the email is fine", func() {
+			params = &url.Values{}
+			params.Set("email", "bar@foo.com")
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			j := map[string]string{}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["status"]).To(Equal("ok"))
+
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM email_captures WHERE email_address = $1;`, "bar@foo.com").Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+		})
+
+	})
+
 	Describe("POST /api/v0/users", func() {
 		doRequest := func() {
 			var err error
@@ -323,6 +369,27 @@ var _ = Describe("controllers/users", func() {
 				Expect(updated.Name).To(Equal("Token Update"))
 				Expect(*updated.UpdatedAt).To(BeTemporally(">", *u.UpdatedAt))
 			})
+		})
+
+		It("should remove all other login tokens on password change", func() {
+			_, err := db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke1", token.TypeLogin)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke2", token.TypeHost)
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("password", "abcdef")
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			type con struct {
+				Token string `db:"token"`
+			}
+			tokens := []con{}
+			err = db.Select(&tokens, `SELECT token FROM tokens WHERE user_id = $1`, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(tokens).To(Equal([]con{con{Token: "toke2"}, con{Token: t.Token}}))
 		})
 
 		Context("when an existing email is given", func() {
@@ -691,6 +758,19 @@ var _ = Describe("controllers/users", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("validation_failed"))
+				Expect(j["error_description"]).To(Equal("specified user does not exist"))
+			})
+
+			It("should error out if the token is invalid", func() {
+				_, err := db.Exec(`UPDATE tokens SET last_seen_at = now() - interval '14 days' WHERE token = 'toke';`)
+				Expect(err).To(BeNil())
+
+				doRequest("", "toke")
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]interface{}{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 				Expect(j["error"]).To(Equal("validation_failed"))
 				Expect(j["error_description"]).To(Equal("specified user does not exist"))

@@ -10,6 +10,7 @@ App.Plan = klass = App.Model.extend
   cpu: attr()
   memory: attr()
   storage: attr()
+  mostPopular: attr('boolean', as: 'most_popular')
 
   inputId: (->
     if slug = @get 'slug'
@@ -25,6 +26,14 @@ App.Plan = klass = App.Model.extend
     if name && memory
       "#{name} - #{memory} ram / #{storage} ssd / #{cpu} cpu"
   ).property 'name', 'price', 'cpu', 'memory', 'storage'
+
+  priceInDollars: (->
+    if price = @get 'price'
+      priceDollars = price / 100
+      if priceDollars != Math.floor(priceDollars)
+        priceDollars = priceDollars.toFixed(2)
+      priceDollars.toString()
+  ).property 'price'
 
 klass.reopenClass
   url: '/plans'

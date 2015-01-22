@@ -5,8 +5,8 @@
 #= require ./vendor/strftime
 #= require ./vendor/jquery.ui.widget
 #= require ./vendor/jquery.fileupload
-#= require ./vendor/ua-parser
 #= require ./ember-bootstrap
+#= require ../lib/mp
 #= require_self
 #= require ./app-classes
 
@@ -23,6 +23,8 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   online: if !Em.isNone(window.navigator.onLine) then window.navigator.onLine else true
   offline: Em.computed.not 'online'
 
+  settings: null
+
   config: null
 
   flashMessage: null
@@ -30,11 +32,15 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   slug: null
   token: null
 
-  currentUser: null
+  user: null
   container: null
 
   terminalJsPath: null
   terminalCssPath: null
+
+  editorFullscreen: false
+  consoleFullscreen: false
+  consoleMinimized: false
 
   didChangeToken: (->
     if token = @get('token')
@@ -43,13 +49,35 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       window.localStorage.removeItem('token')
   ).observes 'token'
 
-  bootstrap: (opts={}) ->
-    @set 'terminalJsPath', opts.terminalJsPath
-    @set 'terminalCssPath', opts.terminalCssPath
+  activateMixpanel: (->
+    if @get('user') && settings = @get('settings')
+      mp.init(settings.mixpanel_token)
+  ).observes 'user', 'settings'
+
+  reloadContainer: ->
+    new Em.RSVP.Promise (resolve, reject) =>
+      @loadContainer ()->
+        App.get('container')?.loadHost().then (v)->
+          resolve(v)
+        , (err) ->
+          reject(err)
+
+  loadContainer: (cb)->
+    App.Container.fetch(@get('slug')).then (container) ->
+      App.set 'container', container
+      cb?()
+      container
+    , -> # failure
+      window.location.href = notFoundPath
+
+  loadSettings: ->
+    promise = Em.RSVP.Promise.cast(Em.$.ajax("/api/v0/app_settings"))
+    promise.then (settings) ->
+      App.set 'settings', settings
+    promise
 
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')
-  slug: window.location.search.slice('1')
 
 window.Lib = Ember.Namespace.create()
 
@@ -76,3 +104,8 @@ $(window).on 'offline', ->
 
 $(window).on 'online', ->
   window.App?.set? 'online', true
+
+$(window).on 'storage', (e) ->
+  origEvent = e.originalEvent
+  if origEvent.key == "token" && origEvent.newValue == null
+    window.location.href = "/app#logout"

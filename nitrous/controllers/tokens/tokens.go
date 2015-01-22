@@ -8,7 +8,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
-	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 )
 
 var (
@@ -66,11 +65,6 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return errInvalidCred
 	}
 
-	// FIXME ADMINONLY remove once pro is open to non-admins again
-	if !u.Admin {
-		return mh.Error(httperror.New(http.StatusBadRequest, "beta_closed", "The current private beta phase has ended.  The next beta phase will open in Jan 2015."), "nitrous.signin")
-	}
-
 	if err := user.ResetLoginAttempts(db, login); err != nil {
 		return err
 	}
@@ -82,5 +76,20 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	env.User = u
 	env.Tracker.CreateProfile(u, env.Logger, "")
+	return nil
+}
+
+func Logout(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	tk := env.Token
+
+	if err := tk.Delete(db); err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+	}
 	return nil
 }

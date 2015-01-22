@@ -7,6 +7,7 @@ App.Container = klass = App.Model.extend
   userId: attr('number', as: 'user_id', serialize: false)
   hostId: attr('number', as: 'host_id', serialize: false)
   image: attr()
+  template: attr()
   slug: attr()
   name: attr()
   state: attr(serialize: false)
@@ -14,6 +15,7 @@ App.Container = klass = App.Model.extend
   cmd: attr('array', serialize: false)
   entrypoint: attr('array', serialize: false)
   exitCode: attr('number', as: 'exit_code', serialize: false)
+  previewHostname: attr(as: 'preview_hostname', serialize: false)
   ipAddress: attr(as: 'ip_address', serialize: false)
   gatewayIP: attr(as: 'gateway_ip', serialize: false)
   createdAt: attr('date', as: 'created_at', serialize: false)
@@ -28,6 +30,8 @@ App.Container = klass = App.Model.extend
     @loadConfig()
     config
   ).property 'id', 'slug'
+
+  underReconfig: attr('boolean', serialize: false)
 
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
@@ -63,15 +67,25 @@ App.Container = klass = App.Model.extend
     "ssh://#{user}@#{hostname}:#{sshPort}"
   ).property 'sshEnabled', 'loginUsername', 'hostname', 'sshPort'
 
+  supportsPreview: (->
+    unless @get('previewURL')
+      return false
+
+    unless @get('hasApp')
+      return true
+
+    @get('hasApp') && @get('isAppRunning')
+  ).property 'hasApp', 'isAppRunning', 'previewURL'
+
   previewURL: (->
-    hostname = @get 'hostname'
+    previewHostname = @get 'previewHostname'
     previewPort = @get 'previewPort'
-    if hostname && previewPort
-      "http://#{hostname}:#{previewPort}/"
-  ).property 'hostname', 'previewPort'
+    if previewHostname && previewPort
+      "https://#{previewHostname}:#{previewPort}/"
+  ).property 'previewHostname', 'previewPort'
 
   ideURL: (->
-    location.href.replace(location.pathname+location.hash, "/ide?#{@get 'slug'}")
+    location.href.replace(location.pathname+location.hash, "/ide/#/#{@get 'slug'}")
   ).property()
 
   displayName: (->
@@ -97,6 +111,10 @@ App.Container = klass = App.Model.extend
       App.PublicKey.fetch(containerId: id).value
   ).property 'id'
 
+  eventOccurred: (evt) ->
+    if evt in ['container.started', 'container.stopped', 'container.restarted', 'container.updated', 'container.reconfigured', 'container.reconfigure_failed']
+      @set 'underReconfig', false
+
   loadConfig: ->
     new Em.RSVP.Promise (resolve, reject) =>
       @ajax('GET', 'config').then (json) =>
@@ -108,7 +126,7 @@ App.Container = klass = App.Model.extend
   setConfig: (jsonConfig) ->
     config =
       env: transformEnvArrayToHash(jsonConfig.env)
-      port: jsonConfig.port
+      port: jsonConfig.port || []
       volume: jsonConfig.volume
       privileged: jsonConfig.privileged
       publish_all: jsonConfig.publish_all
@@ -116,10 +134,11 @@ App.Container = klass = App.Model.extend
     config
 
   saveConfig: (config)  ->
+    @set 'underReconfig', true
     @ajax 'POST', 'reconfig',
       env: config.env
       volume: config.volume
-      port: config.port
+      port: config.port || []
       privileged: config.privileged
       publish_all: config.publish_all
       async: true

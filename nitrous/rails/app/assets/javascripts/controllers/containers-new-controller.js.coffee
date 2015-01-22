@@ -10,6 +10,22 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
   image: null
   saving: false
+  pullingImage: false
+
+  selectedOption: null
+  selectedTemplate: null
+
+  stackTemplates: (->
+    App.get('templates')?.filterBy('type', 'stack')
+  ).property 'App.templates.@each'
+
+  basicTemplates: (->
+    App.get('templates')?.filterBy('type', 'basic')
+  ).property 'App.templates.@each'
+
+  advancedTemplates: (->
+    App.get('templates')?.filterBy('type', 'advanced')
+  ).property 'App.templates.@each'
 
   clear: ->
     @_super.apply this, arguments
@@ -22,6 +38,10 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
       image: null
       saving: false
+      pullingImage: false
+
+      selectedTemplate: App.get('templates.firstObject')
+      selectedOption: null
 
   hostImagesEmpty: Em.computed.empty('selectedHost.images')
   hostVolumesEmpty: Em.computed.empty('selectedHost.volumes')
@@ -45,6 +65,59 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
     App.postError(jqxhr.responseJSON, 'Failed to create application!')
     @set 'saving', false
 
+  createContainer: (name, slug, repository, template) ->
+    # create container
+    container = App.Container.create
+      name: name
+      slug: slug
+      image: repository
+      template: template
+
+    container.save(
+      host: @get 'selectedHostSlug'
+      volume: @get 'volumeMounts'
+      env: @get 'envVars'
+      port: @get 'portBindings'
+      privileged: @get 'privileged'
+      publish_all: @get 'publishAll'
+    ).then =>
+      @transitionToRoute 'container.index', slug
+      App.snackbar.post("Your new application “#{name}” was created successfully.")
+      @set 'saving', false
+    , (jqxhr) => # container.save
+      @handleErrorResponse(jqxhr)
+
+  pullImage: (repository, isNitrousBaseImage, callback) ->
+    events = App.get 'eventsSocket'
+    App.Image.pull(@get('selectedHost'), repository, isNitrousBaseImage).then (image) =>
+      @set 'image', image
+
+      onImagePullFailed = (data) =>
+        imageData = data.image
+        return unless imageData.id == image.get('id')
+        events.off 'image.pull_failed', onImagePullFailed
+        events.off 'image.pulled', onImagePulled
+        @set 'image', null
+        errMsg = null
+        if data.progress
+          progress = JSON.parse(progress)
+          errMsg = progress.errorDetail?.message
+        App.postError(errMsg, 'Failed to pull image!')
+        @set 'saving', false
+
+      onImagePulled = (data) =>
+        imageData = data.image
+        return unless imageData.id == image.get('id')
+        events.off 'image.pull_failed', onImagePullFailed
+        events.off 'image.pulled', onImagePulled
+
+        callback()
+
+      events.on 'image.pull_failed', onImagePullFailed
+      events.on 'image.pulled', onImagePulled
+    , (jqxhr) => # App.Image.pull
+      @handleErrorResponse(jqxhr)
+
   actions:
     cancel: ->
       if slug = @get('preselectHost')
@@ -54,57 +127,23 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
     create: (repository, isNitrousBaseImage) ->
       @set 'saving', true
-      events = App.get 'eventsSocket'
 
-      unless repository.match /^.*:.+$/
-        repository = repository.replace /:?$/, ':latest'
       name = @get 'name'
       slug = @get 'slug'
 
-      # pull image
-      App.Image.pull(@get('selectedHost'), repository, isNitrousBaseImage).then (image) =>
-        @set 'image', image
+      @set 'pullingImage', true
 
-        onImagePullFailed = (data) =>
-          imageData = data.image
-          return unless imageData.id == image.get('id')
-          events.off 'image.pull_failed', onImagePullFailed
-          events.off 'image.pulled', onImagePulled
-          @set 'image', null
-          errMsg = null
-          if data.progress
-            progress = JSON.parse(progress)
-            errMsg = progress.errorDetail?.message
-          App.postError(errMsg, 'Failed to pull image!')
-          @set 'saving', false
+      if @get('selectedTemplate') && !@get('selectedOption')
+        img = @get('selectedTemplate.images.firstObject')
+        template = @get('selectedTemplate.slug')
+        @pullImage img, isNitrousBaseImage, =>
+          @set 'pullingImage', false
+          @createContainer(name, slug, img, template)
+        return
 
-        onImagePulled = (data) =>
-          imageData = data.image
-          return unless imageData.id == image.get('id')
-          events.off 'image.pull_failed', onImagePullFailed
-          events.off 'image.pulled', onImagePulled
-
-          # create container
-          container = App.Container.create
-            name: name
-            slug: slug
-            image: repository
-
-          container.save(
-            host: @get 'selectedHostSlug'
-            volume: @get 'volumeMounts'
-            env: @get 'envVars'
-            port: @get 'portBindings'
-            privileged: @get 'privileged'
-            publish_all: @get 'publishAll'
-          ).then =>
-            @transitionToRoute 'container.index', slug
-            App.snackbar.post("Your new application “#{name}” was created successfully.")
-            @set 'saving', false
-          , (jqxhr) => # container.save
-            @handleErrorResponse(jqxhr)
-
-        events.on 'image.pull_failed', onImagePullFailed
-        events.on 'image.pulled', onImagePulled
-      , (jqxhr) => # App.Image.pull
-        @handleErrorResponse(jqxhr)
+      # pull regular image
+      unless repository.match /^.*:.+$/
+        repository = repository.replace /:?$/, ':latest'
+      @pullImage repository, isNitrousBaseImage, =>
+        @set 'pullingImage', false
+        @createContainer(name, slug, repository)

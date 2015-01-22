@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -14,8 +13,6 @@ import (
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -27,36 +24,24 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
-	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
 var (
-	errContainerCreationFailed = httperror.New(http.StatusInternalServerError, "internal_server_error", "one of the containers failed during creation")
-	errVolumeCreationFailed    = httperror.New(http.StatusInternalServerError, "internal_server_error", "one of the volumes failed during creation")
-)
-
-var (
-	CreateContainerFn = containers.CreateContainer
-	CreateVolumeFn    = volumes.CreateVolume
-	PullImageFn       = images.PullImage
+	CreateVolumeFn = volumes.CreateVolume
 )
 
 type createOpts struct {
-	Name       string               `json:"name"`
-	Size       string               `json:"size"`
-	Region     string               `json:"region"`
-	Template   string               `json:"template"`
-	Slug       string               `json:"slug"`
-	Async      bool                 `json:"async"`
-	Containers []template.Container `json:"containers"`
-	Volumes    []template.Volume    `json:"volumes"`
+	Name   string `json:"name"`
+	Size   string `json:"size"`
+	Region string `json:"region"`
+	Slug   string `json:"slug"`
+	Async  bool   `json:"async"`
 }
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -93,8 +78,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	t, err := token.FindByUser(db, u.ID)
-	if err != nil {
+	t := &token.Token{UserID: u.ID, Type: token.TypeHost}
+	if err := t.Insert(db); err != nil {
 		return err
 	}
 
@@ -191,20 +176,6 @@ func postProvision(options *createOpts, env *middleware.Env, h *host.Host, outst
 	if err := createSharedVolume(env, env.DB, h); err != nil {
 		return err
 	}
-
-	// Setup host according to given template, if required.
-	// We might want to consider moving this into the provisioner and also
-	// removing support for the volumes and containers options.
-	if err := setupFromTemplate(options.Template, env, h, outstream); err != nil {
-		return err
-	}
-
-	if err := createVolumes(options.Volumes, env, h, outstream); err != nil {
-		return err
-	}
-	if err := createContainers(options.Containers, env, h, outstream); err != nil {
-		return err
-	}
 	if err := recordTransition(env, h); err != nil {
 		env.Logger.Errorf("Unable to record transition for host %d: %v", h.ID, err)
 	}
@@ -240,11 +211,10 @@ func buildCreateOptions(r *http.Request) (*createOpts, error) {
 	}
 
 	opts := &createOpts{
-		Size:     r.FormValue("size"),
-		Region:   r.FormValue("region"),
-		Template: r.FormValue("template"),
-		Slug:     strings.ToLower(r.FormValue("slug")),
-		Name:     r.FormValue("name"),
+		Size:   r.FormValue("size"),
+		Region: r.FormValue("region"),
+		Slug:   strings.ToLower(r.FormValue("slug")),
+		Name:   r.FormValue("name"),
 	}
 	opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
 	return opts, nil
@@ -306,51 +276,6 @@ func generateCerts(hostname string) (*cert.Cert, error) {
 	return cert.Generate(hostname, caInfo.X509Cert, caInfo.Key)
 }
 
-func setupFromTemplate(slug string, env *middleware.Env, h *host.Host, w io.Writer) error {
-	if slug == "" {
-		return nil // Ignore if slug is blank.
-	}
-
-	tmpl, err := template.Find(env.DB, slug)
-	if err != nil {
-		return err
-	}
-
-	cfg, err := tmpl.ParsedConfig()
-	if err != nil {
-		return err
-	}
-
-	if err := createVolumes(cfg.Volumes, env, h, w); err != nil {
-		return err
-	}
-
-	containers := []template.Container{}
-	for _, c := range cfg.Containers {
-		suffix, err := securerandom.Base64(6)
-		if err != nil {
-			return err
-		}
-		containers = append(containers, template.Container{
-			Name:       c.Name,
-			Slug:       fmt.Sprintf("%s-%s", c.Slug, suffix),
-			Image:      c.Image,
-			Cmd:        c.Cmd,
-			Privileged: c.Privileged,
-			PublishAll: c.PublishAll,
-			Env:        c.Env,
-			Ports:      c.Ports,
-			Volumes:    c.Volumes,
-		})
-	}
-
-	if err := createContainers(containers, env, h, w); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func createSharedVolume(env *middleware.Env, db *ndb.Database, h *host.Host) error {
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
@@ -385,58 +310,5 @@ func createSharedVolume(env *middleware.Env, db *ndb.Database, h *host.Host) err
 		env.User.Topic(),
 	)
 
-	return nil
-}
-
-func createContainers(containers []template.Container, env *middleware.Env, h *host.Host, w io.Writer) error {
-	for i, c := range containers {
-		options := url.Values{
-			"name":        []string{c.Name},
-			"slug":        []string{c.Slug},
-			"image":       []string{c.Image},
-			"env[]":       c.Env,
-			"volume[]":    c.Volumes,
-			"port[]":      c.Ports,
-			"cmd":         []string{c.Cmd},
-			"publish_all": []string{strconv.FormatBool(c.PublishAll)},
-		}
-
-		state := fmt.Sprintf(`{"status": "Creating container %d of %d"}`, i+1, len(containers))
-		stream := flusher.NewWriteFlusher(w)
-		fmt.Fprintln(stream, state)
-
-		// FIXME Get rid of this awkward func that we introduced for tests.
-		if _, err := PullImageFn(h, url.Values{"repository": options["image"]}, env, w, nil, false); err != nil {
-			env.Logger.Errorf("host.Create: error pulling container image: %v", err)
-			return err
-		}
-
-		// FIXME Get rid of this awkward func that we introduced for tests.
-		if _, err := CreateContainerFn(h, options, env); err != nil {
-			env.Logger.Errorf("host.Create: error creating container: %v", err)
-			return errContainerCreationFailed
-		}
-	}
-	return nil
-}
-
-func createVolumes(volumes []template.Volume, env *middleware.Env, h *host.Host, w io.Writer) error {
-	for i, v := range volumes {
-		options := url.Values{
-			"name": []string{v.Name},
-			"slug": []string{v.Slug},
-		}
-
-		state := fmt.Sprintf(`{"status": "Creating volume %d of %d"}`, i+1, len(volumes))
-		stream := flusher.NewWriteFlusher(w)
-		fmt.Fprintln(stream, state)
-
-		// FIXME Get rid of this awkward func that we introduced for tests.
-		_, err := CreateVolumeFn(h, options, env)
-		if err != nil {
-			env.Logger.Errorf("host.Create: error creating volume: %v", err)
-			return errVolumeCreationFailed
-		}
-	}
 	return nil
 }

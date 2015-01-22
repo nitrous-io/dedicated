@@ -1,5 +1,5 @@
 App.IdeSidebarController = Em.ArrayController.extend
-  needs: ['ideFindInProject']
+  needs: ['ideFindInProject', 'ideEditor']
 
   homePath: null # home (~/) path
   rootPath: null # current root path in the sidebar
@@ -7,7 +7,7 @@ App.IdeSidebarController = Em.ArrayController.extend
   uploadDialog: null
   confirmDeletePathDialog: null
 
-  opsSocketBinding: Em.Binding.oneWay 'App.router.indexController.opsSocket'
+  opsSocketBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket'
   opsSocketReadyBinding: Em.Binding.oneWay 'opsSocket.started'
   opsSocketNotReady: (->
     !@get 'opsSocketReady'
@@ -44,7 +44,7 @@ App.IdeSidebarController = Em.ArrayController.extend
         this.openPath @get('rootPath')
         # TODO re-enable opening README
         # Open README.md, if it's not present, then don't show an error
-        # if boxId = App.get 'router.indexController.content.id'
+        # if boxId = App.get 'router.ideController.content.id'
         #   cacheKey = "box:#{boxId}:shownReadme"
         #   if !App.localStorage.get(cacheKey)
         #     this.openPath @get('readmePath'), error: false
@@ -70,42 +70,48 @@ App.IdeSidebarController = Em.ArrayController.extend
   #   done: callback (document)
   #   error: callback (errorMessage)
   openPath: (path, settings = {}) ->
-    if settings.error != false
-      settings.error = (message) -> # default error handler
-        App.set 'flashMessage', { type: 'error', text: 'Cannot open the selected file.' }
-    if !path.get('loading') && @get('opsSocketReady')
-      if path.get 'directory'
-        path.set 'expanded', !path.get('expanded')
-        if path.get 'expanded'
-          this.fetchFileList path
-      else
-        editorController = App.get 'router.ideEditorController'
-        if document = editorController.findProperty 'path', path
-          editorController.makeTabActive document
-          if settings.done
-            settings.done(document)
-        else
-          this.fetchFileContent path, settings
-        if settings.source
-          App.util.mixpanel 'Opened File Tab', source: settings.source
+    return if path.get('loading') || !@get('opsSocketReady')
 
+    if settings.error != false
+      settings.error = (err) ->
+        message = switch err
+          when 'aio:file_too_large'
+            'Cannot open the selected file because it is too large.'
+          else
+            'Cannot open the selected file.'
+        App.postError message
+
+    if path.get 'directory'
+      path.set 'expanded', !path.get('expanded')
+      if path.get 'expanded'
+        this.fetchFileList path
+    else
+      editorController = @get('controllers.ideEditor')
+      if doc = editorController.findProperty 'path', path
+        editorController.makeTabActive doc
+        if settings.done
+          settings.done(doc)
+      else
+        this.fetchFileContent path, settings
 
   downloadPath: (path) ->
     if !path.get('loading')
       container = App.get('container')
       container.requestToken(["download"]).then (tokenResp) =>
-        freighterdUrl = container.get 'freighterdUrl'
-        cid = container.get 'cid'
-
         downloadFrame = $('<iframe></iframe>')
         downloadFrame.css 'display', 'none'
-        downloadFrame.attr 'src', "https://#{freighterdUrl}/containers/#{cid}/download?path=#{path.get('absolutePath')}&token=#{tokenResp.token}"
+        downloadFrame.attr 'src', @downloadURL(container, path.get('absolutePath'), tokenResp.token)
         $('body').append downloadFrame
         window.setTimeout(->
           downloadFrame.remove()
         , 5000)
       , (jqxhr) ->
         App.postError(jqxhr.responseJSON, 'Could not download file, please try again.')
+
+  downloadURL: (container, path, token) ->
+    freighterdUrl = container.get 'freighterdUrl'
+    cid = container.get 'cid'
+    "https://#{freighterdUrl}/containers/#{cid}/download?path=#{path}&token=#{token}"
 
   fetchFileList: (path) ->
     opsSocket = @get 'opsSocket'
@@ -118,14 +124,26 @@ App.IdeSidebarController = Em.ArrayController.extend
   fetchFileContent: (path, settings = {}) ->
     opsSocket = @get 'opsSocket'
     path.incrementProperty 'loadCount'
-    opsSocket.fetchFileContent path.get('absolutePath'), (err, absolutePath, contentType, content) ->
+    editorController = @get('controllers.ideEditor')
+
+    opsSocket.fetchFileContent path.get('absolutePath'), (err, absolutePath, contentType, content) =>
       path.decrementProperty 'loadCount'
       if err
+        if err == 'aio:file_is_oversized_image'
+          container = App.get('container')
+          container.requestToken(['download']).then (tokenResp) =>
+            tab = editorController.createTab(
+              content: @downloadURL(container, path.get('absolutePath'), tokenResp.token)
+              path: path
+            , App.Image)
+            if settings.done
+              settings.done(tab)
+          return
+
         if settings.error
-          settings.error("Cannot open the selected file")
+          settings.error(err)
         return
 
-      editorController = App.get 'router.ideEditorController'
       tabClass = if contentType?.match /^image/ then App.Image else App.Document
       tab = editorController.createTab(
         content: content
@@ -186,7 +204,15 @@ App.IdeSidebarController = Em.ArrayController.extend
       opsSocket = @get 'opsSocket'
       absolutePath = _.chain([parentAbsolutePath, name]).compact().join('/').value()
 
-      callback = =>
+      callback = (err) =>
+        if err
+          # TODO: Freighter should be returning a proper error code for file exists.
+          # Revisit after #381 is merged.
+          errMsg = if err.match /file exists/
+            "\"#{name}\" already exists. Please enter a different filename."
+          else
+            "Error occurred while trying to save the file."
+          App.postError errMsg
         path.set 'new', false # temp paths with 'new: false' get removed on refresh
         this.refresh parentPath
 
@@ -260,7 +286,6 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   showUploadDialog: (path) ->
     path ?= @get 'rootPath'
-    App.util.mixpanel 'Opened File Upload Dialog'
     @set 'uploadDialog', App.UploadDialog.create path: path
 
   beginUpload: ->
@@ -283,7 +308,7 @@ App.IdeSidebarController = Em.ArrayController.extend
       this.refreshPath path.get('parentAbsolutePath')
     uploadDialog = @get 'uploadDialog'
     if uploadDialog && uploadDialog.get 'completed'
-      App.util.mixpanel 'Uploaded File'
+      mp.track 'Uploaded File'
       uploadDialog.set('hide', true)
       @set 'uploadDialog', null
 

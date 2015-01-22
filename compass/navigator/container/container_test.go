@@ -2,6 +2,7 @@ package container
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"testing"
 
@@ -12,10 +13,17 @@ import (
 var dbStructure = []string{
 	`DROP TABLE IF EXISTS containers;`,
 	`DROP TABLE IF EXISTS hosts;`,
+	`DROP TABLE IF EXISTS regions;`,
+	`CREATE TABLE regions (
+		id int PRIMARY KEY NOT NULL,
+		slug character varying(255) NOT NULL);`,
+	`CREATE UNIQUE INDEX index_regions_on_slug ON regions USING btree (slug);`,
+	`INSERT INTO regions (id, slug) VALUES (1, 'sgp');`,
+	`INSERT INTO regions (id, slug) VALUES (2, 'nyc');`,
 	`CREATE TABLE hosts (
 		id bigserial PRIMARY KEY NOT NULL,
-		slug character varying(255) NOT NULL,
-		ip_address character varying(255) NOT NULL);`,
+		region_id int NOT NULL,
+		slug character varying(255) NOT NULL);`,
 	`CREATE UNIQUE INDEX index_hosts_on_slug ON hosts USING btree (slug);`,
 	`CREATE TABLE containers (
 		id bigserial PRIMARY KEY NOT NULL,
@@ -25,14 +33,15 @@ var dbStructure = []string{
 }
 
 var fixtures = []*Container{
-	{Slug: "daniel-box", HostIP: "10.0.0.1"},
-	{Slug: "md-box", HostIP: "10.0.0.2"},
-	{Slug: "dqminh-box", HostIP: "10.0.0.3"},
+	{Slug: "daniel-box", RegionID: 1, RegionSlug: "sgp"},
+	{Slug: "md-box", RegionID: 1, RegionSlug: "sgp"},
+	{Slug: "dqminh-box", RegionID: 2, RegionSlug: "nyc"},
 }
 
 func testNavigator(domain string) n.Navigator {
 	config := map[string]string{
 		"database_url": "host=/var/run/postgresql dbname=compass_test sslmode=disable",
+		"sgp":          "exampleproxy-sgp.com",
 	}
 	b, err := New(domain, config)
 	if err != nil {
@@ -51,16 +60,16 @@ func testNavigator(domain string) n.Navigator {
 }
 
 func insertContainer(db *sql.DB, containers []*Container) error {
-	for _, b := range containers {
+	for i, c := range containers {
 		var hostID int
 		var err error
-		err = db.QueryRow(`INSERT INTO hosts (slug, ip_address) VALUES ($1, $2) RETURNING ID`,
-			b.HostIP, b.HostIP).Scan(&hostID)
+		err = db.QueryRow(`INSERT INTO hosts (slug, region_id) VALUES ($1, $2) RETURNING ID`,
+			fmt.Sprintf("host-%d", i), c.RegionID).Scan(&hostID)
 		if err != nil {
 			return err
 		}
 		err = db.QueryRow(`INSERT INTO containers (slug, host_id) VALUES ($1, $2) RETURNING ID`,
-			b.Slug, hostID).Scan(&b.Id)
+			c.Slug, hostID).Scan(&c.Id)
 		if err != nil {
 			return err
 		}
@@ -78,7 +87,8 @@ func TestName(t *testing.T) {
 func TestFind(t *testing.T) {
 	n := testNavigator("nitrousbox.com.").(*Navigator)
 	c, err := n.find(fixtures[0].Slug)
-	if err != nil || c.Slug != fixtures[0].Slug || c.HostIP != fixtures[0].HostIP {
+	if err != nil || c.Slug != fixtures[0].Slug || c.RegionID != fixtures[0].RegionID ||
+		c.RegionSlug != fixtures[0].RegionSlug {
 		t.Fatal("Failed to find a container with valid slug")
 	}
 	_, err = n.find("invalid-box")
@@ -88,17 +98,18 @@ func TestFind(t *testing.T) {
 }
 
 func TestLookup(t *testing.T) {
-	n := testNavigator("nitrousbox.com.").(*Navigator)
-	c := fixtures[0]
-	r, err := n.Lookup(c.Slug + ".nitrousbox.com.")
-	if err != nil || r[0].(*dns.A).A.String() != c.HostIP {
-		t.Errorf("Failed to get correct dns record, got %v, expected DNS A with %s", r[0], c.HostIP)
+	nav := testNavigator("nitrousbox.com.").(*Navigator)
+	f := fixtures[0]
+	r, err := nav.Lookup(f.Slug + ".nitrousbox.com.")
+	cname := fmt.Sprintf("%s.%s.", f.Slug, nav.config[f.RegionSlug])
+	if err != nil || r[0].(*dns.CNAME).Target != cname {
+		t.Errorf("unexpected dns record, got %v, expected DNS CNAME: %s", r[0], cname)
 	}
-	_, err = n.Lookup("invalid-box.nitrousbox.com.")
+	_, err = nav.Lookup("invalid-box.nitrousbox.com.")
 	if err == nil {
 		t.Error("should not be able to look up invalid box")
 	}
-	_, err = n.Lookup("daniel-box.nitrous.io.")
+	_, err = nav.Lookup("daniel-box.nitrous.io.")
 	if err == nil {
 		t.Error("should not be able to look up invalid domain")
 	}

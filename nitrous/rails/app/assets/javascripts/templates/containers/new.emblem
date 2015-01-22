@@ -40,40 +40,55 @@
       .card-body.bordered
         .ui.input-group
           label.field-label
-            | Image
+            | Stack Templates
 
-          .image-selection
-            ul.ui.checkbox-group class={view.baseImageOptionDisabled:disabled App.user.advanced::hide}
+          ul.ui.selectable-list.templates
+            each template in stackTemplates
+              App.TemplateListItemView content=template selected=view.selectedTemplate
+
+        .ui.input-group
+          label.field-label
+            | Basic Templates
+
+          ul.ui.selectable-list.templates
+            each template in basicTemplates
+              App.TemplateListItemView content=template selected=view.selectedTemplate
+
+        if App.user.advanced
+          .ui.input-group
+            label.field-label
+              | Advanced Templates
+
+            ul.ui.selectable-list.templates
+              each template in advancedTemplates
+                App.TemplateListItemView content=template selected=view.selectedTemplate
+
+      if App.user.advanced
+        .card-body.bordered
+          .ui.input-group.custom-image
+            label.field-label
+              | Or, Use Custom Image
+
+            ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
               li
                 .ui.checkbox
-                  input type='radio' id='containers-new-option-base-image' name='option' checked='checked' value='base-image' disabled={view.baseImageOptionDisabled}
+                  input type='radio' id='containers-new-option-host-image' name='option' value='host-image' disabled={view.hostImageOptionDisabled}
                   label
-                label for='containers-new-option-base-image' Use Nitrous Base Image
+                label for='containers-new-option-host-image' Use Image On This Workspace
 
-            ul.base-images class={App.user.advanced::basic}
-              each baseImage in App.baseImages
-                App.BaseImageView baseImage=baseImage selectedBaseImage=view.selectedBaseImage disabled=view.baseImageOptionDisabled
+            .ui.select.indent
+              Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
 
-            if App.user.advanced
-              ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
-                li
-                  .ui.checkbox
-                    input type='radio' id='containers-new-option-host-image' name='option' value='host-image' disabled={view.hostImageOptionDisabled}
-                    label
-                  label for='containers-new-option-host-image' Use Image On This Workspace
+            ul.ui.checkbox-group class={saving:disabled}
+              li
+                .ui.checkbox
+                  input type='radio' id='containers-new-option-custom-image' name='option' value='custom-image' disabled=saving
+                  label
+                label for='containers-new-option-custom-image' Specify Image Repository
 
-              .ui.select.indent
-                Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
+            .indent
+              = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle value=view.customImage disabled=saving
 
-              ul.ui.checkbox-group class={saving:disabled}
-                li
-                  .ui.checkbox
-                    input type='radio' id='containers-new-option-custom-image' name='option' value='custom-image' disabled=saving
-                    label
-                  label for='containers-new-option-custom-image' Specify Image Repository
-
-              .indent
-                = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle value=view.customImage disabled=saving
 
       .card-footer.bordered
         .right
@@ -195,8 +210,10 @@
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
 
   .screen class={view.showProgressScreen::hide}
-    .card-body
-      .terminal-screen
+    .log class={view.showLog::hide}
+      .card-body.bordered
+        .terminal-screen
+
     .card-footer.bordered
       if saving
         if image.progress.status
@@ -207,6 +224,11 @@
           button.ui.btn disabled='disabled'
             i.spinner
             | Creating...
+          button.ui.btn click='toggleLog target="view"'
+            if view.showLog
+              | Hide Log
+            else
+              | Show Log
       else
         .right
           a.ui.btn href='#' click='goBack target="view"' Back

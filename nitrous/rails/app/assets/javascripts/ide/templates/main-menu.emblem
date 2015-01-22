@@ -11,16 +11,20 @@
     ul.nav
       li.ui.dropdown
         a href='#'
-          = App.currentUser.username
+          img.gravatar src={App.user.gravatar}
+          = App.user.username
           .ui.dropdown-triangle
         ul.dropdown-menu.right
           li
-            a href='#/account'
+            a href=view.dashboardURL target='_blank'
+              | Dashboard
+          li
+            a href='/app#/account' target='_blank'
               | Account Settings
           li.separator
           li
-            a href='/users/sign_out' data-method='delete' rel='nofollow'
-              | Sign Out
+            a href='/app#/logout'
+              | Log Out
 
 #about-nitrous.ui.modal
   .ui.card

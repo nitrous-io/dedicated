@@ -3,11 +3,11 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   content: null
   saveDialog: null
   confirmCloseDialog: null
-  fullscreen: false
+  fullscreenBinding: 'App.editorFullscreen'
   chatNotification: null
 
-  opsSocketBinding: Em.Binding.oneWay 'App.router.indexController.opsSocket'
-  opsSocketReadyBinding: Em.Binding.oneWay 'App.router.indexController.opsSocketReady'
+  opsSocketBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket'
+  opsSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.opsSocketReady'
 
   softTabs: true
   tabSize: 2
@@ -38,7 +38,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     @set 'fullscreen', false
 
   useUserEditorSettings: ->
-    userSettings = App.get('currentUser.user_settings') || {}
+    userSettings = App.get('user.user_settings') || {}
     editorSettings = {}
     _.each App.Editor.SETTINGS, (k) ->
       editorSettings[k] = userSettings[k.underscore()]
@@ -54,7 +54,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @set(k, editorSettings[k]) if editorSettings[k]?
 
   localStorageEditorSettings: ->
-    if boxId = App.get 'router.indexController.content.id'
+    if boxId = App.get 'router.ideController.content.id'
       App.localStorage.delete("box:#{boxId}:editorSettings") || App.localStorage.delete("box:#{boxId}:lastTabSettings")
 
   observeEditorSettings: ->
@@ -62,18 +62,12 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @addObserver(setting, this, 'updateUserSettings')
 
   updateUserSettings: ->
-    currentUser = App.get('currentUser')
-    userSettings = currentUser.get('user_settings') || {}
+    user = App.get('user')
+    userSettings = user.get('user_settings') || {}
     _.each App.Editor.SETTINGS, (k) =>
       userSettings[k.underscore()] = @get(k)
     # FIXME Enable user settings when backend supports it
-    # currentUser.updateSettings()
-
-  createTab: (attrs={}, modelClass=null) ->
-    App.util.mixpanel 'IDE New Document Tab'
-    App.util.mixpanelIncrement 'ide_new_document_tab_count'
-    tab = @_super(attrs, modelClass)
-    tab
+    # user.updateSettings()
 
   removeTab: (tab, forceRemove = false) ->
     tab = @get 'activeTab' unless tab
@@ -93,12 +87,12 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
           path.decrementProperty 'loadCount'
           if err
             App.set 'flashMessage', { type: 'alert-error', text: "Error saving file '#{path.get('absolutePath')}'" }
-            App.util.mixpanel 'IDE Document Save Error'
-            App.util.mixpanelAppendUser "SaveError": err
+            mp.track 'IDE Document Save Error'
+            mp.appendUser "SaveError": err
             return
           document.set 'clean', true
-          App.util.mixpanel 'IDE Document Saved'
-          App.util.mixpanelIncrement 'ide_document_saved_count'
+          mp.track 'IDE Document Saved'
+          mp.increment 'ide_document_saved_count'
     else
       @set 'saveDialog', App.SaveDialog.create document: document
 
@@ -118,9 +112,12 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   didWriteNewFileContent: (err, absolutePath) ->
     saveDialog = @get 'saveDialog'
     if err
-      # FIXME current errors returned by freighter is cryptic.
-      # showing a generic message for now
-      errors = {base: ["Error occurred while trying to save the file."]}
+      # TODO: Freighter should be returning a proper error code for file exists.
+      # Revisit after #381 is merged.
+      errors = if err.match /file exists/
+        {base: ["already exists. Please enter a different filename."]}
+      else
+        {base: ["Error occurred while trying to save the file."]}
       saveDialog.set 'errors', errors
     else
       path = App.Path.create absolutePath: absolutePath
@@ -130,6 +127,6 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       sidebarController = App.get 'router.ideSidebarController'
       sidebarController.refreshPath path.get('parentAbsolutePath')
       @set 'saveDialog.hide', true
-      App.util.mixpanel 'IDE New Document Saved'
-      App.util.mixpanelIncrement 'ide_new_document_saved_count'
+      mp.track 'IDE Document Saved'
+      mp.increment 'ide_document_saved_count'
     saveDialog.set 'saving', false

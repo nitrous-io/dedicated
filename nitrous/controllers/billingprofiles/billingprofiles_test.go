@@ -9,8 +9,11 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/credit"
+	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -170,6 +173,73 @@ var _ = Describe("controllers/billingprofiles", func() {
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("incorrect_zip"))
 			Expect(errDesc).To(Equal("Your Zip code is incorrect. Please try again."))
+		})
+
+		Context("rewarding credits", func() {
+			BeforeEach(func() {
+				cType := &credittype.CreditType{
+					Name:         billingprofiles.FreeCreditName,
+					Description:  "Awarded to users for signing up",
+					Active:       true,
+					DefaultValue: 500,
+				}
+				Expect(cType.Insert(db)).To(BeNil())
+
+				_, err := db.Exec(`UPDATE billing_profiles SET pending_activation = true WHERE user_id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				fakeStripe.Responses = []string{StripeCustomerResponse}
+			})
+
+			It("should not award if the billing profile was previously activated", func() {
+				_, err := db.Exec(`UPDATE billing_profiles SET pending_activation = false WHERE user_id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				var count int
+				err = db.QueryRow("SELECT COUNT(*) FROM credits WHERE user_id = $1;", u.ID).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(0))
+			})
+
+			It("should award if the billing profile was not previously activated", func() {
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				credit := &credit.Credit{}
+				err := db.Get(credit, "SELECT * FROM credits WHERE user_id = $1;", u.ID)
+				Expect(err).To(BeNil())
+				Expect(credit).ToNot(BeNil())
+				Expect(credit.Amount).To(Equal(int64(500)))
+			})
+
+			It("should not award if there is an existing credit card with the same fingerprint", func() {
+				u2 := &user.User{
+					Username: "fooey",
+					Password: "123456",
+					Email:    "foo2@example.com",
+				}
+				err := WrapInTransaction(db, u2.Insert)
+				Expect(err).To(BeNil())
+				_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
+				Expect(err).To(BeNil())
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				var count int
+				err = db.QueryRow("SELECT COUNT(*) FROM credits WHERE user_id = $1;", u.ID).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(0))
+			})
 		})
 	})
 

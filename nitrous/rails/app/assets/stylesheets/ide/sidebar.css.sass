@@ -37,6 +37,7 @@
       $itemHeight: 24px
 
       position: relative
+      height: 0
       flex-grow: 1
       overflow: auto
       font-size: 14px
@@ -60,11 +61,12 @@
       a
         color: $n2oGray200
         transition: color .2s
+        padding-right: 8px
 
         &:before
           content: ''
           position: absolute
-          display: block
+          display: inline-block
           left: 0
           width: 100%
           height: $itemHeight
@@ -78,6 +80,9 @@
         &.loading
           color: $n2oGray100
 
+      li
+        white-space: nowrap
+
       li.selected
         a
           &:before
@@ -85,6 +90,10 @@
 
           span
             position: relative
+
+      li.droppable > a
+        &:before
+          background: rgba($n2oGray400, .4)
 
       .ide-editable-path-name-view
         padding-right: 2px

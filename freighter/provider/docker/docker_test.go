@@ -702,15 +702,18 @@ var _ = Describe("provider/docker", func() {
 					privKey, ok := pk.(*rsa.PrivateKey)
 					Expect(ok).To(BeTrue())
 
+					info := map[string]interface{}{}
+
 					// without keys
 					sshutil.MaxAttempts = 1
 					ch := make(chan struct{})
 					_, err = sshutil.WaitForSSH(
 						address,
-						"action",
+						DfileEnvUser,
 						privKey,
 						500*time.Millisecond,
 						ch,
+						info,
 					)
 					Expect(err).NotTo(BeNil())
 					Expect(err.Error()).To(ContainSubstring("unable to authenticate"))
@@ -722,10 +725,11 @@ var _ = Describe("provider/docker", func() {
 					sshutil.MaxAttempts = 10
 					_, err = sshutil.WaitForSSH(
 						address,
-						"action",
+						DfileEnvUser,
 						privKey,
 						500*time.Millisecond,
 						ch,
+						info,
 					)
 					Expect(err).To(BeNil())
 				})
@@ -784,12 +788,12 @@ var _ = Describe("provider/docker", func() {
 
 		It("runs the command specified by the NITROUS_CMD env var as the NITROUS_USERNAME user", func() {
 			name := RandomName("freightertest")
-			configJSON := `{
+			configJSON := fmt.Sprintf(`{
 				"Env": [
 					"NITROUS_CMD=echo hello world > $HOME/test-output",
-					"NITROUS_USER=action"
+					"NITROUS_USER=%s"
 				]
-			}`
+			}`, DfileEnvUser)
 			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
 			Expect(err).To(BeNil())
 			defer CleanUpContainer(name)
@@ -797,28 +801,9 @@ var _ = Describe("provider/docker", func() {
 			// Give the docker exec command some time to run.
 			time.Sleep(50 * time.Millisecond)
 
-			out, err := exec.Command("docker", "exec", info.ID, "cat", "/home/action/test-output").CombinedOutput()
+			out, err := exec.Command("docker", "exec", info.ID, "cat",
+				fmt.Sprintf("/home/%s/test-output", DfileEnvUser)).CombinedOutput()
 			Expect(string(out)).To(ContainSubstring(`hello world`))
-		})
-
-		It("runs the command specified by the NITROUS_CMD env var while preserving Docker env vars", func() {
-			name := RandomName("freightertest")
-			configJSON := `{
-				"Env": [
-					"NITROUS_CMD=echo $TEST_ENV > $HOME/test-output",
-					"NITROUS_USER=action",
-					"TEST_ENV=it works"
-				]
-			}`
-			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
-
-			// Give the docker exec command some time to run.
-			time.Sleep(50 * time.Millisecond)
-
-			out, err := exec.Command("docker", "exec", info.ID, "cat", "/home/action/test-output").CombinedOutput()
-			Expect(string(out)).To(Equal("it works\n"))
 		})
 
 		It("runs the command specified by the NITROUS_CMD env var and sources /etc/profile", func() {
@@ -829,12 +814,12 @@ var _ = Describe("provider/docker", func() {
 			defer RemoveImages(img)
 
 			name := RandomName("freightertest")
-			configJSON := `{
+			configJSON := fmt.Sprintf(`{
 				"Env": [
 					"NITROUS_CMD=echo $ETC_PROFILE_VAR > $HOME/test-output",
-					"NITROUS_USER=action"
+					"NITROUS_USER=%s"
 				]
-			}`
+			}`, DfileEnvUser)
 			info, err := prov.CreateStart(name, img[0], secret, configJSON)
 			Expect(err).To(BeNil())
 			defer CleanUpContainer(name)
@@ -842,7 +827,8 @@ var _ = Describe("provider/docker", func() {
 			// Give the docker exec command some time to run.
 			time.Sleep(50 * time.Millisecond)
 
-			out, err := exec.Command("docker", "exec", info.ID, "cat", "/home/action/test-output").CombinedOutput()
+			out, err := exec.Command("docker", "exec", info.ID, "cat",
+				fmt.Sprintf("/home/%s/test-output", DfileEnvUser)).CombinedOutput()
 			Expect(string(out)).To(Equal("works\n"))
 		})
 	})
@@ -1670,7 +1656,7 @@ var _ = Describe("provider/docker", func() {
 
 			Expect(img).ToNot(BeNil())
 			Expect(img.ID).ToNot(BeEmpty())
-			Expect(img.Tag).To(Equal("trusty"))
+			Expect(img.Tag).To(Equal("latest"))
 			Expect(img.Config).ToNot(BeNil())
 			Expect(img.Config.Image).To(Equal(img.ID))
 			Expect(img.Config.Env).To(HaveLen(5))
@@ -1678,7 +1664,7 @@ var _ = Describe("provider/docker", func() {
 				"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 				"container=docker",
 				"NITROUS_IMAGE_VERSION=2",
-				"NITROUS_USERNAME=action",
+				fmt.Sprintf("NITROUS_USERNAME=%s", DfileEnvUser),
 				"NITROUS_SSH_ENABLED=true",
 			}))
 			Expect(img.Config.Cmd).To(Equal([]string{"/sbin/init", "--default-console", "none"}))

@@ -35,8 +35,8 @@
 		},
 		{
 			"ImportPath": "github.com/digitalocean/godo",
-			"Comment": "v0.5.0-2-gc467db5",
-			"Rev": "c467db591ad9218663c089428955f2fad88a0b57"
+			"Comment": "v0.5.0-7-g6ae442f",
+			"Rev": "6ae442f8d5dae46921484681156699b1ba8ecf0c"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/nat",

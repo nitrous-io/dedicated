@@ -3,7 +3,7 @@ activeDocumentSet = (attr, val) ->
     tab.set attr, val
 
 App.IdeMainMenuController = Em.Controller.extend
-  needs: ['ideEditor', 'ideFindInProject', 'ideFileFinder']
+  needs: ['ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder']
   initialize: ->
   reset: ->
 
@@ -18,7 +18,6 @@ App.IdeMainMenuController = Em.Controller.extend
   fileGoToFile: ->
     if controller = @get 'controllers.ideFileFinder'
       controller.showFindDialog()
-      App.util.mixpanelIncrement 'ide_opened_file_finder_dialog_count'
 
   fileClose: ->
     if editorController = @get 'controllers.ideEditor'
@@ -43,7 +42,6 @@ App.IdeMainMenuController = Em.Controller.extend
   editFindInProject: ->
     if controller = @get 'controllers.ideFindInProject'
       controller.showFindDialog()
-      App.util.mixpanelIncrement 'ide_opened_find_in_project_dialog_count'
 
   editReplace: ->
     activeDocumentSet 'replaceTrigger', true
@@ -68,17 +66,15 @@ App.IdeMainMenuController = Em.Controller.extend
     activeDocumentSet 'splitSelectionIntoLinesTrigger', true
 
   viewFocusConsole: ->
-    if document = App.get 'router.ideEditorController.activeTab'
-      document.set 'focused', false
-    if consoleSession = App.get 'router.ideConsoleController.activeTab'
+    if doc = @get 'controllers.ideEditor.activeTab'
+      doc.set 'focused', false
+    if consoleSession = @get 'controllers.ideConsole.activeTab'
       consoleSession.set 'focused', true
 
-    App.util.mixpanelIncrement 'ide_focused_console_count'
-
   viewFocusEditor: ->
-    if document = App.get 'router.ideEditorController.activeTab'
-      document.set 'focused', true
-    if consoleSession = App.get 'router.ideConsoleController.activeTab'
+    if doc = @get 'controllers.ideEditor.activeTab'
+      doc.set 'focused', true
+    if consoleSession = @get 'controllers.ideConsole.activeTab'
       consoleSession.set 'focused', false
 
   viewSelectNextTab: ->
@@ -89,15 +85,22 @@ App.IdeMainMenuController = Em.Controller.extend
     if editorController = @get 'controllers.ideEditor'
       editorController.makePreviousTabActive()
 
+  viewMinimizeConsole: ->
+    App.set 'consoleMinimized', true
+    App.set 'consoleFullscreen', false
+
+  viewMaximizeConsole: ->
+    App.set 'consoleMinimized', false
+    @viewFocusConsole()
+
   viewToggleFullScreenConsole: ->
-    if consoleController = App.get 'router.ideConsoleController'
-      consoleController.toggleProperty 'fullscreen'
-      App.util.mixpanelIncrement 'ide_toggled_console_fullscreen_count'
-    this.viewFocusConsole()
+    App.toggleProperty 'consoleFullscreen'
+    App.set('consoleMinimized', false) if App.get('consoleFullscreen')
+    @viewFocusConsole()
 
   viewToggleFullScreenEditor: ->
-    @_toggleEditorProperty 'fullscreen'
-    this.viewFocusEditor()
+    App.toggleProperty 'editorFullscreen'
+    @viewFocusEditor()
 
   viewSelectTheme: (theme) ->
     if editorController = @get 'controllers.ideEditor'

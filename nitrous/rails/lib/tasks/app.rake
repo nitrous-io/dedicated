@@ -1,21 +1,22 @@
 namespace :build do
+  desc 'generate views'
   task generate_views: :environment do
     # map of desired html output path to render options
     locations = {
-      '/public/app/index.html' => {template: 'web_app/index'},
-      '/public/ide/index.html' => {template: 'web_app/ide'},
-      '/public/index.html' => {layout: 'layouts/home', template: 'pages/home'},
+      '/public/app/index.html' => {layout: 'layouts/web_app', template: 'web_app/index'},
+      '/public/ide/index.html' => {layout: 'layouts/web_app', template: 'web_app/ide'},
+      '/public/index.html' => {layout: 'layouts/pages', template: 'pages/home'},
+      '/public/pricing/index.html' => {layout: 'layouts/pages', template: 'pages/pricing'},
     }
 
     build_dir = ENV['BUILD_DIR']
     raise 'Missing BUILD_DIR' if !build_dir
 
-    avb = ActionView::Base.new(Rails::Application::Configuration.new(Rails.root).paths['app/views'])
-
     locations.each do |path, opts|
       full_path = File.join(build_dir, path)
       FileUtils.mkdir_p(File.dirname(full_path))
       puts "Writing to #{full_path} the results of render with #{opts}"
+      avb = ActionView::Base.new(Rails::Application::Configuration.new(Rails.root).paths['app/views'])
       File.write(full_path, avb.render(opts))
     end
   end

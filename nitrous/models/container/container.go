@@ -3,22 +3,25 @@ package container
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
-var slugRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*[a-z0-9]\z`)
+// must match freighter/provider.containerNameRe
+var slugRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
 
 var (
 	ErrSlugBlank    = errors.New("slug can't be blank")
-	ErrSlugInvalid  = errors.New("slug may only contain alphanumeric characters or dashes and cannot begin or end with a dash")
+	ErrSlugInvalid  = errors.New("slug may only contain alphanumeric characters or dashes and must begin with a letter")
 	ErrSlugTooShort = errors.New("slug is too short (minimum is 2 characters)")
-	ErrSlugTooLong  = errors.New("slug is too long (maximum is 255 characters)")
+	ErrSlugTooLong  = errors.New("slug is too long (maximum is 63 characters)")
 	ErrImageBlank   = errors.New("image can't be blank")
 	ErrLocked       = errors.New("container is locked")
 )
@@ -154,7 +157,7 @@ func (c *Container) Validate() error {
 	if nameLen < 2 {
 		return ErrSlugTooShort
 	}
-	if nameLen > 255 {
+	if nameLen > 63 {
 		return ErrSlugTooLong
 	}
 	if !slugRe.MatchString(c.Slug) {
@@ -208,4 +211,8 @@ func (c *Container) Unlock(d db.QueryReceiver) error {
 	_, err := d.Exec(`UPDATE containers SET locked_at = null WHERE id = $1;`, c.ID)
 	c.LockedAt = nil
 	return err
+}
+
+func (c *Container) PreviewHostname() string {
+	return fmt.Sprintf("%s.%s", c.Slug, envvars.PreviewHostname)
 }

@@ -1,16 +1,21 @@
+#= require ../mixins/inject-terminal-iframe-mixin
+
 optionHostImage = 'host-image'
 optionBaseImage = 'base-image'
+heightPadding = 16
 screens = ['image', 'config', 'progress']
 
-App.ContainersNewView = Lib.ContainerConfigView.extend
+unloadMessage = "WARNING: Leaving the app will cancel container creation."
+
+App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeMixin,
   elementId: 'containers-new-view'
   classNames: ['ui', 'card']
 
-  selectedOption: null
   selectedHostImage: null
-  selectedBaseImage: null
   customImage: null
-  terminal: null
+
+  selectedOptionBinding: "controller.selectedOption"
+  selectedTemplateBinding: "controller.selectedTemplate"
 
   nameFieldInvalid: Em.computed.equal('controller.invalidField', 'name')
   slugFieldInvalid: Em.computed.equal('controller.invalidField', 'slug')
@@ -20,22 +25,17 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
   showConfigScreen: Em.computed.equal('currentScreenIndex', screens.indexOf('config'))
   showProgressScreen: Em.computed.equal('currentScreenIndex', screens.indexOf('progress'))
 
+  showLog: false
+
   image: (->
     option = @get 'selectedOption'
     switch option
       when optionHostImage
         unless @get 'controller.hostImagesEmpty'
           @get 'selectedHostImage'
-      when optionBaseImage
-        @get 'selectedBaseImage'
       else
         @get 'customImage'
-  ).property 'selectedOption', 'selectedHostImage', 'selectedBaseImage', 'customImage', 'controller.hostImagesEmpty'
-
-  baseImageOptionDisabled: (->
-    !App.get('baseImages') || @get('controller.saving')
-  ).property 'App.baseImages', 'controller.saving'
-  hostImageOptionDisabled: Em.computed.or('controller.hostImagesEmpty', 'controller.saving')
+  ).property 'selectedOption', 'selectedHostImage', 'customImage', 'controller.hostImagesEmpty'
 
   firstScreenButtonLabel: (->
     if App.get('user.advanced')
@@ -45,8 +45,8 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
   ).property 'App.user.advanced'
 
   createButtonDisabled: (->
-    !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedHostSlug') && @get('image'))
-  ).property 'controller.name', 'controller.slug', 'controller.selectedHostSlug', 'image'
+    !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedHostSlug') && (@get('image') || @get('selectedTemplate')))
+  ).property 'controller.name', 'controller.slug', 'controller.selectedHostSlug', 'image', 'selectedTemplate'
 
   hideProgress: Em.computed.not('controller.saving')
   indeterminateProgress: Em.computed.none('controller.image.progress.progressDetail.start')
@@ -56,11 +56,22 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
       @set 'controller.selectedHostSlug', slug
   ).observes 'controller.preselectHost'
 
-  baseImagesDidChange: (->
-    return unless App.get('baseImages.length') > 0
-    unless @get 'selectedBaseImage'
-      @set 'selectedBaseImage', App.get('baseImages.firstObject.repo')
-  ).observes 'App.baseImages.@each'
+  selectedOptionDidChange: (->
+    if @get('selectedOption')
+      @set 'selectedTemplate', null
+  ).observes 'selectedOption'
+
+  templatesDidChange: (->
+    return unless App.get('templates.length') > 0
+    unless @get 'selectedTemplate'
+      @set 'selectedTemplate', App.get('templates.firstObject')
+  ).observes 'App.templates.@each'
+
+  selectedTemplateDidChange: (->
+    if @get 'selectedTemplate'
+      @set 'selectedOption', null
+      $('input[name=option]').removeAttr('checked')
+  ).observes 'selectedTemplate'
 
   hostsDidChange: (->
     Em.run.scheduleOnce 'afterRender', this, ->
@@ -81,8 +92,15 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
     @_super()
     App.slug.slugify(@$('#containers-new-name'), @$('#containers-new-slug'))
 
-    if App.get('baseImages.length') > 0 && !@get('selectedBaseImage')
-      @set 'selectedBaseImage', App.get('baseImages.firstObject.repo')
+    # if a new app creation is already in progress,
+    # directly go to that screen.
+    if @get('controller.saving')
+      @set 'currentScreenIndex', screens.indexOf('progress')
+
+    # warn user not to close the browser tab while pulling image
+    $(window).bind 'beforeunload.new-container', =>
+      if @get('controller.pullingImage')
+        unloadMessage
 
     @$('input[name=option]').on('change.containers-new', (ev) =>
       if $(ev.target).is(':checked')
@@ -109,7 +127,8 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
       lastStatus = ev.status
 
     Em.run.scheduleOnce 'afterRender', this, ->
-      App.injectTerminalIframe this
+      @injectTerminalIframe =>
+        @$('#containers-new-name').focus()
 
   willDestroyElement: ->
     @_super()
@@ -118,6 +137,7 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
     @$('input[name=option]').off('change.containers-new')
 
     App.off "progressReceived"
+    $(window).unbind 'beforeunload.new-container'
 
   actions:
     create: ->
@@ -142,3 +162,6 @@ App.ContainersNewView = Lib.ContainerConfigView.extend
 
     closeEnvVar: ->
       ui.hideModal('#env-vars-dialog')
+
+    toggleLog: ->
+      @toggleProperty 'showLog'

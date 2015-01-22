@@ -268,7 +268,7 @@ end
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.hostname = 'dedicated-vm'
-  config.vm.box = 'nitrous-io/trusty64'
+  config.vm.box = 'petejkim/trusty64'
 
   config.vm.provider :virtualbox do |v|
     v.memory = ENV['DEDICATED_VM_MEM'] || 2048
@@ -296,5 +296,5 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.ssh.forward_agent = true
   config.vm.provision 'shell', inline: $script
 
-  config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/nitrous-io/dedicated"
+  config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/nitrous-io/dedicated", type: "nfs"
 end

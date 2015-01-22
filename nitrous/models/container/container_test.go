@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -566,11 +567,11 @@ var _ = Describe("models/container", func() {
 		})
 
 		It("validates name", func() {
-			buf := make([]byte, 256)
+			buf := make([]byte, 64)
 			for i := range buf {
 				buf[i] = 'f'
 			}
-			s := string(buf) // "f" * 256.
+			s := string(buf) // "f" * 64.
 
 			tests := []struct {
 				input string
@@ -584,7 +585,7 @@ var _ = Describe("models/container", func() {
 				{"f", container.ErrSlugTooShort},
 				{"ffffffffffffffffffffffffffffff", nil},
 				{s, container.ErrSlugTooLong},
-				{s[:255], nil},
+				{s[:63], nil},
 				{"foo-", container.ErrSlugInvalid},
 				{"f-o-0-", container.ErrSlugInvalid},
 				{"-foo", container.ErrSlugInvalid},
@@ -742,6 +743,16 @@ var _ = Describe("models/container", func() {
 
 			err := c.Unlock(db)
 			Expect(err).NotTo(BeNil())
+		})
+	})
+
+	Describe("PreviewHostname()", func() {
+		It("return the container's preview hostname", func() {
+			orig := envvars.PreviewHostname
+			envvars.PreviewHostname = "n2otest.com"
+			defer func() { envvars.PreviewHostname = orig }()
+			c := &container.Container{Slug: "hello"}
+			Expect(c.PreviewHostname()).To(Equal("hello.n2otest.com"))
 		})
 	})
 })

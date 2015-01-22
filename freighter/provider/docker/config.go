@@ -45,18 +45,17 @@ func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrus
 	dcConfig.Cmd = make([]string, len(cfg.Cmd))
 	copy(dcConfig.Cmd, cfg.Cmd)
 
-	// Expose ports that are not explicitly mapped to a host port.
 	bs, err := parsers.ParsePortBindings(cfg.PortBindings, p.gateway)
 	if err != nil {
 		return nil, err
 	}
-	for port, bindings := range bs {
-		for _, binding := range bindings {
-			if binding.HostPort == "" {
-				dcConfig.ExposedPorts[dockerclient.Port(port)] = struct{}{}
-				break
-			}
-		}
+	// all exposed ports from the container will need to be saved here,
+	// otherwise docker will not create the iptables rules and the local proxy
+	// even if it saves the port pairs ( as of v 1.4.1 ).
+	// The actual public:private ports' rules will then be calculated from the
+	// HostConfig.
+	for port, _ := range bs {
+		dcConfig.ExposedPorts[dockerclient.Port(port)] = struct{}{}
 	}
 
 	if isTrustedImage {

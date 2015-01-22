@@ -11,22 +11,35 @@ type Template struct {
 	Slug        string     `json:"slug"`
 	Name        string     `json:"name"`
 	Description string     `json:"description"`
+	Type        string     `json:"type"`
 	CreatedAt   *time.Time `json:"created_at"`
 	UpdatedAt   *time.Time `json:"updated_at"`
+
+	Images []string `json:"images"`
 }
 
 func SerializeTemplate(t *template.Template) *Template {
 	if t == nil {
 		return nil
 	}
-	return &Template{
+	base := &Template{
 		ID:          t.ID,
 		Slug:        t.Slug,
 		Name:        t.Name.String,
 		Description: t.Description.String,
+		Type:        t.Type,
 		CreatedAt:   t.CreatedAt,
 		UpdatedAt:   t.UpdatedAt,
+		Images:      []string{},
 	}
+
+	conf, err := t.ParsedConfig()
+	if err == nil {
+		for _, con := range conf.Containers {
+			base.Images = append(base.Images, con.Image)
+		}
+	}
+	return base
 }
 
 func SerializeTemplates(tmpls []*template.Template) []*Template {

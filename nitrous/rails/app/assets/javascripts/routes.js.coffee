@@ -5,6 +5,7 @@ App.Router.map ->
   @route 'forgot-password'
   @route 'reset-password'
   @route 'confirm-email'
+  @route 'pricing'
 
   @resource 'home', path: '/', ->
     @resource 'containers', path: '/applications', ->
@@ -35,6 +36,8 @@ App.Router.map ->
     @resource 'account'
     @resource 'billing'
     @resource 'add-card'
+    @resource 'provider-templates', path: '/provider-templates'
+    @resource 'provider-template', path: '/provider-templates/:ptid'
 
   @resource 'admin', ->
     @route 'hosts', path: 'hosts/:provider'

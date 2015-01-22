@@ -29,6 +29,8 @@ type InvoiceItem struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
+const MaxHours = 28 * 24
+
 var (
 	ErrMissingHostIDCredit = errors.New("Host ID or Credit value != 0 must be provided")
 	ErrCreditInvalid       = errors.New("Credit value must be > 0")
@@ -36,6 +38,7 @@ var (
 	ErrHourlyPriceInvalid  = errors.New("Hourly Price must not be NULL")
 	ErrHoursNotPositive    = errors.New("Hours must be greater than 0")
 	ErrHourlyPriceNegative = errors.New("HourlyPrice must not be a negative")
+	ErrHoursExceedMaxHours = errors.New("Hours must be less than/equal to MaxHours")
 )
 
 func ItemDescription(i *InvoiceItem, hst *host.Host) string {
@@ -114,6 +117,9 @@ func (i *InvoiceItem) validate() error {
 		}
 		if i.Hours.Int64 <= 0 {
 			return ErrHoursNotPositive
+		}
+		if i.Hours.Int64 > MaxHours {
+			return ErrHoursExceedMaxHours
 		}
 		if !i.HourlyPrice.Valid {
 			return ErrHourlyPriceInvalid

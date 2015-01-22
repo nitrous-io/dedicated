@@ -1,8 +1,9 @@
 App.HostsNewController = Em.ObjectController.extend
+  canSelectPlan: true
   name: null
   slug: null
   selectedRegionSlug: null
-  selectedPlanSlug: null
+  selectedPlan: null
   error: null
   invalidField: null
   host: null
@@ -13,36 +14,52 @@ App.HostsNewController = Em.ObjectController.extend
       name: null
       slug: null
       selectedRegionSlug: null
-      selectedPlanSlug: null
+      selectedPlan: App.get('plans.firstObject')
       error: null
       invalidField: null
       host: null
       saving: false
 
-  selectedPlan: (->
-    if slug = @get('selectedPlanSlug')
-      App.get('plans').findBy('slug', slug)
-  ).property 'selectedPlanSlug', 'App.plans.@each'
+  canCancel: (->
+    !App.get('noHost')
+  ).property 'App.noHost'
+
+  plansDidChange: (->
+    unless @get('selectedPlan')
+      @set('selectedPlan', App.get('plans.firstObject'))
+  ).observes 'App.plans.@each'
 
   actions:
+    selectPlan: (plan)->
+      @set 'selectedPlan', plan
+
     cancel: ->
       @transitionToRoute 'home.index'
       false
 
-    create: (templateSlug) ->
-      @set 'saving', true
-      name = @get 'name'
-      slug = @get 'slug'
+    create: ->
+      host = @get 'host'
+      if host
+        # restore
+        @set 'name', host.get('name')
+        @set 'slug', host.get('slug')
+      else
+        host = App.Host.create
+          regionSlug: @get('selectedRegionSlug')
+          planSlug: @get('selectedPlan.slug')
+          templateSlug: ""
+          name: @get 'name'
+          slug: @get 'slug'
+
+        @set 'host', host
+
+      if App.get('newUser') && App.get('user.billingEnabled')
+        App.set('pendingHost', host)
+        @transitionToRoute 'add-card'
+        return
 
       events = App.get 'eventsSocket'
-
-      host = App.Host.create
-        regionSlug: @get('selectedRegionSlug')
-        planSlug: @get('selectedPlanSlug')
-        templateSlug: templateSlug
-        name: name
-        slug: slug
-      @set 'host', host
+      @set 'saving', true
 
       onHostCreateFailed = (data) =>
         hostData = data.host
@@ -57,8 +74,8 @@ App.HostsNewController = Em.ObjectController.extend
         return unless hostData.id == host.get('id')
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
-        @transitionToRoute 'host.index', slug
-        App.snackbar.post("Your new workspace “#{name}” was created successfully.")
+        @transitionToRoute 'host.index', host.get('slug')
+        App.snackbar.post("Your new workspace “#{host.get('name')}” was created successfully.")
         @set 'saving', false
 
       events.on 'host.create_failed', onHostCreateFailed

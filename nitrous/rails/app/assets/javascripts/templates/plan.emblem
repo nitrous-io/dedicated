@@ -1,0 +1,36 @@
+h4
+  = plan.name
+h3
+  ' $
+  = plan.priceInDollars
+  '
+  span
+    | / mo.
+.content
+  ul.features
+    li.max-containers
+      ' Up to
+      span
+        = plan.maxContainers
+      '
+      | Applications
+    li
+      span
+        = plan.memory
+      '
+      | Memory
+    li
+      span
+        = plan.storage
+      '
+      | Storage
+    li
+      | Root Access
+    li
+      | Dedicated Resources
+  if canSelectPlan
+    button.ui.btn.primary.raised class={view.isSelected:active} click='selectPlan plan'
+      | Select This Plan
+if plan.mostPopular
+  .ribbon
+    p Most Popular

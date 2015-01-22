@@ -1,7 +1,7 @@
 .sidebar-body
   .ide-toolbar.top
     h2
-      = App.router.indexController.content.name
+      = App.router.ideController.content.name
     .ide-toolbar-btns
       button.ui.btn.icon title='Set Home Folder As Root' click='didClickSetHomeAsRoot target="view"' disabled=opsSocketNotReady
         i.fa.fa-home

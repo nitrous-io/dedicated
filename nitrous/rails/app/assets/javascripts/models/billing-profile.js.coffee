@@ -11,11 +11,12 @@ App.BillingProfile = klass = App.Model.extend
   expYear: attr(as: 'exp_year', serialize: false)
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'created_at', serialize: false)
+  cardRequired: attr('boolean', as: 'card_required', serialize: false)
 
   cardToken: attr(as: 'card_token')
 
   paid: (->
-    @get('state') == 'paid' 
+    @get('state') == 'paid'
   ).property 'state'
 
   expiry: (->

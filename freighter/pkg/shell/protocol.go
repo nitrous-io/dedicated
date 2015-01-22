@@ -1,11 +1,11 @@
 // this handles our websocket protocol
 // server <--> client
-// --> d|action@foobar $ # output from server
-// <-- d|whoami          # input from client
-// --> d|action          # output from server
-// <-- r|80 25           # resize from client
-// <-- c|good bye        # close msg from client
-// --> c|                # close msg from server
+// --> d|nitrous@foobar $ # output from server
+// <-- d|whoami           # input from client
+// --> d|nitrous          # output from server
+// <-- r|80 25            # resize from client
+// <-- c|good bye         # close msg from client
+// --> c|                 # close msg from server
 //
 // NOT IMPLEMENTED
 // <-- h                  # heartbeat from client

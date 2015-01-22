@@ -1,43 +1,158 @@
 - @title = 'Nitrous Pro'
+- @html_class = 'home'
 
-.pc
-  .cc
-    .section
-      .logo
-        | Nitrous
-        span
-          | Pro
-
-      .etl
-        | Enter your email to join the waitlist. No spam, promise.
-
-      .email-form
-        erb:
-          <!-- Begin MailChimp Signup Form -->
-          <div id="mc_embed_signup">
-            <form action="//nitrous.us4.list-manage.com/subscribe/post?u=40aef44b6df80a146dc4163c7&amp;id=3a715be40a" method="post" id="mc-embedded-subscribe-form" name="mc-embedded-subscribe-form" class="validate" target="_blank" novalidate>
-              <div id="mc_embed_signup_scroll">
-
-              <input type="email" value="" name="EMAIL" class="email" id="mce-EMAIL" placeholder="email address" required>
-              <!-- real people should not fill this in and expect good things - do not remove this or risk form bot signups-->
-              <div style="position: absolute; left: -5000px;"><input type="text" name="b_40aef44b6df80a146dc4163c7_3a715be40a" tabindex="-1" value=""></div>
-                <input class="btn raised" type="submit" value="Go" name="subscribe" id="mc-embedded-subscribe" class="button">
-              </div>
-            </form>
-          </div>
-
-          <!--End mc_embed_signup-->
-
-    .section
-      .login
-        a.btn href="/app#/login" Private Beta Login
-
-= content_for :body_head
+- content_for :body_before
   javascript:
+    // redirect to web app if logged in
     if(localStorage.getItem('token')) {
-       window.location.replace('/app')
+       window.location.replace('/app');
     }
 
-= content_for :body_tail
+- content_for :body_after
   javascript:
-    pages.Home.init()
+    pages.Home.init();
+
+
+#home
+  = render 'layouts/topnav'
+  .page
+    .masthead
+      .bg
+
+      .container
+        .home-copy
+          h2
+            | Set Up Development Environments Painlessly
+          h3
+            | Create Powerful Web Applications in Record Time
+
+        .get-started
+          form id="get-started" action='/app#/signup' method="GET"
+            .ui.input-group
+              input.email-field type='email' placeholder='Email Address' name='email' required=true
+              input.ui.btn.primary.raised type='submit' value='Get Started'
+
+        .overviews
+          .overview.ide.fadeout
+            .screen.first
+              .titlebar
+                .button.close
+                .button.minimize
+                .button.zoom
+                | Nitrous - Web Browser
+              .screenshot
+            .annotations.right
+              .annotation.first
+                p
+                  | Runs entirely in the cloud;
+                  br
+                  | no installation required
+
+              .annotation.second
+                p
+                  | Powerful code-editor
+                  br
+                  | in the browser, with
+                  br
+                  | rich language support
+
+              .annotation.third
+                p
+                  | Dedicated Linux VMs
+                  br
+                  | with full root-enabled
+                  br
+                  | shell access
+
+          .overview.main.fadeout
+            .screen.first
+              .titlebar
+                .button.close
+                .button.minimize
+                .button.zoom
+                | Nitrous - Web Browser
+              .screenshot
+            .annotations.left
+              .annotation.first
+                p
+                  | Create &amp; manage
+                  br
+                  | multiple applications
+                  br
+                  | in a workspace
+
+              .annotation.second
+                p
+                  | Create custom environments
+                  br
+                  | with Docker images
+                  br
+                  | (Advanced Option)
+
+          .overview.desktop.fadeout
+            .screen.first
+              .titlebar
+                .button.close
+                .button.minimize
+                .button.zoom
+                | Nitrous Sync
+              .screenshot
+            .screen.second
+              .titlebar
+                .button.close
+                .button.minimize
+                .button.zoom
+                | Finder
+              .screenshot
+            .screen.third
+              .titlebar
+                .button.close
+                .button.minimize
+                .button.zoom
+                | SSH
+              .screenshot
+            .annotations.right
+              .annotation.first
+                p
+                  | Synchronize your codebase
+                  br
+                  | between Nitrous Cloud and
+                  br
+                  | your local file system.
+
+              .annotation.second
+                p
+                  | View and edit your
+                  br
+                  | code using your favorite
+                  br
+                  | desktop text editor.
+
+              .annotation.third
+                p
+                  | Access your development environments
+                  br
+                  | directly with SSH
+
+    .companies
+      .container
+        h4 Trusted By Developers At These Amazing Organizations
+
+        .logos
+          .row
+            = image_tag 'home/sendgrid.svg',   class: 'sendgrid',   alt: 'Sendgrid'
+            = image_tag 'home/shopify.svg',    class: 'shopify',    alt: 'Shopify'
+            = image_tag 'home/thoughtbot.svg', class: 'thoughtbot', alt: 'thoughtbot'
+            = image_tag 'home/balanced.png',   class: 'balanced',   alt: 'Balanced'
+            = image_tag 'home/zendesk.svg',    class: 'zendesk',    alt: 'Zendesk'
+            = image_tag 'home/harvard.png',    class: 'harvard',    alt: 'Harvard University'
+          .row
+            = image_tag 'home/heroku.svg',     class: 'heroku',     alt: 'Heroku'
+            = image_tag 'home/visa.svg',       class: 'visa',       alt: 'Visa'
+            = image_tag 'home/tilde.png',      class: 'tilde',      alt: 'Tilde'
+            = image_tag 'home/ibm.svg',        class: 'ibm',        alt: 'IBM'
+            = image_tag 'home/tencent.svg',    class: 'tencent',    alt: 'Tencent'
+            = image_tag 'home/emc.svg',        class: 'emc',        alt: 'EMC'
+            = image_tag 'home/mit.png',        class: 'mit',        alt: 'MIT'
+
+  = render 'layouts/footer'

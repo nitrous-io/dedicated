@@ -1,0 +1,1 @@
+App.ProviderTemplatesController = Em.ObjectController.extend()

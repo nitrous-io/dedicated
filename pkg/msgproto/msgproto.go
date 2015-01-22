@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"sync"
 )
 
 var (
@@ -137,6 +138,40 @@ func (w *Writer) Write(p []byte) (int, error) {
 	copy(buf[2:], p)
 	_, err := w.writer.Write(buf)
 	return l, err
+}
+
+var maxBufferSize = 3 * 1024 * 1024 // 3 megabytes
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		buf := make([]byte, maxBufferSize)
+		return &buf
+	},
+}
+
+// We implement ReadFrom so that io.Copy() will use this method to do the copy.
+// We do this because we want to have a large enough buffer to contain a data
+// message in a single write.
+func (w *Writer) ReadFrom(r io.Reader) (int64, error) {
+	bufp := bufferPool.Get().(*[]byte)
+	defer bufferPool.Put(bufp)
+	buf := *bufp
+
+	var totalRead int64
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			totalRead += int64(n)
+			if _, err := w.Write(buf[0:n]); err != nil {
+				return totalRead, err
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				return totalRead, nil
+			}
+			return totalRead, err
+		}
+	}
 }
 
 // Close sends a close message to the client, but does not close the underlying

@@ -1,29 +1,35 @@
 App.SignupController = Em.Controller.extend
+  queryParams: [{ incomingEmail: 'email' }]
   code: null
   user: null
-  confirmPassword: null
   signingUp: false
   error: null
   invalidField: null
+  suggestedEmail: null
 
   clear: ->
     @setProperties
       code: null
       user: App.User.create()
-      confirmPassword: null
       signingUp: false
       error: null
       invalidField: null
 
+  handleIncomingEmail: ->
+    return unless email = @get("incomingEmail")
+    @get('user').setProperties
+      email: email
+      username: email.match(/^([^@]+)@/)?[1]
+    App.User.adapter.ajax('POST', '/users/email_signup', email: email)
+
   actions:
+    acceptSuggestedEmail: ->
+      if @get('suggestedEmail')
+        @set('user.email', @get('suggestedEmail'))
+
     signup: ->
       @set 'error', null
       @set 'invalidField', null
-
-      if @get('user.password') != @get('confirmPassword')
-        App.snackbar.post("Password doesn't match the confirmation.")
-        return
-
       @set 'signingUp', true
       code = @get 'code'
       user = @get 'user'

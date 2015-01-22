@@ -4,40 +4,22 @@ menuItem = (name, attrs={}) ->
   App.MenuItem.createWithMixins(attrs)
 separator = App.MenuItem.create(separator: true)
 
-previewMenu = menu 'Preview', [
-  App.MenuItem.createWithMixins
-    previewPortBinding: Em.Binding.oneWay 'App.container.previewPort'
-    name: (->
-      if previewPort = @get 'previewPort'
-        "Port #{@get 'previewPort'}"
-      else
-        "Not available"
-    ).property 'previewPort'
-    disabled: Em.computed.not 'previewPort'
-    urlBinding: Em.Binding.oneWay 'App.container.previewURL'
-    target: '_blank'
-  separator
-  menuItem 'Preview Help',
-    url: 'http://help.nitrous.io/categories/previewing/'
-    target: '_blank'
-]
-
 helpMenu = menu 'Help', [
   menuItem 'Help Center',
-    url: 'http://help.nitrous.io/'
+    url: 'http://docs.nitrous.io/'
     target: '_blank'
   menuItem 'Web IDE Overview',
     url: 'http://help.nitrous.io/ide-general'
     target: '_blank'
   menuItem 'Frequently Asked Questions',
-    url: 'http://help.nitrous.io/categories/faq'
+    url: 'http://docs.nitrous.io/v1.0/docs/billing--pricing-faq'
     target: '_blank'
   separator
   menuItem 'Blog',
     url: 'http://blog.nitrous.io/'
     target: '_blank'
   menuItem 'Updates',
-    url: 'http://updates.nitrous.io/'
+    url: 'http://docs.nitrous.io/v1.0/blog'
     target: '_blank'
   separator
   menuItem 'Report an Issue...',
@@ -83,8 +65,6 @@ themesMenu = menu 'Themes', _.map [
   else
     menuItem theme.label,
       callback: (controller) ->
-        App.util.mixpanel "IDE Theme Change", name: theme.name
-        App.util.mixpanelUpdateUser "IDE Theme": theme.name
         controller.viewSelectTheme theme.name
       checked: (->
         if currentTheme = App.get('router.ideEditorController.theme')
@@ -96,156 +76,204 @@ App.IdeMainMenuView = Em.View.extend
   elementId: 'ide-main-menu-view'
 
   previewPortBinding: Em.Binding.oneWay 'App.container.previewPort'
+  dashboardURL: ( ->
+    "/app/#/applications/#{App.get 'container.slug'}"
+  ).property 'App.container.slug'
 
-  menu: [
-    menu 'N', [
-      menuItem 'About Nitrous', callback: ->
-        ui.showModal($('#about-nitrous'))
+  previewItems: (->
+    baseItems = []
+    App.get('container.previewablePorts').map (port)->
+      txt = "Port #{port.containerPort}"
+      if port.preview
+        txt = "#{txt} (Default)"
+      item = menuItem txt,
+        url: "https://#{App.get 'container.preview_hostname'}:#{port.containerPort}"
+        target: '_blank'
+
+      if port.preview
+        baseItems.unshift(item)
+      else
+        baseItems.push(item)
+
+    if baseItems.length == 0
+      baseItems.push(
+        menuItem 'No ports available',
+          disabled: true
+      )
+
+    baseItems.push(
+      separator,
+      menuItem 'Configure Ports',
+        url: "#{@get('dashboardURL')}/ports"
+        target: "_blank",
+      separator,
+      menuItem 'Preview Help',
+        url: 'http://docs.nitrous.io/v1.0/docs/preview'
+        target: '_blank'
+    )
+    baseItems
+  ).property 'App.container', 'App.container.previewablePorts.@each'
+
+  menu: (->
+    [
+      menu 'N', [
+        menuItem 'About Nitrous', callback: ->
+          ui.showModal($('#about-nitrous'))
+      ]
+      menu 'File', [
+        menuItem 'New', macKey: 'shift+ctrl+n', pcKey: 'ctrl+alt+n', callback: (controller) ->
+          controller.fileNew()
+        menuItem 'Save',
+          macKey: ['command+s', 'ctrl+s', 'shift+ctrl+s'], pcKey: ['ctrl+s', 'ctrl+alt+s']
+          disabled: (->
+            App.get('router.ideEditorController.hasNoTab') || App.get('router.ideController.opsSocketNotReady')
+          ).property 'App.router.ideEditorController.hasNoTab', 'App.router.ideController.opsSocketNotReady'
+          callback: (controller) ->
+            controller.fileSave()
+        separator
+        menuItem 'Refresh Tree',
+          macKey: ['shift+ctrl+r'], pcKey: ['ctrl+alt+r']
+          disabledBinding: Em.Binding.oneWay('App.router.ideSidebarController.opsSocketNotReady')
+          callback: (controller) ->
+            controller.fileRefreshTree()
+        separator
+        menuItem 'Go to File...',
+          macKey: ['shift+ctrl+p'], pcKey: ['shift+ctrl+p']
+          disabledBinding: Em.Binding.oneWay('App.router.ideController.opsSocketNotReady')
+          callback: (controller) ->
+            controller.fileGoToFile()
+        separator
+        menuItem 'Close',
+          macKey: ['shift+ctrl+w', 'ctrl+w'], pcKey: 'ctrl+alt+w'
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.fileClose()
+      ]
+      menu 'Edit', [
+        menuItem 'Find',
+          macKey: ['command+f'], pcKey: ['ctrl+f']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.editFind()
+        menuItem 'Find Next',
+          macKey: ['command+g'], pcKey: ['ctrl+g']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.editFindNext()
+        menuItem 'Select Next',
+          macKey: ['command+d'], pcKey: ['ctrl+d']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.editSelectNext()
+        menuItem 'Find Previous',
+          macKey: ['shift+command+g'], pcKey: ['shift+ctrl+g']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.editFindPrevious()
+        menuItem 'Find in Project...',
+          macKey: ['shift+command+f'], pcKey: ['shift+ctrl+f']
+          disabledBinding: Em.Binding.oneWay('App.router.ideController.opsSocketNotReady')
+          disabled: true
+          callback: (controller) ->
+            controller.editFindInProject()
+        separator
+        menuItem 'Replace',
+          macKey: ['command+option+f'], pcKey: ['shift+ctrl+h']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.editReplace()
+        menuItem 'Replace All',
+          macKey: ['shift+command+option+f'], pcKey: ['shift+ctrl+r']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.editReplaceAll()
+        separator
+        menuItem 'Fold',
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.editFoldCode()
+        menuItem 'Unfold',
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.editUnfoldCode()
+        separator
+        menuItem 'Toggle Comment',
+          macKey: ['command+/'], pcKey: ['ctrl+/']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.editToggleComment()
+        menuItem 'Split Selection into Lines',
+          macKey: ['shift+ctrl+l'], pcKey: ['shift+ctrl+l']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.editSplitSelectionIntoLines()
+        separator
+        menuItem 'Auto-close Brackets & Quotes',
+          callback: (controller) ->
+            controller.toggleAutoCloseBrackets()
+          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.autoCloseBrackets')
+        separator
+        menuItem 'Use Vim Key Bindings',
+          callback: (controller) ->
+            if @get('checked')
+              controller.editSetKeybindings('default')
+            else
+              controller.editSetKeybindings('vim')
+          checked: (->
+            'vim' == App.get('router.ideEditorController.keybindings')
+          ).property 'App.router.ideEditorController.keybindings'
+      ]
+      menu 'View', [
+        menuItem 'Select Next Tab', macKey: 'shift+ctrl+]', pcKey: 'shift+ctrl+]', callback: (controller) ->
+          controller.viewSelectNextTab()
+        menuItem 'Select Previous Tab', macKey: 'shift+ctrl+[', pcKey: 'shift+ctrl+[', callback: (controller) ->
+          controller.viewSelectPreviousTab()
+        separator
+        menuItem 'Focus Console', macKey: 'shift+ctrl+c', pcKey: 'ctrl+alt+c', callback: (controller) ->
+          controller.viewFocusConsole()
+        menuItem 'Minimize Console',
+          hideBinding: Em.Binding.oneWay('App.consoleMinimized')
+          callback: (controller) ->
+            controller.viewMinimizeConsole()
+        menuItem 'Maximize Console',
+          hide: (->
+            !App.get('consoleMinimized')
+          ).property('App.consoleMinimized')
+          callback: (controller) ->
+            controller.viewMaximizeConsole()
+        menuItem 'Toggle Full Screen Console', macKey: 'shift+ctrl+f', pcKey: 'ctrl+alt+f', callback: (controller) ->
+          controller.viewToggleFullScreenConsole()
+        menuItem 'Toggle Full Screen Editor', macKey: 'shift+ctrl+e', pcKey: 'ctrl+alt+e', callback: (controller) ->
+          controller.viewToggleFullScreenEditor()
+        separator
+        menuItem 'Themes', submenu: themesMenu
+        separator
+        menuItem 'Show Trailing Whitespace',
+          callback: (controller) ->
+            controller.viewToggleTrailingSpace()
+          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.showTrailingSpace')
+        menuItem 'Show Line Numbers',
+          callback: (controller) ->
+            controller.viewToggleLineNumbers()
+          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.showLineNumbers')
+        menuItem 'Highlight Line',
+          callback: (controller) ->
+            controller.viewToggleHighlightLine()
+          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.highlightLine')
+        menuItem 'Highlight Matching Brackets',
+          callback: (controller) ->
+            controller.viewToggleMatchBrackets()
+          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.matchBrackets')
+        menuItem 'Wrap Long Lines',
+          callback: (controller) ->
+            controller.viewToggleWrapLines()
+          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.wrapLines')
+        menuItem 'Ruler', submenu: rulerMenu
+      ]
+      menu 'Preview', @get('previewItems')
+      helpMenu
     ]
-    menu 'File', [
-      menuItem 'New', macKey: 'shift+ctrl+n', pcKey: 'ctrl+alt+n', callback: (controller) ->
-        controller.fileNew()
-      menuItem 'Save',
-        macKey: ['command+s', 'ctrl+s', 'shift+ctrl+s'], pcKey: ['ctrl+s', 'ctrl+alt+s']
-        disabled: (->
-          App.get('router.ideEditorController.hasNoTab') || App.get('router.indexController.opsSocketNotReady')
-        ).property 'App.router.ideEditorController.hasNoTab', 'App.router.indexController.opsSocketNotReady'
-        callback: (controller) ->
-          controller.fileSave()
-      separator
-      menuItem 'Refresh Tree',
-        macKey: ['shift+ctrl+r'], pcKey: ['ctrl+alt+r']
-        disabledBinding: Em.Binding.oneWay('App.router.ideSidebarController.opsSocketNotReady')
-        callback: (controller) ->
-          controller.fileRefreshTree()
-      separator
-      menuItem 'Go to File...',
-        macKey: ['shift+ctrl+p'], pcKey: ['shift+ctrl+p']
-        #disabledBinding: Em.Binding.oneWay('App.router.ideController.commandSocketNotReady')
-        disabled: true
-        callback: (controller) ->
-          controller.fileGoToFile()
-      separator
-      menuItem 'Close',
-        macKey: ['shift+ctrl+w', 'ctrl+w'], pcKey: 'ctrl+alt+w'
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
-        callback: (controller) ->
-          controller.fileClose()
-    ]
-    menu 'Edit', [
-      menuItem 'Find',
-        macKey: ['command+f'], pcKey: ['ctrl+f']
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
-        callback: (controller) ->
-          controller.editFind()
-      menuItem 'Find Next',
-        macKey: ['command+g'], pcKey: ['ctrl+g']
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
-        callback: (controller) ->
-          controller.editFindNext()
-      menuItem 'Select Next',
-        macKey: ['command+d'], pcKey: ['ctrl+d']
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
-        callback: (controller) ->
-          controller.editSelectNext()
-      menuItem 'Find Previous',
-        macKey: ['shift+command+g'], pcKey: ['shift+ctrl+g']
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
-        callback: (controller) ->
-          controller.editFindPrevious()
-      menuItem 'Find in Project...',
-        macKey: ['shift+command+f'], pcKey: ['shift+ctrl+f']
-        #disabledBinding: Em.Binding.oneWay('App.router.ideController.commandSocketNotReady')
-        disabled: true
-        callback: (controller) ->
-          controller.editFindInProject()
-      separator
-      menuItem 'Replace',
-        macKey: ['command+option+f'], pcKey: ['shift+ctrl+h']
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
-        callback: (controller) ->
-          controller.editReplace()
-      menuItem 'Replace All',
-        macKey: ['shift+command+option+f'], pcKey: ['shift+ctrl+r']
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
-        callback: (controller) ->
-          controller.editReplaceAll()
-      separator
-      menuItem 'Fold',
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
-        callback: (controller) ->
-          controller.editFoldCode()
-      menuItem 'Unfold',
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
-        callback: (controller) ->
-          controller.editUnfoldCode()
-      separator
-      menuItem 'Toggle Comment',
-        macKey: ['command+/'], pcKey: ['ctrl+/']
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
-        callback: (controller) ->
-          controller.editToggleComment()
-      menuItem 'Split Selection into Lines',
-        macKey: ['shift+ctrl+l'], pcKey: ['shift+ctrl+l']
-        disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
-        callback: (controller) ->
-          controller.editSplitSelectionIntoLines()
-      separator
-      menuItem 'Auto-close Brackets & Quotes',
-        callback: (controller) ->
-          controller.toggleAutoCloseBrackets()
-        checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.autoCloseBrackets')
-      separator
-      menuItem 'Use Vim Key Bindings',
-        callback: (controller) ->
-          if @get('checked')
-            controller.editSetKeybindings('default')
-          else
-            controller.editSetKeybindings('vim')
-        checked: (->
-          'vim' == App.get('router.ideEditorController.keybindings')
-        ).property 'App.router.ideEditorController.keybindings'
-    ]
-    menu 'View', [
-      menuItem 'Select Next Tab', macKey: 'shift+ctrl+]', pcKey: 'shift+ctrl+]', callback: (controller) ->
-        controller.viewSelectNextTab()
-      menuItem 'Select Previous Tab', macKey: 'shift+ctrl+[', pcKey: 'shift+ctrl+[', callback: (controller) ->
-        controller.viewSelectPreviousTab()
-      separator
-      menuItem 'Focus Console', macKey: 'shift+ctrl+c', pcKey: 'ctrl+alt+c', callback: (controller) ->
-        controller.viewFocusConsole()
-      menuItem 'Toggle Full Screen Console', macKey: 'shift+ctrl+f', pcKey: 'ctrl+alt+f', callback: (controller) ->
-        controller.viewToggleFullScreenConsole()
-      menuItem 'Toggle Full Screen Editor', macKey: 'shift+ctrl+e', pcKey: 'ctrl+alt+e', callback: (controller) ->
-        controller.viewToggleFullScreenEditor()
-      separator
-      menuItem 'Themes', submenu: themesMenu
-      separator
-      menuItem 'Show Trailing Whitespace',
-        callback: (controller) ->
-          controller.viewToggleTrailingSpace()
-        checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.showTrailingSpace')
-      menuItem 'Show Line Numbers',
-        callback: (controller) ->
-          controller.viewToggleLineNumbers()
-        checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.showLineNumbers')
-      menuItem 'Highlight Line',
-        callback: (controller) ->
-          controller.viewToggleHighlightLine()
-        checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.highlightLine')
-      menuItem 'Highlight Matching Brackets',
-        callback: (controller) ->
-          controller.viewToggleMatchBrackets()
-        checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.matchBrackets')
-      menuItem 'Wrap Long Lines',
-        callback: (controller) ->
-          controller.viewToggleWrapLines()
-        checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.wrapLines')
-      menuItem 'Ruler', submenu: rulerMenu
-    ]
-    previewMenu
-    helpMenu
-  ]
+  ).property()
 
   currentYear: (->
     new Date().getFullYear()

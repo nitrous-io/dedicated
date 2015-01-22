@@ -46,15 +46,10 @@
     div:last-of-type
       margin-left: 8px
 
-  .image-selection
-    .base-images
-      margin: 0 0 0 52px
-      padding: 0
-      list-style: none
+  .ui.btn.primary
+    cursor: pointer
 
-      &.basic
-        margin: 0
-
+  .custom-image
     .checkbox-group
       margin-bottom: 0
 
@@ -67,3 +62,23 @@
   .container-config-btns
     .ui.btn
       margin-right: 16px
+
+  ul.templates
+    > li
+      .content
+        width: 176px
+        display: flex
+        flex-direction: row
+        align-items: center
+
+      .icon, .icon > div
+        flex-shrink: 0
+        width: 50px
+        height: 50px
+        background-size: 50px 50px
+        background-repeat: none
+        border-radius: 2px
+
+      .label
+        font-size: 14px
+        margin-left: 8px

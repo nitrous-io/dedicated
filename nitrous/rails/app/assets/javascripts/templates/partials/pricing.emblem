@@ -1,0 +1,5 @@
+.pricing-table
+  .card-body.bordered
+    = partial 'partials/plans'
+  .card-body.bordered
+    = partial 'partials/pricing-description'

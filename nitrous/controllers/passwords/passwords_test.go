@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -134,6 +135,28 @@ var _ = Describe("controllers/passwords", func() {
 				u, err := user.FindByID(db, u.ID)
 				Expect(err).To(BeNil())
 				Expect(u.EncryptedPassword).NotTo(Equal(oldPassword))
+			})
+
+			It("removes all other login tokens", func() {
+				_, err := db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke1", token.TypeLogin)
+				Expect(err).To(BeNil())
+				_, err = db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke2", token.TypeHost)
+				Expect(err).To(BeNil())
+
+				err = u.SetResetPasswordToken(db)
+				Expect(err).To(BeNil())
+
+				res := doRequest(u.ResetPasswordToken.String, "newpass")
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				type con struct {
+					Token string `db:"token"`
+				}
+				tokens := []con{}
+				err = db.Select(&tokens, `SELECT token FROM tokens WHERE user_id = $1`, u.ID)
+				Expect(err).To(BeNil())
+
+				Expect(tokens).To(Equal([]con{con{Token: "toke2"}}))
 			})
 		})
 

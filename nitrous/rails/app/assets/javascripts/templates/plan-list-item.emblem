@@ -1,0 +1,31 @@
+.content
+  with view.content
+    .name
+      = name
+    .price
+      span
+        ' $
+      strong
+        = priceInDollars
+      em
+        '
+        | / mo.
+    ul.specs
+      li
+        span
+          ' Up to
+        = maxContainers
+        '
+        span Applications
+      li
+        = memory
+        '
+        span Memory
+      li
+        = storage
+        '
+        span Storage
+
+  if plan.mostPopular
+    .ribbon
+      p Most Popular

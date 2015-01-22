@@ -698,5 +698,61 @@ func init() {
 				ALTER TABLE invoice_items ALTER COLUMN hours TYPE bigint;
 				`,
 		},
+		{
+			Version: "580",
+			Up: `
+				CREATE TABLE email_captures (
+					id bigserial PRIMARY KEY NOT NULL,
+					email_address character varying,
+					created_at timestamp without time zone DEFAULT now()
+				);
+			`,
+		},
+		{
+			Version: "590",
+			Up: `
+				ALTER TABLE users ALTER COLUMN billing_enabled SET DEFAULT TRUE;
+				ALTER TABLE user_profiles ALTER COLUMN max_hosts SET DEFAULT 3;
+			`,
+		},
+		{
+			Version: "600",
+			Up: `
+				ALTER TABLE billing_profiles ADD COLUMN pending_activation boolean DEFAULT TRUE;
+				ALTER TABLE credit_types ADD COLUMN default_value bigint NOT NULL DEFAULT 0;
+			`,
+		},
+		{
+			Version: "610",
+			Up: `
+				ALTER TABLE users ADD COLUMN service_account bool DEFAULT FALSE;
+			`,
+		},
+		{
+			Version: "620",
+			Up: `
+				ALTER TABLE plans ADD COLUMN most_popular bool DEFAULT FALSE;
+			`,
+		},
+		{
+			Version: "625",
+			Up: `
+				ALTER TABLE templates ADD COLUMN type character varying(255) DEFAULT '' NOT NULL;
+			`,
+		},
+		{
+			Version: "630",
+			Up: `
+				ALTER TABLE containers ALTER COLUMN slug TYPE character varying(63) USING substr(slug, 1, 63);
+			`,
+		},
+		{
+			Version: "640",
+			Up: `
+				ALTER TABLE tokens ADD COLUMN last_seen_at timestamp without time zone DEFAULT now();
+				ALTER TABLE tokens ADD COLUMN last_ip character varying(255) DEFAULT NULL;
+				ALTER TABLE tokens ADD COLUMN type character varying(255) DEFAULT 'login' NOT NULL;
+			`,
+		},
 	}
 }

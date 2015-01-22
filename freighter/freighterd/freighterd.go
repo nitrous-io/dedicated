@@ -11,6 +11,12 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/server"
 	"github.com/nitrous-io/dedicated/freighter/util"
+	"github.com/nitrous-io/dedicated/pkg/reexec"
+
+	// load required init for reexec commands
+	_ "github.com/nitrous-io/dedicated/freighter/cops"
+	_ "github.com/nitrous-io/dedicated/freighter/cops/cfinder"
+	_ "github.com/nitrous-io/dedicated/freighter/cops/fs"
 )
 
 var (
@@ -23,6 +29,11 @@ func init() {
 }
 
 func main() {
+	// return if running in reexec mode, and the reexec func has already finished
+	if reexec.Init() {
+		return
+	}
+
 	var (
 		flVersion    = flag.Bool("v", false, "Display the version and exit")
 		flConfigPath = flag.String("c", defaultConf, "Path to the configuration file. Default to "+defaultConf)

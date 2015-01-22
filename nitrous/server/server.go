@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -132,7 +131,7 @@ func (s *Server) route(route string, mw middleware.Middleware, methods ...string
 			Events:      s.Events,
 			Provisioner: s.Provisioner,
 			Tracker:     s.Tracker,
-			RemoteAddr:  getRemoteAddr(r),
+			RemoteAddr:  middleware.GetRemoteAddr(r),
 		}, w, r)
 		if err != nil {
 			s.HandleError(w, err)
@@ -153,7 +152,7 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 			Events:      s.Events,
 			Provisioner: s.Provisioner,
 			Tracker:     s.Tracker,
-			RemoteAddr:  getRemoteAddr(r),
+			RemoteAddr:  middleware.GetRemoteAddr(r),
 		}
 		if err := mw(env, w, r); err != nil {
 			s.HandleError(w, err)
@@ -242,53 +241,6 @@ func (s *Server) getNumFds() int {
 		return -1
 	}
 	return len(fds)
-}
-
-var splitIPRe = regexp.MustCompile(`[,\s]+`)
-var trustedIPRe = regexp.MustCompile(`\A127\.0\.0\.1\z|\A(10|172\.(1[6-9]|2[0-9]|30|31)|192\.168)\.|\A::1\z|\Afd[0-9a-f]{2}:.+|\Alocalhost\z|\Aunix\z|\Aunix:`)
-
-// Stolen from Rack:
-// https://github.com/rack/rack/blob/dc53a8c26dc55d21240233b3d83d36efdef6e924/lib/rack/request.rb#L348-L357
-func getRemoteAddr(r *http.Request) string {
-	remoteAddr := ""
-
-	ipAddresses := filterIPAddresses(splitIPAddresses(r.RemoteAddr))
-	if len(ipAddresses) > 0 {
-		remoteAddr = ipAddresses[0]
-	}
-
-	if remoteAddr == "" {
-		ipAddresses = filterIPAddresses(splitIPAddresses(r.Header.Get("X-Forwarded-For")))
-		if len(ipAddresses) > 0 {
-			remoteAddr = ipAddresses[0]
-		}
-	}
-
-	return remoteAddr
-}
-
-func splitIPAddresses(ip string) []string {
-	ipAddresses := splitIPRe.Split(ip, -1)
-	sanitizedIPAddresses := make([]string, len(ipAddresses))
-
-	for i, ip := range ipAddresses {
-		splitIP := strings.Split(ip, ":")[0]
-		sanitizedIPAddresses[i] = splitIP
-	}
-
-	return sanitizedIPAddresses
-}
-
-func filterIPAddresses(ipAddresses []string) []string {
-	filteredIPAddresses := []string{}
-
-	for _, ip := range ipAddresses {
-		if !trustedIPRe.MatchString(ip) {
-			filteredIPAddresses = append(filteredIPAddresses, ip)
-		}
-	}
-
-	return filteredIPAddresses
 }
 
 // tcpKeepAliveListener sets TCP keep-alive timeouts on accepted

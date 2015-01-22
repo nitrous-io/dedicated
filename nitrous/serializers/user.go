@@ -10,6 +10,7 @@ import (
 
 type User struct {
 	ID               int64           `json:"id"`
+	Name             string          `json:"name"`
 	Username         string          `json:"username"`
 	Email            string          `json:"email"`
 	Admin            bool            `json:"admin"`
@@ -28,6 +29,7 @@ func SerializeUser(u *user.User) *User {
 	}
 	return &User{
 		ID:               u.ID,
+		Name:             u.Name,
 		Username:         u.Username,
 		Email:            u.Email,
 		Admin:            u.Admin,

@@ -1,4 +1,0 @@
-.bg style=view.defaultIconCss
-  .icon style=view.iconCss
-label
-  = view.name

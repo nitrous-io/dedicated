@@ -1,0 +1,8 @@
+.content
+  .icon style=view.defaultIconCss
+    div style=view.iconCss
+  .label
+    = view.name
+if view.description
+  .hover-info
+    = view.description

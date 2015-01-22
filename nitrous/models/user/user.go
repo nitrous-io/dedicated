@@ -65,6 +65,7 @@ type User struct {
 	LoginAttempts  int           `db:"login_attempts" json:"-"`
 	InviteCodeID   sql.NullInt64 `db:"invite_code_id" json:"-"`
 	Admin          bool          `db:"admin" json:"admin"`
+	ServiceAccount bool          `db:"service_account" json:"-"`
 	BillingEnabled bool          `db:"billing_enabled" json:"billing_enabled"`
 
 	ResetPasswordToken  sql.NullString `db:"reset_password_token" json:"-"`
@@ -271,16 +272,21 @@ func (u *User) isPaid(d db.QueryReceiver) (bool, error) {
 }
 
 func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
+	// admins have free reign
+	if u.Admin || u.ServiceAccount {
+		return true, nil
+	}
+
 	// check if the user is a paid user
 	paid, err := u.isPaid(d)
 	if err != nil {
 		return false, err
 	}
-	if paid {
-		return true, nil
+	if !paid {
+		return false, nil
 	}
 
-	// user is not a paid user, check the max hosts she can create
+	// user is a paid user, ensure max_hosts limit has not been reached
 	var b bool
 	err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
 		FROM users u
@@ -510,13 +516,15 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 	// update the profile with details returned from Stripe
 	crd := c.Cards.Values[0]
 	b := &billingprofile.BillingProfile{
-		UserID:   u.ID,
-		StripeID: sql.NullString{c.ID, true},
-		State:    "paid",
-		LastFour: sql.NullString{crd.LastFour, true},
-		CardType: sql.NullString{string(crd.Brand), true},
-		ExpMonth: sql.NullInt64{int64(crd.Month), true},
-		ExpYear:  sql.NullInt64{int64(crd.Year), true},
+		UserID:            u.ID,
+		StripeID:          sql.NullString{c.ID, true},
+		State:             "paid",
+		LastFour:          sql.NullString{crd.LastFour, true},
+		CardType:          sql.NullString{string(crd.Brand), true},
+		ExpMonth:          sql.NullInt64{int64(crd.Month), true},
+		ExpYear:           sql.NullInt64{int64(crd.Year), true},
+		StripeFingerprint: sql.NullString{crd.Fingerprint, true},
+		PendingActivation: false,
 	}
 
 	err = b.Update(d)

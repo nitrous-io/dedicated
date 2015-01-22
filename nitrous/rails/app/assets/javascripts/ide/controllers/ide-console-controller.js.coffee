@@ -5,7 +5,8 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, 
 
   modelClass: App.ConsoleSession
   content: null
-  fullscreen: false
+  fullscreenBinding: 'App.consoleFullscreen'
+  minimizedBinding: 'App.consoleMinimized'
 
   initialize: ->
     @set 'content', []
@@ -14,10 +15,6 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, 
   fullscreenDidChange: (->
     App.localStorage.set 'fullscreenConsole', @get('fullscreen')
   ).observes 'fullscreen'
-
-  createTab: (attrs={}) ->
-    App.util.mixpanelIncrement 'ide_new_console_tab_count'
-    @_super(attrs)
 
   reset: ->
     @set 'content', null

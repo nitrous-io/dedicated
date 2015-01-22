@@ -2,19 +2,23 @@ readOnlyEnvKeys = ['__HOST']
 readOnlyVolumeSuffixes = [':/nitrous/ssh:ro']
 
 App.ContainerConfigController = Lib.ContainerConfigController.extend
-  saving: false
+  saving: (->
+    m = @get 'model'
+    m && m.get('underReconfig')
+  ).property 'model', 'model.underReconfig'
   loaded: false
   closeApplyDialog: false
   envVarHashRO: null # object (hash) - readonly
   volumeMountsRO: null # array - readonly
+  portBindings: null
 
   clear: ->
     @_super.apply this, arguments
     @setProperties
-      saving: false
       loaded: false
       closeApplyDialog: false
       envVarHashRO: Em.Object.create()
+      portBindings: Em.A()
       volumeMountsRO: Em.A()
 
   hostVolumesEmpty: Em.computed.empty('host.volumes')
@@ -54,7 +58,6 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
   actions:
     apply: ->
       return if @get 'saving'
-      @set 'saving', true
       prevState = @get 'state'
       @set 'state', 'reconfiguring'
 
@@ -88,9 +91,9 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
         App.snackbar.post 'Applying new configuration...'
         @set 'closeApplyDialog', true
       , (jqxhr) ->
+        container.set 'underReconfig', false
         App.postError(jqxhr.responseJSON, "Failed to apply new configuration!")
-      ).finally =>
-        @set 'saving', false
+      )
 
 filterEnvVarHash = (envVarHash) ->
   mutable = envVarHash

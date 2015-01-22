@@ -94,13 +94,18 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	if err := ctx.Execute(); err != nil {
 		hlog(h, "ERROR: Failed in create host step: %+v", ctx.Error())
 		if h.droplet != nil {
-			hlog(h, "Leaving droplet for inspection: %d", h.droplet.ID)
+			if h.sshKey != nil {
+				hlog(h, "keyID=%d Leaving droplet for inspection: %d", h.sshKey.ID, h.droplet.ID)
+			} else {
+				hlog(h, "keyID=unknown Leaving droplet for inspection: %d", h.droplet.ID)
+			}
 		}
 		return nil, err
 	}
 
 	if h.sshKey != nil {
-		h.progressLog(w, "Removing key...")
+		fmt.Fprintf(w, "Removing key...")
+		hlog(h, "keyID=%d Removing key...", h.sshKey.ID)
 		_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
 		if err != nil {
 			h.progressLog(w, "Removing key...Failed!")
@@ -125,7 +130,10 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 30*time.Second); err != nil {
+	info := map[string]interface{}{
+		"uuid": h.uuid,
+	}
+	if _, err := WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 30*time.Second, info); err != nil {
 		return nil, err
 	}
 	hlog(h, "Renamed droplet")
@@ -249,7 +257,10 @@ func (h *Host) Restart() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err = WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 15*time.Minute); err != nil {
+	info := map[string]interface{}{
+		"uuid": h.uuid,
+	}
+	if _, err = WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 15*time.Minute, info); err != nil {
 		return nil, err
 	}
 
@@ -358,7 +369,7 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 	if err != nil {
 		return mh.Error(err, label+".api")
 	}
-	hlog(h, "creating SSH keypair on digitalocean... Done")
+	hlog(h, "keyID=%d fingerprint=%s creating SSH keypair on digitalocean... Done", sshKey.ID, sshKey.Fingerprint)
 	h.sshKey = sshKey
 	return nil
 }
@@ -395,8 +406,11 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	h.droplet = dropletRoot.Droplet
 
 	if len(dropletRoot.Links.Actions) > 0 {
+		info := map[string]interface{}{
+			"uuid": h.uuid,
+		}
 		la := dropletRoot.Links.Actions[0]
-		if _, err := WaitForAction(h.Client.Actions, la.ID, StateWaitTime, 15*time.Minute); err != nil {
+		if _, err := WaitForAction(h.Client.Actions, la.ID, StateWaitTime, 15*time.Minute, info); err != nil {
 			return mh.Error(err, label)
 		}
 	} else {
@@ -421,8 +435,11 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 
 	hlog(h, "Waiting for SSH to be ready")
 	address := fmt.Sprintf("%s:%s", h.ipAddress(), "65100")
+	info := map[string]interface{}{
+		"uuid": h.uuid,
+	}
 	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
-		sshutil.TimeWait, make(chan struct{}))
+		sshutil.TimeWait, make(chan struct{}), info)
 	if err != nil {
 		return mh.Error(err, label)
 	}

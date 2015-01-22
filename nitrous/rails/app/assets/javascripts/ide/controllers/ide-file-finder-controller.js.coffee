@@ -1,24 +1,51 @@
 App.IdeFileFinderController = Em.Controller.extend
-  needs: ['index', 'ideEditor', 'ideSidebar']
+  needs: ['ide', 'ideEditor', 'ideSidebar']
 
+  opsSocketBinding: Em.Binding.oneWay 'controllers.ide.opsSocket'
   fileFinderDialog: null
+
+  initialize: ->
+    socket = @get 'opsSocket'
+    socket.on 'file_find.output', _.bind(@onOutput, this)
+    socket.on 'file_find.error', _.bind(@onError, this)
+    socket.on 'file_find.completed', _.bind(@onCompleted, this)
 
   reset: ->
     @set 'fileFinderDialog', null
+    socket = @get 'opsSocket'
+    socket.off 'file_find.output'
+    socket.off 'file_find.error'
+
+  onOutput: (error, data) ->
+    @get('fileFinderDialog')?.addResults(data.term, data.root, data.paths)
+
+  onError: (error, data) ->
+    dialog = @get 'fileFinderDialog'
+    return unless dialog?
+
+    # handle errors occurr before search begins
+    if error
+      dialog.set 'error', error
+
+    # when a mid-stream error occurrs,
+    # show current results and mark the search as complete
+    if data.error
+      dialog.searchComplete(data.term, data.root)
+
+  onCompleted: (error, data) ->
+    @get('fileFinderDialog')?.searchComplete(data.term, data.root)
 
   showFindDialog: (path) ->
     if !path?
       path = this.guessPath(@get('controllers.ideEditor.activeTab.path.absolutePath'))
     @set 'fileFinderDialog', App.FileFinderDialog.create basePath: path
-    App.util.mixpanel 'Started FileFinder',
-      basePath: path
 
   startFind: (pattern, path) ->
     dialog = @get 'fileFinderDialog'
-    socket = @get 'controllers.ide.commandSocket'
+    socket = @get 'opsSocket'
     return if !dialog || !socket
 
-    path = '.' if not path?.length
+    path = App.get('container.homePath') if not path?.length
 
     dialog.find pattern, path, =>
       @set 'findPattern', pattern
@@ -27,26 +54,31 @@ App.IdeFileFinderController = Em.Controller.extend
 
   socketFind: ->
     dialog = @get 'fileFinderDialog'
-    socket = @get 'controllers.ide.commandSocket'
+    socket = @get 'opsSocket'
     pattern = @get 'findPattern'
     path = @get 'findPath'
     if dialog && socket && pattern && path
       dialog.searchStart(pattern, path)
-      socket.filefind dialog, pattern, path, -> {}
+      socket.fileFind pattern, path, (err) ->
+        if err
+          dialog.set 'error', err
+          return
 
   closeFindDialog: ->
     this.reset()
 
   # try to pick a sensible default search root
   guessPath: (path) ->
-    homedir = '.'
+    homeDir = App.get('container.homePath')
+    workspaceDir = @get('controllers.ide.workspaceDir')
+    return homeDir if not path?.length
 
-    return homedir if not path?.length
+    path = path.replace(new RegExp("^#{homeDir}\/"), '')
     parts = path.split('/')
-    in_workspace = parts[0] == 'workspace'
-    switch
+    in_workspace = parts[0] == workspaceDir
+    path = switch
       when parts.length == 1
-        if in_workspace then 'workspace' else homedir
+        if in_workspace then workspaceDir else homeDir
       when parts.length == 2
         parts[0]
       else
@@ -54,3 +86,4 @@ App.IdeFileFinderController = Em.Controller.extend
           [parts[0], parts[1]].join('/')
         else
           parts[0]
+    [homeDir, path].join("/")

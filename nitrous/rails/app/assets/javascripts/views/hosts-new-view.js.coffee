@@ -1,19 +1,17 @@
-App.HostsNewView = Em.View.extend
+#= require ../mixins/inject-terminal-iframe-mixin
+
+App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
   elementId: 'hosts-new-view'
   classNames: ['ui', 'card']
 
   nameFieldInvalid: Em.computed.equal('controller.invalidField', 'name')
   slugFieldInvalid: Em.computed.equal('controller.invalidField', 'slug')
 
-  terminal: null
-
-  selectedTemplate: null
-
   showLog: false
 
   createButtonDisabled: (->
-    !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedRegionSlug') && @get('controller.selectedPlanSlug')) || @get('controller.saving')
-  ).property 'controller.name', 'controller.slug', 'controller.selectedRegionSlug', 'controller.selectedPlanSlug', 'controller.saving'
+    !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedRegionSlug') && @get('controller.selectedPlan')) || @get('controller.saving')
+  ).property 'controller.name', 'controller.slug', 'controller.selectedRegionSlug', 'controller.selectedPlan', 'controller.saving'
 
   hideProgress: Em.computed.not('controller.saving')
   indeterminateProgress: Em.computed.none('controller.host.progress.progressDetail.start')
@@ -23,37 +21,14 @@ App.HostsNewView = Em.View.extend
       @$('#hosts-new-region').change()
   ).observes 'App.regions.@each'
 
-  preselectPlan: (->
-    Em.run.scheduleOnce 'afterRender', this, ->
-      @$('#hosts-new-plan').change()
-  ).observes 'App.plans.@each'
-
-  templatesDidChange: (->
-    return unless App.get('templates.length') > 0
-    unless @get 'selectedTemplate'
-      @set 'selectedTemplate', App.get('templates.firstObject')
-  ).observes 'App.templates.@each'
-
-  selectedTemplateDidChange: (->
-    Em.run.scheduleOnce 'afterRender', this, ->
-      Em.run.next this, ->
-        @$('.description').css 'height', @$('.description p').height()
-  ).observes 'selectedTemplate'
-
   didInsertElement: ->
     @_super()
     controller = @get 'controller'
 
-    @templatesDidChange()
-
     @$().on 'change.hosts-new', 'input[name=region]', =>
       controller.set 'selectedRegionSlug', @$('input[name=region]').filter(':checked').val()
 
-    @$().on 'change.hosts-new', 'input[name=size]', =>
-      controller.set 'selectedPlanSlug', @$('input[name=size]').filter(':checked').val()
-
     @preselectRegion()
-    @preselectPlan()
 
     App.slug.slugify(@$('#hosts-new-name'), @$('#hosts-new-slug'))
 
@@ -76,7 +51,7 @@ App.HostsNewView = Em.View.extend
       lastStatus = ev.status
 
     Em.run.scheduleOnce 'afterRender', this, ->
-      App.injectTerminalIframe this
+      @injectTerminalIframe()
 
   willDestroyElement: ->
     @_super()
@@ -86,7 +61,7 @@ App.HostsNewView = Em.View.extend
   actions:
     create: ->
       @get('terminal')?.clear()
-      @get('controller').send 'create', @get('selectedTemplate.slug')
+      @get('controller').send 'create'
 
     toggleLog: ->
       @toggleProperty 'showLog'

@@ -258,23 +258,6 @@ var _ = Describe("controllers/tokens", func() {
 			})
 		})
 
-		// FIXME ADMINONLY
-		Context("when user is not admin", func() {
-			BeforeEach(func() {
-				_, err := db.Exec("UPDATE users SET admin = false WHERE id = $1", u.ID)
-				Expect(err).To(BeNil())
-				doRequest()
-			})
-
-			It("responds with 400 bad request", func() {
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("beta_closed"))
-			})
-		})
-
 		for _, v := range []string{"username", "password"} {
 			Context(fmt.Sprintf(`when the required param "%s" is missing`, v), func() {
 				BeforeEach(func() {
@@ -298,5 +281,53 @@ var _ = Describe("controllers/tokens", func() {
 				})
 			})
 		}
+	})
+
+	Describe("POST /logout", func() {
+		var (
+			u *user.User
+			t *token.Token
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Password: "123456",
+				Name:     "foo",
+				Email:    "foo@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			t = &token.Token{
+				UserID: u.ID,
+				Token:  "valid-token",
+			}
+			err = t.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("should delete the token", func() {
+			req, err := NewAuthedRequest(t, "DELETE", "/api/v0/logout", &url.Values{})
+			Expect(err).To(BeNil())
+
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			toke, err := token.FindByToken(db, "valid-token")
+			Expect(err).To(BeNil())
+			Expect(toke).To(BeNil())
+
+			req, err = NewAuthedRequest(t, "GET", "/api/v0/user", &url.Values{})
+			Expect(err).To(BeNil())
+
+			res = httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+		})
+
 	})
 })

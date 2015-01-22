@@ -5,8 +5,8 @@ App.BackwardsCompatibleRouter = Em.Object.extend
     router = App.Router.router
     router.transitionTo.apply(router, arguments)
 
-  indexController: (->
-    @getController 'index'
+  ideController: (->
+    @getController 'ide'
   ).property()
 
   ideLayoutController: (->

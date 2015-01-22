@@ -1,3 +1,6 @@
+PREVIEW_PORT_START = 1024
+SUPPORTED_SYSTEM_PORTS = [80]
+
 App.Container = klass = Em.Object.extend
   id: null
   user_id: null
@@ -5,6 +8,7 @@ App.Container = klass = Em.Object.extend
   slug: null
   name: null
   state: null
+  preview_hostname: null
 
   config: null
   host: null
@@ -18,15 +22,12 @@ App.Container = klass = Em.Object.extend
   ).property 'env'
 
   previewPort: (->
-    @get('env')["NITROUS_PREVIEW_PORT"]
+    p = @get('env')["NITROUS_PREVIEW_PORT"]
+    if p
+      parseInt(p)
+    else
+      null
   ).property 'env'
-
-  previewURL: (->
-    hostname = @get('host')?.hostname
-    previewPort = @get 'previewPort'
-    if hostname && previewPort
-      "http://#{hostname}:#{previewPort}/"
-  ).property 'host', 'previewPort'
 
   freighterdUrl: (->
     hostname = @get('host')?.proxy_hostname
@@ -40,6 +41,30 @@ App.Container = klass = Em.Object.extend
   homePath: (->
     "/home/#{@get 'loginUsername'}"
   ).property 'loginUsername'
+
+  previewablePorts: (->
+    publicPorts = Em.A()
+    previewPort = @get('previewPort')
+
+    return publicPorts unless @get('config.port')
+    for port in @get('config.port')
+      regex = ///
+        ^public:  # should be a public port binding
+        (\d*):    # host port
+        (\d*)     # container port
+        (\/tcp)?  # can be followed by tcp
+        $         # end of string
+      ///
+      if m = port.match(regex)
+        hostPort = m[1]
+        containerPort = parseInt(m[2])
+        if @validPreviewPort(containerPort)
+          publicPorts.push { port: port, hostPort: hostPort, containerPort: containerPort, preview: containerPort == @get('previewPort') }
+    publicPorts.sortBy('containerPort')
+  ).property 'config', 'config.port.@each'
+
+  validPreviewPort: (port) ->
+    port == 80 || port >= 1024
 
   requestToken: (permissions) ->
     promise = new Em.RSVP.Promise (resolve, reject) =>

@@ -46,7 +46,7 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		return nil
 	}
 
-	total, items := biller.InvoiceItemsForUsages(hours)
+	total, items := biller.InvoiceItemsForUsages(hours, nil)
 	hMap, err := fetchHosts(env.DB, env.User)
 	if err != nil {
 		return err

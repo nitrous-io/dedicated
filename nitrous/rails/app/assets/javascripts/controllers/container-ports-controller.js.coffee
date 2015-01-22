@@ -6,7 +6,10 @@ transformEnvHashToArray = (hash) ->
   envVars
 
 App.ContainerPortsController = Em.ObjectController.extend
-  saving: false
+  saving: (->
+    m = @get 'model'
+    m && m.get('underReconfig')
+  ).property 'model', 'model.underReconfig'
   port: null
   newPreviewPort: null
   setPreviewPort: false
@@ -36,7 +39,6 @@ App.ContainerPortsController = Em.ObjectController.extend
   clear: ->
     @_super.apply this, arguments
     @setProperties
-      saving: false
       port: null
       newPreviewPort: null
       setPreviewPort: false
@@ -65,12 +67,13 @@ App.ContainerPortsController = Em.ObjectController.extend
     apply: ->
       return if @get 'saving'
       container = @get 'model'
-      @set 'saving', true
+      prevState = @get 'state'
+      @set 'state', 'reconfiguring'
 
       events = App.get 'eventsSocket'
 
       reconfigureComplete = =>
-        @set 'saving', false
+        @set 'state', prevState
         @set 'removePreviewPort', false
         @set 'newPreviewPort', null
         events.off 'container.reconfigured', onReconfigured

@@ -46,19 +46,19 @@ if App.billingUsage
                 = item.description
               td.charge
                 | $
-                = item.totalChargeDollars
+                = currency item.totalChargeDollars
         tr.total-charge
           td
             | Total Charge
           td.charge
             | $
-            = App.billingUsage.totalChargeDollars
+            = currency App.billingUsage.totalChargeDollars
         tr.available-credits
           td
             | Available Credits
           td.charge
             | $
-            = App.billingUsage.availableCreditsDollars
+            = currency App.billingUsage.availableCreditsDollars
 
 
 .card-header.bordered
@@ -85,10 +85,10 @@ if App.billingUsage
                 = item.description
               td.charge
                 | $
-                = item.totalChargeDollars
+                = currency item.totalChargeDollars
         tr.total-charge
           td
             | Total Charge
           td.charge
             | $
-            = invoice.totalChargeDollars
+            = currency invoice.totalChargeDollars

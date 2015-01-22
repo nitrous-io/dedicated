@@ -5,7 +5,6 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/appsettings"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/baseimages"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billing"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -17,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/keys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/providertemplates"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/regions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/stripehooks"
@@ -78,12 +78,12 @@ func (s *Server) drawRoutes() {
 			"GET": {
 				"/plans":        r("plans.Index", plans.Index),
 				"/regions":      r("regions.Index", regions.Index),
-				"/base_images":  r("baseimages.Index", baseimages.Index),
 				"/templates":    r("templates.Index", templates.Index),
 				"/app_settings": r("appsettings.Index", appsettings.Index),
 			},
 			"POST": {
 				"/oauth/token":               r("tokens.Post", tokens.Post, UserSignedIn),
+				"/users/email_signup":        r("users.EmailCapture", users.EmailCapture),
 				"/users":                     r("users.Create", users.Create, UserSignedUp),
 				"/user/confirm":              r("users.Confirm", users.Confirm),
 				"/user/resend_confirm":       r("users.ResendConfirmation", users.ResendConfirmation),
@@ -118,6 +118,8 @@ func (s *Server) drawRoutes() {
 				"/billing/invoices":                  r("billing.Invoices", billing.Invoices),
 				"/billing/current_usage":             r("billing.CurrentUsage", billing.CurrentUsage),
 				"/admin/hosts":                       r("admin.Hosts", admin.Hosts),
+				"/admin/provider_templates":          r("providertemplates.Index", providertemplates.Index),
+				"/admin/provider_templates/{ptid}":   r("providertemplates.Show", providertemplates.Show),
 			},
 			"POST": {
 				"/user/profile":                        r("userprofiles.Update", userprofiles.Update),
@@ -143,6 +145,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/restart_app":       r("containers.RestartApp", containers.RestartApp),
 				"/feedback":                            r("feedback.Send", feedback.Send),
 				"/admin/switch_user":                   r("admin.SwitchUser", admin.SwitchUser),
+				"/admin/provider_templates/{ptid}":     r("providertemplates.Update", providertemplates.Update),
 			},
 			"PUT": {
 				"/users":                  r("users.Update", users.Update),
@@ -152,13 +155,15 @@ func (s *Server) drawRoutes() {
 				"/user/billing_profile":   r("billingprofiles.Update", billingprofiles.Update),
 			},
 			"DELETE": {
-				"/hosts/{slug}":                    r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), HostDestroyed),
-				"/hosts/{slug}/registries/{rslug}": r("registries.Logout", registries.Logout),
-				"/hosts/{slug}/volumes/{vslug}":    r("volumes.Destroy", mw.HostViaPath("slug", volumes.Destroy)),
-				"/hosts/{slug}/images/{image:.*}":  r("images.Remove", mw.HostViaPath("slug", images.Remove)),
-				"/containers/{slug}":               r("containers.Destroy", containers.Destroy, ContainerDestroyed),
-				"/containers/{slug}/keys/{kslug}":  r("keys.Delete", keys.Delete),
-				"/containers/{slug}/keys":          r("keys.DeleteAll", keys.DeleteAll),
+				"/hosts/{slug}":                     r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), HostDestroyed),
+				"/hosts/{slug}/registries/{rslug}":  r("registries.Logout", registries.Logout),
+				"/hosts/{slug}/volumes/{vslug}":     r("volumes.Destroy", mw.HostViaPath("slug", volumes.Destroy)),
+				"/hosts/{slug}/images/{image:.*}":   r("images.Remove", mw.HostViaPath("slug", images.Remove)),
+				"/containers/{slug}":                r("containers.Destroy", containers.Destroy, ContainerDestroyed),
+				"/containers/{slug}/keys/{kslug}":   r("keys.Delete", keys.Delete),
+				"/containers/{slug}/keys":           r("keys.DeleteAll", keys.DeleteAll),
+				"/admin/terminate_unaccounted_host": r("admin.TerminateUnaccountedHost", admin.TerminateUnaccountedHost),
+				"/logout":                           r("tokens.Logout", tokens.Logout),
 			},
 		}
 

@@ -24,7 +24,6 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/msgproto"
 	"github.com/nitrous-io/dedicated/pkg/multipartsio"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
-
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
@@ -99,14 +98,18 @@ func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	image := r.FormValue("image")
 	secret := r.FormValue("secret")
 
-	if name == "" || !provider.IsValidName(name) {
-		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"name is not valid"}`))
+	if name == "" {
+		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"name is required"}`))
+		return
+	} else if !provider.IsValidName(name) {
+		s.respondEncodeJSON(w, StatusUnprocessableEntity,
+			map[string]interface{}{"error": fmt.Sprintf("name %q is not valid", name)})
 		return
 	} else if image == "" {
-		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"image is not valid"}`))
+		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"image is required"}`))
 		return
 	} else if secret == "" {
-		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"secret is not valid"}`))
+		s.respond(w, StatusUnprocessableEntity, []byte(`{"error":"secret is required"}`))
 		return
 	}
 
@@ -443,7 +446,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	for {
 		select {
 		case err := <-ch:
-			log.Printf("exited with err %s", err)
+			log.Printf("exited with err %v", err)
 			stdout.Close() // Inform client that server has closed connection.
 			return nil
 		case <-attached:
@@ -470,14 +473,13 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	containerID := info.ID
 	if info.State != provider.ContainerStateRunning {
-		return fmt.Errorf("Cannot attach to stopped container %v", containerID)
+		return fmt.Errorf("container ops: cannot perform container ops on stopped container %v", info.ID)
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		return fmt.Errorf("failed to upgrade websocket: %v", err)
+		return fmt.Errorf("container ops: failed to upgrade websocket: %v", err)
 	}
 	stream := wsconn.NewConnectionHeartbeat(conn, true)
 	if binary {
@@ -490,17 +492,21 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	stdin := msgproto.NewReader(conn, msgCh, stream.MessageType)
 	stdout := msgproto.NewWriter(stream)
 
-	ch := cops.Start(id, stdin, stdout)
+	done, err := cops.Start(id, stdin, stdout)
+	if err != nil {
+		stdout.Close()
+		return err
+	}
 	for {
 		select {
-		case err := <-ch:
-			log.Printf("exited with err %s", err)
+		case err := <-done:
+			log.Printf("container ops: exited with err %v", err)
 			stdout.Close() // Inform client that server has closed connection.
 			return nil
 		case msg := <-msgCh:
 			switch msg := msg.(type) {
 			default:
-				log.Println("shell: got unknown msg %v", msg)
+				log.Println("container ops: got unknown msg %v", msg)
 			}
 		}
 	}

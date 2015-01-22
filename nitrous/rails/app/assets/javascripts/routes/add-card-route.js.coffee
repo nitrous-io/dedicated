@@ -3,7 +3,7 @@ App.AddCardRoute = App.AuthedRoute.extend
     @_super.apply this, arguments
     # TODO: FFLAG payments
     if !App.get('user.billingEnabled')
-      @transitionTo '/'
+      @transitionTo 'home'
 
   activate: ->
     App.set 'title', 'Billing'

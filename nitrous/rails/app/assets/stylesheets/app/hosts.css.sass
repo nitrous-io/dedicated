@@ -14,27 +14,113 @@
         width: 368px
         margin: 0
 
-  ul.starter-templates
-    margin: 16px 0 0 0
-    padding: 0
+  .notice-text
+    margin: 0
 
-  .description
-    background: $n2oGray850
-    margin: 16px 0 0 0
-    padding: 14px 16px
-    transition: height .3s
-    overflow: hidden
-    box-sizing: content-box
+  ul.plans
+    > li
+      width: 190px
 
-    p
-      margin: 0
-      white-space: pre-wrap
-      line-height: 1.5
+      .content
+        position: relative
+        text-align: center
+        font-size: 14px
+        padding: 16px
+
+        .name
+          text-transform: uppercase
+          letter-spacing: .5px
+
+        .price
+          font-weight: 300
+          line-height: 1
+          padding: 8px 0
+          margin: 16px 0
+          background: $n2oGray700
+          letter-spacing: .5px
+          border-radius: 2px
+          color: $n2oGray400
+          transition: background-color .3s, color .3s
+          font-size: 15px
+
+          strong
+            font-weight: 500
+            font-size: 27px
+
+          span
+            vertical-align: top
+            position: relative
+            top: 3px
+
+          em
+            font-style: normal
+
+        .specs
+          margin: 0
+          padding: 0
+          list-style: none
+
+          span
+            transition: color .3s
+            color: $n2oGray700
+
+          li
+            margin-bottom: 8px
+
+            &:last-of-type
+              margin-bottom: 0
+
+        .ribbon
+          position: absolute
+          top: -2px
+          right: -2px
+          overflow: hidden
+          height: 86px
+          pointer-events: none
+
+          p
+            margin: 0
+            transform: rotateZ(45deg) translateX(43px) translateY(-20px)
+            text-transform: uppercase
+            font-size: 8px
+            font-weight: bold
+            line-height: 1
+            padding: 6px 40px
+            box-shadow: 1px 1px 0 rgba(0, 0, 0, .15)
+            color: black
+            background: $n2oGray500
+            transition: background-color .3s
+
+      &.selected
+        .content
+          .price
+            background: $lightBlue800
+            color: white
+
+          .specs
+            span
+              color: $n2oGray300
+
+          .ribbon
+            p
+              background: $lightBlue400
 
   .see-terms
     font-size: 14px
     text-align: center
     margin-bottom: 0
+
+  .credit-message
+    font-size: 14px
+    text-align: center
+    margin: 0
+
+    span
+      color: $green300
+      display: inline-block
+
+      &.no-credit
+        color: $n2oGray200
 
   .download-app
     h3

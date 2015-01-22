@@ -1,0 +1,9 @@
+= outlet topnav
+
+.wrapper.container
+  .ui.card
+    .card-header.bordered
+      h2 Pricing
+    = partial 'partials/pricing'
+
+= partial 'partials/footer'

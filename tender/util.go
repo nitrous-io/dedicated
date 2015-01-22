@@ -1,7 +1,9 @@
 package tender
 
 import (
+	"crypto/sha1"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -11,23 +13,66 @@ import (
 	"time"
 
 	freighterconfig "github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/tender/pkg/httperror"
+)
+
+const (
+	HostDomain = iota
+	ContainerDomain
 )
 
 var (
 	DefaultStartPort = freighterconfig.MinPreviewPort
 	DefaultEndPort   = freighterconfig.MaxPreviewPort
+
+	ErrDomainMismatched = errors.New("mismatched domain")
+
+	portMap = map[string]int{
+		"http":  80,
+		"https": 443,
+	}
 )
 
-var portMap = map[string]int{
-	"http":  80,
-	"https": 443,
+// This is called when the error is not a *httperror.Error*, i.e. there's
+// something wrong with the controller. We transform that error into a
+// httperror.Error and log it.
+func serverError(err error) error {
+	code := http.StatusInternalServerError
+	errMsg := err.Error()
+	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
+	e := httperror.New(code, "internal_server_error", "", errHash)
+	log.Printf("[ERROR] %s %s %s", errHash, errMsg, e.Error())
+	return e
+}
+
+// handle error returned by the server HTTP Handler
+func handleError(w http.ResponseWriter, err error) {
+	e, ok := err.(*httperror.Error)
+	if !ok {
+		e = serverError(err).(*httperror.Error)
+	}
+	j, err := e.JSON()
+	if err != nil {
+		j = []byte(`{"error":"internal_server_error"}`)
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	http.Error(w, string(j), e.Code)
+}
+
+// getPublicFreighterdPort parses the output of freighterd's port list for a
+// container, looking for the wanted port.
+func getPublicFreighterdPort(ports map[string][]string, wantedPort string) (string, error) {
+	exposedPorts, ok := ports[wantedPort]
+	if !ok || len(exposedPorts) == 0 {
+		return "", fmt.Errorf("port %s is not exposed", wantedPort)
+	}
+	return exposedPorts[0], nil
 }
 
 // parsePort returns the port of an HTTP request. If there is no port specified
 // in the request, 80 or 443 (HTTPS) is assumed.
 func parsePort(req *http.Request) int {
 	if _, portStr, err := net.SplitHostPort(req.Host); err == nil {
-		log.Println("got port", portStr)
 		if p, err := strconv.Atoi(portStr); err == nil {
 			return p
 		}
@@ -46,16 +91,19 @@ func parsePort(req *http.Request) int {
 // The "Host" header is preserved so that receiver will correctly recognize the
 // original host instead of the ip address
 func hostToIP(req *http.Request, ip net.IP, port int) string {
-	// Change Host to "IP:Port".
-	h := net.JoinHostPort(ip.String(), strconv.Itoa(port))
-	req.URL.Host = h
+	return setRequestHost(req, ip, strconv.Itoa(port))
+}
+
+func setRequestHost(r *http.Request, ip net.IP, port string) string {
+	h := net.JoinHostPort(ip.String(), port)
+	r.URL.Host = h
 	return h
 }
 
 // Given a request with host:
 // winterfell.yammer.nitrousapp.com:8000, it will return host name as "yammer"
 // yammer.nitrousapp.com:65333, it will return host name as "yammer"
-func getHost(url, baseDomain string) (string, error) {
+func getHostname(url, baseDomain string) (string, error) {
 	var domain string
 	var err error
 	if strings.Contains(url, ":") {
@@ -65,6 +113,10 @@ func getHost(url, baseDomain string) (string, error) {
 		}
 	} else {
 		domain = url
+	}
+
+	if domain[len(domain)-len(baseDomain):] != baseDomain {
+		return "", ErrDomainMismatched
 	}
 
 	prefix := domain[:len(domain)-len(baseDomain)]
@@ -114,14 +166,11 @@ func ServeTLS(port int64, tlsConfig *tls.Config, s http.Handler) error {
 	}
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("tender: Failed to listen to %q, error: %q", addr, err)
+		return fmt.Errorf("failed to listen to %q, error: %q", addr, err)
 	}
+
 	ln = tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
-	err = srv.Serve(ln)
-	if err != nil {
-		return fmt.Errorf("tender: Failed to serve %q, error: %q", addr, err)
-	}
-	return nil
+	return srv.Serve(ln)
 }
 
 // tcpKeepAliveListener sets TCP keep-alive timeouts on accepted

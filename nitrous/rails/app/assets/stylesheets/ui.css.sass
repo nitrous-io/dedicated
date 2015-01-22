@@ -268,7 +268,7 @@ table.ui.table
     background: rgba($n2oGray400, .2)
     outline: none
 
-  &:active
+  &.active, &:active
     background: rgba($n2oGray400, .4)
 
   &.primary
@@ -277,6 +277,10 @@ table.ui.table
   &.danger
     color: $red500
 
+  &.full
+    display: block
+    width: 100%
+
   &.raised
     background: rgba($n2oGray400, .2)
 
@@ -284,7 +288,7 @@ table.ui.table
       background: rgba($n2oGray400, .4)
       outline: none
 
-    &:active
+    &.active, &:active
       background: rgba($n2oGray400, .6)
 
     &:hover
@@ -305,7 +309,7 @@ table.ui.table
     &:focus
       background: $lightBlue600
 
-    &:active
+    &.active, &:active
       background: $lightBlue700
 
     &:hover
@@ -322,6 +326,9 @@ table.ui.table
 
     span
       display: none
+
+  i.spinner
+    margin: 0 8px 0 0
 
 .ui.input-group
   margin-bottom: 16px
@@ -852,7 +859,7 @@ ul.ui.snackbar
     color: $n2oGray200
     background: rgba($n2oGray400, .4)
 
-  &:active
+  &.active, &:active
     color: $n2oGray100
     background: rgba($n2oGray400, .6)
 
@@ -919,12 +926,70 @@ ul.ui.snackbar
           font-weight: 500
 
   .gravatar
+    position: relative
     width: 24px
     height: 24px
     vertical-align: middle
-    border-radius: 12px
     margin-right: 7px
-    background: $gray200
+    background: $n2oGray200
+    border-radius: 2px
+
+.ui.selectable-list
+  display: flex
+  flex-direction: row
+  flex-wrap: wrap
+  margin: 0 -16px -16px 0
+  padding: 0
+  list-style: none
+
+  > li
+    position: relative
+
+    .content
+      user-select: none
+      background: $n2oGray850
+      margin: 0 16px 16px 0
+      padding: 8px
+      border-radius: 2px
+      border: 1px solid transparent
+      color: $n2oGray500
+      transition: border-color .3s, color .3s
+      cursor: pointer
+
+    .hover-info
+      pointer-events: none
+      position: absolute
+      margin-top: -7px
+      left: 0
+      top: 100%
+      width: 176px
+      z-index: 1
+      font-size: 12px
+      background: $n2oGray1000
+      padding: 10px
+      line-height: 1.5
+      white-space: pre-wrap
+      border-radius: 2px
+      transition: opacity .3s
+      transition-delay: 0
+      opacity: 0
+
+      &:before
+        position: absolute
+        left: 76px
+        bottom: 100%
+        content: ''
+        border: 8px solid transparent
+        border-bottom-color: $n2oGray1000
+
+    &.selected
+      .content
+        border: 1px solid $lightBlue800
+        color: $n2oGray100
+
+    .content:hover ~ .hover-info
+      opacity: 1
+      transition-delay: .5s
 
 @keyframes ui-progress-indeterminate
   from

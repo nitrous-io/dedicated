@@ -1,4 +1,5 @@
 #= require emberjs
+#= require ./lib/mp
 #= require_self
 #= require app-classes
 
@@ -30,13 +31,38 @@ window.Nitrous = Em.Application.extend Em.Evented,
   selectedAppHost: null
   regions: null
   plans: null
-  baseImages: null
   templates: null
+  billingUsage: null
 
   terminalJsPath: null
   terminalCssPath: null
 
   eventsSocket: null
+
+  pendingHost: null
+
+  availableCredit: (->
+    if @get('newUser')
+      if @get('settings.new_user_credit')
+        return @get('settings.new_user_credit')
+      else
+        return 5
+    else if @get('billingUsage')
+      return @get('billingUsage.availableCreditsDollars')
+
+    return 0
+  ).property 'newUser', 'billingUsage'
+
+  availableCreditClass: (->
+    if @get('availableCredit') <= 0
+      return 'no-credit'
+    else
+      return 'good-credit'
+  ).property 'availableCredit'
+
+  newUser: (->
+    @get('billingProfile') && @get('billingProfile.cardRequired')
+  ).property 'billingProfile', 'billingProfile.cardRequired'
 
   desktopDownloadUrl: (->
     "http://getpro.nitrous.io/#{@get('platform')}/download.html"
@@ -65,6 +91,11 @@ window.Nitrous = Em.Application.extend Em.Evented,
         window.Stripe?.setPublishableKey(settings.stripe_key)
   ).observes 'settings'
 
+  activateMixpanel: (->
+    if @get('user') && settings = @get('settings')
+      mp.init(settings.mixpanel_token)
+  ).observes 'user', 'settings'
+
   noHost: (->
     @get('hosts.loaded') && @get('hosts.length') == 0
   ).property 'hosts.loaded', 'hosts.length'
@@ -84,6 +115,13 @@ window.Lib = Ember.Namespace.create()
 App.on 'load', ->
   App.__container__.lookup('adapter:application') # init app adapter class
   App.set 'snackbar', App.Snackbar.create()
+  App.set 'regions', App.Region.fetch().value
+  App.set 'plans', App.Plan.fetch().value
+  App.set 'templates', App.Template.fetch().value
+  Em.run.later(->
+    Em.run.scheduleOnce 'afterRender', ->
+      webapp.loading.stop()
+  , 100)
 
 App.on 'fetchUser', (user) ->
   App.set 'user', user
@@ -96,7 +134,9 @@ App.on 'fetchUser', (user) ->
   billingProfile.load user.get('_billingProfile')
   App.set 'billingProfile', billingProfile
 
-  App.set 'eventsSocket', socket = App.EventsSocket.create()
+  App.refreshUsage()
+
+  App.set 'eventsSocket', socket = App.EventMessageHandler.create()
   socket.connect()
 
 App.loadSettings = ->
@@ -104,6 +144,9 @@ App.loadSettings = ->
   promise.then (settings) ->
     App.set 'settings', settings
   promise
+
+App.refreshUsage = ->
+  App.BillingUsage.fetchCurrentUsage()
 
 App.didChangeTitle()
 
@@ -121,6 +164,11 @@ $(window).on 'offline', ->
 $(window).on 'online', ->
   window.App?.set 'online', true
 
+$(window).on 'storage', (e) ->
+  origEvent = e.originalEvent
+  if origEvent.key == "token" && origEvent.newValue == null
+    window.location.href = "/app#logout"
+
 $(document).on 'click', '.noclick', (e) ->
   e.preventDefault()
   e.stopPropagation()
@@ -135,6 +183,19 @@ $(document).on 'click', '.click-highlight', (e) ->
 Em.Route.reopen
   activate: ->
     App.set 'title', null
+
+  beforeModel: (transition) ->
+    @_super.apply this, arguments
+    if !App.get('settings')
+      transition.abort()
+      App.loadSettings().then ->
+        transition.retry()
+      , (jqxhr) ->
+        # retry in 5 seconds
+        Em.run.later(this, ->
+          transition.retry()
+        , 5000)
+      return
 
 App.Router.reopen
   notifyGoogleAnalytics: (->

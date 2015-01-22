@@ -275,7 +275,7 @@ var _ = Describe("controllers/admin", func() {
 								"state": "Stopped"
 							}
 						]
-					}`, provider, provider, provider, provider),
+					}`, provider, provider),
 					Status: http.StatusOK,
 				}
 				hb.Client.Client.Transport = rt
@@ -339,6 +339,142 @@ var _ = Describe("controllers/admin", func() {
 			})
 
 			test.ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("DELETE /api/v0/admin/terminate_unaccounted_host", func() {
+		doRequest := func(t *token.Token, params *url.Values) *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "DELETE", "/api/v0/admin/terminate_unaccounted_host", params)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		Context("when the requester is not an admin", func() {
+			It("responds with 404 Not Found", func() {
+				res := doRequest(t, nil)
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+
+		Context("when the requester is an admin", func() {
+			var (
+				hs1, hs2 *test.HostStack
+				provider = "digitalocean"
+			)
+
+			BeforeEach(func() {
+				var err error
+
+				_, err = db.Exec(`UPDATE users SET admin=true WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				// Create hosts owned by another user.
+				u2 := &user.User{
+					Username: "pre-provisioner",
+					Email:    "pp@example.com",
+					Password: "pp1234",
+				}
+				hs1, err = test.CreateHostStack(db, &test.HostStack{
+					H: &host.Host{
+						ProviderIdentifier: sql.NullString{String: "digitalocean-1", Valid: true},
+						Slug:               "ok-host",
+						Preprovisioned:     true,
+						State:              host.StateRunning,
+					},
+					PT: &providertemplate.ProviderTemplate{
+						Provider: provider,
+						Name:     "do-sgp-512mb",
+					},
+					U: u2,
+				})
+				Expect(err).To(BeNil())
+				hs2, err = test.CreateHostStack(db, &test.HostStack{
+					H: &host.Host{
+						ProviderIdentifier: sql.NullString{String: "digitalocean-2", Valid: true},
+						Slug:               "orphan-host",
+						Preprovisioned:     true,
+						State:              host.StateOrphan,
+					},
+					U:  u2,
+					PT: hs1.PT,
+					P:  hs1.P,
+					R:  hs1.R,
+				})
+				Expect(err).To(BeNil())
+				err = hs2.H.Delete(db) // Terminate this host.
+				Expect(err).To(BeNil())
+
+				// Fake hostbuilderclient response.
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				rt := &test.FakeRoundTripper{
+					Message: `{"status": "sounds_good"}`,
+					Status:  http.StatusOK,
+				}
+				hb.Client.Client.Transport = rt
+				admin.HostbuilderClient = hb
+			})
+
+			It("responds with HTTP 400 Bad Request when provider is not given", func() {
+				res := doRequest(t, nil)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_request"))
+				Expect(errDesc).To(Equal("provider is required"))
+			})
+
+			It("responds with HTTP 400 Bad Request when provider_identifier is not given", func() {
+				p := &url.Values{}
+				p.Set("provider", provider)
+				res := doRequest(t, p)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_request"))
+				Expect(errDesc).To(Equal("provider_identifier is required"))
+			})
+
+			It("should not allow for terminating hosts that exist in the database", func() {
+				p := &url.Values{}
+				p.Set("provider", provider)
+				p.Set("provider_identifier", "digitalocean-1")
+				res := doRequest(t, p)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_request"))
+				Expect(errDesc).To(Equal("host is known in DB, cannot terminate directly"))
+			})
+
+			It("should terminate hosts that exist in the database marked as terminated", func() {
+				p := &url.Values{}
+				p.Set("provider", provider)
+				p.Set("provider_identifier", "digitalocean-2")
+				res := doRequest(t, p)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j := map[string]string{}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j["status"]).To(Equal("sounds_good"))
+			})
+
+			It("should terminate the host on the provider", func() {
+				p := &url.Values{}
+				p.Set("provider", provider)
+				p.Set("provider_identifier", "digitalocean-3")
+				res := doRequest(t, p)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j := map[string]string{}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j["status"]).To(Equal("sounds_good"))
+			})
 		})
 	})
 })

@@ -29,9 +29,10 @@ var _ = Describe("models/credittype", func() {
 	Describe("Insert()", func() {
 		It("should able to insert a record", func() {
 			c := &credittype.CreditType{
-				Name:        "Signup",
-				Description: "Desc",
-				Active:      true,
+				Name:         "Signup",
+				Description:  "Desc",
+				Active:       true,
+				DefaultValue: 900,
 			}
 			err := c.Insert(db)
 			Expect(err).To(BeNil())

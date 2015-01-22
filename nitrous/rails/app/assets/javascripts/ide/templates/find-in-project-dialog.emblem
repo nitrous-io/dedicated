@@ -6,7 +6,7 @@
       .ui.input-group
         label.field-label for='ide-find-in-project-search-term'
           | Find:
-        = input type='text' id='ide-find-in-project-search-term' class='focus' value=view.content.term
+        = input type='text' id='ide-find-in-project-search-term' classNameBindings=':focus view.termFieldInvalid:error' value=view.content.term
 
       .ui.input-group
         label.field-label for='ide-find-in-project-search-location'
@@ -17,31 +17,31 @@
         ul.ui.checkbox-group
           li
             .ui.checkbox
-              = input type='checkbox' id='ide-find-in-project-case-sensitive' checked=view.content.optionCaseSensitive
+              = input type='checkbox' id='ide-find-in-project-case-sensitive' checked=view.content.caseSensitive
               label
             label for='ide-find-in-project-case-sensitive' Case-sensitive
 
           li
             .ui.checkbox
-              = input type='checkbox' id='ide-find-in-project-regex' checked=view.content.optionRegex
+              = input type='checkbox' id='ide-find-in-project-regex' checked=view.content.useRegexp
               label
             label for='ide-find-in-project-regex' Regular expression
 
-      p.note
-        ' You can specify directories or wildcards in the
-        strong
-          | Where
-        '
-        ' field to narrow down your search.
+      / p.note
+      /   ' You can specify directories or wildcards in the
+      /   strong
+      /     | Where
+      /   '
+      /   ' field to narrow down your search.
 
-        ' For example,
-        code
-          | workspace/*py
-        '
-        ' or
-        code
-          | workspace/myproject/*_test.rb
-        |.
+      /   ' For example,
+      /   code
+      /     | workspace/*py
+      /   '
+      /   ' or
+      /   code
+      /     | workspace/myproject/*_test.rb
+      /   |.
 
     .card-footer
       .right
