@@ -546,6 +546,14 @@ type dockerImage struct {
 	Size            int64
 }
 
+type reconfigState int
+
+const (
+	stopped    reconfigState = iota + 1 // indicates old container has been stopped
+	terminated                          // indicates old container has been terminated
+	created                             // indicates new container has been created
+)
+
 // Reconfig recreates a container from its original image with new config,
 // since at this time docker container configs are frozen once set.
 // Reconfig *always* returns the container so that callers know what the
@@ -555,42 +563,38 @@ type dockerImage struct {
 //   1. Stop container.
 //   2. Commit container to image.
 //   3. Rewrite /var/lib/docker/graph/<imageid>/json with configJSON (leaving fields we don't care about unchanged).
-//   4. Create a new container from that image.
+//   4. Terminates the old container.
+//   5. Create a new container from the image of the old container.
 func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.ContainerInfo, err error) {
 	var (
-		stopped         bool // whether old container has been stopped
-		terminated      bool // whether old container has been terminated
-		created         bool // whether new container has been created
+		state           reconfigState
 		cnName          string
 		backupImageName string
 		secret          string
 	)
 	defer func() {
+		if err == nil {
+			return
+		}
+
 		// Recover from errors.
-		if err != nil {
-			p.logger.Errorf("reconfig: failed to reconfigure %s: %v", id, err)
+		p.logger.Errorf("reconfig: failed to reconfigure %s: %v", id, err)
 
-			if created {
-				return
+		switch state {
+		case created:
+			// Do nothing.
+		case terminated:
+			// Restore from backup image.
+			if cn, err := p.CreateStart(cnName, backupImageName, secret, ""); err != nil {
+				p.logger.Errorf("reconfig: failed to restore original container %s from %s after failure: %v", id, backupImageName, err)
+			} else {
+				ret = cn
 			}
-
-			if terminated {
-				// Restore from backup image.
-				if cn, err := p.CreateStart(cnName, backupImageName, secret, ""); err != nil {
-					p.logger.Errorf("reconfig: failed to restore original container %s from %s after failure: %v", id, backupImageName, err)
-				} else {
-					ret = cn
-				}
-				return
-			}
-
-			if stopped {
-				if cn, err := p.Start(id, ""); err != nil {
-					p.logger.Errorf("reconfig: failed to start original container %s after failure: %v", id, err)
-				} else {
-					ret = cn
-				}
-				return
+		case stopped:
+			if cn, err := p.Start(id, ""); err != nil {
+				p.logger.Errorf("reconfig: failed to start original container %s after failure: %v", id, err)
+			} else {
+				ret = cn
 			}
 		}
 	}()
@@ -602,7 +606,7 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 		}
 		return
 	}
-	stopped = true
+	state = stopped
 	cnName = ret.Name
 
 	secret, err = p.readSharedSecret(cnName)
@@ -685,7 +689,7 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	if err != nil {
 		return
 	}
-	terminated = true
+	state = terminated
 
 	errf := "reconfig failed on %s during %s after termination: %s" // (id, step, error)
 	newCn, err := p.create(cnName, img.Name, secret, configJSON)
@@ -694,7 +698,7 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 		return
 	}
 	ret = newCn
-	created = true
+	state = created
 
 	err = p.AddPublicKeys(newCn.ID, existingKeys)
 	if err != nil {
