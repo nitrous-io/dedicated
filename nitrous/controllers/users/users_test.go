@@ -11,7 +11,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
@@ -40,7 +39,6 @@ var _ = Describe("controllers/users", func() {
 		authTokenInputs AuthTokenInputs
 		u               *user.User
 		t               *token.Token
-		ic              *invitecode.InviteCode
 	)
 
 	BeforeEach(func() {
@@ -66,9 +64,6 @@ var _ = Describe("controllers/users", func() {
 			Token:  "foobarbazqux",
 		}
 		err = t.Insert(db)
-		Expect(err).To(BeNil())
-
-		ic, err = invitecode.GenerateInvite(db)
 		Expect(err).To(BeNil())
 	})
 
@@ -139,7 +134,6 @@ var _ = Describe("controllers/users", func() {
 				params.Set("username", "foo")
 				params.Set("password", "123456")
 				params.Set("name", "Foo Bar")
-				params.Set("code", ic.Code)
 				doRequest()
 			})
 
@@ -152,14 +146,6 @@ var _ = Describe("controllers/users", func() {
 				Expect(u.Username).To(Equal("foo"))
 				Expect(u.Name).To(Equal("Foo Bar"))
 				Expect(u.CreatedAt).NotTo(BeNil())
-				Expect(u.InviteCodeID.Int64).To(Equal(ic.ID))
-			})
-
-			It("marks the invite code as used", func() {
-				c, err := invitecode.FindByCode(db, ic.Code)
-				Expect(err).To(BeNil())
-				Expect(c).ToNot(BeNil())
-				Expect(c.Used).To(BeTrue())
 			})
 
 			It("encrypts the password using bcrypt", func() {
@@ -193,18 +179,16 @@ var _ = Describe("controllers/users", func() {
 				t, ok := svr.Tracker.(*FakeTracker)
 				Expect(ok).To(BeTrue())
 				Expect(t.ProfileCreated.ID).To(Equal(u.ID))
-				Expect(t.InviteCode).To(Equal(ic.Code))
 			})
 		})
 
-		for _, v := range []string{"email", "username", "password", "code"} {
+		for _, v := range []string{"email", "username", "password"} {
 			Context(fmt.Sprintf(`when the required param "%s" is missing`, v), func() {
 				BeforeEach(func() {
 					params = &url.Values{}
 					params.Set("email", "foo@example.com")
 					params.Set("username", "foo")
 					params.Set("password", "123456")
-					params.Set("code", ic.Code)
 					params.Del(v)
 					doRequest()
 				})
@@ -223,13 +207,6 @@ var _ = Describe("controllers/users", func() {
 					Expect(ok).To(BeTrue())
 					Expect(t.Events[u.ID]).To(BeEmpty())
 				})
-
-				It("shouldn't mark the invite code as used", func() {
-					c, err := invitecode.FindByCode(db, ic.Code)
-					Expect(err).To(BeNil())
-					Expect(c).ToNot(BeNil())
-					Expect(c.Used).To(BeFalse())
-				})
 			})
 		}
 
@@ -239,7 +216,6 @@ var _ = Describe("controllers/users", func() {
 				params.Set("email", "foobar")
 				params.Set("username", "foo")
 				params.Set("password", "123456")
-				params.Set("code", ic.Code)
 				doRequest()
 			})
 
@@ -257,46 +233,6 @@ var _ = Describe("controllers/users", func() {
 				Expect(ok).To(BeTrue())
 				Expect(t.Events[u.ID]).To(BeEmpty())
 			})
-
-			It("shouldn't mark the invite code as used", func() {
-				c, err := invitecode.FindByCode(db, ic.Code)
-				Expect(err).To(BeNil())
-				Expect(c).ToNot(BeNil())
-				Expect(c.Used).To(BeFalse())
-			})
-		})
-
-		Context("when an incorrect sign up code is given", func() {
-			BeforeEach(func() {
-				params = &url.Values{}
-				params.Set("email", "foo@example.com")
-				params.Set("username", "foo")
-				params.Set("password", "123456")
-				params.Set("code", ic.Code+"wtflolbbq")
-				doRequest()
-			})
-
-			It("responds with 400 bad request", func() {
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				j := map[string]string{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("validation_failed"))
-				Expect(j["error_description"]).To(Equal("code does not exist"))
-			})
-
-			It("shouldn't do any event tracking", func() {
-				t, ok := svr.Tracker.(*FakeTracker)
-				Expect(ok).To(BeTrue())
-				Expect(t.Events[u.ID]).To(BeEmpty())
-			})
-
-			It("shouldn't mark the invite code as used", func() {
-				c, err := invitecode.FindByCode(db, ic.Code)
-				Expect(err).To(BeNil())
-				Expect(c).ToNot(BeNil())
-				Expect(c.Used).To(BeFalse())
-			})
 		})
 
 		Context("with an existing user", func() {
@@ -307,7 +243,6 @@ var _ = Describe("controllers/users", func() {
 				params.Set("email", "lol@example.com")
 				params.Set("username", "bar")
 				params.Set("password", "123456")
-				params.Set("code", ic.Code)
 			})
 
 			Context("when an existing username is given", func() {

@@ -1,7 +1,6 @@
 package users
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
 	"strings"
@@ -11,7 +10,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/emailcapture"
-	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -58,35 +56,19 @@ func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	code := r.FormValue("code")
-	var ic *invitecode.InviteCode
-	var err error
-	if code == "" {
-		return httperror.New(http.StatusBadRequest, "validation_failed", "code can't be blank")
-	} else {
-		ic, err = invitecode.FindByCode(db, code)
-		if err != nil {
-			return err
-		}
-		if ic == nil {
-			return httperror.New(http.StatusBadRequest, "validation_failed", "code does not exist")
-		}
-	}
-
 	email := strings.ToLower(r.FormValue("email"))
 	username := strings.ToLower(r.FormValue("username"))
 	password := r.FormValue("password")
 	name := r.FormValue("name")
 
 	u := &user.User{
-		Email:        email,
-		Username:     username,
-		Name:         name,
-		Password:     password,
-		InviteCodeID: sql.NullInt64{ic.ID, true},
+		Email:    email,
+		Username: username,
+		Name:     name,
+		Password: password,
 	}
 
-	err = u.Validate()
+	err := u.Validate()
 	if err != nil {
 		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
 	}
@@ -107,11 +89,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	err = invitecode.MarkAsUsed(tx, ic.Code)
-	if err != nil {
-		return err
-	}
-
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -128,7 +105,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	env.User = u
 
-	env.Tracker.CreateProfile(u, env.Logger, code)
+	env.Tracker.CreateProfile(u, env.Logger)
 	return nil
 }
 

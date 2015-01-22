@@ -44,7 +44,7 @@ func (m *MixpanelTracker) TrackEvent(event string, u *user.User, p map[string]in
 	}()
 }
 
-func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger, inviteCode string) {
+func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) {
 	if m.client == nil {
 		return
 	}
@@ -56,9 +56,6 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger, inv
 		"$created":  u.CreatedAt,
 		"user_id":   u.ID,
 		"admin":     u.Admin,
-	}
-	if inviteCode != "" {
-		p["invite_code"] = inviteCode
 	}
 
 	go func() {
