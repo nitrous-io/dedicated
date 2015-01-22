@@ -14,7 +14,7 @@ pages.Home =
 
     $("#get-started").submit (event) ->
       event.preventDefault()
-      url = '/app#/signup'
+      url = '/app/#/signup'
       if email = $(event.target).find("[name='email']").val()
         url += "?email=#{encodeURIComponent(email)}"
       # set href instead of replace to preserve history (navigate instead of redirect)

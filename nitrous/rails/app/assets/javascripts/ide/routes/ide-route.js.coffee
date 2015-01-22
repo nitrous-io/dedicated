@@ -15,7 +15,7 @@ App.IdeRoute = Em.Route.extend
     slug = params.containerSlug
     App.set 'slug', slug
 
-    errorPath = '/app#/'
+    errorPath = '/app/#/'
     if slug
       App.loadContainer()
     else
