@@ -47,27 +47,26 @@ func init() {
 	// credentials to serve HTTPS for host-slug.nitrousproxy.com
 	// which is the proxy to freighter remote api on each host
 	hostBaseDomain = envStr("HOST_BASE_DOMAIN")
+	if hostBaseDomain[0] != '.' {
+		log.Fatalf("HOST_BASE_DOMAIN should start with .")
+	}
 	hostCACert = envStr("HOST_CA_CRT")
 	hostCAKey = envStr("HOST_CA_KEY")
 
 	// this is the host domain that we should forward request to
-	// this is used to talk to freighted on the host
-	// this is the ca for TLS_DOMAIN
+	// this is used to talk to freighterd on the host
 	tlsDomain = envStr("TLS_DOMAIN")
+	// this is the ca for TLS_DOMAIN
 	privCACertPath = envStr("PRI_CRT")
 
 	containerBaseDomain = envStr("CONTAINER_BASE_DOMAIN")
+	if containerBaseDomain[0] != '.' {
+		log.Fatalf("CONTAINER_BASE_DOMAIN should start with .")
+	}
 	containerCACert = envStr("CONTAINER_CA_CRT")
 	containerCAKey = envStr("CONTAINER_CA_KEY")
 	previewStartPort = os.Getenv("PREVIEW_START_PORT")
 	previewEndPort = os.Getenv("PREVIEW_END_PORT")
-
-	if hostBaseDomain[0] != '.' {
-		log.Fatalf("HOST_BASE_DOMAIN should start with .")
-	}
-	if containerBaseDomain[0] != '.' {
-		log.Fatalf("CONTAINER_BASE_DOMAIN should start with .")
-	}
 }
 
 func main() {
@@ -113,7 +112,7 @@ func serveFreighterdProxy(s http.Handler) {
 		Certificates: []tls.Certificate{crt},
 	}
 
-	log.Printf("listenning to port %d", freighterdPort)
+	log.Printf("listening to port %d", freighterdPort)
 	log.Fatal(tender.ServeTLS(freighterdPort, tlsConfig, s))
 }
 
