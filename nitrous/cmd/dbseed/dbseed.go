@@ -226,12 +226,20 @@ func templates(d db.QueryReceiver) error {
 		return err
 	}
 
+	aspnetCn := defaultContainer()
+	aspnetCn.Image = "quay.io/nitrous/aspnet:latest"
+	aspnetCfgJSON, err := templateCnCfgJSON(aspnetCn)
+	if err != nil {
+		return err
+	}
+
 	templates := []template.Template{
 		newTemplate("Ruby on Rails", "rails", railsCfgJSON, template.TypeStack, railsDesc),
 		newTemplate("Laravel", "laravel", laravelCfgJSON, template.TypeStack, laravelDesc),
 		newTemplate("MEAN", "mean", meanCfgJSON, template.TypeStack, laravelDesc),
 		newTemplate("Meteor", "meteor", meteorCfgJSON, template.TypeStack, meteorDesc),
 		newTemplate("Django", "django", djangoCfgJSON, template.TypeStack, djangoDesc),
+		newTemplate("ASP.NET", "aspnet", aspnetCfgJSON, template.TypeStack, aspnetDesc),
 	}
 	for _, t := range templates {
 		if err := t.Insert(d); err != nil {
@@ -450,6 +458,13 @@ const (
 •  Python 3.4.0
 •  IPython 2.3.1
 •  Gunicorn 19.1.1
+•  Ubuntu 14.04`
+
+	aspnetDesc = `ASP.NET: a free web framework for building great Web sites and Web applications
+
+•  ASP.NET 5
+•  Mono 3.10.0-0xamarin2
+•  KRE 1.0.0-beta1
 •  Ubuntu 14.04`
 
 	vanillaDesc = `A minimalist development environment
