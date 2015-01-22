@@ -21,7 +21,7 @@ var _ = Describe("GetInfo", func() {
 	})
 
 	It("returns an AppState that indicates whether the NITROUS_CMD process is running", func() {
-		cmd := "top -b"
+		cmd := "yes"
 		configJSON := fmt.Sprintf(`{ "Env": ["NITROUS_CMD=%s"] }`, cmd)
 		// use busybox here because we dont want user to be set
 		// su in busybox doesnt support all the options that is required ...
