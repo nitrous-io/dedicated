@@ -12,7 +12,6 @@ App.Router.map ->
       @route 'new'
 
     @resource 'container', path: '/applications/:containerSlug', ->
-      @route 'system'
       @route 'keys'
       @route 'keys-new', path: '/keys/new'
       @route 'config'
