@@ -23,7 +23,8 @@ import (
 const DigitalOceanImageID = "5714430"
 
 var (
-	logr *logger.Logger
+	logr           *logger.Logger
+	providerToSeed string
 )
 
 func init() {
@@ -39,6 +40,11 @@ func main() {
 	if dbURL == "" {
 		logr.FatalExit(envvars.DBEnvVar, "is not defined")
 	}
+	providerToSeed = envvars.DefaultProvider
+	if providerToSeed != "digitalocean" && providerToSeed != "docker" {
+		logr.Fatalf("DEFAULT_PROVIDER %s must be one of digitalocean or docker", providerToSeed)
+	}
+
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
 		logr.FatalExit(err)
@@ -152,33 +158,29 @@ func providertemplates(d db.QueryReceiver) error {
 	}
 	for _, p := range plans {
 		for _, r := range regions {
-			providers := []string{"docker", "digitalocean"}
-			for _, provider := range providers {
-				// 672 = 28 * 24 (hourly price is derived by using monthly
-				// price for 28 days)
-				// hourly price is millicents, so *1000
-				hp := math.Ceil(float64(p.Price) / 672 * 1000)
-				pt := &providertemplate.ProviderTemplate{
-					Name:     fmt.Sprintf("%s-%s-%s", provider, p.Slug, r.Slug),
-					Provider: provider,
-					RegionID: r.ID,
-					PlanID:   p.ID,
-					Config: hstore.Hstore{
-						Map: map[string]sql.NullString{
-							"region_id": {r.Slug, true},
-							"size_id":   {p.Slug, true},
-						},
+			// 672 = 28 * 24 (hourly price is derived by using monthly
+			// price for 28 days)
+			// hourly price is millicents, so *1000
+			hp := math.Ceil(float64(p.Price) / 672 * 1000)
+			pt := &providertemplate.ProviderTemplate{
+				Name:     fmt.Sprintf("%s-%s-%s", providerToSeed, p.Slug, r.Slug),
+				Provider: providerToSeed,
+				RegionID: r.ID,
+				PlanID:   p.ID,
+				Config: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"region_id": {r.Slug, true},
+						"size_id":   {p.Slug, true},
 					},
-					HourlyPrice: int64(hp),
-				}
-				if provider == "digitalocean" {
-					pt.Config.Map["image_id"] = sql.NullString{DigitalOceanImageID, true}
-				}
-				err := pt.Insert(d)
-				if err != nil {
-					return err
-				}
-				logr.Infof("Added provider template %+v", pt)
+				},
+				HourlyPrice: int64(hp),
+			}
+			if providerToSeed == "digitalocean" {
+				pt.Config.Map["image_id"] = sql.NullString{DigitalOceanImageID, true}
+			}
+			err := pt.Insert(d)
+			if err != nil {
+				return err
 			}
 		}
 	}
