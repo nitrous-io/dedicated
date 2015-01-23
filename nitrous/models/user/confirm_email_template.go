@@ -2,6 +2,34 @@ package user
 
 import "text/template"
 
+const confirmEmailNewUserHtmlTmpl = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Welcome to Nitrous!</title>
+  </head>
+  <body>
+    <h3>Hello {{ .Name }}!</h3>
+    <p>Thanks for signing up for Nitrous! Before you start developing your first application, please verify your email address by clicking the link below.</p>
+    <p><a href="{{ .ConfirmUrl }}" target="_blank">Confirm email</a></p>
+    <p>This this link will expire in 24 hours if it's not activated.</p>
+    <p>Start your engines,</p>
+    <p>The Nitrous team</p>
+  </body>
+</html>
+`
+
+const confirmEmailNewUserTxtTmpl = `
+Hello {{ .Name }}!
+Thanks for signing up for Nitrous! Before you start developing your first application, please verify your email address by clicking the link below.
+{{ .ConfirmUrl }}
+This this link will expire in 24 hours if it's not activated.
+
+Start your engines,
+The Nitrous team
+`
+
 const confirmEmailHtmlTmpl = `
 <!DOCTYPE html>
 <html>
@@ -30,11 +58,20 @@ The Nitrous team
 `
 
 var (
+	confirmEmailNewUserHtmlTemplate *template.Template
+	confirmEmailNewUserTxtTemplate  *template.Template
+
 	confirmEmailHtmlTemplate *template.Template
 	confirmEmailTxtTemplate  *template.Template
 )
 
 func init() {
+	confirmEmailNewUserHtmlTemplate =
+		template.Must(template.New("confirmEmailNewUserHtml").Parse(confirmEmailNewUserHtmlTmpl))
+
+	confirmEmailNewUserTxtTemplate =
+		template.Must(template.New("confirmEmailNewUserTxt").Parse(confirmEmailNewUserTxtTmpl))
+
 	confirmEmailHtmlTemplate =
 		template.Must(template.New("confirmEmailHtml").Parse(confirmEmailHtmlTmpl))
 

@@ -319,6 +319,13 @@ func (u *User) ConfirmationLapsed() bool {
 	return u.ConfirmationSentAt.Add(maxUnconfirmedDuration).Before(time.Now())
 }
 
+func (u *User) ConfirmationTokenExpired() bool {
+	if u.ConfirmationSentAt == nil {
+		return true
+	}
+	return u.ConfirmationSentAt.Add(maxConfirmationHours).Before(time.Now())
+}
+
 func (u *User) SetResetPasswordToken(d db.QueryReceiver) error {
 	t, err := securerandom.Base64(191)
 	if err != nil {
@@ -350,7 +357,7 @@ func (u *User) encryptPassword() error {
 	return nil
 }
 
-func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, flushConfirmedAt bool) error {
+func (u *User) GenerateConfirmationURL(d db.QueryReceiver, setConfirmationSentAt, flushConfirmedAt bool) (*url.URL, error) {
 	confirmedAtOp := "confirmed_at"
 	if flushConfirmedAt {
 		u.ConfirmedAt = nil
@@ -358,12 +365,12 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, 
 	}
 
 	if u.ConfirmedAt != nil {
-		return ErrConfirmationAlreadyCompleted
+		return nil, ErrConfirmationAlreadyCompleted
 	}
 
 	t, err := securerandom.Base64(191)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	u.ConfirmationToken = sql.NullString{t[:255], true}
 
@@ -377,22 +384,30 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, 
 	// FIXME: ensure confirmation_token is unique and retry, do not surface error
 	nstmt, err := d.PrepareNamed(fmt.Sprintf(stmt, confirmedAtOp))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = nstmt.QueryRowx(u).StructScan(u)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	host := envvars.WebHostname
 	if host == "" {
 		host = "pro.nitrous.io"
 	}
-	resetURL := &url.URL{
+	return &url.URL{
 		Scheme:   "https",
 		Host:     host,
 		Path:     "/app",
 		Fragment: fmt.Sprintf("confirm-email?token=%s", u.ConfirmationToken.String),
+	}, nil
+}
+
+// TODO: Move to struct arguments
+func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, flushConfirmedAt, newUser bool) error {
+	resetURL, err := u.GenerateConfirmationURL(d, setConfirmationSentAt, flushConfirmedAt)
+	if err != nil {
+		return err
 	}
 
 	tmplData := struct {
@@ -403,13 +418,27 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, 
 		resetURL.String(),
 	}
 
+	if tmplData.Name == "" {
+		tmplData.Name = u.Username
+	}
+
+	htmlTmpl := confirmEmailHtmlTemplate
+	txtTmpl := confirmEmailTxtTemplate
+	subject := "Nitrous - confirm your email"
+
+	if newUser {
+		htmlTmpl = confirmEmailNewUserHtmlTemplate
+		txtTmpl = confirmEmailNewUserTxtTemplate
+		subject = "Welcome to Nitrous!"
+	}
+
 	// send email
 	htmlBuf := bytes.NewBuffer(nil)
-	if err := confirmEmailHtmlTemplate.Execute(htmlBuf, tmplData); err != nil {
+	if err := htmlTmpl.Execute(htmlBuf, tmplData); err != nil {
 		return err
 	}
 	txtBuf := bytes.NewBuffer(nil)
-	if err := confirmEmailTxtTemplate.Execute(txtBuf, tmplData); err != nil {
+	if err := txtTmpl.Execute(txtBuf, tmplData); err != nil {
 		return err
 	}
 
@@ -423,7 +452,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, 
 	from := (&mail.Address{Name: "Nitrous Mailer", Address: "mailer@nitrous.io"}).String()
 	to := (&mail.Address{Name: u.Name, Address: targetEmail}).String()
 
-	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, "Nitrous - confirm your email", txtBuf.String(), htmlBuf.String())
+	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, subject, txtBuf.String(), htmlBuf.String())
 }
 
 func (u *User) ConfirmEmail(d db.QueryReceiver) error {
@@ -431,8 +460,7 @@ func (u *User) ConfirmEmail(d db.QueryReceiver) error {
 		return ErrConfirmationAlreadyCompleted
 	}
 
-	maxExpiry := u.ConfirmationSentAt.Add(maxConfirmationHours)
-	if time.Now().After(maxExpiry) {
+	if u.ConfirmationTokenExpired() {
 		return ErrConfirmationLapsed
 	}
 
