@@ -44,12 +44,6 @@ type MockClient struct {
 	ReconfigContainer *Container
 	ReconfigError     error
 
-	StartAppCalled int
-	StartAppError  error
-
-	StopAppCalled int
-	StopAppError  error
-
 	AddPublicKeysCalled int
 	AddPublicKeysError  error
 
@@ -234,18 +228,6 @@ func (c *MockClient) Reconfig(id string, config *ContainerConfig) (*Container, e
 	c.ReceivedID = id
 	c.ReceivedConfig = config
 	return c.ReconfigContainer, c.ReconfigError
-}
-
-func (c *MockClient) StartApp(id string) error {
-	c.StartAppCalled++
-	c.ReceivedID = id
-	return c.StartAppError
-}
-
-func (c *MockClient) StopApp(id string) error {
-	c.StopAppCalled++
-	c.ReceivedID = id
-	return c.StopAppError
 }
 
 func (c *MockClient) AddPublicKeys(id string, pubkeys []string) error {

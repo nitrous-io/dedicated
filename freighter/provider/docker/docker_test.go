@@ -766,118 +766,6 @@ var _ = Describe("provider/docker", func() {
 		})
 	})
 
-	Describe(".CreateStart() with custom options", func() {
-		BeforeEach(func() {
-			PullImage(NitrousImage)
-		})
-
-		It("runs the command specified by the NITROUS_CMD env var inside the container", func() {
-			name := RandomName("freightertest")
-			configJSON := `{
-				"Env": [
-					"NITROUS_CMD=echo hello world > /test-output",
-					"NITROUS_USERNAME="
-				]
-			}` // Explicitly unset NITROUS_USERNAME.
-			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
-
-			// Give the docker exec command some time to run.
-			time.Sleep(50 * time.Millisecond)
-
-			out, err := exec.Command("docker", "exec", info.ID, "cat", "/test-output").CombinedOutput()
-			Expect(string(out)).To(ContainSubstring(`hello world`))
-		})
-
-		It("runs the command specified by the NITROUS_CMD env var as the NITROUS_USERNAME user", func() {
-			name := RandomName("freightertest")
-			configJSON := fmt.Sprintf(`{
-				"Env": [
-					"NITROUS_CMD=echo hello world > $HOME/test-output",
-					"NITROUS_USER=%s"
-				]
-			}`, DfileEnvUser)
-			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
-
-			// Give the docker exec command some time to run.
-			time.Sleep(50 * time.Millisecond)
-
-			out, err := exec.Command("docker", "exec", info.ID, "cat",
-				fmt.Sprintf("/home/%s/test-output", DfileEnvUser)).CombinedOutput()
-			Expect(string(out)).To(ContainSubstring(`hello world`))
-		})
-
-		It("runs the command specified by the NITROUS_CMD env var and sources /etc/profile", func() {
-			// Modify image to contain an /etc/profile with an exported env var.
-			dockerfile := fmt.Sprintf(`FROM %s
-				RUN echo "export ETC_PROFILE_VAR=works" >> /etc/profile`, NitrousImage)
-			img := CreateImages(1, "modified", true, dockerfile)
-			defer RemoveImages(img)
-
-			name := RandomName("freightertest")
-			configJSON := fmt.Sprintf(`{
-				"Env": [
-					"NITROUS_CMD=echo $ETC_PROFILE_VAR > $HOME/test-output",
-					"NITROUS_USER=%s"
-				]
-			}`, DfileEnvUser)
-			info, err := prov.CreateStart(name, img[0], secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
-
-			// Give the docker exec command some time to run.
-			time.Sleep(50 * time.Millisecond)
-
-			out, err := exec.Command("docker", "exec", info.ID, "cat",
-				fmt.Sprintf("/home/%s/test-output", DfileEnvUser)).CombinedOutput()
-			Expect(string(out)).To(Equal("works\n"))
-		})
-	})
-
-	Describe(".StopApp()", func() {
-		BeforeEach(func() {
-			PullImage(NitrousImage)
-		})
-
-		It("kills the NITROUS_CMD process that's running inside the container", func() {
-			cmd := "python -m SimpleHTTPServer 8080"
-			name := RandomName("freightertest")
-			configJSON := fmt.Sprintf(`{ "Env": ["NITROUS_CMD=%s"] }`, cmd)
-			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
-
-			// Make sure the process is running inside the container.
-			out, err := exec.Command("docker", "top", info.ID).CombinedOutput()
-			Expect(string(out)).To(ContainSubstring(cmd))
-
-			err = prov.StopApp(info.ID)
-			Expect(err).To(BeNil())
-
-			// Process should no longer be running.
-			out, err = exec.Command("docker", "top", info.ID).CombinedOutput()
-			Expect(string(out)).NotTo(ContainSubstring(cmd))
-
-			// Stopping when process is not running should not return an error.
-			err = prov.StopApp(info.ID)
-			Expect(err).To(BeNil())
-		})
-
-		It("does not return an error if NITROUS_CMD is not specified", func() {
-			name := RandomName("freightertest")
-			configJSON := ""
-			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
-
-			err = prov.StopApp(info.ID)
-			Expect(err).To(BeNil())
-		})
-	})
-
 	Describe(".GetInfo()", func() {
 		BeforeEach(func() {
 			PullImage(NitrousImage)
@@ -902,7 +790,6 @@ var _ = Describe("provider/docker", func() {
 			Expect(info.Gateway).To(Equal(inspectGateway(id)))
 			Expect(info.User).To(Equal(inspectUser(id)))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
-			Expect(info.AppState).To(Equal(provider.ContainerAppNone))
 			Expect(fmt.Sprintf("[%s]", strings.Join(info.Env, " "))).To(Equal(inspectEnv(id)))
 			sshPort := inspectNetworkSettingsPort(id, "22/tcp")
 			Expect(info.Ports["22"]).To(ContainElement(sshPort))
@@ -913,30 +800,6 @@ var _ = Describe("provider/docker", func() {
 			Expect(info.ExitCode).To(Equal(c.State.ExitCode))
 			Expect(info.StartedAt).To(Equal(c.State.StartedAt))
 			Expect(info.FinishedAt).To(Equal(c.State.FinishedAt))
-		})
-
-		It("returns an AppState that indicates whether the NITROUS_CMD process is running", func() {
-			cmd := "python -m SimpleHTTPServer 8080"
-			name := RandomName("freightertest")
-			configJSON := fmt.Sprintf(`{ "Env": ["NITROUS_CMD=%s"] }`, cmd)
-			info, err := prov.CreateStart(name, NitrousImage, secret, configJSON)
-			Expect(err).To(BeNil())
-			defer CleanUpContainer(name)
-
-			info, err = prov.GetInfo(info.ID)
-			Expect(err).To(BeNil())
-			Expect(info.AppState).To(Equal(provider.ContainerAppRunning))
-
-			err = prov.StopApp(info.ID)
-			Expect(err).To(BeNil())
-
-			// Process should no longer be running.
-			out, err := exec.Command("docker", "top", info.ID).CombinedOutput()
-			Expect(string(out)).NotTo(ContainSubstring(cmd))
-
-			info, err = prov.GetInfo(info.ID)
-			Expect(err).To(BeNil())
-			Expect(info.AppState).To(Equal(provider.ContainerAppStopped))
 		})
 	})
 

@@ -122,8 +122,8 @@ var _ = Describe("server", func() {
 			It("responds with 200 ok with container info array", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(MatchJSON(`{"containers":[
-				{"id":"aaa","name":"foo","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","gateway":"1.2.3.0","state":"running","ports":null,"exit_code":0,"app_state":"","env":null,"user":"guest","started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"},
-				{"id":"bbb","name":"bar","image":"centos","image_id":"def456","host":"1.2.3.5","gateway":"1.2.3.0","state":"stopped","ports":null,"exit_code":0,"app_state":"","env":null,"user":"admin","started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"}
+				{"id":"aaa","name":"foo","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","gateway":"1.2.3.0","state":"running","ports":null,"exit_code":0,"env":null,"user":"guest","started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"},
+				{"id":"bbb","name":"bar","image":"centos","image_id":"def456","host":"1.2.3.5","gateway":"1.2.3.0","state":"stopped","ports":null,"exit_code":0,"env":null,"user":"admin","started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"}
 				]}`))
 			})
 		})
@@ -206,7 +206,6 @@ var _ = Describe("server", func() {
 								"state":"stopped",
 								"ports": null,
 								"exit_code":0,
-								"app_state":"",
 								"env":null,
 								"user": "abc",
 								"started_at":"0001-01-01T00:00:00Z",
@@ -249,7 +248,6 @@ var _ = Describe("server", func() {
 								"state":"running",
 								"ports": null,
 								"exit_code":0,
-								"app_state":"",
 								"env":null,
 								"user": "guest",
 								"started_at":"0001-01-01T00:00:00Z",
@@ -318,7 +316,7 @@ var _ = Describe("server", func() {
 	Describe("GET /containers/:container_id", func() {
 		BeforeEach(func() {
 			prov.Containers = []*provider.ContainerInfo{
-				{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning, AppState: provider.ContainerAppRunning, User: "guest"},
+				{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning, User: "guest"},
 			}
 		})
 
@@ -346,7 +344,6 @@ var _ = Describe("server", func() {
 						"state":"running",
 						"ports":null,
 						"exit_code":0,
-						"app_state":"running",
 						"env":null,
 						"user": "guest",
 						"started_at":"0001-01-01T00:00:00Z",
@@ -505,7 +502,6 @@ var _ = Describe("server", func() {
 						"state": "",
 						"ports": null,
 						"exit_code":0,
-						"app_state":"",
 						"env":null,
 						"user": "` + user + `",
 						"started_at":"0001-01-01T00:00:00Z",
@@ -539,7 +535,6 @@ var _ = Describe("server", func() {
 						"state": "running",
 						"ports": null,
 						"exit_code":0,
-						"app_state":"",
 						"env":null,
 						"user": "` + user + `",
 						"started_at":"0001-01-01T00:00:00Z",
@@ -579,7 +574,6 @@ var _ = Describe("server", func() {
 						"state": "stopped",
 						"ports": null,
 						"exit_code":0,
-						"app_state":"",
 						"env":null,
 						"user": "` + user + `",
 						"started_at":"0001-01-01T00:00:00Z",
@@ -613,7 +607,6 @@ var _ = Describe("server", func() {
 						"state": "running",
 						"ports": null,
 						"exit_code":0,
-						"app_state":"",
 						"env":null,
 						"user": "` + user + `",
 						"started_at":"0001-01-01T00:00:00Z",
@@ -629,68 +622,6 @@ var _ = Describe("server", func() {
 			})
 
 			itWorks()
-		})
-	})
-
-	Describe("POST /containers/:container_id/app/start", func() {
-		var id = "deadbeef"
-
-		doRequest := func() {
-			req, err = NewRequestWithSecret(hostSecret, "POST", fmt.Sprintf("/containers/%v/app/start", id), nil)
-			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
-		}
-
-		It("calls provider.StartApp()", func() {
-			Expect(prov.StartAppCalled).To(BeFalse())
-			doRequest()
-			Expect(prov.StartAppCalled).To(BeTrue())
-			Expect(prov.ReceivedID).To(Equal(id))
-		})
-
-		It("responds with 200 OK", func() {
-			doRequest()
-			Expect(res.Code).To(Equal(http.StatusOK))
-			Expect(res.Body.String()).To(MatchJSON(`{"status": "ok"}`))
-		})
-
-		It("responds with 500 Internal Server Error when an error occurs", func() {
-			prov.StartAppError = errors.New("can't start app")
-			doRequest()
-			Expect(prov.ReceivedID).To(Equal(id))
-			Expect(res.Code).To(Equal(http.StatusInternalServerError))
-			Expect(res.Body.String()).To(MatchJSON(`{"error": "can't start app"}`))
-		})
-	})
-
-	Describe("POST /containers/:container_id/app/stop", func() {
-		var id = "deadbeef"
-
-		doRequest := func() {
-			req, err = NewRequestWithSecret(hostSecret, "POST", fmt.Sprintf("/containers/%v/app/stop", id), nil)
-			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
-		}
-
-		It("calls provider.StopApp()", func() {
-			Expect(prov.StopAppCalled).To(BeFalse())
-			doRequest()
-			Expect(prov.StopAppCalled).To(BeTrue())
-			Expect(prov.ReceivedID).To(Equal(id))
-		})
-
-		It("responds with 200 OK", func() {
-			doRequest()
-			Expect(res.Code).To(Equal(http.StatusOK))
-			Expect(res.Body.String()).To(MatchJSON(`{"status": "ok"}`))
-		})
-
-		It("responds with 500 Internal Server Error when an error occurs", func() {
-			prov.StopAppError = errors.New("can't stop, won't stop")
-			doRequest()
-			Expect(prov.ReceivedID).To(Equal(id))
-			Expect(res.Code).To(Equal(http.StatusInternalServerError))
-			Expect(res.Body.String()).To(MatchJSON(`{"error": "can't stop, won't stop"}`))
 		})
 	})
 
