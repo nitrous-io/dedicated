@@ -109,9 +109,8 @@ func regions(d db.QueryReceiver) error {
 	regions := []region.Region{
 		{Slug: "sfo", Rank: 100, Name: "US West (sfo)"},
 		{Slug: "nyc", Rank: 200, Name: "US East (nyc)"},
-		{Slug: "lon", Rank: 300, Name: "Europe (lon)"},
-		{Slug: "ams", Rank: 400, Name: "Europe (ams)"},
-		{Slug: "sgp", Rank: 500, Name: "Asia (sgp)"},
+		{Slug: "ams", Rank: 300, Name: "Europe (ams)"},
+		{Slug: "sgp", Rank: 400, Name: "Asia (sgp)"},
 	}
 	for _, r := range regions {
 		if err := r.Insert(d); err != nil {
