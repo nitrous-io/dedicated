@@ -22,8 +22,9 @@ const (
 )
 
 var (
-	DefaultStartPort = freighterconfig.MinPreviewPort
-	DefaultEndPort   = freighterconfig.MaxPreviewPort
+	DefaultStartPort       = freighterconfig.MinPreviewPort
+	DefaultEndPort         = freighterconfig.MaxPreviewPort
+	MinPort          int64 = 1024
 
 	ErrDomainMismatched = errors.New("mismatched domain")
 
@@ -143,6 +144,9 @@ func PortsRange(s, e string) (start int64, end int64, err error) {
 		}
 		start = sp
 	}
+	if start < MinPort {
+		start = MinPort
+	}
 
 	if e == "" {
 		end = DefaultEndPort
@@ -153,6 +157,10 @@ func PortsRange(s, e string) (start int64, end int64, err error) {
 		}
 		end = ep
 	}
+	if end < MinPort {
+		end = MinPort
+	}
+
 	return start, end, nil
 }
 
