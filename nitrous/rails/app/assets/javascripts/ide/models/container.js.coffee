@@ -13,6 +13,8 @@ App.Container = klass = Em.Object.extend
   config: null
   host: null
 
+  metadata: null
+
   env: (->
     transformEnvArrayToHash @get('config').env
   ).property 'config'
@@ -90,6 +92,20 @@ App.Container = klass = Em.Object.extend
       ).done((data, status, jqxhr) =>
         @set 'host', data.host
         resolve(data)
+      ).fail (jqxhr) ->
+        reject(jqxhr)
+
+  setMetadata: (data)->
+    new Em.RSVP.Promise (resolve, reject) =>
+      Em.$.ajax(
+        type: 'PUT',
+        url: "/api/v0/containers/#{@get 'slug'}/metadata",
+        headers: { Authorization: "Bearer #{App.get 'token'}" },
+        data: data
+      ).done((retData, status, jqxhr) =>
+        Object.keys(data).forEach (k) =>
+          @set("metadata.#{k}", data[k])
+        resolve(retData)
       ).fail (jqxhr) ->
         reject(jqxhr)
 
