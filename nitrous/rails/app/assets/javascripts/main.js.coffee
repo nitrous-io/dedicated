@@ -166,7 +166,7 @@ $(window).on 'online', ->
 $(window).on 'storage', (e) ->
   origEvent = e.originalEvent
   if origEvent.key == "token" && origEvent.newValue == null
-    window.location.href = "/app#logout"
+    window.location.href = "/app/#logout"
 
 $(document).on 'click', '.noclick', (e) ->
   e.preventDefault()

@@ -1,6 +1,11 @@
 = container-tab-bar selected='config' model=model
 
 .card-body
+  .notice-text
+    i.fa.fa-warning
+    '
+    | Applying configuration changes will restart your container. Save your work before you proceed.
+
   .ui.input-group
     label.field-label
       | Custom Port Bindings

@@ -18,9 +18,11 @@ App.BetaView = Em.View.extend
     @_super()
     App.on 'open-feedback-dialog', ->
       ui.showModal(@$('#feedback-dialog'))
+      @$('#feedback-subject').focus()
 
     App.on 'open-switch-user-dialog', ->
       ui.showModal(@$('#switch-user-dialog'))
+      @$('#switch-user-login').focus()
 
   willDestroyElement: ->
     @_super()

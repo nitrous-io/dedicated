@@ -1,10 +1,16 @@
 .container
   ul.nav.left
     li
-      link-to 'home.index'
-        h1.logo
-          span Nitrous
-          small Beta
+      if App.user
+        link-to 'home.index'
+          h1.logo
+            span Nitrous
+            small Pro
+      else
+        a href='/'
+          h1.logo
+            span Nitrous
+            small Pro
   ul.nav.right
     if App.user
       li
@@ -49,16 +55,18 @@
               link-to 'billing' | Billing
           else
             li.disabled
-              a href='#' Billing
+              a.noclick href='#' Billing
           li.separator
           li
-            a href='/docs/' Help
+            a href='http://docs.nitrous.io/' target='_blank' Help
           li.separator
           li
             link-to 'logout' | Log Out
     else
       li
-        a href='/docs/' Documentation
+        link-to 'pricing' | Pricing
+      li
+        a href='http://docs.nitrous.io/' target='_blank' Documentation
       li.primary
         link-to 'signup' | Sign Up
       li.primary

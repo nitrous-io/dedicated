@@ -8,9 +8,11 @@ App.AddCardView = Em.View.extend
   zipFieldInvalid: Em.computed.equal('controller.invalidField', 'zip')
 
   didInsertElement: ->
-    $('#card-number').payment 'formatCardNumber'
-    $('#card-expiration').payment 'formatCardExpiry'
-    $('#card-cvc').payment 'formatCardCVC'
+    Em.run.scheduleOnce 'afterRender', this, ->
+      @$('#card-number').payment 'formatCardNumber'
+      @$('#card-expiration').payment 'formatCardExpiry'
+      @$('#card-cvc').payment 'formatCardCVC'
+      @$('[autofocus]').focus()
 
   saveButtonDisabled: (->
     !(@get('controller.name') && @get('controller.number') && @get('controller.expiration') && @get('controller.cvc')) || @get('controller.saving')

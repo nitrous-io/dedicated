@@ -8,7 +8,7 @@ App.IdeRoute = Em.Route.extend
         App.set 'user', user
     else
       # redirect to login screen if user hasn't logged in
-      window.location.href = '/app#login'
+      window.location.href = '/app/#/login'
 
   model: (params) ->
     @_super.apply this, arguments
