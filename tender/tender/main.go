@@ -18,6 +18,8 @@ import (
 // current version of tender binary
 var version string
 
+const freighterdForwardPort = 443 // We forward this port to FREIGHTERD_PORT.
+
 var (
 	// TODO: eventually we may look into etcd ( and co ) so we dont have to touch
 	// the main database *because* latency
@@ -86,7 +88,8 @@ func main() {
 		log.Fatalf("tender: failed to find private certificate at %s: %v", privCACertPath, err)
 	}
 
-	freighterProxy, err := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, db, privCACert)
+	portMap := map[int]int{freighterdForwardPort: int(freighterdPort)}
+	freighterProxy, err := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, portMap, db, privCACert)
 	if err != nil {
 		log.Fatalf("tender: failed to create freighter proxy, %v", err)
 	}
