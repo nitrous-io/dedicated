@@ -40,7 +40,7 @@ type FreighterProxyServer struct {
 // Returns a `http.Handler` which can be used to proxy requests to a freighterd
 // server on a Nitrous.IO host
 func NewFreighterProxyServer(baseDomain, tlsDomain string, portMap map[int]int,
-	db *sql.DB, caBytes []byte) (http.Handler, error) {
+	db *sql.DB, caBytes []byte) http.Handler {
 	s := &FreighterProxyServer{
 		db:        db,
 		domain:    baseDomain,
@@ -55,7 +55,7 @@ func NewFreighterProxyServer(baseDomain, tlsDomain string, portMap map[int]int,
 			RootCAs: certPool,
 		}
 	}
-	return s, nil
+	return s
 }
 
 // ServerHTTP lets FreighterProxyServer acts as a http handler

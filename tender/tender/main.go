@@ -90,11 +90,8 @@ func main() {
 		log.Fatalf("tender: failed to find private certificate at %s: %v", privCACertPath, err)
 	}
 
-	portMap := map[int]int{freighterdForwardPort: int(freighterdPort)}
-	freighterProxy, err := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, portMap, db, privCACert)
-	if err != nil {
-		log.Fatalf("tender: failed to create freighter proxy, %v", err)
-	}
+	freighterPortMap := map[int]int{freighterdForwardPort: int(freighterdPort)}
+	freighterProxy := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, freighterPortMap, db, privCACert)
 
 	previewProxy, err := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, db, privCACert)
 	if err != nil {
