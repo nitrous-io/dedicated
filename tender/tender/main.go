@@ -92,11 +92,7 @@ func main() {
 
 	freighterPortMap := map[int]int{freighterdForwardPort: int(freighterdPort)}
 	freighterProxy := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, freighterPortMap, db, privCACert)
-
-	previewProxy, err := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, db, privCACert)
-	if err != nil {
-		log.Fatalf("tender: failed to create preview proxy, %v", err)
-	}
+	previewProxy := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, db, privCACert)
 
 	hostCert, err := tls.LoadX509KeyPair(hostCACert, hostCAKey)
 	if err != nil {
