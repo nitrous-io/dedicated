@@ -44,7 +44,11 @@ App.Container = klass = Em.Object.extend
   ).property 'host'
 
   homePath: (->
-    "/home/#{@get 'loginUsername'}"
+    username = @get 'loginUsername'
+    if username == "root"
+      "/"
+    else
+      "/home/#{username}"
   ).property 'loginUsername'
 
   previewablePorts: (->
