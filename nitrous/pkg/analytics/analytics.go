@@ -7,5 +7,5 @@ import (
 
 type Tracker interface {
 	TrackEvent(event string, u *user.User, p map[string]interface{}, logger *logger.Logger)
-	CreateProfile(u *user.User, logger *logger.Logger, inviteCode string)
+	CreateProfile(u *user.User, logger *logger.Logger)
 }

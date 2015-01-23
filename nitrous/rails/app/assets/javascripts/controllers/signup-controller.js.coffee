@@ -1,6 +1,5 @@
 App.SignupController = Em.Controller.extend
   queryParams: [{ incomingEmail: 'email' }]
-  code: null
   user: null
   signingUp: false
   error: null
@@ -9,7 +8,6 @@ App.SignupController = Em.Controller.extend
 
   clear: ->
     @setProperties
-      code: null
       user: App.User.create()
       signingUp: false
       error: null
@@ -31,9 +29,8 @@ App.SignupController = Em.Controller.extend
       @set 'error', null
       @set 'invalidField', null
       @set 'signingUp', true
-      code = @get 'code'
       user = @get 'user'
-      user.save(code: code).then(=>
+      user.save().then(=>
         App.__container__.lookup('controller:login').doLogin(user.get('username'), user.get('password'))
         user.set 'password', null
       , (jqxhr) =>

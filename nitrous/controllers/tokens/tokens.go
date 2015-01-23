@@ -75,7 +75,7 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	env.User = u
-	env.Tracker.CreateProfile(u, env.Logger, "")
+	env.Tracker.CreateProfile(u, env.Logger)
 	return nil
 }
 

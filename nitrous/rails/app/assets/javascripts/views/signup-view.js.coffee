@@ -49,7 +49,6 @@ App.SignupView = Em.View.extend
   passwordInputPattern: '.{6,}'
   passwordInputTitle: 'Minimum 6 characters'
 
-  codeFieldInvalid:     Em.computed.equal('controller.invalidField', 'code')
   usernameFieldInvalid: Em.computed.equal('controller.invalidField', 'username')
   emailFieldInvalid:    Em.computed.equal('controller.invalidField', 'email')
   passwordFieldInvalid: Em.computed.equal('controller.invalidField', 'password')

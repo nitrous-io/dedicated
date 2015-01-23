@@ -21,11 +21,6 @@
           | Credit
 
       .ui.input-group
-        label.field-label for='signup-code'
-          | Sign Up Code
-        = input type='password' id='signup-code' classNameBindings='view.codeFieldInvalid:error' disabled=signingUp value=code
-
-      .ui.input-group
         label.field-label for='signup-username'
           | Username
         = input type='text' id='signup-username' classNameBindings='view.usernameFieldInvalid:error' disabled=signingUp value=user.username placeholder='e.g., jdawg91'
