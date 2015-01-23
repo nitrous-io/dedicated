@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/tender"
@@ -99,8 +101,54 @@ func main() {
 		log.Fatalf("tender: failed to create preview proxy, %v", err)
 	}
 
+	hostCert, err := tls.LoadX509KeyPair(hostCACert, hostCAKey)
+	if err != nil {
+		log.Fatalf("tender: failed to load host proxy's SSL certificates: %v", err)
+	}
+	containerCert, err := tls.LoadX509KeyPair(containerCACert, containerCAKey)
+	if err != nil {
+		log.Fatalf("tender: failed to load container proxy's SSL certificates: %v", err)
+	}
+
+	tlsConfig := &tls.Config{
+		NextProtos:   []string{"http/1.1"},
+		Certificates: []tls.Certificate{hostCert, containerCert},
+	}
+	tlsConfig.BuildNameToCertificate()
+	addr := fmt.Sprintf(":%d", freighterdForwardPort)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("tender: failed to bind to %s, err: %v", addr, err)
+	}
+	ln = tls.NewListener(tender.TcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
+	proxyServer := &vhostServer{
+		freighterProxyServer: freighterProxy,
+		previewProxyServer:   previewProxy,
+	}
+	srv := &http.Server{
+		Addr:      addr,
+		Handler:   proxyServer,
+		TLSConfig: tlsConfig,
+	}
+	go func() {
+		log.Fatal(srv.Serve(ln))
+	}()
+
 	servePreviewProxy(previewProxy)
 	serveFreighterdProxy(freighterProxy)
+}
+
+type vhostServer struct {
+	freighterProxyServer http.Handler
+	previewProxyServer   http.Handler
+}
+
+func (s *vhostServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasSuffix(r.Host, hostBaseDomain) {
+		s.freighterProxyServer.ServeHTTP(w, r)
+	} else if strings.HasSuffix(r.Host, containerBaseDomain) {
+		s.previewProxyServer.ServeHTTP(w, r)
+	}
 }
 
 // this runs in foreground and should be called after servePreviewProxy
@@ -146,13 +194,6 @@ func servePreviewProxy(s http.Handler) {
 		go func(p int64) {
 			log.Fatal(tender.ServeTLS(p, tlsConfig, s))
 		}(p)
-	}
-	// listen to HTTP/HTTPS port in addition to the specified port range if
-	// necessary
-	if startPort > 443 {
-		go func() {
-			log.Fatal(tender.ServeTLS(443, tlsConfig, s))
-		}()
 	}
 }
 
