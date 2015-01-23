@@ -502,6 +502,7 @@ var _ = Describe("server", func() {
 						"ports": null,
 						"exit_code":0,
 						"app_state":"",
+						"env":null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -534,6 +535,7 @@ var _ = Describe("server", func() {
 						"ports": null,
 						"exit_code":0,
 						"app_state":"",
+						"env":null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -572,6 +574,7 @@ var _ = Describe("server", func() {
 						"ports": null,
 						"exit_code":0,
 						"app_state":"",
+						"env":null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -604,6 +607,7 @@ var _ = Describe("server", func() {
 						"ports": null,
 						"exit_code":0,
 						"app_state":"",
+						"env":null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
