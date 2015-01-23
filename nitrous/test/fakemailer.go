@@ -10,6 +10,7 @@ type FakeMailer struct {
 	Subject        string
 	Body           string
 	HTML           string
+	Error          error
 }
 
 func (s *FakeMailer) SendMail(from string, tos []string, ccs []string, bccs []string, replyTo, subject, body, htmltext string) error {
@@ -22,5 +23,5 @@ func (s *FakeMailer) SendMail(from string, tos []string, ccs []string, bccs []st
 	s.Subject = subject
 	s.Body = body
 	s.HTML = htmltext
-	return nil
+	return s.Error
 }
