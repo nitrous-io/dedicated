@@ -82,15 +82,39 @@ var _ = BeforeSuite(func() {
 	out, err = cmd.CombinedOutput()
 	Expect(err).To(BeNil(), "failed to build nitrous/busybox, output: %s", string(out))
 	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// load nitrousio/ubuntu-bare image from /root/ubuntu-bare.tar.gz
+	start = time.Now()
+	fmt.Print("build nitrousio/ubuntu-bare:latest...")
+	out, err = exec.Command("docker", "load", "-i", "/root/ubuntu-bare.tar.gz").CombinedOutput()
+	Expect(err).To(BeNil(), "failed to load nitrousio/ubuntu-bare, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// build nitrous/ubuntu based on nitrosio/ubuntu-bare, but with "top" cmd
+	start = time.Now()
+	fmt.Print("build nitrous/ubuntu:latest...")
+	cmd = exec.Command("docker", "build", "-t", "nitrous/ubuntu:latest", "-")
+	cmd.Stdin = bytes.NewBufferString(`
+	FROM nitrousio/ubuntu-bare:latest
+	CMD ["top"]
+	`)
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build nitrous/ubuntu, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
 })
 
 var _ = AfterSuite(func() {
 	var out []byte
 	var err error
-	out, err = exec.Command("docker", "rmi", "nitrous/busybox:latest").CombinedOutput()
-	Expect(err).To(BeNil(), "failed to remove docker images, output: %s", string(out))
-	out, err = exec.Command("docker", "rmi", "busybox:latest").CombinedOutput()
-	Expect(err).To(BeNil(), "failed to remove docker images, output: %s", string(out))
+	for _, img := range []string{
+		"nitrous/busybox:latest",
+		"busybox:latest",
+		"nitrous/busybox:latest",
+		"nitrousio/ubuntu-bare:latest",
+	} {
+		out, err = exec.Command("docker", "rmi", img).CombinedOutput()
+		Expect(err).To(BeNil(), "failed to remove %s, output: %s", img, string(out))
+	}
 })
 
 // startContainer behaves similarly to startContainerWithData except that it

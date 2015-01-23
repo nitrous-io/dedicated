@@ -73,6 +73,11 @@ RUN echo "fsync=off" >> /etc/postgresql/9.3/main/postgresql.conf && \
 
 # Get the "busybox" image source so we can build locally instead of pulling
 RUN git clone -b buildroot-2014.02 https://github.com/jpetazzo/docker-busybox.git /docker-busybox
+# Get "ubuntu-bare" compressed image so that we can load it instead of pulling
+RUN wget https://github.com/nitrous-io/docker-ubuntu-bare/releases/download/ubuntu-bare-v1/ubuntu-bare.tar.gz -O /root/ubuntu-bare.tar.gz
+
+# get latest docker binary
+RUN wget https://get.docker.com/builds/Linux/x86_64/docker-1.4.1 -O /usr/bin/docker && chmod +x /usr/bin/docker
 
 # set GOPATH to include the path to dependencies
 ENV GOPATH /opt/src/github.com/nitrous-io/dedicated/Godeps/_workspace:/opt

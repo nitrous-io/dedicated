@@ -25,7 +25,7 @@ var _ = Describe("GetInfo", func() {
 		configJSON := fmt.Sprintf(`{ "Env": ["NITROUS_CMD=%s"] }`, cmd)
 		// use busybox here because we dont want user to be set
 		// su in busybox doesnt support all the options that is required ...
-		prov, info, cleanupFn, err := startContainer("busybox:latest", configJSON)
+		prov, info, cleanupFn, err := startContainer("nitrous/ubuntu:latest", configJSON)
 		defer cleanupFn()
 		Expect(err).To(BeNil(), "failed to start the container")
 
