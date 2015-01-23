@@ -4,6 +4,18 @@
   "librato_token": "",
   "navigators": [
     {
+      "name": "container",
+      "domain": "n2odevapp.com.",
+      "config": {
+        "database_url": "host=/var/run/postgresql user=vagrant dbname=nitrous_development sslmode=disable",
+        "sgp":"n2ostagingproxy-sfo.com",
+        "ams":"n2ostagingproxy-sfo.com",
+        "lon":"n2ostagingproxy-sfo.com",
+        "nyc":"n2ostagingproxy-sfo.com",
+        "sfo":"n2ostagingproxy-sfo.com"
+      }
+    },
+    {
       "name": "host",
       "domain": "n2odevpro.com.",
       "config": {

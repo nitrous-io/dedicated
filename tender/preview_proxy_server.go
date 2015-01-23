@@ -6,12 +6,21 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 
 	_ "github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
+)
+
+const (
+	// Requests on this port will be mapped to the NITROUS_PREVIEW_PORT.
+	// E.g. if preview is running on port 3000, requests on port 443 will be treated
+	// as if they were made on port 3000.
+	previewForwardPort = 443
+	previewPortEnvVar  = "NITROUS_PREVIEW_PORT"
 )
 
 // PreviewProxyServer let user proxy preview requests to the host.
@@ -36,14 +45,13 @@ type PreviewProxyServer struct {
 // Returns a `http.Handler` which can be used to proxy preview request to
 // a Nitrous.IO host
 func NewPreviewProxyServer(baseDomain, tlsDomain string,
-	db *sql.DB, caBytes []byte) (http.Handler, error) {
-	s := &PreviewProxyServer{
-		db:        db,
-		domain:    baseDomain,
+	db *sql.DB, caBytes []byte) http.Handler {
+	return &PreviewProxyServer{
 		tlsDomain: tlsDomain,
+		domain:    baseDomain,
+		db:        db,
 		ca:        caBytes,
 	}
-	return s, nil
 }
 
 func (s *PreviewProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -53,32 +61,33 @@ func (s *PreviewProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type containerWithPorts struct {
+type containerWithInfo struct {
 	*Container
 	ports map[string][]string
+	env   []string
 }
 
 // Naïve cache - replace with something like groupcache.
 type containerCache struct {
 	lock sync.RWMutex
-	data map[string]containerWithPorts
+	data map[string]containerWithInfo
 }
 
 func newContainerCache() *containerCache {
 	return &containerCache{
 		lock: sync.RWMutex{},
-		data: make(map[string]containerWithPorts),
+		data: make(map[string]containerWithInfo),
 	}
 }
 
-func (c *containerCache) Get(slug string) (containerWithPorts, bool) {
+func (c *containerCache) Get(slug string) (containerWithInfo, bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	cn, ok := c.data[slug]
 	return cn, ok
 }
 
-func (c *containerCache) Set(slug string, cn containerWithPorts) {
+func (c *containerCache) Set(slug string, cn containerWithInfo) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.data[slug] = cn
@@ -106,7 +115,7 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 	}()
 	log.Printf("[INFO] request %v to %s", r, slug)
 
-	var container containerWithPorts
+	var container containerWithInfo
 	// FIXME Evict container from cache when container is terminated.
 	container, ok := cnCache.Get(slug)
 	if !ok {
@@ -130,22 +139,23 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 			return fmt.Errorf("failed to fetch container info %s: %v", cn.Slug, err)
 		}
 
-		container = containerWithPorts{
+		container = containerWithInfo{
 			Container: cn,
 			ports:     info.Ports,
+			env:       info.Env,
 		}
 		cnCache.Set(slug, container)
 	}
 
-	requestedPort := strconv.Itoa(parsePort(r))
-	publicPort, err := getPublicFreighterdPort(container.ports, requestedPort)
+	incomingPort := parsePort(r)
+	containerPort, err := s.getContainerPort(container, incomingPort)
 	if err != nil {
 		return err
 	}
 
 	// set X-FORWARDED-PORT for the request
-	r.Header.Set(config.ForwardPortHeader, requestedPort)
-	dest := setRequestHost(r, container.HostIP, publicPort)
+	r.Header.Set(config.ForwardPortHeader, strconv.Itoa(incomingPort))
+	dest := setRequestHost(r, container.HostIP, containerPort)
 
 	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(dest, nil)(w, r)
@@ -153,4 +163,29 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 		proxy.ProxyHTTP(dest, nil)(w, r)
 	}
 	return nil
+}
+
+func (s *PreviewProxyServer) getContainerPort(container containerWithInfo, port int) (string, error) {
+	// Try to map requests on previewForwardPort to the port specified by the
+	// container's NITROUS_PREVIEW_PORT env var.
+	if port == previewForwardPort {
+		if previewPort, ok := envValue(container.env, previewPortEnvVar); ok {
+			p, err := getPublicFreighterdPort(container.ports, previewPort)
+			if err == nil {
+				return p, nil
+			}
+		}
+	}
+
+	return getPublicFreighterdPort(container.ports, strconv.Itoa(port))
+}
+
+func envValue(env []string, envVar string) (string, bool) {
+	for _, val := range env {
+		split := strings.SplitN(val, "=", 2)
+		if len(split) == 2 && split[0] == envVar {
+			return split[1], true
+		}
+	}
+	return "", false
 }

@@ -90,6 +90,7 @@ func main() {
 	writeDNS([]dnsServer{
 		dnsServer{name: "n2odevpro.com", ip: compassIP},
 		dnsServer{name: "n2odevproxy.com", ip: compassIP},
+		dnsServer{name: "n2odevapp.com", ip: compassIP},
 	})
 
 	// Set up channel on which to send signal notifications.

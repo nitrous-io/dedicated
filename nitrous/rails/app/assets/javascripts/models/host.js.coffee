@@ -100,7 +100,7 @@ App.Host = klass = App.Model.extend
     hostname = @get 'proxyHostname'
     port = @get 'freighterdPort'
     if hostname
-      if port
+      if port && port != '65333'
         return "#{hostname}:#{port}"
       hostname
   ).property 'proxyHostname', 'freighterdPort'

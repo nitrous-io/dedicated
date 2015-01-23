@@ -18,6 +18,8 @@ import (
 // current version of tender binary
 var version string
 
+const freighterdForwardPort = 443 // We forward this port to FREIGHTERD_PORT.
+
 var (
 	// TODO: eventually we may look into etcd ( and co ) so we dont have to touch
 	// the main database *because* latency
@@ -47,27 +49,26 @@ func init() {
 	// credentials to serve HTTPS for host-slug.nitrousproxy.com
 	// which is the proxy to freighter remote api on each host
 	hostBaseDomain = envStr("HOST_BASE_DOMAIN")
+	if hostBaseDomain[0] != '.' {
+		log.Fatalf("HOST_BASE_DOMAIN should start with .")
+	}
 	hostCACert = envStr("HOST_CA_CRT")
 	hostCAKey = envStr("HOST_CA_KEY")
 
 	// this is the host domain that we should forward request to
-	// this is used to talk to freighted on the host
-	// this is the ca for TLS_DOMAIN
+	// this is used to talk to freighterd on the host
 	tlsDomain = envStr("TLS_DOMAIN")
+	// this is the ca for TLS_DOMAIN
 	privCACertPath = envStr("PRI_CRT")
 
 	containerBaseDomain = envStr("CONTAINER_BASE_DOMAIN")
+	if containerBaseDomain[0] != '.' {
+		log.Fatalf("CONTAINER_BASE_DOMAIN should start with .")
+	}
 	containerCACert = envStr("CONTAINER_CA_CRT")
 	containerCAKey = envStr("CONTAINER_CA_KEY")
 	previewStartPort = os.Getenv("PREVIEW_START_PORT")
 	previewEndPort = os.Getenv("PREVIEW_END_PORT")
-
-	if hostBaseDomain[0] != '.' {
-		log.Fatalf("HOST_BASE_DOMAIN should start with .")
-	}
-	if containerBaseDomain[0] != '.' {
-		log.Fatalf("CONTAINER_BASE_DOMAIN should start with .")
-	}
 }
 
 func main() {
@@ -84,41 +85,56 @@ func main() {
 
 	privCACert, err := ioutil.ReadFile(privCACertPath)
 	if err != nil {
-		log.Fatalf("tender: Failed to find private certificate: %s", privCACertPath)
+		log.Fatalf("tender: failed to find private certificate at %s: %v", privCACertPath, err)
 	}
 
-	freighterProxy, err := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, db, privCACert)
+	freighterPortMap := map[int]int{freighterdForwardPort: int(freighterdPort)}
+	freighterProxy := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, freighterPortMap, db, privCACert)
+	previewProxy := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, db, privCACert)
+
+	hostCert, err := tls.LoadX509KeyPair(hostCACert, hostCAKey)
 	if err != nil {
-		log.Fatalf("failed to create https freighter proxy, %v", err)
+		log.Fatalf("tender: failed to load host proxy's SSL certificates: %v", err)
 	}
-
-	previewProxy, err := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, db, privCACert)
+	containerCert, err := tls.LoadX509KeyPair(containerCACert, containerCAKey)
 	if err != nil {
-		log.Fatalf("failed to create https preview proxy, %v", err)
+		log.Fatalf("tender: failed to load container proxy's SSL certificates: %v", err)
 	}
 
-	servePreviewProxy(previewProxy)
-	serveFreighterdProxy(freighterProxy)
+	go serve443(hostCert, containerCert, freighterProxy, previewProxy)
+	servePreviewProxy(containerCert, previewProxy)
+	serveFreighterdProxy(hostCert, freighterProxy)
 }
 
-// this runs in foreground and should be called after servePreviewProxy
-func serveFreighterdProxy(s http.Handler) {
-	// create tls config
-	crt, err := tls.LoadX509KeyPair(hostCACert, hostCAKey)
-	if err != nil {
-		log.Fatalf("tender: Failed to load freighter's SSL certificates: %q", err)
-	}
+func serve443(hostCert, containerCert tls.Certificate, freighterProxy, previewProxy http.Handler) {
 	tlsConfig := &tls.Config{
 		NextProtos:   []string{"http/1.1"},
-		Certificates: []tls.Certificate{crt},
+		Certificates: []tls.Certificate{hostCert, containerCert},
+	}
+	tlsConfig.BuildNameToCertificate()
+
+	proxyServer := &tender.VhostServer{
+		FreighterBaseDomain:  hostBaseDomain,
+		FreighterProxyServer: freighterProxy,
+		PreviewBaseDomain:    containerBaseDomain,
+		PreviewProxyServer:   previewProxy,
 	}
 
-	log.Printf("listenning to port %d", freighterdPort)
-	log.Fatal(tender.ServeTLS(freighterdPort, tlsConfig, s))
+	log.Printf("listening to port %d", freighterdForwardPort)
+	log.Fatal(tender.ServeTLS(freighterdForwardPort, tlsConfig, proxyServer))
 }
 
-// this runs in background, and should be called before serveFreighterdProxy
-func servePreviewProxy(s http.Handler) {
+func serveFreighterdProxy(cert tls.Certificate, handler http.Handler) {
+	tlsConfig := &tls.Config{
+		NextProtos:   []string{"http/1.1"},
+		Certificates: []tls.Certificate{cert},
+	}
+
+	log.Printf("listening to port %d", freighterdPort)
+	log.Fatal(tender.ServeTLS(freighterdPort, tlsConfig, handler))
+}
+
+func servePreviewProxy(cert tls.Certificate, handler http.Handler) {
 	startPort, endPort, err := tender.PortsRange(previewStartPort, previewEndPort)
 	if err != nil {
 		log.Fatalf("tender: invalid ports, %q", err)
@@ -131,33 +147,16 @@ func servePreviewProxy(s http.Handler) {
 		)
 	}
 
-	// create tls config
-	crt, err := tls.LoadX509KeyPair(containerCACert, containerCAKey)
-	if err != nil {
-		log.Fatalf("failed to load container's SSL certificates: %q", err)
-	}
 	tlsConfig := &tls.Config{
 		NextProtos:   []string{"http/1.1"},
-		Certificates: []tls.Certificate{crt},
+		Certificates: []tls.Certificate{cert},
 	}
 
 	// proxy port range for preview
 	for p := startPort; p <= endPort; p++ {
 		go func(p int64) {
-			log.Fatal(tender.ServeTLS(p, tlsConfig, s))
+			log.Fatal(tender.ServeTLS(p, tlsConfig, handler))
 		}(p)
-	}
-	// listen to HTTP/HTTPS port in addition to the specified port range if
-	// necessary
-	if startPort > 80 {
-		go func() {
-			log.Fatal(tender.ServeTLS(80, tlsConfig, s))
-		}()
-	}
-	if startPort > 443 {
-		go func() {
-			log.Fatal(tender.ServeTLS(443, tlsConfig, s))
-		}()
 	}
 }
 
