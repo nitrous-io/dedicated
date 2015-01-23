@@ -146,11 +146,6 @@ func servePreviewProxy(s http.Handler) {
 	}
 	// listen to HTTP/HTTPS port in addition to the specified port range if
 	// necessary
-	if startPort > 80 {
-		go func() {
-			log.Fatal(tender.ServeTLS(80, tlsConfig, s))
-		}()
-	}
 	if startPort > 443 {
 		go func() {
 			log.Fatal(tender.ServeTLS(443, tlsConfig, s))
