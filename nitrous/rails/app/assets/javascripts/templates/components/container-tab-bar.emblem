@@ -1,5 +1,5 @@
 li class={generalSelected:selected}
-  link-to 'container.index' | Application
+  link-to 'container.index' | Container
 if model.sshEnabled
   li class={keysSelected:selected}
     link-to 'container.keys' | SSH Keys

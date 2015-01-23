@@ -62,7 +62,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
     if errMsg = jqxhr.responseJSON?.error_description
       @set 'error', errMsg
       @set 'invalidField', errMsg.match(/^\w+/)[0]
-    App.postError(jqxhr.responseJSON, 'Failed to create application!')
+    App.postError(jqxhr.responseJSON, 'Failed to create container!')
     @set 'saving', false
 
   createContainer: (name, slug, repository, template) ->
@@ -82,7 +82,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       publish_all: @get 'publishAll'
     ).then =>
       @transitionToRoute 'container.index', slug
-      App.snackbar.post("Your new application “#{name}” was created successfully.")
+      App.snackbar.post("Your new container “#{name}” was created successfully.")
       @set 'saving', false
     , (jqxhr) => # container.save
       @handleErrorResponse(jqxhr)

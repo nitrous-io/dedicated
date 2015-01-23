@@ -16,7 +16,7 @@
           ' Up to
         = maxContainers
         '
-        span Applications
+        span Containers
       li
         = memory
         '

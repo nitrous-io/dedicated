@@ -31,7 +31,7 @@
           tr
             th
               abbr title='Use this port as the preview port' Preview
-            th colspan='2' Application Port
+            th colspan='2' Container Port
         tbody
           tr
             td

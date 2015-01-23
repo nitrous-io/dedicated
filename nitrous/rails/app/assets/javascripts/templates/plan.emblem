@@ -13,7 +13,7 @@ h3
       span
         = plan.maxContainers
       '
-      | Applications
+      | Containers
     li
       span
         = plan.memory

@@ -141,14 +141,14 @@
         strong CANNOT
         | &nbsp;be undone!
       p
-        ' This will permanently delete the application
+        ' This will permanently delete the container
         strong
           | &ldquo;
           = displayName
           ' &rdquo;
-        | and all data stored within the application.
+        | and all data stored within the container.
       p
-        ' Please type in the slug of the application
+        ' Please type in the slug of the container
         strong
           | (
           span.click-highlight

@@ -1,5 +1,5 @@
 .card-header.bordered
-  h2 New Application
+  h2 New Container
 
 .screens
   if App.user.advanced
@@ -113,8 +113,8 @@
             thead
               tr
                 th Public
-                th Workspace Port
-                th colspan='2' Application Port
+                th Workspace Host Port
+                th colspan='2' Container Port
             tbody
               tr
                 td

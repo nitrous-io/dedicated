@@ -8,7 +8,7 @@ App.ContainerRoute = App.AuthedRoute.extend
     fetch.catch (jqxhr) =>
       if jqxhr.status == 404
         Em.run.next ->
-          App.snackbar.post("Application “#{params.containerSlug}” could not be found.")
+          App.snackbar.post("Container “#{params.containerSlug}” could not be found.")
           App.get('containers')?.reload()
       @transitionTo 'home.index'
     container
