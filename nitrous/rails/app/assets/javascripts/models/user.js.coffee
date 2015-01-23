@@ -20,8 +20,6 @@ App.User = klass = App.Model.extend
 
   advancedBinding: 'App.userProfile.advanced'
 
-  ideEnabledBinding: 'admin'
-
   gravatar: (->
     "https://secure.gravatar.com/avatar/#{md5(@get 'email')}?default=retro&secure=true&size=48"
   ).property 'email'

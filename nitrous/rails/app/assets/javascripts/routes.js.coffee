@@ -8,11 +8,10 @@ App.Router.map ->
   @route 'pricing'
 
   @resource 'home', path: '/', ->
-    @resource 'containers', path: '/applications', ->
+    @resource 'containers', path: '/containers', ->
       @route 'new'
 
-    @resource 'container', path: '/applications/:containerSlug', ->
-      @route 'system'
+    @resource 'container', path: '/containers/:containerSlug', ->
       @route 'keys'
       @route 'keys-new', path: '/keys/new'
       @route 'config'

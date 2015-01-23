@@ -23,8 +23,8 @@
         thead
           tr
             th Public
-            th Workspace Port
-            th colspan='2' Application Port
+            th Workspace Host Port
+            th colspan='2' Container Port
         tbody
           tr
             td
@@ -144,7 +144,7 @@
     h2.card-header
       | Are you sure?
     .card-body
-      p Changing application configuration may render your application unusable. Proceed with caution.
+      p Changing container configuration may render your container unusable. Proceed with caution.
       p Are you sure you want to apply changes?
 
     .card-footer

@@ -427,7 +427,7 @@ This template contains:
 •  Meteor 1.0.1
 •  Ubuntu 14.04`
 
-	djangoDesc = `A Django application.
+	djangoDesc = `A Django stack.
 
 This template contains:
 •  Django 1.7.1

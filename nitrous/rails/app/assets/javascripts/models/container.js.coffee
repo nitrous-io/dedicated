@@ -11,7 +11,6 @@ App.Container = klass = App.Model.extend
   slug: attr()
   name: attr()
   state: attr(serialize: false)
-  appState: attr(as: 'app_state', serialize: false)
   cmd: attr('array', serialize: false)
   entrypoint: attr('array', serialize: false)
   exitCode: attr('number', as: 'exit_code', serialize: false)
@@ -25,11 +24,11 @@ App.Container = klass = App.Model.extend
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
 
   config: (->
-    return unless @get('id') # Load config only after container is saved.
+    return unless @get('id') # Load config only after container is saved
     config = Em.ObjectProxy.create()
     @loadConfig()
     config
-  ).property 'id', 'slug'
+  ).property 'id'
 
   underReconfig: attr('boolean', serialize: false)
 
@@ -37,10 +36,6 @@ App.Container = klass = App.Model.extend
   isStopped: Em.computed.equal 'state', 'stopped'
   isTerminated: Em.computed.equal 'state', 'terminated'
 
-  hasNoApp: Em.computed.equal 'appState', 'none'
-  hasApp: Em.computed.not 'hasNoApp'
-  isAppRunning: Em.computed.equal 'appState', 'running'
-  isAppStopped: Em.computed.equal 'appState', 'stopped'
   isNitrousImage: Em.computed.notEmpty 'config.env.NITROUS_IMAGE_VERSION'
 
   hostnameBinding: Em.Binding.oneWay 'host.hostname'
@@ -67,21 +62,12 @@ App.Container = klass = App.Model.extend
     "ssh://#{user}@#{hostname}:#{sshPort}"
   ).property 'sshEnabled', 'loginUsername', 'hostname', 'sshPort'
 
-  supportsPreview: (->
-    unless @get('previewURL')
-      return false
-
-    unless @get('hasApp')
-      return true
-
-    @get('hasApp') && @get('isAppRunning')
-  ).property 'hasApp', 'isAppRunning', 'previewURL'
-
   previewURL: (->
-    previewHostname = @get 'previewHostname'
-    previewPort = @get 'previewPort'
-    if previewHostname && previewPort
-      "https://#{previewHostname}:#{previewPort}/"
+    host = @get 'previewHostname'
+    port = @get('previewPort') || 3000
+    return unless host
+    url = "https://#{host}"
+    url += ":#{port}" if port && port != 3000
   ).property 'previewHostname', 'previewPort'
 
   ideURL: (->

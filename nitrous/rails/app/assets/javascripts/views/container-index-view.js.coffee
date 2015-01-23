@@ -1,6 +1,12 @@
 App.ContainerIndexView = Em.View.extend
   elementId: 'container-index-view'
 
+  terminateSlugConfirmation: null
+
+  terminateSlugConfirmationInvalid: (->
+    @get('controller.model.slug') != @get('terminateSlugConfirmation')
+  ).property 'controller.model.slug', 'terminateSlugConfirmation'
+
   snapshotImageNameEmpty: Em.computed.empty 'controller.snapshotImageName'
 
   closeSnapshotDialogDidChange: (->
@@ -10,6 +16,17 @@ App.ContainerIndexView = Em.View.extend
   ).observes 'controller.closeSnapshotDialog'
 
   actions:
+    showTerminateDialog: ->
+      @set 'terminateSlugConfirmation', null
+      ui.showModal('#terminate-modal-dialog')
+
+    cancelTerminate: ->
+      ui.hideModal('#terminate-modal-dialog')
+
+    confirmTerminate: ->
+      ui.hideModal('#terminate-modal-dialog')
+      @get('controller').send 'terminate'
+
     showSnapshotDialog: ->
       @set 'controller.snapshotImageName', makeDefaultImageName(@get 'controller.slug')
       ui.showModal('#snapshot-modal-dialog')

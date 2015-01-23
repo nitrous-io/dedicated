@@ -52,25 +52,6 @@ App.Host = klass = App.Model.extend
     @get('containers').sortBy('slug')
   ).property 'containers'
 
-  appContainer: (->
-    containers = @get 'containers'
-    if containers && containers.length > 0
-      containers.findBy('name', 'app') || containers.findBy('name', 'rails') || containers.get('firstObject')
-  ).property 'containers.@each'
-
-  appState: (->
-    hostState = @get 'state'
-    appContainer = @get 'appContainer'
-
-    if hostState == 'running'
-      if appContainer
-        appContainer.get('state')
-      else
-        'unknown'
-    else
-      hostState
-  ).property 'state', 'appContainer.state'
-
   registries: (->
     if id = @get('id')
       App.Registry.fetch(hostId: id).value
@@ -108,10 +89,6 @@ App.Host = klass = App.Model.extend
   selected: (->
     App.get('selectedHost') == this
   ).property 'App.selectedHost'
-
-  selectedAsApp: (->
-    App.get('selectedAppHost') == this
-  ).property 'App.selectedAppHost'
 
   hostStateDidChange: (->
     if @get('state') == 'running'
