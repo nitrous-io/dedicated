@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq/hstore"
@@ -22,7 +23,8 @@ import (
 const DigitalOceanImageID = "5714430"
 
 var (
-	logr *logger.Logger
+	logr           *logger.Logger
+	providerToSeed string
 )
 
 func init() {
@@ -38,6 +40,11 @@ func main() {
 	if dbURL == "" {
 		logr.FatalExit(envvars.DBEnvVar, "is not defined")
 	}
+	providerToSeed = envvars.DefaultProvider
+	if providerToSeed != "digitalocean" && providerToSeed != "docker" {
+		logr.Fatalf("DEFAULT_PROVIDER %s must be one of digitalocean or docker", providerToSeed)
+	}
+
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
 		logr.FatalExit(err)
@@ -102,9 +109,8 @@ func regions(d db.QueryReceiver) error {
 	regions := []region.Region{
 		{Slug: "sfo", Rank: 100, Name: "US West (sfo)"},
 		{Slug: "nyc", Rank: 200, Name: "US East (nyc)"},
-		{Slug: "lon", Rank: 300, Name: "Europe (lon)"},
-		{Slug: "ams", Rank: 400, Name: "Europe (ams)"},
-		{Slug: "sgp", Rank: 500, Name: "Asia (sgp)"},
+		{Slug: "ams", Rank: 300, Name: "Europe (ams)"},
+		{Slug: "sgp", Rank: 400, Name: "Asia (sgp)"},
 	}
 	for _, r := range regions {
 		if err := r.Insert(d); err != nil {
@@ -121,9 +127,9 @@ func plans(d db.QueryReceiver) error {
 		return err
 	}
 	plans := []plan.Plan{
-		{Slug: "shift", Name: "Shift", MaxContainers: 2, Price: 2500, CPU: "1", Memory: "1 GB", Storage: "20 GB"},
-		{Slug: "turbo", Name: "Turbo", MaxContainers: 5, Price: 5000, CPU: "2", Memory: "2 GB", Storage: "30 GB", MostPopular: true},
-		{Slug: "nitro", Name: "Nitro", MaxContainers: 10, Price: 8000, CPU: "2", Memory: "4 GB", Storage: "50 GB"},
+		{Slug: "1gb", Name: "Shift", MaxContainers: 2, Price: 2500, CPU: "1", Memory: "1 GB", Storage: "20 GB"},
+		{Slug: "2gb", Name: "Turbo", MaxContainers: 5, Price: 5000, CPU: "2", Memory: "2 GB", Storage: "30 GB", MostPopular: true},
+		{Slug: "4gb", Name: "Nitro", MaxContainers: 10, Price: 8000, CPU: "2", Memory: "4 GB", Storage: "50 GB"},
 	}
 	for _, p := range plans {
 		if err := p.Insert(d); err != nil {
@@ -151,32 +157,59 @@ func providertemplates(d db.QueryReceiver) error {
 	}
 	for _, p := range plans {
 		for _, r := range regions {
-			providers := []string{"docker", "digitalocean"}
-			for _, provider := range providers {
-				pt := &providertemplate.ProviderTemplate{
-					Name:     fmt.Sprintf("%s-%s-%s", provider, p.Slug, r.Slug),
-					Provider: provider,
-					RegionID: r.ID,
-					PlanID:   p.ID,
-					Config: hstore.Hstore{
-						Map: map[string]sql.NullString{
-							"region_id": {r.Slug, true},
-							"size_id":   {p.Slug, true},
-						},
+			// 672 = 28 * 24 (hourly price is derived by using monthly
+			// price for 28 days)
+			// hourly price is millicents, so *1000
+			hp := math.Ceil(float64(p.Price) / 672 * 1000)
+			pt := &providertemplate.ProviderTemplate{
+				Name:     fmt.Sprintf("%s-%s-%s", providerToSeed, p.Slug, r.Slug),
+				Provider: providerToSeed,
+				RegionID: r.ID,
+				PlanID:   p.ID,
+				Config: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"region_id": {r.Slug, true},
+						"size_id":   {p.Slug, true},
 					},
-				}
-				if provider == "digitalocean" {
-					pt.Config.Map["image_id"] = sql.NullString{DigitalOceanImageID, true}
-				}
-				err := pt.Insert(d)
-				if err != nil {
-					return err
-				}
-				logr.Infof("Added provider template %+v", pt)
+				},
+				HourlyPrice: int64(hp),
+			}
+			if providerToSeed == "digitalocean" {
+				pt.Config.Map["image_id"] = sql.NullString{DigitalOceanImageID, true}
+			}
+			err := pt.Insert(d)
+			if err != nil {
+				return err
 			}
 		}
 	}
 	return nil
+}
+
+type ConfigMarshaller struct {
+	err error
+}
+
+func (cm *ConfigMarshaller) templateJSON(repo string, ports []string, privileged bool) []byte {
+	if cm.err != nil {
+		return nil
+	}
+	c := template.Container{
+		Privileged: privileged,
+		PublishAll: false,
+		Env:        nil,
+		Image:      repo,
+		Ports:      ports,
+		Volumes:    nil,
+	}
+
+	cfg := template.TemplateConfig{
+		Containers: []template.Container{c},
+		Volumes:    nil,
+	}
+	var bs []byte
+	bs, cm.err = json.Marshal(cfg)
+	return bs
 }
 
 func templates(d db.QueryReceiver) error {
@@ -184,78 +217,45 @@ func templates(d db.QueryReceiver) error {
 	if err != nil || !ok {
 		return err
 	}
+	stackPorts := []string{"public::3000"}
 
-	railsCn := defaultContainer()
-	railsCn.Image = "nitrousio/starter-rails:latest"
-	railsConfigJSON, err := templateCnCfgJSON(railsCn)
-	if err != nil {
-		return err
-	}
+	cm := &ConfigMarshaller{}
 
-	laravelCn := defaultContainer()
-	laravelCn.Image = "nitrousio/starter-laravel:latest"
-	laravelConfigJSON, err := templateCnCfgJSON(laravelCn)
-	if err != nil {
-		return err
-	}
+	railsJSON := cm.templateJSON("quay.io/nitrous/rails:latest", stackPorts, false)
+	laravelJSON := cm.templateJSON("quay.io/nitrous/laravel:latest", stackPorts, false)
+	meanJSON := cm.templateJSON("quay.io/nitrous/mean:latest", stackPorts, false)
+	meteorJSON := cm.templateJSON("quay.io/nitrous/meteor:latest", stackPorts, false)
+	djangoJSON := cm.templateJSON("quay.io/nitrous/django:latest", stackPorts, false)
+	aspnetJSON := cm.templateJSON("quay.io/nitrous/aspnet:latest", stackPorts, false)
 
-	meanCn := defaultContainer()
-	meanCn.Image = "nitrousio/starter-mean:latest"
-	meanConfigJSON, err := templateCnCfgJSON(meanCn)
-	if err != nil {
-		return err
-	}
+	golangJSON := cm.templateJSON("quay.io/nitrous/golang:latest", []string{}, false)
+	nodejsJSON := cm.templateJSON("quay.io/nitrous/nodejs:latest", []string{}, false)
+	phpJSON := cm.templateJSON("quay.io/nitrous/php:latest", []string{}, false)
+	pythonJSON := cm.templateJSON("quay.io/nitrous/python:latest", []string{}, false)
+	rubyJSON := cm.templateJSON("quay.io/nitrous/golang:latest", []string{}, false)
+	dindJSON := cm.templateJSON("quay.io/nitrous/docker:latest", []string{}, true)
+	ubuntuJSON := cm.templateJSON("quay.io/nitrous/ubuntu:latest", []string{}, false)
 
-	meteorCn := defaultContainer()
-	meteorCn.Image = "nitrousio/starter-meteor:latest"
-	meteorConfigJSON, err := templateCnCfgJSON(meteorCn)
-	if err != nil {
-		return err
-	}
-
-	djangoCn := defaultContainer()
-	djangoCn.Image = "nitrousio/starter-django:latest"
-	djangoConfigJSON, err := templateCnCfgJSON(djangoCn)
-	if err != nil {
+	if cm.err != nil {
 		return err
 	}
 
 	templates := []template.Template{
-		{
-			Slug:        "rails",
-			Name:        sql.NullString{"Ruby on Rails", true},
-			Description: sql.NullString{railsDesc, true},
-			Config:      string(railsConfigJSON),
-			Type:        template.TypeStack,
-		},
-		{
-			Slug:        "laravel",
-			Name:        sql.NullString{"Laravel", true},
-			Config:      string(laravelConfigJSON),
-			Description: sql.NullString{laravelDesc, true},
-			Type:        template.TypeStack,
-		},
-		{
-			Slug:        "mean",
-			Name:        sql.NullString{"MEAN", true},
-			Config:      string(meanConfigJSON),
-			Description: sql.NullString{meanDesc, true},
-			Type:        template.TypeStack,
-		},
-		{
-			Slug:        "meteor",
-			Name:        sql.NullString{"Meteor", true},
-			Config:      string(meteorConfigJSON),
-			Description: sql.NullString{meteorDesc, true},
-			Type:        template.TypeStack,
-		},
-		{
-			Slug:        "django",
-			Name:        sql.NullString{"Django", true},
-			Config:      string(djangoConfigJSON),
-			Description: sql.NullString{djangoDesc, true},
-			Type:        template.TypeStack,
-		},
+		// stack templates
+		newTemplate("Ruby on Rails", "rails", railsJSON, template.TypeStack, railsDesc),
+		newTemplate("Laravel", "laravel", laravelJSON, template.TypeStack, laravelDesc),
+		newTemplate("MEAN", "mean", meanJSON, template.TypeStack, laravelDesc),
+		newTemplate("Meteor", "meteor", meteorJSON, template.TypeStack, meteorDesc),
+		newTemplate("Django", "django", djangoJSON, template.TypeStack, djangoDesc),
+		newTemplate("ASP.NET", "aspnet", aspnetJSON, template.TypeStack, aspnetDesc),
+		// basic templates
+		newTemplate("Go", "golang", golangJSON, template.TypeBasic, goDesc),
+		newTemplate("Node.js", "nodejs", nodejsJSON, template.TypeBasic, nodejsDesc),
+		newTemplate("PHP", "php", phpJSON, template.TypeBasic, phpDesc),
+		newTemplate("Python", "python", pythonJSON, template.TypeBasic, pythonDesc),
+		newTemplate("Ruby", "ruby", rubyJSON, template.TypeBasic, rubyDesc),
+		newTemplate("Ubuntu", "ubuntu", ubuntuJSON, template.TypeBasic, vanillaDesc),
+		newTemplate("Docker", "docker", dindJSON, template.TypeAdvanced, dockerDesc),
 	}
 	for _, t := range templates {
 		if err := t.Insert(d); err != nil {
@@ -264,98 +264,7 @@ func templates(d db.QueryReceiver) error {
 		logr.Infof("Added template %+v", t)
 	}
 
-	goCfgJSON, err := baseTemplateConfigJSON("nitrousio/golang:latest")
-	if err != nil {
-		return err
-	}
-	nodeCfgJSON, err := baseTemplateConfigJSON("nitrousio/nodejs:latest")
-	if err != nil {
-		return err
-	}
-	phpCfgJSON, err := baseTemplateConfigJSON("nitrousio/php:latest")
-	if err != nil {
-		return err
-	}
-	pythonCfgJSON, err := baseTemplateConfigJSON("nitrousio/python:latest")
-	if err != nil {
-		return err
-	}
-	rubyCfgJSON, err := baseTemplateConfigJSON("nitrousio/ruby:latest")
-	if err != nil {
-		return err
-	}
-	dindCfgJSON, err := privilegedBaseTemplateConfigJSON("nitrousio/docker:latest")
-	if err != nil {
-		return err
-	}
-	vanillaCfgJSON, err := baseTemplateConfigJSON("nitrousio/ubuntu:latest")
-	if err != nil {
-		return err
-	}
-
-	baseTemplates := []template.Template{
-		{Name: sql.NullString{"Go", true}, Config: string(goCfgJSON), Slug: "golang", Type: template.TypeBasic},
-		{Name: sql.NullString{"Node.js", true}, Config: string(nodeCfgJSON), Slug: "nodejs", Type: template.TypeBasic},
-		{Name: sql.NullString{"PHP", true}, Config: string(phpCfgJSON), Slug: "php", Type: template.TypeBasic},
-		{Name: sql.NullString{"Python", true}, Config: string(pythonCfgJSON), Slug: "python", Type: template.TypeBasic},
-		{Name: sql.NullString{"Ruby", true}, Config: string(rubyCfgJSON), Slug: "ruby", Type: template.TypeBasic},
-		{Name: sql.NullString{"Ubuntu", true}, Config: string(vanillaCfgJSON), Slug: "ubuntu", Type: template.TypeBasic},
-		{Name: sql.NullString{"Docker", true}, Config: string(dindCfgJSON), Slug: "docker", Type: template.TypeAdvanced},
-	}
-	for _, t := range baseTemplates {
-		if err := t.Insert(d); err != nil {
-			return err
-		}
-		logr.Infof("Added base image %+v", t)
-	}
-
 	return nil
-}
-
-func baseTemplateConfigJSON(repo string) ([]byte, error) {
-	c := template.Container{
-		Privileged: false,
-		PublishAll: false,
-		Env:        nil,
-		Image:      repo,
-		Ports:      []string{},
-		Volumes:    nil,
-	}
-
-	return templateCnCfgJSON(c)
-}
-
-func privilegedBaseTemplateConfigJSON(repo string) ([]byte, error) {
-	c := template.Container{
-		Privileged: true,
-		PublishAll: false,
-		Env:        nil,
-		Image:      repo,
-		Ports:      []string{},
-		Volumes:    nil,
-	}
-
-	return templateCnCfgJSON(c)
-}
-
-func templateCnCfgJSON(cn template.Container) ([]byte, error) {
-	cfg := template.TemplateConfig{
-		Containers: []template.Container{cn},
-		Volumes:    nil,
-	}
-	return json.Marshal(cfg)
-}
-
-func defaultContainer() template.Container {
-	return template.Container{
-		Name:       "app",
-		Slug:       "app",
-		Privileged: false,
-		PublishAll: false,
-		Env:        nil,
-		Ports:      []string{"public::3000"},
-		Volumes:    nil,
-	}
 }
 
 func creditTypes(d db.QueryReceiver) error {
@@ -395,48 +304,95 @@ func shouldSeed(d db.QueryReceiver, tableName string) (bool, error) {
 	}
 }
 
+func newTemplate(name, slug string, cfgJSON []byte, tempType, desc string) template.Template {
+	return template.Template{
+		Name:        sql.NullString{name, true},
+		Config:      string(cfgJSON),
+		Slug:        slug,
+		Type:        tempType,
+		Description: sql.NullString{desc, true},
+	}
+}
+
 // Template descriptions
 const (
-	railsDesc = `A baseline Ruby on Rails stack that uses PostgreSQL as the database backend.
+	goDesc = `Go: an open source programming language that makes it easy to build simple, reliable, and efficient software
 
-This template contains:
+•  Go 1.4
+•  Ubuntu 14.04`
+
+	phpDesc = `PHP: a popular general-purpose scripting language that is especially suited to web development
+
+•  Composer 1.0.0-alpha9
+•  PHP 5.5.9
+•  Ubuntu 14.04`
+
+	nodejsDesc = `Node.js: a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications
+
+•  nvm 0.22.0
+•  Node.js 0.10.35
+•  Ubuntu 14.04`
+
+	pythonDesc = `Python: a programming language that lets you work quickly and integrate systems more effectively
+
+•  virtualenv 1.11.4
+•  python 3.4.0
+•  python 2.7.6
+•  Ubuntu 14.04`
+
+	rubyDesc = `Ruby: a dynamic, open source programming language with a focus on simplicity and productivity.
+
+•  bundler 1.7.9
+•  ruby 2.1.5
+•  Ubuntu 14.04`
+
+	dockerDesc = `A development environment with Docker set up.
+
+•  Docker 1.4.1
+•  Ubuntu 14.04`
+
+	railsDesc = `Ruby on Rails: an open-source framework optimized for programmer happiness and sustainable productivity
+
 •  Rails 4.1
-•  Ruby 2.1
+•  Ruby 2.1.5
 •  PostgreSQL 9.3
 •  Ubuntu 14.04`
 
-	laravelDesc = `A PHP stack using Laravel, the PHP framework for web artisans.
+	laravelDesc = `Laravel, the PHP framework for web artisans
 
-This template contains:
 •  Laravel 4.2.12
 •  PHP 5.5.9
 •  PostgreSQL 9.3
 •  Ubuntu 14.04`
 
-	meanDesc = `A MEAN Javascript stack: MongoDB, Express, AngularJS, and Node.js.
+	meanDesc = `MEAN: an opinionated full-stack JavaScript framework
 
-This template contains:
 •  MEAN 0.4.1
 •  Node.js 0.10.33
 •  MongoDB 2.6.6
 •  Ubuntu 14.04`
 
-	meteorDesc = `A Meteor stack.
+	meteorDesc = `Meteor: build web and mobile apps in pure JavaScript
 
-This template contains:
 •  Meteor 1.0.1
 •  Ubuntu 14.04`
 
-	djangoDesc = `A Django stack.
+	djangoDesc = `Django: the web framework for perfectionists with deadlines
 
-This template contains:
 •  Django 1.7.1
 •  Python 3.4.0
 •  IPython 2.3.1
 •  Gunicorn 19.1.1
 •  Ubuntu 14.04`
 
-	vanillaDesc = `A vanilla development environment.
+	aspnetDesc = `ASP.NET: a free web framework for building great Web sites and Web applications
+
+•  ASP.NET 5
+•  Mono 3.10.0-0xamarin2
+•  KRE 1.0.0-beta1
+•  Ubuntu 14.04`
+
+	vanillaDesc = `A minimalist development environment
 
 This template contains Ubuntu 14.04 with useful developer tools preinstalled.`
 )
