@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -86,19 +85,17 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		}
 	case dns.TypeA:
 		start := time.Now()
-		for domain, navigator := range s.navigators {
+		for _, navigator := range s.navigators {
 			label := fmt.Sprintf("compass.%s.lookup", navigator.Name())
-			// if the navigator handles this domain
-			if strings.HasSuffix(q.Name, domain) {
-				r, err := navigator.Lookup(q.Name)
-				if err == nil {
-					m.Answer = r
-					mh.UpdateSince(label, start)
-					log.Printf("Navigator %s/%s: resolved %s to %+v", navigator.Name(), domain, q.String(), r)
-				} else {
-					mh.Error(err, label)
-					log.Printf("Navigator %s/%s: failed to resolve %s, err: %s", navigator.Name(), domain, q.String(), err)
-				}
+			r, err := navigator.Lookup(q.Name)
+			if err == nil {
+				m.Answer = r
+				mh.UpdateSince(label, start)
+				log.Printf("Navigator %s: resolved %s to %+v", navigator.Name(), q.String(), r)
+				return
+			} else {
+				mh.Error(err, label)
+				log.Printf("Navigator %s: failed to resolve %s, err: %s", navigator.Name(), q.String(), err)
 			}
 		}
 	}
@@ -136,6 +133,10 @@ func (s *Server) allSOA() []dns.RR {
 func NewServer(config *Config) (*Server, error) {
 	navigators := map[string]n.Navigator{}
 	for _, c := range config.NavigatorConfigs {
+		if n, ok := navigators[c.Domain]; ok {
+			return nil, fmt.Errorf("ERROR: cannot register navigator %s for domain %s because navigator %s is already registered", c.Name, c.Domain, n.Name())
+		}
+
 		n, err := NewNavigator(c.Name, c.Domain, c.Config)
 		if err != nil {
 			return nil, fmt.Errorf("ERROR: invalid navigator %v with err: %v",
