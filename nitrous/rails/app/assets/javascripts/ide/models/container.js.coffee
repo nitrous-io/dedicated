@@ -33,7 +33,7 @@ App.Container = klass = Em.Object.extend
     hostname = @get('host')?.proxy_hostname
     port = @get('host')?.freighterd_port
     if hostname
-      if port
+      if port && port != '65333'
         return "#{hostname}:#{port}"
       hostname
   ).property 'host'
