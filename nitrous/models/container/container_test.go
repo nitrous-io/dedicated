@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
@@ -312,6 +313,12 @@ var _ = Describe("models/container", func() {
 				HostID: h.ID,
 				Image:  "nitrous-base",
 				Slug:   "java-test-container",
+				Metadata: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"Key":  {"Value", true},
+						"Some": {"Thing", true},
+					},
+				},
 			}
 			err = c.Insert(db)
 			Expect(err).To(BeNil())
@@ -326,6 +333,10 @@ var _ = Describe("models/container", func() {
 			Expect(cntnr.HostID).To(Equal(h.ID))
 			Expect(cntnr.Image).To(Equal("nitrous-base"))
 			Expect(cntnr.Slug).To(Equal("java-test-container"))
+			Expect(cntnr.Metadata.Map["Key"].Valid).To(BeTrue())
+			Expect(cntnr.Metadata.Map["Key"].String).To(Equal("Value"))
+			Expect(cntnr.Metadata.Map["Some"].Valid).To(BeTrue())
+			Expect(cntnr.Metadata.Map["Some"].String).To(Equal("Thing"))
 		})
 
 		It("fills up the fields in original struct", func() {

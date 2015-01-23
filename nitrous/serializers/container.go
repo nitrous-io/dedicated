@@ -25,6 +25,8 @@ type Container struct {
 	Config          *ContainerConfig `json:"config,omitempty"`
 	PreviewHostname string           `json:"preview_hostname"`
 
+	Metadata map[string]string `json:"metadata"`
+
 	CreatedAt    *time.Time `json:"created_at"`
 	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
 	TerminatedAt *time.Time `json:"terminated_at,omitempty"`
@@ -33,7 +35,7 @@ type Container struct {
 }
 
 func SerializeContainer(c *container.Container) *Container {
-	return &Container{
+	con := &Container{
 		ID:              c.ID,
 		CID:             c.CID,
 		UserID:          c.UserID,
@@ -49,12 +51,21 @@ func SerializeContainer(c *container.Container) *Container {
 		Entrypoint:      c.Entrypoint,
 		ExitCode:        c.ExitCode,
 		PreviewHostname: c.PreviewHostname(),
+		Metadata:        map[string]string{},
 		StartedAt:       c.StartedAt,
 		FinishedAt:      c.FinishedAt,
 		CreatedAt:       c.CreatedAt,
 		UpdatedAt:       c.UpdatedAt,
 		TerminatedAt:    c.TerminatedAt,
 	}
+
+	for key, value := range c.Metadata.Map {
+		if value.Valid {
+			con.Metadata[key] = value.String
+		}
+	}
+
+	return con
 }
 
 type ContainerConfig struct {

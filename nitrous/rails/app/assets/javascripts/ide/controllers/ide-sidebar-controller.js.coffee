@@ -28,8 +28,6 @@ App.IdeSidebarController = Em.ArrayController.extend
     @set 'rootPath', homePath
     @set 'content', Em.A([homePath])
 
-    @set 'readmePath', readmePath = App.Path.create absolutePath: 'README.md', directory: false
-
   reset: ->
     @set 'homePath', null
     @set 'rootPath', null
@@ -42,13 +40,8 @@ App.IdeSidebarController = Em.ArrayController.extend
     if @get 'opsSocket.startedFirstTime'
       Em.run.next =>
         this.openPath @get('rootPath')
-        # TODO re-enable opening README
-        # Open README.md, if it's not present, then don't show an error
-        # if boxId = App.get 'router.ideController.content.id'
-        #   cacheKey = "box:#{boxId}:shownReadme"
-        #   if !App.localStorage.get(cacheKey)
-        #     this.openPath @get('readmePath'), error: false
-        #     App.localStorage.set(cacheKey, true)
+        unless App.get('container.metadata.readmeOpened')
+          this.openRepoReadme()
   ).observes 'opsSocket.startedFirstTime'
 
   openRepoDir: ->
@@ -58,13 +51,10 @@ App.IdeSidebarController = Em.ArrayController.extend
     this.openPath repoPath, error: false
 
   openRepoReadme: ->
-    if fileToOpenPath = @get('repository.file_to_open')
-      fileToOpenPath = App.Path.create absolutePath: "workspace/#{@get('repository.shortName')}/#{fileToOpenPath}"
-      this.openPath fileToOpenPath, error: false
-    else
-      _.each ['README.md', 'README.markdown', 'README'], (readme) =>
-        readmePath = App.Path.create absolutePath: "workspace/#{@get('repository.shortName')}/#{readme}"
-        this.openPath readmePath, error: false
+    App.get('container').setMetadata({readmeOpened: true})
+    _.each ['README.md', 'README.markdown', 'README'], (readme) =>
+      readmePath = App.Path.create absolutePath: "#{@get('homePath.absolutePath')}/#{readme}", directory: false
+      this.openPath readmePath, error: false
 
   # settings options:
   #   done: callback (document)

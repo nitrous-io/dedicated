@@ -754,5 +754,11 @@ func init() {
 				ALTER TABLE tokens ADD COLUMN type character varying(255) DEFAULT 'login' NOT NULL;
 			`,
 		},
+		{
+			Version: "650",
+			Up: `
+				ALTER TABLE containers ADD column metadata hstore;
+			`,
+		},
 	}
 }
