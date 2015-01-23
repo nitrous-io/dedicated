@@ -7,8 +7,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
-
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	. "github.com/onsi/ginkgo"
@@ -24,20 +24,26 @@ var _ = Describe("container serializer", func() {
 		startedAt    = time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)
 
 		model = &container.Container{
-			ID:           10,
-			CID:          "deadbeef",
-			UserID:       11,
-			HostID:       12,
-			Image:        "busybox",
-			Slug:         "railsbox-10",
-			Name:         sql.NullString{"Rails dev box", true},
-			IPAddress:    "1.2.3.4",
-			GatewayIP:    "1.2.3.0",
-			State:        container.StateStopped,
-			AppState:     "none",
-			Cmd:          []string{"/sbin/init"},
-			Entrypoint:   []string{"/bin/blah"},
-			ExitCode:     0,
+			ID:         10,
+			CID:        "deadbeef",
+			UserID:     11,
+			HostID:     12,
+			Image:      "busybox",
+			Slug:       "railsbox-10",
+			Name:       sql.NullString{"Rails dev box", true},
+			IPAddress:  "1.2.3.4",
+			GatewayIP:  "1.2.3.0",
+			State:      container.StateStopped,
+			AppState:   "none",
+			Cmd:        []string{"/sbin/init"},
+			Entrypoint: []string{"/bin/blah"},
+			ExitCode:   0,
+			Metadata: hstore.Hstore{
+				Map: map[string]sql.NullString{
+					"Key":  {"Value", true},
+					"Some": {"Thing", true},
+				},
+			},
 			StartedAt:    &startedAt,
 			FinishedAt:   nil,        // will be omitted
 			TouchedAt:    &touchedAt, // Not serialized.
@@ -76,6 +82,10 @@ var _ = Describe("container serializer", func() {
 				"entrypoint": ["/bin/blah"],
 				"exit_code": 0,
 				"preview_hostname": "%s",
+				"metadata": {
+					"Key": "Value",
+					"Some": "Thing"
+				},
 				"started_at": "2014-08-13T00:00:00Z",
 				"finished_at": null,
 				"terminated_at": "2013-11-03T00:00:00Z",

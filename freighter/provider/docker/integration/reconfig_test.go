@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -73,8 +74,7 @@ var _ = Describe("Reconfig", func() {
 
 	It("returns error on failure to complete", func() {
 		configJSON := `{
-			"PortBindings": ["private:1234:2345", "public:2345:3456"],
-			"Cmd": ["/bin/sh", "-c", "while true; do sleep 1; echo hello; done"]
+			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
 		prov, info, cleanupFn, err := startContainer(configJSON)
 		defer cleanupFn()
@@ -82,5 +82,87 @@ var _ = Describe("Reconfig", func() {
 
 		_, err = prov.Reconfig(info.ID, `{invalid json}`)
 		Expect(err).To(HaveOccurred())
+	})
+
+	It("starts back the original container when it fails after stopping but before terminating the original container", func() {
+		configJSON := `{
+			"PortBindings": ["private:1234:2345", "public:2345:3456"]
+		}`
+		prov, info, cleanupFn, err := startContainer(configJSON)
+		defer cleanupFn()
+		Expect(err).To(BeNil())
+
+		reconfigCn, err := prov.Reconfig(info.ID, `{invalid json}`)
+		Expect(err).To(HaveOccurred())
+		Expect(reconfigCn).NotTo(BeNil())
+
+		Expect(reconfigCn.ID).To(Equal(info.ID)) // Container ID should not have changed since it was only stopped.
+		Expect(reconfigCn.State).To(Equal(provider.ContainerStateRunning))
+		Expect(reconfigCn.ImageID).To(Equal(info.ImageID))
+
+		state, err := inspectField(info.ID, "State.Running")
+		Expect(err).To(BeNil())
+		Expect(state).To(Equal("true"))
+
+		imageID, err := inspectField(info.ID, "Image")
+		Expect(err).To(BeNil())
+		Expect(imageID).To(Equal(info.ImageID))
+	})
+
+	It("creates a new container from the original container's image when it fails after terminating the original container", func() {
+		configJSON := `{
+			"PortBindings": ["private:1234:2345", "public:2345:3456"]
+		}`
+		prov, info, cleanupFn, err := startContainer(configJSON)
+		defer cleanupFn()
+		Expect(err).To(BeNil())
+
+		reconfigCn, err := prov.Reconfig(info.ID, `{
+			"PortBindings": ["private:666666:80"]
+		}`) // A host port out of range will cause container to fail when creating.
+		Expect(err).To(HaveOccurred())
+		Expect(reconfigCn).NotTo(BeNil())
+
+		Expect(reconfigCn.ID).NotTo(Equal(info.ID))
+
+		state, err := inspectField(reconfigCn.ID, "State.Running")
+		Expect(err).To(BeNil())
+		Expect(state).To(Equal("true"))
+
+		imageID, err := inspectField(reconfigCn.ID, "Image")
+		Expect(err).To(BeNil())
+		Expect(imageID).NotTo(Equal(info.ImageID)) // Image should be a different one.
+
+		// Container should use backup image.
+		Expect(reconfigCn.Image).To(MatchRegexp(fmt.Sprintf(`^%s-backup-\d+$`, info.Name)))
+	})
+
+	It("creates a new container but cannot start it when given a config that prevents it from starting", func() {
+		configJSON := `{
+			"PortBindings": ["private:1234:2345", "public:2345:3456"]
+		}`
+		prov, info, cleanupFn, err := startContainer(configJSON)
+		defer cleanupFn()
+		Expect(err).To(BeNil())
+
+		reconfigCn, err := prov.Reconfig(info.ID, `{
+			"PortBindings": ["private:1111:2345", "public:1111:3456"]
+		}`) // Binding to the same port twice will cause container to not start.
+		Expect(err).To(HaveOccurred())
+		Expect(reconfigCn).NotTo(BeNil())
+
+		Expect(reconfigCn.ID).NotTo(Equal(info.ID))
+		defer test.CleanUpContainer(reconfigCn.ID)
+
+		state, err := inspectField(reconfigCn.ID, "State.Running")
+		Expect(err).To(BeNil())
+		Expect(state).To(Equal("false"))
+
+		imageID, err := inspectField(reconfigCn.ID, "Image")
+		Expect(err).To(BeNil())
+		Expect(imageID).NotTo(Equal(info.ImageID)) // Image should be a different one.
+
+		// Container should use reconfig image.
+		Expect(reconfigCn.Image).To(MatchRegexp(fmt.Sprintf(`^%s-reconfig-\d+$`, info.Name)))
 	})
 })

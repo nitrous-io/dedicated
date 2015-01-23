@@ -203,6 +203,14 @@ func (e *StartFailedError) Error() string {
 	return fmt.Sprintf("freighter: container created but could not be started: %s", e.Msg)
 }
 
+type ReconfigFailedError struct {
+	Msg string
+}
+
+func (e *ReconfigFailedError) Error() string {
+	return fmt.Sprintf("freighter: container could not be reconfigured: %s", e.Msg)
+}
+
 type StatusError struct {
 	Code int
 	Body string
@@ -629,6 +637,7 @@ func (c *client) RemovePublicKey(id string, fingerprint string) error {
 	return c.doPublicKeyOp(req)
 }
 
+// FIXME This method has no existing test :"(
 func (c *client) Reconfig(id string, config *ContainerConfig) (*Container, error) {
 	data := url.Values{}
 	if config != nil {
@@ -669,6 +678,12 @@ func (c *client) Reconfig(id string, config *ContainerConfig) (*Container, error
 	if err != nil {
 		return nil, err
 	}
+
+	// Check whether there is an error reconfiguring the container.
+	if containerResp.Status == "reconfig_failed" {
+		return containerResp.Container, &ReconfigFailedError{Msg: containerResp.ErrorMessage}
+	}
+
 	return containerResp.Container, nil
 }
 

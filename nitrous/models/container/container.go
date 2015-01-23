@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -35,6 +36,8 @@ type Container struct {
 	Slug   string         `db:"slug"`
 	Name   sql.NullString `db:"name"`
 	Secret string         `db:"secret"`
+
+	Metadata hstore.Hstore `db:"metadata"`
 
 	TerminatedAt *time.Time `db:"terminated_at"`
 	TouchedAt    *time.Time `db:"touched_at"`
@@ -112,8 +115,8 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 		c.Secret = sec[:255]
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO containers
-		(cid, user_id, host_id, image, slug, name, secret)
-    VALUES (:cid, :user_id, :host_id, :image, :slug, :name, :secret)
+		(cid, user_id, host_id, image, slug, name, secret, metadata)
+    VALUES (:cid, :user_id, :host_id, :image, :slug, :name, :secret, :metadata)
 		RETURNING *;`)
 	if err != nil {
 		return err

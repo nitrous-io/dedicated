@@ -22,8 +22,9 @@ const (
 )
 
 var (
-	DefaultStartPort = freighterconfig.MinPreviewPort
-	DefaultEndPort   = freighterconfig.MaxPreviewPort
+	DefaultStartPort       = freighterconfig.MinPreviewPort
+	DefaultEndPort         = freighterconfig.MaxPreviewPort
+	MinPort          int64 = 1024
 
 	ErrDomainMismatched = errors.New("mismatched domain")
 
@@ -143,6 +144,9 @@ func PortsRange(s, e string) (start int64, end int64, err error) {
 		}
 		start = sp
 	}
+	if start < MinPort {
+		start = MinPort
+	}
 
 	if e == "" {
 		end = DefaultEndPort
@@ -153,6 +157,10 @@ func PortsRange(s, e string) (start int64, end int64, err error) {
 		}
 		end = ep
 	}
+	if end < MinPort {
+		end = MinPort
+	}
+
 	return start, end, nil
 }
 
@@ -169,21 +177,21 @@ func ServeTLS(port int64, tlsConfig *tls.Config, s http.Handler) error {
 		return fmt.Errorf("failed to listen to %q, error: %q", addr, err)
 	}
 
-	ln = tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
+	ln = tls.NewListener(TcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
 	return srv.Serve(ln)
 }
 
-// tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
+// TcpKeepAliveListener sets TCP keep-alive timeouts on accepted
 // connections. It's used by ListenAndServe and ListenAndServeTLS so
 // dead TCP connections (e.g. closing laptop mid-download) eventually
 // go away.
 //
 // This is copied from net/http package
-type tcpKeepAliveListener struct {
+type TcpKeepAliveListener struct {
 	*net.TCPListener
 }
 
-func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
+func (ln TcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	tc, err := ln.AcceptTCP()
 	if err != nil {
 		return

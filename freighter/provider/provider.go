@@ -122,7 +122,7 @@ type ContainerInfo struct {
 	AppState   string              `json:"app_state"`
 	StartedAt  time.Time           `json:"started_at"`
 	FinishedAt time.Time           `json:"finished_at"`
-	Env        []string            `json:"-"`
+	Env        []string            `json:"env"`
 }
 
 // ContainerConfig is our internal mechanism for configuring containers.  It

@@ -565,17 +565,18 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				var wg sync.WaitGroup
 				var resCodes []int
 
+				start := make(chan struct{})
 				for i := 0; i < 2; i++ {
 					wg.Add(1)
-					hID := i
-					go func() {
-						params.Set("slug", fmt.Sprintf("host-%d", hID))
+					go func(i int) {
+						params.Set("slug", fmt.Sprintf("host-%d", i))
+						<-start
 						res := doRequest(params)
 						resCodes = append(resCodes, res.Code)
-						defer wg.Done()
-					}()
+						wg.Done()
+					}(i)
 				}
-
+				close(start)
 				wg.Wait()
 
 				hosts, err := host.FindAllByUser(db, u)

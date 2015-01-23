@@ -75,9 +75,9 @@ type Shell struct {
 	isTTY bool
 }
 
+// Close will stop the exec instance of the current shell
 func (s *Shell) Close() error {
-	// FIXME: should call the exec stop/kill API here
-	return nil
+	return s.client.StopExec(s.execID)
 }
 
 func (s *Shell) Open() error {

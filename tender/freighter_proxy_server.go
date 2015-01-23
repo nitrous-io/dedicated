@@ -31,16 +31,21 @@ type FreighterProxyServer struct {
 	// default tls config to talk to remote freighterd server. whenever we
 	// proxy to a server, we have to copy this and set a server name
 	tlsConfig *tls.Config
+
+	// ports specified in this map will be forwarded.
+	// E.g. an entry of 443: 65333 will forward port 443 to 65333.
+	portMap map[int]int
 }
 
 // Returns a `http.Handler` which can be used to proxy requests to a freighterd
 // server on a Nitrous.IO host
-func NewFreighterProxyServer(baseDomain, tlsDomain string,
-	db *sql.DB, caBytes []byte) (http.Handler, error) {
+func NewFreighterProxyServer(baseDomain, tlsDomain string, portMap map[int]int,
+	db *sql.DB, caBytes []byte) http.Handler {
 	s := &FreighterProxyServer{
 		db:        db,
 		domain:    baseDomain,
 		tlsDomain: tlsDomain,
+		portMap:   portMap,
 	}
 	// set the default tls config for proxied connections
 	if len(caBytes) > 0 {
@@ -50,7 +55,7 @@ func NewFreighterProxyServer(baseDomain, tlsDomain string,
 			RootCAs: certPool,
 		}
 	}
-	return s, nil
+	return s
 }
 
 // ServerHTTP lets FreighterProxyServer acts as a http handler
@@ -100,10 +105,13 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 	}
 	log.Printf("[INFO] request %v to %s", r, slug)
 
+	fp := parsePort(r)
+	if p, ok := s.portMap[fp]; ok {
+		fp = p
+	}
 	// set X-FORWARDED-PORT for the request
-	fp := strconv.Itoa(parsePort(r))
-	r.Header.Set(config.ForwardPortHeader, fp)
-	log.Printf("[INFO] set forward port to %s", fp)
+	r.Header.Set(config.ForwardPortHeader, strconv.Itoa(fp))
+	log.Printf("[INFO] set %s to %d", config.ForwardPortHeader, fp)
 
 	// get host id and host ip
 	// host ip will be the new destination for current request

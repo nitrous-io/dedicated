@@ -116,6 +116,14 @@ func (c *Client) ResizeExecTTY(id string, height, width int) error {
 	return err
 }
 
+// Stop the exec instance id. This stops all processes spawned by the exec
+// instance.
+func (c *Client) StopExec(id string) error {
+	path := fmt.Sprintf("/exec/%s/stop", id)
+	_, _, err := c.do("POST", path, nil)
+	return err
+}
+
 // NoSuchExec is the error returned when a given exec instance does not exist.
 type NoSuchExec struct {
 	ID string

@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -108,5 +109,14 @@ var _ = Describe("PortsRange", func() {
 				Fail(fmt.Sprintf("Expect(%d:%d) but got (%d:%d)", tc.startPort, tc.endPort, sp, ep))
 			}
 		}
+	})
+
+	It("disallows ports < MinPort", func() {
+		sp, ep, err := PortsRange(strconv.Itoa(int(MinPort-2)), strconv.Itoa(int(MinPort-1)))
+		if err != nil {
+			Fail(fmt.Sprintf("unexpected error %s", err))
+		}
+		Expect(sp).To(Equal(MinPort))
+		Expect(ep).To(Equal(MinPort))
 	})
 })
