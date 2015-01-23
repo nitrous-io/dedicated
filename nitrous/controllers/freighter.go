@@ -14,7 +14,7 @@ import (
 
 // DefaultImage is the default Docker image used to create containers if an
 // image isn't specified.
-const DefaultImage = "nitrousio/ubuntu:trusty"
+const DefaultImage = "quay.io/nitrous/ubuntu:trusty"
 
 var (
 	// ErrHostIPUnknown results when the host's ip address is empty, hence not

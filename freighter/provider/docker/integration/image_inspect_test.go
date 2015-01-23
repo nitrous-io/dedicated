@@ -74,7 +74,7 @@ var _ = Describe("InspectImage", func() {
 		img, err := prov.InspectImage(NitrousImage, true)
 		Expect(err).To(BeNil())
 		Expect(img.ID).ToNot(BeEmpty())
-		Expect(img.Name).To(Equal("nitrousio/ubuntu-bare"))
+		Expect(img.Name).To(Equal("quay.io/nitrous/ubuntu-bare"))
 		Expect(img.Tag).To(Equal("latest"))
 		Expect(img.Config).ToNot(BeNil())
 		Expect(img.Config.Env).To(Equal([]string{
