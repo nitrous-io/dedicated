@@ -185,61 +185,76 @@ func providertemplates(d db.QueryReceiver) error {
 	return nil
 }
 
+type ConfigMarshaller struct {
+	err error
+}
+
+func (cm *ConfigMarshaller) templateJSON(repo string, ports []string, privileged bool) []byte {
+	if cm.err != nil {
+		return nil
+	}
+	c := template.Container{
+		Privileged: privileged,
+		PublishAll: false,
+		Env:        nil,
+		Image:      repo,
+		Ports:      ports,
+		Volumes:    nil,
+	}
+
+	cfg := template.TemplateConfig{
+		Containers: []template.Container{c},
+		Volumes:    nil,
+	}
+	var bs []byte
+	bs, cm.err = json.Marshal(cfg)
+	return bs
+}
+
 func templates(d db.QueryReceiver) error {
 	ok, err := shouldSeed(d, "templates")
 	if err != nil || !ok {
 		return err
 	}
+	stackPorts := []string{"public::3000"}
 
-	railsCn := defaultContainer()
-	railsCn.Image = "quay.io/nitrous/rails:latest"
-	railsCfgJSON, err := templateCnCfgJSON(railsCn)
-	if err != nil {
-		return err
-	}
+	cm := &ConfigMarshaller{}
 
-	laravelCn := defaultContainer()
-	laravelCn.Image = "quay.io/nitrous/laravel:latest"
-	laravelCfgJSON, err := templateCnCfgJSON(laravelCn)
-	if err != nil {
-		return err
-	}
+	railsJSON := cm.templateJSON("quay.io/nitrous/rails:latest", stackPorts, false)
+	laravelJSON := cm.templateJSON("quay.io/nitrous/laravel:latest", stackPorts, false)
+	meanJSON := cm.templateJSON("quay.io/nitrous/mean:latest", stackPorts, false)
+	meteorJSON := cm.templateJSON("quay.io/nitrous/meteor:latest", stackPorts, false)
+	djangoJSON := cm.templateJSON("quay.io/nitrous/django:latest", stackPorts, false)
+	aspnetJSON := cm.templateJSON("quay.io/nitrous/aspnet:latest", stackPorts, false)
 
-	meanCn := defaultContainer()
-	meanCn.Image = "quay.io/nitrous/mean:latest"
-	meanCfgJSON, err := templateCnCfgJSON(meanCn)
-	if err != nil {
-		return err
-	}
+	golangJSON := cm.templateJSON("quay.io/nitrous/golang:latest", []string{}, false)
+	nodejsJSON := cm.templateJSON("quay.io/nitrous/nodejs:latest", []string{}, false)
+	phpJSON := cm.templateJSON("quay.io/nitrous/php:latest", []string{}, false)
+	pythonJSON := cm.templateJSON("quay.io/nitrous/python:latest", []string{}, false)
+	rubyJSON := cm.templateJSON("quay.io/nitrous/golang:latest", []string{}, false)
+	dindJSON := cm.templateJSON("quay.io/nitrous/docker:latest", []string{}, true)
+	ubuntuJSON := cm.templateJSON("quay.io/nitrous/ubuntu:latest", []string{}, false)
 
-	meteorCn := defaultContainer()
-	meteorCn.Image = "quay.io/nitrous/meteor:latest"
-	meteorCfgJSON, err := templateCnCfgJSON(meteorCn)
-	if err != nil {
-		return err
-	}
-
-	djangoCn := defaultContainer()
-	djangoCn.Image = "quay.io/nitrous/django:latest"
-	djangoCfgJSON, err := templateCnCfgJSON(djangoCn)
-	if err != nil {
-		return err
-	}
-
-	aspnetCn := defaultContainer()
-	aspnetCn.Image = "quay.io/nitrous/aspnet:latest"
-	aspnetCfgJSON, err := templateCnCfgJSON(aspnetCn)
-	if err != nil {
+	if cm.err != nil {
 		return err
 	}
 
 	templates := []template.Template{
-		newTemplate("Ruby on Rails", "rails", railsCfgJSON, template.TypeStack, railsDesc),
-		newTemplate("Laravel", "laravel", laravelCfgJSON, template.TypeStack, laravelDesc),
-		newTemplate("MEAN", "mean", meanCfgJSON, template.TypeStack, laravelDesc),
-		newTemplate("Meteor", "meteor", meteorCfgJSON, template.TypeStack, meteorDesc),
-		newTemplate("Django", "django", djangoCfgJSON, template.TypeStack, djangoDesc),
-		newTemplate("ASP.NET", "aspnet", aspnetCfgJSON, template.TypeStack, aspnetDesc),
+		// stack templates
+		newTemplate("Ruby on Rails", "rails", railsJSON, template.TypeStack, railsDesc),
+		newTemplate("Laravel", "laravel", laravelJSON, template.TypeStack, laravelDesc),
+		newTemplate("MEAN", "mean", meanJSON, template.TypeStack, laravelDesc),
+		newTemplate("Meteor", "meteor", meteorJSON, template.TypeStack, meteorDesc),
+		newTemplate("Django", "django", djangoJSON, template.TypeStack, djangoDesc),
+		newTemplate("ASP.NET", "aspnet", aspnetJSON, template.TypeStack, aspnetDesc),
+		// basic templates
+		newTemplate("Go", "golang", golangJSON, template.TypeBasic, goDesc),
+		newTemplate("Node.js", "nodejs", nodejsJSON, template.TypeBasic, nodejsDesc),
+		newTemplate("PHP", "php", phpJSON, template.TypeBasic, phpDesc),
+		newTemplate("Python", "python", pythonJSON, template.TypeBasic, pythonDesc),
+		newTemplate("Ruby", "ruby", rubyJSON, template.TypeBasic, rubyDesc),
+		newTemplate("Ubuntu", "ubuntu", ubuntuJSON, template.TypeBasic, vanillaDesc),
+		newTemplate("Docker", "docker", dindJSON, template.TypeAdvanced, dockerDesc),
 	}
 	for _, t := range templates {
 		if err := t.Insert(d); err != nil {
@@ -248,98 +263,7 @@ func templates(d db.QueryReceiver) error {
 		logr.Infof("Added template %+v", t)
 	}
 
-	goCfgJSON, err := baseTemplateCfgJSON("quay.io/nitrous/golang:latest")
-	if err != nil {
-		return err
-	}
-	nodeCfgJSON, err := baseTemplateCfgJSON("quay.io/nitrous/nodejs:latest")
-	if err != nil {
-		return err
-	}
-	phpCfgJSON, err := baseTemplateCfgJSON("quay.io/nitrous/php:latest")
-	if err != nil {
-		return err
-	}
-	pythonCfgJSON, err := baseTemplateCfgJSON("quay.io/nitrous/python:latest")
-	if err != nil {
-		return err
-	}
-	rubyCfgJSON, err := baseTemplateCfgJSON("quay.io/nitrous/ruby:latest")
-	if err != nil {
-		return err
-	}
-	dindCfgJSON, err := privilegedBaseTemplateCfgJSON("quay.io/nitrous/docker:latest")
-	if err != nil {
-		return err
-	}
-	vanillaCfgJSON, err := baseTemplateCfgJSON("quay.io/nitrous/ubuntu:latest")
-	if err != nil {
-		return err
-	}
-
-	baseTemplates := []template.Template{
-		newTemplate("Go", "golang", goCfgJSON, template.TypeBasic, goDesc),
-		newTemplate("Node.js", "nodejs", nodeCfgJSON, template.TypeBasic, nodejsDesc),
-		newTemplate("PHP", "php", phpCfgJSON, template.TypeBasic, phpDesc),
-		newTemplate("Python", "python", pythonCfgJSON, template.TypeBasic, pythonDesc),
-		newTemplate("Ruby", "ruby", rubyCfgJSON, template.TypeBasic, rubyDesc),
-		newTemplate("Ubuntu", "ubuntu", vanillaCfgJSON, template.TypeBasic, vanillaDesc),
-		newTemplate("Docker", "docker", dindCfgJSON, template.TypeAdvanced, dockerDesc),
-	}
-	for _, t := range baseTemplates {
-		if err := t.Insert(d); err != nil {
-			return err
-		}
-		logr.Infof("Added base image %+v", t)
-	}
-
 	return nil
-}
-
-func baseTemplateCfgJSON(repo string) ([]byte, error) {
-	c := template.Container{
-		Privileged: false,
-		PublishAll: false,
-		Env:        nil,
-		Image:      repo,
-		Ports:      []string{},
-		Volumes:    nil,
-	}
-
-	return templateCnCfgJSON(c)
-}
-
-func privilegedBaseTemplateCfgJSON(repo string) ([]byte, error) {
-	c := template.Container{
-		Privileged: true,
-		PublishAll: false,
-		Env:        nil,
-		Image:      repo,
-		Ports:      []string{},
-		Volumes:    nil,
-	}
-
-	return templateCnCfgJSON(c)
-}
-
-func templateCnCfgJSON(cn template.Container) ([]byte, error) {
-	cfg := template.TemplateConfig{
-		Containers: []template.Container{cn},
-		Volumes:    nil,
-	}
-	return json.Marshal(cfg)
-}
-
-func defaultContainer() template.Container {
-	return template.Container{
-		Name:       "app",
-		Slug:       "app",
-		Privileged: false,
-		PublishAll: false,
-		Env:        nil,
-		Ports:      []string{"public::3000"},
-		Volumes:    nil,
-	}
 }
 
 func creditTypes(d db.QueryReceiver) error {
