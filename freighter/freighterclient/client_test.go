@@ -1966,7 +1966,6 @@ var _ = Describe("client", func() {
 			reqs := server.ReceivedRequests()
 			Expect(reqs).To(HaveLen(1))
 			Expect(reqs[0].FormValue("image")).To(Equal("myimage:tag"), "failed to inspect correct image")
-			Expect(reqs[0].FormValue("remote")).To(Equal("true"), "expect remote to be included")
 		})
 
 		It("returns error when json is malformed", func() {

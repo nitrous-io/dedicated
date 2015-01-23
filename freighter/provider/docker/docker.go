@@ -961,19 +961,13 @@ func (p *DockerProvider) TagImage(imageIDOrName, newName string, force bool) err
 
 // InspectImage returns information about a single image ( which can be
 // identified by either its ID or its tag )
-func (p *DockerProvider) InspectImage(name string, remoteFallback bool) (*provider.ImageInfo, error) {
+func (p *DockerProvider) InspectImage(name string) (*provider.ImageInfo, error) {
 	lookupResult, err := p.lookupImage(name)
-
-	var image *provider.ImageInfo
-	if err == provider.ErrImageNotFound && remoteFallback {
-		return p.inspectRemoteImage(name)
-	}
-
 	if err != nil {
 		return nil, err
 	}
 
-	image = lookupResult.image
+	image := lookupResult.image
 	additional, err := p.inspectLocalImage(image.ID)
 	if err != nil {
 		return nil, err
@@ -1178,104 +1172,6 @@ func (p *DockerProvider) inspectLocalImage(location string) (*provider.ImageInfo
 		ActualSize: img.Size,
 		Config:     config,
 	}
-	return info, nil
-}
-
-func (p *DockerProvider) inspectRemoteImage(location string) (*provider.ImageInfo, error) {
-	registry := parsers.ParseRegistry(location)
-	auth, err := p.fetchAuthenticationInfoBestMatch(registry)
-	if err != nil {
-		return nil, err
-	}
-
-	if registry == "" {
-		registry = defaultDockerRegistry
-	}
-
-	repo, tag := parsers.ParseRepoAndTag(location)
-	repo = strings.Replace(repo, registry+"/", "", 1)
-	if tag == "" {
-		tag = "latest"
-	}
-
-	initReqLoc := fmt.Sprintf("https://%s/v1/repositories/%s/images", registry, repo)
-	resp, err := p.performRegistryRequest(initReqLoc, auth, "")
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	dockerSignature := resp.Header.Get("X-Docker-Token")
-
-	var idList []struct {
-		Checksum string `json:"checksum"`
-		Id       string `json:"id"`
-	}
-	err = json.NewDecoder(resp.Body).Decode(&idList)
-	if err != nil {
-		return nil, err
-	}
-
-	tagListLoc := fmt.Sprintf("https://%s/v1/repositories/%s/tags", registry, repo)
-	resp, err = p.performRegistryRequest(tagListLoc, auth, "")
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var tagList []struct {
-		Layer string `json:"layer"`
-		Name  string `json:"name"`
-	}
-	err = json.NewDecoder(resp.Body).Decode(&tagList)
-	if err != nil {
-		return nil, err
-	}
-
-	var expectedId string
-	for _, tagItem := range tagList {
-		if tag != tagItem.Name {
-			continue
-		}
-		for _, idItem := range idList {
-			if strings.HasPrefix(idItem.Id, tagItem.Layer) {
-				expectedId = idItem.Id
-			}
-		}
-	}
-
-	if expectedId == "" {
-		return nil, provider.ErrImageNotFound
-	}
-
-	imageInspectHost := registry
-	if registry == defaultDockerRegistry {
-		imageInspectHost = dockerRegistryImageEndpoint
-	}
-
-	imageInfoLoc := fmt.Sprintf("https://%s/v1/images/%s/json", imageInspectHost, expectedId)
-	resp, err = p.performRegistryRequest(imageInfoLoc, dockerclient.AuthConfiguration{}, dockerSignature)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var imageInfo dockerclient.ImagePre012
-	err = json.NewDecoder(resp.Body).Decode(&imageInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	imageConfig := buildDockerConfig(imageInfo.Config, imageInfo.ID)
-	info := &provider.ImageInfo{
-		ID:         imageInfo.ID,
-		Name:       repo,
-		Tag:        tag,
-		CreatedAt:  imageInfo.Created.Unix(),
-		ActualSize: imageInfo.Size,
-		Config:     imageConfig,
-	}
-
 	return info, nil
 }
 

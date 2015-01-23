@@ -3,7 +3,6 @@ package integration
 import (
 	"os"
 
-	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	. "github.com/nitrous-io/dedicated/freighter/test"
 	"github.com/nitrous-io/dedicated/freighter/util"
@@ -43,7 +42,7 @@ var _ = Describe("InspectImage", func() {
 			`)
 		defer RemoveImages(imageList)
 
-		img, err := prov.InspectImage(imageList[0], false)
+		img, err := prov.InspectImage(imageList[0])
 		Expect(err).To(BeNil())
 		Expect(img.ID).ToNot(BeEmpty())
 		Expect(img.Name).To(Equal("inspect"))
@@ -61,28 +60,5 @@ var _ = Describe("InspectImage", func() {
 		Expect(img.Config.ExposedPorts).To(HaveKey("21/tcp"))
 		Expect(img.Config.Volumes).To(HaveKey("/mnt"))
 		Expect(img.Config.Cmd).To(ContainElement(`/bin/bash -c "echo hi"`))
-	})
-
-	It("should not perform remote image lookup when instructed not to", func() {
-		img, err := prov.InspectImage("centos", false)
-		Expect(err).ToNot(BeNil())
-		Expect(err).To(MatchError(provider.ErrImageNotFound))
-		Expect(img).To(BeNil())
-	})
-
-	It("should return information about a remote image", func() {
-		img, err := prov.InspectImage(NitrousImage, true)
-		Expect(err).To(BeNil())
-		Expect(img.ID).ToNot(BeEmpty())
-		Expect(img.Name).To(Equal("quay.io/nitrous/ubuntu-bare"))
-		Expect(img.Tag).To(Equal("latest"))
-		Expect(img.Config).ToNot(BeNil())
-		Expect(img.Config.Env).To(Equal([]string{
-			"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-			"container=docker",
-			"NITROUS_IMAGE_VERSION=2",
-			"NITROUS_USERNAME=nitrous",
-			"NITROUS_SSH_ENABLED=true",
-		}))
 	})
 })

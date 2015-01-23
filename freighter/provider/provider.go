@@ -77,7 +77,7 @@ type Provider interface {
 	PullImage(repository string, output io.Writer, rawJSONStream bool) error
 	PushImage(name, destination string, output io.Writer, rawJSONStream bool) error
 	TagImage(name, tag string, force bool) error
-	InspectImage(name string, remoteFallback bool) (*ImageInfo, error)
+	InspectImage(name string) (*ImageInfo, error)
 
 	CreateVolume(slug string) (*VolumeInfo, error)
 	ListVolumes() ([]string, error)
