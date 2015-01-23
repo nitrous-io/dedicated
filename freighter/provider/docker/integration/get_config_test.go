@@ -22,8 +22,7 @@ var _ = Describe("GetConfig", func() {
 
 		name := test.RandomName("freightertest")
 		configJSON := `{
-			"PortBindings": ["private:1234:2345", "public:2345:3456", "public::3456", "private::8080"],
-			"Cmd": ["/bin/sh", "-c", "while true; do sleep 1; echo hello; done"]
+			"PortBindings": ["private:1234:2345", "public:2345:3456", "public::3456", "private::8080"]
 		}`
 		info, err := prov.CreateStart(name, "busybox:latest", "secret", configJSON)
 		defer test.CleanUpContainer(name)

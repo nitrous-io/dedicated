@@ -23,12 +23,13 @@ var _ = Describe("Start", func() {
 			"Mounts": ["dotfiles:/etc/dotfiles","backups"],
 			"PortBindings": ["private:65000:3000", "public:9999:9999"]
 		}`
-		prov, info, cleanupFn, err := startContainerWithData(datadir, config)
+		prov, info, cleanupFn, err := startContainerWithData("busybox:latest", datadir, config)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
 		_, err = prov.Stop(info.ID)
 		Expect(err).To(BeNil(), "failed to stop %s", info.ID)
+
 		_, err = prov.Start(info.ID, "")
 		Expect(err).To(BeNil(), "failed to start %s", info.ID)
 
@@ -36,6 +37,7 @@ var _ = Describe("Start", func() {
 			fmt.Sprintf("3000/tcp -> %s:65000", info.Gateway),
 			"9999/tcp -> 0.0.0.0:9999",
 		})
+
 		assertVolumes(info.ID, map[string]string{
 			"/etc/dotfiles":    filepath.Join(datadir, "volumes", "dotfiles"),
 			"/volumes/backups": filepath.Join(datadir, "volumes", "backups"),
@@ -59,7 +61,7 @@ var _ = Describe("Start", func() {
 			"Mounts": ["dotfiles:/etc/dotfiles","backups"],
 			"PortBindings": ["private:65000:3000", "public:9999:9999"]
 		}`
-		prov, info, cleanupFn, err := startContainerWithData(datadir, config)
+		prov, info, cleanupFn, err := startContainerWithData("busybox:latest", datadir, config)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
