@@ -7,11 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/tender"
@@ -103,64 +101,40 @@ func main() {
 		log.Fatalf("tender: failed to load container proxy's SSL certificates: %v", err)
 	}
 
+	go serve443(hostCert, containerCert, freighterProxy, previewProxy)
+	servePreviewProxy(containerCert, previewProxy)
+	serveFreighterdProxy(hostCert, freighterProxy)
+}
+
+func serve443(hostCert, containerCert tls.Certificate, freighterProxy, previewProxy http.Handler) {
 	tlsConfig := &tls.Config{
 		NextProtos:   []string{"http/1.1"},
 		Certificates: []tls.Certificate{hostCert, containerCert},
 	}
 	tlsConfig.BuildNameToCertificate()
-	addr := fmt.Sprintf(":%d", freighterdForwardPort)
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		log.Fatalf("tender: failed to bind to %s, err: %v", addr, err)
-	}
-	ln = tls.NewListener(tender.TcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
-	proxyServer := &vhostServer{
-		freighterProxyServer: freighterProxy,
-		previewProxyServer:   previewProxy,
-	}
-	srv := &http.Server{
-		Addr:      addr,
-		Handler:   proxyServer,
-		TLSConfig: tlsConfig,
-	}
-	go func() {
-		log.Fatal(srv.Serve(ln))
-	}()
 
-	servePreviewProxy(previewProxy)
-	serveFreighterdProxy(freighterProxy)
+	proxyServer := &tender.VhostServer{
+		FreighterBaseDomain:  hostBaseDomain,
+		FreighterProxyServer: freighterProxy,
+		PreviewBaseDomain:    containerBaseDomain,
+		PreviewProxyServer:   previewProxy,
+	}
+
+	log.Printf("listening to port %d", freighterdForwardPort)
+	log.Fatal(tender.ServeTLS(freighterdForwardPort, tlsConfig, proxyServer))
 }
 
-type vhostServer struct {
-	freighterProxyServer http.Handler
-	previewProxyServer   http.Handler
-}
-
-func (s *vhostServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if strings.HasSuffix(r.Host, hostBaseDomain) {
-		s.freighterProxyServer.ServeHTTP(w, r)
-	} else if strings.HasSuffix(r.Host, containerBaseDomain) {
-		s.previewProxyServer.ServeHTTP(w, r)
-	}
-}
-
-// this runs in foreground and should be called after servePreviewProxy
-func serveFreighterdProxy(s http.Handler) {
-	crt, err := tls.LoadX509KeyPair(hostCACert, hostCAKey)
-	if err != nil {
-		log.Fatalf("tender: Failed to load freighter's SSL certificates: %q", err)
-	}
+func serveFreighterdProxy(cert tls.Certificate, handler http.Handler) {
 	tlsConfig := &tls.Config{
 		NextProtos:   []string{"http/1.1"},
-		Certificates: []tls.Certificate{crt},
+		Certificates: []tls.Certificate{cert},
 	}
 
 	log.Printf("listening to port %d", freighterdPort)
-	log.Fatal(tender.ServeTLS(freighterdPort, tlsConfig, s))
+	log.Fatal(tender.ServeTLS(freighterdPort, tlsConfig, handler))
 }
 
-// this runs in background, and should be called before serveFreighterdProxy
-func servePreviewProxy(s http.Handler) {
+func servePreviewProxy(cert tls.Certificate, handler http.Handler) {
 	startPort, endPort, err := tender.PortsRange(previewStartPort, previewEndPort)
 	if err != nil {
 		log.Fatalf("tender: invalid ports, %q", err)
@@ -173,19 +147,15 @@ func servePreviewProxy(s http.Handler) {
 		)
 	}
 
-	crt, err := tls.LoadX509KeyPair(containerCACert, containerCAKey)
-	if err != nil {
-		log.Fatalf("failed to load container's SSL certificates: %q", err)
-	}
 	tlsConfig := &tls.Config{
 		NextProtos:   []string{"http/1.1"},
-		Certificates: []tls.Certificate{crt},
+		Certificates: []tls.Certificate{cert},
 	}
 
 	// proxy port range for preview
 	for p := startPort; p <= endPort; p++ {
 		go func(p int64) {
-			log.Fatal(tender.ServeTLS(p, tlsConfig, s))
+			log.Fatal(tender.ServeTLS(p, tlsConfig, handler))
 		}(p)
 	}
 }
