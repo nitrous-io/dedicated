@@ -598,6 +598,7 @@ func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *
 	c.IPAddress = fc.Host
 	c.GatewayIP = fc.Gateway
 	c.Cmd = fc.Cmd
+	c.User = fc.User
 	c.Entrypoint = fc.Entrypoint
 	c.ExitCode = fc.ExitCode
 	c.StartedAt = timePtr(fc.StartedAt)
@@ -618,6 +619,7 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 		Cmd:        fc.Cmd,
 		Entrypoint: fc.Entrypoint,
 		ExitCode:   fc.ExitCode,
+		User:       fc.User,
 		StartedAt:  timePtr(fc.StartedAt),
 		FinishedAt: timePtr(fc.FinishedAt),
 	}
