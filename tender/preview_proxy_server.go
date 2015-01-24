@@ -156,12 +156,12 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 
 	// set X-FORWARDED-PORT for the request
 	r.Header.Set(config.ForwardPortHeader, strconv.Itoa(incomingPort))
-	dest := setRequestHost(r, container.HostIP, containerPort)
+	destAddr := net.JoinHostPort(container.HostIP.String(), containerPort)
 
 	if proxy.IsWebsocket(r) {
-		proxy.ProxyWebsocket(dest, nil)(w, r)
+		proxy.ProxyWebsocket(destAddr, nil)(w, r)
 	} else {
-		proxy.ProxyHTTP(dest, nil)(w, r)
+		proxy.ProxyHTTP(destAddr, nil)(w, r)
 	}
 	return nil
 }
