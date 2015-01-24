@@ -126,9 +126,11 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
         @get('terminal.term')?.write(ev.status)
       lastStatus = ev.status
 
-    Em.run.later(this, ->
-      @$('[autofocus]').focus()
-    , 300)
+    Em.run.scheduleOnce 'afterRender', this, ->
+      @injectTerminalIframe()
+      Em.run.later(this, ->
+        @$('[autofocus]').focus()
+      , 200)
 
   willDestroyElement: ->
     @_super()
