@@ -120,6 +120,7 @@ type ContainerInfo struct {
 	Entrypoint []string            `json:"entrypoint,omitempty"`
 	ExitCode   int                 `json:"exit_code"`
 	AppState   string              `json:"app_state"`
+	User       string              `json:"user"`
 	StartedAt  time.Time           `json:"started_at"`
 	FinishedAt time.Time           `json:"finished_at"`
 	Env        []string            `json:"env"`

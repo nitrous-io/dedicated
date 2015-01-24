@@ -262,6 +262,7 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 		Entrypoint: container.Config.Entrypoint,
 		ExitCode:   container.State.ExitCode,
 		AppState:   p.appState(container),
+		User:       container.Config.User,
 		StartedAt:  container.State.StartedAt,
 		FinishedAt: container.State.FinishedAt,
 	}, nil
