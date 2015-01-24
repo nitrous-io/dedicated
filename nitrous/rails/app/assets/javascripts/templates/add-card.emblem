@@ -4,9 +4,8 @@
       | Change Credit Card
     else
       | Add Credit Card
-
-.card-body
-  form autocomplete='on' submit='save'
+form autocomplete='on' submit='save'
+  .card-body
     .ui.input-group
       label.field-label for='card-name'
         | Cardholder's Name
@@ -34,20 +33,20 @@
           | Zip / Postal Code
         = input type='text' id='card-zipcode' name='zipcode' classNameBindings='view.zipFieldInvalid:error'  disabled=saving value=zipcode
 
-  p.note-text
-    | Please review the&nbsp;
-    a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' terms of service
-    |, and&nbsp;
-    a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' privacy policy
-    |. All sales are final.
+    p.note-text
+      | Please review the&nbsp;
+      a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' terms of service
+      |, and&nbsp;
+      a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' privacy policy
+      |. All sales are final.
 
-.card-footer.bordered
-  if saving
-    .right
-      button.ui.btn disabled='disabled'
-        i.spinner
-        | Saving...
-  else
-    .right
-      a.ui.btn href='#' click='cancel' Cancel
-      input.ui.btn.primary type='submit' disabled={view.saveButtonDisabled} value='Save'
+  .card-footer.bordered
+    if saving
+      .right
+        button.ui.btn disabled='disabled'
+          i.spinner
+          | Saving...
+    else
+      .right
+        a.ui.btn href='#' click='cancel' Cancel
+        input.ui.btn.primary type='submit' disabled={view.saveButtonDisabled} value='Save'
