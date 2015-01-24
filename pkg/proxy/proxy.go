@@ -31,7 +31,7 @@ func IsWebsocket(r *http.Request) bool {
 func ProxyHTTP(addr string, tlsConfig *tls.Config) http.HandlerFunc {
 	p := &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
-			log.Printf("[INFO] http: proxy %s to %s", r.URL, addr)
+			log.Printf("[INFO] http: proxy %s to %s", r.Host, addr)
 			r.URL.Host = addr
 			if tlsConfig != nil {
 				r.URL.Scheme = "https"
