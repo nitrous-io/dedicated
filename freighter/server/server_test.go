@@ -122,8 +122,8 @@ var _ = Describe("server", func() {
 			It("responds with 200 ok with container info array", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(MatchJSON(`{"containers":[
-				{"id":"aaa","name":"foo","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","gateway":"1.2.3.0","state":"running","ports":null,"exit_code":0,"app_state":"","started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"},
-				{"id":"bbb","name":"bar","image":"centos","image_id":"def456","host":"1.2.3.5","gateway":"1.2.3.0","state":"stopped","ports":null,"exit_code":0,"app_state":"","started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"}
+				{"id":"aaa","name":"foo","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","gateway":"1.2.3.0","state":"running","ports":null,"exit_code":0,"app_state":"","env":null,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"},
+				{"id":"bbb","name":"bar","image":"centos","image_id":"def456","host":"1.2.3.5","gateway":"1.2.3.0","state":"stopped","ports":null,"exit_code":0,"app_state":"","env":null,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"}
 				]}`))
 			})
 		})
@@ -207,6 +207,7 @@ var _ = Describe("server", func() {
 								"ports": null,
 								"exit_code":0,
 								"app_state":"",
+								"env":null,
 								"started_at":"0001-01-01T00:00:00Z",
 								"finished_at":"0001-01-01T00:00:00Z"
 							},
@@ -248,6 +249,7 @@ var _ = Describe("server", func() {
 								"ports": null,
 								"exit_code":0,
 								"app_state":"",
+								"env":null,
 								"started_at":"0001-01-01T00:00:00Z",
 								"finished_at":"0001-01-01T00:00:00Z"
 						}}`))
@@ -343,6 +345,7 @@ var _ = Describe("server", func() {
 						"ports":null,
 						"exit_code":0,
 						"app_state":"running",
+						"env":null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 				}}`))
@@ -499,6 +502,7 @@ var _ = Describe("server", func() {
 						"ports": null,
 						"exit_code":0,
 						"app_state":"",
+						"env":null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -531,6 +535,7 @@ var _ = Describe("server", func() {
 						"ports": null,
 						"exit_code":0,
 						"app_state":"",
+						"env":null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -569,6 +574,7 @@ var _ = Describe("server", func() {
 						"ports": null,
 						"exit_code":0,
 						"app_state":"",
+						"env":null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -601,6 +607,7 @@ var _ = Describe("server", func() {
 						"ports": null,
 						"exit_code":0,
 						"app_state":"",
+						"env":null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}

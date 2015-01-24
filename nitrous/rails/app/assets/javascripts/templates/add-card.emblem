@@ -10,17 +10,18 @@
     .ui.input-group
       label.field-label for='card-name'
         | Cardholder's Name
-      = input type='text' id='card-name' name='name' disabled=saving value=name
+      = input type='text' id='card-name' name='name' disabled=saving value=name autofocus=true
 
-    .ui.input-group
-      label.field-label for='card-number'
-        | Credit Card Number
-      = input type='text' id='card-number' name='number' classNameBindings='view.numberFieldInvalid:error :cc-number' autocomplete='cc-number' disabled=saving value=number required=true
+    .ui.flex.horizontal
+      .ui.input-group
+        label.field-label for='card-number'
+          | Credit Card Number
+        = input type='text' id='card-number' name='number' classNameBindings='view.numberFieldInvalid:error :cc-number' autocomplete='cc-number' disabled=saving value=number required=true
 
-    .ui.input-group
-      label.field-label for='card-expiration'
-        | Expiration
-      = input type='text' id='card-expiration' name='expiration' placeholder='MM/YYYY' classNameBindings='view.expirationFieldInvalid:error' disabled=saving value=expiration
+      .ui.input-group
+        label.field-label for='card-expiration'
+          | Expiration
+        = input type='text' id='card-expiration' name='expiration' placeholder='MM / YYYY' classNameBindings='view.expirationFieldInvalid:error' disabled=saving value=expiration
 
     .ui.flex.horizontal
       .ui.input-group
@@ -33,20 +34,20 @@
           | Zip / Postal Code
         = input type='text' id='card-zipcode' name='zipcode' classNameBindings='view.zipFieldInvalid:error'  disabled=saving value=zipcode
 
-    p.see-terms
-      | Please review the&nbsp;
-      a href='/docs/admin-terms' terms of service
-      |, and&nbsp;
-      a href='/docs/admin-privacy' privacy policy
-      |. All sales are final.
+  p.note-text
+    | Please review the&nbsp;
+    a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' terms of service
+    |, and&nbsp;
+    a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' privacy policy
+    |. All sales are final.
 
-    .card-footer.bordered
-      if saving
-        .right
-          button.ui.btn disabled='disabled'
-            i.spinner
-            | Saving...
-      else
-        .right
-          a.ui.btn href='#' click='cancel' Cancel
-          input.ui.btn.primary type='submit' disabled={view.saveButtonDisabled} value='Save'
+.card-footer.bordered
+  if saving
+    .right
+      button.ui.btn disabled='disabled'
+        i.spinner
+        | Saving...
+  else
+    .right
+      a.ui.btn href='#' click='cancel' Cancel
+      input.ui.btn.primary type='submit' disabled={view.saveButtonDisabled} value='Save'

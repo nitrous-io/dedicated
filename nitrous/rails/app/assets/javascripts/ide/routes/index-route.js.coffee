@@ -3,4 +3,4 @@ App.IndexRoute = Em.Route.extend
     query = window.location.search.slice(1)
     if window.location.pathname == '/ide' && query
       transition.abort()
-      window.location.replace "/ide#/#{query}"
+      window.location.replace "/ide/#/#{query}"

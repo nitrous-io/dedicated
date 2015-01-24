@@ -6,7 +6,7 @@ form submit='updateDetails'
     .ui.input-group
       label.field-label for='account-name'
         | Full Name
-      = input type='text' id='account-name' value=controller.name
+      = input type='text' id='account-name' value=controller.name autofocus=true
 
     .ui.input-group
       label.field-label for='account-email'
@@ -51,7 +51,7 @@ form submit='updateSettings'
             = input type='checkbox' id='account-advanced' checked=advanced
             label
           label for='account-advanced' Show Advanced Container Management Options
-          p.note
+          p.note-text
             strong
               ' Warning:
             ' Using advanced container management features may affect the stability, security, and performance of your workspaces, or may even render them unusable.

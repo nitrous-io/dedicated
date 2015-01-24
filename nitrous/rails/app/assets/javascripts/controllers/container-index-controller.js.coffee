@@ -13,14 +13,16 @@ App.ContainerIndexController = Em.ObjectController.extend App.PerformActionMixin
     start: ->
       @performAction('POST', 'start', 'starting')
 
-    startApp: ->
-      @performAction('POST', 'start_app')
+    restart: ->
+      @performAction('POST', 'restart', 'restarting')
 
-    stopApp: ->
-      @performAction('POST', 'stop_app')
+    stop: ->
+      @performAction('POST', 'stop', 'stopping')
 
-    restartApp: ->
-      @performAction('POST', 'restart_app')
+    terminate: ->
+      name = @get 'model.displayName'
+      @performAction('DELETE', null, 'terminating').then ->
+        App.snackbar.post("Your workspace “#{name}” was successfully terminated.")
 
     snapshot: ->
       name = @get 'snapshotImageName'

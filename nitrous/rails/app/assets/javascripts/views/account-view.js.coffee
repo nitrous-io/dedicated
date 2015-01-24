@@ -4,3 +4,7 @@ App.AccountView = Em.View.extend
 
   emailFieldInvalid:    Em.computed.equal('controller.detailsInvalidField', 'email')
   passwordFieldInvalid: Em.computed.equal('controller.detailsInvalidField', 'password')
+
+  didInsertElement: ->
+    @_super()
+    @$('[autofocus]').focus()

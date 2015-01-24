@@ -1,5 +1,5 @@
 .card-header.bordered
-  h2 New Application
+  h2 New Container
 
 .screens
   if App.user.advanced
@@ -30,7 +30,7 @@
           .ui.input-group
             label.field-label for='containers-new-name'
               | Name
-            = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' disabled=saving value=name
+            = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' disabled=saving value=name autofocus=true
 
           .ui.input-group
             label.field-label for='containers-new-slug'
@@ -113,8 +113,8 @@
             thead
               tr
                 th Public
-                th Workspace Port
-                th colspan='2' Application Port
+                th Workspace Host Port
+                th colspan='2' Container Port
             tbody
               tr
                 td
@@ -210,9 +210,15 @@
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
 
   .screen class={view.showProgressScreen::hide}
-    .log class={view.showLog::hide}
-      .card-body.bordered
-        .terminal-screen
+    .card-body
+      .notice-text
+        | Your new container &ldquo;
+        = name
+        | &rdquo; is being created
+        = ui-ellipsis
+
+    .log class={view.showLog:show}
+      .terminal-screen
 
     .card-footer.bordered
       if saving

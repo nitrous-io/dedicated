@@ -19,11 +19,11 @@
             a href=view.dashboardURL target='_blank'
               | Dashboard
           li
-            a href='/app#/account' target='_blank'
+            a href='/app/#/account' target='_blank'
               | Account Settings
           li.separator
           li
-            a href='/app#/logout'
+            a href='/app/#/logout'
               | Log Out
 
 #about-nitrous.ui.modal

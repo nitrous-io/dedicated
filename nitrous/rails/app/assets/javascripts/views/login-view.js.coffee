@@ -9,3 +9,8 @@ App.LoginView = Em.View.extend
     if @get 'controller.error'
       @$('#login-login').select()
   ).observes 'controller.error'
+
+  didInsertElement: ->
+    @_super()
+    Em.run.schedule 'afterRender', this, ->
+      @$('#login-login').focus()

@@ -14,42 +14,112 @@
         span.click-highlight
           = slug
 
-    if sshURL
+    if App.user.advanced
       tr
-        th SSH URL
+        th Image
         td colspan='3'
-          a href={sshURL}
-            = sshURL
+          span.click-highlight
+            = image
 
+      if cmd
+        tr
+          th CMD
+          td colspan='3'
+            ul.space-separated.blocks
+              each cm in cmd
+                li
+                  span.click-highlight
+                    = cm
+
+      if entrypoint
+        tr
+          th ENTRYPOINT
+          td colspan='3'
+            ul.space-separated.blocks
+              each ep in entrypoint
+                li
+                  span.click-highlight
+                    = ep
+
+    if App.user.advanced
+      tr
+        th Internal IP
+        td
+          if ipAddress
+            span.click-highlight
+              = ipAddress
+          else
+            span.empty &ndash;
+        th Gateway IP
+        td.right
+          if gatewayIP
+            span.click-highlight
+              = gatewayIP
+          else
+            span.empty &ndash;
+      tr
+        th Started At
+        td
+          if startedAt
+            = dateabbr startedAt
+          else
+            span.empty &ndash;
+        th Finished At
+        td.right
+          if finishedAt
+            = dateabbr finishedAt
+          else
+            span.empty &ndash;
+
+      tr
+        th Exit Code
+        td colspan='3'
+          span.click-highlight
+            = exitCodeString
     tr
       th Created At
       td colspan='3'
         = dateabbr createdAt
 
+    if isRunning
+      if sshURL
+        tr
+          th SSH URL
+          td colspan='3'
+            a href={sshURL}
+              = sshURL
+
+      if previewURL
+        tr
+          th Preview URL
+          td colspan='3'
+            a href={previewURL} target='_blank'
+              = previewURL
+
 .card-footer.bordered
   if isRunning
     .left
-      if hasApp
-        if isAppRunning
-          button.ui.btn click='restartApp' Restart App
-          button.ui.btn click='stopApp' Stop App
-        else
-          if isAppStopped
-            button.ui.btn click='startApp' Start App
-      button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
+      button.ui.btn click='stop' Stop
+      button.ui.btn click='restart' Restart
+      if App.user.advanced
+        button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
     .right
-      if supportsPreview
-        a.ui.btn href=previewURL target='_blank' Preview
-      if App.user.ideEnabled
-        button.ui.btn click='openTerminal' Terminal
-        a.ui.btn.primary href=ideURL target='_blank' IDE
-      else
-        button.ui.btn.primary click='openTerminal' Terminal
+      if App.user.advanced
+        unless isNitrousImage
+          button.ui.btn click='openLogs' Logs
+          button.ui.btn click='openAttach' Attach
+      button.ui.btn click='openTerminal' Terminal
+      a.ui.btn.primary href=ideURL target='_blank' IDE
   else
     if isStopped
       .left
-        button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
+        button.ui.btn click='showTerminateDialog target="view"' Terminate...
+        if App.user.advanced
+          button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
       .right
+        if App.user.advanced
+          unless isNitrousImage
+            button.ui.btn click='openLogs' Logs
         button.ui.btn.primary click='start' Start
     else
       if isTerminated
@@ -60,6 +130,37 @@
           button.ui.btn disabled='disabled'
             i.spinner
             | Please Wait...
+
+#terminate-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Are you ABSOLUTELY sure?
+    .card-body
+      p
+        | This action&nbsp;
+        strong CANNOT
+        | &nbsp;be undone!
+      p
+        ' This will permanently delete the container
+        strong
+          | &ldquo;
+          = displayName
+          ' &rdquo;
+        | and all data stored within the container.
+      p
+        ' Please type in the slug of the container
+        strong
+          | (
+          span.click-highlight
+            = slug
+          ' )
+        | to confirm:
+      .ui.input-group
+        Em.TextField class='focus' placeholder=slug value=view.terminateSlugConfirmation insertNewline=view.clickTerminate
+    .card-footer
+      .right
+        button.ui.btn click='cancelTerminate target="view"' Cancel
+        button.ui.btn.danger.terminate-btn click='confirmTerminate target="view"' disabled=view.terminateSlugConfirmationInvalid Terminate
 
 #snapshot-modal-dialog.ui.modal
   .ui.card

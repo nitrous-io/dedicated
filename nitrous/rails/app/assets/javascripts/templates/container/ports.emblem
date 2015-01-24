@@ -1,6 +1,11 @@
 = container-tab-bar selected='ports' model=model
 
 .card-body
+  .notice-text
+    i.fa.fa-warning
+    '
+    | Applying port changes will restart your container. Save your work before you proceed.
+
   .ui.input-group
     label.field-label
       | Exposed Ports
@@ -31,7 +36,7 @@
           tr
             th
               abbr title='Use this port as the preview port' Preview
-            th colspan='2' Application Port
+            th colspan='2' Container Port
         tbody
           tr
             td
@@ -50,4 +55,4 @@
         i.spinner
         | Applying Changes...
     else
-      button.ui.btn.primary click='apply' disabled={saving} Apply
+      button.ui.btn.primary click='apply' disabled={saving} Apply Changes

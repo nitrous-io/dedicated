@@ -760,5 +760,13 @@ func init() {
 				ALTER TABLE containers ADD column metadata hstore;
 			`,
 		},
+		{
+			Version: "660",
+			Up: `
+				ALTER TABLE user_profiles ADD COLUMN activation_email_sent_at timestamp without time zone DEFAULT NULL;
+				ALTER TABLE user_profiles ADD COLUMN starter_credit_email_send_count int NOT NULL DEFAULT 0;
+				ALTER TABLE user_profiles ADD COLUMN starter_credit_email_last_sent_at timestamp without time zone DEFAULT NULL;
+			`,
+		},
 	}
 }

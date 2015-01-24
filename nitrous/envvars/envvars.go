@@ -39,6 +39,12 @@ var (
 
 	ProvisionerUser     string
 	ProvisionerInterval string
+
+	ActivationEmailInterval string
+
+	GetStartedEmailIntervalFirst  string
+	GetStartedEmailIntervalSecond string
+	GetStartedEmailIntervalThird  string
 )
 
 const (
@@ -77,6 +83,12 @@ func init() {
 
 	ProvisionerUser = os.Getenv("PROVISIONER_USER")
 	ProvisionerInterval = os.Getenv("PROVISIONER_INTERVAL")
+
+	ActivationEmailInterval = os.Getenv("ACTIVATION_EMAIL_INTERVAL")
+
+	GetStartedEmailIntervalFirst = os.Getenv("GET_STARTED_INTERVAL_FIRST")
+	GetStartedEmailIntervalSecond = os.Getenv("GET_STARTED_INTERVAL_SECOND")
+	GetStartedEmailIntervalThird = os.Getenv("GET_STARTED_INTERVAL_THIRD")
 }
 
 func CheckCAVariables() {

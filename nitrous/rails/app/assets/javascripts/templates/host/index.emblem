@@ -80,7 +80,7 @@
       button.ui.btn click='restart' Restart
       button.ui.btn click='showTerminateDialog target="view"' Terminate...
     .right
-      button.ui.btn.primary click='newContainer' New Application...
+      button.ui.btn.primary click='newContainer' New Container...
   else
     if isTerminated
       .left
@@ -111,7 +111,7 @@
           | &ldquo;
           = displayName
           ' &rdquo;
-        | and all applications, images, volumes, and archives within the workspace.
+        | and all containers, images, volumes, and archives within the workspace.
       p
         ' Please type in the slug of the workspace
         strong

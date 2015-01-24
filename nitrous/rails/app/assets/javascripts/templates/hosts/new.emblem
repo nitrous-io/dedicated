@@ -7,13 +7,13 @@
       if App.newUser
         .card-body
           .notice-text
-            | Workspaces are private & secure computing environments where you can work on multiple applications simultaneously.
+            | Workspaces are private and secure computing environments where you can create and work on multiple development containers simultaneously.
       .card-body
         .ui.flex.horizontal
           .ui.input-group
             label.field-label for='hosts-new-name'
               | Name
-            = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' disabled=saving value=name
+            = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' disabled=saving value=name autofocus=true
 
           .ui.input-group
             label.field-label for='hosts-new-slug'
@@ -35,7 +35,7 @@
               App.PlanListItemView content=plan selected=selectedPlan
 
       .card-body.bordered
-        p.credit-message
+        p.note-text.credit-message
           ' You have
           span class=App.availableCreditClass
             ' $#{App.availableCredit}
@@ -45,11 +45,11 @@
           '
           | available.
 
-        p.see-terms
+        p.note-text.see-terms
           | Please review the&nbsp;
-          a href='#' terms of service
+          a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' terms of service
           |, and&nbsp;
-          a href='#' privacy policy
+          a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' privacy policy
           |. All sales are final.
 
       .card-footer.bordered
@@ -69,18 +69,15 @@
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=host.progress.progressDetail.current max=host.progress.progressDetail.total
 
   .screen class={view.hideProgress:hide}
-    .card-body.download-app
-      h3
+    .card-body
+      .notice-text
         | Your new workspace &ldquo;
         = name
         | &rdquo; is being created
         = ui-ellipsis
-      p In the meantime, download and install the Nitrous desktop application so you can start developing right away once the application is created.
-      a.ui.btn.raised.primary click='downloadDesktopApp "hosts-new"' Download Desktop App
 
     .log class={view.showLog:show}
-      .card-body.bordered
-        .terminal-screen
+      .terminal-screen
 
     .card-footer.bordered
       if saving
