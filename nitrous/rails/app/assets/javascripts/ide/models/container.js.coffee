@@ -20,7 +20,10 @@ App.Container = klass = Em.Object.extend
   ).property 'config'
 
   loginUsername: (->
-    @get('env')["NITROUS_USERNAME"]
+    u = @get('env')["NITROUS_USERNAME"] || @get('user')
+    if u == ""
+      return "root"
+    u
   ).property 'env'
 
   previewPort: (->
