@@ -232,7 +232,7 @@ func templates(d db.QueryReceiver) error {
 	nodejsJSON := cm.templateJSON("quay.io/nitrous/nodejs:latest", []string{}, false)
 	phpJSON := cm.templateJSON("quay.io/nitrous/php:latest", []string{}, false)
 	pythonJSON := cm.templateJSON("quay.io/nitrous/python:latest", []string{}, false)
-	rubyJSON := cm.templateJSON("quay.io/nitrous/golang:latest", []string{}, false)
+	rubyJSON := cm.templateJSON("quay.io/nitrous/ruby:latest", []string{}, false)
 	dindJSON := cm.templateJSON("quay.io/nitrous/docker:latest", []string{}, true)
 	ubuntuJSON := cm.templateJSON("quay.io/nitrous/ubuntu:latest", []string{}, false)
 

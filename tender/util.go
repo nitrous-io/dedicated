@@ -104,33 +104,32 @@ func setRequestHost(r *http.Request, ip net.IP, port string) string {
 // Given a request with host:
 // winterfell.yammer.nitrousapp.com:8000, it will return host name as "yammer"
 // yammer.nitrousapp.com:65333, it will return host name as "yammer"
+// foo.bar.yammer.nitrousapp.com:65333, it will return host name as "yammer"
 func getHostname(url, baseDomain string) (string, error) {
-	var domain string
 	var err error
+	domain := url
 	if strings.Contains(url, ":") {
 		domain, _, err = net.SplitHostPort(url)
 		if err != nil {
 			return "", err
 		}
-	} else {
-		domain = url
 	}
 
-	if domain[len(domain)-len(baseDomain):] != baseDomain {
+	dLen := len(domain)
+	bdLen := len(baseDomain)
+
+	if dLen <= bdLen {
 		return "", ErrDomainMismatched
 	}
 
-	prefix := domain[:len(domain)-len(baseDomain)]
+	if domain[dLen-bdLen:] != baseDomain {
+		return "", ErrDomainMismatched
+	}
+
+	prefix := domain[:dLen-bdLen]
 	splits := strings.Split(prefix, ".")
-	// request only specified host
-	if len(splits) == 1 {
-		return splits[0], nil
-	}
-	// request specified both container and host
-	if len(splits) == 2 {
-		return splits[1], nil
-	}
-	return "", fmt.Errorf("Invalid format %s", url)
+
+	return splits[len(splits)-1], nil
 }
 
 // portsRange converts start/end port string into number with sensible default

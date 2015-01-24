@@ -58,29 +58,36 @@ var _ = Describe("getPublicFreighterdPort", func() {
 	})
 })
 
-var _ = Describe("getHost", func() {
-	It("returns the host's name when domain contains only host", func() {
-		var h string
-		h, _ = getHostname("yammer.nitrousapp.com:65333", ".nitrousapp.com")
-		Expect(h).To(Equal("yammer"), "Expect to get correct host's name")
+var _ = Describe("getHostname", func() {
+	It("returns the right-most label before the given base domain", func() {
+		testCases := []struct {
+			domain     string
+			baseDomain string
+			expected   string
+		}{
+			{"yammer.nitrousapp.com:65333", ".nitrousapp.com", "yammer"},
+			{"dropbox.nitrousapp.com", ".nitrousapp.com", "dropbox"},
+			{"hello.yammer.nitrousapp.com:65333", ".nitrousapp.com", "yammer"},
+			{"hello.dropbox.nitrousapp.com", ".nitrousapp.com", "dropbox"},
+			{"umm.hello.yammer.nitrousapp.com:65333", ".nitrousapp.com", "yammer"},
+		}
 
-		h, _ = getHostname("dropbox.nitrousapp.com", ".nitrousapp.com")
-		Expect(h).To(Equal("dropbox"), "Expect to get correct host's name")
+		for _, tc := range testCases {
+			h, err := getHostname(tc.domain, tc.baseDomain)
+			Expect(err).To(BeNil())
+			Expect(h).To(Equal(tc.expected), "Expected %s, %s to return %s but got %s",
+				tc.domain, tc.baseDomain, tc.expected, h)
+		}
 	})
 
-	It("returns the host's name when domain contains several subdomains", func() {
-		var h string
-		h, _ = getHostname("hello.yammer.nitrousapp.com:65333", ".nitrousapp.com")
-		Expect(h).To(Equal("yammer"), "Expect to get correct host's name")
-
-		h, _ = getHostname("hello.dropbox.nitrousapp.com", ".nitrousapp.com")
-		Expect(h).To(Equal("dropbox"), "Expect to get correct host's name")
+	It("returns error when the domain is shorter than base domain", func() {
+		_, err := getHostname("nitrousapp.com", ".nitrousapp.com")
+		Expect(err).To(Equal(ErrDomainMismatched))
 	})
 
 	It("returns error when the domains do not match", func() {
-		var err error
-		_, err = getHostname("yammer.nitrousapp.com:3000", ".nitrousdev.com")
-		Expect(err).ToNot(BeNil())
+		_, err := getHostname("yammer.nitrousapp.com:3000", ".nitrousdev.com")
+		Expect(err).To(Equal(ErrDomainMismatched))
 	})
 })
 

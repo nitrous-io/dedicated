@@ -104,6 +104,7 @@ var cnCache = newContainerCache()
 func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err error) {
 	slug, err := getHostname(r.Host, s.domain)
 	if err != nil {
+		log.Printf("[ERROR] domain: %s but got request for %s that we can't handle", s.domain, r.Host)
 		return err
 	}
 
