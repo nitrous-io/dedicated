@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -108,44 +109,33 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 		return err
 	}
 
-	defer func() {
-		// Delete container from cache if there's any error.
-		if err != nil {
-			cnCache.Delete(slug)
-		}
-	}()
-	log.Printf("[INFO] request %v to %s", r, slug)
+	log.Printf("[INFO] request %+v to %s", r, slug)
 
 	var container containerWithInfo
-	// FIXME Evict container from cache when container is terminated.
-	container, ok := cnCache.Get(slug)
-	if !ok {
-		cn, err := findContainer(s.db, slug)
-		if err != nil {
-			return err
-		}
+	cn, err := findContainer(s.db, slug)
+	if err != nil {
+		return err
+	}
 
-		fhost := freighterclient.NewHost(
-			cn.HostIP.String(),
-			cn.HostPort,
-			cn.HostSlug+s.tlsDomain,
-			s.ca,
-		)
-		fclient, err := freighterclient.NewClient(fhost, cn.HostSecret)
-		if err != nil {
-			return fmt.Errorf("failed to initialize freighter client for %s: %v", cn.Slug, err)
-		}
-		info, err := fclient.Info(cn.CID)
-		if err != nil {
-			return fmt.Errorf("failed to fetch container info %s: %v", cn.Slug, err)
-		}
+	fhost := freighterclient.NewHost(
+		cn.HostIP.String(),
+		cn.HostPort,
+		cn.HostSlug+s.tlsDomain,
+		s.ca,
+	)
+	fclient, err := freighterclient.NewClient(fhost, cn.HostSecret)
+	if err != nil {
+		return fmt.Errorf("failed to initialize freighter client for %s: %v", cn.Slug, err)
+	}
+	info, err := fclient.Info(cn.CID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch container info %s: %v", cn.Slug, err)
+	}
 
-		container = containerWithInfo{
-			Container: cn,
-			ports:     info.Ports,
-			env:       info.Env,
-		}
-		cnCache.Set(slug, container)
+	container = containerWithInfo{
+		Container: cn,
+		ports:     info.Ports,
+		env:       info.Env,
 	}
 
 	incomingPort := parsePort(r)
