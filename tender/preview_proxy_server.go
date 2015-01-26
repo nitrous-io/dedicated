@@ -16,13 +16,12 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 )
 
-const (
-	// Requests on this port will be mapped to the NITROUS_PREVIEW_PORT.
-	// E.g. if preview is running on port 3000, requests on port 443 will be treated
-	// as if they were made on port 3000.
-	previewForwardPort = 443
-	previewPortEnvVar  = "NITROUS_PREVIEW_PORT"
-)
+const previewPortEnvVar = "NITROUS_PREVIEW_PORT"
+
+// Requests on these ports will be mapped to the NITROUS_PREVIEW_PORT.
+// E.g. if preview is running on port 3000, requests on port 443 will be treated
+// as if they were made on port 3000.
+var previewForwardPorts = []int{80, 443}
 
 // PreviewProxyServer let user proxy preview requests to the host.
 // The server is awared of the exposed ports on the host and proxy requests
@@ -157,9 +156,12 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 }
 
 func (s *PreviewProxyServer) getContainerPort(container containerWithInfo, port int) (string, error) {
-	// Try to map requests on previewForwardPort to the port specified by the
+	// Try to map requests on previewForwardPorts to the port specified by the
 	// container's NITROUS_PREVIEW_PORT env var.
-	if port == previewForwardPort {
+	for _, p := range previewForwardPorts {
+		if port != p {
+			continue
+		}
 		if previewPort, ok := envValue(container.env, previewPortEnvVar); ok {
 			p, err := getPublicFreighterdPort(container.ports, previewPort)
 			if err == nil {

@@ -158,6 +158,12 @@ func servePreviewProxy(cert tls.Certificate, handler http.Handler) {
 			log.Fatal(tender.ServeTLS(p, tlsConfig, handler))
 		}(p)
 	}
+
+	// Listen to port 80 without TLS.
+	go func() {
+		log.Println("listening to port 80")
+		log.Fatal(http.ListenAndServe(":80", handler))
+	}()
 }
 
 func envStr(name string) string {
