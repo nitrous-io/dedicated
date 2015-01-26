@@ -92,6 +92,10 @@ var _ = Describe("provider/docker", func() {
 		return doInspect(id, "{{.Config.Env}}")
 	}
 
+	inspectUser := func(id string) string {
+		return doInspect(id, "{{.Config.User}}")
+	}
+
 	expectExposedPort := func(id, port string) {
 		out := doInspect(id, fmt.Sprintf(`{{(index .Config.ExposedPorts "%s")}}`, port))
 		Expect(out).NotTo(ContainSubstring("<no value>"),
@@ -896,6 +900,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(info.ImageID).To(Equal(inspectID(NitrousImage)))
 			Expect(info.Host).To(Equal(inspectIP(id)))
 			Expect(info.Gateway).To(Equal(inspectGateway(id)))
+			Expect(info.User).To(Equal(inspectUser(id)))
 			Expect(info.State).To(Equal(provider.ContainerStateRunning))
 			Expect(info.AppState).To(Equal(provider.ContainerAppNone))
 			Expect(fmt.Sprintf("[%s]", strings.Join(info.Env, " "))).To(Equal(inspectEnv(id)))
