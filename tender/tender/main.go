@@ -102,7 +102,7 @@ func main() {
 	}
 
 	go serve443(hostCert, containerCert, freighterProxy, previewProxy)
-	servePreviewProxy(containerCert, previewProxy)
+	servePreviewProxy(previewProxy)
 	serveFreighterdProxy(hostCert, freighterProxy)
 }
 
@@ -134,7 +134,7 @@ func serveFreighterdProxy(cert tls.Certificate, handler http.Handler) {
 	log.Fatal(tender.ServeTLS(freighterdPort, tlsConfig, handler))
 }
 
-func servePreviewProxy(cert tls.Certificate, handler http.Handler) {
+func servePreviewProxy(handler http.Handler) {
 	startPort, endPort, err := tender.PortsRange(previewStartPort, previewEndPort)
 	if err != nil {
 		log.Fatalf("tender: invalid ports, %q", err)
@@ -147,19 +147,14 @@ func servePreviewProxy(cert tls.Certificate, handler http.Handler) {
 		)
 	}
 
-	tlsConfig := &tls.Config{
-		NextProtos:   []string{"http/1.1"},
-		Certificates: []tls.Certificate{cert},
-	}
-
 	// proxy port range for preview
 	for p := startPort; p <= endPort; p++ {
-		go func(p int64) {
-			log.Fatal(tender.ServeTLS(p, tlsConfig, handler))
+		go func(port int64) {
+			log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), handler))
 		}(p)
 	}
 
-	// Listen to port 80 without TLS.
+	// Listen to port 80.
 	go func() {
 		log.Println("listening to port 80")
 		log.Fatal(http.ListenAndServe(":80", handler))
