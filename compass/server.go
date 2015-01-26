@@ -33,7 +33,7 @@ type Server struct {
 	db         *sql.DB
 	mux        *dns.ServeMux
 	wg         *sync.WaitGroup
-	navigators []n.Navigator
+	navigators map[string]n.Navigator
 }
 
 const (
@@ -78,11 +78,10 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	switch q.Qtype {
 	case dns.TypeSOA:
-		for _, navigator := range s.navigators {
-			if records, err := navigator.SOA(q.Name); err == nil {
-				m.Answer = records
-				return
-			}
+		navigator, ok := s.navigators[q.Name]
+		if ok {
+			m.Answer = navigator.NewSOA()
+			return
 		}
 	case dns.TypeA:
 		start := time.Now()
@@ -93,6 +92,7 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				m.Answer = r
 				mh.UpdateSince(label, start)
 				log.Printf("Navigator %s: resolved %s to %+v", navigator.Name(), q.String(), r)
+				return
 			} else {
 				mh.Error(err, label)
 				log.Printf("Navigator %s: failed to resolve %s, err: %s", navigator.Name(), q.String(), err)
@@ -125,23 +125,24 @@ func (s *Server) createServer(net, addr string) {
 func (s *Server) allSOA() []dns.RR {
 	records := []dns.RR{}
 	for _, n := range s.navigators {
-		rrs, err := n.SOA("")
-		if err == nil {
-			records = append(records, rrs...)
-		}
+		records = append(records, n.NewSOA()...)
 	}
 	return records
 }
 
 func NewServer(config *Config) (*Server, error) {
-	navigators := []n.Navigator{}
+	navigators := map[string]n.Navigator{}
 	for _, c := range config.NavigatorConfigs {
+		if n, ok := navigators[c.Domain]; ok {
+			return nil, fmt.Errorf("ERROR: cannot register navigator %s for domain %s because navigator %s is already registered", c.Name, c.Domain, n.Name())
+		}
+
 		n, err := NewNavigator(c.Name, c.Domain, c.Config)
 		if err != nil {
 			return nil, fmt.Errorf("ERROR: invalid navigator %v with err: %v",
 				c, err)
 		}
-		navigators = append(navigators, n)
+		navigators[c.Domain] = n
 		log.Printf("Registered navigator %s for domain %s", n.Name(), c.Domain)
 	}
 	if len(navigators) == 0 {

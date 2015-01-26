@@ -39,10 +39,7 @@ func (d *Dummy) Lookup(name string) ([]dns.RR, error) {
 	return records, nil
 }
 
-func (d *Dummy) SOA(domain string) ([]dns.RR, error) {
-	if domain != "" && d.domain != domain {
-		return nil, n.ErrDomainMismatch
-	}
+func (d *Dummy) NewSOA() []dns.RR {
 	return []dns.RR{
 		&dns.SOA{
 			Hdr:     dns.RR_Header{Name: d.domain, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: defaultTTL},
@@ -54,7 +51,7 @@ func (d *Dummy) SOA(domain string) ([]dns.RR, error) {
 			Expire:  604800,
 			Minttl:  defaultTTL,
 		},
-	}, nil
+	}
 }
 
 func NewNavigator(domain string, config map[string]string) (n.Navigator, error) {
