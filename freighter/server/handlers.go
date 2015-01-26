@@ -46,11 +46,18 @@ var upgrader = websocket.Upgrader{
 const utilizationInterval = 5 * time.Second
 const utilizationSize = 360 // 30min
 
-var Utilization *stats.Utilization
+var (
+	Utilization *stats.Utilization
+
+	// maps container id to slice of 'quit' chan error returned by cops.Start
+	ActiveCops map[string][]chan error
+)
 
 func init() {
 	Utilization = stats.NewUtilization(utilizationSize)
 	go Utilization.Record(utilizationInterval)
+
+	ActiveCops = make(map[string][]chan error)
 }
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
@@ -80,6 +87,7 @@ func (s *Server) listContainers(w http.ResponseWriter, r *http.Request) {
 // FIXME This handler has no existing test :"(
 func (s *Server) reconfigureContainer(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	s.terminateActiveCops(id)
 	info, err := s.provider.Reconfig(id, r.FormValue("config"))
 	if err != nil {
 		s.logger.Error(err)
@@ -196,6 +204,7 @@ func (s *Server) getContainerConfig(w http.ResponseWriter, r *http.Request) {
 func (s *Server) terminateContainer(w http.ResponseWriter, r *http.Request) {
 	s.performContainerControl(w, r,
 		func(id string) (*provider.ContainerInfo, error) {
+			s.terminateActiveCops(id)
 			return s.provider.Terminate(id, true)
 		},
 		"terminated")
@@ -211,11 +220,23 @@ func (s *Server) startContainer(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) stopContainer(w http.ResponseWriter, r *http.Request) {
-	s.performContainerControl(w, r, s.provider.Stop, "stopped")
+	s.performContainerControl(w, r,
+		func(id string) (*provider.ContainerInfo, error) {
+			info, err := s.provider.Stop(id)
+			s.terminateActiveCops(id)
+			return info, err
+		},
+		"stopped")
 }
 
 func (s *Server) restartContainer(w http.ResponseWriter, r *http.Request) {
-	s.performContainerControl(w, r, s.provider.Restart, "restarted")
+	s.performContainerControl(w, r,
+		func(id string) (*provider.ContainerInfo, error) {
+			s.terminateActiveCops(id)
+			info, err := s.provider.Restart(id)
+			return info, err
+		},
+		"restarted")
 }
 
 func (s *Server) appStartContainer(w http.ResponseWriter, r *http.Request) {
@@ -499,15 +520,29 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	stdin := msgproto.NewReader(conn, msgCh, stream.MessageType)
 	stdout := msgproto.NewWriter(stream)
 
-	done, err := cops.Start(id, stdin, stdout)
+	done, quit, err := cops.Start(id, stdin, stdout)
 	if err != nil {
 		stdout.Close()
 		return err
 	}
+	ActiveCops[id] = append(ActiveCops[id], quit)
 	for {
 		select {
 		case err := <-done:
 			log.Printf("container ops: exited with err %v", err)
+
+			// find the channel that corresponds to this handler's and remove
+			// it from ActiveCops[cid] slice of chan errors
+			chanIndex := -1
+			for i, errChan := range ActiveCops[id] {
+				if errChan == quit {
+					chanIndex = i
+				}
+			}
+			if chanIndex > -1 {
+				ActiveCops[id] = append(ActiveCops[id][:chanIndex], ActiveCops[id][chanIndex+1:]...)
+			}
+
 			stdout.Close() // Inform client that server has closed connection.
 			return nil
 		case msg := <-msgCh:
