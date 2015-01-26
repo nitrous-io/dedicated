@@ -1,9 +1,11 @@
+#= require ../port-mappings
+
 Lib.ContainerConfigController = Em.ObjectController.extend
   volumeMounts: null # array
   selectedVolumeId: null
   volumeMountpoint: null
 
-  portBindings: null # array
+  portMappings: null
   publicPort: false
   hostPort: null
   containerPort: null
@@ -20,7 +22,8 @@ Lib.ContainerConfigController = Em.ObjectController.extend
       selectedVolumeId: null
       volumeMountpoint: null
 
-      portBindings: Em.A()
+      portMappings: Lib.PortMappings.create()
+
       publicPort: false
       hostPort: null
       containerPort: null
@@ -63,23 +66,24 @@ Lib.ContainerConfigController = Em.ObjectController.extend
     removeVolumeMount: (vol) ->
       @get('volumeMounts').removeObject(vol)
 
-    addPortBinding: ->
-      portBindings = @get 'portBindings'
-      publicPort = if @get('publicPort')
+    addPortMapping: ->
+      portMappings = @get 'portMappings'
+      scope = if @get('publicPort')
         "public"
       else
         "private"
+
       hostPort = @get('hostPort') ? ''
       containerPort = @get 'containerPort'
-      pb = [publicPort, hostPort, containerPort].join(':')
-      unless portBindings.contains(pb)
-        portBindings.pushObject(pb)
+      
+      portMappings.add(hostPort, containerPort, scope)
+
       @setProperties
         hostPort: null
         containerPort: null
 
-    removePortBinding: (pb) ->
-      @get('portBindings').removeObject(pb)
+    removePortMapping: (mapping) ->
+      @get('portMappings').remove(mapping)
 
     addEnvVar: ->
       envVarHash = @get 'envVarHash'

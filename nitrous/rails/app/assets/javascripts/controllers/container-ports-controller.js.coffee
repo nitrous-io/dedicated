@@ -48,12 +48,12 @@ App.ContainerPortsController = Em.ObjectController.extend
     add: ->
       port = @get 'port'
       container = @get 'model'
-      portBindings = container.get('config.port')
+      portMappings = container.get('config.port')
       if @get('setPreviewPort')
         @set 'newPreviewPort', port
       pb = "public::#{port}"
-      unless portBindings.contains(pb)
-        portBindings.pushObject(pb)
+      unless portMappings.contains(pb)
+        portMappings.pushObject(pb)
       @set 'port', null
       @set 'setPreviewPort', false
 

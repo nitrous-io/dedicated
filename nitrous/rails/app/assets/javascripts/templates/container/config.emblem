@@ -8,7 +8,7 @@
 
   .ui.input-group
     label.field-label
-      | Custom Port Bindings
+      | Custom Port Mappings
 
   unless config
     p.hint-text
@@ -16,13 +16,13 @@
       | Loading...
 
   ul.ui.chips
-    each portBinding in sortedPorts
+    each portMapping in portMappings.rawPorts
       li class={view.formDisabled:disabled}
-        = portBinding.value
+        = portMapping
         unless view.formDisabled
-          a.close href='#' click='removePortBinding portBinding.value' &times;
+          a.close href='#' click='removePortMapping portMapping' &times;
 
-  form.container-config submit='addPortBinding'
+  form.container-config submit='addPortMapping'
     .ui.input-group.container-config-form
       table.ui.table
         thead
@@ -41,7 +41,7 @@
             td
               = input type='number' min='1' max='65535' step='1' placeholder='e.g., 3000' required=true value=containerPort disabled=view.formDisabled
             td
-              input.ui.btn.raised type='submit' disabled={view.addPortBindingButtonDisabled} value='Add' disabled={view.formDisabled}
+              input.ui.btn.raised type='submit' disabled={view.addPortMappingButtonDisabled} value='Add' disabled={view.formDisabled}
 
     ul.ui.checkbox-group
       li
