@@ -368,11 +368,12 @@ func (u *User) GenerateConfirmationURL(d db.QueryReceiver, setConfirmationSentAt
 		return nil, ErrConfirmationAlreadyCompleted
 	}
 
-	t, err := securerandom.Base64(191)
+	t, err := securerandom.Base64(15)
 	if err != nil {
 		return nil, err
 	}
-	u.ConfirmationToken = sql.NullString{t[:255], true}
+	token := fmt.Sprintf("%s%d", t[:20], u.ID)
+	u.ConfirmationToken = sql.NullString{token, true}
 
 	var stmt string
 	if setConfirmationSentAt || u.ConfirmationSentAt == nil {
