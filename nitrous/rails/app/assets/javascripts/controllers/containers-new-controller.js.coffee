@@ -9,6 +9,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
   invalidField: null
 
   image: null
+  privileged: false
   saving: false
   pullingImage: false
 
