@@ -1,6 +1,8 @@
 package tender
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"fmt"
 	"log"
@@ -16,13 +18,12 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 )
 
-const (
-	// Requests on this port will be mapped to the NITROUS_PREVIEW_PORT.
-	// E.g. if preview is running on port 3000, requests on port 443 will be treated
-	// as if they were made on port 3000.
-	previewForwardPort = 443
-	previewPortEnvVar  = "NITROUS_PREVIEW_PORT"
-)
+const previewPortEnvVar = "NITROUS_PREVIEW_PORT"
+
+// Requests on these ports will be mapped to the NITROUS_PREVIEW_PORT.
+// E.g. if preview is running on port 3000, requests on port 443 will be treated
+// as if they were made on port 3000.
+var previewForwardPorts = []int{80, 443}
 
 // PreviewProxyServer let user proxy preview requests to the host.
 // The server is awared of the exposed ports on the host and proxy requests
@@ -39,20 +40,34 @@ type PreviewProxyServer struct {
 	// `nitrouspro.com`. This is used when communicating with the freighterd
 	// server on the host.
 	tlsDomain string
+	// default tls config to talk to remote freighterd server.
+	tlsConfig *tls.Config
 	// store the CA so we can build freighterclient
 	ca []byte
+
+	freighterdPort int
 }
 
 // Returns a `http.Handler` which can be used to proxy preview request to
 // a Nitrous.IO host
-func NewPreviewProxyServer(baseDomain, tlsDomain string,
+func NewPreviewProxyServer(baseDomain, tlsDomain string, freighterdPort int,
 	db *sql.DB, caBytes []byte) http.Handler {
-	return &PreviewProxyServer{
-		tlsDomain: tlsDomain,
-		domain:    baseDomain,
-		db:        db,
-		ca:        caBytes,
+	s := &PreviewProxyServer{
+		tlsDomain:      tlsDomain,
+		domain:         baseDomain,
+		freighterdPort: freighterdPort,
+		db:             db,
+		ca:             caBytes,
 	}
+	// set the default tls config for proxied connections
+	if len(caBytes) > 0 {
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(caBytes)
+		s.tlsConfig = &tls.Config{
+			RootCAs: certPool,
+		}
+	}
+	return s
 }
 
 func (s *PreviewProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -145,21 +160,34 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 	}
 
 	// set X-FORWARDED-PORT for the request
-	r.Header.Set(config.ForwardPortHeader, strconv.Itoa(incomingPort))
+	r.Header.Set(config.ForwardPortHeader, containerPort)
 	destAddr := net.JoinHostPort(container.HostIP.String(), containerPort)
 
+	// For TLS requests, we proxy to Freighter on the host, which will then
+	// proxy to the container.
+	var tlsConfig *tls.Config
+	if r.TLS != nil && s.tlsConfig != nil {
+		tlsConfig = &tls.Config{}
+		*tlsConfig = *s.tlsConfig
+		tlsConfig.ServerName = slug + s.tlsDomain
+		destAddr = net.JoinHostPort(container.HostIP.String(), strconv.Itoa(s.freighterdPort))
+	}
+
 	if proxy.IsWebsocket(r) {
-		proxy.ProxyWebsocket(destAddr, nil)(w, r)
+		proxy.ProxyWebsocket(destAddr, tlsConfig)(w, r)
 	} else {
-		proxy.ProxyHTTP(destAddr, nil)(w, r)
+		proxy.ProxyHTTP(destAddr, tlsConfig)(w, r)
 	}
 	return nil
 }
 
 func (s *PreviewProxyServer) getContainerPort(container containerWithInfo, port int) (string, error) {
-	// Try to map requests on previewForwardPort to the port specified by the
+	// Try to map requests on previewForwardPorts to the port specified by the
 	// container's NITROUS_PREVIEW_PORT env var.
-	if port == previewForwardPort {
+	for _, p := range previewForwardPorts {
+		if port != p {
+			continue
+		}
 		if previewPort, ok := envValue(container.env, previewPortEnvVar); ok {
 			p, err := getPublicFreighterdPort(container.ports, previewPort)
 			if err == nil {

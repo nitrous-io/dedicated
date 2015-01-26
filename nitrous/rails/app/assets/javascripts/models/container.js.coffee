@@ -66,7 +66,7 @@ App.Container = klass = App.Model.extend
     host = @get 'previewHostname'
     port = @get('previewPort') || 3000
     return unless host
-    url = "https://#{host}"
+    url = "http://#{host}"
     url += ":#{port}" if port && port != 3000
   ).property 'previewHostname', 'previewPort'
 
