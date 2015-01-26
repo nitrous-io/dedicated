@@ -844,6 +844,10 @@ func (s *Server) uploadContainerFile(w http.ResponseWriter, r *http.Request) err
 }
 
 func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
+	if r.TLS != nil {
+		r.Header.Set("X-Forwarded-Proto", "https")
+	}
+
 	addr := fmt.Sprintf("%s:%s", "0.0.0.0", r.Header.Get(config.ForwardPortHeader))
 	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(addr, nil)(w, r)
