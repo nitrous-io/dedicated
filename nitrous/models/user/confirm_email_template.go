@@ -13,7 +13,7 @@ const confirmEmailNewUserHtmlTmpl = `
     <h3>Hello {{ .Name }}!</h3>
     <p>Thanks for signing up for Nitrous! Before you start developing your first application, please verify your email address by clicking the link below.</p>
     <p><a href="{{ .ConfirmUrl }}" target="_blank">Confirm email</a></p>
-    <p>This this link will expire in 24 hours if it's not activated.</p>
+    <p>This link will expire in 24 hours if it's not activated.</p>
     <p>Start your engines,</p>
     <p>The Nitrous team</p>
   </body>
@@ -24,7 +24,7 @@ const confirmEmailNewUserTxtTmpl = `
 Hello {{ .Name }}!
 Thanks for signing up for Nitrous! Before you start developing your first application, please verify your email address by clicking the link below.
 {{ .ConfirmUrl }}
-This this link will expire in 24 hours if it's not activated.
+This link will expire in 24 hours if it's not activated.
 
 Start your engines,
 The Nitrous team
