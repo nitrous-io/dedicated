@@ -21,6 +21,8 @@ klass = App.Path = Em.ArrayProxy.extend Em.SortableMixin,
 
   name: (->
     if absolutePath = @get 'absolutePath'
+      if absolutePath == "/"
+        return "/"
       components = @constructor.pathToComponents(absolutePath)
       components[components.length - 1]
     else

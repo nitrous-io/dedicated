@@ -15,6 +15,8 @@ App.IdeView = Em.View.extend
 
   didInsertElement: ->
     @_super()
+    controller = @get 'controller'
+    controller.validateContainerState()
     mp.track 'IDE Session Started', container_id: @get 'controller.id'
     mp.increment 'ide_session_started_count'
     Em.run.scheduleOnce 'afterRender', ->

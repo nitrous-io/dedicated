@@ -232,6 +232,7 @@ var _ = Describe("controllers/containers", func() {
 				Cmd:        []string{"/sbin/init"},
 				Entrypoint: []string{"/bin/blah"},
 				ExitCode:   0,
+				User:       "guest",
 				StartedAt:  startedAt,
 				FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 			}
@@ -268,6 +269,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(j.Containers[0].Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(j.Containers[0].ExitCode).To(Equal(0))
+			Expect(j.Containers[0].User).To(Equal("guest"))
 			Expect(j.Containers[0].Metadata["C"]).To(Equal("1"))
 			Expect(j.Containers[0].StartedAt).To(Equal(&startedAt))
 			Expect(j.Containers[0].FinishedAt).To(BeNil())
@@ -422,6 +424,7 @@ var _ = Describe("controllers/containers", func() {
 					Cmd:        []string{"/sbin/init"},
 					Entrypoint: []string{"/bin/blah"},
 					ExitCode:   0,
+					User:       "wheel",
 					StartedAt:  startedAt,
 					FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 				}
@@ -453,6 +456,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].Cmd).To(Equal([]string{"/sbin/init"}))
 				Expect(j.Containers[0].Entrypoint).To(Equal([]string{"/bin/blah"}))
 				Expect(j.Containers[0].ExitCode).To(Equal(0))
+				Expect(j.Containers[0].User).To(Equal("guest"))
 				Expect(j.Containers[0].StartedAt).To(Equal(&startedAt))
 				Expect(j.Containers[0].FinishedAt).To(BeNil())
 				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
@@ -472,6 +476,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[1].Cmd).To(Equal([]string{"/sbin/init"}))
 				Expect(j.Containers[1].Entrypoint).To(Equal([]string{"/bin/blah"}))
 				Expect(j.Containers[1].ExitCode).To(Equal(0))
+				Expect(j.Containers[1].User).To(Equal("wheel"))
 				Expect(j.Containers[1].StartedAt).To(Equal(&startedAt))
 				Expect(j.Containers[1].FinishedAt).To(BeNil())
 				Expect(j.Containers[1].CreatedAt).To(BeNil())
@@ -537,6 +542,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].Cmd).To(BeNil())
 				Expect(j.Containers[0].Entrypoint).To(BeNil())
 				Expect(j.Containers[0].ExitCode).To(Equal(0))
+				Expect(j.Containers[0].User).To(Equal(""))
 				Expect(j.Containers[0].StartedAt).To(BeNil())
 				Expect(j.Containers[0].FinishedAt).To(BeNil())
 			})
@@ -605,6 +611,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].Cmd).To(BeNil())
 				Expect(j.Containers[0].Entrypoint).To(BeNil())
 				Expect(j.Containers[0].ExitCode).To(Equal(0))
+				Expect(j.Containers[0].User).To(Equal(""))
 				Expect(j.Containers[0].StartedAt).To(BeNil())
 				Expect(j.Containers[0].FinishedAt).To(BeNil())
 			})
@@ -757,6 +764,7 @@ var _ = Describe("controllers/containers", func() {
 				State:   "running",
 				Image:   "elixir",
 				ImageID: "abc123",
+				User:    "guest",
 			}
 
 			createResult = nil
@@ -1035,6 +1043,7 @@ var _ = Describe("controllers/containers", func() {
 				Cmd:        []string{"/sbin/init"},
 				Entrypoint: []string{"/bin/blah"},
 				ExitCode:   0,
+				User:       "guest",
 				StartedAt:  startedAt,
 				FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 			}
@@ -1078,6 +1087,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(j.Container.Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(j.Container.ExitCode).To(Equal(0))
+			Expect(j.Container.User).To(Equal("guest"))
 			Expect(j.Container.StartedAt).To(Equal(&startedAt))
 			Expect(j.Container.FinishedAt).To(BeNil())
 			Expect(j.Container.CreatedAt).NotTo(BeNil())
@@ -1137,6 +1147,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Container.GatewayIP).To(Equal(""))
 				Expect(j.Container.State).To(Equal(container.StateHostStopped.String()))
 				Expect(j.Container.ExitCode).To(Equal(0))
+				Expect(j.Container.User).To(Equal(""))
 				Expect(j.Container.StartedAt).To(BeNil())
 				Expect(j.Container.FinishedAt).To(BeNil())
 				Expect(j.Container.CreatedAt).NotTo(BeNil())
@@ -1174,6 +1185,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Container.GatewayIP).To(Equal(""))
 				Expect(j.Container.State).To(Equal(container.StateHostStopped.String()))
 				Expect(j.Container.ExitCode).To(Equal(0))
+				Expect(j.Container.User).To(Equal(""))
 				Expect(j.Container.StartedAt).To(BeNil())
 				Expect(j.Container.FinishedAt).To(BeNil())
 				Expect(j.Container.CreatedAt).NotTo(BeNil())
@@ -1239,6 +1251,7 @@ var _ = Describe("controllers/containers", func() {
 				Cmd:        []string{"/sbin/init"},
 				Entrypoint: []string{"/bin/blah"},
 				ExitCode:   126,
+				User:       "guest",
 				StartedAt:  startedAt,
 				FinishedAt: finishedAt,
 			}
@@ -1259,6 +1272,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(cn.Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(cn.ExitCode).To(Equal(126))
+			Expect(cn.User).To(Equal("guest"))
 			Expect(cn.StartedAt).To(Equal(&startedAt))
 			Expect(cn.FinishedAt).To(Equal(&finishedAt))
 			Expect(cn.CreatedAt).NotTo(BeNil())
@@ -1538,6 +1552,7 @@ var _ = Describe("controllers/containers", func() {
 				Cmd:        []string{"/sbin/init"},
 				Entrypoint: []string{"/bin/blah"},
 				ExitCode:   126,
+				User:       "guest",
 				StartedAt:  startedAt,
 				FinishedAt: finishedAt,
 			}
@@ -1566,6 +1581,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(cn.Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(cn.ExitCode).To(Equal(126))
+			Expect(cn.User).To(Equal("guest"))
 			Expect(cn.StartedAt).To(Equal(&startedAt))
 			Expect(cn.FinishedAt).To(Equal(&finishedAt))
 			Expect(cn.CreatedAt).NotTo(BeNil())

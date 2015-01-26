@@ -92,12 +92,8 @@ func parsePort(req *http.Request) int {
 // The "Host" header is preserved so that receiver will correctly recognize the
 // original host instead of the ip address
 func hostToIP(req *http.Request, ip net.IP, port int) string {
-	return setRequestHost(req, ip, strconv.Itoa(port))
-}
-
-func setRequestHost(r *http.Request, ip net.IP, port string) string {
-	h := net.JoinHostPort(ip.String(), port)
-	r.URL.Host = h
+	h := net.JoinHostPort(ip.String(), strconv.Itoa(port))
+	req.URL.Host = h
 	return h
 }
 

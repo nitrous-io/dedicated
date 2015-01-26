@@ -55,20 +55,17 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   ).observes 'user', 'settings'
 
   reloadContainer: ->
-    new Em.RSVP.Promise (resolve, reject) =>
-      @loadContainer ()->
-        App.get('container')?.loadHost().then (v)->
-          resolve(v)
-        , (err) ->
-          reject(err)
+    @loadContainer(@get 'slug').then (container) ->
+      container.loadHost()
 
-  loadContainer: (cb)->
-    App.Container.fetch(@get('slug')).then (container) ->
+  loadContainer: (slug)->
+    if !slug 
+      return Em.RSVP.Promise.reject(new Error('No slug specified'))
+
+    App.set 'slug', slug
+    App.Container.fetch(slug).then (container) ->
       App.set 'container', container
-      cb?()
       container
-    , -> # failure
-      window.location.href = notFoundPath
 
   loadSettings: ->
     promise = Em.RSVP.Promise.cast(Em.$.ajax("/api/v0/app_settings"))

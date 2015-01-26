@@ -97,7 +97,7 @@ var _ = Describe("provisioner", func() {
 				count, err := host.CountPreprovisioned(db, hs.R, hs.P)
 				Expect(err).To(BeNil())
 				return count
-			}, 5*time.Second).Should(Equal(1))
+			}, 5*time.Second, 100*time.Millisecond).Should(Equal(1))
 		})
 
 		It("does not pre-provision hosts in a region that has orphan pre-provisioned hosts", func() {

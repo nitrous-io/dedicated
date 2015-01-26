@@ -113,8 +113,8 @@ var _ = Describe("server", func() {
 		Context("when there exists containers", func() {
 			BeforeEach(func() {
 				prov.Containers = []*provider.ContainerInfo{
-					{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning},
-					{ID: "bbb", Name: "bar", Image: "centos", ImageID: "def456", Host: "1.2.3.5", Gateway: "1.2.3.0", State: provider.ContainerStateStopped},
+					{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning, User: "guest"},
+					{ID: "bbb", Name: "bar", Image: "centos", ImageID: "def456", Host: "1.2.3.5", Gateway: "1.2.3.0", State: provider.ContainerStateStopped, User: "admin"},
 				}
 				doRequest()
 			})
@@ -122,8 +122,8 @@ var _ = Describe("server", func() {
 			It("responds with 200 ok with container info array", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(MatchJSON(`{"containers":[
-				{"id":"aaa","name":"foo","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","gateway":"1.2.3.0","state":"running","ports":null,"exit_code":0,"app_state":"","env":null,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"},
-				{"id":"bbb","name":"bar","image":"centos","image_id":"def456","host":"1.2.3.5","gateway":"1.2.3.0","state":"stopped","ports":null,"exit_code":0,"app_state":"","env":null,"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"}
+				{"id":"aaa","name":"foo","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","gateway":"1.2.3.0","state":"running","ports":null,"exit_code":0,"app_state":"","env":null,"user":"guest","started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"},
+				{"id":"bbb","name":"bar","image":"centos","image_id":"def456","host":"1.2.3.5","gateway":"1.2.3.0","state":"stopped","ports":null,"exit_code":0,"app_state":"","env":null,"user":"admin","started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"}
 				]}`))
 			})
 		})
@@ -188,7 +188,7 @@ var _ = Describe("server", func() {
 
 				Context("returns a provider.StartFailedError", func() {
 					BeforeEach(func() {
-						prov.CreateContainerInfo = &provider.ContainerInfo{ID: "aaa", Name: name, Image: "ubuntu", ImageID: "abc123", Host: "", Gateway: "", State: provider.ContainerStateStopped}
+						prov.CreateContainerInfo = &provider.ContainerInfo{ID: "aaa", Name: name, Image: "ubuntu", ImageID: "abc123", Host: "", Gateway: "", State: provider.ContainerStateStopped, User: "abc"}
 						prov.CreateError = &provider.StartFailedError{Err: errors.New("start failed")}
 					})
 
@@ -208,6 +208,7 @@ var _ = Describe("server", func() {
 								"exit_code":0,
 								"app_state":"",
 								"env":null,
+								"user": "abc",
 								"started_at":"0001-01-01T00:00:00Z",
 								"finished_at":"0001-01-01T00:00:00Z"
 							},
@@ -231,7 +232,7 @@ var _ = Describe("server", func() {
 
 				Context("returns a container info with no error", func() {
 					BeforeEach(func() {
-						prov.CreateContainerInfo = &provider.ContainerInfo{ID: "aaa", Name: name, Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning}
+						prov.CreateContainerInfo = &provider.ContainerInfo{ID: "aaa", Name: name, Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning, User: "guest"}
 					})
 
 					It("responds with 200 OK and container info", func() {
@@ -250,6 +251,7 @@ var _ = Describe("server", func() {
 								"exit_code":0,
 								"app_state":"",
 								"env":null,
+								"user": "guest",
 								"started_at":"0001-01-01T00:00:00Z",
 								"finished_at":"0001-01-01T00:00:00Z"
 						}}`))
@@ -316,7 +318,7 @@ var _ = Describe("server", func() {
 	Describe("GET /containers/:container_id", func() {
 		BeforeEach(func() {
 			prov.Containers = []*provider.ContainerInfo{
-				{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning, AppState: provider.ContainerAppRunning},
+				{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning, AppState: provider.ContainerAppRunning, User: "guest"},
 			}
 		})
 
@@ -346,6 +348,7 @@ var _ = Describe("server", func() {
 						"exit_code":0,
 						"app_state":"running",
 						"env":null,
+						"user": "guest",
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 				}}`))
@@ -429,12 +432,13 @@ var _ = Describe("server", func() {
 			imageID          = "abc123"
 			host             = "1.2.3.4"
 			gateway          = "1.2.3.0"
+			user             = "guest"
 			params           *url.Values
 		)
 
 		BeforeEach(func() {
 			prov.Containers = []*provider.ContainerInfo{
-				{ID: id, Name: name, Image: image, ImageID: imageID, Host: host, Gateway: gateway},
+				{ID: id, Name: name, Image: image, ImageID: imageID, Host: host, Gateway: gateway, User: user},
 			}
 			params = &url.Values{}
 		})
@@ -503,6 +507,7 @@ var _ = Describe("server", func() {
 						"exit_code":0,
 						"app_state":"",
 						"env":null,
+						"user": "` + user + `",
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -536,6 +541,7 @@ var _ = Describe("server", func() {
 						"exit_code":0,
 						"app_state":"",
 						"env":null,
+						"user": "` + user + `",
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -575,6 +581,7 @@ var _ = Describe("server", func() {
 						"exit_code":0,
 						"app_state":"",
 						"env":null,
+						"user": "` + user + `",
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -608,6 +615,7 @@ var _ = Describe("server", func() {
 						"exit_code":0,
 						"app_state":"",
 						"env":null,
+						"user": "` + user + `",
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -2002,6 +2010,25 @@ var _ = Describe("server", func() {
 			handler.ServeHTTP(res, req)
 			Expect(res.Code).To(Equal(http.StatusUnauthorized))
 			Expect(res.Body.String()).To(ContainSubstring("invalid_secret"))
+		})
+	})
+
+	Describe("terminateActiveCops", func() {
+		It("sends two nils to quit channel if populated for CID", func() {
+			cid := "abbacoda"
+			q1, q2 := make(chan error, 2), make(chan error, 2)
+			server.ActiveCops[cid] = append(server.ActiveCops[cid], q1, q2)
+			svr.TerminateActiveCops(cid)
+			Expect(q1).To(Receive(nil))
+			Expect(q2).To(Receive(nil))
+		})
+
+		It("is a no-op if ActiveCops is not populated for a CID", func() {
+			q1, q2 := make(chan error, 2), make(chan error, 2)
+			server.ActiveCops["cid"] = append(server.ActiveCops["cid"], q1, q2)
+			svr.TerminateActiveCops("Different Container ID")
+			Expect(q1).NotTo(Receive(nil))
+			Expect(q2).NotTo(Receive(nil))
 		})
 	})
 })

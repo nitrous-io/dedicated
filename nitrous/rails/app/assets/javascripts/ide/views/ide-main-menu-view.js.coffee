@@ -77,7 +77,7 @@ App.IdeMainMenuView = Em.View.extend
 
   previewPortBinding: Em.Binding.oneWay 'App.container.previewPort'
   dashboardURL: ( ->
-    "/app/#/applications/#{App.get 'container.slug'}"
+    "/app/#/containers/#{App.get 'container.slug'}"
   ).property 'App.container.slug'
 
   previewItems: (->
@@ -87,7 +87,7 @@ App.IdeMainMenuView = Em.View.extend
       if port.preview
         txt = "#{txt} (Default)"
       item = menuItem txt,
-        url: "https://#{App.get 'container.preview_hostname'}:#{port.containerPort}"
+        url: "http://#{App.get 'container.preview_hostname'}:#{port.containerPort}"
         target: '_blank'
 
       if port.preview

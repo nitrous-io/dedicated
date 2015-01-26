@@ -33,11 +33,12 @@ if App.hosts.length
                           span
                             = container.state
 
-.app-download
-  h3 Get Desktop Sync
+/ TODO: Renable when desktop app is sync
+  .app-download
+    h3 Get Desktop Sync
 
-  p Install Nitrous desktop app to work on your code using your favorite editor.
+    p Install Nitrous desktop app to work on your code using your favorite editor.
 
-  a.ui.btn.raised href='#' click='downloadDesktopApp "sidebar"'
-    i.fa.fa-download
-    | &nbsp; Free Download
+    a.ui.btn.raised href='#' click='downloadDesktopApp "sidebar"'
+      i.fa.fa-download
+      | &nbsp; Free Download
