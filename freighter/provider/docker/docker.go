@@ -351,6 +351,28 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 		}
 	}
 
+	// stop cops-* processes (namely cops-exec) if running
+	pgrepCmd := exec.Command("pgrep", "--full", fmt.Sprintf("cops-.* %s", id))
+	out, err := pgrepCmd.CombinedOutput()
+	if err == nil {
+		// 1 or more processes exist, terminate them
+		pids := strings.Fields(string(out))
+		p.logger.Debugf("cops processes for CID %s found, attempting to kill: %v", id, pids)
+		for _, pidStr := range pids {
+			pid, err := strconv.Atoi(strings.TrimSpace(string(pidStr)))
+			if err == nil {
+				// Not being able to kill this process if it exists may cause a
+				// "Driver aufs failed to remove root filesystem" error if the
+				// container is subsequently terminated (currently stop->terminate
+				// happens on Reconfig)
+
+				err := syscall.Kill(pid, syscall.SIGTERM)
+				// ignore error and log
+				p.logger.Debugf("killing CID %s pid %s: err %v", id, pid, err)
+			}
+		}
+	}
+
 	return p.GetInfo(id)
 }
 
