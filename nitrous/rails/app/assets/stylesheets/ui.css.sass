@@ -302,7 +302,7 @@ table.ui.table
     &:hover, &:focus
       background: none
 
-  &.raised.primary
+  &.raised.primary, &.pulsate
     background: $lightBlue800
     color: white
 
@@ -318,6 +318,9 @@ table.ui.table
     &:disabled, &[disabled], &.disabled
       color: #f9f9f9
       background: rgba(204, 204, 204, .1)
+
+  &.pulsate
+    animation: ui-btn-pulsate .9s alternate infinite
 
   &.mini
     width: 30px
@@ -996,3 +999,9 @@ ul.ui.snackbar
     background-position: 0 0
   to
     background-position: 800px 0
+
+@keyframes ui-btn-pulsate
+  from
+    background-color: $lightBlue800
+  to
+    background-color: $lightBlue600
