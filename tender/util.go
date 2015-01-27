@@ -48,6 +48,12 @@ func serverError(err error) error {
 
 // handle error returned by the server HTTP Handler
 func handleError(w http.ResponseWriter, err error) {
+	if err == ErrDomainMismatched {
+		// Treat domain mismatch as a 404 instead of a server error.
+		http.Error(w, "", http.StatusNotFound)
+		return
+	}
+
 	e, ok := err.(*httperror.Error)
 	if !ok {
 		e = serverError(err).(*httperror.Error)
