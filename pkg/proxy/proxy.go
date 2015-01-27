@@ -1,6 +1,8 @@
 package proxy
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/tls"
 	"io"
 	"log"
@@ -18,7 +20,48 @@ func IsWebsocket(r *http.Request) bool {
 		headerContainsValue(r.Header, "Connection", "upgrade")
 }
 
-func ProxyHTTP(addr string, tlsConfig *tls.Config) http.HandlerFunc {
+// DefaultTransportErrorHandler delegates the handling of response to
+// ErrorHandler
+func DefaultTransportErrorHandler(w http.ResponseWriter, r *http.Request) func(res *http.Response, err error) {
+	return func(res *http.Response, err error) {
+		ErrorHandler(w, r)
+	}
+}
+
+// ErrorHandler writes the default error page, gzipped it if necessary
+func ErrorHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusServiceUnavailable)
+	w.Header().Set("Content-Type", "text/html")
+	w.Header().Add("Vary", "Accept-Encoding")
+	if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		io.Copy(w, bufio.NewReader(bytes.NewBuffer(ErrorPage)))
+	} else {
+		w.Header().Set("Content-Encoding", "gzip")
+		io.Copy(w, bufio.NewReader(bytes.NewBuffer(GzippedErrorPage)))
+	}
+}
+
+// customTransport delegates to the underlying http.RoundTripper, but if we
+// specify the errorFunc, then it will be called when there are error
+// performing RoundTrip
+type customTransport struct {
+	http.RoundTripper
+	errorFunc func(res *http.Response, err error)
+}
+
+func (t *customTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	res, err := t.RoundTripper.RoundTrip(r)
+	if err != nil && t.errorFunc != nil {
+		t.errorFunc(res, err)
+	}
+	return res, err
+}
+
+// ProxyHTTP return a http handler that reverse proxies request from provided
+// address. It also accepts a function that can be used to customize response
+// when we cant perform a roundtrip request to the server ( for example, the
+// remote server is not running )
+func ProxyHTTP(addr string, tlsConfig *tls.Config, transportErrorFn func(res *http.Response, err error)) http.HandlerFunc {
 	p := &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
 			log.Printf("[INFO] http: proxy %s to %s", r.Host, addr)
@@ -29,8 +72,9 @@ func ProxyHTTP(addr string, tlsConfig *tls.Config) http.HandlerFunc {
 				r.URL.Scheme = "http"
 			}
 		},
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
+		Transport: &customTransport{
+			RoundTripper: &http.Transport{TLSClientConfig: tlsConfig},
+			errorFunc:    transportErrorFn,
 		},
 		FlushInterval: HTTPFlushInterval,
 	}

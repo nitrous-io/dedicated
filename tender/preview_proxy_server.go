@@ -72,7 +72,7 @@ func NewPreviewProxyServer(baseDomain, tlsDomain string, freighterdPort int,
 
 func (s *PreviewProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := s.proxy(w, r); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 }
@@ -176,7 +176,7 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(destAddr, tlsConfig)(w, r)
 	} else {
-		proxy.ProxyHTTP(destAddr, tlsConfig)(w, r)
+		proxy.ProxyHTTP(destAddr, tlsConfig, proxy.DefaultTransportErrorHandler(w, r))(w, r)
 	}
 	return nil
 }
