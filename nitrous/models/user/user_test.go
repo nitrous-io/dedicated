@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -1057,8 +1058,10 @@ var _ = Describe("models/user", func() {
 			u, err := user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
 
+			expectedLength := 20 + len(strconv.FormatInt(u.ID, 10))
 			Expect(u.ConfirmationToken.String).ToNot(BeEmpty())
-			Expect(u.ConfirmationToken.String).To(HaveLen(255))
+			Expect(u.ConfirmationToken.String).To(HaveLen(expectedLength))
+			Expect(u.ConfirmationToken.String).To(HaveSuffix(strconv.FormatInt(u.ID, 10)))
 		})
 
 		It("should send the email", func() {
