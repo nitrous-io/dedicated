@@ -85,10 +85,12 @@ var _ = Describe("base image serializer", func() {
 				{
 					"containers": [
 						{
-							privileged: true
+							"privileged": true,
+							"image": "img1"
 						},
 						{
-							privileged: false
+							"privileged": false,
+							"image": "img2"
 						}
 					]
 				}
@@ -110,7 +112,7 @@ var _ = Describe("base image serializer", func() {
 				"type": "%s",
 				"created_at": %s,
 				"updated_at": %s,
-				"images": [],
+				"images": ["img1", "img2"],
 				"privileged": true
 			}`, template.TypeStack, nowJSON, nowJSON)))
 		})
