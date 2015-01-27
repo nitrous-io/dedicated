@@ -16,11 +16,11 @@
       | Loading...
 
   ul.ui.chips
-    each portBinding in portBindings
+    each portBinding in sortedPorts
       li class={view.formDisabled:disabled}
-        = portBinding
+        = portBinding.value
         unless view.formDisabled
-          a.close href='#' click='removePortBinding portBinding' &times;
+          a.close href='#' click='removePortBinding portBinding.value' &times;
 
   form.container-config submit='addPortBinding'
     .ui.input-group.container-config-form
