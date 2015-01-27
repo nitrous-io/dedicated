@@ -99,6 +99,12 @@ App.Host = klass = App.Model.extend
       @set 'stats', null
   ).observes 'state'
 
+  prefetchResources: ->
+    @get 'images'
+    @get 'registries'
+    @get 'volumes'
+    true
+
   fetchStats: ->
     if @get('state') == 'running'
       @ajax('GET', 'stats', period: '1s').then (data) =>
