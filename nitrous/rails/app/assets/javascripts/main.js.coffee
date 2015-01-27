@@ -40,12 +40,17 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   pendingHost: null
 
+  newUserCredit: (->
+    if @get('settings.new_user_credit')
+      val = (@get('settings.new_user_credit') / 100)
+      val.toFixed(0)
+    else
+      return 5
+  ).property 'settings', 'settings.new_user_credit'
+
   availableCredit: (->
     if @get('newUser')
-      if @get('settings.new_user_credit')
-        return @get('settings.new_user_credit')
-      else
-        return 5
+      return @get('newUserCredit')
     else if @get('billingUsage')
       return @get('billingUsage.availableCreditsDollars')
 
