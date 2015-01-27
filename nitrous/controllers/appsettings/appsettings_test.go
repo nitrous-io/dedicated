@@ -1,6 +1,7 @@
 package appsettings_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -75,7 +76,7 @@ var _ = Describe("controllers/appsettings", func() {
 		It("should populate from Signup_Credit", func() {
 			c := &credittype.CreditType{
 				Name:         "Signup_Credit",
-				Description:  "Desc",
+				Description:  sql.NullString{"Desc", true},
 				Active:       true,
 				DefaultValue: 900,
 			}

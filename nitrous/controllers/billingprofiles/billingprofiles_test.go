@@ -179,7 +179,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			BeforeEach(func() {
 				cType := &credittype.CreditType{
 					Name:         billingprofiles.FreeCreditName,
-					Description:  "Awarded to users for signing up",
+					Description:  sql.NullString{"Awarded to users for signing up", true},
 					Active:       true,
 					DefaultValue: 500,
 				}
