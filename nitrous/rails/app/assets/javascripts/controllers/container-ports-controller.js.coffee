@@ -31,9 +31,9 @@ App.ContainerPortsController = Em.ObjectController.extend
       ///
       if m = port.match(regex)
         hostPort = m[1] || 'To be assigned'
-        containerPort = m[2]
+        containerPort = parseInt(m[2])
         publicPorts.push { port: port, hostPort: hostPort, containerPort: containerPort, preview: m[1] == previewPort }
-    publicPorts
+    publicPorts.sortBy "containerPort"
   ).property 'model.config.port.@each', 'model.previewPort', 'newPreviewPort'
 
   clear: ->
