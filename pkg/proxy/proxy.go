@@ -7,25 +7,15 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"regexp"
 	"strings"
 	"time"
 )
 
-var (
-	HTTPFlushInterval = 100 * time.Millisecond
-)
-
-var connRegexp *regexp.Regexp
-
-func init() {
-	// Firefox connection header contains mutliple values (ie. Connection: keep-alive, Upgrade)
-	connRegexp = regexp.MustCompile(`(?i)\bupgrade\b`)
-}
+var HTTPFlushInterval = 100 * time.Millisecond
 
 func IsWebsocket(r *http.Request) bool {
-	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket") &&
-		connRegexp.MatchString(r.Header.Get("Connection"))
+	return headerContainsValue(r.Header, "Upgrade", "websocket") &&
+		headerContainsValue(r.Header, "Connection", "upgrade")
 }
 
 func ProxyHTTP(addr string, tlsConfig *tls.Config) http.HandlerFunc {
@@ -100,4 +90,15 @@ func hijackServer(w http.ResponseWriter) (io.ReadWriteCloser, error) {
 		return nil, err
 	}
 	return conn, nil
+}
+
+func headerContainsValue(header http.Header, name, value string) bool {
+	for _, v := range header[name] {
+		for _, s := range strings.Split(v, ",") {
+			if strings.EqualFold(value, strings.TrimSpace(s)) {
+				return true
+			}
+		}
+	}
+	return false
 }

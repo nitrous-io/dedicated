@@ -150,6 +150,30 @@ var _ = Describe("IsWebsocket", func() {
 	})
 })
 
+var _ = Describe("headerContainsValue", func() {
+	It("returns true or false depending on whether header contains the given value", func() {
+		testCases := []struct {
+			value    string
+			expected bool
+		}{
+			{"Upgrade", true},
+			{"upgrade", true},
+			{"UPGRADE", true},
+			{"keep-alive, upgrade", true},
+			{"keep-alive,upgrade", true},
+			{"keep-alive,Upgrade", true},
+			{"upgrades", false},
+			{"keep-alive upgrade", false},
+		}
+
+		for _, tc := range testCases {
+			h := http.Header{"Connection": {tc.value}}
+			ok := headerContainsValue(h, "Connection", "upgrade")
+			Expect(ok).To(Equal(tc.expected), "Expected headerContainsValue(h, n, %q) = %v, but got %v", tc.value, tc.expected, ok)
+		}
+	})
+})
+
 // localhostCert is a PEM-encoded TLS cert with SAN IPs
 // "127.0.0.1" and "[::1]", expiring at the last second of 2049 (the end
 // of ASN.1 time).
