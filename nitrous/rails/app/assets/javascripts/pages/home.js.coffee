@@ -5,6 +5,7 @@ pages.Home =
 
   init: ->
     $ =>
+      pages.activePage = "Home Page"
       @startTransitions()
 
     $('.pages .page').click (e) =>
