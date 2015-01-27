@@ -27,6 +27,19 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
     @transformEnvHashToArray(@get 'envVarHashRO')
   ).property 'envVarHashRO'
 
+  sortedPorts: (->
+    unless @get('portBindings')
+      return []
+    @get('portBindings').map((p)->
+      conPort = parseInt(p.match(/(\d+)$/)[1])
+      priority = if p.match(/public/)
+        0
+      else
+        1
+      {value: p, priority: priority, port: conPort}
+    ).sortBy('priority', 'port')
+  ).property 'portBindings.@each'
+
   loadConfig: ->
     container = @get 'model'
     container.loadConfig().then (config) =>
