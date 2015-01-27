@@ -10,21 +10,31 @@
       em
         '
         | / mo.
-    ul.specs
-      li
-        span
-          ' Up to
-        = maxContainers
-        '
-        span Containers
-      li
-        = memory
-        '
-        span Memory
-      li
-        = storage
-        '
-        span Storage
+    table.specs
+      tr
+        td
+          span
+            ' Up to
+          = maxContainers
+        td
+          span Containers
+      tr
+        td
+          = cpu
+          '
+          | Core
+        td
+          span Processor
+      tr
+        td
+          = memory
+        td
+          span Memory
+      tr
+        td
+          = storage
+        td
+          span Storage
 
   if plan.mostPopular
     .ribbon

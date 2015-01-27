@@ -80,8 +80,8 @@
           em
             font-style: normal
 
-        .specs
-          margin: 0
+        table.specs
+          margin: 0 auto
           padding: 0
           list-style: none
 
@@ -89,11 +89,24 @@
             transition: color .3s
             color: $n2oGray700
 
-          li
-            margin-bottom: 8px
+          tr
+            td
+              padding-bottom: 8px
 
             &:last-of-type
-              margin-bottom: 0
+              td
+                padding-bottom: 0
+
+          td
+            &:first-of-type
+              text-align: right
+
+            &:last-of-type
+              text-align: left
+
+              &:before
+                content: ' '
+                white-space: pre
 
         .ribbon
           position: absolute
