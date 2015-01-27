@@ -18,9 +18,6 @@ type ProviderTemplate struct {
 	PreprovisionMax int           `db:"preprovision_max"`
 	CreatedAt       *time.Time    `db:"created_at"`
 	UpdatedAt       *time.Time    `db:"updated_at"`
-
-	// HourlyPrice unit is milli-cents (x1000)
-	HourlyPrice int64 `db:"hourly_price"`
 }
 
 func Preprovisioned(d db.QueryReceiver) ([]ProviderTemplate, error) {
@@ -66,8 +63,8 @@ func FindByRegionAndPlanAndProvider(d db.QueryReceiver, regionID, planID int64, 
 
 func (pt *ProviderTemplate) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO provider_templates
-		(region_id, plan_id, name, provider, config, preprovision_max, hourly_price)
-		VALUES (:region_id, :plan_id, :name, :provider, :config, :preprovision_max, :hourly_price)
+		(region_id, plan_id, name, provider, config, preprovision_max)
+		VALUES (:region_id, :plan_id, :name, :provider, :config, :preprovision_max)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -77,8 +74,8 @@ func (pt *ProviderTemplate) Insert(d db.QueryReceiver) error {
 
 func (pt *ProviderTemplate) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE provider_templates
-		SET (name, provider, config, preprovision_max, hourly_price, updated_at)
-		= (:name, :provider, :config, :preprovision_max, :hourly_price, now())
+		SET (name, provider, config, preprovision_max, updated_at)
+		= (:name, :provider, :config, :preprovision_max, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

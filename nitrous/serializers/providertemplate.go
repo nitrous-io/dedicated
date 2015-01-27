@@ -16,8 +16,6 @@ type ProviderTemplate struct {
 	PreprovisionMax int               `json:"preprovision_max"`
 	CreatedAt       *time.Time        `json:"created_at"`
 	UpdatedAt       *time.Time        `json:"updated_at"`
-
-	HourlyPrice int64 `json:"hourly_price"`
 }
 
 func SerializeProviderTemplate(pt *providertemplate.ProviderTemplate) *ProviderTemplate {
@@ -35,7 +33,6 @@ func SerializeProviderTemplate(pt *providertemplate.ProviderTemplate) *ProviderT
 		Config:          map[string]string{},
 		CreatedAt:       pt.CreatedAt,
 		UpdatedAt:       pt.UpdatedAt,
-		HourlyPrice:     pt.HourlyPrice,
 	}
 
 	for key, value := range pt.Config.Map {

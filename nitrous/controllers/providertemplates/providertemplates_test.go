@@ -105,7 +105,6 @@ var _ = Describe("controllers/", func() {
 					Name:            "do-512MB",
 					Provider:        "digitalocean",
 					PreprovisionMax: 1,
-					HourlyPrice:     100,
 					Config: hstore.Hstore{
 						map[string]sql.NullString{
 							"foo": sql.NullString{"bar", true},
@@ -126,7 +125,6 @@ var _ = Describe("controllers/", func() {
 					PlanID:          insertedPt1.PlanID,
 					Provider:        "ec2",
 					PreprovisionMax: 2,
-					HourlyPrice:     200,
 				}
 
 				err = insertedPt2.Insert(db)
@@ -152,13 +150,11 @@ var _ = Describe("controllers/", func() {
 				Expect(pt1.Name).To(Equal("do-512MB"))
 				Expect(pt1.Provider).To(Equal("digitalocean"))
 				Expect(pt1.PreprovisionMax).To(Equal(1))
-				Expect(pt1.HourlyPrice).To(Equal(int64(100)))
 				Expect(pt1.Config["foo"]).To(Equal("bar"))
 
 				Expect(pt2.Name).To(Equal("do-1GB"))
 				Expect(pt2.Provider).To(Equal("ec2"))
 				Expect(pt2.PreprovisionMax).To(Equal(2))
-				Expect(pt2.HourlyPrice).To(Equal(int64(200)))
 			})
 
 			It("Get individual provider template", func() {
@@ -177,7 +173,6 @@ var _ = Describe("controllers/", func() {
 				Expect(pt.Name).To(Equal("do-512MB"))
 				Expect(pt.Provider).To(Equal("digitalocean"))
 				Expect(pt.PreprovisionMax).To(Equal(1))
-				Expect(pt.HourlyPrice).To(Equal(int64(100)))
 				Expect(pt.Config["foo"]).To(Equal("bar"))
 			})
 
@@ -211,7 +206,6 @@ var _ = Describe("controllers/", func() {
 				Expect(pt1.Name).To(Equal("do-512MB"))
 				Expect(pt1.Provider).To(Equal("digitalocean"))
 				Expect(pt1.PreprovisionMax).To(Equal(3))
-				Expect(pt1.HourlyPrice).To(Equal(int64(100)))
 				Expect(pt1.Config.Map["bar"].String).To(Equal("baz"))
 			})
 		})

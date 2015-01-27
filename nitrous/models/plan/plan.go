@@ -2,6 +2,7 @@ package plan
 
 import (
 	"database/sql"
+	"math"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -71,4 +72,11 @@ func (p *Plan) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	return nstmt.QueryRowx(p).StructScan(p)
+}
+
+// 672 = 28 * 24 (hourly price is derived by using monthly
+// price for 28 days)
+// hourly price is millicents, so *1000
+func (p *Plan) HourlyPrice() int64 {
+	return int64(math.Ceil(float64(p.Price) / 672 * 1000))
 }
