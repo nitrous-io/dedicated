@@ -217,6 +217,64 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(err).To(BeNil())
 				Expect(credit).ToNot(BeNil())
 				Expect(credit.Amount).To(Equal(int64(500)))
+
+				var used int64
+				err = db.QueryRow(`SELECT used FROM credit_types WHERE name = $1;`, billingprofiles.FreeCreditName).Scan(&used)
+				Expect(err).To(BeNil())
+				Expect(used).To(Equal(int64(1)))
+			})
+
+			It("should award credits if a promo code if provided", func() {
+				c := &credittype.CreditType{
+					Name:         "moreMoney",
+					Description:  sql.NullString{"Desc", true},
+					Active:       true,
+					DefaultValue: 1900,
+				}
+				err := c.Insert(db)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE users SET promo_code = 'moreMoney' WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				credit := &credit.Credit{}
+				err = db.Get(credit, "SELECT * FROM credits WHERE user_id = $1;", u.ID)
+				Expect(err).To(BeNil())
+				Expect(credit).ToNot(BeNil())
+				Expect(credit.Amount).To(Equal(int64(1900)))
+
+				var used int64
+				err = db.QueryRow(`SELECT used FROM credit_types WHERE id = $1;`, c.ID).Scan(&used)
+				Expect(err).To(BeNil())
+				Expect(used).To(Equal(int64(1)))
+			})
+
+			It("should not award credits if a promo code is incorrect", func() {
+				c := &credittype.CreditType{
+					Name:         "moreMoney",
+					Description:  sql.NullString{"Desc", true},
+					Active:       false,
+					DefaultValue: 1900,
+				}
+				err := c.Insert(db)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE users SET promo_code = 'moreMoney' WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				credit := &credit.Credit{}
+				err = db.Get(credit, "SELECT * FROM credits WHERE user_id = $1;", u.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
 			})
 
 			It("should not award if there is an existing credit card with the same fingerprint", func() {
