@@ -49,10 +49,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
   ).property 'settings', 'settings.new_user_credit'
 
   availableCredit: (->
-    if @get('newUser')
-      return @get('newUserCredit')
-    else if @get('billingUsage')
+    if @get('billingUsage') && (usage = @get('billingUsage.availableCreditsDollars')) && usage > 0
       return @get('billingUsage.availableCreditsDollars')
+    else if @get('newUser')
+      return @get('newUserCredit')
 
     return 0
   ).property 'newUser', 'billingUsage'

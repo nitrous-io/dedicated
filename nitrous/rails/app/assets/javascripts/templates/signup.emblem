@@ -6,16 +6,17 @@
 
   form submit='signup'
     .card-body
-      .notice-text
-        h5 Limited Time Bonus
-        p
-          ' New users receive
-          span
-            | $
-            = App.newUserCredit
-            '
-            ' Free
-          | Credit
+      if showNewUserCredit
+        .notice-text
+          h5 Limited Time Bonus
+          p
+            ' New users receive
+            span
+              | $
+              = App.newUserCredit
+              '
+              ' Free
+            | Credit
 
       .ui.input-group
         label.field-label for='signup-username'
