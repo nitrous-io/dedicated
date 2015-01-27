@@ -86,7 +86,6 @@ func show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 type ProviderTemplateForm struct {
 	PreprovisionMax int               `json:"preprovision_max"`
-	HourlyPrice     int64             `json:"hourly_price"`
 	Config          map[string]string `json:"config"`
 }
 
@@ -105,7 +104,6 @@ func update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	var jsonForm struct {
 		Pt struct {
 			PreprovisionMax int               `json:"preprovision_max"`
-			HourlyPrice     int64             `json:"hourly_price"`
 			Config          map[string]string `json:"config"`
 		} `json:"provider_template"`
 	}
@@ -116,7 +114,6 @@ func update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	pt.PreprovisionMax = jsonForm.Pt.PreprovisionMax
-	pt.HourlyPrice = jsonForm.Pt.HourlyPrice
 
 	configStore := map[string]sql.NullString{}
 

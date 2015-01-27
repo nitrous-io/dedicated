@@ -196,4 +196,17 @@ var _ = Describe("models/plan", func() {
 			Expect(p.UpdatedAt).NotTo(BeNil())
 		})
 	})
+
+	Describe("HourlyPrice()", func() {
+		It("rounds up to nearest milicent", func() {
+			p := &plan.Plan{Price: 2500}
+			Expect(p.HourlyPrice()).To(Equal(int64(3721)))
+
+			p = &plan.Plan{Price: 4500}
+			Expect(p.HourlyPrice()).To(Equal(int64(6697)))
+
+			p = &plan.Plan{Price: 8000}
+			Expect(p.HourlyPrice()).To(Equal(int64(11905)))
+		})
+	})
 })

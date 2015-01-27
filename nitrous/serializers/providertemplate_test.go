@@ -24,7 +24,6 @@ var _ = Describe("provider template serializer", func() {
 			PreprovisionMax: 50,
 			CreatedAt:       &now,
 			UpdatedAt:       &now,
-			HourlyPrice:     100,
 		}
 
 		It("serializes to JSON", func() {

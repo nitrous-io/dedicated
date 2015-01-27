@@ -768,5 +768,11 @@ func init() {
 				ALTER TABLE user_profiles ADD COLUMN starter_credit_email_last_sent_at timestamp without time zone DEFAULT NULL;
 			`,
 		},
+		{
+			Version: "670",
+			Up: `
+				ALTER TABLE provider_templates DROP COLUMN hourly_price;
+			`,
+		},
 	}
 }
