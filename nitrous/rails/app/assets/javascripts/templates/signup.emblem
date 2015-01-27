@@ -12,11 +12,8 @@
           ' New users receive
           span
             | $
-            if App.settings.new_user_credit
-              = App.settings.new_user_credit
-              '
-            else
-              ' 5
+            = App.newUserCredit
+            '
             ' Free
           | Credit
 
