@@ -8,6 +8,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func init() {
+	bcrypt.DefaultCost = 4
+}
+
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "pkg/bcrypt")

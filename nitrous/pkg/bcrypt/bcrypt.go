@@ -4,8 +4,12 @@ import (
 	bc "golang.org/x/crypto/bcrypt"
 )
 
+var (
+	DefaultCost = bc.DefaultCost
+)
+
 func Hash(password string) (string, error) {
-	pw_bytes, err := bc.GenerateFromPassword([]byte(password), bc.DefaultCost)
+	pw_bytes, err := bc.GenerateFromPassword([]byte(password), DefaultCost)
 	return string(pw_bytes), err
 }
 

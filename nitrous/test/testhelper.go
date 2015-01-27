@@ -22,10 +22,16 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
+	bc "golang.org/x/crypto/bcrypt"
 )
+
+func init() {
+	bcrypt.DefaultCost = bc.MinCost
+}
 
 var tables []string // retrieve list of tables once and store here
 
