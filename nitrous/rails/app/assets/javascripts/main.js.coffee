@@ -91,9 +91,14 @@ window.Nitrous = Em.Application.extend Em.Evented,
   ).observes 'settings'
 
   activateMixpanel: (->
-    if @get('user') && settings = @get('settings')
+    if settings = @get('settings')
       mp.init(settings.mixpanel_token)
-  ).observes 'user', 'settings'
+  ).observes 'settings'
+
+  identifyUserInMixpanel: (->
+    if @get('user')
+      mp.identify()
+  ).observes 'user'
 
   noHost: (->
     @get('hosts.loaded') && @get('hosts.length') == 0
