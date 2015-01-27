@@ -10,6 +10,7 @@ App.Template = klass = App.Model.extend
   description: attr()
   type: attr()
   images: attr('array')
+  privileged: attr('boolean', default: false)
 
   iconUrl: (->
     return unless slug = @get('slug')

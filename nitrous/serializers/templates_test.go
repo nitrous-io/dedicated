@@ -41,7 +41,8 @@ var _ = Describe("base image serializer", func() {
 				"type": "%s",
 				"created_at": %s,
 				"updated_at": %s,
-				"images": []
+				"images": [],
+				"privileged": false
 			}`, template.TypeStack, nowJSON, nowJSON)))
 		})
 
@@ -73,7 +74,44 @@ var _ = Describe("base image serializer", func() {
 				"type": "%s",
 				"created_at": %s,
 				"updated_at": %s,
-				"images": ["img1"]
+				"images": ["img1"],
+				"privileged": false
+			}`, template.TypeStack, nowJSON, nowJSON)))
+		})
+
+		It("should set privileged if it includes privileged containers", func() {
+			prevConf := model.Config
+			model.Config = `
+				{
+					"containers": [
+						{
+							privileged: true
+						},
+						{
+							privileged: false
+						}
+					]
+				}
+			`
+
+			defer func() { model.Config = prevConf }()
+
+			nowJSON, err := now.MarshalJSON()
+			Expect(err).To(BeNil())
+
+			r := serializers.SerializeTemplate(model)
+			b, err := json.Marshal(r)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(fmt.Sprintf(`{
+				"id": 5,
+				"slug": "rails-stack",
+				"name": "Rails Stack",
+				"description": "A Rails stack template",
+				"type": "%s",
+				"created_at": %s,
+				"updated_at": %s,
+				"images": [],
+				"privileged": true
 			}`, template.TypeStack, nowJSON, nowJSON)))
 		})
 	})
@@ -93,7 +131,8 @@ var _ = Describe("base image serializer", func() {
 				"type": "%s",
 				"created_at": %s,
 				"updated_at": %s,
-				"images": []
+				"images": [],
+				"privileged": false
 			}]`, template.TypeStack, nowJSON, nowJSON)))
 		})
 	})
