@@ -15,7 +15,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
@@ -32,11 +31,10 @@ var (
 
 const (
 	nitrousEnvImage = "NITROUS_IMAGE_VERSION"
-	nitrousEnvCmd   = "NITROUS_CMD"
 	nitrousEnvUser  = "NITROUS_USERNAME"
 )
 
-var preservedEnvVars = []string{nitrousEnvImage, nitrousEnvCmd, nitrousEnvUser}
+var preservedEnvVars = []string{nitrousEnvImage, nitrousEnvUser}
 
 const defaultDockerRegistry = "index.docker.io"
 const dockerRegistryImageEndpoint = "registry-1.docker.io"
@@ -261,7 +259,6 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 		Cmd:        container.Config.Cmd,
 		Entrypoint: container.Config.Entrypoint,
 		ExitCode:   container.State.ExitCode,
-		AppState:   p.appState(container),
 		User:       container.Config.User,
 		StartedAt:  container.State.StartedAt,
 		FinishedAt: container.State.FinishedAt,
@@ -297,10 +294,6 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 		}
 
 		p.logger.TimeInfo(start, "DockerProvider: started container", id, "in")
-	}
-
-	if err := p.StartApp(id); err != nil {
-		return nil, err
 	}
 
 	return p.GetInfo(id)
@@ -369,67 +362,6 @@ func (p *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
 	}
 	p.logger.TimeInfo(start, "DockerProvider: restarted container", id, "in")
 	return info, nil
-}
-
-func (p *DockerProvider) StartApp(id string) error {
-	container, err := p.inspectContainer(id)
-	if err != nil {
-		return err
-	}
-
-	cmd, ok := p.appCmd(container)
-	if !ok {
-		// Do nothing if container does not specify an app command.
-		return nil
-	}
-
-	usr, _ := p.appUser(container)
-	exec, err := p.client.CreateExec(dockerclient.CreateExecOptions{
-		Cmd:       execForm(cmd, usr),
-		Container: id,
-		Tty:       false,
-	})
-	if err != nil {
-		return err
-	}
-
-	return p.client.StartExec(exec.Id, dockerclient.StartExecOptions{
-		Detach: true,
-		Tty:    false,
-	})
-}
-
-func (p *DockerProvider) StopApp(id string) error {
-	container, err := p.inspectContainer(id)
-	if err != nil {
-		return err
-	}
-
-	cmd, ok := p.appCmd(container)
-	if !ok {
-		// Do nothing if container does not specify an app command.
-		return nil
-	}
-
-	// FIXME We should kill the docker exec process via Docker's remote API (see
-	// https://github.com/docker/docker/pull/9167) instead of relying on pgrep.
-	pid, err := p.appPID(container, cmd)
-	if err != nil {
-		// Do nothing if we can't find the pid of the process - we assume it's
-		// not running.
-		return nil
-	}
-
-	// We have to kill the entire process group so that the children of the
-	// nsenter-exec process are definitively killed as well.
-	pgid, err := syscall.Getpgid(pid)
-	if err != nil {
-		p.logger.Errorf("StopApp: cannot get process group ID, err: %v", err)
-		return err
-	}
-
-	// `kill -123` kills process group id 123.
-	return syscall.Kill(-pgid, syscall.SIGTERM)
 }
 
 func execForm(cmd, usr string) []string {
@@ -1378,10 +1310,6 @@ func (p *DockerProvider) isNitrousImage(fullName string) bool {
 	return ok
 }
 
-func (p *DockerProvider) appCmd(container *dockerclient.Container) (string, bool) {
-	return envValue(container.Config.Env, nitrousEnvCmd)
-}
-
 func (p *DockerProvider) appUser(container *dockerclient.Container) (string, bool) {
 	return envValue(container.Config.Env, nitrousEnvUser)
 }
@@ -1405,17 +1333,6 @@ func (p *DockerProvider) appPID(container *dockerclient.Container, cmd string) (
 	}
 
 	return pid, nil
-}
-
-func (p *DockerProvider) appState(container *dockerclient.Container) string {
-	cmd, ok := p.appCmd(container)
-	if !ok {
-		return provider.ContainerAppNone
-	}
-	if _, err := p.appPID(container, cmd); err != nil {
-		return provider.ContainerAppStopped
-	}
-	return provider.ContainerAppRunning
 }
 
 func envValue(env []string, envVar string) (string, bool) {

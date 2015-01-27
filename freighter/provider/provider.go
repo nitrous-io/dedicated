@@ -58,9 +58,6 @@ type Provider interface {
 	RemovePublicKey(id string, keyFingerprint string) (err error)
 	Reconfig(id, config string) (info *ContainerInfo, err error)
 
-	StartApp(id string) error
-	StopApp(id string) error
-
 	//ForwardPort(id string, hostPort uint16, containerPort uint16) (err error)
 	//TakeSnapshot(id string, tag name, description string) (info *SnapshotInfo, err error)
 	//RestoreSnapshot(id string, snapshotID string) (err error)
@@ -119,7 +116,6 @@ type ContainerInfo struct {
 	Cmd        []string            `json:"cmd,omitempty"`
 	Entrypoint []string            `json:"entrypoint,omitempty"`
 	ExitCode   int                 `json:"exit_code"`
-	AppState   string              `json:"app_state"`
 	User       string              `json:"user"`
 	StartedAt  time.Time           `json:"started_at"`
 	FinishedAt time.Time           `json:"finished_at"`

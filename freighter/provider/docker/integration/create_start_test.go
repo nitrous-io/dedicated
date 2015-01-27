@@ -3,9 +3,7 @@ package integration
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"time"
 
 	"github.com/nitrous-io/dedicated/freighter/test"
 	. "github.com/onsi/ginkgo"
@@ -40,24 +38,5 @@ var _ = Describe("CreateStart", func() {
 			"/volumes/backups": filepath.Join(datadir, "volumes", "backups"),
 			"/nitrous/ssh":     filepath.Join(datadir, "containers", info.Name, "ssh"),
 		}, nil)
-	})
-
-	It("runs the command specified by the NITROUS_CMD env var while preserving Docker env vars", func() {
-		config := `{
-			"Env": [
-				"NITROUS_CMD=echo $TEST_ENV > /test-output",
-				"TEST_ENV=it works"
-			],
-			"Cmd": ["top"]
-		}`
-		_, info, cleanupFn, err := startContainer(config)
-		defer cleanupFn()
-		Expect(err).To(BeNil(), "failed to start container")
-
-		// Give the docker exec command some time to run.
-		time.Sleep(50 * time.Millisecond)
-
-		out, _ := exec.Command("docker", "exec", info.ID, "cat", "/test-output").CombinedOutput()
-		Expect(string(out)).To(Equal("it works\n"))
 	})
 })

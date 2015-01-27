@@ -227,7 +227,6 @@ var _ = Describe("controllers/containers", func() {
 				Host:       "1.2.3.4",
 				Gateway:    "1.2.3.0",
 				State:      "running",
-				AppState:   "none",
 				Image:      "nitrous-base",
 				Cmd:        []string{"/sbin/init"},
 				Entrypoint: []string{"/bin/blah"},
@@ -263,7 +262,6 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].IPAddress).To(Equal("1.2.3.4"))
 			Expect(j.Containers[0].GatewayIP).To(Equal("1.2.3.0"))
 			Expect(j.Containers[0].State).To(Equal("running"))
-			Expect(j.Containers[0].AppState).To(Equal("none"))
 			Expect(j.Containers[0].Name).To(Equal("Rails app server"))
 			Expect(j.Containers[0].HostID).To(Equal(hs.H.ID))
 			Expect(j.Containers[0].Cmd).To(Equal([]string{"/sbin/init"}))
@@ -1038,7 +1036,6 @@ var _ = Describe("controllers/containers", func() {
 				Host:       "1.2.3.4",
 				Gateway:    "1.2.3.0",
 				State:      "running",
-				AppState:   "stopped",
 				Image:      "nitrous-base",
 				Cmd:        []string{"/sbin/init"},
 				Entrypoint: []string{"/bin/blah"},
@@ -1083,7 +1080,6 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.IPAddress).To(Equal("1.2.3.4"))
 			Expect(j.Container.GatewayIP).To(Equal("1.2.3.0"))
 			Expect(j.Container.State).To(Equal("running"))
-			Expect(j.Container.AppState).To(Equal("stopped"))
 			Expect(j.Container.Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(j.Container.Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(j.Container.ExitCode).To(Equal(0))
@@ -1742,217 +1738,6 @@ var _ = Describe("controllers/containers", func() {
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
-		})
-	})
-
-	Describe("POST /containers/{slug}/start_app", func() {
-		doRequest := func() *httptest.ResponseRecorder {
-			req, err := NewFormRequest("POST", "/api/v0/containers/foo/start_app", nil)
-			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", "Bearer valid-token")
-			res := httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
-			return res
-		}
-
-		It("calls the Freighter client to start the container's app", func() {
-			c := &container.Container{
-				CID:    "deadbead",
-				Slug:   "foo",
-				Image:  "nitrous-base",
-				UserID: u.ID,
-				HostID: hs.H.ID,
-			}
-			err := c.Insert(db)
-			Expect(err).To(BeNil())
-
-			mockClient.Containers = []*freighterclient.Container{{
-				ID:       "deadbead",
-				Name:     "foo",
-				State:    "running",
-				AppState: "running",
-				Image:    "nitrous-base",
-			}}
-
-			res := doRequest()
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			Expect(mockClient.StartAppCalled).To(Equal(1))
-			Expect(mockClient.ReceivedID).To(Equal("deadbead"))
-
-			var j struct {
-				Container *serializers.Container `json:"container"`
-			}
-			err = json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			cn := j.Container
-			Expect(cn.ID).To(Equal(c.ID))
-			Expect(cn.CID).To(Equal("deadbead"))
-			Expect(cn.UserID).To(Equal(u.ID))
-			Expect(cn.Image).To(Equal("nitrous-base"))
-			Expect(cn.Slug).To(Equal("foo"))
-			Expect(cn.State).To(Equal(container.StateRunning.String()))
-			Expect(cn.AppState).To(Equal("running"))
-		})
-
-		It("responds with HTTP 500 Internal Server Error when the Freighter client returns an error", func() {
-			mockClient.StartAppError = errors.New("app failed to start")
-			c := &container.Container{
-				CID:    "deadbead",
-				Slug:   "foo",
-				Image:  "nitrous-base",
-				UserID: u.ID,
-				HostID: hs.H.ID,
-			}
-			err := c.Insert(db)
-			Expect(err).To(BeNil())
-
-			res := doRequest()
-			Expect(res.Code).To(Equal(http.StatusInternalServerError))
-			errType, errDesc := ErrorSlug(res.Body)
-			Expect(errType).To(Equal("internal_server_error"))
-			Expect(errDesc).To(ContainSubstring("app failed to start"))
-		})
-	})
-
-	Describe("POST /containers/{slug}/stop_app", func() {
-		doRequest := func() *httptest.ResponseRecorder {
-			req, err := NewFormRequest("POST", "/api/v0/containers/foo/stop_app", nil)
-			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", "Bearer valid-token")
-			res := httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
-			return res
-		}
-
-		It("calls the Freighter client to stop the container's app", func() {
-			c := &container.Container{
-				CID:    "deadbead",
-				Slug:   "foo",
-				Image:  "nitrous-base",
-				UserID: u.ID,
-				HostID: hs.H.ID,
-			}
-			err := c.Insert(db)
-			Expect(err).To(BeNil())
-
-			mockClient.Containers = []*freighterclient.Container{{
-				ID:       "deadbead",
-				Name:     "foo",
-				State:    "running",
-				AppState: "stopped",
-				Image:    "nitrous-base",
-			}}
-
-			res := doRequest()
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			Expect(mockClient.StopAppCalled).To(Equal(1))
-			Expect(mockClient.ReceivedID).To(Equal("deadbead"))
-
-			var j struct {
-				Container *serializers.Container `json:"container"`
-			}
-			err = json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			cn := j.Container
-			Expect(cn.ID).To(Equal(c.ID))
-			Expect(cn.CID).To(Equal("deadbead"))
-			Expect(cn.UserID).To(Equal(u.ID))
-			Expect(cn.Image).To(Equal("nitrous-base"))
-			Expect(cn.Slug).To(Equal("foo"))
-			Expect(cn.State).To(Equal(container.StateRunning.String()))
-			Expect(cn.AppState).To(Equal("stopped"))
-		})
-
-		It("responds with HTTP 500 Internal Server Error when the Freighter client returns an error", func() {
-			mockClient.StopAppError = errors.New("app failed to stop")
-			c := &container.Container{
-				CID:    "deadbead",
-				Slug:   "foo",
-				Image:  "nitrous-base",
-				UserID: u.ID,
-				HostID: hs.H.ID,
-			}
-			err := c.Insert(db)
-			Expect(err).To(BeNil())
-
-			res := doRequest()
-			Expect(res.Code).To(Equal(http.StatusInternalServerError))
-			errType, errDesc := ErrorSlug(res.Body)
-			Expect(errType).To(Equal("internal_server_error"))
-			Expect(errDesc).To(ContainSubstring("app failed to stop"))
-		})
-	})
-
-	Describe("POST /containers/{slug}/restart_app", func() {
-		doRequest := func() *httptest.ResponseRecorder {
-			req, err := NewFormRequest("POST", "/api/v0/containers/foo/restart_app", nil)
-			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", "Bearer valid-token")
-			res := httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
-			return res
-		}
-
-		It("calls the Freighter client to stop and start the container's app", func() {
-			c := &container.Container{
-				CID:    "deadbead",
-				Slug:   "foo",
-				Image:  "nitrous-base",
-				UserID: u.ID,
-				HostID: hs.H.ID,
-			}
-			err := c.Insert(db)
-			Expect(err).To(BeNil())
-
-			mockClient.Containers = []*freighterclient.Container{{
-				ID:       "deadbead",
-				Name:     "foo",
-				State:    "running",
-				AppState: "running",
-				Image:    "nitrous-base",
-			}}
-
-			res := doRequest()
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			Expect(mockClient.StopAppCalled).To(Equal(1))
-			Expect(mockClient.StartAppCalled).To(Equal(1))
-			Expect(mockClient.ReceivedID).To(Equal("deadbead"))
-
-			var j struct {
-				Container *serializers.Container `json:"container"`
-			}
-			err = json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			cn := j.Container
-			Expect(cn.ID).To(Equal(c.ID))
-			Expect(cn.CID).To(Equal("deadbead"))
-			Expect(cn.UserID).To(Equal(u.ID))
-			Expect(cn.Image).To(Equal("nitrous-base"))
-			Expect(cn.Slug).To(Equal("foo"))
-			Expect(cn.State).To(Equal(container.StateRunning.String()))
-			Expect(cn.AppState).To(Equal("running"))
-		})
-
-		It("responds with HTTP 500 Internal Server Error when the Freighter client returns an error", func() {
-			mockClient.StopAppError = errors.New("app failed to stop")
-			c := &container.Container{
-				CID:    "deadbead",
-				Slug:   "foo",
-				Image:  "nitrous-base",
-				UserID: u.ID,
-				HostID: hs.H.ID,
-			}
-			err := c.Insert(db)
-			Expect(err).To(BeNil())
-
-			res := doRequest()
-			Expect(res.Code).To(Equal(http.StatusInternalServerError))
-			errType, errDesc := ErrorSlug(res.Body)
-			Expect(errType).To(Equal("internal_server_error"))
-			Expect(errDesc).To(ContainSubstring("app failed to stop"))
 		})
 	})
 
