@@ -10,8 +10,8 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
   showLog: false
 
   createButtonDisabled: (->
-    !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedRegion') && @get('controller.selectedPlan')) || @get('controller.saving')
-  ).property 'controller.name', 'controller.slug', 'controller.selectedRegion', 'controller.selectedPlan', 'controller.saving'
+    !@get('controller.selectedRegion') || !@get('controller.selectedPlan') || @get('controller.saving')
+  ).property 'controller.selectedRegion', 'controller.selectedPlan', 'controller.saving'
 
   hideProgress: Em.computed.not('controller.saving')
   indeterminateProgress: Em.computed.none('controller.host.progress.progressDetail.start')
