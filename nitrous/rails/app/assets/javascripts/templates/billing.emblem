@@ -55,7 +55,7 @@ if App.billingUsage
         tr.available-credits
           td
             | Available Credits
-          td.charge
+          td class={:charge App.billingUsage.hasCredit:credit}
             | $
             = currency App.billingUsage.availableCreditsDollars
 

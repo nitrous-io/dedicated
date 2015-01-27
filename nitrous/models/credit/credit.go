@@ -29,7 +29,7 @@ func AvailableCredits(d db.QueryReceiver, u int64) (int64, error) {
 	return sum, nil
 }
 
-func (i *Credit) Insert(d db.QueryReceiver) error {
+func (c *Credit) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO credits
     (user_id, invoice_id, credit_type_id, amount)
     VALUES (:user_id, :invoice_id, :credit_type_id, :amount)
@@ -37,5 +37,5 @@ func (i *Credit) Insert(d db.QueryReceiver) error {
 	if err != nil {
 		return err
 	}
-	return nstmt.QueryRowx(i).StructScan(i)
+	return nstmt.QueryRowx(c).StructScan(c)
 }

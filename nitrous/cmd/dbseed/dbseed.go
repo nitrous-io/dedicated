@@ -33,7 +33,7 @@ func init() {
 
 type SeedFn func(db.QueryReceiver) error
 
-var seeds = []SeedFn{users, regions, plans, providertemplates, templates}
+var seeds = []SeedFn{users, regions, plans, providertemplates, templates, creditTypes}
 
 func main() {
 	dbURL := envvars.NitrousPgUrl

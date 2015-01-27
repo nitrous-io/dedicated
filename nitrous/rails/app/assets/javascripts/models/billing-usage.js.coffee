@@ -7,17 +7,20 @@ App.BillingUsage = klass = App.Model.extend
   availableCreditsDollars: attr('number', as: 'available_credits_dollars')
 
   _items: attr('object', as: 'items')
-
-  unpaid: (->
-    !@get('successfulCharge')
-  ).property 'successfulCharge'
-
   items: (->
     @get('_items').map (item)->
       inv = App.InvoiceItem.create()
       inv.load item
       inv
   ).property '_items'
+
+  unpaid: (->
+    !@get('successfulCharge')
+  ).property 'successfulCharge'
+
+  hasCredit: (->
+    @get('availableCreditsDollars') > 0
+  ).property 'availableCreditsDollars'
 
 klass.reopenClass
   fetchCurrentUsage: ->
