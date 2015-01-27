@@ -10,6 +10,7 @@ func TestSameRootDomain(t *testing.T) {
 	}{
 		{"hwllo.test.nitrous.io", "test.nitrous.io", true},
 		{"test.nitrous.io", "test.nitrous.io", true},
+		{"test.nitrous.io", "test.NiTrous.IO", true},
 		{"test.nitrouspro.io", "test.nitrous.io", false},
 		{"test.nitrouspro.io", "test.nitrouspro.com", false},
 	}
