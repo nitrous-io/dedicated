@@ -54,7 +54,28 @@ body
     .overviews
       position: relative
       margin-top: 64px
-      height: 544px
+      height: 560px
+
+      .pages
+        position: absolute
+        bottom: 0
+        display: inline-block
+
+        .page
+          display: inline-block
+          width: 10px
+          height: 10px
+          border-radius: 5px
+          background: $n2oGray900
+          margin-right: 8px
+          cursor: pointer
+          user-select: none
+
+          &:last-of-type
+            margin-right: 0
+
+          &.active
+            background: $n2oGray300
 
       .overview
         position: absolute

@@ -29,12 +29,6 @@ type MockProvider struct {
 	RestartCalled bool
 	RestartError  error
 
-	StartAppCalled bool
-	StartAppError  error
-
-	StopAppCalled bool
-	StopAppError  error
-
 	GetConfigCalled          bool
 	GetConfigContainerConfig *provider.ContainerConfig
 	GetConfigError           error
@@ -236,18 +230,6 @@ func (p *MockProvider) Restart(id string) (*provider.ContainerInfo, error) {
 	p.RestartCalled = true
 	p.ReceivedID = id
 	return info, p.RestartError
-}
-
-func (p *MockProvider) StartApp(id string) error {
-	p.StartAppCalled = true
-	p.ReceivedID = id
-	return p.StartAppError
-}
-
-func (p *MockProvider) StopApp(id string) error {
-	p.StopAppCalled = true
-	p.ReceivedID = id
-	return p.StopAppError
 }
 
 func (p *MockProvider) Terminate(id string, removeSettings bool) (*provider.ContainerInfo, error) {

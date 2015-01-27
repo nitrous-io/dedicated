@@ -22,10 +22,16 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
+	bc "golang.org/x/crypto/bcrypt"
 )
+
+func init() {
+	bcrypt.DefaultCost = bc.MinCost
+}
 
 var tables []string // retrieve list of tables once and store here
 
@@ -34,13 +40,11 @@ func TestDatabase(dbname string) (*db.Database, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = d.Migrate(db.Migrations)
-	if err != nil {
+	if err := d.Migrate(db.Migrations); err != nil {
 		d.Close()
 		return nil, err
 	}
-	err = truncateTables(d)
-	if err != nil {
+	if err := truncateTables(d); err != nil {
 		d.Close()
 		return nil, err
 	}
@@ -72,8 +76,29 @@ func truncateTables(db *db.Database) error {
 		tables = tbls
 	}
 
-	_, err := db.Exec(fmt.Sprintf(`TRUNCATE TABLE %s;`, strings.Join(tables, ", ")))
-	return err
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(`SET local session_replication_role TO 'replica'`); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	for _, tb := range tables {
+		if _, err := tx.Exec(fmt.Sprintf(`DELETE FROM %s`, tb)); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return nil
 }
 
 func getTables(db *db.Database) ([]string, error) {

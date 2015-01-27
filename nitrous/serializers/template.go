@@ -12,6 +12,7 @@ type Template struct {
 	Name        string     `json:"name"`
 	Description string     `json:"description"`
 	Type        string     `json:"type"`
+	Privileged  bool       `json:"privileged"`
 	CreatedAt   *time.Time `json:"created_at"`
 	UpdatedAt   *time.Time `json:"updated_at"`
 
@@ -31,12 +32,16 @@ func SerializeTemplate(t *template.Template) *Template {
 		CreatedAt:   t.CreatedAt,
 		UpdatedAt:   t.UpdatedAt,
 		Images:      []string{},
+		Privileged:  false,
 	}
 
 	conf, err := t.ParsedConfig()
 	if err == nil {
 		for _, con := range conf.Containers {
 			base.Images = append(base.Images, con.Image)
+			if con.Privileged {
+				base.Privileged = true
+			}
 		}
 	}
 	return base

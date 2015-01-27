@@ -1,16 +1,18 @@
 pages.Home =
-  init: ->
-    $ ->
-      screens = ['ide', 'main', 'desktop']
-      i = 0
-      transition = ->
-        screen = screens[i]
-        $(".overview").addClass('fadeout')
-        $(".overview.#{screen}").removeClass('fadeout')
-        i = (i + 1) % 3
+  screens: ['ide', 'main', 'desktop']
+  page: 0
+  interval: null
 
-      window.setInterval(transition, 6000)
-      transition()
+  init: ->
+    $ =>
+      pages.activePage = "Home Page"
+      @startTransitions()
+
+    $('.pages .page').click (e) =>
+      $page = $(e.target)
+      @page = parseInt($page.attr('data-page'), 10)
+      @startTransitions()
+      false
 
     $("#get-started").submit (event) ->
       event.preventDefault()
@@ -19,3 +21,18 @@ pages.Home =
         url += "?email=#{encodeURIComponent(email)}"
       # set href instead of replace to preserve history (navigate instead of redirect)
       window.location.href = url
+
+  startTransitions: ->
+    window.clearInterval(@interval)
+    @interval = window.setInterval(=>
+      @transition()
+    , 10000)
+    @transition()
+
+  transition: ->
+    screen = @screens[@page]
+    $(".overview").addClass('fadeout')
+    $(".overview.#{screen}").removeClass('fadeout')
+    $(".pages .page").removeClass('active')
+    $(".pages .page[data-page='#{@page}']").addClass('active')
+    @page = (@page + 1) % 3

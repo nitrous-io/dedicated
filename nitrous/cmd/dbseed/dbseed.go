@@ -33,7 +33,7 @@ func init() {
 
 type SeedFn func(db.QueryReceiver) error
 
-var seeds = []SeedFn{users, regions, plans, providertemplates, templates}
+var seeds = []SeedFn{users, regions, plans, providertemplates, templates, creditTypes}
 
 func main() {
 	dbURL := envvars.NitrousPgUrl
@@ -107,10 +107,10 @@ func regions(d db.QueryReceiver) error {
 		return err
 	}
 	regions := []region.Region{
-		{Slug: "sfo", Rank: 100, Name: "US West (sfo)"},
-		{Slug: "nyc", Rank: 200, Name: "US East (nyc)"},
-		{Slug: "ams", Rank: 300, Name: "Europe (ams)"},
-		{Slug: "sgp", Rank: 400, Name: "Asia (sgp)"},
+		{Slug: "sfo", Rank: 100, Name: "US West"},
+		{Slug: "nyc", Rank: 200, Name: "US East"},
+		{Slug: "ams", Rank: 300, Name: "Europe"},
+		{Slug: "sgp", Rank: 400, Name: "Asia"},
 	}
 	for _, r := range regions {
 		if err := r.Insert(d); err != nil {
@@ -128,7 +128,7 @@ func plans(d db.QueryReceiver) error {
 	}
 	plans := []plan.Plan{
 		{Slug: "1gb", Name: "Shift", MaxContainers: 2, Price: 2500, CPU: "1", Memory: "1 GB", Storage: "20 GB"},
-		{Slug: "2gb", Name: "Turbo", MaxContainers: 5, Price: 5000, CPU: "2", Memory: "2 GB", Storage: "30 GB", MostPopular: true},
+		{Slug: "2gb", Name: "Turbo", MaxContainers: 5, Price: 4500, CPU: "2", Memory: "2 GB", Storage: "30 GB", MostPopular: true},
 		{Slug: "4gb", Name: "Nitro", MaxContainers: 10, Price: 8000, CPU: "2", Memory: "4 GB", Storage: "50 GB"},
 	}
 	for _, p := range plans {

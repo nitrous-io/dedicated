@@ -8,7 +8,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/stripe/stripe-go"
@@ -27,7 +27,7 @@ var _ = Describe("models/billingprofile", func() {
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
 		u = &user.User{
@@ -35,7 +35,7 @@ var _ = Describe("models/billingprofile", func() {
 			Email:    "foo@example.com",
 			Password: "123456",
 		}
-		err = WrapInTransaction(db, u.Insert)
+		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 	})
 
@@ -94,7 +94,7 @@ var _ = Describe("models/billingprofile", func() {
 	Describe("UpdateCard()", func() {
 		var (
 			bp         *billingprofile.BillingProfile
-			fakeStripe *FakeStripe
+			fakeStripe *test.FakeStripe
 		)
 
 		BeforeEach(func() {
@@ -104,13 +104,13 @@ var _ = Describe("models/billingprofile", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			bp, err = billingprofile.Find(db, u.ID)
 			Expect(err).To(BeNil())
 
-			fakeStripe = &FakeStripe{}
+			fakeStripe = &test.FakeStripe{}
 			stripe.SetBackend(fakeStripe)
 		})
 
@@ -136,7 +136,7 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("updates the record in database, if the Stripe call was successful", func() {
-				fakeStripe.Responses = []string{StripeCustomerResponse}
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(BeNil())
@@ -151,25 +151,25 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("returns CardDeclined error, if Stripe returns a card declined error", func() {
-				fakeStripe.Error = StripeCardDeclined
+				fakeStripe.Error = test.StripeCardDeclined
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.CardDeclinedError))
 			})
 
 			It("returns CardExpiredError error, if Stripe returns a card expired error", func() {
-				fakeStripe.Error = StripeCardExpired
+				fakeStripe.Error = test.StripeCardExpired
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.CardExpiredError))
 			})
 
 			It("returns IncorrectCvcError error, if Stripe returns a card expired error", func() {
-				fakeStripe.Error = StripeIncorrectCvc
+				fakeStripe.Error = test.StripeIncorrectCvc
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.IncorrectCvcError))
 			})
 
 			It("returns IncorrectZipError error, if Stripe returns a card expired error", func() {
-				fakeStripe.Error = StripeIncorrectZip
+				fakeStripe.Error = test.StripeIncorrectZip
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.IncorrectZipError))
 			})
@@ -198,7 +198,7 @@ var _ = Describe("models/billingprofile", func() {
 	Describe("UpdateEmail()", func() {
 		var (
 			bp         *billingprofile.BillingProfile
-			fakeStripe *FakeStripe
+			fakeStripe *test.FakeStripe
 		)
 
 		BeforeEach(func() {
@@ -208,13 +208,13 @@ var _ = Describe("models/billingprofile", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			bp, err = billingprofile.Find(db, u.ID)
 			Expect(err).To(BeNil())
 
-			fakeStripe = &FakeStripe{}
+			fakeStripe = &test.FakeStripe{}
 			stripe.SetBackend(fakeStripe)
 		})
 

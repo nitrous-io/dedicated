@@ -2,7 +2,7 @@ App.HostsNewController = Em.ObjectController.extend
   canSelectPlan: true
   name: null
   slug: null
-  selectedRegionSlug: null
+  selectedRegion: null
   selectedPlan: null
   error: null
   invalidField: null
@@ -13,7 +13,7 @@ App.HostsNewController = Em.ObjectController.extend
     @setProperties
       name: null
       slug: null
-      selectedRegionSlug: null
+      selectedRegion: App.get('regions.firstObject')
       selectedPlan: App.get('plans.firstObject')
       error: null
       invalidField: null
@@ -28,6 +28,11 @@ App.HostsNewController = Em.ObjectController.extend
     unless @get('selectedPlan')
       @set('selectedPlan', App.get('plans.firstObject'))
   ).observes 'App.plans.@each'
+
+  regionsDidChange: (->
+    unless @get('selectedRegion')
+      @set('selectedRegion', App.get('regions.firstObject'))
+  ).observes 'App.regions.@each'
 
   actions:
     selectPlan: (plan)->
@@ -45,7 +50,7 @@ App.HostsNewController = Em.ObjectController.extend
         @set 'slug', host.get('slug')
       else
         host = App.Host.create
-          regionSlug: @get('selectedRegionSlug')
+          regionSlug: @get('selectedRegion.slug')
           planSlug: @get('selectedPlan.slug')
           templateSlug: ""
           name: @get 'name'

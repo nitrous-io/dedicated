@@ -10,25 +10,15 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
   showLog: false
 
   createButtonDisabled: (->
-    !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedRegionSlug') && @get('controller.selectedPlan')) || @get('controller.saving')
-  ).property 'controller.name', 'controller.slug', 'controller.selectedRegionSlug', 'controller.selectedPlan', 'controller.saving'
+    !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedRegion') && @get('controller.selectedPlan')) || @get('controller.saving')
+  ).property 'controller.name', 'controller.slug', 'controller.selectedRegion', 'controller.selectedPlan', 'controller.saving'
 
   hideProgress: Em.computed.not('controller.saving')
   indeterminateProgress: Em.computed.none('controller.host.progress.progressDetail.start')
 
-  preselectRegion: (->
-    Em.run.scheduleOnce 'afterRender', this, ->
-      @$('#hosts-new-region').change()
-  ).observes 'App.regions.@each'
-
   didInsertElement: ->
     @_super()
     controller = @get 'controller'
-
-    @$().on 'change.hosts-new', 'input[name=region]', =>
-      controller.set 'selectedRegionSlug', @$('input[name=region]').filter(':checked').val()
-
-    @preselectRegion()
 
     App.slug.slugify(@$('#hosts-new-name'), @$('#hosts-new-slug'))
 

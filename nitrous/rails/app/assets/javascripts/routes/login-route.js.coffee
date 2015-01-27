@@ -19,3 +19,5 @@ App.LoginRoute = Em.Route.extend
       password: null
       error: null
       loggingIn: false
+    if mixpanel?
+      mixpanel.track 'Login Page Viewed'

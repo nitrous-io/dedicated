@@ -47,7 +47,8 @@ Lib.ContainerConfigController = Em.ObjectController.extend
     if hash
       for own key, value of hash
         envVars.push("#{key}=#{value}") if value
-    envVars
+    envVars.sort (a,b)->
+      a.toLowerCase().localeCompare(b.toLowerCase())
 
   actions:
     addVolumeMount: ->

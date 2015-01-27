@@ -16,6 +16,11 @@ h3
       | Containers
     li
       span
+        = plan.cpu
+      '
+      | Core Processor
+    li
+      span
         = plan.memory
       '
       | Memory

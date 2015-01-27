@@ -87,9 +87,6 @@ type Client interface {
 	Config(id string) (config *ContainerConfig, err error)
 	Reconfig(id string, config *ContainerConfig) (*Container, error)
 
-	StartApp(id string) error
-	StopApp(id string) error
-
 	AddPublicKeys(id string, keys []string) error
 	ClearPublicKeys(id string) error
 	RemovePublicKey(id string, fingerprint string) error
@@ -685,48 +682,6 @@ func (c *client) Reconfig(id string, config *ContainerConfig) (*Container, error
 	}
 
 	return containerResp.Container, nil
-}
-
-func (c *client) StartApp(id string) error {
-	u := fmt.Sprintf("%s/containers/%s/app/start", c.host.BaseURL(), id)
-	req, err := http.NewRequest("POST", u, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := performRequest(c, req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return statusError(resp)
-	}
-
-	return nil
-}
-
-func (c *client) StopApp(id string) error {
-	u := fmt.Sprintf("%s/containers/%s/app/stop", c.host.BaseURL(), id)
-	req, err := http.NewRequest("POST", u, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := performRequest(c, req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return statusError(resp)
-	}
-
-	return nil
 }
 
 func (c *client) HostInfo(period time.Duration) (*HostInfo, error) {
