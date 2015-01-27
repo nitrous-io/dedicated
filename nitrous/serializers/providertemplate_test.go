@@ -43,8 +43,7 @@ var _ = Describe("provider template serializer", func() {
         "config": {},
         "preprovision_max": 50,
         "created_at": %s,
-        "updated_at": %s,
-        "hourly_price": 100
+        "updated_at": %s
       }`, nowJSON, nowJSON)))
 		})
 	})
