@@ -400,8 +400,8 @@ func (u *User) GenerateConfirmationURL(d db.QueryReceiver, setConfirmationSentAt
 	return &url.URL{
 		Scheme:   "https",
 		Host:     host,
-		Path:     "/app",
-		Fragment: fmt.Sprintf("confirm-email?token=%s", u.ConfirmationToken.String),
+		Path:     "/app/",
+		Fragment: fmt.Sprintf("/confirm-email?token=%s", u.ConfirmationToken.String),
 	}, nil
 }
 
