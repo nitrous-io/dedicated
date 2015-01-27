@@ -9,19 +9,44 @@
       &:last-of-type
         margin-left: 8px
 
-    &.region-size
-      .ui.select
-        width: 368px
-        margin: 0
-
   .notice-text
     margin: 0
 
+  ul.regions
+    > li
+      .content
+        width: 176px
+        display: flex
+        flex-direction: row
+        align-items: center
+
+      .icon, .icon > div
+        flex-shrink: 0
+        width: 85px
+        height: 50px
+        background-size: 85px 50px
+        background-repeat: none
+        border-radius: 2px
+
+      .label
+        font-size: 14px
+        margin-left: 8px
+
+        small
+          transition: color .3s
+          color: $n2oGray700
+          text-transform: uppercase
+          font-size: 12px
+
+      &.selected
+        .label
+          small
+            color: $n2oGray300
+
   ul.plans
     > li
-      width: 190px
-
       .content
+        width: 176px
         position: relative
         text-align: center
         font-size: 14px

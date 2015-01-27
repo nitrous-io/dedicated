@@ -23,8 +23,9 @@
         .ui.input-group
           label.field-label for='hosts-new-region'
             | Region
-          .ui.select
-            Ember.Select id='hosts-new-region' name='host' content=App.regions optionValuePath='content.slug' optionLabelPath='content.name' disabled=saving value=selectedRegionSlug
+          ul.ui.selectable-list.regions
+            each region in App.regions
+              App.RegionListItemView content=region selected=selectedRegion
 
         .ui.input-group
           label.field-label
