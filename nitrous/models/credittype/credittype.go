@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
@@ -22,9 +22,9 @@ type CreditType struct {
 	Stock sql.NullInt64 `db:"stock"`
 	Used  sql.NullInt64 `db:"used"`
 
-	ExpiresAt *time.Time `db:"expires_at"`
-	CreatedAt *time.Time `db:"created_at"`
-	UpdatedAt *time.Time `db:"updated_at"`
+	ExpiresAt pq.NullTime `db:"expires_at"`
+	CreatedAt *time.Time  `db:"created_at"`
+	UpdatedAt *time.Time  `db:"updated_at"`
 }
 
 func FindValidCreditTypeByName(d db.QueryReceiver, name string) (*CreditType, error) {
@@ -46,21 +46,10 @@ func FindValidCreditTypeByName(d db.QueryReceiver, name string) (*CreditType, er
 }
 
 func (c *CreditType) Insert(d db.QueryReceiver) error {
-	var nstmt *sqlx.NamedStmt
-	var err error
-
-	// so that we can avoid NullTime/zero time issue
-	if c.ExpiresAt != nil {
-		nstmt, err = d.PrepareNamed(`INSERT INTO credit_types
-			(name, description, active, default_value, stock, used, expires_at)
-			VALUES (:name, :description, :active, :default_value, :stock, :used, :expires_at)
-			RETURNING *;`)
-	} else {
-		nstmt, err = d.PrepareNamed(`INSERT INTO credit_types
-			(name, description, active, default_value, stock, used)
-			VALUES (:name, :description, :active, :default_value, :stock, :used)
-			RETURNING *;`)
-	}
+	nstmt, err := d.PrepareNamed(`INSERT INTO credit_types
+		(name, description, active, default_value, stock, used, expires_at)
+		VALUES (:name, :description, :active, :default_value, :stock, :used, :expires_at)
+		RETURNING *;`)
 
 	if err != nil {
 		return err

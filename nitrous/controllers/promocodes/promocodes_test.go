@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nitrous-io/nitrous-common/logger"
-
 	"github.com/gorilla/mux"
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/server"
+	"github.com/nitrous-io/nitrous-common/logger"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -59,7 +59,6 @@ var _ = Describe("controllers/promocodes", func() {
 				DefaultValue: int64(1000),
 				Stock:        sql.NullInt64{int64(300), true},
 				Used:         sql.NullInt64{int64(0), true},
-				ExpiresAt:    nil,
 			}
 			c2 := &credittype.CreditType{
 				Name:         "15BONUS",
@@ -67,7 +66,6 @@ var _ = Describe("controllers/promocodes", func() {
 				DefaultValue: int64(1500),
 				Stock:        sql.NullInt64{int64(300), true},
 				Used:         sql.NullInt64{int64(0), true},
-				ExpiresAt:    nil,
 			}
 			c3 := &credittype.CreditType{
 				Name:         "20BONUS",
@@ -75,7 +73,6 @@ var _ = Describe("controllers/promocodes", func() {
 				DefaultValue: int64(2000),
 				Stock:        sql.NullInt64{int64(300), true},
 				Used:         sql.NullInt64{int64(300), true},
-				ExpiresAt:    nil,
 			}
 			var now time.Time = time.Now()
 			c4 := &credittype.CreditType{
@@ -84,7 +81,7 @@ var _ = Describe("controllers/promocodes", func() {
 				DefaultValue: int64(2500),
 				Stock:        sql.NullInt64{int64(300), true},
 				Used:         sql.NullInt64{int64(0), true},
-				ExpiresAt:    &now,
+				ExpiresAt:    pq.NullTime{now, true},
 			}
 			err := c1.Insert(db)
 			Expect(err).To(BeNil())
