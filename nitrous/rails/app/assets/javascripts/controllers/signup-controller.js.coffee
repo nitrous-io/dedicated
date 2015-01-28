@@ -1,10 +1,11 @@
-App.SignupController = Em.Controller.extend
-  queryParams: [{ incomingEmail: 'email' }]
+App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
+  queryParams: [{ incomingEmail: 'email', promoCode: 'promo' }]
   user: null
   signingUp: false
   error: null
   invalidField: null
   suggestedEmail: null
+  promoCode: null
 
   clear: ->
     @setProperties
@@ -30,7 +31,7 @@ App.SignupController = Em.Controller.extend
       @set 'invalidField', null
       @set 'signingUp', true
       user = @get 'user'
-      user.save().then(=>
+      user.save(promo_code: @get('promoCode')).then(=>
         App.__container__.lookup('controller:login').doLogin(user.get('username'), user.get('password'))
         user.set 'password', null
       , (jqxhr) =>

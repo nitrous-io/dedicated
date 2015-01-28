@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/keys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/promocodes"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/providertemplates"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/regions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
@@ -76,10 +77,11 @@ func (s *Server) drawRoutes() {
 
 		nonAuth := map[string]map[string]routeData{
 			"GET": {
-				"/plans":        r("plans.Index", plans.Index),
-				"/regions":      r("regions.Index", regions.Index),
-				"/templates":    r("templates.Index", templates.Index),
-				"/app_settings": r("appsettings.Index", appsettings.Index),
+				"/plans":              r("plans.Index", plans.Index),
+				"/regions":            r("regions.Index", regions.Index),
+				"/templates":          r("templates.Index", templates.Index),
+				"/app_settings":       r("appsettings.Index", appsettings.Index),
+				"/promo_codes/{code}": r("promocodes.Show", promocodes.Show),
 			},
 			"POST": {
 				"/oauth/token":               r("tokens.Post", tokens.Post, UserSignedIn),

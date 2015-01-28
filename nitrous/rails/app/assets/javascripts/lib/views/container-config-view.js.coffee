@@ -4,7 +4,7 @@ Lib.ContainerConfigView = Em.View.extend
 
   addVolumeMountButtonDisabled: Em.computed.empty('controller.selectedVolume')
   addPortBindingButtonDisabled: Em.computed.empty('controller.containerPort')
-  volumeDropdownDisabled: Em.Binding.oneWay 'controller.hostVolumesEmpty'
+  volumeDropdownDisabledBinding: Em.Binding.oneWay 'controller.hostVolumesEmpty'
 
   addEnvVarButtonDisabled: (->
     !(@get('controller.envKey') && @get('controller.envValue'))

@@ -34,15 +34,16 @@
               App.PlanListItemView content=plan selected=selectedPlan
 
       .card-body.bordered
-        p.note-text.credit-message
-          ' You have
-          span class=App.availableCreditClass
-            ' $#{App.availableCredit}
-            if App.newUser
-              ' Free
-            ' Credit
-          '
-          | available.
+        .credit-message class={availableCredit:show}
+          p.note-text
+            ' You have
+            span
+              ' $#{availableCredit}
+              if promoCreditNotYetReceived
+                ' Free
+              ' Credit
+            '
+            | available.
 
         p.note-text.see-terms
           | Please review the&nbsp;

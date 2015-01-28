@@ -774,5 +774,16 @@ func init() {
 				ALTER TABLE provider_templates DROP COLUMN hourly_price;
 			`,
 		},
+		{
+			Version: "680",
+			Up: `
+				ALTER TABLE users ADD COLUMN promo_code character varying(255) DEFAULT NULL;
+				ALTER TABLE users DROP COLUMN invite_code_id;
+				ALTER TABLE credit_types ADD COLUMN stock bigint DEFAULT NULL;
+				ALTER TABLE credit_types ADD COLUMN used bigint DEFAULT NULL;
+				ALTER TABLE credit_types ADD COLUMN expires_at timestamp without time zone;
+				ALTER TABLE credit_types ADD CONSTRAINT overstock_check CHECK (stock IS NULL OR used <= stock);
+			`,
+		},
 	}
 }

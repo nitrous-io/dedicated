@@ -1,6 +1,7 @@
 package users
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/emailcapture"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -23,6 +25,7 @@ var (
 		"index_users_on_email":    httperror.New(http.StatusBadRequest, "validation_failed", "email is taken"),
 	}
 	reconfirmInvalidUser = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
+	invalidPromoCode     = httperror.New(http.StatusBadRequest, "invalid_promo_code", "promo code does not exist")
 )
 
 func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -60,12 +63,14 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	username := strings.ToLower(r.FormValue("username"))
 	password := r.FormValue("password")
 	name := r.FormValue("name")
+	promocode := r.FormValue("promo_code")
 
 	u := &user.User{
-		Email:    email,
-		Username: username,
-		Name:     name,
-		Password: password,
+		Email:     email,
+		Username:  username,
+		Name:      name,
+		Password:  password,
+		PromoCode: sql.NullString{promocode, true},
 	}
 
 	err := u.Validate()
@@ -76,6 +81,18 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	tx, err := db.Beginx()
 	if err != nil {
 		return err
+	}
+
+	if promocode != "" {
+		ct, err := credittype.FindValidCreditTypeByName(tx, promocode)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+		if ct == nil {
+			tx.Rollback()
+			return invalidPromoCode
+		}
 	}
 
 	err = u.Insert(tx)

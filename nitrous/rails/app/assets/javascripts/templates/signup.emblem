@@ -6,19 +6,17 @@
 
   form submit='signup'
     .card-body
-      .notice-text
-        h5 Limited Time Bonus
-        p
-          ' New users receive
-          span
-            | $
-            if App.settings.new_user_credit
-              = App.settings.new_user_credit
+      .free-credit class={promoCodeInfo.content:show}
+        .notice-text
+          h5 Limited Time Promotion
+          p
+            ' Sign up and receive
+            span
+              | $
+              = promoCodeInfo.content
               '
-            else
-              ' 5
-            ' Free
-          | Credit
+              ' Free
+            | Credit
 
       .ui.input-group
         label.field-label for='signup-username'
