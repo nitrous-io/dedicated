@@ -1055,9 +1055,9 @@ var _ = Describe("models/user", func() {
 			Expect(fakeMailer.ReplyTo).To(Equal("\"Nitrous Mailer\" <mailer@nitrous.io>"))
 			Expect(fakeMailer.Subject).To(Equal("Nitrous - confirm your email"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy!"))
-			Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app#confirm-email?token=%s", u.ConfirmationToken.String)))
+			Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app/#/confirm-email?token=%s", u.ConfirmationToken.String)))
 			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello quxboy!</h3>"))
-			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("<a href=\"https://nitrous.example/app#confirm-email?token=%s\" target=\"_blank\"", u.ConfirmationToken.String)))
+			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("<a href=\"https://nitrous.example/app/#/confirm-email?token=%s\" target=\"_blank\"", u.ConfirmationToken.String)))
 		})
 
 		It("should send the new user email if the user is new ", func() {
@@ -1075,10 +1075,10 @@ var _ = Describe("models/user", func() {
 			Expect(fakeMailer.Subject).To(Equal("Welcome to Nitrous!"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy!"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Thanks for signing up for Nitrous!"))
-			Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app#confirm-email?token=%s", u.ConfirmationToken.String)))
+			Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app/#/confirm-email?token=%s", u.ConfirmationToken.String)))
 			Expect(fakeMailer.HTML).To(ContainSubstring("Thanks for signing up for Nitrous!"))
 			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello quxboy!</h3>"))
-			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("<a href=\"https://nitrous.example/app#confirm-email?token=%s\" target=\"_blank\"", u.ConfirmationToken.String)))
+			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("<a href=\"https://nitrous.example/app/#/confirm-email?token=%s\" target=\"_blank\"", u.ConfirmationToken.String)))
 		})
 
 		It("should send the email to UnconfirmedEmail if available", func() {

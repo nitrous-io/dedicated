@@ -252,10 +252,10 @@ var _ = Describe("engagement", func() {
 			Expect(fakeMailer.Subject).To(Equal("Nitrous: $5 Credit to Get Started"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Hello foo!"))
 			Expect(fakeMailer.Body).To(ContainSubstring("To help you get started developing your first"))
-			Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app#confirm-email?token=%s", u2.ConfirmationToken.String)))
+			Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app/#/confirm-email?token=%s", u2.ConfirmationToken.String)))
 			Expect(fakeMailer.HTML).To(ContainSubstring("Hello foo!"))
 			Expect(fakeMailer.HTML).To(ContainSubstring("To help you get started developing your first"))
-			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf(`<a href="https://nitrous.example/app#confirm-email?token=%s" target="_blank">Claim Credit</a>`, u2.ConfirmationToken.String)))
+			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf(`<a href="https://nitrous.example/app/#/confirm-email?token=%s" target="_blank">Claim Credit</a>`, u2.ConfirmationToken.String)))
 
 			verifySendCount(1, true)
 		})
@@ -283,10 +283,10 @@ var _ = Describe("engagement", func() {
 			Expect(fakeMailer.Subject).To(Equal("Nitrous: $5 Credit to Get Started"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Hello foo!"))
 			Expect(fakeMailer.Body).To(ContainSubstring("To help you get started developing your first"))
-			Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app#confirm-email?token=%s", u2.ConfirmationToken.String)))
+			Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app/#/confirm-email?token=%s", u2.ConfirmationToken.String)))
 			Expect(fakeMailer.HTML).To(ContainSubstring("Hello foo!"))
 			Expect(fakeMailer.HTML).To(ContainSubstring("To help you get started developing your first"))
-			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf(`<a href="https://nitrous.example/app#confirm-email?token=%s" target="_blank">Claim Credit</a>`, u2.ConfirmationToken.String)))
+			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf(`<a href="https://nitrous.example/app/#/confirm-email?token=%s" target="_blank">Claim Credit</a>`, u2.ConfirmationToken.String)))
 		})
 
 		It("should send an email without a confirmation token if already confirmed", func() {
