@@ -25,7 +25,7 @@ var _ = Describe("ProxyHTTP", func() {
 		}))
 		defer s.Close()
 		addr := s.Listener.Addr().String()
-		hf := ProxyHTTP(addr, nil, nil)
+		hf := ProxyHTTP(addr, nil)
 
 		w := httptest.NewRecorder()
 		r, _ := http.NewRequest("GET", "/", nil)
@@ -44,7 +44,7 @@ var _ = Describe("ProxyHTTP", func() {
 		hf := ProxyHTTP(addr, &tls.Config{
 			ServerName: "example.com",
 			RootCAs:    certPool,
-		}, nil)
+		})
 
 		w := httptest.NewRecorder()
 		r, _ := http.NewRequest("GET", "/", nil)
