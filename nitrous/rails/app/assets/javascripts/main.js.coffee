@@ -40,19 +40,6 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   pendingHost: null
 
-  availableCredit: (->
-    if @get('billingUsage') && (usage = @get('billingUsage.availableCreditsDollars')) && usage > 0
-      return @get('billingUsage.availableCreditsDollars')
-    return 0
-  ).property 'newUser', 'billingUsage'
-
-  availableCreditClass: (->
-    if @get('availableCredit') <= 0
-      return 'no-credit'
-    else
-      return 'good-credit'
-  ).property 'availableCredit'
-
   newUser: (->
     @get('billingProfile') && @get('billingProfile.cardRequired')
   ).property 'billingProfile', 'billingProfile.cardRequired'

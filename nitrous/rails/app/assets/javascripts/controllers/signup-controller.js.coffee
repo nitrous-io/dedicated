@@ -1,4 +1,4 @@
-App.SignupController = Em.Controller.extend
+App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
   queryParams: [{ incomingEmail: 'email', promoCode: 'promo' }]
   user: null
   signingUp: false
@@ -20,19 +20,6 @@ App.SignupController = Em.Controller.extend
       email: email
       username: email.match(/^([^@]+)@/)?[1]
     App.User.adapter.ajax('POST', '/users/email_signup', email: email)
-
-  promoCodeInfo: (->
-    promoCode = @get('promoCode') || 'Signup_Credit'
-    info = Em.ObjectProxy.create()
-    Em.$.ajax(
-      type: 'GET',
-      url: "/api/v0/promo_codes/#{promoCode}"
-    ).done((data) =>
-      if amount = data.credit_amount
-        info.set 'content', (amount / 100).toFixed(2)
-    )
-    info
-  ).property 'promoCode'
 
   actions:
     acceptSuggestedEmail: ->
