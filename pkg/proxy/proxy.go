@@ -20,11 +20,30 @@ func IsWebsocket(r *http.Request) bool {
 		headerContainsValue(r.Header, "Connection", "upgrade")
 }
 
+type nopCloser struct {
+	io.Reader
+}
+
+func (c nopCloser) Close() error {
+	return nil
+}
+
 // DefaultTransportErrorHandler delegates the handling of response to
 // ErrorHandler
 func DefaultTransportErrorHandler(w http.ResponseWriter, r *http.Request) func(res *http.Response, err error) {
 	return func(res *http.Response, err error) {
-		ErrorHandler(w, r)
+		h := http.Header{}
+		// TODO We probably want to write a non-200 HTTP status code as well.
+		h.Set("Content-Type", "text/html")
+		h.Add("Vary", "Accept-Encoding")
+		res.Header = h
+
+		if strings.Contains(res.Request.Header.Get("Accept-Encoding"), "gzip") {
+			res.Header.Set("Content-Encoding", "gzip")
+			res.Body = nopCloser{bytes.NewBuffer(GzippedErrorPage)}
+		} else {
+			res.Body = nopCloser{bytes.NewBuffer(ErrorPage)}
+		}
 	}
 }
 
@@ -52,7 +71,11 @@ type customTransport struct {
 func (t *customTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	res, err := t.RoundTripper.RoundTrip(r)
 	if err != nil && t.errorFunc != nil {
+		if res == nil {
+			res = &http.Response{Request: r}
+		}
 		t.errorFunc(res, err)
+		return res, nil
 	}
 	return res, err
 }
