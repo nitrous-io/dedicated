@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
@@ -178,7 +177,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 		Context("rewarding credits", func() {
 			BeforeEach(func() {
 				cType := &credittype.CreditType{
-					Name:         billingprofiles.FreeCreditName,
+					Name:         credittype.SignupCreditType,
 					Description:  sql.NullString{"Awarded to users for signing up", true},
 					Active:       true,
 					DefaultValue: 500,
@@ -219,7 +218,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(credit.Amount).To(Equal(int64(500)))
 
 				var used int64
-				err = db.QueryRow(`SELECT used FROM credit_types WHERE name = $1;`, billingprofiles.FreeCreditName).Scan(&used)
+				err = db.QueryRow(`SELECT used FROM credit_types WHERE name = $1;`, credittype.SignupCreditType).Scan(&used)
 				Expect(err).To(BeNil())
 				Expect(used).To(Equal(int64(1)))
 			})

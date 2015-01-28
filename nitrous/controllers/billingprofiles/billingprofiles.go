@@ -22,10 +22,6 @@ var (
 	errIncorrectZip = httperror.New(http.StatusBadRequest, "incorrect_zip", "Your Zip code is incorrect. Please try again.")
 )
 
-var (
-	FreeCreditName = "Signup_Credit"
-)
-
 func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	cardToken := r.FormValue("card_token")
@@ -137,7 +133,7 @@ func awardCredits(d *db.Database, l *logger.Logger, user *user.User) {
 func creditForUser(d db.QueryReceiver, user *user.User) (*credittype.CreditType, error) {
 	creditCode := user.PromoCode.String
 	if creditCode == "" {
-		creditCode = FreeCreditName
+		creditCode = credittype.SignupCreditType
 	}
 	return credittype.FindValidCreditTypeByName(d, creditCode)
 }

@@ -268,7 +268,7 @@ func creditTypes(d db.QueryReceiver) error {
 	}
 
 	cType := &credittype.CreditType{
-		Name:         "Signup_Credit",
+		Name:         credittype.SignupCreditType,
 		Description:  sql.NullString{"Awarded to users for signing up", true},
 		Active:       true,
 		DefaultValue: 500, // $5

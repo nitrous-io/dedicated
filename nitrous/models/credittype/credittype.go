@@ -8,6 +8,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
+var (
+	SignupCreditType = "Signup_Credit"
+)
+
 type CreditType struct {
 	ID           int64          `db:"id"`
 	Name         string         `db:"name"`
