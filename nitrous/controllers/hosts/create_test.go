@@ -97,7 +97,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		var err error
 		hs, err = CreateHostStack(db, &HostStack{
 			R: &region.Region{Slug: "use"},
-			P: &plan.Plan{Slug: "large"},
+			P: &plan.Plan{Slug: "large", Price: 500},
 		})
 		Expect(err).To(BeNil())
 
@@ -313,7 +313,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(h.Size.String).To(Equal(hs.P.Slug))
 			Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
 			Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
-			Expect(h.HourlyPrice).To(Equal(int64(349)))
+			Expect(h.HourlyPrice).To(Equal(int64(745))) // monthly price of the plan = $5.00
 		})
 
 		It("tracks the 'Host Created' event", func() {

@@ -112,9 +112,8 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 
 	if hs.PT == nil {
 		hs.PT = &providertemplate.ProviderTemplate{
-			Name:        "default-1",
-			Provider:    defaultProvider,
-			HourlyPrice: int64(349),
+			Name:     "default-1",
+			Provider: defaultProvider,
 		}
 	}
 	hs.PT.RegionID = hs.R.ID

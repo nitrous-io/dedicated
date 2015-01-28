@@ -4,21 +4,19 @@
 .screens
   .screen class={view.hideProgress::hide}
     form submit='create target="view"'
-      if App.newUser
-        .card-body
-          .notice-text
-            | Workspaces are private and secure computing environments where you can create and work on multiple development containers simultaneously.
       .card-body
+        .notice-text
+          | Workspaces are private dedicated servers where you can create and work on multiple development containers.
         .ui.flex.horizontal
           .ui.input-group
             label.field-label for='hosts-new-name'
               | Name
-            = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' disabled=saving value=name autofocus=true
+            = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
 
           .ui.input-group
             label.field-label for='hosts-new-slug'
               | Unique Slug
-            = input type='text' id='hosts-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
+            = input type='text' id='hosts-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' required=true pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
 
         .ui.input-group
           label.field-label for='hosts-new-region'
@@ -36,15 +34,16 @@
               App.PlanListItemView content=plan selected=selectedPlan
 
       .card-body.bordered
-        p.note-text.credit-message
-          ' You have
-          span class=App.availableCreditClass
-            ' $#{App.availableCredit}
-            if App.newUser
-              ' Free
-            ' Credit
-          '
-          | available.
+        .credit-message class={availableCredit:show}
+          p.note-text
+            ' You have
+            span
+              ' $#{availableCredit}
+              if promoCreditNotYetReceived
+                ' Free
+              ' Credit
+            '
+            | available.
 
         p.note-text.see-terms
           | Please review the&nbsp;
@@ -65,7 +64,7 @@
               | Creating...
         else
           .right
-            input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value='Create'
+            input.ui.btn.primary.raised type='submit' disabled={view.createButtonDisabled} value='Create'
 
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=host.progress.progressDetail.current max=host.progress.progressDetail.total
 
@@ -97,5 +96,5 @@
               | Show Log
       else
         .right
-          a.ui.btn.primary disabled={view.createButtonDisabled} click='create target="view"' Create
+          a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=host.progress.progressDetail.current max=host.progress.progressDetail.total

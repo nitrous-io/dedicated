@@ -18,6 +18,7 @@ type User struct {
 	UserProfile      *UserProfile    `json:"user_profile,omitempty"`
 	BillingProfile   *BillingProfile `json:"billing_profile,omitempty"`
 	UnconfirmedEmail string          `json:"unconfirmed_email,omitempty"`
+	PromoCode        string          `json:"promo_code,omitempty"`
 
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
@@ -35,6 +36,7 @@ func SerializeUser(u *user.User) *User {
 		Admin:            u.Admin,
 		BillingEnabled:   u.BillingEnabled,
 		UnconfirmedEmail: u.UnconfirmedEmail.String,
+		PromoCode:        u.PromoCode.String,
 
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,

@@ -45,8 +45,8 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
   ).property 'App.user.advanced'
 
   createButtonDisabled: (->
-    !(@get('controller.name') && @get('controller.slug') && @get('controller.selectedHostSlug') && (@get('image') || @get('selectedTemplate')))
-  ).property 'controller.name', 'controller.slug', 'controller.selectedHostSlug', 'image', 'selectedTemplate'
+    !(@get('controller.selectedHostSlug') && (@get('image') || @get('selectedTemplate')))
+  ).property 'controller.selectedHostSlug', 'image', 'selectedTemplate'
 
   hideProgress: Em.computed.not('controller.saving')
   indeterminateProgress: Em.computed.none('controller.image.progress.progressDetail.start')

@@ -62,11 +62,12 @@ type User struct {
 	Password          string `json:"-"`
 	EncryptedPassword string `db:"encrypted_password" json:"-"`
 
-	LoginAttempts  int           `db:"login_attempts" json:"-"`
-	InviteCodeID   sql.NullInt64 `db:"invite_code_id" json:"-"`
-	Admin          bool          `db:"admin" json:"admin"`
-	ServiceAccount bool          `db:"service_account" json:"-"`
-	BillingEnabled bool          `db:"billing_enabled" json:"billing_enabled"`
+	PromoCode sql.NullString `db:"promo_code" json:"-"`
+
+	LoginAttempts  int  `db:"login_attempts" json:"-"`
+	Admin          bool `db:"admin" json:"admin"`
+	ServiceAccount bool `db:"service_account" json:"-"`
+	BillingEnabled bool `db:"billing_enabled" json:"billing_enabled"`
 
 	ResetPasswordToken  sql.NullString `db:"reset_password_token" json:"-"`
 	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at" json:"-"`
@@ -189,8 +190,8 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 		return err
 	}
 	nstmt, err := tx.PrepareNamed(`INSERT INTO users
-		(email, username, encrypted_password, name, invite_code_id)
-		VALUES (:email, :username, :encrypted_password, :name, :invite_code_id)
+		(email, username, encrypted_password, name, promo_code)
+		VALUES (:email, :username, :encrypted_password, :name, :promo_code)
 		RETURNING *;`)
 	if err != nil {
 		return err

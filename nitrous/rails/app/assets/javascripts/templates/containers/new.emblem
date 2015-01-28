@@ -20,6 +20,8 @@
   .screen class={view.showImageScreen::hide}
     form submit='goNextOrCreate target="view"'
       .card-body class={App.user.advanced:bordered}
+        .notice-text
+          | Containers are lightweight virtual environments that you can use to sandbox different development environments.
         .ui.input-group
           label.field-label
             | Workspace
@@ -30,12 +32,12 @@
           .ui.input-group
             label.field-label for='containers-new-name'
               | Name
-            = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' disabled=saving value=name autofocus=true
+            = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
 
           .ui.input-group
             label.field-label for='containers-new-slug'
               | Unique Slug
-            = input type='text' id='containers-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
+            = input type='text' id='containers-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' required=true pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
 
       .card-body.bordered
         .ui.input-group
@@ -93,7 +95,7 @@
       .card-footer.bordered
         .right
           a.ui.btn href='#' click='cancel' Cancel
-          input.ui.btn.primary type='submit' disabled={view.createButtonDisabled} value={view.firstScreenButtonLabel}
+          input.ui.btn.primary.raised type='submit' disabled={view.createButtonDisabled} value={view.firstScreenButtonLabel}
 
   .screen class={view.showConfigScreen::hide}
     .card-body.bordered
@@ -206,7 +208,7 @@
     .card-footer.bordered
       .right
         a.ui.btn href='#' click='goBack target="view"' Back
-        a.ui.btn.primary disabled={view.createButtonDisabled} click='create target="view"' Create
+        a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
 
   .screen class={view.showProgressScreen::hide}
@@ -238,5 +240,5 @@
       else
         .right
           a.ui.btn href='#' click='goBack target="view"' Back
-          a.ui.btn.primary disabled={view.createButtonDisabled} click='create target="view"' Create
+          a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total

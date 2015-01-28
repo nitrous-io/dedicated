@@ -3,10 +3,14 @@ package billingprofiles
 import (
 	"net/http"
 
+	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 var (
@@ -46,10 +50,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		if err != nil {
 			env.Logger.Errorf("Error locating similar Stripe fingerprints, err: %+v", err)
 		} else if count <= 1 {
-			_, err = db.Exec(`INSERT INTO credits(user_id, credit_type_id, amount) SELECT $1, id, default_value FROM credit_types WHERE active = true AND name = $2;`, env.User.ID, FreeCreditName)
-			if err != nil {
-				env.Logger.Errorf("Error awarding credits, err: %+v", err)
-			}
+			awardCredits(db, env.Logger, env.User)
 		}
 	}
 
@@ -99,4 +100,44 @@ func handleBillingError(err error) error {
 	default:
 		return err
 	}
+}
+
+func awardCredits(d *db.Database, l *logger.Logger, user *user.User) {
+	ct, err := creditForUser(d, user)
+	if err != nil {
+		l.Errorf("Error locating credit for user, err: %+v", err)
+		return
+	}
+	if ct == nil {
+		l.Errorf("Credit '%s' does not exist", user.PromoCode)
+		return
+	}
+	tx, err := d.Beginx()
+
+	_, err = tx.Exec(`INSERT INTO credits(user_id, credit_type_id, amount) VALUES ($1, $2, $3);`, user.ID, ct.ID, ct.DefaultValue)
+	if err != nil {
+		tx.Rollback()
+		l.Errorf("Error locating credit for user, err: %+v", err)
+		return
+	}
+
+	_, err = tx.Exec(`UPDATE credit_types SET used = coalesce(used, 0) + 1 WHERE id = $1`, ct.ID)
+	if err != nil {
+		tx.Rollback()
+		l.Errorf("Error incrementing used credit, err: %+v", err)
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		l.Errorf("Error committing credit for user, err: %+v", err)
+	}
+}
+
+func creditForUser(d db.QueryReceiver, user *user.User) (*credittype.CreditType, error) {
+	creditCode := user.PromoCode.String
+	if creditCode == "" {
+		creditCode = FreeCreditName
+	}
+	return credittype.FindValidCreditTypeByName(d, creditCode)
 }

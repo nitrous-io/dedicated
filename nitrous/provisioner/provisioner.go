@@ -401,7 +401,7 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
 	h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
-	h.HourlyPrice = opts.Template.HourlyPrice
+	h.HourlyPrice = opts.Plan.HourlyPrice()
 	h.Preprovisioned = false
 	if err = h.Update(p.db); err != nil {
 		err = fmt.Errorf("provisioner: failed to update pre-provisioned host record, err: %v", err)
@@ -548,7 +548,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
 	h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
 	h.State = host.StateRunning
-	h.HourlyPrice = opts.Template.HourlyPrice
+	h.HourlyPrice = opts.Plan.HourlyPrice()
 
 	if err = h.Update(p.db); err != nil {
 		return nil, err

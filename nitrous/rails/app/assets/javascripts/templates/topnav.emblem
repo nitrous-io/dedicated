@@ -42,6 +42,9 @@
             li
               = link-to 'provider-templates'
                 | Provider Templates
+            li
+              = link-to 'admin.hosts' 'digitalocean'
+                | Digital Ocean
       li.ui.dropdown
         a href='#'
           img.gravatar src={App.user.gravatar}

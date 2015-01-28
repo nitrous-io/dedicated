@@ -1,4 +1,4 @@
-App.HostsNewController = Em.ObjectController.extend
+App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   canSelectPlan: true
   name: null
   slug: null
@@ -8,6 +8,7 @@ App.HostsNewController = Em.ObjectController.extend
   invalidField: null
   host: null
   saving: false
+  promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
 
   clear: ->
     @setProperties
@@ -33,6 +34,17 @@ App.HostsNewController = Em.ObjectController.extend
     unless @get('selectedRegion')
       @set('selectedRegion', App.get('regions.firstObject'))
   ).observes 'App.regions.@each'
+
+  promoCreditNotYetReceived: (->
+    App.get('billingProfile.cardRequired') && App.get('billingUsage.totalCharge') == 0
+  ).property 'App.billingProfile.cardRequired', 'App.billingUsage.totalCharge'
+
+  availableCredit: (->
+     if @get 'promoCreditNotYetReceived'
+       @get 'promoCodeInfo.content'
+     else
+       return App.get 'billingUsage.availableCreditsDollars'
+  ).property 'promoCreditNotYetReceived', 'promoCodeInfo.content', 'App.billingUsage.availableCreditsDollars'
 
   actions:
     selectPlan: (plan)->

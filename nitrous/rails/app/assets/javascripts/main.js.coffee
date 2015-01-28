@@ -40,25 +40,6 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   pendingHost: null
 
-  availableCredit: (->
-    if @get('newUser')
-      if @get('settings.new_user_credit')
-        return @get('settings.new_user_credit')
-      else
-        return 5
-    else if @get('billingUsage')
-      return @get('billingUsage.availableCreditsDollars')
-
-    return 0
-  ).property 'newUser', 'billingUsage'
-
-  availableCreditClass: (->
-    if @get('availableCredit') <= 0
-      return 'no-credit'
-    else
-      return 'good-credit'
-  ).property 'availableCredit'
-
   newUser: (->
     @get('billingProfile') && @get('billingProfile.cardRequired')
   ).property 'billingProfile', 'billingProfile.cardRequired'
@@ -91,9 +72,14 @@ window.Nitrous = Em.Application.extend Em.Evented,
   ).observes 'settings'
 
   activateMixpanel: (->
-    if @get('user') && settings = @get('settings')
+    if settings = @get('settings')
       mp.init(settings.mixpanel_token)
-  ).observes 'user', 'settings'
+  ).observes 'settings'
+
+  identifyUserInMixpanel: (->
+    if @get('user')
+      mp.identify()
+  ).observes 'user'
 
   noHost: (->
     @get('hosts.loaded') && @get('hosts.length') == 0

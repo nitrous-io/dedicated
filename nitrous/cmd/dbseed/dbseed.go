@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"math"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq/hstore"
@@ -157,10 +156,6 @@ func providertemplates(d db.QueryReceiver) error {
 	}
 	for _, p := range plans {
 		for _, r := range regions {
-			// 672 = 28 * 24 (hourly price is derived by using monthly
-			// price for 28 days)
-			// hourly price is millicents, so *1000
-			hp := math.Ceil(float64(p.Price) / 672 * 1000)
 			pt := &providertemplate.ProviderTemplate{
 				Name:     fmt.Sprintf("%s-%s-%s", providerToSeed, p.Slug, r.Slug),
 				Provider: providerToSeed,
@@ -172,7 +167,6 @@ func providertemplates(d db.QueryReceiver) error {
 						"size_id":   {p.Slug, true},
 					},
 				},
-				HourlyPrice: int64(hp),
 			}
 			if providerToSeed == "digitalocean" {
 				pt.Config.Map["image_id"] = sql.NullString{DigitalOceanImageID, true}
@@ -275,7 +269,7 @@ func creditTypes(d db.QueryReceiver) error {
 
 	cType := &credittype.CreditType{
 		Name:         "Signup_Credit",
-		Description:  "Awarded to users for signing up",
+		Description:  sql.NullString{"Awarded to users for signing up", true},
 		Active:       true,
 		DefaultValue: 500, // $5
 	}

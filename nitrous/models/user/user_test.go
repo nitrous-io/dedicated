@@ -11,7 +11,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
-	"github.com/nitrous-io/dedicated/nitrous/models/invitecode"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
@@ -379,10 +378,11 @@ var _ = Describe("models/user", func() {
 
 		BeforeEach(func() {
 			u = &user.User{
-				Username: "qux",
-				Name:     "quxboy",
-				Password: "123456",
-				Email:    "qux@example.com",
+				Username:  "qux",
+				Name:      "quxboy",
+				Password:  "123456",
+				Email:     "qux@example.com",
+				PromoCode: sql.NullString{"pCode2", true},
 			}
 		})
 
@@ -402,6 +402,8 @@ var _ = Describe("models/user", func() {
 				Expect(u2.Username).To(Equal("qux"))
 				Expect(u2.Name).To(Equal("quxboy"))
 				Expect(u2.Email).To(Equal("qux@example.com"))
+				Expect(u2.PromoCode.Valid).To(BeTrue())
+				Expect(u2.PromoCode.String).To(Equal("pCode2"))
 				Expect(u2.CreatedAt).NotTo(BeNil())
 				Expect(u2.UpdatedAt).NotTo(BeNil())
 			})
@@ -418,7 +420,6 @@ var _ = Describe("models/user", func() {
 				Expect(u.UpdatedAt).NotTo(BeNil())
 				Expect(u.Password).To(BeEmpty()) // clears unencrypted password
 				Expect(u.EncryptedPassword).NotTo(BeEmpty())
-				Expect(u.InviteCodeID.Valid).To(BeFalse())
 			})
 
 			It("creates a user profile record", func() {
@@ -454,30 +455,6 @@ var _ = Describe("models/user", func() {
 
 				err = u.Insert(tx)
 				Expect(err).NotTo(BeNil())
-			})
-		})
-
-		Context("with an invite code", func() {
-			var ic *invitecode.InviteCode
-			var u2 *user.User
-
-			BeforeEach(func() {
-				var err error
-				ic, err = invitecode.GenerateInvite(db)
-				Expect(err).To(BeNil())
-				Expect(ic).ToNot(BeNil())
-				u.InviteCodeID = sql.NullInt64{ic.ID, true}
-
-				err = WrapInTransaction(db, u.Insert)
-				Expect(err).To(BeNil())
-
-				u2, err = user.FindByUsername(db, "qux")
-				Expect(err).To(BeNil())
-				Expect(u2).NotTo(BeNil())
-			})
-
-			It("should assign the invite code", func() {
-				Expect(u2.InviteCodeID.Int64).To(Equal(ic.ID))
 			})
 		})
 

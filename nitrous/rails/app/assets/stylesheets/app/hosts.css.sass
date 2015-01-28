@@ -9,7 +9,7 @@
       &:last-of-type
         margin-left: 8px
 
-  .notice-text
+  .notice-text:last-child
     margin: 0
 
   ul.regions
@@ -149,12 +149,18 @@
     color: $n2oGray200
 
   .credit-message
+    max-height: 0
+    overflow: hidden
+    opacity: 0
+    transition: max-height 1s, opacity 1s
+
     span
       color: $green300
       display: inline-block
 
-      &.no-credit
-        color: $n2oGray200
+    &.show
+      opacity: 1
+      max-height: 26px
 
   .log
     overflow: hidden

@@ -10,9 +10,8 @@ import (
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"mixpanel_token":  envvars.MixpanelToken,
-		"stripe_key":      envvars.StripePublicKey,
-		"new_user_credit": envvars.NewUserCredit,
+		"mixpanel_token": envvars.MixpanelToken,
+		"stripe_key":     envvars.StripePublicKey,
 	}
 	return nil
 }

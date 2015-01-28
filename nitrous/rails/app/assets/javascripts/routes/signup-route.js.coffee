@@ -16,9 +16,5 @@ App.SignupRoute = Em.Route.extend
   setupController: (controller) ->
     controller.clear()
     controller.handleIncomingEmail()
-    if mixpanel?
-      data = {}
-      if (email = controller.get('incomingEmail'))
-        mixpanel.people.set {$email: email}
-        data = {email: email}
-      mixpanel.track "Signup Page Viewed", data
+    if email = controller.get('incomingEmail')
+      mp.track "Signup Page Viewed", { email: email }

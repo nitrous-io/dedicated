@@ -37,12 +37,6 @@
                 = input id='preprovision-max' type="number" max=9 value=preprovisionMax
                 label.field-label for='preprovision-max' Value must be < 10.
           tr
-            td Hourly Price
-            td
-              .ui.input-group
-                = input id='hourly-price' type="number" value=hourlyPrice
-                label.field-label for='hourly-price' Price in millicents per hour
-          tr
             td Config
             td
               .ui.input-group
