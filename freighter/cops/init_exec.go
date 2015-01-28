@@ -7,8 +7,8 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime"
+	"strconv"
 	"syscall"
 
 	"github.com/nitrous-io/dedicated/pkg/reexec"
@@ -20,17 +20,12 @@ func init() {
 	reexec.Register(execCommandName, execInit)
 }
 
-// execInit runs inside the container chroot, and process websocket messages
+// execInit runs inside the container mnt namespace, and process websocket messages
 func execInit() {
 	runtime.LockOSThread()
 	flag.Parse()
 	id := flag.Arg(0)
-	path := flag.Arg(1)
 
-	// chroot the current process into path
-	if err := syscall.Chroot(path); err != nil {
-		log.Fatalf("execInit failed to chroot to %s : %v", path, err)
-	}
 	if err := syscall.Chdir("/"); err != nil {
 		log.Fatalf("execInit failed to change dir to / : %v", err)
 	}
@@ -111,9 +106,9 @@ func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
 // process.
 // This is run in the parent process
 func Start(id string, r io.Reader, w io.Writer) (done chan error, quit chan error, err error) {
-	root := filepath.Join(RootPrefix, id)
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		return nil, nil, fmt.Errorf("failed to find rootfs for %s, %s", id, err)
+	initPID, err := GetContainerPID(id)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get container %s pid: %v", id, err)
 	}
 
 	parent, child, err := os.Pipe()
@@ -122,7 +117,7 @@ func Start(id string, r io.Reader, w io.Writer) (done chan error, quit chan erro
 	}
 
 	// create the command, pass the child as fd3 of the command
-	cmd := reexec.Command(execCommandName, id, root)
+	cmd := reexec.Command(execCommandName, strconv.Itoa(initPID))
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, nil, err

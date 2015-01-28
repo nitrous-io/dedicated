@@ -6,8 +6,8 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime"
+	"strconv"
 	"syscall"
 
 	"github.com/nitrous-io/dedicated/pkg/reexec"
@@ -19,18 +19,14 @@ func init() {
 	reexec.Register(readFileCommandName, readFileInit)
 }
 
-// infoInit runs inside the container chroot, and write contents of the local file to stdout
+// infoInit runs inside the container mnt namespace, and write contents
+// of the local file to stdout
 func readFileInit() {
 	runtime.LockOSThread()
 	flag.Parse()
-	// id is arg 0th
-	path := flag.Arg(1)
-	localPath := flag.Arg(2)
+	// id  is arg 0
+	localPath := flag.Arg(1)
 
-	// chroot the current process into path
-	if err := syscall.Chroot(path); err != nil {
-		log.Fatalf("readFileInit failed to chroot to %s : %v", path, err)
-	}
 	if err := syscall.Chdir("/"); err != nil {
 		log.Fatalf("readFileInit failed to change dir to / : %v", err)
 	}
@@ -48,12 +44,12 @@ func readFileInit() {
 // This should be used only for file. For directory, it's best to use docker's
 // built-in copy
 func ReadFromContainer(id string, localPath string, w io.Writer) error {
-	root := filepath.Join(RootPrefix, id)
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		return fmt.Errorf("failed to find rootfs for %s, %s", id, err)
+	initPID, err := GetContainerPID(id)
+	if err != nil {
+		return fmt.Errorf("failed to get container %s pid: %v", id, err)
 	}
 	// create the command, pass the child as fd3 of the command
-	cmd := reexec.Command(readFileCommandName, id, root, localPath)
+	cmd := reexec.Command(readFileCommandName, strconv.Itoa(initPID), localPath)
 	cmd.Stdout = w
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

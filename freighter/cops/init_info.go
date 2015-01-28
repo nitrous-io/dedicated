@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime"
+	"strconv"
 	"syscall"
 
 	"github.com/nitrous-io/dedicated/pkg/reexec"
@@ -19,18 +19,14 @@ func init() {
 	reexec.Register(infoCommandName, infoInit)
 }
 
-// infoInit runs inside the container chroot, and return fileinfo of a specific path
+// infoInit runs inside the container mnt namespace, and return fileinfo of a specific path
 func infoInit() {
 	runtime.LockOSThread()
 	flag.Parse()
 	id := flag.Arg(0)
-	path := flag.Arg(1)
-	localPath := flag.Arg(2)
+	localPath := flag.Arg(1)
 
 	// chroot the current process into path
-	if err := syscall.Chroot(path); err != nil {
-		log.Fatalf("infoInit failed to chroot to %s : %v", path, err)
-	}
 	if err := syscall.Chdir("/"); err != nil {
 		log.Fatalf("infoInit failed to change dir to / : %v", err)
 	}
@@ -53,11 +49,11 @@ func infoInit() {
 
 // Get FileInfo of a file inside the container
 func GetFileInfo(id string, localPath string) (*FileInfo, error) {
-	root := filepath.Join(RootPrefix, id)
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		return nil, fmt.Errorf("failed to find rootfs for %s, %s", id, err)
+	initPID, err := GetContainerPID(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get container %s pid: %v", id, err)
 	}
-	cmd := reexec.Command(infoCommandName, id, root, localPath)
+	cmd := reexec.Command(infoCommandName, strconv.Itoa(initPID), localPath)
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
