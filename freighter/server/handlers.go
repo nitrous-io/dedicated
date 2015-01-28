@@ -832,7 +832,7 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(addr, nil)(w, r)
 	} else {
-		proxy.ProxyHTTP(addr, nil, proxy.DefaultTransportErrorHandler(w, r))(w, r)
+		proxy.ProxyHTTP(addr, nil)(w, r)
 	}
 	return nil
 }

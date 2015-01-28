@@ -61,7 +61,7 @@ func NewFreighterProxyServer(baseDomain, tlsDomain string, portMap map[int]int,
 // ServerHTTP lets FreighterProxyServer acts as a http handler
 func (s *FreighterProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := s.proxy(w, r); err != nil {
-		handleError(w, r, err)
+		handleError(w, err)
 		return
 	}
 }
@@ -144,7 +144,7 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(dest, tlsConfig)(w, r)
 	} else {
-		proxy.ProxyHTTP(dest, tlsConfig, proxy.DefaultTransportErrorHandler(w, r))(w, r)
+		proxy.ProxyHTTP(dest, tlsConfig)(w, r)
 	}
 	return nil
 }
