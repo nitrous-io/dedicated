@@ -48,6 +48,9 @@ App.AddCardController = Em.ObjectController.extend
 
   actions:
     save: ->
+      # jquery.payments fails to notify (change()) when it reformats
+      # causing Ember to not know about a changed attribute, we force an update
+      @set 'expiration', Em.$('#card-expiration').val()
       @set 'invalidField', null
       @set 'saving', true
       exp = $.payment.cardExpiryVal @get('expiration')
