@@ -139,5 +139,5 @@ func creditForUser(d db.QueryReceiver, user *user.User) (*credittype.CreditType,
 	if creditCode == "" {
 		creditCode = FreeCreditName
 	}
-	return credittype.FindValidCreditType(d, creditCode)
+	return credittype.FindValidCreditTypeByName(d, creditCode)
 }
