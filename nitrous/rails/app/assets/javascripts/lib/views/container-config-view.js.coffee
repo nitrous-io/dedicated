@@ -3,7 +3,7 @@ Lib.ContainerConfigView = Em.View.extend
   volumeMountpointInputTitle: 'Whitespace and the following characters are not allowed: \\ ? * % : | \" \' < > $ ~'
 
   addVolumeMountButtonDisabled: Em.computed.empty('controller.selectedVolume')
-  addPortBindingButtonDisabled: Em.computed.empty('controller.containerPort')
+  addPortMappingButtonDisabled: Em.computed.empty('controller.containerPort')
   volumeDropdownDisabledBinding: Em.Binding.oneWay 'controller.hostVolumesEmpty'
 
   addEnvVarButtonDisabled: (->

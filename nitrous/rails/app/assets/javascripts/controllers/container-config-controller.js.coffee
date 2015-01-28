@@ -10,7 +10,6 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
   closeApplyDialog: false
   envVarHashRO: null # object (hash) - readonly
   volumeMountsRO: null # array - readonly
-  portBindings: null
 
   clear: ->
     @_super.apply this, arguments
@@ -18,7 +17,6 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       loaded: false
       closeApplyDialog: false
       envVarHashRO: Em.Object.create()
-      portBindings: Em.A()
       volumeMountsRO: Em.A()
 
   hostVolumesEmpty: Em.computed.empty('host.volumes')
@@ -26,19 +24,6 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
   envVarsRO: (->
     @transformEnvHashToArray(@get 'envVarHashRO')
   ).property 'envVarHashRO'
-
-  sortedPorts: (->
-    unless @get('portBindings')
-      return []
-    @get('portBindings').map((p)->
-      conPort = parseInt(p.match(/(\d+)$/)[1])
-      priority = if p.match(/public/)
-        0
-      else
-        1
-      {value: p, priority: priority, port: conPort}
-    ).sortBy('priority', 'port')
-  ).property 'portBindings.@each'
 
   loadConfig: ->
     container = @get 'model'
@@ -60,7 +45,8 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       @set 'volumeMountsRO', readOnlyVol
 
     if config.port
-      @set 'portBindings', config.port
+      @set 'portMappings', Lib.PortMappings.create
+        ports: config.port
 
     if config.privileged?
       @set 'privileged', config.privileged
@@ -97,7 +83,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       container.saveConfig(
         env: @get 'envVars'
         volume: @get 'volumeMounts'
-        port: @get 'portBindings'
+        port: @get 'portMappings.rawPorts'
         privileged: @get 'privileged'
         publish_all: @get 'publishAll'
       ).then(=>

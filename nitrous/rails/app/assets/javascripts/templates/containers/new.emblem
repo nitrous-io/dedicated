@@ -104,12 +104,12 @@
           | Custom Port Bindings
 
       ul.ui.chips
-        each portBinding in portBindings
+        each portMapping in portMappings.rawPorts
           li
-            = portBinding
-            a.close href='#' click='removePortBinding portBinding' &times;
+            = portMapping
+            a.close href='#' click='removePortMapping portMapping' &times;
 
-      form.container-config submit='addPortBinding'
+      form.container-config submit='addPortMapping'
         .ui.input-group.container-config-form
           table.ui.table
             thead
@@ -128,7 +128,7 @@
                 td
                   = input type='number' min='1' max='65535' step='1' placeholder='e.g., 3000' required=true value=containerPort
                 td
-                  input.ui.btn.raised type='submit' disabled={view.addPortBindingButtonDisabled} value='Add'
+                  input.ui.btn.raised type='submit' disabled={view.addPortMappingButtonDisabled} value='Add'
 
         ul.ui.checkbox-group
           li
