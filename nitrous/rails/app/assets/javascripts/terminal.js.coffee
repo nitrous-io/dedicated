@@ -68,6 +68,8 @@ window.NitrousTerminal =
       switch
         when @matchesSwitchConsoleEditorKeybinding event
           @handleSwitchConsoleEditorEvent event
+        when @matchesFullConsoleScreenKeybinding event
+          @handleFullConsoleScreenEvent event
         else
           @term.originalKeyDown event
 
@@ -133,6 +135,13 @@ window.NitrousTerminal =
       return false
     true
 
+  handleFullConsoleScreenEvent: (ev) ->
+    if parentWindow
+      Terminal.cancel ev
+      parentWindow.App.get('router.ideMainMenuController').viewToggleFullScreenConsole()
+      return false
+    true
+
   isMac: ->
     parentWindow && parentWindow.App.util.IsMac
 
@@ -140,6 +149,11 @@ window.NitrousTerminal =
   matchesSwitchConsoleEditorKeybinding: (event) ->
     (@isMac() && event.shiftKey && event.ctrlKey && event.keyCode == 67) ||
     (!@isMac() && event.ctrlKey && event.altKey && event.keyCode == 67)
+
+  # keybinding is shift+ctrl+f / ctrl+alt+f
+  matchesFullConsoleScreenKeybinding: (event) ->
+    (@isMac() && event.shiftKey && event.ctrlKey && event.keyCode == 70) ||
+    (!@isMac() && event.ctrlKey && event.altKey && event.keyCode == 70)
 
 window.webFontLoaded = ->
   NitrousTerminal.term?.sizeToFit()

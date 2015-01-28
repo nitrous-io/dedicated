@@ -96,7 +96,9 @@ App.IdeMainMenuController = Em.Controller.extend
   viewToggleFullScreenConsole: ->
     App.toggleProperty 'consoleFullscreen'
     App.set('consoleMinimized', false) if App.get('consoleFullscreen')
-    @viewFocusConsole()
+    window.setTimeout(=>
+      @viewFocusConsole()
+    , 50)
 
   viewToggleFullScreenEditor: ->
     App.toggleProperty 'editorFullscreen'
