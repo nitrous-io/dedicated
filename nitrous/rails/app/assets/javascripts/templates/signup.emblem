@@ -6,14 +6,14 @@
 
   form submit='signup'
     .card-body
-      if showNewUserCredit
+      .free-credit class={promoCodeInfo.content:show}
         .notice-text
-          h5 Limited Time Bonus
+          h5 Limited Time Promotion
           p
-            ' New users receive
+            ' Sign up and receive
             span
               | $
-              = App.newUserCredit
+              = promoCodeInfo.content
               '
               ' Free
             | Credit

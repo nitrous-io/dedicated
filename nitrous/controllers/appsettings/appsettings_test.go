@@ -1,7 +1,6 @@
 package appsettings_test
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
-	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
 
@@ -70,26 +68,6 @@ var _ = Describe("controllers/appsettings", func() {
 			Expect(err).To(BeNil())
 			Expect(j["mixpanel_token"]).To(Equal("Track Me"))
 			Expect(j["stripe_key"]).To(Equal("st-001"))
-			Expect(j["new_user_credit"]).To(Equal(float64(0)))
-		})
-
-		It("should populate from Signup_Credit", func() {
-			c := &credittype.CreditType{
-				Name:         "Signup_Credit",
-				Description:  sql.NullString{"Desc", true},
-				Active:       true,
-				DefaultValue: 900,
-			}
-			err := c.Insert(db)
-			Expect(err).To(BeNil())
-
-			res := doRequest()
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			j := map[string]interface{}{}
-			err = json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j["new_user_credit"]).To(Equal(float64(900)))
 		})
 	})
 })
