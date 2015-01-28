@@ -424,6 +424,21 @@ var _ = Describe("client", func() {
 					Expect(container).To(BeNil())
 				})
 			})
+
+			Context("when the response is no command specified", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusInternalServerError
+					responseBody = `{
+						"error": "API error (500): No command specified\n"
+					}`
+				})
+
+				It("returns ErrMissingCmd", func() {
+					container, err := cl.Create("yosemite", "ubuntu", "s3cr3t", nil)
+					Expect(container).To(BeNil())
+					Expect(err).To(Equal(freighterclient.ErrMissingCmd))
+				})
+			})
 		})
 
 		Context("when the response is HTTP 404 Not Found", func() {

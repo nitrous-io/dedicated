@@ -56,6 +56,7 @@ var (
 	ErrContainerNotFound = errors.New("freighter: container not found")
 	ErrVolumeNotFound    = errors.New("freighter: volume not found")
 	ErrHostNotFound      = errors.New("freighter: host not found")
+	ErrMissingCmd        = errors.New("freighter: missing cmd in docker image")
 )
 
 type RegistryAuth struct {
@@ -338,6 +339,18 @@ func (c *client) Create(name, image, secret string, config *ContainerConfig) (*C
 		return nil, &InvalidParamError{errResp.Error}
 	case http.StatusNotFound:
 		return nil, ErrImageNotFound
+	case http.StatusInternalServerError:
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, &StatusError{Code: resp.StatusCode}
+		}
+
+		errMessage := string(body)
+		if strings.Contains(errMessage, "No command specified") {
+			return nil, ErrMissingCmd
+		}
+
+		return nil, &StatusError{Code: resp.StatusCode, Body: errMessage}
 	default:
 		return nil, statusError(resp)
 	}

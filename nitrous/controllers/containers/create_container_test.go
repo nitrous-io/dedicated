@@ -301,6 +301,20 @@ var _ = Describe("CreateContainer", func() {
 				Expect(err).To(MatchError(containers.ErrImageNotFound))
 			})
 		})
+
+		Context("when the error is ErrMissingCmd", func() {
+			BeforeEach(func() {
+				mockClient.CreatedContainer = nil
+				mockClient.CreateError = freighterclient.ErrMissingCmd
+			})
+
+			It("returns an error", func() {
+				res, err := containers.CreateContainer(h, params, env)
+				Expect(res).To(BeNil())
+
+				Expect(err).To(MatchError(containers.ErrMissingCmd))
+			})
+		})
 	})
 
 	Context("when name is already taken", func() {
