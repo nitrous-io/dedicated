@@ -371,7 +371,7 @@ var _ = Describe("controllers/users", func() {
 			err = db.Select(&tokens, `SELECT token FROM tokens WHERE user_id = $1`, u.ID)
 			Expect(err).To(BeNil())
 
-			Expect(tokens).To(Equal([]con{con{Token: "toke2"}, con{Token: t.Token}}))
+			Expect(tokens).To(ConsistOf([]con{{Token: "toke2"}, {Token: t.Token}}))
 		})
 
 		Context("when an existing email is given", func() {
