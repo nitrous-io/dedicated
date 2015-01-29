@@ -118,10 +118,12 @@ window.NitrousTerminal =
     @afterOpen = null
 
   didReceiveMessage: (ev) ->
-    type = ev.data.slice(0, 2)
+    message = ev.data
+    type = message.slice(0, 2)
+    decoded = atob(message.slice(2))
     switch type
       when 'd|'
-        @term.write ev.data.slice(2)
+        @term.write decoded
       when 'c|'
         @close()
       when 'h'

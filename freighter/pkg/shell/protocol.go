@@ -13,6 +13,7 @@ package shell
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -170,12 +171,13 @@ func NewShellWriter(w io.Writer) *ShellWriter {
 }
 
 func (s *ShellWriter) Write(p []byte) (int, error) {
-	l := len(p)
-	buf := make([]byte, l+len(dataMsg))
+	encoded := base64.StdEncoding.EncodeToString(p)
+	messageLength := len(encoded)
+	buf := make([]byte, messageLength+len(dataMsg))
 	copy(buf[0:2], dataMsg)
-	copy(buf[2:], p)
+	copy(buf[2:], encoded)
 	_, err := s.writer.Write(buf)
-	return l, err
+	return len(p), err
 }
 
 // Close sends a close message to the client, but does not close the underlying
