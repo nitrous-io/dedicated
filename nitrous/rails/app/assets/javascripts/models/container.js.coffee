@@ -46,8 +46,8 @@ App.Container = klass = App.Model.extend
   sshEnabled: Em.computed.equal 'config.env.NITROUS_SSH_ENABLED', 'true'
 
   sshPort: (->
-    return unless portBindings = @get 'config.port'
-    for port in portBindings
+    return unless portMappings = @get 'config.port'
+    for port in portMappings
       for suffix in [':22/tcp', ':22']
         suffixIdx = port.indexOf(suffix)
         if port.indexOf('public:') == 0 && suffixIdx != -1 && suffixIdx == (port.length - suffix.length)
@@ -102,12 +102,8 @@ App.Container = klass = App.Model.extend
       @set 'underReconfig', false
 
   loadConfig: ->
-    new Em.RSVP.Promise (resolve, reject) =>
-      @ajax('GET', 'config').then (json) =>
-        config = @setConfig(json.config)
-        resolve(config)
-      , (jqxhr) ->
-        reject(jqxhr)
+    @ajax('GET', 'config').then (json) =>
+      @setConfig(json.config)
 
   setConfig: (jsonConfig) ->
     config =

@@ -41,6 +41,3 @@ App.ContainerIndexController = Em.ObjectController.extend App.PerformActionMixin
 
     openAttach: ->
       @transitionToRoute 'container.console', queryParams: { action: 'attach' }
-
-    openTerminal: ->
-      @transitionToRoute 'container.console', queryParams: { action: null }

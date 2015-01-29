@@ -29,6 +29,7 @@ type CreateResult struct {
 var (
 	errSlugRequired  = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
 	errImageNotFound = httperror.New(http.StatusNotFound, "image_not_found", "image does not exist")
+	errMissingCmd    = httperror.New(http.StatusBadRequest, "missing_cmd", "missing CMD in Docker image")
 )
 
 func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*CreateResult, error) {
@@ -148,6 +149,9 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 			return nil, httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
 		default:
 			deleteContainer(cn)
+			if err == freighterclient.ErrMissingCmd {
+				return nil, errMissingCmd
+			}
 			if err == freighterclient.ErrImageNotFound {
 				return nil, errImageNotFound
 			}

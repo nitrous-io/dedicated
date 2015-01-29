@@ -1,7 +1,7 @@
 #= require ../mixins/inject-terminal-iframe-mixin
 
 optionHostImage = 'host-image'
-optionBaseImage = 'base-image'
+optionCustomImage = 'custom-image'
 heightPadding = 16
 screens = ['image', 'config', 'progress']
 
@@ -33,7 +33,7 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
       when optionHostImage
         unless @get 'controller.hostImagesEmpty'
           @get 'selectedHostImage'
-      else
+      when optionCustomImage
         @get 'customImage'
   ).property 'selectedOption', 'selectedHostImage', 'customImage', 'controller.hostImagesEmpty'
 
@@ -146,7 +146,9 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
     create: ->
       @get('terminal')?.clear()
       @send 'goNext'
-      @get('controller').send('create', @get('image'), @get('selectedOption') == optionBaseImage)
+      # should fetch latest image from registry if using custom image or using nitrous template
+      shouldUpdateImage = (@get('selectedOption') == optionCustomImage) || (@get('selectedTemplate') && !@get('selectedOption'))
+      @get('controller').send('create', @get('image'), shouldUpdateImage)
 
     goNext: ->
       i = @get 'currentScreenIndex'
