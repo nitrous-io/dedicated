@@ -55,20 +55,14 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       false
 
     create: ->
-      host = @get 'host'
-      if host
-        # restore
-        @set 'name', host.get('name')
-        @set 'slug', host.get('slug')
-      else
-        host = App.Host.create
-          regionSlug: @get('selectedRegion.slug')
-          planSlug: @get('selectedPlan.slug')
-          templateSlug: ""
-          name: @get 'name'
-          slug: @get 'slug'
+      host = App.Host.create
+        regionSlug: @get('selectedRegion.slug')
+        planSlug: @get('selectedPlan.slug')
+        templateSlug: ""
+        name: @get 'name'
+        slug: @get 'slug'
 
-        @set 'host', host
+      @set 'host', host
 
       if App.get('newUser') && App.get('user.billingEnabled')
         App.set('pendingHost', host)
