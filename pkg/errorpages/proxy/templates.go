@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-// This is returned when we have an error proxy to the remote server
+// This is returned when we have an error proxying.
 var ErrorPage = []byte(`
 <!DOCTYPE html>
 <html lang="en">

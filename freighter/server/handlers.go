@@ -21,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
+	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/msgproto"
 	"github.com/nitrous-io/dedicated/pkg/multipartsio"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
@@ -832,7 +833,7 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(addr, nil)(w, r)
 	} else {
-		proxy.ProxyHTTP(addr, nil, proxy.DefaultTransportErrorHandler(w, r))(w, r)
+		proxy.ProxyHTTP(addr, nil, proxyerror.ErrorHandler)(w, r)
 	}
 	return nil
 }

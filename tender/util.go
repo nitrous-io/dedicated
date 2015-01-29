@@ -1,10 +1,12 @@
 package tender
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"log"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -12,7 +14,7 @@ import (
 	"time"
 
 	freighterconfig "github.com/nitrous-io/dedicated/freighter/config"
-	"github.com/nitrous-io/dedicated/pkg/proxy"
+	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 )
 
 const (
@@ -40,9 +42,16 @@ func handleError(w http.ResponseWriter, r *http.Request, err error) {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
-	log.Printf("[ERROR] %v", err)
 
-	proxy.ErrorHandler(w, r)
+	w.Header().Set("Content-Type", "text/html")
+	w.Header().Add("Vary", "Accept-Encoding")
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+		io.Copy(w, bufio.NewReader(bytes.NewBuffer(proxyerror.GzippedErrorPage)))
+	} else {
+		io.Copy(w, bufio.NewReader(bytes.NewBuffer(proxyerror.ErrorPage)))
+	}
+	w.WriteHeader(http.StatusServiceUnavailable)
 }
 
 // getPublicFreighterdPort parses the output of freighterd's port list for a

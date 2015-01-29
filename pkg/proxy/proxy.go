@@ -1,9 +1,8 @@
 package proxy
 
 import (
-	"bufio"
-	"bytes"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -28,41 +27,20 @@ func (c nopCloser) Close() error {
 	return nil
 }
 
-// DefaultTransportErrorHandler delegates the handling of response to
-// ErrorHandler
-func DefaultTransportErrorHandler(w http.ResponseWriter, r *http.Request) func(res *http.Response, err error) {
-	return func(res *http.Response, err error) {
-		h := http.Header{}
-		// TODO We probably want to write a non-200 HTTP status code as well.
-		h.Set("Content-Type", "text/html")
-		h.Add("Vary", "Accept-Encoding")
-		res.Header = h
+// DefaultTransportErrorHandler writes the error from the RoundTrip as a
+// text/plain response.
+func DefaultTransportErrorHandler(res *http.Response, err error) {
+	res.StatusCode = http.StatusServiceUnavailable
 
-		if strings.Contains(res.Request.Header.Get("Accept-Encoding"), "gzip") {
-			res.Header.Set("Content-Encoding", "gzip")
-			res.Body = nopCloser{bytes.NewBuffer(GzippedErrorPage)}
-		} else {
-			res.Body = nopCloser{bytes.NewBuffer(ErrorPage)}
-		}
-	}
-}
-
-// ErrorHandler writes the default error page, gzipped it if necessary
-func ErrorHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusServiceUnavailable)
-	w.Header().Set("Content-Type", "text/html")
-	w.Header().Add("Vary", "Accept-Encoding")
-	if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-		io.Copy(w, bufio.NewReader(bytes.NewBuffer(ErrorPage)))
-	} else {
-		w.Header().Set("Content-Encoding", "gzip")
-		io.Copy(w, bufio.NewReader(bytes.NewBuffer(GzippedErrorPage)))
-	}
+	h := http.Header{}
+	h.Set("Content-Type", "text/plain")
+	res.Header = h
+	res.Body = nopCloser{strings.NewReader(fmt.Sprintf("Reverse proxy failed: %v", err))}
 }
 
 // customTransport delegates to the underlying http.RoundTripper, but if we
-// specify the errorFunc, then it will be called when there are error
-// performing RoundTrip
+// specify the errorFunc, then it will be called when there's an error
+// performing the RoundTrip.
 type customTransport struct {
 	http.RoundTripper
 	errorFunc func(res *http.Response, err error)

@@ -15,6 +15,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 )
 
@@ -176,7 +177,7 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(destAddr, tlsConfig)(w, r)
 	} else {
-		proxy.ProxyHTTP(destAddr, tlsConfig, proxy.DefaultTransportErrorHandler(w, r))(w, r)
+		proxy.ProxyHTTP(destAddr, tlsConfig, proxyerror.ErrorHandler)(w, r)
 	}
 	return nil
 }
