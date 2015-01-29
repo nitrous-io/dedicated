@@ -380,6 +380,22 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		}
 	}()
 
+	tx, err := p.db.Beginx()
+	if err != nil {
+		return nil, err
+	}
+
+	h.Slug = opts.Slug
+	if err = h.Update(tx); err != nil {
+		tx.Rollback()
+		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
+			if ne, ok := validations[e.Constraint]; ok {
+				return nil, ne
+			}
+		}
+		return nil, fmt.Errorf("provisioner: failed to update pre-provisioned host record, err: %v", err)
+	}
+
 	// Update host in hostbuilder (e.g. rename host).
 	config := &hostbuilderclient.Config{
 		"id":           preprovisionedHost.ProviderIdentifier.String,
@@ -391,29 +407,32 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	}
 	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream)
 	if err != nil {
-		err = fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
-		return
+		tx.Rollback()
+		return nil, fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
 	}
 
 	// Update host record with new info.
-	h.Slug = opts.Slug
 	h.Name = sql.NullString{opts.Name, true}
 	h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
 	h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
 	h.HourlyPrice = opts.Plan.HourlyPrice()
 	h.Preprovisioned = false
-	if err = h.Update(p.db); err != nil {
-		err = fmt.Errorf("provisioner: failed to update pre-provisioned host record, err: %v", err)
-		return
+	if err = h.Update(tx); err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("provisioner: failed to update pre-provisioned host record, err: %v", err)
 	}
 
-	if err = h.Reassign(p.db, opts.User); err != nil {
-		err = fmt.Errorf("provisioner: failed to assign pre-provisioned host %d to real user, err: %v", h.ID, err)
-		return
+	if err = h.Reassign(tx, opts.User); err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("provisioner: failed to assign pre-provisioned host %d to real user, err: %v", h.ID, err)
 	}
 
-	return
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return h, nil
 }
 
 // prepare creates a new Host and its associated certificates and keys in
