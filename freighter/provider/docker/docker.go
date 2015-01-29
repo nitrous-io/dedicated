@@ -157,6 +157,7 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string) (*provider.ContainerInfo, error) {
 	createdCnr, err := p.create(name, imageName, secret, configJSON)
 	if err != nil {
+		p.logger.Errorf("DockerProvider: failed to create container %s: %v", name, err)
 		return nil, err
 	}
 
