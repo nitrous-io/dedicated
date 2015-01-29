@@ -116,6 +116,15 @@ App.Container = klass = Em.Object.extend
       ).fail (jqxhr) ->
         reject(jqxhr)
 
+  getWebSocketFeatures: ->
+    freighterdUrl = @get 'freighterdUrl'
+    url = "https://#{freighterdUrl}/ws/info"
+    console.log('getting websocket features from', url)
+    Em.$.ajax(
+      type: 'GET',
+      url: url
+    )
+
 klass.reopenClass
   fetch: (slug) ->
     promise = new Em.RSVP.Promise (resolve, reject) =>

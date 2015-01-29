@@ -246,6 +246,7 @@ func (s *Server) drawRoutes() {
 
 	s.secretRoute("/info", s.wrapError(s.serverInfo), "GET")
 	s.secretRoute("/utilization", s.wrapError(s.serverUtilization), "GET")
+	s.route("/ws/info", s.wrapError(s.websocketInfo), "GET")
 }
 
 // given:

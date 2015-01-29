@@ -560,6 +560,15 @@ func (s *Server) logoutRegistry(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, status, nil)
 }
 
+func (s *Server) websocketInfo(w http.ResponseWriter, r *http.Request) error {
+	s.respond(w, http.StatusOK, []byte(`{
+		"ws-info": {
+			"base64-encoding": true
+		}
+	}`))
+	return nil
+}
+
 var defaultPeriod = 100 * time.Millisecond
 
 func (s *Server) serverInfo(w http.ResponseWriter, r *http.Request) error {

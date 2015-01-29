@@ -1,35 +1,44 @@
 App.TerminalConnectionMixin = Ember.Mixin.create
   makeUrl: (container, terminal, action) ->
-    new Ember.RSVP.Promise (resolve, reject) ->
-      reject(null) unless container
+    unless container
+      return Ember.RSVP.Promise.reject(new Error('container not found'))
 
-      term = terminal.term
-      cid = container.get 'cid'
-      freighterdUrl = container.get 'freighterdUrl'
+    term = terminal.term
+    cid = container.get 'cid'
+    freighterdUrl = container.get 'freighterdUrl'
 
-      if ['shell', 'attach', 'logs'].indexOf(action) == -1
-        action = 'shell'
+    if ['shell', 'attach', 'logs'].indexOf(action) == -1
+      action = 'shell'
 
-      container.requestToken([action]).then (token) ->
-        token = encodeURIComponent(token.token)
+    container.requestToken([action]).then (token) ->
+      token = encodeURIComponent(token.token)
 
-        protocol = location.protocol.replace('http', 'ws')
-        url = "#{protocol}//#{freighterdUrl}/containers/#{cid}/#{action}?token=#{token}&width=#{term.cols}&height=#{term.rows}"
+      protocol = location.protocol.replace('http', 'ws')
+      url = "#{protocol}//#{freighterdUrl}/containers/#{cid}/#{action}?token=#{token}&width=#{term.cols}&height=#{term.rows}"
 
-        switch action
-          when 'shell'
-            command = encodeURIComponent(getLoginCommand(container.get 'loginUsername'))
-            url += "&command=#{command}"
-          when 'logs'
-            url += "&follow=true"
-            terminal.readonly = true
-            term.convertEol = true
-          when 'attach'
-            term.convertEol = true
+      switch action
+        when 'shell'
+          command = encodeURIComponent(getLoginCommand(container.get 'loginUsername'))
+          url += "&command=#{command}"
+        when 'logs'
+          url += "&follow=true"
+          terminal.readonly = true
+          term.convertEol = true
+        when 'attach'
+          term.convertEol = true
+      url
 
-        resolve(url)
-      , (jqxhr) ->
-        reject(jqxhr)
+  connectTerminal: (container, terminal, action) ->
+    container.getWebSocketFeatures().then ->
+      console.log('websocketFeatures:', websocketFeatures)
+
+    @makeUrl(container, terminal, action).then (url) ->
+      terminal.url = url
+      terminal.open(true)
+      terminal.focus()
+    , (jqxhr) ->
+      terminal.retry()
+      App.postError(jqxhr.responseJSON, 'Could not connect to shell, retrying...')
 
 getLoginCommand = (username) ->
   username ||= "root"
