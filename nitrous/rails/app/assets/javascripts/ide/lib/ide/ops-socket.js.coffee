@@ -65,8 +65,8 @@ App.OpsSocket = Lib.Socket.extend Ember.Evented,
         @handleMessage(event.data.slice(2))
       when 'c|'
         @disconnect()
-      when 'h|'
-        # no-op
+      when 'h'
+        @_conn.send('h')
         return
 
   didClose: ->
