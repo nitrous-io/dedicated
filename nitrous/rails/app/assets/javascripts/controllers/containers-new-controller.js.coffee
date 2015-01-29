@@ -88,9 +88,9 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
     , (jqxhr) => # container.save
       @handleErrorResponse(jqxhr)
 
-  pullImage: (repository, isNitrousBaseImage, callback) ->
+  pullImage: (repository, shouldUpdateImage, callback) ->
     events = App.get 'eventsSocket'
-    App.Image.pull(@get('selectedHost'), repository, isNitrousBaseImage).then (image) =>
+    App.Image.pull(@get('selectedHost'), repository, shouldUpdateImage).then (image) =>
       @set 'image', image
 
       onImagePullFailed = (data) =>
@@ -126,7 +126,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       else
         @transitionToRoute 'home.index'
 
-    create: (repository, isNitrousBaseImage) ->
+    create: (repository, shouldUpdateImage) ->
       @set 'saving', true
 
       name = @get 'name'
@@ -137,7 +137,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       if @get('selectedTemplate') && !@get('selectedOption')
         img = @get('selectedTemplate.images.firstObject')
         template = @get('selectedTemplate.slug')
-        @pullImage img, isNitrousBaseImage, =>
+        @pullImage img, true, =>
           @set 'pullingImage', false
           @createContainer(name, slug, img, template)
         return
@@ -145,6 +145,6 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       # pull regular image
       unless repository.match /^.*:.+$/
         repository = repository.replace /:?$/, ':latest'
-      @pullImage repository, isNitrousBaseImage, =>
+      @pullImage repository, shouldUpdateImage, =>
         @set 'pullingImage', false
         @createContainer(name, slug, repository)
