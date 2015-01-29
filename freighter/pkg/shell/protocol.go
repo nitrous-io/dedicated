@@ -133,7 +133,9 @@ func (s *ShellReader) Read(p []byte) (int, error) {
 	if newMessage && n > 2 {
 		// detect client input, copy everything back to p without the prefix
 		if bytes.Equal(buf[0:2], dataMsg) {
-			i := copy(p, buf[2:n])
+			encoded := string(buf[2:n])
+			decoded, err := base64.StdEncoding.DecodeString(encoded)
+			i := copy(p, decoded)
 			return i, err
 		}
 		// detect resize msg
