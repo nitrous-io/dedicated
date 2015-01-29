@@ -1,7 +1,7 @@
 .ui.topnav
   .primary-nav
     ul.nav
-      each view.menu
+      each view.filteredMenu
         li.ui.dropdown
           a href='#'
             = name

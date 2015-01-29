@@ -5,20 +5,16 @@ App.IdeController = Em.ObjectController.extend
 
   eventsSocket: null
   opsSocket: null
-  commandSocket: null
   opsSocketReady: null
   opsTimeoutAlert: null
-  repository: null
   errorDialog: null
 
   opsConnectionGracePeriod: 15 * 1000 # TODO: This should come from a KeyValue object from the server-side
   opsConnectionLost: false
 
   opsSocketReadyBinding: Em.Binding.oneWay 'opsSocket.started'
-  commandSocketReadyBinding: Em.Binding.oneWay 'commandSocket.started'
 
   opsSocketNotReady: Em.computed.not 'opsSocketReady'
-  commandSocketNotReady: Em.computed.not 'commandSocketReady'
 
   workspaceDir: 'code'
 
@@ -58,7 +54,6 @@ App.IdeController = Em.ObjectController.extend
     router.get('ideLayoutController').reset()
 
     @set 'opsSocket', null
-    @set 'repository', null
     @set 'content', null
     @set 'errorDialog', null
 
@@ -100,13 +95,6 @@ App.IdeController = Em.ObjectController.extend
     if @get('opsSocketReady') && (opsTimeoutAlert = @get('opsTimeoutAlert'))
       Em.run.cancel opsTimeoutAlert
       @set 'opsConnectionLost', false
-
-      if repo = @get 'repository'
-        if repo.get('state') == 'failed'
-          cacheKey = "repo:#{repo.get('id')}:shownError"
-          if !App.localStorage.get(cacheKey)
-            App.set 'flashMessage', { type: 'error', text: "Cloning the repository failed: #{repo.get('failure_reason')}" }
-            App.localStorage.set(cacheKey, true)
   ).observes 'opsSocketReady'
 
   warnWhenOffline: (->

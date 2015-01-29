@@ -74,6 +74,7 @@ themesMenu = menu 'Themes', _.map [
 App.IdeMainMenuView = Em.View.extend
   templateName: 'ide/main-menu'
   elementId: 'ide-main-menu-view'
+  showOnly: null
 
   previewPortBinding: Em.Binding.oneWay 'App.container.previewPort'
   dashboardURL: ( ->
@@ -274,6 +275,15 @@ App.IdeMainMenuView = Em.View.extend
       helpMenu
     ]
   ).property()
+
+  filteredMenu: (->
+    menu = @get('menu')
+    showOnly = @get('showOnly')?.split(",")
+    return menu unless showOnly # don't bother filtering if showOnly is null
+
+    menu.filter (m) ->
+      showOnly.indexOf(m.get('name')) > -1
+  ).property 'menu', 'showOnly'
 
   currentYear: (->
     new Date().getFullYear()

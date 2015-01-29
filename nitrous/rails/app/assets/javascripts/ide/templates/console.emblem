@@ -16,9 +16,9 @@ App.IdeConsoleBorderView
       button.ui.btn.icon title='Maximize' click='didClickMaximizeConsole target="view"'
         i.fa.fa-caret-up
     else
-      button.ui.btn.icon title='Minimize' click='didClickMinimizeConsole target="view"'
+      button.ui.btn.icon title='Minimize' click='didClickMinimizeConsole target="view"' class={view.hideMinimizeBtn:hide}
         i.fa.fa-minus
-    button.ui.btn.icon title='Toggle Full Screen' click='didClickFullScreen target="view"'
+    button.ui.btn.icon title='Toggle Full Screen' click='didClickFullScreen target="view"' class={view.hideFullscreenBtn:hide}
       i.fa.fa-arrows-alt
 
 .console-sessions

@@ -38,8 +38,7 @@ App.IdeRoute = Em.Route.extend
 
   actions:
     willTransition: (transition) ->
-      return true if App.get 'isChromeWebView'
       return true if window.confirm(message + '\n\nAre you sure you want to leave this page?')
-      url = transition.router.recognizer.generate 'box.ide', box_id: this.get('controller.content.id')
+      url = transition.router.recognizer.generate 'ide', containerSlug: this.get('controller.content.slug')
       transition.router.updateURL(url)
       transition.abort()

@@ -108,7 +108,7 @@
         unless isNitrousImage
           button.ui.btn click='openLogs' Logs
           button.ui.btn click='openAttach' Attach
-      button.ui.btn click='openTerminal' Terminal
+      a.ui.btn href=terminalURL target='_blank' Terminal
       a.ui.btn.primary href=ideURL target='_blank' IDE
   else
     if isStopped

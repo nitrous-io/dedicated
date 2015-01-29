@@ -2,6 +2,8 @@ App.IdeConsoleView = Em.View.extend App.IdeTabViewMixin,
   templateName: 'ide/console'
   elementId: 'ide-console-view'
   classNameBindings: ['controller.fullscreen:fullscreen', 'controller.minimized:minimized', 'App.editorFullscreen:hide']
+  hideMinimizeBtn: false
+  hideFullscreenBtn: false
 
   didInsertElement: ->
     @_super()

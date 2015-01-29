@@ -1,0 +1,7 @@
+.ide-window
+  App.IdeMainMenuView controller=App.router.ideMainMenuController showOnly="N,Preview,Help"
+
+  .ide-body
+    App.IdeConsoleView controller=App.router.ideConsoleController hideMinimizeBtn=true hideFullscreenBtn=true
+
+App.IdeErrorDialogView

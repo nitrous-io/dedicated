@@ -1,0 +1,44 @@
+message = 'Leaving this page will close the terminal session and terminate your current process'
+
+App.TerminalRoute = Em.Route.extend
+  beforeModel: ->
+    if App.get 'token'
+      App.loadSettings()
+      App.User.fetch().then (user) ->
+        App.set 'user', user
+    else
+      # redirect to login screen if user hasn't logged in
+      window.location.href = '/app/#/login'
+
+  model: (params) ->
+    @_super.apply this, arguments
+    slug = params.containerSlug
+
+    if !slug
+      window.location.href = '/404.html'
+    else
+      App.loadContainer(slug).catch ->
+        window.location.href = '/404.html'
+
+  afterModel: (container, transition)->
+    container?.loadHost().catch ->
+      transition.abort()
+
+  activate: ->
+    # warn the user before actually unload the window. This is helpful to
+    # prevent mis-click close tab / cmd + w
+    $(window).bind 'beforeunload.ide', -> message
+
+  deactivate: ->
+    $(window).unbind 'beforeunload.ide'
+
+  setupController: (controller) ->
+    @_super.apply this, arguments
+    controller.initialize()
+
+  actions:
+    willTransition: (transition) ->
+      return true if window.confirm(message + '\n\nAre you sure you want to leave this page?')
+      url = transition.router.recognizer.generate 'terminal', containerSlug: this.get('controller.content.slug')
+      transition.router.updateURL(url)
+      transition.abort()

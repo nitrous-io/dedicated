@@ -74,6 +74,11 @@ App.Container = klass = App.Model.extend
     location.href.replace(location.pathname+location.hash, "/ide/#/#{@get 'slug'}")
   ).property()
 
+  terminalURL: (->
+    location.href.replace(location.pathname+location.hash, "/ide/#/#{@get 'slug'}/terminal")
+  ).property()
+
+
   displayName: (->
     @get('name') || @get('slug')
   ).property 'name', 'slug'
