@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -18,7 +19,50 @@ func IsWebsocket(r *http.Request) bool {
 		headerContainsValue(r.Header, "Connection", "upgrade")
 }
 
-func ProxyHTTP(addr string, tlsConfig *tls.Config) http.HandlerFunc {
+type nopCloser struct {
+	io.Reader
+}
+
+func (c nopCloser) Close() error {
+	return nil
+}
+
+// DefaultTransportErrorHandler writes the error from the RoundTrip as a
+// text/plain response.
+func DefaultTransportErrorHandler(res *http.Response, err error) {
+	res.StatusCode = http.StatusServiceUnavailable
+
+	h := http.Header{}
+	h.Set("Content-Type", "text/plain")
+	res.Header = h
+	res.Body = nopCloser{strings.NewReader(fmt.Sprintf("Reverse proxy failed: %v", err))}
+}
+
+// customTransport delegates to the underlying http.RoundTripper, but if we
+// specify the errorFunc, then it will be called when there's an error
+// performing the RoundTrip.
+type customTransport struct {
+	http.RoundTripper
+	errorFunc func(res *http.Response, err error)
+}
+
+func (t *customTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	res, err := t.RoundTripper.RoundTrip(r)
+	if err != nil && t.errorFunc != nil {
+		if res == nil {
+			res = &http.Response{Request: r}
+		}
+		t.errorFunc(res, err)
+		return res, nil
+	}
+	return res, err
+}
+
+// ProxyHTTP return a http handler that reverse proxies request from provided
+// address. It also accepts a function that can be used to customize response
+// when we cant perform a roundtrip request to the server ( for example, the
+// remote server is not running )
+func ProxyHTTP(addr string, tlsConfig *tls.Config, transportErrorFn func(res *http.Response, err error)) http.HandlerFunc {
 	p := &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
 			log.Printf("[INFO] http: proxy %s to %s", r.Host, addr)
@@ -29,8 +73,9 @@ func ProxyHTTP(addr string, tlsConfig *tls.Config) http.HandlerFunc {
 				r.URL.Scheme = "http"
 			}
 		},
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
+		Transport: &customTransport{
+			RoundTripper: &http.Transport{TLSClientConfig: tlsConfig},
+			errorFunc:    transportErrorFn,
 		},
 		FlushInterval: HTTPFlushInterval,
 	}

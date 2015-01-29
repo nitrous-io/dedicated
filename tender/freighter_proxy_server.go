@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/nitrous-io/dedicated/freighter/config"
+	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 )
 
@@ -61,7 +62,7 @@ func NewFreighterProxyServer(baseDomain, tlsDomain string, portMap map[int]int,
 // ServerHTTP lets FreighterProxyServer acts as a http handler
 func (s *FreighterProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := s.proxy(w, r); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 }
@@ -144,7 +145,7 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(dest, tlsConfig)(w, r)
 	} else {
-		proxy.ProxyHTTP(dest, tlsConfig)(w, r)
+		proxy.ProxyHTTP(dest, tlsConfig, proxyerror.ErrorHandler)(w, r)
 	}
 	return nil
 }
