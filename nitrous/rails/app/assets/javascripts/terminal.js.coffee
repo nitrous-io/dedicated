@@ -3,6 +3,9 @@
 #= require webfonts
 #= require term
 
+parentWindow = window.parent
+parentWindow = null if parentWindow == window
+
 window.NitrousTerminal =
   term: null
   conn: null
@@ -60,6 +63,16 @@ window.NitrousTerminal =
       return if @readonly || @conn.readyState != 1
       @conn.send "d|#{data}"
 
+    @term.originalKeyDown = @term.keyDown
+    @term.keyDown = (event) =>
+      switch
+        when @matchesSwitchConsoleEditorKeybinding event
+          @handleSwitchConsoleEditorEvent event
+        when @matchesFullConsoleScreenKeybinding event
+          @handleFullConsoleScreenEvent event
+        else
+          @term.originalKeyDown event
+
   open: (nobeforeopen) ->
     @closed = false
     @conn.url = @url
@@ -116,6 +129,33 @@ window.NitrousTerminal =
     @term?.removeAllListeners('resize')
     @term?.handler = ->
     @term?.write("\r\n[Session closed]")
+
+  handleSwitchConsoleEditorEvent: (ev) ->
+    if parentWindow
+      Terminal.cancel ev
+      parentWindow.App.get('router.ideMainMenuController').viewFocusEditor()
+      return false
+    true
+
+  handleFullConsoleScreenEvent: (ev) ->
+    if parentWindow
+      Terminal.cancel ev
+      parentWindow.App.get('router.ideMainMenuController').viewToggleFullScreenConsole()
+      return false
+    true
+
+  isMac: ->
+    parentWindow && parentWindow.App.util.IsMac
+
+  # keybinding is shift+ctrl+c / ctrl+alt+c
+  matchesSwitchConsoleEditorKeybinding: (event) ->
+    (@isMac() && event.shiftKey && event.ctrlKey && event.keyCode == 67) ||
+    (!@isMac() && event.ctrlKey && event.altKey && event.keyCode == 67)
+
+  # keybinding is shift+ctrl+f / ctrl+alt+f
+  matchesFullConsoleScreenKeybinding: (event) ->
+    (@isMac() && event.shiftKey && event.ctrlKey && event.keyCode == 70) ||
+    (!@isMac() && event.ctrlKey && event.altKey && event.keyCode == 70)
 
 window.webFontLoaded = ->
   NitrousTerminal.term?.sizeToFit()

@@ -108,11 +108,11 @@ CodeMirror.MODES_WITH_LINTING =[
 ]
 
 CodeMirror.commands.goMatchingBracket = (cm) ->
-  match = cm.findMatchingBracket?()
+  cur = cm.getCursor()
+  match = cm.findMatchingBracket?(line: cur.line, ch: cur.ch)
   return false if !match
   # If cursor is outside of brackets, stay on the outside.
   # E.g. if cursor is before opening bracket, move to after the closing bracket.
-  cur = cm.getCursor()
   if match.from.line < cur.line || (match.from.line == cur.line && match.from.ch < cur.ch)
     cm.extendSelection(match.to)
   else
