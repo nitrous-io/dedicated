@@ -9,6 +9,15 @@ parentWindow = null if parentWindow == window
 
 isMac = navigator.userAgent.indexOf("Macintosh") != -1
 
+noopEncoder = (data) =>
+  data
+
+base64Encoder = (data) =>
+  window.btoa(data)
+
+base64Decoder = (data) =>
+  window.atob(data)
+
 window.NitrousTerminal =
   term: null
   conn: null
@@ -17,6 +26,8 @@ window.NitrousTerminal =
   firstConnect: true
   afterOpen: null
   readonly: false
+  encoder: noopEncoder
+  decoder: noopEncoder
 
   ide: false
 
@@ -85,6 +96,17 @@ window.NitrousTerminal =
     @conn.open(nobeforeopen)
     @conn.url = null
 
+  setEncoding: (encoding) ->
+    switch encoding
+      when 'base64'
+        @encoder = base64Encoder
+        @decoder = base64Decoder
+      when 'plain'
+        @encoder = noopEncoder
+        @decoder = noopEncoder
+      else
+        throw new Error('invalid websocket encoding')
+
   retry: ->
     @conn.retry()
 
@@ -121,9 +143,9 @@ window.NitrousTerminal =
   didReceiveMessage: (ev) ->
     message = ev.data
     type = message.slice(0, 2)
-    decoded = window.atob(message.slice(2))
     switch type
       when 'd|'
+        decoded = window.atob(message.slice(2))
         @term.write decoded
       when 'c|'
         @close()

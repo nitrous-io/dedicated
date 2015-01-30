@@ -76,19 +76,13 @@ App.Container = klass = Em.Object.extend
     port == 80 || port >= 1024
 
   requestToken: (permissions) ->
-    promise = new Em.RSVP.Promise (resolve, reject) =>
-      Em.$.ajax(
-        type: 'POST',
-        url: "/api/v0/containers/#{@get 'slug'}/token",
-        headers: { Authorization: "Bearer #{App.get 'token'}" }
-        data: {
-          permission: permissions
-        }
-      ).done((data, status, jqxhr) ->
-        resolve(data)
-      ).fail (jqxhr) ->
-        reject(jqxhr)
-    promise
+    Em.RSVP.Promise.cast Em.$.ajax
+      type: 'POST',
+      url: "/api/v0/containers/#{@get 'slug'}/token",
+      headers: { Authorization: "Bearer #{App.get 'token'}" }
+      data: {
+        permission: permissions
+      }
 
   loadHost: ->
     new Em.RSVP.Promise (resolve, reject) =>
@@ -116,14 +110,19 @@ App.Container = klass = Em.Object.extend
       ).fail (jqxhr) ->
         reject(jqxhr)
 
-  getWebSocketFeatures: ->
+  # Get freighter info for new feature detection
+  # Assume empty feature { } on error retrieving
+  # because old freighter server would return 404
+  getFreighterInfo: ->
     freighterdUrl = @get 'freighterdUrl'
-    url = "https://#{freighterdUrl}/ws/info"
-    console.log('getting websocket features from', url)
-    Em.$.ajax(
+    url = "https://#{freighterdUrl}/freighter/info"
+    Em.RSVP.Promise.cast Em.$.ajax
       type: 'GET',
       url: url
-    )
+    .then (result) =>
+      result.freighter_info || { }
+    .catch (err) =>
+      { }
 
 klass.reopenClass
   fetch: (slug) ->

@@ -29,16 +29,23 @@ App.TerminalConnectionMixin = Ember.Mixin.create
       url
 
   connectTerminal: (container, terminal, action) ->
-    container.getWebSocketFeatures().then ->
-      console.log('websocketFeatures:', websocketFeatures)
+    container.getFreighterInfo().then (features) =>
+      console.log('freighter features:', features)
 
-    @makeUrl(container, terminal, action).then (url) ->
-      terminal.url = url
-      terminal.open(true)
-      terminal.focus()
-    , (jqxhr) ->
-      terminal.retry()
-      App.postError(jqxhr.responseJSON, 'Could not connect to shell, retrying...')
+      @makeUrl(container, terminal, action).then (url) =>
+        if features.websocket_encoding == 'base64'
+          console.log('using base64 encoding')
+          url += '&encoding=base64'
+          terminal.setEncoding('base64')
+        else
+          console.log('using plain encoding')
+
+        terminal.url = url
+        terminal.open(true)
+        terminal.focus()
+      , (jqxhr) =>
+        terminal.retry()
+        App.postError(jqxhr.responseJSON, 'Could not connect to shell, retrying...')
 
 getLoginCommand = (username) ->
   username ||= "root"

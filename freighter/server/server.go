@@ -246,7 +246,7 @@ func (s *Server) drawRoutes() {
 
 	s.secretRoute("/info", s.wrapError(s.serverInfo), "GET")
 	s.secretRoute("/utilization", s.wrapError(s.serverUtilization), "GET")
-	s.route("/ws/info", s.wrapError(s.websocketInfo), "GET")
+	s.route("/freighter/info", s.cors(s.wrapError(s.freighterInfo)), "GET")
 }
 
 // given:

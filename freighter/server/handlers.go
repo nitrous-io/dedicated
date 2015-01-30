@@ -560,12 +560,15 @@ func (s *Server) logoutRegistry(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, status, nil)
 }
 
-func (s *Server) websocketInfo(w http.ResponseWriter, r *http.Request) error {
-	s.respond(w, http.StatusOK, []byte(`{
-		"ws-info": {
-			"base64-encoding": true
-		}
-	}`))
+func (s *Server) freighterInfo(w http.ResponseWriter, r *http.Request) error {
+	freighterInfoJson := &struct {
+		WebSocketEncoding string `json:"websocket_encoding"`
+	}{
+		"base64",
+	}
+
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"freighter_info": freighterInfoJson})
+
 	return nil
 }
 
