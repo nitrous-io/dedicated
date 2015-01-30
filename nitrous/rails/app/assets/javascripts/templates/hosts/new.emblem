@@ -13,11 +13,6 @@
               | Name
             = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
 
-          .ui.input-group
-            label.field-label for='hosts-new-slug'
-              | Unique Slug
-            = input type='text' id='hosts-new-slug' name='slug' classNameBindings='view.slugFieldInvalid:error' required=true pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=slug
-
         .ui.input-group
           label.field-label for='hosts-new-region'
             | Region

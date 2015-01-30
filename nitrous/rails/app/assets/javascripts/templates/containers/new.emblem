@@ -26,7 +26,7 @@
           label.field-label
             | Workspace
           .ui.select
-            Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.nameAndSlug' disabled=saving value=selectedHostSlug
+            Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.slug' disabled=saving value=selectedHostSlug
 
         .ui.flex.horizontal
           .ui.input-group

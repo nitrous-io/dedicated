@@ -1,7 +1,6 @@
 App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   canSelectPlan: true
   name: null
-  slug: null
   selectedRegion: null
   selectedPlan: null
   error: null
@@ -13,7 +12,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   clear: ->
     @setProperties
       name: null
-      slug: null
       selectedRegion: App.get('regions.firstObject')
       selectedPlan: App.get('plans.firstObject')
       error: null
@@ -60,7 +58,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
           regionSlug: @get('selectedRegion.slug')
           planSlug: @get('selectedPlan.slug')
           name: @get 'name'
-          slug: @get 'slug'
       @set 'host', host
 
       if App.get('newUser') && App.get('user.billingEnabled')
@@ -85,7 +82,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
         @transitionToRoute 'host.index', host.get('slug')
-        App.snackbar.post("Your new workspace “#{host.get('name')}” was created successfully.")
+        App.snackbar.post("Your new workspace “#{host.get('slug')}” was created successfully.")
         @set 'saving', false
 
       events.on 'host.create_failed', onHostCreateFailed
