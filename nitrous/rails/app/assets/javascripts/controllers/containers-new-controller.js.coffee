@@ -4,7 +4,6 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
   selectedHostSlug: null
   name: null
-  slug: null
   error: null
   invalidField: null
 
@@ -33,7 +32,6 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
     @setProperties
       selectedHostSlug: null
       name: null
-      slug: null
       error: null
       invalidField: null
 
@@ -66,11 +64,10 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
     App.postError(jqxhr.responseJSON, 'Failed to create container!')
     @set 'saving', false
 
-  createContainer: (name, slug, repository, template) ->
+  createContainer: (name, repository, template) ->
     # create container
     container = App.Container.create
       name: name
-      slug: slug
       image: repository
       template: template
 
@@ -82,7 +79,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       privileged: @get 'privileged'
       publish_all: @get 'publishAll'
     ).then =>
-      @transitionToRoute 'container.index', slug
+      @transitionToRoute 'container.index', container.get('slug')
       App.snackbar.post("Your new container “#{name}” was created successfully.")
       @set 'saving', false
     , (jqxhr) => # container.save

@@ -30,7 +30,7 @@ App.Host = klass = App.Model.extend
   isOrphan: Em.computed.equal 'state', 'orphan'
 
   displayName: (->
-    @get('slug')
+    @get('name') || @get('slug')
   ).property 'slug'
 
   containers: (->
