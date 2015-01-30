@@ -287,5 +287,105 @@ var _ = Describe("provisioner", func() {
 			// The user's host should be the same as the pre-provisioned host.
 			Expect(h.ID).To(Equal(preprovisionedHost.ID))
 		})
+
+		It("returns ErrSlugIsTaken if host slug is already taken by another host in the database", func() {
+			// Create a host that already uses the required slug.
+			slug := "shifty-666"
+			hs, err := test.CreateHostStack(db, &test.HostStack{
+				H:  &host.Host{Slug: slug},
+				PT: &providertemplate.ProviderTemplate{PreprovisionMax: 1, Provider: "dummy"},
+			})
+			Expect(err).To(BeNil())
+
+			// Replace provisioner's hostbuilder client with a fake version.
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: `
+				{"stream":"starting: creating host"}
+				{"stream":"finished: creating host"}
+				{"id":"abcd1234", "ip_address":"1.2.3.4", "provider":"dummy", "freighterd_port":65333}`,
+				Status: http.StatusOK,
+			}
+			hb.Client.Client.Transport = rt
+			provisioner.HostbuilderClient = hb
+
+			// Setup provisioner so that we have a pre-provisioned host.
+			cfg := &provisioner.Config{
+				Username: provisionerUser.Username,
+				Interval: 10 * time.Millisecond,
+			}
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			err = prov.Start()
+			Expect(err).To(BeNil())
+
+			// Wait for host to be pre-provisioned.
+			provisioned := make(chan struct{})
+			errCh := make(chan error)
+			go func() {
+				ticker := time.NewTicker(10 * time.Millisecond)
+				for _ = range ticker.C {
+					count, err := host.CountPreprovisioned(db, hs.R, hs.P)
+					if err != nil {
+						errCh <- err
+						return
+					}
+					if count > 0 {
+						provisioned <- struct{}{}
+						return
+					}
+				}
+			}()
+
+			select {
+			case <-provisioned:
+				break
+			case err := <-errCh:
+				Fail(fmt.Sprintf("Error waiting for host to be pre-provisioned: %v", err))
+			case <-time.After(5 * time.Second):
+				Fail("Timed out waiting for host to be pre-provisioned")
+			}
+
+			u := &user.User{
+				Username: "foo",
+				Password: "123456",
+				Email:    "foo@example.com",
+			}
+			err = test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+			t := &token.Token{
+				UserID: u.ID,
+				Token:  "valid-token",
+			}
+			err = t.Insert(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			// Fake update response from Hostbuilder.
+			rt = &test.FakeRoundTripper{
+				Message: `
+					{"stream":"starting: updating host"}
+					{"stream":"finished: updating host"}
+					{"id":"abcd1234", "ip_address":"1.2.3.4", "provider":"dummy", "freighterd_port":65333}`,
+				Status: http.StatusOK,
+			}
+			hb.Client.Client.Transport = rt
+
+			// Provision host using existing slug.
+			_, err = prov.ProvisionHost(provisioner.ProvisionOptions{
+				OutputStream: ioutil.Discard,
+				Slug:         slug,
+				Name:         "new-name",
+				User:         u,
+				Token:        t,
+				Region:       hs.R,
+				Plan:         hs.P,
+				Template:     hs.PT,
+			})
+			Expect(err).To(MatchError(provisioner.ErrSlugIsTaken))
+
+			Expect(rt.Requests).To(HaveLen(0))
+		})
 	})
 })
