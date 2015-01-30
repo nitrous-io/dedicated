@@ -7,16 +7,16 @@ import (
 )
 
 type Template struct {
-	ID          int64      `json:"id"`
-	Slug        string     `json:"slug"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	Type        string     `json:"type"`
-	Privileged  bool       `json:"privileged"`
-	CreatedAt   *time.Time `json:"created_at"`
-	UpdatedAt   *time.Time `json:"updated_at"`
+	ID          int64  `json:"id"`
+	Slug        string `json:"slug"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Type        string `json:"type"`
+	Privileged  bool   `json:"privileged"`
+	Image       string `json:"image"`
 
-	Images []string `json:"images"`
+	CreatedAt *time.Time `json:"created_at"`
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 func SerializeTemplate(t *template.Template) *Template {
@@ -31,14 +31,13 @@ func SerializeTemplate(t *template.Template) *Template {
 		Type:        t.Type,
 		CreatedAt:   t.CreatedAt,
 		UpdatedAt:   t.UpdatedAt,
-		Images:      []string{},
+		Image:       t.Image,
 		Privileged:  false,
 	}
 
 	conf, err := t.ParsedConfig()
 	if err == nil {
 		for _, con := range conf.Containers {
-			base.Images = append(base.Images, con.Image)
 			if con.Privileged {
 				base.Privileged = true
 			}

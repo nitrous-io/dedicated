@@ -208,12 +208,12 @@ var _ = Describe("CreateContainer", func() {
 			Slug:        "my-template",
 			Name:        sql.NullString{"Ruby on Rails", true},
 			Description: sql.NullString{"A Rails stack template", true},
+			Image:       "rails:4.2",
 			Config: `{
 				"containers": [
 				{
 					"name": "Rails",
 					"slug": "rails",
-					"image": "rails:4.2",
 					"ports": ["public::2341", "public::8931"],
 					"env": ["SHELL=powershell"]
 				}]

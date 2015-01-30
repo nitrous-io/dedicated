@@ -86,7 +86,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 		}
 
 		primary := cfg.Containers[0]
-		cn.Image = primary.Image
+		cn.Image = tmpl.Image
 		config.Image = cn.Image
 		imageSlug = config.Image
 		priv := primary.Privileged

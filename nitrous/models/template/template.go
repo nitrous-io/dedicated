@@ -29,8 +29,9 @@ type Template struct {
 	Slug        string         `db:"slug"`
 	Name        sql.NullString `db:"name"`
 	Description sql.NullString `db:"description"`
-	Config      string         `db:"config"`
 	Type        string         `db:"type"`
+	Config      string         `db:"config"`
+	Image       string         `db:"image"`
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
@@ -45,7 +46,6 @@ type TemplateConfig struct {
 type Container struct {
 	Name       string   `json:"name"`
 	Slug       string   `json:"slug"`
-	Image      string   `json:"image"`
 	Cmd        string   `json:"cmd"`
 	Privileged bool     `json:"privileged"`
 	PublishAll bool     `json:"publish_all"`
@@ -101,8 +101,8 @@ func (t *Template) Insert(d db.QueryReceiver) error {
 	}
 
 	nstmt, err := d.PrepareNamed(`INSERT INTO templates
-		(slug, name, description, config, type)
-		VALUES (:slug, :name, :description, :config, :type) RETURNING *;`)
+		(slug, name, description, config, type, image)
+		VALUES (:slug, :name, :description, :config, :type, :image) RETURNING *;`)
 	if err != nil {
 		return err
 	}
