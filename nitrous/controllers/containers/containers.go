@@ -30,6 +30,7 @@ const defaultLockTime = 1 * time.Minute
 
 var (
 	ignoredImageNames = regexp.MustCompile(`-reconfig-\d{19}\z`) // reconfig names include Unix epoch (nano) stamp
+	bindForMessage    = regexp.MustCompile(`Bind\s+for\s+0.0.0.0:(\d+)`)
 )
 
 var (
@@ -40,6 +41,10 @@ var (
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 	errInvalidCommand    = httperror.New(http.StatusBadRequest, "invalid_request", "container cmd invalid")
 	errContainerLocked   = httperror.New(http.StatusConflict, "container_locked", "container is locked")
+
+	makeErrHostPortConflict = func(port string) error {
+		return httperror.New(http.StatusConflict, "host_port_in_use", fmt.Sprintf("Container cannot be started, Host port %s is already in use by another container.", port))
+	}
 )
 
 var (
@@ -336,7 +341,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 
 	liveContainer, err := cl.Start(cn.CID, config)
 	if err != nil {
-		return err
+		return expandFreighterClientError(err)
 	}
 
 	cn = hydrateContainer(cn, liveContainer, h)
@@ -602,4 +607,18 @@ func timePtr(t time.Time) *time.Time {
 		return &t
 	}
 	return nil
+}
+
+func expandFreighterClientError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(err.Error(), "port is already allocated") {
+		match := bindForMessage.FindStringSubmatch(err.Error())
+		if len(match) >= 2 {
+			return makeErrHostPortConflict(match[1])
+		}
+	}
+
+	return err
 }
