@@ -756,25 +756,30 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 		return fmt.Errorf("Cannot attach to stopped container %v", info.ID)
 	}
 
-	// check if the client request to use BinaryMessage instead of TextMessage
-	binary, _ := strconv.ParseBool(r.FormValue("binary"))
 	// if no-stdin in param is set, STDIN should not be attached
 	noStdin, _ := strconv.ParseBool(r.FormValue("nostdin"))
+
+	encoding := r.FormValue("encoding")
+
+	encoder, decoder, err := getEncoder(encoding)
+	if err != nil {
+		return err
+	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return fmt.Errorf("failed to upgrade websocket: %v", err)
 	}
 	stream := wsconn.NewConnectionHeartbeat(conn, true)
-	if binary {
+	if encoding == "binary" {
 		stream.MessageType = websocket.BinaryMessage
 	}
 	defer stream.Close()
 
 	// create stdin/stdout stream with the shell protocol
 	msgCh := make(chan shell.Message, messageQueueSize)
-	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType, &shell.Base64Decoder{})
-	stdout := shell.NewShellWriter(stream, &shell.Base64Encoder{})
+	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType, decoder)
+	stdout := shell.NewShellWriter(stream, encoder)
 	exit := make(chan struct{})
 
 	go func() {

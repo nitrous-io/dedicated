@@ -30,15 +30,10 @@ App.TerminalConnectionMixin = Ember.Mixin.create
 
   connectTerminal: (container, terminal, action) ->
     container.getFreighterInfo().then (features) =>
-      console.log('freighter features:', features)
-
       @makeUrl(container, terminal, action).then (url) =>
         if features.websocket_encoding == 'base64'
-          console.log('using base64 encoding')
           url += '&encoding=base64'
           terminal.setEncoding('base64')
-        else
-          console.log('using plain encoding')
 
         terminal.url = url
         terminal.open(true)

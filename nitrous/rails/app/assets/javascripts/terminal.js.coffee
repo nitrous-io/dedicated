@@ -77,7 +77,7 @@ window.NitrousTerminal =
 
     @term.handler = (data) =>
       return if @readonly || @conn.readyState != 1
-      encoded = window.btoa(data)
+      encoded = @encoder(data)
       @conn.send "d|#{encoded}"
 
     @term.originalKeyDown = @term.keyDown
@@ -145,7 +145,7 @@ window.NitrousTerminal =
     type = message.slice(0, 2)
     switch type
       when 'd|'
-        decoded = window.atob(message.slice(2))
+        decoded = @decoder(message.slice(2))
         @term.write decoded
       when 'c|'
         @close()
