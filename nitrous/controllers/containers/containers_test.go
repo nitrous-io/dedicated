@@ -2008,7 +2008,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(res.Code).To(Equal(http.StatusConflict))
 
 				errType, msg := ErrorSlug(res.Body)
-				Expect(errType).To(Equal("host_port_inuse"))
+				Expect(errType).To(Equal("host_port_in_use"))
 				Expect(msg).To(Equal("Container cannot be started, Host port 8080 is already in use by another container."))
 			})
 		})
