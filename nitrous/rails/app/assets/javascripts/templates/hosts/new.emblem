@@ -7,11 +7,10 @@
       .card-body
         .notice-text
           | Workspaces are private dedicated servers where you can create and work on multiple development containers.
-        .ui.flex.horizontal
-          .ui.input-group
-            label.field-label for='hosts-new-name'
-              | Name
-            = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
+        .ui.input-group
+          label.field-label for='hosts-new-name'
+            | Name
+          = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
 
         .ui.input-group
           label.field-label for='hosts-new-region'
