@@ -1,6 +1,8 @@
 PREVIEW_PORT_START = 1024
 SUPPORTED_SYSTEM_PORTS = [80]
 
+Promise = Em.RSVP.Promise
+
 App.Container = klass = Em.Object.extend
   id: null
   user_id: null
@@ -76,7 +78,7 @@ App.Container = klass = Em.Object.extend
     port == 80 || port >= 1024
 
   requestToken: (permissions) ->
-    Em.RSVP.Promise.cast Em.$.ajax
+    Promise.resolve Em.$.ajax
       type: 'POST',
       url: "/api/v0/containers/#{@get 'slug'}/token",
       headers: { Authorization: "Bearer #{App.get 'token'}" }
@@ -85,30 +87,24 @@ App.Container = klass = Em.Object.extend
       }
 
   loadHost: ->
-    new Em.RSVP.Promise (resolve, reject) =>
-      Em.$.ajax(
-        type: 'GET',
-        url: "/api/v0/hosts/#{@get 'host_id'}",
-        headers: { Authorization: "Bearer #{App.get 'token'}" }
-      ).done((data, status, jqxhr) =>
-        @set 'host', data.host
-        resolve(data)
-      ).fail (jqxhr) ->
-        reject(jqxhr)
+    Promise.resolve Em.$.ajax
+      type: 'GET',
+      url: "/api/v0/hosts/#{@get 'host_id'}",
+      headers: { Authorization: "Bearer #{App.get 'token'}" }
+    .then (data) =>
+      @set 'host', data.host
+      data
 
   setMetadata: (data)->
-    new Em.RSVP.Promise (resolve, reject) =>
-      Em.$.ajax(
-        type: 'PUT',
-        url: "/api/v0/containers/#{@get 'slug'}/metadata",
-        headers: { Authorization: "Bearer #{App.get 'token'}" },
-        data: data
-      ).done((retData, status, jqxhr) =>
-        Object.keys(data).forEach (k) =>
-          @set("metadata.#{k}", data[k])
-        resolve(retData)
-      ).fail (jqxhr) ->
-        reject(jqxhr)
+    Promise.resolve Em.$.ajax
+      type: 'PUT',
+      url: "/api/v0/containers/#{@get 'slug'}/metadata",
+      headers: { Authorization: "Bearer #{App.get 'token'}" },
+      data: data
+    .then (retData) =>
+      Object.keys(data).forEach (k) =>
+        @set("metadata.#{k}", data[k])
+      retData
 
   # Get freighter info for new feature detection
   # Assume empty feature { } on error retrieving
@@ -116,7 +112,7 @@ App.Container = klass = Em.Object.extend
   getFreighterInfo: ->
     freighterdUrl = @get 'freighterdUrl'
     url = "https://#{freighterdUrl}/freighter/info"
-    Em.RSVP.Promise.cast Em.$.ajax
+    Promise.resolve Em.$.ajax
       type: 'GET',
       url: url
     .then (result) =>
@@ -126,17 +122,13 @@ App.Container = klass = Em.Object.extend
 
 klass.reopenClass
   fetch: (slug) ->
-    promise = new Em.RSVP.Promise (resolve, reject) =>
-      Em.$.ajax(
-        type: 'GET',
-        url: "/api/v0/containers/#{slug}",
-        headers: { Authorization: "Bearer #{App.get 'token'}" }
-      ).done((data, status, jqxhr) ->
-        container = App.Container.create(data.container)
-        resolve(container)
-      ).fail (jqxhr) ->
-        reject(jqxhr)
-    promise
+    Promise.resolve Em.$.ajax
+      type: 'GET',
+      url: "/api/v0/containers/#{slug}",
+      headers: { Authorization: "Bearer #{App.get 'token'}" }
+    .then (data) ->
+      container = App.Container.create(data.container)
+      container
 
 transformEnvArrayToHash = (envVars) ->
   hash = {}
