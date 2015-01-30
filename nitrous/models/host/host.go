@@ -265,6 +265,19 @@ func (h *Host) UpdateVersions(d db.QueryReceiver, fv string, dv string) error {
 	return d.QueryRowx(`UPDATE hosts SET freighterd_version = $1, docker_version = $2 WHERE id = $3 RETURNING *;`, fv, dv, h.ID).StructScan(h)
 }
 
+func (h *Host) CanCreateMoreContainers(d db.QueryReceiver) (bool, error) {
+	if !h.MaxContainers.Valid {
+		return true, nil
+	}
+
+	var count int64
+	err := d.QueryRowx(`SELECT COUNT(*) FROM containers WHERE host_id = $1 AND terminated_at IS NULL;`, h.ID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count < h.MaxContainers.Int64, nil
+}
+
 func (h *Host) Validate() error {
 	if h.Slug == "" {
 		return ErrSlugBlank
