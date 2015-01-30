@@ -18,15 +18,15 @@ form autocomplete='on' submit='save'
         = input type='text' id='card-number' name='number' classNameBindings='view.numberFieldInvalid:error :cc-number' autocomplete='cc-number' disabled=saving value=number required=true
 
       .ui.input-group
-        label.field-label for='card-expiration'
-          | Expiration
-        = input type='text' id='card-expiration' name='expiration' placeholder='MM / YYYY' classNameBindings='view.expirationFieldInvalid:error' disabled=saving value=expiration
+        label.field-label for='card-cvc'
+          | CVC
+        = input type='password' id='card-cvc' name='cvc' classNameBindings='view.cvcFieldInvalid:error :cc-cvc' disabled=saving value=cvc autocomplete='off'
 
     .ui.flex.horizontal
       .ui.input-group
-        label.field-label for='card-cvc'
-          | CVC
-        = input type='text' id='card-cvc' name='cvc' classNameBindings='view.cvcFieldInvalid:error :cc-cvc' disabled=saving value=cvc autocomplete='off'
+        label.field-label for='card-expiration'
+          | Expiration
+        = input type='text' id='card-expiration' name='expiration' placeholder='MM / YYYY' classNameBindings='view.expirationFieldInvalid:error' disabled=saving value=expiration
 
       .ui.input-group
         label.field-label for='card-zip-code'

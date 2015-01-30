@@ -21,6 +21,6 @@ App.AddCardView = Em.View.extend
   showCardIcon: (->
     backgroundImageURL = "none"
     if cardType = $.payment.cardType @get('controller.number')
-      backgroundImageURL = "url(#{location.protocol}//nitrous-image-icons.s3.amazonaws.com/cc-cards/#{cardType}.png)"
+      backgroundImageURL = "url(#{location.protocol}//nitrous-image-icons.s3.amazonaws.com/cards/#{cardType}.png)"
     $('#card-number').css 'background-image', backgroundImageURL
   ).observes 'controller.number'

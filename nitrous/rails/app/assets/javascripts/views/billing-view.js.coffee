@@ -8,4 +8,4 @@ App.BillingView = Em.View.extend
         cardType = 'amex'
       else if cardType == 'master_card'
         cardType = 'mastercard'
-      $('#card-type').css 'background-image', "url(#{location.protocol}//nitrous-image-icons.s3.amazonaws.com/cc-cards/#{cardType}.png)"
+      $('#card-type').css 'background-image', "url(#{location.protocol}//nitrous-image-icons.s3.amazonaws.com/cards/#{cardType}.png)"
