@@ -76,6 +76,31 @@ type websocketReader interface {
 	NextReader() (messageType int, r io.Reader, err error)
 }
 
+type Encoder interface {
+	Encode(data []byte) ([]byte, error)
+}
+
+type NoopEncoder struct{}
+type Base64Encoder struct{}
+type Base64Decoder struct{}
+
+func (*NoopEncoder) Encode(data []byte) ([]byte, error) {
+	return data, nil
+}
+
+// Implementation copy from encoding/base64/base64.go
+func (*Base64Encoder) Encode(decoded []byte) ([]byte, error) {
+	result := make([]byte, base64.StdEncoding.EncodedLen(len(decoded)))
+	base64.StdEncoding.Encode(result, decoded)
+	return result, nil
+}
+
+func (*Base64Decoder) Encode(encoded []byte) ([]byte, error) {
+	result := make([]byte, base64.StdEncoding.DecodedLen(len(encoded)))
+	n, err := base64.StdEncoding.Decode(result, encoded)
+	return result[:n], err
+}
+
 // ShellReader handles client input which allows type:
 // - d|
 // - r|
@@ -91,10 +116,12 @@ type ShellReader struct {
 
 	// message type for the protocol
 	MessageType int
+
+	Encoder Encoder
 }
 
-func NewShellReader(ws websocketReader, ch chan Message, t int) io.Reader {
-	return &ShellReader{socket: ws, msgChan: ch, MessageType: t}
+func NewShellReader(ws websocketReader, ch chan Message, t int, encoder Encoder) io.Reader {
+	return &ShellReader{socket: ws, msgChan: ch, MessageType: t, Encoder: encoder}
 }
 
 func (s *ShellReader) Read(p []byte) (int, error) {
@@ -133,8 +160,12 @@ func (s *ShellReader) Read(p []byte) (int, error) {
 	if newMessage && n > 2 {
 		// detect client input, copy everything back to p without the prefix
 		if bytes.Equal(buf[0:2], dataMsg) {
-			encoded := string(buf[2:n])
-			decoded, err := base64.StdEncoding.DecodeString(encoded)
+			encoded := buf[2:n]
+			decoded, err := s.Encoder.Encode(encoded)
+			if err != nil {
+				return 0, err
+			}
+
 			i := copy(p, decoded)
 			return i, err
 		}
@@ -163,17 +194,20 @@ func (s *ShellReader) Read(p []byte) (int, error) {
 // ShellWriter takes data written to it and writes it as a data message of the
 // form "d|server_output". It writes server output to be sent to the client.
 type ShellWriter struct {
-	writer io.Writer
+	writer  io.Writer
+	Encoder Encoder
 }
 
 // NewShellWriter creates a new ShellWriter that satisfies io.WriteCloser.
 // It is the caller's responsibility to call Close on the WriteCloser when done.
-func NewShellWriter(w io.Writer) *ShellWriter {
-	return &ShellWriter{writer: w}
+func NewShellWriter(w io.Writer, encoder Encoder) *ShellWriter {
+	return &ShellWriter{writer: w, Encoder: encoder}
 }
 
 func (s *ShellWriter) Write(p []byte) (int, error) {
-	encoded := base64.StdEncoding.EncodeToString(p)
+	// Encoding should not have error
+	encoded, _ := s.Encoder.Encode(p)
+
 	messageLength := len(encoded)
 	buf := make([]byte, messageLength+len(dataMsg))
 	copy(buf[0:2], dataMsg)

@@ -397,7 +397,7 @@ func (s *Server) wsContainerLogs(w http.ResponseWriter, r *http.Request) error {
 	stream := wsconn.NewConnectionHeartbeat(conn, true)
 	defer stream.Close()
 
-	return s.provider.Logs(id, shell.NewShellWriter(stream), follow, timestamps, tail)
+	return s.provider.Logs(id, shell.NewShellWriter(stream, &shell.Base64Encoder{}), follow, timestamps, tail)
 }
 
 // wsNewShell creates a new shell to a container using protocol specified in
@@ -446,8 +446,8 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 
 	// create stdin/stdout stream with the shell protocol
 	msgCh := make(chan shell.Message, messageQueueSize)
-	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
-	stdout := shell.NewShellWriter(stream)
+	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType, &shell.Base64Decoder{})
+	stdout := shell.NewShellWriter(stream, &shell.Base64Encoder{})
 
 	attached := make(chan struct{}, 1)
 	ch := sh.Attach(stdin, stdout, attached)
@@ -749,8 +749,8 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 
 	// create stdin/stdout stream with the shell protocol
 	msgCh := make(chan shell.Message, messageQueueSize)
-	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
-	stdout := shell.NewShellWriter(stream)
+	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType, &shell.Base64Decoder{})
+	stdout := shell.NewShellWriter(stream, &shell.Base64Encoder{})
 	exit := make(chan struct{})
 
 	go func() {
