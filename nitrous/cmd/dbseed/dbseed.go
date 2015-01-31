@@ -188,16 +188,12 @@ func (cm *ConfigMarshaller) templateJSON(ports []string, privileged bool) []byte
 	if cm.err != nil {
 		return nil
 	}
-	c := template.Container{
+
+	cfg := template.TemplateConfig{
 		Privileged: privileged,
 		PublishAll: false,
 		Env:        nil,
 		Ports:      ports,
-		Volumes:    nil,
-	}
-
-	cfg := template.TemplateConfig{
-		Containers: []template.Container{c},
 		Volumes:    nil,
 	}
 	var bs []byte

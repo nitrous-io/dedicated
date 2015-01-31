@@ -39,24 +39,11 @@ type Template struct {
 
 // TemplateConfig is used for unmarshalling Template.Config.
 type TemplateConfig struct {
-	Containers []Container `json:"containers"`
-	Volumes    []Volume    `json:"volumes"`
-}
-
-type Container struct {
-	Name       string   `json:"name"`
-	Slug       string   `json:"slug"`
-	Cmd        string   `json:"cmd"`
 	Privileged bool     `json:"privileged"`
 	PublishAll bool     `json:"publish_all"`
 	Env        []string `json:"env,omitempty"`
 	Ports      []string `json:"ports,omitempty"`
 	Volumes    []string `json:"volumes,omitempty"`
-}
-
-type Volume struct {
-	Name string `json:"name"`
-	Slug string `json:"slug"`
 }
 
 func All(d db.QueryReceiver) ([]*Template, error) {

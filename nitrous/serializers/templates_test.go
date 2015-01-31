@@ -47,18 +47,11 @@ var _ = Describe("base image serializer", func() {
 			}`, template.TypeStack, nowJSON, nowJSON)))
 		})
 
-		It("should set privileged if it includes privileged containers", func() {
+		It("should set privileged if it is included in the config", func() {
 			prevConf := model.Config
 			model.Config = `
 				{
-					"containers": [
-						{
-							"privileged": false
-						},
-						{
-							"privileged": true
-						}
-					]
+					"privileged": true
 				}
 			`
 

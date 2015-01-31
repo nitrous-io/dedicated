@@ -37,11 +37,7 @@ func SerializeTemplate(t *template.Template) *Template {
 
 	conf, err := t.ParsedConfig()
 	if err == nil {
-		for _, con := range conf.Containers {
-			if con.Privileged {
-				base.Privileged = true
-			}
-		}
+		base.Privileged = conf.Privileged
 	}
 	return base
 }
