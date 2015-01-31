@@ -147,8 +147,7 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
       @get('terminal')?.clear()
       @send 'goNext'
       # should fetch latest image from registry if using custom image or using nitrous template
-      shouldUpdateImage = (@get('selectedOption') == optionCustomImage) || (@get('selectedTemplate') && !@get('selectedOption'))
-      @get('controller').send('create', @get('image'), shouldUpdateImage)
+      @get('controller').send('create', @get('image'))
 
     goNext: ->
       i = @get 'currentScreenIndex'
