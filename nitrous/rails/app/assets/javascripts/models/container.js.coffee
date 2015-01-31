@@ -47,11 +47,11 @@ App.Container = klass = App.Model.extend
 
   sshPort: (->
     return unless portMappings = @get 'config.port'
-    for port in portMappings
-      for suffix in [':22/tcp', ':22']
-        suffixIdx = port.indexOf(suffix)
-        if port.indexOf('public:') == 0 && suffixIdx != -1 && suffixIdx == (port.length - suffix.length)
-          return port.match(/^public:(\d+):22(\/tcp)?$/)[1]
+    prefix = 'public:'
+    suffices = [':22/tcp', ':22']
+    return unless sshPort = portMappings.find (port, i) ->
+      port.startsWith(prefix) && (port.endsWith(suffices[0]) || port.endsWith(suffices[1]))
+    sshPort.match(/^public:(\d+):22(\/tcp)?$/)?[1]
   ).property 'config.port'
 
   sshURL: (->
