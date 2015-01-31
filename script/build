@@ -46,6 +46,8 @@ build() {
 
   # this file is useful for release to know the current version
   echo $VERSION > $BUILD_DIR/${binary}-VERSION
+  # this file is useful for chef version attribute overrides
+  echo "{ \"$binary\": { \"version\": \"$VERSION\" } }" > $BUILD_DIR/${binary}-VERSION.json
 }
 
 build_assets() {
