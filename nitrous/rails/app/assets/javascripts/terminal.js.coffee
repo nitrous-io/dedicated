@@ -1,3 +1,4 @@
+#= require polyfills
 #= require_self
 #= require lib/socket/socket-connection
 #= require webfonts
@@ -5,6 +6,8 @@
 
 parentWindow = window.parent
 parentWindow = null if parentWindow == window
+
+isMac = navigator.userAgent.indexOf("Macintosh") != -1
 
 window.NitrousTerminal =
   term: null
@@ -14,6 +17,8 @@ window.NitrousTerminal =
   firstConnect: true
   afterOpen: null
   readonly: false
+
+  ide: false
 
   resizeTimeout: null
 
@@ -65,13 +70,13 @@ window.NitrousTerminal =
 
     @term.originalKeyDown = @term.keyDown
     @term.keyDown = (event) =>
-      switch
-        when @matchesSwitchConsoleEditorKeybinding event
-          @handleSwitchConsoleEditorEvent event
-        when @matchesFullConsoleScreenKeybinding event
-          @handleFullConsoleScreenEvent event
-        else
-          @term.originalKeyDown event
+      if @ide
+        switch
+          when @matchesSwitchConsoleEditorKeybinding(event)
+            return @handleSwitchConsoleEditorEvent(event)
+          when @matchesFullConsoleScreenKeybinding(event)
+            return @handleFullConsoleScreenEvent(event)
+      @term.originalKeyDown(event)
 
   open: (nobeforeopen) ->
     @closed = false
@@ -144,18 +149,15 @@ window.NitrousTerminal =
       return false
     true
 
-  isMac: ->
-    parentWindow && parentWindow.App.util.IsMac
-
   # keybinding is shift+ctrl+c / ctrl+alt+c
   matchesSwitchConsoleEditorKeybinding: (event) ->
-    (@isMac() && event.shiftKey && event.ctrlKey && event.keyCode == 67) ||
-    (!@isMac() && event.ctrlKey && event.altKey && event.keyCode == 67)
+    (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 67) ||
+    (!isMac && event.ctrlKey && event.altKey && event.keyCode == 67)
 
   # keybinding is shift+ctrl+f / ctrl+alt+f
   matchesFullConsoleScreenKeybinding: (event) ->
-    (@isMac() && event.shiftKey && event.ctrlKey && event.keyCode == 70) ||
-    (!@isMac() && event.ctrlKey && event.altKey && event.keyCode == 70)
+    (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 70) ||
+    (!isMac && event.ctrlKey && event.altKey && event.keyCode == 70)
 
 window.webFontLoaded = ->
   NitrousTerminal.term?.sizeToFit()

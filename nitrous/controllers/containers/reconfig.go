@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
@@ -86,10 +87,14 @@ func (ctx *reconfigContext) run(env *middleware.Env, async bool) (*container.Con
 		defer func() {
 			if err != nil {
 				_ = cn.Update(db) // Ignore error here.
+				errMsg := err.Error()
+				if hError, ok := err.(*httperror.Error); ok {
+					errMsg = hError.Description
+				}
 				env.Events.Publish(
 					controllers.NewEvent(controllers.EventContainerReconfigureFailed, map[string]interface{}{
 						"container": serializers.SerializeContainer(cn),
-						"error":     err.Error(),
+						"error":     errMsg,
 					}),
 					env.User.Topic(),
 				)
@@ -108,6 +113,7 @@ func (ctx *reconfigContext) run(env *middleware.Env, async bool) (*container.Con
 			if liveContainer != nil {
 				cn = hydrateContainer(cn, liveContainer, h)
 			}
+			err = expandFreighterClientError(err)
 			return err
 		}
 		cn = hydrateContainer(cn, liveContainer, h)

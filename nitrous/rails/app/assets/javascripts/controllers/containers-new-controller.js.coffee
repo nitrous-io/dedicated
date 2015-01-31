@@ -88,9 +88,10 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
     , (jqxhr) => # container.save
       @handleErrorResponse(jqxhr)
 
-  pullImage: (repository, shouldUpdateImage, callback) ->
+  pullImage: (repository, callback) ->
+    @set 'pullingImage', true
     events = App.get 'eventsSocket'
-    App.Image.pull(@get('selectedHost'), repository, shouldUpdateImage).then (image) =>
+    App.Image.pull(@get('selectedHost'), repository, true).then (image) =>
       @set 'image', image
 
       onImagePullFailed = (data) =>
@@ -104,6 +105,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
           progress = JSON.parse(progress)
           errMsg = progress.errorDetail?.message
         App.postError(errMsg, 'Failed to pull image!')
+        @set 'pullingImage', false
         @set 'saving', false
 
       onImagePulled = (data) =>
@@ -111,8 +113,8 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
         return unless imageData.id == image.get('id')
         events.off 'image.pull_failed', onImagePullFailed
         events.off 'image.pulled', onImagePulled
-
         callback()
+        @set 'pullingImage', false
 
       events.on 'image.pull_failed', onImagePullFailed
       events.on 'image.pulled', onImagePulled
@@ -126,25 +128,26 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       else
         @transitionToRoute 'home.index'
 
-    create: (repository, shouldUpdateImage) ->
+    create: (repository) ->
       @set 'saving', true
 
       name = @get 'name'
       slug = @get 'slug'
+      selectedOption = @get 'selectedOption'
+      selectedTemplate = @get 'selectedTemplate'
 
-      @set 'pullingImage', true
-
-      if @get('selectedTemplate') && !@get('selectedOption')
-        img = @get('selectedTemplate.images.firstObject')
-        template = @get('selectedTemplate.slug')
-        @pullImage img, true, =>
-          @set 'pullingImage', false
-          @createContainer(name, slug, img, template)
-        return
-
-      # pull regular image
-      unless repository.match /^.*:.+$/
-        repository = repository.replace /:?$/, ':latest'
-      @pullImage repository, shouldUpdateImage, =>
-        @set 'pullingImage', false
+      if selectedOption == 'host-image'
+        # image already on host - no pull needed
         @createContainer(name, slug, repository)
+      else if selectedOption == 'custom-image'
+        # custom image
+        unless repository.match /^.*:.+$/
+          repository = repository.replace /:?$/, ':latest'
+        @pullImage repository, =>
+          @createContainer(name, slug, repository)
+      else if selectedTemplate
+        # update template
+        img = selectedTemplate.get 'images.firstObject'
+        template = selectedTemplate.get 'slug'
+        @pullImage img, =>
+          @createContainer(name, slug, img, template)

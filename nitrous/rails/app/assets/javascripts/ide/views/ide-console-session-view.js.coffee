@@ -68,6 +68,7 @@ App.IdeConsoleSessionView = Em.View.extend App.InjectTerminalIframeMixin,
       consoleSession = @get 'consoleSession'
 
       @injectTerminalIframe (terminal) =>
+        terminal.ide = true
         terminal.term.write 'Connecting...'
         terminal.willOpen = =>
           controller.makeUrlAndConnect(terminal)

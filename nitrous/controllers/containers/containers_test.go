@@ -2000,6 +2000,17 @@ var _ = Describe("controllers/containers", func() {
 				Expect(c.Image).To(Equal("nitrous-base"))
 				Expect(c.LockedAt).To(BeNil())
 			})
+
+			It("parses the error if binding failed", func() {
+				mockClient.ReconfigError = errors.New("port is already allocated: Bind for 0.0.0.0:8080")
+				doRequest(testParams)
+
+				Expect(res.Code).To(Equal(http.StatusConflict))
+
+				errType, msg := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("host_port_in_use"))
+				Expect(msg).To(Equal("Container cannot be started, Host port 8080 is already in use by another container."))
+			})
 		})
 
 		Context("when called in async mode and freighter is successful", func() {
@@ -2156,6 +2167,49 @@ var _ = Describe("controllers/containers", func() {
 					errorMsg, ok := data["error"].(string)
 					Expect(ok).To(BeTrue())
 					Expect(errorMsg).To(Equal("container blew up"))
+				}
+
+				cn, err := container.Find(db, u, containerName)
+				Expect(err).To(BeNil())
+				Expect(cn.CID).To(Equal("livebeef"))
+			})
+
+			It("publishes expands the httperror event", func() {
+				mockClient.ReconfigError = errors.New("port is already allocated: Bind for 0.0.0.0:8080")
+
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(asyncParams)
+
+				evtCh := make(chan *controllers.Event, 1)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventContainerReconfigureFailed {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(100 * time.Millisecond):
+					Fail("timeout while waiting for EventContainerReconfigureFailed")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventContainerReconfigureFailed))
+
+					data, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(data["container"]).NotTo(BeNil())
+					cnrData, ok := data["container"].(*serializers.Container)
+					Expect(ok).To(BeTrue())
+					Expect(cnrData.CID).To(Equal("livebeef")) // This should be updated from Freighter.
+
+					errorMsg, ok := data["error"].(string)
+					Expect(ok).To(BeTrue())
+					Expect(errorMsg).To(Equal("Container cannot be started, Host port 8080 is already in use by another container."))
 				}
 
 				cn, err := container.Find(db, u, containerName)

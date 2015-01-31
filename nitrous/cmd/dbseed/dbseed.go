@@ -211,24 +211,30 @@ func templates(d db.QueryReceiver) error {
 	if err != nil || !ok {
 		return err
 	}
-	stackPorts := []string{"public::3000"}
+
+	var (
+		stackPorts = []string{"public::22", "public::3000"}
+		basicPorts = []string{"public::22"}
+	)
 
 	cm := &ConfigMarshaller{}
 
-	railsJSON := cm.templateJSON("quay.io/nitrous/rails:latest", stackPorts, false)
-	laravelJSON := cm.templateJSON("quay.io/nitrous/laravel:latest", stackPorts, false)
-	meanJSON := cm.templateJSON("quay.io/nitrous/mean:latest", stackPorts, false)
-	meteorJSON := cm.templateJSON("quay.io/nitrous/meteor:latest", stackPorts, false)
-	djangoJSON := cm.templateJSON("quay.io/nitrous/django:latest", stackPorts, false)
-	aspnetJSON := cm.templateJSON("quay.io/nitrous/aspnet:latest", stackPorts, false)
+	var (
+		railsJSON   = cm.templateJSON("quay.io/nitrous/rails:latest", stackPorts, false)
+		laravelJSON = cm.templateJSON("quay.io/nitrous/laravel:latest", stackPorts, false)
+		meanJSON    = cm.templateJSON("quay.io/nitrous/mean:latest", stackPorts, false)
+		meteorJSON  = cm.templateJSON("quay.io/nitrous/meteor:latest", stackPorts, false)
+		djangoJSON  = cm.templateJSON("quay.io/nitrous/django:latest", stackPorts, false)
+		aspnetJSON  = cm.templateJSON("quay.io/nitrous/aspnet:latest", stackPorts, false)
 
-	golangJSON := cm.templateJSON("quay.io/nitrous/golang:latest", []string{}, false)
-	nodejsJSON := cm.templateJSON("quay.io/nitrous/nodejs:latest", []string{}, false)
-	phpJSON := cm.templateJSON("quay.io/nitrous/php:latest", []string{}, false)
-	pythonJSON := cm.templateJSON("quay.io/nitrous/python:latest", []string{}, false)
-	rubyJSON := cm.templateJSON("quay.io/nitrous/ruby:latest", []string{}, false)
-	dindJSON := cm.templateJSON("quay.io/nitrous/docker:latest", []string{}, true)
-	ubuntuJSON := cm.templateJSON("quay.io/nitrous/ubuntu:latest", []string{}, false)
+		golangJSON = cm.templateJSON("quay.io/nitrous/golang:latest", basicPorts, false)
+		nodejsJSON = cm.templateJSON("quay.io/nitrous/nodejs:latest", basicPorts, false)
+		phpJSON    = cm.templateJSON("quay.io/nitrous/php:latest", basicPorts, false)
+		pythonJSON = cm.templateJSON("quay.io/nitrous/python:latest", basicPorts, false)
+		rubyJSON   = cm.templateJSON("quay.io/nitrous/ruby:latest", basicPorts, false)
+		dindJSON   = cm.templateJSON("quay.io/nitrous/docker:latest", basicPorts, true)
+		ubuntuJSON = cm.templateJSON("quay.io/nitrous/ubuntu:latest", basicPorts, false)
+	)
 
 	if cm.err != nil {
 		return err
@@ -238,7 +244,7 @@ func templates(d db.QueryReceiver) error {
 		// stack templates
 		newTemplate("Ruby on Rails", "rails", railsJSON, template.TypeStack, railsDesc),
 		newTemplate("Laravel", "laravel", laravelJSON, template.TypeStack, laravelDesc),
-		newTemplate("MEAN", "mean", meanJSON, template.TypeStack, laravelDesc),
+		newTemplate("MEAN", "mean", meanJSON, template.TypeStack, meanDesc),
 		newTemplate("Meteor", "meteor", meteorJSON, template.TypeStack, meteorDesc),
 		newTemplate("Django", "django", djangoJSON, template.TypeStack, djangoDesc),
 		newTemplate("ASP.NET", "aspnet", aspnetJSON, template.TypeStack, aspnetDesc),
@@ -249,6 +255,7 @@ func templates(d db.QueryReceiver) error {
 		newTemplate("Python", "python", pythonJSON, template.TypeBasic, pythonDesc),
 		newTemplate("Ruby", "ruby", rubyJSON, template.TypeBasic, rubyDesc),
 		newTemplate("Ubuntu", "ubuntu", ubuntuJSON, template.TypeBasic, vanillaDesc),
+		// advanced template
 		newTemplate("Docker", "docker", dindJSON, template.TypeAdvanced, dockerDesc),
 	}
 	for _, t := range templates {
@@ -268,7 +275,7 @@ func creditTypes(d db.QueryReceiver) error {
 	}
 
 	cType := &credittype.CreditType{
-		Name:         "Signup_Credit",
+		Name:         credittype.SignupCreditType,
 		Description:  sql.NullString{"Awarded to users for signing up", true},
 		Active:       true,
 		DefaultValue: 500, // $5
@@ -317,53 +324,56 @@ const (
 
 	phpDesc = `PHP: a popular general-purpose scripting language that is especially suited to web development
 
-•  Composer 1.0.0-alpha9
-•  PHP 5.5.9
+•  PHP 5.5
+•  Composer 1.0
+•  MySQL 5.5
+•  Apache 2.4
 •  Ubuntu 14.04`
 
 	nodejsDesc = `Node.js: a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications
 
-•  nvm 0.22.0
-•  Node.js 0.10.35
+•  Node.js 0.10
+•  NPM 2.3
+•  NVM 0.23
 •  Ubuntu 14.04`
 
 	pythonDesc = `Python: a programming language that lets you work quickly and integrate systems more effectively
 
-•  virtualenv 1.11.4
-•  python 3.4.0
-•  python 2.7.6
+•  Virtualenv 1.11
+•  Python 3.4
+•  Python 2.7
 •  Ubuntu 14.04`
 
 	rubyDesc = `Ruby: a dynamic, open source programming language with a focus on simplicity and productivity.
 
-•  bundler 1.7.9
-•  ruby 2.1.5
+•  Ruby 2.2
+•  Bundler 1.7.12
 •  Ubuntu 14.04`
 
 	dockerDesc = `A development environment with Docker set up.
 
-•  Docker 1.4.1
+•  Docker 1.4
 •  Ubuntu 14.04`
 
 	railsDesc = `Ruby on Rails: an open-source framework optimized for programmer happiness and sustainable productivity
 
-•  Rails 4.1
-•  Ruby 2.1.5
+•  Rails 4.2
+•  Ruby 2.2
 •  PostgreSQL 9.3
 •  Ubuntu 14.04`
 
 	laravelDesc = `Laravel, the PHP framework for web artisans
 
-•  Laravel 4.2.12
-•  PHP 5.5.9
+•  Laravel 4.2
+•  PHP 5.5
 •  PostgreSQL 9.3
 •  Ubuntu 14.04`
 
 	meanDesc = `MEAN: an opinionated full-stack JavaScript framework
 
-•  MEAN 0.4.1
-•  Node.js 0.10.33
-•  MongoDB 2.6.6
+•  MEAN 0.4
+•  Node.js 0.10
+•  MongoDB 2.6
 •  Ubuntu 14.04`
 
 	meteorDesc = `Meteor: build web and mobile apps in pure JavaScript
@@ -373,17 +383,17 @@ const (
 
 	djangoDesc = `Django: the web framework for perfectionists with deadlines
 
-•  Django 1.7.1
-•  Python 3.4.0
-•  IPython 2.3.1
-•  Gunicorn 19.1.1
+•  Django 1.7
+•  Python 3.4
+•  IPython 2.3
+•  Gunicorn 19.1
 •  Ubuntu 14.04`
 
 	aspnetDesc = `ASP.NET: a free web framework for building great Web sites and Web applications
 
 •  ASP.NET 5
-•  Mono 3.10.0-0xamarin2
-•  KRE 1.0.0-beta1
+•  Mono 3.12
+•  KRE 1.0
 •  Ubuntu 14.04`
 
 	vanillaDesc = `A minimalist development environment

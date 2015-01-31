@@ -2,11 +2,11 @@ package promocodes
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
-
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
 
@@ -25,10 +25,14 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return errNotFound
 	}
 
+	var expiresAt *time.Time
+	if c.ExpiresAt.Valid {
+		expiresAt = &c.ExpiresAt.Time
+	}
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"credit_amount": c.DefaultValue,
-		"expires_at":    c.ExpiresAt,
+		"expires_at":    expiresAt,
 	}
 	return nil
 }
