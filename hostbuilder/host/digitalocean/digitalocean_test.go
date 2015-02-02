@@ -57,7 +57,6 @@ var _ = Describe("host/digitalocean", func() {
 			s.AddResponse("GET", "images/id", dotest.NewResponse(200, oneImage))
 			s.AddResponse("GET", "regions", dotest.NewResponse(200, allRegions))
 			s.AddResponse("POST", "droplets/create", dotest.NewResponse(200, newDroplet))
-			s.AddResponse("GET", "droplets/id", dotest.NewResponse(200, newDroplet))
 		})
 
 		Context("Successful creation", func() {
@@ -66,7 +65,33 @@ var _ = Describe("host/digitalocean", func() {
 			// so not sure how to do it - arun
 		})
 
-		Context("Unsuccessful creation", func() {
+		Context("when there is a timeout creating the host", func() {
+			BeforeEach(func() {
+				s.AddResponse("GET", "actions/id", dotest.NewResponse(200, completedAction))
+				s.AddResponse("GET", "droplets/id", dotest.NewResponse(200, droplet))
+			})
+
+			It("should return an ErrCreateTimeout", func() {
+				providerConfig := map[string]string{
+					"create_timeout": "1ms", // Use a short timeout.
+					"token":          "dummy-token",
+				}
+				h, err := digitalocean.NewHost(providerConfig, `{
+					"id": "1",
+					"image_id": "1",
+					"region_id": "nyc",
+					"size_id": "512mb"
+				}`)
+				Expect(err).To(BeNil())
+				doHost := h.(*digitalocean.Host)
+				doHost.Client = c
+
+				_, err = h.Create(&newlineWriter{os.Stdout})
+				Expect(err).To(Equal(digitalocean.ErrCreateTimeout))
+			})
+		})
+
+		Context("when DigitalOcean fails to create the host", func() {
 			BeforeEach(func() {
 				s.AddResponse("GET", "actions/id", dotest.NewResponse(200, erroredAction))
 				s.AddResponse("DELETE", "droplets/id/destroy", dotest.NoResponse)

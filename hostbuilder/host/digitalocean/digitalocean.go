@@ -31,7 +31,10 @@ var (
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
 	SecretLocation  = "/etc/freighterd/secret"
 
-	StateWaitTime = 3 * time.Second
+	DefaultCreateTimeout = 5 * time.Minute
+	StateWaitTime        = 3 * time.Second
+
+	ErrCreateTimeout = errors.New("timed out creating host")
 
 	// FIXME: the map should belongs to client, not the builder
 	regionsMap = map[string]string{
@@ -70,11 +73,12 @@ type Host struct {
 	Client *godo.Client
 	Config *HostConfig
 
-	droplet    *godo.Droplet
-	privateKey *rsa.PrivateKey
-	conn       *sshutil.Conn
-	sshKey     *godo.Key
-	uuid       string
+	droplet       *godo.Droplet
+	privateKey    *rsa.PrivateKey
+	conn          *sshutil.Conn
+	sshKey        *godo.Key
+	uuid          string
+	createTimeout time.Duration
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -90,17 +94,23 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{"Fetching updates", updateSoftware},
 		{"Applying settings", restartFreighterd},
 	}
+	resultCh := make(chan error)
 	ctx := context.NewContext(h, steps, w)
-	if err := ctx.Execute(); err != nil {
-		hlog(h, "ERROR: Failed in create host step: %+v", ctx.Error())
-		if h.droplet != nil {
-			if h.sshKey != nil {
-				hlog(h, "keyID=%d Leaving droplet for inspection: %d", h.sshKey.ID, h.droplet.ID)
-			} else {
-				hlog(h, "keyID=unknown Leaving droplet for inspection: %d", h.droplet.ID)
-			}
+	go func() {
+		resultCh <- ctx.Execute()
+	}()
+
+	select {
+	case err := <-resultCh:
+		if err != nil {
+			hlog(h, "ERROR: Failed in create host step: %+v", ctx.Error())
+			h.logDroplet()
+			return nil, err
 		}
-		return nil, err
+	case <-time.After(h.createTimeout):
+		hlog(h, "ERROR: timed out in create host step")
+		h.logDroplet()
+		return nil, ErrCreateTimeout
 	}
 
 	if h.sshKey != nil {
@@ -305,6 +315,16 @@ func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 	hlog(h, format, v...)
 }
 
+func (h *Host) logDroplet() {
+	if h.droplet != nil {
+		if h.sshKey != nil {
+			hlog(h, "keyID=%d Leaving droplet for inspection: %d", h.sshKey.ID, h.droplet.ID)
+		} else {
+			hlog(h, "keyID=unknown Leaving droplet for inspection: %d", h.droplet.ID)
+		}
+	}
+}
+
 // mlabel returns provider.region which is probably helpful if we ever want to
 // differentiate between regions.
 //
@@ -329,14 +349,20 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	if defaultConfig["token"] == "" {
 		return nil, errors.New("digitalocean builder requires valid access token")
 	}
+	createTimeout := DefaultCreateTimeout
+	d, err := time.ParseDuration(defaultConfig["create_timeout"])
+	if err == nil {
+		createTimeout = d
+	}
 	t := &oauth.Transport{
 		Token: &oauth.Token{AccessToken: defaultConfig["token"]},
 	}
 	client := godo.NewClient(t.Client())
 	host := &Host{
-		Config: hostConfig,
-		Client: client,
-		uuid:   defaultConfig["uuid"],
+		Config:        hostConfig,
+		Client:        client,
+		uuid:          defaultConfig["uuid"],
+		createTimeout: createTimeout,
 	}
 	return host, nil
 }
@@ -440,8 +466,9 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	}
 	connInterval := 5 * time.Second
 	timeout := 30 * time.Second
+	cancel := make(chan struct{})
 	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
-		connInterval, timeout, make(chan struct{}), info)
+		connInterval, timeout, cancel, info)
 	if err != nil {
 		return mh.Error(err, label)
 	}
