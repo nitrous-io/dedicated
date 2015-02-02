@@ -8,9 +8,8 @@
       "secret_key": ""
     },
     "digitalocean": {
-      "client_id": "",
-      "api_key": "",
-      "token": ""
+      "token": "",
+      "create_timeout": "5m"
     },
     "docker": {
       "freighterd_location": "/home/vagrant/workspace/dedicated/build/freighterd",
