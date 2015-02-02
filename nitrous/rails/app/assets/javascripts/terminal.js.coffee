@@ -18,6 +18,15 @@ base64Encoder = (data) =>
 base64Decoder = (data) =>
   window.atob(data)
 
+utf8Encoder = new TextEncoder('utf8')
+utf8Decoder = new TextDecoder('utf8')
+
+utf8Encode = (data) =>
+  utf8Encoder.encode(data)
+
+utf8Decode = (data) =>
+  utf8Decoder.decode(new DataView(data))
+
 window.NitrousTerminal =
   term: null
   conn: null
@@ -78,7 +87,7 @@ window.NitrousTerminal =
     @term.handler = (data) =>
       return if @readonly || @conn.readyState != 1
       encoded = @encoder(data)
-      @conn.send "d|#{encoded}"
+      @conn.send utf8Encode("d|#{encoded}")
 
     @term.originalKeyDown = @term.keyDown
     @term.keyDown = (event) =>
@@ -106,6 +115,8 @@ window.NitrousTerminal =
         @decoder = noopEncoder
       else
         throw new Error('invalid websocket encoding')
+
+    @encoding = encoding
 
   retry: ->
     @conn.retry()
@@ -142,6 +153,9 @@ window.NitrousTerminal =
 
   didReceiveMessage: (ev) ->
     message = ev.data
+    if message instanceof ArrayBuffer
+      message = utf8Decode(message)
+
     type = message.slice(0, 2)
     switch type
       when 'd|'

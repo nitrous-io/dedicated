@@ -31,11 +31,14 @@ App.TerminalConnectionMixin = Ember.Mixin.create
   connectTerminal: (container, terminal, action) ->
     container.getFreighterInfo().then (features) =>
       @makeUrl(container, terminal, action).then (url) =>
+        url += '&encoding=binary'
+        ###
         if features.websocket_encoding == 'base64'
           url += '&encoding=base64'
           terminal.setEncoding('base64')
         else
           terminal.setEncoding('plain')
+        ###
 
         terminal.url = url
         terminal.open(true)
