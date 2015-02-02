@@ -28,4 +28,20 @@ var _ = Describe("mkdir", func() {
 		Expect(stat.IsDir()).To(BeTrue(), "expect a directory")
 		Expect(stat.Mode().String()).To(Equal("drwxr-xr-x"), "unexpected permission")
 	})
+
+	It("sets the owner to the parent directory's owner", func() {
+		root, _ := ioutil.TempDir("/tmp", "cfs-mkdir")
+		defer os.RemoveAll(root)
+		os.Chown(root, 1234, 123)
+
+		p := filepath.Join(root, "testdir")
+		fs := &FS{}
+		err := fs.mkdir(p)
+		Expect(err).To(BeNil(), "unexpected error")
+
+		stat, _ := os.Stat(p)
+		uid, gid, _ := owner(stat)
+		Expect(uid).To(Equal(1234), "unexpected uid")
+		Expect(gid).To(Equal(123), "unexpected gid")
+	})
 })
