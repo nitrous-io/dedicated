@@ -125,7 +125,7 @@ func (c *FS) deleteFile(fileName string) error {
 }
 
 func (c *FS) mkdir(dir string) error {
-	return os.Mkdir(dir, 755)
+	return os.Mkdir(dir, os.ModeDir|0755)
 }
 
 func (c *FS) write(path, content string) error {
