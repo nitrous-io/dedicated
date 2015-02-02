@@ -1050,10 +1050,7 @@ func (c *client) TagImage(image, tag string, force bool) error {
 }
 
 func (c *client) InspectImage(image string) (*Image, error) {
-	data := &url.Values{
-		"image":  []string{image},
-		"remote": []string{"true"},
-	}
+	data := &url.Values{"image": []string{image}}
 	u := fmt.Sprintf("%s/images/inspect?%s", c.host.BaseURL(), data.Encode())
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {

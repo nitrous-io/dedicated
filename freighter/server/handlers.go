@@ -650,7 +650,7 @@ func (s *Server) pullImage(w http.ResponseWriter, r *http.Request) error {
 
 	if !update {
 		// Don't update if image already exists.
-		if _, err := s.provider.InspectImage(repo, false); err == nil {
+		if _, err := s.provider.InspectImage(repo); err == nil {
 			s.respondEncodeJSON(w, http.StatusNotModified, nil)
 			return nil
 		}
@@ -698,11 +698,7 @@ func (s *Server) inspectImage(w http.ResponseWriter, r *http.Request) error {
 		})
 		return nil
 	}
-	remote, err := strconv.ParseBool(r.FormValue("remote"))
-	if err != nil {
-		remote = true
-	}
-	info, err := s.provider.InspectImage(image, remote)
+	info, err := s.provider.InspectImage(image)
 	if err != nil {
 		return err
 	}

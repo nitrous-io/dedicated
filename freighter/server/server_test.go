@@ -1541,8 +1541,6 @@ var _ = Describe("server", func() {
 			err := json.NewDecoder(res.Body).Decode(&returned)
 			Expect(err).To(BeNil(), "failed to decode response as valid image info")
 			Expect(returned["image"]).To(Equal(expected), "failed to encode valid response")
-
-			Expect(prov.InspectImageRemoteFallback).To(BeTrue())
 		})
 
 		It("responds with 422 Status when the image is empty", func() {
@@ -1556,16 +1554,6 @@ var _ = Describe("server", func() {
 			res := doRequest("ubuntu", nil)
 			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 			Expect(res.Body.String()).To(MatchJSON(`{"error":"could not find image"}`))
-
-			Expect(prov.InspectImageRemoteFallback).To(BeTrue())
-		})
-
-		It("should allow for opting out of remote image", func() {
-			expected := &provider.ImageInfo{ID: "ID1"}
-			prov.InspectImageReturn = expected
-			res := doRequest("ubuntu", &url.Values{"remote": {"false"}})
-			Expect(res.Code).To(Equal(http.StatusOK), "failed to inspect image")
-			Expect(prov.InspectImageRemoteFallback).To(BeFalse())
 		})
 	})
 

@@ -121,12 +121,12 @@ var _ = Describe("provider/docker config", func() {
 		It("sets specific nitrous settings for nitrous image", func() {
 			cfg, err := prov.MkContainerConfig(&provider.ContainerConfig{
 				Hostname: cnrName,
-				Image:    "nitrousio/php", // Nitrous image.
+				Image:    "quay.io/nitrous/php", // Nitrous image.
 			}, true)
 			Expect(err).To(BeNil())
 
 			Expect(cfg.Hostname).To(Equal(cnrName), "expect hostname")
-			Expect(cfg.Image).To(Equal("nitrousio/php"), "expect imagename")
+			Expect(cfg.Image).To(Equal("quay.io/nitrous/php"), "expect imagename")
 
 			Expect(cfg.Volumes).To(HaveKey("/nitrous/ssh"), "expect ssh volumes")
 			Expect(cfg.Env).To(BeEmpty(), "expect empty preset env")
@@ -147,7 +147,7 @@ var _ = Describe("provider/docker config", func() {
 		It("configured all exposed ports", func() {
 			cfg, err := prov.MkContainerConfig(&provider.ContainerConfig{
 				Hostname: cnrName,
-				Image:    "nitrousio/php",
+				Image:    "quay.io/nitrous/php",
 				PortBindings: []string{"public::4000", "3000:8080",
 					"private:5000:5001", "127.0.0.1:5002:5002"},
 			}, true)
@@ -192,7 +192,7 @@ var _ = Describe("provider/docker config", func() {
 			It("preserves existing port bindings", func() {
 				hostCfg, err := prov.MkHostConfig(oldHostCfg, &provider.ContainerConfig{
 					Hostname: cnrName,
-					Image:    "nitrousio/php",
+					Image:    "quay.io/nitrous/php",
 				}, true)
 				Expect(err).To(BeNil())
 
@@ -203,7 +203,7 @@ var _ = Describe("provider/docker config", func() {
 			It("defaults PublishAllPorts to true", func() {
 				hostCfg, err := prov.MkHostConfig(oldHostCfg, &provider.ContainerConfig{
 					Hostname: cnrName,
-					Image:    "nitrousio/php",
+					Image:    "quay.io/nitrous/php",
 				}, true)
 				Expect(err).To(BeNil())
 
@@ -214,7 +214,7 @@ var _ = Describe("provider/docker config", func() {
 				publishAll := false
 				hostCfg, err := prov.MkHostConfig(oldHostCfg, &provider.ContainerConfig{
 					Hostname:   cnrName,
-					Image:      "nitrousio/php",
+					Image:      "quay.io/nitrous/php",
 					PublishAll: &publishAll,
 				}, true)
 				Expect(err).To(BeNil())
@@ -256,7 +256,7 @@ var _ = Describe("provider/docker config", func() {
 				oldHostCfg.Binds = []string{sshBind, "REMOVEME"}
 				hostCfg = getCfg(&provider.ContainerConfig{
 					Hostname: cnrName,
-					Image:    "nitrousio/php", // Nitrous image.
+					Image:    "quay.io/nitrous/php", // Nitrous image.
 					Mounts:   []string{"data", "music:/mpd/albums"},
 				})
 				Expect(hostCfg.Binds).To(HaveLen(3))
@@ -272,7 +272,7 @@ var _ = Describe("provider/docker config", func() {
 				oldHostCfg.Binds = []string{sshBind, "KEEPME"}
 				hostCfg = getCfg(&provider.ContainerConfig{
 					Hostname: cnrName,
-					Image:    "nitrousio/php",
+					Image:    "quay.io/nitrous/php",
 					Mounts:   nil,
 				})
 				Expect(hostCfg.Binds).To(HaveLen(2))
@@ -284,7 +284,7 @@ var _ = Describe("provider/docker config", func() {
 				oldHostCfg.Binds = []string{sshBind, "REMOVEME"}
 				hostCfg = getCfg(&provider.ContainerConfig{
 					Hostname: cnrName,
-					Image:    "nitrousio/php", // Nitrous image.
+					Image:    "quay.io/nitrous/php", // Nitrous image.
 					Mounts:   []string{},
 				})
 				Expect(hostCfg.Binds).To(HaveLen(1))
@@ -298,7 +298,7 @@ var _ = Describe("provider/docker config", func() {
 				hostCfg, err = prov.MkHostConfig(oldHostCfg,
 					&provider.ContainerConfig{
 						Hostname:     cnrName,
-						Image:        "nitrousio/php", // Nitrous image.
+						Image:        "quay.io/nitrous/php", // Nitrous image.
 						PortBindings: []string{"public::4000", "3000:8080", "private:5000:5001"},
 					}, true)
 				Expect(err).To(BeNil())
