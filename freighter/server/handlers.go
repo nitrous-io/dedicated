@@ -386,7 +386,7 @@ func (s *Server) exportContainer(w http.ResponseWriter, r *http.Request) {
 func getEncoder(encoding string) (shell.EncoderDecoder, error) {
 	switch encoding {
 	case "", "binary":
-		return shell.NoopEncoder, nil
+		return shell.PlainEncoder, nil
 	case "base64":
 		return shell.Base64Encoder, nil
 	default:

@@ -33,7 +33,7 @@ func TestNewShellReader(t *testing.T) {
 	for _, tc := range testCases {
 		in := bytes.NewBufferString(tc.msg)
 		ch := make(chan Message, 1)
-		s := NewShellReader(wsReader{Reader: in}, ch, websocket.BinaryMessage, NoopEncoder)
+		s := NewShellReader(wsReader{Reader: in}, ch, websocket.BinaryMessage, PlainEncoder)
 
 		buf := make([]byte, 100)
 		n, _ := s.Read(buf)
@@ -60,23 +60,51 @@ func TestNewShellReader(t *testing.T) {
 }
 
 func TestReadFragmentedMessages(t *testing.T) {
-	r, w := io.Pipe()
-	s := NewShellReader(wsReader{Reader: r}, make(chan Message), websocket.BinaryMessage, NoopEncoder)
-
-	go func() {
-		w.Write([]byte(`d|hello-`))
-		w.Write([]byte(`fragmented-message`))
-		w.CloseWithError(io.ErrClosedPipe)
-	}()
-
-	buf := bytes.NewBuffer(nil)
-	_, err := io.Copy(buf, s)
-	if err != io.ErrClosedPipe {
-		t.Errorf("expect err %v but got %v", io.ErrClosedPipe, err)
+	testCases := []struct {
+		encodedMessages []string
+		decodedMessage  string
+		encoder         EncoderDecoder
+	}{
+		{
+			encodedMessages: []string{
+				"d|hello-",
+				"fragmented-message",
+			},
+			decodedMessage: "hello-fragmented-message",
+			encoder:        PlainEncoder,
+		},
+		/* TODO: Base64 not handling fragmented message correctly. :(
+		{
+			encodedMessages: []string{
+				"d|aGVsbG8tZnJhZ21l",
+				"bnRlZC1tZXNzYWdl",
+			},
+			decodedMessage: "hello-fragmented-message",
+			encoder:        Base64Encoder,
+		},
+		*/
 	}
-	expected := "hello-fragmented-message"
-	if buf.String() != expected {
-		t.Errorf("expect %s but got %v", expected, buf.String())
+
+	for _, tc := range testCases {
+		r, w := io.Pipe()
+		s := NewShellReader(wsReader{Reader: r}, make(chan Message), websocket.BinaryMessage, tc.encoder)
+
+		go func() {
+			for _, fragment := range tc.encodedMessages {
+				w.Write([]byte(fragment))
+			}
+			w.CloseWithError(io.ErrClosedPipe)
+		}()
+
+		buf := bytes.NewBuffer(nil)
+		_, err := io.Copy(buf, s)
+		if err != io.ErrClosedPipe {
+			t.Errorf("expect err %v but got %v", io.ErrClosedPipe, err)
+		}
+		expected := tc.decodedMessage
+		if buf.String() != expected {
+			t.Errorf("expect %s but got %v", expected, buf.String())
+		}
 	}
 }
 
@@ -84,13 +112,15 @@ func TestNewShellWriter(t *testing.T) {
 	testCases := []struct {
 		msg      string
 		expected string
+		encoder  EncoderDecoder
 	}{
-		{`nitrous@foobar`, `d|nitrous@foobar`},
+		{`nitrous@foobar`, `d|nitrous@foobar`, PlainEncoder},
+		{`nitrous@foobar`, `d|bml0cm91c0Bmb29iYXI=`, Base64Encoder},
 	}
 
 	for _, tc := range testCases {
 		w := bytes.NewBuffer(nil)
-		s := NewShellWriter(w, NoopEncoder)
+		s := NewShellWriter(w, tc.encoder)
 
 		r := bytes.NewBufferString(tc.msg)
 		io.Copy(s, r)
@@ -103,7 +133,7 @@ func TestNewShellWriter(t *testing.T) {
 
 func TestShellWriterClose(t *testing.T) {
 	w := bytes.NewBuffer(nil)
-	s := NewShellWriter(w, NoopEncoder)
+	s := NewShellWriter(w, PlainEncoder)
 
 	s.Close()
 

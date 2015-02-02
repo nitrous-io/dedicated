@@ -115,7 +115,7 @@ func (impl *EncoderImpl) Decode(data []byte) ([]byte, error) {
 	return impl.DecoderFunc(data)
 }
 
-var NoopEncoder = &EncoderImpl{
+var PlainEncoder = &EncoderImpl{
 	NoopEncode,
 	NoopDecode,
 }
