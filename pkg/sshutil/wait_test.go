@@ -52,7 +52,7 @@ func TestWaitForSSH(t *testing.T) {
 	}()
 	info := map[string]interface{}{}
 	_, err := WaitForSSH(listener.Addr().String(), "root", priv,
-		10*time.Millisecond, make(chan struct{}), info)
+		10*time.Millisecond, 5*time.Second, make(chan struct{}), info)
 	if err != nil {
 		t.Fatal("failed to wait for SSH connection")
 	}
@@ -80,7 +80,8 @@ func TestWaitForSSHCancel(t *testing.T) {
 	cancel := make(chan struct{}, 1)
 	errCh := make(chan error)
 	clientKey, _ := GenerateSSHKey() // Use a different key so that conn fails.
-	wait := 10 * time.Millisecond
+	connInterval := 10 * time.Millisecond
+	timeout := 10 * time.Second
 	orig := MaxAttempts
 	MaxAttempts = int(math.MaxInt64) // Set MaxAttempts to a huge number so we never stop because of it.
 	defer func(n int) {
@@ -88,12 +89,12 @@ func TestWaitForSSHCancel(t *testing.T) {
 	}(orig)
 	go func() {
 		_, err := WaitForSSH(listener.Addr().String(), "root", clientKey,
-			wait, cancel, make(map[string]interface{}))
+			connInterval, timeout, cancel, make(map[string]interface{}))
 		errCh <- err
 	}()
 
-	wg.Wait()              // Wait for at least 1 connection.
-	<-time.After(3 * wait) // Allow enough time to pass so that we actually attempt to connect.
+	wg.Wait()                      // Wait for at least 1 connection.
+	<-time.After(3 * connInterval) // Allow enough time to pass so that we actually attempt to connect.
 
 	close(cancel)
 	select {
@@ -101,7 +102,7 @@ func TestWaitForSSHCancel(t *testing.T) {
 		if err != CancelError {
 			t.Fatalf("failed to cancel WaitForSSH, got err: %v", err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for WaitForSSH to return")
 	}
 }
