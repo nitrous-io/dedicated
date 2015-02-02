@@ -70,7 +70,7 @@ elif [ "$APP" == "compass" ]; then
 elif [ "$APP" == "nitrous" ]; then
   run test_db nitrous $SUITE
 elif [ "$APP" == "pkg" ]; then
-  run test_app pkg
+  run test_app pkg $SUITE
 elif [ "$APP" == "shell" ]; then
   # start necessary service and launch the shell
   echo "===> Starting Docker daemon"
