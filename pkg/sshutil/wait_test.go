@@ -3,7 +3,9 @@ package sshutil
 import (
 	"bytes"
 	"errors"
+	"math"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,23 +26,27 @@ func dummyPubKeyCallback(priv *rsa.PrivateKey) pubKeyCallback {
 	}
 }
 
+func dummyServerConfig(key *rsa.PrivateKey) *ssh.ServerConfig {
+	serverConfig := &ssh.ServerConfig{
+		PublicKeyCallback: dummyPubKeyCallback(key),
+	}
+	signer, _ := ssh.ParsePrivateKey(GetPem(key))
+	serverConfig.AddHostKey(signer)
+	return serverConfig
+}
+
 func TestWaitForSSH(t *testing.T) {
 	priv, _ := GenerateSSHKey()
-	serverConfig := &ssh.ServerConfig{
-		PublicKeyCallback: dummyPubKeyCallback(priv),
-	}
-	signer, _ := ssh.ParsePrivateKey(GetPem(priv))
-	serverConfig.AddHostKey(signer)
-
-	// start the server
+	serverConfig := dummyServerConfig(priv)
 	listener, _ := net.Listen("tcp", "127.0.0.1:0")
 	go func() {
 		for {
 			conn, _ := listener.Accept()
-			_, _, reqs, err := ssh.NewServerConn(conn, serverConfig)
+			sconn, _, reqs, err := ssh.NewServerConn(conn, serverConfig)
 			if err != nil {
 				continue
 			}
+			defer sconn.Close()
 			go ssh.DiscardRequests(reqs)
 		}
 	}()
@@ -48,6 +54,54 @@ func TestWaitForSSH(t *testing.T) {
 	_, err := WaitForSSH(listener.Addr().String(), "root", priv,
 		10*time.Millisecond, make(chan struct{}), info)
 	if err != nil {
-		t.Fatal("failed to wait for ssh connection")
+		t.Fatal("failed to wait for SSH connection")
+	}
+}
+
+func TestWaitForSSHCancel(t *testing.T) {
+	priv, _ := GenerateSSHKey()
+	serverConfig := dummyServerConfig(priv)
+	listener, _ := net.Listen("tcp", "127.0.0.1:0")
+	var wg sync.WaitGroup
+	go func() {
+		for {
+			wg.Add(1)
+			conn, _ := listener.Accept()
+			wg.Done()
+			sconn, _, reqs, err := ssh.NewServerConn(conn, serverConfig)
+			if err != nil {
+				continue
+			}
+			defer sconn.Close()
+			go ssh.DiscardRequests(reqs)
+		}
+	}()
+
+	cancel := make(chan struct{}, 1)
+	errCh := make(chan error)
+	clientKey, _ := GenerateSSHKey() // Use a different key so that conn fails.
+	wait := 10 * time.Millisecond
+	orig := MaxAttempts
+	MaxAttempts = int(math.MaxInt64) // Set MaxAttempts to a huge number so we never stop because of it.
+	defer func(n int) {
+		MaxAttempts = n
+	}(orig)
+	go func() {
+		_, err := WaitForSSH(listener.Addr().String(), "root", clientKey,
+			wait, cancel, make(map[string]interface{}))
+		errCh <- err
+	}()
+
+	wg.Wait()              // Wait for at least 1 connection.
+	<-time.After(3 * wait) // Allow enough time to pass so that we actually attempt to connect.
+
+	close(cancel)
+	select {
+	case err := <-errCh:
+		if err != CancelError {
+			t.Fatalf("failed to cancel WaitForSSH, got err: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for WaitForSSH to return")
 	}
 }

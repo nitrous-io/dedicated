@@ -25,7 +25,7 @@ func WaitForSSH(
 	privateKey *rsa.PrivateKey,
 	wait time.Duration,
 	cancel <-chan struct{},
-	cxt map[string]interface{}) (conn *Conn, err error) {
+	ctx map[string]interface{}) (conn *Conn, err error) {
 	// generate the signer from private key
 	signer, err := ssh.ParsePrivateKey(GetPem(privateKey))
 	if err != nil {
@@ -39,20 +39,24 @@ func WaitForSSH(
 	}
 
 	baseString := ""
-	for k, v := range cxt {
+	for k, v := range ctx {
 		baseString += fmt.Sprintf("%s=%v ", k, v)
 	}
 
 	// trying to connect to ssh here
-	attempts := 0 // number of attemps to connect to ssh
+	attempts := 0 // number of attempts to connect to ssh
+	ticker := time.NewTicker(wait)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-cancel:
 			return nil, CancelError
-		case <-time.After(wait):
-		}
-		conn, err = NewSSHConn(address, sshConfig)
-		if err != nil {
+		case <-ticker.C:
+			conn, err = NewSSHConn(address, sshConfig)
+			if err == nil {
+				return conn, nil
+			}
+
 			log.Printf("%sWaiting for ssh conn to be ready, got %v", baseString, err)
 			// Only count this as an attempt if we were able to attempt
 			// to authenticate. Note this is very brittle since it depends
@@ -61,12 +65,9 @@ func WaitForSSH(
 				log.Printf("%sFailed to authenticate with remote ssh: %v", baseString, err)
 				attempts += 1
 			}
-			if attempts < MaxAttempts {
-				continue
+			if attempts >= MaxAttempts {
+				return nil, err
 			}
-			return nil, err
 		}
-		break
 	}
-	return conn, nil
 }
