@@ -79,6 +79,8 @@ type Host struct {
 	sshKey        *godo.Key
 	uuid          string
 	createTimeout time.Duration
+
+	cancelCreate chan struct{}
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -108,6 +110,8 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 			return nil, err
 		}
 	case <-time.After(h.createTimeout):
+		// FIXME golang.org/x/net/context is more correct, we should probably use that.
+		close(h.cancelCreate)
 		hlog(h, "ERROR: timed out in create host step")
 		h.logDroplet()
 		return nil, ErrCreateTimeout
@@ -363,6 +367,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		Client:        client,
 		uuid:          defaultConfig["uuid"],
 		createTimeout: createTimeout,
+		cancelCreate:  make(chan struct{}),
 	}
 	return host, nil
 }
@@ -466,9 +471,8 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	}
 	connInterval := 5 * time.Second
 	timeout := 30 * time.Second
-	cancel := make(chan struct{})
 	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
-		connInterval, timeout, cancel, info)
+		connInterval, timeout, h.cancelCreate, info)
 	if err != nil {
 		return mh.Error(err, label)
 	}
