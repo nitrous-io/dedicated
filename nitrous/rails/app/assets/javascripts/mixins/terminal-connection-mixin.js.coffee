@@ -14,7 +14,7 @@ App.TerminalConnectionMixin = Ember.Mixin.create
         token = encodeURIComponent(token.token)
 
         protocol = location.protocol.replace('http', 'ws')
-        url = "#{protocol}//#{freighterdUrl}/containers/#{cid}/#{action}?token=#{token}&width=#{term.cols}&height=#{term.rows}"
+        url = "#{protocol}//#{freighterdUrl}/containers/#{cid}/#{action}?token=#{token}&width=#{term.cols}&height=#{term.rows}&binary=true"
 
         switch action
           when 'shell'
