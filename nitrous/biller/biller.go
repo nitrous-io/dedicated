@@ -505,21 +505,7 @@ func takeAvailableCredits(tx *sqlx.Tx, userID int64, invID int64, amount int64) 
 }
 
 func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd *time.Time) {
-	var pS time.Time
-	var pE time.Time
-
-	if periodStart == nil {
-		base := now.BeginningOfMonth().Add(-1 * time.Nanosecond)
-		pS = now.New(base).BeginningOfMonth()
-	} else {
-		pS = *periodStart
-	}
-
-	if periodEnd == nil {
-		pE = now.New(pS).EndOfMonth()
-	} else {
-		pE = *periodEnd
-	}
+	pS, pE := StartEndTimeOrDefault(periodStart, periodEnd)
 
 	l.Debugf("biller: Processing period %v to %v", pS, pE)
 
@@ -580,4 +566,24 @@ func InvoiceItemsForUsages(usages []hosttransition.HostHourUsage, logger *logger
 		totalCharge += i.TotalCharge()
 	}
 	return totalCharge, items
+}
+
+func StartEndTimeOrDefault(periodStart, periodEnd *time.Time) (time.Time, time.Time) {
+	var pS time.Time
+	var pE time.Time
+
+	if periodStart == nil {
+		base := now.BeginningOfMonth().Add(-1 * time.Nanosecond)
+		pS = now.New(base).BeginningOfMonth()
+	} else {
+		pS = *periodStart
+	}
+
+	if periodEnd == nil {
+		pE = now.New(pS).EndOfMonth()
+	} else {
+		pE = *periodEnd
+	}
+
+	return pS, pE
 }
