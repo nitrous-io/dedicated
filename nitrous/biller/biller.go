@@ -30,7 +30,8 @@ const (
 )
 
 var (
-	ErrNoUsage = errors.New("biller: no usage from user")
+	ErrNoUsage            = errors.New("biller: no usage from user")
+	ErrInvoiceUserRunning = errors.New("biller: invoice createOrUpdate() already running for user")
 )
 
 type Biller struct {
@@ -82,29 +83,42 @@ func (b *Biller) Process() error {
 	return b.processStripe(i)
 }
 
-func (b *Biller) createOrUpdateInvoice() (*InvoiceResult, error) {
-	usages, err := hosttransition.BillableHostHours(b.db, b.user.ID, *b.periodStart, *b.periodEnd)
+func (b *Biller) createOrUpdateInvoice() (res *InvoiceResult, err error) {
+	tx, err := b.db.Beginx()
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		if err == nil || res != nil {
+			return
+		}
+
+		tx.Rollback()
+	}()
+
+	err = b.acquireLock(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	usages, err := hosttransition.BillableHostHours(tx, b.user.ID, *b.periodStart, *b.periodEnd)
 	if err != nil {
 		return nil, fmt.Errorf("biller: failed retrieving billable host hours for user %d, err: %v", b.user.ID, err)
 	}
 	totalCharge, items := InvoiceItemsForUsages(usages, b.logger)
 
-	if err := b.sanityCheckInvoiceItems(items); err != nil {
+	if err = b.sanityCheckInvoiceItems(items); err != nil {
 		return nil, err
 	}
 
-	i, err := invoice.ForPeriod(b.db, b.user.ID, *b.periodStart, *b.periodEnd)
+	i, err := invoice.ForPeriod(tx, b.user.ID, *b.periodStart, *b.periodEnd)
 	if err != nil {
 		return nil, fmt.Errorf("biller: encountered error when try to find existing invoice for user %d, err: %v", b.user.ID, err)
 	}
 
 	if len(items) == 0 {
 		return nil, ErrNoUsage
-	}
-
-	tx, err := b.db.Beginx()
-	if err != nil {
-		return nil, err
 	}
 
 	op := i.Update
@@ -127,7 +141,6 @@ func (b *Biller) createOrUpdateInvoice() (*InvoiceResult, error) {
 	i.SuccessfulCharge = false
 
 	if err := op(tx); err != nil {
-		tx.Rollback()
 		return nil, fmt.Errorf("biller: failure inserting/updating invoice %d for user %d, err: %v", i.ID, i.UserID, err)
 	} else {
 		b.logger.Infof("biller: created/updated invoice %d for user %d, total charge = %d", i.ID, i.UserID, i.TotalCharge)
@@ -135,28 +148,27 @@ func (b *Biller) createOrUpdateInvoice() (*InvoiceResult, error) {
 
 	deductionCredits, err := takeAvailableCredits(tx, i.UserID, i.ID, i.TotalCharge)
 	if err != nil {
-		tx.Rollback()
 		return nil, fmt.Errorf("biller: failure acquiring credits for invoice %d for user %d, err: %v", i.ID, i.UserID, err)
 	}
 
 	if deductionCredits < 0 {
 		i.TotalCharge += deductionCredits
 		i.CreditAmount += (-1 * deductionCredits)
-		if err := i.Update(tx); err != nil {
-			tx.Rollback()
+		if err = i.Update(tx); err != nil {
 			return nil, fmt.Errorf("biller: failure deducting %d credits from invoice %d for user %d, err: %v", deductionCredits, i.ID, i.UserID, err)
 		}
 	}
-	if err := tx.Commit(); err != nil {
+	res = &InvoiceResult{Invoice: i, Items: items}
+	if err = tx.Commit(); err != nil {
 		return nil, fmt.Errorf("biller: failure committing invoice %d for user %d, err: %v", i.ID, i.UserID, err)
 	}
 
-	items, err = b.applyInvoiceItems(i, isNew, items)
+	res.Items, err = b.applyInvoiceItems(i, isNew, items)
 	if err != nil {
 		return nil, fmt.Errorf("biller: failure inserting/updating invoice %d items for %d, err: %v", i.ID, i.UserID, err)
 	}
 
-	return &InvoiceResult{Invoice: i, Items: items}, nil
+	return res, nil
 }
 
 func (b *Biller) submitRecentlyDeferred() error {
@@ -460,6 +472,17 @@ func (b *Biller) sanityCheckInvoiceItems(items []invoiceitem.InvoiceItem) error 
 				return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds ratio %f with %f", item.TotalCharge(), b.user.ID, item.HostID, MinPriceDiffRatio, priceRatio)
 			}
 		}
+	}
+	return nil
+}
+
+func (b *Biller) acquireLock(tx *sqlx.Tx) error {
+	locked, err := db.TransactionLock(tx, db.INVOICE_USER_LOCK, int(b.user.ID))
+	if err != nil {
+		return err
+	}
+	if !locked {
+		return ErrInvoiceUserRunning
 	}
 	return nil
 }
