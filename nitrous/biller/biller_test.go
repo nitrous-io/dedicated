@@ -268,7 +268,7 @@ var _ = Describe("biller", func() {
 				Expect(i).ToNot(BeNil())
 				Expect(i.Invoice.ID).To(Equal(inv.ID))
 				Expect(i.Invoice.SuccessfulCharge).To(BeFalse())
-				Expect(i.Invoice.TotalCharge).To(Equal(int64(332)))
+				Expect(i.Invoice.TotalCharge).To(Equal(int64(330)))
 				Expect(i.Invoice.CreditAmount).To(Equal(int64(10)))
 			})
 
@@ -340,6 +340,33 @@ var _ = Describe("biller", func() {
 				for _, it := range i.Items {
 					if it.Credit.Valid && it.Credit.Int64 > 2 {
 						credit = it
+					}
+				}
+				Expect(credit.Credit.Int64).To(Equal(int64(8)))
+			})
+
+			It("should allow for running multiple times", func() {
+				_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 8);", u.ID)
+				Expect(err).To(BeNil())
+
+				i1, err := b.CreateOrUpdateInvoice()
+				Expect(err).To(BeNil())
+				Expect(i1).ToNot(BeNil())
+				Expect(i1.Items).To(HaveLen(3))
+
+				i2, err := b.CreateOrUpdateInvoice()
+				Expect(err).To(BeNil())
+				Expect(i2).ToNot(BeNil())
+				Expect(i2.Invoice.ID).To(Equal(i1.Invoice.ID))
+				Expect(i2.Invoice.TotalCharge).To(Equal(i1.Invoice.TotalCharge))
+				Expect(i2.Invoice.CreditAmount).To(Equal(i1.Invoice.CreditAmount))
+
+				var credit invoiceitem.InvoiceItem
+				items, err := invoiceitem.FindAllForInvoice(db, i2.Invoice.ID)
+				for _, it := range items {
+					if it.Credit.Valid {
+						credit = it
+						break
 					}
 				}
 				Expect(credit.Credit.Int64).To(Equal(int64(8)))

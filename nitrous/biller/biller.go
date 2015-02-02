@@ -123,7 +123,7 @@ func (b *Biller) createOrUpdateInvoice() (*InvoiceResult, error) {
 			return nil, fmt.Errorf("biller: cannot touch invoice %d, already paid", i.ID)
 		}
 	}
-	i.TotalCharge = totalCharge
+	i.TotalCharge = (totalCharge - i.CreditAmount) // reconcile with existing credited amount
 	i.SuccessfulCharge = false
 
 	if err := op(tx); err != nil {
