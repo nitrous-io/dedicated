@@ -34,6 +34,8 @@ App.TerminalConnectionMixin = Ember.Mixin.create
         if features.websocket_encoding == 'base64'
           url += '&encoding=base64'
           terminal.setEncoding('base64')
+        else
+          terminal.setEncoding('plain')
 
         terminal.url = url
         terminal.open(true)

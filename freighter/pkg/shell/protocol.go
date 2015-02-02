@@ -76,29 +76,53 @@ type websocketReader interface {
 	NextReader() (messageType int, r io.Reader, err error)
 }
 
-type Encoder interface {
-	Encode(data []byte) ([]byte, error)
+type EncoderDecoder interface {
+	Encode(data []byte) []byte
+	Decode(data []byte) ([]byte, error)
 }
 
-type NoopEncoder struct{}
-type Base64Encoder struct{}
-type Base64Decoder struct{}
+func NoopEncode(data []byte) []byte {
+	return data
+}
 
-func (*NoopEncoder) Encode(data []byte) ([]byte, error) {
+func NoopDecode(data []byte) ([]byte, error) {
 	return data, nil
 }
 
 // Implementation copy from encoding/base64/base64.go
-func (*Base64Encoder) Encode(decoded []byte) ([]byte, error) {
+func Base64Encode(decoded []byte) []byte {
 	result := make([]byte, base64.StdEncoding.EncodedLen(len(decoded)))
 	base64.StdEncoding.Encode(result, decoded)
-	return result, nil
+	return result
 }
 
-func (*Base64Decoder) Encode(encoded []byte) ([]byte, error) {
+func Base64Decode(encoded []byte) ([]byte, error) {
 	result := make([]byte, base64.StdEncoding.DecodedLen(len(encoded)))
 	n, err := base64.StdEncoding.Decode(result, encoded)
 	return result[:n], err
+}
+
+type EncoderImpl struct {
+	EncoderFunc func(data []byte) []byte          `json:"-"` // json annotation to
+	DecoderFunc func(data []byte) ([]byte, error) `json:"-"` // prevent it being serialized
+}
+
+func (impl *EncoderImpl) Encode(data []byte) []byte {
+	return impl.EncoderFunc(data)
+}
+
+func (impl *EncoderImpl) Decode(data []byte) ([]byte, error) {
+	return impl.DecoderFunc(data)
+}
+
+var NoopEncoder = &EncoderImpl{
+	NoopEncode,
+	NoopDecode,
+}
+
+var Base64Encoder = &EncoderImpl{
+	Base64Encode,
+	Base64Decode,
 }
 
 // ShellReader handles client input which allows type:
@@ -117,10 +141,10 @@ type ShellReader struct {
 	// message type for the protocol
 	MessageType int
 
-	Encoder Encoder
+	Encoder EncoderDecoder
 }
 
-func NewShellReader(ws websocketReader, ch chan Message, t int, encoder Encoder) io.Reader {
+func NewShellReader(ws websocketReader, ch chan Message, t int, encoder EncoderDecoder) io.Reader {
 	return &ShellReader{socket: ws, msgChan: ch, MessageType: t, Encoder: encoder}
 }
 
@@ -161,7 +185,7 @@ func (s *ShellReader) Read(p []byte) (int, error) {
 		// detect client input, copy everything back to p without the prefix
 		if bytes.Equal(buf[0:2], dataMsg) {
 			encoded := buf[2:n]
-			decoded, err := s.Encoder.Encode(encoded)
+			decoded, err := s.Encoder.Decode(encoded)
 			if err != nil {
 				return 0, err
 			}
@@ -195,18 +219,17 @@ func (s *ShellReader) Read(p []byte) (int, error) {
 // form "d|server_output". It writes server output to be sent to the client.
 type ShellWriter struct {
 	writer  io.Writer
-	Encoder Encoder
+	Encoder EncoderDecoder
 }
 
 // NewShellWriter creates a new ShellWriter that satisfies io.WriteCloser.
 // It is the caller's responsibility to call Close on the WriteCloser when done.
-func NewShellWriter(w io.Writer, encoder Encoder) *ShellWriter {
+func NewShellWriter(w io.Writer, encoder EncoderDecoder) *ShellWriter {
 	return &ShellWriter{writer: w, Encoder: encoder}
 }
 
 func (s *ShellWriter) Write(p []byte) (int, error) {
-	// Encoding should not have error
-	encoded, _ := s.Encoder.Encode(p)
+	encoded := s.Encoder.Encode(p)
 
 	messageLength := len(encoded)
 	buf := make([]byte, messageLength+len(dataMsg))

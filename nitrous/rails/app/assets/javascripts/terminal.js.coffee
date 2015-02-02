@@ -109,7 +109,7 @@ window.NitrousTerminal =
 
   retry: ->
     @conn.retry()
-
+    
   destroy: ->
     @close()
     @term?.destroy()

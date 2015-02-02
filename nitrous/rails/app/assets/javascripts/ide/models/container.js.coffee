@@ -107,8 +107,6 @@ App.Container = klass = Em.Object.extend
       retData
 
   # Get freighter info for new feature detection
-  # Assume empty feature { } on error retrieving
-  # because old freighter server would return 404
   getFreighterInfo: ->
     freighterdUrl = @get 'freighterdUrl'
     url = "https://#{freighterdUrl}/freighter/info"
@@ -118,6 +116,8 @@ App.Container = klass = Em.Object.extend
     .then (result) =>
       result.freighter_info || { }
     .catch (err) =>
+      # Never fails. Assume empty feature { } on error 
+      # because old freighter server would return 404
       { }
 
 klass.reopenClass

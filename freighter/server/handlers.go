@@ -383,15 +383,14 @@ func (s *Server) exportContainer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getEncoder(encoding string) (shell.Encoder, shell.Encoder, error) {
+func getEncoder(encoding string) (shell.EncoderDecoder, error) {
 	switch encoding {
 	case "", "binary":
-		encoder := &shell.NoopEncoder{}
-		return encoder, encoder, nil
+		return shell.NoopEncoder, nil
 	case "base64":
-		return &shell.Base64Encoder{}, &shell.Base64Decoder{}, nil
+		return shell.Base64Encoder, nil
 	default:
-		return nil, nil, errInvalidEncoding
+		return nil, errInvalidEncoding
 	}
 }
 
@@ -404,7 +403,7 @@ func (s *Server) wsContainerLogs(w http.ResponseWriter, r *http.Request) error {
 	timestamps, _ := strconv.ParseBool(r.FormValue("timestamps"))
 	tail := r.FormValue("tail")
 
-	encoder, _, err := getEncoder(r.FormValue("encoding"))
+	encoder, err := getEncoder(r.FormValue("encoding"))
 	if err != nil {
 		return err
 	}
@@ -438,7 +437,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	height := getFormInt(r, "height")
 	encoding := r.FormValue("encoding")
 
-	encoder, decoder, err := getEncoder(encoding)
+	encoder, err := getEncoder(encoding)
 	if err != nil {
 		return err
 	}
@@ -470,7 +469,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 
 	// create stdin/stdout stream with the shell protocol
 	msgCh := make(chan shell.Message, messageQueueSize)
-	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType, decoder)
+	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType, encoder)
 	stdout := shell.NewShellWriter(stream, encoder)
 
 	attached := make(chan struct{}, 1)
@@ -761,7 +760,7 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 
 	encoding := r.FormValue("encoding")
 
-	encoder, decoder, err := getEncoder(encoding)
+	encoder, err := getEncoder(encoding)
 	if err != nil {
 		return err
 	}
@@ -778,7 +777,7 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 
 	// create stdin/stdout stream with the shell protocol
 	msgCh := make(chan shell.Message, messageQueueSize)
-	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType, decoder)
+	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType, encoder)
 	stdout := shell.NewShellWriter(stream, encoder)
 	exit := make(chan struct{})
 

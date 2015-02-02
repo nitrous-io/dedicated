@@ -33,7 +33,7 @@ func TestNewShellReader(t *testing.T) {
 	for _, tc := range testCases {
 		in := bytes.NewBufferString(tc.msg)
 		ch := make(chan Message, 1)
-		s := NewShellReader(wsReader{Reader: in}, ch, websocket.BinaryMessage, &NoopEncoder{})
+		s := NewShellReader(wsReader{Reader: in}, ch, websocket.BinaryMessage, NoopEncoder)
 
 		buf := make([]byte, 100)
 		n, _ := s.Read(buf)
@@ -61,7 +61,7 @@ func TestNewShellReader(t *testing.T) {
 
 func TestReadFragmentedMessages(t *testing.T) {
 	r, w := io.Pipe()
-	s := NewShellReader(wsReader{Reader: r}, make(chan Message), websocket.BinaryMessage, &NoopEncoder{})
+	s := NewShellReader(wsReader{Reader: r}, make(chan Message), websocket.BinaryMessage, NoopEncoder)
 
 	go func() {
 		w.Write([]byte(`d|hello-`))
@@ -90,7 +90,7 @@ func TestNewShellWriter(t *testing.T) {
 
 	for _, tc := range testCases {
 		w := bytes.NewBuffer(nil)
-		s := NewShellWriter(w, &NoopEncoder{})
+		s := NewShellWriter(w, NoopEncoder)
 
 		r := bytes.NewBufferString(tc.msg)
 		io.Copy(s, r)
@@ -103,7 +103,7 @@ func TestNewShellWriter(t *testing.T) {
 
 func TestShellWriterClose(t *testing.T) {
 	w := bytes.NewBuffer(nil)
-	s := NewShellWriter(w, &NoopEncoder{})
+	s := NewShellWriter(w, NoopEncoder)
 
 	s.Close()
 
