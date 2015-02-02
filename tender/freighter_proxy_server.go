@@ -6,10 +6,8 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
-	"strconv"
 	"sync"
 
-	"github.com/nitrous-io/dedicated/freighter/config"
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 )
@@ -111,9 +109,6 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 	if p, ok := s.portMap[fp]; ok {
 		fp = p
 	}
-	// set X-FORWARDED-PORT for the request
-	r.Header.Set(config.ForwardPortHeader, strconv.Itoa(fp))
-	log.Printf("[INFO] set %s to %d", config.ForwardPortHeader, fp)
 
 	// get host id and host ip
 	// host ip will be the new destination for current request
