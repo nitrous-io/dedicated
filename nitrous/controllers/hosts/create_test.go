@@ -26,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -241,6 +242,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(config["name"]).To(Equal(params.Get("slug")))
 		Expect(config["name"]).To(Equal(params.Get("slug")), "invalid slug set in name")
 		Expect(config["apt_password"]).To(Equal(ht), "invalid token set in apt_password")
+		Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 	})
 
 	It("sends the host configs as json params when JSON is sent by the client", func() {

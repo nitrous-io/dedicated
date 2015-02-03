@@ -26,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -79,6 +80,8 @@ type ProvisionOptions struct {
 	Region   *region.Region
 	Plan     *plan.Plan
 	Template *providertemplate.ProviderTemplate
+
+	UUID string
 
 	AptLocation string
 	AptDist     string
@@ -389,7 +392,7 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		"apt_location": opts.AptLocation,
 		"apt_dist":     opts.AptDist,
 	}
-	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream)
+	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts))
 	if err != nil {
 		err = fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
 		return
@@ -539,7 +542,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	}()
 
 	config := p.mkHostbuilderConfig(phost, opts)
-	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, &config, opts.OutputStream)
+	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, &config, opts.OutputStream, p.hostbuilderHeaders(opts))
 	if err != nil {
 		return nil, err
 	}
@@ -631,6 +634,10 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 		}
 	}
 	return config
+}
+
+func (p *Provisioner) hostbuilderHeaders(opts ProvisionOptions) map[string]string {
+	return map[string]string{constants.NitrousUUIDHeader: opts.UUID}
 }
 
 // generateKey generates and returns a private key together with its public key.

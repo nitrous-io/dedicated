@@ -23,8 +23,6 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-const NitrousUUIDHeader = "X-NITROUS-UUID"
-
 var (
 	errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request", "auth token is required")
 	errInvalidToken   = httperror.New(http.StatusUnauthorized, "invalid_token", "auth token is invalid")

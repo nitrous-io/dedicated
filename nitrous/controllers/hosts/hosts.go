@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -165,7 +166,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	// If provider identifier is empty, don't attempt to delete the host in hostbuilder
 	// Provider identifier can be empty for hosts that are dangling in born or orphan states.
 	if h.ProviderIdentifier.String != "" {
-		_, err := HostbuilderClient.Delete(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
+		_, err := HostbuilderClient.Delete(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostBuilderHeaders(env))
 		if err != nil {
 			return err
 		}
@@ -233,7 +234,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 	publishHostEvent(env, controllers.EventHostRestarting, h)
 
-	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
+	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostBuilderHeaders(env))
 	if err != nil {
 		// Rollback to previous state.
 		rollbackCalled := false
@@ -293,6 +294,12 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 	serializeHost(env, h)
 	return nil
+}
+
+func hostBuilderHeaders(env *middleware.Env) map[string]string {
+	return map[string]string{
+		constants.NitrousUUIDHeader: env.UUID,
+	}
 }
 
 func serializeHost(env *middleware.Env, h *host.Host) {

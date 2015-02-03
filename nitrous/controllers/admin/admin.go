@@ -7,6 +7,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -122,7 +123,7 @@ func terminateUnaccountedHost(env *middleware.Env, w http.ResponseWriter, r *htt
 		return errHostIsNotUnaccounted
 	}
 
-	resp, err := HostbuilderClient.Delete(provider, &hostbuilderclient.Config{"id": provID})
+	resp, err := HostbuilderClient.Delete(provider, &hostbuilderclient.Config{"id": provID}, map[string]string{constants.NitrousUUIDHeader: env.UUID})
 	if err != nil {
 		return err
 	}

@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -563,6 +564,21 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 		})
 
+		It("should send the UUID headers", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, t.Token)
+
+			req := rt.Requests[0]
+			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
+		})
+
 		Context("when hostbuilder successfully deletes the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -801,6 +817,21 @@ var _ = Describe("controllers/hosts", func() {
 				U: u,
 			})
 			Expect(err).To(BeNil())
+		})
+
+		It("should send the UUID headers", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, t.Token, nil)
+
+			req := rt.Requests[0]
+			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 		})
 
 		Context("when host is not in the running state", func() {

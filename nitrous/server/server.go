@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
@@ -146,7 +147,7 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 		remoteAddr := middleware.GetRemoteAddr(r)
 		uuid := middleware.MakeUUID()
 		// allow for consumption by `RespondJSON`
-		w.Header().Set(middleware.NitrousUUIDHeader, uuid)
+		w.Header().Set(constants.NitrousUUIDHeader, uuid)
 		mh.Meter("requests.nitrous").Mark(1)
 		s.logger.Infof("uuid=%s ip=%s Request: %v %v", uuid, remoteAddr, r.Method, r.URL.String())
 		env := &middleware.Env{
@@ -215,7 +216,7 @@ func (s *Server) RespondJSON(w http.ResponseWriter, status int, data []byte) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(status)
 	w.Write(data)
-	uuid := w.Header().Get(middleware.NitrousUUIDHeader)
+	uuid := w.Header().Get(constants.NitrousUUIDHeader)
 	s.logger.Infof("uuid=%s Response: %v %v", uuid, status, string(data))
 }
 
