@@ -65,14 +65,21 @@
 
     tr
       th Host
-      td colspan='3'
+      td
         span.click-highlight
           = hostname
+      th Docker ver
+      td.usage
+        = dockerVersion
 
     tr
       th Created At
-      td colspan='3'
+      td
         = dateabbr createdAt
+      th Freighter ver
+      td.usage
+        = freighterdVersion
+
 
 .card-footer.bordered
   if isRunning
