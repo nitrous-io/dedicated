@@ -64,7 +64,7 @@ var _ = BeforeSuite(func() {
 	// build nitrous/ubuntu based on nitrosio/ubuntu-bare, but with "top" cmd
 	start = time.Now()
 	fmt.Print("build nitrous/ubuntu:latest...")
-	cmd = exec.Command("docker", "build", "-t", "nitrous/ubuntu:latest", "-")
+	cmd = exec.Command("docker", "build", "-t", "nitrousio/ubuntu-test:latest", "-")
 	cmd.Stdin = bytes.NewBufferString(`
 	FROM nitrousio/ubuntu-bare:latest
 	CMD ["top"]
@@ -72,6 +72,13 @@ var _ = BeforeSuite(func() {
 	out, err = cmd.CombinedOutput()
 	Expect(err).To(BeNil(), "failed to build nitrous/ubuntu, output: %s", string(out))
 	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// replace NitrousImage to not having to run /sbin/init as pid 1
+	NitrousImage = "nitrousio/ubuntu-test:latest"
+})
+
+var _ = AfterSuite(func() {
+	NitrousImage = "nitrousio/ubuntu-bare:latest"
 })
 
 var _ = Describe("provider/docker", func() {
@@ -710,84 +717,105 @@ var _ = Describe("provider/docker", func() {
 					Expect(err).To(MatchError(provider.ErrTokenExpired))
 				})
 			})
+		})
 
-			Context("with public keys", func() {
-				var (
-					pubkey1      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCxCeR/jJna6xXELDV8HF51QQPbj++JNDE4W/nqLyhzRTEDDnAfyp8gXW/EXXos8w5XXLak6eUDXE/QI6o8blX39RYoT47u45v4b2scN0ZiS5McmESo193KwWH3gXHbnHWywzPy7+GrRF3nHm/uidvp0tqh4ywqIZujaMjST1sIOQ== test@example.com"
-					pubkey2      = strings.TrimSpace(string(TestSSHPubKey))
-					fingerprint1 = "f7:de:4d:6f:54:6b:b9:d5:78:a9:62:15:e2:ad:ec:bb"
-					fingerprint2 = "d7:39:a8:61:5a:fe:4f:57:48:68:18:1e:d7:a2:a6:eb"
+		Describe("a container with ssh enabled", func() {
+			var (
+				name string
+				id   string
+				info *provider.ContainerInfo
+
+				pubkey1      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCxCeR/jJna6xXELDV8HF51QQPbj++JNDE4W/nqLyhzRTEDDnAfyp8gXW/EXXos8w5XXLak6eUDXE/QI6o8blX39RYoT47u45v4b2scN0ZiS5McmESo193KwWH3gXHbnHWywzPy7+GrRF3nHm/uidvp0tqh4ywqIZujaMjST1sIOQ== test@example.com"
+				pubkey2      = strings.TrimSpace(string(TestSSHPubKey))
+				fingerprint1 = "f7:de:4d:6f:54:6b:b9:d5:78:a9:62:15:e2:ad:ec:bb"
+				fingerprint2 = "d7:39:a8:61:5a:fe:4f:57:48:68:18:1e:d7:a2:a6:eb"
+
+				// set to false for tests which handle their own termination
+				terminateAfterTest = true
+			)
+
+			BeforeEach(func() {
+				var err error
+				name = RandomName("freightertest")
+				info, err = prov.CreateStart(name, "nitrousio/ubuntu-bare:latest", secret, "")
+				Expect(err).To(BeNil())
+				id = inspectID(name)
+			})
+
+			AfterEach(func() {
+				if terminateAfterTest {
+					CleanUpContainer(name)
+				}
+			})
+
+			It("allows ssh access only with keys present", func() {
+				hostname := "localhost"
+				if ip := os.Getenv("DOCKER_IP"); ip != "" {
+					hostname = ip
+				}
+				address := fmt.Sprintf("%s:%s", hostname,
+					inspectNetworkSettingsPort(id, "22/tcp"))
+				pk, err := ssh.ParseRawPrivateKey([]byte(TestSSHPrivKey))
+				Expect(err).To(BeNil())
+				privKey, ok := pk.(*rsa.PrivateKey)
+				Expect(ok).To(BeTrue())
+
+				info := map[string]interface{}{}
+
+				// without keys
+				sshutil.MaxAttempts = 1
+				ch := make(chan struct{})
+				_, err = sshutil.WaitForSSH(
+					address,
+					DfileEnvUser,
+					privKey,
+					500*time.Millisecond,
+					10*time.Second,
+					ch,
+					info,
 				)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("unable to authenticate"))
 
-				It("allows ssh access only with keys present", func() {
-					hostname := "localhost"
-					if ip := os.Getenv("DOCKER_IP"); ip != "" {
-						hostname = ip
-					}
-					address := fmt.Sprintf("%s:%s", hostname,
-						inspectNetworkSettingsPort(id, "22/tcp"))
-					pk, err := ssh.ParseRawPrivateKey([]byte(TestSSHPrivKey))
-					Expect(err).To(BeNil())
-					privKey, ok := pk.(*rsa.PrivateKey)
-					Expect(ok).To(BeTrue())
+				// with keys
+				err = prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
+				Expect(err).To(BeNil())
 
-					info := map[string]interface{}{}
+				sshutil.MaxAttempts = 10
+				_, err = sshutil.WaitForSSH(
+					address,
+					DfileEnvUser,
+					privKey,
+					500*time.Millisecond,
+					10*time.Second,
+					ch,
+					info,
+				)
+				Expect(err).To(BeNil())
+			})
 
-					// without keys
-					sshutil.MaxAttempts = 1
-					ch := make(chan struct{})
-					_, err = sshutil.WaitForSSH(
-						address,
-						DfileEnvUser,
-						privKey,
-						500*time.Millisecond,
-						10*time.Second,
-						ch,
-						info,
-					)
-					Expect(err).NotTo(BeNil())
-					Expect(err.Error()).To(ContainSubstring("unable to authenticate"))
-
-					// with keys
-					err = prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
+			Describe(".ListPublicKeys()", func() {
+				It("returns list of pub keys and the corresponding fingerprints", func() {
+					err := prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
 					Expect(err).To(BeNil())
 
-					sshutil.MaxAttempts = 10
-					_, err = sshutil.WaitForSSH(
-						address,
-						DfileEnvUser,
-						privKey,
-						500*time.Millisecond,
-						10*time.Second,
-						ch,
-						info,
-					)
+					// when container is running
+					pubkeys, err := prov.ListPublicKeys(id)
 					Expect(err).To(BeNil())
-				})
+					Expect(pubkeys).To(Equal(map[string]string{
+						fingerprint1: pubkey1,
+						fingerprint2: pubkey2,
+					}))
 
-				Describe(".ListPublicKeys()", func() {
-					It("returns list of pub keys and the corresponding fingerprints", func() {
-						err := prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
-						Expect(err).To(BeNil())
-
-						// when container is running
-						pubkeys, err := prov.ListPublicKeys(id)
-						Expect(err).To(BeNil())
-						Expect(pubkeys).To(Equal(map[string]string{
-							fingerprint1: pubkey1,
-							fingerprint2: pubkey2,
-						}))
-
-						// when container is stopped
-						err = exec.Command("docker", "stop", id).Run()
-						Expect(err).To(BeNil())
-						pubkeys, err = prov.ListPublicKeys(id)
-						Expect(err).To(BeNil())
-						Expect(pubkeys).To(Equal(map[string]string{
-							fingerprint1: pubkey1,
-							fingerprint2: pubkey2,
-						}))
-					})
+					// when container is stopped
+					err = exec.Command("docker", "stop", id).Run()
+					Expect(err).To(BeNil())
+					pubkeys, err = prov.ListPublicKeys(id)
+					Expect(err).To(BeNil())
+					Expect(pubkeys).To(Equal(map[string]string{
+						fingerprint1: pubkey1,
+						fingerprint2: pubkey2,
+					}))
 				})
 			})
 		})
@@ -1542,7 +1570,7 @@ var _ = Describe("provider/docker", func() {
 
 	Describe("InspectRemoteImage()", func() {
 		It("should fetch the latest image information from index.docker.io", func() {
-			img, err := prov.InspectRemoteImage(NitrousImage)
+			img, err := prov.InspectRemoteImage("nitrousio/ubuntu-bare:latest")
 			Expect(err).To(BeNil())
 
 			Expect(img).ToNot(BeNil())
