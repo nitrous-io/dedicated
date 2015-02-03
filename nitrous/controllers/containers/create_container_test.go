@@ -208,15 +208,13 @@ var _ = Describe("CreateContainer", func() {
 			Slug:        "my-template",
 			Name:        sql.NullString{"Ruby on Rails", true},
 			Description: sql.NullString{"A Rails stack template", true},
+			Image:       "rails:4.2",
 			Config: `{
-				"containers": [
-				{
-					"name": "Rails",
-					"slug": "rails",
-					"image": "rails:4.2",
-					"ports": ["public::2341", "public::8931"],
-					"env": ["SHELL=powershell"]
-				}]
+				"privileged": true,
+				"publish_all": false,
+				"ports": ["public::2341", "public::8931"],
+				"env": ["SHELL=powershell"],
+				"volumes": ["shared:/tmp/shared", "database:/var/lib/pg"]
 			}`,
 			Type: template.TypeStack,
 		}
@@ -232,6 +230,8 @@ var _ = Describe("CreateContainer", func() {
 		Expect(mockClient.ReceivedConfig.Image).To(Equal("rails:4.2"))
 		Expect(mockClient.ReceivedConfig.PortBindings).To(Equal([]string{"3000:8080", "0.0.0.0::4552", "0.0.0.0:8081:11211", "public::2341", "public::8931"}))
 		Expect(mockClient.ReceivedConfig.Env).To(Equal([]string{"LANG=C", "NODE=nope", "SHELL=powershell"}))
+		Expect(*mockClient.ReceivedConfig.PublishAll).To(BeFalse())
+		Expect(*mockClient.ReceivedConfig.Privileged).To(BeTrue())
 
 		c, err := container.Find(db, u, "elixir-web-1")
 		Expect(err).To(BeNil())

@@ -2,7 +2,6 @@ package containers
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -81,31 +80,19 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 			return nil, err
 		}
 
-		if len(cfg.Containers) == 0 {
-			return nil, fmt.Errorf("Supplied template `%s` is missing containers", templateSlug)
-		}
-
-		primary := cfg.Containers[0]
-		cn.Image = primary.Image
+		cn.Image = tmpl.Image
 		config.Image = cn.Image
 		imageSlug = config.Image
-		priv := primary.Privileged
+		priv := cfg.Privileged
 		config.Privileged = &priv
-		if primary.Cmd != "" {
-			config.Cmd = []string{primary.Cmd}
-		}
-		for _, e := range primary.Env {
+		for _, e := range cfg.Env {
 			config.Env = append(config.Env, e)
 		}
-		for _, p := range primary.Ports {
+		for _, p := range cfg.Ports {
 			config.PortBindings = append(config.PortBindings, p)
 		}
-		pubAll := primary.PublishAll
+		pubAll := cfg.PublishAll
 		config.PublishAll = &pubAll
-
-		if len(cfg.Containers) > 1 {
-			env.Logger.Warnf("Started `%s` has multiple containers, unsupported.", templateSlug)
-		}
 	}
 
 	if err := cn.Validate(); err != nil {
