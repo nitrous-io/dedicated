@@ -58,9 +58,9 @@ func FindByID(db *db.Database, id int64) (*HostTransition, error) {
 	return hT, err
 }
 
-func BillableHostHours(db *db.Database, userId int64, start, end time.Time) ([]HostHourUsage, error) {
+func BillableHostHours(d db.QueryReceiver, userId int64, start, end time.Time) ([]HostHourUsage, error) {
 	hostHours := []HostHourUsage{}
-	err := db.Select(&hostHours,
+	err := d.Select(&hostHours,
 		`SELECT host_id,
 			u.id user_id,
 			MAX(h.hourly_price) hourly_price,
