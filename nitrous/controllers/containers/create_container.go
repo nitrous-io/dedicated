@@ -30,7 +30,7 @@ var (
 	errImageNotFound                       = httperror.New(http.StatusNotFound, "image_not_found", "image does not exist")
 	errMissingCmd                          = httperror.New(http.StatusBadRequest, "missing_cmd", "missing CMD in Docker image")
 	errMaxContainersReached                = httperror.New(http.StatusBadRequest, "max_containers_reached", "host has exceeded the plan's maximum containers")
-	errMultipleContainerCreationNotAllowed = httperror.New(http.StatusBadRequest, "multiple_container_creation_disallowed", "only one container can be created at any time")
+	errMultipleContainerCreationNotAllowed = httperror.New(http.StatusConflict, "conflict", "another container creation request is currently being processed")
 )
 
 func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res *CreateResult, err error) {
@@ -196,6 +196,10 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		}
 	}
 
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
 	publishContainerEvent(env, controllers.EventContainerCreated, cn)
 
 	res.Container = serializers.SerializeContainer(cn)
@@ -207,5 +211,5 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		"container_id": cn.ID,
 	})
 
-	return res, tx.Commit()
+	return res, nil
 }

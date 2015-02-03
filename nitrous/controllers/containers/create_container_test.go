@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"time"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -151,33 +150,30 @@ var _ = Describe("CreateContainer", func() {
 		Expect(conf.PortBindings).To(ConsistOf("3000:8080", "0.0.0.0::4552", "0.0.0.0:8081:11211"))
 	})
 
+	// TODO: This test fails when CreateContainer completes too quickly,
+	// resulting in 2 containers being created in serial order instead of
+	// concurrently.
 	PIt("should not allow a user to create multiple containers at the same time", func() {
 		var wg sync.WaitGroup
 		var createResults []*containers.CreateResult
-		var errGroup []error
-
-		var fireAt time.Time
+		var errors []error
 
 		start := make(chan struct{})
 		for i := 0; i < 2; i++ {
 			wg.Add(1)
 			go func(i int) {
 				p := mkParams()
-				p.Set("slug", fmt.Sprintf("con1-%d", i))
+				p.Set("slug", fmt.Sprintf("con-%d", i))
 				<-start
-				Eventually(func() bool {
-					return time.Now().After(fireAt)
-				}, "3s", "1ms").Should(BeTrue())
 				cr, err := containers.CreateContainer(h, p, env)
 				if err != nil {
-					errGroup = append(errGroup, err)
+					errors = append(errors, err)
 				} else {
 					createResults = append(createResults, cr)
 				}
 				wg.Done()
 			}(i)
 		}
-		fireAt = time.Now().Add(2 * time.Second)
 		close(start)
 		wg.Wait()
 
@@ -186,8 +182,7 @@ var _ = Describe("CreateContainer", func() {
 		Expect(containers).To(HaveLen(1))
 
 		Expect(createResults).To(HaveLen(1))
-		Expect(errGroup).To(HaveLen(1))
-		Expect(errGroup[0]).To(Equal(httperror.New(http.StatusBadRequest, "multiple_container_creation_disallowed", "only one container can be created at any time")))
+		Expect(errors).To(ConsistOf(httperror.New(http.StatusConflict, "conflict", "another container creation request is currently being processed")))
 	})
 
 	It("should not allow for creating containers over the host's allowance", func() {
