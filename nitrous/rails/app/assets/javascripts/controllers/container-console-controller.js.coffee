@@ -12,10 +12,4 @@ App.ContainerConsoleController = Em.ObjectController.extend App.TerminalConnecti
     return unless container = @get 'record'
     action = @get('action')
 
-    @makeUrl(container, terminal, action).then (url) ->
-      terminal.url = url
-      terminal.open(true)
-      terminal.focus()
-    , (jqxhr) ->
-      terminal.retry()
-      App.postError(jqxhr.responseJSON, 'Could not connect to shell, retrying...')
+    @connectTerminal(container, terminal, action)

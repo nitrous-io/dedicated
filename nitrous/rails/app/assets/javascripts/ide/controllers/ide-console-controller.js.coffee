@@ -21,10 +21,4 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, 
 
   makeUrlAndConnect: (terminal) ->
     return unless container = App.get('container')
-    @makeUrl(container, terminal, 'shell').then (url) ->
-      # continue to load the terminal
-      terminal.url = url
-      terminal.open(true)
-      terminal.focus()
-    , (jqxhr) ->
-      terminal.retry()
+    @connectTerminal(container, terminal, 'shell')

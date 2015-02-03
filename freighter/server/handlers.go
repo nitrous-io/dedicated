@@ -21,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/msgproto"
 	"github.com/nitrous-io/dedicated/pkg/multipartsio"
@@ -30,6 +31,7 @@ import (
 
 var (
 	defaultUploadMemory int64 = 20 << 20 // 20MB
+	errInvalidEncoding        = httperror.New(http.StatusBadRequest, "invalid_encoding", "invalid websocket encoding")
 )
 
 const StatusUnprocessableEntity = 422
@@ -381,6 +383,17 @@ func (s *Server) exportContainer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getEncoder(encoding string) (shell.EncoderDecoder, error) {
+	switch encoding {
+	case "", "binary":
+		return shell.PlainEncoder, nil
+	case "base64":
+		return shell.Base64Encoder, nil
+	default:
+		return nil, errInvalidEncoding
+	}
+}
+
 func (s *Server) wsContainerLogs(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 
@@ -390,6 +403,11 @@ func (s *Server) wsContainerLogs(w http.ResponseWriter, r *http.Request) error {
 	timestamps, _ := strconv.ParseBool(r.FormValue("timestamps"))
 	tail := r.FormValue("tail")
 
+	encoder, err := getEncoder(r.FormValue("encoding"))
+	if err != nil {
+		return err
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return fmt.Errorf("failed to upgrade websocket: %v", err)
@@ -397,7 +415,7 @@ func (s *Server) wsContainerLogs(w http.ResponseWriter, r *http.Request) error {
 	stream := wsconn.NewConnectionHeartbeat(conn, true)
 	defer stream.Close()
 
-	return s.provider.Logs(id, shell.NewShellWriter(stream), follow, timestamps, tail)
+	return s.provider.Logs(id, shell.NewShellWriter(stream, encoder), follow, timestamps, tail)
 }
 
 // wsNewShell creates a new shell to a container using protocol specified in
@@ -417,8 +435,13 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	command := r.FormValue("command")
 	width := getFormInt(r, "width")
 	height := getFormInt(r, "height")
-	// check if the client request to use BinaryMessage instead of TextMessage
-	binary, _ := strconv.ParseBool(r.FormValue("binary"))
+	encoding := r.FormValue("encoding")
+
+	encoder, err := getEncoder(encoding)
+	if err != nil {
+		return err
+	}
+
 	// check if the client wants to have a TTY. Usually the client who wants a
 	// stdin pipe will not need a TTY
 	noTTY, _ := strconv.ParseBool(r.FormValue("notty"))
@@ -434,7 +457,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to upgrade websocket: %v", err)
 	}
 	stream := wsconn.NewConnectionHeartbeat(conn, true)
-	if binary {
+	if encoding == "binary" {
 		stream.MessageType = websocket.BinaryMessage
 	}
 	defer stream.Close()
@@ -446,8 +469,8 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 
 	// create stdin/stdout stream with the shell protocol
 	msgCh := make(chan shell.Message, messageQueueSize)
-	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
-	stdout := shell.NewShellWriter(stream)
+	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType, encoder)
+	stdout := shell.NewShellWriter(stream, encoder)
 
 	attached := make(chan struct{}, 1)
 	ch := sh.Attach(stdin, stdout, attached)
@@ -558,6 +581,18 @@ func (s *Server) logoutRegistry(w http.ResponseWriter, r *http.Request) {
 		status = StatusUnprocessableEntity
 	}
 	s.respond(w, status, nil)
+}
+
+func (s *Server) freighterInfo(w http.ResponseWriter, r *http.Request) error {
+	freighterInfoJson := &struct {
+		WebSocketEncoding string `json:"websocket_encoding"`
+	}{
+		"base64",
+	}
+
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"freighter_info": freighterInfoJson})
+
+	return nil
 }
 
 var defaultPeriod = 100 * time.Millisecond
@@ -720,25 +755,30 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 		return fmt.Errorf("Cannot attach to stopped container %v", info.ID)
 	}
 
-	// check if the client request to use BinaryMessage instead of TextMessage
-	binary, _ := strconv.ParseBool(r.FormValue("binary"))
 	// if no-stdin in param is set, STDIN should not be attached
 	noStdin, _ := strconv.ParseBool(r.FormValue("nostdin"))
+
+	encoding := r.FormValue("encoding")
+
+	encoder, err := getEncoder(encoding)
+	if err != nil {
+		return err
+	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return fmt.Errorf("failed to upgrade websocket: %v", err)
 	}
 	stream := wsconn.NewConnectionHeartbeat(conn, true)
-	if binary {
+	if encoding == "binary" {
 		stream.MessageType = websocket.BinaryMessage
 	}
 	defer stream.Close()
 
 	// create stdin/stdout stream with the shell protocol
 	msgCh := make(chan shell.Message, messageQueueSize)
-	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
-	stdout := shell.NewShellWriter(stream)
+	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType, encoder)
+	stdout := shell.NewShellWriter(stream, encoder)
 	exit := make(chan struct{})
 
 	go func() {

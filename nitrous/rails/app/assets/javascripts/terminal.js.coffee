@@ -9,6 +9,24 @@ parentWindow = null if parentWindow == window
 
 isMac = navigator.userAgent.indexOf("Macintosh") != -1
 
+noopEncoder = (data) =>
+  data
+
+base64Encoder = (data) =>
+  window.btoa(data)
+
+base64Decoder = (data) =>
+  window.atob(data)
+
+utf8Encoder = new TextEncoder('utf8')
+utf8Decoder = new TextDecoder('utf8')
+
+utf8Encode = (data) =>
+  utf8Encoder.encode(data)
+
+utf8Decode = (data) =>
+  utf8Decoder.decode(new DataView(data))
+
 window.NitrousTerminal =
   term: null
   conn: null
@@ -17,6 +35,8 @@ window.NitrousTerminal =
   firstConnect: true
   afterOpen: null
   readonly: false
+  encoder: noopEncoder
+  decoder: noopEncoder
 
   ide: false
 
@@ -66,7 +86,8 @@ window.NitrousTerminal =
 
     @term.handler = (data) =>
       return if @readonly || @conn.readyState != 1
-      @conn.send "d|#{data}"
+      encoded = @encoder(data)
+      @conn.send utf8Encode("d|#{encoded}")
 
     @term.originalKeyDown = @term.keyDown
     @term.keyDown = (event) =>
@@ -84,9 +105,22 @@ window.NitrousTerminal =
     @conn.open(nobeforeopen)
     @conn.url = null
 
+  setEncoding: (encoding) ->
+    switch encoding
+      when 'base64'
+        @encoder = base64Encoder
+        @decoder = base64Decoder
+      when 'plain'
+        @encoder = noopEncoder
+        @decoder = noopEncoder
+      else
+        throw new Error('invalid websocket encoding')
+
+    @encoding = encoding
+
   retry: ->
     @conn.retry()
-
+    
   destroy: ->
     @close()
     @term?.destroy()
@@ -118,10 +152,15 @@ window.NitrousTerminal =
     @afterOpen = null
 
   didReceiveMessage: (ev) ->
-    type = ev.data.slice(0, 2)
+    message = ev.data
+    if message instanceof ArrayBuffer
+      message = utf8Decode(message)
+
+    type = message.slice(0, 2)
     switch type
       when 'd|'
-        @term.write ev.data.slice(2)
+        decoded = @decoder(message.slice(2))
+        @term.write decoded
       when 'c|'
         @close()
       when 'h'
