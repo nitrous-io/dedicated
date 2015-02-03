@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"regexp"
@@ -20,6 +22,8 @@ import (
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
+
+const NitrousUUIDHeader = "X-NITROUS-UUID"
 
 var (
 	errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request", "auth token is required")
@@ -44,6 +48,7 @@ type Env struct {
 	trackEventData map[string]interface{}
 	RemoteAddr     string
 	Tracker        analytics.Tracker
+	UUID           string
 }
 
 func (env *Env) AddEventData(data map[string]interface{}) {
@@ -191,6 +196,14 @@ func GetRemoteAddr(r *http.Request) string {
 	}
 
 	return remoteAddr
+}
+
+func MakeUUID() string {
+	uuid := make([]byte, 4) // hex string len 8
+	if _, err := rand.Read(uuid); err != nil {
+		return "RANDBROKE" // should never happen
+	}
+	return hex.EncodeToString(uuid)
 }
 
 func splitIPAddresses(ip string) []string {

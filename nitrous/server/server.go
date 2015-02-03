@@ -143,8 +143,12 @@ func (s *Server) route(route string, mw middleware.Middleware, methods ...string
 func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...string) {
 	route = strings.Join(nsStack, "") + route
 	h := func(w http.ResponseWriter, r *http.Request) {
+		remoteAddr := middleware.GetRemoteAddr(r)
+		uuid := middleware.MakeUUID()
+		// allow for consumption by `RespondJSON`
+		w.Header().Set(middleware.NitrousUUIDHeader, uuid)
 		mh.Meter("requests.nitrous").Mark(1)
-		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
+		s.logger.Infof("uuid=%s ip=%s Request: %v %v", uuid, remoteAddr, r.Method, r.URL.String())
 		env := &middleware.Env{
 			Root:        s.root,
 			Logger:      s.logger,
@@ -152,7 +156,8 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 			Events:      s.Events,
 			Provisioner: s.Provisioner,
 			Tracker:     s.Tracker,
-			RemoteAddr:  middleware.GetRemoteAddr(r),
+			RemoteAddr:  remoteAddr,
+			UUID:        uuid,
 		}
 		if err := mw(env, w, r); err != nil {
 			s.HandleError(w, err)
@@ -210,7 +215,8 @@ func (s *Server) RespondJSON(w http.ResponseWriter, status int, data []byte) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(status)
 	w.Write(data)
-	s.logger.Infof("Response: %v %v", status, string(data))
+	uuid := w.Header().Get(middleware.NitrousUUIDHeader)
+	s.logger.Infof("uuid=%s Response: %v %v", uuid, status, string(data))
 }
 
 func (s *Server) RespondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{}) {
