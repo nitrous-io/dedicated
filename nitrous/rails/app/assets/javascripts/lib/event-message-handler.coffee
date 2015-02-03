@@ -14,6 +14,7 @@ App.EventMessageHandler = App.EventsSocket.extend
       @on evt, (data) ->
         containerData = data.container
         if container = findContainer(containerData)
+          container.setTempState null
           container.eventOccurred(evt)
           container.load(containerData)
           container.loadConfig()

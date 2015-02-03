@@ -29,9 +29,9 @@ if App.hosts.length
                       link-to 'container.index' container.slug
                         h4
                           = container.displayName
-                        .state-indicator class={container.state} title={container.state}
+                        .state-indicator class={container.computedState} title={container.computedState}
                           span
-                            = container.state
+                            = container.computedState
 
 / TODO: Renable when desktop app is sync
   .app-download

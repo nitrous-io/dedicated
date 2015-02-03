@@ -69,6 +69,7 @@ App.ContainerPortsController = Em.ObjectController.extend
       container = @get 'model'
       prevState = @get 'state'
       @set 'state', 'reconfiguring'
+      container.setTempState 'reconfiguring'
 
       events = App.get 'eventsSocket'
 
