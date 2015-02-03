@@ -45,6 +45,35 @@ const (
 	busyboxImage = "busybox:latest"
 )
 
+var _ = BeforeSuite(func() {
+	var (
+		start time.Time
+		out   []byte
+		err   error
+		cmd   *exec.Cmd
+	)
+
+	// load the stored ubuntu-bare image so we dont have to pull it from the internet
+	// nitrousio/ubuntu-bare image from /root/ubuntu-bare.tar.gz
+	start = time.Now()
+	fmt.Print("build nitrousio/ubuntu-bare:latest...")
+	out, err = exec.Command("docker", "load", "-i", "/root/ubuntu-bare.tar.gz").CombinedOutput()
+	Expect(err).To(BeNil(), "failed to load nitrousio/ubuntu-bare, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// build nitrous/ubuntu based on nitrosio/ubuntu-bare, but with "top" cmd
+	start = time.Now()
+	fmt.Print("build nitrous/ubuntu:latest...")
+	cmd = exec.Command("docker", "build", "-t", "nitrous/ubuntu:latest", "-")
+	cmd.Stdin = bytes.NewBufferString(`
+	FROM nitrousio/ubuntu-bare:latest
+	CMD ["top"]
+	`)
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build nitrous/ubuntu, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
+})
+
 var _ = Describe("provider/docker", func() {
 	var (
 		prov    *docker.DockerProvider
@@ -150,10 +179,6 @@ var _ = Describe("provider/docker", func() {
 	})
 
 	Describe(".CreateStart()", func() {
-		BeforeEach(func() {
-			PullImage(NitrousImage)
-		})
-
 		It("creates a running container", func() {
 			name := RandomName("freightertest")
 			info, err := prov.CreateStart(name, NitrousImage, secret, "")
@@ -769,10 +794,6 @@ var _ = Describe("provider/docker", func() {
 	})
 
 	Describe(".GetInfo()", func() {
-		BeforeEach(func() {
-			PullImage(NitrousImage)
-		})
-
 		It("returns container info", func() {
 			name := RandomName("freightertest")
 			configJSON := ""

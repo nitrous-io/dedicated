@@ -170,9 +170,6 @@ func PullImage(name string) {
 // builds a docker image from it, returning the name of the image.
 // If contents is zero value, it uses a default dockerfile.
 func CreateImages(count int, name string, noEntropy bool, contents string) []string {
-	if contents == "" || strings.Contains(contents, NitrousImage) {
-		PullImage(NitrousImage)
-	}
 	dockerLoc, err := ioutil.TempDir("", "DockerTest")
 	Expect(err).To(BeNil())
 	dockerFile, err := os.Create(filepath.Join(dockerLoc, "Dockerfile"))
