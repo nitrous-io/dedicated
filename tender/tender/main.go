@@ -11,7 +11,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/tender"
 )
 
@@ -140,12 +139,6 @@ func servePreviewProxy(handler http.Handler) {
 		log.Fatalf("tender: invalid ports, %q", err)
 	}
 	log.Printf("listen to port from %d to %d", startPort, endPort)
-	if startPort != config.MinPreviewPort || endPort != config.MaxPreviewPort {
-		log.Printf(
-			"tender: [warn] mismatched ports with freighter. Expect %d-%d, got %d-%d",
-			config.MinPreviewPort, config.MaxPreviewPort, startPort, endPort,
-		)
-	}
 
 	// proxy port range for preview
 	for p := startPort; p <= endPort; p++ {
