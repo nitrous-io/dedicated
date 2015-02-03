@@ -3,8 +3,11 @@ package containers_test
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
+	"time"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -44,6 +47,19 @@ var _ = Describe("CreateContainer", func() {
 		h      *host.Host
 	)
 
+	mkParams := func() url.Values {
+		params := url.Values{}
+		params.Set("slug", "elixir-web-1")
+		params.Set("name", "Elixir Web Server 1")
+		params.Set("image", "elixir")
+		params.Add("env[]", "LANG=C")
+		params.Add("env[]", "NODE=nope")
+		params.Add("port[]", "3000:8080")
+		params.Add("port[]", "0.0.0.0::4552")
+		params.Add("port[]", "0.0.0.0:8081:11211")
+		return params
+	}
+
 	BeforeEach(func() {
 		var err error
 
@@ -71,13 +87,16 @@ var _ = Describe("CreateContainer", func() {
 
 		hs, err = CreateHostStack(db, &HostStack{
 			H: &host.Host{
-				Slug:      "foo",
-				IPAddress: sql.NullString{"127.0.0.1", true},
+				Slug:          "foo",
+				IPAddress:     sql.NullString{"127.0.0.1", true},
+				MaxContainers: sql.NullInt64{2, true},
 			},
 			U: u,
 		})
 		Expect(err).To(BeNil())
 		h = hs.H
+
+		params = mkParams()
 
 		env = &middleware.Env{
 			DB:      db,
@@ -86,16 +105,6 @@ var _ = Describe("CreateContainer", func() {
 			Logger:  logger,
 			User:    u,
 		}
-
-		params = url.Values{}
-		params.Set("slug", "elixir-web-1")
-		params.Set("name", "Elixir Web Server 1")
-		params.Set("image", "elixir")
-		params.Add("env[]", "LANG=C")
-		params.Add("env[]", "NODE=nope")
-		params.Add("port[]", "3000:8080")
-		params.Add("port[]", "0.0.0.0::4552")
-		params.Add("port[]", "0.0.0.0:8081:11211")
 
 		mockClient.CreatedContainer = &freighterclient.Container{
 			ID:      "deadbeef",
@@ -140,6 +149,63 @@ var _ = Describe("CreateContainer", func() {
 		conf := mockClient.ReceivedConfig
 		Expect(conf.Env).To(ConsistOf("LANG=C", "NODE=nope"))
 		Expect(conf.PortBindings).To(ConsistOf("3000:8080", "0.0.0.0::4552", "0.0.0.0:8081:11211"))
+	})
+
+	PIt("should not allow a user to create multiple containers at the same time", func() {
+		var wg sync.WaitGroup
+		var createResults []*containers.CreateResult
+		var errGroup []error
+
+		var fireAt time.Time
+
+		start := make(chan struct{})
+		for i := 0; i < 2; i++ {
+			wg.Add(1)
+			go func(i int) {
+				p := mkParams()
+				p.Set("slug", fmt.Sprintf("con1-%d", i))
+				<-start
+				Eventually(func() bool {
+					return time.Now().After(fireAt)
+				}, "3s", "1ms").Should(BeTrue())
+				cr, err := containers.CreateContainer(h, p, env)
+				if err != nil {
+					errGroup = append(errGroup, err)
+				} else {
+					createResults = append(createResults, cr)
+				}
+				wg.Done()
+			}(i)
+		}
+		fireAt = time.Now().Add(2 * time.Second)
+		close(start)
+		wg.Wait()
+
+		containers, err := container.FindAllByHostID(db, h.ID)
+		Expect(err).To(BeNil())
+		Expect(containers).To(HaveLen(1))
+
+		Expect(createResults).To(HaveLen(1))
+		Expect(errGroup).To(HaveLen(1))
+		Expect(errGroup[0]).To(Equal(httperror.New(http.StatusBadRequest, "multiple_container_creation_disallowed", "only one container can be created at any time")))
+	})
+
+	It("should not allow for creating containers over the host's allowance", func() {
+		c := &container.Container{
+			UserID: hs.U.ID,
+			HostID: hs.H.ID,
+			Image:  "nitrous-base",
+			Slug:   "java-test-container",
+		}
+		err := c.Insert(db)
+		Expect(err).To(BeNil())
+
+		h.MaxContainers = sql.NullInt64{1, true}
+
+		res, err := containers.CreateContainer(h, params, env)
+		Expect(res).To(BeNil())
+
+		Expect(err).To(MatchError(httperror.New(http.StatusBadRequest, "max_containers_reached", "host has exceeded the plan's maximum containers")))
 	})
 
 	It("creates a new container record", func() {

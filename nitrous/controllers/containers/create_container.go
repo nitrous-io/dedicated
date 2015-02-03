@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/lib/pq"
-
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
@@ -26,14 +26,46 @@ type CreateResult struct {
 }
 
 var (
-	errSlugRequired  = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
-	errImageNotFound = httperror.New(http.StatusNotFound, "image_not_found", "image does not exist")
-	errMissingCmd    = httperror.New(http.StatusBadRequest, "missing_cmd", "missing CMD in Docker image")
+	errSlugRequired                        = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
+	errImageNotFound                       = httperror.New(http.StatusNotFound, "image_not_found", "image does not exist")
+	errMissingCmd                          = httperror.New(http.StatusBadRequest, "missing_cmd", "missing CMD in Docker image")
+	errMaxContainersReached                = httperror.New(http.StatusBadRequest, "max_containers_reached", "host has exceeded the plan's maximum containers")
+	errMultipleContainerCreationNotAllowed = httperror.New(http.StatusBadRequest, "multiple_container_creation_disallowed", "only one container can be created at any time")
 )
 
-func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*CreateResult, error) {
+func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res *CreateResult, err error) {
 	db := env.DB
 	log := env.Logger
+
+	tx, err := db.Beginx()
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		if err == nil || res != nil {
+			return
+		}
+		tx.Rollback()
+	}()
+
+	// Don't allow containers to be created concurrently.
+	locked, err := ndb.TransactionLock(tx, ndb.CONTAINER_CREATE_LOCK, int(env.User.ID))
+	if err != nil {
+		return nil, err
+	}
+	if !locked {
+		return nil, errMultipleContainerCreationNotAllowed
+	}
+
+	cnCreate, err := h.CanCreateMoreContainers(tx)
+	if err != nil {
+		env.Logger.Errorf("Error checking CanCreateMoreContainers, err: %v", err)
+	} else {
+		if !cnCreate {
+			return nil, errMaxContainersReached
+		}
+	}
 
 	slug := strings.ToLower(options.Get("slug"))
 	name := options.Get("name")
@@ -52,7 +84,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 		name = slug
 	}
 
-	hv, err := hostVolumes(db, h)
+	hv, err := hostVolumes(tx, h)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +132,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 	}
 
 	// Save record to db first to reserve name (since it's globally unique).
-	if err := cn.Insert(db); err != nil {
+	if err := cn.Insert(tx); err != nil {
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
 			if validationErr, ok := validations[e.Constraint]; ok {
 				return nil, validationErr
@@ -109,20 +141,12 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 		return nil, err
 	}
 
-	deleteContainer := func(cn *container.Container) {
-		err := cn.DeletePermanently(db)
-		if err != nil {
-			log.Errorf("Unable to delete container %d that failed on freighter: %v", cn.ID, err)
-		}
-	}
-
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(tx, h)
 	if err != nil {
-		deleteContainer(cn)
 		return nil, err
 	}
 
-	res := &CreateResult{}
+	res = &CreateResult{}
 
 	created, err := cl.Create(slug, imageSlug, cn.Secret, config)
 	if err != nil {
@@ -132,10 +156,10 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 			res.ErrorMessage = "start_failed"
 			res.ErrorDescription = e.Error()
 		case *freighterclient.InvalidParamError:
-			deleteContainer(cn)
+			res = nil
 			return nil, httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
 		default:
-			deleteContainer(cn)
+			res = nil
 			if err == freighterclient.ErrMissingCmd {
 				return nil, errMissingCmd
 			}
@@ -161,13 +185,13 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 		log.Errorf("containers.create: Freighter returned container with unexpected state: %v", created.State)
 	}
 
-	if err := cn.Update(db); err != nil { // log and continue
+	if err := cn.Update(tx); err != nil { // log and continue
 		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cn)
 	}
 
 	for _, v := range volumeSlugs(config.Mounts) {
 		cv := cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: hv[v].ID}
-		if err := cv.Insert(db); err != nil { // log and continue
+		if err := cv.Insert(tx); err != nil { // log and continue
 			log.Errorf("containers.create: failed to attach volume %s to container %s", hv[v].Slug, cn.CID)
 		}
 	}
@@ -183,5 +207,5 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (*Cr
 		"container_id": cn.ID,
 	})
 
-	return res, nil
+	return res, tx.Commit()
 }
