@@ -17,6 +17,8 @@ App.Host = klass = App.Model.extend
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'updated_at', serialize: false)
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
+  freighterdVersion: attr(as: 'freighterd_version', serialize: false)
+  dockerVersion: attr(as: 'docker_version', serialize: false)
 
   # only used in create
   planSlug: attr(as: 'size')
