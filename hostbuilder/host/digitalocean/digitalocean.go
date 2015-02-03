@@ -106,14 +106,14 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	case err := <-resultCh:
 		if err != nil {
 			hlog(h, "ERROR: Failed in create host step: %+v", ctx.Error())
-			h.logDroplet()
+			h.logFailedDroplet()
 			return nil, err
 		}
 	case <-time.After(h.createTimeout):
 		// FIXME golang.org/x/net/context is more correct, we should probably use that.
 		close(h.cancelCreate)
 		hlog(h, "ERROR: timed out in create host step")
-		h.logDroplet()
+		h.logFailedDroplet()
 		return nil, ErrCreateTimeout
 	}
 
@@ -319,7 +319,7 @@ func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 	hlog(h, format, v...)
 }
 
-func (h *Host) logDroplet() {
+func (h *Host) logFailedDroplet() {
 	if h.droplet != nil {
 		if h.sshKey != nil {
 			hlog(h, "keyID=%d Leaving droplet for inspection: %d", h.sshKey.ID, h.droplet.ID)
