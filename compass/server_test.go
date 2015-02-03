@@ -18,7 +18,11 @@ func testServer() (*Server, string) {
 	config := &Config{
 		Addr: fmt.Sprintf("localhost:%d", testPort),
 		NavigatorConfigs: []NavigatorConfig{
-			{"dummy", "example.com.", testData},
+			{
+				Name:   "dummy",
+				Domain: "example.com.",
+				Config: testData,
+			},
 		},
 	}
 	s, _ := NewServer(config)
@@ -48,24 +52,34 @@ func assertA(t *testing.T, got dns.RR, expected dns.RR) {
 }
 
 func assertAnswers(t *testing.T, got []dns.RR, expected []dns.RR) {
+	if len(got) != len(expected) {
+		t.Fatalf("Expected answers %v, got %v", expected, got)
+	}
 	for i, g := range got {
 		switch g.(type) {
 		case *dns.A:
 			assertA(t, g, expected[i])
+		default:
+			t.Fatal("Unexpected answer type.")
 		}
 	}
 }
 
-func TestServeBoxhost(t *testing.T) {
+func TestServeQuestions(t *testing.T) {
 	s, addr := testServer()
 	defer s.Stop()
 
 	testCases := []dnsTestCase{
 		{
-			qname: "test.n2oapp.com.",
+			qname: "test.example.com.",
 			qtype: dns.TypeA,
 			answer: []dns.RR{newA("test.example.com. 300 A " +
 				testData["test.example.com."])},
+		},
+		{
+			qname:  "does-not-exist.example.com.",
+			qtype:  dns.TypeA,
+			answer: []dns.RR{},
 		},
 	}
 
@@ -78,6 +92,35 @@ func TestServeBoxhost(t *testing.T) {
 			t.Fatal("Failed to get DNS response", err)
 		}
 		assertAnswers(t, r.Answer, tc.answer)
+	}
+}
+
+func TestServeUnhandledDomain(t *testing.T) {
+	s, addr := testServer()
+	defer s.Stop()
+
+	c := new(dns.Client)
+	m := new(dns.Msg)
+	m.SetQuestion("does-not-exist.example.com.", dns.TypeA)
+	r, _, err := c.Exchange(m, addr)
+	if err != nil {
+		t.Fatalf("Failed to get DNS response: %v", err)
+	}
+	if len(r.Answer) != 0 {
+		t.Fatalf("Expected no answers but got %v", r.Answer)
+	}
+	if len(r.Ns) == 0 {
+		t.Fatalf("Expected authority section to filled but it's empty")
+	}
+	soa, ok := r.Ns[0].(*dns.SOA)
+	if !ok {
+		t.Fatalf("Expected first NS record to be an SOA record but got %v", r.Ns[0])
+	}
+	if soa.Header().Name != "example.com." {
+		t.Fatalf("Expected SOA header to have name example.com. but got %v", soa.Header().Name)
+	}
+	if r.Rcode != dns.RcodeNameError {
+		t.Fatalf("Expected rcode to be NXDOMAIN but got %v", r.Rcode)
 	}
 }
 

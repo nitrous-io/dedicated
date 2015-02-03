@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -78,7 +79,7 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	switch q.Qtype {
 	case dns.TypeSOA:
-		navigator, ok := s.navigators[q.Name]
+		navigator, ok := s.navigators[strings.ToLower(q.Name)]
 		if ok {
 			m.Answer = navigator.NewSOA()
 			return
@@ -105,6 +106,7 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		log.Printf("No answer for question %s", q.String())
 		m.Ns = s.allSOA()
 		m.Ns[0].Header().Ttl = defaultTTL
+		m.Rcode = dns.RcodeNameError // NXDOMAIN
 	}
 }
 

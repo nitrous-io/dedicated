@@ -42,12 +42,15 @@ func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
 	labels := dns.SplitDomainName(name)
 	llabel := len(labels)
 	if len(labels) < 3 {
-		return nil, fmt.Errorf("missing box name %v", name)
+		return nil, fmt.Errorf("Missing container slug %v", name)
 	}
+
 	slug := labels[llabel-3]
-	c, err := n.find(slug)
+	// strings.ToLower is safe here because we expect name to have been
+	// converted to Punycode when necessary.
+	c, err := n.find(strings.ToLower(slug))
 	if err != nil {
-		return nil, fmt.Errorf("Invalid boxname from domain %v", name)
+		return nil, fmt.Errorf("Invalid container slug from domain %v", name)
 	}
 
 	domain := n.config[c.RegionSlug]

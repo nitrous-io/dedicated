@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -42,7 +43,10 @@ func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
 	if llabel < 3 {
 		return nil, fmt.Errorf("missing host slug %v", name)
 	}
-	slug := labels[llabel-3]
+
+	// strings.ToLower is safe here because we expect name to have been
+	// converted to Punycode when necessary.
+	slug := strings.ToLower(labels[llabel-3])
 	h, err := n.find(slug)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid slug from domain %v", name)
