@@ -8,7 +8,12 @@ import (
 
 type Navigator interface {
 	Name() string // tell us what type of navigator you are.
+
+	// Lookup returns DNS records for the given DNS name. Callers must ensure
+	// that any Unicode characters outside of the ASCII set are converted to
+	// Punycode.
 	Lookup(name string) ([]dns.RR, error)
+
 	NewSOA() []dns.RR
 }
 

@@ -96,3 +96,17 @@ func TestLookup(t *testing.T) {
 		t.Fatal("should not be able to look up invalid domain")
 	}
 }
+
+func TestLookupCaseInsensitive(t *testing.T) {
+	nav := testNavigator("example.com.").(*Navigator)
+	r, err := nav.Lookup("Daniel-BOX.Example.Com")
+	if err != nil {
+		t.Fatalf("Unexpected lookup error: %v", err)
+	}
+	if len(r) == 0 {
+		t.Fatal("Expected answers but got none")
+	}
+	if r[0].(*dns.A).A.String() != "10.0.0.1" {
+		t.Fatalf("Expected first answer to be a valid A record but got %v", r[0])
+	}
+}
