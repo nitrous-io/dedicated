@@ -49,6 +49,13 @@ var (
 	}
 )
 
+var doRegionsMap = map[string]string{
+	"sgp": "sgp1",
+	"nyc": "nyc3",
+	"sfo": "sfo1",
+	"ams": "ams3",
+}
+
 type Provisioner struct {
 	db        *db.Database
 	logger    *logger.Logger
@@ -549,7 +556,10 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 		}
 	}()
 
-	config := p.mkHostbuilderConfig(phost, opts)
+	config, err := p.mkHostbuilderConfig(phost, opts)
+	if err != nil {
+		return nil, err
+	}
 	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, &config, opts.OutputStream, p.hostbuilderHeaders(opts))
 	if err != nil {
 		err = &HostbuilderError{Err: err}
@@ -625,7 +635,7 @@ func (p *Provisioner) preprovision(j job) (*host.Host, error) {
 	return p.provision(phost, opts)
 }
 
-func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOptions) hostbuilderclient.Config {
+func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOptions) (hostbuilderclient.Config, error) {
 	h := phost.host
 	config := hostbuilderclient.Config{
 		"name":        h.Slug,
@@ -648,7 +658,16 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 			config[k] = ""
 		}
 	}
-	return config
+	rid, ok := opts.Template.Config.Map["region_id"]
+	if !ok {
+		return config, nil
+	}
+	if reg, ok := doRegionsMap[rid.String]; !ok {
+		return hostbuilderclient.Config{}, fmt.Errorf("region %s is invalid", rid.String)
+	} else {
+		config["region_id"] = reg
+	}
+	return config, nil
 }
 
 func (p *Provisioner) hostbuilderHeaders(opts ProvisionOptions) map[string]string {
