@@ -121,6 +121,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		Plan:              plan,
 		Template:          template,
 		ProvisionFailedFn: publishProvisionFailure,
+		UUID:              env.UUID,
 		ProvisionSucceededFn: func(h *host.Host) {
 			provisioned <- h
 		},

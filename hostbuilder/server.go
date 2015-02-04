@@ -20,7 +20,7 @@ import (
 )
 
 // form param that contains request uuid
-const UUIDParam = "hb-uuid"
+const NitrousUUIDHeader = "X-NITROUS-UUID"
 
 var (
 	okResponse = &Response{StatusCode: http.StatusOK, Status: "ok"}
@@ -83,25 +83,27 @@ type HttpHandler func(w http.ResponseWriter, r *http.Request) error
 
 func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO use a pool instead of generating each time
-		id := make([]byte, 4) // hex string len 8
-		if _, err := io.ReadFull(rand.Reader, id); err != nil {
-			panic(err)
+		uuid := r.Header.Get(NitrousUUIDHeader)
+		if uuid == "" {
+			id := make([]byte, 4) // hex string len 8
+			if _, err := io.ReadFull(rand.Reader, id); err != nil {
+				uuid = "RANDBROKE"
+			} else {
+				uuid = hex.EncodeToString(id)
+			}
+			r.Header.Set(NitrousUUIDHeader, uuid)
 		}
-		requestID := hex.EncodeToString(id)
-		if r.FormValue(UUIDParam) == "" {
-			r.Form.Set(UUIDParam, requestID)
-		}
+
 		start := time.Now()
 
-		log.Printf("uuid=%s Request: %v %v\n", requestID, r.Method, r.URL.String())
+		log.Printf("uuid=%s Request: %v %v\n", uuid, r.Method, r.URL.String())
 		if err := handlerFunc(w, r); err != nil {
 			duration := time.Since(start)
-			log.Printf("uuid=%s [ERROR], Completed in %s: %s %s: %s\n", requestID, duration, r.Method, r.URL, err)
+			log.Printf("uuid=%s [ERROR], Completed in %s: %s %s: %s\n", uuid, duration, r.Method, r.URL, err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		} else {
 			duration := time.Since(start)
-			log.Printf("uuid=%s 200 OK Completed in %s: %s %s\n", requestID, duration, r.Method, r.URL.String())
+			log.Printf("uuid=%s 200 OK Completed in %s: %s %s\n", uuid, duration, r.Method, r.URL.String())
 		}
 	}
 }
@@ -148,12 +150,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		providerConfig = make(map[string]string)
 	}
 
-	if uuid := r.FormValue(UUIDParam); uuid != "" {
-		providerConfig["uuid"] = uuid
-	} else {
-		// shouldn't happen, use this to detect if it does
-		providerConfig["uuid"] = "NOUUID"
-	}
+	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
 
 	configJson := r.Form.Get("config")
 	log.Printf("uuid=%s Creating a host using provider %s", providerConfig["uuid"], provider)
@@ -336,6 +333,10 @@ func (s *Server) hostFromRequest(r *http.Request) (host.Host, error) {
 	}
 	provider := r.Form.Get("provider")
 	providerConfig := s.Config.Providers[provider]
+	if providerConfig == nil {
+		providerConfig = make(map[string]string)
+	}
+	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
 	configJSON := r.Form.Get("config")
 	if configJSON == "" {
 		configJSON = "{}"
