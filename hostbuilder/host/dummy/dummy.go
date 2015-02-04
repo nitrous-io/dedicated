@@ -20,6 +20,8 @@ type Host struct {
 	ListSuccess    bool   `json:"list"`
 }
 
+var ReceivedNewHostDefaultConfig map[string]string
+
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	if !h.CreateSuccess {
 		return nil, errors.New("failed to create host")
@@ -88,6 +90,7 @@ func (h *Host) DriverName() string {
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
+	ReceivedNewHostDefaultConfig = defaultConfig
 	var host Host
 	json.Unmarshal([]byte(config), &host)
 	return &host, nil

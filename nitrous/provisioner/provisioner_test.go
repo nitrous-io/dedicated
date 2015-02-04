@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -268,6 +269,7 @@ var _ = Describe("provisioner", func() {
 				Region:       hs.R,
 				Plan:         hs.P,
 				Template:     hs.PT,
+				UUID:         "ABC",
 			})
 			Expect(err).To(BeNil())
 
@@ -276,6 +278,7 @@ var _ = Describe("provisioner", func() {
 			var hcfg hostbuilderclient.Config
 			json.Unmarshal([]byte(req.FormValue("config")), &hcfg)
 			Expect(hcfg["name"]).To(Equal("new-slug"))
+			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("ABC"))
 
 			h, err := host.Find(db, u, "new-slug")
 			Expect(err).To(BeNil())

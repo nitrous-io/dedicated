@@ -5,7 +5,7 @@ import (
 
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
-	. "github.com/nitrous-io/dedicated/freighter/test"
+	"github.com/nitrous-io/dedicated/freighter/test"
 	"github.com/nitrous-io/dedicated/freighter/util"
 
 	. "github.com/onsi/ginkgo"
@@ -23,7 +23,7 @@ var _ = Describe("InspectImage", func() {
 		datadir = os.Getenv("FREIGHTERD_BASE")
 
 		if datadir == "" {
-			datadir, err = TempDir()
+			datadir, err = test.TempDir()
 			Expect(err).To(BeNil())
 		}
 
@@ -33,7 +33,7 @@ var _ = Describe("InspectImage", func() {
 	})
 
 	It("should be able to lookup information for a local image", func() {
-		imageList := CreateImages(1, "inspect", false, `FROM busybox:latest
+		imageList := test.CreateImages(1, "inspect", false, `FROM busybox:latest
 				MAINTAINER Callum Jones <callum@callumj.com>
 				ENV captain crunch
 				ENV mickey mouse
@@ -41,7 +41,7 @@ var _ = Describe("InspectImage", func() {
 				VOLUME ["/mnt"]
 				CMD /bin/bash -c "echo hi"
 			`)
-		defer RemoveImages(imageList)
+		defer test.RemoveImages(imageList)
 
 		img, err := prov.InspectImage(imageList[0], false)
 		Expect(err).To(BeNil())
@@ -63,26 +63,15 @@ var _ = Describe("InspectImage", func() {
 		Expect(img.Config.Cmd).To(ContainElement(`/bin/bash -c "echo hi"`))
 	})
 
-	It("should not perform remote image lookup when instructed not to", func() {
-		img, err := prov.InspectImage("centos", false)
-		Expect(err).ToNot(BeNil())
+	It("does not perform remote image lookup when instructed not to", func() {
+		_, err := prov.InspectImage("nitrousio/ruby", false)
 		Expect(err).To(MatchError(provider.ErrImageNotFound))
-		Expect(img).To(BeNil())
 	})
 
-	It("should return information about a remote image", func() {
-		img, err := prov.InspectImage(NitrousImage, true)
-		Expect(err).To(BeNil())
+	It("should fetch the latest image information from official repository", func() {
+		img, _ := prov.InspectImage("library/hello-world:latest", true)
+		Expect(img).ToNot(BeNil())
 		Expect(img.ID).ToNot(BeEmpty())
-		Expect(img.Name).To(Equal("nitrousio/ubuntu-bare"))
 		Expect(img.Tag).To(Equal("latest"))
-		Expect(img.Config).ToNot(BeNil())
-		Expect(img.Config.Env).To(Equal([]string{
-			"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-			"container=docker",
-			"NITROUS_IMAGE_VERSION=2",
-			"NITROUS_USERNAME=nitrous",
-			"NITROUS_SSH_ENABLED=true",
-		}))
 	})
 })

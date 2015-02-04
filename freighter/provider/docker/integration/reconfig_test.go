@@ -16,8 +16,7 @@ var _ = Describe("Reconfig", func() {
 		var configJSON string
 
 		configJSON = `{
-			"PortBindings": ["private:1234:2345", "public:2345:3456"],
-			"Cmd": ["/bin/sh", "-c", "while true; do sleep 1; echo hello; done"]
+			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
 		prov, info, cleanupFn, err := startContainer(configJSON)
 		defer cleanupFn()

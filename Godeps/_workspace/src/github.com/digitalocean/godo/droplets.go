@@ -81,10 +81,10 @@ type Networks struct {
 
 // Network represents a DigitalOcean Network
 type Network struct {
-	IPAddress string `json:"ip_address,omitempty"`
-	Netmask   string `json:"netmask,omitempty"`
-	Gateway   string `json:"gateway,omitempty"`
-	Type      string `json:"type,omitempty"`
+	IPAddress string      `json:"ip_address,omitempty"`
+	Netmask   interface{} `json:"netmask,omitempty"`
+	Gateway   string      `json:"gateway,omitempty"`
+	Type      string      `json:"type,omitempty"`
 }
 
 func (n Network) String() string {

@@ -212,7 +212,7 @@ func (h *Host) List() ([]*host.Info, error) {
 			allDroplets = append(allDroplets, d)
 		}
 
-		if resp.Links.IsLastPage() {
+		if resp.Links == nil || resp.Links.IsLastPage() {
 			break
 		}
 

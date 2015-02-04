@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -362,6 +363,7 @@ var _ = Describe("controllers/admin", func() {
 			var (
 				hs1, hs2 *test.HostStack
 				provider = "digitalocean"
+				rt       *test.FakeRoundTripper
 			)
 
 			BeforeEach(func() {
@@ -408,7 +410,7 @@ var _ = Describe("controllers/admin", func() {
 
 				// Fake hostbuilderclient response.
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				rt := &test.FakeRoundTripper{
+				rt = &test.FakeRoundTripper{
 					Message: `{"status": "sounds_good"}`,
 					Status:  http.StatusOK,
 				}
@@ -474,6 +476,9 @@ var _ = Describe("controllers/admin", func() {
 				Expect(err).To(BeNil())
 
 				Expect(j["status"]).To(Equal("sounds_good"))
+
+				req := rt.Requests[0]
+				Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 			})
 		})
 	})

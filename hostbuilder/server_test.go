@@ -48,6 +48,8 @@ var _ = Describe("hostbuilder", func() {
 		s, err = New([]byte(`{"dummy":{}}`))
 		Expect(err).To(BeNil())
 		ts = httptest.NewServer(s.Router)
+
+		dummy.ReceivedNewHostDefaultConfig = nil
 	})
 
 	AfterEach(func() {
@@ -85,6 +87,8 @@ var _ = Describe("hostbuilder", func() {
 			Expect(info.IPAddress).To(Equal(h.IPAddress))
 			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
 			Expect(info.State).To(Equal(state.Running.String()))
+
+			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
 		})
 	})
 
@@ -116,6 +120,8 @@ var _ = Describe("hostbuilder", func() {
 			Expect(info.IPAddress).To(Equal(h.IPAddress))
 			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
 			Expect(info.State).To(Equal(state.Running.String()))
+
+			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
 		})
 	})
 
@@ -133,6 +139,8 @@ var _ = Describe("hostbuilder", func() {
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).To(BeNil())
 			Expect(body).To(MatchJSON(`{"status":"ok"}`))
+
+			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
 		})
 	})
 
@@ -159,6 +167,8 @@ var _ = Describe("hostbuilder", func() {
 			Expect(info.IPAddress).To(Equal(h.IPAddress))
 			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
 			Expect(info.State).To(Equal(state.Running.String()))
+
+			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
 		})
 	})
 
@@ -188,6 +198,8 @@ var _ = Describe("hostbuilder", func() {
 
 			h1 := j.Hosts[0]
 			Expect(h1.State).To(Equal(state.Running.String()))
+
+			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
 		})
 	})
 })
