@@ -192,6 +192,19 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(errDesc).To(Equal("no matching plan found for the given size"))
 	})
 
+	It("responds with region disabled when a disabled region is specified", func() {
+		_, err := db.Exec("INSERT INTO regions (slug, name, rank, disabled_at) values ($1, $2, $3, now());", "newfoundland", "New Found Land", 1)
+		Expect(err).To(BeNil())
+		params.Set("region", "newfoundland")
+		res := doRequest(params)
+
+		Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+		errType, errDesc := ErrorSlug(res.Body)
+		Expect(errType).To(Equal("region_disabled"))
+		Expect(errDesc).To(Equal("region is disabled"))
+	})
+
 	It("responds with region not found when an invalid region is specified", func() {
 		params.Set("region", "antarctica")
 		res := doRequest(params)
