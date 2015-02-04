@@ -557,8 +557,22 @@ func updateSoftware(ctx *context.Context, hst host.Host) error {
 	defer mh.UpdateSince(label, time.Now())
 
 	hlog(h, "Updating freighterd package")
-	cmd :=
-		`DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" freighterd`
+
+	cmdParts := []string{
+		// apt-get update with single source
+		// https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=714877#12
+		"DEBIAN_FRONTEND=noninteractive apt-get update",
+		"-o APT::List-Cleanup=0",
+		`-o Dir::Etc::sourceparts="/dev/null"`,
+		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
+		`&&`,
+		"DEBIAN_FRONTEND=noninteractive apt-get install -y",
+		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
+		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
+		"freighterd",
+	}
+	cmd := strings.Join(cmdParts, " ")
+
 	if out, err := h.conn.CombinedOutput(cmd); err != nil {
 		e := fmt.Errorf("update sofware failed with '%s', output: %s", err, out)
 		return mh.Error(e, label)
