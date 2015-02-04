@@ -9,13 +9,14 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/nitrous-common/flusher"
-	"github.com/rcrowley/go-metrics"
+	metrics "github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
 )
 
@@ -36,7 +37,45 @@ var (
 		20 * time.Second,
 		30 * time.Second,
 	}
+
+	// number of http requests in progress
+	httpReqCount    int32
+	nIsShuttingDown int32 // a bool, but must be atomic
 )
+
+func incHttpReqCount() {
+	atomic.AddInt32(&httpReqCount, 1)
+}
+
+func decHttpReqCount() {
+	atomic.AddInt32(&httpReqCount, -1)
+}
+
+func GetHttpReqCount() int {
+	return int(atomic.LoadInt32(&httpReqCount))
+}
+
+func markAsShuttingDown() {
+	atomic.AddInt32(&nIsShuttingDown, 1)
+}
+
+func isShuttingDown() bool {
+	return atomic.LoadInt32(&nIsShuttingDown) > 0
+}
+
+func ShutdownAndWaitHttpRequestsDone(timeout time.Duration) {
+	markAsShuttingDown()
+	deadline := time.Now().Add(timeout)
+	for {
+		if 0 == GetHttpReqCount() {
+			return
+		}
+		if time.Now().After(deadline) {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
 
 // ProgressWriter write the stream data emitted by the host builder as new line
 // separated json messages
@@ -83,6 +122,13 @@ type HttpHandler func(w http.ResponseWriter, r *http.Request) error
 
 func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if isShuttingDown() {
+			http.Error(w, "I'm shutting down", http.StatusServiceUnavailable)
+			return
+		}
+		incHttpReqCount()
+		defer decHttpReqCount()
+
 		uuid := r.Header.Get(NitrousUUIDHeader)
 		if uuid == "" {
 			id := make([]byte, 4) // hex string len 8
@@ -285,6 +331,13 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// for testing only, sleep for 5 seconds
+func (s *Server) sleep(w http.ResponseWriter, r *http.Request) error {
+	log.Print("/test/sleep - sleeping for 5 seconds")
+	time.Sleep(5 * time.Second)
+	return nil
+}
+
 func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 	// TODO This is independent of any particular host so we don't need to use
 	// host-specific form data.
@@ -348,7 +401,8 @@ func (s *Server) CreateRouter() {
 	r := mux.NewRouter()
 	m := map[string]map[string]HttpHandler{
 		"GET": {
-			"/hosts": s.listHosts,
+			"/hosts":      s.listHosts,
+			"/test/sleep": s.sleep,
 		},
 		"POST": {
 			"/hosts":         s.createHost,
@@ -379,7 +433,7 @@ func New(configData []byte) (*Server, error) {
 	server.CreateRouter()
 
 	if config.LibratoUser == "" || config.LibratoToken == "" {
-		log.Printf("missing librato config. Metrics logging is disabled")
+		log.Print("missing librato config. Metrics logging is disabled")
 		// in dev, we flush metrics every 60s into devNull
 		// because we are not interested in them
 		go metrics.Log(metrics.DefaultRegistry, 60e9,
