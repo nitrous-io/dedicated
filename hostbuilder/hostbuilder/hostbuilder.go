@@ -57,9 +57,9 @@ func main() {
 	// upstart uses term by default
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
 	log.Println(<-ch)
-	log.Printf("Starting to shut down hostbuilder, %d request(s) in progress", hostbuilder.GetHttpReqCount())
+	log.Printf("Starting to shut down hostbuilder, %d request(s) in progress, will wait max %d seconds", hostbuilder.GetHttpReqCount(), server.Config.ShutdownTimeoutSecs)
 	timeStart := time.Now()
 	httpServer.SetKeepAlivesEnabled(false) // recommended when shutting down
-	hostbuilder.ShutdownAndWaitHttpRequestsDone(15 * time.Minute)
+	hostbuilder.ShutdownAndWaitHttpRequestsDone(time.Duration(server.Config.ShutdownTimeoutSecs) * time.Second)
 	log.Printf("hostbuilder did shutdown in %s", time.Since(timeStart))
 }
