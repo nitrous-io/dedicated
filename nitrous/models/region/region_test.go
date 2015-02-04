@@ -31,6 +31,10 @@ var _ = Describe("models/region", func() {
 		Expect(err).To(BeNil())
 		_, err = db.Exec("INSERT INTO regions (slug, name, rank) values ($1, $2, $3);", "useast", "US East", 1)
 		Expect(err).To(BeNil())
+		_, err = db.Exec("INSERT INTO regions (slug, name, rank, disabled_at) values ($1, $2, $3, now());", "fiji", "Fiji", 1)
+		Expect(err).To(BeNil())
+		_, err = db.Exec("INSERT INTO regions (slug, name, rank, disabled_at) values ($1, $2, $3, now() + interval '1 hour');", "vegas", "Vegas", 1)
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -101,9 +105,9 @@ var _ = Describe("models/region", func() {
 		It("returns all regions, ordered by rank", func() {
 			rs, err := region.All(db)
 			Expect(err).To(BeNil())
-			Expect(rs).To(HaveLen(3))
-			Expect([]string{rs[0].Slug, rs[1].Slug, rs[2].Slug}).To(ConsistOf([]string{"useast", "apse1", "uswest"}))
-			Expect([]string{rs[0].Name, rs[1].Name, rs[2].Name}).To(ConsistOf([]string{"US East", "Southeast Asia", "US West"}))
+			Expect(rs).To(HaveLen(4))
+			Expect([]string{rs[0].Slug, rs[1].Slug, rs[2].Slug, rs[3].Slug}).To(ConsistOf([]string{"useast", "apse1", "uswest", "vegas"}))
+			Expect([]string{rs[0].Name, rs[1].Name, rs[2].Name, rs[3].Name}).To(ConsistOf([]string{"US East", "Southeast Asia", "US West", "Vegas"}))
 		})
 	})
 
@@ -139,6 +143,29 @@ var _ = Describe("models/region", func() {
 			Expect(r.ID).NotTo(BeZero())
 			Expect(r.CreatedAt).NotTo(BeNil())
 			Expect(r.UpdatedAt).NotTo(BeNil())
+		})
+	})
+
+	Describe("Disabled()", func() {
+		It("should be true for regions currently disabled", func() {
+			r, err := region.FindBySlug(db, "fiji")
+			Expect(err).To(BeNil())
+			Expect(r).ToNot(BeNil())
+			Expect(r.Disabled()).To(BeTrue())
+		})
+
+		It("should be false for regions disabled in the future", func() {
+			r, err := region.FindBySlug(db, "vegas")
+			Expect(err).To(BeNil())
+			Expect(r).ToNot(BeNil())
+			Expect(r.Disabled()).To(BeFalse())
+		})
+
+		It("should be false for regions that are not disabled", func() {
+			r, err := region.FindBySlug(db, "uswest")
+			Expect(err).To(BeNil())
+			Expect(r).ToNot(BeNil())
+			Expect(r.Disabled()).To(BeFalse())
 		})
 	})
 })
