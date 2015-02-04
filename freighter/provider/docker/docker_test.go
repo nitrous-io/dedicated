@@ -73,6 +73,27 @@ var _ = BeforeSuite(func() {
 	Expect(err).To(BeNil(), "failed to build nitrous/ubuntu, output: %s", string(out))
 	fmt.Printf(" took %s\n", time.Now().Sub(start))
 
+	// build base, which is busybox with /sh as CMD
+	start = time.Now()
+	fmt.Print("build base:latest...")
+	cmd = exec.Command("docker", "build", "-t", "base:latest", ".")
+	cmd.Dir = "/docker-busybox"
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build base, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// build busybox, which is busybox duh but with top as CMD
+	start = time.Now()
+	fmt.Print("build busybox:latest...")
+	cmd = exec.Command("docker", "build", "-t", "busybox:latest", "-")
+	cmd.Stdin = bytes.NewBufferString(`
+	FROM base:latest
+	CMD ["top"]
+	`)
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build busybox, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
 	// replace NitrousImage to not having to run /sbin/init as pid 1
 	NitrousImage = "nitrousio/ubuntu-test:latest"
 })
@@ -188,7 +209,7 @@ var _ = Describe("provider/docker", func() {
 	Describe(".CreateStart()", func() {
 		It("creates a running container", func() {
 			name := RandomName("freightertest")
-			info, err := prov.CreateStart(name, NitrousImage, secret, "")
+			info, err := prov.CreateStart(name, "nitrousio/ubuntu-test:latest", secret, "")
 			Expect(err).To(BeNil())
 			defer CleanUpContainer(name)
 			id := inspectID(name)
@@ -762,7 +783,7 @@ var _ = Describe("provider/docker", func() {
 					}))
 
 					// when container is stopped
-					err = exec.Command("docker", "stop", id).Run()
+					err = exec.Command("docker", "stop", "--time=1", id).Run()
 					Expect(err).To(BeNil())
 					pubkeys, err = prov.ListPublicKeys(id)
 					Expect(err).To(BeNil())
@@ -1464,19 +1485,19 @@ var _ = Describe("provider/docker", func() {
 			dockerFile string
 			expected   bool
 		}{
-			{`FROM scratch
+			{`FROM busybox
 				MAINTAINER callum@action.io
 				ENV No WAY
 				ENV NITROUS_IMAGE_VERSION 1.1`, true},
-			{`FROM scratch
+			{`FROM busybox
 				MAINTAINER callum@action.io
 				ENV NITROUS_IMAGE_VERSION 1.1.1.1`, true},
-			{`FROM scratch
+			{`FROM busybox
 				MAINTAINER callum@action.io
 				ENV NOTROUS_IMAGE_VERSION 0.1`, false},
-			{`FROM scratch
+			{`FROM busybox
 				MAINTAINER callum@action.io`, false},
-			{`FROM scratch
+			{`FROM busybox
 				MAINTAINER callum@action.io
 				ENV SOME THING`, false},
 		}
@@ -1491,7 +1512,7 @@ var _ = Describe("provider/docker", func() {
 		}
 
 		It("should be true when an image inherits", func() {
-			baseDocker := `FROM scratch
+			baseDocker := `FROM busybox
 			MAINTAINER callum@action.io
 			ENV No WAY
 			ENV NITROUS_IMAGE_VERSION 1.1`
@@ -1506,7 +1527,7 @@ var _ = Describe("provider/docker", func() {
 		})
 
 		It("should be true when an image overrides", func() {
-			baseDocker := `FROM scratch
+			baseDocker := `FROM busybox
 			MAINTAINER callum@action.io
 			ENV No WAY
 			ENV NITROUS_IMAGE_VERSION 1.1`

@@ -69,18 +69,6 @@ var _ = BeforeSuite(func() {
 	fmt.Printf(" took %s\n", time.Now().Sub(start))
 })
 
-var _ = AfterSuite(func() {
-	var (
-		err error
-		out []byte
-	)
-	out, err = exec.Command("docker", "rmi", "busybox:latest").CombinedOutput()
-	Expect(err).To(BeNil(), "failed to remove busybox images, output: %s", out)
-
-	out, err = exec.Command("docker", "rmi", "base:latest").CombinedOutput()
-	Expect(err).To(BeNil(), "failed to remove base images, output: %s", out)
-})
-
 // startContainer behaves similarly to startContainerWithData except that it
 // pre-creates a tmpdir for you
 func startContainer(config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
