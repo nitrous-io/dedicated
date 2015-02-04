@@ -60,16 +60,9 @@ var _ = Describe("server", func() {
 			w.Write([]byte("hello forwarder"))
 		}))
 		defer ts.Close()
-		defer func(oldPort int64) {
-			config.MaxPreviewPort = oldPort
-		}(config.MaxPreviewPort)
 
 		_, port, err := net.SplitHostPort(ts.Listener.Addr().String())
 		Expect(err).To(BeNil(), "failed to get test server's port")
-
-		portInt, err := strconv.ParseInt(port, 10, 64)
-		Expect(err).To(BeNil(), "failed to parse port to int64")
-		config.MaxPreviewPort = portInt
 
 		req, err := http.NewRequest("GET", "/", nil)
 		req.Header.Set(config.ForwardPortHeader, port)

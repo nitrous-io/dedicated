@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 
 	"github.com/miekg/dns"
@@ -92,9 +93,11 @@ func TestLookup(t *testing.T) {
 	nav := testNavigator("exampleproxy.com.").(*Navigator)
 	h := fixtures[1]
 	host, err := nav.find(h.Slug)
+	if err != nil {
+		t.Fatalf("Failed to find host, err: %v", err)
+	}
 	cname := fmt.Sprintf("%s.%s.", h.Slug, nav.config[host.RegionSlug])
 	r, err := nav.Lookup(fmt.Sprintf("%s.exampleproxy.com", h.Slug))
-
 	if err != nil || r[0].(*dns.CNAME).Target != cname {
 		t.Fatal("Failed to get correct dns record")
 	}
@@ -107,5 +110,22 @@ func TestLookup(t *testing.T) {
 	_, err = nav.Lookup(fmt.Sprintf("%s.nitrous.io", h.Slug))
 	if err == nil {
 		t.Fatal("should not be able to look up invalid domain")
+	}
+}
+
+func TestLookupCaseInsensitive(t *testing.T) {
+	nav := testNavigator("exampleproxy.com.").(*Navigator)
+	h := fixtures[1]
+	host, err := nav.find(h.Slug)
+	if err != nil {
+		t.Fatalf("Failed to find host, err: %v", err)
+	}
+	r, err := nav.Lookup(fmt.Sprintf("%s.exampleproxy.com", strings.ToUpper(h.Slug)))
+	if err != nil {
+		t.Fatalf("Unexpected lookup error: %v", err)
+	}
+	cname := fmt.Sprintf("%s.%s.", h.Slug, nav.config[host.RegionSlug])
+	if r[0].(*dns.CNAME).Target != cname {
+		t.Fatalf("Expected CNAME %s but got %v", cname, r[0])
 	}
 }

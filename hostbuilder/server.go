@@ -170,12 +170,13 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
 	info, err := h.Create(pw)
-	log.Printf("uuid=%s Created: %+v\n, %v", providerConfig["uuid"], info, err)
 	if err != nil {
 		mh.Error(err, label)
+		log.Printf("uuid=%s Failed to create host, err: %v", providerConfig["uuid"], err)
 		pw.WriteError(fmt.Errorf("failed to create a host on %s", provider))
 		return nil
 	}
+	log.Printf("uuid=%s Created host: %+v", providerConfig["uuid"], info)
 
 	mh.Time(fmt.Sprintf("ping.%s", label), func() {
 		// do not remove a host if freighter is down, we keep the host for debugging

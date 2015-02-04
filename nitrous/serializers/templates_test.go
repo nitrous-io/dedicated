@@ -20,6 +20,7 @@ var _ = Describe("base image serializer", func() {
 		Name:        sql.NullString{"Rails Stack", true},
 		Description: sql.NullString{"A Rails stack template", true},
 		Config:      `{ "does": "not get serialized" }`,
+		Image:       "ubuntu-bare",
 		Type:        template.TypeStack,
 		CreatedAt:   &now,
 		UpdatedAt:   &now,
@@ -41,20 +42,16 @@ var _ = Describe("base image serializer", func() {
 				"type": "%s",
 				"created_at": %s,
 				"updated_at": %s,
-				"images": [],
+				"image": "ubuntu-bare",
 				"privileged": false
 			}`, template.TypeStack, nowJSON, nowJSON)))
 		})
 
-		It("should expose images if present in config", func() {
+		It("should set privileged if it is included in the config", func() {
 			prevConf := model.Config
 			model.Config = `
 				{
-					"containers": [
-						{
-							"image": "img1"
-						}
-					]
+					"privileged": true
 				}
 			`
 
@@ -74,45 +71,7 @@ var _ = Describe("base image serializer", func() {
 				"type": "%s",
 				"created_at": %s,
 				"updated_at": %s,
-				"images": ["img1"],
-				"privileged": false
-			}`, template.TypeStack, nowJSON, nowJSON)))
-		})
-
-		It("should set privileged if it includes privileged containers", func() {
-			prevConf := model.Config
-			model.Config = `
-				{
-					"containers": [
-						{
-							"privileged": true,
-							"image": "img1"
-						},
-						{
-							"privileged": false,
-							"image": "img2"
-						}
-					]
-				}
-			`
-
-			defer func() { model.Config = prevConf }()
-
-			nowJSON, err := now.MarshalJSON()
-			Expect(err).To(BeNil())
-
-			r := serializers.SerializeTemplate(model)
-			b, err := json.Marshal(r)
-			Expect(err).To(BeNil())
-			Expect(b).To(MatchJSON(fmt.Sprintf(`{
-				"id": 5,
-				"slug": "rails-stack",
-				"name": "Rails Stack",
-				"description": "A Rails stack template",
-				"type": "%s",
-				"created_at": %s,
-				"updated_at": %s,
-				"images": ["img1", "img2"],
+				"image": "ubuntu-bare",
 				"privileged": true
 			}`, template.TypeStack, nowJSON, nowJSON)))
 		})
@@ -133,7 +92,7 @@ var _ = Describe("base image serializer", func() {
 				"type": "%s",
 				"created_at": %s,
 				"updated_at": %s,
-				"images": [],
+				"image": "ubuntu-bare",
 				"privileged": false
 			}]`, template.TypeStack, nowJSON, nowJSON)))
 		})

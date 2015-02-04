@@ -37,21 +37,23 @@ var _ = Describe("models/template", func() {
 		BeforeEach(func() {
 			var err error
 			config := `{
-				"containers": [
-					{ "name": "Rails", "slug": "rails", "image": "nitrousio/rails:4.2", "ports": ["public:3000:3000", "public:2222:22"] },
-					{ "name": "Postgres", "slug": "postgres", "image": "postgres:9.3", "ports": ["private:5432:5432"], "volumes": ["database:/var/lib/postgresql/data"]}
-				],
-				"volumes": [ { "name": "database", "slug": "database" } ]
+				"ports": ["private:5432:5432"],
+				"volumes": ["database:/var/lib/postgresql/data"],
+				"env": ["ABC=true", "123=false"],
+				"privileged": true,
+				"publish_all": false
 			}`
-			_, err = db.Exec(`INSERT INTO templates (slug, name, description, config) VALUES ($1, $2, $3, $4);`, "rails-stack", "Ruby on Rails", "RoR template", config)
+			_, err = db.Exec(`INSERT INTO templates (slug, name, description, config, image) VALUES ($1, $2, $3, $4, $5);`, "rails-stack", "Ruby on Rails", "RoR template", config, "ubuntu-bare")
 			Expect(err).To(BeNil())
 
 			config = `{
-				"containers": [
-					{ "name": "PHP", "slug": "php", "image": "nitrousio/php:latest", "ports": ["public:8000:8000"]" }
-				]
+				"ports": ["public:8000:8000"],
+				"volumes": ["swap:/swp"],
+				"env": ["123=true", "INSTALLED=ok"],
+				"privileged": false,
+				"publish_all": true
 			}`
-			_, err = db.Exec(`INSERT INTO templates (slug, name, description, config) VALUES ($1, $2, $3, $4);`, "php", "PHP", "PHP template", config)
+			_, err = db.Exec(`INSERT INTO templates (slug, name, description, config, image) VALUES ($1, $2, $3, $4, $5);`, "php", "PHP", "PHP template", config, "freebsd:10.1")
 			Expect(err).To(BeNil())
 		})
 
@@ -66,13 +68,13 @@ var _ = Describe("models/template", func() {
 	Describe("ParsedConfig()", func() {
 		It("returns pointer to a TemplateConfig unmarshalled from .Config", func() {
 			config := `{
-				"containers": [
-					{ "name": "Rails", "slug": "rails", "image": "nitrousio/rails:4.2", "ports": ["public:3000:3000", "public:2222:22"], "cmd": "rails server" },
-					{ "name": "Postgres", "slug": "postgres", "image": "postgres:9.3", "ports": ["private:5432:5432"], "volumes": ["database:/var/lib/postgresql/data"]}
-				],
-				"volumes": [ { "name": "database", "slug": "database" } ]
+				"ports": ["private:5432:5432", "public:2222:22"],
+				"volumes": ["database:/var/lib/postgresql/data", "swap:/var/lib/swap"],
+				"env": ["ABC=true", "123=false"],
+				"privileged": true,
+				"publish_all": false
 			}`
-			_, err := db.Exec(`INSERT INTO templates (slug, name, description, config) VALUES ($1, $2, $3, $4);`, "rails-stack", "Ruby on Rails", "RoR template", config)
+			_, err := db.Exec(`INSERT INTO templates (slug, name, description, config, image) VALUES ($1, $2, $3, $4, $5);`, "rails-stack", "Ruby on Rails", "RoR template", config, "freebsd:10.1")
 			Expect(err).To(BeNil())
 
 			tmpl, err := template.Find(db, "rails-stack")
@@ -81,31 +83,11 @@ var _ = Describe("models/template", func() {
 			cfg, err := tmpl.ParsedConfig()
 			Expect(err).To(BeNil())
 			Expect(cfg).To(Equal(&template.TemplateConfig{
-				Containers: []template.Container{
-					{
-						Name:       "Rails",
-						Slug:       "rails",
-						Image:      "nitrousio/rails:4.2",
-						Cmd:        "rails server",
-						Privileged: false,
-						PublishAll: false,
-						Env:        nil,
-						Ports:      []string{"public:3000:3000", "public:2222:22"},
-						Volumes:    nil,
-					},
-					{
-						Name:       "Postgres",
-						Slug:       "postgres",
-						Image:      "postgres:9.3",
-						Cmd:        "",
-						Privileged: false,
-						PublishAll: false,
-						Env:        nil,
-						Ports:      []string{"private:5432:5432"},
-						Volumes:    []string{"database:/var/lib/postgresql/data"},
-					},
-				},
-				Volumes: []template.Volume{{Slug: "database", Name: "database"}},
+				Privileged: true,
+				PublishAll: false,
+				Env:        []string{"ABC=true", "123=false"},
+				Ports:      []string{"private:5432:5432", "public:2222:22"},
+				Volumes:    []string{"database:/var/lib/postgresql/data", "swap:/var/lib/swap"},
 			}))
 		})
 	})
@@ -116,7 +98,8 @@ var _ = Describe("models/template", func() {
 				Slug:        "rails-stack",
 				Name:        sql.NullString{"Ruby on Rails", true},
 				Description: sql.NullString{"A Rails stack template", true},
-				Config:      `{ "containers": [ { "name": "Rails", "slug": "rails", "image": "rails:4.2" } ] }`,
+				Image:       "ubuntu:18.04",
+				Config:      `{ "ports": ["private:5432:5432", "public:2222:22"], "publish_all": true }`,
 				Type:        template.TypeStack,
 			}
 			err := tmpl.Insert(db)
@@ -128,7 +111,8 @@ var _ = Describe("models/template", func() {
 			Expect(tmpl2.Slug).To(Equal("rails-stack"))
 			Expect(tmpl2.Name).To(Equal(sql.NullString{"Ruby on Rails", true}))
 			Expect(tmpl2.Description).To(Equal(sql.NullString{"A Rails stack template", true}))
-			Expect(tmpl2.Config).To(Equal(`{ "containers": [ { "name": "Rails", "slug": "rails", "image": "rails:4.2" } ] }`))
+			Expect(tmpl2.Image).To(Equal("ubuntu:18.04"))
+			Expect(tmpl2.Config).To(Equal(`{ "ports": ["private:5432:5432", "public:2222:22"], "publish_all": true }`))
 			Expect(tmpl2.Type).To(Equal(template.TypeStack))
 			Expect(tmpl2.CreatedAt).NotTo(BeNil())
 			Expect(tmpl2.UpdatedAt).NotTo(BeNil())

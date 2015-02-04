@@ -3,8 +3,10 @@ package containers_test
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -44,6 +46,19 @@ var _ = Describe("CreateContainer", func() {
 		h      *host.Host
 	)
 
+	mkParams := func() url.Values {
+		params := url.Values{}
+		params.Set("slug", "elixir-web-1")
+		params.Set("name", "Elixir Web Server 1")
+		params.Set("image", "elixir")
+		params.Add("env[]", "LANG=C")
+		params.Add("env[]", "NODE=nope")
+		params.Add("port[]", "3000:8080")
+		params.Add("port[]", "0.0.0.0::4552")
+		params.Add("port[]", "0.0.0.0:8081:11211")
+		return params
+	}
+
 	BeforeEach(func() {
 		var err error
 
@@ -71,13 +86,16 @@ var _ = Describe("CreateContainer", func() {
 
 		hs, err = CreateHostStack(db, &HostStack{
 			H: &host.Host{
-				Slug:      "foo",
-				IPAddress: sql.NullString{"127.0.0.1", true},
+				Slug:          "foo",
+				IPAddress:     sql.NullString{"127.0.0.1", true},
+				MaxContainers: sql.NullInt64{2, true},
 			},
 			U: u,
 		})
 		Expect(err).To(BeNil())
 		h = hs.H
+
+		params = mkParams()
 
 		env = &middleware.Env{
 			DB:      db,
@@ -86,16 +104,6 @@ var _ = Describe("CreateContainer", func() {
 			Logger:  logger,
 			User:    u,
 		}
-
-		params = url.Values{}
-		params.Set("slug", "elixir-web-1")
-		params.Set("name", "Elixir Web Server 1")
-		params.Set("image", "elixir")
-		params.Add("env[]", "LANG=C")
-		params.Add("env[]", "NODE=nope")
-		params.Add("port[]", "3000:8080")
-		params.Add("port[]", "0.0.0.0::4552")
-		params.Add("port[]", "0.0.0.0:8081:11211")
 
 		mockClient.CreatedContainer = &freighterclient.Container{
 			ID:      "deadbeef",
@@ -140,6 +148,59 @@ var _ = Describe("CreateContainer", func() {
 		conf := mockClient.ReceivedConfig
 		Expect(conf.Env).To(ConsistOf("LANG=C", "NODE=nope"))
 		Expect(conf.PortBindings).To(ConsistOf("3000:8080", "0.0.0.0::4552", "0.0.0.0:8081:11211"))
+	})
+
+	// TODO: This test fails when CreateContainer completes too quickly,
+	// resulting in 2 containers being created in serial order instead of
+	// concurrently.
+	PIt("should not allow a user to create multiple containers at the same time", func() {
+		var wg sync.WaitGroup
+		var createResults []*containers.CreateResult
+		var errors []error
+
+		start := make(chan struct{})
+		for i := 0; i < 2; i++ {
+			wg.Add(1)
+			go func(i int) {
+				p := mkParams()
+				p.Set("slug", fmt.Sprintf("con-%d", i))
+				<-start
+				cr, err := containers.CreateContainer(h, p, env)
+				if err != nil {
+					errors = append(errors, err)
+				} else {
+					createResults = append(createResults, cr)
+				}
+				wg.Done()
+			}(i)
+		}
+		close(start)
+		wg.Wait()
+
+		containers, err := container.FindAllByHostID(db, h.ID)
+		Expect(err).To(BeNil())
+		Expect(containers).To(HaveLen(1))
+
+		Expect(createResults).To(HaveLen(1))
+		Expect(errors).To(ConsistOf(httperror.New(http.StatusConflict, "conflict", "another container creation request is currently being processed")))
+	})
+
+	It("should not allow for creating containers over the host's allowance", func() {
+		c := &container.Container{
+			UserID: hs.U.ID,
+			HostID: hs.H.ID,
+			Image:  "nitrous-base",
+			Slug:   "java-test-container",
+		}
+		err := c.Insert(db)
+		Expect(err).To(BeNil())
+
+		h.MaxContainers = sql.NullInt64{1, true}
+
+		res, err := containers.CreateContainer(h, params, env)
+		Expect(res).To(BeNil())
+
+		Expect(err).To(MatchError(httperror.New(http.StatusBadRequest, "max_containers_reached", "host has exceeded the plan's maximum containers")))
 	})
 
 	It("creates a new container record", func() {
@@ -208,15 +269,13 @@ var _ = Describe("CreateContainer", func() {
 			Slug:        "my-template",
 			Name:        sql.NullString{"Ruby on Rails", true},
 			Description: sql.NullString{"A Rails stack template", true},
+			Image:       "rails:4.2",
 			Config: `{
-				"containers": [
-				{
-					"name": "Rails",
-					"slug": "rails",
-					"image": "rails:4.2",
-					"ports": ["public::2341", "public::8931"],
-					"env": ["SHELL=powershell"]
-				}]
+				"privileged": true,
+				"publish_all": false,
+				"ports": ["public::2341", "public::8931"],
+				"env": ["SHELL=powershell"],
+				"volumes": ["shared:/tmp/shared", "database:/var/lib/pg"]
 			}`,
 			Type: template.TypeStack,
 		}
@@ -232,6 +291,8 @@ var _ = Describe("CreateContainer", func() {
 		Expect(mockClient.ReceivedConfig.Image).To(Equal("rails:4.2"))
 		Expect(mockClient.ReceivedConfig.PortBindings).To(Equal([]string{"3000:8080", "0.0.0.0::4552", "0.0.0.0:8081:11211", "public::2341", "public::8931"}))
 		Expect(mockClient.ReceivedConfig.Env).To(Equal([]string{"LANG=C", "NODE=nope", "SHELL=powershell"}))
+		Expect(*mockClient.ReceivedConfig.PublishAll).To(BeFalse())
+		Expect(*mockClient.ReceivedConfig.Privileged).To(BeTrue())
 
 		c, err := container.Find(db, u, "elixir-web-1")
 		Expect(err).To(BeNil())

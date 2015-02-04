@@ -785,5 +785,11 @@ func init() {
 				ALTER TABLE credit_types ADD CONSTRAINT overstock_check CHECK (stock IS NULL OR used <= stock);
 			`,
 		},
+		{
+			Version: "690",
+			Up: `
+				ALTER TABLE templates ADD COLUMN image character varying NOT NULL;
+			`,
+		},
 	}
 }

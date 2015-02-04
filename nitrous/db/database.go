@@ -18,7 +18,11 @@ type Migration struct {
 	Up      string
 }
 
-const HOST_CREATE_LOCK = iota + 1
+const (
+	HOST_CREATE_LOCK = iota + 1
+	CONTAINER_CREATE_LOCK
+	INVOICE_USER_LOCK
+)
 
 func NewDatabase(conn string) (*Database, error) {
 	db, err := sqlx.Open("postgres", conn)

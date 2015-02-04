@@ -9,7 +9,7 @@ App.Template = klass = App.Model.extend
   name: attr()
   description: attr()
   type: attr()
-  images: attr('array')
+  image: attr()
   privileged: attr('boolean', default: false)
 
   iconUrl: (->

@@ -4,27 +4,25 @@
   .card-header.bordered
     h2 Log In
 
-  if controller.confirmationLapsed
-    .message
-      if resentConfirm
-        p
-          | Confirmation resent!
-        p
-          | Please check your email to confirm your email.
-      else
-        if resendingConfirm
-          p
-            | Resending confirmation.....
-        else
-          p
-            | Your confirmation email has lapsed.
-          if controller.confirmationLapsedResendable
-            p
-              | Didn't receive a confirmation email?
-              a.ui.btn click='resendConfirmationEmail' Resend confirmation email
-
   form
     .card-body
+      if confirmationLapsed
+        .notice-text
+          if resentConfirm
+            p
+              ' Confirmation resent!
+              | Please check your email.
+          else
+            if resendingConfirm
+              p
+                i.spinner
+                | Resending confirmation...
+            else
+              p
+                | Your confirmation email has expired.
+                if confirmationLapsedResendable
+                  a.ui.btn.raised.primary href='#' click='resendConfirmationEmail' Resend confirmation email
+
       .ui.input-group
         label.field-label for='login-login'
           | Username or Email

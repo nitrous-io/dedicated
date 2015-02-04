@@ -30,11 +30,20 @@ App.Container = klass = App.Model.extend
     config
   ).property 'id'
 
+  # use computedState when communicating the container state to end-user
+  # it returns possible tempStates container can be in
+  computedState: (->
+    if tempState = this.getTempState(@get 'slug')
+      tempState
+    else
+      @get 'state'
+  ).property 'state', 'App.containerTempStates'
+
   underReconfig: attr('boolean', serialize: false)
 
-  isRunning: Em.computed.equal 'state', 'running'
-  isStopped: Em.computed.equal 'state', 'stopped'
-  isTerminated: Em.computed.equal 'state', 'terminated'
+  isRunning: Em.computed.equal 'computedState', 'running'
+  isStopped: Em.computed.equal 'computedState', 'stopped'
+  isTerminated: Em.computed.equal 'computedState', 'terminated'
 
   isNitrousImage: Em.computed.notEmpty 'config.env.NITROUS_IMAGE_VERSION'
 
@@ -127,6 +136,12 @@ App.Container = klass = App.Model.extend
 
   requestToken: (permissions) ->
     @ajax 'POST', 'token', permission: permissions
+
+  getTempState: ->
+    App.get('containerTempStates')?.get @get('slug')
+
+  setTempState: (state) ->
+    App.get('containerTempStates')?.set @get('slug'), state
 
 klass.reopenClass
   primaryKey: 'slug'

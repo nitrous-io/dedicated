@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 
 	"github.com/miekg/dns"
@@ -112,5 +113,19 @@ func TestLookup(t *testing.T) {
 	_, err = nav.Lookup("daniel-box.nitrous.io.")
 	if err == nil {
 		t.Error("should not be able to look up invalid domain")
+	}
+}
+
+func TestLookupCaseInsensitive(t *testing.T) {
+	nav := testNavigator("nitrousbox.com.").(*Navigator)
+	f := fixtures[0]
+	slug := strings.ToUpper(f.Slug)
+	r, err := nav.Lookup(slug + ".nitrousbox.com.")
+	if err != nil {
+		t.Fatalf("Unexpected lookup error: %v", err)
+	}
+	cname := fmt.Sprintf("%s.%s.", f.Slug, nav.config[f.RegionSlug])
+	if r[0].(*dns.CNAME).Target != cname {
+		t.Fatalf("Expected CNAME %s but got %v", cname, r[0])
 	}
 }

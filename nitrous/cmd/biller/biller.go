@@ -8,6 +8,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/biller"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/stripe/stripe-go"
 )
@@ -45,6 +46,29 @@ func main() {
 	if endTimeEnv := os.Getenv("USAGE_END"); len(endTimeEnv) != 0 {
 		val := extractUnixTime(endTimeEnv)
 		endTime = &val
+	}
+	if targetUserID := os.Getenv("USER_ID"); len(targetUserID) != 0 {
+		uID, err := strconv.ParseInt(targetUserID, 10, 64)
+		if err != nil {
+			logr.FatalExit(err)
+		}
+		us, err := user.FindByID(dbConn, uID)
+		if err != nil {
+			logr.FatalExit(err)
+		}
+		if us == nil {
+			logr.FatalExit("biller: USER_ID is not a valid user")
+		}
+
+		pS, pE := biller.StartEndTimeOrDefault(startTime, endTime)
+		b, err := biller.New(dbConn, logr, us, &pS, &pE)
+		if err != nil {
+			logr.FatalExit(err)
+		}
+		if err := b.Process(); err != nil {
+			logr.FatalExit(err)
+		}
+		return
 	}
 
 	biller.ProcessForAllUsers(dbConn, logr, startTime, endTime)

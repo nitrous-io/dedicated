@@ -147,7 +147,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
           @createContainer(name, slug, repository)
       else if selectedTemplate
         # update template
-        img = selectedTemplate.get 'images.firstObject'
+        img = selectedTemplate.get 'image'
         template = selectedTemplate.get 'slug'
         @pullImage img, =>
           @createContainer(name, slug, img, template)

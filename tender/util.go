@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	freighterconfig "github.com/nitrous-io/dedicated/freighter/config"
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 )
 
@@ -23,8 +22,8 @@ const (
 )
 
 var (
-	DefaultStartPort       = freighterconfig.MinPreviewPort
-	DefaultEndPort         = freighterconfig.MaxPreviewPort
+	DefaultStartPort int64 = 1024
+	DefaultEndPort   int64 = 9999
 	MinPort          int64 = 1024
 
 	ErrDomainMismatched = errors.New("mismatched domain")

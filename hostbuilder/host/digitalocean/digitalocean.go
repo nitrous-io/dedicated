@@ -31,7 +31,10 @@ var (
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
 	SecretLocation  = "/etc/freighterd/secret"
 
-	StateWaitTime = 3 * time.Second
+	DefaultCreateTimeout = 5 * time.Minute
+	StateWaitTime        = 3 * time.Second
+
+	ErrCreateTimeout = errors.New("timed out creating host")
 
 	// FIXME: the map should belongs to client, not the builder
 	regionsMap = map[string]string{
@@ -70,11 +73,14 @@ type Host struct {
 	Client *godo.Client
 	Config *HostConfig
 
-	droplet    *godo.Droplet
-	privateKey *rsa.PrivateKey
-	conn       *sshutil.Conn
-	sshKey     *godo.Key
-	uuid       string
+	droplet       *godo.Droplet
+	privateKey    *rsa.PrivateKey
+	conn          *sshutil.Conn
+	sshKey        *godo.Key
+	uuid          string
+	createTimeout time.Duration
+
+	cancelCreate chan struct{}
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -90,17 +96,25 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{"Fetching updates", updateSoftware},
 		{"Applying settings", restartFreighterd},
 	}
+	resultCh := make(chan error)
 	ctx := context.NewContext(h, steps, w)
-	if err := ctx.Execute(); err != nil {
-		hlog(h, "ERROR: Failed in create host step: %+v", ctx.Error())
-		if h.droplet != nil {
-			if h.sshKey != nil {
-				hlog(h, "keyID=%d Leaving droplet for inspection: %d", h.sshKey.ID, h.droplet.ID)
-			} else {
-				hlog(h, "keyID=unknown Leaving droplet for inspection: %d", h.droplet.ID)
-			}
+	go func() {
+		resultCh <- ctx.Execute()
+	}()
+
+	select {
+	case err := <-resultCh:
+		if err != nil {
+			hlog(h, "ERROR: Failed in create host step: %+v", ctx.Error())
+			h.logFailedDroplet()
+			return nil, err
 		}
-		return nil, err
+	case <-time.After(h.createTimeout):
+		// FIXME golang.org/x/net/context is more correct, we should probably use that.
+		close(h.cancelCreate)
+		hlog(h, "ERROR: timed out in create host step")
+		h.logFailedDroplet()
+		return nil, ErrCreateTimeout
 	}
 
 	if h.sshKey != nil {
@@ -305,6 +319,16 @@ func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 	hlog(h, format, v...)
 }
 
+func (h *Host) logFailedDroplet() {
+	if h.droplet != nil {
+		if h.sshKey != nil {
+			hlog(h, "keyID=%d Leaving droplet for inspection: %d", h.sshKey.ID, h.droplet.ID)
+		} else {
+			hlog(h, "keyID=unknown Leaving droplet for inspection: %d", h.droplet.ID)
+		}
+	}
+}
+
 // mlabel returns provider.region which is probably helpful if we ever want to
 // differentiate between regions.
 //
@@ -329,14 +353,21 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	if defaultConfig["token"] == "" {
 		return nil, errors.New("digitalocean builder requires valid access token")
 	}
+	createTimeout := DefaultCreateTimeout
+	d, err := time.ParseDuration(defaultConfig["create_timeout"])
+	if err == nil {
+		createTimeout = d
+	}
 	t := &oauth.Transport{
 		Token: &oauth.Token{AccessToken: defaultConfig["token"]},
 	}
 	client := godo.NewClient(t.Client())
 	host := &Host{
-		Config: hostConfig,
-		Client: client,
-		uuid:   defaultConfig["uuid"],
+		Config:        hostConfig,
+		Client:        client,
+		uuid:          defaultConfig["uuid"],
+		createTimeout: createTimeout,
+		cancelCreate:  make(chan struct{}),
 	}
 	return host, nil
 }
@@ -438,8 +469,10 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	info := map[string]interface{}{
 		"uuid": h.uuid,
 	}
+	connInterval := 5 * time.Second
+	timeout := 30 * time.Second
 	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
-		sshutil.TimeWait, make(chan struct{}), info)
+		connInterval, timeout, h.cancelCreate, info)
 	if err != nil {
 		return mh.Error(err, label)
 	}
@@ -524,8 +557,22 @@ func updateSoftware(ctx *context.Context, hst host.Host) error {
 	defer mh.UpdateSince(label, time.Now())
 
 	hlog(h, "Updating freighterd package")
-	cmd :=
-		`DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" freighterd`
+
+	cmdParts := []string{
+		// apt-get update with single source
+		// https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=714877#12
+		"DEBIAN_FRONTEND=noninteractive apt-get update",
+		"-o APT::List-Cleanup=0",
+		`-o Dir::Etc::sourceparts="/dev/null"`,
+		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
+		`&&`,
+		"DEBIAN_FRONTEND=noninteractive apt-get install -y",
+		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
+		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
+		"freighterd",
+	}
+	cmd := strings.Join(cmdParts, " ")
+
 	if out, err := h.conn.CombinedOutput(cmd); err != nil {
 		e := fmt.Errorf("update sofware failed with '%s', output: %s", err, out)
 		return mh.Error(e, label)

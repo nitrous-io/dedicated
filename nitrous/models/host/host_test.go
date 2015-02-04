@@ -8,6 +8,7 @@ import (
 
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -765,6 +766,52 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 			Expect(h2).To(Equal(h))
 		})
+	})
+
+	Describe("CanCreateMoreContainers()", func() {
+
+		BeforeEach(func() {
+			c := &container.Container{
+				UserID: hs.U.ID,
+				HostID: hs.H.ID,
+				Image:  "nitrous-base",
+				Slug:   "java-test-container",
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+
+			c2 := &container.Container{
+				UserID: hs.U.ID,
+				HostID: hs.H.ID,
+				Image:  "nitrous-base",
+				Slug:   "terminated-h",
+			}
+			err = c2.Insert(db)
+			Expect(err).To(BeNil())
+			err = c2.Delete(db)
+		})
+
+		It("should be false if the host has exceeded max_containers on the plan", func() {
+			hs.H.MaxContainers = sql.NullInt64{1, true}
+			state, err := hs.H.CanCreateMoreContainers(db)
+			Expect(err).To(BeNil())
+			Expect(state).To(BeFalse())
+		})
+
+		It("should be true if the host has not exceeded max_containers on the plan", func() {
+			hs.H.MaxContainers = sql.NullInt64{2, true}
+			state, err := hs.H.CanCreateMoreContainers(db)
+			Expect(err).To(BeNil())
+			Expect(state).To(BeTrue())
+		})
+
+		It("should be true if the host has NULL max_containers on the plan", func() {
+			hs.H.MaxContainers = sql.NullInt64{0, false}
+			state, err := hs.H.CanCreateMoreContainers(db)
+			Expect(err).To(BeNil())
+			Expect(state).To(BeTrue())
+		})
+
 	})
 
 	Describe("Validate()", func() {
