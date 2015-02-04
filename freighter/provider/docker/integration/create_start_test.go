@@ -5,7 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/test"
+	"github.com/nitrous-io/dedicated/freighter/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -38,5 +41,55 @@ var _ = Describe("CreateStart", func() {
 			"/volumes/backups": filepath.Join(datadir, "volumes", "backups"),
 			"/nitrous/ssh":     filepath.Join(datadir, "containers", info.Name, "ssh"),
 		}, nil)
+	})
+
+	It("returns an ErrImageNotFound when creating from an image that does not exist", func() {
+		datadir, err := test.TempDir()
+		Expect(err).To(BeNil())
+		defer os.RemoveAll(datadir)
+		prov, _ := docker.NewDockerProvider(&util.Logger{Level: util.LogLevelQuiet}, datadir)
+
+		_, err = prov.CreateStart(test.RandomName("freighterd-test"), "non-existent-image", "secret", "")
+		Expect(err).To(MatchError(provider.ErrImageNotFound))
+	})
+
+	Context("when image has no CMD or ENTRYPOINT", func() {
+		It("creates and starts if CMD is given to container config", func() {
+			datadir, err := test.TempDir()
+			Expect(err).To(BeNil())
+			defer os.RemoveAll(datadir)
+			prov, _ := docker.NewDockerProvider(&util.Logger{Level: util.LogLevelQuiet}, datadir)
+
+			name := test.RandomName("freighterd-test")
+			configJSON := `{ "Cmd": ["yes"] }`
+			cnr, err := prov.CreateStart(name, "busybox:latest", "secret", configJSON)
+			defer test.CleanUpContainer(name)
+
+			Expect(err).To(BeNil())
+			Expect(cnr.Cmd).To(Equal([]string{"yes"}))
+		})
+	})
+
+	Context("when container is created but cannot be started", func() {
+		It("creates a stopped container and returns the container info and a StartFailedError", func() {
+			datadir, err := test.TempDir()
+			Expect(err).To(BeNil())
+			defer os.RemoveAll(datadir)
+			prov, _ := docker.NewDockerProvider(&util.Logger{Level: util.LogLevelQuiet}, datadir)
+
+			name := test.RandomName("freighterd-test")
+			configJSON := `{ "Cmd": ["non-existent-cmd"] }`
+			info, err := prov.CreateStart(name, "busybox:latest", "secret", configJSON)
+			defer test.CleanUpContainer(name)
+
+			_, ok := err.(*provider.StartFailedError)
+			Expect(ok).To(BeTrue())
+
+			Expect(info.Name).To(Equal(name))
+			Expect(info.Image).To(Equal("busybox:latest"))
+			Expect(info.State).To(Equal(provider.ContainerStateStopped))
+			Expect(info.Host).To(Equal(""))
+			Expect(info.Gateway).To(Equal(""))
+		})
 	})
 })

@@ -50,7 +50,7 @@ s2l0IfX0aE2PdZH6vueV/otr9L+1GoVuVu/IQ8+MFLKDo2b4Qf0JTmY=
 
 const TestSSHPubKey = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD0KAa12lCteaBVPniCgwHYmj0yfG2ekivGeefGBq/xYisqbRE5AiLxdEubFrj91UgsSn7q4JV1K7TnRfCpHgWssnOf7rsPnEctmCGFBmlAqE56V0PcQWa5gVaM2zq5ga4tYA8Kk6jPl7nM/srKd81w33cj+/x0REXpkCeXlXeAn5cLKGEvfJtzPJhShOyYKnGJu0d6aZwSWV2Egd+j7iIvykMyxvoNJQyC+Z0W1XpOmao87o4jFvxwnDa5Ccd1P56FfIG8lzDKG9yHwzthOzF+3orqB2poK2fqKXDkQFJO3vEbee6+Fb1s4NNPERVJbpFRTIg488zYT8CzDOsiiVkL test@example.com`
 
-const NitrousImage = "nitrousio/ubuntu-bare:latest"
+var NitrousImage = "nitrousio/ubuntu-bare:latest"
 
 // dependent on ENV declarations in nitrousio/ubuntu-bare Dockerfile
 const (
@@ -170,9 +170,6 @@ func PullImage(name string) {
 // builds a docker image from it, returning the name of the image.
 // If contents is zero value, it uses a default dockerfile.
 func CreateImages(count int, name string, noEntropy bool, contents string) []string {
-	if contents == "" || strings.Contains(contents, NitrousImage) {
-		PullImage(NitrousImage)
-	}
 	dockerLoc, err := ioutil.TempDir("", "DockerTest")
 	Expect(err).To(BeNil())
 	dockerFile, err := os.Create(filepath.Join(dockerLoc, "Dockerfile"))

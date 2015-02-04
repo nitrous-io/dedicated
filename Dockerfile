@@ -13,6 +13,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   nodejs \
   wget
 
+# Get the "busybox" image source so we can build locally instead of pulling
+RUN git clone -b buildroot-2014.02 https://github.com/jpetazzo/docker-busybox.git /docker-busybox
+
+# Get "ubuntu-bare" compressed image so that we can load it instead of pulling
+RUN wget https://github.com/nitrous-io/docker-ubuntu-bare/releases/download/ubuntu-bare-v1/ubuntu-bare.tar.gz -O /root/ubuntu-bare.tar.gz
+
+# get latest docker binary
+RUN wget https://get.docker.com/builds/Linux/x86_64/docker-1.4.1 -O /usr/bin/docker && chmod +x /usr/bin/docker
+
 RUN locale-gen en_US.utf8
 
 # set paths
@@ -70,9 +79,6 @@ RUN /etc/init.d/postgresql start &&\
 RUN echo "fsync=off" >> /etc/postgresql/9.3/main/postgresql.conf && \
   echo "synchronous_commit=off" >> /etc/postgresql/9.3/main/postgresql.conf && \
   echo "full_page_writes=off" >> /etc/postgresql/9.3/main/postgresql.conf
-
-# Get the "busybox" image source so we can build locally instead of pulling
-RUN git clone -b buildroot-2014.02 https://github.com/jpetazzo/docker-busybox.git /docker-busybox
 
 # set GOPATH to include the path to dependencies
 ENV GOPATH /opt/src/github.com/nitrous-io/dedicated/Godeps/_workspace:/opt

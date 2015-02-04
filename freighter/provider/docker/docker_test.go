@@ -45,6 +45,63 @@ const (
 	busyboxImage = "busybox:latest"
 )
 
+var _ = BeforeSuite(func() {
+	var (
+		start time.Time
+		out   []byte
+		err   error
+		cmd   *exec.Cmd
+	)
+
+	// load the stored ubuntu-bare image so we dont have to pull it from the internet
+	// nitrousio/ubuntu-bare image from /root/ubuntu-bare.tar.gz
+	start = time.Now()
+	fmt.Print("build nitrousio/ubuntu-bare:latest...")
+	out, err = exec.Command("docker", "load", "-i", "/root/ubuntu-bare.tar.gz").CombinedOutput()
+	Expect(err).To(BeNil(), "failed to load nitrousio/ubuntu-bare, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// build nitrous/ubuntu based on nitrosio/ubuntu-bare, but with "top" cmd
+	start = time.Now()
+	fmt.Print("build nitrous/ubuntu:latest...")
+	cmd = exec.Command("docker", "build", "-t", "nitrousio/ubuntu-test:latest", "-")
+	cmd.Stdin = bytes.NewBufferString(`
+	FROM nitrousio/ubuntu-bare:latest
+	CMD ["top"]
+	`)
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build nitrous/ubuntu, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// build base, which is busybox with /sh as CMD
+	start = time.Now()
+	fmt.Print("build base:latest...")
+	cmd = exec.Command("docker", "build", "-t", "base:latest", ".")
+	cmd.Dir = "/docker-busybox"
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build base, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// build busybox, which is busybox duh but with top as CMD
+	start = time.Now()
+	fmt.Print("build busybox:latest...")
+	cmd = exec.Command("docker", "build", "-t", "busybox:latest", "-")
+	cmd.Stdin = bytes.NewBufferString(`
+	FROM base:latest
+	CMD ["top"]
+	`)
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build busybox, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// replace NitrousImage to not having to run /sbin/init as pid 1
+	NitrousImage = "nitrousio/ubuntu-test:latest"
+})
+
+var _ = AfterSuite(func() {
+	NitrousImage = "nitrousio/ubuntu-bare:latest"
+})
+
 var _ = Describe("provider/docker", func() {
 	var (
 		prov    *docker.DockerProvider
@@ -150,13 +207,9 @@ var _ = Describe("provider/docker", func() {
 	})
 
 	Describe(".CreateStart()", func() {
-		BeforeEach(func() {
-			PullImage(NitrousImage)
-		})
-
 		It("creates a running container", func() {
 			name := RandomName("freightertest")
-			info, err := prov.CreateStart(name, NitrousImage, secret, "")
+			info, err := prov.CreateStart(name, "nitrousio/ubuntu-test:latest", secret, "")
 			Expect(err).To(BeNil())
 			defer CleanUpContainer(name)
 			id := inspectID(name)
@@ -195,52 +248,6 @@ var _ = Describe("provider/docker", func() {
 			Expect(fi.Mode()).To(Equal(os.FileMode(0600))) // shared secret file has perm 0600
 			s, err := ioutil.ReadFile(sharedSecretFile)
 			Expect(string(s)).To(Equal(secret))
-		})
-
-		Context("when image has no CMD or ENTRYPOINT", func() {
-			It("creates and starts if CMD is given to container config", func() {
-				imgs := CreateImages(1, "nocmd", false, `
-					FROM busybox:latest
-					CMD []
-				`)
-				defer RemoveImages(imgs)
-
-				imgName := imgs[0]
-				name := RandomName("freightertest")
-
-				configJSON := `{ "Cmd": ["yes"] }`
-				cnr, err := prov.CreateStart(name, imgName, secret, configJSON)
-				defer CleanUpContainer(name)
-				Expect(err).To(BeNil())
-				Expect(cnr.Cmd).To(Equal([]string{"yes"}))
-			})
-		})
-
-		It("returns an ErrImageNotFound when creating from an image that does not exist", func() {
-			name := RandomName("freightertest")
-			_, err := prov.CreateStart(name, "non-existent-image", secret, "")
-			Expect(err).To(MatchError(provider.ErrImageNotFound))
-		})
-
-		Context("when container is created but cannot be started", func() {
-			It("creates a stopped container and returns the container info and a StartFailedError", func() {
-				// Create container with config that prevents it from
-				// started.
-				name := RandomName("freightertest")
-				info, err := prov.CreateStart(name, NitrousImage, secret,
-					`{ "Cmd": ["invalid-cmd"] }`)
-				defer CleanUpContainer(name)
-
-				_, ok := err.(*provider.StartFailedError)
-				Expect(ok).To(BeTrue())
-				Expect(info.ID).To(Equal(inspectID(name)))
-				Expect(info.Name).To(Equal(name))
-				Expect(info.Image).To(Equal(NitrousImage))
-				Expect(info.ImageID).To(Equal(inspectID(NitrousImage)))
-				Expect(info.State).To(Equal(provider.ContainerStateStopped))
-				Expect(info.Host).To(Equal(""))
-				Expect(info.Gateway).To(Equal(""))
-			})
 		})
 
 		Context("after a container is created", func() {
@@ -685,94 +692,111 @@ var _ = Describe("provider/docker", func() {
 					Expect(err).To(MatchError(provider.ErrTokenExpired))
 				})
 			})
+		})
 
-			Context("with public keys", func() {
-				var (
-					pubkey1      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCxCeR/jJna6xXELDV8HF51QQPbj++JNDE4W/nqLyhzRTEDDnAfyp8gXW/EXXos8w5XXLak6eUDXE/QI6o8blX39RYoT47u45v4b2scN0ZiS5McmESo193KwWH3gXHbnHWywzPy7+GrRF3nHm/uidvp0tqh4ywqIZujaMjST1sIOQ== test@example.com"
-					pubkey2      = strings.TrimSpace(string(TestSSHPubKey))
-					fingerprint1 = "f7:de:4d:6f:54:6b:b9:d5:78:a9:62:15:e2:ad:ec:bb"
-					fingerprint2 = "d7:39:a8:61:5a:fe:4f:57:48:68:18:1e:d7:a2:a6:eb"
+		Describe("a container with ssh enabled", func() {
+			var (
+				name string
+				id   string
+				info *provider.ContainerInfo
+
+				pubkey1      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCxCeR/jJna6xXELDV8HF51QQPbj++JNDE4W/nqLyhzRTEDDnAfyp8gXW/EXXos8w5XXLak6eUDXE/QI6o8blX39RYoT47u45v4b2scN0ZiS5McmESo193KwWH3gXHbnHWywzPy7+GrRF3nHm/uidvp0tqh4ywqIZujaMjST1sIOQ== test@example.com"
+				pubkey2      = strings.TrimSpace(string(TestSSHPubKey))
+				fingerprint1 = "f7:de:4d:6f:54:6b:b9:d5:78:a9:62:15:e2:ad:ec:bb"
+				fingerprint2 = "d7:39:a8:61:5a:fe:4f:57:48:68:18:1e:d7:a2:a6:eb"
+
+				// set to false for tests which handle their own termination
+				terminateAfterTest = true
+			)
+
+			BeforeEach(func() {
+				var err error
+				name = RandomName("freightertest")
+				info, err = prov.CreateStart(name, "nitrousio/ubuntu-bare:latest", secret, "")
+				Expect(err).To(BeNil())
+				id = inspectID(name)
+			})
+
+			AfterEach(func() {
+				if terminateAfterTest {
+					CleanUpContainer(name)
+				}
+			})
+
+			It("allows ssh access only with keys present", func() {
+				hostname := "localhost"
+				if ip := os.Getenv("DOCKER_IP"); ip != "" {
+					hostname = ip
+				}
+				address := fmt.Sprintf("%s:%s", hostname,
+					inspectNetworkSettingsPort(id, "22/tcp"))
+				pk, err := ssh.ParseRawPrivateKey([]byte(TestSSHPrivKey))
+				Expect(err).To(BeNil())
+				privKey, ok := pk.(*rsa.PrivateKey)
+				Expect(ok).To(BeTrue())
+
+				info := map[string]interface{}{}
+
+				// without keys
+				sshutil.MaxAttempts = 1
+				ch := make(chan struct{})
+				_, err = sshutil.WaitForSSH(
+					address,
+					DfileEnvUser,
+					privKey,
+					500*time.Millisecond,
+					10*time.Second,
+					ch,
+					info,
 				)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("unable to authenticate"))
 
-				It("allows ssh access only with keys present", func() {
-					hostname := "localhost"
-					if ip := os.Getenv("DOCKER_IP"); ip != "" {
-						hostname = ip
-					}
-					address := fmt.Sprintf("%s:%s", hostname,
-						inspectNetworkSettingsPort(id, "22/tcp"))
-					pk, err := ssh.ParseRawPrivateKey([]byte(TestSSHPrivKey))
-					Expect(err).To(BeNil())
-					privKey, ok := pk.(*rsa.PrivateKey)
-					Expect(ok).To(BeTrue())
+				// with keys
+				err = prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
+				Expect(err).To(BeNil())
 
-					info := map[string]interface{}{}
+				sshutil.MaxAttempts = 10
+				_, err = sshutil.WaitForSSH(
+					address,
+					DfileEnvUser,
+					privKey,
+					500*time.Millisecond,
+					10*time.Second,
+					ch,
+					info,
+				)
+				Expect(err).To(BeNil())
+			})
 
-					// without keys
-					sshutil.MaxAttempts = 1
-					ch := make(chan struct{})
-					_, err = sshutil.WaitForSSH(
-						address,
-						DfileEnvUser,
-						privKey,
-						500*time.Millisecond,
-						10*time.Second,
-						ch,
-						info,
-					)
-					Expect(err).NotTo(BeNil())
-					Expect(err.Error()).To(ContainSubstring("unable to authenticate"))
-
-					// with keys
-					err = prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
+			Describe(".ListPublicKeys()", func() {
+				It("returns list of pub keys and the corresponding fingerprints", func() {
+					err := prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
 					Expect(err).To(BeNil())
 
-					sshutil.MaxAttempts = 10
-					_, err = sshutil.WaitForSSH(
-						address,
-						DfileEnvUser,
-						privKey,
-						500*time.Millisecond,
-						10*time.Second,
-						ch,
-						info,
-					)
+					// when container is running
+					pubkeys, err := prov.ListPublicKeys(id)
 					Expect(err).To(BeNil())
-				})
+					Expect(pubkeys).To(Equal(map[string]string{
+						fingerprint1: pubkey1,
+						fingerprint2: pubkey2,
+					}))
 
-				Describe(".ListPublicKeys()", func() {
-					It("returns list of pub keys and the corresponding fingerprints", func() {
-						err := prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
-						Expect(err).To(BeNil())
-
-						// when container is running
-						pubkeys, err := prov.ListPublicKeys(id)
-						Expect(err).To(BeNil())
-						Expect(pubkeys).To(Equal(map[string]string{
-							fingerprint1: pubkey1,
-							fingerprint2: pubkey2,
-						}))
-
-						// when container is stopped
-						err = exec.Command("docker", "stop", id).Run()
-						Expect(err).To(BeNil())
-						pubkeys, err = prov.ListPublicKeys(id)
-						Expect(err).To(BeNil())
-						Expect(pubkeys).To(Equal(map[string]string{
-							fingerprint1: pubkey1,
-							fingerprint2: pubkey2,
-						}))
-					})
+					// when container is stopped
+					err = exec.Command("docker", "stop", "--time=1", id).Run()
+					Expect(err).To(BeNil())
+					pubkeys, err = prov.ListPublicKeys(id)
+					Expect(err).To(BeNil())
+					Expect(pubkeys).To(Equal(map[string]string{
+						fingerprint1: pubkey1,
+						fingerprint2: pubkey2,
+					}))
 				})
 			})
 		})
 	})
 
 	Describe(".GetInfo()", func() {
-		BeforeEach(func() {
-			PullImage(NitrousImage)
-		})
-
 		It("returns container info", func() {
 			name := RandomName("freightertest")
 			configJSON := ""
@@ -1461,19 +1485,19 @@ var _ = Describe("provider/docker", func() {
 			dockerFile string
 			expected   bool
 		}{
-			{`FROM scratch
+			{`FROM busybox
 				MAINTAINER callum@action.io
 				ENV No WAY
 				ENV NITROUS_IMAGE_VERSION 1.1`, true},
-			{`FROM scratch
+			{`FROM busybox
 				MAINTAINER callum@action.io
 				ENV NITROUS_IMAGE_VERSION 1.1.1.1`, true},
-			{`FROM scratch
+			{`FROM busybox
 				MAINTAINER callum@action.io
 				ENV NOTROUS_IMAGE_VERSION 0.1`, false},
-			{`FROM scratch
+			{`FROM busybox
 				MAINTAINER callum@action.io`, false},
-			{`FROM scratch
+			{`FROM busybox
 				MAINTAINER callum@action.io
 				ENV SOME THING`, false},
 		}
@@ -1488,7 +1512,7 @@ var _ = Describe("provider/docker", func() {
 		}
 
 		It("should be true when an image inherits", func() {
-			baseDocker := `FROM scratch
+			baseDocker := `FROM busybox
 			MAINTAINER callum@action.io
 			ENV No WAY
 			ENV NITROUS_IMAGE_VERSION 1.1`
@@ -1503,7 +1527,7 @@ var _ = Describe("provider/docker", func() {
 		})
 
 		It("should be true when an image overrides", func() {
-			baseDocker := `FROM scratch
+			baseDocker := `FROM busybox
 			MAINTAINER callum@action.io
 			ENV No WAY
 			ENV NITROUS_IMAGE_VERSION 1.1`
@@ -1520,26 +1544,6 @@ var _ = Describe("provider/docker", func() {
 	})
 
 	Describe("InspectRemoteImage()", func() {
-		It("should fetch the latest image information from index.docker.io", func() {
-			img, err := prov.InspectRemoteImage(NitrousImage)
-			Expect(err).To(BeNil())
-
-			Expect(img).ToNot(BeNil())
-			Expect(img.ID).ToNot(BeEmpty())
-			Expect(img.Tag).To(Equal("latest"))
-			Expect(img.Config).ToNot(BeNil())
-			Expect(img.Config.Image).To(Equal(img.ID))
-			Expect(img.Config.Env).To(HaveLen(5))
-			Expect(img.Config.Env).To(Equal([]string{
-				"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-				"container=docker",
-				"NITROUS_IMAGE_VERSION=2",
-				fmt.Sprintf("NITROUS_USERNAME=%s", DfileEnvUser),
-				"NITROUS_SSH_ENABLED=true",
-			}))
-			Expect(img.Config.Cmd).To(Equal([]string{"/sbin/init", "--default-console", "none"}))
-		})
-
 		Context("with an alternative repository", func() {
 			var server *ghttp.Server
 			var host string
