@@ -1,6 +1,4 @@
 #= require polyfills
-#= require encoding
-#= require encoding-indexes
 #= require_self
 #= require lib/socket/socket-connection
 #= require webfonts
@@ -10,15 +8,6 @@ parentWindow = window.parent
 parentWindow = null if parentWindow == window
 
 isMac = navigator.userAgent.indexOf("Macintosh") != -1
-
-utf8Encoder = new window.TextEncoder('utf8')
-utf8Decoder = new window.TextDecoder('utf8')
-
-utf8Encode = (data) =>
-  utf8Encoder.encode(data)
-
-utf8Decode = (data) =>
-  utf8Decoder.decode(new DataView(data))
 
 window.NitrousTerminal =
   term: null
@@ -77,8 +66,7 @@ window.NitrousTerminal =
 
     @term.handler = (data) =>
       return if @readonly || @conn.readyState != 1
-      message = utf8Encode("d|#{data}")
-      @conn.send message
+      @conn.send "d|#{data}"
 
     @term.originalKeyDown = @term.keyDown
     @term.keyDown = (event) =>
@@ -130,13 +118,10 @@ window.NitrousTerminal =
     @afterOpen = null
 
   didReceiveMessage: (ev) ->
-    message = ev.data
-    if message instanceof ArrayBuffer
-      message = utf8Decode(message)
-    type = message.slice(0, 2)
+    type = ev.data.slice(0, 2)
     switch type
       when 'd|'
-        @term.write message.slice(2)
+        @term.write ev.data.slice(2)
       when 'c|'
         @close()
       when 'h'

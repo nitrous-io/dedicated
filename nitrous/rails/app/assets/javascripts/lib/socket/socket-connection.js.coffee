@@ -26,8 +26,6 @@ class window.SocketConnection
       new WebSocket(@url, @protocols)
     else
       new WebSocket(@url)
-
-    ws.binaryType = 'arraybuffer'
     ws.onopen    = (evt) => @onopen(evt)
     ws.onclose   = (evt) => @onclose(evt)
     ws.onerror   = (evt) => @onerror(evt)
