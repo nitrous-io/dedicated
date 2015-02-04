@@ -414,7 +414,7 @@ func (b *Biller) associateDeferredInvoices(upI *stripe.Invoice, i *invoice.Invoi
 		itemIDs = append(itemIDs, fmt.Sprintf("invoice_items.stripe_id = '%s'", item.ID))
 	}
 
-	stmt := fmt.Sprintf("SELECT DISTINCT ON (invoices.id) invoices.* FROM invoices INNER JOIN invoice_items ON (invoices.id = invoice_items.invoice_id) WHERE invoices.id != $1 AND %s;", strings.Join(itemIDs, " OR "))
+	stmt := fmt.Sprintf("SELECT DISTINCT ON (invoices.id) invoices.* FROM invoices INNER JOIN invoice_items ON (invoices.id = invoice_items.invoice_id) WHERE invoices.id != $1 AND (%s);", strings.Join(itemIDs, " OR "))
 	otherInvs := []invoice.Invoice{}
 	err := b.db.Select(&otherInvs, stmt, i.ID)
 	if err != nil {

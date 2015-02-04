@@ -753,6 +753,11 @@ var _ = Describe("biller", func() {
 
 							Expect(oInv1X.CoveredBy.Int64).To(Equal(i.Invoice.ID))
 							Expect(oInv2X.CoveredBy.Int64).To(Equal(i.Invoice.ID))
+
+							i2 := &invoice.Invoice{}
+							err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", i.Invoice.ID).StructScan(i2)
+							Expect(err).To(BeNil())
+							Expect(i2.CoveredBy.Valid).To(BeFalse())
 						})
 
 						It("should not touch invoices that are already covered", func() {
