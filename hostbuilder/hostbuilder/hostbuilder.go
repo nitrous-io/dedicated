@@ -7,6 +7,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/nitrous-io/dedicated/hostbuilder"
 )
@@ -45,5 +48,18 @@ func main() {
 	}
 	http.Handle("/", server.Router)
 	log.Printf("hostbuilder: starting server at %v", server.Config.Address)
-	log.Fatal(http.ListenAndServe(server.Config.Address, nil))
+	httpServer := &http.Server{Addr: server.Config.Address, Handler: nil}
+	go func() {
+		log.Fatal(httpServer.ListenAndServe())
+	}()
+
+	ch := make(chan os.Signal)
+	// upstart uses term by default
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+	log.Println(<-ch)
+	log.Printf("Starting to shut down hostbuilder, %d request(s) in progress", hostbuilder.GetHttpReqCount())
+	timeStart := time.Now()
+	httpServer.SetKeepAlivesEnabled(false) // recommended when shutting down
+	hostbuilder.ShutdownAndWaitHttpRequestsDone(15 * time.Minute)
+	log.Printf("hostbuilder did shutdown in %s", time.Since(timeStart))
 }
