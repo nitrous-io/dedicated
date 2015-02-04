@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strconv"
 	"testing"
 	"time"
@@ -1116,6 +1117,28 @@ var _ = Describe("server", func() {
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				Expect(res.Body.String()).To(MatchJSON(`{"error":"Could not contact cloud."}`))
 			})
+		})
+	})
+
+	Describe("GET /versions", func() {
+		doRequest := func() {
+			req, err = NewRequestWithSecret(hostSecret, "GET", "/versions", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+		BeforeEach(func() {
+			config.Version = "1.2-freight"
+		})
+		It("responds with 200 OK and version info", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			// expected value is in the format:
+			// `{"docker_version":"1.4.1-5bc2ff8","freighterd_version":"${config.Version}"}`
+			got := res.Body.String()
+			re := `{"docker_version":"([\d\.]*)-([a-f0-9]*)","freighterd_version":"1\.2-freight"}`
+			matched, err := regexp.MatchString(re, got)
+			Expect(err).To(BeNil())
+			Expect(matched).To(Equal(true))
 		})
 	})
 

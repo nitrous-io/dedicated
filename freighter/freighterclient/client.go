@@ -110,6 +110,12 @@ type Client interface {
 	PushImage(image, destination string, out io.Writer) error
 	TagImage(image, newName string, force bool) error
 	InspectImage(image string) (*Image, error)
+	HostVersions() (*HostVersions, error)
+}
+
+type HostVersions struct {
+	DockerVersion     string `json:"docker_version"`
+	FreighterdVersion string `json:"freighterd_version"`
 }
 
 type Stats struct {
@@ -724,6 +730,32 @@ func (c *client) HostInfo(period time.Duration) (*HostInfo, error) {
 	}
 
 	return info.Info, nil
+}
+
+func (c *client) HostVersions() (*HostVersions, error) {
+	u := fmt.Sprintf("%s/versions", c.host.BaseURL())
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, statusError(resp)
+	}
+
+	var ver HostVersions
+	if err := json.NewDecoder(resp.Body).Decode(&ver); err != nil {
+		return nil, ErrUnexpectedResponse
+	}
+
+	return &ver, nil
 }
 
 func (c *client) HostUtilization() ([]HostUtilization, error) {
