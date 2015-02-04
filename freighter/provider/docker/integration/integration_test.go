@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -39,17 +40,45 @@ func Test(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	start := time.Now()
-	fmt.Print("build busybox:latest...")
-	cmd := exec.Command("docker", "build", "-t", "busybox:latest", ".")
+	var (
+		start time.Time
+		err   error
+		out   []byte
+		cmd   *exec.Cmd
+	)
+
+	// build base, which is busybox with /sh as CMD
+	start = time.Now()
+	fmt.Print("build base:latest...")
+	cmd = exec.Command("docker", "build", "-t", "base:latest", ".")
 	cmd.Dir = "/docker-busybox"
-	cmd.Run()
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build base, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// build busybox, which is busybox duh but with top as CMD
+	start = time.Now()
+	fmt.Print("build busybox:latest...")
+	cmd = exec.Command("docker", "build", "-t", "busybox:latest", "-")
+	cmd.Stdin = bytes.NewBufferString(`
+	FROM base:latest
+	CMD ["top"]
+	`)
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build busybox, output: %s", string(out))
 	fmt.Printf(" took %s\n", time.Now().Sub(start))
 })
 
 var _ = AfterSuite(func() {
-	out, err := exec.Command("docker", "rmi", "busybox:latest").CombinedOutput()
-	Expect(err).To(BeNil(), "failed to remove docker images, output: %s", out)
+	var (
+		err error
+		out []byte
+	)
+	out, err = exec.Command("docker", "rmi", "busybox:latest").CombinedOutput()
+	Expect(err).To(BeNil(), "failed to remove busybox images, output: %s", out)
+
+	out, err = exec.Command("docker", "rmi", "base:latest").CombinedOutput()
+	Expect(err).To(BeNil(), "failed to remove base images, output: %s", out)
 })
 
 // startContainer behaves similarly to startContainerWithData except that it
