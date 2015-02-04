@@ -522,7 +522,7 @@ var (
 				"status": "active",
 				"networks": {
 					"v4": [ { "ip_address": "127.0.0.22", "netmask": "255.255.255.0", "gateway": "127.0.0.21", "type": "public" } ],
-					"v6": [ { "ip_address": "2001::15", "cidr": 124, "gateway": "2400:6180:0000:00D0:0000:0000:0009:7000", "type": "public" } ]
+					"v6": [ { "ip_address": "2001::15", "netmask": 64, "cidr": 124, "gateway": "2400:6180:0000:00D0:0000:0000:0009:7000", "type": "public" } ]
 				},
 				"kernel": {
 					"id": 485432986,
