@@ -5,8 +5,8 @@
     tr
       th State
       td colspan='3'
-        .state-indicator class={state}
-        = state
+        .state-indicator class={computedState}
+        = computedState
 
     tr
       th Slug

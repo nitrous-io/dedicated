@@ -57,11 +57,13 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
   actions:
     apply: ->
       return if @get 'saving'
+
+      container = @get('model')
       prevState = @get 'state'
       @set 'state', 'reconfiguring'
+      container.setTempState 'reconfiguring'
 
       events = App.get 'eventsSocket'
-      container = @get('model')
 
       reconfigureComplete = =>
         @set 'state', prevState
