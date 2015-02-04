@@ -1,3 +1,5 @@
+#= require lib/encoding
+
 class window.SocketConnection
   ws: null
   url: undefined
@@ -31,7 +33,17 @@ class window.SocketConnection
     ws.onopen    = (evt) => @onopen(evt)
     ws.onclose   = (evt) => @onclose(evt)
     ws.onerror   = (evt) => @onerror(evt)
-    ws.onmessage = (evt) => @onmessage(evt)
+
+    # Quick hack to make it backward compatible with
+    # existing listeners that expect strings
+    # New code that expects binary data can
+    # retrieve it from evt.binaryData
+    ws.onmessage = (evt) => 
+      message = evt.data
+      if message instanceof ArrayBuffer
+        evt.binaryData = message
+        evt.data = Lib.utf8Decode(message)
+      @onmessage(evt)
 
     ws._onopen = =>
       @retries = 0
@@ -57,8 +69,10 @@ class window.SocketConnection
     , delay)
     @retries += 1
 
-  send: ->
-    @ws.send.apply(@ws, arguments)
+  send: (data) ->
+    if typeof(data) == 'string'
+      data = Lib.utf8Encode(data)
+    @ws.send(data)
 
   close: ->
     if ws = @ws
