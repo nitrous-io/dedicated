@@ -89,7 +89,8 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	serInvs := []*serializers.Invoice{}
 	for _, inv := range invoices {
 		invIDs = append(invIDs, strconv.FormatInt(inv.ID, 10))
-		serInvs = append(serInvs, serializers.SerializeInvoice(&inv))
+		sInv := serializers.SerializeInvoice(&inv)
+		serInvs = append(serInvs, sInv)
 	}
 
 	invItems, err := fetchInvoiceItems(env.DB, invIDs)
@@ -105,12 +106,16 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	for _, inv := range serInvs {
 		for _, item := range invItems {
 			if item.InvoiceID == inv.ID {
-				ser := serializers.SerializeInvoiceItem(&item)
-				ser.Description = invoiceitem.ItemDescription(&item, hMap[ser.HostID])
-				if hst, ok := hMap[ser.HostID]; ok {
-					ser.HostSlug = hst.Slug
+				if item.Credit.Valid {
+					inv.TotalCredit += item.Credit.Int64
+				} else {
+					ser := serializers.SerializeInvoiceItem(&item)
+					ser.Description = invoiceitem.ItemDescription(&item, hMap[ser.HostID])
+					if hst, ok := hMap[ser.HostID]; ok {
+						ser.HostSlug = hst.Slug
+					}
+					inv.Items = append(inv.Items, *ser)
 				}
-				inv.Items = append(inv.Items, *ser)
 			}
 		}
 	}

@@ -29,6 +29,8 @@ var _ = Describe("invoice serializer", func() {
 
 		It("serializes to JSON", func() {
 			r := serializers.SerializeInvoice(model)
+			r.TotalCredit = 100
+			r.AvailableCredit = 200
 			r.Items = []serializers.InvoiceItem{item1}
 			b, err := json.Marshal(r)
 			Expect(err).To(BeNil())
@@ -36,10 +38,11 @@ var _ = Describe("invoice serializer", func() {
         "id": 23,
         "user_id": 29,
         "total_charge": 329,
-        "total_charge_dollars": 3.29,
         "period_start": "1970-01-01T00:00:20Z",
         "period_end": "1970-01-01T01:00:20Z",
         "successful_charge": false,
+        "total_credit": 100,
+        "available_credit": 200,
         "items": [{
           "id": 12,
           "invoice_id": 0,
@@ -49,7 +52,6 @@ var _ = Describe("invoice serializer", func() {
           "terminated": false,
           "hourly_cents": 0,
           "total_charge": 0,
-          "total_charge_dollars": 0.0,
           "description": ""
         }]
       }`))
