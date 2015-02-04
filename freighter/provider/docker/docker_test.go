@@ -229,52 +229,6 @@ var _ = Describe("provider/docker", func() {
 			Expect(string(s)).To(Equal(secret))
 		})
 
-		Context("when image has no CMD or ENTRYPOINT", func() {
-			It("creates and starts if CMD is given to container config", func() {
-				imgs := CreateImages(1, "nocmd", false, `
-					FROM busybox:latest
-					CMD []
-				`)
-				defer RemoveImages(imgs)
-
-				imgName := imgs[0]
-				name := RandomName("freightertest")
-
-				configJSON := `{ "Cmd": ["yes"] }`
-				cnr, err := prov.CreateStart(name, imgName, secret, configJSON)
-				defer CleanUpContainer(name)
-				Expect(err).To(BeNil())
-				Expect(cnr.Cmd).To(Equal([]string{"yes"}))
-			})
-		})
-
-		It("returns an ErrImageNotFound when creating from an image that does not exist", func() {
-			name := RandomName("freightertest")
-			_, err := prov.CreateStart(name, "non-existent-image", secret, "")
-			Expect(err).To(MatchError(provider.ErrImageNotFound))
-		})
-
-		Context("when container is created but cannot be started", func() {
-			It("creates a stopped container and returns the container info and a StartFailedError", func() {
-				// Create container with config that prevents it from
-				// started.
-				name := RandomName("freightertest")
-				info, err := prov.CreateStart(name, NitrousImage, secret,
-					`{ "Cmd": ["invalid-cmd"] }`)
-				defer CleanUpContainer(name)
-
-				_, ok := err.(*provider.StartFailedError)
-				Expect(ok).To(BeTrue())
-				Expect(info.ID).To(Equal(inspectID(name)))
-				Expect(info.Name).To(Equal(name))
-				Expect(info.Image).To(Equal(NitrousImage))
-				Expect(info.ImageID).To(Equal(inspectID(NitrousImage)))
-				Expect(info.State).To(Equal(provider.ContainerStateStopped))
-				Expect(info.Host).To(Equal(""))
-				Expect(info.Gateway).To(Equal(""))
-			})
-		})
-
 		Context("after a container is created", func() {
 			var (
 				name string
