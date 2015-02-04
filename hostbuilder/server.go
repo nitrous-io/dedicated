@@ -65,6 +65,9 @@ func isShuttingDown() bool {
 
 func ShutdownAndWaitHttpRequestsDone(timeout time.Duration) {
 	markAsShuttingDown()
+	if 0 == timeout {
+		return
+	}
 	deadline := time.Now().Add(timeout)
 	for {
 		if 0 == GetHttpReqCount() {
@@ -163,6 +166,9 @@ type config struct {
 	// librato settings
 	LibratoUser  string `json:"librato_user"`
 	LibratoToken string `json:"librato_token"`
+
+	// max time to wait for graceful shutdown, in seconds
+	ShutdownTimeoutSecs int `json:"shutdown_timeout_secs"`
 }
 
 type Server struct {
