@@ -1,6 +1,4 @@
 #= require polyfills
-#= require encoding
-#= require encoding-indexes
 #= require_self
 #= require lib/socket/socket-connection
 #= require webfonts
@@ -11,8 +9,8 @@ parentWindow = null if parentWindow == window
 
 isMac = navigator.userAgent.indexOf("Macintosh") != -1
 
-utf8Encoder = new window.TextEncoder('utf8')
-utf8Decoder = new window.TextDecoder('utf8')
+utf8Encoder = new TextEncoder('utf8')
+utf8Decoder = new TextDecoder('utf8')
 
 utf8Encode = (data) =>
   utf8Encoder.encode(data)
