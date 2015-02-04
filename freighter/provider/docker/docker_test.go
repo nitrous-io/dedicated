@@ -1569,26 +1569,6 @@ var _ = Describe("provider/docker", func() {
 	})
 
 	Describe("InspectRemoteImage()", func() {
-		It("should fetch the latest image information from index.docker.io", func() {
-			img, err := prov.InspectRemoteImage("nitrousio/ubuntu-bare:latest")
-			Expect(err).To(BeNil())
-
-			Expect(img).ToNot(BeNil())
-			Expect(img.ID).ToNot(BeEmpty())
-			Expect(img.Tag).To(Equal("latest"))
-			Expect(img.Config).ToNot(BeNil())
-			Expect(img.Config.Image).To(Equal(img.ID))
-			Expect(img.Config.Env).To(HaveLen(5))
-			Expect(img.Config.Env).To(Equal([]string{
-				"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-				"container=docker",
-				"NITROUS_IMAGE_VERSION=2",
-				fmt.Sprintf("NITROUS_USERNAME=%s", DfileEnvUser),
-				"NITROUS_SSH_ENABLED=true",
-			}))
-			Expect(img.Config.Cmd).To(Equal([]string{"/sbin/init", "--default-console", "none"}))
-		})
-
 		Context("with an alternative repository", func() {
 			var server *ghttp.Server
 			var host string
