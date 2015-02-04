@@ -199,7 +199,7 @@ func (h *Host) Info() (*host.Info, error) {
 
 func (h *Host) List() ([]*host.Info, error) {
 	allDroplets := []godo.Droplet{}
-	opt := &godo.ListOptions{}
+	opt := &godo.ListOptions{Page: 1}
 
 	// Collect all droplets, taking pagination into account.
 	for {
@@ -212,7 +212,12 @@ func (h *Host) List() ([]*host.Info, error) {
 			allDroplets = append(allDroplets, d)
 		}
 
-		if resp.Links == nil || resp.Links.IsLastPage() {
+		if resp.Links != nil && resp.Links.IsLastPage() {
+			break
+		}
+
+		if resp.Links == nil {
+			hlog(h, "Null response links! opts is %v", opt)
 			break
 		}
 

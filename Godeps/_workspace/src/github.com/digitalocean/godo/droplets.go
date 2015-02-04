@@ -99,6 +99,7 @@ func (s *DropletsServiceOp) List(opt *ListOptions) ([]Droplet, *Response, error)
 		return nil, nil, err
 	}
 
+	fmt.Printf("Getting path %s\n", path)
 	req, err := s.client.NewRequest("GET", path, nil)
 	if err != nil {
 		return nil, nil, err
@@ -109,6 +110,7 @@ func (s *DropletsServiceOp) List(opt *ListOptions) ([]Droplet, *Response, error)
 	if err != nil {
 		return nil, resp, err
 	}
+
 	if l := root.Links; l != nil {
 		resp.Links = l
 	}

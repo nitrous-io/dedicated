@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -237,7 +238,15 @@ func (c *Client) Do(req *http.Request, v interface{}) (*Response, error) {
 		if w, ok := v.(io.Writer); ok {
 			io.Copy(w, resp.Body)
 		} else {
+			bs, err := httputil.DumpResponse(resp, true)
+			if err != nil {
+				fmt.Printf("dumperr: %v\n", err)
+			} else {
+				fmt.Printf("DumpBody:\n%s\n", string(bs))
+			}
 			json.NewDecoder(resp.Body).Decode(v)
+
+			fmt.Printf("Decoded v: %+v\n", v)
 		}
 	}
 
