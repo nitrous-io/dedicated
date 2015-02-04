@@ -590,6 +590,12 @@ func (p *Provisioner) preprovision(j job) (*host.Host, error) {
 	if err != nil {
 		return nil, err
 	}
+	if r == nil {
+		return nil, fmt.Errorf("region %d not found", j.template.RegionID)
+	}
+	if r.Disabled() {
+		return nil, fmt.Errorf("region %d is disabled", r.ID)
+	}
 	pl, err := plan.FindByID(p.db, j.template.PlanID)
 	if err != nil {
 		return nil, err
