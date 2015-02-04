@@ -98,9 +98,9 @@ func newConn(slug string) (*sshutil.Conn, error) {
 
 	// create the ssh client
 	address := fmt.Sprintf("%s:65100", h.IPAddress.String)
-	connInterval, timeout := 5*time.Second, 30*time.Second
+	connInterval := 5 * time.Second
 	return sshutil.WaitForSSH(address, sshUser, privKey,
-		connInterval, timeout, make(chan struct{}), map[string]interface{}{})
+		connInterval, make(chan struct{}), map[string]interface{}{})
 }
 
 // pipes returns stdin, stdout, stderr of the current ssh session

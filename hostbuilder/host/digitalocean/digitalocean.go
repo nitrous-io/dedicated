@@ -16,11 +16,12 @@ import (
 	"code.google.com/p/goauth2/oauth"
 
 	"github.com/digitalocean/godo"
-	"github.com/nitrous-io/dedicated/hostbuilder/context"
+	hostcontext "github.com/nitrous-io/dedicated/hostbuilder/context"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
+	"golang.org/x/net/context"
 )
 
 const DefaultPort uint16 = 65333
@@ -84,37 +85,78 @@ type Host struct {
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
-	steps := []context.Step{
-		{"Creating key", createSSHKey},
-		{"Creating host", createDroplet},
-		{"Waiting for the host to be ready", waitForSSH},
-		{"Writing key", writePublicKeys},
-		{"Creating settings", createEtcFreighterd},
-		{"Writing certificates", writeTLSCerts},
-		{"Writing token", writeSecret},
-		{"Setting up repos", writeRepository},
-		{"Fetching updates", updateSoftware},
-		{"Applying settings", restartFreighterd},
-	}
-	resultCh := make(chan error)
-	ctx := context.NewContext(h, steps, w)
-	go func() {
-		resultCh <- ctx.Execute()
-	}()
+	// ctx is the Context for this method. Calling cancel closes the ctx.Done
+	// channel, which will in turn signal for child requests started by this
+	// method to be cancelled.
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
+	defer cancel()
 
-	select {
-	case err := <-resultCh:
-		if err != nil {
-			hlog(h, "ERROR: Failed in create host step: %+v", ctx.Error())
+	// Store host and writer in ctx for child requests.
+	hctx := hostcontext.NewContext(ctx, h, w)
+
+	steps := []hostcontext.Step{
+		{
+			Description: "Creating key",
+			Func:        createSSHKey,
+			Timeout:     30 * time.Second,
+		},
+		{
+			Description: "Creating workspace",
+			Func:        createDroplet,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Description: "Waiting for the workspace to be ready",
+			Func:        waitForSSH,
+			Timeout:     1 * time.Minute,
+		},
+		{
+			Description: "Writing key",
+			Func:        writePublicKeys,
+			Timeout:     30 * time.Second,
+		},
+		{
+			Description: "Initializing settings",
+			Func:        createEtcFreighterd,
+			Timeout:     30 * time.Second,
+		},
+		{
+			Description: "Writing certificates",
+			Func:        writeTLSCerts,
+			Timeout:     30 * time.Second,
+		},
+		{
+			Description: "Writing token",
+			Func:        writeSecret,
+			Timeout:     30 * time.Second,
+		},
+		{
+			Description: "Setting up",
+			Func:        writeRepository,
+			Timeout:     30 * time.Second,
+		},
+		{
+			Description: "Fetching updates",
+			Func:        updateSoftware,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Description: "Applying settings",
+			Func:        restartFreighterd,
+			Timeout:     2 * time.Minute,
+		},
+	}
+
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			hlog(h, "ERROR: Failed in create host step: %v", err)
 			h.logFailedDroplet()
 			return nil, err
 		}
-	case <-time.After(h.createTimeout):
-		// FIXME golang.org/x/net/context is more correct, we should probably use that.
-		close(h.cancelCreate)
-		hlog(h, "ERROR: timed out in create host step")
-		h.logFailedDroplet()
-		return nil, ErrCreateTimeout
 	}
 
 	if h.sshKey != nil {
@@ -376,7 +418,11 @@ func init() {
 	host.Hosts["digitalocean"] = NewHost
 }
 
-func createSSHKey(ctx *context.Context, hst host.Host) error {
+func createSSHKey(ctx context.Context) error {
+	hst, _, err := hostcontext.FromContext(ctx)
+	if err != nil {
+		return err
+	}
 	h := hst.(*Host)
 	label := h.metricsLabel("create_key")
 	defer mh.UpdateSince(label, time.Now())
@@ -400,18 +446,25 @@ func createSSHKey(ctx *context.Context, hst host.Host) error {
 	if err != nil {
 		return mh.Error(err, label+".api")
 	}
-	hlog(h, "keyID=%d fingerprint=%s creating SSH keypair on digitalocean... Done", sshKey.ID, sshKey.Fingerprint)
+
 	h.sshKey = sshKey
+	hlog(h, "keyID=%d fingerprint=%s creating SSH keypair on digitalocean... Done", h.sshKey.ID, h.sshKey.Fingerprint)
 	return nil
 }
 
-func createDroplet(ctx *context.Context, hst host.Host) error {
+func createDroplet(ctx context.Context) error {
+	hst, _, err := hostcontext.FromContext(ctx)
+	if err != nil {
+		return err
+	}
 	h := hst.(*Host)
+
 	defer func(start time.Time) {
 		// we are interested in the final context of `h` so label is generated
 		// inside defer block
 		mh.UpdateSince(h.metricsLabel("create_host"), start)
 	}(time.Now())
+
 	label := h.metricsLabel("create_host")
 	config := h.Config
 	sshKey := h.sshKey
@@ -445,7 +498,7 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 			return mh.Error(err, label)
 		}
 	} else {
-		hlog(h, "[WARNING] digitalocean did not return action data for host %+v", hst)
+		hlog(h, "[WARNING] digitalocean did not return action data for host %+v", h)
 		return nil
 	}
 
@@ -459,7 +512,11 @@ func createDroplet(ctx *context.Context, hst host.Host) error {
 	return nil
 }
 
-func waitForSSH(ctx *context.Context, hst host.Host) error {
+func waitForSSH(ctx context.Context) error {
+	hst, _, err := hostcontext.FromContext(ctx)
+	if err != nil {
+		return err
+	}
 	h := hst.(*Host)
 	label := h.metricsLabel("ssh_wait")
 	defer mh.UpdateSince(label, time.Now())
@@ -470,9 +527,8 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 		"uuid": h.uuid,
 	}
 	connInterval := 5 * time.Second
-	timeout := 60 * time.Second
 	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
-		connInterval, timeout, h.cancelCreate, info)
+		connInterval, ctx.Done(), info)
 	if err != nil {
 		return mh.Error(err, label)
 	}
@@ -481,30 +537,42 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 	return nil
 }
 
-func writePublicKeys(ctx *context.Context, hst host.Host) error {
+func writePublicKeys(ctx context.Context) error {
+	hst, _, err := hostcontext.FromContext(ctx)
+	if err != nil {
+		return err
+	}
 	h := hst.(*Host)
 	hlog(h, "Writing public key")
 	pubKeyR := bytes.NewBuffer(nil)
 	for _, k := range h.Config.PublicKeys {
 		fmt.Fprintln(pubKeyR, k)
 	}
-	err := writeFile(h, map[string]io.Reader{
+	err = writeFile(h, map[string]io.Reader{
 		"/root/.ssh/authorized_keys": pubKeyR,
 	})
 	hlog(h, "Wrote public key")
 	return err
 }
 
-func createEtcFreighterd(ctx *context.Context, hst host.Host) error {
+func createEtcFreighterd(ctx context.Context) error {
+	hst, _, err := hostcontext.FromContext(ctx)
+	if err != nil {
+		return err
+	}
 	h := hst.(*Host)
 	defer mh.UpdateSince(h.metricsLabel("create_config"), time.Now())
 	return h.conn.Execute("mkdir -p /etc/freighterd")
 }
 
-func writeTLSCerts(ctx *context.Context, hst host.Host) error {
+func writeTLSCerts(ctx context.Context) error {
+	hst, _, err := hostcontext.FromContext(ctx)
+	if err != nil {
+		return err
+	}
 	h := hst.(*Host)
 	hlog(h, "Writing TLS certs")
-	err := writeFile(h, map[string]io.Reader{
+	err = writeFile(h, map[string]io.Reader{
 		TLSCALocation:   bytes.NewBufferString(h.Config.TLS.CA),
 		TLSCertLocation: bytes.NewBufferString(h.Config.TLS.Cert),
 		TLSKeyLocation:  bytes.NewBufferString(h.Config.TLS.Key),
@@ -513,10 +581,14 @@ func writeTLSCerts(ctx *context.Context, hst host.Host) error {
 	return err
 }
 
-func writeSecret(ctx *context.Context, hst host.Host) error {
+func writeSecret(ctx context.Context) error {
+	hst, _, err := hostcontext.FromContext(ctx)
+	if err != nil {
+		return err
+	}
 	h := hst.(*Host)
 	hlog(h, "Writing host secret")
-	err := writeFile(h, map[string]io.Reader{
+	err = writeFile(h, map[string]io.Reader{
 		SecretLocation: bytes.NewBufferString(h.Config.Secret),
 	})
 	hlog(h, "Wrote host secret")
@@ -537,7 +609,11 @@ func writeFile(h *Host, files map[string]io.Reader) error {
 	return nil
 }
 
-func writeRepository(ctx *context.Context, hst host.Host) error {
+func writeRepository(ctx context.Context) error {
+	hst, _, err := hostcontext.FromContext(ctx)
+	if err != nil {
+		return err
+	}
 	h := hst.(*Host)
 	hlog(h, "Uploading apt details")
 	buf := bytes.NewBuffer(nil)
@@ -551,7 +627,11 @@ func writeRepository(ctx *context.Context, hst host.Host) error {
 	return nil
 }
 
-func updateSoftware(ctx *context.Context, hst host.Host) error {
+func updateSoftware(ctx context.Context) error {
+	hst, _, err := hostcontext.FromContext(ctx)
+	if err != nil {
+		return err
+	}
 	h := hst.(*Host)
 	label := h.metricsLabel("update_software")
 	defer mh.UpdateSince(label, time.Now())
@@ -581,7 +661,11 @@ func updateSoftware(ctx *context.Context, hst host.Host) error {
 	return nil
 }
 
-func restartFreighterd(ctx *context.Context, hst host.Host) error {
+func restartFreighterd(ctx context.Context) error {
+	hst, _, err := hostcontext.FromContext(ctx)
+	if err != nil {
+		return err
+	}
 	h := hst.(*Host)
 	label := h.metricsLabel("restart_software")
 	defer mh.UpdateSince(label, time.Now())

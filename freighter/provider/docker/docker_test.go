@@ -745,7 +745,6 @@ var _ = Describe("provider/docker", func() {
 					DfileEnvUser,
 					privKey,
 					500*time.Millisecond,
-					10*time.Second,
 					ch,
 					info,
 				)
@@ -762,7 +761,6 @@ var _ = Describe("provider/docker", func() {
 					DfileEnvUser,
 					privKey,
 					500*time.Millisecond,
-					10*time.Second,
 					ch,
 					info,
 				)
