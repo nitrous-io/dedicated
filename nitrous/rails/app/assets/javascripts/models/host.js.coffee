@@ -6,8 +6,8 @@ App.Host = klass = App.Model.extend
   userId: attr('number', as: 'user_id', serialize: false)
   regionId: attr('number', as: 'region_id', serialize: false)
   planId: attr('number', as: 'plan_id', serialize: false)
-  slug: attr()
   name: attr()
+  slug: attr()
   state: attr(serialize: false)
   ipAddress: attr(as: 'ip_address', serialize: false)
   hostname: attr(serialize: false)
@@ -31,16 +31,7 @@ App.Host = klass = App.Model.extend
 
   displayName: (->
     @get('name') || @get('slug')
-  ).property 'name', 'slug'
-
-  nameAndSlug: (->
-    name = @get 'name'
-    slug = @get 'slug'
-    if name && slug
-      "#{name} (#{slug})"
-    else
-      slug
-  ).property 'name', 'slug'
+  ).property 'slug'
 
   containers: (->
     if id = @get('id')

@@ -18,7 +18,6 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
   selectedTemplateBinding: "controller.selectedTemplate"
 
   nameFieldInvalid: Em.computed.equal('controller.invalidField', 'name')
-  slugFieldInvalid: Em.computed.equal('controller.invalidField', 'slug')
 
   currentScreenIndex: 0
   showImageScreen: Em.computed.equal('currentScreenIndex', screens.indexOf('image'))
@@ -91,7 +90,6 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
 
   didInsertElement: ->
     @_super()
-    App.slug.slugify(@$('#containers-new-name'), @$('#containers-new-slug'))
 
     # if a new app creation is already in progress,
     # directly go to that screen.
@@ -135,7 +133,6 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
 
   willDestroyElement: ->
     @_super()
-    App.slug.unslugify(@$('#containers-new-name'))
     @$('.option-input').off('click.containers-new')
     @$('input[name=option]').off('change.containers-new')
 

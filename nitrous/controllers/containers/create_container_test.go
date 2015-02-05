@@ -26,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -48,8 +49,7 @@ var _ = Describe("CreateContainer", func() {
 
 	mkParams := func() url.Values {
 		params := url.Values{}
-		params.Set("slug", "elixir-web-1")
-		params.Set("name", "Elixir Web Server 1")
+		params.Set("name", "elixir-web")
 		params.Set("image", "elixir")
 		params.Add("env[]", "LANG=C")
 		params.Add("env[]", "NODE=nope")
@@ -129,11 +129,12 @@ var _ = Describe("CreateContainer", func() {
 		Expect(cn.UserID).To(Equal(u.ID))
 		Expect(cn.HostID).To(Equal(hs.H.ID))
 		Expect(cn.Image).To(Equal("elixir"))
-		Expect(cn.Slug).To(Equal("elixir-web-1"))
+		Expect(cn.Slug).To(HavePrefix("elixir-web"))
+		Expect(slugbuilder.IsValid(cn.Slug)).To(BeTrue())
 		Expect(cn.IPAddress).To(Equal(""))
 		Expect(cn.GatewayIP).To(Equal(""))
 		Expect(cn.State).To(Equal(container.StateRunning.String()))
-		Expect(cn.Name).To(Equal("Elixir Web Server 1"))
+		Expect(cn.Name).To(Equal("elixir-web"))
 	}
 
 	It("calls the Freighter client to create a container", func() {
@@ -143,7 +144,8 @@ var _ = Describe("CreateContainer", func() {
 		Expect(err).To(MatchError(mockClient.CreateError))
 
 		Expect(mockClient.CreateCalled).To(Equal(1))
-		Expect(mockClient.ReceivedName).To(Equal("elixir-web-1"))
+		Expect(mockClient.ReceivedName).To(HavePrefix("elixir-web"))
+		Expect(slugbuilder.IsValid(mockClient.ReceivedName)).To(BeTrue())
 		Expect(mockClient.ReceivedImage).To(Equal("elixir"))
 		conf := mockClient.ReceivedConfig
 		Expect(conf.Env).To(ConsistOf("LANG=C", "NODE=nope"))
@@ -207,35 +209,26 @@ var _ = Describe("CreateContainer", func() {
 		_, err := containers.CreateContainer(h, params, env)
 		Expect(err).To(BeNil())
 
-		c, err := container.Find(db, u, "elixir-web-1")
+		cntrs, err := container.FindAllByHostID(db, h.ID)
 		Expect(err).To(BeNil())
-		Expect(c.Slug).To(Equal("elixir-web-1"))
+		Expect(cntrs).To(HaveLen(1))
+		c := cntrs[0]
+		Expect(c.Slug).To(HavePrefix("elixir-web"))
+		Expect(slugbuilder.IsValid(c.Slug)).To(BeTrue())
 		Expect(c.Image).To(Equal("elixir"))
-		Expect(c.Name.String).To(Equal("Elixir Web Server 1"))
+		Expect(c.Name.String).To(Equal("elixir-web"))
 		Expect(mockClient.ReceivedSecret).To(Equal(c.Secret))
-	})
-
-	It("converts the 'slug' form value to lowercase", func() {
-		params.Del("slug")
-		params.Set("slug", "Elixir-WEB-1")
-
-		_, err := containers.CreateContainer(h, params, env)
-		Expect(err).To(BeNil())
-
-		Expect(mockClient.CreateCalled).To(Equal(1))
-		Expect(mockClient.ReceivedName).To(Equal("elixir-web-1"))
-
-		c, err := container.Find(db, u, "elixir-web-1")
-		Expect(err).To(BeNil())
-		Expect(c.Slug).To(Equal("elixir-web-1"))
 	})
 
 	It("responds with the created container", func() {
 		res, err := containers.CreateContainer(h, params, env)
 		Expect(err).To(BeNil())
 
-		c, err := container.Find(db, u, "elixir-web-1")
+		cntrs, err := container.FindAllByHostID(db, h.ID)
 		Expect(err).To(BeNil())
+		Expect(cntrs).To(HaveLen(1))
+		c := cntrs[0]
+
 		expectSerializedContainer(res.Container, c)
 	})
 
@@ -257,8 +250,11 @@ var _ = Describe("CreateContainer", func() {
 		Expect(evt.Name).To(Equal(controllers.EventContainerCreated))
 		evtData, ok := evt.Data.(map[string]*serializers.Container)
 		Expect(ok).To(BeTrue())
-		c, err := container.Find(db, u, "elixir-web-1")
+		cntrs, err := container.FindAllByHostID(db, h.ID)
 		Expect(err).To(BeNil())
+		Expect(cntrs).To(HaveLen(1))
+		c := cntrs[0]
+
 		expectSerializedContainer(evtData["container"], c)
 
 		close(done)
@@ -294,8 +290,11 @@ var _ = Describe("CreateContainer", func() {
 		Expect(*mockClient.ReceivedConfig.PublishAll).To(BeFalse())
 		Expect(*mockClient.ReceivedConfig.Privileged).To(BeTrue())
 
-		c, err := container.Find(db, u, "elixir-web-1")
+		cntrs, err := container.FindAllByHostID(db, h.ID)
 		Expect(err).To(BeNil())
+		Expect(cntrs).To(HaveLen(1))
+		c := cntrs[0]
+
 		expectSerializedContainer(res.Container, c)
 	})
 
@@ -308,9 +307,9 @@ var _ = Describe("CreateContainer", func() {
 			_, err := containers.CreateContainer(h, params, env)
 			Expect(err).ToNot(BeNil())
 
-			c, err := container.Find(db, u, "elixir-web-1")
+			cntrs, err := container.FindAllByHostID(db, h.ID)
 			Expect(err).To(BeNil())
-			Expect(c).To(BeNil())
+			Expect(cntrs).To(HaveLen(0))
 		})
 
 		It("responds with the error", func() {
@@ -331,8 +330,11 @@ var _ = Describe("CreateContainer", func() {
 				Expect(res.ErrorMessage).To(Equal("start_failed"))
 				Expect(res.ErrorDescription).To(ContainSubstring("start failed: could not bind port 22"))
 
-				c, err := container.Find(db, u, "elixir-web-1")
+				cntrs, err := container.FindAllByHostID(db, h.ID)
 				Expect(err).To(BeNil())
+				Expect(cntrs).To(HaveLen(1))
+				c := cntrs[0]
+
 				expectSerializedContainer(res.Container, c)
 			})
 		})
@@ -378,37 +380,16 @@ var _ = Describe("CreateContainer", func() {
 		})
 	})
 
-	Context("when name is already taken", func() {
+	Context("when name param is not given", func() {
 		BeforeEach(func() {
-			c := &container.Container{
-				CID:    "facecafe",
-				Slug:   "elixir-web-1",
-				Image:  "nitrous-base",
-				UserID: u.ID,
-				HostID: hs.H.ID,
-			}
-			err := c.Insert(db)
-			Expect(err).To(BeNil())
+			params.Del("name")
 		})
 
 		It("returns the error", func() {
 			res, err := containers.CreateContainer(h, params, env)
 			Expect(res).To(BeNil())
 
-			Expect(err).To(MatchError(containers.Validations["index_containers_on_slug"]))
-		})
-	})
-
-	Context("when slug param is not given", func() {
-		BeforeEach(func() {
-			params.Del("slug")
-		})
-
-		It("returns the error", func() {
-			res, err := containers.CreateContainer(h, params, env)
-			Expect(res).To(BeNil())
-
-			Expect(err).To(MatchError(containers.ErrSlugRequired))
+			Expect(err).To(MatchError(containers.ErrNameRequired))
 		})
 	})
 
