@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"sync/atomic"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -37,48 +37,7 @@ var (
 		20 * time.Second,
 		30 * time.Second,
 	}
-
-	// number of http requests in progress
-	httpReqCount    int32
-	nIsShuttingDown int32 // a bool, but must be atomic
 )
-
-func incHttpReqCount() {
-	atomic.AddInt32(&httpReqCount, 1)
-}
-
-func decHttpReqCount() {
-	atomic.AddInt32(&httpReqCount, -1)
-}
-
-func GetHttpReqCount() int {
-	return int(atomic.LoadInt32(&httpReqCount))
-}
-
-func markAsShuttingDown() {
-	atomic.AddInt32(&nIsShuttingDown, 1)
-}
-
-func isShuttingDown() bool {
-	return atomic.LoadInt32(&nIsShuttingDown) > 0
-}
-
-func ShutdownAndWaitHttpRequestsDone(timeout time.Duration) {
-	markAsShuttingDown()
-	if 0 == timeout {
-		return
-	}
-	deadline := time.Now().Add(timeout)
-	for {
-		if 0 == GetHttpReqCount() {
-			return
-		}
-		if time.Now().After(deadline) {
-			return
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-}
 
 // ProgressWriter write the stream data emitted by the host builder as new line
 // separated json messages
@@ -125,13 +84,6 @@ type HttpHandler func(w http.ResponseWriter, r *http.Request) error
 
 func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if isShuttingDown() {
-			http.Error(w, "I'm shutting down", http.StatusServiceUnavailable)
-			return
-		}
-		incHttpReqCount()
-		defer decHttpReqCount()
-
 		uuid := r.Header.Get(NitrousUUIDHeader)
 		if uuid == "" {
 			id := make([]byte, 4) // hex string len 8
@@ -167,8 +119,8 @@ type config struct {
 	LibratoUser  string `json:"librato_user"`
 	LibratoToken string `json:"librato_token"`
 
-	// max time to wait for graceful shutdown, in seconds
-	ShutdownTimeoutSecs int `json:"shutdown_timeout_secs"`
+	// max time to wait for graceful stop, in seconds
+	StopTimeout int `json:"stop_timeout"`
 }
 
 type Server struct {
@@ -337,10 +289,19 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// for testing only, sleep for 5 seconds
-func (s *Server) sleep(w http.ResponseWriter, r *http.Request) error {
-	log.Print("/test/sleep - sleeping for 5 seconds")
-	time.Sleep(5 * time.Second)
+// sleep waits for a defined seconds and then finishes the request
+// This is useful for testing graceful shutdown.
+func (s *Server) sleep(w http.ResponseWriter, r *http.Request) (err error) {
+	var duration = 60 // duration in seconds
+	r.URL.Query()
+	if d := r.FormValue("duration"); d != "" {
+		duration, err = strconv.Atoi(d)
+		if err != nil {
+			return err
+		}
+	}
+	log.Printf("/test/sleep - sleeping for %d seconds", duration)
+	time.Sleep(time.Duration(duration) * time.Second)
 	return nil
 }
 
