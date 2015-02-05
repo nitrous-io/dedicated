@@ -16,7 +16,7 @@ window.NitrousTerminal =
   closed: false
   firstConnect: true
   readonly: false
-
+  binaryMode: false
   ide: false
 
   resizeTimeout: null
@@ -75,6 +75,8 @@ window.NitrousTerminal =
       @term.redrawCursor()
 
   open: (nobeforeopen) ->
+    @conn.binaryMode = @binaryMode
+
     @conn.url = @url
     @conn.open(nobeforeopen)
     @conn.url = null
