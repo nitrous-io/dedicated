@@ -5,6 +5,6 @@ var (
 	ErrVolumeNotFound = errVolumeNotFound
 	ErrImageNotFound  = errImageNotFound
 	ErrMissingCmd     = errMissingCmd
-	ErrSlugRequired   = errSlugRequired
+	ErrNameRequired   = errNameRequired
 	Validations       = validations
 )
