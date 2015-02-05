@@ -470,7 +470,7 @@ func waitForSSH(ctx *context.Context, hst host.Host) error {
 		"uuid": h.uuid,
 	}
 	connInterval := 5 * time.Second
-	timeout := 30 * time.Second
+	timeout := 60 * time.Second
 	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
 		connInterval, timeout, h.cancelCreate, info)
 	if err != nil {
