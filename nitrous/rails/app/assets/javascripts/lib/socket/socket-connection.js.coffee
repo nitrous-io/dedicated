@@ -46,9 +46,9 @@ class window.SocketConnection
     delay = if @retries <= 5
       2000
     else if @retries <= 10
-      5000
+      3000
     else if @retries > 10
-      10000
+      5000
     window.clearTimeout(@retryTimeout)
     @retryTimeout = window.setTimeout(=>
       @open()

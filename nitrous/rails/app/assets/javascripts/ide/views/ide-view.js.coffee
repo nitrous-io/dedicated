@@ -20,7 +20,7 @@ App.IdeView = Em.View.extend
     mp.track 'IDE Session Started', container_id: @get 'controller.id'
     mp.increment 'ide_session_started_count'
     Em.run.scheduleOnce 'afterRender', ->
-      webapp.loading.stop()
+      webapp?.loading.stop()
 
   willDestroyElement: ->
     @_super()

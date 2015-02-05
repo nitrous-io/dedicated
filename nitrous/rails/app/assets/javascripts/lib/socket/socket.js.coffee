@@ -2,6 +2,7 @@
 
 Lib.Socket = Em.Object.extend Em.Evented,
   url: null
+  connected: false
 
   init: ->
     @_super.apply this, arguments
@@ -34,14 +35,17 @@ Lib.Socket = Em.Object.extend Em.Evented,
     @trigger 'beforeopen', ev
 
   didOpen: (ev) ->
+    @set 'connected', true
     @trigger 'open', ev
 
   didReceiveMessage: (ev) ->
     @trigger 'message', ev.data
 
   didFail: (ev) ->
+    @set 'connected', false
     @trigger 'error', ev
 
   didClose: (ev) ->
+    @set 'connected', false
     @_conn.url = null
     @trigger 'close', ev
