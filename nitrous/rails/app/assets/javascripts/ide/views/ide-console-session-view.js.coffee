@@ -11,13 +11,6 @@ App.IdeConsoleSessionView = Em.View.extend App.InjectTerminalIframeMixin,
 
   iframeInjected: false
 
-  opsSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket.started'
-
-  opsSocketChanged: (->
-    if @get('opsSocketReady') && @get('terminal') && @get('terminal.closed')
-      @reattachTerminal()
-  ).observes 'opsSocketReady'
-
   init: ->
     @set 'consoleSessionViewId', ++consoleSessionViewNextId
     @_super.apply this, arguments
@@ -50,15 +43,6 @@ App.IdeConsoleSessionView = Em.View.extend App.InjectTerminalIframeMixin,
           iframe.style.width = '100%'
         , 10)
     , 800)
-
-  reattachTerminal: ->
-    terminal = @get 'terminal'
-    controller = @get 'controller'
-    terminal.willOpen = =>
-      controller.makeUrlAndConnect(terminal)
-    terminal.afterOpen = =>
-      terminal.attachHandlers()
-    terminal.open()
 
   injectIframe: ->
     return if @get 'iframeInjected'

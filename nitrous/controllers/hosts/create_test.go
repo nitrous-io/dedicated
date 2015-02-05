@@ -32,6 +32,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -103,10 +104,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(err).To(BeNil())
 
 		params = &url.Values{}
-		params.Set("slug", "rails-host")
+		params.Set("name", "rails-host")
 		params.Set("size", hs.P.Slug)
 		params.Set("region", hs.R.Slug)
-		params.Set("name", "Rails project host")
 	})
 
 	type overrides map[string]string
@@ -130,7 +130,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 	}
 
 	// tests for required params
-	for _, param := range []string{"size", "region", "slug"} {
+	for _, param := range []string{"size", "region", "name"} {
 		p := param
 
 		It("responds with "+p+" required when request does not specify a "+p, func() {
@@ -145,19 +145,19 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 	}
 
-	It("responds with invalid slug when an invalid slug is specified", func() {
-		params.Set("slug", "foo_bar")
+	It("responds with name is required when an empty name is specified", func() {
+		params.Set("name", "")
 		res := doRequest(params)
 
 		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 		errType, errDesc := ErrorSlug(res.Body)
 		Expect(errType).To(Equal("invalid_request"))
-		Expect(errDesc).To(Equal("slug may only contain alphanumeric characters or dashes and cannot begin or end with a dash"))
+		Expect(errDesc).To(Equal("name is required"))
 	})
 
 	It("should not send any analytics events if there are errors", func() {
-		params.Set("slug", "foo_bar")
+		params.Set("name", "")
 		doRequest(params)
 		t, ok := svr.Tracker.(*FakeTracker)
 		Expect(ok).To(BeTrue())
@@ -239,8 +239,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		req := rt.Requests[0]
 		var config hostbuilderclient.Config
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
-		Expect(config["name"]).To(Equal(params.Get("slug")))
-		Expect(config["name"]).To(Equal(params.Get("slug")), "invalid slug set in name")
+		Expect(config["name"]).To(HavePrefix(params.Get("name")), "invalid slug set in name")
+		Expect(slugbuilder.IsValid(config["name"].(string))).To(BeTrue(), "invalid slug set in name")
 		Expect(config["apt_password"]).To(Equal(ht), "invalid token set in apt_password")
 		Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 	})
@@ -274,7 +274,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		req := rt.Requests[0]
 		var config hostbuilderclient.Config
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
-		Expect(config["name"]).To(Equal("slug1"))
+		Expect(config["name"]).To(HavePrefix("myhost"), "invalid slug set in name")
+		Expect(slugbuilder.IsValid(config["name"].(string))).To(BeTrue(), "invalid slug set in name")
+
 		Expect(config["apt_password"]).To(Equal(ht), "invalid token set in apt_password")
 	})
 
@@ -306,7 +308,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(h.PlanID).To(Equal(hs.P.ID))
 			Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
 
-			Expect(h.Slug).To(Equal(params.Get("slug")))
+			Expect(h.Slug).To(HavePrefix(params.Get("name")))
+			Expect(slugbuilder.IsValid(h.Slug)).To(BeTrue())
 			Expect(h.Name.String).To(Equal(params.Get("name")))
 
 			Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
@@ -338,7 +341,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		It("creates a host record for the user when JSON is sent by the client", func() {
 			jsonStr := `{
 				"host": {
-					"slug": "sLug1",
 					"name": "MyHost",
 					"region": "use",
 					"size": "large"
@@ -355,7 +357,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(h.PlanID).To(Equal(hs.P.ID))
 			Expect(h.ProviderTemplateID).To(Equal(hs.PT.ID))
 
-			Expect(h.Slug).To(Equal("slug1"))
+			Expect(h.Slug).To(HavePrefix("myhost"))
+			Expect(slugbuilder.IsValid(h.Slug)).To(BeTrue())
 			Expect(h.Name.String).To(Equal("MyHost"))
 
 			Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
@@ -471,12 +474,13 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(j.Host.UserID).To(Equal(u.ID))
 			Expect(j.Host.RegionID).To(Equal(hs.R.ID))
 			Expect(j.Host.PlanID).To(Equal(hs.P.ID))
-			Expect(j.Host.Slug).To(Equal(params.Get("slug")))
+			Expect(j.Host.Slug).To(HavePrefix(params.Get("name")))
+			Expect(slugbuilder.IsValid(j.Host.Slug)).To(BeTrue())
 			Expect(j.Host.IPAddress).To(Equal("0.0.0.0"))
 			Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
 			Expect(j.Host.Size).To(Equal(hs.P.Slug))
 			Expect(j.Host.State).To(Equal(host.StateRunning))
-			Expect(j.Host.Hostname).To(Equal(hostname("rails-host")))
+			Expect(j.Host.Hostname).To(Equal(hostname(j.Host.Slug))) // can use the host slug here, since it's already tested above
 			Expect(j.Host.CreatedAt).NotTo(BeNil())
 			Expect(j.Host.UpdatedAt).NotTo(BeNil())
 			Expect(j.Host.TerminatedAt).To(BeNil())
@@ -552,14 +556,15 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(count).To(Equal(1))
 		})
 
-		It("converts the 'slug' form value to lowercase", func() {
-			params.Set("slug", "Rails-Host")
+		It("converts the 'name' form value to valid slug", func() {
+			params.Set("name", "Rails-Host")
 			doRequest(params)
 
 			hosts, err := host.FindAllByUser(db, u)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
-			Expect(hosts[0].Slug).To(Equal("rails-host"))
+			Expect(hosts[0].Slug).To(HavePrefix("rails-host"))
+			Expect(slugbuilder.IsValid(hosts[0].Slug)).To(BeTrue())
 		})
 
 		Context("when trying to create multiple hosts concurrently", func() {
@@ -571,7 +576,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				for i := 0; i < 2; i++ {
 					wg.Add(1)
 					go func(i int) {
-						params.Set("slug", fmt.Sprintf("host-%d", i))
+						params.Set("name", fmt.Sprintf("host-%d", i))
 						<-start
 						res := doRequest(params)
 						resCodes = append(resCodes, res.Code)
@@ -590,43 +595,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 	})
 
-	Context("when trying to create a host with an existing slug", func() {
-		BeforeEach(func() {
-			_, err := CreateHostStack(db, &HostStack{
-				H: &host.Host{Slug: "rails-host"},
-				U: u,
-			})
-			Expect(err).To(BeNil())
-
-			hosts, err := host.FindAllByUser(db, u)
-			Expect(err).To(BeNil())
-			Expect(hosts).To(HaveLen(1))
-
-			// increase user's default hosts limit to hit the actual error
-			_, err = db.Exec(`UPDATE user_profiles SET max_hosts = 10 WHERE user_id = $1;`, u.ID)
-			Expect(err).To(BeNil())
-		})
-
-		It("does not create a host", func() {
-			doRequest(params)
-			hosts, err := host.FindAllByUser(db, u)
-			Expect(err).To(BeNil())
-			Expect(hosts).To(HaveLen(1))
-		})
-
-		It("responds with HTTP 400 Bad Request", func() {
-			res := doRequest(params)
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
-			j := map[string]interface{}{}
-			err := json.Unmarshal(res.Body.Bytes(), &j)
-			Expect(err).To(BeNil())
-			errType, _ := j["error"].(string)
-			Expect(errType).To(Equal("validation_failed"))
-			errDesc, _ := j["error_description"].(string)
-			Expect(errDesc).To(Equal("slug is taken"))
-		})
-	})
-
 	Context("when hostbuilder fails to create the host", func() {
 		BeforeEach(func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -640,9 +608,13 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		It("creates a host in the orphan state", func() {
 			doRequest(params)
-			h, err := host.Find(db, u, params.Get("slug"))
+			hosts, err := host.FindAllByUser(db, u)
 			Expect(err).To(BeNil())
-			Expect(h.Slug).To(Equal(params.Get("slug")))
+			Expect(hosts).To(HaveLen(1))
+
+			h := hosts[0]
+			Expect(h.Slug).To(HavePrefix(params.Get("name")))
+			Expect(slugbuilder.IsValid(h.Slug)).To(BeTrue())
 			Expect(h.State).To(Equal(host.StateOrphan))
 		})
 	})
@@ -668,8 +640,11 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(j.Host.IPAddress).To(BeEmpty(), "unexpected ip address")
 			Expect(j.Host.FreighterdPort).To(BeZero(), "unexpected freighterd port")
 
-			h, err := host.Find(db, u, j.Host.Slug)
+			hosts, err := host.FindAllByUser(db, u)
 			Expect(err).To(BeNil(), "failed to find host in db")
+			Expect(hosts).To(HaveLen(1))
+
+			h := hosts[0]
 			Expect(j.Host.ID).To(Equal(h.ID), "unexpected id in response")
 		})
 
@@ -689,13 +664,23 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				doRequest(params)
 
 				Eventually(func() (string, error) {
-					h, err := host.Find(db, u, params.Get("slug"))
-					return h.State, err
+					hosts, err := host.FindAllByUser(db, u)
+					if err != nil {
+						return "", err
+					}
+
+					h := hosts[0]
+					return h.State, nil
 				}).Should(Equal(host.StateRunning))
 
 				Eventually(func() (string, error) {
-					h, err := host.Find(db, u, params.Get("slug"))
-					return h.ProviderIdentifier.String, err
+					hosts, err := host.FindAllByUser(db, u)
+					if err != nil {
+						return "", err
+					}
+
+					h := hosts[0]
+					return h.ProviderIdentifier.String, nil
 				}).Should(Equal("abcd1234"))
 			})
 
@@ -716,8 +701,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				case <-time.After(100 * time.Millisecond):
 					Fail("timeout while waiting for EventHostCreated")
 				case <-finished:
-					h, err := host.Find(db, u, params.Get("slug"))
+					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
+					Expect(hosts).To(HaveLen(1))
+					h := &hosts[0]
 
 					Expect(msgs[0]).To(Equal(&controllers.Event{
 						Name: controllers.EventHostCreating,
@@ -755,7 +742,11 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				doRequest(params)
 
 				Eventually(func() (string, error) {
-					h, err := host.Find(db, u, params.Get("slug"))
+					hosts, err := host.FindAllByUser(db, u)
+					Expect(err).To(BeNil())
+					Expect(hosts).To(HaveLen(1))
+					h := hosts[0]
+
 					return h.State, err
 				}).Should(Equal(host.StateOrphan))
 			})
@@ -775,8 +766,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 				select {
 				case <-finished:
-					h, err := host.Find(db, u, params.Get("slug"))
+					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
+					Expect(hosts).To(HaveLen(1))
+					h := &hosts[0]
 
 					Expect(msgs[0]).To(Equal(&controllers.Event{
 						Name: controllers.EventHostCreating,
@@ -790,7 +783,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					evtData, ok := evt.Data.(map[string]interface{})
 					Expect(ok).To(BeTrue())
 					Expect(evtData["host"]).To(Equal(serializers.SerializeHost(h)))
-					Expect(evtData["error"]).To(ContainSubstring("some error occurred"))
+					// Original error caused by hostbuilder error is masked.
+					Expect(evtData["error"]).To(ContainSubstring("failed to create workspace"))
 				case <-time.After(100 * time.Millisecond):
 					Fail("timeout while waiting for EventHostCreateFailed")
 				}

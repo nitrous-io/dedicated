@@ -107,7 +107,7 @@ App.on 'load', ->
   App.set 'templates', App.Template.fetch().value
   Em.run.later(->
     Em.run.scheduleOnce 'afterRender', ->
-      webapp.loading.stop()
+      webapp?.loading.stop()
   , 100)
 
 App.on 'fetchUser', (user) ->

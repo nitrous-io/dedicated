@@ -85,7 +85,7 @@ App.Container = klass = App.Model.extend
 
   displayName: (->
     @get('name') || @get('slug')
-  ).property 'name', 'slug'
+  ).property 'slug'
 
   exitCodeString: (->
    if (code = @get 'exitCode')?

@@ -15,16 +15,14 @@ window.NitrousTerminal =
   url: null
   closed: false
   firstConnect: true
-  afterOpen: null
   readonly: false
-
+  binaryMode: false
   ide: false
 
   resizeTimeout: null
 
   init: ->
     @conn = conn = new SocketConnection()
-    conn.shouldRetry = false
     conn.onbeforeopen   = => @willOpen()
     conn.onopen    = (ev) => @didOpen(ev)
     conn.onmessage = (ev) => @didReceiveMessage(ev)
@@ -34,7 +32,24 @@ window.NitrousTerminal =
     @term = term = new Terminal(80, 25)
     term.open(document.body)
     term.sizeToFit()
-    @attachHandlers()
+
+    term.originalKeyDown = @term.keyDown
+    term.keyDown = (event) =>
+      if @ide
+        switch
+          when @matchesSwitchConsoleEditorKeybinding(event)
+            return @handleSwitchConsoleEditorEvent(event)
+          when @matchesFullConsoleScreenKeybinding(event)
+            return @handleFullConsoleScreenEvent(event)
+      term.originalKeyDown(event)
+
+    term.on 'resize', (cols, rows) =>
+      return if @conn.readyState != 1
+      @conn.send "r|#{cols} #{rows}"
+
+    term.handler = (data) =>
+      return if @readonly || @closed || @conn.readyState != 1
+      @conn.send "d|#{data}"
 
     onresize = =>
       window.onresize = null
@@ -59,27 +74,9 @@ window.NitrousTerminal =
       Terminal.focus = null
       @term.redrawCursor()
 
-  attachHandlers: ->
-    @term.on 'resize', (cols, rows) =>
-      return if @conn.readyState != 1
-      @conn.send "r|#{cols} #{rows}"
-
-    @term.handler = (data) =>
-      return if @readonly || @conn.readyState != 1
-      @conn.send "d|#{data}"
-
-    @term.originalKeyDown = @term.keyDown
-    @term.keyDown = (event) =>
-      if @ide
-        switch
-          when @matchesSwitchConsoleEditorKeybinding(event)
-            return @handleSwitchConsoleEditorEvent(event)
-          when @matchesFullConsoleScreenKeybinding(event)
-            return @handleFullConsoleScreenEvent(event)
-      @term.originalKeyDown(event)
-
   open: (nobeforeopen) ->
-    @closed = false
+    @conn.binaryMode = @binaryMode
+
     @conn.url = @url
     @conn.open(nobeforeopen)
     @conn.url = null
@@ -108,14 +105,13 @@ window.NitrousTerminal =
     @term.write '\x1b[r\x1b[H\x1b[J'
 
   didOpen: (ev) ->
+    @closed = false
     if @firstConnect
       @firstConnect = false
       @clear()
       @term.sizeToFit()
     else
       @term.write '\r\n'
-    @afterOpen?()
-    @afterOpen = null
 
   didReceiveMessage: (ev) ->
     type = ev.data.slice(0, 2)
@@ -132,7 +128,6 @@ window.NitrousTerminal =
   didClose: (ev) ->
     @closed = true
     @term?.removeAllListeners('resize')
-    @term?.handler = ->
     @term?.write("\r\n[Session closed]")
 
   handleSwitchConsoleEditorEvent: (ev) ->

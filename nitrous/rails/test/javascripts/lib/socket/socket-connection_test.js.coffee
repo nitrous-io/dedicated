@@ -155,9 +155,9 @@ describe 'SocketConnection', ->
             conn.retries = 6
             conn.retry()
 
-          it 'attempts to reopen connection after 5 seconds', ->
+          it 'attempts to reopen connection after 3 seconds', ->
             expect(conn.open.called).to.be.false 'open is not yet called'
-            expect(window.setTimeout.calledOnce && window.setTimeout.calledWith(sinon.match.func, 5000)).to.be.true 'timeout after 5s'
+            expect(window.setTimeout.calledOnce && window.setTimeout.calledWith(sinon.match.func, 3000)).to.be.true 'timeout after 3s'
             window.setTimeout.args[0][0]()
             expect(conn.open.called).to.be.true 'open is called'
 
@@ -166,9 +166,9 @@ describe 'SocketConnection', ->
             conn.retries = 11
             conn.retry()
 
-          it 'attempts to reopen connection after 10 seconds', ->
+          it 'attempts to reopen connection after 5 seconds', ->
             expect(conn.open.called).to.be.false 'open is not yet called'
-            expect(window.setTimeout.calledOnce && window.setTimeout.calledWith(sinon.match.func, 10000)).to.be.true 'timeout after 10s'
+            expect(window.setTimeout.calledOnce && window.setTimeout.calledWith(sinon.match.func, 5000)).to.be.true 'timeout after 5s'
             window.setTimeout.args[0][0]()
             expect(conn.open.called).to.be.true 'open is called'
 

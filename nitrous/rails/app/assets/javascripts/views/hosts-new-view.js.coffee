@@ -5,7 +5,6 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
   classNames: ['ui', 'card']
 
   nameFieldInvalid: Em.computed.equal('controller.invalidField', 'name')
-  slugFieldInvalid: Em.computed.equal('controller.invalidField', 'slug')
 
   showLog: false
 
@@ -19,8 +18,6 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
   didInsertElement: ->
     @_super()
     controller = @get 'controller'
-
-    App.slug.slugify(@$('#hosts-new-name'), @$('#hosts-new-slug'))
 
     lastStatus = ""
     App.on "progressReceived", (ev) =>
@@ -48,7 +45,6 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
 
   willDestroyElement: ->
     @_super()
-    App.slug.unslugify(@$('#hosts-new-name'))
     @$().off 'change.hosts-new'
 
   actions:

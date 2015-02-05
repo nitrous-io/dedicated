@@ -1,4 +1,5 @@
 = outlet
-App.OfflineIndicatorView
-App.IdeConnectivityIndicatorView
+= ui-connectivity-indicator
+if App.online
+  = ui-connectivity-indicator showBinding='App.router.ideController.opsSocketNotReady' html='<i class="spinner"></i> Connecting to Container...'
 App.SnackbarView items=App.snackbar.items

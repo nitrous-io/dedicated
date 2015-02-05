@@ -19,7 +19,8 @@ App.TerminalConnectionMixin = Ember.Mixin.create
         switch action
           when 'shell'
             command = encodeURIComponent(getLoginCommand(container.get 'loginUsername'))
-            url += "&command=#{command}"
+            terminal.binaryMode = true
+            url += "&binary=true&command=#{command}"
           when 'logs'
             url += "&follow=true"
             terminal.readonly = true

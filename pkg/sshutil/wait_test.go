@@ -52,7 +52,7 @@ func TestWaitForSSH(t *testing.T) {
 	}()
 	info := map[string]interface{}{}
 	_, err := WaitForSSH(listener.Addr().String(), "root", priv,
-		10*time.Millisecond, 5*time.Second, make(chan struct{}), info)
+		10*time.Millisecond, make(chan struct{}), info)
 	if err != nil {
 		t.Fatal("failed to wait for SSH connection")
 	}
@@ -81,7 +81,6 @@ func TestWaitForSSHCancel(t *testing.T) {
 	errCh := make(chan error)
 	clientKey, _ := GenerateSSHKey() // Use a different key so that conn fails.
 	connInterval := 10 * time.Millisecond
-	timeout := 10 * time.Second
 	orig := MaxAttempts
 	MaxAttempts = int(math.MaxInt64) // Set MaxAttempts to a huge number so we never stop because of it.
 	defer func(n int) {
@@ -89,7 +88,7 @@ func TestWaitForSSHCancel(t *testing.T) {
 	}(orig)
 	go func() {
 		_, err := WaitForSSH(listener.Addr().String(), "root", clientKey,
-			connInterval, timeout, cancel, make(map[string]interface{}))
+			connInterval, cancel, make(map[string]interface{}))
 		errCh <- err
 	}()
 

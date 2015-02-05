@@ -3,6 +3,7 @@ package hosts
 import (
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,6 +31,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 )
 
 var (
@@ -37,10 +39,10 @@ var (
 )
 
 type createOpts struct {
-	Name   string `json:"name"`
 	Size   string `json:"size"`
 	Region string `json:"region"`
-	Slug   string `json:"slug"`
+	Slug   string `json:"slug"` // slug provided by client request will be overriden by a generated slug based on name
+	Name   string `json:"name"`
 	Async  bool   `json:"async"`
 }
 
@@ -60,10 +62,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return errRegionRequired
 	}
 	if options.Slug == "" {
-		return errSlugRequired
-	}
-	if options.Name == "" {
-		options.Name = options.Slug
+		return errNameRequired
 	}
 
 	region, err := findRegion(db, options.Region)
@@ -101,6 +100,12 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	prov := env.Provisioner
 	publishProvisionFailure := func(h *host.Host, err error) {
+		if e, ok := err.(*provisioner.HostbuilderError); ok {
+			env.Logger.Errorf("hostbuilder error provisioning host: %v", e)
+			// Change error into something we can display to end users.
+			err = errors.New("failed to create workspace")
+		}
+
 		env.Events.Publish(
 			controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
 				"host":  serializers.SerializeHost(h),
@@ -207,14 +212,14 @@ func buildCreateOptions(r *http.Request) (*createOpts, error) {
 		if err := json.NewDecoder(r.Body).Decode(&j); err != nil {
 			return nil, err
 		}
-		j.Opts.Slug = strings.ToLower(j.Opts.Slug)
+		j.Opts.Slug = slugbuilder.Build(j.Opts.Name)
 		return &j.Opts, nil
 	}
 
 	opts := &createOpts{
 		Size:   r.FormValue("size"),
 		Region: r.FormValue("region"),
-		Slug:   strings.ToLower(r.FormValue("slug")),
+		Slug:   slugbuilder.Build(r.FormValue("name")),
 		Name:   r.FormValue("name"),
 	}
 	opts.Async, _ = strconv.ParseBool(r.FormValue("async"))

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
@@ -17,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 )
 
 type CreateResult struct {
@@ -26,7 +26,7 @@ type CreateResult struct {
 }
 
 var (
-	errSlugRequired                        = httperror.New(http.StatusBadRequest, "invalid_request", "slug is required")
+	errNameRequired                        = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
 	errImageNotFound                       = httperror.New(http.StatusNotFound, "image_not_found", "image does not exist")
 	errMissingCmd                          = httperror.New(http.StatusBadRequest, "missing_cmd", "missing CMD in Docker image")
 	errMaxContainersReached                = httperror.New(http.StatusBadRequest, "max_containers_reached", "host has exceeded the plan's maximum containers")
@@ -67,7 +67,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		}
 	}
 
-	slug := strings.ToLower(options.Get("slug"))
+	slug := slugbuilder.Build(options.Get("name"))
 	name := options.Get("name")
 	imageSlug := options.Get("image")
 	templateSlug := options.Get("template")
@@ -77,11 +77,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	}
 
 	if slug == "" {
-		return nil, errSlugRequired
-	}
-
-	if name == "" {
-		name = slug
+		return nil, errNameRequired
 	}
 
 	hv, err := hostVolumes(tx, h)
@@ -97,8 +93,8 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		UserID: env.User.ID,
 		HostID: h.ID,
 		Slug:   slug,
-		Image:  imageSlug,
 		Name:   sql.NullString{name, true},
+		Image:  imageSlug,
 	}
 
 	if templateSlug != "" {

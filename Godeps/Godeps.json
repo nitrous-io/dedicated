@@ -250,6 +250,10 @@
 			"Rev": "1fbbd62cfec66bd39d91e97749579579d4d3037e"
 		},
 		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "1cd7b7179478daf1f19f8b4b4f08106ef411619b"
+		},
+		{
 			"ImportPath": "golang.org/x/text/encoding",
 			"Rev": "ef0bf1da95d2b971524f971801f2a4c2d0b4841f"
 		},

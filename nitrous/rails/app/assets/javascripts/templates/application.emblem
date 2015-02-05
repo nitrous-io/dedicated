@@ -1,3 +1,6 @@
 = outlet
-App.OfflineIndicatorView
+= ui-connectivity-indicator
+if App.online
+  if App.eventsSocket
+    = ui-connectivity-indicator showBinding='App.eventsSocket.disconnected' html='<i class="spinner"></i> Connecting to Nitrous...'
 App.SnackbarView items=App.snackbar.items
