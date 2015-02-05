@@ -191,7 +191,7 @@ func (cm *ConfigMarshaller) templateJSON(ports []string, privileged bool) []byte
 
 	cfg := template.TemplateConfig{
 		Privileged: privileged,
-		PublishAll: false,
+		PublishAll: true,
 		Env:        nil,
 		Ports:      ports,
 		Volumes:    nil,
@@ -208,27 +208,27 @@ func templates(d db.QueryReceiver) error {
 	}
 
 	var (
-		stackPorts = []string{"public::22", "public::3000"}
-		basicPorts = []string{"public::22"}
+		defaultPorts = []string{}
 	)
 
 	cm := &ConfigMarshaller{}
 
 	var (
-		railsJSON   = cm.templateJSON(stackPorts, false)
-		laravelJSON = cm.templateJSON(stackPorts, false)
-		meanJSON    = cm.templateJSON(stackPorts, false)
-		meteorJSON  = cm.templateJSON(stackPorts, false)
-		djangoJSON  = cm.templateJSON(stackPorts, false)
-		aspnetJSON  = cm.templateJSON(stackPorts, false)
+		railsJSON   = cm.templateJSON(defaultPorts, false)
+		djangoJSON  = cm.templateJSON(defaultPorts, false)
+		phpLampJson = cm.templateJSON(defaultPorts, false)
+		meteorJSON  = cm.templateJSON(defaultPorts, false)
+		laravelJSON = cm.templateJSON(defaultPorts, false)
+		meanJSON    = cm.templateJSON(defaultPorts, false)
+		aspnetJSON  = cm.templateJSON(defaultPorts, false)
 
-		golangJSON = cm.templateJSON(basicPorts, false)
-		nodejsJSON = cm.templateJSON(basicPorts, false)
-		phpJSON    = cm.templateJSON(basicPorts, false)
-		pythonJSON = cm.templateJSON(basicPorts, false)
-		rubyJSON   = cm.templateJSON(basicPorts, false)
-		ubuntuJSON = cm.templateJSON(basicPorts, false)
-		dindJSON   = cm.templateJSON(basicPorts, true)
+		rubyJSON   = cm.templateJSON(defaultPorts, false)
+		pythonJSON = cm.templateJSON(defaultPorts, false)
+		nodejsJSON = cm.templateJSON(defaultPorts, false)
+		iojsJSON   = cm.templateJSON(defaultPorts, false)
+		golangJSON = cm.templateJSON(defaultPorts, false)
+		ubuntuJSON = cm.templateJSON(defaultPorts, false)
+		dindJSON   = cm.templateJSON(defaultPorts, true)
 	)
 
 	if cm.err != nil {
@@ -238,17 +238,18 @@ func templates(d db.QueryReceiver) error {
 	templates := []template.Template{
 		// stack templates
 		newTemplate("Ruby on Rails", "rails", "quay.io/nitrous/rails:latest", railsJSON, template.TypeStack, railsDesc),
+		newTemplate("Django", "django", "quay.io/nitrous/django:latest", djangoJSON, template.TypeStack, djangoDesc),
+		newTemplate("PHP (LAMP)", "php", "quay.io/nitrous/php:latest", phpLampJson, template.TypeStack, phpLampDesc),
+		newTemplate("Meteor", "meteor", "quay.io/nitrous/meteor:latest", meteorJSON, template.TypeStack, meteorDesc),
 		newTemplate("Laravel", "laravel", "quay.io/nitrous/laravel:latest", laravelJSON, template.TypeStack, laravelDesc),
 		newTemplate("MEAN", "mean", "quay.io/nitrous/mean:latest", meanJSON, template.TypeStack, meanDesc),
-		newTemplate("Meteor", "meteor", "quay.io/nitrous/meteor:latest", meteorJSON, template.TypeStack, meteorDesc),
-		newTemplate("Django", "django", "quay.io/nitrous/django:latest", djangoJSON, template.TypeStack, djangoDesc),
 		newTemplate("ASP.NET", "aspnet", "quay.io/nitrous/aspnet:latest", aspnetJSON, template.TypeStack, aspnetDesc),
 		// basic templates
-		newTemplate("Go", "golang", "quay.io/nitrous/golang:latest", golangJSON, template.TypeBasic, goDesc),
-		newTemplate("Node.js", "nodejs", "quay.io/nitrous/nodejs:latest", nodejsJSON, template.TypeBasic, nodejsDesc),
-		newTemplate("PHP", "php", "quay.io/nitrous/php:latest", phpJSON, template.TypeBasic, phpDesc),
-		newTemplate("Python", "python", "quay.io/nitrous/python:latest", pythonJSON, template.TypeBasic, pythonDesc),
 		newTemplate("Ruby", "ruby", "quay.io/nitrous/ruby:latest", rubyJSON, template.TypeBasic, rubyDesc),
+		newTemplate("Python", "python", "quay.io/nitrous/python:latest", pythonJSON, template.TypeBasic, pythonDesc),
+		newTemplate("Node.js", "nodejs", "quay.io/nitrous/nodejs:latest", nodejsJSON, template.TypeBasic, nodejsDesc),
+		newTemplate("io.js", "iojs", "quay.io/nitrous/iojs:latest", iojsJSON, template.TypeBasic, iojsDesc),
+		newTemplate("Go", "golang", "quay.io/nitrous/golang:latest", golangJSON, template.TypeBasic, goDesc),
 		newTemplate("Ubuntu", "ubuntu", "quay.io/nitrous/ubuntu:latest", ubuntuJSON, template.TypeBasic, vanillaDesc),
 		// advanced template
 		newTemplate("Docker", "docker", "quay.io/nitrous/docker:latest", dindJSON, template.TypeAdvanced, dockerDesc),
@@ -318,7 +319,7 @@ const (
 •  Go 1.4
 •  Ubuntu 14.04`
 
-	phpDesc = `PHP: a popular general-purpose scripting language that is especially suited to web development
+	phpLampDesc = `PHP: a popular general-purpose scripting language that is especially suited to web development
 
 •  PHP 5.5
 •  Composer 1.0
@@ -333,6 +334,13 @@ const (
 •  NVM 0.23
 •  Ubuntu 14.04`
 
+	iojsDesc = `io.js: a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications
+
+•  io.js 1.1
+•  NPM 2.3
+•  NVM 0.23
+•  Ubuntu 14.04`
+
 	pythonDesc = `Python: a programming language that lets you work quickly and integrate systems more effectively
 
 •  Virtualenv 1.11
@@ -342,7 +350,7 @@ const (
 
 	rubyDesc = `Ruby: a dynamic, open source programming language with a focus on simplicity and productivity.
 
-•  Ruby 2.2
+•  Ruby 2.2.0, 2.1.5 (default), 2.0.0, 1.9.3
 •  Bundler 1.7.12
 •  Ubuntu 14.04`
 
@@ -354,7 +362,7 @@ const (
 	railsDesc = `Ruby on Rails: an open-source framework optimized for programmer happiness and sustainable productivity
 
 •  Rails 4.2
-•  Ruby 2.2
+•  Ruby 2.1.5
 •  PostgreSQL 9.3
 •  Ubuntu 14.04`
 
