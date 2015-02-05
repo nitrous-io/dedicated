@@ -54,6 +54,15 @@ var (
 	ActiveCops map[string][]chan error
 )
 
+func NewWebSocketConnection(conn *websocket.Conn, binaryMode bool) *wsconn.Conn {
+	stream := wsconn.NewConnectionHeartbeat(conn, true)
+	if binaryMode {
+		stream.MessageType = websocket.BinaryMessage
+	}
+
+	return stream
+}
+
 func init() {
 	Utilization = stats.NewUtilization(utilizationSize)
 	go Utilization.Record(utilizationInterval)
@@ -388,13 +397,14 @@ func (s *Server) wsContainerLogs(w http.ResponseWriter, r *http.Request) error {
 	// happens
 	follow, _ := strconv.ParseBool(r.FormValue("follow"))
 	timestamps, _ := strconv.ParseBool(r.FormValue("timestamps"))
+	binary, _ := strconv.ParseBool(r.FormValue("binary"))
 	tail := r.FormValue("tail")
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return fmt.Errorf("failed to upgrade websocket: %v", err)
 	}
-	stream := wsconn.NewConnectionHeartbeat(conn, true)
+	stream := NewWebSocketConnection(conn, binary)
 	defer stream.Close()
 
 	return s.provider.Logs(id, shell.NewShellWriter(stream), follow, timestamps, tail)
@@ -433,10 +443,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("failed to upgrade websocket: %v", err)
 	}
-	stream := wsconn.NewConnectionHeartbeat(conn, true)
-	if binary {
-		stream.MessageType = websocket.BinaryMessage
-	}
+	stream := NewWebSocketConnection(conn, binary)
 	defer stream.Close()
 
 	// given the shell an ID so we can multiplex the shell IO later given its
@@ -490,10 +497,7 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("container ops: failed to upgrade websocket: %v", err)
 	}
-	stream := wsconn.NewConnectionHeartbeat(conn, true)
-	if binary {
-		stream.MessageType = websocket.BinaryMessage
-	}
+	stream := NewWebSocketConnection(conn, binary)
 	defer stream.Close()
 
 	// create stdin/stdout stream with the shell protocol
@@ -729,10 +733,7 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 	if err != nil {
 		return fmt.Errorf("failed to upgrade websocket: %v", err)
 	}
-	stream := wsconn.NewConnectionHeartbeat(conn, true)
-	if binary {
-		stream.MessageType = websocket.BinaryMessage
-	}
+	stream := NewWebSocketConnection(conn, binary)
 	defer stream.Close()
 
 	// create stdin/stdout stream with the shell protocol
