@@ -35,7 +35,6 @@ var (
 	StateWaitTime        = 3 * time.Second
 
 	ErrCreateTimeout = errors.New("timed out creating host")
-	errHostRequired  = errors.New("context requires a host")
 
 	// FIXME: the map should belongs to client, not the builder
 	regionsMap = map[string]string{
@@ -425,12 +424,8 @@ func init() {
 	host.Hosts["digitalocean"] = NewHost
 }
 
-func createSSHKey(ctx context.Context) error {
-	hst, ok := host.FromContext(ctx)
-	if !ok {
-		return errHostRequired
-	}
-	h := hst.(*Host)
+func createSSHKey(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
 	label := h.metricsLabel("create_key")
 	defer mh.UpdateSince(label, time.Now())
 
@@ -459,12 +454,8 @@ func createSSHKey(ctx context.Context) error {
 	return nil
 }
 
-func createDroplet(ctx context.Context) error {
-	hst, ok := host.FromContext(ctx)
-	if !ok {
-		return errHostRequired
-	}
-	h := hst.(*Host)
+func createDroplet(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
 
 	defer func(start time.Time) {
 		// we are interested in the final context of `h` so label is generated
@@ -522,12 +513,8 @@ func createDroplet(ctx context.Context) error {
 	return nil
 }
 
-func waitForSSH(ctx context.Context) error {
-	hst, ok := host.FromContext(ctx)
-	if !ok {
-		return errHostRequired
-	}
-	h := hst.(*Host)
+func waitForSSH(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
 	label := h.metricsLabel("ssh_wait")
 	defer mh.UpdateSince(label, time.Now())
 
@@ -547,12 +534,8 @@ func waitForSSH(ctx context.Context) error {
 	return nil
 }
 
-func writePublicKeys(ctx context.Context) error {
-	hst, ok := host.FromContext(ctx)
-	if !ok {
-		return errHostRequired
-	}
-	h := hst.(*Host)
+func writePublicKeys(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
 	hlog(h, "Writing public key")
 	pubKeyR := bytes.NewBuffer(nil)
 	for _, k := range h.Config.PublicKeys {
@@ -565,22 +548,14 @@ func writePublicKeys(ctx context.Context) error {
 	return err
 }
 
-func createEtcFreighterd(ctx context.Context) error {
-	hst, ok := host.FromContext(ctx)
-	if !ok {
-		return errHostRequired
-	}
-	h := hst.(*Host)
+func createEtcFreighterd(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
 	defer mh.UpdateSince(h.metricsLabel("create_config"), time.Now())
 	return h.conn.Execute("mkdir -p /etc/freighterd")
 }
 
-func writeTLSCerts(ctx context.Context) error {
-	hst, ok := host.FromContext(ctx)
-	if !ok {
-		return errHostRequired
-	}
-	h := hst.(*Host)
+func writeTLSCerts(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
 	hlog(h, "Writing TLS certs")
 	err := writeFile(h, map[string]io.Reader{
 		TLSCALocation:   bytes.NewBufferString(h.Config.TLS.CA),
@@ -591,12 +566,8 @@ func writeTLSCerts(ctx context.Context) error {
 	return err
 }
 
-func writeSecret(ctx context.Context) error {
-	hst, ok := host.FromContext(ctx)
-	if !ok {
-		return errHostRequired
-	}
-	h := hst.(*Host)
+func writeSecret(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
 	hlog(h, "Writing host secret")
 	err := writeFile(h, map[string]io.Reader{
 		SecretLocation: bytes.NewBufferString(h.Config.Secret),
@@ -619,12 +590,8 @@ func writeFile(h *Host, files map[string]io.Reader) error {
 	return nil
 }
 
-func writeRepository(ctx context.Context) error {
-	hst, ok := host.FromContext(ctx)
-	if !ok {
-		return errHostRequired
-	}
-	h := hst.(*Host)
+func writeRepository(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
 	hlog(h, "Uploading apt details")
 	buf := bytes.NewBuffer(nil)
 	if err := host.SourceTemplate.Execute(buf, h.Config); err != nil {
@@ -637,12 +604,8 @@ func writeRepository(ctx context.Context) error {
 	return nil
 }
 
-func updateSoftware(ctx context.Context) error {
-	hst, ok := host.FromContext(ctx)
-	if !ok {
-		return errHostRequired
-	}
-	h := hst.(*Host)
+func updateSoftware(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
 	label := h.metricsLabel("update_software")
 	defer mh.UpdateSince(label, time.Now())
 
@@ -671,12 +634,8 @@ func updateSoftware(ctx context.Context) error {
 	return nil
 }
 
-func restartFreighterd(ctx context.Context) error {
-	hst, ok := host.FromContext(ctx)
-	if !ok {
-		return errHostRequired
-	}
-	h := hst.(*Host)
+func restartFreighterd(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
 	label := h.metricsLabel("restart_software")
 	defer mh.UpdateSince(label, time.Now())
 

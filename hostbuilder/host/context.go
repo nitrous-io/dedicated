@@ -18,18 +18,20 @@ const (
 
 type HostContext struct {
 	context.Context
+	Host   Host
+	Writer io.Writer
 }
 
 type Step struct {
 	Description string
-	Func        func(context.Context) error
+	Func        func(*HostContext) error
 	Timeout     time.Duration
 }
 
 // Run executes a step's Func within the given Timeout.
 func (ctx *HostContext) Run(step Step) error {
-	w, ok := WriterFromContext(ctx)
-	if !ok {
+	w := ctx.Writer
+	if w == nil {
 		w = ioutil.Discard
 	}
 	fmt.Fprintf(w, "%s...", step.Description)
@@ -62,17 +64,9 @@ func (ctx *HostContext) Run(step Step) error {
 }
 
 func NewContext(ctx context.Context, h Host, w io.Writer) *HostContext {
-	childCtx := context.WithValue(ctx, hostKey, h)
-	childCtx = context.WithValue(childCtx, writerKey, w)
-	return &HostContext{childCtx}
-}
-
-func FromContext(ctx context.Context) (Host, bool) {
-	h, ok := ctx.Value(hostKey).(Host)
-	return h, ok
-}
-
-func WriterFromContext(ctx context.Context) (io.Writer, bool) {
-	w, ok := ctx.Value(writerKey).(io.Writer)
-	return w, ok
+	return &HostContext{
+		Context: ctx,
+		Host:    h,
+		Writer:  w,
+	}
 }
