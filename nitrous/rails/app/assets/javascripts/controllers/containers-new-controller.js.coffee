@@ -135,13 +135,13 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
       if selectedOption == 'host-image'
         # image already on host - no pull needed
-        @createContainer(name, slug, repository)
+        @createContainer(name, repository)
       else if selectedOption == 'custom-image'
         # custom image
         unless repository.match /^.*:.+$/
           repository = repository.replace /:?$/, ':latest'
         @pullImage repository, =>
-          @createContainer(name, slug, repository)
+          @createContainer(name, repository)
       else if selectedTemplate
         # update template
         img = selectedTemplate.get 'image'
