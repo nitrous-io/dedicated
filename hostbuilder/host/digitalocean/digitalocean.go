@@ -16,7 +16,6 @@ import (
 	"code.google.com/p/goauth2/oauth"
 
 	"github.com/digitalocean/godo"
-	hostcontext "github.com/nitrous-io/dedicated/hostbuilder/context"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
@@ -36,6 +35,7 @@ var (
 	StateWaitTime        = 3 * time.Second
 
 	ErrCreateTimeout = errors.New("timed out creating host")
+	errHostRequired  = errors.New("context requires a host")
 
 	// FIXME: the map should belongs to client, not the builder
 	regionsMap = map[string]string{
@@ -96,9 +96,9 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	defer cancel()
 
 	// Store host and writer in ctx for child requests.
-	hctx := hostcontext.NewContext(ctx, h, w)
+	hctx := host.NewContext(ctx, h, w)
 
-	steps := []hostcontext.Step{
+	steps := []host.Step{
 		{
 			Description: "Creating key",
 			Func:        createSSHKey,
@@ -155,6 +155,9 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		if err := hctx.Run(step); err != nil {
 			hlog(h, "ERROR: Failed in create host step: %v", err)
 			h.logFailedDroplet()
+			if err == context.DeadlineExceeded {
+				return nil, ErrCreateTimeout
+			}
 			return nil, err
 		}
 	}
@@ -419,9 +422,9 @@ func init() {
 }
 
 func createSSHKey(ctx context.Context) error {
-	hst, _, err := hostcontext.FromContext(ctx)
-	if err != nil {
-		return err
+	hst, ok := host.FromContext(ctx)
+	if !ok {
+		return errHostRequired
 	}
 	h := hst.(*Host)
 	label := h.metricsLabel("create_key")
@@ -453,9 +456,9 @@ func createSSHKey(ctx context.Context) error {
 }
 
 func createDroplet(ctx context.Context) error {
-	hst, _, err := hostcontext.FromContext(ctx)
-	if err != nil {
-		return err
+	hst, ok := host.FromContext(ctx)
+	if !ok {
+		return errHostRequired
 	}
 	h := hst.(*Host)
 
@@ -513,9 +516,9 @@ func createDroplet(ctx context.Context) error {
 }
 
 func waitForSSH(ctx context.Context) error {
-	hst, _, err := hostcontext.FromContext(ctx)
-	if err != nil {
-		return err
+	hst, ok := host.FromContext(ctx)
+	if !ok {
+		return errHostRequired
 	}
 	h := hst.(*Host)
 	label := h.metricsLabel("ssh_wait")
@@ -538,9 +541,9 @@ func waitForSSH(ctx context.Context) error {
 }
 
 func writePublicKeys(ctx context.Context) error {
-	hst, _, err := hostcontext.FromContext(ctx)
-	if err != nil {
-		return err
+	hst, ok := host.FromContext(ctx)
+	if !ok {
+		return errHostRequired
 	}
 	h := hst.(*Host)
 	hlog(h, "Writing public key")
@@ -548,7 +551,7 @@ func writePublicKeys(ctx context.Context) error {
 	for _, k := range h.Config.PublicKeys {
 		fmt.Fprintln(pubKeyR, k)
 	}
-	err = writeFile(h, map[string]io.Reader{
+	err := writeFile(h, map[string]io.Reader{
 		"/root/.ssh/authorized_keys": pubKeyR,
 	})
 	hlog(h, "Wrote public key")
@@ -556,9 +559,9 @@ func writePublicKeys(ctx context.Context) error {
 }
 
 func createEtcFreighterd(ctx context.Context) error {
-	hst, _, err := hostcontext.FromContext(ctx)
-	if err != nil {
-		return err
+	hst, ok := host.FromContext(ctx)
+	if !ok {
+		return errHostRequired
 	}
 	h := hst.(*Host)
 	defer mh.UpdateSince(h.metricsLabel("create_config"), time.Now())
@@ -566,13 +569,13 @@ func createEtcFreighterd(ctx context.Context) error {
 }
 
 func writeTLSCerts(ctx context.Context) error {
-	hst, _, err := hostcontext.FromContext(ctx)
-	if err != nil {
-		return err
+	hst, ok := host.FromContext(ctx)
+	if !ok {
+		return errHostRequired
 	}
 	h := hst.(*Host)
 	hlog(h, "Writing TLS certs")
-	err = writeFile(h, map[string]io.Reader{
+	err := writeFile(h, map[string]io.Reader{
 		TLSCALocation:   bytes.NewBufferString(h.Config.TLS.CA),
 		TLSCertLocation: bytes.NewBufferString(h.Config.TLS.Cert),
 		TLSKeyLocation:  bytes.NewBufferString(h.Config.TLS.Key),
@@ -582,13 +585,13 @@ func writeTLSCerts(ctx context.Context) error {
 }
 
 func writeSecret(ctx context.Context) error {
-	hst, _, err := hostcontext.FromContext(ctx)
-	if err != nil {
-		return err
+	hst, ok := host.FromContext(ctx)
+	if !ok {
+		return errHostRequired
 	}
 	h := hst.(*Host)
 	hlog(h, "Writing host secret")
-	err = writeFile(h, map[string]io.Reader{
+	err := writeFile(h, map[string]io.Reader{
 		SecretLocation: bytes.NewBufferString(h.Config.Secret),
 	})
 	hlog(h, "Wrote host secret")
@@ -610,9 +613,9 @@ func writeFile(h *Host, files map[string]io.Reader) error {
 }
 
 func writeRepository(ctx context.Context) error {
-	hst, _, err := hostcontext.FromContext(ctx)
-	if err != nil {
-		return err
+	hst, ok := host.FromContext(ctx)
+	if !ok {
+		return errHostRequired
 	}
 	h := hst.(*Host)
 	hlog(h, "Uploading apt details")
@@ -628,9 +631,9 @@ func writeRepository(ctx context.Context) error {
 }
 
 func updateSoftware(ctx context.Context) error {
-	hst, _, err := hostcontext.FromContext(ctx)
-	if err != nil {
-		return err
+	hst, ok := host.FromContext(ctx)
+	if !ok {
+		return errHostRequired
 	}
 	h := hst.(*Host)
 	label := h.metricsLabel("update_software")
@@ -662,9 +665,9 @@ func updateSoftware(ctx context.Context) error {
 }
 
 func restartFreighterd(ctx context.Context) error {
-	hst, _, err := hostcontext.FromContext(ctx)
-	if err != nil {
-		return err
+	hst, ok := host.FromContext(ctx)
+	if !ok {
+		return errHostRequired
 	}
 	h := hst.(*Host)
 	label := h.metricsLabel("restart_software")

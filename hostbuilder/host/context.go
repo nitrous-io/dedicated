@@ -1,12 +1,11 @@
-package context
+package host
 
 import (
-	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"time"
 
-	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"golang.org/x/net/context"
 )
 
@@ -15,13 +14,6 @@ type key int
 const (
 	hostKey   key = 0
 	writerKey key = 1
-)
-
-var (
-	ErrStepTimeout = errors.New("context step timed out")
-
-	errHostMissing   = errors.New("context does not contain a Host")
-	errWriterMissing = errors.New("context does not contain a Writer")
 )
 
 type HostContext struct {
@@ -36,9 +28,9 @@ type Step struct {
 
 // Run executes a step's Func within the given Timeout.
 func (ctx *HostContext) Run(step Step) error {
-	_, w, err := FromContext(ctx)
-	if err != nil {
-		return err
+	w, ok := WriterFromContext(ctx)
+	if !ok {
+		w = ioutil.Discard
 	}
 	fmt.Fprintf(w, "%s...", step.Description)
 
@@ -65,27 +57,22 @@ func (ctx *HostContext) Run(step Step) error {
 		return nil
 	case <-newCtx.Done():
 		fmt.Fprintf(w, "%s... Failed!", step.Description)
-		if newCtx.Err() == context.DeadlineExceeded {
-			return ErrStepTimeout
-		}
 		return newCtx.Err()
 	}
 }
 
-func NewContext(ctx context.Context, h host.Host, w io.Writer) *HostContext {
+func NewContext(ctx context.Context, h Host, w io.Writer) *HostContext {
 	childCtx := context.WithValue(ctx, hostKey, h)
 	childCtx = context.WithValue(childCtx, writerKey, w)
 	return &HostContext{childCtx}
 }
 
-func FromContext(ctx context.Context) (host.Host, io.Writer, error) {
-	h, ok := ctx.Value(hostKey).(host.Host)
-	if !ok {
-		return nil, nil, errHostMissing
-	}
+func FromContext(ctx context.Context) (Host, bool) {
+	h, ok := ctx.Value(hostKey).(Host)
+	return h, ok
+}
+
+func WriterFromContext(ctx context.Context) (io.Writer, bool) {
 	w, ok := ctx.Value(writerKey).(io.Writer)
-	if !ok {
-		return nil, nil, errWriterMissing
-	}
-	return h, w, nil
+	return w, ok
 }
