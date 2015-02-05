@@ -31,7 +31,7 @@ var (
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
 	SecretLocation  = "/etc/freighterd/secret"
 
-	DefaultCreateTimeout = 5 * time.Minute
+	DefaultCreateTimeout = 20 * time.Minute
 	StateWaitTime        = 3 * time.Second
 
 	ErrCreateTimeout = errors.New("timed out creating host")
