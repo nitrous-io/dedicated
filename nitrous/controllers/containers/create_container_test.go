@@ -380,28 +380,6 @@ var _ = Describe("CreateContainer", func() {
 		})
 	})
 
-	// FIXME: commented out till figuring out a way to test this
-	// Context("when slug is already taken", func() {
-	// 	BeforeEach(func() {
-	// 		c := &container.Container{
-	// 			CID:    "facecafe",
-	// 			Slug:   "elixir-web-1",
-	// 			Image:  "nitrous-base",
-	// 			UserID: u.ID,
-	// 			HostID: hs.H.ID,
-	// 		}
-	// 		err := c.Insert(db)
-	// 		Expect(err).To(BeNil())
-	// 	})
-
-	// 	It("returns the error", func() {
-	// 		res, err := containers.CreateContainer(h, params, env)
-	// 		Expect(res).To(BeNil())
-
-	// 		Expect(err).To(MatchError(containers.Validations["index_containers_on_slug"]))
-	// 	})
-	// })
-
 	Context("when name param is not given", func() {
 		BeforeEach(func() {
 			params.Del("name")
