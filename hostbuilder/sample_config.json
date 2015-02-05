@@ -3,6 +3,7 @@
   "librato_user": "eng+libratodev@nitrous.io",
   "librato_token": "<token-goes-here>",
   "shutdown_timeout_secs": 900,
+  "debug": true,
   "providers": {
     "amazon": {
       "access_key": "",
