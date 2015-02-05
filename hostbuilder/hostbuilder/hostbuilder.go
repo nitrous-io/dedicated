@@ -24,7 +24,7 @@ var (
 	// even though we still have connected clients. This is useful when a large
 	// number of client connections exist and closing them can take a long time.
 	// Note, this is in addition to the StopTimeout. Defaults to 1 minute.
-	defautlKillTimeout = 1 * time.Minute
+	defaultKillTimeout = 1 * time.Minute
 )
 
 type providerConfig map[string]string
@@ -68,7 +68,7 @@ func main() {
 	if stopTimeout == 0 {
 		stopTimeout = defaultStopTimeout
 	}
-	killTimeout := defautlKillTimeout
+	killTimeout := defaultKillTimeout
 	hd := &httpdown.HTTP{
 		StopTimeout: stopTimeout,
 		KillTimeout: killTimeout,
