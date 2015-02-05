@@ -595,43 +595,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 	})
 
-	Context("when trying to create a host with an existing slug", func() {
-		BeforeEach(func() {
-			_, err := CreateHostStack(db, &HostStack{
-				H: &host.Host{Slug: "rails-host"},
-				U: u,
-			})
-			Expect(err).To(BeNil())
-
-			hosts, err := host.FindAllByUser(db, u)
-			Expect(err).To(BeNil())
-			Expect(hosts).To(HaveLen(1))
-
-			// increase user's default hosts limit to hit the actual error
-			_, err = db.Exec(`UPDATE user_profiles SET max_hosts = 10 WHERE user_id = $1;`, u.ID)
-			Expect(err).To(BeNil())
-		})
-
-		It("does not create a host", func() {
-			doRequest(params)
-			hosts, err := host.FindAllByUser(db, u)
-			Expect(err).To(BeNil())
-			Expect(hosts).To(HaveLen(1))
-		})
-
-		It("responds with HTTP 400 Bad Request", func() {
-			res := doRequest(params)
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
-			j := map[string]interface{}{}
-			err := json.Unmarshal(res.Body.Bytes(), &j)
-			Expect(err).To(BeNil())
-			errType, _ := j["error"].(string)
-			Expect(errType).To(Equal("validation_failed"))
-			errDesc, _ := j["error_description"].(string)
-			Expect(errDesc).To(Equal("slug is taken"))
-		})
-	})
-
 	Context("when hostbuilder fails to create the host", func() {
 		BeforeEach(func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
