@@ -121,6 +121,9 @@ type config struct {
 
 	// max time to wait for graceful stop, in seconds
 	StopTimeout int `json:"stop_timeout"`
+
+	// start the server in debug mode
+	Debug bool `json:"debug"`
 }
 
 type Server struct {
@@ -290,8 +293,12 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 // sleep waits for a defined seconds and then finishes the request
-// This is useful for testing graceful shutdown.
+// This is useful for testing graceful shutdown and should only be enabled in
+// debug mode
 func (s *Server) sleep(w http.ResponseWriter, r *http.Request) (err error) {
+	if !s.Config.Debug {
+		return nil
+	}
 	var duration = 60 // duration in seconds
 	r.URL.Query()
 	if d := r.FormValue("duration"); d != "" {
@@ -302,6 +309,7 @@ func (s *Server) sleep(w http.ResponseWriter, r *http.Request) (err error) {
 	}
 	log.Printf("/test/sleep - sleeping for %d seconds", duration)
 	time.Sleep(time.Duration(duration) * time.Second)
+	fmt.Fprintf(w, "sleep for %d seconds OK", duration)
 	return nil
 }
 
@@ -368,8 +376,7 @@ func (s *Server) CreateRouter() {
 	r := mux.NewRouter()
 	m := map[string]map[string]HttpHandler{
 		"GET": {
-			"/hosts":      s.listHosts,
-			"/test/sleep": s.sleep,
+			"/hosts": s.listHosts,
 		},
 		"POST": {
 			"/hosts":         s.createHost,
@@ -377,6 +384,9 @@ func (s *Server) CreateRouter() {
 			"/hosts/delete":  s.deleteHost,
 			"/hosts/restart": s.restartHost,
 		},
+	}
+	if s.Config.Debug {
+		m["GET"]["/test/sleep"] = s.sleep
 	}
 	for method, routes := range m {
 		for route, handler := range routes {
