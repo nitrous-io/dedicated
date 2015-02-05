@@ -783,7 +783,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					evtData, ok := evt.Data.(map[string]interface{})
 					Expect(ok).To(BeTrue())
 					Expect(evtData["host"]).To(Equal(serializers.SerializeHost(h)))
-					Expect(evtData["error"]).To(ContainSubstring("some error occurred"))
+					// Original error caused by hostbuilder error is masked.
+					Expect(evtData["error"]).To(ContainSubstring("failed to create workspace"))
 				case <-time.After(100 * time.Millisecond):
 					Fail("timeout while waiting for EventHostCreateFailed")
 				}

@@ -9,13 +9,11 @@ import (
 	"github.com/nitrous-io/dedicated/hostbuilder/host/digitalocean"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"golang.org/x/net/context"
 )
 
 var _ = Describe("WaitForAction", func() {
-
-	var (
-		info = map[string]interface{}{}
-	)
+	var info = map[string]interface{}{}
 
 	It("waits until the action is completed", func() {
 		var service godo.ActionsService = testActionService{
@@ -26,13 +24,15 @@ var _ = Describe("WaitForAction", func() {
 				},
 			},
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
 
-		a, err := digitalocean.WaitForAction(service, 1, 10*time.Millisecond, 100*time.Millisecond, info)
+		a, err := digitalocean.WaitForAction(ctx, service, 1, 10*time.Millisecond, info)
 		Expect(err).To(BeNil(), "unexpected error")
 		Expect(a.Status).To(Equal("completed"))
 	})
 
-	It("returns error when we cant retrieve the action", func() {
+	It("returns error when we can't retrieve the action", func() {
 		var service godo.ActionsService = testActionService{
 			1: {
 				responses: []*actionResponse{
@@ -41,8 +41,10 @@ var _ = Describe("WaitForAction", func() {
 				},
 			},
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
 
-		_, err := digitalocean.WaitForAction(service, 1, 10*time.Millisecond, 100*time.Millisecond, info)
+		_, err := digitalocean.WaitForAction(ctx, service, 1, 10*time.Millisecond, info)
 		Expect(err).ToNot(BeNil(), "expect error when failed to get the action")
 	})
 
@@ -55,8 +57,10 @@ var _ = Describe("WaitForAction", func() {
 				},
 			},
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
 
-		_, err := digitalocean.WaitForAction(service, 1, 10*time.Millisecond, 100*time.Millisecond, info)
+		_, err := digitalocean.WaitForAction(ctx, service, 1, 10*time.Millisecond, info)
 		Expect(err).ToNot(BeNil(), "expect error when action status is errored")
 	})
 
@@ -70,8 +74,10 @@ var _ = Describe("WaitForAction", func() {
 				},
 			},
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Millisecond)
+		defer cancel()
 
-		_, err := digitalocean.WaitForAction(service, 1, time.Millisecond, 2*time.Millisecond, info)
+		_, err := digitalocean.WaitForAction(ctx, service, 1, time.Millisecond, info)
 		Expect(err).ToNot(BeNil(), "expect error timed out")
 	})
 })
