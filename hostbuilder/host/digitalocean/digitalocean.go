@@ -101,7 +101,6 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{
 			Description: "Creating key",
 			Func:        createSSHKey,
-			Timeout:     30 * time.Second,
 		},
 		{
 			Description: "Creating workspace",
@@ -116,37 +115,30 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{
 			Description: "Writing key",
 			Func:        writePublicKeys,
-			Timeout:     30 * time.Second,
 		},
 		{
 			Description: "Initializing settings",
 			Func:        createEtcFreighterd,
-			Timeout:     30 * time.Second,
 		},
 		{
 			Description: "Writing certificates",
 			Func:        writeTLSCerts,
-			Timeout:     30 * time.Second,
 		},
 		{
 			Description: "Writing token",
 			Func:        writeSecret,
-			Timeout:     30 * time.Second,
 		},
 		{
 			Description: "Setting up",
 			Func:        writeRepository,
-			Timeout:     30 * time.Second,
 		},
 		{
 			Description: "Fetching updates",
 			Func:        updateSoftware,
-			Timeout:     5 * time.Minute,
 		},
 		{
 			Description: "Applying settings",
 			Func:        restartFreighterd,
-			Timeout:     2 * time.Minute,
 		},
 	}
 

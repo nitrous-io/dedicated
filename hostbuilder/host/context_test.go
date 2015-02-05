@@ -20,6 +20,7 @@ func TestContext(t *testing.T) {
 
 var _ = Describe("context", func() {
 	Describe("Run", func() {
+
 		It("runs the given step within its timeout", func() {
 			ctx := context.Background()
 			h := &dummy.Host{ID: "123"}
@@ -32,6 +33,23 @@ var _ = Describe("context", func() {
 					return nil
 				},
 				Timeout: 10 * time.Millisecond,
+			})
+
+			Expect(err).To(BeNil())
+			Expect(counter).To(Equal(1))
+		})
+
+		It("runs the given step if timeout is not specified", func() {
+			ctx := context.Background()
+			h := &dummy.Host{ID: "123"}
+			hctx := host.NewContext(ctx, h, ioutil.Discard)
+
+			var counter int
+			err := hctx.Run(host.Step{
+				Func: func(*host.HostContext) error {
+					counter++
+					return nil
+				},
 			})
 
 			Expect(err).To(BeNil())

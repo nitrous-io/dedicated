@@ -36,6 +36,10 @@ func (ctx *HostContext) Run(step Step) error {
 	}
 	fmt.Fprintf(w, "%s...", step.Description)
 
+	if step.Timeout == 0 {
+		return step.Func(ctx)
+	}
+
 	newCtx, cancel := context.WithTimeout(ctx, step.Timeout)
 	defer cancel()
 
