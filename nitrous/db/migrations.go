@@ -821,5 +821,11 @@ func init() {
 				ALTER TABLE invoice_items ADD COLUMN terminated bool DEFAULT FALSE;
 			`,
 		},
+		{
+			Version: "750",
+			Up: `
+				ALTER TABLE invoices ADD COLUMN available_credit bigint DEFAULT NULL;
+			`,
+		},
 	}
 }
