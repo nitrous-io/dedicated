@@ -45,8 +45,8 @@ App.OpsSocket = Lib.Socket.extend Ember.Evented,
 
     container.requestToken(['ops']).then (token) =>
       token = encodeURIComponent(token.token)
-      @set 'url', "#{protocol}//#{freighterdUrl}/containers/#{cid}/ops?token=#{token}"
-
+      @set 'url', "#{protocol}//#{freighterdUrl}/containers/#{cid}/ops?token=#{token}&binary=true"
+      @_conn.binaryMode = true
       # proceed with connection
       @connect(true)
     , (jqxhr) =>

@@ -1,3 +1,15 @@
+#= require encoding
+#= require_self
+
+utf8Encoder = new window.TextEncoder('utf8')
+utf8Decoder = new window.TextDecoder('utf8')
+
+utf8Encode = (data) =>
+  utf8Encoder.encode(data)
+
+utf8Decode = (data) =>
+  utf8Decoder.decode(new DataView(data))
+
 class window.SocketConnection
   ws: null
   url: undefined
@@ -5,6 +17,7 @@ class window.SocketConnection
   shouldRetry: true
   retries: 0
   retryTimeout: null
+  binaryMode: false
 
   constructor: (url, protocols) ->
     @url = url
@@ -26,10 +39,34 @@ class window.SocketConnection
       new WebSocket(@url, @protocols)
     else
       new WebSocket(@url)
+
+    if @binaryMode
+      ws.binaryType = 'arraybuffer'
+
     ws.onopen    = (evt) => @onopen(evt)
     ws.onclose   = (evt) => @onclose(evt)
     ws.onerror   = (evt) => @onerror(evt)
-    ws.onmessage = (evt) => @onmessage(evt)
+
+    ws.onmessage = (ev) =>
+      message = ev.data
+      if @binaryMode && (message instanceof ArrayBuffer)
+        decoded = utf8Decode(message)
+
+        # Create prototyped object because we can't modify
+        # attributes like ev.data in the original event object
+        ev = Object.create(ev, {
+          data: 
+            value: decoded
+
+          # Forward-compatible: new code that really want to
+          # read the websocket in binary format can still
+          # access the raw buffer at ev.binaryData instead of
+          # ev.data
+          binaryData:
+            value: message
+        })
+
+      @onmessage(ev)
 
     ws._onopen = =>
       @retries = 0
@@ -55,8 +92,11 @@ class window.SocketConnection
     , delay)
     @retries += 1
 
-  send: ->
-    @ws.send.apply(@ws, arguments)
+  send: (data) ->
+    if @binaryMode && typeof(data) == 'string'
+      data = utf8Encode(data)
+
+    @ws.send(data)
 
   close: ->
     if ws = @ws
