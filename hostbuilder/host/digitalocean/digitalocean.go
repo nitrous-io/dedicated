@@ -107,7 +107,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{
 			Description: "Creating workspace",
 			Func:        createDroplet,
-			Timeout:     5 * time.Minute,
+			Timeout:     16 * time.Minute,
 		},
 		{
 			Description: "Waiting for the workspace to be ready",
@@ -192,7 +192,9 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	info := map[string]interface{}{
 		"uuid": h.uuid,
 	}
-	if _, err := WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 30*time.Second, info); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := WaitForAction(ctx, h.Client.Actions, action.ID, StateWaitTime, info); err != nil {
 		return nil, err
 	}
 	hlog(h, "Renamed droplet")
@@ -319,7 +321,9 @@ func (h *Host) Restart() (*host.Info, error) {
 	info := map[string]interface{}{
 		"uuid": h.uuid,
 	}
-	if _, err = WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 15*time.Minute, info); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+	if _, err = WaitForAction(ctx, h.Client.Actions, action.ID, StateWaitTime, info); err != nil {
 		return nil, err
 	}
 
@@ -497,7 +501,10 @@ func createDroplet(ctx context.Context) error {
 			"uuid": h.uuid,
 		}
 		la := dropletRoot.Links.Actions[0]
-		if _, err := WaitForAction(h.Client.Actions, la.ID, StateWaitTime, 15*time.Minute, info); err != nil {
+
+		ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+		defer cancel()
+		if _, err := WaitForAction(ctx, h.Client.Actions, la.ID, StateWaitTime, info); err != nil {
 			return mh.Error(err, label)
 		}
 	} else {

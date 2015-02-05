@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/digitalocean/godo"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -14,12 +15,8 @@ const (
 	completedStatus  = "completed"
 )
 
-// WaitForActions waits until the action is completed
-func WaitForAction(service godo.ActionsService, id int, wait, timeout time.Duration, cxt map[string]interface{}) (*godo.Action, error) {
-	// control channel to make sure that we can exit goroutine properly
-	done := make(chan struct{})
-	defer close(done)
-
+// WaitForAction waits until the action is completed.
+func WaitForAction(ctx context.Context, service godo.ActionsService, id int, wait time.Duration, cxt map[string]interface{}) (*godo.Action, error) {
 	baseString := ""
 	for k, v := range cxt {
 		baseString += fmt.Sprintf("%s=%v ", k, v)
@@ -28,37 +25,45 @@ func WaitForAction(service godo.ActionsService, id int, wait, timeout time.Durat
 	result := make(chan error, 1)
 	var finalAction *godo.Action
 	go func() {
+		ticker := time.NewTicker(wait)
+		defer ticker.Stop()
 		for {
 			select {
-			case <-done:
-				// We finished, so just exit the goroutine
+			case <-ctx.Done():
 				return
-			default:
-				tmp, _, err := service.Get(id)
+			case <-ticker.C:
+				action, _, err := service.Get(id)
 				if err != nil {
 					result <- err
 					return
 				}
-				log.Printf("%sWaiting for event %d to complete, got status %s", baseString, id, tmp.Status)
-				if tmp.Status == erroredStatus {
-					result <- fmt.Errorf("%saction %v failed", baseString, tmp)
+				log.Printf("%sWaiting for event %d to complete, got status %s", baseString, id, action.Status)
+				switch action.Status {
+				case erroredStatus:
+					result <- fmt.Errorf("%saction %v failed", baseString, action)
 					return
-				} else if tmp.Status == completedStatus {
-					finalAction = tmp
+				case completedStatus:
+					finalAction = action
 					result <- nil
 					return
 				}
-				time.Sleep(wait)
 			}
 		}
 	}()
+
 	select {
+	case <-ctx.Done():
+		switch ctx.Err() {
+		case context.DeadlineExceeded:
+			return nil, fmt.Errorf("%stimeout while waiting to for event %d to complete", baseString, id)
+		case context.Canceled:
+			return nil, fmt.Errorf("%scanceled wait for event %d to complete", baseString, id)
+		}
+		return nil, ctx.Err()
 	case err := <-result:
 		if err != nil {
 			return nil, err
 		}
 		return finalAction, nil
-	case <-time.After(timeout):
-		return nil, fmt.Errorf("%stimeout while waiting to for event %d to complete", baseString, id)
 	}
 }
