@@ -3,6 +3,7 @@ package hosts
 import (
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -99,6 +100,12 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	prov := env.Provisioner
 	publishProvisionFailure := func(h *host.Host, err error) {
+		if e, ok := err.(*provisioner.HostbuilderError); ok {
+			env.Logger.Errorf("hostbuilder error provisioning host: %v", e)
+			// Change error into something we can display to end users.
+			err = errors.New("failed to create workspace")
+		}
+
 		env.Events.Publish(
 			controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
 				"host":  serializers.SerializeHost(h),

@@ -110,6 +110,14 @@ func (e *InvalidHostError) Error() string {
 	return fmt.Sprintf("provisioner: host is invalid: %s", e.Err.Error())
 }
 
+type HostbuilderError struct {
+	Err error
+}
+
+func (e *HostbuilderError) Error() string {
+	return fmt.Sprintf("provisioner: hostbuilder returned error: %s", e.Err.Error())
+}
+
 func init() {
 	hostbuilderURL := envvars.HostBuilderURL
 	if hostbuilderURL == "" {
@@ -544,6 +552,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	config := p.mkHostbuilderConfig(phost, opts)
 	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, &config, opts.OutputStream, p.hostbuilderHeaders(opts))
 	if err != nil {
+		err = &HostbuilderError{Err: err}
 		return nil, err
 	}
 
