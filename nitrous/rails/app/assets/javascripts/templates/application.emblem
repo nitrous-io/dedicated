@@ -2,5 +2,5 @@
 = ui-connectivity-indicator
 if App.online
   if App.eventsSocket
-    = ui-connectivity-indicator classBinding='App.eventsSocket.connected::show' html='Connecting...'
+    = ui-connectivity-indicator showBinding='App.eventsSocket.disconnected' html='<i class="spinner"></i> Connecting to Nitrous...'
 App.SnackbarView items=App.snackbar.items

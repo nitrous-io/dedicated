@@ -1,2 +1,4 @@
-p
-  == html
+.ui.card
+  .card-body
+    p.msg
+      == html
