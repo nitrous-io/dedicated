@@ -147,4 +147,4 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
         img = selectedTemplate.get 'image'
         template = selectedTemplate.get 'slug'
         @pullImage img, =>
-          @createContainer(name, slug, img, template)
+          @createContainer(name, img, template)
