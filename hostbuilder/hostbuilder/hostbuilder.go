@@ -7,14 +7,25 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
+	"github.com/facebookgo/httpdown"
 	"github.com/nitrous-io/dedicated/hostbuilder"
 )
 
-var version string
+var (
+	version string
+
+	// StopTimeout is the duration before we begin force closing connections.
+	// Defaults to 15 minutes.
+	defaultStopTimeout = 15 * time.Minute
+
+	// KillTimeout is the duration before which we completely give up and abort
+	// even though we still have connected clients. This is useful when a large
+	// number of client connections exist and closing them can take a long time.
+	// Note, this is in addition to the StopTimeout. Defaults to 1 minute.
+	defautlKillTimeout = 1 * time.Minute
+)
 
 type providerConfig map[string]string
 
@@ -40,26 +51,33 @@ func main() {
 		log.Printf("hostbuilder: failed to read config file")
 		os.Exit(1)
 	}
-	// start the server
+
+	// build the server routes
 	server, err := hostbuilder.New(configData)
 	if err != nil {
 		log.Printf("hostbuilder: failed to create server %v", err)
 		os.Exit(1)
 	}
 	http.Handle("/", server.Router)
-	log.Printf("hostbuilder: starting server at %v", server.Config.Address)
-	httpServer := &http.Server{Addr: server.Config.Address, Handler: nil}
-	go func() {
-		log.Fatal(httpServer.ListenAndServe())
-	}()
 
-	ch := make(chan os.Signal)
-	// upstart uses term by default
-	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
-	log.Println(<-ch)
-	log.Printf("Starting to shut down hostbuilder, %d request(s) in progress, will wait max %d seconds", hostbuilder.GetHttpReqCount(), server.Config.ShutdownTimeoutSecs)
-	timeStart := time.Now()
-	httpServer.SetKeepAlivesEnabled(false) // recommended when shutting down
-	hostbuilder.ShutdownAndWaitHttpRequestsDone(time.Duration(server.Config.ShutdownTimeoutSecs) * time.Second)
-	log.Printf("hostbuilder did shutdown in %s", time.Since(timeStart))
+	// create the http server
+	httpServer := &http.Server{Addr: server.Config.Address, Handler: nil}
+
+	// start the httpdown wrapper so we can graceful shutdown
+	stopTimeout := time.Duration(server.Config.ShutdownTimeoutSecs) * time.Second
+	if stopTimeout == 0 {
+		stopTimeout = defaultStopTimeout
+	}
+	killTimeout := defautlKillTimeout
+	hd := &httpdown.HTTP{
+		StopTimeout: stopTimeout,
+		KillTimeout: killTimeout,
+	}
+
+	// start listening to request
+	// The server will be gracefully stopped when it receives SIGTERM or SIGINT
+	// so another server can be started in its place.
+	log.Printf("starting server at %v", server.Config.Address)
+	err = httpdown.ListenAndServe(httpServer, hd)
+	log.Printf("stopped server %v", err)
 }
