@@ -9,7 +9,7 @@ App.BillingRoute = App.AuthedRoute.extend
   beforeModel: ->
     @_super.apply this, arguments
     # TODO: FFLAG payments
-    if App.get('user.billingEnabled') && !App.get('billingProfile.paid')
+    unless App.get('billingProfile.paid')
       @transitionTo 'add-card'
     App.refreshUsage()
 
