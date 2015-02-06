@@ -33,7 +33,7 @@ App.Container = klass = App.Model.extend
   # use computedState when communicating the container state to end-user
   # it returns possible tempStates container can be in
   computedState: (->
-    if tempState = this.getTempState(@get 'slug')
+    if tempState = @getTempState()
       tempState
     else
       @get 'state'
