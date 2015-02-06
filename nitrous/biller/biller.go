@@ -517,7 +517,7 @@ func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd
 	// page through the hosts in the DB, 100 at a time
 	for !usersExhausted {
 		users := []user.User{}
-		err := d.Select(&users, `SELECT * FROM users WHERE id > $1 ORDER BY id ASC LIMIT 100;`, lastId)
+		err := d.Select(&users, `SELECT * FROM users WHERE service_account IS FALSE AND id > $1 ORDER BY id ASC LIMIT 100;`, lastId)
 		if err != nil && err != sql.ErrNoRows {
 			l.FatalExit(err)
 		}
