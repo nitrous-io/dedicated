@@ -101,6 +101,34 @@ var _ = Describe("provisioner", func() {
 			}, 5*time.Second, 100*time.Millisecond).Should(Equal(1))
 		})
 
+		It("does not pre-provision hosts in a region that is disabled", func() {
+			hs, err := test.CreateHostStack(db, &test.HostStack{
+				PT: &providertemplate.ProviderTemplate{PreprovisionMax: 1, Provider: "dummy"},
+			})
+			Expect(err).To(BeNil())
+			count, err := host.CountPreprovisioned(db, hs.R, hs.P)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0)) // Pre-condition: 0 pre-provisioned hosts.
+
+			cfg := &provisioner.Config{
+				Username: provisionerUser.Username,
+				Interval: 50 * time.Millisecond,
+			}
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+
+			_, err = db.Exec("UPDATE regions SET disabled_at = now() WHERE id = $1", hs.R.ID)
+			Expect(err).To(BeNil())
+
+			err = prov.Start()
+			Expect(err).To(BeNil())
+
+			Consistently(func() int {
+				count, err := host.CountPreprovisioned(db, hs.R, hs.P)
+				Expect(err).To(BeNil())
+				return count
+			}, 1*time.Second).Should(Equal(0))
+		})
+
 		It("does not pre-provision hosts in a region that has orphan pre-provisioned hosts", func() {
 			hs, err := test.CreateHostStack(db, &test.HostStack{
 				H:  &host.Host{State: host.StateOrphan, Preprovisioned: true},

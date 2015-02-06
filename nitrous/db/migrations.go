@@ -791,5 +791,11 @@ func init() {
 				ALTER TABLE templates ADD COLUMN image character varying NOT NULL;
 			`,
 		},
+		{
+			Version: "700",
+			Up: `
+				ALTER TABLE regions ADD COLUMN disabled_at timestamp without time zone DEFAULT NULL;
+			`,
+		},
 	}
 }

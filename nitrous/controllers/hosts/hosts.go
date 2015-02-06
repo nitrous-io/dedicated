@@ -35,6 +35,7 @@ var (
 	errCertNotFound             = httperror.New(http.StatusNotFound, "cert_not_found", "host certificate does not exist")
 	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another host creation request is currently being processed")
 	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
+	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
 )
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
