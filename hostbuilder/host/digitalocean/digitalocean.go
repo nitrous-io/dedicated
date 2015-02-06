@@ -31,7 +31,7 @@ var (
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
 	SecretLocation  = "/etc/freighterd/secret"
 
-	DefaultCreateTimeout = 20 * time.Minute
+	DefaultCreateTimeout = 10 * time.Minute
 	StateWaitTime        = 3 * time.Second
 
 	ErrCreateTimeout = errors.New("timed out creating host")
@@ -105,7 +105,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{
 			Description: "Creating workspace",
 			Func:        createDroplet,
-			Timeout:     16 * time.Minute,
+			Timeout:     5 * time.Minute,
 		},
 		{
 			Description: "Waiting for the workspace to be ready",
