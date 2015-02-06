@@ -37,13 +37,22 @@ App.IdeController = Em.ObjectController.extend
       App.set 'eventsSocket', evSocket = App.EventsSocket.create()
       evSocket.connect()
 
-      evSocket.on 'container.stopped', (data)=>
+      ['container.stopped', 'container.restarted', 'container.reconfigured'].forEach (evt) =>
+        evSocket.on 'container.reconfigured', (data) =>
+          if @get('content.id') == data?.container?.id
+            App.get('container').setProperties(data.container)
+
+      evSocket.on 'container.stopped', (data) =>
         if @get('content.id') == data?.container?.id
           @handleContainerStopped()
 
-      evSocket.on 'container.reconfigured', (data)=>
+      evSocket.on 'container.restarted', (data) =>
         if @get('content.id') == data?.container?.id
-          @handleContainerReconfigured()
+          App.snackbar.post "Container restarted, reconnecting..."
+
+      evSocket.on 'container.reconfigured', (data) =>
+        if @get('content.id') == data?.container?.id
+          App.snackbar.post "Container reconfigured, reconnecting..."
 
   reset: ->
     if opsSocket = @get 'opsSocket'
@@ -61,16 +70,6 @@ App.IdeController = Em.ObjectController.extend
     @set 'repository', null
     @set 'content', null
     @set 'errorDialog', null
-
-  handleContainerReconfigured: ->
-    App.snackbar.post "Container reconfigured, reconnecting...."
-    App.reloadContainer().then (v)=>
-      ops = @get 'opsSocket'
-      ops.disconnect()
-      ops.set 'container', App.get 'container'
-      ops.connect()
-    , (err)->
-      App.snackbar.post "Error reconnecting to container after reconfig!"
 
   handleContainerStopped: ->
     slug = App.get 'slug'

@@ -190,12 +190,27 @@ func (c *Container) ResolvedState() State {
 	return c.State
 }
 
+func (c *Container) IsLocked(d db.QueryReceiver) (bool, error) {
+	res, err := d.Exec(`
+		SELECT id FROM containers WHERE id = $1 AND (locked_at IS NULL OR locked_at < now())
+	`, c.ID)
+
+	if err != nil {
+		return false, err
+	}
+
+	if i, _ := res.RowsAffected(); i > 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
 func (c *Container) Lock(expiresIn time.Duration, d db.QueryReceiver) error {
 	now := time.Now()
 	expiredAt := now.Add(expiresIn)
 
 	res, err := d.Exec(`
-	UPDATE containers SET locked_at = $1 WHERE id = $2 AND (locked_at IS NULL OR locked_at < $3)
+		UPDATE containers SET locked_at = $1 WHERE id = $2 AND (locked_at IS NULL OR locked_at < $3)
 	`, expiredAt, c.ID, now)
 
 	if err != nil {

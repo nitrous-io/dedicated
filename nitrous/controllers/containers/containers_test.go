@@ -1679,6 +1679,7 @@ var _ = Describe("controllers/containers", func() {
 	})
 
 	Describe("POST /containers/{slug}/token", func() {
+		var c *container.Container
 		secret := "s3cr3t"
 
 		doRequest := func(permissions ...string) {
@@ -1692,7 +1693,7 @@ var _ = Describe("controllers/containers", func() {
 		}
 
 		BeforeEach(func() {
-			c := &container.Container{
+			c = &container.Container{
 				CID:    "deadbeef",
 				Slug:   "elixir-web-1",
 				Image:  "nitrous-base",
@@ -1729,6 +1730,26 @@ var _ = Describe("controllers/containers", func() {
 			Expect(err).To(BeNil())
 			err = hmactoken.Verify([]string{"shell"}, j["token"], secret)
 			Expect(err).To(HaveOccurred())
+		})
+
+		Context("when container is locked", func() {
+			BeforeEach(func() {
+				expiresIn := 5 * time.Second
+				err := c.Lock(expiresIn, db)
+				Expect(err).To(BeNil())
+			})
+
+			It("does not issue token", func() {
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusConflict))
+
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				errType, _ := j["error"].(string)
+				Expect(errType).To(Equal("container_locked"))
+			})
 		})
 
 		Context("oauth token failure modes", func() {

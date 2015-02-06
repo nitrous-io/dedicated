@@ -98,10 +98,10 @@ class window.SocketConnection
 
     @ws.send(data)
 
-  close: ->
+  close: (retry=false) ->
     if ws = @ws
-      ws._noRetry = true
-      ws.close?.apply(ws, arguments)
+      ws._noRetry = !retry
+      ws.close?()
 
   onbeforeopen: ->
   onopen: ->

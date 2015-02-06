@@ -3,6 +3,7 @@ SUPPORTED_SYSTEM_PORTS = [80]
 
 App.Container = klass = Em.Object.extend
   id: null
+  cid: null
   user_id: null
   host_id: null
   slug: null
