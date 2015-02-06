@@ -2,6 +2,7 @@ package admin
 
 import (
 	"net/http"
+	"regexp"
 
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -11,6 +12,11 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+)
+
+var (
+	// matches the agreed format for testing images `create-test-#{region}-#{image_id}-#{unix_epoch}`
+	nonNitrousHosts = regexp.MustCompile(`(?i)^create-test-(\w+)-(\d+)-(\d{10,})$`)
 )
 
 var (
@@ -54,6 +60,7 @@ func switchUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 type liveHost struct {
 	Provider       string `json:"provider"`
 	ID             string `json:"id"`
+	Name           string `json:"name"`
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort uint16 `json:"freighterd_port"`
 	State          string `json:"state"`
@@ -77,9 +84,13 @@ func hosts(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	liveHosts := []liveHost{}
 	for _, h := range hostbuilderHosts {
+		if nonNitrousHosts.MatchString(h.Name) {
+			continue
+		}
 		lh := liveHost{
 			Provider:       h.Provider,
 			ID:             h.ID,
+			Name:           h.Name,
 			IPAddress:      h.IPAddress,
 			FreighterdPort: h.FreighterdPort,
 			State:          h.State,

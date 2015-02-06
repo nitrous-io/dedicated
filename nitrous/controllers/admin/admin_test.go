@@ -264,6 +264,8 @@ var _ = Describe("controllers/admin", func() {
 							{
 								"provider": "%s",
 								"id": "digitalocean-1",
+								"name": "somehost-2343",
+								"name": "create-test-cj-3232-232",
 								"ip_address": "1.2.3.4",
 								"freighterd_port": 65333,
 								"state": "Running"
@@ -271,12 +273,21 @@ var _ = Describe("controllers/admin", func() {
 							{
 								"provider": "%s",
 								"id": "digitalocean-666",
+								"name": "create-test-3232",
 								"ip_address": "1.6.6.6",
 								"freighterd_port": 65334,
 								"state": "Stopped"
+							},
+							{
+								"provider": "%s",
+								"id": "digitalocean-831",
+								"name": "create-test-ams3-10418105-1423059042",
+								"ip_address": "1.2.3.1",
+								"freighterd_port": 65335,
+								"state": "Running"
 							}
 						]
-					}`, provider, provider),
+					}`, provider, provider, provider),
 					Status: http.StatusOK,
 				}
 				hb.Client.Client.Transport = rt
