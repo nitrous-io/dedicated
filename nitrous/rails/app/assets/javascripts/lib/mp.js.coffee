@@ -22,7 +22,7 @@ window.mp =
 
     # alias should only be used when the user signed up
     # https://mixpanel.com/docs/integration-libraries/using-mixpanel-alias
-    mixpanel.identify user.get('email')
+    mixpanel.identify user.get('id').toString()
 
     createdAt = JSON.parse(JSON.stringify(user.get('createdAt') || user.get('created_at')))
 
