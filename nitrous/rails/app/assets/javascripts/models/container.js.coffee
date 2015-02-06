@@ -10,7 +10,6 @@ App.Container = klass = App.Model.extend
   template: attr()
   slug: attr()
   name: attr()
-  state: attr(serialize: false)
   cmd: attr('array', serialize: false)
   entrypoint: attr('array', serialize: false)
   exitCode: attr('number', as: 'exit_code', serialize: false)
@@ -30,20 +29,21 @@ App.Container = klass = App.Model.extend
     config
   ).property 'id'
 
-  # use computedState when communicating the container state to end-user
-  # it returns possible tempStates container can be in
-  computedState: (->
+  _state: attr(as: 'state', serialize: false) # state returned by host server
+  tempStateChanged: attr('boolean', serialize: false)
+
+  state: (->
     if tempState = @getTempState()
       tempState
     else
-      @get 'state'
-  ).property 'state', 'App.containerTempStates'
+      @get('_state')
+  ).property '_state', 'tempStateChanged', 'App.containerTempStates'
 
   underReconfig: attr('boolean', serialize: false)
 
-  isRunning: Em.computed.equal 'computedState', 'running'
-  isStopped: Em.computed.equal 'computedState', 'stopped'
-  isTerminated: Em.computed.equal 'computedState', 'terminated'
+  isRunning: Em.computed.equal 'state', 'running'
+  isStopped: Em.computed.equal 'state', 'stopped'
+  isTerminated: Em.computed.equal 'state', 'terminated'
 
   isNitrousImage: Em.computed.notEmpty 'config.env.NITROUS_IMAGE_VERSION'
 
@@ -142,6 +142,7 @@ App.Container = klass = App.Model.extend
 
   setTempState: (state) ->
     App.get('containerTempStates')?.set @get('slug'), state
+    @toggleProperty 'tempStateChanged' #toggle this property, so state is re-computed
 
 klass.reopenClass
   primaryKey: 'slug'

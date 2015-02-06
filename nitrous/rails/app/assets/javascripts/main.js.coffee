@@ -40,7 +40,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   pendingHost: null
 
-  containerTempStates: Em.Object.create()
+  containerTempStates: null
 
   newUser: (->
     @get('billingProfile') && @get('billingProfile.cardRequired')
@@ -106,6 +106,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')
+  containerTempStates: Em.Object.create()
 
 window.Lib = Ember.Namespace.create()
 
