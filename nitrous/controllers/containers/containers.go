@@ -439,6 +439,17 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 }
 
 func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	// do not issue token if container is locked
+	locked, err := cn.IsLocked(db)
+	if err != nil {
+		return err
+	}
+	if locked {
+		return errContainerLocked
+	}
+
 	r.ParseForm()
 	permissions := r.PostForm["permission[]"]
 	t, err := hmactoken.Generate(permissions, cn.Secret)

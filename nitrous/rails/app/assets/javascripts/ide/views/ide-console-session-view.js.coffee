@@ -34,6 +34,12 @@ App.IdeConsoleSessionView = Em.View.extend App.InjectTerminalIframeMixin,
         iframeWindow.App?.page?.focus()
   ).observes 'consoleSession.focused'
 
+  opsSocketDidGetDisconneted: (->
+    terminal = @get 'terminal'
+    if App.get('router.ideController.opsSocketNotReady') && !terminal.closed
+      terminal.close(true) # close, but permit reconnection
+  ).observes 'App.router.ideController.opsSocketNotReady'
+
   didChangeOrientation: ->
     window.setTimeout(=>
       if iframe = @$('iframe')[0]

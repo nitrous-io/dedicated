@@ -63,8 +63,6 @@ App.OpsSocket = Lib.Socket.extend Ember.Evented,
     switch type
       when 'd|'
         @handleMessage(event.data.slice(2))
-      when 'c|'
-        @disconnect()
       when 'h'
         @_conn.send('h')
         return

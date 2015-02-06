@@ -757,6 +757,69 @@ var _ = Describe("models/container", func() {
 		})
 	})
 
+	Describe("IsLocked()", func() {
+		var c *container.Container
+
+		BeforeEach(func() {
+			c = &container.Container{
+				CID:    "cafebabe",
+				UserID: u.ID,
+				HostID: h.ID,
+				Image:  "nitrous-base",
+				Slug:   "java-test-container",
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		Context("when container is not locked", func() {
+			It("returns false and no error", func() {
+				locked, err := c.IsLocked(db)
+				Expect(err).To(BeNil())
+				Expect(locked).To(BeFalse())
+			})
+		})
+
+		Context("when container is locked", func() {
+			BeforeEach(func() {
+				expiresIn := 5 * time.Second
+				err := c.Lock(expiresIn, db)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns true and no error", func() {
+				locked, err := c.IsLocked(db)
+				Expect(err).To(BeNil())
+				Expect(locked).To(BeTrue())
+			})
+		})
+
+		Context("when container was locked, but lock is expired", func() {
+			BeforeEach(func() {
+				expiresIn := -1 * time.Second
+				err := c.Lock(expiresIn, db)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns false and no error", func() {
+				locked, err := c.IsLocked(db)
+				Expect(err).To(BeNil())
+				Expect(locked).To(BeFalse())
+			})
+		})
+
+		Context("when an error occurs", func() {
+			BeforeEach(func() {
+				db.Close()
+			})
+
+			It("returns error", func() {
+				_, err := c.IsLocked(db)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("PreviewHostname()", func() {
 		It("return the container's preview hostname", func() {
 			orig := envvars.PreviewHostname
