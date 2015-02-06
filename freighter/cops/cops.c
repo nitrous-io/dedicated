@@ -1,4 +1,8 @@
-// formated with indent -linux nsenter.c
+// formated with indent -linux cops.c
+//
+// References:
+// - http://man7.org/linux/man-pages/man2/setns.2.html
+// - https://github.com/docker/libcontainer/blob/f5dfd9a702ad163be35023fe08c9573a614d6121/namespaces/nsenter/nsenter.c
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/limits.h>
