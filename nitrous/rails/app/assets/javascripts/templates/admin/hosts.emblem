@@ -58,9 +58,6 @@
     = model.preprovisioned.length
   = render 'admin/host' model.preprovisioned
 
-.card-footer.bordered
-  link-to 'home' | Back to home
-
 #terminate-modal-dialog.ui.modal
   .ui.card
     h2.card-header
