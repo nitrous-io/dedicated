@@ -79,8 +79,6 @@ type Host struct {
 	sshKey        *godo.Key
 	uuid          string
 	createTimeout time.Duration
-
-	cancelCreate chan struct{}
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -407,7 +405,6 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		Client:        client,
 		uuid:          defaultConfig["uuid"],
 		createTimeout: createTimeout,
-		cancelCreate:  make(chan struct{}),
 	}
 	return host, nil
 }
