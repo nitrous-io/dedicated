@@ -94,6 +94,16 @@ window.Nitrous = Em.Application.extend Em.Evented,
       @get('hosts.loaded') && @get('hosts.length') < maxHosts
   ).property 'billingProfile.paid', 'userProfile.maxHosts', 'hosts.loaded', 'hosts.length'
 
+  logout: (cb) ->
+    Em.$.ajax(
+      type: 'DELETE'
+      url: "/api/v0/logout"
+      cache: false
+      headers: { Authorization: "Bearer #{@get 'token'}" }
+    ).always ->
+      App.set 'token', null
+      cb?()
+
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')
 

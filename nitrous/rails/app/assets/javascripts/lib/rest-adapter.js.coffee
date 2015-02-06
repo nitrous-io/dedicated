@@ -15,8 +15,8 @@ App.RESTAdapter = SM.RESTAdapter.extend
       else if jqxhr.responseJSON && jqxhr.responseJSON.error == 'confirmation_lapsed'
         if App.get('token') && App.get('token').length > 0
           App.set 'resendConfirmationAppToken', App.get 'token'
-          @logout()
-          App.__container__.lookup('router:main').transitionTo 'logout', queryParams: { confirmationLapsed: true }
+          App.logout ->
+            App.trigger 'confirmation-lapsed'
         if jqxhr.responseJSON.error_description
           App.snackbar.post(jqxhr.responseJSON.error_description)
     ajax
