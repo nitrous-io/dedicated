@@ -22,7 +22,8 @@
           = each model.unaccounted
             tr
               td title=id
-                = truncate id 12
+                a href=providerUrl
+                  = truncate id 12
               td = state
               td = ipAddress
               td = freighterdPort
@@ -48,7 +49,14 @@
   h3
     ' OK:
     = model.ok.length
-  = render 'admin/host' model.ok
+  h4
+    ' Assigned:
+    = model.assigned.length
+  = render 'admin/host' model.assigned
+  h4
+    ' Preprovisioned:
+    = model.preprovisioned.length
+  = render 'admin/host' model.preprovisioned
 
 .card-footer.bordered
   link-to 'home' | Back to home

@@ -11,3 +11,8 @@ App.LiveHost = App.Model.extend
   isRunning: (->
     @get('state') == 'Running'
   ).property 'state'
+
+  providerUrl: (->
+    if @get('provider') == 'digitalocean'
+      "https://cloud.digitalocean.com/droplets/#{@get('id')}"
+  ).property 'id'
