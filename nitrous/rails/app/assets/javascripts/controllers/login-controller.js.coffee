@@ -1,5 +1,4 @@
 App.LoginController = Em.Controller.extend
-  queryParams: ['confirmationLapsed']
   confirmationLapsed: false
 
   confirmationLapsedResendable: (->
@@ -13,6 +12,7 @@ App.LoginController = Em.Controller.extend
   loggingIn: false
 
   doLogin: (login, password) ->
+    @set 'confirmationLapsed', false
     @set 'loggingIn', true
     @set 'error', null
     App.authenticate(login, password).then((token) =>
