@@ -400,16 +400,6 @@ var _ = Describe("biller", func() {
 				Invoice: inv,
 				Items:   []invoiceitem.InvoiceItem{item1, item2},
 			}
-
-			u.BillingEnabled = true
-		})
-
-		It("should not continue if billing is not enabled", func() {
-			u.BillingEnabled = false
-
-			err := b.ProcessStripe(i)
-			Expect(err).To(BeNil())
-			Expect(fakeStripe.ReceivedRequests).To(BeEmpty())
 		})
 
 		It("should return an error if the billing profile does not exist", func() {

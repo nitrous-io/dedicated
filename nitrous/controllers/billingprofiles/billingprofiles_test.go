@@ -69,10 +69,6 @@ var _ = Describe("controllers/billingprofiles", func() {
 		stripe.Key = "sk_key"
 		fakeStripe = &FakeStripe{}
 		stripe.SetBackend(fakeStripe)
-
-		// TODO - FFLAG payments
-		_, err = db.Exec("UPDATE users SET billing_enabled = true WHERE id = $1", u.ID)
-		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {

@@ -797,5 +797,11 @@ func init() {
 				ALTER TABLE regions ADD COLUMN disabled_at timestamp without time zone DEFAULT NULL;
 			`,
 		},
+		{
+			Version: "710",
+			Up: `
+				ALTER TABLE users DROP COLUMN billing_enabled;
+			`,
+		},
 	}
 }

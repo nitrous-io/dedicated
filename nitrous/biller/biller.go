@@ -199,10 +199,6 @@ func (b *Biller) submitRecentlyDeferred() error {
 func (b *Biller) processStripe(i *InvoiceResult) error {
 	inv := i.Invoice
 	items := i.Items
-	if !b.user.BillingEnabled {
-		b.logger.Warnf("biller: billing disabled for user %d", b.user.ID)
-		return nil
-	}
 
 	bp, err := billingprofile.Find(b.db, b.user.ID)
 	if err != nil || bp == nil || bp.StripeID.String == "" {
