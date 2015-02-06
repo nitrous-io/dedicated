@@ -114,6 +114,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	return &host.Info{
 		Provider:       h.DriverName(),
 		ID:             h.ID,
+		Name:           h.Name,
 		IPAddress:      "127.0.0.1",
 		FreighterdPort: uint16(getFreighterdPort(container)),
 		State:          getState(container),
@@ -136,6 +137,7 @@ func (h *Host) Info() (*host.Info, error) {
 	return &host.Info{
 		Provider:       h.DriverName(),
 		ID:             h.ID,
+		Name:           h.Name,
 		IPAddress:      "127.0.0.1",
 		FreighterdPort: uint16(getFreighterdPort(container)),
 		State:          getState(container),
@@ -155,13 +157,17 @@ func (h *Host) List() ([]*host.Info, error) {
 			return nil, err
 		}
 
-		ret = append(ret, &host.Info{
+		h := &host.Info{
 			Provider:       h.DriverName(),
 			ID:             cn.ID,
 			IPAddress:      "127.0.0.1",
 			FreighterdPort: uint16(getFreighterdPort(container)),
 			State:          getState(container),
-		})
+		}
+		if len(cn.Names) > 0 {
+			h.Name = cn.Names[0]
+		}
+		ret = append(ret, h)
 	}
 	return ret, nil
 }

@@ -11,6 +11,7 @@ import (
 
 type Host struct {
 	ID             string `json:"id"`
+	Name           string `json:"name"`
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort int64  `json:"freighterd_port"`
 	DestroySuccess bool   `json:"destroy"`
@@ -50,6 +51,7 @@ func (h *Host) Info() (*host.Info, error) {
 	return &host.Info{
 		Provider:       h.DriverName(),
 		ID:             h.ID,
+		Name:           h.Name,
 		IPAddress:      h.IPAddress,
 		FreighterdPort: uint16(h.FreighterdPort),
 		State:          state.Running,
@@ -71,6 +73,7 @@ func (h *Host) List() ([]*host.Info, error) {
 		{
 			Provider:       h.DriverName(),
 			ID:             "abcd",
+			Name:           "ABCD",
 			IPAddress:      "1.2.3.4",
 			FreighterdPort: uint16(60001),
 			State:          state.Running,
@@ -78,6 +81,7 @@ func (h *Host) List() ([]*host.Info, error) {
 		{
 			Provider:       h.DriverName(),
 			ID:             "bcde",
+			Name:           "BCDE",
 			IPAddress:      "1.2.3.5",
 			FreighterdPort: uint16(60002),
 			State:          state.Running,

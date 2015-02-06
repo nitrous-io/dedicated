@@ -60,6 +60,7 @@ var _ = Describe("hostbuilder", func() {
 		It("should successfully create a host and respond with host's info", func() {
 			h := &dummy.Host{
 				ID:            "123",
+				Name:          "Created",
 				CreateSuccess: true,
 			}
 			srv, err := setupDummyHost(h)
