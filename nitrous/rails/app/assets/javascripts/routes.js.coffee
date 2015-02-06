@@ -38,5 +38,5 @@ App.Router.map ->
     @resource 'provider-templates', path: '/provider-templates'
     @resource 'provider-template', path: '/provider-templates/:ptid'
 
-  @resource 'admin', ->
-    @route 'hosts', path: 'hosts/:provider'
+    @resource 'admin', path: '/admin', ->
+      @route 'hosts', path: '/hosts/:provider'

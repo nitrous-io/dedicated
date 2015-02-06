@@ -10,6 +10,9 @@ App.AdminHostsRoute = App.AdminRoute.extend App.PerformActionMixin,
     @set('provider', params.provider)
     App.AdminHosts.fetch(params.provider)
 
+  renderTemplate: ->
+    @render 'admin/hosts', outlet: 'content'
+
   actions:
     restart: (host) ->
       App.snackbar.post("Restarting host “#{host.get('slug')}”.")

@@ -12,6 +12,7 @@ App.AdminHosts = klass = App.Model.extend
       primaryKey[App.Host.primaryKey] = attrs[App.Host.primaryKey]
       host = App.Host.newRecord(primaryKey)
       host.load(attrs)
+      host.set 'preprovisioned', attrs.preprovisioned
       liveHost = liveHosts.findBy('id', host.get('providerIdentifier'))
       if liveHost
         host.set('liveHost', liveHost)
@@ -49,6 +50,16 @@ App.AdminHosts = klass = App.Model.extend
     @get('dbHosts').filter (dbHost) ->
       !dbHost.get('liveHost')
   ).property 'dbHosts.@each', 'liveHosts.@each'
+
+  preprovisioned: (->
+    @get('ok').filter (okHost) ->
+      okHost.get('preprovisioned')
+  ).property 'ok'
+
+  assigned: (->
+    @get('ok').filter (okHost) ->
+      !okHost.get('preprovisioned')
+  ).property 'ok'
 
   # Hosts that are fine.
   _ok: attr('object', as: 'ok')
