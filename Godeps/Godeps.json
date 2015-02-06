@@ -89,6 +89,18 @@
 			"Rev": "7fa7c42ce2f151d438ad83fd2dcd5a0679015618"
 		},
 		{
+			"ImportPath": "github.com/facebookgo/clock",
+			"Rev": "41df9c4b742349146d28ac5d8caa45161209f3fc"
+		},
+		{
+			"ImportPath": "github.com/facebookgo/httpdown",
+			"Rev": "1c143bb4362a4f297f9cabd74bf0d05ee2b4f5dc"
+		},
+		{
+			"ImportPath": "github.com/facebookgo/stats",
+			"Rev": "a8126df93b2406675168d2930b6d3db46ffb805c"
+		},
+		{
 			"ImportPath": "github.com/fsouza/go-dockerclient",
 			"Comment": "0.2.1-274-g4b6c75c",
 			"Rev": "4b6c75c1d58fbbbaae680348f56fd61b35d2f3ee"

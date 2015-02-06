@@ -9,13 +9,14 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/nitrous-common/flusher"
-	"github.com/rcrowley/go-metrics"
+	metrics "github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
 )
 
@@ -117,6 +118,12 @@ type config struct {
 	// librato settings
 	LibratoUser  string `json:"librato_user"`
 	LibratoToken string `json:"librato_token"`
+
+	// max time to wait for graceful stop, in seconds
+	StopTimeout int `json:"stop_timeout"`
+
+	// start the server in debug mode
+	Debug bool `json:"debug"`
 }
 
 type Server struct {
@@ -285,6 +292,27 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// sleep waits for a defined seconds and then finishes the request
+// This is useful for testing graceful shutdown and should only be enabled in
+// debug mode
+func (s *Server) sleep(w http.ResponseWriter, r *http.Request) (err error) {
+	if !s.Config.Debug {
+		return nil
+	}
+	var duration = 60 // duration in seconds
+	r.URL.Query()
+	if d := r.FormValue("duration"); d != "" {
+		duration, err = strconv.Atoi(d)
+		if err != nil {
+			return err
+		}
+	}
+	log.Printf("/test/sleep - sleeping for %d seconds", duration)
+	time.Sleep(time.Duration(duration) * time.Second)
+	fmt.Fprintf(w, "sleep for %d seconds OK", duration)
+	return nil
+}
+
 func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 	// TODO This is independent of any particular host so we don't need to use
 	// host-specific form data.
@@ -357,6 +385,9 @@ func (s *Server) CreateRouter() {
 			"/hosts/restart": s.restartHost,
 		},
 	}
+	if s.Config.Debug {
+		m["GET"]["/test/sleep"] = s.sleep
+	}
 	for method, routes := range m {
 		for route, handler := range routes {
 			localRoute := route
@@ -379,7 +410,7 @@ func New(configData []byte) (*Server, error) {
 	server.CreateRouter()
 
 	if config.LibratoUser == "" || config.LibratoToken == "" {
-		log.Printf("missing librato config. Metrics logging is disabled")
+		log.Print("missing librato config. Metrics logging is disabled")
 		// in dev, we flush metrics every 60s into devNull
 		// because we are not interested in them
 		go metrics.Log(metrics.DefaultRegistry, 60e9,
