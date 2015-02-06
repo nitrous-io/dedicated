@@ -3,7 +3,7 @@
 Lib.Socket = Em.Object.extend Em.Evented,
   url: null
   connected: false
-  offline: Em.computed.not 'connected'
+  disconnected: Em.computed.not 'connected'
 
   init: ->
     @_super.apply this, arguments

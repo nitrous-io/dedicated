@@ -88,9 +88,10 @@ window.NitrousTerminal =
     @close()
     @term?.destroy()
 
-  close: ->
-    @conn?.close()
-    @willOpen = null
+  close: (retry=false) ->
+    @conn?.close(retry)
+    if !retry
+      @willOpen = null
 
   focus: ->
     @term?.focus()

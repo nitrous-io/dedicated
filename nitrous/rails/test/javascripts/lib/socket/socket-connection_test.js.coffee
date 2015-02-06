@@ -104,9 +104,16 @@ describe 'SocketConnection', ->
       beforeEach ->
         conn.ws = sinon.stub(close: ->)
 
-      it 'delegates to underlying websocket instance', ->
+      it 'closes websocket connection, and prohibits auto-reconnection', ->
         conn.close()
         expect(conn.ws.close.calledOnce).to.be.true 'ws.close is called once'
+        expect(conn.ws._noRetry).to.be.true '_noRetry is flag is set to be true'
+
+      context 'when true is passed as an argument', ->
+        it 'closes websocket connection, but allows it to be automatically reconnected', ->
+          conn.close(true)
+          expect(conn.ws.close.calledOnce).to.be.true 'ws.close is called once'
+          expect(conn.ws._noRetry).to.be.false '_noRetry is flag is set to be false'
 
     describe 'auto reconnect', ->
       beforeEach ->
