@@ -2,11 +2,13 @@ package biller_test
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/biller"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
@@ -400,36 +402,37 @@ var _ = Describe("biller", func() {
 				Invoice: inv,
 				Items:   []invoiceitem.InvoiceItem{item1, item2},
 			}
-
-			u.BillingEnabled = true
-		})
-
-		It("should not continue if billing is not enabled", func() {
-			u.BillingEnabled = false
-
-			err := b.ProcessStripe(i)
-			Expect(err).To(BeNil())
-			Expect(fakeStripe.ReceivedRequests).To(BeEmpty())
 		})
 
 		It("should return an error if the billing profile does not exist", func() {
-			err := b.ProcessStripe(i)
+			_, err := db.Exec("DELETE FROM billing_profiles WHERE user_id = $1;", u.ID)
+			Expect(err).To(BeNil())
+			err = b.ProcessStripe(i)
 			Expect(err).ToNot(BeNil())
-			Expect(err.Error()).To(ContainSubstring("biller: failure obtaining billing profile for user"))
+			Expect(err.Error()).To(ContainSubstring("biller: skipping stripe, failure obtaining billing profile for user"))
 		})
 
-		It("should throw and error if the billing profile exists but without a StripeID", func() {
-			_, err := db.Exec("UPDATE billing_profiles SET stripe_id = '' WHERE user_id = $1;", u.ID)
+		It("should throw and error if the billing profile is in free state", func() {
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StateFree, u.ID)
 			Expect(err).To(BeNil())
 
 			err = b.ProcessStripe(i)
 			Expect(err).ToNot(BeNil())
-			Expect(err.Error()).To(ContainSubstring("biller: failure obtaining billing profile for user"))
+			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("biller: skipping stripe, billing profile for user %d is in state free", u.ID)))
+		})
+
+		It("should throw and error if the billing profile exists but without a StripeID", func() {
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1, stripe_id = '' WHERE user_id = $2;", billingprofile.StatePaid, u.ID)
+			Expect(err).To(BeNil())
+
+			err = b.ProcessStripe(i)
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("biller: skipping stripe, billing profile for user %d lacks StripeID", u.ID)))
 		})
 
 		Context("with a valid billing profile", func() {
 			BeforeEach(func() {
-				_, err := db.Exec("UPDATE billing_profiles SET stripe_id = 'St17' WHERE user_id = $1;", u.ID)
+				_, err := db.Exec("UPDATE billing_profiles SET state = $1, stripe_id = 'St17' WHERE user_id = $2;", billingprofile.StatePaid, u.ID)
 				Expect(err).To(BeNil())
 
 				i.Invoice.TotalCharge = biller.MinimumInvoiceAmount - 1

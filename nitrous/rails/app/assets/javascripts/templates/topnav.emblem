@@ -53,12 +53,8 @@
         ul.dropdown-menu.right
           li
             link-to 'account' | Account Settings
-          if App.user.billingEnabled
-            li
-              link-to 'billing' | Billing
-          else
-            li.disabled
-              a.noclick href='#' Billing
+          li
+            link-to 'billing' | Billing
           li.separator
           li
             a href='http://docs.nitrous.io/' target='_blank' Help
