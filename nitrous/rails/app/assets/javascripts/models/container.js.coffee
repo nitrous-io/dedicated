@@ -64,12 +64,18 @@ App.Container = klass = App.Model.extend
   ).property 'config.port'
 
   sshURL: (->
-    return unless @get('sshEnabled') && @get('sshPort')
-    user = @get 'loginUsername'
+    return unless @get('sshEnabled') && @get('sshPort') && @get('sshKeysAdded')
+
+    user = @get('loginUsername') || 'root'
     hostname = @get 'hostname'
     sshPort = @get 'sshPort'
     "ssh://#{user}@#{hostname}:#{sshPort}"
-  ).property 'sshEnabled', 'loginUsername', 'hostname', 'sshPort'
+  ).property 'sshEnabled', 'sshKeysAdded', 'loginUsername', 'hostname', 'sshPort'
+
+  sshKeysAdded: (->
+    sshKeys = @get('keys')
+    sshKeys?.content?.length > 0
+  ).property 'keys', 'keys.@each'
 
   previewURL: (->
     host = @get 'previewHostname'
