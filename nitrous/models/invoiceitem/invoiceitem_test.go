@@ -88,7 +88,7 @@ var _ = Describe("models/invoiceitem", func() {
 		})
 
 		It("should be able to display terminated state", func() {
-			hst.State = host.StateTerminated
+			inv.Terminated = true
 			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' (terminated) 900 hours at 1.231c/hour"))
 		})
 

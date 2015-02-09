@@ -48,7 +48,7 @@ func ItemDescription(i *InvoiceItem, hst *host.Host) string {
 	}
 	state := ""
 	// FIXME: handle future states such as suspended (snapshot/resume)
-	if hst.State == host.StateTerminated {
+	if i.Terminated {
 		state = " (terminated)"
 	}
 	prcnt := strings.TrimSuffix(fmt.Sprintf("%.3f", i.HourlyCents()), "0")
