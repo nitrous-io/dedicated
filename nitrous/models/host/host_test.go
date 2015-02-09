@@ -135,15 +135,25 @@ var _ = Describe("models/host", func() {
 			err = WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
+			// insert a valid running host
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version)
 				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
 				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv)
 			Expect(err).To(BeNil())
+
+			// insert a terminated host
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, now());`,
 				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv)
+			Expect(err).To(BeNil())
+
+			// insert a orphaned host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8);`,
+				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, "orphan")
 			Expect(err).To(BeNil())
 		})
 
