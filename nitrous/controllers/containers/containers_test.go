@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -1201,11 +1202,12 @@ var _ = Describe("controllers/containers", func() {
 	})
 
 	type controlTestInputs struct {
-		action            string
-		actionCounter     *int
-		actionError       *error
-		expectedState     string
-		expectedEventName controllers.EventName
+		action             string
+		actionCounter      *int
+		actionError        *error
+		tempState          string
+		expectedState      string
+		expectedEventNames []controllers.EventName
 	}
 
 	itBehavesLikeAControlAction := func(inputs *controlTestInputs) {
@@ -1295,22 +1297,42 @@ var _ = Describe("controllers/containers", func() {
 			expectSerializedContainer(j.Container)
 		})
 
-		It("publishes a container.{action} event with the container", func(done Done) {
+		It("publishes a state transition events for the container", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
 			doRequest("elixir-web-1")
 
-			msg := <-ch
-			evt, ok := msg.(*controllers.Event)
-			Expect(ok).To(BeTrue())
-			Expect(evt.Name).To(Equal(inputs.expectedEventName))
+			msgs := []pubsub.Message{}
+			finished := make(chan struct{})
+			go func() {
+				msgs = append(msgs, <-ch, <-ch)
+				close(finished)
+			}()
 
-			cn, ok := evt.Data.(map[string]*serializers.Container)
-			Expect(ok).To(BeTrue())
-			expectSerializedContainer(cn["container"])
+			select {
+			case <-time.After(100 * time.Millisecond):
+				Fail(fmt.Sprintf("timeout while waiting for %s", inputs.action))
+			case <-finished:
+				// evt1 - when invoking the action
+				evt1, ok := msgs[0].(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt1.Name).To(Equal(inputs.expectedEventNames[0]))
 
-			close(done)
+				cn, ok := evt1.Data.(map[string]*serializers.Container)
+				Expect(ok).To(BeTrue())
+				Expect(cn["container"].ID).To(Equal(c.ID))
+				Expect(cn["container"].State).To(Equal(inputs.tempState))
+
+				// evt2 - after completing the action
+				evt2, ok := msgs[1].(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt2.Name).To(Equal(inputs.expectedEventNames[1]))
+
+				cn, ok = evt2.Data.(map[string]*serializers.Container)
+				Expect(ok).To(BeTrue())
+				expectSerializedContainer(cn["container"])
+			}
 		})
 
 		It("unlocks the container after the action", func() {
@@ -1318,14 +1340,14 @@ var _ = Describe("controllers/containers", func() {
 
 			// check if the container is locakable
 			expiresIn := time.Duration(5) * time.Second
-			err := c.Lock(expiresIn, db)
+			err := c.Lock(container.StateStopping, expiresIn, db)
 			Expect(err).To(BeNil())
 		})
 
 		Context("when container is already locked", func() {
 			It("responds with HTTP 409 Conflict", func() {
 				expiresIn := time.Duration(5) * time.Second
-				err := c.Lock(expiresIn, db)
+				err := c.Lock(container.StateStopping, expiresIn, db)
 				Expect(err).To(BeNil())
 
 				doRequest("elixir-web-1")
@@ -1448,8 +1470,9 @@ var _ = Describe("controllers/containers", func() {
 			i.action = "start"
 			i.actionCounter = &mockClient.StartCalled
 			i.actionError = &mockClient.StartError
+			i.tempState = "starting"
 			i.expectedState = "running"
-			i.expectedEventName = controllers.EventContainerStarted
+			i.expectedEventNames = []controllers.EventName{controllers.EventContainerStarting, controllers.EventContainerStarted}
 		})
 
 		itBehavesLikeAControlAction(i)
@@ -1493,8 +1516,9 @@ var _ = Describe("controllers/containers", func() {
 			i.action = "stop"
 			i.actionCounter = &mockClient.StopCalled
 			i.actionError = &mockClient.StopError
+			i.tempState = "stopping"
 			i.expectedState = "stopped"
-			i.expectedEventName = controllers.EventContainerStopped
+			i.expectedEventNames = []controllers.EventName{controllers.EventContainerStopping, controllers.EventContainerStopped}
 		})
 
 		itBehavesLikeAControlAction(i)
@@ -1507,8 +1531,9 @@ var _ = Describe("controllers/containers", func() {
 			i.action = "restart"
 			i.actionCounter = &mockClient.RestartCalled
 			i.actionError = &mockClient.RestartError
+			i.tempState = "restarting"
 			i.expectedState = "running"
-			i.expectedEventName = controllers.EventContainerRestarted
+			i.expectedEventNames = []controllers.EventName{controllers.EventContainerRestarting, controllers.EventContainerRestarted}
 		})
 
 		itBehavesLikeAControlAction(i)
@@ -1612,28 +1637,48 @@ var _ = Describe("controllers/containers", func() {
 			Expect(c).To(BeNil())
 		})
 
-		It("publishes a container destroyed event with the destroyed container", func(done Done) {
+		It("publishes a container destroyed event with the destroyed container", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
 			doRequest()
 
-			msg := <-ch
-			evt, ok := msg.(*controllers.Event)
-			Expect(ok).To(BeTrue())
-			Expect(evt.Name).To(Equal(controllers.EventContainerDestroyed))
+			msgs := []pubsub.Message{}
+			finished := make(chan struct{})
+			go func() {
+				msgs = append(msgs, <-ch, <-ch)
+				close(finished)
+			}()
 
-			evtData, ok := evt.Data.(map[string]*serializers.Container)
-			Expect(ok).To(BeTrue())
-			expectSerializedContainer(evtData["container"])
+			select {
+			case <-time.After(100 * time.Millisecond):
+				Fail("timeout while waiting for destroy")
+			case <-finished:
+				// evt1 - when invoking the action
+				evt1, ok := msgs[0].(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt1.Name).To(Equal(controllers.EventContainerDestroying))
 
-			close(done)
+				cn, ok := evt1.Data.(map[string]*serializers.Container)
+				Expect(ok).To(BeTrue())
+				Expect(cn["container"].ID).To(Equal(c.ID))
+				Expect(cn["container"].State).To(Equal("terminating"))
+
+				// evt2 - after completing the action
+				evt2, ok := msgs[1].(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt2.Name).To(Equal(controllers.EventContainerDestroyed))
+
+				cn, ok = evt2.Data.(map[string]*serializers.Container)
+				Expect(ok).To(BeTrue())
+				expectSerializedContainer(cn["container"])
+			}
 		})
 
 		Context("when container is locked", func() {
 			It("responds with HTTP 409 Conflict", func() {
 				expiresIn := time.Duration(5) * time.Second
-				err := c.Lock(expiresIn, db)
+				err := c.Lock(container.StateStopping, expiresIn, db)
 				Expect(err).To(BeNil())
 
 				doRequest()
@@ -1735,7 +1780,7 @@ var _ = Describe("controllers/containers", func() {
 		Context("when container is locked", func() {
 			BeforeEach(func() {
 				expiresIn := 5 * time.Second
-				err := c.Lock(expiresIn, db)
+				err := c.Lock(container.StateStopping, expiresIn, db)
 				Expect(err).To(BeNil())
 			})
 
