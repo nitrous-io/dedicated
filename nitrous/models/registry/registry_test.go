@@ -1,6 +1,7 @@
 package registry_test
 
 import (
+	"database/sql"
 	"strconv"
 	"testing"
 
@@ -113,9 +114,9 @@ var _ = Describe("models/registry", func() {
 				Expect(r.URL).To(Equal("hub.example.com"))
 			})
 
-			It("returns nil without an error when record does not exist", func() {
+			It("returns an error when record does not exist", func() {
 				r, err := registry.Find(db, hs.U.ID, hs.H.ID, "9999")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(r).To(BeNil())
 			})
 		})
@@ -130,9 +131,9 @@ var _ = Describe("models/registry", func() {
 				Expect(r.URL).To(Equal("hub.example.com"))
 			})
 
-			It("returns nil without an error when record does not exist", func() {
+			It("returns an error when record does not exist", func() {
 				r, err := registry.Find(db, hs.U.ID, hs.H.ID, "fail.example.com")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(r).To(BeNil())
 			})
 		})
