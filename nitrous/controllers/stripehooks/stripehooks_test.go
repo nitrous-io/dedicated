@@ -29,7 +29,6 @@ var _ = Describe("controllers/stripehooks", func() {
 	var (
 		fakeStripe *FakeStripe
 		db         *db.Database
-		u          *user.User
 		svr        *server.Server
 
 		succeedFnCalled        bool
@@ -65,7 +64,7 @@ var _ = Describe("controllers/stripehooks", func() {
 			failedFnCalled = true
 		}
 
-		u = &user.User{
+		u := &user.User{
 			Username: "foo",
 			Email:    "foo@example.com",
 			Password: "123456",
@@ -115,11 +114,28 @@ var _ = Describe("controllers/stripehooks", func() {
 				return len(fakeStripe.ReceivedRequests)
 			}).Should(Equal(1))
 
-			rec := fakeStripe.ReceivedRequests[0]
-			Expect(rec["method"]).To(Equal("GET"))
-			Expect(rec["path"]).To(Equal("/events/evt_158gxvAOjoYioo6erVsU1zBV"))
+			req := fakeStripe.ReceivedRequests[0]
+			Expect(req["method"]).To(Equal("GET"))
+			Expect(req["path"]).To(Equal("/events/evt_158gxvAOjoYioo6erVsU1zBV"))
+
+			// These are false because the event type is neither payment
+			// succeeded or payment failed.
 			Expect(succeedFnCalled).To(BeFalse())
 			Expect(failedFnCalled).To(BeFalse())
+		})
+
+		It("should not handle invoices that are not found in the database", func() {
+			fakeStripe.Responses = []string{`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded", "data": {"object": {"id": "invalid-invoice-id"}}}`}
+
+			succeedFnCalled = false
+			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Eventually(func() int {
+				return len(fakeStripe.ReceivedRequests)
+			}).Should(Equal(1))
+
+			Expect(succeedFnCalled).To(BeFalse())
 		})
 
 		It("should handle the payment as succeeded if invoice.payment_succeeded", func() {
