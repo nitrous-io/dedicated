@@ -30,9 +30,6 @@ func FindByUser(d db.QueryReceiver, userID int64) (*Token, error) {
 	t := &Token{}
 	err := d.Get(t, "SELECT * FROM tokens WHERE user_id = $1 ORDER BY created_at DESC", userID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return t, nil
@@ -42,9 +39,6 @@ func FindByToken(d db.QueryReceiver, token string) (*Token, error) {
 	t := &Token{}
 	err := d.Get(t, "SELECT * FROM tokens WHERE token = $1", token)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return t, nil
