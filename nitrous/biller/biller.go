@@ -563,6 +563,7 @@ func InvoiceItemsForUsages(usages []hosttransition.HostHourUsage, logger *logger
 			Hours:       sql.NullInt64{int64(hrs), true},
 			HourlyPrice: sql.NullInt64{usage.HourlyPrice, true},
 			HostID:      sql.NullInt64{usage.HostID, true},
+			Terminated:  usage.Terminated,
 		}
 		items[indx] = i
 		totalCharge += i.TotalCharge()
