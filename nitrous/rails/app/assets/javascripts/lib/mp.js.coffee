@@ -60,7 +60,9 @@ window.mp =
       p['distinct_id'] = user.get('id').toString()
 
     Object.assign(p, properties)
+    mixpanel.register_once('First Time': 'TRUE')
     mixpanel.track(eventName, p)
+    mixpanel.register('First Time': 'FALSE')
 
   increment: (property, value=1) ->
     return false unless @initialized && @identified
