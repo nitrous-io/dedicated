@@ -39,6 +39,9 @@ App.ContainerIndexView = Em.View.extend
     confirmSnapshot: ->
       @get('controller').send 'snapshot'
 
+  clickTerminate: =>
+    @$('.terminate-btn').click()
+
 lpadZero = (n) ->
   return n if n > 9
   "0#{n}"
