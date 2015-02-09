@@ -58,7 +58,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		return nil, errMultipleContainerCreationNotAllowed
 	}
 
-	cnCreate, err := h.CanCreateMoreContainers(tx)
+	cnCreate, err := h.CanCreateMoreContainers(tx, env.User)
 	if err != nil {
 		env.Logger.Errorf("Error checking CanCreateMoreContainers, err: %v", err)
 	} else {
