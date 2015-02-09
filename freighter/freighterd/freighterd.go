@@ -8,6 +8,7 @@ import (
 	"path"
 	"strconv"
 
+	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/server"
 	"github.com/nitrous-io/dedicated/freighter/util"
@@ -33,6 +34,9 @@ func main() {
 	if reexec.Init() {
 		return
 	}
+
+	// re-export the version so that it can be read elsewhere
+	config.Version = version
 
 	var (
 		flVersion    = flag.Bool("v", false, "Display the version and exit")

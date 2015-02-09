@@ -5,4 +5,5 @@ var (
 	// default header to read forwarded fort for preview. Tender should write
 	// the port to this header
 	ForwardPortHeader = "X-FORWARDED-PORT"
+	Version           string
 )

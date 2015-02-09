@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/dedicated/freighter/config"
@@ -576,6 +578,42 @@ func (s *Server) serverInfo(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"info": stats})
+	return nil
+}
+
+var (
+	dockerHost = "unix:///var/run/docker.sock"
+)
+
+func getDockerVersion() (string, error) {
+	client, err := dockerclient.NewClient(dockerHost)
+	if err != nil {
+		return "", err
+	}
+	env, err := client.Version()
+	if err != nil {
+		return "", err
+	}
+	version := env.Get("Version")
+	gitCommit := env.Get("GitCommit")
+	if version == "" && gitCommit == "" {
+		return "", errors.New("no Version or GitCommit")
+	}
+	if gitCommit == "" {
+		return version, nil
+	}
+	return version + "-" + gitCommit, nil
+}
+
+// /versions
+func (s *Server) serverVersions(w http.ResponseWriter, r *http.Request) error {
+	v := map[string]interface{}{
+		"freighterd_version": config.Version,
+	}
+	if dockerVer, err := getDockerVersion(); err == nil {
+		v["docker_version"] = dockerVer
+	}
+	s.respondEncodeJSON(w, http.StatusOK, v)
 	return nil
 }
 

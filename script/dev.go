@@ -239,7 +239,7 @@ func tenderCommand(name string, stdout io.Writer, prefix string) *exec.Cmd {
 
 func nitrousCommand(stdout io.Writer, prefix string) *exec.Cmd {
 	w := newPrefixWriter(stdout, prefix)
-	cmd := exec.Command("forego", "start", "-f", "nitrous/Procfile.dev")
+	cmd := exec.Command("forego", "start", "-f", "nitrous/Procfile.dev", "-e", "nitrous/.env")
 	cmd.Stdout = w
 	cmd.Stderr = w
 	return cmd

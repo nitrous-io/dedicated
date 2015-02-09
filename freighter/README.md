@@ -802,6 +802,27 @@ Content-Type: application/json; charset=utf-8
 - **200** - ok
 - **404** - no such container
 
+### Get version info
+
+`GET /hosts/(host slug)/versions`
+
+**Example request**:
+
+```
+GET /hosts/myhost/versions HTTP/1.1
+```
+
+**Example response**:
+
+```javascript
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+
+{
+  "docker_version": "1.4.1-nitrous1",
+  "freighterd_version": "0.1.26+1423460220-430-28bb6b0",
+}
+```
 
 - - -
 Copyright (c) 2014 Irrational Industries, Inc. d.b.a. Nitrous.IO. All Rights Reserved.

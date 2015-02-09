@@ -2332,5 +2332,80 @@ var _ = Describe("client", func() {
 				})
 			})
 		})
+
+		Describe("HostVersions()", func() {
+			BeforeEach(func() {
+				handlers := ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/versions"),
+					ghttp.VerifyContentType("application/json"),
+					ghttp.RespondWithPtr(&statusCode, &responseBody),
+				)
+
+				var err error
+				st, err = NewServerTest(handlers)
+				Expect(err).To(BeNil(), "test server failed to start")
+				cl, host, server = st.client, st.host, st.server
+			})
+
+			AfterEach(func() {
+				st.Close()
+			})
+
+			Context("when the response is HTTP 200 OK", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusOK
+				})
+
+				Context("when the response has version info", func() {
+					BeforeEach(func() {
+						responseBody = `{
+							"docker_version":"1.2-docker",
+							"freighterd_version":"1.3-freight"
+					}`
+					})
+
+					It("returns version", func() {
+						verInfo, err := cl.HostVersions()
+						Expect(err).To(BeNil())
+						Expect(verInfo).NotTo(BeNil())
+						Expect(server.ReceivedRequests()).To(HaveLen(1))
+
+						Expect(verInfo).To(Equal(&freighterclient.HostVersions{
+							DockerVersion:     "1.2-docker",
+							FreighterdVersion: "1.3-freight",
+						}))
+					})
+				})
+
+				Context("when the response is empty", func() {
+					BeforeEach(func() {
+						responseBody = ``
+					})
+
+					It("returns ErrUnexpectedResponse", func() {
+						verInfo, err := cl.HostVersions()
+						Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
+						Expect(server.ReceivedRequests()).To(HaveLen(1))
+						Expect(verInfo).To(BeNil())
+					})
+				})
+			})
+
+			Context("when the response is not HTTP 200 OK nor HTTP 404 Not Found", func() {
+				BeforeEach(func() {
+					statusCode = http.StatusInternalServerError
+				})
+
+				It("returns a StatusError", func() {
+					ver, err := cl.HostVersions()
+					Expect(err).NotTo(BeNil())
+					_, ok := err.(*freighterclient.StatusError)
+					Expect(ok).To(BeTrue())
+					Expect(server.ReceivedRequests()).To(HaveLen(1))
+					Expect(ver).To(BeNil())
+				})
+			})
+		})
+
 	})
 })

@@ -82,6 +82,11 @@ type Host struct {
 	HourlyPrice int64 `db:"hourly_price"`
 
 	*ProviderTemplate
+
+	// not the ideal but convenient place so that it's easy to construct
+	// serializers.Host out of it. Data comes from freighterd, not database
+	LiveDockerVersion     string
+	LiveFreighterdVersion string
 }
 
 func FindAllByProvider(db *db.Database, provider string) ([]Host, error) {
