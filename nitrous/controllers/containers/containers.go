@@ -499,10 +499,10 @@ func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *mi
 
 		cn, err := container.Find(db, env.User, mux.Vars(r)["slug"])
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return errContainerNotFound
+			}
 			return err
-		}
-		if cn == nil {
-			return errContainerNotFound
 		}
 
 		h, err := host.Find(db, env.User, strconv.FormatInt(cn.HostID, 10))

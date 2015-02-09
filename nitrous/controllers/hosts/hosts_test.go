@@ -618,7 +618,7 @@ var _ = Describe("controllers/hosts", func() {
 				doRequest(hs.H.Slug, t.Token)
 
 				c2, err = container.Find(db, hs.U, c.Slug)
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(c2).To(BeNil())
 			})
 
