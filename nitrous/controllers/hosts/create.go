@@ -228,10 +228,10 @@ func buildCreateOptions(r *http.Request) (*createOpts, error) {
 func findPlan(db ndb.QueryReceiver, size string) (*plan.Plan, error) {
 	pl, err := plan.FindBySlug(db, size)
 	if err != nil {
+		if err != nil {
+			return nil, errPlanNotFound
+		}
 		return nil, fmt.Errorf("no matching plan for '%s', error %s", size, err)
-	}
-	if pl == nil {
-		return nil, errPlanNotFound
 	}
 	return pl, nil
 }
