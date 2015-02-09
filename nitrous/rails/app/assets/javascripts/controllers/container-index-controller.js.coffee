@@ -25,8 +25,10 @@ App.ContainerIndexController = Em.ObjectController.extend App.PerformActionMixin
 
     terminate: ->
       name = @get 'model.displayName'
-      @performActionWithTempState('DELETE', null, 'terminating').then ->
+      hostSlug = @get 'model.host.slug'
+      @performActionWithTempState('DELETE', null, 'terminating').then =>
         App.snackbar.post("Your workspace “#{name}” was successfully terminated.")
+        @transitionToRoute 'host.index', hostSlug
 
     snapshot: ->
       name = @get 'snapshotImageName'
