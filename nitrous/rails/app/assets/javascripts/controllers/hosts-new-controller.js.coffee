@@ -60,7 +60,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
           name: @get 'name'
       @set 'host', host
 
-      if App.get('newUser') && App.get('user.billingEnabled')
+      if App.get('newUser')
         App.set('pendingHost', host)
         @transitionToRoute 'add-card'
         return

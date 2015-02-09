@@ -199,14 +199,16 @@ func (b *Biller) submitRecentlyDeferred() error {
 func (b *Biller) processStripe(i *InvoiceResult) error {
 	inv := i.Invoice
 	items := i.Items
-	if !b.user.BillingEnabled {
-		b.logger.Warnf("biller: billing disabled for user %d", b.user.ID)
-		return nil
-	}
 
 	bp, err := billingprofile.Find(b.db, b.user.ID)
-	if err != nil || bp == nil || bp.StripeID.String == "" {
-		return fmt.Errorf("biller: failure obtaining billing profile for user %d, err: %v", b.user.ID, err)
+	if err != nil || bp == nil {
+		return fmt.Errorf("biller: skipping stripe, failure obtaining billing profile for user %d, err: %v", b.user.ID, err)
+	}
+	if bp.State == billingprofile.StateFree {
+		return fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state free", b.user.ID)
+	}
+	if bp.StripeID.String == "" {
+		return fmt.Errorf("biller: skipping stripe, billing profile for user %d lacks StripeID", b.user.ID)
 	}
 
 	if inv.TotalCharge == 0 {
@@ -515,7 +517,7 @@ func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd
 	// page through the hosts in the DB, 100 at a time
 	for !usersExhausted {
 		users := []user.User{}
-		err := d.Select(&users, `SELECT * FROM users WHERE id > $1 ORDER BY id ASC LIMIT 100;`, lastId)
+		err := d.Select(&users, `SELECT * FROM users WHERE service_account IS FALSE AND id > $1 ORDER BY id ASC LIMIT 100;`, lastId)
 		if err != nil && err != sql.ErrNoRows {
 			l.FatalExit(err)
 		}

@@ -31,19 +31,10 @@ var (
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
 	SecretLocation  = "/etc/freighterd/secret"
 
-	DefaultCreateTimeout = 20 * time.Minute
+	DefaultCreateTimeout = 10 * time.Minute
 	StateWaitTime        = 3 * time.Second
 
 	ErrCreateTimeout = errors.New("timed out creating host")
-
-	// FIXME: the map should belongs to client, not the builder
-	regionsMap = map[string]string{
-		"sgp": "sgp1",
-		"nyc": "nyc3",
-		"sfo": "sfo1",
-		"ams": "ams3",
-		"lon": "lon1",
-	}
 )
 
 type tlsConfig struct {
@@ -79,8 +70,6 @@ type Host struct {
 	sshKey        *godo.Key
 	uuid          string
 	createTimeout time.Duration
-
-	cancelCreate chan struct{}
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -105,7 +94,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{
 			Description: "Creating workspace",
 			Func:        createDroplet,
-			Timeout:     16 * time.Minute,
+			Timeout:     5 * time.Minute,
 		},
 		{
 			Description: "Waiting for the workspace to be ready",
@@ -407,7 +396,6 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		Client:        client,
 		uuid:          defaultConfig["uuid"],
 		createTimeout: createTimeout,
-		cancelCreate:  make(chan struct{}),
 	}
 	return host, nil
 }
@@ -460,14 +448,9 @@ func createDroplet(ctx *host.HostContext) error {
 	sshKey := h.sshKey
 
 	hlog(h, "digitalocean: creating droplet in region %s, size: %s, slug: %s", config.RegionID, config.SizeID, config.Name)
-	normalizedRegion, ok := regionsMap[config.RegionID]
-	if !ok {
-		err := fmt.Errorf("Invalid region or lookup failure: '%s'", config.RegionID)
-		return mh.Error(err, label)
-	}
 	dropletRoot, _, err := h.Client.Droplets.Create(&godo.DropletCreateRequest{
 		Name:   config.Name,
-		Region: normalizedRegion,
+		Region: config.RegionID,
 		Size:   config.SizeID,
 		Image:  config.ImageID,
 		SSHKeys: []interface{}{

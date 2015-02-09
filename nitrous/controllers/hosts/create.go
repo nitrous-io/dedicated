@@ -245,6 +245,9 @@ func findRegion(db ndb.QueryReceiver, regionSlug string) (*region.Region, error)
 	if r == nil {
 		return nil, errRegionNotFound
 	}
+	if r.Disabled() {
+		return nil, errRegionDisabled
+	}
 	return r, nil
 }
 

@@ -24,7 +24,8 @@
                 | -
             td title=liveHost.id
               = if liveHost.id
-                = truncate liveHost.id 12
+                a href=liveHost.providerUrl
+                  = truncate liveHost.id 12
               = else
                 | -
             td.region = region.slug
