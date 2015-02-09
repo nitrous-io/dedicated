@@ -2,6 +2,7 @@ package hosts
 
 import (
 	"crypto/rsa"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -238,10 +239,10 @@ func findPlan(db ndb.QueryReceiver, size string) (*plan.Plan, error) {
 func findRegion(db ndb.QueryReceiver, regionSlug string) (*region.Region, error) {
 	r, err := region.FindBySlug(db, regionSlug)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errRegionNotFound
+		}
 		return nil, fmt.Errorf("no matching region for '%s', error %s", regionSlug, err)
-	}
-	if r == nil {
-		return nil, errRegionNotFound
 	}
 	if r.Disabled() {
 		return nil, errRegionDisabled
