@@ -10,11 +10,11 @@ App.EventMessageHandler = App.EventsSocket.extend
       @on evt, (data) ->
         findAllContainers()?.reload()
 
-    ['container.started', 'container.stopped', 'container.restarted', 'container.updated', 'container.reconfigured', 'container.reconfigure_failed'].forEach (evt) =>
+    ['container.starting', 'container.started','container.stopping', 'container.stopped', 'container.restarting', 'container.restarted', 
+     'container.updated', 'container.reconfiguring', 'container.reconfigured', 'container.reconfigure_failed'].forEach (evt) =>
       @on evt, (data) ->
         containerData = data.container
         if container = findContainer(containerData)
-          container.setTempState null
           container.eventOccurred(evt)
           container.load(containerData)
           container.loadConfig()

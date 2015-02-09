@@ -61,7 +61,6 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       container = @get('model')
       prevState = @get 'state'
       @set 'state', 'reconfiguring'
-      container.setTempState 'reconfiguring'
 
       events = App.get 'eventsSocket'
 

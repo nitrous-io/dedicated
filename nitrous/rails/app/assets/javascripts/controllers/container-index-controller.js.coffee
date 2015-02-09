@@ -9,24 +9,20 @@ App.ContainerIndexController = Em.ObjectController.extend App.PerformActionMixin
       closeSnapshotDialog: false
       snapshotting: false
 
-  performActionWithTempState: (method, action, tempState, data=null)  ->
-    @get('model').setTempState tempState
-    @performAction method, action, tempState
-
   actions:
     start: ->
-      @performActionWithTempState('POST', 'start', 'starting')
+      @performAction('POST', 'start', 'starting')
 
     restart: ->
-      @performActionWithTempState('POST', 'restart', 'restarting')
+      @performAction('POST', 'restart', 'restarting')
 
     stop: ->
-      @performActionWithTempState('POST', 'stop', 'stopping')
+      @performAction('POST', 'stop', 'stopping')
 
     terminate: ->
       name = @get 'model.displayName'
       hostSlug = @get 'model.host.slug'
-      @performActionWithTempState('DELETE', null, 'terminating').then =>
+      @performAction('DELETE', null, 'terminating').then =>
         App.snackbar.post("Your workspace “#{name}” was successfully terminated.")
         @transitionToRoute 'host.index', hostSlug
 
