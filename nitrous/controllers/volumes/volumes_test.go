@@ -243,7 +243,7 @@ var _ = Describe("controllers/volumes", func() {
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 				v, err := volume.Find(db, hs.H.ID, "deprecated")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(v).To(BeNil())
 
 				v, err = volume.Find(db, hs.H.ID, "conditioner")

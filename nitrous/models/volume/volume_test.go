@@ -144,9 +144,9 @@ var _ = Describe("models/volume", func() {
 				Expect(foundV2.ID).To(Equal(v2.ID))
 			})
 
-			It("returns (nil, nil) on not found", func() {
+			It("returns error on not found", func() {
 				v, err := volume.Find(db, 12345, "10001")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(v).To(BeNil())
 			})
 		})
@@ -168,9 +168,9 @@ var _ = Describe("models/volume", func() {
 				Expect(foundV2.ID).To(Equal(v2.ID))
 			})
 
-			It("returns (nil, nil) on not found", func() {
+			It("returns error on not found", func() {
 				v, err := volume.Find(db, 12345, "nope")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(v).To(BeNil())
 			})
 		})
