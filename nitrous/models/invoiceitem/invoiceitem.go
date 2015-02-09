@@ -20,6 +20,7 @@ type InvoiceItem struct {
 	Hours sql.NullInt64 `db:"hours"`
 	// HourlyPrice unit is milli-cents (x1000)
 	HourlyPrice sql.NullInt64 `db:"hourly_price"`
+	Terminated  bool          `db:"terminated"`
 
 	Credit sql.NullInt64 `db:"credit"`
 
@@ -80,8 +81,8 @@ func (i *InvoiceItem) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoice_items
-    (invoice_id, host_id, hours, hourly_price, credit, stripe_id)
-    VALUES (:invoice_id, :host_id, :hours, :hourly_price, :credit, :stripe_id)
+    (invoice_id, host_id, terminated, hours, hourly_price, credit, stripe_id)
+    VALUES (:invoice_id, :host_id, :terminated, :hours, :hourly_price, :credit, :stripe_id)
     RETURNING *;`)
 	if err != nil {
 		return err
@@ -94,8 +95,8 @@ func (i *InvoiceItem) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE invoice_items
-    SET (invoice_id, host_id, hours, hourly_price, credit, stripe_id, updated_at)
-    = (:invoice_id, :host_id, :hours, :hourly_price, :credit, :stripe_id, now())
+    SET (invoice_id, host_id, hours, terminated, hourly_price, credit, stripe_id, updated_at)
+    = (:invoice_id, :host_id, :hours, :terminated, :hourly_price, :credit, :stripe_id, now())
     WHERE id = :id
     RETURNING *;`)
 	if err != nil {

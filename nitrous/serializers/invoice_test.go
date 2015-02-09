@@ -46,6 +46,7 @@ var _ = Describe("invoice serializer", func() {
           "host_id": 0,
           "host_slug": "",
           "hours": 0,
+          "terminated": false,
           "hourly_cents": 0,
           "total_charge": 0,
           "total_charge_dollars": 0.0,

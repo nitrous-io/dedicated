@@ -815,5 +815,11 @@ func init() {
 				ALTER TABLE containers ADD COLUMN temp_state bigint;
 			`,
 		},
+		{
+			Version: "740",
+			Up: `
+				ALTER TABLE invoice_items ADD COLUMN terminated bool DEFAULT FALSE;
+			`,
+		},
 	}
 }
