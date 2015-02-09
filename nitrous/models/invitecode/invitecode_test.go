@@ -1,6 +1,7 @@
 package invitecode_test
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -54,9 +55,9 @@ var _ = Describe("models/invitecode", func() {
 			Expect(found.Code).To(Equal("code2"))
 		})
 
-		It("should return nothing when there is no code matching", func() {
+		It("should return error when there is no code matching", func() {
 			found, err := invitecode.FindByCode(db, "codey1")
-			Expect(err).To(BeNil())
+			Expect(err).To(MatchError(sql.ErrNoRows))
 			Expect(found).To(BeNil())
 		})
 	})
