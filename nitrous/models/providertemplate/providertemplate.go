@@ -1,7 +1,6 @@
 package providertemplate
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/lib/pq/hstore"
@@ -32,9 +31,6 @@ func FindByID(d db.QueryReceiver, id int64) (*ProviderTemplate, error) {
 	pt := &ProviderTemplate{}
 	err := d.Get(pt, "SELECT * FROM provider_templates WHERE id = $1", id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return pt, nil
@@ -53,9 +49,6 @@ func FindByRegionAndPlanAndProvider(d db.QueryReceiver, regionID, planID int64, 
 	pt := &ProviderTemplate{}
 	err := d.Get(pt, "SELECT * FROM provider_templates WHERE region_id = $1 AND plan_id = $2 AND provider = $3", regionID, planID, provider)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return pt, nil

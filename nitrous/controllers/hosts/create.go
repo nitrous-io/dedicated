@@ -253,10 +253,10 @@ func findRegion(db ndb.QueryReceiver, regionSlug string) (*region.Region, error)
 func findTemplate(db ndb.QueryReceiver, pl *plan.Plan, rg *region.Region, defaultProvider string) (*providertemplate.ProviderTemplate, error) {
 	pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, rg.ID, pl.ID, defaultProvider)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errProvidertemplateNotFound
+		}
 		return nil, fmt.Errorf("no matching templates found, error %s", err)
-	}
-	if pt == nil {
-		return nil, errProvidertemplateNotFound
 	}
 	return pt, nil
 }

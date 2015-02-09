@@ -60,10 +60,10 @@ func getProviderTemplate(env *middleware.Env, r *http.Request) (*providertemplat
 
 	pt, err := providertemplate.FindByID(db, ptid)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperror.New(http.StatusNotFound, "not_found", "not found")
+		}
 		return nil, err
-	}
-	if pt == nil {
-		return nil, httperror.New(http.StatusNotFound, "not_found", "not found")
 	}
 
 	return pt, nil
