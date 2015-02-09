@@ -86,11 +86,11 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 
 	t, err := token.FindByToken(db, tok)
 	if err != nil {
+		if err == token.ErrInvalidToken {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
+			return mh.Error(errInvalidToken, label)
+		}
 		return err
-	}
-	if !t.IsValid() {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
-		return mh.Error(errInvalidToken, label)
 	}
 
 	u, err := user.FindByID(db, t.UserID)

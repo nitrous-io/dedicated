@@ -311,7 +311,7 @@ var _ = Describe("controllers/tokens", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			toke, err := token.FindByToken(db, "valid-token")
-			Expect(err).To(BeNil())
+			Expect(err).To(Equal(token.ErrInvalidToken))
 			Expect(toke).To(BeNil())
 
 			req, err = NewAuthedRequest(t, "GET", "/api/v0/user", &url.Values{})

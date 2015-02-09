@@ -2,6 +2,7 @@ package token
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,6 +15,11 @@ const (
 	TypeHost            = "host"
 	TypeProvisioner     = "provisioner"
 	MaxLastUsedDuration = (24 * 7) * time.Hour
+)
+
+var (
+	// ErrInvalidToken is returned when the token is not found or expired
+	ErrInvalidToken = errors.New("auth token is invalid")
 )
 
 type Token struct {
@@ -30,7 +36,13 @@ func FindByUser(d db.QueryReceiver, userID int64) (*Token, error) {
 	t := &Token{}
 	err := d.Get(t, "SELECT * FROM tokens WHERE user_id = $1 ORDER BY created_at DESC", userID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrInvalidToken
+		}
 		return nil, err
+	}
+	if !t.IsValid() {
+		return nil, ErrInvalidToken
 	}
 	return t, nil
 }
@@ -39,7 +51,13 @@ func FindByToken(d db.QueryReceiver, token string) (*Token, error) {
 	t := &Token{}
 	err := d.Get(t, "SELECT * FROM tokens WHERE token = $1", token)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrInvalidToken
+		}
 		return nil, err
+	}
+	if !t.IsValid() {
+		return nil, ErrInvalidToken
 	}
 	return t, nil
 }
@@ -87,13 +105,12 @@ func (t *Token) Delete(d db.QueryReceiver) error {
 	return err
 }
 
+// isValid checks the token if it's expired. The valid duration is hardcoded to
+// MaxLastUsedDuration now
 func (t *Token) IsValid() bool {
 	if t == nil {
 		return false
 	}
 	maxLastUsed := t.LastSeenAt.Add(MaxLastUsedDuration)
-	if time.Now().After(maxLastUsed) {
-		return false
-	}
-	return true
+	return time.Now().Before(maxLastUsed)
 }

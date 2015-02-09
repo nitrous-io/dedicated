@@ -283,10 +283,10 @@ func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	if appToken != "" {
 		t, err := token.FindByToken(db, appToken)
 		if err != nil {
+			if err == token.ErrInvalidToken {
+				return reconfirmInvalidUser
+			}
 			return err
-		}
-		if !t.IsValid() {
-			return reconfirmInvalidUser
 		}
 
 		u, err = user.FindByID(db, t.UserID)
