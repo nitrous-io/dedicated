@@ -809,5 +809,11 @@ func init() {
 				ALTER TABLE users ADD max_containers bigint DEFAULT NULL;
 			`,
 		},
+		{
+			Version: "730",
+			Up: `
+				ALTER TABLE containers ADD COLUMN temp_state bigint;
+			`,
+		},
 	}
 }
