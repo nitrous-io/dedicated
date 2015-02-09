@@ -78,6 +78,7 @@ var _ = Describe("host/docker", func() {
 				r := requests[3]
 				Expect(r.URL.Path).To(Equal("/containers/" + info.ID + "/json"))
 				Expect(info.Provider).To(Equal("docker"))
+				Expect(info.Name).To(Equal("test-123"))
 				Expect(len(info.ID)).To(BeNumerically(">", 0))
 				Expect(info.IPAddress).To(Equal("127.0.0.1"))
 			})
