@@ -21,8 +21,7 @@ var (
 
 func ReceiveHook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	evt := IncomingStripeWebHook{}
-	err := json.NewDecoder(r.Body).Decode(&evt)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&evt); err != nil {
 		return err
 	}
 	go func() {
@@ -59,6 +58,10 @@ func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) {
 	inv, err := invoice.FindByStripeID(env.DB, stripeID)
 	if err != nil {
 		env.Logger.Errorf("Error when locating invoice %s, err: %v", stripeID, err)
+		return
+	}
+	if inv == nil {
+		env.Logger.Errorf("Could not find invoice matching Stripe webhook %+v, event: %+v", evt, e)
 		return
 	}
 
