@@ -24,7 +24,7 @@ App.LoginRoute = Em.Route.extend
       controller.setProperties
         confirmationLapsed: true
         loggingIn: false
-    mp.track 'Viewed Login'
+    Mp.track Mp.EventViewedLogin
 
   deactivate: ->
     controller = @get 'controller'

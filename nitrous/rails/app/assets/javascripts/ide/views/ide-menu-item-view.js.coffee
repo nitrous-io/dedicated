@@ -16,10 +16,11 @@ App.IdeMenuItemView = Em.View.extend
 
   click: ->
     content = @get 'content'
-    unless content.get('separator') || content.get('disabled')
-      unless content.get 'url'
-        content.get('callback').call(content, @get 'controller')
-        true
+    return false if content.get('separator') || content.get('disabled')
+    unless content.get 'url'
+      content.get('callback').call(content, @get 'controller')
+    Mp.track content.get('track')
+    true
 
   bindMousetrapKey: ->
     if key = @get 'content.key'

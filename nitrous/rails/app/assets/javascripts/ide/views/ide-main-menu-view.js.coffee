@@ -89,6 +89,7 @@ App.IdeMainMenuView = Em.View.extend
       item = menuItem txt,
         url: "http://#{App.get 'container.preview_hostname'}:#{port.containerPort}"
         target: '_blank'
+        track: Mp.EventIDEUserClickedPreviewLink
 
       if port.preview
         baseItems.unshift(item)
@@ -106,6 +107,7 @@ App.IdeMainMenuView = Em.View.extend
       menuItem 'Configure Ports',
         url: "#{@get('dashboardURL')}/ports"
         target: "_blank",
+        track: Mp.EventIDEUserClickedConfigurePorts
       separator,
       menuItem 'Preview Help',
         url: 'http://docs.nitrous.io/v1.0/docs/preview'

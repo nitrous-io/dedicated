@@ -63,4 +63,3 @@ App.util =
 
   connectionError: ->
     App.set 'flashMessage', type: 'error', text: 'Error connecting to server.  Please contact support@nitrous.io'
-    this.mixpanel 'connection_error'

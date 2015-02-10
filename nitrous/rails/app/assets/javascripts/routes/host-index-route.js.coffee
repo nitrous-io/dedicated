@@ -8,3 +8,4 @@ App.HostIndexRoute = App.AuthedRoute.extend
     @_super.apply this, arguments
     App.set 'title', model.get('displayName')
     model.prefetchResources()
+    Mp.track Mp.EventDashboardViewedHost

@@ -1,6 +1,8 @@
 #= require ua-parser
+#= require_self
+#= require ./mp-events
 
-window.mp =
+window.Mp =
   UserAgent: new UAParser().getResult()
 
   initialized: false

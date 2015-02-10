@@ -11,3 +11,4 @@ App.AccountRoute = App.AuthedRoute.extend
     @_super.apply this, arguments
     unless controller.get 'saving'
       controller.clear()
+    Mp.track Mp.EventDashboardViewedAccount

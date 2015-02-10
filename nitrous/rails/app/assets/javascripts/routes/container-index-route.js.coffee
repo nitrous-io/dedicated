@@ -8,3 +8,4 @@ App.ContainerIndexRoute = App.AuthedRoute.extend
     @_super.apply this, arguments
     App.set 'title', model.get('displayName')
     controller.clear()
+    Mp.track Mp.EventDashboardViewedContainer

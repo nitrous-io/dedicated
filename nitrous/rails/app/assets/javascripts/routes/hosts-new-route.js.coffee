@@ -18,3 +18,4 @@ App.HostsNewRoute = App.AuthedRoute.extend
 
     unless controller.get 'saving'
       controller.clear()
+    Mp.track Mp.EventDashboardViewedNewHost

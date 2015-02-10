@@ -10,3 +10,4 @@ App.HostVolumesRoute = App.AuthedRoute.extend
     if (volumes = model.get 'volumes') && volumes.get('loaded')
       volumes.reload()
     App.set 'title', model.get('displayName') + ' › Volumes'
+    Mp.track Mp.EventDashboardViewedHostVolumes

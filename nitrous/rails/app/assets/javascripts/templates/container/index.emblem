@@ -86,15 +86,13 @@
         tr
           th SSH URL
           td colspan='3'
-            a href={sshURL}
-              = sshURL
+            ui-trackable-link href=sshURL text=sshURL track=Mp.EventDashboardUserClickedSSHURL
 
       if previewURL
         tr
           th Preview URL
           td colspan='3'
-            a href={previewURL} target='_blank'
-              = previewURL
+            ui-trackable-link href=previewURL target='_blank' text=previewURL track=Mp.EventDashboardUserClickedPreviewURL
 
 .card-footer.bordered
   if isRunning

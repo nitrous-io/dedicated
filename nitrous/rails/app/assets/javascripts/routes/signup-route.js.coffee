@@ -20,4 +20,4 @@ App.SignupRoute = Em.Route.extend
       mpProps = { email: email }
     else
       {}
-    mp.track "Viewed Sign Up", mpProps
+    Mp.track Mp.EventViewedSignUp, mpProps
