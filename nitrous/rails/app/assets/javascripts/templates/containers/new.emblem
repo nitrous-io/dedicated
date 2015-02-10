@@ -236,3 +236,11 @@
           a.ui.btn href='#' click='goBack target="view"' Back
           a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
+
+  .screen class={view.showIDEStarting::hide}
+    .card-body
+      .notice-text
+        | Your new container &ldquo;
+        = name
+        | &rdquo; has been created. Starting IDE.
+        = ui-ellipsis
