@@ -1,7 +1,6 @@
 package userprofile
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -31,9 +30,6 @@ func Find(d db.QueryReceiver, userID int64) (*UserProfile, error) {
 	p := &UserProfile{}
 	err := d.Get(p, `SELECT * FROM user_profiles WHERE user_id = $1`, userID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return p, nil
