@@ -83,14 +83,12 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if hSlug != "" {
 		h, err := host.Find(db, env.User, hSlug)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return errHostNotFound
+			}
 			return err
 		}
-
-		if h != nil {
-			hosts = []host.Host{*h}
-		} else {
-			return errHostNotFound
-		}
+		hosts = []host.Host{*h}
 	} else {
 		hosts, err = host.FindAllByUser(db, env.User)
 		if err != nil {
@@ -507,10 +505,10 @@ func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *mi
 
 		h, err := host.Find(db, env.User, strconv.FormatInt(cn.HostID, 10))
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return errHostNotFound
+			}
 			return err
-		}
-		if h == nil {
-			return errHostNotFound
 		}
 		return fn(cn, h, env, w, r)
 	}

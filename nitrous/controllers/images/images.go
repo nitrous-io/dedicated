@@ -1,6 +1,7 @@
 package images
 
 import (
+	"database/sql"
 	"io"
 	"net/http"
 	"strconv"
@@ -53,10 +54,10 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if hSlug != "" {
 		h, err := host.Find(db, user, hSlug)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return middleware.ErrHostNotFound
+			}
 			return err
-		}
-		if h == nil {
-			return middleware.ErrHostNotFound
 		}
 		hostFilter = h
 	}
