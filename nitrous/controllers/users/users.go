@@ -146,7 +146,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		} else {
 			// verify email
 			oU, err := user.FindByUsernameOrEmail(db, email)
-			if err != nil {
+			if err != nil && err != sql.ErrNoRows {
 				return err
 			}
 			if oU != nil && oU.ID != u.ID {
@@ -239,11 +239,10 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 
 	u, err := user.FindByConfirmationToken(db, token)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
+		}
 		return err
-	}
-
-	if u == nil || token != u.ConfirmationToken.String {
-		return httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 	}
 
 	err = u.ConfirmEmail(db)
@@ -274,6 +273,9 @@ func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	if cToken != "" {
 		u, err = user.FindByConfirmationToken(db, cToken)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return reconfirmInvalidUser
+			}
 			return err
 		}
 	}
@@ -289,12 +291,11 @@ func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 		u, err = user.FindByID(db, t.UserID)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return reconfirmInvalidUser
+			}
 			return err
 		}
-	}
-
-	if u == nil {
-		return reconfirmInvalidUser
 	}
 
 	err = u.SendConfirmationEmail(db, false, false, false)

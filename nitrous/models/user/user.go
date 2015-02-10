@@ -83,9 +83,6 @@ func FindByID(d db.QueryReceiver, id int64) (*User, error) {
 	user := &User{}
 	err := d.Get(user, "SELECT * FROM users WHERE id = $1", id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return user, nil
@@ -95,9 +92,6 @@ func FindByUsername(d db.QueryReceiver, username string) (*User, error) {
 	user := &User{}
 	err := d.Get(user, "SELECT * FROM users WHERE username = $1", username)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return user, nil
@@ -107,9 +101,6 @@ func FindByUsernameOrEmail(d db.QueryReceiver, login string) (*User, error) {
 	user := &User{}
 	err := d.Get(user, "SELECT * FROM users WHERE username = $1 OR email = $1", login)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return user, nil
@@ -120,9 +111,6 @@ func FindByResetPasswordToken(d db.QueryReceiver, token string) (*User, error) {
 	lastValidSentAt := time.Now().Add(-resetPasswordWithin)
 	err := d.Get(user, "SELECT * FROM users WHERE reset_password_token = $1 AND reset_password_sent_at > $2", token, lastValidSentAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return user, nil
@@ -132,9 +120,6 @@ func FindByConfirmationToken(d db.QueryReceiver, token string) (*User, error) {
 	user := &User{}
 	err := d.Get(user, "SELECT * FROM users WHERE confirmation_token = $1", token)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return user, nil
