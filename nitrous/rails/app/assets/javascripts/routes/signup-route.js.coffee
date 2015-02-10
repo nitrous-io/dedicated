@@ -16,5 +16,8 @@ App.SignupRoute = Em.Route.extend
   setupController: (controller) ->
     controller.clear()
     controller.handleIncomingEmail()
-    if email = controller.get('incomingEmail')
-      mp.track "Signup Page Viewed", { email: email }
+    mpProps = if email = controller.get('incomingEmail')
+      mpProps = { email: email }
+    else
+      {}
+    mp.track "Viewed Sign Up", mpProps

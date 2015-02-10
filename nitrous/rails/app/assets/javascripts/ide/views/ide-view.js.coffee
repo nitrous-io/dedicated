@@ -17,8 +17,8 @@ App.IdeView = Em.View.extend
     @_super()
     controller = @get 'controller'
     controller.validateContainerState()
-    mp.track 'IDE Session Started', container_id: @get 'controller.id'
-    mp.increment 'ide_session_started_count'
+    mp.track 'IDE Started', container_id: @get 'controller.id'
+    mp.increment 'ide_start_count'
     Em.run.scheduleOnce 'afterRender', ->
       webapp?.loading.stop()
 

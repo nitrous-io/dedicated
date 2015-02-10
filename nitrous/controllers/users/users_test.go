@@ -168,14 +168,6 @@ var _ = Describe("controllers/users", func() {
 				Expect(j.User.Email).To(Equal("foo@example.com"))
 			})
 
-			It("tracks the 'User Signed Up' event", func() {
-				u, err := user.FindByUsername(db, "foo")
-				Expect(err).To(BeNil())
-				t, ok := svr.Tracker.(*FakeTracker)
-				Expect(ok).To(BeTrue())
-				Expect(t.Events[u.ID]).To(Equal([]string{server.UserSignedUp}))
-			})
-
 			It("tracks the user as a new analytics profile", func() {
 				u, err := user.FindByUsername(db, "foo")
 				Expect(err).To(BeNil())

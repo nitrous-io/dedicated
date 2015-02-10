@@ -130,12 +130,6 @@ var _ = Describe("controllers/tokens", func() {
 					Expect(res.Header().Get("Pragma")).To(Equal("no-cache"))
 				})
 
-				It("tracks the 'User Signed In' event", func() {
-					t, ok := svr.Tracker.(*FakeTracker)
-					Expect(ok).To(BeTrue())
-					Expect(t.Events[u.ID]).To(Equal([]string{server.UserSignedIn}))
-				})
-
 				It("tracks the user as a new analytics profile", func() {
 					t, ok := svr.Tracker.(*FakeTracker)
 					Expect(ok).To(BeTrue())

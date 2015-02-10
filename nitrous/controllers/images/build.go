@@ -184,7 +184,9 @@ func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	env.Data = map[string]interface{}{
 		"image": serializers.SerializeImage(img),
 	}
-
+	env.AddEventData(map[string]interface{}{
+		"image": img.Slug,
+	})
 	return nil
 }
 

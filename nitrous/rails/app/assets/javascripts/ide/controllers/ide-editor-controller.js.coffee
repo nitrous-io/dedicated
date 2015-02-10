@@ -87,12 +87,10 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
           path.decrementProperty 'loadCount'
           if err
             App.set 'flashMessage', { type: 'alert-error', text: "Error saving file '#{path.get('absolutePath')}'" }
-            mp.track 'IDE Document Save Error'
-            mp.appendUser "SaveError": err
             return
           document.set 'clean', true
-          mp.track 'IDE Document Saved'
-          mp.increment 'ide_document_saved_count'
+          mp.track 'IDE User Saved File'
+          mp.increment 'ide_file_save_count'
     else
       @set 'saveDialog', App.SaveDialog.create document: document
 
@@ -127,6 +125,6 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       sidebarController = App.get 'router.ideSidebarController'
       sidebarController.refreshPath path.get('parentAbsolutePath')
       @set 'saveDialog.hide', true
-      mp.track 'IDE Document Saved'
-      mp.increment 'ide_document_saved_count'
+      mp.track 'IDE User Saved File', new_file: true
+      mp.increment 'ide_file_save_count'
     saveDialog.set 'saving', false

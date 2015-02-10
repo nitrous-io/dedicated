@@ -4,7 +4,7 @@ pages.Home =
   interval: null
 
   init: ->
-    pages.activePageName = 'Home Page'
+    pages.activePageName = 'Home'
 
     $('.pages .page').click (e) =>
       $page = $(e.target)

@@ -298,7 +298,7 @@ App.IdeSidebarController = Em.ArrayController.extend
       this.refreshPath path.get('parentAbsolutePath')
     uploadDialog = @get 'uploadDialog'
     if uploadDialog && uploadDialog.get 'completed'
-      mp.track 'Uploaded File'
+      mp.track 'IDE User Uploaded File'
       uploadDialog.set('hide', true)
       @set 'uploadDialog', null
 
