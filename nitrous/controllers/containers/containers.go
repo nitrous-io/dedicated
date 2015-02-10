@@ -341,7 +341,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	defer cn.Unlock(env.DB)
 
 	// broadcast transitioning state
-	publishContainerEvent(env, getEventName(container.StateStarting), cn)
+	publishContainerEvent(env, controllers.EventContainerStarting, cn)
 
 	liveContainer, err := cl.Start(cn.CID, config)
 	if err != nil {
@@ -390,7 +390,11 @@ func performControlAction(fn actionFn, tempState container.State, eventName cont
 	defer cn.Unlock(env.DB)
 
 	// broadcast transitioning state
-	publishContainerEvent(env, getEventName(tempState), cn)
+	evtName, err := getEventName(tempState)
+	if err != nil {
+		return err
+	}
+	publishContainerEvent(env, evtName, cn)
 
 	liveContainer, err := fn(cn.CID)
 	if err != nil {
@@ -426,7 +430,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	defer cn.Unlock(env.DB)
 
 	// broadcast transitioning state
-	publishContainerEvent(env, getEventName(container.StateTerminating), cn)
+	publishContainerEvent(env, controllers.EventContainerDestroying, cn)
 
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
@@ -652,17 +656,13 @@ func expandFreighterClientError(err error) error {
 	return err
 }
 
-func getEventName(s container.State) controllers.EventName {
+func getEventName(s container.State) (controllers.EventName, error) {
 	switch s {
-	case container.StateStarting:
-		return controllers.EventContainerStarting
 	case container.StateStopping:
-		return controllers.EventContainerStopping
+		return controllers.EventContainerStopping, nil
 	case container.StateRestarting:
-		return controllers.EventContainerRestarting
-	case container.StateTerminating:
-		return controllers.EventContainerDestroying
+		return controllers.EventContainerRestarting, nil
 	default:
-		panic(fmt.Sprintf("there's no associated event for the given state - %s", s))
+		return "", fmt.Errorf("there's no associated event for the given state - %s", s)
 	}
 }
