@@ -604,7 +604,10 @@ func updateSoftware(ctx *host.HostContext) error {
 
 	if out, err := h.conn.CombinedOutput(cmd); err != nil {
 		e := fmt.Errorf("update sofware failed with '%s', output: %s", err, out)
-		return mh.Error(e, label)
+		hlog(h, e.Error())
+		mh.Error(e, label)
+		// failure to update a host is considered continuable
+		return nil
 	}
 	hlog(h, "Updated freighterd package on %v", h.ipAddress())
 	return nil
