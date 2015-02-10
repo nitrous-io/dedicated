@@ -58,10 +58,10 @@ var _ = Describe("models/billingprofile", func() {
 		})
 
 		Context("when there's no billing profile for the given user id", func() {
-			It("returns nil", func() {
+			It("returns error", func() {
 				p, err := billingprofile.Find(db, 9999)
 				Expect(p).To(BeNil())
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
 		})
 

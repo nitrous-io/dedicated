@@ -199,7 +199,7 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 	items := i.Items
 
 	bp, err := billingprofile.Find(b.db, b.user.ID)
-	if err != nil || bp == nil {
+	if err != nil {
 		return fmt.Errorf("biller: skipping stripe, failure obtaining billing profile for user %d, err: %v", b.user.ID, err)
 	}
 	if bp.State == billingprofile.StateFree {

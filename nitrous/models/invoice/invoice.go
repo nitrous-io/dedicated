@@ -178,7 +178,7 @@ func (i *Invoice) fireFinalPaymentFailedEmail(d db.QueryReceiver) error {
 	if err != nil {
 		return err
 	}
-	if bp != nil && bp.LastFour.String != "" {
+	if bp.LastFour.String != "" {
 		tmplData.LastFour = bp.LastFour.String
 	}
 
