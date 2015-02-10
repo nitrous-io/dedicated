@@ -39,6 +39,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       image: null
       saving: false
       pullingImage: false
+      ideStarting: false
 
       selectedTemplate: App.get('templates.firstObject')
       selectedOption: null
