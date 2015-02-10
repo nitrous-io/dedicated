@@ -17,222 +17,231 @@
           span 3
           | Finish
 
-  .screen class={view.showImageScreen::hide}
-    form submit='goNextOrCreate target="view"'
-      .card-body class={App.user.advanced:bordered}
-        .notice-text
-          | Containers are lightweight virtual environments that you can use to sandbox different development environments.
+  if view.showScreens
+    .screen class={view.showImageScreen::hide}
+      form submit='goNextOrCreate target="view"'
+        .card-body class={App.user.advanced:bordered}
+          .notice-text
+            | Containers are lightweight virtual environments that you can use to sandbox different development environments.
+          .ui.input-group
+            label.field-label
+              | Workspace
+            .ui.select
+              Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.name' disabled=saving value=selectedHostSlug
+
+          .ui.input-group
+            label.field-label for='containers-new-name'
+              | Name
+            = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
+
+        .card-body.bordered
+          .ui.input-group
+            label.field-label
+              | Stack Templates
+
+            ul.ui.selectable-list.templates
+              each template in stackTemplates
+                App.TemplateListItemView content=template selected=view.selectedTemplate
+
+          .ui.input-group
+            label.field-label
+              | Basic Templates
+
+            ul.ui.selectable-list.templates
+              each template in basicTemplates
+                App.TemplateListItemView content=template selected=view.selectedTemplate
+
+          if App.user.advanced
+            .ui.input-group
+              label.field-label
+                | Advanced Templates
+
+              ul.ui.selectable-list.templates
+                each template in advancedTemplates
+                  App.TemplateListItemView content=template selected=view.selectedTemplate
+
+        if App.user.advanced
+          .card-body.bordered
+            .ui.input-group.custom-image
+              label.field-label
+                | Or, Use Custom Image
+
+              ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
+                li
+                  .ui.checkbox
+                    input type='radio' id='containers-new-option-host-image' name='option' value='host-image' disabled={view.hostImageOptionDisabled}
+                    label
+                  label for='containers-new-option-host-image' Use Image On This Workspace
+
+              .ui.select.indent
+                Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
+
+              ul.ui.checkbox-group class={saving:disabled}
+                li
+                  .ui.checkbox
+                    input type='radio' id='containers-new-option-custom-image' name='option' value='custom-image' disabled=saving
+                    label
+                  label for='containers-new-option-custom-image' Specify Image Repository
+
+              .indent
+                = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle value=view.customImage disabled=saving
+
+
+        .card-footer.bordered
+          .right
+            a.ui.btn href='#' click='cancel' Cancel
+            input.ui.btn.primary.raised type='submit' disabled={view.createButtonDisabled} value={view.firstScreenButtonLabel}
+
+    .screen class={view.showConfigScreen::hide}
+      .card-body.bordered
         .ui.input-group
           label.field-label
-            | Workspace
-          .ui.select
-            Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.name' disabled=saving value=selectedHostSlug
+            | Custom Port Bindings
 
-        .ui.input-group
-          label.field-label for='containers-new-name'
-            | Name
-          = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
+        ul.ui.chips
+          each portMapping in portMappings.rawPorts
+            li
+              = portMapping
+              a.close href='#' click='removePortMapping portMapping' &times;
+
+        form.container-config submit='addPortMapping'
+          .ui.input-group.container-config-form
+            table.ui.table
+              thead
+                tr
+                  th Public
+                  th Workspace Host Port
+                  th colspan='2' Container Port
+              tbody
+                tr
+                  td
+                    .ui.checkbox
+                      = input type='checkbox' checked=publicPort
+                      label
+                  td
+                    = input type='number' min='1' max='65535' step='1' placeholder='e.g., 63000 (optional)' value=hostPort
+                  td
+                    = input type='number' min='1' max='65535' step='1' placeholder='e.g., 3000' required=true value=containerPort
+                  td
+                    input.ui.btn.raised type='submit' disabled={view.addPortMappingButtonDisabled} value='Add'
+
+          ul.ui.checkbox-group
+            li
+              .ui.checkbox
+                = input type='checkbox' id='containers-config-publish-all' checked=publishAll
+                label
+              label for='containers-config-publish-all' Publish All Exposed Ports
 
       .card-body.bordered
         .ui.input-group
           label.field-label
-            | Stack Templates
+            | Environment Variables
 
-          ul.ui.selectable-list.templates
-            each template in stackTemplates
-              App.TemplateListItemView content=template selected=view.selectedTemplate
+        ul.ui.chips
+          each envVar in envVars
+            li
+              = envVar
+              a.close href='#' click='removeEnvVar envVar' &times;
 
+        form.container-config submit='addEnvVar'
+          .ui.input-group.container-config-form
+            table.ui.table
+              thead
+                tr
+                  th Key
+                  th Value
+              tbody
+                tr
+                  td
+                    = input type='text' placeholder='e.g., FOO' required=true value=envKey
+                  td
+                    = input type='text' placeholder='e.g., bar' required=true value=envValue
+                  td
+                    input.ui.btn.raised type='submit' disabled={view.addEnvVarButtonDisabled} value='Add'
+
+      .card-body.bordered
         .ui.input-group
           label.field-label
-            | Basic Templates
+            | Volume Mounts
 
-          ul.ui.selectable-list.templates
-            each template in basicTemplates
-              App.TemplateListItemView content=template selected=view.selectedTemplate
+        ul.ui.chips
+          each volumeMount in volumeMounts
+            li
+              = volumeMount
+              a.close href='#' click='removeVolumeMount volumeMount' &times;
 
-        if App.user.advanced
-          .ui.input-group
-            label.field-label
-              | Advanced Templates
+        form.container-config submit='addVolumeMount'
+          .ui.input-group.container-config-form
+            table.ui.table
+              thead
+                tr
+                  th Volume
+                  th colspan='2' Mount Point (Optional)
+              tbody
+                tr
+                  td
+                    .ui.select
+                      Ember.Select required=true name='containers-config-selected-volume' content=selectedHost.volumes optionValuePath='content.id' optionLabelPath='content.displayName' value=selectedVolumeId disabled=view.volumeDropdownDisabled
+                  td
+                    = input type='text' pattern=view.volumeMountpointInputPattern title=view.volumeMountpointInputTitle placeholder=selectedVolume.defaultMountpoint value=volumeMountpoint
+                  td
+                    input.ui.btn.raised type='submit' disabled={view.addVolumeMountButtonDisabled} value='Add'
 
-            ul.ui.selectable-list.templates
-              each template in advancedTemplates
-                App.TemplateListItemView content=template selected=view.selectedTemplate
+      .card-body.bordered
+        .ui.input-group
+          label.field-label
+            | Experimental Settings
 
-      if App.user.advanced
-        .card-body.bordered
-          .ui.input-group.custom-image
-            label.field-label
-              | Or, Use Custom Image
-
-            ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
-              li
-                .ui.checkbox
-                  input type='radio' id='containers-new-option-host-image' name='option' value='host-image' disabled={view.hostImageOptionDisabled}
-                  label
-                label for='containers-new-option-host-image' Use Image On This Workspace
-
-            .ui.select.indent
-              Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
-
-            ul.ui.checkbox-group class={saving:disabled}
-              li
-                .ui.checkbox
-                  input type='radio' id='containers-new-option-custom-image' name='option' value='custom-image' disabled=saving
-                  label
-                label for='containers-new-option-custom-image' Specify Image Repository
-
-            .indent
-              = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle value=view.customImage disabled=saving
-
+        form.container-config
+          ul.ui.checkbox-group
+            li
+              .ui.checkbox
+                = input type='checkbox' id='containers-config-privileged' checked=privileged
+                label
+              label for='containers-config-privileged' Privileged Mode
 
       .card-footer.bordered
         .right
-          a.ui.btn href='#' click='cancel' Cancel
-          input.ui.btn.primary.raised type='submit' disabled={view.createButtonDisabled} value={view.firstScreenButtonLabel}
+          a.ui.btn href='#' click='goBack target="view"' Back
+          a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
+      = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
 
-  .screen class={view.showConfigScreen::hide}
-    .card-body.bordered
-      .ui.input-group
-        label.field-label
-          | Custom Port Bindings
+    .screen class={view.showProgressScreen::hide}
+      .card-body
+        .notice-text
+          | Your new container &ldquo;
+          = name
+          | &rdquo; is being created
+          = ui-ellipsis
 
-      ul.ui.chips
-        each portMapping in portMappings.rawPorts
-          li
-            = portMapping
-            a.close href='#' click='removePortMapping portMapping' &times;
+      .log class={view.showLog:show}
+        .terminal-screen
 
-      form.container-config submit='addPortMapping'
-        .ui.input-group.container-config-form
-          table.ui.table
-            thead
-              tr
-                th Public
-                th Workspace Host Port
-                th colspan='2' Container Port
-            tbody
-              tr
-                td
-                  .ui.checkbox
-                    = input type='checkbox' checked=publicPort
-                    label
-                td
-                  = input type='number' min='1' max='65535' step='1' placeholder='e.g., 63000 (optional)' value=hostPort
-                td
-                  = input type='number' min='1' max='65535' step='1' placeholder='e.g., 3000' required=true value=containerPort
-                td
-                  input.ui.btn.raised type='submit' disabled={view.addPortMappingButtonDisabled} value='Add'
+      .card-footer.bordered
+        if saving
+          if image.progress.status
+            .left
+              p
+                = image.progress.status
+          .right
+            button.ui.btn disabled='disabled'
+              i.spinner
+              | Creating...
+            button.ui.btn click='toggleLog target="view"'
+              if view.showLog
+                | Hide Log
+              else
+                | Show Log
+        else
+          .right
+            a.ui.btn href='#' click='goBack target="view"' Back
+            a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
+      = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
 
-        ul.ui.checkbox-group
-          li
-            .ui.checkbox
-              = input type='checkbox' id='containers-config-publish-all' checked=publishAll
-              label
-            label for='containers-config-publish-all' Publish All Exposed Ports
-
-    .card-body.bordered
-      .ui.input-group
-        label.field-label
-          | Environment Variables
-
-      ul.ui.chips
-        each envVar in envVars
-          li
-            = envVar
-            a.close href='#' click='removeEnvVar envVar' &times;
-
-      form.container-config submit='addEnvVar'
-        .ui.input-group.container-config-form
-          table.ui.table
-            thead
-              tr
-                th Key
-                th Value
-            tbody
-              tr
-                td
-                  = input type='text' placeholder='e.g., FOO' required=true value=envKey
-                td
-                  = input type='text' placeholder='e.g., bar' required=true value=envValue
-                td
-                  input.ui.btn.raised type='submit' disabled={view.addEnvVarButtonDisabled} value='Add'
-
-    .card-body.bordered
-      .ui.input-group
-        label.field-label
-          | Volume Mounts
-
-      ul.ui.chips
-        each volumeMount in volumeMounts
-          li
-            = volumeMount
-            a.close href='#' click='removeVolumeMount volumeMount' &times;
-
-      form.container-config submit='addVolumeMount'
-        .ui.input-group.container-config-form
-          table.ui.table
-            thead
-              tr
-                th Volume
-                th colspan='2' Mount Point (Optional)
-            tbody
-              tr
-                td
-                  .ui.select
-                    Ember.Select required=true name='containers-config-selected-volume' content=selectedHost.volumes optionValuePath='content.id' optionLabelPath='content.displayName' value=selectedVolumeId disabled=view.volumeDropdownDisabled
-                td
-                  = input type='text' pattern=view.volumeMountpointInputPattern title=view.volumeMountpointInputTitle placeholder=selectedVolume.defaultMountpoint value=volumeMountpoint
-                td
-                  input.ui.btn.raised type='submit' disabled={view.addVolumeMountButtonDisabled} value='Add'
-
-    .card-body.bordered
-      .ui.input-group
-        label.field-label
-          | Experimental Settings
-
-      form.container-config
-        ul.ui.checkbox-group
-          li
-            .ui.checkbox
-              = input type='checkbox' id='containers-config-privileged' checked=privileged
-              label
-            label for='containers-config-privileged' Privileged Mode
-
-    .card-footer.bordered
-      .right
-        a.ui.btn href='#' click='goBack target="view"' Back
-        a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
-    = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
-
-  .screen class={view.showProgressScreen::hide}
+  .screen class={view.showIDEStarting::hide}
     .card-body
       .notice-text
         | Your new container &ldquo;
         = name
-        | &rdquo; is being created
+        | &rdquo; has been created. Starting IDE.
         = ui-ellipsis
-
-    .log class={view.showLog:show}
-      .terminal-screen
-
-    .card-footer.bordered
-      if saving
-        if image.progress.status
-          .left
-            p
-              = image.progress.status
-        .right
-          button.ui.btn disabled='disabled'
-            i.spinner
-            | Creating...
-          button.ui.btn click='toggleLog target="view"'
-            if view.showLog
-              | Hide Log
-            else
-              | Show Log
-      else
-        .right
-          a.ui.btn href='#' click='goBack target="view"' Back
-          a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
-    = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total

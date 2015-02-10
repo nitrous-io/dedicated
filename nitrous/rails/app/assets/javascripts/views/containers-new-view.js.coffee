@@ -24,6 +24,12 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
   showConfigScreen: Em.computed.equal('currentScreenIndex', screens.indexOf('config'))
   showProgressScreen: Em.computed.equal('currentScreenIndex', screens.indexOf('progress'))
 
+  showIDEStartingBinding: 'controller.ideStarting'
+
+  showScreens: (->
+    return false if @get 'showIDEStarting'
+    true
+  ).property 'showIDEStarting'
   showLog: false
 
   image: (->
