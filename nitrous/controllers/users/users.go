@@ -84,14 +84,12 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if promocode != "" {
-		ct, err := credittype.FindValidCreditTypeByName(tx, promocode)
-		if err != nil {
+		if _, err := credittype.FindValidCreditTypeByName(tx, promocode); err != nil {
 			tx.Rollback()
+			if err == sql.ErrNoRows {
+				return invalidPromoCode
+			}
 			return err
-		}
-		if ct == nil {
-			tx.Rollback()
-			return invalidPromoCode
 		}
 	}
 

@@ -173,13 +173,13 @@ var _ = Describe("models/credittype", func() {
 			Expect(c.ExpiresAt.Time.Unix()).To(Equal(nextHour.Unix()))
 		})
 
-		It("should not find a credit type that isn't active", func() {
+		It("should not find credit type that isn't active", func() {
 			_, err := db.Exec(`INSERT INTO credit_types (name, active, default_value)
 				VALUES ('act1', FALSE, 500);`)
 			Expect(err).To(BeNil())
 
 			c, err := credittype.FindValidCreditTypeByName(db, "act1")
-			Expect(err).To(BeNil())
+			Expect(err).To(MatchError(sql.ErrNoRows))
 			Expect(c).To(BeNil())
 		})
 
@@ -189,7 +189,7 @@ var _ = Describe("models/credittype", func() {
 			Expect(err).To(BeNil())
 
 			c, err := credittype.FindValidCreditTypeByName(db, "act2")
-			Expect(err).To(BeNil())
+			Expect(err).To(MatchError(sql.ErrNoRows))
 			Expect(c).To(BeNil())
 		})
 
@@ -199,7 +199,7 @@ var _ = Describe("models/credittype", func() {
 			Expect(err).To(BeNil())
 
 			c, err := credittype.FindValidCreditTypeByName(db, "act3")
-			Expect(err).To(BeNil())
+			Expect(err).To(MatchError(sql.ErrNoRows))
 			Expect(c).To(BeNil())
 		})
 	})

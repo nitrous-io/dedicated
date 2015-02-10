@@ -1,6 +1,7 @@
 package promocodes
 
 import (
+	"database/sql"
 	"net/http"
 	"time"
 
@@ -18,11 +19,10 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	c, err := credittype.FindValidCreditTypeByName(db, code)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return errNotFound
+		}
 		return err
-	}
-
-	if c == nil {
-		return errNotFound
 	}
 
 	var expiresAt *time.Time
