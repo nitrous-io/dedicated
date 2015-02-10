@@ -41,7 +41,6 @@ import (
 )
 
 var (
-	RootPrefix         = "/var/lib/docker/aufs/mnt"
 	chanSize           = 10  // default channel size
 	fileFindLimit      = 10  // max number of response for file_find
 	contentSearchLimit = 500 // max number of response for search

@@ -6,8 +6,8 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime"
+	"strconv"
 	"syscall"
 
 	"github.com/nitrous-io/dedicated/pkg/reexec"
@@ -19,19 +19,14 @@ func init() {
 	reexec.Register(copyCommandName, copyInit)
 }
 
-// copyInit runs inside the container, and copy its stdin
+// copyInit runs inside the container mnt namespace, and copy its stdin
 // into the specific path
 func copyInit() {
 	runtime.LockOSThread()
 	flag.Parse()
-	// id is the 0th argument
-	path := flag.Arg(1)
-	localPath := flag.Arg(2)
+	// id is arg 0
+	localPath := flag.Arg(1)
 
-	// chroot the current process into path
-	if err := syscall.Chroot(path); err != nil {
-		log.Fatalf("copyInit failed to chroot to %s : %v", path, err)
-	}
 	if err := syscall.Chdir("/"); err != nil {
 		log.Fatalf("copyInit failed to change dir to / : %v", err)
 	}
@@ -51,12 +46,12 @@ func copyInit() {
 
 // Copy contents of the reader into the path inside container
 func CopyToContainer(id string, localPath string, r io.Reader) error {
-	root := filepath.Join(RootPrefix, id)
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		return fmt.Errorf("failed to find rootfs for %s, %s", id, err)
+	initPID, err := GetContainerPID(id)
+	if err != nil {
+		return fmt.Errorf("failed to get container %s pid: %v", id, err)
 	}
 	// create the command, pass the child as fd3 of the command
-	cmd := reexec.Command(copyCommandName, id, root, localPath)
+	cmd := reexec.Command(copyCommandName, strconv.Itoa(initPID), localPath)
 	cmd.Stdin = r
 	// pipe the output/errors to os stdout/stderr
 	cmd.Stdout = os.Stdout

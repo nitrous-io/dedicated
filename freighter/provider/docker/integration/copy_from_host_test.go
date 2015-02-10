@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nitrous-io/dedicated/freighter/cops"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/test"
 	"github.com/nitrous-io/dedicated/freighter/util"
@@ -50,7 +49,7 @@ var _ = Describe("CopyFromHost", func() {
 		Expect(err).To(BeNil(), "unexpected errror when copy from host")
 
 		// read the file directly from /var/lib/docker
-		fp := filepath.Join(cops.RootPrefix, info.ID, "hello")
+		fp := filepath.Join("/var/lib/docker/aufs/mnt", info.ID, "hello")
 		output, err := ioutil.ReadFile(fp)
 		Expect(err).To(BeNil(), "file wasnt created")
 		Expect(string(output)).To(Equal("hello world"), "invalid content of file")
