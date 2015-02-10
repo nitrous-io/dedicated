@@ -22,9 +22,10 @@ type HostTransition struct {
 }
 
 type HostHourUsage struct {
-	HostID  int64 `db:"host_id"`
-	UserID  int64 `db:"user_id"`
-	Seconds int64 `db:"seconds"`
+	HostID     int64 `db:"host_id"`
+	UserID     int64 `db:"user_id"`
+	Terminated bool  `db:"terminated"`
+	Seconds    int64 `db:"seconds"`
 	// HourlyPrice unit is milli-cents (x1000)
 	HourlyPrice int64 `db:"hourly_price"`
 }
@@ -63,6 +64,7 @@ func BillableHostHours(d db.QueryReceiver, userId int64, start, end time.Time) (
 	err := d.Select(&hostHours,
 		`SELECT host_id,
 			u.id user_id,
+			COALESCE(MAX(h.terminated_at) <= $3, FALSE) terminated,
 			MAX(h.hourly_price) hourly_price,
 				cast((EXTRACT(EPOCH FROM
 					SUM(COALESCE(ht.ended_at, $3) - GREATEST(ht.created_at, $2)))) as integer) seconds

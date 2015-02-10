@@ -117,6 +117,7 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(err).To(BeNil())
 				Expect(res).To(HaveLen(1))
 				f := res[0]
+				Expect(f.Terminated).To(BeFalse())
 				Expect(f.Hours()).To(Equal(3))
 				Expect(f.HourlyPrice).To(Equal(int64(3000)))
 			})
@@ -157,6 +158,10 @@ var _ = Describe("models/hosttransition", func() {
 				err := oH.Insert(db)
 				Expect(err).To(BeNil())
 
+				_, err = db.Exec("UPDATE hosts SET terminated_at = now() - interval '1 hour' WHERE id = $1;", oH.ID)
+				Expect(err).To(BeNil())
+				_, err = db.Exec("UPDATE hosts SET terminated_at = now() + interval '1 hour' WHERE id = $1;", h.ID)
+				Expect(err).To(BeNil())
 				_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);",
 					oH.ID, "born", "running", run1, run1.Add(12*time.Hour))
 				Expect(err).To(BeNil())
@@ -173,8 +178,10 @@ var _ = Describe("models/hosttransition", func() {
 						usage2 = us
 					}
 				}
+				Expect(usage1.Terminated).To(BeFalse())
 				Expect(usage1.Hours()).To(Equal(3))
 				Expect(usage1.HourlyPrice).To(Equal(int64(3000)))
+				Expect(usage2.Terminated).To(BeTrue())
 				Expect(usage2.Hours()).To(Equal(12))
 				Expect(usage2.HourlyPrice).To(Equal(int64(9000)))
 			})

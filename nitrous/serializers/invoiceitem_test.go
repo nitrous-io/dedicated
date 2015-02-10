@@ -17,6 +17,7 @@ var _ = Describe("invoice item serializer", func() {
 			InvoiceID:   28,
 			HostID:      sql.NullInt64{39, true},
 			Hours:       sql.NullInt64{12, true},
+			Terminated:  true,
 			HourlyPrice: sql.NullInt64{1000, true},
 		}
 
@@ -32,6 +33,7 @@ var _ = Describe("invoice item serializer", func() {
         "host_id": 39,
         "host_slug": "Slug1",
         "hours": 12,
+        "terminated": true,
         "hourly_cents": 1,
         "total_charge": 12,
         "total_charge_dollars": 0.12,

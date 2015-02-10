@@ -88,7 +88,7 @@ var _ = Describe("models/invoiceitem", func() {
 		})
 
 		It("should be able to display terminated state", func() {
-			hst.State = host.StateTerminated
+			inv.Terminated = true
 			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' (terminated) 900 hours at 1.231c/hour"))
 		})
 
@@ -196,6 +196,7 @@ var _ = Describe("models/invoiceitem", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
 				HostID:      sql.NullInt64{h.ID, true},
+				Terminated:  true,
 				Hours:       sql.NullInt64{24, true},
 				Credit:      sql.NullInt64{20, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
@@ -291,6 +292,7 @@ var _ = Describe("models/invoiceitem", func() {
 				InvoiceID:   in.ID,
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{24, true},
+				Terminated:  true,
 				Credit:      sql.NullInt64{20, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				StripeID:    sql.NullString{"Xcccs", true},
@@ -304,6 +306,7 @@ var _ = Describe("models/invoiceitem", func() {
 			err := db.QueryRowx("SELECT * FROM invoice_items WHERE id = $1", i.ID).StructScan(i2)
 			Expect(err).To(BeNil())
 
+			Expect(i2.Terminated).To(BeTrue())
 			Expect(i2.Hours.Int64).To(Equal(int64(24)))
 			Expect(i2.HourlyPrice.Int64).To(Equal(h.HourlyPrice))
 			Expect(i2.StripeID.String).To(Equal("Xcccs"))
@@ -311,6 +314,7 @@ var _ = Describe("models/invoiceitem", func() {
 			i2.HourlyPrice = sql.NullInt64{5000, true}
 			i2.Credit = sql.NullInt64{10, true}
 			i2.StripeID.String = "Ok"
+			i2.Terminated = false
 
 			err = i2.Update(db)
 			Expect(err).To(BeNil())
@@ -323,6 +327,7 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(i3.HourlyPrice.Int64).To(Equal(int64(5000)))
 			Expect(i3.Credit.Int64).To(Equal(int64(10)))
 			Expect(i3.StripeID.String).To(Equal("Ok"))
+			Expect(i3.Terminated).To(BeFalse())
 		})
 
 		It("should expect a HostID or Credit is provided", func() {

@@ -11,3 +11,11 @@ App.InvoiceItem = App.Model.extend
   totalCharge: attr('number', as: 'total_charge')
   totalChargeDollars: attr('number', as: 'total_charge_dollars')
   description: attr()
+  terminated: attr('boolean', as: 'terminated')
+
+  ranking: (->
+    if @get 'terminated'
+      @get('id')
+    else
+      @get('id') * -1
+  ).property('terminated')
