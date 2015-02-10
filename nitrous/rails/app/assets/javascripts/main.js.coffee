@@ -40,8 +40,6 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   pendingHost: null
 
-  containerTempStates: Em.Object.create()
-
   newUser: (->
     @get('billingProfile') && @get('billingProfile.cardRequired')
   ).property 'billingProfile', 'billingProfile.cardRequired'

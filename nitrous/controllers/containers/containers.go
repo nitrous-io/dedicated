@@ -1,6 +1,7 @@
 package containers
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -331,7 +332,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		return err
 	}
 
-	if err := cn.Lock(defaultLockTime, env.DB); err != nil {
+	if err := cn.Lock(container.StateStarting, defaultLockTime, env.DB); err != nil {
 		if err == container.ErrLocked {
 			return errContainerLocked
 		}
@@ -339,11 +340,15 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	}
 	defer cn.Unlock(env.DB)
 
+	// broadcast transitioning state
+	publishContainerEvent(env, controllers.EventContainerStarting, cn)
+
 	liveContainer, err := cl.Start(cn.CID, config)
 	if err != nil {
 		return expandFreighterClientError(err)
 	}
-
+	// reset the temp state, so freigther state will be exposed
+	cn.TempState = sql.NullInt64{0, false}
 	cn = hydrateContainer(cn, liveContainer, h)
 
 	publishContainerEvent(env, controllers.EventContainerStarted, cn)
@@ -359,7 +364,7 @@ func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Stop, controllers.EventContainerStopped, cn, h, env, w, r)
+	return performControlAction(cl.Stop, container.StateStopping, controllers.EventContainerStopped, cn, h, env, w, r)
 }
 
 func restart(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -367,15 +372,15 @@ func restart(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	if err != nil {
 		return err
 	}
-	return performControlAction(cl.Restart, controllers.EventContainerRestarted, cn, h, env, w, r)
+	return performControlAction(cl.Restart, container.StateRestarting, controllers.EventContainerRestarted, cn, h, env, w, r)
 }
 
 type actionFn func(id string) (*freighterclient.Container, error)
 
-func performControlAction(fn actionFn, eventName controllers.EventName, cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func performControlAction(fn actionFn, tempState container.State, eventName controllers.EventName, cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// automatically expire all control action locks after 1 minute.
 	// TODO: test with real ops and tweak this value
-	err := cn.Lock(defaultLockTime, env.DB)
+	err := cn.Lock(tempState, defaultLockTime, env.DB)
 	if err != nil {
 		if err == container.ErrLocked {
 			return errContainerLocked
@@ -384,10 +389,20 @@ func performControlAction(fn actionFn, eventName controllers.EventName, cn *cont
 	}
 	defer cn.Unlock(env.DB)
 
+	// broadcast transitioning state
+	evtName, err := getEventName(tempState)
+	if err != nil {
+		return err
+	}
+	publishContainerEvent(env, evtName, cn)
+
 	liveContainer, err := fn(cn.CID)
 	if err != nil {
 		return err
 	}
+
+	// reset the temp state, so freigther state will be exposed
+	cn.TempState = sql.NullInt64{0, false}
 
 	cn = hydrateContainer(cn, liveContainer, h)
 
@@ -405,7 +420,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 
 	// automatically expire destroy action lock after 1 minute.
 	// TODO: test with real ops and tweak this value
-	err := cn.Lock(defaultLockTime, db)
+	err := cn.Lock(container.StateTerminating, defaultLockTime, db)
 	if err != nil {
 		if err == container.ErrLocked {
 			return errContainerLocked
@@ -413,6 +428,9 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 		return err
 	}
 	defer cn.Unlock(env.DB)
+
+	// broadcast transitioning state
+	publishContainerEvent(env, controllers.EventContainerDestroying, cn)
 
 	cl, err := controllers.NewFreighterClient(db, h)
 	if err != nil {
@@ -424,10 +442,14 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 		return err
 	}
 
+	// reset the temp state, so freigther state will be exposed
+	cn.TempState = sql.NullInt64{0, false}
+
 	err = cn.Delete(db)
 	if err != nil {
 		return err
 	}
+
 	cn = hydrateContainer(cn, liveContainer, h)
 
 	publishContainerEvent(env, controllers.EventContainerDestroyed, cn)
@@ -632,4 +654,15 @@ func expandFreighterClientError(err error) error {
 	}
 
 	return err
+}
+
+func getEventName(s container.State) (controllers.EventName, error) {
+	switch s {
+	case container.StateStopping:
+		return controllers.EventContainerStopping, nil
+	case container.StateRestarting:
+		return controllers.EventContainerRestarting, nil
+	default:
+		return "", fmt.Errorf("there's no associated event for the given state - %s", s)
+	}
 }

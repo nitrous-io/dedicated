@@ -37,6 +37,12 @@ type Container struct {
 	Name   sql.NullString `db:"name"`
 	Secret string         `db:"secret"`
 
+	// TempState can be used to overlay the actual container state.
+	// ResolvedState() returns this value when set.
+	// Eg: When TempState is set to 'starting` and container state in Freighter is 'stopped',
+	// ResolvedState() would return 'starting'.
+	TempState sql.NullInt64 `db:"temp_state"`
+
 	Metadata hstore.Hstore `db:"metadata"`
 
 	TerminatedAt *time.Time `db:"terminated_at"`
@@ -126,8 +132,8 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 
 func (c *Container) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE containers
-		SET (cid, slug, name, image, touched_at, updated_at)
-		= (:cid, :slug, :name, :image, :touched_at, now())
+		SET (cid, slug, name, image, temp_state, touched_at, updated_at)
+		= (:cid, :slug, :name, :image, :temp_state, :touched_at, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -187,6 +193,9 @@ func (c *Container) ResolvedState() State {
 	if c.TerminatedAt != nil {
 		return StateTerminated
 	}
+	if c.TempState.Valid {
+		return State(c.TempState.Int64)
+	}
 	return c.State
 }
 
@@ -205,13 +214,13 @@ func (c *Container) IsLocked(d db.QueryReceiver) (bool, error) {
 	return true, nil
 }
 
-func (c *Container) Lock(expiresIn time.Duration, d db.QueryReceiver) error {
+func (c *Container) Lock(state State, expiresIn time.Duration, d db.QueryReceiver) error {
 	now := time.Now()
 	expiredAt := now.Add(expiresIn)
 
 	res, err := d.Exec(`
-		UPDATE containers SET locked_at = $1 WHERE id = $2 AND (locked_at IS NULL OR locked_at < $3)
-	`, expiredAt, c.ID, now)
+		UPDATE containers SET (temp_state, locked_at) = ($1, $2) WHERE id = $3 AND (locked_at IS NULL OR locked_at < $4)
+	`, int64(state), expiredAt, c.ID, now)
 
 	if err != nil {
 		return err
@@ -222,13 +231,16 @@ func (c *Container) Lock(expiresIn time.Duration, d db.QueryReceiver) error {
 		return ErrLocked
 	}
 	c.LockedAt = &expiredAt
+	c.TempState = sql.NullInt64{int64(state), true}
 	return nil
 }
 
 func (c *Container) Unlock(d db.QueryReceiver) error {
-	_, err := d.Exec(`UPDATE containers SET locked_at = null WHERE id = $1;`, c.ID)
-	c.LockedAt = nil
-	return err
+	nstmt, err := d.PrepareNamed(`UPDATE containers SET (temp_state, locked_at) = (null, null) WHERE id = :id RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(c).StructScan(c)
 }
 
 func (c *Container) PreviewHostname() string {
