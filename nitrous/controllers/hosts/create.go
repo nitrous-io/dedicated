@@ -169,7 +169,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	env.AddEventData(map[string]interface{}{
-		"plan":   plan.Name,
+		"plan":   plan.Slug,
 		"region": region.Slug,
 	})
 
