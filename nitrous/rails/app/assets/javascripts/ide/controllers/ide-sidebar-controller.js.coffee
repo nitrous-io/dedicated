@@ -52,9 +52,16 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   openRepoReadme: ->
     App.get('container').setMetadata({readmeOpened: true})
-    _.each ['README.md', 'README.markdown', 'README'], (readme) =>
-      readmePath = App.Path.create absolutePath: "#{@get('homePath.absolutePath')}/#{readme}", directory: false
-      this.openPath readmePath, error: false
+    if (readme_url = App.get('container.env.NITROUS_README_URL'))
+      editorController = @get('controllers.ideEditor')
+      tab = editorController.createTab(
+        content: readme_url
+        path: readme_url
+      , App.Iframe)
+    else
+      _.each ['README.md', 'README.markdown', 'README'], (readme) =>
+        readmePath = App.Path.create absolutePath: "#{@get('homePath.absolutePath')}/#{readme}", directory: false
+        this.openPath readmePath, error: false
 
   # settings options:
   #   done: callback (document)
