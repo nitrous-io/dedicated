@@ -40,6 +40,17 @@ form submit='updateDetails'
         input.ui.btn.primary type='submit' disabled={updatingDetails} value='Save'
 
 .card-header.bordered
+  h2 Integrations
+
+.card-body
+  if authorizedGitHubUserName
+    a href='#' click='noclick'
+      | Connected with GitHub user name:&nbsp;
+      = authorizedGitHubUserName
+  else
+    a click='githubAuthorize' href='#' Connect with GitHub
+
+.card-header.bordered
   h2 Settings
 
 form submit='updateSettings'
