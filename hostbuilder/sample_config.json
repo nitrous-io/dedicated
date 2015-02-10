@@ -15,7 +15,7 @@
     },
     "docker": {
       "freighterd_location": "/home/vagrant/workspace/dedicated/build/freighterd",
-      "docker_location": "/path/to/docker-binary"
+      "docker_location": "/usr/bin/docker"
     }
   }
 }
