@@ -803,5 +803,11 @@ func init() {
 				ALTER TABLE users DROP COLUMN billing_enabled;
 			`,
 		},
+		{
+			Version: "720",
+			Up: `
+				ALTER TABLE users ADD max_containers bigint DEFAULT NULL;
+			`,
+		},
 	}
 }

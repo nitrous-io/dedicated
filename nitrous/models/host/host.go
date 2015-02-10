@@ -270,8 +270,16 @@ func (h *Host) UpdateVersions(d db.QueryReceiver, fv string, dv string) error {
 	return d.QueryRowx(`UPDATE hosts SET freighterd_version = $1, docker_version = $2 WHERE id = $3 RETURNING *;`, fv, dv, h.ID).StructScan(h)
 }
 
-func (h *Host) CanCreateMoreContainers(d db.QueryReceiver) (bool, error) {
-	if !h.MaxContainers.Valid {
+func (h *Host) CanCreateMoreContainers(d db.QueryReceiver, u *user.User) (bool, error) {
+	if !h.MaxContainers.Valid && !u.MaxContainers.Valid {
+		return true, nil
+	}
+
+	containerLimit := h.MaxContainers
+	if !containerLimit.Valid || containerLimit.Int64 < u.MaxContainers.Int64 {
+		containerLimit = u.MaxContainers
+	}
+	if !containerLimit.Valid {
 		return true, nil
 	}
 
@@ -280,7 +288,7 @@ func (h *Host) CanCreateMoreContainers(d db.QueryReceiver) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return count < h.MaxContainers.Int64, nil
+	return count < containerLimit.Int64, nil
 }
 
 func (h *Host) Validate() error {
