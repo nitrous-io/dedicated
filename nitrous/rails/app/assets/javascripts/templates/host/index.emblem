@@ -74,6 +74,15 @@
       td colspan='3'
         = dateabbr createdAt
 
+    if liveDockerVersion
+      tr
+        th Docker ver
+        td
+          = liveDockerVersion
+        th Freighterd ver
+        td.usage
+          = liveFreighterdVersion
+
 .card-footer.bordered
   if isRunning
     .left

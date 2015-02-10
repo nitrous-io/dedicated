@@ -73,6 +73,7 @@ type Response struct {
 	Status         string `json:"status,omitempty"`
 	Provider       string `json:"provider,omitempty"`
 	ID             string `json:"id,omitempty"`
+	Name           string `json:"name,omitempty"`
 	IPAddress      string `json:"ip_address,omitempty"`
 	FreighterdPort uint16 `json:"freighterd_port,omitempty"`
 	State          string `json:"state,omitempty"`
@@ -192,6 +193,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		Status:         "created",
 		Provider:       info.Provider,
 		ID:             info.ID,
+		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
 		State:          info.State.String(),
@@ -229,6 +231,7 @@ func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
 		Status:         "updated",
 		Provider:       info.Provider,
 		ID:             info.ID,
+		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
 		State:          info.State.String(),
@@ -284,6 +287,7 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 		Status:         "restarted",
 		Provider:       info.Provider,
 		ID:             info.ID,
+		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
 		State:          info.State.String(),
@@ -335,6 +339,7 @@ func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 		responses = append(responses, Response{
 			Provider:       hst.Provider,
 			ID:             hst.ID,
+			Name:           hst.Name,
 			IPAddress:      hst.IPAddress,
 			FreighterdPort: hst.FreighterdPort,
 			State:          hst.State.String(),

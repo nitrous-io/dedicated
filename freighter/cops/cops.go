@@ -1,5 +1,12 @@
 package cops
 
+/*
+__attribute__((constructor)) init() {
+	cops_start();
+}
+*/
+import "C"
+
 type (
 	// Message will be serialized over the transport. It is used to represent both
 	// the operation and its result.
@@ -33,8 +40,7 @@ type (
 )
 
 var (
-	Handlers   = map[string]NewHandler{}
-	RootPrefix = "/var/lib/docker/aufs/mnt"
+	Handlers = map[string]NewHandler{}
 )
 
 func RegisterHandler(namespace string, h NewHandler) {

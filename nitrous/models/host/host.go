@@ -82,6 +82,11 @@ type Host struct {
 	HourlyPrice int64 `db:"hourly_price"`
 
 	*ProviderTemplate
+
+	// not the ideal but convenient place so that it's easy to construct
+	// serializers.Host out of it. Data comes from freighterd, not database
+	LiveDockerVersion     string
+	LiveFreighterdVersion string
 }
 
 func FindAllByProvider(db *db.Database, provider string) ([]Host, error) {
@@ -99,7 +104,7 @@ func FindAllByProvider(db *db.Database, provider string) ([]Host, error) {
 
 func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
 	hosts := []Host{}
-	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE ORDER BY id;", user.ID)
+	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE AND state != $2 ORDER BY id;", user.ID, StateOrphan)
 	if err != nil {
 		return nil, err
 	}
@@ -265,8 +270,16 @@ func (h *Host) UpdateVersions(d db.QueryReceiver, fv string, dv string) error {
 	return d.QueryRowx(`UPDATE hosts SET freighterd_version = $1, docker_version = $2 WHERE id = $3 RETURNING *;`, fv, dv, h.ID).StructScan(h)
 }
 
-func (h *Host) CanCreateMoreContainers(d db.QueryReceiver) (bool, error) {
-	if !h.MaxContainers.Valid {
+func (h *Host) CanCreateMoreContainers(d db.QueryReceiver, u *user.User) (bool, error) {
+	if !h.MaxContainers.Valid && !u.MaxContainers.Valid {
+		return true, nil
+	}
+
+	containerLimit := h.MaxContainers
+	if !containerLimit.Valid || containerLimit.Int64 < u.MaxContainers.Int64 {
+		containerLimit = u.MaxContainers
+	}
+	if !containerLimit.Valid {
 		return true, nil
 	}
 
@@ -275,7 +288,7 @@ func (h *Host) CanCreateMoreContainers(d db.QueryReceiver) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return count < h.MaxContainers.Int64, nil
+	return count < containerLimit.Int64, nil
 }
 
 func (h *Host) Validate() error {

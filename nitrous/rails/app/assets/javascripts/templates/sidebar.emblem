@@ -29,16 +29,15 @@ if App.hosts.length
                       link-to 'container.index' container.slug
                         h4
                           = container.displayName
-                        .state-indicator class={container.computedState} title={container.computedState}
+                        .state-indicator class={container.state} title={container.state}
                           span
-                            = container.computedState
+                            = container.state
 
-/ TODO: Renable when desktop app is sync
-  .app-download
-    h3 Get Desktop Sync
+.app-download
+  h3 Get Desktop Sync
 
-    p Install Nitrous desktop app to work on your code using your favorite editor.
+  p Install Nitrous desktop app to work on your code using your favorite editor.
 
-    a.ui.btn.raised href='#' click='downloadDesktopApp "sidebar"'
-      i.fa.fa-download
-      | &nbsp; Free Download
+  a.ui.btn.raised href='#' click='downloadDesktopApp "sidebar"'
+    i.fa.fa-download
+    | &nbsp; Free Download

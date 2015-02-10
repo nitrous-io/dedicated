@@ -11,6 +11,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
   privileged: false
   saving: false
   pullingImage: false
+  ideStarting: false
 
   selectedOption: null
   selectedTemplate: null
@@ -38,6 +39,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       image: null
       saving: false
       pullingImage: false
+      ideStarting: false
 
       selectedTemplate: App.get('templates.firstObject')
       selectedOption: null
@@ -79,8 +81,12 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       privileged: @get 'privileged'
       publish_all: @get 'publishAll'
     ).then =>
-      @transitionToRoute 'container.index', container.get('slug')
-      App.snackbar.post("Your new container “#{name}” was created successfully.")
+      if App.get('user.advanced')
+        @transitionToRoute 'container.index', container.get('slug')
+        App.snackbar.post("Your new container “#{name}” was created successfully.")
+      else
+        @set('ideStarting', true)
+        window.location.href = container.get('ideURL')
       @set 'saving', false
     , (jqxhr) => # container.save
       @handleErrorResponse(jqxhr)

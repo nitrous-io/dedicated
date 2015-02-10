@@ -26,6 +26,9 @@ type Host struct {
 	CreatedAt    *time.Time `json:"created_at"`
 	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
 	TerminatedAt *time.Time `json:"terminated_at,omitempty"`
+
+	LiveDockerVersion     string `json:"live_docker_version,omitempty"`
+	LiveFreighterdVersion string `json:"live_freighterd_version,omitempty"`
 }
 
 func SerializeHost(h *host.Host) *Host {
@@ -33,24 +36,26 @@ func SerializeHost(h *host.Host) *Host {
 		return nil
 	}
 	serialized := &Host{
-		ID:                 h.ID,
-		UserID:             h.UserID,
-		RegionID:           h.RegionID,
-		PlanID:             h.PlanID,
-		Slug:               h.Slug,
-		Name:               h.Name.String,
-		IPAddress:          h.IPAddress.String,
-		FreighterdPort:     h.FreighterdPort.Int64,
-		FreighterdVersion:  h.FreighterdVersion,
-		DockerVersion:      h.DockerVersion,
-		ProviderIdentifier: h.ProviderIdentifier.String,
-		Size:               h.Size.String,
-		State:              h.State,
-		Hostname:           h.Hostname(),
-		ProxyHostname:      h.ProxyHostname(),
-		CreatedAt:          h.CreatedAt,
-		UpdatedAt:          h.UpdatedAt,
-		TerminatedAt:       h.TerminatedAt,
+		ID:                    h.ID,
+		UserID:                h.UserID,
+		RegionID:              h.RegionID,
+		PlanID:                h.PlanID,
+		Slug:                  h.Slug,
+		Name:                  h.Name.String,
+		IPAddress:             h.IPAddress.String,
+		FreighterdPort:        h.FreighterdPort.Int64,
+		FreighterdVersion:     h.FreighterdVersion,
+		DockerVersion:         h.DockerVersion,
+		ProviderIdentifier:    h.ProviderIdentifier.String,
+		Size:                  h.Size.String,
+		State:                 h.State,
+		Hostname:              h.Hostname(),
+		ProxyHostname:         h.ProxyHostname(),
+		CreatedAt:             h.CreatedAt,
+		UpdatedAt:             h.UpdatedAt,
+		TerminatedAt:          h.TerminatedAt,
+		LiveDockerVersion:     h.LiveDockerVersion,
+		LiveFreighterdVersion: h.LiveFreighterdVersion,
 	}
 	if h.AssignedAt != nil {
 		serialized.CreatedAt = h.AssignedAt

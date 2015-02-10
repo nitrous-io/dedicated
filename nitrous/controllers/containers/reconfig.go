@@ -1,6 +1,7 @@
 package containers
 
 import (
+	"database/sql"
 	"net/http"
 	"strconv"
 	"time"
@@ -44,13 +45,15 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 	}
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 
-	if err := cn.Lock(2*time.Minute, env.DB); err != nil {
+	if err := cn.Lock(container.StateReconfiguring, 2*time.Minute, env.DB); err != nil {
 		if err == container.ErrLocked {
 			return errContainerLocked
 		}
 		return err
 	}
 	// unlocked in ctx.run
+
+	publishContainerEvent(env, controllers.EventContainerReconfiguring, cn)
 
 	cn, err = ctx.run(env, async)
 	if err != nil {
@@ -111,11 +114,16 @@ func (ctx *reconfigContext) run(env *middleware.Env, async bool) (*container.Con
 		liveContainer, err = cl.Reconfig(cn.CID, config)
 		if err != nil {
 			if liveContainer != nil {
+				cn.TempState = sql.NullInt64{0, false}
 				cn = hydrateContainer(cn, liveContainer, h)
 			}
 			err = expandFreighterClientError(err)
 			return err
 		}
+
+		// reset the temp state, so freigther state will be exposed
+		cn.TempState = sql.NullInt64{0, false}
+
 		cn = hydrateContainer(cn, liveContainer, h)
 
 		var newConfig *freighterclient.ContainerConfig

@@ -125,7 +125,18 @@ func (c *FS) deleteFile(fileName string) error {
 }
 
 func (c *FS) mkdir(dir string) error {
-	return os.Mkdir(dir, 755)
+	stat, err := os.Stat(filepath.Dir(dir))
+	if err != nil {
+		return err
+	}
+	uid, gid, err := owner(stat)
+	if err != nil {
+		return err
+	}
+	if err := os.Mkdir(dir, os.ModeDir|0755); err != nil {
+		return err
+	}
+	return os.Chown(dir, uid, gid)
 }
 
 func (c *FS) write(path, content string) error {

@@ -285,9 +285,11 @@ var _ = Describe("host/digitalocean", func() {
 
 			h1, h2 := hosts[0], hosts[1]
 			Expect(h1.ID).To(Equal("20"))
+			Expect(h1.Name).To(Equal("test.example.com"))
 			Expect(h1.IPAddress).To(Equal("127.0.0.20"))
 			Expect(h1.State).To(Equal(state.Running))
 			Expect(h2.ID).To(Equal("21"))
+			Expect(h2.Name).To(Equal("test2.example.com"))
 			Expect(h2.IPAddress).To(Equal("127.0.0.22"))
 			Expect(h2.State).To(Equal(state.Running))
 

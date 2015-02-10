@@ -249,6 +249,8 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Host.CreatedAt).NotTo(BeNil())
 			Expect(j.Host.UpdatedAt).NotTo(BeNil())
 			Expect(j.Host.TerminatedAt).To(BeNil())
+			Expect(j.Host.LiveDockerVersion).To(Equal(""))
+			Expect(j.Host.LiveFreighterdVersion).To(Equal(""))
 		})
 
 		It("responds with host info even when called with the host ID", func() {

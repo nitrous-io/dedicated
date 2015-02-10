@@ -135,15 +135,25 @@ var _ = Describe("models/host", func() {
 			err = WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
+			// insert a valid running host
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version)
 				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
 				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv)
 			Expect(err).To(BeNil())
+
+			// insert a terminated host
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, now());`,
 				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv)
+			Expect(err).To(BeNil())
+
+			// insert a orphaned host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8);`,
+				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, "orphan")
 			Expect(err).To(BeNil())
 		})
 
@@ -793,23 +803,39 @@ var _ = Describe("models/host", func() {
 
 		It("should be false if the host has exceeded max_containers on the plan", func() {
 			hs.H.MaxContainers = sql.NullInt64{1, true}
-			state, err := hs.H.CanCreateMoreContainers(db)
+			state, err := hs.H.CanCreateMoreContainers(db, hs.U)
 			Expect(err).To(BeNil())
 			Expect(state).To(BeFalse())
 		})
 
 		It("should be true if the host has not exceeded max_containers on the plan", func() {
 			hs.H.MaxContainers = sql.NullInt64{2, true}
-			state, err := hs.H.CanCreateMoreContainers(db)
+			state, err := hs.H.CanCreateMoreContainers(db, hs.U)
 			Expect(err).To(BeNil())
 			Expect(state).To(BeTrue())
 		})
 
 		It("should be true if the host has NULL max_containers on the plan", func() {
 			hs.H.MaxContainers = sql.NullInt64{0, false}
-			state, err := hs.H.CanCreateMoreContainers(db)
+			state, err := hs.H.CanCreateMoreContainers(db, hs.U)
 			Expect(err).To(BeNil())
 			Expect(state).To(BeTrue())
+		})
+
+		It("should be true if the user has a higher max_containers limit", func() {
+			hs.H.MaxContainers = sql.NullInt64{1, true}
+			hs.U.MaxContainers = sql.NullInt64{2, true}
+			state, err := hs.H.CanCreateMoreContainers(db, hs.U)
+			Expect(err).To(BeNil())
+			Expect(state).To(BeTrue())
+		})
+
+		It("should be false if the user does not have a higher max_containers limit", func() {
+			hs.H.MaxContainers = sql.NullInt64{1, true}
+			hs.U.MaxContainers = sql.NullInt64{1, true}
+			state, err := hs.H.CanCreateMoreContainers(db, hs.U)
+			Expect(err).To(BeNil())
+			Expect(state).To(BeFalse())
 		})
 
 	})

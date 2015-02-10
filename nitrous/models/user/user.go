@@ -68,6 +68,8 @@ type User struct {
 	Admin          bool `db:"admin" json:"admin"`
 	ServiceAccount bool `db:"service_account" json:"-"`
 
+	MaxContainers sql.NullInt64 `db:"max_containers" json:"-"`
+
 	ResetPasswordToken  sql.NullString `db:"reset_password_token" json:"-"`
 	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at" json:"-"`
 

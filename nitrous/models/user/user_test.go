@@ -40,7 +40,7 @@ var _ = Describe("models/user", func() {
 		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password) values ($1, $2, $3, $4);", "bar", "bar@example.com", "bar baz", "barbar")
 		Expect(err).To(BeNil())
 		// setting admin flag to true on last user
-		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password, admin) values ($1, $2, $3, $4, $5);", "baz", "baz@example.com", "baz qux", "bazbaz", true)
+		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password, admin, max_containers) values ($1, $2, $3, $4, $5, $6);", "baz", "baz@example.com", "baz qux", "bazbaz", true, 30)
 		Expect(err).To(BeNil())
 	})
 
@@ -88,6 +88,7 @@ var _ = Describe("models/user", func() {
 				Expect(u.Name).To(Equal("foo bar"))
 				Expect(u.EncryptedPassword).To(Equal("foofoo"))
 				Expect(u.Admin).To(BeFalse())
+				Expect(u.MaxContainers).To(Equal(sql.NullInt64{0, false}))
 
 				u, err = user.FindByID(db, barID)
 				Expect(err).To(BeNil())
@@ -98,6 +99,7 @@ var _ = Describe("models/user", func() {
 				Expect(u.Name).To(Equal("bar baz"))
 				Expect(u.EncryptedPassword).To(Equal("barbar"))
 				Expect(u.Admin).To(BeFalse())
+				Expect(u.MaxContainers).To(Equal(sql.NullInt64{0, false}))
 
 				u, err = user.FindByID(db, bazID)
 				Expect(err).To(BeNil())
@@ -108,6 +110,7 @@ var _ = Describe("models/user", func() {
 				Expect(u.Name).To(Equal("baz qux"))
 				Expect(u.EncryptedPassword).To(Equal("bazbaz"))
 				Expect(u.Admin).To(BeTrue())
+				Expect(u.MaxContainers).To(Equal(sql.NullInt64{30, true}))
 			})
 		})
 
