@@ -61,9 +61,6 @@ func ForPeriod(d db.QueryReceiver, userID int64, periodStart, periodEnd time.Tim
 	err := d.Get(inv, `SELECT * FROM invoices WHERE user_id = $1 AND period_start = $2 AND period_end = $3`,
 		userID, periodStart, periodEnd)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return inv, err
@@ -73,9 +70,6 @@ func FindByStripeID(d db.QueryReceiver, stripeID string) (*Invoice, error) {
 	inv := &Invoice{}
 	err := d.Get(inv, `SELECT * FROM invoices WHERE stripe_id = $1`, stripeID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return inv, err

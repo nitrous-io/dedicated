@@ -46,10 +46,10 @@ var _ = Describe("models/invoice", func() {
 	})
 
 	Describe(".ForPeriod()", func() {
-		It("should return nothing if the record does not exist", func() {
+		It("should fail if the record does not exist", func() {
 			inv, err := invoice.ForPeriod(db, 112, time.Now(), time.Now().Add(2*time.Hour))
 			Expect(inv).To(BeNil())
-			Expect(err).To(BeNil())
+			Expect(err).To(MatchError(sql.ErrNoRows))
 		})
 
 		It("should return the invoice for the period", func() {
@@ -79,10 +79,10 @@ var _ = Describe("models/invoice", func() {
 	})
 
 	Describe(".FindByStripeID()", func() {
-		It("should return nothing if the record does not exist", func() {
+		It("should fail if the record does not exist", func() {
 			inv, err := invoice.FindByStripeID(db, "Ok23x")
 			Expect(inv).To(BeNil())
-			Expect(err).To(BeNil())
+			Expect(err).To(MatchError(sql.ErrNoRows))
 		})
 
 		It("should return the invoice for the stripe ID", func() {
