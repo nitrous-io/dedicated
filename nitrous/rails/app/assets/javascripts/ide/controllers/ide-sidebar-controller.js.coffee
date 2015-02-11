@@ -57,6 +57,7 @@ App.IdeSidebarController = Em.ArrayController.extend
       tab = editorController.createTab(
         content: readme_url
         path: readme_url
+        title: 'README'
       , App.Iframe)
     else
       _.each ['README.md', 'README.markdown', 'README'], (readme) =>
