@@ -3,20 +3,19 @@
 
 .screens
   if App.user.advanced
-    unless createdContainer
-      .card-body
-        .steps
-          .step class={view.showImageScreen:active}
-            span 1
-            | Image
-          .line
-          .step class={view.showConfigScreen:active}
-            span 2
-            | Config
-          .line
-          .step class={view.showProgressScreen:active}
-            span 3
-            | Finish
+    .card-body
+      .steps
+        .step class={view.showImageScreen:active}
+          span 1
+          | Image
+        .line
+        .step class={view.showConfigScreen:active}
+          span 2
+          | Config
+        .line
+        .step class={view.showProgressScreen:active}
+          span 3
+          | Finish
 
   .screen class={view.showImageScreen::hide}
     form submit='goNextOrCreate target="view"'
@@ -212,7 +211,7 @@
         .notice-text
           | Your new container &ldquo;
           = name
-          | &rdquo; is created!
+          | &rdquo; has been created!
       else
         .notice-text
           | Your new container &ldquo;
