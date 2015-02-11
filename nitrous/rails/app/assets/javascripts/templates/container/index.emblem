@@ -165,7 +165,7 @@
   .ui.card
     h2.card-header
       | New Snapshot
-    form
+    form submit='confirmSnapshot target="view"'
       .card-body
         .ui.input-group
           label.field-label for='snapshot-name'
