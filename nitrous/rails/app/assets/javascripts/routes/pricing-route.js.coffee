@@ -1,6 +1,7 @@
 App.PricingRoute = Em.Route.extend
   activate: ->
     App.set 'title', 'Pricing'
+    Mp.track Mp.EventViewedPricing
 
   renderTemplate: ->
     @_super()

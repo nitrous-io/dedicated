@@ -35,8 +35,8 @@ App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
         window.mixpanel?.alias(user.get('id').toString())
         App.__container__.lookup('controller:login').doLogin(user.get('username'), user.get('password'))
         user.set 'password', null
+        Mp.track Mp.EventUserSignedUp
       , (jqxhr) =>
-        console.log jqxhr
         if errMsg = jqxhr.responseJSON?.error_description
           @set 'invalidField', errMsg.match(/^\w+/)[0]
         App.postError(jqxhr.responseJSON, 'Failed to sign up!')

@@ -35,9 +35,8 @@ if App.hosts.length
 
 .app-download
   h3 Get Desktop Sync
-
   p Install Nitrous desktop app to work on your code using your favorite editor.
 
-  a.ui.btn.raised href='#' click='downloadDesktopApp "sidebar"'
+  a.ui.btn.raised href='#' click='downloadDesktopApp'
     i.fa.fa-download
     | &nbsp; Free Download

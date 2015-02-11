@@ -9,3 +9,4 @@ App.ContainerConfigRoute = App.AuthedRoute.extend
     controller.clear()
     App.set 'title', model.get('displayName') + ' › Config'
     controller.loadConfig()
+    Mp.track Mp.EventDashboardViewedContainerConfig

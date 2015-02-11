@@ -17,6 +17,7 @@ App.LoginController = Em.Controller.extend
     @set 'error', null
     App.authenticate(login, password).then((token) =>
       App.set 'token', token
+      Mp.track Mp.EventUserLoggedIn
       @transitionToRoute 'home.index'
     , (err) =>
       if err
@@ -41,6 +42,7 @@ App.LoginController = Em.Controller.extend
       )).then (json) =>
         @set 'resendingConfirm', false
         @set 'resentConfirm', true
+        Mp.track Mp.EventUserResentConfirmationEmail
       , (jqxhr) =>
         @set 'resendingConfirm', false
         @set 'generalError', true

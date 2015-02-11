@@ -1,6 +1,8 @@
 #= require ua-parser
+#= require_self
+#= require ./mp-events
 
-window.mp =
+window.Mp =
   UserAgent: new UAParser().getResult()
 
   initialized: false
@@ -11,8 +13,9 @@ window.mp =
     return false if !token || token == 'disable'
 
     # initialize mixpanel
-    window.mixpanel.init(token)
+    mixpanel.init(token)
     @initialized = true
+
     @identify()
 
   identify: ->
@@ -40,35 +43,37 @@ window.mp =
       else
         personHash.$first_name = name
 
-    mixpanel.people.set personHash
+    mixpanel.people.set(personHash)
     @identified = true
 
   track: (eventName, properties = {}) ->
-    return false unless @initialized
-    return false unless user = App?.get 'user'
+    return false unless @initialized && eventName?
 
-    if mixpanel? && !user.get('admin')
-      defaultProps =
-        username:         user.get('username')
-        email:            user.get('email')
-        distinct_id:      user.get('id').toString()
-        os_name:          @UserAgent.os.name
-        os_version:       @UserAgent.os.version
-        browser_name:     @UserAgent.browser.name
-        browser_version:  @UserAgent.browser.version
-        browser_major:    @UserAgent.browser.major
+    p =
+      os_name:          @UserAgent.os.name
+      os_version:       @UserAgent.os.version
+      browser_name:     @UserAgent.browser.name
+      browser_version:  @UserAgent.browser.version
+      browser_major:    @UserAgent.browser.major
 
-      mixpanel.track eventName, _.defaults(properties, defaultProps)
+    if user = App?.get 'user'
+      p['username'] = user.get('username')
+      p['email'] = user.get('email')
+      p['distinct_id'] = user.get('id').toString()
+
+    Object.assign(p, properties)
+    mixpanel.register_once('First Time': 'TRUE')
+    mixpanel.track(eventName, p)
+    mixpanel.register('First Time': 'FALSE')
 
   increment: (property, value=1) ->
     return false unless @initialized && @identified
-    return false if App?.get('user.admin')
     mixpanel.people.increment(property, value)
 
   updateUser: (properties) ->
     return false unless @initialized && @identified
-    mixpanel.people.set properties
+    mixpanel.people.set(properties)
 
   appendUser: (properties) ->
     return false unless @initialized && @identified
-    mixpanel.people.append properties
+    mixpanel.people.append(properties)

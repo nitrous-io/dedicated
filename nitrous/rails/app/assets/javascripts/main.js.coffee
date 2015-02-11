@@ -63,22 +63,20 @@ window.Nitrous = Em.Application.extend Em.Evented,
       window.localStorage.removeItem('token')
   ).observes 'token'
 
-  didLoadSettings: (->
+  activateStripe: (->
     if settings = @get('settings')
-      if settings.mixpanel_token != '' && settings.mixpanel_token != 'disable'
-        window.mixpanel?.init settings.mixpanel_token
       if settings.stripe_key != '' && settings.stripe_key != 'disable'
         window.Stripe?.setPublishableKey(settings.stripe_key)
   ).observes 'settings'
 
   activateMixpanel: (->
     if settings = @get('settings')
-      mp.init(settings.mixpanel_token)
+      Mp.init(settings.mixpanel_token)
   ).observes 'settings'
 
   identifyUserInMixpanel: (->
     if @get('user')
-      mp.identify()
+      Mp.identify()
   ).observes 'user'
 
   noHost: (->
@@ -100,6 +98,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
       headers: { Authorization: "Bearer #{@get 'token'}" }
     ).always ->
       App.set 'token', null
+      Mp.track Mp.EventUserLoggedOut
       cb?()
 
 window.App = Nitrous.create

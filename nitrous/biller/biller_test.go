@@ -105,7 +105,7 @@ var _ = Describe("biller", func() {
 				Expect(err).To(BeNil())
 				h1 = hs1.H
 
-				_, err = db.Exec("UPDATE hosts SET terminated_at = now(), updated_at = now() WHERE id = $1;", h1.ID)
+				_, err = db.Exec("UPDATE hosts SET terminated_at = $1, updated_at = now() WHERE id = $2;", endTime, h1.ID)
 				Expect(err).To(BeNil())
 
 				hs2, err = CreateHostStack(db, &HostStack{
@@ -206,8 +206,10 @@ var _ = Describe("biller", func() {
 						item2 = it
 					}
 				}
+				Expect(item1.Terminated).To(BeTrue())
 				Expect(item1.Hours.Int64).To(Equal(int64(2)))
 				Expect(item1.HourlyPrice.Int64).To(Equal(int64(2000)))
+				Expect(item2.Terminated).To(BeFalse())
 				Expect(item2.Hours.Int64).To(Equal(int64(672)))
 				Expect(item2.HourlyPrice.Int64).To(Equal(int64(500)))
 			})

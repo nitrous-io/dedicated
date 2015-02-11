@@ -10,3 +10,4 @@ App.HostRegistriesRoute = App.AuthedRoute.extend
     if (registries = model.get 'registries') && registries.get('loaded')
       registries.reload()
     App.set 'title', model.get('displayName') + ' › Registries'
+    Mp.track Mp.EventDashboardViewedHostRegistries

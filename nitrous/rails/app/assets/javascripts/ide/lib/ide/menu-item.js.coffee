@@ -7,6 +7,7 @@ macKeyNames =
   tab: "\u21E5"
   backspace: "\u232B"
   escape: "\u238B"
+
 pcKeyNames =
   command: "Windows"
   ctrl: "Ctrl"
@@ -22,6 +23,8 @@ App.MenuItem = Em.Object.extend
   macKey: null
   pcKey: null
   url: null
+  target: null
+  track: null
   submenu: null
   checked: false
   callback: Em.K
@@ -68,4 +71,3 @@ App.MenuItem = Em.Object.extend
           k.charAt(0).toUpperCase() + k.slice(1)
         ).join '-'
   ).property 'key'
-

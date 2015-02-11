@@ -123,6 +123,10 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	env.Data = map[string]interface{}{
 		"status": "ok",
 	}
+	env.AddEventData(map[string]interface{}{
+		"repo":  repo,
+		"image": img.Slug,
+	})
 
 	return nil
 }

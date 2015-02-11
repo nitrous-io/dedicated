@@ -51,7 +51,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
 
   activateMixpanel: (->
     if @get('user') && settings = @get('settings')
-      mp.init(settings.mixpanel_token)
+      Mp.init(settings.mixpanel_token)
   ).observes 'user', 'settings'
 
   reloadContainer: ->
@@ -59,7 +59,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       container.loadHost()
 
   loadContainer: (slug)->
-    if !slug 
+    if !slug
       return Em.RSVP.Promise.reject(new Error('No slug specified'))
 
     App.set 'slug', slug

@@ -52,9 +52,17 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   openRepoReadme: ->
     App.get('container').setMetadata({readmeOpened: true})
-    _.each ['README.md', 'README.markdown', 'README'], (readme) =>
-      readmePath = App.Path.create absolutePath: "#{@get('homePath.absolutePath')}/#{readme}", directory: false
-      this.openPath readmePath, error: false
+    if (readme_url = App.get('container.env.NITROUS_README_URL'))
+      editorController = @get('controllers.ideEditor')
+      tab = editorController.createTab(
+        content: readme_url
+        path: readme_url
+        title: 'README'
+      , App.Iframe)
+    else
+      _.each ['README.md', 'README.markdown', 'README'], (readme) =>
+        readmePath = App.Path.create absolutePath: "#{@get('homePath.absolutePath')}/#{readme}", directory: false
+        this.openPath readmePath, error: false
 
   # settings options:
   #   done: callback (document)
@@ -298,7 +306,7 @@ App.IdeSidebarController = Em.ArrayController.extend
       this.refreshPath path.get('parentAbsolutePath')
     uploadDialog = @get 'uploadDialog'
     if uploadDialog && uploadDialog.get 'completed'
-      mp.track 'Uploaded File'
+      Mp.track Mp.EventIDEUserUploadedFile
       uploadDialog.set('hide', true)
       @set 'uploadDialog', null
 

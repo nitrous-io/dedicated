@@ -201,10 +201,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	res.Container = serializers.SerializeContainer(cn)
 
 	env.AddEventData(map[string]interface{}{
-		"slug":         cn.Slug,
-		"image":        cn.Image,
-		"host_id":      cn.HostID,
-		"container_id": cn.ID,
+		"image": cn.Image,
 	})
 
 	return res, nil

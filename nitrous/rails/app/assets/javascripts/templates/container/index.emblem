@@ -86,15 +86,13 @@
         tr
           th SSH URL
           td colspan='3'
-            a href={sshURL}
-              = sshURL
+            ui-trackable-link href=sshURL text=sshURL track=Mp.EventDashboardUserClickedSSHURL
 
       if previewURL
         tr
           th Preview URL
           td colspan='3'
-            a href={previewURL} target='_blank'
-              = previewURL
+            ui-trackable-link href=previewURL target='_blank' text=previewURL track=Mp.EventDashboardUserClickedPreviewURL
 
 .card-footer.bordered
   if isRunning
@@ -108,7 +106,7 @@
         unless isNitrousImage
           button.ui.btn click='openLogs' Logs
           button.ui.btn click='openAttach' Attach
-      a.ui.btn.primary href=ideURL target='_blank' IDE
+      a.ui.btn.primary href=ideURL IDE
   else
     if isStopped
       .left
@@ -165,7 +163,7 @@
   .ui.card
     h2.card-header
       | New Snapshot
-    form
+    form submit='confirmSnapshot target="view"'
       .card-body
         .ui.input-group
           label.field-label for='snapshot-name'

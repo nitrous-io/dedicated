@@ -120,6 +120,9 @@ func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	env.Data = map[string]interface{}{
 		"registry": serializers.SerializeRegistry(reg),
 	}
+	env.AddEventData(map[string]interface{}{
+		"url": registryURL,
+	})
 	return nil
 }
 
@@ -169,5 +172,8 @@ func logout(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	env.Data = map[string]interface{}{
 		"status": "ok",
 	}
+	env.AddEventData(map[string]interface{}{
+		"url": reg.URL,
+	})
 	return nil
 }

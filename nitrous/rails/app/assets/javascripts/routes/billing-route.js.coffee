@@ -15,6 +15,7 @@ App.BillingRoute = App.AuthedRoute.extend
 
   activate: ->
     App.set 'title', 'Billing'
+    Mp.track Mp.EventDashboardViewedBilling
 
   renderTemplate: ->
     @render 'billing', outlet: 'content'

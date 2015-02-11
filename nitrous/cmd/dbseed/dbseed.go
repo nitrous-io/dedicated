@@ -214,21 +214,24 @@ func templates(d db.QueryReceiver) error {
 	cm := &ConfigMarshaller{}
 
 	var (
-		railsJSON   = cm.templateJSON(defaultPorts, false)
-		djangoJSON  = cm.templateJSON(defaultPorts, false)
-		phpLampJson = cm.templateJSON(defaultPorts, false)
-		meteorJSON  = cm.templateJSON(defaultPorts, false)
-		laravelJSON = cm.templateJSON(defaultPorts, false)
-		meanJSON    = cm.templateJSON(defaultPorts, false)
-		aspnetJSON  = cm.templateJSON(defaultPorts, false)
+		railsJSON     = cm.templateJSON(defaultPorts, false)
+		djangoJSON    = cm.templateJSON(defaultPorts, false)
+		phpApacheJSON = cm.templateJSON(defaultPorts, false)
+		phpNginxJSON  = cm.templateJSON(defaultPorts, false)
+		meteorJSON    = cm.templateJSON(defaultPorts, false)
+		laravelJSON   = cm.templateJSON(defaultPorts, false)
+		meanJSON      = cm.templateJSON(defaultPorts, false)
+		aspnetJSON    = cm.templateJSON(defaultPorts, false)
 
+		html5JSON  = cm.templateJSON(defaultPorts, false)
 		rubyJSON   = cm.templateJSON(defaultPorts, false)
 		pythonJSON = cm.templateJSON(defaultPorts, false)
 		nodejsJSON = cm.templateJSON(defaultPorts, false)
 		iojsJSON   = cm.templateJSON(defaultPorts, false)
 		golangJSON = cm.templateJSON(defaultPorts, false)
 		ubuntuJSON = cm.templateJSON(defaultPorts, false)
-		dindJSON   = cm.templateJSON(defaultPorts, true)
+
+		dindJSON = cm.templateJSON(defaultPorts, true)
 	)
 
 	if cm.err != nil {
@@ -239,12 +242,14 @@ func templates(d db.QueryReceiver) error {
 		// stack templates
 		newTemplate("Ruby on Rails", "rails", "quay.io/nitrous/rails:latest", railsJSON, template.TypeStack, railsDesc),
 		newTemplate("Django", "django", "quay.io/nitrous/django:latest", djangoJSON, template.TypeStack, djangoDesc),
-		newTemplate("PHP (LAMP)", "php", "quay.io/nitrous/php:latest", phpLampJson, template.TypeStack, phpLampDesc),
+		newTemplate("PHP (LAMP)", "php-apache", "quay.io/nitrous/php-apache:latest", phpApacheJSON, template.TypeStack, phpApacheDesc),
+		newTemplate("PHP (LEMP)", "php-nginx", "quay.io/nitrous/php-nginx:latest", phpNginxJSON, template.TypeStack, phpNginxDesc),
 		newTemplate("Meteor", "meteor", "quay.io/nitrous/meteor:latest", meteorJSON, template.TypeStack, meteorDesc),
 		newTemplate("Laravel", "laravel", "quay.io/nitrous/laravel:latest", laravelJSON, template.TypeStack, laravelDesc),
 		newTemplate("MEAN", "mean", "quay.io/nitrous/mean:latest", meanJSON, template.TypeStack, meanDesc),
 		newTemplate("ASP.NET", "aspnet", "quay.io/nitrous/aspnet:latest", aspnetJSON, template.TypeStack, aspnetDesc),
 		// basic templates
+		newTemplate("HTML5", "html5", "quay.io/nitrous/nginx:latest", html5JSON, template.TypeBasic, html5Desc),
 		newTemplate("Ruby", "ruby", "quay.io/nitrous/ruby:latest", rubyJSON, template.TypeBasic, rubyDesc),
 		newTemplate("Python", "python", "quay.io/nitrous/python:latest", pythonJSON, template.TypeBasic, pythonDesc),
 		newTemplate("Node.js", "nodejs", "quay.io/nitrous/nodejs:latest", nodejsJSON, template.TypeBasic, nodejsDesc),
@@ -319,12 +324,25 @@ const (
 •  Go 1.4
 •  Ubuntu 14.04`
 
-	phpLampDesc = `PHP: a popular general-purpose scripting language that is especially suited to web development
+	phpApacheDesc = `PHP (LAMP): a popular general-purpose scripting language that is especially suited to web development
 
 •  PHP 5.5
 •  Composer 1.0
 •  MySQL 5.5
 •  Apache 2.4
+•  Ubuntu 14.04`
+
+	phpNginxDesc = `PHP (LEMP): a popular general-purpose scripting language that is especially suited to web development
+
+•  PHP 5.5
+•  Composer 1.0
+•  MySQL 5.5
+•  Nginx 1.6
+•  Ubuntu 14.04`
+
+	html5Desc = `HTML5: static HTML5 development with Nginx
+
+•  Nginx 1.6
 •  Ubuntu 14.04`
 
 	nodejsDesc = `Node.js: a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications

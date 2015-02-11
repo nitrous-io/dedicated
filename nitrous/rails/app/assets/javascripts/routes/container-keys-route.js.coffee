@@ -11,3 +11,4 @@ App.ContainerKeysRoute = App.AuthedRoute.extend
     if keys && keys.get('loaded')
       keys.reload()
     App.set 'title', model.get('displayName') + ' › SSH Keys'
+    Mp.track Mp.EventDashboardViewedContainerKeys

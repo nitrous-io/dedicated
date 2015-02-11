@@ -4,9 +4,7 @@ pages.Home =
   interval: null
 
   init: ->
-    $ =>
-      pages.activePage = "Home Page"
-      @startTransitions()
+    pages.activePageName = 'Home'
 
     $('.pages .page').click (e) =>
       $page = $(e.target)
@@ -21,6 +19,9 @@ pages.Home =
         url += "?email=#{encodeURIComponent(email)}"
       # set href instead of replace to preserve history (navigate instead of redirect)
       window.location.href = url
+
+    $ =>
+      @startTransitions()
 
   startTransitions: ->
     window.clearInterval(@interval)
