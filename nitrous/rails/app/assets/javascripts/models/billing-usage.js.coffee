@@ -12,7 +12,7 @@ App.BillingUsage = klass = App.Model.extend
       inv = App.InvoiceItem.create()
       inv.load item
       inv
-    .sortBy('ranking')
+    .sortBy('ranking', 'id').reverse()
   ).property '_items'
 
   unpaid: (->
