@@ -223,7 +223,7 @@ http {
   }
 
   server {
-    listen 8080 ssl;
+    listen 7000 ssl;
 
     server_name pro.n2odev.com;
     ssl_certificate /home/vagrant/workspace/dedicated/nitrous/dev/n2odev.crt;
@@ -289,7 +289,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     config.vm.network :private_network, type: "dhcp"
   end
 
-  config.vm.network "forwarded_port", guest: 8080,  host: 8080
+  config.vm.network "forwarded_port", guest: 7000,  host: 7000
   additional_config.call config
 
   config.ssh.shell = "bash -c 'BASH_ENV=/etc/profile exec bash'" # avoids 'stdin: is not a tty' error.
