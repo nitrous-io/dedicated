@@ -3,19 +3,20 @@
 
 .screens
   if App.user.advanced
-    .card-body
-      .steps
-        .step class={view.showImageScreen:active}
-          span 1
-          | Image
-        .line
-        .step class={view.showConfigScreen:active}
-          span 2
-          | Config
-        .line
-        .step class={view.showProgressScreen:active}
-          span 3
-          | Finish
+    unless createdContainer
+      .card-body
+        .steps
+          .step class={view.showImageScreen:active}
+            span 1
+            | Image
+          .line
+          .step class={view.showConfigScreen:active}
+            span 2
+            | Config
+          .line
+          .step class={view.showProgressScreen:active}
+            span 3
+            | Finish
 
   .screen class={view.showImageScreen::hide}
     form submit='goNextOrCreate target="view"'
@@ -207,11 +208,17 @@
 
   .screen class={view.showProgressScreen::hide}
     .card-body
-      .notice-text
-        | Your new container &ldquo;
-        = name
-        | &rdquo; is being created
-        = ui-ellipsis
+      if createdContainer
+        .notice-text
+          | Your new container &ldquo;
+          = name
+          | &rdquo; is created!
+      else
+        .notice-text
+          | Your new container &ldquo;
+          = name
+          | &rdquo; is being created
+          = ui-ellipsis
 
     .log class={view.showLog:show}
       .terminal-screen
@@ -232,15 +239,20 @@
             else
               | Show Log
       else
-        .right
-          a.ui.btn href='#' click='goBack target="view"' Back
-          a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
+        if createdContainer
+          .right
+              button.ui.btn click='toggleLog target="view"'
+                if view.showLog
+                  | Hide Log
+                else
+                  | Show Log
+              a.ui.btn.primary href='#' click='showContainer' Show container
+              if startingIDE
+                a.ui.btn.primary.raised.pulsate Starting IDE...
+              else
+                a.ui.btn.primary.raised.pulsate click='openIDE' Open IDE
+        else
+          .right
+            a.ui.btn href='#' click='goBack target="view"' Back
+            a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
-
-  .screen class={view.showIDEStarting::hide}
-    .card-body
-      .notice-text
-        | Your new container &ldquo;
-        = name
-        | &rdquo; has been created. Starting IDE.
-        = ui-ellipsis
