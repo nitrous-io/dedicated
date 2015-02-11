@@ -106,7 +106,7 @@
         unless isNitrousImage
           button.ui.btn click='openLogs' Logs
           button.ui.btn click='openAttach' Attach
-      a.ui.btn.primary href=ideURL target='_blank' IDE
+      a.ui.btn.primary href=ideURL IDE
   else
     if isStopped
       .left

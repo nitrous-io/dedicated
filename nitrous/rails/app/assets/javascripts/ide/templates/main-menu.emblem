@@ -16,10 +16,10 @@
           .ui.dropdown-triangle
         ul.dropdown-menu.right
           li
-            a href=view.dashboardURL target='_blank'
+            a href=view.dashboardURL
               | Dashboard
           li
-            a href='/app/#/account' target='_blank'
+            a href='/app/#/account'
               | Account Settings
           li.separator
           li
