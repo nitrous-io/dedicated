@@ -11,7 +11,8 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
   privileged: false
   saving: false
   pullingImage: false
-  ideStarting: false
+  createdContainer: null
+  startingIDE: false
 
   selectedOption: null
   selectedTemplate: null
@@ -39,7 +40,8 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       image: null
       saving: false
       pullingImage: false
-      ideStarting: false
+      createdContainer: null
+      startingIDE: false
 
       selectedTemplate: App.get('templates.firstObject')
       selectedOption: null
@@ -81,12 +83,8 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       privileged: @get 'privileged'
       publish_all: @get 'publishAll'
     ).then =>
-      if App.get('user.advanced')
-        @transitionToRoute 'container.index', container.get('slug')
-        App.snackbar.post("Your new container “#{name}” was created successfully.")
-      else
-        @set('ideStarting', true)
-        window.location.href = container.get('ideURL')
+      App.snackbar.post("Your new container “#{name}” was created successfully.")
+      @set 'createdContainer', container
       @set 'saving', false
     , (jqxhr) => # container.save
       @handleErrorResponse(jqxhr)
@@ -125,6 +123,15 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       @handleErrorResponse(jqxhr)
 
   actions:
+    showContainer: ->
+      return unless @get 'createdContainer'
+      @transitionToRoute 'container.index', @get 'createdContainer.slug'
+
+    openIDE: ->
+      return unless @get 'createdContainer' || @get('startingIDE')
+      @set 'startingIDE', true
+      window.location.href = @get 'createdContainer.ideURL'
+
     cancel: ->
       if slug = @get('preselectHost')
         @transitionToRoute 'host.index', slug
