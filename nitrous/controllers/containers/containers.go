@@ -482,12 +482,6 @@ func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	env.Data = map[string]interface{}{
 		"token": t,
 	}
-	env.AddEventData(map[string]interface{}{
-		"slug":         cn.Slug,
-		"image":        cn.Image,
-		"host_id":      cn.HostID,
-		"container_id": cn.ID,
-	})
 	return nil
 }
 

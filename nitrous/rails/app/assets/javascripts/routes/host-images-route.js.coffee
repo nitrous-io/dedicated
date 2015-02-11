@@ -10,3 +10,4 @@ App.HostImagesRoute = App.AuthedRoute.extend
     if (images = model.get 'images') && images.get('loaded')
       images.reload()
     App.set 'title', model.get('displayName') + ' › Images'
+    Mp.track Mp.EventDashboardViewedHostImages

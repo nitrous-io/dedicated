@@ -17,11 +17,6 @@ App.HomeRoute = App.AuthedRoute.extend
     @render 'sidebar', into: 'home', outlet: 'sidebar', controller: 'sidebar'
 
   actions:
-    downloadDesktopApp: (source) ->
-      if !App.get('user.admin')
-        window.mixpanel?.track? 'Desktop App Downloaded',
-          distinct_id: App.get('user.id'),
-          email: App.get('user.email'),
-          platform: App.get('platform'),
-          source: source
+    downloadDesktopApp: ->
+      Mp.track Mp.EventDashboardUserClickedDownloadDesktopApp
       window.open App.get('desktopDownloadUrl'), '_blank'

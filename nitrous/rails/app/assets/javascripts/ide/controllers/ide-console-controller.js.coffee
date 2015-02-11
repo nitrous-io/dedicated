@@ -28,3 +28,7 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, 
       terminal.focus()
     , (jqxhr) ->
       terminal.retry()
+
+  addTab: ->
+    @_super.apply this, arguments
+    Mp.track Mp.EventIDEUserOpenedConsole

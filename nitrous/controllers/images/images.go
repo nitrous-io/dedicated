@@ -342,6 +342,9 @@ func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	env.Data = map[string]interface{}{
 		"image": serializers.SerializeImage(img),
 	}
+	env.AddEventData(map[string]interface{}{
+		"image": img.Slug,
+	})
 	return nil
 }
 

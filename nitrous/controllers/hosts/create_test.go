@@ -334,23 +334,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(h.HourlyPrice).To(Equal(int64(745))) // monthly price of the plan = $5.00
 		})
 
-		It("tracks the 'Host Created' event", func() {
-			doRequest(params)
-			t, ok := svr.Tracker.(*FakeTracker)
-			Expect(ok).To(BeTrue())
-
-			Expect(t.Events[u.ID]).To(Equal([]string{server.HostCreated}))
-			hosts, err := host.FindAllByUser(db, u)
-			Expect(err).To(BeNil())
-			Expect(hosts).To(HaveLen(1))
-
-			h := hosts[0]
-
-			eventJSON, err := json.Marshal(t.TrackEventProperties[u.ID])
-			Expect(err).To(BeNil())
-			Expect(eventJSON).To(MatchJSON(fmt.Sprintf(`[{"slug":"%s","host_id":%d,"plan":"%s","region":"%s"}]`, h.Slug, h.ID, hs.P.Name, hs.R.Name)))
-		})
-
 		It("creates a host record for the user when JSON is sent by the client", func() {
 			jsonStr := `{
 				"host": {
