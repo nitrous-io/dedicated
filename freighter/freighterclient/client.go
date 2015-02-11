@@ -57,6 +57,7 @@ var (
 	ErrVolumeNotFound    = errors.New("freighter: volume not found")
 	ErrHostNotFound      = errors.New("freighter: host not found")
 	ErrMissingCmd        = errors.New("freighter: missing cmd in docker image")
+	ErrIllegalTagName    = errors.New("freighter: illegal tag name provided")
 )
 
 type RegistryAuth struct {
@@ -388,7 +389,11 @@ func (c *client) Commit(id, imageName string) (*Image, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, statusError(resp)
+		se := statusError(resp)
+		if strings.Contains(se.Body, "Illegal tag name") {
+			return nil, ErrIllegalTagName
+		}
+		return nil, se
 	}
 
 	var imageInfo struct {
