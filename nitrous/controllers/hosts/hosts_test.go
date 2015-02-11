@@ -294,9 +294,17 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(res.Code).To(Equal(http.StatusNotFound))
 			})
 
-			It("responds with the host record when user is an admin", func() {
+			It("responds with the host record augmented with Docker and Freighter versions when user is an admin", func() {
 				_, err := db.Exec("UPDATE users SET admin = true WHERE id = $1", anotherUser.ID)
 				Expect(err).To(BeNil())
+
+				mockClient := &freighterclient.MockClient{}
+				mockClient.HostVersionsReturn = &freighterclient.HostVersions{
+					DockerVersion:     "1.5.0-nitrous1",
+					FreighterdVersion: "1.0.1-deadbeef",
+				}
+				StubDefaultFreighterFn(mockClient)
+				defer UnstubFreighterFn()
 
 				doRequest(hs.H.Slug, anotherToken.Token)
 				Expect(res.Code).To(Equal(http.StatusOK))
@@ -307,6 +315,9 @@ var _ = Describe("controllers/hosts", func() {
 				err = json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 				Expect(j.Host.ID).To(Equal(hs.H.ID))
+				Expect(mockClient.HostVersionsCalled).To(Equal(1))
+				Expect(j.Host.LiveDockerVersion).To(Equal("1.5.0-nitrous1"))
+				Expect(j.Host.LiveFreighterdVersion).To(Equal("1.0.1-deadbeef"))
 			})
 		})
 
