@@ -15,7 +15,7 @@ App.InvoiceItem = App.Model.extend
 
   ranking: (->
     if @get 'terminated'
-      @get('id')
+      -1
     else
-      @get('id') * -1
+      0
   ).property('terminated')
