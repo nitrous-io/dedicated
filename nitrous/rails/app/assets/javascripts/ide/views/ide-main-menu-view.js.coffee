@@ -237,16 +237,21 @@ App.IdeMainMenuView = Em.View.extend
           hideBinding: Em.Binding.oneWay('App.consoleMinimized')
           callback: (controller) ->
             controller.viewMinimizeConsole()
-        menuItem 'Maximize Console',
+        menuItem 'Restore Console',
           hide: (->
             !App.get('consoleMinimized')
           ).property('App.consoleMinimized')
           callback: (controller) ->
-            controller.viewMaximizeConsole()
+            controller.viewRestoreConsole()
         menuItem 'Toggle Full Screen Console', macKey: 'shift+ctrl+f', pcKey: 'ctrl+alt+f', callback: (controller) ->
           controller.viewToggleFullScreenConsole()
-        menuItem 'Toggle Full Screen Editor', macKey: 'shift+ctrl+e', pcKey: 'ctrl+alt+e', callback: (controller) ->
-          controller.viewToggleFullScreenEditor()
+        separator
+        menuItem 'Split Editor Pane Vertically', macKey: 'shift+ctrl+\\', pcKey: 'shift+ctrl+\\', callback: (controller) ->
+          controller.viewSplitEditorPaneVertically()
+        menuItem 'Split Editor Pane Horizontally', macKey: 'shift+ctrl+-', pcKey: 'shift+ctrl+-', callback: (controller) ->
+          controller.viewSplitEditorPaneHorizontally()
+        menuItem 'Close Editor Pane', macKey: "shift+ctrl+'", pcKey: "shift+ctrl+'", callback: (controller) ->
+          controller.viewCloseEditorPane()
         separator
         menuItem 'Themes', submenu: themesMenu
         separator

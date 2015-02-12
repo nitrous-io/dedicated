@@ -1,12 +1,12 @@
-App.IdeTabView = Em.View.extend App.IdeTabViewMixin, App.IdeDragDropViewMixin,
-  templateName: 'ide/tab'
-  classNames: ['ide_tab_view']
+App.IdeEditorTabView = Em.View.extend App.IdeTabViewMixin, App.IdeDragDropViewMixin,
+  templateName: 'ide/editor-tab'
+  classNames: ['ide-editor-tab-view']
   classNameBindings: ['content.active:selected']
   attributeBindings: 'draggable'
   tagName: 'li'
   content: null
 
-  closeTab: (->
+  pathDidGetDeleted: (->
     if @get 'content.path.deleted'
       this.remove()
   ).observes 'content.path.deleted'
@@ -30,3 +30,12 @@ App.IdeTabView = Em.View.extend App.IdeTabViewMixin, App.IdeDragDropViewMixin,
     if tabs && draggedTab && droppableIndex
       tabs.removeObject draggedTab
       tabs.insertAt droppableIndex, draggedTab
+
+  actions:
+    didClickTab: ->
+      @get('parentView.editorPane')?.makeActive()
+      @_super.apply this, arguments
+
+    didClickClose: ->
+      @get('parentView.editorPane')?.makeActive()
+      @_super.apply this, arguments

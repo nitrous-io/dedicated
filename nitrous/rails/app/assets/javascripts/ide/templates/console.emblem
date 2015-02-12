@@ -13,7 +13,7 @@ App.IdeConsoleBorderView
       i.fa.fa-plus
   .ide-toolbar-btns
     if minimized
-      button.ui.btn.icon title='Maximize' click='didClickMaximizeConsole target="view"'
+      button.ui.btn.icon title='Restore' click='didClickRestoreConsole target="view"'
         i.fa.fa-caret-up
     else
       button.ui.btn.icon title='Minimize' click='didClickMinimizeConsole target="view"'
