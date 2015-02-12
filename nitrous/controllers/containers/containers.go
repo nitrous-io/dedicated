@@ -70,6 +70,44 @@ var (
 	PerformCreateFn = CreateContainer
 )
 
+type containerHandler func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
+
+type taskFn func() error
+
+func doExclusive(locker taskFn, unlocker taskFn, task taskFn) (err error) {
+	err = locker()
+	if err != nil {
+		return err
+	}
+
+	err = task()
+
+	unlockErr := unlocker()
+	if unlockErr != nil {
+		err = unlockErr
+	}
+
+	return err
+}
+
+func lockerFn(cn *container.Container, tempState container.State, env *middleware.Env) taskFn {
+	return func() error {
+		if err := cn.Lock(tempState, defaultLockTime, env.DB); err != nil {
+			if err == container.ErrLocked {
+				return errContainerLocked
+			}
+			return err
+		}
+		return nil
+	}
+}
+
+func unlockerFn(cn *container.Container, env *middleware.Env) taskFn {
+	return func() error {
+		return cn.Unlock(env.DB)
+	}
+}
+
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	var err error
@@ -365,61 +403,58 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	return nil
 }
 
-func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
-	if err != nil {
-		return err
-	}
-	return performControlAction(cl.Stop, container.StateStopping, controllers.EventContainerStopped, cn, h, env, w, r)
-}
+type actionFn func(cl *controllers.FreighterClient, id string) (*freighterclient.Container, error)
 
-func restart(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
-	if err != nil {
-		return err
-	}
-	return performControlAction(cl.Restart, container.StateRestarting, controllers.EventContainerRestarted, cn, h, env, w, r)
-}
-
-type actionFn func(id string) (*freighterclient.Container, error)
-
-func performControlAction(fn actionFn, tempState container.State, eventName controllers.EventName, cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	// automatically expire all control action locks after 1 minute.
-	// TODO: test with real ops and tweak this value
-	err := cn.Lock(tempState, defaultLockTime, env.DB)
-	if err != nil {
-		if err == container.ErrLocked {
-			return errContainerLocked
+func controlActionHandler(action actionFn, tempState container.State, eventName controllers.EventName) containerHandler {
+	return func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+		cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
+		if err != nil {
+			return err
 		}
-		return err
+
+		locker := lockerFn(cn, tempState, env)
+		unlocker := unlockerFn(cn, env)
+
+		return doExclusive(locker, unlocker, func() error {
+			// broadcast transitioning state
+			evtName, err := getEventName(tempState)
+			if err != nil {
+				return err
+			}
+			publishContainerEvent(env, evtName, cn)
+
+			liveContainer, err := action(cl, cn.CID)
+			if err != nil {
+				return err
+			}
+
+			// reset the temp state, so freigther state will be exposed
+			cn.TempState = sql.NullInt64{0, false}
+
+			cn = hydrateContainer(cn, liveContainer, h)
+
+			publishContainerEvent(env, eventName, cn)
+			env.Status = http.StatusOK
+			env.Data = map[string]interface{}{
+				"container": serializers.SerializeContainer(cn),
+			}
+
+			return nil
+		})
 	}
-	defer cn.Unlock(env.DB)
-
-	// broadcast transitioning state
-	evtName, err := getEventName(tempState)
-	if err != nil {
-		return err
-	}
-	publishContainerEvent(env, evtName, cn)
-
-	liveContainer, err := fn(cn.CID)
-	if err != nil {
-		return err
-	}
-
-	// reset the temp state, so freigther state will be exposed
-	cn.TempState = sql.NullInt64{0, false}
-
-	cn = hydrateContainer(cn, liveContainer, h)
-
-	publishContainerEvent(env, eventName, cn)
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"container": serializers.SerializeContainer(cn),
-	}
-
-	return nil
 }
+
+var stop = controlActionHandler(
+	func(cl *controllers.FreighterClient, id string) (*freighterclient.Container, error) {
+		return cl.Stop(id)
+
+	}, container.StateStopping, controllers.EventContainerStopped)
+
+var restart = controlActionHandler(
+	func(cl *controllers.FreighterClient, id string) (*freighterclient.Container, error) {
+		return cl.Restart(id)
+
+	}, container.StateRestarting, controllers.EventContainerRestarted)
 
 func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
@@ -491,7 +526,7 @@ func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	return nil
 }
 
-func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error) middleware.Middleware {
+func WithContainerAndHost(fn containerHandler) middleware.Middleware {
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		db := env.DB
 
