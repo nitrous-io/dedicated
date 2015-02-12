@@ -8,14 +8,14 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 )
 
-type freighterClientFn func(db db.QueryReceiver, h *host.Host) (*controllers.FreighterClient, error)
+type freighterClientFn func(db db.QueryReceiver, h *host.Host, uuid string) (*controllers.FreighterClient, error)
 
 var actualClient = controllers.NewFreighterClient
 
 // SetDefaultFreighterFn assumes that we only want to inject the client, and we
 // have a valid host with proper cert.
 func StubDefaultFreighterFn(cl freighterclient.Client) {
-	fn := func(db db.QueryReceiver, h *host.Host) (*controllers.FreighterClient, error) {
+	fn := func(db db.QueryReceiver, h *host.Host, uuid string) (*controllers.FreighterClient, error) {
 		crt, err := cert.Find(db, h.ID)
 		if err != nil {
 			return nil, err

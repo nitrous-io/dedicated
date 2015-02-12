@@ -77,7 +77,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	fImgs, err := findImagesInHosts(db, hosts)
+	fImgs, err := findImagesInHosts(db, hosts, env)
 	if err != nil {
 		return err
 	}
@@ -117,10 +117,10 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func findImagesInHosts(db db.QueryReceiver, hosts []host.Host) ([]*freighterclient.Image, error) {
+func findImagesInHosts(db db.QueryReceiver, hosts []host.Host, env *middleware.Env) ([]*freighterclient.Image, error) {
 	var allImgs []*freighterclient.Image
 	for _, h := range hosts {
-		cl, err := controllers.NewFreighterClient(db, &h)
+		cl, err := controllers.NewFreighterClient(db, &h, env.UUID)
 		if err != nil {
 			return nil, err
 		}
@@ -155,7 +155,7 @@ func findMatchingDbImg(i *freighterclient.Image, images []*image.Image) *image.I
 
 func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,7 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 
 func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -257,7 +257,7 @@ func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Reque
 
 func Inspect(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}

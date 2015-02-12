@@ -35,7 +35,7 @@ func CreateVolume(h *host.Host, options url.Values, env *middleware.Env) (*seria
 	}
 	name := options.Get("name")
 
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return nil, err
 	}

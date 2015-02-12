@@ -285,7 +285,7 @@ func generateCerts(hostname string) (*cert.Cert, error) {
 }
 
 func createSharedVolume(env *middleware.Env, db *ndb.Database, h *host.Host) error {
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}

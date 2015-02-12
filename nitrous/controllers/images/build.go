@@ -98,7 +98,7 @@ func (c *buildContext) build(async bool, isNew bool) (*image.Image, error) {
 }
 
 func Build(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}

@@ -93,7 +93,7 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	if env.User.Admin {
 		h.LiveDockerVersion = "error getting version"
 		h.LiveFreighterdVersion = "error getting version"
-		if cl, err := controllers.NewFreighterClient(env.DB, h); err == nil {
+		if cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID); err == nil {
 			if ver, err := cl.HostVersions(); err == nil {
 				h.LiveDockerVersion = ver.DockerVersion
 				h.LiveFreighterdVersion = ver.FreighterdVersion
@@ -152,7 +152,7 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return errHostNotRunning
 	}
 
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}
