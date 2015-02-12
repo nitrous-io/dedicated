@@ -73,26 +73,37 @@ var (
 type containerHandler func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 
 type taskFn func() error
+type errorHandlerFn func(err error)
 
-func doExclusive(locker taskFn, unlocker taskFn, task taskFn) (err error) {
+// TODO: Stub for error handler
+func ignoreError(err error) {
+	// noop
+}
+
+func doExclusive(locker taskFn, unlocker taskFn, errHandler errorHandlerFn, task taskFn) (err error) {
 	err = locker()
 	if err != nil {
+		errHandler(err)
 		return err
 	}
 
 	err = task()
+	if err != nil {
+		errHandler(err)
+	}
 
 	unlockErr := unlocker()
 	if unlockErr != nil {
+		errHandler(unlockErr)
 		err = unlockErr
 	}
 
 	return err
 }
 
-func lockerFn(cn *container.Container, env *middleware.Env, tempState container.State) taskFn {
+func lockerFn(cn *container.Container, env *middleware.Env, timeout time.Duration, tempState container.State) taskFn {
 	return func() error {
-		if err := cn.Lock(tempState, defaultLockTime, env.DB); err != nil {
+		if err := cn.Lock(tempState, timeout, env.DB); err != nil {
 			if err == container.ErrLocked {
 				return errContainerLocked
 			}
@@ -110,9 +121,9 @@ func unlockerFn(cn *container.Container, env *middleware.Env) taskFn {
 
 func doContainerExclusive(cn *container.Container, env *middleware.Env, tempState container.State, task taskFn) error {
 	return doExclusive(
-		lockerFn(cn, env, tempState),
+		lockerFn(cn, env, defaultLockTime, tempState),
 		unlockerFn(cn, env),
-		task)
+		ignoreError, task)
 }
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
