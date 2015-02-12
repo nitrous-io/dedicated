@@ -108,6 +108,13 @@ func unlockerFn(cn *container.Container, env *middleware.Env) taskFn {
 	}
 }
 
+func doContainerExclusive(cn *container.Container, env *middleware.Env, tempState container.State, task taskFn) error {
+	return doExclusive(
+		lockerFn(cn, env, tempState),
+		unlockerFn(cn, env),
+		task)
+}
+
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	var err error
@@ -376,9 +383,8 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		return err
 	}
 
-	return doExclusive(
-		lockerFn(cn, env, container.StateStarting),
-		unlockerFn(cn, env),
+	return doContainerExclusive(
+		cn, env, container.StateStarting,
 		func() error {
 			// broadcast transitioning state
 			publishContainerEvent(env, controllers.EventContainerStarting, cn)
@@ -409,9 +415,8 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 			return err
 		}
 
-		return doExclusive(
-			lockerFn(cn, env, tempState),
-			unlockerFn(cn, env),
+		return doContainerExclusive(
+			cn, env, tempState,
 			func() error {
 				// broadcast transitioning state
 				evtName, err := getEventName(tempState)
@@ -456,9 +461,8 @@ var restart = controlActionHandler(
 func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	return doExclusive(
-		lockerFn(cn, env, container.StateTerminating),
-		unlockerFn(cn, env),
+	return doContainerExclusive(
+		cn, env, container.StateTerminating,
 		func() error {
 			// broadcast transitioning state
 			publishContainerEvent(env, controllers.EventContainerDestroying, cn)
