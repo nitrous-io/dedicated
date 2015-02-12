@@ -64,7 +64,7 @@ run-nitrous: nitrous
 .PHONY: run-nitrous
 
 run-nitrous-dev: nitrous
-	@forego start -f nitrous/Procfile.dev
+	@forego start -f nitrous/Procfile.dev -e nitrous/.env
 .PHONY: run-nitrous-dev
 
 run-hostbuilder: hostbuilder
