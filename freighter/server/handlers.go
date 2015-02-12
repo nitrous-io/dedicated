@@ -234,9 +234,8 @@ func (s *Server) startContainer(w http.ResponseWriter, r *http.Request) {
 func (s *Server) stopContainer(w http.ResponseWriter, r *http.Request) {
 	s.performContainerControl(w, r,
 		func(id string) (*provider.ContainerInfo, error) {
-			info, err := s.provider.Stop(id)
 			s.terminateActiveCops(id)
-			return info, err
+			return s.provider.Stop(id)
 		},
 		"stopped")
 }
@@ -245,8 +244,7 @@ func (s *Server) restartContainer(w http.ResponseWriter, r *http.Request) {
 	s.performContainerControl(w, r,
 		func(id string) (*provider.ContainerInfo, error) {
 			s.terminateActiveCops(id)
-			info, err := s.provider.Restart(id)
-			return info, err
+			return s.provider.Restart(id)
 		},
 		"restarted")
 }
