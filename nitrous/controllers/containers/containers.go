@@ -216,6 +216,14 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		}
 		return nil
 	}
+	if err == freighterclient.ErrIllegalTagName {
+		env.Status = http.StatusBadRequest
+		env.Data = map[string]interface{}{
+			"error":             "invalid_request",
+			"error_description": "Illegal tag name: only [A-Za-z0-9_.-] are allowed, minimum 1, maximum 128 in length",
+		}
+		return nil
+	}
 	if err != nil {
 		return err
 	}
