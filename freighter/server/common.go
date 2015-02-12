@@ -121,8 +121,6 @@ func (s *Server) terminateActiveCops(cid string) {
 	}
 	s.logger.Debugf("Terminating %d active cops processes for container %s", len(ActiveCops[cid]), cid)
 	for _, quit := range ActiveCops[cid] {
-		// quit capacity is two
-		quit <- nil
 		quit <- nil
 	}
 }
