@@ -90,7 +90,7 @@ func doExclusive(locker taskFn, unlocker taskFn, task taskFn) (err error) {
 	return err
 }
 
-func lockerFn(cn *container.Container, tempState container.State, env *middleware.Env) taskFn {
+func lockerFn(cn *container.Container, env *middleware.Env, tempState container.State) taskFn {
 	return func() error {
 		if err := cn.Lock(tempState, defaultLockTime, env.DB); err != nil {
 			if err == container.ErrLocked {
@@ -376,31 +376,28 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		return err
 	}
 
-	if err := cn.Lock(container.StateStarting, defaultLockTime, env.DB); err != nil {
-		if err == container.ErrLocked {
-			return errContainerLocked
-		}
-		return err
-	}
-	defer cn.Unlock(env.DB)
+	return doExclusive(
+		lockerFn(cn, env, container.StateStarting),
+		unlockerFn(cn, env),
+		func() error {
+			// broadcast transitioning state
+			publishContainerEvent(env, controllers.EventContainerStarting, cn)
 
-	// broadcast transitioning state
-	publishContainerEvent(env, controllers.EventContainerStarting, cn)
+			liveContainer, err := cl.Start(cn.CID, config)
+			if err != nil {
+				return expandFreighterClientError(err)
+			}
+			// reset the temp state, so freigther state will be exposed
+			cn.TempState = sql.NullInt64{0, false}
+			cn = hydrateContainer(cn, liveContainer, h)
 
-	liveContainer, err := cl.Start(cn.CID, config)
-	if err != nil {
-		return expandFreighterClientError(err)
-	}
-	// reset the temp state, so freigther state will be exposed
-	cn.TempState = sql.NullInt64{0, false}
-	cn = hydrateContainer(cn, liveContainer, h)
-
-	publishContainerEvent(env, controllers.EventContainerStarted, cn)
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"container": serializers.SerializeContainer(cn),
-	}
-	return nil
+			publishContainerEvent(env, controllers.EventContainerStarted, cn)
+			env.Status = http.StatusOK
+			env.Data = map[string]interface{}{
+				"container": serializers.SerializeContainer(cn),
+			}
+			return nil
+		})
 }
 
 type actionFn func(cl *controllers.FreighterClient, id string) (*freighterclient.Container, error)
@@ -412,35 +409,35 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 			return err
 		}
 
-		locker := lockerFn(cn, tempState, env)
-		unlocker := unlockerFn(cn, env)
+		return doExclusive(
+			lockerFn(cn, env, tempState),
+			unlockerFn(cn, env),
+			func() error {
+				// broadcast transitioning state
+				evtName, err := getEventName(tempState)
+				if err != nil {
+					return err
+				}
+				publishContainerEvent(env, evtName, cn)
 
-		return doExclusive(locker, unlocker, func() error {
-			// broadcast transitioning state
-			evtName, err := getEventName(tempState)
-			if err != nil {
-				return err
-			}
-			publishContainerEvent(env, evtName, cn)
+				liveContainer, err := action(cl, cn.CID)
+				if err != nil {
+					return err
+				}
 
-			liveContainer, err := action(cl, cn.CID)
-			if err != nil {
-				return err
-			}
+				// reset the temp state, so freigther state will be exposed
+				cn.TempState = sql.NullInt64{0, false}
 
-			// reset the temp state, so freigther state will be exposed
-			cn.TempState = sql.NullInt64{0, false}
+				cn = hydrateContainer(cn, liveContainer, h)
 
-			cn = hydrateContainer(cn, liveContainer, h)
+				publishContainerEvent(env, eventName, cn)
+				env.Status = http.StatusOK
+				env.Data = map[string]interface{}{
+					"container": serializers.SerializeContainer(cn),
+				}
 
-			publishContainerEvent(env, eventName, cn)
-			env.Status = http.StatusOK
-			env.Data = map[string]interface{}{
-				"container": serializers.SerializeContainer(cn),
-			}
-
-			return nil
-		})
+				return nil
+			})
 	}
 }
 
@@ -459,46 +456,40 @@ var restart = controlActionHandler(
 func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	// automatically expire destroy action lock after 1 minute.
-	// TODO: test with real ops and tweak this value
-	err := cn.Lock(container.StateTerminating, defaultLockTime, db)
-	if err != nil {
-		if err == container.ErrLocked {
-			return errContainerLocked
-		}
-		return err
-	}
-	defer cn.Unlock(env.DB)
+	return doExclusive(
+		lockerFn(cn, env, container.StateTerminating),
+		unlockerFn(cn, env),
+		func() error {
+			// broadcast transitioning state
+			publishContainerEvent(env, controllers.EventContainerDestroying, cn)
 
-	// broadcast transitioning state
-	publishContainerEvent(env, controllers.EventContainerDestroying, cn)
+			cl, err := controllers.NewFreighterClient(db, h, env.UUID)
+			if err != nil {
+				return err
+			}
 
-	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
-	if err != nil {
-		return err
-	}
+			liveContainer, err := cl.Terminate(cn.CID)
+			if err != nil {
+				return err
+			}
 
-	liveContainer, err := cl.Terminate(cn.CID)
-	if err != nil {
-		return err
-	}
+			// reset the temp state, so freigther state will be exposed
+			cn.TempState = sql.NullInt64{0, false}
 
-	// reset the temp state, so freigther state will be exposed
-	cn.TempState = sql.NullInt64{0, false}
+			err = cn.Delete(db)
+			if err != nil {
+				return err
+			}
 
-	err = cn.Delete(db)
-	if err != nil {
-		return err
-	}
+			cn = hydrateContainer(cn, liveContainer, h)
 
-	cn = hydrateContainer(cn, liveContainer, h)
-
-	publishContainerEvent(env, controllers.EventContainerDestroyed, cn)
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"container": serializers.SerializeContainer(cn),
-	}
-	return nil
+			publishContainerEvent(env, controllers.EventContainerDestroyed, cn)
+			env.Status = http.StatusOK
+			env.Data = map[string]interface{}{
+				"container": serializers.SerializeContainer(cn),
+			}
+			return nil
+		})
 }
 
 func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
