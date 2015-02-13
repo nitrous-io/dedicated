@@ -6,3 +6,6 @@
   #content-wrapper
     = outlet content
 = partial 'partials/footer'
+
+if App.user.admin
+  = outlet admin
