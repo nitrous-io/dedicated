@@ -66,6 +66,7 @@ var (
 	ErrHostNotFound      = errors.New("freighter: host not found")
 	ErrMissingCmd        = errors.New("freighter: missing cmd in docker image")
 	ErrIllegalTagName    = errors.New("freighter: illegal tag name provided")
+	ErrAlreadyUpgraded   = errors.New("freighter: server already upgraded")
 )
 
 type RegistryAuth struct {
@@ -122,6 +123,8 @@ type Client interface {
 	TagImage(image, newName string, force bool) error
 	InspectImage(image string) (*Image, error)
 	HostVersions() (*HostVersions, error)
+
+	UpgradeServer(*HostVersions) error
 }
 
 type HostVersions struct {
@@ -822,6 +825,34 @@ func (c *client) HostVersions() (*HostVersions, error) {
 	return &ver, nil
 }
 
+func (c *client) UpgradeServer(versions *HostVersions) error {
+	params := url.Values{}
+	params.Set("docker_version", versions.DockerVersion)
+	params.Set("freighterd_version", versions.FreighterdVersion)
+
+	u := fmt.Sprintf("%s/upgrade", c.host.BaseURL())
+	req, err := http.NewRequest("POST", u, strings.NewReader(params.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusAccepted:
+		return nil
+	case http.StatusNoContent:
+		return ErrAlreadyUpgraded
+	default:
+		return statusError(resp)
+	}
+}
+
 func (c *client) HostUtilization() ([]HostUtilization, error) {
 	u := fmt.Sprintf("%s/utilization", c.host.BaseURL())
 	req, err := http.NewRequest("GET", u, nil)
@@ -840,14 +871,14 @@ func (c *client) HostUtilization() ([]HostUtilization, error) {
 		return nil, statusError(resp)
 	}
 
-	var utilization struct {
+	var ut struct {
 		Utilization []HostUtilization `json:"utilization"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&utilization); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&ut); err != nil {
 		return nil, ErrUnexpectedResponse
 	}
 
-	return utilization.Utilization, nil
+	return ut.Utilization, nil
 }
 
 // ListImages makes an API request to a given Freighter Host and returns a list of
