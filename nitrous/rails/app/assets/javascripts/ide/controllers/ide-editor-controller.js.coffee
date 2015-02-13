@@ -22,9 +22,6 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   autoCloseBrackets: true
   keybindings: 'default'
 
-  draggedTab: null # tab being dragged
-  droppableIndex: null # index where the currently dragged tab would be inserted
-
   initialize: ->
     editorPane = App.EditorPane.create(tabs: Em.A())
     @set 'rootPane', editorPane
@@ -133,6 +130,12 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   addTab: ->
     @_super.apply this, arguments
     Mp.track Mp.EventIDEUserOpenedFile
+
+  createTab: (attrs={}, modelClass=null) ->
+    rootPane = @get 'rootPane'
+    if rootPane.findBy('path', attrs.path)
+      return # disallow duplicate tabs for now
+    @_super(attrs, modelClass)
 
   splitActivePaneVertically: ->
     pane = @get 'activePane'

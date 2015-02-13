@@ -51,6 +51,7 @@ App.IdePathView = Em.View.extend App.IdeDragDropViewMixin,
       droppable.set 'droppable', false
       path = droppable.get 'path'
       @get('controller').moveDraggedPathTo path
+    @get('controller').set 'currentlyDraggedPath', null
 
   _selectFile: (event) ->
     this._preventDefaultAndPropagation event

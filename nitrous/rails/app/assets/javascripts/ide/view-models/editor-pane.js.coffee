@@ -46,6 +46,15 @@ App.EditorPane = Em.ArrayProxy.extend
     else
       App.set 'router.ideEditorController.activePane', this
 
+  findBy: (key, value) ->
+    # recursive findBy
+    if @get('isSplit')
+      left = @get 'left'
+      right = @get 'right'
+      left?.findBy(key, value) || right?.findBy(key, value)
+    else
+      @_super(key, value)
+
   close: ->
     return if @get('isSplit') || !@get('parent')
     parent = @get 'parent'

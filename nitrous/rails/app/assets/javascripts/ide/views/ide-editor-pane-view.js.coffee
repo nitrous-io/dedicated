@@ -18,6 +18,12 @@ App.IdeEditorPaneView = Em.View.extend App.IdeTabViewMixin,
         @get('editorPane').makeActive()
     true
 
+  dragEnter: (event) ->
+    editorPane = @get 'editorPane'
+    App.IdeEditorTabView.dropEditorPane = editorPane
+    App.IdeEditorTabView.dropIndex = editorPane.get 'length'
+    false
+
   actions:
     didClickNew: ->
       @set('controller.activePane', @get('editorPane'))
