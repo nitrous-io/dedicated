@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -916,6 +917,69 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 		proxy.ProxyWebsocket(addr, nil)(w, r)
 	} else {
 		proxy.ProxyHTTP(addr, nil, proxyerror.ErrorHandler)(w, r)
+	}
+	return nil
+}
+
+// upgradeServer upgrades freighterd and docker packages to the versions
+// specified in the request.
+// This assumes that we are using APT to manage freighterd and docker and will
+// probably not work everywhere.
+func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
+	fv := r.PostFormValue("freighterd_version")
+	if fv == config.Version {
+		s.respondEncodeJSON(w, http.StatusNoContent, nil)
+		return nil
+	}
+
+	if err := s.upgradeFreighterd(fv); err != nil {
+		return err
+	}
+
+	if err := s.restartFreighterd(); err != nil {
+		return err
+	}
+
+	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
+	return nil
+}
+
+func (s *Server) upgradeFreighterd(version string) error {
+	cmd := exec.Command("apt-get", "update",
+		`-o Dir::Etc::sourceparts="/dev/null"`,
+		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`)
+	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		s.logger.Errorf("error updating freighterd repo, err: %v, output: %s", err, out)
+		return err
+	}
+
+	pkgspec := "freighterd"
+	if version != "" {
+		pkgspec = fmt.Sprintf("freighterd=%s", version)
+	}
+	cmd = exec.Command("apt-get", "install", "-y",
+		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
+		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
+		pkgspec,
+	)
+	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		s.logger.Errorf("error updating freighterd package, err: %v, output: %s", err, out)
+		return err
+	}
+
+	return nil
+}
+
+// TODO We probably want to restart gracefully (maybe by sending SIGHUP to self)
+// so that existing HTTP requests are not dropped.
+func (s *Server) restartFreighterd() error {
+	// FIXME This will probably not work.
+	cmd := exec.Command("service", "freighter", "restart")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		s.logger.Errorf("error restarting freighterd, err: %v, output: %s", err, out)
+		return err
 	}
 	return nil
 }
