@@ -119,7 +119,7 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		It("should allow a user to resend a confirmation email, if the token has lapsed, and confirm it", func() {
-			Expect(u.ConfirmedAt).To(BeNil(), "expect user to not confirmed yet")
+			Expect(u.ConfirmedAt.Valid).To(BeFalse(), "expect user to not confirmed yet")
 			doConfirmRequest("ABCD")
 
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
