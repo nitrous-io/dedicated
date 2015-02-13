@@ -134,6 +134,7 @@ func (s *Server) drawRoutes() {
 				"/user/billing_profile":                    r("billingprofiles.Activate", billingprofiles.Activate),
 				"/hosts/{slug}/registries":                 r("registries.Login", registries.Login, EventRegistryAdded),
 				"/hosts/{slug}/restart":                    r("hosts.Restart", mw.HostViaPath("slug", hosts.Restart), EventHostRestarted),
+				"/hosts/{slug}/upgrade":                    r("hosts.Upgrade", mw.HostViaPath("slug", hosts.Upgrade)),
 				"/hosts/{slug}/volumes":                    r("volumes.Create", mw.HostViaPath("slug", volumes.Create), EventVolumeCreated),
 				"/hosts/{slug}/images":                     r("images.Build", mw.HostViaPath("slug", images.Build), EventImageBuilt),
 				"/hosts/{slug}/images/pull":                r("images.Pull", mw.HostViaPath("slug", images.Pull), EventImagePulled),
