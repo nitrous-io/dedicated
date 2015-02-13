@@ -36,7 +36,6 @@ var _ = Describe("invoice item serializer", func() {
         "terminated": true,
         "hourly_cents": 1,
         "total_charge": 12,
-        "total_charge_dollars": 0.12,
         "description": "I am a desc"
       }`))
 		})
