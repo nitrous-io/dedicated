@@ -47,6 +47,14 @@ func doAsyncExclusive(async bool, locker taskFn, unlocker taskFn, errHandler err
 	return nil
 }
 
+func doContainerAsyncExclusive(async bool, cn *container.Container, env *middleware.Env, tempState container.State, task taskFn) error {
+	return doAsyncExclusive(async,
+		lockerFn(cn, env.DB, 2*time.Minute, tempState),
+		unlockerFn(cn, env.DB),
+		errorLoggerFn(env.Logger, cn, tempState),
+		task)
+}
+
 func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
@@ -70,10 +78,8 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 	}
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 
-	err = doAsyncExclusive(async,
-		lockerFn(cn, env, 2*time.Minute, container.StateReconfiguring),
-		unlockerFn(cn, env),
-		ignoreError,
+	err = doContainerAsyncExclusive(
+		async, cn, env, container.StateReconfiguring,
 		func() error {
 			publishContainerEvent(env, controllers.EventContainerReconfiguring, cn)
 
