@@ -43,12 +43,16 @@ form submit='updateDetails'
   h2 Integrations
 
 .card-body
-  if authorizedGitHubUserName
-    a href='#' click='noclick'
-      | Connected with GitHub user name:&nbsp;
-      = authorizedGitHubUserName
-  else
-    a click='githubAuthorize' href='#' Connect with GitHub
+  .integration
+    .icon.fa.fa-github-square
+    .actions
+      if App.userProfile.authorizedGitHubUserName
+        p
+          | GitHub connected as '
+          = App.userProfile.authorizedGitHubUserName
+          | '
+      else
+        button.ui.btn.raised click='githubAuthorize' Connect with GitHub
 
 .card-header.bordered
   h2 Settings

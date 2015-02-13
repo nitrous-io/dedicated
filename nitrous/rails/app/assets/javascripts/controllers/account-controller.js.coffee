@@ -17,8 +17,6 @@ App.AccountController = Em.ObjectController.extend
   detailsInvalidField: null
   detailsError: false
 
-  authorizedGitHubUserName: null
-
   clear: ->
     @_super.apply this, arguments
     @setProperties
@@ -31,7 +29,6 @@ App.AccountController = Em.ObjectController.extend
       unconfirmedEmail: App.get('user.unconfirmedEmail')
       password: null
       confirmPassword: null
-      authorizedGitHubUserName: App.get('userProfile.authorizedGitHubUserName')
     msg = @get('errmsg')
     if msg
       Em.run.later(=>
