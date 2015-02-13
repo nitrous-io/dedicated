@@ -1433,7 +1433,7 @@ var _ = Describe("controllers/containers", func() {
 
 				cntnr, err := container.FindByCID(db, "deadbeef")
 				Expect(err).To(BeNil())
-				Expect(cntnr.LockedAt).To(BeNil())
+				Expect(cntnr.LockedUntil).To(BeNil())
 			})
 		})
 
@@ -2096,7 +2096,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(err).To(BeNil())
 			Expect(c.CID).To(Equal("livebeef"))
 			Expect(c.Image).To(Equal("nitrous-base"))
-			Expect(c.LockedAt).To(BeNil())
+			Expect(c.LockedUntil).To(BeNil())
 		})
 
 		It("updates volumes", func() {
@@ -2143,7 +2143,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(err).To(BeNil())
 				Expect(c.CID).To(Equal("livebeef"))
 				Expect(c.Image).To(Equal("nitrous-base"))
-				Expect(c.LockedAt).To(BeNil())
+				Expect(c.LockedUntil).To(BeNil())
 			})
 
 			It("parses the error if binding failed", func() {
@@ -2191,7 +2191,7 @@ var _ = Describe("controllers/containers", func() {
 
 				Eventually(func() (*time.Time, error) {
 					cn, err := container.Find(db, u, containerName)
-					return cn.LockedAt, err
+					return cn.LockedUntil, err
 				}).Should(BeNil())
 			})
 
@@ -2274,7 +2274,7 @@ var _ = Describe("controllers/containers", func() {
 
 				Eventually(func() (*time.Time, error) {
 					cn, err := container.Find(db, u, containerName)
-					return cn.LockedAt, err
+					return cn.LockedUntil, err
 				}).Should(BeNil())
 			})
 

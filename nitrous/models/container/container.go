@@ -49,7 +49,11 @@ type Container struct {
 	TouchedAt    *time.Time `db:"touched_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
-	LockedAt     *time.Time `db:"locked_at"`
+
+	// The database locked_at really means lock_until.
+	// The container is considered lock if the current time
+	// is before the LockedUntil time.
+	LockedUntil *time.Time `db:"locked_at"`
 
 	// These fields come from Freighter.
 	State      State
@@ -193,25 +197,19 @@ func (c *Container) ResolvedState() State {
 	return c.State
 }
 
-func (c *Container) IsLocked(d db.QueryReceiver) (bool, error) {
-	res, err := d.Exec(`
-		SELECT id FROM containers WHERE id = $1 AND (locked_at IS NULL OR locked_at < now())
-	`, c.ID)
-
-	if err != nil {
-		return false, err
+func (c *Container) IsLocked() bool {
+	if c.LockedUntil == nil {
+		return false
+	} else {
+		return time.Now().Before(*c.LockedUntil)
 	}
-
-	if i, _ := res.RowsAffected(); i > 0 {
-		return false, nil
-	}
-	return true, nil
 }
 
 func (c *Container) Lock(state State, expiresIn time.Duration, d db.QueryReceiver) error {
 	now := time.Now()
 	expiredAt := now.Add(expiresIn)
 
+	// Note: locked_at really means lock_until
 	res, err := d.Exec(`
 		UPDATE containers SET (temp_state, locked_at) = ($1, $2) WHERE id = $3 AND (locked_at IS NULL OR locked_at < $4)
 	`, int64(state), expiredAt, c.ID, now)
@@ -224,7 +222,7 @@ func (c *Container) Lock(state State, expiresIn time.Duration, d db.QueryReceive
 	if i < 1 {
 		return ErrLocked
 	}
-	c.LockedAt = &expiredAt
+	c.LockedUntil = &expiredAt
 	c.TempState = sql.NullInt64{int64(state), true}
 	return nil
 }

@@ -28,7 +28,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-const defaultLockTime = 1 * time.Minute
+const transitionLockTime = 1 * time.Minute
 
 var (
 	ignoredImageNames = regexp.MustCompile(`-reconfig-\d{19}\z`) // reconfig names include Unix epoch (nano) stamp
@@ -128,7 +128,7 @@ func errorLoggerFn(logger *logger.Logger, cn *container.Container, tempState con
 
 func doContainerExclusive(cn *container.Container, env *middleware.Env, tempState container.State, task taskFn) error {
 	return doExclusive(
-		lockerFn(cn, env.DB, defaultLockTime, tempState),
+		lockerFn(cn, env.DB, transitionLockTime, tempState),
 		unlockerFn(cn, env.DB),
 		errorLoggerFn(env.Logger, cn, tempState),
 		task)
@@ -516,14 +516,8 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 }
 
 func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-
 	// do not issue token if container is locked
-	locked, err := cn.IsLocked(db)
-	if err != nil {
-		return err
-	}
-	if locked {
+	if cn.IsLocked() {
 		return errContainerLocked
 	}
 

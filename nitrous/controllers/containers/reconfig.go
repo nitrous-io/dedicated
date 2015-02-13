@@ -18,6 +18,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
+const reconfigLockTime = 2 * time.Minute
+
 var (
 	Reconfig = WithContainerAndHost(reconfig)
 )
@@ -49,7 +51,7 @@ func doAsyncExclusive(async bool, locker taskFn, unlocker taskFn, errHandler err
 
 func doContainerAsyncExclusive(async bool, cn *container.Container, env *middleware.Env, tempState container.State, task taskFn) error {
 	return doAsyncExclusive(async,
-		lockerFn(cn, env.DB, 2*time.Minute, tempState),
+		lockerFn(cn, env.DB, reconfigLockTime, tempState),
 		unlockerFn(cn, env.DB),
 		errorLoggerFn(env.Logger, cn, tempState),
 		task)
