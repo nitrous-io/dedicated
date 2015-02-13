@@ -21,12 +21,7 @@ import (
 
 var (
 	mu        sync.Mutex
-	oauthConf = &oauth2.Config{
-		ClientID:     "",
-		ClientSecret: "",
-		Scopes:       []string{"user:email", "repo", "write:public_key"},
-		Endpoint:     githuboauth.Endpoint,
-	}
+	oauthConf *oauth2.Config
 	// random string for oauth2 API calls to protect against CSRF
 	oauthStateString = ""
 
@@ -40,8 +35,12 @@ func init() {
 	_, err := rand.Read(src[:])
 	panicIfErr(err)
 	oauthStateString = hex.EncodeToString(src[:])
-	oauthConf.ClientID = envvars.GitHubOAuthClientID
-	oauthConf.ClientSecret = envvars.GitHubOAuthClientSecret
+	oauthConf = &oauth2.Config{
+		ClientID:     envvars.GitHubOAuthClientID,
+		ClientSecret: envvars.GitHubOAuthClientSecret,
+		Scopes:       []string{"user:email", "repo", "write:public_key"},
+		Endpoint:     githuboauth.Endpoint,
+	}
 }
 
 func tokenToJSON(token *oauth2.Token) (string, error) {
