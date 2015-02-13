@@ -44,6 +44,9 @@ var (
 	GetStartedEmailIntervalFirst  string
 	GetStartedEmailIntervalSecond string
 	GetStartedEmailIntervalThird  string
+
+	GitHubOAuthClientID     string
+	GitHubOAuthClientSecret string
 )
 
 const (
@@ -88,6 +91,9 @@ func init() {
 	GetStartedEmailIntervalFirst = os.Getenv("GET_STARTED_INTERVAL_FIRST")
 	GetStartedEmailIntervalSecond = os.Getenv("GET_STARTED_INTERVAL_SECOND")
 	GetStartedEmailIntervalThird = os.Getenv("GET_STARTED_INTERVAL_THIRD")
+
+	GitHubOAuthClientID = os.Getenv("GITHUB_CLIENT_ID")
+	GitHubOAuthClientSecret = os.Getenv("GITHUB_CLIENT_SECRET")
 }
 
 func CheckCAVariables() {
@@ -120,5 +126,14 @@ func CheckHostnames() {
 	}
 	if PreviewHostname == "" {
 		log.Fatal("PREVIEW_HOSTNAME not set")
+	}
+}
+
+func CheckGitHubOAuth() {
+	if GitHubOAuthClientID == "" {
+		log.Fatalf("GITHUB_CLIENT_ID not set")
+	}
+	if GitHubOAuthClientSecret == "" {
+		log.Fatalf("GITHUB_CLIENT_SECRET not set")
 	}
 }

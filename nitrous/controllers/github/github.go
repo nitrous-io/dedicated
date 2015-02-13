@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/google/go-github/github"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
@@ -21,14 +22,8 @@ import (
 var (
 	mu        sync.Mutex
 	oauthConf = &oauth2.Config{
-		// TODO: needs 3 nitrous' app registered with github:
-		// - one for dev
-		// - one for staging
-		// - one for production
-		// (because you have to fix callback url when registering the app and
-		// they run on different domains)
-		ClientID:     "295c3a77436ecb4806f3",
-		ClientSecret: "16648198582679d5720fbafaabad41c47c3a26bd",
+		ClientID:     "",
+		ClientSecret: "",
 		Scopes:       []string{"user:email", "repo", "write:public_key"},
 		Endpoint:     githuboauth.Endpoint,
 	}
@@ -39,6 +34,15 @@ var (
 	errTokenNotValid     = errors.New("token not valid")
 	errUpdateFailed      = errors.New("update failed")
 )
+
+func init() {
+	var src [8]byte
+	_, err := rand.Read(src[:])
+	panicIfErr(err)
+	oauthStateString = hex.EncodeToString(src[:])
+	oauthConf.ClientID = envvars.GitHubOAuthClientID
+	oauthConf.ClientSecret = envvars.GitHubOAuthClientSecret
+}
 
 func tokenToJSON(token *oauth2.Token) (string, error) {
 	if d, err := json.Marshal(token); err != nil {
@@ -211,11 +215,4 @@ func panicIfErr(err error) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func init() {
-	var src [8]byte
-	_, err := rand.Read(src[:])
-	panicIfErr(err)
-	oauthStateString = hex.EncodeToString(src[:])
 }
