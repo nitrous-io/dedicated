@@ -1939,6 +1939,34 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("POST /upgrade", func() {
+		doRequest := func(params *url.Values) {
+			req, err = NewFormRequest(hostSecret, "POST", "/upgrade", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			config.Version = "freighterd-0.1.1-deadbeef"
+		})
+
+		It("responds with 204 No Content when freighterd version is the same", func() {
+			params := &url.Values{}
+			params.Set("freighterd_version", "freighterd-0.1.1-deadbeef")
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusNoContent))
+		})
+
+		It("responds with 202 Accepted when freighterd version is different", func() {
+			params := &url.Values{}
+			params.Set("freighterd_version", "freighterd-0.1.1-newversion")
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+		})
+	})
+
 	Describe("Unauthorized requests", func() {
 		It("requires an authorization header", func() {
 			req, err := NewRequestWithSecret(hostSecret, "GET", "/containers", nil)
