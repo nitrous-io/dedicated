@@ -83,7 +83,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       privileged: @get 'privileged'
       publish_all: @get 'publishAll'
     ).then =>
-      App.snackbar.post("Your new container “#{name}” was created successfully.")
+      App.snackbar.post("Your new container “#{name}” was created successfully.", sticky: true)
       @set 'createdContainer', container
       @set 'saving', false
     , (jqxhr) => # container.save

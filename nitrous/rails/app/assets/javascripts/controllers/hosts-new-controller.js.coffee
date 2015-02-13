@@ -82,7 +82,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
         @transitionToRoute 'host.index', host.get('slug')
-        App.snackbar.post("Your new workspace “#{host.get('slug')}” was created successfully.")
+        App.snackbar.post("Your new workspace “#{host.get('slug')}” was created successfully.", sticky: true)
         @set 'saving', false
 
       events.on 'host.create_failed', onHostCreateFailed
