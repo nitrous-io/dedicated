@@ -99,7 +99,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	errorMessages := []string{}
 
 	for _, h := range hosts {
-		liveContainers, freighterErr := freighterList(db, &h)
+		liveContainers, freighterErr := freighterList(db, &h, env)
 
 		savedContainers, err := container.FindAllByHostID(db, h.ID)
 		if err != nil {
@@ -161,8 +161,8 @@ type listresult struct {
 	err        error
 }
 
-func freighterList(db db.QueryReceiver, h *host.Host) ([]*freighterclient.Container, error) {
-	cl, err := controllers.NewFreighterClient(db, h)
+func freighterList(db db.QueryReceiver, h *host.Host, env *middleware.Env) ([]*freighterclient.Container, error) {
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 }
 
 func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -266,7 +266,7 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 
 // TODO: deprecate eventually once webapp is updated, as `show` includes config now
 func config(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -284,7 +284,7 @@ func config(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 }
 
 func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		if err == controllers.ErrHostNotRunning || err == controllers.ErrHostIPUnknown {
 			cn.State = container.StateHostStopped
@@ -333,7 +333,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		return err
 	}
 
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -366,7 +366,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 }
 
 func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -374,7 +374,7 @@ func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 }
 
 func restart(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -438,7 +438,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	// broadcast transitioning state
 	publishContainerEvent(env, controllers.EventContainerDestroying, cn)
 
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}

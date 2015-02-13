@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/nitrous-io/dedicated/pkg/uuid"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
@@ -145,11 +146,11 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 	route = strings.Join(nsStack, "") + route
 	h := func(w http.ResponseWriter, r *http.Request) {
 		remoteAddr := middleware.GetRemoteAddr(r)
-		uuid := middleware.MakeUUID()
+		uuidStr := uuid.Make()
 		// allow for consumption by `RespondJSON`
-		w.Header().Set(constants.NitrousUUIDHeader, uuid)
+		w.Header().Set(constants.NitrousUUIDHeader, uuidStr)
 		mh.Meter("requests.nitrous").Mark(1)
-		s.logger.Infof("uuid=%s ip=%s Request: %v %v", uuid, remoteAddr, r.Method, r.URL.String())
+		s.logger.Infof("uuid=%s ip=%s Request: %v %v", uuidStr, remoteAddr, r.Method, r.URL.String())
 		env := &middleware.Env{
 			Root:        s.root,
 			Logger:      s.logger,
@@ -158,7 +159,7 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 			Provisioner: s.Provisioner,
 			Tracker:     s.Tracker,
 			RemoteAddr:  remoteAddr,
-			UUID:        uuid,
+			UUID:        uuidStr,
 		}
 		if err := mw(env, w, r); err != nil {
 			s.HandleError(w, err)

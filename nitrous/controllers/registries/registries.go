@@ -83,7 +83,7 @@ func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		Registry: registryURL,
 	}
 
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 func logout(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}

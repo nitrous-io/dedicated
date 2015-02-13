@@ -1,8 +1,6 @@
 package hostbuilder
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/nitrous-io/dedicated/pkg/uuid"
 	"github.com/nitrous-io/nitrous-common/flusher"
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
@@ -85,27 +84,22 @@ type HttpHandler func(w http.ResponseWriter, r *http.Request) error
 
 func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		uuid := r.Header.Get(NitrousUUIDHeader)
-		if uuid == "" {
-			id := make([]byte, 4) // hex string len 8
-			if _, err := io.ReadFull(rand.Reader, id); err != nil {
-				uuid = "RANDBROKE"
-			} else {
-				uuid = hex.EncodeToString(id)
-			}
-			r.Header.Set(NitrousUUIDHeader, uuid)
+		uuidStr := r.Header.Get(NitrousUUIDHeader)
+		if uuidStr == "" {
+			uuidStr = uuid.Make()
+			r.Header.Set(NitrousUUIDHeader, uuidStr)
 		}
 
 		start := time.Now()
 
-		log.Printf("uuid=%s Request: %v %v\n", uuid, r.Method, r.URL.String())
+		log.Printf("uuid=%s Request: %v %v\n", uuidStr, r.Method, r.URL.String())
 		if err := handlerFunc(w, r); err != nil {
 			duration := time.Since(start)
-			log.Printf("uuid=%s [ERROR], Completed in %s: %s %s: %s\n", uuid, duration, r.Method, r.URL, err)
+			log.Printf("uuid=%s [ERROR], Completed in %s: %s %s: %s\n", uuidStr, duration, r.Method, r.URL, err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		} else {
 			duration := time.Since(start)
-			log.Printf("uuid=%s 200 OK Completed in %s: %s %s\n", uuid, duration, r.Method, r.URL.String())
+			log.Printf("uuid=%s 200 OK Completed in %s: %s %s\n", uuidStr, duration, r.Method, r.URL.String())
 		}
 	}
 }

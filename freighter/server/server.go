@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -17,7 +18,10 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/util"
+	"github.com/nitrous-io/dedicated/pkg/uuid"
 )
+
+const NitrousUUIDHeader = "X-NITROUS-UUID"
 
 var (
 	// default server's configuration when we dont have a valid configuration
@@ -154,9 +158,22 @@ func (s *Server) Router() *mux.Router {
 	return s.router
 }
 
+func makeLogUUIDHandler(handlerFunc http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		uuidStr := r.Header.Get(NitrousUUIDHeader)
+		if uuidStr == "" {
+			uuidStr = uuid.Make()
+			r.Header.Set(NitrousUUIDHeader, uuidStr)
+		}
+		// so that is available in s.respond()
+		w.Header().Set(NitrousUUIDHeader, uuidStr)
+		log.Printf("uuid=%s Request: %v %v\n", uuidStr, r.Method, r.URL.String())
+		handlerFunc(w, r)
+	}
+}
+
 func (s *Server) secretRoute(route string, handler http.HandlerFunc, methods ...string) {
 	h := func(w http.ResponseWriter, r *http.Request) {
-
 		if secret := r.Header.Get("X-Freighter-Secret"); secret != s.secret {
 			errMsg := "invalid_secret"
 			if secret == "" {
@@ -169,13 +186,14 @@ func (s *Server) secretRoute(route string, handler http.HandlerFunc, methods ...
 		// authentication succeed, process the middleware as normal now
 		handler(w, r)
 	}
-	s.router.HandleFunc(route, h).Methods(methods...)
+	h2 := makeLogUUIDHandler(h)
+	s.router.HandleFunc(route, h2).Methods(methods...)
 }
 
 // unauthedRoute is for routes that have no secret-based authentication (either
 // no authentication at all, or handled within the route itself)
 func (s *Server) route(route string, handler http.HandlerFunc, methods ...string) {
-	s.router.HandleFunc(route, handler).Methods(methods...)
+	s.router.HandleFunc(route, makeLogUUIDHandler(handler)).Methods(methods...)
 }
 
 func (s *Server) drawRoutes() {
