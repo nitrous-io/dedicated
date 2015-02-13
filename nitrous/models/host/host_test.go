@@ -635,6 +635,8 @@ var _ = Describe("models/host", func() {
 			h.MaxContainers = sql.NullInt64{2, true}
 			h.FreighterdPort = sql.NullInt64{60000, true}
 			h.Preprovisioned = true
+			h.FreighterdVersion = "0.1.0"
+			h.DockerVersion = "1.5.0"
 			err := h.Update(db)
 			Expect(err).To(BeNil())
 
@@ -652,6 +654,8 @@ var _ = Describe("models/host", func() {
 			Expect(h2.MaxContainers.Int64).To(Equal(int64(2)))
 			Expect(h2.FreighterdPort.Int64).To(Equal(int64(60000)))
 			Expect(h2.Preprovisioned).To(BeTrue())
+			Expect(h2.FreighterdVersion).To(Equal("0.1.0"))
+			Expect(h2.DockerVersion).To(Equal("1.5.0"))
 
 			// Unchanged fields.
 			Expect(h2.UserID).To(Equal(hs.U.ID))
