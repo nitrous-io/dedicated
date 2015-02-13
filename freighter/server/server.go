@@ -162,7 +162,7 @@ func makeLogUUIDHandler(handlerFunc http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uuidStr := r.Header.Get(NitrousUUIDHeader)
 		if uuidStr == "" {
-			uuidStr = "new-" + uuid.Make()
+			uuidStr = uuid.Make()
 			r.Header.Set(NitrousUUIDHeader, uuidStr)
 		}
 		// so that is available in s.respond()
