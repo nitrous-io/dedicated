@@ -15,7 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
-	"github.com/nitrous-io/dedicated/nitrous/db"
+	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
@@ -41,7 +41,7 @@ func init() {
 	keypairs.KeyLen = 512
 }
 
-func queryHost(db *db.Database, id int64) (*host.Host, error) {
+func queryHost(db *ndb.Database, id int64) (*host.Host, error) {
 	h := &host.Host{}
 	if err := db.Get(h, `SELECT * FROM hosts WHERE id = $1`, id); err != nil {
 		return nil, err
@@ -60,7 +60,7 @@ func Test(t *testing.T) {
 
 var _ = Describe("controllers/hosts", func() {
 	var (
-		db              *db.Database
+		db              *ndb.Database
 		svr             *server.Server
 		handler         *mux.Router
 		res             *httptest.ResponseRecorder
@@ -315,6 +315,7 @@ var _ = Describe("controllers/hosts", func() {
 				err = json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 				Expect(j.Host.ID).To(Equal(hs.H.ID))
+
 				Expect(mockClient.HostVersionsCalled).To(Equal(1))
 				Expect(j.Host.LiveDockerVersion).To(Equal("1.5.0-nitrous1"))
 				Expect(j.Host.LiveFreighterdVersion).To(Equal("1.0.1-deadbeef"))
