@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/nitrous-io/dedicated/nitrous/models/publickey"
+	"github.com/nitrous-io/dedicated/nitrous/models/userkey"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,7 +15,7 @@ var _ = Describe("public key serializer", func() {
 		createdAt = time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
 		updatedAt = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
 
-		model = &publickey.PublicKey{
+		model = &userkey.UserKey{
 			ID:          10,
 			UserID:      11,
 			ContainerID: 12,
@@ -26,9 +26,9 @@ var _ = Describe("public key serializer", func() {
 		}
 	)
 
-	Describe("SerializePublicKey", func() {
+	Describe("SerializeUserKey", func() {
 		It("serializes to JSON", func() {
-			k := serializers.SerializePublicKey(model)
+			k := serializers.SerializeUserKey(model)
 			b, err := json.Marshal(k)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
@@ -43,9 +43,9 @@ var _ = Describe("public key serializer", func() {
 		})
 	})
 
-	Describe("SerializePublicKeys", func() {
+	Describe("SerializeUserKeys", func() {
 		It("serializes to JSON", func() {
-			k := serializers.SerializePublicKeys([]*publickey.PublicKey{model})
+			k := serializers.SerializeUserKeys([]*userkey.UserKey{model})
 			b, err := json.Marshal(k)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`[{

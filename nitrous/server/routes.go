@@ -7,6 +7,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/appsettings"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billing"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/containerkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
@@ -14,7 +15,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/home"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/keys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/promocodes"
@@ -24,6 +24,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/stripehooks"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/templates"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/tokens"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/userkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
@@ -118,7 +119,8 @@ func (s *Server) drawRoutes() {
 				"/containers":                        r("containers.Index", containers.Index),
 				"/containers/{slug}":                 r("containers.Show", containers.Show),
 				"/containers/{slug}/config":          r("containers.Config", containers.Config),
-				"/containers/{slug}/keys":            r("keys.Index", keys.Index),
+				"/containers/{slug}/keys":            r("userkeys.Index", userkeys.Index),
+				"/containers/{slug}/container_keys":  r("containerkeys.Index", containerkeys.Index, EventContainerKeyListed),
 				"/billing/invoices":                  r("billing.Invoices", billing.Invoices),
 				"/billing/current_usage":             r("billing.CurrentUsage", billing.CurrentUsage),
 				"/admin/hosts":                       r("admin.Hosts", admin.Hosts),
@@ -127,33 +129,34 @@ func (s *Server) drawRoutes() {
 				"/github/authorize":                  r("github.Authorize", github.Authorize),
 			},
 			"POST": {
-				"/user/profile":                        r("userprofiles.Update", userprofiles.Update),
-				"/hosts":                               r("hosts.Create", hosts.Create, EventHostCreated),
-				"/user/billing_profile":                r("billingprofiles.Activate", billingprofiles.Activate),
-				"/hosts/{slug}/registries":             r("registries.Login", registries.Login, EventRegistryAdded),
-				"/hosts/{slug}/restart":                r("hosts.Restart", mw.HostViaPath("slug", hosts.Restart), EventHostRestarted),
-				"/hosts/{slug}/volumes":                r("volumes.Create", mw.HostViaPath("slug", volumes.Create), EventVolumeCreated),
-				"/hosts/{slug}/images":                 r("images.Build", mw.HostViaPath("slug", images.Build), EventImageBuilt),
-				"/hosts/{slug}/images/pull":            r("images.Pull", mw.HostViaPath("slug", images.Pull), EventImagePulled),
-				"/hosts/{slug}/images/{image:.*}/push": r("images.Push", mw.HostViaPath("slug", images.Push), EventImagePushed),
-				"/hosts/{slug}/images/{image:.*}/tag":  r("images.Tag", mw.HostViaPath("slug", images.Tag), EventImageTagged),
-				"/containers":                          r("containers.Create", containers.Create, EventContainerCreated),
-				"/containers/{slug}/commit":            r("containers.Commit", containers.Commit, EventContainerCommitted),
-				"/containers/{slug}/start":             r("containers.Start", containers.Start, EventContainerStarted),
-				"/containers/{slug}/stop":              r("containers.Stop", containers.Stop, EventContainerStopped),
-				"/containers/{slug}/restart":           r("containers.Restart", containers.Restart, EventContainerRestarted),
-				"/containers/{slug}/reconfig":          r("containers.Reconfig", containers.Reconfig, EventContainerReconfigured),
-				"/containers/{slug}/token":             r("containers.Token", containers.Token, EventContainerTokenRequested),
-				"/containers/{slug}/keys":              r("keys.Create", keys.Create, EventContainerKeyAdded),
-				"/feedback":                            r("feedback.Send", feedback.Send),
-				"/admin/switch_user":                   r("admin.SwitchUser", admin.SwitchUser),
-				"/admin/provider_templates/{ptid}":     r("providertemplates.Update", providertemplates.Update),
+				"/user/profile":                            r("userprofiles.Update", userprofiles.Update),
+				"/hosts":                                   r("hosts.Create", hosts.Create, EventHostCreated),
+				"/user/billing_profile":                    r("billingprofiles.Activate", billingprofiles.Activate),
+				"/hosts/{slug}/registries":                 r("registries.Login", registries.Login, EventRegistryAdded),
+				"/hosts/{slug}/restart":                    r("hosts.Restart", mw.HostViaPath("slug", hosts.Restart), EventHostRestarted),
+				"/hosts/{slug}/volumes":                    r("volumes.Create", mw.HostViaPath("slug", volumes.Create), EventVolumeCreated),
+				"/hosts/{slug}/images":                     r("images.Build", mw.HostViaPath("slug", images.Build), EventImageBuilt),
+				"/hosts/{slug}/images/pull":                r("images.Pull", mw.HostViaPath("slug", images.Pull), EventImagePulled),
+				"/hosts/{slug}/images/{image:.*}/push":     r("images.Push", mw.HostViaPath("slug", images.Push), EventImagePushed),
+				"/hosts/{slug}/images/{image:.*}/tag":      r("images.Tag", mw.HostViaPath("slug", images.Tag), EventImageTagged),
+				"/containers":                              r("containers.Create", containers.Create, EventContainerCreated),
+				"/containers/{slug}/commit":                r("containers.Commit", containers.Commit, EventContainerCommitted),
+				"/containers/{slug}/start":                 r("containers.Start", containers.Start, EventContainerStarted),
+				"/containers/{slug}/stop":                  r("containers.Stop", containers.Stop, EventContainerStopped),
+				"/containers/{slug}/restart":               r("containers.Restart", containers.Restart, EventContainerRestarted),
+				"/containers/{slug}/reconfig":              r("containers.Reconfig", containers.Reconfig, EventContainerReconfigured),
+				"/containers/{slug}/token":                 r("containers.Token", containers.Token, EventContainerTokenRequested),
+				"/containers/{slug}/keys":                  r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
+				"/containers/{slug}/container_keys/github": r("containerkeys.AddToGitHub", containerkeys.AddToGitHub, EventContainerKeyAddedToGitHub),
+				"/feedback":                                r("feedback.Send", feedback.Send),
+				"/admin/switch_user":                       r("admin.SwitchUser", admin.SwitchUser),
+				"/admin/provider_templates/{ptid}":         r("providertemplates.Update", providertemplates.Update),
 			},
 			"PUT": {
 				"/users":                      r("users.Update", users.Update, EventUserUpdatedProfile),
 				"/hosts/{slug}":               r("hosts.Update", mw.HostViaPath("slug", hosts.Update)),
 				"/hosts/{slug}/versions":      r("hosts.UpdateVersions", mw.HostViaPath("slug", hosts.UpdateVersions)),
-				"/containers/{slug}/keys":     r("keys.Create", keys.Create, EventContainerKeyAdded),
+				"/containers/{slug}/keys":     r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
 				"/user/billing_profile":       r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
 				"/containers/{slug}/metadata": r("containers.Metadata", containers.Metadata),
 				"/admin/host/{slug}":          r("admin.UpdateHost", admin.UpdateHost),
@@ -164,8 +167,8 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/volumes/{vslug}":     r("volumes.Destroy", mw.HostViaPath("slug", volumes.Destroy), EventVolumeRemoved),
 				"/hosts/{slug}/images/{image:.*}":   r("images.Remove", mw.HostViaPath("slug", images.Remove), EventImageRemoved),
 				"/containers/{slug}":                r("containers.Destroy", containers.Destroy, EventContainerTerminated),
-				"/containers/{slug}/keys/{kslug}":   r("keys.Delete", keys.Delete, EventContainerKeyRemoved),
-				"/containers/{slug}/keys":           r("keys.DeleteAll", keys.DeleteAll, EventContainerKeyRemoved),
+				"/containers/{slug}/keys/{kslug}":   r("userkeys.Delete", userkeys.Delete, EventContainerKeyRemoved),
+				"/containers/{slug}/keys":           r("userkeys.DeleteAll", userkeys.DeleteAll, EventContainerKeyRemoved),
 				"/admin/terminate_unaccounted_host": r("admin.TerminateUnaccountedHost", admin.TerminateUnaccountedHost),
 				"/logout":                           r("tokens.Logout", tokens.Logout),
 			},

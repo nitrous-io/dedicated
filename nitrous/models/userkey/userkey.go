@@ -1,4 +1,4 @@
-package publickey
+package userkey
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ var (
 	ErrDuplicateFingerprints = fmt.Errorf("multiple keys found for fingerprint")
 )
 
-type PublicKey struct {
+type UserKey struct {
 	ID          int64      `db:"id"`
 	UserID      int64      `db:"user_id"`
 	ContainerID int64      `db:"container_id"`
@@ -26,19 +26,19 @@ type PublicKey struct {
 	UpdatedAt   *time.Time `db:"updated_at"`
 }
 
-func FindAll(db *db.Database, userID int64, containerID int64) ([]*PublicKey, error) {
-	keys := []*PublicKey{}
+func FindAll(db *db.Database, userID int64, containerID int64) ([]*UserKey, error) {
+	keys := []*UserKey{}
 	err := db.Select(&keys, "SELECT * FROM public_keys WHERE user_id = $1 AND container_id = $2 ORDER BY created_at", userID, containerID)
 	if err != nil {
-		return []*PublicKey{}, err
+		return []*UserKey{}, err
 	}
 	return keys, nil
 }
 
 // Find queries for a Public Key scoped to a user and a container.
 // identifier can be either an ID or a fingerprint.
-func Find(db *db.Database, userID int64, containerID int64, identifier string) (*PublicKey, error) {
-	keys := []PublicKey{}
+func Find(db *db.Database, userID int64, containerID int64, identifier string) (*UserKey, error) {
+	keys := []UserKey{}
 	id, err := strconv.ParseInt(identifier, 10, 64)
 
 	if err != nil {
@@ -68,7 +68,7 @@ func Destroy(db *db.Database, userID int64, containerID int64, id int64) error {
 	return err
 }
 
-func (pk *PublicKey) Insert(d db.QueryReceiver) error {
+func (pk *UserKey) Insert(d db.QueryReceiver) error {
 	// this is a very basic check for valid characters; it will not catch
 	// keys like "ssh-rsa fail"
 	fingerprint, err := pk.Md5Fingerprint()
@@ -88,7 +88,7 @@ func (pk *PublicKey) Insert(d db.QueryReceiver) error {
 }
 
 // Fingerprint is set in Insert()
-func (pk *PublicKey) Validate() error {
+func (pk *UserKey) Validate() error {
 	if pk.Key == "" {
 		return ErrKeyBlank
 	}
@@ -98,6 +98,6 @@ func (pk *PublicKey) Validate() error {
 	return nil
 }
 
-func (pk *PublicKey) Md5Fingerprint() (string, error) {
+func (pk *UserKey) Md5Fingerprint() (string, error) {
 	return sshkey.Md5Fingerprint(pk.Key)
 }

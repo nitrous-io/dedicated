@@ -17,7 +17,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/logger"
 
-	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -28,7 +27,7 @@ func Test(t *testing.T) {
 }
 
 // return gitHubUserName and gitHubTokenJson
-func fakeGetGitHubUser(env *middleware.Env, w http.ResponseWriter, r *http.Request, code string) (string, string, error) {
+func mockGetGitHubUser(env *middleware.Env, w http.ResponseWriter, r *http.Request, code string) (string, string, error) {
 	return "kjk", "tokenAsJson", nil
 }
 
@@ -43,9 +42,9 @@ var _ = Describe("controllers/github", func() {
 
 	BeforeEach(func() {
 		var err error
-		github.GetGithubUserFunc = fakeGetGitHubUser
+		github.GetGithubUserFunc = mockGetGitHubUser
 
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		svr = server.NewServer("", db, logger, nil)
@@ -80,7 +79,7 @@ var _ = Describe("controllers/github", func() {
 			if uri == "" {
 				uri = fmt.Sprintf("/api/v0/github/oauth_cb?state=%s&code=foo", secret)
 			}
-			req, err := NewRequest("GET", uri, nil)
+			req, err := test.NewRequest("GET", uri, nil)
 			Expect(err).To(BeNil())
 			svr.Router().ServeHTTP(res, req)
 		}
@@ -117,7 +116,7 @@ var _ = Describe("controllers/github", func() {
 
 	Describe("GET /api/v0/github/authorize", func() {
 		doRequest := func() {
-			req, err := NewAuthedRequest(t, "GET", "/api/v0/github/authorize", nil)
+			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/github/authorize", nil)
 			Expect(err).To(BeNil())
 			svr.Router().ServeHTTP(res, req)
 		}

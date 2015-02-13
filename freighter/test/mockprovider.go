@@ -41,17 +41,20 @@ type MockProvider struct {
 	CommitInfo   *provider.ImageInfo
 	CommitError  error
 
-	ListPublicKeysCalled bool
-	ListPublicKeysError  error
+	ListUserKeysCalled bool
+	ListUserKeysError  error
 
-	AddPublicKeysCalled bool
-	AddPublicKeysError  error
+	AddUserKeysCalled bool
+	AddUserKeysError  error
 
-	ClearPublicKeysCalled bool
-	ClearPublicKeysError  error
+	ClearUserKeysCalled bool
+	ClearUserKeysError  error
 
-	RemovePublicKeyCalled bool
-	RemovePublicKeyError  error
+	RemoveUserKeyCalled bool
+	RemoveUserKeyError  error
+
+	ListContainerKeysCalled bool
+	ListContainerKeysError  error
 
 	ExportCalled     bool
 	ExportError      error
@@ -64,7 +67,7 @@ type MockProvider struct {
 	ReceivedToken          string
 	ReceivedPermissions    []string
 	ReceivedConfig         string
-	ReceivedPublicKeys     []string
+	ReceivedUserKeys       []string
 	ReceivedKeyFingerprint string
 
 	CreateVolumeCalled bool
@@ -155,8 +158,9 @@ type MockProvider struct {
 	CopyFromHostLocation string
 	CopyFromHostInput    map[string]io.Reader
 
-	Containers []*provider.ContainerInfo
-	PublicKeys map[string]string
+	Containers    []*provider.ContainerInfo
+	UserKeys      map[string]string
+	ContainerKeys []string
 }
 
 func (p *MockProvider) VerifyToken(id, token string, permissions ...string) error {
@@ -256,30 +260,36 @@ func (p *MockProvider) Reconfig(id, config string) (*provider.ContainerInfo, err
 	return p.ReconfigContainerInfo, p.ReconfigError
 }
 
-func (p *MockProvider) ListPublicKeys(id string) (map[string]string, error) {
-	p.ListPublicKeysCalled = true
+func (p *MockProvider) ListUserKeys(id string) (map[string]string, error) {
+	p.ListUserKeysCalled = true
 	p.ReceivedID = id
-	return p.PublicKeys, p.ListPublicKeysError
+	return p.UserKeys, p.ListUserKeysError
 }
 
-func (p *MockProvider) AddPublicKeys(id string, publicKeys []string) error {
-	p.AddPublicKeysCalled = true
+func (p *MockProvider) AddUserKeys(id string, publicKeys []string) error {
+	p.AddUserKeysCalled = true
 	p.ReceivedID = id
-	p.ReceivedPublicKeys = publicKeys
-	return p.AddPublicKeysError
+	p.ReceivedUserKeys = publicKeys
+	return p.AddUserKeysError
 }
 
-func (p *MockProvider) ClearPublicKeys(id string) error {
-	p.ClearPublicKeysCalled = true
+func (p *MockProvider) ClearUserKeys(id string) error {
+	p.ClearUserKeysCalled = true
 	p.ReceivedID = id
-	return p.ClearPublicKeysError
+	return p.ClearUserKeysError
 }
 
-func (p *MockProvider) RemovePublicKey(id string, keyFingerprint string) error {
-	p.RemovePublicKeyCalled = true
+func (p *MockProvider) RemoveUserKey(id string, keyFingerprint string) error {
+	p.RemoveUserKeyCalled = true
 	p.ReceivedID = id
 	p.ReceivedKeyFingerprint = keyFingerprint
-	return p.RemovePublicKeyError
+	return p.RemoveUserKeyError
+}
+
+func (p *MockProvider) ListContainerKeys(id string) ([]string, error) {
+	p.ListContainerKeysCalled = true
+	p.ReceivedID = id
+	return p.ContainerKeys, p.ListContainerKeysError
 }
 
 func (p *MockProvider) Export(id string, output io.Writer) error {
