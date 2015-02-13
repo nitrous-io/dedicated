@@ -967,6 +967,14 @@ var _ = Describe("controllers/containers", func() {
 			Expect(errDesc).To(Equal("image already exists"))
 		})
 
+		It("handles illegal tag name error", func() {
+			mockClient.CommitError = freighterclient.ErrIllegalTagName
+			doRequest("name:tag with spaces")
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("Illegal tag name: only [A-Za-z0-9_.-] are allowed, minimum 1, maximum 128 in length"))
+		})
+
 		It("publishes an image created event with the committed image", func(done Done) {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())

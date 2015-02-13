@@ -556,9 +556,28 @@ var _ = Describe("client", func() {
 			})
 		})
 
+		Context("illegal tag name response", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusInternalServerError
+				responseBody = `{
+					"error": "API error (500): Illegal tag name (snapshot-20150210-161907 with dotfiles): only [A-Za-z0-9_.-] are allowed, minimum 1, maximum 128 in length\n"
+				}`
+			})
+
+			It("returns ErrIllegalTagName", func() {
+				container, err := cl.Commit("mycon", "snapshot-20150210-161907 with dotfiles")
+				Expect(err).To(Equal(freighterclient.ErrIllegalTagName))
+				Expect(container).To(BeNil())
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+			})
+		})
+
 		Context("unsuccessful response", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusInternalServerError
+				responseBody = `{
+					"error": "some error occurred"
+				}`
 			})
 
 			It("returns a StatusError", func() {
