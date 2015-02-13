@@ -653,14 +653,31 @@ var _ = Describe("models/container", func() {
 
 	Describe("ResolvedState()", func() {
 		Context("when both TempState and State is set", func() {
-			It("returns the temp state", func() {
-				c := container.Container{TempState: sql.NullInt64{int64(container.StateStopping), true}}
+			It("returns temp state if container is locked", func() {
+				timeout := time.Now().Add(5 * time.Second)
 
-				c.State = container.StateRunning
+				c := container.Container{
+					State:       container.StateRunning,
+					TempState:   sql.NullInt64{int64(container.StateStopping), true},
+					LockedUntil: &timeout,
+				}
+
 				Expect(c.ResolvedState()).To(Equal(container.StateStopping))
 
 				c.State = container.StateStopped
 				Expect(c.ResolvedState()).To(Equal(container.StateStopping))
+			})
+
+			It("returns original state if container lock is expired", func() {
+				timeout := time.Now().Add(-1 * time.Second)
+
+				c := container.Container{
+					State:       container.StateRunning,
+					TempState:   sql.NullInt64{int64(container.StateStopping), true},
+					LockedUntil: &timeout,
+				}
+
+				Expect(c.ResolvedState()).To(Equal(container.StateRunning))
 			})
 		})
 

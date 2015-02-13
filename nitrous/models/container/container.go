@@ -191,7 +191,8 @@ func (c *Container) ResolvedState() State {
 	if c.TerminatedAt != nil {
 		return StateTerminated
 	}
-	if c.TempState.Valid {
+
+	if c.TempState.Valid && c.IsLocked() {
 		return State(c.TempState.Int64)
 	}
 	return c.State
