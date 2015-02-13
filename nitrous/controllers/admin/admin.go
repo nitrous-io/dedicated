@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"database/sql"
 	"net/http"
 	"regexp"
 
@@ -48,10 +49,10 @@ func switchUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	login := r.FormValue("login") // this can be either username or email
 	u, err := user.FindByUsernameOrEmail(db, login)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return errUserNotFound
+		}
 		return err
-	}
-	if u == nil {
-		return errUserNotFound
 	}
 
 	return env.Login(u, w)

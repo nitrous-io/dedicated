@@ -1,6 +1,7 @@
 package region_test
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -61,12 +62,10 @@ var _ = Describe("models/region", func() {
 			})
 		})
 
-		Context("when a region record with a given id does not exist", func() {
-			It("returns nil", func() {
-				r, err := region.FindByID(db, 9001)
-				Expect(err).To(BeNil())
-				Expect(r).To(BeNil())
-			})
+		It("returns error when a region record with a given id does not exist", func() {
+			r, err := region.FindByID(db, 9001)
+			Expect(err).To(MatchError(sql.ErrNoRows))
+			Expect(r).To(BeNil())
 		})
 	})
 
@@ -83,12 +82,10 @@ var _ = Describe("models/region", func() {
 			})
 		})
 
-		Context("when a region record with a given slug does not exist", func() {
-			It("returns nil", func() {
-				r, err := region.FindBySlug(db, "non-existent-region")
-				Expect(err).To(BeNil())
-				Expect(r).To(BeNil())
-			})
+		It("returns error when a region record with a given slug does not exist", func() {
+			r, err := region.FindBySlug(db, "non-existent-region")
+			Expect(err).To(MatchError(sql.ErrNoRows))
+			Expect(r).To(BeNil())
 		})
 
 		Context("when some error happens", func() {

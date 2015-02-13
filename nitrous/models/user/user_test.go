@@ -115,10 +115,10 @@ var _ = Describe("models/user", func() {
 		})
 
 		Context("when a user record with a given id does not exist", func() {
-			It("returns nil", func() {
+			It("returns error", func() {
 				u, err := user.FindByID(db, 9001)
 				Expect(u).To(BeNil())
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
 		})
 
@@ -168,10 +168,10 @@ var _ = Describe("models/user", func() {
 		})
 
 		Context("when a user record with a given username does not exist", func() {
-			It("returns nil", func() {
+			It("returns error", func() {
 				u, err := user.FindByUsername(db, "bat")
 				Expect(u).To(BeNil())
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
 		})
 
@@ -211,14 +211,14 @@ var _ = Describe("models/user", func() {
 		})
 
 		Context("when a user record with a given username does not exist", func() {
-			It("returns nil", func() {
+			It("returns error", func() {
 				u, err := user.FindByUsernameOrEmail(db, "bat")
 				Expect(u).To(BeNil())
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 
 				u, err = user.FindByUsernameOrEmail(db, "bat@example.com")
 				Expect(u).To(BeNil())
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
 		})
 
@@ -881,7 +881,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		Context("when a reset password token is expired", func() {
-			It("returns nil", func() {
+			It("returns error", func() {
 				err := u.SetResetPasswordToken(db)
 				Expect(err).To(BeNil())
 
@@ -892,7 +892,7 @@ var _ = Describe("models/user", func() {
 				Expect(err).To(BeNil())
 
 				u1, err := user.FindByResetPasswordToken(db, u.ResetPasswordToken.String)
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(u1).To(BeNil())
 			})
 		})
@@ -926,7 +926,7 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 
 			fU, err := user.FindByConfirmationToken(db, "ABCDE")
-			Expect(err).To(BeNil())
+			Expect(err).To(MatchError(sql.ErrNoRows))
 			Expect(fU).To(BeNil())
 		})
 	})

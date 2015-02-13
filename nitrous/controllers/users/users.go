@@ -84,14 +84,12 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if promocode != "" {
-		ct, err := credittype.FindValidCreditTypeByName(tx, promocode)
-		if err != nil {
+		if _, err := credittype.FindValidCreditTypeByName(tx, promocode); err != nil {
 			tx.Rollback()
+			if err == sql.ErrNoRows {
+				return invalidPromoCode
+			}
 			return err
-		}
-		if ct == nil {
-			tx.Rollback()
-			return invalidPromoCode
 		}
 	}
 
@@ -148,7 +146,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		} else {
 			// verify email
 			oU, err := user.FindByUsernameOrEmail(db, email)
-			if err != nil {
+			if err != nil && err != sql.ErrNoRows {
 				return err
 			}
 			if oU != nil && oU.ID != u.ID {
@@ -241,11 +239,10 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 
 	u, err := user.FindByConfirmationToken(db, token)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
+		}
 		return err
-	}
-
-	if u == nil || token != u.ConfirmationToken.String {
-		return httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 	}
 
 	err = u.ConfirmEmail(db)
@@ -276,6 +273,9 @@ func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	if cToken != "" {
 		u, err = user.FindByConfirmationToken(db, cToken)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return reconfirmInvalidUser
+			}
 			return err
 		}
 	}
@@ -283,20 +283,19 @@ func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	if appToken != "" {
 		t, err := token.FindByToken(db, appToken)
 		if err != nil {
+			if err == token.ErrInvalidToken {
+				return reconfirmInvalidUser
+			}
 			return err
-		}
-		if !t.IsValid() {
-			return reconfirmInvalidUser
 		}
 
 		u, err = user.FindByID(db, t.UserID)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return reconfirmInvalidUser
+			}
 			return err
 		}
-	}
-
-	if u == nil {
-		return reconfirmInvalidUser
 	}
 
 	err = u.SendConfirmationEmail(db, false, false, false)

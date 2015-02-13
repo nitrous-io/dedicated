@@ -78,9 +78,6 @@ func Find(d db.QueryReceiver, user *user.User, identifier string) (*Container, e
 	}
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return c, nil
@@ -90,9 +87,6 @@ func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
 	c := &Container{}
 	err := d.Get(c, `SELECT * FROM containers WHERE cid = $1 AND terminated_at IS NULL;`, cid)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return c, nil

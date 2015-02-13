@@ -1,6 +1,7 @@
 package userprofile_test
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -82,9 +83,9 @@ var _ = Describe("models/userprofile", func() {
 		})
 
 		Context("when a user profile for given user id does not exist", func() {
-			It("returns nil", func() {
+			It("returns an error", func() {
 				p, err := userprofile.Find(db, 9001)
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(p).To(BeNil())
 			})
 		})

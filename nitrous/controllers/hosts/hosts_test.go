@@ -604,10 +604,8 @@ var _ = Describe("controllers/hosts", func() {
 
 			It("deletes the host record", func() {
 				doRequest(hs.H.Slug, t.Token)
-
-				h, err := host.Find(db, hs.U, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h).To(BeNil())
+				_, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
 
 			It("deletes all container records belonging to the host", func() {
@@ -618,7 +616,7 @@ var _ = Describe("controllers/hosts", func() {
 				doRequest(hs.H.Slug, t.Token)
 
 				c2, err = container.Find(db, hs.U, c.Slug)
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(c2).To(BeNil())
 			})
 
@@ -774,9 +772,8 @@ var _ = Describe("controllers/hosts", func() {
 				doRequest(hs.H.Slug, anotherToken.Token)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				h, err := host.Find(db, hs.U, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h).To(BeNil())
+				_, err = host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
 		})
 

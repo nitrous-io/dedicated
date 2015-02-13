@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"net/http"
@@ -86,11 +87,11 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 
 	t, err := token.FindByToken(db, tok)
 	if err != nil {
+		if err == token.ErrInvalidToken {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
+			return mh.Error(errInvalidToken, label)
+		}
 		return err
-	}
-	if !t.IsValid() {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
-		return mh.Error(errInvalidToken, label)
 	}
 
 	u, err := user.FindByID(db, t.UserID)
@@ -254,10 +255,10 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 			h, err = host.Find(env.DB, env.User, param)
 		}
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return mh.Error(ErrHostNotFound, label)
+			}
 			return mh.Error(err, label)
-		}
-		if h == nil {
-			return mh.Error(ErrHostNotFound, label)
 		}
 
 		mh.UpdateSince(label, start)

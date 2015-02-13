@@ -1641,7 +1641,7 @@ var _ = Describe("controllers/containers", func() {
 			doRequest()
 
 			c, err := container.Find(db, hs.U, slug)
-			Expect(err).To(BeNil())
+			Expect(err).To(MatchError(sql.ErrNoRows))
 			Expect(c).To(BeNil())
 		})
 

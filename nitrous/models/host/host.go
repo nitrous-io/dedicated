@@ -166,9 +166,6 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	}
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 
@@ -199,9 +196,6 @@ func FindByIdentifier(db *db.Database, identifier string) (*Host, error) {
 	}
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 

@@ -107,23 +107,20 @@ func (b *Biller) createOrUpdateInvoice() (res *InvoiceResult, err error) {
 		return nil, fmt.Errorf("biller: failed retrieving billable host hours for user %d, err: %v", b.user.ID, err)
 	}
 	totalCharge, items := InvoiceItemsForUsages(usages, b.logger)
+	if len(items) == 0 {
+		return nil, ErrNoUsage
+	}
 
 	if err = b.sanityCheckInvoiceItems(items); err != nil {
 		return nil, err
 	}
 
+	var isNew bool
 	i, err := invoice.ForPeriod(tx, b.user.ID, *b.periodStart, *b.periodEnd)
 	if err != nil {
-		return nil, fmt.Errorf("biller: encountered error when try to find existing invoice for user %d, err: %v", b.user.ID, err)
-	}
-
-	if len(items) == 0 {
-		return nil, ErrNoUsage
-	}
-
-	op := i.Update
-	isNew := false
-	if i == nil {
+		if err != sql.ErrNoRows {
+			return nil, fmt.Errorf("biller: encountered error when try to find existing invoice for user %d, err: %v", b.user.ID, err)
+		}
 		isNew = true
 		i = &invoice.Invoice{
 			UserID:      b.user.ID,
@@ -131,16 +128,17 @@ func (b *Biller) createOrUpdateInvoice() (res *InvoiceResult, err error) {
 			PeriodEnd:   b.periodEnd,
 			Attempts:    0,
 		}
-		op = i.Insert
-	} else {
-		if i.SuccessfulCharge {
-			return nil, fmt.Errorf("biller: cannot touch invoice %d, already paid", i.ID)
-		}
+	} else if i.SuccessfulCharge {
+		return nil, fmt.Errorf("biller: cannot touch invoice %d, already paid", i.ID)
 	}
 	i.TotalCharge = (totalCharge - i.CreditAmount) // reconcile with existing credited amount
-	i.SuccessfulCharge = false
 
-	if err := op(tx); err != nil {
+	if isNew {
+		err = i.Insert(tx)
+	} else {
+		err = i.Update(tx)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("biller: failure inserting/updating invoice %d for user %d, err: %v", i.ID, i.UserID, err)
 	} else {
 		b.logger.Infof("biller: created/updated invoice %d for user %d, total charge = %d", i.ID, i.UserID, i.TotalCharge)
@@ -201,7 +199,7 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 	items := i.Items
 
 	bp, err := billingprofile.Find(b.db, b.user.ID)
-	if err != nil || bp == nil {
+	if err != nil {
 		return fmt.Errorf("biller: skipping stripe, failure obtaining billing profile for user %d, err: %v", b.user.ID, err)
 	}
 	if bp.State == billingprofile.StateFree {

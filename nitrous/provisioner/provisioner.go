@@ -581,10 +581,10 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 func (p *Provisioner) configureUser() error {
 	u, err := user.FindByUsername(p.db, p.config.Username)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("User '%s' could not be found", p.config.Username)
+		}
 		return err
-	}
-	if u == nil {
-		return fmt.Errorf("User '%s' could not be found", p.config.Username)
 	}
 	t := &token.Token{UserID: u.ID, Type: token.TypeProvisioner}
 	if err := t.Insert(p.db); err != nil {

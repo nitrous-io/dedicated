@@ -39,9 +39,6 @@ func FindMostRecentForHost(db *db.Database, id int64) (*HostTransition, error) {
 	hT := &HostTransition{}
 	err := db.Get(hT, `SELECT * FROM host_transitions WHERE host_transitions.host_id = $1 ORDER BY created_at DESC LIMIT 1`, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return hT, err
@@ -51,9 +48,6 @@ func FindByID(db *db.Database, id int64) (*HostTransition, error) {
 	hT := &HostTransition{}
 	err := db.Get(hT, `SELECT * FROM host_transitions WHERE id = $1`, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return hT, err

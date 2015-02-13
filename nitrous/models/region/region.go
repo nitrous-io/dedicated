@@ -1,7 +1,6 @@
 package region
 
 import (
-	"database/sql"
 	"errors"
 	"time"
 
@@ -27,9 +26,6 @@ func FindByID(d db.QueryReceiver, id int64) (*Region, error) {
 	r := &Region{}
 	err := d.Get(r, "SELECT * FROM regions WHERE id = $1", id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return r, nil
@@ -39,9 +35,6 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Region, error) {
 	r := &Region{}
 	err := d.Get(r, "SELECT * FROM regions WHERE slug = $1", slug)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return r, nil

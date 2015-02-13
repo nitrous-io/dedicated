@@ -1,6 +1,7 @@
 package volumes
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -139,10 +140,10 @@ func getVolume(db ndb.QueryReceiver, hostID int64, slug string) (*volume.Volume,
 	}
 	vol, err := volume.Find(db, hostID, slug)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errNotFound
+		}
 		return nil, err
-	}
-	if vol == nil {
-		return nil, errNotFound
 	}
 	return vol, nil
 }

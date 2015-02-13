@@ -1,7 +1,6 @@
 package volume
 
 import (
-	"database/sql"
 	"errors"
 	"regexp"
 	"strconv"
@@ -41,9 +40,6 @@ func Find(d db.QueryReceiver, hid int64, identifier string) (*Volume, error) {
 	}
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return v, nil
