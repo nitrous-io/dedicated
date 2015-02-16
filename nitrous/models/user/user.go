@@ -412,12 +412,11 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, 
 
 	htmlTmpl := confirmEmailHtmlTemplate
 	txtTmpl := confirmEmailTxtTemplate
-	subject := "Nitrous - confirm your email"
+	subject := "Confirm your Nitrous email"
 
 	if newUser {
 		htmlTmpl = confirmEmailNewUserHtmlTemplate
 		txtTmpl = confirmEmailNewUserTxtTemplate
-		subject = "Welcome to Nitrous!"
 	}
 
 	// send email
