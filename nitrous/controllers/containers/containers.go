@@ -73,10 +73,10 @@ var (
 
 type containerHandler func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 
-type taskFn func() error
-type errorHandlerFn func(err error)
+type TaskFn func() error
+type ErrorHandlerFn func(err error)
 
-func doExclusive(locker taskFn, unlocker taskFn, errHandler errorHandlerFn, task taskFn) error {
+func DoExclusive(locker TaskFn, unlocker TaskFn, errHandler ErrorHandlerFn, task TaskFn) error {
 	err := locker()
 	if err != nil {
 		errHandler(err)
@@ -97,7 +97,7 @@ func doExclusive(locker taskFn, unlocker taskFn, errHandler errorHandlerFn, task
 	return err
 }
 
-func lockerFn(cn *container.Container, env *middleware.Env, timeout time.Duration, tempState container.State) taskFn {
+func LockerFn(cn *container.Container, env *middleware.Env, timeout time.Duration, tempState container.State) TaskFn {
 	return func() error {
 		if cn.LockedUntil != nil && time.Now().After(*cn.LockedUntil) {
 			env.Logger.Warnf("Attempt to lock container with expired lock: %+v", cn)
@@ -113,13 +113,18 @@ func lockerFn(cn *container.Container, env *middleware.Env, timeout time.Duratio
 	}
 }
 
-func unlockerFn(cn *container.Container, db *db.Database) taskFn {
+func UnlockerFn(cn *container.Container, env *middleware.Env) TaskFn {
 	return func() error {
-		return cn.Unlock(db)
+		err := cn.Unlock(env.DB)
+		if err != nil {
+			env.Logger.Warnf("Failed to unlock container: %+v: %s", cn, err)
+		}
+
+		return err
 	}
 }
 
-func errorLoggerFn(logger *logger.Logger, cn *container.Container, tempState container.State) func(error) {
+func ErrorLoggerFn(logger *logger.Logger, cn *container.Container, tempState container.State) func(error) {
 	return func(err error) {
 		if err == errContainerLocked {
 			logger.Infof("Failed to lock container: container is already locked. %+v", cn)
@@ -129,11 +134,11 @@ func errorLoggerFn(logger *logger.Logger, cn *container.Container, tempState con
 	}
 }
 
-func doContainerExclusive(cn *container.Container, env *middleware.Env, tempState container.State, task taskFn) error {
-	return doExclusive(
-		lockerFn(cn, env, transitionLockTime, tempState),
-		unlockerFn(cn, env.DB),
-		errorLoggerFn(env.Logger, cn, tempState),
+func doContainerExclusive(cn *container.Container, env *middleware.Env, tempState container.State, task TaskFn) error {
+	return DoExclusive(
+		LockerFn(cn, env, transitionLockTime, tempState),
+		UnlockerFn(cn, env),
+		ErrorLoggerFn(env.Logger, cn, tempState),
 		task)
 }
 

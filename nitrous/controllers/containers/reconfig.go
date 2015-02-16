@@ -24,9 +24,9 @@ var (
 	Reconfig = WithContainerAndHost(reconfig)
 )
 
-func doAsyncExclusive(async bool, locker taskFn, unlocker taskFn, errHandler errorHandlerFn, task taskFn) error {
+func DoAsyncExclusive(async bool, locker TaskFn, unlocker TaskFn, errHandler ErrorHandlerFn, task TaskFn) error {
 	if !async {
-		return doExclusive(locker, unlocker, errHandler, task)
+		return DoExclusive(locker, unlocker, errHandler, task)
 	}
 
 	err := locker()
@@ -49,11 +49,11 @@ func doAsyncExclusive(async bool, locker taskFn, unlocker taskFn, errHandler err
 	return nil
 }
 
-func doContainerAsyncExclusive(async bool, cn *container.Container, env *middleware.Env, tempState container.State, task taskFn) error {
-	return doAsyncExclusive(async,
-		lockerFn(cn, env, reconfigLockTime, tempState),
-		unlockerFn(cn, env.DB),
-		errorLoggerFn(env.Logger, cn, tempState),
+func doContainerAsyncExclusive(async bool, cn *container.Container, env *middleware.Env, tempState container.State, task TaskFn) error {
+	return DoAsyncExclusive(async,
+		LockerFn(cn, env, reconfigLockTime, tempState),
+		UnlockerFn(cn, env),
+		ErrorLoggerFn(env.Logger, cn, tempState),
 		task)
 }
 

@@ -31,7 +31,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
-	"github.com/nitrous-io/nitrous-common/logger"
+	loggerLib "github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -44,6 +44,7 @@ func Test(t *testing.T) {
 var _ = Describe("controllers/containers", func() {
 	var (
 		db              *db.Database
+		logger          *loggerLib.Logger
 		svr             *server.Server
 		handler         *mux.Router
 		res             *httptest.ResponseRecorder
@@ -65,7 +66,7 @@ var _ = Describe("controllers/containers", func() {
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
+		logger = &loggerLib.Logger{Level: loggerLib.LogLevelQuiet}
 		svr = server.NewServer("", db, logger, nil)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
@@ -1521,6 +1522,287 @@ var _ = Describe("controllers/containers", func() {
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("Container lock test", func() {
+		errorSpy := func() (containers.ErrorHandlerFn, func() error) {
+			var caughtError error
+
+			errHandler := func(err error) {
+				Expect(err).ToNot(BeNil())
+				Expect(caughtError).To(BeNil())
+				caughtError = err
+			}
+
+			errorCaught := func() error {
+				return caughtError
+			}
+
+			return errHandler, errorCaught
+		}
+
+		taskSpy := func(err error) (containers.TaskFn, func() bool) {
+			called := false
+
+			task := func() error {
+				Expect(called).To(BeFalse())
+				called = true
+				return err
+			}
+
+			taskCalled := func() bool {
+				return called
+			}
+
+			return task, taskCalled
+		}
+
+		Describe("Generic lock test", func() {
+			It("Success DoExclusive", func() {
+				locker, lockerCalled := taskSpy(nil)
+				unlocker, unlockerCalled := taskSpy(nil)
+				errHandler, errorCaught := errorSpy()
+				taskCalled := false
+
+				err := containers.DoExclusive(locker, unlocker, errHandler,
+					func() error {
+						Expect(taskCalled).To(BeFalse())
+						Expect(lockerCalled()).To(BeTrue())
+						Expect(unlockerCalled()).To(BeFalse())
+						taskCalled = true
+
+						return nil
+					})
+
+				Expect(err).To(BeNil())
+				Expect(taskCalled).To(BeTrue())
+				Expect(unlockerCalled()).To(BeTrue())
+				Expect(errorCaught()).To(BeNil())
+			})
+
+			It("Lock fail test", func() {
+				lockErr := errors.New("Container is locked")
+
+				locker, lockerCalled := taskSpy(lockErr)
+				task, taskCalled := taskSpy(nil)
+				unlocker, unlockerCalled := taskSpy(nil)
+				errHandler, errorCaught := errorSpy()
+
+				err := containers.DoExclusive(locker, unlocker, errHandler, task)
+
+				Expect(err).To(Equal(lockErr))
+				Expect(lockerCalled()).To(BeTrue())
+				Expect(unlockerCalled()).To(BeFalse())
+				Expect(taskCalled()).To(BeFalse())
+				Expect(errorCaught()).To(Equal(lockErr))
+			})
+
+			It("Task fail test", func() {
+				taskErr := errors.New("Error in task")
+
+				locker, lockerCalled := taskSpy(nil)
+				task, taskCalled := taskSpy(taskErr)
+				unlocker, unlockerCalled := taskSpy(nil)
+				errHandler, errorCaught := errorSpy()
+
+				err := containers.DoExclusive(locker, unlocker, errHandler, task)
+
+				Expect(err).To(Equal(taskErr))
+				Expect(lockerCalled()).To(BeTrue())
+				Expect(unlockerCalled()).To(BeTrue())
+				Expect(taskCalled()).To(BeTrue())
+				Expect(errorCaught()).To(Equal(taskErr))
+			})
+
+			It("Unlock fail test", func() {
+				unlockErr := errors.New("Failed to unlock container")
+
+				locker, lockerCalled := taskSpy(nil)
+				task, taskCalled := taskSpy(nil)
+				unlocker, unlockerCalled := taskSpy(unlockErr)
+				errHandler, errorCaught := errorSpy()
+
+				err := containers.DoExclusive(locker, unlocker, errHandler, task)
+
+				Expect(err).To(Equal(unlockErr))
+				Expect(lockerCalled()).To(BeTrue())
+				Expect(unlockerCalled()).To(BeTrue())
+				Expect(taskCalled()).To(BeTrue())
+				Expect(errorCaught()).To(Equal(unlockErr))
+			})
+
+			It("Task and Unlock fail test", func() {
+				taskErr := errors.New("Error in task")
+				unlockErr := errors.New("Failed to unlock container")
+
+				taskErrHandler, taskErrorCaught := errorSpy()
+				unlockErrHandler, unlockErrorCaught := errorSpy()
+
+				locker, lockerCalled := taskSpy(nil)
+				task, taskCalled := taskSpy(taskErr)
+				unlocker, unlockerCalled := taskSpy(unlockErr)
+
+				errHandler := func(err error) {
+					if taskErrorCaught() == nil {
+						taskErrHandler(err)
+					} else {
+						unlockErrHandler(err)
+					}
+				}
+
+				err := containers.DoExclusive(locker, unlocker, errHandler, task)
+
+				Expect(err).To(Equal(unlockErr))
+				Expect(lockerCalled()).To(BeTrue())
+				Expect(unlockerCalled()).To(BeTrue())
+				Expect(taskCalled()).To(BeTrue())
+				Expect(taskErrorCaught()).To(Equal(taskErr))
+				Expect(unlockErrorCaught()).To(Equal(unlockErr))
+			})
+		})
+
+		Describe("Container lock test", func() {
+			var (
+				slug = "elixir-web-1"
+
+				cn  *container.Container
+				fc  *freighterclient.Container
+				env *middleware.Env
+			)
+
+			doRequest := func(action string) *httptest.ResponseRecorder {
+				req, err := NewRequest("POST", fmt.Sprintf("/api/v0/containers/%s/%s", slug, action), nil)
+				Expect(err).To(BeNil())
+				req.Header.Set("Authorization", "Bearer valid-token")
+				res = httptest.NewRecorder()
+				handler.ServeHTTP(res, req)
+				return res
+			}
+
+			getContainerInfo := func() *serializers.Container {
+				req, err := NewRequest("GET", fmt.Sprintf("/api/v0/containers/%s", slug), nil)
+				Expect(err).To(BeNil())
+				req.Header.Set("Authorization", "Bearer valid-token")
+				res = httptest.NewRecorder()
+
+				handler.ServeHTTP(res, req)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Container *serializers.Container `json:"container"`
+				}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				return j.Container
+			}
+
+			BeforeEach(func() {
+				cn = &container.Container{
+					CID:    "deadbeef",
+					Slug:   slug,
+					Image:  "nitrous-base",
+					UserID: u.ID,
+					HostID: hs.H.ID,
+					Name:   sql.NullString{"Elixir server", true},
+				}
+				err := cn.Insert(db)
+				Expect(err).To(BeNil())
+
+				fc = &freighterclient.Container{
+					ID:    "deadbeef",
+					Name:  slug,
+					State: "stopped",
+					Image: "nitrous-base",
+				}
+				mockClient.Containers = []*freighterclient.Container{fc}
+				mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{}
+
+				env = &middleware.Env{
+					DB:     db,
+					Logger: logger,
+				}
+			})
+
+			It("Lock race test", func() {
+				locker := containers.LockerFn(cn, env, 5*time.Second, container.StateReconfiguring)
+				unlocker := containers.UnlockerFn(cn, env)
+
+				taskCalled := false
+				errHandler, errorCaught := errorSpy()
+
+				cn2 := getContainerInfo()
+				Expect(cn2.State).To(Equal("stopped"))
+
+				err := containers.DoExclusive(locker, unlocker, errHandler,
+					func() error {
+						taskCalled = true
+						res := doRequest("start")
+						Expect(res.Code).To(Equal(http.StatusConflict))
+
+						cn2 = getContainerInfo()
+						Expect(cn2.State).To(Equal("reconfiguring"))
+
+						return nil
+					})
+
+				Expect(err).To(BeNil())
+				Expect(errorCaught()).To(BeNil())
+				Expect(taskCalled).To(BeTrue())
+
+				cn2 = getContainerInfo()
+				Expect(cn2.State).To(Equal("stopped"))
+
+				res := doRequest("start")
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
+
+			It("Unlock fail test", func() {
+				locker := containers.LockerFn(cn, env, 5*time.Second, container.StateReconfiguring)
+
+				unlockErr := errors.New("Failed to unlock container")
+
+				task, taskCalled := taskSpy(nil)
+				unlocker, unlockerCalled := taskSpy(unlockErr)
+				errHandler, errorCaught := errorSpy()
+
+				err := containers.DoExclusive(locker, unlocker, errHandler, task)
+
+				Expect(err).To(Equal(unlockErr))
+				Expect(errorCaught()).To(Equal(unlockErr))
+				Expect(taskCalled()).To(BeTrue())
+				Expect(unlockerCalled()).To(BeTrue())
+
+				cn2 := getContainerInfo()
+				Expect(cn2.State).To(Equal("reconfiguring"))
+
+				res := doRequest("start")
+				Expect(res.Code).To(Equal(http.StatusConflict))
+			})
+
+			It("Expired lock test", func() {
+				locker := containers.LockerFn(cn, env, -1*time.Second, container.StateReconfiguring)
+
+				taskErr := errors.New("Reconfiguration error")
+				unlockErr := errors.New("Failed to unlock container")
+
+				task, taskCalled := taskSpy(taskErr)
+				unlocker, unlockerCalled := taskSpy(unlockErr)
+				errHandler := func(err error) {} // ignore
+
+				err := containers.DoExclusive(locker, unlocker, errHandler, task)
+
+				Expect(err).To(Equal(unlockErr))
+				Expect(taskCalled()).To(BeTrue())
+				Expect(unlockerCalled()).To(BeTrue())
+
+				cn2 := getContainerInfo()
+				Expect(cn2.State).To(Equal("stopped"))
+
+				res := doRequest("start")
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
 		})
 	})
 
