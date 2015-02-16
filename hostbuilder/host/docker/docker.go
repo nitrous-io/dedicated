@@ -18,11 +18,15 @@ import (
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 )
 
+const DefaultPort uint16 = 65333
+
 var (
+	// Paths to files within each Docker host.
 	TLSCALocation   = "/etc/freighterd/ca.crt"
 	TLSCertLocation = "/etc/freighterd/cert.crt"
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
 	SecretLocation  = "/etc/freighterd/secret"
+	ConfigLocation  = "/etc/freighterd/config.json"
 )
 
 type tlsConfig struct {
@@ -78,7 +82,15 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	}
 
 	if container.Name != h.Name {
-		// See https://github.com/docker/docker/pull/8570 for native rename.
+		// Update /etc/freighterd/config.json's with new host slug.
+		err := h.updateConfigFile(container, mw)
+		if err != nil {
+			fmt.Fprintf(mw, "Failed to update container's config file, err: %v\n", err)
+			return nil, err
+		}
+
+		// TODO We can replace this commit -> create -> remove dance with native
+		// Docker rename in 1.5.0.
 		fmt.Fprintf(mw, "Renaming container from %q to %q\n", container.Name, h.Name)
 		fmt.Fprintln(mw, "Committing container")
 		img, err := h.client.CommitContainer(dockerclient.CommitContainerOptions{
@@ -198,9 +210,34 @@ func (h *Host) DriverName() string {
 	return "docker"
 }
 
+// configFile is used to marshal/unmarshal /etc/freighter/config.json.
+type configFile struct {
+	DataPath  string       `json:"data_path"`
+	TLSVerify bool         `json:"tls_verify"`
+	TLSCA     string       `json:"tls_ca"`
+	TLSCert   string       `json:"tls_cert"`
+	TLSKey    string       `json:"tls_key"`
+	Secret    string       `json:"secret"`
+	NotifyURL string       `json:"notify_url"`
+	Listen    []listenSpec `json:"listen"`
+}
+
+type listenSpec struct {
+	Proto   string `json:"proto"`
+	Address string `json:"address"`
+}
+
 func (h *Host) createImage() (string, error) {
+	cfg := h.configFile()
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return "", fmt.Errorf("unable to marshal config JSON, err: %v", err)
+	}
+	data := newTemplateData(h)
+	data.Config = string(b)
+
 	buf := bytes.NewBuffer(nil)
-	if err := dockerfileTemplate.Execute(buf, h); err != nil {
+	if err := dockerfileTemplate.Execute(buf, data); err != nil {
 		return "", err
 	}
 
@@ -303,8 +340,66 @@ func (h *Host) start() (*host.Info, error) {
 	return h.Info()
 }
 
+func (h *Host) updateConfigFile(container *dockerclient.Container, w io.Writer) error {
+	cfg := &configFile{}
+
+	out, err := exec.Command("docker", "exec", container.ID,
+		"/bin/bash", "-c", fmt.Sprintf(`[ -f %s ]`, ConfigLocation)).CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(w, "Failed to determine if config file exists, err: %v, output: %s\n", err, out)
+		cfg = h.configFile()
+	} else {
+		// No error means that the file exists, so we read its contents.
+		out, err := exec.Command("docker", "exec", container.ID, "cat", ConfigLocation).CombinedOutput()
+		if err != nil {
+			fmt.Fprintf(w, "Failed to read config file, err: %v, output: %s\n", err, out)
+			return err
+		}
+		if err := json.Unmarshal(out, cfg); err != nil {
+			fmt.Fprintf(w, "Failed to unmarshal config file, err: %v\n", err)
+			return err
+		}
+		cfg.NotifyURL = h.notifyURL()
+	}
+
+	buf, err := json.Marshal(cfg)
+	if err != nil {
+		fmt.Fprintf(w, "Failed to marshal config file, err: %v\n", err)
+		return err
+	}
+	out, err = exec.Command("docker", "exec", container.ID, "/bin/bash", "-c",
+		fmt.Sprintf("echo -e %q > %s", buf, ConfigLocation)).CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(w, "Failed to write to config file, err: %v, output: %s\n", err, out)
+		return err
+	}
+
+	return nil
+}
+
+func (h *Host) configFile() *configFile {
+	return &configFile{
+		DataPath:  "/var/lib/freighter",
+		TLSVerify: true,
+		TLSCA:     TLSCALocation,
+		TLSCert:   TLSCertLocation,
+		TLSKey:    TLSKeyLocation,
+		Secret:    SecretLocation,
+		NotifyURL: h.notifyURL(),
+		Listen: []listenSpec{
+			{Proto: "unix", Address: "/var/run/freighterd.sock"},
+			{Proto: "tcp", Address: fmt.Sprintf("0.0.0.0:%d", DefaultPort)},
+		},
+	}
+}
+
+func (h *Host) notifyURL() string {
+	return fmt.Sprintf("http://172.17.42.1:3333/api/v0/hosts/%s/freighterd_hook", h.Name)
+}
+
 func getFreighterdPort(container *dockerclient.Container) uint16 {
-	freighterdPortMappings := container.NetworkSettings.Ports["65333/tcp"]
+	portSpec := dockerclient.Port(fmt.Sprintf("%d/tcp", DefaultPort))
+	freighterdPortMappings := container.NetworkSettings.Ports[portSpec]
 	if len(freighterdPortMappings) != 1 {
 		return uint16(0)
 	}
