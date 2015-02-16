@@ -7,7 +7,7 @@ const confirmEmailNewUserHtmlTmpl = `
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Welcome to Nitrous!</title>
+    <title>Confirm your Nitrous email</title>
   </head>
   <body>
     <h3>Hello {{ .Name }}!</h3>
