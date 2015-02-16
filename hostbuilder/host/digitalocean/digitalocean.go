@@ -54,10 +54,12 @@ type HostConfig struct {
 	Secret     string     `json:"secret"`
 
 	// for setting up repository on the host
-	AptUsername string `json:"apt_username"` // username of nitrous.io
+	AptUsername string `json:"apt_username"` // username on nitrous.io
 	AptPassword string `json:"apt_password"` // nitrous.io access token
 	AptLocation string `json:"apt_location"` // URI of the repository
 	AptDist     string `json:"apt_dist"`     // distribution of the repo
+
+	FreighterdVersion string `json:"freighterd_version"`
 }
 
 type Host struct {
@@ -505,7 +507,7 @@ func waitForSSH(ctx *host.HostContext) error {
 	if err != nil {
 		return mh.Error(err, label)
 	}
-	hlog(h, "SSH READY for droplet %v", h.droplet.ID)
+	hlog(h, "SSH ready for droplet %v", h.droplet.ID)
 	h.conn = sshConn
 	return nil
 }
@@ -598,8 +600,12 @@ func updateSoftware(ctx *host.HostContext) error {
 		"DEBIAN_FRONTEND=noninteractive apt-get install -y",
 		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
 		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
-		"freighterd",
 	}
+	pkgspec := "freighterd"
+	if h.Config.FreighterdVersion != "" {
+		pkgspec = fmt.Sprintf("freighterd=%s", h.Config.FreighterdVersion)
+	}
+	cmdParts = append(cmdParts, pkgspec)
 	cmd := strings.Join(cmdParts, " ")
 
 	if out, err := h.conn.CombinedOutput(cmd); err != nil {

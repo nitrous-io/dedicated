@@ -646,10 +646,11 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 			"cert": phost.cert.ServerCert,
 			"key":  phost.cert.ServerKey,
 		},
-		"apt_username": opts.User.Username,
-		"apt_password": opts.Token.Token,
-		"apt_location": opts.AptLocation,
-		"apt_dist":     opts.AptDist,
+		"apt_username":       opts.User.Username,
+		"apt_password":       opts.Token.Token,
+		"apt_location":       opts.AptLocation,
+		"apt_dist":           opts.AptDist,
+		"freighterd_version": phost.host.FreighterdVersion,
 	}
 	for k, v := range opts.Template.Config.Map {
 		if v.Valid {

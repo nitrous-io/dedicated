@@ -250,12 +250,14 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(err).To(BeNil())
 
 		req := rt.Requests[0]
+		Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
+
 		var config hostbuilderclient.Config
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
 		Expect(config["name"]).To(HavePrefix(params.Get("name")), "invalid slug set in name")
 		Expect(slugbuilder.IsValid(config["name"].(string))).To(BeTrue(), "invalid slug set in name")
+		Expect(config["apt_username"]).To(Equal(u.Username))
 		Expect(config["apt_password"]).To(Equal(ht), "invalid token set in apt_password")
-		Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 	})
 
 	It("sends the host configs as json params when JSON is sent by the client", func() {
@@ -289,7 +291,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
 		Expect(config["name"]).To(HavePrefix("myhost"), "invalid slug set in name")
 		Expect(slugbuilder.IsValid(config["name"].(string))).To(BeTrue(), "invalid slug set in name")
-
+		Expect(config["apt_username"]).To(Equal(u.Username))
 		Expect(config["apt_password"]).To(Equal(ht), "invalid token set in apt_password")
 	})
 
@@ -403,6 +405,21 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(crt.HostID).To(Equal(hosts[0].ID))
 			Expect(crt.ServerCert).To(ContainSubstring("BEGIN CERTIFICATE"))
 			Expect(crt.ServerKey).To(ContainSubstring("BEGIN RSA PRIVATE KEY"))
+		})
+
+		It("sends the host's freighterd version to hostbuilder", func() {
+			doRequest(params)
+
+			req := rt.Requests[0]
+			var config hostbuilderclient.Config
+			err := json.Unmarshal([]byte(req.FormValue("config")), &config)
+			Expect(err).To(BeNil())
+
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+			Expect(hosts[0].FreighterdVersion).ToNot(BeEmpty())
+			Expect(config["freighterd_version"]).To(Equal(hosts[0].FreighterdVersion))
 		})
 
 		It("creates a shared volume and publishes a volume created event", func() {
