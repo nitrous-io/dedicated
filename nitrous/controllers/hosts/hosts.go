@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -90,11 +91,12 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	if env.User.Admin {
-		h.LiveDockerVersion = "error getting version"
-		h.LiveFreighterdVersion = "error getting version"
-		if cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID); err == nil {
-			if ver, err := cl.HostVersions(); err == nil {
+	var ver *freighterclient.HostVersions
+
+	if cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID); err == nil {
+		if ver, err = cl.HostVersions(); err == nil {
+			h.UpgradeAvailable = (ver.FreighterdVersion != h.FreighterdVersion)
+			if env.User.Admin {
 				h.LiveDockerVersion = ver.DockerVersion
 				h.LiveFreighterdVersion = ver.FreighterdVersion
 			}
