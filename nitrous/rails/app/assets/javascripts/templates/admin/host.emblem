@@ -3,6 +3,7 @@
     table.ui.table
       tbody
         tr
+          th
           th ID
           th Slug
           th State
@@ -14,6 +15,10 @@
 
         = each
           tr
+            td
+              .ui.checkbox
+                = input type='checkbox' checked=selected
+                label
             td.id = id
             td.slug = slug
             td.state = state

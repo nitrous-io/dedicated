@@ -8,9 +8,16 @@ App.TopnavView = Em.View.extend
       "You can only create #{maxHosts} workspace#{if maxHosts != 1 then "s" else ""}."
   ).property 'App.canCreateHosts', 'userProfile.maxHosts'
 
+
+  didInsertElement: ->
+    @_super()
+
   actions:
     sendFeedback: ->
       App.trigger 'open-feedback-dialog'
 
     switchUser: ->
       App.trigger 'open-switch-user-dialog'
+
+    updateAdminHosts: ->
+      App.trigger 'show-update-hosts', App.get('hosts')

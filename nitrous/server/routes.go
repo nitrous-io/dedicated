@@ -153,6 +153,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys":     r("keys.Create", keys.Create, EventContainerKeyAdded),
 				"/user/billing_profile":       r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
 				"/containers/{slug}/metadata": r("containers.Metadata", containers.Metadata),
+				"/admin/host/{slug}":          r("admin.UpdateHost", admin.UpdateHost),
 			},
 			"DELETE": {
 				"/hosts/{slug}":                     r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), EventHostTerminated),
