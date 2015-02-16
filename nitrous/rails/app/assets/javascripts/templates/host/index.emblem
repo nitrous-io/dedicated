@@ -1,6 +1,14 @@
 = host-tab-bar selected='general' model=model
 
 .card-body
+  if upgradeAvailable
+    .notice-text
+      i.fa.fa-warning
+      '
+      | There are updates available.
+      '
+      a href="#" Update Now
+
   table.ui.table.horizontal
     tr
       th State
