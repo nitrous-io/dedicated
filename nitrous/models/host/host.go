@@ -88,6 +88,7 @@ type Host struct {
 	// serializers.Host out of it. Data comes from freighterd, not database
 	LiveDockerVersion     string
 	LiveFreighterdVersion string
+	UpgradeAvailable      bool
 }
 
 func FindAllByProvider(db *db.Database, provider string) ([]Host, error) {
