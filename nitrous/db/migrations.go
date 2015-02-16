@@ -847,5 +847,11 @@ func init() {
 				);
 			`,
 		},
+		{
+			Version: "780",
+			Up: `
+				ALTER TABLE containers RENAME COLUMN locked_at TO locked_until;
+			`,
+		},
 	}
 }

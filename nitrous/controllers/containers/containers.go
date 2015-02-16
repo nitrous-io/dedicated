@@ -100,7 +100,7 @@ func doExclusive(locker taskFn, unlocker taskFn, errHandler errorHandlerFn, task
 func lockerFn(cn *container.Container, env *middleware.Env, timeout time.Duration, tempState container.State) taskFn {
 	return func() error {
 		if cn.LockedUntil != nil && time.Now().After(*cn.LockedUntil) {
-			env.Logger.Errorf("WARNING: Attempt to lock container with expired lock: %+v", cn)
+			env.Logger.Warnf("Attempt to lock container with expired lock: %+v", cn)
 		}
 
 		if err := cn.Lock(tempState, timeout, env.DB); err != nil {
@@ -122,11 +122,10 @@ func unlockerFn(cn *container.Container, db *db.Database) taskFn {
 func errorLoggerFn(logger *logger.Logger, cn *container.Container, tempState container.State) func(error) {
 	return func(err error) {
 		if err == errContainerLocked {
-			// ignore container locked error
-			return
+			logger.Infof("Failed to lock container: container is already locked. %+v", cn)
+		} else {
+			logger.Errorf("Error in container transition state %s for container %+v: %s", cn, tempState, err)
 		}
-
-		logger.Errorf("Error in container %v of transition state %s: %s", cn.ID, tempState, err)
 	}
 }
 
