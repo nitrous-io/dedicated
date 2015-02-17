@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/freighterd"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/home"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
@@ -84,14 +85,15 @@ func (s *Server) drawRoutes() {
 				"/promo_codes/{code}": r("promocodes.Show", promocodes.Show),
 			},
 			"POST": {
-				"/oauth/token":               r("tokens.Post", tokens.Post),
-				"/users/email_signup":        r("users.EmailCapture", users.EmailCapture),
-				"/users":                     r("users.Create", users.Create),
-				"/user/confirm":              r("users.Confirm", users.Confirm),
-				"/user/resend_confirm":       r("users.ResendConfirmation", users.ResendConfirmation),
-				"/send_reset_password_token": r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
-				"/reset_password":            r("passwords.ResetPassword", passwords.ResetPassword),
-				"/stripe_hook":               r("stripehooks.ReceiveHook", stripehooks.ReceiveHook),
+				"/oauth/token":                  r("tokens.Post", tokens.Post),
+				"/users/email_signup":           r("users.EmailCapture", users.EmailCapture),
+				"/users":                        r("users.Create", users.Create),
+				"/user/confirm":                 r("users.Confirm", users.Confirm),
+				"/user/resend_confirm":          r("users.ResendConfirmation", users.ResendConfirmation),
+				"/send_reset_password_token":    r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
+				"/reset_password":               r("passwords.ResetPassword", passwords.ResetPassword),
+				"/stripe_hook":                  r("stripehooks.ReceiveHook", stripehooks.ReceiveHook),
+				"/hosts/{slug}/freighterd_hook": r("freighterd.Webhook", freighterd.Webhook),
 			},
 		}
 
@@ -129,6 +131,7 @@ func (s *Server) drawRoutes() {
 				"/user/billing_profile":                r("billingprofiles.Activate", billingprofiles.Activate),
 				"/hosts/{slug}/registries":             r("registries.Login", registries.Login, EventRegistryAdded),
 				"/hosts/{slug}/restart":                r("hosts.Restart", mw.HostViaPath("slug", hosts.Restart), EventHostRestarted),
+				"/hosts/{slug}/upgrade":                r("hosts.Upgrade", mw.HostViaPath("slug", hosts.Upgrade)),
 				"/hosts/{slug}/volumes":                r("volumes.Create", mw.HostViaPath("slug", volumes.Create), EventVolumeCreated),
 				"/hosts/{slug}/images":                 r("images.Build", mw.HostViaPath("slug", images.Build), EventImageBuilt),
 				"/hosts/{slug}/images/pull":            r("images.Pull", mw.HostViaPath("slug", images.Pull), EventImagePulled),
