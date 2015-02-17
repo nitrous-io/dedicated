@@ -212,9 +212,9 @@ func SendGetStartedEmail(d *db.Database, u user.User) (err error) {
 	}
 
 	var claimUrl *url.URL
-	if u.ConfirmedAt == nil && u.ConfirmationTokenExpired() {
+	if !u.ConfirmedAt.Valid && u.ConfirmationTokenExpired() {
 		// refresh the confirmation token
-		claimUrl, err = u.GenerateConfirmationURL(tx, true, false)
+		claimUrl, err = u.GenerateConfirmationURL(tx)
 		if err != nil {
 			return err
 		}
