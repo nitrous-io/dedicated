@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+SWAPFILE=/swapfile
+FSTAB_LINE="/swapfile   none    swap    sw    0   0"
+
+die() {
+        echo $@ && exit 1
+}
+
+# check if swapfile already exist and is active
+if [[ ! -f /swapfile ]] && [[ $(grep -cE "swapfile" /proc/swaps) -eq 0 ]]; then
+        fallocate -l 2G $SWAPFILE
+        chmod 600 $SWAPFILE
+        mkswap $SWAPFILE
+        swapon $SWAPFILE
+else
+       die "Error: There's seems to be a swap file for this host." 
+fi
+
+# and append fstab line to current fstab only if it doesn't exist
+if [[ $(grep -cE "swapfile" /etc/fstab) -eq 0 ]]; then
+	cp /etc/fstab /etc/original.fstab
+	echo ${FSTAB_LINE} >> /etc/fstab
+fi
