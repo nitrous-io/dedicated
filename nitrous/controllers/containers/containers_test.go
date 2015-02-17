@@ -1526,7 +1526,7 @@ var _ = Describe("controllers/containers", func() {
 	})
 
 	Describe("Container lock test", func() {
-		errorSpy := func() (containers.ErrorHandlerFn, func() error) {
+		errorSpy := func() (func(error), func() error) {
 			var caughtError error
 
 			errHandler := func(err error) {
@@ -1542,7 +1542,7 @@ var _ = Describe("controllers/containers", func() {
 			return errHandler, errorCaught
 		}
 
-		taskSpy := func(err error) (containers.TaskFn, func() bool) {
+		taskSpy := func(err error) (func() error, func() bool) {
 			called := false
 
 			task := func() error {
@@ -1692,11 +1692,11 @@ var _ = Describe("controllers/containers", func() {
 			})
 		})
 
-		asyncTaskSpy := func(err error) (containers.TaskFn, <-chan int) {
-			calledChan := make(chan int)
+		asyncTaskSpy := func(err error) (func() error, <-chan struct{}) {
+			calledChan := make(chan struct{})
 
 			task := func() error {
-				calledChan <- 0 // send end signal
+				close(calledChan) // send end signal
 
 				return err
 			}
@@ -1704,7 +1704,7 @@ var _ = Describe("controllers/containers", func() {
 			return task, calledChan
 		}
 
-		asyncErrorSpy := func() (containers.ErrorHandlerFn, <-chan error) {
+		asyncErrorSpy := func() (func(error), <-chan error) {
 			errChan := make(chan error)
 
 			errHandler := func(err error) {
@@ -1904,6 +1904,9 @@ var _ = Describe("controllers/containers", func() {
 						cn2 = getContainerInfo()
 						Expect(cn2.State).To(Equal("starting"))
 
+						// DoExclusive() already acquired the container lock
+						// when we enter this function. So naturally any other
+						// requests that require lock would fail.
 						res := doRequest("start")
 						Expect(res.Code).To(Equal(http.StatusConflict))
 
@@ -1973,13 +1976,13 @@ var _ = Describe("controllers/containers", func() {
 				locker := containers.LockerFn(cn, env, lockTime, container.StateReconfiguring)
 				unlocker := containers.UnlockerFn(cn, env)
 
-				taskStartChan := make(chan int)
-				taskResumeChan := make(chan int)
-				unlockChan := make(chan int)
+				taskStartChan := make(chan struct{})
+				taskResumeChan := make(chan struct{})
+				unlockChan := make(chan struct{})
 
 				wrappedUnlocker := func() error {
 					err := unlocker()
-					unlockChan <- 0
+					close(unlockChan)
 					return err
 				}
 
@@ -2000,7 +2003,7 @@ var _ = Describe("controllers/containers", func() {
 						Expect(cn2.State).To(Equal("reconfiguring"))
 
 						// inform outside task is called
-						taskStartChan <- 0
+						close(taskStartChan)
 
 						// wait to finish reconfiguration
 						<-taskResumeChan
@@ -2022,7 +2025,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(cn2.State).To(Equal("reconfiguring"))
 
 				// resume reconfiguration
-				taskResumeChan <- 0
+				close(taskResumeChan)
 
 				// wait for unlock
 				<-unlockChan

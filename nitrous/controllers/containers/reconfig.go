@@ -24,42 +24,6 @@ var (
 	Reconfig = WithContainerAndHost(reconfig)
 )
 
-func DoAsyncExclusive(async bool, locker TaskFn, unlocker TaskFn, errHandler ErrorHandlerFn, task TaskFn) error {
-	if !async {
-		return DoExclusive(locker, unlocker, errHandler, task)
-	}
-
-	err := locker()
-	if err != nil {
-		errHandler(err)
-		return err
-	}
-
-	go func() {
-		defer func() {
-			err := unlocker()
-			if err != nil {
-				errHandler(err)
-			}
-		}()
-
-		err := task()
-		if err != nil {
-			errHandler(err)
-		}
-	}()
-
-	return nil
-}
-
-func doContainerAsyncExclusive(async bool, cn *container.Container, env *middleware.Env, tempState container.State, task TaskFn) error {
-	return DoAsyncExclusive(async,
-		LockerFn(cn, env, reconfigLockTime, tempState),
-		UnlockerFn(cn, env),
-		ErrorLoggerFn(env.Logger, cn, tempState),
-		task)
-}
-
 func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
@@ -120,10 +84,8 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 	}
 
 	/*
-	 * DISCUSSME: the container cn here may or may not
+	 * Note: the container cn here may or may not
 	 * be hydrated depend on whether it is sync or async.
-	 * Is this intentional or what? Could have made
-	 * the side effect more obvious and explicit.
 	 */
 	env.Data = map[string]interface{}{
 		"container": serializers.SerializeContainer(cn),

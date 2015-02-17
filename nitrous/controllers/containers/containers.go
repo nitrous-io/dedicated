@@ -25,7 +25,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/shellwords"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 const transitionLockTime = 1 * time.Minute
@@ -72,77 +71,6 @@ var (
 )
 
 type containerHandler func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
-
-type TaskFn func() error
-type ErrorHandlerFn func(err error)
-
-func DoExclusive(locker TaskFn, unlocker TaskFn, errHandler ErrorHandlerFn, task TaskFn) (err error) {
-	err = locker()
-	if err != nil {
-		errHandler(err)
-		return err
-	}
-
-	defer func() {
-		unlockErr := unlocker()
-		if unlockErr != nil {
-			errHandler(unlockErr)
-			err = unlockErr
-		}
-	}()
-
-	err = task()
-	if err != nil {
-		errHandler(err)
-	}
-
-	return err
-}
-
-func LockerFn(cn *container.Container, env *middleware.Env, timeout time.Duration, tempState container.State) TaskFn {
-	return func() error {
-		if cn.LockedUntil != nil && time.Now().After(*cn.LockedUntil) {
-			env.Logger.Warnf("Attempt to lock container with expired lock: %+v", cn)
-		}
-
-		if err := cn.Lock(tempState, timeout, env.DB); err != nil {
-			if err == container.ErrLocked {
-				return errContainerLocked
-			}
-			return err
-		}
-		return nil
-	}
-}
-
-func UnlockerFn(cn *container.Container, env *middleware.Env) TaskFn {
-	return func() error {
-		err := cn.Unlock(env.DB)
-		if err != nil {
-			env.Logger.Warnf("Failed to unlock container: %+v: %s", cn, err)
-		}
-
-		return err
-	}
-}
-
-func ErrorLoggerFn(logger *logger.Logger, cn *container.Container, tempState container.State) func(error) {
-	return func(err error) {
-		if err == errContainerLocked {
-			logger.Infof("Failed to lock container: container is already locked. %+v", cn)
-		} else {
-			logger.Errorf("Error in container transition state %s for container %+v: %s", cn, tempState, err)
-		}
-	}
-}
-
-func doContainerExclusive(cn *container.Container, env *middleware.Env, tempState container.State, task TaskFn) error {
-	return DoExclusive(
-		LockerFn(cn, env, transitionLockTime, tempState),
-		UnlockerFn(cn, env),
-		ErrorLoggerFn(env.Logger, cn, tempState),
-		task)
-}
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
