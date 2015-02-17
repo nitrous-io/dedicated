@@ -49,11 +49,11 @@ EOF
 
 ## INSTALL GO ################################################################
 
-if ! go version | grep go1.3.3 > /dev/null; then
+if ! go version | grep go1.4.1 > /dev/null; then
   echo "Installing go..."
 
   mkdir -p $GOROOT
-  curl -s https://storage.googleapis.com/golang/go1.3.3.linux-amd64.tar.gz| tar -C /usr/local/opt -xz
+  curl -s https://storage.googleapis.com/golang/go1.4.1.linux-amd64.tar.gz| tar -C /usr/local/opt -xz
 fi
 
 ## INSTALL TOOLS #############################################################
