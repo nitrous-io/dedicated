@@ -3,7 +3,9 @@ package digitalocean
 import (
 	"bytes"
 	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -23,14 +25,20 @@ import (
 	"golang.org/x/net/context"
 )
 
-const DefaultPort uint16 = 65333
+const (
+	DefaultPort uint16 = 65333
+
+	sshPort uint16 = 65100
+)
 
 var (
+	// Paths to files within each DigitalOcean host.
 	PubKeysLocation = "/root/.ssh/authorized_keys"
 	TLSCALocation   = "/etc/freighterd/ca.crt"
 	TLSCertLocation = "/etc/freighterd/cert.crt"
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
 	SecretLocation  = "/etc/freighterd/secret"
+	ConfigLocation  = "/etc/freighterd/config.json"
 
 	DefaultCreateTimeout = 10 * time.Minute
 	StateWaitTime        = 3 * time.Second
@@ -60,6 +68,8 @@ type HostConfig struct {
 	AptLocation string `json:"apt_location"` // URI of the repository
 	AptDist     string `json:"apt_dist"`     // distribution of the repo
 
+	PrivateKey string `json:"private_key"`
+
 	FreighterdVersion string `json:"freighterd_version"`
 }
 
@@ -72,6 +82,7 @@ type Host struct {
 	conn          *sshutil.Conn
 	sshKey        *godo.Key
 	uuid          string
+	notifyURL     string
 	createTimeout time.Duration
 }
 
@@ -151,15 +162,45 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 		return nil, err
 	}
 
+	// Update /etc/freighterd/config.json.
+	cfg := h.configFile()
+	cfgb, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal config JSON, err: %v", err)
+	}
+
+	block, _ := pem.Decode([]byte(h.Config.PrivateKey))
+	privKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse a valid RSA private key, err: %v", err)
+	}
+
+	dropletRoot, _, err := h.Client.Droplets.Get(id)
+	h.droplet = dropletRoot.Droplet
+	addr := fmt.Sprintf("%s:%d", h.ipAddress(), sshPort)
+	connInterval := 5 * time.Second
+	info := map[string]interface{}{
+		"uuid": h.uuid,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+	sshConn, err := sshutil.WaitForSSH(addr, "root", privKey, connInterval, ctx.Done(), info)
+	if err != nil {
+		return nil, err
+	}
+	h.conn = sshConn
+	if err := uploadFile(h, map[string]io.Reader{
+		ConfigLocation: bytes.NewBuffer(cfgb),
+	}); err != nil {
+		return nil, err
+	}
+
 	hlog(h, "Renaming droplet %d to %s", id, h.Config.Name)
 	action, _, err := h.Client.DropletActions.Rename(id, h.Config.Name)
 	if err != nil {
 		return nil, err
 	}
-	info := map[string]interface{}{
-		"uuid": h.uuid,
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if _, err := WaitForAction(ctx, h.Client.Actions, action.ID, StateWaitTime, info); err != nil {
 		return nil, err
@@ -361,6 +402,43 @@ func (h *Host) metricsLabel(prefix string) string {
 	return fmt.Sprintf("%s.digitalocean", prefix)
 }
 
+// configFile is used to marshal/unmarshal /etc/freighter/config.json.
+type configFile struct {
+	DataPath  string       `json:"data_path"`
+	TLSVerify bool         `json:"tls_verify"`
+	TLSCA     string       `json:"tls_ca"`
+	TLSCert   string       `json:"tls_cert"`
+	TLSKey    string       `json:"tls_key"`
+	Secret    string       `json:"secret"`
+	NotifyURL string       `json:"notify_url"`
+	Listen    []listenSpec `json:"listen"`
+}
+
+type listenSpec struct {
+	Proto   string `json:"proto"`
+	Address string `json:"address"`
+}
+
+func (h *Host) configFile() *configFile {
+	return &configFile{
+		DataPath:  "/var/lib/freighter",
+		TLSVerify: true,
+		TLSCA:     TLSCALocation,
+		TLSCert:   TLSCertLocation,
+		TLSKey:    TLSKeyLocation,
+		Secret:    SecretLocation,
+		NotifyURL: h.generateNotifyURL(),
+		Listen: []listenSpec{
+			{Proto: "unix", Address: "/var/run/freighterd.sock"},
+			{Proto: "tcp", Address: "0.0.0.0:65333"},
+		},
+	}
+}
+
+func (h *Host) generateNotifyURL() string {
+	return strings.Replace(h.notifyURL, "{{slug}}", h.Config.Name, -1)
+}
+
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
@@ -383,6 +461,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		Config:        hostConfig,
 		Client:        client,
 		uuid:          defaultConfig["uuid"],
+		notifyURL:     defaultConfig["notify_url"],
 		createTimeout: createTimeout,
 	}
 	return host, nil
@@ -482,7 +561,7 @@ func waitForSSH(ctx *host.HostContext) error {
 	defer mh.UpdateSince(label, time.Now())
 
 	hlog(h, "Waiting for SSH to be ready")
-	address := fmt.Sprintf("%s:%s", h.ipAddress(), "65100")
+	address := fmt.Sprintf("%s:%d", h.ipAddress(), sshPort)
 	info := map[string]interface{}{
 		"uuid": h.uuid,
 	}
@@ -501,10 +580,6 @@ func writeSettings(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 	hlog(h, "Writing settings")
 
-	if err := h.conn.Execute("mkdir -p /etc/freighterd"); err != nil {
-		return err
-	}
-
 	pubKeysBuf := bytes.NewBuffer(nil)
 	for _, k := range h.Config.PublicKeys {
 		fmt.Fprintln(pubKeysBuf, k)
@@ -515,6 +590,16 @@ func writeSettings(ctx *host.HostContext) error {
 		return err
 	}
 
+	cfg := h.configFile()
+	cfgb, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("unable to marshal config JSON, err: %v", err)
+	}
+
+	if err := h.conn.Execute("mkdir -p /etc/freighterd"); err != nil {
+		return err
+	}
+
 	if err := uploadFile(h, map[string]io.Reader{
 		PubKeysLocation:     pubKeysBuf,
 		host.SourceLocation: aptSourcesBuf,
@@ -522,6 +607,7 @@ func writeSettings(ctx *host.HostContext) error {
 		TLSCertLocation:     strings.NewReader(h.Config.TLS.Cert),
 		TLSKeyLocation:      strings.NewReader(h.Config.TLS.Key),
 		SecretLocation:      strings.NewReader(h.Config.Secret),
+		ConfigLocation:      bytes.NewBuffer(cfgb),
 	}); err != nil {
 		return err
 	}
