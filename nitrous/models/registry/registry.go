@@ -1,7 +1,6 @@
 package registry
 
 import (
-	"database/sql"
 	"strconv"
 	"time"
 
@@ -43,9 +42,6 @@ func Find(d db.QueryReceiver, userID int64, hostID int64, identifier string) (*R
 	}
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return r, nil

@@ -1,6 +1,7 @@
 package providertemplate_test
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -90,9 +91,9 @@ var _ = Describe("models/providertemplate", func() {
 		})
 
 		Context("when a provider template record with a given id does not exist", func() {
-			It("returns nil", func() {
+			It("returns an error", func() {
 				pt, err := providertemplate.FindByID(db, 9001)
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(pt).To(BeNil())
 			})
 		})
@@ -122,9 +123,9 @@ var _ = Describe("models/providertemplate", func() {
 		})
 
 		Context("when a provider template record with a given region ID and plan ID does not exist", func() {
-			It("returns nil", func() {
+			It("returns an error", func() {
 				pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, 9001, 9002, "digitalocean")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(pt).To(BeNil())
 			})
 		})

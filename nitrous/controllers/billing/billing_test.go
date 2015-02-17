@@ -282,6 +282,36 @@ var _ = Describe("controllers/billing", func() {
 				Expect(invoices[2].Items).To(BeEmpty())
 			})
 
+			It("should list out the available credits at the time of the invoices", func() {
+				_, err := db.Exec("UPDATE invoices SET available_credit = $1 WHERE id = $2;", 200, i3.ID)
+				Expect(err).To(BeNil())
+				_, err = db.Exec("UPDATE invoices SET available_credit = $1 WHERE id = $2;", 90, i2.ID)
+				Expect(err).To(BeNil())
+
+				var j map[string][]serializers.Invoice
+				res := doRequest()
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				invoices := j["invoices"]
+				Expect(invoices).To(HaveLen(3))
+				Expect(invoices[0].ID).To(Equal(i3.ID))
+				Expect(invoices[0].UserID).To(Equal(i3.UserID))
+				Expect(invoices[0].PeriodStart.Unix()).To(Equal(i3.PeriodStart.Unix()))
+				Expect(invoices[0].PeriodEnd.Unix()).To(Equal(i3.PeriodEnd.Unix()))
+				Expect(invoices[0].SuccessfulCharge).To(Equal(i3.SuccessfulCharge))
+				Expect(invoices[0].Items).To(BeEmpty())
+				Expect(invoices[0].AvailableCredit).To(Equal(int64(200)))
+
+				Expect(invoices[1].ID).To(Equal(i2.ID))
+				Expect(invoices[1].UserID).To(Equal(i2.UserID))
+				Expect(invoices[1].PeriodStart.Unix()).To(Equal(i2.PeriodStart.Unix()))
+				Expect(invoices[1].PeriodEnd.Unix()).To(Equal(i2.PeriodEnd.Unix()))
+				Expect(invoices[1].SuccessfulCharge).To(Equal(i2.SuccessfulCharge))
+				Expect(invoices[1].Items).To(BeEmpty())
+				Expect(invoices[1].AvailableCredit).To(Equal(int64(90)))
+			})
+
 			It("should be able to list the invoice items", func() {
 				itm1 := invoiceitem.InvoiceItem{
 					InvoiceID:   i1.ID,
@@ -327,6 +357,11 @@ var _ = Describe("controllers/billing", func() {
 					HourlyPrice: sql.NullInt64{2000, true},
 				}
 				Expect(itm6.Insert(db)).To(BeNil())
+				itm7 := invoiceitem.InvoiceItem{
+					InvoiceID: i3.ID,
+					Credit:    sql.NullInt64{200, true},
+				}
+				Expect(itm7.Insert(db)).To(BeNil())
 
 				var j map[string][]serializers.Invoice
 				res := doRequest()
@@ -354,6 +389,7 @@ var _ = Describe("controllers/billing", func() {
 				Expect(invoices[0].Items[2].HourlyCents).To(Equal(1.00))
 				Expect(invoices[0].Items[2].TotalCharge).To(Equal(int64(8)))
 				Expect(invoices[0].Items[2].HostSlug).To(Equal("my-host-1"))
+				Expect(invoices[0].TotalCredit).To(Equal(int64(200)))
 
 				Expect(invoices[1].Items).To(HaveLen(1))
 				Expect(invoices[1].Items[0].InvoiceID).To(Equal(i2.ID))
@@ -362,6 +398,7 @@ var _ = Describe("controllers/billing", func() {
 				Expect(invoices[1].Items[0].HourlyCents).To(Equal(3.00))
 				Expect(invoices[1].Items[0].TotalCharge).To(Equal(int64(30)))
 				Expect(invoices[1].Items[0].HostSlug).To(Equal("my-host-2"))
+				Expect(invoices[1].TotalCredit).To(Equal(int64(0)))
 
 				Expect(invoices[2].Items).To(HaveLen(2))
 				Expect(invoices[2].Items[0].InvoiceID).To(Equal(i1.ID))
@@ -376,6 +413,7 @@ var _ = Describe("controllers/billing", func() {
 				Expect(invoices[2].Items[1].HourlyCents).To(Equal(2.00))
 				Expect(invoices[2].Items[1].TotalCharge).To(Equal(int64(48)))
 				Expect(invoices[2].Items[1].HostSlug).To(Equal("my-host-1"))
+				Expect(invoices[2].TotalCredit).To(Equal(int64(0)))
 			})
 		})
 	})

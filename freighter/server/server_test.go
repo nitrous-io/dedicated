@@ -1961,7 +1961,7 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("terminateActiveCops", func() {
-		It("sends two nils to quit channel if populated for CID", func() {
+		It("sends nils to quit channel if populated for CID", func() {
 			cid := "abbacoda"
 			q1, q2 := make(chan error, 2), make(chan error, 2)
 			server.ActiveCops[cid] = append(server.ActiveCops[cid], q1, q2)

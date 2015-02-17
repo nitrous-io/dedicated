@@ -481,7 +481,7 @@ var _ = Describe("controllers/users", func() {
 			})
 
 			It("should revert to the original email if provided while unconfirmed is different", func() {
-				_, err := db.Exec(`UPDATE users SET confirmed_at = now(), unconfirmed_email = 'att@example.com' WHERE id = $1;`, u.ID)
+				_, err := db.Exec(`UPDATE users SET confirmation_token = 'TOKEN', confirmation_sent_at = now(), confirmed_at = now(), unconfirmed_email = 'att@example.com' WHERE id = $1;`, u.ID)
 				Expect(err).To(BeNil())
 
 				params := &url.Values{}
@@ -493,8 +493,8 @@ var _ = Describe("controllers/users", func() {
 				usr, err := user.FindByID(db, u.ID)
 				Expect(err).To(BeNil())
 				Expect(usr.UnconfirmedEmail.String).To(BeEmpty())
-				Expect(usr.ConfirmedAt).ToNot(BeNil())
-				Expect(usr.ConfirmationSentAt).To(BeNil())
+				Expect(usr.ConfirmedAt.Valid).To(BeTrue())
+				Expect(usr.ConfirmationSentAt.Valid).To(BeFalse())
 				Expect(usr.ConfirmationToken.String).To(BeEmpty())
 
 				Expect(fakeMailer.SendMailCalled).To(BeFalse())
@@ -602,7 +602,7 @@ var _ = Describe("controllers/users", func() {
 			})
 
 			It("should successfully return a token for the user", func() {
-				Expect(u.ConfirmedAt).To(BeNil(), "expect user to not confirmed yet")
+				Expect(u.ConfirmedAt.Valid).To(BeFalse(), "expect user to not confirmed yet")
 				doRequest("ABCD")
 
 				Expect(res.Code).To(Equal(http.StatusOK))
@@ -686,7 +686,7 @@ var _ = Describe("controllers/users", func() {
 			})
 
 			It("should send the confirmation token if the token matches", func() {
-				Expect(u.ConfirmationSentAt).To(BeNil(), "expect confirmation to not be sent")
+				Expect(u.ConfirmationSentAt.Valid).To(BeFalse(), "expect confirmation to not be sent")
 				doRequest("ABCD", "")
 
 				Expect(res.Code).To(Equal(http.StatusOK))
@@ -700,7 +700,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 				Expect(u.ConfirmationToken.String).ToNot(BeEmpty())
 				Expect(u.ConfirmationToken.String).ToNot(Equal("ABCD"))
-				Expect(u.ConfirmationSentAt).ToNot(BeNil(), "expect confirmation to be sent")
+				Expect(u.ConfirmationSentAt.Valid).To(BeTrue(), "expect confirmation to be sent")
 			})
 		})
 
@@ -751,7 +751,7 @@ var _ = Describe("controllers/users", func() {
 			})
 
 			It("should send the confirmation token if the token matches", func() {
-				Expect(u.ConfirmationSentAt).To(BeNil(), "expect confirmation to not be sent")
+				Expect(u.ConfirmationSentAt.Valid).To(BeFalse(), "expect confirmation to not be sent")
 				doRequest("", "toke")
 
 				Expect(res.Code).To(Equal(http.StatusOK))
@@ -765,7 +765,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 				Expect(u.ConfirmationToken.String).ToNot(BeEmpty())
 				Expect(u.ConfirmationToken.String).ToNot(Equal("ABCD"))
-				Expect(u.ConfirmationSentAt).ToNot(BeNil(), "expect confirmation to be sent")
+				Expect(u.ConfirmationSentAt.Valid).To(BeTrue(), "expect confirmation to be sent")
 			})
 		})
 	})

@@ -182,6 +182,7 @@ var _ = Describe("biller", func() {
 				Expect(err).To(BeNil())
 				Expect(i).ToNot(BeNil())
 
+				Expect(i.Invoice.AvailableCredit).To(Equal(sql.NullInt64{8, true}))
 				Expect(i.Invoice.CreditAmount).To(Equal(int64(8)))
 				Expect(i.Invoice.TotalCharge).To(Equal(int64(332)))
 
@@ -274,6 +275,7 @@ var _ = Describe("biller", func() {
 				Expect(i.Invoice.SuccessfulCharge).To(BeFalse())
 				Expect(i.Invoice.TotalCharge).To(Equal(int64(330)))
 				Expect(i.Invoice.CreditAmount).To(Equal(int64(10)))
+				Expect(i.Invoice.AvailableCredit).To(Equal(sql.NullInt64{10, true}))
 			})
 
 			It("should update an invoice item if it exists", func() {
@@ -364,6 +366,7 @@ var _ = Describe("biller", func() {
 				Expect(i2.Invoice.ID).To(Equal(i1.Invoice.ID))
 				Expect(i2.Invoice.TotalCharge).To(Equal(i1.Invoice.TotalCharge))
 				Expect(i2.Invoice.CreditAmount).To(Equal(i1.Invoice.CreditAmount))
+				Expect(i2.Invoice.AvailableCredit).To(Equal(i1.Invoice.AvailableCredit))
 
 				var credit invoiceitem.InvoiceItem
 				items, err := invoiceitem.FindAllForInvoice(db, i2.Invoice.ID)

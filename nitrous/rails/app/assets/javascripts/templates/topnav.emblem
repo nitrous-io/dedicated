@@ -45,6 +45,9 @@
             li
               = link-to 'admin.hosts' 'digitalocean'
                 | Digital Ocean
+            li
+              a href='#' click='updateAdminHosts target="view"'
+                | Update My Hosts
       li.ui.dropdown
         a href='#'
           img.gravatar src={App.user.gravatar}

@@ -83,14 +83,12 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if hSlug != "" {
 		h, err := host.Find(db, env.User, hSlug)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return errHostNotFound
+			}
 			return err
 		}
-
-		if h != nil {
-			hosts = []host.Host{*h}
-		} else {
-			return errHostNotFound
-		}
+		hosts = []host.Host{*h}
 	} else {
 		hosts, err = host.FindAllByUser(db, env.User)
 		if err != nil {
@@ -101,7 +99,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	errorMessages := []string{}
 
 	for _, h := range hosts {
-		liveContainers, freighterErr := freighterList(db, &h)
+		liveContainers, freighterErr := freighterList(db, &h, env)
 
 		savedContainers, err := container.FindAllByHostID(db, h.ID)
 		if err != nil {
@@ -163,8 +161,8 @@ type listresult struct {
 	err        error
 }
 
-func freighterList(db db.QueryReceiver, h *host.Host) ([]*freighterclient.Container, error) {
-	cl, err := controllers.NewFreighterClient(db, h)
+func freighterList(db db.QueryReceiver, h *host.Host, env *middleware.Env) ([]*freighterclient.Container, error) {
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +195,7 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 }
 
 func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -213,6 +211,14 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		env.Data = map[string]interface{}{
 			"error":             "invalid_request",
 			"error_description": "image already exists",
+		}
+		return nil
+	}
+	if err == freighterclient.ErrIllegalTagName {
+		env.Status = http.StatusBadRequest
+		env.Data = map[string]interface{}{
+			"error":             "invalid_request",
+			"error_description": "Illegal tag name: only [A-Za-z0-9_.-] are allowed, minimum 1, maximum 128 in length",
 		}
 		return nil
 	}
@@ -260,7 +266,7 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 
 // TODO: deprecate eventually once webapp is updated, as `show` includes config now
 func config(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -278,7 +284,7 @@ func config(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 }
 
 func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		if err == controllers.ErrHostNotRunning || err == controllers.ErrHostIPUnknown {
 			cn.State = container.StateHostStopped
@@ -327,7 +333,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		return err
 	}
 
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -360,7 +366,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 }
 
 func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -368,7 +374,7 @@ func stop(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 }
 
 func restart(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h)
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -432,7 +438,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	// broadcast transitioning state
 	publishContainerEvent(env, controllers.EventContainerDestroying, cn)
 
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -491,18 +497,18 @@ func WithContainerAndHost(fn func(cn *container.Container, h *host.Host, env *mi
 
 		cn, err := container.Find(db, env.User, mux.Vars(r)["slug"])
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return errContainerNotFound
+			}
 			return err
-		}
-		if cn == nil {
-			return errContainerNotFound
 		}
 
 		h, err := host.Find(db, env.User, strconv.FormatInt(cn.HostID, 10))
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return errHostNotFound
+			}
 			return err
-		}
-		if h == nil {
-			return errHostNotFound
 		}
 		return fn(cn, h, env, w, r)
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
@@ -46,6 +47,11 @@ type Biller struct {
 type InvoiceResult struct {
 	Invoice *invoice.Invoice
 	Items   []invoiceitem.InvoiceItem
+}
+
+type updatedAvailableCredits struct {
+	Consumed  int64
+	Available int64
 }
 
 func New(d *db.Database, l *logger.Logger, u *user.User, periodStart, periodEnd *time.Time) (*Biller, error) {
@@ -107,23 +113,20 @@ func (b *Biller) createOrUpdateInvoice() (res *InvoiceResult, err error) {
 		return nil, fmt.Errorf("biller: failed retrieving billable host hours for user %d, err: %v", b.user.ID, err)
 	}
 	totalCharge, items := InvoiceItemsForUsages(usages, b.logger)
+	if len(items) == 0 {
+		return nil, ErrNoUsage
+	}
 
 	if err = b.sanityCheckInvoiceItems(items); err != nil {
 		return nil, err
 	}
 
+	var isNew bool
 	i, err := invoice.ForPeriod(tx, b.user.ID, *b.periodStart, *b.periodEnd)
 	if err != nil {
-		return nil, fmt.Errorf("biller: encountered error when try to find existing invoice for user %d, err: %v", b.user.ID, err)
-	}
-
-	if len(items) == 0 {
-		return nil, ErrNoUsage
-	}
-
-	op := i.Update
-	isNew := false
-	if i == nil {
+		if err != sql.ErrNoRows {
+			return nil, fmt.Errorf("biller: encountered error when try to find existing invoice for user %d, err: %v", b.user.ID, err)
+		}
 		isNew = true
 		i = &invoice.Invoice{
 			UserID:      b.user.ID,
@@ -131,31 +134,34 @@ func (b *Biller) createOrUpdateInvoice() (res *InvoiceResult, err error) {
 			PeriodEnd:   b.periodEnd,
 			Attempts:    0,
 		}
-		op = i.Insert
-	} else {
-		if i.SuccessfulCharge {
-			return nil, fmt.Errorf("biller: cannot touch invoice %d, already paid", i.ID)
-		}
+	} else if i.SuccessfulCharge {
+		return nil, fmt.Errorf("biller: cannot touch invoice %d, already paid", i.ID)
 	}
 	i.TotalCharge = (totalCharge - i.CreditAmount) // reconcile with existing credited amount
-	i.SuccessfulCharge = false
 
-	if err := op(tx); err != nil {
+	if isNew {
+		err = i.Insert(tx)
+	} else {
+		err = i.Update(tx)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("biller: failure inserting/updating invoice %d for user %d, err: %v", i.ID, i.UserID, err)
 	} else {
 		b.logger.Infof("biller: created/updated invoice %d for user %d, total charge = %d", i.ID, i.UserID, i.TotalCharge)
 	}
 
-	deductionCredits, err := takeAvailableCredits(tx, i.UserID, i.ID, i.TotalCharge)
+	cr, err := updateAvailableCredits(tx, i.UserID, i.ID, i.TotalCharge)
 	if err != nil {
 		return nil, fmt.Errorf("biller: failure acquiring credits for invoice %d for user %d, err: %v", i.ID, i.UserID, err)
 	}
 
-	if deductionCredits < 0 {
-		i.TotalCharge += deductionCredits
-		i.CreditAmount += (-1 * deductionCredits)
+	if cr != nil {
+		// if this invoice is being processed again (due to an update) need to consolidate previous total with the current credits
+		i.AvailableCredit = sql.NullInt64{cr.Available + i.CreditAmount, true}
+		i.TotalCharge += cr.Consumed
+		i.CreditAmount -= cr.Consumed
 		if err = i.Update(tx); err != nil {
-			return nil, fmt.Errorf("biller: failure deducting %d credits from invoice %d for user %d, err: %v", deductionCredits, i.ID, i.UserID, err)
+			return nil, fmt.Errorf("biller: failure deducting %d credits (of %d) from invoice %d for user %d, err: %v", cr.Consumed, cr.Available, i.ID, i.UserID, err)
 		}
 	}
 	res = &InvoiceResult{Invoice: i, Items: items}
@@ -201,7 +207,7 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 	items := i.Items
 
 	bp, err := billingprofile.Find(b.db, b.user.ID)
-	if err != nil || bp == nil {
+	if err != nil {
 		return fmt.Errorf("biller: skipping stripe, failure obtaining billing profile for user %d, err: %v", b.user.ID, err)
 	}
 	if bp.State == billingprofile.StateFree {
@@ -489,21 +495,28 @@ func (b *Biller) acquireLock(tx *sqlx.Tx) error {
 	return nil
 }
 
-func takeAvailableCredits(tx *sqlx.Tx, userID int64, invID int64, amount int64) (int64, error) {
+func updateAvailableCredits(tx *sqlx.Tx, userID int64, invID int64, amount int64) (*updatedAvailableCredits, error) {
 	// insert into credits ONLY if the number of available of credits is greater than 0
 	// using FOR UPDATE to ensure the rows are locked from other queries modifying
-	appliedCredits := int64(0)
-	err := tx.QueryRowx(`INSERT INTO credits(user_id, invoice_id, amount)
-                  SELECT $1, $2, (-1 * LEAST((SELECT SUM(amount) t FROM (SELECT amount FROM credits WHERE user_id = $1 FOR UPDATE) AS x), $3))
-                  WHERE EXISTS (
-                    SELECT * FROM (SELECT SUM(amount) t FROM (SELECT amount FROM credits WHERE user_id = $1 FOR UPDATE) AS x) AS x WHERE t > 0
-                  )
-                  RETURNING amount;`,
-		userID, invID, amount).Scan(&appliedCredits)
-	if err != nil && err != sql.ErrNoRows {
-		return int64(0), err
+	availableCredits, err := credit.AvailableCredits(tx, userID)
+	if err != nil {
+		return nil, err
 	}
-	return appliedCredits, nil
+	if availableCredits == 0 {
+		return nil, nil
+	}
+	if availableCredits < amount {
+		amount = availableCredits
+	}
+	deduction := amount * -1
+	_, err = tx.Exec(`INSERT INTO credits(user_id, invoice_id, amount) VALUES ($1, $2, $3)`, userID, invID, deduction)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	return &updatedAvailableCredits{
+		Consumed:  deduction,
+		Available: availableCredits,
+	}, nil
 }
 
 func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd *time.Time) {

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -74,8 +75,8 @@ type User struct {
 	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at" json:"-"`
 
 	ConfirmationToken  sql.NullString `db:"confirmation_token" json:"-"`
-	ConfirmationSentAt *time.Time     `db:"confirmation_sent_at" json:"-"`
-	ConfirmedAt        *time.Time     `db:"confirmed_at" json:"-"`
+	ConfirmationSentAt pq.NullTime    `db:"confirmation_sent_at" json:"-"`
+	ConfirmedAt        pq.NullTime    `db:"confirmed_at" json:"-"`
 	UnconfirmedEmail   sql.NullString `db:"unconfirmed_email" json:"unconfirmed_email,omitempty"`
 }
 
@@ -83,9 +84,6 @@ func FindByID(d db.QueryReceiver, id int64) (*User, error) {
 	user := &User{}
 	err := d.Get(user, "SELECT * FROM users WHERE id = $1", id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return user, nil
@@ -95,9 +93,6 @@ func FindByUsername(d db.QueryReceiver, username string) (*User, error) {
 	user := &User{}
 	err := d.Get(user, "SELECT * FROM users WHERE username = $1", username)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return user, nil
@@ -107,9 +102,6 @@ func FindByUsernameOrEmail(d db.QueryReceiver, login string) (*User, error) {
 	user := &User{}
 	err := d.Get(user, "SELECT * FROM users WHERE username = $1 OR email = $1", login)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return user, nil
@@ -120,9 +112,6 @@ func FindByResetPasswordToken(d db.QueryReceiver, token string) (*User, error) {
 	lastValidSentAt := time.Now().Add(-resetPasswordWithin)
 	err := d.Get(user, "SELECT * FROM users WHERE reset_password_token = $1 AND reset_password_sent_at > $2", token, lastValidSentAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return user, nil
@@ -132,9 +121,6 @@ func FindByConfirmationToken(d db.QueryReceiver, token string) (*User, error) {
 	user := &User{}
 	err := d.Get(user, "SELECT * FROM users WHERE confirmation_token = $1", token)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return user, nil
@@ -216,8 +202,8 @@ func (u *User) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE users
-		SET (name, email, encrypted_password, unconfirmed_email, updated_at)
-		= (:name, :email, :encrypted_password, :unconfirmed_email, now())
+		SET (name, email, encrypted_password, unconfirmed_email, confirmation_sent_at, confirmation_token, updated_at)
+		= (:name, :email, :encrypted_password, :unconfirmed_email, :confirmation_sent_at, :confirmation_token, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -314,18 +300,21 @@ func (u *User) HasFailedPayments(d db.QueryReceiver) (bool, error) {
 	return b, nil
 }
 
-func (u *User) ConfirmationLapsed() bool {
-	if u.ConfirmationSentAt == nil {
-		return false
+func (u *User) CanLogin() bool {
+	if u.ConfirmedAt.Valid {
+		return true
 	}
-	return u.ConfirmationSentAt.Add(maxUnconfirmedDuration).Before(time.Now())
+	if u.CreatedAt != nil && u.CreatedAt.Add(maxUnconfirmedDuration).After(time.Now()) {
+		return true
+	}
+	return false
 }
 
 func (u *User) ConfirmationTokenExpired() bool {
-	if u.ConfirmationSentAt == nil {
+	if !u.ConfirmationSentAt.Valid {
 		return true
 	}
-	return u.ConfirmationSentAt.Add(maxConfirmationHours).Before(time.Now())
+	return u.ConfirmationSentAt.Time.Add(maxConfirmationHours).Before(time.Now())
 }
 
 func (u *User) SetResetPasswordToken(d db.QueryReceiver) error {
@@ -359,17 +348,7 @@ func (u *User) encryptPassword() error {
 	return nil
 }
 
-func (u *User) GenerateConfirmationURL(d db.QueryReceiver, setConfirmationSentAt, flushConfirmedAt bool) (*url.URL, error) {
-	confirmedAtOp := "confirmed_at"
-	if flushConfirmedAt {
-		u.ConfirmedAt = nil
-		confirmedAtOp = "NULL"
-	}
-
-	if u.ConfirmedAt != nil {
-		return nil, ErrConfirmationAlreadyCompleted
-	}
-
+func (u *User) GenerateConfirmationURL(d db.QueryReceiver) (*url.URL, error) {
 	t, err := securerandom.Base64(15)
 	if err != nil {
 		return nil, err
@@ -377,15 +356,7 @@ func (u *User) GenerateConfirmationURL(d db.QueryReceiver, setConfirmationSentAt
 	token := fmt.Sprintf("%s%d", t[:20], u.ID)
 	u.ConfirmationToken = sql.NullString{token, true}
 
-	var stmt string
-	if setConfirmationSentAt || u.ConfirmationSentAt == nil {
-		stmt = "UPDATE users SET (confirmation_token, confirmation_sent_at, confirmed_at) = (:confirmation_token, now(), %s) WHERE id = :id RETURNING *;"
-	} else {
-		stmt = "UPDATE users SET (confirmation_token, confirmed_at) = (:confirmation_token, %s) WHERE id = :id RETURNING *;"
-	}
-
-	// FIXME: ensure confirmation_token is unique and retry, do not surface error
-	nstmt, err := d.PrepareNamed(fmt.Sprintf(stmt, confirmedAtOp))
+	nstmt, err := d.PrepareNamed(`UPDATE users SET (confirmation_token, confirmation_sent_at) = (:confirmation_token, now()) WHERE id = :id RETURNING *;`)
 	if err != nil {
 		return nil, err
 	}
@@ -406,9 +377,8 @@ func (u *User) GenerateConfirmationURL(d db.QueryReceiver, setConfirmationSentAt
 	}, nil
 }
 
-// TODO: Move to struct arguments
-func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, flushConfirmedAt, newUser bool) error {
-	resetURL, err := u.GenerateConfirmationURL(d, setConfirmationSentAt, flushConfirmedAt)
+func (u *User) SendConfirmationEmail(d db.QueryReceiver, newUser bool) error {
+	resetURL, err := u.GenerateConfirmationURL(d)
 	if err != nil {
 		return err
 	}
@@ -427,12 +397,11 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, 
 
 	htmlTmpl := confirmEmailHtmlTemplate
 	txtTmpl := confirmEmailTxtTemplate
-	subject := "Nitrous - confirm your email"
+	subject := "Confirm your Nitrous email"
 
 	if newUser {
 		htmlTmpl = confirmEmailNewUserHtmlTemplate
 		txtTmpl = confirmEmailNewUserTxtTemplate
-		subject = "Welcome to Nitrous!"
 	}
 
 	// send email
@@ -459,7 +428,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, setConfirmationSentAt, 
 }
 
 func (u *User) ConfirmEmail(d db.QueryReceiver) error {
-	if u.ConfirmedAt != nil {
+	if !u.ConfirmationSentAt.Valid {
 		return ErrConfirmationAlreadyCompleted
 	}
 
@@ -473,7 +442,7 @@ func (u *User) ConfirmEmail(d db.QueryReceiver) error {
 	}
 
 	nstmt, err := d.PrepareNamed(`UPDATE users
-		SET (email, unconfirmed_email,confirmation_token, confirmed_at, confirmation_sent_at)
+		SET (email, unconfirmed_email, confirmation_token, confirmed_at, confirmation_sent_at)
 		= (:email, NULL, NULL, now(), NULL)
 		WHERE id = :id
 		RETURNING *;`)

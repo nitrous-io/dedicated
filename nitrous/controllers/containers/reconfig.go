@@ -105,7 +105,7 @@ func (ctx *reconfigContext) run(env *middleware.Env, async bool) (*container.Con
 		}()
 
 		var cl *controllers.FreighterClient
-		cl, err = controllers.NewFreighterClient(db, h)
+		cl, err = controllers.NewFreighterClient(db, h, env.UUID)
 		if err != nil {
 			return err
 		}

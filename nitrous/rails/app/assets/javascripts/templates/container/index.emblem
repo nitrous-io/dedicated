@@ -168,13 +168,13 @@
         .ui.input-group
           label.field-label for='snapshot-name'
             | Image Name/Tag
-          = input type='text' id='snapshot-name' value=snapshotImageName required=true disabled=snapshotting
-    .card-footer
-      .right
-        if snapshotting
-          button.ui.btn disabled='disabled'
-            i.spinner
-            | Taking Snapshot...
-        else
-          button.ui.btn click='cancelSnapshot target="view"' Cancel
-          button.ui.btn.primary click='confirmSnapshot target="view"' disabled=view.snapshotImageNameEmpty Take
+          = input type='text' id='snapshot-name' value=snapshotImageName required=true disabled=snapshotting pattern="^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+$"
+      .card-footer
+        .right
+          if snapshotting
+            button.ui.btn disabled='disabled'
+              i.spinner
+              | Taking Snapshot...
+          else
+            a.ui.btn click='cancelSnapshot target="view"' Cancel
+            input.ui.btn.primary type='submit' value='Take' disabled=view.snapshotImageNameEmpty

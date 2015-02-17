@@ -1,6 +1,7 @@
 package volumes
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -67,7 +68,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return errCannotDeleteSystemVolume
 	}
 
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -109,7 +110,7 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 func Info(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -139,10 +140,10 @@ func getVolume(db ndb.QueryReceiver, hostID int64, slug string) (*volume.Volume,
 	}
 	vol, err := volume.Find(db, hostID, slug)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errNotFound
+		}
 		return nil, err
-	}
-	if vol == nil {
-		return nil, errNotFound
 	}
 	return vol, nil
 }

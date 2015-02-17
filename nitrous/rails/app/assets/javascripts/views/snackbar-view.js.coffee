@@ -11,3 +11,7 @@ App.SnackbarView = Em.View.extend
   updateHeight: (->
     @$().css(height: (snackbarHeight + snackbarMarginTop) * @get('items.length'))
   ).observes 'items.length'
+
+  actions:
+    didClickClose: (item) ->
+      App.get('snackbar').fadeOutItem(item, 100)

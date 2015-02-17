@@ -37,9 +37,6 @@ func FindValidCreditTypeByName(d db.QueryReceiver, name string) (*CreditType, er
 		AND (stock IS NULL OR used IS NULL OR used < stock);
 	`, name, true)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return c, nil

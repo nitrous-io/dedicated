@@ -15,63 +15,79 @@ var ErrorPage = []byte(`
 <title>Server Not Accessible &middot; Nitrous</title>
 <style type="text/css">
 body {
-	margin: 0;
-	padding: 0;
-	background: #2a3239;
-	font-size: 14px;
-	font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #2a3239;
+  font-size: 14px;
+  font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .container {
-	margin: 0 auto;
-	width: 940px;
+  margin: 0 auto;
+  width: 940px;
+}
+
+.examples {
+  margin-top: 32px;
 }
 
 h1 {
-	margin: 32px 0;
-	text-transform: uppercase;
-	white-space: nowrap;
+  margin: 32px 0;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 h1 a {
-	font-size: 20px;
-	color: white;
-	text-decoration: none;
+  font-size: 20px;
+  color: white;
+  text-decoration: none;
 }
 
 h1 span {
-	display: none;
+  display: none;
 }
 
 h1 small {
-	vertical-align: top;
-	font-size: 9px;
-	font-weight: 400;
-	position: relative;
-	top: 13px;
-	left: -1px;
-	color: #97a3ae;
+  vertical-align: top;
+  font-size: 9px;
+  font-weight: 400;
+  position: relative;
+  top: 13px;
+  left: -1px;
+  color: #97a3ae;
 }
 
 a, a:link, a:visited {
-	color: #4fc3f7;
-	transition: color .3s;
-	text-decoration: none;
+  color: #4fc3f7;
+  transition: color .3s;
+  text-decoration: none;
 }
 
 a:hover, a:active {
-	color: #81d4fa;
+  color: #81d4fa;
 }
 
 p {
-	color: #b4c0ca;
-	margin: 16px 0;
-	line-height: 1;
+  color: #b4c0ca;
+  margin: 16px 0;
+  line-height: 1;
 }
 
 p.see-docs {
-	margin-top: 32px;
-	color: #828e98;
+  margin-top: 32px;
+  color: #828e98;
+}
+
+.examples p {
+  font-weight: bold;
+}
+
+code {
+  padding: 8px 32px;
+  color: #b4c0ca;
+  background-color: #2f373e;
+  display: inline-block;
+  width: 50%;
 }
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400&subset=latin">
@@ -93,7 +109,13 @@ p.see-docs {
 <div class="container">
 <p>We could not connect to a server running on this port &mdash; are you sure there is a server running?</p>
 <p>Make sure to bind your server to host 0.0.0.0 (instead of localhost or 127.0.0.1).</p>
-<p class='see-docs'>Please refer to <a href="http://docs.nitrous.io/">Nitrous Docs</a> for more details.</p>
+<div class="examples">
+<p>Rails</p>
+<code>rails s -b 0.0.0.0</code>
+<p>Django</p>
+<code>./manage.py runserver 0.0.0.0:3000</code>
+</div>
+<p class="see-docs">If you're still having trouble, please refer to <a href="http://docs.nitrous.io/v1.0/docs/port-configuration">Nitrous Docs</a> for more details.</p>
 </div>
 </body>
 </html>

@@ -74,7 +74,8 @@ func (s *Server) respond(w http.ResponseWriter, status int, data []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	w.Write(data)
-	s.logger.Infof("Response: %v %v", status, string(data))
+	uuid := w.Header().Get(NitrousUUIDHeader)
+	s.logger.Infof("uuid=%s Response: %v %v", uuid, status, string(data))
 }
 
 func (s *Server) respondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{}) {
@@ -121,8 +122,6 @@ func (s *Server) terminateActiveCops(cid string) {
 	}
 	s.logger.Debugf("Terminating %d active cops processes for container %s", len(ActiveCops[cid]), cid)
 	for _, quit := range ActiveCops[cid] {
-		// quit capacity is two
-		quit <- nil
 		quit <- nil
 	}
 }

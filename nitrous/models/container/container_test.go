@@ -111,7 +111,7 @@ var _ = Describe("models/container", func() {
 				Expect(c.Slug).To(Equal("my-1st-container"))
 			})
 
-			It("returns nil without an error if the container matching the given slug does not belong to the user", func() {
+			It("returns an error if the container matching the given slug does not belong to the user", func() {
 				u2 := &user.User{
 					Username: "barbaz",
 					Email:    "barbaz@example.com",
@@ -121,13 +121,13 @@ var _ = Describe("models/container", func() {
 				Expect(err).To(BeNil())
 
 				c, err := container.Find(db, u2, "my-1st-container")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(c).To(BeNil())
 			})
 
-			It("returns nil without an error when there's no matching container for the given slug'", func() {
+			It("returns an error when there's no matching container for the given slug'", func() {
 				c, err := container.Find(db, u, "no-such-container")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(c).To(BeNil())
 			})
 		})
@@ -143,7 +143,7 @@ var _ = Describe("models/container", func() {
 				Expect(c.Slug).To(Equal("my-1st-container"))
 			})
 
-			It("returns nil without an error if the container matching the given slug does not belong to the user", func() {
+			It("returns an error if the container matching the given slug does not belong to the user", func() {
 				u2 := &user.User{
 					Username: "barbaz",
 					Email:    "barbaz@example.com",
@@ -153,13 +153,13 @@ var _ = Describe("models/container", func() {
 				Expect(err).To(BeNil())
 
 				c, err := container.Find(db, u2, strconv.FormatInt(cID, 10))
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(c).To(BeNil())
 			})
 
-			It("returns nil without an error when there's no matching container for the given slug'", func() {
+			It("returns an error when there's no matching container for the given slug'", func() {
 				c, err := container.Find(db, u, "10001")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(c).To(BeNil())
 			})
 		})
@@ -191,18 +191,18 @@ var _ = Describe("models/container", func() {
 					Expect(err).To(BeNil())
 				})
 
-				It("returns nil", func() {
+				It("returns an error", func() {
 					c, err := container.FindByCID(db, "deadbeef")
-					Expect(err).To(BeNil())
+					Expect(err).To(MatchError(sql.ErrNoRows))
 					Expect(c).To(BeNil())
 				})
 			})
 		})
 
 		Context("when a container record with a given cid does not exist", func() {
-			It("returns nil", func() {
+			It("returns an error", func() {
 				c, err := container.FindByCID(db, "non-existent-id")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(c).To(BeNil())
 			})
 		})
@@ -280,7 +280,7 @@ var _ = Describe("models/container", func() {
 
 		BeforeEach(func() {
 			var err error
-			c, err = container.Find(db, u, "deadbeef")
+			c, err = container.Find(db, u, "my-1st-container")
 			Expect(err).To(BeNil())
 		})
 

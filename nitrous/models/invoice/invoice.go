@@ -29,8 +29,9 @@ type Invoice struct {
 	UserID int64 `db:"user_id"`
 
 	// TotalCharge is measured in cents (unlike HourlyPrice it derives from)
-	TotalCharge  int64 `db:"total_charge"`
-	CreditAmount int64 `db:"credit_amount"` // how much was taken off by credits
+	TotalCharge     int64         `db:"total_charge"`
+	CreditAmount    int64         `db:"credit_amount"` // how much was taken off by credits
+	AvailableCredit sql.NullInt64 `db:"available_credit"`
 
 	PeriodStart *time.Time `db:"period_start"`
 	PeriodEnd   *time.Time `db:"period_end"`
@@ -61,9 +62,6 @@ func ForPeriod(d db.QueryReceiver, userID int64, periodStart, periodEnd time.Tim
 	err := d.Get(inv, `SELECT * FROM invoices WHERE user_id = $1 AND period_start = $2 AND period_end = $3`,
 		userID, periodStart, periodEnd)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return inv, err
@@ -73,9 +71,6 @@ func FindByStripeID(d db.QueryReceiver, stripeID string) (*Invoice, error) {
 	inv := &Invoice{}
 	err := d.Get(inv, `SELECT * FROM invoices WHERE stripe_id = $1`, stripeID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return inv, err
@@ -87,10 +82,10 @@ func (i *Invoice) Insert(d db.QueryReceiver) error {
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoices
     (user_id, total_charge, credit_amount, period_start, period_end, successful_charge,
-      first_attempt_at, last_attempt_at, attempts, stripe_id, failed,
+      available_credit, first_attempt_at, last_attempt_at, attempts, stripe_id, failed,
       deferred, covered_by)
     VALUES (:user_id, :total_charge, :credit_amount, :period_start, :period_end, :successful_charge,
-      :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :failed,
+      :available_credit, :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :failed,
       :deferred, :covered_by)
     RETURNING *;`)
 	if err != nil {
@@ -105,10 +100,10 @@ func (i *Invoice) Update(d db.QueryReceiver) error {
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE invoices
     SET (user_id, total_charge, credit_amount, period_start, period_end, successful_charge,
-      first_attempt_at, last_attempt_at, attempts, stripe_id, failed,
+      available_credit, first_attempt_at, last_attempt_at, attempts, stripe_id, failed,
       deferred, covered_by, updated_at)
     = (:user_id, :total_charge, :credit_amount, :period_start, :period_end, :successful_charge,
-      :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :failed,
+      :available_credit, :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :failed,
       :deferred, :covered_by, now())
     WHERE id = :id
     RETURNING *;`)
@@ -184,7 +179,7 @@ func (i *Invoice) fireFinalPaymentFailedEmail(d db.QueryReceiver) error {
 	if err != nil {
 		return err
 	}
-	if bp != nil && bp.LastFour.String != "" {
+	if bp.LastFour.String != "" {
 		tmplData.LastFour = bp.LastFour.String
 	}
 

@@ -1,6 +1,7 @@
 package registries
 
 import (
+	"database/sql"
 	"net/http"
 	"net/url"
 
@@ -68,10 +69,9 @@ func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	existingReg, err := registry.Find(db, env.User.ID, h.ID, registryURL)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return err
 	}
-
 	if existingReg != nil {
 		return errAlreadyLoggedIn
 	}
@@ -83,7 +83,7 @@ func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		Registry: registryURL,
 	}
 
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 func logout(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -143,10 +143,10 @@ func logout(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 
 	reg, err := registry.Find(db, env.User.ID, h.ID, rSlug)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return errRegistryNotFound
+		}
 		return err
-	}
-	if reg == nil {
-		return errRegistryNotFound
 	}
 
 	err = cl.RegistryLogout(reg.URL)

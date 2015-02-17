@@ -139,7 +139,8 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 		cn.HostSlug+s.tlsDomain,
 		s.ca,
 	)
-	fclient, err := freighterclient.NewClient(fhost, cn.HostSecret)
+	// TODO: extract and pass UUID?
+	fclient, err := freighterclient.NewClient(fhost, cn.HostSecret, "")
 	if err != nil {
 		return fmt.Errorf("failed to initialize freighter client for %s: %v", cn.Slug, err)
 	}

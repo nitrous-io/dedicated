@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -17,7 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
-	"github.com/nitrous-io/dedicated/nitrous/db"
+	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
@@ -40,7 +39,7 @@ import (
 
 var _ = Describe("POST /api/v0/hosts", func() {
 	var (
-		db              *db.Database
+		db              *ndb.Database
 		svr             *server.Server
 		handler         *mux.Router
 		res             *httptest.ResponseRecorder
@@ -250,12 +249,14 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(err).To(BeNil())
 
 		req := rt.Requests[0]
+		Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
+
 		var config hostbuilderclient.Config
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
 		Expect(config["name"]).To(HavePrefix(params.Get("name")), "invalid slug set in name")
 		Expect(slugbuilder.IsValid(config["name"].(string))).To(BeTrue(), "invalid slug set in name")
+		Expect(config["apt_username"]).To(Equal(u.Username))
 		Expect(config["apt_password"]).To(Equal(ht), "invalid token set in apt_password")
-		Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 	})
 
 	It("sends the host configs as json params when JSON is sent by the client", func() {
@@ -289,7 +290,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
 		Expect(config["name"]).To(HavePrefix("myhost"), "invalid slug set in name")
 		Expect(slugbuilder.IsValid(config["name"].(string))).To(BeTrue(), "invalid slug set in name")
-
+		Expect(config["apt_username"]).To(Equal(u.Username))
 		Expect(config["apt_password"]).To(Equal(ht), "invalid token set in apt_password")
 	})
 
@@ -403,6 +404,21 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(crt.HostID).To(Equal(hosts[0].ID))
 			Expect(crt.ServerCert).To(ContainSubstring("BEGIN CERTIFICATE"))
 			Expect(crt.ServerKey).To(ContainSubstring("BEGIN RSA PRIVATE KEY"))
+		})
+
+		It("sends the host's freighterd version to hostbuilder", func() {
+			doRequest(params)
+
+			req := rt.Requests[0]
+			var config hostbuilderclient.Config
+			err := json.Unmarshal([]byte(req.FormValue("config")), &config)
+			Expect(err).To(BeNil())
+
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+			Expect(hosts[0].FreighterdVersion).ToNot(BeEmpty())
+			Expect(config["freighterd_version"]).To(Equal(hosts[0].FreighterdVersion))
 		})
 
 		It("creates a shared volume and publishes a volume created event", func() {
@@ -563,31 +579,14 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(slugbuilder.IsValid(hosts[0].Slug)).To(BeTrue())
 		})
 
-		Context("when trying to create multiple hosts concurrently", func() {
-			It("only creates one host", func() {
-				var wg sync.WaitGroup
-				var resCodes []int
+		It("does not create the host when there's a host creation going on", func() {
+			tx, _ := db.Beginx()
+			ndb.TransactionLock(tx, ndb.HOST_CREATE_LOCK, int(u.ID))
+			defer tx.Rollback()
 
-				start := make(chan struct{})
-				for i := 0; i < 2; i++ {
-					wg.Add(1)
-					go func(i int) {
-						params.Set("name", fmt.Sprintf("host-%d", i))
-						<-start
-						res := doRequest(params)
-						resCodes = append(resCodes, res.Code)
-						wg.Done()
-					}(i)
-				}
-				close(start)
-				wg.Wait()
-
-				hosts, err := host.FindAllByUser(db, u)
-				Expect(err).To(BeNil())
-				Expect(len(hosts)).To(Equal(1))
-
-				Expect(resCodes).To(ConsistOf(http.StatusOK, http.StatusConflict))
-			})
+			params.Set("name", "host-unique")
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusConflict))
 		})
 	})
 
@@ -631,18 +630,12 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
+			Expect(j.Host.ID > 0).To(BeTrue(), "missing id. not saved ?")
 			Expect(j.Host.State).To(Equal(host.StateBorn), "unexpected host state")
 
 			// These fields are not yet set.
 			Expect(j.Host.IPAddress).To(BeEmpty(), "unexpected ip address")
 			Expect(j.Host.FreighterdPort).To(BeZero(), "unexpected freighterd port")
-
-			hosts, err := host.FindAllByUser(db, u)
-			Expect(err).To(BeNil(), "failed to find host in db")
-			Expect(hosts).To(HaveLen(1))
-
-			h := hosts[0]
-			Expect(j.Host.ID).To(Equal(h.ID), "unexpected id in response")
 		})
 
 		Context("when hostbuilder successfully creates a host", func() {

@@ -166,9 +166,6 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	}
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 
@@ -199,9 +196,6 @@ func FindByIdentifier(db *db.Database, identifier string) (*Host, error) {
 	}
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 
@@ -248,8 +242,10 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port, preprovisioned, hourly_price, updated_at)
-		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port, :preprovisioned, :hourly_price, now())
+		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port, 
+			preprovisioned, hourly_price, freighterd_version, docker_version, updated_at)
+		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
+			:preprovisioned, :hourly_price, :freighterd_version, :docker_version, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

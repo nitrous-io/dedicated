@@ -137,7 +137,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		return nil, err
 	}
 
-	cl, err := controllers.NewFreighterClient(tx, h)
+	cl, err := controllers.NewFreighterClient(tx, h, env.UUID)
 	if err != nil {
 		return nil, err
 	}

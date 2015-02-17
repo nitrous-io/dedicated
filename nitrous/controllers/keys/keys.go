@@ -74,7 +74,7 @@ func create(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -99,7 +99,7 @@ func deleteAll(cn *container.Container, h *host.Host, env *middleware.Env, w htt
 	db := env.DB
 	u := env.User
 
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func delete(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	db := env.DB
 	u := env.User
 
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}

@@ -98,7 +98,7 @@ func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 func PullImage(host *host.Host, options url.Values, env *middleware.Env, writer io.Writer, pp *controllers.ProgressPublisher, async bool) (*image.Image, error) {
 	db := env.DB
 
-	cl, err := controllers.NewFreighterClient(db, host)
+	cl, err := controllers.NewFreighterClient(db, host, env.UUID)
 	if err != nil {
 		return nil, err
 	}

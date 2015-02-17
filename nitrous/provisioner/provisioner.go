@@ -32,11 +32,20 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-var HostbuilderClient *hostbuilderclient.Hostbuilder
-var aesKey string
-var defaultAPTLocation string
-var defaultAPTDist string
-var fv, dv string
+var (
+	// shared client to interact with hostbuilder
+	HostbuilderClient *hostbuilderclient.Hostbuilder
+	// AES_KEY to encrypt generated private key for each host
+	aesKey string
+	// default debian apt repository that is sent to each host
+	defaultAPTLocation string
+	// default debian apt distribution that is sent to each host
+	defaultAPTDist string
+	// default freighter and docker version
+	fv, dv string
+	// shared CA information, generated from the provided cert/key path in ENV
+	caInfo *certauth.CAInfo
+)
 
 var (
 	ErrPreprovisionerNotConfigured    = errors.New("pre-provisioner is not configured")
@@ -47,14 +56,15 @@ var (
 	validations = map[string]error{
 		"index_hosts_on_slug": ErrSlugIsTaken,
 	}
-)
 
-var doRegionsMap = map[string]string{
-	"sgp": "sgp1",
-	"nyc": "nyc3",
-	"sfo": "sfo1",
-	"ams": "ams3",
-}
+	// default mapping for digitalocean regions
+	doRegionsMap = map[string]string{
+		"sgp": "sgp1",
+		"nyc": "nyc3",
+		"sfo": "sfo1",
+		"ams": "ams3",
+	}
+)
 
 type Provisioner struct {
 	db        *db.Database
@@ -67,6 +77,7 @@ type Provisioner struct {
 	config                *Config
 	preprovisionUser      *user.User
 	preprovisionUserToken *token.Token
+	caInfo                *certauth.CAInfo
 }
 
 // Config is the configuration of a host provisioner.
@@ -156,6 +167,15 @@ func init() {
 	if dv == "" {
 		panic("provisioner: DOCKER_VERSION is not set")
 	}
+
+	// preloaded the caInfo at boot time, so we dont have to recalculate this
+	// for every host since the result will be the same
+	var err error
+	caInfo, err = certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
+	if err != nil {
+		panic(fmt.Sprintf("provisioned: invalid CA cert %q and key %q",
+			envvars.CACertPath, envvars.CAKeyPath))
+	}
 }
 
 func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub, conf *Config) *Provisioner {
@@ -233,6 +253,7 @@ func (p *Provisioner) Start() error {
 					p.logger.Debugf("%s creating job", logPrefix)
 
 					j := job{template: &pt}
+
 					h, err := p.preprovision(j)
 					if err != nil {
 						p.logger.Errorf("provisioner: job %s/%d/%d failed, err: %v",
@@ -455,12 +476,6 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		return nil, &InvalidHostError{Err: err}
 	}
 
-	// Generate Certificate Authority info.
-	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
-	if err != nil {
-		return nil, err
-	}
-
 	// Save record to db first to reserve slug (since it's globally unique).
 	tx, err := p.db.Beginx()
 	if err != nil {
@@ -508,6 +523,7 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		tx.Rollback()
 		return nil, fmt.Errorf("provisioner: failed to generate certificates for '%s', err: %v", h.Slug, err)
 	}
+
 	if err := cert.Insert(tx, h.ID); err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("provisioner: failed to save certificates for '%s', err: %v", h.Slug, err)
@@ -560,6 +576,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	if err != nil {
 		return nil, err
 	}
+
 	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, &config, opts.OutputStream, p.hostbuilderHeaders(opts))
 	if err != nil {
 		err = &HostbuilderError{Err: err}
@@ -581,10 +598,10 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 func (p *Provisioner) configureUser() error {
 	u, err := user.FindByUsername(p.db, p.config.Username)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("User '%s' could not be found", p.config.Username)
+		}
 		return err
-	}
-	if u == nil {
-		return fmt.Errorf("User '%s' could not be found", p.config.Username)
 	}
 	t := &token.Token{UserID: u.ID, Type: token.TypeProvisioner}
 	if err := t.Insert(p.db); err != nil {
@@ -646,10 +663,11 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 			"cert": phost.cert.ServerCert,
 			"key":  phost.cert.ServerKey,
 		},
-		"apt_username": opts.User.Username,
-		"apt_password": opts.Token.Token,
-		"apt_location": opts.AptLocation,
-		"apt_dist":     opts.AptDist,
+		"apt_username":       opts.User.Username,
+		"apt_password":       opts.Token.Token,
+		"apt_location":       opts.AptLocation,
+		"apt_dist":           opts.AptDist,
+		"freighterd_version": phost.host.FreighterdVersion,
 	}
 	for k, v := range opts.Template.Config.Map {
 		if v.Valid {

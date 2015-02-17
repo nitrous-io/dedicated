@@ -1,8 +1,6 @@
 package invitecode
 
 import (
-	"database/sql"
-
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
@@ -19,9 +17,6 @@ func FindByCode(d db.QueryReceiver, code string) (*InviteCode, error) {
 	c := &InviteCode{}
 	err := d.Get(c, "SELECT * FROM invite_codes WHERE code = $1", code)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return c, nil

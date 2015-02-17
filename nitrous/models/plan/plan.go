@@ -1,7 +1,6 @@
 package plan
 
 import (
-	"database/sql"
 	"math"
 	"time"
 
@@ -27,9 +26,6 @@ func FindByID(d db.QueryReceiver, id int64) (*Plan, error) {
 	plan := &Plan{}
 	err := d.Get(plan, "SELECT * FROM plans WHERE id = $1", id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return plan, nil
@@ -39,9 +35,6 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Plan, error) {
 	plan := &Plan{}
 	err := d.Get(plan, `SELECT * FROM plans WHERE slug = $1 AND disabled = $2`, slug, false)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return plan, nil

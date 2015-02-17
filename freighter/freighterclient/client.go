@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 )
 
 const (
@@ -52,11 +54,14 @@ var (
 	// empty/invalid secret
 	ErrInvalidSecret = errors.New("freighter: invalid secret")
 
+	ErrInvalidUUID = errors.New("freighter: invalid uuid")
+
 	ErrEndpointNotFound  = errors.New("freighter: endpoint not found")
 	ErrContainerNotFound = errors.New("freighter: container not found")
 	ErrVolumeNotFound    = errors.New("freighter: volume not found")
 	ErrHostNotFound      = errors.New("freighter: host not found")
 	ErrMissingCmd        = errors.New("freighter: missing cmd in docker image")
+	ErrIllegalTagName    = errors.New("freighter: illegal tag name provided")
 )
 
 type RegistryAuth struct {
@@ -226,14 +231,15 @@ func (e *StatusError) Error() string {
 
 type client struct {
 	secret string
+	uuid   string
 	host   *Host
 	*http.Client
 }
 
 // NewClient returns a new Freighter API Client that can be used to communicate
 // with a freighterd instance on a host
-func NewClient(host *Host, secret string) (Client, error) {
-	return NewClientTransport(host, secret, nil)
+func NewClient(host *Host, secret, uuid string) (Client, error) {
+	return NewClientTransport(host, secret, uuid, nil)
 }
 
 // NewClientTransport returns a new Freighter API Client that reuses an existing
@@ -243,7 +249,7 @@ func NewClient(host *Host, secret string) (Client, error) {
 // Note: if we use this method to customize the transport, make sure that we
 // are sending the correct authentication token because we customize the token
 // using proxy
-func NewClientTransport(host *Host, secret string, tp *http.Transport) (Client, error) {
+func NewClientTransport(host *Host, secret, uuid string, tp *http.Transport) (Client, error) {
 	if secret == "" {
 		return nil, ErrInvalidSecret
 	}
@@ -258,8 +264,16 @@ func NewClientTransport(host *Host, secret string, tp *http.Transport) (Client, 
 
 	if tp == nil {
 		tp = &http.Transport{
+			// set default dialr timeout and keepalive
+			Dial: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).Dial,
 			Proxy: func(req *http.Request) (*url.URL, error) {
 				req.Header.Set("X-Freighter-Secret", secret)
+				if uuid != "" {
+					req.Header.Set(constants.NitrousUUIDHeader, uuid)
+				}
 				return nil, nil
 			},
 			DisableKeepAlives:   true,
@@ -272,6 +286,7 @@ func NewClientTransport(host *Host, secret string, tp *http.Transport) (Client, 
 	}
 	return &client{
 		secret: secret,
+		uuid:   uuid,
 		host:   host,
 		Client: cl,
 	}, nil
@@ -388,7 +403,11 @@ func (c *client) Commit(id, imageName string) (*Image, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, statusError(resp)
+		se := statusError(resp)
+		if strings.Contains(se.Body, "Illegal tag name") {
+			return nil, ErrIllegalTagName
+		}
+		return nil, se
 	}
 
 	var imageInfo struct {

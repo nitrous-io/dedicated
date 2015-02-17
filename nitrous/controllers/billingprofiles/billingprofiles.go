@@ -1,6 +1,7 @@
 package billingprofiles
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -101,14 +102,19 @@ func handleBillingError(err error) error {
 func awardCredits(d *db.Database, l *logger.Logger, user *user.User) {
 	ct, err := creditForUser(d, user)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			l.Errorf("Credit '%s' does not exist", user.PromoCode)
+			return
+		}
 		l.Errorf("Error locating credit for user, err: %+v", err)
 		return
 	}
-	if ct == nil {
-		l.Errorf("Credit '%s' does not exist", user.PromoCode)
+
+	tx, err := d.Beginx()
+	if err != nil {
+		l.Errorf("Error opening db transaction, err: %+v", err)
 		return
 	}
-	tx, err := d.Beginx()
 
 	_, err = tx.Exec(`INSERT INTO credits(user_id, credit_type_id, amount) VALUES ($1, $2, $3);`, user.ID, ct.ID, ct.DefaultValue)
 	if err != nil {

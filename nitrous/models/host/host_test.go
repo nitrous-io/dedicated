@@ -359,7 +359,7 @@ var _ = Describe("models/host", func() {
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
 			})
 
-			It("returns nil without an error when the matching record does not belong to the user", func() {
+			It("returns an error when the matching record does not belong to the user", func() {
 				u := &user.User{
 					Username: "barbaz",
 					Email:    "barbaz@example.com",
@@ -369,13 +369,13 @@ var _ = Describe("models/host", func() {
 				Expect(err).To(BeNil())
 
 				h, err := host.Find(db, u, strconv.FormatInt(hs.H.ID, 10))
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(h).To(BeNil())
 			})
 
-			It("returns nil without an error when there's no matching record", func() {
+			It("returns an error when there's no matching record", func() {
 				h, err := host.Find(db, hs.U, "10001")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(h).To(BeNil())
 			})
 		})
@@ -391,7 +391,7 @@ var _ = Describe("models/host", func() {
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
 			})
 
-			It("returns nil without an error when matching record does not belong to the user", func() {
+			It("returns an error when matching record does not belong to the user", func() {
 				u := &user.User{
 					Username: "barbaz",
 					Email:    "barbaz@example.com",
@@ -401,13 +401,13 @@ var _ = Describe("models/host", func() {
 				Expect(err).To(BeNil())
 
 				h, err := host.Find(db, u, hs.H.Slug)
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(h).To(BeNil())
 			})
 
-			It("returns nil without an error when there's no matching record'", func() {
+			It("returns an error when there's no matching record'", func() {
 				h, err := host.Find(db, hs.U, "vivabrazil")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(h).To(BeNil())
 			})
 		})
@@ -443,9 +443,9 @@ var _ = Describe("models/host", func() {
 				Expect(h.Preprovisioned).To(BeTrue())
 			})
 
-			It("returns nil without an error when there's no matching record", func() {
+			It("returns an error when there's no matching record", func() {
 				h, err := host.FindByIdentifier(db, "10001")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(h).To(BeNil())
 			})
 		})
@@ -470,9 +470,9 @@ var _ = Describe("models/host", func() {
 				Expect(h.Preprovisioned).To(BeTrue())
 			})
 
-			It("returns nil without an error when there's no matching record'", func() {
+			It("returns an error when there's no matching record'", func() {
 				h, err := host.FindByIdentifier(db, "vivabrazil")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(h).To(BeNil())
 			})
 		})
@@ -517,12 +517,12 @@ var _ = Describe("models/host", func() {
 			Expect(h.Slug).To(Equal("preprovisioned-host-2"))
 		})
 
-		It("returns nil if there are no pre-provisioned hosts in the given region and plan", func() {
+		It("does not find the host if there are no pre-provisioned hosts in the given region and plan", func() {
 			hs2, err := CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 
 			h, err := host.FindPreprovisioned(db, hs2.R, hs2.P)
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(MatchError(sql.ErrNoRows))
 			Expect(h).To(BeNil())
 		})
 	})
@@ -635,6 +635,8 @@ var _ = Describe("models/host", func() {
 			h.MaxContainers = sql.NullInt64{2, true}
 			h.FreighterdPort = sql.NullInt64{60000, true}
 			h.Preprovisioned = true
+			h.FreighterdVersion = "0.1.0"
+			h.DockerVersion = "1.5.0"
 			err := h.Update(db)
 			Expect(err).To(BeNil())
 
@@ -652,6 +654,8 @@ var _ = Describe("models/host", func() {
 			Expect(h2.MaxContainers.Int64).To(Equal(int64(2)))
 			Expect(h2.FreighterdPort.Int64).To(Equal(int64(60000)))
 			Expect(h2.Preprovisioned).To(BeTrue())
+			Expect(h2.FreighterdVersion).To(Equal("0.1.0"))
+			Expect(h2.DockerVersion).To(Equal("1.5.0"))
 
 			// Unchanged fields.
 			Expect(h2.UserID).To(Equal(hs.U.ID))

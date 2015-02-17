@@ -1,8 +1,7 @@
 package middleware
 
 import (
-	"crypto/rand"
-	"encoding/hex"
+	"database/sql"
 	"errors"
 	"net/http"
 	"regexp"
@@ -86,11 +85,11 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 
 	t, err := token.FindByToken(db, tok)
 	if err != nil {
+		if err == token.ErrInvalidToken {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
+			return mh.Error(errInvalidToken, label)
+		}
 		return err
-	}
-	if !t.IsValid() {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
-		return mh.Error(errInvalidToken, label)
 	}
 
 	u, err := user.FindByID(db, t.UserID)
@@ -106,7 +105,7 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 		env.Logger.Error("Unable to touch token %d, err: %v", t.ID, err)
 	}
 
-	if u.ConfirmationLapsed() {
+	if !u.CanLogin() {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="confirmation_lapsed"`)
 		return mh.Error(httperror.New(http.StatusBadRequest, "confirmation_lapsed", "confirmation token has lapsed"), label)
 	}
@@ -196,14 +195,6 @@ func GetRemoteAddr(r *http.Request) string {
 	return remoteAddr
 }
 
-func MakeUUID() string {
-	uuid := make([]byte, 4) // hex string len 8
-	if _, err := rand.Read(uuid); err != nil {
-		return "RANDBROKE" // should never happen
-	}
-	return hex.EncodeToString(uuid)
-}
-
 func splitIPAddresses(ip string) []string {
 	ipAddresses := splitIPRe.Split(ip, -1)
 	sanitizedIPAddresses := make([]string, len(ipAddresses))
@@ -254,10 +245,10 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 			h, err = host.Find(env.DB, env.User, param)
 		}
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return mh.Error(ErrHostNotFound, label)
+			}
 			return mh.Error(err, label)
-		}
-		if h == nil {
-			return mh.Error(ErrHostNotFound, label)
 		}
 
 		mh.UpdateSince(label, start)

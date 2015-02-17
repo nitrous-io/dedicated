@@ -35,18 +35,28 @@ if App.billingUsage
               td.charge
                 | $
                 = currency item.totalChargeDollars
-        tr.total-charge
+        tr
+          td.gap
+
+        tr
           td
-            | Total Charge
+            | Current Usage
           td.charge
             | $
             = currency App.billingUsage.totalChargeDollars
-        tr.available-credits
+        tr
           td
             | Available Credits
           td class={:charge App.billingUsage.hasCredit:credit}
-            | $
+            | ($-
             = currency App.billingUsage.availableCreditsDollars
+            | )
+        tr.total-charge
+          td
+            | Total Estimated Charge
+          td.charge
+            | $
+            = currency App.billingUsage.estimatedCharge
 
 
 .card-header.bordered
@@ -74,6 +84,26 @@ if App.billingUsage
               td.charge
                 | $
                 = currency item.totalChargeDollars
+        tr
+          td.gap
+
+        tr.divider
+          td
+            | Total usage this period
+          td.charge
+            | $
+            = currency invoice.totalUsageForPeriod
+        tr
+          td
+            | Credits applied
+            if invoice.creditAvailableDollars
+              |  ($
+              = currency invoice.creditAvailableDollars
+              |  available)
+          td class={:charge invoice.hasCredit:credit}
+            | ($-
+            = currency invoice.totalCreditDollars
+            | )
         tr.total-charge
           td
             | Total Charge

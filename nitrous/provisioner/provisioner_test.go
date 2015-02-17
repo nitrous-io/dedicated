@@ -10,7 +10,9 @@ import (
 	"time"
 
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -22,6 +24,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func init() {
+	// shorten keylen so tests run faster
+	cert.KeyLen = 512
+	keypairs.KeyLen = 512
+}
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -78,7 +86,10 @@ var _ = Describe("provisioner", func() {
 
 		It("pre-provisions hosts when required", func() {
 			hs, err := test.CreateHostStack(db, &test.HostStack{
-				PT: &providertemplate.ProviderTemplate{PreprovisionMax: 1, Provider: "dummy"},
+				PT: &providertemplate.ProviderTemplate{
+					PreprovisionMax: 1,
+					Provider:        "dummy",
+				},
 			})
 			Expect(err).To(BeNil())
 			count, err := host.CountPreprovisioned(db, hs.R, hs.P)
@@ -93,12 +104,13 @@ var _ = Describe("provisioner", func() {
 
 			err = prov.Start()
 			Expect(err).To(BeNil())
+			defer prov.Stop()
 
 			Eventually(func() int {
 				count, err := host.CountPreprovisioned(db, hs.R, hs.P)
 				Expect(err).To(BeNil())
 				return count
-			}, 5*time.Second, 100*time.Millisecond).Should(Equal(1))
+			}, 5*time.Second, 500*time.Millisecond).Should(Equal(1))
 		})
 
 		It("does not pre-provision hosts in a region that is disabled", func() {

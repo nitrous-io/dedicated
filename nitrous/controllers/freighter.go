@@ -33,7 +33,7 @@ type FreighterClient struct {
 
 // NewFreighterClient returns a client that is able to communicate with a
 // freighter server using HTTPS
-var NewFreighterClient = func(db db.QueryReceiver, h *host.Host) (*FreighterClient, error) {
+var NewFreighterClient = func(db db.QueryReceiver, h *host.Host, uuid string) (*FreighterClient, error) {
 	if h.IPAddress.String == "" {
 		return nil, ErrHostIPUnknown
 	}
@@ -54,7 +54,7 @@ var NewFreighterClient = func(db db.QueryReceiver, h *host.Host) (*FreighterClie
 		h.Hostname(),
 		caInfo.CertPEM,
 	)
-	cl, err := fc.NewClient(hst, h.Secret)
+	cl, err := fc.NewClient(hst, h.Secret, uuid)
 	if err != nil {
 		return nil, err
 	}

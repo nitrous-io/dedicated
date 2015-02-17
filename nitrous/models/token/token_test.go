@@ -68,76 +68,80 @@ var _ = Describe("models/token", func() {
 	})
 
 	Describe("FindByToken()", func() {
-		Context("when a token record with a given token exists", func() {
-			It("returns the token record", func() {
-				t, err := token.FindByToken(db, "foofoo")
-				Expect(err).To(BeNil())
-				Expect(t).NotTo(BeNil())
-				Expect(t.ID).NotTo(BeZero())
-				Expect(t.UserID).To(Equal(u1.ID))
-				Expect(t.Token).To(Equal("foofoo"))
+		It("returns the token record when a token record with a given token exists", func() {
+			t, err := token.FindByToken(db, "foofoo")
+			Expect(err).To(BeNil())
+			Expect(t).NotTo(BeNil())
+			Expect(t.ID).NotTo(BeZero())
+			Expect(t.UserID).To(Equal(u1.ID))
+			Expect(t.Token).To(Equal("foofoo"))
 
-				t, err = token.FindByToken(db, "barbar")
-				Expect(err).To(BeNil())
-				Expect(t).NotTo(BeNil())
-				Expect(t.ID).NotTo(BeZero())
-				Expect(t.UserID).To(Equal(u2.ID))
-				Expect(t.Token).To(Equal("barbar"))
-			})
+			t, err = token.FindByToken(db, "barbar")
+			Expect(err).To(BeNil())
+			Expect(t).NotTo(BeNil())
+			Expect(t.ID).NotTo(BeZero())
+			Expect(t.UserID).To(Equal(u2.ID))
+			Expect(t.Token).To(Equal("barbar"))
 		})
 
-		Context("when a token record with a given user ID does not exist", func() {
-			It("returns nil", func() {
-				t, err := token.FindByToken(db, "batbat")
-				Expect(t).To(BeNil())
-				Expect(err).To(BeNil())
-			})
+		It("returns error when a token record with a given user ID does not exist", func() {
+			_, err := token.FindByToken(db, "batbat")
+			Expect(err).To(Equal(token.ErrInvalidToken))
 		})
 
-		Context("when some error happens", func() {
-			It("returns error", func() {
-				db.Close()
-				t, err := token.FindByToken(db, "foofoo")
-				Expect(t).To(BeNil())
-				Expect(err).NotTo(BeNil())
-			})
+		It("returns error when the token is expired", func() {
+			t, _ := token.FindByToken(db, "barbar")
+			db.Exec(`UPDATE tokens SET last_seen_at = $1 WHERE id = $2`,
+				time.Now().Add(-token.MaxLastUsedDuration).Add(-time.Hour),
+				t.ID)
+			t, err := token.FindByToken(db, "barbar")
+			Expect(err).To(Equal(token.ErrInvalidToken))
+		})
+
+		It("returns error when some error happens", func() {
+			db.Close()
+			t, err := token.FindByToken(db, "foofoo")
+			Expect(t).To(BeNil())
+			Expect(err).NotTo(BeNil())
 		})
 	})
 
 	Describe("FindByUser()", func() {
-		Context("when a token record with a given user id exists", func() {
-			It("returns the token record", func() {
-				t, err := token.FindByUser(db, u1.ID)
-				Expect(err).To(BeNil())
-				Expect(t).NotTo(BeNil())
-				Expect(t.ID).NotTo(BeZero())
-				Expect(t.UserID).To(Equal(u1.ID))
-				Expect(t.Token).To(Equal("foofoo"))
+		It("returns the token record when a token record with a given user id exists", func() {
+			t, err := token.FindByUser(db, u1.ID)
+			Expect(err).To(BeNil())
+			Expect(t).NotTo(BeNil())
+			Expect(t.ID).NotTo(BeZero())
+			Expect(t.UserID).To(Equal(u1.ID))
+			Expect(t.Token).To(Equal("foofoo"))
 
-				t, err = token.FindByUser(db, u2.ID)
-				Expect(err).To(BeNil())
-				Expect(t).NotTo(BeNil())
-				Expect(t.ID).NotTo(BeZero())
-				Expect(t.UserID).To(Equal(u2.ID))
-				Expect(t.Token).To(Equal("barbar"))
-			})
+			t, err = token.FindByUser(db, u2.ID)
+			Expect(err).To(BeNil())
+			Expect(t).NotTo(BeNil())
+			Expect(t.ID).NotTo(BeZero())
+			Expect(t.UserID).To(Equal(u2.ID))
+			Expect(t.Token).To(Equal("barbar"))
 		})
 
-		Context("when a token record with a given user id does not exist", func() {
-			It("returns nil", func() {
-				t, err := token.FindByUser(db, u3.ID)
-				Expect(t).To(BeNil())
-				Expect(err).To(BeNil())
-			})
+		It("returns err when a token record with a given user id does not exist ", func() {
+			_, err := token.FindByUser(db, u3.ID)
+			Expect(err).To(Equal(token.ErrInvalidToken))
 		})
 
-		Context("when some error happens", func() {
-			It("returns error", func() {
-				db.Close()
-				t, err := token.FindByUser(db, u1.ID)
-				Expect(t).To(BeNil())
-				Expect(err).NotTo(BeNil())
-			})
+		It("returns error when the token is expired", func() {
+			t, _ := token.FindByToken(db, "barbar")
+			db.Exec(`UPDATE tokens SET last_seen_at = $1 WHERE id = $2`,
+				time.Now().Add(-token.MaxLastUsedDuration).Add(-time.Hour),
+				t.ID)
+			_, err := token.FindByToken(db, "barbar")
+			Expect(err).To(Equal(token.ErrInvalidToken))
+		})
+
+		It("returns error when some error happens", func() {
+			db.Close()
+			t, err := token.FindByUser(db, u1.ID)
+			Expect(t).To(BeNil())
+			Expect(err).NotTo(BeNil())
 		})
 	})
 
@@ -292,9 +296,8 @@ var _ = Describe("models/token", func() {
 			Expect(t2).NotTo(BeNil())
 
 			Expect(t2.Delete(db)).To(BeNil())
-			t2, err = token.FindByToken(db, "foobar")
-			Expect(err).To(BeNil())
-			Expect(t2).To(BeNil())
+			_, err = token.FindByToken(db, "foobar")
+			Expect(err).To(Equal(token.ErrInvalidToken))
 		})
 	})
 

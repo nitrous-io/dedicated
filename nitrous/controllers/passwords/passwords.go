@@ -1,6 +1,7 @@
 package passwords
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -25,12 +26,12 @@ func SendResetPasswordToken(env *middleware.Env, w http.ResponseWriter, r *http.
 
 	u, err := user.FindByUsernameOrEmail(db, login)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			// respond with 200 OK and exit
+			respond(env)
+			return nil
+		}
 		return err
-	}
-	if u == nil {
-		// respond with 200 OK and exit
-		respond(env)
-		return nil
 	}
 
 	err = u.SendPasswordResetEmail(db)
@@ -51,10 +52,10 @@ func ResetPassword(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 	}
 	u, err := user.FindByResetPasswordToken(db, rToken)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return errInvalidToken
+		}
 		return err
-	}
-	if u == nil {
-		return errInvalidToken
 	}
 
 	if password := r.FormValue("password"); password != "" {

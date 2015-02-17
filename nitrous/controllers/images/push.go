@@ -63,7 +63,7 @@ func (c *pushContext) run(async bool) error {
 
 func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
-	cl, err := controllers.NewFreighterClient(db, h)
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}

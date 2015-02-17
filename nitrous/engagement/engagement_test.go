@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/engagement"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -267,7 +268,7 @@ var _ = Describe("engagement", func() {
 			envvars.WebHostname = "nitrous.example"
 			u.ConfirmationToken = sql.NullString{"ABCDEF", true}
 			t := time.Now().Add(-73 * time.Hour)
-			u.ConfirmationSentAt = &t
+			u.ConfirmationSentAt = pq.NullTime{t, true}
 			err = engagement.SendGetStartedEmail(db, *u)
 			Expect(err).To(BeNil())
 
@@ -295,7 +296,7 @@ var _ = Describe("engagement", func() {
 
 			envvars.WebHostname = "nitrous.example"
 			t := time.Now()
-			u.ConfirmedAt = &t
+			u.ConfirmedAt = pq.NullTime{t, true}
 			err = engagement.SendGetStartedEmail(db, *u)
 			Expect(err).To(BeNil())
 

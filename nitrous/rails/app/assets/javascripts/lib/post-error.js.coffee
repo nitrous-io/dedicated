@@ -9,4 +9,4 @@ window.App.reopen
         msg += ": #{err.error}"
     if err.error_hash
       msg += " (Error code: #{err.error_hash})"
-    App.snackbar.post(msg)
+    App.snackbar.post(msg, sticky: true)

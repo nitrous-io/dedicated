@@ -1,6 +1,7 @@
 package plan_test
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -62,9 +63,9 @@ var _ = Describe("models/plan", func() {
 		})
 
 		Context("when a plan record with a given id does not exist", func() {
-			It("returns nil", func() {
+			It("returns error", func() {
 				p, err := plan.FindByID(db, 9001)
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(p).To(BeNil())
 			})
 		})
@@ -89,7 +90,7 @@ var _ = Describe("models/plan", func() {
 		})
 
 		Context("when a plan record with a given slug exists but is disabled", func() {
-			It("returns nil", func() {
+			It("returns an error", func() {
 				_, err := db.Exec(`INSERT INTO plans
 					(slug, name, max_containers, price, cpu, memory, storage, disabled)
 					VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
@@ -97,15 +98,15 @@ var _ = Describe("models/plan", func() {
 				Expect(err).To(BeNil())
 
 				p, err := plan.FindBySlug(db, "promo")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(p).To(BeNil())
 			})
 		})
 
 		Context("when a plan record with a given slug does not exist", func() {
-			It("returns nil", func() {
+			It("returns error", func() {
 				p, err := plan.FindBySlug(db, "non-existent-slug")
-				Expect(err).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(p).To(BeNil())
 			})
 		})

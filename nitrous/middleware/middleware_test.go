@@ -165,7 +165,7 @@ var _ = Describe("middleware", func() {
 
 			Context("when the ouath token's owner has lapsed confirmation", func() {
 				BeforeEach(func() {
-					_, err := db.Exec(`UPDATE users SET confirmation_sent_at = now() - interval '26 hours' WHERE id = $1;`, u.ID)
+					_, err := db.Exec(`UPDATE users SET created_at = now() - interval '26 hours' WHERE id = $1;`, u.ID)
 					Expect(err).To(BeNil())
 					doRequest("foobar")
 				})

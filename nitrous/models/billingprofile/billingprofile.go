@@ -47,9 +47,6 @@ func Find(d db.QueryReceiver, userID int64) (*BillingProfile, error) {
 	b := &BillingProfile{}
 	err := d.Get(b, "SELECT * FROM billing_profiles WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1;", userID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return b, nil
