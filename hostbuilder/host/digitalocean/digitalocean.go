@@ -26,6 +26,7 @@ import (
 const DefaultPort uint16 = 65333
 
 var (
+	PubKeysLocation = "/root/.ssh/authorized_keys"
 	TLSCALocation   = "/etc/freighterd/ca.crt"
 	TLSCertLocation = "/etc/freighterd/cert.crt"
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
@@ -104,24 +105,8 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 			Timeout:     1 * time.Minute,
 		},
 		{
-			Description: "Writing key",
-			Func:        writePublicKeys,
-		},
-		{
-			Description: "Initializing settings",
-			Func:        createEtcFreighterd,
-		},
-		{
-			Description: "Writing certificates",
-			Func:        writeTLSCerts,
-		},
-		{
-			Description: "Writing token",
-			Func:        writeSecret,
-		},
-		{
-			Description: "Setting up",
-			Func:        writeRepository,
+			Description: "Populating settings",
+			Func:        writeSettings,
 		},
 		{
 			Description: "Fetching updates",
@@ -512,49 +497,40 @@ func waitForSSH(ctx *host.HostContext) error {
 	return nil
 }
 
-func writePublicKeys(ctx *host.HostContext) error {
+func writeSettings(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	hlog(h, "Writing public key")
-	pubKeyR := bytes.NewBuffer(nil)
-	for _, k := range h.Config.PublicKeys {
-		fmt.Fprintln(pubKeyR, k)
+	hlog(h, "Writing settings")
+
+	if err := h.conn.Execute("mkdir -p /etc/freighterd"); err != nil {
+		return err
 	}
-	err := writeFile(h, map[string]io.Reader{
-		"/root/.ssh/authorized_keys": pubKeyR,
-	})
-	hlog(h, "Wrote public key")
-	return err
+
+	pubKeysBuf := bytes.NewBuffer(nil)
+	for _, k := range h.Config.PublicKeys {
+		fmt.Fprintln(pubKeysBuf, k)
+	}
+
+	aptSourcesBuf := bytes.NewBuffer(nil)
+	if err := host.SourceTemplate.Execute(aptSourcesBuf, h.Config); err != nil {
+		return err
+	}
+
+	if err := uploadFile(h, map[string]io.Reader{
+		PubKeysLocation:     pubKeysBuf,
+		host.SourceLocation: aptSourcesBuf,
+		TLSCALocation:       bytes.NewBufferString(h.Config.TLS.CA),
+		TLSCertLocation:     bytes.NewBufferString(h.Config.TLS.Cert),
+		TLSKeyLocation:      bytes.NewBufferString(h.Config.TLS.Key),
+		SecretLocation:      bytes.NewBufferString(h.Config.Secret),
+	}); err != nil {
+		return err
+	}
+
+	hlog(h, "Wrote settings")
+	return nil
 }
 
-func createEtcFreighterd(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	defer mh.UpdateSince(h.metricsLabel("create_config"), time.Now())
-	return h.conn.Execute("mkdir -p /etc/freighterd")
-}
-
-func writeTLSCerts(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	hlog(h, "Writing TLS certs")
-	err := writeFile(h, map[string]io.Reader{
-		TLSCALocation:   bytes.NewBufferString(h.Config.TLS.CA),
-		TLSCertLocation: bytes.NewBufferString(h.Config.TLS.Cert),
-		TLSKeyLocation:  bytes.NewBufferString(h.Config.TLS.Key),
-	})
-	hlog(h, "Wrote TLS certs")
-	return err
-}
-
-func writeSecret(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	hlog(h, "Writing host secret")
-	err := writeFile(h, map[string]io.Reader{
-		SecretLocation: bytes.NewBufferString(h.Config.Secret),
-	})
-	hlog(h, "Wrote host secret")
-	return err
-}
-
-func writeFile(h *Host, files map[string]io.Reader) error {
+func uploadFile(h *Host, files map[string]io.Reader) error {
 	label := h.metricsLabel("write_file")
 	defer mh.UpdateSince(label, time.Now())
 	flist := []string{}
@@ -565,20 +541,6 @@ func writeFile(h *Host, files map[string]io.Reader) error {
 		flist = append(flist, dest)
 	}
 	hlog(h, "Uploaded (%s) to %v", strings.Join(flist, " "), h.ipAddress())
-	return nil
-}
-
-func writeRepository(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	hlog(h, "Uploading apt details")
-	buf := bytes.NewBuffer(nil)
-	if err := host.SourceTemplate.Execute(buf, h.Config); err != nil {
-		return err
-	}
-	if err := writeFile(h, map[string]io.Reader{host.SourceLocation: buf}); err != nil {
-		return err
-	}
-	hlog(h, "Uploaded apt details at %v", h.ipAddress())
 	return nil
 }
 
