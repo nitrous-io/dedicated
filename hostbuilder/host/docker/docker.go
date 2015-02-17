@@ -70,7 +70,6 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	return c, nil
 }
 
-// Update currently only supports renaming of a container.
 func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	mw := io.MultiWriter(os.Stdout, w)
 
