@@ -10,6 +10,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func init() {
+	// shorten keylen so tests run faster
+	keypairs.KeyLen = 512
+}
+
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "models/keypairs")

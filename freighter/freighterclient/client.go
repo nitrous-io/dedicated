@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -263,6 +264,11 @@ func NewClientTransport(host *Host, secret, uuid string, tp *http.Transport) (Cl
 
 	if tp == nil {
 		tp = &http.Transport{
+			// set default dialr timeout and keepalive
+			Dial: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).Dial,
 			Proxy: func(req *http.Request) (*url.URL, error) {
 				req.Header.Set("X-Freighter-Secret", secret)
 				if uuid != "" {
