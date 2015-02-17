@@ -932,13 +932,28 @@ func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	if err := s.upgradeFreighterd(fv); err != nil {
-		return err
-	}
+	go func() {
+		if err := s.upgradeFreighterd(fv); err != nil {
+			s.logger.Errorf("error upgrading freighterd: %v", err)
+			if nerr := s.notifyWebhook(map[string]interface{}{
+				"event": "upgrade",
+				"error": err.Error(),
+			}); nerr != nil {
+				s.logger.Errorf("failed to notify webhook, err: %v", nerr)
+			}
+			return
+		}
 
-	if err := s.restartFreighterd(); err != nil {
-		return err
-	}
+		if err := s.restartFreighterd(); err != nil {
+			s.logger.Errorf("error restarting freighterd: %v", err)
+			if nerr := s.notifyWebhook(map[string]interface{}{
+				"event": "upgrade",
+				"error": err.Error(),
+			}); nerr != nil {
+				s.logger.Errorf("failed to notify webhook, err: %v", nerr)
+			}
+		}
+	}()
 
 	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
 	return nil
