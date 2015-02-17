@@ -518,10 +518,10 @@ func writeSettings(ctx *host.HostContext) error {
 	if err := uploadFile(h, map[string]io.Reader{
 		PubKeysLocation:     pubKeysBuf,
 		host.SourceLocation: aptSourcesBuf,
-		TLSCALocation:       bytes.NewBufferString(h.Config.TLS.CA),
-		TLSCertLocation:     bytes.NewBufferString(h.Config.TLS.Cert),
-		TLSKeyLocation:      bytes.NewBufferString(h.Config.TLS.Key),
-		SecretLocation:      bytes.NewBufferString(h.Config.Secret),
+		TLSCALocation:       strings.NewReader(h.Config.TLS.CA),
+		TLSCertLocation:     strings.NewReader(h.Config.TLS.Cert),
+		TLSKeyLocation:      strings.NewReader(h.Config.TLS.Key),
+		SecretLocation:      strings.NewReader(h.Config.Secret),
 	}); err != nil {
 		return err
 	}
