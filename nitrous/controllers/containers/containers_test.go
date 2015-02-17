@@ -1660,6 +1660,36 @@ var _ = Describe("controllers/containers", func() {
 				Expect(taskErrorCaught()).To(Equal(taskErr))
 				Expect(unlockErrorCaught()).To(Equal(unlockErr))
 			})
+
+			It("Panic Unlock test", func() {
+				locker, lockerCalled := taskSpy(nil)
+				unlocker, unlockerCalled := taskSpy(nil)
+				errHandler, errorCaught := errorSpy()
+
+				var err error
+				var taskCalled, panicRecovered = false, false
+
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							panicRecovered = true
+						}
+					}()
+
+					err = containers.DoExclusive(locker, unlocker, errHandler,
+						func() error {
+							taskCalled = true
+							panic("test panic")
+						})
+				}()
+
+				Expect(err).To(BeNil())
+				Expect(taskCalled).To(BeTrue())
+				Expect(panicRecovered).To(BeTrue())
+				Expect(lockerCalled()).To(BeTrue())
+				Expect(unlockerCalled()).To(BeTrue())
+				Expect(errorCaught()).To(BeNil())
+			})
 		})
 
 		asyncTaskSpy := func(err error) (containers.TaskFn, <-chan int) {

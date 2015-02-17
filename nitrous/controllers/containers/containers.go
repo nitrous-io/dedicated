@@ -76,22 +76,24 @@ type containerHandler func(cn *container.Container, h *host.Host, env *middlewar
 type TaskFn func() error
 type ErrorHandlerFn func(err error)
 
-func DoExclusive(locker TaskFn, unlocker TaskFn, errHandler ErrorHandlerFn, task TaskFn) error {
-	err := locker()
+func DoExclusive(locker TaskFn, unlocker TaskFn, errHandler ErrorHandlerFn, task TaskFn) (err error) {
+	err = locker()
 	if err != nil {
 		errHandler(err)
 		return err
 	}
 
+	defer func() {
+		unlockErr := unlocker()
+		if unlockErr != nil {
+			errHandler(unlockErr)
+			err = unlockErr
+		}
+	}()
+
 	err = task()
 	if err != nil {
 		errHandler(err)
-	}
-
-	unlockErr := unlocker()
-	if unlockErr != nil {
-		errHandler(unlockErr)
-		err = unlockErr
 	}
 
 	return err

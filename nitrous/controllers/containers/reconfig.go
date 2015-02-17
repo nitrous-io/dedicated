@@ -36,12 +36,14 @@ func DoAsyncExclusive(async bool, locker TaskFn, unlocker TaskFn, errHandler Err
 	}
 
 	go func() {
-		err = task()
-		if err != nil {
-			errHandler(err)
-		}
+		defer func() {
+			err := unlocker()
+			if err != nil {
+				errHandler(err)
+			}
+		}()
 
-		err = unlocker()
+		err := task()
 		if err != nil {
 			errHandler(err)
 		}
