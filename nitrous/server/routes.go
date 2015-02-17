@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/freighterd"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/home"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
@@ -84,14 +85,15 @@ func (s *Server) drawRoutes() {
 				"/promo_codes/{code}": r("promocodes.Show", promocodes.Show),
 			},
 			"POST": {
-				"/oauth/token":               r("tokens.Post", tokens.Post),
-				"/users/email_signup":        r("users.EmailCapture", users.EmailCapture),
-				"/users":                     r("users.Create", users.Create),
-				"/user/confirm":              r("users.Confirm", users.Confirm),
-				"/user/resend_confirm":       r("users.ResendConfirmation", users.ResendConfirmation),
-				"/send_reset_password_token": r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
-				"/reset_password":            r("passwords.ResetPassword", passwords.ResetPassword),
-				"/stripe_hook":               r("stripehooks.ReceiveHook", stripehooks.ReceiveHook),
+				"/oauth/token":                  r("tokens.Post", tokens.Post),
+				"/users/email_signup":           r("users.EmailCapture", users.EmailCapture),
+				"/users":                        r("users.Create", users.Create),
+				"/user/confirm":                 r("users.Confirm", users.Confirm),
+				"/user/resend_confirm":          r("users.ResendConfirmation", users.ResendConfirmation),
+				"/send_reset_password_token":    r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
+				"/reset_password":               r("passwords.ResetPassword", passwords.ResetPassword),
+				"/stripe_hook":                  r("stripehooks.ReceiveHook", stripehooks.ReceiveHook),
+				"/hosts/{slug}/freighterd_hook": r("freighterd.Webhook", freighterd.Webhook),
 			},
 		}
 
