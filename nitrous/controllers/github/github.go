@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 
@@ -33,7 +34,9 @@ var (
 func init() {
 	var src [8]byte
 	_, err := rand.Read(src[:])
-	panicIfErr(err)
+	if err != nil {
+		log.Fatalf("failed to generate oauth secret %v", err)
+	}
 	oauthStateString = hex.EncodeToString(src[:])
 	oauthConf = &oauth2.Config{
 		ClientID:     envvars.GitHubOAuthClientID,
@@ -208,10 +211,4 @@ func OAuthCb(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	}
 	http.Redirect(w, r, "/app#/account", http.StatusTemporaryRedirect)
 	return nil
-}
-
-func panicIfErr(err error) {
-	if err != nil {
-		panic(err)
-	}
 }
