@@ -1662,9 +1662,141 @@ var _ = Describe("controllers/containers", func() {
 			})
 		})
 
+		asyncTaskSpy := func(err error) (containers.TaskFn, <-chan int) {
+			calledChan := make(chan int)
+
+			task := func() error {
+				calledChan <- 0 // send end signal
+
+				return err
+			}
+
+			return task, calledChan
+		}
+
+		asyncErrorSpy := func() (containers.ErrorHandlerFn, <-chan error) {
+			errChan := make(chan error)
+
+			errHandler := func(err error) {
+				errChan <- err
+			}
+
+			return errHandler, errChan
+		}
+
+		Describe("Async generic lock test", func() {
+			It("Success doAsyncExclusive", func() {
+				locker, lockerCalled := taskSpy(nil)
+				errHandler, errorCaught := errorSpy()
+
+				task, taskCalledChan := asyncTaskSpy(nil)
+				unlocker, unlockerCalledChan := asyncTaskSpy(nil)
+
+				err := containers.DoAsyncExclusive(true, locker, unlocker, errHandler, task)
+
+				Expect(err).To(BeNil())
+				Expect(lockerCalled()).To(BeTrue())
+
+				<-taskCalledChan
+				<-unlockerCalledChan
+
+				Expect(errorCaught()).To(BeNil())
+			})
+
+			It("Lock Error", func() {
+				lockErr := errors.New("Container is locked")
+
+				locker, lockerCalled := taskSpy(lockErr)
+				errHandler, errorCaught := errorSpy()
+
+				task, taskCalledChan := asyncTaskSpy(nil)
+				unlocker, unlockerCalledChan := asyncTaskSpy(nil)
+
+				err := containers.DoAsyncExclusive(true, locker, unlocker, errHandler, task)
+
+				Expect(err).To(Equal(lockErr))
+				Expect(lockerCalled()).To(BeTrue())
+				Expect(errorCaught()).To(Equal(lockErr))
+
+				Consistently(taskCalledChan).ShouldNot(Receive())
+				Consistently(unlockerCalledChan).ShouldNot(Receive())
+			})
+
+			It("Task Error", func() {
+				taskErr := errors.New("Task error")
+
+				locker, lockerCalled := taskSpy(nil)
+
+				task, taskCalledChan := asyncTaskSpy(taskErr)
+				unlocker, unlockerCalledChan := asyncTaskSpy(nil)
+
+				errHandler, errorChan := asyncErrorSpy()
+
+				err := containers.DoAsyncExclusive(true, locker, unlocker, errHandler, task)
+
+				Expect(err).To(BeNil())
+				Expect(lockerCalled()).To(BeTrue())
+
+				<-taskCalledChan
+
+				err = <-errorChan
+				Expect(err).To(Equal(taskErr))
+
+				<-unlockerCalledChan
+			})
+
+			It("Unlock Error", func() {
+				unlockErr := errors.New("Error Unlocking container")
+
+				locker, lockerCalled := taskSpy(nil)
+
+				task, taskCalledChan := asyncTaskSpy(nil)
+				unlocker, unlockerCalledChan := asyncTaskSpy(unlockErr)
+
+				errHandler, errorChan := asyncErrorSpy()
+
+				err := containers.DoAsyncExclusive(true, locker, unlocker, errHandler, task)
+
+				Expect(err).To(BeNil())
+				Expect(lockerCalled()).To(BeTrue())
+
+				<-taskCalledChan
+				<-unlockerCalledChan
+
+				err = <-errorChan
+				Expect(err).To(Equal(unlockErr))
+			})
+
+			It("Task and Unlock Error", func() {
+				taskErr := errors.New("Task error")
+				unlockErr := errors.New("Error Unlocking container")
+
+				locker, lockerCalled := taskSpy(nil)
+
+				task, taskCalledChan := asyncTaskSpy(taskErr)
+				unlocker, unlockerCalledChan := asyncTaskSpy(unlockErr)
+
+				errHandler, errorChan := asyncErrorSpy()
+
+				err := containers.DoAsyncExclusive(true, locker, unlocker, errHandler, task)
+
+				Expect(err).To(BeNil())
+				Expect(lockerCalled()).To(BeTrue())
+
+				<-taskCalledChan
+				err = <-errorChan
+				Expect(err).To(Equal(taskErr))
+
+				<-unlockerCalledChan
+				err = <-errorChan
+				Expect(err).To(Equal(unlockErr))
+			})
+		})
+
 		Describe("Container lock test", func() {
 			var (
-				slug = "elixir-web-1"
+				slug     = "elixir-web-1"
+				lockTime = 5 * time.Minute
 
 				cn  *container.Container
 				fc  *freighterclient.Container
@@ -1726,7 +1858,7 @@ var _ = Describe("controllers/containers", func() {
 			})
 
 			It("Lock race test", func() {
-				locker := containers.LockerFn(cn, env, 5*time.Second, container.StateReconfiguring)
+				locker := containers.LockerFn(cn, env, lockTime, container.StateStarting)
 				unlocker := containers.UnlockerFn(cn, env)
 
 				taskCalled := false
@@ -1738,11 +1870,12 @@ var _ = Describe("controllers/containers", func() {
 				err := containers.DoExclusive(locker, unlocker, errHandler,
 					func() error {
 						taskCalled = true
-						res := doRequest("start")
-						Expect(res.Code).To(Equal(http.StatusConflict))
 
 						cn2 = getContainerInfo()
-						Expect(cn2.State).To(Equal("reconfiguring"))
+						Expect(cn2.State).To(Equal("starting"))
+
+						res := doRequest("start")
+						Expect(res.Code).To(Equal(http.StatusConflict))
 
 						return nil
 					})
@@ -1759,7 +1892,7 @@ var _ = Describe("controllers/containers", func() {
 			})
 
 			It("Unlock fail test", func() {
-				locker := containers.LockerFn(cn, env, 5*time.Second, container.StateReconfiguring)
+				locker := containers.LockerFn(cn, env, lockTime, container.StateStarting)
 
 				unlockErr := errors.New("Failed to unlock container")
 
@@ -1775,16 +1908,16 @@ var _ = Describe("controllers/containers", func() {
 				Expect(unlockerCalled()).To(BeTrue())
 
 				cn2 := getContainerInfo()
-				Expect(cn2.State).To(Equal("reconfiguring"))
+				Expect(cn2.State).To(Equal("starting"))
 
 				res := doRequest("start")
 				Expect(res.Code).To(Equal(http.StatusConflict))
 			})
 
 			It("Expired lock test", func() {
-				locker := containers.LockerFn(cn, env, -1*time.Second, container.StateReconfiguring)
+				locker := containers.LockerFn(cn, env, -1*time.Second, container.StateStarting)
 
-				taskErr := errors.New("Reconfiguration error")
+				taskErr := errors.New("Failed to start container")
 				unlockErr := errors.New("Failed to unlock container")
 
 				task, taskCalled := taskSpy(taskErr)
@@ -1801,6 +1934,75 @@ var _ = Describe("controllers/containers", func() {
 				Expect(cn2.State).To(Equal("stopped"))
 
 				res := doRequest("start")
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
+
+			It("Async container lock test", func() {
+				taskErr := errors.New("Reconfiguration error")
+
+				locker := containers.LockerFn(cn, env, lockTime, container.StateReconfiguring)
+				unlocker := containers.UnlockerFn(cn, env)
+
+				taskStartChan := make(chan int)
+				taskResumeChan := make(chan int)
+				unlockChan := make(chan int)
+
+				wrappedUnlocker := func() error {
+					err := unlocker()
+					unlockChan <- 0
+					return err
+				}
+
+				errHandler, errorCaught := errorSpy()
+
+				cn2 := getContainerInfo()
+				Expect(cn2.State).To(Equal("stopped"))
+
+				err := containers.DoAsyncExclusive(true, locker, wrappedUnlocker, errHandler,
+					func() error {
+						defer GinkgoRecover()
+
+						res := doRequest("start")
+
+						Expect(res.Code).To(Equal(http.StatusConflict))
+
+						cn2 = getContainerInfo()
+						Expect(cn2.State).To(Equal("reconfiguring"))
+
+						// inform outside task is called
+						taskStartChan <- 0
+
+						// wait to finish reconfiguration
+						<-taskResumeChan
+
+						return taskErr
+					})
+
+				Expect(err).To(BeNil())
+				Expect(errorCaught()).To(BeNil())
+
+				// wait for reconfiguration to start
+				<-taskStartChan
+
+				res := doRequest("start")
+
+				Expect(res.Code).To(Equal(http.StatusConflict))
+
+				cn2 = getContainerInfo()
+				Expect(cn2.State).To(Equal("reconfiguring"))
+
+				// resume reconfiguration
+				taskResumeChan <- 0
+
+				// wait for unlock
+				<-unlockChan
+
+				Expect(errorCaught()).To(Equal(taskErr))
+
+				cn2 = getContainerInfo()
+				Expect(cn2.State).To(Equal("stopped"))
+
+				res = doRequest("start")
 				Expect(res.Code).To(Equal(http.StatusOK))
 			})
 		})

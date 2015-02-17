@@ -31,6 +31,7 @@ func DoAsyncExclusive(async bool, locker TaskFn, unlocker TaskFn, errHandler Err
 
 	err := locker()
 	if err != nil {
+		errHandler(err)
 		return err
 	}
 
