@@ -315,10 +315,14 @@ var _ = Describe("provisioner", func() {
 
 			Expect(rt.Requests).To(HaveLen(1))
 			req := rt.Requests[0]
+			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("ABC"))
+
 			var hcfg hostbuilderclient.Config
 			json.Unmarshal([]byte(req.FormValue("config")), &hcfg)
 			Expect(hcfg["name"]).To(Equal("new-slug"))
-			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("ABC"))
+			Expect(hcfg["apt_username"]).To(Equal(u.Username))
+			Expect(hcfg["apt_password"]).To(Equal(t.Token))
+			Expect(hcfg["private_key"]).ToNot(BeEmpty())
 
 			h, err := host.Find(db, u, "new-slug")
 			Expect(err).To(BeNil())

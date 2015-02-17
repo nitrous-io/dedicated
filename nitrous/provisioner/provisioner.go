@@ -2,7 +2,9 @@ package provisioner
 
 import (
 	"crypto/rsa"
+	"crypto/x509"
 	"database/sql"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -29,7 +31,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
+	"github.com/nitrous-io/nitrous-common/cipher"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"golang.org/x/crypto/ssh"
 )
 
 var (
@@ -419,6 +423,11 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		}
 	}()
 
+	privKey, err := pemPrivateKey(h, p.db)
+	if err != nil {
+		return nil, err
+	}
+
 	// Update host in hostbuilder (e.g. rename host).
 	config := &hostbuilderclient.Config{
 		"id":           preprovisionedHost.ProviderIdentifier.String,
@@ -427,11 +436,11 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		"apt_password": opts.Token.Token,
 		"apt_location": opts.AptLocation,
 		"apt_dist":     opts.AptDist,
+		"private_key":  string(privKey),
 	}
 	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts))
 	if err != nil {
-		err = fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
-		return
+		return nil, fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
 	}
 
 	// Update host record with new info.
@@ -703,4 +712,34 @@ func generateKey() (priv *rsa.PrivateKey, pub []byte, err error) {
 		return nil, nil, err
 	}
 	return priv, pub, nil
+}
+
+// pemPrivateKey returns the host's PEM-encoded RSA private key.
+func pemPrivateKey(h *host.Host, d *db.Database) ([]byte, error) {
+	kp, err := keypairs.Get(d, h.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	priv, err := cipher.Decrypt(
+		[]byte(aesKey),
+		[]byte(kp.EncryptedPrivateKeyIv),
+		[]byte(kp.EncryptedPrivateKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt private key for host %d, err: %v", h.ID, err)
+	}
+
+	pk, err := ssh.ParseRawPrivateKey(priv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key for host %d, err: %v", h.ID, err)
+	}
+	privKey, ok := pk.(*rsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("invalid RSA key for host %d", h.ID)
+	}
+
+	return pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
+	}), nil
 }
