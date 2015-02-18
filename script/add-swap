@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# NOTE: as of time of commit all production hosts and images have swap added
+# This is in the repo mostly for archiving purposes (it is also present in
+# `dedicated_boxhost_cookbook` for DO image building)
+
 SWAPFILE=/swapfile
 FSTAB_LINE="/swapfile   none    swap    sw    0   0"
 
