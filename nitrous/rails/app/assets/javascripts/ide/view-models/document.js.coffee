@@ -20,4 +20,3 @@ App.Document = App.TabContent.extend
   title: (->
     @get('path.name') || "Untitled #{untitledCount += 1}"
   ).property 'path.name'
-

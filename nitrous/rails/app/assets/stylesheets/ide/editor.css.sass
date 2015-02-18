@@ -17,6 +17,40 @@
     width: 100% !important
     height: 100% !important
 
+  .ide-editor-pane-view
+    display: flex
+    flex-direction: column
+    flex-grow: 1
+    flex-basis: 0
+
+    .ide-toolbar
+      transition: background-color .3s
+
+    &:not(.active)
+      > .ide-toolbar, > .ide-document-views > .ide-document-view > .ide-toolbar
+        background: $n2oGray800
+
+        > .ide-toolbar-btns
+          > .ui.btn
+            color: $n2oGray400
+
+  .split-panes
+    display: flex
+    flex-direction: row
+    flex-grow: 1
+
+    > .pane-frame
+      width: 1px
+      height: auto
+      background: $n2oGray1000
+
+    &.horizontal
+      flex-direction: column
+
+      > .pane-frame
+        width: auto
+        height: 1px
+
   .ide-document-views
     display: flex
     flex-grow: 1
@@ -62,7 +96,7 @@
     display: flex
     flex-shrink: 0
     z-index: 4
-    border-top: 1px solid $n2oGray900
+    border-top: 1px solid $n2oGray1000
     background: $n2oGray700
     color: $n2oGray200
     line-height: 32px
@@ -148,7 +182,7 @@
     .errors
       flex-shrink: 0
       background-color: $red400
-      border-bottom: 1px solid $n2oGray900
+      border-bottom: 1px solid $n2oGray1000
       color: $gray100
       padding: 8px 8px 8px 22px
       p
@@ -158,7 +192,7 @@
     .summary
       flex-shrink: 0
       background-color: $n2oGray700
-      border-bottom: 1px solid $n2oGray900
+      border-bottom: 1px solid $n2oGray1000
       padding: 8px 8px 8px 22px
       h4
         color: $n2oGray100

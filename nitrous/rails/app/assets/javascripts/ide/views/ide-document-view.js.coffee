@@ -3,6 +3,7 @@ TAB_SIZES = [2, 3, 4, 8]
 App.IdeDocumentView = Em.View.extend
   templateName: 'ide/document'
   classNames: ['ide-document-view']
+  classNameBindings: ['document.active']
 
   document: null
   editor: null
@@ -240,11 +241,6 @@ App.IdeDocumentView = Em.View.extend
   ).observes(
     'App.router.ideLayoutController.sidebarWidth',
   )
-
-  editorFullscreenToggled: (->
-    if editor = @get 'editor'
-      editor.refresh()
-  ).observes 'App.router.ideEditorController.fullscreen'
 
   focusedDidChange: (->
     if editor = @get 'editor'

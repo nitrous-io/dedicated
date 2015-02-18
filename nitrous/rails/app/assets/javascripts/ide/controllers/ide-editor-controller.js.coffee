@@ -1,9 +1,10 @@
 App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   modelClass: App.Document
   content: null
+  rootPane: null
+  activePane: Em.computed.alias 'content'
   saveDialog: null
   confirmCloseDialog: null
-  fullscreenBinding: 'App.editorFullscreen'
   chatNotification: null
 
   opsSocketBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket'
@@ -21,12 +22,10 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   autoCloseBrackets: true
   keybindings: 'default'
 
-  draggedTab: null # tab being dragged
-  droppableIndex: null # index where the currently dragged tab would be inserted
-
   initialize: ->
-    @set 'content', []
-    @set 'fullscreen', false
+    editorPane = App.EditorPane.create(tabs: Em.A())
+    @set 'rootPane', editorPane
+    @set 'activePane', editorPane
 
     @useUserEditorSettings()
     @observeEditorSettings()
@@ -35,7 +34,6 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     @set 'content', null
     @set 'saveDialog', null
     @set 'confirmCloseDialog', null
-    @set 'fullscreen', false
 
   useUserEditorSettings: ->
     userSettings = App.get('user.user_settings') || {}
@@ -132,3 +130,23 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   addTab: ->
     @_super.apply this, arguments
     Mp.track Mp.EventIDEUserOpenedFile
+
+  createTab: (attrs={}, modelClass=null) ->
+    rootPane = @get 'rootPane'
+    if rootPane.findBy('path', attrs.path)
+      return # disallow duplicate tabs for now
+    @_super(attrs, modelClass)
+
+  splitActivePaneVertically: ->
+    pane = @get 'activePane'
+    pane.split()
+    @set 'activePane', pane.get('left')
+
+  splitActivePaneHorizontally: ->
+    pane = @get 'activePane'
+    pane.split(true)
+    @set 'activePane', pane.get('left')
+
+  closeActivePane: ->
+    pane = @get 'activePane'
+    pane.close()

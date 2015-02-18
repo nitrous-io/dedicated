@@ -89,7 +89,7 @@ App.IdeMainMenuController = Em.Controller.extend
     App.set 'consoleMinimized', true
     App.set 'consoleFullscreen', false
 
-  viewMaximizeConsole: ->
+  viewRestoreConsole: ->
     App.set 'consoleMinimized', false
     @viewFocusConsole()
 
@@ -100,9 +100,14 @@ App.IdeMainMenuController = Em.Controller.extend
       @viewFocusConsole()
     , 50)
 
-  viewToggleFullScreenEditor: ->
-    App.toggleProperty 'editorFullscreen'
-    @viewFocusEditor()
+  viewSplitEditorPaneVertically: ->
+    App.get('router.ideEditorController').splitActivePaneVertically()
+
+  viewSplitEditorPaneHorizontally: ->
+    App.get('router.ideEditorController').splitActivePaneHorizontally()
+
+  viewCloseEditorPane: ->
+    App.get('router.ideEditorController').closeActivePane()
 
   viewSelectTheme: (theme) ->
     if editorController = @get 'controllers.ideEditor'

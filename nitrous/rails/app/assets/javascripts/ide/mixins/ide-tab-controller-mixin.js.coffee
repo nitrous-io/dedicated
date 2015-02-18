@@ -1,10 +1,6 @@
 App.IdeTabControllerMixin = Em.Mixin.create
   modelClass: Em.required()
 
-  tabCount: (->
-    @get('content')?.length
-  ).property 'content.length'
-
   activeTab: (->
     if content = @get 'content'
       content.findProperty 'active', true
@@ -24,17 +20,17 @@ App.IdeTabControllerMixin = Em.Mixin.create
 
   nextTab: (->
     activeTabIndex = @get 'activeTabIndex'
-    tabCount = @get 'tabCount'
+    tabCount = @get 'content.length'
     index = (activeTabIndex + 1) % tabCount
-    @get "content.#{index}"
-  ).property 'activeTabIndex', 'tabCount'
+    @objectAt(index)
+  ).property 'activeTabIndex', 'content.length'
 
   previousTab: (->
     activeTabIndex = @get 'activeTabIndex'
-    tabCount = @get 'tabCount'
+    tabCount = @get 'content.length'
     index = (((activeTabIndex - 1) % tabCount) + tabCount) % tabCount
-    @get "content.#{index}"
-  ).property 'activeTabIndex', 'tabCount'
+    @objectAt(index)
+  ).property 'activeTabIndex', 'content.length'
 
   addTab: (tab) ->
     if content = @get('content')
@@ -66,12 +62,12 @@ App.IdeTabControllerMixin = Em.Mixin.create
     content.removeObject tab
 
   makeNextTabActive: ->
-    if @get('tabCount') > 1
+    if @get('content.length') > 1
       nextTab = @get 'nextTab'
       this.makeTabActive nextTab
 
   makePreviousTabActive: ->
-    if @get('tabCount') > 1
+    if @get('content.length') > 1
       previousTab = @get 'previousTab'
       this.makeTabActive previousTab
 

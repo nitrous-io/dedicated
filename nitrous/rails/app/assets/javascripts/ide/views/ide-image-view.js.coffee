@@ -1,6 +1,9 @@
 App.IdeImageView = Em.View.extend
   templateName: 'ide/image'
   classNames: ['ide-image-view']
+  classNameBindings: ['document.active']
+
+  document: null
 
   uri: (->
     if (imageData = @get 'document.content') && (contentType = @get 'document.contentType')
