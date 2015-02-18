@@ -241,6 +241,51 @@ var _ = Describe("middleware", func() {
 
 	Describe("event tracking middleware", func() {
 		var (
+			u *user.User
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Password: "123456",
+				Email:    "foo@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+			Expect(u.ID).NotTo(BeZero())
+			env.User = u
+
+			env.RemoteAddr = "192.168.1.1"
+
+			h := func(w http.ResponseWriter, r *http.Request) {
+				err := middleware.Track("Action Called", emptyMw)(env, w, r)
+				if err != nil {
+					svr.HandleError(w, err)
+				}
+			}
+			handler.HandleFunc("/action", h).Methods("GET")
+
+			req, err := NewRequest("GET", "/action", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		})
+
+		It("sets the TrackEventName in the environment", func() {
+			Expect(env.TrackEventName).To(Equal("Action Called"))
+		})
+
+		It("adds $ip to event data", func() {
+			t := env.Tracker.(*FakeTracker)
+			Expect(t.TrackEventProperties[u.ID][0]["$ip"]).To(Equal("192.168.1.1"))
+		})
+
+		It("Responds with 200 OK", func() {
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+	})
+
+	Describe("verifying user billing middleware", func() {
+		var (
 			u  *user.User
 			mw func(event string, mw middleware.Middleware) middleware.Middleware
 		)
@@ -302,51 +347,6 @@ var _ = Describe("middleware", func() {
 			req, err := NewRequest("GET", "/protected", nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
-			Expect(res.Code).To(Equal(http.StatusOK))
-		})
-	})
-
-	Describe("verifying user billing middleware", func() {
-		var (
-			u *user.User
-		)
-
-		BeforeEach(func() {
-			u = &user.User{
-				Username: "foo",
-				Password: "123456",
-				Email:    "foo@example.com",
-			}
-			err := WrapInTransaction(db, u.Insert)
-			Expect(err).To(BeNil())
-			Expect(u.ID).NotTo(BeZero())
-			env.User = u
-
-			env.RemoteAddr = "192.168.1.1"
-
-			h := func(w http.ResponseWriter, r *http.Request) {
-				err := middleware.Track("Action Called", emptyMw)(env, w, r)
-				if err != nil {
-					svr.HandleError(w, err)
-				}
-			}
-			handler.HandleFunc("/action", h).Methods("GET")
-
-			req, err := NewRequest("GET", "/action", nil)
-			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
-		})
-
-		It("sets the TrackEventName in the environment", func() {
-			Expect(env.TrackEventName).To(Equal("Action Called"))
-		})
-
-		It("adds $ip to event data", func() {
-			t := env.Tracker.(*FakeTracker)
-			Expect(t.TrackEventProperties[u.ID][0]["$ip"]).To(Equal("192.168.1.1"))
-		})
-
-		It("Responds with 200 OK", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 	})
