@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/home"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
@@ -66,6 +67,7 @@ func (s *Server) drawRouteData(method string, auth bool, routes map[string]route
 
 func (s *Server) drawRoutes() {
 	s.route("/", mw.Call("home.Index", home.Index), "GET")
+	s.route("/api/v0/github/oauth_cb", mw.Call("gihtub.OAuthCb", github.OAuthCb), "GET")
 
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/debug/pprof/{path:.*}", pprof.Index).Methods("GET")
@@ -122,6 +124,7 @@ func (s *Server) drawRoutes() {
 				"/admin/hosts":                       r("admin.Hosts", admin.Hosts),
 				"/admin/provider_templates":          r("providertemplates.Index", providertemplates.Index),
 				"/admin/provider_templates/{ptid}":   r("providertemplates.Show", providertemplates.Show),
+				"/github/authorize":                  r("github.Authorize", github.Authorize),
 			},
 			"POST": {
 				"/user/profile":                        r("userprofiles.Update", userprofiles.Update),
