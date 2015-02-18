@@ -219,9 +219,11 @@ func templates(d db.QueryReceiver) error {
 		phpApacheJSON = cm.templateJSON(defaultPorts, false)
 		phpNginxJSON  = cm.templateJSON(defaultPorts, false)
 		meteorJSON    = cm.templateJSON(defaultPorts, false)
+		wordpressJSON = cm.templateJSON(defaultPorts, false)
 		laravelJSON   = cm.templateJSON(defaultPorts, false)
 		meanJSON      = cm.templateJSON(defaultPorts, false)
 		aspnetJSON    = cm.templateJSON(defaultPorts, false)
+		gcloudJSON    = cm.templateJSON(defaultPorts, false)
 
 		html5JSON  = cm.templateJSON(defaultPorts, false)
 		rubyJSON   = cm.templateJSON(defaultPorts, false)
@@ -245,9 +247,11 @@ func templates(d db.QueryReceiver) error {
 		newTemplate("PHP (LAMP)", "php-apache", "quay.io/nitrous/php-apache:latest", phpApacheJSON, template.TypeStack, phpApacheDesc),
 		newTemplate("PHP (LEMP)", "php-nginx", "quay.io/nitrous/php-nginx:latest", phpNginxJSON, template.TypeStack, phpNginxDesc),
 		newTemplate("Meteor", "meteor", "quay.io/nitrous/meteor:latest", meteorJSON, template.TypeStack, meteorDesc),
+		newTemplate("Wordpress", "wordpress", "quay.io/nitrous/wordpress:latest", wordpressJSON, template.TypeStack, wordpressDesc),
 		newTemplate("Laravel", "laravel", "quay.io/nitrous/laravel:latest", laravelJSON, template.TypeStack, laravelDesc),
 		newTemplate("MEAN", "mean", "quay.io/nitrous/mean:latest", meanJSON, template.TypeStack, meanDesc),
 		newTemplate("ASP.NET", "aspnet", "quay.io/nitrous/aspnet:latest", aspnetJSON, template.TypeStack, aspnetDesc),
+		newTemplate("Google Cloud SDK", "gcloud", "quay.io/nitrous/gcloud:latest", gcloudJSON, template.TypeStack, gcloudDesc),
 		// basic templates
 		newTemplate("HTML5", "html5", "quay.io/nitrous/nginx:latest", html5JSON, template.TypeBasic, html5Desc),
 		newTemplate("Ruby", "ruby", "quay.io/nitrous/ruby:latest", rubyJSON, template.TypeBasic, rubyDesc),
@@ -354,7 +358,7 @@ const (
 
 	iojsDesc = `io.js: a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications
 
-•  io.js 1.1
+•  io.js 1.2
 •  NPM 2.3
 •  NVM 0.23
 •  Ubuntu 14.04`
@@ -384,11 +388,33 @@ const (
 •  PostgreSQL 9.3
 •  Ubuntu 14.04`
 
-	laravelDesc = `Laravel, the PHP framework for web artisans
+	wordpressDesc = `Wordpress: a free and open-source blogging tool and a content management system
+
+•  Wordpress 4.1
+•  PHP 5.5
+•  Composer 1.0
+•  MySQL 5.5
+•  Apache 2.4
+•  Ubuntu 14.04`
+
+	gcloudDesc = `Google Cloud SDK: tools and libraries that enable you to easily create and manage resources on Google Cloud Platform
+
+•  App Engine SDK for Go
+•  App Engine SDK for Java
+•  App Engine SDK for Python and PHP
+•  Big Query Command Line Tool
+•  Cloud DNS Admin Command Line Interface
+•  Cloud SQL Admin Command Line Interface
+•  Cloud Storage Command Line Tool
+•  Compute Engine Command Line Tool
+•  Ubuntu 14.04`
+
+	laravelDesc = `Laravel: a free, open source PHP web application framework
 
 •  Laravel 4.2
 •  PHP 5.5
-•  PostgreSQL 9.3
+•  Composer 1.0
+•  MySQL 5.5
 •  Ubuntu 14.04`
 
 	meanDesc = `MEAN: an opinionated full-stack JavaScript framework
