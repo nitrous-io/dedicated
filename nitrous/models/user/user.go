@@ -301,6 +301,9 @@ func (u *User) HasFailedPayments(d db.QueryReceiver) (bool, error) {
 }
 
 func (u *User) CanLogin() bool {
+	if u.ServiceAccount {
+		return true
+	}
 	if u.ConfirmedAt.Valid {
 		return true
 	}
