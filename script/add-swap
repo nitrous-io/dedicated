@@ -14,7 +14,7 @@ if [[ ! -f /swapfile ]] && [[ $(grep -cE "swapfile" /proc/swaps) -eq 0 ]]; then
         mkswap $SWAPFILE
         swapon $SWAPFILE
 else
-       die "Error: There's seems to be a swap file for this host." 
+       die "Error: This host already has a swapfile."
 fi
 
 # and append fstab line to current fstab only if it doesn't exist
