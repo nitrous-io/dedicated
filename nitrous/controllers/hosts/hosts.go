@@ -95,7 +95,7 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 	if cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID); err == nil {
 		if ver, err = cl.HostVersions(); err == nil {
-			h.UpgradeAvailable = (ver.FreighterdVersion != h.FreighterdVersion)
+			h.UpgradeAvailable = (h.FreighterdVersion != "" && ver.FreighterdVersion != h.FreighterdVersion)
 			if env.User.Admin {
 				h.LiveDockerVersion = ver.DockerVersion
 				h.LiveFreighterdVersion = ver.FreighterdVersion

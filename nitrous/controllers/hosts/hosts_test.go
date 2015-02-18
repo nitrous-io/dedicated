@@ -264,6 +264,22 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Host.UpgradeAvailable).To(BeTrue())
 		})
 
+		It("responds with upgrade_available: false if required freighterd version is empty", func() {
+			hs.H.FreighterdVersion = ""
+			err := hs.H.Update(db)
+			Expect(err).To(BeNil())
+
+			doRequest(hs.H.Slug, t.Token)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.UpgradeAvailable).To(BeFalse())
+		})
+
 		It("responds with host info even when called with the host ID", func() {
 			doRequest(strconv.FormatInt(hs.H.ID, 10), t.Token)
 			Expect(res.Code).To(Equal(http.StatusOK))
