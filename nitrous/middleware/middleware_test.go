@@ -90,20 +90,19 @@ var _ = Describe("middleware", func() {
 		})
 
 		itWorks := func() {
-			Context("when a valid oauth token is given", func() {
-				BeforeEach(func() {
-					doRequest("foobar")
-				})
-
+			Context("when a valid OAuth token is given", func() {
 				It("sets the User in the environment", func() {
+					doRequest("foobar")
 					Expect(env.User).To(Equal(u))
 				})
 
 				It("Responds with 200 OK", func() {
+					doRequest("foobar")
 					Expect(res.Code).To(Equal(http.StatusOK))
 				})
 
 				It("updates the token's last_seen_at", func() {
+					doRequest("foobar")
 					now := time.Now()
 					t2, err := token.FindByToken(db, "foobar")
 					Expect(err).To(BeNil())
@@ -113,12 +112,10 @@ var _ = Describe("middleware", func() {
 				})
 			})
 
-			Context("when an invalid oauth token is given", func() {
-				BeforeEach(func() {
-					doRequest("invalidtoken")
-				})
-
+			Context("when an invalid OAuth token is given", func() {
 				It("responds with 401 Unauthorized", func() {
+					doRequest("invalidtoken")
+
 					Expect(res.Code).To(Equal(http.StatusUnauthorized))
 					Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="invalid_token"`))
 					j := map[string]interface{}{}
@@ -129,14 +126,15 @@ var _ = Describe("middleware", func() {
 				})
 			})
 
-			Context("when an token has not been used for a while", func() {
+			Context("when a token has not been used for a while", func() {
 				BeforeEach(func() {
 					_, err := db.Exec(`UPDATE tokens SET last_seen_at = now() - interval '14 days' WHERE token = 'foobar';`)
 					Expect(err).To(BeNil())
-					doRequest("foobar")
 				})
 
 				It("responds with 401 Unauthorized", func() {
+					doRequest("foobar")
+
 					Expect(res.Code).To(Equal(http.StatusUnauthorized))
 					Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="invalid_token"`))
 					j := map[string]interface{}{}
@@ -147,12 +145,10 @@ var _ = Describe("middleware", func() {
 				})
 			})
 
-			Context("when no oauth token is given", func() {
-				BeforeEach(func() {
-					doRequest("")
-				})
-
+			Context("when no OAuth token is given", func() {
 				It("responds with 400 Bad Request", func() {
+					doRequest("")
+
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
 					Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="invalid_request"`))
 					j := map[string]interface{}{}
@@ -163,14 +159,15 @@ var _ = Describe("middleware", func() {
 				})
 			})
 
-			Context("when the ouath token's owner has lapsed confirmation", func() {
+			Context("when the OAuth token's owner has lapsed confirmation", func() {
 				BeforeEach(func() {
 					_, err := db.Exec(`UPDATE users SET created_at = now() - interval '26 hours' WHERE id = $1;`, u.ID)
 					Expect(err).To(BeNil())
-					doRequest("foobar")
 				})
 
 				It("responds with 400 Bad Request", func() {
+					doRequest("foobar")
+
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
 					Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="confirmation_lapsed"`))
 					j := map[string]interface{}{}
@@ -178,6 +175,37 @@ var _ = Describe("middleware", func() {
 					Expect(err).To(BeNil())
 					Expect(j["error"]).To(Equal("confirmation_lapsed"))
 					Expect(j["error_description"]).To(Equal("confirmation token has lapsed"))
+				})
+			})
+
+			Context("when the user is a service account", func() {
+				BeforeEach(func() {
+					u := &user.User{
+						Username: "host-provisioner",
+						Password: "123456",
+						Email:    "hp@example.com",
+					}
+					err := WrapInTransaction(db, u.Insert)
+					Expect(err).To(BeNil())
+					_, err = db.Exec(`UPDATE users SET service_account = true WHERE id = $1;`, u.ID)
+					Expect(err).To(BeNil())
+
+					// Make sure the account has "lapsed confirmation".
+					_, err = db.Exec(`UPDATE users SET created_at = now() - interval '26 hours' WHERE id = $1;`, u.ID)
+					Expect(err).To(BeNil())
+
+					t := &token.Token{
+						UserID: u.ID,
+						Token:  "provisioner-token",
+					}
+					err = t.Insert(db)
+					Expect(err).To(BeNil())
+				})
+
+				It("responds with 200 OK", func() {
+					doRequest("provisioner-token")
+
+					Expect(res.Code).To(Equal(http.StatusOK))
 				})
 			})
 		}
