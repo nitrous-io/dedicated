@@ -90,7 +90,9 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       ).then(=>
         App.snackbar.post 'Applying new configuration...'
         @set 'closeApplyDialog', true
-      , (jqxhr) ->
+      , (jqxhr) =>
+        @set 'state', prevState
+        @set 'closeApplyDialog', true
         container.set 'underReconfig', false
         App.postError(jqxhr.responseJSON, "Failed to apply new configuration!")
       )
