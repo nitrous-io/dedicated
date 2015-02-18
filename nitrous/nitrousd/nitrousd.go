@@ -53,6 +53,7 @@ func init() {
 
 	envvars.CheckSendgridVariables()
 	envvars.CheckHostnames()
+	envvars.CheckGitHubOAuth()
 
 	stripe.Key = envvars.StripeSecretKey
 	if stripe.Key == "" {

@@ -131,9 +131,9 @@ func CheckHostnames() {
 
 func CheckGitHubOAuth() {
 	if GitHubOAuthClientID == "" {
-		log.Fatalf("GITHUB_CLIENT_ID not set")
+		log.Println("Warning: GITHUB_CLIENT_ID not set")
 	}
 	if GitHubOAuthClientSecret == "" {
-		log.Fatalf("GITHUB_CLIENT_SECRET not set")
+		log.Println("Warning: GITHUB_CLIENT_SECRET not set")
 	}
 }
