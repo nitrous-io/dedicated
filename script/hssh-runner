@@ -7,7 +7,6 @@ SCRIPT=${2:?"Second argument is the script to be run in the remote host."}
 : ${AES_KEY?"Please set AES_KEY enviroment variable"}
 : ${NITROUS_PG_URL?"Please set NITROUS_PG_URL enviroment variable"}
 
-TIMESTAMP=$(date +%Y%m%d%H%M%S)
 SCRIPTBASE=`basename $SCRIPT`
 REMOTESCRIPT=/tmp/$SCRIPTBASE
 RUN_LOG=/tmp/hssh-run.$SCRIPTBASE.log
@@ -29,7 +28,7 @@ check_file $SCRIPT
 [[ -f ${RUN_LOG} ]] || touch ${RUN_LOG}
 
 for HOST in `cat $HOSTSFILE`; do
-  echo "## ${TIMESTAMP} ## ${HOST} ##" | tee -a ${RUN_LOG}
-  ./build/hssh upload ${HOST} $SCRIPT:$REMOTESCRIPT | tee -a ${RUN_LOG}
-  ./build/hssh run ${HOST} "chmod 755 $REMOTESCRIPT && bash -c $REMOTESCRIPT" | tee -a ${RUN_LOG}
+  echo "## ${HOST} ##" | tee -a ${RUN_LOG}
+  ./build/hssh upload ${HOST} $SCRIPT:$REMOTESCRIPT 2>&1 | tee -a ${RUN_LOG}
+  ./build/hssh run ${HOST} "chmod 755 $REMOTESCRIPT && bash -c $REMOTESCRIPT" 2>&1 | tee -a ${RUN_LOG}
 done
