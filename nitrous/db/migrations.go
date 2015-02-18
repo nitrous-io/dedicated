@@ -827,5 +827,12 @@ func init() {
 				ALTER TABLE invoices ADD COLUMN available_credit bigint DEFAULT NULL;
 			`,
 		},
+		{
+			Version: "760",
+			Up: `
+				ALTER TABLE user_profiles ADD COLUMN github_user_name character varying(255) DEFAULT NULL;
+				ALTER TABLE user_profiles ADD COLUMN github_oauth_token_json character varying(255) DEFAULT NULL;
+			`,
+		},
 	}
 }

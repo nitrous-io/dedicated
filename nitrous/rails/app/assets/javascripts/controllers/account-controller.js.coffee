@@ -1,4 +1,7 @@
 App.AccountController = Em.ObjectController.extend
+  queryParams: ['errmsg']
+  errmsg: null
+
   updatingSettings: false
   updatingDetails: false
 
@@ -26,6 +29,20 @@ App.AccountController = Em.ObjectController.extend
       unconfirmedEmail: App.get('user.unconfirmedEmail')
       password: null
       confirmPassword: null
+    msg = @get('errmsg')
+    if msg
+      Em.run.later(=>
+        Em.run.scheduleOnce 'afterRender', =>
+          App.postError "#{msg}"
+          @set 'errmsg', null
+      , 100)
+
+  noclick: ->
+    false
+
+  githubAuthorize: ->
+    userProfile = App.get 'userProfile'
+    userProfile.githubAuthorize()
 
   actions:
     updateSettings: ->

@@ -1,6 +1,7 @@
 package userprofile
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -12,6 +13,9 @@ type UserProfile struct {
 	UserID   int64 `db:"user_id"`
 	MaxHosts int64 `db:"max_hosts"`
 	Advanced bool  `db:"advanced"`
+
+	GitHubUserName       sql.NullString `db:"github_user_name"`
+	GitHubOAuthTokenJson sql.NullString `db:"github_oauth_token_json"`
 
 	ActivationEmailSentAt        *time.Time `db:"activation_email_sent_at"`
 	StarterCreditEmailSendCount  int        `db:"starter_credit_email_send_count"`
@@ -33,6 +37,16 @@ func Find(d db.QueryReceiver, userID int64) (*UserProfile, error) {
 		return nil, err
 	}
 	return p, nil
+}
+
+func (p *UserProfile) UpdateGithubInfo(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE user_profiles
+		SET (github_user_name, github_oauth_token_json) = (:github_user_name, :github_oauth_token_json)
+		WHERE id = :id RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(p).StructScan(p)
 }
 
 func (p *UserProfile) Update(d db.QueryReceiver) error {

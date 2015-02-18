@@ -1,11 +1,13 @@
 App.IdeTabViewMixin = Em.Mixin.create
-  didClickTab: (tab) ->
-    @get('controller').makeTabActive tab
+  actions:
+    didClickTab: (tab) ->
+      @get('controller').makeTabActive tab
+      false
 
-  didClickClose: (tab) ->
-    controller = @get 'controller'
-    @get('controller').removeTab tab
+    didClickClose: (tab) ->
+      @get('controller').removeTab tab
+      false
 
-  didClickNew: ->
-    @get('controller').createTab()
-
+    didClickNew: ->
+      @get('controller').createTab()
+      false
