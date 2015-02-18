@@ -86,18 +86,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			return res
 		}
 
-		It("should return an error when credit card token is not provided", func() {
-			p := &url.Values{}
-			p.Set("card_token", "")
-			res := doRequest(p)
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
-
-			errType, errDesc := ErrorSlug(res.Body)
-			Expect(errType).To(Equal("card_token_required"))
-			Expect(errDesc).To(Equal("credit card token can't be blank"))
-		})
-
-		It("should return the created billing profile when valid token is provided", func() {
+		ItReturnsTheCreatedBillingProfile := func() {
 			fakeStripe.Responses = []string{StripeCustomerResponse}
 
 			p := &url.Values{}
@@ -116,6 +105,26 @@ var _ = Describe("controllers/billingprofiles", func() {
 			Expect(j.BillingProfile.ExpYear).To(Equal(int64(2018)))
 			Expect(j.BillingProfile.CardType).To(Equal("Visa"))
 			Expect(j.BillingProfile.LastFour).To(Equal("4242"))
+		}
+
+		It("should return an error when credit card token is not provided", func() {
+			p := &url.Values{}
+			p.Set("card_token", "")
+			res := doRequest(p)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("card_token_required"))
+			Expect(errDesc).To(Equal("credit card token can't be blank"))
+		})
+
+		It("should return the created billing profile when valid token is provided", func() {
+			ItReturnsTheCreatedBillingProfile()
+		})
+
+		It("should return the created billing profile even if the an invoice is outstanding", func() {
+			MarkDelinquentUser(db, u)
+			ItReturnsTheCreatedBillingProfile()
 		})
 
 		It("should return a card declined error when user's card is declined", func() {
@@ -395,7 +404,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(errDesc).To(Equal("Your Zip code is incorrect. Please try again."))
 			})
 
-			It("should return the created billing profile when valid token is provided", func() {
+			ItReturnsTheCreatedBillingProfile := func() {
 				fakeStripe.Responses = []string{StripeCustomerResponse}
 
 				p := &url.Values{}
@@ -414,6 +423,15 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(j.BillingProfile.ExpYear).To(Equal(int64(2018)))
 				Expect(j.BillingProfile.CardType).To(Equal("Visa"))
 				Expect(j.BillingProfile.LastFour).To(Equal("4242"))
+			}
+
+			It("should return the created billing profile when valid token is provided", func() {
+				ItReturnsTheCreatedBillingProfile()
+			})
+
+			It("should return the created billing profile even if the an invoice is outstanding", func() {
+				MarkDelinquentUser(db, u)
+				ItReturnsTheCreatedBillingProfile()
 			})
 		})
 	})

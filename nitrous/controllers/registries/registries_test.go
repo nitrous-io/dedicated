@@ -134,6 +134,12 @@ var _ = Describe("controllers/registries", func() {
 			handler.ServeHTTP(res, req)
 		}
 
+		It("should allow the user even if it has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest(overrides{})
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
 		Context("when user has logged-in to registries", func() {
 			BeforeEach(func() {
 				r1 := &registry.Registry{
@@ -236,6 +242,12 @@ var _ = Describe("controllers/registries", func() {
 				req.Header.Set("Authorization", "Bearer valid-token")
 				handler.ServeHTTP(res, req)
 			}
+
+			It("should block if the user has billing issues", func() {
+				MarkDelinquentUser(db, u)
+				doRequest(overrides{"username": ""})
+				VerifyDelinquentUserResponse(res)
+			})
 
 			Context("with a valid host available for user", func() {
 				Context("when username is not provided", func() {
@@ -440,6 +452,12 @@ var _ = Describe("controllers/registries", func() {
 				}
 				err := r.Insert(db)
 				Expect(err).To(BeNil())
+			})
+
+			It("should block if the user has billing issues", func() {
+				MarkDelinquentUser(db, u)
+				doRequest(overrides{"registry": r.URL})
+				VerifyDelinquentUserResponse(res)
 			})
 
 			Context("when registry is given as a URL", func() {

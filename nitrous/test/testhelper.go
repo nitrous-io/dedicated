@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"os/user"
@@ -20,12 +21,15 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
+	nuser "github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
+	. "github.com/onsi/gomega"
 	bc "golang.org/x/crypto/bcrypt"
 )
 
@@ -241,6 +245,18 @@ func NewTestServer(root string, db *db.Database, l *logger.Logger, t analytics.T
 	svr.Tracker = t
 
 	return svr
+}
+
+func MarkDelinquentUser(db *db.Database, u *nuser.User) {
+	_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, billingprofile.StateDelinquent, u.ID)
+	Expect(err).To(BeNil())
+}
+
+func VerifyDelinquentUserResponse(res *httptest.ResponseRecorder) {
+	Expect(res.Code).To(Equal(http.StatusBadRequest))
+	err, errSlug := ErrorSlug(res.Body)
+	Expect(err).To(Equal("outstanding_invoices"))
+	Expect(errSlug).To(Equal("you have outstanding invoices, please check your billing settings"))
 }
 
 // FakeRoundTripper implements a fake Transport layer that records the executed
