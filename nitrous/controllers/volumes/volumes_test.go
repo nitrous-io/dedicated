@@ -120,6 +120,12 @@ var _ = Describe("controllers/volumes", func() {
 			j = &vols{}
 		})
 
+		It("should allow the user even if it has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
 		Context("host has volumes", func() {
 			BeforeEach(func() {
 				makeVolumes("shared", "music", "db")
@@ -202,6 +208,12 @@ var _ = Describe("controllers/volumes", func() {
 			volumes.CreateVolumeFn = previousCreateVolumeFn
 		})
 
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest("sluge2")
+			VerifyDeliquentUserResponse(res)
+		})
+
 		It("send down the options", func() {
 			createVolumeResult = &serializers.Volume{
 				Name: "v1",
@@ -229,6 +241,12 @@ var _ = Describe("controllers/volumes", func() {
 			v, err := volume.Find(db, hs.H.ID, "deprecated")
 			Expect(err).To(BeNil())
 			Expect(v).NotTo(BeNil())
+		})
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest("deprecated")
+			VerifyDeliquentUserResponse(res)
 		})
 
 		Context("successful destroy", func() {
@@ -318,6 +336,12 @@ var _ = Describe("controllers/volumes", func() {
 			svr.Router().ServeHTTP(res, req)
 		}
 
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest("music")
+			VerifyDeliquentUserResponse(res)
+		})
+
 		Context("when volume exist", func() {
 			It("returns volume in JSON", func() {
 				v := volume.Volume{HostID: hs.H.ID, Slug: "music", Name: "my music volume"}
@@ -359,6 +383,12 @@ var _ = Describe("controllers/volumes", func() {
 			v, err := volume.Find(db, hs.H.ID, "music")
 			Expect(err).To(BeNil())
 			Expect(v).NotTo(BeNil())
+		})
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest("music")
+			VerifyDeliquentUserResponse(res)
 		})
 
 		Context("successful get", func() {

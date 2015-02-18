@@ -59,6 +59,7 @@ func (s *Server) drawRouteData(method string, auth bool, routes map[string]route
 			final = mw.Track(r.track, final)
 		}
 		if auth {
+			final = mw.VerifyUserBilling(r.label, final)
 			final = mw.Auth(final)
 		}
 		s.routeJSON(path, final, method)

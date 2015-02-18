@@ -128,6 +128,12 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		return res
 	}
 
+	It("should block if the user has billing issues", func() {
+		MarkDelinquentUser(db, u)
+		res = doRequest(params)
+		VerifyDeliquentUserResponse(res)
+	})
+
 	// tests for required params
 	for _, param := range []string{"size", "region", "name"} {
 		p := param

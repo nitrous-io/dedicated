@@ -326,6 +326,14 @@ var _ = Describe("controllers/users", func() {
 			handler.ServeHTTP(res, req)
 		}
 
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			params := &url.Values{}
+			params.Set("name", "Something")
+			doRequest(params)
+			VerifyDeliquentUserResponse(res)
+		})
+
 		Context("when valid fields are given", func() {
 			BeforeEach(func() {
 				params := &url.Values{}
@@ -514,14 +522,18 @@ var _ = Describe("controllers/users", func() {
 		}
 
 		Context("when a valid oauth token is given", func() {
-			It("responds with the authenticated user's details", func() {
-				doRequest("foobarbazqux")
 
+			var (
+				userinfo map[string]interface{}
+			)
+
+			ItReturnsUserDetails := func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
-				userinfo, ok := j["user"].(map[string]interface{})
+				var ok bool
+				userinfo, ok = j["user"].(map[string]interface{})
 				Expect(ok).To(BeTrue())
 				Expect(userinfo).NotTo(BeNil())
 				Expect(userinfo["username"]).To(Equal("tokenuser"))
@@ -534,7 +546,17 @@ var _ = Describe("controllers/users", func() {
 				userprofile, ok := userinfo["user_profile"].(map[string]interface{})
 				Expect(ok).To(BeTrue())
 				Expect(userprofile["advanced"]).NotTo(BeTrue())
+			}
 
+			It("should respond even if the user has billing issues", func() {
+				MarkDelinquentUser(db, u)
+				doRequest("foobarbazqux")
+				ItReturnsUserDetails()
+			})
+
+			It("responds with the authenticated user's details", func() {
+				doRequest("foobarbazqux")
+				ItReturnsUserDetails()
 				billingprofile, ok := userinfo["billing_profile"].(map[string]interface{})
 				Expect(ok).To(BeTrue())
 				Expect(billingprofile["state"]).To(Equal("free"))
