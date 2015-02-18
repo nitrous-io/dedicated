@@ -15,7 +15,8 @@ type BillingProfile struct {
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
 
-	CardRequired bool `json:"card_required"`
+	CardRequired     bool `json:"card_required"`
+	HasBillingIssues bool `json:"has_billing_issues"`
 }
 
 func SerializeBillingProfile(b *billingprofile.BillingProfile) *BillingProfile {
@@ -23,13 +24,14 @@ func SerializeBillingProfile(b *billingprofile.BillingProfile) *BillingProfile {
 		return nil
 	}
 	return &BillingProfile{
-		LastFour:     b.LastFour.String,
-		CardType:     b.CardType.String,
-		ExpMonth:     b.ExpMonth.Int64,
-		ExpYear:      b.ExpYear.Int64,
-		State:        b.State,
-		CreatedAt:    b.CreatedAt,
-		UpdatedAt:    b.UpdatedAt,
-		CardRequired: b.IsCardRequired(),
+		LastFour:         b.LastFour.String,
+		CardType:         b.CardType.String,
+		ExpMonth:         b.ExpMonth.Int64,
+		ExpYear:          b.ExpYear.Int64,
+		State:            b.State,
+		CreatedAt:        b.CreatedAt,
+		UpdatedAt:        b.UpdatedAt,
+		CardRequired:     b.IsCardRequired(),
+		HasBillingIssues: b.HasBillingIssues(),
 	}
 }

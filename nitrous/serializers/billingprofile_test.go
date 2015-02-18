@@ -42,7 +42,8 @@ var _ = Describe("billingprofile serializer", func() {
 				"state": "free",
 				"created_at": "2014-11-01T00:00:00Z",
 				"updated_at": "2014-11-01T00:00:00Z",
-				"card_required": true
+				"card_required": true,
+				"has_billing_issues": false
 			}`))
 		})
 	})

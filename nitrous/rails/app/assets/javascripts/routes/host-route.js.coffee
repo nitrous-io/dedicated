@@ -10,7 +10,7 @@ App.HostRoute = App.AuthedRoute.extend
         Em.run.next ->
           App.snackbar.post("Workspace “#{params.hostSlug}” could not be found.")
           App.get('hosts')?.reload()
-      App.postError jqxhr.responseJSON?
+      App.postError jqxhr.responseJSON
     host
 
   renderTemplate: ->

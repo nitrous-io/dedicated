@@ -3,8 +3,11 @@ App.AuthedRoute = Em.Route.extend
     @_super.apply this, arguments
     if App.get('token')
       if !App.get('user')
-        App.User.fetch().then (user) ->
+        App.User.fetch().then (user) =>
           App.trigger 'fetchUser', user
+          safeRoute = transition.targetName.indexOf("billing.") != -1 || transition.targetName.indexOf("add-card") != -1
+          if !safeRoute && user.get("_billingProfile.has_billing_issues")
+            @transitionTo 'billing'
         # FIXME ADMINONLY failure handler below
         , (jqxhr) =>
           if jqxhr?.responseJSON?.error == 'beta_closed'

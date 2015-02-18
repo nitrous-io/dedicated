@@ -27,6 +27,10 @@ App.BillingProfile = klass = App.Model.extend
     @get('state') != 'free' && @get('lastFour').length > 0
   ).property 'state', 'lastFour'
 
+  requiresAttention: (->
+    @get('state') == 'payment_due' || @get('state') == 'delinquent'
+  ).property 'state'
+
   # override the default save method
   save: (params, options) ->
     adapter = Ember.get(@constructor, 'adapter')
