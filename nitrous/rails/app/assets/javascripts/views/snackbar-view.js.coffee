@@ -13,5 +13,5 @@ App.SnackbarView = Em.View.extend
   ).observes 'items.length'
 
   actions:
-    didClickClose: (item) ->
+    didClick: (item) ->
       App.get('snackbar').fadeOutItem(item, 100)
