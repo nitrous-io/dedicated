@@ -220,6 +220,7 @@ func templates(d db.QueryReceiver) error {
 		phpNginxJSON  = cm.templateJSON(defaultPorts, false)
 		meteorJSON    = cm.templateJSON(defaultPorts, false)
 		wordpressJSON = cm.templateJSON(defaultPorts, false)
+		discourseJSON = cm.templateJSON(defaultPorts, false)
 		laravelJSON   = cm.templateJSON(defaultPorts, false)
 		meanJSON      = cm.templateJSON(defaultPorts, false)
 		aspnetJSON    = cm.templateJSON(defaultPorts, false)
@@ -248,6 +249,7 @@ func templates(d db.QueryReceiver) error {
 		newTemplate("PHP (LEMP)", "php-nginx", "quay.io/nitrous/php-nginx:latest", phpNginxJSON, template.TypeStack, phpNginxDesc),
 		newTemplate("Meteor", "meteor", "quay.io/nitrous/meteor:latest", meteorJSON, template.TypeStack, meteorDesc),
 		newTemplate("Wordpress", "wordpress", "quay.io/nitrous/wordpress:latest", wordpressJSON, template.TypeStack, wordpressDesc),
+		newTemplate("Discourse", "discourse", "quay.io/nitrous/discourse:latest", discourseJSON, template.TypeStack, discourseDesc),
 		newTemplate("Laravel", "laravel", "quay.io/nitrous/laravel:latest", laravelJSON, template.TypeStack, laravelDesc),
 		newTemplate("MEAN", "mean", "quay.io/nitrous/mean:latest", meanJSON, template.TypeStack, meanDesc),
 		newTemplate("ASP.NET", "aspnet", "quay.io/nitrous/aspnet:latest", aspnetJSON, template.TypeStack, aspnetDesc),
@@ -397,6 +399,15 @@ const (
 •  Apache 2.4
 •  Ubuntu 14.04`
 
+	discourseDesc = `Discourse: an open source Internet forum software application
+
+•  Discourse 1.1.3
+•  Ruby 2.1.5
+•  PostgreSQL 9.3
+•  Redis 2.8
+•  PhantomJS 1.9
+•  Ubuntu 14.04`
+
 	gcloudDesc = `Google Cloud SDK: tools and libraries that enable you to easily create and manage resources on Google Cloud Platform
 
 •  App Engine SDK for Go
@@ -415,6 +426,7 @@ const (
 •  PHP 5.5
 •  Composer 1.0
 •  MySQL 5.5
+•  Redis 2.8
 •  Ubuntu 14.04`
 
 	meanDesc = `MEAN: an opinionated full-stack JavaScript framework
