@@ -138,8 +138,11 @@ var _ = Describe("controllers/stripehooks", func() {
 			Expect(succeedFnCalled).To(BeFalse())
 		})
 
-		It("should handle the payment as succeeded if invoice.payment_succeeded", func() {
-			fakeStripe.Responses = []string{`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_succeeded", "data": {"object": {"id": "Xcccs"}}}`}
+		It("should handle the payment as succeeded if invoice is paid", func() {
+			fakeStripe.Responses = []string{
+				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_succeeded", "data": {"object": {"id": "Xcccs"}}}`,
+				`{"object": "invoice", "id": "Sv", "paid": true}`,
+			}
 
 			succeedFnCalled = false
 			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
@@ -152,8 +155,11 @@ var _ = Describe("controllers/stripehooks", func() {
 			Expect(receivedSucceedInvoice).To(Equal(inv))
 		})
 
-		It("should handle the payment as failed if invoice.payment_failed", func() {
-			fakeStripe.Responses = []string{`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": 123455}}}`}
+		It("should handle the payment as failed if invoice is not paid", func() {
+			fakeStripe.Responses = []string{
+				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": 123455}}}`,
+				`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": 192075622}`,
+			}
 
 			failedFnCalled = false
 			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)
@@ -168,8 +174,11 @@ var _ = Describe("controllers/stripehooks", func() {
 			Expect(receivedFailedMoreAttempts).To(BeTrue())
 		})
 
-		It("should handle the payment next_payment_attempt being null with a invoice.payment_failed", func() {
-			fakeStripe.Responses = []string{`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": null}}}`}
+		It("should handle the NextAttempt being greater than 0", func() {
+			fakeStripe.Responses = []string{
+				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": null}}}`,
+				`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": null}`,
+			}
 
 			failedFnCalled = false
 			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)

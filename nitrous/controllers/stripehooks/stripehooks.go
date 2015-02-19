@@ -7,6 +7,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/stripe/stripe-go/event"
+	stripeinvoice "github.com/stripe/stripe-go/invoice"
 )
 
 type IncomingStripeWebHook struct {
@@ -65,16 +66,17 @@ func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) {
 		return
 	}
 
-	if evt.Type == "invoice.payment_succeeded" {
+	// webhook data is found to be outdated, query the invoice for *live* info
+	strInv, err := stripeinvoice.Get(stripeID, nil)
+	if err != nil {
+		env.Logger.Errorf("Error requesting Stripe for invoice %s, err: %+v", stripeID, err)
+		return
+	}
+
+	if strInv.Paid {
 		HandlePaymentSucceededFn(env, inv)
 	} else {
-		att, ok := e.Data.Obj["attempt_count"].(float64)
-		if !ok {
-			env.Logger.Errorf("Stripe failed to provide attempt_count: %+v", e.Data.Obj)
-			return
-		}
-		nxt_attempt, ok := e.Data.Obj["next_payment_attempt"].(float64)
-		HandlePaymentFailedFn(env, inv, int(att), ok && nxt_attempt >= 0)
+		HandlePaymentFailedFn(env, inv, int(strInv.Attempts), strInv.NextAttempt > 0)
 	}
 }
 
