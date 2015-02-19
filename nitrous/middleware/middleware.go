@@ -47,6 +47,7 @@ var (
 		"registries.Index":           1,
 		"billing.Invoices":           1,
 		"billing.CurrentUsage":       1,
+		"billing.PayInvoice":         1,
 		"billingprofiles.Activate":   1,
 		"billingprofiles.Update":     1,
 		"tokens.Logout":              1,

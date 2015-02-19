@@ -22,6 +22,7 @@ const (
 	HOST_CREATE_LOCK = iota + 1
 	CONTAINER_CREATE_LOCK
 	INVOICE_USER_LOCK
+	INVOICE_USER_PAY_LOCK
 )
 
 func NewDatabase(conn string) (*Database, error) {

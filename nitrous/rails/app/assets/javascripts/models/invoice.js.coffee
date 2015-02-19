@@ -43,6 +43,17 @@ App.Invoice = klass = App.Model.extend
     .sortBy('ranking', 'id').reverse()
   ).property '_items'
 
+  pay: ->
+    new Em.RSVP.Promise (resolve, reject) =>
+      Em.$.ajax(
+        type: 'POST',
+        url: "/api/v0/invoices/#{@get 'id'}/pay",
+        headers: { Authorization: "Bearer #{App.get 'token'}" },
+      ).done((retData, status, jqxhr) =>
+        resolve(retData)
+      ).fail (jqxhr) ->
+        reject(jqxhr)
+
 klass.reopenClass
   url: '/billing/invoices'
   primaryKey: 'id'

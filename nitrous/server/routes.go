@@ -153,6 +153,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys":                  r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
 				"/containers/{slug}/container_keys/github": r("containerkeys.AddToGitHub", containerkeys.AddToGitHub, EventContainerKeyAddedToGitHub),
 				"/feedback":                                r("feedback.Send", feedback.Send),
+				"/invoices/{id}/pay":                   r("billing.PayInvoice", billing.PayInvoice),
 				"/admin/switch_user":                       r("admin.SwitchUser", admin.SwitchUser),
 				"/admin/provider_templates/{ptid}":         r("providertemplates.Update", providertemplates.Update),
 			},
