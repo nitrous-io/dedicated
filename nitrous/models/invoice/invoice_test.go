@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
@@ -269,6 +271,7 @@ var _ = Describe("models/invoice", func() {
 				TotalCharge:      900,
 				SuccessfulCharge: false,
 				Attempts:         23,
+				Deferred:         true,
 				CoveredBy:        sql.NullInt64{i.ID, true},
 			}
 			err := other.Insert(db)
@@ -281,6 +284,65 @@ var _ = Describe("models/invoice", func() {
 			err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", other.ID).StructScan(other2)
 			Expect(err).To(BeNil())
 			Expect(other2.SuccessfulCharge).To(BeTrue())
+		})
+
+		It("should mark the billingprofile as state Paid if no other unpaid invoices remain", func() {
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StatePaymentDue, u.ID)
+			Expect(err).To(BeNil())
+
+			err = i.PaymentSucceeded(db)
+			Expect(err).To(BeNil())
+
+			b := &billingprofile.BillingProfile{}
+			err = db.QueryRowx("SELECT * FROM billing_profiles WHERE user_id = $1", u.ID).StructScan(b)
+			Expect(err).To(BeNil())
+			Expect(b.State).To(Equal(billingprofile.StatePaid))
+		})
+
+		It("should not mark the billingprofile as state Paid if there are other unpaid invoices remaining", func() {
+			other := &invoice.Invoice{
+				UserID:           u.ID,
+				TotalCharge:      900,
+				SuccessfulCharge: false,
+				Attempts:         23,
+				Deferred:         false,
+			}
+			err := other.Insert(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StatePaymentDue, u.ID)
+			Expect(err).To(BeNil())
+
+			err = i.PaymentSucceeded(db)
+			Expect(err).To(BeNil())
+
+			b := &billingprofile.BillingProfile{}
+			err = db.QueryRowx("SELECT * FROM billing_profiles WHERE user_id = $1", u.ID).StructScan(b)
+			Expect(err).To(BeNil())
+			Expect(b.State).To(Equal(billingprofile.StatePaymentDue))
+		})
+
+		It("should mark the billingprofile as state Paid if other unpaid invoices remain but are deferred", func() {
+			other := &invoice.Invoice{
+				UserID:           u.ID,
+				TotalCharge:      900,
+				SuccessfulCharge: false,
+				Attempts:         23,
+				Deferred:         true,
+			}
+			err := other.Insert(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StatePaymentDue, u.ID)
+			Expect(err).To(BeNil())
+
+			err = i.PaymentSucceeded(db)
+			Expect(err).To(BeNil())
+
+			b := &billingprofile.BillingProfile{}
+			err = db.QueryRowx("SELECT * FROM billing_profiles WHERE user_id = $1", u.ID).StructScan(b)
+			Expect(err).To(BeNil())
+			Expect(b.State).To(Equal(billingprofile.StatePaid))
 		})
 	})
 
@@ -299,7 +361,16 @@ var _ = Describe("models/invoice", func() {
 		})
 
 		It("should pass through the attemptCount", func() {
-			err := i.PaymentFailed(db, 2, true)
+			envvars.WebHostname = "nitrous.example"
+			origMailer := invoice.Mailer
+			fakeMailer := &FakeMailer{}
+			invoice.Mailer = fakeMailer
+			defer func() { invoice.Mailer = origMailer }()
+
+			_, err := db.Exec("UPDATE billing_profiles SET last_four = '1901' WHERE user_id = $1;", u.ID)
+			Expect(err).To(BeNil())
+
+			err = i.PaymentFailed(db, 2, true)
 			Expect(err).To(BeNil())
 
 			i2 := &invoice.Invoice{}
@@ -312,6 +383,27 @@ var _ = Describe("models/invoice", func() {
 			Expect(i2.SuccessfulCharge).To(BeFalse())
 			Expect(i2.Attempts).To(Equal(2))
 			Expect(i2.Failed).To(BeFalse())
+
+			b := &billingprofile.BillingProfile{}
+			err = db.QueryRowx("SELECT * FROM billing_profiles WHERE user_id = $1", u.ID).StructScan(b)
+			Expect(err).To(BeNil())
+			Expect(b.State).To(Equal(billingprofile.StatePaymentDue))
+
+			Expect(fakeMailer.SendMailCalled).To(BeTrue())
+			Expect(fakeMailer.From).To(Equal(`"Nitrous" <support@nitrous.io>`))
+			Expect(fakeMailer.Tos).To(Equal([]string{`"Steve" <foo@example.com>`}))
+			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous" <support@nitrous.io>`))
+			Expect(fakeMailer.Subject).To(Equal("Nitrous payment unsuccessful"))
+			Expect(fakeMailer.Body).To(ContainSubstring("Hello Steve,"))
+			Expect(fakeMailer.Body).To(ContainSubstring("Unfortunately, we have been unable to successfully bill your provided credit card ending in 1901 to the value of $9.00."))
+			Expect(fakeMailer.Body).To(ContainSubstring("We will retry billing your card very shortly, but in the meantime please verify your credit card at https://nitrous.example/app/#/billing."))
+			Expect(fakeMailer.Body).To(ContainSubstring("If we are unable to bill your credit card your workspace will be **terminated soon**."))
+			Expect(fakeMailer.Body).To(ContainSubstring("If you have any questions please email our support team at support@nitrous.io."))
+			Expect(fakeMailer.HTML).To(ContainSubstring("Hello Steve,"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("Unfortunately, we have been unable to successfully bill your provided credit card ending in 1901 to the value of $9.00."))
+			Expect(fakeMailer.HTML).To(ContainSubstring(`We will retry billing your card very shortly, but in the meantime please <a href="https://nitrous.example/app/#/billing">verify your credit card</a>.`))
+			Expect(fakeMailer.HTML).To(ContainSubstring("If we are unable to bill your credit card your workspaces will be <strong>terminated soon</strong>."))
+			Expect(fakeMailer.HTML).To(ContainSubstring(`If you have any questions please email our support team at <a href="mailto:support@nitrous.io">support@nitrous.io</a>.`))
 		})
 
 		It("should not set FirstAttemptAt if it is not nil", func() {
@@ -328,7 +420,8 @@ var _ = Describe("models/invoice", func() {
 			Expect(i2.FirstAttemptAt).ToNot(Equal(i2.LastAttemptAt))
 		})
 
-		It("should set Failed and fire an email if closed out", func() {
+		It("should set Failed, mark the billing profile as payment due and fire an email if closed out", func() {
+			envvars.WebHostname = "nitrous.example"
 			origMailer := invoice.Mailer
 			fakeMailer := &FakeMailer{}
 			invoice.Mailer = fakeMailer
@@ -350,17 +443,24 @@ var _ = Describe("models/invoice", func() {
 			Expect(i2.FirstAttemptAt).ToNot(Equal(i2.LastAttemptAt))
 			Expect(i2.Failed).To(BeTrue())
 
+			b := &billingprofile.BillingProfile{}
+			err = db.QueryRowx("SELECT * FROM billing_profiles WHERE user_id = $1", u.ID).StructScan(b)
+			Expect(err).To(BeNil())
+			Expect(b.State).To(Equal(billingprofile.StateDelinquent))
+
 			Expect(fakeMailer.SendMailCalled).To(BeTrue())
 			Expect(fakeMailer.From).To(Equal(`"Nitrous" <support@nitrous.io>`))
 			Expect(fakeMailer.Tos).To(Equal([]string{`"Steve" <foo@example.com>`}))
 			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous" <support@nitrous.io>`))
-			Expect(fakeMailer.Subject).To(Equal("Nitrous - payment unsuccessful"))
+			Expect(fakeMailer.Subject).To(Equal("Final Notice: Nitrous payment unsuccessful"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Hello Steve,"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Unfortunately, we have been unable to successfully bill your provided credit card ending in 1901 to the value of $9.00."))
-			Expect(fakeMailer.Body).To(ContainSubstring("To rectify this issue please contact our support team at support@nitrous.io."))
+			Expect(fakeMailer.Body).To(ContainSubstring("Your workspaces **will be terminated** very soon, please verify your credit card at https://nitrous.example/app/#/billing to restore service."))
+			Expect(fakeMailer.Body).To(ContainSubstring("If you have any questions please email our support team at support@nitrous.io."))
 			Expect(fakeMailer.HTML).To(ContainSubstring("Hello Steve,"))
 			Expect(fakeMailer.HTML).To(ContainSubstring("Unfortunately, we have been unable to successfully bill your provided credit card ending in 1901 to the value of $9.00."))
-			Expect(fakeMailer.HTML).To(ContainSubstring(`To rectify this issue please contact our support team at <a href="mailto:support@nitrous.io">support@nitrous.io</a>.`))
+			Expect(fakeMailer.HTML).To(ContainSubstring(`Your workspaces <strong>will be terminated</strong> very soon, please <a href="https://nitrous.example/app/#/billing">verify your credit card</a> to restore service.`))
+			Expect(fakeMailer.HTML).To(ContainSubstring(`If you have any questions please email our support team at <a href="mailto:support@nitrous.io">support@nitrous.io</a>.`))
 		})
 	})
 
