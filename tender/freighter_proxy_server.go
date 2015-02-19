@@ -93,8 +93,8 @@ func (h *hostCache) Set(slug string, host *Host) {
 
 var hCache = newHostCache()
 
-// proxy the request to respected boxhost. We will switch the proxy strategy
-// depends on the type of the request
+// proxy the request to the right boxhost. We will switch the proxy strategy
+// depending on the type of the request
 // - if this is a normal HTTP, use `http.ReverseProxy`
 // - if the request wants to open a websocket, use `proxyWebsocket`
 func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err error) {
