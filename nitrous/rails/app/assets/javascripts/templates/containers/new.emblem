@@ -245,13 +245,15 @@
                   | Hide Log
                 else
                   | Show Log
-              a.ui.btn.primary href='#' click='showContainer' Show container
-              if startingIDE
-                a.ui.btn.primary.raised.pulsate Starting IDE...
-              else
-                a.ui.btn.primary.raised.pulsate click='openIDE' Open IDE
+              button.ui.btn.primary click='showContainer' Show Container
+              button.ui.btn.primary.raised.pulsate disabled=openingIDE click='openIDE'
+                if openingIDE
+                  i.spinner
+                  | Opening IDE...
+                else
+                  | Open IDE
         else
           .right
-            a.ui.btn href='#' click='goBack target="view"' Back
-            a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
+            button.ui.btn click='goBack target="view"' Back
+            button.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total

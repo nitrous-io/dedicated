@@ -3,11 +3,14 @@ App.ContainerIndexController = Em.ObjectController.extend App.PerformActionMixin
   closeSnapshotDialog: false
   snapshotting: false
 
+  openingIDE: false
+
   clear: ->
     setProperties:
       snapshotImageName: null
       closeSnapshotDialog: false
       snapshotting: false
+      openingIDE: false
 
   actions:
     start: ->
@@ -43,3 +46,7 @@ App.ContainerIndexController = Em.ObjectController.extend App.PerformActionMixin
 
     openAttach: ->
       @transitionToRoute 'container.console', queryParams: { action: 'attach' }
+
+    openIDE: ->
+      @set 'openingIDE', true
+      window.location.href = @get 'model.ideURL'

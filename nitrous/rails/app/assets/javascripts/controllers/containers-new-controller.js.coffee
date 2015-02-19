@@ -12,7 +12,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
   saving: false
   pullingImage: false
   createdContainer: null
-  startingIDE: false
+  openingIDE: false
 
   selectedOption: null
   selectedTemplate: null
@@ -41,7 +41,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       saving: false
       pullingImage: false
       createdContainer: null
-      startingIDE: false
+      openingIDE: false
 
       selectedTemplate: App.get('templates.firstObject')
       selectedOption: null
@@ -128,8 +128,8 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       @transitionToRoute 'container.index', @get 'createdContainer.slug'
 
     openIDE: ->
-      return unless @get 'createdContainer' || @get('startingIDE')
-      @set 'startingIDE', true
+      return unless @get 'createdContainer' || @get('openingIDE')
+      @set 'openingIDE', true
       window.location.href = @get 'createdContainer.ideURL'
 
     cancel: ->
