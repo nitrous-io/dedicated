@@ -85,11 +85,19 @@ window.Nitrous = Em.Application.extend Em.Evented,
     @get('hosts.loaded') && @get('hosts.length') == 0
   ).property 'hosts.loaded', 'hosts.length'
 
+  restrictedAccount: (->
+    @get('billingProfile') && @get('billingProfile.requiresAttention')
+  ).property 'billingProfile', 'billingProfile.cardRequired'
+
+  canCreateContainers: Em.computed.bool 'billingProfile.paid'
+
   # TODO: Get this logic from server
   canCreateHosts: (->
-    return true if @get('billingProfile.paid')
+    return true if @get('newUser')
+    return false unless @get('billingProfile.paid')
     if maxHosts = @get('userProfile.maxHosts')
-      @get('hosts.loaded') && @get('hosts.length') < maxHosts
+      return @get('hosts.loaded') && @get('hosts.length') < maxHosts
+    true
   ).property 'billingProfile.paid', 'userProfile.maxHosts', 'hosts.loaded', 'hosts.length'
 
   logout: (cb) ->

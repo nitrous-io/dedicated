@@ -2,6 +2,13 @@
   h2 Billing
 
 .card-body
+  if App.billingProfile.hasBillingIssues
+    .notice-text
+      i.fa.fa-warning
+      '
+      | We have had issues billing your card. Please verify your card and
+      '
+      a href='#' click='didClickShowInvoices target="view"' correct your unpaid invoices below.
   table.ui.table.horizontal.credit-card-info
     tr
       th Card Type
@@ -59,7 +66,7 @@ if App.billingUsage
             = currency App.billingUsage.estimatedCharge
 
 
-.card-header.bordered
+#invoices-list.card-header.bordered
   h2 Invoices
 
 .card-body

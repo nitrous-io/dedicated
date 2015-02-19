@@ -99,7 +99,8 @@
       button.ui.btn click='restart' Restart
       button.ui.btn click='showTerminateDialog target="view"' Terminate...
     .right
-      button.ui.btn.primary class={containers.length::pulsate} click='newContainer' New Container...
+      if App.canCreateContainers
+        button.ui.btn.primary class={containers.length::pulsate} click='newContainer' New Container...
   else
     if isTerminated
       .left
