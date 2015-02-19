@@ -1,82 +1,83 @@
-.card-header.bordered
-  h2 Account
+.card-bodies
+  .card-header.bordered
+    h2 Account
 
-form submit='updateDetails'
+  form submit='updateDetails'
+    .card-body
+      .ui.input-group
+        label.field-label for='account-name'
+          | Full Name
+        = input type='text' id='account-name' value=controller.name autofocus=true
+
+      .ui.input-group
+        label.field-label for='account-email'
+          | Email
+        = input type='email' id='account-email' classNameBindings='view.emailFieldInvalid:error' value=controller.email
+        .note
+          if controller.unconfirmedEmail
+            p
+              ' An email confirmation is pending, emails will be sent to
+              = controller.originalEmail
+              '
+              | until confirmed.
+
+      .ui.input-group
+        label.field-label for='account-password'
+          | Password
+        = input type='password' id='account-password' classNameBindings='view.passwordFieldInvalid:error' value=controller.password placeholder="New Password"
+
+      .ui.input-group
+        label.field-label for='account-confirm-password'
+          | Confirm Password
+        = input type='password' id='account-confirm-password' classNameBindings='view.passwordFieldInvalid:error' value=controller.confirmPassword
+
+    .card-footer.bordered
+      .right
+        if updatingDetails
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Saving...
+        else
+          input.ui.btn.primary type='submit' disabled={updatingDetails} value='Save'
+
+  .card-header.bordered
+    h2 Integrations
+
   .card-body
-    .ui.input-group
-      label.field-label for='account-name'
-        | Full Name
-      = input type='text' id='account-name' value=controller.name autofocus=true
-
-    .ui.input-group
-      label.field-label for='account-email'
-        | Email
-      = input type='email' id='account-email' classNameBindings='view.emailFieldInvalid:error' value=controller.email
-      .note
-        if controller.unconfirmedEmail
+    .integration
+      .icon.fa.fa-github-square
+      .actions
+        if App.userProfile.authorizedGitHubUserName
           p
-            ' An email confirmation is pending, emails will be sent to
-            = controller.originalEmail
-            '
-            | until confirmed.
+            | GitHub connected as '
+            = App.userProfile.authorizedGitHubUserName
+            | '
+        else
+          button.ui.btn.raised click='githubAuthorize' Connect with GitHub
 
-    .ui.input-group
-      label.field-label for='account-password'
-        | Password
-      = input type='password' id='account-password' classNameBindings='view.passwordFieldInvalid:error' value=controller.password placeholder="New Password"
+  .card-header.bordered
+    h2 Settings
 
-    .ui.input-group
-      label.field-label for='account-confirm-password'
-        | Confirm Password
-      = input type='password' id='account-confirm-password' classNameBindings='view.passwordFieldInvalid:error' value=controller.confirmPassword
+  form submit='updateSettings'
+    .card-body
+      .ui.input-group
+        ul.ui.checkbox-group
+          li
+            .ui.checkbox
+              = input type='checkbox' id='account-advanced' checked=advanced
+              label
+            label for='account-advanced' Show Advanced Container Management Options
+            p.note-text
+              strong
+                ' Warning:
+              ' Using advanced container management features may affect the stability, security, and performance of your workspaces, or may even render them unusable.
+              | Use at your own risk. Enable this option only if you know what you are doing.
 
-  .card-footer.bordered
-    .right
-      if updatingDetails
-        button.ui.btn disabled='disabled'
-          i.spinner
-          | Saving...
-      else
-        input.ui.btn.primary type='submit' disabled={updatingDetails} value='Save'
-
-.card-header.bordered
-  h2 Integrations
-
-.card-body
-  .integration
-    .icon.fa.fa-github-square
-    .actions
-      if App.userProfile.authorizedGitHubUserName
-        p
-          | GitHub connected as '
-          = App.userProfile.authorizedGitHubUserName
-          | '
-      else
-        button.ui.btn.raised click='githubAuthorize' Connect with GitHub
-
-.card-header.bordered
-  h2 Settings
-
-form submit='updateSettings'
-  .card-body
-    .ui.input-group
-      ul.ui.checkbox-group
-        li
-          .ui.checkbox
-            = input type='checkbox' id='account-advanced' checked=advanced
-            label
-          label for='account-advanced' Show Advanced Container Management Options
-          p.note-text
-            strong
-              ' Warning:
-            ' Using advanced container management features may affect the stability, security, and performance of your workspaces, or may even render them unusable.
-            | Use at your own risk. Enable this option only if you know what you are doing.
-
-  .card-footer.bordered
-    .right
-      if updatingSettings
-        button.ui.btn disabled='disabled'
-          i.spinner
-          | Applying...
-      else
-        input.ui.btn.primary type='submit' disabled={updatingSettings} value='Apply'
+    .card-footer.bordered
+      .right
+        if updatingSettings
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Applying...
+        else
+          input.ui.btn.primary type='submit' disabled={updatingSettings} value='Apply'

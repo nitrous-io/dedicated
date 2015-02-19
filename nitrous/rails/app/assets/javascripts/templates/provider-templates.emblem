@@ -1,6 +1,6 @@
-.ui.card
+.card-bodies
   .card-header.bordered
-    h2 Provider templates list
+    h2 Provider Templates
 
   .card-body
     table.ui.table

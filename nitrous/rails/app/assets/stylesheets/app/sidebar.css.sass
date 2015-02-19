@@ -2,96 +2,97 @@
 @import 'mixins'
 
 #sidebar-view
-  width: 200px
   $lineItemHeight: 32px
 
-  h2
-    margin: 0 0 4px 0
-    font-size: 14px
-    font-weight: 500
-    text-transform: uppercase
-    color: $n2oGray500
+  display: flex
+  flex-direction: column
+  flex-grow: 1
 
-  ul.hosts, ul.containers, ul.apps
-    list-style: none
-    padding: 0
-    margin: 0
+  .list
+    flex-grow: 1
+    overflow: auto
 
-  li
-    position: relative
-    line-height: $lineItemHeight
+    ul.hosts, ul.containers, ul.apps
+      list-style: none
+      padding: 0
+      margin: 0
 
-  ul.hosts, ul.containers, ul.apps
-    > li
-      > a
-        display: block
-        border-radius: 2px
-        transition: background-color .2s
+    li
+      position: relative
+      line-height: $lineItemHeight
 
-        &:hover
-          background: $n2oGray700
-
-      &.selected > a
-        background: $n2oGray800
-
-      &.disabled
-        opacity: 0.4
-
+    ul.hosts, ul.containers, ul.apps
+      > li
         > a
-          cursor: not-allowed
+          display: block
+          transition: background-color .2s
 
           &:hover
-            background: transparent
+            background: $n2oGray700
 
-  ul.hosts
-    margin-bottom: 16px
+        &.selected > a
+          background: $n2oGray800
 
-    > li
-      padding-bottom: 8px
-      margin-bottom: 8px
+        &.disabled
+          opacity: 0.4
 
-      &:last-of-type
-        padding-bottom: 0
-        margin-bottom: 0
+          > a
+            cursor: not-allowed
 
-  ul.apps
-    margin-bottom: 16px
+            &:hover
+              background: transparent
 
-  ul.hosts, ul.apps
-    h3, h4
-      color: $n2oGray300
-      margin: 0
-      padding: 0 34px 0 14px
-      font-size: $fontSizeSmall
-      font-weight: 500
-      +truncate
+    ul.hosts
+      margin-bottom: 16px
 
-  ul.containers
-    h4
-      font-weight: 400
-      padding: 0 34px 0 30px
+      > li
+        padding-bottom: 8px
+        margin-bottom: 8px
 
-  .state-indicator
-    position: absolute
-    right: 0
-    margin-right: 12px
-    top: ($lineItemHeight - 10px) / 2
-    width: 10px
-    height: 10px
+        &:last-of-type
+          padding-bottom: 0
+          margin-bottom: 0
 
-  .app-download
+    ul.apps
+      margin-bottom: 16px
+
+    ul.hosts, ul.apps
+      h3, h4
+        color: $n2oGray300
+        margin: 0
+        padding: 0 34px 0 14px
+        font-size: $fontSizeSmall
+        font-weight: 500
+        +truncate
+
+    ul.containers
+      h4
+        font-weight: 400
+        padding: 0 34px 0 30px
+
+    .state-indicator
+      position: absolute
+      right: 0
+      margin-right: 12px
+      top: ($lineItemHeight - 10px) / 2
+      width: 10px
+      height: 10px
+
+  .ads
+    flex-shrink: 0
     background: $n2oGray1000
-    border-radius: 2px
-    padding: 10px
-    text-align: center
 
-    h3
-      margin-top: 4px
-      font-size: 16px
+    .app-download
+      padding: 10px
+      text-align: center
 
-    p
-      font-size: 14px
-      color: $n2oGray400
+      h3
+        margin-top: 4px
+        font-size: 16px
 
-    .btn
-      width: 100%
+      p
+        font-size: 14px
+        color: $n2oGray400
+
+      .btn
+        width: 100%

@@ -1,6 +1,6 @@
 App.AccountView = Em.View.extend
   elementId: 'account-view'
-  classNames: ['ui', 'card']
+  classNames: ['ui', 'card', 'big-card']
 
   emailFieldInvalid:    Em.computed.equal('controller.detailsInvalidField', 'email')
   passwordFieldInvalid: Em.computed.equal('controller.detailsInvalidField', 'password')

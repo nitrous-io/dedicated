@@ -1,5 +1,58 @@
 @import 'variables'
 @import 'mixins'
 
+
 #home-index-view
   position: relative
+
+#home-view
+  height: 100%
+
+  .main-layout
+    height: 100%
+    display: flex
+    flex-direction: column
+
+    .topnav-wrapper
+      flex-shrink: 0
+      background: $n2oGray700
+
+    .body-wrapper
+      border-top: 1px solid $n2oGray1000
+      display: flex
+      flex-direction: row
+      flex-grow: 1
+      flex-basis: 0
+
+    .content-wrapper
+      display: flex
+      flex-grow: 1
+      flex-basis: 0
+
+      .big-card
+        display: flex
+        flex-direction: column
+        flex-grow: 1
+        border-radius: 0
+
+        .card-header
+          flex-shrink: 0
+
+        .card-content
+          display: flex
+          flex-direction: column
+
+          .tab-bar
+            flex-shrink: 0
+
+          .card-footer
+            flex-shrink: 0
+
+        .card-bodies
+          overflow: auto
+
+    .sidebar-wrapper
+      display: flex
+      flex-shrink: 0
+      width: 250px
+      border-right: 1px solid $n2oGray1000

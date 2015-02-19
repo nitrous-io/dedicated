@@ -1,6 +1,6 @@
 App.BillingView = Em.View.extend
   elementId: 'billing-view'
-  classNames: ['ui', 'card']
+  classNames: ['ui', 'card', 'big-card']
 
   didInsertElement: ->
     if cardType = App.get('billingProfile.cardType')?.underscore()

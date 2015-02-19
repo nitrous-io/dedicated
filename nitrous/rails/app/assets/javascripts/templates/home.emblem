@@ -1,11 +1,12 @@
 = outlet beta
-= outlet topnav
-#body-wrapper.container
-  #sidebar-wrapper
-    = outlet sidebar
-  #content-wrapper
-    = outlet content
-= partial 'partials/footer'
+.main-layout
+  .topnav-wrapper
+    = outlet topnav
+  .body-wrapper
+    .sidebar-wrapper
+      = outlet sidebar
+    .content-wrapper
+      = outlet content
 
 if App.user.admin
   = outlet admin

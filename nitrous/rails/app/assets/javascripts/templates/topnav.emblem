@@ -1,75 +1,74 @@
-.container
-  ul.nav.left
-    li
-      if App.user
-        link-to 'home.index'
-          h1.logo
-            span Nitrous
-            small Pro
-      else
-        a href='/'
-          h1.logo
-            span Nitrous
-            small Pro
-  ul.nav.right
+ul.nav.left
+  li
     if App.user
-      li
-        a href='#' click='sendFeedback target="view"'
-          | Send Feedback
+      link-to 'home.index'
+        h1.logo
+          span Nitrous
+          small Pro
+    else
+      a href='/'
+        h1.logo
+          span Nitrous
+          small Pro
+ul.nav.right
+  if App.user
+    li
+      a href='#' click='sendFeedback target="view"'
+        | Send Feedback
+    li.ui.dropdown
+      a href='#'
+        | New
+        .ui.dropdown-triangle
+      ul.dropdown-menu
+        unless App.noHost
+          li
+            link-to 'containers.new' | New Container...
+        if App.canCreateHosts
+          li
+            link-to 'hosts.new'| New Workspace...
+        else
+          li.disabled
+            a href='#' title=view.newHostTitle New Workspace...
+    if App.user.admin
       li.ui.dropdown
         a href='#'
-          | New
+          | Admin
           .ui.dropdown-triangle
         ul.dropdown-menu
-          unless App.noHost
-            li
-              link-to 'containers.new' | New Container...
-          if App.canCreateHosts
-            li
-              link-to 'hosts.new'| New Workspace...
-          else
-            li.disabled
-              a href='#' title=view.newHostTitle New Workspace...
-      if App.user.admin
-        li.ui.dropdown
-          a href='#'
-            | Admin
-            .ui.dropdown-triangle
-          ul.dropdown-menu
-            li
-              a href='#' click='switchUser target="view"'
-                | Switch User
-            li
-              = link-to 'provider-templates'
-                | Provider Templates
-            li
-              = link-to 'admin.hosts' 'digitalocean'
-                | Digital Ocean
-            li
-              a href='#' click='updateAdminHosts target="view"'
-                | Update My Hosts
-      li.ui.dropdown
-        a href='#'
-          img.gravatar src={App.user.gravatar}
-          = App.user.username
-          .ui.dropdown-triangle
-        ul.dropdown-menu.right
           li
-            link-to 'account' | Account Settings
+            a href='#' click='switchUser target="view"'
+              | Switch User
           li
-            link-to 'billing' | Billing
-          li.separator
+            = link-to 'provider-templates'
+              | Provider Templates
           li
-            a href='http://docs.nitrous.io/' target='_blank' Help
-          li.separator
+            = link-to 'admin.hosts' 'digitalocean'
+              | Digital Ocean
           li
-            link-to 'logout' | Log Out
-    else
-      li
-        link-to 'pricing' | Pricing
-      li
-        a href='http://docs.nitrous.io/' target='_blank' Documentation
-      li.primary
-        link-to 'signup' | Sign Up
-      li.primary
-        link-to 'login' | Log In
+            a href='#' click='updateAdminHosts target="view"'
+              | Update My Hosts
+    li.ui.dropdown
+      a href='#'
+        img.gravatar src={App.user.gravatar}
+        = App.user.username
+        .ui.dropdown-triangle
+      ul.dropdown-menu.right
+        li
+          link-to 'account' | Account Settings
+        li
+          link-to 'billing' | Billing
+        li.separator
+        li
+          a href='http://docs.nitrous.io/' target='_blank' Help
+        li.separator
+        li
+          link-to 'logout' | Log Out
+  else
+    li
+      link-to 'pricing' | Pricing
+    li
+      a href='http://docs.nitrous.io/' target='_blank' Documentation
+    li.primary
+      link-to 'signup' | Sign Up
+    li.primary
+      link-to 'login' | Log In
