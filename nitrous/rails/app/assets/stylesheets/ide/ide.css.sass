@@ -17,12 +17,14 @@ html.ide
     display: flex
     flex-direction: column
     flex-grow: 1
+    flex-basis: 0
     border-top: 1px solid $n2oGray1000
 
     .ide-body-editor
       display: flex
       flex-direction: row
       flex-grow: 1
+      flex-basis: 0
 
   .ide-toolbar
     background: $n2oGray700
@@ -104,7 +106,7 @@ html.ide
       &.drop-right
         border-right: 2px solid $lightBlue500
 
-  .ide-side-pane-border
+  .ide-pane-border-view
     position: absolute
     top: 0
     left: auto
