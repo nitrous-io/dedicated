@@ -1,1 +1,1 @@
-iframe src=view.uri sandbox=""
+iframe src=view.uri sandbox="allow-forms allow-popups allow-scripts"
