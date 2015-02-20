@@ -58,6 +58,7 @@ App.IdeSidebarController = Em.ArrayController.extend
         content: readme_url
         path: readme_url
         title: 'README'
+        readme: true
       , App.Iframe)
     else
       _.each ['README.md', 'README.markdown', 'README'], (readme) =>
