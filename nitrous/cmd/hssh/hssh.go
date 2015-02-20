@@ -122,6 +122,6 @@ func pipes(s *ssh.Session) (io.WriteCloser, io.Reader, io.Reader) {
 
 // log and return error code 1
 func failf(format string, args ...interface{}) int {
-	log.Printf(format, args)
+	log.Printf(format, args...)
 	return 1
 }

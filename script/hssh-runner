@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -e
+
+HOSTSFILE=${1:?"First argument is the host file. A host per line."}
+SCRIPT=${2:?"Second argument is the script to be run in the remote host."}
+
+: ${AES_KEY?"Please set AES_KEY enviroment variable"}
+: ${NITROUS_PG_URL?"Please set NITROUS_PG_URL enviroment variable"}
+
+SCRIPTBASE=`basename $SCRIPT`
+REMOTESCRIPT=/tmp/$SCRIPTBASE
+RUN_LOG=/tmp/hssh-run.$SCRIPTBASE.log
+
+die() {
+  echo $@ && exit 1
+}
+
+check_file() {
+  local F=$1
+  [[ ! -f $F ]] && die "Error: supplied argument $F not a file." || true
+}
+
+check_file $HOSTSFILE
+check_file $SCRIPT
+
+[[ ! -x ./build/hssh && ! -f ./build/hssh ]] && (echo "You need to build the hssh tool. Try make nitrous." && exit 1)
+
+[[ -f ${RUN_LOG} ]] || touch ${RUN_LOG}
+
+for HOST in `cat $HOSTSFILE`; do
+  echo "## ${HOST} ##" | tee -a ${RUN_LOG}
+  ./build/hssh upload ${HOST} $SCRIPT:$REMOTESCRIPT 2>&1 | tee -a ${RUN_LOG}
+  ./build/hssh run ${HOST} "chmod 755 $REMOTESCRIPT && bash -c $REMOTESCRIPT" 2>&1 | tee -a ${RUN_LOG}
+done

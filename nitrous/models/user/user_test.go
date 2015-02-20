@@ -773,44 +773,69 @@ var _ = Describe("models/user", func() {
 	})
 
 	Describe("CanLogin()", func() {
-		var u *user.User
-
-		BeforeEach(func() {
-			u = &user.User{
+		It("should be true if the account is a service account", func() {
+			u := &user.User{
 				Username: "qux",
-				Name:     "quxboy",
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
 			err := WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
+			_, err = db.Exec(`UPDATE users SET service_account = true WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			// Make sure confirmation period has lapsed.
+			_, err = db.Exec(`UPDATE users SET created_at = now() - interval '26 hours' WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			u2, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(u2.CanLogin()).To(BeTrue())
 		})
 
 		It("should be true if the account is confirmed", func() {
-			_, err := db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, u.ID)
-			Expect(err).To(BeNil())
+			u := &user.User{
+				Username:    "qux",
+				Password:    "123456",
+				Email:       "qux@example.com",
+				ConfirmedAt: pq.NullTime{Time: time.Now(), Valid: true},
+			}
 
-			fU, err := user.FindByID(db, u.ID)
-			Expect(err).To(BeNil())
-
-			Expect(fU.CanLogin()).To(BeTrue())
+			Expect(u.CanLogin()).To(BeTrue())
 		})
 
 		It("should be true if the account has been recently created", func() {
-			fU, err := user.FindByID(db, u.ID)
+			u := &user.User{
+				Username: "qux",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
-			Expect(fU.CanLogin()).To(BeTrue())
+			u2, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(u2.CanLogin()).To(BeTrue())
 		})
 
 		It("should be false if the account has not been recently created", func() {
-			_, err := db.Exec(`UPDATE users SET created_at = now() - interval '26 hours' WHERE id = $1;`, u.ID)
+			u := &user.User{
+				Username: "qux",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
-			fU, err := user.FindByID(db, u.ID)
+			_, err = db.Exec(`UPDATE users SET created_at = now() - interval '26 hours' WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
-			Expect(fU.CanLogin()).To(BeFalse())
+			u2, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(u2.CanLogin()).To(BeFalse())
 		})
 	})
 

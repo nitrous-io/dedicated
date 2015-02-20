@@ -27,16 +27,12 @@ type uploadArg struct {
 }
 
 func parseUpload(spec string) (*uploadArg, error) {
-	var (
-		local, remote string
-		arr           = strings.Split(spec, ":")
-	)
-
+	arr := strings.Split(spec, ":")
 	if len(arr) != 2 {
 		return nil, fmt.Errorf("invalid upload %q", spec)
 	}
-	local, remote = arr[0], arr[1]
 
+	local, remote := arr[0], arr[1]
 	local = filepath.Clean(local)
 	f, err := os.Open(local)
 	if err != nil {

@@ -156,6 +156,21 @@ var _ = Describe("controllers/tokens", func() {
 			})
 		}
 
+		Context("when missing username is given", func() {
+			BeforeEach(func() {
+				params.Set("username", "nosuch")
+			})
+
+			It("responds with invalid creds", func() {
+				doRequest()
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("invalid_grant"))
+				Expect(j["error_description"]).To(Equal("incorrect username or password"))
+			})
+		})
+
 		Context("when a wrong password is given", func() {
 			It("responds with 400 bad request", func() {
 				params.Set("password", "111111")

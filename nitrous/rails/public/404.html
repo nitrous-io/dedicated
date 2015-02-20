@@ -1,67 +1,95 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>The page you were looking for doesn't exist (404)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <style>
-  body {
-    background-color: #EFEFEF;
-    color: #2E2F30;
-    text-align: center;
-    font-family: arial, sans-serif;
-    margin: 0;
-  }
-
-  div.dialog {
-    width: 95%;
-    max-width: 33em;
-    margin: 4em auto 0;
-  }
-
-  div.dialog > div {
-    border: 1px solid #CCC;
-    border-right-color: #999;
-    border-left-color: #999;
-    border-bottom-color: #BBB;
-    border-top: #B00100 solid 4px;
-    border-top-left-radius: 9px;
-    border-top-right-radius: 9px;
-    background-color: white;
-    padding: 7px 12% 0;
-    box-shadow: 0 3px 8px rgba(50, 50, 50, 0.17);
-  }
-
-  h1 {
-    font-size: 100%;
-    color: #730E15;
-    line-height: 1.5em;
-  }
-
-  div.dialog > p {
-    margin: 0 0 1em;
-    padding: 1em;
-    background-color: #F7F7F7;
-    border: 1px solid #CCC;
-    border-right-color: #999;
-    border-left-color: #999;
-    border-bottom-color: #999;
-    border-bottom-left-radius: 4px;
-    border-bottom-right-radius: 4px;
-    border-top-color: #DADADA;
-    color: #666;
-    box-shadow: 0 3px 8px rgba(50, 50, 50, 0.17);
-  }
-  </style>
+<meta charset="utf-8">
+<title>404 Not Found &middot; Nitrous</title>
+<link href="https://pro.nitrous.io/favicon.ico" rel="shortcut icon" />
+<style type="text/css">
+body {
+  margin: 0;
+  padding: 0;
+  background: #2a3239;
+  font-size: 14px;
+  font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.container {
+  margin: 0 auto;
+  width: 940px;
+}
+.examples {
+  margin-top: 32px;
+}
+h1 {
+  margin: 32px 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+h1 a {
+  font-size: 20px;
+  color: white;
+  text-decoration: none;
+}
+h1 span {
+  display: none;
+}
+h1 small {
+  vertical-align: top;
+  font-size: 9px;
+  font-weight: 400;
+  position: relative;
+  top: 13px;
+  left: -1px;
+  color: #97a3ae;
+}
+h2 {
+  color: white;
+  font-weight: normal;
+}
+h3 {
+  color: white;
+  font-weight: normal;
+}
+a, a:link, a:visited {
+  color: #4fc3f7;
+  transition: color .3s;
+  text-decoration: none;
+}
+a:hover, a:active {
+  color: #81d4fa;
+}
+p {
+  color: #b4c0ca;
+  margin: 16px 0;
+  line-height: 1.5;
+}
+.narrow {
+  width: 500px;
+}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400&subset=latin">
 </head>
-
 <body>
-  <!-- This file lives in public/404.html -->
-  <div class="dialog">
-    <div>
-      <h1>The page you were looking for doesn't exist.</h1>
-      <p>You may have mistyped the address or the page may have moved.</p>
-    </div>
-    <p>If you are the application owner check the logs for more information.</p>
+<div class="container">
+<h1>
+<a href="https://pro.nitrous.io/">
+<span>Nitrous</span>
+<svg width="118px" height="14px" viewBox="0 0 236 28" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+<path d="M0.808,27 L8.8,27 L8.8,8.208 L23.74,27 L36.196,27 L36.196,0.972 L28.204,0.972 L28.204,19.98 L13.156,0.972 L0.808,0.972 L0.808,27 Z M42.064,0.972 L42.064,27 L50.056,27 L50.056,0.972 L42.064,0.972 Z M72.844,27 L72.844,7.56 L83.968,7.56 L83.968,0.972 L53.692,0.972 L53.692,7.56 L64.852,7.56 L64.852,27 L72.844,27 Z M87.352,27 L95.344,27 L95.344,20.268 L107.476,20.268 C110.824,20.268 111.256,20.844 111.256,25.092 C111.256,25.308 111.256,26.136 111.184,27 L119.176,27 L119.176,24.768 C119.176,20.7 118.996,19.584 118.168,18.54 C117.556,17.676 116.548,17.208 114.82,16.812 L114.82,16.704 C118.528,15.624 119.284,14.4 119.284,9.684 C119.284,5.472 118.852,3.996 117.088,2.52 C115.756,1.368 114.208,0.972 111.292,0.972 L87.352,0.972 L87.352,27 Z M95.344,7.344 L107.8,7.344 C110.752,7.344 111.544,8.064 111.544,10.584 C111.544,13.068 110.824,13.752 107.8,13.752 L95.344,13.752 L95.344,7.344 Z M124.108,17.136 C124.108,21.924 125.548,24.768 128.752,26.244 C130.768,27.18 132.316,27.288 145.744,27.288 C153.844,27.288 156.472,26.604 158.272,24.084 C159.64,22.212 159.856,20.844 159.856,15.084 C159.856,9.684 159.784,7.848 159.496,6.552 C158.992,4.464 157.84,2.916 155.86,1.944 C153.628,0.828 152.116,0.684 140.632,0.684 C131.128,0.684 128.896,1.008 126.7,2.916 C124.828,4.5 124.108,6.552 124.108,10.296 L124.108,17.136 Z M137.536,20.592 C135.52,20.592 134.476,20.412 133.684,19.836 C132.604,19.008 132.388,18.144 132.388,13.86 C132.388,10.152 132.676,9.108 133.828,8.244 C135.016,7.38 135.412,7.344 140.488,7.344 C142.684,7.344 147.94,7.416 148.372,7.488 C149.2,7.56 149.92,7.812 150.424,8.208 C151.288,8.856 151.576,10.08 151.576,13.068 C151.576,17.568 151.396,18.864 150.568,19.62 C149.92,20.304 148.732,20.592 146.752,20.592 L137.536,20.592 Z M164.716,0.972 L164.716,16.956 C164.716,22.248 166.084,24.84 169.792,26.316 C171.484,27.036 174.076,27.288 179.98,27.288 C184.912,27.288 189.628,27.108 191.032,26.82 C192.616,26.532 194.272,25.704 195.28,24.804 C197.116,23.112 197.62,21.348 197.62,17.064 L197.62,0.972 L189.628,0.972 L189.628,16.056 C189.628,19.548 188.692,20.592 185.38,20.592 L177.064,20.592 C173.86,20.592 172.708,19.26 172.708,15.768 L172.708,0.972 L164.716,0.972 Z M202.516,18.432 L202.516,19.008 C202.516,23.112 203.02,24.552 204.856,25.812 C206.908,27.252 207.484,27.288 222.568,27.288 C227.68,27.288 230.056,27 231.928,26.136 C234.484,24.984 235.276,23.22 235.276,19.116 C235.276,14.832 234.232,12.78 231.46,11.7 C229.912,11.052 228.868,10.908 223.144,10.836 L217.276,10.728 C212.74,10.62 212.02,10.584 211.264,10.26 C210.724,10.008 210.436,9.432 210.436,8.676 C210.436,7.128 211.444,6.516 214.036,6.516 L223.18,6.516 C225.376,6.516 226.24,7.092 226.348,8.532 L226.348,9.144 L234.196,9.144 L234.196,8.1 C234.196,5.868 233.836,4.428 233.116,3.42 C232.504,2.52 231.172,1.656 229.876,1.296 C227.86,0.72 226.924,0.684 215.656,0.684 C208.384,0.684 206.8,0.936 204.748,2.376 C203.02,3.564 202.444,5.22 202.444,8.784 C202.444,12.276 203.02,14.076 204.46,15.192 C206.152,16.416 208.204,16.704 214.216,16.812 L220.516,16.92 C226.204,16.992 227.14,17.244 227.14,19.188 C227.14,20.772 226.24,21.42 223.936,21.42 L213.892,21.42 C212.524,21.42 211.984,21.312 211.516,21.06 C210.796,20.736 210.4,19.908 210.4,18.9 L210.4,18.432 L202.516,18.432 Z" fill="#FFFFFF"></path>
+</g>
+</svg>
+<small>Pro</small>
+</a>
+</h1>
+</div>
+<div class="container">
+  <h2>404 Not Found</h2>
+  <div class="narrow">
+    <h3>The page you were looking for does not exist.</h3>
+    <p>
+      You may have mistyped the address or the page may have moved. You can return to our <a href="https://pro.nitrous.io/">home page</a>, or <a href="mailto:support@nitrous.io">contact support</a> if you can&rsquo;t find what you're looking for.
+    </p>
   </div>
+</div>
 </body>
 </html>

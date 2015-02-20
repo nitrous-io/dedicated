@@ -695,6 +695,7 @@ ul.ui.snackbar
   margin: 8px 24px
   height: 0
   transition: height 1s
+  pointer-events: none
   text-align: right
   z-index: 1000
 
@@ -716,6 +717,10 @@ ul.ui.snackbar
       font-size: 14px
       color: black
       +light-shadow
+      pointer-events: initial
+
+      &:hover
+        cursor: pointer
 
     &.fadein
       margin-top: 16px
@@ -726,9 +731,6 @@ ul.ui.snackbar
       position: relative
       opacity: 0
       right: -120%
-
-    &:hover
-      cursor: pointer
 
 .ui.modal
   position: fixed

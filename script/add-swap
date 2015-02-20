@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+# NOTE: as of time of commit all production hosts and images have swap added
+# This is in the repo mostly for archiving purposes (it is also present in
+# `dedicated_boxhost_cookbook` for DO image building)
+
+SWAPFILE=/swapfile
+FSTAB_LINE="/swapfile   none    swap    sw    0   0"
+
+die() {
+  echo $@ && exit 1
+}
+
+# check if swapfile already exist and is active
+if [[ ! -f $SWAPFILE ]] && [[ $(grep -cE "swapfile" /proc/swaps) -eq 0 ]]; then
+  fallocate -l 2G $SWAPFILE
+  chmod 600 $SWAPFILE
+  mkswap $SWAPFILE
+  swapon $SWAPFILE
+else
+  die "Error: This host already has a swap file."
+fi
+
+# and append fstab line to current fstab only if it doesn't exist
+if [[ $(grep -cE "swapfile" /etc/fstab) -eq 0 ]]; then
+  cp /etc/fstab /etc/fstab.original
+  echo ${FSTAB_LINE} >> /etc/fstab
+fi

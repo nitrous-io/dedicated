@@ -1,6 +1,7 @@
 package tokens
 
 import (
+	"database/sql"
 	"net/http"
 	"time"
 
@@ -51,11 +52,10 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	u, err := user.FindByUsernameOrEmail(db, login)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return errInvalidCred
+		}
 		return err
-	}
-
-	if u == nil {
-		return errInvalidCred
 	}
 
 	if !bcrypt.Verify(u.EncryptedPassword, password) {
