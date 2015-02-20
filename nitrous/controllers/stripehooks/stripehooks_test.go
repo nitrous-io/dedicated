@@ -5,12 +5,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/stripehooks"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
+	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/stripe/stripe-go"
@@ -29,6 +34,7 @@ var _ = Describe("controllers/stripehooks", func() {
 	var (
 		fakeStripe *FakeStripe
 		db         *db.Database
+		u          *user.User
 		svr        *server.Server
 
 		succeedFnCalled        bool
@@ -64,7 +70,7 @@ var _ = Describe("controllers/stripehooks", func() {
 			failedFnCalled = true
 		}
 
-		u := &user.User{
+		u = &user.User{
 			Username: "foo",
 			Email:    "foo@example.com",
 			Password: "123456",
@@ -189,6 +195,127 @@ var _ = Describe("controllers/stripehooks", func() {
 			}).Should(BeTrue())
 
 			Expect(receivedFailedMoreAttempts).To(BeFalse())
+		})
+
+		It("should publish a EventInvoiceUpdated to the user", func(done Done) {
+			hs1, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 2000,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+			h1 := hs1.H
+			itm1 := invoiceitem.InvoiceItem{
+				InvoiceID:   inv.ID,
+				HostID:      sql.NullInt64{h1.ID, true},
+				Hours:       sql.NullInt64{24, true},
+				HourlyPrice: sql.NullInt64{2000, true},
+			}
+			Expect(itm1.Insert(db)).To(BeNil())
+
+			fakeStripe.Responses = []string{
+				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_succeeded", "data": {"object": {"id": "Xcccs"}}}`,
+				`{"object": "invoice", "id": "Sv", "paid": true}`,
+			}
+
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			succeedFnCalled = false
+			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var e *controllers.Event
+			timeout := time.After(1000 * time.Millisecond)
+			for {
+				if e != nil && e.Name == controllers.EventInvoiceUpdated {
+					break
+				}
+				select {
+				case ev := <-ch:
+					e = ev.(*controllers.Event)
+				case <-timeout:
+					Fail("expected EventInvoiceUpdated but timed out")
+				}
+			}
+
+			evtData, _ := e.Data.(map[string]interface{})
+			inv, ok := evtData["invoice"].(*serializers.Invoice)
+			Expect(ok).To(BeTrue())
+			Expect(inv.ID).To(Equal(inv.ID))
+			Expect(inv.Items[0].ID).To(Equal(itm1.ID))
+			Expect(inv.Items[0].Description).To(ContainSubstring(h1.Slug))
+			close(done)
+		})
+	})
+
+	Describe("SerializeInvoices()", func() {
+		var (
+			h1, h2           *host.Host
+			itm1, itm2, itm3 *invoiceitem.InvoiceItem
+		)
+
+		BeforeEach(func() {
+			hs1, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 2000,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+			h1 = hs1.H
+			t := time.Now()
+			hs2, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:         "my-host-2",
+					HourlyPrice:  2000,
+					TerminatedAt: &t,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+			h2 = hs2.H
+			itm1 = &invoiceitem.InvoiceItem{
+				InvoiceID:   inv.ID,
+				HostID:      sql.NullInt64{h1.ID, true},
+				Hours:       sql.NullInt64{24, true},
+				HourlyPrice: sql.NullInt64{2000, true},
+			}
+			Expect(itm1.Insert(db)).To(BeNil())
+			itm2 = &invoiceitem.InvoiceItem{
+				InvoiceID: inv.ID,
+				Credit:    sql.NullInt64{200, true},
+			}
+			Expect(itm2.Insert(db)).To(BeNil())
+			itm3 = &invoiceitem.InvoiceItem{
+				InvoiceID:   inv.ID,
+				HostID:      sql.NullInt64{h2.ID, true},
+				Hours:       sql.NullInt64{20, true},
+				HourlyPrice: sql.NullInt64{1000, true},
+				Terminated:  true,
+			}
+			Expect(itm3.Insert(db)).To(BeNil())
+		})
+
+		It("should detail the correct amount of invoice items", func() {
+			sInv, err := stripehooks.SerializeInvoice(db, inv)
+			Expect(err).To(BeNil())
+			Expect(sInv.Items).To(HaveLen(2))
+			Expect(sInv.TotalCredit).To(Equal(int64(200)))
+		})
+
+		It("should provide information about the hosts", func() {
+			sInv, err := stripehooks.SerializeInvoice(db, inv)
+			Expect(err).To(BeNil())
+			Expect(sInv.Items[0].Terminated).To(BeTrue())
+			Expect(sInv.Items[1].Terminated).To(BeFalse())
+
+			Expect(sInv.Items[0].Description).To(Equal(invoiceitem.ItemDescription(itm3, h2)))
+			Expect(sInv.Items[1].Description).To(Equal(invoiceitem.ItemDescription(itm1, h1)))
 		})
 	})
 })

@@ -4,8 +4,14 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
+	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/stripe/stripe-go/event"
 	stripeinvoice "github.com/stripe/stripe-go/invoice"
 )
@@ -78,6 +84,56 @@ func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) {
 	} else {
 		HandlePaymentFailedFn(env, inv, int(strInv.Attempts), strInv.NextAttempt > 0)
 	}
+	u, err := user.FindByID(env.DB, inv.UserID)
+	if err != nil {
+		env.Logger.Errorf("Error looking up user %d for invoice %d pubsub %s, err: %+v", inv.UserID, inv.ID, err)
+		return
+	}
+	sInv, err := serializeInvoice(env.DB, inv)
+	if err != nil {
+		env.Logger.Errorf("Error serializing invoice %d for user %d pubsub %s, err: %+v", inv.UserID, inv.ID, err)
+		return
+	}
+	env.Events.Publish(
+		controllers.NewEvent(controllers.EventInvoiceUpdated, map[string]interface{}{
+			"invoice": sInv,
+		}),
+		u.Topic(),
+	)
+}
+
+func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice) (*serializers.Invoice, error) {
+	sInv := serializers.SerializeInvoice(inv)
+
+	items := []invoiceitem.InvoiceItem{}
+	err := d.Select(&items, "SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY id DESC;", inv.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	hosts := []host.Host{}
+	err = d.Select(&hosts, "SELECT hosts.* FROM hosts INNER JOIN invoice_items ON invoice_items.host_id = hosts.id WHERE invoice_items.invoice_id = $1 ORDER BY hosts.id DESC;", inv.ID)
+	if err != nil {
+		return nil, err
+	}
+	hMap := make(map[int64]*host.Host)
+	for indx, host := range hosts {
+		hMap[host.ID] = &hosts[indx]
+	}
+
+	for _, item := range items {
+		if item.Credit.Valid {
+			sInv.TotalCredit += item.Credit.Int64
+		} else {
+			ser := serializers.SerializeInvoiceItem(&item)
+			ser.Description = invoiceitem.ItemDescription(&item, hMap[ser.HostID])
+			if hst, ok := hMap[ser.HostID]; ok {
+				ser.HostSlug = hst.Slug
+			}
+			sInv.Items = append(sInv.Items, *ser)
+		}
+	}
+	return sInv, nil
 }
 
 func handlePaymentSucceeded(env *middleware.Env, inv *invoice.Invoice) {

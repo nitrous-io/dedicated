@@ -42,6 +42,7 @@ const (
 	EventRegistryRemoved            EventName = "registry.removed"
 	EventVolumeCreated              EventName = "volume.created"
 	EventVolumeDestroyed            EventName = "volume.destroyed"
+	EventInvoiceUpdated             EventName = "invoice.updated"
 )
 
 type Event struct {
