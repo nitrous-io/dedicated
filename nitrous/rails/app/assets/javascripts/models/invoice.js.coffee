@@ -8,12 +8,18 @@ App.Invoice = klass = App.Model.extend
   periodStart: attr('date', as: 'period_start')
   periodEnd: attr('date', as: 'period_end')
   successfulCharge: attr('boolean', as:'successful_charge')
+  deferred: attr('boolean', as: 'deferred')
+  failed: attr('boolean', as: 'failed')
+  attempted: attr('boolean', as: 'attempted')
   totalCredit: attr('number', as: 'total_credit')
   creditAvailable: attr('number', as: 'available_credit')
 
   hasCredit: Ember.computed.gt('totalCredit', 0)
 
   _items: attr('object', as: 'items')
+
+  awaitingUpdate: false
+  paying: false
 
   unpaid: (->
     !@get('successfulCharge')
@@ -35,6 +41,11 @@ App.Invoice = klass = App.Model.extend
     @get('totalCharge') / 100.0
   ).property 'totalCharge'
 
+  manuallyPayable: (->
+    return false if @get('successfulCharge') || @get('deferred')
+    @get('failed') || @get('attempted')
+  ).property 'failed', 'successfulCharge', 'attempted'
+
   items: (->
     @get('_items').map (item)->
       inv = App.InvoiceItem.create()
@@ -45,13 +56,16 @@ App.Invoice = klass = App.Model.extend
 
   pay: ->
     new Em.RSVP.Promise (resolve, reject) =>
+      @set 'paying', true
       Em.$.ajax(
         type: 'POST',
         url: "/api/v0/invoices/#{@get 'id'}/pay",
         headers: { Authorization: "Bearer #{App.get 'token'}" },
       ).done((retData, status, jqxhr) =>
+        @set 'paying', false
         resolve(retData)
-      ).fail (jqxhr) ->
+      ).fail (jqxhr) =>
+        @set 'paying', false
         reject(jqxhr)
 
 klass.reopenClass

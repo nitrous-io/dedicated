@@ -85,10 +85,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
     @get('hosts.loaded') && @get('hosts.length') == 0
   ).property 'hosts.loaded', 'hosts.length'
 
-  restrictedAccount: (->
-    @get('billingProfile') && @get('billingProfile.requiresAttention')
-  ).property 'billingProfile', 'billingProfile.cardRequired'
-
+  restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'
   canCreateContainers: Em.computed.bool 'billingProfile.paid'
 
   # TODO: Get this logic from server
@@ -139,6 +136,8 @@ App.on 'fetchUser', (user) ->
   App.set 'billingProfile', billingProfile
 
   App.refreshUsage()
+  App.refreshBillingProfile()
+  App.refreshInvoices()
 
   App.set 'eventsSocket', socket = App.EventMessageHandler.create()
   socket.connect()
@@ -151,6 +150,15 @@ App.loadSettings = ->
 
 App.refreshUsage = ->
   App.BillingUsage.fetchCurrentUsage()
+
+App.refreshBillingProfile = ->
+  App.BillingProfile.fetch().then (bp) =>
+    App.set 'billingProfile', bp
+
+App.refreshInvoices = ->
+  invoices = App.Invoice.fetch().value
+  App.set('invoices', invoices)
+  invoices
 
 App.didChangeTitle()
 

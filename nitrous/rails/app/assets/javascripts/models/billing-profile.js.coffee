@@ -14,10 +14,9 @@ App.BillingProfile = klass = App.Model.extend
   cardRequired: attr('boolean', as: 'card_required', serialize: false)
 
   cardToken: attr(as: 'card_token')
-  hasBillingIssues: attr('boolean', as: 'has_billing_issues')
 
   paid: (->
-    @get('state') == 'paid'
+    @get('state') == 'paid' || @get('state') == 'payment_due'
   ).property 'state'
 
   expiry: (->

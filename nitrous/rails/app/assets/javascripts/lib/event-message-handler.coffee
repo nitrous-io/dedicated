@@ -10,7 +10,7 @@ App.EventMessageHandler = App.EventsSocket.extend
       @on evt, (data) ->
         findAllContainers()?.reload()
 
-    ['container.starting', 'container.started','container.stopping', 'container.stopped', 'container.restarting', 'container.restarted', 
+    ['container.starting', 'container.started','container.stopping', 'container.stopped', 'container.restarting', 'container.restarted',
      'container.updated', 'container.reconfiguring', 'container.reconfigured', 'container.reconfigure_failed'].forEach (evt) =>
       @on evt, (data) ->
         containerData = data.container
@@ -87,6 +87,14 @@ App.EventMessageHandler = App.EventsSocket.extend
       return unless imageData && (image = findImage(imageData))
       image.load(imageData)
       image.set 'pushing', false
+
+    @on 'invoice.updated', (data) ->
+      App.refreshBillingProfile()
+      if (data.invoice && inv = App.get('invoices').findBy('id', data.invoice.id))
+        inv.load(data.invoice)
+        inv.set('awaitingUpdate', false)
+      else
+        App.refreshInvoices()
 
 findAllContainers = ->
   App.get('containers')
