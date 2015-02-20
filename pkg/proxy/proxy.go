@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -82,6 +84,64 @@ func ProxyHTTP(addr string, tlsConfig *tls.Config, transportErrorFn func(res *ht
 	return p.ServeHTTP
 }
 
+var (
+	dot       = []byte(".")
+	centerDot = []byte("·")
+)
+
+func functionFromPc(pc uintptr) string {
+	fn := runtime.FuncForPC(pc)
+	if fn == nil {
+		return ""
+	}
+	name := []byte(fn.Name())
+	// The name includes the path name to the package, which is unnecessary
+	// since the file name is already included.  Plus, it has center dots.
+	// That is, we see
+	//      runtime/debug.*T·ptrmethod
+	// and want
+	//      *T.ptrmethod
+	if period := bytes.Index(name, dot); period >= 0 {
+		name = name[period+1:]
+	}
+	name = bytes.Replace(name, centerDot, dot, -1)
+	return string(name)
+}
+
+// log error message with file name + line number of a function callerNo
+// levels up the stack
+func logErrorHelper(callerNo int, format string, arg ...interface{}) {
+	s := "[ERROR] " + fmt.Sprintf(format, arg...)
+	if pc, _, _, ok := runtime.Caller(callerNo); ok {
+		s = functionFromPc(pc) + ": " + s
+	}
+	log.Printf(s)
+}
+
+// logs error message with file name + line number of the function one level
+// up the stack
+func logError(format string, arg ...interface{}) {
+	logErrorHelper(1, format, arg)
+}
+
+// logs error message with file name + line number of the function two levels
+// up the stack
+func logError2(format string, arg ...interface{}) {
+	logErrorHelper(2, format, arg)
+}
+
+// the assumption here is that io.EOF means a clean connection shutdown
+func isIoError(err error) bool {
+	if err == nil || err == io.EOF {
+		return false
+	}
+	return true
+}
+
+var (
+	verboseLog = true
+)
+
 func ProxyWebsocket(addr string, tlsConfig *tls.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var serverConn net.Conn
@@ -92,44 +152,79 @@ func ProxyWebsocket(addr string, tlsConfig *tls.Config) http.HandlerFunc {
 			serverConn, err = net.Dial("tcp", addr)
 		}
 		if err != nil {
-			handleError(w, r, "websocket: could not connect to backend", err)
+			msg := fmt.Sprintf("websocket: could not connect to backend %s", addr)
+			handleError(w, r, msg, err)
 			return
 		}
 		defer serverConn.Close()
 
 		if err = r.Write(serverConn); err != nil {
-			handleError(w, r, "websocket: writing websocket request failed", err)
+			msg := fmt.Sprintf("websocket: writing websocket request to backend '%s' failed", addr)
+			handleError(w, r, msg, err)
 			return
 		}
 
 		clientConn, err := hijackServer(w)
 		if err != nil {
-			handleError(w, r, "websocket: hijack failed", err)
+			handleError(w, r, "websocket: hijack of client connection failed", err)
 			return
 		}
+		clientAddr := clientConn.RemoteAddr()
 		defer clientConn.Close()
 
-		bidirectionalCopy(serverConn, clientConn)
+		if verboseLog {
+			log.Printf("[INFO] temp: new websocket proxy connection, from client: %s to backend %s\n", clientAddr, addr)
+		}
+
+		sErr, cErr := bidirectionalCopy(serverConn, clientConn)
+		if verboseLog && !isIoError(sErr) && !isIoError(cErr) {
+			log.Printf("[INFO] cleanly shut down connection, client: %s, backend: %s\n", clientAddr, addr)
+		}
+		if isIoError(sErr) {
+			logError("websocket: io.Copy() clientConn (%s) -> serverConn (%s) failed, err: '%s' (type: '%v')", clientAddr, addr, sErr, sErr)
+		}
+		if isIoError(cErr) {
+			logError("websocket: io.Copy() serverConn (%s) -> clientConn (%s) failed, err: '%s' (type: '%v')", addr, clientAddr, cErr, cErr)
+		}
 	}
 }
 
-func bidirectionalCopy(rw1, rw2 io.ReadWriter) {
-	errChan := make(chan error, 2)
-	cp := func(dst io.Writer, src io.Reader) {
+type errIdx struct {
+	err error
+	idx int
+}
+
+func bidirectionalCopy(rw1, rw2 io.ReadWriter) (error, error) {
+	var errors [2]error
+	chErr := make(chan errIdx, 2)
+	cp := func(dst io.Writer, src io.Reader, idx int) {
 		_, err := io.Copy(dst, src)
-		errChan <- err
+		chErr <- errIdx{err, idx}
 	}
-	go cp(rw1, rw2)
-	go cp(rw2, rw1)
-	<-errChan
+	go cp(rw1, rw2, 0)
+	go cp(rw2, rw1, 1)
+
+	// wait for first connection to error out
+	errIdx := <-chErr
+	errors[errIdx.idx] = errIdx.err
+
+	// wait for second connection to finish for up to a second. Since they are
+	// 2 ends of the same connection, they should exit at the same time so
+	// 1 second should be more than enough
+	select {
+	case errIdx = <-chErr:
+		errors[errIdx.idx] = errIdx.err
+	case <-time.After(1 * time.Second):
+	}
+	return errors[0], errors[1]
 }
 
 func handleError(w http.ResponseWriter, r *http.Request, msg string, err error) {
-	log.Printf("[ERROR] Request %v failed with err %v, msg: %s", r, err, msg)
+	logError2("Request %v failed with err %v, msg: %s", r, err, msg)
 	w.WriteHeader(http.StatusInternalServerError)
 }
 
-func hijackServer(w http.ResponseWriter) (io.ReadWriteCloser, error) {
+func hijackServer(w http.ResponseWriter) (net.Conn, error) {
 	conn, _, err := w.(http.Hijacker).Hijack()
 	if err != nil {
 		return nil, err
