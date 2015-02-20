@@ -109,6 +109,7 @@ func (s *Server) drawRoutes() {
 			"GET": {
 				"/user":                              r("users.GetAuthenticatedUser", users.GetAuthenticatedUser),
 				"/user/profile":                      r("userprofiles.Show", userprofiles.Show),
+				"/user/billing_profile":              r("billingprofiles.Show", billingprofiles.Show),
 				"/hosts":                             r("hosts.Index", hosts.Index),
 				"/images":                            r("images.IndexAll", images.Index),
 				"/hosts/{slug}/images":               r("images.Index", images.Index),

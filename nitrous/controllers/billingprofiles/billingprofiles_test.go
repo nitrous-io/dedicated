@@ -77,6 +77,44 @@ var _ = Describe("controllers/billingprofiles", func() {
 		}
 	})
 
+	Describe("GET /api/v0/user/billing_profile", func() {
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := NewAuthedRequest(t, "GET", "/api/v0/user/billing_profile", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		ItReturnsBillingProfile := func() {
+			_, err := db.Exec(`UPDATE billing_profiles SET exp_month = 10, exp_year = 2017, card_type = 'Discover', last_four = 1234 WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				BillingProfile *serializers.BillingProfile `json:"billing_profile"`
+			}
+			err = json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+
+			Expect(j.BillingProfile.ExpMonth).To(Equal(int64(10)))
+			Expect(j.BillingProfile.ExpYear).To(Equal(int64(2017)))
+			Expect(j.BillingProfile.CardType).To(Equal("Discover"))
+			Expect(j.BillingProfile.LastFour).To(Equal("1234"))
+		}
+
+		It("should provide the billing profile", func() {
+			ItReturnsBillingProfile()
+		})
+
+		It("should return the billing profile even if the an invoice is outstanding", func() {
+			MarkDelinquentUser(db, u)
+			ItReturnsBillingProfile()
+		})
+	})
+
 	Describe("POST /api/v0/user/billing_profiles", func() {
 		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
 			req, err := NewAuthedRequest(t, "POST", "/api/v0/user/billing_profile", params)

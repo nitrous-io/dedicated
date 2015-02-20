@@ -50,6 +50,7 @@ var (
 		"billing.PayInvoice":         1,
 		"billingprofiles.Activate":   1,
 		"billingprofiles.Update":     1,
+		"billingprofiles.Show":       1,
 		"tokens.Logout":              1,
 		"feedback.Send":              1,
 	}
