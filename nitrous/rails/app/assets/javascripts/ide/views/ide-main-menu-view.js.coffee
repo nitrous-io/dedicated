@@ -4,29 +4,6 @@ menuItem = (name, attrs={}) ->
   App.MenuItem.createWithMixins(attrs)
 separator = App.MenuItem.create(separator: true)
 
-helpMenu = menu 'Help', [
-  menuItem 'Help Center',
-    url: 'http://docs.nitrous.io/'
-    target: '_blank'
-  menuItem 'Web IDE Overview',
-    url: 'http://help.nitrous.io/ide-general'
-    target: '_blank'
-  menuItem 'Frequently Asked Questions',
-    url: 'http://docs.nitrous.io/v1.0/docs/billing--pricing-faq'
-    target: '_blank'
-  separator
-  menuItem 'Blog',
-    url: 'http://blog.nitrous.io/'
-    target: '_blank'
-  menuItem 'Updates',
-    url: 'http://docs.nitrous.io/v1.0/blog'
-    target: '_blank'
-  separator
-  menuItem 'Report an Issue...',
-    url: 'mailto:support@nitrous.io?subject=Nitrous.IO%20Beta%20Feedback'
-    target: '_blank'
-]
-
 rulerMenu = menu 'Ruler', [
   menuItem 'None',
     callback: (controller) ->
@@ -115,6 +92,39 @@ App.IdeMainMenuView = Em.View.extend
     )
     baseItems
   ).property 'App.container', 'App.container.previewablePorts.@each'
+
+  helpMenuItems: (->
+    baseItems = []
+    if App.get('container.env.NITROUS_README_URL')
+      baseItems.push(
+        menuItem 'View container README', callback: (controller) ->
+          controller.helpNitrousReadme()
+        separator
+      )
+    baseItems.push(
+      menuItem 'Help Center',
+        url: 'http://docs.nitrous.io/'
+        target: '_blank'
+      menuItem 'Web IDE Overview',
+        url: 'http://help.nitrous.io/ide-general'
+        target: '_blank'
+      menuItem 'Frequently Asked Questions',
+        url: 'http://docs.nitrous.io/v1.0/docs/billing--pricing-faq'
+        target: '_blank'
+      separator
+      menuItem 'Blog',
+        url: 'http://blog.nitrous.io/'
+        target: '_blank'
+      menuItem 'Updates',
+        url: 'http://docs.nitrous.io/v1.0/blog'
+        target: '_blank'
+      separator
+      menuItem 'Report an Issue...',
+        url: 'mailto:support@nitrous.io?subject=Nitrous.IO%20Beta%20Feedback'
+        target: '_blank'
+    )
+    baseItems
+  ).property 'App.container', 'App.container.env', 'App.container.env.NITROUS_README_URL'
 
   menu: (->
     [
@@ -278,7 +288,7 @@ App.IdeMainMenuView = Em.View.extend
         menuItem 'Ruler', submenu: rulerMenu
       ]
       menu 'Preview', @get('previewItems')
-      helpMenu
+      menu 'Help', @get('helpMenuItems')
     ]
   ).property()
 
