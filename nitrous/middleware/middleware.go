@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -23,12 +24,34 @@ import (
 )
 
 var (
-	errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request", "auth token is required")
-	errInvalidToken   = httperror.New(http.StatusUnauthorized, "invalid_token", "auth token is invalid")
-	ErrHostNotFound   = httperror.New(http.StatusNotFound, "host_not_found", "host does not exist")
+	errInvalidRequest      = httperror.New(http.StatusBadRequest, "invalid_request", "auth token is required")
+	errInvalidToken        = httperror.New(http.StatusUnauthorized, "invalid_token", "auth token is invalid")
+	ErrHostNotFound        = httperror.New(http.StatusNotFound, "host_not_found", "host does not exist")
+	ErrOutstandingInvoices = httperror.New(http.StatusBadRequest, "outstanding_invoices", "you have outstanding invoices, please check your billing settings")
 
 	splitIPRe   = regexp.MustCompile(`[,\s]+`)
 	trustedIPRe = regexp.MustCompile(`\A127\.0\.0\.1\z|\A(10|172\.(1[6-9]|2[0-9]|30|31)|192\.168)\.|\A::1\z|\Afd[0-9a-f]{2}:.+|\Alocalhost\z|\Aunix\z|\Aunix:`)
+
+	allowedUnpaidResources = []string{
+		"users.GetAuthenticatedUser",
+		"userprofiles.Show",
+		"userprofiles.Update",
+		"hosts.Index",
+		"hosts.Show",
+		"hosts.Stats",
+		"containers.Index",
+		"containers.Show",
+		"containers.Config",
+		"volumes.Index",
+		"images.Index",
+		"registries.Index",
+		"billing.Invoices",
+		"billing.CurrentUsage",
+		"billingprofiles.Activate",
+		"billingprofiles.Update",
+		"tokens.Logout",
+		"feedback.Send",
+	}
 )
 
 type Env struct {
@@ -129,6 +152,34 @@ func Auth(mw Middleware) Middleware {
 
 		tok := authHeader[len(prefix):]
 		return authenticate(tok, mw, env, w, r)
+	}
+}
+
+func VerifyUserBilling(label string, mw Middleware) Middleware {
+	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
+		bp, err := billingprofile.Find(env.DB, env.User.ID)
+		block := false
+		if err != nil {
+			env.Logger.Errorf("BlockDeliquentUser: error locating billingprofile for %+v err: %+v", env.User, err)
+		} else {
+			block = bp.HasBillingIssues()
+		}
+		if block {
+			found := false
+			for _, itm := range allowedUnpaidResources {
+				if itm == label {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return ErrOutstandingInvoices
+			}
+		}
+		if err := mw(env, w, r); err != nil {
+			return err
+		}
+		return nil
 	}
 }
 

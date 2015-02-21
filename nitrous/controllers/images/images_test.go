@@ -181,6 +181,12 @@ var _ = Describe("controllers/images", func() {
 			Expect(err).To(BeNil())
 		})
 
+		It("should allow the user even if it has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			res := doRequest("foo", nil)
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
 		It("responds with images from the database augmented with data from Freighter", func() {
 			res := doRequest("foo", nil)
 
@@ -414,6 +420,12 @@ var _ = Describe("controllers/images", func() {
 			Expect(err).To(BeNil())
 		})
 
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			res := doRequest(nil)
+			VerifyDeliquentUserResponse(res)
+		})
+
 		It("responds with images from the database augmented with data from Freighter", func() {
 			res := doRequest(nil)
 
@@ -544,6 +556,16 @@ var _ = Describe("controllers/images", func() {
 			svr.Router().ServeHTTP(res, req)
 			return res
 		}
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			params := map[string]string{
+				"slug": "",
+				"code": "FROM scratch",
+			}
+			res := doRequest("foo", params, map[string]io.Reader{})
+			VerifyDeliquentUserResponse(res)
+		})
 
 		It("requires slug", func() {
 			params := map[string]string{
@@ -994,6 +1016,12 @@ var _ = Describe("controllers/images", func() {
 			return res
 		}
 
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			res := doRequest("foo", "nitrousio/elixir")
+			VerifyDeliquentUserResponse(res)
+		})
+
 		It("calls RemoveImage", func() {
 			doRequest("foo", "nitrousio/elixir")
 			Expect(mockClient.RemoveImageCalled).To(Equal(1))
@@ -1072,6 +1100,15 @@ var _ = Describe("controllers/images", func() {
 			svr.Router().ServeHTTP(res, req)
 			return res
 		}
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			res := doRequest("foo", "nitrousio/scratch", &url.Values{
+				"tag":  []string{"staging"},
+				"name": []string{"staging v1 from scratch"},
+			})
+			VerifyDeliquentUserResponse(res)
+		})
 
 		It("creates an image record", func() {
 			i, err := image.Find(db, u, hs.H, "staging")
@@ -1201,6 +1238,12 @@ var _ = Describe("controllers/images", func() {
 			return res
 		}
 
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			res := doRequest("foo", "nitrousio/elixir", nil)
+			VerifyDeliquentUserResponse(res)
+		})
+
 		It("should inform of not found errors", func() {
 			mockClient.InspectImageError = freighterclient.ErrImageNotFound
 			res := doRequest("foo", "nitrousio/elixir", nil)
@@ -1321,6 +1364,12 @@ var _ = Describe("controllers/images", func() {
 
 		AfterEach(func() {
 			images.PullImageFn = previousPullImage
+		})
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			res := doRequest("foo", &url.Values{"repository": []string{"scratch"}})
+			VerifyDeliquentUserResponse(res)
 		})
 
 		It("should emit a image pulling event", func() {

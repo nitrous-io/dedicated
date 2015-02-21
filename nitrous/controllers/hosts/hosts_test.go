@@ -141,6 +141,12 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 			})
 
+			It("should not be blocked if the user has billing issues", func() {
+				MarkDelinquentUser(db, u)
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
+
 			It("responds with the authenticated user's hosts", func() {
 				doRequest()
 
@@ -225,6 +231,12 @@ var _ = Describe("controllers/hosts", func() {
 
 		AfterEach(func() {
 			UnstubFreighterFn()
+		})
+
+		It("should allow the user even if it has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest(hs.H.Slug, t.Token)
+			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
 		It("responds with host info from the database", func() {
@@ -357,6 +369,13 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 		})
 
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			params := &url.Values{}
+			doRequest(params)
+			VerifyDeliquentUserResponse(res)
+		})
+
 		Context("when name field is present and non-empty", func() {
 			BeforeEach(func() {
 				params := &url.Values{}
@@ -475,6 +494,12 @@ var _ = Describe("controllers/hosts", func() {
 			UnstubFreighterFn()
 		})
 
+		It("should allow the user even if it has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest("")
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
 		It("calls the Freighter client to get host info", func() {
 			doRequest("")
 			Expect(mockClient.HostInfoCalled).To(Equal(1))
@@ -576,6 +601,12 @@ var _ = Describe("controllers/hosts", func() {
 			}
 			err = c.Insert(db)
 			Expect(err).To(BeNil())
+		})
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest(hs.H.Slug, t.Token)
+			VerifyDeliquentUserResponse(res)
 		})
 
 		It("should send the UUID headers", func() {

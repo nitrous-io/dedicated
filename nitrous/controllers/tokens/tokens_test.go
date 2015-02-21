@@ -316,7 +316,7 @@ var _ = Describe("controllers/tokens", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("should delete the token", func() {
+		ItSuccessfullyDeletesTheToken := func() {
 			req, err := NewAuthedRequest(t, "DELETE", "/api/v0/logout", &url.Values{})
 			Expect(err).To(BeNil())
 
@@ -336,6 +336,15 @@ var _ = Describe("controllers/tokens", func() {
 			handler.ServeHTTP(res, req)
 
 			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+		}
+
+		It("should delete even if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			ItSuccessfullyDeletesTheToken()
+		})
+
+		It("should delete the token", func() {
+			ItSuccessfullyDeletesTheToken()
 		})
 
 	})
