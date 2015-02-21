@@ -76,7 +76,6 @@ func main() {
 		fmt.Printf("tender version: %s\n", version)
 		os.Exit(0)
 	}
-
 	db, err := connectDB(databaseURL)
 	if err != nil {
 		log.Fatalf("connectDB: %v", err)

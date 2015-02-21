@@ -84,22 +84,22 @@ var _ = Describe("models/invoiceitem", func() {
 		})
 
 		It("should describe the host usage", func() {
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' 900 hours at 1.231c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' 900 hours at 1.231c/hour"))
 		})
 
 		It("should be able to display terminated state", func() {
 			inv.Terminated = true
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' (terminated) 900 hours at 1.231c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' (terminated) 900 hours at 1.231c/hour"))
 		})
 
 		It("should handle up to 3 decimal places precision", func() {
 			inv.HourlyPrice = sql.NullInt64{1, true}
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' 900 hours at 0.001c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' 900 hours at 0.001c/hour"))
 		})
 
 		It("should trim to 2 decimal points if needed", func() {
 			inv.HourlyPrice = sql.NullInt64{100, true}
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Application 'ABCDEF' 900 hours at 0.10c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' 900 hours at 0.10c/hour"))
 		})
 
 		It("should be a credit description when the item is a Credit", func() {

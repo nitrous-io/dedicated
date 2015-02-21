@@ -6,3 +6,5 @@ App.IdeIframeView = Em.View.extend
   uri: (->
     @get 'document.content'
   ).property 'document.content', 'document.contentType'
+
+  readmeBinding: 'document.readme'

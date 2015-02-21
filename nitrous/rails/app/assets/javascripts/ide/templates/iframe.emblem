@@ -1,1 +1,6 @@
-iframe src=view.uri sandbox=""
+.group
+  if view.readme
+    .notice
+      i.fa.fa-info-circle
+      | To view this document again in the future, go to Help -> View container README
+  iframe src=view.uri sandbox="allow-forms allow-popups allow-scripts"

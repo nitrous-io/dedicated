@@ -52,7 +52,7 @@ func ItemDescription(i *InvoiceItem, hst *host.Host) string {
 		state = " (terminated)"
 	}
 	prcnt := strings.TrimSuffix(fmt.Sprintf("%.3f", i.HourlyCents()), "0")
-	return fmt.Sprintf("Application '%s'%s %d hours at %sc/hour", hst.Slug, state, i.Hours.Int64, prcnt)
+	return fmt.Sprintf("Workspace '%s'%s %d hours at %sc/hour", hst.Slug, state, i.Hours.Int64, prcnt)
 }
 
 func FindAllForInvoice(d db.QueryReceiver, iID int64) ([]InvoiceItem, error) {
