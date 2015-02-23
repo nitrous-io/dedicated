@@ -31,6 +31,7 @@ App.Host = klass = App.Model.extend
   isRunning: Em.computed.equal 'state', 'running'
   isTerminated: Em.computed.equal 'state', 'terminated'
   isOrphan: Em.computed.equal 'state', 'orphan'
+  isUpgrading: Em.computed.equal 'state', 'upgrading'
 
   displayName: (->
     @get('name') || @get('slug')
