@@ -21,7 +21,7 @@ func TestSameRootDomain(t *testing.T) {
 
 	for _, d := range data {
 		if SameRootDomain(d.domainA, d.domainB) != d.same {
-			t.Fatal("failed to assert domains %v", d)
+			t.Fatalf("failed to assert domains %v", d)
 		}
 	}
 }

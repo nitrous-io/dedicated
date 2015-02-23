@@ -46,7 +46,7 @@ func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) {
 	}
 
 	if e.Data == nil {
-		env.Logger.Error("Stripe hook event is missing Data: %+v", e)
+		env.Logger.Errorf("Stripe hook event is missing Data: %+v", e)
 		return
 	}
 

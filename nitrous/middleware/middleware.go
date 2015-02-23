@@ -102,7 +102,7 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 	}
 
 	if err := t.Touch(db, GetRemoteAddr(r)); err != nil {
-		env.Logger.Error("Unable to touch token %d, err: %v", t.ID, err)
+		env.Logger.Errorf("Unable to touch token %d, err: %v", t.ID, err)
 	}
 
 	if !u.CanLogin() {

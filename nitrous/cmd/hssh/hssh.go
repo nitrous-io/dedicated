@@ -75,7 +75,7 @@ func newConn(slug string) (*sshutil.Conn, error) {
 	// get keypair
 	kp, err := keypairs.Get(dbconn, h.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find a keypair for host %q, error %q", h, err)
+		return nil, fmt.Errorf("failed to find a keypair for host %v, error %q", h, err)
 	}
 
 	// get the private key from keypair
@@ -84,16 +84,16 @@ func newConn(slug string) (*sshutil.Conn, error) {
 		[]byte(kp.EncryptedPrivateKeyIv),
 		[]byte(kp.EncryptedPrivateKey))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt private key for host %q, error %q", h, err)
+		return nil, fmt.Errorf("failed to decrypt private key for host %v, error %q", h, err)
 	}
 
 	pk, err := ssh.ParseRawPrivateKey(priv)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key for host %q, error %q", h, err)
+		return nil, fmt.Errorf("failed to parse private key for host %v, error %q", h, err)
 	}
 	privKey, ok := pk.(*rsa.PrivateKey)
 	if !ok {
-		return nil, fmt.Errorf("invalid RSA key for host %q", h)
+		return nil, fmt.Errorf("invalid RSA key for host %v", h)
 	}
 
 	// create the ssh client

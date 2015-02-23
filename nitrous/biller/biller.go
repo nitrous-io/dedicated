@@ -469,15 +469,15 @@ func (b *Biller) sanityCheckInvoiceItems(items []invoiceitem.InvoiceItem) error 
 	for _, item := range items {
 		hostPrice, ok := mapping[item.HostID.Int64]
 		if !ok {
-			return fmt.Errorf("biller: Could not locate plan for user %d host %d", b.user.ID, item.HostID)
+			return fmt.Errorf("biller: Could not locate plan for user %d host %d", b.user.ID, item.HostID.Int64)
 		}
 		if item.TotalCharge() > hostPrice {
-			return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds plan price %d", item.TotalCharge(), b.user.ID, item.HostID, hostPrice)
+			return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds plan price %d", item.TotalCharge(), b.user.ID, item.HostID.Int64, hostPrice)
 		}
 		if item.Hours.Int64 == invoiceitem.MaxHours {
 			priceRatio := float64(hostPrice) / float64(item.TotalCharge())
 			if priceRatio >= MinPriceDiffRatio {
-				return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds ratio %f with %f", item.TotalCharge(), b.user.ID, item.HostID, MinPriceDiffRatio, priceRatio)
+				return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds ratio %f with %f", item.TotalCharge(), b.user.ID, item.HostID.Int64, MinPriceDiffRatio, priceRatio)
 			}
 		}
 	}

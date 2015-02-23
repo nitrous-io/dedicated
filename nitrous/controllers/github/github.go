@@ -198,7 +198,7 @@ func OAuthCb(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	if p.GitHubUserName.Valid {
 		if gitHubUserName != p.GitHubUserName.String {
 			// shouldn't happen, we log but ignore
-			env.Logger.Errorf("inconsistent github user names, old: %s, new: %s", p.GitHubUserName, gitHubUserName)
+			env.Logger.Errorf("inconsistent github user names, old: %s, new: %s", p.GitHubUserName.String, gitHubUserName)
 		}
 	}
 

@@ -435,7 +435,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 
 	sh, err := shell.OpenShell(containerID, command, noTTY)
 	if err != nil {
-		fmt.Println("wsNewShell: failed to open a shell for container %v", containerID, err)
+		fmt.Printf("wsNewShell: failed to open a shell for container %v, err: %s\n", containerID, err)
 		return err
 	}
 
@@ -474,7 +474,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 			case *shell.ResizeMsg:
 				sh.Resize(msg.Width, msg.Height)
 			default:
-				log.Println("shell: got unknown msg %v", msg)
+				log.Println("shell: got unknown msg ", msg)
 			}
 		}
 	}
@@ -533,7 +533,7 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 		case msg := <-msgCh:
 			switch msg := msg.(type) {
 			default:
-				log.Println("container ops: got unknown msg %v", msg)
+				log.Println("container ops: got unknown msg ", msg)
 			}
 		}
 	}
