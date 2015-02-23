@@ -1964,7 +1964,8 @@ var _ = Describe("server", func() {
 		It("sends nils to quit channel if populated for CID", func() {
 			cid := "abbacoda"
 			q1, q2 := make(chan error, 2), make(chan error, 2)
-			server.ActiveCops[cid] = append(server.ActiveCops[cid], q1, q2)
+			server.ActiveCops.AddChannel(cid, q1)
+			server.ActiveCops.AddChannel(cid, q2)
 			svr.TerminateActiveCops(cid)
 			Expect(q1).To(Receive(nil))
 			Expect(q2).To(Receive(nil))
@@ -1972,7 +1973,8 @@ var _ = Describe("server", func() {
 
 		It("is a no-op if ActiveCops is not populated for a CID", func() {
 			q1, q2 := make(chan error, 2), make(chan error, 2)
-			server.ActiveCops["cid"] = append(server.ActiveCops["cid"], q1, q2)
+			server.ActiveCops.AddChannel("cid", q1)
+			server.ActiveCops.AddChannel("cid", q2)
 			svr.TerminateActiveCops("Different Container ID")
 			Expect(q1).NotTo(Receive(nil))
 			Expect(q2).NotTo(Receive(nil))

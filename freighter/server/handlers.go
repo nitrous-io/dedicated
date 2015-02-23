@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
@@ -52,9 +53,53 @@ const utilizationSize = 360 // 30min
 var (
 	Utilization *stats.Utilization
 
-	// maps container id to slice of 'quit' chan error returned by cops.Start
-	ActiveCops map[string][]chan error
+	ActiveCops *ActiveCopsList
 )
+
+// maps container id to slice of 'quit' chan error returned by cops.Start
+type ActiveCopsList struct {
+	mu         sync.Mutex
+	activeCops map[string][]chan error
+}
+
+func NewActiveCopsList() *ActiveCopsList {
+	return &ActiveCopsList{
+		activeCops: make(map[string][]chan error),
+	}
+}
+
+func (ac *ActiveCopsList) Len(cid string) int {
+	ac.mu.Lock()
+	res := len(ac.activeCops[cid])
+	ac.mu.Unlock()
+	return res
+}
+
+func (ac *ActiveCopsList) Terminate(cid string) {
+	ac.mu.Lock()
+	for _, quit := range ac.activeCops[cid] {
+		quit <- nil
+	}
+	ac.mu.Unlock()
+}
+
+func (ac *ActiveCopsList) AddChannel(cid string, ch chan error) {
+	ac.mu.Lock()
+	ac.activeCops[cid] = append(ac.activeCops[cid], ch)
+	ac.mu.Unlock()
+}
+
+func (ac *ActiveCopsList) RemoveChannel(cid string, toRemove chan error) {
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+
+	for i, ch := range ac.activeCops[cid] {
+		if ch == toRemove {
+			ac.activeCops[cid] = append(ac.activeCops[cid][:i], ac.activeCops[cid][i+1:]...)
+			return
+		}
+	}
+}
 
 func NewWebSocketConnection(conn *websocket.Conn, binaryMode bool) *wsconn.Conn {
 	stream := wsconn.NewConnectionHeartbeat(conn, true)
@@ -69,7 +114,7 @@ func init() {
 	Utilization = stats.NewUtilization(utilizationSize)
 	go Utilization.Record(utilizationInterval)
 
-	ActiveCops = make(map[string][]chan error)
+	ActiveCops = NewActiveCopsList()
 }
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
@@ -510,25 +555,13 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 		stdout.Close()
 		return err
 	}
-	ActiveCops[id] = append(ActiveCops[id], quit)
+	ActiveCops.AddChannel(id, quit)
 	for {
 		select {
 		case err := <-done:
 			log.Printf("container ops: exited with err %v", err)
-
-			// find the channel that corresponds to this handler's and remove
-			// it from ActiveCops[cid] slice of chan errors
-			chanIndex := -1
-			for i, errChan := range ActiveCops[id] {
-				if errChan == quit {
-					chanIndex = i
-				}
-			}
-			if chanIndex > -1 {
-				ActiveCops[id] = append(ActiveCops[id][:chanIndex], ActiveCops[id][chanIndex+1:]...)
-			}
-
-			stdout.Close() // Inform client that server has closed connection.
+			ActiveCops.RemoveChannel(id, quit)
+			stdout.Close() // inform client that server has closed connection.
 			return nil
 		case msg := <-msgCh:
 			switch msg := msg.(type) {
