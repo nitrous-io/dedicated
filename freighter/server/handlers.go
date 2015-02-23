@@ -6,14 +6,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
@@ -943,6 +946,7 @@ func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 			}
 			return
 		}
+		s.logger.Infof("updated freighterd package from %q to %q", config.Version, fv)
 
 		if err := s.restartFreighterd(); err != nil {
 			s.logger.Errorf("error restarting freighterd: %v", err)
@@ -1015,13 +1019,8 @@ func setupFakePath(path string) error {
 // TODO We probably want to restart gracefully (maybe by sending SIGHUP to self)
 // so that existing HTTP requests are not dropped.
 func (s *Server) restartFreighterd() error {
-	// FIXME This will probably not work.
-	cmd := exec.Command("service", "freighter", "restart")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		s.logger.Errorf("error restarting freighterd, err: %v, output: %s", err, out)
-		return err
-	}
-	return nil
+	s.logger.Infof("Sending freighter process signal to terminate...")
+	return syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 }
 
 func randomString() string {

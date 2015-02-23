@@ -80,7 +80,8 @@ type Server struct {
 	conf     *Config
 	secret   string
 	// collection of current attached shells
-	shells map[string]*shell.Shell
+	shells    map[string]*shell.Shell
+	listeners []net.Listener
 }
 
 func NewServer(logger *util.Logger, provider provider.Provider, conf *Config) *Server {
@@ -100,7 +101,6 @@ func NewServer(logger *util.Logger, provider provider.Provider, conf *Config) *S
 }
 
 func (s *Server) Start() error {
-	errCh := make(chan error, len(s.conf.Listen))
 	for _, h := range s.conf.Listen {
 		var ln net.Listener
 		var err error
@@ -124,7 +124,11 @@ func (s *Server) Start() error {
 		svr := &http.Server{Addr: addr, Handler: s.router}
 		go func() {
 			s.logger.Infof("Listening on %s %s", proto, addr)
-			errCh <- svr.Serve(ln)
+			s.listeners = append(s.listeners, ln)
+			err := svr.Serve(ln)
+			if err != nil {
+				s.logger.Errorf("Listener on %s %s failed with %v", proto, addr, err)
+			}
 		}()
 	}
 
@@ -143,12 +147,13 @@ func (s *Server) Start() error {
 		}
 	}()
 
-	for i := 0; i < len(s.conf.Listen); i++ {
-		if err := <-errCh; err != nil {
-			s.logger.FatalExit(err)
-		}
-	}
 	return nil
+}
+
+func (s *Server) Stop() {
+	for _, ln := range s.listeners {
+		ln.Close()
+	}
 }
 
 func (s *Server) unixListener(addr string) (net.Listener, error) {
