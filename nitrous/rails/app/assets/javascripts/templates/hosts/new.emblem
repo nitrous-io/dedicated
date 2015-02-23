@@ -28,15 +28,23 @@
               App.PlanListItemView content=plan selected=selectedPlan
 
       .card-body.bordered
-        .credit-message class={App.billingUsage.creditsRemaining:show}
-          p.note-text
-            ' You have
-            span
-              | $
-              = currency App.billingUsage.creditsRemaining
-              '  Credit
-            '
-            | available.
+        .credit-message class='show'
+          if App.billingUsage.creditsRemaining
+            p.note-text
+              ' You have
+              span
+                | $
+                = currency App.billingUsage.creditsRemaining
+                '  Credit
+              '
+              | available.
+          else
+            p.note-text
+              ' Your current estimated billing charge is
+              span 
+                | $
+                = currency App.billingUsage.estimatedCharge
+
 
         p.note-text.see-terms
           | Please review the&nbsp;
