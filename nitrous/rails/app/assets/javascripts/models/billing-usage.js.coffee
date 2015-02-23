@@ -32,6 +32,16 @@ App.BillingUsage = klass = App.Model.extend
       total - credits
   ).property 'availableCreditsDollars', 'totalChargeDollars'
 
+  creditsRemaining: (->
+    credits = @get 'availableCreditsDollars'
+    total = @get 'totalChargeDollars'
+    if credits > total
+      return credits - total
+    else
+      return 0
+
+  ).property 'availableCreditsDollars', 'totalChargeDollars'
+
 klass.reopenClass
   fetchCurrentUsage: ->
     adapter = Ember.get(this, 'adapter');

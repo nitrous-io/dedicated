@@ -28,14 +28,13 @@
               App.PlanListItemView content=plan selected=selectedPlan
 
       .card-body.bordered
-        .credit-message class={availableCredit:show}
+        .credit-message class={App.billingUsage.creditsRemaining:show}
           p.note-text
             ' You have
             span
-              ' $#{availableCredit}
-              if promoCreditNotYetReceived
-                ' Free
-              ' Credit
+              | $
+              = currency App.billingUsage.creditsRemaining
+              '  Credit
             '
             | available.
 
