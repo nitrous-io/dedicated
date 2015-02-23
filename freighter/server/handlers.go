@@ -961,11 +961,24 @@ func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 
 func (s *Server) upgradeFreighterd(version string) error {
 	cmd := exec.Command("apt-get", "update",
-		`-o Dir::Etc::sourceparts="/dev/null"`,
-		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`)
+		"-o", "Dir::Etc::sourceparts=-",
+		"-o", "Dir::Etc::sourcelist=/etc/apt/sources.list.d/nitrousio.list")
 	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		s.logger.Errorf("error updating freighterd repo, err: %v, output: %s", err, out)
+		return err
+	}
+
+	// Setup a dir with service-related binaries pointing to /bin/true. We will
+	// use this in the PATH for the `apt-get install` command so that the
+	// freighterd service is not restarted.
+	// See http://askubuntu.com/a/77530/25214.
+	fakepath, err := ioutil.TempDir("", "freighter-fakepath")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(fakepath)
+	if err := setupFakePath(fakepath); err != nil {
 		return err
 	}
 
@@ -974,16 +987,28 @@ func (s *Server) upgradeFreighterd(version string) error {
 		pkgspec = fmt.Sprintf("freighterd=%s", version)
 	}
 	cmd = exec.Command("apt-get", "install", "-y",
-		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
-		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
+		"-o", `Dpkg::Options::=--force-confdef`, // avoid prompt
+		"-o", `Dpkg::Options::=--force-confold`, // do not modify existing config file
 		pkgspec,
 	)
+	cmd.Env = append(cmd.Env, fmt.Sprintf("PATH=%s:/usr/sbin:/usr/bin:/sbin:/bin", fakepath))
 	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		s.logger.Errorf("error updating freighterd package, err: %v, output: %s", err, out)
 		return err
 	}
 
+	return nil
+}
+
+func setupFakePath(path string) error {
+	cmds := []string{"initctl", "invoke-rc.d",
+		"restart", "start", "stop", "start-stop-daemon", "service"}
+	for _, cmd := range cmds {
+		if err := os.Symlink("/bin/true", filepath.Join(path, cmd)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
