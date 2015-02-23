@@ -6,10 +6,12 @@
 window.Nitrous = Em.Application.extend Em.Evented,
   rootElement: '#app'
 
+  # supports variations of the Windows navigator.platform
+  # see http://stackoverflow.com/questions/19877924/what-is-the-list-of-possible-values-for-navigator-platform-as-of-today
   platform:
     if navigator.platform.indexOf('Linux') != -1
       'linux'
-    else if navigator.platform.indexOf('Windows') != -1
+    else if navigator.platform.indexOf('Win32') != -1 || navigator.platform.indexOf('Win64') != -1 || navigator.platform.indexOf('Windows') != -1
       'windows'
     else 'mac'
 
