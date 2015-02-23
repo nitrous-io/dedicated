@@ -82,7 +82,7 @@ func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) {
 	if strInv.Paid {
 		HandlePaymentSucceededFn(env, inv)
 	} else {
-		HandlePaymentFailedFn(env, inv, int(strInv.Attempts), strInv.NextAttempt > 0)
+		HandlePaymentFailedFn(env, inv, int(strInv.Attempts), strInv.NextAttempt == 0)
 	}
 	u, err := user.FindByID(env.DB, inv.UserID)
 	if err != nil {
@@ -142,8 +142,8 @@ func handlePaymentSucceeded(env *middleware.Env, inv *invoice.Invoice) {
 	}
 }
 
-func handlePaymentFailed(env *middleware.Env, inv *invoice.Invoice, attemptCount int, moreAttempts bool) {
-	if err := inv.PaymentFailed(env.DB, attemptCount, moreAttempts); err != nil {
+func handlePaymentFailed(env *middleware.Env, inv *invoice.Invoice, attemptCount int, attemptsExhausted bool) {
+	if err := inv.PaymentFailed(env.DB, attemptCount, attemptsExhausted); err != nil {
 		env.Logger.Errorf("Error marking invoice %d as failed, err: %v", inv.ID, err)
 	}
 }

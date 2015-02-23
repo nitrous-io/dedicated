@@ -370,7 +370,7 @@ var _ = Describe("models/invoice", func() {
 			_, err := db.Exec("UPDATE billing_profiles SET last_four = '1901' WHERE user_id = $1;", u.ID)
 			Expect(err).To(BeNil())
 
-			err = i.PaymentFailed(db, 2, true)
+			err = i.PaymentFailed(db, 2, false)
 			Expect(err).To(BeNil())
 
 			i2 := &invoice.Invoice{}
@@ -432,7 +432,7 @@ var _ = Describe("models/invoice", func() {
 
 			t := time.Unix(20, 0)
 			i.FirstAttemptAt = &t
-			err = i.PaymentFailed(db, 2, false)
+			err = i.PaymentFailed(db, 2, true)
 			Expect(err).To(BeNil())
 
 			i2 := &invoice.Invoice{}

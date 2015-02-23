@@ -40,10 +40,10 @@ var _ = Describe("controllers/stripehooks", func() {
 		succeedFnCalled        bool
 		receivedSucceedInvoice *invoice.Invoice
 
-		failedFnCalled             bool
-		receivedFailedInvoice      *invoice.Invoice
-		receivedFailedAttemptCount int
-		receivedFailedMoreAttempts bool
+		failedFnCalled                  bool
+		receivedFailedInvoice           *invoice.Invoice
+		receivedFailedAttemptCount      int
+		receivedFailedAttemptsExhausted bool
 
 		inv *invoice.Invoice
 	)
@@ -63,10 +63,10 @@ var _ = Describe("controllers/stripehooks", func() {
 			receivedSucceedInvoice = inv
 			succeedFnCalled = true
 		}
-		stripehooks.HandlePaymentFailedFn = func(env *middleware.Env, inv *invoice.Invoice, attemptCount int, moreAttempts bool) {
+		stripehooks.HandlePaymentFailedFn = func(env *middleware.Env, inv *invoice.Invoice, attemptCount int, attemptsExhausted bool) {
 			receivedFailedInvoice = inv
 			receivedFailedAttemptCount = attemptCount
-			receivedFailedMoreAttempts = moreAttempts
+			receivedFailedAttemptsExhausted = attemptsExhausted
 			failedFnCalled = true
 		}
 
@@ -177,10 +177,10 @@ var _ = Describe("controllers/stripehooks", func() {
 
 			Expect(receivedFailedInvoice).To(Equal(inv))
 			Expect(receivedFailedAttemptCount).To(Equal(2))
-			Expect(receivedFailedMoreAttempts).To(BeTrue())
+			Expect(receivedFailedAttemptsExhausted).To(BeFalse())
 		})
 
-		It("should handle the NextAttempt being greater than 0", func() {
+		It("should return true for attempts exhausted when NextAttempt is 0", func() {
 			fakeStripe.Responses = []string{
 				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": null}}}`,
 				`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": null}`,
@@ -194,7 +194,7 @@ var _ = Describe("controllers/stripehooks", func() {
 				return failedFnCalled
 			}).Should(BeTrue())
 
-			Expect(receivedFailedMoreAttempts).To(BeFalse())
+			Expect(receivedFailedAttemptsExhausted).To(BeTrue())
 		})
 
 		It("should publish a EventInvoiceUpdated to the user", func(done Done) {

@@ -153,7 +153,7 @@ func (i *Invoice) PaymentSucceeded(d *db.Database) error {
 	return tx.Commit()
 }
 
-func (i *Invoice) PaymentFailed(d db.QueryReceiver, attemptCount int, moreAttempts bool) error {
+func (i *Invoice) PaymentFailed(d db.QueryReceiver, attemptCount int, attemptsExhausted bool) error {
 	if i.SuccessfulCharge {
 		return errors.New("This invoice has already been charged")
 	}
@@ -164,9 +164,8 @@ func (i *Invoice) PaymentFailed(d db.QueryReceiver, attemptCount int, moreAttemp
 	}
 	i.LastAttemptAt = &t
 	i.Attempts = attemptCount
-	i.Failed = !moreAttempts
-	err := i.Update(d)
-	if err != nil {
+	i.Failed = attemptsExhausted
+	if err := i.Update(d); err != nil {
 		return err
 	}
 	return i.handlePaymentFailed(d, i.Failed)
