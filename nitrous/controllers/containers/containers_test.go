@@ -1472,34 +1472,39 @@ var _ = Describe("controllers/containers", func() {
 		}
 
 		ItRespondsWithConfig := func() {
-			mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
-				PortBindings: []string{"4040:5050", "4000:3000"},
-				Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
-				Mounts:       []string{"database-75:/var/lib/postgresql/data"},
-				Cmd:          []string{"/bin/yes"},
-			}
+			It("responds with the various configs", func() {
+				mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
+					PortBindings: []string{"4040:5050", "4000:3000"},
+					Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+					Mounts:       []string{"database-75:/var/lib/postgresql/data"},
+					Cmd:          []string{"/bin/yes"},
+				}
 
-			doRequest(c.Slug)
+				doRequest(c.Slug)
 
-			Expect(res.Code).To(Equal(http.StatusOK))
-			Expect(mockClient.ConfigCalled).To(Equal(1))
-			var j struct {
-				Config *serializers.ContainerConfig `json:"config"`
-			}
-			err := json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.Config.Cmd).To(Equal(mockClient.ConfigContainerConfig.Cmd))
-			Expect(j.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
-			Expect(j.Config.Ports).To(Equal(mockClient.ConfigContainerConfig.PortBindings))
-			Expect(j.Config.Mounts).To(Equal(mockClient.ConfigContainerConfig.Mounts))
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(mockClient.ConfigCalled).To(Equal(1))
+				var j struct {
+					Config *serializers.ContainerConfig `json:"config"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Config.Cmd).To(Equal(mockClient.ConfigContainerConfig.Cmd))
+				Expect(j.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
+				Expect(j.Config.Ports).To(Equal(mockClient.ConfigContainerConfig.PortBindings))
+				Expect(j.Config.Mounts).To(Equal(mockClient.ConfigContainerConfig.Mounts))
+			})
 		}
 
-		It("should allow the user even if it has billing issues", func() {
-			MarkDelinquentUser(db, u)
+		Context("when theres billing issues", func() {
+			BeforeEach(func() {
+				MarkDelinquentUser(db, u)
+			})
+
 			ItRespondsWithConfig()
 		})
 
-		It("responds with the various configs", func() {
+		Context("when valid token is provided", func() {
 			ItRespondsWithConfig()
 		})
 

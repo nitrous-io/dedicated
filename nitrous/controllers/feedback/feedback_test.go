@@ -94,40 +94,43 @@ var _ = Describe("controllers/feedback", func() {
 		}
 
 		ItSendsSuccessfully := func() {
-			subject := "All your server are belong to us"
-			body := "You have no chance to survive make your time."
+			It("sends successfully", func() {
+				subject := "All your server are belong to us"
+				body := "You have no chance to survive make your time."
 
-			params := &url.Values{}
-			params.Set("subject", subject)
-			params.Set("body", body)
+				params := &url.Values{}
+				params.Set("subject", subject)
+				params.Set("body", body)
 
-			doRequest("valid-token", params)
-			Expect(res.Code).To(Equal(http.StatusOK))
+				doRequest("valid-token", params)
+				Expect(res.Code).To(Equal(http.StatusOK))
 
-			Expect(fakeMailer.SendMailCalled).To(BeTrue())
-			Expect(fakeMailer.From).To(Equal(`"Nitrous Mailer" <mailer@nitrous.io>`))
-			Expect(fakeMailer.Tos).To(Equal([]string{`"Nitrous Beta Feedback" <beta@nitrous.io>`}))
-			Expect(fakeMailer.Ccs).To(Equal([]string{`"CATS" <cats@example.com>`}))
-			Expect(fakeMailer.Bccs).To(BeNil())
-			Expect(fakeMailer.ReplyTo).To(Equal(`"CATS" <cats@example.com>`))
-			Expect(fakeMailer.Subject).To(Equal("[nitrous-pro] " + subject))
-			Expect(fakeMailer.Body).To(Equal("Username: cats\nName: CATS\nEmail: cats@example.com\n" + body))
+				Expect(fakeMailer.SendMailCalled).To(BeTrue())
+				Expect(fakeMailer.From).To(Equal(`"Nitrous Mailer" <mailer@nitrous.io>`))
+				Expect(fakeMailer.Tos).To(Equal([]string{`"Nitrous Beta Feedback" <beta@nitrous.io>`}))
+				Expect(fakeMailer.Ccs).To(Equal([]string{`"CATS" <cats@example.com>`}))
+				Expect(fakeMailer.Bccs).To(BeNil())
+				Expect(fakeMailer.ReplyTo).To(Equal(`"CATS" <cats@example.com>`))
+				Expect(fakeMailer.Subject).To(Equal("[nitrous-pro] " + subject))
+				Expect(fakeMailer.Body).To(Equal("Username: cats\nName: CATS\nEmail: cats@example.com\n" + body))
 
-			j := map[string]interface{}{}
-			err := json.Unmarshal(res.Body.Bytes(), &j)
-			Expect(err).To(BeNil())
-			Expect(j["status"].(string)).To(Equal("ok"))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["status"].(string)).To(Equal("ok"))
+			})
 		}
 
 		Context("when subject and body are provided", func() {
-			It("should send even if the user has billing issues", func() {
+			ItSendsSuccessfully()
+		})
+
+		Context("when user has billing issues", func() {
+			BeforeEach(func() {
 				MarkDelinquentUser(db, u)
-				ItSendsSuccessfully()
 			})
 
-			It("sends email and responds with 200 OK", func() {
-				ItSendsSuccessfully()
-			})
+			ItSendsSuccessfully()
 		})
 
 		Context("when no params are provided", func() {
