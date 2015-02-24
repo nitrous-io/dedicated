@@ -276,8 +276,9 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Host.UpgradeAvailable).To(BeTrue())
 		})
 
-		It("responds with upgrade_available: false if required freighterd version is empty", func() {
+		It("responds with upgrade_available: false if both freighterd and docker version are empty", func() {
 			hs.H.FreighterdVersion = ""
+			hs.H.DockerVersion = ""
 			err := hs.H.Update(db)
 			Expect(err).To(BeNil())
 

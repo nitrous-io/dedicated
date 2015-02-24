@@ -1976,7 +1976,85 @@ var _ = Describe("server", func() {
 		})
 	})
 
-	Describe("POST /upgrade", func() {
+	Describe("POST /upgrade (for docker)", func() {
+		doRequest := func(params *url.Values) {
+			req, err = NewFormRequest(hostSecret, "POST", "/upgrade", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			server.GetDockerVersionFunc = func() (string, error) {
+				return "lxc-docker-0.1.1-deadbeef", nil
+			}
+		})
+
+		It("responds with 204 No Content when docker version is the same", func() {
+			params := &url.Values{}
+			params.Set("docker_version", "lxc-docker-0.1.1-deadbeef")
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusNoContent))
+		})
+
+		It("responds with 202 Accepted when docker version is different", func() {
+			svr.SetRunner(&fakeRunner{err: nil})
+
+			params := &url.Values{}
+			params.Set("docker_version", "lxc-docker-0.1.1-newversion")
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+		})
+
+		It("notifies the webhook when there is an error upgrading docker", func() {
+			var (
+				notified bool
+				req      *http.Request
+			)
+			webhookSvr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				notified = true
+				r.ParseForm()
+				req = r
+				w.Write([]byte("OK"))
+			}))
+			defer webhookSvr.Close()
+
+			logger := &util.Logger{Level: util.LogLevelQuiet}
+			svr = server.NewServer(logger, prov, &server.Config{
+				NotifyURL: webhookSvr.URL,
+			})
+			svr.SetSecret(hostSecret)
+			handler = svr.Router()
+
+			svr.SetRunner(&fakeRunner{err: errors.New("command failed to execute")})
+
+			params := &url.Values{}
+			params.Set("docker_version", "lxc-docker-0.1.1-newversion")
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			Eventually(func() bool {
+				return notified
+			}).Should(BeTrue())
+
+			Expect(req.Method).To(Equal("POST"))
+			Expect(req.PostFormValue("msg")).ToNot(BeEmpty())
+
+			// Test that we can decrypt the message.
+			verifier := msgverifier.New(hostSecret)
+			var m struct {
+				Error string `json:"error"`
+			}
+			err := verifier.Verify(req.PostFormValue("msg"), &m)
+			Expect(err).To(BeNil())
+			Expect(m.Error).To(Equal("command failed to execute"))
+		})
+
+	})
+
+	Describe("POST /upgrade (for freighterd)", func() {
 		doRequest := func(params *url.Values) {
 			req, err = NewFormRequest(hostSecret, "POST", "/upgrade", params)
 			Expect(err).To(BeNil())

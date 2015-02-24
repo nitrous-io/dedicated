@@ -629,10 +629,11 @@ func (s *Server) serverInfo(w http.ResponseWriter, r *http.Request) error {
 }
 
 var (
-	dockerHost = "unix:///var/run/docker.sock"
+	dockerHost                                  = "unix:///var/run/docker.sock"
+	GetDockerVersionFunc func() (string, error) = GetDockerVersionReal
 )
 
-func getDockerVersion() (string, error) {
+func GetDockerVersionReal() (string, error) {
 	client, err := dockerclient.NewClient(dockerHost)
 	if err != nil {
 		return "", err
@@ -657,7 +658,7 @@ func (s *Server) serverVersions(w http.ResponseWriter, r *http.Request) error {
 	v := map[string]interface{}{
 		"freighterd_version": config.Version,
 	}
-	if dockerVer, err := getDockerVersion(); err == nil {
+	if dockerVer, err := GetDockerVersionFunc(); err == nil {
 		v["docker_version"] = dockerVer
 	}
 	s.respondEncodeJSON(w, http.StatusOK, v)
@@ -924,41 +925,98 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// upgradeServer upgrades the freighterd package to the version specified in the
-// request. This assumes that we are using APT to manage freighterd and will
-// probably not work everywhere.
+// upgradeServer upgrades the freighterd and/or docker package to the version
+// specified in the request. This assumes that we are using APT to manage
+// freighterd and will probably not work everywhere.
+// sample docker_version: "1.3.0-c78088f"
+// sample freighterd_version: "0.2.0+1424818140-0-0b52a6e"
 func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 	fv := r.PostFormValue("freighterd_version")
-	if fv == config.Version {
+	dv := r.PostFormValue("docker_version")
+	myDockerVer, err := GetDockerVersionFunc()
+	if err != nil {
+		return err
+	}
+
+	upgradingDocker := dv != "" && dv != myDockerVer
+	upgradingFreighter := fv != "" && fv != config.Version
+
+	upgradingAny := upgradingDocker || upgradingFreighter
+	if !upgradingAny {
 		s.respondEncodeJSON(w, http.StatusNoContent, nil)
 		return nil
 	}
 
-	go func() {
+	if !upgradingDocker {
+		dv = ""
+	}
+	if !upgradingFreighter {
+		fv = ""
+	}
+
+	go s.upgradeDockerAndFreighter(dv, fv)
+
+	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
+	return nil
+}
+
+func (s *Server) notifyWebhookUpgradeFailed(upgradeErr error, component string) {
+	err := s.notifyWebhook(map[string]interface{}{
+		"event": "upgrade",
+		"error": upgradeErr.Error(),
+	})
+	if err != nil {
+		s.logger.Errorf("failed to notify webhook about %s update, err: %v", component, err)
+	}
+}
+
+// - upgrade freighter if fv != ""
+// - upgrade docker if dv != ""
+// - restart freighter to notify the upgrade happened
+func (s *Server) upgradeDockerAndFreighter(dv string, fv string) {
+	// if both, upgrade docker first
+	if dv != "" {
+		if err := s.upgradeDocker(dv); err != nil {
+			s.notifyWebhookUpgradeFailed(err, "docker")
+			return
+		}
+		s.logger.Infof("updated docker package to %q", dv)
+	}
+	if fv != "" {
 		if err := s.upgradeFreighterd(fv); err != nil {
-			s.logger.Errorf("error upgrading freighterd: %v", err)
-			if nerr := s.notifyWebhook(map[string]interface{}{
-				"event": "upgrade",
-				"error": err.Error(),
-			}); nerr != nil {
-				s.logger.Errorf("failed to notify webhook, err: %v", nerr)
-			}
+			s.notifyWebhookUpgradeFailed(err, "freighterd")
 			return
 		}
 		s.logger.Infof("updated freighterd package from %q to %q", config.Version, fv)
+	}
 
-		if err := s.stopFreighterd(); err != nil {
-			s.logger.Errorf("error stopping freighterd: %v", err)
-			if nerr := s.notifyWebhook(map[string]interface{}{
-				"event": "upgrade",
-				"error": err.Error(),
-			}); nerr != nil {
-				s.logger.Errorf("failed to notify webhook, err: %v", nerr)
-			}
-		}
-	}()
+	if err := s.stopFreighterd(); err != nil {
+		s.logger.Errorf("error stopping freighterd: %v", err)
+		s.notifyWebhookUpgradeFailed(err, "freighterd")
+	}
+}
 
-	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
+func (s *Server) upgradeDocker(version string) error {
+	cmd := exec.Command("apt-get", "update",
+		"-o", "Dir::Etc::sourceparts=-",
+		"-o", "Dir::Etc::sourcelist=/etc/apt/sources.list.d/nitrousio.list")
+	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
+	if out, err := s.runner.Run(cmd); err != nil {
+		s.logger.Errorf("error updating docker repo, err: %v, output: %s", err, out)
+		return err
+	}
+	pkgspec := "lxc-docker-" + version
+	cmd = exec.Command("apt-get", "install", "-y",
+		"-o", `Dpkg::Options::=--force-confdef`, // avoid prompt
+		"-o", `Dpkg::Options::=--force-confnew`, // modify existing config file
+		pkgspec,
+	)
+	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
+	cmd.Env = append(cmd.Env, "PATH=/usr/sbin:/usr/bin:/sbin:/bin")
+	if out, err := s.runner.Run(cmd); err != nil {
+		s.logger.Errorf("error updating docker package, err: %v, output: %s", err, out)
+		return err
+	}
 	return nil
 }
 
