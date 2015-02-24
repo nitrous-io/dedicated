@@ -31,4 +31,7 @@ const (
 
 	EventVolumeCreated = "Volume Created"
 	EventVolumeRemoved = "Volume Removed"
+
+	EventContainerKeyListed        = "Container Key Listed"
+	EventContainerKeyAddedToGitHub = "Container Key Added To GitHub"
 )

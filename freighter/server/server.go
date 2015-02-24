@@ -222,10 +222,20 @@ func (s *Server) drawRoutes() {
 	s.secretRoute("/containers/{id}/stop", s.stopContainer, "POST")
 	s.secretRoute("/containers/{id}/restart", s.restartContainer, "POST")
 	s.secretRoute("/containers/{id}/export", s.exportContainer, "GET")
-	s.secretRoute("/containers/{id}/public_keys", s.listPublicKeys, "GET")
-	s.secretRoute("/containers/{id}/public_keys", s.addPublicKeys, "POST", "PUT")
-	s.secretRoute("/containers/{id}/public_keys", s.clearPublicKeys, "DELETE")
-	s.secretRoute("/containers/{id}/public_keys/{key_fingerprint}", s.removePublicKey, "DELETE")
+
+	// FIXME: to avoid issues with nitrous/freighter not being in sync, we
+	// keep the old end-points (*/public_keys) for a while and will remove
+	// them when all freighter instances are upgraded to have the new */user_keys,
+	// which was added mid-feb 2015
+	s.secretRoute("/containers/{id}/public_keys", s.listUserKeys, "GET")
+	s.secretRoute("/containers/{id}/public_keys", s.addUserKeys, "POST", "PUT")
+	s.secretRoute("/containers/{id}/public_keys", s.clearUserKeys, "DELETE")
+	s.secretRoute("/containers/{id}/public_keys/{key_fingerprint}", s.removeUserKey, "DELETE")
+	s.secretRoute("/containers/{id}/user_keys", s.listUserKeys, "GET")
+	s.secretRoute("/containers/{id}/user_keys", s.addUserKeys, "POST", "PUT")
+	s.secretRoute("/containers/{id}/user_keys", s.clearUserKeys, "DELETE")
+	s.secretRoute("/containers/{id}/user_keys/{key_fingerprint}", s.removeUserKey, "DELETE")
+	s.secretRoute("/containers/{id}/container_keys", s.listContainerKeys, "GET")
 	s.secretRoute("/containers/{id}/reconfig", s.reconfigureContainer, "POST")
 
 	// handle websocket custom protocol

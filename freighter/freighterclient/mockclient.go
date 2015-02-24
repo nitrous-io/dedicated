@@ -44,14 +44,18 @@ type MockClient struct {
 	ReconfigContainer *Container
 	ReconfigError     error
 
-	AddPublicKeysCalled int
-	AddPublicKeysError  error
+	AddUserKeysCalled int
+	AddUserKeysError  error
 
-	ClearPublicKeysCalled int
-	ClearPublicKeysError  error
+	ClearUserKeysCalled int
+	ClearUserKeysError  error
 
-	RemovePublicKeyCalled int
-	RemovePublicKeyError  error
+	RemoveUserKeyCalled int
+	RemoveUserKeyError  error
+
+	ListContainerKeysCalled int
+	ListContainerKeysError  error
+	ListContainerKeysReturn []string
 
 	RegistryLoginCalled int
 	RegistryLoginError  error
@@ -234,22 +238,28 @@ func (c *MockClient) Reconfig(id string, config *ContainerConfig) (*Container, e
 	return c.ReconfigContainer, c.ReconfigError
 }
 
-func (c *MockClient) AddPublicKeys(id string, pubkeys []string) error {
-	c.AddPublicKeysCalled++
+func (c *MockClient) AddUserKeys(id string, pubkeys []string) error {
+	c.AddUserKeysCalled++
 	c.ReceivedID = id
-	return c.AddPublicKeysError
+	return c.AddUserKeysError
 }
 
-func (c *MockClient) ClearPublicKeys(id string) error {
-	c.ClearPublicKeysCalled++
+func (c *MockClient) ClearUserKeys(id string) error {
+	c.ClearUserKeysCalled++
 	c.ReceivedID = id
-	return c.ClearPublicKeysError
+	return c.ClearUserKeysError
 }
 
-func (c *MockClient) RemovePublicKey(id string, fingerprint string) error {
-	c.RemovePublicKeyCalled++
+func (c *MockClient) RemoveUserKey(id string, fingerprint string) error {
+	c.RemoveUserKeyCalled++
 	c.ReceivedID = id
-	return c.RemovePublicKeyError
+	return c.RemoveUserKeyError
+}
+
+func (c *MockClient) ListContainerKeys(id string) ([]string, error) {
+	c.ListContainerKeysCalled++
+	c.ReceivedID = id
+	return c.ListContainerKeysReturn, c.ListContainerKeysError
 }
 
 func (c *MockClient) ListVolumes() ([]string, error) {

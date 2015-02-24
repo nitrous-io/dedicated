@@ -249,9 +249,9 @@ func (s *Server) restartContainer(w http.ResponseWriter, r *http.Request) {
 		"restarted")
 }
 
-func (s *Server) listPublicKeys(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listUserKeys(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	allPubKeys, err := s.provider.ListPublicKeys(id)
+	allPubKeys, err := s.provider.ListUserKeys(id)
 	if err != nil {
 		s.handleError(w, err)
 		return
@@ -260,7 +260,7 @@ func (s *Server) listPublicKeys(w http.ResponseWriter, r *http.Request) {
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
 
-func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
+func (s *Server) addUserKeys(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	err := r.ParseForm()
 	if err != nil {
@@ -275,7 +275,7 @@ func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.provider.AddPublicKeys(id, publicKeys)
+	err = s.provider.AddUserKeys(id, publicKeys)
 	if err != nil {
 		if err == provider.ErrPubKeyOpsNotSupported {
 			s.respondEncodeJSON(w, http.StatusBadRequest, map[string]interface{}{"error": err.Error()})
@@ -286,7 +286,7 @@ func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allPubKeys, err := s.provider.ListPublicKeys(id)
+	allPubKeys, err := s.provider.ListUserKeys(id)
 	if err != nil {
 		s.handleError(w, err)
 		return
@@ -295,17 +295,17 @@ func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
 
-func (s *Server) removePublicKey(w http.ResponseWriter, r *http.Request) {
+func (s *Server) removeUserKey(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	keyFingerprint := mux.Vars(r)["key_fingerprint"]
 
-	err := s.provider.RemovePublicKey(id, keyFingerprint)
+	err := s.provider.RemoveUserKey(id, keyFingerprint)
 	if err != nil {
 		s.handleError(w, err)
 		return
 	}
 
-	allPubKeys, err := s.provider.ListPublicKeys(id)
+	allPubKeys, err := s.provider.ListUserKeys(id)
 	if err != nil {
 		s.handleError(w, err)
 		return
@@ -314,16 +314,28 @@ func (s *Server) removePublicKey(w http.ResponseWriter, r *http.Request) {
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
 
-func (s *Server) clearPublicKeys(w http.ResponseWriter, r *http.Request) {
+func (s *Server) clearUserKeys(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 
-	err := s.provider.ClearPublicKeys(id)
+	err := s.provider.ClearUserKeys(id)
 	if err != nil {
 		s.handleError(w, err)
 		return
 	}
 
 	s.respond(w, http.StatusOK, []byte{})
+}
+
+func (s *Server) listContainerKeys(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	allPubKeys, err := s.provider.ListContainerKeys(id)
+	if err != nil {
+		s.handleError(w, err)
+		return
+	}
+
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"container_keys": allPubKeys})
 }
 
 func (s *Server) createVolume(w http.ResponseWriter, r *http.Request) error {

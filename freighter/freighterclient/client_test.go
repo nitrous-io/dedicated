@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
@@ -16,6 +17,12 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+)
+
+const (
+	// FIXME: remove at some point when all freighter instances were upgraded
+	// at the same time also remove freighter/freighterclient/client.go
+	useNewEndPoint = false
 )
 
 type ServerTest struct {
@@ -1087,8 +1094,11 @@ var _ = Describe("client", func() {
 		})
 	})
 
-	Describe("Public Key Operations", func() {
+	Describe("User Public Key Operations", func() {
 		setupServer := func(method, url string) {
+			if !useNewEndPoint {
+				url = strings.Replace(url, "/user_keys", "/public_keys", 1)
+			}
 			handlers := ghttp.CombineHandlers(
 				func(w http.ResponseWriter, req *http.Request) {
 					req.ParseForm()
@@ -1103,9 +1113,9 @@ var _ = Describe("client", func() {
 			cl, host, server = st.client, st.host, st.server
 		}
 
-		Describe("AddPublicKeys()", func() {
+		Describe("AddUserKeys()", func() {
 			BeforeEach(func() {
-				setupServer("POST", "/containers/yosemite/public_keys")
+				setupServer("POST", "/containers/yosemite/user_keys")
 			})
 
 			AfterEach(func() {
@@ -1128,7 +1138,7 @@ var _ = Describe("client", func() {
 					})
 
 					It("returns a nil error", func() {
-						err := cl.AddPublicKeys("yosemite", []string{"key1", "key2"})
+						err := cl.AddUserKeys("yosemite", []string{"key1", "key2"})
 						Expect(err).To(BeNil())
 
 						receivedRequests := server.ReceivedRequests()
@@ -1145,7 +1155,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a ErrPubKeyOpsNotSupported error", func() {
-					err := cl.AddPublicKeys("yosemite", []string{"key1", "key2"})
+					err := cl.AddUserKeys("yosemite", []string{"key1", "key2"})
 					Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
 				})
 			})
@@ -1156,7 +1166,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a StatusError", func() {
-					err := cl.AddPublicKeys("yosemite", []string{"key1", "key2"})
+					err := cl.AddUserKeys("yosemite", []string{"key1", "key2"})
 					Expect(err).To(Equal(&freighterclient.StatusError{
 						Code: http.StatusInternalServerError,
 						Body: responseBody,
@@ -1165,9 +1175,9 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Describe("ClearPublicKeys()", func() {
+		Describe("ClearUserKeys()", func() {
 			BeforeEach(func() {
-				setupServer("DELETE", "/containers/yosemite/public_keys")
+				setupServer("DELETE", "/containers/yosemite/user_keys")
 			})
 
 			AfterEach(func() {
@@ -1180,7 +1190,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a nil error", func() {
-					err := cl.ClearPublicKeys("yosemite")
+					err := cl.ClearUserKeys("yosemite")
 					Expect(err).To(BeNil())
 
 					receivedRequests := server.ReceivedRequests()
@@ -1195,7 +1205,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a ErrPubKeyOpsNotSupported error", func() {
-					err := cl.ClearPublicKeys("yosemite")
+					err := cl.ClearUserKeys("yosemite")
 					Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
 				})
 			})
@@ -1206,7 +1216,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a StatusError", func() {
-					err := cl.ClearPublicKeys("yosemite")
+					err := cl.ClearUserKeys("yosemite")
 					Expect(err).To(Equal(&freighterclient.StatusError{
 						Code: http.StatusInternalServerError,
 						Body: responseBody,
@@ -1215,9 +1225,9 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Describe("RemovePublicKey()", func() {
+		Describe("RemoveUserKey()", func() {
 			BeforeEach(func() {
-				setupServer("DELETE", "/containers/yosemite/public_keys/fprint1")
+				setupServer("DELETE", "/containers/yosemite/user_keys/fprint1")
 			})
 
 			AfterEach(func() {
@@ -1230,7 +1240,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a nil error", func() {
-					err := cl.RemovePublicKey("yosemite", "fprint1")
+					err := cl.RemoveUserKey("yosemite", "fprint1")
 					Expect(err).To(BeNil())
 
 					receivedRequests := server.ReceivedRequests()
@@ -1245,7 +1255,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a ErrPubKeyOpsNotSupported error", func() {
-					err := cl.RemovePublicKey("yosemite", "fprint1")
+					err := cl.RemoveUserKey("yosemite", "fprint1")
 					Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
 				})
 			})
@@ -1256,7 +1266,7 @@ var _ = Describe("client", func() {
 				})
 
 				It("returns a StatusError", func() {
-					err := cl.RemovePublicKey("yosemite", "fprint1")
+					err := cl.RemoveUserKey("yosemite", "fprint1")
 					Expect(err).To(Equal(&freighterclient.StatusError{
 						Code: http.StatusInternalServerError,
 						Body: responseBody,

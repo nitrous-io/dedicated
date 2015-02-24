@@ -752,7 +752,7 @@ var _ = Describe("provider/docker", func() {
 				Expect(err.Error()).To(ContainSubstring("unable to authenticate"))
 
 				// with keys
-				err = prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
+				err = prov.AddUserKeys(id, []string{pubkey1, pubkey2})
 				Expect(err).To(BeNil())
 
 				sshutil.MaxAttempts = 10
@@ -767,13 +767,13 @@ var _ = Describe("provider/docker", func() {
 				Expect(err).To(BeNil())
 			})
 
-			Describe(".ListPublicKeys()", func() {
+			Describe(".ListUserKeys()", func() {
 				It("returns list of pub keys and the corresponding fingerprints", func() {
-					err := prov.AddPublicKeys(id, []string{pubkey1, pubkey2})
+					err := prov.AddUserKeys(id, []string{pubkey1, pubkey2})
 					Expect(err).To(BeNil())
 
 					// when container is running
-					pubkeys, err := prov.ListPublicKeys(id)
+					pubkeys, err := prov.ListUserKeys(id)
 					Expect(err).To(BeNil())
 					Expect(pubkeys).To(Equal(map[string]string{
 						fingerprint1: pubkey1,
@@ -783,7 +783,7 @@ var _ = Describe("provider/docker", func() {
 					// when container is stopped
 					err = exec.Command("docker", "stop", "--time=1", id).Run()
 					Expect(err).To(BeNil())
-					pubkeys, err = prov.ListPublicKeys(id)
+					pubkeys, err = prov.ListUserKeys(id)
 					Expect(err).To(BeNil())
 					Expect(pubkeys).To(Equal(map[string]string{
 						fingerprint1: pubkey1,

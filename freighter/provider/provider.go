@@ -52,10 +52,12 @@ type Provider interface {
 	Stop(id string) (info *ContainerInfo, err error)
 	Restart(id string) (info *ContainerInfo, err error)
 	Terminate(id string, removeSettings bool) (info *ContainerInfo, err error)
-	ListPublicKeys(id string) (publicKeys map[string]string, err error)
-	AddPublicKeys(id string, publicKeys []string) (err error)
-	ClearPublicKeys(id string) (err error)
-	RemovePublicKey(id string, keyFingerprint string) (err error)
+	ListUserKeys(id string) (publicKeys map[string]string, err error)
+	AddUserKeys(id string, publicKeys []string) (err error)
+	ClearUserKeys(id string) (err error)
+	RemoveUserKey(id string, keyFingerprint string) (err error)
+	ListContainerKeys(id string) (containerKeys []string, err error)
+
 	Reconfig(id, config string) (info *ContainerInfo, err error)
 
 	//ForwardPort(id string, hostPort uint16, containerPort uint16) (err error)

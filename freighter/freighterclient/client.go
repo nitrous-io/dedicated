@@ -26,6 +26,10 @@ const (
 	StateStopped = "stopped"
 
 	StatusUnprocessableEntity = 422
+	// FIXME: remove code related to this when we remove old API endpoints
+	// in freighter. see freighter/server/server.go Server.drawRoutes for longer explanation
+	// at the same time also remove freighter/freighterclient/client_test.go
+	useNewEndPoint = false
 )
 
 var (
@@ -93,9 +97,11 @@ type Client interface {
 	Config(id string) (config *ContainerConfig, err error)
 	Reconfig(id string, config *ContainerConfig) (*Container, error)
 
-	AddPublicKeys(id string, keys []string) error
-	ClearPublicKeys(id string) error
-	RemovePublicKey(id string, fingerprint string) error
+	AddUserKeys(id string, keys []string) error
+	ClearUserKeys(id string) error
+	RemoveUserKey(id string, fingerprint string) error
+
+	ListContainerKeys(id string) ([]string, error)
 
 	ListVolumes() ([]string, error)
 	CreateVolume(slug string) (*Volume, error)
@@ -605,7 +611,7 @@ func (c *client) RegistryLogout(registry string) error {
 	return nil
 }
 
-func (c *client) doPublicKeyOp(req *http.Request) error {
+func (c *client) doUserKeyOp(req *http.Request) error {
 	resp, err := performRequest(c, req)
 	if err != nil {
 		return err
@@ -630,8 +636,13 @@ func (c *client) doPublicKeyOp(req *http.Request) error {
 	return statusError(resp)
 }
 
-func (c *client) AddPublicKeys(id string, keys []string) error {
-	u := fmt.Sprintf("%s/containers/%s/public_keys", c.host.BaseURL(), id)
+func (c *client) AddUserKeys(id string, keys []string) error {
+	var u string
+	if useNewEndPoint {
+		u = fmt.Sprintf("%s/containers/%s/user_keys", c.host.BaseURL(), id)
+	} else {
+		u = fmt.Sprintf("%s/containers/%s/public_keys", c.host.BaseURL(), id)
+	}
 
 	data := url.Values{}
 	for _, key := range keys {
@@ -645,31 +656,65 @@ func (c *client) AddPublicKeys(id string, keys []string) error {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	return c.doPublicKeyOp(req)
+	return c.doUserKeyOp(req)
 }
 
-func (c *client) ClearPublicKeys(id string) error {
-	u := fmt.Sprintf("%s/containers/%s/public_keys", c.host.BaseURL(), id)
-
+func (c *client) ClearUserKeys(id string) error {
+	var u string
+	if useNewEndPoint {
+		u = fmt.Sprintf("%s/containers/%s/user_keys", c.host.BaseURL(), id)
+	} else {
+		u = fmt.Sprintf("%s/containers/%s/public_keys", c.host.BaseURL(), id)
+	}
 	req, err := http.NewRequest("DELETE", u, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	return c.doPublicKeyOp(req)
+	return c.doUserKeyOp(req)
 }
 
-func (c *client) RemovePublicKey(id string, fingerprint string) error {
-	u := fmt.Sprintf("%s/containers/%s/public_keys/%s", c.host.BaseURL(), id, fingerprint)
-
+func (c *client) RemoveUserKey(id string, fingerprint string) error {
+	var u string
+	if useNewEndPoint {
+		u = fmt.Sprintf("%s/containers/%s/user_keys/%s", c.host.BaseURL(), id, fingerprint)
+	} else {
+		u = fmt.Sprintf("%s/containers/%s/public_keys/%s", c.host.BaseURL(), id, fingerprint)
+	}
 	req, err := http.NewRequest("DELETE", u, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	return c.doPublicKeyOp(req)
+	return c.doUserKeyOp(req)
+}
+
+func (c *client) ListContainerKeys(id string) ([]string, error) {
+	u := fmt.Sprintf("%s/containers/%s/container_keys", c.host.BaseURL(), id)
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, statusError(resp)
+	}
+
+	var keys struct {
+		Keys []string `json:"container_keys"`
+	}
+	if err = json.NewDecoder(resp.Body).Decode(&keys); err != nil {
+		return nil, ErrUnexpectedResponse
+	}
+
+	return keys.Keys, nil
 }
 
 // FIXME This method has no existing test :"(

@@ -619,7 +619,7 @@ var _ = Describe("server", func() {
 		})
 	})
 
-	Describe("GET /containers/:container_id/public_keys", func() {
+	Describe("GET /containers/:container_id/user_keys", func() {
 		var (
 			id           = "cafebabe"
 			publicKey1   = "ssh-rsa Foo"
@@ -631,22 +631,22 @@ var _ = Describe("server", func() {
 		)
 
 		doRequest := func() {
-			req, err = NewRequestWithSecret(hostSecret, "GET", fmt.Sprintf("/containers/%v/public_keys", id), nil)
+			req, err = NewRequestWithSecret(hostSecret, "GET", fmt.Sprintf("/containers/%v/user_keys", id), nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
-		It("calls provider.ListPublicKeys()", func() {
-			Expect(prov.ListPublicKeysCalled).To(BeFalse())
+		It("calls provider.ListUserKeys()", func() {
+			Expect(prov.ListUserKeysCalled).To(BeFalse())
 			doRequest()
-			Expect(prov.ListPublicKeysCalled).To(BeTrue())
+			Expect(prov.ListUserKeysCalled).To(BeTrue())
 			Expect(prov.ReceivedID).To(Equal(id))
 		})
 
-		Context("when provider.ListPublicKeys() fails with error", func() {
+		Context("when provider.ListUserKeys() fails with error", func() {
 			Context("because no such container exists", func() {
 				BeforeEach(func() {
-					prov.ListPublicKeysError = ErrMockProviderContainerNotFound
+					prov.ListUserKeysError = ErrMockProviderContainerNotFound
 					doRequest()
 				})
 
@@ -658,7 +658,7 @@ var _ = Describe("server", func() {
 
 			Context("because of some unknown error", func() {
 				BeforeEach(func() {
-					prov.ListPublicKeysError = errors.New("unknown error")
+					prov.ListUserKeysError = errors.New("unknown error")
 					doRequest()
 				})
 
@@ -669,16 +669,16 @@ var _ = Describe("server", func() {
 			})
 		})
 
-		Context("when provider.ListPublicKeys() succeeds", func() {
+		Context("when provider.ListUserKeys() succeeds", func() {
 			BeforeEach(func() {
-				prov.PublicKeys = map[string]string{fingerprint1: publicKey1, fingerprint2: publicKey2, fingerprint3: publicKey3}
+				prov.UserKeys = map[string]string{fingerprint1: publicKey1, fingerprint2: publicKey2, fingerprint3: publicKey3}
 				doRequest()
 			})
 
 			It("responds with 200 ok with public keys json", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				j, _ := json.Marshal(map[string]interface{}{
-					"public_keys": prov.PublicKeys,
+					"public_keys": prov.UserKeys,
 				})
 
 				Expect(res.Body.String()).To(MatchJSON(string(j)))
@@ -686,7 +686,7 @@ var _ = Describe("server", func() {
 		})
 	})
 
-	Describe("POST /containers/:container_id/public_keys", func() {
+	Describe("POST /containers/:container_id/user_keys", func() {
 		var (
 			params     *url.Values
 			id         = "cafebabe"
@@ -701,26 +701,26 @@ var _ = Describe("server", func() {
 		})
 
 		doRequest := func() {
-			req, err = NewFormRequest(hostSecret, "POST", fmt.Sprintf("/containers/%v/public_keys", id), params)
+			req, err = NewFormRequest(hostSecret, "POST", fmt.Sprintf("/containers/%v/user_keys", id), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
 		Context("when params are valid", func() {
-			It("calls provider.AddPublicKeys()", func() {
-				Expect(prov.AddPublicKeysCalled).To(BeFalse())
+			It("calls provider.AddUserKeys()", func() {
+				Expect(prov.AddUserKeysCalled).To(BeFalse())
 				doRequest()
-				Expect(prov.AddPublicKeysCalled).To(BeTrue())
+				Expect(prov.AddUserKeysCalled).To(BeTrue())
 				Expect(prov.ReceivedID).To(Equal(id))
-				Expect(prov.ReceivedPublicKeys).To(HaveLen(2))
-				Expect(prov.ReceivedPublicKeys).To(ContainElement(publicKey))
-				Expect(prov.ReceivedPublicKeys).To(ContainElement(publicKey2))
+				Expect(prov.ReceivedUserKeys).To(HaveLen(2))
+				Expect(prov.ReceivedUserKeys).To(ContainElement(publicKey))
+				Expect(prov.ReceivedUserKeys).To(ContainElement(publicKey2))
 			})
 
-			Context("when provider.AddPublicKeys() fails with error", func() {
+			Context("when provider.AddUserKeys() fails with error", func() {
 				Context("because no such container exists", func() {
 					BeforeEach(func() {
-						prov.AddPublicKeysError = ErrMockProviderContainerNotFound
+						prov.AddUserKeysError = ErrMockProviderContainerNotFound
 						doRequest()
 					})
 
@@ -732,7 +732,7 @@ var _ = Describe("server", func() {
 
 				Context("because the container does not support public key operations", func() {
 					BeforeEach(func() {
-						prov.AddPublicKeysError = provider.ErrPubKeyOpsNotSupported
+						prov.AddUserKeysError = provider.ErrPubKeyOpsNotSupported
 						doRequest()
 					})
 
@@ -744,7 +744,7 @@ var _ = Describe("server", func() {
 
 				Context("because of some unknown error", func() {
 					BeforeEach(func() {
-						prov.AddPublicKeysError = errors.New("unknown error")
+						prov.AddUserKeysError = errors.New("unknown error")
 						doRequest()
 					})
 
@@ -755,11 +755,11 @@ var _ = Describe("server", func() {
 				})
 			})
 
-			Context("when provider.AddPublicKeys() succeeds", func() {
-				Context("when provider.ListPublicKeys() fails with error", func() {
+			Context("when provider.AddUserKeys() succeeds", func() {
+				Context("when provider.ListUserKeys() fails with error", func() {
 					Context("because no such container exists", func() {
 						BeforeEach(func() {
-							prov.ListPublicKeysError = ErrMockProviderContainerNotFound
+							prov.ListUserKeysError = ErrMockProviderContainerNotFound
 							doRequest()
 						})
 
@@ -771,7 +771,7 @@ var _ = Describe("server", func() {
 
 					Context("because of some unknown error", func() {
 						BeforeEach(func() {
-							prov.ListPublicKeysError = errors.New("unknown error")
+							prov.ListUserKeysError = errors.New("unknown error")
 							doRequest()
 						})
 
@@ -782,23 +782,23 @@ var _ = Describe("server", func() {
 					})
 				})
 
-				Context("when provider.ListPublicKeys() succeeds", func() {
+				Context("when provider.ListUserKeys() succeeds", func() {
 					fingerprint1 := "11:11:11:11:11:11:11:11:11:11:11:11:11:11:11:11"
 					fingerprint2 := "22:22:22:22:22:22:22:22:22:22:22:22:22:22:22:22"
 					fingerprint3 := "33:33:33:33:33:33:33:33:33:33:33:33:33:33:33:33"
 					publicKey3 := "ssh-dsa Baz"
 
 					BeforeEach(func() {
-						prov.PublicKeys = map[string]string{fingerprint1: publicKey, fingerprint2: publicKey2, fingerprint3: publicKey3}
+						prov.UserKeys = map[string]string{fingerprint1: publicKey, fingerprint2: publicKey2, fingerprint3: publicKey3}
 						doRequest()
 					})
 
 					It("responds with 200 ok with public keys json", func() {
-						Expect(prov.ListPublicKeysCalled).To(BeTrue())
+						Expect(prov.ListUserKeysCalled).To(BeTrue())
 						Expect(prov.ReceivedID).To(Equal(id))
 						Expect(res.Code).To(Equal(http.StatusOK))
 						j, _ := json.Marshal(map[string]interface{}{
-							"public_keys": prov.PublicKeys,
+							"public_keys": prov.UserKeys,
 						})
 
 						Expect(res.Body.String()).To(MatchJSON(string(j)))
@@ -818,35 +818,35 @@ var _ = Describe("server", func() {
 				Expect(res.Body.String()).To(MatchJSON(`{"error":"public_key[] is missing"}`))
 			})
 
-			It("does not call provider.AddPublicKeys()", func() {
-				Expect(prov.AddPublicKeysCalled).To(BeFalse())
+			It("does not call provider.AddUserKeys()", func() {
+				Expect(prov.AddUserKeysCalled).To(BeFalse())
 			})
 		})
 	})
 
-	Describe("DELETE /containers/:container_id/public_keys", func() {
+	Describe("DELETE /containers/:container_id/user_keys", func() {
 		var (
 			params *url.Values
 			id     = "cafebabe"
 		)
 
 		doRequest := func() {
-			req, err = NewRequestWithSecret(hostSecret, "DELETE", fmt.Sprintf("/containers/%v/public_keys", id), params)
+			req, err = NewRequestWithSecret(hostSecret, "DELETE", fmt.Sprintf("/containers/%v/user_keys", id), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
-		It("calls provider.ClearPublicKeys()", func() {
-			Expect(prov.ClearPublicKeysCalled).To(BeFalse())
+		It("calls provider.ClearUserKeys()", func() {
+			Expect(prov.ClearUserKeysCalled).To(BeFalse())
 			doRequest()
-			Expect(prov.ClearPublicKeysCalled).To(BeTrue())
+			Expect(prov.ClearUserKeysCalled).To(BeTrue())
 			Expect(prov.ReceivedID).To(Equal(id))
 		})
 
-		Context("when provider.ClearPublicKeys() fails with error", func() {
+		Context("when provider.ClearUserKeys() fails with error", func() {
 			Context("because no such container exists", func() {
 				BeforeEach(func() {
-					prov.ClearPublicKeysError = ErrMockProviderContainerNotFound
+					prov.ClearUserKeysError = ErrMockProviderContainerNotFound
 					doRequest()
 				})
 
@@ -858,7 +858,7 @@ var _ = Describe("server", func() {
 
 			Context("because of some unknown error", func() {
 				BeforeEach(func() {
-					prov.ClearPublicKeysError = errors.New("unknown error")
+					prov.ClearUserKeysError = errors.New("unknown error")
 					doRequest()
 				})
 
@@ -870,7 +870,7 @@ var _ = Describe("server", func() {
 		})
 	})
 
-	Describe("DELETE /containers/:container_id/public_keys/:key_fingerprint", func() {
+	Describe("DELETE /containers/:container_id/user_keys/:key_fingerprint", func() {
 		var (
 			params      *url.Values
 			id          = "cafebabe"
@@ -878,23 +878,23 @@ var _ = Describe("server", func() {
 		)
 
 		doRequest := func() {
-			req, err = NewRequestWithSecret(hostSecret, "DELETE", fmt.Sprintf("/containers/%v/public_keys/%v", id, fingerprint), params)
+			req, err = NewRequestWithSecret(hostSecret, "DELETE", fmt.Sprintf("/containers/%v/user_keys/%v", id, fingerprint), params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
-		It("calls provider.RemovePublicKey()", func() {
-			Expect(prov.RemovePublicKeyCalled).To(BeFalse())
+		It("calls provider.RemoveUserKey()", func() {
+			Expect(prov.RemoveUserKeyCalled).To(BeFalse())
 			doRequest()
-			Expect(prov.RemovePublicKeyCalled).To(BeTrue())
+			Expect(prov.RemoveUserKeyCalled).To(BeTrue())
 			Expect(prov.ReceivedID).To(Equal(id))
 			Expect(prov.ReceivedKeyFingerprint).To(Equal(fingerprint))
 		})
 
-		Context("when provider.RemovePublicKey() fails with error", func() {
+		Context("when provider.RemoveUserKey() fails with error", func() {
 			Context("because no such container exists", func() {
 				BeforeEach(func() {
-					prov.RemovePublicKeyError = ErrMockProviderContainerNotFound
+					prov.RemoveUserKeyError = ErrMockProviderContainerNotFound
 					doRequest()
 				})
 
@@ -906,7 +906,7 @@ var _ = Describe("server", func() {
 
 			Context("because of some unknown error", func() {
 				BeforeEach(func() {
-					prov.RemovePublicKeyError = errors.New("unknown error")
+					prov.RemoveUserKeyError = errors.New("unknown error")
 					doRequest()
 				})
 
@@ -917,11 +917,11 @@ var _ = Describe("server", func() {
 			})
 		})
 
-		Context("when provider.RemovePublicKey() succeeds", func() {
-			Context("when provider.ListPublicKeys() fails with error", func() {
+		Context("when provider.RemoveUserKey() succeeds", func() {
+			Context("when provider.ListUserKeys() fails with error", func() {
 				Context("because no such container exists", func() {
 					BeforeEach(func() {
-						prov.ListPublicKeysError = ErrMockProviderContainerNotFound
+						prov.ListUserKeysError = ErrMockProviderContainerNotFound
 						doRequest()
 					})
 
@@ -933,7 +933,7 @@ var _ = Describe("server", func() {
 
 				Context("because of some unknown error", func() {
 					BeforeEach(func() {
-						prov.ListPublicKeysError = errors.New("unknown error")
+						prov.ListUserKeysError = errors.New("unknown error")
 						doRequest()
 					})
 
@@ -944,26 +944,47 @@ var _ = Describe("server", func() {
 				})
 			})
 
-			Context("when provider.ListPublicKeys() succeeds", func() {
+			Context("when provider.ListUserKeys() succeeds", func() {
 				publicKey := "ssh-dsa Baz"
 
 				BeforeEach(func() {
-					prov.PublicKeys = map[string]string{fingerprint: publicKey}
+					prov.UserKeys = map[string]string{fingerprint: publicKey}
 					doRequest()
 				})
 
 				It("responds with 200 ok with public keys json", func() {
-					Expect(prov.ListPublicKeysCalled).To(BeTrue())
+					Expect(prov.ListUserKeysCalled).To(BeTrue())
 					Expect(prov.ReceivedID).To(Equal(id))
 					Expect(res.Code).To(Equal(http.StatusOK))
 					j, _ := json.Marshal(map[string]interface{}{
-						"public_keys": prov.PublicKeys,
+						"public_keys": prov.UserKeys,
 					})
 
 					Expect(res.Body.String()).To(MatchJSON(string(j)))
 				})
 			})
 		})
+	})
+
+	Describe("GET /containers/:container_id/container_keys", func() {
+		var (
+			id = "cafebabe"
+		)
+
+		doRequest := func() {
+			uri := fmt.Sprintf("/containers/%v/container_keys", id)
+			req, err = NewRequestWithSecret(hostSecret, "GET", uri, nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.ListContainerKeys()", func() {
+			Expect(prov.ListContainerKeysCalled).To(BeFalse())
+			doRequest()
+			Expect(prov.ListContainerKeysCalled).To(BeTrue())
+			Expect(prov.ReceivedID).To(Equal(id))
+		})
+
 	})
 
 	Describe("POST /volumes", func() {
