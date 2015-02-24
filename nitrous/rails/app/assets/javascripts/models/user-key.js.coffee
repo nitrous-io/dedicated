@@ -1,7 +1,7 @@
 #= require ./model
 attr = SM.attr
 
-App.PublicKey = klass = App.Model.extend
+App.UserKey = klass = App.Model.extend
   id: attr('number', serialize: false)
   userId: attr('number', as: 'user_id', serialize: false)
   containerId: attr('number', as: 'container_id', serialize: false)

@@ -32,6 +32,8 @@ App.Container = klass = App.Model.extend
 
   underReconfig: attr('boolean', serialize: false)
 
+  containerKeys: attr(serialize: false)
+
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
   isTerminated: Em.computed.equal 'state', 'terminated'
@@ -64,9 +66,9 @@ App.Container = klass = App.Model.extend
   ).property 'sshEnabled', 'sshKeysAdded', 'loginUsername', 'hostname', 'sshPort'
 
   sshKeysAdded: (->
-    sshKeys = @get('keys')
+    sshKeys = @get('userKeys')
     sshKeys?.content?.length > 0
-  ).property 'keys', 'keys.@each'
+  ).property 'userKeys', 'userKeys.@each'
 
   previewURL: (->
     host = @get 'previewHostname'
@@ -98,10 +100,14 @@ App.Container = klass = App.Model.extend
       App.get('hosts')?.findBy('id', hostId)
   ).property 'hostId', 'App.hosts.@each'
 
-  keys: (->
+  userKeys: (->
     if id = @get('id')
-      App.PublicKey.fetch(containerId: id).value
+      App.UserKey.fetch(containerId: id).value
   ).property 'id'
+
+  loadContainerKeys: ->
+    @ajax('GET', 'container_keys').then (json) =>
+      @set 'containerKeys', json.keys
 
   eventOccurred: (evt) ->
     if evt in ['container.started', 'container.stopped', 'container.restarted', 'container.updated', 'container.reconfigured', 'container.reconfigure_failed']
