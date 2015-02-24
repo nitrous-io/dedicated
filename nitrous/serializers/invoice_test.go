@@ -25,6 +25,9 @@ var _ = Describe("invoice serializer", func() {
 			PeriodStart:      &t1,
 			PeriodEnd:        &t2,
 			SuccessfulCharge: false,
+			Deferred:         true,
+			Failed:           true,
+			Attempts:         1,
 		}
 
 		It("serializes to JSON", func() {
@@ -41,6 +44,9 @@ var _ = Describe("invoice serializer", func() {
         "period_start": "1970-01-01T00:00:20Z",
         "period_end": "1970-01-01T01:00:20Z",
         "successful_charge": false,
+        "deferred": true,
+        "failed": true,
+        "attempted": true,
         "total_credit": 100,
         "available_credit": 200,
         "items": [{

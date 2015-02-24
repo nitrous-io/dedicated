@@ -85,11 +85,16 @@ window.Nitrous = Em.Application.extend Em.Evented,
     @get('hosts.loaded') && @get('hosts.length') == 0
   ).property 'hosts.loaded', 'hosts.length'
 
+  restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'
+  canCreateContainers: Em.computed.bool 'billingProfile.paid'
+
   # TODO: Get this logic from server
   canCreateHosts: (->
-    return true if @get('billingProfile.paid')
+    return true if @get('newUser')
+    return false unless @get('billingProfile.paid')
     if maxHosts = @get('userProfile.maxHosts')
-      @get('hosts.loaded') && @get('hosts.length') < maxHosts
+      return @get('hosts.loaded') && @get('hosts.length') < maxHosts
+    true
   ).property 'billingProfile.paid', 'userProfile.maxHosts', 'hosts.loaded', 'hosts.length'
 
   logout: (cb) ->
@@ -131,6 +136,8 @@ App.on 'fetchUser', (user) ->
   App.set 'billingProfile', billingProfile
 
   App.refreshUsage()
+  App.refreshBillingProfile()
+  App.refreshInvoices()
 
   App.set 'eventsSocket', socket = App.EventMessageHandler.create()
   socket.connect()
@@ -143,6 +150,15 @@ App.loadSettings = ->
 
 App.refreshUsage = ->
   App.BillingUsage.fetchCurrentUsage()
+
+App.refreshBillingProfile = ->
+  App.BillingProfile.fetch().then (bp) =>
+    App.set 'billingProfile', bp
+
+App.refreshInvoices = ->
+  invoices = App.Invoice.fetch().value
+  App.set('invoices', invoices)
+  invoices
 
 App.didChangeTitle()
 

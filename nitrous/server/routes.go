@@ -61,6 +61,7 @@ func (s *Server) drawRouteData(method string, auth bool, routes map[string]route
 			final = mw.Track(r.track, final)
 		}
 		if auth {
+			final = mw.VerifyUserBilling(r.label, final)
 			final = mw.Auth(final)
 		}
 		s.routeJSON(path, final, method)
@@ -108,6 +109,7 @@ func (s *Server) drawRoutes() {
 			"GET": {
 				"/user":                              r("users.GetAuthenticatedUser", users.GetAuthenticatedUser),
 				"/user/profile":                      r("userprofiles.Show", userprofiles.Show),
+				"/user/billing_profile":              r("billingprofiles.Show", billingprofiles.Show),
 				"/hosts":                             r("hosts.Index", hosts.Index),
 				"/images":                            r("images.IndexAll", images.Index),
 				"/hosts/{slug}/images":               r("images.Index", images.Index),
@@ -152,6 +154,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys":                  r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
 				"/containers/{slug}/container_keys/github": r("containerkeys.AddToGitHub", containerkeys.AddToGitHub, EventContainerKeyAddedToGitHub),
 				"/feedback":                                r("feedback.Send", feedback.Send),
+				"/invoices/{id}/pay":                   r("billing.PayInvoice", billing.PayInvoice),
 				"/admin/switch_user":                       r("admin.SwitchUser", admin.SwitchUser),
 				"/admin/provider_templates/{ptid}":         r("providertemplates.Update", providertemplates.Update),
 			},

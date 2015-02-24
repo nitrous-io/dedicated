@@ -23,6 +23,19 @@ var (
 	errIncorrectZip = httperror.New(http.StatusBadRequest, "incorrect_zip", "Your Zip code is incorrect. Please try again.")
 )
 
+func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	bp, err := billingprofile.Find(env.DB, env.User.ID)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"billing_profile": serializers.SerializeBillingProfile(bp),
+	}
+	return nil
+}
+
 func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	cardToken := r.FormValue("card_token")

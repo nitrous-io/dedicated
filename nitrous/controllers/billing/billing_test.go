@@ -3,6 +3,8 @@ package billing_test
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -11,11 +13,13 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
+	"github.com/nitrous-io/dedicated/nitrous/models/invoicemanualattempt"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/stripe/stripe-go"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -81,6 +85,12 @@ var _ = Describe("controllers/billing", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j["items"]).To(BeEmpty())
+		})
+
+		It("should not be blocked if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
 		It("should display the available credits", func() {
@@ -174,6 +184,12 @@ var _ = Describe("controllers/billing", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j["invoices"]).To(BeEmpty())
+		})
+
+		It("should not be blocked if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
 		Context("with invoices", func() {
@@ -416,5 +432,206 @@ var _ = Describe("controllers/billing", func() {
 				Expect(invoices[2].TotalCredit).To(Equal(int64(0)))
 			})
 		})
+	})
+
+	Describe("POST /api/v0/invoices/{id}/pay", func() {
+		var (
+			fakeStripe *FakeStripe
+			in         *invoice.Invoice
+		)
+
+		doRequest := func(invID int64) *httptest.ResponseRecorder {
+			url := fmt.Sprintf("/api/v0/invoices/%d/pay", invID)
+			req, err := NewAuthedRequest(t, "POST", url, nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		BeforeEach(func() {
+			start := time.Now()
+			end := start.Add(2 * time.Hour)
+			in = &invoice.Invoice{
+				UserID:      u.ID,
+				PeriodStart: &start,
+				PeriodEnd:   &end,
+			}
+			Expect(in.Insert(db)).To(BeNil())
+
+			fakeStripe = &FakeStripe{}
+			stripe.SetBackend(fakeStripe)
+		})
+
+		It("should return not found if the invoice does not exist", func() {
+			res := doRequest(-1)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should not be blocked if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			res := doRequest(-1)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should return not found if the invoice does not belong to the user", func() {
+			u2 := &user.User{
+				Username: "tokenuser2",
+				Password: "123456",
+				Email:    "tokenuser2@example.com",
+			}
+			err := WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+			Expect(u2.ID).NotTo(BeZero())
+
+			start := time.Now()
+			end := start.Add(2 * time.Hour)
+			in2 := &invoice.Invoice{
+				UserID:      u2.ID,
+				PeriodStart: &start,
+				PeriodEnd:   &end,
+			}
+			Expect(in2.Insert(db)).To(BeNil())
+
+			res := doRequest(in2.ID)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should return a not payable error if it lacks a StripeID", func() {
+			res := doRequest(in.ID)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invoice_not_payable"))
+			Expect(errDesc).To(Equal("invoice not payable"))
+		})
+
+		It("should return a not payable error if the invoice is deferred", func() {
+			_, err := db.Exec("UPDATE invoices SET stripe_id = 'SSS', deferred = TRUE WHERE id = $1", in.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(in.ID)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invoice_not_payable"))
+			Expect(errDesc).To(Equal("invoice not payable"))
+		})
+
+		It("should return a error if the invoice is already paid", func() {
+			_, err := db.Exec("UPDATE invoices SET stripe_id = 'SSS', deferred = FALSE, successful_charge = TRUE WHERE id = $1", in.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(in.ID)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invoice_paid"))
+			Expect(errDesc).To(Equal("invoice has already been paid"))
+		})
+
+		Describe("with payable invoice", func() {
+			BeforeEach(func() {
+				_, err := db.Exec("UPDATE invoices SET stripe_id = 'SSS', deferred = FALSE, successful_charge = FALSE WHERE id = $1", in.ID)
+				Expect(err).To(BeNil())
+			})
+
+			getInvoiceManualAttempt := func() *invoicemanualattempt.InvoiceManualAttempt {
+				at := &invoicemanualattempt.InvoiceManualAttempt{}
+				err := db.QueryRowx("SELECT * FROM invoice_manual_attempts WHERE invoice_id = $1", in.ID).StructScan(at)
+				Expect(err).To(BeNil())
+				return at
+			}
+
+			It("should handle non Stripe errors", func() {
+				fakeStripe.Responses = []string{
+					`{"broke_response}`,
+				}
+
+				res := doRequest(in.ID)
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				at := getInvoiceManualAttempt()
+				Expect(at.Success).To(BeFalse())
+				Expect(at.ErrorMessage).To(Equal(sql.NullString{"unexpected end of JSON input", true}))
+			})
+
+			It("should handle a declined card", func() {
+				fakeStripe.Responses = []string{
+					`{"object": "invoice", "id": "ID1"}`,
+				}
+
+				fakeStripe.Error = StripeCardDeclined
+				res := doRequest(in.ID)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("card_declined"))
+				Expect(errDesc).To(Equal("Your Credit Card was declined. Try contacting the bank directly for assistance."))
+
+				at := getInvoiceManualAttempt()
+				Expect(at.Success).To(BeFalse())
+				Expect(at.ErrorMessage).To(Equal(sql.NullString{`{"type":"card_error","message":"card declined","code":"card_declined"}`, true}))
+			})
+
+			It("should handle a expired card", func() {
+				fakeStripe.Responses = []string{
+					`{"object": "invoice", "id": "ID1"}`,
+				}
+
+				fakeStripe.Error = StripeCardExpired
+				res := doRequest(in.ID)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("card_expired"))
+				Expect(errDesc).To(Equal("Your Credit Card has expired. Please try again with a recent card."))
+
+				at := getInvoiceManualAttempt()
+				Expect(at.Success).To(BeFalse())
+				Expect(at.ErrorMessage).To(Equal(sql.NullString{`{"type":"card_error","message":"card expired","code":"expired_card"}`, true}))
+			})
+
+			It("should raise other stripe errors", func() {
+				fakeStripe.Responses = []string{
+					`{"object": "invoice", "id": "ID1"}`,
+				}
+
+				fakeStripe.Error = &stripe.Error{
+					Type: stripe.ErrorType(stripe.APIErr),
+					Msg:  "rate limited!",
+					Code: stripe.ErrorCode(stripe.RateLimit),
+				}
+				res := doRequest(in.ID)
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+				at := getInvoiceManualAttempt()
+				Expect(at.Success).To(BeFalse())
+				Expect(at.ErrorMessage).To(Equal(sql.NullString{`{"type":"api_error","message":"rate limited!","code":"rate_limit"}`, true}))
+			})
+
+			It("should raise an error if there were no errors but not paid", func() {
+				fakeStripe.Responses = []string{
+					`{"object": "invoice", "id": "ID1", "paid": false}`,
+				}
+				fakeStripe.Error = nil
+
+				res := doRequest(in.ID)
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+
+			It("should notify the user on a successful payment", func() {
+				fakeStripe.Responses = []string{
+					`{"object": "invoice", "id": "ID1", "paid": true}`,
+				}
+				fakeStripe.Error = nil
+
+				res := doRequest(in.ID)
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["paid"]).To(BeTrue())
+
+				at := getInvoiceManualAttempt()
+				Expect(at.Success).To(BeTrue())
+				Expect(at.ErrorMessage).To(Equal(sql.NullString{"", false}))
+			})
+		})
+
 	})
 })

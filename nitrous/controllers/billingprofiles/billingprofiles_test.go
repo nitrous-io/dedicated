@@ -77,6 +77,47 @@ var _ = Describe("controllers/billingprofiles", func() {
 		}
 	})
 
+	Describe("GET /api/v0/user/billing_profile", func() {
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := NewAuthedRequest(t, "GET", "/api/v0/user/billing_profile", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		ItReturnsBillingProfile := func() {
+			It("returns billing profile", func() {
+				_, err := db.Exec(`UPDATE billing_profiles SET exp_month = 10, exp_year = 2017, card_type = 'Discover', last_four = 1234 WHERE user_id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				res := doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					BillingProfile *serializers.BillingProfile `json:"billing_profile"`
+				}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				Expect(j.BillingProfile.ExpMonth).To(Equal(int64(10)))
+				Expect(j.BillingProfile.ExpYear).To(Equal(int64(2017)))
+				Expect(j.BillingProfile.CardType).To(Equal("Discover"))
+				Expect(j.BillingProfile.LastFour).To(Equal("1234"))
+			})
+		}
+
+		ItReturnsBillingProfile()
+
+		Context("when an invoice is outstanding", func() {
+			BeforeEach(func() {
+				MarkDelinquentUser(db, u)
+			})
+
+			ItReturnsBillingProfile()
+		})
+	})
+
 	Describe("POST /api/v0/user/billing_profiles", func() {
 		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
 			req, err := NewAuthedRequest(t, "POST", "/api/v0/user/billing_profile", params)
@@ -84,6 +125,29 @@ var _ = Describe("controllers/billingprofiles", func() {
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
 			return res
+		}
+
+		ItReturnsTheCreatedBillingProfile := func() {
+			It("returns the created billing profile", func() {
+				fakeStripe.Responses = []string{StripeCustomerResponse}
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				var j struct {
+					BillingProfile *serializers.BillingProfile `json:"billing_profile"`
+				}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				Expect(j.BillingProfile.ExpMonth).To(Equal(int64(10)))
+				Expect(j.BillingProfile.ExpYear).To(Equal(int64(2018)))
+				Expect(j.BillingProfile.CardType).To(Equal("Visa"))
+				Expect(j.BillingProfile.LastFour).To(Equal("4242"))
+			})
 		}
 
 		It("should return an error when credit card token is not provided", func() {
@@ -97,25 +161,16 @@ var _ = Describe("controllers/billingprofiles", func() {
 			Expect(errDesc).To(Equal("credit card token can't be blank"))
 		})
 
-		It("should return the created billing profile when valid token is provided", func() {
-			fakeStripe.Responses = []string{StripeCustomerResponse}
+		Context("when valid token is provided", func() {
+			ItReturnsTheCreatedBillingProfile()
+		})
 
-			p := &url.Values{}
-			p.Set("card_token", "cc_token")
-			res := doRequest(p)
+		Context("when an invoice is outstanding", func() {
+			BeforeEach(func() {
+				MarkDelinquentUser(db, u)
+			})
 
-			Expect(res.Code).To(Equal(http.StatusCreated))
-
-			var j struct {
-				BillingProfile *serializers.BillingProfile `json:"billing_profile"`
-			}
-			err := json.Unmarshal(res.Body.Bytes(), &j)
-			Expect(err).To(BeNil())
-
-			Expect(j.BillingProfile.ExpMonth).To(Equal(int64(10)))
-			Expect(j.BillingProfile.ExpYear).To(Equal(int64(2018)))
-			Expect(j.BillingProfile.CardType).To(Equal("Visa"))
-			Expect(j.BillingProfile.LastFour).To(Equal("4242"))
+			ItReturnsTheCreatedBillingProfile()
 		})
 
 		It("should return a card declined error when user's card is declined", func() {
@@ -395,25 +450,39 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(errDesc).To(Equal("Your Zip code is incorrect. Please try again."))
 			})
 
-			It("should return the created billing profile when valid token is provided", func() {
-				fakeStripe.Responses = []string{StripeCustomerResponse}
+			ItReturnsTheCreatedBillingProfile := func() {
+				It("returns the created billing profile", func() {
+					fakeStripe.Responses = []string{StripeCustomerResponse}
 
-				p := &url.Values{}
-				p.Set("card_token", "cc_token")
-				res := doRequest(p)
+					p := &url.Values{}
+					p.Set("card_token", "cc_token")
+					res := doRequest(p)
 
-				Expect(res.Code).To(Equal(http.StatusOK))
+					Expect(res.Code).To(Equal(http.StatusOK))
 
-				var j struct {
-					BillingProfile *serializers.BillingProfile `json:"billing_profile"`
-				}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
+					var j struct {
+						BillingProfile *serializers.BillingProfile `json:"billing_profile"`
+					}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
 
-				Expect(j.BillingProfile.ExpMonth).To(Equal(int64(10)))
-				Expect(j.BillingProfile.ExpYear).To(Equal(int64(2018)))
-				Expect(j.BillingProfile.CardType).To(Equal("Visa"))
-				Expect(j.BillingProfile.LastFour).To(Equal("4242"))
+					Expect(j.BillingProfile.ExpMonth).To(Equal(int64(10)))
+					Expect(j.BillingProfile.ExpYear).To(Equal(int64(2018)))
+					Expect(j.BillingProfile.CardType).To(Equal("Visa"))
+					Expect(j.BillingProfile.LastFour).To(Equal("4242"))
+				})
+			}
+
+			Context("when valid token is provided", func() {
+				ItReturnsTheCreatedBillingProfile()
+			})
+
+			Context("when an invoice is outstanding", func() {
+				BeforeEach(func() {
+					MarkDelinquentUser(db, u)
+				})
+
+				ItReturnsTheCreatedBillingProfile()
 			})
 		})
 	})

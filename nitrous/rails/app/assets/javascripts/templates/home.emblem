@@ -4,6 +4,11 @@
   #sidebar-wrapper
     = outlet sidebar
   #content-wrapper
+    if App.restrictedAccount
+      .notice-text
+        i.fa.fa-warning
+        '
+        | Your Nitrous Pro account is currently restricted until you correct issues with your billing account.
     = outlet content
 = partial 'partials/footer'
 

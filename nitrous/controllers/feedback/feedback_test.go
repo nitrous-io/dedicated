@@ -93,8 +93,8 @@ var _ = Describe("controllers/feedback", func() {
 			handler.ServeHTTP(res, req)
 		}
 
-		Context("when subject and body are provided", func() {
-			It("sends email and responds with 200 OK", func() {
+		ItSendsSuccessfully := func() {
+			It("sends successfully", func() {
 				subject := "All your server are belong to us"
 				body := "You have no chance to survive make your time."
 
@@ -119,6 +119,18 @@ var _ = Describe("controllers/feedback", func() {
 				Expect(err).To(BeNil())
 				Expect(j["status"].(string)).To(Equal("ok"))
 			})
+		}
+
+		Context("when subject and body are provided", func() {
+			ItSendsSuccessfully()
+		})
+
+		Context("when user has billing issues", func() {
+			BeforeEach(func() {
+				MarkDelinquentUser(db, u)
+			})
+
+			ItSendsSuccessfully()
 		})
 
 		Context("when no params are provided", func() {

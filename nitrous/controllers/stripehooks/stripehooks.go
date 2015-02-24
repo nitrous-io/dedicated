@@ -4,9 +4,16 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
+	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/stripe/stripe-go/event"
+	stripeinvoice "github.com/stripe/stripe-go/invoice"
 )
 
 type IncomingStripeWebHook struct {
@@ -65,17 +72,68 @@ func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) {
 		return
 	}
 
-	if evt.Type == "invoice.payment_succeeded" {
+	// webhook data is found to be outdated, query the invoice for *live* info
+	strInv, err := stripeinvoice.Get(stripeID, nil)
+	if err != nil {
+		env.Logger.Errorf("Error requesting Stripe for invoice %s, err: %+v", stripeID, err)
+		return
+	}
+
+	if strInv.Paid {
 		HandlePaymentSucceededFn(env, inv)
 	} else {
-		att, ok := e.Data.Obj["attempt_count"].(float64)
-		if !ok {
-			env.Logger.Errorf("Stripe failed to provide attempt_count: %+v", e.Data.Obj)
-			return
-		}
-		nxt_attempt, ok := e.Data.Obj["next_payment_attempt"].(float64)
-		HandlePaymentFailedFn(env, inv, int(att), ok && nxt_attempt >= 0)
+		HandlePaymentFailedFn(env, inv, int(strInv.Attempts), strInv.NextAttempt == 0)
 	}
+	u, err := user.FindByID(env.DB, inv.UserID)
+	if err != nil {
+		env.Logger.Errorf("Error looking up user %d for invoice %d pubsub %s, err: %+v", inv.UserID, inv.ID, err)
+		return
+	}
+	sInv, err := serializeInvoice(env.DB, inv)
+	if err != nil {
+		env.Logger.Errorf("Error serializing invoice %d for user %d pubsub %s, err: %+v", inv.UserID, inv.ID, err)
+		return
+	}
+	env.Events.Publish(
+		controllers.NewEvent(controllers.EventInvoiceUpdated, map[string]interface{}{
+			"invoice": sInv,
+		}),
+		u.Topic(),
+	)
+}
+
+func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice) (*serializers.Invoice, error) {
+	sInv := serializers.SerializeInvoice(inv)
+
+	items := []invoiceitem.InvoiceItem{}
+	err := d.Select(&items, "SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY id DESC;", inv.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	hosts := []host.Host{}
+	err = d.Select(&hosts, "SELECT hosts.* FROM hosts INNER JOIN invoice_items ON invoice_items.host_id = hosts.id WHERE invoice_items.invoice_id = $1 ORDER BY hosts.id DESC;", inv.ID)
+	if err != nil {
+		return nil, err
+	}
+	hMap := make(map[int64]*host.Host)
+	for indx, host := range hosts {
+		hMap[host.ID] = &hosts[indx]
+	}
+
+	for _, item := range items {
+		if item.Credit.Valid {
+			sInv.TotalCredit += item.Credit.Int64
+		} else {
+			ser := serializers.SerializeInvoiceItem(&item)
+			ser.Description = invoiceitem.ItemDescription(&item, hMap[ser.HostID])
+			if hst, ok := hMap[ser.HostID]; ok {
+				ser.HostSlug = hst.Slug
+			}
+			sInv.Items = append(sInv.Items, *ser)
+		}
+	}
+	return sInv, nil
 }
 
 func handlePaymentSucceeded(env *middleware.Env, inv *invoice.Invoice) {
@@ -84,8 +142,8 @@ func handlePaymentSucceeded(env *middleware.Env, inv *invoice.Invoice) {
 	}
 }
 
-func handlePaymentFailed(env *middleware.Env, inv *invoice.Invoice, attemptCount int, moreAttempts bool) {
-	if err := inv.PaymentFailed(env.DB, attemptCount, moreAttempts); err != nil {
+func handlePaymentFailed(env *middleware.Env, inv *invoice.Invoice, attemptCount int, attemptsExhausted bool) {
+	if err := inv.PaymentFailed(env.DB, attemptCount, attemptsExhausted); err != nil {
 		env.Logger.Errorf("Error marking invoice %d as failed, err: %v", inv.ID, err)
 	}
 }

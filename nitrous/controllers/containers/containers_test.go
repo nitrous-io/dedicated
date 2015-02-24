@@ -239,6 +239,12 @@ var _ = Describe("controllers/containers", func() {
 			mockClient.Containers = []*freighterclient.Container{fc}
 		})
 
+		It("should allow the user even if it has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest("valid-token", "foo")
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
 		It("calls the Freighter client to list containers", func() {
 			doRequest("valid-token", "foo")
 			Expect(mockClient.ListCalled).To(Equal(1))
@@ -814,6 +820,21 @@ var _ = Describe("controllers/containers", func() {
 			Expect(receivedOptions).To(Equal(*params))
 		})
 
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			createResult = &containers.CreateResult{
+				Container: &serializers.Container{
+					ID:    232,
+					CID:   "x23",
+					State: "starting",
+					Image: "img1",
+				},
+			}
+
+			doRequest("valid-token", "foo", params)
+			VerifyDelinquentUserResponse(res)
+		})
+
 		It("should return a serialized form of the Container", func() {
 			createResult = &containers.CreateResult{
 				Container: &serializers.Container{
@@ -911,6 +932,12 @@ var _ = Describe("controllers/containers", func() {
 				FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 			}
 			mockClient.Containers = []*freighterclient.Container{fc}
+		})
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest("elixir-staging")
+			VerifyDelinquentUserResponse(res)
 		})
 
 		It("creates a new image record", func() {
@@ -1060,6 +1087,12 @@ var _ = Describe("controllers/containers", func() {
 				Mounts:       []string{"database-75:/var/lib/postgresql/data"},
 				Cmd:          []string{"/bin/yes"},
 			}
+		})
+
+		It("should allow the user even if it has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
 		It("calls the Freighter client to get the container's info and config", func() {
@@ -1286,6 +1319,12 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.TerminatedAt).To(BeNil())
 		}
 
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest("elixir-web-1")
+			VerifyDelinquentUserResponse(res)
+		})
+
 		It("calls the Freighter client to perform the control action", func() {
 			doRequest("elixir-web-1")
 			Expect(*inputs.actionCounter).To(Equal(1))
@@ -1432,27 +1471,41 @@ var _ = Describe("controllers/containers", func() {
 			handler.ServeHTTP(res, req)
 		}
 
-		It("responds with the various configs", func() {
-			mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
-				PortBindings: []string{"4040:5050", "4000:3000"},
-				Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
-				Mounts:       []string{"database-75:/var/lib/postgresql/data"},
-				Cmd:          []string{"/bin/yes"},
-			}
+		ItRespondsWithConfig := func() {
+			It("responds with the various configs", func() {
+				mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
+					PortBindings: []string{"4040:5050", "4000:3000"},
+					Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+					Mounts:       []string{"database-75:/var/lib/postgresql/data"},
+					Cmd:          []string{"/bin/yes"},
+				}
 
-			doRequest(c.Slug)
+				doRequest(c.Slug)
 
-			Expect(res.Code).To(Equal(http.StatusOK))
-			Expect(mockClient.ConfigCalled).To(Equal(1))
-			var j struct {
-				Config *serializers.ContainerConfig `json:"config"`
-			}
-			err := json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.Config.Cmd).To(Equal(mockClient.ConfigContainerConfig.Cmd))
-			Expect(j.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
-			Expect(j.Config.Ports).To(Equal(mockClient.ConfigContainerConfig.PortBindings))
-			Expect(j.Config.Mounts).To(Equal(mockClient.ConfigContainerConfig.Mounts))
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(mockClient.ConfigCalled).To(Equal(1))
+				var j struct {
+					Config *serializers.ContainerConfig `json:"config"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Config.Cmd).To(Equal(mockClient.ConfigContainerConfig.Cmd))
+				Expect(j.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
+				Expect(j.Config.Ports).To(Equal(mockClient.ConfigContainerConfig.PortBindings))
+				Expect(j.Config.Mounts).To(Equal(mockClient.ConfigContainerConfig.Mounts))
+			})
+		}
+
+		Context("when theres billing issues", func() {
+			BeforeEach(func() {
+				MarkDelinquentUser(db, u)
+			})
+
+			ItRespondsWithConfig()
+		})
+
+		Context("when valid token is provided", func() {
+			ItRespondsWithConfig()
 		})
 
 		It("responds with 404 if container is not present", func() {
@@ -1624,6 +1677,12 @@ var _ = Describe("controllers/containers", func() {
 			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
 		})
 
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest()
+			VerifyDelinquentUserResponse(res)
+		})
+
 		It("responds with the container from Freighter and augments it with data from the database", func() {
 			doRequest()
 
@@ -1757,6 +1816,12 @@ var _ = Describe("controllers/containers", func() {
 			}
 			err := c.Insert(db)
 			Expect(err).To(BeNil())
+		})
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest()
+			VerifyDelinquentUserResponse(res)
 		})
 
 		It("returns an HMAC token signed with the shared secret", func() {
@@ -1978,6 +2043,12 @@ var _ = Describe("controllers/containers", func() {
 				Image: "deadbeef-reconfig-1420683989905982895",
 			}
 			mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{}
+		})
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest(testParams)
+			VerifyDelinquentUserResponse(res)
 		})
 
 		It("calls the Freighter client with config from params", func() {
@@ -2334,6 +2405,12 @@ var _ = Describe("controllers/containers", func() {
 			}
 			err = c.Insert(db)
 			Expect(err).To(BeNil())
+		})
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			doRequest(&url.Values{"k": []string{"v"}, "1": []string{"2345"}})
+			VerifyDelinquentUserResponse(res)
 		})
 
 		It("should allow for setting metadata, keeping existing", func() {

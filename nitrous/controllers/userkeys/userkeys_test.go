@@ -109,6 +109,12 @@ var _ = Describe("controllers/userkeys", func() {
 			handler.ServeHTTP(res, req)
 		}
 
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, hs.U)
+			doRequest("valid-token")
+			VerifyDelinquentUserResponse(res)
+		})
+
 		Context("when a valid oauth token is given", func() {
 			Context("when user has keys", func() {
 				var pks []*userkey.UserKey
@@ -179,6 +185,12 @@ var _ = Describe("controllers/userkeys", func() {
 				Expect(err).To(BeNil())
 				handler.ServeHTTP(res, req)
 			}
+
+			It("should block if the user has billing issues", func() {
+				MarkDelinquentUser(db, hs.U)
+				doRequest("valid-token", c.Slug)
+				VerifyDelinquentUserResponse(res)
+			})
 
 			Context("when valid oauth token is present", func() {
 				Context("when valid params are received", func() {
@@ -294,6 +306,12 @@ var _ = Describe("controllers/userkeys", func() {
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, hs.U)
+			doRequest("valid-token", c.Slug)
+			VerifyDelinquentUserResponse(res)
+		})
 
 		Context("with valid oauth token", func() {
 			Context("when user has multiple keys", func() {
@@ -425,6 +443,12 @@ var _ = Describe("controllers/userkeys", func() {
 			fprint, err = pks[1].Md5Fingerprint()
 			Expect(err).To(BeNil())
 			mockClient.RemoveUserKeyCalled = 0
+		})
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, hs.U)
+			doRequest("valid-token", c.Slug, fprint)
+			VerifyDelinquentUserResponse(res)
 		})
 
 		Context("with valid oauth token", func() {

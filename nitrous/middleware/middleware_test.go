@@ -269,8 +269,7 @@ var _ = Describe("middleware", func() {
 
 	Describe("event tracking middleware", func() {
 		var (
-			u  *user.User
-			mw func(event string, mw middleware.Middleware) middleware.Middleware
+			u *user.User
 		)
 
 		BeforeEach(func() {
@@ -286,7 +285,6 @@ var _ = Describe("middleware", func() {
 
 			env.RemoteAddr = "192.168.1.1"
 
-			mw = middleware.Track
 			h := func(w http.ResponseWriter, r *http.Request) {
 				err := middleware.Track("Action Called", emptyMw)(env, w, r)
 				if err != nil {
@@ -311,6 +309,71 @@ var _ = Describe("middleware", func() {
 
 		It("Responds with 200 OK", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+	})
+
+	Describe("verifying user billing middleware", func() {
+		var (
+			u *user.User
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Password: "123456",
+				Email:    "foo@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+			Expect(u.ID).NotTo(BeZero())
+			env.User = u
+
+			protectedRoute := func(w http.ResponseWriter, r *http.Request) {
+				err := middleware.VerifyUserBilling("something", emptyMw)(env, w, r)
+				if err != nil {
+					svr.HandleError(w, err)
+				}
+			}
+			allowedRoute := func(w http.ResponseWriter, r *http.Request) {
+				err := middleware.VerifyUserBilling("users.GetAuthenticatedUser", emptyMw)(env, w, r)
+				if err != nil {
+					svr.HandleError(w, err)
+				}
+			}
+			handler.HandleFunc("/protected", protectedRoute).Methods("GET")
+			handler.HandleFunc("/allowed", allowedRoute).Methods("GET")
+		})
+
+		It("responds with 200 OK if the user has correct billing", func() {
+			req, err := NewRequest("GET", "/protected", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("rejects the request if the billing information is invalid", func() {
+			MarkDelinquentUser(db, u)
+			req, err := NewRequest("GET", "/protected", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+			VerifyDelinquentUserResponse(res)
+		})
+
+		It("rejects the allows a non protected request even if the billing information is invalid", func() {
+			MarkDelinquentUser(db, u)
+			req, err := NewRequest("GET", "/allowed", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("should not continue if the billing profile is missing", func() {
+			_, err := db.Exec(`DELETE FROM billing_profiles WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+			req, err := NewRequest("GET", "/protected", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 		})
 	})
 

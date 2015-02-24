@@ -80,6 +80,6 @@ App.ImagesNewController = Em.Controller.extend
         headers: App.Image.adapter.get('headers')
       )).then (json) =>
         image.load(json.image)
-      , (jqxhr) -> # Em.RSVP.Promise.cast
+      , (jqxhr) => # Em.RSVP.Promise.cast
         App.postError(jqxhr.responseJSON, 'Failed to build image!')
         @set 'saving', false
