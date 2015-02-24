@@ -924,9 +924,8 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// upgradeServer upgrades freighterd and docker packages to the versions
-// specified in the request.
-// This assumes that we are using APT to manage freighterd and docker and will
+// upgradeServer upgrades the freighterd package to the version specified in the
+// request. This assumes that we are using APT to manage freighterd and will
 // probably not work everywhere.
 func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 	fv := r.PostFormValue("freighterd_version")
@@ -968,7 +967,7 @@ func (s *Server) upgradeFreighterd(version string) error {
 		"-o", "Dir::Etc::sourceparts=-",
 		"-o", "Dir::Etc::sourcelist=/etc/apt/sources.list.d/nitrousio.list")
 	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if out, err := s.runner.Run(cmd); err != nil {
 		s.logger.Errorf("error updating freighterd repo, err: %v, output: %s", err, out)
 		return err
 	}
@@ -997,7 +996,7 @@ func (s *Server) upgradeFreighterd(version string) error {
 	)
 	cmd.Env = append(cmd.Env, fmt.Sprintf("PATH=%s:/usr/sbin:/usr/bin:/sbin:/bin", fakepath))
 	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if out, err := s.runner.Run(cmd); err != nil {
 		s.logger.Errorf("error updating freighterd package, err: %v, output: %s", err, out)
 		return err
 	}

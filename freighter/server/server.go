@@ -82,6 +82,7 @@ type Server struct {
 	// collection of current attached shells
 	shells    map[string]*shell.Shell
 	listeners []net.Listener
+	runner    Runner
 }
 
 func NewServer(logger *util.Logger, provider provider.Provider, conf *Config) *Server {
@@ -91,11 +92,11 @@ func NewServer(logger *util.Logger, provider provider.Provider, conf *Config) *S
 	svr := &Server{
 		logger:   logger,
 		provider: provider,
+		router:   mux.NewRouter(),
 		conf:     conf,
 		shells:   map[string]*shell.Shell{},
+		runner:   &realRunner{},
 	}
-
-	svr.router = mux.NewRouter()
 	svr.drawRoutes()
 	return svr
 }
@@ -206,8 +207,7 @@ func (s *Server) notifyWebhook(data map[string]interface{}) error {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	c := http.DefaultClient
-	resp, err := c.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
