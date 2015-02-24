@@ -23,10 +23,14 @@ import (
 	striitem "github.com/stripe/stripe-go/invoiceitem"
 )
 
-// the minimum value (in cents) a invoice must equal to send off to Stripe
-// otherwise it will rollover to the next invoice
 const (
-	MinPriceDiffRatio    = 1.5
+	// if the host price / expected price is greater than this ratio, raise an error
+	// preventing the invoice from charging
+	MaxPriceDiffRatio = 1.5
+	// if the total host usage / plan price is greater than this ratio, raise an error
+	MaxPlanPriceDeviationRatio = 1.001
+	// the minimum value (in cents) a invoice must equal to send off to Stripe
+	// otherwise it will rollover to the next invoice
 	MinimumInvoiceAmount = 100
 )
 
@@ -86,6 +90,7 @@ func (b *Biller) Process() error {
 		return err
 	}
 
+	return nil
 	return b.processStripe(i)
 }
 
@@ -471,13 +476,14 @@ func (b *Biller) sanityCheckInvoiceItems(items []invoiceitem.InvoiceItem) error 
 		if !ok {
 			return fmt.Errorf("biller: Could not locate plan for user %d host %d", b.user.ID, item.HostID.Int64)
 		}
-		if item.TotalCharge() > hostPrice {
+		planRatio := float64(item.TotalCharge()) / float64(hostPrice)
+		if planRatio >= MaxPlanPriceDeviationRatio {
 			return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds plan price %d", item.TotalCharge(), b.user.ID, item.HostID.Int64, hostPrice)
 		}
 		if item.Hours.Int64 == invoiceitem.MaxHours {
 			priceRatio := float64(hostPrice) / float64(item.TotalCharge())
-			if priceRatio >= MinPriceDiffRatio {
-				return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds ratio %f with %f", item.TotalCharge(), b.user.ID, item.HostID.Int64, MinPriceDiffRatio, priceRatio)
+			if priceRatio >= MaxPriceDiffRatio {
+				return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds ratio %f with %f", item.TotalCharge(), b.user.ID, item.HostID.Int64, MaxPriceDiffRatio, priceRatio)
 			}
 		}
 	}
