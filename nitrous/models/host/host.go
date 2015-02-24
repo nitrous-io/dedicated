@@ -36,6 +36,7 @@ const (
 	StateStopping   = "stopping"
 	StateStarting   = "starting"
 	StateRestarting = "restarting"
+	StateUpgrading  = "upgrading"
 	StateOrphan     = "orphan"
 	StateTerminated = "terminated"
 )
@@ -87,6 +88,7 @@ type Host struct {
 	// serializers.Host out of it. Data comes from freighterd, not database
 	LiveDockerVersion     string
 	LiveFreighterdVersion string
+	UpgradeAvailable      bool
 }
 
 func FindAllByProvider(db *db.Database, provider string) ([]Host, error) {
@@ -242,7 +244,7 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port, 
+		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
 			preprovisioned, hourly_price, freighterd_version, docker_version, updated_at)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
 			:preprovisioned, :hourly_price, :freighterd_version, :docker_version, now())

@@ -3,6 +3,7 @@ package hosts_test
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -200,6 +201,7 @@ var _ = Describe("controllers/hosts", func() {
 
 	Describe("GET /api/v0/hosts/{slug}", func() {
 		var hs *HostStack
+		var mockClient *freighterclient.MockClient
 
 		doRequest := func(slug, token string) {
 			req, err := NewRequest("GET", "/api/v0/hosts/"+slug, nil)
@@ -209,14 +211,22 @@ var _ = Describe("controllers/hosts", func() {
 		}
 
 		BeforeEach(func() {
+			mockClient = &freighterclient.MockClient{}
+			mockClient.HostVersionsReturn = &freighterclient.HostVersions{
+				DockerVersion:     "1.5.0-nitrous1",
+				FreighterdVersion: "1.0.1-deadbeef",
+			}
+			StubDefaultFreighterFn(mockClient)
+
 			var err error
 			hs, err = CreateHostStack(db, &HostStack{
 				H: &host.Host{
-					Slug:           "foo",
-					IPAddress:      sql.NullString{"1.2.3.4", true},
-					FreighterdPort: sql.NullInt64{64000, true},
-					Size:           sql.NullString{"large", true},
-					State:          host.StateRunning,
+					Slug:              "foo",
+					IPAddress:         sql.NullString{"1.2.3.4", true},
+					FreighterdPort:    sql.NullInt64{64000, true},
+					Size:              sql.NullString{"large", true},
+					State:             host.StateRunning,
+					FreighterdVersion: "1.0.1-deadbeef-1",
 				},
 				U: u,
 			})
@@ -251,6 +261,23 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Host.TerminatedAt).To(BeNil())
 			Expect(j.Host.LiveDockerVersion).To(Equal(""))
 			Expect(j.Host.LiveFreighterdVersion).To(Equal(""))
+			Expect(j.Host.UpgradeAvailable).To(BeTrue())
+		})
+
+		It("responds with upgrade_available: false if required freighterd version is empty", func() {
+			hs.H.FreighterdVersion = ""
+			err := hs.H.Update(db)
+			Expect(err).To(BeNil())
+
+			doRequest(hs.H.Slug, t.Token)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.UpgradeAvailable).To(BeFalse())
 		})
 
 		It("responds with host info even when called with the host ID", func() {
@@ -298,14 +325,6 @@ var _ = Describe("controllers/hosts", func() {
 				_, err := db.Exec("UPDATE users SET admin = true WHERE id = $1", anotherUser.ID)
 				Expect(err).To(BeNil())
 
-				mockClient := &freighterclient.MockClient{}
-				mockClient.HostVersionsReturn = &freighterclient.HostVersions{
-					DockerVersion:     "1.5.0-nitrous1",
-					FreighterdVersion: "1.0.1-deadbeef",
-				}
-				StubDefaultFreighterFn(mockClient)
-				defer UnstubFreighterFn()
-
 				doRequest(hs.H.Slug, anotherToken.Token)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -319,6 +338,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(mockClient.HostVersionsCalled).To(Equal(1))
 				Expect(j.Host.LiveDockerVersion).To(Equal("1.5.0-nitrous1"))
 				Expect(j.Host.LiveFreighterdVersion).To(Equal("1.0.1-deadbeef"))
+				Expect(j.Host.UpgradeAvailable).To(BeTrue())
 			})
 		})
 
@@ -1166,6 +1186,102 @@ var _ = Describe("controllers/hosts", func() {
 		})
 	})
 
+	Describe("POST /api/v0/hosts/{slug}/upgrade", func() {
+		var (
+			hs         *HostStack
+			mockClient *freighterclient.MockClient
+		)
+
+		doRequest := func() {
+			req, err := NewRequest("POST", "/api/v0/hosts/"+hs.H.Slug+"/upgrade", nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			var err error
+
+			mockClient = &freighterclient.MockClient{}
+			StubDefaultFreighterFn(mockClient)
+
+			hs, err = CreateHostStack(db, &HostStack{U: u})
+			Expect(err).To(BeNil())
+		})
+
+		AfterEach(func() {
+			UnstubFreighterFn()
+		})
+
+		It("responds with HTTP 202 Accepted and publishes a host upgrading event", func() {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest()
+			Expect(mockClient.UpgradeServerCalled).To(Equal(1))
+
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			h, err := queryHost(db, hs.H.ID)
+			Expect(err).To(BeNil())
+			Expect(h.State).To(Equal(host.StateUpgrading))
+
+			select {
+			case <-time.After(50 * time.Millisecond):
+				Fail("Timed out waiting for host upgrading event")
+			case msg := <-ch:
+				Expect(msg).To(Equal(&controllers.Event{
+					Name: controllers.EventHostUpgrading,
+					Data: map[string]*serializers.Host{
+						"host": serializers.SerializeHost(h),
+					},
+				}))
+			}
+		})
+
+		It("responds with HTTP 200 OK, the host, and publishes a host upgrade event when host is already upgraded", func() {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			mockClient.UpgradeServerError = freighterclient.ErrAlreadyUpgraded
+
+			doRequest()
+			Expect(mockClient.UpgradeServerCalled).To(Equal(1))
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.ID).To(Equal(hs.H.ID))
+
+			select {
+			case <-time.After(50 * time.Millisecond):
+				Fail("Timed out waiting for host upgraded event")
+			case msg := <-ch:
+				Expect(msg).To(Equal(&controllers.Event{
+					Name: controllers.EventHostUpgraded,
+					Data: map[string]*serializers.Host{
+						"host": serializers.SerializeHost(hs.H),
+					},
+				}))
+			}
+		})
+
+		It("responds with HTTP 500 when upgrading fails", func() {
+			mockClient.UpgradeServerError = errors.New("host not upgradable")
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("internal_server_error"))
+			Expect(errDesc).To(Equal("an error occurred while attempting to upgrade your workspace"))
+
+			Expect(mockClient.UpgradeServerCalled).To(Equal(1))
+		})
+	})
+
 	Describe("PUT /api/v0/hosts/:slug/versions", func() {
 		var hs *HostStack
 		var params *url.Values
@@ -1175,8 +1291,6 @@ var _ = Describe("controllers/hosts", func() {
 			req, err := NewAuthedRequest(t, "PUT", fmt.Sprintf("/api/v0/hosts/%s/versions", hs.H.Slug), params)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
-
-			handler = svr.Router()
 			handler.ServeHTTP(res, req)
 		}
 

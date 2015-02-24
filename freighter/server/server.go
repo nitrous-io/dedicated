@@ -3,11 +3,13 @@ package server
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -19,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
+	"github.com/nitrous-io/nitrous-common/msgverifier"
 )
 
 const NitrousUUIDHeader = "X-NITROUS-UUID"
@@ -38,6 +41,7 @@ func init() {
 		Cert:      "/etc/freighterd/cert.crt",
 		Key:       "/etc/freighterd/key.crt",
 		Secret:    "/etc/freighterd/secret",
+		NotifyURL: "",
 
 		Listen: []HostAddress{
 			{Proto: "unix", Address: "/var/run/freighterd.sock"},
@@ -64,6 +68,8 @@ type Config struct {
 	Key       string `json:"tls_key"`    // path to key
 	Secret    string `json:"secret"`     // path to secret
 
+	NotifyURL string `json:"notify_url"`
+
 	Listen []HostAddress `json:"listen"`
 }
 
@@ -74,7 +80,9 @@ type Server struct {
 	conf     *Config
 	secret   string
 	// collection of current attached shells
-	shells map[string]*shell.Shell
+	shells    map[string]*shell.Shell
+	listeners []net.Listener
+	runner    Runner
 }
 
 func NewServer(logger *util.Logger, provider provider.Provider, conf *Config) *Server {
@@ -84,74 +92,135 @@ func NewServer(logger *util.Logger, provider provider.Provider, conf *Config) *S
 	svr := &Server{
 		logger:   logger,
 		provider: provider,
+		router:   mux.NewRouter(),
 		conf:     conf,
 		shells:   map[string]*shell.Shell{},
+		runner:   &realRunner{},
 	}
-
-	svr.router = mux.NewRouter()
 	svr.drawRoutes()
 	return svr
 }
 
-func (s *Server) Start() {
-	chErrors := make(chan error, len(s.conf.Listen))
+func (s *Server) Start() error {
 	for _, h := range s.conf.Listen {
+		var ln net.Listener
+		var err error
+
 		proto, addr := h.Proto, h.Address
-		switch h.Proto {
+		switch proto {
 		case "unix":
-			go func() {
-				s.logger.Infof("Listening on %s %s", proto, addr)
-				chErrors <- s.serveUnix(proto, addr)
-			}()
+			ln, err = s.unixListener(addr)
+			if err != nil {
+				return err
+			}
 		case "tcp":
-			go func() {
-				s.logger.Infof("Listening on %s %s", proto, addr)
-				chErrors <- s.serveTCP(proto, addr)
-			}()
+			ln, err = s.tcpListener(addr)
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("unknown protocol: %s", h.Proto)
 		}
+
+		svr := &http.Server{Addr: addr, Handler: s.router}
+		go func() {
+			s.logger.Infof("Listening on %s %s", proto, addr)
+			s.listeners = append(s.listeners, ln)
+			err := svr.Serve(ln)
+			if err != nil {
+				s.logger.Errorf("Listener on %s %s failed with %v", proto, addr, err)
+			}
+		}()
 	}
 
-	for i := 0; i < len(s.conf.Listen); i++ {
-		if err := <-chErrors; err != nil {
-			s.logger.FatalExit(err)
+	go func() {
+		data := map[string]interface{}{
+			"event":              "started",
+			"freighterd_version": config.Version,
 		}
+		if v, err := getDockerVersion(); err != nil {
+			data["docker_version"] = v
+		}
+
+		err := s.notifyWebhook(data)
+		if err != nil {
+			s.logger.Errorf("failed to notify webhook, err: %v", err)
+		}
+	}()
+
+	return nil
+}
+
+func (s *Server) Stop() {
+	for _, ln := range s.listeners {
+		ln.Close()
 	}
 }
 
-func (s *Server) serveUnix(proto, addr string) error {
+func (s *Server) unixListener(addr string) (net.Listener, error) {
 	if err := syscall.Unlink(addr); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("server: cannot remove %s, %v", addr, err)
+		return nil, fmt.Errorf("server: cannot remove %s, %v", addr, err)
 	}
-	l, err := net.Listen(proto, addr)
-	if err != nil {
-		return fmt.Errorf("server: cannot listen to unix %v, %v", addr, err)
-	}
-	svr := &http.Server{Addr: addr, Handler: s.router}
-	return svr.Serve(l)
+	return net.Listen("unix", addr)
 }
 
-func (s *Server) serveTCP(proto, addr string) error {
+func (s *Server) tcpListener(addr string) (net.Listener, error) {
 	var l net.Listener
-	l, err := net.Listen(proto, addr)
+	l, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("server: cannot listen to tcp %v, %v", addr, err)
+		return nil, fmt.Errorf("server: cannot listen to tcp %v, %v", addr, err)
 	}
 	if s.conf.TLSVerify {
 		tlsConfig, err := getTLSConfig(s.conf.CA, s.conf.Cert, s.conf.Key)
 		if err != nil {
-			return fmt.Errorf("server: invalid tls configs %v", err)
+			return nil, fmt.Errorf("server: invalid tls configs %v", err)
 		}
 		l = tls.NewListener(l, tlsConfig)
 	}
 	if s.conf.Secret != "" {
 		secret, err := ioutil.ReadFile(s.conf.Secret)
 		if err != nil {
-			return fmt.Errorf("Error reading secret at %s: %s", s.conf.Secret, err)
+			return nil, fmt.Errorf("Error reading secret at %s: %s", s.conf.Secret, err)
 		}
 		s.secret = strings.TrimSpace(string(secret))
 	}
-	svr := &http.Server{Addr: addr, Handler: s.router}
-	return svr.Serve(l)
+	return l, nil
+}
+
+func (s *Server) notifyWebhook(data map[string]interface{}) error {
+	if s.conf.NotifyURL == "" {
+		return nil
+	}
+
+	verifier := msgverifier.New(s.secret)
+	msg, err := verifier.Generate(data)
+	if err != nil {
+		return err
+	}
+
+	params := &url.Values{}
+	params.Set("msg", msg)
+
+	req, err := http.NewRequest("POST", s.conf.NotifyURL, strings.NewReader(params.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		if b, err := ioutil.ReadAll(resp.Body); err == nil {
+			return fmt.Errorf("non-HTTP OK response from webhook, resp: %s", b)
+		}
+		return errors.New("non-HTTP OK response form webhook")
+	}
+
+	return nil
 }
 
 func (s *Server) Router() *mux.Router {
@@ -275,6 +344,8 @@ func (s *Server) drawRoutes() {
 	s.secretRoute("/info", s.wrapError(s.serverInfo), "GET")
 	s.secretRoute("/versions", s.wrapError(s.serverVersions), "GET")
 	s.secretRoute("/utilization", s.wrapError(s.serverUtilization), "GET")
+
+	s.secretRoute("/upgrade", s.wrapError(s.upgradeServer), "POST")
 }
 
 // given:

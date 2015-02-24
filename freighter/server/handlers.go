@@ -6,13 +6,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
@@ -918,6 +922,106 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 		proxy.ProxyHTTP(addr, nil, proxyerror.ErrorHandler)(w, r)
 	}
 	return nil
+}
+
+// upgradeServer upgrades the freighterd package to the version specified in the
+// request. This assumes that we are using APT to manage freighterd and will
+// probably not work everywhere.
+func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
+	fv := r.PostFormValue("freighterd_version")
+	if fv == config.Version {
+		s.respondEncodeJSON(w, http.StatusNoContent, nil)
+		return nil
+	}
+
+	go func() {
+		if err := s.upgradeFreighterd(fv); err != nil {
+			s.logger.Errorf("error upgrading freighterd: %v", err)
+			if nerr := s.notifyWebhook(map[string]interface{}{
+				"event": "upgrade",
+				"error": err.Error(),
+			}); nerr != nil {
+				s.logger.Errorf("failed to notify webhook, err: %v", nerr)
+			}
+			return
+		}
+		s.logger.Infof("updated freighterd package from %q to %q", config.Version, fv)
+
+		if err := s.stopFreighterd(); err != nil {
+			s.logger.Errorf("error stopping freighterd: %v", err)
+			if nerr := s.notifyWebhook(map[string]interface{}{
+				"event": "upgrade",
+				"error": err.Error(),
+			}); nerr != nil {
+				s.logger.Errorf("failed to notify webhook, err: %v", nerr)
+			}
+		}
+	}()
+
+	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
+	return nil
+}
+
+func (s *Server) upgradeFreighterd(version string) error {
+	cmd := exec.Command("apt-get", "update",
+		"-o", "Dir::Etc::sourceparts=-",
+		"-o", "Dir::Etc::sourcelist=/etc/apt/sources.list.d/nitrousio.list")
+	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
+	if out, err := s.runner.Run(cmd); err != nil {
+		s.logger.Errorf("error updating freighterd repo, err: %v, output: %s", err, out)
+		return err
+	}
+
+	// Setup a dir with service-related binaries pointing to /bin/true. We will
+	// use this in the PATH for the `apt-get install` command so that the
+	// freighterd service is not restarted.
+	// See http://askubuntu.com/a/77530/25214.
+	fakepath, err := ioutil.TempDir("", "freighter-fakepath")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(fakepath)
+	if err := setupFakePath(fakepath); err != nil {
+		return err
+	}
+
+	pkgspec := "freighterd"
+	if version != "" {
+		pkgspec = fmt.Sprintf("freighterd=%s", version)
+	}
+	cmd = exec.Command("apt-get", "install", "-y",
+		"-o", `Dpkg::Options::=--force-confdef`, // avoid prompt
+		"-o", `Dpkg::Options::=--force-confold`, // do not modify existing config file
+		pkgspec,
+	)
+	cmd.Env = append(cmd.Env, fmt.Sprintf("PATH=%s:/usr/sbin:/usr/bin:/sbin:/bin", fakepath))
+	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
+	if out, err := s.runner.Run(cmd); err != nil {
+		s.logger.Errorf("error updating freighterd package, err: %v, output: %s", err, out)
+		return err
+	}
+
+	return nil
+}
+
+func setupFakePath(path string) error {
+	cmds := []string{"initctl", "invoke-rc.d",
+		"restart", "start", "stop", "start-stop-daemon", "service"}
+	for _, cmd := range cmds {
+		if err := os.Symlink("/bin/true", filepath.Join(path, cmd)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Stop freighterd (i.e. this process) by sending it a signal. We rely on an
+// external process (currently Upstart) to respawn the freighterd service.
+// TODO We probably want to stop gracefully (maybe by sending SIGHUP to self)
+// so that existing HTTP requests are not dropped.
+func (s *Server) stopFreighterd() error {
+	s.logger.Infof("Sending freighter process signal to terminate...")
+	return syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 }
 
 func randomString() string {

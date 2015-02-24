@@ -10,8 +10,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"os/exec"
+	"os/signal"
 	"regexp"
 	"strconv"
+	"syscall"
 	"testing"
 	"time"
 
@@ -22,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/server"
 	"github.com/nitrous-io/dedicated/freighter/util"
+	"github.com/nitrous-io/nitrous-common/msgverifier"
 
 	. "github.com/nitrous-io/dedicated/freighter/test"
 	. "github.com/onsi/ginkgo"
@@ -31,6 +36,17 @@ import (
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "server")
+}
+
+type fakeRunner struct {
+	output []byte
+	err    error
+	cmd    *exec.Cmd
+}
+
+func (r *fakeRunner) Run(cmd *exec.Cmd) ([]byte, error) {
+	r.cmd = cmd
+	return r.output, r.err
 }
 
 var hostSecret = "sekrit"
@@ -1957,6 +1973,93 @@ var _ = Describe("server", func() {
 
 			Expect(res.Code).To(Equal(http.StatusOK))
 			Expect(res.Body.String()).To(Equal(`{"status":"ok"}`))
+		})
+	})
+
+	Describe("POST /upgrade", func() {
+		doRequest := func(params *url.Values) {
+			req, err = NewFormRequest(hostSecret, "POST", "/upgrade", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			config.Version = "freighterd-0.1.1-deadbeef"
+		})
+
+		It("responds with 204 No Content when freighterd version is the same", func() {
+			params := &url.Values{}
+			params.Set("freighterd_version", "freighterd-0.1.1-deadbeef")
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusNoContent))
+		})
+
+		It("responds with 202 Accepted when freighterd version is different", func() {
+			svr.SetRunner(&fakeRunner{err: nil})
+
+			// Trap SIGTERM so that we don't terminate the test process.
+			ch := make(chan os.Signal, 1)
+			signal.Notify(ch, syscall.SIGTERM)
+			defer signal.Stop(ch)
+
+			params := &url.Values{}
+			params.Set("freighterd_version", "freighterd-0.1.1-newversion")
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			select {
+			case s := <-ch:
+				Expect(s).To(Equal(syscall.SIGTERM))
+			case <-time.After(1 * time.Second):
+				Fail("Timed out waiting for SIGTERM signal when upgrading freighterd")
+			}
+		})
+
+		It("notifies the webhook when there is an error upgrading freighterd", func() {
+			var (
+				notified bool
+				req      *http.Request
+			)
+			webhookSvr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				notified = true
+				r.ParseForm()
+				req = r
+				w.Write([]byte("OK"))
+			}))
+			defer webhookSvr.Close()
+
+			logger := &util.Logger{Level: util.LogLevelQuiet}
+			svr = server.NewServer(logger, prov, &server.Config{
+				NotifyURL: webhookSvr.URL,
+			})
+			svr.SetSecret(hostSecret)
+			handler = svr.Router()
+
+			svr.SetRunner(&fakeRunner{err: errors.New("command failed to execute")})
+
+			params := &url.Values{}
+			params.Set("freighterd_version", "freighterd-0.1.1-newversion")
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			Eventually(func() bool {
+				return notified
+			}).Should(BeTrue())
+
+			Expect(req.Method).To(Equal("POST"))
+			Expect(req.PostFormValue("msg")).ToNot(BeEmpty())
+
+			// Test that we can decrypt the message.
+			verifier := msgverifier.New(hostSecret)
+			var m struct {
+				Error string `json:"error"`
+			}
+			err := verifier.Verify(req.PostFormValue("msg"), &m)
+			Expect(err).To(BeNil())
+			Expect(m.Error).To(Equal("command failed to execute"))
 		})
 	})
 

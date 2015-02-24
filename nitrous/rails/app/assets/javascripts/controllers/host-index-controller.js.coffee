@@ -15,3 +15,6 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
 
     newContainer: ->
       @transitionToRoute 'containers.new', queryParams: { preselectHost: @get('model.slug') }
+
+    upgrade: ->
+      @performAction('POST', 'upgrade', 'upgrading')

@@ -11,6 +11,7 @@
     },
     "digitalocean": {
       "token": "",
+      "notify_url": "http://pro.n2odev.com:3333/api/v0/hosts/{{slug}}/freighterd_hook",
       "create_timeout": "5m"
     },
     "docker": {
