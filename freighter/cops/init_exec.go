@@ -70,7 +70,7 @@ func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
 
 				h, err = newHandler(id)
 				if err != nil {
-					errCh <- fmt.Errorf("failed to handle %s for container %s, %s", msg.Namespace, err)
+					errCh <- fmt.Errorf("failed to handle %s for container %s, %s", msg.Namespace, id, err)
 					return
 				}
 				handlers[msg.Namespace] = h

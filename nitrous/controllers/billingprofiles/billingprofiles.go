@@ -103,7 +103,7 @@ func awardCredits(d *db.Database, l *logger.Logger, user *user.User) {
 	ct, err := creditForUser(d, user)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			l.Errorf("Credit '%s' does not exist", user.PromoCode)
+			l.Errorf("Credit '%s' does not exist", user.PromoCode.String)
 			return
 		}
 		l.Errorf("Error locating credit for user, err: %+v", err)

@@ -47,7 +47,7 @@ func assertA(t *testing.T, got dns.RR, expected dns.RR) {
 	b := expected.(*dns.A)
 	if a.A.String() != b.A.String() ||
 		a.Header().String() != b.Header().String() {
-		t.Fatal("Mismatched record. Got %v, expected %v", got, expected)
+		t.Fatalf("Mismatched record. Got %v, expected %v", got, expected)
 	}
 }
 

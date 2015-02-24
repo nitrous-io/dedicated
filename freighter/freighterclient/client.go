@@ -1005,8 +1005,6 @@ func (c *client) RemoveImage(image string) error {
 	default:
 		return statusError(resp)
 	}
-
-	return nil
 }
 
 func (c *client) PullImage(repository string, update bool, output io.Writer) error {

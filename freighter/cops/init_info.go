@@ -42,7 +42,7 @@ func infoInit() {
 		IsDir: stat.IsDir(),
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(info); err != nil {
-		log.Fatal("infoInit failed to encode: %v", err)
+		log.Fatalf("infoInit failed to encode: %v", err)
 	}
 	os.Exit(0)
 }
