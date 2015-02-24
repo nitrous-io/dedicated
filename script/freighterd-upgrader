@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
-SLUG=$1
+DOMAIN=$1
+SLUG=$2
+NOTIFY_URL="https://$DOMAIN/api/v0/hosts/$SLUG/freighterd_hook"
 
-echo -e "{\"data_path\":\"/var/lib/freighter\",\"tls_verify\":true,\"tls_ca\":\"/etc/freighterd/ca.crt\",\"tls_cert\":\"/etc/freighterd/cert.crt\",\"tls_key\":\"/etc/freighterd/key.crt\",\"secret\":\"/etc/freighterd/secret\",\"notify_url\":\"https://pro.n2ostaging.com/api/v0/hosts/$SLUG/freighterd_hook\",\"listen\":[{\"proto\":\"unix\",\"address\":\"/var/run/freighterd.sock\"},{\"proto\":\"tcp\",\"address\":\"0.0.0.0:65333\"}]}" > /etc/freighterd/config.json
+echo -e "{\"data_path\":\"/var/lib/freighter\",\"tls_verify\":true,\"tls_ca\":\"/etc/freighterd/ca.crt\",\"tls_cert\":\"/etc/freighterd/cert.crt\",\"tls_key\":\"/etc/freighterd/key.crt\",\"secret\":\"/etc/freighterd/secret\",\"notify_url\":\"$NOTIFY_URL\",\"listen\":[{\"proto\":\"unix\",\"address\":\"/var/run/freighterd.sock\"},{\"proto\":\"tcp\",\"address\":\"0.0.0.0:65333\"}]}" > /etc/freighterd/config.json
 
 DEBIAN_FRONTEND=noninteractive apt-get update -y -o Dir::Etc::sourcelist="sources.list.d/nitrousio.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
 DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" freighterd
