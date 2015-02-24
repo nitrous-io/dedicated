@@ -27,7 +27,7 @@ App.BillingUsage = klass = App.Model.extend
     credits = @get 'availableCreditsDollars'
     total = @get 'totalChargeDollars'
     if credits > total
-      return total
+      return 0
     else
       total - credits
   ).property 'availableCreditsDollars', 'totalChargeDollars'
