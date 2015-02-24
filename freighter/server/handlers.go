@@ -947,8 +947,8 @@ func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 		}
 		s.logger.Infof("updated freighterd package from %q to %q", config.Version, fv)
 
-		if err := s.restartFreighterd(); err != nil {
-			s.logger.Errorf("error restarting freighterd: %v", err)
+		if err := s.stopFreighterd(); err != nil {
+			s.logger.Errorf("error stopping freighterd: %v", err)
 			if nerr := s.notifyWebhook(map[string]interface{}{
 				"event": "upgrade",
 				"error": err.Error(),
@@ -1015,9 +1015,11 @@ func setupFakePath(path string) error {
 	return nil
 }
 
-// TODO We probably want to restart gracefully (maybe by sending SIGHUP to self)
+// Stop freighterd (i.e. this process) by sending it a signal. We rely on an
+// external process (currently Upstart) to respawn the freighterd service.
+// TODO We probably want to stop gracefully (maybe by sending SIGHUP to self)
 // so that existing HTTP requests are not dropped.
-func (s *Server) restartFreighterd() error {
+func (s *Server) stopFreighterd() error {
 	s.logger.Infof("Sending freighter process signal to terminate...")
 	return syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 }
