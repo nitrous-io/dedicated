@@ -33,6 +33,7 @@ sudo /etc/init.d/postgresql start
 sudo /etc/init.d/nginx start
 cd $DEDILOCATION
 cp nitrous/.env-example nitrous/.env
+sed -i 's/${PWD}\/dev/${PWD}\/nitrous\/dev/' nitrous/.env
 make createdb
 make nitrous
 sed -i 's/user=vagrant/user=nitrous/' nitrous/.env
