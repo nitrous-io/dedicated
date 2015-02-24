@@ -242,11 +242,17 @@ var _ = Describe("provider/docker", func() {
 			_, err = os.Stat(authKeysFile)
 			Expect(err).To(BeNil()) // authorized_keys file exists
 
+			containerSlugFile := path.Join(settingsDir, ".nitrous-container-slug")
+			_, err = os.Stat(containerSlugFile)
+			Expect(err).To(BeNil()) // .nitrous-container-slug file exists
+			s, err := ioutil.ReadFile(containerSlugFile)
+			Expect(string(s)).To(Equal(name))
+
 			sharedSecretFile := path.Join(settingsDir, "secret")
 			fi, err := os.Stat(sharedSecretFile)
 			Expect(err).To(BeNil())                        // shared secret file exists
 			Expect(fi.Mode()).To(Equal(os.FileMode(0600))) // shared secret file has perm 0600
-			s, err := ioutil.ReadFile(sharedSecretFile)
+			s, err = ioutil.ReadFile(sharedSecretFile)
 			Expect(string(s)).To(Equal(secret))
 		})
 
@@ -343,8 +349,9 @@ var _ = Describe("provider/docker", func() {
 					// fragility wrt image changes
 					Expect(config).NotTo(BeNil())
 					Expect(config.Env).To(ContainElement(fmt.Sprintf("__HOST=%s", inspectGateway(id))))
-					Expect(config.Mounts).To(HaveLen(1))
+					Expect(config.Mounts).To(HaveLen(2))
 					Expect(strings.HasSuffix(config.Mounts[0], "/nitrous/ssh:ro")).To(BeTrue())
+					Expect(strings.HasSuffix(config.Mounts[1], "/.nitrous-container-slug:ro")).To(BeTrue())
 					Expect(*config.Privileged).To(BeFalse())
 					Expect(*config.PublishAll).To(BeTrue()) // Defaults to true for Nitrous-blessed images.
 				})
@@ -407,6 +414,19 @@ var _ = Describe("provider/docker", func() {
 					out, err := exec.Command("docker", "exec", id, "/bin/cat", "/etc/hosts").CombinedOutput()
 					Expect(err).To(BeNil())
 					Expect(string(out)).To(ContainSubstring(fmt.Sprintf("%s\thost", inspectGateway(id))))
+				})
+
+				It("provides RO access to the container's name", func() {
+					_, err := prov.Start(id, "")
+					Expect(err).To(BeNil())
+
+					out, err := exec.Command("docker", "exec", id, "/bin/rm", "/.nitrous-container-slug").CombinedOutput()
+					Expect(err).ToNot(BeNil())
+					Expect(string(out)).To(ContainSubstring("cannot remove"))
+
+					out, err = exec.Command("docker", "exec", id, "/bin/cat", "/.nitrous-container-slug").CombinedOutput()
+					Expect(err).To(BeNil())
+					Expect(string(out)).To(Equal(name))
 				})
 			})
 
