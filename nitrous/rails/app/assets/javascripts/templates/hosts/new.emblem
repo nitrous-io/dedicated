@@ -40,7 +40,7 @@
                 '
                 | available.
 
-          else 
+          else
             if App.billingUsage.creditsRemaining
               p.note-text
                 ' You have
@@ -50,11 +50,11 @@
                   '  Credit
                 '
                 | available.
-            else 
+            else
               if App.billingUsage.estimatedCharge
                 p.note-text
                   ' Your current estimated billing charge is
-                  span class='estimated-charge'
+                  span
                     | $
                     = currency App.billingUsage.estimatedCharge
 
