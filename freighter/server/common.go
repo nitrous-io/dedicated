@@ -117,11 +117,10 @@ func (s *Server) performContainerControl(w http.ResponseWriter, r *http.Request,
 
 // sends nil error to done channel of active cops processes, closing them
 func (s *Server) terminateActiveCops(cid string) {
-	if len(ActiveCops[cid]) == 0 {
+	n := ActiveCops.Len(cid)
+	if n == 0 {
 		return
 	}
-	s.logger.Debugf("Terminating %d active cops processes for container %s", len(ActiveCops[cid]), cid)
-	for _, quit := range ActiveCops[cid] {
-		quit <- nil
-	}
+	s.logger.Debugf("Terminating %d active cops processes for container %s", n, cid)
+	ActiveCops.Terminate(cid)
 }

@@ -89,7 +89,7 @@ var (
 	centerDot = []byte("·")
 )
 
-func functionFromPc(pc uintptr) string {
+func functionFromPC(pc uintptr) string {
 	fn := runtime.FuncForPC(pc)
 	if fn == nil {
 		return ""
@@ -113,7 +113,7 @@ func functionFromPc(pc uintptr) string {
 func logErrorHelper(callerNo int, format string, arg ...interface{}) {
 	s := "[ERROR] " + fmt.Sprintf(format, arg...)
 	if pc, _, _, ok := runtime.Caller(callerNo); ok {
-		s = functionFromPc(pc) + ": " + s
+		s = functionFromPC(pc) + ": " + s
 	}
 	log.Printf(s)
 }
@@ -121,13 +121,13 @@ func logErrorHelper(callerNo int, format string, arg ...interface{}) {
 // logs error message with file name + line number of the function one level
 // up the stack
 func logError(format string, arg ...interface{}) {
-	logErrorHelper(1, format, arg)
+	logErrorHelper(1, format, arg...)
 }
 
 // logs error message with file name + line number of the function two levels
 // up the stack
 func logError2(format string, arg ...interface{}) {
-	logErrorHelper(2, format, arg)
+	logErrorHelper(2, format, arg...)
 }
 
 // the assumption here is that io.EOF means a clean connection shutdown
@@ -181,10 +181,10 @@ func ProxyWebsocket(addr string, tlsConfig *tls.Config) http.HandlerFunc {
 			log.Printf("[INFO] cleanly shut down connection, client: %s, backend: %s\n", clientAddr, addr)
 		}
 		if isIoError(sErr) {
-			logError("websocket: io.Copy() clientConn (%s) -> serverConn (%s) failed, err: '%s' (type: '%v')", clientAddr, addr, sErr, sErr)
+			logError("websocket: io.Copy() clientConn (%s) -> serverConn (%s) failed, err: '%v' (type: '%T')", clientAddr, addr, sErr, sErr)
 		}
 		if isIoError(cErr) {
-			logError("websocket: io.Copy() serverConn (%s) -> clientConn (%s) failed, err: '%s' (type: '%v')", addr, clientAddr, cErr, cErr)
+			logError("websocket: io.Copy() serverConn (%s) -> clientConn (%s) failed, err: '%v' (type: '%T')", addr, clientAddr, cErr, cErr)
 		}
 	}
 }

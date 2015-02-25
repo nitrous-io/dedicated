@@ -87,7 +87,7 @@ func AuthorizedGitHubUserName(p *userprofile.UserProfile) string {
 	return userName
 }
 
-func getTokenIfValid(env *middleware.Env) (*oauth2.Token, error) {
+func GetTokenIfValid(env *middleware.Env) (*oauth2.Token, error) {
 	p, err := userprofile.Find(env.DB, env.User.ID)
 	if err != nil {
 		return nil, err
@@ -132,6 +132,11 @@ func redirectAppAccountErrMsg(w http.ResponseWriter, r *http.Request, errMsg str
 	// note: don't url.QueryEscape() errMsg, Redirect will do it
 	uri := "/app#/account?errmsg=" + errMsg
 	http.Redirect(w, r, uri, http.StatusTemporaryRedirect)
+}
+
+func GitHubClientFromToken(token *oauth2.Token) *github.Client {
+	oauthClient := oauthConf.Client(oauth2.NoContext, token)
+	return github.NewClient(oauthClient)
 }
 
 // return gitHubUserName and gitHubTokenJson
@@ -198,7 +203,7 @@ func OAuthCb(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	if p.GitHubUserName.Valid {
 		if gitHubUserName != p.GitHubUserName.String {
 			// shouldn't happen, we log but ignore
-			env.Logger.Errorf("inconsistent github user names, old: %s, new: %s", p.GitHubUserName, gitHubUserName)
+			env.Logger.Errorf("inconsistent github user names, old: %s, new: %s", p.GitHubUserName.String, gitHubUserName)
 		}
 	}
 

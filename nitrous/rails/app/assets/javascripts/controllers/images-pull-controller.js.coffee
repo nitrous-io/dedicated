@@ -61,3 +61,8 @@ App.ImagesPullController = Em.Controller.extend
 
         events.on 'image.pull_failed', onImagePullFailed
         events.on 'image.pulled', onImagePulled
+      , (jqxhr) =>
+        @set 'saving', false
+        errMsg = jqxhr.responseJSON?.error_description
+        if errMsg
+          App.postError(errMsg, 'Failed to pull image!')

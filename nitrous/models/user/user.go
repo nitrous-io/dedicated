@@ -251,12 +251,12 @@ func (u *User) Topic() pubsub.Topic {
 	return pubsub.Topic(fmt.Sprintf("user-%d", u.ID))
 }
 
-func (u *User) isPaid(d db.QueryReceiver) (bool, error) {
-	var b bool
-	if err := d.QueryRowx(`SELECT state = $1 FROM billing_profiles WHERE user_id = $2;`, billingprofile.StatePaid, u.ID).Scan(&b); err != nil {
-		return false, err
+func (u *User) paymentState(d db.QueryReceiver) (string, error) {
+	var state string
+	if err := d.QueryRowx(`SELECT state FROM billing_profiles WHERE user_id = $1;`, u.ID).Scan(&state); err != nil {
+		return "", err
 	}
-	return b, nil
+	return state, nil
 }
 
 func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
@@ -265,16 +265,16 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 		return true, nil
 	}
 
-	// check if the user is a paid user
-	paid, err := u.isPaid(d)
+	// continue ONLY if the user is a paid or payment_due user
+	paymentState, err := u.paymentState(d)
 	if err != nil {
 		return false, err
 	}
-	if !paid {
+	if !(paymentState == billingprofile.StatePaid || paymentState == billingprofile.StatePaymentDue) {
 		return false, nil
 	}
 
-	// user is a paid user, ensure max_hosts limit has not been reached
+	// user is a paid/payment_due user, ensure max_hosts limit has not been reached
 	var b bool
 	err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
 		FROM users u

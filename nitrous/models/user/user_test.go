@@ -664,12 +664,7 @@ var _ = Describe("models/user", func() {
 			Expect(b).To(BeFalse())
 		})
 
-		Context("for a paid user account", func() {
-			BeforeEach(func() {
-				_, err := db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
-				Expect(err).To(BeNil())
-			})
-
+		ItPerformsAdditionalChecks := func() {
 			It("returns false, when owned hosts == max hosts", func() {
 				hs, err := CreateHostStack(db, &HostStack{U: u})
 				Expect(err).To(BeNil())
@@ -724,6 +719,24 @@ var _ = Describe("models/user", func() {
 				Expect(err).To(BeNil())
 				Expect(b).To(BeTrue())
 			})
+		}
+
+		Context("for a paid user account", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			ItPerformsAdditionalChecks()
+		})
+
+		Context("for a payment_due user account", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE billing_profiles SET state = 'payment_due' WHERE user_id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			ItPerformsAdditionalChecks()
 		})
 	})
 

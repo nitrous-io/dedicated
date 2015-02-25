@@ -16,7 +16,7 @@ App.BillingProfile = klass = App.Model.extend
   cardToken: attr(as: 'card_token')
 
   paid: (->
-    @get('state') == 'paid'
+    @get('state') == 'paid' || @get('state') == 'payment_due'
   ).property 'state'
 
   expiry: (->
@@ -26,6 +26,10 @@ App.BillingProfile = klass = App.Model.extend
   hasCard: (->
     @get('state') != 'free' && @get('lastFour').length > 0
   ).property 'state', 'lastFour'
+
+  requiresAttention: (->
+    @get('state') == 'payment_due' || @get('state') == 'delinquent'
+  ).property 'state'
 
   # override the default save method
   save: (params, options) ->

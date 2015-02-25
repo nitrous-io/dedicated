@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -30,8 +31,9 @@ var (
 )
 
 const (
-	nitrousEnvImage = "NITROUS_IMAGE_VERSION"
-	nitrousEnvUser  = "NITROUS_USERNAME"
+	nitrousEnvImage     = "NITROUS_IMAGE_VERSION"
+	nitrousEnvUser      = "NITROUS_USERNAME"
+	nitrousSlugFilename = ".nitrous-container-slug"
 )
 
 var preservedEnvVars = []string{nitrousEnvImage, nitrousEnvUser}
@@ -178,6 +180,10 @@ func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*pr
 		return nil, err
 	}
 
+	if err := p.storeContainerName(name); err != nil {
+		return nil, err
+	}
+
 	ak := p.containerAuthorizedKeys(name)
 	if err := ak.Write([]string{}); err != nil {
 		return nil, err
@@ -269,6 +275,10 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, error) {
 	container, err := p.inspectContainer(id)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := p.storeContainerName(nameFromContainer(container)); err != nil {
 		return nil, err
 	}
 
@@ -414,7 +424,7 @@ func (p *DockerProvider) Terminate(id string, removeSettings bool) (*provider.Co
 	return info, nil
 }
 
-func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
+func (p *DockerProvider) ListUserKeys(id string) (map[string]string, error) {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return nil, err
@@ -429,7 +439,7 @@ func (p *DockerProvider) ListPublicKeys(id string) (map[string]string, error) {
 	return keysToKeyMap(keys)
 }
 
-func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
+func (p *DockerProvider) AddUserKeys(id string, publicKeys []string) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
@@ -439,7 +449,7 @@ func (p *DockerProvider) AddPublicKeys(id string, publicKeys []string) error {
 	return ak.Add(publicKeys)
 }
 
-func (p *DockerProvider) ClearPublicKeys(id string) error {
+func (p *DockerProvider) ClearUserKeys(id string) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
@@ -449,7 +459,7 @@ func (p *DockerProvider) ClearPublicKeys(id string) error {
 	return ak.Clear()
 }
 
-func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error {
+func (p *DockerProvider) RemoveUserKey(id string, keyFingerprint string) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		return err
@@ -457,6 +467,28 @@ func (p *DockerProvider) RemovePublicKey(id string, keyFingerprint string) error
 
 	ak := p.containerAuthorizedKeys(nameFromContainer(container))
 	return ak.Remove(keyFingerprint)
+}
+
+// at the moment there's only one key, but we're ready to return multiple
+func (p *DockerProvider) ListContainerKeys(containerId string) ([]string, error) {
+	container, err := p.inspectContainer(containerId)
+	if err != nil {
+		return nil, err
+	}
+	userName, exists := p.appUser(container)
+	if !exists {
+		return nil, provider.ErrPubKeyOpsNotSupported
+	}
+	if !p.isNitrousImage(container.Config.Image) {
+		return nil, provider.ErrPubKeyOpsNotSupported
+	}
+	keyPath := fmt.Sprintf("/home/%s/.ssh/id_rsa.pub", userName)
+	k, err := p.ReadFile(containerId, keyPath)
+	if err != nil {
+		return nil, err
+	}
+	k = strings.TrimSpace(k)
+	return []string{k}, nil
 }
 
 // This is a copy of the Image struct in docker/image for unmarshalling JSON in
@@ -633,7 +665,7 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	ret = newCn
 	state = created
 
-	err = p.AddPublicKeys(newCn.ID, existingKeys)
+	err = p.AddUserKeys(newCn.ID, existingKeys)
 	if err != nil {
 		return ret, fmt.Errorf(errf, id, "public_keys", err)
 	}
@@ -981,9 +1013,17 @@ func (p *DockerProvider) CopyFile(id string, location string, out io.Writer) err
 	})
 }
 
+func (p *DockerProvider) ReadFile(id string, location string) (string, error) {
+	var b bytes.Buffer
+	if err := p.CopyFile(id, location, &b); err != nil {
+		return "", err
+	}
+	return string(b.Bytes()), nil
+}
+
 // CopyFromHost copies files from host into a container
-// TODO: docker should also provide this fucntionality so we dont have to
-// relies on cops/cfs for this
+// TODO: docker should also provide this functionality so we dont have to
+// rely on cops/cfs for this
 func (p *DockerProvider) CopyFromHost(id string, location string, input map[string]io.Reader) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
@@ -1269,6 +1309,22 @@ func (p *DockerProvider) storeSharedSecret(containerName string, secret string) 
 	return nil
 }
 
+func (p *DockerProvider) storeContainerName(containerName string) error {
+	p.logger.Infof("DockerProvider: storing %s for %s", nitrousSlugFilename, containerName)
+	dir := p.ContainerSettingsDir(containerName)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		return err
+	}
+
+	filename := path.Join(dir, nitrousSlugFilename)
+	err = ioutil.WriteFile(filename, []byte(containerName), 0755)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (p *DockerProvider) readSharedSecret(containerName string) (string, error) {
 	filename := path.Join(p.ContainerSettingsDir(containerName), "secret")
 	secret, err := ioutil.ReadFile(filename)
@@ -1311,6 +1367,7 @@ func (p *DockerProvider) isNitrousImage(fullName string) bool {
 	return ok
 }
 
+// returns false if not nitrous user
 func (p *DockerProvider) appUser(container *dockerclient.Container) (string, bool) {
 	return envValue(container.Config.Env, nitrousEnvUser)
 }
@@ -1336,6 +1393,7 @@ func (p *DockerProvider) appPID(container *dockerclient.Container, cmd string) (
 	return pid, nil
 }
 
+// returns false if envVar doesn't exist in env
 func envValue(env []string, envVar string) (string, bool) {
 	for _, val := range env {
 		split := strings.SplitN(val, "=", 2)

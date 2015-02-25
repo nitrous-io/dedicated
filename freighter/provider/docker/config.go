@@ -32,7 +32,8 @@ func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrus
 		Hostname: cfg.Hostname,
 		Image:    cfg.Image,
 		Volumes: map[string]struct{}{
-			"/nitrous/ssh": struct{}{},
+			"/nitrous/ssh":            struct{}{},
+			"/" + nitrousSlugFilename: struct{}{},
 		},
 		ExposedPorts: map[dockerclient.Port]struct{}{},
 		OpenStdin:    true,
@@ -113,22 +114,26 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 		newCfg.Binds = ms
 	}
 
-	hasSSHBind := false
-	for _, bind := range newCfg.Binds {
-		if strings.HasSuffix(bind, "/nitrous/ssh:ro") {
-			hasSSHBind = true
-			break
-		}
-	}
-	if !hasSSHBind {
-		newCfg.Binds = append(newCfg.Binds,
-			p.ContainerSettingsDir(cfg.Hostname)+"/ssh:/nitrous/ssh:ro")
-	}
+	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/ssh", "/nitrous/ssh:ro", &newCfg)
+	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/"+nitrousSlugFilename, "/"+nitrousSlugFilename+":ro", &newCfg)
 
 	// ExtraHosts is only available in Docker 1.3.0+.
 	newCfg.ExtraHosts = append(newCfg.ExtraHosts, fmt.Sprintf("host:%s", p.gateway))
 
 	return &newCfg, nil
+}
+
+func addVolume(hostPath, containerPath string, cfg *dockerclient.HostConfig) {
+	hasBind := false
+	for _, bind := range cfg.Binds {
+		if strings.HasSuffix(bind, containerPath) {
+			hasBind = true
+			break
+		}
+	}
+	if !hasBind {
+		cfg.Binds = append(cfg.Binds, hostPath+":"+containerPath)
+	}
 }
 
 func mountBindsToDocker(mountSpecs []string, hostVolsPath string) ([]string, error) {

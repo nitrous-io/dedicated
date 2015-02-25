@@ -5,8 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"path"
 	"strconv"
+	"syscall"
 
 	"github.com/nitrous-io/dedicated/freighter/config"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
@@ -80,7 +82,6 @@ func main() {
 		}
 	}
 
-	// initialze the docker provider
 	prov, err := docker.NewDockerProvider(logger, conf.DataPath)
 	if err != nil {
 		logger.FatalExit(err)
@@ -88,14 +89,19 @@ func main() {
 
 	// save current pid
 	pid := setPid(logger, conf.DataPath)
-	logger.Infof("freighterd (rev: %v, pid: %v) started", version, pid)
-
-	// make sure that we removed the pid file
 	defer removePid(logger, conf.DataPath)
+	logger.Infof("freighterd (rev: %v, pid: %v) started", version, pid)
 
 	// start the API server
 	svr := server.NewServer(logger, prov, conf)
 	svr.Start()
+
+	ch := make(chan os.Signal)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+	s := <-ch
+	logger.Infof("freighterd (rev: %v, pid: %v) got signal '%v'. Terminating.", version, pid, s)
+	svr.Stop()
+	logger.Infof("freighterd (rev: %v, pid: %v) terminated.", version, pid)
 }
 
 func setPid(logger *util.Logger, dataPath string) int {
@@ -105,13 +111,11 @@ func setPid(logger *util.Logger, dataPath string) int {
 	}
 
 	pid := os.Getpid()
-	_, err = file.WriteString(strconv.Itoa(pid))
-	if err != nil {
+	if _, err := file.WriteString(strconv.Itoa(pid)); err != nil {
 		logger.FatalExit(err)
 	}
 
-	err = file.Close()
-	if err != nil {
+	if err := file.Close(); err != nil {
 		logger.FatalExit(err)
 	}
 	return pid

@@ -316,27 +316,38 @@ var _ = Describe("controllers/tokens", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("should delete the token", func() {
-			req, err := NewAuthedRequest(t, "DELETE", "/api/v0/logout", &url.Values{})
-			Expect(err).To(BeNil())
+		ItSuccessfullyDeletesTheToken := func() {
+			It("successfully deletes the token", func() {
+				req, err := NewAuthedRequest(t, "DELETE", "/api/v0/logout", &url.Values{})
+				Expect(err).To(BeNil())
 
-			res := httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
+				res := httptest.NewRecorder()
+				handler.ServeHTTP(res, req)
 
-			Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(res.Code).To(Equal(http.StatusOK))
 
-			toke, err := token.FindByToken(db, "valid-token")
-			Expect(err).To(Equal(token.ErrInvalidToken))
-			Expect(toke).To(BeNil())
+				toke, err := token.FindByToken(db, "valid-token")
+				Expect(err).To(Equal(token.ErrInvalidToken))
+				Expect(toke).To(BeNil())
 
-			req, err = NewAuthedRequest(t, "GET", "/api/v0/user", &url.Values{})
-			Expect(err).To(BeNil())
+				req, err = NewAuthedRequest(t, "GET", "/api/v0/user", &url.Values{})
+				Expect(err).To(BeNil())
 
-			res = httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
+				res = httptest.NewRecorder()
+				handler.ServeHTTP(res, req)
 
-			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+				Expect(res.Code).To(Equal(http.StatusUnauthorized))
+			})
+		}
+
+		Context("when user has billing issues", func() {
+			BeforeEach(func() {
+				MarkDelinquentUser(db, u)
+			})
+
+			ItSuccessfullyDeletesTheToken()
 		})
 
+		ItSuccessfullyDeletesTheToken()
 	})
 })

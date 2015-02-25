@@ -834,5 +834,18 @@ func init() {
 				ALTER TABLE user_profiles ADD COLUMN github_oauth_token_json character varying(255) DEFAULT NULL;
 			`,
 		},
+		{
+			Version: "770",
+			Up: `
+				CREATE TABLE invoice_manual_attempts (
+					id bigserial PRIMARY KEY NOT NULL,
+					invoice_id bigint REFERENCES invoices(id) NOT NULL,
+					success boolean DEFAULT FALSE,
+					error_message character varying,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+			`,
+		},
 	}
 }

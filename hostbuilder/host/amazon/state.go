@@ -102,6 +102,4 @@ func WaitForState(conf *StateChangeConf) (i interface{}, err error) {
 
 		time.Sleep(defaultSleep)
 	}
-
-	return
 }

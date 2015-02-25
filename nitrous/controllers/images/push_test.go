@@ -42,6 +42,22 @@ var _ = Describe("controllers/images", func() {
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/images/{image}/push", func() {
+		It("should block if the user has billing issues", func() {
+			fs := newFreighterServer("scratch", "latest")
+			ctx := newImgTestCtx(fs, db)
+			fs.start(db, ctx)
+			defer fs.Close()
+
+			u, h := ctx.user, ctx.host
+			MarkDelinquentUser(db, u)
+			ctx.insertImage(fs, db)
+			_, err := image.Find(db, u, h, "scratch:latest")
+			Expect(err).To(BeNil(), "failed to find image after push")
+
+			res := ctx.doPush(svr, "foo", "scratch:latest", &url.Values{"repository": []string{"nitrousio/devenv"}})
+			VerifyDelinquentUserResponse(res)
+		})
+
 		It("calls images/push on the freighter server", func() {
 			fs := newFreighterServer("scratch", "latest")
 			ctx := newImgTestCtx(fs, db)

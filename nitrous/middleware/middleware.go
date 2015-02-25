@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -23,12 +24,36 @@ import (
 )
 
 var (
-	errInvalidRequest = httperror.New(http.StatusBadRequest, "invalid_request", "auth token is required")
-	errInvalidToken   = httperror.New(http.StatusUnauthorized, "invalid_token", "auth token is invalid")
-	ErrHostNotFound   = httperror.New(http.StatusNotFound, "host_not_found", "host does not exist")
+	errInvalidRequest      = httperror.New(http.StatusBadRequest, "invalid_request", "auth token is required")
+	errInvalidToken        = httperror.New(http.StatusUnauthorized, "invalid_token", "auth token is invalid")
+	ErrHostNotFound        = httperror.New(http.StatusNotFound, "host_not_found", "host does not exist")
+	ErrOutstandingInvoices = httperror.New(http.StatusBadRequest, "outstanding_invoices", "you have outstanding invoices, please check your billing settings")
 
 	splitIPRe   = regexp.MustCompile(`[,\s]+`)
 	trustedIPRe = regexp.MustCompile(`\A127\.0\.0\.1\z|\A(10|172\.(1[6-9]|2[0-9]|30|31)|192\.168)\.|\A::1\z|\Afd[0-9a-f]{2}:.+|\Alocalhost\z|\Aunix\z|\Aunix:`)
+
+	allowedUnpaidResources = map[string]int{
+		"users.GetAuthenticatedUser": 1,
+		"userprofiles.Show":          1,
+		"userprofiles.Update":        1,
+		"hosts.Index":                1,
+		"hosts.Show":                 1,
+		"hosts.Stats":                1,
+		"containers.Index":           1,
+		"containers.Show":            1,
+		"containers.Config":          1,
+		"volumes.Index":              1,
+		"images.Index":               1,
+		"registries.Index":           1,
+		"billing.Invoices":           1,
+		"billing.CurrentUsage":       1,
+		"billing.PayInvoice":         1,
+		"billingprofiles.Activate":   1,
+		"billingprofiles.Update":     1,
+		"billingprofiles.Show":       1,
+		"tokens.Logout":              1,
+		"feedback.Send":              1,
+	}
 )
 
 type Env struct {
@@ -102,7 +127,7 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 	}
 
 	if err := t.Touch(db, GetRemoteAddr(r)); err != nil {
-		env.Logger.Error("Unable to touch token %d, err: %v", t.ID, err)
+		env.Logger.Errorf("Unable to touch token %d, err: %v", t.ID, err)
 	}
 
 	if !u.CanLogin() {
@@ -129,6 +154,26 @@ func Auth(mw Middleware) Middleware {
 
 		tok := authHeader[len(prefix):]
 		return authenticate(tok, mw, env, w, r)
+	}
+}
+
+func VerifyUserBilling(resource string, mw Middleware) Middleware {
+	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
+		_, allowed := allowedUnpaidResources[resource]
+
+		if !allowed {
+			bp, err := billingprofile.Find(env.DB, env.User.ID)
+			if err != nil {
+				env.Logger.Errorf("BlockDelinquentUser: error locating billingprofile for %+v err: %+v", env.User, err)
+				return err
+			} else {
+				if bp.HasBillingIssues() {
+					return ErrOutstandingInvoices
+				}
+			}
+		}
+
+		return mw(env, w, r)
 	}
 }
 

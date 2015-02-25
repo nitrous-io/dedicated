@@ -80,6 +80,12 @@ var _ = Describe("controllers/userprofiles", func() {
 			return res
 		}
 
+		It("should respond even if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
 		It("responds with given user's profile serialized as JSON'", func() {
 			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
@@ -111,6 +117,14 @@ var _ = Describe("controllers/userprofiles", func() {
 			handler.ServeHTTP(res, req)
 			return res
 		}
+
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			params := &url.Values{}
+			params.Set("advanced", "true")
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
 
 		Context("when advanced param is set to true", func() {
 			It("responds with updated user profile serialized as JSON'", func() {

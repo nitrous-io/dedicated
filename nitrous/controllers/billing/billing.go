@@ -1,12 +1,14 @@
 package billing
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/jinzhu/now"
 	"github.com/nitrous-io/dedicated/nitrous/biller"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -16,8 +18,23 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
+	"github.com/nitrous-io/dedicated/nitrous/models/invoicemanualattempt"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/stripe/stripe-go"
+	strinv "github.com/stripe/stripe-go/invoice"
+)
+
+var (
+	errInvoiceNotFound   = httperror.New(http.StatusNotFound, "invoice_not_found", "invoice does not exist")
+	errInvoiceNotPayable = httperror.New(http.StatusBadRequest, "invoice_not_payable", "invoice not payable")
+	errInvoicePaid       = httperror.New(http.StatusBadRequest, "invoice_paid", "invoice has already been paid")
+
+	errInvoiceUserPaying = httperror.New(http.StatusBadRequest, "invoice_user_paying", "a user can only pay one invoice at a time")
+
+	errCardDeclined = httperror.New(http.StatusBadRequest, "card_declined", "Your Credit Card was declined. Try contacting the bank directly for assistance.")
+	errCardExpired  = httperror.New(http.StatusBadRequest, "card_expired", "Your Credit Card has expired. Please try again with a recent card.")
 )
 
 func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -123,6 +140,80 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"invoices": serInvs,
+	}
+	return nil
+}
+
+func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	// we use a transaction purely to acquire a lock on the same user paying other invoices
+	// it is rolled back whenever this func finishes up
+	txLock, err := env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		txLock.Rollback()
+	}()
+	locked, err := db.TransactionLock(txLock, db.INVOICE_USER_PAY_LOCK, int(env.User.ID))
+	if err != nil {
+		return err
+	}
+	if !locked {
+		return errInvoiceUserPaying
+	}
+
+	invIDStr := mux.Vars(r)["id"]
+	invID, err := strconv.ParseInt(invIDStr, 10, 64)
+	if err != nil {
+		return err
+	}
+
+	inv := &invoice.Invoice{}
+	if err := env.DB.Get(inv, `SELECT * FROM invoices WHERE id = $1 AND user_id = $2`, invID, env.User.ID); err != nil {
+		if err == sql.ErrNoRows {
+			return errInvoiceNotFound
+		}
+		return err
+	}
+
+	if !inv.StripeID.Valid || inv.Deferred {
+		return errInvoiceNotPayable
+	}
+
+	if inv.SuccessfulCharge {
+		return errInvoicePaid
+	}
+
+	i, err := strinv.Pay(inv.StripeID.String, nil)
+	if err != nil {
+		if err := invoicemanualattempt.CreateForInvoice(env.DB, invID, false, err.Error()); err != nil {
+			env.Logger.Errorf("Failure recording manual attempt for invoice %d for user %d, err: %v", invID, env.User.ID, err)
+		}
+		env.Logger.Errorf("Error manual paying Stripe invoice %d for user %d, err: %v", invID, env.User.ID, err)
+		sErr, ok := err.(*stripe.Error)
+		if !ok {
+			return sErr
+		}
+
+		if sErr.Code == stripe.ExpiredCard {
+			return errCardExpired
+		} else if sErr.Code == stripe.CardDeclined {
+			return errCardDeclined
+		}
+		return err
+	}
+
+	if !i.Paid {
+		return fmt.Errorf("Unexpected Stripe invoice %d for user %d not paid: %v", invID, env.User.ID, i)
+	}
+
+	if err := invoicemanualattempt.CreateForInvoice(env.DB, invID, true, ""); err != nil {
+		env.Logger.Errorf("Failure recording manual attempt for invoice %d for user %d, err: %v", invID, env.User.ID, err)
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"paid": i.Paid,
 	}
 	return nil
 }

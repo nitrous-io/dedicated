@@ -16,9 +16,9 @@ import (
 
 var _ = Describe("provider/docker config", func() {
 	var (
-		prov             *docker.DockerProvider
-		datadir, sshBind string
-		cnrName          = "php-box"
+		prov                                *docker.DockerProvider
+		datadir, sshBind, containerSlugBind string
+		cnrName                             = "php-box"
 	)
 
 	BeforeEach(func() {
@@ -26,6 +26,7 @@ var _ = Describe("provider/docker config", func() {
 		datadir, err = TempDir()
 		Expect(err).To(BeNil())
 		sshBind = filepath.Join(datadir, "containers", cnrName, "ssh") + ":/nitrous/ssh:ro"
+		containerSlugBind = filepath.Join(datadir, "containers", cnrName, ".nitrous-container-slug") + ":/.nitrous-container-slug:ro"
 		logger := &util.Logger{Level: util.LogLevelQuiet}
 		prov, err = docker.NewDockerProvider(logger, datadir)
 		Expect(err).To(BeNil())
@@ -129,6 +130,7 @@ var _ = Describe("provider/docker config", func() {
 			Expect(cfg.Image).To(Equal("nitrousio/php"), "expect imagename")
 
 			Expect(cfg.Volumes).To(HaveKey("/nitrous/ssh"), "expect ssh volumes")
+			Expect(cfg.Volumes).To(HaveKey("/.nitrous-container-slug"), "expect .nitrous-container-slug")
 			Expect(cfg.Env).To(BeEmpty(), "expect empty preset env")
 			Expect(cfg.ExposedPorts).To(HaveKey(dockerclient.Port("22/tcp")), "expect ssh port to be exposed")
 		})
@@ -142,6 +144,7 @@ var _ = Describe("provider/docker config", func() {
 
 			Expect(cfg.ExposedPorts).To(HaveLen(0), "expect empty preset exposed ports")
 			Expect(cfg.Volumes).To(HaveKey("/nitrous/ssh"), "expect ssh volumes")
+			Expect(cfg.Volumes).To(HaveKey("/.nitrous-container-slug"), "expect .nitrous-container-slug")
 		})
 
 		It("configured all exposed ports", func() {
@@ -184,7 +187,7 @@ var _ = Describe("provider/docker config", func() {
 				PortBindings: map[dockerclient.Port][]dockerclient.PortBinding{
 					dockerclient.Port("22/tcp"): []dockerclient.PortBinding{},
 				},
-				Binds: []string{sshBind},
+				Binds: []string{sshBind, containerSlugBind},
 			}
 		})
 
@@ -240,7 +243,11 @@ var _ = Describe("provider/docker config", func() {
 			})
 
 			It("has Nitrous-related ssh volume settings", func() {
-				Expect(hostCfg.Binds).To(Equal([]string{sshBind}))
+				Expect(hostCfg.Binds).To(ContainElement(sshBind))
+			})
+
+			It("has a .nitrous-container-slug", func() {
+				Expect(hostCfg.Binds).To(ContainElement(containerSlugBind))
 			})
 		})
 
@@ -259,12 +266,13 @@ var _ = Describe("provider/docker config", func() {
 					Image:    "nitrousio/php", // Nitrous image.
 					Mounts:   []string{"data", "music:/mpd/albums"},
 				})
-				Expect(hostCfg.Binds).To(HaveLen(3))
+				Expect(hostCfg.Binds).To(HaveLen(4))
 				Expect(hostCfg.Binds).To(ContainElement(filepath.Join(
 					datadir, "volumes/data") + ":/volumes/data"))
 				Expect(hostCfg.Binds).To(ContainElement(filepath.Join(
 					datadir, "volumes/music") + ":/mpd/albums"))
 				Expect(hostCfg.Binds).To(ContainElement(sshBind))
+				Expect(hostCfg.Binds).To(ContainElement(containerSlugBind))
 				Expect(hostCfg.Binds).NotTo(ContainElement("REMOVEME"))
 			})
 
@@ -275,9 +283,10 @@ var _ = Describe("provider/docker config", func() {
 					Image:    "nitrousio/php",
 					Mounts:   nil,
 				})
-				Expect(hostCfg.Binds).To(HaveLen(2))
+				Expect(hostCfg.Binds).To(HaveLen(3))
 				Expect(hostCfg.Binds).To(ContainElement(sshBind))
 				Expect(hostCfg.Binds).To(ContainElement("KEEPME"))
+				Expect(hostCfg.Binds).To(ContainElement(containerSlugBind))
 			})
 
 			It("removes existing when Mounts is present but empty", func() {
@@ -287,8 +296,9 @@ var _ = Describe("provider/docker config", func() {
 					Image:    "nitrousio/php", // Nitrous image.
 					Mounts:   []string{},
 				})
-				Expect(hostCfg.Binds).To(HaveLen(1))
+				Expect(hostCfg.Binds).To(HaveLen(2))
 				Expect(hostCfg.Binds).To(ContainElement(sshBind))
+				Expect(hostCfg.Binds).To(ContainElement(containerSlugBind))
 			})
 		})
 

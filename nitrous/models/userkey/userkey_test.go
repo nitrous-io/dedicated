@@ -1,12 +1,12 @@
-package publickey_test
+package userkey_test
 
 import (
 	"strconv"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
-	"github.com/nitrous-io/dedicated/nitrous/models/publickey"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/userkey"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -15,12 +15,12 @@ import (
 	"testing"
 )
 
-func TestPublicKey(t *testing.T) {
+func TestUserKey(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "models/publickey")
+	RunSpecs(t, "models/userkey")
 }
 
-var _ = Describe("models/publickey", func() {
+var _ = Describe("models/userkey", func() {
 	var (
 		db *db.Database
 		hs *HostStack
@@ -75,7 +75,7 @@ var _ = Describe("models/publickey", func() {
 
 		Context("when public_key records with a given user_id exists", func() {
 			It("finds public_keys by a given user", func() {
-				keys, err := publickey.FindAll(db, hs.U.ID, c.ID)
+				keys, err := userkey.FindAll(db, hs.U.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(keys).To(HaveLen(1))
 
@@ -86,11 +86,11 @@ var _ = Describe("models/publickey", func() {
 
 		Context("when no public_key records with a given user_id and container_id exist", func() {
 			It("returns empty slice", func() {
-				keys, err := publickey.FindAll(db, hs.U.ID, 999)
+				keys, err := userkey.FindAll(db, hs.U.ID, 999)
 				Expect(err).To(BeNil())
 				Expect(keys).To(BeEmpty())
 
-				keys, err = publickey.FindAll(db, 999, c.ID)
+				keys, err = userkey.FindAll(db, 999, c.ID)
 				Expect(err).To(BeNil())
 				Expect(keys).To(BeEmpty())
 			})
@@ -101,7 +101,7 @@ var _ = Describe("models/publickey", func() {
 				db.Close()
 				u := user.User{}
 				c := container.Container{}
-				keys, err := publickey.FindAll(db, u.ID, c.ID)
+				keys, err := userkey.FindAll(db, u.ID, c.ID)
 				Expect(keys).To(BeEmpty())
 				Expect(err).NotTo(BeNil())
 			})
@@ -109,10 +109,10 @@ var _ = Describe("models/publickey", func() {
 	})
 
 	Describe("Insert()", func() {
-		var pk *publickey.PublicKey
+		var pk *userkey.UserKey
 
 		BeforeEach(func() {
-			pk = &publickey.PublicKey{
+			pk = &userkey.UserKey{
 				UserID:      hs.U.ID,
 				ContainerID: c.ID,
 				Key:         validRSA,
@@ -124,7 +124,7 @@ var _ = Describe("models/publickey", func() {
 				err := pk.Insert(db)
 				Expect(err).To(BeNil())
 
-				keys, err := publickey.FindAll(db, hs.U.ID, c.ID)
+				keys, err := userkey.FindAll(db, hs.U.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(keys).To(HaveLen(1))
 				Expect(keys[0].UserID).To(Equal(hs.U.ID))
@@ -137,7 +137,7 @@ var _ = Describe("models/publickey", func() {
 			It("returns error", func() {
 				pk.Key = "ssh-rsa Not a key!!!"
 				err := pk.Insert(db)
-				Expect(err).To(Equal(publickey.ErrInvalidKey))
+				Expect(err).To(Equal(userkey.ErrInvalidKey))
 			})
 		})
 	})
@@ -146,7 +146,7 @@ var _ = Describe("models/publickey", func() {
 		var (
 			u, u2 *user.User
 			// rsa1 and rsa2 belong to u, ecdsa belongs to u2
-			rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa              *publickey.PublicKey
+			rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa              *userkey.UserKey
 			rsa1C1print, rsa2C1print, rsa1C2print, rsa2C2print string
 		)
 
@@ -167,7 +167,7 @@ var _ = Describe("models/publickey", func() {
 			err = WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
-			rsa1C1 = &publickey.PublicKey{
+			rsa1C1 = &userkey.UserKey{
 				UserID:      u.ID,
 				ContainerID: c.ID,
 				Key:         validRSA,
@@ -175,7 +175,7 @@ var _ = Describe("models/publickey", func() {
 			rsa1C1print, err = rsa1C1.Md5Fingerprint()
 			Expect(err).To(BeNil())
 
-			rsa2C1 = &publickey.PublicKey{
+			rsa2C1 = &userkey.UserKey{
 				UserID:      u.ID,
 				ContainerID: c.ID,
 				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
@@ -183,7 +183,7 @@ var _ = Describe("models/publickey", func() {
 			rsa2C1print, err = rsa2C1.Md5Fingerprint()
 			Expect(err).To(BeNil())
 
-			rsa1C2 = &publickey.PublicKey{
+			rsa1C2 = &userkey.UserKey{
 				UserID:      u.ID,
 				ContainerID: c2.ID,
 				Key:         validRSA,
@@ -191,7 +191,7 @@ var _ = Describe("models/publickey", func() {
 			rsa1C2print, err = rsa1C2.Md5Fingerprint()
 			Expect(err).To(BeNil())
 
-			rsa2C2 = &publickey.PublicKey{
+			rsa2C2 = &userkey.UserKey{
 				UserID:      u.ID,
 				ContainerID: c2.ID,
 				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
@@ -199,12 +199,12 @@ var _ = Describe("models/publickey", func() {
 			rsa2C2print, err = rsa2C2.Md5Fingerprint()
 			Expect(err).To(BeNil())
 
-			ecdsa = &publickey.PublicKey{
+			ecdsa = &userkey.UserKey{
 				UserID:      u2.ID,
 				ContainerID: c.ID,
 				Key:         validECDSA,
 			}
-			for _, k := range []*publickey.PublicKey{rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa} {
+			for _, k := range []*userkey.UserKey{rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa} {
 				err := k.Insert(db)
 				Expect(err).To(BeNil())
 			}
@@ -212,7 +212,7 @@ var _ = Describe("models/publickey", func() {
 
 		Context("when finding with ID", func() {
 			It("should return the right publickey object if found", func() {
-				pk, err := publickey.Find(db, u.ID, c.ID, strconv.FormatInt(rsa1C1.ID, 10))
+				pk, err := userkey.Find(db, u.ID, c.ID, strconv.FormatInt(rsa1C1.ID, 10))
 				Expect(err).To(BeNil())
 				Expect(pk).To(Equal(rsa1C1))
 			})
@@ -220,15 +220,15 @@ var _ = Describe("models/publickey", func() {
 
 		Context("when finding with fingerprint", func() {
 			It("should return the right publickey record if found", func() {
-				pk, err := publickey.Find(db, u.ID, c.ID, rsa1C1print)
+				pk, err := userkey.Find(db, u.ID, c.ID, rsa1C1print)
 				Expect(err).To(BeNil())
 				Expect(pk).To(Equal(rsa1C1))
 			})
 		})
 
 		It("should return nil if it can't find a key with the given identifier", func() {
-			pk, err := publickey.Find(db, u.ID, c.ID, "invalid fingerprint")
-			Expect(err).To(Equal(publickey.ErrNotFound))
+			pk, err := userkey.Find(db, u.ID, c.ID, "invalid fingerprint")
+			Expect(err).To(Equal(userkey.ErrNotFound))
 			Expect(pk).To(BeNil())
 		})
 	})
@@ -237,7 +237,7 @@ var _ = Describe("models/publickey", func() {
 		var (
 			u, u2 *user.User
 			// rsa1 and rsa2 belong to u, ecdsa belongs to u2
-			rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa *publickey.PublicKey
+			rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa *userkey.UserKey
 		)
 
 		BeforeEach(func() {
@@ -257,32 +257,32 @@ var _ = Describe("models/publickey", func() {
 			err = WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
-			rsa1C1 = &publickey.PublicKey{
+			rsa1C1 = &userkey.UserKey{
 				UserID:      u.ID,
 				ContainerID: c.ID,
 				Key:         validRSA,
 			}
-			rsa2C1 = &publickey.PublicKey{
+			rsa2C1 = &userkey.UserKey{
 				UserID:      u.ID,
 				ContainerID: c.ID,
 				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
 			}
-			rsa1C2 = &publickey.PublicKey{
+			rsa1C2 = &userkey.UserKey{
 				UserID:      u.ID,
 				ContainerID: c2.ID,
 				Key:         validRSA,
 			}
-			rsa2C2 = &publickey.PublicKey{
+			rsa2C2 = &userkey.UserKey{
 				UserID:      u.ID,
 				ContainerID: c2.ID,
 				Key:         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFbXOqLy3jtavYmnuqrsjzf3Pf0Vsn77co4HC/Xvn7l0/JVpQ5YQBkcegGBZ3bVkg/5G8c6In1bPHiZ7EqKCJyml3dwrHuJn5webZ5ZZmmoLi/4COajym5nUDnYbCBpmocc4ydmZi8r5GNLGAPGYte4zWXapuzNjPzRCE2AP7kIEgbLfl6dzIrVeYwwiIChjY+6G2suRQNuTlHqGkIlnG1/2/Dp6pQYde2Itst3IfOip6syR4SBgke/t8Ys82v+LDtNadmPGXQjY1myZe6/uMPe0rI5SwOFvbm2Woruq/BndQIZKvcPRPfCglEOF4t2+iVjoQ7vBWwGRKapzu2qWKP someuser@somehost",
 			}
-			ecdsa = &publickey.PublicKey{
+			ecdsa = &userkey.UserKey{
 				UserID:      u2.ID,
 				ContainerID: c.ID,
 				Key:         validECDSA,
 			}
-			for _, k := range []*publickey.PublicKey{rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa} {
+			for _, k := range []*userkey.UserKey{rsa1C1, rsa2C1, rsa1C2, rsa2C2, ecdsa} {
 				err := k.Insert(db)
 				Expect(err).To(BeNil())
 			}
@@ -290,27 +290,27 @@ var _ = Describe("models/publickey", func() {
 
 		Describe("DestroyAll", func() {
 			It("removes a user's and keys from a given container", func() {
-				pks, err := publickey.FindAll(db, u.ID, c.ID)
+				pks, err := userkey.FindAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(2))
 
-				err = publickey.DestroyAll(db, u.ID, c.ID)
+				err = userkey.DestroyAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 
-				pks, err = publickey.FindAll(db, u.ID, c.ID)
+				pks, err = userkey.FindAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(0))
 			})
 
 			It("does not remove other users' or containers' keys", func() {
-				pks, err := publickey.FindAll(db, u.ID, c2.ID)
+				pks, err := userkey.FindAll(db, u.ID, c2.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(2))
 
-				err = publickey.DestroyAll(db, u.ID, c.ID)
+				err = userkey.DestroyAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 
-				pks, err = publickey.FindAll(db, u.ID, c2.ID)
+				pks, err = userkey.FindAll(db, u.ID, c2.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(2))
 			})
@@ -318,10 +318,10 @@ var _ = Describe("models/publickey", func() {
 
 		Describe("Destroy", func() {
 			It("removes a key with the right fingerprint", func() {
-				err := publickey.Destroy(db, u.ID, c.ID, rsa1C1.ID)
+				err := userkey.Destroy(db, u.ID, c.ID, rsa1C1.ID)
 				Expect(err).To(BeNil())
 
-				pks, err := publickey.FindAll(db, u.ID, c.ID)
+				pks, err := userkey.FindAll(db, u.ID, c.ID)
 				Expect(err).To(BeNil())
 				Expect(pks).To(HaveLen(1))
 				Expect(pks[0].Key).To(Equal(rsa2C1.Key))
@@ -330,7 +330,7 @@ var _ = Describe("models/publickey", func() {
 	})
 
 	Describe("Validate()", func() {
-		var pk *publickey.PublicKey
+		var pk *userkey.UserKey
 
 		BeforeEach(func() {
 			u := &user.User{
@@ -340,7 +340,7 @@ var _ = Describe("models/publickey", func() {
 			}
 			err := WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
-			pk = &publickey.PublicKey{
+			pk = &userkey.UserKey{
 				UserID: u.ID,
 				Key:    validRSA,
 			}
@@ -352,7 +352,7 @@ var _ = Describe("models/publickey", func() {
 				input string
 				err   error
 			}{
-				{"", publickey.ErrKeyBlank},
+				{"", userkey.ErrKeyBlank},
 			}
 			for _, t := range tests {
 				pk.Key = t.input

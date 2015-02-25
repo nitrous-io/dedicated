@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/mail"
+	"net/url"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -120,7 +121,7 @@ func (i *Invoice) validate() error {
 	return nil
 }
 
-func (i *Invoice) PaymentSucceeded(d db.QueryReceiver) error {
+func (i *Invoice) PaymentSucceeded(d *db.Database) error {
 	i.SuccessfulCharge = true
 	i.Failed = false
 	t := time.Now()
@@ -132,10 +133,30 @@ func (i *Invoice) PaymentSucceeded(d db.QueryReceiver) error {
 		return err
 	}
 	_, err := d.Exec("UPDATE invoices SET successful_charge = TRUE, failed = FALSE, last_attempt_at = now() WHERE covered_by = $1;", i.ID)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// reflect state of billingprofile
+	tx, err := d.Begin()
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(`UPDATE billing_profiles
+		SET state = $1
+		WHERE user_id = $2
+		AND NOT EXISTS (SELECT id FROM invoices WHERE user_id = $2 AND deferred IS FALSE AND successful_charge IS FALSE FOR UPDATE)`, billingprofile.StatePaid, i.UserID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }
 
-func (i *Invoice) PaymentFailed(d db.QueryReceiver, attemptCount int, moreAttempts bool) error {
+func (i *Invoice) PaymentFailed(d db.QueryReceiver, attemptCount int, attemptsExhausted bool) error {
+	if i.SuccessfulCharge {
+		return errors.New("This invoice has already been charged")
+	}
 	i.SuccessfulCharge = false
 	t := time.Now()
 	if i.FirstAttemptAt == nil || i.FirstAttemptAt.IsZero() {
@@ -143,19 +164,29 @@ func (i *Invoice) PaymentFailed(d db.QueryReceiver, attemptCount int, moreAttemp
 	}
 	i.LastAttemptAt = &t
 	i.Attempts = attemptCount
-	i.Failed = !moreAttempts
-	err := i.Update(d)
+	i.Failed = attemptsExhausted
+	if err := i.Update(d); err != nil {
+		return err
+	}
+	return i.handlePaymentFailed(d, i.Failed)
+}
+
+func (i *Invoice) handlePaymentFailed(d db.QueryReceiver, final bool) error {
+	user, err := user.FindByID(d, i.UserID)
 	if err != nil {
 		return err
 	}
-	if i.Failed {
-		return i.fireFinalPaymentFailedEmail(d)
-	}
-	return nil
-}
 
-func (i *Invoice) fireFinalPaymentFailedEmail(d db.QueryReceiver) error {
-	user, err := user.FindByID(d, i.UserID)
+	bp, err := billingprofile.Find(d, user.ID)
+	if err != nil {
+		return err
+	}
+	if final {
+		bp.State = billingprofile.StateDelinquent
+	} else {
+		bp.State = billingprofile.StatePaymentDue
+	}
+	err = bp.Update(d)
 	if err != nil {
 		return err
 	}
@@ -168,30 +199,54 @@ func (i *Invoice) fireFinalPaymentFailedEmail(d db.QueryReceiver) error {
 		LastFour      string
 		InvoiceAmount string
 		SupportEmail  string
+		BillingUrl    string
 	}{
 		user.Name,
 		"unspecified",
 		fmt.Sprintf("$%.2f", float64(i.TotalCharge)/100.0),
 		from.Address,
+		billingUrl(),
+	}
+	if tmplData.Name == "" {
+		tmplData.Name = user.Username
 	}
 
-	bp, err := billingprofile.Find(d, user.ID)
-	if err != nil {
-		return err
-	}
 	if bp.LastFour.String != "" {
 		tmplData.LastFour = bp.LastFour.String
 	}
 
+	htmlTemplate := paymentFailedHtmlTemplate
+	txtTemplate := paymentFailedTxtTemplate
+	subject := "Nitrous payment unsuccessful"
+	if final {
+		htmlTemplate = finalPaymentFailedHtmlTemplate
+		txtTemplate = finalPaymentFailedTxtTemplate
+		subject = fmt.Sprintf("Final Notice: %s", subject)
+	}
+
 	// send email
 	htmlBuf := bytes.NewBuffer(nil)
-	if err := finalPaymentFailedHtmlTemplate.Execute(htmlBuf, tmplData); err != nil {
+	if err := htmlTemplate.Execute(htmlBuf, tmplData); err != nil {
 		return err
 	}
 	txtBuf := bytes.NewBuffer(nil)
-	if err := finalPaymentFailedTxtTemplate.Execute(txtBuf, tmplData); err != nil {
+	if err := txtTemplate.Execute(txtBuf, tmplData); err != nil {
 		return err
 	}
 
-	return Mailer.SendMail(from.String(), []string{to.String()}, []string{from.String()}, nil, from.String(), "Nitrous - payment unsuccessful", txtBuf.String(), htmlBuf.String())
+	return Mailer.SendMail(from.String(), []string{to.String()}, []string{from.String()}, nil, from.String(), subject, txtBuf.String(), htmlBuf.String())
+}
+
+func billingUrl() string {
+	host := envvars.WebHostname
+	if host == "" {
+		host = "pro.nitrous.io"
+	}
+	u := &url.URL{
+		Scheme:   "https",
+		Host:     host,
+		Path:     "/app/",
+		Fragment: "/billing",
+	}
+	return u.String()
 }

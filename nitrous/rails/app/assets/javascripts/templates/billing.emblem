@@ -2,6 +2,14 @@
   h2 Billing
 
 .card-body
+  if App.billingProfile.requiresAttention
+    .notice-text
+      i.fa.fa-warning
+      '
+      | We have had issues billing your card. Please verify your card and
+      '
+      a href='#' click='didClickShowInvoices target="view"' click Pay Now on your invoices below
+      | .
   table.ui.table.horizontal.credit-card-info
     tr
       th Card Type
@@ -59,11 +67,11 @@ if App.billingUsage
             = currency App.billingUsage.estimatedCharge
 
 
-.card-header.bordered
+#invoices-list.card-header.bordered
   h2 Invoices
 
 .card-body
-  = each invoice in model
+  = each invoice in App.invoices
     .invoice-item
       .heading
         h4
@@ -71,10 +79,26 @@ if App.billingUsage
           '  -
           = simpledate invoice.periodEnd
         .payment-status class={invoice.unpaid:unpaid}
-          if invoice.successfulCharge
-            | Paid
+          if invoice.awaitingUpdate
+            i.spinner
+            | Verifying
           else
-            | Unpaid
+            if invoice.manuallyPayable
+              .payment-pay-now-action
+                button.ui.btn.danger disabled=invoice.paying click='payInvoice invoice'
+                  if invoice.paying
+                    i.spinner
+                    | Processing
+                  else
+                    | Pay Now
+            else
+              if invoice.successfulCharge
+                | Paid
+              else
+                if invoice.deferred
+                  | Deferred
+                else
+                  | Unpaid
       table.ui.table.horizontal
         tbody
           = each item in invoice.items

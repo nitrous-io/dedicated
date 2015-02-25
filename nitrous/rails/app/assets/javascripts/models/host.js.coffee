@@ -19,6 +19,7 @@ App.Host = klass = App.Model.extend
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
   liveFreighterdVersion: attr(as: 'live_freighterd_version', serialize: false)
   liveDockerVersion: attr(as: 'live_docker_version', serialize: false)
+  upgradeAvailable: attr('boolean', as: 'upgrade_available', serialize: false)
 
   # only used in create
   planSlug: attr(as: 'size')
@@ -30,6 +31,7 @@ App.Host = klass = App.Model.extend
   isRunning: Em.computed.equal 'state', 'running'
   isTerminated: Em.computed.equal 'state', 'terminated'
   isOrphan: Em.computed.equal 'state', 'orphan'
+  isUpgrading: Em.computed.equal 'state', 'upgrading'
 
   displayName: (->
     @get('name') || @get('slug')

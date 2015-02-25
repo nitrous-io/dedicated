@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -90,11 +91,12 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	if env.User.Admin {
-		h.LiveDockerVersion = "error getting version"
-		h.LiveFreighterdVersion = "error getting version"
-		if cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID); err == nil {
-			if ver, err := cl.HostVersions(); err == nil {
+	var ver *freighterclient.HostVersions
+
+	if cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID); err == nil {
+		if ver, err = cl.HostVersions(); err == nil {
+			h.UpgradeAvailable = (h.FreighterdVersion != "" && ver.FreighterdVersion != h.FreighterdVersion)
+			if env.User.Admin {
 				h.LiveDockerVersion = ver.DockerVersion
 				h.LiveFreighterdVersion = ver.FreighterdVersion
 			}
@@ -305,6 +307,38 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	serializeHost(env, h)
+	return nil
+}
+
+func Upgrade(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
+	if err != nil {
+		return err
+	}
+
+	if err := cl.UpgradeServer(&freighterclient.HostVersions{
+		DockerVersion:     h.DockerVersion,
+		FreighterdVersion: h.FreighterdVersion,
+	}); err != nil {
+		if err == freighterclient.ErrAlreadyUpgraded {
+			publishHostEvent(env, controllers.EventHostUpgraded, h)
+			serializeHost(env, h)
+			return nil
+		}
+		env.Logger.Errorf("failed to upgrade server, err: %v", err)
+		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to upgrade your workspace")
+	}
+
+	h.State = host.StateUpgrading
+	if err := h.Update(env.DB); err != nil {
+		return err
+	}
+
+	publishHostEvent(env, controllers.EventHostUpgrading, h)
+	env.Status = http.StatusAccepted
+	env.Data = map[string]interface{}{
+		"status": "accepted",
+	}
 	return nil
 }
 

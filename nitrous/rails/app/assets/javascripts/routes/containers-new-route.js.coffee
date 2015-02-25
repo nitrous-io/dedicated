@@ -12,3 +12,6 @@ App.ContainersNewRoute = App.AuthedRoute.extend
     unless controller.get 'saving'
       controller.clear()
     Mp.track Mp.EventDashboardViewedNewContainer
+
+  beforeModel: (transition) ->
+    @_super.apply this, arguments

@@ -326,6 +326,14 @@ var _ = Describe("controllers/users", func() {
 			handler.ServeHTTP(res, req)
 		}
 
+		It("should block if the user has billing issues", func() {
+			MarkDelinquentUser(db, u)
+			params := &url.Values{}
+			params.Set("name", "Something")
+			doRequest(params)
+			VerifyDelinquentUserResponse(res)
+		})
+
 		Context("when valid fields are given", func() {
 			BeforeEach(func() {
 				params := &url.Values{}
@@ -514,30 +522,55 @@ var _ = Describe("controllers/users", func() {
 		}
 
 		Context("when a valid oauth token is given", func() {
-			It("responds with the authenticated user's details", func() {
-				doRequest("foobarbazqux")
 
-				Expect(res.Code).To(Equal(http.StatusOK))
-				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				userinfo, ok := j["user"].(map[string]interface{})
-				Expect(ok).To(BeTrue())
-				Expect(userinfo).NotTo(BeNil())
-				Expect(userinfo["username"]).To(Equal("tokenuser"))
-				Expect(userinfo["email"]).To(Equal("tokenuser@example.com"))
-				Expect(userinfo["created_at"]).NotTo(BeNil())
-				Expect(userinfo["updated_at"]).NotTo(BeNil())
-				Expect(userinfo["password"]).To(BeNil())
-				Expect(userinfo["encrypted_password"]).To(BeNil())
+			var (
+				userinfo map[string]interface{}
+			)
 
-				userprofile, ok := userinfo["user_profile"].(map[string]interface{})
-				Expect(ok).To(BeTrue())
-				Expect(userprofile["advanced"]).NotTo(BeTrue())
+			ItReturnsUserDetails := func() {
+				It("returns user details", func() {
+					Expect(res.Code).To(Equal(http.StatusOK))
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					var ok bool
+					userinfo, ok = j["user"].(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(userinfo).NotTo(BeNil())
+					Expect(userinfo["username"]).To(Equal("tokenuser"))
+					Expect(userinfo["email"]).To(Equal("tokenuser@example.com"))
+					Expect(userinfo["created_at"]).NotTo(BeNil())
+					Expect(userinfo["updated_at"]).NotTo(BeNil())
+					Expect(userinfo["password"]).To(BeNil())
+					Expect(userinfo["encrypted_password"]).To(BeNil())
 
-				billingprofile, ok := userinfo["billing_profile"].(map[string]interface{})
-				Expect(ok).To(BeTrue())
-				Expect(billingprofile["state"]).To(Equal("free"))
+					userprofile, ok := userinfo["user_profile"].(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(userprofile["advanced"]).NotTo(BeTrue())
+				})
+			}
+
+			Context("when user has billing issues", func() {
+				BeforeEach(func() {
+					MarkDelinquentUser(db, u)
+					doRequest("foobarbazqux")
+				})
+
+				ItReturnsUserDetails()
+			})
+
+			Context("when user doesn't have billing issues", func() {
+				BeforeEach(func() {
+					doRequest("foobarbazqux")
+				})
+
+				ItReturnsUserDetails()
+
+				It("responds with state", func() {
+					billingprofile, ok := userinfo["billing_profile"].(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(billingprofile["state"]).To(Equal("free"))
+				})
 			})
 		})
 

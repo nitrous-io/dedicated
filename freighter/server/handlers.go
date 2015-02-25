@@ -6,12 +6,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
@@ -52,9 +57,53 @@ const utilizationSize = 360 // 30min
 var (
 	Utilization *stats.Utilization
 
-	// maps container id to slice of 'quit' chan error returned by cops.Start
-	ActiveCops map[string][]chan error
+	ActiveCops *ActiveCopsList
 )
+
+// maps container id to slice of 'quit' chan error returned by cops.Start
+type ActiveCopsList struct {
+	mu         sync.Mutex
+	activeCops map[string][]chan error
+}
+
+func NewActiveCopsList() *ActiveCopsList {
+	return &ActiveCopsList{
+		activeCops: make(map[string][]chan error),
+	}
+}
+
+func (ac *ActiveCopsList) Len(cid string) int {
+	ac.mu.Lock()
+	res := len(ac.activeCops[cid])
+	ac.mu.Unlock()
+	return res
+}
+
+func (ac *ActiveCopsList) Terminate(cid string) {
+	ac.mu.Lock()
+	for _, quit := range ac.activeCops[cid] {
+		quit <- nil
+	}
+	ac.mu.Unlock()
+}
+
+func (ac *ActiveCopsList) AddChannel(cid string, ch chan error) {
+	ac.mu.Lock()
+	ac.activeCops[cid] = append(ac.activeCops[cid], ch)
+	ac.mu.Unlock()
+}
+
+func (ac *ActiveCopsList) RemoveChannel(cid string, toRemove chan error) {
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+
+	for i, ch := range ac.activeCops[cid] {
+		if ch == toRemove {
+			ac.activeCops[cid] = append(ac.activeCops[cid][:i], ac.activeCops[cid][i+1:]...)
+			return
+		}
+	}
+}
 
 func NewWebSocketConnection(conn *websocket.Conn, binaryMode bool) *wsconn.Conn {
 	stream := wsconn.NewConnectionHeartbeat(conn, true)
@@ -69,7 +118,7 @@ func init() {
 	Utilization = stats.NewUtilization(utilizationSize)
 	go Utilization.Record(utilizationInterval)
 
-	ActiveCops = make(map[string][]chan error)
+	ActiveCops = NewActiveCopsList()
 }
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
@@ -249,9 +298,9 @@ func (s *Server) restartContainer(w http.ResponseWriter, r *http.Request) {
 		"restarted")
 }
 
-func (s *Server) listPublicKeys(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listUserKeys(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	allPubKeys, err := s.provider.ListPublicKeys(id)
+	allPubKeys, err := s.provider.ListUserKeys(id)
 	if err != nil {
 		s.handleError(w, err)
 		return
@@ -260,7 +309,7 @@ func (s *Server) listPublicKeys(w http.ResponseWriter, r *http.Request) {
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
 
-func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
+func (s *Server) addUserKeys(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	err := r.ParseForm()
 	if err != nil {
@@ -275,7 +324,7 @@ func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.provider.AddPublicKeys(id, publicKeys)
+	err = s.provider.AddUserKeys(id, publicKeys)
 	if err != nil {
 		if err == provider.ErrPubKeyOpsNotSupported {
 			s.respondEncodeJSON(w, http.StatusBadRequest, map[string]interface{}{"error": err.Error()})
@@ -286,7 +335,7 @@ func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allPubKeys, err := s.provider.ListPublicKeys(id)
+	allPubKeys, err := s.provider.ListUserKeys(id)
 	if err != nil {
 		s.handleError(w, err)
 		return
@@ -295,17 +344,17 @@ func (s *Server) addPublicKeys(w http.ResponseWriter, r *http.Request) {
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
 
-func (s *Server) removePublicKey(w http.ResponseWriter, r *http.Request) {
+func (s *Server) removeUserKey(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	keyFingerprint := mux.Vars(r)["key_fingerprint"]
 
-	err := s.provider.RemovePublicKey(id, keyFingerprint)
+	err := s.provider.RemoveUserKey(id, keyFingerprint)
 	if err != nil {
 		s.handleError(w, err)
 		return
 	}
 
-	allPubKeys, err := s.provider.ListPublicKeys(id)
+	allPubKeys, err := s.provider.ListUserKeys(id)
 	if err != nil {
 		s.handleError(w, err)
 		return
@@ -314,16 +363,28 @@ func (s *Server) removePublicKey(w http.ResponseWriter, r *http.Request) {
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"public_keys": allPubKeys})
 }
 
-func (s *Server) clearPublicKeys(w http.ResponseWriter, r *http.Request) {
+func (s *Server) clearUserKeys(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 
-	err := s.provider.ClearPublicKeys(id)
+	err := s.provider.ClearUserKeys(id)
 	if err != nil {
 		s.handleError(w, err)
 		return
 	}
 
 	s.respond(w, http.StatusOK, []byte{})
+}
+
+func (s *Server) listContainerKeys(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	allPubKeys, err := s.provider.ListContainerKeys(id)
+	if err != nil {
+		s.handleError(w, err)
+		return
+	}
+
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"container_keys": allPubKeys})
 }
 
 func (s *Server) createVolume(w http.ResponseWriter, r *http.Request) error {
@@ -435,7 +496,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 
 	sh, err := shell.OpenShell(containerID, command, noTTY)
 	if err != nil {
-		fmt.Println("wsNewShell: failed to open a shell for container %v", containerID, err)
+		fmt.Printf("wsNewShell: failed to open a shell for container %v, err: %s\n", containerID, err)
 		return err
 	}
 
@@ -474,7 +535,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 			case *shell.ResizeMsg:
 				sh.Resize(msg.Width, msg.Height)
 			default:
-				log.Println("shell: got unknown msg %v", msg)
+				log.Println("shell: got unknown msg ", msg)
 			}
 		}
 	}
@@ -510,30 +571,18 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 		stdout.Close()
 		return err
 	}
-	ActiveCops[id] = append(ActiveCops[id], quit)
+	ActiveCops.AddChannel(id, quit)
 	for {
 		select {
 		case err := <-done:
 			log.Printf("container ops: exited with err %v", err)
-
-			// find the channel that corresponds to this handler's and remove
-			// it from ActiveCops[cid] slice of chan errors
-			chanIndex := -1
-			for i, errChan := range ActiveCops[id] {
-				if errChan == quit {
-					chanIndex = i
-				}
-			}
-			if chanIndex > -1 {
-				ActiveCops[id] = append(ActiveCops[id][:chanIndex], ActiveCops[id][chanIndex+1:]...)
-			}
-
-			stdout.Close() // Inform client that server has closed connection.
+			ActiveCops.RemoveChannel(id, quit)
+			stdout.Close() // inform client that server has closed connection.
 			return nil
 		case msg := <-msgCh:
 			switch msg := msg.(type) {
 			default:
-				log.Println("container ops: got unknown msg %v", msg)
+				log.Println("container ops: got unknown msg ", msg)
 			}
 		}
 	}
@@ -873,6 +922,106 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 		proxy.ProxyHTTP(addr, nil, proxyerror.ErrorHandler)(w, r)
 	}
 	return nil
+}
+
+// upgradeServer upgrades the freighterd package to the version specified in the
+// request. This assumes that we are using APT to manage freighterd and will
+// probably not work everywhere.
+func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
+	fv := r.PostFormValue("freighterd_version")
+	if fv == config.Version {
+		s.respondEncodeJSON(w, http.StatusNoContent, nil)
+		return nil
+	}
+
+	go func() {
+		if err := s.upgradeFreighterd(fv); err != nil {
+			s.logger.Errorf("error upgrading freighterd: %v", err)
+			if nerr := s.notifyWebhook(map[string]interface{}{
+				"event": "upgrade",
+				"error": err.Error(),
+			}); nerr != nil {
+				s.logger.Errorf("failed to notify webhook, err: %v", nerr)
+			}
+			return
+		}
+		s.logger.Infof("updated freighterd package from %q to %q", config.Version, fv)
+
+		if err := s.stopFreighterd(); err != nil {
+			s.logger.Errorf("error stopping freighterd: %v", err)
+			if nerr := s.notifyWebhook(map[string]interface{}{
+				"event": "upgrade",
+				"error": err.Error(),
+			}); nerr != nil {
+				s.logger.Errorf("failed to notify webhook, err: %v", nerr)
+			}
+		}
+	}()
+
+	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
+	return nil
+}
+
+func (s *Server) upgradeFreighterd(version string) error {
+	cmd := exec.Command("apt-get", "update",
+		"-o", "Dir::Etc::sourceparts=-",
+		"-o", "Dir::Etc::sourcelist=/etc/apt/sources.list.d/nitrousio.list")
+	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
+	if out, err := s.runner.Run(cmd); err != nil {
+		s.logger.Errorf("error updating freighterd repo, err: %v, output: %s", err, out)
+		return err
+	}
+
+	// Setup a dir with service-related binaries pointing to /bin/true. We will
+	// use this in the PATH for the `apt-get install` command so that the
+	// freighterd service is not restarted.
+	// See http://askubuntu.com/a/77530/25214.
+	fakepath, err := ioutil.TempDir("", "freighter-fakepath")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(fakepath)
+	if err := setupFakePath(fakepath); err != nil {
+		return err
+	}
+
+	pkgspec := "freighterd"
+	if version != "" {
+		pkgspec = fmt.Sprintf("freighterd=%s", version)
+	}
+	cmd = exec.Command("apt-get", "install", "-y",
+		"-o", `Dpkg::Options::=--force-confdef`, // avoid prompt
+		"-o", `Dpkg::Options::=--force-confold`, // do not modify existing config file
+		pkgspec,
+	)
+	cmd.Env = append(cmd.Env, fmt.Sprintf("PATH=%s:/usr/sbin:/usr/bin:/sbin:/bin", fakepath))
+	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
+	if out, err := s.runner.Run(cmd); err != nil {
+		s.logger.Errorf("error updating freighterd package, err: %v, output: %s", err, out)
+		return err
+	}
+
+	return nil
+}
+
+func setupFakePath(path string) error {
+	cmds := []string{"initctl", "invoke-rc.d",
+		"restart", "start", "stop", "start-stop-daemon", "service"}
+	for _, cmd := range cmds {
+		if err := os.Symlink("/bin/true", filepath.Join(path, cmd)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Stop freighterd (i.e. this process) by sending it a signal. We rely on an
+// external process (currently Upstart) to respawn the freighterd service.
+// TODO We probably want to stop gracefully (maybe by sending SIGHUP to self)
+// so that existing HTTP requests are not dropped.
+func (s *Server) stopFreighterd() error {
+	s.logger.Infof("Sending freighter process signal to terminate...")
+	return syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 }
 
 func randomString() string {
