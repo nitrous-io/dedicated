@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoicemanualattempt"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -124,7 +125,13 @@ var _ = Describe("controllers/billing", func() {
 			hs2, err := CreateHostStack(db, &HostStack{
 				H: &host.Host{
 					Slug:        "my-host-2",
-					HourlyPrice: 500,
+					HourlyPrice: 37210,
+				},
+				P: &plan.Plan{
+					Slug:          "hs3Plan",
+					Name:          "hs3Plan",
+					MaxContainers: 1,
+					Price:         20,
 				},
 				U: u,
 			})
@@ -147,8 +154,8 @@ var _ = Describe("controllers/billing", func() {
 			res := doRequest()
 			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.TotalCharge).To(Equal(int64(3)))
-			Expect(j.TotalChargeDollars).To(Equal(0.03))
+			Expect(j.TotalCharge).To(Equal(int64(22)))
+			Expect(j.TotalChargeDollars).To(Equal(0.22))
 			Expect(j.Items).To(HaveLen(2))
 
 			var itm1 serializers.InvoiceItem
@@ -163,9 +170,11 @@ var _ = Describe("controllers/billing", func() {
 
 			Expect(itm1.HourlyCents).To(Equal(2.0))
 			Expect(itm1.Hours).To(Equal(int64(1)))
+			Expect(itm1.TotalCharge).To(Equal(int64(2)))
 
-			Expect(itm2.HourlyCents).To(Equal(0.5))
+			Expect(itm2.HourlyCents).To(Equal(37.21))
 			Expect(itm2.Hours).To(Equal(int64(1)))
+			Expect(itm2.TotalCharge).To(Equal(int64(20))) // capped by plan
 		})
 	})
 
@@ -227,7 +236,13 @@ var _ = Describe("controllers/billing", func() {
 				hs3, err = CreateHostStack(db, &HostStack{
 					H: &host.Host{
 						Slug:        "my-host-3",
-						HourlyPrice: 500,
+						HourlyPrice: 37210,
+					},
+					P: &plan.Plan{
+						Slug:          "hs3Plan",
+						Name:          "hs3Plan",
+						MaxContainers: 1,
+						Price:         20,
 					},
 					U: u,
 				})
@@ -370,7 +385,7 @@ var _ = Describe("controllers/billing", func() {
 					InvoiceID:   i3.ID,
 					HostID:      sql.NullInt64{h3.ID, true},
 					Hours:       sql.NullInt64{6, true},
-					HourlyPrice: sql.NullInt64{2000, true},
+					HourlyPrice: sql.NullInt64{37210, true},
 				}
 				Expect(itm6.Insert(db)).To(BeNil())
 				itm7 := invoiceitem.InvoiceItem{
@@ -390,8 +405,8 @@ var _ = Describe("controllers/billing", func() {
 				Expect(invoices[0].Items[0].InvoiceID).To(Equal(i3.ID))
 				Expect(invoices[0].Items[0].HostID).To(Equal(h3.ID))
 				Expect(invoices[0].Items[0].Hours).To(Equal(int64(6)))
-				Expect(invoices[0].Items[0].HourlyCents).To(Equal(2.00))
-				Expect(invoices[0].Items[0].TotalCharge).To(Equal(int64(12)))
+				Expect(invoices[0].Items[0].HourlyCents).To(Equal(37.21))
+				Expect(invoices[0].Items[0].TotalCharge).To(Equal(int64(20))) // capped by plan
 				Expect(invoices[0].Items[0].HostSlug).To(Equal("my-host-3"))
 				Expect(invoices[0].Items[1].InvoiceID).To(Equal(i3.ID))
 				Expect(invoices[0].Items[1].HostID).To(Equal(h2.ID))

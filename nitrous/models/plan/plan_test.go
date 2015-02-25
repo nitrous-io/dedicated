@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -150,6 +152,59 @@ var _ = Describe("models/plan", func() {
 			Expect(pls).To(HaveLen(2))
 			Expect([]string{pls[0].Slug, pls[1].Slug}).To(ConsistOf([]string{"1gb", "2gb"}))
 			Expect([]string{pls[0].Name, pls[1].Name}).To(ConsistOf([]string{"Micro", "Small"}))
+		})
+	})
+
+	Describe("PlanPricingHostMap()", func() {
+		It("returns a mapping of host IDs to plan prices for a user", func() {
+			u := &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			hs1, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 2000,
+				},
+				P: &plan.Plan{
+					Slug:          "hs1Plan",
+					Name:          "hs1Plan",
+					MaxContainers: 1,
+					Price:         1901,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET terminated_at = now(), updated_at = now() WHERE id = $1;", hs1.H.ID)
+			Expect(err).To(BeNil())
+
+			hs2, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-2",
+					HourlyPrice: 500,
+				},
+				P: &plan.Plan{
+					Slug:          "hs2Plan",
+					Name:          "hs2Plan",
+					MaxContainers: 1,
+					Price:         2016,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			m, err := plan.PlanPricingHostMap(db, u.ID)
+			Expect(err).To(BeNil())
+			exMap := map[int64]int64{
+				hs1.H.ID: 1901,
+				hs2.H.ID: 2016,
+			}
+			Expect(m).To(Equal(exMap))
 		})
 	})
 

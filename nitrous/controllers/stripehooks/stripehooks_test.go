@@ -302,14 +302,14 @@ var _ = Describe("controllers/stripehooks", func() {
 		})
 
 		It("should detail the correct amount of invoice items", func() {
-			sInv, err := stripehooks.SerializeInvoice(db, inv)
+			sInv, err := stripehooks.SerializeInvoice(db, inv, nil)
 			Expect(err).To(BeNil())
 			Expect(sInv.Items).To(HaveLen(2))
 			Expect(sInv.TotalCredit).To(Equal(int64(200)))
 		})
 
 		It("should provide information about the hosts", func() {
-			sInv, err := stripehooks.SerializeInvoice(db, inv)
+			sInv, err := stripehooks.SerializeInvoice(db, inv, nil)
 			Expect(err).To(BeNil())
 			Expect(sInv.Items[0].Terminated).To(BeTrue())
 			Expect(sInv.Items[1].Terminated).To(BeFalse())

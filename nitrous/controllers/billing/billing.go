@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoicemanualattempt"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -63,7 +64,16 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		return nil
 	}
 
-	total, items := biller.InvoiceItemsForUsages(hours, nil)
+	pHMap, err := plan.PlanPricingHostMap(env.DB, env.User.ID)
+	if err != nil {
+		return err
+	}
+
+	total, items, err := biller.InvoiceItemsForUsages(hours, pHMap, nil)
+	if err != nil {
+		return err
+	}
+
 	hMap, err := fetchHosts(env.DB, env.User)
 	if err != nil {
 		return err
@@ -72,8 +82,19 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 	sItems := []serializers.InvoiceItem{}
 	for _, inv := range items {
 		ser := serializers.SerializeInvoiceItem(&inv)
-		ser.Description = invoiceitem.ItemDescription(&inv, hMap[ser.HostID])
-		ser.HostSlug = hMap[ser.HostID].Slug
+		if hst, ok := hMap[ser.HostID]; ok {
+			ser.HostSlug = hst.Slug
+			ser.Description = invoiceitem.ItemDescription(&inv, hMap[ser.HostID])
+		} else {
+			ser.Description = "Information not available at this time"
+			env.Logger.Errorf("billing: Unable to locate host %d in hMap for user %d", ser.HostID, env.User.ID)
+		}
+		if price, ok := pHMap[ser.HostID]; ok {
+			ser.TotalCharge = inv.TotalCharge(&plan.Plan{Price: price})
+		} else {
+			ser.TotalCharge = inv.UncappedTotalCharge()
+			env.Logger.Errorf("billing: Unable to locate host %d in pHMap for user %d", ser.HostID, env.User.ID)
+		}
 		sItems = append(sItems, *ser)
 	}
 
@@ -115,6 +136,11 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
+	pHMap, err := plan.PlanPricingHostMap(env.DB, env.User.ID)
+	if err != nil {
+		return err
+	}
+
 	hMap, err := fetchHosts(env.DB, env.User)
 	if err != nil {
 		return err
@@ -127,9 +153,18 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 					inv.TotalCredit += item.Credit.Int64
 				} else {
 					ser := serializers.SerializeInvoiceItem(&item)
-					ser.Description = invoiceitem.ItemDescription(&item, hMap[ser.HostID])
 					if hst, ok := hMap[ser.HostID]; ok {
 						ser.HostSlug = hst.Slug
+						ser.Description = invoiceitem.ItemDescription(&item, hMap[ser.HostID])
+					} else {
+						ser.Description = "Information not available at this time"
+						env.Logger.Errorf("billing: Unable to locate host %d in hMap for user %d", ser.HostID, env.User.ID)
+					}
+					if price, ok := pHMap[ser.HostID]; ok {
+						ser.TotalCharge = item.TotalCharge(&plan.Plan{Price: price})
+					} else {
+						ser.TotalCharge = item.UncappedTotalCharge()
+						env.Logger.Errorf("billing: Unable to locate host %d in pHMap for user %d", ser.HostID, env.User.ID)
 					}
 					inv.Items = append(inv.Items, *ser)
 				}
