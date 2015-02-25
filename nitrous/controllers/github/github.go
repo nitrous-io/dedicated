@@ -27,8 +27,10 @@ var (
 	oauthStateString = ""
 
 	errInvalidOauthState = errors.New("invalid oauth state")
-	errTokenNotValid     = errors.New("token not valid")
 	errUpdateFailed      = errors.New("update failed")
+
+	ErrTokenEmpty    = errors.New("token is empty")
+	ErrTokenNotValid = errors.New("token not valid")
 )
 
 func init() {
@@ -63,13 +65,16 @@ func tokenFromJSON(jsonStr string) (*oauth2.Token, error) {
 }
 
 func getTokenIfValidFromUserProfile(p *userprofile.UserProfile) (*oauth2.Token, error) {
+	if p.GitHubOAuthTokenJson.String == "" {
+		return nil, ErrTokenEmpty
+	}
 	token, err := tokenFromJSON(p.GitHubOAuthTokenJson.String)
 	if err != nil {
 		return nil, err
 	}
 	// it's valid for token to expire and become invalid
 	if !token.Valid() {
-		return nil, errTokenNotValid
+		return nil, ErrTokenNotValid
 	}
 	return token, nil
 }
