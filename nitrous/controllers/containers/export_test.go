@@ -7,4 +7,9 @@ var (
 	ErrMissingCmd     = errMissingCmd
 	ErrNameRequired   = errNameRequired
 	Validations       = validations
+
+	DoExclusive      = doExclusive
+	DoAsyncExclusive = doAsyncExclusive
+	LockerFn         = lockerFn
+	UnlockerFn       = unlockerFn
 )

@@ -18,6 +18,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
+const reconfigLockTime = 2 * time.Minute
+
 var (
 	Reconfig = WithContainerAndHost(reconfig)
 )
@@ -45,17 +47,33 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 	}
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 
-	if err := cn.Lock(container.StateReconfiguring, 2*time.Minute, env.DB); err != nil {
-		if err == container.ErrLocked {
-			return errContainerLocked
-		}
-		return err
-	}
-	// unlocked in ctx.run
+	err = doContainerSyncOrAsyncExclusive(
+		async, cn, env,
+		container.StateReconfiguring, reconfigLockTime,
+		func() error {
+			publishContainerEvent(env, controllers.EventContainerReconfiguring, cn)
 
-	publishContainerEvent(env, controllers.EventContainerReconfiguring, cn)
+			err := reconfigureContainer(ctx, env)
 
-	cn, err = ctx.run(env, async)
+			if err != nil {
+				_ = cn.Update(db) // Ignore error here.
+				errMsg := err.Error()
+				if hError, ok := err.(*httperror.Error); ok {
+					errMsg = hError.Description
+				}
+				env.Events.Publish(
+					controllers.NewEvent(controllers.EventContainerReconfigureFailed, map[string]interface{}{
+						"container": serializers.SerializeContainer(cn),
+						"error":     errMsg,
+					}),
+					env.User.Topic(),
+				)
+				return err
+			}
+
+			return nil
+		})
+
 	if err != nil {
 		return err
 	}
@@ -66,6 +84,10 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 		env.Status = http.StatusOK
 	}
 
+	/*
+	 * Note: the container cn here may or may not
+	 * be hydrated depend on whether it is sync or async.
+	 */
 	env.Data = map[string]interface{}{
 		"container": serializers.SerializeContainer(cn),
 	}
@@ -81,88 +103,57 @@ type reconfigContext struct {
 	db *ndb.Database
 }
 
-func (ctx *reconfigContext) run(env *middleware.Env, async bool) (*container.Container, error) {
+func reconfigureContainer(ctx *reconfigContext, env *middleware.Env) (err error) {
 	cn, h, hv, db := ctx.cn, ctx.h, ctx.hv, ctx.db
 	config := ctx.config
-	reconfigureCnr := func() error {
-		var err error
-		defer cn.Unlock(env.DB)
-		defer func() {
-			if err != nil {
-				_ = cn.Update(db) // Ignore error here.
-				errMsg := err.Error()
-				if hError, ok := err.(*httperror.Error); ok {
-					errMsg = hError.Description
-				}
-				env.Events.Publish(
-					controllers.NewEvent(controllers.EventContainerReconfigureFailed, map[string]interface{}{
-						"container": serializers.SerializeContainer(cn),
-						"error":     errMsg,
-					}),
-					env.User.Topic(),
-				)
-			}
-		}()
 
-		var cl *controllers.FreighterClient
-		cl, err = controllers.NewFreighterClient(db, h, env.UUID)
-		if err != nil {
-			return err
-		}
-
-		var liveContainer *freighterclient.Container
-		liveContainer, err = cl.Reconfig(cn.CID, config)
-		if err != nil {
-			if liveContainer != nil {
-				cn.TempState = sql.NullInt64{0, false}
-				cn = hydrateContainer(cn, liveContainer, h)
-			}
-			err = expandFreighterClientError(err)
-			return err
-		}
-
-		// reset the temp state, so freigther state will be exposed
-		cn.TempState = sql.NullInt64{0, false}
-
-		cn = hydrateContainer(cn, liveContainer, h)
-
-		var newConfig *freighterclient.ContainerConfig
-		newConfig, err = cl.Config(cn.CID)
-		if err != nil {
-			return err
-		}
-
-		err = cn.Update(db)
-		if err != nil {
-			env.Logger.Errorf("containers.reconfig: successfully reconfigured container '%+v' in Freighter but failed to update database with '%+v', err: %v", liveContainer, cn, err)
-			return err
-		}
-
-		if err := updateVolumes(db, cn, hv, volumeSlugs(config.Mounts)); err != nil { // log and continue
-			env.Logger.Errorf("containers.reconfig: failed to update volumes on container %s, err: %v", cn.CID, err)
-		}
-
-		env.Events.Publish(
-			controllers.NewEvent(controllers.EventContainerReconfigured, map[string]interface{}{
-				"container": serializers.SerializeContainer(cn),
-				"config":    serializers.SerializeContainerConfig(newConfig),
-			}),
-			env.User.Topic(),
-		)
-
-		return nil
-	}
-
-	if async {
-		go reconfigureCnr()
-		return cn, nil
-	}
-
-	err := reconfigureCnr()
+	var cl *controllers.FreighterClient
+	cl, err = controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return cn, nil
+
+	var liveContainer *freighterclient.Container
+	liveContainer, err = cl.Reconfig(cn.CID, config)
+	if err != nil {
+		if liveContainer != nil {
+			cn.TempState = sql.NullInt64{0, false}
+			cn = hydrateContainer(cn, liveContainer, h)
+		}
+		err = expandFreighterClientError(err)
+		return err
+	}
+
+	// reset the temp state, so freigther state will be exposed
+	cn.TempState = sql.NullInt64{0, false}
+
+	cn = hydrateContainer(cn, liveContainer, h)
+
+	var newConfig *freighterclient.ContainerConfig
+	newConfig, err = cl.Config(cn.CID)
+	if err != nil {
+		return err
+	}
+
+	err = cn.Update(db)
+	if err != nil {
+		env.Logger.Errorf("containers.reconfig: successfully reconfigured container '%+v' in Freighter but failed to update database with '%+v', err: %v", liveContainer, cn, err)
+		return err
+	}
+
+	if err = updateVolumes(db, cn, hv, volumeSlugs(config.Mounts)); err != nil { // log and continue
+		env.Logger.Errorf("containers.reconfig: failed to update volumes on container %s, err: %v", cn.CID, err)
+	}
+
+	env.Events.Publish(
+		controllers.NewEvent(controllers.EventContainerReconfigured, map[string]interface{}{
+			"container": serializers.SerializeContainer(cn),
+			"config":    serializers.SerializeContainerConfig(newConfig),
+		}),
+		env.User.Topic(),
+	)
+
+	return nil
 }
 
 func updateVolumes(d *ndb.Database, cn *container.Container, hv map[string]*volume.Volume, slugs []string) error {
