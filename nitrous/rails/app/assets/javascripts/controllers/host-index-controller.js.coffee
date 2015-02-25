@@ -17,4 +17,24 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
       @transitionToRoute 'containers.new', queryParams: { preselectHost: @get('model.slug') }
 
     upgrade: ->
+      host = @get('model')
+      events = App.get 'eventsSocket'
+
+      onUpgradeFailed = (data) ->
+        hostData = data.host
+        return unless hostData.id == host.get('id')
+        events.off 'host.upgrade_failed', onUpgradeFailed
+        events.off 'host.upgraded', onUpgraded
+        App.postError("Failed to upgrade workspace!")
+
+      onUpgraded = (data) ->
+        hostData = data.host
+        return unless hostData.id == host.get('id')
+        events.off 'host.upgrade_failed', onUpgradeFailed
+        events.off 'host.upgraded', onUpgraded
+        App.snackbar.post("Your workspace “#{host.get('slug')}” has been upgraded.")
+
+      events.on 'host.upgrade_failed', onUpgradeFailed
+      events.on 'host.upgraded', onUpgraded
+
       @performAction('POST', 'upgrade', 'upgrading')

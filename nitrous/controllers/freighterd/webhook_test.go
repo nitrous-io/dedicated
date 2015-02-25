@@ -107,7 +107,7 @@ var _ = Describe("controllers/freighterd", func() {
 				msg = genMessage(hs.H.Secret, m)
 			})
 
-			It("is 200 when host is in upgrading state", func() {
+			It("responds with HTTP 200 and sets host state to running when host is in upgrading state", func() {
 				doRequest(hs.H.Slug, msg)
 				Expect(res.Code).To(Equal(http.StatusOK))
 				h, err := host.FindByIdentifier(db, hs.H.Slug)
@@ -116,7 +116,6 @@ var _ = Describe("controllers/freighterd", func() {
 			})
 
 			It("publishes a host upgraded event", func() {
-
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -145,6 +144,9 @@ var _ = Describe("controllers/freighterd", func() {
 			var msg string
 
 			BeforeEach(func() {
+				hs.H.State = host.StateUpgrading
+				hs.H.Update(db)
+
 				m := &freighterd.Message{
 					Event: "upgrade",
 					Error: "failed to apt-get",
@@ -152,13 +154,15 @@ var _ = Describe("controllers/freighterd", func() {
 				msg = genMessage(hs.H.Secret, m)
 			})
 
-			It("is 200", func() {
+			It("responds with HTTP 200 and sets host state to running when host is in upgrading state", func() {
 				doRequest(hs.H.Slug, msg)
 				Expect(res.Code).To(Equal(http.StatusOK))
+				h, err := host.FindByIdentifier(db, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateRunning))
 			})
 
 			It("publishes a host upgrade failed event", func() {
-
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -176,6 +180,13 @@ var _ = Describe("controllers/freighterd", func() {
 					Expect(ok).To(BeTrue())
 					Expect(e["error"]).To(Equal("failed to apt-get"))
 				}
+			})
+
+			It("is 404 when host is not in upgrading state", func() {
+				hs.H.State = host.StateRunning
+				hs.H.Update(db)
+				doRequest(hs.H.Slug, msg)
+				Expect(res.Code).To(Equal(http.StatusNotFound))
 			})
 		})
 

@@ -35,8 +35,8 @@ var _ = Describe("context", func() {
 				Timeout: 10 * time.Millisecond,
 			})
 
-			Expect(err).To(BeNil())
 			Expect(counter).To(Equal(1))
+			Expect(err).To(BeNil())
 		})
 
 		It("runs the given step if timeout is not specified", func() {
@@ -52,8 +52,8 @@ var _ = Describe("context", func() {
 				},
 			})
 
-			Expect(err).To(BeNil())
 			Expect(counter).To(Equal(1))
+			Expect(err).To(BeNil())
 		})
 
 		It("returns an error when the step times out before completion", func() {
@@ -68,11 +68,11 @@ var _ = Describe("context", func() {
 					counter++
 					return nil
 				},
-				Timeout: 10 * time.Millisecond,
+				Timeout: 5 * time.Millisecond,
 			})
 
-			Expect(err).To(MatchError(context.DeadlineExceeded))
 			Expect(counter).To(Equal(0))
+			Expect(err).To(MatchError(context.DeadlineExceeded))
 		})
 
 		It("times out when the parent context times out", func() {
@@ -91,8 +91,8 @@ var _ = Describe("context", func() {
 				Timeout: 5 * time.Minute, // Much more than parent context timeout.
 			})
 
-			Expect(err).To(MatchError(context.DeadlineExceeded))
 			Expect(counter).To(Equal(0))
+			Expect(err).To(MatchError(context.DeadlineExceeded))
 		})
 	})
 })
