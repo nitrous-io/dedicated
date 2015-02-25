@@ -25,7 +25,7 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
         return unless hostData.id == host.get('id')
         events.off 'host.upgrade_failed', onUpgradeFailed
         events.off 'host.upgraded', onUpgraded
-        App.postError(data.error, "Failed to upgrade workspace!")
+        App.postError("Failed to upgrade workspace!")
 
       onUpgraded = (data) ->
         hostData = data.host

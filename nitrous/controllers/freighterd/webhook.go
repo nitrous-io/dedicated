@@ -76,6 +76,7 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			return err
 		}
 
+		env.Logger.Errorf("freighter upgrade failed with err: %s", m.Error)
 		env.Events.Publish(
 			controllers.NewEvent(controllers.EventHostUpgradeFailed, map[string]interface{}{
 				"host":  serializers.SerializeHost(h),
