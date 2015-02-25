@@ -19,6 +19,7 @@ import (
 
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/nitrous-common/sshkey"
 )
 
 const (
@@ -80,6 +81,11 @@ type imageResponse struct {
 	Image *Image `json:"image"`
 }
 
+type ContainerKey struct {
+	Fingerprint string `json:"fingerprint"`
+	Key         string `json:"key"`
+}
+
 // Client represents a Freighter API consumer.
 type Client interface {
 	List() ([]*Container, error)
@@ -102,7 +108,7 @@ type Client interface {
 	ClearUserKeys(id string) error
 	RemoveUserKey(id string, fingerprint string) error
 
-	ListContainerKeys(id string) ([]string, error)
+	ListContainerKeys(id string) ([]*ContainerKey, error)
 
 	ListVolumes() ([]string, error)
 	CreateVolume(slug string) (*Volume, error)
@@ -694,18 +700,26 @@ func (c *client) RemoveUserKey(id string, fingerprint string) error {
 	return c.doUserKeyOp(req)
 }
 
-func (c *client) ListContainerKeys(id string) ([]string, error) {
+func (c *client) ListContainerKeys(id string) ([]*ContainerKey, error) {
 	u := fmt.Sprintf("%s/containers/%s/container_keys", c.host.BaseURL(), id)
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := performRequest(c, req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	// handle 404 not found
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrContainerNotFound
+	}
+
+	// handle non 404, 200 statuses
 	if resp.StatusCode != http.StatusOK {
 		return nil, statusError(resp)
 	}
@@ -717,7 +731,21 @@ func (c *client) ListContainerKeys(id string) ([]string, error) {
 		return nil, ErrUnexpectedResponse
 	}
 
-	return keys.Keys, nil
+	containerKeys := []*ContainerKey{}
+
+	for _, key := range keys.Keys {
+		// we are ignoring the errors in generating fingerprint
+		// only key is returned on such instances.
+		fn, _ := sshkey.Md5Fingerprint(key)
+
+		c := &ContainerKey{
+			Key:         key,
+			Fingerprint: fn,
+		}
+		containerKeys = append(containerKeys, c)
+	}
+
+	return containerKeys, nil
 }
 
 // FIXME This method has no existing test :"(

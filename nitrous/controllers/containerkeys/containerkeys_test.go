@@ -21,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous-common/sshkey"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -40,11 +41,13 @@ var _ = Describe("controllers/containerkeys", func() {
 
 		mockClient *freighterclient.MockClient
 
-		u    *user.User
-		t    *token.Token
-		hs   *test.HostStack
-		c    *container.Container
-		key0 string = "sample container key"
+		u  *user.User
+		t  *token.Token
+		hs *test.HostStack
+		c  *container.Container
+
+		key0   = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDATOQiODD9fe8IrqVuQKCN/8PyqCXOYrREqpmsi4Jx3m4VdwP0IwrmOylvkDYGG7HVOHKvlncwrIkDJKXlyplaqs6O5D+daY1JLuosqckGPzBlOFchdUjuqiDxdLPBEfOYr2ANZjfLjAyuGqsNAXwhn5+LHKXiXg7Le6feuEsZhP0JyAnEg9diLcmyv8f2rOPqM3L2SmZ38GbWJm1rO7+LVUmroNNa1X1UJHyQFyNOEtXHbYuoZ0xEui6UDJU/DAoVxSfTRzg9XKUWArTsKeGRmJoQBmRRtoFVe8kbs1qnJQCnHnkyH6BhoqFZ/wl7YNRvsGAta1Q1qiqLFSOYZvbT"
+		fn0, _ = sshkey.Md5Fingerprint(key0)
 	)
 
 	BeforeEach(func() {
@@ -115,16 +118,20 @@ var _ = Describe("controllers/containerkeys", func() {
 		}
 
 		It("should return container keys", func() {
-			mockClient.ListContainerKeysReturn = []string{key0}
+			mockClient.ListContainerKeysReturn = []*freighterclient.ContainerKey{
+				&freighterclient.ContainerKey{Key: key0, Fingerprint: fn0},
+			}
 			doRequest("valid-token")
 			Expect(res.Code).To(Equal(http.StatusOK))
+
 			j := struct {
-				Keys []string `json:"keys"`
+				Keys []freighterclient.ContainerKey `json:"keys"`
 			}{}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j.Keys).To(HaveLen(1))
-			Expect(j.Keys[0]).To(Equal(key0))
+			Expect(j.Keys[0].Key).To(Equal(key0))
+			Expect(j.Keys[0].Fingerprint).To(Equal(fn0))
 		})
 	})
 
@@ -203,7 +210,7 @@ var _ = Describe("controllers/containerkeys", func() {
 			Expect(j.Msg).To(Equal("github key added"))
 		})
 
-		Context("when some other error occurrs", func() {
+		Context("when some other error occurs", func() {
 			It("responds with an internal server error", func() {
 				containerkeys.AddGitHubKeysFunc = func(cn *container.Container, h *host.Host, env *middleware.Env) (string, error) {
 					return "", errors.New("some error occurred")

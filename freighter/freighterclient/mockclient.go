@@ -55,7 +55,7 @@ type MockClient struct {
 
 	ListContainerKeysCalled int
 	ListContainerKeysError  error
-	ListContainerKeysReturn []string
+	ListContainerKeysReturn []*ContainerKey
 
 	RegistryLoginCalled int
 	RegistryLoginError  error
@@ -259,7 +259,7 @@ func (c *MockClient) RemoveUserKey(id string, fingerprint string) error {
 	return c.RemoveUserKeyError
 }
 
-func (c *MockClient) ListContainerKeys(id string) ([]string, error) {
+func (c *MockClient) ListContainerKeys(id string) ([]*ContainerKey, error) {
 	c.ListContainerKeysCalled++
 	c.ReceivedID = id
 	return c.ListContainerKeysReturn, c.ListContainerKeysError

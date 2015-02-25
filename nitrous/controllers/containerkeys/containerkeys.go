@@ -89,7 +89,7 @@ func addGitHubKeys(cn *container.Container, h *host.Host, env *middleware.Env) (
 		return "", ErrMultipleKeysExist
 	}
 
-	keyToAdd := keys[0]
+	keyToAdd := keys[0].Key
 	if keyAlreadyExists(existingKeys, keyToAdd) {
 		return "", ErrKeyAlreadyExists
 	}
