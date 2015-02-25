@@ -31,8 +31,9 @@ var (
 )
 
 const (
-	nitrousEnvImage = "NITROUS_IMAGE_VERSION"
-	nitrousEnvUser  = "NITROUS_USERNAME"
+	nitrousEnvImage     = "NITROUS_IMAGE_VERSION"
+	nitrousEnvUser      = "NITROUS_USERNAME"
+	nitrousSlugFilename = ".nitrous-container-slug"
 )
 
 var preservedEnvVars = []string{nitrousEnvImage, nitrousEnvUser}
@@ -179,6 +180,10 @@ func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*pr
 		return nil, err
 	}
 
+	if err := p.storeContainerName(name); err != nil {
+		return nil, err
+	}
+
 	ak := p.containerAuthorizedKeys(name)
 	if err := ak.Write([]string{}); err != nil {
 		return nil, err
@@ -270,6 +275,10 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, error) {
 	container, err := p.inspectContainer(id)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := p.storeContainerName(nameFromContainer(container)); err != nil {
 		return nil, err
 	}
 
@@ -1294,6 +1303,22 @@ func (p *DockerProvider) storeSharedSecret(containerName string, secret string) 
 
 	filename := path.Join(dir, "secret")
 	err = ioutil.WriteFile(filename, []byte(secret), 0600)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *DockerProvider) storeContainerName(containerName string) error {
+	p.logger.Infof("DockerProvider: storing %s for %s", nitrousSlugFilename, containerName)
+	dir := p.ContainerSettingsDir(containerName)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		return err
+	}
+
+	filename := path.Join(dir, nitrousSlugFilename)
+	err = ioutil.WriteFile(filename, []byte(containerName), 0755)
 	if err != nil {
 		return err
 	}
