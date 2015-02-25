@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/test"
+	"github.com/nitrous-io/nitrous-common/sshkey"
 	"github.com/onsi/gomega/ghttp"
 
 	. "github.com/onsi/ginkgo"
@@ -2484,5 +2485,99 @@ var _ = Describe("client", func() {
 			})
 		})
 
+	})
+
+	Describe("ListContainerKeys()", func() {
+		BeforeEach(func() {
+			handlers := ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/containers/deadbeef/container_keys"),
+				ghttp.VerifyContentType("application/json"),
+				ghttp.RespondWithPtr(&statusCode, &responseBody),
+			)
+
+			var err error
+			st, err = NewServerTest(handlers)
+			Expect(err).To(BeNil(), "test server failed to start")
+			cl, host, server = st.client, st.host, st.server
+		})
+
+		AfterEach(func() {
+			st.Close()
+		})
+
+		Context("when the response is HTTP 200 OK", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusOK
+			})
+
+			Context("when the response has a container keys", func() {
+				var (
+					key1 = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDATOQiODD9fe8IrqVuQKCN/8PyqCXOYrREqpmsi4Jx3m4VdwP0IwrmOylvkDYGG7HVOHKvlncwrIkDJKXlyplaqs6O5D+daY1JLuosqckGPzBlOFchdUjuqiDxdLPBEfOYr2ANZjfLjAyuGqsNAXwhn5+LHKXiXg7Le6feuEsZhP0JyAnEg9diLcmyv8f2rOPqM3L2SmZ38GbWJm1rO7+LVUmroNNa1X1UJHyQFyNOEtXHbYuoZ0xEui6UDJU/DAoVxSfTRzg9XKUWArTsKeGRmJoQBmRRtoFVe8kbs1qnJQCnHnkyH6BhoqFZ/wl7YNRvsGAta1Q1qiqLFSOYZvbT"
+					key2 = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDa4epsY+jCmgHy5MMUvWDQUp5RVKkB4gxIsK6ga5maWX4yF/TiQNMw492GcvCVpdO0rKCYgC3XkGjaW/PD73JwBNrBYLkQPxec0jzv/WbzByqP1ygvzXr6yLDDckr9O/F6HB7+nvlFMpsRCuCMoFoR1dqkD1fn6Vdj/AGW5x2kjebc2eZIaKUhQL+jCzjOvVvOz2XPhrTqa38+PMJk6U6u77P1sCnvyA4rwuOpWT4OrssW4L6F8lA9HhVBe4pp8eM+gS8hD2AXUs4P0VuM6D2Wqhz/3NkPuRmSYaUMQF8kdaq02PMScJXH/r1JvNDEyecpw/GXoCA1oY6OOVtz8IDV"
+
+					fn1, _ = sshkey.Md5Fingerprint(key1)
+					fn2, _ = sshkey.Md5Fingerprint(key2)
+				)
+
+				BeforeEach(func() {
+					responseBody = fmt.Sprintf(`{
+						"container_keys": [	%q, %q ]
+					}`, key1, key2)
+				})
+
+				It("returns Container keys with fingerprint", func() {
+					keys, err := cl.ListContainerKeys("deadbeef")
+					Expect(err).To(BeNil())
+					Expect(keys).NotTo(BeNil())
+					Expect(server.ReceivedRequests()).To(HaveLen(1))
+
+					Expect(keys).To(Equal([]*freighterclient.ContainerKey{
+						&freighterclient.ContainerKey{Key: key1, Fingerprint: fn1},
+						&freighterclient.ContainerKey{Key: key2, Fingerprint: fn2},
+					}))
+				})
+			})
+
+			Context("when the response is empty", func() {
+				BeforeEach(func() {
+					responseBody = ``
+				})
+
+				It("returns ErrUnexpectedResponse", func() {
+					keys, err := cl.ListContainerKeys("deadbeef")
+					Expect(err).To(Equal(freighterclient.ErrUnexpectedResponse))
+					Expect(server.ReceivedRequests()).To(HaveLen(1))
+					Expect(keys).To(BeNil())
+				})
+			})
+		})
+
+		Context("when the response is HTTP 404 Not Found", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusNotFound
+			})
+
+			It("returns ErrContainerNotFound", func() {
+				keys, err := cl.ListContainerKeys("deadbeef")
+				Expect(err).To(Equal(freighterclient.ErrContainerNotFound))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(keys).To(BeNil())
+			})
+		})
+
+		Context("when the response is not HTTP 200 OK nor HTTP 404 Not Found", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusInternalServerError
+			})
+
+			It("returns a StatusError", func() {
+				container, err := cl.ListContainerKeys("deadbeef")
+				Expect(err).NotTo(BeNil())
+				_, ok := err.(*freighterclient.StatusError)
+				Expect(ok).To(BeTrue())
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(container).To(BeNil())
+			})
+		})
 	})
 })
