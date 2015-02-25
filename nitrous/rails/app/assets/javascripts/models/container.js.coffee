@@ -107,7 +107,10 @@ App.Container = klass = App.Model.extend
 
   loadContainerKeys: ->
     @ajax('GET', 'container_keys').then (json) =>
-      @set 'containerKeys', json.keys
+      if keys = [].concat(json.keys)
+        cKeys = keys.map (k) ->
+          App.ContainerKey.create(k)
+      @set 'containerKeys', cKeys
 
   eventOccurred: (evt) ->
     if evt in ['container.started', 'container.stopped', 'container.restarted', 'container.updated', 'container.reconfigured', 'container.reconfigure_failed']

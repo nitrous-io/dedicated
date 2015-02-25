@@ -12,7 +12,7 @@
           tr
             td
               h4
-                = truncate key 50
+                = key.name
             td
               if App.userProfile.authorizedGitHubUserName
                 button.ui.btn click='addToGithub key' disabled={saving} Add to GitHub
