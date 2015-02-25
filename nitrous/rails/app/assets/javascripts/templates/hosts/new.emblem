@@ -29,21 +29,32 @@
 
       .card-body.bordered
         .credit-message class='show'
-          if App.billingUsage.creditsRemaining
+          if App.billingProfile.isFreeTier
             p.note-text
               ' You have
-              span
-                | $
-                = currency App.billingUsage.creditsRemaining
-                '  Credit
+              span class='free-credit'
+                | $#{promoCodeInfo.content}
+                '  Free Credit
               '
               | available.
-          else
-            p.note-text
-              ' Your current estimated billing charge is
-              span 
-                | $
-                = currency App.billingUsage.estimatedCharge
+
+          else 
+            if App.billingUsage.creditsRemaining
+              p.note-text
+                ' You have
+                span class='credits-remaining'
+                  | $
+                  = currency App.billingUsage.creditsRemaining
+                  '  Credit
+                '
+                | available.
+            else 
+              if App.billingUsage.estimatedCharge
+                p.note-text
+                  ' Your current estimated billing charge is
+                  span class='estimated-charge'
+                    | $
+                    = currency App.billingUsage.estimatedCharge
 
 
         p.note-text.see-terms
