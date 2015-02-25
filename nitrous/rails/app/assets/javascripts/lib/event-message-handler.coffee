@@ -36,10 +36,16 @@ App.EventMessageHandler = App.EventsSocket.extend
         host.set 'progress', null
 
     ['host.restarted', 'host.restarting', 'host.updated',
-      'host.upgraded', 'host.upgrading', 'host.upgrade_failed'].forEach (evt) =>
+      'host.upgrading', 'host.upgrade_failed'].forEach (evt) =>
       @on evt, (data) ->
         hostData = data.host
         findHost(hostData)?.load(hostData)
+
+    @on 'host.upgraded', (data) ->
+        hostData = data.host
+        return unless host = findHost(hostData)
+        host.load(hostData)
+        host.reload()
 
     ['volume.created', 'volume.destroyed'].forEach (evt) =>
       @on evt, (data) ->
