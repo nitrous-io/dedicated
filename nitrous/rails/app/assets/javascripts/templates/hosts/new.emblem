@@ -28,16 +28,36 @@
               App.PlanListItemView content=plan selected=selectedPlan
 
       .card-body.bordered
-        .credit-message class={availableCredit:show}
-          p.note-text
-            ' You have
-            span
-              ' $#{availableCredit}
-              if promoCreditNotYetReceived
-                ' Free
-              ' Credit
-            '
-            | available.
+        .credit-message class='show'
+          if App.billingProfile.isFreeTier
+            if promoCodeInfo.content
+              p.note-text
+                ' You have
+                span class='free-credit'
+                  | $
+                  = currency promoCodeInfo.content
+                  '  Free Credit
+                '
+                | available.
+
+          else
+            if App.billingUsage.creditsRemaining
+              p.note-text
+                ' You have
+                span class='credits-remaining'
+                  | $
+                  = currency App.billingUsage.creditsRemaining
+                  '  Credit
+                '
+                | available.
+            else
+              if App.billingUsage.estimatedCharge
+                p.note-text
+                  ' Your current estimated billing charge is
+                  span
+                    | $
+                    = currency App.billingUsage.estimatedCharge
+
 
         p.note-text.see-terms
           | Please review the&nbsp;

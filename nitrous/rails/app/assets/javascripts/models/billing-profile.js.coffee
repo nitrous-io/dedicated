@@ -31,6 +31,10 @@ App.BillingProfile = klass = App.Model.extend
     @get('state') == 'payment_due' || @get('state') == 'delinquent'
   ).property 'state'
 
+  isFreeTier: (->
+    @get('state') == 'free'
+  ).property('state')
+
   # override the default save method
   save: (params, options) ->
     adapter = Ember.get(@constructor, 'adapter')
