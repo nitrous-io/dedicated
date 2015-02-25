@@ -13,9 +13,15 @@
             td
               h4
                 = key.name
-            td
+            td.right
               if App.userProfile.authorizedGitHubUserName
-                button.ui.btn click='addToGithub key' disabled={saving} Add to GitHub
+                if saving
+                  button.ui.btn disabled='disabled'
+                    i.spinner
+                    | Adding to GitHub...
+                else
+                  button.ui.btn click='addToGithub key' disabled={saving} Add to GitHub
+
   else
     p.hint-text
       i.fa.fa-exclamation-circle
