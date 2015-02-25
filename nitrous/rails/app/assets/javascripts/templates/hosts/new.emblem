@@ -30,13 +30,15 @@
       .card-body.bordered
         .credit-message class='show'
           if App.billingProfile.isFreeTier
-            p.note-text
-              ' You have
-              span class='free-credit'
-                | $#{promoCodeInfo.content}
-                '  Free Credit
-              '
-              | available.
+            if promoCodeInfo.content
+              p.note-text
+                ' You have
+                span class='free-credit'
+                  | $
+                  = currency promoCodeInfo.content
+                  '  Free Credit
+                '
+                | available.
 
           else 
             if App.billingUsage.creditsRemaining

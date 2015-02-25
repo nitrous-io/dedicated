@@ -13,7 +13,7 @@
             ' Sign up and receive
             span
               | $
-              = promoCodeInfo.content
+              = currency promoCodeInfo.content
               '
               ' Free
             | Credit
