@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
@@ -60,7 +61,7 @@ var _ = Describe("controllers/events", func() {
 			ts := httptest.NewServer(svr.Router())
 			defer ts.Close()
 
-			// check that cross origin request works
+			// Check that cross origin request works.
 			header := http.Header{}
 			header.Set("Origin", "http://www.example.com")
 
@@ -69,7 +70,8 @@ var _ = Describe("controllers/events", func() {
 			wsURL, err := url.Parse(fmt.Sprintf("ws://%s/api/v0/events", ts.Listener.Addr().String()))
 			Expect(err).To(BeNil())
 			wsURL.RawQuery = params.Encode()
-			conn, dialResp, err := websocket.DefaultDialer.Dial(wsURL.String(), header)
+			dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Millisecond}
+			conn, dialResp, err := dialer.Dial(wsURL.String(), header)
 			Expect(err).To(BeNil())
 			defer conn.Close()
 			Expect(dialResp.Header.Get("Sec-WebSocket-Accept")).NotTo(BeEmpty())
@@ -83,19 +85,44 @@ var _ = Describe("controllers/events", func() {
 			svr.Events.Publish(message{ID: 2, Text: "siang ka pager?"}, topic)
 
 			var out message
-			err = conn.ReadJSON(&out)
-			Expect(err).To(BeNil())
-			Expect(out).To(Equal(message{ID: 1, Text: "moshi moshi"}))
-			err = conn.ReadJSON(&out)
-			Expect(err).To(BeNil())
-			Expect(out).To(Equal(message{ID: 2, Text: "siang ka pager?"}))
+			errCh := make(chan error, 1)
+			go func() {
+				errCh <- conn.ReadJSON(&out)
+			}()
+			select {
+			case err := <-errCh:
+				Expect(err).To(BeNil())
+				Expect(out).To(Equal(message{ID: 1, Text: "moshi moshi"}))
+			case <-time.After(100 * time.Millisecond):
+				Fail("Timeout reading JSON from WS connection.")
+			}
 
+			// Read 2nd message.
+			go func() {
+				errCh <- conn.ReadJSON(&out)
+			}()
+			select {
+			case err := <-errCh:
+				Expect(err).To(BeNil())
+				Expect(out).To(Equal(message{ID: 2, Text: "siang ka pager?"}))
+			case <-time.After(100 * time.Millisecond):
+				Fail("Timeout reading JSON from WS connection.")
+			}
+
+			// Test that strings work too.
 			svr.Events.Publish("hello hello", topic)
 
 			var s string
-			err = conn.ReadJSON(&s)
-			Expect(err).To(BeNil())
-			Expect(s).To(Equal("hello hello"))
+			go func() {
+				errCh <- conn.ReadJSON(&s)
+			}()
+			select {
+			case err := <-errCh:
+				Expect(err).To(BeNil())
+				Expect(s).To(Equal("hello hello"))
+			case <-time.After(100 * time.Millisecond):
+				Fail("Timeout reading JSON from WS connection.")
+			}
 		})
 
 		It("returns an error if not sent a valid bearer token", func() {
