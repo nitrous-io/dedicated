@@ -107,26 +107,20 @@ func errorLoggerFn(logger *logger.Logger, cn *container.Container, tempState con
  * and logger functions and call doExclusive to perform the actual
  * exclusive task.
  */
-func doContainerExclusive(cn *container.Container, env *middleware.Env, tempState container.State, task taskFn) error {
+func doContainerExclusive(cn *container.Container, env *middleware.Env, tempState container.State, lockTime time.Duration, task taskFn) error {
 	return doExclusive(
-		lockerFn(cn, env, transitionLockTime, tempState),
+		lockerFn(cn, env, lockTime, tempState),
 		unlockerFn(cn, env),
 		errorLoggerFn(env.Logger, cn, tempState),
 		task)
 }
 
 /*
- * Async version of doExclusive. If the async flag is false it becomes
- * sync and just call doExclusive. Otherwise it will return immediately
- * once locking is successful. The critical section task and unlocking
- * is done in a goroutine. Their error cannot be returned and thus can
- * only be handled by given error handler function.
+ * Async version of doExclusive. It will return immediately once locking is successful.
+ * The critical section task and unlocking is done in a goroutine. Their error cannot
+ * be returned and thus can only be handled by given error handler function.
  */
-func doAsyncExclusive(async bool, locker taskFn, unlocker taskFn, errHandler errorHandlerFn, task taskFn) error {
-	if !async {
-		return doExclusive(locker, unlocker, errHandler, task)
-	}
-
+func doAsyncExclusive(locker taskFn, unlocker taskFn, errHandler errorHandlerFn, task taskFn) error {
 	err := locker()
 	if err != nil {
 		errHandler(err)
@@ -150,10 +144,19 @@ func doAsyncExclusive(async bool, locker taskFn, unlocker taskFn, errHandler err
 	return nil
 }
 
+func doSyncOrAsyncExclusive(async bool, locker taskFn, unlocker taskFn, errHandler errorHandlerFn, task taskFn) error {
+	if async {
+		return doAsyncExclusive(locker, unlocker, errHandler, task)
+	} else {
+		return doExclusive(locker, unlocker, errHandler, task)
+	}
+}
+
 // Async version of doContainerExclusive
-func doContainerAsyncExclusive(async bool, cn *container.Container, env *middleware.Env, tempState container.State, task taskFn) error {
-	return doAsyncExclusive(async,
-		lockerFn(cn, env, reconfigLockTime, tempState),
+func doContainerSyncOrAsyncExclusive(async bool, cn *container.Container, env *middleware.Env, tempState container.State, lockTime time.Duration, task taskFn) error {
+	return doSyncOrAsyncExclusive(
+		async,
+		lockerFn(cn, env, lockTime, tempState),
 		unlockerFn(cn, env),
 		errorLoggerFn(env.Logger, cn, tempState),
 		task)

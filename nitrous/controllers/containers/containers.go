@@ -341,7 +341,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	}
 
 	return doContainerExclusive(
-		cn, env, container.StateStarting,
+		cn, env, container.StateStarting, transitionLockTime,
 		func() error {
 			// broadcast transitioning state
 			publishContainerEvent(env, controllers.EventContainerStarting, cn)
@@ -373,7 +373,7 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 		}
 
 		return doContainerExclusive(
-			cn, env, tempState,
+			cn, env, tempState, transitionLockTime,
 			func() error {
 				// broadcast transitioning state
 				evtName, err := getEventName(tempState)
@@ -419,7 +419,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	db := env.DB
 
 	return doContainerExclusive(
-		cn, env, container.StateTerminating,
+		cn, env, container.StateTerminating, transitionLockTime,
 		func() error {
 			// broadcast transitioning state
 			publishContainerEvent(env, controllers.EventContainerDestroying, cn)

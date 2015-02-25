@@ -47,8 +47,9 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 	}
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 
-	err = doContainerAsyncExclusive(
-		async, cn, env, container.StateReconfiguring,
+	err = doContainerSyncOrAsyncExclusive(
+		async, cn, env,
+		container.StateReconfiguring, reconfigLockTime,
 		func() error {
 			publishContainerEvent(env, controllers.EventContainerReconfiguring, cn)
 

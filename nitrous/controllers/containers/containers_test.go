@@ -1559,7 +1559,7 @@ var _ = Describe("controllers/containers", func() {
 		}
 
 		Describe("Generic lock test", func() {
-			It("Success DoExclusive", func() {
+			It("Task, locker and unlocker should be called if all is completed successfully", func() {
 				locker, lockerCalled := taskSpy(nil)
 				unlocker, unlockerCalled := taskSpy(nil)
 				errHandler, errorCaught := errorSpy()
@@ -1581,7 +1581,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(errorCaught()).To(BeNil())
 			})
 
-			It("Lock fail test", func() {
+			It("Task and unlocker should not be called if locker function failed", func() {
 				lockErr := errors.New("Container is locked")
 
 				locker, lockerCalled := taskSpy(lockErr)
@@ -1598,7 +1598,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(errorCaught()).To(Equal(lockErr))
 			})
 
-			It("Task fail test", func() {
+			It("Unlocker should always be called even when task failed", func() {
 				taskErr := errors.New("Error in task")
 
 				locker, lockerCalled := taskSpy(nil)
@@ -1615,7 +1615,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(errorCaught()).To(Equal(taskErr))
 			})
 
-			It("Unlock fail test", func() {
+			It("Unlocker error should be handled by error handler", func() {
 				unlockErr := errors.New("Failed to unlock container")
 
 				locker, lockerCalled := taskSpy(nil)
@@ -1632,7 +1632,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(errorCaught()).To(Equal(unlockErr))
 			})
 
-			It("Task and Unlock fail test", func() {
+			It("Unlock error should override task error if both failed", func() {
 				taskErr := errors.New("Error in task")
 				unlockErr := errors.New("Failed to unlock container")
 
@@ -1661,7 +1661,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(unlockErrorCaught()).To(Equal(unlockErr))
 			})
 
-			It("Panic Unlock test", func() {
+			It("Unlocker should always be called even on panic", func() {
 				locker, lockerCalled := taskSpy(nil)
 				unlocker, unlockerCalled := taskSpy(nil)
 				errHandler, errorCaught := errorSpy()
@@ -1715,14 +1715,14 @@ var _ = Describe("controllers/containers", func() {
 		}
 
 		Describe("Async generic lock test", func() {
-			It("Success doAsyncExclusive", func() {
+			It("Task and unlocker should eventually be called on success", func() {
 				locker, lockerCalled := taskSpy(nil)
 				errHandler, errorCaught := errorSpy()
 
 				task, taskCalledChan := asyncTaskSpy(nil)
 				unlocker, unlockerCalledChan := asyncTaskSpy(nil)
 
-				err := containers.DoAsyncExclusive(true, locker, unlocker, errHandler, task)
+				err := containers.DoAsyncExclusive(locker, unlocker, errHandler, task)
 
 				Expect(err).To(BeNil())
 				Expect(lockerCalled()).To(BeTrue())
@@ -1733,7 +1733,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(errorCaught()).To(BeNil())
 			})
 
-			It("Lock Error", func() {
+			It("Should return immediately if locker fail", func() {
 				lockErr := errors.New("Container is locked")
 
 				locker, lockerCalled := taskSpy(lockErr)
@@ -1742,7 +1742,7 @@ var _ = Describe("controllers/containers", func() {
 				task, taskCalledChan := asyncTaskSpy(nil)
 				unlocker, unlockerCalledChan := asyncTaskSpy(nil)
 
-				err := containers.DoAsyncExclusive(true, locker, unlocker, errHandler, task)
+				err := containers.DoAsyncExclusive(locker, unlocker, errHandler, task)
 
 				Expect(err).To(Equal(lockErr))
 				Expect(lockerCalled()).To(BeTrue())
@@ -1752,7 +1752,7 @@ var _ = Describe("controllers/containers", func() {
 				Consistently(unlockerCalledChan).ShouldNot(Receive())
 			})
 
-			It("Task Error", func() {
+			It("Async task error should be handled by error handler", func() {
 				taskErr := errors.New("Task error")
 
 				locker, lockerCalled := taskSpy(nil)
@@ -1762,7 +1762,7 @@ var _ = Describe("controllers/containers", func() {
 
 				errHandler, errorChan := asyncErrorSpy()
 
-				err := containers.DoAsyncExclusive(true, locker, unlocker, errHandler, task)
+				err := containers.DoAsyncExclusive(locker, unlocker, errHandler, task)
 
 				Expect(err).To(BeNil())
 				Expect(lockerCalled()).To(BeTrue())
@@ -1775,7 +1775,7 @@ var _ = Describe("controllers/containers", func() {
 				<-unlockerCalledChan
 			})
 
-			It("Unlock Error", func() {
+			It("Unlock error should be handled by error handler", func() {
 				unlockErr := errors.New("Error Unlocking container")
 
 				locker, lockerCalled := taskSpy(nil)
@@ -1785,7 +1785,7 @@ var _ = Describe("controllers/containers", func() {
 
 				errHandler, errorChan := asyncErrorSpy()
 
-				err := containers.DoAsyncExclusive(true, locker, unlocker, errHandler, task)
+				err := containers.DoAsyncExclusive(locker, unlocker, errHandler, task)
 
 				Expect(err).To(BeNil())
 				Expect(lockerCalled()).To(BeTrue())
@@ -1797,7 +1797,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(err).To(Equal(unlockErr))
 			})
 
-			It("Task and Unlock Error", func() {
+			It("Both task and unlock errors should be handled by error handler", func() {
 				taskErr := errors.New("Task error")
 				unlockErr := errors.New("Error Unlocking container")
 
@@ -1808,7 +1808,7 @@ var _ = Describe("controllers/containers", func() {
 
 				errHandler, errorChan := asyncErrorSpy()
 
-				err := containers.DoAsyncExclusive(true, locker, unlocker, errHandler, task)
+				err := containers.DoAsyncExclusive(locker, unlocker, errHandler, task)
 
 				Expect(err).To(BeNil())
 				Expect(lockerCalled()).To(BeTrue())
@@ -1887,7 +1887,7 @@ var _ = Describe("controllers/containers", func() {
 				}
 			})
 
-			It("Lock race test", func() {
+			It("Other container operations should fail when container is doing exlusive task", func() {
 				locker := containers.LockerFn(cn, env, lockTime, container.StateStarting)
 				unlocker := containers.UnlockerFn(cn, env)
 
@@ -1924,7 +1924,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 			})
 
-			It("Unlock fail test", func() {
+			It("Unlock failure will cause subsequent locks to fail and should be logged", func() {
 				locker := containers.LockerFn(cn, env, lockTime, container.StateStarting)
 
 				unlockErr := errors.New("Failed to unlock container")
@@ -1947,7 +1947,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(res.Code).To(Equal(http.StatusConflict))
 			})
 
-			It("Expired lock test", func() {
+			It("Lock expired after unlock failure should allow other container lock operations again", func() {
 				locker := containers.LockerFn(cn, env, -1*time.Second, container.StateStarting)
 
 				taskErr := errors.New("Failed to start container")
@@ -1970,7 +1970,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 			})
 
-			It("Async container lock test", func() {
+			It("Async container lock should return while critical section running in background", func() {
 				taskErr := errors.New("Reconfiguration error")
 
 				locker := containers.LockerFn(cn, env, lockTime, container.StateReconfiguring)
@@ -1991,7 +1991,7 @@ var _ = Describe("controllers/containers", func() {
 				cn2 := getContainerInfo()
 				Expect(cn2.State).To(Equal("stopped"))
 
-				err := containers.DoAsyncExclusive(true, locker, wrappedUnlocker, errHandler,
+				err := containers.DoAsyncExclusive(locker, wrappedUnlocker, errHandler,
 					func() error {
 						defer GinkgoRecover()
 
