@@ -606,6 +606,9 @@ func InvoiceItemsForUsages(usages []hosttransition.HostHourUsage, planHostMap ma
 		}
 		items[indx] = i
 		ch := i.TotalCharge(&plan.Plan{Price: planPrice})
+		if logger != nil {
+			logger.Infof("biller: InvoiceItem UserID: %d HostID: %d Hours: %d HourlyPrice: %d TotalCharge: %d Monthly Plan: %d", usage.UserID, i.HostID.Int64, i.Hours.Int64, i.HourlyPrice.Int64, ch, planPrice)
+		}
 		totalCharge += ch
 	}
 	return totalCharge, items, nil
