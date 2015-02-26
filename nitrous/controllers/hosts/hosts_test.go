@@ -561,7 +561,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
-				Expect(errDesc).To(Equal("host is not running"))
+				Expect(errDesc).To(Equal("workspace is not running"))
 			})
 		})
 
@@ -578,7 +578,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
-				Expect(errDesc).To(Equal("host is not running"))
+				Expect(errDesc).To(Equal("workspace is not running"))
 			})
 		})
 
@@ -916,7 +916,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
-				Expect(errDesc).To(Equal("host is not running"))
+				Expect(errDesc).To(Equal("workspace is not running"))
 			})
 
 			It("allows host to be restarted if force=true", func() {
