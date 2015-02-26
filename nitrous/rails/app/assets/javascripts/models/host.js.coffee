@@ -19,7 +19,7 @@ App.Host = klass = App.Model.extend
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
   liveFreighterdVersion: attr(as: 'live_freighterd_version', serialize: false)
   liveDockerVersion: attr(as: 'live_docker_version', serialize: false)
-  upgradeAvailable: attr('boolean', as: 'upgrade_available', serialize: false)
+  upgradeAvailable: attr(as: 'upgrade_available', serialize: false)
 
   # only used in create
   planSlug: attr(as: 'size')
@@ -92,6 +92,22 @@ App.Host = klass = App.Model.extend
     else
       @set 'stats', null
   ).observes 'state'
+
+  isHostUpgradeHard: (->
+    @get('upgradeAvailable') == "hard"
+  ).property 'upgradeAvailable'
+
+  isHostUpgradeSoft: (->
+    @get('upgradeAvailable') == "soft"
+  ).property 'upgradeAvailable'
+
+  canUpgrade: (->
+    return false if @get('isUpgrading')
+    return false if @get('upgradeAvailable') == ""
+    return true if @get('isHostUpgradeSoft')
+    return !@get('containers').any (con)->
+      !(con.get('isStopped') || con.get('isTerminated'))
+  ).property 'upgradeAvailable', 'containers.@each.state'
 
   prefetchResources: ->
     @get 'images'

@@ -5,10 +5,13 @@
     unless isUpgrading
       .notice-text
         i.fa.fa-warning
-        '
-        | There are updates available.
-        '
-        a click='upgrade' href="#" Update Now
+        if canUpgrade
+          '
+          | There are updates available.
+          '
+          a click='upgrade' href="#" Update Now
+        else
+          | There are updates available. Please stop your containers before updating.
 
   table.ui.table.horizontal
     tr
