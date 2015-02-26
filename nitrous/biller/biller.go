@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/stripe/stripe-go"
@@ -23,10 +24,13 @@ import (
 	striitem "github.com/stripe/stripe-go/invoiceitem"
 )
 
-// the minimum value (in cents) a invoice must equal to send off to Stripe
-// otherwise it will rollover to the next invoice
 const (
-	MinPriceDiffRatio    = 1.5
+	// the maximum ratio we permit the plan price to be greater than the host total charge
+	MaxPriceDiffRatio = 1.5
+	// the maximum ratio we permit the host total charge to be greater than the plan price
+	MaxHostPriceDiffRatio = 1.01
+	// the minimum value (in cents) a invoice must equal to send off to Stripe
+	// otherwise it will rollover to the next invoice
 	MinimumInvoiceAmount = 100
 )
 
@@ -112,7 +116,16 @@ func (b *Biller) createOrUpdateInvoice() (res *InvoiceResult, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("biller: failed retrieving billable host hours for user %d, err: %v", b.user.ID, err)
 	}
-	totalCharge, items := InvoiceItemsForUsages(usages, b.logger)
+
+	pHMap, err := b.planHostMap()
+	if err != nil {
+		return nil, fmt.Errorf("biller: failed retrieving mapping of hosts to plan pricing for user %d, err: %v", b.user.ID, err)
+	}
+
+	totalCharge, items, err := InvoiceItemsForUsages(usages, pHMap, b.logger)
+	if err != nil {
+		return nil, fmt.Errorf("biller: failed retrieving invoice items for user %d, err: %v", b.user.ID, err)
+	}
 	if len(items) == 0 {
 		return nil, ErrNoUsage
 	}
@@ -217,11 +230,16 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 		return fmt.Errorf("biller: skipping stripe, billing profile for user %d lacks StripeID", b.user.ID)
 	}
 
+	pHMap, err := b.planHostMap()
+	if err != nil {
+		return fmt.Errorf("biller: failed retrieving mapping of hosts to plan pricing for user %d, err: %v", b.user.ID, err)
+	}
+
 	if inv.TotalCharge == 0 {
 		b.logger.Infof("biller: charge 0, not contacting stripe to charge for items in invoice %d", inv.ID)
 	} else {
 		b.logger.Infof("biller: contacting stripe for invoice %d", inv.ID)
-		if err := b.billStripeInvoiceItems(bp, inv, items); err != nil {
+		if err := b.billStripeInvoiceItems(bp, pHMap, inv, items); err != nil {
 			return fmt.Errorf("biller: failure billing stripe for invoice %d, err: %v", inv.ID, err)
 		}
 	}
@@ -279,7 +297,7 @@ func (b *Biller) billStripeInvoice(bp *billingprofile.BillingProfile, i *invoice
 	}
 }
 
-func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, i *invoice.Invoice, items []invoiceitem.InvoiceItem) error {
+func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, planHostMap map[int64]int64, i *invoice.Invoice, items []invoiceitem.InvoiceItem) error {
 	hosts, err := host.FindAllWithTerminated(b.db, b.user)
 	if err != nil {
 		return err
@@ -302,12 +320,20 @@ func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, i *in
 			tx.Rollback()
 			return fmt.Errorf("Could not locate host %d for invoice %d", invI.HostID.Int64, invI.ID)
 		}
+		var pl *plan.Plan
+		if !invI.Credit.Valid {
+			planPrice, ok := planHostMap[invI.HostID.Int64]
+			if !ok {
+				return fmt.Errorf("Could not locate plan pricing for host %d for invoice %d", invI.HostID.Int64, invI.ID)
+			}
+			pl = &plan.Plan{Price: planPrice}
+		}
 
 		desc := invoiceitem.ItemDescription(&invI, matchingHost)
 		if invI.StripeID.String == "" {
 			ii, err := striitem.New(&stripe.InvoiceItemParams{
 				Customer: bp.StripeID.String,
-				Amount:   invI.TotalCharge(),
+				Amount:   invI.TotalCharge(pl),
 				Currency: "usd",
 				Desc:     desc,
 			})
@@ -325,7 +351,7 @@ func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, i *in
 			_, err := striitem.Update(
 				invI.StripeID.String,
 				&stripe.InvoiceItemParams{
-					Amount: invI.TotalCharge(),
+					Amount: invI.TotalCharge(pl),
 					Desc:   desc,
 				})
 			if err != nil {
@@ -333,7 +359,7 @@ func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, i *in
 				return err
 			}
 		}
-		b.logger.Infof("biller: submitted invoice item %d, Total Charge: %d", invI.ID, invI.TotalCharge())
+		b.logger.Infof("biller: submitted invoice item %d, Total Charge: %d", invI.ID, invI.TotalCharge(pl))
 	}
 	err = tx.Commit()
 	if err != nil {
@@ -452,32 +478,24 @@ func (b *Biller) associateDeferredInvoices(upI *stripe.Invoice, i *invoice.Invoi
 }
 
 func (b *Biller) sanityCheckInvoiceItems(items []invoiceitem.InvoiceItem) error {
-	type planHost struct {
-		HostID int64 `db:"host_id"`
-		Price  int64 `db:"price"`
-	}
-	pHs := []*planHost{}
-	if err := b.db.Select(&pHs, `SELECT hosts.id AS host_id, plans.price FROM hosts INNER JOIN plans ON hosts.plan_id = plans.id WHERE hosts.user_id = $1`, b.user.ID); err != nil {
+	mapping, err := b.planHostMap()
+	if err != nil {
 		return err
 	}
-
-	mapping := make(map[int64]int64)
-	for _, pH := range pHs {
-		mapping[pH.HostID] = pH.Price
-	}
-
 	for _, item := range items {
-		hostPrice, ok := mapping[item.HostID.Int64]
+		planPrice, ok := mapping[item.HostID.Int64]
 		if !ok {
 			return fmt.Errorf("biller: Could not locate plan for user %d host %d", b.user.ID, item.HostID.Int64)
 		}
-		if item.TotalCharge() > hostPrice {
-			return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds plan price %d", item.TotalCharge(), b.user.ID, item.HostID.Int64, hostPrice)
+		uncappedRatio := float64(item.UncappedTotalCharge()) / float64(planPrice)
+		if uncappedRatio > MaxHostPriceDiffRatio {
+			return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds plan price ratio %d by %f", item.UncappedTotalCharge(), b.user.ID, item.HostID.Int64, planPrice, uncappedRatio)
 		}
 		if item.Hours.Int64 == invoiceitem.MaxHours {
-			priceRatio := float64(hostPrice) / float64(item.TotalCharge())
-			if priceRatio >= MinPriceDiffRatio {
-				return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds ratio %f with %f", item.TotalCharge(), b.user.ID, item.HostID.Int64, MinPriceDiffRatio, priceRatio)
+			pl := &plan.Plan{Price: planPrice}
+			priceRatio := float64(planPrice) / float64(item.TotalCharge(pl))
+			if priceRatio >= MaxPriceDiffRatio {
+				return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds ratio %f with %f", item.TotalCharge(pl), b.user.ID, item.HostID.Int64, MaxPriceDiffRatio, priceRatio)
 			}
 		}
 	}
@@ -517,6 +535,10 @@ func updateAvailableCredits(tx *sqlx.Tx, userID int64, invID int64, amount int64
 		Consumed:  deduction,
 		Available: availableCredits,
 	}, nil
+}
+
+func (b *Biller) planHostMap() (map[int64]int64, error) {
+	return plan.PlanPricingHostMap(b.db, b.user.ID)
 }
 
 func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd *time.Time) {
@@ -561,7 +583,7 @@ func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd
 	}
 }
 
-func InvoiceItemsForUsages(usages []hosttransition.HostHourUsage, logger *logger.Logger) (int64, []invoiceitem.InvoiceItem) {
+func InvoiceItemsForUsages(usages []hosttransition.HostHourUsage, planHostMap map[int64]int64, logger *logger.Logger) (int64, []invoiceitem.InvoiceItem, error) {
 	totalCharge := int64(0)
 	items := make([]invoiceitem.InvoiceItem, len(usages))
 	for indx, usage := range usages {
@@ -572,6 +594,10 @@ func InvoiceItemsForUsages(usages []hosttransition.HostHourUsage, logger *logger
 				logger.Infof("Invoice for host %d, capping to %d hrs. original = %d hrs", usage.HostID, hrs, usage.Hours())
 			}
 		}
+		planPrice, ok := planHostMap[usage.HostID]
+		if !ok {
+			return totalCharge, items, fmt.Errorf("Unable to locate plan price for %d", usage.HostID)
+		}
 		i := invoiceitem.InvoiceItem{
 			Hours:       sql.NullInt64{int64(hrs), true},
 			HourlyPrice: sql.NullInt64{usage.HourlyPrice, true},
@@ -579,9 +605,13 @@ func InvoiceItemsForUsages(usages []hosttransition.HostHourUsage, logger *logger
 			Terminated:  usage.Terminated,
 		}
 		items[indx] = i
-		totalCharge += i.TotalCharge()
+		ch := i.TotalCharge(&plan.Plan{Price: planPrice})
+		if logger != nil {
+			logger.Infof("biller: InvoiceItem UserID: %d HostID: %d Hours: %d HourlyPrice: %d TotalCharge: %d Monthly Plan: %d", usage.UserID, i.HostID.Int64, i.Hours.Int64, i.HourlyPrice.Int64, ch, planPrice)
+		}
+		totalCharge += ch
 	}
-	return totalCharge, items
+	return totalCharge, items, nil
 }
 
 func StartEndTimeOrDefault(periodStart, periodEnd *time.Time) (time.Time, time.Time) {

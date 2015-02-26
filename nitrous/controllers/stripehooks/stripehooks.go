@@ -10,8 +10,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/stripe/stripe-go/event"
 	stripeinvoice "github.com/stripe/stripe-go/invoice"
 )
@@ -89,7 +91,7 @@ func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) {
 		env.Logger.Errorf("Error looking up user %d for invoice %d pubsub %s, err: %+v", inv.UserID, inv.ID, err)
 		return
 	}
-	sInv, err := serializeInvoice(env.DB, inv)
+	sInv, err := serializeInvoice(env.DB, inv, env.Logger)
 	if err != nil {
 		env.Logger.Errorf("Error serializing invoice %d for user %d pubsub %s, err: %+v", inv.UserID, inv.ID, err)
 		return
@@ -102,7 +104,7 @@ func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) {
 	)
 }
 
-func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice) (*serializers.Invoice, error) {
+func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice, logger *logger.Logger) (*serializers.Invoice, error) {
 	sInv := serializers.SerializeInvoice(inv)
 
 	items := []invoiceitem.InvoiceItem{}
@@ -111,14 +113,19 @@ func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice) (*serializers.In
 		return nil, err
 	}
 
-	hosts := []host.Host{}
-	err = d.Select(&hosts, "SELECT hosts.* FROM hosts INNER JOIN invoice_items ON invoice_items.host_id = hosts.id WHERE invoice_items.invoice_id = $1 ORDER BY hosts.id DESC;", inv.ID)
+	type hst struct {
+		HostID    int64  `db:"host_id"`
+		HostSlug  string `db:"host_slug"`
+		PlanPrice int64  `db:"plan_price"`
+	}
+	hosts := []hst{}
+	err = d.Select(&hosts, "SELECT hosts.id host_id, hosts.slug host_slug, plans.price plan_price FROM hosts INNER JOIN invoice_items ON invoice_items.host_id = hosts.id INNER JOIN plans ON hosts.plan_id = plans.id WHERE invoice_items.invoice_id = $1 ORDER BY hosts.id DESC;", inv.ID)
 	if err != nil {
 		return nil, err
 	}
-	hMap := make(map[int64]*host.Host)
+	hMap := make(map[int64]hst)
 	for indx, host := range hosts {
-		hMap[host.ID] = &hosts[indx]
+		hMap[host.HostID] = hosts[indx]
 	}
 
 	for _, item := range items {
@@ -126,9 +133,16 @@ func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice) (*serializers.In
 			sInv.TotalCredit += item.Credit.Int64
 		} else {
 			ser := serializers.SerializeInvoiceItem(&item)
-			ser.Description = invoiceitem.ItemDescription(&item, hMap[ser.HostID])
 			if hst, ok := hMap[ser.HostID]; ok {
-				ser.HostSlug = hst.Slug
+				ser.HostSlug = hst.HostSlug
+				ser.Description = invoiceitem.ItemDescription(&item, &host.Host{Slug: hst.HostSlug})
+				ser.TotalCharge = item.TotalCharge(&plan.Plan{Price: hst.PlanPrice})
+			} else {
+				ser.Description = "Information not available at this time"
+				ser.TotalCharge = item.UncappedTotalCharge()
+				if logger != nil {
+					logger.Errorf("stripehooks: Unable to locate host %d in hMap for user %d", ser.HostID, inv.UserID)
+				}
 			}
 			sInv.Items = append(sInv.Items, *ser)
 		}

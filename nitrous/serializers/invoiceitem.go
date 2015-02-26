@@ -27,6 +27,5 @@ func SerializeInvoiceItem(i *invoiceitem.InvoiceItem) *InvoiceItem {
 		Hours:       i.Hours.Int64,
 		Terminated:  i.Terminated,
 		HourlyCents: i.HourlyCents(),
-		TotalCharge: i.TotalCharge(),
 	}
 }

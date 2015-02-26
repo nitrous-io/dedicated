@@ -10,6 +10,7 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 )
 
 type InvoiceItem struct {
@@ -68,7 +69,18 @@ func (i *InvoiceItem) HourlyCents() float64 {
 	return float64(i.HourlyPrice.Int64) / float64(1000)
 }
 
-func (i *InvoiceItem) TotalCharge() int64 {
+func (i *InvoiceItem) TotalCharge(p *plan.Plan) int64 {
+	if i.Credit.Valid && i.Credit.Int64 != 0 {
+		return i.UncappedTotalCharge()
+	}
+	if p.Price > i.UncappedTotalCharge() {
+		return i.UncappedTotalCharge()
+	} else {
+		return p.Price
+	}
+}
+
+func (i *InvoiceItem) UncappedTotalCharge() int64 {
 	if i.Credit.Valid && i.Credit.Int64 != 0 {
 		return -1 * i.Credit.Int64
 	}
