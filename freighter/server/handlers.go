@@ -905,7 +905,7 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 // upgradeServer upgrades the freighterd and/or docker package to the version
 // specified in the request. This assumes that we are using APT to manage
 // freighterd and will probably not work everywhere.
-// sample docker_version: "1.3.0-c78088f"
+// sample docker_version: "1.3.0"
 // sample freighterd_version: "0.2.0+1424818140-0-0b52a6e"
 func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 	fv := r.PostFormValue("freighterd_version")

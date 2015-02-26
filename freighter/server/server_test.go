@@ -1999,12 +1999,24 @@ var _ = Describe("server", func() {
 		It("responds with 202 Accepted when docker version is different", func() {
 			svr.SetRunner(&fakeRunner{err: nil})
 
+			// Trap SIGTERM so that we don't terminate the test process.
+			ch := make(chan os.Signal, 1)
+			signal.Notify(ch, syscall.SIGTERM)
+			defer signal.Stop(ch)
+
 			params := &url.Values{}
 			params.Set("docker_version", "0.1.1-newversion")
 			doRequest(params)
 
-			Expect(prov.VersionCalled).To(Equal(true))
 			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			select {
+			case s := <-ch:
+				Expect(s).To(Equal(syscall.SIGTERM))
+				fmt.Printf("did get SIGTERM\n")
+			case <-time.After(1 * time.Second):
+				Fail("Timed out waiting for SIGTERM signal when upgrading freighterd")
+			}
 		})
 
 		It("notifies the webhook when there is an error upgrading docker", func() {
