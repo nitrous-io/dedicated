@@ -974,6 +974,11 @@ func (s *Server) notifyWebhookUpgradeFailed(upgradeErr error, component string) 
 // - upgrade docker if dv != ""
 // - restart freighter to notify the upgrade happened
 func (s *Server) upgradeDockerAndFreighter(dv string, fv string) {
+	err := s.updateAptSource()
+	if err != nil {
+		s.notifyWebhookUpgradeFailed(err, "docker")
+		return
+	}
 	// if both, upgrade docker first
 	if dv != "" {
 		if err := s.upgradeDocker(dv); err != nil {
@@ -996,7 +1001,7 @@ func (s *Server) upgradeDockerAndFreighter(dv string, fv string) {
 	}
 }
 
-func (s *Server) upgradeDocker(version string) error {
+func (s *Server) updateAptSource() error {
 	cmd := exec.Command("apt-get", "update",
 		"-o", "Dir::Etc::sourceparts=-",
 		"-o", "Dir::Etc::sourcelist=/etc/apt/sources.list.d/nitrousio.list")
@@ -1005,8 +1010,12 @@ func (s *Server) upgradeDocker(version string) error {
 		s.logger.Errorf("error updating docker repo, err: %v, output: %s", err, out)
 		return err
 	}
+	return nil
+}
+
+func (s *Server) upgradeDocker(version string) error {
 	pkgspec := "lxc-docker-" + version
-	cmd = exec.Command("apt-get", "install", "-y",
+	cmd := exec.Command("apt-get", "install", "-y",
 		"-o", `Dpkg::Options::=--force-confdef`, // avoid prompt
 		"-o", `Dpkg::Options::=--force-confnew`, // modify existing config file
 		pkgspec,
@@ -1021,15 +1030,6 @@ func (s *Server) upgradeDocker(version string) error {
 }
 
 func (s *Server) upgradeFreighterd(version string) error {
-	cmd := exec.Command("apt-get", "update",
-		"-o", "Dir::Etc::sourceparts=-",
-		"-o", "Dir::Etc::sourcelist=/etc/apt/sources.list.d/nitrousio.list")
-	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
-	if out, err := s.runner.Run(cmd); err != nil {
-		s.logger.Errorf("error updating freighterd repo, err: %v, output: %s", err, out)
-		return err
-	}
-
 	// Setup a dir with service-related binaries pointing to /bin/true. We will
 	// use this in the PATH for the `apt-get install` command so that the
 	// freighterd service is not restarted.
@@ -1047,7 +1047,7 @@ func (s *Server) upgradeFreighterd(version string) error {
 	if version != "" {
 		pkgspec = fmt.Sprintf("freighterd=%s", version)
 	}
-	cmd = exec.Command("apt-get", "install", "-y",
+	cmd := exec.Command("apt-get", "install", "-y",
 		"-o", `Dpkg::Options::=--force-confdef`, // avoid prompt
 		"-o", `Dpkg::Options::=--force-confold`, // do not modify existing config file
 		pkgspec,
