@@ -1041,6 +1041,22 @@ func (p *DockerProvider) CopyFromHost(id string, location string, input map[stri
 	return nil
 }
 
+func (p *DockerProvider) Version() (string, error) {
+	env, err := p.client.Version()
+	if err != nil {
+		return "", err
+	}
+	version := env.Get("Version")
+	gitCommit := env.Get("GitCommit")
+	if version == "" && gitCommit == "" {
+		return "", errors.New("no Version or GitCommit")
+	}
+	if gitCommit == "" {
+		return version, nil
+	}
+	return version + "-" + gitCommit, nil
+}
+
 type authconfig struct {
 	Auth  string `json:"auth"`
 	Email string `json:"email"`

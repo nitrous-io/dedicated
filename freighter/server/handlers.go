@@ -3,7 +3,6 @@ package server
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,7 +18,6 @@ import (
 	"syscall"
 	"time"
 
-	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/dedicated/freighter/config"
@@ -629,36 +627,15 @@ func (s *Server) serverInfo(w http.ResponseWriter, r *http.Request) error {
 }
 
 var (
-	dockerHost                                  = "unix:///var/run/docker.sock"
-	GetDockerVersionFunc func() (string, error) = GetDockerVersionReal
+	dockerHost = "unix:///var/run/docker.sock"
 )
-
-func GetDockerVersionReal() (string, error) {
-	client, err := dockerclient.NewClient(dockerHost)
-	if err != nil {
-		return "", err
-	}
-	env, err := client.Version()
-	if err != nil {
-		return "", err
-	}
-	version := env.Get("Version")
-	gitCommit := env.Get("GitCommit")
-	if version == "" && gitCommit == "" {
-		return "", errors.New("no Version or GitCommit")
-	}
-	if gitCommit == "" {
-		return version, nil
-	}
-	return version + "-" + gitCommit, nil
-}
 
 // /versions
 func (s *Server) serverVersions(w http.ResponseWriter, r *http.Request) error {
 	v := map[string]interface{}{
 		"freighterd_version": config.Version,
 	}
-	if dockerVer, err := GetDockerVersionFunc(); err == nil {
+	if dockerVer, err := s.provider.Version(); err == nil {
 		v["docker_version"] = dockerVer
 	}
 	s.respondEncodeJSON(w, http.StatusOK, v)
@@ -933,7 +910,7 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 	fv := r.PostFormValue("freighterd_version")
 	dv := r.PostFormValue("docker_version")
-	myDockerVer, err := GetDockerVersionFunc()
+	myDockerVer, err := s.provider.Version()
 	if err != nil {
 		return err
 	}
@@ -961,6 +938,7 @@ func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) notifyWebhookUpgradeFailed(upgradeErr error, component string) {
+	s.logger.Errorf("error upgrading freighterd and/or docker: %v", upgradeErr)
 	err := s.notifyWebhook(map[string]interface{}{
 		"event": "upgrade",
 		"error": upgradeErr.Error(),

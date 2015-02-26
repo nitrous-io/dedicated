@@ -1165,6 +1165,7 @@ var _ = Describe("server", func() {
 		}
 		BeforeEach(func() {
 			config.Version = "1.2-freight"
+			prov.VersionInfo = "1.4.1-5bc2ff8"
 		})
 		It("responds with 200 OK and version info", func() {
 			doRequest()
@@ -1984,14 +1985,12 @@ var _ = Describe("server", func() {
 		}
 
 		BeforeEach(func() {
-			server.GetDockerVersionFunc = func() (string, error) {
-				return "lxc-docker-0.1.1-deadbeef", nil
-			}
+			prov.VersionInfo = "0.1.1-deadbeef"
 		})
 
 		It("responds with 204 No Content when docker version is the same", func() {
 			params := &url.Values{}
-			params.Set("docker_version", "lxc-docker-0.1.1-deadbeef")
+			params.Set("docker_version", "0.1.1-deadbeef")
 			doRequest(params)
 
 			Expect(res.Code).To(Equal(http.StatusNoContent))
@@ -2001,9 +2000,10 @@ var _ = Describe("server", func() {
 			svr.SetRunner(&fakeRunner{err: nil})
 
 			params := &url.Values{}
-			params.Set("docker_version", "lxc-docker-0.1.1-newversion")
+			params.Set("docker_version", "0.1.1-newversion")
 			doRequest(params)
 
+			Expect(prov.VersionCalled).To(Equal(true))
 			Expect(res.Code).To(Equal(http.StatusAccepted))
 		})
 
@@ -2030,7 +2030,7 @@ var _ = Describe("server", func() {
 			svr.SetRunner(&fakeRunner{err: errors.New("command failed to execute")})
 
 			params := &url.Values{}
-			params.Set("docker_version", "lxc-docker-0.1.1-newversion")
+			params.Set("docker_version", "0.1.1-newversion")
 			doRequest(params)
 
 			Expect(res.Code).To(Equal(http.StatusAccepted))

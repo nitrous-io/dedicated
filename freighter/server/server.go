@@ -137,7 +137,7 @@ func (s *Server) Start() error {
 			"event":              "started",
 			"freighterd_version": config.Version,
 		}
-		if v, err := GetDockerVersionFunc(); err != nil {
+		if v, err := s.provider.Version(); err != nil {
 			data["docker_version"] = v
 		}
 
