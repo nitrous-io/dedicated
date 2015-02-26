@@ -22,7 +22,7 @@ var _ = Describe("GetConfig", func() {
 
 		name := test.RandomName("freightertest")
 		configJSON := `{
-			"PortBindings": ["private:1234:2345", "public:2345:3456", "public::3456", "private::8080"]
+			"PortBindings": ["private:1234:2345/udp", "public:2345:3456/tcp", "public::3456", "private::8080"]
 		}`
 		info, err := prov.CreateStart(name, "busybox:latest", "secret", configJSON)
 		defer test.CleanUpContainer(name)
@@ -31,8 +31,8 @@ var _ = Describe("GetConfig", func() {
 		config, err := prov.GetConfig(info.ID)
 		Expect(err).To(BeNil())
 
-		Expect(config.PortBindings).To(ContainElement("private:1234:2345"))
-		Expect(config.PortBindings).To(ContainElement("public:2345:3456"))
+		Expect(config.PortBindings).To(ContainElement("private:1234:2345/udp"))
+		Expect(config.PortBindings).To(ContainElement("public:2345:3456/tcp"))
 		Expect(config.PortBindings).To(ContainElement(MatchRegexp(`public:49\d{3}:3456`)))
 		Expect(config.PortBindings).To(ContainElement(MatchRegexp(`private:49\d{3}:8080`)))
 
@@ -43,7 +43,7 @@ var _ = Describe("GetConfig", func() {
 		Expect(err).To(BeNil())
 
 		Expect(config.PortBindings).To(ConsistOf([]string{
-			"private:1234:2345", "public:2345:3456", "public::3456", "private::8080",
+			"private:1234:2345/udp", "public:2345:3456/tcp", "public::3456/tcp", "private::8080/tcp",
 		}))
 	})
 })

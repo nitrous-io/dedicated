@@ -26,7 +26,7 @@ App.ContainerPortsController = Em.ObjectController.extend
         ^public:  # should be a public port binding
         (\d*):    # host port
         (\d*)     # container port
-        (\/tcp)?  # can be followed by tcp
+        (\/(?:tcp|udp))?  # can be followed by tcp or udp
         $         # end of string
       ///
       if m = port.match(regex)
