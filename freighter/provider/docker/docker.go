@@ -1047,14 +1047,10 @@ func (p *DockerProvider) Version() (string, error) {
 		return "", err
 	}
 	version := env.Get("Version")
-	gitCommit := env.Get("GitCommit")
-	if version == "" && gitCommit == "" {
-		return "", errors.New("no Version or GitCommit")
+	if version == "" {
+		return "", errors.New("no Version returned by p.client.Version()")
 	}
-	if gitCommit == "" {
-		return version, nil
-	}
-	return version + "-" + gitCommit, nil
+	return version, nil
 }
 
 type authconfig struct {

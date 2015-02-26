@@ -1165,15 +1165,15 @@ var _ = Describe("server", func() {
 		}
 		BeforeEach(func() {
 			config.Version = "1.2-freight"
-			prov.VersionInfo = "1.4.1-5bc2ff8"
+			prov.VersionInfo = "1.4.1-nitrous"
 		})
 		It("responds with 200 OK and version info", func() {
 			doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
 			// expected value is in the format:
-			// `{"docker_version":"1.4.1-5bc2ff8","freighterd_version":"${config.Version}"}`
+			// `{"docker_version":"1.4.1-nitrous","freighterd_version":"${config.Version}"}`
 			got := res.Body.String()
-			re := `{"docker_version":"([\d\.]*)-([a-f0-9]*)","freighterd_version":"1\.2-freight"}`
+			re := `{"docker_version":"([\d\.]*)-([a-z]*)","freighterd_version":"1\.2-freight"}`
 			matched, err := regexp.MatchString(re, got)
 			Expect(err).To(BeNil())
 			Expect(matched).To(Equal(true))
