@@ -680,6 +680,9 @@ func updateSoftware(ctx *host.HostContext) error {
 		e := fmt.Errorf("update sofware failed with '%s', output: %s", err, out)
 		hlog(h, e.Error())
 		mh.Error(e, label)
+		if strings.Contains(string(out), "'freighterd' was not found") {
+			return e
+		}
 		// failure to update a host is considered continuable
 		return nil
 	}
