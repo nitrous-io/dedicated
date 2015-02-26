@@ -1,7 +1,6 @@
 package containerkeys
 
 import (
-	"errors"
 	"net/http"
 
 	githubapi "github.com/google/go-github/github"
@@ -11,6 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
 
 var (
@@ -19,6 +19,11 @@ var (
 
 	// separated out for mocking
 	AddGitHubKeysFunc func(cn *container.Container, h *host.Host, env *middleware.Env) (string, error) = addGitHubKeys
+
+	errGitHubTokenEmpty    = httperror.New(http.StatusBadRequest, "github_token_empty", "connect your GitHub account")
+	errGitHubTokenNotValid = httperror.New(http.StatusBadRequest, "github_token_not_valid", "GitHub token is not valid")
+	ErrMultipleKeysExist   = httperror.New(http.StatusBadRequest, "multiple_keys_exist", "multiple container keys exist")
+	ErrKeyAlreadyExists    = httperror.New(http.StatusConflict, "key_already_exists", "key already exists")
 )
 
 // list returns a list of public keys in a given container
@@ -81,13 +86,12 @@ func addGitHubKeys(cn *container.Container, h *host.Host, env *middleware.Env) (
 	// ListContainerKeys() returns array of public keys, but currently we only
 	// expect one key per container
 	if len(keys) != 1 {
-		return "", errors.New("unexpected number of container keys")
+		return "", ErrMultipleKeysExist
 	}
 
-	keyToAdd := keys[0]
+	keyToAdd := keys[0].Key
 	if keyAlreadyExists(existingKeys, keyToAdd) {
-		// we consider this a success
-		return "key already exists", nil
+		return "", ErrKeyAlreadyExists
 	}
 
 	newKey := &githubapi.Key{
@@ -99,7 +103,7 @@ func addGitHubKeys(cn *container.Container, h *host.Host, env *middleware.Env) (
 	if err != nil {
 		return "", err
 	}
-	return "github key created", nil
+	return "github key added", nil
 }
 
 // addToGitHub adds public key in a given container (.ssh/id_rsa.pub) to GitHub's
@@ -108,8 +112,16 @@ func addGitHubKeys(cn *container.Container, h *host.Host, env *middleware.Env) (
 func addToGitHub(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	msg, err := AddGitHubKeysFunc(cn, h, env)
 	if err != nil {
-		return err
+		switch err {
+		case github.ErrTokenEmpty:
+			return errGitHubTokenEmpty
+		case github.ErrTokenNotValid:
+			return errGitHubTokenNotValid
+		default:
+			return err
+		}
 	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"msg": msg,

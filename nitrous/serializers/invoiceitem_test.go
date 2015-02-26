@@ -25,6 +25,7 @@ var _ = Describe("invoice item serializer", func() {
 			r := serializers.SerializeInvoiceItem(model)
 			r.HostSlug = "Slug1"
 			r.Description = "I am a desc"
+			r.TotalCharge = 12
 			b, err := json.Marshal(r)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{

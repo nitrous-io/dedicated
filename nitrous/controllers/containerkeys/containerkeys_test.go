@@ -3,6 +3,7 @@ package containerkeys_test
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/logger"
+	"github.com/nitrous-io/nitrous-common/sshkey"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -39,11 +41,13 @@ var _ = Describe("controllers/containerkeys", func() {
 
 		mockClient *freighterclient.MockClient
 
-		u    *user.User
-		t    *token.Token
-		hs   *test.HostStack
-		c    *container.Container
-		key0 string = "sample container key"
+		u  *user.User
+		t  *token.Token
+		hs *test.HostStack
+		c  *container.Container
+
+		key0   = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDATOQiODD9fe8IrqVuQKCN/8PyqCXOYrREqpmsi4Jx3m4VdwP0IwrmOylvkDYGG7HVOHKvlncwrIkDJKXlyplaqs6O5D+daY1JLuosqckGPzBlOFchdUjuqiDxdLPBEfOYr2ANZjfLjAyuGqsNAXwhn5+LHKXiXg7Le6feuEsZhP0JyAnEg9diLcmyv8f2rOPqM3L2SmZ38GbWJm1rO7+LVUmroNNa1X1UJHyQFyNOEtXHbYuoZ0xEui6UDJU/DAoVxSfTRzg9XKUWArTsKeGRmJoQBmRRtoFVe8kbs1qnJQCnHnkyH6BhoqFZ/wl7YNRvsGAta1Q1qiqLFSOYZvbT"
+		fn0, _ = sshkey.Md5Fingerprint(key0)
 	)
 
 	BeforeEach(func() {
@@ -114,16 +118,20 @@ var _ = Describe("controllers/containerkeys", func() {
 		}
 
 		It("should return container keys", func() {
-			mockClient.ListContainerKeysReturn = []string{key0}
+			mockClient.ListContainerKeysReturn = []*freighterclient.ContainerKey{
+				&freighterclient.ContainerKey{Key: key0, Fingerprint: fn0},
+			}
 			doRequest("valid-token")
 			Expect(res.Code).To(Equal(http.StatusOK))
+
 			j := struct {
-				Keys []string `json:"keys"`
+				Keys []freighterclient.ContainerKey `json:"keys"`
 			}{}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j.Keys).To(HaveLen(1))
-			Expect(j.Keys[0]).To(Equal(key0))
+			Expect(j.Keys[0].Key).To(Equal(key0))
+			Expect(j.Keys[0].Fingerprint).To(Equal(fn0))
 		})
 	})
 
@@ -135,34 +143,82 @@ var _ = Describe("controllers/containerkeys", func() {
 			svr.Router().ServeHTTP(res, req)
 		}
 
-		It("returns an error", func() {
-			doRequest()
-			// we expect this to fail because this fake user doesn't have
-			// github token
-			Expect(res.Code).To(Equal(http.StatusInternalServerError))
-			j := struct {
-				Error     string `json:"error"`
-				ErrorHash string `json:"error_hash"`
-			}{}
-			err := json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.ErrorHash).To(Equal("b036ec4d121ef7432aa3d35ecd0d7de20c1d9bf1"))
+		Context("when user hasn't authenticated with GitHub", func() {
+			It("responds with an error saying user to connect GitHub", func() {
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				err, errDesc := test.ErrorSlug(res.Body)
+				Expect(err).To(Equal("github_token_empty"))
+				Expect(errDesc).To(Equal("connect your GitHub account"))
+			})
 		})
 
-		It("returns ok", func() {
+		Context("when user's github token is not valid", func() {
+			It("responds with token not valid", func() {
+				_, err := db.Exec("UPDATE user_profiles SET github_oauth_token_json = '{}' WHERE id = $1", u.ID)
+				Expect(err).To(BeNil())
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("github_token_not_valid"))
+				Expect(errDesc).To(Equal("GitHub token is not valid"))
+			})
+		})
+
+		Context("when the key already exists in GitHub", func() {
+			It("responds with key already exists", func() {
+				containerkeys.AddGitHubKeysFunc = func(cn *container.Container, h *host.Host, env *middleware.Env) (string, error) {
+					return "", containerkeys.ErrKeyAlreadyExists
+				}
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusConflict))
+				err, errDesc := test.ErrorSlug(res.Body)
+				Expect(err).To(Equal("key_already_exists"))
+				Expect(errDesc).To(Equal("key already exists"))
+			})
+		})
+
+		Context("when user has multiple container keys", func() {
+			It("responds with multiple container keys exist", func() {
+				containerkeys.AddGitHubKeysFunc = func(cn *container.Container, h *host.Host, env *middleware.Env) (string, error) {
+					return "", containerkeys.ErrMultipleKeysExist
+				}
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				err, errDesc := test.ErrorSlug(res.Body)
+				Expect(err).To(Equal("multiple_keys_exist"))
+				Expect(errDesc).To(Equal("multiple container keys exist"))
+			})
+		})
+
+		It("returns ok when key is added", func() {
 			containerkeys.AddGitHubKeysFunc = func(cn *container.Container, h *host.Host, env *middleware.Env) (string, error) {
-				return "github key created", nil
+				return "github key added", nil
 			}
+
 			doRequest()
+
 			Expect(res.Code).To(Equal(http.StatusOK))
 			j := struct {
 				Msg string `json:"msg"`
 			}{}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.Msg).To(Equal("github key created"))
+			Expect(j.Msg).To(Equal("github key added"))
 		})
 
-	})
+		Context("when some other error occurs", func() {
+			It("responds with an internal server error", func() {
+				containerkeys.AddGitHubKeysFunc = func(cn *container.Container, h *host.Host, env *middleware.Env) (string, error) {
+					return "", errors.New("some error occurred")
+				}
 
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+		})
+	})
 })

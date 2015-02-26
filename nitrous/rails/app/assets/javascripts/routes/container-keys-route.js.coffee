@@ -7,8 +7,9 @@ App.ContainerKeysRoute = App.AuthedRoute.extend
   setupController: (controller, model) ->
     @_super.apply this, arguments
     controller.clear()
-    keys = model.get 'keys'
-    if keys && keys.get('loaded')
-      keys.reload()
+    userKeys = model.get 'userKeys'
+    if userKeys && userKeys.get('loaded')
+      userKeys.reload()
+    model.loadContainerKeys()
     App.set 'title', model.get('displayName') + ' › SSH Keys'
     Mp.track Mp.EventDashboardViewedContainerKeys

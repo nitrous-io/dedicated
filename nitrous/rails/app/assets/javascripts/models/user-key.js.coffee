@@ -1,7 +1,7 @@
 #= require ./model
 attr = SM.attr
 
-App.PublicKey = klass = App.Model.extend
+App.UserKey = klass = App.Model.extend
   id: attr('number', serialize: false)
   userId: attr('number', as: 'user_id', serialize: false)
   containerId: attr('number', as: 'container_id', serialize: false)
@@ -18,7 +18,7 @@ App.PublicKey = klass = App.Model.extend
     id = @get 'id'
     fingerprint = @get 'fingerprint'
     key = @get 'key'
-    name = key?.match(/^\s*ssh-(rsa|dss)\s+\S+\s+(\S+)/)[2] || "Public Key #{id}"
+    name = key?.match(/^\s*ssh-(rsa|dss)\s+\S+\s+(\S+)/)?[2] || "Public Key #{id}"
     "#{name} (#{fingerprint})"
   ).property 'id', 'fingerprint', 'key'
 

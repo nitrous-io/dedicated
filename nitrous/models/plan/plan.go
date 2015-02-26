@@ -56,6 +56,23 @@ func Enabled(d db.QueryReceiver) ([]*Plan, error) {
 	return pls, nil
 }
 
+func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]int64, error) {
+	type planHost struct {
+		HostID    int64 `db:"host_id"`
+		PlanPrice int64 `db:"plan_price"`
+	}
+	pHs := []*planHost{}
+	if err := d.Select(&pHs, `SELECT hosts.id AS host_id, plans.price AS plan_price FROM hosts INNER JOIN plans ON hosts.plan_id = plans.id WHERE hosts.user_id = $1`, userID); err != nil {
+		return nil, err
+	}
+
+	mapping := make(map[int64]int64)
+	for _, pH := range pHs {
+		mapping[pH.HostID] = pH.PlanPrice
+	}
+	return mapping, nil
+}
+
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
 		(slug, name, max_containers, price, cpu, memory, storage, disabled, most_popular)

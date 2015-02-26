@@ -49,7 +49,7 @@ type Container struct {
 	TouchedAt    *time.Time `db:"touched_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
-	LockedAt     *time.Time `db:"locked_at"`
+	LockedUntil  *time.Time `db:"locked_until"`
 
 	// These fields come from Freighter.
 	State      State
@@ -187,25 +187,19 @@ func (c *Container) ResolvedState() State {
 	if c.TerminatedAt != nil {
 		return StateTerminated
 	}
-	if c.TempState.Valid {
+
+	if c.TempState.Valid && c.IsLocked() {
 		return State(c.TempState.Int64)
 	}
 	return c.State
 }
 
-func (c *Container) IsLocked(d db.QueryReceiver) (bool, error) {
-	res, err := d.Exec(`
-		SELECT id FROM containers WHERE id = $1 AND (locked_at IS NULL OR locked_at < now())
-	`, c.ID)
-
-	if err != nil {
-		return false, err
+func (c *Container) IsLocked() bool {
+	if c.LockedUntil == nil {
+		return false
+	} else {
+		return time.Now().Before(*c.LockedUntil)
 	}
-
-	if i, _ := res.RowsAffected(); i > 0 {
-		return false, nil
-	}
-	return true, nil
 }
 
 func (c *Container) Lock(state State, expiresIn time.Duration, d db.QueryReceiver) error {
@@ -213,7 +207,7 @@ func (c *Container) Lock(state State, expiresIn time.Duration, d db.QueryReceive
 	expiredAt := now.Add(expiresIn)
 
 	res, err := d.Exec(`
-		UPDATE containers SET (temp_state, locked_at) = ($1, $2) WHERE id = $3 AND (locked_at IS NULL OR locked_at < $4)
+		UPDATE containers SET (temp_state, locked_until) = ($1, $2) WHERE id = $3 AND (locked_until IS NULL OR locked_until < $4)
 	`, int64(state), expiredAt, c.ID, now)
 
 	if err != nil {
@@ -224,13 +218,13 @@ func (c *Container) Lock(state State, expiresIn time.Duration, d db.QueryReceive
 	if i < 1 {
 		return ErrLocked
 	}
-	c.LockedAt = &expiredAt
+	c.LockedUntil = &expiredAt
 	c.TempState = sql.NullInt64{int64(state), true}
 	return nil
 }
 
 func (c *Container) Unlock(d db.QueryReceiver) error {
-	nstmt, err := d.PrepareNamed(`UPDATE containers SET (temp_state, locked_at) = (null, null) WHERE id = :id RETURNING *;`)
+	nstmt, err := d.PrepareNamed(`UPDATE containers SET (temp_state, locked_until) = (null, null) WHERE id = :id RETURNING *;`)
 	if err != nil {
 		return err
 	}

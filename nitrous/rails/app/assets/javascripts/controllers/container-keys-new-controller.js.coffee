@@ -17,7 +17,7 @@ App.ContainerKeysNewController = Em.ObjectController.extend
     create: ->
       @set 'saving', true
       container = @get 'record'
-      pubKey = App.PublicKey.create
+      pubKey = App.UserKey.create
         containerId: container.get('id')
         key: @get 'key'
       pubKey.save().then =>

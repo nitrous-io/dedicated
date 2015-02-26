@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -44,6 +45,10 @@ var (
 	StateWaitTime        = 3 * time.Second
 
 	ErrCreateTimeout = errors.New("timed out creating host")
+
+	// this pattern is used to match droplets used to host tender,
+	// we are filtering them from the hosts list.
+	tenderDropletNameRegex *regexp.Regexp = regexp.MustCompile(`tender.[A-Za-z0-9\-]+.com`)
 )
 
 type tlsConfig struct {
@@ -272,7 +277,9 @@ func (h *Host) List() ([]*host.Info, error) {
 		}
 
 		for _, d := range droplets {
-			allDroplets = append(allDroplets, d)
+			if !isTenderDroplet(d) {
+				allDroplets = append(allDroplets, d)
+			}
 		}
 
 		if resp.Links == nil || resp.Links.IsLastPage() {
@@ -309,6 +316,10 @@ func (h *Host) dropletToInfo() *host.Info {
 		FreighterdPort: DefaultPort,
 		State:          getState(h.droplet),
 	}
+}
+
+func isTenderDroplet(droplet godo.Droplet) bool {
+	return tenderDropletNameRegex.MatchString(droplet.Name)
 }
 
 func getState(droplet *godo.Droplet) state.State {
@@ -477,6 +488,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 
 func init() {
 	host.Hosts["digitalocean"] = NewHost
+
 }
 
 func createSSHKey(ctx *host.HostContext) error {

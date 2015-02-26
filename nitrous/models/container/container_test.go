@@ -653,14 +653,31 @@ var _ = Describe("models/container", func() {
 
 	Describe("ResolvedState()", func() {
 		Context("when both TempState and State is set", func() {
-			It("returns the temp state", func() {
-				c := container.Container{TempState: sql.NullInt64{int64(container.StateStopping), true}}
+			It("returns temp state if container is locked", func() {
+				timeout := time.Now().Add(5 * time.Second)
 
-				c.State = container.StateRunning
+				c := container.Container{
+					State:       container.StateRunning,
+					TempState:   sql.NullInt64{int64(container.StateStopping), true},
+					LockedUntil: &timeout,
+				}
+
 				Expect(c.ResolvedState()).To(Equal(container.StateStopping))
 
 				c.State = container.StateStopped
 				Expect(c.ResolvedState()).To(Equal(container.StateStopping))
+			})
+
+			It("returns original state if container lock is expired", func() {
+				timeout := time.Now().Add(-1 * time.Second)
+
+				c := container.Container{
+					State:       container.StateRunning,
+					TempState:   sql.NullInt64{int64(container.StateStopping), true},
+					LockedUntil: &timeout,
+				}
+
+				Expect(c.ResolvedState()).To(Equal(container.StateRunning))
 			})
 		})
 
@@ -711,7 +728,7 @@ var _ = Describe("models/container", func() {
 			expiresIn := 5 * time.Second
 			err := c.Lock(container.StateStarting, expiresIn, db)
 			Expect(err).To(BeNil())
-			Expect(c.LockedAt).NotTo(BeNil())
+			Expect(c.LockedUntil).NotTo(BeNil())
 			Expect(c.TempState.Int64).To(Equal(int64(container.StateStarting)))
 		})
 
@@ -731,7 +748,7 @@ var _ = Describe("models/container", func() {
 
 			err = c.Lock(container.StateStarting, expiresIn, db)
 			Expect(err).To(BeNil())
-			Expect(c.LockedAt).NotTo(BeNil())
+			Expect(c.LockedUntil).NotTo(BeNil())
 			Expect(c.TempState.Int64).To(Equal(int64(container.StateStarting)))
 		})
 
@@ -767,7 +784,7 @@ var _ = Describe("models/container", func() {
 
 			err = c.Unlock(db)
 			Expect(err).To(BeNil())
-			Expect(c.LockedAt).To(BeNil())
+			Expect(c.LockedUntil).To(BeNil())
 			Expect(c.TempState.Valid).To(BeFalse())
 
 			err = c.Lock(container.StateStarting, expiresIn, db)
@@ -799,8 +816,7 @@ var _ = Describe("models/container", func() {
 
 		Context("when container is not locked", func() {
 			It("returns false and no error", func() {
-				locked, err := c.IsLocked(db)
-				Expect(err).To(BeNil())
+				locked := c.IsLocked()
 				Expect(locked).To(BeFalse())
 			})
 		})
@@ -813,8 +829,7 @@ var _ = Describe("models/container", func() {
 			})
 
 			It("returns true and no error", func() {
-				locked, err := c.IsLocked(db)
-				Expect(err).To(BeNil())
+				locked := c.IsLocked()
 				Expect(locked).To(BeTrue())
 			})
 		})
@@ -827,20 +842,8 @@ var _ = Describe("models/container", func() {
 			})
 
 			It("returns false and no error", func() {
-				locked, err := c.IsLocked(db)
-				Expect(err).To(BeNil())
+				locked := c.IsLocked()
 				Expect(locked).To(BeFalse())
-			})
-		})
-
-		Context("when an error occurs", func() {
-			BeforeEach(func() {
-				db.Close()
-			})
-
-			It("returns error", func() {
-				_, err := c.IsLocked(db)
-				Expect(err).NotTo(BeNil())
 			})
 		})
 	})

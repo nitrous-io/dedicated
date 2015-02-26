@@ -9,6 +9,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -117,13 +118,37 @@ var _ = Describe("models/invoiceitem", func() {
 		})
 	})
 
-	Describe("TotalCharge", func() {
+	Describe("TotalCharge()", func() {
+		It("should be negative form of the Credit value", func() {
+			inv := &invoiceitem.InvoiceItem{
+				Credit: sql.NullInt64{900, true},
+			}
+			Expect(inv.TotalCharge(nil)).To(Equal(int64(-900)))
+		})
+
+		It("should be the original cost if under the plan price", func() {
+			inv := &invoiceitem.InvoiceItem{
+				Hours:       sql.NullInt64{2, true},
+				HourlyPrice: sql.NullInt64{2000, true},
+			}
+			Expect(inv.TotalCharge(&plan.Plan{Price: 9})).To(Equal(int64(4)))
+		})
+		It("should be the capped to the cost of the plan", func() {
+			inv := &invoiceitem.InvoiceItem{
+				Hours:       sql.NullInt64{20, true},
+				HourlyPrice: sql.NullInt64{2000, true},
+			}
+			Expect(inv.TotalCharge(&plan.Plan{Price: 9})).To(Equal(int64(9)))
+		})
+	})
+
+	Describe("UncappedTotalCharge", func() {
 		It("should multiply and convert to cents", func() {
 			inv := &invoiceitem.InvoiceItem{
 				Hours:       sql.NullInt64{2, true},
 				HourlyPrice: sql.NullInt64{2000, true},
 			}
-			Expect(inv.TotalCharge()).To(Equal(int64(4)))
+			Expect(inv.UncappedTotalCharge()).To(Equal(int64(4)))
 		})
 
 		It("should round up to the nearest cent", func() {
@@ -131,14 +156,14 @@ var _ = Describe("models/invoiceitem", func() {
 				Hours:       sql.NullInt64{1, true},
 				HourlyPrice: sql.NullInt64{500, true},
 			}
-			Expect(inv.TotalCharge()).To(Equal(int64(1)))
+			Expect(inv.UncappedTotalCharge()).To(Equal(int64(1)))
 		})
 
 		It("should be negative form of the Credit value", func() {
 			inv := &invoiceitem.InvoiceItem{
 				Credit: sql.NullInt64{900, true},
 			}
-			Expect(inv.TotalCharge()).To(Equal(int64(-900)))
+			Expect(inv.UncappedTotalCharge()).To(Equal(int64(-900)))
 		})
 	})
 

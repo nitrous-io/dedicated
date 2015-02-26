@@ -1,6 +1,12 @@
-.card-body
+.card-body.bordered
   if records.loaded
     if records.length
+      label.field-label
+        | User Public Keys
+
+      p.hint-text
+       | Add public keys from your machine so you can access your container via ssh
+
       ul.ui.list.item-2-line
         each key in records
           li.list-item
@@ -18,7 +24,7 @@
     else
       p.hint-text
         i.fa.fa-exclamation-circle
-        | There aren't any SSH public keys registered.
+        | There aren't any user public keys registered.
   else
     p.hint-text
       i.spinner
@@ -41,7 +47,7 @@
       | Are you sure?
     .card-body
       p
-        | Are you sure you want to remove the following public key
+        | Are you sure you want to remove the following user key
         if view.multipleSelected
           | s
         | ?
