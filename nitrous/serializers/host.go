@@ -29,7 +29,7 @@ type Host struct {
 
 	LiveDockerVersion     string `json:"live_docker_version,omitempty"`
 	LiveFreighterdVersion string `json:"live_freighterd_version,omitempty"`
-	UpgradeAvailable      bool   `json:"upgrade_available"`
+	UpgradeAvailable      string `json:"upgrade_available"`
 }
 
 func SerializeHost(h *host.Host) *Host {

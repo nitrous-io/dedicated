@@ -1,5 +1,5 @@
 readOnlyEnvKeys = ['__HOST']
-readOnlyVolumeSuffixes = [':/nitrous/ssh:ro']
+readOnlyVolumeSuffixes = [':/nitrous/ssh:ro', ':/.nitrous-container-slug:ro']
 
 App.ContainerConfigController = Lib.ContainerConfigController.extend
   saving: (->

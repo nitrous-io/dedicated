@@ -39,7 +39,7 @@ var _ = Describe("host serializer", func() {
 			UpdatedAt:             &updatedAt,
 			LiveDockerVersion:     "1.2-docker",
 			LiveFreighterdVersion: "2.3-freighterd",
-			UpgradeAvailable:      true,
+			UpgradeAvailable:      host.UpgradeAvailableHard,
 		}
 	)
 
@@ -68,7 +68,7 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": true
+				"upgrade_available": "hard"
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -99,7 +99,7 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": true
+				"upgrade_available": "hard"
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -136,7 +136,7 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": true
+				"upgrade_available": "hard"
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})
 	})

@@ -233,6 +233,7 @@ var _ = Describe("controllers/hosts", func() {
 					Size:              sql.NullString{"large", true},
 					State:             host.StateRunning,
 					FreighterdVersion: "1.0.1-deadbeef-1",
+					DockerVersion:     "1.5.0-nitrous1",
 				},
 				U: u,
 			})
@@ -273,10 +274,11 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Host.TerminatedAt).To(BeNil())
 			Expect(j.Host.LiveDockerVersion).To(Equal(""))
 			Expect(j.Host.LiveFreighterdVersion).To(Equal(""))
-			Expect(j.Host.UpgradeAvailable).To(BeTrue())
+			Expect(j.Host.UpgradeAvailable).To(Equal(host.UpgradeAvailableSoft))
 		})
 
-		It("responds with upgrade_available: false if required freighterd version is empty", func() {
+		It("responds with an empty upgrade_available if required freighterd & docker version is empty", func() {
+			hs.H.DockerVersion = ""
 			hs.H.FreighterdVersion = ""
 			err := hs.H.Update(db)
 			Expect(err).To(BeNil())
@@ -289,7 +291,46 @@ var _ = Describe("controllers/hosts", func() {
 			}
 			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.Host.UpgradeAvailable).To(BeFalse())
+			Expect(j.Host.UpgradeAvailable).To(Equal(""))
+		})
+
+		It("should return with a `hard` upgrade_available if the docker versions do not match", func() {
+			hs.H.DockerVersion = "1.2.0-nitrous1"
+			hs.H.FreighterdVersion = ""
+			err := hs.H.Update(db)
+			Expect(err).To(BeNil())
+
+			doRequest(hs.H.Slug, t.Token)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.UpgradeAvailable).To(Equal(host.UpgradeAvailableHard))
+		})
+
+		It("when self upgrade is disabled, returns empty upgrade_available even if versions do not match", func() {
+			envvars.EnableSelfUpgrade = false
+			defer func() {
+				envvars.EnableSelfUpgrade = true
+			}()
+
+			hs.H.DockerVersion = "1.2.0-nitrous1"
+			hs.H.FreighterdVersion = "1.0.1-abcde"
+			err := hs.H.Update(db)
+			Expect(err).To(BeNil())
+
+			doRequest(hs.H.Slug, t.Token)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.UpgradeAvailable).To(Equal(""))
 		})
 
 		It("responds with host info even when called with the host ID", func() {
@@ -350,7 +391,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(mockClient.HostVersionsCalled).To(Equal(1))
 				Expect(j.Host.LiveDockerVersion).To(Equal("1.5.0-nitrous1"))
 				Expect(j.Host.LiveFreighterdVersion).To(Equal("1.0.1-deadbeef"))
-				Expect(j.Host.UpgradeAvailable).To(BeTrue())
+				Expect(j.Host.UpgradeAvailable).To(Equal(host.UpgradeAvailableSoft))
 			})
 		})
 

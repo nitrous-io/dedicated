@@ -20,6 +20,10 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
       host = @get('model')
       events = App.get 'eventsSocket'
 
+      unless host.get('canUpgrade')
+        App.postError("Containers must be stopped to perform this upgrade")
+        return
+
       onUpgradeFailed = (data) ->
         hostData = data.host
         return unless hostData.id == host.get('id')

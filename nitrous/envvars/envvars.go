@@ -3,6 +3,7 @@ package envvars
 import (
 	"log"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -47,6 +48,11 @@ var (
 
 	GitHubOAuthClientID     string
 	GitHubOAuthClientSecret string
+
+	// Controls whether 'update now' option is available to users.  Defaults to
+	// true if ENABLE_SELF_UPGRADE is absent, i.e. it must explicitly be set to
+	// false
+	EnableSelfUpgrade = true
 )
 
 const (
@@ -94,6 +100,17 @@ func init() {
 
 	GitHubOAuthClientID = os.Getenv("GITHUB_CLIENT_ID")
 	GitHubOAuthClientSecret = os.Getenv("GITHUB_CLIENT_SECRET")
+
+	enableUpgradeEnv := os.Getenv("ENABLE_SELF_UPGRADE")
+	if enableUpgradeEnv == "" {
+		EnableSelfUpgrade = true
+	} else {
+		var err error
+		EnableSelfUpgrade, err = strconv.ParseBool(enableUpgradeEnv)
+		if err != nil {
+			log.Fatalf("ENABLE_SELF_UPGRADE not acceptable boolean: %s", err)
+		}
+	}
 }
 
 func CheckCAVariables() {

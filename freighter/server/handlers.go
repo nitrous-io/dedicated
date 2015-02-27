@@ -3,7 +3,6 @@ package server
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,7 +18,6 @@ import (
 	"syscall"
 	"time"
 
-	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/dedicated/freighter/config"
@@ -632,32 +630,12 @@ var (
 	dockerHost = "unix:///var/run/docker.sock"
 )
 
-func getDockerVersion() (string, error) {
-	client, err := dockerclient.NewClient(dockerHost)
-	if err != nil {
-		return "", err
-	}
-	env, err := client.Version()
-	if err != nil {
-		return "", err
-	}
-	version := env.Get("Version")
-	gitCommit := env.Get("GitCommit")
-	if version == "" && gitCommit == "" {
-		return "", errors.New("no Version or GitCommit")
-	}
-	if gitCommit == "" {
-		return version, nil
-	}
-	return version + "-" + gitCommit, nil
-}
-
 // /versions
 func (s *Server) serverVersions(w http.ResponseWriter, r *http.Request) error {
 	v := map[string]interface{}{
 		"freighterd_version": config.Version,
 	}
-	if dockerVer, err := getDockerVersion(); err == nil {
+	if dockerVer, err := s.provider.Version(); err == nil {
 		v["docker_version"] = dockerVer
 	}
 	s.respondEncodeJSON(w, http.StatusOK, v)
@@ -924,54 +902,112 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// upgradeServer upgrades the freighterd package to the version specified in the
-// request. This assumes that we are using APT to manage freighterd and will
-// probably not work everywhere.
+// upgradeServer upgrades the freighterd and/or docker package to the version
+// specified in the request. This assumes that we are using APT to manage
+// freighterd and will probably not work everywhere.
+// sample docker_version: "1.3.0"
+// sample freighterd_version: "0.2.0+1424818140-0-0b52a6e"
 func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 	fv := r.PostFormValue("freighterd_version")
-	if fv == config.Version {
+	dv := r.PostFormValue("docker_version")
+	myDockerVer, err := s.provider.Version()
+	if err != nil {
+		return err
+	}
+
+	upgradingDocker := dv != "" && dv != myDockerVer
+	upgradingFreighter := fv != "" && fv != config.Version
+
+	upgradingAny := upgradingDocker || upgradingFreighter
+	if !upgradingAny {
 		s.respondEncodeJSON(w, http.StatusNoContent, nil)
 		return nil
 	}
 
-	go func() {
-		if err := s.upgradeFreighterd(fv); err != nil {
-			s.logger.Errorf("error upgrading freighterd: %v", err)
-			if nerr := s.notifyWebhook(map[string]interface{}{
-				"event": "upgrade",
-				"error": err.Error(),
-			}); nerr != nil {
-				s.logger.Errorf("failed to notify webhook, err: %v", nerr)
-			}
-			return
-		}
-		s.logger.Infof("updated freighterd package from %q to %q", config.Version, fv)
+	if !upgradingDocker {
+		dv = ""
+	}
+	if !upgradingFreighter {
+		fv = ""
+	}
 
-		if err := s.stopFreighterd(); err != nil {
-			s.logger.Errorf("error stopping freighterd: %v", err)
-			if nerr := s.notifyWebhook(map[string]interface{}{
-				"event": "upgrade",
-				"error": err.Error(),
-			}); nerr != nil {
-				s.logger.Errorf("failed to notify webhook, err: %v", nerr)
-			}
-		}
-	}()
+	go s.upgradeDockerAndFreighter(dv, fv)
 
 	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
 	return nil
 }
 
-func (s *Server) upgradeFreighterd(version string) error {
+func (s *Server) notifyWebhookUpgradeFailed(upgradeErr error, component string) {
+	s.logger.Errorf("error upgrading freighterd and/or docker: %v", upgradeErr)
+	err := s.notifyWebhook(map[string]interface{}{
+		"event": "upgrade",
+		"error": upgradeErr.Error(),
+	})
+	if err != nil {
+		s.logger.Errorf("failed to notify webhook about %s update, err: %v", component, err)
+	}
+}
+
+// - upgrade freighter if fv != ""
+// - upgrade docker if dv != ""
+// - restart freighter to notify the upgrade happened
+func (s *Server) upgradeDockerAndFreighter(dv string, fv string) {
+	err := s.updateAptSource()
+	if err != nil {
+		s.notifyWebhookUpgradeFailed(err, "docker")
+		return
+	}
+	// if both, upgrade docker first
+	if dv != "" {
+		if err := s.upgradeDocker(dv); err != nil {
+			s.notifyWebhookUpgradeFailed(err, "docker")
+			return
+		}
+		s.logger.Infof("updated docker package to %q", dv)
+	}
+	if fv != "" {
+		if err := s.upgradeFreighterd(fv); err != nil {
+			s.notifyWebhookUpgradeFailed(err, "freighterd")
+			return
+		}
+		s.logger.Infof("updated freighterd package from %q to %q", config.Version, fv)
+	}
+
+	if err := s.stopFreighterd(); err != nil {
+		s.logger.Errorf("error stopping freighterd: %v", err)
+		s.notifyWebhookUpgradeFailed(err, "freighterd")
+	}
+}
+
+func (s *Server) updateAptSource() error {
 	cmd := exec.Command("apt-get", "update",
 		"-o", "Dir::Etc::sourceparts=-",
 		"-o", "Dir::Etc::sourcelist=/etc/apt/sources.list.d/nitrousio.list")
 	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
 	if out, err := s.runner.Run(cmd); err != nil {
-		s.logger.Errorf("error updating freighterd repo, err: %v, output: %s", err, out)
+		s.logger.Errorf("error updating nitrous repo, err: %v, output: %s", err, out)
 		return err
 	}
+	return nil
+}
 
+func (s *Server) upgradeDocker(version string) error {
+	pkgspec := "lxc-docker-" + version
+	cmd := exec.Command("apt-get", "install", "-y",
+		"-o", `Dpkg::Options::=--force-confdef`, // avoid prompt
+		"-o", `Dpkg::Options::=--force-confnew`, // modify existing config file
+		pkgspec,
+	)
+	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
+	cmd.Env = append(cmd.Env, "PATH=/usr/sbin:/usr/bin:/sbin:/bin")
+	if out, err := s.runner.Run(cmd); err != nil {
+		s.logger.Errorf("error updating docker package, err: %v, output: %s", err, out)
+		return err
+	}
+	return nil
+}
+
+func (s *Server) upgradeFreighterd(version string) error {
 	// Setup a dir with service-related binaries pointing to /bin/true. We will
 	// use this in the PATH for the `apt-get install` command so that the
 	// freighterd service is not restarted.
@@ -989,7 +1025,7 @@ func (s *Server) upgradeFreighterd(version string) error {
 	if version != "" {
 		pkgspec = fmt.Sprintf("freighterd=%s", version)
 	}
-	cmd = exec.Command("apt-get", "install", "-y",
+	cmd := exec.Command("apt-get", "install", "-y",
 		"-o", `Dpkg::Options::=--force-confdef`, // avoid prompt
 		"-o", `Dpkg::Options::=--force-confold`, // do not modify existing config file
 		pkgspec,
