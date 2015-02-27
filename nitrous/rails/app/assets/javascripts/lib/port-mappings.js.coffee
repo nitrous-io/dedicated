@@ -21,10 +21,12 @@ parsePortMapping = (rawPortMapping) ->
 
   return createPortMapping(scope, hostPort, containerPort, protocol)
 
+# Two port mappings are conflicting if they have either the
+# same container or host port and in the same protocol.
 conflictPortMapping = (pm1, pm2) ->
-  return pm1.containerPort == pm2.containerPort &&
-    pm1.hostPort != '' && pm1.hostPort == pm2.hostPort &&
-    pm1.protocol == pm2.protocol
+  return (pm1.protocol == pm2.protocol) && 
+    ((pm1.containerPort == pm2.containerPort) ||
+     (pm1.hostPort != '' && pm1.hostPort == pm2.hostPort))
 
 serializePortMapping = (portMapping) ->
   { scope, hostPort, containerPort, protocol } = portMapping
@@ -54,7 +56,8 @@ Lib.PortMappings = Em.Object.extend
     
     for portMapping in parsedPorts
       if conflictPortMapping(newPortMapping, portMapping)
-        # ignore conflicting port mapping
+        # skip if both port mappings are the same
+        # ignore if either host or container port already inside the current list
         return
 
     parsedPorts.pushObject(newPortMapping)
