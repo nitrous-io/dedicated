@@ -7,7 +7,10 @@ import (
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -54,16 +57,33 @@ var _ = Describe("controllers/plans", func() {
 
 		Context("when plans exist", func() {
 			var planSlugs = []string{"start", "shift", "turbo"}
-
+			var planIds []int64
 			BeforeEach(func() {
+				envvars.DefaultProvider = "digitalocean"
+				r := region.Region{
+					Slug: "sfo",
+					Name: "US West",
+				}
+				Expect(r.Insert(db)).To(BeNil())
+
 				for _, n := range planSlugs {
 					pl := plan.Plan{Slug: n}
 					Expect(pl.Insert(db)).To(BeNil())
+					planIds = append(planIds, pl.ID)
 				}
 
 				// add a disabled plan
 				pl := plan.Plan{Slug: "super-turbo", Disabled: true}
 				Expect(pl.Insert(db)).To(BeNil())
+
+				for _, planID := range planIds {
+					t := providertemplate.ProviderTemplate{
+						PlanID:   planID,
+						RegionID: r.ID,
+						Provider: "digitalocean",
+					}
+					Expect(t.Insert(db)).To(BeNil())
+				}
 			})
 
 			It("returns enabled plans serialized in json", func() {
