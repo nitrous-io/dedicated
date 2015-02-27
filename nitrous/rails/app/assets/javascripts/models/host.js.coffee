@@ -105,8 +105,8 @@ App.Host = klass = App.Model.extend
     return false if @get('isUpgrading')
     return false if @get('upgradeAvailable') == ""
     return true if @get('isHostUpgradeSoft')
-    return !@get('containers').any (con)->
-      !(con.get('isStopped') || con.get('isTerminated'))
+    return @get('containers').every (con)->
+      con.get('isStopped') || con.get('isTerminated')
   ).property 'upgradeAvailable', 'containers.@each.state'
 
   prefetchResources: ->

@@ -2013,9 +2013,8 @@ var _ = Describe("server", func() {
 			select {
 			case s := <-ch:
 				Expect(s).To(Equal(syscall.SIGTERM))
-				fmt.Printf("did get SIGTERM\n")
 			case <-time.After(1 * time.Second):
-				Fail("Timed out waiting for SIGTERM signal when upgrading freighterd")
+				Fail("Timed out waiting for SIGTERM signal when upgrading docker")
 			}
 		})
 

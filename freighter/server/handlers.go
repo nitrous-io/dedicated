@@ -985,7 +985,7 @@ func (s *Server) updateAptSource() error {
 		"-o", "Dir::Etc::sourcelist=/etc/apt/sources.list.d/nitrousio.list")
 	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
 	if out, err := s.runner.Run(cmd); err != nil {
-		s.logger.Errorf("error updating docker repo, err: %v, output: %s", err, out)
+		s.logger.Errorf("error updating nitrous repo, err: %v, output: %s", err, out)
 		return err
 	}
 	return nil
