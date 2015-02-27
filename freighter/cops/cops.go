@@ -35,14 +35,4 @@ type (
 	AsyncHandler interface {
 		HandleAsync(msg *Message) chan *Message
 	}
-
-	NewHandler func(id string) (Handler, error)
 )
-
-var (
-	Handlers = map[string]NewHandler{}
-)
-
-func RegisterHandler(namespace string, h NewHandler) {
-	Handlers[namespace] = h
-}

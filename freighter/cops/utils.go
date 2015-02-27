@@ -35,3 +35,29 @@ func GetContainerPID(containerID string) (int, error) {
 
 	return state.InitPid, nil
 }
+
+func makeErr(orig *Message, err error) *Message {
+	return &Message{
+		Namespace: orig.Namespace,
+		Event:     orig.Event,
+		CID:       orig.CID,
+		Error:     err.Error(),
+	}
+}
+
+func makeMessage(orig *Message, event string, args ...interface{}) *Message {
+	return &Message{
+		Namespace: orig.Namespace,
+		Event:     event,
+		Args:      args,
+	}
+}
+
+func makeReply(orig *Message, args []interface{}) *Message {
+	return &Message{
+		Namespace: orig.Namespace,
+		Event:     orig.Event,
+		CID:       orig.CID,
+		Args:      args,
+	}
+}

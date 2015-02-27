@@ -1,7 +1,7 @@
 /*
 fs handle container fs operation
 */
-package cfs
+package cops
 
 import (
 	"bufio"
@@ -17,8 +17,6 @@ import (
 	"sort"
 	"strings"
 	"syscall"
-
-	"github.com/nitrous-io/dedicated/freighter/cops"
 )
 
 const (
@@ -43,7 +41,7 @@ type FS struct {
 	id string
 }
 
-func (c *FS) Handle(msg *cops.Message) *cops.Message {
+func (c *FS) Handle(msg *Message) *Message {
 	switch msg.Event {
 	case "list":
 		dir := msg.Args[0].(string)
@@ -208,31 +206,9 @@ func (c *FS) read(path string) ([]interface{}, error) {
 	return []interface{}{path, contentType, content}, nil
 }
 
-func New(id string) (cops.Handler, error) {
+func NewFsHandler(id string) Handler {
 	return &FS{
 		id: id,
-	}, nil
-}
-
-func init() {
-	cops.RegisterHandler("fs", New)
-}
-
-func makeErr(orig *cops.Message, err error) *cops.Message {
-	return &cops.Message{
-		Namespace: orig.Namespace,
-		Event:     orig.Event,
-		CID:       orig.CID,
-		Error:     err.Error(),
-	}
-}
-
-func makeReply(orig *cops.Message, args []interface{}) *cops.Message {
-	return &cops.Message{
-		Namespace: orig.Namespace,
-		Event:     orig.Event,
-		CID:       orig.CID,
-		Args:      args,
 	}
 }
 
@@ -293,7 +269,7 @@ func owner(stat os.FileInfo) (int, int, error) {
 }
 
 func readDir(name string) (fi []os.FileInfo, err error) {
-	log.Println("readding dir", name)
+	log.Println("reading dir", name)
 	f, err := os.Open(name)
 	if err != nil {
 		return nil, err

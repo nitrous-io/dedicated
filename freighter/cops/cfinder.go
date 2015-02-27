@@ -28,7 +28,7 @@ surrounding content). Its message format is:
 --> d|{ "namespace":"finder", "event: "search", "cid": 45, "args": [{ "id": "123", "term": "another", "root": "/home/action"] }
 <-- d|{ "namespace":"finder", "event: "search", "cid": 45, "error": "filesystem disappeared" } # if an error occurs before the search op starts
 */
-package cfinder
+package cops
 
 import (
 	"encoding/json"
@@ -36,7 +36,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nitrous-io/dedicated/freighter/cops"
 	"github.com/nitrous-io/dedicated/pkg/finder"
 )
 
@@ -81,15 +80,9 @@ type Finder struct {
 	id string
 }
 
-// Handler interface is not supported by Finder. Caller should upgrade it to
-// AsyncHandler interface
-func (c *Finder) Handle(msg *cops.Message) *cops.Message {
-	return makeErr(msg, fmt.Errorf("invalid message %s", msg.Event))
-}
-
 // HandleAsync returns the responses as a channel of messages
-func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
-	resp := make(chan *cops.Message, chanSize)
+func (c *Finder) HandleAsync(msg *Message) chan *Message {
+	resp := make(chan *Message, chanSize)
 	switch msg.Event {
 	case "file_find":
 		term := msg.Args[0].(string)
@@ -102,7 +95,7 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 		}
 		go func() {
 			for err := range errch {
-				resp <- makeMessage("file_find.error", FileFindResponse{
+				resp <- makeMessage(msg, "file_find.error", FileFindResponse{
 					Term:  term,
 					Root:  root,
 					Error: err,
@@ -111,13 +104,13 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 		}()
 		go func() {
 			for r := range ch {
-				resp <- makeMessage("file_find.output", FileFindResponse{
+				resp <- makeMessage(msg, "file_find.output", FileFindResponse{
 					Term:  term,
 					Root:  root,
 					Paths: []string{r},
 				})
 			}
-			resp <- makeMessage("file_find.completed", FileFindResponse{
+			resp <- makeMessage(msg, "file_find.completed", FileFindResponse{
 				Term: term,
 				Root: root,
 			})
@@ -156,7 +149,7 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 
 		go func() {
 			for err := range errch {
-				resp <- makeMessage("search.error", SearchResponse{
+				resp <- makeMessage(msg, "search.error", SearchResponse{
 					SearchRequest: req,
 					Error:         err.Error(),
 				})
@@ -164,12 +157,12 @@ func (c *Finder) HandleAsync(msg *cops.Message) chan *cops.Message {
 		}()
 		go func() {
 			for r := range ch {
-				resp <- makeMessage("search.output", SearchResponse{
+				resp <- makeMessage(msg, "search.output", SearchResponse{
 					SearchRequest: req,
 					Results:       []*finder.SearchResult{r},
 				})
 			}
-			resp <- makeMessage("search.completed", SearchResponse{
+			resp <- makeMessage(msg, "search.completed", SearchResponse{
 				SearchRequest: req,
 			})
 			close(resp)
@@ -274,30 +267,9 @@ func (c *Finder) search(term, root string, ignoreCase, useRegexp bool) (chan *fi
 	return ch, errch, nil
 }
 
-func New(id string) (cops.Handler, error) {
+func NewFinderHandler(id string) AsyncHandler {
 	return &Finder{
 		id: id,
-	}, nil
-}
-
-func init() {
-	cops.RegisterHandler("finder", New)
-}
-
-func makeErr(orig *cops.Message, err error) *cops.Message {
-	return &cops.Message{
-		Namespace: orig.Namespace,
-		Event:     orig.Event,
-		CID:       orig.CID,
-		Error:     err.Error(),
-	}
-}
-
-func makeMessage(event string, args ...interface{}) *cops.Message {
-	return &cops.Message{
-		Namespace: "finder",
-		Event:     event,
-		Args:      args,
 	}
 }
 

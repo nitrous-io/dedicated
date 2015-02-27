@@ -45,8 +45,9 @@ func execInit() {
 func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
 	decoder := json.NewDecoder(r)
 	encoder := json.NewEncoder(w)
-	// collection of handlers for this container.
-	handlers := map[string]Handler{}
+
+	fsHandler := NewFsHandler(id)
+	finderHandler := NewFinderHandler(id)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -57,45 +58,41 @@ func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
 				return
 			}
 
-			// get the handler for this namespace, init and cache it if
-			// necessary
-			h, ok := handlers[msg.Namespace]
-			if !ok {
-				var err error
-				newHandler, ok := Handlers[msg.Namespace]
-				if !ok {
-					errCh <- fmt.Errorf("invalid operation %s", msg.Namespace)
-					return
-				}
+			var handlerToRun *Handler
+			var asyncHandlerToRun *AsyncHandler
 
-				h, err = newHandler(id)
-				if err != nil {
-					errCh <- fmt.Errorf("failed to handle %s for container %s, %s", msg.Namespace, id, err)
-					return
-				}
-				handlers[msg.Namespace] = h
+			log.Printf("cops cmd: '%s.%s'\n", msg.Namespace, msg.Event)
+			switch msg.Namespace {
+			case "fs":
+				handlerToRun = &fsHandler
+			case "finder":
+				asyncHandlerToRun = &finderHandler
+			default:
+				errCh <- fmt.Errorf("invalid operation %s", msg.Namespace)
+				return
 			}
 
 			// handle the operation in a separate goroutine to not block the
 			// message pipeline
-			go func() {
-				uh, ok := h.(AsyncHandler)
-				if ok {
-					ch := uh.HandleAsync(msg)
+			if handlerToRun != nil {
+				go func(h Handler) {
+					reply := h.Handle(msg)
+					if err := encoder.Encode(reply); err != nil {
+						errCh <- fmt.Errorf("failed to encode %v, %s", reply, err)
+						return
+					}
+				}(*handlerToRun)
+			} else if asyncHandlerToRun != nil {
+				go func(h AsyncHandler) {
+					ch := h.HandleAsync(msg)
 					for reply := range ch {
 						if err := encoder.Encode(reply); err != nil {
 							errCh <- fmt.Errorf("failed to encode %v, %s", reply, err)
 							return
 						}
 					}
-				} else {
-					reply := h.Handle(msg)
-					if err := encoder.Encode(reply); err != nil {
-						errCh <- fmt.Errorf("failed to encode %v, %s", reply, err)
-						return
-					}
-				}
-			}()
+				}(*asyncHandlerToRun)
+			}
 		}
 	}()
 	return errCh
