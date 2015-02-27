@@ -51,7 +51,7 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(err).To(BeNil())
 			Expect(p.ID).NotTo(BeNil())
 			Expect(p.UserID).To(Equal(u.ID))
-			Expect(p.State).To(Equal("free"))
+			Expect(p.State).To(Equal("no_card"))
 			Expect(p.PendingActivation).To(BeTrue())
 			Expect(p.CreatedAt).NotTo(BeNil())
 			Expect(p.UpdatedAt).NotTo(BeNil())

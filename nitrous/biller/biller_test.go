@@ -447,7 +447,7 @@ var _ = Describe("biller", func() {
 		})
 
 		It("should throw and error if the billing profile is in free state", func() {
-			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StateFree, u.ID)
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StateNoCard, u.ID)
 			Expect(err).To(BeNil())
 
 			err = b.ProcessStripe(i)

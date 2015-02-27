@@ -443,7 +443,7 @@ var _ = Describe("models/user", func() {
 				Expect(err).To(BeNil())
 				Expect(bp.ID).NotTo(BeNil())
 				Expect(bp.UserID).To(Equal(u.ID))
-				Expect(bp.State).To(Equal("free"))
+				Expect(bp.State).To(Equal("no_card"))
 				Expect(bp.CreatedAt).NotTo(BeNil())
 				Expect(bp.UpdatedAt).NotTo(BeNil())
 			})
@@ -1199,7 +1199,7 @@ var _ = Describe("models/user", func() {
 
 				b, err := billingprofile.Find(db, u.ID)
 				Expect(err).To(BeNil())
-				Expect(b.State).To(Equal("free"))
+				Expect(b.State).To(Equal("no_card"))
 			})
 		})
 
@@ -1216,7 +1216,7 @@ var _ = Describe("models/user", func() {
 
 				b, err := billingprofile.Find(db, u.ID)
 				Expect(err).To(BeNil())
-				Expect(b.State).To(Equal("free"))
+				Expect(b.State).To(Equal("no_card"))
 			})
 		})
 	})

@@ -81,7 +81,7 @@ var _ = Describe("engagement", func() {
 			_, err = db.Exec(`UPDATE users SET created_at = now() - interval '30 minutes', confirmation_token = 'ABC' WHERE id = $1;`, u2.ID)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2 OR user_id = $3 OR user_id = $4 OR user_Id = $5`, billingprofile.StateFree, u.ID, u2.ID, u3.ID, u5.ID)
+			_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2 OR user_id = $3 OR user_id = $4 OR user_Id = $5`, billingprofile.StateNoCard, u.ID, u2.ID, u3.ID, u5.ID)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2`, billingprofile.StatePaid, u4.ID)
 			Expect(err).To(BeNil())
@@ -168,7 +168,7 @@ var _ = Describe("engagement", func() {
 			Expect(err).To(BeNil())
 
 			// u4 is not a candidate
-			_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2 OR user_id = $3 OR user_id = $4 OR user_id = $5 OR user_id = $6`, billingprofile.StateFree, u.ID, u2.ID, u3.ID, u5.ID, u6.ID)
+			_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2 OR user_id = $3 OR user_id = $4 OR user_id = $5 OR user_id = $6`, billingprofile.StateNoCard, u.ID, u2.ID, u3.ID, u5.ID, u6.ID)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2`, billingprofile.StatePaid, u4.ID)
 			Expect(err).To(BeNil())

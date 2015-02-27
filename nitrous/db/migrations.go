@@ -853,5 +853,15 @@ func init() {
 				ALTER TABLE containers RENAME COLUMN locked_at TO locked_until;
 			`,
 		},
+		{
+			Version: "790",
+			Up: `
+				ALTER TABLE billing_profiles ALTER COLUMN state TYPE character varying(255);
+				ALTER TABLE billing_profiles ALTER COLUMN state SET DEFAULT 'no_card';
+				ALTER TABLE billing_profiles ALTER COLUMN state SET NOT NULL;
+				DROP TYPE billing_state;
+				UPDATE billing_profiles SET state='no_card' WHERE state='free';
+			`,
+		},
 	}
 }
