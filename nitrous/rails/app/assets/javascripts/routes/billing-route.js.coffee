@@ -3,7 +3,7 @@
 App.BillingRoute = App.AuthedRoute.extend
   beforeModel: ->
     @_super.apply this, arguments
-    unless App.get('billingProfile.hasCard')
+    if App.get('billingProfile.cardRequired')
       @transitionTo 'add-card'
     App.refreshUsage()
     App.refreshInvoices()

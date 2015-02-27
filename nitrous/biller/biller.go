@@ -224,6 +224,9 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 		return fmt.Errorf("biller: skipping stripe, failure obtaining billing profile for user %d, err: %v", b.user.ID, err)
 	}
 	if bp.State == billingprofile.StateNoCard {
+		return fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state no_card", b.user.ID)
+	}
+	if bp.State == billingprofile.StateFree {
 		return fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state free", b.user.ID)
 	}
 	if bp.StripeID.String == "" {
