@@ -161,6 +161,9 @@ type MockProvider struct {
 	Containers    []*provider.ContainerInfo
 	UserKeys      map[string]string
 	ContainerKeys []string
+
+	VersionCalled bool
+	VersionInfo   string
 }
 
 func (p *MockProvider) VerifyToken(id, token string, permissions ...string) error {
@@ -443,4 +446,9 @@ func (p *MockProvider) CopyFromHost(id string, location string, input map[string
 
 func (p *MockProvider) IsNotFoundError(err error) bool {
 	return err == ErrMockProviderContainerNotFound
+}
+
+func (p *MockProvider) Version() (string, error) {
+	p.VersionCalled = true
+	return p.VersionInfo, nil
 }

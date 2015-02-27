@@ -94,6 +94,8 @@ type Provider interface {
 	// Copy files from host to container. input is a map of filename to its
 	// parts (which interface can be satisfied by multipart.FileHeader)
 	CopyFromHost(id string, location string, input map[string]io.Reader) error
+
+	Version() (string, error)
 }
 
 // StartFailedError is returned when a container is created successfully but
