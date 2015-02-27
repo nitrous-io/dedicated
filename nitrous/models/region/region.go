@@ -48,6 +48,17 @@ func All(d db.QueryReceiver) ([]*Region, error) {
 	return rs, nil
 }
 
+func AllForProvider(d db.QueryReceiver, provider string) ([]*Region, error) {
+	rs := []*Region{}
+	if err := d.Select(&rs, `SELECT * FROM regions
+		WHERE disabled_at IS NULL OR disabled_at > now() AND region.id IN
+		(SELECT DISTINCT region_id FROM provider_templates WHERE provider_templates.provider=$1)
+		ORDER BY rank`, provider); err != nil {
+		return nil, err
+	}
+	return rs, nil
+}
+
 func (r *Region) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO regions (slug, name, rank) VALUES (:slug, :name, :rank) RETURNING *;`)
 	if err != nil {

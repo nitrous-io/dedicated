@@ -73,6 +73,17 @@ func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]int64, erro
 	return mapping, nil
 }
 
+func EnabledAndForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
+	pls := []*Plan{}
+	if err := d.Select(&pls, `SELECT * FROM plans
+		WHERE disabled = false AND plans.id IN
+		(SELECT DISTINCT plan_id FROM provider_templates WHERE provider_templates.provider=$1)
+		ORDER BY (price, max_containers, name);`, provider); err != nil {
+		return nil, err
+	}
+	return pls, nil
+}
+
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
 		(slug, name, max_containers, price, cpu, memory, storage, disabled, most_popular)
