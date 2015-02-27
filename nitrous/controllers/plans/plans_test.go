@@ -57,9 +57,8 @@ var _ = Describe("controllers/plans", func() {
 
 		Context("when plans exist", func() {
 			var planSlugs = []string{"start", "shift", "turbo"}
-			var planIds []int64
+
 			BeforeEach(func() {
-				envvars.DefaultProvider = "digitalocean"
 				r := region.Region{
 					Slug: "sfo",
 					Name: "US West",
@@ -69,24 +68,36 @@ var _ = Describe("controllers/plans", func() {
 				for _, n := range planSlugs {
 					pl := plan.Plan{Slug: n}
 					Expect(pl.Insert(db)).To(BeNil())
-					planIds = append(planIds, pl.ID)
-				}
-
-				// add a disabled plan
-				pl := plan.Plan{Slug: "super-turbo", Disabled: true}
-				Expect(pl.Insert(db)).To(BeNil())
-
-				for _, planID := range planIds {
 					t := providertemplate.ProviderTemplate{
-						PlanID:   planID,
+						PlanID:   pl.ID,
 						RegionID: r.ID,
-						Provider: "digitalocean",
+						Provider: envvars.DefaultProvider,
 					}
 					Expect(t.Insert(db)).To(BeNil())
 				}
+
+				// Add a disabled plan - it should not be returned.
+				pl := plan.Plan{Slug: "super-turbo", Disabled: true}
+				Expect(pl.Insert(db)).To(BeNil())
+				t := providertemplate.ProviderTemplate{
+					PlanID:   pl.ID,
+					RegionID: r.ID,
+					Provider: envvars.DefaultProvider,
+				}
+				Expect(t.Insert(db)).To(BeNil())
+
+				// Add a plan belonging to another provider - it should not be returned.
+				pl = plan.Plan{Slug: "start-windows-azure"}
+				Expect(pl.Insert(db)).To(BeNil())
+				t = providertemplate.ProviderTemplate{
+					PlanID:   pl.ID,
+					RegionID: r.ID,
+					Provider: "windows-azure",
+				}
+				Expect(t.Insert(db)).To(BeNil())
 			})
 
-			It("returns enabled plans serialized in json", func() {
+			It("returns valid plans of the default provider", func() {
 				doRequest()
 				Expect(res.Code).To(Equal(http.StatusOK))
 
