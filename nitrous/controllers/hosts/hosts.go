@@ -104,6 +104,10 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
+	if !envvars.EnableSelfUpgrade && !env.User.Admin {
+		h.UpgradeAvailable = ""
+	}
+
 	serializeHost(env, h)
 	return nil
 }

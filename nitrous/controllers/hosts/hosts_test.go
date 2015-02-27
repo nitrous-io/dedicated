@@ -311,6 +311,28 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Host.UpgradeAvailable).To(Equal(host.UpgradeAvailableHard))
 		})
 
+		It("when self upgrade is disabled, returns empty upgrade_available even if versions do not match", func() {
+			envvars.EnableSelfUpgrade = false
+			defer func() {
+				envvars.EnableSelfUpgrade = true
+			}()
+
+			hs.H.DockerVersion = "1.2.0-nitrous1"
+			hs.H.FreighterdVersion = "1.0.1-abcde"
+			err := hs.H.Update(db)
+			Expect(err).To(BeNil())
+
+			doRequest(hs.H.Slug, t.Token)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.UpgradeAvailable).To(Equal(""))
+		})
+
 		It("responds with host info even when called with the host ID", func() {
 			doRequest(strconv.FormatInt(hs.H.ID, 10), t.Token)
 			Expect(res.Code).To(Equal(http.StatusOK))
