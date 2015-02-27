@@ -1,7 +1,7 @@
 /*
 fs handle container fs operation
 */
-package cfs
+package cops
 
 import (
 	"bufio"
@@ -17,8 +17,6 @@ import (
 	"sort"
 	"strings"
 	"syscall"
-
-	"github.com/nitrous-io/dedicated/freighter/cops"
 )
 
 const (
@@ -40,76 +38,78 @@ var (
 )
 
 type FS struct {
-	id string
 }
 
-func (c *FS) Handle(msg *cops.Message) *cops.Message {
+func (c *FS) HandleAsync(msg *Message) chan *Message {
+	resp := make(chan *Message, chanSize)
+
 	switch msg.Event {
 	case "list":
 		dir := msg.Args[0].(string)
-		entries, err := c.list(dir)
+		entries, err := readDir(dir)
 		if err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
 		files := make([]interface{}, len(entries))
 		for i, f := range entries {
 			files[i] = fileInfoArgs(f)
 		}
-		return makeReply(msg, []interface{}{dir, files})
+		return sendFinalReply(resp, msg, []interface{}{dir, files})
 	case "read":
 		fileName := msg.Args[0].(string)
 		info, err := c.read(fileName)
 		if err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, info)
+		return sendFinalReply(resp, msg, info)
 	case "download":
 		// FIXME
 	case "write":
 		fileName := msg.Args[0].(string)
 		content := msg.Args[1].(string)
 		if err := c.write(fileName, content); err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, []interface{}{fileName})
+		return sendFinalReply(resp, msg, []interface{}{fileName})
 	case "writeNew":
 		fileName := msg.Args[0].(string)
 		content := msg.Args[1].(string)
 		if err := c.writeNew(fileName, content); err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, []interface{}{fileName})
+		return sendFinalReply(resp, msg, []interface{}{fileName})
 	case "makeDir":
 		dirName := msg.Args[0].(string)
 		if err := c.mkdir(dirName); err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, []interface{}{dirName})
+		return sendFinalReply(resp, msg, []interface{}{dirName})
 	case "deleteDir":
 		dirName := msg.Args[0].(string)
 		if err := c.rmdir(dirName); err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, []interface{}{dirName})
+		return sendFinalReply(resp, msg, []interface{}{dirName})
 	case "deleteFile":
 		filename := msg.Args[0].(string)
 		if err := c.deleteFile(filename); err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, []interface{}{filename})
+		return sendFinalReply(resp, msg, []interface{}{filename})
 	case "rename":
 		oldPath := msg.Args[0].(string)
 		newPath := msg.Args[1].(string)
 		if err := c.rename(oldPath, newPath); err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, []interface{}{oldPath})
+		return sendFinalReply(resp, msg, []interface{}{oldPath})
 	case "upload":
 		// FIXME
 	case "unzip":
 		// FIXME
 	}
-	return nil
+	close(resp)
+	return resp
 }
 
 func (c *FS) rmdir(dirName string) error {
@@ -159,10 +159,6 @@ func (c *FS) writeNew(path, content string) error {
 	return err
 }
 
-func (c *FS) list(dir string) ([]os.FileInfo, error) {
-	return readDir(dir)
-}
-
 func (c *FS) read(path string) ([]interface{}, error) {
 	// open the file
 	f, err := os.Open(path)
@@ -208,32 +204,8 @@ func (c *FS) read(path string) ([]interface{}, error) {
 	return []interface{}{path, contentType, content}, nil
 }
 
-func New(id string) (cops.Handler, error) {
-	return &FS{
-		id: id,
-	}, nil
-}
-
-func init() {
-	cops.RegisterHandler("fs", New)
-}
-
-func makeErr(orig *cops.Message, err error) *cops.Message {
-	return &cops.Message{
-		Namespace: orig.Namespace,
-		Event:     orig.Event,
-		CID:       orig.CID,
-		Error:     err.Error(),
-	}
-}
-
-func makeReply(orig *cops.Message, args []interface{}) *cops.Message {
-	return &cops.Message{
-		Namespace: orig.Namespace,
-		Event:     orig.Event,
-		CID:       orig.CID,
-		Args:      args,
-	}
+func NewFsHandler() AsyncHandler {
+	return &FS{}
 }
 
 func fileInfoArgs(info os.FileInfo) []interface{} {
@@ -293,14 +265,13 @@ func owner(stat os.FileInfo) (int, int, error) {
 }
 
 func readDir(name string) (fi []os.FileInfo, err error) {
-	log.Println("readding dir", name)
 	f, err := os.Open(name)
 	if err != nil {
+		log.Printf("readDir: os.Open('%s') failed with '%s'\n", name, err)
 		return nil, err
 	}
 	defer f.Close()
 	names, err := f.Readdirnames(-1)
-	log.Println("readding dir", name, names, err)
 	fi = make([]os.FileInfo, 0, len(names))
 	for _, filename := range names {
 		// use stat to read symlink as well

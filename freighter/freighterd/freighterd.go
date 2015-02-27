@@ -18,8 +18,6 @@ import (
 
 	// load required init for reexec commands
 	_ "github.com/nitrous-io/dedicated/freighter/cops"
-	_ "github.com/nitrous-io/dedicated/freighter/cops/cfinder"
-	_ "github.com/nitrous-io/dedicated/freighter/cops/fs"
 )
 
 var (

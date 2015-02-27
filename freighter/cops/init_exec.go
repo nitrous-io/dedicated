@@ -7,10 +7,14 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
+	"sync"
 	"syscall"
 
+	"github.com/go-fsnotify/fsnotify"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 )
 
@@ -33,72 +37,166 @@ func execInit() {
 	// this is used to communicate with the parent process
 	pipe := os.NewFile(3, "pipe")
 	defer pipe.Close()
-	errCh := ListenAndServe(id, os.Stdin, pipe)
-	if err := <-errCh; err != nil {
-		log.Fatalf("failed to serve cops websocket %v", err)
+	err := handleOps(id, os.Stdin, pipe)
+
+	if err != nil {
+		log.Fatalf("opsHandler failed with %v", err)
 	}
 	os.Exit(0)
 }
 
-// this is run inside a chroot environment and process the actual container
-// request.
-func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
-	decoder := json.NewDecoder(r)
-	encoder := json.NewEncoder(w)
-	// collection of handlers for this container.
-	handlers := map[string]Handler{}
+type OpsHandler struct {
+	containerId     string
+	mu              sync.Mutex
+	errCh           chan error
+	decoder         *json.Decoder
+	encoder         *json.Encoder
+	fileWatcher     *fsnotify.Watcher
+	fileWatcherQuit chan bool
+	watchedDirs     map[string]bool
+}
 
-	errCh := make(chan error, 1)
-	go func() {
-		for {
-			msg := &Message{}
-			if err := decoder.Decode(msg); err != nil {
-				errCh <- fmt.Errorf("failed to decode msg %s", err)
-				return
+func handleOps(containerId string, r io.Reader, w io.Writer) error {
+	var err error
+	oh := &OpsHandler{
+		containerId:     containerId,
+		decoder:         json.NewDecoder(r),
+		encoder:         json.NewEncoder(w),
+		errCh:           make(chan error, 1),
+		fileWatcherQuit: make(chan bool),
+		watchedDirs:     make(map[string]bool),
+	}
+	oh.fileWatcher, err = fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	go oh.fileWatcherLoop()
+	go oh.copsMessageLoop()
+	return oh.waitFinished()
+}
+
+func (oh *OpsHandler) stopWithError(err error) {
+	oh.fileWatcherQuit <- true
+	oh.errCh <- err
+}
+
+func (oh *OpsHandler) waitFinished() error {
+	err := <-oh.errCh
+	return err
+}
+
+func (oh *OpsHandler) sendReply(msg *Message) error {
+	oh.mu.Lock()
+	err := oh.encoder.Encode(msg)
+	oh.mu.Unlock()
+	if err != nil {
+		log.Printf("sendReply: oh.encoder.Encode() failed with '%s'", err)
+		oh.stopWithError(fmt.Errorf("failed to encode %v, %s", msg, err))
+	}
+	return err
+}
+
+func (oh *OpsHandler) notifyDirChanged(dir string) {
+	msg := &Message{
+		Namespace: "watcher",
+		Event:     "dir_changed.output",
+	}
+	msg.Args = []interface{}{dir}
+	oh.sendReply(msg)
+}
+
+func shouldNotifyAboutEvent(e fsnotify.Event) bool {
+	if e.Op&fsnotify.Create == fsnotify.Create {
+		return true
+	}
+	if e.Op&fsnotify.Remove == fsnotify.Remove {
+		return true
+	}
+	if e.Op&fsnotify.Rename == fsnotify.Rename {
+		return true
+	}
+	return false
+}
+
+// changes to some files shouldn't trigger updates.
+// we should definitely filter out ".zsh_history.LOCK" (and possibly similar
+// files for other shells), as they are updated after every command in console
+// this is a heuristic
+func shouldIgnoreFile(path string) bool {
+	name := filepath.Base(path)
+	if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") {
+		return true
+	}
+	return false
+}
+
+func (oh *OpsHandler) fileWatcherLoop() {
+	defer oh.fileWatcher.Close()
+	for {
+		select {
+		case event := <-oh.fileWatcher.Events:
+			path := event.Name
+			if shouldNotifyAboutEvent(event) && !shouldIgnoreFile(path) {
+				// it's the parent directory that needs to be updated
+				oh.notifyDirChanged(filepath.Dir(path))
 			}
-
-			// get the handler for this namespace, init and cache it if
-			// necessary
-			h, ok := handlers[msg.Namespace]
-			if !ok {
-				var err error
-				newHandler, ok := Handlers[msg.Namespace]
-				if !ok {
-					errCh <- fmt.Errorf("invalid operation %s", msg.Namespace)
-					return
-				}
-
-				h, err = newHandler(id)
-				if err != nil {
-					errCh <- fmt.Errorf("failed to handle %s for container %s, %s", msg.Namespace, id, err)
-					return
-				}
-				handlers[msg.Namespace] = h
-			}
-
-			// handle the operation in a separate goroutine to not block the
-			// message pipeline
-			go func() {
-				uh, ok := h.(AsyncHandler)
-				if ok {
-					ch := uh.HandleAsync(msg)
-					for reply := range ch {
-						if err := encoder.Encode(reply); err != nil {
-							errCh <- fmt.Errorf("failed to encode %v, %s", reply, err)
-							return
-						}
-					}
-				} else {
-					reply := h.Handle(msg)
-					if err := encoder.Encode(reply); err != nil {
-						errCh <- fmt.Errorf("failed to encode %v, %s", reply, err)
-						return
-					}
-				}
-			}()
+		case err := <-oh.fileWatcher.Errors:
+			log.Printf("fileWatcherLoop: got fsnotify error '%s'\n", err)
+			return
+		case <-oh.fileWatcherQuit:
+			log.Printf("quitting file watcher\n")
+			return
 		}
-	}()
-	return errCh
+	}
+}
+
+func (oh *OpsHandler) runHandler(h AsyncHandler, msg *Message) {
+	ch := h.HandleAsync(msg)
+	for reply := range ch {
+		if err := oh.sendReply(reply); err != nil {
+			return
+		}
+	}
+}
+
+// messageLoop runs inside a chroot environment and processes container requests
+func (oh *OpsHandler) copsMessageLoop() {
+	// cache handlers
+	fsHandler := NewFsHandler()
+	finderHandler := NewFinderHandler()
+
+	for {
+		msg := &Message{}
+		err := oh.decoder.Decode(msg)
+		if err != nil {
+			oh.stopWithError(fmt.Errorf("failed to decode msg %s", err))
+			return
+		}
+
+		// handle operations in a separate goroutine to not block the
+		// message pipeline
+		switch msg.Namespace {
+		case "fs":
+			// optimization: we only watch directories that IDE explicitly asked for
+			// at some point. There is no way to de-register from watching but
+			// even without that it's much better than watching every directory
+			if msg.Event == "list" {
+				dir := msg.Args[0].(string)
+				// avoid watching same dir twice - unclear if fsnotify handles that
+				// for all platforms
+				if !oh.watchedDirs[dir] {
+					oh.watchedDirs[dir] = true
+					oh.fileWatcher.Add(dir)
+				}
+			}
+			go oh.runHandler(fsHandler, msg)
+		case "finder":
+			go oh.runHandler(finderHandler, msg)
+		default:
+			oh.stopWithError(fmt.Errorf("invalid operation %s", msg.Namespace))
+			return
+		}
+	}
 }
 
 // Start listening to messages meant for container with `id`, spins up a
