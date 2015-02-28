@@ -18,20 +18,12 @@ type (
 		Error     string        `json:"error"`
 	}
 
-	// Handler is the actual operation that operates on the container `id`.
-	// TODO: deprecate this interface and upgrade implementation to AsyncHandler
-	// e.g. cops/fs
-	Handler interface {
-		Handle(msg *Message) *Message
-	}
-
 	FileInfo struct {
 		CID   string
 		Name  string
 		IsDir bool
 	}
 
-	// this will be used when handler supports this interface
 	AsyncHandler interface {
 		HandleAsync(msg *Message) chan *Message
 	}

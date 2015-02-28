@@ -40,7 +40,7 @@ func execInit() {
 	os.Exit(0)
 }
 
-// this is run inside a chroot environment and process the actual container
+// this is run inside a chroot environment and processes the actual container
 // request.
 func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
 	decoder := json.NewDecoder(r)
@@ -58,15 +58,14 @@ func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
 				return
 			}
 
-			var handlerToRun *Handler
-			var asyncHandlerToRun *AsyncHandler
+			var handlerToRun *AsyncHandler
 
 			log.Printf("cops cmd: '%s.%s'\n", msg.Namespace, msg.Event)
 			switch msg.Namespace {
 			case "fs":
 				handlerToRun = &fsHandler
 			case "finder":
-				asyncHandlerToRun = &finderHandler
+				handlerToRun = &finderHandler
 			default:
 				errCh <- fmt.Errorf("invalid operation %s", msg.Namespace)
 				return
@@ -74,25 +73,15 @@ func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
 
 			// handle the operation in a separate goroutine to not block the
 			// message pipeline
-			if handlerToRun != nil {
-				go func(h Handler) {
-					reply := h.Handle(msg)
+			go func(h AsyncHandler) {
+				ch := h.HandleAsync(msg)
+				for reply := range ch {
 					if err := encoder.Encode(reply); err != nil {
 						errCh <- fmt.Errorf("failed to encode %v, %s", reply, err)
 						return
 					}
-				}(*handlerToRun)
-			} else if asyncHandlerToRun != nil {
-				go func(h AsyncHandler) {
-					ch := h.HandleAsync(msg)
-					for reply := range ch {
-						if err := encoder.Encode(reply); err != nil {
-							errCh <- fmt.Errorf("failed to encode %v, %s", reply, err)
-							return
-						}
-					}
-				}(*asyncHandlerToRun)
-			}
+				}
+			}(*handlerToRun)
 		}
 	}()
 	return errCh
