@@ -41,6 +41,24 @@ func execInit() {
 	os.Exit(0)
 }
 
+func fileWatcher(mu *sync.Mutex, encoder *json.Encoder) {
+	watcher, err := NewRecursiveWatcher("/home/nitrous")
+	if err != nil {
+		log.Printf("NewRecursiveWather() failed with '%s'\n")
+		return
+	}
+	watcher.Run(true)
+	defer watcher.Close()
+	for {
+		select {
+		case file := <-watcher.Files:
+			log.Printf("cops file '%s' changed\n", file)
+		case folder := <-watcher.Folders:
+			log.Printf("cops folder '%s' changed\n", folder)
+		}
+	}
+}
+
 // this is run inside a chroot environment and processes the actual container
 // request.
 func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
@@ -53,6 +71,9 @@ func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
 	finderHandler := NewFinderHandler(id)
 
 	errCh := make(chan error, 1)
+
+	go fileWatcher(&mu, encoder)
+
 	go func() {
 		for {
 			msg := &Message{}
