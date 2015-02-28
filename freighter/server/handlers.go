@@ -994,8 +994,8 @@ func (s *Server) updateAptSource() error {
 func (s *Server) upgradeDocker(version string) error {
 	pkgspec := "lxc-docker-" + version
 	cmd := exec.Command("apt-get", "install", "-y",
-		"-o", `Dpkg::Options::=--force-confdef`, // avoid prompt
-		"-o", `Dpkg::Options::=--force-confnew`, // modify existing config file
+		"-o", `Dpkg::Options::=--force-confask`,
+		"-o", `Dpkg::Options::=--force-confnew`, // confask+confnew = always replace existing conf
 		pkgspec,
 	)
 	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
