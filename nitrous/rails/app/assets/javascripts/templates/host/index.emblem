@@ -7,11 +7,11 @@
         i.fa.fa-warning
         if canUpgrade
           '
-          | There are updates available.
+          | There are updates available for this workspace.
           '
           a click='upgrade' href="#" Update Now
         else
-          | There are updates available. Please stop your containers before updating.
+          | There are updates available for this workspace. Please stop your containers before updating.
 
   table.ui.table.horizontal
     tr
