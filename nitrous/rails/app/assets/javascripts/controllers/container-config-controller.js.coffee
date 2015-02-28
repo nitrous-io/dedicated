@@ -1,5 +1,4 @@
 readOnlyEnvKeys = ['__HOST']
-readOnlyVolumeSuffixes = [':/nitrous/ssh:ro', ':/.nitrous-container-slug:ro']
 
 App.ContainerConfigController = Lib.ContainerConfigController.extend
   saving: (->
@@ -9,7 +8,6 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
   loaded: false
   closeApplyDialog: false
   envVarHashRO: null # object (hash) - readonly
-  volumeMountsRO: null # array - readonly
 
   clear: ->
     @_super.apply this, arguments
@@ -17,7 +15,6 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       loaded: false
       closeApplyDialog: false
       envVarHashRO: Em.Object.create()
-      volumeMountsRO: Em.A()
 
   hostVolumesEmpty: Em.computed.empty('host.volumes')
 
