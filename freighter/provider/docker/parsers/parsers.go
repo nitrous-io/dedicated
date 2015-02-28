@@ -100,10 +100,7 @@ func ParsePortsFromDocker(cnr *docker.Container) []string {
 	}
 	bindings := []string{}
 	for containerPort, portBindings := range portsSource {
-		// for legacy-compatibility reason, do not output /tcp and /udp as suffix of the port
 		p := string(containerPort)
-		p = strings.Replace(p, "/tcp", "", -1)
-		p = strings.Replace(p, "/udp", "", -1)
 		if portBindings == nil {
 			// this happens when: port is exposed with no
 			// HostConfig.PortBinding and HostConfig.PublishAllPorts is false

@@ -9,12 +9,29 @@ Lib.ContainerConfigController = Em.ObjectController.extend
   publicPort: false
   hostPort: null
   containerPort: null
+  protocol: 'tcp'
+
   privileged: false
   publishAll: true
 
   envVarHash: null # object (hash)
   envKey: null
   envValue: null
+
+  protocolOptions: [
+    {
+      id: 'tcp'
+      displayName: 'TCP'
+    },
+    {
+      id: 'udp'
+      displayName: 'UDP'
+    },
+    {
+      id: 'both'
+      displayName: 'Both'
+    }
+  ]
 
   clear: ->
     @setProperties
@@ -27,6 +44,8 @@ Lib.ContainerConfigController = Em.ObjectController.extend
       publicPort: false
       hostPort: null
       containerPort: null
+      protocol: 'tcp'
+
       privileged: false
       publishAll: true
 
@@ -75,8 +94,14 @@ Lib.ContainerConfigController = Em.ObjectController.extend
 
       hostPort = @get('hostPort') ? ''
       containerPort = @get 'containerPort'
-      
-      portMappings.add(hostPort, containerPort, scope)
+
+      protocol = @get('protocol')
+
+      if protocol == 'both'
+        portMappings.add(scope, hostPort, containerPort, 'tcp')
+        portMappings.add(scope, hostPort, containerPort, 'udp')
+      else
+        portMappings.add(scope, hostPort, containerPort, protocol)
 
       @setProperties
         hostPort: null
