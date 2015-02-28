@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"sync"
 	"syscall"
 
 	"github.com/nitrous-io/dedicated/pkg/reexec"
@@ -43,6 +44,8 @@ func execInit() {
 // this is run inside a chroot environment and processes the actual container
 // request.
 func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
+	var mu sync.Mutex
+
 	decoder := json.NewDecoder(r)
 	encoder := json.NewEncoder(w)
 
@@ -76,7 +79,10 @@ func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
 			go func(h AsyncHandler) {
 				ch := h.HandleAsync(msg)
 				for reply := range ch {
-					if err := encoder.Encode(reply); err != nil {
+					mu.Lock()
+					err := encoder.Encode(reply)
+					mu.Unlock()
+					if err != nil {
 						errCh <- fmt.Errorf("failed to encode %v, %s", reply, err)
 						return
 					}
