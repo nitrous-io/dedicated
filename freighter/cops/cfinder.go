@@ -80,7 +80,6 @@ type Finder struct {
 	id string
 }
 
-// HandleAsync returns the responses as a channel of messages
 func (c *Finder) HandleAsync(msg *Message) chan *Message {
 	resp := make(chan *Message, chanSize)
 	switch msg.Event {
@@ -89,13 +88,11 @@ func (c *Finder) HandleAsync(msg *Message) chan *Message {
 		root := msg.Args[1].(string)
 		ch, errch, err := c.fileFind(term, root)
 		if err != nil {
-			resp <- makeErr(msg, err)
-			close(resp)
-			return resp
+			return sendErr(resp, msg, err)
 		}
 		go func() {
 			for err := range errch {
-				resp <- makeMessage(msg, "file_find.error", FileFindResponse{
+				sendMessage(resp, msg, "file_find.error", FileFindResponse{
 					Term:  term,
 					Root:  root,
 					Error: err,
@@ -104,52 +101,43 @@ func (c *Finder) HandleAsync(msg *Message) chan *Message {
 		}()
 		go func() {
 			for r := range ch {
-				resp <- makeMessage(msg, "file_find.output", FileFindResponse{
+				sendMessage(resp, msg, "file_find.output", FileFindResponse{
 					Term:  term,
 					Root:  root,
 					Paths: []string{r},
 				})
 			}
-			resp <- makeMessage(msg, "file_find.completed", FileFindResponse{
+			sendFinalMessage(resp, msg, "file_find.completed", FileFindResponse{
 				Term: term,
 				Root: root,
 			})
-			close(resp)
 		}()
 		// reply the original message to signal that we are processsing it
 		resp <- msg
 		return resp
 	case "search":
 		if len(msg.Args) < 1 {
-			resp <- makeErr(msg, errors.New("request argument is required"))
-			close(resp)
-			return resp
+			return sendErr(resp, msg, errors.New("request argument is required"))
 		}
 		arg, ok := msg.Args[0].(map[string]interface{})
 		if !ok {
-			resp <- makeErr(msg, fmt.Errorf("request argument %+v is in invalid format", msg.Args[0]))
-			close(resp)
-			return resp
+			return sendErr(resp, msg, fmt.Errorf("request argument %+v is in invalid format", msg.Args[0]))
 		}
 
 		var req SearchRequest
 		err := mapToStruct(arg, &req)
 		if err != nil {
-			resp <- makeErr(msg, fmt.Errorf("request argument %+v is in invalid format", arg))
-			close(resp)
-			return resp
+			return sendErr(resp, msg, fmt.Errorf("request argument %+v is in invalid format", arg))
 		}
 
 		ch, errch, err := c.search(req.Term, req.Root, req.IgnoreCase, req.UseRegexp)
 		if err != nil {
-			resp <- makeErr(msg, err)
-			close(resp)
-			return resp
+			return sendErr(resp, msg, err)
 		}
 
 		go func() {
 			for err := range errch {
-				resp <- makeMessage(msg, "search.error", SearchResponse{
+				sendMessage(resp, msg, "search.error", SearchResponse{
 					SearchRequest: req,
 					Error:         err.Error(),
 				})
@@ -157,15 +145,14 @@ func (c *Finder) HandleAsync(msg *Message) chan *Message {
 		}()
 		go func() {
 			for r := range ch {
-				resp <- makeMessage(msg, "search.output", SearchResponse{
+				sendMessage(resp, msg, "search.output", SearchResponse{
 					SearchRequest: req,
 					Results:       []*finder.SearchResult{r},
 				})
 			}
-			resp <- makeMessage(msg, "search.completed", SearchResponse{
+			sendFinalMessage(resp, msg, "search.completed", SearchResponse{
 				SearchRequest: req,
 			})
-			close(resp)
 		}()
 
 		// reply the original message to signal that we are processsing it

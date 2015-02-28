@@ -41,73 +41,76 @@ type FS struct {
 	id string
 }
 
-func (c *FS) Handle(msg *Message) *Message {
+func (c *FS) HandleAsync(msg *Message) chan *Message {
+	resp := make(chan *Message, chanSize)
+
 	switch msg.Event {
 	case "list":
 		dir := msg.Args[0].(string)
 		entries, err := c.list(dir)
 		if err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
 		files := make([]interface{}, len(entries))
 		for i, f := range entries {
 			files[i] = fileInfoArgs(f)
 		}
-		return makeReply(msg, []interface{}{dir, files})
+		return sendFinalReply(resp, msg, []interface{}{dir, files})
 	case "read":
 		fileName := msg.Args[0].(string)
 		info, err := c.read(fileName)
 		if err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, info)
+		return sendFinalReply(resp, msg, info)
 	case "download":
 		// FIXME
 	case "write":
 		fileName := msg.Args[0].(string)
 		content := msg.Args[1].(string)
 		if err := c.write(fileName, content); err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, []interface{}{fileName})
+		return sendFinalReply(resp, msg, []interface{}{fileName})
 	case "writeNew":
 		fileName := msg.Args[0].(string)
 		content := msg.Args[1].(string)
 		if err := c.writeNew(fileName, content); err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, []interface{}{fileName})
+		return sendFinalReply(resp, msg, []interface{}{fileName})
 	case "makeDir":
 		dirName := msg.Args[0].(string)
 		if err := c.mkdir(dirName); err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, []interface{}{dirName})
+		return sendFinalReply(resp, msg, []interface{}{dirName})
 	case "deleteDir":
 		dirName := msg.Args[0].(string)
 		if err := c.rmdir(dirName); err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, []interface{}{dirName})
+		return sendFinalReply(resp, msg, []interface{}{dirName})
 	case "deleteFile":
 		filename := msg.Args[0].(string)
 		if err := c.deleteFile(filename); err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, []interface{}{filename})
+		return sendFinalReply(resp, msg, []interface{}{filename})
 	case "rename":
 		oldPath := msg.Args[0].(string)
 		newPath := msg.Args[1].(string)
 		if err := c.rename(oldPath, newPath); err != nil {
-			return makeErr(msg, err)
+			return sendErr(resp, msg, err)
 		}
-		return makeReply(msg, []interface{}{oldPath})
+		return sendFinalReply(resp, msg, []interface{}{oldPath})
 	case "upload":
 		// FIXME
 	case "unzip":
 		// FIXME
 	}
-	return nil
+	close(resp)
+	return resp
 }
 
 func (c *FS) rmdir(dirName string) error {
@@ -206,7 +209,7 @@ func (c *FS) read(path string) ([]interface{}, error) {
 	return []interface{}{path, contentType, content}, nil
 }
 
-func NewFsHandler(id string) Handler {
+func NewFsHandler(id string) AsyncHandler {
 	return &FS{
 		id: id,
 	}
