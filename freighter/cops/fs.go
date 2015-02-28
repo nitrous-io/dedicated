@@ -38,7 +38,6 @@ var (
 )
 
 type FS struct {
-	id string
 }
 
 func (c *FS) HandleAsync(msg *Message) chan *Message {
@@ -47,7 +46,7 @@ func (c *FS) HandleAsync(msg *Message) chan *Message {
 	switch msg.Event {
 	case "list":
 		dir := msg.Args[0].(string)
-		entries, err := c.list(dir)
+		entries, err := readDir(dir)
 		if err != nil {
 			return sendErr(resp, msg, err)
 		}
@@ -160,10 +159,6 @@ func (c *FS) writeNew(path, content string) error {
 	return err
 }
 
-func (c *FS) list(dir string) ([]os.FileInfo, error) {
-	return readDir(dir)
-}
-
 func (c *FS) read(path string) ([]interface{}, error) {
 	// open the file
 	f, err := os.Open(path)
@@ -209,10 +204,8 @@ func (c *FS) read(path string) ([]interface{}, error) {
 	return []interface{}{path, contentType, content}, nil
 }
 
-func NewFsHandler(id string) AsyncHandler {
-	return &FS{
-		id: id,
-	}
+func NewFsHandler() AsyncHandler {
+	return &FS{}
 }
 
 func fileInfoArgs(info os.FileInfo) []interface{} {
@@ -272,14 +265,13 @@ func owner(stat os.FileInfo) (int, int, error) {
 }
 
 func readDir(name string) (fi []os.FileInfo, err error) {
-	log.Println("reading dir", name)
 	f, err := os.Open(name)
 	if err != nil {
+		log.Printf("readDir: os.Open('%s') failed with '%s'\n", name, err)
 		return nil, err
 	}
 	defer f.Close()
 	names, err := f.Readdirnames(-1)
-	log.Println("readding dir", name, names, err)
 	fi = make([]os.FileInfo, 0, len(names))
 	for _, filename := range names {
 		// use stat to read symlink as well
