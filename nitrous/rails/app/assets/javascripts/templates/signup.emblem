@@ -21,12 +21,12 @@
       .ui.input-group
         label.field-label for='signup-username'
           | Username
-        = input type='text' id='signup-username' classNameBindings='view.usernameFieldInvalid:error' disabled=signingUp value=user.username placeholder='e.g., jdawg91'
+        = input type='text' id='signup-username' classNameBindings='view.usernameFieldInvalid:error' disabled=signingUp value=user.username placeholder='e.g., cloudist'
 
       .ui.input-group
         label.field-label for='signup-email'
           | Email
-        = input type='email' id='signup-email' classNameBindings='view.emailFieldInvalid:error' disabled=signingUp value=user.email placeholder='e.g., jdawg91@example.com'
+        = input type='email' id='signup-email' classNameBindings='view.emailFieldInvalid:error' disabled=signingUp value=user.email placeholder='e.g., cloudist@example.com'
         .suggested-email class={suggestedEmail:show}
           if suggestedEmail
             p.hint-text click="acceptSuggestedEmail"
