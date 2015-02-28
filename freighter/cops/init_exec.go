@@ -53,6 +53,20 @@ func fileWatcher(mu *sync.Mutex, encoder *json.Encoder) {
 		select {
 		case folder := <-watcher.Folders:
 			log.Printf("cops folder '%s' changed\n", folder)
+			args := []interface{}{folder}
+			msg := &Message{
+				Namespace: "watcher",
+				Event:     "dirchanged",
+				Args:      args,
+			}
+			mu.Lock()
+			err := encoder.Encode(msg)
+			mu.Unlock()
+			// can happen when ws connetion is closed
+			if err != nil {
+				log.Printf("fileWatcher: encoder.Encode() failed with '%s'\n", err)
+				return
+			}
 		}
 	}
 }
