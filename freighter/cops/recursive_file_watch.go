@@ -14,12 +14,11 @@ import (
 
 type RecursiveWatcher struct {
 	*fsnotify.Watcher
-	Files   chan string
 	Folders chan string
 }
 
 func NewRecursiveWatcher(path string) (*RecursiveWatcher, error) {
-	folders := Subfolders(path)
+	folders := subfolders(path)
 	if len(folders) == 0 {
 		return nil, errors.New("No folders to watch.")
 	}
@@ -28,10 +27,10 @@ func NewRecursiveWatcher(path string) (*RecursiveWatcher, error) {
 	if err != nil {
 		return nil, err
 	}
-	rw := &RecursiveWatcher{Watcher: watcher}
-
-	rw.Files = make(chan string, 10)
-	rw.Folders = make(chan string, len(folders))
+	rw := &RecursiveWatcher{
+		Watcher: watcher,
+		Folders: make(chan string, len(folders)),
+	}
 
 	for _, folder := range folders {
 		rw.AddFolder(folder)
@@ -43,52 +42,41 @@ func (watcher *RecursiveWatcher) AddFolder(folder string) {
 	err := watcher.Add(folder)
 	if err != nil {
 		log.Println("Error watching: ", folder, err)
+	} else {
+		log.Printf("Started watching '%s'\n", folder)
 	}
-	watcher.Folders <- folder
 }
 
-func DebugError(err error) {
-	// do nothing
+func notifyAboutEvent(e fsnotify.Event) bool {
+	if e.Op&fsnotify.Create == fsnotify.Create {
+		return true
+	}
+	if e.Op&fsnotify.Remove == fsnotify.Remove {
+		return true
+	}
+	if e.Op&fsnotify.Rename == fsnotify.Rename {
+		return true
+	}
+	return false
 }
 
-func DebugMessage(format string, args ...interface{}) {
-	// do nothing
-}
-
-func (watcher *RecursiveWatcher) Run(debug bool) {
+func (watcher *RecursiveWatcher) Run() {
 	go func() {
 		for {
 			select {
 			case event := <-watcher.Events:
-				// create a file/directory
-				if event.Op&fsnotify.Create == fsnotify.Create {
+				//log.Printf("event: '%s'\n", event)
+				if notifyAboutEvent(event) {
 					fi, err := os.Stat(event.Name)
-					if err != nil {
-						// eg. stat .subl513.tmp : no such file or directory
-						if debug {
-							DebugError(err)
-						}
-					} else if fi.IsDir() {
-						if debug {
-							DebugMessage("Detected new directory %s", event.Name)
-						}
+					if err == nil && fi.IsDir() {
 						if !shouldIgnoreFile(filepath.Base(event.Name)) {
 							watcher.AddFolder(event.Name)
 						}
-					} else {
-						if debug {
-							DebugMessage("Detected new file %s", event.Name)
-						}
-						watcher.Files <- event.Name // created a file
 					}
-				}
-
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					// modified a file, assuming that you don't modify folders
-					if debug {
-						DebugMessage("Detected file modification %s", event.Name)
+					if !shouldIgnoreFile(filepath.Base(event.Name)) {
+						parentDir := filepath.Dir(event.Name)
+						watcher.Folders <- parentDir
 					}
-					watcher.Files <- event.Name
 				}
 
 			case err := <-watcher.Errors:
@@ -98,8 +86,8 @@ func (watcher *RecursiveWatcher) Run(debug bool) {
 	}()
 }
 
-// Subfolders returns a slice of subfolders (recursive), including the folder provided.
-func Subfolders(path string) (paths []string) {
+// subfolders returns a slice of subfolders (recursive), including the folder provided.
+func subfolders(path string) (paths []string) {
 	filepath.Walk(path, func(newPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -118,7 +106,7 @@ func Subfolders(path string) (paths []string) {
 	return paths
 }
 
-// shouldIgnoreFile determines if a file should be ignored.
+// shouldIgnoreFile determines if a file or directory should be ignored.
 // File names that begin with "." or "_" are ignored by the go tool.
 func shouldIgnoreFile(name string) bool {
 	return strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")

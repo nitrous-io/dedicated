@@ -47,12 +47,10 @@ func fileWatcher(mu *sync.Mutex, encoder *json.Encoder) {
 		log.Printf("NewRecursiveWather() failed with '%s'\n")
 		return
 	}
-	watcher.Run(true)
+	watcher.Run()
 	defer watcher.Close()
 	for {
 		select {
-		case file := <-watcher.Files:
-			log.Printf("cops file '%s' changed\n", file)
 		case folder := <-watcher.Folders:
 			log.Printf("cops folder '%s' changed\n", folder)
 		}
