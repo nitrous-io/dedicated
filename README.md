@@ -1,4 +1,4 @@
-# dedicated
+# Nitrous Pro (Nitrous Dedicated) Central Repo
 
 Contain components of the nitrous-dedicated platform.
 - nitrous: the webapp
@@ -8,21 +8,32 @@ Contain components of the nitrous-dedicated platform.
 - compass: the DNS
 - tender: proxy to the hosts
 
-# Development
-* Requires DNSMASQ: install it with apt-get install dnsmasq
-* Create local configuration files from provided example files. i.e. `hostbuilder/sample_config.json` -> `hostbuilder/config.json`, `nitrous/.env-example` -> `nitrous/.env`, etc.
-* Run `make run-dev`: a program that setups various services and wires settings
-  together. Requires for proxy to works. Tested on Ubuntu server. After running
-  this, `./build/nitro` should work locally with docker hosts.
-  * You might need to configure Postgres to allow access via Unix domain
-    sockets. Add this to `/etc/postgresql/9.3/main/pg_hba.conf`:
-    `local all all trust`
-* `make run-dev` requires the `nitrous` and `hostbuilder` services to be stopped first. Example stop command: `sudo service nitrous stop`. To disable the two services running on system start up, add files `/etc/init/{service}.override` with the line `manual` inside.
-* To get the browser-based terminal to work, you need to add an entry
-  in your host machine's `/etc/hosts`, mapping `<app-slug>.n2odev.com` to your VM's IP.
-  eg: `33.33.33.10  test-app.n2odev.com`
+### Set Up
 
-# commands
+Setting up a development environment for Nitrous is simple on Nitrous Pro.
+
+1. Create a workspace. You need at least 2GB RAM. (Nitro Recommended)
+2. Enable Advanced Container Management
+
+  ![screen shot 2015-02-27 at 5 40 07 pm](https://cloud.githubusercontent.com/assets/30173/6424148/b45e5410-bea7-11e4-8d67-076ca8492b41.png)
+3. Log into Quay.io
+
+  ![screen shot 2015-02-27 at 5 39 58 pm](https://cloud.githubusercontent.com/assets/30173/6424150/c820f9bc-bea7-11e4-8822-a0d6c1c70b54.png)
+4. Go to new container screen, specify `quay.io/nitrous/nitrous-on-nitrous` image and click next.
+
+  ![screen shot 2015-02-27 at 5 41 13 pm](https://cloud.githubusercontent.com/assets/30173/6424153/e121f632-bea7-11e4-996f-99bcdc423714.png)
+
+5. In the container config screen, it is recommended that you create a fixed port binding for port 22, so that the SSH URL remains static. Click Add.
+
+  ![screen shot 2015-02-27 at 5 43 48 pm](https://cloud.githubusercontent.com/assets/30173/6424176/56270724-bea8-11e4-9e15-4904ecdc8b64.png)
+
+  Privileged Mode must be enabled.
+
+  ![screen shot 2015-02-27 at 5 43 54 pm](https://cloud.githubusercontent.com/assets/30173/6424178/5b0ec2b8-bea8-11e4-895b-312dabbaef3d.png)
+
+6. Open the IDE, follow the instructions in the Readme.
+
+### Commands
 
 ```
 - make: build binaries and assets
@@ -39,12 +50,12 @@ Contain components of the nitrous-dedicated platform.
 - make createdb/dropdb: prepare the DB. Useful in development
 ```
 
-# Dependency management
+### Dependency management
 
 We use [Godep](https://github.com/tools/godep) and vendor dependencies (i.e.
 dependencies are checked in).
 
-## Using Godep
+#### Using Godep
 
 * Install Godep: `go get github.com/tools/godep`
 * Copy the vendored dependencies in `Godeps/` to your `GOPATH`: `godep restore`
@@ -57,7 +68,9 @@ dependencies are checked in).
 NOTE: if you change your GOPATH to something like $GOPATH:$(godep path),
 remmeber to reset it to global GOPATH before get/update/save the dependencies
 
-## Why Godep?
+#### Why Godep?
+
+GODEP SUCKS
 
 ```
 Vendoring dependencies makes the build more stable and removes a lot of
@@ -80,3 +93,6 @@ dependencies ( AFAIK ?). A common approach when doing this in Go projects is to
 commit the change directly into the GOPATH (i.e. Godeps/_workspace) since it's
 checked in, and update the dependencies when the change is merged upstream.
 ```
+
+- - -
+Copyright (c) 2012-2015 Nitrous, Inc. All Rights Reserved.

@@ -89,13 +89,19 @@ COPY support/nginx-default /etc/nginx/sites-available/default
 COPY support/n2odev.crt /etc/nginx/certs/n2odev.crt
 COPY support/n2odev.key /etc/nginx/certs/n2odev.key
 
+# install dnsmasq
+RUN \
+  apt-get update && \
+  apt-get install -y dnsmasq && \
+  apt-get clean
+
 # copy setup.sh
+
+COPY support/setup.sh /home/$NITROUS_USERNAME/setup.sh
+RUN chown $NITROUS_USERNAME:$NITROUS_USERNAME /home/$NITROUS_USERNAME/setup.sh
 
 USER $NITROUS_USERNAME
 RUN ln -s /home/$NITROUS_USERNAME/code /home/$NITROUS_USERNAME/workspace
 USER root
-
-COPY support/setup.sh /home/$NITROUS_USERNAME/setup.sh
-RUN chown $NITROUS_USERNAME:$NITROUS_USERNAME /home/$NITROUS_USERNAME/setup.sh
 
 ENV NITROUS_README_URL https://codepen.io/raingrove/full/WbyvaZ/
