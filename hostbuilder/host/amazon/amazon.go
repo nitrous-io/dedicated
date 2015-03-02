@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
@@ -38,17 +39,31 @@ var (
 	ErrCreateTimeout              = errors.New("timed out creating host")
 )
 
+type tlsConfig struct {
+	CA   string `json:"ca"`
+	Cert string `json:"cert"`
+	Key  string `json:"key"`
+}
+
 type HostConfig struct {
 	ID               string            `json:"id"`
 	SourceAMI        string            `json:"source_ami"`
 	AvailabilityZone string            `json:"availability_zone"`
 	InstanceType     string            `json:"instance_type"`
-	RawRegion        string            `json:"region"`
-	PublicKeys       []string          `json:"public_keys"`
 	RawSecurityGroup map[string]string `json:"security_group"`
 
 	// should be enabled if the underlying SourceAMI is HVM
 	EnhancedNetworking bool `json:"enhanced_networking"`
+
+	// freighter specific config
+	PublicKeys        []string   `json:"public_keys"`
+	TLS               *tlsConfig `json:"tls"`
+	Secret            string     `json:"secret"`
+	AptUsername       string     `json:"apt_username"` // username on nitrous.io
+	AptPassword       string     `json:"apt_password"` // nitrous.io access token
+	AptLocation       string     `json:"apt_location"` // URI of the repository
+	AptDist           string     `json:"apt_dist"`     // distribution of the repo
+	FreighterdVersion string     `json:"freighterd_version"`
 }
 
 // securityGroups returns a list of preconfigured security groups that we are
@@ -63,11 +78,12 @@ func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
 }
 
 type Host struct {
-	AccessConfig *AccessConfig
-	Config       *HostConfig
-	provider     *ec2.EC2
+	Auth   aws.Auth
+	Config *HostConfig
 
-	instance *ec2.Instance
+	provider      *ec2.EC2
+	instance      *ec2.Instance
+	createTimeout time.Duration
 
 	// the following settings are only available during the creation phase
 	// where we stored the temporary keypair to access the instance
@@ -76,8 +92,7 @@ type Host struct {
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
-	// generate the temporary keypair that we will be used to communicate with
-	// the host
+	// generate the temporary keypair that is used to communicate with the host
 	k, err := generateTempKeypair(h.provider)
 	if err != nil {
 		return nil, err
@@ -127,7 +142,31 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 	}
 
-	return h.Info()
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			hlog(h, "ERROR: Failed in create host step: %v", err)
+			h.logFailedDroplet()
+			if err == context.DeadlineExceeded {
+				return nil, ErrCreateTimeout
+			}
+			return nil, err
+		}
+	}
+
+	if h.sshKey != nil {
+		fmt.Fprintf(w, "Removing key...")
+		hlog(h, "keyID=%d Removing key...", h.keypair.name)
+		if err := h.keypair.Delete(); err != nil {
+			h.progressLog(w, "Removing key...Failed!")
+			hlog(h, "ERROR: Failed to remove key %d", h.keypair.name)
+		} else {
+			h.progressLog(w, "Removing key...Done!")
+		}
+	}
+
+	info, err := h.Info()
+	h.progressLog(w, "Provisioning host...Done!")
+	return info, err
 }
 
 func (h *Host) Update(w io.Writer) (*host.Info, error) {
@@ -187,29 +226,45 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		log.Printf("uuid=%s amazon: invalid config %s", defaultConfig["uuid"], config)
 		return nil, err
 	}
-	accessConfig := &AccessConfig{
-		AccessKey: defaultConfig["access_key"],
-		SecretKey: defaultConfig["secret_key"],
-		RawRegion: hostConfig.RawRegion,
-	}
-	auth, err := accessConfig.Auth()
+	// get authentication
+	auth, err := getAuth(defaultConfig["access_key"], defaultConfig["secret_key"])
 	if err != nil {
 		log.Printf("uuid=%s amazon: auth failed %v", defaultConfig["uuid"], config)
 		return nil, err
 	}
-	region, err := accessConfig.Region()
-	if err != nil {
-		log.Printf("uuid=%s amazon: invalid region %v", defaultConfig["uuid"], config)
-		return nil, err
+	// get create timeout
+	createTimeout := DefaultCreateTimeout
+	d, err := time.ParseDuration(defaultConfig["create_timeout"])
+	if err == nil {
+		createTimeout = d
 	}
 	host := &Host{
-		AccessConfig: accessConfig,
-		Config:       hostConfig,
-		provider:     ec2.New(auth, region),
-		uuid:         defaultConfig["uuid"],
-		notifyURL:    defaultConfig["notify_url"],
+		Auth:          auth,
+		Config:        hostConfig,
+		provider:      ec2.New(auth, region),
+		uuid:          defaultConfig["uuid"],
+		notifyURL:     defaultConfig["notify_url"],
+		createTimeout: createTimeout,
 	}
 	return host, nil
+}
+
+// progressLog writes the message to the given writer and logs the message,
+// prefixing host information.  It is used for user-facing messages.  Use
+// `hlog` for internal logging.
+func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
+	fmt.Fprintf(w, format, v...)
+	hlog(h, format, v...)
+}
+
+func (h *Host) logFailedDroplet() {
+	if h.instance != nil {
+		if h.keypair != nil {
+			hlog(h, "keyID=%s Leaving instance for inspection: %s", h.keypair.name, h.instance.InstanceId)
+		} else {
+			hlog(h, "keyID=unknown Leaving instance for inspection: %s", h.instance.InstanceId)
+		}
+	}
 }
 
 func init() {
@@ -405,4 +460,10 @@ func hlog(h *Host, format string, v ...interface{}) {
 		parts = append(parts, fmt.Sprintf("droplet=%d", h.droplet.ID))
 	}
 	log.Printf(fmt.Sprintf("%s %s", strings.Join(parts, " "), format), v...)
+}
+
+// getAuth returns a valid aws.Auth object for access to AWS services, or
+// an error if the authentication couldn't be resolved.
+func getAuth(access, secret string) (aws.Auth, error) {
+	return aws.GetAuth(access, secret)
 }
