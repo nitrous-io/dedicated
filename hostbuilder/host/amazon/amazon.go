@@ -4,24 +4,39 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
-	"os"
-	"text/template"
+	"strings"
+	"time"
 
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/pkg/sshutil"
+	"golang.org/x/net/context"
 )
 
-var userDataTemplate = `#cloud-config
-{{if .PublicKeys}}
-ssh_authorized_keys:
-{{range .PublicKeys}}
-	- {{.}}
-{{end}}
-{{end}}
-`
-var compiledUserData *template.Template
+const (
+	DefaultPort uint16 = 65333
+
+	sshPort uint16 = 65100
+)
+
+var (
+	// Paths to files within each DigitalOcean host.
+	PubKeysLocation = "/root/.ssh/authorized_keys"
+	TLSCALocation   = "/etc/freighterd/ca.crt"
+	TLSCertLocation = "/etc/freighterd/cert.crt"
+	TLSKeyLocation  = "/etc/freighterd/key.crt"
+	SecretLocation  = "/etc/freighterd/secret"
+	ConfigLocation  = "/etc/freighterd/config.json"
+
+	DefaultCreateTimeout = 10 * time.Minute
+	StateWaitTime        = 3 * time.Second
+
+	ErrDisabledEnhancedNetworking = errors.New("disabled enhanced networking")
+	ErrCreateTimeout              = errors.New("timed out creating host")
+)
 
 type HostConfig struct {
 	ID               string            `json:"id"`
@@ -31,16 +46,13 @@ type HostConfig struct {
 	RawRegion        string            `json:"region"`
 	PublicKeys       []string          `json:"public_keys"`
 	RawSecurityGroup map[string]string `json:"security_group"`
+
+	// should be enabled if the underlying SourceAMI is HVM
+	EnhancedNetworking bool `json:"enhanced_networking"`
 }
 
-func (h *HostConfig) generateUserData() ([]byte, error) {
-	userData := bytes.NewBufferString("")
-	if err := compiledUserData.Execute(userData, h); err != nil {
-		return []byte{}, err
-	}
-	return userData.Bytes(), nil
-}
-
+// securityGroups returns a list of preconfigured security groups that we are
+// going to use for all the instances.
 func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
 	return []ec2.SecurityGroup{
 		ec2.SecurityGroup{
@@ -56,53 +68,65 @@ type Host struct {
 	provider     *ec2.EC2
 
 	instance *ec2.Instance
+
+	// the following settings are only available during the creation phase
+	// where we stored the temporary keypair to access the instance
+	keypair *keypair      // private keypair of the instance
+	conn    *sshutil.Conn // ssh connection to the instance
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
-	w = io.MultiWriter(os.Stdout, w)
-	// generate key pair
+	// generate the temporary keypair that we will be used to communicate with
+	// the host
 	k, err := generateTempKeypair(h.provider)
 	if err != nil {
 		return nil, err
 	}
 	defer k.Delete()
+	h.keypair = k
 
-	// generate user data
-	userData, err := h.Config.generateUserData()
-	if err != nil {
-		return nil, err
-	}
-	runOpts := &ec2.RunInstances{
-		KeyName:        k.name,
-		ImageId:        h.Config.SourceAMI,
-		InstanceType:   h.Config.InstanceType,
-		SecurityGroups: h.Config.securityGroups(),
-		AvailZone:      h.Config.AvailabilityZone,
-		UserData:       userData,
-		MinCount:       0,
-		MaxCount:       0,
-	}
-	// TODO: check if source ami is valid and exists
+	// ctx is the Context for this method. Calling cancel closes the ctx.Done
+	// channel, which will in turn signal for child requests started by this
+	// method to be cancelled.
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	// create the instance now
-	resp, err := h.provider.RunInstances(runOpts)
-	if err != nil {
-		log.Printf("amazon: failed to create new instance %v", err)
-		return nil, err
-	}
-	h.instance = &resp.Instances[0]
+	// Store host and writer in ctx for child requests.
+	hctx := host.NewContext(ctx, h, w)
 
-	// wait for the instance to be ready
-	state := &StateChangeConf{
-		Pending: []string{"pending"},
-		Target:  "running",
-		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+	steps := []host.Step{
+		{
+			Description: "Checking image's availability",
+			Func:        inspectSourceAMI,
+		},
+		{
+			Description: "Creating workspace",
+			Func:        createInstance,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Description: "Waiting for the workspace to be ready",
+			Func:        waitForSSH,
+			Timeout:     1 * time.Minute,
+		},
+		{
+			Description: "Populating settings",
+			Func:        writeSettings,
+		},
+		{
+			Description: "Fetching updates",
+			Func:        updateSoftware,
+		},
+		{
+			Description: "Applying settings",
+			Func:        restartFreighterd,
+		},
 	}
-	updatedInstance, err := WaitForState(state)
-	if err != nil {
-		return nil, err
-	}
-	h.instance = updatedInstance.(*ec2.Instance)
+
 	return h.Info()
 }
 
@@ -160,7 +184,7 @@ func (h *Host) DriverName() string {
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		log.Printf("amazon: invalid config %s", config)
+		log.Printf("uuid=%s amazon: invalid config %s", defaultConfig["uuid"], config)
 		return nil, err
 	}
 	accessConfig := &AccessConfig{
@@ -170,23 +194,215 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	}
 	auth, err := accessConfig.Auth()
 	if err != nil {
-		log.Printf("amazon: auth failed: %v", err)
+		log.Printf("uuid=%s amazon: auth failed %v", defaultConfig["uuid"], config)
 		return nil, err
 	}
 	region, err := accessConfig.Region()
 	if err != nil {
-		log.Printf("amazon: invalid region: %v", err)
+		log.Printf("uuid=%s amazon: invalid region %v", defaultConfig["uuid"], config)
 		return nil, err
 	}
 	host := &Host{
 		AccessConfig: accessConfig,
 		Config:       hostConfig,
 		provider:     ec2.New(auth, region),
+		uuid:         defaultConfig["uuid"],
+		notifyURL:    defaultConfig["notify_url"],
 	}
 	return host, nil
 }
 
 func init() {
-	compiledUserData = template.Must(template.New("userData").Parse(userDataTemplate))
 	host.Hosts["amazon"] = NewHost
+}
+
+func inspectSourceAMI(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	imageResp, err := h.provider.Images([]string{h.Config.SourceAMI}, ec2.NewFilter())
+	if err != nil {
+		return fmt.Errorf("inspectSourceAMI: failed to list images %s", err)
+	}
+
+	if len(imageResp.Images) == 0 {
+		return fmt.Errorf("inspectSourceAMI: %q not found", h.Config.SourceAMI)
+	}
+
+	image := &imageResp.Images[0]
+	if h.Config.EnhancedNetworking && image.VirtualizationType != "hvm" {
+		return ErrDisabledEnhancedNetworking
+	}
+
+	return nil
+}
+
+func createInstance(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	runOpts := &ec2.RunInstances{
+		KeyName:        h.keypair.name,
+		ImageId:        h.Config.SourceAMI,
+		InstanceType:   h.Config.InstanceType,
+		SecurityGroups: h.Config.securityGroups(),
+		AvailZone:      h.Config.AvailabilityZone,
+		MinCount:       0,
+		MaxCount:       0,
+	}
+
+	// create the instance now
+	resp, err := h.provider.RunInstances(runOpts)
+	if err != nil {
+		return fmt.Errorf("amazon: failed to create new instance %s", err)
+	}
+	h.instance = &resp.Instances[0]
+
+	// wait for the instance to be ready
+	state := &StateChangeConf{
+		Pending: []string{"pending"},
+		Target:  "running",
+		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+	}
+	updatedInstance, err := WaitForState(state)
+	if err != nil {
+		return fmt.Errorf("amazon: failed to change state %s", err)
+	}
+	h.instance = updatedInstance.(*ec2.Instance)
+	return nil
+}
+
+func waitForSSH(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.metricsLabel("ssh_wait")
+	defer mh.UpdateSince(label, time.Now())
+
+	hlog(h, "Waiting for SSH to be ready")
+	address := fmt.Sprintf("%s:%d", h.instance.PublicIpAddress, sshPort)
+	info := map[string]interface{}{
+		"uuid": h.uuid,
+	}
+	connInterval := 5 * time.Second
+	sshConn, err := sshutil.WaitForSSH(address, "root", h.keypair.privateKey,
+		connInterval, ctx.Done(), info)
+	if err != nil {
+		return mh.Error(err, label)
+	}
+	hlog(h, "SSH ready for droplet %v", h.droplet.ID)
+	h.conn = sshConn
+	return nil
+}
+
+func writeSettings(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	hlog(h, "Writing settings")
+
+	pubKeysBuf := bytes.NewBuffer(nil)
+	for _, k := range h.Config.PublicKeys {
+		fmt.Fprintln(pubKeysBuf, k)
+	}
+
+	aptSourcesBuf := bytes.NewBuffer(nil)
+	if err := host.SourceTemplate.Execute(aptSourcesBuf, h.Config); err != nil {
+		return err
+	}
+
+	cfg := h.configFile()
+	cfgb, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("unable to marshal config JSON, err: %v", err)
+	}
+
+	if err := h.conn.Execute("mkdir -p /etc/freighterd"); err != nil {
+		return err
+	}
+
+	if err := uploadFile(h, map[string]io.Reader{
+		PubKeysLocation:     pubKeysBuf,
+		host.SourceLocation: aptSourcesBuf,
+		TLSCALocation:       strings.NewReader(h.Config.TLS.CA),
+		TLSCertLocation:     strings.NewReader(h.Config.TLS.Cert),
+		TLSKeyLocation:      strings.NewReader(h.Config.TLS.Key),
+		SecretLocation:      strings.NewReader(h.Config.Secret),
+		ConfigLocation:      bytes.NewBuffer(cfgb),
+	}); err != nil {
+		return err
+	}
+
+	hlog(h, "Wrote settings")
+	return nil
+}
+
+func uploadFile(h *Host, files map[string]io.Reader) error {
+	label := h.metricsLabel("write_file")
+	defer mh.UpdateSince(label, time.Now())
+	flist := []string{}
+	for dest, val := range files {
+		if err := h.conn.Upload(dest, val); err != nil {
+			return mh.Error(err, label)
+		}
+		flist = append(flist, dest)
+	}
+	hlog(h, "Uploaded (%s) to %v", strings.Join(flist, " "), h.ipAddress())
+	return nil
+}
+
+func updateSoftware(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.metricsLabel("update_software")
+	defer mh.UpdateSince(label, time.Now())
+
+	hlog(h, "Updating freighterd package")
+
+	cmdParts := []string{
+		// apt-get update with single source
+		// https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=714877#12
+		"DEBIAN_FRONTEND=noninteractive apt-get update",
+		"-o APT::List-Cleanup=0",
+		`-o Dir::Etc::sourceparts="/dev/null"`,
+		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
+		`&&`,
+		"DEBIAN_FRONTEND=noninteractive apt-get install -y",
+		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
+		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
+	}
+	pkgspec := "freighterd"
+	if h.Config.FreighterdVersion != "" {
+		pkgspec = fmt.Sprintf("freighterd=%s", h.Config.FreighterdVersion)
+	}
+	cmdParts = append(cmdParts, pkgspec)
+	cmd := strings.Join(cmdParts, " ")
+
+	if out, err := h.conn.CombinedOutput(cmd); err != nil {
+		e := fmt.Errorf("update sofware failed with '%s', output: %s", err, out)
+		hlog(h, e.Error())
+		mh.Error(e, label)
+		// failure to update a host is considered continuable
+		return nil
+	}
+	hlog(h, "Updated freighterd package on %v", h.ipAddress())
+	return nil
+}
+
+func restartFreighterd(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.metricsLabel("restart_software")
+	defer mh.UpdateSince(label, time.Now())
+
+	hlog(h, "Restarting freighterd")
+	if out, err := h.conn.CombinedOutput(`service freighterd restart`); err != nil {
+		e := fmt.Errorf("restart freighterd failed with '%s', output: %s", err, out)
+		return mh.Error(e, label)
+	}
+	hlog(h, "Restarted freighterd on %v", h.ipAddress())
+	return nil
+}
+
+func hlog(h *Host, format string, v ...interface{}) {
+	parts := []string{}
+	if h.uuid != "" {
+		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+	}
+	if h.droplet != nil {
+		parts = append(parts, fmt.Sprintf("droplet=%d", h.droplet.ID))
+	}
+	log.Printf(fmt.Sprintf("%s %s", strings.Join(parts, " "), format), v...)
 }
