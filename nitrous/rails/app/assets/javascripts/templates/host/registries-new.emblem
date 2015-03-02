@@ -11,7 +11,7 @@ form submit='create'
         .registry-buttons
           a.ui.btn.raised class={saving:disabled} id='quay-io-btn' data-url='quay.io' href='#'
             | Quay.io
-          a.ui.btn.raised.default class={saving:disabled} id='docker-hub-btn' data-url='index.docker.io' href='#'
+          a.ui.btn.raised.default class={saving:disabled} id='docker-hub-btn' data-url='https://index.docker.io/v1/' href='#'
             | Docker Hub
 
     .ui.input-group
