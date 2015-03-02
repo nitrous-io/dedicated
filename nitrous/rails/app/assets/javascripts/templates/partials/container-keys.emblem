@@ -1,28 +1,33 @@
 .card-body
-  if containerKeys.length
-    label.field-label
-      | Container Public Keys
+  if containerKeys.loaded
+    if containerKeys.length
+      label.field-label
+        | Container Public Keys
 
-    p.hint-text
-     | Public keys on your container. Add these to external services to allow access to them from your container
+      p.hint-text
+       | Public keys on your container. Add these to external services to allow access to them from your container
 
-    table.ui.table
-      tbody
-        each key in containerKeys
-          tr
-            td
-              h4
-                = key.name
-            td.right
-              if App.userProfile.authorizedGitHubUserName
-                if saving
-                  button.ui.btn disabled='disabled'
-                    i.spinner
-                    | Adding to GitHub...
-                else
-                  button.ui.btn click='addToGithub key' disabled={saving} Add to GitHub
+      table.ui.table
+        tbody
+          each key in containerKeys
+            tr
+              td
+                h4
+                  = key.name
+              td.right
+                if App.userProfile.authorizedGitHubUserName
+                  if saving
+                    button.ui.btn disabled='disabled'
+                      i.spinner
+                      | Adding to GitHub...
+                  else
+                    button.ui.btn click='addToGithub key' disabled={saving} Add to GitHub
 
+    else
+      p.hint-text
+        i.fa.fa-exclamation-circle
+        | There aren't any container keys.
   else
     p.hint-text
-      i.fa.fa-exclamation-circle
-      | There aren't any container keys.
+      i.spinner
+      | Loading...
