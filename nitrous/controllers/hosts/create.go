@@ -45,7 +45,7 @@ type createOpts struct {
 	Slug               string `json:"slug"` // slug provided by client request will be overriden by a generated slug based on name
 	Name               string `json:"name"`
 	Async              bool   `json:"async"`
-	BypassPreprovision bool   `json:bypass_preprovision`
+	BypassPreprovision bool   `json:"bypass_preprovision"`
 }
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -116,6 +116,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			u.Topic(),
 		)
 	}
+
 	provisioned := make(chan *host.Host, 1)
 
 	bypassPreprovision := false

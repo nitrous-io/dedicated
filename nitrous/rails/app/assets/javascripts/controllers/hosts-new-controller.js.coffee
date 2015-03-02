@@ -7,6 +7,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   invalidField: null
   host: null
   saving: false
+  bypassPreprovision: false
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
 
   clear: ->
@@ -18,6 +19,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       invalidField: null
       host: null
       saving: false
+      bypassPreprovision: false
 
   canCancel: (->
     !App.get('noHost')
@@ -79,6 +81,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
 
       params =
         async: true
+        bypass_preprovision: @get('bypassPreprovision')
 
       host.save(params, json: true).catch (jqxhr) => # host.save
         if errMsg = jqxhr.responseJSON?.error_description

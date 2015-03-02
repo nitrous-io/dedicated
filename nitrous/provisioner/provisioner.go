@@ -356,7 +356,7 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 		preprovisioned, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
 		if err == nil {
 			return p.usePreprovisionedHost(preprovisioned, opts)
-		} else if err == sql.ErrNoRows {
+		} else if err != sql.ErrNoRows {
 			p.logger.Warnf("Error finding preprovisioned hosts: %s", err)
 		}
 	}
