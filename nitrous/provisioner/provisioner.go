@@ -91,9 +91,10 @@ type Config struct {
 }
 
 type ProvisionOptions struct {
-	Async        bool
-	Preprovision bool
-	OutputStream io.Writer
+	Async              bool
+	Preprovision       bool
+	BypassPreprovision bool
+	OutputStream       io.Writer
 
 	Slug     string
 	Name     string
@@ -342,14 +343,22 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 
 	// Make sure user is allowed to create more hosts.
 	canCreateHosts, err := opts.User.CanCreateHosts(p.db)
+	if err != nil {
+		return nil, err
+	}
+
 	if !canCreateHosts {
 		return nil, ErrHostCreationNotAllowed
 	}
 
-	// Assign a pre-provisioned host if one is available.
-	preprovisioned, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
-	if err == nil {
-		return p.usePreprovisionedHost(preprovisioned, opts)
+	if !opts.BypassPreprovision {
+		// Assign a pre-provisioned host if one is available.
+		preprovisioned, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
+		if err == nil {
+			return p.usePreprovisionedHost(preprovisioned, opts)
+		} else if err != sql.ErrNoRows {
+			p.logger.Warnf("Error finding preprovisioned hosts: %s", err)
+		}
 	}
 
 	return p.provisionNewHost(opts)
