@@ -3,7 +3,7 @@
 require 'uri'
 
 if ARGV.size == 0
-  puts "usage: nitrous-tunnel <SSH_URL>"
+  puts "usage: ssh-tunnel <SSH_URL>"
   exit 2
 end
 
