@@ -42,7 +42,7 @@ type FS struct {
 }
 
 func buildListDirResponse(msg *Message, dir string) ([]interface{}, error) {
-	log.Printf("listDir for '%s'\n", dir)
+	log.Printf("listDir for '%s', cid: '%d'\n", dir, msg.CID)
 	entries, err := readDir(dir)
 	if err != nil {
 		return nil, err
@@ -281,14 +281,18 @@ func owner(stat os.FileInfo) (int, int, error) {
 }
 
 func readDir(name string) (fi []os.FileInfo, err error) {
-	log.Println("reading dir", name)
 	f, err := os.Open(name)
 	if err != nil {
+		log.Printf("readDir: os.Open('%s') failed with '%s'\n", name, err)
 		return nil, err
 	}
 	defer f.Close()
 	names, err := f.Readdirnames(-1)
-	log.Println("readding dir", name, names, err)
+	if err != nil {
+		log.Println("reading dir", name, names, err)
+	} else {
+		log.Println("reading dir", name, names)
+	}
 	fi = make([]os.FileInfo, 0, len(names))
 	for _, filename := range names {
 		// use stat to read symlink as well

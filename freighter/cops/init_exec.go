@@ -54,15 +54,10 @@ func fileWatcher(mu *sync.Mutex, encoder *json.Encoder) {
 		case dir := <-watcher.Folders:
 			log.Printf("cops watcher dir '%s' changed\n", dir)
 			msg := &Message{
-				Namespace: "fs",
-				Event:     "list",
+				Namespace: "watcher",
+				Event:     "dir_changed.output",
 			}
-			files, err := buildListDirResponse(msg, dir)
-			if err != nil {
-				log.Printf("buildListDirResponse() for dir '%s' failed with '%s'\n", dir, err)
-				continue
-			}
-			msg.Args = []interface{}{dir, files}
+			msg.Args = []interface{}{dir}
 			mu.Lock()
 			err = encoder.Encode(msg)
 			mu.Unlock()
