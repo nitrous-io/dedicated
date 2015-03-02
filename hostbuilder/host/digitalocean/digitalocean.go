@@ -59,6 +59,7 @@ type tlsConfig struct {
 
 type HostConfig struct {
 	ID         string     `json:"id"`
+	HostID     int64      `json:"host_id"` // database id of the host
 	Name       string     `json:"name"`
 	ImageID    string     `json:"image_id"`
 	RegionID   string     `json:"region_id"`
@@ -495,7 +496,7 @@ func (h *Host) configFile() *configFile {
 }
 
 func (h *Host) generateNotifyURL() string {
-	return strings.Replace(h.notifyURL, "{{slug}}", h.Config.Name, -1)
+	return strings.Replace(h.notifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
