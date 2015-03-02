@@ -34,17 +34,60 @@ func execInit() {
 	// this is used to communicate with the parent process
 	pipe := os.NewFile(3, "pipe")
 	defer pipe.Close()
-	errCh := ListenAndServe(id, os.Stdin, pipe)
-	if err := <-errCh; err != nil {
-		log.Fatalf("failed to serve cops websocket %v", err)
+	opsHandler := NewOpsHandler(id, os.Stdin, pipe)
+	err := opsHandler.StartAndWaitFinished()
+	if err != nil {
+		log.Fatalf("opsHandler.StartAndWaitFinished() failed with %v", err)
 	}
 	os.Exit(0)
 }
 
-func fileWatcher(mu *sync.Mutex, encoder *json.Encoder) {
+type OpsHandler struct {
+	containerId string
+	r           io.Reader
+	w           io.Writer
+	mu          sync.Mutex
+	errCh       chan error
+	decoder     *json.Decoder
+	encoder     *json.Encoder
+}
+
+func NewOpsHandler(id string, r io.Reader, w io.Writer) *OpsHandler {
+	return &OpsHandler{
+		containerId: id,
+		r:           r,
+		w:           w,
+	}
+}
+
+func (oh *OpsHandler) StartAndWaitFinished() error {
+	oh.decoder = json.NewDecoder(oh.r)
+	oh.encoder = json.NewEncoder(oh.w)
+	oh.errCh = make(chan error, 1)
+	go oh.fileWatcher()
+	go oh.mainLoop()
+	return oh.waitFinished()
+}
+
+func (oh *OpsHandler) waitFinished() error {
+	err := <-oh.errCh
+	return err
+}
+
+func (oh *OpsHandler) sendReply(msg *Message) error {
+	oh.mu.Lock()
+	err := oh.encoder.Encode(msg)
+	oh.mu.Unlock()
+	if err != nil {
+		err = fmt.Errorf("failed to encode %v, %s", msg, err)
+	}
+	return err
+}
+
+func (oh *OpsHandler) fileWatcher() {
 	watcher, err := NewRecursiveWatcher("/home/nitrous")
 	if err != nil {
-		log.Printf("NewRecursiveWather() failed with '%s'\n")
+		log.Printf("NewRecursiveWather() failed with '%s'\n", err)
 		return
 	}
 	watcher.Run()
@@ -58,71 +101,59 @@ func fileWatcher(mu *sync.Mutex, encoder *json.Encoder) {
 				Event:     "dir_changed.output",
 			}
 			msg.Args = []interface{}{dir}
-			mu.Lock()
-			err = encoder.Encode(msg)
-			mu.Unlock()
+			oh.sendReply(msg)
 			// can happen when ws connetion is closed
 			if err != nil {
-				log.Printf("fileWatcher: encoder.Encode() failed with '%s'\n", err)
+				log.Printf("oh.sendReply() failed with '%s'\n", err)
+				oh.errCh <- err
 				return
 			}
 		}
 	}
 }
 
+func (oh *OpsHandler) runHandler(h AsyncHandler, msg *Message) {
+	ch := h.HandleAsync(msg)
+	for reply := range ch {
+		err := oh.sendReply(reply)
+		if err != nil {
+			oh.errCh <- fmt.Errorf("oh.sendReply() failed with '%s'", err)
+		}
+	}
+}
+
+// handle the operation in a separate goroutine to not block the
+// message pipeline
+func (oh *OpsHandler) runHandlerAsync(h AsyncHandler, msg *Message) {
+	go oh.runHandler(h, msg)
+}
+
 // this is run inside a chroot environment and processes the actual container
 // request.
-func ListenAndServe(id string, r io.Reader, w io.Writer) chan error {
-	var mu sync.Mutex
+func (oh *OpsHandler) mainLoop() {
+	// cache handlers
+	fsHandler := NewFsHandler(oh.containerId)
+	finderHandler := NewFinderHandler(oh.containerId)
 
-	decoder := json.NewDecoder(r)
-	encoder := json.NewEncoder(w)
-
-	fsHandler := NewFsHandler(id)
-	finderHandler := NewFinderHandler(id)
-
-	errCh := make(chan error, 1)
-
-	go fileWatcher(&mu, encoder)
-
-	go func() {
-		for {
-			msg := &Message{}
-			if err := decoder.Decode(msg); err != nil {
-				errCh <- fmt.Errorf("failed to decode msg %s", err)
-				return
-			}
-
-			var handlerToRun *AsyncHandler
-
-			log.Printf("cops cmd: '%s.%s'\n", msg.Namespace, msg.Event)
-			switch msg.Namespace {
-			case "fs":
-				handlerToRun = &fsHandler
-			case "finder":
-				handlerToRun = &finderHandler
-			default:
-				errCh <- fmt.Errorf("invalid operation %s", msg.Namespace)
-				return
-			}
-
-			// handle the operation in a separate goroutine to not block the
-			// message pipeline
-			go func(h AsyncHandler) {
-				ch := h.HandleAsync(msg)
-				for reply := range ch {
-					mu.Lock()
-					err := encoder.Encode(reply)
-					mu.Unlock()
-					if err != nil {
-						errCh <- fmt.Errorf("failed to encode %v, %s", reply, err)
-						return
-					}
-				}
-			}(*handlerToRun)
+	for {
+		msg := &Message{}
+		err := oh.decoder.Decode(msg)
+		if err != nil {
+			oh.errCh <- fmt.Errorf("failed to decode msg %s", err)
+			return
 		}
-	}()
-	return errCh
+
+		log.Printf("cops cmd: '%s.%s'\n", msg.Namespace, msg.Event)
+		switch msg.Namespace {
+		case "fs":
+			oh.runHandlerAsync(fsHandler, msg)
+		case "finder":
+			oh.runHandlerAsync(finderHandler, msg)
+		default:
+			oh.errCh <- fmt.Errorf("invalid operation %s", msg.Namespace)
+			return
+		}
+	}
 }
 
 // Start listening to messages meant for container with `id`, spins up a
