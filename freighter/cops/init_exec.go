@@ -53,6 +53,7 @@ type OpsHandler struct {
 	encoder         *json.Encoder
 	fileWatcher     *fsnotify.Watcher
 	fileWatcherQuit chan bool
+	watchedDirs     map[string]bool
 }
 
 func handleOps(containerId string, r io.Reader, w io.Writer) error {
@@ -63,6 +64,7 @@ func handleOps(containerId string, r io.Reader, w io.Writer) error {
 		encoder:         json.NewEncoder(w),
 		errCh:           make(chan error, 1),
 		fileWatcherQuit: make(chan bool),
+		watchedDirs:     make(map[string]bool),
 	}
 	oh.fileWatcher, err = fsnotify.NewWatcher()
 	if err != nil {
@@ -183,9 +185,13 @@ func (oh *OpsHandler) copsMessageLoop() {
 			// even without that it's much better than watching every directory
 			if msg.Event == "list" {
 				dir := msg.Args[0].(string)
-				log.Printf("starting to watch '%s'\n", dir)
-				// fsnotify seems to handle duplicates
-				oh.fileWatcher.Add(dir)
+				// avoid watching same dir twice - unclear if fsnotify handles that
+				// for all platforms
+				if !oh.watchedDirs[dir] {
+					log.Printf("starting to watch '%s'\n", dir)
+					oh.watchedDirs[dir] = true
+					oh.fileWatcher.Add(dir)
+				}
 			}
 			go oh.runHandler(fsHandler, msg)
 		case "finder":
