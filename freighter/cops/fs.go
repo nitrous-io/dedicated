@@ -41,21 +41,34 @@ type FS struct {
 	id string
 }
 
+func buildListDirResponse(msg *Message, dir string) ([]interface{}, error) {
+	log.Printf("listDir for '%s'\n", dir)
+	entries, err := readDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	files := make([]interface{}, len(entries))
+	for i, f := range entries {
+		files[i] = fileInfoArgs(f)
+	}
+	return files, nil
+}
+
+func listDir(msg *Message, resp chan *Message) chan *Message {
+	dir := msg.Args[0].(string)
+	files, err := buildListDirResponse(msg, dir)
+	if err != nil {
+		return sendErr(resp, msg, err)
+	}
+	return sendFinalReply(resp, msg, []interface{}{dir, files})
+}
+
 func (c *FS) HandleAsync(msg *Message) chan *Message {
 	resp := make(chan *Message, chanSize)
 
 	switch msg.Event {
 	case "list":
-		dir := msg.Args[0].(string)
-		entries, err := c.list(dir)
-		if err != nil {
-			return sendErr(resp, msg, err)
-		}
-		files := make([]interface{}, len(entries))
-		for i, f := range entries {
-			files[i] = fileInfoArgs(f)
-		}
-		return sendFinalReply(resp, msg, []interface{}{dir, files})
+		return listDir(msg, resp)
 	case "read":
 		fileName := msg.Args[0].(string)
 		info, err := c.read(fileName)
@@ -158,10 +171,6 @@ func (c *FS) writeNew(path, content string) error {
 	defer f.Close()
 	_, err = io.Copy(f, bufio.NewReader(strings.NewReader(content)))
 	return err
-}
-
-func (c *FS) list(dir string) ([]os.FileInfo, error) {
-	return readDir(dir)
 }
 
 func (c *FS) read(path string) ([]interface{}, error) {

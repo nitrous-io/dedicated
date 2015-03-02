@@ -51,16 +51,20 @@ func fileWatcher(mu *sync.Mutex, encoder *json.Encoder) {
 	defer watcher.Close()
 	for {
 		select {
-		case folder := <-watcher.Folders:
-			log.Printf("cops folder '%s' changed\n", folder)
-			args := []interface{}{folder}
+		case dir := <-watcher.Folders:
+			log.Printf("cops watcher dir '%s' changed\n", dir)
 			msg := &Message{
-				Namespace: "watcher",
-				Event:     "dirchanged",
-				Args:      args,
+				Namespace: "fs",
+				Event:     "list",
 			}
+			files, err := buildListDirResponse(msg, dir)
+			if err != nil {
+				log.Printf("buildListDirResponse() for dir '%s' failed with '%s'\n", dir, err)
+				continue
+			}
+			msg.Args = []interface{}{dir, files}
 			mu.Lock()
-			err := encoder.Encode(msg)
+			err = encoder.Encode(msg)
 			mu.Unlock()
 			// can happen when ws connetion is closed
 			if err != nil {
