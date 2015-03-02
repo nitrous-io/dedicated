@@ -7,11 +7,14 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 
+	"github.com/go-fsnotify/fsnotify"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 )
 
@@ -34,39 +37,45 @@ func execInit() {
 	// this is used to communicate with the parent process
 	pipe := os.NewFile(3, "pipe")
 	defer pipe.Close()
-	opsHandler := NewOpsHandler(id, os.Stdin, pipe)
-	err := opsHandler.StartAndWaitFinished()
+	err := handleOps(id, os.Stdin, pipe)
+
 	if err != nil {
-		log.Fatalf("opsHandler.StartAndWaitFinished() failed with %v", err)
+		log.Fatalf("opsHandler failed with %v", err)
 	}
 	os.Exit(0)
 }
 
 type OpsHandler struct {
-	containerId string
-	r           io.Reader
-	w           io.Writer
-	mu          sync.Mutex
-	errCh       chan error
-	decoder     *json.Decoder
-	encoder     *json.Encoder
+	containerId     string
+	mu              sync.Mutex
+	errCh           chan error
+	decoder         *json.Decoder
+	encoder         *json.Encoder
+	fileWatcher     *fsnotify.Watcher
+	fileWatcherQuit chan bool
 }
 
-func NewOpsHandler(id string, r io.Reader, w io.Writer) *OpsHandler {
-	return &OpsHandler{
-		containerId: id,
-		r:           r,
-		w:           w,
+func handleOps(containerId string, r io.Reader, w io.Writer) error {
+	var err error
+	oh := &OpsHandler{
+		containerId:     containerId,
+		decoder:         json.NewDecoder(r),
+		encoder:         json.NewEncoder(w),
+		errCh:           make(chan error, 1),
+		fileWatcherQuit: make(chan bool),
 	}
+	oh.fileWatcher, err = fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	go oh.fileWatcherLoop()
+	go oh.copsMessageLoop()
+	return oh.waitFinished()
 }
 
-func (oh *OpsHandler) StartAndWaitFinished() error {
-	oh.decoder = json.NewDecoder(oh.r)
-	oh.encoder = json.NewEncoder(oh.w)
-	oh.errCh = make(chan error, 1)
-	go oh.fileWatcher()
-	go oh.mainLoop()
-	return oh.waitFinished()
+func (oh *OpsHandler) stopWithError(err error) {
+	oh.fileWatcherQuit <- true
+	oh.errCh <- err
 }
 
 func (oh *OpsHandler) waitFinished() error {
@@ -79,35 +88,64 @@ func (oh *OpsHandler) sendReply(msg *Message) error {
 	err := oh.encoder.Encode(msg)
 	oh.mu.Unlock()
 	if err != nil {
-		err = fmt.Errorf("failed to encode %v, %s", msg, err)
+		log.Printf("sendReply: oh.encoder.Encode() failed with '%s', err")
+		oh.stopWithError(fmt.Errorf("failed to encode %v, %s", msg, err))
 	}
 	return err
 }
 
-func (oh *OpsHandler) fileWatcher() {
-	watcher, err := NewRecursiveWatcher("/home/nitrous")
-	if err != nil {
-		log.Printf("NewRecursiveWather() failed with '%s'\n", err)
-		return
+func (oh *OpsHandler) notifyDirChanged(dir string) {
+	log.Printf("cops watcher dir '%s' changed\n", dir)
+	msg := &Message{
+		Namespace: "watcher",
+		Event:     "dir_changed.output",
 	}
-	watcher.Run()
-	defer watcher.Close()
+	msg.Args = []interface{}{dir}
+	oh.sendReply(msg)
+}
+
+func shouldNotifyAboutEvent(e fsnotify.Event) bool {
+	if e.Op&fsnotify.Create == fsnotify.Create {
+		return true
+	}
+	if e.Op&fsnotify.Remove == fsnotify.Remove {
+		return true
+	}
+	if e.Op&fsnotify.Rename == fsnotify.Rename {
+		return true
+	}
+	return false
+}
+
+// changes to some files shouldn't trigger updates.
+// we should definitely filter out ".zsh_history.LOCK" (and possibly similar
+// files for other shells), as they are updated after every command in console
+// this is a heuristic
+func shouldIgnoreFile(path string) bool {
+	name := filepath.Base(path)
+	if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") {
+		return true
+	}
+	return false
+}
+
+func (oh *OpsHandler) fileWatcherLoop() {
+	defer oh.fileWatcher.Close()
 	for {
 		select {
-		case dir := <-watcher.Folders:
-			log.Printf("cops watcher dir '%s' changed\n", dir)
-			msg := &Message{
-				Namespace: "watcher",
-				Event:     "dir_changed.output",
+		case event := <-oh.fileWatcher.Events:
+			log.Printf("event: '%s'\n", event)
+			path := event.Name
+			if shouldNotifyAboutEvent(event) && !shouldIgnoreFile(path) {
+				// it's the parent directory that needs to be updated
+				oh.notifyDirChanged(filepath.Dir(path))
 			}
-			msg.Args = []interface{}{dir}
-			oh.sendReply(msg)
-			// can happen when ws connetion is closed
-			if err != nil {
-				log.Printf("oh.sendReply() failed with '%s'\n", err)
-				oh.errCh <- err
-				return
-			}
+		case err := <-oh.fileWatcher.Errors:
+			log.Printf("fileWatcherLoop: got fsnotify error '%s'\n", err)
+			return
+		case <-oh.fileWatcherQuit:
+			log.Printf("quitting file watcher\n")
+			return
 		}
 	}
 }
@@ -115,22 +153,14 @@ func (oh *OpsHandler) fileWatcher() {
 func (oh *OpsHandler) runHandler(h AsyncHandler, msg *Message) {
 	ch := h.HandleAsync(msg)
 	for reply := range ch {
-		err := oh.sendReply(reply)
-		if err != nil {
-			oh.errCh <- fmt.Errorf("oh.sendReply() failed with '%s'", err)
+		if err := oh.sendReply(reply); err != nil {
+			return
 		}
 	}
 }
 
-// handle the operation in a separate goroutine to not block the
-// message pipeline
-func (oh *OpsHandler) runHandlerAsync(h AsyncHandler, msg *Message) {
-	go oh.runHandler(h, msg)
-}
-
-// this is run inside a chroot environment and processes the actual container
-// request.
-func (oh *OpsHandler) mainLoop() {
+// messageLoop runs inside a chroot environment and processes container requests
+func (oh *OpsHandler) copsMessageLoop() {
 	// cache handlers
 	fsHandler := NewFsHandler(oh.containerId)
 	finderHandler := NewFinderHandler(oh.containerId)
@@ -139,18 +169,29 @@ func (oh *OpsHandler) mainLoop() {
 		msg := &Message{}
 		err := oh.decoder.Decode(msg)
 		if err != nil {
-			oh.errCh <- fmt.Errorf("failed to decode msg %s", err)
+			oh.stopWithError(fmt.Errorf("failed to decode msg %s", err))
 			return
 		}
 
 		log.Printf("cops cmd: '%s.%s'\n", msg.Namespace, msg.Event)
+		// handle operations in a separate goroutine to not block the
+		// message pipeline
 		switch msg.Namespace {
 		case "fs":
-			oh.runHandlerAsync(fsHandler, msg)
+			// optimization: we only watch directories that IDE explicitly asked for
+			// at some point. There is no way to de-register from watching but
+			// even without that it's much better than watching every directory
+			if msg.Event == "list" {
+				dir := msg.Args[0].(string)
+				log.Printf("starting to watch '%s'\n", dir)
+				// fsnotify seems to handle duplicates
+				oh.fileWatcher.Add(dir)
+			}
+			go oh.runHandler(fsHandler, msg)
 		case "finder":
-			oh.runHandlerAsync(finderHandler, msg)
+			go oh.runHandler(finderHandler, msg)
 		default:
-			oh.errCh <- fmt.Errorf("invalid operation %s", msg.Namespace)
+			oh.stopWithError(fmt.Errorf("invalid operation %s", msg.Namespace))
 			return
 		}
 	}
