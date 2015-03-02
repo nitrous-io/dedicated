@@ -7,7 +7,10 @@ import (
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -56,17 +59,45 @@ var _ = Describe("controllers/plans", func() {
 			var planSlugs = []string{"start", "shift", "turbo"}
 
 			BeforeEach(func() {
+				r := region.Region{
+					Slug: "sfo",
+					Name: "US West",
+				}
+				Expect(r.Insert(db)).To(BeNil())
+
 				for _, n := range planSlugs {
 					pl := plan.Plan{Slug: n}
 					Expect(pl.Insert(db)).To(BeNil())
+					t := providertemplate.ProviderTemplate{
+						PlanID:   pl.ID,
+						RegionID: r.ID,
+						Provider: envvars.DefaultProvider,
+					}
+					Expect(t.Insert(db)).To(BeNil())
 				}
 
-				// add a disabled plan
+				// Add a disabled plan - it should not be returned.
 				pl := plan.Plan{Slug: "super-turbo", Disabled: true}
 				Expect(pl.Insert(db)).To(BeNil())
+				t := providertemplate.ProviderTemplate{
+					PlanID:   pl.ID,
+					RegionID: r.ID,
+					Provider: envvars.DefaultProvider,
+				}
+				Expect(t.Insert(db)).To(BeNil())
+
+				// Add a plan belonging to another provider - it should not be returned.
+				pl = plan.Plan{Slug: "start-windows-azure"}
+				Expect(pl.Insert(db)).To(BeNil())
+				t = providertemplate.ProviderTemplate{
+					PlanID:   pl.ID,
+					RegionID: r.ID,
+					Provider: "windows-azure",
+				}
+				Expect(t.Insert(db)).To(BeNil())
 			})
 
-			It("returns enabled plans serialized in json", func() {
+			It("returns valid plans of the default provider", func() {
 				doRequest()
 				Expect(res.Code).To(Equal(http.StatusOK))
 

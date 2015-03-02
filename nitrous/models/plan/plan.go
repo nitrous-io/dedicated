@@ -24,8 +24,7 @@ type Plan struct {
 
 func FindByID(d db.QueryReceiver, id int64) (*Plan, error) {
 	plan := &Plan{}
-	err := d.Get(plan, "SELECT * FROM plans WHERE id = $1", id)
-	if err != nil {
+	if err := d.Get(plan, "SELECT * FROM plans WHERE id = $1", id); err != nil {
 		return nil, err
 	}
 	return plan, nil
@@ -33,8 +32,7 @@ func FindByID(d db.QueryReceiver, id int64) (*Plan, error) {
 
 func FindBySlug(d db.QueryReceiver, slug string) (*Plan, error) {
 	plan := &Plan{}
-	err := d.Get(plan, `SELECT * FROM plans WHERE slug = $1 AND disabled = $2`, slug, false)
-	if err != nil {
+	if err := d.Get(plan, `SELECT * FROM plans WHERE slug = $1 AND disabled = $2`, slug, false); err != nil {
 		return nil, err
 	}
 	return plan, nil
@@ -71,6 +69,17 @@ func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]int64, erro
 		mapping[pH.HostID] = pH.PlanPrice
 	}
 	return mapping, nil
+}
+
+func EnabledForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
+	pls := []*Plan{}
+	if err := d.Select(&pls, `SELECT * FROM plans
+		WHERE disabled = false AND plans.id IN
+		(SELECT DISTINCT plan_id FROM provider_templates WHERE provider_templates.provider=$1)
+		ORDER BY (price, max_containers, name);`, provider); err != nil {
+		return nil, err
+	}
+	return pls, nil
 }
 
 func (p *Plan) Insert(d db.QueryReceiver) error {

@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/nitrous-io/dedicated/nitrous/db"
+	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -20,7 +22,7 @@ func Test(t *testing.T) {
 
 var _ = Describe("models/plan", func() {
 	var (
-		db *db.Database
+		db *ndb.Database
 	)
 
 	BeforeEach(func() {
@@ -135,16 +137,11 @@ var _ = Describe("models/plan", func() {
 
 	Describe("Enabled()", func() {
 		It("returns all enabled plans", func() {
-			// add couple of disabled plans
+			// Add a disabled plan.
 			_, err := db.Exec(`INSERT INTO plans
 				(slug, name, max_containers, price, cpu, memory, storage, disabled)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
 				"3gb", "Medium", 4, 4995, "6", "3 GB", "40 GB", true)
-			Expect(err).To(BeNil())
-			_, err = db.Exec(`INSERT INTO plans
-				(slug, name, max_containers, price, cpu, memory, storage, disabled)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-				"4gb", "Large", 8, 5995, "8", "4 GB", "30 GB", true)
 			Expect(err).To(BeNil())
 
 			pls, err := plan.Enabled(db)
@@ -205,6 +202,62 @@ var _ = Describe("models/plan", func() {
 				hs2.H.ID: 2016,
 			}
 			Expect(m).To(Equal(exMap))
+		})
+	})
+
+	Describe("EnabledForProvider()", func() {
+		It("returns all enabled plans for the given provider", func() {
+			// Add associated provider templates for the plans in the database.
+			type row struct {
+				ID int64 `db:"id"`
+			}
+			var rows []row
+			err := db.Select(&rows, `SELECT id FROM plans;`)
+			Expect(err).To(BeNil())
+			Expect(rows).To(HaveLen(2))
+			r := region.Region{
+				Slug: "sfo",
+				Name: "US West",
+			}
+			Expect(r.Insert(db)).To(BeNil())
+			for _, row := range rows {
+				t := providertemplate.ProviderTemplate{
+					PlanID:   row.ID,
+					RegionID: r.ID,
+					Provider: "digitalocean",
+				}
+				Expect(t.Insert(db)).To(BeNil())
+			}
+
+			// Add a plan belonging to a different provider - it should not be returned.
+			p := &plan.Plan{
+				Slug:          "ultimate",
+				Name:          "Ultimate Edition SP1",
+				MaxContainers: 1,
+				Disabled:      false,
+			}
+			Expect(p.Insert(db)).To(BeNil())
+			r = region.Region{
+				Slug: "sfo-azure",
+				Name: "Azure West",
+			}
+			Expect(r.Insert(db)).To(BeNil())
+			t := providertemplate.ProviderTemplate{
+				PlanID:   p.ID,
+				RegionID: r.ID,
+				Provider: "windows-azure",
+			}
+			Expect(t.Insert(db)).To(BeNil())
+
+			pls, err := plan.EnabledForProvider(db, "digitalocean")
+			Expect(err).To(BeNil())
+			Expect(pls).To(HaveLen(2))
+			slugs := []string{}
+			for _, pl := range pls {
+				slugs = append(slugs, pl.Slug)
+			}
+			Expect(slugs).ToNot(ContainElement("ultimate"))
+			Expect(slugs).To(ConsistOf([]string{"1gb", "2gb"}))
 		})
 	})
 
