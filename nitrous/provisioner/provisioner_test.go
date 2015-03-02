@@ -71,10 +71,12 @@ var _ = Describe("provisioner", func() {
 	})
 
 	Describe("Start()", func() {
+		var rt *test.FakeRoundTripper
+
 		BeforeEach(func() {
 			// Replace provisioner's hostbuilder client with a fake version.
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			rt := &test.FakeRoundTripper{
+			rt = &test.FakeRoundTripper{
 				Message: `
 				{"stream":"starting: creating host"}
 				{"stream":"finished: creating host"}
@@ -212,6 +214,14 @@ var _ = Describe("provisioner", func() {
 				Expect(err).To(BeNil())
 				return count
 			}, 5*time.Second, 500*time.Millisecond).Should(Equal(1))
+
+			// assert post config data
+			var hcfg hostbuilderclient.Config
+			Expect(rt.Requests).To(HaveLen(1))
+			req := rt.Requests[0]
+			json.Unmarshal([]byte(req.FormValue("config")), &hcfg)
+			h, _ := host.FindPreprovisioned(db, hs.R, hs.P)
+			Expect(hcfg["host_id"]).To(Equal(float64(h.ID)))
 		})
 
 		It("does not pre-provision hosts in a region that is disabled", func() {
@@ -414,26 +424,28 @@ var _ = Describe("provisioner", func() {
 			})
 			Expect(err).To(BeNil())
 
-			Expect(rt.Requests).To(HaveLen(1))
-			req := rt.Requests[0]
-			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("ABC"))
-
-			var hcfg hostbuilderclient.Config
-			json.Unmarshal([]byte(req.FormValue("config")), &hcfg)
-			Expect(hcfg["name"]).To(Equal("new-slug"))
-			Expect(hcfg["apt_username"]).To(Equal(u.Username))
-			Expect(hcfg["apt_password"]).To(Equal(t.Token))
-			Expect(hcfg["private_key"]).ToNot(BeEmpty())
-
+			// assert generated host
 			h, err := host.Find(db, u, "new-slug")
 			Expect(err).To(BeNil())
 			Expect(h.Name.String).To(Equal("new-name"))
 			Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
 			Expect(h.IPAddress.String).To(Equal("1.2.3.4"))
 			Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
-
 			// The user's host should be the same as the pre-provisioned host.
 			Expect(h.ID).To(Equal(preprovisionedHost.ID))
+
+			// assert post config data
+			Expect(rt.Requests).To(HaveLen(1))
+			req := rt.Requests[0]
+			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("ABC"))
+
+			var hcfg hostbuilderclient.Config
+			json.Unmarshal([]byte(req.FormValue("config")), &hcfg)
+			Expect(hcfg["host_id"]).To(Equal(float64(h.ID)))
+			Expect(hcfg["name"]).To(Equal("new-slug"))
+			Expect(hcfg["apt_username"]).To(Equal(u.Username))
+			Expect(hcfg["apt_password"]).To(Equal(t.Token))
+			Expect(hcfg["private_key"]).ToNot(BeEmpty())
 		})
 	})
 })
