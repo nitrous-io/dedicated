@@ -432,11 +432,6 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		}
 	}()
 
-	privKey, err := pemPrivateKey(h, p.db)
-	if err != nil {
-		return nil, err
-	}
-
 	// Update host in hostbuilder (e.g. rename host).
 	config := &hostbuilderclient.Config{
 		"id":           preprovisionedHost.ProviderIdentifier.String,
@@ -446,7 +441,6 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		"apt_password": opts.Token.Token,
 		"apt_location": opts.AptLocation,
 		"apt_dist":     opts.AptDist,
-		"private_key":  string(privKey),
 	}
 	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts))
 	if err != nil {
