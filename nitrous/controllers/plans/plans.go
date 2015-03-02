@@ -1,7 +1,6 @@
 package plans
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -11,9 +10,8 @@ import (
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	pls, err := plan.EnabledAndForProvider(env.DB, envvars.DefaultProvider)
+	pls, err := plan.EnabledForProvider(env.DB, envvars.DefaultProvider)
 	if err != nil {
-		fmt.Printf("plan.EnabledAndProvider('%s') failed with %s\n", envvars.DefaultProvider, err)
 		return err
 	}
 
