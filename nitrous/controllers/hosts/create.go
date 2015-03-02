@@ -1,7 +1,6 @@
 package hosts
 
 import (
-	"crypto/rsa"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -22,7 +21,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
-	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -272,19 +270,6 @@ func findTemplate(db ndb.QueryReceiver, pl *plan.Plan, rg *region.Region, defaul
 		return nil, fmt.Errorf("no matching templates found, error %s", err)
 	}
 	return pt, nil
-}
-
-// generateKey generates and returns a private key together with its public key.
-func generateKey() (priv *rsa.PrivateKey, pub []byte, err error) {
-	priv, err = keypairs.GenerateKey()
-	if err != nil {
-		return nil, nil, err
-	}
-	pub, err = keypairs.PublicKey(&priv.PublicKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	return priv, pub, nil
 }
 
 // generate cert with server certificate and key. The cert will be used for
