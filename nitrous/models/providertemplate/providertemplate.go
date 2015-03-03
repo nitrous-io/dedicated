@@ -8,15 +8,16 @@ import (
 )
 
 type ProviderTemplate struct {
-	ID              int64         `db:"id"`
-	RegionID        int64         `db:"region_id"`
-	PlanID          int64         `db:"plan_id"`
-	Name            string        `db:"name"`
-	Provider        string        `db:"provider"`
-	Config          hstore.Hstore `db:"config"`
-	PreprovisionMax int           `db:"preprovision_max"`
-	CreatedAt       *time.Time    `db:"created_at"`
-	UpdatedAt       *time.Time    `db:"updated_at"`
+	ID                int64         `db:"id"`
+	RegionID          int64         `db:"region_id"`
+	PlanID            int64         `db:"plan_id"`
+	Name              string        `db:"name"`
+	Provider          string        `db:"provider"`
+	Config            hstore.Hstore `db:"config"`
+	PreprovisionMax   int           `db:"preprovision_max"`
+	SupportsStopStart bool          `db:"supports_start_stop"`
+	CreatedAt         *time.Time    `db:"created_at"`
+	UpdatedAt         *time.Time    `db:"updated_at"`
 }
 
 func Preprovisioned(d db.QueryReceiver) ([]ProviderTemplate, error) {
