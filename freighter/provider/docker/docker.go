@@ -1060,7 +1060,7 @@ type authconfig struct {
 
 func (p *DockerProvider) fetchAuthenticationInfoBestMatch(registry string) (dockerclient.AuthConfiguration, error) {
 	if registry == "" {
-		registry = "https://index.docker.io/v1/"
+		registry = "index.docker.io"
 	}
 
 	// if we dont have the auth configuration, use unauthenticated request
