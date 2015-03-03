@@ -117,7 +117,9 @@ App.IdeSidebarController = Em.ArrayController.extend
     path.incrementProperty 'loadCount'
     opsSocket.fetchFileList path.get('absolutePath'), (err, absolutePath, content) ->
       path.decrementProperty 'loadCount'
-      unless err
+      if err
+        path.set 'expanded', false
+      else
         path.updateContent content
 
   fetchFileContent: (path, settings = {}) ->

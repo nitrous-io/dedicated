@@ -69,6 +69,9 @@ App.OpsSocket = Lib.Socket.extend Ember.Evented,
 
   didClose: ->
     @_super.apply this, arguments
+    if callbacks = @get 'callbacks'
+      callbacks.forEach (o, i) =>
+        @invokeCallback(i, ['aio:connection:closed'])
     @set 'started', false
 
   registerCallback: (callback) ->
