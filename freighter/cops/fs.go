@@ -40,25 +40,21 @@ var (
 type FS struct {
 }
 
-func listDir(msg *Message, resp chan *Message) chan *Message {
-	dir := msg.Args[0].(string)
-	entries, err := readDir(dir)
-	if err != nil {
-		return sendErr(resp, msg, err)
-	}
-	files := make([]interface{}, len(entries))
-	for i, f := range entries {
-		files[i] = fileInfoArgs(f)
-	}
-	return sendFinalReply(resp, msg, []interface{}{dir, files})
-}
-
 func (c *FS) HandleAsync(msg *Message) chan *Message {
 	resp := make(chan *Message, chanSize)
 
 	switch msg.Event {
 	case "list":
-		return listDir(msg, resp)
+		dir := msg.Args[0].(string)
+		entries, err := readDir(dir)
+		if err != nil {
+			return sendErr(resp, msg, err)
+		}
+		files := make([]interface{}, len(entries))
+		for i, f := range entries {
+			files[i] = fileInfoArgs(f)
+		}
+		return sendFinalReply(resp, msg, []interface{}{dir, files})
 	case "read":
 		fileName := msg.Args[0].(string)
 		info, err := c.read(fileName)
