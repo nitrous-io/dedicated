@@ -90,14 +90,13 @@ func (oh *OpsHandler) sendReply(msg *Message) error {
 	err := oh.encoder.Encode(msg)
 	oh.mu.Unlock()
 	if err != nil {
-		log.Printf("sendReply: oh.encoder.Encode() failed with '%s', err")
+		log.Printf("sendReply: oh.encoder.Encode() failed with '%s'", err)
 		oh.stopWithError(fmt.Errorf("failed to encode %v, %s", msg, err))
 	}
 	return err
 }
 
 func (oh *OpsHandler) notifyDirChanged(dir string) {
-	log.Printf("cops watcher dir '%s' changed\n", dir)
 	msg := &Message{
 		Namespace: "watcher",
 		Event:     "dir_changed.output",
@@ -174,7 +173,6 @@ func (oh *OpsHandler) copsMessageLoop() {
 			return
 		}
 
-		log.Printf("cops cmd: '%s.%s'\n", msg.Namespace, msg.Event)
 		// handle operations in a separate goroutine to not block the
 		// message pipeline
 		switch msg.Namespace {
@@ -187,7 +185,6 @@ func (oh *OpsHandler) copsMessageLoop() {
 				// avoid watching same dir twice - unclear if fsnotify handles that
 				// for all platforms
 				if !oh.watchedDirs[dir] {
-					log.Printf("starting to watch '%s'\n", dir)
 					oh.watchedDirs[dir] = true
 					oh.fileWatcher.Add(dir)
 				}
