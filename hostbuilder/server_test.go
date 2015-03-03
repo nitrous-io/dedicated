@@ -145,6 +145,48 @@ var _ = Describe("hostbuilder", func() {
 		})
 	})
 
+	Describe("Stopping a host", func() {
+		It("should successfully stop the host", func() {
+			config, _ := json.Marshal(dummy.Host{StopSuccess: true})
+			form := url.Values{}
+			form.Set("provider", "dummy")
+			form.Set("config", string(config))
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/stop"), form)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
+
+			body, err := ioutil.ReadAll(resp.Body)
+			Expect(err).To(BeNil())
+			var info host.Info
+			json.Unmarshal(body, &info)
+			Expect(info.FreighterdPort).To(Equal(uint16(65333)))
+		})
+	})
+
+	Describe("Starting host", func() {
+		It("should successfully start the host", func() {
+			h := &dummy.Host{StartSuccess: true}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil(), "failed to setup a dummy host")
+			defer srv.Close()
+
+			config, _ := json.Marshal(h)
+			form := url.Values{}
+			form.Set("provider", "dummy")
+			form.Set("config", string(config))
+
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/start"), form)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
+
+			body, err := ioutil.ReadAll(resp.Body)
+			Expect(err).To(BeNil())
+			var info host.Info
+			json.Unmarshal(body, &info)
+			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
+		})
+	})
+
 	Describe("Restarting host", func() {
 		It("should successfully start the host", func() {
 			h := &dummy.Host{RestartSuccess: true}
@@ -228,4 +270,5 @@ func setupDummyHost(h *dummy.Host) (closer, error) {
 	h.IPAddress = fhost
 	h.FreighterdPort = fport
 	return ts, nil
+
 }

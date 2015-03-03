@@ -252,6 +252,65 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return err
+	}
+	provider := r.Form.Get("provider")
+	providerConfig := s.Config.Providers[provider]
+	configJson := r.Form.Get("config")
+
+	h, err := InitHost(provider, providerConfig, configJson)
+	if err != nil {
+		return err
+	}
+	info, err := h.Stop()
+	if err != nil {
+		return err
+	}
+	resp := &Response{
+		StatusCode:     http.StatusOK,
+		Status:         "stopped",
+		Provider:       info.Provider,
+		ID:             info.ID,
+		IPAddress:      info.IPAddress,
+		FreighterdPort: info.FreighterdPort,
+	}
+	writeResponse(w, resp)
+	return nil
+}
+
+func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return err
+	}
+	provider := r.Form.Get("provider")
+	providerConfig := s.Config.Providers[provider]
+	configJson := r.Form.Get("config")
+
+	h, err := InitHost(provider, providerConfig, configJson)
+	if err != nil {
+		return err
+	}
+	info, err := h.Start()
+	if err != nil {
+		return err
+	}
+	if err := pingHost(info, ioutil.Discard); err != nil {
+		return err
+	}
+	resp := &Response{
+		StatusCode:     http.StatusOK,
+		Status:         "started",
+		Provider:       info.Provider,
+		ID:             info.ID,
+		IPAddress:      info.IPAddress,
+		FreighterdPort: info.FreighterdPort,
+	}
+	writeResponse(w, resp)
+	return nil
+}
+
 func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	h, err := s.hostFromRequest(r)
 	if err != nil {
@@ -381,6 +440,8 @@ func (s *Server) CreateRouter() {
 			"/hosts":         s.createHost,
 			"/hosts/update":  s.updateHost,
 			"/hosts/delete":  s.deleteHost,
+			"/hosts/stop":    s.stopHost,
+			"/hosts/start":   s.startHost,
 			"/hosts/restart": s.restartHost,
 		},
 	}
