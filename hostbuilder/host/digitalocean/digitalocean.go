@@ -657,6 +657,8 @@ func updateSoftware(ctx *host.HostContext) error {
 
 	hlog(h, "Updating freighterd package")
 
+	// TODO move all of cmdParts into a shell script that is written and run
+	// (similar to /tmp/already-installed.sh below)
 	path := "/tmp/already-installed.sh"
 	cmdParts := []string{
 		fmt.Sprintf(`{ cat > %s <<- 'EOF'
