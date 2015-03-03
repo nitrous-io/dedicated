@@ -73,7 +73,7 @@ class window.SocketConnection
     ws._onopen = =>
       @retries = 0
       @heartbeatTimer = window.setInterval(=>
-        @ws.send 'h'
+        @send 'h'
       , 5000)
 
     ws._onclose = =>
