@@ -919,6 +919,21 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 		})
 
+		It("should send the UUID headers", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug)
+
+			req := rt.Requests[0]
+			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
+		})
+
 		Context("when host is not in the stopped state", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -1017,6 +1032,26 @@ var _ = Describe("controllers/hosts", func() {
 					}))
 				}
 			})
+
+			It("logs transitions for the host", func() {
+				origState := hs.H.State
+
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var count int
+				err := db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, host.StateStarting, origState).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, host.StateRunning, host.StateStarting).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+			})
 		})
 
 		Context("when hostbuilder fails to start the host", func() {
@@ -1027,17 +1062,37 @@ var _ = Describe("controllers/hosts", func() {
 					Status:  http.StatusBadRequest,
 				})
 				hosts.HostbuilderClient = hb
-				doRequest(hs.H.Slug)
 			})
 
 			It("responds with HTTP 500 Internal Server Error", func() {
+				doRequest(hs.H.Slug)
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 			})
 
 			It("resets the host to its original state", func() {
+				doRequest(hs.H.Slug)
+
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateStopped))
+			})
+
+			It("logs transitions for the host", func() {
+				origState := hs.H.State
+				doRequest(hs.H.Slug)
+
+				var count int
+				err := db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, host.StateStarting, origState).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, origState, host.StateStarting).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
 			})
 		})
 
@@ -1071,6 +1126,21 @@ var _ = Describe("controllers/hosts", func() {
 				U: u,
 			})
 			Expect(err).To(BeNil())
+		})
+
+		It("should send the UUID headers", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, nil)
+
+			req := rt.Requests[0]
+			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 		})
 
 		Context("when host is already stopped", func() {
@@ -1194,6 +1264,26 @@ var _ = Describe("controllers/hosts", func() {
 					}))
 				}
 			})
+
+			It("logs transitions for the host", func() {
+				origState := hs.H.State
+
+				doRequest(hs.H.Slug, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var count int
+				err := db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, host.StateStopping, origState).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, host.StateStopped, host.StateStopping).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+			})
 		})
 
 		Context("when hostbuilder fails to stop the host", func() {
@@ -1205,18 +1295,38 @@ var _ = Describe("controllers/hosts", func() {
 				})
 
 				hosts.HostbuilderClient = hb
-
-				doRequest(hs.H.Slug, nil)
 			})
 
 			It("responds with HTTP 500 Internal Server Error", func() {
+				doRequest(hs.H.Slug, nil)
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 			})
 
 			It("resets the host to its original state", func() {
+				doRequest(hs.H.Slug, nil)
+
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateRunning))
+			})
+
+			It("logs transitions for the host", func() {
+				origState := hs.H.State
+
+				doRequest(hs.H.Slug, nil)
+
+				var count int
+				err := db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, host.StateStopping, origState).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, origState, host.StateStopping).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
 			})
 		})
 

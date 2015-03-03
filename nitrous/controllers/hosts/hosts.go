@@ -233,21 +233,47 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return errHostStartInvalidState
 	}
 
-	db := env.DB
-
+	origState := h.State
 	h.State = host.StateStarting
-	if err := h.Update(db); err != nil {
+
+	tx, err := env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := h.Update(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 	publishHostEvent(env, controllers.EventHostStarting, h)
 
 	info, err := HostbuilderClient.Start(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostbuilderHeaders(env))
 	if err != nil {
-		// Rollback to previous state.
-		h.State = host.StateStopped
-		if err := h.Update(db); err != nil { // Log and continue, don't mask hostbuilder error.
+		// Rollback to previous state, log any errors while rolling back, but
+		// return original hostbuilderclient error.
+		h.State = origState
+		tx, err := env.DB.Beginx()
+		if err != nil {
+			return err
+		}
+		if err := h.Update(tx); err != nil {
+			tx.Rollback()
 			env.Logger.Errorf("hosts.Start: Unable to reset host state: %v", err)
 		}
+		if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt); err != nil {
+			tx.Rollback()
+			env.Logger.Errorf("hosts.Start: Unable to record transition: %v", err)
+		}
+		if err := tx.Commit(); err != nil {
+			env.Logger.Errorf("hosts.Start: Failed to commit transaction: %v", err)
+		}
+
 		publishHostEvent(env, controllers.EventHostUpdated, h)
 		return err
 	}
@@ -256,7 +282,19 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
-	if err := h.Update(db); err != nil {
+	tx, err = env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := h.Update(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 
@@ -271,22 +309,47 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return errHostStopInvalidState
 	}
 
-	db := env.DB
 	origState := h.State
-
 	h.State = host.StateStopping
-	if err := h.Update(db); err != nil {
+
+	tx, err := env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := h.Update(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 	publishHostEvent(env, controllers.EventHostStopping, h)
 
 	info, err := HostbuilderClient.Stop(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostbuilderHeaders(env))
 	if err != nil {
-		// Rollback to previous state.
+		// Rollback to previous state, log any errors while rolling back, but
+		// return original hostbuilderclient error.
 		h.State = origState
-		if err := h.Update(db); err != nil { // Log and continue, don't mask hostbuilder error.
+		tx, err := env.DB.Beginx()
+		if err != nil {
+			return err
+		}
+		if err := h.Update(tx); err != nil {
+			tx.Rollback()
 			env.Logger.Errorf("hosts.Stop: Unable to reset host state: %v", err)
 		}
+		if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt); err != nil {
+			tx.Rollback()
+			env.Logger.Errorf("hosts.Stop: Unable to record transition: %v", err)
+		}
+		if err := tx.Commit(); err != nil {
+			env.Logger.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
+		}
+
 		publishHostEvent(env, controllers.EventHostUpdated, h)
 		return err
 	}
@@ -295,7 +358,19 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
-	if err := h.Update(db); err != nil {
+	tx, err = env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := h.Update(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 
@@ -322,8 +397,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		tx.Rollback()
 		return err
 	}
-	err = hosttransition.Record(tx, h, origState, *h.UpdatedAt)
-	if err != nil {
+	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -334,33 +408,26 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostbuilderHeaders(env))
 	if err != nil {
-		// Rollback to previous state.
-		rollbackCalled := false
+		// Rollback to previous state, log any errors while rolling back, but
+		// return original hostbuilderclient error.
 		h.State = origState
-
 		tx, err := env.DB.Beginx()
 		if err != nil {
 			return err
 		}
-		if err := h.Update(tx); err != nil { // Log and continue, don't mask hostbuilder error.
+		if err := h.Update(tx); err != nil {
 			tx.Rollback()
-			rollbackCalled = true
 			env.Logger.Errorf("hosts.Restart: Unable to reset host state: %v", err)
 		}
-		publishHostEvent(env, controllers.EventHostUpdated, h)
-
-		rollbackCalled = false
-		err = hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt)
-		if err != nil {
+		if err := hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt); err != nil {
 			tx.Rollback()
-			rollbackCalled = true
 			env.Logger.Errorf("hosts.Restart: Unable to record transition: %v", err)
 		}
-
-		if !rollbackCalled {
-			tx.Commit()
+		if err := tx.Commit(); err != nil {
+			env.Logger.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
 		}
 
+		publishHostEvent(env, controllers.EventHostUpdated, h)
 		return err
 	}
 
