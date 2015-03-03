@@ -226,6 +226,83 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	return nil
 }
 
+func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if h.State != host.StateStopped {
+		return errHostStartInvalidState
+	}
+
+	db := env.DB
+
+	h.State = host.StateStarting
+	if err := h.Update(db); err != nil {
+		return err
+	}
+	publishHostEvent(env, controllers.EventHostStarting, h)
+
+	info, err := HostbuilderClient.Start(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
+	if err != nil {
+		// Rollback to previous state.
+		h.State = host.StateStopped
+		if err := h.Update(db); err != nil { // Log and continue, don't mask hostbuilder error.
+			env.Logger.Errorf("hosts.Start: Unable to reset host state: %v", err)
+		}
+		publishHostEvent(env, controllers.EventHostUpdated, h)
+		return err
+	}
+
+	h.State = host.StateRunning
+	h.IPAddress = sql.NullString{info.IPAddress, true}
+	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+
+	if err := h.Update(db); err != nil {
+		return err
+	}
+
+	publishHostEvent(env, controllers.EventHostStarted, h)
+	serializeHost(env, h)
+	return nil
+}
+
+func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	force, _ := strconv.ParseBool(r.FormValue("force"))
+	if !force && h.State != host.StateRunning {
+		return errHostStopInvalidState
+	}
+
+	db := env.DB
+	origState := h.State
+
+	h.State = host.StateStopping
+	if err := h.Update(db); err != nil {
+		return err
+	}
+	publishHostEvent(env, controllers.EventHostStopping, h)
+
+	info, err := HostbuilderClient.Stop(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String})
+	if err != nil {
+		// Rollback to previous state.
+		h.State = origState
+		if err := h.Update(db); err != nil { // Log and continue, don't mask hostbuilder error.
+			env.Logger.Errorf("hosts.Stop: Unable to reset host state: %v", err)
+		}
+		publishHostEvent(env, controllers.EventHostUpdated, h)
+		return err
+	}
+
+	h.State = host.StateStopped
+	h.IPAddress = sql.NullString{info.IPAddress, true}
+	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+
+	if err := h.Update(db); err != nil {
+		return err
+	}
+
+	publishContainersStopped(env, h)
+	publishHostEvent(env, controllers.EventHostStopped, h)
+	serializeHost(env, h)
+	return nil
+}
+
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {

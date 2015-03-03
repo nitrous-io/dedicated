@@ -900,6 +900,411 @@ var _ = Describe("controllers/hosts", func() {
 		})
 	})
 
+	Describe("POST /api/v0/hosts/{slug}/start", func() {
+		var hs *HostStack
+
+		doRequest := func(slug string) {
+			req, err := NewRequest("POST", "/api/v0/hosts/"+slug+"/start", nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			var err error
+			hs, err = CreateHostStack(db, &HostStack{
+				H: &host.Host{State: host.StateStopped},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		Context("when host is not in the stopped state", func() {
+			It("responds with HTTP 400 Bad Request", func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
+
+				hosts.HostbuilderClient = hb
+
+				hs.H.State = host.StateRestarting
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
+				doRequest(hs.H.Slug)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_state"))
+				Expect(errDesc).To(Equal("host is not stopped"))
+			})
+		})
+
+		Context("when hostbuilder successfully starts the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
+				hosts.HostbuilderClient = hb
+			})
+
+			It("updates the host state to running", func() {
+				doRequest(hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateRunning))
+			})
+
+			It("responds with the host and status OK", func() {
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.ID).To(Equal(hs.H.ID))
+				Expect(j.Host.Slug).To(Equal(hs.H.Slug))
+				Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
+				Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
+				Expect(j.Host.Size).To(Equal(""))
+				Expect(j.Host.State).To(Equal(host.StateRunning))
+				Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
+				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
+				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
+				Expect(j.Host.CreatedAt).NotTo(BeNil())
+				Expect(j.Host.UpdatedAt).NotTo(BeNil())
+				Expect(j.Host.TerminatedAt).To(BeNil())
+			})
+
+			It("publishes host starting and started events", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(hs.H.Slug)
+
+				msgs := []pubsub.Message{}
+				finished := make(chan struct{})
+				go func() {
+					msgs = append(msgs, <-ch, <-ch)
+					close(finished)
+				}()
+
+				select {
+				case <-time.After(100 * time.Millisecond):
+					Fail("Timed out while waiting for events")
+				case <-finished:
+					evt, ok := msgs[0].(*controllers.Event)
+					Expect(ok).To(BeTrue())
+					Expect(evt.Name).To(Equal(controllers.EventHostStarting))
+					evtData, ok := evt.Data.(map[string]*serializers.Host)
+					Expect(ok).To(BeTrue())
+					Expect(evtData["host"].Slug).To(Equal(hs.H.Slug))
+					Expect(evtData["host"].State).To(Equal(host.StateStarting))
+
+					h, err := host.Find(db, hs.U, hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(msgs[1]).To(Equal(&controllers.Event{
+						Name: controllers.EventHostStarted,
+						Data: map[string]*serializers.Host{
+							"host": serializers.SerializeHost(h),
+						},
+					}))
+				}
+			})
+		})
+
+		Context("when hostbuilder fails to start the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &FakeRoundTripper{
+					message: errorResponse,
+					status:  http.StatusBadRequest,
+				})
+				hosts.HostbuilderClient = hb
+				doRequest(hs.H.Slug)
+			})
+
+			It("responds with HTTP 500 Internal Server Error", func() {
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+
+			It("resets the host to its original state", func() {
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateStopped))
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo/start"
+				authTokenInputs.Method = "POST"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("POST /api/v0/hosts/{slug}/stop", func() {
+		var hs *HostStack
+
+		doRequest := func(slug string, params *url.Values) {
+			req, err := NewFormRequest("POST", "/api/v0/hosts/"+slug+"/stop", params)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			var err error
+			hs, err = CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					State:     host.StateRunning,
+					IPAddress: sql.NullString{"127.0.0.1", true},
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		Context("when host is already stopped", func() {
+			It("responds with HTTP 400 Bad Request", func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
+				hosts.HostbuilderClient = hb
+
+				hs.H.State = host.StateStopped
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
+
+				doRequest(hs.H.Slug, nil)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_state"))
+				Expect(errDesc).To(Equal("host is not running"))
+			})
+
+			It("allows host to be stopped if force=true", func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
+				hosts.HostbuilderClient = hb
+
+				hs.H.State = host.StateStopping
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
+
+				params := &url.Values{}
+				params.Set("force", "true")
+				doRequest(hs.H.Slug, params)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateStopped))
+			})
+		})
+
+		Context("when hostbuilder successfully stops the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
+
+				hosts.HostbuilderClient = hb
+			})
+
+			It("updates the host state to stopped", func() {
+				doRequest(hs.H.Slug, nil)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateStopped))
+			})
+
+			It("responds with the host and status OK", func() {
+				doRequest(hs.H.Slug, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.ID).To(Equal(hs.H.ID))
+				Expect(j.Host.Slug).To(Equal(hs.H.Slug))
+				Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
+				Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
+				Expect(j.Host.Size).To(Equal(""))
+				Expect(j.Host.State).To(Equal(host.StateStopped))
+				Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
+				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
+				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
+				Expect(j.Host.CreatedAt).NotTo(BeNil())
+				Expect(j.Host.UpdatedAt).NotTo(BeNil())
+				Expect(j.Host.TerminatedAt).To(BeNil())
+			})
+
+			It("publishes host stopping and stopped events", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(hs.H.Slug, nil)
+
+				msgs := []pubsub.Message{}
+				finished := make(chan struct{})
+				go func() {
+					msgs = append(msgs, <-ch, <-ch)
+					close(finished)
+				}()
+
+				select {
+				case <-time.After(100 * time.Millisecond):
+					Fail("Timed out while waiting for events")
+				case <-finished:
+					evt, ok := msgs[0].(*controllers.Event)
+					Expect(ok).To(BeTrue())
+					Expect(evt.Name).To(Equal(controllers.EventHostStopping))
+					evtData, ok := evt.Data.(map[string]*serializers.Host)
+					Expect(ok).To(BeTrue())
+					Expect(evtData["host"].Slug).To(Equal(hs.H.Slug))
+					Expect(evtData["host"].State).To(Equal(host.StateStopping))
+
+					h, err := host.Find(db, hs.U, hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(msgs[1]).To(Equal(&controllers.Event{
+						Name: controllers.EventHostStopped,
+						Data: map[string]*serializers.Host{
+							"host": serializers.SerializeHost(h),
+						},
+					}))
+				}
+			})
+		})
+
+		Context("when hostbuilder fails to stop the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &FakeRoundTripper{
+					message: errorResponse,
+					status:  http.StatusBadRequest,
+				})
+
+				hosts.HostbuilderClient = hb
+
+				doRequest(hs.H.Slug, nil)
+			})
+
+			It("responds with HTTP 500 Internal Server Error", func() {
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+
+			It("resets the host to its original state", func() {
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateRunning))
+			})
+		})
+
+		Context("when host has running containers", func() {
+			var c1, c2 *container.Container
+
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &FakeRoundTripper{
+					message: okResponse,
+					status:  http.StatusOK,
+				})
+				hosts.HostbuilderClient = hb
+
+				c1 = &container.Container{
+					CID:    "beefface",
+					Slug:   "rails-box",
+					Image:  "nitrous-base",
+					State:  container.StateRunning,
+					UserID: u.ID,
+					HostID: hs.H.ID,
+				}
+				err := c1.Insert(db)
+				Expect(err).To(BeNil())
+				c2 = &container.Container{
+					CID:    "cafedead",
+					Slug:   "python-box",
+					Image:  "nitrous-base",
+					State:  container.StateRunning,
+					UserID: u.ID,
+					HostID: hs.H.ID,
+				}
+				err = c2.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			checkStoppedEvent := func(evt *controllers.Event, slug string) {
+				Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
+				evtData, ok := evt.Data.(map[string]*serializers.Container)
+				Expect(ok).To(BeTrue())
+				Expect(evtData["container"].Slug).To(Equal(slug))
+				Expect(evtData["container"].State).To(Equal(container.StateStopped.String()))
+			}
+
+			It("publishes container stopped events", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				Expect(c1.State).To(Equal(container.StateRunning))
+				Expect(c2.State).To(Equal(container.StateRunning))
+
+				doRequest(hs.H.Slug, nil)
+
+				// Collect the 2 expected container stop events.
+				stopEvents := []*controllers.Event{}
+				finished := make(chan struct{})
+				go func() {
+					for msg := range ch {
+						if e := msg.(*controllers.Event); e.Name == controllers.EventContainerStopped {
+							stopEvents = append(stopEvents, e)
+						}
+						if len(stopEvents) == 2 {
+							close(finished)
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timed out waiting for container stopped events")
+				case <-finished:
+					checkStoppedEvent(stopEvents[0], c1.Slug)
+					checkStoppedEvent(stopEvents[1], c2.Slug)
+				}
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo/stop"
+				authTokenInputs.Method = "POST"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
 	Describe("POST /api/v0/hosts/{slug}/restart", func() {
 		var hs *HostStack
 
