@@ -1,38 +1,44 @@
-.card-header.bordered
-  h2 Billing
+if App.billingProfile.hasCard
+  .card-header.bordered
+    h2 Billing
 
-.card-body
-  if App.billingProfile.requiresAttention
-    .notice-text
-      i.fa.fa-warning
-      '
-      | We have had issues billing your card. Please verify your card and
-      '
-      a href='#' click='didClickShowInvoices target="view"' click Pay Now on your invoices below
-      | .
-  table.ui.table.horizontal.credit-card-info
-    tr
-      th Card Type
-      td#card-type
-        = App.billingProfile.cardType
-    tr
-      th Last Four Digits
-      td
-        = App.billingProfile.lastFour
-    tr
-      th Expiry
-      td
-        = App.billingProfile.expiry
+  .card-body
+    if App.billingProfile.requiresAttention
+      .notice-text
+        i.fa.fa-warning
+        '
+        | There were issues billing your card. Please verify your card and
+        '
+        a href='#' click='didClickShowInvoices target="view"' click Pay Now on your invoices below
+        | .
+    table.ui.table.horizontal.credit-card-info
+      tr
+        th Card Type
+        td#card-type
+          = App.billingProfile.cardType
+      tr
+        th Last Four Digits
+        td
+          = App.billingProfile.lastFour
+      tr
+        th Expiry
+        td
+          = App.billingProfile.expiry
 
-.card-footer.bordered
-    .right
-      button.ui.btn click='changeCard' Change Card
+  .card-footer.bordered
+      .right
+        button.ui.btn click='changeCard' Change Card
 
 if App.billingUsage
   .card-header.bordered
     h2 Current Usage
 
   .card-body
+    if App.billingProfile.free
+      .notice-text
+        i.fa.fa-info
+          '
+          | You are using a free Nitrous account. The charges below are for informational purposes only.
     .invoice-item
       table.ui.table.horizontal
         tbody
@@ -71,6 +77,16 @@ if App.billingUsage
   h2 Invoices
 
 .card-body
+  if App.invoices.content
+    if App.billingProfile.free
+      .notice-text
+        i.fa.fa-info
+          '
+          | You are using a free Nitrous account. The invoices below are for informational purposes only.
+  else
+    p.hint-text
+      i.fa.fa-exclamation-circle
+      | You don't have any invoices available.
   = each invoice in App.invoices
     .invoice-item
       .heading
@@ -78,27 +94,28 @@ if App.billingUsage
           = simpledate invoice.periodStart
           '  -
           = simpledate invoice.periodEnd
-        .payment-status class={invoice.unpaid:unpaid}
-          if invoice.awaitingUpdate
-            i.spinner
-            | Verifying
-          else
-            if invoice.manuallyPayable
-              .payment-pay-now-action
-                button.ui.btn.danger disabled=invoice.paying click='payInvoice invoice'
-                  if invoice.paying
-                    i.spinner
-                    | Processing
-                  else
-                    | Pay Now
+        unless App.billingProfile.free
+          .payment-status class={invoice.unpaid:unpaid}
+            if invoice.awaitingUpdate
+              i.spinner
+              | Verifying
             else
-              if invoice.successfulCharge
-                | Paid
+              if invoice.manuallyPayable
+                .payment-pay-now-action
+                  button.ui.btn.danger disabled=invoice.paying click='payInvoice invoice'
+                    if invoice.paying
+                      i.spinner
+                      | Processing
+                    else
+                      | Pay Now
               else
-                if invoice.deferred
-                  | Deferred
+                if invoice.successfulCharge
+                  | Paid
                 else
-                  | Unpaid
+                  if invoice.deferred
+                    | Deferred
+                  else
+                    | Unpaid
       table.ui.table.horizontal
         tbody
           = each item in invoice.items

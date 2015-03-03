@@ -36,7 +36,7 @@
 
       .card-body.bordered
         .credit-message class='show'
-          if App.billingProfile.isFreeTier
+          if App.billingProfile.isNoCardState
             if promoCodeInfo.content
               p.note-text
                 ' You have

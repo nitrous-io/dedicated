@@ -22,6 +22,7 @@ var (
 )
 
 const (
+	StateNoCard     = "no_card"
 	StateFree       = "free"
 	StatePaid       = "paid"
 	StatePaymentDue = "payment_due"
@@ -31,7 +32,7 @@ const (
 type BillingProfile struct {
 	ID                int64          `db:"id"`
 	UserID            int64          `db:"user_id"`
-	State             string         `db:"state"` // possible states: 'free', 'paid', 'payment_due', 'delinquent'
+	State             string         `db:"state"` // possible states: 'free', 'paid', 'payment_due', 'delinquent', 'no_card'
 	StripeID          sql.NullString `db:"stripe_id"`
 	StripeFingerprint sql.NullString `db:"stripe_fingerprint"`
 	LastFour          sql.NullString `db:"last_four"`
@@ -53,7 +54,7 @@ func Find(d db.QueryReceiver, userID int64) (*BillingProfile, error) {
 }
 
 func Create(tx *sqlx.Tx, userID int64) error {
-	_, err := tx.Exec(`INSERT INTO billing_profiles (user_id, state) VALUES ($1, $2);`, userID, StateFree)
+	_, err := tx.Exec(`INSERT INTO billing_profiles (user_id, state) VALUES ($1, $2);`, userID, StateNoCard)
 	return err
 }
 
@@ -115,7 +116,7 @@ func (b *BillingProfile) UpdateEmail(d db.QueryReceiver, email string) error {
 }
 
 func (p *BillingProfile) IsCardRequired() bool {
-	return p.State == StateFree
+	return p.State == StateNoCard
 }
 
 func (p *BillingProfile) HasBillingIssues() bool {
