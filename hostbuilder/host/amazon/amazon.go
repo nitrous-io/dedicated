@@ -47,6 +47,7 @@ type tlsConfig struct {
 
 type HostConfig struct {
 	ID               string            `json:"id"`
+	Name             string            `json:"name"`
 	SourceAMI        string            `json:"source_ami"`
 	AvailabilityZone string            `json:"availability_zone"`
 	InstanceType     string            `json:"instance_type"`
@@ -174,15 +175,19 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 }
 
 func (h *Host) Destroy() error {
-	var instancesResp *ec2.InstancesResp
-	var err error
-	if instancesResp, err = h.provider.Instances([]string{h.Config.ID}, nil); err != nil {
+	instancesResp, err := h.provider.Instances([]string{h.Config.ID}, nil)
+	if err != nil {
 		return err
 	}
-	if _, err := h.provider.TerminateInstances([]string{h.Config.ID}); err != nil {
-		return err
+	// if the instance with specified ID does not exist. them we consider the
+	// Destroy operation to be successful
+	if len(instancesResp.Reservations) == 0 || len(instancesResp.Reservations[0].Instances) == 0 {
+		return nil
 	}
 	instance := instancesResp.Reservations[0].Instances[0]
+	if _, err := h.provider.TerminateInstances([]string{instance.InstanceId}); err != nil {
+		return fmt.Errorf("amazon: failed to terminate instance %s, err %v", instance.InstanceId, err)
+	}
 	state := StateChangeConf{
 		Pending: []string{"pending", "running", "shutting-down", "stopped", "stopping"},
 		Refresh: InstanceStateRefreshFunc(h.provider, &instance),
@@ -322,6 +327,14 @@ func createInstance(ctx *host.HostContext) error {
 		return fmt.Errorf("amazon: failed to change state %s", err)
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
+
+	// set name of the instance. If this fails, we still consider the operation
+	// to be successful
+	ec2Tags = []ec2.Tag{{"Name", h.Config.Name}}
+	if _, err := h.provider.CreateTags([]string{s.instance.InstanceId}, ec2Tags); err != nil {
+		hlog(h, "amazon: Failed to set name for instance %s", s.instance.InstanceID)
+	}
+
 	return nil
 }
 
