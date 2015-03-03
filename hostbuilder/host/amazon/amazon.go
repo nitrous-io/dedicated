@@ -2,17 +2,21 @@ package amazon
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
+	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"golang.org/x/net/context"
 )
@@ -25,7 +29,7 @@ const (
 
 var (
 	// Paths to files within each DigitalOcean host.
-	PubKeysLocation = "/root/.ssh/authorized_keys"
+	PubKeysLocation = "/home/ubuntu/.ssh/authorized_keys"
 	TLSCALocation   = "/etc/freighterd/ca.crt"
 	TLSCertLocation = "/etc/freighterd/cert.crt"
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
@@ -35,6 +39,7 @@ var (
 	DefaultCreateTimeout = 10 * time.Minute
 	StateWaitTime        = 3 * time.Second
 
+	ErrInvalidRegion              = errors.New("invalid region")
 	ErrDisabledEnhancedNetworking = errors.New("disabled enhanced networking")
 	ErrCreateTimeout              = errors.New("timed out creating host")
 )
@@ -49,6 +54,7 @@ type HostConfig struct {
 	ID               string            `json:"id"`
 	Name             string            `json:"name"`
 	SourceAMI        string            `json:"source_ami"`
+	Region           string            `json:"region"`
 	AvailabilityZone string            `json:"availability_zone"`
 	InstanceType     string            `json:"instance_type"`
 	RawSecurityGroup map[string]string `json:"security_group"`
@@ -82,9 +88,12 @@ type Host struct {
 	Auth   aws.Auth
 	Config *HostConfig
 
-	provider      *ec2.EC2
-	instance      *ec2.Instance
+	provider *ec2.EC2
+	instance *ec2.Instance
+
 	createTimeout time.Duration
+	uuid          string
+	notifyURL     string
 
 	// the following settings are only available during the creation phase
 	// where we stored the temporary keypair to access the instance
@@ -108,7 +117,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
-	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
 	defer cancel()
 
 	// Store host and writer in ctx for child requests.
@@ -154,7 +163,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		}
 	}
 
-	if h.sshKey != nil {
+	if h.keypair != nil {
 		fmt.Fprintf(w, "Removing key...")
 		hlog(h, "keyID=%d Removing key...", h.keypair.name)
 		if err := h.keypair.Delete(); err != nil {
@@ -206,9 +215,11 @@ func (h *Host) Info() (*host.Info, error) {
 		return nil, errors.New("Invalid ec2 instance")
 	}
 	info := &host.Info{
-		Provider:  h.DriverName(),
-		ID:        h.instance.InstanceId,
-		IPAddress: h.instance.PublicIpAddress,
+		Provider:       h.DriverName(),
+		ID:             h.instance.InstanceId,
+		IPAddress:      h.instance.PublicIpAddress,
+		FreighterdPort: DefaultPort,
+		State:          getState(h.instance),
 	}
 	return info, nil
 }
@@ -235,6 +246,12 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	auth, err := getAuth(defaultConfig["access_key"], defaultConfig["secret_key"])
 	if err != nil {
 		log.Printf("uuid=%s amazon: auth failed %v", defaultConfig["uuid"], config)
+		return nil, err
+	}
+	// get region
+	region, err := getRegion(hostConfig.Region)
+	if err != nil {
+		log.Printf("uuid=%s amazon: invalid region %v", defaultConfig["uuid"], config)
 		return nil, err
 	}
 	// get create timeout
@@ -270,6 +287,19 @@ func (h *Host) logFailedDroplet() {
 			hlog(h, "keyID=unknown Leaving instance for inspection: %s", h.instance.InstanceId)
 		}
 	}
+}
+
+// mlabel returns provider.region which is probably helpful if we ever want to
+// differentiate between regions.
+//
+// The result will have a form of prefix.digitalocean<.region>
+func (h *Host) metricsLabel(prefix string) string {
+	var region string
+	region = h.Config.Region
+	if region != "" {
+		return fmt.Sprintf("%s.amazon.%s", prefix, region)
+	}
+	return fmt.Sprintf("%s.amazon", prefix)
 }
 
 func init() {
@@ -330,9 +360,9 @@ func createInstance(ctx *host.HostContext) error {
 
 	// set name of the instance. If this fails, we still consider the operation
 	// to be successful
-	ec2Tags = []ec2.Tag{{"Name", h.Config.Name}}
-	if _, err := h.provider.CreateTags([]string{s.instance.InstanceId}, ec2Tags); err != nil {
-		hlog(h, "amazon: Failed to set name for instance %s", s.instance.InstanceID)
+	ec2Tags := []ec2.Tag{{"Name", h.Config.Name}}
+	if _, err := h.provider.CreateTags([]string{h.instance.InstanceId}, ec2Tags); err != nil {
+		hlog(h, "amazon: Failed to set name for instance %s", h.instance.InstanceId)
 	}
 
 	return nil
@@ -349,12 +379,12 @@ func waitForSSH(ctx *host.HostContext) error {
 		"uuid": h.uuid,
 	}
 	connInterval := 5 * time.Second
-	sshConn, err := sshutil.WaitForSSH(address, "root", h.keypair.privateKey,
+	sshConn, err := sshutil.WaitForSSH(address, "ubuntu", h.keypair.privateKey,
 		connInterval, ctx.Done(), info)
 	if err != nil {
 		return mh.Error(err, label)
 	}
-	hlog(h, "SSH ready for droplet %v", h.droplet.ID)
+	hlog(h, "SSH ready for instance %s", h.instance.InstanceId)
 	h.conn = sshConn
 	return nil
 }
@@ -379,7 +409,7 @@ func writeSettings(ctx *host.HostContext) error {
 		return fmt.Errorf("unable to marshal config JSON, err: %v", err)
 	}
 
-	if err := h.conn.Execute("mkdir -p /etc/freighterd"); err != nil {
+	if err := h.conn.Execute("sudo mkdir -p /etc/freighterd"); err != nil {
 		return err
 	}
 
@@ -404,7 +434,11 @@ func uploadFile(h *Host, files map[string]io.Reader) error {
 	defer mh.UpdateSince(label, time.Now())
 	flist := []string{}
 	for dest, val := range files {
-		if err := h.conn.Upload(dest, val); err != nil {
+		tmpDest := filepath.Join("/tmp", hex.EncodeToString([]byte(dest)))
+		if err := h.conn.Upload(tmpDest, val); err != nil {
+			return mh.Error(err, label)
+		}
+		if err := h.conn.Execute(fmt.Sprintf("sudo mv %s %s", tmpDest, dest)); err != nil {
 			return mh.Error(err, label)
 		}
 		flist = append(flist, dest)
@@ -423,12 +457,12 @@ func updateSoftware(ctx *host.HostContext) error {
 	cmdParts := []string{
 		// apt-get update with single source
 		// https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=714877#12
-		"DEBIAN_FRONTEND=noninteractive apt-get update",
+		"DEBIAN_FRONTEND=noninteractive sudo apt-get update",
 		"-o APT::List-Cleanup=0",
 		`-o Dir::Etc::sourceparts="/dev/null"`,
 		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
 		`&&`,
-		"DEBIAN_FRONTEND=noninteractive apt-get install -y",
+		"DEBIAN_FRONTEND=noninteractive sudo apt-get install -y",
 		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
 		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
 	}
@@ -456,11 +490,11 @@ func restartFreighterd(ctx *host.HostContext) error {
 	defer mh.UpdateSince(label, time.Now())
 
 	hlog(h, "Restarting freighterd")
-	if out, err := h.conn.CombinedOutput(`service freighterd restart`); err != nil {
+	if out, err := h.conn.CombinedOutput(`sudo service freighterd restart`); err != nil {
 		e := fmt.Errorf("restart freighterd failed with '%s', output: %s", err, out)
 		return mh.Error(e, label)
 	}
-	hlog(h, "Restarted freighterd on %v", h.ipAddress())
+	hlog(h, "Restarted freighterd on %v", h.instance.PublicIpAddress)
 	return nil
 }
 
@@ -469,8 +503,8 @@ func hlog(h *Host, format string, v ...interface{}) {
 	if h.uuid != "" {
 		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
 	}
-	if h.droplet != nil {
-		parts = append(parts, fmt.Sprintf("droplet=%d", h.droplet.ID))
+	if h.instance != nil {
+		parts = append(parts, fmt.Sprintf("instance=%s", h.instance.InstanceId))
 	}
 	log.Printf(fmt.Sprintf("%s %s", strings.Join(parts, " "), format), v...)
 }
@@ -479,4 +513,68 @@ func hlog(h *Host, format string, v ...interface{}) {
 // an error if the authentication couldn't be resolved.
 func getAuth(access, secret string) (aws.Auth, error) {
 	return aws.GetAuth(access, secret)
+}
+
+// getRegion returns a valid aws.Region object
+func getRegion(region string) (aws.Region, error) {
+	r, ok := aws.Regions[region]
+	if !ok {
+		return aws.Region{}, ErrInvalidRegion
+	}
+	return r, nil
+}
+
+// configFile is used to marshal/unmarshal /etc/freighter/config.json.
+type configFile struct {
+	DataPath  string       `json:"data_path"`
+	TLSVerify bool         `json:"tls_verify"`
+	TLSCA     string       `json:"tls_ca"`
+	TLSCert   string       `json:"tls_cert"`
+	TLSKey    string       `json:"tls_key"`
+	Secret    string       `json:"secret"`
+	NotifyURL string       `json:"notify_url"`
+	Listen    []listenSpec `json:"listen"`
+}
+
+type listenSpec struct {
+	Proto   string `json:"proto"`
+	Address string `json:"address"`
+}
+
+func (h *Host) configFile() *configFile {
+	return &configFile{
+		DataPath:  "/var/lib/freighter",
+		TLSVerify: true,
+		TLSCA:     TLSCALocation,
+		TLSCert:   TLSCertLocation,
+		TLSKey:    TLSKeyLocation,
+		Secret:    SecretLocation,
+		NotifyURL: h.generateNotifyURL(),
+		Listen: []listenSpec{
+			{Proto: "unix", Address: "/var/run/freighterd.sock"},
+			{Proto: "tcp", Address: fmt.Sprintf("0.0.0.0:%d", DefaultPort)},
+		},
+	}
+}
+
+func (h *Host) generateNotifyURL() string {
+	return strings.Replace(h.notifyURL, "{{slug}}", h.Config.Name, -1)
+}
+
+func (h *Host) ipAddress() string {
+	return h.instance.PublicIpAddress
+}
+
+func getState(instance *ec2.Instance) state.State {
+	switch instance.State.Name {
+	case "pending":
+		return state.Starting
+	case "running":
+		return state.Running
+	case "stopping":
+		return state.Stopping
+	case "stopped":
+		return state.Stopped
+	}
+	return state.Unknown
 }
