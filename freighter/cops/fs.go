@@ -38,27 +38,17 @@ var (
 )
 
 type FS struct {
-	id string
-}
-
-func buildListDirResponse(msg *Message, dir string) ([]interface{}, error) {
-	log.Printf("listDir for '%s', cid: '%d'\n", dir, msg.CID)
-	entries, err := readDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	files := make([]interface{}, len(entries))
-	for i, f := range entries {
-		files[i] = fileInfoArgs(f)
-	}
-	return files, nil
 }
 
 func listDir(msg *Message, resp chan *Message) chan *Message {
 	dir := msg.Args[0].(string)
-	files, err := buildListDirResponse(msg, dir)
+	entries, err := readDir(dir)
 	if err != nil {
 		return sendErr(resp, msg, err)
+	}
+	files := make([]interface{}, len(entries))
+	for i, f := range entries {
+		files[i] = fileInfoArgs(f)
 	}
 	return sendFinalReply(resp, msg, []interface{}{dir, files})
 }
@@ -218,10 +208,8 @@ func (c *FS) read(path string) ([]interface{}, error) {
 	return []interface{}{path, contentType, content}, nil
 }
 
-func NewFsHandler(id string) AsyncHandler {
-	return &FS{
-		id: id,
-	}
+func NewFsHandler() AsyncHandler {
+	return &FS{}
 }
 
 func fileInfoArgs(info os.FileInfo) []interface{} {
@@ -288,11 +276,6 @@ func readDir(name string) (fi []os.FileInfo, err error) {
 	}
 	defer f.Close()
 	names, err := f.Readdirnames(-1)
-	if err != nil {
-		log.Println("reading dir", name, names, err)
-	} else {
-		log.Println("reading dir", name, names)
-	}
 	fi = make([]os.FileInfo, 0, len(names))
 	for _, filename := range names {
 		// use stat to read symlink as well

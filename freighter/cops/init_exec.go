@@ -136,7 +136,6 @@ func (oh *OpsHandler) fileWatcherLoop() {
 	for {
 		select {
 		case event := <-oh.fileWatcher.Events:
-			log.Printf("event: '%s'\n", event)
 			path := event.Name
 			if shouldNotifyAboutEvent(event) && !shouldIgnoreFile(path) {
 				// it's the parent directory that needs to be updated
@@ -164,7 +163,7 @@ func (oh *OpsHandler) runHandler(h AsyncHandler, msg *Message) {
 // messageLoop runs inside a chroot environment and processes container requests
 func (oh *OpsHandler) copsMessageLoop() {
 	// cache handlers
-	fsHandler := NewFsHandler(oh.containerId)
+	fsHandler := NewFsHandler()
 	finderHandler := NewFinderHandler(oh.containerId)
 
 	for {
