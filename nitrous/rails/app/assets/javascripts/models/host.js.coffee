@@ -29,6 +29,7 @@ App.Host = klass = App.Model.extend
   liveHost: null
 
   isRunning: Em.computed.equal 'state', 'running'
+  isStopped: Em.computed.equal 'state', 'stopped'
   isTerminated: Em.computed.equal 'state', 'terminated'
   isOrphan: Em.computed.equal 'state', 'orphan'
   isUpgrading: Em.computed.equal 'state', 'upgrading'

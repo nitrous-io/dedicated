@@ -99,23 +99,29 @@
   if isRunning
     .left
       button.ui.btn click='restart' Restart
-      button.ui.btn click='showTerminateDialog target="view"' Terminate...
+      button.ui.btn click='stop' Stop
     .right
       if App.canCreateContainers
         button.ui.btn.primary class={containers.length::pulsate} click='newContainer' New Container...
   else
-    if isTerminated
+    if isStopped
       .left
-        button.ui.btn disabled='disabled' Terminated
+        button.ui.btn click='showTerminateDialog target="view"' Terminate...
+      .right
+        button.ui.btn.primary click='start' Start
     else
-      if isOrphan
-        .right
-          button.ui.btn.primary click='showTerminateDialog target="view"' Terminate
-      else
+      if isTerminated
         .left
-          button.ui.btn disabled='disabled'
-            i.spinner
-            | Please Wait...
+          button.ui.btn disabled='disabled' Terminated
+      else
+        if isOrphan
+          .right
+            button.ui.btn.primary click='showTerminateDialog target="view"' Terminate
+        else
+          .left
+            button.ui.btn disabled='disabled'
+              i.spinner
+              | Please Wait...
 
 #terminate-modal-dialog.ui.modal
   .ui.card
