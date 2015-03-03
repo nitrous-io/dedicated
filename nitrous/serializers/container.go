@@ -1,10 +1,15 @@
 package serializers
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
+)
+
+var (
+	ignoredVolumeSuffixes = regexp.MustCompile(`:/(\.nitrous-container-slug|nitrous\/ssh):ro\z`)
 )
 
 type Container struct {
@@ -78,6 +83,7 @@ type ContainerConfig struct {
 }
 
 func SerializeContainerConfig(cfg *freighterclient.ContainerConfig) *ContainerConfig {
+	filterContainerConfig(cfg)
 	c := &ContainerConfig{
 		Cmd:    cfg.Cmd,
 		Env:    cfg.Env,
@@ -91,6 +97,16 @@ func SerializeContainerConfig(cfg *freighterclient.ContainerConfig) *ContainerCo
 		c.PublishAll = *cfg.PublishAll
 	}
 	return c
+}
+
+func filterContainerConfig(cl *freighterclient.ContainerConfig) {
+	mounts := []string{}
+	for _, mnt := range cl.Mounts {
+		if !ignoredVolumeSuffixes.MatchString(mnt) {
+			mounts = append(mounts, mnt)
+		}
+	}
+	cl.Mounts = mounts
 }
 
 type BySlug []*Container

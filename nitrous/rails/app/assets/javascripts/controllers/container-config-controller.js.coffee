@@ -1,5 +1,4 @@
 readOnlyEnvKeys = ['__HOST']
-readOnlyVolumeSuffixes = [':/nitrous/ssh:ro', ':/.nitrous-container-slug:ro']
 
 App.ContainerConfigController = Lib.ContainerConfigController.extend
   saving: (->
@@ -9,7 +8,6 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
   loaded: false
   closeApplyDialog: false
   envVarHashRO: null # object (hash) - readonly
-  volumeMountsRO: null # array - readonly
 
   clear: ->
     @_super.apply this, arguments
@@ -17,7 +15,6 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       loaded: false
       closeApplyDialog: false
       envVarHashRO: Em.Object.create()
-      volumeMountsRO: Em.A()
 
   hostVolumesEmpty: Em.computed.empty('host.volumes')
 
@@ -43,9 +40,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       @set 'envVarHashRO', readOnlyEnv
 
     if config.volume
-      [mutableVol, readOnlyVol] = filterVolumeMounts(config.volume)
-      @set 'volumeMounts', mutableVol
-      @set 'volumeMountsRO', readOnlyVol
+      @set 'volumeMounts', config.volume
 
     if config.privileged?
       @set 'privileged', config.privileged
@@ -103,18 +98,4 @@ filterEnvVarHash = (envVarHash) ->
     if val = mutable[key]?
       readonly[key] = val
       delete mutable[key]
-  [mutable, readonly]
-
-filterVolumeMounts = (volumeMounts) ->
-  mutable = Em.A()
-  readonly = Em.A()
-  for vol, i in volumeMounts
-    filtered = false
-    for suffix in readOnlyVolumeSuffixes
-      suffixIdx = vol.indexOf(suffix)
-      if suffixIdx != -1 && suffixIdx == (vol.length - suffix.length)
-        readonly.pushObject(vol)
-        filtered = true
-        continue
-    mutable.pushObject(vol) unless filtered
   [mutable, readonly]
