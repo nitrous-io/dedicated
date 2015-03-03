@@ -128,7 +128,6 @@ window.NitrousTerminal =
 
   didClose: (ev) ->
     @closed = true
-    @term?.removeAllListeners('resize')
     @term?.write("\r\n[Session closed]")
 
   handleSwitchConsoleEditorEvent: (ev) ->
