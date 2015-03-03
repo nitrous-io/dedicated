@@ -567,8 +567,8 @@ var _ = Describe("controllers/admin", func() {
 
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
-				authTokenInputs.Path = "/api/v0/admin/hosts"
-				authTokenInputs.Method = "GET"
+				authTokenInputs.Path = "/api/v0/admin/host/my-host"
+				authTokenInputs.Method = "PUT"
 			})
 
 			test.ItRequiresAuthToken(&authTokenInputs)

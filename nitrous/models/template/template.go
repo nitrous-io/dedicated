@@ -114,7 +114,7 @@ func (t *Template) Update(d db.QueryReceiver) error {
 
 	nstmt, err := d.PrepareNamed(`UPDATE templates
 		SET (slug, name, description, config, type, image) = (:slug, :name, :description, :config, :type, :image)
-		RETURNING *;`)
+		WHERE id = :id RETURNING *;`)
 	if err != nil {
 		return err
 	}

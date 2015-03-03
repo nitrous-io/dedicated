@@ -40,3 +40,6 @@ App.Router.map ->
 
     @resource 'admin', path: '/admin', ->
       @route 'hosts', path: '/hosts/:provider'
+      @route 'templates', path: '/templates'
+      @route 'templates-new', path: '/templates/new'
+      @route 'template-edit', path: '/template/:templateSlug/edit'

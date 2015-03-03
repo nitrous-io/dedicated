@@ -1,0 +1,32 @@
+.card-body.bordered
+  .ui.input-group
+    label.field-label for='template-slug'
+      | Slug 
+    = input type='text' id='template-slug' name='slug' required=true disabled=saving value=slug autofocus=true
+
+  .ui.input-group
+    label.field-label for='template-name'
+      | Name 
+    = input type='text' id='template-name' name='name' required=true disabled=saving value=name autofocus=true
+
+  .ui.input-group
+    label.field-label for='template-description'
+      | Description
+    = textarea id='template-description' name='description' disabled=saving value=description autofocus=true
+
+  .ui.input-group
+    label.field-label for='template-image'
+      | Image
+    = input type='text' id='template-image' name='image' required=true disabled=saving value=image autofocus=true
+
+  .ui.input-group
+    label.field-label
+      | Type
+    .ui.select
+      Ember.Select name='type' content=templateTypes disabled=saving value=type
+
+  .ui.input-group
+    label.field-label for='template-config'
+      | Config
+    = textarea id='template-config' name='config' disabled=saving value=config autofocus=true
+
