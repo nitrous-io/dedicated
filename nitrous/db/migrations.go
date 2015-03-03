@@ -915,5 +915,20 @@ func init() {
 				ALTER TABLE hosts ADD COLUMN region_identifier character varying(255);
 			`,
 		},
+		{
+			Version: "820",
+			Up: `
+				CREATE TABLE announcements (
+					id bigserial PRIMARY KEY NOT NULL,
+					host_id bigint REFERENCES hosts(id) NULL,
+					subject text NOT NULL,
+					message text NOT NULL,
+					show_to_all boolean NOT NULL,
+					expires_at timestamp without time zone DEFAULT now(),
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+			`,
+		},
 	}
 }
