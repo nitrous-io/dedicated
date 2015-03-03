@@ -77,7 +77,6 @@ type SearchResponse struct {
 // the client should catch `{{event}}.output` content and pring output
 // accordingly
 type Finder struct {
-	id string
 }
 
 func (c *Finder) HandleAsync(msg *Message) chan *Message {
@@ -254,10 +253,8 @@ func (c *Finder) search(term, root string, ignoreCase, useRegexp bool) (chan *fi
 	return ch, errch, nil
 }
 
-func NewFinderHandler(id string) AsyncHandler {
-	return &Finder{
-		id: id,
-	}
+func NewFinderHandler() AsyncHandler {
+	return &Finder{}
 }
 
 // mapToStruct converts a map[string]interface{} to a struct. The given struct

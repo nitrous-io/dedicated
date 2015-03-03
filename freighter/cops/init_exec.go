@@ -164,7 +164,7 @@ func (oh *OpsHandler) runHandler(h AsyncHandler, msg *Message) {
 func (oh *OpsHandler) copsMessageLoop() {
 	// cache handlers
 	fsHandler := NewFsHandler()
-	finderHandler := NewFinderHandler(oh.containerId)
+	finderHandler := NewFinderHandler()
 
 	for {
 		msg := &Message{}
