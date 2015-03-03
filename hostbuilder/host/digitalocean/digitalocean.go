@@ -210,12 +210,8 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	info := map[string]interface{}{
-		"uuid": h.uuid,
-	}
-	if _, err := WaitForAction(ctx, h.Client.Actions, action.ID, StateWaitTime, info); err != nil {
+
+	if err := h.waitForAction(action.ID, 30*time.Second); err != nil {
 		return nil, err
 	}
 	hlog(h, "Renamed droplet")
@@ -347,8 +343,8 @@ func (h *Host) Stop() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 15*time.Minute)
-	if err != nil {
+
+	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
 		return nil, err
 	}
 
@@ -365,8 +361,8 @@ func (h *Host) Start() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = WaitForAction(h.Client.Actions, action.ID, StateWaitTime, 15*time.Minute)
-	if err != nil {
+
+	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
 		return nil, err
 	}
 
@@ -382,12 +378,8 @@ func (h *Host) Restart() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	info := map[string]interface{}{
-		"uuid": h.uuid,
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
-	defer cancel()
-	if _, err = WaitForAction(ctx, h.Client.Actions, action.ID, StateWaitTime, info); err != nil {
+
+	if err := h.waitForAction(action.ID, 15*time.Minute); err != nil {
 		return nil, err
 	}
 
@@ -404,6 +396,18 @@ func (h *Host) id() (int, error) {
 		return 0, err
 	}
 	return int(id64), nil
+}
+
+func (h *Host) waitForAction(id int, timeout time.Duration) error {
+	info := map[string]interface{}{
+		"uuid": h.uuid,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	if _, err := WaitForAction(ctx, h.Client.Actions, id, StateWaitTime, info); err != nil {
+		return err
+	}
+	return nil
 }
 
 // ipAddress get the ipv4 address of the droplet. DigitalOcean always returns

@@ -157,9 +157,10 @@ var _ = Describe("hostbuilder", func() {
 
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).To(BeNil())
-			var info host.Info
-			json.Unmarshal(body, &info)
-			Expect(info.FreighterdPort).To(Equal(uint16(65333)))
+			var info Response
+			err = json.Unmarshal(body, &info)
+			Expect(err).To(BeNil())
+			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
 		})
 	})
 
@@ -181,9 +182,12 @@ var _ = Describe("hostbuilder", func() {
 
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).To(BeNil())
-			var info host.Info
-			json.Unmarshal(body, &info)
+			var info Response
+			err = json.Unmarshal(body, &info)
+			Expect(err).To(BeNil())
+			Expect(info.IPAddress).To(Equal(h.IPAddress))
 			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
+			Expect(info.State).To(Equal(state.Running.String()))
 		})
 	})
 
@@ -206,7 +210,8 @@ var _ = Describe("hostbuilder", func() {
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).To(BeNil())
 			var info Response
-			json.Unmarshal(body, &info)
+			err = json.Unmarshal(body, &info)
+			Expect(err).To(BeNil())
 			Expect(info.IPAddress).To(Equal(h.IPAddress))
 			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
 			Expect(info.State).To(Equal(state.Running.String()))

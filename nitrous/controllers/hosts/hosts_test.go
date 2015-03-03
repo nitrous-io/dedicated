@@ -923,8 +923,8 @@ var _ = Describe("controllers/hosts", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: okResponse,
-					status:  http.StatusOK,
+					Message: okResponse,
+					Status:  http.StatusOK,
 				})
 
 				hosts.HostbuilderClient = hb
@@ -938,7 +938,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
-				Expect(errDesc).To(Equal("host is not stopped"))
+				Expect(errDesc).To(Equal("workspace is not stopped"))
 			})
 		})
 
@@ -946,8 +946,8 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: okResponse,
-					status:  http.StatusOK,
+					Message: okResponse,
+					Status:  http.StatusOK,
 				})
 				hosts.HostbuilderClient = hb
 			})
@@ -1023,8 +1023,8 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: errorResponse,
-					status:  http.StatusBadRequest,
+					Message: errorResponse,
+					Status:  http.StatusBadRequest,
 				})
 				hosts.HostbuilderClient = hb
 				doRequest(hs.H.Slug)
@@ -1077,8 +1077,8 @@ var _ = Describe("controllers/hosts", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: okResponse,
-					status:  http.StatusOK,
+					Message: okResponse,
+					Status:  http.StatusOK,
 				})
 				hosts.HostbuilderClient = hb
 
@@ -1092,14 +1092,14 @@ var _ = Describe("controllers/hosts", func() {
 
 				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
-				Expect(errDesc).To(Equal("host is not running"))
+				Expect(errDesc).To(Equal("workspace is not running"))
 			})
 
 			It("allows host to be stopped if force=true", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: okResponse,
-					status:  http.StatusOK,
+					Message: okResponse,
+					Status:  http.StatusOK,
 				})
 				hosts.HostbuilderClient = hb
 
@@ -1122,8 +1122,8 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: okResponse,
-					status:  http.StatusOK,
+					Message: okResponse,
+					Status:  http.StatusOK,
 				})
 
 				hosts.HostbuilderClient = hb
@@ -1200,8 +1200,8 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: errorResponse,
-					status:  http.StatusBadRequest,
+					Message: errorResponse,
+					Status:  http.StatusBadRequest,
 				})
 
 				hosts.HostbuilderClient = hb
@@ -1226,8 +1226,8 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &FakeRoundTripper{
-					message: okResponse,
-					status:  http.StatusOK,
+					Message: okResponse,
+					Status:  http.StatusOK,
 				})
 				hosts.HostbuilderClient = hb
 
