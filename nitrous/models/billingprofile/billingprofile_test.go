@@ -51,7 +51,7 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(err).To(BeNil())
 			Expect(p.ID).NotTo(BeNil())
 			Expect(p.UserID).To(Equal(u.ID))
-			Expect(p.State).To(Equal("free"))
+			Expect(p.State).To(Equal("no_card"))
 			Expect(p.PendingActivation).To(BeTrue())
 			Expect(p.CreatedAt).NotTo(BeNil())
 			Expect(p.UpdatedAt).NotTo(BeNil())
@@ -259,6 +259,29 @@ var _ = Describe("models/billingprofile", func() {
 				err := bp.UpdateEmail(db, "new-email@example.com")
 				Expect(err).NotTo(BeNil())
 			})
+		})
+	})
+
+	Describe("IsCardRequired()", func() {
+		It("should be false if the state is Free", func() {
+			bp := &billingprofile.BillingProfile{
+				State: billingprofile.StateFree,
+			}
+			Expect(bp.IsCardRequired()).To(BeFalse())
+		})
+
+		It("should be true if the state is NoCard", func() {
+			bp := &billingprofile.BillingProfile{
+				State: billingprofile.StateNoCard,
+			}
+			Expect(bp.IsCardRequired()).To(BeTrue())
+		})
+
+		It("should be false otherwise", func() {
+			bp := &billingprofile.BillingProfile{
+				State: billingprofile.StatePaid,
+			}
+			Expect(bp.IsCardRequired()).To(BeFalse())
 		})
 	})
 

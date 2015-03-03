@@ -1085,8 +1085,12 @@ var _ = Describe("controllers/containers", func() {
 			mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
 				PortBindings: []string{"4040:5050", "4000:3000"},
 				Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
-				Mounts:       []string{"database-75:/var/lib/postgresql/data"},
-				Cmd:          []string{"/bin/yes"},
+				Mounts: []string{
+					"database-75:/var/lib/postgresql/data",
+					"/magic/bla/slug:/.nitrous-container-slug:ro",
+					"/magic/bla/ssh:/nitrous/ssh:ro",
+				},
+				Cmd: []string{"/bin/yes"},
 			}
 		})
 
@@ -1135,7 +1139,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.Config.Cmd).To(Equal(mockClient.ConfigContainerConfig.Cmd))
 			Expect(j.Container.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
 			Expect(j.Container.Config.Ports).To(Equal(mockClient.ConfigContainerConfig.PortBindings))
-			Expect(j.Container.Config.Mounts).To(Equal(mockClient.ConfigContainerConfig.Mounts))
+			Expect(j.Container.Config.Mounts).To(Equal([]string{"database-75:/var/lib/postgresql/data"}))
 		})
 
 		Context("when the Freighter client returns an error", func() {
@@ -1494,6 +1498,33 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
 				Expect(j.Config.Ports).To(Equal(mockClient.ConfigContainerConfig.PortBindings))
 				Expect(j.Config.Mounts).To(Equal(mockClient.ConfigContainerConfig.Mounts))
+			})
+
+			It("responds exclusing nitrous specific mounts", func() {
+				mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
+					PortBindings: []string{"4040:5050", "4000:3000"},
+					Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+					Mounts: []string{
+						"database-75:/var/lib/postgresql/data",
+						"/magic/bla/slug:/.nitrous-container-slug:ro",
+						"/magic/bla/ssh:/nitrous/ssh:ro",
+					},
+					Cmd: []string{"/bin/yes"},
+				}
+
+				doRequest(c.Slug)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(mockClient.ConfigCalled).To(Equal(1))
+				var j struct {
+					Config *serializers.ContainerConfig `json:"config"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Config.Cmd).To(Equal(mockClient.ConfigContainerConfig.Cmd))
+				Expect(j.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
+				Expect(j.Config.Ports).To(Equal(mockClient.ConfigContainerConfig.PortBindings))
+				Expect(j.Config.Mounts).To(Equal([]string{"database-75:/var/lib/postgresql/data"}))
 			})
 		}
 
@@ -2716,9 +2747,13 @@ var _ = Describe("controllers/containers", func() {
 				mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
 
 					PortBindings: []string{"private:3000:8080", "public:49123:4552", "public:8081:11211"},
-					Mounts:       []string{"music"},
-					Env:          []string{"LANG=C", "NODE=nope"},
-					Cmd:          []string{"/bin/yes"},
+					Mounts: []string{
+						"music",
+						"/magic/bla/slug:/.nitrous-container-slug:ro",
+						"/magic/bla/ssh:/nitrous/ssh:ro",
+					},
+					Env: []string{"LANG=C", "NODE=nope"},
+					Cmd: []string{"/bin/yes"},
 				}
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())

@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/nitrous-io/dedicated/nitrous/db"
+	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -18,7 +20,7 @@ func Test(t *testing.T) {
 
 var _ = Describe("models/region", func() {
 	var (
-		db *db.Database
+		db *ndb.Database
 	)
 
 	BeforeEach(func() {
@@ -28,13 +30,11 @@ var _ = Describe("models/region", func() {
 
 		_, err = db.Exec("INSERT INTO regions (slug, name, rank) values ($1, $2, $3);", "apse1", "Southeast Asia", 2)
 		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO regions (slug, name, rank) values ($1, $2, $3);", "uswest", "US West", 3)
-		Expect(err).To(BeNil())
 		_, err = db.Exec("INSERT INTO regions (slug, name, rank) values ($1, $2, $3);", "useast", "US East", 1)
 		Expect(err).To(BeNil())
 		_, err = db.Exec("INSERT INTO regions (slug, name, rank, disabled_at) values ($1, $2, $3, now());", "fiji", "Fiji", 1)
 		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO regions (slug, name, rank, disabled_at) values ($1, $2, $3, now() + interval '1 hour');", "vegas", "Vegas", 1)
+		_, err = db.Exec("INSERT INTO regions (slug, name, rank, disabled_at) values ($1, $2, $3, now() + interval '1 hour');", "vegas", "Vegas", 3)
 		Expect(err).To(BeNil())
 	})
 
@@ -102,16 +102,57 @@ var _ = Describe("models/region", func() {
 		It("returns all regions, ordered by rank", func() {
 			rs, err := region.All(db)
 			Expect(err).To(BeNil())
-			Expect(rs).To(HaveLen(4))
-			Expect([]string{rs[0].Slug, rs[1].Slug, rs[2].Slug, rs[3].Slug}).To(ConsistOf([]string{"useast", "apse1", "uswest", "vegas"}))
-			Expect([]string{rs[0].Name, rs[1].Name, rs[2].Name, rs[3].Name}).To(ConsistOf([]string{"US East", "Southeast Asia", "US West", "Vegas"}))
+			Expect(rs).To(HaveLen(3))
+			Expect([]string{rs[0].Slug, rs[1].Slug, rs[2].Slug}).To(Equal([]string{"useast", "apse1", "vegas"}))
+			Expect([]string{rs[0].Name, rs[1].Name, rs[2].Name}).To(Equal([]string{"US East", "Southeast Asia", "Vegas"}))
+		})
+	})
+
+	Describe("AllForProvider()", func() {
+		It("returns all regions for the given provider, ordered by rank", func() {
+			// Add associated provider templates for the regions in the database.
+			type row struct {
+				ID int64 `db:"id"`
+			}
+			var rows []row
+			err := db.Select(&rows, `SELECT id FROM regions;`)
+			Expect(err).To(BeNil())
+			Expect(rows).To(HaveLen(4))
+			pl := plan.Plan{Slug: "Shift"}
+			Expect(pl.Insert(db)).To(BeNil())
+			for _, row := range rows {
+				t := providertemplate.ProviderTemplate{
+					PlanID:   pl.ID,
+					RegionID: row.ID,
+					Provider: "digitalocean",
+				}
+				Expect(t.Insert(db)).To(BeNil())
+			}
+
+			// Add a region belonging to another provider - it should not be returned.
+			r := region.Region{Slug: "azure-redmond"}
+			Expect(r.Insert(db)).To(BeNil())
+			t := providertemplate.ProviderTemplate{
+				PlanID:   pl.ID,
+				RegionID: r.ID,
+				Provider: "windows-azure",
+			}
+			Expect(t.Insert(db)).To(BeNil())
+
+			rs, err := region.AllForProvider(db, "digitalocean")
+			Expect(err).To(BeNil())
+			Expect(rs).To(HaveLen(3))
+			slugs := []string{}
+			for _, r := range rs {
+				slugs = append(slugs, r.Slug)
+			}
+			Expect(slugs).ToNot(ContainElement("azure-redmond"))
+			Expect(slugs).To(Equal([]string{"useast", "apse1", "vegas"}))
 		})
 	})
 
 	Describe("Insert()", func() {
-		var (
-			r *region.Region
-		)
+		var r *region.Region
 
 		BeforeEach(func() {
 			var err error
@@ -159,7 +200,7 @@ var _ = Describe("models/region", func() {
 		})
 
 		It("should be false for regions that are not disabled", func() {
-			r, err := region.FindBySlug(db, "uswest")
+			r, err := region.FindBySlug(db, "apse1")
 			Expect(err).To(BeNil())
 			Expect(r).ToNot(BeNil())
 			Expect(r.Disabled()).To(BeFalse())

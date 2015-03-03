@@ -32,8 +32,6 @@ App.Container = klass = App.Model.extend
 
   underReconfig: attr('boolean', serialize: false)
 
-  containerKeys: attr(serialize: false)
-
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
   isTerminated: Em.computed.equal 'state', 'terminated'
@@ -105,12 +103,10 @@ App.Container = klass = App.Model.extend
       App.UserKey.fetch(containerId: id).value
   ).property 'id'
 
-  loadContainerKeys: ->
-    @ajax('GET', 'container_keys').then (json) =>
-      if keys = [].concat(json.keys)
-        cKeys = keys.map (k) ->
-          App.ContainerKey.create(k)
-      @set 'containerKeys', cKeys
+  containerKeys: (->
+    if id = @get('id')
+      App.ContainerKey.fetch(containerId: id).value
+  ).property 'id'
 
   eventOccurred: (evt) ->
     if evt in ['container.started', 'container.stopped', 'container.restarted', 'container.updated', 'container.reconfigured', 'container.reconfigure_failed']

@@ -128,6 +128,34 @@ var _ = Describe("container config serializer", func() {
 			"publish_all": true
 		}`)))
 	})
+
+	It("filters out special nitrous mounts", func() {
+		priv, pub := true, true
+		fconfig := &freighterclient.ContainerConfig{
+			PortBindings: []string{"public:4040:5050", "private:4000:3000"},
+			Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+			Cmd:          []string{"/bin/yes"},
+			Mounts: []string{
+				"db",
+				"/nitrous-oxide",
+				"/magic/bla/slug:/.nitrous-container-slug:ro",
+				"/magic/bla/ssh:/nitrous/ssh:ro",
+			},
+			Privileged: &priv,
+			PublishAll: &pub,
+		}
+		c := serializers.SerializeContainerConfig(fconfig)
+		j, err := json.Marshal(c)
+		Expect(err).To(BeNil())
+		Expect(j).To(MatchJSON(fmt.Sprintf(`{
+			"port": ["public:4040:5050", "private:4000:3000"],
+			"env": ["NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"],
+			"cmd": ["/bin/yes"],
+			"volume": ["db", "/nitrous-oxide"],
+			"privileged": true,
+			"publish_all": true
+		}`)))
+	})
 })
 
 var _ = Describe("BySlug", func() {

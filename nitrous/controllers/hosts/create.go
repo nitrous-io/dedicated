@@ -1,7 +1,6 @@
 package hosts
 
 import (
-	"crypto/rsa"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -22,7 +21,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
-	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -40,11 +38,12 @@ var (
 )
 
 type createOpts struct {
-	Size   string `json:"size"`
-	Region string `json:"region"`
-	Slug   string `json:"slug"` // slug provided by client request will be overriden by a generated slug based on name
-	Name   string `json:"name"`
-	Async  bool   `json:"async"`
+	Size               string `json:"size"`
+	Region             string `json:"region"`
+	Slug               string `json:"slug"` // slug provided by client request will be overriden by a generated slug based on name
+	Name               string `json:"name"`
+	Async              bool   `json:"async"`
+	BypassPreprovision bool   `json:"bypass_preprovision"`
 }
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -115,23 +114,32 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			u.Topic(),
 		)
 	}
+
 	provisioned := make(chan *host.Host, 1)
+
+	bypassPreprovision := false
+	if options.BypassPreprovision && env.User.Admin {
+		bypassPreprovision = true
+	}
+
 	h, err := prov.ProvisionHost(provisioner.ProvisionOptions{
-		Async:             options.Async,
-		OutputStream:      outstream,
-		Slug:              options.Slug,
-		Name:              options.Name,
-		User:              u,
-		Token:             t,
-		Region:            region,
-		Plan:              plan,
-		Template:          template,
-		ProvisionFailedFn: publishProvisionFailure,
-		UUID:              env.UUID,
+		Async:              options.Async,
+		BypassPreprovision: bypassPreprovision,
+		OutputStream:       outstream,
+		Slug:               options.Slug,
+		Name:               options.Name,
+		User:               u,
+		Token:              t,
+		Region:             region,
+		Plan:               plan,
+		Template:           template,
+		ProvisionFailedFn:  publishProvisionFailure,
+		UUID:               env.UUID,
 		ProvisionSucceededFn: func(h *host.Host) {
 			provisioned <- h
 		},
 	})
+
 	if err != nil {
 		if e, ok := err.(*provisioner.InvalidHostError); ok {
 			return httperror.New(http.StatusBadRequest, "invalid_request", e.Err.Error())
@@ -211,18 +219,21 @@ func buildCreateOptions(r *http.Request) (*createOpts, error) {
 		if err := json.NewDecoder(r.Body).Decode(&j); err != nil {
 			return nil, err
 		}
+
 		j.Opts.Slug = slugbuilder.Build(j.Opts.Name)
 		return &j.Opts, nil
-	}
 
-	opts := &createOpts{
-		Size:   r.FormValue("size"),
-		Region: r.FormValue("region"),
-		Slug:   slugbuilder.Build(r.FormValue("name")),
-		Name:   r.FormValue("name"),
+	} else {
+		opts := &createOpts{
+			Size:   r.FormValue("size"),
+			Region: r.FormValue("region"),
+			Slug:   slugbuilder.Build(r.FormValue("name")),
+			Name:   r.FormValue("name"),
+		}
+		opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
+		opts.BypassPreprovision, _ = strconv.ParseBool(r.FormValue("bypass_preprovision"))
+		return opts, nil
 	}
-	opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
-	return opts, nil
 }
 
 func findPlan(db ndb.QueryReceiver, size string) (*plan.Plan, error) {
@@ -259,19 +270,6 @@ func findTemplate(db ndb.QueryReceiver, pl *plan.Plan, rg *region.Region, defaul
 		return nil, fmt.Errorf("no matching templates found, error %s", err)
 	}
 	return pt, nil
-}
-
-// generateKey generates and returns a private key together with its public key.
-func generateKey() (priv *rsa.PrivateKey, pub []byte, err error) {
-	priv, err = keypairs.GenerateKey()
-	if err != nil {
-		return nil, nil, err
-	}
-	pub, err = keypairs.PublicKey(&priv.PublicKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	return priv, pub, nil
 }
 
 // generate cert with server certificate and key. The cert will be used for

@@ -443,7 +443,7 @@ var _ = Describe("models/user", func() {
 				Expect(err).To(BeNil())
 				Expect(bp.ID).NotTo(BeNil())
 				Expect(bp.UserID).To(Equal(u.ID))
-				Expect(bp.State).To(Equal("free"))
+				Expect(bp.State).To(Equal("no_card"))
 				Expect(bp.CreatedAt).NotTo(BeNil())
 				Expect(bp.UpdatedAt).NotTo(BeNil())
 			})
@@ -733,6 +733,15 @@ var _ = Describe("models/user", func() {
 		Context("for a payment_due user account", func() {
 			BeforeEach(func() {
 				_, err := db.Exec(`UPDATE billing_profiles SET state = 'payment_due' WHERE user_id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			ItPerformsAdditionalChecks()
+		})
+
+		Context("for a free user account", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE billing_profiles SET state = 'free' WHERE user_id = $1;`, u.ID)
 				Expect(err).To(BeNil())
 			})
 
@@ -1199,7 +1208,7 @@ var _ = Describe("models/user", func() {
 
 				b, err := billingprofile.Find(db, u.ID)
 				Expect(err).To(BeNil())
-				Expect(b.State).To(Equal("free"))
+				Expect(b.State).To(Equal("no_card"))
 			})
 		})
 
@@ -1216,7 +1225,7 @@ var _ = Describe("models/user", func() {
 
 				b, err := billingprofile.Find(db, u.ID)
 				Expect(err).To(BeNil())
-				Expect(b.State).To(Equal("free"))
+				Expect(b.State).To(Equal("no_card"))
 			})
 		})
 	})

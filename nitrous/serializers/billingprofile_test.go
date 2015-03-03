@@ -23,7 +23,7 @@ var _ = Describe("billingprofile serializer", func() {
 			CardType:  sql.NullString{"Visa", true},
 			ExpMonth:  sql.NullInt64{10, true},
 			ExpYear:   sql.NullInt64{2018, true},
-			State:     "free",
+			State:     billingprofile.StateNoCard,
 			CreatedAt: &timestamp,
 			UpdatedAt: &timestamp,
 		}
@@ -39,7 +39,7 @@ var _ = Describe("billingprofile serializer", func() {
 				"card_type": "Visa",
 				"exp_month": 10,
 				"exp_year": 2018,
-				"state": "free",
+				"state": "no_card",
 				"created_at": "2014-11-01T00:00:00Z",
 				"updated_at": "2014-11-01T00:00:00Z",
 				"card_required": true,

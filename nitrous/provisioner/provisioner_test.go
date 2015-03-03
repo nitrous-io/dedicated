@@ -3,13 +3,13 @@ package provisioner_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"syscall"
 	"testing"
 	"time"
 
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
@@ -19,8 +19,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
-	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/logger"
+
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -94,7 +95,7 @@ var _ = Describe("provisioner", func() {
 			Expect(err).To(BeNil())
 			count, err := host.CountPreprovisioned(db, hs.R, hs.P)
 			Expect(err).To(BeNil())
-			Expect(count).To(Equal(0)) // Pre-condition: 0 pre-provisioned hosts.
+			Expect(count).To(Equal(0), "Pre-condition: 0 pre-provisioned hosts.")
 
 			cfg := &provisioner.Config{
 				Username: provisionerUser.Username,
@@ -105,6 +106,106 @@ var _ = Describe("provisioner", func() {
 			err = prov.Start()
 			Expect(err).To(BeNil())
 			defer prov.Stop()
+
+			Eventually(func() int {
+				count, err := host.CountPreprovisioned(db, hs.R, hs.P)
+				Expect(err).To(BeNil())
+				return count
+			}, 5*time.Second, 500*time.Millisecond).Should(Equal(1))
+		})
+
+		createPreprovisioned := func(hsOpts *test.HostStack) *test.HostStack {
+			hs, err := test.CreateHostStack(db, hsOpts)
+			Expect(err).To(BeNil())
+			tx, err := db.Beginx()
+			Expect(err).To(BeNil())
+			privKey, _, err := provisioner.GenerateKey()
+			Expect(err).To(BeNil())
+			if _, err := keypairs.Create(tx, privKey, envvars.AESKey, hs.H.ID); err != nil {
+				tx.Rollback()
+				Fail("Error creating keypair")
+			}
+			err = tx.Commit()
+			Expect(err).To(BeNil())
+			return hs
+		}
+
+		It("assigns hosts instead of preprovisioning if they are available depending on bypass option", func() {
+			hs := createPreprovisioned(&test.HostStack{
+				H: &host.Host{Preprovisioned: true},
+				PT: &providertemplate.ProviderTemplate{
+					PreprovisionMax: 2,
+					Provider:        "dummy",
+				},
+			})
+			hs2 := createPreprovisioned(&test.HostStack{
+				H:  &host.Host{Preprovisioned: true},
+				R:  hs.R,
+				P:  hs.P,
+				PT: hs.PT,
+			})
+			count, err := host.CountPreprovisioned(db, hs.R, hs.P)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(2), "Pre-condition: 2 pre-provisioned hosts.")
+
+			cfg := &provisioner.Config{
+				Username: provisionerUser.Username,
+				Interval: 50 * time.Millisecond,
+			}
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+
+			err = prov.Start()
+			Expect(err).To(BeNil())
+			defer prov.Stop()
+
+			_, err = db.Exec("UPDATE user_profiles SET max_hosts = 99 WHERE user_id = $1", hs.U.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1", hs.U.ID)
+			Expect(err).To(BeNil())
+
+			t := &token.Token{
+				UserID: hs.U.ID,
+				Token:  "valid-token",
+			}
+			canCreate, err := hs.U.CanCreateHosts(db)
+			Expect(err).To(BeNil())
+			Expect(canCreate).To(BeTrue())
+
+			_, err = prov.ProvisionHost(provisioner.ProvisionOptions{
+				OutputStream: GinkgoWriter,
+				Slug:         "new-slug",
+				Name:         "new-name",
+				User:         hs.U,
+				Token:        t,
+				Region:       hs.R,
+				Plan:         hs.P,
+				Template:     hs.PT,
+				UUID:         "ABC",
+			})
+			Expect(err).To(BeNil())
+
+			Eventually(func() int {
+				count, err := host.CountPreprovisioned(db, hs.R, hs.P)
+				Expect(err).To(BeNil())
+				return count
+			}, 5*time.Second, 500*time.Millisecond).Should(Equal(1))
+
+			// with BypassPreprovision option
+			newHost, err := prov.ProvisionHost(provisioner.ProvisionOptions{
+				OutputStream:       GinkgoWriter,
+				Slug:               "bypassed",
+				Name:               "new-name",
+				User:               hs.U,
+				Token:              t,
+				Region:             hs.R,
+				Plan:               hs.P,
+				Template:           hs.PT,
+				UUID:               "DEF",
+				BypassPreprovision: true,
+			})
+			Expect(err).To(BeNil())
+			Expect(newHost.ID).NotTo(Equal(hs.H.ID))
+			Expect(newHost.ID).NotTo(Equal(hs2.H.ID))
 
 			Eventually(func() int {
 				count, err := host.CountPreprovisioned(db, hs.R, hs.P)
@@ -301,7 +402,7 @@ var _ = Describe("provisioner", func() {
 			// Actually provision the host so that it tries to assign the
 			// pre-provisioned host to the user.
 			_, err = prov.ProvisionHost(provisioner.ProvisionOptions{
-				OutputStream: ioutil.Discard,
+				OutputStream: GinkgoWriter,
 				Slug:         "new-slug",
 				Name:         "new-name",
 				User:         u,

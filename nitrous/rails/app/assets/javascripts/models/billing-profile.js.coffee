@@ -19,20 +19,28 @@ App.BillingProfile = klass = App.Model.extend
     @get('state') == 'paid' || @get('state') == 'payment_due'
   ).property 'state'
 
+  free: (->
+    @get('state') == 'free'
+  ).property 'state'
+
+  active: (->
+    @get('paid') || @get('free')
+  ).property 'paid', 'free'
+
   expiry: (->
     "#{@get 'expMonth'}/#{@get 'expYear'}"
   ).property 'expMonth', 'expYear'
 
   hasCard: (->
-    @get('state') != 'free' && @get('lastFour').length > 0
+    @get('state') != 'no_card' && @get('lastFour').length > 0
   ).property 'state', 'lastFour'
 
   requiresAttention: (->
     @get('state') == 'payment_due' || @get('state') == 'delinquent'
   ).property 'state'
 
-  isFreeTier: (->
-    @get('state') == 'free'
+  isNoCardState: (->
+    @get('state') == 'no_card'
   ).property('state')
 
   # override the default save method

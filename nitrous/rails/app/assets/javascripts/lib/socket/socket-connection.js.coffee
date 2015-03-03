@@ -19,6 +19,8 @@ class window.SocketConnection
   retryTimeout: null
   binaryMode: false
 
+  heartbeatTimer: null
+
   constructor: (url, protocols) ->
     @url = url
     @protocols = protocols
@@ -55,7 +57,7 @@ class window.SocketConnection
         # Create prototyped object because we can't modify
         # attributes like ev.data in the original event object
         ev = Object.create(ev, {
-          data: 
+          data:
             value: decoded
 
           # Forward-compatible: new code that really want to
@@ -70,10 +72,15 @@ class window.SocketConnection
 
     ws._onopen = =>
       @retries = 0
+      @heartbeatTimer = window.setInterval(=>
+        @send 'h'
+      , 5000)
 
     ws._onclose = =>
       ws.removeEventListener 'open',  ws._onopen,  false
       ws.removeEventListener 'close', ws._onclose, false
+      window.clearInterval(@heartbeatTimer)
+      @heartbeatTimer = null
       @retry() if @shouldRetry && !ws._noRetry
 
     ws.addEventListener 'open',  ws._onopen,  false

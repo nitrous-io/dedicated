@@ -86,16 +86,16 @@ window.Nitrous = Em.Application.extend Em.Evented,
   ).property 'hosts.loaded', 'hosts.length'
 
   restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'
-  canCreateContainers: Em.computed.bool 'billingProfile.paid'
+  canCreateContainers: Em.computed.bool 'billingProfile.active'
 
   # TODO: Get this logic from server
   canCreateHosts: (->
     return true if @get('newUser')
-    return false unless @get('billingProfile.paid')
+    return false unless @get('billingProfile.active')
     if maxHosts = @get('userProfile.maxHosts')
       return @get('hosts.loaded') && @get('hosts.length') < maxHosts
     true
-  ).property 'billingProfile.paid', 'userProfile.maxHosts', 'hosts.loaded', 'hosts.length'
+  ).property 'billingProfile.active', 'userProfile.maxHosts', 'hosts.loaded', 'hosts.length'
 
   logout: (cb) ->
     Em.$.ajax(

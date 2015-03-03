@@ -1,7 +1,6 @@
 package region
 
 import (
-	"errors"
 	"time"
 
 	"github.com/lib/pq"
@@ -18,14 +17,9 @@ type Region struct {
 	UpdatedAt  *time.Time  `db:"updated_at"`
 }
 
-var (
-	ErrRegionDisabled = errors.New("Region is disabled")
-)
-
 func FindByID(d db.QueryReceiver, id int64) (*Region, error) {
 	r := &Region{}
-	err := d.Get(r, "SELECT * FROM regions WHERE id = $1", id)
-	if err != nil {
+	if err := d.Get(r, "SELECT * FROM regions WHERE id = $1", id); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -33,8 +27,7 @@ func FindByID(d db.QueryReceiver, id int64) (*Region, error) {
 
 func FindBySlug(d db.QueryReceiver, slug string) (*Region, error) {
 	r := &Region{}
-	err := d.Get(r, "SELECT * FROM regions WHERE slug = $1", slug)
-	if err != nil {
+	if err := d.Get(r, "SELECT * FROM regions WHERE slug = $1", slug); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -43,6 +36,17 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Region, error) {
 func All(d db.QueryReceiver) ([]*Region, error) {
 	rs := []*Region{}
 	if err := d.Select(&rs, `SELECT * FROM regions WHERE disabled_at IS NULL OR disabled_at > now() ORDER BY rank`); err != nil {
+		return nil, err
+	}
+	return rs, nil
+}
+
+func AllForProvider(d db.QueryReceiver, provider string) ([]*Region, error) {
+	rs := []*Region{}
+	if err := d.Select(&rs, `SELECT * FROM regions
+		WHERE (disabled_at IS NULL OR disabled_at > now()) AND regions.id IN
+		(SELECT DISTINCT region_id FROM provider_templates WHERE provider_templates.provider=$1)
+		ORDER BY rank`, provider); err != nil {
 		return nil, err
 	}
 	return rs, nil

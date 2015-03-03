@@ -65,7 +65,7 @@ func ActivationEmailCandidates(d *db.Database) ([]user.User, error) {
 						AND user_profiles.activation_email_sent_at IS NULL
 						AND billing_profiles.state = $1;`
 	parsedQuery := fmt.Sprintf(query, ActivationEmailInterval/time.Millisecond)
-	err := d.Select(&users, parsedQuery, billingprofile.StateFree)
+	err := d.Select(&users, parsedQuery, billingprofile.StateNoCard)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func GetStartedEmailCandidates(d *db.Database) ([]user.User, error) {
 							OR (user_profiles.starter_credit_email_last_sent_at <= now() - interval '%d milliseconds' AND user_profiles.starter_credit_email_send_count = 2)
 						);`
 	parsedQuery := fmt.Sprintf(query, ActivationEmailInterval/time.Millisecond, GetStartedEmailIntervalFirst/time.Millisecond, GetStartedEmailIntervalSecond/time.Millisecond, GetStartedEmailIntervalThird/time.Millisecond)
-	err := d.Select(&users, parsedQuery, billingprofile.StateFree)
+	err := d.Select(&users, parsedQuery, billingprofile.StateNoCard)
 	if err != nil {
 		return nil, err
 	}

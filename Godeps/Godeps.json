@@ -106,6 +106,11 @@
 			"Rev": "4b6c75c1d58fbbbaae680348f56fd61b35d2f3ee"
 		},
 		{
+			"ImportPath": "github.com/go-fsnotify/fsnotify",
+			"Comment": "v1.2.0",
+			"Rev": "96c060f6a6b7e0d6f75fddd10efeaca3e5d1bcb0"
+		},
+		{
 			"ImportPath": "github.com/google/go-github/github",
 			"Rev": "7ea4ee6d222607c11ea86e99a6f6723beeae785d"
 		},

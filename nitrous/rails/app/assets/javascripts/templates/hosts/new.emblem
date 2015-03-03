@@ -27,9 +27,16 @@
             each plan in App.plans
               App.PlanListItemView content=plan selected=selectedPlan
 
+        if App.user.admin
+          .ui.checkbox-group
+            .ui.checkbox
+              = input type='checkbox' id='bypass-preprovision' checked=bypassPreprovision
+              label
+            label for='bypass-preprovision' &nbsp; Bypass Preprovision
+
       .card-body.bordered
         .credit-message class='show'
-          if App.billingProfile.isFreeTier
+          if App.billingProfile.isNoCardState
             if promoCodeInfo.content
               p.note-text
                 ' You have

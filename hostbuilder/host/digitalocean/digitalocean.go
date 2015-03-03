@@ -657,7 +657,18 @@ func updateSoftware(ctx *host.HostContext) error {
 
 	hlog(h, "Updating freighterd package")
 
+	// TODO move all of cmdParts into a shell script that is written and run
+	// (similar to /tmp/already-installed.sh below)
+	path := "/tmp/already-installed.sh"
 	cmdParts := []string{
+		fmt.Sprintf(`{ cat > %s <<- 'EOF'
+			#!/bin/sh
+			installed_version=$(/usr/sbin/freighterd -v)
+			installed_version=${installed_version#'freighterd version '}
+			test $installed_version = '%s'
+		EOF
+		} && chmod +x %s && %s`, path, h.Config.FreighterdVersion, path, path),
+		`||`,
 		// apt-get update with single source
 		// https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=714877#12
 		"DEBIAN_FRONTEND=noninteractive apt-get update",
@@ -675,12 +686,16 @@ func updateSoftware(ctx *host.HostContext) error {
 	}
 	cmdParts = append(cmdParts, pkgspec)
 	cmd := strings.Join(cmdParts, " ")
+	hlog(h, "Running %q to update freighterd", cmd)
 
 	if out, err := h.conn.CombinedOutput(cmd); err != nil {
 		e := fmt.Errorf("update sofware failed with '%s', output: %s", err, out)
 		hlog(h, e.Error())
 		mh.Error(e, label)
-		// failure to update a host is considered continuable
+		if h.Config.FreighterdVersion != "" {
+			return e
+		}
+		// failure to update freighterd when a version is not specified is considered continuable
 		return nil
 	}
 	hlog(h, "Updated freighterd package on %v", h.ipAddress())

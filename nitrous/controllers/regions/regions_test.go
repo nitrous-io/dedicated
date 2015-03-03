@@ -7,6 +7,9 @@ import (
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -56,13 +59,32 @@ var _ = Describe("controllers/regions", func() {
 			var regionSlugs = []string{"uswest", "useast", "europe"}
 
 			BeforeEach(func() {
+				pl := plan.Plan{Slug: "Shift"}
+				Expect(pl.Insert(db)).To(BeNil())
+
 				for _, n := range regionSlugs {
 					r := region.Region{Slug: n}
 					Expect(r.Insert(db)).To(BeNil())
+					t := providertemplate.ProviderTemplate{
+						PlanID:   pl.ID,
+						RegionID: r.ID,
+						Provider: envvars.DefaultProvider,
+					}
+					Expect(t.Insert(db)).To(BeNil())
 				}
+
+				// Add a region belonging to another provider - it should not be returned.
+				r := region.Region{Slug: "azure-redmond"}
+				Expect(r.Insert(db)).To(BeNil())
+				t := providertemplate.ProviderTemplate{
+					PlanID:   pl.ID,
+					RegionID: r.ID,
+					Provider: "windows-azure",
+				}
+				Expect(t.Insert(db)).To(BeNil())
 			})
 
-			It("returns serialized regions in json", func() {
+			It("returns valid regions of the default provider", func() {
 				doRequest()
 				Expect(res.Code).To(Equal(http.StatusOK))
 

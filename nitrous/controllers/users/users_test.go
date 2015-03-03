@@ -569,7 +569,7 @@ var _ = Describe("controllers/users", func() {
 				It("responds with state", func() {
 					billingprofile, ok := userinfo["billing_profile"].(map[string]interface{})
 					Expect(ok).To(BeTrue())
-					Expect(billingprofile["state"]).To(Equal("free"))
+					Expect(billingprofile["state"]).To(Equal("no_card"))
 				})
 			})
 		})
