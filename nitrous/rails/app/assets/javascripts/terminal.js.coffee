@@ -107,10 +107,10 @@ window.NitrousTerminal =
 
   didOpen: (ev) ->
     @closed = false
+    @term.sizeToFit()
     if @firstConnect
       @firstConnect = false
       @clear()
-      @term.sizeToFit()
     else
       @term.write '\r\n'
 
