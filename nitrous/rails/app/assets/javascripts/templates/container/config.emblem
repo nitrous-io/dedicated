@@ -106,9 +106,6 @@
         = volumeMount
         unless view.formDisabled
           a.close href='#' click='removeVolumeMount volumeMount' &times;
-    each volumeMount in volumeMountsRO
-      li.disabled title='This volume mount cannot be changed.'
-        = volumeMount
 
   form.container-config submit='addVolumeMount'
     .ui.input-group.container-config-form
