@@ -30,6 +30,8 @@ type Host struct {
 	LiveDockerVersion     string `json:"live_docker_version,omitempty"`
 	LiveFreighterdVersion string `json:"live_freighterd_version,omitempty"`
 	UpgradeAvailable      string `json:"upgrade_available"`
+
+	SupportsStopStart bool `json:"supports_stop_start"`
 }
 
 func SerializeHost(h *host.Host) *Host {
@@ -58,6 +60,9 @@ func SerializeHost(h *host.Host) *Host {
 		LiveDockerVersion:     h.LiveDockerVersion,
 		LiveFreighterdVersion: h.LiveFreighterdVersion,
 		UpgradeAvailable:      h.UpgradeAvailable,
+	}
+	if h.ProviderTemplate != nil {
+		serialized.SupportsStopStart = h.ProviderTemplate.SupportsStopStart
 	}
 	if h.AssignedAt != nil {
 		serialized.CreatedAt = h.AssignedAt

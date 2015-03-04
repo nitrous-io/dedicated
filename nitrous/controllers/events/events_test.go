@@ -70,7 +70,7 @@ var _ = Describe("controllers/events", func() {
 			wsURL, err := url.Parse(fmt.Sprintf("ws://%s/api/v0/events", ts.Listener.Addr().String()))
 			Expect(err).To(BeNil())
 			wsURL.RawQuery = params.Encode()
-			dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Millisecond}
+			dialer := websocket.Dialer{HandshakeTimeout: 100 * time.Millisecond}
 			conn, dialResp, err := dialer.Dial(wsURL.String(), header)
 			Expect(err).To(BeNil())
 			defer conn.Close()
@@ -93,7 +93,7 @@ var _ = Describe("controllers/events", func() {
 			case err := <-errCh:
 				Expect(err).To(BeNil())
 				Expect(out).To(Equal(message{ID: 1, Text: "moshi moshi"}))
-			case <-time.After(100 * time.Millisecond):
+			case <-time.After(200 * time.Millisecond):
 				Fail("Timeout reading JSON from WS connection.")
 			}
 
@@ -105,7 +105,7 @@ var _ = Describe("controllers/events", func() {
 			case err := <-errCh:
 				Expect(err).To(BeNil())
 				Expect(out).To(Equal(message{ID: 2, Text: "siang ka pager?"}))
-			case <-time.After(100 * time.Millisecond):
+			case <-time.After(200 * time.Millisecond):
 				Fail("Timeout reading JSON from WS connection.")
 			}
 
@@ -120,7 +120,7 @@ var _ = Describe("controllers/events", func() {
 			case err := <-errCh:
 				Expect(err).To(BeNil())
 				Expect(s).To(Equal("hello hello"))
-			case <-time.After(100 * time.Millisecond):
+			case <-time.After(200 * time.Millisecond):
 				Fail("Timeout reading JSON from WS connection.")
 			}
 		})

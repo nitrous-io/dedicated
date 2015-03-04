@@ -17,6 +17,8 @@ type Host struct {
 	DestroySuccess bool   `json:"destroy"`
 	CreateSuccess  bool   `json:"create"`
 	UpdateSuccess  bool   `json:"update"`
+	StopSuccess    bool   `json:"stop"`
+	StartSuccess   bool   `json:"start"`
 	RestartSuccess bool   `json:"restart"`
 	ListSuccess    bool   `json:"list"`
 }
@@ -56,6 +58,20 @@ func (h *Host) Info() (*host.Info, error) {
 		FreighterdPort: uint16(h.FreighterdPort),
 		State:          state.Running,
 	}, nil
+}
+
+func (h *Host) Stop() (*host.Info, error) {
+	if h.StopSuccess {
+		return h.Info()
+	}
+	return nil, errors.New("Failed to stop host")
+}
+
+func (h *Host) Start() (*host.Info, error) {
+	if h.StartSuccess {
+		return h.Info()
+	}
+	return nil, errors.New("Failed to start host")
 }
 
 func (h *Host) Restart() (*host.Info, error) {

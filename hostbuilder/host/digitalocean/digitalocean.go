@@ -3,9 +3,7 @@ package digitalocean
 import (
 	"bytes"
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -59,6 +57,7 @@ type tlsConfig struct {
 
 type HostConfig struct {
 	ID         string     `json:"id"`
+	HostID     int64      `json:"host_id"` // database id of the host
 	Name       string     `json:"name"`
 	ImageID    string     `json:"image_id"`
 	RegionID   string     `json:"region_id"`
@@ -72,8 +71,6 @@ type HostConfig struct {
 	AptPassword string `json:"apt_password"` // nitrous.io access token
 	AptLocation string `json:"apt_location"` // URI of the repository
 	AptDist     string `json:"apt_dist"`     // distribution of the repo
-
-	PrivateKey string `json:"private_key"`
 
 	FreighterdVersion string `json:"freighterd_version"`
 }
@@ -167,55 +164,13 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 		return nil, err
 	}
 
-	// Update /etc/freighterd/config.json.
-	cfg := h.configFile()
-	cfgb, err := json.Marshal(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("unable to marshal config JSON, err: %v", err)
-	}
-
-	if h.Config.PrivateKey != "" {
-		block, _ := pem.Decode([]byte(h.Config.PrivateKey))
-		privKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse a valid RSA private key, err: %v", err)
-		}
-
-		dropletRoot, _, err := h.Client.Droplets.Get(id)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get droplet info from DigitalOCean API, err: %v", err)
-		}
-		h.droplet = dropletRoot.Droplet
-		addr := fmt.Sprintf("%s:%d", h.ipAddress(), sshPort)
-		connInterval := 5 * time.Second
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-		defer cancel()
-		info := map[string]interface{}{
-			"uuid": h.uuid,
-		}
-		sshConn, err := sshutil.WaitForSSH(addr, "root", privKey, connInterval, ctx.Done(), info)
-		if err != nil {
-			return nil, err
-		}
-		h.conn = sshConn
-		if err := uploadFile(h, map[string]io.Reader{
-			ConfigLocation: bytes.NewBuffer(cfgb),
-		}); err != nil {
-			return nil, err
-		}
-	}
-
 	hlog(h, "Renaming droplet %d to %s", id, h.Config.Name)
 	action, _, err := h.Client.DropletActions.Rename(id, h.Config.Name)
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	info := map[string]interface{}{
-		"uuid": h.uuid,
-	}
-	if _, err := WaitForAction(ctx, h.Client.Actions, action.ID, StateWaitTime, info); err != nil {
+
+	if err := h.waitForAction(action.ID, 30*time.Second); err != nil {
 		return nil, err
 	}
 	hlog(h, "Renamed droplet")
@@ -337,6 +292,42 @@ func getState(droplet *godo.Droplet) state.State {
 	return state.Unknown
 }
 
+func (h *Host) Stop() (*host.Info, error) {
+	id, err := h.id()
+	if err != nil {
+		return nil, err
+	}
+
+	action, _, err := h.Client.DropletActions.PowerOff(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
+		return nil, err
+	}
+
+	return h.Info()
+}
+
+func (h *Host) Start() (*host.Info, error) {
+	id, err := h.id()
+	if err != nil {
+		return nil, err
+	}
+
+	action, _, err := h.Client.DropletActions.PowerOn(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
+		return nil, err
+	}
+
+	return h.Info()
+}
+
 func (h *Host) Restart() (*host.Info, error) {
 	id, err := h.id()
 	if err != nil {
@@ -346,12 +337,8 @@ func (h *Host) Restart() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	info := map[string]interface{}{
-		"uuid": h.uuid,
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
-	defer cancel()
-	if _, err = WaitForAction(ctx, h.Client.Actions, action.ID, StateWaitTime, info); err != nil {
+
+	if err := h.waitForAction(action.ID, 15*time.Minute); err != nil {
 		return nil, err
 	}
 
@@ -368,6 +355,18 @@ func (h *Host) id() (int, error) {
 		return 0, err
 	}
 	return int(id64), nil
+}
+
+func (h *Host) waitForAction(id int, timeout time.Duration) error {
+	info := map[string]interface{}{
+		"uuid": h.uuid,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	if _, err := WaitForAction(ctx, h.Client.Actions, id, StateWaitTime, info); err != nil {
+		return err
+	}
+	return nil
 }
 
 // ipAddress get the ipv4 address of the droplet. DigitalOcean always returns
@@ -455,7 +454,7 @@ func (h *Host) configFile() *configFile {
 }
 
 func (h *Host) generateNotifyURL() string {
-	return strings.Replace(h.notifyURL, "{{slug}}", h.Config.Name, -1)
+	return strings.Replace(h.notifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
