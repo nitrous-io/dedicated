@@ -99,6 +99,10 @@ type Host struct {
 	// where we stored the temporary keypair to access the instance
 	keypair *keypair      // private keypair of the instance
 	conn    *sshutil.Conn // ssh connection to the instance
+
+	// publicIP is available after ElasticIP is allocated to the instance.
+	// Empty value for this is an error
+	publicIP string
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -132,6 +136,14 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 			Description: "Creating workspace",
 			Func:        createInstance,
 			Timeout:     5 * time.Minute,
+		},
+		{
+			Description: "Set workspace's name",
+			Func:        associateInstanceName,
+		},
+		{
+			Description: "Allocate IP address",
+			Func:        allocateElasticIP,
 		},
 		{
 			Description: "Waiting for the workspace to be ready",
@@ -210,6 +222,7 @@ func (h *Host) Destroy() error {
 	return nil
 }
 
+// Info should be called
 func (h *Host) Info() (*host.Info, error) {
 	if h.instance == nil {
 		return nil, errors.New("Invalid ec2 instance")
@@ -217,7 +230,7 @@ func (h *Host) Info() (*host.Info, error) {
 	info := &host.Info{
 		Provider:       h.DriverName(),
 		ID:             h.instance.InstanceId,
-		IPAddress:      h.instance.PublicIpAddress,
+		IPAddress:      h.ipAddress(),
 		FreighterdPort: DefaultPort,
 		State:          getState(h.instance),
 	}
@@ -358,13 +371,44 @@ func createInstance(ctx *host.HostContext) error {
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 
-	// set name of the instance. If this fails, we still consider the operation
-	// to be successful
+	return nil
+}
+
+// associateInstanceName sets the instance's Name tag to the provided name so
+// we can later filter this instance using API.
+// If this fails, we still consider the operation to be successful
+func associateInstanceName(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
 	ec2Tags := []ec2.Tag{{"Name", h.Config.Name}}
 	if _, err := h.provider.CreateTags([]string{h.instance.InstanceId}, ec2Tags); err != nil {
 		hlog(h, "amazon: Failed to set name for instance %s", h.instance.InstanceId)
 	}
+	return nil
+}
 
+// allocateElasticIP creates a new ElasticIP and associate it with the
+// instance. This is done so the public IP of the instance will not be changed
+// when it's stopped/restarted
+func allocateElasticIP(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	allocateResp, err := h.provider.AllocateAddress(&ec2.AllocateAddress{
+		Domain: "standard",
+	})
+	if err != nil {
+		return err
+	}
+	_, err = h.provider.AssociateAddress(&ec2.AssociateAddress{
+		InstanceId:         h.instance.InstanceId,
+		PublicIp:           allocateResp.PublicIp,
+		AllocationId:       allocateResp.AllocationId,
+		AllowReassociation: false,
+	})
+	if err != nil {
+		h.provider.ReleaseAddress(allocateResp.AllocationId)
+		return err
+	}
+	// assign the elasticIP as publicIP for the current host
+	h.publicIP = allocateResp.PublicIp
 	return nil
 }
 
@@ -374,7 +418,7 @@ func waitForSSH(ctx *host.HostContext) error {
 	defer mh.UpdateSince(label, time.Now())
 
 	hlog(h, "Waiting for SSH to be ready")
-	address := fmt.Sprintf("%s:%d", h.instance.PublicIpAddress, sshPort)
+	address := fmt.Sprintf("%s:%d", h.ipAddress(), sshPort)
 	info := map[string]interface{}{
 		"uuid": h.uuid,
 	}
@@ -494,7 +538,7 @@ func restartFreighterd(ctx *host.HostContext) error {
 		e := fmt.Errorf("restart freighterd failed with '%s', output: %s", err, out)
 		return mh.Error(e, label)
 	}
-	hlog(h, "Restarted freighterd on %v", h.instance.PublicIpAddress)
+	hlog(h, "Restarted freighterd on %v", h.ipAddress())
 	return nil
 }
 
@@ -561,8 +605,10 @@ func (h *Host) generateNotifyURL() string {
 	return strings.Replace(h.notifyURL, "{{slug}}", h.Config.Name, -1)
 }
 
+// ipAddress returns the host's Elastic IP. It will only be available after
+// allocateElasticIP finishes successfully
 func (h *Host) ipAddress() string {
-	return h.instance.PublicIpAddress
+	return h.publicIP
 }
 
 func getState(instance *ec2.Instance) state.State {
