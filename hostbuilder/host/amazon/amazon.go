@@ -11,14 +11,29 @@ import (
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 )
 
+type tlsConfig struct {
+	CA   string `json:"ca"`
+	Cert string `json:"cert"`
+	Key  string `json:"key"`
+}
+
 type HostConfig struct {
 	ID               string            `json:"id"`
 	SourceAMI        string            `json:"source_ami"`
 	AvailabilityZone string            `json:"availability_zone"`
 	InstanceType     string            `json:"instance_type"`
 	RawRegion        string            `json:"region"`
-	PublicKeys       []string          `json:"public_keys"`
 	RawSecurityGroup map[string]string `json:"security_group"`
+
+	// freighter specific config
+	PublicKeys        []string   `json:"public_keys"`
+	TLS               *tlsConfig `json:"tls"`
+	Secret            string     `json:"secret"`
+	AptUsername       string     `json:"apt_username"` // username on nitrous.io
+	AptPassword       string     `json:"apt_password"` // nitrous.io access token
+	AptLocation       string     `json:"apt_location"` // URI of the repository
+	AptDist           string     `json:"apt_dist"`     // distribution of the repo
+	FreighterdVersion string     `json:"freighterd_version"`
 }
 
 func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
