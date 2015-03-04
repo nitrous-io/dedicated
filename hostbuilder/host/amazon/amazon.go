@@ -16,7 +16,9 @@ import (
 
 var (
 	DefaultCreateTimeout = 10 * time.Minute
-	ErrCreateTimeout     = errors.New("timed out creating host")
+
+	ErrCreateTimeout    = errors.New("timed out creating host")
+	ErrInstanceNotFound = errors.New("instance not found")
 )
 
 type tlsConfig struct {
@@ -97,6 +99,10 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 			Func:        createInstance,
 			Timeout:     5 * time.Minute,
 		},
+		{
+			Description: "Assigning network address",
+			Func:        allocateElasticIP,
+		},
 	}
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
@@ -167,6 +173,21 @@ func (h *Host) List() ([]*host.Info, error) {
 
 func (h *Host) DriverName() string {
 	return "amazon"
+}
+
+// refreshInstance reload the current instance associated with this Host to the
+// instance specified by `id` params. It can be used to refresh the current
+// instance, or load a new one
+func (h *Host) reloadInstance(id string) error {
+	instancesResp, err := h.provider.Instances([]string{id}, nil)
+	if err != nil {
+		return err
+	}
+	if len(instancesResp.Reservations) == 0 || len(instancesResp.Reservations[0].Instances) == 0 {
+		return ErrInstanceNotFound
+	}
+	h.instance = &instancesResp.Reservations[0].Instances[0]
+	return nil
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
@@ -258,6 +279,37 @@ func createInstance(ctx *host.HostContext) error {
 		return fmt.Errorf("amazon: failed to change state %v", err)
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
+
+	return nil
+}
+
+// allocateElasticIP creates a new ElasticIP and associate it with the
+// instance. This is done so the public IP of the instance will not be changed
+// when it's stopped/restarted
+func allocateElasticIP(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	allocateResp, err := h.provider.AllocateAddress(&ec2.AllocateAddress{
+		Domain: "standard",
+	})
+	if err != nil {
+		return err
+	}
+	_, err = h.provider.AssociateAddress(&ec2.AssociateAddress{
+		InstanceId:         h.instance.InstanceId,
+		PublicIp:           allocateResp.PublicIp,
+		AllocationId:       allocateResp.AllocationId,
+		AllowReassociation: false,
+	})
+	if err != nil {
+		// if failed to associate the ElasticIp with the instance, we remove it
+		h.provider.ReleasePublicAddress(allocateResp.PublicIp)
+		return err
+	}
+
+	// reload the instance to get a new public IP address
+	if err := h.reloadInstance(h.instance.InstanceId); err != nil {
+		return err
+	}
 
 	return nil
 }
