@@ -35,10 +35,17 @@ App.IdeSidebarController = Em.ArrayController.extend
     @set 'uploadDialog', null
     @set 'currentlyDraggedPath', null
     @set 'currentDroppable', null
+    if socket = @get 'opsSocket'
+      socket.off 'dir_changed.output'
+
+  onDirChanged: (error, absolutePathString) ->
+    this.refreshPath absolutePathString
 
   opsSocketDidStartForTheFirstTime: (->
     if @get 'opsSocket.startedFirstTime'
       Em.run.next =>
+        socket = @get 'opsSocket'
+        socket.on 'dir_changed.output', _.bind(@onDirChanged, this)
         this.openPath @get('rootPath')
         unless App.get('container.metadata.readmeOpened')
           this.openRepoReadme()
