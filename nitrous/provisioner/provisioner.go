@@ -432,20 +432,15 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		}
 	}()
 
-	privKey, err := pemPrivateKey(h, p.db)
-	if err != nil {
-		return nil, err
-	}
-
 	// Update host in hostbuilder (e.g. rename host).
 	config := &hostbuilderclient.Config{
 		"id":           preprovisionedHost.ProviderIdentifier.String,
+		"host_id":      h.ID,
 		"name":         opts.Slug,
 		"apt_username": opts.User.Username,
 		"apt_password": opts.Token.Token,
 		"apt_location": opts.AptLocation,
 		"apt_dist":     opts.AptDist,
-		"private_key":  string(privKey),
 	}
 	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts))
 	if err != nil {
@@ -673,6 +668,7 @@ func (p *Provisioner) preprovision(j job) (*host.Host, error) {
 func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOptions) (hostbuilderclient.Config, error) {
 	h := phost.host
 	config := hostbuilderclient.Config{
+		"host_id":     h.ID,
 		"name":        h.Slug,
 		"secret":      h.Secret,
 		"public_keys": []string{string(phost.pubkey)},

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
 
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -41,10 +42,10 @@ var _ = Describe("controllers/freighterd", func() {
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = NewTestServer("", db, logger, nil)
+		svr = test.NewTestServer("", db, logger, nil)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 	})
@@ -57,13 +58,13 @@ var _ = Describe("controllers/freighterd", func() {
 
 	Describe("POST /hosts/{slug}/freighterd_hook", func() {
 		var (
-			hs *HostStack
+			hs *test.HostStack
 			u  *user.User
 		)
 
 		BeforeEach(func() {
 			var err error
-			hs, err = CreateHostStack(db, &HostStack{
+			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:           "personal-141",
 					IPAddress:      sql.NullString{"1.2.3.4", true},
@@ -85,7 +86,7 @@ var _ = Describe("controllers/freighterd", func() {
 
 		doRequest := func(slug, msg string) {
 			var err error
-			req, err = NewFormRequest("POST",
+			req, err = test.NewFormRequest("POST",
 				fmt.Sprintf("/api/v0/hosts/%s/freighterd_hook", slug),
 				&url.Values{"msg": []string{msg}})
 			Expect(err).To(BeNil())
@@ -105,6 +106,11 @@ var _ = Describe("controllers/freighterd", func() {
 					FreighterdVersion: "0.1.26-abcd",
 				}
 				msg = genMessage(hs.H.Secret, m)
+			})
+
+			It("accepts host ID in addition to slug", func() {
+				doRequest(strconv.FormatInt(hs.H.ID, 10), msg)
+				Expect(res.Code).To(Equal(http.StatusOK))
 			})
 
 			It("responds with HTTP 200 and sets host state to running when host is in upgrading state", func() {
@@ -154,6 +160,11 @@ var _ = Describe("controllers/freighterd", func() {
 				msg = genMessage(hs.H.Secret, m)
 			})
 
+			It("accepts host ID in addition to slug", func() {
+				doRequest(strconv.FormatInt(hs.H.ID, 10), msg)
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
+
 			It("responds with HTTP 200 and sets host state to running when host is in upgrading state", func() {
 				doRequest(hs.H.Slug, msg)
 				Expect(res.Code).To(Equal(http.StatusOK))
@@ -197,21 +208,21 @@ var _ = Describe("controllers/freighterd", func() {
 			msg := genMessage(hs.H.Secret, m)
 			doRequest(hs.H.Slug, msg)
 			Expect(res.Code).To(Equal(http.StatusNotFound))
-			errType, _ := ErrorSlug(res.Body)
+			errType, _ := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("not_found"))
 		})
 
 		It("is 404 when message is unverified", func() {
 			doRequest(hs.H.Slug, "Signed, John Hancock")
 			Expect(res.Code).To(Equal(http.StatusNotFound))
-			errType, _ := ErrorSlug(res.Body)
+			errType, _ := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("not_found"))
 		})
 
 		It("is 404 when host does not exist", func() {
 			doRequest("nosuch", "")
 			Expect(res.Code).To(Equal(http.StatusNotFound))
-			errType, _ := ErrorSlug(res.Body)
+			errType, _ := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("host_not_found"))
 		})
 	})

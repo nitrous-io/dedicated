@@ -3,9 +3,7 @@ package digitalocean
 import (
 	"bytes"
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -59,6 +57,7 @@ type tlsConfig struct {
 
 type HostConfig struct {
 	ID         string     `json:"id"`
+	HostID     int64      `json:"host_id"` // database id of the host
 	Name       string     `json:"name"`
 	ImageID    string     `json:"image_id"`
 	RegionID   string     `json:"region_id"`
@@ -72,8 +71,6 @@ type HostConfig struct {
 	AptPassword string `json:"apt_password"` // nitrous.io access token
 	AptLocation string `json:"apt_location"` // URI of the repository
 	AptDist     string `json:"apt_dist"`     // distribution of the repo
-
-	PrivateKey string `json:"private_key"`
 
 	FreighterdVersion string `json:"freighterd_version"`
 }
@@ -165,44 +162,6 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	id, err := h.id()
 	if err != nil {
 		return nil, err
-	}
-
-	// Update /etc/freighterd/config.json.
-	cfg := h.configFile()
-	cfgb, err := json.Marshal(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("unable to marshal config JSON, err: %v", err)
-	}
-
-	if h.Config.PrivateKey != "" {
-		block, _ := pem.Decode([]byte(h.Config.PrivateKey))
-		privKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse a valid RSA private key, err: %v", err)
-		}
-
-		dropletRoot, _, err := h.Client.Droplets.Get(id)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get droplet info from DigitalOCean API, err: %v", err)
-		}
-		h.droplet = dropletRoot.Droplet
-		addr := fmt.Sprintf("%s:%d", h.ipAddress(), sshPort)
-		connInterval := 5 * time.Second
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-		defer cancel()
-		info := map[string]interface{}{
-			"uuid": h.uuid,
-		}
-		sshConn, err := sshutil.WaitForSSH(addr, "root", privKey, connInterval, ctx.Done(), info)
-		if err != nil {
-			return nil, err
-		}
-		h.conn = sshConn
-		if err := uploadFile(h, map[string]io.Reader{
-			ConfigLocation: bytes.NewBuffer(cfgb),
-		}); err != nil {
-			return nil, err
-		}
 	}
 
 	hlog(h, "Renaming droplet %d to %s", id, h.Config.Name)
@@ -495,7 +454,7 @@ func (h *Host) configFile() *configFile {
 }
 
 func (h *Host) generateNotifyURL() string {
-	return strings.Replace(h.notifyURL, "{{slug}}", h.Config.Name, -1)
+	return strings.Replace(h.notifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
