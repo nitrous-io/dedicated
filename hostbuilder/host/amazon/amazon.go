@@ -29,6 +29,7 @@ type tlsConfig struct {
 
 type HostConfig struct {
 	ID               string            `json:"id"`
+	Name             string            `json:"name"`
 	SourceAMI        string            `json:"source_ami"`
 	AvailabilityZone string            `json:"availability_zone"`
 	InstanceType     string            `json:"instance_type"`
@@ -102,6 +103,10 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{
 			Description: "Assigning network address",
 			Func:        allocateElasticIP,
+		},
+		{
+			Description: "Setting workspace's name",
+			Func:        associateInstanceName,
 		},
 	}
 	for _, step := range steps {
@@ -311,5 +316,19 @@ func allocateElasticIP(ctx *host.HostContext) error {
 		return err
 	}
 
+	return nil
+}
+
+// associateInstanceName sets the instance's Name tag to the provided name so
+// we can later filter this instance using API.
+// If this fails, we still consider the operation to be successful
+func associateInstanceName(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	tags := []ec2.Tag{{"Name", h.Config.Name}}
+	_, err := h.provider.CreateTags([]string{h.instance.InstanceId}, tags)
+	if err != nil {
+		log.Printf("amazon: Failed to set name for instance %s", h.instance.InstanceId)
+	}
 	return nil
 }
