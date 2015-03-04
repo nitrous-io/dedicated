@@ -3,12 +3,19 @@ package amazon
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
+	"time"
 
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"golang.org/x/net/context"
+)
+
+var (
+	ErrCreateTimeout = errors.New("timed out creating host")
 )
 
 type tlsConfig struct {
@@ -59,6 +66,17 @@ type Host struct {
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	w = io.MultiWriter(os.Stdout, w)
+
+	// ctx is the Context for this method. Calling cancel closes the ctx.Done
+	// channel, which will in turn signal for child requests started by this
+	// method to be cancelled.
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	// generate key pair
 	k, err := generateTempKeypair(h.provider)
 	if err != nil {
@@ -66,6 +84,22 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	}
 	defer k.Delete()
 	h.keypair = k
+
+	hctx := host.NewContext(ctx, h, w)
+	steps := []host.Step{
+		{
+			Description: "Checking image's availability",
+			Func:        inspectSourceAMI,
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			if err == context.DeadlineExceeded {
+				return nil, ErrCreateTimeout
+			}
+			return nil, err
+		}
+	}
 
 	runOpts := &ec2.RunInstances{
 		KeyName:        k.name,
@@ -190,4 +224,21 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 
 func init() {
 	host.Hosts["amazon"] = NewHost
+}
+
+// inspectSourceAMI checks that the requested AMI exists and can be used with
+// the current settings.
+func inspectSourceAMI(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	imageResp, err := h.provider.Images([]string{h.Config.SourceAMI}, ec2.NewFilter())
+	if err != nil {
+		return fmt.Errorf("amazon: failed to list images %s", err)
+	}
+
+	if len(imageResp.Images) == 0 {
+		return fmt.Errorf("amazon: image %q not found", h.Config.SourceAMI)
+	}
+
+	return nil
 }
