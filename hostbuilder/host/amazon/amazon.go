@@ -206,9 +206,17 @@ func (h *Host) Destroy() error {
 		return nil
 	}
 	instance := instancesResp.Reservations[0].Instances[0]
+
+	// release elastic IP
+	if _, err := h.provider.ReleasePublicAddress(instance.PublicIpAddress); err != nil {
+		return fmt.Errorf("amazon: failed to release ElasticIP for %s, err %v", instance.InstanceId, err)
+	}
+
+	// terminate the instance
 	if _, err := h.provider.TerminateInstances([]string{instance.InstanceId}); err != nil {
 		return fmt.Errorf("amazon: failed to terminate instance %s, err %v", instance.InstanceId, err)
 	}
+
 	state := StateChangeConf{
 		Pending: []string{"pending", "running", "shutting-down", "stopped", "stopping"},
 		Refresh: InstanceStateRefreshFunc(h.provider, &instance),
@@ -404,7 +412,8 @@ func allocateElasticIP(ctx *host.HostContext) error {
 		AllowReassociation: false,
 	})
 	if err != nil {
-		h.provider.ReleaseAddress(allocateResp.AllocationId)
+		// if failed to associate the ElasticIp with the instance, we remove it
+		h.provider.ReleasePublicAddress(allocateResp.PublicIp)
 		return err
 	}
 	// assign the elasticIP as publicIP for the current host
