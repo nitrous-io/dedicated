@@ -51,6 +51,10 @@ type Host struct {
 	provider     *ec2.EC2
 
 	instance *ec2.Instance
+
+	// the following settings are only available during the creation phase
+	// where we stored the temporary keypair to access the instance
+	keypair *keypair // private keypair of the instance
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -61,6 +65,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		return nil, err
 	}
 	defer k.Delete()
+	h.keypair = k
 
 	runOpts := &ec2.RunInstances{
 		KeyName:        k.name,
