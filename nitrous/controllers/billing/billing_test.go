@@ -140,22 +140,20 @@ var _ = Describe("controllers/billing", func() {
 
 			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h1.ID, "born", "running", startTime, startTime.Add(1*time.Second))
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h1.ID, "running", "stopped", startTime.Add(1*time.Second))
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h1.ID, "running", "terminated", startTime.Add(1*time.Second))
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h2.ID, "born", "running", startTime, startTime.Add(1*time.Second))
 			Expect(err).To(BeNil())
 
 			var j struct {
-				Items              []serializers.InvoiceItem `json:"items"`
-				TotalCharge        int64                     `json:"total_charge"`
-				TotalChargeDollars float64                   `json:"total_charge_dollars"`
+				Items       []serializers.InvoiceItem `json:"items"`
+				TotalCharge int64                     `json:"total_charge"`
 			}
 			res := doRequest()
 			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j.TotalCharge).To(Equal(int64(22)))
-			Expect(j.TotalChargeDollars).To(Equal(0.22))
 			Expect(j.Items).To(HaveLen(2))
 
 			var itm1 serializers.InvoiceItem
