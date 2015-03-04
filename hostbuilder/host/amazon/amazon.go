@@ -15,7 +15,8 @@ import (
 )
 
 var (
-	ErrCreateTimeout = errors.New("timed out creating host")
+	DefaultCreateTimeout = 10 * time.Minute
+	ErrCreateTimeout     = errors.New("timed out creating host")
 )
 
 type tlsConfig struct {
@@ -60,8 +61,8 @@ type Host struct {
 	instance *ec2.Instance
 
 	// the following settings are only available during the creation phase
-	// where we stored the temporary keypair to access the instance
-	keypair *keypair // private keypair of the instance
+	keypair       *keypair      // temporary keypair of the instance
+	createTimeout time.Duration // limit of instance's creation time
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -74,7 +75,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
-	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
 	defer cancel()
 
 	// generate key pair
@@ -214,10 +215,18 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		log.Printf("amazon: invalid region: %v", err)
 		return nil, err
 	}
+	// get create timeout
+	createTimeout := DefaultCreateTimeout
+	d, err := time.ParseDuration(defaultConfig["create_timeout"])
+	if err == nil {
+		createTimeout = d
+	}
+
 	host := &Host{
-		AccessConfig: accessConfig,
-		Config:       hostConfig,
-		provider:     ec2.New(auth, region),
+		AccessConfig:  accessConfig,
+		Config:        hostConfig,
+		provider:      ec2.New(auth, region),
+		createTimeout: createTimeout,
 	}
 	return host, nil
 }
