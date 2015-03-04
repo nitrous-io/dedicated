@@ -147,7 +147,12 @@ var _ = Describe("hostbuilder", func() {
 
 	Describe("Stopping a host", func() {
 		It("should successfully stop the host", func() {
-			config, _ := json.Marshal(dummy.Host{StopSuccess: true})
+			h := &dummy.Host{StopSuccess: true}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil(), "failed to setup a dummy host")
+			defer srv.Close()
+
+			config, _ := json.Marshal(h)
 			form := url.Values{}
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))

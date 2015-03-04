@@ -304,8 +304,10 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 		Status:         "started",
 		Provider:       info.Provider,
 		ID:             info.ID,
+		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		State:          info.State.String(),
 	}
 	writeResponse(w, resp)
 	return nil
