@@ -53,7 +53,6 @@ test_with_docker() {
 
 if [ "$APP" == "all" ]; then
   run test_app pkg
-  run test_app nitro
   run test_app hostbuilder
   run test_db nitrous
   run test_with_docker freighter
