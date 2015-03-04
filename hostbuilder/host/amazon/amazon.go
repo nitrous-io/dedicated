@@ -92,6 +92,11 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 			Description: "Checking image's availability",
 			Func:        inspectSourceAMI,
 		},
+		{
+			Description: "Creating workspace",
+			Func:        createInstance,
+			Timeout:     5 * time.Minute,
+		},
 	}
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
@@ -102,36 +107,6 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		}
 	}
 
-	runOpts := &ec2.RunInstances{
-		KeyName:        k.name,
-		ImageId:        h.Config.SourceAMI,
-		InstanceType:   h.Config.InstanceType,
-		SecurityGroups: h.Config.securityGroups(),
-		AvailZone:      h.Config.AvailabilityZone,
-		MinCount:       0,
-		MaxCount:       0,
-	}
-	// TODO: check if source ami is valid and exists
-
-	// create the instance now
-	resp, err := h.provider.RunInstances(runOpts)
-	if err != nil {
-		log.Printf("amazon: failed to create new instance %v", err)
-		return nil, err
-	}
-	h.instance = &resp.Instances[0]
-
-	// wait for the instance to be ready
-	state := &StateChangeConf{
-		Pending: []string{"pending"},
-		Target:  "running",
-		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
-	}
-	updatedInstance, err := WaitForState(state)
-	if err != nil {
-		return nil, err
-	}
-	h.instance = updatedInstance.(*ec2.Instance)
 	return h.Info()
 }
 
@@ -248,6 +223,41 @@ func inspectSourceAMI(ctx *host.HostContext) error {
 	if len(imageResp.Images) == 0 {
 		return fmt.Errorf("amazon: image %q not found", h.Config.SourceAMI)
 	}
+
+	return nil
+}
+
+// createInstance runs the instance with specified config and a temporary
+// keypair and wait for it to be ready.
+func createInstance(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	opts := &ec2.RunInstances{
+		KeyName:        h.keypair.name,
+		ImageId:        h.Config.SourceAMI,
+		InstanceType:   h.Config.InstanceType,
+		SecurityGroups: h.Config.securityGroups(),
+		AvailZone:      h.Config.AvailabilityZone,
+		MinCount:       0,
+		MaxCount:       0,
+	}
+	resp, err := h.provider.RunInstances(opts)
+	if err != nil || len(resp.Instances) == 0 {
+		return fmt.Errorf("amazon: failed to create new instance %v", err)
+	}
+	h.instance = &resp.Instances[0]
+
+	// wait for the instance to be ready
+	state := &StateChangeConf{
+		Pending: []string{"pending"},
+		Target:  "running",
+		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+	}
+	updatedInstance, err := WaitForState(state)
+	if err != nil {
+		return fmt.Errorf("amazon: failed to change state %v", err)
+	}
+	h.instance = updatedInstance.(*ec2.Instance)
 
 	return nil
 }
