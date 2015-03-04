@@ -128,5 +128,72 @@ var _ = Describe("models/template", func() {
 			err := tmpl.Insert(db)
 			Expect(err).To(Equal(template.ErrConfigInvalid))
 		})
+
+		It("returns ErrInvalidType when invalid type is provided", func() {
+			tmpl := &template.Template{
+				Slug:        "rails-stack",
+				Name:        sql.NullString{"Ruby on Rails", true},
+				Description: sql.NullString{"A Rails stack template", true},
+				Config:      `{ "ports": ["private:5432:5432", "public:2222:22"], "publish_all": true }`,
+				Type:        "invalid-type",
+			}
+			err := tmpl.Insert(db)
+			Expect(err).To(Equal(template.ErrInvalidType))
+		})
+	})
+
+	Describe("Update()", func() {
+		BeforeEach(func() {
+			tmpl := &template.Template{
+				Slug:        "rails-stack",
+				Name:        sql.NullString{"Ruby on Rails", true},
+				Description: sql.NullString{"A Rails stack template", true},
+				Image:       "ubuntu:18.04",
+				Config:      `{ "ports": ["private:5432:5432", "public:2222:22"], "publish_all": true }`,
+				Type:        template.TypeStack,
+			}
+			err := tmpl.Insert(db)
+			Expect(err).To(BeNil())
+		})
+		It("updates the template in the database", func() {
+			tmpl, err := template.Find(db, "rails-stack")
+			Expect(err).To(BeNil())
+
+			tmpl.Description = sql.NullString{"A Rails stack template with Ubuntu 18.10", true}
+			tmpl.Image = "ubuntu:18.10"
+			tmpl.Config = `{ "ports": ["private:5432:5432", "public:2222:22"], "publish_all": true, "privileged": true }`
+
+			err = tmpl.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(tmpl.Slug).To(Equal("rails-stack"))
+			Expect(tmpl.Name).To(Equal(sql.NullString{"Ruby on Rails", true}))
+			Expect(tmpl.Description).To(Equal(sql.NullString{"A Rails stack template with Ubuntu 18.10", true}))
+			Expect(tmpl.Image).To(Equal("ubuntu:18.10"))
+			Expect(tmpl.Config).To(Equal(`{ "ports": ["private:5432:5432", "public:2222:22"], "publish_all": true, "privileged": true }`))
+			Expect(tmpl.Type).To(Equal(template.TypeStack))
+			Expect(tmpl.CreatedAt).NotTo(BeNil())
+			Expect(tmpl.UpdatedAt).NotTo(BeNil())
+		})
+
+		It("returns ErrConfigInvalid when .Config is invalid JSON", func() {
+			tmpl, err := template.Find(db, "rails-stack")
+			Expect(err).To(BeNil())
+
+			tmpl.Config = `{ invalid: "JSON" }`
+
+			err = tmpl.Update(db)
+			Expect(err).To(Equal(template.ErrConfigInvalid))
+		})
+
+		It("returns ErrInvalidType when invalid type is provided", func() {
+			tmpl, err := template.Find(db, "rails-stack")
+			Expect(err).To(BeNil())
+
+			tmpl.Type = "invalid-type"
+
+			err = tmpl.Update(db)
+			Expect(err).To(Equal(template.ErrInvalidType))
+		})
 	})
 })
