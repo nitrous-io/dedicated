@@ -3,10 +3,10 @@ package usagerecorder
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/hostusage"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
@@ -17,6 +17,20 @@ type UsageRecorder struct {
 
 	startTime time.Time
 	endTime   time.Time
+}
+
+type HostHourUsage struct {
+	HostID     int64 `db:"host_id"`
+	UserID     int64 `db:"user_id"`
+	Terminated bool  `db:"terminated"`
+	Seconds    int64 `db:"seconds"`
+	// HourlyPrice unit is milli-cents (x1000)
+	HourlyPrice int64 `db:"hourly_price"`
+}
+
+func (h *HostHourUsage) Hours() int {
+	totalHours := (time.Duration(h.Seconds) * time.Second).Hours()
+	return int(math.Ceil(totalHours))
 }
 
 func New(d *db.Database, l *logger.Logger, startTime, endTime *time.Time) *UsageRecorder {
@@ -72,7 +86,7 @@ func (u *UsageRecorder) ProcessUsages() {
 }
 
 func (u *UsageRecorder) RecordForUser(uId int64) error {
-	hostUsages, err := hosttransition.BillableHostHours(u.db, uId, u.startTime, u.endTime)
+	hostUsages, err := u.BillableHostHours(uId)
 	if err != nil {
 		return fmt.Errorf("usage recorder: failure fetching billable host hours for %d, err: %v", uId, err)
 	}
@@ -119,4 +133,25 @@ func (u *UsageRecorder) RecordForUser(uId int64) error {
 	}
 
 	return nil
+}
+
+func (u *UsageRecorder) BillableHostHours(uId int64) ([]HostHourUsage, error) {
+	hostHours := []HostHourUsage{}
+	err := u.db.Select(&hostHours,
+		`SELECT host_id,
+			u.id user_id,
+			COALESCE(MAX(h.terminated_at) <= $3, FALSE) terminated,
+			MAX(h.hourly_price) hourly_price,
+				cast((EXTRACT(EPOCH FROM
+					SUM(COALESCE(ht.ended_at, $3) - GREATEST(ht.created_at, $2)))) as integer) seconds
+			FROM host_transitions ht
+			JOIN hosts h ON h.id = ht.host_id
+			JOIN users u ON u.id = h.user_id
+
+			WHERE u.id = $1
+				AND ht.state = 'running'
+				AND (ht.created_at, COALESCE(ht.ended_at, $3)) OVERLAPS ($2, $3)
+			GROUP BY host_id, u.id;`,
+		uId, u.startTime, u.endTime)
+	return hostHours, err
 }
