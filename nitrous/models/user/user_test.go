@@ -2,7 +2,6 @@ package user_test
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"testing"
@@ -49,21 +48,6 @@ var _ = Describe("models/user", func() {
 		if db != nil {
 			db.Close()
 		}
-	})
-
-	Describe("Encode as JSON", func() {
-		It("returns the JSON record", func() {
-			u, _ := user.FindByUsername(db, "foo")
-			d, _ := json.Marshal(u)
-			r := make(map[string]interface{})
-			json.Unmarshal(d, &r)
-			exposed := []string{"id", "name", "username", "email", "admin", "created_at", "updated_at", "unconfirmed_email"}
-			for _, p := range exposed {
-				Expect(r[p]).NotTo(BeNil(), "User JSON should contain %s", p)
-				delete(r, p)
-			}
-			Expect(r).To(BeEmpty(), "Exposed more than what we need %v", r)
-		})
 	})
 
 	Describe("FindByID()", func() {
