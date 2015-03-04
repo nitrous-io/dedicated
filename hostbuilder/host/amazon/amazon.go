@@ -1,27 +1,15 @@
 package amazon
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
 	"log"
 	"os"
-	"text/template"
 
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 )
-
-var userDataTemplate = `#cloud-config
-{{if .PublicKeys}}
-ssh_authorized_keys:
-{{range .PublicKeys}}
-	- {{.}}
-{{end}}
-{{end}}
-`
-var compiledUserData *template.Template
 
 type HostConfig struct {
 	ID               string            `json:"id"`
@@ -31,14 +19,6 @@ type HostConfig struct {
 	RawRegion        string            `json:"region"`
 	PublicKeys       []string          `json:"public_keys"`
 	RawSecurityGroup map[string]string `json:"security_group"`
-}
-
-func (h *HostConfig) generateUserData() ([]byte, error) {
-	userData := bytes.NewBufferString("")
-	if err := compiledUserData.Execute(userData, h); err != nil {
-		return []byte{}, err
-	}
-	return userData.Bytes(), nil
 }
 
 func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
@@ -67,18 +47,12 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	}
 	defer k.Delete()
 
-	// generate user data
-	userData, err := h.Config.generateUserData()
-	if err != nil {
-		return nil, err
-	}
 	runOpts := &ec2.RunInstances{
 		KeyName:        k.name,
 		ImageId:        h.Config.SourceAMI,
 		InstanceType:   h.Config.InstanceType,
 		SecurityGroups: h.Config.securityGroups(),
 		AvailZone:      h.Config.AvailabilityZone,
-		UserData:       userData,
 		MinCount:       0,
 		MaxCount:       0,
 	}
@@ -195,6 +169,5 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 }
 
 func init() {
-	compiledUserData = template.Must(template.New("userData").Parse(userDataTemplate))
 	host.Hosts["amazon"] = NewHost
 }
