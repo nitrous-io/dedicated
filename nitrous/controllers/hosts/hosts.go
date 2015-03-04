@@ -253,7 +253,10 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 	publishHostEvent(env, controllers.EventHostStarting, h)
 
-	info, err := HostbuilderClient.Start(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostbuilderHeaders(env))
+	info, err := HostbuilderClient.Start(h.Provider, &hostbuilderclient.Config{
+		"id":         h.ProviderIdentifier.String,
+		"ip_address": h.IPAddress.String,
+	}, hostbuilderHeaders(env))
 	if err != nil {
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
@@ -406,7 +409,10 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 	publishHostEvent(env, controllers.EventHostRestarting, h)
 
-	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostbuilderHeaders(env))
+	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{
+		"id":         h.ProviderIdentifier.String,
+		"ip_address": h.IPAddress.String,
+	}, hostbuilderHeaders(env))
 	if err != nil {
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.

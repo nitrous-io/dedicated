@@ -913,7 +913,7 @@ var _ = Describe("controllers/hosts", func() {
 		BeforeEach(func() {
 			var err error
 			hs, err = test.CreateHostStack(db, &test.HostStack{
-				H: &host.Host{State: host.StateStopped},
+				H: &host.Host{State: host.StateStopped, IPAddress: sql.NullString{"10.0.0.1", true}},
 				U: u,
 			})
 			Expect(err).To(BeNil())
@@ -932,6 +932,27 @@ var _ = Describe("controllers/hosts", func() {
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
+		})
+
+		It("sends the correct payload to hostbuilder", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug)
+
+			payload := &struct {
+				ID        string `json:"id"`
+				IPAddress string `json:"ip_address"`
+			}{}
+			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
+
+			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
+			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
 		})
 
 		Context("when host is not in the stopped state", func() {
@@ -1450,6 +1471,27 @@ var _ = Describe("controllers/hosts", func() {
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
+		})
+
+		It("sends the correct payload to hostbuilder", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, t.Token, nil)
+
+			payload := &struct {
+				ID        string `json:"id"`
+				IPAddress string `json:"ip_address"`
+			}{}
+			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
+
+			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
+			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
 		})
 
 		Context("when host is not in the running state", func() {
