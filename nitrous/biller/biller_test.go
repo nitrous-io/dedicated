@@ -86,7 +86,7 @@ var _ = Describe("biller", func() {
 			Expect(count).To(Equal(0))
 		})
 
-		Describe("with transisitions", func() {
+		Describe("with transitions", func() {
 			var (
 				hs1 *HostStack
 				hs2 *HostStack
