@@ -26,7 +26,8 @@ var (
 )
 
 type ProviderTemplate struct {
-	Provider string `db:"provider"`
+	Provider          string `db:"provider"`
+	SupportsStopStart bool   `db:"supports_start_stop"`
 }
 
 const (
@@ -156,14 +157,14 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, provider_templates.provider
+			`SELECT hosts.*, provider_templates.provider, provider_templates.supports_start_stop
 			FROM hosts
 			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
 			WHERE hosts.user_id = $1 AND hosts.slug = $2
 			AND terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, identifier)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, provider_templates.provider
+			`SELECT hosts.*, provider_templates.provider, provider_templates.supports_start_stop
 			FROM hosts
 			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
 			WHERE hosts.user_id = $1 AND hosts.id = $2
@@ -186,14 +187,14 @@ func FindByIdentifier(db *db.Database, identifier string) (*Host, error) {
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, provider_templates.provider
+			`SELECT hosts.*, provider_templates.provider, provider_templates.supports_start_stop
 			FROM hosts
 			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
 			WHERE hosts.slug = $1
 			AND terminated_at IS NULL;`, identifier)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, provider_templates.provider
+			`SELECT hosts.*, provider_templates.provider, provider_templates.supports_start_stop
 			FROM hosts
 			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
 			WHERE hosts.id = $1

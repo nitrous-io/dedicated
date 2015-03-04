@@ -29,6 +29,8 @@ var (
 	errRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
 	errHostCreationNotAllowed   = httperror.New(http.StatusBadRequest, "invalid_request", "not allowed to create more hosts")
 	errProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
+	errHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not stopped")
+	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another workspace creation request is currently being processed")
@@ -185,7 +187,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	// If provider identifier is empty, don't attempt to delete the host in hostbuilder
 	// Provider identifier can be empty for hosts that are dangling in born or orphan states.
 	if h.ProviderIdentifier.String != "" {
-		_, err := HostbuilderClient.Delete(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostBuilderHeaders(env))
+		_, err := HostbuilderClient.Delete(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostbuilderHeaders(env))
 		if err != nil {
 			return err
 		}
@@ -226,6 +228,158 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	return nil
 }
 
+func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if h.State != host.StateStopped {
+		return errHostStartInvalidState
+	}
+
+	origState := h.State
+	h.State = host.StateStarting
+
+	tx, err := env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := h.Update(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	publishHostEvent(env, controllers.EventHostStarting, h)
+
+	info, err := HostbuilderClient.Start(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostbuilderHeaders(env))
+	if err != nil {
+		// Rollback to previous state, log any errors while rolling back, but
+		// return original hostbuilderclient error.
+		h.State = origState
+		tx, err := env.DB.Beginx()
+		if err != nil {
+			return err
+		}
+		if err := h.Update(tx); err != nil {
+			tx.Rollback()
+			env.Logger.Errorf("hosts.Start: Unable to reset host state: %v", err)
+		}
+		if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt); err != nil {
+			tx.Rollback()
+			env.Logger.Errorf("hosts.Start: Unable to record transition: %v", err)
+		}
+		if err := tx.Commit(); err != nil {
+			env.Logger.Errorf("hosts.Start: Failed to commit transaction: %v", err)
+		}
+
+		publishHostEvent(env, controllers.EventHostUpdated, h)
+		return err
+	}
+
+	h.State = host.StateRunning
+	h.IPAddress = sql.NullString{info.IPAddress, true}
+	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+
+	tx, err = env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := h.Update(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	publishHostEvent(env, controllers.EventHostStarted, h)
+	serializeHost(env, h)
+	return nil
+}
+
+func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	force, _ := strconv.ParseBool(r.FormValue("force"))
+	if !force && h.State != host.StateRunning {
+		return errHostStopInvalidState
+	}
+
+	origState := h.State
+	h.State = host.StateStopping
+
+	tx, err := env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := h.Update(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	publishHostEvent(env, controllers.EventHostStopping, h)
+
+	info, err := HostbuilderClient.Stop(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostbuilderHeaders(env))
+	if err != nil {
+		// Rollback to previous state, log any errors while rolling back, but
+		// return original hostbuilderclient error.
+		h.State = origState
+		tx, err := env.DB.Beginx()
+		if err != nil {
+			return err
+		}
+		if err := h.Update(tx); err != nil {
+			tx.Rollback()
+			env.Logger.Errorf("hosts.Stop: Unable to reset host state: %v", err)
+		}
+		if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt); err != nil {
+			tx.Rollback()
+			env.Logger.Errorf("hosts.Stop: Unable to record transition: %v", err)
+		}
+		if err := tx.Commit(); err != nil {
+			env.Logger.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
+		}
+
+		publishHostEvent(env, controllers.EventHostUpdated, h)
+		return err
+	}
+
+	h.State = host.StateStopped
+	h.IPAddress = sql.NullString{info.IPAddress, true}
+	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+
+	tx, err = env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := h.Update(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	publishContainersStopped(env, h)
+	publishHostEvent(env, controllers.EventHostStopped, h)
+	serializeHost(env, h)
+	return nil
+}
+
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
@@ -243,8 +397,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		tx.Rollback()
 		return err
 	}
-	err = hosttransition.Record(tx, h, origState, *h.UpdatedAt)
-	if err != nil {
+	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -253,35 +406,28 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 	publishHostEvent(env, controllers.EventHostRestarting, h)
 
-	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostBuilderHeaders(env))
+	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostbuilderHeaders(env))
 	if err != nil {
-		// Rollback to previous state.
-		rollbackCalled := false
+		// Rollback to previous state, log any errors while rolling back, but
+		// return original hostbuilderclient error.
 		h.State = origState
-
 		tx, err := env.DB.Beginx()
 		if err != nil {
 			return err
 		}
-		if err := h.Update(tx); err != nil { // Log and continue, don't mask hostbuilder error.
+		if err := h.Update(tx); err != nil {
 			tx.Rollback()
-			rollbackCalled = true
 			env.Logger.Errorf("hosts.Restart: Unable to reset host state: %v", err)
 		}
-		publishHostEvent(env, controllers.EventHostUpdated, h)
-
-		rollbackCalled = false
-		err = hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt)
-		if err != nil {
+		if err := hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt); err != nil {
 			tx.Rollback()
-			rollbackCalled = true
 			env.Logger.Errorf("hosts.Restart: Unable to record transition: %v", err)
 		}
-
-		if !rollbackCalled {
-			tx.Commit()
+		if err := tx.Commit(); err != nil {
+			env.Logger.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
 		}
 
+		publishHostEvent(env, controllers.EventHostUpdated, h)
 		return err
 	}
 
@@ -347,7 +493,7 @@ func Upgrade(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	return nil
 }
 
-func hostBuilderHeaders(env *middleware.Env) map[string]string {
+func hostbuilderHeaders(env *middleware.Env) map[string]string {
 	return map[string]string{
 		constants.NitrousUUIDHeader: env.UUID,
 	}

@@ -145,6 +145,14 @@ func (h *Host) Info() (*host.Info, error) {
 	return info, nil
 }
 
+func (h *Host) Stop() (*host.Info, error) {
+	panic("amazon provider does not support stop yet")
+}
+
+func (h *Host) Start() (*host.Info, error) {
+	panic("amazon provider does not support start yet")
+}
+
 func (h *Host) Restart() (*host.Info, error) {
 	panic("amazon provider does not support Restart yet")
 }

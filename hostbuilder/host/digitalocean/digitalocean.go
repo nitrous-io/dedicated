@@ -210,12 +210,8 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	info := map[string]interface{}{
-		"uuid": h.uuid,
-	}
-	if _, err := WaitForAction(ctx, h.Client.Actions, action.ID, StateWaitTime, info); err != nil {
+
+	if err := h.waitForAction(action.ID, 30*time.Second); err != nil {
 		return nil, err
 	}
 	hlog(h, "Renamed droplet")
@@ -337,6 +333,42 @@ func getState(droplet *godo.Droplet) state.State {
 	return state.Unknown
 }
 
+func (h *Host) Stop() (*host.Info, error) {
+	id, err := h.id()
+	if err != nil {
+		return nil, err
+	}
+
+	action, _, err := h.Client.DropletActions.PowerOff(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
+		return nil, err
+	}
+
+	return h.Info()
+}
+
+func (h *Host) Start() (*host.Info, error) {
+	id, err := h.id()
+	if err != nil {
+		return nil, err
+	}
+
+	action, _, err := h.Client.DropletActions.PowerOn(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
+		return nil, err
+	}
+
+	return h.Info()
+}
+
 func (h *Host) Restart() (*host.Info, error) {
 	id, err := h.id()
 	if err != nil {
@@ -346,12 +378,8 @@ func (h *Host) Restart() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	info := map[string]interface{}{
-		"uuid": h.uuid,
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
-	defer cancel()
-	if _, err = WaitForAction(ctx, h.Client.Actions, action.ID, StateWaitTime, info); err != nil {
+
+	if err := h.waitForAction(action.ID, 15*time.Minute); err != nil {
 		return nil, err
 	}
 
@@ -368,6 +396,18 @@ func (h *Host) id() (int, error) {
 		return 0, err
 	}
 	return int(id64), nil
+}
+
+func (h *Host) waitForAction(id int, timeout time.Duration) error {
+	info := map[string]interface{}{
+		"uuid": h.uuid,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	if _, err := WaitForAction(ctx, h.Client.Actions, id, StateWaitTime, info); err != nil {
+		return err
+	}
+	return nil
 }
 
 // ipAddress get the ipv4 address of the droplet. DigitalOcean always returns

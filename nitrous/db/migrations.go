@@ -863,5 +863,11 @@ func init() {
 				UPDATE billing_profiles SET state='no_card' WHERE state='free';
 			`,
 		},
+		{
+			Version: "800",
+			Up: `
+				ALTER TABLE provider_templates ADD COLUMN supports_start_stop boolean DEFAULT false NOT NULL;
+			`,
+		},
 	}
 }

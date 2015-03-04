@@ -14,6 +14,8 @@ const (
 	EventContainerTokenRequested = "Container Token Requested"
 
 	EventHostCreated    = "Host Created"
+	EventHostStarted    = "Host Started"
+	EventHostStopped    = "Host Stopped"
 	EventHostRestarted  = "Host Restarted"
 	EventHostTerminated = "Host Terminated"
 
