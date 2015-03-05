@@ -29,6 +29,11 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
     @useUserSettings()
 
+    # We do this so that saving using :w in Vim mode works.
+    # Sucks that this is a CodeMirror "global".
+    CodeMirror.commands.save = (cm) =>
+      @saveDocument(@get('activeTab'))
+
   reset: ->
     @set 'content', null
     @set 'saveDialog', null
