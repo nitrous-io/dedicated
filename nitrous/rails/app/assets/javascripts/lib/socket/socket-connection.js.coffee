@@ -4,10 +4,10 @@
 utf8Encoder = new window.TextEncoder('utf8')
 utf8Decoder = new window.TextDecoder('utf8')
 
-utf8Encode = (data) =>
+utf8Encode = (data) ->
   utf8Encoder.encode(data)
 
-utf8Decode = (data) =>
+utf8Decode = (data) ->
   utf8Decoder.decode(new DataView(data))
 
 class window.SocketConnection
@@ -56,18 +56,15 @@ class window.SocketConnection
 
         # Create prototyped object because we can't modify
         # attributes like ev.data in the original event object
-        ev = Object.create(ev, {
+        ev = Object.create ev,
           data:
             value: decoded
-
           # Forward-compatible: new code that really want to
           # read the websocket in binary format can still
           # access the raw buffer at ev.binaryData instead of
           # ev.data
           binaryData:
             value: message
-        })
-
       @onmessage(ev)
 
     ws._onopen = =>
