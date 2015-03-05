@@ -48,7 +48,7 @@ var _ = Describe("models/userprofile", func() {
 			Expect(err).To(BeNil())
 
 			p := &userprofile.UserProfile{}
-			err = db.Get(p, "SELECT * FROM user_profiles WHERE user_profiles.user_id = $1;", u.ID)
+			err = db.Get(p, "SELECT * FROM user_profiles WHERE user_id = $1;", u.ID)
 			Expect(err).To(BeNil())
 			Expect(p.ID).NotTo(BeNil())
 			Expect(p.UserID).To(Equal(u.ID))

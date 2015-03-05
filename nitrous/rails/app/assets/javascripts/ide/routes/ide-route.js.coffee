@@ -6,6 +6,8 @@ App.IdeRoute = Em.Route.extend
       App.loadSettings()
       App.User.fetch().then (user) ->
         App.set 'user', user
+      App.UserSettings.fetch().then (settings) ->
+        App.set 'userSettings', settings
     else
       # redirect to login screen if user hasn't logged in
       window.location.href = '/app/#/login'

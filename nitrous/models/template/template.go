@@ -71,11 +71,7 @@ func (t *Template) ParsedConfig() (*TemplateConfig, error) {
 	return &cfg, nil
 }
 
-func (t *Template) Insert(d db.QueryReceiver) error {
-	// Make sure we can unmarshal the template's Config.
-	if _, err := t.ParsedConfig(); err != nil {
-		return ErrConfigInvalid
-	}
+func (t *Template) validType() bool {
 	ok := false
 	for _, ty := range AllowedTypes {
 		if t.Type == ty {
@@ -83,13 +79,42 @@ func (t *Template) Insert(d db.QueryReceiver) error {
 			break
 		}
 	}
-	if !ok {
+
+	return ok
+}
+
+func (t *Template) Insert(d db.QueryReceiver) error {
+	// Make sure we can unmarshal the template's Config.
+	if _, err := t.ParsedConfig(); err != nil {
+		return ErrConfigInvalid
+	}
+
+	if !t.validType() {
 		return ErrInvalidType
 	}
 
 	nstmt, err := d.PrepareNamed(`INSERT INTO templates
 		(slug, name, description, config, type, image)
 		VALUES (:slug, :name, :description, :config, :type, :image) RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(t).StructScan(t)
+}
+
+func (t *Template) Update(d db.QueryReceiver) error {
+	// Make sure we can unmarshal the template's Config.
+	if _, err := t.ParsedConfig(); err != nil {
+		return ErrConfigInvalid
+	}
+
+	if !t.validType() {
+		return ErrInvalidType
+	}
+
+	nstmt, err := d.PrepareNamed(`UPDATE templates
+		SET (slug, name, description, config, type, image) = (:slug, :name, :description, :config, :type, :image)
+		WHERE id = :id RETURNING *;`)
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,32 @@
+.card-header.bordered
+  h2 Admin &mdash; Templates
+
+.card-body
+  table.ui.table
+    tbody
+      tr
+        th ID
+        th Icon
+        th Slug
+        th Name
+        th Type
+        th Image
+        th Privileged
+
+      = each App.templates
+        tr
+          td = id
+          td
+            img src={iconUrl} width='50%'
+          td = slug
+          td title={description}
+            = name
+          td = type
+          td = image
+          td = privileged
+          td.actions
+            button.ui.btn click='edit this' Edit
+
+.card-footer.bordered
+  .right
+    a.ui.btn.primary href='#' click='new' New Template...

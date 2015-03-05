@@ -31,7 +31,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
 
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	test "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -65,7 +65,7 @@ var _ = Describe("controllers/hosts", func() {
 		svr             *server.Server
 		handler         *mux.Router
 		res             *httptest.ResponseRecorder
-		authTokenInputs AuthTokenInputs
+		authTokenInputs test.AuthTokenInputs
 
 		u *user.User
 		t *token.Token
@@ -73,20 +73,20 @@ var _ = Describe("controllers/hosts", func() {
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		svr = server.NewServer("", db, logger, nil)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
-		authTokenInputs = AuthTokenInputs{Handler: handler}
+		authTokenInputs = test.AuthTokenInputs{Handler: handler}
 
 		u = &user.User{
 			Username: "foo",
 			Password: "123456",
 			Email:    "foo@example.com",
 		}
-		err = WrapInTransaction(db, u.Insert)
+		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 		Expect(u.ID).NotTo(BeZero())
 
@@ -106,18 +106,18 @@ var _ = Describe("controllers/hosts", func() {
 
 	Describe("GET /api/v0/hosts", func() {
 		doRequest := func() {
-			req, err := NewRequest("GET", "/api/v0/hosts", nil)
+			req, err := test.NewRequest("GET", "/api/v0/hosts", nil)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
 			handler.ServeHTTP(res, req)
 		}
 
 		Context("when user has hosts", func() {
-			var hs1, hs2 *HostStack
+			var hs1, hs2 *test.HostStack
 
 			BeforeEach(func() {
 				var err error
-				hs1, err = CreateHostStack(db, &HostStack{
+				hs1, err = test.CreateHostStack(db, &test.HostStack{
 					H: &host.Host{
 						Slug:           "foo",
 						IPAddress:      sql.NullString{"1.2.3.4", true},
@@ -129,7 +129,7 @@ var _ = Describe("controllers/hosts", func() {
 				})
 				Expect(err).To(BeNil())
 
-				hs2, err = CreateHostStack(db, &HostStack{
+				hs2, err = test.CreateHostStack(db, &test.HostStack{
 					H: &host.Host{
 						Slug:           "bar",
 						IPAddress:      sql.NullString{"2.4.6.8", true},
@@ -143,7 +143,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("should not be blocked if the user has billing issues", func() {
-				MarkDelinquentUser(db, u)
+				test.MarkDelinquentUser(db, u)
 				doRequest()
 				Expect(res.Code).To(Equal(http.StatusOK))
 			})
@@ -201,16 +201,16 @@ var _ = Describe("controllers/hosts", func() {
 				authTokenInputs.Method = "GET"
 			})
 
-			ItRequiresAuthToken(&authTokenInputs)
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
 	Describe("GET /api/v0/hosts/{slug}", func() {
-		var hs *HostStack
+		var hs *test.HostStack
 		var mockClient *freighterclient.MockClient
 
 		doRequest := func(slug, token string) {
-			req, err := NewRequest("GET", "/api/v0/hosts/"+slug, nil)
+			req, err := test.NewRequest("GET", "/api/v0/hosts/"+slug, nil)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 			handler.ServeHTTP(res, req)
@@ -222,10 +222,10 @@ var _ = Describe("controllers/hosts", func() {
 				DockerVersion:     "1.5.0-nitrous1",
 				FreighterdVersion: "1.0.1-deadbeef",
 			}
-			StubDefaultFreighterFn(mockClient)
+			test.StubDefaultFreighterFn(mockClient)
 
 			var err error
-			hs, err = CreateHostStack(db, &HostStack{
+			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:              "foo",
 					IPAddress:         sql.NullString{"1.2.3.4", true},
@@ -241,11 +241,11 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		AfterEach(func() {
-			UnstubFreighterFn()
+			test.UnstubFreighterFn()
 		})
 
 		It("should allow the user even if it has billing issues", func() {
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			doRequest(hs.H.Slug, t.Token)
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
@@ -357,7 +357,7 @@ var _ = Describe("controllers/hosts", func() {
 					Password: "winter iz coming",
 					Email:    "the-others@the-north.gov",
 				}
-				err := WrapInTransaction(db, anotherUser.Insert)
+				err := test.WrapInTransaction(db, anotherUser.Insert)
 				Expect(err).To(BeNil())
 
 				anotherToken = &token.Token{
@@ -401,22 +401,22 @@ var _ = Describe("controllers/hosts", func() {
 				authTokenInputs.Method = "GET"
 			})
 
-			ItRequiresAuthToken(&authTokenInputs)
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
 	Describe("PUT /api/v0/hosts/{slug}", func() {
-		var hs *HostStack
+		var hs *test.HostStack
 
 		doRequest := func(params *url.Values) {
-			req, err := NewAuthedFormRequest(t, "PUT", "/api/v0/hosts/foo", params)
+			req, err := test.NewAuthedFormRequest(t, "PUT", "/api/v0/hosts/foo", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
 		BeforeEach(func() {
 			var err error
-			hs, err = CreateHostStack(db, &HostStack{
+			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:           "foo",
 					Name:           sql.NullString{"foohost", true},
@@ -431,10 +431,10 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		It("should block if the user has billing issues", func() {
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			params := &url.Values{}
 			doRequest(params)
-			VerifyDelinquentUserResponse(res)
+			test.VerifyDelinquentUserResponse(res)
 		})
 
 		Context("when name field is present and non-empty", func() {
@@ -511,7 +511,7 @@ var _ = Describe("controllers/hosts", func() {
 	Describe("GET /api/v0/hosts/{slug}/stats", func() {
 		var (
 			mockClient *freighterclient.MockClient
-			hs         *HostStack
+			hs         *test.HostStack
 		)
 
 		doRequest := func(period string) {
@@ -519,7 +519,7 @@ var _ = Describe("controllers/hosts", func() {
 			if period != "" {
 				params = &url.Values{"period": []string{period}}
 			}
-			req, err := NewRequest("GET", "/api/v0/hosts/foo/stats", params)
+			req, err := test.NewRequest("GET", "/api/v0/hosts/foo/stats", params)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
 			handler.ServeHTTP(res, req)
@@ -538,9 +538,9 @@ var _ = Describe("controllers/hosts", func() {
 				NumCPU:       2,
 				PerCPUUsage:  []float64{0.5, 30},
 			}
-			StubDefaultFreighterFn(mockClient)
+			test.StubDefaultFreighterFn(mockClient)
 
-			hs, err = CreateHostStack(db, &HostStack{
+			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:      "foo",
 					IPAddress: sql.NullString{"1.2.3.4", true},
@@ -552,11 +552,11 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		AfterEach(func() {
-			UnstubFreighterFn()
+			test.UnstubFreighterFn()
 		})
 
 		It("should allow the user even if it has billing issues", func() {
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			doRequest("")
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
@@ -594,13 +594,13 @@ var _ = Describe("controllers/hosts", func() {
 				hs.H.State = host.StateStopped
 				err := hs.H.Update(db)
 				Expect(err).To(BeNil())
-				UnstubFreighterFn()
+				test.UnstubFreighterFn()
 			})
 
 			It("responds with HTTP 400 Bad Request", func() {
 				doRequest("")
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
 				Expect(errDesc).To(Equal("workspace is not running"))
 			})
@@ -611,13 +611,13 @@ var _ = Describe("controllers/hosts", func() {
 				hs.H.IPAddress = sql.NullString{}
 				err := hs.H.Update(db)
 				Expect(err).To(BeNil())
-				UnstubFreighterFn()
+				test.UnstubFreighterFn()
 			})
 
 			It("responds with HTTP 400 Bad Request", func() {
 				doRequest("")
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
 				Expect(errDesc).To(Equal("workspace is not running"))
 			})
@@ -629,18 +629,18 @@ var _ = Describe("controllers/hosts", func() {
 				authTokenInputs.Method = "GET"
 			})
 
-			ItRequiresAuthToken(&authTokenInputs)
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
 	Describe("DELETE /api/v0/hosts/{slug}", func() {
 		var (
-			hs *HostStack
+			hs *test.HostStack
 			c  *container.Container
 		)
 
 		doRequest := func(slug, token string) {
-			req, err := NewRequest("DELETE", "/api/v0/hosts/"+slug, nil)
+			req, err := test.NewRequest("DELETE", "/api/v0/hosts/"+slug, nil)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 			handler.ServeHTTP(res, req)
@@ -648,7 +648,7 @@ var _ = Describe("controllers/hosts", func() {
 
 		BeforeEach(func() {
 			var err error
-			hs, err = CreateHostStack(db, &HostStack{
+			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{Slug: "honeybadger", ProviderIdentifier: sql.NullString{"001", true}},
 				U: u,
 			})
@@ -665,14 +665,14 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		It("should block if the user has billing issues", func() {
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			doRequest(hs.H.Slug, t.Token)
-			VerifyDelinquentUserResponse(res)
+			test.VerifyDelinquentUserResponse(res)
 		})
 
 		It("should send the UUID headers", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			rt := &FakeRoundTripper{
+			rt := &test.FakeRoundTripper{
 				Message: okResponse,
 				Status:  http.StatusOK,
 			}
@@ -688,7 +688,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder successfully deletes the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -800,7 +800,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder fails to delete the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: errorResponse,
 					Status:  http.StatusBadRequest,
 				})
@@ -834,7 +834,7 @@ var _ = Describe("controllers/hosts", func() {
 					Password: "winter iz coming",
 					Email:    "the-others@the-north.gov",
 				}
-				err := WrapInTransaction(db, anotherUser.Insert)
+				err := test.WrapInTransaction(db, anotherUser.Insert)
 				Expect(err).To(BeNil())
 
 				anotherToken = &token.Token{
@@ -856,7 +856,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -877,7 +877,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				// in this context, hostbuilder should not be called
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				rt := &FakeRoundTripper{
+				rt := &test.FakeRoundTripper{
 					Message: errorResponse,
 					Status:  http.StatusBadRequest,
 				}
@@ -896,15 +896,15 @@ var _ = Describe("controllers/hosts", func() {
 				authTokenInputs.Method = "DELETE"
 			})
 
-			ItRequiresAuthToken(&authTokenInputs)
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/start", func() {
-		var hs *HostStack
+		var hs *test.HostStack
 
 		doRequest := func(slug string) {
-			req, err := NewRequest("POST", "/api/v0/hosts/"+slug+"/start", nil)
+			req, err := test.NewRequest("POST", "/api/v0/hosts/"+slug+"/start", nil)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
 			handler.ServeHTTP(res, req)
@@ -912,8 +912,8 @@ var _ = Describe("controllers/hosts", func() {
 
 		BeforeEach(func() {
 			var err error
-			hs, err = CreateHostStack(db, &HostStack{
-				H: &host.Host{State: host.StateStopped},
+			hs, err = test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{State: host.StateStopped, IPAddress: sql.NullString{"10.0.0.1", true}},
 				U: u,
 			})
 			Expect(err).To(BeNil())
@@ -921,7 +921,7 @@ var _ = Describe("controllers/hosts", func() {
 
 		It("should send the UUID headers", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			rt := &FakeRoundTripper{
+			rt := &test.FakeRoundTripper{
 				Message: okResponse,
 				Status:  http.StatusOK,
 			}
@@ -934,10 +934,31 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 		})
 
+		It("sends the correct payload to hostbuilder", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug)
+
+			payload := &struct {
+				ID        string `json:"id"`
+				IPAddress string `json:"ip_address"`
+			}{}
+			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
+
+			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
+			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
+		})
+
 		Context("when host is not in the stopped state", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -951,7 +972,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
 				Expect(errDesc).To(Equal("workspace is not stopped"))
 			})
@@ -960,7 +981,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder successfully starts the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -1057,7 +1078,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder fails to start the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: errorResponse,
 					Status:  http.StatusBadRequest,
 				})
@@ -1102,15 +1123,15 @@ var _ = Describe("controllers/hosts", func() {
 				authTokenInputs.Method = "POST"
 			})
 
-			ItRequiresAuthToken(&authTokenInputs)
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/stop", func() {
-		var hs *HostStack
+		var hs *test.HostStack
 
 		doRequest := func(slug string, params *url.Values) {
-			req, err := NewFormRequest("POST", "/api/v0/hosts/"+slug+"/stop", params)
+			req, err := test.NewFormRequest("POST", "/api/v0/hosts/"+slug+"/stop", params)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
 			handler.ServeHTTP(res, req)
@@ -1118,7 +1139,7 @@ var _ = Describe("controllers/hosts", func() {
 
 		BeforeEach(func() {
 			var err error
-			hs, err = CreateHostStack(db, &HostStack{
+			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					State:     host.StateRunning,
 					IPAddress: sql.NullString{"127.0.0.1", true},
@@ -1130,7 +1151,7 @@ var _ = Describe("controllers/hosts", func() {
 
 		It("should send the UUID headers", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			rt := &FakeRoundTripper{
+			rt := &test.FakeRoundTripper{
 				Message: okResponse,
 				Status:  http.StatusOK,
 			}
@@ -1146,7 +1167,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when host is already stopped", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -1160,14 +1181,14 @@ var _ = Describe("controllers/hosts", func() {
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
 				Expect(errDesc).To(Equal("workspace is not running"))
 			})
 
 			It("allows host to be stopped if force=true", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -1191,7 +1212,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder successfully stops the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -1289,7 +1310,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder fails to stop the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: errorResponse,
 					Status:  http.StatusBadRequest,
 				})
@@ -1335,7 +1356,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -1411,15 +1432,15 @@ var _ = Describe("controllers/hosts", func() {
 				authTokenInputs.Method = "POST"
 			})
 
-			ItRequiresAuthToken(&authTokenInputs)
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/restart", func() {
-		var hs *HostStack
+		var hs *test.HostStack
 
 		doRequest := func(slug, token string, params *url.Values) {
-			req, err := NewFormRequest("POST", "/api/v0/hosts/"+slug+"/restart", params)
+			req, err := test.NewFormRequest("POST", "/api/v0/hosts/"+slug+"/restart", params)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 			handler.ServeHTTP(res, req)
@@ -1427,7 +1448,7 @@ var _ = Describe("controllers/hosts", func() {
 
 		BeforeEach(func() {
 			var err error
-			hs, err = CreateHostStack(db, &HostStack{
+			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					State:     host.StateRunning,
 					IPAddress: sql.NullString{"127.0.0.1", true},
@@ -1439,7 +1460,7 @@ var _ = Describe("controllers/hosts", func() {
 
 		It("should send the UUID headers", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			rt := &FakeRoundTripper{
+			rt := &test.FakeRoundTripper{
 				Message: okResponse,
 				Status:  http.StatusOK,
 			}
@@ -1452,10 +1473,31 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 		})
 
+		It("sends the correct payload to hostbuilder", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, t.Token, nil)
+
+			payload := &struct {
+				ID        string `json:"id"`
+				IPAddress string `json:"ip_address"`
+			}{}
+			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
+
+			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
+			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
+		})
+
 		Context("when host is not in the running state", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -1470,14 +1512,14 @@ var _ = Describe("controllers/hosts", func() {
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
 				Expect(errDesc).To(Equal("workspace is not running"))
 			})
 
 			It("allows host to be restarted if force=true", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -1501,7 +1543,7 @@ var _ = Describe("controllers/hosts", func() {
 		Context("when hostbuilder successfully restarts the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -1606,7 +1648,7 @@ var _ = Describe("controllers/hosts", func() {
 					Password: "winter iz coming",
 					Email:    "the-others@the-north.gov",
 				}
-				err := WrapInTransaction(db, anotherUser.Insert)
+				err := test.WrapInTransaction(db, anotherUser.Insert)
 				Expect(err).To(BeNil())
 
 				anotherToken = &token.Token{
@@ -1628,7 +1670,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -1651,7 +1693,7 @@ var _ = Describe("controllers/hosts", func() {
 			var origState string
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: errorResponse,
 					Status:  http.StatusBadRequest,
 				})
@@ -1693,7 +1735,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
@@ -1769,18 +1811,18 @@ var _ = Describe("controllers/hosts", func() {
 				authTokenInputs.Method = "POST"
 			})
 
-			ItRequiresAuthToken(&authTokenInputs)
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/upgrade", func() {
 		var (
-			hs         *HostStack
+			hs         *test.HostStack
 			mockClient *freighterclient.MockClient
 		)
 
 		doRequest := func() {
-			req, err := NewRequest("POST", "/api/v0/hosts/"+hs.H.Slug+"/upgrade", nil)
+			req, err := test.NewRequest("POST", "/api/v0/hosts/"+hs.H.Slug+"/upgrade", nil)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
 			handler.ServeHTTP(res, req)
@@ -1790,14 +1832,14 @@ var _ = Describe("controllers/hosts", func() {
 			var err error
 
 			mockClient = &freighterclient.MockClient{}
-			StubDefaultFreighterFn(mockClient)
+			test.StubDefaultFreighterFn(mockClient)
 
-			hs, err = CreateHostStack(db, &HostStack{U: u})
+			hs, err = test.CreateHostStack(db, &test.HostStack{U: u})
 			Expect(err).To(BeNil())
 		})
 
 		AfterEach(func() {
-			UnstubFreighterFn()
+			test.UnstubFreighterFn()
 		})
 
 		It("responds with HTTP 202 Accepted and publishes a host upgrading event", func() {
@@ -1861,7 +1903,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			doRequest()
 			Expect(res.Code).To(Equal(http.StatusInternalServerError))
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
 			Expect(errDesc).To(Equal("an error occurred while attempting to upgrade your workspace"))
 
@@ -1870,12 +1912,12 @@ var _ = Describe("controllers/hosts", func() {
 	})
 
 	Describe("PUT /api/v0/hosts/:slug/versions", func() {
-		var hs *HostStack
+		var hs *test.HostStack
 		var params *url.Values
 		var err error
 
 		doRequest := func() {
-			req, err := NewAuthedRequest(t, "PUT", fmt.Sprintf("/api/v0/hosts/%s/versions", hs.H.Slug), params)
+			req, err := test.NewAuthedRequest(t, "PUT", fmt.Sprintf("/api/v0/hosts/%s/versions", hs.H.Slug), params)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
 			handler.ServeHTTP(res, req)
@@ -1883,7 +1925,7 @@ var _ = Describe("controllers/hosts", func() {
 
 		Context("when the user is not an admin", func() {
 			It("responds with 404", func() {
-				hs, err = CreateHostStack(db, &HostStack{U: u})
+				hs, err = test.CreateHostStack(db, &test.HostStack{U: u})
 				Expect(err).To(BeNil())
 
 				params := &url.Values{}
@@ -1900,7 +1942,7 @@ var _ = Describe("controllers/hosts", func() {
 				_, err = db.Exec("UPDATE users SET admin = true WHERE id = $1", u.ID)
 				Expect(err).To(BeNil())
 
-				hs, err = CreateHostStack(db, &HostStack{U: u})
+				hs, err = test.CreateHostStack(db, &test.HostStack{U: u})
 				Expect(err).To(BeNil())
 
 				params = &url.Values{}

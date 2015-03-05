@@ -1,0 +1,15 @@
+.card-header.bordered
+  h2 Admin &mdash; New Template
+
+form submit='create'
+  = partial 'admin/template-form'
+ 
+  .card-footer.bordered
+    .right
+      if saving
+        button.ui.btn disabled='disabled'
+          i.spinner
+          | Creating...
+      else
+        a.ui.btn href='#' click='cancel' Cancel
+        input.ui.btn.primary type='submit' disabled={saving} value='Create'

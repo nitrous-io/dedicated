@@ -869,5 +869,36 @@ func init() {
 				ALTER TABLE provider_templates ADD COLUMN supports_start_stop boolean DEFAULT false NOT NULL;
 			`,
 		},
+		{
+			Version: "810",
+			Up: `
+				CREATE TABLE user_settings (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					auto_close_brackets bool DEFAULT true NOT NULL,
+					highlight_line bool DEFAULT true NOT NULL,
+					keybindings character varying(255) DEFAULT 'default',
+					match_brackets bool DEFAULT true NOT NULL,
+					ruler_column bigint DEFAULT 0 NOT NULL,
+					show_line_numbers bool DEFAULT true NOT NULL,
+					show_trailing_space bool DEFAULT false NOT NULL,
+					soft_tabs bool DEFAULT true NOT NULL,
+					tab_size bigint DEFAULT 2 NOT NULL,
+					theme character varying(255),
+					wrap_lines bool DEFAULT true NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE UNIQUE INDEX index_user_settings_on_user_id ON user_settings USING btree (user_id);
+			`,
+		},
+		{
+			Version: "811",
+			Up: `
+				INSERT INTO user_settings (user_id) (
+					SELECT users.id FROM users WHERE NOT EXISTS (SELECT user_id FROM user_settings)
+				);
+			`,
+		},
 	}
 }

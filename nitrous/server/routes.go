@@ -28,6 +28,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/usersettings"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	mw "github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -109,6 +110,7 @@ func (s *Server) drawRoutes() {
 			"GET": {
 				"/user":                              r("users.GetAuthenticatedUser", users.GetAuthenticatedUser),
 				"/user/profile":                      r("userprofiles.Show", userprofiles.Show),
+				"/user/settings":                     r("usersettings.Show", usersettings.Show),
 				"/user/billing_profile":              r("billingprofiles.Show", billingprofiles.Show),
 				"/hosts":                             r("hosts.Index", hosts.Index),
 				"/images":                            r("images.IndexAll", images.Index),
@@ -130,10 +132,12 @@ func (s *Server) drawRoutes() {
 				"/admin/hosts":                       r("admin.Hosts", admin.Hosts),
 				"/admin/provider_templates":          r("providertemplates.Index", providertemplates.Index),
 				"/admin/provider_templates/{ptid}":   r("providertemplates.Show", providertemplates.Show),
+				"/admin/template/{slug}":             r("admin.TemplateShow", admin.TemplateShow),
 				"/github/authorize":                  r("github.Authorize", github.Authorize),
 			},
 			"POST": {
 				"/user/profile":                            r("userprofiles.Update", userprofiles.Update),
+				"/user/settings":                           r("usersettings.Update", usersettings.Update),
 				"/hosts":                                   r("hosts.Create", hosts.Create, EventHostCreated),
 				"/user/billing_profile":                    r("billingprofiles.Activate", billingprofiles.Activate),
 				"/hosts/{slug}/registries":                 r("registries.Login", registries.Login, EventRegistryAdded),
@@ -159,6 +163,7 @@ func (s *Server) drawRoutes() {
 				"/invoices/{id}/pay":                       r("billing.PayInvoice", billing.PayInvoice),
 				"/admin/switch_user":                       r("admin.SwitchUser", admin.SwitchUser),
 				"/admin/provider_templates/{ptid}":         r("providertemplates.Update", providertemplates.Update),
+				"/admin/templates":                         r("admin.TemplatesCreate", admin.TemplatesCreate),
 			},
 			"PUT": {
 				"/users":                      r("users.Update", users.Update, EventUserUpdatedProfile),
@@ -168,6 +173,7 @@ func (s *Server) drawRoutes() {
 				"/user/billing_profile":       r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
 				"/containers/{slug}/metadata": r("containers.Metadata", containers.Metadata),
 				"/admin/host/{slug}":          r("admin.UpdateHost", admin.UpdateHost),
+				"/admin/template/{slug}":      r("admin.TemplateUpdate", admin.TemplateUpdate),
 			},
 			"DELETE": {
 				"/hosts/{slug}":                     r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), EventHostTerminated),
