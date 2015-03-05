@@ -119,6 +119,7 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/images":               r("images.Index", images.Index),
 				"/hosts/{slug}":                      r("hosts.Show", mw.HostViaPath("slug", hosts.Show)),
 				"/hosts/{slug}/stats":                r("hosts.Stats", mw.HostViaPath("slug", hosts.Stats)),
+				"/hosts/{slug}/announcements":        r("hosts.Stats", mw.HostViaPath("slug", hosts.Announcements)),
 				"/hosts/{slug}/volumes":              r("volumes.Index", mw.HostViaPath("slug", volumes.Index)),
 				"/hosts/{slug}/volumes/{vslug}":      r("volumes.Show", mw.HostViaPath("slug", volumes.Show)),
 				"/hosts/{slug}/volumes/{vslug}/info": r("volumes.Info", mw.HostViaPath("slug", volumes.Info)),

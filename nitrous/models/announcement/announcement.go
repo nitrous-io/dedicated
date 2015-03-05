@@ -237,3 +237,20 @@ func SendToOwners(ann *Announcement, owners []*HostOwner, errorHandler func(erro
 		}
 	}()
 }
+
+func SendAndSaveGlobalAnnouncement(db *dbLib.Database, ann *Announcement) error {
+	owners, err := FindAllOwners(db)
+	if err != nil {
+		return err
+	}
+
+	err = InsertForGlobal(db, ann)
+	if err != nil {
+		return err
+	}
+
+	// ignore error for now
+	SendToOwners(ann, owners, func(error) {})
+
+	return nil
+}
