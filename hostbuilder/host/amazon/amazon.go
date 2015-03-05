@@ -372,8 +372,30 @@ func (h *Host) Restart() (*host.Info, error) {
 	return h.Info()
 }
 
+// List returns all instances in the current region. To perform list of
+// multiple regions, use one List() request for each region.
 func (h *Host) List() ([]*host.Info, error) {
-	panic("amazon provider does not support List yet")
+	label := h.metricsLabel("list")
+	defer mh.UpdateSince(label, time.Now())
+
+	instancesResp, err := h.provider.Instances(nil, ec2.NewFilter())
+	if err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	infos := []*host.Info{}
+	for _, reservation := range instancesResp.Reservations {
+		for _, instance := range reservation.Instances {
+			infos = append(infos, &host.Info{
+				Provider:       h.DriverName(),
+				ID:             instance.InstanceId,
+				IPAddress:      instance.PublicIpAddress,
+				FreighterdPort: DefaultPort,
+				State:          getState(&instance),
+			})
+		}
+	}
+	return infos, nil
 }
 
 func (h *Host) DriverName() string {
