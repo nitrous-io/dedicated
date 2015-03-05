@@ -6,63 +6,102 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 )
 
+type Announcement struct {
+	ID              int64      `json:"id"`
+	SubjectTemplate string     `json:"subject_template"`
+	MessageTemplate string     `json:"message_template"`
+	IsGlobal        bool       `json:"is_global"`
+	ExpiresAt       *time.Time `json:"expires_at"`
+	CreatedAt       *time.Time `json:"created_at"`
+	UpdatedAt       *time.Time `json:"updated_at"`
+}
+
+type HostOwner struct {
+	HostID   int64  `json:"host_id"`
+	UserID   int64  `json:"user_id"`
+	Username string `json"username"`
+	Slug     string `json:"slug"`
+}
+
 type HostAnnouncement struct {
-	ID        int64      `json:"id"`
-	HostID    int64      `json:"host_id"`
-	UserID    int64      `json:"user_id"`
-	Username  string     `json"username"`
-	Slug      string     `json:"slug"`
-	IsGlobal  bool       `json:"is_global"`
-	Subject   string     `json:subject`
-	Message   string     `json:message`
-	ExpiresAt *time.Time `json:"expires_at"`
-	CreatedAt *time.Time `json:"created_at"`
-	UpdatedAt *time.Time `json:"updated_at"`
+	*Announcement
+	*HostOwner
+	Subject *string `json:subject`
+	Message *string `json:message`
 }
 
-func SerializeHostAnnouncement(ann *announcement.HostAnnouncement) (*HostAnnouncement, error) {
+func SerializeAnnouncement(ann *announcement.Announcement) *Announcement {
 	if ann == nil {
-		return nil, nil
+		return nil
 	}
 
-	subject, err := ann.Subject()
-	if err != nil {
-		return nil, err
+	serialized := &Announcement{
+		ID:              ann.ID,
+		SubjectTemplate: ann.SubjectTemplate,
+		MessageTemplate: ann.MessageTemplate,
+		IsGlobal:        ann.IsGlobal(),
+		ExpiresAt:       ann.ExpiresAt,
+		CreatedAt:       ann.CreatedAt,
+		UpdatedAt:       ann.UpdatedAt,
 	}
 
-	message, err := ann.Message()
-	if err != nil {
-		return nil, err
-	}
-
-	serialized := &HostAnnouncement{
-		ID:        ann.ID,
-		HostID:    ann.HostID,
-		UserID:    ann.UserID,
-		Username:  ann.Username,
-		Slug:      ann.Slug,
-		IsGlobal:  ann.IsGlobal(),
-		Subject:   subject,
-		Message:   message,
-		ExpiresAt: ann.ExpiresAt,
-		CreatedAt: ann.CreatedAt,
-		UpdatedAt: ann.UpdatedAt,
-	}
-
-	return serialized, nil
+	return serialized
 }
 
-func SerializeHostAnnouncements(announcements []*announcement.HostAnnouncement) ([]*HostAnnouncement, error) {
+func SerializeHostOwner(owner *announcement.HostOwner) *HostOwner {
+	if owner == nil {
+		return nil
+	}
+
+	return &HostOwner{
+		HostID:   owner.HostID,
+		UserID:   owner.UserID,
+		Username: owner.Username,
+		Slug:     owner.Slug,
+	}
+}
+
+func SerializeHostAnnouncement(ann *announcement.HostAnnouncement) *HostAnnouncement {
+	if ann == nil {
+		return nil
+	}
+
+	res := &HostAnnouncement{
+		Announcement: SerializeAnnouncement(ann.Announcement),
+		HostOwner:    SerializeHostOwner(ann.HostOwner),
+	}
+
+	if ann.HostOwner != nil {
+		subject, err := ann.Subject()
+		if err == nil {
+			res.Subject = &subject
+		}
+
+		message, err := ann.Message()
+		if err == nil {
+			res.Message = &message
+		}
+	}
+
+	return res
+}
+
+func SerializeAnnouncements(announcements []*announcement.Announcement) []*Announcement {
+	res := make([]*Announcement, len(announcements))
+
+	for i, ann := range announcements {
+		res[i] = SerializeAnnouncement(ann)
+	}
+
+	return res
+}
+
+func SerializeHostAnnouncements(announcements []*announcement.HostAnnouncement) []*HostAnnouncement {
 	res := make([]*HostAnnouncement, len(announcements))
 
 	for i, ann := range announcements {
-		ann, err := SerializeHostAnnouncement(ann)
-		if err != nil {
-			return nil, err
-		}
-
-		res[i] = ann
+		res[i] = SerializeHostAnnouncement(ann)
 	}
 
-	return res, nil
+	return res
 }

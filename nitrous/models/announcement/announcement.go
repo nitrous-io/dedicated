@@ -130,7 +130,7 @@ func FindAllOwners(db *dbLib.Database) ([]*HostOwner, error) {
  * The global announcements retrieved are assigned the same
  * host owner as the hosts.
  */
-func FindAllForHost(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error) {
+func FindAllByHostID(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error) {
 	// First find the owner, because it will be the same for all announcements
 	owner, err := FindOwnerByHostID(db, hostID)
 	if err != nil {
@@ -165,18 +165,20 @@ func FindAllForHost(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, erro
 }
 
 /*
- * Find all host-specific announcements for a host id
+ * Find all host-specific announcements
  */
-func FindForHost(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error) {
+func FindAllForHost(db *dbLib.Database) ([]*HostAnnouncement, error) {
 	announcements := []*HostAnnouncement{}
 
 	err := db.Select(&announcements, `SELECT 
     announcements.*, hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
     FROM announcements 
       INNER JOIN announcement_host ON (announcements.id = announcement_host.announcement_id)
-      INNER JOIN hosts ON (announcements.host_id = hosts.id)
+      INNER JOIN hosts ON (announcement_host.host_id = hosts.id)
       INNER JOIN users ON (hosts.user_id = users.id)
-    WHERE hosts.terminated_at IS NULL AND hosts.id=$1;`, hostID)
+    WHERE 
+      show_to_all=false
+      AND hosts.terminated_at IS NULL;`)
 
 	if err != nil {
 		return nil, err
@@ -188,11 +190,10 @@ func FindForHost(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error) 
 /*
  * Find all global announcements
  */
-func FindForGlobal(db *dbLib.Database) ([]*Announcement, error) {
+func FindAllForGlobal(db *dbLib.Database) ([]*Announcement, error) {
 	announcements := []*Announcement{}
 
-	err := db.Select(&announcements, `SELECT 
-		id, subject, message, show_to_all, expires_at, created_at, updated_at
+	err := db.Select(&announcements, `SELECT *
 		FROM announcements WHERE show_to_all=true;`)
 
 	if err != nil {
@@ -200,6 +201,31 @@ func FindForGlobal(db *dbLib.Database) ([]*Announcement, error) {
 	}
 
 	return announcements, nil
+}
+
+/*
+ * Find all global and host-specific announcements.
+ * Global announcements would have HostOwner field as nil
+ */
+func FindAll(db *dbLib.Database) ([]*HostAnnouncement, error) {
+	globals, err := FindAllForGlobal(db)
+	if err != nil {
+		return nil, err
+	}
+
+	hosts, err := FindAllForHost(db)
+	if err != nil {
+		return nil, err
+	}
+
+	totalLen := +len(hosts)
+	res := make([]*HostAnnouncement, totalLen)
+
+	for i, ann := range globals {
+		res[i] = &HostAnnouncement{ann, nil}
+	}
+
+	return append(res, hosts...), nil
 }
 
 /*
@@ -218,6 +244,9 @@ func Insert(db *dbLib.Database, announcement *Announcement) error {
 	return nstmt.QueryRowx(announcement).StructScan(announcement)
 }
 
+/*
+ * Add an host to an announcement
+ */
 func AddHost(db *dbLib.Database, announcementID, hostID int64) error {
 	_, err := db.Exec(`INSERT INTO announcement_host
     (announcement_id, host_id) 
