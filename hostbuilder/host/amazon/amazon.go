@@ -190,8 +190,37 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
+// Update sets properties of an existing host
 func (h *Host) Update(w io.Writer) (*host.Info, error) {
-	return nil, errors.New("amazon: Update() not implemented because we don't care")
+	label := h.metricsLabel("update")
+	defer mh.UpdateSince(label, time.Now())
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	hctx := host.NewContext(ctx, h, w)
+	steps := []host.Step{
+		{
+			Description: "Setting workspace's name",
+			Func:        associateInstanceName,
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			hlog(h, "ERROR: Failed in update host step: %v", err)
+			h.logFailed()
+			if err == context.DeadlineExceeded {
+				return nil, ErrCreateTimeout
+			}
+			return nil, err
+		}
+	}
+
+	return h.Info()
 }
 
 func (h *Host) Destroy() error {
