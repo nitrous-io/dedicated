@@ -590,7 +590,7 @@ func publishContainersStopped(env *middleware.Env, h *host.Host) {
 
 func Announcements(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// TODO: Need find both host and global announcements and merge together
-	announcements, err := announcement.FindForHost(env.DB, h.ID)
+	announcements, err := announcement.FindAllForHost(env.DB, h.ID)
 	if err != nil {
 		return err
 	}

@@ -70,10 +70,10 @@ func CreateForHost(db *dbLib.Database, hostID int64, subjectTemplate, messageTem
 func FindOwnerByHostID(db *dbLib.Database, hostID int64) (*HostOwner, error) {
 	owner := &HostOwner{}
 
-	err := db.Select(owner, `SELECT
-    hosts.id AS host_id, users.id AS user_id, username, users.name as fullname, email 
+	err := db.Get(owner, `SELECT
+    hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
     FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
-    WHERE hosts.terminated_at IS NULL AND hosts.id=$1;
+    WHERE hosts.id=$1;
   `, hostID)
 
 	if err != nil {
@@ -87,7 +87,7 @@ func FindAllOwners(db *dbLib.Database) ([]*HostOwner, error) {
 	owners := []*HostOwner{}
 
 	err := db.Select(&owners, `SELECT
-    hosts.id AS host_id, users.id AS user_id, username, users.name as fullname, email 
+    hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
     FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
     WHERE hosts.terminated_at IS NULL;
   `)
@@ -99,11 +99,40 @@ func FindAllOwners(db *dbLib.Database) ([]*HostOwner, error) {
 	return owners, nil
 }
 
+func FindAllForHost(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error) {
+	owner, err := FindOwnerByHostID(db, hostID)
+	if err != nil {
+		return nil, err
+	}
+
+	announcements := []*Announcement{}
+
+	err = db.Select(&announcements, `SELECT 
+    id, subject_template, message_template, show_to_all, expires_at, updated_at, created_at
+    FROM announcements 
+    WHERE host_id IS NULL OR host_id=$1;`, hostID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	hostAnnouncements := make([]*HostAnnouncement, len(announcements))
+
+	for i, ann := range announcements {
+		hostAnnouncements[i] = &HostAnnouncement{
+			Announcement: ann,
+			HostOwner:    owner,
+		}
+	}
+
+	return hostAnnouncements, nil
+}
+
 func FindForHost(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error) {
 	announcements := []*HostAnnouncement{}
 
 	err := db.Select(&announcements, `SELECT 
-    announcements.*, hosts.id AS host_id, users.id AS user_id, username, users.name as fullname, email 
+    announcements.*, hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
     FROM announcements 
       INNER JOIN hosts ON (announcements.host_id = hosts.id)
       INNER JOIN users ON (hosts.user_id = users.id)
@@ -157,9 +186,11 @@ func InsertForHost(db *dbLib.Database, announcement *HostAnnouncement) error {
 }
 
 func renderTemplate(templateCache **templateLib.Template, templateName, templateText string, ctx interface{}) (string, error) {
+	var err error
 	template := *templateCache
+
 	if template == nil {
-		template, err := templateLib.New(templateName).Parse(templateText)
+		template, err = templateLib.New(templateName).Parse(templateText)
 		if err != nil {
 			return "", err
 		}
