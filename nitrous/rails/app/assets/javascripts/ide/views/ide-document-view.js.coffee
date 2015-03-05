@@ -9,17 +9,17 @@ App.IdeDocumentView = Em.View.extend
   editor: null
 
   mode: 'text/plain'
+  autoCloseBracketsBinding: 'controller.autoCloseBrackets'
+  highlightLineBinding: 'controller.highlightLine'
+  keybindingsBinding: 'controller.keybindings'
+  matchBracketsBinding: 'controller.matchBrackets'
+  rulerColumnBinding: 'controller.rulerColumn'
+  showLineNumbersBinding: 'controller.showLineNumbers'
+  showTrailingSpaceBinding: 'controller.showTrailingSpace'
   softTabsBinding: 'controller.softTabs'
   tabSizeBinding: 'controller.tabSize'
   themeBinding: 'controller.theme'
   wrapLinesBinding: 'controller.wrapLines'
-  highlightLineBinding: 'controller.highlightLine'
-  showLineNumbersBinding: 'controller.showLineNumbers'
-  rulerColumnBinding: 'controller.rulerColumn'
-  showTrailingSpaceBinding: 'controller.showTrailingSpace'
-  matchBracketsBinding: 'controller.matchBrackets'
-  autoCloseBracketsBinding: 'controller.autoCloseBrackets'
-  keybindingsBinding: 'controller.keybindings'
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
