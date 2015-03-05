@@ -19,7 +19,8 @@
           td
             img src={iconUrl} width='50%'
           td = slug
-          td = name
+          td title={description}
+            = name
           td = type
           td = image
           td = privileged
