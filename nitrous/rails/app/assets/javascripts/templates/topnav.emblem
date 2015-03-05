@@ -47,6 +47,9 @@
               = link-to 'provider-templates'
                 | Provider Templates
             li
+              = link-to 'admin.templates'
+                | Templates
+            li
               = link-to 'admin.hosts' 'digitalocean'
                 | Digital Ocean
             li

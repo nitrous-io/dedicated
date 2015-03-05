@@ -130,6 +130,7 @@ func (s *Server) drawRoutes() {
 				"/admin/hosts":                       r("admin.Hosts", admin.Hosts),
 				"/admin/provider_templates":          r("providertemplates.Index", providertemplates.Index),
 				"/admin/provider_templates/{ptid}":   r("providertemplates.Show", providertemplates.Show),
+				"/admin/template/{slug}":             r("admin.TemplateShow", admin.TemplateShow),
 				"/github/authorize":                  r("github.Authorize", github.Authorize),
 			},
 			"POST": {
@@ -159,6 +160,7 @@ func (s *Server) drawRoutes() {
 				"/invoices/{id}/pay":                       r("billing.PayInvoice", billing.PayInvoice),
 				"/admin/switch_user":                       r("admin.SwitchUser", admin.SwitchUser),
 				"/admin/provider_templates/{ptid}":         r("providertemplates.Update", providertemplates.Update),
+				"/admin/templates":                         r("admin.TemplatesCreate", admin.TemplatesCreate),
 			},
 			"PUT": {
 				"/users":                      r("users.Update", users.Update, EventUserUpdatedProfile),
@@ -168,6 +170,7 @@ func (s *Server) drawRoutes() {
 				"/user/billing_profile":       r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
 				"/containers/{slug}/metadata": r("containers.Metadata", containers.Metadata),
 				"/admin/host/{slug}":          r("admin.UpdateHost", admin.UpdateHost),
+				"/admin/template/{slug}":      r("admin.TemplateUpdate", admin.TemplateUpdate),
 			},
 			"DELETE": {
 				"/hosts/{slug}":                     r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), EventHostTerminated),
