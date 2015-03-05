@@ -178,6 +178,7 @@ func FindAllForHost(db *dbLib.Database) ([]*HostAnnouncement, error) {
       INNER JOIN users ON (hosts.user_id = users.id)
     WHERE 
       show_to_all=false
+      AND expires_at > now() 
       AND hosts.terminated_at IS NULL;`)
 
 	if err != nil {
@@ -194,7 +195,8 @@ func FindAllForGlobal(db *dbLib.Database) ([]*Announcement, error) {
 	announcements := []*Announcement{}
 
 	err := db.Select(&announcements, `SELECT *
-		FROM announcements WHERE show_to_all=true;`)
+		FROM announcements 
+    WHERE show_to_all=true AND expires_at > now();`)
 
 	if err != nil {
 		return nil, err
