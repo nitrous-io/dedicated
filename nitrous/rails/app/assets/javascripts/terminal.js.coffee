@@ -131,12 +131,12 @@ window.NitrousTerminal =
       @dataBuffer = new ArrayBuffer(0)
       @term.write(decoded)
 
-    # if invalid utf8 char is detected, buffer for 10ms
+    # if invalid utf8 char is detected, buffer with timeout
     if decoded.length > 0 && decoded[decoded.length - 1] == "\uFFFD"
       @bufferTimeout = window.setTimeout(=>
         flush()
         @bufferTimeout = null
-      , 10)
+      , 200)
       return
 
     flush()
