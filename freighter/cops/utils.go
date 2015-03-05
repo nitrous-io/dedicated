@@ -35,3 +35,43 @@ func GetContainerPID(containerID string) (int, error) {
 
 	return state.InitPid, nil
 }
+
+func sendErr(c chan *Message, orig *Message, err error) chan *Message {
+	c <- &Message{
+		Namespace: orig.Namespace,
+		Event:     orig.Event,
+		CID:       orig.CID,
+		Error:     err.Error(),
+	}
+	close(c)
+	return c
+}
+
+func sendMessage(c chan *Message, orig *Message, event string, args ...interface{}) {
+	c <- &Message{
+		Namespace: orig.Namespace,
+		Event:     event,
+		Args:      args,
+	}
+}
+
+func sendFinalMessage(c chan *Message, orig *Message, event string, args ...interface{}) chan *Message {
+	c <- &Message{
+		Namespace: orig.Namespace,
+		Event:     event,
+		Args:      args,
+	}
+	close(c)
+	return c
+}
+
+func sendFinalReply(c chan *Message, orig *Message, args []interface{}) chan *Message {
+	c <- &Message{
+		Namespace: orig.Namespace,
+		Event:     orig.Event,
+		CID:       orig.CID,
+		Args:      args,
+	}
+	close(c)
+	return c
+}
