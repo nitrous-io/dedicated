@@ -1,12 +1,14 @@
 package amazon
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/mitchellh/goamz/ec2"
@@ -15,12 +17,42 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	DefaultPort uint16 = 65333
+	sshPort     uint16 = 65100
+)
+
 var (
+	// Paths to files within each DigitalOcean host.
+	PubKeysLocation = "/root/.ssh/authorized_keys"
+	TLSCALocation   = "/etc/freighterd/ca.crt"
+	TLSCertLocation = "/etc/freighterd/cert.crt"
+	TLSKeyLocation  = "/etc/freighterd/key.crt"
+	SecretLocation  = "/etc/freighterd/secret"
+	ConfigLocation  = "/etc/freighterd/config.json"
+
 	DefaultCreateTimeout = 10 * time.Minute
 
 	ErrCreateTimeout    = errors.New("timed out creating host")
 	ErrInstanceNotFound = errors.New("instance not found")
 )
+
+// configFile is used to marshal/unmarshal /etc/freighter/config.json.
+type configFile struct {
+	DataPath  string       `json:"data_path"`
+	TLSVerify bool         `json:"tls_verify"`
+	TLSCA     string       `json:"tls_ca"`
+	TLSCert   string       `json:"tls_cert"`
+	TLSKey    string       `json:"tls_key"`
+	Secret    string       `json:"secret"`
+	NotifyURL string       `json:"notify_url"`
+	Listen    []listenSpec `json:"listen"`
+}
+
+type listenSpec struct {
+	Proto   string `json:"proto"`
+	Address string `json:"address"`
+}
 
 type tlsConfig struct {
 	CA   string `json:"ca"`
@@ -60,6 +92,7 @@ func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
 type Host struct {
 	AccessConfig *AccessConfig
 	Config       *HostConfig
+	notifyURL    string // callback to be set in host config, specified by user
 
 	// ec2 properties
 	provider *ec2.EC2
@@ -115,6 +148,10 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 			Description: "Waiting for the workspace to be ready",
 			Func:        waitForSSH,
 			Timeout:     1 * time.Minute,
+		},
+		{
+			Description: "Populating settings",
+			Func:        writeSettings,
 		},
 	}
 	for _, step := range steps {
@@ -203,6 +240,26 @@ func (h *Host) reloadInstance(id string) error {
 	return nil
 }
 
+func (h *Host) configFile() *configFile {
+	return &configFile{
+		DataPath:  "/var/lib/freighter",
+		TLSVerify: true,
+		TLSCA:     TLSCALocation,
+		TLSCert:   TLSCertLocation,
+		TLSKey:    TLSKeyLocation,
+		Secret:    SecretLocation,
+		NotifyURL: h.generateNotifyURL(),
+		Listen: []listenSpec{
+			{Proto: "unix", Address: "/var/run/freighterd.sock"},
+			{Proto: "tcp", Address: fmt.Sprintf("0.0.0.0:%d", DefaultPort)},
+		},
+	}
+}
+
+func (h *Host) generateNotifyURL() string {
+	return strings.Replace(h.notifyURL, "{{slug}}", h.Config.Name, -1)
+}
+
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
@@ -236,6 +293,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		Config:        hostConfig,
 		provider:      ec2.New(auth, region),
 		createTimeout: createTimeout,
+		notifyURL:     defaultConfig["notify_url"],
 	}
 	return host, nil
 }
@@ -354,5 +412,59 @@ func waitForSSH(ctx *host.HostContext) error {
 		return err
 	}
 	h.conn = sshConn
+	return nil
+}
+
+// writeSettings uploads necessary file system contents to the host, which
+// include package configs, apt details, etc...
+func writeSettings(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	pubKeysBuf := bytes.NewBuffer(nil)
+	for _, k := range h.Config.PublicKeys {
+		fmt.Fprintln(pubKeysBuf, k)
+	}
+
+	aptSourcesBuf := bytes.NewBuffer(nil)
+	if err := host.SourceTemplate.Execute(aptSourcesBuf, h.Config); err != nil {
+		return err
+	}
+
+	cfg := h.configFile()
+	cfgb, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("unable to marshal config JSON, err: %v", err)
+	}
+
+	if err := h.conn.Execute("mkdir -p /etc/freighterd"); err != nil {
+		return err
+	}
+
+	if err := uploadFile(h, map[string]io.Reader{
+		PubKeysLocation:     pubKeysBuf,
+		host.SourceLocation: aptSourcesBuf,
+		TLSCALocation:       strings.NewReader(h.Config.TLS.CA),
+		TLSCertLocation:     strings.NewReader(h.Config.TLS.Cert),
+		TLSKeyLocation:      strings.NewReader(h.Config.TLS.Key),
+		SecretLocation:      strings.NewReader(h.Config.Secret),
+		ConfigLocation:      bytes.NewBuffer(cfgb),
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// uploadFile uploads a set of files to the remote host using the temporary SSH
+// connection. This is only available during creation phase. The host
+// filesystem should be considered immutable otherwise.
+func uploadFile(h *Host, files map[string]io.Reader) error {
+	flist := []string{}
+	for dest, val := range files {
+		if err := h.conn.Upload(dest, val); err != nil {
+			return err
+		}
+		flist = append(flist, dest)
+	}
 	return nil
 }
