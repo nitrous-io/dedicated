@@ -72,6 +72,7 @@ type HostConfig struct {
 	InstanceType     string            `json:"instance_type"`
 	RawRegion        string            `json:"region"`
 	RawSecurityGroup map[string]string `json:"security_group"`
+	IPAddress        string            `json:"ip_address"`
 
 	// freighter specific config
 	PublicKeys        []string   `json:"public_keys"`
@@ -303,6 +304,7 @@ func (h *Host) Stop() (*host.Info, error) {
 	return h.Info()
 }
 
+// Start starts the instance and allocate the desired IP address to it
 func (h *Host) Start() (*host.Info, error) {
 	label := h.metricsLabel("start")
 	defer mh.UpdateSince(label, time.Now())
@@ -326,11 +328,48 @@ func (h *Host) Start() (*host.Info, error) {
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 
+	if _, err := h.provider.AssociateAddress(&ec2.AssociateAddress{
+		InstanceId:         h.instance.InstanceId,
+		PublicIp:           h.Config.IPAddress,
+		AllowReassociation: false,
+	}); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	// reload the instance to get a new public IP address
+	if err := h.reloadInstance(h.instance.InstanceId); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
 	return h.Info()
 }
 
+// Restart performs a hard-reset of the instance. This should not change the
+// public IP address of the instance
 func (h *Host) Restart() (*host.Info, error) {
-	panic("amazon provider does not support Restart yet")
+	label := h.metricsLabel("restart")
+	defer mh.UpdateSince(label, time.Now())
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	if _, err := h.provider.RebootInstances(h.instance.InstanceId); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	state := StateChangeConf{
+		Pending: []string{"pending"},
+		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+		Target:  "running",
+	}
+	updatedInstance, err := WaitForState(&state)
+	if err != nil {
+		return nil, mh.Error(err, label)
+	}
+	h.instance = updatedInstance.(*ec2.Instance)
+
+	return h.Info()
 }
 
 func (h *Host) List() ([]*host.Info, error) {
