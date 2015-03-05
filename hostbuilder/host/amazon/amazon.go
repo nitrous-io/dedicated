@@ -15,6 +15,7 @@ import (
 
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"golang.org/x/net/context"
 )
@@ -94,7 +95,8 @@ func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
 type Host struct {
 	AccessConfig *AccessConfig
 	Config       *HostConfig
-	notifyURL    string // callback to be set in host config, specified by user
+	notifyURL    string // to be set in builder's config
+	uuid         string // request UUID set by user
 
 	// ec2 properties
 	provider *ec2.EC2
@@ -124,7 +126,16 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer k.Delete()
+	defer func() {
+		fmt.Fprintf(w, "Removing key...")
+		hlog(h, "keyID=%s Removing key...", k.name)
+		if err := k.Delete(); err != nil {
+			h.progressLog(w, "Removing key...Failed!")
+			hlog(h, "ERROR: Failed to remove key %s", k.name)
+		} else {
+			h.progressLog(w, "Removing key...Done!")
+		}
+	}()
 	h.keypair = k
 
 	hctx := host.NewContext(ctx, h, w)
@@ -166,6 +177,8 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	}
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
+			hlog(h, "ERROR: Failed in create host step: %v", err)
+			h.logFailed()
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
 			}
@@ -173,6 +186,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		}
 	}
 
+	h.progressLog(w, "Provisioning host...Done!")
 	return h.Info()
 }
 
@@ -270,10 +284,41 @@ func (h *Host) generateNotifyURL() string {
 	return strings.Replace(h.notifyURL, "{{slug}}", h.Config.Name, -1)
 }
 
+// progressLog writes the message to the given writer and logs the message,
+// prefixing host information.  It is used for user-facing messages.  Use
+// `hlog` for internal logging.
+func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
+	fmt.Fprintf(w, format, v...)
+	hlog(h, format, v...)
+}
+
+func (h *Host) logFailed() {
+	if h.instance != nil {
+		if h.keypair != nil {
+			hlog(h, "keyID=%s Leaving instance for inspection: %s", h.keypair.name, h.instance.InstanceId)
+		} else {
+			hlog(h, "keyID=unknown Leaving instance for inspection: %s", h.instance.InstanceId)
+		}
+	}
+}
+
+// mlabel returns provider.region which is probably helpful if we ever want to
+// differentiate between regions.
+//
+// The result will have a form of prefix.amazon<.region>
+func (h *Host) metricsLabel(prefix string) string {
+	// region should be set for every requests because ec2 API requires it to
+	// find the instance id properly
+	if h.Config.RawRegion != "" {
+		return fmt.Sprintf("%s.amazon.%s", prefix, h.Config.RawRegion)
+	}
+	return fmt.Sprintf("%s.amazon", prefix)
+}
+
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		log.Printf("amazon: invalid config %s", config)
+		log.Printf("uuid=%s amazon: invalid config %s", defaultConfig["uuid"], config)
 		return nil, err
 	}
 	accessConfig := &AccessConfig{
@@ -283,12 +328,12 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	}
 	auth, err := accessConfig.Auth()
 	if err != nil {
-		log.Printf("amazon: auth failed: %v", err)
+		log.Printf("uuid=%s amazon: auth failed %v", defaultConfig["uuid"], err)
 		return nil, err
 	}
 	region, err := accessConfig.Region()
 	if err != nil {
-		log.Printf("amazon: invalid region: %v", err)
+		log.Printf("uuid=%s amazon: invalid region %v", defaultConfig["uuid"], err)
 		return nil, err
 	}
 	// get create timeout
@@ -303,6 +348,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		Config:        hostConfig,
 		provider:      ec2.New(auth, region),
 		createTimeout: createTimeout,
+		uuid:          defaultConfig["uuid"], // this is injected by the server per request
 		notifyURL:     defaultConfig["notify_url"],
 	}
 	return host, nil
@@ -316,16 +362,20 @@ func init() {
 // the current settings.
 func inspectSourceAMI(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
+	label := h.metricsLabel("inspect_source_ami")
+	defer mh.UpdateSince(label, time.Now())
 
+	hlog(h, "inspecting source ami %q", h.Config.SourceAMI)
 	imageResp, err := h.provider.Images([]string{h.Config.SourceAMI}, ec2.NewFilter())
 	if err != nil {
-		return fmt.Errorf("amazon: failed to list images %s", err)
+		return mh.Error(fmt.Errorf("amazon: failed to list images %s", err), label)
 	}
 
 	if len(imageResp.Images) == 0 {
-		return fmt.Errorf("amazon: image %q not found", h.Config.SourceAMI)
+		return mh.Error(fmt.Errorf("amazon: image %q not found", h.Config.SourceAMI), label)
 	}
 
+	hlog(h, "inspecting source ami %q... Done", h.Config.SourceAMI)
 	return nil
 }
 
@@ -333,7 +383,14 @@ func inspectSourceAMI(ctx *host.HostContext) error {
 // keypair and wait for it to be ready.
 func createInstance(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
+	label := h.metricsLabel("create_host")
+	defer func(start time.Time) {
+		// we are interested in the final context of `h` so label is generated
+		// inside defer block
+		mh.UpdateSince(label, start)
+	}(time.Now())
 
+	hlog(h, "amazon: creating instance in region %s, size: %s, slug: %s", h.Config.RawRegion, h.Config.InstanceType, h.Config.Name)
 	opts := &ec2.RunInstances{
 		KeyName:        h.keypair.name,
 		ImageId:        h.Config.SourceAMI,
@@ -345,7 +402,7 @@ func createInstance(ctx *host.HostContext) error {
 	}
 	resp, err := h.provider.RunInstances(opts)
 	if err != nil || len(resp.Instances) == 0 {
-		return fmt.Errorf("amazon: failed to create new instance %v", err)
+		return mh.Error(fmt.Errorf("amazon: failed to create new instance %v", err), label)
 	}
 	h.instance = &resp.Instances[0]
 
@@ -357,7 +414,7 @@ func createInstance(ctx *host.HostContext) error {
 	}
 	updatedInstance, err := WaitForState(state)
 	if err != nil {
-		return fmt.Errorf("amazon: failed to change state %v", err)
+		return mh.Error(fmt.Errorf("amazon: failed to change state %v", err), label)
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 
@@ -369,11 +426,14 @@ func createInstance(ctx *host.HostContext) error {
 // when it's stopped/restarted
 func allocateElasticIP(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
+	label := h.metricsLabel("allocate_ip")
+	defer mh.UpdateSince(label, time.Now())
+
 	allocateResp, err := h.provider.AllocateAddress(&ec2.AllocateAddress{
 		Domain: "standard",
 	})
 	if err != nil {
-		return err
+		return mh.Error(err, label)
 	}
 	_, err = h.provider.AssociateAddress(&ec2.AssociateAddress{
 		InstanceId:         h.instance.InstanceId,
@@ -384,12 +444,12 @@ func allocateElasticIP(ctx *host.HostContext) error {
 	if err != nil {
 		// if failed to associate the ElasticIp with the instance, we remove it
 		h.provider.ReleasePublicAddress(allocateResp.PublicIp)
-		return err
+		return mh.Error(err, label)
 	}
 
 	// reload the instance to get a new public IP address
 	if err := h.reloadInstance(h.instance.InstanceId); err != nil {
-		return err
+		return mh.Error(err, label)
 	}
 
 	return nil
@@ -400,11 +460,13 @@ func allocateElasticIP(ctx *host.HostContext) error {
 // If this fails, we still consider the operation to be successful
 func associateInstanceName(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
+	label := h.metricsLabel("set_name")
+	defer mh.UpdateSince(label, time.Now())
 
 	tags := []ec2.Tag{{"Name", h.Config.Name}}
 	_, err := h.provider.CreateTags([]string{h.instance.InstanceId}, tags)
 	if err != nil {
-		log.Printf("amazon: Failed to set name for instance %s", h.instance.InstanceId)
+		hlog(h, "Failed to set name for instance %s", h.instance.InstanceId)
 	}
 	return nil
 }
@@ -413,14 +475,21 @@ func associateInstanceName(ctx *host.HostContext) error {
 // so we can perform setup actions on it
 func waitForSSH(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
+	label := h.metricsLabel("ssh_wait")
+	defer mh.UpdateSince(label, time.Now())
 
+	hlog(h, "Waiting for SSH to be ready")
 	address := fmt.Sprintf("%s:%d", h.instance.PublicIpAddress, sshPort)
+	info := map[string]interface{}{
+		"uuid": h.uuid,
+	}
 	connInterval := 5 * time.Second
 	sshConn, err := sshutil.WaitForSSH(address, "ubuntu", h.keypair.privateKey,
-		connInterval, ctx.Done(), make(map[string]interface{}))
+		connInterval, ctx.Done(), info)
 	if err != nil {
-		return err
+		return mh.Error(err, label)
 	}
+	hlog(h, "SSH ready for instance %s", h.instance.InstanceId)
 	h.conn = sshConn
 	return nil
 }
@@ -429,6 +498,9 @@ func waitForSSH(ctx *host.HostContext) error {
 // include package configs, apt details, etc...
 func writeSettings(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
+	label := h.metricsLabel("write_settings")
+	defer mh.UpdateSince(label, time.Now())
+	hlog(h, "Writing settings")
 
 	pubKeysBuf := bytes.NewBuffer(nil)
 	for _, k := range h.Config.PublicKeys {
@@ -437,17 +509,17 @@ func writeSettings(ctx *host.HostContext) error {
 
 	aptSourcesBuf := bytes.NewBuffer(nil)
 	if err := host.SourceTemplate.Execute(aptSourcesBuf, h.Config); err != nil {
-		return err
+		return mh.Error(err, label)
 	}
 
 	cfg := h.configFile()
 	cfgb, err := json.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("unable to marshal config JSON, err: %v", err)
+		return mh.Error(fmt.Errorf("unable to marshal config JSON, err: %v", err), label)
 	}
 
 	if err := h.conn.Execute("sudo mkdir -p /etc/freighterd"); err != nil {
-		return err
+		return mh.Error(err, label)
 	}
 
 	if err := uploadFile(h, map[string]io.Reader{
@@ -462,6 +534,7 @@ func writeSettings(ctx *host.HostContext) error {
 		return err
 	}
 
+	hlog(h, "Wrote settings")
 	return nil
 }
 
@@ -469,14 +542,17 @@ func writeSettings(ctx *host.HostContext) error {
 // connection. This is only available during creation phase. The host
 // filesystem should be considered immutable otherwise.
 func uploadFile(h *Host, files map[string]io.Reader) error {
+	label := h.metricsLabel("update_software")
+	defer mh.UpdateSince(label, time.Now())
+
 	flist := []string{}
 	for dest, val := range files {
 		tmpDest := filepath.Join("/tmp", hex.EncodeToString([]byte(dest)))
 		if err := h.conn.Upload(tmpDest, val); err != nil {
-			return err
+			return mh.Error(err, label)
 		}
 		if err := h.conn.Execute(fmt.Sprintf("sudo mv %s %s", tmpDest, dest)); err != nil {
-			return err
+			return mh.Error(err, label)
 		}
 		flist = append(flist, dest)
 	}
@@ -487,6 +563,9 @@ func uploadFile(h *Host, files map[string]io.Reader) error {
 // outdated since the last image builds.
 func updateSoftware(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
+	label := h.metricsLabel("update_software")
+	defer mh.UpdateSince(label, time.Now())
+	hlog(h, "Updating freighterd package")
 
 	// TODO move all of cmdParts into a shell script that is written and run
 	// (similar to /tmp/already-installed.sh below)
@@ -520,12 +599,15 @@ func updateSoftware(ctx *host.HostContext) error {
 
 	if out, err := h.conn.CombinedOutput(cmd); err != nil {
 		err = fmt.Errorf("update sofware failed with '%s', output: %s", err, out)
+		hlog(h, err.Error())
 		if h.Config.FreighterdVersion != "" {
-			return err
+			return mh.Error(err, label)
 		}
 		// failure to update freighterd when a version is not specified is considered continuable
 		return nil
 	}
+
+	hlog(h, "Updated freighterd package on %v", h.instance.PublicIpAddress)
 	return nil
 }
 
@@ -533,10 +615,25 @@ func updateSoftware(ctx *host.HostContext) error {
 // after updateSoftware to make sure that it has the latest settings.
 func restartFreighterd(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
+	label := h.metricsLabel("restart_software")
+	defer mh.UpdateSince(label, time.Now())
 
+	hlog(h, "Restarting freighterd")
 	if out, err := h.conn.CombinedOutput(`sudo service freighterd restart`); err != nil {
 		err = fmt.Errorf("restart freighterd failed with '%s', output: %s", err, out)
-		return err
+		return mh.Error(err, label)
 	}
+	hlog(h, "Restarted freighterd on %s", h.instance.PublicIpAddress)
 	return nil
+}
+
+func hlog(h *Host, format string, v ...interface{}) {
+	parts := []string{}
+	if h.uuid != "" {
+		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+	}
+	if h.instance != nil {
+		parts = append(parts, fmt.Sprintf("instance=%d", h.instance.InstanceId))
+	}
+	log.Printf(fmt.Sprintf("amazon: %s %s", strings.Join(parts, " "), format), v...)
 }
